@@ -201,6 +201,11 @@ public:
             if (!found)
               return false;
           }
+          if (plane_bound_overflow(ops, [&](size_t index) {
+                return static_cast<const void *>(base +
+                                                 ops[index].param_offset);
+              }) >= 0)
+            return false;
           size_t runtime_count = 0;
           for (size_t index = 0; index < ops.size(); ++index) {
             const auto &op = ops[index];
@@ -298,20 +303,19 @@ public:
     }
     for (size_t index = 0; index < ops.size(); ++index)
       if (const char *warning = validate_parameters(index, candidates[index])) {
-        refused_name = nullptr;
-        for (const auto &write : writes) {
-          for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-            if (std::strcmp(write.name, program.param_name(index, field)) ==
-                0) {
-              refused_name = program.param_name(index, field);
-              break;
-            }
-          if (refused_name != nullptr)
-            break;
-        }
+        refused_name = written_name(writes, index, index);
         refusal_warning = warning;
         return ParamSetResult::INADMISSIBLE;
       }
+    const int overflow =
+        Pullback::Interp::plane_bound_overflow(ops, [&](size_t index) {
+          return static_cast<const void *>(candidates[index]);
+        });
+    if (overflow >= 0) {
+      refused_name = written_name(writes, 0, static_cast<size_t>(overflow));
+      refusal_warning = Pullback::Interp::PLANE_GROWTH_WARNING;
+      return ParamSetResult::INADMISSIBLE;
+    }
     for (size_t index = 0; index < ops.size(); ++index)
       std::memcpy(program.param_block(index), candidates[index],
                   ops[index].op->runtime.param.size);
@@ -455,6 +459,19 @@ private:
     return admission_refusal(program.ops(), index, params);
   }
 
+  /** @brief The registered name of the first write that targets an entry in
+      [@p first, @p last], or null. */
+  const char *written_name(std::span<const ShaderChainParameterWrite> writes,
+                           size_t first, size_t last) const {
+    const auto ops = program.ops();
+    for (const auto &write : writes)
+      for (size_t index = first; index <= last; ++index)
+        for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+          if (std::strcmp(write.name, program.param_name(index, field)) == 0)
+            return program.param_name(index, field);
+    return nullptr;
+  }
+
   static constexpr size_t PARAM_BYTES = [] {
     size_t largest = 0;
     for (const auto &op : Pullback::Interp::OPERATOR_TABLE)
@@ -484,6 +501,12 @@ private:
           proposed.target = runtime.param_address(candidate, field);
           write_parameter_unchecked(proposed, value);
           refusal_warning = validate_parameters(index, candidate);
+          if (refusal_warning == nullptr &&
+              Pullback::Interp::plane_bound_overflow(ops, [&](size_t entry) {
+                return static_cast<const void *>(
+                    entry == index ? candidate : program.param_block(entry));
+              }) >= 0)
+            refusal_warning = Pullback::Interp::PLANE_GROWTH_WARNING;
           refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
           return refusal_warning == nullptr;
         }

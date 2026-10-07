@@ -244,6 +244,163 @@ inline void test_shader_chain_edge_distance_admission() {
       1.0f);
 }
 
+/** @brief Projections stay within their declared plane bound. */
+inline void test_shader_chain_projection_plane_bound() {
+  std::vector<math::Vector> views;
+  for (const math::Vector &view : sweep_views())
+    views.push_back(view);
+  for (const math::Vector &view :
+       {math::Vector(1e-4f, 1, 0), math::Vector(0, 1, 1e-4f),
+        math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
+    views.push_back(view.normalized());
+  constexpr int SWEEP = 4096;
+  for (int index = 0; index < SWEEP; ++index) {
+    const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
+    const float radius = sqrtf(fmaxf(0.0f, 1.0f - y * y));
+    const float angle = 2.39996323f * static_cast<float>(index);
+    views.push_back(
+        math::Vector(radius * cosf(angle), y, radius * sinf(angle)));
+  }
+  size_t projections = 0;
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    if (op.input != In::CarrierId::SPHERE || op.output != In::CarrierId::PLANE)
+      continue;
+    HS_CONTEXT(op.operator_id);
+    ++projections;
+    auto fixture = std::make_unique<ProgramFixture>();
+    auto &program = fixture->program;
+    const In::ChainEntryRequest chain[] = {
+        {"project", op.operator_id},
+        {"sample", In::Op::SampleGridV3::ID},
+        {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
+    };
+    HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+    param_as<In::Op::ProjectChainParams>(program, 0).frame =
+        static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
+    const auto ctx = shared_resources().context();
+    program.prepare(ctx);
+    HS_EXPECT_TRUE(op.runtime.plane_bound != nullptr);
+    if (op.runtime.plane_bound == nullptr)
+      continue;
+    const float bound = op.runtime.plane_bound(program.param_block(0), 0.0f);
+    for (const math::Vector &view : views) {
+      const PB::SphereSample sphere{view, 0.0f};
+      PB::PlaneSample plane{};
+      op.runtime.run(&sphere, &plane, ctx, program.param_block(0),
+                     program.prepared_block(0));
+      HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
+    }
+  }
+  HS_EXPECT_GT(projections, 0u);
+}
+
+/** @brief A chain whose combined plane growth could overflow is refused on
+    every admission path; ordinary extreme compositions still admit. */
+inline void test_shader_chain_plane_growth_admission() {
+  using WB = ShaderChainWhiteBox;
+  constexpr int WARPS = 23;
+  constexpr float MIN_SCALE = 1.0f / 64.0f;
+  std::array<std::string, WARPS> ids;
+  std::array<std::string, WARPS> scale_x;
+  std::array<std::string, WARPS> scale_y;
+  std::array<In::ChainEntryRequest, WARPS + 3> chain{};
+  chain[0] = {"project", In::Op::ProjectStereographic::ID};
+  for (int index = 0; index < WARPS; ++index) {
+    ids[index] = "warp" + std::to_string(index);
+    scale_x[index] = ids[index] + ".scale-x";
+    scale_y[index] = ids[index] + ".scale-y";
+    chain[index + 1] = {ids[index], In::Op::WarpAffineV3::ID};
+  }
+  chain[WARPS + 1] = {"sample", In::Op::SampleGridV3::ID};
+  chain[WARPS + 2] = {"colorize", In::Op::ColorizeGeneratedPaletteV3::ID};
+
+  reset_globals();
+  WB::FX effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.set_chain(chain).code, In::ChainStatus::OK);
+  std::vector<ShaderChainParameterWrite> all;
+  for (int index = 0; index < WARPS; ++index) {
+    all.push_back({scale_x[index].c_str(), MIN_SCALE});
+    all.push_back({scale_y[index].c_str(), MIN_SCALE});
+  }
+  HS_EXPECT_EQ(effect.update_parameters(all), ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(effect.parameter_warning(scale_x[0].c_str()) ==
+                 In::PLANE_GROWTH_WARNING);
+  HS_EXPECT_EQ(effect.getParameters().find(scale_x[0].c_str())->get_requested(),
+               1.0f);
+
+  int admitted = 0;
+  for (; admitted < WARPS; ++admitted) {
+    const ShaderChainParameterWrite step[] = {
+        {scale_x[admitted].c_str(), MIN_SCALE},
+        {scale_y[admitted].c_str(), MIN_SCALE}};
+    if (effect.update_parameters(step) != ParamSetResult::APPLIED)
+      break;
+  }
+  HS_EXPECT_EQ(admitted, 5);
+  HS_EXPECT_TRUE(effect.parameter_warning(scale_x[5].c_str()) ==
+                 In::PLANE_GROWTH_WARNING);
+  HS_EXPECT_EQ(effect.updateParameter(scale_y[5].c_str(), MIN_SCALE),
+               ParamSetResult::INADMISSIBLE);
+  HS_EXPECT_TRUE(effect.parameter_warning(scale_y[5].c_str()) ==
+                 In::PLANE_GROWTH_WARNING);
+  HS_EXPECT_EQ(effect.getParameters().find(scale_y[5].c_str())->get_requested(),
+               1.0f);
+  HS_EXPECT_EQ(effect.updateParameter(scale_x[5].c_str(), 1.5f),
+               ParamSetResult::APPLIED);
+
+  const ChainSnapshot live = effect.snapshot();
+  ChainSnapshot overflowing = live;
+  for (auto &parameter : overflowing.parameters)
+    if (parameter.name == scale_y[5])
+      parameter.value = MIN_SCALE;
+  HS_EXPECT_EQ(effect.restore_snapshot(overflowing),
+               ChainSnapshotRestoreResult::INVALID_VALUE);
+  HS_EXPECT_EQ(effect.getParameters().find(scale_y[5].c_str())->get_requested(),
+               1.0f);
+  HS_EXPECT_EQ(effect.restore_snapshot(live),
+               ChainSnapshotRestoreResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  auto &program = WB::program(effect);
+  const In::FrameContext ctx = WB::frame_context(effect);
+  for (const math::Vector &view : sweep_views()) {
+    const PB::SphereSample sphere{view, 0.0f};
+    PB::PlaneSample plane{};
+    for (int index = 0; index <= WARPS; ++index) {
+      PB::PlaneSample next{};
+      program.ops()[index].op->runtime.run(
+          index == 0 ? static_cast<const void *>(&sphere)
+                     : static_cast<const void *>(&plane),
+          &next, ctx, program.param_block(index),
+          program.prepared_block(index));
+      plane = next;
+    }
+    HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im),
+                 In::MAX_PLANE_BOUND);
+    HS_EXPECT_TRUE(std::isfinite(plane.path_length));
+  }
+
+  const In::ChainEntryRequest ordinary[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"project", "project.gnomonic.v2"},
+      {"warp", "warp.affine.v3"},
+      {"polar", "warp.polar-chart.v2"},
+      {"sample", "sample.lattice.v2"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  HS_EXPECT_EQ(effect.set_chain(ordinary).code, In::ChainStatus::OK);
+  const ShaderChainParameterWrite extreme[] = {
+      {"warp.scale-x", MIN_SCALE},    {"warp.scale-y", 64.0f},
+      {"warp.shear", -4.0f},          {"warp.translation-x", 4.0f},
+      {"warp.translation-y", -4.0f},  {"warp.lattice-period", 100.0f},
+      {"polar.radial-scale", 64.0f},  {"polar.radial-phase", 6.0f},
+      {"polar.angular-phase", -6.0f}, {"polar.harmonic", 15.0f}};
+  HS_EXPECT_EQ(effect.update_parameters(extreme), ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+}
+
 inline void test_shader_chain_effect_rebind_generation() {
   reset_globals();
   ShaderChain<96, 20> effect;

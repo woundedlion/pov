@@ -82,6 +82,16 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
     state.phase = math::wrap_t(state.phase + params.speed);
     Warp::advance_affine_rotation(state.rotation, params);
   }
+  /** @brief Diagonal plus shear norm of the frame at its oscillation
+      extreme, plus a full turn of translation. */
+  static float plane_bound(const Params &params, float input_bound) {
+    const float x_gain = fmaxf(params.scale_x, 1.0f / params.scale_x);
+    const float y_gain = fmaxf(params.scale_y, 1.0f / params.scale_y);
+    return (fmaxf(x_gain, y_gain) + fabsf(params.shear) * y_gain) *
+               input_bound +
+           params.lattice_period *
+               std::hypot(params.translation_x, params.translation_y);
+  }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     return Warp::prepare(params, state.phase, state.rotation,
@@ -126,6 +136,11 @@ struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
   using Params = WaveShearWarpParams;
   using Prepared = PreparedWaveShear;
 
+  /** @brief The factor covers the approximate sine. */
+  static float plane_bound(const Params &params, float input_bound) {
+    return input_bound + 2.0f * fabsf(params.strength);
+  }
+
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
     check_warp_envelope(params.envelope);
@@ -153,6 +168,12 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
   using Output = PlaneSample;
   using Params = VortexWarpParams;
   using Prepared = Warp::PreparedVortexSlot;
+
+  /** @brief A rotation about a center no farther than the orbit's reach. */
+  static float plane_bound(const Params &params, float input_bound) {
+    return input_bound + 2.0f * (std::hypot(params.center_x, params.center_y) +
+                                 params.center_orbit_radius);
+  }
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -200,6 +221,11 @@ struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
   using Params = VectorNoiseWarpParams;
   using Prepared = PreparedVectorNoiseWarp;
 
+  /** @brief The factor covers both noise channels with headroom. */
+  static float plane_bound(const Params &params, float input_bound) {
+    return input_bound + 4.0f * fabsf(params.strength);
+  }
+
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -233,6 +259,11 @@ struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   using Output = PlaneSample;
   using Params = MirrorWarpParams;
   using Prepared = Warp::PreparedMirrorSlot;
+
+  /** @brief The fold lands inside one cell, whatever the input. */
+  static float plane_bound(const Params &params, float) {
+    return std::hypot(params.cell_x, params.cell_y);
+  }
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -286,6 +317,18 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   struct Prepared {
     float phase;
   };
+
+  /** @brief Radial bound plus the angular reach of the harmonic, phases and
+      atan2. */
+  static float plane_bound(const Params &params, float input_bound) {
+    const float radial =
+        static_cast<PolarMode>(params.mode) == PolarMode::LOGARITHMIC
+            ? fmaxf(logf(fmaxf(input_bound, 1.0f)), logf(4096.0f))
+            : input_bound;
+    return params.radial_scale * radial + fabsf(params.radial_phase) +
+           math::PI_F * static_cast<float>(params.harmonic + 2) +
+           fabsf(params.angular_phase) + math::TWO_PI_F;
+  }
 
   static Prepared prepare(const FrameContext &, const Params &params,
                           const State &state) {
@@ -368,6 +411,12 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   using Output = PlaneSample;
   using Params = CurlFlowWarpParams;
   using Prepared = PreparedCurlFlow;
+
+  /** @brief Every sub-step follows a component-clamped vector. */
+  static float plane_bound(const Params &params, float input_bound) {
+    return input_bound +
+           fabsf(params.strength) * 2.0f * Warp::CURL_VECTOR_COMPONENT_MAX;
+  }
 
   static void init(State &state, InstanceId id) { init_noise_phase(state, id); }
   static Prepared prepare(const FrameContext &, const Params &params,
