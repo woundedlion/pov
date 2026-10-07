@@ -1267,6 +1267,19 @@ inline void test_octet_4d_canonical_boundary_directions() {
   HS_EXPECT_GT(lit, size_t{0});
 }
 
+/** @brief Trace geometry maps each persisted pattern explicitly. */
+inline void test_trace_geometry_mapping() {
+  static_assert(static_cast<uint8_t>(Trace::Geometry::OCTET) == 0);
+  static_assert(static_cast<uint8_t>(Trace::Geometry::SHELLS) == 1);
+  HL::FrameState frame{};
+  frame.params.pattern = HyperLatticeDetail::Pattern::OCTET;
+  HS_EXPECT_EQ(HyperLatticeDetail::trace_settings(frame, {}).geometry,
+               Trace::Geometry::OCTET);
+  frame.params.pattern = HyperLatticeDetail::Pattern::SHELLS;
+  HS_EXPECT_EQ(HyperLatticeDetail::trace_settings(frame, {}).geometry,
+               Trace::Geometry::SHELLS);
+}
+
 inline void test_traced_presets() {
   using Effect = HyperLatticeWhiteBox::Effect;
   reset_globals();
@@ -1715,6 +1728,7 @@ inline int run_hyper_lattice_tests() {
   test_octet_4d_canonical_boundary_directions();
   test_regular_patterns();
   test_octet_continuous_flight();
+  test_trace_geometry_mapping();
   test_traced_presets();
   test_pattern_view_controls();
   test_speed_range();

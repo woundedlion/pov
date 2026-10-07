@@ -17,7 +17,7 @@ using SDF::OctetTrace::CrossingStorage;
 using SDF::OctetTrace::Sample;
 
 /** @brief Geometry selected by a lattice trace. */
-enum class Geometry : uint8_t { OCTET = 0, SHELLS = 5 };
+enum class Geometry : uint8_t { OCTET, SHELLS };
 
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {

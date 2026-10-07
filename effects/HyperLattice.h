@@ -111,16 +111,23 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
 }
 namespace Trace = SDF::LatticeTrace;
 
-static_assert(static_cast<uint8_t>(Pattern::OCTET) - 1 ==
-              static_cast<uint8_t>(Trace::Geometry::OCTET));
-static_assert(static_cast<uint8_t>(Pattern::SHELLS) - 1 ==
-              static_cast<uint8_t>(Trace::Geometry::SHELLS));
-
 HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
                                                       math::Vec4 center) {
   const auto &p = frame.params;
   if (p.mode == LatticeMode::THREE_D)
     center[3] = 0;
+  Trace::Geometry geometry;
+  switch (p.pattern) {
+  case Pattern::OCTET:
+    geometry = Trace::Geometry::OCTET;
+    break;
+  case Pattern::SHELLS:
+    geometry = Trace::Geometry::SHELLS;
+    break;
+  case Pattern::CUBIC_WIRE:
+  default:
+    HS_CHECK(false, "HyperLattice: pattern has no trace geometry");
+  }
   return {p.mode == LatticeMode::FOUR_D_SLICE
               ? Raycast::SamplingDomain::SLICE_4D
               : Raycast::SamplingDomain::SPATIAL_3D,
@@ -134,7 +141,7 @@ HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
           view_embedding(frame),
           frame.pixel_half_angle,
           frame.depth_palette,
-          static_cast<Trace::Geometry>(static_cast<uint8_t>(p.pattern) - 1),
+          geometry,
           p.shell_radius,
           frame.gain};
 }
