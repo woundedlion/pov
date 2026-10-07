@@ -3,10 +3,10 @@
 Point-in-time snapshot (regenerate with the explicit `profile_o3` Reproduce command).
 Raw capture: `build/prof/islamicstars_o3.log`; retained raw evidence (supporting artifact removed).
 Replaces the prior 2026-09-24 unverified candidate report with a clean committed-source capture.
-This standard report measures the current baseline. The unlanded convex-face
+This report measures the September 28 source baseline. The unlanded convex-face
 AA candidate is measured separately in the matched comparison (supporting artifact removed).
 
-[Shipping sibling](../shipping/profile_islamicstars_teensy_2026-10-06.md).
+[Shipping sibling](../shipping/profile_islamicstars_teensy_2026-10-07.md).
 
 ## Setup
 
@@ -204,3 +204,5 @@ Use the Setup reproduction command for this complete cycle and its flags.
 Baseline mean render: 22.790 ms shipping versus 22.419 ms O3
 (1.017×). The configs use different boards. Global O3 minus shipping
 image size is +23,904 B FLASH code and +8,240 B ITCM.
+
+This historical global-O3 comparison and its image deltas retain the September 28 source pair at `0c02f3912a98677184d3cf43b31a5d468d4b8ba3`. The shipping sibling link points to the later October 7 sector-distance snapshot.
