@@ -272,9 +272,9 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
       compiled.faces.data(), compiled.faces.size());
 }
 
-/** Squared endpoints of the far-intersection blend: the edge-midpoint fallback
- * ramps in at the start ratio and fully replaces the intersection at the far
- * ratio. */
+/** Squared ratio endpoints of the far-intersection blend. The ratio ramp is
+ * scaled by the parallel gate, so the edge-midpoint fallback fully replaces
+ * the intersection from the far ratio onward only on near-parallel planes. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
 /** Plane-cross squared floor below which fallback is always mixed in. */
