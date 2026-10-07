@@ -118,9 +118,9 @@ report_stretch(const SDF::Flower &) {
 __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
   return 1.0f;
 }
-/** @brief SDF::Face reports gnomonic-plane distance, which stretches an angular
- *         step by up to 1 + r^2; max_dist bounds r over every probe its cull
- *         admits. */
+/** @brief SDF::Face reports gnomonic-plane distance, whose angular-step stretch
+ *         grows as 1 + r^2. This factor uses max_dist_sq, though a class-LUT
+ *         pad can admit ordinary and block probes past max_dist. */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Face &shape) {
   return 1.0f + shape.max_dist_sq;
