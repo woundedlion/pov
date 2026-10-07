@@ -21,10 +21,7 @@ concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
 /**
  * @brief RAII evacuator that moves an object to scratch and restores it later.
  * @tparam T Cloneable target type.
- * @details Safely evacuates an object from the persistent arena to a scratch
- * arena, and automatically restores it upon destruction.
- *
- * Usage:
+ * @details Usage:
  *   {
  *     Persist<MeshState> p(live_mesh, scratch_arena_a, persistent_arena);
  *     reset_persistent_arena();

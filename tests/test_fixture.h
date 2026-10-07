@@ -21,7 +21,7 @@ namespace hs_test {
 /**
  * @brief Default per-effect frame count returned by smoke_frames().
  * @details Overridden by HS_SMOKE_FRAMES; CI requires at least
- * CI_MIN_SMOKE_FRAMES. Paused-render and clip-parity sweeps use fixed counts.
+ * CI_MIN_SMOKE_FRAMES.
  */
 constexpr int DEFAULT_SMOKE_FRAMES = 8;
 constexpr int CI_MIN_SMOKE_FRAMES = 120;

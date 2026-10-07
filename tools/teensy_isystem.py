@@ -1,17 +1,11 @@
-"""PlatformIO post: extra script: configure dependency warnings before compilation.
+"""PlatformIO post: extra script: silence third-party warnings before compilation.
 
-First-party code (core/ effects/ hardware/ targets/) keeps its -Wall -Wextra
-warnings visible; the vendored FastLED (.pio/libdeps/<env>/) and Teensy core +
-bundled libraries (PlatformIO packages dir) do not.
+Third-party include dirs (PlatformIO packages and libdeps) move from -I to
+-isystem. Each MUST be removed from -I, not merely added as -isystem: gcc sees a
+relative -I and an absolute -isystem as distinct paths, and the -I wins.
 
-Project sources (projenv / env): third-party include dirs move from -I to
--isystem. The dir MUST be removed from -I, not merely also given as -isystem: a
-relative -I and an absolute -isystem are distinct paths to gcc, and the -I
-(searched first) would win and keep warning.
-
-LDF library builders (FastLED, SPI): -w suppresses diagnostics in their own
-.c/.cpp bodies. FrameworkArduino is built from the main environment and does
-not receive this -w; its body warnings remain in the log.
+LDF library builders (FastLED, SPI) get -w. FrameworkArduino is built from the
+main environment and keeps its body warnings.
 """
 
 import os
@@ -19,7 +13,6 @@ import os
 Import("env", "projenv")
 
 # A path is third-party if it lives under PlatformIO's libdeps or packages trees.
-# The repo's own include dirs (., core, effects, hardware) match none of these.
 _THIRD_PARTY_ROOTS = tuple(
     os.path.normcase(os.path.realpath(env.subst(variable)))
     for variable in ("$PROJECT_PACKAGES_DIR", "$PROJECT_LIBDEPS_DIR")

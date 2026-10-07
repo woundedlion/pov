@@ -10,13 +10,8 @@
 /**
  * @brief Pins screen_step against an independent screen-velocity oracle in the
  *        unclamped regime.
- * @details Reconstructs the pixel speed by finite-differencing the canvas map
- *          (x = longitude·W/2π, y = colatitude·(H_VIRT-1)/π) along a small
- *          geodesic step in the tangent direction, then asserts screen_step
- *          returns SCREEN_STEP_PX/|v_screen|. Inputs are chosen so the result
- *          lands strictly between the pole and equator clamps. Because the speed
- *          squares the velocity components, flipping the tangent's sign leaves
- *          the step unchanged — checked here.
+ * @details screen_step returns SCREEN_STEP_PX/|v_screen| and is independent of
+ *          the tangent's sign.
  */
 inline void test_screen_step_matches_analytic_unclamped() {
   constexpr int W = 288, H = 144;
@@ -51,8 +46,7 @@ inline void test_screen_step_matches_analytic_unclamped() {
                          1.0f); // arbitrary; projected onto the tangent plane
   const math::Vector tan_mixed =
       (raw - pos_off * math::dot(raw, pos_off)).normalized();
-  // Equatorial longitudinal, off-equator longitudinal, and a mixed (colatitude +
-  // longitude) tangent — all verified below to land inside the clamp window.
+  // Equatorial longitudinal, off-equator longitudinal, and mixed tangents.
   const Case cases[] = {
       {math::Vector(1.0f, 0.0f, 0.0f), math::Vector(0.0f, 0.0f, 1.0f)},
       {pos_off, math::Vector(0.0f, 0.0f, 1.0f)},
@@ -80,13 +74,8 @@ inline void test_screen_step_matches_analytic_unclamped() {
  * @brief Verifies edge_fits_one_dot is a strict tightening of the rasterizer
  *        fast-path test, so a routed edge always renders as the same single
  *        dot the full path would emit.
- * @details For every accepted edge: theta >= EPS_GEOMETRIC (the routed edge is
- *          not one process_segment treats as degenerate) and theta <=
- *          screen_step at the edge start with the geodesic tangent built
- *          exactly as rasterize_geodesic_strategy builds it. Sweeps random
- *          headings across latitudes (poles included) and log-spaced arc
- *          lengths around the one-pixel scale, and checks the predicate
- *          accepts a healthy share of genuinely sub-pixel edges.
+ * @details Every accepted edge is non-degenerate (theta >= EPS_GEOMETRIC) and
+ *          fits within the screen_step at its start.
  */
 inline void test_edge_fits_one_dot_is_conservative() {
   constexpr int W = 288, H = 144;
@@ -129,7 +118,6 @@ inline void test_edge_fits_one_dot_is_conservative() {
     float first_step = Plot::screen_step<W, H>(a, v_perp, base_step);
     HS_EXPECT_LE(total, first_step);
   }
-  // The predicate must actually fire on the sub-pixel population it targets.
   HS_EXPECT_GT(accepted, 500);
 }
 
@@ -221,10 +209,7 @@ inline void test_geodesic_edge_gate_keeps_upper_antialias_tap() {
 
 /**
  * @brief Pins the one-dot gate to the taps Screen::AntiAlias actually emits.
- * @details The gate hand-mirrors the filter's splat geometry, so a sweep of
- * sub-pixel positions against several clip bands compares the gate's verdict
- * with the filter's own tap set: visible iff some emitted tap lands inside the
- * band.
+ * @details Visible iff some emitted tap lands inside the band.
  */
 inline void test_antialiased_dot_gate_matches_antialias_taps() {
   constexpr int W = 32, H = 24;
@@ -274,15 +259,12 @@ inline void test_antialiased_dot_gate_matches_antialias_taps() {
     }
   }
   HS_EXPECT_EQ(mismatches, 0);
-  // Both verdicts must occur, or the sweep proves nothing.
   HS_EXPECT_GT(visible, 0);
   HS_EXPECT_GT(hidden, 0);
 }
 
 /**
  * @brief The per-stroke up-axis table reproduces the per-sample stage walk.
- * @details Covers a single Orient with a multi-frame tween history, composed
- *          Orients, and a Replicate, over random positions and tangents.
  */
 inline void test_screen_step_axes_match_stage_walk() {
   hs::random().seed(0x571A);

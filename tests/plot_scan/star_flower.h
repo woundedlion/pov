@@ -11,9 +11,8 @@
  * @brief Verifies Star::sample emits 2*sides unit-length vertices plus one
  *        closing fragment matching the first vertex (closed loop, v0 == 1 at
  *        close), and that the vertices form a genuine star — not a flower.
- * @details Shape-discriminating check: the colatitude (angle from the shape's
- *          center axis) alternates between an outer and an inner radius, with
- *          inner/outer == STAR_INNER_RATIO.
+ * @details Colatitude alternates outer/inner with inner/outer ==
+ *          STAR_INNER_RATIO.
  */
 inline void test_star_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());
@@ -49,17 +48,14 @@ inline void test_star_sample_unit_length_closed() {
   }
 }
 
-// sample_positions() uses an angle-addition recurrence without normalization
-// (core/render/plot/shapes.h: ~4e-6 off-unit drift); the bound is absolute.
+// Absolute drift of sample_positions()' unnormalized angle-addition recurrence.
 constexpr float STAR_RECURRENCE_DRIFT =
     32.0f * std::numeric_limits<float>::epsilon();
 
 /**
  * @brief Star radius-trig reuse reproduces per-vertex evaluation, and the two
  *        sampling entry points place the same vertices.
- * @details Positions against the per-vertex reference and sample() use float
- * tolerance. Cached and uncached sample_positions() share sample_positions_impl
- * and are compared bit for bit, as are the untouched zero registers.
+ * @details Cached and uncached sample_positions() are compared bit for bit.
  */
 inline void test_star_sample_radius_trig_parity() {
   ScratchScope sc(plot_arena());
@@ -141,8 +137,8 @@ inline void test_star_sample_radius_trig_parity() {
 
 /**
  * @brief Continuous Star levels preserve the standard near-side geometry.
- * @details Compared componentwise: an acos-derived angle between two
- * near-parallel unit vectors bottoms out around 3.5e-4 rad.
+ * @details Compared componentwise: acos-derived angles between near-parallel
+ * unit vectors bottom out far above this tolerance.
  */
 inline void test_star_continuous_matches_standard_near_side() {
   constexpr float NEAR_SIDE_TOL = 1e-5f;
@@ -211,8 +207,6 @@ inline void test_star_continuous_collapses_at_antipode() {
  * @brief Verifies Flower::sample emits 2*sides unit-length vertices plus one
  *        closing fragment matching the first vertex (closed loop), and that the
  *        vertices form a genuine flower — constant radius, not a star.
- * @details Shape-discriminating check: every vertex sits at the SAME colatitude
- *          about the center axis (a constant polar radius).
  */
 inline void test_flower_sample_unit_length_closed() {
   ScratchScope sc(plot_arena());

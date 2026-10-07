@@ -135,8 +135,7 @@ private:
       0.6f; /**< Petal wobble depth in rho units. */
   static constexpr int NUM_SAMPLES =
       W / 2; /**< Angular samples drawn per ring. */
-  // draw_ring stages one ring's NUM_SAMPLES fragments in scratch_a at a time,
-  // alongside rasterize's own sub-step cache.
+  // scratch_a: one ring's fragments plus rasterize's sub-step cache.
   static_assert(NUM_SAMPLES * sizeof(Fragment) +
                         Plot::rasterize_scratch_a_bytes<W>() <=
                     DEFAULT_SCRATCH_A_SIZE,
@@ -193,9 +192,7 @@ private:
   }
 
   /**
-   * @brief Seeds the timeline and pre-fills the path with rings.
-   * @details Adds the looping orientation rotation and the spawner, then
-   * pre-fills the entire path with evenly spaced rings.
+   * @brief Seeds the timeline and pre-fills the path with evenly spaced rings.
    */
   HS_COLD_MEMBER void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, math::UP,
@@ -289,10 +286,8 @@ private:
    * @brief Builds and rasterizes one ring.
    * @param canvas Target canvas to render into.
    * @param ring Ring to draw, supplying its rho position and hue.
-   * @details Fades the ring by distance from the equator (rho=0), shapes it
-   * into petals via a radial wobble, twists it by rho, and projects each sample
-   * onto the sphere. Skipped entirely once the pole fade has taken its opacity
-   * to ~0; the Alpha slider is gated by the caller.
+   * @details Fades the ring by distance from the equator (rho=0); skipped once
+   * the pole fade reaches MIN_FADE_OPACITY.
    */
   void draw_ring(Canvas &canvas, const Ring &ring) {
     float dist = std::abs(ring.rho);

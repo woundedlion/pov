@@ -106,10 +106,8 @@ struct PolyMesh {
 
 /**
  * @brief The read surface PolyMesh and MeshState both present.
- * @details PolyMesh always owns its arrays and forwards; MeshState
- * discriminates owned arrays against borrowed views. MeshState's extras
- * (face_offsets, the topology accessors, set_owned/set_borrowed) stay outside
- * the concept; templates probe for them with `requires`.
+ * @details MeshState's extras (face_offsets, set_owned/set_borrowed) stay
+ * outside the concept; templates probe for them with `requires`.
  */
 template <typename M>
 concept MeshLike = requires(M &mesh, const M &const_mesh, Arena &arena) {
@@ -290,9 +288,8 @@ public:
    * @param arena Arena supplying storage for the half-edge arrays and the
    * transient edge-pairing records.
    * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
-   * @details Retains 2F + 10I bytes and peaks a further 6I bytes of pairing
-   * records, LIFO-rewound before the constructor returns (F faces, I flat face
-   * indices).
+   * @details The transient pairing records are LIFO-rewound before the
+   * constructor returns.
    */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
@@ -538,8 +535,7 @@ inline math::Vector edge_midpoint(const HalfEdgeMesh &he_mesh,
  * whose incident half-edges split into more than one fan.
  * @param he_mesh Half-edge connectivity to validate.
  * @param scratch Arena for the per-vertex fan sizes (LIFO-restored on return).
- * Requires 2 * (largest referenced vertex index + 1) bytes, plus alignment;
- * at MeshLimits::MAX_VERTICES this is 65,536 bytes.
+ * Requires 2 * (largest referenced vertex index + 1) bytes, plus alignment.
  * @param op Operator name, interpolated into the trap message on failure.
  * @details Each vertex's fan walk length is checked against its incident
  * half-edge count, so a bowtie vertex traps.
@@ -876,7 +872,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   ArenaVector<uint32_t> final_hashes;
   final_hashes.bind(scratch_a, F);
 
-  // Find max face vertex count for scratch allocation
   int max_count = 0;
   for (size_t i = 0; i < F; ++i) {
     int c = face_counts[i];
@@ -884,7 +879,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       max_count = c;
   }
 
-  // I > 0 above puts at least one face count above zero, so max_count is too.
   int *angles = scratch_a.allocate_n<int>(max_count);
 
   const size_t vertex_count = mesh.vertices.size();

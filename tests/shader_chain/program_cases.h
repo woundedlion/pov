@@ -296,7 +296,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(ripple_state.phase, 0.0f);
 
   // Warp batch: every op is PLANE->PLANE with "speed" first; the polar chart
-  // carries the full sixteen-harmonic list; curl-flow exposes basis and integrator.
+  // carries the harmonic list; curl-flow exposes basis and integrator.
   for (const char *id :
        {"warp.affine.v3", "warp.vortex.v2", "warp.wave-shear.v2",
         "warp.vector-noise.v2", "warp.mirror-tile.v2", "warp.polar-chart.v2",
@@ -695,7 +695,7 @@ inline void test_shader_chain_parity_rotate_project() {
                              &mirror.projection_conjugate,
                              sizeof(math::Quaternion)),
                  0);
-    // Op-level kernel parity for the two sphere-family ops.
+    // Op-level kernel parity of the erased camera and projection.
     using BoundRotate = PB::Stage::Rotate<MirrorCamera>::Bind<MirrorBinding>;
     using BoundProject = PB::Stage::Project<
         PB::Projection::Stereographic<MirrorProjection>>::Bind<MirrorBinding>;

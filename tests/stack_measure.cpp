@@ -99,7 +99,7 @@ template <typename EffectT> __attribute__((noinline)) void run_effect() {
 template <typename Effect> size_t measure(const char *name) {
   ++g_measured;
   g_lo = nullptr;
-  paint(220); // ~440 KB painted region, then unwind
+  paint(220);
   volatile uint8_t topmark;
   uint8_t *top = const_cast<uint8_t *>(&topmark);
   run_effect<Effect>();

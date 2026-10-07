@@ -24,8 +24,8 @@ namespace hs {
 /**
  * @brief Logs one formatted line to Serial on the device.
  * @param msg printf-style format string; trailing args supply the values.
- * @details Integer-only vsniprintf (no float conversions) into a 256-byte
- *          stack buffer; longer lines truncate to 255 characters.
+ * @details Integer-only vsniprintf (no float conversions) into a fixed
+ *          stack buffer; longer lines truncate.
  */
 HS_FLASH_INLINE inline void log(const char *msg, ...)
     __attribute__((format(printf, 1, 2)));

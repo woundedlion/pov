@@ -47,8 +47,6 @@ function readHeader(data) {
   if (spec === undefined) throw new Error(`IHDR color type ${colorType} is not a PNG color type`);
   if (!spec.depths.includes(depth))
     throw new Error(`IHDR bit depth ${depth} is not legal for color type ${colorType}`);
-  // Deflate and the five adaptive filters are the only methods PNG defines; a
-  // stream declaring anything else is not decodable by any conforming reader.
   if (compression !== 0)
     throw new Error(`IHDR compression method ${compression} is not deflate`);
   if (filter !== 0)

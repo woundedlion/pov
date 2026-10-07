@@ -506,10 +506,8 @@ inline void test_generative_palette_snapshot_lerp() {
 /**
  * @brief Pins the key-morph hue path against a chain that accumulates past half
  *        a turn.
- * @details Three keys whose adjacent hue deltas each stay under half a turn
- * clear morph_compatible, yet the third key's travel relative to the anchor
- * sums to 1.6 half-turns — folding that whole difference into (-pi, pi]
- * would sweep the key backwards through the arc the per-segment bound admits.
+ * @details Each adjacent hue delta stays under half a turn, but the third key's
+ * summed travel exceeds it; folding that into (-pi, pi] would sweep it backwards.
  */
 inline void test_generative_palette_lerp_accumulates_segment_deltas() {
   PaletteRecipe recipe;
@@ -532,10 +530,9 @@ inline void test_generative_palette_lerp_accumulates_segment_deltas() {
 
 /**
  * @brief Pins the snapshot encode against dropping a key's hue.
- * @details The snapshot chroma quantum (1/4095) is coarser than either
- * is_chromatic() threshold, so a chroma under half a quantum would round to
- * gray and lerp_keys would discard the key's hue for a whole morph. The encode
- * lifts chromatic keys to one quantum instead.
+ * @details The snapshot chroma quantum is coarser than the is_chromatic()
+ * threshold, so the encode lifts chromatic keys to one quantum rather than
+ * rounding them to gray.
  */
 inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   PaletteRecipe recipe;

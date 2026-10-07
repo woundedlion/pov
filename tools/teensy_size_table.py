@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Run `pio run` for the given Teensy envs and append a combined memory table.
 
-Streams the pio output unchanged, then re-prints the per-env teensy_size
-FLASH/RAM1/RAM2 details as a single side-by-side table after PlatformIO's own
-summary. The pio exit code is propagated.
-
-With no argument every environment platformio.ini declares is built.
+Streams the pio output unchanged, then prints the per-env teensy_size
+FLASH/RAM1/RAM2 details side by side and returns pio's exit code. With no env,
+every platformio.ini environment is built.
 
 Run:  python tools/teensy_size_table.py [--record-trail] [<env> ...]
 """
@@ -24,10 +22,8 @@ import teensy_gate  # noqa: E402
 # PlatformIO's per-env banner, e.g. "Processing phantasm (board: teensy40; ...)".
 _PROCESSING_RE = re.compile(r"^Processing (\S+) \(")
 
-# Table rows: (region, key, label). Keys name either a teensy_size component,
-# the region's "free for ..." figure, or "used" — the component sum the size
-# gate budgets against (tools/teensy_budgets.json). RAM2 has a single component,
-# so its sum row would be a duplicate and is omitted.
+# Table rows: (region, key, label). key is a teensy_size component, "free", or
+# "used" (the component sum the size gate budgets against).
 _ROWS = (
     ("flash", "code", "FLASH code"),
     ("flash", "data", "FLASH data"),
@@ -79,9 +75,7 @@ def _cell(sizes: dict, region: str, key: str) -> str:
 
 def render_table(order: list[str], sizes_by_env: dict[str, dict]) -> str:
     """Side-by-side memory table: one row per teensy_size figure, one column
-    per env. An env that produced no teensy_size output (compile/link failure)
-    renders as '-' cells rather than being dropped, so the column set always
-    matches the environments announced in the build log."""
+    per env. An env with no teensy_size output renders as '-' cells."""
     rows = [[label] + [_cell(sizes_by_env.get(env, {}), region, key)
                        for env in order]
             for region, key, label in _ROWS]
@@ -111,8 +105,8 @@ def main(argv: list[str] | None = None) -> int:
     cmd = [pio, "run"]
     for env in envs:
         cmd += ["-e", env]
-    # Merge stderr into stdout: teensy_size prints to stderr, and interleaving
-    # the streams in real order is what lets split_by_env attribute its lines.
+    # teensy_size prints to stderr; one ordered stream lets split_by_env
+    # attribute its lines.
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True,
                             encoding="utf-8", errors="replace")

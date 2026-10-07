@@ -4,8 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Headless rasterize() harness. A stub pipeline records plotted world positions;
-// a no-op Effect supplies a Canvas with a full (unclipped) clip band.
+// Headless rasterize() harness.
 // ---------------------------------------------------------------------------
 
 /**

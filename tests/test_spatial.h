@@ -214,7 +214,7 @@ inline void test_kdtree_duplicates_and_max_k() {
   std::span<math::Vector> sp(pts, 8);
   KDTree tree(arena, sp);
 
-  constexpr int K = KDTree::MAX_K;   // 5
+  constexpr int K = KDTree::MAX_K;
   const math::Vector query(1, 1, 1); // lands on the coincident cluster
 
   auto r = tree.nearest(query, K);

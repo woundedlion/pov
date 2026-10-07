@@ -31,7 +31,7 @@ constexpr int SOAK_LEG_BOUND = 96;
  * revisit (steady-state) checks. */
 constexpr int SOAK_EXTRA_LEGS = 8;
 
-/** Frame ceiling backstopping the leg bound (a leg is ~115-127 frames). */
+/** Frame ceiling backstopping the leg bound. */
 constexpr int SOAK_FRAME_CAP = (SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) * 140;
 
 /** Per-leg minimum lit pixels in a sampled frame. */

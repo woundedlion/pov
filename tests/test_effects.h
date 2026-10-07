@@ -235,8 +235,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       effect.advance_display();
     }
     // Require the value near `target` AND strictly closer to it than to the
-    // pre-write `cur`, catching a slow per-frame revert. A
-    // bool must read back exactly.
+    // pre-write `cur`, catching a slow per-frame revert. A bool must read back
+    // exactly.
     const float eps = def.is_bool() ? 0.0f : fmaxf(1e-3f, 1e-3f * range);
     const float now = def.get();
     const bool persisted =
@@ -759,8 +759,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
   // idx 2 is (l=1, m=0): one nodal circle, so both polarities cover a wide band.
   constexpr int DIPOLE_IDX = 2;
 
-  // Amplitude 10 (the slider maximum) saturates the palette across most of both
-  // lobes.
+  // Amplitude 10 saturates the palette across most of both lobes.
   sh_render_pinned_mode(
       DIPOLE_IDX, 10.0f,
       [](const WB::SH &fx, const WB::Field &field, float amp) {
@@ -856,9 +855,9 @@ inline void test_sh_polarity_split_and_ao_shaping() {
 
 /**
  * @brief Verifies the morph chain re-arms itself and keeps advancing modes.
- * @details start_morph() schedules a 64-frame Transition whose then() callback
- *          commits the target and calls start_morph() again; three commits mean
- *          the callback re-armed twice.
+ * @details start_morph() schedules a Transition whose then() callback commits
+ *          the target and calls start_morph() again; three commits mean the
+ *          callback re-armed twice.
  */
 inline void test_sh_morph_chain_rearms() {
   using WB = SphericalHarmonicsWhiteBox;
@@ -872,7 +871,7 @@ inline void test_sh_morph_chain_rearms() {
   HS_EXPECT_GT(seed, 0); // never the constant harmonic
   HS_EXPECT_TRUE(WB::next_idx(fx) != seed);
 
-  constexpr int FRAMES = 260; // four 64-frame legs
+  constexpr int FRAMES = 260;
   int commits = 0, held = seed, alpha_out_of_range = 0, self_blend = 0;
   int rearmed_at_zero = 0;
   float alpha_peak = 0.0f;

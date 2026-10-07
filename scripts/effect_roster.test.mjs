@@ -80,8 +80,6 @@ test('parsePhantasmEffectRoster throws when the macro is missing or empty', () =
     '#define HS_PHANTASM_EFFECT_LIST(X)\n'), /parsed to zero effects/);
 });
 
-// The pure parsers above are only meaningful while they still describe the real
-// files the loaders read.
 test('the loaders agree on the checked-in roster', async () => {
   const roster = await loadEffectRoster();
   const phantasm = await loadPhantasmEffectRoster();

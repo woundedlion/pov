@@ -101,7 +101,7 @@ inline void test_shader_chain_refusal_shape() {
   expect_refusal(program, mismatch, In::ChainStatus::CARRIER_MISMATCH, 2, ctx,
                  baseline);
 
-  // State continuity: the shape refusals above left every clock untouched.
+  // State continuity: the shape refusals left every clock untouched.
   const auto &camera = state_as<In::Op::SpatialWalkState>(program, 0);
   HS_EXPECT_EQ(std::memcmp(&camera.position, &camera_before.position,
                            sizeof(math::Vector)),
@@ -264,9 +264,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(static_cast<int>(failed.code),
                static_cast<int>(In::ChainStatus::MIGRATE_FAILED));
   HS_EXPECT_EQ(failed.entry_index, 0);
-  // The candidate tore down as a unit and the live program is untouched: the
-  // failed dst was rolled back unconstructed, no live state was destroyed,
-  // and the accumulated phase survives.
+  // The live program is untouched: no state destroyed, phase and render kept.
   HS_EXPECT_EQ(CountLifecycle::destroys, destroys_before);
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
   SweepColors after;
@@ -274,9 +272,8 @@ inline void test_shader_chain_refusal_migrate_failed() {
   for (size_t index = 0; index < after.size(); ++index)
     HS_EXPECT_TRUE(color4_identical(after[index], baseline[index]));
 
-  // A failing migrate deeper in the chain destroys the candidate states
-  // constructed before it — and only those. "fresh" is a new pair (init at
-  // entry 0), "counter" a surviving pair whose migrate fails at entry 1.
+  // A failing migrate deeper in the chain destroys only the candidate states
+  // constructed before it: "fresh" inits at entry 0, "counter" fails at 1.
   const In::ChainEntryRequest deep_chain[] = {
       {"fresh", "test.count-b.v2"},
       {"counter", "test.count-a.v2"},
@@ -292,8 +289,8 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(static_cast<int>(deep.code),
                static_cast<int>(In::ChainStatus::MIGRATE_FAILED));
   HS_EXPECT_EQ(deep.entry_index, 1);
-  // The fresh candidate was constructed, then torn down with the candidate
-  // arena; the live program keeps its state.
+  // The fresh candidate was constructed then torn down; the live program
+  // keeps its state.
   HS_EXPECT_EQ(CountLifecycle::inits, inits_before + 1);
   HS_EXPECT_EQ(CountLifecycle::migrates, migrates_before + 1);
   HS_EXPECT_EQ(CountLifecycle::destroys, deep_destroys_before + 1);

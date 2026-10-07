@@ -1,28 +1,20 @@
 #!/bin/bash
 # profile_sweep.sh <group: g1_ship..g6_ship | check>
-# Phantasm-roster profiling sweep, one group per invocation.
-# Covers the 288x144 Phantasm playlist; HS_PHANTASM_EXCLUDED_EFFECTS are not
-# profiled here.
-# The per-effect duration/window/epoch knobs are hand-tuned; the groups' union
-# is cross-checked against HS_PHANTASM_EFFECT_LIST on every invocation, and
-# `check` runs that alone (no board needed).
-# Sequential profile_one.sh calls per group. A failed capture is recorded and
-# the group carries on, then exits non-zero listing what failed.
-# A capture must fit inside one epoch: crossing a boundary re-inits the effect
-# mid-run, and an init that overruns the K-revolution commit window traps the
-# board. HS_PROFILE_EPOCH_REVS replaces the profile image's one-hour epoch; the
-# overrides shorten it. Attach latency must fit between the capture duration
-# and the epoch boundary (at least 20 s of slack).
+# Phantasm-playlist profiling sweep: one group of sequential profile_one.sh
+# calls per invocation. A failed capture is recorded, the group carries on, and
+# the run exits non-zero listing the failures. The groups' union is checked
+# against HS_PHANTASM_EFFECT_LIST first; `check` runs only that (no board).
+# A capture plus at least 20 s of attach slack must fit inside one epoch
+# (HS_PROFILE_EPOCH_REVS): crossing a boundary re-inits the effect mid-run, and
+# an init that overruns the commit window traps the board.
 set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
 FAILED=()
 GROUP=${1:-}
 
-# The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. The macro body runs
-# from the #define to the first line without a trailing backslash.
-# X-row spelling mirrored by tools/docs_check.py; whitespace inside the parens
-# is tolerated, and anchoring at the line start excludes a commented-out row.
+# The firmware playlist, in HS_PHANTASM_EFFECT_LIST order. X-row spelling
+# mirrored by tools/docs_check.py.
 playlist_roster() {
   tr -d '\r' < "$PLAYLIST_H" \
     | sed -n '/^#define HS_PHANTASM_EFFECT_LIST(X)/,/[^\\]$/p' \
@@ -74,8 +66,7 @@ run() {
   fi
 }
 
-# Ahead of the dispatch: a divergence must surface before a 20-minute capture,
-# not after it.
+# Before any capture, so a roster divergence fails fast.
 if [ "${HS_PROFILE_ROSTER_DUMP:-0}" != 1 ]; then
   check_roster || exit 1
 fi

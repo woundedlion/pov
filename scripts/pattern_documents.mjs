@@ -1,6 +1,4 @@
-// Discovery and compilation of the committed patterns/ shader documents, shared
-// by the WASM smoke gate, the promoted-digest test and the generator's
-// canonicality check.
+// Discovery and compilation of the committed patterns/ shader documents.
 import { readdir, readFile } from 'node:fs/promises';
 import { compileShaderDocument } from './shader_workbench.mjs';
 
@@ -18,8 +16,7 @@ export async function loadOperatorCatalog() {
 /**
  * Compiles every committed pattern document, in sorted filename order.
  *
- * The caller decides what a non-VALID compile means: the smoke gate throws, the
- * digest test asserts, the generator collects it as noncanonical.
+ * Non-VALID compiles are returned, not thrown.
  *
  * @param {Object} catalog Operator catalog to compile against.
  * @returns {Promise<{name: string, source: string, compiled: Object}[]>} One

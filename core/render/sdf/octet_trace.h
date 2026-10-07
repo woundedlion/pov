@@ -211,11 +211,10 @@ trace_sorted(const Events &events, Raycast::Interval interval,
 
 /**
  * @brief The 3D octet trace with every owner's strut pairs in registers.
- * @details SDF::OctetEvents gives a pair of plane families to the family the
- * ray crosses faster, the lower family on ties. Ranking the families that way
- * fixes each owner's share: the fastest owns three pairs, the next two and the
- * third one. Each owner walks its crossings over its pairs in family order,
- * with OctetEvents' arithmetic, so the covered crossings are OctetEvents'.
+ * @details Ownership follows SDF::OctetEvents (a plane-family pair goes to the
+ * family the ray crosses faster, the lower on ties), so the fastest owner holds
+ * three pairs, the next two and the third one. Owners walk with OctetEvents'
+ * arithmetic, so the covered crossings are OctetEvents'.
  * @param direction Unit view direction.
  * @param camera Camera the projection was prepared for.
  * @param projection The octet planes projected onto view directions.
@@ -324,19 +323,11 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
 
 /**
  * @brief The 4D octet trace in the ray's canonical frame.
- * @details The D4 lattice is invariant under coordinate permutations and sign
- * changes, both exact in floating point. Reflecting the ray so each direction
- * component is non-negative and ordering the components by magnitude fixes
- * SDF::OctetEvents4's ownership: the all-positive family owns the six
- * difference classes and the families flipping coordinates 0, 1 and 2 own the
- * sum classes whose smaller coordinate they flip. Each crossing then evaluates
- * a fixed class list with OctetEvents4's arithmetic.
- *
- * A class's lines lie in its owner's planes. A ray meets a line in the plane
- * of its crossing Q no closer than |n . v| times the line's distance from Q,
- * and that distance is at least the residual length of the class's two free
- * coordinates, so a crossing whose every owned class fails that bound against
- * the support is skipped before the class search.
+ * @details Reflecting the ray to non-negative components and ordering them by
+ * magnitude (exact D4 symmetries) fixes SDF::OctetEvents4's ownership, so each
+ * crossing evaluates a fixed class list with OctetEvents4's arithmetic. A
+ * crossing whose every owned class fails the |n . v| line-distance bound
+ * against the support is skipped before the class search.
  * @param direction Unit view direction.
  * @param camera Camera the projection was prepared for.
  * @param framework The D4 framework's cell size and strut radius.
@@ -463,11 +454,8 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
     if (COUNT == 0)
       return true;
     // The plane bound runs in 16-bit fixed point: the low 16 bits of Q * 2^16
-    // wrap exactly as Q mod 1, so their signed value is Q's residual to the
-    // nearest integer, and a wrapped sum or difference of two is a class's
-    // across residual. Quantizing the start and step, and float drift in t,
-    // move a residual by under FIXED_ERROR over the candidate budget, which
-    // loosens each squared term by at most that much.
+    // wrap exactly as Q mod 1, so their signed value is Q's nearest-integer
+    // residual. FIXED_ERROR bounds quantization and t drift over the budget.
     constexpr float FIXED_ONE = 65536.0f;
     constexpr float FIXED_ERROR = 2.0e-3f;
     const float INVERSE_PLANE = INVERSE * INVERSE_SCALE;

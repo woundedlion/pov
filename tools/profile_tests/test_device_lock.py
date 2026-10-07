@@ -320,9 +320,8 @@ with guard(sys.argv[2]):
 def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
     """Run a snippet against device_lock.sh with a stubbed board list.
 
-    hs_device_ports is overridden after sourcing rather than faking
-    teensy_ports.exe: the selection logic is what these test, and the real
-    enumerator needs boards physically attached.
+    hs_device_ports is stubbed after sourcing; the real enumerator needs
+    attached boards.
     """
     stub = ""
     if ports is not None:
@@ -478,9 +477,8 @@ class BoardSelection(unittest.TestCase):
         self.assertFalse(self.lock_dir("COM4").exists())
 
     def test_claim_whose_info_never_landed_is_not_handed_out(self):
-        # An unreadable claim is one hs_device_release can never match, so the
-        # lock dir would hold the board until the stale grace expired. The stub
-        # replays that: the info write reads back with no token.
+        # The stubbed info write reads back with no token, a claim
+        # hs_device_release could never match.
         script = ('_hs_lock_field() { :; }; hs_device_acquire E profile 60; '
                   'echo "RC=$?"; echo "TOKEN=[$_HS_TOKEN]"; '
                   'echo "PIN=[$HS_TEENSY_PORT]"')
@@ -498,9 +496,8 @@ class BoardSelection(unittest.TestCase):
         self.assertFalse(self.lock_dir("COM3").exists())
 
     def test_release_drops_the_pin_so_the_next_acquire_can_roam(self):
-        # acquire -> release -> acquire in one shell: the pin the first claim
-        # exported would otherwise steer the second onto the freed board, and
-        # a peer holding it by then reads as every board busy.
+        # acquire -> release -> acquire in one shell: a kept pin would steer the
+        # second claim onto the freed board.
         script = ('hs_device_ports() { if [ -n "${HS_TEENSY_PORT:-}" ]; then '
                   'echo "$HS_TEENSY_PORT"; else echo COM3; echo COM4; fi; }; '
                   'hs_device_acquire E profile 60; hs_device_release; '

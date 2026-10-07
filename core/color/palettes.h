@@ -94,8 +94,7 @@ HS_PROCEDURAL_PALETTE_LIST(HS_DECLARE_PALETTE)
 
 /**
  * @brief Shared mesh-effect palette bank.
- * @details Bundles the standard source-palette set, the bake-all step, and the
- *          per-shape index shuffle over a BakedPaletteBank.
+ * @details Bakes a standard source-palette set into a BakedPaletteBank.
  */
 struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N;
@@ -162,8 +161,7 @@ struct MeshPaletteBank {
   /**
    * @brief Returns the baked LUT for a slot index.
    * @param i Slot index in [0, N).
-   * @return Const reference to the baked palette; hot-path lookup is
-   *         bank[slot].get(t).
+   * @return Const reference to the baked palette.
    */
   const BakedPalette &operator[](int i) const {
     assert(i >= 0 && i < N && "MeshPaletteBank index out of range");

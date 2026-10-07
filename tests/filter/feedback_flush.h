@@ -267,12 +267,10 @@ inline void test_feedback_flush_respects_clip() {
 /**
  * @brief Verifies the Pixel::Feedback::flush warp path under a NON-identity warp,
  *        end to end through the coarse-grid + bilinear-upsample pipeline.
- * @details melt_warp slerps every sample direction toward the north pole by
- *          drip = speed * 0.04. For output row y the warp samples source row
- *          by(y) = phi_to_y(Spherical(slerp(pixel_to_vector(0,y), +Y, drip)).phi),
- *          which is north of y and independent of x. A bright source band at
- *          row R must reappear at the row y* where by(y*) == R (within the 1px
- *          the coarse-grid bilerp can shift it), and row R must go dark.
+ * @details melt_warp slerps every sample direction toward the north pole,
+ *          independent of x. A bright source band at row R must reappear at
+ *          the row whose warp samples R (within the coarse-grid bilerp's 1px
+ *          shift), and row R must go dark.
  */
 inline void test_feedback_flush_melt_warp_displaces_south() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
@@ -653,8 +651,7 @@ inline void test_feedback_spherical_ring_control_rows() {
 /**
  * @brief Verifies the compact ring field has directionally balanced error.
  * @details The last bound anchors the compact field against metric_approximate,
- * a baseline stepping sin(phi)-scaled rows instead of reading the ring table,
- * with ~4% headroom for libm drift.
+ * a baseline stepping sin(phi)-scaled rows instead of reading the ring table.
  */
 inline void test_feedback_spherical_field_angular_error() {
   constexpr int W = 288, H = 144;
@@ -961,7 +958,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
  * once through the identity colour path, and decodes where each output pixel
  * sampled from. A strong static twist near the poles moves targets far in
  * longitude between lattice rings; the 3D target reconstruction must stay
- * within a fraction of the 1.26 degree row pitch.
+ * within a fraction of the row pitch.
  */
 inline void test_feedback_polar_rows_hit_their_targets() {
   constexpr int W = 288, H = 144;
@@ -1023,12 +1020,9 @@ inline void test_feedback_polar_rows_hit_their_targets() {
 /**
  * @brief Warp-cache parity: an init_storage'd Feedback filter must render
  *        exactly what an uncached one does, frame for frame.
- * @details Drives a cached and an uncached pipeline through identical frames:
- *          a static style (later frames hit the cache), a key-field mutation
- *          (amplitude), a generator seed change that no Style scalar mirrors,
- *          advancing noise time under nonzero speed (key changes every frame),
- *          and a mid-run init_storage() re-allocation. Every frame must match
- *          the uncached reference pixel-exactly.
+ * @details Covers a static style, a key-field mutation, a generator seed
+ *          change that no Style scalar mirrors, advancing noise time, and a
+ *          mid-run init_storage() re-allocation.
  */
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
@@ -1129,12 +1123,9 @@ inline math::Vector antipodal_ripple_warp(const math::Vector &v,
 /**
  * @brief Verifies the warp-field bilerp stays on one wrap branch when the
  *        coarse taps straddle the ±W/2 cut.
- * @details The antipodal ripple displaces every column by W/2 ± 1.5px, so the
- *          step-1 seam wrap flips sign between adjacent coarse columns
- *          (~ +16px vs ~ -15px at W=32) while the true field is smooth. The
- *          tap re-centering must unify the four taps onto one branch. The
- *          previous frame encodes longitude seam-continuously (r=cos, g=sin), so
- *          each output pixel's sample source can be decoded.
+ * @details The antipodal ripple makes the seam wrap flip sign between adjacent
+ *          coarse columns while the true field is smooth; the tap re-centering
+ *          must unify the four taps onto one branch.
  */
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)

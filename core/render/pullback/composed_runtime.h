@@ -9,20 +9,16 @@
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
  *        declared by a ranked stage Spec.
  * @details Parameter and runtime storage derive from the Spec's pipeline
- * providers. Required `Derived` members: `EFFECT_ID` (registry identity),
- * `PRESET_IDS` (immutable preset identities by preset number),
- * `PARAMETER_SCHEMA_VERSION` (changes with the Params layout to reject stale
- * snapshots) and `PRESET_DWELL_FRAMES` (frames held before the next
- * transition). Presets and their departures resolve through `preset(index)`,
- * then `PRESETS`; only single-preset effects may fall back to startup params.
- * Optional members are `initial_params`, `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE`,
- * an `after_composed_init()` hook, and shadows of `WARP_NOISE_SEED` /
- * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` that decorrelate noise fields. A
- * shade() shadow that forwards to RenderPipeline::shade moves only the entry
- * trampoline; different body emission requires calling
- * RenderPipeline::evaluate(view, frame.ctx, frame.prepared) from the shadow.
- * `DESCRIPTOR_DIGEST` and `PRESET_BANK_DIGEST` pin the pattern document's
- * canonical descriptor (excluding parameter units) and preset bank; the
+ * providers. Required `Derived` members: `EFFECT_ID`, `PRESET_IDS` (preset
+ * identities by preset number), `PARAMETER_SCHEMA_VERSION` (changes with the
+ * Params layout) and `PRESET_DWELL_FRAMES`. Presets resolve through
+ * `preset(index)`, then `PRESETS`; only single-preset effects may fall back to
+ * startup params. Optional members: `initial_params`, `ANIMATED_MOBIUS`,
+ * `CAMERA_SPIN_RATE`, `after_composed_init()`, and `WARP_NOISE_SEED` /
+ * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` shadows. A shade() shadow changes
+ * the emitted body only by calling
+ * RenderPipeline::evaluate(view, frame.ctx, frame.prepared).
+ * `DESCRIPTOR_DIGEST` and `PRESET_BANK_DIGEST` pin the pattern document; the
  * runtime never reads them.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -166,10 +162,8 @@ public:
 
   /**
    * @brief Advances the frame clocks, resolves the frame state and shades.
-   * @details The order is load-bearing: the runtime's clocks, camera walks and
-   * palette all step before prepare_frame() snapshots them, so the whole scan
-   * shades from one consistent frame. The preset-transition lerp steps with
-   * the timeline, so its writes land before the snapshot too.
+   * @details Clocks, camera walks, palette and the preset lerp all step before
+   * prepare_frame() snapshots them, so the scan shades one consistent frame.
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);

@@ -935,11 +935,9 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
  *        descriptors and placement nodes.
  * @details Binding appears exactly once — the first parameter binds the whole
  * list. `void` entries and empty placement groups vanish. The chain must be
- * non-decreasing in family rank, adjacent
- * carriers must agree, the first stage consumes SphereSample and the last
- * produces Color4. The semantic leaf view (validation, predicates,
- * STAGE_COUNT, stage_at) and the structural placement view (prepare/run over
- * execution nodes) share no indices.
+ * non-decreasing in family rank, adjacent carriers must agree, the first stage
+ * consumes SphereSample and the last produces Color4. Leaf indices
+ * (STAGE_COUNT, stage_at) and execution-node indices are distinct.
  */
 template <typename BindingT, typename... Entries> struct Pipeline {
   using Binding = BindingT;

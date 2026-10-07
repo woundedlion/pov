@@ -12,8 +12,7 @@
 /**
  * @brief Records an ArenaVector block abandoned by a move-assignment or a grow.
  * @param bytes Size of the abandoned block.
- * @details Accumulates without logging; the arena's OOM trap reports the
- * running total.
+ * @details Accumulates without logging.
  * @note Cumulative across every arena modulo the size_t range, with reclaims
  * not subtracted, so it is not a live-leak figure.
  */

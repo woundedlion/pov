@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Regenerate core/color/color_luts.h — the sRGB transfer-function lookup tables.
 
-The forward table is the hot path: 8-bit sRGB -> the engine's 16-bit linear
-working space is a single load. The 64 KiB reverse table is the exact reference
-for scripts/generate_srgb_decode.cpp and unit_color; core/color/srgb_decode.h
-encodes linear -> sRGB using ~1.5 KB of DTCM tables. This script is the generator of record for both; it mirrors
-the reference implementations in core/color/color_space.h:
+The forward table maps 8-bit sRGB to the engine's 16-bit linear working space
+in one load. The reverse table is the exact linear -> sRGB reference; the
+runtime encode path is core/color/srgb_decode.h. Both mirror the reference
+implementations in core/color/color_space.h:
 
   srgb_to_linear(s) = s/12.92                       if s <= 0.04045
                       ((s+0.055)/1.055) ** 2.4       otherwise
@@ -26,15 +25,9 @@ rounding boundary.
 Usage:
   python scripts/generate_luts.py -o core/color/color_luts.h
 
-The generator self-formats: it pipes its output through clang-format (using the
-repo .clang-format) so the result is already in committed style — no separate
-manual format step to forget. clang-format is required, not optional: the CI
-provenance gate diffs the full formatted text against the committed header. If
-clang-format is not on PATH (set CLANG_FORMAT to override), the generator exits
-without emitting so shell redirection cannot leave a plausible unformatted
-header. A clang-format whose major version differs from
-EXPECTED_CLANG_FORMAT_MAJOR, or whose version cannot be read, is refused:
-the generator exits without emitting.
+Output is piped through clang-format with the repo .clang-format (CLANG_FORMAT
+overrides the binary). The generator exits without emitting when clang-format
+is missing or its major version is not EXPECTED_CLANG_FORMAT_MAJOR.
 """
 
 import argparse
@@ -55,21 +48,15 @@ def linear_to_srgb(lin):
     return lin * 12.92 if lin <= 0.0031308 else 1.055 * lin ** (1.0 / 2.4) - 0.055
 
 
-# Axis sizes / quantization maxima. The 8-bit sRGB byte axis has 256 levels
-# (max code 255); the 16-bit linear axis has 65536 levels (max code 65535).
-# Naming them keeps the range() count, the i/<max> input normalization, the
-# quantize() output ceiling, and the emitted C array bound from drifting out
-# of agreement — each size otherwise appears literally in four places.
+# Axis sizes and quantization maxima.
 SRGB_LEVELS = 256
 LINEAR_LEVELS = 65536
 SRGB_MAX = SRGB_LEVELS - 1
 LINEAR_MAX = LINEAR_LEVELS - 1
 
 
-# The clang-format major the provenance gate formats both sides with (the
-# lut-provenance job in .github/workflows/ci.yml installs clang-format==22.1.8).
-# Another major reflows the arrays differently, so a one-entry data change would
-# arrive in CI as a full-header diff with its real cause buried.
+# The clang-format major the CI provenance gate formats with; another major
+# reflows the arrays.
 EXPECTED_CLANG_FORMAT_MAJOR = 22
 
 
@@ -105,8 +92,7 @@ def render(out, fwd, rev):
     out.write("// sRGB transfer-function LUTs for color conversion.\n")
     out.write("\n")
     out.write("// sRGB (0-255) -> Linear (0-65535)\n")
-    # The per_row counts (11 u16 / 15 u8) shape the intermediate text before
-    # clang-format repacks each row to the repository's column limit.
+    # per_row only shapes the pre-format text; clang-format repacks the rows.
     emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] HS_PROGMEM_UNIQUE(srgb_to_linear_lut)",
                fwd, 11)
     out.write("\n")
@@ -148,9 +134,8 @@ def clang_format(text):
     """Format the generated header through clang-format using the repo style.
 
     Returns the formatted text, or None if clang-format is unavailable. Exits
-    non-zero if clang-format is present but fails. --assume-filename points at
-    the real header path so clang-format locates the repo .clang-format and
-    selects the C++ language.
+    non-zero if clang-format is present but fails. --assume-filename makes it
+    find the repo .clang-format and select C++.
     """
     cf = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
     if not cf:
@@ -204,8 +189,7 @@ def main():
     if check(fwd, rev):
         sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
         sys.exit(1)
-    # LF on every host: the committed header is LF-pinned (.gitattributes), and a
-    # Windows CRLF flip of the whole header fails the provenance gate.
+    # LF on every host: the committed header is LF-pinned.
     sys.stdout.reconfigure(newline="\n")
     buf = StringIO()
     render(buf, fwd, rev)

@@ -187,8 +187,7 @@ inline void test_drift_modifier() {
 /**
  * @brief Largest inter-channel split a gray may carry out of an OKLab shade.
  * @details A gray has a = b = 0, so only the OKLab -> linear-RGB rows and the
- * float -> uint16 rounding separate its channels. Measured worst over the
- * 16-bit gray ramp is 1 LSB, IEEE and -ffast-math alike.
+ * float -> uint16 rounding separate its channels.
  */
 inline constexpr float ACHROMATIC_TOL = 4.0f;
 
@@ -196,8 +195,7 @@ inline constexpr float ACHROMATIC_TOL = 4.0f;
  * @brief Per-channel budget of an identity pass through OKLab.
  * @details linear RGB -> fast_cbrt LMS -> OKLab and back is not exact; with the
  * rotation angle or the chroma scale left at identity, that round trip plus the
- * float -> uint16 rounding is the whole residue. Measured worst over the RGB
- * cube is 7 LSB, IEEE and -ffast-math alike.
+ * float -> uint16 rounding is the whole residue.
  */
 inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
 
@@ -206,10 +204,8 @@ inline constexpr float OKLAB_ROUND_TRIP_TOL = 16.0f;
  * @details Both apply the same OKLab rotation — the spin folds it into a
  * cbrt-LMS 3x3 and cube-roots through fast_cbrt3's shared divide, hue_rotate
  * applies it in OKLab — so they differ only by float reassociation, amplified
- * on the way out through the LMS cube. Measured over the 17^3 channel grid at
- * 64 rotation amounts spanning [-1, 1] turns, IEEE and
- * -ffast-math alike: mean 0.083 LSB, worst single channel 171 LSB on the
- * cbrt-steep saturated corner (40959, 65535, 8191) at 0.206 turns.
+ * on the way out through the LMS cube; the worst channel sits on a cbrt-steep
+ * saturated corner.
  */
 inline constexpr float HUE_SPIN_MEAN_HEADROOM = 1.5f;
 inline constexpr float HUE_SPIN_WORST_HEADROOM = 1.5f;

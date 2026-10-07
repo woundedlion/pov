@@ -36,9 +36,6 @@ inline float mod_tau(float n) { return n - floorf(n / tau) * tau; }
  * @pre floorf(x) is representable as an int.
  * @return Wrapped index with the original fractional part retained; rounding
  *  near the upper seam can produce exactly m.
- * @details Uses floorf (not a truncating cast) so negative inputs floor toward
- *  -inf, and the double-mod `((i % m) + m) % m` keeps the integer part
- *  non-negative. The final float addition can round to m for a small negative x.
  */
 inline float wrap_index(float x, int m) {
   int i = static_cast<int>(floorf(x));
@@ -52,17 +49,14 @@ inline float wrap_index(float x, int m) {
  * @brief Handles equirectangular projection rotation.
  * @tparam W Image width in pixels.
  * @tparam H Image height in pixels.
- * @details Used for rotating the background skybox/environment.
  */
 template <uint8_t W, uint8_t H> class Projection {
 public:
   /**
    * @brief A pixel in the WxH equirectangular image paired with its spherical
    *  coordinates.
-   * @details Constructed lambda (longitude) lies in [-PI, PI); projection can
-   *  also return +PI. Phi (latitude) lies in [-PI/2, PI/2].
-   *  The constructors derive lambda/phi from the pixel (x, y);
-   *  y is measured top-down, so phi is flipped via (H - y).
+   * @details A constructed lambda lies in [-PI, PI); project() can also
+   *  return +PI. y is measured top-down.
    */
   struct Point {
     /**
@@ -134,8 +128,6 @@ public:
    * @param src Destination point carrying its lambda/phi spherical coordinates.
    * @return A Point whose x/y are the source pixel to sample for this
    *  destination.
-   * @details Applies the lambda offset, converts to a Cartesian unit vector,
-   *  rotates by the cached phi/gamma terms, then projects back to (x, y).
    */
   Point project(const Point &src) const {
     Point p(src);

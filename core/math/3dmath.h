@@ -49,19 +49,19 @@ inline constexpr float INV_PHI = 1 / PHI;
  *
  * The naming reflects what is being compared, not the magnitude:
  *
- *   TOLERANCE      — generic float compare (1e-4f)
- *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
- *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
+ *   TOLERANCE      — generic float compare
+ *   EPS_GEOMETRIC  — geometric near-equality (positions, angles)
+ *   EPS_LEN_SQ     — degenerate squared edge length
  *   EPS_ANTIPARALLEL_SQ — half-vector rotation's antiparallel crossover,
- *                      compared against |cross|^2 (4e-7f)
- *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
- *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
+ *                      compared against |cross|^2
+ *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared)
+ *   EPS_NORMAL_SQ  — degenerate face normal (squared)
  *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
- *                      direction; |v| < 1e-6 amplifies by >1e6 (1e-12f)
+ *                      direction
  *   EPS_BLEND_LEN_SQ — squared length below which a direction blend has
- *                      cancelled and carries no direction (1e-8f)
- *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack (0.01f)
- *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
+ *                      cancelled and carries no direction
+ *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack
+ *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack
  */
 inline constexpr float TOLERANCE = 1e-4f;
 inline constexpr float EPS_GEOMETRIC = 1e-5f;
@@ -69,8 +69,8 @@ inline constexpr float EPS_LEN_SQ = 1e-6f;
 /**
  * @brief Squared |cross(from, to)| below which make_rotation synthesizes a π
  *        turn instead of using the half-vector form.
- * @details The half-vector form's angular error (~2*ULP(1)/|cross|) and the
- * synthesized turn's (|cross|) both sit near 4e-4 rad at this band.
+ * @details Placed where the half-vector form's angular error
+ * (~2*ULP(1)/|cross|) meets the synthesized turn's (|cross|).
  */
 inline constexpr float EPS_ANTIPARALLEL_SQ = 4e-7f;
 inline constexpr float EPS_CROSS_SQ = 1e-8f;
@@ -82,7 +82,6 @@ inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
- * @details About 0.8° from parallel.
  */
 inline constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 /**
@@ -295,10 +294,8 @@ struct Vector {
    * @brief Equality comparison using tolerance.
    * @param v The vector to compare.
    * @return True if components are within TOLERANCE.
-   * @note Uses an absolute per-component tolerance (TOLERANCE), so it is
-   *   scale-dependent (strict relative to large magnitudes, loose for tiny ones) and
-   *   non-transitive (a==b and b==c does not imply a==c). Fine for direct
-   *   value compares; do not rely on it for ordering or container keys.
+   * @note Absolute per-component tolerance: scale-dependent and
+   *   non-transitive, so unsuitable for ordering or container keys.
    */
   bool operator==(const Vector &v) const {
     return std::abs(x - v.x) <= math::TOLERANCE &&
@@ -397,8 +394,8 @@ struct Vector {
    * @brief Returns a unit-length copy without mutating `this`.
    * @pre The squared length is finite and at least EPS_NORMALIZE_SQ.
    * @return A unit-length vector in the same direction.
-   * @details Traps on a zero-length vector. Sites where a zero vector is a
-   * legitimate geometric edge must use normalized_or() with an explicit fallback.
+   * @details Traps on a zero-length vector; use normalized_or() where a zero
+   * vector is legitimate.
    */
   [[nodiscard]] __attribute__((always_inline)) Vector normalized() const {
     float m2 = x * x + y * y + z * z;
@@ -432,9 +429,8 @@ normalized_or(const Vector &v, const Vector &fallback) {
 
 /**
  * @brief A unit-sphere direction packed into three snorm16 components.
- * @details 6 bytes against Vector's 12. Components are clamped to [-1, 1] on
- * encode with a 1/32767 quantization step plus floating-point rounding
- * (max chord ~2.6e-5), so a decoded value is near-unit rather than unit.
+ * @details Components are clamped to [-1, 1] and quantized on encode (max
+ * chord ~2.6e-5), so a decoded value is near-unit rather than unit.
  */
 struct Snorm3 {
   int16_t x; /**< X-component, snorm16. */
@@ -475,11 +471,9 @@ private:
  * negative zero: `-0.0f < 0.0f` is false, so `x<0, y==-0.0f` returns +π where
  * std::atan2 gives -π; -π is reached only for strictly negative y.
  * At the origin it returns π/2.
- * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
- * octant. That bound holds only for |(x, y)| above ~1e-7: the 1e-10 origin
- * nudge is added to |y| unconditionally, so below that magnitude the result is
- * no longer scale-invariant — ~1.4e-2 rad of error at |(x, y)| ~ 1e-8, growing
- * to the full quadrant as the magnitude approaches the nudge.
+ * @details Peak abs error ~0.0038 rad (~0.22°). The origin nudge is added to
+ * |y| unconditionally, so at tiny |(x, y)| the result is not scale-invariant
+ * and the error grows toward a full quadrant.
  */
 __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite.
@@ -623,9 +617,8 @@ HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
  * @brief Fast cube root for x in [~1e-29, ~3e28].
  * @param x Input value; x <= 0 returns 0.
  * @return An approximation of the cube root of `x`.
- * @details Bit-hack initial guess (divide the float exponent by three) refined
- * by one Halley step. Relative error is about 2.3e-5 over [~1e-29, ~3e28].
- * Accuracy degrades below ~1e-29; results underflow to 0 below ~1e-34.
+ * @details Bit-hack initial guess refined by one Halley step. Relative error
+ * is about 2.3e-5 over that range; results underflow to 0 below ~1e-34.
  */
 HS_O3_FN inline float fast_cbrt(float x) {
   float numerator, denominator;
@@ -641,12 +634,10 @@ HS_O3_FN inline float fast_cbrt(float x) {
  * @param o1 Cube root of `x1`.
  * @param o2 Cube root of `x2`.
  * @param o3 Cube root of `x3`.
- * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
- * one reciprocal instead of three divides. Accuracy matches fast_cbrt (peak
- * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each numerator carries
- * the two foreign denominators, a ~27x^(10/3) product, so a result overflows
- * once all three inputs exceed ~1.3e11; the shared reciprocal loses the
- * denominators below ~3e-13 and goes infinite (result NaN) below ~5e-14.
+ * @details fast_cbrt's seed and Halley step through one shared reciprocal;
+ * accuracy matches fast_cbrt. Results overflow once all three inputs exceed
+ * ~1.3e11, and the shared reciprocal degrades below ~3e-13 and then goes
+ * infinite (result NaN).
  */
 HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
                                 float &o2, float &o3) {
@@ -654,8 +645,6 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
   cbrt_halley_terms(x1, n1, d1);
   cbrt_halley_terms(x2, n2, d2);
   cbrt_halley_terms(x3, n3, d3);
-  // One reciprocal for all three quotients: each numerator picks up the two
-  // foreign denominators, which cancel the shared product back to n_i / d_i.
   const float inv = 1.0f / (d1 * d2 * d3);
   o1 = n1 * (d2 * d3) * inv;
   o2 = n2 * (d1 * d3) * inv;
@@ -666,21 +655,16 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
  * @brief Fast cube roots of six values sharing a single division.
  * @param x Six inputs; same domain as fast_cbrt (x <= 0 yields 0).
  * @param o Six outputs, the cube roots of the corresponding inputs.
- * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
- * one reciprocal instead of six divides. Accuracy matches fast_cbrt (peak
- * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each denominator is
- * ~3x. The numerator times five foreign denominators overflows once all six
- * inputs exceed ~4.2e5; the six-denominator product itself overflows at ~8.5e5
- * and underflows when all six inputs are below ~1.2e-7, making the shared
- * reciprocal infinite and the outputs Inf/NaN.
+ * @details fast_cbrt's seed and Halley step through one shared reciprocal;
+ * accuracy matches fast_cbrt. Results overflow once all six inputs exceed
+ * ~4.2e5, and go Inf/NaN when all six inputs are tiny enough for the
+ * denominator product to underflow.
  */
 HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
   float n[6], d[6];
   for (int i = 0; i < 6; ++i)
     cbrt_halley_terms(x[i], n[i], d[i]);
-  // Prefix/suffix denominator products: foreign[i] is the product of the five
-  // denominators other than d[i], which cancels the shared product back to
-  // n[i] / d[i].
+  // pre[i] * suf[i] is the product of every denominator but d[i].
   float pre[6], suf[6];
   pre[0] = 1.0f;
   for (int i = 1; i < 6; ++i)
@@ -961,7 +945,7 @@ struct Complex {
 
 /**
  * @brief Rotates a vector by a unit quaternion.
- * @details Expanded q*v*conj(q) formula: 18 muls + 12 adds, no division.
+ * @details Expanded q*v*conj(q) formula, no division.
  * @param v The vector to rotate.
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
@@ -1117,10 +1101,8 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @param v1 First vector.
  * @param v2 Second vector.
  * @return The angle in radians.
- * @note Traps on a degenerate input: both vectors must have length squared at
- * least math::EPS_LEN_SQ. This is 10^6 stricter than normalized(): angles
- * become numerically unstable
- * while a direction can still be normalized reliably.
+ * @note Traps unless both squared lengths are at least math::EPS_LEN_SQ, a
+ * stricter floor than normalized()'s.
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
   float m1 = dot(v1, v1);
@@ -1208,12 +1190,8 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @param axis The rotation axis (must be a non-zero unit vector).
  * @param theta The angle of rotation in radians.
  * @return The resulting unit rotation quaternion.
- * @pre `axis` is unit length and non-zero. A zero/degenerate axis collapses the
- *      quaternion's vector part to zero; at `theta = pi` the scalar part is also
- *      ~0, so the magnitude falls below `normalized()`'s epsilon and it traps.
- *      A non-unit axis does not trap: the
- *      trailing `normalized()` rescales `(cos(theta/2), sin(theta/2) * axis)` as
- *      a pair, so the realized rotation angle is not `theta`.
+ * @pre `axis` is unit length. A zero axis traps at `theta = pi`; a non-unit
+ *      axis does not trap, but the realized rotation angle is not `theta`.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
@@ -1326,7 +1304,7 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.
  * @param x Input value, expected in [-1, 1] (clamped internally).
  * @return The arc cosine in radians.
- * @details Peak abs error ~5.0e-5 rad (~0.0029°) measured over a dense sweep.
+ * @details Peak abs error ~5.0e-5 rad.
  */
 __attribute__((always_inline)) inline float fast_acos(float x) {
   float ax = std::abs(x);
@@ -1342,11 +1320,9 @@ __attribute__((always_inline)) inline float fast_acos(float x) {
  * @brief Fast exp for non-positive arguments.
  * @param x Argument; the domain is x <= 0.
  * @return An approximation of e^x.
- * @details exp(x) = 2^(x*log2e), split into an integer power from the float
- * exponent bits and an endpoint-constrained quartic for fractional 2^f.
- * The polynomial has ~3.4e-6 peak relative error and meets both exponent
- * boundaries continuously; float range reduction raises the full error to
- * ~5.1e-6 over [-30, 0]. Large-magnitude x saturates to 0.
+ * @details exp(x) = 2^(x*log2e): an integer power from the exponent bits times
+ * a quartic for the fraction, continuous across exponent boundaries. Peak
+ * relative error ~5.1e-6 over [-30, 0]; large-magnitude x saturates to 0.
  * @warning The domain is guarded only by a debug assert, but every argument
  * still yields a defined result: a positive x stays accurate to x ~ 88.0 and
  * saturates to +Inf above it, and a NaN returns 0.
@@ -1374,8 +1350,7 @@ inline float fast_expf(float x) {
  * @brief Bhaskara I sine approximation for an angle in [0, π].
  * @param x Angle in radians, in [0, π].
  * @param sign Sign of the half-period `x` was folded out of, +1 or -1.
- * @return The approximate sine, `sign * sin(x)`. Absolute error <= 1.7e-3
- * (~0.1 deg), peaking near x = 0.2; relative error reaches 1.9% near the zeros.
+ * @return The approximate sine, `sign * sin(x)`.
  * @details Shared by the fast sine and cosine paths so they cannot be
  * reassociated apart under -ffast-math.
  */
@@ -1402,8 +1377,8 @@ __attribute__((always_inline)) inline float sinf_0_2pi(float x) {
  * @brief Fast sine using the Bhaskara I approximation.
  * @param x Angle in radians (range-reduced internally).
  * @return The approximate sine of `x`.
- * @details Absolute error <= 1.7e-3 (~0.1 degrees), peaking near x = 0.2.
- * Relative error reaches 1.9% near the zeros.
+ * @details Absolute error <= 1.7e-3 (~0.1 degrees); relative error is large
+ * near the zeros.
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
  * reduction loses precision as a float's ULP grows past the period.
  */

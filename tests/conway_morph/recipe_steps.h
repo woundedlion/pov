@@ -259,8 +259,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
     PolyMesh relaxed = MeshOps::relax_baked(seed, a, *site.bake);
 
     // The precondition of a standalone relax leg: same vertex count, same
-    // topology bytes, and vertex i still nearest its own seed vertex, so the
-    // leg slerps per-vertex with no correspondence pass.
+    // topology bytes, and vertex i still nearest its own seed vertex.
     HS_EXPECT_EQ(relaxed.vertices.size(), seed.vertices.size());
     HS_EXPECT_EQ(relaxed.face_counts.size(), seed.face_counts.size());
     HS_EXPECT_EQ(relaxed.faces.size(), seed.faces.size());
@@ -674,10 +673,9 @@ inline void test_opleg_step_paused_holds_frame() {
 /**
  * @brief Drives swept legs under an easing whose range leaves [0, 1], gating
  *        the sweep parameter against extrapolation past the arrival.
- * @details ease_out_elastic's first overshoot lobe spans x in [0.075, 0.225],
- * peaking near 1.37. Frames 2-5 of 24 fall in it and clamp to the arrival (the
- * frame-4-vs-last comparison); frame 1 is still mid-sweep. The chord bound is
- * loose because elastic covers half the sweep in one frame.
+ * @details Frames inside ease_out_elastic's first overshoot lobe clamp to the
+ * arrival. The chord bound is loose because elastic covers half the sweep in
+ * one frame.
  */
 inline void test_opleg_step_leg_overshooting_easing() {
   constexpr StepLegSite NEAR_AMBO{"icosahedron_ambo_truncate049",

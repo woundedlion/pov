@@ -31,11 +31,8 @@ struct BZWhiteBox;
  *
  * @details
  * Three species (A, B, C) evolve via cyclic Lotka-Volterra competition
- * (A→B→C→A), sustaining spiral waves. State is Q16 (uint16_t): at the low end
- * of the Diff slider the diffusion term moves a node by ~3e-4 of full scale
- * per substep, which a coarser store rounds away. Rendering interpolates
- * between lattice nodes with a compact biweight kernel (C1 at the support
- * edge).
+ * (A→B→C→A), sustaining spiral waves. State is Q16 so the small diffusion
+ * steps at the low end of the Diff slider are not rounded away.
  */
 template <int W, int H>
 class BZReactionDiffusion
@@ -80,7 +77,7 @@ public:
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    // Blocks carved in the peak phase: the 3 generation mirrors.
+    // Peak-phase blocks: the generation mirrors.
     constexpr size_t SCRATCH_TENANTS = 3;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
                                        SCRATCH_BYTES, SCRATCH_TENANTS>();
@@ -117,9 +114,8 @@ private:
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
-   * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the biweight
-   * weight sum, this the blended concentration; a full-weight kernel can still
-   * average to ~0 if all species are absent.
+   * @details Guards the blended concentration; KERNEL_MIN_TOTAL_WEIGHT guards
+   * the kernel weight sum.
    */
   static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
 
@@ -128,7 +124,7 @@ private:
       3;                                      // seed blobs per species at init
   static constexpr int STEPS_PER_FRAME = 2;   // physics substeps per render
   static constexpr int NUM_PERTURBATIONS = 8; // random nudges per physics step
-  static constexpr int PERTURB_AMOUNT = 771;  // Q16 nudge, 1.18% of full scale
+  static constexpr int PERTURB_AMOUNT = 771;  // Q16 nudge
 
   // ---------------------------------------------------------------------------
   // Initialization helpers
@@ -264,10 +260,8 @@ private:
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
    * @return The finished, alpha-premultiplied pixel.
-   * @details The four ±0.25 px sub-samples share one stencil (the nearest node
-   * and its neighbors) gathered at the pixel center; only the biweight weights
-   * vary per sub-sample. Stencil reuse can exceed one node spacing at low
-   * vertical resolutions.
+   * @details Sub-samples re-weight one stencil gathered at the pixel center,
+   * which can reach past one node spacing at low vertical resolution.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
@@ -317,10 +311,7 @@ private:
   /**
    * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
    * @param canvas Destination canvas to draw into.
-   * @details Advances the persistent state STEPS_PER_FRAME substeps in place
-   *          over one set of float generation mirrors, then rasterizes with 4x
-   *          SSAA using a cubemap-LUT vertex shader and a kernel-sampling
-   *          fragment shader.
+   * @details Runs STEPS_PER_FRAME substeps in place, then rasterizes with SSAA.
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);

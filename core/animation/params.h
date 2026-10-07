@@ -42,9 +42,8 @@ protected:
  * @tparam Derived Concrete animation supplying `void advance(Canvas &)`.
  * @details A set pause flag skips both the frame counter and the derived work,
  * so a `.then`-chained animation never completes while paused.
- * @note An animation-level gate only early-returns from step(); an event's
- * pending start delay keeps elapsing under it. Timeline::add_pausable freezes
- * the delay too.
+ * @note The gate does not freeze an event's pending start delay;
+ * Timeline::add_pausable does.
  */
 template <typename Derived>
 class PausableParamAnimationBase : public FiniteParamAnimationBase<Derived> {
@@ -265,8 +264,7 @@ public:
       if (std::isfinite(s))
         speed = s;
     }
-    // Without wrapping, float accumulation can freeze after roughly 2^24
-    // frames, when |mutant| approaches |speed| * 2^24.
+    // Without wrap, float accumulation freezes once |mutant| ~ |speed| * 2^24.
     mutant.get() += speed;
     if (wrap) {
       mutant.get() = math::wrap_t(mutant.get());
@@ -309,9 +307,8 @@ private:
 
 /**
  * @brief An animation that interpolates between states.
- * @details The caller owns the start, subject, and target data. Lerp just holds
- * pointers and a type-erased lerp function. Supports any type T that implements
- * lerp(start, target, t).
+ * @details Borrows the caller-owned subject, start and target, which must
+ * outlive the animation.
  */
 class Lerp : public PausableParamAnimationBase<Lerp> {
 public:
@@ -454,8 +451,7 @@ public:
   void step(Canvas &canvas) override {
     FiniteParamAnimationBase::step(canvas);
     float progress = normalized_progress();
-    // Floor rings at 0 so the divisor rings + 1 stays >= 1; a non-finite or -1
-    // rings would make log_period inf and poison a/d.
+    // Floor rings at 0 so the divisor rings + 1 stays >= 1.
     float rings = num_rings;
     if (!std::isfinite(rings) || rings < 0.0f)
       rings = 0.0f;
@@ -511,8 +507,7 @@ public:
   /**
    * @brief Binds the warp magnitude to a live external float.
    * @param live_scale The external float to read each frame as the magnitude.
-   * @details Binding makes step() read the referent every frame, so a wired GUI
-   * slider takes effect immediately. The referent must outlive the animation.
+   * @details The referent is read every frame and must outlive the animation.
    */
   void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
   void bind_scale(const float &&) = delete;
@@ -628,8 +623,7 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Float accumulation can freeze after roughly 2^24 frames, when
-    // |phase_time| approaches |speed| * 2^24.
+    // Float accumulation freezes once |phase_time| ~ |speed| * 2^24.
     phase_time += speed;
     float time = phase_time;
     float s = scale;
@@ -668,11 +662,9 @@ struct RippleParams {
   float decay{5.0};       /**< Spatial decay rate. */
   float thickness{1.0f};  /**< Thickness of the ripple. */
 
-  /** @brief Cached cos(d_min), the nearest ring edge: the LARGER of the two
-   * cosines, so it is the fast-reject band's upper cutoff. */
+  /** @brief Cached cos(d_min): the fast-reject band's upper cutoff. */
   float cos_threshold_min = 1.0f;
-  /** @brief Cached cos(d_max), the farthest ring edge: the smaller cosine, so
-   * it is the fast-reject band's lower cutoff. */
+  /** @brief Cached cos(d_max): the fast-reject band's lower cutoff. */
   float cos_threshold_max = -1.0f;
 
   /** @brief Carries prepare_frame()'s refresh_from() hook. */
@@ -767,8 +759,6 @@ public:
 
       envelope = attack * decay;
 
-      // Re-prepare the reject thresholds against the phase just advanced, so the
-      // render never tests the new phase against thresholds cached at the old one.
       params.get().sync();
     }
 
@@ -856,8 +846,7 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Float accumulation can freeze after roughly 2^24 frames, when
-    // |time| approaches |speed| * 2^24.
+    // Float accumulation freezes once |time| ~ |speed| * 2^24.
     const float speed = params.get().speed;
     if (std::isfinite(speed))
       params.get().time += speed;
@@ -956,8 +945,6 @@ public:
     p.axis = math::make_basis(orientation->get(), normal).v;
     p.envelope = math::quintic_kernel(progress / EDGE_FRACTION) *
                  math::quintic_kernel((1.0f - progress) / EDGE_FRACTION);
-    // Re-prepare the reject bound against the envelope just written, so the
-    // render never tests the new envelope against a bound cached at the old one.
     p.sync();
   }
 

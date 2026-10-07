@@ -27,12 +27,9 @@ template <typename T> inline T wrap_positive(T value, T period) {
 
 /**
  * @brief Wraps a floating-point value around a modulo base (m).
- * @details Requires m > 0 (checked by a debug assert). The effective base is
- *   max(m, numeric_limits<R>::min()), where R is the common result type, so
- *   positive subnormal bases also use the smallest positive normal value.
- *   Under NDEBUG, non-positive or NaN bases use that floor too.
- *   An all-integral call is rejected by static_assert; use the
- *   exact `wrap(int, int)` overload.
+ * @details Requires m > 0 (debug assert); under NDEBUG a non-positive or NaN
+ *   base takes the same floor. An all-integral call is rejected; use the exact
+ *   `wrap(int, int)` overload.
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x Finite value to wrap.
@@ -56,8 +53,7 @@ inline std::common_type_t<T, U> wrap(T x, U m) {
  * @brief Fast floating point modulo for 1.0.
  * @param t Finite value to wrap.
  * @return The wrapped value in the range [0.0, 1.0).
- * @details Wraps finite floats into [0.0, 1.0). For tiny negative t in (-2.98e-8, 0),
- *   `t - floorf(t)` rounds up to exactly 1.0f, violating the half-open contract;
+ * @details For tiny negative t, `t - floorf(t)` rounds up to exactly 1.0f;
  *   the guard folds that boundary back to 0.
  */
 __attribute__((always_inline)) inline float wrap_t(float t) {

@@ -297,8 +297,8 @@ struct DistortedRingStack {
    * @param shapes n_slots knot-mode rings sharing one Basis and zero phase, in
    *        ascending ring order; culled rings are simply absent. Their knot
    *        prefilters go unused and may be null.
-   * @param slot_by_ring n_rings signed entries mapping ring index -> slot in shapes (at most 127 slots),
-   *        -1 for culled rings.
+   * @param slot_by_ring n_rings signed entries mapping ring index -> slot in
+   *        shapes, -1 for culled rings.
    * @param n_slots Number of shapes, in [1, 127].
    * @param table Candidate map storage, rebuilt here.
    * @param shader Per-ring fragment shader (see RingShaderT).
@@ -572,7 +572,7 @@ struct RingGroup {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param shapes Ring shapes in draw order.
-   * @param n Number of shapes, in [1, MAX_RINGS] (8).
+   * @param n Number of shapes, in [1, MAX_RINGS].
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @param debug_bb When true, or under canvas.debug(), falls back to per-ring
    *        rasterizes, which scan each ring's own row intervals and fill

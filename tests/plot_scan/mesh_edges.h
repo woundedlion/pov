@@ -11,8 +11,6 @@
  * @brief The complementary masks of a Segue::Dissolve partition a wireframe's
  *        edges exactly: every edge is drawn by one sprite and skipped by the
  *        other, at every phase.
- * @details Both draws use the same edge list. The shader records each drawn
- *          edge's index (register v2), so the check is on the drawn set itself.
  */
 inline void test_mesh_dissolve_masks_partition_edges() {
   constexpr int W = 96, H = 48;
@@ -66,12 +64,10 @@ inline void test_mesh_dissolve_masks_partition_edges() {
         HS_EXPECT_TRUE(in_set[e] != out_set[e]);
         in_count += in_set[e] ? 1 : 0;
       }
-      // The endpoints are exact: nothing incoming at phase 0, everything at 1.
       if (p == 0.0f)
         HS_EXPECT_EQ(in_count, size_t{0});
       if (p == 1.0f)
         HS_EXPECT_EQ(in_count, num_edges);
-      // Mid-transition both halves must be non-empty, or the split is vacuous.
       if (p == 0.5f) {
         HS_EXPECT_GT(in_count, size_t{0});
         HS_EXPECT_GT(num_edges - in_count, size_t{0});

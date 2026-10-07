@@ -495,7 +495,7 @@ inline void test_hankin_sweep_vertex_stability() {
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
 
     // Opening bookend: chord between the collapsed form and the leg's first
-    // drawn angle, in sphere radii (sub-pixel iff below ~1/display radius).
+    // drawn angle, in sphere radii.
     float eps_chord = 0;
     std::vector<HankinSolve> at_eps;
     hankin_solve(compiled, THETA_EPS, at_eps);

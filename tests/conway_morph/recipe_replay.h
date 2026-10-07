@@ -128,10 +128,8 @@ inline ChainPeaks replay_build_chain(const char *name,
     std::vector<int> full_topo;
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
-    // A hankin leg's endpoint is rebuilt into scratch_a and stays there until
-    // the boundary evacuates it into the fresh persistent arena, as
-    // finish_build_leg does. One is live at a time, so each rebuild rewinds to
-    // this mark first.
+    // A hankin leg's endpoint lives in scratch_a until the boundary evacuates
+    // it, as finish_build_leg does; each rebuild rewinds to this mark.
     const size_t endpoint_mark = scratch_arena_a.get_offset();
 
     for (size_t k = 0; k < count; ++k) {
@@ -224,11 +222,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
       constexpr float PROBE_T[] = {0.0f, 0.5f, 1.0f};
       Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
-      // A gated leg's face count is constant per side and changes once, at the
-      // swap; every other kind holds one count for the whole leg. Every frame
-      // must draw every face's (from, to) ramp bit-exact at the frame's blend
-      // weight: endpoint weights alias the bank LUTs, interior weights are
-      // rebuilt here through the same bake_palette_blend the leg uses.
+      // Every frame must draw every face's (from, to) ramp bit-exact at the
+      // frame's blend weight.
       auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
         HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
         const bool side_start =
@@ -441,11 +436,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       cur = std::move(next);
     }
 
-    // Final sprite handoff, mirroring finish_build: the finished solid's
-    // per-face palettes are the last landing's landed palettes, snapshotted
-    // before the closing compaction. The compiled slot must match them face
-    // for face, so the sprite's first frame draws exactly what the last leg
-    // frame drew (the closing w = 1 plateau).
+    // Final sprite handoff, mirroring finish_build: the compiled slot must
+    // match the last landing's palettes face for face.
     const size_t landed_faces = cur.face_counts.size();
     HS_EXPECT_LE(landed_faces, prev_landing->faces);
     HS_EXPECT_LE(landed_faces, MAX_FACES);

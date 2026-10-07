@@ -154,10 +154,9 @@ struct Face {
   bool linear_dist = false; /**< Face is small enough to report plane distance
                                without the atan. */
 
-  // Sector-walk state: a concave star-shaped-about-centroid face bins each
-  // query point into its angular sector (by pseudo-angle) and walks only the
-  // sector's edge and its nearest neighbors (sector_kmax on each side) instead
-  // of all `count` edges.
+  // Sector walk: a concave face star-shaped about its centroid bins each query
+  // by pseudo-angle and walks only that sector's edge and its sector_kmax
+  // neighbors on each side.
   static constexpr int SECTOR_MIN_COUNT =
       10; /**< Below this the full walk is already cheap; skip the sector path.
            */
@@ -325,9 +324,8 @@ struct Face {
       apply_pole_containment(height);
     }
 
-    // Whole-face clip cull: y_min/y_max and the azimuth coverage now match what
-    // the scan would draw, so a face disjoint from the clip band yields no
-    // in-band pixel.
+    // Whole-face clip cull: y_min/y_max and the azimuth coverage match what the
+    // scan draws.
     if (clip && clip_rejects(*clip)) {
       ++scratch.claim_seq;
       mark_culled();

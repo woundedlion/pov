@@ -333,9 +333,8 @@ struct IsrCycleScope {
 /**
  * @brief Times the enclosing scope, but only in a deep-profile build.
  * @param label Counter name (used both as the identifier suffix and log label).
- * @details For per-pixel, per-cell and per-face scopes the standard report
- * does not consume. Requires HS_PROFILE_DEEP_ENABLE on top of
- * HS_PROFILE_ENABLE, e.g. `just profile MeshFeedback 150 1`.
+ * @details For per-pixel, per-cell and per-face scopes. Requires
+ * HS_PROFILE_DEEP_ENABLE on top of HS_PROFILE_ENABLE.
  */
 #ifdef HS_PROFILE_DEEP_ENABLE
 #define HS_PROFILE_DEEP(label) HS_PROFILE(label)

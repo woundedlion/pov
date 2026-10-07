@@ -628,10 +628,8 @@ target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-on
 _hs_warnings(stack_measure)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
 
-# Arena high-water gate across every effect. Reports per-effect global-arena
-# usage to size DEVICE_GLOBAL_ARENA_SIZE (HS_DEVICE_ARENA_BYTES), and exits non-zero if the worst single-effect
-# partition charge exceeds the device budget. Fixed partitions are charged at
-# capacity and the host-inflated remainder at its measured peak.
+# Arena high-water gate across every effect: exits non-zero if the worst
+# single-effect partition charge exceeds the device budget.
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ENGINE_SOURCES})

@@ -92,9 +92,7 @@ inline void test_oklch_roundtrip() {
 /**
  * @brief Pins sRGB -> OKLab/OKLCH against published reference coordinates.
  * @details Canonical Ottosson sRGB references (white, pure red/green/blue) in
- *          the engine's units: L in [0,1], a/b Cartesian, h in radians. The
- *          tolerance (4e-3 on L/a/b, ~0.3deg on hue) catches a swapped matrix
- *          row/column while absorbing cbrtf rounding.
+ *          the engine's units: L in [0,1], a/b Cartesian, h in radians.
  */
 inline void test_oklab_reference_triples() {
   struct Ref {
@@ -470,8 +468,7 @@ inline void test_gamut_direction_lookup_matches_angle() {
 inline void expect_clip_lands_on_first_exit(const char *path) {
   HS_CONTEXT(path);
   const float DEFICIT_BOUND = 5e-3f;
-  // About 33 float ULPs at the largest mapped chroma (~0.32), and 7.6x
-  // below the LUT chroma quantum (1/GAMUT_LUT_SCALE).
+  // Below the LUT chroma quantum (1/GAMUT_LUT_SCALE).
   const float OVERSAT_BOUND = 1e-6f;
   const float RESIDUE_BOUND = 0.05f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
@@ -678,10 +675,8 @@ inline void test_gamut_lut_release_and_passthrough() {
 
 /**
  * @brief Pins the single-step normalization used by the LUT gamut path.
- * @details The reference chroma pair was captured by printing scaled.a and
- * scaled.b from this case under the native clang test toolchain. The tolerance
- * is relative because this module also runs under -ffast-math
- * -fno-finite-math-only, which reassociates the Newton step.
+ * @details The tolerance is relative because this module also runs under
+ * -ffast-math, which reassociates the Newton step.
  */
 inline void test_gamut_lut_boundary_scale_rounding() {
   const OKLab scaled = gamut_scale_to_boundary_lut({0.5f, 0.4f, 0.3f});
@@ -767,8 +762,7 @@ inline void test_hue_rotate_preserves_gray() {
 /**
  * @brief Verifies a full-turn rotation returns to the original color.
  * @details The residual is the combined error of fast_cosf/fast_sinf at 2*PI
- *          and the fast_cbrt OKLab round-trip: measured at most 4 LSB of the
- *          16-bit linear channel on this saturated sample.
+ *          and the fast_cbrt OKLab round-trip.
  */
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
@@ -784,11 +778,9 @@ inline void test_hue_rotate_full_turn_identity() {
 /**
  * @brief Verifies a full turn taken in N steps holds hue, chroma and lightness.
  * @details Applying a 1/32-turn rotation 32 times must land back on the input;
- *          per-step requantization and fast-math errors compound. Hue drift is
- *          bounded at 0.09 rad (measured 0.054) and lightness at 1e-3 (measured
- *          3e-4). Chroma may only shrink: a gamut-boundary color loses chroma
- *          where the clip pulls it in. A base well inside the cusp holds its
- *          chroma to 2e-4 (measured 4e-5).
+ *          per-step requantization and fast-math errors compound. Chroma may
+ *          only shrink: a gamut-boundary color loses chroma where the clip
+ *          pulls it in, while a base well inside the cusp holds it.
  */
 inline void test_hue_rotate_full_turn_in_steps_holds_hue_and_chroma() {
   const int STEPS = 32;

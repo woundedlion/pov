@@ -70,32 +70,22 @@ template <int H> __attribute__((always_inline)) inline int round_row(float y) {
  * whether it carries state across frames.
  * @tparam Is2d True for a screen-space stage, false for a world-space one.
  * @tparam HasHistory True when the stage keeps state between frames.
- * @details `is_terminal`: writes the Canvas directly, so it must be the last
- * stage and its flush takes neither a trail nor a `pass` callback
- * (`flush(Canvas&, float)`). `terminal_replaces`: a terminal that
- * overwrites the whole frame (Feedback's opaque store), so no history-bearing
- * stage may precede it — its flush emissions would be clobbered — and the
- * effect must flush BEFORE the frame's plot() calls: at alpha >= 1 the flush
- * writes every destination pixel, erasing anything already plotted.
- * `emits_nonunit_world` /
- * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
- * a unit-assuming one. `emits_pixel_centers` / `requires_subpixel_input`: a
- * screen stage that rounds its taps to pixel centers must not precede one whose
- * whole job is the sub-pixel fraction, which the rounding would make an exact
- * identity. `crosses_segments`: output can move between worker
- * segment bands, so the effect must render the full canvas. `reads_outside_band`:
- * the stage samples framebuffer pixels outside the display band, so stale pixels
- * outside that band must also be cleared. Both default to `has_history`
- * (fail-safe). `segment_margin`: how many pixels the stage's output can land
- * away from the plotted position, i.e. how far the render bounds must be padded
- * past the display band for a segment worker to still write the stage's taps.
- * `is_pipeline`: the type is a whole pipeline rather than a stage, so it may not
- * be listed inside a `Pipeline<>`.
- * `world_transform_is_identity`: the stage forwards world points unmoved (it may
- * still mask or recolor), so the clip cull may run against the source geometry.
- * A world stage that moves points must instead define `cull_edge` or set
- * `crosses_segments`.
- * A stage overrides any of these by redeclaring it.
+ * @details A stage overrides any trait by redeclaring it.
+ * `is_terminal`: writes the Canvas directly; must be the last stage, and its
+ * flush is `flush(Canvas&, float)`.
+ * `terminal_replaces`: a terminal that overwrites the whole frame; no
+ * history-bearing stage may precede it, and the effect must flush before the
+ * frame's plot() calls (at alpha >= 1 the flush overwrites every pixel).
+ * `emits_nonunit_world` must not precede `requires_unit_world_input`;
+ * `emits_pixel_centers` must not precede `requires_subpixel_input`.
+ * `crosses_segments`: output can move between segment bands, forcing a
+ * full-canvas render. `reads_outside_band`: samples pixels outside the display
+ * band, so those are cleared too. Both default to `has_history`.
+ * `segment_margin`: how far, in pixels, a tap can land from its plotted
+ * position. `is_pipeline`: a whole pipeline, not listable inside `Pipeline<>`.
+ * `world_transform_is_identity`: world points pass unmoved (masking or
+ * recoloring allowed), so the clip cull may use source geometry; a moving world
+ * stage must define `cull_edge` or set `crosses_segments`.
  */
 template <bool Is2d, bool HasHistory> struct FilterTraits {
   static constexpr int domain_rank =
@@ -149,9 +139,8 @@ struct IsPipelineSink : FilterTraits<true, false> {
 /**
  * @brief The pipeline-level trait surface a whole pipeline answers, as opposed
  *        to the stage vocabulary in FilterTraits.
- * @details A direct sink hand-mirrors every member. The hoist and direct-raster
- * readers are `requires`-guarded, so a sink missing a member silently loses
- * those fast paths instead of failing to compile.
+ * @details A direct sink must mirror every member: `requires`-guarded readers
+ * silently drop their fast path when one is missing.
  */
 template <typename T>
 concept PipelineFoldSurface = requires {
@@ -297,8 +286,7 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_pipeline = true;
   static constexpr bool direct_raster_path = false;
   static constexpr bool is_terminal = false;
-  // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
-  // is_pipeline diagnostic instead of failing in the trait folds first.
+  // Stage vocabulary, so a nested Pipeline reaches the is_pipeline diagnostic.
   static constexpr bool has_history = false;
   static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
@@ -325,8 +313,6 @@ template <int W, int H> struct Pipeline<W, H> {
    * @brief Type-safe filter accessor (base case: T not found).
    * @tparam T Filter type being looked up.
    * @return Never returns; instantiation is a hard error.
-   * @details Dependent-false guard: fires only when get<T>() is named on a
-   * pipeline lacking T.
    */
   template <typename T> T &get() {
     static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
@@ -419,9 +405,8 @@ public:
   /**
    * @brief Trail flush (base case: no stage to flush).
    * @tparam TrailFn ScreenTrailFn or WorldTrailFn.
-   * @details Dependent-false guard: fires only when flush() is named on a
-   * filterless pipeline. The recursion runs through flush_stages(), so this
-   * overload is reachable from outside the pipeline only.
+   * @details Reached only from outside the pipeline; the recursion runs
+   * through flush_stages().
    */
   template <typename TrailFn> void flush(Canvas &, const TrailFn &, float) {
     static_assert(
@@ -507,8 +492,7 @@ struct Pipeline<W, H, Head, Tail...>
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
   static constexpr bool any_3d_history =
       (Head::has_history && !Head::is_2d) || Next::any_3d_history;
-  // Stage vocabulary, so a Pipeline nested inside a Pipeline<> reaches the
-  // is_pipeline diagnostic instead of failing in the trait folds first.
+  // Stage vocabulary, so a nested Pipeline reaches the is_pipeline diagnostic.
   static constexpr bool has_history = any_2d_history || any_3d_history;
   static constexpr bool terminal_replaces =
       Head::terminal_replaces || Next::terminal_replaces;
@@ -524,21 +508,19 @@ struct Pipeline<W, H, Head, Tail...>
       Head::world_transform_is_identity && Next::world_transform_is_identity;
 
   /**
-   * @brief True when any stage overrides cull_edge or moves world points
-   * (!world_transform_is_identity), so clip culling must run
-   *        through the pipeline rather than on raw geometry. Projection
-   *        precomputation is governed by has_world_stage.
+   * @brief True when any stage overrides cull_edge or moves world points, so
+   *        clip culling must run through the pipeline rather than on raw
+   *        geometry.
    */
   static constexpr bool has_world_cull = Filter::has_cull_edge<Head> ||
                                          !Head::world_transform_is_identity ||
                                          Next::has_world_cull;
 
   /**
-   * @brief True when any stage runs in world space, so a screen-space
-   *        coordinate handed to plot() is lifted back through pixel_to_vector
-   *        (not an inverse of vector_to_pixel) before that stage sees it, and a
-   *        caller may not substitute precomputed screen coordinates for the
-   *        point's world position.
+   * @brief True when any stage runs in world space: screen coordinates handed
+   *        to plot() are lifted through pixel_to_vector (not an exact inverse of
+   *        vector_to_pixel), so a caller may not substitute precomputed screen
+   *        coordinates for a world position.
    */
   static constexpr bool has_world_stage = !Head::is_2d || Next::has_world_stage;
 

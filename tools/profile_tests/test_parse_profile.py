@@ -243,10 +243,8 @@ class RenderIsWall(unittest.TestCase):
 def _synth_log(path, shapes, per_window=4):
     """A capture where each shape advances mid-window.
 
-    `shapes` is [(name, F, [render_us, ...])]. The marker is emitted before the
-    shape's first frame line, exactly as the device logs it: spawn_shape runs
-    during a frame, so its serial line precedes that frame's row and the
-    enclosing window's dump. Each frame belongs to the shape on screen for it.
+    `shapes` is [(name, F, [render_us, ...])]. As on the device, each marker
+    precedes its shape's first frame row.
     """
     lines = ["profile harness: effect=Fx segments=4 rpm=480 f_cpu=600000000"]
     rows, n = [], 0
@@ -272,11 +270,7 @@ def _synth_log(path, shapes, per_window=4):
 
 
 class StraddleWindowAttribution(unittest.TestCase):
-    """A window spanning a shape advance holds frames of BOTH shapes.
-
-    Each shape's peak is computed from its own frames, including when a cheap
-    shape follows an expensive one.
-    """
+    """A window spanning a shape advance attributes each frame to its own shape."""
 
     def _buckets(self, shapes):
         with tempfile.TemporaryDirectory() as d:
@@ -296,9 +290,8 @@ class StraddleWindowAttribution(unittest.TestCase):
         self.assertEqual(max(got["expensive"]), 100_000)
 
     def test_every_frame_is_attributed_exactly_once(self):
-        # 6/6/4 frames over windows of 4: the window at frames 5-8 straddles
-        # a->b. Total is a whole number of windows, as a real capture is (a
-        # trailing partial window never dumps, so its rows never parse).
+        # 6/6/4 frames over windows of 4: frames 5-8 straddle a->b. The total
+        # is whole windows, since a trailing partial window never dumps.
         shapes = [("a", 74, list(range(10_000, 10_006))),
                   ("b", 182, list(range(20_000, 20_006))),
                   ("c", 542, list(range(30_000, 30_004)))]

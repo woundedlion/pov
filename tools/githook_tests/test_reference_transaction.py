@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """Host tests for .githooks/reference-transaction fast-forward enforcement.
 
-The hook is what makes the landing model safe: it refuses every
-non-fast-forward move of refs/heads/master, and an intentional rewind needs a
-one-shot token naming the target commit (full or abbreviated SHA), the current
-commit for deletion, or ANY. A regression there silently permits
-a clobber of landed work on the one branch every session lands on. The hook is
-driven here against a scratch repository -- end to end through `git update-ref`,
-and directly against crafted transaction lines for the cases git will not
-produce on demand.
+The hook refuses every non-fast-forward move of refs/heads/master unless a
+one-shot token names the target commit (full or abbreviated SHA), the current
+commit for deletion, or ANY.
 
 Run:  python -m unittest discover -s tools/githook_tests
 """
@@ -48,8 +43,7 @@ class ReferenceTransactionHook(unittest.TestCase):
         (self.repo / "empty-config").write_text("", encoding="utf-8")
         self.git("init", "--quiet", "-b", "master")
 
-        # base <- one is the fast-forward line; side diverges from base, so it
-        # is neither an ancestor nor a descendant of one.
+        # base <- one <- two (branch ahead); side branches from base.
         self.git("commit", "--allow-empty", "--quiet", "-m", "base")
         self.base = self.rev("HEAD")
         self.git("commit", "--allow-empty", "--quiet", "-m", "one")

@@ -2,9 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host unit tests for the segmented-POV driver's pure logic: segment index math
- * (hardware/pov_segment_map.h), effect handoff, submit gates and segment-half
- * preservation.
+ * Host unit tests for the segmented-POV driver's pure logic.
  */
 #pragma once
 
@@ -67,10 +65,8 @@ static_assert(segment_clip(segment_map(1, 288, 4), true, 288, 4, 288).y0 == 72);
  * @param N Number of segments.
  * @param w Canvas width in columns (rotation resolution).
  * @param x Rotation column sampled by arm A (arm B samples (x+w/2)%w).
- * @details At a fixed rotation column, every segment's per-LED write must land
- * on a distinct canvas pixel and the N segments together must tile exactly the
- * two columns the arms sample (x for arm A, (x+w/2)%w for arm B), each row
- * covered once. The S LED writes must map onto 2*ROWS canvas pixels.
+ * @details The N segments must tile exactly the two sampled columns, each row
+ * covered once.
  */
 inline void check_tiling(int S, int N, int w, int x) {
   const int PPS = S / N;
@@ -115,9 +111,6 @@ inline void check_tiling(int S, int N, int w, int x) {
 
 /**
  * @brief Verify per-segment SegmentMap fields for the 4-segment layout.
- * @details Checks arm side (A/B) and the y_base/y_step that distinguish top
- * strips (ascending from the pole) from bottom strips (descending, reversed),
- * plus that the strip endpoints map to the expected pole/junction rows.
  */
 inline void test_segment_derivation() {
   // Phantasm config: N=4, S=288 -> ROWS=144, PPS=72.
@@ -289,8 +282,7 @@ inline void test_segment_clip_applies() {
   }
 }
 
-// Stand-in for Effect: the handoff never dereferences the pointee, only tracks
-// ownership by address, so an empty tag type exercises every code path.
+// Stand-in for Effect; the handoff only tracks ownership by address.
 struct FakeEffect {};
 
 enum class WakeStep : uint8_t {
@@ -334,9 +326,6 @@ struct NoreturnCommitFailure {
 /**
  * @brief Teardown handshake: request, then ISR service acks and drops the live
  * pointer.
- * @details The foreground bumps the request counter and spins on
- * release_complete(); a single ISR service_release() must ack and null the live
- * pointer before the foreground frees the instance.
  */
 inline void test_release_handshake() {
   EffectHandoff<FakeEffect> h;
@@ -360,9 +349,8 @@ inline void test_release_handshake() {
 
 /**
  * @brief Two release requests before a single service still reconcile.
- * @details ISR wakes are advisory; several foreground requests may accumulate
- * before one service runs. The ack copies the whole request count, so one
- * service clears the backlog.
+ * @details The ack copies the whole request count, so one service clears the
+ * backlog.
  */
 inline void test_release_backlog_reconciles() {
   EffectHandoff<FakeEffect> h;
@@ -378,9 +366,8 @@ inline void test_release_backlog_reconciles() {
 
 /**
  * @brief Commit path: publish then adopt with a matching generation.
- * @details committable() is the commit-time use-after-free guard — true only
- * when the pending slot holds an effect whose generation matches the wire's
- * advertised build.
+ * @details committable() is true only when the pending slot holds an effect
+ * whose generation matches the wire's advertised build.
  */
 inline void test_commit_adopt_matching_gen() {
   EffectHandoff<FakeEffect> h;
@@ -401,8 +388,6 @@ inline void test_commit_adopt_matching_gen() {
 
 /**
  * @brief Commit guard trips on an empty or stale pending slot.
- * @details After clear_pending() the slot is null, so committable() is false —
- * the commit-time HS_CHECK that would otherwise trap on a use-after-free.
  */
 inline void test_commit_guard_rejects_empty_and_stale() {
   EffectHandoff<FakeEffect> h;
@@ -420,9 +405,6 @@ inline void test_commit_guard_rejects_empty_and_stale() {
 
 /**
  * @brief Join path: adopt only a present, unconsumed, wire-matching generation.
- * @details A late joiner takes the pending effect live, but only when its
- * generation still matches the wire and has not already been consumed; a
- * mismatch simply waits for the next join grid step.
  */
 inline void test_join_adopt_and_gen_gating() {
   EffectHandoff<FakeEffect> h;
@@ -443,9 +425,7 @@ inline void test_join_adopt_and_gen_gating() {
 
 /**
  * @brief Full teardown→publish→commit cycle across two generations.
- * @details Runs the foreground rebuild sequence single-threaded: adopt gen1,
- * clear pending work, tear it down via the handshake, publish gen2, commit
- * gen2. No live effect is adopted while a release is outstanding.
+ * @details No live effect is adopted while a release is outstanding.
  */
 inline void test_full_handoff_cycle() {
   EffectHandoff<FakeEffect> h;
@@ -842,9 +822,8 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
       draw_returned.store(true, std::memory_order_release);
     });
 
-    // The draw either returns or reaches its buffer_free spin within
-    // microseconds; the deadline turns an unsatisfiable predicate into a
-    // failure instead of a wait that runs to the shard timeout.
+    // The deadline turns an unsatisfiable predicate into a failure instead of
+    // a wait that runs to the shard timeout.
     const auto deadline =
         std::chrono::steady_clock::now() + std::chrono::seconds(30);
     bool wait_timed_out = false;
@@ -875,12 +854,9 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
 
 /**
  * @brief Verifies segment clipping is selected after buffer acquisition.
- * @details Composes Effect's double buffer, both stale-pixel clear paths, and
- * EffectHandoff's window publisher under a zero-spill scheduler. Sampling
- * before a blocked draw produces the alternating-window phase error; the
- * buffer-ready callback selects every displayed frame's live half. The
- * clip-only clear leaves the seed outside the band intact where the
- * whole-buffer clear erases it.
+ * @details Sampling before a blocked draw produces the alternating-window
+ * phase error. The clip-only clear leaves the seed outside the band intact
+ * where the whole-buffer clear erases it.
  */
 inline void test_clip_phase_after_buffer_release() {
   const PhaseRun pre_wait = run_phase_scheduler(false, false);

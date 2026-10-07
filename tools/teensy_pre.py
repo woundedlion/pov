@@ -1,13 +1,8 @@
 """PlatformIO pre-build hook: point sketch discovery at THIS env's .ino.
 
-PlatformIO discovers the Arduino sketch ONLY by globbing
-`$PROJECT_SRC_DIR/*.ino` at the top level (pioino.FindInoNodes) and IGNORES
-build_src_filter, so with src_dir = repo root and the sketches under
-targets/<X>/ it finds nothing.
-
-This overrides FindInoNodes to return exactly this env's sketch (keyed on
-$PIOENV); PlatformIO converts it to targets/<X>/<X>.ino.cpp for
-build_src_filter. Only ONE sketch's setup()/loop() is ever compiled.
+pioino.FindInoNodes globs only `$PROJECT_SRC_DIR/*.ino` and ignores
+build_src_filter, so it finds nothing under targets/<X>/. This override returns
+exactly the sketch for $PIOENV.
 """
 
 import os

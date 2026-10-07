@@ -170,7 +170,6 @@ public:
   static constexpr size_t FOOTPRINT_BYTES = sizeof(Node) + sizeof(NoiseEntity) +
                                             alignof(NoiseEntity) + sizeof(int) +
                                             alignof(int);
-  // The custom split leaves the remainder of the device arena persistent.
   static_assert(
       FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
       "Fishbowl persistent footprint exceeds its partition; "

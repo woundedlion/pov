@@ -11,8 +11,6 @@
  * @details Non-finite input rule: a constructor argument traps (HS_CHECK). A
  * value re-read from a live source each frame, or written through a
  * live-tunable setter, is ignored on non-finite and the last good value kept.
- * MobiusFlow substitutes rings=0 and lines=1 on non-finite live reads.
- * Driver::set_speed traps.
  */
 
 #include "animation/orientation.h"
@@ -187,8 +185,6 @@ protected:
   AnimationCommon(int duration, bool repeat)
       : duration(duration == 0 ? 1 : duration), repeat(repeat),
         canceled(false) {
-    // -1 is the sole perpetual sentinel; any other negative would make done()
-    // permanently false so a one-shot never completes or fires .then().
     HS_CHECK(duration >= 0 || duration == -1,
              "AnimationBase duration must be >= 0 or -1 (perpetual)");
   }
@@ -264,8 +260,7 @@ public:
   /**
    * @brief Sets a per-cycle completion callback (RValue overload).
    *
-   * See the lvalue overload for the per-cycle semantics across one-shot,
-   * repeating, and Driver targets.
+   * Same per-cycle semantics as the lvalue overload.
    * @param callback The function to execute at each completion.
    * @return RValue Reference to the derived animation object.
    */
@@ -293,8 +288,7 @@ protected:
 #include "animation/carousel.h"
 #undef HS_ANIMATION_INTERNAL
 
-// Inline-storage budget audit over every concrete animation type, checked in
-// every build that includes this header.
+// Inline-storage budget audit over the concrete animation types.
 /** @brief Largest sizeof over a pack of types. */
 template <typename... Ts> constexpr size_t largest_sizeof() {
   return std::max({sizeof(Ts)...});

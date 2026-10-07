@@ -285,9 +285,8 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope. Changed fraction, energy, deepest darkening and
- * deepest band are bracketed on both sides, so a widened band and a collapsed
- * seam both fail. Fraction and energy count only pixels past DELTA_THRESH. */
+/** Gated-swap envelope, bracketed on both sides. Fraction and energy count
+ * only pixels past DELTA_THRESH. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
@@ -306,7 +305,7 @@ constexpr int MEASURED_MAX_BAND_DUAL_DODECA = 35;
 constexpr int MAX_BAND_MARGIN = 2;
 constexpr double MAX_ABS_ENERGY = 0.02;
 
-/** Half the smallest measured absolute energy (0.96 %, dual cube). */
+/** Half the smallest measured absolute energy. */
 constexpr double MIN_ABS_ENERGY = 0.005;
 
 /** Deepest measured pixel delta: a seam pixel both children claim at half
@@ -554,10 +553,8 @@ inline void measure_kis(const char *name, double measured_changed_frac,
   std::snprintf(png, sizeof(png), "%s_kis_diff", name);
   dump_png(png, diff_image(a, b));
 
-  // The fan partitions the parent's spherical patches, so total coverage is
-  // unchanged; the delta is dominated by darkening on the new spokes, with a
-  // smaller brightening where the children's own gnomonic frames narrow the
-  // parent's existing edge bands.
+  // The fan partitions the parent's patches, so total coverage is unchanged;
+  // the delta is dominated by darkening on the new spokes.
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
   HS_EXPECT_GT(st.energy, 0.0);
   HS_EXPECT_GT(st.max_dark, st.max_bright);
@@ -604,9 +601,8 @@ inline void measure_dual(const char *name, double measured_changed_frac,
   std::snprintf(png, sizeof(png), "%s_dual_diff", name);
   dump_png(png, diff_image(a, b));
 
-  // The dual's faces partition the sphere the same way the seed's do, so total
-  // coverage is unchanged; unlike kis the delta has no fixed sign, since the
-  // new edges neither contain nor are contained by the old ones.
+  // The dual partitions the sphere like the seed, so total coverage is
+  // unchanged; the delta has no fixed sign.
   HS_EXPECT_EQ(st.lit_a, st.lit_b);
   expect_within_envelope(st, measured_changed_frac, measured_max_band);
 }

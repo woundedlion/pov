@@ -9,8 +9,7 @@
  * @brief Verifies two animations sharing one Orientation COMPOSE their
  * sub-frame motion-blur history within a frame instead of clobbering it.
  * @details With composition the oldest sub-frame (index 0) still reflects the
- * pre-frame orientation (identity here). Uses the global Timeline;
- * Rotation::step never dereferences the canvas.
+ * pre-frame orientation (identity here).
  */
 inline void test_timeline_shared_orientation_composes_motion_blur() {
   using Ori = math::Orientation<16>;
@@ -78,8 +77,7 @@ inline void test_timeline_collapse_past_id_cache() {
  * @brief Verifies Timeline schedules events by start frame and removes
  * completed one-shots so later events can run after earlier ones finish.
  * @details An event added with in_frames > 0 stays dormant until t reaches its
- * start, then steps. Uses the global Timeline; each Timeline is scoped so the
- * live-guard balances, and Transition::step never dereferences the canvas.
+ * start, then steps.
  */
 inline void test_timeline_sequences_events_by_start_frame() {
   Timeline tl;
@@ -238,7 +236,7 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
   struct {
     int thens = 0;
     Animation::Mutation *anim = nullptr;
-  } st; // one capture keeps the callback inside Fn's inplace budget
+  } st;
   st.anim = tl.add_get(0,
                        Animation::Mutation(
                            v, [](float e) { return e; }, 2, math::ease_linear,
@@ -401,9 +399,6 @@ inline void test_timeline_cancel_while_paused_removes_event() {
 /**
  * @brief Verifies step() compacts the event array when a non-repeating event is
  * removed, and relocated survivors keep stepping from their new positions.
- * @details Later survivors are relocated (move_into) into the freed slots. The
- * decisive check is that the originally-LAST event (relocated furthest) still
- * reaches its own target.
  */
 inline void test_timeline_compaction_preserves_later_events() {
   Timeline tl;
@@ -435,9 +430,7 @@ inline void test_timeline_compaction_preserves_later_events() {
 /**
  * @brief Verifies .then() fires on completion and a callback may schedule a
  * follow-up on the same Timeline mid-step.
- * @details step() appends such events past the active snapshot, then gap-fills
- * them into the freed slots (the add-during-callback path). The follow-up is
- * added this frame but only runs on the next.
+ * @details The follow-up is added this frame but only runs on the next.
  */
 inline void test_timeline_then_chains_follow_up_event() {
   Timeline tl;
@@ -460,9 +453,8 @@ inline void test_timeline_then_chains_follow_up_event() {
 /**
  * @brief Verifies a repeating timer routes its hook through post_callback() so
  * an attached .then() fires on every trigger.
- * @details A repeating timer (duration=-1, self-resetting) never reaches
- * done(), so the Timeline never fires its per-cycle .then(); the timer must
- * fire the hook itself to match the then() contract.
+ * @details A repeating timer never reaches done(), so the Timeline never fires
+ * its .then().
  */
 inline void test_repeating_timer_fires_then_each_cycle() {
   Timeline tl;
@@ -490,7 +482,7 @@ inline void test_repeating_timer_canceled_in_callback_fires_then_once() {
   struct {
     int triggers = 0;
     Animation::RandomTimer *timer = nullptr;
-  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  } st;
   st.timer =
       tl.add_get(0,
                  Animation::RandomTimer({.min = 3, .max = 3, .repeat = true},
@@ -575,8 +567,7 @@ inline void test_timeline_clear_destroys_events_keeping_frame() {
 /**
  * @brief Verifies construction/destruction tears down a pinned event and
  * rewinds the frame cursor, where the public clear() would trap.
- * @details The pin guard covers the runtime API only. The trapping half is
- * death case "timeline_clear_pinned".
+ * @details The pin guard covers the runtime API only.
  */
 inline void test_timeline_instance_boundary_reclaims_pinned_event() {
   {

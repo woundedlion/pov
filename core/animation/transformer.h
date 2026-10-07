@@ -89,11 +89,9 @@ template <typename T> constexpr bool declared_needs_sync() {
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
  * @tparam AnimT The animation class (e.g., Animation::Ripple).
  * @tparam CAPACITY Max number of active entities.
- * @details Owns the entity slots, their timeline lifecycle (spawn, completion
- * reclaim), and the per-frame param refresh. Derived classes add the hot-path
- * composition over the active entities (Transformer composes Vector warps,
- * FieldTransformer sums scalar fields). Each pool claims one Timeline
- * clear-hook slot at init_storage().
+ * @details Owns the entity slots, their timeline lifecycle, and the per-frame
+ * param refresh; derived classes compose over the active entities. Each pool
+ * claims one Timeline clear-hook slot at init_storage().
  */
 template <typename ParamsT, typename AnimT, int CAPACITY = 32>
 class TransformerPool {
@@ -364,9 +362,8 @@ private:
    *        never dereferenced unless it is found live.
    * @param serial The pool_serial captured alongside it.
    * @return True iff that exact pool is still constructed.
-   * @details Timeline events outlive a pool held in a narrower scope than the
-   * timeline, and their completion callbacks reach back into it. The serial
-   * separates a destroyed pool from a later one built at the same address.
+   * @details The serial separates a destroyed pool from a later one built at
+   * the same address.
    */
   HS_COLD_MEMBER static bool is_live(const TransformerPool *pool,
                                      uint32_t serial) {
@@ -391,8 +388,7 @@ private:
   /**
    * @brief Traps if the pool's arena was reclaimed under the live slots.
    * @details Detects reclamation only while the arena offset remains below
-   * the storage watermark; intervening allocations can mask it. Debug stamps
-   * also detect arena generation changes. Requires initialized entities.
+   * the storage watermark; intervening allocations can mask it.
    */
   HS_COLD_MEMBER void check_storage_watermark() const {
     HS_CHECK(storage_arena->get_offset() >= storage_end,
@@ -407,10 +403,8 @@ private:
 
   /**
    * @brief Debug-only use-after-free check on the pool's arena blocks.
-   * @details Asserts if the arena was reset or rebound after init_storage() —
-   * the slots then alias reissued bytes — or rewound below either block, either
-   * while the bytes are still uncovered or after a later allocation reissued
-   * them.
+   * @details Asserts if the arena was reset, rebound, or rewound below either
+   * block since the last init_storage()/reclaim_storage().
    */
   void check_storage_alive() const {
     HS_ASSERT_BLOCK_ALIVE(stamp, entities, CAPACITY * sizeof(Entity),
@@ -574,11 +568,8 @@ constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
 /**
  * @brief Accumulates a magnitude-weighted blend of scalar fields: the strongest
  * contribution dominates without stacking.
- * @details Use instead of summation when overlapping entities must not add
- * (e.g. solid bodies displacing a shared sheet). Above FIELD_DOMINANT_DEN_EPS,
- * a single field and equal same-signed overlaps reproduce the field up to
- * floating-point rounding, and opposite-signed overlaps cancel smoothly. At or below the
- * denominator floor the result is zero, introducing a discontinuity there.
+ * @details Use instead of summation when overlapping entities must not add.
+ * At or below FIELD_DOMINANT_DEN_EPS the result is zero, a discontinuity.
  */
 struct DominantFieldAccumulator {
   /** @brief Folds one field sample into the blend. */
@@ -609,14 +600,9 @@ private:
  * @tparam AnimT The animation class (e.g., Animation::BallDrop).
  * @tparam FieldFunc The static function evaluating one entity's field.
  * @tparam CAPACITY Max number of active fields.
- * @details The scalar counterpart of Transformer: entities compose as scalars
- * instead of as warps, so a caller can feed the composed field into a
- * displacement path (e.g. a DistortedRing shift LUT). field() offers
- * superposition by summation; a caller whose entities must not stack composes
- * its own way over active_count()/active_params() (see
- * DominantFieldAccumulator). field_bound() bounds either composition, since the
- * dominant blend stays within the largest contribution up to floating-point
- * rounding.
+ * @details field() sums the entities; a caller whose entities must not stack
+ * composes over active_count()/active_params() (see DominantFieldAccumulator).
+ * field_bound() bounds either composition.
  */
 template <typename ParamsT, typename AnimT,
           float (*FieldFunc)(const math::Vector &, const ParamsT &),
@@ -707,8 +693,8 @@ template <int CAPACITY>
 OrientTransformer(const math::Orientation<CAPACITY> &)
     -> OrientTransformer<CAPACITY>;
 
-/** @brief Largest ripple rotation the series-form quaternion may take; at
- * theta/2 <= 0.075 the truncated sin/cos series err under 3 float ulps. */
+/** @brief Largest ripple rotation the series-form quaternion may take, within
+ * which the truncated sin/cos series stay at float rounding. */
 constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
 
 /**
@@ -774,11 +760,8 @@ ripple_transform(const math::Vector &v, const Animation::RippleParams &params) {
  * @param v The unit vector to transform.
  * @param params Noise field, scale, amplitude and time.
  * @return The displaced unit vector.
- * @details Samples three decorrelated noise channels (the second and third
- * field-shifted by 100 and 200 on all three axes) to build a displacement,
- * projects it onto the tangent plane at v so the point stays on the sphere,
- * caps the slide to avoid cross-hemisphere jumps, then renormalizes. No-op
- * when amplitude is negligible.
+ * @details Projects a three-channel noise displacement onto the tangent plane
+ * at v, soft-caps the slide, and renormalizes.
  */
 inline math::Vector noise_transform(const math::Vector &v,
                                     const Animation::NoiseParams &params) {
@@ -805,7 +788,6 @@ inline math::Vector noise_transform(const math::Vector &v,
   math::Vector raw_noise =
       math::Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
-  // Project noise onto the tangent plane at v.
   float inward_pull = math::dot(raw_noise, v);
   math::Vector surface_distortion = raw_noise - (v * inward_pull);
 
@@ -894,13 +876,9 @@ inline float bump_field_with_y(const math::Vector &v,
  * @param params Bump center, stack axis, footprint and lifecycle envelope
  * (the envelope scales the effective footprint, inflating/deflating the cap).
  * @return The signed polar displacement (radians): the depth inside the cap's
- * boundary arc, weighted by a drape factor that is zero for the ring through
- * the center (it rides straight over the top) and zero at the footprint edge
- * (the ball's equator), peaking between. The amplitude gain scales the drape
- * weight, saturating at 1 (full clearance to the boundary arc), so the gain
- * morphs the look from a soft drape toward a solid punch-through. Positive
- * pushes toward larger colatitude about the axis; points outside the cap are
- * untouched.
+ * boundary arc, weighted by a drape factor that is zero at the center ring and
+ * the footprint edge; the amplitude gain scales that weight, saturating at 1.
+ * Positive pushes toward larger colatitude about the axis; 0 outside the cap.
  */
 inline float bump_field(const math::Vector &v,
                         const Animation::BumpParams &params) {
@@ -908,11 +886,7 @@ inline float bump_field(const math::Vector &v,
   if (!bump_cap_hit(v, params, r_eff, d))
     return 0.0f;
 
-  // Local cap coords: signed polar offset y from the center (positive toward
-  // larger colatitude) and azimuthal offset x, with x^2 = d^2 - y^2 by the
-  // small-cap approximation. The boundary arc at this azimuth sits at
-  // +-sqrt(r_eff^2 - x_sq), so (arc - |y|) is the polar depth inside the cap —
-  // an arc-shaped profile along the ring, which keeps the bulge round.
+  // Signed polar offset from the center, positive toward larger colatitude.
   float y = math::fast_acos(hs::clamp(math::dot(params.axis, v), -1.0f, 1.0f)) -
             math::fast_acos(
                 hs::clamp(math::dot(params.axis, params.center), -1.0f, 1.0f));

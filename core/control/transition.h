@@ -18,10 +18,8 @@ namespace hs {
 
 /**
  * @brief Where the controller stands in a transition.
- * @details Every edge below is taken by one EffectTransitionController::tick(),
- *   except the two request() edges, which are noted as such. STEADY_OUT and
- *   STEADY_IN are the resting states; the controller treats them alike, and
- *   they differ only in naming which side of a completed transition is showing.
+ * @details Each edge is one EffectTransitionController::tick() except the two
+ *   marked request(). STEADY_OUT and STEADY_IN are the resting states;
  *   CLEAR_FAILSAFE is terminal for tick(); only request() leaves it.
  *
  *   Forward path:   STEADY_OUT/STEADY_IN --request()--> FADING_OUT ->
@@ -60,8 +58,7 @@ enum class EffectTransitionState : uint8_t {
 
 /**
  * @brief Who asked for a transition.
- * @details Carried verbatim in the request and the restore token for the
- *   adapter's own bookkeeping; the controller never branches on it.
+ * @details Carried for the adapter's bookkeeping; the controller ignores it.
  */
 enum class EffectTransitionOrigin : uint8_t {
   MANUAL,
@@ -117,10 +114,8 @@ struct EffectTransitionRequest {
 
 /**
  * @brief Outgoing-effect snapshot preflight() fills in, for a possible rollback.
- * @details schema_version is for the adapter that reads the token back; the
- *   controller never inspects it. effect_id is held until the transition ends
- *   and handed back to restore_outgoing(), so preflight() must point it at
- *   storage that lives at least that long.
+ * @details effect_id is held until the transition ends and handed back to
+ *   restore_outgoing(), so it must point at storage that lives that long.
  */
 struct EffectRestoreToken {
   static constexpr uint16_t SCHEMA_VERSION = 1;
@@ -136,8 +131,6 @@ struct EffectRestoreToken {
 
 /**
  * @brief Continuity the incoming effect inherits from the outgoing one.
- * @details schema_version is for the importing adapter; the controller never
- *   inspects it.
  */
 struct EffectHandoffState {
   static constexpr uint16_t SCHEMA_VERSION = 1;
@@ -149,11 +142,9 @@ struct EffectHandoffState {
 
 /**
  * @brief Host-side operations EffectTransitionController drives.
- * @details Operations run in the order EffectTransitionState documents. The status-returning methods are the failure points: returning
- *   anything but OK diverts the controller (to the caller for preflight(), to
- *   RESTORING_OUT for the construct/prepare steps, to CLEAR_FAILSAFE for the
- *   restore steps). Only OK-ness is tested; the enumerator named on each
- *   method is a convention.
+ * @details Operations run in the order EffectTransitionState documents. A
+ *   status-returning method that returns anything but OK diverts the
+ *   controller; only OK-ness is tested.
  */
 class EffectTransitionAdapter {
 public:

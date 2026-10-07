@@ -17,8 +17,8 @@ test('module roster rejects unloaded sources and stale or unexplained exemptions
 });
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-// Under the gitignored build tree: run_tests.mjs resolves the case relative
-// to ROOT, and an interrupted run strands nothing `git add -A` would commit.
+// Under ROOT's gitignored build tree, so an interrupted run strands nothing
+// committable.
 const FIXTURE_ROOT = join(ROOT, 'build');
 
 test('runner accepts a green run named by an absolute path', () => {

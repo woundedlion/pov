@@ -180,12 +180,9 @@ protected:
 
   /**
    * @brief Adopts a preset through the departing preset's policy.
-   * @details A manual or synchronized change snaps regardless of policy. An
-   * AUTOMATIC change follows the departing preset's policy: Segue::Preset::Snap adopts
-   * immediately, Segue::Preset::Lerp arms a crossfade from the live
-   * parameters, and Segue::Preset::Fade dims, adopts at the first step at or
-   * past half progress, and brightens. An odd frame count can skip zero
-   * opacity. A transition the timeline has no slot for restarts the dwell.
+   * @details A manual or synchronized change snaps; an AUTOMATIC change follows
+   * the departing preset's policy. A transition the timeline has no slot for
+   * restarts the dwell.
    * @param change The requested preset move.
    * @return False if an automatic transition cannot be scheduled.
    */
@@ -282,9 +279,7 @@ protected:
    * @brief Advances the in-flight transition one step.
    * @param progress Eased transition progress in [0, 1].
    * @details A transition cancelled by a manual preset, an edit or a snapshot
-   * restore keeps stepping but writes nothing. A fade holds the departing
-   * parameters at falling opacity, adopts the target at or past half progress,
-   * and rises back to full.
+   * restore keeps stepping but writes nothing.
    */
   HS_COLD_MEMBER void run_transition(float progress) {
     if (!transition.active)

@@ -383,18 +383,15 @@ inline void test_opleg_medial_leg_smoke() {
  * @brief Drives the dual bridge's medial -> closing-leg handoff on every
  *        DUAL-leg seed and pins the face correspondence across the seam.
  * @details The closing leg's face list is block-transposed against the
- * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]). The
- * permutation is derived by exact centroid matching at the ambo point, and the
- * closing leg's from-palettes must follow it. A rendered A/B (leg-2 last frame
- * vs leg-3 first frame) must stay near one in-leg step. Every site runs on the
- * bridge arena split. The needle site (truncate(X, 1/3)) has unequal blocks.
+ * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]); the
+ * closing leg's from-palettes must follow the permutation, and the rendered
+ * seam must stay near one in-leg step.
  */
 inline void test_opleg_dual_bridge_seam_correspondence() {
   using Animation::OpLeg;
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
   constexpr float SEAM_MATCH_TOL = 0.02f;
-  // Largest measured frame-wide sum of absolute channel deltas across sites: 917321.
   constexpr long long SEAM_SUMABS_MAX = 1100000ll;
 
   static Pipeline<RW, RH> filters;

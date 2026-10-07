@@ -48,8 +48,6 @@ inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
 #endif
 
 struct Pixel;
-// Saturating per-channel add packed into two uqadd16 lanes (g|b in one 32-bit
-// word, r alone in another).
 inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2);
 
 /**
@@ -150,9 +148,6 @@ struct Pixel {
    * @param other Target pixel at frac == 65535.
    * @param frac Blend weight in [0, 65535]; 0 yields this pixel, 65535 yields other.
    * @return The interpolated pixel, round-to-nearest per channel.
-   * @details Round-to-nearest div-by-65535 via shifts:
-   *   (x + (x>>16) + 32768) >> 16, within 1 LSB of round(x/65535) and exact at
-   * the endpoints (frac 0/65535 -> a/b).
    */
   __attribute__((always_inline)) Pixel lerp16(const Pixel &other,
                                               uint16_t frac) const {
@@ -203,17 +198,16 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 /**
  * @brief Master-alpha gate: one 8-bit LSB of the user's opacity slider.
  * @details A whole-effect gate on the slider value, never a per-sample floor:
- * sRGB's toe lifts a fragment at this alpha to roughly 13 encoded levels.
- * Per-sample cuts use MIN_ENCODABLE_ALPHA.
+ * sRGB's toe lifts a fragment at this alpha visibly above black. Per-sample
+ * cuts use MIN_ENCODABLE_ALPHA.
  */
 inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
 /**
  * @brief Per-sample alpha floor from the first nonzero encoded linear channel.
- * @details linear_to_srgb8 first leaves zero at linear channel 10 of 65535
- * (sRGB's 12.92x toe puts the 0.5/255 rounding step at 1/(510*12.92) linear),
- * so the cull uses 10/65535. Per-channel rounding can still lift an unrounded
- * peak in [9.5, 10) to linear channel 10 and sRGB 1.
+ * @details linear_to_srgb8 first leaves zero at linear channel 10 of 65535.
+ * Per-channel rounding can still lift an unrounded peak in [9.5, 10) to linear
+ * channel 10 and sRGB 1.
  */
 inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
 
@@ -339,9 +333,8 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
  * @param s_srgb sRGB value; out-of-range or NaN inputs are clamped to [0, 1]
  * internally (required for float->int cast safety).
  * @return 16-bit linear channel value.
- * @details Lerps between the two bracketing LUT entries by the fractional part
- * of s*255 (no powf). Lerping the convex sRGB transfer in linear space adds a
- * small upward (secant) bias versus exact powf.
+ * @details Lerping the convex sRGB transfer in linear space adds a small
+ * upward (secant) bias versus exact powf.
  */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
   // Clamp before the int cast: NaN/out-of-range is float->int UB.

@@ -231,7 +231,7 @@ class EngineRanges(unittest.TestCase):
 
 
 class SharedLiterals(unittest.TestCase):
-    """Strings ci.yml, the justfile and the pre-commit hook must spell alike."""
+    """Strings several build files must spell alike."""
 
     def test_the_tracked_copies_agree(self):
         self.assertEqual(bp.check_shared_literals(), [])
@@ -535,8 +535,7 @@ class InstallSet(unittest.TestCase):
 
 
 class FlexRamGeometry(unittest.TestCase):
-    """tools/teensy_budgets.json, tools/teensy_gate.py and tools/phantasm.ld all
-    spell one FlexRAM bank geometry, and this check is what ties them."""
+    """The budgets, gate and linker script spell one FlexRAM bank geometry."""
 
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()

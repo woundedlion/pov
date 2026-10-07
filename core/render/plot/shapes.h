@@ -51,9 +51,8 @@ struct FragmentDrawParams {
 /**
  * @brief Run the shared per-primitive draw ritual.
  *
- * Every Plot primitive opens a ScratchScope, binds a Fragments buffer, fills it,
- * applies the optional vertex shader, and rasterizes. The ScratchScope must
- * outlive the rasterize call (the arena backs the fragments).
+ * Opens a ScratchScope, binds a Fragments buffer, fills it, applies the
+ * optional vertex shader, and rasterizes.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Render pipeline type.
@@ -344,12 +343,10 @@ struct Multiline {
  * @param points Output fragment list; num_verts+1 fragments are appended.
  * @param num_verts Number of ring vertices (i in [0, num_verts)).
  * @param pos_fn Returns the unit-sphere position of vertex i.
- * @details Each vertex carries the standard ring registers — v0: perimeter
- * progress (i / num_verts), v1: accumulated great-circle arc length from vertex
- * 0, v2: vertex index, age: 0. The trailing close vertex duplicates vertex 0's
- * position with v0 = 1 and the arc length continued across the wrap edge, so an
- * `omit_end` rasterize draws the wrap edge without a UV seam and without
- * replotting vertex 0. Under a planar basis the rasterizer overrides v0/v1.
+ * @details Registers — v0: perimeter progress (i / num_verts), v1: arc length
+ * from vertex 0, v2: vertex index, age: 0. The close vertex repeats vertex 0
+ * with v0 = 1 and the arc continued across the wrap edge, so an `omit_end`
+ * rasterize has no UV seam. Under a planar basis the rasterizer overrides v0/v1.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -758,8 +755,6 @@ struct DistortedRing {
     const float cos_phase = cosf(phase);
     const float sin_phase = sinf(phase);
 
-    // Per-vertex point carries the shift-fn radial distortion; the loop, arc-
-    // length accumulation, and overlap close are the shared closed-ring skeleton.
     sample_closed_ring(points, num_samples, [&](int i) {
       float theta = i * step;
       math::Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
@@ -1214,8 +1209,6 @@ struct Flower {
     const float sin_r = sinf(safe_apothem);
     const float cos_r = cosf(safe_apothem);
 
-    // Constant polar radius per vertex; everything else is the shared closed-
-    // ring skeleton.
     sample_closed_ring(points, num_sides * 2, [&](int i) {
       float theta = phase + i * angle_step;
       float cos_t = cosf(theta);

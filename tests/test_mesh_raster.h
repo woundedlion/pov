@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Mesh wire and fill rasterization, congruence baking, budgets, and concavity.
+ * Mesh wireframe and fill rasterization tests.
  */
 #pragma once
 #include "core/animation/transformer.h"
@@ -87,8 +87,7 @@ inline bool lit_near(const hs_test::StubEffect &fx, float px, float py, int r) {
  */
 inline void test_wireframe_draws_every_edge() {
   constexpr int W = 288, H = 144;
-  configure_arenas_default(); // Plot::Mesh::draw samples edges via
-                              // scratch_arena_a
+  configure_arenas_default();
 
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
@@ -192,9 +191,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
 
   PolyMesh poly = Solids::Platonic::octahedron(seed_a, seed_b);
 
-  // Wireframe lit count, for the fill-vs-wireframe contrast. `wire` and `fx`
-  // alias the same static double buffer, so `wire` must be torn down (count
-  // captured) before `fx` is built — only one Effect may be live at once.
+  // `wire` must be destroyed before `fx`: one live Effect at a time.
   size_t wire_lit;
   {
     hs_test::StubEffect wire(W, H);
@@ -207,7 +204,6 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     wire_lit = count_lit_region<W, H>(wire);
   }
 
-  // Compile to a MeshState; the solid scan path needs face_offsets.
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
@@ -219,8 +215,6 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   }
   fx.advance_display();
 
-  // Each face interior is lit: project the centroid and assert a lit pixel
-  // there. A face whose bounding cull dropped its rows leaves it dark.
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -235,13 +229,10 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
-  // The fill covers far more than the wireframe.
   const size_t fill_lit = count_lit_region<W, H>(fx);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
-  // A closed convex solid tiles the whole sphere: every pixel center lands in
-  // some face, so the fill covers the canvas with no holes. Any dark pixel is
-  // an edge hole or a clipping artifact.
+  // A closed convex solid tiles the whole sphere.
   const size_t total = static_cast<size_t>(W) * H;
   HS_EXPECT_EQ(fill_lit, total);
 }
@@ -495,8 +486,6 @@ inline void test_dodecahedron_wireframe_and_fill() {
 
 /**
  * @brief Wireframe + solid-fill oracles on a large mixed-face Goldberg mesh.
- * @details The truncated icosahedron: 60 V, 90 E, 32 mixed pentagon/hexagon
- *          faces.
  */
 inline void test_truncated_icosahedron_wireframe_and_fill() {
   HS_CONTEXT("truncated icosahedron");
@@ -507,18 +496,14 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
   PolyMesh goldberg = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
-  check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128); // 90 edges
+  check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128);
   Arena geom2(mr_geom, sizeof(mr_geom));
   check_solid_fill_tiles<W, H>(goldberg, geom2, scratch);
 }
 
 /**
  * @brief Verifies the per-face clip cull never drops an in-band pixel.
- * @details Renders a sphere-tiling mixed-face solid full-canvas, then under
- * several clip bands, and asserts the clipped output equals the full output at
- * every pixel inside each band. The solid tiles the sphere, so faces straddle
- * every row/column boundary including the poles (rows 0 / H-1) and the x=0
- * seam.
+ * @details Bands cover the poles and the x=0 seam.
  */
 inline void test_clip_band_matches_full() {
   constexpr int W = 288, H = 144;
@@ -556,7 +541,7 @@ inline void test_clip_band_matches_full() {
       {0, 72, 0, 288},     // top band, full width (pole, no x cull)
   };
   for (const Band &b : bands) {
-    // one live Effect at a time; ref captured above
+    // one live Effect at a time
     hs_test::StubEffect fx(W, H);
     fx.set_clip(b.y0, b.y1, b.x0, b.x1);
     {
@@ -792,10 +777,8 @@ inline void shade_by_distance(const math::Vector &, Fragment &f) {
  * @param bake Spawn-time congruence bake for the mesh.
  * @param min_lut_hits Floor asserting the LUT path actually served probes.
  * @param label Telemetry tag for the printf lines.
- * @details The shader encodes raw distance, so a wrong reflection/offset
- * convention, a mis-rotated alignment, or a sign flip near a deformed edge
- * (face-separation cracks) blows the mean; the per-pixel cap bounds the
- * legitimate bilinear + congruence + deformation-margin deviation.
+ * @details The per-pixel cap bounds the legitimate bilinear + congruence +
+ * deformation-margin deviation.
  */
 inline void
 check_class_lut_render_matches_exact(const MeshState &mesh,
@@ -849,7 +832,6 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   const float mean = static_cast<float>(delta_sum) / (W * H);
   std::printf("  [%s] delta mean=%.1f max=%d (of 60000)\n", label, mean,
               delta_max);
-  // IEEE measurements: mean 6.1/3.3, maximum 795.
   HS_EXPECT_LT(mean, 15.0f);
   HS_EXPECT_LT(delta_max, 2000);
 }
@@ -1093,11 +1075,9 @@ inline void expect_concavity(const std::vector<float> &xy, bool expect) {
 /**
  * @brief Pins MeshOps::polygon_is_concave, the gate deciding which congruence
  *        classes are LUT-eligible.
- * @details Convex polygons (every relative turn one sign) must report false so
- *          they keep the convex fast path; a mixed-sign turn sequence must
- *          report true. Exactly-collinear turns produce cr == 0, which the
- *          TURN_EPS_SQ comparison discards, so an inserted edge-midpoint vertex
- *          or a fully degenerate strip never flips a convex verdict.
+ * @details Exactly-collinear turns (cr == 0) are discarded, so an inserted
+ *          edge-midpoint vertex or a degenerate strip never flips a convex
+ *          verdict.
  */
 inline void test_polygon_is_concave() {
   // Convex: unit square, an equilateral-ish triangle, and a regular hexagon.

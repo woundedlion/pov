@@ -253,8 +253,7 @@ struct Twist {
   /**
    * @brief Clamped angular-max bound from an already-computed 1/s.
    * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
-   * @return Angular-max bound (>= 1), with the radial factor
-   * clamped as described below.
+   * @return Angular-max bound (>= 1), with the radial factor clamped.
    * @details The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and
    * |g| = |twist·amplitude·cos(twist·theta)|/s. The bound replaces |g| with
    * γ = |twist·amplitude|·min(1/s, 2/R) in γ/2 + √(1 + γ²/4),

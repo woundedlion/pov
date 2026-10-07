@@ -17,9 +17,7 @@ namespace Segue {
  * @brief Preset-transition policies: how ChoreographedEffect carries an
  * AUTOMATIC preset change onto its target parameter set.
  * @details Each preset names the policy it departs by (PresetEntry::segue),
- * whichever preset comes next. A preset holds for the effect's dwell, then its
- * departure spans its own frames. Non-AUTOMATIC origins (MANUAL, SYNCHRONIZED)
- * always snap, regardless of the departure.
+ * whichever preset comes next. MANUAL and SYNCHRONIZED changes always snap.
  */
 namespace Preset {
 

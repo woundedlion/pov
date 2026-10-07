@@ -8,8 +8,8 @@
 //   Capture the gallery: npm run screenshots
 //   Capture selected effects: node scripts/capture_screenshots.mjs [Effect ...]
 //
-// SIM_URL overrides the simulator origin (defaults to the README's local
-// http.server port); WAIT_MS overrides every configured capture offset.
+// SIM_URL overrides the simulator origin; WAIT_MS overrides every configured
+// capture offset.
 import { exitAfterStderr } from './exit.mjs';
 import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
@@ -49,8 +49,6 @@ const WAIT_MS = await numEnv('WAIT_MS', DEFAULT_CAPTURE_OFFSET_MS, Infinity, 0);
 const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR, 1);
 
-// The effect roster (and the docs/screenshots freshness gate that mirrors it)
-// is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
 const EFFECTS = await loadEffectRoster();
 
 const REQUESTED = process.argv.slice(2);
@@ -130,8 +128,7 @@ try {
     if (t === 'error' || t === 'warning') console.log(`[${t}]`, msg.text());
   });
 
-  // App-supported resolutions, largest pixel area first. Each effect uses the
-  // first resolution that offers it. Failure returns []; callers abort unpinned capture.
+  // App-supported resolutions, largest pixel area first; [] on failure.
   async function resolveResolutions() {
     try {
       await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
@@ -155,24 +152,16 @@ try {
     return [];
   }
 
-  // Resolutions to try per effect, largest first: each is tried from highest to
-  // lowest detail, keeping the first that honors the requested effect.
   RESOLUTIONS = await resolveResolutions();
-  // Without a resolution list every URL would omit the resolution param, and a
-  // request with no param cannot be confirmed against the app's rewritten effect
-  // param — the app's fallback effect would be saved under the requested effect's
-  // filename. Abort here, before any PNG is written.
+  // Without a resolution param the app's fallback effect cannot be told apart
+  // from the requested one, so abort before any PNG is written.
   if (RESOLUTIONS.length === 0) throw new UnresolvedResolutions();
   console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ')}`);
 
   targets = REQUESTED.length ? REQUESTED : EFFECTS;
 
-  // Grab the current #canvas frame and measure how much of it is lit. With
-  // preserveDrawingBuffer:true forced via addInitScript, toDataURL is safe after
-  // rendering settles. Coverage is measured on a small downscale (cheap, and the
-  // thumbnail is downscaled anyway): the fraction of pixels above a near-black
-  // floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
-  // post-crop is needed.
+  // Grab the current #canvas frame and count pixels above a near-black floor
+  // on a small downscale.
   async function grabFrame() {
     return await page.evaluate(({
       outWidth,
@@ -225,15 +214,11 @@ try {
   for (const effect of targets) {
     process.stdout.write(`Capturing ${effect}... `);
     try {
-      // Try resolutions high→low; keep the first that actually offers this effect.
       const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
       const { resolution: usedRes, honored } =
         await descendToHonoredResolution(effect, RESOLUTIONS,
           (name, resolution) => loadEffectForCapture(page, BASE_URL, name, resolution, offsetMs));
       // Offered at no resolution: the canvas shows the app's fallback effect.
-      // Saving it would overwrite a (possibly correct) existing PNG with a
-      // thumbnail of the WRONG effect — worse than leaving the stale one. Skip the
-      // save and flag it; the prior PNG stays untouched.
       if (!honored) {
         wrongRes.push(effect);
         console.log(`SKIPPED — offered at no resolution (app fell back); kept existing PNG`);

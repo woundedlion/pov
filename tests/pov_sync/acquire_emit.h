@@ -16,9 +16,7 @@
 inline void test_snap_gate() {
   const Config cfg = test_config();
 
-  // LOCKED: small correction accepted; the implied W/2 correction of a
-  // misclassified boundary (the two-coincident-edge-error residual) is
-  // rejected; R consecutive rejections fall back to ACQUIRE (no deadlock).
+  // Forged boundary on a LOCKED flywheel.
   {
     Flywheel f(cfg);
     f.seed(1000000u);
@@ -126,10 +124,9 @@ inline void test_isolated_noise_preserves_recent_boundary_lock() {
  * @brief Verifies the §5.3 quiet-before guard: an ACQUIRE board hard-snaps only
  *        on a burst preceded by t_QB of wire silence, so a beacon digit train
  *        cannot capture a just-rebooted board mid-frame.
- * @details The head of the beacon for effect index 8 is a 2-pulse burst — an
- *          even count, no symbol — and its second digit is a single pulse, a
- *          valid HALF count 5 columns behind it. The same burst after t_QB of
- *          silence snaps. The seed instant opens a quiet window of its own.
+ * @details The beacon for effect index 8 opens with a 2-pulse burst (no
+ *          symbol) followed by a single-pulse digit, a valid HALF count. The
+ *          same burst after t_QB of silence snaps.
  */
 inline void test_acquire_quiet_before_guard() {
   const Config cfg = test_config();
@@ -142,7 +139,7 @@ inline void test_acquire_quiet_before_guard() {
   HS_EXPECT_EQ(lock(board), LockState::ACQUIRE);
   board.tick(head + col + static_cast<uint32_t>(cfg.gap_timeout_cols) * col,
              &digit0);
-  // The next digit, spaced exactly as schedule_beacon spaces them.
+  // The beacon's next digit.
   const uint32_t d1 =
       head + col + static_cast<uint32_t>(cfg.gap_timeout_cols + 1) * col;
   const BurstSnapshot digit1{1, d1, d1};
@@ -190,7 +187,7 @@ inline void test_acquire_beacon_train_joins() {
   HS_EXPECT_EQ(lock(board), LockState::ACQUIRE);
   HS_EXPECT_FALSE(content(board).identity_known);
 
-  // A full train from column 40 on, spaced exactly as schedule_beacon does.
+  // A full train from column 40 on.
   uint8_t d[5];
   encode_beacon_digits(9, 5, d);
   HS_EXPECT_EQ(static_cast<int>(d[0]) + 1, 2); // head: no valid symbol count
@@ -252,7 +249,7 @@ inline void test_emitter() {
     }
   }
 
-  // Late at the boundary (> ~½ column): the whole symbol is censored.
+  // Late past the censor budget: the whole symbol is censored.
   {
     SymbolEmitter e;
     HS_EXPECT_FALSE(e.schedule_boundary(
@@ -403,10 +400,8 @@ inline void test_master_beacon_busy_retry() {
 
 /**
  * @brief Verifies a late beacon is censored before its tail can overrun HALF.
- * @details Drives a master across the beacon-due revolution, resuming its first
- *          post-ZERO tick at a chosen column to model the coast. The last
- *          admissible start emits fully before HALF; one column later is
- *          censored, with no beacon pulses and the HALF boundary emitted.
+ * @details The last admissible start emits fully before HALF; one column later
+ *          is censored.
  */
 inline void test_beacon_late_coast() {
   const Config cfg = test_config();
@@ -414,9 +409,8 @@ inline void test_beacon_late_coast() {
 
   uint32_t late_dropped = 0;
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
-  // `resume_col` plus `sub_col` cycles; return the pulses emitted with column in
-  // [W/4, W/2) (purely beacon — the ZERO boundary symbol drained at columns 0..4
-  // below W/4).
+  // `resume_col` plus `sub_col` cycles; return the beacon pulses emitted in
+  // [W/4, W/2).
   auto run = [&](int32_t resume_col, uint32_t sub_col = 0) -> int {
     SyncBoard m(cfg);
     const uint32_t t0 = 1000000u;
@@ -448,7 +442,7 @@ inline void test_beacon_late_coast() {
     return pulses;
   };
 
-  // The rev-1 beacon of effect 0 — the payload the coast above carries.
+  // The rev-1 beacon of effect 0.
   uint8_t digits[5];
   encode_beacon_digits(0, 1, digits);
   int32_t digit_sum = 0;
@@ -467,9 +461,8 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_EQ(run(last_start + 1), 0);
   // The skip is counted once for the revolution, not once per late tick.
   HS_EXPECT_EQ(late_dropped, 1u);
-  // Resuming part-way through the last admissible column is late too: the frame
-  // is anchored on the tick, and its last pulse may go out up to the emitter's
-  // ½-column lateness budget after its due time.
+  // Resuming part-way through the last admissible column is late too: the
+  // frame's last pulse may trail its due time by the emitter's lateness budget.
   HS_EXPECT_EQ(run(last_start, COL / 2 + COL / 8), 0);
   HS_EXPECT_EQ(late_dropped, 1u);
 }
@@ -547,12 +540,8 @@ inline void test_master_fold_stall_recovery_flips() {
 /**
  * @brief Verifies every beacon the master starts leaves the receiver's quiet
  *        window between the frame's last pulse and the HALF boundary burst.
- * @details Sweeps every column of [W/4, W/2) a masked-ISR coast can resume on,
- *          at the 64-effect roster cap with the widest digit pattern the codec
- *          can encode and again with a narrow one, and requires each emitted
- *          frame's tail to clear acquire_quiet_cycles before the HALF burst.
- *          Ticks run at the device's T0/OVERSAMPLE pacing so the HALF symbol
- *          clears its own lateness censor.
+ * @details Sweeps every resume column of [W/4, W/2) with the widest and a
+ *          narrow digit pattern.
  */
 inline void test_beacon_tail_quiet() {
   Config cfg = test_config(64);
@@ -600,8 +589,6 @@ inline void test_beacon_tail_quiet() {
     return pulses;
   };
 
-  // Revolution 63 of index 63 drives all four data digits to 7 — the widest
-  // frame a full roster can encode.
   int widest = 0;
   int narrow = 0;
   for (int32_t c = cfg.W / 4; c < cfg.W / 2; ++c) {
@@ -628,10 +615,8 @@ inline void test_beacon_tail_quiet() {
  * @brief Verifies the master's EPOCH train occupies exactly the R+1 ZERO
  *        boundaries B..B+R even when a copy self-censors, so every copy stays
  *        inside the receiver's invertible j window.
- * @details Drives a lone master to its train-start boundary B and resumes a
- *          full column late there, censoring the primary copy (§5.2). Counts
- *          pulses in each boundary's burst window: 5 = ZERO_EPOCH, 3 = plain
- *          ZERO.
+ * @details A full-column-late resume at B censors the primary copy (§5.2).
+ *          Pulses per burst window: 5 = ZERO_EPOCH, 3 = plain ZERO.
  */
 inline void test_master_epoch_train_bounded() {
   const Config cfg = test_config();

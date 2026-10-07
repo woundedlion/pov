@@ -80,8 +80,6 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
   if (views.size() != n || values.size() != n)
     return RoundTripResult::STREAM_MISMATCH;
 
-  // For every i, name/value/type from the independent passes must match the
-  // source param.
   size_t i = 0;
   for (const auto &def : effect.getParameters()) {
     HS_EXPECT_EQ(std::string_view(views[i].name), std::string_view(def.name));
@@ -106,7 +104,6 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
     HS_EXPECT_EQ(views[i].option_count, def.option_count);
     HS_EXPECT_TRUE(views[i].export_options == def.export_options);
     HS_EXPECT_TRUE(views[i].option_values == def.option_values);
-    // An enum's current value is always a valid option index.
     if (def.option_count > 0) {
       HS_EXPECT_GE(views[i].value, 0.0f);
       if (def.option_values == nullptr)
@@ -224,8 +221,7 @@ check_stability_one(const char *name, std::vector<hs_wasm::ParamView> &views,
  *   ordinal; update it deliberately on any reorder, insertion or removal.
  */
 inline void check_roster_order_pinned() {
-  // Independent hand-maintained copy of the intended roster order. Must NOT be
-  // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
+  // Hand-maintained; generating it from HS_EFFECT_LIST makes this a tautology.
   static const char *const GOLDEN_ROSTER[] = {"BZReactionDiffusion",
                                               "Fishbowl",
                                               "Comets",
@@ -748,8 +744,7 @@ inline int run_param_marshal_tests() {
   check_distinct_parameter_values();
 #endif
   check_schema_hook_preserves_written_parameter_identity();
-  // Tally how many effects exercised the by-name round-trip; it is skipped for
-  // effects with no editable float param. Surface the split and fail if zero.
+  // The by-name round-trip skips effects with no editable float param.
   int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;
   FieldCoverage coverage;
 #define HS_PARAM_ONE(name)                                                     \

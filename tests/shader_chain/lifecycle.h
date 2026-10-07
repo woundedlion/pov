@@ -108,7 +108,7 @@ inline constexpr auto EXACT_FIT_SCHEMA =
                   table_entry("sample.grid.v3").schema_count -
                   table_entry("colorize.generated-palette.v3").schema_count>();
 
-/** Never run; exists to exercise the schema-field budget alone. */
+/** Never run; exercises only the schema-field budget. */
 inline constexpr In::OperatorDescriptor
 make_filler_descriptor(const char *operator_id,
                        std::span<const In::ParamFieldInfo> schema) {

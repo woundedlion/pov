@@ -2,18 +2,13 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Emits core/color/srgb_decode_lut.h: the two-region linear-to-sRGB encoding tables for
-// linear16->sRGB8, derived from the exact linear_to_srgb_lut. A fine 16-wide
-// low region [0, SRGB_DECODE_VSPLIT) and a coarse 128-wide high region up to
-// 65536, each bucket holding <=1 output step, so the encoding is a single
-// branchless compare per region. Asserts the <=1-step property and self-
-// verifies bit-exactness over all 65536 inputs. Total ~1.5 KB (fits the DTCM
-// slack). Bucket geometry can be retuned without loading the committed tables.
+// Emits core/color/srgb_decode_lut.h: the two-region linear16->sRGB8 encoding
+// tables, derived from the exact linear_to_srgb_lut. Each bucket of the fine
+// low region [0, SRGB_DECODE_VSPLIT) and the coarse high region holds at most
+// one output step, so the encoding is a single branchless compare per region.
+// Fails if a bucket holds more, and verifies bit-exactness over every input.
 // Build: clang++ -std=c++20 -I. -Icore scripts/generate_srgb_decode.cpp
-// Run from the repo root; argv[1] overrides the output path (CI writes to a
-// temp file and diffs it against the committed header).
-// (unit_color's test_linear_to_srgb8_decode_matches_lut re-checks the
-// equivalence in CI).
+// Run from the repo root; argv[1] overrides the output path.
 #define HS_ENABLE_TEST_ORACLES 1
 #define HS_SRGB_DECODE_GENERATOR 1
 #include "core/color/color_luts.h"
@@ -24,9 +19,8 @@
 std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low{};
 std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high{};
 
-// Bucket geometry (SRGB_DECODE_*) and the decode itself come from
-// core/color/srgb_decode.h: the verification below runs the shipping
-// linear_to_srgb8 over the freshly packed tables, not a second copy of it.
+// Bucket geometry (SRGB_DECODE_*) and the verified linear_to_srgb8 come from
+// core/color/srgb_decode.h.
 
 // Pack one bucket [base_v, base_v+width) into (step<<8)|base; step is the
 // offset in [0,width] where the output increments (== width if constant).
@@ -79,9 +73,8 @@ int main(int argc, char **argv) {
   if (mism)
     return 1;
 
-  // Binary mode: the committed header is LF on every host (.gitattributes),
-  // and text mode would emit CRLF on Windows. The Windows CRT deprecates fopen
-  // in favour of fopen_s, which no other host provides.
+  // Binary mode: text mode would emit CRLF on Windows. The Windows CRT
+  // deprecates fopen in favour of the Windows-only fopen_s.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   FILE *f = std::fopen(out_path, "wb");

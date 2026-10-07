@@ -30,10 +30,9 @@ struct IslamicBuildProbe;
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
  *        transitioning one shape into the next while ripples distort the mesh.
- *        Entries with a non-null recipe are built op by op on screen: the
- *        recipe's seed solid sweeps in, then OpLegs morph the lowered chain
- *        into the finished pattern, using multiple legs for smooth dual/kis
- *        bridges. The still/ripple/fade choreography follows.
+ * @details Entries with a non-null recipe are built op by op on screen: the
+ *          seed solid sweeps in, then OpLegs morph the lowered chain into the
+ *          finished pattern.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -177,7 +176,7 @@ private:
       0.7f; /**< Fixed ripple wavelet width (radians). */
   /** Amplitude ceiling; every ripple rotation takes the series-form
    * quaternion. The displacement map d -> d + theta(d) is injective only below
-   * amp/thickness = 0.181; at 0.15/0.7 it folds by <= 0.012 rad. */
+   * amp/thickness = 0.181, so it folds slightly at this ceiling. */
   static constexpr float RIPPLE_AMP_MAX = RIPPLE_SMALL_ANGLE_MAX;
   static_assert(
       2 * BURST_MAX <= RIPPLE_POOL_SIZE,
@@ -378,11 +377,8 @@ private:
   /**
    * @brief Re-splits the arenas for the shape about to be generated.
    * @param has_recipe Whether the shape builds through a swept recipe chain.
-   * @details Valid only with persistent at its ~baseline and both scratch
-   * arenas idle, as the caller's compact leaves them. A smooth kis/needle
-   * bridge shape gets the scratch_a-heavy split; other recipes trade unused
-   * scratch_b for persistent; whole-generated shapes keep the full generation
-   * scratch_b. Persistent takes the remainder.
+   * @details Valid only with persistent at its baseline and both scratch
+   * arenas idle.
    */
   HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
     const bool bridge_split = has_recipe && build_uses_smooth_bridge();
@@ -395,10 +391,8 @@ private:
   }
 
   /**
-   * @brief Generates @p entry into the carousel's back slot with a freshly
-   *        shuffled palette, makes it the front, schedules the segue and the
-   *        shape's mid-display ripple burst, and queues the next spawn_shape
-   *        call.
+   * @brief Generates @p entry into the carousel's back slot, makes it the
+   *        front, and schedules its segue, ripple burst and the next spawn.
    * @param entry Solid spawned; its recipe, if any, drives the build chain.
    */
   HS_COLD_MEMBER void spawn_entry(const Solids::Entry &entry) {

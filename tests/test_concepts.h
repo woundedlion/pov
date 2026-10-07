@@ -19,10 +19,8 @@ namespace concepts_tests {
 
 /**
  * @brief A functor with distinguishable const and non-const call operators.
- * @details Used to observe WHICH FunctionRef constructor bound the callable: the
- *          non-const-lvalue ctor invokes through a non-const pointer (returns
- *          x + 1), while the const-lvalue ctor — which also binds rvalues —
- *          invokes through a const pointer (returns x + 100).
+ * @details Shows which FunctionRef constructor bound the callable: non-const
+ *          returns x + 1, const (which also binds rvalues) returns x + 100.
  */
 struct DualCall {
   /** @brief Non-const call: marks the non-const-lvalue ctor path. */
@@ -242,11 +240,8 @@ inline void test_callable_return_constraints() {
 
 /**
  * @brief Verifies Fn (hs::inplace_function) copy/move/empty value semantics.
- * @details Default and nullptr construction read empty; a copy leaves the source
- *          live; a move leaves the source empty; assignment from a callable then
- *          back to nullptr toggles the empty state. Copy- and move-assigning one
- *          populated Fn onto another (each holding a different closure) exercises
- *          the overwrite path in operator=.
+ * @details Default and nullptr read empty; a copy leaves the source live; a
+ *          move empties it; assignment onto a populated Fn overwrites.
  */
 inline void test_fn_copy_move_empty() {
   // ArenaVector accepts Fn only while it stays trivially destructible.
@@ -392,8 +387,7 @@ inline void test_dissolve_mask_partition() {
     }
   }
 
-  // Frozen golden over one key row: the hash's mixing constants, its fold and
-  // the threshold compare all move this word.
+  // Frozen golden over one key row.
   uint32_t row = 0;
   for (int a = 0; a < 32; ++a)
     row |= (incoming.owns(a, 7) ? 1u : 0u) << a;

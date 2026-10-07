@@ -52,10 +52,8 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  */
 HS_COLD_MEMBER inline math::Vector node(int i) {
   HS_CHECK(i >= 0 && i < RD_N, "node() index outside the lattice");
-  // Folds y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
-  // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
-  // rad at i=RD_N-1. Bit-exactness is a pinned-toolchain provenance contract;
-  // the runtime tolerates ULP drift.
+  // Double precision reproduces neighbors[] bit-for-bit (float32 flips near-tie
+  // sort order); bit-exactness is a pinned-toolchain provenance contract.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
@@ -125,12 +123,10 @@ struct CubemapLUT {
   };
 
   /**
-   * @brief Allocates and populates the LUT from the given arena (48 KB
-   *        persistent + ~90 KB transient).
-   * @param arena Arena providing backing storage for the 6×RES² table (48 KB,
-   *        retained) plus a transient ~90 KB lattice scratch, scoped to build() and
-   *        rewound on return. A caller must provision for the peak (~138 KB), not
-   *        the 48 KB persistent table alone, or this traps mid-build.
+   * @brief Allocates and populates the LUT from the given arena.
+   * @param arena Arena backing the retained 6×RES² table plus a transient
+   *        lattice scratch rewound on return; provision for the peak, not the
+   *        table alone, or this traps mid-build.
    * @details Texels are filled in lookup()'s (face*RES+y)*RES+x index order.
    */
   HS_COLD_MEMBER void build(Arena &arena) {
@@ -280,10 +276,8 @@ private:
    *          the near-uniform Fibonacci sphere this lands on the true nearest node
    *          in practice but is not guaranteed to (not a global argmin).
    *
-   *          The inner loop moves `cur` the instant it sees a closer neighbor, so
-   *          one `iter` can chain several hops; the 64-iteration cap depends on
-   *          this, since the latitude-only seed can start dozens of hops from an
-   *          equatorial query's node.
+   *          One `iter` can chain several hops; the iteration cap depends on
+   *          this.
    */
   HS_COLD_MEMBER static int find_nearest_node(const math::Vector &p,
                                               const math::Vector *lattice,

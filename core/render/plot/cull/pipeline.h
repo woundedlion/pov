@@ -37,11 +37,9 @@ template <typename P> static consteval bool pipeline_hoistable_projection() {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
- * @details Tightened form of the fast-path test
- * `total_dist <= screen_step(sample(0))` in multiplies only, via
- * sin(theta)*tangent = b - a*cos(theta) and theta/sin(theta) <= F for
- * theta <= base_step (enforced by the chord cap). True also implies
- * theta >= EPS_GEOMETRIC.
+ * @details A multiply-only tightening of the fast-path test
+ * `total_dist <= screen_step(sample(0))`, valid for theta <= base_step
+ * (enforced by the chord cap). True also implies theta >= EPS_GEOMETRIC.
  */
 HS_O3_BEGIN
 template <int W, int H>

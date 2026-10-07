@@ -43,16 +43,15 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(total_angle, math::PI_F * 0.5f, 1e-4f);
 }
 
-/** Angular slack on a Line::sample position: fast_sincosf_0_pi error leaves
- * about 2.4e-3 rad of directional error after renormalization. */
+/** Angular slack on a Line::sample position: fast_sincosf_0_pi directional
+ * error after renormalization. */
 constexpr float LINE_SAMPLE_ANGLE_TOL = 4e-3f;
 
 /**
  * @brief Verifies interior Line::sample fragments lie on the minor arc itself,
  *        at even angular spacing, not merely inside a cone bounding it.
  * @details A point is on the minor arc iff its angles to the two endpoints sum
- * to the whole span. Each sample's angle from the start must match its share of
- * the span, and the arc-length register must agree with the geometry.
+ * to the whole span.
  */
 inline void test_line_sample_interior_between_endpoints() {
   ScratchScope sc(plot_arena());
@@ -147,10 +146,8 @@ inline void test_line_sample_antipodal_stable_axis() {
 /**
  * @brief Antipodal endpoints one ULP apart in length still pick a stable axis
  *        through make_geodesic_edge_span.
- * @details acos' derivative diverges at ±1, so a single-ULP perturbation of the
- *          normalized dot moves angle_between off π by ~5e-4 rad while
- *          cross(a, b) stays exactly zero. The miss comes from correctly-rounded
- *          mul/div/sqrt alone, so it holds on every target.
+ * @details acos' derivative diverges at ±1, so a single-ULP perturbation moves
+ *          angle_between off π while cross(a, b) stays exactly zero.
  */
 inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   ScratchScope sc(plot_arena());
@@ -161,7 +158,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   a.pos = math::Vector(-0.28f, 0.96f, 0.0f);
   b.pos = a.pos * -(1.0f + 0x1p-23f); // one ULP longer than -a
 
-  // The arc pole cannot come from the cross product: it is unnormalizable.
+  // The cross product is unnormalizable.
   const math::Vector pole = math::cross(a.pos, b.pos);
   HS_EXPECT_LT(math::dot(pole, pole), math::EPS_NORMALIZE_SQ);
 
@@ -179,14 +176,12 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   HS_EXPECT_NEAR(math::angle_between(a.pos, mid), math::PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(math::angle_between(b.pos, mid), math::PI_F * 0.5f, 1e-3f);
 
-  // The span setup resolves the same edge to a unit arc pole perpendicular to a.
   const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a.pos, b.pos);
   HS_EXPECT_TRUE(es.have_axis);
   HS_EXPECT_TRUE(es.antipodal);
   HS_EXPECT_NEAR(es.axis.length(), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(math::dot(es.axis, a.pos.normalized()), 0.0f, 1e-5f);
 
-  // And so does rasterize_geodesic_strategy, reached through the rasterizer.
   constexpr int W = 128, H = 64;
   hs_test::StubEffect fx(W, H);
   CapturePipeline pipe;
@@ -233,17 +228,15 @@ inline void test_plot_line_antipodal_replay_parameter() {
 
 /**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
- * @details Interpolated points are up to 1.7e-3 non-unit, and acos's infinite
- * slope at y=1 turns that into a multi-row shift unless the drawing phase
- * re-normalizes with newton_unit().
+ * @details acos's infinite slope at y=1 turns non-unit interpolated points into
+ * a multi-row shift unless the drawing phase re-normalizes them.
  */
 inline void test_plot_line_over_pole_reaches_row0() {
   constexpr int W = 288, H = 144;
   hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipe; // bare sink (no AA) so we see raw sample placement
+  Pipeline<W, H> pipe; // no AA: raw sample placement
 
-  // Geodesic from 0.4 rad down the +Z side of the N pole to 0.4 rad down the
-  // -Z side; its midpoint is the pole (row 0).
+  // Symmetric about the N pole; its midpoint is row 0.
   Fragment f1, f2;
   f1.pos = math::Vector(0.0f, cosf(0.4f), sinf(0.4f));
   f2.pos = math::Vector(0.0f, cosf(0.4f), -sinf(0.4f));

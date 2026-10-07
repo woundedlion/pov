@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Teensy 4 firmware size and memory-layout gate; stdlib only.
 
-Budgets in tools/teensy_budgets.json define region ceilings, DTCM stack-headroom
-floors and layout requirements.
-Layout uses symbol runtime addresses (VMAs), not nm type letters; arena size must remain
-within [288 KiB, 320 KiB]. Missing configured symbols and malformed region lines
-fail validation. Budget loading rejects unknown keys and requires target regions,
-layout symbols and their enforcing keys.
+tools/teensy_budgets.json defines region ceilings, DTCM stack-headroom floors
+and layout requirements. Layout checks use symbol VMAs, not nm type letters.
+Missing configured symbols, malformed region lines, unknown budget keys and
+missing required entries all fail.
 """
 
 from __future__ import annotations
@@ -20,13 +18,13 @@ from pathlib import Path
 from typing import NotRequired, TypedDict
 
 # ---------------------------------------------------------------------------
-# Teensy 4 (i.MX RT1062) memory map — the load-bearing address buckets.
-# Classify a symbol by where it LIVES (its VMA), not by section name or nm letter.
-#   ITCM  0x0000_0000  fast code              (part of RAM1)
-#   DTCM  0x2000_0000  fast data + stack      (part of RAM1) — the 298 KiB arena
-#   OCRAM 0x2020_0000  DMAMEM + heap          (RAM2)         — the framebuffers
-#   FLASH 0x6000_0000  code + const/PROGMEM   (2 MiB on T4.0)— the reaction graph
-# Half-open [lo, hi) ranges. RAM1 in the budget == ITCM ∪ DTCM.
+# Teensy 4 (i.MX RT1062) memory map, half-open [lo, hi). Classify a symbol by
+# its VMA, not by section name or nm letter.
+#   ITCM  fast code              (part of RAM1)
+#   DTCM  fast data + stack      (part of RAM1)
+#   OCRAM DMAMEM + heap          (RAM2)
+#   FLASH code + const/PROGMEM
+# RAM1 in the budget == ITCM ∪ DTCM.
 # ---------------------------------------------------------------------------
 MEMORY_MAP: tuple[tuple[str, int, int], ...] = (
     ("ITCM", 0x00000000, 0x00080000),   # 512 KiB window; ITCM is carved from RAM1
@@ -83,9 +81,8 @@ class Violation:
 #   teensy_size: FLASH: code:62788, data:13684, headers:8460   free for files: 1979136
 #   teensy_size: RAM1: variables:343040, code:62240, padding:30496   free for local variables: 88512
 #   teensy_size: RAM2: variables:497920   free for malloc/new: 26368
-# The component blob and the "free for ..." figure are separated by one or more
-# spaces. `.*?` is lazy and "free for" is a unique literal on the line, so `\s+`
-# cannot over-consume the blob's own single spaces (e.g. ", data:").
+# The lazy `.*?` stops at "free for", a unique literal on the line, so `\s+`
+# cannot over-consume the blob's own spaces.
 _TS_REGION_RE = re.compile(
     r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s+free for [^:]+:\s*(-?\d+)",
     re.IGNORECASE,
@@ -159,10 +156,8 @@ _NON_ALLOC_SECTIONS = (
     ".symtab", ".strtab", ".shstrtab", ".stab",
 )
 
-# `size -A` prefaces its rows with a `<file> :` header. The file is the ELF path
-# as invoked, so it commonly starts with '.' (`.pio/build/<env>/firmware.elf`)
-# and would otherwise read as a malformed section row. No section row ends in
-# ':', so the trailing colon identifies the header without matching real rows.
+# `size -A`'s `<file> :` header often starts with '.' (`.pio/build/...`); no
+# section row ends in ':'.
 _SIZE_A_FILE_HEADER_RE = re.compile(r"^\S+\s*:$")
 
 
@@ -201,9 +196,8 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
         raise SizeAFormatError(
             "missing positive Teensy memory bucket(s): " + ", ".join(missing))
 
-    # FlexRAM hands ITCM whole 32 KiB banks (tools/phantasm.ld: _itcm_block_count
-    # rounds .text.itcm up to a bank, and DTCM gets the rest), so the raw
-    # section total under-counts RAM1 by up to one bank short of 32 KiB.
+    # FlexRAM hands ITCM whole banks (tools/phantasm.ld _itcm_block_count), so
+    # the raw section total under-counts RAM1.
     itcm = -(-totals["ITCM"] // FLEXRAM_BANK_BYTES) * FLEXRAM_BANK_BYTES
     ram1 = itcm + totals["DTCM"]
     initialized_data = sum(size for name, size, addr in allocated
@@ -297,14 +291,10 @@ def _check_derived_component_ceiling(
 ) -> None:
     """Enforce a stack-floor-derived component ceiling.
 
-    FlexRAM splits RAM1 into `total_banks` banks of `bank_bytes` between ITCM
-    (code) and DTCM (variables + stack). The invariant is minimum stack headroom,
-    not a static code cap: DTCM must keep ceil((variables + free_min_bytes) /
-    bank_bytes) banks. A minimum boundary headroom ratchet is removed
-    from that bank allocation before admitting the component. Any input the
-    derivation needs that is absent is a hard failure, never a silent pass. On
-    success an informational note reports the measured size, ratcheted ceiling,
-    remaining bytes, and distance to the next bank boundary.
+    FlexRAM splits RAM1's `total_banks` banks of `bank_bytes` between ITCM and
+    DTCM. DTCM keeps ceil((variables + free_min_bytes) / bank_bytes) banks; the
+    remaining banks less `min_headroom_bytes` cap the component. A missing input
+    is a hard failure.
     """
     v = result.violations
     bank = derived["bank_bytes"]
@@ -400,10 +390,8 @@ def evaluate(
                 "headroom-below-floor",
                 f"{env}: {region.upper()} {free_label} "
                 f"{measured.get('free', 0):,} B is below the {floor:,} B floor."))
-        # Per-component ceilings: a component may carry a static max_bytes
-        # cap, a stack-floor-derived cap (max_banks_from_stack_floor), or both.
-        # A configured component absent from the parsed output is a hard failure
-        # (a renamed teensy_size field must not silently disable its ceiling).
+        # Per-component ceilings: static max_bytes, stack-floor-derived, or
+        # both. A configured component absent from the output is a hard failure.
         for cname, cspec in spec.get("components", {}).items():
             cmeasured = measured.get("components", {}).get(cname)
             if cmeasured is None:
@@ -429,9 +417,7 @@ def evaluate(
     # --- Layout invariants: symbol -> region (+ magnitude) ---
     for key, spec in budget.get("symbols", {}).items():
         name = spec["name"]
-        # Consider only DEFINED symbol-table rows (real section + non-zero size);
-        # readelf -s can also carry a same-named UND reference row (size 0, null
-        # value). A name present ONLY as UND is "symbol-not-found".
+        # Only DEFINED rows count; readelf -s can also list a same-named UND row.
         matches = [s for s in symbols
                    if s.name == name and s.ndx != "UND" and s.size > 0]
         if not matches:
@@ -442,10 +428,7 @@ def evaluate(
                 f"renamed/removed? A missing symbol is a hard failure, never a "
                 f"silent pass."))
             continue
-        # Vague-linkage copies across TUs share a VMA and size; collapse them so a
-        # benign duplicate reads as one definition. Genuinely distinct definitions
-        # are an unexpected layout ambiguity, surfaced once rather than as a
-        # duplicate violation per copy.
+        # Vague-linkage copies share a VMA and size and collapse to one.
         distinct = {(s.value, s.size) for s in matches}
         if len(distinct) > 1:
             v.append(Violation(
@@ -482,10 +465,7 @@ def evaluate(
 # CLI (standalone / local debugging on captured toolchain output)
 # ---------------------------------------------------------------------------
 def _strip_jsonc_comments(text: str) -> str:
-    """Remove // line and /* */ block comments from JSONC text, leaving any such
-    sequences that occur INSIDE a JSON string value untouched.
-
-    """
+    """Remove // and /* */ comments from JSONC text, leaving strings untouched."""
     out = []
     i, n = 0, len(text)
     in_string = False
@@ -548,27 +528,22 @@ _DERIVED_KEYS = frozenset(
     {"bank_bytes", "total_banks", "min_headroom_bytes"})
 _SYMBOL_KEYS = frozenset({"name", "region", "min_bytes", "max_bytes"})
 
-# Keys whose absence would leave the enclosing object schema-valid but inert:
-# every ceiling is read with `.get()`, so a region stripped of 'max_bytes' or a
-# symbol stripped of 'region' passes the unknown-key check and enforces nothing.
+# Keys whose absence leaves an object schema-valid but inert (every ceiling is
+# read with `.get()`).
 _REGION_REQUIRED_KEYS = frozenset({"max_bytes"})
 _SYMBOL_REQUIRED_KEYS = frozenset({"name", "region"})
 
-# A component budget declares either ceiling or both, never neither: both are
-# read with `.get()`, so an empty component object satisfies the unknown-key and
-# component-present rules while enforcing nothing.
+# A component budget declares at least one ceiling.
 _COMPONENT_ONE_OF_KEYS = frozenset({"max_bytes", "max_banks_from_stack_floor"})
 
-# Regions whose 'max_bytes' is the hardware region size itself: `used > max_bytes`
-# cannot fire before the linker does, so the free floor is the only reachable
-# constraint and is required rather than optional.
+# Regions whose 'max_bytes' is the hardware size, which the linker hits first,
+# so the free floor is required.
 _REGION_REQUIRED_KEYS_BY_REGION: dict[str, frozenset[str]] = {
     "ram2": _REGION_REQUIRED_KEYS | {"free_min_bytes"},
 }
 
-# Layout symbols whose invariant is magnitude, not placement. Shrinking the
-# arena *frees* RAM1, so no region ceiling and no stack floor fires: without
-# these bounds an ELF whose arena block collapsed to 64 KiB passes.
+# Layout symbols whose invariant is magnitude: a shrunken arena frees RAM1 and
+# trips no other check.
 _SYMBOL_REQUIRED_KEYS_BY_SYMBOL: dict[str, frozenset[str]] = {
     "arena": _SYMBOL_REQUIRED_KEYS | {"min_bytes", "max_bytes"},
 }
@@ -578,9 +553,7 @@ _SYMBOL_REQUIRED_KEYS_BY_SYMBOL: dict[str, frozenset[str]] = {
 _REQUIRED_REGIONS = frozenset({"flash", "ram1", "ram2"})
 _REQUIRED_SYMBOLS = frozenset({"arena", "framebuffer_a", "framebuffer_b"})
 
-# Layout symbols required of specific targets only: Holosphere links no
-# reaction-diffusion effect and no segmented LED controller, so neither symbol
-# exists in its ELF.
+# Layout symbols required of specific targets only.
 _REQUIRED_SYMBOLS_BY_ENV: dict[str, frozenset[str]] = {
     "phantasm": frozenset({"reaction_graph", "dma_tx_buffer"}),
 }
@@ -708,9 +681,8 @@ def validate_budgets(budgets: object) -> dict:
                             f"{cwhere} max_banks_from_stack_floor: "
                             f"'min_headroom_bytes' must be a non-negative "
                             f"integer.")
-                    # The bank geometry divides the derivation, so a zero or a
-                    # non-integer would raise out of evaluate() and exit 1 -
-                    # the code that means a size-budget violation.
+                    # The bank geometry divides the derivation; a bad value
+                    # would raise out of evaluate() with the violation code.
                     for key in ("bank_bytes", "total_banks"):
                         count = derived[key]
                         if (not isinstance(count, int) or
@@ -742,9 +714,7 @@ def validate_budgets(budgets: object) -> dict:
 def read_capture(path: str | Path) -> str:
     """Read captured toolchain output, replacing undecodable bytes.
 
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream;
-    the substituted bytes cannot reach a size figure, which the parsers match as
-    ASCII.
+    A Windows `tee` capture interleaves cp1252 bytes; the parsers match ASCII.
     """
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
@@ -872,8 +842,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Teensy 4 size/layout gate (parser).")
     p.add_argument("--env", required=True, help="budget key, e.g. holosphere")
     p.add_argument("--budgets", default="tools/teensy_budgets.json")
-    # Exclusive: the two carry different measurements of the same regions, so a
-    # caller passing both would have one of them silently ignored.
+    # Exclusive: both measure the same regions.
     sizes_from = p.add_mutually_exclusive_group(required=True)
     sizes_from.add_argument("--teensy-size",
                             help="file with captured teensy_size stdout")
