@@ -220,6 +220,17 @@ class BoardMetadataTests(unittest.TestCase):
         with self.assertRaisesRegex(board_metadata.MetadataError, "facts are stale"):
             board_metadata.check_facts(stale, facts)
 
+    def test_rejects_readme_facts_markers_out_of_order(self):
+        start = board_metadata.FACTS_START
+        end = board_metadata.FACTS_END
+        facts = f"{start}\nnew facts\n{end}"
+        self.assertEqual(board_metadata.replace_facts(
+            f"before\n{start}\nold facts\n{end}\nafter", facts),
+            f"before\n{facts}\nafter")
+        with self.assertRaisesRegex(
+                board_metadata.MetadataError, "END marker precedes START"):
+            board_metadata.replace_facts(f"before\n{end}\n{start}\nafter", facts)
+
 
 if __name__ == "__main__":
     unittest.main()
