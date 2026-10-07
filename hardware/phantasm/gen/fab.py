@@ -287,10 +287,13 @@ def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
             f"no fab package to verify: {directory}; run fab.py first")
     manifest_path = os.path.join(directory, SUMS_FILE)
     recorded = read_manifest(manifest_path)
-    covered = (set(zip_members(os.listdir(directory)))
-               | set(ASSEMBLY_MEMBERS) | {ARCHIVE})
+    covered = ZIP_MEMBERS | set(ASSEMBLY_MEMBERS) | {ARCHIVE}
 
     diagnostics = []
+    if unknown := sorted(set(os.listdir(directory)) - covered - {SUMS_FILE}):
+        diagnostics.append(
+            f"{directory} contains unrecognized package files: "
+            + ", ".join(unknown))
     if missing := sorted(covered - set(recorded)):
         diagnostics.append(
             f"{manifest_path} records no digest for: " + ", ".join(missing))
