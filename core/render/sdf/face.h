@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <new>
 #include "math/geometry.h"
 #include "platform/constants.h"
 #include "render/clip.h"
@@ -40,7 +41,8 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS>
       edge_lengths_sq; /**< Per-edge squared lengths. */
   std::array<math::Vector, MAX_VERTS>
-      planes; /**< Non-degenerate edge normals, compacted; planes[k] is not edge k. */
+      planes; /**< Compacted great-circle normals during bounds; then admitted
+                  sector rays (minimum-radius x/y, vertex radius squared z). */
   std::array<Interval, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
@@ -70,10 +72,20 @@ struct FaceScratchBuffer {
     float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py +
                                off), padding to a 16-byte stride. */
   };
-  std::array<HalfPlane, MAX_VERTS>
-      half_planes; /**< Convex-face edge half-planes. */
+  /** @brief Sorted vertex rows and their crossing-edge masks. */
+  struct YWalkCache {
+    std::array<uint64_t, MAX_VERTS>
+        masks; /**< Edges crossing each row interval. */
+    std::array<uint8_t, MAX_VERTS>
+        indices; /**< Original vertex index at each row. */
+  };
+  union {
+    std::array<HalfPlane, MAX_VERTS>
+        half_planes;   /**< Convex edge half-planes. */
+    YWalkCache y_walk; /**< Exact non-convex row traversal. */
+  };
   std::array<float, MAX_VERTS + 1>
-      pseudo_angles; /**< Unwrapped vertex pseudo-angles for the sector walk. */
+      pseudo_angles; /**< Unwrapped sector angles, or sorted exact-walk rows. */
   std::array<uint32_t, MAX_VERTS + 1>
       sector_keys; /**< pseudo_angles as order-preserving integer keys. */
   /** Bumped by every Face that writes geometry here, including post-projection
@@ -154,31 +166,21 @@ struct Face {
   bool linear_dist = false; /**< Face is small enough to report plane distance
                                without the atan. */
 
-  // Sector walk: a concave face star-shaped about its centroid bins each query
-  // by pseudo-angle and walks only that sector's edge and its sector_kmax
-  // neighbors on each side.
   static constexpr int SECTOR_MIN_COUNT =
-      10; /**< Below this the full walk is already cheap; skip the sector path.
-           */
-  static constexpr float SECTOR_MONO_TOL =
-      0.05f; /**< Max vertex pseudo-angle backtrack (of 4 per turn) still binned
-                on the K2 sector path; beyond it the fan is not star-shaped. */
-  static constexpr int SECTOR_KMAX_MAX =
-      2; /**< Widest neighbor walk build_sectors assigns. */
-  static_assert(SECTOR_KMAX_MAX < SECTOR_MIN_COUNT,
-                "plane_dsq_sector's ring walk applies one wrap correction");
+      10; /**< Minimum vertex count for the sector path. */
   std::span<const uint32_t>
-      sector_keys; /**< angle_key of each unwrapped vertex pseudo-angle times
-                      sector_sgn, count+1; weakly increasing (K2 faces dip <=
-                      SECTOR_MONO_TOL). */
+      sector_keys; /**< Strictly increasing unwrapped angle keys, count+1. */
+  std::span<const math::Vector>
+      sector_rays; /**< Minimum-radius ray points (x/y), vertex radius squared (z). */
+  float sector_min_radius_sq =
+      0.0f; /**< Conservative squared origin-to-boundary distance. */
   float sector_base = 0.0f; /**< First unwrapped pseudo-angle, sgn-folded. */
-  float sector_span = 0.0f; /**< Unsigned span (~4). */
   float sector_sgn = 1.0f;  /**< Winding: +1 CCW, -1 CW. Folded into the
-                               table, base and span so the sector search
+                               table and base so the sector search
                                compares one direction. */
-  int sector_kmax =
-      1; /**< Neighbors walked each side: 1 (strict, bit-exact) or 2 (mildly
-            bent, absorbs off-by-one binning). */
+  std::span<const float> y_coordinates; /**< Sorted exact-walk vertex rows. */
+  std::span<const uint64_t> y_masks;    /**< Row-interval crossing edges. */
+  std::span<const uint8_t> y_indices;   /**< Sorted original vertex indices. */
   bool sector_ok =
       false; /**< Star-shaped about centroid; sector walk usable. */
 
@@ -340,6 +342,7 @@ struct Face {
     {
       HS_PROFILE_DEEP(face_sectors);
       build_sectors(scratch);
+      build_y_walk(scratch);
     }
 
     scratch_owner = &scratch;

@@ -7,6 +7,7 @@
 #pragma once
 
 #include "core/render/sdf.h"
+#include "core/mesh/solids.h"
 #include "core/render/sdf/volume.h"
 #include "core/render/sdf/face_class_bake.h"
 #include "core/render/scan.h"
@@ -19,6 +20,7 @@
 #include <cmath>
 #include <cstring>
 #include <iterator>
+#include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -178,6 +180,11 @@ inline int run_sdf_tests() {
   test_star_polygon_cull_covers_aa_fringe();
   test_face_pole_vertex_matches_full_scan();
   test_face_sector_backtrack_sign();
+  test_face_asymmetric_sector_matches_oracle();
+  test_face_randomized_sector_matches_oracle();
+  test_face_randomized_backtracking_matches_oracle();
+  test_face_tied_rows_match_oracle();
+  test_face_shipping_recipes_match_oracle();
   test_face_distance_matches_exact_oracle();
   test_face_class_lut_matches_oracle();
 
