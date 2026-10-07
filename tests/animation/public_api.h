@@ -133,8 +133,7 @@ inline void test_finished_param_animation_progress_is_finite() {
 }
 
 /**
- * @brief Verifies PeriodicTimer::set_period reschedules the next trigger from
- * now (t + new_period), not from the original schedule.
+ * @brief Verifies PeriodicTimer::set_period restarts the active-frame delay.
  */
 inline void test_periodic_timer_set_period_reschedules_from_now() {
   struct {
@@ -150,8 +149,8 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
       },
       /*repeat=*/true);
   st.frame = 1;
-  timer.step(fake_canvas()); // t=1, no trigger (next=5)
-  timer.set_period(3);       // reschedule: next = 1 + 3 = 4
+  timer.step(fake_canvas());
+  timer.set_period(3);
   for (st.frame = 2; st.frame <= 4; ++st.frame)
     timer.step(fake_canvas());
   HS_EXPECT_EQ(st.fires, 1);

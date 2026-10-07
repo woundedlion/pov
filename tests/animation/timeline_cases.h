@@ -170,6 +170,111 @@ inline void test_timeline_accepts_maximum_start_frame() {
   HS_EXPECT_EQ(tl.event_count(), 0);
 }
 
+/** @brief Pending, perpetual, and repeating events survive frame rollover. */
+inline void test_timeline_rollover_preserves_eligibility() {
+  struct Perpetual : Animation::AnimationBase<Perpetual> {
+    int &steps;
+    int &collapses;
+    Perpetual(int &steps, int &collapses)
+        : steps(steps), collapses(collapses) {}
+    void step(Canvas &canvas) override {
+      AnimationBase::step(canvas);
+      ++steps;
+    }
+    const void *orientation_id() const override { return &collapses; }
+    void collapse_orientation() override { ++collapses; }
+  };
+  Timeline tl;
+  global_timeline_t = UINT32_MAX - 2;
+  int steps = 0, collapses = 0, completions = 0;
+  float delayed = 0.0f, repeating = 0.0f;
+  tl.add(0, Perpetual(steps, collapses));
+  tl.add(3,
+         Animation::Transition(delayed, 1.0f, 1, math::ease_linear).then([&]() {
+           ++completions;
+         }));
+  tl.add(0,
+         Animation::Mutation(
+             repeating, [](float p) { return p; }, 2, math::ease_linear, true));
+  for (int frame = 1; frame <= 6; ++frame) {
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(steps, frame);
+    HS_EXPECT_EQ(collapses, frame);
+    HS_EXPECT_EQ(completions, frame < 3 ? 0 : 1);
+    HS_EXPECT_NEAR(delayed, frame < 3 ? 0.0f : 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(repeating, frame % 2 ? 0.5f : 1.0f, 1e-6f);
+  }
+  global_timeline_t += 0x80000000u;
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(steps, 7);
+  HS_EXPECT_EQ(collapses, 7);
+}
+
+/** @brief Paused delays and held sprites retain active time across rollover. */
+inline void test_timeline_paused_rollover_preserves_active_time() {
+  Timeline tl;
+  global_timeline_t = UINT32_MAX - 1;
+  bool paused = true;
+  float delayed = 0.0f;
+  int completions = 0, draws = 0;
+  tl.add_pausable(
+      3, Animation::Transition(delayed, 1.0f, 1, math::ease_linear).then([&]() {
+        ++completions;
+      }),
+      &paused);
+  tl.add_pausable(0, Animation::Sprite([&](Canvas &, float) { ++draws; }, -1),
+                  &paused);
+  for (int i = 0; i < 4; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(draws, 4);
+  HS_EXPECT_EQ(delayed, 0.0f);
+  HS_EXPECT_EQ(completions, 0);
+  paused = false;
+  tl.step(fake_canvas());
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(delayed, 0.0f);
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(delayed, 1.0f);
+  HS_EXPECT_EQ(completions, 1);
+  HS_EXPECT_EQ(draws, 7);
+}
+
+/** @brief Timer resets and period edits use elapsed frames across rollover. */
+inline void test_timers_rollover_preserves_intervals() {
+  struct AgedPeriodic : Animation::PeriodicTimer {
+    using PeriodicTimer::PeriodicTimer;
+    void age(uint32_t frame) {
+      t = frame;
+      reset();
+    }
+  };
+  struct AgedRandom : Animation::RandomTimer {
+    using RandomTimer::RandomTimer;
+    void age(uint32_t frame) {
+      t = frame;
+      reset();
+    }
+  };
+  int periodic_calls = 0, random_calls = 0;
+  AgedPeriodic periodic(3, [&](Canvas &) { ++periodic_calls; }, true);
+  AgedRandom random({.min = 3, .max = 3, .repeat = true},
+                    [&](Canvas &) { ++random_calls; });
+  periodic.age(UINT32_MAX - 4);
+  random.age(UINT32_MAX - 4);
+  for (int frame = 1; frame <= 9; ++frame) {
+    periodic.step(fake_canvas());
+    random.step(fake_canvas());
+    HS_EXPECT_EQ(periodic_calls, frame / 3);
+    HS_EXPECT_EQ(random_calls, frame / 3);
+  }
+  periodic.age(UINT32_MAX - 1);
+  periodic.set_period(4);
+  for (int frame = 1; frame <= 4; ++frame) {
+    periodic.step(fake_canvas());
+    HS_EXPECT_EQ(periodic_calls, frame < 4 ? 3 : 4);
+  }
+}
+
 /**
  * @brief Verifies a repeating animation rewinds at the end of each cycle
  * instead of being removed, replaying the curve.
