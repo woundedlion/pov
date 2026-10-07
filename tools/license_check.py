@@ -29,13 +29,11 @@ SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".def", ".inl",
 
 _GIT_TIMEOUT_SECONDS = 30
 
-# Bytes of a file the header must appear within. Generated files name their
-# generator right below the notice, so this is a few lines rather than one.
+# Bytes of a file the header must appear within.
 HEAD_BYTES = 600
 
 # Paths LICENSE names as carrying their own terms, each with the marker its
 # header must hold. A directory prefix covers everything beneath it.
-# core/vendor/FastNoiseLite_config.h is first-party and is not here.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
     "workbench/": RESERVED,
@@ -162,8 +160,7 @@ def main(argv=None) -> int:
         print(f"[license-check] tooling error: {error}", file=sys.stderr)
         return 2
 
-    # No tracked sources means the checker was pointed somewhere it cannot see
-    # the repository; passing would certify nothing.
+    # Zero tracked sources would certify nothing.
     if not sources:
         print(f"[license-check] tooling error: no tracked C/C++ sources under "
               f"{args.root.resolve()}", file=sys.stderr)
@@ -179,8 +176,7 @@ def main(argv=None) -> int:
     issues = license_exception_issues(license_text)
     stale = []
     for path in sources:
-        # A tracked source can be absent from the working tree (an interrupted
-        # checkout, a sparse one). That is an issue to report, not a traceback.
+        # A tracked source can be absent from a sparse or interrupted checkout.
         try:
             head = (args.root / path).read_bytes()[:HEAD_BYTES]
         except OSError as error:

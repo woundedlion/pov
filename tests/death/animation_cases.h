@@ -452,9 +452,6 @@ inline void case_opleg_gated_swap_incomplete_handoff() {
 
 /**
  * @brief Death case: a shading lookup past the leg's face table must trap.
- * @details OpLeg surface — the ramp index is read straight from the per-face
- *          table, so an out-of-range face would shade through whatever follows
- *          it instead of failing.
  */
 inline void case_opleg_shading_face_out_of_range() {
   static BakedPalette ramps[1];
@@ -507,9 +504,7 @@ inline void case_path_append_zero_samples() {
 
 /**
  * @brief Death case: a RandomTimer with min > max must trap.
- * @details Animation surface — reset() draws hs::rand_int(min, max + 1), a
- *          half-open range that is empty/inverted when min > max. The
- *          constructor traps an inverted or negative range.
+ * @details The constructor traps an inverted or negative range.
  */
 inline void case_random_timer_inverted_range() {
   Animation::RandomTimer timer({.min = opaque(5), .max = opaque(2)},
@@ -532,10 +527,7 @@ inline void case_timeline_clear_pinned() {
 
 /**
  * @brief Death case: clear()ing from a completion callback must trap.
- * @details Animation surface — step() runs post_callback() and only afterwards
- *          destroys the event, so a clear() inside that callback would free the
- *          callable whose frame is still executing. The trap sits at the top of
- *          clear(), ahead of destroy_events().
+ * @details A clear() inside the callback would free the executing callable.
  */
 inline void case_timeline_clear_during_step() {
   static hs_test::StubEffect fx(8, 8);

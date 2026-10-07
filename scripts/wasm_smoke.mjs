@@ -1,8 +1,7 @@
 // Headless Node smoke test for the shipped WASM module.
 //
-// Runs in the CI `wasm` job to catch SIMD/codegen faults, embind signature
-// mismatches, stack overflow, and memory-growth detachment. Drives every effect
-// at every resolution and checks arena/stack high-water marks against capacity.
+// Drives every effect at every resolution and checks arena/stack high-water
+// marks against capacity.
 //
 // Usage (from the Holosphere repo root, after a wasm build):
 //   node scripts/wasm_smoke.mjs [path/to/holosphere_wasm.js]
@@ -58,26 +57,18 @@ async function promotedDocuments() {
 // Shared CI/just smoke window; WASM_SMOKE_FRAMES overrides it for local runs.
 const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 120);
 
-// The stack has no allocator trap and stack_high_water_mark() saturates at
-// capacity, so `hwm > capacity` can never fire for it. Gate on an absolute byte
-// budget instead (meaningful against any build's stack size); stackCreepBudget()
-// mins it with the capacity fraction. Creep tripwire, not a bound: the HWM
-// under-reports (see stack_high_water_mark() in engine_bindings.h).
-// The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
-// severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
+// stack_high_water_mark() saturates at capacity and under-reports, so the stack
+// gates on an absolute byte budget as a creep tripwire, not a bound. The default
+// is calibrated on the -O3 release build; debug builds override it via
+// WASM_SMOKE_STACK_CEILING.
 const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
 // Chain authoring carries a separate release-stack ceiling.
 const CHAIN_STACK_HWM_CEILING_BYTES = 4096;
 
-// The tool pages' CSP grants 'wasm-unsafe-eval' but not 'unsafe-eval', which
-// holds only while the glue generates no code at runtime — so the probe spans
-// the whole run, not just module creation: it is armed before the glue's own
-// module evaluation and stays armed across every engine, MeshOps and free-
-// function call below. Both routes to a code generator are counted: `Function`
-// as constructor or callee, and `eval` — replacing the global binding turns any
-// glue `eval(s)` into an indirect call through this proxy. A build that lost
-// -sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 fails here instead of throwing CSP
-// errors in the browser.
+// The tool pages' CSP forbids 'unsafe-eval', so the probe counts every runtime
+// code generation for the whole run, from before the glue's module evaluation:
+// `Function` as constructor or callee, and `eval` (replacing the global binding
+// turns any glue `eval(s)` into an indirect call through this proxy).
 function armDynamicExecProbe() {
   const RealFunction = globalThis.Function;
   const realEval = globalThis.eval;
@@ -149,8 +140,7 @@ async function main(probe) {
 
 
   const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
-  // Surface engine-side hs::log output and any abort() so a trap is visible in
-  // the CI log rather than a bare non-zero exit.
+  // Surface engine-side hs::log output and any abort() message.
   const Module = await createHolosphereModule({
     print: (s) => console.log(`[wasm] ${s}`),
     printErr: (s) => console.error(`[wasm:err] ${s}`),
@@ -261,9 +251,7 @@ async function main(probe) {
     }
   }
 
-  // Per-effect-per-resolution darkness: an effect whose draw path regresses to
-  // an all-zero framebuffer is invisible to a run-wide "something lit" flag,
-  // and the length checks below cannot see it either. Keys are "Name@WxH".
+  // All-black effect/resolution passes, keyed "Name@WxH".
   const darkEffects = new Set();
   const sweptEffects = new Set();
 
@@ -271,8 +259,7 @@ async function main(probe) {
   // effect reporting false is legitimate, an all-false sweep is not.
   let strobing = 0;
 
-  // Enumerated from the module (generated from HS_RESOLUTIONS) so a new
-  // resolution gets coverage without editing this file.
+  // Enumerated from the module (generated from HS_RESOLUTIONS).
   const RESOLUTIONS = Module.HolosphereEngine.getSupportedResolutions();
   if (!RESOLUTIONS || RESOLUTIONS.length === 0) {
     console.error('wasm_smoke: getSupportedResolutions() returned no resolutions');
@@ -309,8 +296,6 @@ async function main(probe) {
         continue;
       }
 
-      // Enumerate from the running registry so the roster can't drift from the
-      // set the module actually built.
       const sizes = engine.getEffectSizes();
       const names = Object.keys(sizes);
       if (names.length === 0) {
@@ -356,15 +341,13 @@ async function main(probe) {
         }
         for (let f = 0; f < FRAMES_PER_EFFECT; f++) engine.drawFrame();
 
-        // getPixels() aliases WASM memory; after drawing it must expose the full
-        // active-resolution RGB span and not be a detached zero-length view.
+        // getPixels() aliases WASM memory; a detached view reads zero-length.
         const px = engine.getPixels();
         const expected = w * h * 3;
         if (px.length !== expected) {
           fail(`${name}: getPixels() length ${px.length}, expected ${expected} ` +
             `(detached view or wrong stride)`);
         }
-        // getBufferLength() describes the same span without touching the view.
         const len = engine.getBufferLength();
         if (len !== expected) {
           fail(`${name}: getBufferLength() ${len}, expected ${expected}`);
@@ -383,8 +366,6 @@ async function main(probe) {
         }
         if (!lit) darkEffects.add(`${name}@${w}x${h}`);
 
-        // Assert no arena was overrun rendering this effect; the module reports
-        // each region's high-water mark and capacity.
         const m = engine.getArenaMetrics();
         for (const region of ['scratch_arena_a', 'scratch_arena_b', 'persistent_arena']) {
           if (!m[region] || !Number.isFinite(m[region].capacity) || m[region].capacity < 0)
@@ -405,8 +386,7 @@ async function main(probe) {
             fail(`${name}: ${region} lifetime high-water mark ${lifetime} is below the windowed ${hwm}`);
           }
         }
-        // The stack traps nowhere: guard it with the creep budget, not
-        // hwm > capacity (unreachable — see STACK_HWM_CEILING_BYTES).
+        // The stack traps nowhere: guard it with the creep budget.
         const stack = m.stack;
         const stackCeiling = name === 'ShaderChain'
           ? Math.max(STACK_HWM_CEILING_BYTES, CHAIN_STACK_HWM_CEILING_BYTES)
@@ -423,9 +403,7 @@ async function main(probe) {
             `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — approaching overflow`);
         }
 
-        // Exercise the embind param seam (getParameterDefinitions() +
-        // getParamValues()) the GUI rides every frame: assert the two streams
-        // stay zippable and well-formed.
+        // The two embind param streams must stay zippable and well-formed.
         const definitions = engine.getParameterDefinitions();
         if (Array.isArray(definitions)) parameterDefinitionsSeen += definitions.length;
         for (const problem of paramStreamProblems(definitions,
@@ -471,9 +449,6 @@ async function main(probe) {
     }
 
     // ── Embind write seam: setResolution / setClip / setParameter ─────────────
-    // The per-effect loop above only READS the param streams; drive the write
-    // methods end-to-end through embind so a binding-signature drift on the
-    // setters fails here instead of shipping unseen.
     {
       const [w, h] = RESOLUTIONS[0];
       if (!resolutionOk(engine.setResolution(w, h))) {
@@ -483,9 +458,7 @@ async function main(probe) {
       if (engine.setResolution(w, h) !== RS.ALREADY_ACTIVE) {
         fail('write-seam: repeated setResolution did not report ALREADY_ACTIVE');
       }
-      // Rejection path: an unsupported size reports UNSUPPORTED and keeps the
-      // prior valid state (host predicate tests cover the predicate, not this
-      // seam).
+      // An unsupported size reports UNSUPPORTED and keeps the prior state.
       if (engine.setResolution(1, 1) !== RS.UNSUPPORTED) {
         fail('write-seam: setResolution(1, 1) did not report UNSUPPORTED');
       }
@@ -494,16 +467,10 @@ async function main(probe) {
       if (effectNames.length === 0) {
         fail(`write-seam: no effects at ${w}x${h}`);
       } else {
-        // setClip through embind: an in-range full-canvas band succeeds as
-        // APPLIED, or as FULL_FRAME_KEPT when the effect reports
-        // needs_full_frame(); effectNames[0] is not pinned to either, so accept
-        // both. A negative, over-extent, or inverted band reports
-        // INVALID_BOUNDS, never traps. The range check precedes the
-        // needs_full_frame branch, so the rejection is deterministic regardless
-        // of the effect. An int binding would map NaN and 2^32 to 0,
-        // and truncate the fractional bound to a different valid integer. INVALID_BOUNDS must stay distinct from NO_EFFECT
-        // — the pool faults on the former and must not fault on the latter — so
-        // pin the roster too.
+        // A full-canvas band reports APPLIED, or FULL_FRAME_KEPT under
+        // needs_full_frame(). Any out-of-range band reports INVALID_BOUNDS
+        // regardless of the effect, which must stay distinct from NO_EFFECT: the
+        // pool faults on the former only.
         const C = Module.ClipSetResult;
         for (const outcome of ['APPLIED', 'NO_EFFECT', 'INVALID_BOUNDS', 'FULL_FRAME_KEPT']) {
           if (!C || C[outcome] === undefined) fail(`Module.ClipSetResult.${outcome} is not bound`);
@@ -551,16 +518,12 @@ async function main(probe) {
           }
         }
 
-        // setParameter unknown-name rejection.
         if (engine.setParameter('definitely_not_a_param', 1) !== R.UNKNOWN_PARAM) {
           fail('write-seam: setParameter(unknown name) did not report UNKNOWN_PARAM');
         }
 
-        // setParameter clamp-readback: find a non-readonly float param with a
-        // finite range, write past each bound, and read the effective value back
-        // through getParameterDefinitions() (no drawFrame between, so animation
-        // cannot move it). setParameter reports APPLIED even when it clamps, so
-        // the readback — not the result — is what proves the clamp took.
+        // setParameter reports APPLIED even when it clamps, so the readback
+        // proves the clamp; no drawFrame between, so animation cannot move it.
         let clampTested = false;
         const near = (a, b) => Number.isFinite(a) && Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
         for (const name of effectNames) {
@@ -598,9 +561,8 @@ async function main(probe) {
         if (!clampTested) {
           fail('write-seam: found no float param to exercise the setParameter clamp');
         }
-        // A readonly param write names its reason; skip if the roster exposes
-        // none (engine_contract_wasm.test.js requires at least one, so drift
-        // toward zero readonly params is caught there).
+        // A readonly param write names its reason; skipped if the roster
+        // exposes none.
         let readonlyTested = false;
         for (const name of effectNames) {
           if (engine.setEffect(name) !== ES.INSTALLED) continue;
@@ -658,10 +620,8 @@ async function main(probe) {
     }
 
     // ── ShaderChain authoring route ─────────────────────────────────────────
-    // setShaderChain / getShaderChainCatalog: the chain interpreter's embind
-    // seam. The catalog is a class function (no engine needed); setShaderChain
-    // compiles synchronously — on APPLIED the param definitions are already
-    // rebuilt and the generation bumped before it returns.
+    // setShaderChain compiles synchronously: on APPLIED the param definitions
+    // are rebuilt and the generation bumped before it returns.
     {
       let catalog = null;
       try {
@@ -783,8 +743,7 @@ async function main(probe) {
       engine.setAnimationsPaused(false);
     }
 
-    // Stable fixed-effect and preset identities are independent of C++ names
-    // and generated array positions.
+    // Stable effect and preset ids, independent of C++ names and array order.
     {
       if (engine.setEffect('mobius-grid') !== ES.INSTALLED) {
         fail('stable-identity: setEffect("mobius-grid") failed');
@@ -805,12 +764,8 @@ async function main(probe) {
     }
 
     // ── Promoted documents bind to their compiled effect ─────────────────────
-    // patterns/<effect>.shader.json is the editable source of a composed
-    // effect, and the simulator applies it to the compiled build by control
-    // name, one writable parameter at a time — an unresolved writable id refuses the apply
-    // and writes nothing. The digests pin document to header without ever
-    // naming a control, so this is the only check that the two vocabularies
-    // meet.
+    // The simulator applies patterns/<effect>.shader.json to the compiled build
+    // by control name; an unresolved writable id refuses the whole apply.
     {
       const [w, h] = RESOLUTIONS[0];
       const documents = await promotedDocuments();
@@ -820,7 +775,6 @@ async function main(probe) {
       } else {
         for (const { effect } of documents) {
           if (controls.has(effect)) continue;
-          // setEffect takes the document's own effect_id (see stable-identity).
           const installed = engine.setEffect(effect);
           if (installed !== ES.INSTALLED) {
             const outcome = Object.keys(ES).find((key) => ES[key] === installed);
@@ -849,11 +803,10 @@ async function main(probe) {
       if (effectNames.length === 0) {
         fail('state-seam: no effects to drive');
       } else {
-        // The generation is the only token joining a definitions snapshot to a
-        // later value read: it must hold across frames, reads and param writes,
-        // hold across a rejected load, and advance after each accepted load.
-        // The authoring probe above may leave a chain schema refresh for
-        // its next frame. Settle it before measuring generation immutability.
+        // The generation joins a definitions snapshot to a later value read: it
+        // holds across frames, reads, param writes and rejected loads, and
+        // advances on each accepted load. Settle any pending chain schema
+        // refresh before measuring.
         engine.drawFrame();
         engine.getParameterDefinitions();
         engine.getParamValues();
@@ -995,9 +948,6 @@ async function main(probe) {
     }
 
     // ── Pole LOD seam: setPoleLod / getPoleLod ────────────────────────────────
-    // The sweep above renders at the shipped default (0, decimation off), so
-    // nothing else drives this pair. Write a non-zero aggressiveness, read it
-    // back, and render through the decimated scan.
     {
       const effectNames = Object.keys(engine.getEffectSizes());
       if (effectNames.length === 0) {
@@ -1104,11 +1054,9 @@ async function main(probe) {
       }
     }
 
-    // Log worst-case stack usage as a margin against STACK_SIZE. The render
-    // path repaints the canary after every effect load, so the live mark never
-    // reflects construction depth; init_high_water_mark is latched at load time
-    // as a running max over every load, so it is gated once here, against the
-    // sweep's widest ceiling.
+    // The render path repaints the canary after every effect load, so
+    // construction depth shows only in init_high_water_mark, a running max over
+    // every load.
     const stack = engine.getArenaMetrics().stack;
     const initGate = stackCreepBudget(stack,
       Math.max(STACK_HWM_CEILING_BYTES, CHAIN_STACK_HWM_CEILING_BYTES));
@@ -1132,8 +1080,6 @@ async function main(probe) {
   }
 
   // ── MeshOps tooling bindings ────────────────────────────────────────────────
-  // The engine loop drives only HolosphereEngine; exercise the MeshOpsWrapper
-  // surface (used by solids.html) so its embind signatures can't drift unseen.
   console.log('\nMeshOps:');
 
   const MeshOps = Module.MeshOps;
@@ -1153,20 +1099,17 @@ async function main(probe) {
     if (typeof MeshOps.getLastResult !== 'function') {
       fail('MeshOps.getLastResult binding is missing');
     }
-    // A saturated argument leaves getLastResult() at OK, so the adjustment has
-    // its own channel; a tool that exports the argument it passed reads it to
-    // keep an out-of-domain bound out of the engine's always-on HS_CHECK.
+    // A saturated argument leaves getLastResult() at OK; getLastAdjusted()
+    // reports the adjustment.
     if (typeof MeshOps.getLastAdjusted !== 'function') {
       fail('MeshOps.getLastAdjusted binding is missing');
     }
 
-    // Use a real registry name rather than hardcoding one (anti-drift).
     const registry = MeshOps.getRegistry();
     const solidName = registry && registry.length ? registry[0].name : null;
     if (!solidName) {
       fail('MeshOps.getRegistry() returned no solids');
     } else {
-      // Unknown names must be rejected (null), not abort the module.
       const bogus = MeshOps.fromSolidName('definitely_not_a_solid');
       if (bogus) { fail('fromSolidName(unknown) should return null'); bogus.delete(); }
       if (MeshOps.getLastResult() !== MR.UNKNOWN_NAME) {
@@ -1203,9 +1146,7 @@ async function main(probe) {
           dual.delete();
         }
 
-        // Drive the parameterized operators (double-arg truncate, double-arg relax
-        // with its clamp, finite-arg hankin reject) — arg-marshaling seams not
-        // exercised above.
+        // Parameterized operators: double-arg truncate and relax, finite-arg hankin.
         const isValidMesh = (w) => {
           if (!w) return false;
           const v = w.getVertices();
@@ -1243,9 +1184,8 @@ async function main(probe) {
           fail(`${solidName}.snub(1 - epsilon/2, 0) did not produce a valid mesh`);
         if (roundedFraction) roundedFraction.delete();
 
-        // relax(double) rejects non-finite counts and clamps finite ones before
-        // converting to int. Probe one in-domain pass and an adjusted large count.
-        // Read getLastAdjusted() before another operation resets the outcome.
+        // relax(double) rejects non-finite counts and clamps finite ones. Read
+        // getLastAdjusted() before another operation resets the outcome.
         const relaxed = solid.relax(1);
         if (MeshOps.getLastAdjusted()) {
           fail(`${solidName}.relax(1) reported an in-domain count as adjusted`);
@@ -1259,15 +1199,12 @@ async function main(probe) {
         if (!isValidMesh(relaxedCap)) fail(`${solidName}.relax(1e9) did not clamp to a valid mesh`);
         if (relaxedCap) relaxedCap.delete();
 
-        // hankin(double): a non-finite arg must be rejected at the boundary
-        // (finite_arg → null) rather than abort the module.
         const hankinBad = solid.hankin(NaN);
         if (hankinBad) { fail(`${solidName}.hankin(NaN) should return null`); hankinBad.delete(); }
         if (MeshOps.getLastResult() !== MR.NON_FINITE_ARG) {
           fail(`${solidName}.hankin(NaN) did not report NON_FINITE_ARG`);
         }
-        // A finite angle outside [0, pi/2] is a different rejection: it is
-        // rejected rather than clamped, and must not read back as NON_FINITE_ARG.
+        // A finite angle outside [0, pi/2] is rejected, not clamped.
         const hankinWide = solid.hankin(Math.PI);
         if (hankinWide) { fail(`${solidName}.hankin(π) should return null`); hankinWide.delete(); }
         if (MeshOps.getLastResult() !== MR.ANGLE_OUT_OF_DOMAIN) {
@@ -1284,9 +1221,6 @@ async function main(probe) {
       }
 
       // Tooling arena high-water marks must stay within capacity after the ops.
-      // The two scratch arenas are what TOOLING_BYTES_PER_MESH_ELEMENT is sized
-      // against, so a missing or unbound region leaves the loop below blind to
-      // the regions an operator overrun would kill the module through.
       const tm = MeshOps.getArenaMetrics();
       for (const region of ['tooling_arena', 'tooling_scratch_a', 'tooling_scratch_b']) {
         if (!tm[region]) {
@@ -1300,10 +1234,8 @@ async function main(probe) {
         if (hwm > capacity) fail(`MeshOps ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
       }
 
-      // A wrapper held across clearToolingMemory() aliases reclaimed storage.
-      // Using it must reject (null + STALE_WRAPPER), never abort the module —
-      // the JS layer serializes tasks against exactly this ordering slip, and a
-      // trap here would take the whole page down instead of one call.
+      // A wrapper held across clearToolingMemory() aliases reclaimed storage;
+      // using it must reject (null + STALE_WRAPPER), never abort the module.
       const stale = MeshOps.fromSolidName(solidName);
       if (!stale) {
         fail(`fromSolidName("${solidName}") returned null before the wipe`);
@@ -1340,13 +1272,11 @@ async function main(probe) {
       console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory, MeshOpResult reasons OK`);
 
       // ── getRecipe: recipe payload + reconstruction parity ──────────────────
-      // For every entry with a recipe, replaying the chain from the seed through
-      // the MeshOps op bindings must reproduce fromSolidName(entry) exactly —
-      // same V/F/I counts and an identical vertex buffer (spec gate 8).
+      // Replaying a recipe from its seed through the op bindings must reproduce
+      // fromSolidName(entry) exactly.
       if (typeof MeshOps.getRecipe !== 'function') {
         fail('MeshOps.getRecipe binding is missing');
       } else {
-        // Unknown and recipe-less names return null, never abort.
         if (MeshOps.getRecipe('definitely_not_a_solid') !== null) {
           fail('getRecipe(unknown) should return null');
         }
@@ -1378,8 +1308,6 @@ async function main(probe) {
           const recipe = MeshOps.getRecipe(entryName);
           if (!recipe) { fail(`getRecipe("${entryName}") returned null`); continue; }
 
-          // Payload shape: seed string resolving in the registry, ops array of
-          // {op: string, param: number, twist: number}.
           if (typeof recipe.seed !== 'string' || recipe.seed.length === 0) {
             fail(`${entryName}: recipe.seed "${recipe.seed}" is not a non-empty string`);
             continue;
@@ -1445,26 +1373,16 @@ async function main(probe) {
           cur.delete();
           truth.delete();
         }
-        // The reconstructions leave finalized meshes in the tooling arena; wipe
-        // so later sections start from a clean slate.
         MeshOps.clearToolingMemory();
         console.log(`  getRecipe: null cases + payload + reconstruction parity (${RECIPE_ENTRIES.join(', ')}) OK`);
       }
 
       // ── Operator roster: one topology signature per bound operator ──────────
-      // MESHOP_BIND guarantees a .function() exists per MESHOP_LIST /
-      // MESHOP_IRREGULAR_LIST name, not that it reaches the matching method —
-      // two names on one method compile clean. Each row pins what the operator
-      // is defined to produce from a cube (V=8, E=12, F=6): vertex/face/index
-      // counts plus the face-degree and vertex-incidence histograms, per the
-      // element formulas in core/mesh/conway.h (dual F/V swap, kis V+F and 2E
-      // faces, ambo E and V+F, truncate 2E and V+F, expand 2E and V+E+F,
-      // chamfer V+2E and F+E, snub 2E and V+2E+F) and the compositions
-      // gyro = d·snub, meta = k·d·a, needle = k·d, zip = d·k, bevel = t·a.
-      //
-      // kis/needle and truncate/zip share all three counts on every seed, so
-      // the histograms — not the counts — separate those pairs. The seed choice
-      // is load-bearing too: on a self-dual seed truncate and zip coincide.
+      // Two MESHOP_LIST names bound to one method compile clean. Each row pins
+      // the operator's topology on a cube, per the element formulas in
+      // core/mesh/conway.h. kis/needle and truncate/zip share all three counts,
+      // so the histograms separate them; on a self-dual seed truncate and zip
+      // coincide.
       const OP_SEED = 'cube';
       // "<degree>x<count>", ascending by degree.
       const histogram = (degrees) => {
@@ -1537,9 +1455,6 @@ async function main(probe) {
   }
 
   // ── Color / palette / geometry exports ──────────────────────────────────────
-  // These free functions and PaletteOps recipe compilation back the JS tools but are
-  // never touched by the engine loop above; pin numeric behavior so a
-  // transposed-arg or wrong-target binding fails here instead of shipping green.
   console.log('\nColor / palette / geometry:');
 
   const approx = (a, b, eps = 1e-3) => Number.isFinite(a) && Math.abs(a - b) <= eps;
@@ -1604,10 +1519,8 @@ async function main(probe) {
     }
   }
 
-  // named_procedural_palettes: the browser tool's mirror of the palettes.h
-  // X-macro. Shape and name uniqueness for every entry, plus two entries pinned
-  // against the header literals; MAUVE_FADE's per-channel-asymmetric rows catch a
-  // channel or an a/b/c/d transposition that a symmetric palette would hide.
+  // named_procedural_palettes mirrors the palettes.h X-macro. MAUVE_FADE's
+  // per-channel-asymmetric rows catch a channel or coefficient transposition.
   {
     const pals = Module.named_procedural_palettes();
     if (!Array.isArray(pals) || pals.length === 0) {
@@ -1771,9 +1684,7 @@ async function main(probe) {
   console.log('\nwasm_smoke: OK');
 }
 
-// The probe replaces two globals, so it is restored on every exit from main() —
-// a throw included, or Node would report that very crash through mutated
-// globals.
+// The probe replaces two globals; restore them on every exit, a throw included.
 const dynamicExecProbe = armDynamicExecProbe();
 try {
   await main(dynamicExecProbe);

@@ -213,8 +213,7 @@ inline void test_melt_warp_drifts_toward_north() {
   s.noise = nullptr;
   math::Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   math::Vector out = Feedback::melt_warp(v, s);
-  // speed=1 slerps 0.04 of the 90 deg arc toward the pole: y rises ~0.0628, x
-  // drops ~0.002.
+  // speed=1 slerps part of the way toward the pole.
   HS_EXPECT_TRUE(out.y > 0.05f);
   HS_EXPECT_TRUE(out.x < 0.999f);
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
@@ -374,9 +373,6 @@ inline void test_hue_rotate_lms_matrix_identity() {
 /**
  * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
  *        fade-then-rotate composition through the tabulated gamut clip.
- * @details Allows 64 u16-channel LSBs. The reference rotates in OKLab with the
- * same cached trig pair and, out of gamut, rescales chroma onto the flash
- * grid's cell minimum.
  */
 inline void test_hue_fade_matches_rotate_reference() {
   constexpr float HUE_FADE_TOL = 64.0f;
@@ -419,7 +415,6 @@ inline void test_hue_fade_matches_rotate_reference() {
 /**
  * @brief Pins hue_fade_apply2 against the scalar hue_fade_apply at the
  *        quantized output, the level the display observes.
- * @details Allows 128 u16-channel LSBs.
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
   constexpr int PAIR_TOL = 128;

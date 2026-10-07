@@ -33,10 +33,8 @@ if (!args.some((arg) => !arg.startsWith('-'))) {
 }
 
 const keyOf = (file) => relative(process.cwd(), file).replaceAll('\\', '/');
-// Reported files are folded to a cwd-relative key, so a glob-free pattern is
-// folded the same way before it is used as a suffix: an absolute path or a
-// backslash spelling would otherwise match no key and report a green run as one
-// that counted nothing.
+// A glob-free pattern is folded to the same cwd-relative key as reported files,
+// or an absolute or backslash path would match no file.
 const suffixes = args
   .filter((arg) => !arg.startsWith('-'))
   .map((pattern) => {

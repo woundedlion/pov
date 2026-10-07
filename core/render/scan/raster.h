@@ -358,9 +358,8 @@ inline int process_pixel(int x, int y, const math::Vector &p,
     if constexpr (solid) {
       alpha = solid_coverage(d, pixel_width);
     } else {
-      // Stroke falloff over the winning leaf's own half-width, result.size.
-      // Inward-only ramp: d = centerline_dist - half_width, so d=0 is the tube
-      // edge (alpha 0) and d=-size the centerline (alpha 1).
+      // Inward-only ramp over the winning leaf's half-width: d=0 is the tube
+      // edge (alpha 0), d=-size the centerline (alpha 1).
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
         alpha = math::quintic_kernel(-d / aa_thickness);

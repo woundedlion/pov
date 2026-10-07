@@ -33,17 +33,13 @@ struct GSWhiteBox;
  *
  * @details
  * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
- * feed/kill) on the shared lattice, producing spots/stripes/mazes.
- * Persistent state is Q16 (uint16_t) for the cubic reaction-term precision;
+ * feed/kill), producing spots/stripes/mazes. Persistent state is Q16;
  * substeps integrate in float and quantize back once per frame.
  *
- * A reaction runs until its field has all but stopped moving, then dissolves off
- * the sphere and reseeds at new sites, so each cycle grows a different form from
- * the same constants. Editing the constants dissolves the current field too.
- *
- * Each node carries the two strongest seed palettes and their mixing weight.
- * Palette pigment follows B diffusion and autocatalysis; rendering blends RGB
- * in linear light. Hue and shimmer share one sphere-domain noise field.
+ * A reaction runs until its field has all but stopped moving, then dissolves
+ * and reseeds at new sites. Editing the constants dissolves the current field
+ * too. Each node carries its two strongest seed palettes and their mixing
+ * weight.
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -153,11 +149,11 @@ private:
   /** @brief Substep budget used to calibrate the stabilization threshold. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
   /** @brief Rendered frames the dissolve takes to convert every node back to
-   * rest; 6.4 s at the 16 fps cadence. */
+   * rest. */
   static constexpr int DISSOLVE_FRAMES = 103;
   /**
    * @brief Rendered frames a fresh reaction runs before the stabilization
-   * detector arms; 9.6 s at the 16 fps cadence.
+   * detector arms.
    * @details A young field has only NUM_SEED_CLUSTERS active sites, so its mean
    * |dB| sits under MEAN_DB_STABLE and would read as stalled at birth.
    */
@@ -170,20 +166,16 @@ private:
    * @brief Mean per-node |dB| per frame below which the field counts as
    * settled, at DEFAULT_DT and BASELINE_STEPS_PER_FRAME; the detector rescales
    * it by params.dt / DEFAULT_DT and by EVOLUTION_STEPS_PER_FRAME /
-   * BASELINE_STEPS_PER_FRAME. A calibration heuristic: Q16 quantization makes
-   * the low-Speed response nonlinear.
-   * @details Well above the 1.1e-6..4.0e-6 Q16 chatter of a converged field.
+   * BASELINE_STEPS_PER_FRAME.
+   * @details A calibration heuristic: Q16 quantization makes the low-Speed
+   * response nonlinear.
    */
   static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /** @brief Speed the stabilization floor is calibrated at. */
   static constexpr float DEFAULT_DT = 2.5f;
   /** @brief Base-dt substep equivalents advanced per rendered frame. */
   static constexpr int EVOLUTION_STEPS_PER_FRAME = 10;
-  /**
-   * @brief Euler integrations performed per rendered frame.
-   * @details Six 5/3-sized integrations cover the same simulated interval as
-   * ten base-dt integrations.
-   */
+  /** @brief Euler integrations performed per rendered frame. */
   static constexpr int STEPS_PER_FRAME = 6;
   static constexpr float STEP_DT_SCALE =
       static_cast<float>(EVOLUTION_STEPS_PER_FRAME) / STEPS_PER_FRAME;
@@ -965,9 +957,8 @@ private:
    * @param x Pixel column.
    * @return The finished alpha-premultiplied pixel.
    * @details Accepts seeds inside a proven nearest-node radius immediately;
-   * boundary pixels check all six neighbors. The center stencil is shared
-   * across the four sub-pixel samples, so its reuse can exceed one node
-   * spacing at low vertical resolutions.
+   * boundary pixels check the neighbors. Sub-samples share the center
+   * stencil, which can reach past one node spacing at low vertical resolution.
    */
   template <typename Grid>
   HS_O3_FN Pixel shade_pixel(
@@ -1033,7 +1024,7 @@ private:
         b11 += B * right;
       }
     }
-    // Seven weighted Q16 terms have less than 0.08 signed-mass rounding error.
+    // Within the guard, Q16 rounding can flip a corner's sign.
     constexpr float COVERAGE_ROUNDING_GUARD = 0.125f;
     if (fabsf(b00) < COVERAGE_ROUNDING_GUARD ||
         fabsf(b01) < COVERAGE_ROUNDING_GUARD ||

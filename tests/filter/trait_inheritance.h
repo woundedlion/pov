@@ -126,10 +126,8 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_EQ((Filter::World::Orient::segment_margin), 0);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::segment_margin), 0);
 
-  // total_segment_margin fold: empty pipeline, plain stack, a lone
-  // ChromaticShift, and a chain of spreading stages, whose margins sum —
-  // AntiAlias splats a tap 1 column off-position, then ChromaticShift shifts
-  // that tap up to 3 more.
+  // Spreading stages' margins sum: AntiAlias splats a tap 1 column
+  // off-position, then ChromaticShift shifts that tap up to 3 more.
   HS_EXPECT_EQ((Pipeline<W, H>::total_segment_margin), 0);
   HS_EXPECT_EQ((PlainStack::total_segment_margin), 1);
   HS_EXPECT_EQ((MeshStack::total_segment_margin), 1);

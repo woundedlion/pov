@@ -132,16 +132,13 @@ public:
              "KDTree::nearest k exceeds MAX_K");
     if (root_index == -1 || k == 0)
       return result;
-    // A k above the point count would never fill the set, so nothing would
-    // prune.
+    // A k above the point count would never fill the set or prune.
     k = std::min(k, nodes.size());
 
     auto *best = result.values.data();
     size_t &count = result.count;
 
-    // Cached pruning bound: the largest squared distance in `best` and its slot,
-    // FLT_MAX until the set fills to k so nothing prunes early. Recomputed only
-    // when `best` changes.
+    // Cached pruning bound; FLT_MAX until the set fills to k.
     float worst_d_sq = FLT_MAX;
     size_t worst_i = 0;
     auto recompute_worst = [&]() {
@@ -157,18 +154,16 @@ public:
       }
     };
 
-    // Offer a node to the k-best set: append while under k, otherwise displace
-    // the cached worst entry if this one is closer.
     auto offer_candidate = [&](float d_sq, int idx) {
       if (count < k) {
         best[count++] = {nodes[idx].point, nodes[idx].original_index, d_sq};
         if (count == k)
-          recompute_worst(); // set just filled: cache its worst for pruning
+          recompute_worst();
       } else if (d_sq < worst_d_sq ||
                  (d_sq == worst_d_sq &&
                   nodes[idx].original_index < best[worst_i].original_index)) {
         best[worst_i] = {nodes[idx].point, nodes[idx].original_index, d_sq};
-        recompute_worst(); // worst displaced: refresh the cache
+        recompute_worst();
       }
     };
 
@@ -208,8 +203,6 @@ private:
    * @param count Number of indices in this subtree.
    * @param depth Recursion depth; selects the split axis as depth % 3.
    * @return Root node index of the built subtree, or -1 if empty.
-   * @details Cycles the split axis by depth%3, partitioning around the median
-   * along that axis and reordering `indices` in place.
    */
   HS_FLASH_MEMBER int build(std::span<const math::Vector> points, int *indices,
                             int count, int depth) {
@@ -257,8 +250,6 @@ private:
    * @param target Query point, in world units.
    * @param offer_candidate Callback that records a candidate in the k-best set.
    * @param get_worst_dist Callback returning the current pruning bound (squared distance).
-   * @details Descends the near child first, then prunes the far child when the
-   * splitting plane is farther than the current worst hit.
    */
   template <typename PushFn, typename MaxDistFn>
   void search_k(int node_idx, const math::Vector &target,

@@ -114,11 +114,10 @@ struct RaymarchParams {
 
 /**
  * @brief Ray-marches a twisted torus SDF at each vertex of a selectable solid,
- *        shading each with a metallic headlight model and a baked OKLCH palette
- *        under a seamless torus-UV noise hue field. Each torus has an independent
- *        random-walk tumble and is auto-sized to its own nearest-neighbour gap
- *        (scaled by Fill) at the in-plane rim; tumbling twist lobes may overlap
- *        slightly at Fill >= ~0.83.
+ *        shading each with a metallic headlight model and a baked OKLCH palette.
+ * @details Each torus tumbles independently and is sized to its own
+ *          nearest-neighbour gap scaled by Fill; twist lobes can overlap at high
+ *          Fill.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -535,9 +534,8 @@ private:
     math::Quaternion spin_q = math::make_rotation(math::X_AXIS, spin_angle);
 
     for (int i = 0; i < active_count; ++i) {
-      // Per-vertex auto-size: fit the ring's outer edge to `fill` of this
-      // vertex's half nearest-neighbour gap, so open regions get large tori and
-      // tight ones stay small. Twist lobes overlap from Fill >= about 0.83.
+      // Fit the ring's outer edge to `fill` of this vertex's half
+      // nearest-neighbour gap.
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
       float scale = outer_r / VIS_K;
       float major_r = scale * MAJOR_K;

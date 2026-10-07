@@ -1,17 +1,11 @@
-// JavaScript lint rules for first-party tooling, enforced by the CI lint job.
-//
-// Recommended defect rules (undeclared names, unreachable code, duplicate keys,
-// unused bindings), plus checks for counted test assertions. No stylistic rules and no
-// formatter: the tree passes this unmodified, so the gate reports real breakage
-// rather than layout opinions.
+// JavaScript lint rules for first-party tooling: recommended defect rules plus
+// checks for counted test assertions. No stylistic rules.
 import js from '@eslint/js';
 import globals from 'globals';
 
 export default [
-  // eslint reads no .gitignore, and a wasm build tree holds the emitted
-  // emscripten .js glue. Without this, `npm run lint` lints generated code
-  // locally while CI (a fresh checkout, no build tree) does not. .worktrees/ is
-  // a second full checkout, whose .mjs would otherwise be linted twice.
+  // eslint reads no .gitignore: skip build trees (emitted emscripten glue) and
+  // nested checkouts.
   { ignores: ['build*/**', '.worktrees/**', '.hs-pre-commit.*/**', '.doxygen-awesome/**'] },
   js.configs.recommended,
   {

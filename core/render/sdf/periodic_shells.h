@@ -247,13 +247,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  * @brief Shell composite by a march over the lattice layers across the
  *        ambient ray's dominant axis, one step to either side included.
  * @tparam DIMENSIONS 3 for a spatial camera, 4 for a slice.
- * @details Requires PreparedPeriodicShells::march for the camera's domain. A
- * contributing sphere lies within half a cell of the ambient ray, so its
- * closest approach and roots stay inside its own cell, and its center lies
- * within twice that clearance of the ray's crossing of its layer (sqrt(3)
- * times in 3D): the crossing's rounded lattice point, or a neighbor one step
- * across each coordinate whose rounding offset leaves it within reach. A
- * layer's candidates composite in distance order. Matches
+ * @details Requires PreparedPeriodicShells::march for the camera's domain.
+ * Candidates are the ray's layer crossing's rounded lattice point and the
+ * neighbors within reach, composited in distance order per layer. Matches
  * shade_periodic_shells_dimension<DIMENSIONS>, with the step budget counting
  * layers.
  * @return The premultiplied composite.

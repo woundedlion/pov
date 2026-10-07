@@ -9,11 +9,8 @@
 
 /**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
- * @details Concepts surface — hs::inplace_function routes an empty-state call
- *          through ipf_empty_ops::invoke, which traps via check_fail. The
- *          never-taken opaque(false) assignment keeps the optimizer from folding
- *          the trap. Host/WASM only: the device Fn backend returns a
- *          zero-initialized R instead of trapping.
+ * @details Host/WASM only: the device Fn backend returns a zero-initialized R
+ *          instead of trapping.
  */
 inline void case_empty_fn_call() {
   Fn<int(int), 16> f;

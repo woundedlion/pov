@@ -506,8 +506,7 @@ def cyclers():
 
 
 class CyclerRoster(unittest.TestCase):
-    """Every multi-preset effect emits an advance marker; the marker guard
-    only runs for effects named in CYCLERS."""
+    """Every multi-preset effect is in CYCLERS, so its marker is verified."""
 
     def test_every_multi_preset_effect_is_a_cycler(self):
         presets = multi_preset_effects()

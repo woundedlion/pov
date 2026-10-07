@@ -211,12 +211,9 @@ inline void test_islamicstars_smooth_recipe_completion() {
 }
 
 /**
- * @brief Drives IslamicStars across the first registry entry's complete
- *        op-by-op build at max trans speed: the build must activate and
- *        finish without a trap, the built shape's per-face colours must never
- *        change from finish_build through its still/ripple/fade display, and
- *        entry 1 must complete its lifetime, and frames after entry 2 starts
- *        must light pixels.
+ * @brief Drives IslamicStars through the first registry entry's full build at
+ *        max trans speed: no trap, stable per-face colours through its
+ *        display, and lit frames once entry 2 starts.
  */
 inline void test_islamicstars_recipe_build_smoke() {
   reset_effect_globals();
@@ -281,13 +278,11 @@ inline void test_islamicstars_recipe_build_smoke() {
  * @brief Drives IslamicStars through every registry entry and then through the
  *        needle recipe, pinning the persistent arena against the effect's own
  *        budget.
- * @details Cycling the roster at 288x144 with Trans Speed 8 exercises each
- *          build against its predecessor; an arena overrun traps. The needle
- *          sets the scratch_a-heavy split, so it is measured separately.
+ * @details An arena overrun traps. The needle sets the scratch_a-heavy split,
+ *          so it is measured separately.
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
   reset_effect_globals();
-  // spawn_entry selects BRIDGE_BUDGET, RECIPE_BUDGET, or GENERATED_BUDGET.
   // Host scratch uses the device caps; persistent usage is checked against the
   // live per-shape device budget. Resplitting rebases scratch high-water marks.
   {
@@ -400,17 +395,15 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
               DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
                   IslamicBuildProbe::bridge_scratch_b());
   HS_EXPECT_TRUE(needle_built);
-  // needle actually reached its scratch_a-heavy split (proves the smooth path
-  // ran, not a silently-dropped build).
+  // The needle reached its scratch_a-heavy split.
   HS_EXPECT_GT(na_peak, 120u * 1024u);
 }
 
 /**
  * @brief Drives IslamicStars until TARGET_BRIDGES dual bridges complete,
  *        pinning the scratch peaks against the effect's budget.
- * @details Drives at a modest Trans Speed so closing bridge legs complete. The
- *          bridge's leg 3 rebuilds the medial for its handoff centroids, whose
- *          scratch must not co-reside with the leg's own arrival mesh.
+ * @details The bridge's leg 3 rebuilds the medial for its handoff centroids,
+ *          whose scratch must not co-reside with the leg's own arrival mesh.
  */
 inline void test_islamicstars_dual_bridge_fits_budget() {
   reset_effect_globals();

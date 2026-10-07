@@ -143,9 +143,8 @@ inline void test_half_edge_mesh_face_loop_closes() {
  * @brief Verifies that for a closed manifold (cube), every half-edge has a pair,
  *        the pairing is reciprocal (pair(pair(i)) == i), AND the twin is the
  *        geometric opposite — it traverses the same undirected edge in reverse.
- * @details For a half-edge u→v, its twin must run v→u, so head(pair) == tail(i)
- *          and tail(pair) == head(i). `he.vertex` is the head (destination); the
- *          tail is the head of the previous half-edge in the face loop.
+ * @details `he.vertex` is the head; the tail is the head of the previous
+ *          half-edge in the face loop.
  */
 inline void test_half_edge_mesh_pairs_are_symmetric() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -160,7 +159,6 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
       return;
     HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i);
 
-    // Same undirected edge, reversed endpoints: twin of u->v must be v->u.
     const uint16_t head_i = he.half_edges[i].vertex;
     const uint16_t tail_i = he.half_edges[he.half_edges[i].prev].vertex;
     const uint16_t head_p = he.half_edges[pair].vertex;
@@ -173,9 +171,6 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
 /**
  * @brief Verifies the half-edge builder's boundary path: an open mesh leaves its
  *        outer edges unpaired (pair == HE_NONE).
- * @details Two triangles (0,1,2) and (0,2,3) share edge 0-2: that single
- *          interior edge pairs reciprocally; the other four half-edges border
- *          the open boundary and stay HE_NONE.
  */
 inline void test_half_edge_mesh_open_boundary_edges() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -183,7 +178,6 @@ inline void test_half_edge_mesh_open_boundary_edges() {
   open.vertices.bind(arena, 4);
   open.face_counts.bind(arena, 2);
   open.faces.bind(arena, 6);
-  // Positions are irrelevant to half-edge topology; any distinct points work.
   open.vertices.push_back(math::Vector(0, 0, 1));
   open.vertices.push_back(math::Vector(1, 0, 0));
   open.vertices.push_back(math::Vector(0, 1, 0));
@@ -467,9 +461,6 @@ inline void test_clone_polymesh_deep_copies() {
 
 /**
  * @brief Verifies all 6 cube faces classify into the same class (0).
- * @details The faces are topologically equivalent (square, 4 right angles, same
- *          neighbor signature). scratch_a/scratch_b are working arenas for the
- *          classifier.
  */
 inline void test_classify_faces_cube_uniform_topology() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
@@ -523,8 +514,7 @@ inline void test_classify_faces_zero_sided_faces_share_class() {
  * @brief Verifies classify_faces_by_topology on an UNCOMPILED PolyMesh with a
  *        degenerate 2-gon does not prevent the triangle from classifying.
  * @details A 2-gon reusing the triangle's edge puts a third half-edge on that
- *          edge; the record-loop side-count guard leaves the degenerate edges
- *          unpaired so the triangle still classifies.
+ *          edge.
  */
 inline void test_classify_faces_uncompiled_degenerate() {
   Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
@@ -637,8 +627,7 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
   PolyMesh tr = MeshOps::truncate(cube, target, temp, 0.25f);
   HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14); // 6 octagons + 8 triangles
 
-  // truncate's temp working set is no longer referenced; reuse mesh_arena_b for
-  // the classifier scratch. topology grows into `target`, where tr lives.
+  // truncate's temp is dead; reuse mesh_arena_b as classifier scratch.
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
   Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
                   sizeof(mesh_arena_b) / 2);
@@ -767,11 +756,8 @@ struct TopoHashTable {
 /**
  * @brief Verifies both classifier hash stages are collision-free across all
  *        three solid registries.
- * @details A fmix32 collision merges two distinct face topologies into one
- *          class. Builds every roster solid and sweeps the pre-fold hash
- *          (count + sorted angles) and the neighbour-folded hash, asserting
- *          each maps to one key. Within each mesh the classify_faces_by_topology
- *          ids and the reference keys must induce the same face partition.
+ * @details Within each mesh the classify_faces_by_topology ids and the
+ *          reference keys must induce the same face partition.
  */
 inline void test_classify_faces_roster_hash_collision_free() {
   static TopoHashTable pre_fold;
@@ -837,9 +823,8 @@ inline void test_classify_faces_roster_hash_collision_free() {
       }
       ++swept_meshes;
 
-      // Run the real classifier and require it to induce the same partition.
-      // `c` held only the half-edge mesh, which is dead now, so it backs the
-      // classifier scratch; topology grows into `a`, where the mesh lives.
+      // `c` held only the now-dead half-edge mesh; reuse it as classifier
+      // scratch.
       Arena scratch_a(mesh_arena_c, sizeof(mesh_arena_c) / 2);
       Arena scratch_b(mesh_arena_c + sizeof(mesh_arena_c) / 2,
                       sizeof(mesh_arena_c) / 2);
@@ -848,8 +833,6 @@ inline void test_classify_faces_roster_hash_collision_free() {
       if (mesh.topology.size() != F)
         continue;
 
-      // Dense ids, so a per-id slot table is enough for one direction; the
-      // class count is small, so the reverse direction is a linear scan.
       uint64_t id_key[MAX_TOPO_CLASSES];
       bool id_used[MAX_TOPO_CLASSES] = {};
       int classes = 0;

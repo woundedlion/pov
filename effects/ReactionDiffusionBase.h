@@ -213,7 +213,7 @@ protected:
   static constexpr int POLE_BAND = 4;
   /**
    * @brief Minimum nearest-neighbor spacing outside the polar band, as a
-   *        fraction of D_AVG; the lattice measures 0.9038.
+   *        fraction of D_AVG.
    */
   static constexpr float BULK_MIN_SPACING_FRAC = 0.903f;
   /** @brief Half the bulk minimum spacing, squared. */
@@ -237,11 +237,9 @@ protected:
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param seed Seed node id from the cubemap LUT.
    * @return The id of the nearest node among the seed and its neighbors.
-   * @details A query lying within half
-   * the distance from the seed to its closest lattice neighbor cannot be nearer
-   * to any other node, so the seed is the argmin by triangle inequality. The
-   * polar band carries its own, smaller certificate because the Fibonacci
-   * lattice packs those nodes far tighter than D_AVG.
+   * @details A query within half the seed's closest-neighbor distance is
+   * nearest to the seed (triangle inequality). The polar band, packed tighter
+   * than D_AVG, carries its own smaller certificate.
    */
   template <bool Compact = false>
   HS_O3_FN static int refine_render_center(const math::Vector &rv,
@@ -273,10 +271,8 @@ protected:
    * @param seed Seed node id from the cubemap LUT.
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
-   * @details Per-sample reference for the shared-stencil shaders. The
-   * seed stencil's squared distances are computed once while tracking the
-   * argmin: when the seed is already nearest they feed the kernel weights
-   * directly; otherwise the kernel re-walks the refined center's stencil.
+   * @details Per-sample reference for the shared-stencil shaders. Reuses the
+   * seed stencil's distances when the seed is already nearest.
    */
   template <typename OnWeight>
   HS_O3_FN static void refine_and_accumulate(const math::Vector &rv,
@@ -338,8 +334,8 @@ protected:
    * @param positions Stencil positions from gather_stencil.
    * @param on_weight Callable invoked as `on_weight(slot, weight)` for every
    * stencil slot inside the support radius.
-   * @note always_inline is load-bearing on both this walk and the weight
-   * callback it wraps: out of line, GCC spends extra ITCM in the BZ shader.
+   * @note always_inline on this walk and its weight callback is load-bearing:
+   * out of line, GCC spends extra ITCM in the BZ shader.
    */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
@@ -518,8 +514,8 @@ protected:
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per neighbor index.
-   * @details Reads all RD_K slots unguarded: the lattice is full-degree, with
-   * every slot a valid node index (verified at init_lattice).
+   * @details Reads all RD_K slots unguarded; init_lattice verifies every slot
+   * is a valid node index.
    */
   template <bool Compact = false, typename Fn>
   static void for_each_neighbor(int node, Fn &&fn) {

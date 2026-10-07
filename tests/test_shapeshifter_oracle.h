@@ -28,8 +28,7 @@ constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
 
-/** Measured star baselines. Whole-frame metrics allow 20% headroom; the worst
- * channel allows 50%. */
+/** Measured star baselines and their headroom multipliers. */
 constexpr double WHOLE_FRAME_HEADROOM = 1.2;
 constexpr double WORST_PIXEL_HEADROOM = 1.5;
 constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 187.5;
@@ -432,11 +431,6 @@ inline uint64_t row_energy(const OracleFrame &frame, int y) {
 /**
  * @brief One state per (shape, phase function) pair, shape-major: entry
  *        shape * 4 + function.
- * @details Sides follow the shape. Count, phase and orientation follow the
- * function column (orientation by (shape + function) % 4), so SINE always
- * renders a single contour and SQUARE the densest; SPHERICAL_STAR caps count
- * at 7 and the star shapes fall off toward the equator. Amplitude, alpha,
- * spacing and clip stay at the OracleState defaults.
  */
 inline std::array<OracleState, 20> shape_function_matrix() {
   using Function = OracleEffect::PhaseFunction;
@@ -620,7 +614,7 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
     uint32_t channel;
     size_t pixels;
   };
-  // Per-case native baselines with 25% aggregate and 50% peak headroom.
+  // Per-case native baselines with aggregate and peak headroom.
   constexpr Budget budgets[] = {
       {0.4, 5, 480, 1},         {2.8, 36, 3800, 1},   {9, 87, 9700, 9},
       {30, 172, 10910, 17},     {0.3, 1.5, 90, 1},    {0.4, 3.5, 210, 1},

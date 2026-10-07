@@ -280,10 +280,8 @@ inline void test_transformed_volume_world_local_roundtrip() {
  * @brief Verifies Volume::draw ray-marches a sphere SDF into a bounded silhouette
  *        whose every shaded fragment's hit registers land on the surface, on the
  *        camera-facing cap.
- * @details The silhouette is non-empty and smaller than the canvas, with no more
- * plots than shades; each hit's frag.pos (closest_local) and frag.size
- * (closest_d) lie within the AA band of the surface; the hit centroid lies on
- * the +Z cap facing the camera (rays travel along -Z).
+ * @details frag.pos (closest_local) and frag.size (closest_d) lie within the
+ * AA band of the surface; rays travel along -Z.
  */
 inline void test_volume_raymarch_silhouette_and_registers() {
   constexpr int W = 96, H = 64;
@@ -348,8 +346,6 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
 
   // Small foreground sphere nearer the camera (+Z local); larger background
   // sphere deeper and wider so it sits behind the whole foreground silhouette.
-  // The step budget lets the grazing ray stall on the foreground edge in the AA
-  // band, so the occluder probe discovers the surface behind.
   TwoSphereSDF shape{math::Vector(0.0f, 0.0f, 0.20f), 0.18f,
                      math::Vector(0.0f, 0.0f, -0.20f), 0.30f};
   Scan::TransformedVolume vol(shape, center, math::Quaternion());
@@ -419,11 +415,9 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
  * @brief Verifies probe_occluder reports the grazed background edge's own
  *        closest-approach point, so the corner fill is shaded on the background
  *        surface rather than reusing the foreground fragment.
- * @details The ray passes through the corner where the two spheres' silhouettes
- * cross, inside both AA bands but hitting neither: the trace grazes the
- * foreground sphere, and the probe must come back non-solid with the graze
- * coverage and a `behind` point at the background sphere's edge (negative z),
- * not the foreground graze it was seeded with.
+ * @details The ray passes the corner where the two silhouettes cross, inside
+ * both AA bands; the probe is non-solid with `behind` at the background
+ * sphere's edge (negative z).
  */
 inline void test_volume_probe_occluder_reports_background_graze_point() {
   const float aa_width = 0.01f;
@@ -446,8 +440,7 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
                                           hit_threshold, aa_width);
   HS_EXPECT_FALSE(occ.solid);
   // The ray passes 0.0033 outside the background sphere, so the analytic
-  // coverage is quintic(1 - (0.0033 - 0.001)/0.009) ~= 0.89; the parabolic
-  // refinement must land near it (the coarse stride alone reads ~0.65).
+  // coverage is quintic(1 - (0.0033 - 0.001)/0.009) ~= 0.89.
   HS_EXPECT_GT(occ.soft, 0.8f);
   HS_EXPECT_LT(occ.soft, 0.95f);
   HS_EXPECT_LT(occ.behind.z, -0.05f);

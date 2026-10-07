@@ -288,11 +288,10 @@ public:
    * @param to Target keys (amount = 1).
    * @param amount Blend amount; clamped to [0, 1].
    * @details Keeps this palette's evaluation policy. Both snapshots must carry
-   * the same key count, or the endpoints resolve to different palette shapes.
-   * Snapshots carry no closing hue, so a LOOP domain keeps its own closing
-   * travel, re-anchored to the morphed first key. A pair whose axis curves
-   * disagree morphs through CUSTOM at every amount, so an endpoint lands on
-   * that snapshot's key run rather than on its analytic axis curve.
+   * the same key count. A LOOP domain keeps its own closing travel, re-anchored
+   * to the morphed first key. A pair whose axis curves disagree morphs through
+   * CUSTOM at every amount, so an endpoint lands on its key run rather than its
+   * analytic axis curve.
    */
   HS_COLD_MEMBER void morph_snapshots(const Snapshot &from, const Snapshot &to,
                                       float amount) {

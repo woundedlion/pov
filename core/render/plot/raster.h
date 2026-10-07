@@ -51,7 +51,7 @@ inline constexpr float BALANCED_SCREEN_STEP_PX = 1.125f;
 /** @brief Pole-floor multiple below which balanced sampling keeps exact cadence. */
 inline constexpr float BALANCED_POLE_GUARD_SCALE = 2.0f;
 
-/** @brief Minimum sin²φ for balanced step reuse; √0.12 ≈ 7 × MIN_SIN_PHI. */
+/** @brief Minimum sin²φ for balanced step reuse. */
 inline constexpr float BALANCED_REUSE_MIN_SIN2 = 0.12f;
 
 /** @brief Step-reuse ceiling, as a fraction of base_step. */
@@ -68,10 +68,8 @@ inline constexpr float BALANCED_REUSE_STEP_TOLERANCE = 0.1f;
  * @param alpha Per-sample coverage at the default spacing.
  * @param step_ratio Stretched step over the default step.
  * @return Gained coverage, clamped to 1.
- * @details Linear-in-alpha fit to source-over accumulation. It tracks the exact
- * gain to a few percent up to alpha ~0.4 and over-boosts above that; at the
- * balanced ratio the clamp saturates past alpha ~0.85, so a near-opaque stroke
- * plots fully opaque and loses its soft edge.
+ * @details Linear-in-alpha fit to source-over accumulation; it over-boosts at
+ * high alpha, so a near-opaque stroke plots fully opaque.
  */
 static inline float balanced_sample_alpha(float alpha, float step_ratio) {
   const float gain = 1.0f + (step_ratio - 1.0f) * (0.88f - 0.20f * alpha);
@@ -87,8 +85,7 @@ inline uint32_t g_planar_position_samples = 0;
  * @brief Antipode cutoff for the planar projection's stable-azimuth region.
  * @details The planar (azimuthal-equidistant) projection is singular at the
  * basis antipode (R→π: azimuth undefined). A control point whose dot with the
- * basis center is below -COS_PLANAR_ANTIPODE (within about 2.6° of the
- * antipode) uses a geodesic edge. The stored positive threshold is cos(0.045).
+ * basis center is below -COS_PLANAR_ANTIPODE uses a geodesic edge.
  */
 inline constexpr float COS_PLANAR_ANTIPODE = 0.999f;
 
@@ -114,11 +111,8 @@ template <int W> inline constexpr size_t rasterize_step_budget() {
  *        across the call or a preceding gate peak; 0 otherwise.
  * @return The cache size in bytes.
  * @details Covers the adaptive sub-step cache plus, under a planar basis, the
- * per-segment arc and seam caches. @p trail_points adds trail-gate arrays
- * (per-edge bits, per-point rows and columns, alignment slack).
- * ParticleSystem::draw keeps them live across the call; a caller may also
- * include them to cover a preceding gate's peak. Deferred-shader position
- * buffers are not included.
+ * per-segment arc and seam caches. Deferred-shader position buffers are not
+ * included.
  */
 template <int W>
 inline constexpr size_t rasterize_scratch_a_bytes(size_t planar_segments = 0,
@@ -668,10 +662,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             p = newton_unit(smp.pos);
         } else if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
                              requires { sample.one_pass(current_t); }) {
-          // Only the planar sampler reaches here. Its balanced walk corrects
-          // with the Newton step, its default-density walk with the exact
-          // normalize; the two land ~5e-6 of unit length apart and plot
-          // different rows.
+          // Balanced walks use the Newton step, default-density walks the
+          // exact normalize; the two can plot different rows.
           HS_PLOT_COUNT(normalizations);
           if (balanced_sampling) {
             p = newton_unit(smp.pos);
@@ -807,9 +799,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       while (sim_dist < total_dist) {
         float step = steps_cache.is_empty() ? first_step : adaptive_step(smp);
 
-        // Backstop: a pathological segment could exceed the 2*W cache. Stop
-        // subdividing and let the normalized replay stretch the cached steps
-        // over the rest of the segment.
+        // Backstop on cache overflow: the normalized replay stretches the
+        // cached steps over the rest of the segment.
         if (steps_cache.size() >= steps_cache.capacity()) {
           HS_PLOT_COUNT(backstops);
           HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
@@ -826,10 +817,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       }
     }
 
-    // The final step normally overshoots total_dist (scale <= 1) and the
-    // normalized replay stretches the cached steps back to exactly total_dist.
-    // On the backstop break path sim_dist can fall short (scale > 1) and the
-    // replay stretches over the remaining segment instead.
+    // scale <= 1 normally (the final step overshoots); > 1 after a backstop
+    // break. Either way the replay spans exactly total_dist.
     HS_CHECK(sim_dist > 0.0f,
              "rasterize: simulated segment length is not positive");
     float scale = total_dist / sim_dist;
@@ -869,11 +858,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
 
-      // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
-      // length. Registers are lerped from the control points; under a planar
-      // basis set_arc_uv rewrites v0/v1 from the sampled arc estimate so a shader
-      // keying off them as an arc-length proxy tracks the drawn position across
-      // the planar bow. Geodesic edges keep the lerped registers.
+      // `t` follows the rendered arc length. Under a planar basis set_arc_uv
+      // rewrites the lerped v0/v1 from the sampled arc, so arc-keyed shaders
+      // track the drawn position.
       HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
@@ -942,9 +929,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     }
     const bool use_planar = planar_basis && !antipodal_seam;
 
-    // Advance the rendered-arc accumulator for EVERY segment (drawn or culled) so
-    // v0/v1 stay a true full-curve parameterization; seg_base snapshots the start
-    // for the draw lambda. Skipped for geodesic polylines.
+    // Advance for every segment, drawn or culled, so v0/v1 span the full curve.
     if (override_uv) {
       seg_base = cumul;
       cumul += seg_arc_cache[i];

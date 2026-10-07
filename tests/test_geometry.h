@@ -352,8 +352,7 @@ inline void test_random_vector_deterministic() {
  * @brief random_vector is approximately uniform on the sphere — not biased
  *        toward an axis or hemisphere.
  * @details Per-axis means sit near zero, each axis splits evenly across its
- *          sign, and pooled absolute components occupy [0,1] uniformly. Bounds
- *          are ~9-12 sigma at N=4000. The generator is saved and restored.
+ *          sign, and pooled absolute components occupy [0,1] uniformly.
  */
 inline void test_random_vector_distribution() {
   auto saved = hs::random();

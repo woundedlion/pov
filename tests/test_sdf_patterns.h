@@ -588,9 +588,7 @@ inline void test_octet4_scalar_distance_matches_offset() {
 /**
  * @brief Owned D4 strut coverage matches an independent ray/line oracle.
  * @details The oracle assigns each strut class to the family with the largest
- * |normal . direction|, finds the class's nearest strut in the crossed plane by
- * searching lattice vertices, and measures the ray-to-line distance by
- * orthogonalizing against both directions.
+ * |normal . direction|.
  */
 inline void test_octet4_owned_struts_match_ray_line_oracle() {
   using Vec = std::array<double, 4>;

@@ -19,7 +19,7 @@ inline void test_random_timer_fires_within_range() {
     int fires = 0;
     int fire_frame = -1;
     int frame = 0;
-  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  } st;
   tl.add(0, Animation::RandomTimer({.min = 3, .max = 7}, [&st](Canvas &) {
            st.fires++;
            st.fire_frame = st.frame;
@@ -135,15 +135,13 @@ inline void test_finished_param_animation_progress_is_finite() {
 /**
  * @brief Verifies PeriodicTimer::set_period reschedules the next trigger from
  * now (t + new_period), not from the original schedule.
- * @details Starts at period 5 (next trigger t=5); after one frame the period is
- * shortened to 3, so reset() moves the trigger to t=1+3=4.
  */
 inline void test_periodic_timer_set_period_reschedules_from_now() {
   struct {
     int fire_frame = -1;
     int fires = 0;
     int frame = 0;
-  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  } st;
   Animation::PeriodicTimer timer(
       5,
       [&st](Canvas &) {

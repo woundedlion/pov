@@ -29,12 +29,9 @@ struct DisplacementFieldWhiteBox;
  * bumps.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Rings share one axis and are spaced evenly in colatitude. Each ring
- * vertex is displaced along the stack axis by the dominant blend of active ball
- * fields plus the noise field at the vertex's world-space position. A noise
- * phase (fade in, dwell, fade out) alternates with a ball phase in which
- * cap-shaped bumps fall from world +Y to -Y on random meridians. Hue rotates
- * with the local displacement magnitude.
+ * @details Each ring vertex is displaced along the stack axis by the dominant
+ * ball field plus the noise field. A noise phase alternates with a ball phase
+ * in which cap-shaped bumps fall from world +Y to -Y on random meridians.
  */
 template <int W, int H> class DisplacementField : public Effect {
   friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
@@ -129,9 +126,8 @@ public:
 
   /**
    * @brief Refreshes the displacement stack from the sliders, advances the
-   * NOISE -> BALLS phase machine under the master-gain fade, then renders one
-   * frame. The phase machine holds while animations are paused; the rings still
-   * render.
+   * NOISE -> BALLS phase machine, then renders one frame.
+   * @details The phase machine holds while animations are paused.
    */
   void draw_frame() override {
     color_spin = math::wrap_t(color_spin + COLOR_SPIN_RATE);
@@ -257,12 +253,8 @@ private:
    * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
-   * @details Each ring's centerline shifts and hue-rotated colors are baked per
-   * azimuth column into a pooled slot, at a resolution set by the finest
-   * active feature. Under a partial clip, rings that cannot touch the clip are
-   * skipped and invisible azimuth chunks skip the bake. The baked rings
-   * rasterize as soft quintic SDF strokes in one fused
-   * Scan::DistortedRingStack pass.
+   * @details Under a partial clip, rings that cannot touch the clip and
+   * invisible azimuth chunks skip the bake.
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
@@ -964,10 +956,7 @@ private:
    *  everywhere on the ring. */
   static constexpr float BALL_TOUCH_EPS = 1e-3f;
 
-  /**
-   * @brief Slider-backed parameters.
-   * @details Defaults are pre-registration starting values.
-   */
+  /** @brief Slider-backed parameters. */
   struct Params {
     float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
     int num_rings =

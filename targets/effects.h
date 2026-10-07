@@ -12,9 +12,8 @@
  * @brief Effect roster: pulls in every effect header plus the HS_EFFECT_LIST
  *        X-macro.
  *
- * Include this from build targets or diagnostic effects outside HS_EFFECT_LIST.
- * Roster effects include core/engine/engine.h (the API umbrella) instead;
- * including this header from a roster effect would recurse.
+ * Roster effects include core/engine/engine.h instead; including this header
+ * from one recurses.
  */
 
 #include "targets/composed_effect_includes.h"

@@ -116,9 +116,8 @@ public:
           if (c.alpha <= MIN_SLOT_ALPHA)
             continue;
 
-          // Adaptive thickness: SDF::Ring takes a half-width, so the drawn
-          // band is 4px at the trail head/tail and 2px between, before
-          // params.thickness scales it.
+          // SDF::Ring takes a half-width; the band thickens at the trail
+          // head and tail.
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
@@ -182,8 +181,7 @@ private:
     bool debug_bb = false;  /**< Whether to draw each ring's bounding box. */
   } params;
 
-  // init() allocates the ring pool (each ring carries its TRAIL_LENGTH trail)
-  // and one vignette palette LUT per palette, from the persistent arena.
+  // Persistent: the ring pool and one vignette palette LUT per palette.
   static constexpr size_t FOOTPRINT_BYTES =
       NUM_RINGS * sizeof(Ring) +
       NUM_PALETTES * BakedPalette::required_arena_bytes();

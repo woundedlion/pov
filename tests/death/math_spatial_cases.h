@@ -155,9 +155,7 @@ inline void case_parallel_transport_antipodal() {
 
 /**
  * @brief Death case: a polyhedral fold that never converges must trap.
- * @details Lens surface — two opposed mirrors are not a chamber: each pass
- *          reflects the direction back across the other, so the bounded
- *          reflection loop exhausts its passes and fires the guard.
+ * @details Two opposed mirrors are not a chamber.
  */
 inline void case_polyhedral_kaleidoscope_no_converge() {
   const std::array<math::Vector, 3> mirrors = {
@@ -311,8 +309,7 @@ inline void case_spherical_harmonic_order_over_degree() {
 
 /**
  * @brief Death case: a negative flat harmonic index must trap.
- * @details sqrtf of a negative argument is NaN, and the cast of a NaN to int
- *          is undefined, so the decoded level would be arbitrary.
+ * @details sqrtf of a negative index is NaN, and its int cast is UB.
  */
 inline void case_spherical_harmonic_decode_negative_index() {
   auto [l, m] = SHMath::decode_lm(opaque(-1));
@@ -322,9 +319,7 @@ inline void case_spherical_harmonic_decode_negative_index() {
 
 /**
  * @brief Death case: an infill band past the rendered domain must trap.
- * @details A south_infill wider than H puts every row at full longitude
- *          resolution, multiplying sample_count() by the spacing; the arena
- *          would then overflow at an unrelated call site.
+ * @details The inflated sample_count() would overflow the arena elsewhere.
  */
 inline void case_spherical_field_infill_over_domain() {
   hs::SphericalFieldLayout<32, 16, 0> layout(4, 0, opaque(17));

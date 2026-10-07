@@ -83,9 +83,8 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
 
 /**
  * @brief Verifies the closed flag draws the last->first seam edge.
- * @details Closing routes a loop_seam fragment through draw_fragments. The
- * seam's own midpoint separates the two renders: it is off every open edge and
- * on the closed one.
+ * @details The seam's midpoint separates the two renders: it is off every open
+ * edge and on the closed one.
  */
 inline void test_multiline_draw_closed_adds_the_seam_edge() {
   constexpr int W = 128, H = 64;

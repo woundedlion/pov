@@ -255,8 +255,6 @@ protected:
 #endif
   /**
    * @brief Pause gate for parameter-driving animations.
-   * @details Timeline::add_pausable freezes the whole event, including a pending
-   * start delay; an animation-level `paused` pointer freezes stepping only.
    */
   bool anims_paused = false;
 

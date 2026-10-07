@@ -26,11 +26,7 @@ class _SerialException(Exception):
 
 
 def _install_serial_stub():
-    """Put a minimal pyserial surface on sys.modules, unconditionally.
-
-    Installed even where the real pyserial is present, so the transport under
-    test is the same object on every host.
-    """
+    """Put a minimal pyserial surface on sys.modules, even over a real one."""
     serial = types.ModuleType("serial")
     serial.SerialException = _SerialException
     serial.Serial = None  # every test patches this
@@ -138,8 +134,7 @@ class TestFindPort(unittest.TestCase):
             self.assertEqual(pc.find_port("COM3"), "COM3")
 
     def test_two_teensys_without_a_pin_takes_the_first_enumerated(self):
-        # Documents the hazard the --port flag exists for: unpinned, the answer
-        # is whichever board enumerated first, not a stable board.
+        # Unpinned, whichever board enumerated first wins.
         with ports(FakePort("COM3"), FakePort("COM9")):
             self.assertEqual(pc.find_port(), "COM3")
         with ports(FakePort("COM9"), FakePort("COM3")):
@@ -262,9 +257,8 @@ class TestMain(unittest.TestCase):
     def _run(self, serial_port, *extra):
         """Drive main() over a fake port; returns what it teed to stdout.
 
-        stdout is redirected rather than left on the console: a Windows
-        terminal's cp1252 encoding cannot print the replacement characters the
-        undecodable-bytes case produces.
+        stdout is captured: a cp1252 Windows console cannot print the
+        replacement characters of the undecodable-bytes case.
         """
         argv = ["profile_capture.py", "--out", self.out, "--seconds", "5.0"]
         stdout = io.StringIO()

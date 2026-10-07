@@ -159,21 +159,16 @@ public:
 
   /**
    * @brief Compiles a chain program shape on the loaded ShaderChain effect.
-   * @param caller_entries JS array of {instance, operator} string pairs — the ordered
-   *        program shape and nothing else. No values, no offsets, no family
-   *        tags.
+   * @param caller_entries JS array of {instance, operator} string pairs: the
+   *        ordered program shape only.
    * @return JS object {code, status, entryIndex}: code is "APPLIED" on commit,
    *         otherwise the refusal name; status is the ChainStatus enum.
    *         entryIndex names the offending entry, -1 for a whole-chain refusal.
-   * @details Synchronous: on APPLIED the parameter definitions are already
-   * rebuilt and the schema generation bumped before this returns, so values
-   * can be applied by "{instance}.{field-id}" name immediately.
-   * The boundary rejects a non-array payload or a non-string entry field as
-   * MALFORMED_PAYLOAD; NOT_CHAIN_EFFECT reports that the
-   * loaded effect is not ShaderChain, and covers an input whose accessors swap
-   * the loaded effect out while the entries are being decoded. A refusal
-   * commits no program or parameter changes; side effects of caller accessors
-   * are not rolled back.
+   * @details On APPLIED the parameter definitions are rebuilt before this
+   * returns, so values can be set by "{instance}.{field-id}" immediately.
+   * NOT_CHAIN_EFFECT also covers accessors that swap the loaded effect out
+   * mid-decode. A refusal commits nothing, but side effects of caller
+   * accessors are not rolled back.
    */
   emscripten::val setShaderChain(const emscripten::val &caller_entries) {
     const SnapshotDecodeGuard decode_guard(&decoding);

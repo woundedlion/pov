@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Lint every tracked shell file: the gate scripts and the git hooks, where a
-# defect of this class passes a gate silently.
-#
-# xargs handed an empty list runs nothing and exits 0, so the selection is
-# asserted non-empty before it is linted.
+# Lint every tracked shell file, the git hooks, and composite-action run
+# steps. xargs on an empty list exits 0, so the selection is asserted non-empty.
 #
 # usage: shellcheck_gate.sh
 set -euo pipefail

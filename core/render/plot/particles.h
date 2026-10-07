@@ -316,10 +316,9 @@ struct ParticleSystem {
 
   /**
    * @brief Draws particle trails through the shared raster surface.
-   * @details The source pipeline's static cull trait is retained separately so
-   *          Cartesian, one-dot and raw-edge gates remain available after plot
-   *          dispatch is erased. A pipeline explicitly declaring the direct
-   *          raster path retains its compile-time plot calls.
+   * @details The source pipeline's static cull trait survives plot-dispatch
+   *          erasure; a pipeline declaring the direct raster path keeps its
+   *          compile-time plot calls.
    */
   template <int W, int H, typename PipelineT = PipelineRef,
             typename ParticleV2Fn = std::nullptr_t>

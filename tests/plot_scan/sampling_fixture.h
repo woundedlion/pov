@@ -42,8 +42,7 @@ inline Arena &plot_arena() {
  * @param n Direction used as the basis normal; need not be pre-normalized.
  * @return Basis whose v is the normalized normal and whose u, w span the
  *         tangent plane.
- * @details Mirrors make_basis's construction; picks a reference axis that is not
- *          near-parallel to n to keep the cross products well-conditioned.
+ * @details Mirrors make_basis's construction.
  */
 inline math::Basis basis_from_normal(const math::Vector &n) {
   math::Vector v = n.normalized();

@@ -1,13 +1,8 @@
 """PlatformIO post-build hook: run the Teensy 4 size/layout gate after link.
 
-Wired in via `extra_scripts = post:tools/teensy_gate_extra.py` (platformio.ini).
-All decision logic lives in the toolchain-free, unit-tested tools/teensy_gate.py;
-this file is glue: it locates the built ELF and the ARM tools, captures their
-output, and fails `pio run` on any violation.
-
-A post-action fails `pio run` only by exiting non-zero or raising, so the gate
-raises on violation, after emitting violations as GitHub `::error::`
-annotations.
+Glue for tools/teensy_gate.py: locates the built ELF and the ARM tools, feeds
+their output to the gate, and exits non-zero on any violation (a post-action
+fails `pio run` only by exiting non-zero or raising).
 """
 
 import os
@@ -78,8 +73,7 @@ def _teensy_size_candidates(env):
 def _find_teensy_size(env):
     """Best-effort locate of teensy_size (ships with the Teensy platform tools).
 
-    Validates the probe output identifies itself as teensy_size, so an unrelated
-    same-named binary on PATH (which would merely launch) is not accepted.
+    A candidate counts only if its --help output names teensy_size.
     """
     for cand in _teensy_size_candidates(env):
         try:

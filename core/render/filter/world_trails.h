@@ -32,9 +32,9 @@ public:
 
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
-    int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
-    uint8_t ttl;     /**< Remaining lifetime in frames (1 byte). */
-    uint8_t pad;     /**< Pads the item to 8 bytes (1 byte). */
+    int16_t x, y, z; /**< Quantized unit vector components. */
+    uint8_t ttl;     /**< Remaining lifetime in frames. */
+    uint8_t pad;     /**< Pads the item to 8 bytes. */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
@@ -53,7 +53,7 @@ public:
   }
 
   /**
-   * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
+   * @brief Retunes the trail length at runtime.
    * @param new_lifetime New fade divisor in frames; must be in [1, 255].
    * @details Shortening caps buffered points to the new remaining lifetime.
    */

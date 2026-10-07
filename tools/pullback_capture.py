@@ -167,9 +167,8 @@ def load_backend(
         end = offset + width * height * 6
         if end > len(data):
             raise CaptureError("capture backend stream is truncated")
-        # Corpus pixels are the backend's three little-endian 16-bit channels
-        # plus an opaque alpha, held as the byte string the frame hash is taken
-        # over.
+        # Three little-endian 16-bit channels plus opaque alpha; the frame hash
+        # is taken over these bytes.
         channels = data[offset:end]
         offset = end
         pixels = bytearray(width * height * 8)
@@ -382,9 +381,7 @@ def _pixels_json(pixels: bytes) -> str:
 def write_capture(capture: dict, frames: list[dict], path: Path) -> None:
     """Write the capture JSON, expanding each frame's pixels as it streams.
 
-    Pixel bytes stream as four-channel lists in compact JSON, followed by a
-    newline. test_streamed_capture_matches_a_materialized_document pins the
-    serialized representation.
+    Pixels stream as four-channel lists in compact JSON; a newline ends the file.
     """
     compact = {"separators": (",", ":")}
     path.parent.mkdir(parents=True, exist_ok=True)

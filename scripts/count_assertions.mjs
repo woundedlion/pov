@@ -1,7 +1,5 @@
-// Counts the node:assert calls a test file runs. scripts/run_tests.mjs loads
-// this through NODE_OPTIONS, so every process `node --test` spawns wraps its
-// own copy of node:assert and drops its count in $HS_ASSERTION_COUNTS for the
-// runner to aggregate.
+// Preloaded through NODE_OPTIONS: counts the node:assert calls each test
+// process runs and writes the count to $HS_ASSERTION_COUNTS.
 import assert from 'node:assert';
 import { randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
@@ -23,16 +21,10 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
   let count = 0;
   const caseBaselines = [];
   let emptyCases = 0;
-  // `node:assert/strict`'s default export is assert.strict, so wrapping both
-  // objects covers either specifier. Capitalized keys are the AssertionError
-  // and CallTracker classes and `strict` is the other object; every remaining
-  // function property is an assertion. Each wrapper calls the function it
-  // captured, not the property, so an alias held by two properties
-  // (strict.equal is assert.strictEqual) still scores one per call.
-  //
-  // Only properties are reachable: each module's default export is a callable
-  // bound inside the builtin, so a bare `assert(x)` runs the original and
-  // scores nothing.
+  // Wraps every lowercase function property of both specifiers' objects;
+  // capitalized keys are classes. A wrapper calls the captured function, so an
+  // alias held by two properties scores once. A bare `assert(x)` is bound
+  // inside the builtin and scores nothing.
   for (const target of [assert, assert.strict]) {
     for (const key of Object.keys(target)) {
       const fn = target[key];
@@ -51,8 +43,7 @@ if (dir && file && process.env.NODE_TEST_CONTEXT) {
   afterEach(() => {
     if (count === caseBaselines.pop()) emptyCases += 1;
   });
-  // A random name rather than the pid: pids are recycled within one run, and a
-  // reused name would drop the earlier file's count.
+  // Not the pid: pids recycle within one run and would overwrite a count.
   process.on('exit', () => {
     writeFileSync(
       join(dir, `${randomUUID()}.json`),

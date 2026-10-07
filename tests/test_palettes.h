@@ -21,15 +21,12 @@ namespace palettes_tests {
 
 /**
  * @brief Pins named ProceduralPalette endpoints against golden 16-bit colors.
- * @details Pins darkRainbow's cosine endpoints, mauveFade's clamped channels,
- *          the sixth bank source, and the ORANGE_CRUSH/POPPED_PEACH reversal.
  */
 inline void test_named_procedural_palette_endpoints() {
-  // darkRainbow: c={1,1,1}, d={0,0.33,0.67}. Red arg = 2*PI*(t) hits cos=1 at
-  // both ends, so t=0 and t=1 must produce the identical pinned color.
+  // darkRainbow has integer frequencies, so t=0 and t=1 give the same color.
   Color4 dr0 = Palettes::DARK_RAINBOW.get(0.0f);
   Color4 dr1 = Palettes::DARK_RAINBOW.get(1.0f);
-  HS_EXPECT_EQ(dr0.color.r, 47426); // 0.367 + 0.5*cos(0) = 0.867 sRGB
+  HS_EXPECT_EQ(dr0.color.r, 47426);
   HS_EXPECT_EQ(dr0.color.g, 954);
   HS_EXPECT_EQ(dr0.color.b, 954);
   HS_EXPECT_EQ(dr1.color.r, dr0.color.r);
@@ -37,8 +34,7 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(dr1.color.b, dr0.color.b);
   HS_EXPECT_NEAR(dr0.alpha, 1.0f, 1e-6f);
 
-  // mauveFade: d_r=0.175, d_b=0.150; red and blue clamp to 1 at t=0.
-  // Green has b_g=0 and a_g=0.
+  // mauveFade: red and blue clamp to 1 at t=0.
   Color4 mf0 = Palettes::MAUVE_FADE.get(0.0f);
   HS_EXPECT_EQ(mf0.color.r, 65535);
   HS_EXPECT_EQ(mf0.color.g, 0);
@@ -93,9 +89,8 @@ inline void test_named_procedural_palette_endpoints() {
 /**
  * @brief Verifies hue interpolates along the short arc for a seam-straddling
  *        named-palette pair.
- * @details undersea's endpoints sit at h ~= -2.00 and +2.49 rad, ~1.80 rad
- *          apart through the +/-PI seam; the midpoint must cross the seam, not
- *          land near the naive average ~+0.25.
+ * @details undersea's endpoints straddle the +/-PI seam; the midpoint must
+ *          cross the seam, not land near the naive average.
  */
 inline void test_named_palette_hue_short_arc() {
   OKLCH a = pixel_to_oklch(Palettes::UNDERSEA.get(0.0f).color);
@@ -104,10 +99,8 @@ inline void test_named_palette_hue_short_arc() {
   HS_EXPECT_GT(std::fabs(b.h - a.h), math::PI_F);
 
   OKLCH mid = lerp_oklch(a, b, 0.5f);
-  // The short-arc midpoint is the circular average of the two hues.
   float short_mid = a.h + 0.5f * wrap_hue_delta(b.h - a.h);
   HS_EXPECT_NEAR(wrap_hue_delta(mid.h - short_mid), 0.0f, 1e-3f);
-  // ...and it is NOT the naive through-zero average.
   float naive_mid = 0.5f * (a.h + b.h);
   HS_EXPECT_GT(std::fabs(wrap_hue_delta(mid.h - naive_mid)), 1.0f);
 }

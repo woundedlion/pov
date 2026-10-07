@@ -84,8 +84,7 @@ def parse_elf_section_sizes(data: bytes) -> dict[str, int]:
             raise ElfFormatError("unterminated section name")
         name = strtab[name_off:end].decode("utf-8", "replace")
         if name:
-            # Accumulate: an image whose input sections were not merged carries
-            # a name more than once, and the last one alone under-reports it.
+            # Accumulate: unmerged input sections repeat a name.
             sizes[name] = sizes.get(name, 0) + size
     return sizes
 
@@ -220,8 +219,7 @@ class Delta:
         return not self.changes
 
 
-#: Sort key for an unparseable committer date: oldest, so one bad row cannot
-#: displace the real ordering around it.
+#: Sort key for an unparseable committer date: oldest.
 _UNDATED = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
 
@@ -237,10 +235,8 @@ def instant(date: str) -> datetime:
 def compute_deltas(rows: list[TrailRow]) -> list[Delta]:
     """Annotate trail rows with per-region deltas, comparing within an env.
 
-    Rows are ordered by the parsed committer instant, not append order
-    (`backfill` appends older commits) and not the raw `%cI` string (which
-    compares local wall clocks across UTC offsets). The sort is stable, so
-    same-instant rows keep append order.
+    Rows are stably sorted by parsed committer instant, not append order and
+    not the raw `%cI` string (which compares wall clocks across UTC offsets).
     """
     rows = sorted(rows, key=lambda r: instant(r.date))
     previous: dict[str, TrailRow] = {}
@@ -338,8 +334,7 @@ def head_stamp(cwd: str | Path | None = None, rev: str = "HEAD"
 def head_position(cwd: str | Path | None = None) -> list[str]:
     """git-checkout arguments that put a worktree back on its current HEAD.
 
-    A branch is restored by name so HEAD reattaches to it; a detached HEAD is
-    restored by sha, detached again.
+    A branch is restored by name; a detached HEAD by sha.
     """
     try:
         return ["--force", _git(["symbolic-ref", "--short", "HEAD"], cwd)]
@@ -530,15 +525,9 @@ def _elf_stamp(build_dir: Path, env: str) -> int | None:
 def cmd_backfill(args) -> int:
     """Build each commit of a rev-range in a worktree and record its sizes.
 
-    SLOW: one full firmware build per commit (minutes each).
-
-    The worktree is force-detached at each commit, so tracked-file edits in it
-    are discarded while untracked files (the .pio build tree above all) survive.
-    Its original HEAD is restored when the range finishes or aborts.
-
-    A successful build records every requested environment, including cached
-    or up-to-date ELFs. On failure, only restamped ELFs are recorded: the size
-    gate may fail after linking, while a compile failure leaves the old ELF.
+    SLOW: one full firmware build per commit. The worktree is force-detached
+    at each commit and restored to its original HEAD afterwards. A failed build
+    records only relinked ELFs (the size gate can fail after linking).
     """
     worktree = Path(args.worktree)
     if not worktree.is_dir():

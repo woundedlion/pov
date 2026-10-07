@@ -24,12 +24,8 @@ inline constexpr float MOBIUS_POLE_EPS = 1e-12f;
  * @param num Numerator.
  * @param den Divisor.
  * @return num/den, except a quotient whose magnitude would reach STEREO_INF
- * collapses to the infinity sentinel scaled along the numerator's direction (so
- * a near-singular divisor still yields a finite point). Only an exactly zero
- * numerator is the indeterminate 0/0 form, which returns (0,0); a nonzero
- * numerator keeps its direction however small it is.
- * @details Not general complex division: the STEREO_INF clamp and 0/0 -> 0
- * are point-at-infinity conventions.
+ * clamps to the infinity sentinel along the numerator's direction, and an
+ * exactly zero numerator returns (0,0).
  */
 inline math::Complex project_div(const math::Complex &num,
                                  const math::Complex &den) {

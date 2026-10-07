@@ -328,9 +328,8 @@ def _validate_frame_operations(frames: dict, programs: dict) -> None:
         if operation != expected or not 0 < selected < total:
             raise CrosscheckError(f"spatial probe operation mismatch: {key}")
         spatial_hashes.setdefault(resolution, set()).add(digest)
-    # Per resolution, not over the pooled set: the corpus pins two resolutions
-    # whose frames differ in pixel count alone, so a pooled count of two is met
-    # by a corpus carrying no signal at all -- an all-black one included.
+    # Per resolution: frames at two resolutions differ by pixel count alone, so
+    # a pooled count of two would pass an all-black corpus.
     if not spatial_hashes:
         raise CrosscheckError("capture carries no spatial probe frames")
     for resolution, digests in sorted(spatial_hashes.items()):

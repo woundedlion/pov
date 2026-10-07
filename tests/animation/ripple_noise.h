@@ -70,8 +70,7 @@ inline void test_ripple_envelope_and_done_boundary() {
 /**
  * @brief Verifies the Noise animation integrates speed into params.time each
  * step and, being perpetual, never reports done().
- * @details The integral makes a mid-run speed edit continuous: the phase carries
- * on from where it was instead of being rescaled by the whole elapsed run.
+ * @details A mid-run speed edit carries the phase on from where it was.
  */
 inline void test_noise_publishes_time_and_is_perpetual() {
   Animation::NoiseParams params;

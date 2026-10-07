@@ -201,8 +201,7 @@ inline void test_feedback_banded_diverges_from_full() {
   constexpr int MID = H / 2;
 
   auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
-    // melt_warp, noise disabled => fully deterministic southward
-    // drip; speed 6 -> drip 0.24 gives a multi-row cross-band displacement.
+    // melt_warp with noise disabled drips deterministically south.
     ::Feedback::Style style{};
     style.space_fn = &::Feedback::melt_warp;
     style.noise = nullptr;
@@ -241,10 +240,7 @@ inline void test_feedback_banded_diverges_from_full() {
   run(0, H, full); // full-frame: what needs_full_frame() yields per worker
   run(MID, H, band_bot); // a band-clipped worker (the un-gated path)
 
-  // The bottom band must DIFFER between the two: the full render pulled warped
-  // content down from the (lit) northern rows the banded worker never had, while
-  // the full frame itself lit up its bottom band (so the difference is real, not
-  // both-black).
+  // The bottom band must differ, and the full frame must have lit it.
   bool differs = false;
   int full_bot_lit = 0;
   for (int y = MID; y < H; ++y)

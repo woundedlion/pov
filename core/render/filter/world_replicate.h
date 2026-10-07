@@ -54,8 +54,7 @@ public:
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
       r = math::rotate(r, step);
-      // First-order renormalization: exact to float precision only because r
-      // starts near unit length and each rotation drifts it by ~1 ulp.
+      // First-order renormalization; valid only while r stays near unit length.
       r = r * (1.5f - 0.5f * math::dot(r, r));
       pass(r, color, age, alpha);
     }

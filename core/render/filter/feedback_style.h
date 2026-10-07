@@ -70,7 +70,7 @@ inline math::Vector melt_warp(const math::Vector &v, const Style &s);
  * @param s Style supplying the precomputed hue rotation.
  * @return Faded and hue-rotated pixel.
  * @details The feedback filter matches this function by address and calls
- * hue_fade_apply / hue_fade_apply2 directly; the shared math lives there.
+ * hue_fade_apply / hue_fade_apply2 directly.
  */
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
@@ -78,10 +78,9 @@ inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
 
 /**
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
- * @details Trivially copyable, for a PRESETS table and lerp. The bound noise
- * pointer and per-frame hue cache survive lerp(), while a full-struct copy or
- * assignment overwrites them with the source's values. A copy from an unbound
- * named preset sets noise to nullptr; bind it before using noise_warp.
+ * @details lerp() keeps the bound noise pointer and hue cache; copy or
+ * assignment overwrites them, so a copy of an unbound named preset must be
+ * rebound before noise_warp.
  */
 struct Style {
   // --- Lerpable scalar params ---
@@ -99,19 +98,15 @@ struct Style {
 
   // --- Filter tuning (snap during lerp) ---
   /**
-   * Coarse-grid downsample factor for the warp field. Higher = cheaper
-   * (~DS^2 fewer space_fn calls), lower = more detail. Uncached full-resolution
-   * flushes exceed the default 16 KiB scratch split; reserve
-   * Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample) explicitly.
+   * Coarse-grid downsample factor for the warp field; higher is cheaper, lower
+   * is more detailed. Uncached full-resolution flushes exceed the default
+   * scratch split; reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample).
    */
   int downsample = 4;
   /**
    * Column-pair width, in row pitches, below which a row composites every
-   * other column (1: two columns span less than one row pitch). Each pair is
-   * sampled once at its midpoint and expanded with a 3:1 blend toward each
-   * neighbouring pair. Larger values widen the band toward the equator; 0
-   * composites every row at full resolution. Applies only at full opacity
-   * (alpha >= 1).
+   * other column, sampling each pair at its midpoint; 0 composites every row at
+   * full resolution. Applies only at full opacity (alpha >= 1).
    */
   float pole_half_res = 1.0f;
 
@@ -265,8 +260,8 @@ struct Style {
   }
 
   /**
-   * @brief Static high-amplitude twist at amplitude 11.25; a loose swirling
-   * tunnel with no temporal drift.
+   * @brief Static high-amplitude twist; a loose swirling tunnel with no
+   * temporal drift.
    * @return The LooseWormhole preset Style.
    */
   static constexpr Style LooseWormhole() {
@@ -275,8 +270,8 @@ struct Style {
   }
 
   /**
-   * @brief Static high-amplitude twist at amplitude 6.42; a tight swirling
-   * tunnel with no temporal drift.
+   * @brief Static high-amplitude twist; a tight swirling tunnel with no
+   * temporal drift.
    * @return The TightWormhole preset Style.
    */
   static constexpr Style TightWormhole() {
@@ -285,8 +280,8 @@ struct Style {
   }
 
   /**
-   * @brief Static twist at amplitude 7.11; a wide wormhole with wandering
-   * arms and no temporal drift.
+   * @brief Static twist; a wide wormhole with wandering arms and no temporal
+   * drift.
    * @return The WigglingWormhole preset Style.
    */
   static constexpr Style WigglingWormhole() {

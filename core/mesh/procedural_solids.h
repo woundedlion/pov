@@ -521,8 +521,6 @@ FLASHMEM static PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
  * @param a First arena in the alternating construction pair.
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
- * @details The final contact angle sits clear of the ~43-degree resonance
- * where one corner class's contact planes go near-parallel.
  */
 FLASHMEM static PolyMesh dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a,
                                                                      Arena &b) {

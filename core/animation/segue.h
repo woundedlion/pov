@@ -59,8 +59,6 @@
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
  * centers, so the front rides the mesh's rotation.
- *
- * Policies are resolved at compile time (no virtuals).
  */
 namespace Segue {
 
@@ -132,7 +130,7 @@ inline int schedule_overlapped(Timeline &timeline, SpriteFn draw_fn,
 }
 
 /**
- * @brief Soft sweep front used by Shockwave.
+ * @brief Soft, eased sweep front.
  * @param phase Global segue phase in [0, 1].
  * @param offset Face's sweep ordering in [0, 1]; larger extinguishes earlier.
  * @param band Softness of the front, in phase units.
@@ -393,12 +391,9 @@ inline constexpr bool SHADOWS_FRAGMENT_HOOKS =
 
 /**
  * @brief Opacity cross-fade between consecutive meshes.
- * @details Phase is opacity. Each transition is one fade-in/fade-out Sprite;
- * the returned delay starts the next transition `overlap` frames before this
- * sprite ends, so the outgoing and incoming sprites coexist and both meshes
- * render during those frames — the cost of this segue is two rasterized
- * meshes per overlap frame. At overlap 0 the schedule is sequential (a fade
- * through black) and a single mesh renders per frame.
+ * @details Phase is opacity. Consecutive sprites coexist for `overlap` frames,
+ * rasterizing both meshes; at overlap 0 the schedule is sequential (a fade
+ * through black).
  */
 struct Crossfade : Base {
   static constexpr bool OVERLAPS = true;
@@ -429,10 +424,6 @@ struct Crossfade : Base {
 /**
  * @brief Faces contract to glowing points at their centers, then the next
  * tessellation blooms back out of the point field.
- * @details Only fragments deeper than the phase-driven inset survive, so the
- * pattern dissolves into a constellation of face-center glints at the swap.
- * The surviving core's edge distance is renormalized so it keeps the full
- * palette gradient as it shrinks.
  */
 struct IrisBloom : Base {
   static constexpr float SOFT =
@@ -485,11 +476,8 @@ struct Lace : Base {
  * @brief A day/night line pinned to the mesh sweeps across it; when it reaches
  * a face, that face fades over a per-face random length in [fade_frames_min,
  * fade_frames_max] frames, capped by the scheduled fade window.
- * @details LOCAL_SWEEP anchors the line to the untransformed mesh. Each face's
- * fade length is a stable per-transition hash of its index, so the front frays
- * into an irregular edge. The front crosses over the fade window minus one face
- * fade, so face phases are exactly 1 at phase 1 and 0 at phase 0 for every fade
- * length.
+ * @details The front crosses over the fade window minus one face fade, so
+ * face phases are exactly 1 at phase 1 and 0 at phase 0 for every fade length.
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
@@ -535,9 +523,7 @@ struct TerminatorSweep : Base {
     return 0.5f * (1.0f + math::dot(center, axis));
   }
   /** @brief Per-face fade length as a window fraction: a stable hash of the
-   * face index into the frame range, divided by the scheduled window. A pure
-   * function of the index, the seed and the live frame bounds, which may be
-   * unordered. */
+   * face index into the frame range; the frame bounds may be unordered. */
   float face_fade_frac(int i) const {
     float t = math::hash01(static_cast<uint32_t>(i), fade_seed);
     float lo = min_fade_frac();
@@ -557,9 +543,8 @@ struct TerminatorSweep : Base {
     float ff = fmaxf(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
-  /** @brief Offset 0 is the last face the front reaches, and the shortest fade
-   * is the steepest ramp, so that pair's face-local phase bounds every face's
-   * opacity. */
+  /** @brief Culls once the last face the front reaches, at the shortest
+   * fade, has gone black. */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f, min_fade_frac()));
   }
@@ -580,8 +565,6 @@ private:
 /**
  * @brief An expanding shockwave erases the pattern outward from a point; its
  * echo redraws the new one.
- * @details Faces nearest the origin extinguish first, so the wave visibly
- * expands. Pairs naturally with the effect's ripple bursts sharing the origin.
  */
 struct Shockwave : Base {
   static constexpr float BAND =
@@ -612,8 +595,7 @@ struct Shockwave : Base {
   float face_phase(float phase, float offset, float = 0.0f) const {
     return sweep_phase(phase, offset, BAND);
   }
-  /** @brief Offset 0 is the last face the front reaches, so its face-local
-   * phase bounds every face's opacity. */
+  /** @brief Culls once the last face the front reaches has gone black. */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
@@ -626,11 +608,8 @@ struct Shockwave : Base {
  * class fade together, each class fully gone before the next starts, in a
  * random class order reshuffled per transition; the new tessellation
  * reassembles class by class the same way.
- * @details Faces group by palette-slot class, so each color family vanishes as
- * a unit. Class windows are abutting equal slices of the phase range (linear,
- * not sweep_phase's eased front). The BLACK_DWELL slice nearest the swap is
- * held fully black so the last class completes before the incoming mesh
- * appears.
+ * @details Faces group by palette-slot class. The BLACK_DWELL slice nearest
+ * the swap is held fully black.
  */
 struct Breakdown : Base {
   static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
@@ -684,8 +663,8 @@ struct Breakdown : Base {
         (phase - BLACK_DWELL - offset * (1.0f - BLACK_DWELL - band)) / band,
         0.0f, 1.0f);
   }
-  /** @brief Offset 0 is the last class to fade, so its face-local phase bounds
-   * every face's opacity; the BLACK_DWELL slice is culled with it. */
+  /** @brief Culls once the last class has faded, including the BLACK_DWELL
+   * slice. */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
@@ -738,7 +717,7 @@ struct GoldConvergence : Base {
   Color4 grade(Color4 c, float phase) const {
     return c.lerp(Color4(gold, c.alpha), 1.0f - phase);
   }
-  /** @brief Global alpha: a dip to 0.4 at the swap, never to black. */
+  /** @brief Global alpha: dips at the swap, never to black. */
   float opacity(float phase) const { return 0.4f + 0.6f * phase; }
 };
 
@@ -748,15 +727,13 @@ struct GoldConvergence : Base {
  * @details The two draws receive complementary DissolveMasks (same threshold
  * and salt, opposite invert), which partition shared vertex-index keys. Owned
  * edges draw at full opacity. The salt folds a frame counter into the
- * per-transition seed so the pattern re-rolls every frame (temporal dither).
- * Effects pass the masks to Plot::Mesh::draw's edge-list overload themselves;
- * a solid-mesh pair cannot dissolve.
+ * per-transition seed so the pattern re-rolls every frame. A solid-mesh pair
+ * cannot dissolve.
  */
 struct Dissolve : Base {
   static constexpr bool OVERLAPS = true;
-  /** @brief The frame salt re-rolls the pattern every frame anyway, and one
-   * mask_pair() call feeds both halves of a frame, so a mid-overlap seed
-   * rewrite keeps the split complementary. */
+  /** @brief One mask_pair() call feeds both halves of a frame, so a
+   * mid-overlap seed rewrite keeps the split complementary. */
   static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = true;
   uint32_t seed =
       0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */

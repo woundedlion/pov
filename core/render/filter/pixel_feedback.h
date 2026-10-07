@@ -27,18 +27,11 @@ namespace Pixel {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details The Style's spatial warp is computed on a spherical latitude-ring
- * field, then interpolated within and between rings. TERMINAL: flush()
- * composites directly into the Canvas, so it must be the last Pipeline stage,
- * and Pipeline::begin_frame() must run BEFORE the frame's plot() calls;
- * flushing last blanks the frame at alpha >= 1.
- *
- * Away from the poles the warp is stored as equirect pixel offsets. Rows whose
- * latitude sine is under POLAR_TARGET_SINE interpolate offsets in their pole's
- * cap plane instead and convert each pixel's own target back, since longitude
- * offsets grow as 1/sin(phi) there.
- * At alpha >= 1, rows whose columns outnumber the row pitch two to one
- * composite every other column (Style::pole_half_res), unless the longitude
- * filter reconstructs them.
+ * field, then interpolated within and between rings. Terminal: it must be the
+ * last Pipeline stage, and Pipeline::begin_frame() must run before the frame's
+ * plot() calls; flushing last blanks the frame at alpha >= 1.
+ * Rows under POLAR_TARGET_SINE interpolate offsets in their pole's cap plane,
+ * where equirect longitude offsets blow up as 1/sin(phi).
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -50,10 +43,9 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
   static constexpr SphereField CACHE_FIELD{CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
                                            CACHE_SOUTH_INFILL, CACHE_COLUMNS};
-  /** @brief Cell count of the cached spherical warp field, and the bound on
-   *  its lattice samples: no ring carries more samples than the grid has
-   *  columns. The live sample count depends on the display geometry, which a
-   *  runtime-geometry build only knows after startup. */
+  /** @brief Cell count of the cached spherical warp field; also bounds its
+   *  lattice samples, since no ring carries more samples than the grid has
+   *  columns. */
   static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
 
 public:
@@ -957,7 +949,7 @@ private:
   }
   HS_O3_END
 
-  // Round-to-nearest fade leaves channels under ~50 undecayed at fade 0.99.
+  // Round-to-nearest fade stalls dim channels short of black.
   static constexpr float NEAR_BLACK = 64.0f;
   static constexpr float WARP_SCALE = 128.0f;
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
@@ -1162,8 +1154,7 @@ private:
   // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
-  // Runtime geometry can narrow the span; row offsets saturate at +/-32767
-  // WARP_SCALE units (about 256 rows), including at narrow 25% caps.
+  // Under runtime geometry, row offsets saturate at +/-32767 WARP_SCALE units.
 #if !HS_RUNTIME_DISPLAY_GEOMETRY
   static_assert(
       math::PI_F * math::ROWS_PER_RADIAN<H> * WARP_SCALE <= 32767.0f,

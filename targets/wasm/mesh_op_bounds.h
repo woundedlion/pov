@@ -8,9 +8,9 @@
  * @brief Pure (no-Emscripten) mesh-operator roster, growth factors and
  *        byte-per-element budgets.
  *
- * The MeshOps boundary guards price a JS-driven operator chain against these
- * numbers; one smaller than an operator's real expansion or footprint lets a
- * chain reach an engine trap.
+ * The MeshOps boundary guards price operator chains against these; a value
+ * below an operator's real expansion or footprint lets a chain reach an engine
+ * trap.
  */
 #pragma once
 
@@ -22,12 +22,10 @@ namespace hs_wasm {
 
 /**
  * @brief How far one mesh operator grows its input, for the boundary guards.
- * @details Every field is a multiple of an input measurement that some stage of
- *          the operator reaches; see MESHOP_LIST for the per-operator values and
- *          where they come from. `elements` must be nonzero. A zero degree or
- *          valence means those faces have a fixed side count or are absent.
- *          A zero `valence` additionally skips the valence scan, the measurement
- *          that costs a pass over the flat index list.
+ * @details Each field multiplies an input measurement. `elements` must be
+ *          nonzero. A zero degree or valence means those faces have a fixed
+ *          side count or are absent; a zero `valence` also skips the valence
+ *          scan.
  */
 struct MeshOpBounds {
   size_t elements;    /**< Multiple of the largest input element count. */
@@ -48,14 +46,8 @@ struct MeshOpBounds {
  *          MeshOpBounds, in order.
  *
  *          `elements` is the largest multiple of the input flat index count
- *          that any intermediate or output stage reaches; compositions multiply
- *          through (meta = k(d(a)) 6I). One factor bounds vertex, face and
- *          index counts.
- *
- *          `degree` and `valence` are the multiples that reach
- *          narrow_face_count; compositions inherit their widest stage. Faces
- *          emitted at a fixed side count (kis triangles, gyro pentagons,
- *          chamfer hexagons) need no factor.
+ *          that any stage reaches; compositions multiply through. `face_degree`
+ *          and `valence` are the multiples that reach narrow_face_count.
  */
 // clang-format off
 #define MESHOP_LIST(OP0, OP1U, OP1H)                                         \
@@ -87,10 +79,8 @@ inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
 
 /**
  * @brief Tooling-arena bytes a finalized mesh retains per element.
- * @details One Vector of vertex, one uint8_t of side count, one uint16_t of
- *          index and the uint16_t topology code classifyFaces() later binds
- *          into the same arena, with slack for the four blocks' alignment
- *          padding.
+ * @details Covers the vertex, side count, index and the topology code
+ *          classifyFaces() binds into the same arena, plus alignment slack.
  */
 inline constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
 

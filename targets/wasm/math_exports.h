@@ -7,8 +7,6 @@
  * @file math_exports.h
  * @brief Free-function embind exports of the engine's color, palette and
  *        geometry math.
- *
- * Exported so the JS tool ports can cross-check their mirrors against it.
  */
 #pragma once
 

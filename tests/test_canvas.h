@@ -998,10 +998,7 @@ inline void test_double_buffer_handoff_no_aliasing() {
 /**
  * @brief Hammers the double-buffer hand-off under real producer/consumer
  * contention, asserting no torn read and no out-of-order frame.
- * @details A producer thread fills each frame with a sentinel encoding the frame
- * index; a consumer thread plays the display ISR, advance_display()s each
- * queued frame and requires one sentinel per buffer, strictly advancing. Every
- * frame must be displayed exactly once. The harness counters are
+ * @details Every frame must be displayed exactly once. The harness counters are
  * single-threaded, so both threads record into atomics and the assertions run
  * after join().
  */
@@ -1069,10 +1066,8 @@ inline void test_double_buffer_handoff_concurrent() {
 /**
  * @brief Verifies the Canvas ctor's buffer_free() spin-wait blocks until the
  * display side frees the buffer.
- * @details A helper thread plays the display ISR. With a frame
- * queued-but-not-displayed the ctor must block until the helper's
- * advance_display(); the helper records whether the ctor had returned before
- * it advanced. The configured watchdog bounds the spin.
+ * @details A helper thread plays the display ISR and records whether the ctor
+ * had returned before it advanced.
  */
 inline void test_ctor_spin_waits_for_buffer_free() {
   hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
@@ -1086,8 +1081,7 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   HS_EXPECT_FALSE(fx.buffer_free());
 
   std::atomic<bool> ctor_returned{false};
-  // The harness counters are single-threaded, so the helper records here and
-  // the assertions run on the main thread after join().
+  // Harness counters are single-threaded; assertions run after join().
   std::atomic<bool> ctor_blocked_when_checked{false};
 
   const unsigned long spins_before = Canvas::buffer_free_spin_count();

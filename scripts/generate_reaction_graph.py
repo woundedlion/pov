@@ -1,22 +1,17 @@
 #!/usr/bin/env python3
 """Regenerate core/spatial/reaction_graph.cpp — the Fibonacci-lattice K-NN adjacency table.
 
-The reaction-diffusion effects (BZ / Gray-Scott) diffuse over a 7680-point
-Fibonacci lattice on the unit sphere. core/spatial/reaction_graph.cpp is the checked-in
-K-nearest-neighbor table for that lattice: neighbors[i][k] is the index of the
-k-th nearest node to node i, ordered by increasing distance. This script is its
-generator of record. The runtime consumes its generated float32 node_positions;
-node() in core/spatial/reaction_graph.h is the analytic reference for those positions.
+The table holds the K nearest neighbors of each node of a Fibonacci lattice on
+the unit sphere (neighbors[i][k] is the k-th nearest node to node i, by
+increasing distance) and the float32 node_positions; node() in
+core/spatial/reaction_graph.h is the analytic reference for those positions.
 
-Provenance — DOUBLE PRECISION. node(i) is evaluated in IEEE double here, and the
-committed table reproduces bit-for-bit ONLY in double: computing y / radius in
-float32 (as a naive runtime port would) flips the sort order of a handful of rows
-at near-tie distances. Neighbor sorting retains double precision; emitted node
-coordinates narrow to float32 before hex formatting. The analytic C++ node()
-likewise folds y, radius, and theta in double and narrows once into a float Vector.
-RD_N, RD_K, golden_angle and two_pi are parsed out of that header
-rather than restated here, so only the node() formula itself is mirrored by hand;
-any edit to it requires regenerating the table.
+Provenance — DOUBLE PRECISION. node(i) is computed in IEEE double, and the
+committed table reproduces bit-for-bit ONLY in double: float32 flips the sort
+order of rows at near-tie distances. Emitted node coordinates narrow to float32
+before hex formatting. RD_N, RD_K, golden_angle and two_pi are parsed from the
+header; the node() formula is mirrored by hand, so an edit to it requires
+regenerating the table.
 
 Lattice (mirrors core/spatial/reaction_graph.h::node):
 
@@ -34,13 +29,8 @@ Usage:
   python scripts/generate_reaction_graph.py            # rewrite the table in place
   python scripts/generate_reaction_graph.py -o FILE    # write it somewhere else
 
-The script opens the output itself (UTF-8, LF). Shell redirection is not a
-supported recipe: PowerShell's `>` re-encodes the stream with a BOM and CRLF
-line endings, which corrupts the table.
-
-The CI provenance gate (.github/workflows/ci.yml :: reaction-graph-provenance)
-re-runs this and `diff -u`s the full generated text against the committed file,
-so any byte of drift in either the script or the table fails loudly.
+The script opens the output itself (UTF-8, LF); PowerShell's `>` redirection
+adds a BOM and CRLF, which corrupts the table.
 """
 
 import argparse
@@ -65,12 +55,7 @@ def _header_constant(text, pattern, name):
 
 
 def _load_header_constants():
-    """Lattice constants read out of core/spatial/reaction_graph.h.
-
-    Restating them here would let a header-only edit produce a table the CI
-    provenance diff still accepts (the C++ array bound comes from the header, so
-    a raised RD_N zero-pads the missing rows instead of failing to compile).
-    """
+    """Lattice constants read out of core/spatial/reaction_graph.h."""
     text = HEADER.read_text(encoding="utf-8")
     return (
         int(_header_constant(text, r"constexpr\s+int\s+RD_N\s*=\s*(\d+)\s*;",
@@ -100,13 +85,9 @@ def node(i):
 def build_neighbors():
     pos = [node(i) for i in range(RD_N)]
 
-    # The lattice is ordered north-to-south, so a node's index tracks its y
-    # coordinate monotonically (dy per index step = 2/(RD_N-1)). Every one of the
-    # RD_K nearest neighbors sits within 3.54 deg at RD_N = 7680 (chord <~ 0.0617), hence within
-    # |dy| <~ 0.0617, so a fixed index window around i must contain them all. W is
-    # sized so the window's y half-width (W * dy_step) comfortably exceeds that,
-    # and the assertion below proves sufficiency per row — if a future RD_N change
-    # outgrows the window the generator aborts instead of emitting a wrong table.
+    # The lattice is ordered north-to-south, so index tracks y monotonically and
+    # a fixed index window of half-width W around i holds every nearest
+    # neighbor; sufficiency is checked per row.
     dy_step = 2.0 / (RD_N - 1)
     W = 1000
     window_half_y = W * dy_step
@@ -127,10 +108,9 @@ def build_neighbors():
             cand.append((dx * dx + dy * dy + dz * dz, j))
         cand.sort()  # by (squared distance, index): deterministic tie-break
         chosen = cand[:RD_K]
-        # Completeness guard: any node strictly closer than the farthest chosen
-        # neighbor has |dy| <= its chord < sqrt(farthest_d2) <= window_half_y, so
-        # it cannot lie outside the index window. If this ever fails, W is too
-        # small for the current RD_N — fail loudly rather than ship a biased table.
+        # Any node closer than the farthest chosen neighbor has
+        # |dy| <= its chord < sqrt(farthest_d2) < window_half_y, so lies inside
+        # the window.
         farthest_d2 = chosen[-1][0]
         if math.sqrt(farthest_d2) >= window_half_y:
             raise RuntimeError(

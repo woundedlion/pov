@@ -144,9 +144,7 @@ inline void test_helpers() {
   HS_EXPECT_TRUE(dg.valid() == nullptr);
 
   // A glitch filter at or above a burst's pulse spacing, less the emitter's
-  // lateness budget, drops every pulse after the first, so all three symbols
-  // would decode as Symbol::HALF. The beacon pitch is the tighter of the two
-  // bounds; the shipped filter clears both. Boundary is exclusive.
+  // lateness budget, drops every pulse after the first. Boundary is exclusive.
   Config gf = test_config();
   const uint32_t gf_bound = gf.beacon_pitch_cycles() - gf.late_censor_cycles();
   HS_EXPECT_TRUE(gf.glitch_filter_cycles < gf_bound);
@@ -176,8 +174,7 @@ inline void test_config_validation() {
   HS_EXPECT_TRUE(test_config().valid() == nullptr);
 
   // Odd W: boundary_column(HALF) and every arm-B half-image offset truncate
-  // W/2. 289 keeps W/4 and cycles_per_column at their 288 values, so nothing
-  // else moves.
+  // W/2.
   Config ow = test_config();
   ow.W = 289;
   expect_rejects(ow, "W even");
@@ -350,8 +347,8 @@ inline void test_flip_gate() {
 }
 
 /**
- * @brief Verifies edge mailbox burst accumulation and the 100 µs glitch
- *        filter: sub-window spikes are rejected without resetting the filter
+ * @brief Verifies edge mailbox burst accumulation and the glitch filter:
+ *        sub-window spikes are rejected without resetting the filter
  *        reference, burst_complete fires only after the gap, and claim()
  *        snapshots count + first/last edge.
  */
@@ -362,7 +359,7 @@ inline void test_mailbox() {
   m.on_edge(1000, GLITCH);
   m.on_edge(1000 + 2 * COL, GLITCH);
   m.on_edge(1000 + 4 * COL, GLITCH);
-  // EMI spike < 100 µs after an accepted edge is rejected…
+  // EMI spike inside the glitch window after an accepted edge is rejected…
   m.on_edge(1000 + 4 * COL + GLITCH / 2, GLITCH);
   m.on_edge(1000 + 4 * COL + GLITCH + 1, GLITCH);
   m.on_edge(1000 + 6 * COL, GLITCH);
@@ -590,9 +587,8 @@ inline void test_configure_replaces_claim_windows() {
  * @brief Verifies a tick folding several boundaries reports the FINAL one:
  *        TickActions::zero_crossing names the boundary that opened the display
  *        window now in effect, which the driver publishes as the window half.
- * @details Also pins the §5.1 fold bound: the gate runs once per crossing so the
- *          flip counter and the coast telemetry see all N, while `flip` stays a
- *          single bool — N windows consume one advance_display().
+ * @details The gate runs once per crossing so the flip counter and the coast
+ *          telemetry see all N, while `flip` stays a single bool (§5.1).
  */
 inline void test_multi_boundary_tick_window() {
   const Config cfg = test_config();
@@ -739,8 +735,7 @@ inline void test_beacon_codec() {
  * @brief Verifies wire silence past the ACQUIRE quiet window discards a partial
  *        beacon frame, so the next train assembles from its own digits alone.
  * @details The parser's own staleness test is a modular difference that a
- *          cycle-counter wrap defeats; the tick-driven reset fires within
- *          columns of the truncated train.
+ *          cycle-counter wrap defeats, so the reset is tick-driven.
  */
 inline void test_beacon_partial_frame_ages_out() {
   const Config cfg = test_config();
@@ -761,7 +756,7 @@ inline void test_beacon_partial_frame_ages_out() {
   board.tick(head + 40 * col, nullptr); // quiet past the ACQUIRE guard
   HS_EXPECT_EQ(board.telemetry_snapshot().beacons_rejected, 1u);
 
-  // A complete frame from column 90 on, spaced exactly as schedule_beacon does.
+  // A complete frame from column 90 on.
   uint8_t d[5];
   encode_beacon_digits(2, 3, d);
   feed_beacon_train(board, cfg, col, 1000u + 90u * col, d);
@@ -775,13 +770,11 @@ inline void test_beacon_partial_frame_ages_out() {
  * @brief Verifies the §6.3.4 confirmation rule: a live board changes effect
  *        index only after two consecutive beacons name the same one.
  * @details A leading stray burst shifts the frame; one of eight intruder
- *          values satisfies XOR parity. Frames enter the board once per
- *          half-revolution in the mid-half quiet, through the beacon parser.
+ *          values satisfies XOR parity.
  */
 inline void test_beacon_shift_needs_confirmation() {
-  // Full 64-roster: every 6-bit index is in range, so the shifted frame gets
-  // past the out-of-range rejection and the confirmation rule alone is on
-  // trial.
+  // Full 64-roster: every 6-bit index is in range, so only the confirmation
+  // rule can hold the shifted frame back.
   const Config cfg = test_config(64);
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
@@ -791,9 +784,8 @@ inline void test_beacon_shift_needs_confirmation() {
   content_mut(board).effect_index = 1;
   content_mut(board).rev_in_effect = 5;
 
-  // Half-rev k's frame starts at column 40: far from both boundaries, and the
-  // whole frame lands inside the half-rev. Fold the intervening crossings
-  // before the digits go in, so a frame's rev digits match the board's count.
+  // Half-rev k's frame starts at column 40, after its crossings are folded so
+  // the frame's rev digits match the board's count.
   int half_rev = 0;
   auto open_frame = [&]() {
     const uint32_t t =
@@ -1026,7 +1018,7 @@ inline void test_flywheel_position() {
     f.set_cycles_per_half_rev(period);
     uint32_t t = 0xFFFFFFFFu - period / 3; // wrap almost immediately
     f.seed(t);
-    for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 44 wraps
+    for (int k = 1; k <= 5000; ++k) { // crosses many 32-bit wraps
       HS_CONTEXT("fold", k);
       t += period;
       const Crossing c = f.fold(t);

@@ -25,9 +25,7 @@ struct GnomonicStarsWhiteBox;
  *        warps the field with an evolving Möbius transform.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Every spiral point is pushed through an evolving Möbius warp so the
- *          field drifts and inflates, while a Languid RandomWalk slowly
- *          reorients the whole field.
+ * @details A Languid RandomWalk slowly reorients the whole field.
  */
 template <int W, int H> class GnomonicStars : public Effect {
 public:
@@ -167,10 +165,9 @@ private:
   struct Params {
     int points = 600; /**< Number of stars scattered on the spiral. */
     float star_radius =
-        1.4f * radius_px(); /**< Per-star circumradius, ~1.4 px at any W. */
-    int star_sides = 4;     /**< Polygon side count per star. */
-    float warp_speed =
-        0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
+        1.4f * radius_px();    /**< Per-star circumradius, ~1.4 px at any W. */
+    int star_sides = 4;        /**< Polygon side count per star. */
+    float warp_speed = 0.035f; /**< Möbius warp evolution speed. */
     bool debug_bb = false; /**< When true, draws each star's bounding box. */
   } params;
 };

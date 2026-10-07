@@ -533,16 +533,14 @@ static_assert(
 namespace Collections {
 /**
  * @brief Returns the five Platonic solids.
- * @return Span over the Platonic entries (offset 0, count 5) of
- * simple_registry.
+ * @return Span over the Platonic entries of simple_registry.
  */
 inline std::span<const Entry> get_platonic_solids() {
   return std::span<const Entry>(simple_registry, PLATONIC_COUNT);
 }
 /**
  * @brief Returns the 13 Archimedean solids.
- * @return Span over the Archimedean entries (offset 5, count 13) of
- * simple_registry.
+ * @return Span over the Archimedean entries of simple_registry.
  */
 inline std::span<const Entry> get_archimedean_solids() {
   return std::span<const Entry>(simple_registry + PLATONIC_COUNT,

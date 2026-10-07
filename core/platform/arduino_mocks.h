@@ -362,7 +362,8 @@ struct SerialMock {
   /**
    * @brief Formats and writes a printf-style message (Arduino Serial.printf).
    * @param fmt printf-style format string.
-   * @details Expands into a fixed 256-byte stack buffer (no heap) and emits.
+   * @details Formats into a fixed stack buffer (no heap); longer output
+   *          truncates.
    * @warning The host formats `%f`/`%g`; the device hs::log/check_fail use
    *          integer-only vsniprintf. Avoid float conversions in device-bound
    *          messages.

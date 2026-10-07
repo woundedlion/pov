@@ -150,7 +150,7 @@ inline void test_gradient_three_stops_interior_and_flanks() {
   HS_EXPECT_GT(mid.color.g, mid.color.b);
   // A flank between two saturated stops leaves the gamut, and the clip's
   // residual under-saturation pulls the result a few LSB off the cube face, so
-  // the absent channel is near zero rather than zero. Measured max is 3.
+  // the absent channel is near zero rather than zero.
   constexpr uint16_t ABSENT = 16;
   // First flank (red->green): both red and green present, blue absent.
   Color4 f1 = grad.get(0.25f);
@@ -461,8 +461,7 @@ inline void test_dot_keyed_bake_round_trips_through_dot_key() {
     previous = got;
   }
 
-  // Away from the poles the u -> angle curve is gentle enough for the 256-entry
-  // LUT to reproduce the source to within 32 counts of a 16-bit channel.
+  // Away from the poles the LUT reproduces the source closely.
   for (int i = -3; i <= 3; ++i) {
     const float d = static_cast<float>(i) / 4.0f;
     const uint16_t got = baked.get(dot_key(d)).color.r;

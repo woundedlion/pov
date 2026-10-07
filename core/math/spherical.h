@@ -46,7 +46,7 @@ inline Vector fib_spiral(int n, float eps, int i) {
   constexpr double INV_PHI_PRECISE = 0.6180339887498948482;
   const float theta = static_cast<float>(
       std::fmod(2.0 * PI * static_cast<double>(i) * INV_PHI_PRECISE, 2.0 * PI));
-  // Y-up; unit by construction.
+  // Y-up.
   return Vector(radius * cosf(theta), y, radius * sinf(theta));
 }
 
@@ -57,7 +57,6 @@ inline Vector fib_spiral(int n, float eps, int i) {
  */
 inline Vector random_vector() {
   float v1, v2, s;
-  // Marsaglia rejection: accept when (v1,v2) lands in the open unit disk.
   do {
     v1 = 2.0f * hs::rand_f() - 1.0f;
     v2 = 2.0f * hs::rand_f() - 1.0f;
@@ -90,7 +89,6 @@ struct LissajousParams {
  * @return The calculated 3D point (unit vector).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
-  // Unit by construction.
   return Vector(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
                 sinf(m2 * t) * sinf(m1 * t - a));
 }
@@ -129,11 +127,8 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
                ? static_cast<int>(orientation_norm_sq * 1000.0f)
                : static_cast<int>(INT32_MIN));
   Vector v = rotate(normal, orientation).normalized();
-  // rotate preserves dot, so the axis least parallel to normal, rotated, is
-  // least parallel to v.
   Vector ref = rotate(least_parallel_axis(normal), orientation);
   Vector u = cross(v, ref).normalized();
-  // v and u are orthonormal, so the cross is unit by construction.
   Vector w = cross(v, u);
   return {u, v, w};
 }

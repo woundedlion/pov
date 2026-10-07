@@ -263,7 +263,7 @@ private:
   void update_path() {
     math::LissajousParams config = params.function;
     float closed_domain = closing_domain(config);
-    // Four scalars fill PlotFn's 16 B inline capacity (no heap fallback).
+    // Four scalars fill PlotFn's inline capacity.
     const float m1 = config.m1, m2 = config.m2, a = config.a;
     path.f = [m1, m2, a, closed_domain](float t) {
       return math::lissajous(m1, m2, a, t * closed_domain);

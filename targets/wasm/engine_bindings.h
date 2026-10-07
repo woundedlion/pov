@@ -107,8 +107,9 @@ static_assert(MAX_PARAMS >= Effect::ParamList::FIXED_CAPACITY,
  * @details NO_EFFECT is the ordinary state after a RESIZED setResolution();
  *          INVALID_BOUNDS is a caller bug. APPLIED and FULL_FRAME_KEPT are both
  *          successes, but only APPLIED means the band is in force. Exposed to JS
- *          as the Module.ClipSetResult embind enum; compare against its values,
- *          never by truthiness (every enum value is a truthy object).
+ *          as the Module.ClipSetResult embind enum. Compare this and every other
+ *          embind result enum by value, never by truthiness: every enum value
+ *          is a truthy object.
  */
 enum class ClipSetResult {
   APPLIED,         /**< Band installed; rendering is narrowed to it. */
@@ -121,9 +122,7 @@ enum class ClipSetResult {
 
 /**
  * @brief Outcome of a HolosphereEngine::setResolution() call.
- * @details Exposed to JS as the
- *          Module.ResolutionSetResult embind enum; compare against its values,
- *          never by truthiness (every enum value is a truthy object).
+ * @details Exposed to JS as the Module.ResolutionSetResult embind enum.
  */
 enum class ResolutionSetResult {
   RESIZED,        /**< Resolution switched; the effect was torn down, so
@@ -138,9 +137,7 @@ enum class ResolutionSetResult {
  * @brief Outcome of a HolosphereEngine::setEffect() call.
  * @details Both rejections keep the prior effect. UNSUPPORTED_RESOLUTION means
  *          no name can succeed until a supported setResolution(). Exposed to JS
- *          as the
- *          Module.EffectSetResult embind enum; compare against its values,
- *          never by truthiness (every enum value is a truthy object).
+ *          as the Module.EffectSetResult embind enum.
  */
 enum class EffectSetResult {
   INSTALLED,              /**< Fresh effect instantiated at default parameters
@@ -265,9 +262,7 @@ public:
    * @return RESIZED if the resolution switched, ALREADY_ACTIVE if the request
    *         matched the active resolution (a pure no-op — nothing is torn
    *         down), or UNSUPPORTED if the request was rejected and the previous
-   *         valid state was kept. Exposed to JS as the
-   *         Module.ResolutionSetResult embind enum; compare against its
-   *         values, never by truthiness.
+   *         valid state was kept.
    * @details RESIZED tears down the current effect: call setEffect() before the
    *          next drawFrame() (else it renders blank) and re-apply any setClip(),
    *          whose bounds are not rescaled. The teardown re-partitions the
@@ -299,9 +294,7 @@ public:
    * @param name Effect class name or stable EFFECT_ID to instantiate.
    * @return INSTALLED iff an effect was actually instantiated, else the
    *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
-   *         or UNSUPPORTED_RESOLUTION. Exposed to JS as the
-   *         Module.EffectSetResult embind enum; compare against its values,
-   *         never by truthiness.
+   *         or UNSUPPORTED_RESOLUTION.
    * @details A rejected name keeps the prior effect. INSTALLED resets the clip
    *          to the full canvas and parameters to defaults; re-apply setClip()
    *          and setParameter(). The animation pause state is retained.
@@ -360,14 +353,8 @@ public:
    *           All four must be integral; a fractional or NaN number is
    *           INVALID_BOUNDS.
    * @return APPLIED if the band was installed, FULL_FRAME_KEPT if the bounds
-   *         were accepted but the effect reports needs_full_frame() or persists_pixels() and
-   *         so keeps the full-canvas clip, otherwise the rejection reason:
-   *         NO_EFFECT (no effect is set to receive the clip) or INVALID_BOUNDS
-   *         (malformed/out of range, then ignored). Exposed to JS as the
-   *         Module.ClipSetResult embind enum; compare against its values, never
-   *         by truthiness. Both APPLIED and FULL_FRAME_KEPT are successes.
-   *         NO_EFFECT is the ordinary answer between a resolution change and the
-   *         setEffect that follows it.
+   *         were accepted but the effect keeps the full-canvas clip, otherwise
+   *         NO_EFFECT or INVALID_BOUNDS.
    * @details Malformed input is rejected without trapping.
    *          See docs/specs/segmented_stateful_effects_spec.md.
    */
@@ -393,12 +380,9 @@ public:
   /**
    * @brief Renders one frame of the current effect into the JS-facing buffer.
    * @details Copies the effect's canvas into pixel_buffer as 16-bit linear RGB
-   *          triples; clears the active readback if no effect is set. Readback
-   *          spans the display clip — the full canvas unless setClip() narrowed it
-   *          (an effect reporting needs_full_frame() or persists_pixels() keeps
-   *          the full clip, so it is always copied whole). Pixels outside the
-   *          display band retain their previous readback values; render margins
-   *          are not copied.
+   *          triples; clears the active readback if no effect is set. Only the
+   *          display clip is copied; pixels outside it keep their previous
+   *          readback values.
    */
   void drawFrame() {
     if (!current_effect) {
@@ -467,16 +451,11 @@ public:
    * @brief Exposes the raw pixel buffer to JS as a zero-copy Uint16Array view.
    * @return Typed memory view over the active resolution's R,G,B pixels within
    *         the stable MAX_W*MAX_H*3 backing buffer.
-   * @details WASM memory-view contract: the returned view aliases WASM linear
-   *          memory, it is NOT a copy, and two independent events invalidate it.
-   *          With ALLOW_MEMORY_GROWTH=1, any subsequent heap growth detaches the
-   *          underlying ArrayBuffer and leaves this view zero-length
-   *          (buffer.byteLength === 0). A successful setResolution() detaches
-   *          nothing — the backing vector is pre-sized once and never
-   *          reallocated — but moves the active prefix this view spans, so an
-   *          outstanding view keeps aliasing live memory at the wrong length. A
-   *          caller caching the view across frames MUST therefore test both:
-   *          buffer.byteLength !== 0 and length === getBufferLength().
+   * @details The view aliases WASM memory; it is not a copy. Heap growth
+   *          detaches it (buffer.byteLength === 0); a successful setResolution()
+   *          leaves it attached at the wrong length. A caller caching the view
+   *          across frames must test both buffer.byteLength !== 0 and
+   *          length === getBufferLength().
    */
   emscripten::val getPixels() {
     return emscripten::val(emscripten::typed_memory_view(
@@ -487,9 +466,7 @@ public:
    * @brief Returns the length of the active pixel buffer view.
    * @return Number of uint16 elements in the active view (pixel_width *
    *         pixel_height * 3, three channels per pixel).
-   * @details The staleness test for a cached getPixels() view: a resolution
-   *          change moves this length without detaching the view, so a held view
-   *          whose length differs describes a prior resolution.
+   * @details A cached getPixels() view whose length differs is stale.
    */
   int getBufferLength() const { return pixel_width * pixel_height * CHANNELS; }
 
@@ -502,13 +479,10 @@ public:
    *         the effect), READONLY (engine-written telemetry the GUI must not
    *         poke), NON_FINITE (rejected before it can poison render math), or
    *         INADMISSIBLE (an unlisted option ID or a cross-parameter constraint
-   *         refuses the value).
-   *         Exposed to JS as the Module.ParamSetResult embind enum; compare
-   *         against its values, never by truthiness (every enum value is a
-   *         truthy object). An APPLIED float is silently clamped to the
-   *         parameter's registered [min,max] — APPLIED does NOT imply the
-   *         stored value equals the requested one. A consumer that needs the
-   *         effective value should read it back via getParamValues().
+   *         refuses the value). Exposed to JS as the Module.ParamSetResult
+   *         embind enum. An APPLIED float is silently clamped to the
+   *         parameter's registered [min,max]; read the effective value back via
+   *         getParamValues().
    * @details An APPLIED write to an *animated* param engages the animation
    *          pause, as setAnimationsPaused(true) would; read it back through
    *          getAnimationsPaused().
@@ -607,9 +581,8 @@ public:
    *         preset.
    * @details Engages the animation pause as setAnimationsPaused(true) would.
    *          Parameter values move with the preset; re-read them via
-   *          getParamValues(). The index arrives as a double: a uint32_t embind
-   *          parameter wraps modulo 2^32 with no range check in a release build
-   *          and maps NaN to 0.
+   *          getParamValues(). The index is a double so wrapped and NaN inputs
+   *          are rejected rather than coerced.
    */
   bool selectPreset(double index) {
     if (!current_effect || !preset_index_accepted(index, "selectPreset") ||
@@ -686,25 +659,21 @@ public:
 
   /**
    * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, requestedValue, acceptedValue, animated, readonly, preset} object
-   *         per param in the effect's declaration order, with {warning} when present,
-   *         plus {min, max} on
-   *         every non-boolean param, {step} on every whole-number param, and
-   *         {options} — with {exportOptions} alongside it when the param
-   *         declares C++ enum literals — on every enum param; empty array when
-   *         no effect is set.
-   * @details `value` is the current rendered state for GUI display, while
-   *          `requestedValue` is the writable target used to seed another
-   *          renderer. `acceptedValue` is the accepted target and `warning`
-   *          describes any adjustment or rejection. A boolean param's values are JS booleans and it carries
-   *          no range; every other value is a number. step is 1 on an enum or
-   *          integer target and absent on a float one. An enum's optionValues maps its
-   *          labels to numeric IDs; when absent, values index options directly.
-   *          An integer param carries a range instead of labels
-   *          and exports as a plain numeric literal. preset marks the params a
-   *          preset export carries.
-   *          The order matches getParamValues(); pin getParamGeneration() beside
-   *          a snapshot to detect a rebind.
+   * @return JS array with one {name, value, requestedValue, acceptedValue,
+   *         animated, readonly, preset} object per param in declaration order,
+   *         with {warning} when present, {min, max} on every non-boolean param,
+   *         {step} on every whole-number param, and {options} (plus
+   *         {exportOptions} for C++ enum literals) on every enum param; empty
+   *         when no effect is set.
+   * @details `value` is the rendered state for display; `requestedValue` is the
+   *          writable target used to seed another renderer; `acceptedValue` is
+   *          the accepted target and `warning` describes any adjustment or
+   *          rejection. Boolean values are JS booleans; every other value is a
+   *          number. An enum's optionValues maps its labels to numeric IDs;
+   *          when absent, values index options directly. preset marks the
+   *          params a preset export carries. The order matches
+   *          getParamValues(); pin getParamGeneration() beside a snapshot to
+   *          detect a rebind.
    */
   emscripten::val getParameterDefinitions() {
     if (!current_effect)

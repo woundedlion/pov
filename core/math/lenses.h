@@ -29,9 +29,7 @@ namespace lenses {
 inline constexpr float TWIST_RATE = 3.0f;
 /** @brief Signed mirror distance treated as "on the chamber wall". */
 inline constexpr float POLYHEDRAL_MIRROR_EPS = 1e-6f;
-/** @brief Loop passes a chamber fold may take before it is declared stuck.
- *  @details The dodecahedral worst case is 15 reflections plus the inside
- *  check; the excess is slack for near-wall directions. */
+/** @brief Loop passes a chamber fold may take before it is declared stuck. */
 inline constexpr int POLYHEDRAL_REFLECTION_LIMIT = 24;
 
 /** @brief Inward mirror normals of the tetrahedral (*332) chamber. */
@@ -95,8 +93,8 @@ inline math::Vector glitch_lens(const math::Vector &v) {
  * @param v Unit direction on the sphere.
  * @param rate Rotation in radians per unit height.
  * @return The direction rotated by rate * v.y radians.
- * @note The fast trigonometric approximation can move a unit input up to
- *       1.7e-3 away from unit length; the result is not renormalized.
+ * @note The fast trigonometric approximation can move a unit input slightly
+ *       off unit length; the result is not renormalized.
  */
 inline math::Vector twist_lens(const math::Vector &v, float rate = TWIST_RATE) {
   const float angle = rate * v.y;
@@ -174,9 +172,8 @@ polyhedral_kaleidoscope_lens(math::Vector v,
 
 /**
  * @brief Folds a direction into the dodecahedral chamber.
- * @details Specializes polyhedral_kaleidoscope_lens for DODECAHEDRAL_MIRRORS:
- * the scan over the mirror array is unrolled and the two axis mirrors collapse
- * into sign flips, leaving only the fold iteration.
+ * @details Specialization of polyhedral_kaleidoscope_lens for
+ * DODECAHEDRAL_MIRRORS.
  * @param v Unit direction on the sphere.
  * @return A symmetry-equivalent direction inside the chamber.
  */

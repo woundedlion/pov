@@ -37,10 +37,9 @@ inline float y_to_phi_virtual(float y, int h_virt) {
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
  * @param phi The spherical phi angle in radians.
  * @param h_virt Height of a complete pole-to-pole latitude grid.
- * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], EXCEPT at
- *   the south pole (phi == PI_F) the float round-trip can land a hair *above*
- *   `h_virt - 1`; a caller indexing a row buffer with `(int)y` must clamp or
- *   floor first.
+ * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], except
+ *   that phi == PI_F can round just above `h_virt - 1`; clamp before indexing
+ *   with `(int)y`.
  */
 inline float phi_to_y_virtual(float phi, int h_virt) {
   HS_CHECK(h_virt > 1, "phi_to_y_virtual: h_virt must be > 1");
@@ -258,8 +257,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @brief Projects a unit vector to its pixel column (azimuth only).
  * @tparam W The width.
  * @param v Unit vector on the sphere; only its x/z azimuth is read. Must be
- *   finite: `fast_atan2` has no NaN guard, and neither wrap branch fires on the
- *   NaN it propagates.
+ *   finite: a NaN passes through `fast_atan2` and both wrap branches.
  * @return The `x` pixel coordinate in `[0, W)` (strictly excludes W) for finite
  *   input.
  */

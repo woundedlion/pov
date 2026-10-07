@@ -4,9 +4,7 @@
  */
 
 // ============================================================================
-// Azimuthal-equidistant projection + dual-metric planar arc length, pinned
-// against independent oracles (libm great-circle reconstruction, fine on-sphere
-// quadrature).
+// Azimuthal-equidistant projection and dual-metric planar arc length.
 // ============================================================================
 
 /**
@@ -35,7 +33,6 @@ inline float az_arc_exact(const math::Vector &p, const math::Vector &q) {
 
 /**
  * @brief azimuthal_project's radius equals the great-circle angle from center.
- * @details Radius is checked against an independent libm great-circle angle.
  */
 inline void test_azimuthal_project_radius_is_geodesic_angle() {
   hs::random().seed(0xA21E);
@@ -89,8 +86,6 @@ inline void test_azimuthal_roundtrip_identity() {
 
 /**
  * @brief azimuthal_unproject lands on the great-circle point at (R, theta).
- * @details Oracle is an independent libm reconstruction
- *          v*cos(R) + (u*cos(th)+w*sin(th))*sin(R).
  */
 inline void test_azimuthal_unproject_hits_great_circle_point() {
   hs::random().seed(0xC0DE);
@@ -104,8 +99,6 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
     math::Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
     math::Vector want = basis.v * std::cos(R) + axis * std::sin(R);
     HS_EXPECT_NEAR(math::angle_between(got, want), 0.0f, 1e-2f);
-    // The unprojection landed off both poles of the chart, so the oracle
-    // compared a point with a defined azimuth.
     float got_R = math::angle_between(got, basis.v);
     if (got_R > 0.05f && got_R < math::PI_F - 0.05f)
       ++n;
@@ -115,10 +108,7 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
 
 /**
  * @brief planar_arc_length matches a fine libm quadrature of the edge.
- * @details Compares the 4-panel table against a 2000-panel libm reference on
- *          short polygon edges; most edges must bow past their great-circle
- *          chord. Long edges sweeping near the chart center straddle the azimuth
- *          singularity and are excluded.
+ * @details Most edges must bow past their great-circle chord.
  */
 inline void test_planar_arc_length_matches_fine_quadrature() {
   hs::random().seed(0xD41A);
@@ -183,7 +173,6 @@ inline void test_dual_metric_radial_vs_azimuthal() {
         Plot::azimuthal_unproject(Rb * std::cos(th), Rb * std::sin(th), basis);
     HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis),
                    math::angle_between(a, b), 1.2e-2f);
-    // The two radii unprojected to a genuine radial edge, not a collapsed one.
     if (math::angle_between(a, b) > 0.1f)
       ++radial;
 
@@ -200,7 +189,6 @@ inline void test_dual_metric_radial_vs_azimuthal() {
     float lo = bow(1.0f), hi = bow(1.3f);
     HS_EXPECT_GT(lo, 1.5e-2f);
     HS_EXPECT_GT(hi, lo);
-    // The azimuthal separation survived the unprojection.
     if (chord > 0.1f)
       ++azi;
   }
@@ -210,9 +198,7 @@ inline void test_dual_metric_radial_vs_azimuthal() {
 
 /**
  * @brief planar_arc_cumul is monotone and totals what the rasterizer walks.
- * @details Starts at 0, rises strictly, totals what the span-based edge
- *          sampler accumulates from its cached interior points, and is bounded
- *          below by the geodesic angle.
+ * @details Bounded below by the geodesic angle.
  */
 inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
@@ -239,9 +225,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     HS_EXPECT_NEAR(cumul[0], 0.0f, 1e-6f);
     for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
       HS_EXPECT_GT(cumul[k], cumul[k - 1]);
-    // The per-segment sampler rebuilds the table from the cull span's cached
-    // interior points, and the pre-pass takes planar_arc_length. All three must
-    // total the same length.
+    // Table, edge sampler and planar_arc_length total the same length.
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     const math::Vector span_end = Plot::azimuthal_unproject(
         span.p1.first + span.dX, span.p1.second + span.dY, basis);
@@ -251,8 +235,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES], sampler.dist, total_tol);
     HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), sampler.dist,
                    total_tol);
-    // Spherical triangle inequality against the endpoints the table actually
-    // joins: a total below their separation violates this lower bound.
+    // Triangle inequality against the endpoints the table joins.
     const math::Vector chart_start =
         Plot::azimuthal_unproject(p1.first, p1.second, basis);
     const float endpoint_cos = math::dot(chart_start, span_end) /

@@ -49,8 +49,7 @@ def markdown_references(
         if not name or not name.casefold().endswith(_MARKDOWN_SUFFIXES):
             continue
         relative = PurePosixPath(name)
-        # A tracked file can be absent from the working tree (an interrupted
-        # checkout, a sparse one). That is an error to report, not a traceback.
+        # A tracked file can be absent from a sparse or interrupted checkout.
         try:
             text = repo_root.joinpath(*relative.parts).read_text(
                 encoding="utf-8", errors="replace")
@@ -151,8 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         if errors:
             report(errors)
             return 1
-        # No resolvable references means the checker was pointed somewhere
-        # it cannot see the repository; passing would certify nothing.
+        # Zero references checked would certify nothing.
         if not checked:
             print(f"[docs-images] tooling error: no repository-relative "
                   f"image references in tracked Markdown under "
@@ -170,8 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     if errors:
         report(errors)
         return 1
-    # An artifact carrying no image reference is a gallery-less site;
-    # publishing it would certify nothing.
+    # Zero references checked would certify nothing.
     if not checked:
         print(f"[docs-images] tooling error: no repository-relative "
               f"image references under {html_root}", file=sys.stderr)

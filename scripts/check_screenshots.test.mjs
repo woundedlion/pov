@@ -29,9 +29,6 @@ test('a PNG naming no registered effect is an orphan', () => {
   assert.deepEqual(orphan, ['Retired']);
 });
 
-// The divergence that is invisible on the Windows dev FS and fatal on Linux CI:
-// it must be its own class, not silently accepted nor double-counted as a
-// missing effect plus an orphan PNG.
 test('a case-only divergence is reported as a case mismatch', () => {
   const { missing, caseMismatch, orphan } =
     partitionGallery(['IslamicStars'], ['islamicstars']);
@@ -40,8 +37,6 @@ test('a case-only divergence is reported as a case mismatch', () => {
   assert.deepEqual(caseMismatch, ["islamicstars.png vs roster 'IslamicStars'"]);
 });
 
-// A case-insensitive dev FS cannot hold both spellings, so a stray lowercase
-// copy only ever appears on case-sensitive CI.
 test('a stray case variant beside the exact PNG is reported', () => {
   const { missing, caseMismatch, orphan } =
     partitionGallery(['Voronoi'], ['voronoi', 'Voronoi']);

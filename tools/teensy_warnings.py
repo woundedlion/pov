@@ -19,21 +19,17 @@ _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 _FILELESS_WARNING_RE = re.compile(
     r"^(<command-line>|(?:\S*[/\\])?(?:cc1plus|ld)(?:\.exe)?):\s*warning:\s*(.*)$")
 
-# PlatformIO's non-verbose step line: "Compiling <object>". `pio run -v` prints
-# the raw compiler command instead, and never these.
+# PlatformIO's non-verbose step line: "Compiling <object>" (absent under -v).
 _PIO_STEP_RE = re.compile(r"^\s*Compiling\s+(\S+)")
 
-# `-c` as a standalone flag on a compiler command line. In the `-v` echo it is
-# NOT adjacent to the source: the flags follow it and the source comes last.
+# `-c` as a standalone flag; in the `-v` echo the source comes last, not after it.
 _DASH_C_RE = re.compile(r"(?:^|\s)-c(?:\s|$)")
 
-# A positional source argument anywhere on that command line. Tokens starting
-# with `-` are flags (`-Icore`, `-x c++`), never the translation unit.
+# A positional (not `-`-prefixed) source argument anywhere on that command line.
 _SOURCE_RE = re.compile(r"(?:^|\s)(?!-)(\S+\.(?:cpp|cc|cxx|c|S))(?=\s|$)")
 
-# PlatformIO's per-environment banner. It opens every env's section AND prints
-# that env's resolved options, `build_src_filter` among them — which is what
-# makes the expected translation-unit set derivable from the log alone:
+# PlatformIO's per-environment banner, which also prints the env's resolved
+# options, `build_src_filter` among them:
 #   Processing phantasm (board: teensy40; build_src_filter: -<*>, +<core/...>; ...)
 _ENV_HEADER_RE = re.compile(r"^Processing\s+(\S+)\s+\((.*)\)\s*$")
 
@@ -45,8 +41,7 @@ _SRC_FILTER_RE = re.compile(
 # One src-filter term: `+<path>` includes, `-<path>` excludes.
 _SRC_FILTER_TERM_RE = re.compile(r"([+-])<([^>]*)>")
 
-# A PlatformIO environment declaration in platformio.ini. `[env]` (the shared
-# base section) is not one, hence the mandatory `:<name>`.
+# An `[env:<name>]` declaration in platformio.ini; the shared `[env]` is not one.
 _INI_ENV_RE = re.compile(r"^\s*\[env:([^\]\s]+)\]\s*$", re.MULTILINE)
 
 # SCons object-cache hit:  Retrieved `.pio/build/x/src/core/memory.cpp.o' from cache
@@ -62,9 +57,8 @@ _THIRD_PARTY_DIRS = frozenset(tp.rstrip("/") for tp in THIRD_PARTY)
 def _relativize(path: str) -> str | None:
     """Return the repo-root-relative path if first-party, else None.
 
-    Anchored at the FIRST segment naming a first-party top-level dir, so the full
-    nested path is kept (targets/Phantasm/effects/Foo.h != top-level effects/Foo.h)
-    and not collapsed to the first matching segment.
+    Anchored at the FIRST first-party segment, so the full nested path is kept
+    (targets/Phantasm/effects/Foo.h, not effects/Foo.h).
     """
     segs = path.replace("\\", "/").split("/")
     if ".platformio" in segs or "libdeps" in segs:
@@ -135,9 +129,7 @@ def compiled_paths(line: str) -> list[str]:
 def count_first_party_compiles(build_log: str) -> int:
     """Compiler invocations on first-party sources visible in the log.
 
-    A clean build and a broken capture both yield an empty warning set, so the
-    comparison is only meaningful once the log holds a build that could have
-    emitted first-party warnings. A third-party-only build is NOT evidence.
+    Zero means an empty warning set proves nothing.
     """
     n = 0
     for line in build_log.splitlines():
@@ -201,8 +193,8 @@ class CaptureAudit:
 def parse_env_sections(build_log: str) -> list[EnvSection]:
     """Split a `pio run` log into its per-environment sections.
 
-    PlatformIO builds environments sequentially, so a banner closes the previous
-    section. Lines before the first banner belong to no environment.
+    Each banner closes the previous section; lines before the first belong to
+    no environment.
     """
     sections: list[EnvSection] = []
     name: str | None = None
@@ -224,8 +216,7 @@ def parse_env_sections(build_log: str) -> list[EnvSection]:
 def declared_first_party_sources(section: EnvSection) -> set[str]:
     """The first-party translation units this env's `build_src_filter` selects.
 
-    Derived from PlatformIO's own banner. A glob that could select a first-party
-    source is not countable from the log and raises.
+    A first-party glob is not countable from the log and raises.
     """
     m = _SRC_FILTER_RE.search(section.header)
     if m is None:
@@ -254,9 +245,7 @@ def declared_first_party_sources(section: EnvSection) -> set[str]:
 def _source_key(path: str) -> str | None:
     """A first-party path as a translation-unit key, or None.
 
-    Both log shapes and the cache-hit line reduce to the same key: the object
-    suffix is dropped so `<tu>.cpp.o` and `<tu>.cpp` compare equal against the
-    sources build_src_filter declares.
+    The object suffix is dropped, so `<tu>.cpp.o` and `<tu>.cpp` compare equal.
     """
     rel = _relativize(path)
     if rel is None:
@@ -327,9 +316,8 @@ def declared_environments(ini_path: str | Path) -> tuple[str, ...]:
 def read_build_log(path: str | Path) -> str:
     """Read a captured build log, replacing undecodable bytes.
 
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream;
-    the warning fingerprints this module matches are ASCII, so a substituted
-    byte cannot alter the set.
+    A Windows `tee` capture interleaves cp1252 bytes; the matched warning
+    fingerprints are ASCII, so substitution cannot alter the set.
     """
     return Path(path).read_text(encoding="utf-8", errors="replace")
 

@@ -499,8 +499,7 @@ public:
    * @brief Whether a parameter set matches a specialized slice pipeline.
    * @param value Parameters to test.
    * @return true when the parameters match the specialized trace assumptions.
-   * @details The shape is the hypercube preset's; draw_frame() asserts the
-   *          two agree.
+   * @details The shape is the hypercube preset's.
    */
   static constexpr bool uses_specialized_slice(const Params &value) {
     return value.pattern == Pattern::CUBIC_WIRE &&

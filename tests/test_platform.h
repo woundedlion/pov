@@ -47,7 +47,7 @@ inline void test_sin8_golden() {
     if (err > max_err)
       max_err = err;
   }
-  // sin8_C tracks the true sine to within a few LSBs (measured worst case 3).
+  // sin8_C tracks the true sine to within a few LSBs.
   HS_EXPECT_LT(max_err, 4);
 }
 
@@ -72,8 +72,6 @@ inline void test_sin16_golden() {
     if (err > max_err)
       max_err = err;
   }
-  // sin16_C's 8-section linear LUT tracks the true sine to within 226 of 32767
-  // (~0.7%).
   HS_EXPECT_LT(max_err, 227);
 }
 
@@ -139,7 +137,7 @@ inline void test_map_degenerate_range() {
  * @details Teensyduino's map() biases the numerator by half the input range
  *          before a truncating divide and then corrects the sign outside the
  *          input range; Arduino's traditional truncating map() differs on
- *          the cases marked below.
+ *          the marked cases.
  */
 inline void test_map_rounds_like_the_device() {
   HS_EXPECT_EQ(map(2, 0, 3, 0, 10), 7);         // truncating map() gives 6
@@ -215,12 +213,9 @@ inline void test_beat16_accum88_promotion() {
 /**
  * @brief Verifies beatsin8 oscillates within [lowest, highest], is
  *        deterministic, applies phase_offset, and matches FastLED's LUT phase.
- * @details Confirms the scale8 range fit, determinism under the injected clock,
- *          the phase_offset (5th arg) shift, and the LUT phase at known times.
  */
 inline void test_beatsin8_faithful() {
-  // 60 BPM == one cycle per 1000 ms. Quarter cycle (250 ms) -> peak, three-
-  // quarter (750 ms) -> trough.
+  // 60 BPM: 250 ms is the peak, 750 ms the trough.
   hs::set_mock_time(250, 250000);
   HS_EXPECT_EQ(beatsin8(60, 0, 255),
                255); // sin8(64)=255 -> scale8(255,255)=255
@@ -252,9 +247,7 @@ inline void test_beatsin8_faithful() {
  * @brief Verifies beatsin16 is value-exact at known phases and stays in range
  *        across a full cycle.
  * @details beatsin16 = lowest + scale16(sin16(beat16(...)) + 32768,
- *          highest-lowest). Pins it value-exact at t=0 (beat phase 0) while
- *          sweeping phase_offset onto the sin16 anchors, catching an arg swap, a
- *          dropped offset, or a missing +32768, then confirms the range fit.
+ *          highest-lowest).
  */
 inline void test_beatsin16_golden() {
   hs::set_mock_time(0, 0);
@@ -370,7 +363,6 @@ inline void test_rand_f_half_open() {
  *          stream is untouched.
  */
 inline void test_epoch_seed() {
-  // Epoch 0 is the identity: seeding with it reproduces the default stream.
   HS_EXPECT_EQ(hs::epoch_seed(0), 1337u);
   hs::Pcg32 def;
   hs::Pcg32 zero(hs::epoch_seed(0));
@@ -419,13 +411,8 @@ inline void test_stable_effect_seed() {
 /**
  * @brief Pins Pcg32's draw stream to golden values taken from the published PCG
  *        XSH-RR 64/32 reference.
- * @details The literals were computed from M. E. O'Neill's published
- *          pcg32_srandom_r / pcg32_random_r (state 0, inc (seq << 1) | 1, one
- *          warmup draw, state += seed, a second warmup draw) with
- *          seq = Pcg32::STREAM_SEQ = 0x14057b7ef767814f; that transcription was
- *          validated against the published (state 42, seq 54) demo vector
- *          0xa15c02b7, 0x7b47f409, 0xba1d3330, 0x83d2f293, 0xbfa4784b,
- *          0xcbed606e.
+ * @details Computed from M. E. O'Neill's published pcg32_srandom_r /
+ *          pcg32_random_r with seq = Pcg32::STREAM_SEQ.
  */
 inline void test_pcg32_golden_stream() {
   // Seed 1337: the default, and what hs::random() and epoch 0 both use.
@@ -469,7 +456,6 @@ inline void test_shuffle_golden_permutation() {
 /**
  * @brief Verifies CRGB's single-argument constructor decodes a 0xRRGGBB
  *        colorcode like FastLED rather than as a grayscale fill.
- * @details CRGB(0xFF8000) must be orange, not black.
  */
 inline void test_crgb_colorcode_constructor() {
   CRGB orange(0xFF8000u);

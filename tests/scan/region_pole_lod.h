@@ -292,8 +292,7 @@ inline void test_pole_lod_run_clamps_to_max_run() {
 /**
  * @brief Verifies near-pole decimation shades the same pixels as an
  *        undecimated walk.
- * @details A block is settled from one probe only where that probe bounds the
- * whole block, so a constant-color draw lands the same framebuffer at
+ * @details A constant-color draw lands the same framebuffer at
  * Render::pole_lod_aggressiveness 1.0 as at 0.
  */
 inline void test_pole_lod_shading_matches_undecimated() {
@@ -325,8 +324,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     HS_EXPECT_GT(lit, (size_t)40);
   };
 
-  // Ring axis tilted just off the canvas pole, so the stroke band's two arcs
-  // cross the rows whose stride exceeds 1.
+  // Axis just off the canvas pole: the stroke crosses decimated rows.
   auto draw_ring = [&](float lod, const math::Vector &axis, float radius) {
     Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
@@ -394,10 +392,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
-  // A ring carved out of a polygon. Past its stroke the ring reports the
-  // sentinel, which loses Subtract's max, so a probe one column from a carved
-  // column reports the polygon's own depth and an ungated splat paints the
-  // carve shut.
+  // A ring carved out of a polygon; an ungated splat paints the carve shut.
   auto draw_carved = [&](float lod, bool typed) {
     Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
@@ -413,8 +408,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
       SDF::PlanarPolygon poly(poly_basis,
                               /*radius=*/0.35f / (math::PI_F / 2.0f),
                               /*sides=*/5, 0.0f);
-      // Centerline through the canvas pole: the stroke crosses the decimated
-      // rows the polygon's interior covers.
+      // Centerline through the canvas pole, inside the polygon's interior.
       SDF::Ring ring(ring_basis, /*radius=*/0.12f / (math::PI_F / 2.0f),
                      /*thickness=*/0.05f);
       SDF::Subtract<SDF::PlanarPolygon, SDF::Ring> carved(poly, ring);
@@ -429,10 +423,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
-  // A polygon repeated about the canvas pole with its centre on a sector
-  // boundary. Across a boundary distance() reports the folded copy rather than
-  // the nearest one. Sector boundaries converge at the pole, so a block on a
-  // decimated row spans them.
+  // A polygon repeated about the canvas pole, centred on a sector boundary;
+  // boundaries converge at the pole, so decimated blocks span them.
   auto draw_repeat = [&](float lod, bool typed, int reps) {
     Render::pole_lod_aggressiveness = lod;
     hs_test::StubEffect fx(W, H);
@@ -440,9 +432,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     {
       Canvas c(fx);
       // Azimuth in the fold's own perpendicular frame, where the sector
-      // boundaries sit at +/- PI / reps. rho holds the copies over the
-      // decimated rows, close enough to the pole that the circumradius spans
-      // most of a sector in azimuth.
+      // boundaries sit at +/- PI / reps.
       const float rho = 0.30f;
       const float theta = math::PI_F / static_cast<float>(reps);
       const math::Vector centre(sinf(rho) * cosf(theta), cosf(rho),
@@ -464,10 +454,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
     return readback(fx);
   };
 
-  // A sliver, posed so the decimated rows are the ones its projection stretches
-  // most: the circumradius reaches 0.7 gnomonic-plane units while the inradius
-  // keeps the face on the plane-distance path, whose report runs up to 1 + r^2
-  // times an angular step.
+  // A sliver on the plane-distance path, posed so its projection stretches
+  // most on the decimated rows.
   auto draw_sliver_face = [&](float lod, bool fused, float tilt, float spin) {
     Render::pole_lod_aggressiveness = lod;
     const math::Vector axis = math::Vector(sinf(tilt), cosf(tilt), 0.0f);
@@ -545,8 +533,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
     compare(draw_ring(0.0f, axis, radius), draw_ring(1.0f, axis, radius));
   }
 
-  // Triangles: the widest gap between inradius and circumradius. Both take the
-  // linear_dist path.
+  // Triangles: the widest gap between inradius and circumradius.
   struct FaceCase {
     float tilt, rho, phase;
   };
@@ -558,15 +545,13 @@ inline void test_pole_lod_shading_matches_undecimated() {
               draw_face(1.0f, fc.tilt, fc.rho, 3, fc.phase, fused));
     }
 
-  // Cap axis tilted off the canvas pole at a near-hemispherical radius, so the
-  // rim -- where the fold's polar/sin(polar) term peaks -- crosses the
+  // Near-hemispherical cap off the canvas pole, so its rim crosses the
   // decimated rows.
   const math::Vector rim_axis = math::Vector(1.0f, 0.5f, 0.0f).normalized();
   // Flower's petals meet at the antipode of basis.v, so that axis sits by the
   // canvas pole: across it the sign alternates over a vanishing arc, which no
   // finite slack bounds.
   const math::Vector fold_axis = math::Vector(0.10f, -1.0f, 0.0f).normalized();
-  // 4.0 lengthens every run.
   for (float lod : {1.0f, 4.0f})
     for (bool typed : {false, true}) {
       HS_CONTEXT("folded", static_cast<int>(lod), typed);

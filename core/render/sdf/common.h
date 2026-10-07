@@ -127,7 +127,7 @@ using IntervalBuffer = StaticCircularBuffer<Interval, INTERVAL_SPAN_CAP>;
 inline constexpr size_t ANGULAR_REPEAT_SPAN_CAP = 8;
 
 /** Azimuth slop, in radians, between the point AngularRepeat's fold hands the
- *  child and the exact sector-shifted one: fast_atan2's ~0.0038 rad plus the
+ *  child and the exact sector-shifted one, covering fast_atan2 and the
  *  fast_sinf/fast_cosf reconstruction of the folded direction. */
 inline constexpr float ANGULAR_REPEAT_FOLD_SLOP = 0.01f;
 
@@ -156,7 +156,7 @@ template <typename Buf> inline Buf &scratch_spans(ScratchScope &scratch) {
   return *arena.make<Buf>();
 }
 
-// Shape declarations for the span-count traits; definitions live in the SDF headers.
+// Shape declarations for the span-count traits.
 template <typename A, typename B> struct Union;
 template <typename A, typename B> struct SmoothUnion;
 template <typename A, typename B> struct Subtract;
@@ -341,19 +341,13 @@ template <>
 inline constexpr float arc_stretch<SphericalPolygon> = ARC_STRETCH_PLANE;
 template <> inline constexpr float arc_stretch<Line> = ARC_STRETCH_PLANE;
 // Sector fold in the azimuthal-equidistant chart: the azimuth term carries
-// polar/sin(polar). In the band the circumscribed-disc clamp holds polar within
-// a few columns of the circumradius, itself <= PI/2 once a radius past a
-// hemisphere folds to the antipode, and polar/sin(polar) stays under 2 out to
-// 1.89 rad.
+// polar/sin(polar), which the band's circumscribed-disc clamp keeps under 2.
 template <> inline constexpr float arc_stretch<PlanarPolygon> = 2.0f;
 template <> inline constexpr float arc_stretch<Star> = 2.0f;
-// Flower measures polar from the antipode of the point it folds about and has
-// no disc clamp, so its azimuth term carries (PI - scan_dist)/sin(scan_dist)
-// and the fold axis itself is on the surface: every petal meets there.
+// Flower has no disc clamp, and its fold axis lies on the surface.
 template <> inline constexpr float arc_stretch<Flower> = ARC_STRETCH_UNBOUNDED;
-// The signed sector fold is discontinuous in position at every boundary: a
-// probe either side folds to opposite ends of the sector, so the child's
-// distance jumps unless it is mirror-symmetric about the bisector.
+// The signed sector fold makes the child's distance jump at every sector
+// boundary unless it is mirror-symmetric about the bisector.
 template <typename Shape>
 inline constexpr float arc_stretch<AngularRepeat<Shape>> =
     ARC_STRETCH_UNBOUNDED;
@@ -482,10 +476,10 @@ inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
  * makes the result differ from acosf(cosf(x)), especially for large angles.
  */
 inline float clamp_phi(float x) {
-  x = fabsf(x);                 // cos(-x) = cos(x): fold negatives
-  x = fmodf(x, math::TWO_PI_F); // 2π-periodic -> [0, 2π)
+  x = fabsf(x);
+  x = fmodf(x, math::TWO_PI_F);
   if (x > math::PI_F)
-    x = math::TWO_PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
+    x = math::TWO_PI_F - x;
   return x;
 }
 
@@ -710,8 +704,6 @@ inline bool emit_cap_interval(float cos_cap, float ny, float r_val,
   if (C_min < -1.0f)
     return false; // Full scan fallback
 
-  // fast_acos: ~5e-5 rad peak error ≈ 0.002 px at W=288, far under the
-  // floor/ceil pad.
   float d_alpha = math::fast_acos(C_min);
   float scale = W / math::TWO_PI_F;
   float x1 = floorf((alpha_angle - d_alpha) * scale);

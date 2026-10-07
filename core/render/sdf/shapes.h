@@ -192,8 +192,8 @@ struct SphericalPolygon {
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
     circumradius = radius * (math::PI_F / 2.0f);
 
-    // Build canonical edge: between vertices at azimuth ±π/n from
-    // the sector bisector (u-axis), at angular distance circumradius
+    // Canonical edge: vertices at azimuth ±π/n from the sector bisector
+    // (u-axis), at angular distance circumradius.
     float half_step = math::PI_F / sides;
     float sin_r = sinf(circumradius);
     float cos_r = cosf(circumradius);
@@ -205,7 +205,6 @@ struct SphericalPolygon {
     math::Vector v2 =
         basis.v * cos_r + (basis.u * cos_hs - basis.w * sin_hs) * sin_r;
 
-    // Normal pointing outward (away from polygon interior)
     math::Vector en = math::cross(v2, v1);
     float len = en.magnitude();
     if (len > 1e-9f) {
@@ -604,8 +603,7 @@ struct Line {
   float len;              /**< Arc length (radians). */
   float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
-  // Bounding-cap geometry, loop-invariant across scanlines (precomputed in
-  // ctor).
+  // Bounding-cap geometry, precomputed in the ctor.
   math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
   float mid_ny = 0.0f, mid_r = 0.0f,
         mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */

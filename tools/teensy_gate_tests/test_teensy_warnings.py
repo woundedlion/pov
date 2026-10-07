@@ -21,8 +21,7 @@ import teensy_warnings as tw      # noqa: E402
 FIX = Path(__file__).resolve().parent / "fixtures"
 REAL_DIR = FIX / "real"
 
-# Verbatim toolchain output the synthetic fixtures cannot stand in for. All are
-# committed, so a missing one is a deleted fixture, not an optional capture.
+# Verbatim toolchain output; all committed, so a missing one is a deleted fixture.
 REAL_CAPTURES = (
     "cold_env_section.txt",
     "verbose_build_log.txt",
@@ -226,11 +225,8 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
 
 
 class TestColdCaptureAudit(unittest.TestCase):
-    """A partially cached build must FAIL, not pass on a shrunken warning set.
-
-    Every expected first-party translation unit must compile. The set is derived from
-    `build_src_filter` in PlatformIO's own banner.
-    """
+    """A partially cached build must FAIL: every first-party translation unit
+    the banner's `build_src_filter` declares must compile."""
 
     TUS = ("core/memory.cpp", "core/engine/static_storage.cpp",
            "core/spatial/reaction_graph.cpp",
@@ -344,12 +340,8 @@ class TestColdCaptureAudit(unittest.TestCase):
 
 
 class TestExpectedEnvironmentSet(unittest.TestCase):
-    """The audited environments must be the ones the build was asked to produce.
-
-    Sections come from banners, so a `pio run` over six environments that dies in
-    the first prints ONE banner: the other five are absent rather than short, and
-    the per-environment coldness audit has nothing to complain about.
-    """
+    """The audited environments must be the ones the build was asked to produce;
+    a run that dies early leaves environments absent, not short."""
 
     TU = "core/memory.cpp"
     ENVS = ("holosphere", "holosphere_dma", "phantasm", "phantasm8",
@@ -403,12 +395,9 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
 
 
 class TestRealColdVersusWarmCapture(unittest.TestCase):
-    """Historical `pio run -v` sections from before static_storage.cpp split out.
+    """Real `holosphere` `pio run -v` sections, cold and then cache-reusing.
 
-    fixtures/real/{cold,warm}_env_section.txt are the `holosphere` sections of two
-    consecutive runs of the CI command: the first with `.pio/build_cache` deleted,
-    the second reusing it. Only a real capture pins PlatformIO's banner text and
-    SCons's `Retrieved … from cache` line, which the derived expectation reads.
+    They pin PlatformIO's banner text and SCons's `Retrieved … from cache` line.
     """
 
     COLD = (REAL_DIR / "cold_env_section.txt").read_text(encoding="utf-8")
@@ -457,11 +446,8 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
 class TestRealVerboseCapture(unittest.TestCase):
     """Capture evidence against REAL `pio run -v` lines, both CI and Windows.
 
-    fixtures/real/verbose_build_log.txt holds verbatim invocations in a fixed
-    order: three first-party then two third-party from a Windows build
-    (backslash paths), then one of each from the Linux CI runner (forward
-    slashes). Only a real capture pins the argument order `-v` emits — `-c` is a
-    bare flag and the source trails the whole flag list.
+    fixtures/real/verbose_build_log.txt order: three first-party then two
+    third-party Windows lines, then one of each from the Linux CI runner.
     """
 
     LINES = (REAL_DIR / "verbose_build_log.txt").read_text(
@@ -489,11 +475,7 @@ class TestRealVerboseCapture(unittest.TestCase):
 
 
 class TestNonUtf8Captures(unittest.TestCase):
-    """The warning gate answers by exit code, and a decode error has none.
-
-    A Windows `pio run -v 2>&1 | tee` interleaves cp1252 bytes into the stream,
-    so a capture that is not valid UTF-8 must still produce a verdict.
-    """
+    """A build log with cp1252 bytes (a Windows tee capture) still gets a verdict."""
 
     # RIGHT SINGLE QUOTATION MARK in cp1252; not a valid UTF-8 sequence.
     CP1252 = b"don\x92t"

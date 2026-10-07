@@ -74,8 +74,8 @@ extern std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high;
  * @brief Bit-exact linear-16 -> sRGB-8 encode via a two-region split-decode.
  * @param v Linear 16-bit channel value.
  * @return sRGB 8-bit output, identical to linear_to_srgb_lut[v] for all v.
- * @details Uses ~1.5 KB of DTCM tables. Each bucket holds at most one output
- * step, so each region is a single branchless compare: base + (frac >= step).
+ * @details Each bucket holds at most one output step, so each region is a
+ * single branchless compare: base + (frac >= step).
  */
 inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   if (v < SRGB_DECODE_VSPLIT) {

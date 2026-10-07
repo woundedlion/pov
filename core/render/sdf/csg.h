@@ -608,8 +608,7 @@ template <typename Shape> struct AngularRepeat {
     HS_CHECK(reps > 0, "SDF CSG: repetition count must be positive");
     HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f,
              "SDF CSG: repetition axis must be unit length");
-    // Perpendicular plane by Gram-Schmidt against the less parallel body axis,
-    // which leaves |u| >= 0.43 before normalization.
+    // Perpendicular plane by Gram-Schmidt against the less parallel body axis.
     const math::Vector ref = (fabsf(ax.y) < 0.9f) ? math::Y_AXIS : math::X_AXIS;
     u = ref - ax * math::dot(ref, ax);
     u = u * (1.0f / u.length());
@@ -716,23 +715,17 @@ template <typename Shape> struct AngularRepeat {
    * @brief Folds p into one sector and evaluates the child, writing into res.
    * @tparam ComputeUVs Forwarded to the child's distance().
    * @param p Point on sphere (normalized).
-   * @param res Output result of the child at the folded point. Note res's UV
-   *        registers (t / azimuth) are sector-local: the child sees the folded
-   *        point, so t spans one sector and resets at each sector boundary.
+   * @param res Output result of the child at the folded point; its UV
+   *        registers are sector-local (t resets at each sector boundary).
    * @note The folded distance is exact only while the child stays inside one
-   *       sector. A child crossing a sector boundary reports the distance to
-   *       the folded copy rather than to the nearest copy, over-estimating near
-   *       the boundary, so AA bands and any distance-driven cull must keep the
-   *       shape within its sector.
+   *       sector; a child crossing a boundary over-estimates near it.
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
-    // Project p into local coordinate system
     float local_u = p.x * u.x + p.y * u.y + p.z * u.z;
     float local_v = p.x * axis.x + p.y * axis.y + p.z * axis.z;
     float local_w = p.x * w.x + p.y * w.y + p.z * w.z;
 
-    // Fold angle in the u-w plane
     float theta = math::fast_atan2(local_w, local_u);
     if (theta < 0)
       theta += math::TWO_PI_F;
@@ -740,12 +733,10 @@ template <typename Shape> struct AngularRepeat {
     float folded_theta =
         centered_sector_angle(theta, sector, reciprocal_sector);
 
-    // Reconstruct folded local coordinates (preserving axis component)
     float r = sqrtf(local_u * local_u + local_w * local_w);
     float fu = r * math::fast_cosf(folded_theta);
     float fw = r * math::fast_sinf(folded_theta);
 
-    // Project back to world space
     math::Vector folded_p(fu * u.x + local_v * axis.x + fw * w.x,
                           fu * u.y + local_v * axis.y + fw * w.y,
                           fu * u.z + local_v * axis.z + fw * w.z);

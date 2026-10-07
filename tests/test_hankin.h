@@ -92,8 +92,7 @@ inline void check_compile_hankin_invariants(size_t edges) {
 /**
  * @brief Verifies compile_hankin's array invariants on the cube's quadrilateral
  *        faces and 3-valent vertices, and on the icosahedron's triangular faces
- *        and 5-valent vertices, so the star-face
- *        and rosette-orbit arithmetic is covered on non-quad geometry too.
+ *        and 5-valent vertices.
  */
 inline void test_compile_hankin_populates_arrays() {
   check_compile_hankin_invariants<Solids::Cube>(12);
@@ -536,9 +535,7 @@ inline void test_hankin_output_is_genus0_manifold() {
  *          face and one rosette. The second compile lays down 3E vertices, F+V
  *          faces and 8E indices on that seed like any other, and its rosette
  *          side counts are twice the seed vertex degrees: a quad over every
- *          degree-2 star point, an octagon over every degree-4 midpoint. The
- *          solved mesh is checked for two-face edge incidence, Euler
- *          characteristic 2, and consistent winding.
+ *          degree-2 star point, an octagon over every degree-4 midpoint.
  */
 inline void test_compile_hankin_on_hankin_output() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -600,7 +597,7 @@ inline uint8_t hankin_reso_target[512 * 1024];
  * @details
  * The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree contact angle
  * puts one corner class's contact planes near-parallel, so their ray
- * intersections land ~64 degrees from the corner. The far-star guard keeps
+ * intersections land far from the corner. The far-star guard keeps
  * every edge within MAX_SLIVER_EDGE_RATIO.
  */
 inline void test_update_hankin_resonance_star_points_stay_local() {
@@ -822,9 +819,8 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
 /**
  * @brief Verifies dual seeds compile to distinct topology keys even though
  *        every census figure of their patterns agrees.
- * @details A cube- and an octahedron-seeded pattern both emit 14 faces over 96
- *          indices from 36 vertices; only their face order and connectivity
- *          differ, so the key is what tells update_hankin the two apart.
+ * @details Cube- and octahedron-seeded patterns differ only in face order and
+ *          connectivity, so the key is what tells update_hankin the two apart.
  */
 inline void test_hankin_dual_seeds_share_census_not_key() {
   const size_t half = sizeof(hankin_target_buf) / 2;

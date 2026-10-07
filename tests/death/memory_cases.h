@@ -264,10 +264,8 @@ inline void case_arena_partition_too_large() {
 
 /**
  * @brief Death case: a Persist scope that forgets persistent_arena.reset() must trap.
- * @details Memory surface — without the rewind, ~Persist's restore clones the
- *          backup *after* the still-live object instead of over it, pushing the
- *          persistent offset past the construction watermark; the post-restore
- *          HS_CHECK fires.
+ * @details Without the rewind, ~Persist's restore appends past the
+ *          construction watermark.
  */
 inline void case_persist_forgot_reset() {
   static uint8_t pbuf[256];
@@ -279,8 +277,7 @@ inline void case_persist_forgot_reset() {
                       persistent); // the live object in persistent
   {
     Persist<PersistProbe> p(target, scratch, persistent);
-    // A correct scope rewinds here (persistent.reset()); omitting it makes the
-    // restore append past the watermark.
+    // A correct scope calls persistent.reset() here.
   } // ~Persist restore -> offset past watermark -> HS_CHECK
   if (target.storage == reinterpret_cast<uint8_t *>(0x1))
     std::printf("x");

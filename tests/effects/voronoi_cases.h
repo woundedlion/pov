@@ -122,11 +122,8 @@ inline double voronoi_render_nearest_match(std::span<const math::Vector> sites,
  *        low-density octahedral case, and at >= 99.9% of pixels (with a
  *        sub-visibility dot deficit on the rest) at the MAX_SITES Fibonacci
  *        spread.
- * @details The dense cases floor the adaptive block at COHERENCE_BLOCK_MIN. A
- *          block edge that outruns the cell pixel extent straddles whole cells
- *          and collapses the match fraction, so the short-canvas resolution —
- *          where MAX_SITES cells are sub-pixel and the floor drops to 1 — is
- *          checked for exact coverage.
+ * @details The short-canvas resolution, where the adaptive block floors at 1,
+ *          is checked for exact coverage.
  */
 inline void test_voronoi_union_candidates_cover_nearest() {
   static_assert(VoronoiWhiteBox::coherence_block_min<SMALL_W, SMALL_H>() == 1);

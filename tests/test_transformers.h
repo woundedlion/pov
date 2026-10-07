@@ -112,9 +112,8 @@ inline void test_mobius_identity_roundtrip() {
 
 /**
  * @brief Verifies a non-identity Mobius map produces its hand-computed image.
- * @details f(z) = 1/z (a=0, b=1, c=1, d=0) is, under this file's
- *          stereographic convention (origin↔south pole, ∞↔north pole), a 180°
- *          rotation of the sphere about the x-axis: (x, y, z) → (x, -y, -z).
+ * @details Under the stereographic convention, f(z) = 1/z is a 180° rotation
+ *          about the x-axis.
  */
 inline void test_mobius_known_rotation() {
   math::MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
@@ -131,11 +130,8 @@ inline void test_mobius_known_rotation() {
  * @brief Verifies mobius_transform matches a double-precision projection ->
  *        map -> unprojection oracle over random points and coefficients, and
  *        lands exactly on the sphere.
- * @details The oracle divides through in double before applying the map, so it
- *          is independent of the homogeneous formulation under test. Points
- *          inside the pole cap are excluded from the value comparison — there
- *          the oracle's own quotient is ill-conditioned — but their image is
- *          still required to be finite and unit.
+ * @details Pole-cap points, where the oracle is ill-conditioned, skip the
+ *          value comparison but must still map to finite unit vectors.
  */
 inline void test_mobius_matches_double_precision_oracle() {
   hs::random().seed(20260720);
@@ -270,10 +266,8 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
 /**
  * @brief Verifies a non-identity gnomonic Mobius map produces its hand-computed
  *        image.
- * @details f(z) = -z (a=-1, b=0, c=0, d=1) is, under the gnomonic
- *          projection (tangent at the north pole, hemisphere restored from the
- *          sign of v.y), a 180° rotation about the y-axis: for an upper-
- *          hemisphere point, (x, y, z) → (-x, y, -z).
+ * @details Under the gnomonic projection, f(z) = -z is a 180° rotation about
+ *          the y-axis.
  */
 inline void test_gnomonic_mobius_known_rotation() {
   math::MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
@@ -290,9 +284,8 @@ inline void test_gnomonic_mobius_known_rotation() {
 /**
  * @brief Verifies an equator point round-trips through the identity map for
  *        either signed zero.
- * @details The hemisphere sign keys on the sign bit; a >= 0 test would give
- *          y == -0.0f mismatched divisor and hemisphere signs and reflect the
- *          result 180°.
+ * @details The hemisphere sign keys on the sign bit, so y == -0.0f must not
+ *          reflect the result.
  */
 inline void test_gnomonic_mobius_signed_zero_equator() {
   math::MobiusParams id;
@@ -368,9 +361,8 @@ inline void test_ripple_active_rotates_on_sphere() {
 
 /**
  * @brief Exercises the sync() fast-reject band.
- * @details A point at the wavelet peak (inside the band) is rotated, while
- *          points closer to the center than d_min or farther than d_max take
- *          the two reject legs and return unchanged.
+ * @details The in-band point rotates; points nearer than d_min or farther
+ *          than d_max return unchanged.
  */
 inline void test_ripple_threshold_reject_path() {
   Animation::RippleParams p;
@@ -490,9 +482,7 @@ inline void test_ripple_threshold_boundary() {
  *        exact libm rotation it stands in for, and that the two branches meet
  *        at RIPPLE_SMALL_ANGLE_MAX.
  * @details theta is proportional to amplitude for a fixed geometry, so one
- *          reading in the exact branch calibrates the envelope, and each
- *          series-branch amplitude is judged against
- *          rotate(v, make_rotation(axis, theta)).
+ *          exact-branch reading calibrates the envelope.
  */
 inline void test_ripple_small_angle_series_matches_exact() {
   Animation::RippleParams p;
@@ -810,11 +800,8 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
 /**
  * @brief Verifies spawn_pausable() freezes the spawned event's pending start
  *        delay, not just the animation once it has begun.
- * @details An unpaused pool with the same delay and duration is the control.
- *          After a window long enough for both, only the control's slot is
- *          reclaimed; releasing the flag leaves the gated ripple waiting out an
- *          untouched delay. The control's completion relocates the gated event,
- *          so the pause gate must survive compaction.
+ * @details An unpaused pool is the control. Its completion relocates the
+ *          gated event, so the pause gate must survive compaction.
  */
 inline void test_transformer_spawn_pausable_freezes_start_delay() {
   Timeline tl;
@@ -859,11 +846,8 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
 /**
  * @brief Verifies a non-pinned spawned transform's pool slot is reclaimed after
  *        the timeline relocates its event during compaction.
- * @details spawn() registers a finite event whose then() callback frees the
- *          entity slot. An earlier finite event completes first, so step()'s
- *          compaction relocates the ripple's event. With CAPACITY 1 the
- *          post-completion re-spawn succeeds only if the relocated callback
- *          reclaimed the slot.
+ * @details With CAPACITY 1, the re-spawn succeeds only if the relocated
+ *          then() callback reclaimed the slot.
  */
 inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   Timeline tl;
@@ -898,12 +882,8 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 /**
  * @brief Verifies removal of a canceled animation after its pool is destroyed
  *        leaves the replacement pool's storage alone.
- * @details spawn() installs a then() callback holding the pool and a slot
- *          index. A pool held in a narrower scope than its timeline dies with
- *          that event canceled but awaiting removal, so its callback references a
- *          dead pool and must do nothing. A second pool is built at the freed address, so the
- *          rejection has to rest on identity rather than on the address: a
- *          callback that ran would deactivate the new pool's only slot.
+ * @details A second pool is built at the freed address, so the stale
+ *          callback must be rejected on identity, not address.
  */
 inline void test_transformer_callback_after_pool_destroyed() {
   using Pool = RippleTransformer<1>;
@@ -1002,11 +982,8 @@ struct TagAnim : public Animation::AnimationBase<TagAnim> {
 /**
  * @brief Verifies a recycled freed slot composes its new warp in spawn order
  *        (last), not slot-index order (first).
- * @details A short-lived warp holds slot 0 while a long-lived one takes slot 1;
- *          stepping frees slot 0, then a third warp recycles it. Composition
- *          must follow spawn order (long-lived tag 1, then recycled tag 2), so x
- *          reads 12 — slot-index order would compose the recycled slot 0 first
- *          and read 21.
+ * @details Spawn order composes tag 1 then tag 2, so x reads 12; slot-index
+ *          order would read 21.
  */
 inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   Timeline tl;
@@ -1128,10 +1105,8 @@ inline void test_field_transformer_active_params_spawn_order() {
 /**
  * @brief Verifies a completed field entity's pool slot is reclaimed and a
  *        fresh spawn reuses it.
- * @details The pool has CAPACITY 2; both slots are filled (one short-lived),
- *          so the post-completion spawn succeeding proves the then() reclaim
- *          fired, and the field dropping the completed contribution proves the
- *          active list no longer visits the freed slot.
+ * @details With both CAPACITY 2 slots filled, the post-completion spawn
+ *          succeeds only if the then() reclaim fired.
  */
 inline void test_field_transformer_slot_reclaimed() {
   Timeline tl;
@@ -1286,11 +1261,8 @@ inline void test_bump_field_threshold_sync() {
  * @brief Verifies the drape push along the axis meridian: zero for the ring
  *        through the center, peak bow between center and edge, zero at the
  *        footprint edge, exactly 0 outside the fast-reject cap.
- * @details The center sits at colatitude 60° about the +y axis, so the
- *          sampled meridian has room on both sides. On the meridian a point
- *          at offset y pushes by sign(y) * (R - |y|) * sin(pi |y| / R): at
- *          |y| = R/2 that is (R/2) * sin(pi/2) = R/2, antisymmetric across
- *          the center.
+ * @details On the meridian a point at offset y pushes by
+ *          sign(y) * (R - |y|) * sin(pi |y| / R).
  */
 inline void test_bump_field_drapes_over_ball() {
   const float c_lat = math::PI_F / 3.0f;
@@ -1635,10 +1607,8 @@ inline void test_ball_drop_traverses_and_reclaims() {
   for (int i = 1; i < duration / 2; ++i)
     tl.step(cv);
   balls.prepare_frame();
-  // Mid-fall: the bump sits at the world equator point (1, 0, 0) (azimuth 0)
-  // at full envelope. The pole reads ~0 (outside the cap); half a footprint
-  // below the center on its meridian, the drape push toward the lower
-  // boundary arc is R - R/2, and the mirrored point above reads its negation.
+  // Mid-fall: the bump sits at (1, 0, 0) at full envelope. Half a footprint
+  // below the center the push is R - R/2; the mirrored point reads its negation.
   HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
   const float half_r = 0.5f * 0.5f;
   const math::Vector below(std::cos(half_r), -std::sin(half_r), 0.0f);

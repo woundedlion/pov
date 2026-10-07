@@ -35,8 +35,7 @@ inline void test_crossfade_segue_schedules_overlapping_sprite() {
 }
 
 /**
- * @brief Verifies Segue::Crossfade clamps the fade window to half the duration
- * so fade windows never overlap and sprites cannot pile up beyond two.
+ * @brief Verifies Segue::Crossfade clamps the fade window to half the duration.
  */
 inline void test_crossfade_segue_clamps_fade_to_half_duration() {
   Timeline tl;
@@ -49,9 +48,8 @@ inline void test_crossfade_segue_clamps_fade_to_half_duration() {
 
 /**
  * @brief Verifies Segue::Crossfade's overlap parameter: zero overlap returns
- * the full duration (sequential — consecutive sprites never coexist, so a
- * single mesh renders per frame), an oversized overlap clamps to the fade
- * window, and an in-range overlap is honored exactly.
+ * the full duration, an oversized overlap clamps to the fade window, and an
+ * in-range overlap is honored exactly.
  */
 inline void test_crossfade_segue_overlap_is_configurable() {
   Timeline tl;
@@ -74,8 +72,7 @@ inline void test_crossfade_segue_overlap_is_configurable() {
 
 /**
  * @brief Verifies the default (Base) scheduling is sequential: the returned
- * delay equals the full duration, so consecutive sprites never coexist and a
- * single mesh renders per frame.
+ * delay equals the full duration.
  */
 inline void test_sequential_segue_never_overlaps_sprites() {
   Timeline tl;
@@ -449,9 +446,7 @@ inline void test_terminator_sweep_orders_by_axis() {
  * @brief Verifies TerminatorSweep's per-face fade is time-based: the fade
  * length divides the window schedule() recorded, so a face ramps over its fade
  * length once the front reaches it, with exact 0/1 window endpoints, and a
- * window shorter than the fade length degrades to one whole-sphere fade. Pins
- * the range to a single length so the per-face random collapses to one
- * deterministic fraction.
+ * window shorter than the fade length degrades to one whole-sphere fade.
  */
 inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   Timeline tl;
@@ -666,8 +661,7 @@ inline void test_per_face_segues_satisfy_draw_contract() {
   static_assert(Segue::DeclaresLocalSweep<Segue::TerminatorSweep> &&
                 Segue::LocalSweeps<Segue::TerminatorSweep>);
   static_assert(!Segue::DeclaresLocalSweep<Segue::Crossfade>);
-  // A drifted hook is seen by name and rejected by signature, so MeshCarousel
-  // traps it instead of compiling the policy off the hook.
+  // A drifted hook is seen by name and rejected by signature.
   static_assert(Segue::DeclaresWarp<DriftedWarpSegue> &&
                 !Segue::HasWarp<DriftedWarpSegue>);
   static_assert(Segue::DeclaresRetarget<DriftedRetargetSegue> &&
@@ -767,9 +761,7 @@ inline void test_breakdown_fades_classes_sequentially() {
     float o = bd.face_offset(any, 0, c);
     int r = bd.rank[c];
     HS_EXPECT_NEAR(o, static_cast<float>(n - 1 - r) / (n - 1), 1e-6f);
-    // Class rank r fades linearly over one band of [BLACK_DWELL, 1]: gone at
-    // the floor, untouched at the ceiling, abutting its neighbors' windows,
-    // and every class is fully black through the dwell before the swap.
+    // Class rank r fades linearly over one band of [BLACK_DWELL, 1].
     float band = (1.0f - Segue::Breakdown::BLACK_DWELL) / n;
     float floor_p = Segue::Breakdown::BLACK_DWELL + (n - 1 - r) * band;
     HS_EXPECT_NEAR(bd.face_phase(floor_p, o), 0.0f, 1e-5f);

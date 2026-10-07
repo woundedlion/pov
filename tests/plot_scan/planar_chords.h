@@ -134,8 +134,6 @@ inline std::array<PlanarChordStar, 4> planar_chord_stars() {
 /**
  * @brief Verifies PlanarChords strokes a star as bright as the balanced
  *        adaptive walk and retains bright reference coverage within one pixel.
- * @details ALPHA_GAIN trims the chord walk's brightness onto the balanced
- * walk's.
  */
 inline void test_planar_chords_match_rasterize_brightness() {
   constexpr int W = 288, H = 144;

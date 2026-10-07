@@ -146,10 +146,8 @@ inline void test_shapeshifter_preset_defaults() {
 /**
  * @brief Renders every Shape and Function slider selection.
  * @details Each primitive is exercised at radii on both sides of the antipode
- * fold while the four phase functions advance through the same Plot pipeline.
- * Every selection renders one frame from an identical fresh state with the
- * preset timer paused; two selections producing the same frame means the
- * switch did not dispatch on them.
+ * fold; two selections producing the same frame means the switch did not
+ * dispatch on them.
  */
 inline void test_shapeshifter_slider_selections_render() {
   using SS = ShapeShifter<SMALL_W, SMALL_H>;

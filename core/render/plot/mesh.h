@@ -41,8 +41,6 @@ struct Mesh {
    * @details A mesh exceeding this traps while its faces are walked: at render
    * time for the mesh draw() overload, or at setup for extract_edges().
    * Drawing extracted edges does not walk faces.
-   * Sized for a TriangularBitset of 128*127/2 bits = 1016
-   * bytes.
    */
   static constexpr int DEDUP_CAPACITY = 128;
 
@@ -124,7 +122,7 @@ struct Mesh {
     }
 
     for (auto &p : points)
-      p.v2 = static_cast<float>(edge_index); // Edge Index
+      p.v2 = static_cast<float>(edge_index);
     if (vertex_shader) {
       vertex_shader(points[0]);
       vertex_shader(points.back());
@@ -249,9 +247,7 @@ struct Mesh {
     const ClipCutBounds cb = make_clip_cut_bounds<W, H>(cr, cr.x_clip());
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
-      // mesh.vertices[] only asserts in bounds (stripped on device), so guard the
-      // per-edge setup boundary here. u,v come from uint16_t face data (non-
-      // negative), so max(u,v) in bounds implies both endpoints are valid.
+      // vertices[] bounds asserts are stripped on device; u,v are non-negative.
       HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size(),
                "Mesh::draw: edge vertex index %d >= vertex count %d",
                std::max(u, v), static_cast<int>(mesh.vertices.size()));
@@ -294,8 +290,7 @@ struct Mesh {
    */
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
-    // Dedup bitset in scratch_arena_b; `edges` lives in a separate persistent
-    // arena.
+    // Dedup bitset in scratch_arena_b; `edges` must not be backed by it.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *scratch_arena_b.make<TriangularBitset<DEDUP_CAPACITY>>();
 
@@ -306,10 +301,9 @@ struct Mesh {
 
   /**
    * @brief Extracts one of the two face families of a four-regular mesh.
-   * @details On a sphere, a four-regular mesh's face dual is bipartite: the faces two-colour
-   *          so that every edge is shared by one face of each colour. Walking
-   *          only one colour therefore covers every edge exactly once, with no
-   *          dedup pass. Traps on an open mesh or a non-bipartite dual.
+   * @details The faces two-colour so every edge borders one face of each
+   *          colour; walking one colour covers every edge once. Traps on an
+   *          open mesh or a non-bipartite dual.
    * @param mesh Closed four-regular mesh.
    * @param edges Output edge list; the selected family's edges are appended.
    * @param scratch Arena for the half-edge mesh and the BFS bookkeeping.

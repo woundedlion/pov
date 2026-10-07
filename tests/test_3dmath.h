@@ -131,7 +131,6 @@ inline void test_unit_cup_and_bell() {
 
 // ============================================================================
 // fast_atan2 / fast_acos / fast_sinf / fast_cosf
-// (measured peak errors: atan2 ~3.8e-3 rad, acos ~5.0e-5 rad, sin ~1.6e-3)
 // ============================================================================
 
 /**
@@ -151,7 +150,7 @@ inline void test_fast_atan2() {
     HS_EXPECT_NEAR(math::fast_atan2(y, x), std::atan2(y, x), 4e-3f);
   }
 
-  // Peak error (~3.76e-3) near a = -2.5702 rad, between the sweep's samples.
+  // Peak-error point, between the sweep's samples.
   {
     float a = -2.5702f, y = std::sin(a), x = std::cos(a);
     HS_EXPECT_NEAR(math::fast_atan2(y, x), std::atan2(y, x), 4e-3f);
@@ -161,10 +160,8 @@ inline void test_fast_atan2() {
 /**
  * @brief Verifies diamond_angle's [0,4) range, cardinal anchors, scale
  *        invariance, and strict monotonicity with std::atan2.
- * @details The sweep walks the circle counter-clockwise from +x, which is the
- *          order the pseudo-angle must reproduce for it to bin a direction. The
- *          tiny-negative-y probes cover the fourth-quadrant seam, where 4 + r
- *          rounds back up to exactly 4 and has to fold to 0.
+ * @details The tiny-negative-y probes cover the fourth-quadrant seam, where
+ *          4 + r rounds to exactly 4 and must fold to 0.
  */
 inline void test_diamond_angle() {
   HS_EXPECT_NEAR(math::diamond_angle(0.0f, 1.0f), 0.0f, 1e-6f);
@@ -256,7 +253,7 @@ inline void test_fast_acos() {
     HS_EXPECT_NEAR(math::fast_acos(x), std::acos(x), 5.1e-5f);
   }
 
-  // Peak error (~5.0e-5) near x = 0.0807, between the sweep's samples.
+  // Peak-error point, between the sweep's samples.
   HS_EXPECT_NEAR(math::fast_acos(0.0807f), std::acos(0.0807f), 5.1e-5f);
 }
 
@@ -309,7 +306,7 @@ inline void test_fast_cbrt() {
 /**
  * @brief Verifies fast_cbrt3 tracks three separate fast_cbrt calls, clamps
  *        non-positive inputs, and stays accurate inside the documented
- *        ~1.3e11 / ~3e-13 window of the shared reciprocal.
+ *        window of the shared reciprocal.
  */
 inline void test_fast_cbrt3() {
   for (int i = 0; i < 64; ++i) {
@@ -352,9 +349,8 @@ inline void test_fast_cbrt3() {
  * @brief Verifies fast_cbrt6 tracks six separate fast_cbrt calls and holds the
  *        documented ~2.3e-5 error against cbrtf across its usable domain.
  * @details The shared reciprocal re-associates the arithmetic, so agreement
- *          with fast_cbrt is ~4e-7 relative rather than exact. Also pins the
- *          x<=0 -> 0 clamp and accuracy below the ~4.2e5 numerator-overflow
- *          ceiling.
+ *          with fast_cbrt is close rather than exact. Also pins the x<=0 -> 0
+ *          clamp and accuracy below the numerator-overflow ceiling.
  */
 inline void test_fast_cbrt6() {
   // Agreement with the scalar helper across the u16-magnitude LMS range.
@@ -440,7 +436,6 @@ inline void test_fast_sinf_cosf() {
   HS_EXPECT_NEAR(math::fast_cosf(math::PI_F * 0.5f), 0.0f, 1.8e-3f);
   HS_EXPECT_NEAR(math::fast_cosf(math::PI_F), -1.0f, 1.8e-3f);
 
-  // Sweep peak (~1.63e-3) sits near a = -9.22, in the range-reduction band.
   for (int i = 0; i <= 256; ++i) {
     float a = -3.0f * math::PI_F + (i * 6.0f * math::PI_F) / 256.0f;
     HS_EXPECT_NEAR(math::fast_sinf(a), std::sin(a), 1.8e-3f);
@@ -998,10 +993,7 @@ inline void test_make_rotation_from_to() {
 /**
  * @brief Verifies quaternion_from_basis recovers the rotation whose columns are
  *        the given orthonormal axes, for an identity frame and a generic one.
- * @details Build an orthonormal frame by rotating the standard axes through a
- *        known quaternion, reconstruct a quaternion from that frame, and confirm
- *        it maps the body axes back onto the frame columns. Also checks the
- *        trace<=0 branch (a 180° frame) the Shepperd selection must handle.
+ * @details Also covers the trace<=0 branch (a 180° frame).
  */
 inline void test_quaternion_from_basis() {
   math::Quaternion id = math::quaternion_from_basis(
@@ -1132,9 +1124,8 @@ inline void test_vector_slerp() {
     HS_EXPECT_VEC(math::slerp(same, same, T), same, 1e-6f);
   }
 
-  // Antipodal endpoints: the great-circle direction is undefined, so slerp picks
-  // a perpendicular axis and sweeps a monotone half-turn — the midpoint must NOT
-  // collapse back onto p.
+  // Antipodal: slerp picks a perpendicular axis; the midpoint must not collapse
+  // onto p.
   math::Vector p(0, 1, 0), ap(0, -1, 0);
   HS_EXPECT_VEC(math::slerp(p, ap, 0.0f), p, 5e-3f);
   HS_EXPECT_VEC(math::slerp(p, ap, 1.0f), ap, 5e-3f);
@@ -1831,13 +1822,11 @@ constexpr std::array<std::array<int, 2>, 6> PLANE_AXES = {
 
 /**
  * @brief Slack allowed on a single plane rotation's unit properties.
- * @details The rotor identity holds to rounding; the measured bound is 8.4e-8.
  */
 constexpr float PLANE_ROTATION_TOLERANCE = 1e-6f;
 
 /**
  * @brief Slack allowed after all six planes have been composed.
- * @details The measured maximum drift is 4.0e-7.
  */
 constexpr float COMPOSED_ROTATION_TOLERANCE = 4e-6f;
 

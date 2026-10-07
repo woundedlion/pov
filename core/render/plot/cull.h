@@ -30,7 +30,7 @@ __attribute__((always_inline)) inline float
 unit_arc_length(const math::Vector &a, const math::Vector &b) {
   const math::Vector chord = a - b;
   const float length_sq = math::dot(chord, chord);
-  // Below 1e-3 radians the chord differs from the arc by less than 4.2e-8 relative.
+  // Below 1e-3 radians the chord equals the arc to float precision.
   return length_sq < 1e-6f ? sqrtf(length_sq) : math::angle_between(a, b);
 }
 
@@ -44,9 +44,8 @@ inline constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 /**
  * @brief Minimum |cross(a, b)|² for which the arc pole of a geodesic edge is
  *        taken from the cross product rather than a stable perpendicular.
- * @details Bounds the quantity the pole normalization consumes. |cross| =
- * sin(angle), so 1e-8 is the angular 1e-4 band without angle_between's ULP
- * amplification near a normalized dot of ±1.
+ * @details |cross| = sin(angle), so 1e-8 is the angular 1e-4 band without
+ * angle_between's ULP amplification near a normalized dot of ±1.
  */
 inline constexpr float EPS_ARC_POLE_SQ = 1e-8f;
 

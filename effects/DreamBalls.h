@@ -301,14 +301,12 @@ private:
   static_assert(
       FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
       "DreamBalls persistent footprint exceeds the default partition");
-  // Medial topology turns every source edge into a woven vertex, so the vertex
-  // bound is MAX_SOLID_EDGES rather than MAX_SOLID_VERTICES.
+  // Medial topology turns every source edge into a woven vertex.
   static constexpr size_t WOVEN_VERTEX_BOUND =
       Solids::MAX_SOLID_EDGES > Solids::MAX_SOLID_VERTICES
           ? Solids::MAX_SOLID_EDGES
           : Solids::MAX_SOLID_VERTICES;
-  // Woven staging in scratch_a: per-vertex buffers and the framed mesh, live
-  // across the mesh draw's fragments and rasterize's sub-step cache.
+  // Woven staging in scratch_a: per-vertex buffers and the framed mesh.
   static constexpr size_t SCRATCH_A_PEAK_BYTES =
       (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
           sizeof(math::Vector) +
@@ -318,8 +316,7 @@ private:
       SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
       "DreamBalls woven staging exceeds the default scratch_a budget; "
       "retune the solid bounds or carve a larger scratch arena");
-  // The framed edge list and the per-vertex weave-start owners live in
-  // scratch_b across the same mesh draw.
+  // Woven staging in scratch_b: the framed edge list and weave-start owners.
   static constexpr size_t SCRATCH_B_PEAK_BYTES =
       2 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge) +
       WOVEN_VERTEX_BOUND * sizeof(uint16_t);
@@ -577,8 +574,7 @@ private:
           loaded_solids[static_cast<size_t>(sprite_params.base_mesh)];
       ScratchScope scratch_a_guard(scratch_arena_a);
 
-      // Slot captured at spawn, not active_bake: this sprite renders from its
-      // own param + palette snapshot.
+      // Slot captured at spawn, not active_bake.
       this->draw_scene(canvas, sprite_params, crossfade.opacity(opacity), solid,
                        baked_palettes[bake_slot]);
     };
@@ -626,8 +622,8 @@ private:
    *        vector is cross(vertex, u).
    * @param p Render params; p.offset_radius is the orbit radius.
    * @param angle_offset Per-copy phase offset in radians.
-   * @details The per-vertex phase (i * VERTEX_PHASE_STAGGER) staggers the
-   *          orbits by emission order; it does not encode spatial proximity.
+   * @details The per-vertex phase staggers orbits by vertex index, not by
+   *          spatial proximity.
    */
   HS_FLASH_MEMBER void
   update_displaced_mesh(const MeshState &base, MeshState &target,

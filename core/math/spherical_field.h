@@ -338,9 +338,9 @@ public:
    * @param b Out: interpolated blue channel.
    * @note Out-of-domain taps are black; use sample_bilinear() to supply a
    *   different outside value.
-   * @details Inside the direct band, 16-bit unsigned channels blend with Q15
-   *   integer weights (combine_rgb_q15) and other channel types in float; rows
-   *   that need the seam or pole substitution always blend in float.
+   * @details Inside the direct band, 16-bit unsigned channels blend through
+   *   combine_rgb_q15; other channel types, and seam or pole rows, blend in
+   *   float.
    */
   template <typename Pixel>
   __attribute__((always_inline)) void
@@ -545,10 +545,9 @@ private:
 
   /**
    * @brief Bilinearly blends four 16-bit taps with Q15 integer weights.
-   * @details The weights are the truncated Q15 fractions, so they sum to one
-   * exactly and each channel accumulates in 31 bits. Against combine_rgb the
-   * result differs by the weight truncation, under eight channel units on the
-   * u16 scale, and carries the same unquantized fraction.
+   * @details The truncated Q15 weights sum to one exactly and each channel
+   * accumulates in 31 bits. The result differs from combine_rgb only by the
+   * weight truncation.
    */
   template <typename Pixel>
   __attribute__((always_inline)) static void
@@ -609,7 +608,6 @@ private:
   }
 
   constexpr int maximum_longitude_samples() const {
-    // Each ring requires at least one sample.
     return equator_samples > 0
                ? equator_samples
                : std::max(static_cast<int>(2.0f * math::PI_F *

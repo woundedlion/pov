@@ -41,10 +41,9 @@ struct ShaderChainParameterWrite {
  * @brief Stage-program interpreter effect over the pullback operator table.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Owns the two chain arenas, the shared color resources the
- * FrameContext borrows (three generated-palette cyclers and hue LUTs),
- * and the dynamic parameter schema. Presets are the document layer's concern;
- * the effect registers chain parameters only.
+ * @details Owns the chain arenas, the shared color resources the FrameContext
+ * borrows, and the dynamic parameter schema. Presets belong to the document
+ * layer.
  */
 template <int W, int H> class ShaderChain : public Effect {
 public:

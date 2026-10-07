@@ -43,12 +43,9 @@ export function darknessProblems({ frames, darkKeys }) {
 /**
  * The byte budget a stack high-water mark must stay under.
  *
- * The stack traps nowhere and its mark saturates at capacity, so `hwm >
- * capacity` can never fire; this is the creep tripwire instead. The absolute
- * ceiling is meaningful against any build's stack size, and the capacity
- * fraction covers a hypothetical stack smaller than the ceiling — a degenerate
- * or missing capacity falls back to the ceiling alone, which the caller reports
- * separately.
+ * The mark saturates at capacity, so `hwm > capacity` never fires; this is a
+ * creep tripwire: the smaller of the ceiling and a capacity fraction, or the
+ * ceiling alone when capacity is missing or degenerate.
  *
  * @param {?{capacity: number}} stack The stack region, or a falsy value.
  * @param {number} ceiling Absolute byte ceiling.
@@ -63,12 +60,9 @@ export function stackCreepBudget(stack, ceiling, maxFill = STACK_MAX_FILL) {
 /**
  * Whether the two embind parameter streams zip.
  *
- * getParameterDefinitions() and getParamValues() share param_marshal.h's
- * ordering and are read in one pass with no drawFrame between, so values[i]
- * must reproduce defs[i].value. Length alone is blind to a transposition, so
- * every index is compared. engine_bindings.h collapses a bool def's value to `raw > 0.5`
- * while the value stream keeps the raw float, so bools are reconstructed rather
- * than compared directly, and they carry no min/max.
+ * Read in one pass with no drawFrame between, values[i] must reproduce
+ * defs[i].value at every index. A bool def's value is `raw > 0.5` while the
+ * value stream keeps the raw float, and bools carry no min/max.
  *
  * @param {unknown} defs getParameterDefinitions() result.
  * @param {unknown} values getParamValues() result.
@@ -139,12 +133,7 @@ export function paramStreamProblems(defs, values) {
  *
  * Writable parameters apply to the compiled effect by control name. Fixed
  * topology and constants are exempt; derived values validate against their
- * source controls. An unresolved writable id refuses the whole apply, so
- * the preview-versus-compiled comparison writes no value at all. Nothing else
- * pins the two vocabularies together: the digests are computed from the
- * document alone, and the value pin in tests/composed_effect/document_values.h
- * maps ids onto parameter families by chain operator, so a label the alias
- * table does not know still lands.
+ * source controls. An unresolved writable id refuses the whole apply.
  *
  * @param {object} run
  * @param {{document: string, effect: string, parameterIds: string[], presets?: object[], descriptor?: object}[]} run.documents
@@ -187,8 +176,7 @@ export function promotedBindingProblems({ documents, controls, bakedFields }) {
         `document to the compiled build refuses here and writes nothing`);
     }
   }
-  // A stale exemption would silently cover an id that has since become
-  // registrable, so it only holds while a document still carries it.
+  // An exemption holds only while a document still carries its id.
   for (const parameterId of BAKED_CONSTANT_IDS) {
     if (!seenConstants.has(parameterId)) {
       problems.push(`the baked-constant exemption names "${parameterId}", which no ` +

@@ -77,12 +77,9 @@ inline const Config &config(const SyncBoard &b) {
 }
 
 /**
- * @brief Builds full-rate Phantasm timing (600 MHz, 480 RPM, W=288) with a
- *        shortened content cadence so epoch/beacon scenarios run in
- *        milliseconds of host time.
+ * @brief Builds full-rate Phantasm timing with a shortened content cadence.
  * @param effects Number of effects in the test playlist.
- * @return A valid Config with 40-rev effects, beacons every 8 revs, commit
- *         K=2, repeats R=3, grid 4.
+ * @return A valid Config.
  */
 inline Config test_config(int effects = 4) {
   Config c = phantasm_config(600000000u, 480u, 288, effects);

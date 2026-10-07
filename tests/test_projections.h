@@ -599,8 +599,7 @@ inline void test_airocean_face14_half_cut_edge() {
 
 /** @brief Pins airocean projection face index stays in range. */
 inline void test_airocean_projection_face_index_stays_in_range() {
-  // A direction this far off the unit sphere scores above the fallback's
-  // 65536 sentinel on every face, so no candidate is ever taken.
+  // Far off the unit sphere, every face scores above the fallback's sentinel.
   const float magnitudes[] = {1.0f, 1e18f, 1e30f, 3.0e38f};
   for (float magnitude : magnitudes)
     for (size_t face = 0; face < AIROCEAN_FACE_COUNT; ++face)

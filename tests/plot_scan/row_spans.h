@@ -11,9 +11,6 @@
  * @brief Verifies the row-span helpers conservatively cover the rendered arc's
  *        screen-row extent, including the interior latitude bulge where the arc
  *        reaches rows beyond both endpoints.
- * @details Densely samples the true arc for both the geodesic and planar
- *          strategies, asserts the span contains it, and confirms the randomized
- *          sweep produces many genuine bulge cases so the check is not vacuous.
  */
 inline void test_row_span_covers_arc_bulge() {
   constexpr int TW = 288, TH = 144;
@@ -31,8 +28,6 @@ inline void test_row_span_covers_arc_bulge() {
     const math::Basis *pb = nullptr;
 
     if (planar) {
-      // A planar-polygon edge: two points on a disk of angular radius `radius`
-      // about a random center, joined by an azimuthal-equidistant straight line.
       const float cx = hs::rand_f(-1, 1);
       const float cy = hs::rand_f(-1, 1);
       const float cz = hs::rand_f(-1, 1);
@@ -107,12 +102,10 @@ inline void test_row_span_covers_arc_bulge() {
       bulge_cases++;
   }
 
-  // Non-vacuity guard: the sweep must produce many genuine bulge cases.
   HS_EXPECT_GT(bulge_cases, 500);
 
-  // Exact-antipodal geodesic edges: cross(a, b) collapses, so the renderer
-  // slerps the semicircle about stable_perpendicular_axis. Ground truth is
-  // built about that same axis.
+  // Exact-antipodal geodesic edges: ground truth is the semicircle about
+  // stable_perpendicular_axis.
   for (int trial = 0; trial < 500; ++trial) {
     const float rax = hs::rand_f(-1, 1);
     const float ray = hs::rand_f(-1, 1);
@@ -146,11 +139,7 @@ inline void test_row_span_covers_arc_bulge() {
 /**
  * @brief Verifies cap_may_touch_clip never rejects a cap that reaches the
  *        clip's render region.
- * @details Only false positives are admissible. Sweeps random caps against
- *          the device band shapes and grids each cap in
- *          (azimuth, polar offset) for ground truth, mapping every sample the
- *          way the predicate maps its own center. Counts genuine rejections and
- *          genuine reaches so neither branch is vacuous.
+ * @details Only false positives are admissible.
  */
 inline void test_cap_may_touch_clip_is_conservative() {
   constexpr int W = 288, H = 144;
@@ -215,7 +204,6 @@ inline void test_cap_may_touch_clip_is_conservative() {
     }
   }
 
-  // Non-vacuity guards: the sweep must exercise both verdicts.
   HS_EXPECT_GT(rejects, 100);
   HS_EXPECT_GT(reaches, 100);
 }

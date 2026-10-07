@@ -185,11 +185,9 @@ struct Volume {
       const math::Vector &local_vd, float bounds_radius, float hit_threshold,
       float aa_width, float seed_distance = FLT_MAX) {
     HS_PROFILE_DEEP(vol_probe);
-    // March forward from the closest approach for a surface this halo occludes;
-    // a solid hit is a self-occlusion edge (antialias over it). Step is floored
-    // to punch past the stalled foreground; termination is the bounding sphere's
-    // back face. With no solid hit, report a grazed background edge (local min of
-    // pd) and its coverage for the corner fill.
+    // March from the closest approach: a solid hit is a self-occlusion edge;
+    // otherwise report a grazed background edge (local min of pd). Steps are
+    // floored; the march ends at the bounding sphere's back face.
     math::Vector probe = closest_local;
     const float END_S = bounds_radius - math::dot(closest_local, local_vd);
     float prev = FLT_MAX;  // previous step's distance

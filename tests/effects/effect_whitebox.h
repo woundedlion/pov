@@ -539,8 +539,7 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
  *        saturated Fishbowl frame.
  * @details SCRATCH_A_BYTES is sized against a closed-form worst case: the
  *          MAX_FRAGMENTS vertex buffer, the Multiline fragment buffer it binds,
- *          and rasterize's sub-step cache, all live at once. Runs past
- *          TRAIL_LENGTH frames so the trail is full when the peak is read.
+ *          and rasterize's sub-step cache, all live at once.
  */
 inline void test_fishbowl_scratch_estimate_covers_peak() {
   reset_effect_globals();
@@ -715,9 +714,7 @@ struct PetalFlowWhiteBox {
  * @brief Verifies the spawn-gap accumulator drains every frame, the hue cursor
  *        stays wrapped, and the ring pool absorbs the worst slider corner.
  * @details After any frame the residue must satisfy 0 <= gap < spacing() and
- *          next_hue must stay in [0, 1). At Speed_max x Density_max a frame's
- *          travel exceeds the live spacing and the pool bound RINGS_ON_PATH has
- *          no margin.
+ *          next_hue must stay in [0, 1).
  */
 inline void test_petalflow_spawn_gap_bounded() {
   using WB = PetalFlowWhiteBox;
@@ -860,8 +857,7 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
  *          sampled non-crossing effects keep segment clipping.
  */
 inline void test_needs_full_frame_gate() {
-  // Each effect aliases the same static double buffer (single-live guard) and
-  // reconfigures the shared arenas/timeline in init(), so construct one at a
+  // Each effect aliases the same static double buffer, so construct one at a
   // time.
   auto reset = [] { reset_effect_globals(); };
   auto check = [&](Effect &fx, bool expected, const char *name) {

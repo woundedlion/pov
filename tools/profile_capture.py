@@ -1,14 +1,8 @@
 """Capture the profile image's USB-serial readout from an attached Teensy.
 
-Companion to the `profile` PlatformIO env (targets/Profile/Profile.ino): after
-a `tools/teensy_flash.sh` flash under the device lock (as performed by
-`tools/profile_one.sh`), the board re-enumerates and starts streaming
-HS_PROFILE cycle-counter dumps. This opens the Teensy's serial port (retrying
-through the re-enumeration window), tees every line to stdout and --out, and
-exits after --seconds.
-
-Uses pyserial, which PlatformIO installs (`python -m pip install pyserial`
-otherwise).
+After a `profile` env flash, opens the Teensy's serial port (retrying through
+re-enumeration), tees every HS_PROFILE line to stdout and --out, and exits after
+--seconds. Needs pyserial (`python -m pip install pyserial`).
 """
 
 import argparse
@@ -27,9 +21,8 @@ TEENSY_VID = 0x16C0
 def find_port(want=None):
     """Return the device name of the Teensy serial port to capture from.
 
-    With more than one Teensy attached, enumeration order is not stable, so
-    the first VID match can be the wrong board. `want` (--port /
-    HS_TEENSY_PORT) pins the capture to one device name.
+    Enumeration order is unstable across several Teensys; `want` (--port /
+    HS_TEENSY_PORT) pins the device name.
     """
     for p in list_ports.comports():
         if p.vid == TEENSY_VID and (want is None or p.device == want):
@@ -75,8 +68,7 @@ def main():
 
     if args.seconds <= 0:
         ap.error("--seconds must be greater than zero")
-    # Before the port wait: the default lives under build/, which a fresh clone
-    # does not have, and the capture would then be lost at its very last step.
+    # Before the port wait, so a missing build/ cannot lose a finished capture.
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
 
     ser = open_port(args.connect_timeout, args.port)
@@ -105,8 +97,7 @@ def main():
             print(line, file=sys.stderr)
         raise SystemExit(
             f"profile_capture: {port} dropped after {captured} lines: {exc}") from None
-    # A board that enumerates but never streams is a wrong or hung image, not
-    # a capture: an empty log left behind reads downstream as a real one.
+    # An empty log left behind would read downstream as a real capture.
     if not captured:
         os.remove(args.out)
         raise SystemExit(

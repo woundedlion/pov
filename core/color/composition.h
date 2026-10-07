@@ -23,10 +23,8 @@
  * @brief Soft-limit on the |phase| a caller may hand to the fast-trig palette
  * modifiers.
  * @details fast_sinf/fast_cosf range-reduction error is one ULP of the
- * argument; past this bound it exceeds ~5e-4 rad and the oscillation quantizes
- * and drifts. The driver owns the wrap: fold accumulators into [0, 2pi) at the
- * source. Consumers assert the bound in host builds; a driver in turns asserts
- * against its radian-scaled value.
+ * argument, so past this bound the oscillation quantizes and drifts. Drivers
+ * fold accumulators into [0, 2pi) at the source.
  */
 inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
 
@@ -104,7 +102,7 @@ struct BreatheModifier {
 
 /**
  * @brief Distorts the palette spatially with a sine wave, creating a liquid
- * ripple effect. Compresses and expands colors like waves on a spatial coord.
+ * ripple effect.
  */
 struct RippleModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
@@ -275,7 +273,6 @@ struct FoldModifier {
  * edges.
  *
  * A null tension driver passes t through.
- * @details A bound driver costs a powf per sample.
  */
 struct PinchModifier {
   /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
@@ -301,7 +298,6 @@ struct PinchModifier {
     if (!tension)
       return t;
 
-    // Center the wrapped coordinate into [-1, 1].
     float wrapped_t = math::wrap_t(t);
     float centered = wrapped_t * 2.0f - 1.0f;
     float sign = centered < 0.0f ? -1.0f : 1.0f;
@@ -348,7 +344,6 @@ struct QuantizeModifier {
     if (s < 1.0f)
       s = 1.0f;
 
-    // Round to nearest step in the infinite domain.
     return __builtin_fminf(roundf(t * s) / s, 1.0f);
   }
 };
@@ -430,7 +425,7 @@ struct MirrorModifier {
 /**
  * @brief Compresses the source domain into an inset window [lo, hi] -> [0, 1].
  * @details Clamps outside so t below lo samples the first stop and t above hi
- * the last. Pairs with EdgeFadeShade / EdgeAlphaShade to build vignettes.
+ * the last.
  */
 struct InsetModifier {
   /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
@@ -460,10 +455,8 @@ struct InsetModifier {
 
 /**
  * @brief Folds the coordinate into [0,1) mid-chain.
- * @details Placed between a `requires_wrap` modifier and a `bounded_output`
- * tail, it absorbs the out-of-range coordinate the tail would otherwise carry
- * through, so the composition can use Wrap=false and keep the tail's 1.0
- * endpoint ("scroll the palette, then mirror it").
+ * @details Lets a `requires_wrap` modifier feed a `bounded_output` tail under
+ * Wrap=false, keeping the tail's 1.0 endpoint.
  */
 struct WrapModifier {
   /** @brief The fold confines any input, in range or not, to [0,1). */
@@ -1039,9 +1032,8 @@ public:
    * @brief Applies the coord chain, samples the source, then the color chain.
    * @param t Lookup coordinate.
    * @return The fully modified color.
-   * @details The coord mods remap t in order; the source is sampled (wrapping
-   * the coordinate unless Wrap is false); then the color mods reshape the
-   * sample with the coordinate Shade selects.
+   * @details The lookup wraps unless Wrap is false; the color chain receives
+   * the coordinate Shade selects.
    */
   Color4 get(float t) const {
     assert(source != nullptr && "StaticPalette used before bind()!");

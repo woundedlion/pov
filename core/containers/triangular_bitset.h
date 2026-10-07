@@ -18,7 +18,6 @@
  * @brief Upper-triangular bitset for O(1) pair deduplication.
  * @tparam MAX_V Maximum vertex/element index (exclusive).
  * @details Stores one bit per unique unordered pair (a, b) where a < b < MAX_V.
- * Total storage: MAX_V * (MAX_V - 1) / 2 bits.
  */
 template <int MAX_V> struct TriangularBitset {
   // BITS and index() form an intermediate product ~MAX_V^2 in `int`; for

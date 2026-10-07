@@ -139,11 +139,7 @@ inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
  *        the t = 0 ends, the off-registry-seed arrivals and the flash-baked
  *        relax arrivals.
  * @details Seeds are built via the registry generators, so the DERIVE_AMBO
- *          rows (cuboctahedron / icosidodecahedron seeds) run the exact bevel
- *          decomposition of their to_node chains. A from end at t = 0 compares
- *          op(seed, T_EPS) primaries against the seed (an op at 0 emits
- *          expanded topology with coincident positions, never the seed mesh
- *          itself).
+ *          rows run the exact bevel decomposition of their to_node chains.
  */
 inline void test_edge_endpoints_match_registry() {
   constexpr size_t TARGET_HALF = sizeof(morph_target_buf) / 2;

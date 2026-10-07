@@ -7,10 +7,9 @@
  * @file palette_bindings.h
  * @brief Versioned GenerativePalette recipe bridge.
  *
- * Decodes a JS recipe object into a PaletteRecipe, compiles it through
- * GenerativePalette::try_compile() and bakes the 256-entry LUT (plus, for
- * inspectV4, per-sample diagnostics) into module-global buffers that cross back
- * as typed memory views.
+ * Decodes a JS recipe object, compiles it through
+ * GenerativePalette::try_compile() and bakes the LUT (plus inspectV4
+ * diagnostics) into module-global buffers returned as typed memory views.
  */
 #pragma once
 
@@ -419,16 +418,12 @@ private:
    * @param inspect Emit the diagnostics and fallback views alongside the lut.
    * @return {status} alone on rejection, else {status, canonicalRecipe, lut}
    *         plus {diagnostics, fallback} when @p inspect.
-   * @details WASM memory-view contract: lut, diagnostics and fallback alias
-   *          module-global WASM linear memory, they are NOT copies, and two
-   *          events invalidate them. A successful compileAndBakeV4()/inspectV4()
-   *          call on any PaletteOps instance overwrites the LUT in place;
-   *          only a successful inspectV4() also overwrites diagnostics and
-   *          fallback. Outstanding views then report the newer palette. With
-   *          ALLOW_MEMORY_GROWTH=1, any subsequent heap growth detaches the
-   *          underlying ArrayBuffer and leaves the view zero-length
-   *          (buffer.byteLength === 0). A caller must therefore read or copy a
-   *          view before its next call into the module.
+   * @details lut, diagnostics and fallback are views of module-global WASM
+   *          memory, not copies. A later successful compileAndBakeV4() or
+   *          inspectV4() on any PaletteOps instance overwrites the LUT
+   *          (inspectV4() also diagnostics and fallback), and heap growth
+   *          detaches all of them to zero length. Read or copy a view before
+   *          the next call into the module.
    */
   static emscripten::val compile(const emscripten::val &caller_input,
                                  bool inspect) {

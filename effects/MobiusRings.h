@@ -49,9 +49,6 @@ public:
   /**
    * @brief Builds the palettes, Möbius generator, and the render filter
    *        pipeline.
-   * @details The two Hole filters fade geometry near the rotated north/south
-   *          holes; Orient applies the spinning orientation; AntiAlias smooths
-   *          the rasterized lines.
    */
   HS_COLD_MEMBER MobiusRings()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
@@ -149,8 +146,7 @@ private:
   // counter-rotation singularity guard.
   friend struct ::hs_test::effects_tests::MobiusRingsWhiteBox;
 
-  // Scratch A holds one curve's fragment buffer (W/4 + 2 samples) and, during
-  // the rasterize call it stays live across, rasterize's own sub-step cache.
+  // Scratch A: one curve's fragment buffer plus rasterize's sub-step cache.
   static constexpr size_t SCRATCH_A_BYTES = 8 * 1024;
   static_assert(SCRATCH_A_BYTES >= (W / 4 + 2) * sizeof(Fragment) +
                                        Plot::rasterize_scratch_a_bytes<W>(),
@@ -203,8 +199,8 @@ private:
   }
 
   /**
-   * @brief Generates a fresh palette and schedules a 60-frame cross-fade into
-   *        it.
+   * @brief Generates a fresh palette and schedules a WIPE_FRAMES cross-fade
+   *        into it.
    */
   HS_COLD_MEMBER void wipe_palette() {
     wipe.arm(palette,

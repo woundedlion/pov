@@ -19,8 +19,7 @@
  *         through fast_atan2 unless the face carries linear distance.
  * @details Rebuilds the gnomonic frame from the vertices alone (normalized
  *          centroid as the projection axis), independent of the face's own
- *          projection, edge packing and basis. Per-edge segment distance plus a
- *          crossing-parity inside test.
+ *          projection, edge packing and basis.
  */
 inline float exact_plane_distance(std::span<const math::Vector> verts,
                                   const math::Vector &p, bool linear_dist) {
@@ -177,8 +176,6 @@ inline void test_face_sector_backtrack_sign() {
 
 /**
  * @brief Verifies Face::distance agrees with the polygon oracle inside and bounds it outside.
- * @details Drives check_face_distance_oracle across a spread of polygons
- *   (triangle, pentagon, hexagon and concave stars) and tilts.
  */
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
@@ -198,7 +195,6 @@ inline void test_face_distance_matches_exact_oracle() {
   check_face_distance_oracle(samples, /*sides=*/6, 0.50f,
                              math::Vector(0.4f, 0.3f, 1.0f),
                              /*rho_inner=*/0.25f);
-  // The grid actually exercised the distance path.
   HS_EXPECT_GT(samples, 1000);
 }
 
@@ -274,8 +270,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   static int16_t lut_data[64 * 64];
   SDF::ClassLut lut;
   SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
-  // Cell diagonal of the 64x64 grid over this star's box, ~0.023; the sweep
-  // tolerance is a multiple of it.
+  // Cell diagonal of the 64x64 grid over this star's box; the sweep tolerance
+  // is a multiple of it.
   HS_EXPECT_GT(lut.safe_dist, 0.0f);
   HS_EXPECT_LT(lut.safe_dist, 0.03f);
 
@@ -372,6 +368,5 @@ inline void test_face_class_lut_matches_oracle() {
   check_face_class_lut(lut_samples, /*cyc=*/0, /*reflected=*/false, 0.0f);
   check_face_class_lut(lut_samples, /*cyc=*/5, /*reflected=*/false, 1.1f);
   check_face_class_lut(lut_samples, /*cyc=*/0, /*reflected=*/true, 0.7f);
-  // The sweep actually fired the LUT path.
   HS_EXPECT_GT(lut_samples, 300);
 }

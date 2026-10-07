@@ -843,9 +843,6 @@ private:
   float preset_opacity = 1.0f;
   float phase = 0.0f;
 
-  // init() allocates the contour tables, the planar chord storage and the
-  // flower band-split flags, and prepare_count() bakes the palettes, from the
-  // persistent arena.
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
   static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(

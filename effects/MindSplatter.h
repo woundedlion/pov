@@ -70,12 +70,11 @@ public:
   using BaseMesh = Solids::BaseMesh;
   using Params = MindSplatterParams;
 
-  /** Crossfades the live parameters over 48 frames; pause freezes an
-      in-flight crossfade. */
+  /** Crossfades the live parameters; pause freezes an in-flight crossfade. */
   static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear,
                                                  /*pausable=*/true};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Dwell + blend = the 160-frame preset cadence. */
+  /** Frames each preset holds before its departure blend. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
 
   /** @brief Initial live parameters from preset zero. */
@@ -432,9 +431,8 @@ private:
   /**
    * @brief Per-emitter tangent-plane basis, rebuilt by
    *        configure_particle_geometry() on each base-mesh change.
-   * @details The emitter callback is stored in a 32-byte EmitterFn, too small
-   *          to also capture a 36-byte Basis, so it indexes this array by the
-   *          captured i.
+   * @details EmitterFn's inline capture is too small for a Basis, so the
+   *          emitter callback indexes this array by the captured i.
    */
   std::array<math::Basis, MAX_EMITTERS> emitter_basis;
   std::array<math::Vector, MAX_EMITTERS> emitter_positions;
@@ -642,7 +640,7 @@ private:
   }
 
   /**
-   * @brief Arms a one-shot timer (180-300 steps) that triggers the next warp.
+   * @brief Arms a one-shot random timer that triggers the next warp.
    */
   void schedule_warp() {
     auto timer = Animation::RandomTimer({.min = 180, .max = 300},

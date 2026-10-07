@@ -275,8 +275,6 @@ public:
 
   /**
    * @brief Renders one frame of the chained-bead animation.
-   * @details Ages all trails, then periodically flips/randomizes speed and gap
-   * before pulling the chain one step.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -483,8 +481,6 @@ public:
 
   /**
    * @brief Renders one frame of the ring-twist animation.
-   * @details Decays all non-seed pixels, drives the leader row, and
-   * periodically latches a stop position so the twist eventually parks.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -655,8 +651,6 @@ public:
 
   /**
    * @brief Renders one frame of digital rain.
-   * @details Every 125 ms scrolls each column down, seeds new drops, and
-   * renders.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -721,8 +715,6 @@ public:
 
   /**
    * @brief Renders one frame of mirrored sweeping strokes.
-   * @details Fades trails and remaps their hue by brightness, then draws COUNT
-   * mirrored stroke pairs and advances the slope, color, and ring offset.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -909,8 +901,6 @@ public:
 
   /**
    * @brief Renders one frame of the tumbling ring.
-   * @details Fades trails, plots the projected ring, then advances the rotation
-   * one step.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -966,9 +956,6 @@ public:
 
   /**
    * @brief Renders one frame of the kaleidoscope.
-   * @details Fades the canvas, draws the symmetric arms, then steps the scan
-   * position and palette phase. Arm-count updates are timer-gated at vertical
-   * turnarounds.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -1018,8 +1005,7 @@ private:
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Rings alternate between two 3D projections and are drawn
- * anti-aliased. The rotation-rate set changes every 10 s; the rainbow scrolls
- * around the middle ring.
+ * anti-aliased; the rainbow scrolls around the middle ring.
  */
 template <int W, int H> class RingRotate : public Effect {
 public:
@@ -1032,8 +1018,6 @@ public:
 
   /**
    * @brief Renders one frame of the three tumbling rings.
-   * @details Clears, draws the three projected rings, advances the rotations
-   * and the rainbow scroll offset, and cycles the rotation-rate set every 10 s.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -1118,9 +1102,6 @@ public:
 
   /**
    * @brief Renders one frame of the burnout animation.
-   * @details Renders each pixel by state (burning bright, unlit dim, or
-   * burnt-out dark), lets embers fall, and ignites the next pixel in the
-   * shuffled order.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -1231,8 +1212,6 @@ public:
 
   /**
    * @brief Renders one frame of fire.
-   * @details Every 125 ms cools, rises, and sparks each column, then maps heat
-   * to color.
    */
   void draw_frame() {
     EVERY_N_MILLIS(125) {
@@ -1310,8 +1289,6 @@ public:
 
   /**
    * @brief Renders one frame of the circling dots.
-   * @details Draws each row's dot and advances it; ages every other cell along
-   * its trail.
    */
   void draw_frame() {
     Canvas c(*this);
@@ -1408,9 +1385,6 @@ public:
 
   /**
    * @brief Renders one frame of the scrolling bands.
-   * @details Paints the two scrolling band sets, advances the scroll, and every
-   * 5 s steps the band-thickness index (reversing and swapping palettes at the
-   * ends).
    */
   void draw_frame() {
     Canvas c(*this);

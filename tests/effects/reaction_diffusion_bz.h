@@ -201,9 +201,8 @@ inline void test_bz_q16_roundtrip() {
 
 /**
  * @brief Verifies the state resolution carries Diff's minimum step at default Speed.
- * @details A cold node beside one saturated neighbour at Diff's 0.001 floor
- *          and Speed 0.35 receives D·lap·dt = 3.5e-4 of full scale; the stored
- *          sample must move.
+ * @details A cold node beside one saturated neighbour at Diff's floor must
+ *          move its stored sample.
  */
 inline void test_bz_min_diffusion_step_survives_quantization() {
   BZWhiteBox::BZ bz;
@@ -297,8 +296,7 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
 /**
  * @brief Pins perturb_state's per-frame draw count on the shared RNG stream.
  * @details perturb_state advances hs::random() by exactly 2*NUM_PERTURBATIONS
- *          draws (idx + species per nudge) at both ends of the Speed slider;
- *          downstream stream positions depend on that count.
+ *          draws (idx + species per nudge) at both ends of the Speed slider.
  */
 inline void test_bz_perturb_state_draw_count_pinned() {
   const int expected_draws = 2 * BZWhiteBox::num_perturbations();
@@ -407,16 +405,10 @@ inline void test_bz_substep_diffuses() {
 
 /**
  * @brief Pins the optimized BZ raster against its scalar sampling contract.
- * @details reference_shade normalizes each SSAA sample to concentrations,
- *          blends the palette into a
- *          uint16 Pixel, premultiplies by that sample's coverage, and adds the
- *          result into a uint16 accumulator. shade_pixel fuses the same algebra
- *          into float species coefficients and quantizes once at the end, so
- *          the two agree only up to the reference's intermediate rounding:
- *          four palette-blend roundings weighted by coverages that sum to at
- *          most 1 (<= 0.5 LSB), four premultiply roundings (<= 2.0 LSB), and
- *          the single final rounding both paths pay (<= 0.5 LSB). Any channel
- *          past that 3 LSB envelope is a formula difference, not round-off.
+ * @details reference_shade rounds each SSAA sample's blend and premultiply to
+ *          uint16; shade_pixel fuses the same algebra in float and quantizes
+ *          once, so the two agree only up to the reference's intermediate
+ *          rounding.
  */
 inline void test_bz_raster_matches_reference() {
   using WhiteBox = BZWhiteBox;

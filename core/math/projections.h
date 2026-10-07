@@ -228,10 +228,9 @@ bonne_projection(const math::Vector &v, float central_meridian,
  * @param phi Amplitude in radians, |phi| <= pi/2.
  * @return F(phi, 1/sqrt(2)); F(pi/2) is the quarter period
  *         K = 1.8540746773013719 that peirce_projection tiles with.
- * @details Clenshaw recurrence over an eight-term Chebyshev expansion in
- * y = 2*(2*phi/pi)^2 - 1. `C` holds the coefficients in descending order
- * (C[0] is the highest) and the order-zero coefficient C0 is applied halved,
- * per the Clenshaw convention. The coefficients are a PROJ fit.
+ * @details Clenshaw recurrence over a Chebyshev expansion in
+ * y = 2*(2*phi/pi)^2 - 1, with `C` in descending order and C0 applied halved.
+ * The coefficients are a PROJ fit.
  */
 inline float peirce_elliptic_integral(float phi) {
   constexpr float C0 = 2.19174570831038f;
@@ -256,8 +255,8 @@ inline float peirce_elliptic_integral(float phi) {
  * @brief Longitude of a direction, snapped onto the quincuncial sector seams.
  * @param v Unit direction on the sphere.
  * @param central_meridian Longitude placed at the image's axis, in radians.
- * @return The wrapped longitude, or the exact sector boundary when within
- *         2e-6 rad of one so both sides of a seam agree; pi/2 on the poles.
+ * @return The wrapped longitude, or the exact sector boundary when within a
+ *         tie epsilon of one so both sides of a seam agree; pi/2 on the poles.
  */
 inline float peirce_sector_longitude(const math::Vector &v,
                                      float central_meridian) {
@@ -288,9 +287,9 @@ enum class PeirceLayout : uint8_t { DIAMOND, SQUARE, HORIZONTAL, VERTICAL };
  * @param calculate_edge_distance When false, `fade_edge_distance` is left at
  *        NO_EDGE_DISTANCE and the inverse-trig calls that compute it are
  *        skipped.
- * @return Plane coordinates in elliptic-integral units; the quarter period is
- *         K = 1.8540746773013719; the southern fold reflects about 2K and the
- *         strip layouts repeat every 4K.
+ * @return Plane coordinates in elliptic-integral units of the quarter period
+ *         K; the southern fold reflects about 2K and the strip layouts repeat
+ *         every 4K.
  * @details A strip layout glues only the pair of equator quarters its
  * reflection holds fixed; the other pair tears, so HORIZONTAL and VERTICAL carry CUT
  * alongside GLUED and measure the torn side's distance to the equator.
@@ -549,11 +548,9 @@ struct AiroceanPoint {
 
 /**
  * @brief Vertices of the 23 spherical triangles the Airocean net unfolds.
- * @details The icosahedron has 20 faces; two of them are subdivided so the net
- * can cut through ocean rather than land, giving 23 entries. Faces 18-19 share
- * one plane and faces 20-22 share another, which is why AIROCEAN_NORMALS
- * repeats those rows. Vertex order carries the sign convention
- * airocean_contains tests against; reversing a face's winding inverts it.
+ * @details Two icosahedron faces are subdivided so the net cuts through ocean.
+ * Vertex order carries the sign convention airocean_contains tests against;
+ * reversing a face's winding inverts it.
  */
 inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
     {{0.4201524267f, 0.0781452494f, 0.9040825506f},

@@ -154,8 +154,7 @@ private:
   };
 
   /**
-   * @brief The effect's canonical generative-palette recipe, shared by the
-   *        initial palette and every color-wipe palette.
+   * @brief The effect's canonical generative-palette recipe.
    */
   static GenerativePalette make_palette() {
     return GenerativePalette{EffectPaletteRecipes::dynamo(
@@ -225,9 +224,7 @@ private:
   /**
    * @brief Realigns the LUT pool after a palettes push_front and bakes the new
    *        front.
-   * @details baked_palettes mirrors palettes[] by logical index; rotating the
-   *          LUT handles carries each bake to its new index. Slot
-   *          MAX_PALETTES-1 is dead here: palettes holds at most
+   * @details Slot MAX_PALETTES-1 is free to recycle: palettes holds at most
    *          MAX_PALETTES-1 entries before its push_front.
    */
   void rotate_and_rebake_front() {
@@ -245,8 +242,6 @@ private:
    * @param t Palette parameter in [0, 1] indexing into the baked LUT.
    * @return The blended Color4 for the sampled band, with a WIPE_BLEND_WIDTH-wide
    *         crossfade across each boundary.
-   * @details Walks the active palette boundaries from the newest (front) to the
-   *          oldest to find the band containing the angle.
    */
   Color4 color(const math::Vector &v, float t) {
     if (palette_boundaries.size() == 0)
@@ -258,9 +253,8 @@ private:
     float a =
         math::fast_acos(hs::clamp(math::dot(v, PALETTE_NORMAL), -1.0f, 1.0f));
 
-    // The scan assumes palette_boundaries is monotonically non-decreasing; a live
-    // Wipe-Dur change can transiently invert it, picking a stale palette for a few
-    // frames. Stays in bounds and self-heals as wipes drain.
+    // Assumes non-decreasing palette_boundaries; a live Wipe-Dur change can
+    // transiently invert them, picking a stale palette until wipes drain.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - WIPE_BLEND_WIDTH;
@@ -353,9 +347,8 @@ private:
   /**
    * @brief Advances the strand one whole step.
    * @param effective_speed Signed speed whose direction the head node moves in.
-   * @details Moves node 0 in the signed direction of effective_speed, then drags
-   *          each following node toward its predecessor so the chain follows,
-   *          keeping every link within `gap`.
+   * @details Drags each following node toward its predecessor, keeping every
+   *          link within `gap`.
    */
   void pull(float effective_speed) {
     nodes[0].v = dir(effective_speed);

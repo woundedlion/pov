@@ -1493,8 +1493,6 @@ inline const Case *all_cases(int &n) {
 
 /**
  * @brief Dedicated always-trapping case proves the trap is observable.
- * @details Not part of all_cases(): run_child_case() dispatches it directly
- *          through the same HS_CHECK path as every real case.
  */
 inline constexpr const char *SHAPE_PROBE_CASE = "__shape_probe__";
 inline constexpr const char *DETERMINISM_PROBE_CASE =
@@ -1590,9 +1588,8 @@ inline const char *child_capture_path() {
 
 /**
  * @brief Loads the tail of the capture file into child_output().
- * @details Keeps the LAST CHILD_OUTPUT_CAP-1 bytes: check_fail() flushes its
- *          breadcrumb immediately before trapping, so it is the final text a
- *          trapping child writes.
+ * @details Keeps the last CHILD_OUTPUT_CAP-1 bytes, where a trapping child's
+ *          breadcrumb lands.
  */
 inline void load_child_output() {
   char *buf = child_output();
@@ -2242,9 +2239,7 @@ inline int run_death_tests() {
       continue;
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc);
-    // Dying is not enough: the child must die at THIS case's guard. Any other
-    // trap — UB lowered to the same illegal instruction, or a guard the case
-    // hits on its way to the one it targets — fails here.
+    // The child must die at this case's guard, not at another trap.
     int line = breadcrumb_names_guard(child_output(), cs[i].guard_file,
                                       cs[i].guard_text);
     bool at_guard = line != 0;

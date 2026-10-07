@@ -194,8 +194,7 @@ constexpr int GROUP_MAX_DIFF_PIXELS = 16;
 /**
  * @brief Compares fused and sequential ring rendering, bit-identical under IEEE.
  * @details Under -ffast-math, per-loop reassociation differences are bounded by
- *          GROUP_MAX_* tolerances. Covers full frame, partial clipping and a
- *          near-pole axis with pole LOD disabled.
+ *          GROUP_MAX_* tolerances.
  */
 inline void test_ring_group_matches_sequential() {
   constexpr int W = 96, H = 64;
@@ -311,11 +310,9 @@ inline void test_distorted_ring_candidates_outside_poles() {
 /**
  * @brief Verifies DistortedRingStack::draw matches rasterizing the stack's
  *        rings one by one.
- * @details The per-ring path uses suppress_pole_fill. The shader keys green on
- * the azimuth v0 and alpha on the coverage v2. Scoped to
- * Render::pole_lod_aggressiveness 0, where both paths shade every column. Lit
- * pixels match exactly; under -ffast-math each composited blend may move a
- * channel by one 16-bit step.
+ * @details The per-ring path uses suppress_pole_fill. Scoped to
+ * Render::pole_lod_aggressiveness 0. Lit pixels match exactly; under
+ * -ffast-math each composited blend may move a channel by one 16-bit step.
  */
 inline void test_distorted_ring_stack_matches_sequential() {
   constexpr int W = 96, H = 64;

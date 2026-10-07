@@ -139,13 +139,11 @@ public:
 
   /**
    * @brief Deleted copy constructor.
-   * @details Implicit shallow copying is disabled to prevent memory aliasing.
    */
   ArenaVector(const ArenaVector &) = delete;
   /**
    * @brief Deleted copy assignment.
    * @return Reference to this (never invoked).
-   * @details Implicit shallow copying is disabled to prevent memory aliasing.
    */
   ArenaVector &operator=(const ArenaVector &) = delete;
 
@@ -210,7 +208,6 @@ public:
 #endif
     // Catches a rewind, which the generation check misses.
     check_alive();
-    // Same arena, still live, and big enough → reuse the block in place.
     if (bound && element_capacity >= min_capacity) {
       element_count = 0;
 #ifndef NDEBUG

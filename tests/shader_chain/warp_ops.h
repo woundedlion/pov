@@ -310,8 +310,8 @@ inline void test_shader_chain_parity_warp_vector_noise() {
   }
 }
 
-/** Two instances of one noise operator own decorrelated fields: each is seeded
-    from its own instance identity, not from a shared constant. */
+/** Two instances of one noise operator own decorrelated fields, each seeded
+    from its own instance identity. */
 inline void test_shader_chain_noise_instances_decorrelate() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
@@ -335,8 +335,7 @@ inline void test_shader_chain_noise_instances_decorrelate() {
         second.noise.GetNoise(view.x, view.y, view.z))
       differs = true;
   HS_EXPECT_TRUE(differs);
-  // Deterministic: the seed is the instance's stable hash, so a recompile of
-  // the same shape reconstructs the same field.
+  // Deterministic: the seed is the instance's stable hash.
   FastNoiseLite authored;
   authored.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
   authored.SetSeed(static_cast<int32_t>(

@@ -115,11 +115,9 @@ public:
    * @param n Number of boards to construct.
    * @param ppm Per-board crystal offsets, parts per million (length @p n).
    * @param phase0 Common starting clock offset, cycles, at global time 0.
-   * @details Each flywheel polls on a ⅛-column grid scaled by its ppm, with a
-   *          small per-board boot stagger. Boards power on at unrelated rotor
-   *          angles, so board i is born believing ZERO happened i·W/n columns
-   *          ago — only acquisition closes that gap. The master defines phase
-   *          and is born at offset 0.
+   * @details Each flywheel polls on a ⅛-column grid scaled by its ppm. Board i
+   *          is born believing ZERO happened i·W/n columns ago; the master is
+   *          born at offset 0.
    */
   Sim(const Config &c, int n, const int32_t *ppm, uint64_t phase0 = 0)
       : cfg(c) {
@@ -305,9 +303,7 @@ private:
    *          the foreground build/commit model and updates probes.
    */
   void run_tick(SimBoard &b, uint64_t tg) {
-    // This wake is consumed: the grid resumes at the next slot strictly
-    // after it (a mask may have swallowed several slots — they coalesced
-    // into this one delayed wake).
+    // Resume the grid at the next slot after this wake; masked slots coalesce.
     do {
       b.next_tick += b.tick_step;
     } while (b.next_tick <= double(tg));
@@ -398,9 +394,7 @@ inline bool boot_join(Sim &sim, const Config &cfg) {
  * @param sim The simulation to advance.
  * @param cfg The active config (supplies the effect-length budget).
  * @return True if the pre-train point was reached within budget.
- * @details The master (ppm 0) crosses ZERO on exact rev multiples, so the
- *          primary copy rides the crossing ≈ one rev from the moment this
- *          predicate fires.
+ * @details The primary EPOCH copy follows about one revolution later.
  */
 inline bool to_pre_train(Sim &sim, const Config &cfg) {
   return sim.run_until(
@@ -414,17 +408,14 @@ inline bool to_pre_train(Sim &sim, const Config &cfg) {
 // ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
 
 /**
- * @brief Verifies a clean 4-board run: every board is born tens of columns out
- *        of phase, locks within a revolution, joins live at the same boundary
- *        with the same effect and frame counter, and holds sub-2-column phase,
- *        equal frame counters, and ~2 flips/rev through a 32-bit clock wrap —
- *        with no gate rejections, invalid symbols, or traps.
+ * @brief Verifies a clean 4-board run: boards born out of phase lock, join live
+ *        at the same boundary, and hold phase, frame counters and flip cadence
+ *        through a 32-bit clock wrap with no rejections or traps.
  */
 inline void test_sim_boot_and_phase() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 40};
-  // Local clocks start just below the 32-bit wrap: every board's CYCCNT
-  // wraps ~10 revolutions in, mid-run (§12 timebase arithmetic).
+  // Local clocks start below the 32-bit wrap so CYCCNT wraps mid-run (§12).
   Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
 
   // Birth phase, before a single symbol: every downstream board is tens of
@@ -517,11 +508,10 @@ inline void test_sim_eight_board_boot_and_phase() {
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
 /**
- * @brief Verifies epoch commit lockstep: all four boards retain the outgoing
- *        effect with zero envelope during announce, enter the K-rev construction
- *        window, then swap to the next effect at the same boundary with frame counters
- *        re-zeroed together; the cadence holds across a second epoch (roster
- *        wraps mod effect_count).
+ * @brief Verifies epoch commit lockstep: boards hold the outgoing effect at
+ *        zero envelope through announce, go dark for the K-rev construction
+ *        window, then swap at the same boundary with frame counters re-zeroed
+ *        together; the cadence holds across a second epoch.
  */
 inline void test_sim_epoch_commit() {
   const Config cfg = test_config(2);
@@ -571,7 +561,7 @@ inline void test_sim_epoch_commit() {
         return content(s.boards[0].board).commit_in_revs <= s.cfg.commit_revs;
       },
       double(cfg.epoch_repeats) + 1));
-  sim.run_revs(1.0); // mid-construction (K = 2)
+  sim.run_revs(1.0); // mid-construction
   for (auto &b : sim.boards) {
     HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_TRUE(b.dark_now);
@@ -699,9 +689,9 @@ inline void test_sim_commit_deadline_trap() {
   const int32_t ppm[4] = {0, 0, 0, 0};
   Sim sim(cfg, 4, ppm);
   sim.boards[2].init_delay =
-      static_cast<uint64_t>(3) * 2 * PERIOD; // 3 revs > K = 2
-  // Boot joins are NOT deadline-bound: board 2 simply goes live ~3 revs
-  // after the others (next join-grid boundary), without trapping.
+      static_cast<uint64_t>(3) * 2 * PERIOD; // 3 revs > K
+  // Boot joins are not deadline-bound: board 2 goes live at a later join-grid
+  // boundary without trapping.
   sim.run_revs(double(cfg.join_grid_revs) * 3);
   HS_EXPECT_TRUE(sim.boards[2].live);
   HS_EXPECT_FALSE(sim.boards[2].trapped);
@@ -731,30 +721,26 @@ inline void test_sim_commit_pickup_budget() {
 // ── Scenario: masked-IRQ windows (§4.1, §5.2) ───────────────────────────────
 
 /**
- * @brief Verifies masked-IRQ windows (§4.1, §5.2): boundary masks truncate
- *        burst counts (symbol degrades to missed, never misclassified), mid-rev
- *        masks coalesce wakes harmlessly, and a master masked across its own
- *        boundary self-censors rather than emitting late — phase and content
- *        stay coherent throughout.
+ * @brief Verifies masked-IRQ windows (§4.1, §5.2): boundary masks degrade a
+ *        symbol to missed, never misclassified, mid-rev masks coalesce wakes,
+ *        and a master masked across its own boundary self-censors; phase and
+ *        content stay coherent.
  */
 inline void test_sim_masked_windows() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 25, -25, 15};
   Sim sim(cfg, 4, ppm);
 
-  // Board 2: recurring 3-column masks placed over the ZERO boundary — they
-  // swallow wakes (coalesced) AND merge the first two burst edges (single
-  // pin latch), so its decoder sees truncated counts: the symbol must
-  // degrade to "missed" (invalid/discarded), never "misclassified".
-  // Masks start after boot join so acquisition is clean.
+  // Board 2: recurring masks over the ZERO boundary swallow wakes and merge
+  // burst edges, so its decoder sees truncated counts. Masks start after boot
+  // join so acquisition is clean.
   const uint64_t rev = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
     sim.boards[1].masks.push_back({b0 - COL / 4, b0 + COL / 4});
     sim.boards[2].masks.push_back({b0 - COL / 2, b0 + 2 * COL + COL / 2});
   }
-  // Board 3: mid-revolution masks (no boundary, no symbol) — pure wake
-  // coalescing; the flywheel resumes at the time-correct column.
+  // Board 3: mid-revolution masks only coalesce wakes.
   for (int k = 8; k < 28; ++k) {
     const uint64_t m0 = k * rev + 40 * COL;
     sim.boards[3].masks.push_back({m0, m0 + 5 * COL});
@@ -809,10 +795,8 @@ inline void test_sim_emi() {
   Sim sim(cfg, 4, ppm);
   const uint64_t rev = 2ull * PERIOD;
 
-  // Isolated spurious edges on board 1, ~1 per revolution at varied
-  // mid-revolution offsets (away from boundaries): each forms a 1-pulse
-  // burst = a valid HALF symbol, which the LOCKED plausibility gate must
-  // reject (implied correction ≫ G).
+  // Isolated spurious edges on board 1, away from boundaries: each is a valid
+  // HALF symbol the LOCKED gate must reject.
   uint32_t lcg = 12345;
   for (int k = 8; k < 40; ++k) {
     lcg = lcg * 1664525u + 1013904223u;
@@ -848,11 +832,10 @@ inline void test_sim_emi() {
 // ── Scenario: dropped symbols → coast; dropped epoch → beacon fix (§6.3) ───
 
 /**
- * @brief Verifies dropped-symbol recovery (§6.3): a multi-rev symbol gap is a
- *        coast on the crystal that silently re-snaps, and a board that misses
- *        an entire EPOCH train freezes, then clears after its fade-out until the
- *        next index beacon corrects it and it rejoins on the join grid — never
- *        a wrong frame, never a trap.
+ * @brief Verifies dropped-symbol recovery (§6.3): a multi-rev symbol gap coasts
+ *        and re-snaps, and a board that misses a whole EPOCH train stays dark
+ *        until the next index beacon corrects it and it rejoins on the join
+ *        grid.
  */
 inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
@@ -860,11 +843,9 @@ inline void test_sim_drops_and_missed_epoch() {
   Sim sim(cfg, 4, ppm);
   const uint64_t rev = 2ull * PERIOD;
 
-  // Boot join first.
   HS_EXPECT_TRUE(boot_join(sim, cfg));
 
-  // Plain symbol drop: board 1 hears nothing for 2 revolutions — it coasts
-  // on its crystal (telemetry max_coast) and silently re-snaps after.
+  // Board 1 hears nothing for 2 revolutions: it coasts, then re-snaps.
   sim.boards[1].drop_from = sim.g + rev;
   sim.boards[1].drop_to = sim.g + 3 * rev;
   sim.run_revs(5.0);
@@ -874,10 +855,8 @@ inline void test_sim_drops_and_missed_epoch() {
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
 
-  // Missed epoch: board 3 loses its wire for the entire EPOCH train (the
-  // primary copy + all R repeats). Peers advance; board 3 stays on the old
-  // effect until the next index beacon corrects it (§6.3.2), then rejoins
-  // on the join grid.
+  // Board 3 loses its wire for the entire EPOCH train; the next index beacon
+  // corrects it (§6.3.2).
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return content(s.boards[0].board).rev_in_effect >=
@@ -936,10 +915,8 @@ inline void test_sim_reboot(const Config &cfg) {
       },
       1.5));
   HS_EXPECT_FALSE(lit_in_acquire);
-  // Identity from the next beacon, display from the next join-grid boundary.
-  // This reboot lands clear of the commit window, so the deadline is the
-  // blackout-free part of rejoin_bound_revs(); never a wrong frame in between
-  // (dark throughout).
+  // Identity from the next beacon, display from the next join-grid boundary;
+  // this reboot lands clear of the commit window.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[2].live; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
@@ -968,12 +945,8 @@ inline void test_sim_forged_burst() {
   sim.run_revs(10.0);
   const uint64_t rev = 2ull * PERIOD;
 
-  // A spurious flip needs a forged burst that is simultaneously valid,
-  // plausible, and boundary-consistent (§5.3). Forge the strongest cheap
-  // attack: an isolated valid-count (HALF) burst 30 columns past a real
-  // ZERO boundary — clear of the real burst's gap-timeout window and of the
-  // quiet-before guard, far from both predicted boundaries. It must be held
-  // as a suspect and counted as a rejection, never snapped or flipped.
+  // An isolated valid-count (HALF) burst 30 columns past a real ZERO boundary,
+  // clear of the gap-timeout window and the quiet-before guard (§5.3).
   const uint64_t b0 = (sim.g / rev + 2) * rev; // a future master ZERO
   sim.emi.push_back({b0 + 30 * static_cast<uint64_t>(COL), 1});
   sim.emi_pos = 0;
@@ -996,15 +969,11 @@ inline void test_sim_forged_burst() {
 // ── Scenario: epoch-repeat lockstep (§6.3.1) ────────────────────────────────
 
 /**
- * @brief Verifies the EPOCH redundancy repeats are a reliability mechanism, not
- *        a per-board reschedule (§6.3.1): a board that misses the primary copy
- *        at boundary B but accepts a repeat at B+j must still commit at the
- *        SAME absolute boundary as its peers, with a frame counter that stays
- *        equal afterwards.
- * @details Two sub-scenarios: one downstream board deafened for exactly the
- *          primary copy, and the master masked across B so it self-censors the
- *          primary — every downstream board then first hears the B+1 repeat
- *          while the master heard "itself" at B.
+ * @brief Verifies a board that misses the EPOCH primary copy at B but accepts
+ *        a repeat at B+j commits at the same absolute boundary as its peers,
+ *        with equal frame counters (§6.3.1).
+ * @details Covers a downstream board deafened for the primary copy and a
+ *          master that self-censors it.
  */
 inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
@@ -1092,9 +1061,8 @@ inline void test_sim_rev_resync() {
   Sim sim(cfg, 4, ppm);
   const uint64_t rev = 2ull * PERIOD;
   HS_EXPECT_TRUE(boot_join(sim, cfg));
-  // Settle past the boot beacons (revs 1–3), then slip board 3's counter
-  // by +2: at the next train it would over-count j by 2 and commit 2
-  // revolutions EARLY.
+  // Settle past the boot beacons, then slip board 3's counter by +2: left
+  // uncorrected it would commit 2 revolutions early.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) { return content(s.boards[0].board).rev_in_effect == 5; },
       12.0));
@@ -1148,8 +1116,7 @@ inline void test_sim_rev_resync() {
  *        correctly — as rev_in_effect rolls through its 6-bit (mod-64) residue
  *        within a single effect.
  * @details The beacon carries rev mod 64; the cross-check compares
- *          f.rev_count against `content_tracker.rev_in_effect & 63`. A 90-rev
- *          effect crosses rev 64 mid-show.
+ *          f.rev_count against `content_tracker.rev_in_effect & 63`.
  */
 inline void test_sim_rev_wrap_within_effect() {
   Config cfg = test_config();
@@ -1243,12 +1210,9 @@ inline void test_epoch_same_tick_burst_fold() {
     HS_EXPECT_EQ(content(board).commit_in_revs, K + R - j);
   }
 
-  // Drives a content tracker that hears copy j of the train, then counts ZERO
-  // crossings to the commit and returns the ABSOLUTE rev at which it fired
-  // (on_zero_crossing zeroes rev_in_effect on commit, so it is computed, not
-  // read back). same_tick=true models the fold deferred into the burst's tick
-  // (the backstop folds first); same_tick=false models the fold already applied
-  // a tick earlier (the backstop is deduped — modeled by not folding again).
+  // Returns the absolute rev at which a tracker hearing copy j commits
+  // (computed: on_zero_crossing zeroes rev_in_effect on commit). same_tick
+  // defers the fold into the burst's tick; otherwise it landed a tick earlier.
   auto commit_rev_for = [&](uint32_t j, bool same_tick) -> uint32_t {
     ContentTracker c;
     c.identity_known = true;
@@ -1274,8 +1238,7 @@ inline void test_epoch_same_tick_burst_fold() {
   };
 
   // Every copy commits at the absolute B+R+K boundary, independent of j and of
-  // whether the burst shared its tick with the fold — the lockstep §6.3.1
-  // promises.
+  // whether the burst shared its tick with the fold.
   for (uint32_t j = 0; j <= R; ++j) {
     HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/true), RPE + R + K);
     HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/false), RPE + R + K);

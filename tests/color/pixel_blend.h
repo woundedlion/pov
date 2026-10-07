@@ -41,9 +41,6 @@ inline void test_lerp16_midpoint() {
 
 /**
  * @brief Verifies lerp16 rounds to nearest, not floor.
- * @details The reconstruction tail (x + (x>>16) + 32768) >> 16 adds half a
- *          quantum so the divide rounds; at frac = 49152 (~0.75) round-to-nearest
- *          and floor disagree on red and green.
  */
 inline void test_lerp16_rounds_to_nearest() {
   Pixel a(0, 0, 0);

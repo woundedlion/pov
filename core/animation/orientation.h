@@ -55,8 +55,6 @@ upsample_frames(Quaternion *frames, int &num_frames, int capacity, int count) {
  * @brief Class managing the current rotation state of an object, maintaining
  * history for interpolation.
  * @tparam CAP Maximum number of orientation frames retained in history.
- * @details Stores a list of Quaternions (`orientations`) generated during the
- * current frame step.
  */
 template <int CAP = 4> class Orientation {
   static_assert(CAP >= 1, "Orientation requires CAP >= 1: the constructors "
@@ -148,8 +146,7 @@ public:
 
   /**
    * @brief Sets the orientation, clearing all history.
-   * @param q The new orientation quaternion; MUST be unit length
-   *   (HS_CHECK-trapped — a non-unit quaternion scales every rotated vector).
+   * @param q The new orientation quaternion; must be unit length (traps).
    * @return Reference to the Orientation object.
    */
   Orientation &set(const Quaternion &q) {
@@ -162,8 +159,7 @@ public:
 
   /**
    * @brief Pushes a new quaternion onto the history, tracking a motion step.
-   * @param q The new rotation quaternion; MUST be unit length
-   *   (HS_CHECK-trapped — a non-unit quaternion scales every rotated vector).
+   * @param q The new rotation quaternion; must be unit length (traps).
    * @return Reference to the Orientation object.
    */
   Orientation &push(const Quaternion &q) {

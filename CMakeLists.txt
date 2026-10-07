@@ -60,8 +60,7 @@ if(EMSCRIPTEN)
     HS_DISPLAY_PROFILE=0
     HS_GLOBAL_ARENA_BYTES=524288)
 
-  # Not -Werror: emscripten system headers ride this compile line. CI gates
-  # first-party warnings from the build logs.
+  # Not -Werror: emscripten system headers ride this compile line.
   target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
 
   target_link_options(${TARGET_NAME} PRIVATE
@@ -78,7 +77,6 @@ if(EMSCRIPTEN)
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS, 64 KB stack)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
-    # Debug uses a 64 KB stack for -O0 frames; release uses 8 KB.
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
   elseif(CMAKE_BUILD_TYPE STREQUAL "PullbackStrictFP")
@@ -95,7 +93,7 @@ if(EMSCRIPTEN)
     target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
     # Link-line -ffast-math enables Binaryen --fast-math module-wide;
     # -fno-finite-math-only only preserves the LLVM finite-value checks.
-    # 8 KB stack: the tight production budget, sized against the inlined -O3 build.
+    # 8 KB is the production stack budget.
     target_link_options(${TARGET_NAME} PRIVATE "-O3"
       "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto"
       "-sSTACK_SIZE=8192")
@@ -116,7 +114,7 @@ if(EMSCRIPTEN)
   # Emscripten emits a .js loader as the "executable".
   set_target_properties(${TARGET_NAME} PROPERTIES SUFFIX ".js")
 
-  # Build pullback_capture_wasm explicitly for tools/pullback_crosscheck.py.
+  # Node-hosted pullback capture producer; built only on request.
   add_executable(pullback_capture_wasm EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/tools/pullback_capture_native.cpp
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
@@ -305,8 +303,7 @@ if(EMSCRIPTEN)
     message(WARNING
       "DAYDREAM_DIR '${DAYDREAM_DIR}' not found — skipping simulator-module "
       "install (set -DDAYDREAM_DIR=<path> and re-run cmake to enable).")
-    # The configure-time warning above is not reprinted by a build against an
-    # already-configured tree, which is every `just install` after the first.
+    # Configure-time warnings are not reprinted when building a configured tree.
     install(CODE "message(FATAL_ERROR \"DAYDREAM_DIR '${DAYDREAM_DIR}' not found; installed nothing. Set -DDAYDREAM_DIR=<path> and re-run cmake.\")")
   endif()
 

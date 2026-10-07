@@ -234,8 +234,7 @@ inline void test_no_empty_frame_across_cycle_joins() {
   HankinSolids<CW, CH> fx;
   fx.init();
 
-  // Two full cycles and change: a 64-frame hankin sweep plus a <= 60-frame
-  // morph leg, so both joins are crossed more than once.
+  // Two full cycles and change, so both joins are crossed more than once.
   constexpr int FRAMES = 300;
   int empty_frames = 0;
   int first_empty = -1;
@@ -361,7 +360,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
 
   // The star 2n-gon's edge planes are fp-distinct from the base n-gon's, so a
   // boundary AA blend can differ by up to 2 counts; a recolored face moves
-  // channels by thousands.
+  // channels far more.
   constexpr int AA_LSB_TOL = 2;
   // Quantization flips are confined to the face-boundary AA band.
   constexpr size_t QUANT_BAND_BUDGET = 6000;
@@ -478,7 +477,7 @@ inline void test_palette_carry_across_arrivals() {
 // ---------------------------------------------------------------------------
 
 /** Interior-pixel budget for the leg swaps: a face landing under the wrong
- * mapping recolors a whole interior (thousands of pixels at FB_H = 144). */
+ * mapping recolors a whole interior. */
 constexpr size_t SWAP_FLAT_BUDGET = 200;
 
 /** Newborn-pixel budget: faces born at T_EPS cover at most corner cuts and
@@ -1690,8 +1689,8 @@ inline void test_strap_crossfade_seed_swept() {
 constexpr int STRAP_OPEN_HARD = 8000;
 
 /** Interlace angle the hankin sweep drives at `cycle_frame`: the production
- * Mutation's wave sampled at that frame's normalized progress over the sweep
- * (see start_hankin_cycle). */
+ * Mutation's wave sampled at that frame's normalized progress over the sweep.
+ */
 template <int W, int H>
 inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
   return conway_soak_tests::HankinWalkProbe::sweep_angle(fx, cycle_frame);
@@ -1733,10 +1732,6 @@ inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
  * @brief Pins the strap opening-fade at a cycle start: the newborn straps,
  *        faded, leave the angle-0 bookend nearly unchanged, whereas drawn at
  *        full coverage they hard-recolor the cut star interiors.
- * @details Drives to an arrival that cuts enough star interior to pin, then
- *          renders three frames at the same (unadvanced) camera: the angle-0
- *          bookend, the first strap frame at full coverage, and the same frame
- *          faded. The full-coverage pop must be large and the faded pop small.
  */
 inline void test_strap_open_fade() {
   reset_globals();

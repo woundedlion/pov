@@ -106,10 +106,8 @@ template <int CAP, int SUBSTEPS> struct TrailBody {
 /**
  * @brief Fixed-capacity history of unit-sphere positions, quantized to snorm16.
  * @tparam CAP The maximum number of snapshots to keep.
- * @details A Trail of snorm16 triples: 3x int16 per snapshot (6 bytes vs
- * Vector's 12). Components are clamped to [-1, 1] on record and round-trip
- * at a 1/32767 quantization step with floating-point rounding, so get()
- * decodes and returns by value.
+ * @details Components are clamped to [-1, 1] on record; get() decodes and
+ * returns by value.
  */
 template <int CAP> class QuantizedVectorTrail {
 public:
@@ -183,9 +181,7 @@ private:
 template <int CAP>
 void tween(const math::Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
-  // Index 0 is the pose collapse() carried over from the previous frame's end,
-  // so emitting it would redraw that shared boundary. A lone snapshot has no
-  // prior frame to share and must still be drawn.
+  // Index 0 repeats the previous frame's end pose; a lone snapshot still draws.
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
     // A lone snapshot is the newest sub-position → t = 1 (age-neutral).
@@ -246,25 +242,19 @@ void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
   if (trail_len == 0)
     return;
 
-  // The age ramp must end at 1.0 on the newest *plotted* orientation. A motionless
-  // tail frame collapses to a single sub-frame that emits nothing, so normalizing
-  // by trail_len would strand the ramp below 1.0; normalize against the newest
-  // frame that actually contributes instead.
+  // End the age ramp at 1.0 on the newest frame that contributes.
   size_t last = trail_len - 1;
   while (last > 0 && trail.get(last).length() <= 1)
     --last;
 
-  // A fully motionless trail collapses to frame 0's lone sub-position, which must
-  // read t = 1.0 (age-neutral) or quintic_kernel(0) renders a static head invisible.
+  // A motionless trail's lone sub-position reads t = 1 so a static head shows.
   if (last == 0 && trail.get(0).length() == 1) {
     ts[0] = 1.0f;
     callback(&trail.get(0).get(0), ts, 1);
     return;
   }
 
-  // An interior length-1 frame holds only the boundary it shares with the prior
-  // frame, so it emits nothing; counting it in the span would leave a hole in the
-  // age ramp. Normalize against, and index by, the frames that actually contribute.
+  // Interior length-1 frames emit nothing; span only the contributing frames.
   size_t num_active = 0;
   for (size_t i = 0; i <= last; ++i)
     if (i == 0 || trail.get(i).length() > 1)

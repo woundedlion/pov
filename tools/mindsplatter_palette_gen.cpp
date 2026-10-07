@@ -11,8 +11,8 @@
 
 namespace {
 
-// Budget: PALETTE_COUNT * LUT_SIZE * sizeof(Pixel) = 393,216 B of flash, and
-// the same again in the WASM data segment.
+// Costs PALETTE_COUNT * LUT_SIZE * sizeof(Pixel) of flash, and the same again
+// in the WASM data segment.
 constexpr int PALETTE_COUNT = 256;
 constexpr int LUT_SIZE = 256;
 

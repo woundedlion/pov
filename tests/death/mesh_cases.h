@@ -114,10 +114,7 @@ inline void case_mesh_state_set_borrowed_offsets_not_prefix_sum() {
 
 /**
  * @brief Death case: a zero-side face must trap while building half-edges.
- * @details Mesh-topology surface — a zero-count face emits no half-edges yet
- *          still claims a face slot, whose half_edge entry would then point at
- *          the next face's loop. The trailing triangle keeps the flat index
- *          list non-empty so the pairing scratch is a real allocation.
+ * @details A zero-count face emits no half-edges yet still claims a face slot.
  */
 inline void case_half_edge_zero_side_face() {
   static uint8_t buf[1024];
@@ -232,10 +229,6 @@ inline void case_mesh_require_matching_face_sides() {
 
 /**
  * @brief Death case: side counts that outrun the flat index list must trap.
- * @details Mesh-topology surface -- the entry census compares the half-edge
- *          count against the flat index length, so a source whose own side
- *          counts sum past that length clears it and then indexes past the
- *          end of every later face.
  */
 inline void case_mesh_require_matching_half_edge_census() {
   static uint8_t buf[2048];

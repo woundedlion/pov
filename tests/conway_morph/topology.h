@@ -117,11 +117,9 @@ inline OpCounts morph_op_counts(ConwayGraph::MorphOp op, const PolyMesh &seed) {
  * @brief Closed-form output counts of MeshOps::hankin, at any contact angle.
  * @param seed Seed mesh.
  * @return {3E, F+V, 8E}.
- * @details compile_hankin lays down one midpoint per edge and one star point
- *          per half-edge (3E vertices), one star face per seed face and one
- *          rosette per seed vertex (F+V), and each face contributes twice its
- *          degree in indices on both sides (4I = 8E). Degree-2 vertices raise
- *          a quad rosette like any other, so no correction applies.
+ * @details One midpoint per edge and one star point per half-edge, one star
+ *          face per seed face and one rosette per seed vertex. Degree-2
+ *          vertices raise a quad rosette like any other.
  */
 inline OpCounts hankin_op_counts(const PolyMesh &seed) {
   const size_t e = seed.faces.size() / 2;

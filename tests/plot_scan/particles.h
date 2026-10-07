@@ -160,10 +160,8 @@ render_particle_materialization(const StubParticle &particle,
 /**
  * @brief Verifies ParticleSystem::draw rasterizes only the active prefix's trails
  *        and stamps the per-particle registers (v2 source index, v3 life ratio).
- * @details Only particles in [0, active_count) are drawn; the drawn trail
- * follows the particle's recorded history (an equatorial +X→+Z arc); every
- * emitted fragment carries the source index in v2 and life/max_life in v3,
- * constant across the trail under the default register mappers.
+ * @details Under the default register mappers both are constant across the
+ * trail.
  */
 inline void test_particle_system_draws_active_trails_with_registers() {
   constexpr int W = 288, H = 144;
@@ -328,8 +326,7 @@ inline void test_particle_system_sparse_history_live_tip() {
 
 /**
  * @brief v0 ramps 0 at the OLDEST retained sample to 1 at the newest (head).
- * @details Pins the register's orientation, not just its spacing. Uses a
- * wrapped history, where the oldest survivor is not the first record.
+ * @details In a wrapped history the oldest survivor is not the first record.
  */
 inline void test_particle_system_v0_zero_at_oldest_sample() {
   StubParticle particle;
@@ -465,12 +462,6 @@ inline constexpr int PARTICLE_PARITY_BANDS[4][4] = {
  * @brief Deferred trail shader: bit-identical in-band pixels to an undeferred
  *        combined shader, skipped whole for trails whose every edge is culled,
  *        and handed the original pre-shader positions.
- * @details Two equatorial trails under an x-wedge clip: trail 0 crosses the
- *          band edge (mixed per-edge verdicts exercise the precomputed-bits
- *          path through rasterize), trail 1 lies wholly outside (its deferred
- *          pass must never run). The position pass negates the sphere, so the
- *          deferred shader can verify its `orig` argument is the pre-shader
- *          position, not the shaded one.
  */
 inline void test_particle_system_deferred_shader_parity_and_skip() {
   constexpr int W = 96, H = 48;
@@ -578,10 +569,6 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
  * @brief Randomized whole-trail gate conservativeness: a band-clipped
  *        ParticleSystem render is pixel-identical to the full render inside
  *        the render band, including its margin ring.
- * @details Random-walk trails, salted with pole-crossing and near-antipodal
- *          steps, drive the hoisted gate's coarse trail reject and per-edge
- *          bits through a hoistable pipeline. Bands cover seam-wrapping,
- *          interior, and y-only clips.
  */
 inline void test_particle_system_gate_pixel_parity_random_trails() {
   constexpr int W = 96, H = 48;
@@ -601,8 +588,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
       const float step_y = hs::rand_f(-1, 1);
       const float step_z = hs::rand_f(-1, 1);
       math::Vector step(step_x, step_y, step_z);
-      // Occasional huge step: a near-antipodal edge must trip the coarse
-      // walk's half-sweep guard, not get mis-culled.
+      // Occasional near-antipodal edge.
       float scale = (k == 7 && t % 9 == 0) ? 4.0f : 0.12f;
       v = (v + step * scale).normalized();
     }
@@ -627,7 +613,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
 
   int margin_lit = 0;
   for (const auto &bd : PARTICLE_PARITY_BANDS) {
-    // The non-deferred path must use the same precomputed gate bits.
+    // Non-deferred combined shader.
     {
       hs_test::StubEffect fx(W, H);
       fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
@@ -662,11 +648,8 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
 }
 
 /**
- * @brief Verifies a clipped sub-pixel trail — the population the single-dot
- *        shortcut routes — is pixel-identical to the unclipped reference.
- * @details These trails step well under one screen step at several
- *          latitudes, so the shortcut (and its reuse of the gate's precomputed
- *          rows/columns) decides the pixels.
+ * @brief Verifies a clipped sub-pixel trail is pixel-identical to the unclipped
+ *        reference.
  */
 inline void test_particle_system_subpixel_trail_dot_parity() {
   constexpr int W = 96, H = 48;

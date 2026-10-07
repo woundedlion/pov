@@ -2,22 +2,11 @@
 """Single source for build values shared by CI, the pre-commit hook and just.
 
 PINS are injected (--github-output / a named lookup) and must appear in no
-build file literally. INLINE_PINS cannot be injected -- they name an action
-input, an apt package, a pip requirement resolved before this script could run,
-or an application installed by hand -- so --check pins them by consistency
-instead. Pip versions come from requirements/*.in; every spelling in
-INLINE_SCAN, including the hash-locked .txt files, must agree.
-
-SHARED_LITERALS are pinned the same way: strings two build files must spell
-identically because neither can read the other.
-
-ENGINE_RANGES name a manifest whose declared floor the pin must satisfy: the
-manifest is read by a package manager, not by this script, so it cannot take
-the pin -- --check asserts the two agree instead.
-
-The install-set check reads the same CMakeLists.txt rules that mirror files into
-the daydream checkout and asserts each carries a line-ending pin, since those
-bytes are digested there over LF.
+build file literally. INLINE_PINS cannot be injected, so --check asserts every
+spelling in INLINE_SCAN agrees; pip versions come from requirements/*.in.
+SHARED_LITERALS are strings build files that cannot read one another must spell
+identically. ENGINE_RANGES name a manifest floor the pin must satisfy. --check
+also asserts every file CMakeLists.txt installs into daydream has an eol=lf pin.
 """
 
 from __future__ import annotations
@@ -76,11 +65,8 @@ PINS = {
     "shellcheck": requirement_pin("shellcheck", "shellcheck-py"),
 }
 
-# Versions the build files must spell out literally: a setup-action input, an
-# apt package name and a pip requirement are all resolved before this script
-# could inject anything, and the interpreter pin bootstraps the script itself.
-# They are single-sourced by CONSISTENCY instead of substitution -- --check
-# asserts every occurrence equals the value here, so a partial bump fails.
+# Versions the build files must spell out literally; --check asserts every
+# occurrence equals the value here, so a partial bump fails.
 INLINE_PINS = {
     "actionlint-release": PINS["actionlint"].rsplit(".", 1)[0],
     "actionlint-sha256":
@@ -93,12 +79,10 @@ INLINE_PINS = {
     "doxygen": "1.17.0",
     "doxygen-sha256":
         "75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2",
-    # apt.llvm.org's signing key, which authenticates every package that host
-    # serves -- including the host's own copy of the key.
+    # apt.llvm.org's signing key.
     "llvm-key-sha256":
         "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d",
-    # The major of the desktop KiCad install the fab gates shell out to. It is
-    # installed from KiCad's own installer, so no build file can inject it.
+    # Major of the hand-installed desktop KiCad the fab gates shell out to.
     "kicad": "10",
 }
 
@@ -207,8 +191,7 @@ INLINE_USES = (
 FORMAT_EXTENSIONS = ("h", "hpp", "cpp", "cc", "inl", "ino")
 
 # The float flags both shipping targets build with. -fno-finite-math-only must
-# follow -ffast-math, which otherwise implies -ffinite-math-only and folds every
-# std::isfinite() boundary predicate to constant true.
+# follow -ffast-math, which otherwise folds std::isfinite() to constant true.
 FLOAT_FLAGS = ("-ffast-math", "-fno-finite-math-only")
 FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 
@@ -217,9 +200,8 @@ FAST_MATH_TEST_FLAGS = (*FLOAT_FLAGS, "-DHS_TEST_FAST_MATH=1")
 SHARED_LITERALS = {
     "whitespace-rules": "blank-at-eol,blank-at-eof",
     "shell-selection": r"\.sh$|^\.githooks/",
-    # Paths the clang-format gate skips: the vendored FastNoiseLite body and
-    # the generated tables. core/vendor/FastNoiseLite_config.h is first-party
-    # and is gated like any other header.
+    # Paths the clang-format gate skips: vendored FastNoiseLite and generated
+    # tables.
     "format-exclude": (
         r"(^|/)core/vendor/FastNoiseLite\.h$"
         r"|(^|/)core/color/color_luts\.h$"
@@ -251,24 +233,20 @@ SHARED_LITERAL_USES = (
     # Anchored on the extension alternation's own opening, so an unrelated
     # quoted `grep -E` elsewhere in a scanned file is not counted as a copy.
     (r"grep -E '(\\\.\([^']*)'", "format-extensions"),
-    # Anchored on the start of a flag line (platformio.ini) and on the matrix key
-    # that carries the pair plus its test-contract define (ci.yml), so prose
-    # spellings are not swept in. Captures run to end of line: a partial edit
-    # reads as a difference.
+    # Anchored on a flag line's start (platformio.ini) and on ci.yml's matrix
+    # key, so prose is not swept in; captures run to end of line so a partial
+    # edit reads as a difference.
     (r"^\s+(-ffast-math\b.*)$", "float-flags"),
     (r"float_flags:\s+(-ffast-math\b.*)$", "float-test-flags"),
     # Every WASM target's compile and link line.
     (r'("-ffast-math" "[^"]+")', "float-flags-cmake"),
-    # ci.yml declares the window once and aliases it into every other job; the
-    # justfile spells it as a recipe parameter and CONTRIBUTING as prose.
+    # ci.yml anchor/alias, justfile recipe parameter, CONTRIBUTING prose.
     (r'HS_SMOKE_FRAMES(?:: &\w+ |="?)(\d+)', "smoke-frames"),
     (r'WASM_SMOKE_STACK_CEILING(?:: |=\"?)(\d+)', "smoke-stack-ceiling-debug"),
 )
 
-# --check-tool targets: pin name -> (version command, how to install the pin,
-# the form of the pin that command reports). `{pin}` in either is filled with
-# the pin value. A pin absent here names no program or is checked where it is
-# used.
+# --check-tool targets: pin name -> (version command, install hint, the form
+# of the pin that command reports). `{pin}` is filled with the pin value.
 CHECK_TOOLS = {
     "cmake": (["cmake", "--version"], "pip install cmake=={pin}", lambda v: v),
     "actionlint": (["actionlint", "-version"],
@@ -548,8 +526,7 @@ def check_flexram_geometry() -> list[str]:
     try:
         budgets = teensy_gate.load_budgets(budgets_path)
     except (OSError, ValueError) as exc:
-        # An unreadable file, a BudgetSchemaError, a JSON syntax error and an
-        # unterminated block comment all land here.
+        # BudgetSchemaError and JSON syntax errors are ValueErrors.
         return [f"tools/teensy_budgets.json: {exc}"]
     try:
         derived = budgets["phantasm"]["regions"]["ram1"][
@@ -576,8 +553,8 @@ def check_flexram_geometry() -> list[str]:
         f"+ 0x{bank_bytes - 1:X}) >> {shift}",
         f"(({total_banks} - _itcm_block_count) << {shift})",
     )
-    # Compared case-folded and whitespace-collapsed: a lowercased hex literal or
-    # a reflowed expression is the same geometry, not a missing one.
+    # Case-folded and whitespace-collapsed: a reflowed spelling is the same
+    # geometry.
     def canonical(text: str) -> str:
         return re.sub(r"\s+", " ", text.lower())
 

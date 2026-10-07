@@ -273,7 +273,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
 }
 
 /** Squared endpoints of the far-intersection blend: the edge-midpoint fallback
- * ramps in at 2.25 and fully replaces the intersection at 4.0. */
+ * ramps in at the start ratio and fully replaces the intersection at the far
+ * ratio. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
 /** Plane-cross squared floor below which fallback is always mixed in. */
@@ -375,13 +376,11 @@ HS_COLD_MEMBER inline void update_hankin(const CompiledHankin &compiled,
 
     math::Vector n_edge1 = cross1.normalized();
     // Opposite-signed contact angles (+ha about m1, -ha about m2) tilt both
-    // Hankin planes toward the shared corner. m1/m2 are unit, so (cos_ha,
-    // sin_ha*axis) is a unit quaternion.
+    // Hankin planes toward the shared corner; m1/m2 are unit, so q1/q2 are too.
     math::Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     math::Vector n_hankin1 = math::rotate(n_edge1, q1);
 
     math::Vector n_edge2 = cross2.normalized();
-    // cos(-x) = cos(x), sin(-x) = -sin(x).
     math::Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
     math::Vector n_hankin2 = math::rotate(n_edge2, q2);
 

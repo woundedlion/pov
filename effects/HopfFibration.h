@@ -107,8 +107,7 @@ private:
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
   static constexpr float PHASE_STEP = math::PI_F / ACTUAL_FIBERS;
 
-  // Persistent allocations: palette LUT + one Spherical and one trail per fiber,
-  // each with its alignment slack.
+  // Persistent allocations: palette LUT, one Spherical and one trail per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes() +
       ACTUAL_FIBERS * sizeof(math::Spherical) + alignof(math::Spherical) +
@@ -118,8 +117,7 @@ private:
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
-  // scratch_a stages one fiber's points with the trail gate arrays and
-  // rasterize's sub-step cache.
+  // scratch_a stages one fiber's fragments and rasterize's sub-step cache.
   static_assert(TRAIL_LEN * sizeof(Fragment) +
                         Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_LEN) <=
                     DEFAULT_SCRATCH_A_SIZE,

@@ -75,8 +75,6 @@ inline math::Vector dual_vertex(const HalfEdgeMesh &he_mesh,
  * @param face_index Index of the face whose normal is computed.
  * @return Unnormalized Newell normal (the caller normalizes if needed); the
  *   origin vector for an empty face.
- * @details Walks the half-edge loop, summing the Newell contribution of each
- *   edge (consecutive vertex pair).
  */
 template <typename MeshT>
 inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
@@ -87,9 +85,7 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   if (he_idx == HE_NONE)
     return n;
   uint16_t start = he_idx;
-  // Anti-hang guard plus an HE_NONE trap: this loop dereferences
-  // half_edges[he.next] in-body, so a corrupt .next chain could spin or index
-  // HE_NONE.
+  // A corrupt .next chain could spin or index HE_NONE.
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
@@ -121,10 +117,7 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
  * @param reverse Flip the winding for PAIR_NEXT orbits whose natural order is
  *   opposite the desired front.
  * @param value_of Maps each visited half-edge index to its output vertex index.
- * @details Walks every half-edge once, and for each not-yet-visited origin
- *   vertex builds its orbit via vertex_orbit<DIR>, mapping each visited
- *   half-edge through value_of, then emits the collected indices as one face
- *   (skipping degenerate <3-gons).
+ * @details Degenerate orbits of fewer than three sides emit no face.
  */
 template <OrbitDir DIR, typename ValueFn>
 inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
@@ -171,9 +164,8 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
  * @param count Side count of the face (from face_centroid).
  * @param pos_fn Maps a corner half-edge to its shrunk output vertex.
  * @param map_fn Records the new vertex index for a corner half-edge.
- * @details New vertices and the half-edge->vertex map are emitted for every
- *   corner unconditionally; the shrunk primary face is emitted only for a
- *   well-formed (>=3-side) face.
+ * @details Corner vertices and the half-edge->vertex map are emitted even for
+ *   a degenerate face.
  */
 template <typename PosFn, typename MapFn>
 inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
@@ -276,8 +268,6 @@ inline void emit_primary_faces(const HalfEdgeMesh &he_mesh,
  * @param visited_edges Caller-allocated bool[I] scratch (filled here).
  * @param I Half-edge count (size of visited_edges).
  * @param visitor Invoked once per undirected interior edge.
- * @details Marks each half-edge and its pair visited so an undirected edge is
- *   visited exactly once; boundary edges (no pair) are skipped.
  */
 template <typename VisitorFn>
 inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
@@ -430,8 +420,7 @@ inline void transform_in_place(MeshState &mesh,
 // kis is per-face; relax permits boundary meshes.
 //
 // kis/relax/relax_baked trap on faces with fewer than three sides.
-// Connectivity emitters drop those faces, leaving boundary holes; see
-// test_conway_ops_drop_degenerate_primary_faces.
+// Connectivity emitters drop those faces, leaving boundary holes.
 //
 // Even-length compositions start in temp to finish in target.
 // Per-vertex orbit buffers use max valence (= total half-edges).
@@ -497,8 +486,6 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     // Per-orbit scratch buffer sized to the absolute upper bound on valence.
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    // One face per source vertex: its orbit's incident faces become the dual
-    // face's vertices.
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
@@ -597,16 +584,13 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    // Populate Vertices
     emit_edge_midpoints(he_mesh, mesh, out_mesh, edge_to_vert,
                         [](const HalfEdge &) {});
 
-    // Reconstruct Original Faces (Shrunk)
     emit_primary_faces(he_mesh, mesh, out_mesh, 1, [&](uint16_t he_idx) {
       out_mesh.faces.push_back(edge_to_vert[he_idx]);
     });
 
-    // Build Vertex Orbits (New Faces)
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
@@ -712,12 +696,10 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
           out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
         });
 
-    // Reconstruct Original Faces (Shrunk).
     emit_primary_faces(he_mesh, mesh, out_a, 1, [&](uint16_t he_idx) {
       out_a.faces.push_back(edge_to_vert[he_idx]);
     });
 
-    // Build Vertex Orbits (New Faces).
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_a, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
@@ -1003,12 +985,10 @@ HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
     uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_new_v, I, HE_NONE);
 
-    // Copy original vertices
     for (size_t i = 0; i < V; ++i) {
       out_mesh.vertices.push_back(mesh.vertices[i]);
     }
 
-    // Generate new vertices and shrunk faces
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       int count;
       math::Vector centroid = face_centroid(he_mesh, mesh, fi, count);
@@ -1307,7 +1287,6 @@ HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
     emit_expanded_shell(
         mesh, he_mesh, out_mesh, temp, V, I,
         [&](size_t fi, const math::Vector &centroid) {
-          // Newell's method face normal.
           math::Vector normal_raw = face_normal(he_mesh, mesh, fi);
           math::Vector normal(0, 0, 0);
           if (math::dot(normal_raw, normal_raw) > math::EPS_NORMAL_SQ) {
@@ -1498,10 +1477,7 @@ HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
  *   is cleared, since the new connectivity has not been classified.
  * @param target Arena backing @p out.
  * @param scratch Arena for the z-order index and the injectivity bookkeeping.
- * @details The two-stage z search certifies its nearest match: once the full
- * squared distance fits inside the z band, every vertex outside that band is
- * farther away in z alone. A gap wider than the last band or a non-injective
- * match traps.
+ * @details A gap wider than the last z band or a non-injective match traps.
  */
 HS_COLD static inline void reconcile_vertices(const PolyMesh &identity,
                                               const PolyMesh &authored,

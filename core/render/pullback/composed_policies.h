@@ -7,12 +7,8 @@
 
 /**
  * @brief Metadata accompanying an effect's explicit ranked stage pipeline.
- * @details A derived Spec supplies `template <typename B> using Pipeline`.
- * PROJECTION controls projection sliders; TRANSFER, COVERAGE and FIELD_COVERAGE
- * describe material stages. LensPolicy and SURFACE_PLACEMENT describe lens and
- * displacement ordering. HARMONY, HUE and BRIGHTNESS select color behavior;
- * ANIMATED_PROJECTION controls projection clocks. The *PolicyFor helpers are
- * optional conveniences for authoring the Pipeline alias.
+ * @details A derived Spec supplies `template <typename B> using Pipeline`;
+ * the *PolicyFor helpers are optional conveniences for authoring it.
  */
 struct Spec {
   static constexpr ProjectionKind PROJECTION = ProjectionKind::STEREOGRAPHIC;

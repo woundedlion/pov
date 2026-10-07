@@ -1,5 +1,4 @@
-// Stored gallery geometry. Captures use this exact thumbnail size so a one-pixel
-// browser-layout rounding difference cannot produce an invalid gallery asset.
+// Stored gallery geometry; captures are drawn at exactly this size.
 export const GALLERY_WIDTH = 640;
 export const GALLERY_HEIGHT = 539;
 

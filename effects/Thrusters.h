@@ -47,8 +47,6 @@ public:
    * @brief Registers tunable params, bakes the ring palette, and seeds the
    *        timeline.
    * @details Adds a persistent ring sprite plus a random thruster-fire timer.
-   *          The palette is immutable, so it is baked once into a LUT keyed by
-   *          dot(X, v).
    */
   HS_COLD_MEMBER void init() override {
     // Radius 0 and 2 both collapse the ring to a point (ring_vec and its
@@ -174,8 +172,7 @@ private:
    * @brief Warp amplitude decay curve over a fire's life, t in [0, 1].
    * @param t Normalized progress through the warp Mutation, 0 at fire, 1 at end.
    * @return Warp amplitude: exactly 0.7 at t=0, decaying to exactly 0 at t=1.
-   * @details 0.7*exp(-2t) shifted and renormalized to land on zero at t=1, so
-   *          the ring fully relaxes between fires.
+   * @details 0.7*exp(-2t), shifted and renormalized to reach zero at t=1.
    */
   static float warp_decay(float t) {
     constexpr float FLOOR = 0.1353352832f; // expf(-2)
@@ -245,9 +242,8 @@ private:
    * @param amp Warp amplitude in radians.
    * @param frame Frame counter driving the temporal wave.
    * @return Signed angular radius offset in radians.
-   * @details Product of a spatial warp wave (from `phase`) and a temporal wave
-   *          (three cycles per 32 frames, from `frame`), scaled by `amp`. Pure in
-   *          its arguments; callers pass a snapshot of the warp state.
+   * @details Product of a spatial warp wave and a temporal wave, scaled by
+   *          `amp`. Pure in its arguments.
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.
@@ -310,8 +306,7 @@ private:
 
   BakedPaletteStorage palette; /**< Ring-shading LUT, keyed by dot(X, v). */
 
-  // init() bakes one palette LUT into the persistent arena. Effect keeps the
-  // default arena split, so the total must fit the device persistent partition.
+  // One palette LUT in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::required_arena_bytes();
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,

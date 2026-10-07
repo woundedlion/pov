@@ -2,14 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Emits the segment->canvas mapping hardware/pov_segment_map.h derives, as JSON
- * on stdout: for every (S, N) config the simulator's cross-check sweeps, each
- * segment's arm side, LED-0 row, strip direction and full row traversal, plus
- * the arm-A/arm-B sampled column and segment_clip bands per canvas width.
- *
- * The committed hardware/pov_segment_map.json is this program's output.
- *
- * Regenerate with:
+ * Emits hardware/pov_segment_map.h's segment->canvas mapping as JSON on stdout:
+ * per (S, N) config, each segment's arm side, LED-0 row, strip direction and
+ * row traversal, plus arm-A/arm-B sampled columns and segment_clip bands per
+ * canvas width. Writes hardware/pov_segment_map.json; regenerate with:
  *   cmake --build --preset tests --target pov_segment_map_gen
  *   build/tests/tests/pov_segment_map_gen > hardware/pov_segment_map.json
  */

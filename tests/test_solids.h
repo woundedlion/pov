@@ -73,8 +73,7 @@ static_assert(!Solids::solid_tables_consistent<OutOfRange>());
 namespace hs_test {
 namespace solids_tests {
 
-// Two scratch arenas (reset per solid) plus two geometry arenas, sized to match
-// the WASM tooling path's 4 MB scratch.
+// Two scratch arenas (reset per solid) plus two geometry arenas.
 inline uint8_t solids_geom_a[4 * 1024 * 1024];
 inline uint8_t solids_geom_b[4 * 1024 * 1024];
 inline uint8_t solids_scratch_a[4 * 1024 * 1024];
@@ -210,9 +209,7 @@ inline void test_islamic_solids_have_no_sliver_edges() {
 // differently on host and device.
 // ---------------------------------------------------------------------------
 
-// Minimum tolerated distance from an X.5 rounding boundary, in degrees: ~2x
-// above the angle expression's float rounding uncertainty and ~2x below the
-// roster's tightest angle.
+// Minimum tolerated distance from an X.5 rounding boundary, in degrees.
 inline constexpr float TOPOLOGY_ANGLE_MARGIN_DEG = 5e-4f;
 
 /**
@@ -328,7 +325,6 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
   PolyMesh m = build_index(index, geom);
   conway_tests::check_consistent_winding(m);
 
-  // Half-edge construction needs its own scratch; reuse geom_b.
   Arena he_arena(solids_geom_b, sizeof(solids_geom_b));
   HalfEdgeMesh he(he_arena, m);
   size_t unpaired = 0;
@@ -402,8 +398,6 @@ inline void test_islamic_registry_solids_are_closed() {
 
 /**
  * @brief Verifies get_by_name("octahedron") returns that specific solid.
- * @details Asserts the result is valid, on the unit sphere, and has the
- *          octahedron's 6 vertices and 8 faces.
  */
 inline void test_get_by_name_known_returns_that_solid() {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));

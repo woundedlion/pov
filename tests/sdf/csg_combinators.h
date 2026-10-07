@@ -169,9 +169,7 @@ inline void test_subtract_solid_b_leaves_the_minuend_uncarved() {
 
 /**
  * @brief Verifies a star notch inside the subtrahend's bounding cap still gets scanned.
- * @details Star emits its circumscribed disc as one span. The notch point is
- *   outside the star and inside the polygon, so its column must lie in an
- *   emitted span.
+ * @details Star emits its circumscribed disc as one span.
  */
 inline void test_subtract_star_notch_columns_survive_the_carve() {
   using P = std::pair<float, float>;
@@ -361,8 +359,7 @@ inline void test_intersection_unsorted_child_yields_sorted_result() {
 /**
  * @brief Verifies a full-width child intersected with the other replays the other's intervals.
  * @details When one child falls back to a full-width scan, the intersection is
- *   just the other child's intervals (replayed from the buffer already collected).
- *   Pins the equivalence in both orientations and the both-fall-back full-scan case.
+ *   just the other child's intervals.
  */
 inline void test_intersection_full_width_child_replays_other() {
   using P = std::pair<float, float>;
@@ -535,10 +532,8 @@ inline void test_smooth_union_solidity_follows_children() {
  * @brief Verifies the blendability trait tracks which shapes clamp to the far
  *   sentinel, and that every combinator blends only when each child does --
  *   including Subtract, whose is_solid tracks the minuend alone.
- * @details Ring, DistortedRing, FlatDistortedRing and Face report dist = 100
- *   outside their reject band, so both children read the sentinel across the
- *   weld and SmoothUnion collapses to Union; SmoothUnion static_asserts the
- *   trait to reject those instantiations at compile time.
+ * @details A shape that reports the far sentinel outside its reject band reads
+ *   it on both sides of a weld, collapsing SmoothUnion to Union.
  */
 inline void test_sentinel_clampers_are_not_blendable() {
   static_assert(!SDF::blends_smoothly<SDF::Ring>);
@@ -601,8 +596,6 @@ inline void test_csg_combinators_reject_temporary_children() {
 
 /**
  * @brief Verifies Union coalesces two overlapping child intervals into one span.
- * @details The children emit overlapping bands (A [0,40], B [30,70]) that must
- *   collapse to a single [0,70].
  */
 inline void test_union_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
@@ -623,8 +616,7 @@ inline void test_union_merges_overlapping_intervals() {
 
 /**
  * @brief Verifies Union welds a seam-straddling span with an overlapping one.
- * @details A [-10,6] straddles θ=0 in the negative frame and overlaps B's
- *   in-frame [2,12]; the overlap must coalesce to a single [-10,12] span.
+ * @details A's [-10,6] straddles θ=0 in the negative frame.
  */
 inline void test_union_seam_straddle_merges_overlapping_intervals() {
   using P = std::pair<float, float>;
@@ -647,8 +639,7 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
  * @brief Verifies three- and four-way nested Unions of real leaves compile and
  *        emit every child arc.
  * @details Nesting depth is gated by sdf_max_spans. Four coaxial rings at
- *   disjoint radii cross an equatorial row in 8 disjoint spans, which is also
- *   the bound the trait reports.
+ *   disjoint radii cross an equatorial row in 8 disjoint spans.
  */
 inline void test_nested_union_emits_every_child_arc() {
   using P = std::pair<float, float>;
@@ -698,10 +689,9 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  math::init_geometry_luts<
-      W,
-      H>();              // fill sin_phi; scan_region does this in production
-  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
+  math::init_geometry_luts<W,
+                           H>(); // fill sin_phi
+  const int row = H / 2;         // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
   const float k = 0.02f;
   const float sin_phi = math::TrigLUT<W, H>::sin_phi[row];
   const float pad =
@@ -733,9 +723,8 @@ inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
   using Mock = sdf_interval_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  math::init_geometry_luts<
-      W,
-      H>(); // fill sin_phi; scan_region does this in production
+  math::init_geometry_luts<W,
+                           H>(); // fill sin_phi
   const float k = 0.05f;
   std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
   Mock A{&ivs}, B{&ivs};

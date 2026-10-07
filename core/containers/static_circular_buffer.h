@@ -21,18 +21,13 @@
 
 /**
  * @brief A fixed-size circular buffer optimized for stability.
- * @tparam T Element type. All N backing slots hold live objects from
- * construction onward, so T must be default-constructible. push_front/push_back
- * assign into a slot and so additionally require copy/move assignment;
- * emplace_front/emplace_back construct in place and require only that T be
- * constructible from the forwarded arguments, so they are the path for a
- * non-assignable T.
+ * @tparam T Element type; must be default-constructible, since all N slots
+ * hold live objects. push_front/push_back also require assignment;
+ * emplace_front/emplace_back require only construction from their arguments.
  * @tparam N Capacity in elements; must be >= 1.
  * @details No dynamic allocation. Overflow evicts the oldest element.
  * front()/back() on an empty buffer and out-of-range operator[] HS_CHECK-trap.
- * Models Container and ReversibleContainer; not a SequenceContainer (no
- * insert/erase/assign) or ContiguousContainer (the live run wraps, so there is
- * no data()).
+ * Models Container and ReversibleContainer.
  */
 template <typename T, size_t N> class StaticCircularBuffer {
   // Private; named publicly through the iterator usings.
@@ -118,9 +113,8 @@ public:
    * @tparam Args Constructor argument types for T.
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed front element.
-   * @details Evicts the back element when full. head/count are committed only
-   * after the constructor succeeds, but the slot's old object is destroyed
-   * first, so a throwing T is unsupported (see construct_in_place).
+   * @details Evicts the back element when full. The slot's old object is
+   * destroyed before construction, so a throwing T is unsupported.
    */
   template <typename... Args> T &emplace_front(Args &&...args) {
     if (is_full()) {
@@ -182,9 +176,8 @@ public:
    * @tparam Args Constructor argument types for T.
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed back element.
-   * @details Evicts the front element when full. tail/count are committed only
-   * after the constructor succeeds, but the slot's old object is destroyed
-   * first, so a throwing T is unsupported (see construct_in_place).
+   * @details Evicts the front element when full. The slot's old object is
+   * destroyed before construction, so a throwing T is unsupported.
    */
   template <typename... Args> T &emplace_back(Args &&...args) {
     if (is_full()) {
@@ -458,10 +451,8 @@ public:
    * @param b Right buffer.
    * @return True if both hold the same number of elements and every logical
    * position compares equal.
-   * @details Hidden friend defined inline, so T is only required to be
-   * equality-comparable when this is actually called. Dead slots outside the live
-   * run are ignored, so two buffers holding equal elements at different head
-   * offsets still compare equal.
+   * @details T must be equality-comparable only when this is called. Head
+   * offsets are ignored.
    */
   friend bool operator==(const StaticCircularBuffer &a,
                          const StaticCircularBuffer &b) {
@@ -554,9 +545,6 @@ private:
    * @tparam BufPtr Pointer-to-buffer type (mutable or const).
    * @tparam Ref Reference type yielded on dereference.
    * @tparam Ptr Pointer type yielded by operator->.
-   * @details Holds the whole iterator state and every operator; Derived adds
-   * only its constructors. ConstIterator is a friend so its converting
-   * constructor can read an Iterator's state.
    */
   template <typename Derived, typename BufPtr, typename Ref, typename Ptr>
   class CircularIterBase {

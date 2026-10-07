@@ -325,7 +325,6 @@ struct MeshState {
   }
 
 private:
-  // Borrowed mode is entered only through set_borrowed().
   ArenaSpan<uint8_t>
       face_counts_view; /**< Borrowed face-counts view, set by set_borrowed(). */
   ArenaSpan<uint16_t>

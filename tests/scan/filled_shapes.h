@@ -314,12 +314,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
 /**
  * @brief Verifies overlapping fills composite via the over operator at the
  *        shared pixel.
- * @details The 2D sink blends dst.lerp16(src, alpha) = dst*(1-a) + src*a. Two
- *          filled polygons both capping the +Y pole are drawn in order over a
- *          black frame, each at frag.alpha 0.5; their interiors are fully
- *          covered (AA alpha 1), so the pole pixel sees plot alpha exactly 0.5.
- *          First (red over black) yields red*0.5; second (green over that)
- *          yields red*0.25 + green*0.5.
+ * @details The 2D sink blends dst*(1-a) + src*a.
  */
 inline void test_overlapping_fills_composite_blend() {
   constexpr int W = 96, H = 64;
@@ -345,8 +340,7 @@ inline void test_overlapping_fills_composite_blend() {
   }
   fx.advance_display();
 
-  // Sample an interior column at the pole row, where both fills are fully
-  // covered (AA alpha 1) so plot alpha is exactly frag.alpha 0.5.
+  // Pole row: both fills fully covered, so plot alpha is frag.alpha.
   const Pixel &p = fx.get_pixel(W / 2, 0);
   HS_EXPECT_NEAR((int)p.r, (int)(red * 0.25f), 2);
   HS_EXPECT_NEAR((int)p.g, (int)(green * 0.5f), 2);

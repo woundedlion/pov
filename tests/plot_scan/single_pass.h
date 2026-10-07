@@ -31,10 +31,8 @@ inline Plot::PlanarEdgeSampler planar_sampler(const math::Vector &a,
 /**
  * @brief one_pass's analytic tangent agrees with a forward difference of pos(),
  *        at the same position.
- * @details pos() unprojects through azimuthal_unproject where sample_at inlines
- *          its own, so the two are independent derivations. projection_fraction
- *          feeds both sides, so a reversed or plateaued mapping shows here, but
- *          a monotone mapping that is not arc-uniform does not.
+ * @details projection_fraction feeds both sides: a reversed or plateaued
+ *          mapping shows here, a monotone one that is not arc-uniform does not.
  */
 inline void test_planar_one_pass_matches_forward_difference() {
   hs::random().seed(0x51F1);
@@ -45,8 +43,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
     math::Basis basis = basis_from_normal(rand_unit());
     math::Vector a = rand_unit();
     math::Vector b = rand_unit();
-    // Both endpoints clear of the antipodal seam, where the planar strategy
-    // is not the path the rasterizer takes.
+    // Antipodal-seam edges do not take the planar strategy.
     if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
         math::dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
       continue;
@@ -121,8 +118,6 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
 /**
  * @brief The SinglePass rasterizer draws the same gap-free planar edge as the
  *        cached two-pass path.
- * @details The general planar configuration plots unit-length samples,
- *          bounds consecutive gaps, and follows the cached two-pass curve.
  */
 inline void test_rasterize_single_pass_planar_matches_two_pass() {
   constexpr int W = 128, H = 64;
@@ -167,8 +162,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
                  1e-2f);
 
-  // Same curve: the two paths size their sub-steps from the same screen
-  // velocity, so every emitted sample lies within a dot of the other path's.
+  // Same curve: every sample lies within a dot of the other path's.
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
   HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
   for (const math::Vector &p : single.plotted) {
@@ -285,9 +279,6 @@ inline void test_rasterize_single_pass_balances_terminal_interval() {
 /**
  * @brief Exhausting the sub-step budget coarsens a segment in both rasterizer
  *        paths, and truncates it in neither.
- * @details The two-pass replay stretches its cached steps over the whole edge,
- *          so the single-pass emitter must reach the far endpoint too. Driven by
- *          lowering the budget.
  */
 inline void test_rasterize_step_budget_backstop_finishes_segment() {
   constexpr int W = 128, H = 64;
@@ -297,8 +288,7 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
   Fragments points;
   points.bind(plot_arena(), 2);
 
-  // Equatorial quarter turn: ~36 sub-steps at the equatorial cadence, well past
-  // the lowered budget.
+  // Equatorial quarter turn: well past the lowered budget.
   Fragment a, b;
   a.pos = math::Vector(1.0f, 0.0f, 0.0f);
   b.pos = math::Vector(0.0f, 0.0f, 1.0f);
@@ -532,8 +522,7 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   HS_EXPECT_NEAR(
       balanced.alphas.front(),
       Plot::balanced_sample_alpha(0.4f, candidate_step / default_step), 1e-6f);
-  // Bhaskara sin/cos leaves the raw one_pass position up to 1.7e-3 off unit;
-  // the rasterizer's Newton correction holds it under 5e-6.
+  // Newton correction re-normalizes the off-unit Bhaskara sin/cos positions.
   for (const math::Vector &point : balanced.plotted)
     HS_EXPECT_NEAR(point.length(), 1.0f, 2e-5f);
 }

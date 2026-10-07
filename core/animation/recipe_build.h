@@ -179,10 +179,8 @@ protected:
    * @param sp Trans Speed divisor, >= 1.
    * @return Frames the whole chain occupies.
    * @details A smooth kis/needle macro spans more legs than its lowered step
-   * count: a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
-   * standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
-   * build_leg_frames[k] carries the dual-bridge budget the bridge splits by
-   * three; the truncate and reconcile legs draw fixed member budgets.
+   * count; build_leg_frames[k] carries its dual-bridge budget, and its truncate
+   * and reconcile legs draw fixed member budgets.
    */
   HS_COLD_MEMBER int plan_build_legs(float sp) {
     build_step = 0;
@@ -327,8 +325,7 @@ protected:
           persistent_arena, draw_build_fn, handoff, bookend));
       break;
     default:
-      // Neither DUAL nor KIS reaches here: both route through the smooth
-      // bridges above.
+      // DUAL and KIS route through the smooth bridges.
       HS_CHECK(false, "RecipeBuild: unsweepable primitive op reached a leg");
       break;
     }
@@ -513,10 +510,8 @@ protected:
    */
   HS_COLD_MEMBER void schedule_dual_medial() {
     ScratchScope handoff_guard(scratch_arena_a);
-    // Copy leg 1's landed palette into scratch_a before compacting away that
-    // finished leg; IDENTITY takes no centroids, since the medial leg sweeps
-    // ambo(P)'s faces in place. The persistent reset below leaves scratch_a
-    // intact.
+    // Copy leg 1's landed palette into scratch_a before compacting that leg
+    // away; the persistent reset leaves scratch_a intact.
     HS_CHECK(build_landing,
              "RecipeBuild: dual medial leg has no prior landing");
     const size_t medial_faces = build_landing->faces;
@@ -620,9 +615,8 @@ protected:
              "RecipeBuild: next seed larger than the leg landing");
     HS_CHECK(landed_faces <= MAX_BUILD_FACES,
              "RecipeBuild: next seed exceeds the slot palette capacity");
-    // The carry lives in the idle slot's face-palette array: the outgoing
-    // shape was dropped at the recipe spawn, and the array's same-address
-    // re-claim keeps the bytes across every boundary compaction.
+    // The carry lives in the idle slot's face-palette array, whose
+    // same-address re-claim keeps the bytes across compaction.
     uint8_t *carry =
         host().slot_face_palette[1 - host().carousel.front_index()];
     for (size_t f = 0; f < landed_faces; ++f)
@@ -820,10 +814,8 @@ protected:
    *        and hands the last leg's landed per-face colours to the sprite.
    */
   HS_COLD_MEMBER void finish_build() {
-    // The finished solid is build_seed (the last leg's clean endpoint): its
-    // face count is the emission-order prefix of the landing (the whole landing
-    // for a normal leg, the surviving dual faces for the DUAL bridge's closing
-    // truncate, whose zero-area corner births drop at the compile below).
+    // The finished solid's face count is an emission-order prefix of the
+    // landing.
     const size_t landed_faces = build_seed.face_counts.size();
     HS_CHECK(build_landing && landed_faces <= build_landing->faces,
              "RecipeBuild: finished solid larger than the leg landing");
@@ -836,8 +828,8 @@ protected:
         scratch_arena_b.allocate_n<uint16_t>(landed_faces);
     std::copy_n(build_landing->topology, landed_faces, landed_topology);
     const int front = host().carousel.front_index();
-    // Per-face sprite handoff: copied before the compaction below, whose
-    // same-address re-claim keeps the array's bytes.
+    // Per-face sprite handoff; the compaction's same-address re-claim keeps
+    // the array's bytes.
     for (size_t f = 0; f < landed_faces; ++f)
       host().slot_face_palette[front][f] = build_landing->landed_palette(f);
     build_landing = nullptr;

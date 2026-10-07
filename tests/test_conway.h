@@ -221,29 +221,8 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
  * @brief Runs every primitive Conway operator on one seed and checks Euler plus
  *        the operator's element census.
  * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
- * @details Checks each operator's result for two-face edge incidence and Euler
- *          characteristic 2, plus the vertex / face / index counts its emitters derive from the seed's
- *          (V, E, F):
- *            dual     F,      V,      2E
- *            kis      V+F,    2E,     6E
- *            ambo     E,      V+F,    4E
- *            truncate 2E,     V+F,    6E
- *            expand   2E,     V+F+E,  8E
- *            chamfer  V+2E,   F+E,    8E
- *            snub     2E,     V+F+2E, 10E
- *            gyro     V+F+2E, 2E,     10E
- *            meta     V+F+E,  4E,     12E
- *            needle   V+F,    2E,     6E
- *            zip      2E,     V+F,    6E
- *            bevel    4E,     V+F+E,  12E
- *          The compositions follow from their primitives: gyro = d(snub),
- *          meta = k(d(a)), needle = k(d), zip = d(k), bevel = t(a).
- *          A shrunk primary face carries its source face's side count and an
- *          orbit face its source vertex's degree, so most histograms are
- *          seed-dependent; VDEG/FDEG pin only the degree an operator makes
- *          uniform whatever the seed (0 leaves that histogram unpinned).
- *          Each op gets a fresh target/temp pair with the seed rebuilt into
- *          temp.
+ * @details VDEG/FDEG pin only the degree an operator makes uniform whatever
+ *          the seed; 0 leaves that histogram unpinned.
  */
 template <typename Solid> inline void check_euler_for_seed() {
   const int V = Solid::NUM_VERTS;
@@ -691,10 +670,8 @@ inline void test_relax_reduces_edge_variance() {
 /**
  * @brief Verifies relax's boundary-tolerant orbit fallback does the partial
  *        relaxation it documents, not nothing and not a collapse.
- * @details Two triangles sharing one edge: the outer edges are boundary edges
- *          (shared once), so the per-vertex orbit takes the boundary-tolerant
- *          path. Only the shared edge's endpoints feel a force; they must pull
- *          the over-long shared edge toward the mesh mean while staying on the
+ * @details Two triangles sharing one edge; only the shared edge's endpoints
+ *          feel a force, pulling it toward the mesh mean while staying on the
  *          sphere and apart.
  */
 inline void test_relax_open_mesh_partial() {
@@ -752,9 +729,7 @@ inline void test_relax_open_mesh_partial() {
 }
 
 // ---------------------------------------------------------------------------
-// Composition polarity: every operator, primitive or composed, returns its
-// output in `target` (even-length compositions start their ping-pong in
-// `temp`).
+// Composition polarity: every operator returns its output in `target`.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1261,10 +1236,9 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
 /**
  * @brief Verifies the parameterized operators match their single-shot entries
  *        when handed one prebuilt HalfEdgeMesh for a whole parameter sweep.
- * @details The seed and its connectivity live in `temp`, the arena the
- *          operators also use for scratch: they mark above it and rewind only
- *          to their entry offset, so one build survives every call. t = 0.5
- *          covers truncate's ambo short-circuit.
+ * @details The seed and half-edge mesh live in `temp`, which operators rewind
+ *          only to their entry offset. t = 0.5 covers truncate's ambo
+ *          short-circuit.
  */
 inline void test_conway_ops_reuse_prebuilt_half_edges() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
