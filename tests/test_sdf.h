@@ -175,6 +175,7 @@ inline int run_sdf_tests() {
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
+  test_face_hemisphere_clip_covers_fringe();
   test_face_azimuth_cull_matches_boundary_column();
   test_face_vertical_margin_tracks_pixel_width();
   test_face_latitude_pad_reduces_fringe_drops();
