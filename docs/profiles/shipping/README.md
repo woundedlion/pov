@@ -38,7 +38,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Fishbowl](profile_fishbowl_teensy_2026-10-06.md) | `fish_build_vertices` | 🟢 23.78 | 🟢 0/1087 (0.00%) | 2026-10-06 19:07 |
 | [CosmicEyeball](profile_cosmiceyeball_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.63 | 🟢 0/1087 (0.00%) | 2026-10-06 19:06 |
 | [AlienOcean](profile_alienocean_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 22.37 | 🟢 0/1087 (0.00%) | 2026-10-06 18:39 |
-| [GnomonicStars](profile_gnomonicstars_teensy_2026-10-06.md) | `gn_draw_stars` | 🟢 21.83 | 🟢 0/1087 (0.00%) | 2026-10-06 19:11 |
+| [GnomonicStars](profile_gnomonicstars_teensy_2026-10-07.md) | `gn_draw_stars` | 🟢 21.84 | 🟢 0/1087 (0.00%) | 2026-10-07 13:42 |
 | [MobiusGrid](profile_mobiusgrid_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 21.77 (2) | 🟢 0/2687 (0.00%) | 2026-10-06 18:08 |
 | [AlienCore](profile_aliencore_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 17.86 | 🟢 0/1087 (0.00%) | 2026-10-06 18:42 |
 | [PetalFlow](profile_petalflow_teensy_2026-10-06.md) | `pf_draw_rings` | 🟢 13.29 | 🟢 0/1087 (0.00%) | 2026-10-06 18:12 |
@@ -132,3 +132,5 @@ Preserved architecture snapshots, superseded in the ranking by the 2026-10-06 sw
 - [LatticeMelt 2026-10-01](profile_latticemelt_architecture_teensy_2026-10-01.md).
 - [ChromaticLichen 2026-10-01](profile_chromaticlichen_architecture_teensy_2026-10-01.md).
 - [KaleidoscopeSmooth 2026-10-01](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md).
+
+Experimental clock characterization: [GnomonicStars bounded-channel comparison](profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.

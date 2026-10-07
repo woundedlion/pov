@@ -34,7 +34,7 @@ full-roster image.
 
 Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Ship columns come from the 2026-10-06 full-roster sweep at `e2f5b0a3d`, except HyperLattice, re-captured after its 4D optimization at `a13c149d4`. Image
+render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill, 🟡 under 25% spill, 🔴 at least 25% spill. Ship columns come from the 2026-10-06 full-roster sweep at `e2f5b0a3d`, except HyperLattice, re-captured after its 4D optimization at `a13c149d4`, and GnomonicStars, re-captured on 2026-10-07 at `17390a7a1` with its original float clock and an added profiling scope. Image
 deltas belong to each O3 capture's own shipping pair, not to the linked
 2026-10-06 shipping report; MeshFeedback and KaleidoscopeStainedGlass use
 adjacent-source pairs (`63268c376` O3 versus `20ca3cb48` shipping), so their
@@ -74,7 +74,7 @@ predate the October 5 shipping optimization.
 | [Fishbowl](shipping/profile_fishbowl_teensy_2026-10-06.md) / [O3](O3/profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 23.78 | 🟢 21.29 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +27,856 B | +26,400 B | ship 2026-10-06 19:07<br>O3 2026-08-26 01:18 |
 | [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-10-06.md) / [O3](O3/profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 23.63 | 🟢 22.97 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +12,552 B | +10,320 B | ship 2026-10-06 19:06<br>O3 2026-08-26 03:05 |
 | [AlienOcean](shipping/profile_alienocean_teensy_2026-10-06.md) / [O3](O3/profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 22.37 | 🟢 24.98 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-06 18:39<br>O3 2026-08-26 02:28 |
-| [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-10-06.md) / [O3](O3/profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 21.83 | 🟢 26.29 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +12,184 B | +11,104 B | ship 2026-10-06 19:11<br>O3 2026-08-26 01:22 |
+| [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-10-07.md) / [O3](O3/profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 21.84 | 🟢 26.29 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +12,184 B | +11,104 B | ship 2026-10-07 13:42<br>O3 2026-08-26 01:22 |
 | [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-10-06.md) / [O3](O3/profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 21.77 (2) | 🟢 21.44 (3) | 🟢 0/2687 (0.00%) | 🟢 0/2688 (0%) | +13,448 B | +10,560 B | ship 2026-10-06 18:08<br>O3 2026-08-26 01:30 |
 | [AlienCore](shipping/profile_aliencore_teensy_2026-10-06.md) / [O3](O3/profile_aliencore_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 17.86 | 🟢 20.10 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-06 18:42<br>O3 2026-08-26 02:30 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-10-06.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 13.29 | 🟢 10.77 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-06 18:12<br>O3 2026-08-26 01:32 |
@@ -82,7 +82,7 @@ predate the October 5 shipping optimization.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-10-06.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-10-06 18:20<br>O3 2026-08-26 01:36 |
 
-Shipping columns re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`; setup frame 1 is excluded. The O3 columns, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
+Shipping columns re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4` and GnomonicStars at `17390a7a1` on 2026-10-07; setup frame 1 is excluded. The O3 columns, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
@@ -194,3 +194,5 @@ For the 2026-08-26 O3 cycler captures, the parser counted the unmarked
 startup run as an extra entry 0. Their parenthesized entry counts are the
 authored preset count plus one; raw logs are no longer available to rederive
 these buckets.
+
+Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.
