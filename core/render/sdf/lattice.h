@@ -20,13 +20,13 @@ enum class Domain : uint8_t { THREE_D, FOUR_D_SLICE };
 enum class ShellCount : uint8_t { ONE, TWO, THREE };
 using LatticeMode = Domain;
 struct Settings {
-  Domain mode = Domain::THREE_D;
-  float sphere_radius = 1;
-  float cell_size = 1;
-  float wire_radius = .055f;
-  float softness = .012f;
-  float aa_strength = 1;
-  ShellCount shells = ShellCount::TWO;
+  Domain mode = Domain::THREE_D; /**< Spatial domain. */
+  float sphere_radius = 1;       /**< Sphere radius in lattice cells. */
+  float cell_size = 1;           /**< World-space length of a lattice cell. */
+  float wire_radius = .055f;     /**< Wire radius in lattice cells. */
+  float softness = .012f;        /**< Wire edge softness in lattice cells. */
+  float aa_strength = 1;         /**< Unitless pixel-footprint multiplier. */
+  ShellCount shells = ShellCount::TWO; /**< Crossing shell count. */
 };
 struct PreparedTrace {
   Settings params;
