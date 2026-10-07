@@ -460,6 +460,55 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   HS_EXPECT_GT(interior, 0);
 }
 
+/** @brief Face arc bounds retain northern, southern and endpoint extrema. */
+inline void test_face_arc_extrema_bounds() {
+  constexpr double PI_D = 3.14159265358979323846;
+  const double intervals[][2] = {{-0.9, 0.7},
+                                 {0.1, 0.9},
+                                 {-0.9, -0.1},
+                                 {-1e-7, 0.6},
+                                 {1e-7, 0.6},
+                                 {-0.6, -1e-7},
+                                 {-0.6, 1e-7},
+                                 {2.4, 3.8},
+                                 {PI_D - 1e-7, PI_D + 0.6},
+                                 {PI_D + 1e-7, PI_D + 0.6},
+                                 {PI_D - 0.6, PI_D - 1e-7},
+                                 {PI_D - 0.6, PI_D + 1e-7}};
+  for (double latitude : {0.005, 0.04, 0.3, 1.0, PI_D * 0.5 - 1e-4})
+    for (double azimuth : {0.0, 0.37, 1.2, 2.8})
+      for (const auto &interval : intervals) {
+        const double first = interval[0], last = interval[1];
+        auto point = [&](double t) {
+          return math::Vector(
+                     std::sin(azimuth) * std::cos(latitude) * std::cos(t) +
+                         std::cos(azimuth) * std::sin(t),
+                     std::sin(latitude) * std::cos(t),
+                     std::cos(azimuth) * std::cos(latitude) * std::cos(t) -
+                         std::sin(azimuth) * std::sin(t))
+              .normalized();
+        };
+        double min_y = std::min(std::sin(latitude) * std::cos(first),
+                                std::sin(latitude) * std::cos(last));
+        double max_y = std::max(std::sin(latitude) * std::cos(first),
+                                std::sin(latitude) * std::cos(last));
+        if (first < 0.0 && last > 0.0)
+          max_y = std::sin(latitude);
+        if (first < PI_D && last > PI_D)
+          min_y = -std::sin(latitude);
+        for (bool reverse : {false, true}) {
+          const math::Vector a = point(reverse ? last : first);
+          const math::Vector b = point(reverse ? first : last);
+          const math::Vector n = math::cross(a, b).normalized();
+          float min_phi = math::fast_acos(std::max(a.y, b.y));
+          float max_phi = math::fast_acos(std::min(a.y, b.y));
+          SDF::Face::refine_phi_from_arc_extremum(n, a, b, min_phi, max_phi);
+          HS_EXPECT_NEAR(min_phi, std::acos(max_y), 2e-4);
+          HS_EXPECT_NEAR(max_phi, std::acos(min_y), 2e-4);
+        }
+      }
+}
+
 /**
  * @brief Verifies the cull covers a Line whose antipodal endpoints select no arc.
  * @details With antipodal endpoints distance() measures the whole great
