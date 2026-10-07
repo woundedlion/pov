@@ -42,7 +42,7 @@ struct FaceScratchBuffer {
       edge_lengths_sq; /**< Per-edge squared lengths. */
   std::array<math::Vector, MAX_VERTS>
       planes; /**< Compacted great-circle normals during bounds; then admitted
-                  sector rays (minimum-radius x/y, vertex radius squared z). */
+                  sector rays (unit direction x/y, minimum radius z). */
   std::array<Interval, MAX_INTERVALS>
       intervals;                       /**< Azimuth coverage intervals. */
   std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
@@ -174,7 +174,7 @@ struct Face {
   std::span<const uint32_t>
       sector_keys; /**< Strictly increasing unwrapped angle keys, count+1. */
   std::span<const math::Vector>
-      sector_rays; /**< Minimum-radius ray points (x/y), vertex radius squared (z). */
+      sector_rays; /**< Unit ray directions (x/y), minimum boundary radius (z). */
   float sector_min_radius_sq =
       0.0f; /**< Conservative squared origin-to-boundary distance. */
   float sector_base = 0.0f; /**< First unwrapped pseudo-angle, sgn-folded. */

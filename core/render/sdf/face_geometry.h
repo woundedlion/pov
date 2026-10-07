@@ -107,7 +107,7 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
    */
 __attribute__((always_inline)) void
 compute_inradius(const FaceScratchBuffer &scratch) {
-  float min_edge_dist = 1e9f;
+  float min_edge_dist_sq = 1e18f;
   for (int i = 0; i < count; ++i) {
     const math::Vector &v1 = scratch.poly_2d[i];
     const math::Vector &edge = scratch.edge_vectors[i];
@@ -118,10 +118,10 @@ compute_inradius(const FaceScratchBuffer &scratch) {
       t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
     }
     math::Vector closest = v1 + edge * t;
-    float d_line = closest.magnitude();
-
-    min_edge_dist = __builtin_fminf(d_line, min_edge_dist);
+    min_edge_dist_sq =
+        __builtin_fminf(math::dot(closest, closest), min_edge_dist_sq);
   }
+  const float min_edge_dist = sqrtf(min_edge_dist_sq);
   const float min_radius =
       __builtin_fmaxf(0.0f, min_edge_dist - radius * 1e-5f);
   sector_min_radius_sq = min_radius * min_radius;
@@ -270,11 +270,12 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
       sector_min_radius_sq = 0.0f;
       break;
     }
+  const float min_radius = sqrtf(sector_min_radius_sq);
   for (int i = 0; i < count; ++i) {
     const auto &v = poly_2d[i];
     const float len_sq = v.x * v.x + v.y * v.y;
-    const float scale = sqrtf(sector_min_radius_sq / len_sq);
-    scratch.planes[i] = math::Vector(v.x * scale, v.y * scale, len_sq);
+    const float scale = 1.0f / sqrtf(len_sq);
+    scratch.planes[i] = math::Vector(v.x * scale, v.y * scale, min_radius);
   }
   sector_rays = std::span<const math::Vector>(scratch.planes.data(), count);
   sector_ok = true;
@@ -867,7 +868,8 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
    * neighboring vertex rows. Unvisited segments lie outside the visited strip;
    * its vertical gaps bound their distance. Requires a populated y-walk cache.
    */
-HS_O3_FN float plane_dsq_y_walk(float px, float py, bool &inside_out) const {
+HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
+                                                    bool &inside_out) const {
   float d = FLT_MAX;
   auto edge_dsq = [&](int i) {
     const auto &ep = packed_edges[i];
@@ -934,12 +936,15 @@ HS_O3_FN float plane_dsq_y_walk(float px, float py, bool &inside_out) const {
    * @param py Gnomonic y of the query point.
    * @param inside_out Set true when the query lies inside the polygon; carries
    * the sign the squared return cannot.
-   * @return Squared distance to the nearest edge, in the tangent plane.
+   * @param reject_dsq Outside squared distances at or above this threshold
+   * may return the threshold; FLT_MAX keeps the distance exact.
+   * @return Squared distance to the nearest edge, capped outside when requested.
    * @details Searches the fan sector and its neighbors, certifying the minimum
    * against the omitted edges' angular wedge and radial bound, expanding until
    * certified or every segment has been evaluated. Requires sector_ok.
    */
-HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
+HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out,
+                                float reject_dsq = FLT_MAX) const {
   float p = pseudo_angle(py, px) * sector_sgn;
   if (p < sector_base)
     p += 4.0f;
@@ -961,7 +966,11 @@ HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
       (bx - by) * sector_sgn <= (fabsf(bx) + fabsf(by)) * 1e-6f)
     return plane_dsq_exact(px, py, inside_out);
 
-  float d = FLT_MAX;
+  const auto &edge = packed_edges[s];
+  inside_out =
+      (edge.ex * (py - edge.vy) - edge.ey * (px - edge.vx)) * sector_sgn >=
+      0.0f;
+  float d = inside_out ? FLT_MAX : reject_dsq;
   auto edge_dsq = [&](int idx) {
     const auto &ep = packed_edges[idx];
     float wx = px - ep.vx, wy = py - ep.vy;
@@ -969,29 +978,20 @@ HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
     float bx = wx - ep.ex * t, by = wy - ep.ey * t;
     d = __builtin_fminf(bx * bx + by * by, d);
   };
-  int first = s - 1;
-  if (first < 0)
-    first += count;
-  int last = s + 2;
-  if (last >= count)
-    last -= count;
-  edge_dsq(first);
+  int first = s;
+  int last = s + 1 == count ? 0 : s + 1;
   edge_dsq(s);
-  edge_dsq(s + 1 == count ? 0 : s + 1);
-  int remaining = count - 3;
+  int remaining = count - 1;
   // Unvisited segments lie beyond the minimum-radius disk in this arc.
   auto ray_excludes = [&](int vertex) {
-    const auto &v = poly_2d[vertex];
     const auto &ray = sector_rays[vertex];
     const float rx = ray.x, ry = ray.y;
-    if (px * rx + py * ry < sector_min_radius_sq) {
-      const float dx = px - rx, dy = py - ry;
+    if (px * rx + py * ry < ray.z) {
+      const float dx = px - rx * ray.z, dy = py - ry * ray.z;
       return d < (dx * dx + dy * dy) * (1.0f - 1e-5f);
     }
-    if (px * v.x + py * v.y <= 0.0f)
-      return d < (px * px + py * py) * (1.0f - 1e-5f);
-    const float cross = px * v.y - py * v.x;
-    return d * ray.z < cross * cross * (1.0f - 1e-5f);
+    const float cross = px * ry - py * rx;
+    return d < cross * cross * (1.0f - 1e-5f);
   };
   bool left_excluded = false, right_excluded = false;
   while (remaining > 0) {
@@ -1013,10 +1013,6 @@ HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
       --remaining;
     }
   }
-  const auto &edge = packed_edges[s];
-  inside_out =
-      (edge.ex * (py - edge.vy) - edge.ey * (px - edge.vx)) * sector_sgn >=
-      0.0f;
   return d;
 }
 
@@ -1159,7 +1155,9 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
       float dsq;
       if (probe_flags & PROBE_SECTOR) {
         HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
-        dsq = plane_dsq_sector(px, py, inside);
+        dsq = plane_dsq_sector(px, py, inside,
+                               (probe_flags & PROBE_LINEAR) ? reject_dsq
+                                                            : FLT_MAX);
         HS_PROBE_SPAN(edge_sector, hs_t);
         HS_PROBE_COUNT(n_sector);
       } else {
