@@ -219,6 +219,8 @@ inline void test_face_asymmetric_sector_matches_oracle() {
       SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144),
                      144);
       HS_EXPECT_TRUE(face.sector_ok);
+      if (!face.sector_ok)
+        continue;
       for (bool zero_radius : {false, true}) {
         if (zero_radius) {
           face.sector_min_radius_sq = 0.0f;
