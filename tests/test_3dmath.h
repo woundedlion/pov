@@ -41,9 +41,9 @@ inline void test_projection_pattern_bounds() {
   HS_EXPECT_EQ(interior.im, -12.0f);
   HS_EXPECT_EQ(projections::pole_attenuation(0.0f, 2.0f), 1.0f);
   float previous = 1.0f;
-  for (float radius_sq : {0.0f, 1.0f, 4.0f, 100.0f}) {
+  for (float radius_sq : {1.0f, 4.0f, 100.0f}) {
     const float attenuation = projections::pole_attenuation(radius_sq, 2.0f);
-    HS_EXPECT_LE(attenuation, previous);
+    HS_EXPECT_LT(attenuation, previous);
     HS_EXPECT_GT(attenuation, 0.0f);
     previous = attenuation;
     HS_EXPECT_TRUE(
@@ -51,7 +51,9 @@ inline void test_projection_pattern_bounds() {
     HS_EXPECT_TRUE(std::isfinite(
         projections::pole_normalize_pattern(-1.0f, radius_sq, 0.0f)));
   }
+  HS_EXPECT_EQ(projections::pole_attenuation(4.0f, 2.0f), 0.5f);
   HS_EXPECT_EQ(projections::pole_normalize_pattern(1.0f, 0.0f, 0.0f), 1.0f);
+  HS_EXPECT_EQ(projections::pole_normalize_pattern(1.0f, 4.0f, 2.0f), 0.75f);
 }
 
 // ============================================================================
