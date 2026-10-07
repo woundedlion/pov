@@ -408,10 +408,14 @@ inline void test_beacon_late_coast() {
   const uint32_t period = cfg.cycles_per_half_rev;
 
   uint32_t late_dropped = 0;
+  struct PulseCounts {
+    uint32_t beacon = 0;
+    uint32_t half = 0;
+  };
   // Resume the master's first post-ZERO tick of the beacon-due revolution at
-  // `resume_col` plus `sub_col` cycles; return the beacon pulses emitted in
-  // [W/4, W/2).
-  auto run = [&](int32_t resume_col, uint32_t sub_col = 0) -> int {
+  // `resume_col` plus `sub_col` cycles, then tick on column boundaries; count
+  // beacon and HALF boundary pulses.
+  auto run = [&](int32_t resume_col, uint32_t sub_col = 0) -> PulseCounts {
     SyncBoard m(cfg);
     const uint32_t t0 = 1000000u;
     m.seed(t0, /*is_master=*/true);
@@ -425,7 +429,7 @@ inline void test_beacon_late_coast() {
     m.tick(epoch1 + 2u * COL, nullptr);
     m.tick(epoch1 + 4u * COL, nullptr);
 
-    int pulses = 0;
+    PulseCounts pulses;
     for (int32_t c = resume_col; c <= 150; ++c) {
       // Truncated cycles_per_column() falls before column c; position() floors
       // that instant to c-1, so use the rounded-up rational instant.
@@ -433,10 +437,12 @@ inline void test_beacon_late_coast() {
           epoch1 +
           static_cast<uint32_t>((static_cast<uint64_t>(c) * period + 143u) /
                                 144u) +
-          sub_col;
+          (c == resume_col ? sub_col : 0u);
       const TickActions a = m.tick(at, nullptr);
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
-        ++pulses;
+        ++pulses.beacon;
+      if (a.pulse && c >= cfg.W / 2 && c < cfg.W / 2 + 4)
+        ++pulses.half;
     }
     late_dropped = m.telemetry_snapshot().beacons_late_dropped;
     return pulses;
@@ -453,17 +459,21 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_GT(last_start, cfg.W / 4);
 
   // On-time at the beacon point: the frame schedules and emits fully.
-  HS_EXPECT_GT(run(cfg.W / 4), 0);
+  HS_EXPECT_GT(run(cfg.W / 4).beacon, 0u);
   // The last admissible start still emits.
-  HS_EXPECT_GT(run(last_start), 0);
+  HS_EXPECT_GT(run(last_start).beacon, 0u);
   HS_EXPECT_EQ(late_dropped, 0u);
   // A late start is censored; the HALF boundary still emits.
-  HS_EXPECT_EQ(run(last_start + 1), 0);
+  const PulseCounts late = run(last_start + 1);
+  HS_EXPECT_EQ(late.beacon, 0u);
+  HS_EXPECT_EQ(late.half, symbol_pulse_count(Symbol::HALF));
   // The skip is counted once for the revolution, not once per late tick.
   HS_EXPECT_EQ(late_dropped, 1u);
   // Resuming part-way through the last admissible column is late too: the
   // frame's last pulse may trail its due time by the emitter's lateness budget.
-  HS_EXPECT_EQ(run(last_start, COL / 2 + COL / 8), 0);
+  const PulseCounts sub_col_late = run(last_start, COL / 2 + COL / 8);
+  HS_EXPECT_EQ(sub_col_late.beacon, 0u);
+  HS_EXPECT_EQ(sub_col_late.half, symbol_pulse_count(Symbol::HALF));
   HS_EXPECT_EQ(late_dropped, 1u);
 }
 
