@@ -93,7 +93,7 @@ isr_dma_submit    144.0/f  0.58/0.93/9.18 us  CPU 0.21%
 
 - Rate/frame and min/mean/max per call are shown; pack plus submit costs 1.090 ms/frame. Submission overhead is smaller than pixel packing.
 - LED transmission is asynchronous at 24 MHz: the 72-LED image-plus-black composite is 600 bytes, approximately 230 µs including LPSPI byte framing, within the 434 µs column interval. These counters measure CPU marshaling, not wire occupancy.
-- ISR share is 4.49% of elapsed capture windows, leaving approximately 59.69 ms CPU time per display interval. ISR time is already included in render measurements; do not subtract it twice. Neither regime needs a speedup to meet 16 fps.
+- Inclusive flywheel ISR (`isr_wake`) share is 2.75% of elapsed capture windows, leaving approximately 60.78 ms CPU time per display interval; `isr_pack` and `isr_dma_submit` are nested inside it, not additional. DMA-completion and other interrupts are not measured. ISR time is already included in render measurements; do not subtract it twice. Neither regime needs a speedup to meet 16 fps.
 
 ## Summary ranking
 

@@ -70,7 +70,7 @@ isr_dma_submit    144.8/frame  min/avg/max 0.65/0.93/1.10 us  cpu 0.21%
 
 - Packing and submit are CPU marshaling costs; their relative totals are reported above without treating asynchronous LED transfer as render work.
 - LED wire transfer runs asynchronously; display synchronization remains isolated in the effect's `*_buffer_wait` scope.
-- The selected window's ISR counters total 4.72% CPU. The worst render requires 0.0% speedup to fit one 62.5 ms interval (zero means it already fits).
+- The selected window's inclusive flywheel ISR (`isr_wake`) share is 2.90% CPU; `isr_pack` and `isr_dma_submit` are nested inside it, not additional. DMA-completion and other interrupts are not measured. The worst render requires 0.0% speedup to fit one 62.5 ms interval (zero means it already fits).
 
 ## Summary ranking
 
