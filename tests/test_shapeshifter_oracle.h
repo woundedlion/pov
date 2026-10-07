@@ -28,7 +28,8 @@ constexpr uint32_t BRIGHT_ENERGY = 12288;
 constexpr uint32_t COVERAGE_ENERGY = 512;
 constexpr uint32_t HIGH_CHANNEL_ERROR = 4096;
 
-/** Measured star baselines and their headroom multipliers. */
+/** Measured oracle-matrix energy drift and high-count star error baselines,
+ * with headroom multipliers. */
 constexpr double WHOLE_FRAME_HEADROOM = 1.2;
 constexpr double WORST_PIXEL_HEADROOM = 1.5;
 constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 187.5;
