@@ -367,8 +367,10 @@ add_test(NAME unit_header_sections COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_header_sections_selftest.cmake)
 
 # Check reachability and assertion reach for column-0 void/bool/int/size_t
-# cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Shared
-# helpers resolve across tests/ and tools/; member definitions are excluded.
+# cases in tests/*.h and tests/*.hpp, including run_*_cases drivers. Death
+# case_* definitions in test_death.h need reachability but not assertion reach.
+# Shared helpers resolve across tests/ and tools/; member definitions are
+# excluded.
 add_test(NAME unit_case_calls COMMAND ${CMAKE_COMMAND}
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/case_calls.sha256
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
