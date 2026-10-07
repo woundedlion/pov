@@ -3,15 +3,15 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% spill and 🔴 is at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-06.md) § | `msp_draw_particles` | 🟢 56.60 (8) | 🟢 0/1727 (0.00%) | 2026-10-06 18:32 |
+| [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 55.842 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 14:12 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-06.md) § | `ss_draw_all` | 🟢 54.27 (9) | 🟢 0/2447 (0.00%) | 2026-10-06 18:29 |
 | [Raymarch](profile_raymarch_teensy_2026-10-06.md) | `rm_shader_draw` | 🟢 51.95 | 🟢 0/1087 (0.00%) | 2026-10-06 18:17 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-06.md) § | `hl_shader_draw` | 🟢 51.77 (9) | 🟢 0/5487 (0.00%) | 2026-10-06 20:43 |
-| [IslamicStars](profile_islamicstars_teensy_2026-10-06.md) § | `is_timeline_step` | 🟢 49.86 (23) | 🟢 0/3327 (0.00%) | 2026-10-06 18:23 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-06.md) | `hf_render_trails` | 🟢 48.61 | 🟢 0/1087 (0.00%) | 2026-10-06 18:03 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-06.md) § | `mf_feedback_flush` | 🟢 48.53 (12) | 🟢 0/6687 (0.00%) | 2026-10-06 18:18 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
@@ -25,7 +25,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [LatticeMelt](profile_latticemelt_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 35.83 (2) | 🟢 0/1727 (0.00%) | 2026-10-06 18:55 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 35.53 | 🟢 0/1087 (0.00%) | 2026-10-06 18:57 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 34.97 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:45 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-10-06.md) § | `hk_timeline_step` | 🟢 34.63 (19) | 🟢 0/4447 (0.00%) | 2026-10-06 19:12 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-10-07.md) § ● | `hk_timeline_step` | 🟢 34.681 (19) | 🟢 0/4447 (0.00%) | 2026-10-07 14:18 |
 | [DisplacementField](profile_displacementfield_teensy_2026-10-06.md) | `df_timeline_step` | 🟢 33.66 | 🟢 0/2527 (0.00%) | 2026-10-06 19:24 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 32.02 (4) | 🟢 0/4127 (0.00%) | 2026-10-06 18:55 |
 | [Comets](profile_comets_teensy_2026-10-06.md) § | `cm_draw_trail` | 🟢 31.92 (12) | 🟢 0/4127 (0.00%) | 2026-10-06 18:07 |
@@ -46,11 +46,13 @@ Rows rank by any spill, then peak render. 🟢 is zero spill, 🟡 is under 25% 
 | [Voronoi](profile_voronoi_teensy_2026-10-06.md) | `vo_shade` | 🟢 8.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:25 |
 | [RingShower](profile_ringshower_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 
-The roster was re-captured on 2026-10-06 at `e2f5b0a3d` across two boards
-(COM3 and COM4), except HyperLattice, re-captured after its 4D optimization at
-`a13c149d4`; its linked report records the 51.774 ms peak. Each report names its
-board. Setup frame 1 is excluded from every
-peak and spill figure; each report states its frame-1 render.
+The full-roster sweep was captured on 2026-10-06 at `e2f5b0a3d` across COM3
+and COM4, except HyperLattice, re-captured after its 4D optimization at
+`a13c149d4`; its linked report records the 51.774 ms peak. GnomonicStars was
+re-captured on October 7; its report records the source and clock variant.
+● marks the October 7 IslamicStars and HankinSolids optimized face-distance
+measurements. Each report names its board and source snapshot; setup frame 1
+is excluded from peak and spill figures.
 
 HankinSolids, HyperLattice and DisplacementField were re-captured with longer
 budgets than `tools/profile_sweep.sh` assigns them, so that each capture covers its
@@ -63,13 +65,13 @@ Spill fractions include the transition following an entry and are stricter than 
 - **HyperLattice**: 9 parser ownership buckets spanning 26.22–51.77 ms.
 - **MindSplatter**: 8 parser ownership buckets spanning 22.99–56.60 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 6.28–54.27 ms.
-- **IslamicStars**: 23 parser ownership buckets spanning 19.94–49.86 ms.
+- **IslamicStars**: 23 parser ownership buckets spanning 22.797–55.842 ms.
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.71–48.53 ms.
 - **DreamBalls**: 10 parser ownership buckets spanning 14.27–41.44 ms.
 - **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 36.83–37.08 ms.
 - **LatticeMelt**: 2 parser ownership buckets spanning 35.77–35.83 ms.
 - **KaleidoscopeMandala**: 2 parser ownership buckets spanning 34.40–34.97 ms.
-- **HankinSolids**: 19 parser ownership buckets spanning 14.49–34.63 ms.
+- **HankinSolids**: 19 parser ownership buckets spanning 14.569–34.681 ms (18 named shapes plus startup).
 - **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 27.36–32.02 ms.
 - **Comets**: 12 parser ownership buckets spanning 17.05–31.92 ms.
 - **KaleidoscopeFlowers**: 3 parser ownership buckets spanning 30.78–31.42 ms.

@@ -120,6 +120,9 @@ compute_inradius(const FaceScratchBuffer &scratch) {
 
     min_edge_dist = __builtin_fminf(d_line, min_edge_dist);
   }
+  const float min_radius =
+      __builtin_fmaxf(0.0f, min_edge_dist - radius * 1e-5f);
+  sector_min_radius_sq = min_radius * min_radius;
   size = __builtin_fmaxf(min_edge_dist, radius * MIN_SIZE_RADIUS_RATIO);
   linear_dist = size < 0.2f;
   // distance() reports radians for a large face; the same fast_atan2 keeps
@@ -161,6 +164,8 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
    */
 __attribute__((always_inline)) void
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
+  ::new (static_cast<void *>(&scratch.half_planes))
+      std::array<HalfPlane, FaceScratchBuffer::MAX_VERTS>;
   bool pos = false, neg = false;
   const math::Vector *e1 = &edge_vectors[count - 1];
   float l1 = edge_lengths_sq[count - 1];
@@ -210,9 +215,8 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
    * pseudo-angles.
    * @details Qualifies non-convex faces with at least SECTOR_MIN_COUNT
    * vertices that are star-shaped about the projected centroid (vertex
-   * pseudo-angles monotonic over one full turn). Strictly monotonic faces bin
-   * exactly (K1); a worst backtrack within SECTOR_MONO_TOL bins to within a
-   * neighbor (K2). Otherwise sector_ok stays false.
+   * pseudo-angles strictly monotonic over one full turn, with every edge
+   * facing the origin). Otherwise sector_ok stays false.
    */
 __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
   sector_ok = false;
@@ -233,14 +237,8 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
     scratch.pseudo_angles[i] = acc;
     prev = a;
   }
-  // Star-shaped about the centroid <=> exactly one full turn with no vertex
-  // backtracking. Reject a wrong total turn: the sectors would overlap or
-  // leave a gap.
   if (fabsf(fabsf(total) - 4.0f) > 1e-3f)
     return;
-  // Fold the winding into the table: pseudo_angles becomes weakly increasing
-  // whichever way the polygon is wound, so the probe search compares one
-  // direction. Scaling by +/-1 is exact, so every step and bin is unchanged.
   float sgn = (total >= 0.0f) ? 1.0f : -1.0f;
   float min_step = FLT_MAX;
   float prev_s = scratch.pseudo_angles[0] * sgn;
@@ -251,19 +249,68 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
     min_step = __builtin_fminf(cur - prev_s, min_step);
     prev_s = cur;
   }
-  // min_step > 0: K1 bins exactly. A backtrack within SECTOR_MONO_TOL can bin
-  // one neighbor off: K2.
-  if (min_step <= -SECTOR_MONO_TOL)
+  if (min_step <= 0.0f)
     return;
-  sector_kmax = (min_step > 0.0f) ? 1 : SECTOR_KMAX_MAX;
+  for (int i = 0; i < count; ++i) {
+    const auto &a = poly_2d[i];
+    const auto &b = poly_2d[i + 1];
+    if ((a.x * b.y - a.y * b.x) * sgn <= 0.0f)
+      return;
+  }
   for (int i = 0; i <= count; ++i)
     scratch.sector_keys[i] = angle_key(scratch.pseudo_angles[i]);
   sector_keys =
       std::span<const uint32_t>(scratch.sector_keys.data(), count + 1);
   sector_base = scratch.pseudo_angles[0];
-  sector_span = total * sgn;
   sector_sgn = sgn;
+  for (int i = 0; i < count; ++i)
+    if (inv_edge_lengths_sq[i] == 0.0f) {
+      sector_min_radius_sq = 0.0f;
+      break;
+    }
+  for (int i = 0; i < count; ++i) {
+    const auto &v = poly_2d[i];
+    const float len_sq = v.x * v.x + v.y * v.y;
+    const float scale = sqrtf(sector_min_radius_sq / len_sq);
+    scratch.planes[i] = math::Vector(v.x * scale, v.y * scale, len_sq);
+  }
+  sector_rays = std::span<const math::Vector>(scratch.planes.data(), count);
   sector_ok = true;
+}
+
+/** @brief Builds vertex-row crossing masks for exact non-convex probes. */
+__attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
+  if (convex || sector_ok || count < SECTOR_MIN_COUNT)
+    return;
+  ::new (static_cast<void *>(&scratch.y_walk)) FaceScratchBuffer::YWalkCache;
+  auto &cache = scratch.y_walk;
+  for (int i = 0; i < count; ++i)
+    cache.indices[i] = static_cast<uint8_t>(i);
+  std::sort(cache.indices.begin(), cache.indices.begin() + count,
+            [&](uint8_t a, uint8_t b) { return poly_2d[a].y < poly_2d[b].y; });
+  uint64_t active = 0;
+  for (int first = 0; first < count;) {
+    int last = first + 1;
+    const float y = poly_2d[cache.indices[first]].y;
+    while (last < count && poly_2d[cache.indices[last]].y == y)
+      ++last;
+    for (int j = first; j < last; ++j) {
+      const int vertex = cache.indices[j];
+      const int previous = vertex == 0 ? count - 1 : vertex - 1;
+      if (poly_2d[vertex].y != poly_2d[vertex + 1].y)
+        active ^= uint64_t{1} << vertex;
+      if (poly_2d[previous].y != poly_2d[previous + 1].y)
+        active ^= uint64_t{1} << previous;
+    }
+    for (int j = first; j < last; ++j) {
+      scratch.pseudo_angles[j] = y;
+      cache.masks[j] = active;
+    }
+    first = last;
+  }
+  y_coordinates = std::span<const float>(scratch.pseudo_angles.data(), count);
+  y_masks = std::span<const uint64_t>(cache.masks.data(), count);
+  y_indices = std::span<const uint8_t>(cache.indices.data(), count);
 }
 
 /**
@@ -778,6 +825,8 @@ HS_O3_FN float plane_dist_convex(float px, float py) const {
    * @return Squared distance to the nearest edge, in the tangent plane.
    */
 HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
+  if (!y_coordinates.empty())
+    return plane_dsq_y_walk(px, py, inside_out);
   float d = FLT_MAX;
   bool inside = false;
   const uint32_t qk = angle_key(py);
@@ -800,25 +849,87 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
 }
 
 /**
+   * @brief Exact squared distance and parity by sorted vertex-row traversal.
+   * @details Checks all edges crossing the query row, then incident edges at
+   * neighboring vertex rows. Unvisited segments lie outside the visited strip;
+   * its vertical gaps bound their distance. Requires a populated y-walk cache.
+   */
+HS_O3_FN float plane_dsq_y_walk(float px, float py, bool &inside_out) const {
+  float d = FLT_MAX;
+  uint64_t visited = 0;
+  auto edge_dsq = [&](int i) {
+    const uint64_t bit = uint64_t{1} << i;
+    if (visited & bit)
+      return;
+    visited |= bit;
+    const auto &ep = packed_edges[i];
+    const float wx = px - ep.vx, wy = py - ep.vy;
+    const float t =
+        hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
+    const float bx = wx - ep.ex * t, by = wy - ep.ey * t;
+    d = __builtin_fminf(d, bx * bx + by * by);
+  };
+  int lo = -1, hi = count;
+  while (lo + 1 < hi) {
+    const int mid = (lo + hi) >> 1;
+    if (y_coordinates[mid] <= py)
+      lo = mid;
+    else
+      hi = mid;
+  }
+  bool inside = false;
+  uint64_t active = lo < 0 ? 0 : y_masks[lo];
+  while (active) {
+    const int i = std::countr_zero(active);
+    active &= active - 1;
+    edge_dsq(i);
+    const auto &ep = packed_edges[i];
+    if (ep.key_vy != ep.key_next_vy) {
+      const float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+      if (px < isx)
+        inside = !inside;
+    }
+  }
+  inside_out = inside;
+  int left = lo, right = lo + 1;
+  while (left >= 0 || right < count) {
+    const float left_gap = left >= 0 ? py - y_coordinates[left] : FLT_MAX;
+    const float right_gap = right < count ? y_coordinates[right] - py : FLT_MAX;
+    const bool left_far = left < 0 || left_gap * left_gap > d * (1.0f + 1e-5f);
+    const bool right_far =
+        right >= count || right_gap * right_gap > d * (1.0f + 1e-5f);
+    if (left_far && right_far)
+      break;
+    if (!left_far) {
+      const int vertex = y_indices[left--];
+      edge_dsq(vertex);
+      edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
+    }
+    if (!right_far) {
+      const int vertex = y_indices[right++];
+      edge_dsq(vertex);
+      edge_dsq(vertex == 0 ? count - 1 : vertex - 1);
+    }
+  }
+  return d;
+}
+
+/**
    * @brief Squared planar distance via the concave sector walk.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
    * @param inside_out Set true when the query lies inside the polygon; carries
    * the sign the squared return cannot.
    * @return Squared distance to the nearest edge, in the tangent plane.
-   * @details Bins the query into its fan sector by pseudo-angle (a binary
-   * search over the monotonic vertex angle_keys), then takes the exact min
-   * segment distance over only that sector's edge and its sector_kmax neighbors
-   * each side (K1 = 1 for strict faces, K2 = 2 for mildly-bent faces whose bin
-   * can land a neighbor off). The sign uses the nearest selected edge, with
-   * both incident edges tested when its nearest point is a vertex. Requires
-   * sector_ok.
+   * @details Searches the fan sector and its neighbors, certifying the minimum
+   * against the omitted edges' angular wedge and radial bound, expanding until
+   * certified or every segment has been evaluated. Requires sector_ok.
    */
 HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
   float p = pseudo_angle(py, px) * sector_sgn;
-  float rel = (p - sector_base) / sector_span; // -> [0, 1) after the fold
-  rel -= floorf(rel);
-  uint32_t qk = angle_key(sector_base + rel * sector_span);
+  if (p < sector_base)
+    p += 4.0f;
+  uint32_t qk = angle_key(p);
   int lo = 0, hi = count;
   while (lo + 1 < hi) {
     int mid = (lo + hi) >> 1;
@@ -828,46 +939,70 @@ HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
       hi = mid;
   }
   int s = lo;
+  const auto &sector_start = poly_2d[s];
+  const auto &sector_end = poly_2d[s + 1];
+  const float ax = sector_start.x * py, ay = sector_start.y * px;
+  const float bx = px * sector_end.y, by = py * sector_end.x;
+  if ((ax - ay) * sector_sgn <= (fabsf(ax) + fabsf(ay)) * 1e-6f ||
+      (bx - by) * sector_sgn <= (fabsf(bx) + fabsf(by)) * 1e-6f)
+    return plane_dsq_exact(px, py, inside_out);
 
   float d = FLT_MAX;
-  int nearest = s;
-  float nearest_t = 0.5f;
-  // kmax < SECTOR_MIN_COUNT <= count, so one wrap correction suffices.
-  int idx = s - sector_kmax;
-  if (idx < 0)
-    idx += count;
-  for (int k = -sector_kmax; k <= sector_kmax; ++k) {
-    const int edge_index = idx;
+  auto edge_dsq = [&](int idx) {
     const auto &ep = packed_edges[idx];
-    if (++idx == count)
-      idx = 0;
     float wx = px - ep.vx, wy = py - ep.vy;
     float t = hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
     float bx = wx - ep.ex * t, by = wy - ep.ey * t;
-    float dsq = bx * bx + by * by;
-    if (dsq < d) {
-      d = dsq;
-      nearest = edge_index;
-      nearest_t = t;
+    d = __builtin_fminf(bx * bx + by * by, d);
+  };
+  int first = s - 1;
+  if (first < 0)
+    first += count;
+  int last = s + 2;
+  if (last >= count)
+    last -= count;
+  edge_dsq(first);
+  edge_dsq(s);
+  edge_dsq(s + 1 == count ? 0 : s + 1);
+  int remaining = count - 3;
+  // Unvisited segments lie beyond the minimum-radius disk in this arc.
+  auto ray_excludes = [&](int vertex) {
+    const auto &v = poly_2d[vertex];
+    const auto &ray = sector_rays[vertex];
+    const float rx = ray.x, ry = ray.y;
+    if (px * rx + py * ry < sector_min_radius_sq) {
+      const float dx = px - rx, dy = py - ry;
+      return d < (dx * dx + dy * dy) * (1.0f - 1e-5f);
+    }
+    if (px * v.x + py * v.y <= 0.0f)
+      return d < (px * px + py * py) * (1.0f - 1e-5f);
+    const float cross = px * v.y - py * v.x;
+    return d * ray.z < cross * cross * (1.0f - 1e-5f);
+  };
+  bool left_excluded = false, right_excluded = false;
+  while (remaining > 0) {
+    left_excluded = left_excluded || ray_excludes(first);
+    right_excluded = right_excluded || ray_excludes(last);
+    if (left_excluded && right_excluded)
+      break;
+    if (!left_excluded) {
+      if (--first < 0)
+        first += count;
+      edge_dsq(first);
+      if (--remaining == 0)
+        break;
+    }
+    if (!right_excluded) {
+      edge_dsq(last);
+      if (++last == count)
+        last = 0;
+      --remaining;
     }
   }
-  const auto &e0 = packed_edges[nearest];
-  float cr = e0.ex * (py - e0.vy) - e0.ey * (px - e0.vx);
-  inside_out = cr * sector_sgn >= 0.0f;
-  if (nearest_t == 0.0f || nearest_t == 1.0f) {
-    const int vertex = nearest_t == 0.0f ? nearest : (nearest + 1) % count;
-    const auto &before = packed_edges[(vertex + count - 1) % count];
-    const auto &after = packed_edges[vertex];
-    const float vx = px - after.vx, vy = py - after.vy;
-    const bool left_before =
-        (before.ex * vy - before.ey * vx) * sector_sgn >= 0.0f;
-    const bool left_after =
-        (after.ex * vy - after.ey * vx) * sector_sgn >= 0.0f;
-    const bool convex_vertex =
-        (before.ex * after.ey - before.ey * after.ex) * sector_sgn >= 0.0f;
-    inside_out =
-        convex_vertex ? left_before && left_after : left_before || left_after;
-  }
+  const auto &edge = packed_edges[s];
+  inside_out =
+      (edge.ex * (py - edge.vy) - edge.ey * (px - edge.vx)) * sector_sgn >=
+      0.0f;
   return d;
 }
 
