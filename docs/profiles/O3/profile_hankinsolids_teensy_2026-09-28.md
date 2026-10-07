@@ -6,7 +6,7 @@ Replaces the prior 2026-08-26 report.
 This standard report measures the current baseline. The unlanded convex-face
 AA candidate is measured separately in the matched comparison (supporting artifact removed).
 
-[Shipping sibling](../shipping/profile_hankinsolids_teensy_2026-09-28.md).
+[Shipping sibling](../shipping/profile_hankinsolids_teensy_2026-10-06.md).
 
 ## Setup
 
