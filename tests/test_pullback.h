@@ -335,6 +335,44 @@ inline void test_pullback_carrier_contract() {
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
 }
 
+inline void test_pullback_projection_traits() {
+  using projections::ProjectionTrait;
+  const math::Vector direction(0.6f, 0.8f, 0.0f);
+  const uint8_t singular =
+      projections::projection_traits(ProjectionTrait::SINGULAR);
+  const uint8_t folded =
+      projections::projection_traits(ProjectionTrait::FOLDED);
+  const uint8_t cut_singular = projections::projection_traits(
+      ProjectionTrait::CUT, ProjectionTrait::SINGULAR);
+  const uint8_t cut_singular_folded = projections::projection_traits(
+      ProjectionTrait::CUT, ProjectionTrait::SINGULAR, ProjectionTrait::FOLDED);
+
+  HS_EXPECT_EQ(
+      Pullback::Projection::stereographic(direction, 1.0f).provenance.traits,
+      singular);
+  HS_EXPECT_EQ(Pullback::Projection::folded_sinusoidal(direction, 0.0f)
+                   .provenance.traits,
+               folded);
+  HS_EXPECT_EQ(Pullback::Projection::equirectangular(direction, 0.0f, 1.0f)
+                   .provenance.traits,
+               cut_singular);
+  HS_EXPECT_EQ(
+      Pullback::Projection::gnomonic(
+          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::FRONT)
+          .provenance.traits,
+      cut_singular);
+  HS_EXPECT_EQ(
+      Pullback::Projection::gnomonic(
+          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::BACK)
+          .provenance.traits,
+      cut_singular);
+  HS_EXPECT_EQ(
+      Pullback::Projection::gnomonic(
+          direction, 1.0f, Pullback::Projection::GnomonicHemisphere::FOLDED)
+          .provenance.traits,
+      cut_singular_folded);
+}
+
 inline void test_pullback_validation_predicates() {
   using Valid = typename TestPipeline::Validation;
   HS_EXPECT_TRUE(Valid::NONEMPTY);
@@ -1424,6 +1462,7 @@ inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_runtime_seed_contract();
   test_pullback_carrier_contract();
+  test_pullback_projection_traits();
   test_pullback_validation_predicates();
   test_pullback_evaluation_order();
   test_pullback_placement_transparency();
