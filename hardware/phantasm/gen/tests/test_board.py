@@ -25,6 +25,7 @@ import shorts   # noqa: E402
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES,  # noqa: E402
                          RULE_MINIMUMS)
 from kicad_common import F  # noqa: E402
+from pin_landing import dangling_pins, pin_positions  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 
@@ -65,46 +66,6 @@ def generate(out):
     return sch
 
 
-def dangling_pins(root):
-    """[(ref, pin number, point)] for pins with no wiring or no-connect marker.
-
-    Pin coordinates come from the schematic's own lib_symbols, so a stock
-    symbol whose pin moved is measured where the generated file placed it.
-    """
-    libs = {node[1]: builder._index_unit_pins(node)
-            for node in sexp.val(root, "lib_symbols", [])
-            if isinstance(node, list) and node and node[0] == "symbol"}
-    _, wires, junctions = shorts.geometry(root)
-    anchors = set(junctions)
-    anchors.update(shorts.R(sexp.val(node, "at"))
-                   for kind in ("label", "global_label", "hierarchical_label")
-                   for node in F(root, kind))
-    anchors.update(shorts.R(tuple(map(float, sexp.val(node, "at"))))
-                   for node in F(root, "no_connect"))
-    for a, b in wires:
-        anchors.add(a)
-        anchors.add(b)
-    placed = []
-    owners = {}
-    for index, inst in enumerate(F(root, "symbol")):
-        at = sexp.val(inst, "at")
-        mirror = sexp.val(inst, "mirror")
-        units = libs[sexp.val(inst, "lib_id")[0]]
-        pins = dict(units.get(0, {}))
-        pins.update(units.get(int(sexp.val(inst, "unit", [1])[0]), {}))
-        for number, pin in pins.items():
-            point = shorts.R(builder.transform(
-                float(at[0]), float(at[1]),
-                float(at[2]) if len(at) > 2 else 0.0,
-                mirror[0] if mirror else None, pin["x"], pin["y"]))
-            ref = next((p[2] for p in F(inst, "property")
-                        if p[1] == "Reference"), None)
-            placed.append((index, ref, number, point))
-            owners.setdefault(point, set()).add(index)
-    return [(ref, number, point) for index, ref, number, point in placed
-            if point not in anchors and not (owners[point] - {index})]
-
-
 class PowerPinAnchorTests(unittest.TestCase):
     def test_floating_power_pin_is_reported(self):
         root = sexp.parse_one('''(kicad_sch
@@ -121,6 +82,17 @@ class PowerPinAnchorTests(unittest.TestCase):
             '(symbol (lib_id "Device:R") (at 100 107.62 0) (unit 1)'
             ' (property "Reference" "R2"))'
             ' (label "NET_C" (at 100 111.43 0))'))
+        self.assertEqual(dangling_pins(root), [])
+
+    def test_coincident_pins_on_one_symbol_are_anchors(self):
+        root = sexp.parse_one('''(kicad_sch
+            (lib_symbols (symbol "Test:Pair" (symbol "Pair_1_1"
+                (pin passive line (at 0 0 0) (length 1)
+                    (name "A") (number "1"))
+                (pin passive line (at 0 0 180) (length 1)
+                    (name "B") (number "2")))))
+            (symbol (lib_id "Test:Pair") (at 100 100 0) (unit 1)
+                (property "Reference" "U1")))''')
         self.assertEqual(dangling_pins(root), [])
 
 
@@ -180,26 +152,16 @@ class DanglingPinTests(unittest.TestCase):
         root.append(["no_connect", ["at", "100", "103.81"]])
         self.assertEqual(dangling_pins(root), [])
 
+    def test_global_and_hierarchical_labels_are_anchors(self):
+        for kind in ("global_label", "hierarchical_label"):
+            with self.subTest(kind=kind):
+                root = sexp.parse(DANGLING)[0]
+                root.append([kind, "NET_B", ["at", "100", "103.81", "0"]])
+                self.assertEqual(dangling_pins(root), [])
+
     def test_a_wire_crossing_a_pin_does_not_connect_it(self):
         self.assertEqual(dangling_pins(sexp.parse(WIRE_OVER_PIN)[0]),
                          [("R1", "2", (100.0, 103.81))])
-
-
-def pin_positions(root):
-    """(reference, pin number) -> schematic point, from the file's lib_symbols."""
-    libs = {node[1]: builder._index_unit_pins(node)
-            for node in sexp.val(root, "lib_symbols")}
-    positions = {}
-    for inst in F(root, "symbol"):
-        ref = next(p[2] for p in F(inst, "property") if p[1] == "Reference")
-        units = libs[sexp.val(inst, "lib_id")[0]]
-        pins = {**units.get(0, {}), **units.get(int(sexp.val(inst, "unit")[0]), {})}
-        x, y, angle = map(float, sexp.val(inst, "at"))
-        mirror = sexp.val(inst, "mirror", [None])[0]
-        for number, pin in pins.items():
-            positions[ref, number] = shorts.R(builder.transform(
-                x, y, angle, mirror, pin["x"], pin["y"]))
-    return positions
 
 
 class BypassConnectionChecks:
