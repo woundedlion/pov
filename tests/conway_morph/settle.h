@@ -24,31 +24,5 @@ inline void test_relax_is_vertex_order_identity() {
   PolyMesh unrelaxed = MeshOps::expand(dodeca, target, temp);
   PolyMesh relaxed = MeshOps::relax(unrelaxed, aux, temp, 50);
 
-  HS_EXPECT_EQ(relaxed.vertices.size(), unrelaxed.vertices.size());
-  HS_EXPECT_EQ(relaxed.face_counts.size(), unrelaxed.face_counts.size());
-  HS_EXPECT_EQ(relaxed.faces.size(), unrelaxed.faces.size());
-  if (relaxed.vertices.size() != unrelaxed.vertices.size() ||
-      relaxed.face_counts.size() != unrelaxed.face_counts.size() ||
-      relaxed.faces.size() != unrelaxed.faces.size())
-    return;
-  HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
-                           unrelaxed.face_counts.data(),
-                           relaxed.face_counts.size() * sizeof(uint8_t)),
-               0);
-  HS_EXPECT_EQ(std::memcmp(relaxed.faces.data(), unrelaxed.faces.data(),
-                           relaxed.faces.size() * sizeof(uint16_t)),
-               0);
-
-  for (size_t i = 0; i < relaxed.vertices.size(); ++i) {
-    size_t nearest = 0;
-    float best = 1e9f;
-    for (size_t j = 0; j < unrelaxed.vertices.size(); ++j) {
-      const float d = (relaxed.vertices[i] - unrelaxed.vertices[j]).length();
-      if (d < best) {
-        best = d;
-        nearest = j;
-      }
-    }
-    HS_EXPECT_EQ(nearest, i);
-  }
+  check_vertex_order_identity(relaxed, unrelaxed);
 }
