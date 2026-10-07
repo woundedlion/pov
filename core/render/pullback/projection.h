@@ -121,7 +121,9 @@ stereographic(const math::Vector &input, float singularity_fade) {
            .value_weight = singularity_attenuation(fmaxf(0.0f, 1.0f - input.y),
                                                    fmaxf(0.0f, 1.0f + input.y),
                                                    singularity_fade),
-           .flags = 0}};
+           .flags = 0,
+           .traits = projections::projection_traits(
+               projections::ProjectionTrait::SINGULAR)}};
 }
 
 #if defined(__EMSCRIPTEN__)
@@ -140,7 +142,9 @@ inline ProjectionResult folded_sinusoidal(const math::Vector &input,
            .boundary_flags = 0,
            .fade_edge_distance = projections::NO_EDGE_DISTANCE,
            .value_weight = 1.0f,
-           .flags = FOLDED_FLAG}};
+           .flags = FOLDED_FLAG,
+           .traits = projections::projection_traits(
+               projections::ProjectionTrait::FOLDED)}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -154,7 +158,10 @@ equirectangular(const math::Vector &input, float central_meridian,
            .boundary_flags = static_cast<uint8_t>(ProjectionBoundary::CUT),
            .fade_edge_distance = math::PI_F - fabsf(coords.re),
            .value_weight = equirectangular_weight(input, singularity_fade),
-           .flags = 0}};
+           .flags = 0,
+           .traits = projections::projection_traits(
+               projections::ProjectionTrait::CUT,
+               projections::ProjectionTrait::SINGULAR)}};
 }
 
 __attribute__((always_inline)) inline ProjectionResult
@@ -179,7 +186,12 @@ gnomonic(const math::Vector &input, float singularity_fade,
                input.y * input.y, input.x * input.x + input.z * input.z,
                singularity_fade),
            .flags = 0,
-           .traits = 0,
+           .traits = projections::projection_traits(
+               projections::ProjectionTrait::CUT,
+               projections::ProjectionTrait::SINGULAR,
+               hemisphere == GnomonicHemisphere::FOLDED
+                   ? projections::ProjectionTrait::FOLDED
+                   : projections::ProjectionTrait::NONE),
            .edge_class = 0,
            .domain_coverage = in_domain ? 1.0f : 0.0f}};
 }
