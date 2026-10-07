@@ -120,6 +120,7 @@ struct DisplacementFieldWhiteBox {
     effect.params.thickness = 6.0f * Effect::THICKNESS_PX;
     effect.params.ball_amp = 0.8f;
     effect.params.noise_amp = 0.8f;
+    effect.params.ball_min = effect.params.ball_max = 1.0f;
   }
 
   template <int W, int H>
