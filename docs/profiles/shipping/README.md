@@ -8,12 +8,12 @@ Rows rank by any spill, then peak render. 🟢 is zero spill; 🔴 is any spill.
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-06.md) § | `msp_draw_particles` | 🟢 56.60 (8) | 🟢 0/1727 (0.00%) | 2026-10-06 18:32 |
-| [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 55.842 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 14:12 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-06.md) § | `ss_draw_all` | 🟢 54.27 (9) | 🟢 0/2447 (0.00%) | 2026-10-06 18:29 |
 | [Raymarch](profile_raymarch_teensy_2026-10-06.md) | `rm_shader_draw` | 🟢 51.95 | 🟢 0/1087 (0.00%) | 2026-10-06 18:17 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-06.md) § | `hl_shader_draw` | 🟢 51.77 (9) | 🟢 0/5487 (0.00%) | 2026-10-06 20:43 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-06.md) | `hf_render_trails` | 🟢 48.61 | 🟢 0/1087 (0.00%) | 2026-10-06 18:03 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-06.md) § | `mf_feedback_flush` | 🟢 48.53 (12) | 🟢 0/6687 (0.00%) | 2026-10-06 18:18 |
+| [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 15:16 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
 | [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
@@ -65,7 +65,7 @@ Spill fractions include the transition following an entry and are stricter than 
 - **HyperLattice**: 9 parser ownership buckets spanning 26.22–51.77 ms.
 - **MindSplatter**: 8 parser ownership buckets spanning 22.99–56.60 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 6.28–54.27 ms.
-- **IslamicStars**: 23 parser ownership buckets spanning 22.797–55.842 ms.
+- **IslamicStars**: 23 parser ownership buckets spanning 20.32–48.51 ms.
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.71–48.53 ms.
 - **DreamBalls**: 10 parser ownership buckets spanning 14.27–41.44 ms.
 - **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 36.83–37.08 ms.
