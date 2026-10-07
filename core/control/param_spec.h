@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <span>
 #include <type_traits>
+#include "platform/attributes.h"
 
 /** @brief Registration policy for a target's initial value. */
 enum class ParamInitialValue {
@@ -46,7 +47,7 @@ template <typename T> struct ParamSpec {
   ParamInitialValue initial_value = ParamInitialValue::REQUIRE_IN_RANGE;
 
   /** @brief Checks explicit IDs, their bounds, and the selected initial ID. */
-  constexpr bool valid_option_values(T initial) const {
+  HS_COLD_MEMBER constexpr bool valid_option_values(T initial) const {
     if (option_values.empty())
       return true;
     if (options == nullptr || option_count <= 0 ||
