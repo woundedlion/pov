@@ -137,9 +137,9 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
   HS_EXPECT_GT(samples, 100);
 }
 
-/** @brief Checks inside/outside signs across a backtracking sector. */
+/** @brief Checks backtracking rejection and inside/outside sector signs. */
 inline void test_face_sector_backtrack_sign() {
-  int checked = 0;
+  int admitted = 0;
   for (float bend : {-0.08f, -0.04f, 0.0f, 0.04f, 0.08f}) {
     math::Vector vertices[12];
     uint16_t indices[12];
@@ -155,9 +155,9 @@ inline void test_face_sector_backtrack_sign() {
     SDF::Face face(std::span<const math::Vector>(vertices, 12),
                    std::span<const uint16_t>(indices, 12), scratch,
                    144 + hs::H_OFFSET, 144);
+    HS_EXPECT_EQ(face.sector_ok, bend >= 0.0f);
     if (!face.sector_ok) {
       HS_EXPECT_EQ(face.probe_flags() & SDF::Face::PROBE_SECTOR, 0u);
-      ++checked;
       continue;
     }
     for (int x = -100; x <= 100; ++x)
@@ -173,9 +173,9 @@ inline void test_face_sector_backtrack_sign() {
         if (fabsf(expected) > 1e-5f)
           HS_EXPECT_EQ(sector_inside, expected < 0.0f);
       }
-    ++checked;
+    ++admitted;
   }
-  HS_EXPECT_GT(checked, 0);
+  HS_EXPECT_EQ(admitted, 3);
 }
 
 /** @brief Double-precision all-segment distance and ray parity. */
