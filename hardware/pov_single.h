@@ -53,8 +53,7 @@ public:
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB,
                     DATA_RATE_MHZ(pov::FASTLED_CLOCK_MHZ)>(leds, S);
-    FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setTemperature(Candle);
+    restore_correction_baseline();
     FastLED.setBrightness(255);
 #endif
   }
