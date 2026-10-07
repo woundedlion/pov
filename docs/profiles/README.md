@@ -6,6 +6,11 @@ bench-attached Teensy 4.0 boards with the real segmented POV driver
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
+The current Profile harness captures ISR counters and their timestamp together
+with interrupts masked. ISR CPU shares use the separately logged `ISR window`
+interval between successive snapshots, including report output between them.
+The frame header's elapsed window excludes the preceding report output.
+
 ## Capture configurations
 
 Timing sets contain one canonical report per effect, with optional supplemental

@@ -10,6 +10,7 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/fd_capture_util.h"
+#include "tools/profile_isr_window.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -513,6 +514,75 @@ inline void test_isr_cycle_stats() {
   HS_EXPECT_EQ(stats.max, 0u);
 }
 
+/** @brief ISR snapshots count logging work in its matching elapsed window. */
+inline void test_isr_window_logging_latency() {
+  for (uint32_t latency : {0u, 50u, 300u}) {
+    hs::ProfileIsrWindow window;
+    hs::IsrCycleStats wake, pack, submit;
+    uint32_t now = 100;
+    bool masked = false;
+    auto clock = [&] {
+      HS_EXPECT_TRUE(masked);
+      return now;
+    };
+    auto disable = [&] {
+      HS_EXPECT_FALSE(masked);
+      masked = true;
+      return 7u;
+    };
+    auto restore = [&](uint32_t mask) {
+      HS_EXPECT_EQ(mask, 7u);
+      HS_EXPECT_TRUE(masked);
+      HS_EXPECT_EQ(wake.count, 0u);
+      HS_EXPECT_EQ(pack.count, 0u);
+      HS_EXPECT_EQ(submit.count, 0u);
+      masked = false;
+    };
+    auto capture = [&] {
+      return window.capture(wake, pack, submit, clock, disable, restore);
+    };
+    auto advance = [&](uint32_t us) {
+      HS_EXPECT_FALSE(masked);
+      now += us;
+      if (us) {
+        wake.add(us * 60u);
+        pack.add(us * 30u);
+        submit.add(us * 6u);
+      }
+    };
+    wake.add(999);
+    capture();
+    advance(1000);
+    const auto first = capture();
+    HS_EXPECT_EQ(first.window_us, 1000u);
+    HS_EXPECT_EQ(first.wake.cycles, 60000u);
+    HS_EXPECT_EQ(first.pack.cycles, 30000u);
+    HS_EXPECT_EQ(first.submit.cycles, 6000u);
+    auto log = [&](const hs::IsrCycleStats &stats, uint64_t expected) {
+      HS_EXPECT_EQ(stats.cycles, expected);
+      advance(latency);
+      HS_EXPECT_EQ(stats.cycles, expected);
+    };
+    log(first.wake, 60000u);
+    log(first.pack, 30000u);
+    log(first.submit, 6000u);
+    advance(1000);
+    const auto second = capture();
+    const uint32_t EXPECTED_US = 1000u + 3u * latency;
+    HS_EXPECT_EQ(second.window_us, EXPECTED_US);
+    HS_EXPECT_EQ(second.wake.cycles, uint64_t{EXPECTED_US} * 60u);
+    HS_EXPECT_EQ(second.pack.cycles, uint64_t{EXPECTED_US} * 30u);
+    HS_EXPECT_EQ(second.submit.cycles, uint64_t{EXPECTED_US} * 6u);
+    HS_EXPECT_EQ(second.wake.cycles * 100u / (second.window_us * 600u), 10u);
+    now = UINT32_MAX - 99u;
+    capture();
+    advance(200);
+    const auto wrapped = capture();
+    HS_EXPECT_EQ(wrapped.window_us, 200u);
+    HS_EXPECT_EQ(wrapped.wake.cycles, 12000u);
+  }
+}
+
 /**
  * @brief Runs the profiling test cases.
  * @return The module's failure count.
@@ -534,6 +604,7 @@ inline int run_profiling_tests() {
   test_log_all_reports_tree();
   test_reset_does_not_orphan_subtree();
   test_isr_cycle_stats();
+  test_isr_window_logging_latency();
 
   return fixture.result();
 }

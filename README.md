@@ -527,6 +527,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh
 │   ├── profile_capture.py      Serial capture of the profiling image's readout
 │   ├── profile_envdump.py      Omit host process variables from build captures
+│   ├── profile_isr_window.h      Atomic ISR statistics and elapsed-window snapshots
 │   ├── profile_spherical_experiment.h  Standalone periodic-surface device experiment
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
 │   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
