@@ -250,6 +250,7 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
   constexpr int SAMPLES = 33;
 
   for (const StepLegSite &site : RELAX_LEG_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     PolyMesh seed = build_step_leg_seed(site, persist);
@@ -258,35 +259,8 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
     PolyMesh relaxed = MeshOps::relax_baked(seed, a, *site.bake);
 
-    // The precondition of a standalone relax leg: same vertex count, same
-    // topology bytes, and vertex i still nearest its own seed vertex.
-    HS_EXPECT_EQ(relaxed.vertices.size(), seed.vertices.size());
-    HS_EXPECT_EQ(relaxed.face_counts.size(), seed.face_counts.size());
-    HS_EXPECT_EQ(relaxed.faces.size(), seed.faces.size());
-    if (relaxed.vertices.size() != seed.vertices.size() ||
-        relaxed.face_counts.size() != seed.face_counts.size() ||
-        relaxed.faces.size() != seed.faces.size())
+    if (!check_vertex_order_identity(relaxed, seed))
       continue;
-    HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
-                             seed.face_counts.data(),
-                             seed.face_counts.size() * sizeof(uint8_t)),
-                 0);
-    HS_EXPECT_EQ(std::memcmp(relaxed.faces.data(), seed.faces.data(),
-                             seed.faces.size() * sizeof(uint16_t)),
-                 0);
-    for (size_t i = 0; i < relaxed.vertices.size(); ++i) {
-      size_t nearest = 0;
-      float best = 1e9f;
-      for (size_t j = 0; j < seed.vertices.size(); ++j) {
-        const float d =
-            math::distance_between(relaxed.vertices[i], seed.vertices[j]);
-        if (d < best) {
-          best = d;
-          nearest = j;
-        }
-      }
-      HS_EXPECT_EQ(nearest, i);
-    }
 
     size_t first_compiled = 0;
     for (int s = 0; s < SAMPLES; ++s) {

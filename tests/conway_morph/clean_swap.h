@@ -25,19 +25,8 @@ inline void test_truncate_near_half_merges_onto_ambo() {
     PolyMesh tr = MeshOps::truncate(seed, target, temp, 0.5f - MERGE_EPS);
     PolyMesh am = MeshOps::ambo(seed, temp, target);
 
-    HS_EXPECT_EQ(tr.vertices.size(), 2 * am.vertices.size());
-    for (size_t i = 0; i < am.vertices.size(); ++i) {
-      int merged = 0;
-      for (size_t j = 0; j < tr.vertices.size(); ++j) {
-        if ((tr.vertices[j] - am.vertices[i]).length() <= MERGE_TOL)
-          ++merged;
-      }
-      if (merged != 2)
-        std::printf("    [swap] %s: ambo vertex %zu has %d truncate vertices "
-                    "within tol\n",
-                    seed_name(s), i, merged);
-      HS_EXPECT_EQ(merged, 2);
-    }
+    HS_CONTEXT(seed_name(s));
+    check_pairwise_vertex_cover(tr, am, MERGE_TOL);
   }
 }
 
