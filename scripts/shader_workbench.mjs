@@ -857,7 +857,10 @@ export function validateShaderDocument(document, options = {}) {
       report('INADMISSIBLE_PARAMETERS', '$.descriptor.parameters',
         `${entry.label}: parameter defaults fail the operator admission rule.`);
     document.preset_bank.presets.forEach((preset, index) => {
-      if (!admissibleParameters(operator, (field) => preset?.values?.[`${entry.label}.${field}`]))
+      const values = preset?.values;
+      const effective = (field) => values && Object.hasOwn(values, `${entry.label}.${field}`)
+        ? values[`${entry.label}.${field}`] : defaults(field);
+      if (!admissibleParameters(operator, effective))
         report('INADMISSIBLE_PARAMETERS', `$.preset_bank.presets[${index}].values`,
           `${entry.label}: preset parameters fail the operator admission rule.`);
     });
