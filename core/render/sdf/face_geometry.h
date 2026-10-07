@@ -16,14 +16,14 @@
    * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
    * @param bounds_margin Angular padding around the vertical bounds.
-   * @return True when the phi extent plus AA margin maps to an empty
-   *         canvas-row range.
+   * @param clip Optional render-row clip.
+   * @return True when the padded face cannot overlap the canvas or render clip.
    */
 __attribute__((always_inline)) bool
 compute_phi_extent(std::span<const math::Vector> vertices,
                    std::span<const uint16_t> indices,
                    const math::LatitudeGeometry &geometry, int height,
-                   float bounds_margin) const {
+                   float bounds_margin, const ClipRegion *clip) const {
   float min_y_val = 2.0f;
   float max_y_val = -2.0f;
 
@@ -39,7 +39,9 @@ compute_phi_extent(std::span<const math::Vector> vertices,
       phi_bounds_to_rows(min_phi_check - bounds_margin,
                          max_phi_check + bounds_margin, geometry, height);
 
-  return rows.y_min > rows.y_max;
+  return rows.y_min > rows.y_max ||
+         (clip && ((max_y_val < 0.0f && rows.y_min >= clip->render_y_end()) ||
+                   (min_y_val > 0.0f && rows.y_max < clip->render_y_start())));
 }
 
 /**

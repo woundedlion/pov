@@ -265,7 +265,7 @@ struct Face {
     const bool phi_culled = [&] {
       HS_PROFILE_DEEP(face_phi_extent);
       return compute_phi_extent(vertices, indices, geometry, height,
-                                bounds_margin);
+                                bounds_margin, clip);
     }();
     if (phi_culled) {
       mark_culled();
