@@ -105,8 +105,7 @@ public:
         static_assert(std::is_trivially_destructible_v<SDF::Ring>);
         alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
         int slots = 0;
-        const float pixel_w =
-            std::max(math::TWO_PI_F / W, math::RADIANS_PER_ROW<H>);
+        const float pixel_w = math::coarse_pixel_pitch<W, H>();
         constexpr float MIN_SLOT_ALPHA = 0.001f;
         for (int j = 0; j < count; ++j) {
           float t = ts[j];
