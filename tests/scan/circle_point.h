@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Circle::draw and Scan::Point::draw — the radius-0 ring regime
+// Circle/Point cap drawing, raster epilogues, and replicated clip parity
 //
 // A radius-0 SDF::Ring draws a spherical cap of angular radius `thickness`
 // centred on the basis axis, with quintic coverage from 1 at the centre to 0 at
