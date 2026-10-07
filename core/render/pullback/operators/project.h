@@ -156,6 +156,11 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
+  /** @brief Every projection stays within the stereographic sentinel; the
+      factor covers lens output off the unit sphere. */
+  static float plane_bound(const Params &, float) {
+    return 2.0f * projections::STEREO_INF;
+  }
   static void validate_frame(const Params &params) {
     HS_CHECK(params.frame == static_cast<uint8_t>(ProjectionFrame::IDENTITY) ||
                  params.frame ==

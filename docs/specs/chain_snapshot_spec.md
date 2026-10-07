@@ -68,7 +68,7 @@ side effects during payload cloning.
 
 The host compiles into its inactive arena with state migration disabled, then
 validates parameter ranges, topology indices, operator predicates, edge-distance
-dependencies and complete typed runtime. It flips the active arena only after
+dependencies, the chained plane-magnitude bound and complete typed runtime. It flips the active arena only after
 all checks pass. Palette admission precedes compilation; restoration after the
 flip cannot fail. Cache inputs are invalidated and rebuilt from restored state.
 

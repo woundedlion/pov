@@ -186,6 +186,9 @@ struct OperatorRuntime {
   const char *(*validate)(const void *params);
   RuntimeSnapshot (*capture_state)(const void *state) = nullptr;
   bool (*restore_state)(void *state, const RuntimeSnapshot &snapshot) = nullptr;
+  /** Bound on the output plane magnitude over every phase, given a bound on
+      the input's; null unless the output carrier is PLANE. */
+  float (*plane_bound)(const void *params, float input_bound) = nullptr;
 };
 
 /**
@@ -414,6 +417,11 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
+  static float plane_bound(const void *params, float input_bound) {
+    return Model::plane_bound(*static_cast<const Params *>(params),
+                              input_bound);
+  }
+
   static void *param_address(void *params, uint16_t schema_index) {
     Params &block = *static_cast<Params *>(params);
     constexpr size_t FIELD_COUNT = Params::FIELDS.size();
@@ -426,6 +434,14 @@ template <typename Model> struct ErasedAdapter {
     return &(block.*(TOPOLOGY[topo_index].member));
   }
 };
+
+template <typename Model> constexpr auto model_plane_bound() {
+  using PlaneBound = float (*)(const void *, float);
+  if constexpr (std::is_same_v<typename Model::Output, PlaneSample>)
+    return static_cast<PlaneBound>(&ErasedAdapter<Model>::plane_bound);
+  else
+    return static_cast<PlaneBound>(nullptr);
+}
 
 template <typename Model> consteval bool model_approximate() {
   if constexpr (requires { Model::APPROXIMATE; })
@@ -520,6 +536,13 @@ constexpr OperatorDescriptor make_operator_descriptor() {
                     ::Pullback::Detail::FamilyRank<typename Model::Output,
                                                    CarrierList>::VALUE,
                 "operator model: family rank may not decrease");
+  static_assert(
+      !std::is_same_v<typename Model::Output, PlaneSample> ||
+          requires(const Params &params) {
+            { Model::plane_bound(params, 0.0f) } -> std::same_as<float>;
+          },
+      "operator model: a PLANE-output model must declare "
+      "plane_bound(params, input_bound)");
   static_assert(std::is_trivially_copyable_v<Params>,
                 "param blocks are byte-copied by the value channel");
   static_assert(std::is_trivially_destructible_v<Params> &&
@@ -573,6 +596,7 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           &Adapter::validate,
           &Adapter::capture_state,
           &Adapter::restore_state,
+          Detail::model_plane_bound<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

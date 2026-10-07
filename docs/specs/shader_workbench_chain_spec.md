@@ -86,7 +86,10 @@ document digests differently). A guaranteed single-path chain says so:
   is reserved for a future schema revision. Each operator also declares whether
   it provides projection edge distance. The chain host refuses edge-fade coverage
   and warp envelopes downstream of a projection without edge distance, for both
-  individual and atomic parameter writes.
+  individual and atomic parameter writes. Each PLANE-output operator also
+  declares a worst-case output magnitude given its input's; the host refuses
+  any parameter state whose chained bound exceeds
+  `Pullback::Interp::MAX_PLANE_BOUND`, with `PLANE_GROWTH_WARNING`.
 - **Bindings become real.** v1's `parameter.binding` is validated as a
   bare identifier and cross-checked against nothing (shipped documents
   contradict any label convention in both directions). v2: a parameter id

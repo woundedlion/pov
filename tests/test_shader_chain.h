@@ -464,6 +464,8 @@ inline int run_shader_chain_tests() {
   test_shader_chain_effect_registers_params();
   test_shader_chain_parameter_admission();
   test_shader_chain_edge_distance_admission();
+  test_shader_chain_projection_plane_bound();
+  test_shader_chain_plane_growth_admission();
   test_shader_chain_effect_rebind_generation();
   test_shader_chain_effect_refusal_keeps_schema();
   test_shader_chain_pause_semantics();

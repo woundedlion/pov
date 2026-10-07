@@ -560,6 +560,36 @@ private:
   bool needs_prepare = false;
 };
 
+/** Largest admitted plane-carrier magnitude bound: its square, scaled by any
+    sampler frequency, stays finite. */
+inline constexpr float MAX_PLANE_BOUND = 0x1p48f;
+
+inline constexpr const char *PLANE_GROWTH_WARNING =
+    "Combined plane warps can overflow: move affine scales toward 1, or lower "
+    "affine shear or polar radial scale";
+
+/**
+ * @brief Finds the first entry whose worst-case plane magnitude exceeds
+ *        MAX_PLANE_BOUND.
+ * @param ops Compiled entries.
+ * @param params_of Maps an entry index to the param block to judge.
+ * @return That entry's index, or -1 when every entry stays within the bound.
+ */
+template <typename ParamsOf>
+int plane_bound_overflow(std::span<const ChainProgram::ChainOp> ops,
+                         ParamsOf &&params_of) {
+  float bound = 0.0f;
+  for (size_t index = 0; index < ops.size(); ++index) {
+    const auto plane_bound = ops[index].op->runtime.plane_bound;
+    if (plane_bound == nullptr)
+      continue;
+    bound = plane_bound(params_of(index), bound);
+    if (!(bound <= MAX_PLANE_BOUND))
+      return static_cast<int>(index);
+  }
+  return -1;
+}
+
 } // namespace Interp
 
 } // namespace Pullback
