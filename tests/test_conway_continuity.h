@@ -50,8 +50,9 @@ inline uint8_t cc_bank_buf[64 * 1024];  /**< Baked palette LUT arena. */
 [[nodiscard]] inline conway_morph_tests::ScopedArenaSplit
 configure_hankin_split() {
   using Fx = HankinSolids<96, 20>;
-  return {GLOBAL_ARENA_SIZE - Fx::SCRATCH_A_BYTES - Fx::SCRATCH_B_BYTES,
-          Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
+  const ArenaSplit split{Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
+  return {split.persistent(GLOBAL_ARENA_SIZE), split.scratch_a,
+          split.scratch_b};
 }
 
 // ---------------------------------------------------------------------------
