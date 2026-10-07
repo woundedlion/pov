@@ -23,8 +23,7 @@ struct TimelineEvent {
   // 256 B for 64-bit host effect harnesses.
   static constexpr size_t MAX_ANIM_SIZE = HS_TIMELINE_MAX_ANIM_BYTES;
 
-  uint32_t start =
-      0; /**< Global frame at which the animation becomes eligible to step. */
+  uint32_t remaining_delay = 0; /**< Active frames until first eligibility. */
   /**
    * @brief Whether the caller retains this event's animation pointer across
    * frames via Timeline::add_get(..., Pin::PINNED).
@@ -68,7 +67,7 @@ struct TimelineEvent {
                       "pointer");
     HS_CHECK(!dst.manager,
              "move_into would leak the destination's live animation");
-    dst.start = start;
+    dst.remaining_delay = remaining_delay;
     // Clears a stale flag: destroy() leaves pinned set on a canceled pinned
     // event, and this slot may be recycling one.
     dst.pinned = false;
@@ -249,8 +248,6 @@ public:
                   "storage (placement-new would be misaligned)");
     HS_CHECK(in_frames >= 0, "Timeline delay must be non-negative");
     const uint32_t delay = static_cast<uint32_t>(in_frames);
-    HS_CHECK(delay <= UINT32_MAX - global_timeline_t,
-             "Timeline start frame overflow");
     if (global_timeline_num_events >= MAX_EVENTS) {
       HS_CHECK(pin == Pin::UNPINNED,
                "Timeline full, dropped a pinned animation");
@@ -277,7 +274,7 @@ public:
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
     HS_CHECK(!e.manager, "add_get would overwrite a live animation");
-    e.start = global_timeline_t + delay;
+    e.remaining_delay = delay;
     e.pinned = (pin == Pin::PINNED);
     e.paused = paused;
     e.owner = owner;
@@ -396,17 +393,16 @@ public:
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
-      if (global_timeline_t < e.start && e.animation()->is_canceled()) {
+      if (e.remaining_delay > 1 && e.animation()->is_canceled()) {
         e.animation()->post_callback();
         e.destroy();
         continue;
       }
 
       if (event_paused(e)) {
-        const bool started = global_timeline_t >= e.start;
-        HS_CHECK(e.start < UINT32_MAX, "paused timeline start frame overflow");
-        ++e.start;
+        const bool started = e.remaining_delay <= 1;
         if (started) {
+          e.remaining_delay = 0;
           IAnimation *anim = e.animation();
           HS_CHECK(anim, "paused timeline event holds no animation");
           if (!anim->is_canceled())
@@ -428,7 +424,9 @@ public:
         continue;
       }
 
-      if (global_timeline_t < e.start) {
+      if (e.remaining_delay > 0)
+        --e.remaining_delay;
+      if (e.remaining_delay > 0) {
         if (i != write_idx) {
           e.move_into(global_timeline_events[write_idx]);
         }
@@ -498,7 +496,7 @@ public:
   /**
    * @brief Current global frame count (number of step() calls since the
    * Timeline was constructed).
-   * @return The shared timeline frame counter, advanced once per step().
+   * @return The shared timeline frame counter modulo 2^32, advanced once per step().
    */
   static uint32_t frame() { return global_timeline_t; }
 
@@ -521,7 +519,7 @@ private:
 
   /// Orientation id of an event due to step this frame, nullptr otherwise.
   static const void *event_orientation_id(TimelineEvent &event) {
-    if (event_paused(event) || global_timeline_t < event.start)
+    if (event_paused(event) || event.remaining_delay > 1)
       return nullptr;
     IAnimation *anim = event.animation();
     return anim ? anim->orientation_id() : nullptr;
@@ -559,7 +557,7 @@ private:
   void reset_storage() {
     destroy_events();
     for (auto &event : global_timeline_events) {
-      event.start = 0;
+      event.remaining_delay = 0;
       event.pinned = false;
       event.paused = nullptr;
       event.owner = nullptr;

@@ -19,7 +19,7 @@ namespace Animation {
 /**
  * @brief Trigger loop shared by the callback schedulers.
  * @tparam Derived Timer supplying reset(), which schedules the next trigger
- * from the current frame counter.
+ * as an active-frame countdown.
  */
 template <typename Derived> class TimerBase : public AnimationBase<Derived> {
 public:
@@ -29,8 +29,11 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<Derived>::step(canvas);
-    if (this->t < next)
+    if (remaining_delay > 1) {
+      --remaining_delay;
       return;
+    }
+    remaining_delay = 0;
     f(canvas);
     if (this->repeats()) {
       static_cast<Derived *>(this)->reset();
@@ -55,8 +58,8 @@ protected:
   TimerBase(TimerFn f, bool repeat)
       : AnimationBase<Derived>(-1, repeat), f(std::move(f)) {}
 
-  TimerFn f;         /**< The callback function. */
-  uint32_t next = 0; /**< The target frame count for the next trigger. */
+  TimerFn f;                    /**< The callback function. */
+  uint32_t remaining_delay = 0; /**< Active frames until the next trigger. */
 };
 
 /** @brief Delay range and repeat behaviour of a RandomTimer. */
@@ -91,12 +94,12 @@ public:
   }
 
   /**
-   * @brief Calculates the next random trigger time.
+   * @brief Schedules the next random active-frame delay.
    */
   HS_COLD_MEMBER void reset() {
     // +1 because hs::rand_int is half-open [min, max); the documented maximum
     // delay is inclusive. A sampled zero fires on the next step, like one.
-    next = t + hs::rand_int(min, max + 1);
+    remaining_delay = hs::rand_int(min, max + 1);
   }
 
 private:
@@ -122,9 +125,9 @@ public:
   }
 
   /**
-   * @brief Calculates the next periodic trigger time.
+   * @brief Schedules the next periodic active-frame delay.
    */
-  void reset() { next = t + period; }
+  void reset() { remaining_delay = period; }
 
   /**
    * @brief Live-updates the trigger interval; reschedules the next trigger from

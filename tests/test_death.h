@@ -451,10 +451,6 @@ inline const Case *all_cases(int &n) {
       {"transition_nonfinite_target", case_transition_nonfinite_target,
        "core/animation/params.h",
        "(std::isfinite(to)) Transition target must be finite"},
-      {"timeline_start_overflow", case_timeline_start_overflow,
-       "core/animation/timeline.h",
-       "(delay <= UINT32_MAX - global_timeline_t) Timeline start frame "
-       "overflow"},
       {"timeline_pinned_completion", case_timeline_pinned_completion,
        "core/animation/timeline.h",
        "(!e.pinned || anim->is_canceled()) pinned animation completed; only "
