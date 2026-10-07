@@ -210,7 +210,7 @@ HS_FLASH_MEMBER inline PaletteRecipe standalone_flyby() {
 /** @brief One row of the authoring tool's preset roster. */
 struct Preset {
   const char *name; /**< Display name. */
-  /** @brief Whether the effect randomizes this recipe's base hue at run time. */
+  /** @brief Whether the effect varies this recipe's base hue at run time, randomly or by sequence. */
   bool random_hue;
   PaletteRecipe recipe; /**< The recipe at its preview hue. */
 };
