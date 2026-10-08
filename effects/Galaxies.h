@@ -72,8 +72,8 @@ public:
 
     register_param("Friction", &params.friction, 0.95f, 1.0f);
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
-    register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.02f);
-    register_param("Arm Spin", &params.arm_spin, 0.0f, 0.1f);
+    register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
+    register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
     register_int_param("Emission Rate", &params.emission_rate, 1,
                        MAX_EMISSION_RATE);
@@ -105,6 +105,8 @@ public:
     }
 
     particle_system.friction = params.friction;
+    particle_system.motion_cap = std::max(
+        (2.0f * math::PI_F) / W, params.orbit_speed * (1.0f + SPEED_JITTER));
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.core_mass;
     {
@@ -124,7 +126,7 @@ private:
 
   /** @brief Number of galaxies: one per octahedron vertex. */
   static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
-  static constexpr int MAX_ARMS = 4;
+  static constexpr int MAX_ARMS = 8;
   static constexpr int MAX_EMISSION_RATE = 3;
 
   /** @brief Maximum retained trail anchors per particle. */

@@ -289,8 +289,9 @@ public:
    */
   uint16_t active() const { return active_count; }
 
-  float friction = 0.85f;  /**< Per-frame velocity damping factor. */
-  float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
+  float friction = 0.85f; /**< Per-frame velocity damping factor. */
+  float gravity = 0.001f; /**< Base gravitational constant for attractors. */
+  float motion_cap = (2 * math::PI_F) / W; /**< Maximum radians per frame. */
   uint16_t max_life = 600; /**< Default particle lifetime in frames. Writable
                                 after init(); applies to subsequent spawns. */
 
@@ -436,7 +437,7 @@ public:
       emitters[i](*this);
     }
 
-    float max_delta = (2 * math::PI_F) / W;
+    const float max_delta = motion_cap;
 
     // i-- relies on unsigned wrap (0 -> SIZE_MAX -> ++i -> 0); keep i unsigned.
     for (size_t i = 0; i < active_count; ++i) {
