@@ -77,7 +77,7 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
 `EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, `run_show()` installs that
 table in the sync `Config`, and the master counts down that entry's own budget.
-Across the 39-entry roster the durations run 38 s
+Across the 38-entry roster the durations run 38 s
 (304 revolutions, the shortest shader-group entries) to 300 s (2,400
 revolutions, `HyperLattice`); 120 s / 960 revolutions is
 the most common value but carries no special status in the protocol. Every

@@ -229,8 +229,8 @@ inline void test_islamicstars_presets_cover_registry() {
 }
 
 /**
- * @brief A manual select mid-build cuts the build, holds the selected recipe
- *        shape lit while paused, and builds it once unpaused.
+ * @brief A manual select mid-build cuts the build; the selected recipe shape
+ *        segues in and builds while paused.
  */
 inline void test_islamicstars_manual_select_cuts_build() {
   reset_effect_globals();
@@ -251,14 +251,6 @@ inline void test_islamicstars_manual_select_cuts_build() {
   HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), selected);
   HS_EXPECT_TRUE(effect.animations_paused());
-  for (int frame = 0; frame < 64; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-    HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
-  }
-  HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
-
-  effect.setAnimationsPaused(false);
   bool built = false;
   for (int frame = 0; frame < 256 && !built; ++frame) {
     effect.draw_frame();
@@ -269,24 +261,32 @@ inline void test_islamicstars_manual_select_cuts_build() {
   }
   HS_EXPECT_TRUE(built);
   HS_EXPECT_EQ(effect.getPresetIndex(), selected);
+  HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
 }
 
-/** @brief Pause holds the resident shape lit; unpausing resumes advances. */
+/**
+ * @brief Pause lets the resident shape finish building, then holds it lit;
+ *        unpausing resumes advances.
+ */
 inline void test_islamicstars_pause_holds_shape() {
   reset_effect_globals();
   IslamicBuildProbe::IS effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
   const size_t held = effect.getPresetIndex();
-  for (int frame = 0; frame < 8; ++frame) {
+  for (int frame = 0; frame < 1; ++frame) {
     effect.draw_frame();
     effect.advance_display();
   }
   effect.setAnimationsPaused(true);
+  bool built = false;
   for (int frame = 0; frame < 400; ++frame) {
     effect.draw_frame();
     effect.advance_display();
+    built |= IslamicBuildProbe::build_active(effect);
   }
+  HS_EXPECT_TRUE(built);
+  HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), held);
   HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
 

@@ -356,6 +356,21 @@ protected:
     build_next_seed = PolyMesh();
   }
 
+  /**
+   * @brief Drops an interrupted build's state after its legs were cleared from
+   *        the timeline.
+   * @details The seeds' persistent storage is reclaimed by the next spawn's
+   * compaction.
+   */
+  HS_COLD_MEMBER void abandon_build() {
+    build_active = false;
+    build_landing = nullptr;
+    build_from_pal = nullptr;
+    build_from_faces = 0;
+    build_seed = PolyMesh();
+    build_next_seed = PolyMesh();
+  }
+
   void check_build_budget() const {
     HS_CHECK(persistent_arena.get_offset() <= device_persistent_budget,
              "RecipeBuild: build leg exceeds the device persistent budget");
