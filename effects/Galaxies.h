@@ -162,7 +162,7 @@ private:
   static constexpr float SPEED_JITTER = 0.015f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
-  static constexpr float MIN_PARTICLE_ALPHA = 0.3f;
+  static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
   /** @brief Frames over which a new particle fades in. */
   static constexpr float FADE_IN_FRAMES = 16.0f;
   /** @brief Frames over which an expiring particle fades out. */
@@ -275,7 +275,7 @@ private:
   /** @brief Opacity stored in the high byte of a particle's color seed. */
   static float particle_alpha(uint16_t color_seed) {
     const float u = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
-    return MIN_PARTICLE_ALPHA + (1.0f - MIN_PARTICLE_ALPHA) * u * u;
+    return MIN_PARTICLE_ALPHA + (1.0f - MIN_PARTICLE_ALPHA) * u * u * u;
   }
 
   /** @brief Circular speed from the net inward pull of all six cores. */
