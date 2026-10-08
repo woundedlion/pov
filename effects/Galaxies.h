@@ -63,7 +63,7 @@ public:
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
-    register_param("Arm Pitch", &params.arm_pitch, 0.2f, 0.65f);
+    register_param("Arm Pitch", &params.arm_pitch, 0.1f, 0.65f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
     register_param("Emission Rate", &params.emission_rate, MIN_EMISSION_RATE,
                    MAX_EMISSION_RATE);
@@ -182,7 +182,7 @@ private:
     float core_mass = 0.12f;     /**< Attractor strength. */
     float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
     float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
-    float arm_pitch = 0.42f;     /**< Spiral pitch angle (radians). */
+    float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
