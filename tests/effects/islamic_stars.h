@@ -31,7 +31,7 @@ struct IslamicBuildProbe {
     return e.build_active;
   }
   template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
-    return e.solid_idx;
+    return static_cast<int>(e.getPresetIndex());
   }
   template <int W, int H> static int dual_bridges(const IslamicStars<W, H> &e) {
     return e.dual_bridges_built;
@@ -208,6 +208,96 @@ inline void test_islamicstars_smooth_recipe_completion() {
     }
     HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
   }
+}
+
+/** @brief Index of the first Islamic solid with a recipe. */
+inline size_t first_recipe_entry() {
+  for (size_t i = 0; i < std::size(Solids::islamic_registry); ++i)
+    if (Solids::islamic_registry[i].recipe)
+      return i;
+  HS_CHECK(false, "no Islamic solid has a recipe");
+  return 0;
+}
+
+/** @brief One preset per Islamic solid, opening on the first recipe entry. */
+inline void test_islamicstars_presets_cover_registry() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), std::size(Solids::islamic_registry));
+  HS_EXPECT_EQ(effect.getPresetIndex(), first_recipe_entry());
+}
+
+/**
+ * @brief A manual select mid-build cuts the build, holds the selected recipe
+ *        shape lit while paused, and builds it once unpaused.
+ */
+inline void test_islamicstars_manual_select_cuts_build() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+  int frames = 0;
+  while (!IslamicBuildProbe::build_active(effect) && frames++ < 64) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_TRUE(IslamicBuildProbe::build_active(effect));
+
+  const size_t selected =
+      (effect.getPresetIndex() + 1) % std::size(Solids::islamic_registry);
+  HS_EXPECT_TRUE(Solids::islamic_registry[selected].recipe != nullptr);
+  HS_EXPECT_TRUE(effect.selectPreset(selected));
+  HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
+  HS_EXPECT_EQ(effect.getPresetIndex(), selected);
+  HS_EXPECT_TRUE(effect.animations_paused());
+  for (int frame = 0; frame < 64; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
+  }
+  HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
+
+  effect.setAnimationsPaused(false);
+  bool built = false;
+  for (int frame = 0; frame < 256 && !built; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_LE(persistent_arena.get_offset(),
+                 IslamicBuildProbe::persistent_budget(effect));
+    built = IslamicBuildProbe::build_active(effect);
+  }
+  HS_EXPECT_TRUE(built);
+  HS_EXPECT_EQ(effect.getPresetIndex(), selected);
+}
+
+/** @brief Pause holds the resident shape lit; unpausing resumes advances. */
+inline void test_islamicstars_pause_holds_shape() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+  const size_t held = effect.getPresetIndex();
+  for (int frame = 0; frame < 8; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  effect.setAnimationsPaused(true);
+  for (int frame = 0; frame < 400; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(), held);
+  HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
+
+  effect.setAnimationsPaused(false);
+  int frames = 0;
+  while (effect.getPresetIndex() == held && frames++ < 400) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.getPresetIndex(),
+               (held + 1) % std::size(Solids::islamic_registry));
 }
 
 /**
