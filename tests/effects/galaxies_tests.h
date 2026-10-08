@@ -87,10 +87,8 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
 /**
  * @brief Runs the default settings and checks that particles stay near their
  *        own core.
- * @details The core kill radius absorbs particles before their orbits tighten
- *          enough to slingshot out. 96 columns allow three times the per-frame
- *          step of 288, so the slingshot shows up at the small resolution
- *          first.
+ * @details Checks both 96 and 288 columns because their per-frame motion caps
+ *          differ.
  */
 template <int W, int H> inline void check_galaxies_stay_contained() {
   using WB = GalaxiesWhiteBox;

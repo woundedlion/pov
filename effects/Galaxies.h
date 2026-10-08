@@ -142,9 +142,9 @@ private:
   /** @brief Angular radius of the spawn ring around each core (radians). */
   static constexpr float RING_RADIUS = 0.58f;
   /** @brief Core kill radius (chord) for particles that plunge inward. */
-  static constexpr float KILL_RADIUS = 0.03f;
+  static constexpr float KILL_RADIUS = 0.003f;
   /** @brief Radius inside which particles are steered straight in (chord). */
-  static constexpr float EVENT_HORIZON = 0.05f;
+  static constexpr float EVENT_HORIZON = 0.2f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.14f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
@@ -155,6 +155,10 @@ private:
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   /** @brief Frames over which a new particle fades in. */
   static constexpr float FADE_IN_FRAMES = 16.0f;
+  /** @brief Frames over which an expiring particle fades out. */
+  static constexpr float FADE_OUT_FRAMES = 20.0f;
+  /** @brief Radius where an inward-moving trail starts to dim (radians). */
+  static constexpr float HEAD_FADE_RADIUS = 0.15f;
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
    * @details At least 1.5 columns, so it stays visible at low resolution.
@@ -255,27 +259,40 @@ private:
     // Maps cos(distance to core) onto the palette: 0 at the core, 1 at the
     // spawn ring.
     const float cos_ring = math::fast_cosf(RING_RADIUS);
-    const float inv_ring_span = 1.0f / (1.0f - cos_ring);
+    const float ring_span = 1.0f - cos_ring;
+    const float inv_ring_span = 1.0f / ring_span;
+    const float cos_horizon = math::fast_cosf(EVENT_HORIZON);
+    const float inv_head_span =
+        1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
+    float core_fade = 1.0f;
 
     auto vertex_shader = [&](Fragment &f) { f.pos = rotation.apply(f.pos); };
 
-    // v2 <- palette coordinate, from the pre-rotation position.
+    // v2 holds palette radius; size carries the core fade through rasterization.
     auto radius_shader = [&](FragmentRegisters f,
                              const math::Vector &original_pos) {
-      f.v2 = (1.0f - math::dot(original_pos, *core)) * inv_ring_span;
+      const float cos_distance = math::dot(original_pos, *core);
+      f.v2 = (1.0f - cos_distance) * inv_ring_span;
+      f.size = cos_distance < cos_horizon
+                   ? 1.0f
+                   : math::quintic_kernel(
+                         math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
+                         EVENT_HORIZON);
     };
 
     auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-      // v3 is remaining life over max_life; fade in over the first frames.
+      // v3 is remaining life over max_life.
       const float fade_in =
           hs::clamp((1.0f - f.v3) * max_life / FADE_IN_FRAMES, 0.0f, 1.0f);
+      const float fade_out =
+          hs::clamp(f.v3 * max_life / FADE_OUT_FRAMES, 0.0f, 1.0f);
       // The tail keeps TRAIL_TAIL_ALPHA, so the thin inner arms stay visible.
       const float trail = TRAIL_TAIL_ALPHA + (1.0f - TRAIL_TAIL_ALPHA) *
                                                  hs::clamp(f.v0, 0.0f, 1.0f);
       Color4 c = palette.get(hs::clamp(f.v2, 0.0f, 1.0f));
-      c.alpha *= trail * fade_in * alpha;
+      c.alpha *= trail * fade_in * fade_out * f.size * core_fade * alpha;
       f.color = c;
     };
 
@@ -283,6 +300,8 @@ private:
     // deferred shader then overwrites v2.
     auto bind_core = [&](const auto &p, int) {
       core = &galaxies[p.color_seed].core;
+      core_fade = math::quintic_kernel((1.0f - math::dot(p.position, *core)) *
+                                       inv_head_span);
       return 0.0f;
     };
 
@@ -291,7 +310,7 @@ private:
         filters, canvas, particle_system, fragment_shader, vertex_shader,
         radius_shader, bind_core);
 
-    // Particles die at KILL_RADIUS, short of the core, so the bulge fills it.
+    // The bulge covers the final fade around each core.
     // Scan::Point leaves its quintic coverage in v2.
     const Color4 core_color = palette.get(0.0f);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
