@@ -29,8 +29,11 @@ struct GalaxiesWhiteBox {
   template <int W, int H> static const auto &system(const Galaxies<W, H> &fx) {
     return fx.particle_system;
   }
-  template <int W, int H> static float orbit_speed(const Galaxies<W, H> &fx) {
-    return fx.params.orbit_speed;
+  template <int W, int H>
+  static float orbit_speed(const Galaxies<W, H> &fx, const math::Vector &pos,
+                           const math::Vector &outward, float ring) {
+    return fx.circular_orbit_speed(pos, outward, ring) *
+           (fx.params.orbit_speed / fx.REFERENCE_ORBIT_SPEED);
   }
   template <int W, int H> static void set_arms(Galaxies<W, H> &fx, int arms) {
     fx.params.arms = arms;
@@ -76,11 +79,12 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
     // orbit about the core, with no radial component.
     HS_EXPECT_NEAR(math::dot(p.velocity, p.position), 0.0f, 1e-4f);
     HS_EXPECT_NEAR(math::dot(p.velocity, core), 0.0f, 1e-4f);
+    const math::Vector outward =
+        (p.position * math::dot(p.position, core) - core).normalized();
+    const float target_speed = WB::orbit_speed(fx, p.position, outward, ring);
     const float speed = p.velocity.magnitude();
-    HS_EXPECT_GE(speed,
-                 WB::orbit_speed(fx) * (1.0f - WB::SPEED_JITTER) - 1e-5f);
-    HS_EXPECT_LE(speed,
-                 WB::orbit_speed(fx) * (1.0f + WB::SPEED_JITTER) + 1e-5f);
+    HS_EXPECT_GE(speed, target_speed * (1.0f - WB::SPEED_JITTER) - 1e-5f);
+    HS_EXPECT_LE(speed, target_speed * (1.0f + WB::SPEED_JITTER) + 1e-5f);
   }
 }
 
