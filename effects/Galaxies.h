@@ -157,9 +157,9 @@ private:
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.28f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.12f;
+  static constexpr float RING_JITTER = 0.05f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
-  static constexpr float SPEED_JITTER = 0.015f;
+  static constexpr float SPEED_JITTER = 0.008f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
@@ -194,7 +194,7 @@ private:
     float friction = 0.99965f;   /**< Velocity retention per frame. */
     float core_mass = 0.12f;     /**< Attractor strength. */
     float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
-    float arm_spin = 0.03f;      /**< Arm rotation (radians/frame). */
+    float arm_spin = 0.06f;      /**< Arm rotation (radians/frame). */
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
     int trail_length = 0;        /**< Visible trail anchors. */
