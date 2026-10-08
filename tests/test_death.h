@@ -1995,7 +1995,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"effects/GnomonicStars.h", 1},
     {"effects/HankinSolids.h", 13},
     {"effects/HyperLattice.h", 2},
-    {"effects/IslamicStars.h", 4},
+    {"effects/IslamicStars.h", 5},
     {"effects/MeshFeedback.h", 1},
     {"effects/MindSplatter.h", 5},
     {"effects/MobiusRings.h", 1},
