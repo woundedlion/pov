@@ -50,7 +50,7 @@ public:
 
     // GLOBAL_ARENA_SIZE is inflated on host; check the device arena.
     static constexpr size_t POOL_BYTES =
-        sizeof(Animation::Particle<TRAIL_LEN>) * NUM_PARTICLES;
+        sizeof(Animation::PointParticle) * NUM_PARTICLES;
     static constexpr size_t AUX_RESERVE_BYTES =
         6 * 1024 + BakedPalette::required_arena_bytes();
     static_assert(
@@ -68,6 +68,10 @@ public:
     register_param("Emission Rate", &params.emission_rate, MIN_EMISSION_RATE,
                    MAX_EMISSION_RATE);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Particles", &params.active_count,
+                   ParamSpec<float>{.min = 0.0f,
+                                    .max = static_cast<float>(NUM_PARTICLES),
+                                    .readonly = true});
 
     // Cosine palette from a warm white core through lavender to blue arms.
     palette.bake(persistent_arena,
@@ -102,6 +106,7 @@ public:
       HS_PROFILE(gx_particle_step);
       particle_system.step(canvas);
     }
+    params.active_count = static_cast<float>(particle_system.active());
 
     // Alpha below one slider LSB: skip rasterizing; the physics still runs.
     if (params.alpha < MIN_VISIBLE_ALPHA)
@@ -116,17 +121,18 @@ private:
   static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
   static constexpr int MAX_ARMS = 8;
 
-  /** @brief Particles draw as points, so the pool keeps a minimal history. */
-  static constexpr int TRAIL_LEN = 1;
+  /** @brief Point particles retain no history. */
+  static constexpr int TRAIL_LEN = 0;
   /**
    * @brief Fixed particle pool capacity.
    * @details The emitters stop spawning while the pool is full.
    */
-  static constexpr int NUM_PARTICLES = 6000;
+  static constexpr int NUM_PARTICLES = 12000;
 
   using ParticleSystem =
       Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, NUM_GALAXIES,
-                                NUM_GALAXIES, true>;
+                                NUM_GALAXIES, true, 1,
+                                Animation::PointParticle>;
 
   static constexpr float MIN_EMISSION_RATE = 0.15f;
   static constexpr float MAX_EMISSION_RATE = 4.0f;
@@ -175,7 +181,7 @@ private:
   };
 
   /**
-   * @brief User-tunable parameters exposed via register_param.
+   * @brief Effect parameters and read-only telemetry.
    */
   struct Params {
     float friction = 0.99965f;   /**< Velocity retention per frame. */
@@ -186,6 +192,7 @@ private:
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
+    float active_count = 0.0f;   /**< Live particles (engine-written). */
   } params;
 
   /**
@@ -327,7 +334,8 @@ private:
     for (int i = 0; i < particle_system.active(); ++i) {
       const auto &p = particle_system.pool[i];
       const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
-      const float cos_distance = math::dot(p.position, galaxy.core);
+      const math::Vector position = p.get_position();
+      const float cos_distance = math::dot(position, galaxy.core);
       const float radius = (1.0f - cos_distance) * inv_ring_span;
       const float hole =
           cos_distance < cos_hole
@@ -341,13 +349,13 @@ private:
       const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
       const float fade_out =
           hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
-      const float arm = age < ARM_FADE_END ? arm_density(p.position, galaxy,
+      const float arm = age < ARM_FADE_END ? arm_density(position, galaxy,
                                                          cos_distance, winding)
                                            : 0.0f;
       Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
       c.alpha *= hole * head_fade * fade_in * fade_out *
                  particle_alpha(p.color_seed, age, arm) * alpha;
-      filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f, c.alpha);
+      filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
     }
 
     // The bulge covers the final fade around each core.

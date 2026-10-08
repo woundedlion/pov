@@ -88,16 +88,16 @@ inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
     HS_EXPECT_NEAR(math::dot(core, Solids::Octahedron::vertices[g]), 1.0f,
                    1e-5f);
     HS_EXPECT_EQ(static_cast<int>(p.color_seed & 0xff), g);
-    HS_EXPECT_NEAR(p.position.magnitude(), 1.0f, 1e-4f);
+    HS_EXPECT_NEAR(p.get_position().magnitude(), 1.0f, 1e-4f);
 
     const float ring =
-        acosf(hs::clamp(math::dot(p.position, core), -1.0f, 1.0f));
+        acosf(hs::clamp(math::dot(p.get_position(), core), -1.0f, 1.0f));
     HS_EXPECT_GE(ring, 0.139f);
     HS_EXPECT_LE(ring, 0.581f);
     ++radial_bins[hs::clamp(static_cast<int>((ring - 0.14f) / 0.11f), 0, 3)];
     const auto &galaxy = WB::galaxy(fx, g);
-    const float azimuth = atan2f(math::dot(p.position, galaxy.w),
-                                 math::dot(p.position, galaxy.u));
+    const float azimuth = atan2f(math::dot(p.get_position(), galaxy.w),
+                                 math::dot(p.get_position(), galaxy.u));
     const float expected = galaxy.phase + 2.0f * math::PI_F * galaxy.arm / 3 -
                            galaxy.spin * logf(ring / 0.58f) / tanf(0.5f);
     const float error =
@@ -107,11 +107,13 @@ inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
 
     // Tangent to the sphere and perpendicular to the core direction: a pure
     // orbit about the core, with no radial component.
-    HS_EXPECT_NEAR(math::dot(p.velocity, p.position), 0.0f, 1e-4f);
+    HS_EXPECT_NEAR(math::dot(p.velocity, p.get_position()), 0.0f, 1e-4f);
     HS_EXPECT_NEAR(math::dot(p.velocity, core), 0.0f, 1e-4f);
     const math::Vector outward =
-        (p.position * math::dot(p.position, core) - core).normalized();
-    const float target_speed = WB::orbit_speed(fx, p.position, outward, ring);
+        (p.get_position() * math::dot(p.get_position(), core) - core)
+            .normalized();
+    const float target_speed =
+        WB::orbit_speed(fx, p.get_position(), outward, ring);
     const float speed = p.velocity.magnitude();
     HS_EXPECT_GE(speed, target_speed * (1.0f - WB::SPEED_JITTER) - 1e-5f);
     HS_EXPECT_LE(speed, target_speed * (1.0f + WB::SPEED_JITTER) + 1e-5f);
@@ -197,7 +199,7 @@ inline void test_galaxies_emission_rate_and_capacity() {
   HS_EXPECT_EQ(galaxy.emission_credit, 0.0f);
 
   const int capacity = static_cast<int>(ps.pool.capacity());
-  HS_EXPECT_EQ(capacity, 6000);
+  HS_EXPECT_EQ(capacity, 12000);
   for (int i = ps.active(); i < capacity; ++i)
     WB::emit(fx, 0);
   HS_EXPECT_EQ(ps.active(), capacity);
@@ -219,17 +221,68 @@ inline void test_galaxies_emission_rate_and_capacity() {
   HS_EXPECT_NEAR(galaxy.emission_credit, 0.65f, 1e-6f);
 }
 
+/** @brief Packed stellar orbits stay within an eighth-column of float orbits. */
+inline void test_galaxies_packed_orbits_match_float() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  auto &packed = WB::system(fx);
+  packed.emitters.clear();
+  packed.motion_cap = 0.0372f;
+  packed.max_life = 801;
+  static uint8_t storage[16384];
+  Arena arena(storage, sizeof(storage));
+  Animation::ParticleSystem<DEFAULT_W, 96, 1, 1, 6, true> full;
+  full.init(arena, packed.friction, packed.gravity, 801);
+  full.motion_cap = packed.motion_cap;
+  for (const auto &a : packed.attractors)
+    full.add_attractor(a.position, a.strength, a.kill_radius, a.event_horizon,
+                       sqrtf(a.softening_sq));
+  for (int i = 0; i < 96; ++i) {
+    WB::emit(fx, i % WB::NUM_GALAXIES);
+    const auto &p = packed.pool[i];
+    full.spawn(p.get_position(), p.velocity, p.color_seed);
+  }
+  Canvas canvas(fx);
+  float max_angle_error = 0.0f;
+  for (int frame = 0; frame < 800; ++frame) {
+    full.step(canvas);
+    packed.step(canvas);
+    HS_EXPECT_EQ(full.active(), 96);
+    HS_EXPECT_EQ(packed.active(), 96);
+    for (int i = 0; i < packed.active(); ++i) {
+      const auto &p = packed.pool[i];
+      const math::Vector a = p.get_position();
+      const math::Vector b = full.pool[i].get_position();
+      const float error =
+          atan2f(math::cross(a, b).magnitude(), math::dot(a, b));
+      HS_EXPECT(std::isfinite(error) && std::isfinite(p.velocity.magnitude()),
+                "orbit remains finite");
+      HS_EXPECT_NEAR(a.magnitude(), 1.0f, 3e-7f);
+      HS_EXPECT_NEAR(math::dot(a, p.velocity), 0.0f, 2e-9f);
+      max_angle_error = std::max(max_angle_error, error);
+    }
+  }
+  std::printf("packed orbit maximum angular error: %.9g rad\n",
+              max_angle_error);
+  HS_EXPECT_LE(max_angle_error, math::RADIANS_PER_COLUMN<DEFAULT_W> / 8.0f);
+}
+
 /**
  * @brief Runs the default settings and checks that particles stay near their
  *        own core.
  * @details Checks both 96 and 288 columns because their per-frame motion caps
  *          differ.
  */
-template <int W, int H> inline void check_galaxies_stay_contained() {
+template <int W, int H>
+inline void check_galaxies_stay_contained(float pitch = -1.0f) {
   using WB = GalaxiesWhiteBox;
   reset_effect_globals();
   Galaxies<W, H> fx;
   fx.init();
+  if (pitch > 0.0f)
+    WB::set_pitch(fx, pitch);
   // Physics only; the containment check needs no pixels.
   WB::hide(fx);
   for (int f = 0; f < 300; ++f) {
@@ -245,9 +298,11 @@ template <int W, int H> inline void check_galaxies_stay_contained() {
   int outside = 0;
   for (int i = 0; i < live; ++i) {
     const auto &p = ps.pool[i];
-    const float own = math::dot(p.position, WB::core(fx, p.color_seed & 0xff));
+    const math::Vector position = p.get_position();
+    const int owner = p.color_seed & 0xff;
+    const float own = math::dot(position, WB::core(fx, owner));
     for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
-      if (math::dot(p.position, WB::core(fx, g)) > own) {
+      if (g != owner && math::dot(position, WB::core(fx, g)) > own) {
         ++strays;
         break;
       }
@@ -265,4 +320,45 @@ inline void test_galaxies_stay_contained_small() {
 
 inline void test_galaxies_stay_contained_default() {
   check_galaxies_stay_contained<DEFAULT_W, DEFAULT_H>();
+}
+
+/** @brief The narrowest arm pitch keeps stars within their own galaxies. */
+inline void test_galaxies_min_pitch_stays_contained() {
+  check_galaxies_stay_contained<SMALL_W, SMALL_H>(0.1f);
+  check_galaxies_stay_contained<DEFAULT_W, DEFAULT_H>(0.1f);
+}
+
+/** @brief Live particle telemetry follows births and deaths with alpha zero. */
+inline void test_galaxies_live_particle_count() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<SMALL_W, SMALL_H> fx;
+  fx.init();
+  const auto *count = fx.getParameters().find("Particles");
+  HS_EXPECT(count != nullptr, "Particles telemetry is registered");
+  if (!count)
+    return;
+  HS_EXPECT(count->readonly, "Particles telemetry is read-only");
+  HS_EXPECT_EQ(count->min, 0.0f);
+  HS_EXPECT_EQ(count->max, 12000.0f);
+  HS_EXPECT_EQ(count->get(), 0.0f);
+  HS_EXPECT(fx.updateParameter("Particles", 100.0f) == ParamSetResult::READONLY,
+            "client writes cannot replace live particle count");
+  WB::hide(fx);
+  WB::set_emission_rate(fx, 4.0f);
+  for (int g = 0; g < WB::NUM_GALAXIES; ++g)
+    WB::galaxy(fx, g).emission_credit = 0.0f;
+  for (int frame = 0; frame < 2; ++frame) {
+    pin_frame_clock(frame);
+    fx.draw_frame();
+    HS_EXPECT_EQ(count->get(), 24.0f * (frame + 1));
+    fx.advance_display();
+  }
+  auto &ps = WB::system(fx);
+  for (int i = 0; i < ps.active(); ++i)
+    ps.pool[i].life = 1;
+  pin_frame_clock(2);
+  fx.draw_frame();
+  HS_EXPECT_EQ(count->get(), 24.0f);
+  fx.advance_display();
 }

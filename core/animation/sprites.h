@@ -158,6 +158,12 @@ template <int TRAIL_LEN = 8> struct Particle {
   /** Trail of world-space positions, snorm16-quantized (unit-sphere domain). */
   QuantizedVectorTrail<TRAIL_LEN> history;
 
+  /** @brief Reads the current world-space position. */
+  const math::Vector &get_position() const { return position; }
+
+  /** @brief Stores the current world-space position. */
+  void set_position(const math::Vector &p) { position = p; }
+
   /**
    * @brief (Re)initializes the particle and clears its trail.
    * @param p Initial world-space position.
@@ -183,6 +189,55 @@ template <int TRAIL_LEN = 8> struct Particle {
    */
   size_t history_length() const { return history.length(); }
 };
+
+/** @brief Point particle with a two-float octahedral direction and no trail. */
+struct PointParticle {
+  math::Vector velocity;
+  std::array<float, 2> position{};
+  uint16_t color_seed = 0;
+  uint16_t life = 0;
+
+  /** @brief Decodes and normalizes the stored direction. */
+  math::Vector get_position() const {
+    math::Vector p(position[0], position[1], 0);
+    p.z = 1.0f - fabsf(p.x) - fabsf(p.y);
+    if (p.z < 0) {
+      const float x = p.x;
+      p.x = (1.0f - fabsf(p.y)) * copysignf(1.0f, x);
+      p.y = (1.0f - fabsf(x)) * copysignf(1.0f, p.y);
+    }
+    return p.normalized();
+  }
+
+  /** @brief Packs a unit direction and makes velocity tangent to its decode. */
+  void set_position(const math::Vector &p) {
+    const float inv = 1.0f / (fabsf(p.x) + fabsf(p.y) + fabsf(p.z));
+    float x = p.x * inv, y = p.y * inv;
+    if (p.z < 0) {
+      const float old_x = x;
+      x = (1.0f - fabsf(y)) * copysignf(1.0f, old_x);
+      y = (1.0f - fabsf(old_x)) * copysignf(1.0f, y);
+    }
+    position = {x, y};
+    const math::Vector decoded = get_position();
+    velocity -= decoded * math::dot(velocity, decoded);
+  }
+
+  /** @brief Initializes a point particle; non-finite lifetime expires at once. */
+  void init(const math::Vector &p, const math::Vector &v, uint16_t seed,
+            float l) {
+    velocity = v;
+    set_position(p);
+    color_seed = seed;
+    life = std::isfinite(l)
+               ? static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f))
+               : 0;
+  }
+
+  /** @brief Point particles retain no trail positions. */
+  size_t history_length() const { return 0; }
+};
+static_assert(sizeof(PointParticle) == 24);
 
 /** @brief Squared-distance floor for attractor force evaluation. */
 inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
@@ -266,14 +321,15 @@ apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
  * @tparam SIGNED_AXIS_ATTRACTORS Enable paired unit signed-axis attractor
  *        algebra.
  * @tparam STRIDE Frames between stored trail anchors.
+ * @tparam ParticleType Particle storage with position accessors and init().
  */
 template <int W, int CAPACITY, int TRAIL_LEN = 8, int EMITTER_CAP = 8,
           int ATTRACTOR_CAP = 8, bool SIGNED_AXIS_ATTRACTORS = false,
-          int STRIDE = 1>
+          int STRIDE = 1, typename ParticleType = Particle<TRAIL_LEN>>
 class ParticleSystem
     : public AnimationBase<
           ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                         SIGNED_AXIS_ATTRACTORS, STRIDE>> {
+                         SIGNED_AXIS_ATTRACTORS, STRIDE, ParticleType>> {
 public:
   static_assert(CAPACITY <= 65535,
                 "active_count is uint16_t; CAPACITY must fit in it");
@@ -283,7 +339,7 @@ public:
 
   static constexpr int TRAIL_SAMPLE_STRIDE = STRIDE;
 
-  ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
+  ArenaVector<ParticleType> pool; /**< Backing pool of particles. */
 
   /**
    * @brief Number of live particles in the pool prefix.
@@ -314,7 +370,8 @@ public:
   ParticleSystem()
       : AnimationBase<
             ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                           SIGNED_AXIS_ATTRACTORS, STRIDE>>(-1, false) {}
+                           SIGNED_AXIS_ATTRACTORS, STRIDE, ParticleType>>(
+            -1, false) {}
 
   /**
    * @brief Selects the paired signed-axis attractor path.
@@ -429,9 +486,9 @@ public:
    * swap-removing any that died (compacting the live prefix of the pool).
    */
   void step(Canvas &canvas) override {
-    AnimationBase<
-        ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                       SIGNED_AXIS_ATTRACTORS, STRIDE>>::step(canvas);
+    AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
+                                 ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS, STRIDE,
+                                 ParticleType>>::step(canvas);
 
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
       HS_CHECK(!signed_axis_attractors || attractors.size() == 6,
@@ -475,8 +532,7 @@ private:
    * @return False once an attractor killed the particle.
    */
   HS_O3_FN __attribute__((always_inline)) bool
-  apply_attractors(Particle<TRAIL_LEN> &p, const math::Vector &pos,
-                   float max_delta) {
+  apply_attractors(ParticleType &p, const math::Vector &pos, float max_delta) {
     for (size_t k = 0; k < attractors.size(); ++k) {
       const Attractor &attr = attractors[k];
       float dist_sq = math::distance_squared(pos, attr.position);
@@ -519,7 +575,7 @@ private:
    * @details Forward Euler with dt = 1 frame; friction damps the carried-in
    * velocity before this frame's attractor impulse.
    */
-  bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
+  bool step_particle(ParticleType &p, float max_delta) {
     bool active = p.life > 0;
     if (active) {
       p.life--;
@@ -527,7 +583,7 @@ private:
     }
 
     if (active) {
-      math::Vector pos = p.position;
+      math::Vector pos = p.get_position();
 
       p.velocity *= friction;
 
@@ -627,8 +683,8 @@ private:
             const float speed = fminf(sqrtf(speed_sq), max_delta);
             axis *= 1.0f / sqrtf(axis_sq);
             const math::Quaternion dq = math::make_rotation(axis, speed);
-            p.position = math::rotate(p.position, dq);
             p.velocity = math::rotate(p.velocity, dq);
+            p.set_position(math::rotate(pos, dq));
           }
           HS_PLOT_STALL_STOP(signed_axis_physics, axis_motion_start);
         } else {
@@ -640,25 +696,26 @@ private:
             // velocity keeps its full magnitude.
             speed = fminf(speed, max_delta);
             math::Quaternion dq = math::make_rotation(axis.normalized(), speed);
-            p.position = math::rotate(p.position, dq);
             p.velocity = math::rotate(p.velocity, dq);
+            p.set_position(math::rotate(pos, dq));
           }
         }
       }
     }
 
-    if (active) {
-      // Lowering max_life below a live particle's remaining life would underflow
-      // this uint16_t subtraction. Age 0 is tested on its own because (age - 1)
-      // promotes to -1, which no stride divides.
-      const uint16_t age = p.life < max_life ? max_life - p.life : 0;
-      if constexpr (STRIDE == 1) {
-        p.history.record(p.position);
-      } else if (age == 0 || (age - 1) % STRIDE == 0) {
-        p.history.record(p.position);
+    if constexpr (TRAIL_LEN > 0) {
+      if (active) {
+        // Lowering max_life below a live particle's remaining life would underflow
+        // this uint16_t subtraction. Age 0 is tested on its own because (age - 1)
+        // promotes to -1, which no stride divides.
+        const uint16_t age = p.life < max_life ? max_life - p.life : 0;
+        if constexpr (STRIDE == 1) {
+          p.history.record(p.get_position());
+        } else if (age == 0 || (age - 1) % STRIDE == 0) {
+          p.history.record(p.get_position());
+        }
       }
     }
-
     return !active;
   }
 };

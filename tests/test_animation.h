@@ -124,6 +124,7 @@ inline int run_animation_tests() {
 
   test_particle_system_spawn_and_capacity_guard();
   test_particle_system_lifetime_boundaries();
+  test_point_particle_storage_and_lifetime();
   test_particle_system_spawn_initializes_and_steps();
   test_particle_system_sparse_trail_sampling();
   test_particle_system_reclaims_at_life_expiry();
