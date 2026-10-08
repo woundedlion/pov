@@ -196,7 +196,8 @@ private:
       Galaxy &g = galaxies[i];
       const math::Basis basis =
           math::make_basis(math::Quaternion(), Solids::Octahedron::vertices[i]);
-      g.core = basis.v;
+      // Signed-axis physics requires the exact axis, not a renormalized one.
+      g.core = Solids::Octahedron::vertices[i];
       g.u = basis.u;
       g.w = basis.w;
       g.phase = hs::rand_f(0.0f, 2.0f * math::PI_F);
