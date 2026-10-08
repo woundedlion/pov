@@ -13,7 +13,6 @@ struct GalaxiesWhiteBox {
 
   static constexpr int NUM_GALAXIES = FX<1, 1>::NUM_GALAXIES;
   static constexpr float RING_RADIUS = FX<1, 1>::RING_RADIUS;
-  static constexpr float RING_JITTER = FX<1, 1>::RING_JITTER;
   static constexpr float SPEED_JITTER = FX<1, 1>::SPEED_JITTER;
 
   template <int W, int H> static void emit(Galaxies<W, H> &fx, int galaxy) {
@@ -41,22 +40,39 @@ struct GalaxiesWhiteBox {
   template <int W, int H> static void hide(Galaxies<W, H> &fx) {
     fx.params.alpha = 0.0f;
   }
+  template <int W, int H> static auto &galaxy(Galaxies<W, H> &fx, int index) {
+    return fx.galaxies[index];
+  }
+  template <int W, int H>
+  static void set_pitch(Galaxies<W, H> &fx, float pitch) {
+    fx.params.arm_pitch = pitch;
+  }
+  static float alpha(uint16_t seed, float age, float arm) {
+    return FX<1, 1>::particle_alpha(seed, age, arm);
+  }
+  template <int W, int H>
+  static float density(const Galaxies<W, H> &fx, int index,
+                       const math::Vector &position) {
+    const auto &galaxy = fx.galaxies[index];
+    return fx.arm_density(position, galaxy, math::dot(position, galaxy.core),
+                          1.0f / tanf(fx.params.arm_pitch));
+  }
 };
 
-/**
- * @brief Cores follow octahedron vertices; spawns land on their galaxy's ring
- *        with an orbital velocity, and arms cycle.
- */
-inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
+/** @brief Stars span logarithmic arms with tangential orbital velocities. */
+inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {
   using WB = GalaxiesWhiteBox;
   reset_effect_globals();
   Galaxies<SMALL_W, SMALL_H> fx;
   fx.init();
   WB::set_arms(fx, 3);
+  WB::set_pitch(fx, 0.5f);
 
   const auto &ps = WB::system(fx);
   HS_EXPECT_EQ(WB::NUM_GALAXIES, Solids::Octahedron::NUM_VERTS);
-  for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
+  int radial_bins[4] = {};
+  for (int sample = 0; sample < 600; ++sample) {
+    const int g = sample % WB::NUM_GALAXIES;
     const int before = WB::arm(fx, g);
     const uint16_t index = ps.active();
     WB::emit(fx, g);
@@ -72,8 +88,18 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
 
     const float ring =
         acosf(hs::clamp(math::dot(p.position, core), -1.0f, 1.0f));
-    HS_EXPECT_GE(ring, WB::RING_RADIUS * (1.0f - WB::RING_JITTER) - 1e-3f);
-    HS_EXPECT_LE(ring, WB::RING_RADIUS * (1.0f + WB::RING_JITTER) + 1e-3f);
+    HS_EXPECT_GE(ring, 0.139f);
+    HS_EXPECT_LE(ring, 0.581f);
+    ++radial_bins[hs::clamp(static_cast<int>((ring - 0.14f) / 0.11f), 0, 3)];
+    const auto &galaxy = WB::galaxy(fx, g);
+    const float azimuth = atan2f(math::dot(p.position, galaxy.w),
+                                 math::dot(p.position, galaxy.u));
+    const float expected = galaxy.phase + 2.0f * math::PI_F * galaxy.arm / 3 -
+                           galaxy.spin * logf(ring / 0.58f) / tanf(0.5f);
+    const float error =
+        atan2f(sinf(azimuth - expected), cosf(azimuth - expected));
+    const float spread = 1.0f - 0.9f * (p.color_seed >> 8) / 255.0f;
+    HS_EXPECT_LE(fabsf(error), 0.22f * spread + 0.005f);
 
     // Tangent to the sphere and perpendicular to the core direction: a pure
     // orbit about the core, with no radial component.
@@ -86,6 +112,44 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
     HS_EXPECT_GE(speed, target_speed * (1.0f - WB::SPEED_JITTER) - 1e-5f);
     HS_EXPECT_LE(speed, target_speed * (1.0f + WB::SPEED_JITTER) + 1e-5f);
   }
+  for (const int count : radial_bins)
+    HS_EXPECT_GE(count, 100);
+}
+
+/** @brief A rotating spiral lights young stars; old stars stay dim. */
+inline void test_galaxies_arm_contrast_and_age_fade() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  WB::set_pitch(fx, 0.5f);
+  for (int arms : {1, 2, 4, 8}) {
+    WB::set_arms(fx, arms);
+    for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
+      auto &galaxy = WB::galaxy(fx, g);
+      for (float ring : {0.18f, 0.35f, 0.54f}) {
+        const float angle =
+            galaxy.phase - galaxy.spin * logf(ring / 0.58f) / tanf(0.5f);
+        const math::Vector position =
+            galaxy.core * cosf(ring) +
+            (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
+        const float on_arm = WB::density(fx, g, position);
+        HS_EXPECT_GE(on_arm, 0.99f);
+        HS_EXPECT_GE(WB::alpha(0xff00, 100, on_arm), 0.92f);
+        HS_EXPECT_NEAR(WB::alpha(0xff00, 475, on_arm),
+                       (WB::alpha(0xff00, 100, on_arm) + 0.014f) * 0.5f, 1e-5f);
+        HS_EXPECT_NEAR(WB::alpha(0xff00, 700, on_arm), 0.014f, 1e-5f);
+        galaxy.phase += math::PI_F / arms;
+        const float between_arms = WB::density(fx, g, position);
+        HS_EXPECT_NEAR(between_arms, 0.0f, 1e-5f);
+        HS_EXPECT_NEAR(WB::alpha(0xff00, 100, between_arms), 0.014f, 1e-5f);
+        HS_EXPECT_NEAR(WB::alpha(0, 100, between_arms), 0.006f, 1e-5f);
+        galaxy.phase -= math::PI_F / arms;
+      }
+    }
+  }
+  HS_EXPECT_LE(WB::alpha(0xff00, 100, 0.7f) / WB::alpha(0xff00, 100, 1.0f),
+               WB::alpha(0, 100, 0.7f) / WB::alpha(0, 100, 1.0f));
 }
 
 /**

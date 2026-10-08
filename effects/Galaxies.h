@@ -24,11 +24,9 @@ struct GalaxiesWhiteBox;
  * @brief Spiral galaxies on the vertices of an octahedron.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Each vertex holds an attractor (the galactic core) and an emitter
- *          that spawns particles on a ring around it with an orbital
- *          velocity. A slow inward drift and the emitter's advancing spawn
- *          angle lay successive particles out as rotating arms. Particles are
- *          colored by distance from their own core.
+ * @details Stars form along rotating logarithmic arms, then orbit a central
+ *          attractor. A rotating brightness pattern lights young stars within
+ *          the arms; older stars fade into a dim stellar disk.
  */
 template <int W, int H> class Galaxies : public Effect {
 public:
@@ -65,6 +63,7 @@ public:
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
+    register_param("Arm Pitch", &params.arm_pitch, 0.2f, 0.65f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
     register_param("Emission Rate", &params.emission_rate, 0.15f, 0.75f);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -95,7 +94,7 @@ public:
 
     particle_system.friction = params.friction;
     particle_system.motion_cap =
-        std::max((2.0f * math::PI_F) / W, params.orbit_speed * 1.4f);
+        std::max((2.0f * math::PI_F) / W, params.orbit_speed * 3.0f);
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.core_mass;
     {
@@ -131,8 +130,9 @@ private:
   static constexpr float GRAVITY = 0.001f;
   static constexpr float PARTICLE_LIFETIME_FRAMES = 800.0f;
   static constexpr float REFERENCE_ORBIT_SPEED = 0.01285f;
-  /** @brief Angular radius of the spawn ring around each core (radians). */
+  /** @brief Outer radius of the stellar disk (radians). */
   static constexpr float RING_RADIUS = 0.58f;
+  static constexpr float INNER_RADIUS = 0.14f;
   /** @brief Core kill radius (chord) for particles that plunge inward. */
   static constexpr float KILL_RADIUS = 0.008f;
   /** @brief Galaxies do not use the attractor's radial steering zone. */
@@ -142,14 +142,13 @@ private:
   /** @brief Radius of the particle fade into each core (radians). */
   static constexpr float HOLE_FADE_RADIUS = 0.035f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
-  static constexpr float ARM_JITTER = 0.28f;
-  /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.05f;
+  static constexpr float ARM_JITTER = 0.22f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
   static constexpr float SPEED_JITTER = 0.008f;
-  static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
+  static constexpr float ARM_FADE_START = 300.0f;
+  static constexpr float ARM_FADE_END = 650.0f;
   /** @brief Frames over which a new particle fades in. */
-  static constexpr float FADE_IN_FRAMES = 16.0f;
+  static constexpr float FADE_IN_FRAMES = 2.0f;
   /** @brief Frames over which an expiring particle fades out. */
   static constexpr float FADE_OUT_FRAMES = 20.0f;
   /** @brief Radius where an inward-moving particle starts to dim (radians). */
@@ -179,7 +178,8 @@ private:
     float friction = 0.99965f;   /**< Velocity retention per frame. */
     float core_mass = 0.12f;     /**< Attractor strength. */
     float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
-    float arm_spin = 0.06f;      /**< Arm rotation (radians/frame). */
+    float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
+    float arm_pitch = 0.42f;     /**< Spiral pitch angle (radians). */
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
@@ -237,17 +237,15 @@ private:
     const uint16_t alpha_seed = static_cast<uint16_t>(hs::rand_f() * 255.0f);
     const float spread =
         1.0f - 0.9f * static_cast<float>(alpha_seed) * (1.0f / 255.0f);
-    const float angle = g.phase + 2.0f * math::PI_F * g.arm / arms +
-                        hs::rand_f(-ARM_JITTER, ARM_JITTER) * spread;
-    const float ring =
-        RING_RADIUS * (1.0f + hs::rand_f(-RING_JITTER, RING_JITTER) * spread);
-    // fast_cosf/fast_sinf are approximate; renormalize onto the sphere.
+    const float ring = hs::rand_f(INNER_RADIUS, RING_RADIUS);
+    const float angle =
+        g.phase + 2.0f * math::PI_F * g.arm / arms -
+        g.spin * logf(ring / RING_RADIUS) / tanf(params.arm_pitch) +
+        hs::rand_f(-ARM_JITTER, ARM_JITTER) * spread;
     const math::Vector radial =
-        (g.u * math::fast_cosf(angle) + g.w * math::fast_sinf(angle))
-            .normalized();
+        (g.u * cosf(angle) + g.w * sinf(angle)).normalized();
     const math::Vector pos =
-        (g.core * math::fast_cosf(ring) + radial * math::fast_sinf(ring))
-            .normalized();
+        (g.core * cosf(ring) + radial * sinf(ring)).normalized();
     // core and radial are orthonormal, so their cross is the unit tangent.
     const math::Vector tangent = math::cross(g.core, radial);
     const math::Vector outward = math::cross(tangent, pos);
@@ -259,10 +257,29 @@ private:
     particle_system.spawn(pos, tangent * (speed * g.spin), color_seed);
   }
 
-  /** @brief Opacity stored in the high byte of a particle's color seed. */
-  static float particle_alpha(uint16_t color_seed) {
+  /** @brief Brightness pattern that stars move through while orbiting. */
+  float arm_density(const math::Vector &position, const Galaxy &galaxy,
+                    float cos_distance, float winding) const {
+    const float ring = math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
+    const float azimuth = math::fast_atan2(math::dot(position, galaxy.w),
+                                           math::dot(position, galaxy.u));
+    const float angle =
+        azimuth - galaxy.phase +
+        galaxy.spin * winding * logf(fmaxf(ring, KILL_RADIUS) / RING_RADIUS);
+    return fmaxf(math::fast_cosf(angle * hs::clamp(params.arms, 1, MAX_ARMS)),
+                 0.0f);
+  }
+
+  /** @brief Young stars light the arms; old stars form a faint stellar disk. */
+  static float particle_alpha(uint16_t color_seed, float age, float arm) {
     const float u = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
-    return MIN_PARTICLE_ALPHA + (1.0f - MIN_PARTICLE_ALPHA) * u * u * u;
+    const float young = hs::clamp(
+        (ARM_FADE_END - age) / (ARM_FADE_END - ARM_FADE_START), 0.0f, 1.0f);
+    const float background = 0.006f + 0.008f * u;
+    const float broad = arm * arm;
+    const float spine = broad * broad * broad * broad;
+    const float profile = broad + (spine - broad) * u;
+    return background + (0.5f + 0.5f * u * u - background) * young * profile;
   }
 
   /** @brief Circular speed from the net inward pull of all six cores. */
@@ -292,7 +309,7 @@ private:
     HS_PROFILE(gx_draw_particles);
     const math::RotationMatrix rotation(orientation.get());
     // Maps cos(distance to core) onto the palette: 0 at the core, 1 at the
-    // spawn ring.
+    // disk rim.
     const float cos_ring = math::fast_cosf(RING_RADIUS);
     const float inv_ring_span = 1.0f / (1.0f - cos_ring);
     const float cos_hole = math::fast_cosf(HOLE_FADE_RADIUS);
@@ -300,12 +317,13 @@ private:
         1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
+    const float winding = 1.0f / tanf(params.arm_pitch);
 
     filters.prepare(canvas);
     for (int i = 0; i < particle_system.active(); ++i) {
       const auto &p = particle_system.pool[i];
-      const math::Vector &core = galaxies[p.color_seed & 0xff].core;
-      const float cos_distance = math::dot(p.position, core);
+      const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
+      const float cos_distance = math::dot(p.position, galaxy.core);
       const float radius = (1.0f - cos_distance) * inv_ring_span;
       const float hole =
           cos_distance < cos_hole
@@ -315,13 +333,16 @@ private:
                     HOLE_FADE_RADIUS);
       const float head_fade =
           math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
-      const float fade_in = hs::clamp(
-          (max_life - static_cast<float>(p.life)) / FADE_IN_FRAMES, 0.0f, 1.0f);
+      const float age = max_life - static_cast<float>(p.life);
+      const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
       const float fade_out =
           hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
+      const float arm = age < ARM_FADE_END ? arm_density(p.position, galaxy,
+                                                         cos_distance, winding)
+                                           : 0.0f;
       Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
       c.alpha *= hole * head_fade * fade_in * fade_out *
-                 particle_alpha(p.color_seed) * alpha;
+                 particle_alpha(p.color_seed, age, arm) * alpha;
       filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f, c.alpha);
     }
 

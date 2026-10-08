@@ -1090,7 +1090,8 @@ inline int run_effects_tests() {
   run_case(test_hopf_trail_trim_keeps_a_segment);
   run_case(test_gnomonicstars_radius_px_covers_both_axes);
   run_case(test_gnomonicstars_spiral_cache_invalidation);
-  run_case(test_galaxies_spawn_on_ring_with_orbital_velocity);
+  run_case(test_galaxies_spawn_along_spiral_with_orbital_velocity);
+  run_case(test_galaxies_arm_contrast_and_age_fade);
   run_case(test_galaxies_stay_contained_small);
   run_case(test_galaxies_stay_contained_default);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
