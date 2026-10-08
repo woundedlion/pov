@@ -155,11 +155,11 @@ private:
   /** @brief Radius of the particle fade into each core (radians). */
   static constexpr float HOLE_FADE_RADIUS = 0.035f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
-  static constexpr float ARM_JITTER = 0.32f;
+  static constexpr float ARM_JITTER = 0.28f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.18f;
+  static constexpr float RING_JITTER = 0.12f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
-  static constexpr float SPEED_JITTER = 0.025f;
+  static constexpr float SPEED_JITTER = 0.015f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
@@ -249,10 +249,13 @@ private:
     if (particle_system.active() >= particle_system.pool.capacity())
       return;
 
+    const uint16_t alpha_seed = static_cast<uint16_t>(hs::rand_f() * 255.0f);
+    const float spread =
+        1.0f - 0.9f * static_cast<float>(alpha_seed) * (1.0f / 255.0f);
     const float angle = g.phase + 2.0f * math::PI_F * g.arm / arms +
-                        hs::rand_f(-ARM_JITTER, ARM_JITTER);
+                        hs::rand_f(-ARM_JITTER, ARM_JITTER) * spread;
     const float ring =
-        RING_RADIUS * (1.0f + hs::rand_f(-RING_JITTER, RING_JITTER));
+        RING_RADIUS * (1.0f + hs::rand_f(-RING_JITTER, RING_JITTER) * spread);
     // fast_cosf/fast_sinf are approximate; renormalize onto the sphere.
     const math::Vector radial =
         (g.u * math::fast_cosf(angle) + g.w * math::fast_sinf(angle))
@@ -266,7 +269,6 @@ private:
     const float speed = circular_orbit_speed(pos, outward, ring) *
                         (params.orbit_speed / REFERENCE_ORBIT_SPEED) *
                         (1.0f + hs::rand_f(-SPEED_JITTER, SPEED_JITTER));
-    const uint16_t alpha_seed = static_cast<uint16_t>(hs::rand_f() * 255.0f);
     const uint16_t color_seed =
         static_cast<uint16_t>(index | (alpha_seed << 8));
     particle_system.spawn(pos, tangent * (speed * g.spin), color_seed);
