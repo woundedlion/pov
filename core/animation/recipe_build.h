@@ -15,8 +15,8 @@ namespace Animation {
 
 /**
  * @brief Schedules swept recipe legs and carries mesh palettes across compaction.
- * @tparam Host Owner providing timeline, pause gate, carousel, palette storage,
- * drawing and persistent-storage reclamation.
+ * @tparam Host Owner providing timeline, carousel, palette storage, drawing and
+ * persistent-storage reclamation.
  * @tparam MAX_BUILD_STEPS Maximum lowered primitive count.
  * @tparam MAX_BUILD_FACES Maximum mesh face count.
  */
@@ -336,24 +336,8 @@ protected:
     check_build_budget();
     build_landing = &leg.landing();
     Animation::OpLeg::require_event_slot();
-    host().timeline.add_pausable(
-        0, std::move(leg).then([this, next] { continue_build(next); }),
-        &host().anims_paused);
-  }
-
-  /**
-   * @brief Drops an interrupted build's state after its legs were cleared from
-   *        the timeline.
-   * @details The seeds' persistent storage is reclaimed by the next spawn's
-   * compaction.
-   */
-  HS_COLD_MEMBER void abandon_build() {
-    build_active = false;
-    build_landing = nullptr;
-    build_from_pal = nullptr;
-    build_from_faces = 0;
-    build_seed = PolyMesh();
-    build_next_seed = PolyMesh();
+    host().timeline.add(
+        0, std::move(leg).then([this, next] { continue_build(next); }));
   }
 
   /**
