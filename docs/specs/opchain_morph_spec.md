@@ -80,9 +80,8 @@ arrival handoff used by ordinary legs.
 - Pure radial motion does not provide a useful face-silhouette sweep under the
   gnomonic face representation; it changes shading inputs more readily than the
   projected boundary.
-- Shipped `dual` transitions use the smooth bridge above. `kis` usually uses
-  the smooth bridge; an authored `META` chain uses the gated `kis` swap when
-  its irregular intermediate mesh exceeds the reconcile correspondence bound.
+- Shipped `dual`, `kis`, `needle`, and `meta` transitions use the smooth bridges
+  above. The engine retains a gated-swap fallback, but no shipped effect uses it.
 - Palette continuity is geometric. Departed-face centroids and arrival topology
   classes drive the checked mapping; emission order is not a stable identity.
 
