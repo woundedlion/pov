@@ -27,7 +27,7 @@ struct GalaxiesWhiteBox;
  * @details Each vertex holds an attractor (the galactic core) and an emitter
  *          that spawns particles on a ring around it with an orbital
  *          velocity. A slow inward drift and the emitter's advancing spawn
- *          angle lay successive particles out as rotating arms. Trails are
+ *          angle lay successive particles out as rotating arms. Particles are
  *          colored by distance from their own core.
  */
 template <int W, int H> class Galaxies : public Effect {
@@ -61,9 +61,8 @@ public:
         "Galaxies particle pool + attractor/emitter/palette storage "
         "overflow the device persistent arena");
 
-    // One trail at a time stages its fragments, the pre-shader positions the
-    // deferred shader reads, and the gate arrays in scratch_a. A live tip is
-    // appended past the stored history.
+    // One trail at a time stages its fragments, pre-shader positions, and gate
+    // arrays in scratch_a. A live tip is appended past the stored history.
     static constexpr size_t TRAIL_POINTS = TRAIL_LEN + 1;
     static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(math::Vector)) +
                           Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_POINTS) <=
@@ -76,6 +75,9 @@ public:
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.02f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.1f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
+    register_int_param("Emission Rate", &params.emission_rate, 1,
+                       MAX_EMISSION_RATE);
+    register_int_param("Trail Length", &params.trail_length, 0, TRAIL_LEN - 1);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     // Cosine palette from a warm white core through lavender to blue arms.
@@ -109,6 +111,7 @@ public:
       HS_PROFILE(gx_particle_step);
       particle_system.step(canvas);
     }
+    trim_histories();
 
     // Alpha below one slider LSB: skip rasterizing; the physics still runs.
     if (params.alpha < MIN_VISIBLE_ALPHA)
@@ -122,23 +125,24 @@ private:
   /** @brief Number of galaxies: one per octahedron vertex. */
   static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
   static constexpr int MAX_ARMS = 4;
+  static constexpr int MAX_EMISSION_RATE = 3;
 
-  /** @brief Per-particle trail length. */
-  static constexpr int TRAIL_LEN = 8;
+  /** @brief Maximum retained trail anchors per particle. */
+  static constexpr int TRAIL_LEN = 6;
   /** @brief Frames between stored trail anchors. */
   static constexpr int TRAIL_SAMPLE_STRIDE = 2;
   /**
    * @brief Fixed particle pool capacity.
    * @details The emitters stop spawning while the pool is full.
    */
-  static constexpr int NUM_PARTICLES = 1600;
+  static constexpr int NUM_PARTICLES = 3700;
 
   using ParticleSystem =
       Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, NUM_GALAXIES,
-                                NUM_GALAXIES, false, TRAIL_SAMPLE_STRIDE>;
+                                NUM_GALAXIES, true, TRAIL_SAMPLE_STRIDE>;
 
   static constexpr float GRAVITY = 0.001f;
-  static constexpr float PARTICLE_LIFETIME_FRAMES = 210.0f;
+  static constexpr float PARTICLE_LIFETIME_FRAMES = 205.0f;
   /** @brief Angular radius of the spawn ring around each core (radians). */
   static constexpr float RING_RADIUS = 0.58f;
   /** @brief Core kill radius (chord) for particles that plunge inward. */
@@ -185,6 +189,8 @@ private:
     float orbit_speed = 0.018f; /**< Spawn speed (radians/frame). */
     float arm_spin = 0.045f;    /**< Arm rotation (radians/frame). */
     int arms = 2;               /**< Arms per galaxy. */
+    int emission_rate = 3;      /**< Particles per galaxy per frame. */
+    int trail_length = 0;       /**< Visible trail anchors. */
     float alpha = 1.0f;         /**< Overall opacity. */
   } params;
 
@@ -208,8 +214,11 @@ private:
       particle_system.add_attractor(g.core, params.core_mass, KILL_RADIUS,
                                     EVENT_HORIZON);
       // EmitterFn's inline capture is too small for a Galaxy; index by i.
-      particle_system.add_emitter(
-          [this, i](ParticleSystem &) { emit(galaxies[i], i); });
+      particle_system.add_emitter([this, i](ParticleSystem &) {
+        const int count = hs::clamp(params.emission_rate, 1, MAX_EMISSION_RATE);
+        for (int n = 0; n < count; ++n)
+          emit(galaxies[i], i);
+      });
     }
   }
 
@@ -220,7 +229,10 @@ private:
    */
   void emit(Galaxy &g, int index) {
     const int arms = hs::clamp(params.arms, 1, MAX_ARMS);
-    g.phase = fmodf(g.phase + params.arm_spin * g.spin, 2.0f * math::PI_F);
+    const int emission_rate =
+        hs::clamp(params.emission_rate, 1, MAX_EMISSION_RATE);
+    g.phase = fmodf(g.phase + params.arm_spin * g.spin / emission_rate,
+                    2.0f * math::PI_F);
     if (g.phase < 0.0f)
       g.phase += 2.0f * math::PI_F;
     g.arm = static_cast<uint8_t>((g.arm + 1) % arms);
@@ -247,9 +259,19 @@ private:
                           static_cast<uint16_t>(index));
   }
 
+  /** @brief Keeps only the number of trail anchors selected by the user. */
+  void trim_histories() {
+    const int length = hs::clamp(params.trail_length, 0, TRAIL_LEN - 1);
+    const size_t limit = static_cast<size_t>(length == 0 ? 0 : length + 1);
+    for (int i = 0; i < particle_system.active(); ++i) {
+      auto &history = particle_system.pool[i].history;
+      while (history.length() > limit)
+        history.expire();
+    }
+  }
+
   /**
-   * @brief Renders every trail, colored by distance from its own core, then a
-   *        glowing bulge over each core.
+   * @brief Renders particles as points or short trails, then the core bulges.
    * @param canvas Target canvas.
    */
   void draw_particles(Canvas &canvas) {
@@ -306,9 +328,35 @@ private:
     };
 
     filters.prepare(canvas);
-    Plot::ParticleSystem::draw_fused_vertex<W, H, true>(
-        filters, canvas, particle_system, fragment_shader, vertex_shader,
-        radius_shader, bind_core);
+    if (params.trail_length == 0) {
+      for (int i = 0; i < particle_system.active(); ++i) {
+        const auto &p = particle_system.pool[i];
+        const math::Vector &point_core = galaxies[p.color_seed].core;
+        const float cos_distance = math::dot(p.position, point_core);
+        const float radius = (1.0f - cos_distance) * inv_ring_span;
+        const float hole =
+            cos_distance < cos_horizon
+                ? 1.0f
+                : math::quintic_kernel(
+                      math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
+                      EVENT_HORIZON);
+        const float head_fade =
+            math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
+        const float fade_in =
+            hs::clamp((max_life - static_cast<float>(p.life)) / FADE_IN_FRAMES,
+                      0.0f, 1.0f);
+        const float fade_out =
+            hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
+        Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
+        c.alpha *= hole * head_fade * fade_in * fade_out * alpha;
+        filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f,
+                     c.alpha);
+      }
+    } else {
+      Plot::ParticleSystem::draw_fused_vertex<W, H, true>(
+          filters, canvas, particle_system, fragment_shader, vertex_shader,
+          radius_shader, bind_core);
+    }
 
     // The bulge covers the final fade around each core.
     // Scan::Point leaves its quintic coverage in v2.
