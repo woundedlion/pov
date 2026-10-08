@@ -20,6 +20,8 @@ struct ReconcileSite {
 inline const ReconcileSite RECONCILE_SITES[] = {
     {"needle", &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE, false},
     {"gyro_kis", &Solids::TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE, false},
+    {"truncatedCube_hk90_meta", &Solids::TRUNCATED_CUBE_HK90_META_RECIPE,
+     false},
     {"icosahedron_kis_gyro", &Solids::ICOSAHEDRON_KIS_GYRO_RECIPE, true},
 };
 
@@ -33,7 +35,7 @@ inline const ReconcileSite RECONCILE_SITES[] = {
  * endpoints and must reproduce it vertex for vertex.
  */
 inline void test_reconcile_bijection_wellposed() {
-  // Residual well under half the vertex spacing on the densest seed.
+  // Bound the gap closed by the reconcile slerp.
   constexpr float MAX_RESIDUAL_CHORD = 0.12f;
   for (const ReconcileSite &site : RECONCILE_SITES) {
     const int failed_before = hs_test::stats().failed;
