@@ -147,9 +147,13 @@ private:
   /** @brief Angular radius of the spawn ring around each core (radians). */
   static constexpr float RING_RADIUS = 0.58f;
   /** @brief Core kill radius (chord) for particles that plunge inward. */
-  static constexpr float KILL_RADIUS = 0.003f;
-  /** @brief Radius inside which particles are steered straight in (chord). */
-  static constexpr float EVENT_HORIZON = 0.2f;
+  static constexpr float KILL_RADIUS = 0.008f;
+  /** @brief Galaxies do not use the attractor's radial steering zone. */
+  static constexpr float EVENT_HORIZON = 0.0f;
+  /** @brief Softening radius that limits the core force (chord). */
+  static constexpr float SOFTENING_RADIUS = 0.02f;
+  /** @brief Radius of the particle fade into each core (radians). */
+  static constexpr float HOLE_FADE_RADIUS = 0.035f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.14f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
@@ -158,12 +162,13 @@ private:
   static constexpr float SPEED_JITTER = 0.015f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
+  static constexpr float MIN_PARTICLE_ALPHA = 0.3f;
   /** @brief Frames over which a new particle fades in. */
   static constexpr float FADE_IN_FRAMES = 16.0f;
   /** @brief Frames over which an expiring particle fades out. */
   static constexpr float FADE_OUT_FRAMES = 20.0f;
   /** @brief Radius where an inward-moving trail starts to dim (radians). */
-  static constexpr float HEAD_FADE_RADIUS = 0.15f;
+  static constexpr float HEAD_FADE_RADIUS = 0.03f;
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
    * @details At least 1.5 columns, so it stays visible at low resolution.
@@ -186,7 +191,7 @@ private:
    * @brief User-tunable parameters exposed via register_param.
    */
   struct Params {
-    float friction = 0.99978f;   /**< Velocity retention per frame. */
+    float friction = 0.99965f;   /**< Velocity retention per frame. */
     float core_mass = 0.12f;     /**< Attractor strength. */
     float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
     float arm_spin = 0.03f;      /**< Arm rotation (radians/frame). */
@@ -215,7 +220,7 @@ private:
       g.emission_credit = hs::rand_f();
       g.arm = 0;
       particle_system.add_attractor(g.core, params.core_mass, KILL_RADIUS,
-                                    EVENT_HORIZON);
+                                    EVENT_HORIZON, SOFTENING_RADIUS);
       // EmitterFn's inline capture is too small for a Galaxy; index by i.
       particle_system.add_emitter([this, i](ParticleSystem &) {
         Galaxy &galaxy = galaxies[i];
@@ -235,7 +240,7 @@ private:
   /**
    * @brief Spawns one particle on the next arm of a galaxy.
    * @param g Galaxy to spawn into; its arm advances.
-   * @param index Galaxy index, stored as the particle's color seed.
+   * @param index Galaxy index, stored in the color seed's low byte.
    */
   void emit(Galaxy &g, int index) {
     const int arms = hs::clamp(params.arms, 1, MAX_ARMS);
@@ -261,8 +266,16 @@ private:
     const float speed = circular_orbit_speed(pos, outward, ring) *
                         (params.orbit_speed / REFERENCE_ORBIT_SPEED) *
                         (1.0f + hs::rand_f(-SPEED_JITTER, SPEED_JITTER));
-    particle_system.spawn(pos, tangent * (speed * g.spin),
-                          static_cast<uint16_t>(index));
+    const uint16_t alpha_seed = static_cast<uint16_t>(hs::rand_f() * 255.0f);
+    const uint16_t color_seed =
+        static_cast<uint16_t>(index | (alpha_seed << 8));
+    particle_system.spawn(pos, tangent * (speed * g.spin), color_seed);
+  }
+
+  /** @brief Opacity stored in the high byte of a particle's color seed. */
+  static float particle_alpha(uint16_t color_seed) {
+    const float u = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
+    return MIN_PARTICLE_ALPHA + (1.0f - MIN_PARTICLE_ALPHA) * u * u;
   }
 
   /** @brief Circular speed from the net inward pull of all six cores. */
@@ -276,9 +289,10 @@ private:
       const float dist_sq = math::distance_squared(pos, attractor.position);
       if (dist_sq > Animation::ATTRACTOR_MIN_DISTANCE_SQ &&
           tangent_length > math::EPS_NORMALIZE_SQ)
-        inward_acceleration -= particle_system.gravity * attractor.strength *
-                               math::dot(toward, outward) /
-                               (dist_sq * tangent_length);
+        inward_acceleration -=
+            particle_system.gravity * attractor.strength *
+            math::dot(toward, outward) /
+            ((dist_sq + attractor.softening_sq) * tangent_length);
     }
     return sqrtf(fmaxf(inward_acceleration * tanf(ring), 0.0f));
   }
@@ -307,12 +321,13 @@ private:
     const float cos_ring = math::fast_cosf(RING_RADIUS);
     const float ring_span = 1.0f - cos_ring;
     const float inv_ring_span = 1.0f / ring_span;
-    const float cos_horizon = math::fast_cosf(EVENT_HORIZON);
+    const float cos_hole = math::fast_cosf(HOLE_FADE_RADIUS);
     const float inv_head_span =
         1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
     float core_fade = 1.0f;
+    float depth_alpha = 1.0f;
 
     auto vertex_shader = [&](Fragment &f) { f.pos = rotation.apply(f.pos); };
 
@@ -321,11 +336,11 @@ private:
                              const math::Vector &original_pos) {
       const float cos_distance = math::dot(original_pos, *core);
       f.v2 = (1.0f - cos_distance) * inv_ring_span;
-      f.size = cos_distance < cos_horizon
+      f.size = cos_distance < cos_hole
                    ? 1.0f
                    : math::quintic_kernel(
                          math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-                         EVENT_HORIZON);
+                         HOLE_FADE_RADIUS);
     };
 
     auto fragment_shader = [&](const math::Vector &, Fragment &f) {
@@ -338,16 +353,18 @@ private:
       const float trail = TRAIL_TAIL_ALPHA + (1.0f - TRAIL_TAIL_ALPHA) *
                                                  hs::clamp(f.v0, 0.0f, 1.0f);
       Color4 c = palette.get(hs::clamp(f.v2, 0.0f, 1.0f));
-      c.alpha *= trail * fade_in * fade_out * f.size * core_fade * alpha;
+      c.alpha *=
+          trail * fade_in * fade_out * f.size * core_fade * depth_alpha * alpha;
       f.color = c;
     };
 
     // The v2 mapper binds the particle's core before its fragments shade; the
     // deferred shader then overwrites v2.
     auto bind_core = [&](const auto &p, int) {
-      core = &galaxies[p.color_seed].core;
+      core = &galaxies[p.color_seed & 0xff].core;
       core_fade = math::quintic_kernel((1.0f - math::dot(p.position, *core)) *
                                        inv_head_span);
+      depth_alpha = particle_alpha(p.color_seed);
       return 0.0f;
     };
 
@@ -355,15 +372,15 @@ private:
     if (params.trail_length == 0) {
       for (int i = 0; i < particle_system.active(); ++i) {
         const auto &p = particle_system.pool[i];
-        const math::Vector &point_core = galaxies[p.color_seed].core;
+        const math::Vector &point_core = galaxies[p.color_seed & 0xff].core;
         const float cos_distance = math::dot(p.position, point_core);
         const float radius = (1.0f - cos_distance) * inv_ring_span;
         const float hole =
-            cos_distance < cos_horizon
+            cos_distance < cos_hole
                 ? 1.0f
                 : math::quintic_kernel(
                       math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-                      EVENT_HORIZON);
+                      HOLE_FADE_RADIUS);
         const float head_fade =
             math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
         const float fade_in =
@@ -372,7 +389,8 @@ private:
         const float fade_out =
             hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
         Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
-        c.alpha *= hole * head_fade * fade_in * fade_out * alpha;
+        c.alpha *= hole * head_fade * fade_in * fade_out *
+                   particle_alpha(p.color_seed) * alpha;
         filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f,
                      c.alpha);
       }

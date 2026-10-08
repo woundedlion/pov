@@ -195,6 +195,7 @@ struct Attractor {
   float strength;        /**< Attractive force multiplier. */
   float kill_radius;     /**< Radius within which particles are killed. */
   float event_horizon;   /**< Radius within which steering becomes radial. */
+  float softening_sq;    /**< Squared radius added to the force denominator. */
 };
 
 /**
@@ -238,7 +239,8 @@ apply_signed_axis_attractor(uint16_t &life, math::Vector &velocity,
     return true;
   }
 
-  const float force = (gravity * attractor.strength) / s.dist_sq;
+  const float force =
+      (gravity * attractor.strength) / (s.dist_sq + attractor.softening_sq);
   if (s.cross_sq < math::EPS_NORMALIZE_SQ) {
     velocity += math::cross(math::Vector(force, 0, 0), pos);
   } else {
@@ -372,12 +374,15 @@ public:
    * @param str Attractive force multiplier.
    * @param kill Kill radius (particles within it die).
    * @param horizon Event-horizon radius (steering becomes radial within it).
+   * @param softening Radius that limits attraction near the center.
    * @note Traps on overflow.
    */
   void add_attractor(const math::Vector &pos, float str, float kill,
-                     float horizon) {
+                     float horizon, float softening = 0.0f) {
     HS_CHECK(attractors.is_bound(),
              "ParticleSystem::add_attractor before init");
+    HS_CHECK(std::isfinite(softening) && softening >= 0.0f,
+             "ParticleSystem attractor softening must be nonnegative");
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
       static constexpr std::array<math::Vector, 6> AXES = {
           math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
@@ -389,7 +394,7 @@ public:
                "ParticleSystem signed-axis attractors must be registered "
                "+X,-X,+Y,-Y,+Z,-Z");
     }
-    attractors.push_back({pos, str, kill, horizon});
+    attractors.push_back({pos, str, kill, horizon, softening * softening});
   }
 
   /**
@@ -491,7 +496,8 @@ private:
         } else {
           // Gravity. pos and the attractor can be ~antipodal (undefined cross
           // axis), so guard the normalize.
-          float force = (gravity * attr.strength) / dist_sq;
+          float force =
+              (gravity * attr.strength) / (dist_sq + attr.softening_sq);
           math::Vector torque =
               math::normalized_or(math::cross(pos, attr.position),
                                   math::Vector(1, 0, 0)) *
@@ -578,9 +584,11 @@ private:
               continue;
             }
 
-            const float inv_pair = 1.0f / (dist_plus_sq * dist_minus_sq);
-            const float inv_plus = dist_minus_sq * inv_pair;
-            const float inv_minus = dist_plus_sq * inv_pair;
+            const float plus_force_sq = dist_plus_sq + plus.softening_sq;
+            const float minus_force_sq = dist_minus_sq + minus.softening_sq;
+            const float inv_pair = 1.0f / (plus_force_sq * minus_force_sq);
+            const float inv_plus = minus_force_sq * inv_pair;
+            const float inv_minus = plus_force_sq * inv_pair;
             if (cross_sq < math::EPS_NORMALIZE_SQ) {
               const float force = gravity * (plus.strength * inv_plus +
                                              minus.strength * inv_minus);
