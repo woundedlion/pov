@@ -1093,6 +1093,9 @@ inline int run_effects_tests() {
   run_case(test_galaxies_spawn_along_spiral_with_orbital_velocity);
   run_case(test_galaxies_arm_contrast_and_age_fade);
   run_case(test_galaxies_emission_rate_and_capacity);
+  run_case(test_galaxies_live_particle_count);
+  run_case(test_galaxies_packed_orbits_match_float);
+  run_case(test_galaxies_min_pitch_stays_contained);
   run_case(test_galaxies_stay_contained_small);
   run_case(test_galaxies_stay_contained_default);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);

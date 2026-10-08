@@ -360,7 +360,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `Driver` | Continuously increments a float variable each frame (optionally wraps at 0..1) |
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
 | `ColorWipe` | Smoothly interpolates a `GenerativePalette` between caller-owned start and target snapshots that must remain unchanged and outlive the animation |
-| `ParticleSystem<W, CAPACITY>` | Physics simulation with emitters, attractors, friction, gravity. Particles have `QuantizedVectorTrail` history for trail rendering. |
+| `ParticleSystem<W, CAPACITY>` | Physics simulation with emitters, attractors, friction, gravity. The default `Particle<TRAIL_LEN>` storage has `QuantizedVectorTrail` history for trail rendering. The trailing storage policy can select `PointParticle` with `TRAIL_LEN=0`: 24 bytes per star, two-float octahedral direction, float velocity, color seed and lifetime, without history. |
 | `Ripple` | Animates a `RippleParams` to expand a Ricker wavelet across the sphere |
 | `MobiusWarp` | Animates `MobiusParams` to apply and release a Möbius transformation |
 | `MobiusWarpCircular` | Animates `MobiusParams` for a circular warp that stays warped throughout, suitable for repeating effects |
@@ -436,7 +436,7 @@ Parameter and motion animations mutate external state that the rendering pipelin
 | `Ripple`, `MobiusWarp`, `Noise` | `RippleParams`, `MobiusParams`, `NoiseParams` | Animate transformer parameters (expansion radius, warp strength, noise time axis) which the transformer pool reads during `MeshOps::transform()` |
 | `BallDrop` | `BumpParams` | Walks the bump center down a meridian and re-derives the push axis from the stack's orientation, ramping the footprint envelope; the field pool sums the caps during `field()` |
 | `NoiseProduct` | `NoiseProductParams` | Advances the bounded field time loop under live speed edits; the field pool reads it during `field()` |
-| `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; `QuantizedVectorTrail` records history for trail rendering |
+| `ParticleSystem` | `Vector[]` positions | Physics simulation updates particle positions; the default storage records `QuantizedVectorTrail` history for trail rendering |
 
 Effects can declare *what state exists* (orientations, floats, palettes) and schedule animations to drive it. The `Timeline` handles timing, easing, sequencing, and cleanup for those scheduled animations; effects can also advance state directly in `draw_frame()`:
 
