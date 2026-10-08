@@ -62,8 +62,7 @@
   X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
   X(KaleidoscopeStainedGlass,                                                  \
     hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
-  X(Voronoi, 120)                                                              \
-  X(Galaxies, 120)
+  X(Voronoi, 120)
 
 #define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
 /**
@@ -131,11 +130,14 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
 }
 
 /**
- * @brief Low-resolution-only roster effects the Phantasm playlist omits.
+ * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
+ * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
+ *          Galaxies waits on its first on-device shipping profile.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(Dynamo)                                                                    \
+  X(Galaxies)                                                                  \
   X(MobiusRings)                                                               \
   X(Thrusters)
 
