@@ -452,3 +452,68 @@ inline void test_particle_system_signed_axis_trajectory() {
   HS_EXPECT_LE(max_angle_error, ANGLE_BOUND);
   HS_EXPECT_LE(max_norm_drift, 8e-6f);
 }
+
+/** @brief Point storage preserves directions, tangent motion, and lifetime. */
+inline void test_point_particle_storage_and_lifetime() {
+  HS_EXPECT_EQ(sizeof(Animation::PointParticle), size_t{24});
+  for (int x = -1; x <= 1; ++x) {
+    for (int y = -1; y <= 1; ++y) {
+      for (int z = -1; z <= 1; ++z) {
+        if (x == 0 && y == 0 && z == 0)
+          continue;
+        const math::Vector direction = math::Vector(x, y, z).normalized();
+        Animation::PointParticle p;
+        p.init(direction, {0.04f, 0.02f, -0.03f}, 1234, 800);
+        const math::Vector decoded = p.get_position();
+        HS_EXPECT_LE((decoded - direction).magnitude(), 5e-7f);
+        HS_EXPECT_NEAR(decoded.magnitude(), 1.0f, 2e-7f);
+        HS_EXPECT_NEAR(math::dot(decoded, p.velocity), 0.0f, 1e-8f);
+        HS_EXPECT(std::isfinite(p.velocity.magnitude()), "velocity is finite");
+        HS_EXPECT_EQ(p.history_length(), size_t{0});
+        const auto copy = p;
+        HS_EXPECT_EQ(copy.color_seed, 1234);
+        HS_EXPECT_EQ(copy.life, 800);
+        HS_EXPECT_NEAR((copy.get_position() - decoded).magnitude(), 0.0f, 0.0f);
+      }
+    }
+  }
+  for (const math::Vector source :
+       {math::Vector(1.0f, 0.3f, 1e-7f), math::Vector(1.0f, 0.3f, -1e-7f),
+        math::Vector(-0.3f, -1.0f, 1e-7f), math::Vector(-0.3f, -1.0f, -1e-7f),
+        math::Vector(1e-7f, -1e-7f, -1.0f),
+        math::Vector(-1e-7f, 1e-7f, -1.0f)}) {
+    const math::Vector direction = source.normalized();
+    Animation::PointParticle p;
+    p.init(direction, {0.04f, 0.02f, -0.03f}, 0, 800);
+    const math::Vector decoded = p.get_position();
+    HS_EXPECT_LE((decoded - direction).magnitude(), 5e-7f);
+    HS_EXPECT_NEAR(decoded.magnitude(), 1.0f, 2e-7f);
+    HS_EXPECT_NEAR(math::dot(decoded, p.velocity), 0.0f, 1e-8f);
+  }
+  Animation::PointParticle p;
+  p.init(math::X_AXIS, {}, 0, std::numeric_limits<float>::infinity());
+  HS_EXPECT_EQ(p.life, 0);
+  p.init(math::Y_AXIS, {}, 0, 70000);
+  HS_EXPECT_EQ(p.life, 65535);
+
+  static uint8_t storage[4096];
+  Arena arena(storage, sizeof(storage));
+  Animation::ParticleSystem<288, 2, 0, 1, 1, false, 1, Animation::PointParticle>
+      ps;
+  ps.init(arena, 1.0f, 0.0f, 3.0f);
+  ps.spawn(math::X_AXIS, {0.0f, 0.01f, 0.0f}, 17);
+  ps.spawn(math::Y_AXIS, {0.0f, 0.0f, 0.01f}, 29);
+  ps.pool[0].life = 1;
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.active(), 1);
+  HS_EXPECT_EQ(ps.pool[0].color_seed, 29);
+  HS_EXPECT_EQ(ps.pool[0].life, 2);
+  HS_EXPECT_GT(ps.pool[0].get_position().z, 0.005f);
+  HS_EXPECT_NEAR(ps.pool[0].get_position().magnitude(), 1.0f, 2e-7f);
+  HS_EXPECT_NEAR(math::dot(ps.pool[0].get_position(), ps.pool[0].velocity),
+                 0.0f, 1e-8f);
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.active(), 1);
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(ps.active(), 0);
+}
