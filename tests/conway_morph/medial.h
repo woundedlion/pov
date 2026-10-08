@@ -46,7 +46,7 @@ inline constexpr StepLegSite DUAL_LEG_SITES[] = {
      recipe_step_seed<
          Solids::TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE,
          Solids::Op::DUAL>,
-     0.0f, nullptr, false, 1e-3, .65f},
+     0.0f, nullptr, false, 1e-3, .55f},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
      recipe_step_seed<
          Solids::TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE,
