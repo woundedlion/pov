@@ -67,7 +67,7 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
     const math::Vector &core = WB::core(fx, g);
     HS_EXPECT_NEAR(math::dot(core, Solids::Octahedron::vertices[g]), 1.0f,
                    1e-5f);
-    HS_EXPECT_EQ(static_cast<int>(p.color_seed), g);
+    HS_EXPECT_EQ(static_cast<int>(p.color_seed & 0xff), g);
     HS_EXPECT_NEAR(p.position.magnitude(), 1.0f, 1e-4f);
 
     const float ring =
@@ -114,7 +114,7 @@ template <int W, int H> inline void check_galaxies_stay_contained() {
   int outside = 0;
   for (int i = 0; i < live; ++i) {
     const auto &p = ps.pool[i];
-    const float own = math::dot(p.position, WB::core(fx, p.color_seed));
+    const float own = math::dot(p.position, WB::core(fx, p.color_seed & 0xff));
     for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
       if (math::dot(p.position, WB::core(fx, g)) > own) {
         ++strays;
