@@ -502,7 +502,7 @@ Particles spray from emitters at the vertices of a selectable Platonic solid —
 
 ### Galaxies
 
-Twenty spiral galaxies, one on each vertex of a dodecahedron, built on `Animation::ParticleSystem`. Each vertex holds an attractor (the galactic core) and an emitter that spawns particles on a ring around it with an orbital velocity. Friction below one bleeds orbital speed, so every particle spirals inward until the core absorbs it; the emitter's slowly turning spawn angle lays successive particles out as rotating arms. Each galaxy spins in a random direction, trails are colored by distance from their own core (warm white at the center, blue at the rim), and the whole sphere drifts on a Languid random walk.
+Six spiral galaxies, one on each vertex of an octahedron, built on `Animation::ParticleSystem`. Each vertex holds an attractor (the galactic core) and an emitter that spawns particles on a wide ring with an orbital velocity. Low friction and balanced attraction keep the particles circling as they drift inward; the emitter's turning spawn angle lays successive particles out as rotating arms. Each galaxy spins in a random direction, trails are colored by distance from their own core (warm white at the center, blue at the rim), and the whole sphere drifts on a Languid random walk.
 
 **Parameters**: Friction, Core Mass, Orbit Spd, Arm Spin, Arms, Alpha
 
