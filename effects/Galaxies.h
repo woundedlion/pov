@@ -155,11 +155,11 @@ private:
   /** @brief Radius of the particle fade into each core (radians). */
   static constexpr float HOLE_FADE_RADIUS = 0.035f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
-  static constexpr float ARM_JITTER = 0.14f;
+  static constexpr float ARM_JITTER = 0.32f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.015f;
+  static constexpr float RING_JITTER = 0.18f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
-  static constexpr float SPEED_JITTER = 0.015f;
+  static constexpr float SPEED_JITTER = 0.025f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
