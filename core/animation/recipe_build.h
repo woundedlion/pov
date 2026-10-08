@@ -15,8 +15,8 @@ namespace Animation {
 
 /**
  * @brief Schedules swept recipe legs and carries mesh palettes across compaction.
- * @tparam Host Owner providing timeline, pause gate, carousel, palette storage,
- * drawing and persistent-storage reclamation.
+ * @tparam Host Owner providing timeline, carousel, palette storage, drawing and
+ * persistent-storage reclamation.
  * @tparam MAX_BUILD_STEPS Maximum lowered primitive count.
  * @tparam MAX_BUILD_FACES Maximum mesh face count.
  */
@@ -336,9 +336,8 @@ protected:
     check_build_budget();
     build_landing = &leg.landing();
     Animation::OpLeg::require_event_slot();
-    host().timeline.add_pausable(
-        0, std::move(leg).then([this, next] { continue_build(next); }),
-        &host().anims_paused);
+    host().timeline.add(
+        0, std::move(leg).then([this, next] { continue_build(next); }));
   }
 
   /**
