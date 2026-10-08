@@ -318,6 +318,20 @@ namespace IslamicStarPatterns {
 /** Degrees-to-radians conversion factor. */
 inline constexpr float D2R = math::PI_F / 180.0f;
 
+/**
+ * @brief Builds the truncatedCube_hk90_meta star pattern (V=218, F=432,
+ * I=1296).
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
+ * @return The resulting star-pattern mesh.
+ */
+FLASHMEM static PolyMesh truncatedCube_hk90_meta(Arena &a, Arena &b) {
+  return SolidBuilder(Archimedean::truncatedCube(a, b), a, b)
+      .hankin(90.0f * D2R)
+      .meta()
+      .build();
+}
+
 /** Truncation depth of the `*_truncate5d_*` recipes: bit-exactly 5.0f * D2R,
  * used as a dimensionless edge fraction short of the ambo pinch at t = 0.5. */
 inline constexpr float TRUNCATE_T_NEAR = 0.0872664601f;
@@ -577,19 +591,6 @@ truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a, Arena &b) {
       .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged)
       .truncate(0.01f)
       .hankin(73.0f * D2R)
-      .build();
-}
-/**
- * @brief Builds the truncatedOctahedron_gyro_kis_hk17 star pattern.
- * @param a First arena in the alternating construction pair.
- * @param b Second arena; the result may borrow storage from either arena.
- * @return The resulting star-pattern mesh.
- */
-FLASHMEM static PolyMesh truncatedOctahedron_gyro_kis_hk17(Arena &a, Arena &b) {
-  return SolidBuilder(Archimedean::truncatedOctahedron(a, b), a, b)
-      .gyro()
-      .kis()
-      .hankin(17.0f * D2R)
       .build();
 }
 /**

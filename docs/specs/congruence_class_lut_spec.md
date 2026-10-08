@@ -16,9 +16,9 @@ sampling.
 
 ## 1. The measured fact this exploits
 
-Every islamic mesh's faces are exact copies — within **0.25 px** Procrustes
-residual at 288 wide — of a handful of canonical 2D shapes. Census over all
-23 registry meshes (gnomonic projection about each face's own centroid,
+The original 23 Islamic meshes' faces were exact copies — within **0.25 px** Procrustes
+residual at 288 wide — of a handful of canonical 2D shapes. The census covered
+all 23 meshes in that registry (gnomonic projection about each face's own centroid,
 alignment over cyclic vertex offsets × reflection × optimal rotation):
 
 | Mesh (representative rows) | F | topo classes | geo classes | faces in shared geo classes |
