@@ -68,7 +68,8 @@ protected:
   int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
-      RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
+      RECONCILE_LEG_FRAMES;     /**< Reconcile leg length. */
+  bool build_gated_kis = false; /**< KIS uses a gated partition swap. */
   enum class BuildContinuation : uint8_t {
     FINISH,
     DUAL_MEDIAL,
@@ -119,7 +120,7 @@ protected:
    * @param k Lowered step index.
    */
   HS_COLD_MEMBER bool dt_pair_at(size_t k) const {
-    return k + 1 < build_step_count &&
+    return !build_gated_kis && k + 1 < build_step_count &&
            build_step_chain[k].op == Solids::Op::DUAL &&
            build_step_chain[k + 1].op == Solids::Op::KIS;
   }
@@ -130,17 +131,17 @@ protected:
    * @param k Lowered step index.
    */
   HS_COLD_MEMBER bool standalone_kis_at(size_t k) const {
-    return build_step_chain[k].op == Solids::Op::KIS &&
+    return !build_gated_kis && build_step_chain[k].op == Solids::Op::KIS &&
            !(k > 0 && build_step_chain[k - 1].op == Solids::Op::DUAL);
   }
 
   /**
-   * @brief Whether the lowered chain runs a smooth kis/needle bridge (a dt pair
-   *        or a standalone kis), which spawns on the scratch_a-heavy split.
+   * @brief Whether the lowered chain needs the scratch_a-heavy bridge split.
    */
   bool build_uses_smooth_bridge() const {
     for (size_t k = 0; k < build_step_count; ++k)
-      if (dt_pair_at(k) || standalone_kis_at(k))
+      if (dt_pair_at(k) || standalone_kis_at(k) ||
+          (build_gated_kis && build_step_chain[k].op == Solids::Op::DUAL))
         return true;
     return false;
   }
@@ -212,6 +213,13 @@ protected:
                               bridge_frames + build_reconcile_frames;
         continue;
       }
+      if (build_gated_kis && op == Solids::Op::KIS) {
+        const int gate =
+            std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / (2.0f * sp)));
+        build_leg_frames[k] = 2 * gate + 1;
+        build_total_frames += build_leg_frames[k];
+        continue;
+      }
       const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
       build_leg_frames[k] = frames;
       build_total_frames += frames;
@@ -227,6 +235,11 @@ protected:
   HS_COLD_MEMBER void start_build_leg() {
     const size_t k = build_step;
     const Solids::OpStep &step = build_step_chain[k];
+
+    if (build_gated_kis && step.op == Solids::Op::KIS) {
+      schedule_gated_kis();
+      return;
+    }
 
     // Smooth kis/needle lowering: docs/specs/opchain_morph_spec.md.
     if (dt_pair_at(k)) {
@@ -671,6 +684,24 @@ protected:
   HS_COLD_MEMBER void schedule_dt_macro() {
     schedule_macro_truncate("dt truncate",
                             BuildContinuation::DT_AFTER_TRUNCATE);
+  }
+
+  HS_COLD_MEMBER void schedule_gated_kis() {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      build_next_seed =
+          Solids::finalize_solid(MeshOps::kis(build_seed, a, b), target);
+    });
+    Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
+    ScratchScope handoff_guard(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    const int frames = build_leg_frames[build_step];
+    hs::log("Build leg: kis gate (%d frames)", frames);
+    Animation::OpLeg leg(
+        build_seed,
+        Animation::OpLeg::GatedSwapSpec{.op = Animation::OpLeg::SwapOp::KIS,
+                                        .gate_frames = (frames - 1) / 2},
+        persistent_arena, draw_build_fn, handoff, bookend);
+    schedule_build_leg(std::move(leg));
   }
   HS_COLD_MEMBER void dt_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(X, 1/3)

@@ -142,6 +142,7 @@ private:
   friend Builder;
   using Builder::build_active;
   using Builder::build_entry;
+  using Builder::build_gated_kis;
   using Builder::build_step_chain;
   using Builder::build_step_count;
   using Builder::build_step;
@@ -405,7 +406,10 @@ private:
     // falls back to the whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = entry.recipe;
     build_step_count = 0;
+    build_gated_kis = false;
     if (recipe) {
+      for (size_t k = 0; k < recipe->count; ++k)
+        build_gated_kis |= recipe->steps[k].op == Solids::Op::META;
       build_step_count = Solids::expand_to_primitives(*recipe, build_step_chain,
                                                       MAX_BUILD_STEPS);
       for (size_t k = 0; k < build_step_count; ++k) {
