@@ -26,6 +26,15 @@ inline void case_particle_gravity_nan() {
   ps.init(arena, 0.85f, opaque(std::numeric_limits<float>::quiet_NaN()));
 }
 
+/** @brief Death case: a negative attractor softening radius must trap. */
+inline void case_particle_attractor_softening_negative() {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena);
+  ps.add_attractor(math::X_AXIS, 1.0f, 0.01f, 0.1f, opaque(-1.0f));
+}
+
 /** @brief Death case: a NaN particle lifetime must trap. */
 inline void case_particle_lifetime_nan() {
   init_particle_system_with_lifetime(

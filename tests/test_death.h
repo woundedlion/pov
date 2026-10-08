@@ -566,6 +566,10 @@ inline const Case *all_cases(int &n) {
        "core/animation/sprites.h",
        "(std::isfinite(friction) && std::isfinite(gravity)) ParticleSystem "
        "friction and gravity must be finite"},
+      {"particle_attractor_softening_negative",
+       case_particle_attractor_softening_negative, "core/animation/sprites.h",
+       "(std::isfinite(softening) && softening >= 0.0f) ParticleSystem "
+       "attractor softening must be nonnegative"},
       {"particle_lifetime_nan", case_particle_lifetime_nan,
        "core/animation/sprites.h",
        "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
