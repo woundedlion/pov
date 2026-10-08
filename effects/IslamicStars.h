@@ -13,6 +13,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/animation/animation.h"
+#include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/animation/recipe_build.h"
 
@@ -27,24 +28,51 @@ struct IslamicBuildProbe;
 } // namespace effects_tests
 } // namespace hs_test
 
+/** @brief IslamicStars' slider-bound parameters, shared by every preset. */
+struct IslamicStarsParams {
+  uint8_t burst_size = 4; /**< Ripples per burst. */
+  float ripple_duration =
+      80.0f; /**< Frames each ripple takes to expand across the sphere. */
+  float trans_speed =
+      1.0f; /**< Divides every per-shape stage length and build-leg budget. */
+};
+
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
  *        transitioning one shape into the next while ripples distort the mesh.
- * @details Entries with a non-null recipe are built op by op on screen: the
- *          seed solid sweeps in, then OpLegs morph the lowered chain into the
- *          finished pattern.
+ * @details Each Islamic solid is one preset. Entries with a non-null recipe
+ *          are built op by op on screen: the seed solid sweeps in, then OpLegs
+ *          morph the lowered chain into the finished pattern. Each shape's
+ *          segue schedules the next automatic advance; a manual or synchronized
+ *          change cuts the current shape and spawns the selected one.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
 template <int W, int H>
 class IslamicStars
-    : public Effect,
+    : public ChoreographedEffect<IslamicStars<W, H>, IslamicStarsParams>,
       private Animation::RecipeBuild<IslamicStars<W, H>,
                                      IslamicStarsDetail::MAX_BUILD_OPS,
                                      IslamicStarsDetail::MAX_BUILD_FACES> {
+  using Choreography =
+      ChoreographedEffect<IslamicStars<W, H>, IslamicStarsParams>;
+  friend Choreography;
 
 public:
   static constexpr const char *EFFECT_ID = "IslamicStars";
+
+  using Params = IslamicStarsParams;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /** Bookkeeping only; each shape's segue schedules the next advance. */
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 192;
+
+  /** @brief Whether every parameter lies inside its slider range. */
+  static constexpr bool valid_params(const Params &p) {
+    return p.burst_size >= 1 && p.burst_size <= BURST_MAX &&
+           p.ripple_duration >= RIPPLE_DURATION_MIN &&
+           p.ripple_duration <= RIPPLE_DURATION_MAX &&
+           p.trans_speed >= TRANS_SPEED_MIN && p.trans_speed <= TRANS_SPEED_MAX;
+  }
 
 #ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
   static_assert(
@@ -64,7 +92,8 @@ public:
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
   HS_COLD_MEMBER IslamicStars()
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
+      : Choreography(W, H,
+                     pipeline_config<decltype(filters)>({.strobe = true})),
         filters(), ripple_gen(timeline) {}
 
   /**
@@ -72,6 +101,7 @@ public:
    *        with the orientation walk and the first shape.
    */
   HS_COLD_MEMBER void init() override {
+    begin_choreography();
     GENERATED_BUDGET.configure();
     device_persistent_budget = GENERATED_BUDGET.device_persistent();
 
@@ -83,35 +113,38 @@ public:
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
 #ifdef HS_PROFILE_TRANS_SPEED
-    static_assert(HS_PROFILE_TRANS_SPEED >= 1 && HS_PROFILE_TRANS_SPEED <= 8,
+    static_assert(HS_PROFILE_TRANS_SPEED >= TRANS_SPEED_MIN &&
+                      HS_PROFILE_TRANS_SPEED <= TRANS_SPEED_MAX,
                   "HS_PROFILE_TRANS_SPEED must be in [1, 8]");
     params.trans_speed = static_cast<float>(HS_PROFILE_TRANS_SPEED);
 #endif
 
     // Per-face fade length range (frames): each face draws a random fade from
     // [lo, hi] as the terminator reaches it, fraying the sweep front.
-    register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f,
-                   32.0f);
-    register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
-                   32.0f);
-    register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
+    this->register_param("Face Fade Lo", &carousel.segue().fade_frames_min,
+                         0.0f, 32.0f);
+    this->register_param("Face Fade Hi", &carousel.segue().fade_frames_max,
+                         0.0f, 32.0f);
+    this->register_int_param("Burst", &params.burst_size, 1, BURST_MAX);
     // Thickness is fixed, so RIPPLE_AMP_MAX bounds amp/thickness.
-    register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
-                   RIPPLE_AMP_MAX);
-    register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    register_param("Ripp Dur", &params.ripple_duration, 30.0f,
-                   (float)RIPPLE_DURATION_MAX);
-    register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
+    this->register_param("Ripp Amp", &ripple_gen.template_params.amplitude,
+                         0.0f, RIPPLE_AMP_MAX);
+    this->register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f,
+                         5.0f);
+    this->register_param("Ripp Dur", &params.ripple_duration,
+                         RIPPLE_DURATION_MIN, RIPPLE_DURATION_MAX);
+    this->register_param("Trans Speed", &params.trans_speed, TRANS_SPEED_MIN,
+                         TRANS_SPEED_MAX);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, math::UP, noise));
+    add_orientation_walk();
 
-#ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
-    // Open on a recipe entry so the op-by-op build is the first thing drawn;
-    // spawn_shape pre-increments, so seed the index one before it.
-    auto solids = Solids::Collections::get_islamic_solids();
-    for (size_t i = 0; i < solids.size(); ++i) {
-      if (solids[i].recipe) {
-        solid_idx = static_cast<int>(i) - 1;
+#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
+    preset_index = HS_ISLAMICSTARS_PROFILE_SHAPE;
+#else
+    // Open on a recipe entry so the op-by-op build is the first thing drawn.
+    for (size_t i = 0; i < PRESETS.size(); ++i) {
+      if (PRESETS[i].params->recipe) {
+        preset_index = i;
         break;
       }
     }
@@ -140,6 +173,12 @@ private:
                                          IslamicStarsDetail::MAX_BUILD_OPS,
                                          IslamicStarsDetail::MAX_BUILD_FACES>;
   friend Builder;
+  using Choreography::anims_paused;
+  using Choreography::begin_choreography;
+  using Choreography::params;
+  using Choreography::preset_index;
+  using Choreography::timeline;
+  using Builder::abandon_build;
   using Builder::build_active;
   using Builder::build_entry;
   using Builder::build_gated_kis;
@@ -166,9 +205,11 @@ private:
   // Two-burst capacity reserves headroom for the previous shape's live ripples.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
-  /** Ripp Dur slider ceiling. */
-  static constexpr int RIPPLE_DURATION_MAX = 143;
+  static constexpr float RIPPLE_DURATION_MIN = 30.0f;
+  static constexpr float RIPPLE_DURATION_MAX = 143.0f;
   static constexpr int BURST_MAX = 4;
+  static constexpr float TRANS_SPEED_MIN = 1.0f;
+  static constexpr float TRANS_SPEED_MAX = 8.0f;
   static constexpr int SPRITE_FADE_FRAMES = 16;
   static constexpr int STILL_FRAMES =
       16; /**< 1 s hold (16 fps) between fade and ripple stages. */
@@ -182,19 +223,14 @@ private:
       2 * BURST_MAX <= RIPPLE_POOL_SIZE,
       "IslamicStars: ripple pool must reserve capacity for two bursts");
 
-  // orientation and noise are borrowed by the timeline's RandomWalk and must
-  // outlive it; ripple_gen drops its clear hook through its Timeline reference,
-  // so it must be declared after the Timeline.
   math::Orientation<> orientation;
   FastNoiseLite noise;
-  Timeline timeline;
   Pipeline<W, H> filters;
   RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
   // Effective per-shape stage lengths after the Trans Speed divisor.
   int ripple_dur_eff = 80;
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int burst_size_eff = 4;
-  int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
 
   MeshCarousel<SegueT> carousel;
@@ -361,17 +397,58 @@ private:
     }
   }
 
+  /** @brief One preset per Islamic solid, in registry order; each snaps. */
+  static constexpr auto PRESETS = [] {
+    std::array<PresetEntry<const Solids::Entry *>,
+               std::size(Solids::islamic_registry)>
+        rows{};
+    for (size_t i = 0; i < rows.size(); ++i)
+      rows[i] = {&Solids::islamic_registry[i], Segue::Preset::Snap{}};
+    return rows;
+  }();
+
+  /** @brief Startup parameters: the slider defaults. */
+  static Params initial_params() { return {}; }
+
+  /** @brief Every preset keeps the live slider values. */
+  Params preset_params(size_t) const { return params; }
+
+  /** @brief Restarts the shape sequence on a manual or synchronized change. */
+  HS_COLD_MEMBER void
+  preset_changed(const Effect::PresetChange &change) override {
+    if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC)
+      restart_shape();
+  }
+
+  /** @brief Adds the camera's random walk to the timeline. */
+  HS_COLD_MEMBER void add_orientation_walk() {
+    timeline.add(0, Animation::RandomWalk<W>(orientation, math::UP, noise));
+  }
+
   /**
-   * @brief Advances to the next registry solid and spawns it.
+   * @brief Cuts the resident shape and spawns the committed preset.
+   * @details Clears every scheduled event, including any in-flight build leg
+   * and ripple; the orientation walk resumes from the held orientation.
    */
+  HS_COLD_MEMBER void restart_shape() {
+    timeline.clear();
+    abandon_build();
+    add_orientation_walk();
+    spawn_shape();
+  }
+
+  /** @brief Spawns the committed preset's solid. */
   HS_COLD_MEMBER void spawn_shape() {
-    auto solids = Solids::Collections::get_islamic_solids();
-#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
-    solid_idx = HS_ISLAMICSTARS_PROFILE_SHAPE;
-#else
-    solid_idx = (solid_idx + 1) % solids.size();
+    spawn_entry(*PRESETS[preset_index].params);
+  }
+
+  /** @brief Advances to the next preset and spawns it. */
+  HS_COLD_MEMBER void advance_shape() {
+#ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
+    const bool advanced = this->advance_preset();
+    HS_CHECK(advanced, "IslamicStars: automatic preset advance must succeed");
 #endif
-    spawn_entry(solids[solid_idx]);
+    spawn_shape();
   }
 
   /**
@@ -495,24 +572,28 @@ private:
 
     int duration = fade + build_span + still + burst_span + still + fade;
 
-    int next_delay =
-        carousel.schedule_segue(timeline, back, draw_fn, duration, fade);
+    int next_delay = carousel.schedule_segue(timeline, back, draw_fn, duration,
+                                             fade, &anims_paused);
 
     // Added after the sprite, so the first leg draws the frame after the
     // sprite's last seed draw: no gap, no double draw.
     if (recipe) {
-      timeline.add(fade, Animation::PeriodicTimer(
-                             0,
-                             [this](Canvas &) {
-                               build_active = true;
-                               start_build_leg();
-                             },
-                             false));
+      timeline.add_pausable(fade,
+                            Animation::PeriodicTimer(
+                                0,
+                                [this](Canvas &) {
+                                  build_active = true;
+                                  start_build_leg();
+                                },
+                                false),
+                            &anims_paused);
     }
 
-    timeline.add(fade + build_span + still,
-                 Animation::PeriodicTimer(
-                     0, [this](Canvas &canvas) { ripple(canvas); }, false));
+    timeline.add_pausable(
+        fade + build_span + still,
+        Animation::PeriodicTimer(
+            0, [this](Canvas &canvas) { ripple(canvas); }, false),
+        &anims_paused);
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
@@ -523,19 +604,10 @@ private:
             recipe ? " seed" : "");
 
     // The segue decides when the next shape starts relative to this one.
-    timeline.add(next_delay,
-                 Animation::PeriodicTimer(
-                     0, [this](Canvas &) { this->spawn_shape(); }, false));
+    timeline.add_pausable(
+        next_delay,
+        Animation::PeriodicTimer(
+            0, [this](Canvas &) { this->advance_shape(); }, false),
+        &anims_paused);
   }
-
-  /**
-   * @brief Slider-backed runtime parameters for the effect.
-   */
-  struct Params {
-    uint8_t burst_size = 4; /**< Ripples per burst. */
-    float ripple_duration =
-        80.0f; /**< Frames each ripple takes to expand across the sphere. */
-    float trans_speed =
-        1.0f; /**< Divides every per-shape stage length and build-leg budget. */
-  } params;
 };

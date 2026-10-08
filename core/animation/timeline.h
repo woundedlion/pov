@@ -150,7 +150,7 @@ public:
    * live. Runs the clear hooks first. Does not rewind the global frame cursor;
    * only construction and destruction do.
    */
-  void clear() {
+  HS_COLD_MEMBER void clear() {
     HS_CHECK(!stepping, "clear() from inside step() would destroy the "
                         "animation whose callback is running");
     for (int i = 0; i < global_timeline_num_events; ++i) {
