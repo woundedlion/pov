@@ -1101,6 +1101,9 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
   run_case(test_islamicstars_smooth_recipe_completion);
+  run_case(test_islamicstars_presets_cover_registry);
+  run_case(test_islamicstars_manual_select_cuts_build);
+  run_case(test_islamicstars_pause_holds_shape);
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
