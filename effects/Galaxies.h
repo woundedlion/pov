@@ -70,13 +70,12 @@ public:
                   "Galaxies trail staging exceeds its scratch_a split; retune "
                   "TRAIL_LEN or enlarge the split");
 
-    register_param("Friction", &params.friction, 0.95f, 1.0f);
+    register_param("Friction", &params.friction, 0.999f, 1.0f);
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
-    register_int_param("Emission Rate", &params.emission_rate, 1,
-                       MAX_EMISSION_RATE);
+    register_param("Emission Rate", &params.emission_rate, 0.15f, 0.75f);
     register_int_param("Trail Length", &params.trail_length, 0, TRAIL_LEN - 1);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
@@ -105,8 +104,8 @@ public:
     }
 
     particle_system.friction = params.friction;
-    particle_system.motion_cap = std::max(
-        (2.0f * math::PI_F) / W, params.orbit_speed * (1.0f + SPEED_JITTER));
+    particle_system.motion_cap =
+        std::max((2.0f * math::PI_F) / W, params.orbit_speed * 1.4f);
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.core_mass;
     {
@@ -127,7 +126,6 @@ private:
   /** @brief Number of galaxies: one per octahedron vertex. */
   static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
   static constexpr int MAX_ARMS = 8;
-  static constexpr int MAX_EMISSION_RATE = 3;
 
   /** @brief Maximum retained trail anchors per particle. */
   static constexpr int TRAIL_LEN = 6;
@@ -144,7 +142,8 @@ private:
                                 NUM_GALAXIES, true, TRAIL_SAMPLE_STRIDE>;
 
   static constexpr float GRAVITY = 0.001f;
-  static constexpr float PARTICLE_LIFETIME_FRAMES = 205.0f;
+  static constexpr float PARTICLE_LIFETIME_FRAMES = 800.0f;
+  static constexpr float REFERENCE_ORBIT_SPEED = 0.01285f;
   /** @brief Angular radius of the spawn ring around each core (radians). */
   static constexpr float RING_RADIUS = 0.58f;
   /** @brief Core kill radius (chord) for particles that plunge inward. */
@@ -154,9 +153,9 @@ private:
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.14f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.04f;
+  static constexpr float RING_JITTER = 0.015f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
-  static constexpr float SPEED_JITTER = 0.05f;
+  static constexpr float SPEED_JITTER = 0.015f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   /** @brief Frames over which a new particle fades in. */
@@ -174,26 +173,27 @@ private:
 
   /** @brief Spawn geometry and arm state for one galaxy. */
   struct Galaxy {
-    math::Vector core; /**< Unit vector to the attractor. */
-    math::Vector u;    /**< First tangent axis at the core. */
-    math::Vector w;    /**< Second tangent axis at the core. */
-    float phase;       /**< Arm angle (radians, wrapped to [0, 2pi)). */
-    float spin;        /**< +1 or -1: orbit direction about the core. */
-    uint8_t arm;       /**< Arm the next spawn belongs to. */
+    math::Vector core;     /**< Unit vector to the attractor. */
+    math::Vector u;        /**< First tangent axis at the core. */
+    math::Vector w;        /**< Second tangent axis at the core. */
+    float phase;           /**< Arm angle (radians, wrapped to [0, 2pi)). */
+    float spin;            /**< +1 or -1: orbit direction about the core. */
+    float emission_credit; /**< Fractional particles waiting to spawn. */
+    uint8_t arm;           /**< Arm the next spawn belongs to. */
   };
 
   /**
    * @brief User-tunable parameters exposed via register_param.
    */
   struct Params {
-    float friction = 0.999f;    /**< Velocity retention per frame. */
-    float core_mass = 0.15f;    /**< Attractor strength. */
-    float orbit_speed = 0.018f; /**< Spawn speed (radians/frame). */
-    float arm_spin = 0.045f;    /**< Arm rotation (radians/frame). */
-    int arms = 2;               /**< Arms per galaxy. */
-    int emission_rate = 3;      /**< Particles per galaxy per frame. */
-    int trail_length = 0;       /**< Visible trail anchors. */
-    float alpha = 1.0f;         /**< Overall opacity. */
+    float friction = 0.99978f;   /**< Velocity retention per frame. */
+    float core_mass = 0.12f;     /**< Attractor strength. */
+    float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
+    float arm_spin = 0.03f;      /**< Arm rotation (radians/frame). */
+    int arms = 2;                /**< Arms per galaxy. */
+    float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
+    int trail_length = 0;        /**< Visible trail anchors. */
+    float alpha = 1.0f;          /**< Overall opacity. */
   } params;
 
   /**
@@ -212,31 +212,33 @@ private:
       g.w = basis.w;
       g.phase = hs::rand_f(0.0f, 2.0f * math::PI_F);
       g.spin = hs::rand_f() < 0.5f ? -1.0f : 1.0f;
+      g.emission_credit = hs::rand_f();
       g.arm = 0;
       particle_system.add_attractor(g.core, params.core_mass, KILL_RADIUS,
                                     EVENT_HORIZON);
       // EmitterFn's inline capture is too small for a Galaxy; index by i.
       particle_system.add_emitter([this, i](ParticleSystem &) {
-        const int count = hs::clamp(params.emission_rate, 1, MAX_EMISSION_RATE);
-        for (int n = 0; n < count; ++n)
-          emit(galaxies[i], i);
+        Galaxy &galaxy = galaxies[i];
+        galaxy.phase = fmodf(galaxy.phase + params.arm_spin * galaxy.spin,
+                             2.0f * math::PI_F);
+        if (galaxy.phase < 0.0f)
+          galaxy.phase += 2.0f * math::PI_F;
+        galaxy.emission_credit += hs::clamp(params.emission_rate, 0.15f, 0.75f);
+        if (galaxy.emission_credit >= 1.0f) {
+          galaxy.emission_credit -= 1.0f;
+          emit(galaxy, i);
+        }
       });
     }
   }
 
   /**
    * @brief Spawns one particle on the next arm of a galaxy.
-   * @param g Galaxy to spawn into; its phase and arm advance.
+   * @param g Galaxy to spawn into; its arm advances.
    * @param index Galaxy index, stored as the particle's color seed.
    */
   void emit(Galaxy &g, int index) {
     const int arms = hs::clamp(params.arms, 1, MAX_ARMS);
-    const int emission_rate =
-        hs::clamp(params.emission_rate, 1, MAX_EMISSION_RATE);
-    g.phase = fmodf(g.phase + params.arm_spin * g.spin / emission_rate,
-                    2.0f * math::PI_F);
-    if (g.phase < 0.0f)
-      g.phase += 2.0f * math::PI_F;
     g.arm = static_cast<uint8_t>((g.arm + 1) % arms);
     // Skip the spawn rather than let spawn() log a dropped particle.
     if (particle_system.active() >= particle_system.pool.capacity())
@@ -255,10 +257,30 @@ private:
             .normalized();
     // core and radial are orthonormal, so their cross is the unit tangent.
     const math::Vector tangent = math::cross(g.core, radial);
-    const float speed =
-        params.orbit_speed * (1.0f + hs::rand_f(-SPEED_JITTER, SPEED_JITTER));
+    const math::Vector outward = math::cross(tangent, pos);
+    const float speed = circular_orbit_speed(pos, outward, ring) *
+                        (params.orbit_speed / REFERENCE_ORBIT_SPEED) *
+                        (1.0f + hs::rand_f(-SPEED_JITTER, SPEED_JITTER));
     particle_system.spawn(pos, tangent * (speed * g.spin),
                           static_cast<uint16_t>(index));
+  }
+
+  /** @brief Circular speed from the net inward pull of all six cores. */
+  float circular_orbit_speed(const math::Vector &pos,
+                             const math::Vector &outward, float ring) const {
+    float inward_acceleration = 0.0f;
+    for (const auto &attractor : particle_system.attractors) {
+      const float cos_distance = math::dot(pos, attractor.position);
+      const math::Vector toward = attractor.position - pos * cos_distance;
+      const float tangent_length = toward.magnitude();
+      const float dist_sq = math::distance_squared(pos, attractor.position);
+      if (dist_sq > Animation::ATTRACTOR_MIN_DISTANCE_SQ &&
+          tangent_length > math::EPS_NORMALIZE_SQ)
+        inward_acceleration -= particle_system.gravity * attractor.strength *
+                               math::dot(toward, outward) /
+                               (dist_sq * tangent_length);
+    }
+    return sqrtf(fmaxf(inward_acceleration * tanf(ring), 0.0f));
   }
 
   /** @brief Keeps only the number of trail anchors selected by the user. */
