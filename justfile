@@ -10,6 +10,14 @@
 set windows-shell := ["cmd", "/c"]
 daydream_dir := env_var_or_default("DAYDREAM_DIR", "../daydream")
 
+# just hands cmd a recipe's literal double quotes as \", which reach the program
+# as part of the argument. Windows recipes quote the daydream paths through cmd
+# variable expansion instead.
+export quoted_daydream_dir := '"' + daydream_dir + '"'
+export quoted_daydream_module := '"' + daydream_dir + '/generated/holosphere_wasm.js"'
+daydream_dir_arg := if os_family() == "windows" { "%quoted_daydream_dir%" } else { quoted_daydream_dir }
+daydream_module_arg := if os_family() == "windows" { "%quoted_daydream_module%" } else { quoted_daydream_module }
+
 # Python interpreter for every recipe that runs one; HS_PYTHON overrides.
 # Exported so the `_doxygen-theme` parameter default can reach it from inside a
 # backtick.
@@ -23,7 +31,7 @@ default:
 
 # WASM release build of the simulator module (daydream).
 build:
-    cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR="{{ daydream_dir }}"
+    cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR={{ daydream_dir_arg }}
     cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
@@ -139,7 +147,7 @@ _doxyfile-local:
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke
     cmake --build --preset wasm-release-install
-    node scripts/wasm_smoke.mjs "{{ daydream_dir }}/generated/holosphere_wasm.js"
+    node scripts/wasm_smoke.mjs {{ daydream_module_arg }}
 
 # Windows only: build and flash the bench image under the per-board device lock.
 bench:
