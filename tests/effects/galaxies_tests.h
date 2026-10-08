@@ -25,7 +25,7 @@ struct GalaxiesWhiteBox {
   template <int W, int H> static int arm(const Galaxies<W, H> &fx, int galaxy) {
     return fx.galaxies[galaxy].arm;
   }
-  template <int W, int H> static const auto &system(const Galaxies<W, H> &fx) {
+  template <int W, int H> static auto &system(Galaxies<W, H> &fx) {
     return fx.particle_system;
   }
   template <int W, int H>
@@ -36,6 +36,10 @@ struct GalaxiesWhiteBox {
   }
   template <int W, int H> static void set_arms(Galaxies<W, H> &fx, int arms) {
     fx.params.arms = arms;
+  }
+  template <int W, int H>
+  static void set_emission_rate(Galaxies<W, H> &fx, float rate) {
+    fx.params.emission_rate = rate;
   }
   template <int W, int H> static void hide(Galaxies<W, H> &fx) {
     fx.params.alpha = 0.0f;
@@ -150,6 +154,69 @@ inline void test_galaxies_arm_contrast_and_age_fade() {
   }
   HS_EXPECT_LE(WB::alpha(0xff00, 100, 0.7f) / WB::alpha(0xff00, 100, 1.0f),
                WB::alpha(0, 100, 0.7f) / WB::alpha(0, 100, 1.0f));
+}
+
+/** @brief Emission consumes whole credits and discards births while full. */
+inline void test_galaxies_emission_rate_and_capacity() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<SMALL_W, SMALL_H> fx;
+  fx.init();
+  bool found = false;
+  for (const auto &param : fx.getParameters()) {
+    if (std::string_view(param.name) == "Emission Rate") {
+      found = true;
+      HS_EXPECT_EQ(param.min, 0.15f);
+      HS_EXPECT_EQ(param.max, 4.0f);
+      HS_EXPECT_EQ(param.get(), 0.75f);
+    }
+  }
+  HS_EXPECT(found, "Emission Rate is registered");
+
+  auto &ps = WB::system(fx);
+  auto &galaxy = WB::galaxy(fx, 0);
+  galaxy.emission_credit = 0.0f;
+  galaxy.phase = 0.0f;
+  galaxy.spin = 1.0f;
+  WB::set_emission_rate(fx, 2.5f);
+  ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), 2);
+  HS_EXPECT_EQ(galaxy.emission_credit, 0.5f);
+  HS_EXPECT_NEAR(galaxy.phase, 0.028f, 1e-6f);
+  ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), 5);
+  HS_EXPECT_EQ(galaxy.emission_credit, 0.0f);
+  HS_EXPECT_NEAR(galaxy.phase, 0.056f, 1e-6f);
+
+  WB::set_emission_rate(fx, 4.0f);
+  ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), 9);
+  WB::set_emission_rate(fx, 10.0f);
+  ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), 13);
+  HS_EXPECT_EQ(galaxy.emission_credit, 0.0f);
+
+  const int capacity = static_cast<int>(ps.pool.capacity());
+  HS_EXPECT_EQ(capacity, 6000);
+  for (int i = ps.active(); i < capacity; ++i)
+    WB::emit(fx, 0);
+  HS_EXPECT_EQ(ps.active(), capacity);
+  galaxy.emission_credit = 0.5f;
+  WB::set_emission_rate(fx, 4.0f);
+  for (int i = 0; i < 8; ++i)
+    ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), capacity);
+  HS_EXPECT_EQ(galaxy.emission_credit, 0.5f);
+
+  for (int i = 0; i < capacity; ++i)
+    ps.pool[i].life = 0;
+  Canvas canvas(fx);
+  ps.step(canvas);
+  HS_EXPECT_EQ(ps.active(), 0);
+  WB::set_emission_rate(fx, 0.0f);
+  ps.emitters[0](ps);
+  HS_EXPECT_EQ(ps.active(), 0);
+  HS_EXPECT_NEAR(galaxy.emission_credit, 0.65f, 1e-6f);
 }
 
 /**

@@ -65,7 +65,8 @@ public:
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_param("Arm Pitch", &params.arm_pitch, 0.2f, 0.65f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
-    register_param("Emission Rate", &params.emission_rate, 0.15f, 0.75f);
+    register_param("Emission Rate", &params.emission_rate, MIN_EMISSION_RATE,
+                   MAX_EMISSION_RATE);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     // Cosine palette from a warm white core through lavender to blue arms.
@@ -121,12 +122,14 @@ private:
    * @brief Fixed particle pool capacity.
    * @details The emitters stop spawning while the pool is full.
    */
-  static constexpr int NUM_PARTICLES = 3700;
+  static constexpr int NUM_PARTICLES = 6000;
 
   using ParticleSystem =
       Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, NUM_GALAXIES,
                                 NUM_GALAXIES, true>;
 
+  static constexpr float MIN_EMISSION_RATE = 0.15f;
+  static constexpr float MAX_EMISSION_RATE = 4.0f;
   static constexpr float GRAVITY = 0.001f;
   static constexpr float PARTICLE_LIFETIME_FRAMES = 800.0f;
   static constexpr float REFERENCE_ORBIT_SPEED = 0.01285f;
@@ -213,8 +216,9 @@ private:
                              2.0f * math::PI_F);
         if (galaxy.phase < 0.0f)
           galaxy.phase += 2.0f * math::PI_F;
-        galaxy.emission_credit += hs::clamp(params.emission_rate, 0.15f, 0.75f);
-        if (galaxy.emission_credit >= 1.0f) {
+        galaxy.emission_credit += hs::clamp(
+            params.emission_rate, MIN_EMISSION_RATE, MAX_EMISSION_RATE);
+        while (galaxy.emission_credit >= 1.0f) {
           galaxy.emission_credit -= 1.0f;
           emit(galaxy, i);
         }
