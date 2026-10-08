@@ -370,7 +370,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    42 headers covering 41 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    43 headers covering 42 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                shared base ReactionDiffusionBase.h; the
 │                                composed-effect base is
@@ -636,7 +636,7 @@ Firmware, WebAssembly, and native test targets share a common engine:
 
 ```text
 C++ codebase
-  effects/ (41 visual algorithms) + workbench/
+  effects/ (42 visual algorithms) + workbench/
               |
   core/                       Rendering engine
     SDF scan / curve plot -> filter pipeline -> Canvas pixel buffer
@@ -1048,7 +1048,7 @@ Every host-side operation the graph needs is a pure virtual on `EffectTransition
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 41 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, for 42. The simulator sidebar exposes resolution-specific effect lists (§10.5); it stays out of the card lists because it opens through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`) contains 38 effects, including all promoted composed effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Each entry carries its own on-air duration, as specified alongside its name in the 38-entry roster. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 42 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, for 43. The simulator sidebar exposes resolution-specific effect lists (§10.5); it stays out of the card lists because it opens through the standalone tool. The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`) contains 39 effects, including all promoted composed effects and excluding the three Holosphere-96×20-only effects: Dynamo, MobiusRings, and Thrusters. Each entry carries its own on-air duration, as specified alongside its name in the 39-entry roster. Full-cycle Teensy measurements for that playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ---
 

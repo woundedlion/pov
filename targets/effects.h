@@ -19,6 +19,7 @@
 #include "targets/composed_effect_includes.h"
 #include "effects/BZReactionDiffusion.h"
 #include "effects/Fishbowl.h"
+#include "effects/Galaxies.h"
 #include "effects/Comets.h"
 #include "effects/DisplacementField.h"
 #include "effects/DreamBalls.h"
@@ -95,7 +96,8 @@
   X(CosmicEyeball)                                                             \
   X(Thrusters)                                                                 \
   X(KaleidoscopeStainedGlass)                                                  \
-  X(Voronoi)
+  X(Voronoi)                                                                   \
+  X(Galaxies)
 
 /// Phantasm renders one frame per half-revolution, so 480 RPM is 16 fps.
 constexpr int HS_SHOW_FRAMES_PER_SECOND = 16;

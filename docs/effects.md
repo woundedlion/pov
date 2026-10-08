@@ -42,6 +42,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [Fishbowl](#fishbowl)
   - [MeshFeedback](#meshfeedback)
   - [MindSplatter](#mindsplatter)
+  - [Galaxies](#galaxies)
   - [Dynamo](#dynamo)
   - [Thrusters](#thrusters)
   - [GnomonicStars](#gnomonicstars)
@@ -492,6 +493,18 @@ A selectable Platonic, Archimedean, or Catalan wireframe rendered with `Plot::Me
 Particles spray from emitters at the vertices of a selectable Platonic solid — each sweeping its own tangent-plane emission angle — and fall toward attractor wells at the vertices of its dual. The tetrahedron is self-dual; cube/octahedron and dodecahedron/icosahedron form the other pairs. Event-horizon kernels punch the particles out around each attractor. A random walk tumbles the view, periodic Möbius warp bursts distort the whole field, and a preset timer transitions the base mesh, friction, well strength, speeds, and warp scale between eight presets.
 
 **Parameters**: Base Mesh, Friction, Well Str, Init Spd, Ang Spd, Warp, Particles
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Galaxies" target="_blank"><img src="screenshots/Galaxies.png" alt="Galaxies" width="280"></a></td>
+<td valign="top">
+
+### Galaxies
+
+Twenty spiral galaxies, one on each vertex of a dodecahedron, built on `Animation::ParticleSystem`. Each vertex holds an attractor (the galactic core) and an emitter that spawns particles on a ring around it with an orbital velocity. Friction below one bleeds orbital speed, so every particle spirals inward until the core absorbs it; the emitter's slowly turning spawn angle lays successive particles out as rotating arms. Each galaxy spins in a random direction, trails are colored by distance from their own core (warm white at the center, blue at the rim), and the whole sphere drifts on a Languid random walk.
+
+**Parameters**: Friction, Core Mass, Orbit Spd, Arm Spin, Arms, Alpha
 
 </td></tr></table>
 
