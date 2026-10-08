@@ -90,7 +90,6 @@ g2_ship)
   run RingShower profile 70 32
   run RingSpin profile 70 32
   run Voronoi profile 70 32
-  run Galaxies profile 70 32
   ;;
 g3_ship)
   run ShapeShifter profile 155 16 "-D HS_PROFILE_EPOCH_REVS=1600"
