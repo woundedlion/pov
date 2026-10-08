@@ -62,7 +62,8 @@
   X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
   X(KaleidoscopeStainedGlass,                                                  \
     hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
-  X(Voronoi, 120)
+  X(Voronoi, 120)                                                              \
+  X(Galaxies, 120)
 
 #define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
 /**

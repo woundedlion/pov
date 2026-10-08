@@ -994,6 +994,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 #include "tests/effects/mesh_feedback.h"
 #include "tests/effects/numeric_invariants.h"
 #include "tests/effects/effect_whitebox.h"
+#include "tests/effects/galaxies.h"
 #include "tests/effects/displacement_field.h"
 #include "tests/effects/shape_shifter.h"
 #include "tests/effects/voronoi_cases.h"
@@ -1089,6 +1090,9 @@ inline int run_effects_tests() {
   run_case(test_hopf_trail_trim_keeps_a_segment);
   run_case(test_gnomonicstars_radius_px_covers_both_axes);
   run_case(test_gnomonicstars_spiral_cache_invalidation);
+  run_case(test_galaxies_spawn_on_ring_with_orbital_velocity);
+  run_case(test_galaxies_stay_contained_small);
+  run_case(test_galaxies_stay_contained_default);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
