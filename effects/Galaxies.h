@@ -61,22 +61,12 @@ public:
         "Galaxies particle pool + attractor/emitter/palette storage "
         "overflow the device persistent arena");
 
-    // One trail at a time stages its fragments, pre-shader positions, and gate
-    // arrays in scratch_a. A live tip is appended past the stored history.
-    static constexpr size_t TRAIL_POINTS = TRAIL_LEN + 1;
-    static_assert(TRAIL_POINTS * (sizeof(Fragment) + sizeof(math::Vector)) +
-                          Plot::rasterize_scratch_a_bytes<W>(0, TRAIL_POINTS) <=
-                      SCRATCH_BYTES,
-                  "Galaxies trail staging exceeds its scratch_a split; retune "
-                  "TRAIL_LEN or enlarge the split");
-
     register_param("Friction", &params.friction, 0.999f, 1.0f);
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
     register_param("Emission Rate", &params.emission_rate, 0.15f, 0.75f);
-    register_int_param("Trail Length", &params.trail_length, 0, TRAIL_LEN - 1);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     // Cosine palette from a warm white core through lavender to blue arms.
@@ -112,7 +102,6 @@ public:
       HS_PROFILE(gx_particle_step);
       particle_system.step(canvas);
     }
-    trim_histories();
 
     // Alpha below one slider LSB: skip rasterizing; the physics still runs.
     if (params.alpha < MIN_VISIBLE_ALPHA)
@@ -127,10 +116,8 @@ private:
   static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
   static constexpr int MAX_ARMS = 8;
 
-  /** @brief Maximum retained trail anchors per particle. */
-  static constexpr int TRAIL_LEN = 6;
-  /** @brief Frames between stored trail anchors. */
-  static constexpr int TRAIL_SAMPLE_STRIDE = 2;
+  /** @brief Particles draw as points, so the pool keeps a minimal history. */
+  static constexpr int TRAIL_LEN = 1;
   /**
    * @brief Fixed particle pool capacity.
    * @details The emitters stop spawning while the pool is full.
@@ -139,7 +126,7 @@ private:
 
   using ParticleSystem =
       Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN, NUM_GALAXIES,
-                                NUM_GALAXIES, true, TRAIL_SAMPLE_STRIDE>;
+                                NUM_GALAXIES, true>;
 
   static constexpr float GRAVITY = 0.001f;
   static constexpr float PARTICLE_LIFETIME_FRAMES = 800.0f;
@@ -160,14 +147,12 @@ private:
   static constexpr float RING_JITTER = 0.05f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
   static constexpr float SPEED_JITTER = 0.008f;
-  /** @brief Opacity at a trail's tail; the head is fully opaque. */
-  static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   static constexpr float MIN_PARTICLE_ALPHA = 0.2f;
   /** @brief Frames over which a new particle fades in. */
   static constexpr float FADE_IN_FRAMES = 16.0f;
   /** @brief Frames over which an expiring particle fades out. */
   static constexpr float FADE_OUT_FRAMES = 20.0f;
-  /** @brief Radius where an inward-moving trail starts to dim (radians). */
+  /** @brief Radius where an inward-moving particle starts to dim (radians). */
   static constexpr float HEAD_FADE_RADIUS = 0.03f;
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
@@ -197,7 +182,6 @@ private:
     float arm_spin = 0.06f;      /**< Arm rotation (radians/frame). */
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
-    int trail_length = 0;        /**< Visible trail anchors. */
     float alpha = 1.0f;          /**< Overall opacity. */
   } params;
 
@@ -242,7 +226,7 @@ private:
    * @param g Galaxy to spawn into; its arm advances.
    * @param index Galaxy index, stored in the color seed's low byte.
    */
-  void emit(Galaxy &g, int index) {
+  HS_FLASH_MEMBER void emit(Galaxy &g, int index) {
     const int arms = hs::clamp(params.arms, 1, MAX_ARMS);
     g.arm = static_cast<uint8_t>((g.arm + 1) % arms);
     // Skip the spawn rather than let spawn() log a dropped particle.
@@ -299,107 +283,45 @@ private:
     return sqrtf(fmaxf(inward_acceleration * tanf(ring), 0.0f));
   }
 
-  /** @brief Keeps only the number of trail anchors selected by the user. */
-  void trim_histories() {
-    const int length = hs::clamp(params.trail_length, 0, TRAIL_LEN - 1);
-    const size_t limit = static_cast<size_t>(length == 0 ? 0 : length + 1);
-    for (int i = 0; i < particle_system.active(); ++i) {
-      auto &history = particle_system.pool[i].history;
-      while (history.length() > limit)
-        history.expire();
-    }
-  }
-
   /**
-   * @brief Renders particles as points or short trails, then the core bulges.
+   * @brief Renders particles as points, then the core bulges.
    * @param canvas Target canvas.
    */
   void draw_particles(Canvas &canvas) {
     HS_PROFILE(gx_draw_particles);
     const math::RotationMatrix rotation(orientation.get());
-    const math::Vector *core = nullptr;
     // Maps cos(distance to core) onto the palette: 0 at the core, 1 at the
     // spawn ring.
     const float cos_ring = math::fast_cosf(RING_RADIUS);
-    const float ring_span = 1.0f - cos_ring;
-    const float inv_ring_span = 1.0f / ring_span;
+    const float inv_ring_span = 1.0f / (1.0f - cos_ring);
     const float cos_hole = math::fast_cosf(HOLE_FADE_RADIUS);
     const float inv_head_span =
         1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
-    float core_fade = 1.0f;
-    float depth_alpha = 1.0f;
-
-    auto vertex_shader = [&](Fragment &f) { f.pos = rotation.apply(f.pos); };
-
-    // v2 holds palette radius; size carries the core fade through rasterization.
-    auto radius_shader = [&](FragmentRegisters f,
-                             const math::Vector &original_pos) {
-      const float cos_distance = math::dot(original_pos, *core);
-      f.v2 = (1.0f - cos_distance) * inv_ring_span;
-      f.size = cos_distance < cos_hole
-                   ? 1.0f
-                   : math::quintic_kernel(
-                         math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-                         HOLE_FADE_RADIUS);
-    };
-
-    auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-      // v3 is remaining life over max_life.
-      const float fade_in =
-          hs::clamp((1.0f - f.v3) * max_life / FADE_IN_FRAMES, 0.0f, 1.0f);
-      const float fade_out =
-          hs::clamp(f.v3 * max_life / FADE_OUT_FRAMES, 0.0f, 1.0f);
-      // The tail keeps TRAIL_TAIL_ALPHA, so the thin inner arms stay visible.
-      const float trail = TRAIL_TAIL_ALPHA + (1.0f - TRAIL_TAIL_ALPHA) *
-                                                 hs::clamp(f.v0, 0.0f, 1.0f);
-      Color4 c = palette.get(hs::clamp(f.v2, 0.0f, 1.0f));
-      c.alpha *=
-          trail * fade_in * fade_out * f.size * core_fade * depth_alpha * alpha;
-      f.color = c;
-    };
-
-    // The v2 mapper binds the particle's core before its fragments shade; the
-    // deferred shader then overwrites v2.
-    auto bind_core = [&](const auto &p, int) {
-      core = &galaxies[p.color_seed & 0xff].core;
-      core_fade = math::quintic_kernel((1.0f - math::dot(p.position, *core)) *
-                                       inv_head_span);
-      depth_alpha = particle_alpha(p.color_seed);
-      return 0.0f;
-    };
 
     filters.prepare(canvas);
-    if (params.trail_length == 0) {
-      for (int i = 0; i < particle_system.active(); ++i) {
-        const auto &p = particle_system.pool[i];
-        const math::Vector &point_core = galaxies[p.color_seed & 0xff].core;
-        const float cos_distance = math::dot(p.position, point_core);
-        const float radius = (1.0f - cos_distance) * inv_ring_span;
-        const float hole =
-            cos_distance < cos_hole
-                ? 1.0f
-                : math::quintic_kernel(
-                      math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-                      HOLE_FADE_RADIUS);
-        const float head_fade =
-            math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
-        const float fade_in =
-            hs::clamp((max_life - static_cast<float>(p.life)) / FADE_IN_FRAMES,
-                      0.0f, 1.0f);
-        const float fade_out =
-            hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
-        Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
-        c.alpha *= hole * head_fade * fade_in * fade_out *
-                   particle_alpha(p.color_seed) * alpha;
-        filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f,
-                     c.alpha);
-      }
-    } else {
-      Plot::ParticleSystem::draw_fused_vertex<W, H, true>(
-          filters, canvas, particle_system, fragment_shader, vertex_shader,
-          radius_shader, bind_core);
+    for (int i = 0; i < particle_system.active(); ++i) {
+      const auto &p = particle_system.pool[i];
+      const math::Vector &core = galaxies[p.color_seed & 0xff].core;
+      const float cos_distance = math::dot(p.position, core);
+      const float radius = (1.0f - cos_distance) * inv_ring_span;
+      const float hole =
+          cos_distance < cos_hole
+              ? 1.0f
+              : math::quintic_kernel(
+                    math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
+                    HOLE_FADE_RADIUS);
+      const float head_fade =
+          math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
+      const float fade_in = hs::clamp(
+          (max_life - static_cast<float>(p.life)) / FADE_IN_FRAMES, 0.0f, 1.0f);
+      const float fade_out =
+          hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
+      Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
+      c.alpha *= hole * head_fade * fade_in * fade_out *
+                 particle_alpha(p.color_seed) * alpha;
+      filters.plot(canvas, rotation.apply(p.position), c.color, 0.0f, c.alpha);
     }
 
     // The bulge covers the final fade around each core.
