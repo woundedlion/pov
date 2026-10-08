@@ -67,8 +67,8 @@
     (0.955f, 1.004f, 0.910f), (0.167f, 0.018f, 0.930f))                        \
   X(PEACH_POP, (1.000f, 0.144f, 0.175f), (0.543f, 0.543f, 0.543f),             \
     (0.507f, 0.409f, 0.507f), (0.001f, 0.002f, 0.620f))                        \
-  X(POPPED_PEACH, (1.000f, 0.144f, 0.175f), (0.543f, 0.543f, 0.543f),          \
-    (-0.507f, -0.409f, -0.507f), (0.508f, 0.411f, 1.127f))                     \
+  X(TIDAL_JADE, (0.075f, 0.405f, 0.430f), (0.065f, 0.365f, 0.320f),            \
+    (0.500f, 0.500f, 0.500f), (0.500f, 0.500f, 0.500f))                        \
   X(BLUE_LAGOON, (0.253f, 0.500f, 1.000f), (0.500f, 0.844f, 1.000f),           \
     (0.232086f, 0.232086f, 0.232086f), (0.279882f, 0.609882f, 0.949882f))      \
   X(ORANGE_CRUSH, (0.575f, 0.168f, 0.464f), (0.406f, 0.697f, 0.357f),          \
@@ -111,7 +111,7 @@ struct MeshPaletteBank {
   static constexpr auto sources() {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
-                      &Palettes::LAVENDER_LAKE,  &Palettes::POPPED_PEACH};
+                      &Palettes::LAVENDER_LAKE,  &Palettes::TIDAL_JADE};
   }
 
   /**

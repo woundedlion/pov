@@ -66,7 +66,7 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_NEAR(cb0.alpha, 1.0f, 1e-6f);
 
   constexpr auto mesh_sources = MeshPaletteBank::sources();
-  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::POPPED_PEACH);
+  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::TIDAL_JADE);
 
   constexpr ProceduralPalette FORWARD_ORANGE(
       {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
@@ -77,12 +77,6 @@ inline void test_named_procedural_palette_endpoints() {
     HS_EXPECT_NEAR(reversed.color.r, forward.color.r, 1);
     HS_EXPECT_NEAR(reversed.color.g, forward.color.g, 1);
     HS_EXPECT_NEAR(reversed.color.b, forward.color.b, 1);
-
-    Color4 popped = Palettes::POPPED_PEACH.get(t);
-    Color4 peach = Palettes::PEACH_POP.get(1.0f - t);
-    HS_EXPECT_NEAR(popped.color.r, peach.color.r, 1);
-    HS_EXPECT_NEAR(popped.color.g, peach.color.g, 1);
-    HS_EXPECT_NEAR(popped.color.b, peach.color.b, 1);
   }
 }
 
@@ -199,7 +193,7 @@ inline void test_named_procedural_palette_roster() {
       17532158822806458534ull, 13333059190711347450ull,
       1983164980008296279ull,  17191927165933662661ull,
       11014468141546408976ull, 15566500396385584882ull,
-      7646521029703227679ull,  12282102359706796427ull,
+      7646521029703227679ull,  10063136414861090927ull,
       11972795300560289134ull, 206858551135936371ull,
       7425003234454588729ull,  51388825653918428ull,
       15037618790413056646ull};
@@ -218,7 +212,7 @@ inline void test_named_procedural_palette_roster() {
     }
     HS_EXPECT_EQ(palette_hash, PALETTE_HASHES[index]);
   }
-  HS_EXPECT_EQ(hash, uint64_t{4744059892132791348});
+  HS_EXPECT_EQ(hash, uint64_t{1253289522805892800});
 }
 
 /**
