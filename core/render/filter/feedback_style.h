@@ -153,7 +153,13 @@ struct Style {
     HS_CHECK(fade >= 0.0f && fade <= 1.0f,
              "Feedback::Style::fade must be in [0, 1]");
     float frame_shift = fade == 0.0f ? 0.0f : hue_shift * -logf(fade);
-    turn_to_unit_cos_sin(frame_shift, hue_ca, hue_sa);
+    // Exact identity: a fast-math rsqrt would miss the plain-fade path.
+    if (frame_shift == 0.0f) {
+      hue_ca = 1.0f;
+      hue_sa = 0.0f;
+    } else {
+      turn_to_unit_cos_sin(frame_shift, hue_ca, hue_sa);
+    }
     hue_rotate_lms_matrix(hue_ca, hue_sa, hue_k);
   }
 
