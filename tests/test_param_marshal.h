@@ -266,7 +266,8 @@ inline void check_roster_order_pinned() {
                                               "CosmicEyeball",
                                               "Thrusters",
                                               "KaleidoscopeStainedGlass",
-                                              "Voronoi"};
+                                              "Voronoi",
+                                              "Galaxies"};
   // Actual roster, expanded straight from the X-macro source of truth.
   static const char *const ACTUAL_ROSTER[] = {
 #define HS_EFFECT_NAME(name) #name,
