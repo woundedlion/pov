@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Galaxies: spawn geometry and galaxy containment.
+// Galaxies: octahedral cores, spawn geometry and galaxy containment.
 // ---------------------------------------------------------------------------
 
 /** @brief White-box accessor for Galaxies' spawn state and particle pool. */
@@ -41,8 +41,8 @@ struct GalaxiesWhiteBox {
 };
 
 /**
- * @brief A spawn lands on its galaxy's ring with an orbital (tangent) velocity
- *        at the configured speed, and the arm index cycles through the arms.
+ * @brief Cores follow octahedron vertices; spawns land on their galaxy's ring
+ *        with an orbital velocity, and arms cycle.
  */
 inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
   using WB = GalaxiesWhiteBox;
@@ -52,6 +52,7 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
   WB::set_arms(fx, 3);
 
   const auto &ps = WB::system(fx);
+  HS_EXPECT_EQ(WB::NUM_GALAXIES, Solids::Octahedron::NUM_VERTS);
   for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
     const int before = WB::arm(fx, g);
     const uint16_t index = ps.active();
@@ -61,6 +62,8 @@ inline void test_galaxies_spawn_on_ring_with_orbital_velocity() {
 
     const auto &p = ps.pool[index];
     const math::Vector &core = WB::core(fx, g);
+    HS_EXPECT_NEAR(math::dot(core, Solids::Octahedron::vertices[g]), 1.0f,
+                   1e-5f);
     HS_EXPECT_EQ(static_cast<int>(p.color_seed), g);
     HS_EXPECT_NEAR(p.position.magnitude(), 1.0f, 1e-4f);
 

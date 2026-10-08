@@ -7,8 +7,8 @@
 
 /**
  * @file Galaxies.h
- * @brief Twenty spiral galaxies, one on each dodecahedron vertex, built from
- *        particles that orbit and fall into a central attractor.
+ * @brief Six spiral galaxies, one on each octahedron vertex, built from
+ *        particles orbiting central attractors.
  */
 
 #include "core/animation/orientation.h"
@@ -21,15 +21,14 @@ struct GalaxiesWhiteBox;
 } // namespace hs_test
 
 /**
- * @brief Spiral galaxies on the vertices of a dodecahedron.
+ * @brief Spiral galaxies on the vertices of an octahedron.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Each vertex holds an attractor (the galactic core) and an emitter
  *          that spawns particles on a ring around it with an orbital
- *          velocity. Friction below one bleeds orbital speed, so each particle
- *          spirals inward until the core kills it; the emitter's slowly
- *          advancing spawn angle lays successive particles out as rotating
- *          arms. Trails are colored by distance from their own core.
+ *          velocity. A slow inward drift and the emitter's advancing spawn
+ *          angle lay successive particles out as rotating arms. Trails are
+ *          colored by distance from their own core.
  */
 template <int W, int H> class Galaxies : public Effect {
 public:
@@ -120,8 +119,8 @@ public:
 private:
   friend struct ::hs_test::effects_tests::GalaxiesWhiteBox;
 
-  /** @brief Number of galaxies: one per dodecahedron vertex. */
-  static constexpr int NUM_GALAXIES = Solids::Dodecahedron::NUM_VERTS;
+  /** @brief Number of galaxies: one per octahedron vertex. */
+  static constexpr int NUM_GALAXIES = Solids::Octahedron::NUM_VERTS;
   static constexpr int MAX_ARMS = 4;
 
   /** @brief Per-particle trail length. */
@@ -130,10 +129,7 @@ private:
   static constexpr int TRAIL_SAMPLE_STRIDE = 2;
   /**
    * @brief Fixed particle pool capacity.
-   * @details At the default settings particles reach a core well before
-   *          PARTICLE_LIFETIME_FRAMES, so about 850 are live. Weak cores let
-   *          more of them live out their full lifetime; the emitters stop
-   *          spawning while the pool is full.
+   * @details The emitters stop spawning while the pool is full.
    */
   static constexpr int NUM_PARTICLES = 1600;
 
@@ -142,25 +138,19 @@ private:
                                 NUM_GALAXIES, false, TRAIL_SAMPLE_STRIDE>;
 
   static constexpr float GRAVITY = 0.001f;
-  static constexpr float PARTICLE_LIFETIME_FRAMES = 150.0f;
+  static constexpr float PARTICLE_LIFETIME_FRAMES = 210.0f;
   /** @brief Angular radius of the spawn ring around each core (radians). */
-  static constexpr float RING_RADIUS = 0.3f;
-  /**
-   * @brief Core kill radius (chord).
-   * @details Large enough that particles die before their orbit gets tight
-   *          enough to slingshot out. The slingshot depends on the
-   *          resolution's motion cap: 96 columns allow three times the step
-   *          of 288.
-   */
-  static constexpr float KILL_RADIUS = 0.04f;
+  static constexpr float RING_RADIUS = 0.58f;
+  /** @brief Core kill radius (chord) for particles that plunge inward. */
+  static constexpr float KILL_RADIUS = 0.03f;
   /** @brief Radius inside which particles are steered straight in (chord). */
-  static constexpr float EVENT_HORIZON = 0.06f;
+  static constexpr float EVENT_HORIZON = 0.05f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.14f;
   /** @brief Spawn-ring radius jitter half-width, as a fraction of the ring. */
-  static constexpr float RING_JITTER = 0.08f;
+  static constexpr float RING_JITTER = 0.04f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
-  static constexpr float SPEED_JITTER = 0.1f;
+  static constexpr float SPEED_JITTER = 0.05f;
   /** @brief Opacity at a trail's tail; the head is fully opaque. */
   static constexpr float TRAIL_TAIL_ALPHA = 0.35f;
   /** @brief Frames over which a new particle fades in. */
@@ -170,7 +160,7 @@ private:
    * @details At least 1.5 columns, so it stays visible at low resolution.
    */
   static constexpr float BULGE_RADIUS =
-      std::max(0.06f, 1.5f * math::RADIANS_PER_COLUMN<W>);
+      std::max(0.08f, 1.5f * math::RADIANS_PER_COLUMN<W>);
 
   /** @brief Spawn geometry and arm state for one galaxy. */
   struct Galaxy {
@@ -186,16 +176,16 @@ private:
    * @brief User-tunable parameters exposed via register_param.
    */
   struct Params {
-    float friction = 0.988f;    /**< Velocity retention per frame. */
-    float core_mass = 0.08f;    /**< Attractor strength. */
-    float orbit_speed = 0.013f; /**< Spawn speed (radians/frame). */
-    float arm_spin = 0.03f;     /**< Arm rotation (radians/frame). */
+    float friction = 0.999f;    /**< Velocity retention per frame. */
+    float core_mass = 0.15f;    /**< Attractor strength. */
+    float orbit_speed = 0.018f; /**< Spawn speed (radians/frame). */
+    float arm_spin = 0.045f;    /**< Arm rotation (radians/frame). */
     int arms = 2;               /**< Arms per galaxy. */
     float alpha = 1.0f;         /**< Overall opacity. */
   } params;
 
   /**
-   * @brief Places the attractors and emitters on the dodecahedron vertices.
+   * @brief Places the attractors and emitters on the octahedron vertices.
    * @details Single-shot: ParticleSystem::init traps on a second call.
    */
   HS_COLD_MEMBER void build_particle_system() {
@@ -203,8 +193,8 @@ private:
                          PARTICLE_LIFETIME_FRAMES);
     for (int i = 0; i < NUM_GALAXIES; ++i) {
       Galaxy &g = galaxies[i];
-      const math::Basis basis = math::make_basis(
-          math::Quaternion(), Solids::Dodecahedron::vertices[i]);
+      const math::Basis basis =
+          math::make_basis(math::Quaternion(), Solids::Octahedron::vertices[i]);
       g.core = basis.v;
       g.u = basis.u;
       g.w = basis.w;
