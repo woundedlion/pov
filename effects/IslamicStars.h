@@ -44,7 +44,8 @@ struct IslamicStarsParams {
  *          are built op by op on screen: the seed solid sweeps in, then OpLegs
  *          morph the lowered chain into the finished pattern. Each shape's
  *          segue schedules the next automatic advance; a manual or synchronized
- *          change cuts the current shape and spawns the selected one.
+ *          change cuts the current shape and spawns the selected one. Pause
+ *          holds a shape at the end of its plateau, before its segue out.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -156,8 +157,10 @@ public:
   /**
    * @brief Advances ripple state once and runs the timeline for this frame.
    */
-  void draw_frame() override {
+  HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
+    hold_departure = departure_due && anims_paused;
+    departure_due = hold_departure;
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();
@@ -230,6 +233,11 @@ private:
   int ripple_dur_eff = 80;
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int burst_size_eff = 4;
+  /** The resident shape reached its plateau's last frame this frame. */
+  bool departure_due = false;
+  /** Pause gate of the resident sprite and the advance: holds the shape at
+   * its plateau's last frame while paused. */
+  bool hold_departure = false;
   using SegueT = Segue::TerminatorSweep;
 
   MeshCarousel<SegueT> carousel;
@@ -568,28 +576,31 @@ private:
 
     int duration = fade + build_span + still + burst_span + still + fade;
 
+    departure_due = false;
+    hold_departure = false;
     int next_delay = carousel.schedule_segue(timeline, back, draw_fn, duration,
-                                             fade, &anims_paused);
+                                             fade, &hold_departure);
 
     // Added after the sprite, so the first leg draws the frame after the
     // sprite's last seed draw: no gap, no double draw.
     if (recipe) {
-      timeline.add_pausable(fade,
-                            Animation::PeriodicTimer(
-                                0,
-                                [this](Canvas &) {
-                                  build_active = true;
-                                  start_build_leg();
-                                },
-                                false),
-                            &anims_paused);
+      timeline.add(fade, Animation::PeriodicTimer(
+                             0,
+                             [this](Canvas &) {
+                               build_active = true;
+                               start_build_leg();
+                             },
+                             false));
     }
 
-    timeline.add_pausable(
-        fade + build_span + still,
-        Animation::PeriodicTimer(
-            0, [this](Canvas &canvas) { ripple(canvas); }, false),
-        &anims_paused);
+    timeline.add(fade + build_span + still,
+                 Animation::PeriodicTimer(
+                     0, [this](Canvas &canvas) { ripple(canvas); }, false));
+
+    // Fires on the step that draws the sprite's last full-opacity frame.
+    timeline.add(duration - fade,
+                 Animation::PeriodicTimer(
+                     0, [this](Canvas &) { departure_due = true; }, false));
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
@@ -604,6 +615,6 @@ private:
         next_delay,
         Animation::PeriodicTimer(
             0, [this](Canvas &) { this->advance_shape(); }, false),
-        &anims_paused);
+        &hold_departure);
   }
 };
