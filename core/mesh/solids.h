@@ -110,6 +110,8 @@ inline constexpr uint8_t SEED_DODECAHEDRON =
     static_cast<uint8_t>(BaseMesh::DODECAHEDRON);
 inline constexpr uint8_t SEED_ICOSAHEDRON =
     static_cast<uint8_t>(BaseMesh::ICOSAHEDRON);
+inline constexpr uint8_t SEED_TRUNCATED_CUBE =
+    static_cast<uint8_t>(BaseMesh::TRUNCATED_CUBE);
 inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON =
     static_cast<uint8_t>(BaseMesh::TRUNCATED_OCTAHEDRON);
 inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON =
@@ -273,6 +275,13 @@ inline constexpr Recipe TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE =
     make_recipe(SEED_TRUNCATED_ICOSIDODECAHEDRON,
                 TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS);
 
+/** Step table for truncatedCube_hk90_meta. */
+inline constexpr OpStep TRUNCATED_CUBE_HK90_META_STEPS[] = {
+    {Op::HANKIN, 90.0f * IslamicStarPatterns::D2R}, {Op::META}};
+/** Recipe mirror of IslamicStarPatterns::truncatedCube_hk90_meta. */
+inline constexpr Recipe TRUNCATED_CUBE_HK90_META_RECIPE =
+    make_recipe(SEED_TRUNCATED_CUBE, TRUNCATED_CUBE_HK90_META_STEPS);
+
 /** Step table for truncatedOctahedron_gyro_kis_hk17. */
 inline constexpr OpStep TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS[] = {
     {Op::GYRO}, {Op::KIS}, {Op::HANKIN, 17.0f * IslamicStarPatterns::D2R}};
@@ -406,9 +415,8 @@ inline constexpr Entry islamic_registry[] = {
     {"truncatedIcosidodecahedron_bevel5_relax_hk77",
      IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77,
      Category::Complex, &TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE},
-    {"truncatedOctahedron_gyro_kis_hk17",
-     IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17, Category::Complex,
-     &TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE},
+    {"truncatedCube_hk90_meta", IslamicStarPatterns::truncatedCube_hk90_meta,
+     Category::Complex, &TRUNCATED_CUBE_HK90_META_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59,
      Category::Complex,
