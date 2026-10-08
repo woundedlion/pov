@@ -994,7 +994,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 #include "tests/effects/mesh_feedback.h"
 #include "tests/effects/numeric_invariants.h"
 #include "tests/effects/effect_whitebox.h"
-#include "tests/effects/galaxies.h"
+#include "tests/effects/galaxies_tests.h"
 #include "tests/effects/displacement_field.h"
 #include "tests/effects/shape_shifter.h"
 #include "tests/effects/voronoi_cases.h"
