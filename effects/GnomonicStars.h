@@ -32,7 +32,7 @@ public:
   static constexpr const char *EFFECT_ID = "GnomonicStars";
 
   /**
-   * @brief Constructs the effect at face resolution W x H.
+   * @brief Constructs the effect at the W x H canvas resolution.
    */
   HS_COLD_MEMBER GnomonicStars()
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
