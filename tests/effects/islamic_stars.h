@@ -274,10 +274,8 @@ inline void test_islamicstars_pause_holds_shape() {
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
   const size_t held = effect.getPresetIndex();
-  for (int frame = 0; frame < 1; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  effect.draw_frame();
+  effect.advance_display();
   effect.setAnimationsPaused(true);
   bool built = false;
   for (int frame = 0; frame < 400; ++frame) {
