@@ -170,8 +170,6 @@ inline void case_pick_next_edge_unknown_node() {
 
 /**
  * @brief Death case: an edge-sweep leg without a graph edge must trap.
- * @details OpLeg surface — the constructor reads the edge's operator and settle
- *          flag on its first line, so a null edge is a null dereference.
  */
 inline void case_opleg_edge_sweep_no_edge() {
   static uint8_t buf[1024];
