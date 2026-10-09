@@ -373,6 +373,28 @@ inline void case_planar_chords_over_capacity() {
                      shader);
 }
 
+/** @brief Death case: a chord draw rejects an unprepared direct sink. */
+inline void case_planar_chords_sink_unprepared() {
+  static uint8_t arena_buf[1024];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, 2);
+  static hs_test::StubEffect fx(16, 8);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  chords.prepare(canvas.clip());
+  Fragments points;
+  points.bind(arena, 3);
+  points.push_back(Fragment{math::Y_AXIS});
+  points.push_back(Fragment{math::Y_AXIS});
+  for (int i = 0; i < 2; ++i) {
+    chords.chart_x()[i] = 0.0f;
+    chords.chart_y()[i] = 0.0f;
+  }
+  auto shader = [](const math::Vector &, Fragment &) {};
+  chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
+}
+
 /** @brief Death case: a chord draw before prepare traps. */
 inline void case_planar_chords_unprepared() {
   static uint8_t arena_buf[256];
