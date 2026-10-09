@@ -544,10 +544,10 @@ inline void test_mesh_op_growth_factors() {
     size_t degree, valence;
   };
   constexpr Boundary BOUNDARIES[] = {
-      {"dual", 0, 1},  {"ambo", 1, 1},     {"needle", 0, 1}, {"meta", 1, 1},
-      {"gyro", 1, 1},  {"chamfer", 1, 0},  {"expand", 1, 1}, {"snub", 1, 1},
-      {"relax", 1, 0}, {"truncate", 2, 1}, {"bevel", 2, 2},  {"zip", 1, 2},
-      {"hankin", 2, 2}};
+      {"kis", 0, 0},  {"dual", 0, 1},  {"ambo", 1, 1},     {"needle", 0, 1},
+      {"meta", 1, 1}, {"gyro", 1, 1},  {"chamfer", 1, 0},  {"expand", 1, 1},
+      {"snub", 1, 1}, {"relax", 1, 0}, {"truncate", 2, 1}, {"bevel", 2, 2},
+      {"zip", 1, 2},  {"hankin", 2, 2}};
   for (const auto &expected : BOUNDARIES) {
     const auto *row = hs_wasm::find_mesh_op_bounds(expected.name);
     HS_EXPECT_TRUE(row != nullptr);
@@ -555,8 +555,11 @@ inline void test_mesh_op_growth_factors() {
       continue;
     for (bool degree : {true, false}) {
       const size_t FACTOR = degree ? expected.degree : expected.valence;
-      if (!FACTOR)
+      if (!FACTOR) {
+        HS_EXPECT_EQ(degree ? row->bounds.face_degree : row->bounds.valence,
+                     0u);
         continue;
+      }
       const size_t LIMIT = 255 / FACTOR;
       HS_EXPECT_FALSE(hs_wasm::mesh_op_face_degree_overflows(
           degree ? LIMIT : 0, degree ? 0 : LIMIT, row->bounds.face_degree,
