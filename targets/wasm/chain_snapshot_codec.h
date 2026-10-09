@@ -2,6 +2,11 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+
+/**
+ * @file chain_snapshot_codec.h
+ * @brief Strict JS wire codec for `ChainSnapshot` runtime/palette snapshots.
+ */
 #pragma once
 
 #include <emscripten/val.h>
@@ -11,6 +16,10 @@
 
 namespace hs_wasm {
 
+/**
+ * @brief Encodes a `ChainSnapshot` to a plain JS object and strictly decodes
+ *        one back.
+ */
 class ChainSnapshotCodec {
   using Val = emscripten::val;
   using Result = ChainSnapshotRestoreResult;
@@ -211,6 +220,11 @@ class ChainSnapshotCodec {
   }
 
 public:
+  /**
+   * @brief Encodes @p snapshot as a JS object.
+   * @return Object with `schemaVersion`, `animationsPaused`, `chain` and
+   *         `parameters`, plus `runtime` and `paletteBank` when present.
+   */
   static Val encode(const ChainSnapshot &snapshot) {
     auto out = Val::object();
     out.set("schemaVersion", snapshot.schema_version);
@@ -266,6 +280,21 @@ public:
     return out;
   }
 
+  /**
+   * @brief Decodes an untrusted JS payload into @p out.
+   * @details `runtime` and `paletteBank` are optional. Fields are checked in
+   * wire order and the first failure is returned; `schemaVersion` is checked
+   * before every other field. @p out must start default-constructed and is
+   * partially filled on failure.
+   * @param input JS payload, expected to be a caller-owned clone.
+   * @param out Snapshot to fill.
+   * @return `APPLIED` when every field decodes (nothing is applied here);
+   *         `INVALID_VALUE` for a missing or mistyped field;
+   *         `UNSUPPORTED_VERSION` for a `schemaVersion` other than
+   *         `ChainSnapshot::SCHEMA_VERSION`; `INVALID_LENGTH` for an over-cap
+   *         `chain`, `parameters` or `runtime` array, or `hues`/`cycles`
+   *         arrays not of length 3.
+   */
   static Result decode(const Val &input, ChainSnapshot &out) {
     if (!object(input) || !integer(input, "schemaVersion", out.schema_version))
       return Result::INVALID_VALUE;
