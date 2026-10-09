@@ -446,7 +446,8 @@ private:
   /**
    * @brief Reads the hardware segment ID from the GPIO straps (log2(N) bits).
    *
-   * @details Grounded straps read 1; all-open straps are master ID 0. A duplicate
+   * @details Grounded straps read LOW and decode_segment_id inverts them to set
+   *          their ID bits; all-open straps decode to master ID 0. A duplicate
    *          master ID causes sync-bus contention. Duplicate peer IDs paint one
    *          segment twice and leave another dark. Assembly requires unique
    *          IDs and one master (R-ID-2/R-ID-4).
