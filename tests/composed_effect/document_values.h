@@ -683,12 +683,12 @@ inline void check_document_values(const char *name) {
   if (dwell != nullptr) {
     HS_EXPECT_EQ(dwell->member_keys.size(), FX::PRESET_IDS.size());
     for (size_t member = 0; member < dwell->member_keys.size(); ++member) {
+      HS_CONTEXT(dwell->member_keys[member].c_str());
       size_t preset = 0;
       while (preset < FX::PRESET_IDS.size() &&
              FX::PRESET_IDS[preset] != dwell->member_keys[member])
         ++preset;
       HS_EXPECT_LT(preset, FX::PRESET_IDS.size());
-      HS_CONTEXT(dwell->member_keys[member].c_str());
       HS_EXPECT_EQ(dwell->member_values[member].number,
                    double{FX::PRESET_DWELL_FRAMES});
     }
