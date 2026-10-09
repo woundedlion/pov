@@ -165,12 +165,12 @@ private:
   static constexpr float BULGE_RADIUS =
       std::max(0.08f, 1.5f * math::RADIANS_PER_COLUMN<W>);
 
-  /** @brief Approximate stellar surface colors from cool orange to hot blue-white. */
+  /** @brief Stellar surface colors with enhanced warm/cool contrast. */
   struct StellarPalette {
     Color4 get(float t) const {
       const std::array<Color4, 5> COLORS{
-          Color4(255, 177, 110), Color4(255, 238, 216), Color4(255, 255, 255),
-          Color4(202, 218, 255), Color4(167, 191, 255)};
+          Color4(255, 85, 42), Color4(255, 230, 175), Color4(195, 225, 255),
+          Color4(100, 170, 255), Color4(95, 130, 255)};
       const float index = hs::clamp(t, 0.0f, 1.0f) * 4.0f;
       const int lower = std::min(static_cast<int>(index), 3);
       return COLORS[lower].lerp(COLORS[lower + 1], index - lower);
@@ -312,6 +312,7 @@ private:
     float luminosity = 1.0f;
     if (mass < 0.5f) {
       temperature = 0.06f + 0.32f * mass;
+      luminosity = 0.12f + 0.24f * mass;
     } else if (mass < 0.875f) {
       const float main_sequence = 0.28f + 0.2f * (mass - 0.5f) / 0.375f;
       const float giant = math::quintic_kernel((age - 0.45f) / 0.20f);
@@ -320,13 +321,13 @@ private:
       const float cooling =
           0.9f - 0.5f * math::quintic_kernel((age - 0.78f) / 0.22f);
       temperature += (cooling - temperature) * remnant;
-      luminosity = 1.0f - 0.8f * remnant;
+      luminosity = (0.8f + 0.2f * giant) * (1.0f - remnant) + 0.2f * remnant;
     } else {
       const float massive = (mass - 0.875f) / 0.125f;
       const float lifetime = 0.45f - 0.15f * massive;
       const float phase = age / lifetime;
       const float main_sequence = 0.75f + 0.25f * massive;
-      const float supergiant = math::quintic_kernel((phase - 0.55f) / 0.20f);
+      const float supergiant = math::quintic_kernel((phase - 0.65f) / 0.13f);
       temperature = main_sequence + (0.02f - main_sequence) * supergiant;
       luminosity = 1.0f - math::quintic_kernel((phase - 0.80f) / 0.20f);
     }
