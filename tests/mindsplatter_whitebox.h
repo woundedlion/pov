@@ -25,6 +25,7 @@ struct MindSplatterWhiteBox {
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
   static constexpr uint16_t REPLAY_VERSION = 3;
+  static constexpr size_t REPLAY_HEADER_BYTES = 4 + 8 * 2 + 1;
 
   template <typename T>
   using ObjectBytes = std::array<unsigned char, sizeof(T)>;
@@ -74,12 +75,12 @@ struct MindSplatterWhiteBox {
     using Snapshot = ReplaySnapshot<W, H>;
     using Particle = typename Snapshot::Particle;
     HS_CHECK(snapshot.particles.size() <= UINT16_MAX);
-    HS_CHECK(sizeof(Particle) <= UINT16_MAX);
-    HS_CHECK(sizeof(math::Orientation<>) <= UINT16_MAX);
-    HS_CHECK(sizeof(math::MobiusParams) <= UINT16_MAX);
+    static_assert(sizeof(Particle) <= UINT16_MAX);
+    static_assert(sizeof(math::Orientation<>) <= UINT16_MAX);
+    static_assert(sizeof(math::MobiusParams) <= UINT16_MAX);
 
     std::vector<unsigned char> bytes;
-    bytes.reserve(24 + sizeof(math::Orientation<>) +
+    bytes.reserve(REPLAY_HEADER_BYTES + sizeof(math::Orientation<>) +
                   sizeof(math::MobiusParams) +
                   snapshot.particles.size() * sizeof(Particle));
     append_u32(bytes, REPLAY_MAGIC);
