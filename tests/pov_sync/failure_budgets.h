@@ -148,6 +148,7 @@ inline void test_budget_corrupted_timebase() {
   // Corrupt board 2's flywheel phase by W/4 — far beyond the gate.
   SimBoard &b2 = sim.boards[2];
   const int32_t bogus = floor_mod(sim.board_pos(2) + 72, cfg.W);
+  const uint64_t corrupt_g = sim.g;
   flywheel_mut(b2.board).seed(Sim::local_now(b2, sim.g) -
                               static_cast<uint32_t>(bogus) * COL);
   flywheel_mut(b2.board).force_lock();
@@ -162,6 +163,8 @@ inline void test_budget_corrupted_timebase() {
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       double(RECOVERY_COLUMNS) / cfg.W));
+  const uint64_t recovery_cols = (sim.g - corrupt_g) / COL;
+  HS_EXPECT_LE(recovery_cols, 750u);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
   HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
