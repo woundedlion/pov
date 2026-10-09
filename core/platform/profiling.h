@@ -91,7 +91,7 @@ inline PullbackProjectionCounts g_pullback_projection_counts;
 /** @brief Count-only Plot rasterizer workload attribution. */
 struct PlotCounts {
   uint32_t rings = 0;          /**< Paths submitted to `Plot::rasterize()`. */
-  uint32_t edges = 0;          /**< Edge paths submitted. */
+  uint32_t edges = 0;          /**< Polyline edges submitted. */
   uint32_t planar = 0;         /**< Planar paths submitted. */
   uint32_t geodesic = 0;       /**< Geodesic paths submitted. */
   uint32_t degenerate = 0;     /**< Degenerate paths handled. */
