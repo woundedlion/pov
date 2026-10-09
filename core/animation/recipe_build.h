@@ -519,8 +519,9 @@ protected:
 
   /**
    * @brief Schedules the dual bridge's medial-slerp leg (ambo(P) ->
-   * ambo(dual(P))), departing from leg 1's landing. No bookend: the medial
-   * arrival's own classification is the target leg 3 departs from.
+   * ambo(dual(P))), departing from leg 1's landing. The bookend carries leg 1's
+   * landed ambo(P) classification in scratch; both medial meshes share
+   * connectivity.
    */
   HS_COLD_MEMBER void schedule_dual_medial() {
     ScratchScope handoff_guard(scratch_arena_a);
