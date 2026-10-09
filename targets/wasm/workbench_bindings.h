@@ -22,20 +22,20 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 // Caller property access can re-enter embind, including delete().
-static bool snapshot_decode_active = false;
-struct SnapshotDecodeGuard {
+static bool payload_decode_active = false;
+struct PayloadDecodeGuard {
   bool *decoding;
-  explicit SnapshotDecodeGuard(bool *decoding = nullptr) : decoding(decoding) {
-    HS_CHECK(!snapshot_decode_active,
+  explicit PayloadDecodeGuard(bool *decoding = nullptr) : decoding(decoding) {
+    HS_CHECK(!payload_decode_active,
              "re-entrant engine decode from a caller accessor");
-    snapshot_decode_active = true;
+    payload_decode_active = true;
     if (decoding)
       *decoding = true;
   }
-  ~SnapshotDecodeGuard() {
+  ~PayloadDecodeGuard() {
     if (decoding)
       *decoding = false;
-    snapshot_decode_active = false;
+    payload_decode_active = false;
   }
 };
 #endif
@@ -116,7 +116,7 @@ public:
   ChainSnapshotRestoreResult
   restoreSnapshot(const emscripten::val &caller_input) {
     using Result = ChainSnapshotRestoreResult;
-    const SnapshotDecodeGuard guard(&decoding);
+    const PayloadDecodeGuard guard(&decoding);
     if (!isValid())
       return Result::NOT_SHADER_CHAIN;
     const uint64_t owner_generation = state->generation;
@@ -171,7 +171,7 @@ public:
    * accessors are not rolled back.
    */
   emscripten::val setShaderChain(const emscripten::val &caller_entries) {
-    const SnapshotDecodeGuard decode_guard(&decoding);
+    const PayloadDecodeGuard decode_guard(&decoding);
     using Pullback::Interp::ChainStatus;
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return chain_result(ChainStatus::NOT_CHAIN_EFFECT, -1);
@@ -227,7 +227,7 @@ public:
    */
   ParamSetResult
   setShaderChainParameters(const emscripten::val &caller_entries) {
-    const SnapshotDecodeGuard decode_guard(&decoding);
+    const PayloadDecodeGuard decode_guard(&decoding);
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
     const uint64_t owner_generation = state->generation;
