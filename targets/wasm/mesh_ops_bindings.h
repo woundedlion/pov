@@ -44,11 +44,11 @@ inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS =
     MeshLimits::MAX_HALF_EDGES;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
                   TOOLING_SCRATCH_BYTES /
-                      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT,
+                      hs_wasm::TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT,
               "a stage at the 16-bit ceiling must still fit a scratch arena");
 
 static_assert(sizeof(math::Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
-                  hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT,
+                  hs_wasm::TOOLING_RETAINED_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
 // Widest face a mesh can hold: per-face side counts are uint8_t and
@@ -204,7 +204,7 @@ private:
   tooling_bounds_reject(size_t verts, size_t faces, size_t indices,
                         size_t expansion, const char *context,
                         size_t bytes_per_element =
-                            hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT) {
+                            hs_wasm::TOOLING_RETAINED_BYTES_PER_MESH_ELEMENT) {
     if (!ensure_tooling_arenas()) {
       last_mesh_op_result = MeshOpResult::ARENA_UNAVAILABLE;
       return true;
