@@ -236,9 +236,9 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
   uint8_t free_axis;
   if constexpr (SLICE_4D) {
     EdgeMetric metric_4d;
-    if (!edge_metric_4d_at_bounded<!SLICE_4D>(ray_origin, direction, plane_axis,
-                                              distance, coverage_outer_radius,
-                                              outer_radius_sq, metric_4d))
+    if (!edge_metric_4d_at_bounded<false>(ray_origin, direction, plane_axis,
+                                          distance, coverage_outer_radius,
+                                          outer_radius_sq, metric_4d))
       return {0.0f, distance, 0};
     metric_sq = metric_4d.distance_sq;
     free_axis = metric_4d.free_axis;
@@ -267,7 +267,10 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
   return {edge, distance, free_axis};
 }
 
-/** @brief Approximate plane-crossing coverage for cubic and hypercubic edges. */
+/**
+ * @brief Approximate plane-crossing coverage for cubic and hypercubic edges.
+ * @details For SLICE_4D, contributions use feature 0 without computing an axis.
+ */
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static_assert(FIXED_SHELL_COUNT <= MAX_SHELLS);
   static constexpr size_t STREAM_COUNT = DIMENSIONS;
