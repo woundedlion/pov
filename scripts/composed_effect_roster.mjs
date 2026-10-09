@@ -7,6 +7,7 @@ export const SHADER_DOCUMENT_EFFECTS = Object.freeze([
   'chromatic-lichen',
   'cosmic-eyeball',
   'grid-space',
+  'jewel-melt',
   'kaleidoscope-flowers',
   'kaleidoscope-hex-bright',
   'kaleidoscope-hex-oil',

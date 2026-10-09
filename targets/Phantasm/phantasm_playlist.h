@@ -133,11 +133,12 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          Galaxies waits on its first on-device shipping profile.
+ *          Galaxies and JewelMelt wait on their first on-device shipping profiles.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(Dynamo)                                                                    \
   X(Galaxies)                                                                  \
+  X(JewelMelt)                                                                 \
   X(MobiusRings)                                                               \
   X(Thrusters)
 
@@ -186,7 +187,9 @@ static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
 
 // Product-group durations mirror the Phantasm playlist.
 #define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
-  static_assert(hs_phantasm_duration_seconds(#cls) == (duration_seconds), #cls \
+  static_assert(!hs_in_phantasm_effect_list(#cls) ||                           \
+                    hs_phantasm_duration_seconds(#cls) == (duration_seconds),  \
+                #cls                                                           \
                 " duration disagrees between HS_SHADER_PRODUCT_GROUP and "     \
                 "HS_PHANTASM_EFFECT_LIST");
 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_DURATION_MATCHES)

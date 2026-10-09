@@ -27,6 +27,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [HyperLattice](#hyperlattice)
   - [LatticeMelt](#latticemelt)
   - [MermaidSkin](#mermaidskin)
+  - [JewelMelt](#jewelmelt)
   - [ChromaticLichen](#chromaticlichen)
   - [AshCloud](#ashcloud)
   - [KaleidoscopePentBright](#kaleidoscopepentbright)
@@ -311,6 +312,18 @@ A folded-sinusoidal sphere projection displaced by curl noise and shaded with a 
 A max-chroma analogous grid folded around the sphere and rippled by curl noise. Its cup palette mapping and slowly drifting noisy hue shift preserve the iridescent skin captured in the saved workbench preset.
 
 **Parameters**: Pattern Freq, Speed, Complexity, Pattern Mix, Drift, Source Angle Speed, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=JewelMelt" target="_blank"><img src="screenshots/JewelMelt.png" alt="JewelMelt" width="280"></a></td>
+<td valign="top">
+
+### JewelMelt
+
+An octahedral kaleidoscope lens folds a lattice into jewel-like facets. Curl noise displaces the folded sphere before an equirectangular projection, and a generated analogous palette supplies the drifting colors. Its single preset comes from a saved shader-workbench document.
+
+**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
 </td></tr></table>
 
@@ -640,6 +653,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `lattice-melt` | `LatticeMelt` | 2 |
 | `chromatic-lichen` | `ChromaticLichen` | 1 |
 | `mermaid-skin` | `MermaidSkin` | 1 |
+| `jewel-melt` | `JewelMelt` | 1 |
 | `ash-cloud` | `AshCloud` | 1 |
 | `kaleidoscope-pent-bright` | `KaleidoscopePentBright` | 1 |
 | `kaleidoscope-hex-oil` | `KaleidoscopeHexOil` | 2 |
@@ -650,7 +664,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 
-These eighteen effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Lattice Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Lattice Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
 The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains one canonical shipping selective-O3 capture and one global-O3 reference capture for each of the 38 Phantasm effects, plus supplemental variant reports. The eighteen composed shipping effects report zero spilled frames. GSReactionDiffusion's shipping capture peaks at 39.43 ms with no spilled frames; its global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. MermaidSkin peaks at 39.18 ms, ChromaticLichen at 35.53 ms, and AshCloud at 42.67 ms. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
@@ -740,7 +754,7 @@ finishes. The chain host's operator and palette clocks keep advancing while its
 authored-animation pause is set.
 
 The simulator interprets admitted chains even when they have no promoted
-firmware match. Firmware exposes the eighteen promoted fixed descriptors; a
+firmware match. Firmware exposes the 19 promoted fixed descriptors; a
 catalog choice alone does not promise a Teensy specialization.
 
 The gap is per value, not only per combination. The `ComposedEffect` derivation layer in `composed_effect.h` reaches a strict subset of the shipped operator catalog, so the operators classified as unreachable in `DERIVATION_REACH` and further values of the operators it does reach remain workbench-only: every non-simplex noise basis, the non-Euler curl integrators, the non-flat warp envelopes, the logarithmic polar chart and its harmonics 2–16, the front and back gnomonic hemispheres, the None signal weight, and the Bell, Ascending and Descending brightness envelopes. Opaque coverage is supported by the composed layer although no shipped composed effect selects it. Both Noise Contours are reachable. Value Cutout is reachable and selected by Ash Cloud. `tests/composed_effect/derivation_reach.h` pins that set against the live operator table, so a catalog addition stays classified.

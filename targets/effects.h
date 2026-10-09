@@ -64,6 +64,7 @@
   X(LatticeMelt)                                                               \
   X(ChromaticLichen)                                                           \
   X(MermaidSkin)                                                               \
+  X(JewelMelt)                                                                 \
   X(DisplacementField)                                                         \
   X(DreamBalls)                                                                \
   X(Dynamo)                                                                    \
@@ -150,6 +151,7 @@ constexpr int hs_preset_window_seconds() {
   X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
+  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
   X(KaleidoscopePentBright,                                                    \
     hs_preset_window_seconds<KaleidoscopePentBright>())                        \
