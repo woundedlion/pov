@@ -193,32 +193,6 @@ inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
     ps.add_attractor(axis, strength, kill_radius, event_horizon);
 }
 
-inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
-  return hs_test::fold_worst(
-      std::abs(a.x - b.x),
-      hs_test::fold_worst(std::abs(a.y - b.y), std::abs(a.z - b.z)));
-}
-
-/**
- * @brief Angle between two near-parallel vectors, below angle_between's floor.
- * @param a First vector (non-zero).
- * @param b Second vector (non-zero).
- * @return The angle in radians.
- * @details Differences the normalized endpoints in double.
- */
-inline double small_angle_between(const math::Vector &a,
-                                  const math::Vector &b) {
-  const double ax = a.x, ay = a.y, az = a.z;
-  const double bx = b.x, by = b.y, bz = b.z;
-  const double na = std::sqrt(ax * ax + ay * ay + az * az);
-  const double nb = std::sqrt(bx * bx + by * by + bz * bz);
-  const double dx = ax / na - bx / nb;
-  const double dy = ay / na - by / nb;
-  const double dz = az / na - bz / nb;
-  const double chord = std::sqrt(dx * dx + dy * dy + dz * dz);
-  return 2.0 * std::asin(std::min(1.0, chord / 2.0));
-}
-
 /** @brief Bounds one-step signed-axis physics against the generic path. */
 inline void test_particle_system_signed_axis_one_step_equivalence() {
   constexpr int COUNT = 256;
