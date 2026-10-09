@@ -10,6 +10,7 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import connectivity  # noqa: E402
+import pcb  # noqa: E402
 import sexp  # noqa: E402
 
 ROUTED = GEN.parent / "1.1" / "phantasm.kicad_pcb"
@@ -219,6 +220,16 @@ class SyntheticBoardTests(unittest.TestCase):
         touching_track = connectivity.Capsule((0, 2), (0, 0.6), 0.1, {"F.Cu"})
         self.assertFalse(land.touches(short_track))
         self.assertTrue(land.touches(touching_track))
+
+    def test_custom_pad_primitive_bounds_reach_the_outline_gate(self):
+        footprint = connectivity.F(parse(CUSTOM_PAD_BOARD), "footprint")[0]
+        bounds = pcb.fp_bbox(footprint, pads_only=True)
+        for actual, expected in zip(bounds, (-0.75, -0.5, 0.75, 0.5)):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(pcb.outline_overflows(
+            {"SJ1": (9.25, 1, 0)}, {"SJ1": bounds}, 10, ["SJ1"]), [])
+        self.assertEqual(len(pcb.outline_overflows(
+            {"SJ1": (9.4, 1, 0)}, {"SJ1": bounds}, 10, ["SJ1"])), 1)
 
     def test_fill_overlap_is_symmetric(self):
         big = connectivity.Polygon(
