@@ -218,7 +218,7 @@ inline void hankin_step_stats(const CompiledHankin &compiled,
     stats.max_far_ratio =
         hs_test::fold_worst(stats.max_far_ratio, curr[i].far_ratio);
     const math::Vector cn = math::normalized_or(
-        compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
+        compiled.corner(compiled.dynamic_instructions[i].v_corner),
         curr[i].pos);
     stats.max_corner_chord = hs_test::fold_worst(
         stats.max_corner_chord, (curr[i].pos - cn).magnitude());
@@ -354,9 +354,8 @@ inline void test_hankin_sweep_vertex_stability() {
     float max_local_sq = 0;
     for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
       const HankinInstruction &instr = compiled.dynamic_instructions[i];
-      const math::Vector cn =
-          math::normalized_or(compiled.base_vertices[instr.v_corner],
-                              compiled.base_vertices[instr.v_corner]);
+      const math::Vector cn = math::normalized_or(
+          compiled.corner(instr.v_corner), compiled.corner(instr.v_corner));
       const float local_sq = std::max(
           math::distance_squared(compiled.static_vertices[instr.idx_m1], cn),
           math::distance_squared(compiled.static_vertices[instr.idx_m2], cn));
