@@ -159,6 +159,21 @@ class Main(unittest.TestCase):
                          [sys.executable, str(TOOLS / "teensy_size_trail.py"),
                           "record", "--built", "--env=phantasm", "--env=bench"])
 
+    def test_record_trail_survives_a_malformed_size_summary(self):
+        lines = _env_chunk("phantasm", extra=[
+            "teensy_size:   FLASH: unavailable   free for files: 1883136"])
+        errors = io.StringIO()
+        with mock.patch.object(tst.shutil, "which", return_value="pio"), \
+                mock.patch.object(tst.subprocess, "Popen", return_value=self._FakePio(lines, 0)), \
+                mock.patch.object(tst.subprocess, "call", return_value=0) as record, \
+                contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(errors):
+            self.assertEqual(tst.main(["--record-trail", "phantasm"]), 0)
+        record.assert_called_once_with([
+            sys.executable, str(TOOLS / "teensy_size_trail.py"),
+            "record", "--built", "--env=phantasm"])
+        self.assertIn("table omitted", errors.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
