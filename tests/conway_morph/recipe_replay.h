@@ -246,6 +246,12 @@ inline ChainPeaks replay_build_chain(const char *name,
           const uint8_t from =
               seed_side ? prev_pal_buf[f] : lp->from_palette[f];
           const uint8_t to = seed_side ? from : lp->landed_palette(f);
+          if (from >= OpLeg::PALETTES || to >= OpLeg::PALETTES) {
+            HS_EXPECT_LT(from, OpLeg::PALETTES);
+            HS_EXPECT_LT(to, OpLeg::PALETTES);
+            frame_ok = false;
+            continue;
+          }
           const BakedPalette *want = &bank.bank.entries[to].view();
           if (from != to) {
             if (!baked[from][to]) {
@@ -368,7 +374,8 @@ inline ChainPeaks replay_build_chain(const char *name,
         bool seen_to[OpLeg::PALETTES] = {};
         for (int i = 0; i < OpLeg::PALETTES; ++i) {
           HS_EXPECT_LE((int)landing.to_palette[i], OpLeg::PALETTES - 1);
-          seen_to[landing.to_palette[i]] = true;
+          if (landing.to_palette[i] < OpLeg::PALETTES)
+            seen_to[landing.to_palette[i]] = true;
         }
         for (bool s : seen_to)
           HS_EXPECT_TRUE(s);
