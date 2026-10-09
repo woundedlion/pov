@@ -2,10 +2,9 @@
 
 import math
 
-import connectivity
 import pcb
 import sexp
-from kicad_common import F, arc_extrema
+from kicad_common import F, arc_extrema, rotate_point
 
 
 def _graphic_points(node):
@@ -48,7 +47,7 @@ def courtyard_box(footprint):
         if not layer or str(layer[0]) not in pcb.COURTYARD_LAYERS:
             continue
         for point in _graphic_points(child):
-            x, y = connectivity._rotate(point, rotation)
+            x, y = rotate_point(point, rotation)
             xs.append(origin[0] + x)
             ys.append(origin[1] + y)
     return (min(xs), min(ys), max(xs), max(ys)) if xs else None
