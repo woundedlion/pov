@@ -248,8 +248,9 @@ public:
    * @param source Dense row containing W values.
    * @param y Latitude row controlling the longitude footprint.
    * @param emit Receives each destination column and filtered value.
-   * @note A footprint that spans the whole row emits the row mean, constant in
-   *   longitude.
+   * @note A saturated footprint (the widest odd width
+   *   `longitude_filter_width` returns, as at the pole rows) emits the row
+   *   mean, constant in longitude.
    */
   template <typename Accumulator, typename Value, typename Emit>
   void reconstruct_longitude_row(const Value *source, int y,
