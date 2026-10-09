@@ -27,24 +27,7 @@ inline void test_shapeshifter_preset_defaults() {
     return -1.0f;
   };
 
-  // Preset rows are assigned straight into params, bypassing register_param's
-  // range check.
-  auto expect_in_range = [&](const char *label) {
-    HS_CONTEXT(label);
-    for (const auto &def : ss.getParameters()) {
-      HS_CONTEXT(def.name);
-      const float v = def.get();
-      HS_EXPECT_TRUE(std::isfinite(v));
-      HS_EXPECT_GE(v, def.min);
-      HS_EXPECT_LE(v, def.max);
-      if (def.option_count > 0) {
-        HS_EXPECT_EQ(v, std::floor(v));
-        HS_EXPECT_LT(v, static_cast<float>(def.option_count));
-      }
-    }
-  };
-
-  expect_in_range("boot state");
+  hs_test::expect_params_in_range(ss, "boot state");
   HS_EXPECT_EQ(value("Alpha"), 1.0f); // boots fully opaque
   HS_EXPECT_EQ(value("Shape"), 3.0f);
   HS_EXPECT_EQ(value("Spacing"), 1.0f);
@@ -120,7 +103,7 @@ inline void test_shapeshifter_preset_defaults() {
   for (size_t i = 0; i < std::size(expected_shapes); ++i) {
     HS_CONTEXT("preset", static_cast<int>(i));
     ss.profile_select_preset(i);
-    expect_in_range("preset row");
+    hs_test::expect_params_in_range(ss, "preset row");
     HS_EXPECT_EQ(value("Alpha"), 0.37f); // a preset never writes a non-preset
     HS_EXPECT_TRUE(ss.animations_paused());
     HS_EXPECT_EQ(value("Shape"), expected_shapes[i]);
