@@ -16,14 +16,6 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 class ShellGateTests(unittest.TestCase):
-    def test_whitespace_gate_checks_unstaged_contents(self):
-        payload = self.root / "payload.txt"
-        payload.write_text("clean\n", encoding="utf-8", newline="\n")
-        self.git("add", "--", "payload.txt")
-        self.assertEqual(self.gate("whitespace_gate.sh").returncode, 0)
-        payload.write_text("dirty \n", encoding="utf-8", newline="\n")
-        self.assertNotEqual(self.gate("whitespace_gate.sh").returncode, 0)
-
     def setUp(self):
         temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(temp.cleanup)
@@ -48,6 +40,14 @@ class ShellGateTests(unittest.TestCase):
             ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; exec bash "$@"',
              "fixture", str(script or REPO / "tools" / name), *args],
             cwd=self.root, env=self.env, capture_output=True, text=True, timeout=30)
+
+    def test_whitespace_gate_checks_unstaged_contents(self):
+        payload = self.root / "payload.txt"
+        payload.write_text("clean\n", encoding="utf-8", newline="\n")
+        self.git("add", "--", "payload.txt")
+        self.assertEqual(self.gate("whitespace_gate.sh").returncode, 0)
+        payload.write_text("dirty \n", encoding="utf-8", newline="\n")
+        self.assertNotEqual(self.gate("whitespace_gate.sh").returncode, 0)
 
     def test_eol_checks_worktree_bytes_and_refuses_an_empty_selection(self):
         empty = self.gate("eol_gate.sh")
