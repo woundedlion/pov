@@ -17,7 +17,7 @@
 namespace hs_test {
 namespace interpolate_tests {
 
-/** @brief Pins clamp progress. */
+/** @brief Progress saturates to endpoints and passes NaN through. */
 inline void test_clamp_progress() {
   static_assert(interp::clamp_progress(-1.0f) == 0.0f);
   static_assert(interp::clamp_progress(2.0f) == 1.0f);
@@ -34,7 +34,7 @@ inline void test_clamp_progress() {
       interp::clamp_progress(std::numeric_limits<float>::quiet_NaN())));
 }
 
-/** @brief Pins linear. */
+/** @brief Linear interpolation preserves endpoints and clamps out-of-range progress. */
 inline void test_linear() {
   static_assert(interp::linear(2.0f, 6.0f, 0.5f) == 4.0f);
 
@@ -50,7 +50,7 @@ inline void test_linear() {
   HS_EXPECT_EQ(interp::linear(6.0f, 2.0f, 0.5f), 4.0f);
 }
 
-/** @brief Pins log positive. */
+/** @brief Positive endpoints interpolate geometrically; nonpositive endpoints fall back to linear. */
 inline void test_log_positive() {
   HS_EXPECT_EQ(interp::log_positive(1.0f, 4.0f, 0.0f), 1.0f);
   HS_EXPECT_EQ(interp::log_positive(1.0f, 4.0f, 1.0f), 4.0f);
@@ -76,7 +76,7 @@ inline void test_log_positive() {
   HS_EXPECT_TRUE(std::isfinite(interp::log_positive(0.0f, 4.0f, 0.5f)));
 }
 
-/** @brief Pins shortest periodic. */
+/** @brief Periodic interpolation takes the shortest arc with a negative half-period tie. */
 inline void test_shortest_periodic() {
   constexpr float TAU = 6.28318530717958647692f;
 
@@ -124,7 +124,7 @@ inline void test_shortest_periodic() {
                interp::linear(0.9f, 0.1f, 0.5f));
 }
 
-/** @brief Pins normalized linear. */
+/** @brief Vector interpolation normalizes interior values and rejects degenerate directions. */
 inline void test_normalized_linear() {
   // Endpoints come back as supplied, valid and not renormalized.
   const auto at_start =

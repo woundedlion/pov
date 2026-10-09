@@ -404,7 +404,7 @@ inline void test_budget_wire_dead() {
 
 // ── ContentTracker / output-envelope units ────────────────────────────────
 
-/** @brief Pins effect output envelope. */
+/** @brief The output envelope pins ramp endpoints and monotone fade-in and fade-out. */
 inline void test_effect_output_envelope() {
   constexpr uint32_t DURATION_REVS = 48;
   constexpr int WIDTH = 288;
