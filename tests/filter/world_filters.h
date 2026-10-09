@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// World filters — plot/cull taps, Pipeline cull routing and Mobius canvas parity
+// World filters — taps, cull routing, Mobius parity and state binding
 // ============================================================================
 
 /**
