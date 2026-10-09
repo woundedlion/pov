@@ -117,7 +117,7 @@ inline void test_world_hole_setters() {
 inline void test_world_orient_rotates_and_keeps_static_age() {
   math::Quaternion q =
       math::make_rotation(math::Y_AXIS, math::PI_F / 2); // 90 deg about +Y
-  math::Orientation<> ori(q);
+  const math::Orientation<> ori(q);
   Filter::World::Orient orient(ori);
 
   int n = 0;
@@ -634,7 +634,7 @@ inline void test_pipeline_could_intersect_clip_forwards_through_stages() {
  *          actually moves it.
  */
 inline void test_world_mobius_identity_and_transform() {
-  math::MobiusParams identity; // a=1,b=0,c=0,d=1
+  const math::MobiusParams identity; // a=1,b=0,c=0,d=1
   Filter::World::Mobius mob(identity);
 
   const math::Vector v = math::Vector(0.4f, 0.3f, 0.86f).normalized();
