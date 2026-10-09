@@ -494,6 +494,21 @@ def multi_preset_effects():
                 text, re.DOTALL):
             if len(re.findall(r'"[^"\n]*"', entries)) > 1:
                 found.add(header.stem)
+        for body in re.findall(
+                r"\bPRESETS\s*=\s*\[\]\s*\{(.*?)\}\s*\(\s*\)", text, re.DOTALL):
+            registry = re.search(
+                r"std::array<PresetEntry<.*?>,\s*std::size\(Solids::(\w+)\)\s*>",
+                body, re.DOTALL)
+            if registry is None:
+                raise AssertionError(f"{header.name}: unresolved lambda preset count")
+            declarations = (REPO / "core/mesh/solids.h").read_text(encoding="utf-8")
+            entries = re.search(
+                r"\b" + re.escape(registry.group(1)) + r"\s*\[\s*\]\s*=\s*\{(.*?)\};",
+                declarations, re.DOTALL)
+            if entries is None:
+                raise AssertionError(f"{header.name}: unresolved preset registry {registry.group(1)}")
+            if len(re.findall(r'\{\s*"', entries.group(1))) > 1:
+                found.add(header.stem)
     return found
 
 
@@ -513,7 +528,7 @@ class CyclerRoster(unittest.TestCase):
         self.assertTrue(presets, "no multi-preset effect parsed from effects/")
         self.assertIn("HyperLattice", presets)
         self.assertTrue({"Comets", "DreamBalls", "MeshFeedback", "MindSplatter",
-                         "ShapeShifter"}.issubset(presets))
+                         "ShapeShifter", "IslamicStars"}.issubset(presets))
         self.assertNotIn("Fishbowl", presets)
         self.assertEqual(presets - cyclers(), set())
 
