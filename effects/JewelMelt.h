@@ -63,7 +63,7 @@ public:
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "jewel-melt";
   static constexpr std::string_view DESCRIPTOR_DIGEST = "eb99693c0a7cf03b186d15806b8fb40244f09c85e1f03ca251e900d8d23cc680";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "c8afed7d9d241f9ff1a8e1649847ef15dc136df55279d935f0d688a02d78b054";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "3b975df9f1cbf1b0b9d9779fdb521f83fa334f6214c271078c651351f0a2c6bc";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
   };
@@ -95,7 +95,7 @@ public:
     value.template get<"source">().lattice_cell_scale = 3.3299723f;
     value.template get<"source">().lattice_radius = 0.41414943f;
     value.template get<"source">().lattice_shape_blend = 1.0f;
-    value.template get<"source">().lattice_softness = 0.36572418f;
+    value.template get<"source">().lattice_softness = 0.5f;
     value.template get<"surface">().scale = 4.6311646f;
     value.template get<"surface">().speed = 0.00017089843f;
     value.template get<"surface">().strength = 0.038802084f;
