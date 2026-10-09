@@ -44,6 +44,10 @@ struct GalaxiesWhiteBox {
   template <int W, int H> static void hide(Galaxies<W, H> &fx) {
     fx.params.alpha = 0.0f;
   }
+  template <int W, int H> static void render(Galaxies<W, H> &fx) {
+    Canvas canvas(fx);
+    fx.draw_particles(canvas);
+  }
   template <int W, int H> static auto &galaxy(Galaxies<W, H> &fx, int index) {
     return fx.galaxies[index];
   }
@@ -62,6 +66,50 @@ struct GalaxiesWhiteBox {
                           1.0f / tanf(fx.params.arm_pitch));
   }
 };
+
+/** @brief The core toggle replaces central light with a rim and restores it. */
+inline void test_galaxies_black_hole_core_toggle() {
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  const auto *toggle = fx.getParameters().find("Black Hole");
+  HS_EXPECT(toggle != nullptr, "Black Hole is registered");
+  if (!toggle)
+    return;
+  HS_EXPECT(toggle->is_bool(), "Black Hole is a toggle");
+  HS_EXPECT_EQ(toggle->get(), 0.0f);
+
+  uint64_t original_energy = 0;
+  for (int mode : {0, 1, 0}) {
+    fx.updateParameter("Black Hole", static_cast<float>(mode));
+    GalaxiesWhiteBox::render(fx);
+    fx.advance_display();
+    uint64_t center_energy = 0;
+    uint64_t rim_energy = 0;
+    for (int y = 0; y < DEFAULT_H; ++y) {
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const math::Vector position =
+            math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
+        const float distance = acosf(hs::clamp(position.x, -1.0f, 1.0f));
+        const Pixel &pixel = fx.get_pixel(x, y);
+        const uint64_t energy = pixel.r + pixel.g + pixel.b;
+        if (distance < 0.025f)
+          center_energy += energy;
+        if (distance > 0.045f && distance < 0.075f)
+          rim_energy += energy;
+      }
+    }
+    if (mode == 1) {
+      HS_EXPECT_EQ(center_energy, 0u);
+      HS_EXPECT(rim_energy > 0, "black hole has a luminous rim");
+    } else {
+      HS_EXPECT(center_energy > 0, "glowing core lights the center");
+      if (original_energy != 0)
+        HS_EXPECT_EQ(center_energy, original_energy);
+      original_energy = center_energy;
+    }
+  }
+}
 
 /** @brief Stars span logarithmic arms with tangential orbital velocities. */
 inline void test_galaxies_spawn_along_spiral_with_orbital_velocity() {

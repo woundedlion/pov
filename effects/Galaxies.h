@@ -61,6 +61,7 @@ public:
 
     register_param("Friction", &params.friction, 0.999f, 1.0f);
     register_param("Core Mass", &params.core_mass, 0.02f, 0.2f);
+    register_param("Black Hole", &params.black_hole);
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_param("Arm Pitch", &params.arm_pitch, 0.1f, 0.65f);
@@ -193,6 +194,7 @@ private:
     float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
     float active_count = 0.0f;   /**< Live particles (engine-written). */
+    bool black_hole = false;     /**< Dark core with a luminous rim. */
   } params;
 
   /**
@@ -313,7 +315,7 @@ private:
   }
 
   /**
-   * @brief Renders particles as points, then the core bulges.
+   * @brief Renders particles, then glowing or black-hole cores.
    * @param canvas Target canvas.
    */
   void draw_particles(Canvas &canvas) {
@@ -358,7 +360,6 @@ private:
       filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
     }
 
-    // The bulge covers the final fade around each core.
     // Scan::Point leaves its quintic coverage in v2.
     const Color4 core_color = palette.get(0.0f);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
@@ -366,10 +367,23 @@ private:
       c.alpha *= hs::clamp(f.v2, 0.0f, 1.0f) * alpha;
       f.color = c;
     };
-    for (const Galaxy &g : galaxies)
-      Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas,
-                              rotation.apply(g.core), BULGE_RADIUS,
-                              bulge_shader);
+    auto hole_shader = [&](const math::Vector &, Fragment &f) {
+      f.color = Color4(0, 0, 0, alpha);
+    };
+    for (const Galaxy &g : galaxies) {
+      const math::Vector core = rotation.apply(g.core);
+      if (params.black_hole) {
+        Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
+                                BULGE_RADIUS, hole_shader);
+        const math::Basis basis = math::make_basis(math::Quaternion(), core);
+        Scan::Ring::draw<W, H>(PipelineRef(filters, canvas), canvas, basis,
+                               0.75f * BULGE_RADIUS / (math::PI_F / 2.0f),
+                               0.25f * BULGE_RADIUS, bulge_shader);
+      } else {
+        Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
+                                BULGE_RADIUS, bulge_shader);
+      }
+    }
   }
 
   math::Orientation<> orientation;
