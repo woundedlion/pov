@@ -209,6 +209,9 @@ inline void test_single_column_sequence() {
         x, W, [](int cx, int cy) { return cy * W + cx; },
         [&](int led, int pixel) {
           HS_EXPECT_FALSE(submitted);
+          HS_EXPECT_TRUE(led >= 0 && led < S);
+          if (led < 0 || led >= S)
+            return;
           leds[led] = pixel;
           ++writes;
         },
