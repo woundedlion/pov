@@ -25,12 +25,12 @@ HS_O3_BEGIN
 /**
  * @brief Generic wrapper that places an SDF in world space via a center point
  *        and a rotation quaternion. Satisfies the Volume::draw shape concept.
- * @tparam SDF Underlying signed-distance shape type.
+ * @tparam Shape Underlying signed-distance shape type.
  * @details The quaternion q maps local→world: world_p = center +
  * rotate(local_p, q). ray_to_local uses q.inverse() to map world→local.
  */
-template <typename SDF> struct TransformedVolume {
-  const SDF &sdf;         /**< Underlying SDF evaluated in local space. */
+template <typename Shape> struct TransformedVolume {
+  const Shape &sdf;       /**< Underlying SDF evaluated in local space. */
   math::Vector center;    /**< World-space origin of the local frame. */
   math::Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
 
@@ -40,11 +40,11 @@ template <typename SDF> struct TransformedVolume {
    * @param center World-space origin of the local frame.
    * @param q Local→world rotation; its inverse is precomputed.
    */
-  TransformedVolume(const SDF &sdf, const math::Vector &center,
+  TransformedVolume(const Shape &sdf, const math::Vector &center,
                     const math::Quaternion &q)
       : sdf(sdf), center(center), q_inv(q.inverse()) {}
 
-  TransformedVolume(const SDF &&, const math::Vector &,
+  TransformedVolume(const Shape &&, const math::Vector &,
                     const math::Quaternion &) = delete;
 
   void check_trace_preconditions() const {
