@@ -1833,7 +1833,7 @@ inline void test_strap_close_dissolve() {
   capture_opening(fx, close_angle, 1.0f, last_shaped, close_blend, term, cf);
 
   const long long e_plain = frame_delta_energy(last_plain, bookend);
-  const long long e_shaped = frame_energy(last_shaped, bookend);
+  const long long e_shaped = frame_delta_energy(last_shaped, bookend);
   std::printf("  [strap-close] wink energy unshaped=%lld shaped=%lld\n",
               e_plain, e_shaped);
 
