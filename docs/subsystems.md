@@ -483,7 +483,7 @@ Available transformers:
 | `MobiusWarpGnomonicTransformer` | Möbius via gnomonic projection (preserves straight lines in hemisphere) |
 | `NoiseTransformer` | Distorts surface positions with 3D simplex noise |
 
-Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`. `transform()` takes any callable with `operator()(Vector)`, so a pool specialization and a plain adapter compose in the same call.
+Transformers integrate with the `MeshOps::transform()` pipeline and can be chained: `MeshOps::transform(input, output, arena, ripple_transformer, orient_transformer)`. `transform()` takes any callable with `operator()(Vector)`, so a derived pool and a plain adapter compose in the same call.
 
 ### Displacement Fields
 
@@ -507,7 +507,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 
 ### Standalone Utilities
 
-`OrientTransformer<CAP>` (`transformer.h`) is a plain adapter struct, not a `Transformer<>` specialization: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
+`OrientTransformer<CAP>` (`transformer.h`) is a plain adapter struct, not a `TransformerPool`-derived pool: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
 
 ## 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
