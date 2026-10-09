@@ -253,6 +253,8 @@ public:
       if (!value.isNumber())
         return ParamSetResult::MALFORMED_PAYLOAD;
       names[index] = name.as<std::string>();
+      if (names[index].find('\0') != std::string::npos)
+        return ParamSetResult::UNKNOWN_PARAM;
       values[index] = value.as<float>();
     }
     if (state->generation != owner_generation || state->effect != owner ||
