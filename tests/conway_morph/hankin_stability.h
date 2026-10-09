@@ -493,23 +493,20 @@ inline void test_hankin_sweep_vertex_stability() {
       HS_EXPECT_LE(
           (packed_arrival[i].normalized() - arrival[i].pos).magnitude(), 3e-5f);
 
-    // Opening bookend: chord between the collapsed form and the leg's first
-    // drawn angle, in sphere radii.
-    float eps_chord = 0;
-    std::vector<HankinSolve> at_eps;
-    hankin_solve(compiled, THETA_EPS, at_eps);
-    for (size_t i = 0; i < at_eps.size(); ++i)
-      eps_chord =
-          std::max(eps_chord, (at_eps[i].pos - collapsed[i].pos).magnitude());
-    std::printf("      theta_eps=%.3f opening chord max=%.6f radii "
-                "(%.3f px at r=64)\n",
-                THETA_EPS, eps_chord, eps_chord * 64.0f);
-
+    // Opening bookend: the K_EPS slerp frame and its chord from the collapsed
+    // form, in sphere radii.
     std::vector<HankinSolve> probe(arrival.size());
-    for (size_t i = 0; i < arrival.size(); ++i)
+    float opening_chord = 0;
+    for (size_t i = 0; i < arrival.size(); ++i) {
       probe[i] = {math::slerp(collapsed[i].pos, arrival[i].pos,
                               Animation::OpLeg::K_EPS),
                   arrival[i].branch, 0.0f};
+      opening_chord = std::max(opening_chord,
+                               (probe[i].pos - collapsed[i].pos).magnitude());
+    }
+    std::printf("      k_eps=%.3f opening chord max=%.6f radii "
+                "(%.3f px at r=64)\n",
+                Animation::OpLeg::K_EPS, opening_chord, opening_chord * 64.0f);
     std::vector<math::Vector> probe_normals;
     hankin_face_normals(compiled, probe, probe_normals);
     for (const math::Vector &normal : probe_normals)
