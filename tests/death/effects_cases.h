@@ -142,7 +142,7 @@ inline void case_spherical_harmonics_invalid_morph_mode() {
 }
 
 inline void case_hankinsolids_missing_topology() {
-  using WB = effects_tests::HankinPauseWhiteBox;
+  using WB = effects_tests::HankinSolidsWhiteBox;
   effects_tests::reset_effect_globals();
   WB::EffectT effect;
   effect.init();
