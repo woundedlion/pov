@@ -134,8 +134,6 @@ private:
      * @brief Reinitializes this slot for a freshly spawned thruster.
      * @param o Orientation snapshot to copy in.
      * @param p Thrust point on the unit sphere.
-     * @details Trivially copyable: the circular buffer relocates slots by plain
-     *          memberwise copy.
      */
     void reset(const math::Orientation<> &o, const math::Vector &p) {
       orientation = o;
@@ -229,8 +227,6 @@ private:
    * @param point Thrust point on the unit sphere where the ring spawns.
    */
   HS_COLD_MEMBER void spawn_thruster(const math::Vector &point) {
-    if (thrusters.is_full())
-      thrusters.pop_front();
     thrusters.push_back(ThrusterContext());
     thrusters.back().reset(orientation, point);
   }
