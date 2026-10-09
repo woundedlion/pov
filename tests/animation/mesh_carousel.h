@@ -225,6 +225,7 @@ inline void test_segue_base_hooks_are_identity() {
   HS_EXPECT_EQ(g.color.r, c.color.r);
   HS_EXPECT_EQ(g.color.g, c.color.g);
   HS_EXPECT_EQ(g.color.b, c.color.b);
+  HS_EXPECT_NEAR(g.alpha, c.alpha, 1e-6f);
   HS_EXPECT_TRUE(base.visible(0.5f));
   HS_EXPECT_TRUE(base.visible(0.0f));
 }
@@ -835,6 +836,7 @@ inline void test_gold_convergence_grades_to_gold() {
   HS_EXPECT_EQ(plateau.color.r, c.color.r);
   HS_EXPECT_EQ(plateau.color.g, c.color.g);
   HS_EXPECT_EQ(plateau.color.b, c.color.b);
+  HS_EXPECT_NEAR(plateau.alpha, c.alpha, 1e-6f);
   Color4 swap = gc.grade(c, 0.0f);
   HS_EXPECT_EQ(swap.color.r, gc.gold.r);
   HS_EXPECT_EQ(swap.color.g, gc.gold.g);
