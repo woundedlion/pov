@@ -350,7 +350,7 @@ inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
   static uint8_t polybuf[1 << 14];
   Arena polyarena(polybuf, sizeof(polybuf));
   PolyMesh poly;
-  build_octahedron(poly, polyarena);
+  build_solid<Solids::Octahedron>(poly, polyarena);
   MeshState base, transformed;
   MeshOps::compile(poly, base, persistent_arena, scratch_arena_a);
   MeshOps::compile(poly, transformed, persistent_arena, scratch_arena_a);
