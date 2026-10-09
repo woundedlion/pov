@@ -204,7 +204,7 @@ public:
    */
   ~HolosphereEngine() {
 #if HS_ENABLE_CHAIN_INTERPRETER
-    HS_CHECK(!snapshot_decode_active,
+    HS_CHECK(!payload_decode_active,
              "delete() from a caller accessor during engine decode");
 #endif
     teardown_effect();
