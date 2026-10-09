@@ -134,17 +134,6 @@ public:
     draw_particles(canvas);
   }
 
-#if HS_ENABLE_EFFECT_CONTROL_API
-  void profile_select_preset(size_t index) {
-    HS_CHECK(index < PRESETS.size(),
-             "MindSplatter profile preset index out of range");
-    HS_CHECK(this->selectPreset(index),
-             "MindSplatter profile preset selection failed");
-    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
-            static_cast<unsigned>(PRESETS.size()));
-  }
-#endif
-
   /** @brief Shared registration, validation and interpolation descriptions. */
   static constexpr auto parameter_fields() {
     return std::tuple{

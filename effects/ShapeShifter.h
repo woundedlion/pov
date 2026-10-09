@@ -147,19 +147,11 @@ public:
     draw_all(canvas);
   }
 
-#if HS_ENABLE_EFFECT_CONTROL_API
-  void profile_select_preset(size_t index) {
-    HS_CHECK(index < PRESETS.size(),
-             "ShapeShifter profile preset index out of range");
-    HS_CHECK(this->selectPreset(index),
-             "ShapeShifter profile preset selection failed");
-#ifdef HS_PROFILE_SHAPESHIFTER_COUNT
+#if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_SHAPESHIFTER_COUNT)
+  void after_profile_preset() {
     static_assert(HS_PROFILE_SHAPESHIFTER_COUNT >= 1 &&
                   HS_PROFILE_SHAPESHIFTER_COUNT <= DRAW_LIMIT);
     params.count = static_cast<float>(HS_PROFILE_SHAPESHIFTER_COUNT);
-#endif
-    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
-            static_cast<unsigned>(PRESETS.size()));
   }
 #endif
 

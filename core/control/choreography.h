@@ -100,6 +100,19 @@ public:
     return true;
   }
 
+#if HS_ENABLE_EFFECT_CONTROL_API
+  /** @brief Selects and pauses one authored preset for profiling. */
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < authored_preset_count(),
+             "profile preset index out of range");
+    HS_CHECK(this->selectPreset(index), "profile preset selection failed");
+    if constexpr (requires { derived().after_profile_preset(); })
+      derived().after_profile_preset();
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index + 1),
+            static_cast<unsigned>(authored_preset_count()));
+  }
+#endif
+
   /** @brief Authored preset count: the count preset_row() indexes. */
   static consteval size_t authored_preset_count() { return preset_count_of(); }
 
