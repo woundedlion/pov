@@ -6,6 +6,7 @@
 
 #include "animation/orientation.h"
 #include <span>
+#include <type_traits>
 #include "render/filter/world_orient.h"
 #include "math/geometry.h"
 #include "color/color.h"
@@ -18,6 +19,12 @@
 
 namespace Filter {
 namespace World {
+
+namespace detail {
+template <typename T> inline constexpr bool IS_SPAN = false;
+template <typename T, std::size_t E>
+inline constexpr bool IS_SPAN<std::span<T, E>> = true;
+} // namespace detail
 
 /**
  * @brief Selects an orientation from a list based on the point's projection
@@ -35,6 +42,13 @@ public:
   OrientSlice(std::span<const math::Orientation<>> orientations,
               const math::Vector &axis)
       : enabled(true), axis(axis.normalized()), orientations(orientations) {}
+
+  /** @brief Rejects temporary owning ranges, which the span would outlive. */
+  template <typename R>
+    requires(!std::is_lvalue_reference_v<R> &&
+             !detail::IS_SPAN<std::remove_cvref_t<R>> &&
+             std::is_constructible_v<std::span<const math::Orientation<>>, R>)
+  OrientSlice(R &&, const math::Vector &) = delete;
 
   /**
    * @brief Selects an orientation by axis projection and re-emits the point.
