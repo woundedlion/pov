@@ -152,7 +152,7 @@ inline void test_pixel_to_vector_known_samples() {
 
   // y=0 (north pole): phi=0 ⇒ Vector(0, 1, 0).
   math::Vector north = math::pixel_to_vector<W, H>(0, 0);
-  HS_EXPECT_VEC(north, math::Vector(0, 1, 0), 5e-2f);
+  HS_EXPECT_VEC(north, math::Vector(0, 1, 0), 1e-6f);
 }
 
 /**
