@@ -588,6 +588,7 @@ public:
    * live edits require a respawn (live `scale`/`speed` go through the setters).
    * @details Channel phases occupy 64 bytes in persistent_arena until its next
    * reset. Copies allocate independent phases; moves transfer the phase block.
+   * Copying a moved-from warp yields zero phases.
    */
   MobiusWarpEvolving(math::MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
@@ -602,7 +603,7 @@ public:
       : AnimationBase(other), params(other.params), speed(other.speed),
         scale(other.scale), base(other.base), seed(other.seed),
         channel_phases(persistent_arena.make_n<double>(8)) {
-    std::copy_n(other.channel_phases, 8, channel_phases);
+    copy_phases(other.channel_phases, channel_phases);
   }
 
   MobiusWarpEvolving &operator=(const MobiusWarpEvolving &other) noexcept {
@@ -616,7 +617,7 @@ public:
     seed = other.seed;
     if (!channel_phases)
       channel_phases = persistent_arena.make_n<double>(8);
-    std::copy_n(other.channel_phases, 8, channel_phases);
+    copy_phases(other.channel_phases, channel_phases);
     return *this;
   }
 
@@ -723,6 +724,14 @@ private:
   math::MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;           /**< Seed for the per-channel phase offsets. */
   double *channel_phases;  /**< Arena-owned wrapped channel phases (radians). */
+
+  /** @brief Copies src's phases into dst; a moved-from (null) src zero-fills. */
+  static void copy_phases(const double *src, double *dst) {
+    if (src)
+      std::copy_n(src, 8, dst);
+    else
+      std::fill_n(dst, 8, 0.0);
+  }
 };
 
 /**
