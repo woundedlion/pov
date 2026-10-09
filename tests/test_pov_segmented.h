@@ -39,7 +39,6 @@ using pov::SubmitAction;
 using pov::SubmitGate;
 using pov::SyncPulseGate;
 
-// Compile-time mapping spot checks.
 static_assert(segment_map(1, 288, 4).y_base == 143);
 static_assert(segment_map(1, 288, 4).y_step == -1);
 static_assert(segment_map(1, 288, 8).y_base == 36);

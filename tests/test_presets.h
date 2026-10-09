@@ -223,7 +223,6 @@ struct SaturatedPresetEffect
   uint16_t elapsed() const { return transition.elapsed_frames; }
 };
 
-/** @brief Pins preset saturation veto restarts dwell. */
 inline void test_preset_saturation_veto_restarts_dwell() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -323,7 +322,6 @@ inline void test_timeline_clear_releases_fade() {
   HS_EXPECT_TRUE(effect.active());
 }
 
-/** @brief Pins cancelled fade notifies committed index. */
 inline void test_cancelled_fade_notifies_committed_index() {
   enum class Cancel { EDIT, RESTORE, MANUAL_FROM, MANUAL_TO, SYNCHRONIZED };
   for (const bool adopted : {false, true}) {
@@ -414,7 +412,6 @@ inline void test_fade_navigation_matches_display() {
   }
 }
 
-/** @brief Pins cancelled fade names visible preset. */
 inline void test_cancelled_fade_names_visible_preset() {
   hs_test::reset_globals();
   FadePresetEffect effect;
@@ -432,7 +429,6 @@ inline void test_cancelled_fade_names_visible_preset() {
   HS_EXPECT_EQ(effect.value(), 2.0f);
 }
 
-/** @brief Pins cancelled crossfade event cannot step replacement. */
 inline void test_cancelled_crossfade_event_cannot_step_replacement() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
@@ -446,7 +442,6 @@ inline void test_cancelled_crossfade_event_cannot_step_replacement() {
   HS_EXPECT_EQ(effect.elapsed(), uint16_t{1});
 }
 
-/** @brief Pins preset crossfade rejects rearming. */
 inline void test_preset_crossfade_rejects_rearming() {
   hs_test::reset_globals();
   SaturatedPresetEffect effect;
