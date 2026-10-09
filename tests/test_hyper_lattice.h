@@ -13,6 +13,7 @@ namespace hyper_lattice_tests {
 
 template <typename Effect>
 inline const ParamDef *required_param(Effect &effect, const char *name) {
+  HS_CONTEXT(name);
   const auto *parameter = effect.getParameters().find(name);
   HS_EXPECT_TRUE(parameter != nullptr);
   return parameter;
