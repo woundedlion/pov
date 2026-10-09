@@ -834,8 +834,8 @@ inline void test_sim_emi() {
 /**
  * @brief Verifies dropped-symbol recovery (§6.3): a multi-rev symbol gap coasts
  *        and re-snaps, and a board that misses a whole EPOCH train stays dark
- *        until the next index beacon corrects it and it rejoins on the join
- *        grid.
+ *        until two consecutive index beacons correct it (§6.3.4) and it
+ *        rejoins on the join grid.
  */
 inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
@@ -855,8 +855,8 @@ inline void test_sim_drops_and_missed_epoch() {
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   HS_EXPECT_LE(sim.max_phase_err(), 2);
 
-  // Board 3 loses its wire for the entire EPOCH train; the next index beacon
-  // corrects it (§6.3.2).
+  // Board 3 loses its wire for the entire EPOCH train; two consecutive index
+  // beacons correct it (§6.3.2, §6.3.4).
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         return content(s.boards[0].board).rev_in_effect >=
@@ -872,7 +872,7 @@ inline void test_sim_drops_and_missed_epoch() {
       8.0));
   HS_EXPECT_EQ(sim.boards[3].live_index, 0);
   HS_EXPECT_EQ(sim.boards[3].envelope, 0.0f);
-  // Correction: ≤ one beacon period + join grid after the wire returns.
+  // Correction: the confirming beacon pair, then the join grid.
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
                     double(cfg.beacon_period_revs + cfg.join_grid_revs) + 6));
