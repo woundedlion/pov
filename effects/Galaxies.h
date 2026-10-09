@@ -194,7 +194,7 @@ private:
     float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
     float active_count = 0.0f;   /**< Live particles (engine-written). */
-    bool black_hole = false;     /**< Dark core with a luminous rim. */
+    bool black_hole = false;     /**< Black core. */
   } params;
 
   /**
@@ -375,10 +375,6 @@ private:
       if (params.black_hole) {
         Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
                                 BULGE_RADIUS, hole_shader);
-        const math::Basis basis = math::make_basis(math::Quaternion(), core);
-        Scan::Ring::draw<W, H>(PipelineRef(filters, canvas), canvas, basis,
-                               0.75f * BULGE_RADIUS / (math::PI_F / 2.0f),
-                               0.25f * BULGE_RADIUS, bulge_shader);
       } else {
         Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
                                 BULGE_RADIUS, bulge_shader);
