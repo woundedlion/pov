@@ -45,8 +45,9 @@ struct MeshOpBounds {
  *          MESHOP_IRREGULAR_LIST. The trailing arguments are the operator's
  *          MeshOpBounds, in order.
  *
- *          `elements` is the largest multiple of the input flat index count
- *          that any stage reaches; compositions multiply through. `face_degree`
+ *          `elements` is the largest multiple of the input's largest count
+ *          (vertices, faces or flat indices) that any stage reaches;
+ *          compositions multiply through. `face_degree`
  *          and `valence` are the multiples that reach narrow_face_count.
  */
 // clang-format off
