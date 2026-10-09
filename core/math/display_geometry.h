@@ -99,14 +99,17 @@ private:
   float south;
 };
 
-/** @brief Display geometry; an explicit offset selects legacy mapping. */
-template <int H, int LegacyOffset = -1> struct DisplayGeometry {
+/**
+ * @brief Display geometry; a non-negative HOffset selects the test pole-to-pole
+ * mapping with that many virtual south rows; -1 selects the active display
+ * profile.
+ */
+template <int H, int HOffset = -1> struct DisplayGeometry {
   static_assert(H > 1);
 #if defined(HS_TEST_H_OFFSET)
-  static constexpr int OFFSET =
-      LegacyOffset < 0 ? HS_TEST_H_OFFSET : LegacyOffset;
+  static constexpr int OFFSET = HOffset < 0 ? HS_TEST_H_OFFSET : HOffset;
 #else
-  static constexpr int OFFSET = LegacyOffset;
+  static constexpr int OFFSET = HOffset;
 #endif
   static constexpr float NORTH_PHI = OFFSET >= 0 ? 0.0f : DISPLAY_NORTH_PHI;
   static constexpr float SOUTH_PHI = OFFSET == 0 ? PI_F
