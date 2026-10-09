@@ -24,7 +24,7 @@ from test_check import committed_board_nets  # noqa: E402
 from test_pcb_generation import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
-REV_12_FILES = (
+GENERATED_PROJECT_FILES = (
     "fp-lib-table",
     "phantasm.kicad_pcb",
     "phantasm.kicad_pro",
@@ -164,12 +164,12 @@ class RevisionGenerationTests(unittest.TestCase):
         cls.rev_12 = Path(cls.directory.name) / "1.2"
         cls.prototype = Path(cls.directory.name) / "1.3"
         generate(cls.rev_12, "1.2")
-        cls.before = {path: (cls.rev_12 / path).read_bytes() for path in REV_12_FILES}
+        cls.before = {path: (cls.rev_12 / path).read_bytes() for path in GENERATED_PROJECT_FILES}
         generate(cls.prototype, "1.3")
         generate(cls.rev_12, "1.2")
 
     def test_rev_12_output_is_byte_identical_after_revision_switch(self):
-        for path in REV_12_FILES:
+        for path in GENERATED_PROJECT_FILES:
             actual = (self.rev_12 / path).read_bytes()
             self.assertEqual(actual, self.before[path], path)
             self.assertEqual(actual, (GEN.parent / "1.2" / path).read_bytes(), path)
@@ -180,7 +180,7 @@ class RevisionGenerationTests(unittest.TestCase):
         self.assertTrue(check.check(check.netlist_nets(root), "1.3"))
 
     def test_rev_13_generation_reproduces_committed_project(self):
-        for path in REV_12_FILES:
+        for path in GENERATED_PROJECT_FILES:
             self.assertEqual((self.prototype / path).read_bytes(),
                              (PROTOTYPE / path).read_bytes(), path)
 
