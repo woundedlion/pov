@@ -214,8 +214,8 @@ inline void test_lerp_oklch_endpoints() {
 /**
  * @brief Verifies extrapolating amounts still yield a valid OKLCH.
  * @details Extrapolating amounts must clamp L to [0,1] and
- *          keep C non-negative, so an overshoot can't flip the hue 180deg or
- *          render near-black.
+ *          keep C non-negative, so an overshoot yields a valid L and cannot
+ *          flip the hue 180deg through negative chroma.
  */
 inline void test_lerp_oklch_extrapolation_clamped() {
   OKLCH dark{0.1f, 0.05f, 0.0f};
