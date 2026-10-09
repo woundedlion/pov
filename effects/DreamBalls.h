@@ -185,6 +185,8 @@ public:
     // Mirror live slider edits into the active sprite's snapshot; the previous
     // sprite's slot stays at the values it was spawned with.
     param_slots[active_bake] = params;
+    hold_departure = departure_due && anims_paused;
+    departure_due = hold_departure;
     {
       HS_PROFILE(db_timeline_step);
       timeline.step(canvas);
@@ -335,6 +337,11 @@ private:
   /** @brief Sprite hand-off crossfade; overlap is CROSSFADE_OVERLAP, set at
    *         init(). */
   Segue::Crossfade crossfade;
+  /** The live sprite reached its plateau's last frame this frame. */
+  bool departure_due = false;
+  /** Pause gate of the live sprite and the advance: holds the sprite at its
+   * plateau's last frame while paused. */
+  bool hold_departure = false;
 
   ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
   AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
@@ -579,24 +586,34 @@ private:
                        baked_palettes[bake_slot]);
     };
 
+    departure_due = false;
+    hold_departure = false;
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
-                                          FADE_WINDOW, &anims_paused);
+                                          FADE_WINDOW, &hold_departure);
 
     HS_CHECK(period == SPRITE_PERIOD,
              "DreamBalls: sprite hand-off drifted off its expected cycle");
 
+    // Fires on the step that draws the sprite's last full-opacity frame.
+    timeline.add(SPRITE_LIFE - FADE_WINDOW,
+                 Animation::PeriodicTimer(
+                     0, [this](Canvas &) { departure_due = true; }, false));
+
+    // A sprite paused mid fade-out hands off to a respawn of the same preset.
     timeline.add_pausable(period,
                           Animation::PeriodicTimer(
                               0,
                               [this](Canvas &) {
-                                const bool advanced = this->advance_preset();
-                                HS_CHECK(advanced,
-                                         "DreamBalls: automatic preset "
-                                         "advance must succeed");
+                                if (!anims_paused) {
+                                  const bool advanced = this->advance_preset();
+                                  HS_CHECK(advanced,
+                                           "DreamBalls: automatic preset "
+                                           "advance must succeed");
+                                }
                                 this->spawn_sprite();
                               },
                               false),
-                          &anims_paused);
+                          &hold_departure);
   }
 
   /**
