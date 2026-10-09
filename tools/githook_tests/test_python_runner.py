@@ -14,7 +14,7 @@ RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
 
 class PythonRunner(unittest.TestCase):
-    def run_fixture(self, source=None, extra=None):
+    def run_fixture(self, source=None, extra=None, helper=False):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True, env=isolated_env())
@@ -29,6 +29,12 @@ class PythonRunner(unittest.TestCase):
                 empty.write_text(extra, encoding="utf-8")
                 subprocess.run(["git", "-C", str(root), "add", "--",
                                 "new_suite/test_extra.py"], check=True, env=isolated_env())
+            if helper:
+                path = root / "new_suite/tests/data/helper.py"
+                path.parent.mkdir(parents=True)
+                path.write_text("# fixture helper\n", encoding="utf-8")
+                subprocess.run(["git", "-C", str(root), "add", "--",
+                                "new_suite/tests/data/helper.py"], check=True, env=isolated_env())
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root)],
                                   capture_output=True, text=True, check=False, env=isolated_env())
 
@@ -77,3 +83,9 @@ class PythonRunner(unittest.TestCase):
         result = self.run_fixture(source.replace("VALUE", "1"))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotEqual(self.run_fixture(source.replace("VALUE", "2")).returncode, 0)
+
+    def test_nested_helpers_do_not_become_suites(self):
+        live = ("import unittest\nclass Live(unittest.TestCase):\n"
+                "    def test_live(self): self.assertTrue(True)\n")
+        result = self.run_fixture(live, helper=True)
+        self.assertEqual(result.returncode, 0, result.stderr)

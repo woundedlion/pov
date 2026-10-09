@@ -35,7 +35,7 @@ def main():
     paths = subprocess.check_output(
         ["git", "-C", str(root), "ls-files", "-z", "--", "*/test*.py"]
     ).decode("utf-8").split("\0")
-    directories = sorted({str(Path(path).parent) for path in paths if path})
+    directories = sorted({str(Path(path).parent) for path in paths if path and Path(path).name.startswith("test")})
     if not directories:
         parser.error("no tracked Python test suites discovered")
     failed = False
