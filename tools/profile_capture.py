@@ -60,10 +60,10 @@ def main():
     ap.add_argument("--connect-timeout", type=float, default=30.0,
                     help="seconds to wait for the port to enumerate")
     ap.add_argument("--port", default=os.environ.get("HS_TEENSY_PORT"),
-                    help="capture from this device name (e.g. COM3) instead "
-                         "of the first Teensy found; defaults to "
-                         "$HS_TEENSY_PORT. Required when the host has more "
-                         "than one Teensy attached")
+                    help="capture from this device name (e.g. COM3); defaults "
+                         "to $HS_TEENSY_PORT. Unpinned, the first enumerated "
+                         "Teensy is used; that order is unstable when several "
+                         "are attached")
     args = ap.parse_args()
 
     if args.seconds <= 0:
