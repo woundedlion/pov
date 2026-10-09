@@ -335,16 +335,6 @@ class PreCommitHook(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
 
     def test_an_unreadable_staged_blob_fails_the_snapshot(self):
-        bin_dir = self.repo / "fakebin"
-        bin_dir.mkdir()
-        ruff = bin_dir / "ruff"
-        ruff.write_text(
-            "#!/bin/sh\n"
-            "case \"${1:-}\" in --version) printf 'ruff '; "
-            "sed -n 's/^ruff==\\([^ ]*\\).*/\\1/p' requirements/ruff.txt;; esac\n"
-            "exit 0\n", encoding="utf-8")
-        ruff.chmod(0o755)
-
         source = self.repo / "sample.py"
         source.write_bytes(b"x = 1\n")
         self.git("add", "sample.py")
@@ -355,8 +345,7 @@ class PreCommitHook(unittest.TestCase):
         loose.chmod(0o644)
         loose.unlink()
 
-        done = self.run_hook(
-            PATH=os.pathsep.join([str(bin_dir), self.env["PATH"]]))
+        done = self.run_hook()
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("cannot materialize staged snapshot",
                       done.stdout + done.stderr)
