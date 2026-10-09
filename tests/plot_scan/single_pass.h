@@ -619,6 +619,8 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
     };
     Plot::rasterize<W, H,
                     Plot::RasterConfig{.single_pass = true,
+                                       .derive_planar_arc_registers = false,
+                                       .interpolate_registers = false,
                                        .sampling_policy = Policy}>(
         pipeline, canvas, points, shader,
         {.balanced_sampling =
