@@ -99,13 +99,10 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   if (!result.valid)
     return result;
   if (settings.geometry != Geometry::OCTET) {
-    result.valid = settings.geometry == Geometry::SHELLS;
-    if (settings.geometry == Geometry::SHELLS) {
-      result.periodic_shells =
-          SDF::prepare_periodic_shells(result.camera, settings.cell_size,
-                                       settings.shell_radius, result.footprint);
-      result.valid = result.periodic_shells.valid && settings.shell_layers;
-    }
+    result.periodic_shells =
+        SDF::prepare_periodic_shells(result.camera, settings.cell_size,
+                                     settings.shell_radius, result.footprint);
+    result.valid = result.periodic_shells.valid && settings.shell_layers;
     return result;
   }
   const auto &E = settings.embedding.m;
@@ -179,12 +176,9 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
       (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
   if (prepared.geometry != Geometry::OCTET) {
-    if (prepared.geometry == Geometry::SHELLS &&
-        ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
-         prepared.periodic_shells.march))
+    if ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
+        prepared.periodic_shells.march)
       return shade_shells<SLICE_4D>(direction, prepared);
-    if (prepared.geometry != Geometry::SHELLS)
-      return {{}, Raycast::TraceStatus::INVALID_QUERY};
     const auto sample =
         SDF::shade_periodic_shells(prepared.periodic_shells, camera, direction,
                                    prepared.limits, prepared.appearance);
