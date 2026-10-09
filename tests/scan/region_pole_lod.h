@@ -293,8 +293,8 @@ inline void test_pole_lod_run_clamps_to_max_run() {
  * @brief Verifies near-pole decimation shades the same pixels as an
  *        undecimated walk.
  * @details A constant-color draw lands the same framebuffer at
- * Render::pole_lod_aggressiveness 1.0 and 4.0 as at 0; ring and triangle-face
- * cases use 1.0 only.
+ * Render::pole_lod_aggressiveness 1.0 and 4.0 as at 0; ring and regular
+ * triangle-face cases use 1.0 only.
  */
 inline void test_pole_lod_shading_matches_undecimated() {
   constexpr int W = 96, H = 64;
