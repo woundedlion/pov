@@ -18,7 +18,7 @@ namespace conway_soak_tests {
 struct HankinWalkProbe;
 } // namespace conway_soak_tests
 namespace effects_tests {
-struct HankinPauseWhiteBox;
+struct HankinSolidsWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
@@ -111,7 +111,7 @@ public:
 
 private:
   friend struct ::hs_test::conway_soak_tests::HankinWalkProbe;
-  friend struct ::hs_test::effects_tests::HankinPauseWhiteBox;
+  friend struct ::hs_test::effects_tests::HankinSolidsWhiteBox;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
