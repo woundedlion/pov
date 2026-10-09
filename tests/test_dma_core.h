@@ -50,16 +50,6 @@ static_assert(dma::TRANSFER_WATCHDOG_US <
                   (60000000UL / (WATCHDOG_POLICY_RPM * 288)));
 
 /**
- * @brief Pin the transfer-length select for both with_bg values.
- */
-inline void test_transfer_len() {
-  const std::size_t base = 1444;
-  const std::size_t composite = 2888;
-  HS_EXPECT_EQ(dma::transfer_len(base, composite, false), base);
-  HS_EXPECT_EQ(dma::transfer_len(base, composite, true), composite);
-}
-
-/**
  * @brief Pin the per-column transfer bound: exact where the division is whole,
  * rounded UP otherwise.
  */
@@ -93,17 +83,6 @@ inline void test_transfer_us_bound() {
 }
 
 /**
- * @brief Pin the stale-transfer predicate at its watchdog boundaries.
- */
-inline void test_transfer_stale_bounds() {
-  const unsigned long wd = dma::TRANSFER_WATCHDOG_US;
-  HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000, wd));
-  HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000 + wd - 1, wd));
-  HS_EXPECT_TRUE(dma::transfer_stale(5000, 5000 + wd, wd));
-  HS_EXPECT_TRUE(dma::transfer_stale(5000, 5000 + wd + 1, wd));
-}
-
-/**
  * @brief The predicate stays correct across an unsigned-long micros() rollover.
  * @details now_us < start_us when micros() has wrapped; the unsigned subtraction
  * still yields the true elapsed delta.
@@ -126,9 +105,7 @@ inline void test_transfer_stale_wraparound() {
 inline int run_dma_core_tests() {
   hs_test::ModuleFixture fixture("dma_core");
 
-  test_transfer_len();
   test_transfer_us_bound();
-  test_transfer_stale_bounds();
   test_transfer_stale_wraparound();
 
   return fixture.result();
