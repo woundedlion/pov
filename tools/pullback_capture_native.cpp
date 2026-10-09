@@ -333,7 +333,7 @@ Color4 exact_colorize(const Pullback::FieldSample &sample,
 template <int W, int H>
 Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
                    const Pullback::Interp::FrameContext &ctx,
-                   const std::string &oracle) {
+                   const std::string &oracle, size_t &substitutions) {
   using namespace Pullback;
   using namespace Pullback::Interp;
   using WB = hs_test::shader_chain_tests::ShaderChainWhiteBox;
@@ -348,6 +348,7 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
     const auto *prepared = program.prepared_block(index);
     if (oracle == "PEIRCE_FAST_SQUARE" &&
         std::string_view(op.operator_id) == Op::ProjectPeirceSquareFastV3::ID) {
+      ++substitutions;
       const auto &p =
           *reinterpret_cast<const Op::ProjectPeirceSquareFastV3::Params *>(
               params);
@@ -361,7 +362,9 @@ Color4 exact_shade(const ShaderChain<W, H> &effect, const math::Vector &view,
                                        0.0f, true, p.coordinate_scale,
                                        p.singularity_fade))};
     } else if (oracle == "HUE_ROTATION_AND_NOISE_LUTS" &&
-               op.input == CarrierId::FIELD && op.output == CarrierId::COLOR) {
+               std::string_view(op.operator_id) ==
+                   Op::ColorizeGeneratedPaletteV3::ID) {
+      ++substitutions;
       const auto &p =
           *reinterpret_cast<const Op::GeneratedPaletteParams *>(params);
       const auto &clock =
@@ -399,7 +402,11 @@ bool measure_oracle(ShaderChain<W, H> &effect,
         continue;
       const auto view = math::pixel_to_vector<W, H>(x, y);
       const auto optimized = program.evaluate(view, ctx);
-      const auto exact = exact_shade(effect, view, ctx, instruction.oracle);
+      size_t substitutions = 0;
+      const auto exact =
+          exact_shade(effect, view, ctx, instruction.oracle, substitutions);
+      if (substitutions == 0)
+        return false;
       const auto actual = optimized.color * optimized.alpha;
       const auto expected = exact.color * exact.alpha;
       const auto error = [](uint16_t a, uint16_t b) {
