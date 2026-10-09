@@ -165,7 +165,7 @@ EOF
   "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check
   "$PYTHON_BIN" "$SNAPSHOT/tools/license_check.py" --root "$SNAPSHOT"
 
-  if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.h)$|^\.githooks/pre-commit$'; then
+  if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster|exit)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.h)$|^\.githooks/pre-commit$'; then
     if ! command -v node >/dev/null 2>&1; then
       echo "[pre-commit] node not found; profile archive checks need the pinned Node version."
       exit 1
