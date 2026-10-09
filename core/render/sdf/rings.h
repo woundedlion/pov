@@ -211,11 +211,9 @@ struct KnotPrefilter {
  * DistortedRing).
  */
 struct DistortedRing {
-  const math::Basis &basis; /**< Orientation frame (v = ring axis); retained by
-                         reference, so it must outlive the shape. */
-  float radius;             /**< Ring radius as a fraction of the hemisphere. */
-  float thickness;          /**< Half-width of the stroke (radians). */
-  float thickness2;         /**< Squared half-width of the stroke. */
+  float radius;      /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;   /**< Half-width of the stroke (radians). */
+  float thickness2;  /**< Squared half-width of the stroke. */
   ScalarFn shift_fn; /**< Per-azimuth centerline shift, t in [0,1) -> radians;
                          empty in knot mode. */
   const float *knots =
@@ -247,8 +245,7 @@ struct DistortedRing {
 
   /**
    * @brief Builds a distorted ring with a per-azimuth centerline shift.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis), copied into the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
@@ -270,35 +267,26 @@ struct DistortedRing {
     shift_fn = sf;
   }
 
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  DistortedRing(const math::Basis &&, float, float, ScalarFn, float,
-                float) = delete;
-
 protected:
   /**
    * @brief Builds the ring geometry shared by the modes carrying no shift
    *        callback.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis), copied into the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param md Maximum magnitude of the centerline shift (radians).
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const math::Basis &b, float r, float th, float md, float ph)
-      : basis(b), radius(r), thickness(th), thickness2(th * th),
-        max_distortion(md), phase(ph) {
+      : radius(r), thickness(th), thickness2(th * th), max_distortion(md),
+        phase(ph) {
     HS_CHECK(radius >= 0.0f && radius <= 2.0f,
              "DistortedRing: radius outside [0, 2]");
     // A negative half-width inverts the band, culling every probe.
     HS_CHECK(thickness >= 0.0f, "DistortedRing: negative stroke half-width");
-    normal = basis.v;
-    u = basis.u;
-    w = basis.w;
+    normal = b.v;
+    u = b.u;
+    w = b.w;
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
     target_angle = radius * (math::PI_F / 2.0f);
@@ -321,8 +309,7 @@ protected:
 public:
   /**
    * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis), copied into the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param kn n centerline shifts (radians), one per equal azimuth cell;
@@ -391,26 +378,10 @@ public:
       cos_min_limit = -2.0f;
   }
 
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  DistortedRing(const math::Basis &&, float, float, const float *, int, float,
-                KnotPrefilter *) = delete;
-
   /** @brief The knot constructor with its prefilter storage attached. */
   DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, kn, n, ph, &pf) {}
-
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  DistortedRing(const math::Basis &&, float, float, const float *, int, float,
-                KnotPrefilter &) = delete;
 
   /**
    * @brief Maps the distorted ring's widened latitude band to its row range.
@@ -760,21 +731,13 @@ struct FlatDistortedRing : private DistortedRing {
 
   /**
    * @brief Builds an undisplaced ring using exact polar centerline distance.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis), copied into the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
   FlatDistortedRing(const math::Basis &b, float r, float th, float ph = 0.0f)
       : DistortedRing(b, r, th, 0.0f, ph) {}
-
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  FlatDistortedRing(const math::Basis &&, float, float, float = 0.0f) = delete;
 
   /**
    * @brief Maps the undisplaced ring's latitude band to its row range.

@@ -69,6 +69,7 @@ inline int run_sdf_tests() {
   test_ring_just_outside_band();
   test_ring_small_radius_distance_symmetric();
 
+  test_distorted_ring_copies_basis();
   test_distorted_ring_constant_shift_moves_centerline();
   test_distorted_ring_sin_shift_varies_by_azimuth();
   test_distorted_ring_flat_matches_zero_knots();
