@@ -379,6 +379,8 @@ inline void test_shader_chain_parity_project_hemispheres() {
     arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
         program, In::Op::ProjectBonneV3::ID, 4, set);
     run_bonne_variant<true>(program, ctx);
+    arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
+        program, In::Op::ProjectBonneV3::ID, 4, set);
     run_bonne_variant<false>(program, ctx);
     program.clear();
   }
