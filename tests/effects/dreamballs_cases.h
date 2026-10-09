@@ -15,13 +15,18 @@ struct DreamBallsWhiteBox {
   static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
   static int active_bake(const DB &db) { return db.active_bake; }
+  static bool holding(const DB &db) { return db.hold_departure; }
   // Advance the choreography, then re-spawn.
   static void advance(DB &db) {
     HS_EXPECT_TRUE(db.advance_preset());
+    respawn(db);
+  }
+  // Re-spawn of the current preset (no advance). Unstepped spawns never retire
+  // their events, so drop them to stay within the timeline budget.
+  static void respawn(DB &db) {
+    db.timeline.clear();
     db.spawn_sprite();
   }
-  // Re-spawn of the current preset (no advance).
-  static void respawn(DB &db) { db.spawn_sprite(); }
   static DB::BaseMesh preset_mesh(int idx) {
     return DB::PRESETS[idx].params.base_mesh;
   }
@@ -448,7 +453,7 @@ inline void test_dreamballs_defect_weave_renders() {
 }
 
 /**
- * @brief Verifies pause freezes DreamBalls' sprite and next-preset clock.
+ * @brief Verifies pause holds DreamBalls' sprite and stops the preset advance.
  */
 inline void test_dreamballs_respawn_fires_and_honors_pause() {
   using WB = DreamBallsWhiteBox;
@@ -471,4 +476,46 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
   }
   HS_EXPECT_EQ(db.getPresetIndex(), 1u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake ^ 1);
+}
+
+/**
+ * @brief A manual select during a fade finishes the fade while paused and holds
+ *        the selected preset at full opacity.
+ * @param lead_frames Unpaused frames before the select; picks the fade window.
+ * @param respawned Whether the sprite respawns before the hold.
+ */
+inline void check_dreamballs_select_mid_fade(int lead_frames, bool respawned) {
+  using WB = DreamBallsWhiteBox;
+  reset_effect_globals();
+  WB::DB db;
+  db.init();
+  db.setAnimationsPaused(false);
+  for (int f = 0; f < lead_frames; ++f) {
+    db.draw_frame();
+    db.advance_display();
+  }
+  const uint64_t faded = frame_energy<SMALL_W, SMALL_H>(db);
+  const int bake = WB::active_bake(db);
+  constexpr size_t SELECTED = 3;
+  HS_EXPECT_TRUE(db.selectPreset(SELECTED));
+  HS_EXPECT_TRUE(db.animations_paused());
+  int frames = 0;
+  while (!WB::holding(db) && frames++ < 2 * WB::DB::PRESET_DWELL_FRAMES) {
+    db.draw_frame();
+    db.advance_display();
+  }
+  HS_EXPECT_TRUE(WB::holding(db));
+  HS_EXPECT_EQ(db.getPresetIndex(), SELECTED);
+  HS_EXPECT_EQ(WB::active_bake(db), respawned ? bake ^ 1 : bake);
+  HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(db)), faded);
+}
+
+/** @brief A select mid fade-in reaches full opacity while paused. */
+inline void test_dreamballs_select_mid_fade_in_finishes_fade() {
+  check_dreamballs_select_mid_fade(8, false);
+}
+
+/** @brief A select mid fade-out respawns the selection while paused. */
+inline void test_dreamballs_select_mid_fade_out_respawns() {
+  check_dreamballs_select_mid_fade(310, true);
 }

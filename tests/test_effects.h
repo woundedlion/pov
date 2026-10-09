@@ -1121,6 +1121,8 @@ inline int run_effects_tests() {
     run_case(test_dreamballs_weave_topology);
     run_case(test_dreamballs_defect_weave_renders);
     run_case(test_dreamballs_respawn_fires_and_honors_pause);
+    run_case(test_dreamballs_select_mid_fade_in_finishes_fade);
+    run_case(test_dreamballs_select_mid_fade_out_respawns);
     run_case(test_meshfeedback_flush_precedes_mesh_draw);
     run_case(test_meshfeedback_preset_rotation_syncs_noise);
     run_case(test_comets_manual_preset_restarts_path);
