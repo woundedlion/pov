@@ -19,6 +19,7 @@
 #include "core/math/easing.h"
 #include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (mesh test fixtures)
 #include "tests/fd_capture_util.h"
+#include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/vec_test_util.h"
