@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Runs the hs::clamp NaN->hi assertions under the WASM release math flags
+// Runs clamp-before-cast and NaN-saturation cases under WASM release math flags
 // (-O3 -ffast-math -fno-finite-math-only).
 #include "core/engine/engine.h"
 #include "tests/test_color.h"
