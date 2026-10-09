@@ -314,7 +314,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            plus the composed-effect base
 │   │   │                            (composed_effect)
 │   │   │   ├── composed_providers.h    Composed-effect provider bindings
-│   │   │   ├── composed_parameters.h   Composed-effect parameter construction
+│   │   │   ├── composed_parameters.h   Composed-effect parameter interpolation and validation, runtime storage mixins and Spec kind enums
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
