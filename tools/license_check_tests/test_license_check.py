@@ -1,5 +1,6 @@
 import contextlib
 import io
+import os
 import subprocess
 import sys
 import tempfile
@@ -10,6 +11,7 @@ from unittest import mock
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
+from git_test_env import isolated_env  # noqa: E402
 import license_check as lc  # noqa: E402
 
 POLYFORM_HEADER = ("/*\n"
@@ -23,6 +25,12 @@ RESERVED_HEADER = ("/*\n"
                    " */\n")
 LICENSE_HEADING = ("Exceptions outside `effects/`, each carrying its own terms "
                    "in its own header:\n\n")
+
+
+def setUpModule():
+    patch = mock.patch.dict(os.environ, isolated_env(), clear=True)
+    patch.start()
+    unittest.addModuleCleanup(patch.stop)
 
 
 class TestLicenseExceptions(unittest.TestCase):
@@ -121,10 +129,10 @@ class TestHeaderIssue(unittest.TestCase):
         head = "// " + "x" * lc.HEAD_BYTES + "\n" + POLYFORM_HEADER
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "init", "-q", str(root)], check=True, env=isolated_env())
             (root / "sample.h").write_text(head, encoding="utf-8")
             (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "sample.h"], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "sample.h"], check=True, env=isolated_env())
             with mock.patch.object(lc, "EXCEPTIONS", {}), \
                     contextlib.redirect_stdout(io.StringIO()) as out, \
                     contextlib.redirect_stderr(io.StringIO()):
@@ -136,7 +144,7 @@ class TestMain(unittest.TestCase):
     def test_empty_successful_listing_is_a_tooling_error(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True, env=isolated_env())
             (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
             with contextlib.redirect_stdout(io.StringIO()) as out, \
                     contextlib.redirect_stderr(io.StringIO()) as err:
@@ -144,7 +152,7 @@ class TestMain(unittest.TestCase):
             self.assertIn("no tracked C/C++ sources", err.getvalue())
             self.assertNotIn("EXCEPTIONS", out.getvalue())
             (root / "sample.h").write_text(POLYFORM_HEADER, encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "--", "sample.h"], check=True)
+            subprocess.run(["git", "-C", str(root), "add", "--", "sample.h"], check=True, env=isolated_env())
             with mock.patch.object(lc, "EXCEPTIONS", {}), \
                     contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(lc.main(["--root", str(root)]), 0)
@@ -152,12 +160,12 @@ class TestMain(unittest.TestCase):
     def test_main_checks_tracked_sources_and_returns_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "init", "-q", str(root)], check=True, env=isolated_env())
             source = root / "sample.h"
             source.write_text(POLYFORM_HEADER, encoding="utf-8")
             (root / "LICENSE").write_text(LICENSE_HEADING, encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "sample.h"],
-                           check=True)
+                           check=True, env=isolated_env())
             with mock.patch.object(lc, "EXCEPTIONS", {}):
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(lc.main(["--root", str(root)]), 0)
@@ -180,14 +188,14 @@ class TestMain(unittest.TestCase):
     def test_stale_exception_is_a_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            subprocess.run(["git", "init", "-q", str(root)], check=True, env=isolated_env())
             source = root / "sample.h"
             source.write_text(POLYFORM_HEADER, encoding="utf-8")
             (root / "LICENSE").write_text(
                 LICENSE_HEADING + "- `retired.h` — retired terms\n",
                 encoding="utf-8")
             subprocess.run(["git", "-C", str(root), "add", "sample.h"],
-                           check=True)
+                           check=True, env=isolated_env())
             exceptions = {"retired.h": lc.RESERVED}
             with mock.patch.object(lc, "EXCEPTIONS", exceptions), \
                     contextlib.redirect_stdout(io.StringIO()), \
