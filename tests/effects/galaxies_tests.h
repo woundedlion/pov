@@ -298,6 +298,40 @@ inline void test_galaxies_arm_contrast_and_age_fade() {
                WB::alpha(0, 100, 0.7f) / WB::alpha(0, 100, 1.0f));
 }
 
+/** @brief Arm Sharpness narrows or widens each arm's cosine lobe; 0 is flat. */
+inline void test_galaxies_arm_sharpness() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  const auto *sharpness = fx.getParameters().find("Arm Sharpness");
+  HS_EXPECT(sharpness != nullptr, "Arm Sharpness is registered");
+  if (!sharpness)
+    return;
+  HS_EXPECT_EQ(sharpness->get(), 0.8f);
+  WB::set_pitch(fx, 0.5f);
+  for (int arms : {1, 2, 5}) {
+    WB::set_arms(fx, arms);
+    auto &galaxy = WB::galaxy(fx, 0);
+    const float ring = 0.35f;
+    const float angle =
+        galaxy.phase - galaxy.spin * logf(ring / WB::RING_RADIUS) / tanf(0.5f) +
+        math::PI_F / (3.0f * arms);
+    const math::Vector position =
+        galaxy.core * cosf(ring) +
+        (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
+    fx.updateParameter("Arm Sharpness", 1.0f);
+    HS_EXPECT_NEAR(WB::density(fx, 0, position), 0.5f, 1e-2f);
+    fx.updateParameter("Arm Sharpness", 0.5f);
+    HS_EXPECT_NEAR(WB::density(fx, 0, position), cosf(math::PI_F / 6.0f),
+                   1e-2f);
+    fx.updateParameter("Arm Sharpness", 2.0f);
+    HS_EXPECT_NEAR(WB::density(fx, 0, position), 0.0f, 1e-5f);
+    fx.updateParameter("Arm Sharpness", 0.0f);
+    HS_EXPECT_NEAR(WB::density(fx, 0, position), 1.0f, 1e-5f);
+  }
+}
+
 /** @brief Emission consumes whole credits and discards births while full. */
 inline void test_galaxies_emission_rate_and_capacity() {
   using WB = GalaxiesWhiteBox;
