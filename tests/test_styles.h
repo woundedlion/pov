@@ -55,7 +55,7 @@ inline void test_named_presets() {
 }
 
 /**
- * @brief Verifies named presets retain their original per-frame hue rotations.
+ * @brief Pins each named preset's per-frame hue rotation, in turns.
  * @details Recovers the angle from sync_hue()'s cached cos/sin.
  */
 inline void test_named_presets_preserve_frame_hue() {
