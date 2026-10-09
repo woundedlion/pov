@@ -1758,7 +1758,7 @@ inline void test_strap_open_fade() {
       fx.draw_frame();
       fx.advance_display();
     }
-    HS_EXPECT_LT(guard, 400);
+    HS_EXPECT_NE(Probe::node(fx), prev_node);
 
     fade = Probe::shape_weights(fx, 1).strap_open;
     capture_opening(fx, 0.0f, 1.0f, bookend); // straps zero-area
@@ -1815,7 +1815,7 @@ inline void test_strap_close_dissolve() {
     fx.draw_frame();
     fx.advance_display();
   }
-  HS_EXPECT_LT(guard, 400);
+  HS_EXPECT_NE(Probe::node(fx), prev_node);
 
   // Frame adjacent to the closing bookend: the sweep is a full sine period, so
   // it samples the same angle as the opening's first strap frame.
@@ -1862,7 +1862,7 @@ inline void test_star_midpoint_dissolve() {
     fx.draw_frame();
     fx.advance_display();
   }
-  HS_EXPECT_LT(guard, 400);
+  HS_EXPECT_NE(Probe::node(fx), prev_node);
 
   // Drive on until a node whose rosettes carry a different palette from the
   // star hosting them; the mod-NUM_PALETTES wrap can alias the two.
