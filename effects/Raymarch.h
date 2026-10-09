@@ -481,14 +481,9 @@ private:
   }
 
   HS_FLASH_MEMBER void refresh_hue_noise() {
-    if (palette_state->hue_noise_scale == params.hue_noise_scale &&
-        palette_state->hue_noise_phase == hue_noise_phase)
-      return;
-    prepare_hue_noise_lut(
+    palette_state->hue_noise_bake.refresh(
         std::span<int8_t, HueNoiseLutView::SIZE>(palette_state->hue_noise_lut),
         palette_state->noise, params.hue_noise_scale, hue_noise_phase);
-    palette_state->hue_noise_scale = params.hue_noise_scale;
-    palette_state->hue_noise_phase = hue_noise_phase;
   }
 
   struct SurfaceFrame {
@@ -593,8 +588,7 @@ private:
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut;
     std::array<int8_t, HueNoiseLutView::SIZE> hue_noise_lut;
     FastNoiseLite noise;
-    float hue_noise_scale = -1.0f;
-    float hue_noise_phase = -1.0f;
+    HueNoiseBakeCache hue_noise_bake;
   };
 
   FastNoiseLite camera_noise;
