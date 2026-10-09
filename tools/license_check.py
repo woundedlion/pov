@@ -36,7 +36,6 @@ HEAD_BYTES = 600
 # header must hold. A directory prefix covers everything beneath it.
 EXCEPTIONS = {
     "core/engine/effects_legacy.h": RESERVED,
-    "workbench/": RESERVED,
     "core/math/projections.h": MIT_GRANT,
     "core/vendor/FastNoiseLite.h": MIT_TITLE,
 }
