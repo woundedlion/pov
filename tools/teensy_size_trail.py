@@ -120,6 +120,7 @@ BUILD_INPUTS = (
     ":(glob)hardware/*.h", "tools/phantasm.ld", "tools/teensy_pre.py",
     "tools/teensy_map.py", "tools/teensy_isystem.py", "tools/teensy_nano.py",
     "tools/teensy_gate.py", "tools/teensy_gate_extra.py",
+    "tools/profile_isr_window.h",
     "tools/teensy_budgets.json", "platformio.ini",
 )
 
