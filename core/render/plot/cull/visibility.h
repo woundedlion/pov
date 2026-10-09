@@ -11,7 +11,8 @@
  * @param cr Active clip region.
  * @param xc Precomputed x-clip predicate for @p cr.
  * @param row Precomputed projected row.
- * @param col Precomputed projected column; unused when x clipping is inactive.
+ * @param col Precomputed projected column; its fractional part sets tap
+ * weights. A zero fractional part is conservative when x clipping is inactive.
  * @details Tests the taps Screen::AntiAlias would emit, sharing splat_taps and
  * SPLAT_TAP_CUTOFF with it. The gate runs before shading, so it tests tap
  * geometry only.
