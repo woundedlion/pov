@@ -936,6 +936,24 @@ inline void test_family_segues() {
   HS_EXPECT_EQ(darkest, 0.0f);
   HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
   HS_EXPECT_EQ(effect.getPresetIndex(), Effect::HYPERCUBE_PRESET_INDEX);
+
+  HS_EXPECT_TRUE(effect.selectPreset(Effect::CUBIC_PRESET_INDEX));
+  effect.setAnimationsPaused(false);
+  const auto CUBIC = Effect::preset(Effect::CUBIC_PRESET_INDEX).params;
+  for (int frame = 0; frame < Effect::PRESET_DWELL_FRAMES; ++frame)
+    HyperLatticeWhiteBox::step_choreography(effect, canvas);
+  const int LERP =
+      Segue::Preset::frames(Effect::preset(Effect::CUBIC_PRESET_INDEX).segue);
+  for (int frame = 1; frame <= LERP; ++frame) {
+    HyperLatticeWhiteBox::step_choreography(effect, canvas);
+    HS_EXPECT_EQ(HyperLatticeWhiteBox::preset_gain(effect), 1.0f);
+    if (frame < LERP) {
+      HS_EXPECT_GT(params.cell_size, CUBIC.cell_size);
+      HS_EXPECT_LT(params.cell_size, WIDE.cell_size);
+    }
+  }
+  HS_EXPECT_EQ(params.cell_size, WIDE.cell_size);
+  HS_EXPECT_EQ(effect.getPresetIndex(), Effect::WIDE_PRESET_INDEX);
 }
 
 inline void test_dimension_dropdown_and_mode_lerp() {
