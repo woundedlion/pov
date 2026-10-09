@@ -17,7 +17,7 @@
 #include "core/color/effect_palette_recipes.h"
 #include "core/color/noise_shimmer_palette.h"
 #include "core/engine/engine.h"
-#include "effects/ReactionDiffusionBase.h"
+#include "effects/common/reaction_diffusion.h"
 
 namespace hs_test {
 namespace effects_tests {
