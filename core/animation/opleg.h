@@ -290,8 +290,8 @@ public:
 
   /**
    * @brief Constructs a graph-edge sweep leg: clones the seed, computes the
-   * arrival classification (relaxed form when settling), and builds the
-   * palette mappings.
+   * arrival classification (relaxed form on a forward settling leg), and
+   * builds the palette mappings.
    * @param seed Seed mesh the op sweeps on (cloned, not borrowed).
    * @param spec Traversed edge and frame counts.
    * @param arena Leg arena backing the cloned seed and hoisted state.
@@ -1023,13 +1023,17 @@ private:
 
   /**
    * @brief Shared CONWAY_SWEEP construction tail: arrival classification
-   * (relaxed form when settling), start centroids, and the palette mappings.
+   * (relaxed form on a forward settling leg), start centroids, and palette
+   * mappings.
    * @param handoff Palette provenance of the departed mesh.
    * @param bookend Bookend grouping of the arrival mesh.
    * @param arena Leg arena for the hoisted state.
-   * @param settle Whether the leg settles (relax-slerps) at its arrival end.
+   * @param settle Whether the leg relax-slerps: at arrival on a forward
+   * leg, at departure on a reverse leg.
    * @param jitterbug Whether the leg is the jitterbug bridge (vertex-orbit
    * faces survive into the node mesh).
+   * @param bridge_provenance Dual-bridge provenance takes start centroids
+   * from the leg's own start mesh when closing, or arrival mesh when opening.
    * @details Requires tr.op, tr.reverse, the tr.t_start/t_end and
    * tr.twist_start/twist_end endpoints and tr.settle_frames already set by the
    * calling constructor.
