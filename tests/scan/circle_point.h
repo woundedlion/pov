@@ -34,8 +34,8 @@ inline float cap_coverage(const math::Vector &v, const math::Vector &axis,
 /**
  * @brief Verifies Point::draw paints exactly the analytic spherical cap.
  * @details Pole-centred, equatorial and oblique axes each reproduce cap_coverage
- * per pixel: every covered direction lit, every uncovered one black, and the
- * plotted channel proportional to the coverage.
+ * per pixel: every direction with coverage above 0.02 lit, every uncovered one
+ * black, and the plotted channel proportional to the coverage.
  */
 inline void test_point_draws_the_analytic_cap() {
   constexpr int W = 96, H = 64;
