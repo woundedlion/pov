@@ -25,6 +25,21 @@ static_assert(std::is_constructible_v<Filter::World::Orient,
                                       const math::Orientation<> &>);
 static_assert(
     !std::is_constructible_v<Filter::World::Orient, math::Orientation<>>);
+static_assert(std::is_constructible_v<Filter::World::OrientSlice,
+                                      std::array<math::Orientation<>, 2> &,
+                                      const math::Vector &>);
+static_assert(std::is_constructible_v<Filter::World::OrientSlice,
+                                      std::span<const math::Orientation<>>,
+                                      const math::Vector &>);
+static_assert(std::is_constructible_v<Filter::World::OrientSlice,
+                                      std::span<math::Orientation<>, 2>,
+                                      const math::Vector &>);
+static_assert(!std::is_constructible_v<Filter::World::OrientSlice,
+                                       std::array<math::Orientation<>, 2>,
+                                       const math::Vector &>);
+static_assert(!std::is_constructible_v<Filter::World::OrientSlice,
+                                       const std::array<math::Orientation<>, 2>,
+                                       const math::Vector &>);
 
 /**
  * @brief Verifies Hole masks a spherical cap: outside the radius the point
