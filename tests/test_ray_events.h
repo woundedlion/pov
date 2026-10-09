@@ -29,7 +29,7 @@ struct SingleGroupStreams : Streams {
   static constexpr size_t GROUP_CAPACITY = 1;
 };
 
-/** @brief Pins single group capacity. */
+/** @brief A single event group merges matching identities and reports capacity, candidate and sample failures. */
 inline void test_single_group_capacity() {
   SingleGroupStreams streams;
   for (size_t i = 0; i < streams.STREAM_COUNT; ++i) {
@@ -81,7 +81,7 @@ inline void test_single_group_capacity() {
   HS_EXPECT_EQ(count, 1);
 }
 
-/** @brief Pins failure status survives flush. */
+/** @brief Flushing pending contributions preserves invalid-query status even when callbacks stop. */
 inline void test_failure_status_survives_flush() {
   SingleGroupStreams streams;
   streams.live.fill(false);
