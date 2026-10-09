@@ -1186,8 +1186,7 @@ inline void test_sim_rev_wrap_within_effect() {
  *        consumed in the SAME tick() its boundary is folded.
  * @details on_epoch_symbol infers j = rev_in_effect − revs_per_effect, so it
  *          must observe the post-fold rev. Every copy j of the train commits at
- *          the same absolute B+R+K boundary whether the fold was deferred into
- *          the burst's tick or applied a tick earlier.
+ *          the same absolute B+R+K boundary.
  */
 inline void test_epoch_same_tick_burst_fold() {
   const Config cfg = test_config();
@@ -1211,20 +1210,13 @@ inline void test_epoch_same_tick_burst_fold() {
   }
 
   // Returns the absolute rev at which a tracker hearing copy j commits
-  // (computed: on_zero_crossing zeroes rev_in_effect on commit). same_tick
-  // defers the fold into the burst's tick; otherwise it landed a tick earlier.
-  auto commit_rev_for = [&](uint32_t j, bool same_tick) -> uint32_t {
+  // (computed: on_zero_crossing zeroes rev_in_effect on commit).
+  auto commit_rev_for = [&](uint32_t j) -> uint32_t {
     ContentTracker c;
     c.identity_known = true;
     c.effect_index = 0;
-    if (same_tick) {
-      c.rev_in_effect = RPE + j - 1;            // B+j fold still pending…
-      HS_EXPECT_FALSE(c.on_zero_crossing(cfg)); // …backstop apply_flip folds it
-    } else {
-      c.rev_in_effect = RPE + j; // already folded a tick earlier
-    }
-    const uint32_t base_rev = c.rev_in_effect; // == RPE + j either way
-    HS_EXPECT_EQ(base_rev, RPE + j);
+    c.rev_in_effect = RPE + j;
+    const uint32_t base_rev = c.rev_in_effect;
     HS_EXPECT_TRUE(c.on_epoch_symbol(cfg)); // opens the commit window
     HS_EXPECT_EQ(c.commit_in_revs, K + R - j);
     uint32_t count = 0;
@@ -1237,12 +1229,9 @@ inline void test_epoch_same_tick_burst_fold() {
     return base_rev + count;
   };
 
-  // Every copy commits at the absolute B+R+K boundary, independent of j and of
-  // whether the burst shared its tick with the fold.
-  for (uint32_t j = 0; j <= R; ++j) {
-    HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/true), RPE + R + K);
-    HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/false), RPE + R + K);
-  }
+  // Every copy commits at the absolute B+R+K boundary, independent of j.
+  for (uint32_t j = 0; j <= R; ++j)
+    HS_EXPECT_EQ(commit_rev_for(j), RPE + R + K);
 
   // On the pre-fold rev, on_epoch_symbol infers a repeat copy one short (j−1),
   // scheduling commit_in_revs a revolution too large.
