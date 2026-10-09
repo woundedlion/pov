@@ -453,11 +453,19 @@ struct GSWhiteBox {
     return error;
   }
 
+  /** @brief Selects the reference shader `shared_shader_error` compares. */
+  struct SharedShaderOptions {
+    bool fixed_stencil = false;
+    bool direct_color = false;
+    bool aggregate_color = true;
+    bool center_pigment = false;
+    bool full_kernel = false;
+  };
+
   template <int W, int H>
-  static ShaderError
-  shared_shader_error(GS &gs, bool fixed_stencil = false,
-                      bool direct_color = false, bool aggregate_color = true,
-                      bool center_pigment = false, bool full_kernel = false) {
+  static ShaderError shared_shader_error(GS &gs, SharedShaderOptions options) {
+    const auto [fixed_stencil, direct_color, aggregate_color, center_pigment,
+                full_kernel] = options;
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
     math::Vector *world_nodes = lattice.get();
@@ -1026,7 +1034,7 @@ inline void test_gs_shared_stencil_error_is_bounded() {
     if (frame != probe_frames[next_probe])
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
-        gs, false, false, true, true, true);
+        gs, {.center_pigment = true, .full_kernel = true});
     std::printf("GS shared stencil frame=%d: different=%d above_rounding=%d "
                 "lit=%d coverage=%d "
                 "hard=%d center_changes=%d/%d center_mismatches=%d max=%d "
@@ -1162,7 +1170,9 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
         frame != 500 && frame != 600)
       continue;
     const auto ERROR = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
-        gs, true, true, false);
+        gs, {.fixed_stencil = true,
+             .direct_color = true,
+             .aggregate_color = false});
     HS_EXPECT_GT(ERROR.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_LE(ERROR.coverage, MAX_COVERAGE_DIFFERENCES);
     HS_EXPECT_LE(ERROR.max_channel, 22000);
@@ -1170,15 +1180,16 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
                  static_cast<uint64_t>(ERROR.lit) * 3u * 850u);
     HS_EXPECT_LE(ERROR.hard * 10, ERROR.lit);
     const auto ROUNDING = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
-        gs, true, false, true, true, true);
+        gs,
+        {.fixed_stencil = true, .center_pigment = true, .full_kernel = true});
     HS_EXPECT_GT(ROUNDING.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_LE(ROUNDING.coverage, MAX_COVERAGE_DIFFERENCES);
     HS_EXPECT_LE(ROUNDING.max_channel, 2048);
     HS_EXPECT_LE(ROUNDING.total_channel,
                  static_cast<uint64_t>(ROUNDING.lit) * 6u);
     const auto AGGREGATE =
-        GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true, false,
-                                                              true, false);
+        GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+            gs, {.fixed_stencil = true});
     HS_EXPECT_GT(AGGREGATE.lit, DEFAULT_W * DEFAULT_H / 100);
     std::printf(
         "GS nearest pigment frame=%d procedural_mae=%.2f procedural_max=%d "
@@ -1200,8 +1211,10 @@ inline void test_gs_nearest_pigment_shader_fidelity() {
                                      shimmer);
         GSWhiteBox::cached_palette(gs, 0, 0.0f, 0.0f);
         const auto EXTREME =
-            GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(gs, true,
-                                                                  true, false);
+            GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
+                gs, {.fixed_stencil = true,
+                     .direct_color = true,
+                     .aggregate_color = false});
         if (EXTREME.max_channel > 30000)
           std::printf(
               "GS nearest pigment extreme frame=%d hue=%.2f shimmer=%.2f max=%d\n",
@@ -1254,7 +1267,8 @@ inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
     if (frame != 4 && frame != 16 && frame != 40)
       continue;
     auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
-        gs, true, false, true, true, true);
+        gs,
+        {.fixed_stencil = true, .center_pigment = true, .full_kernel = true});
     HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
     HS_EXPECT_EQ(error.coverage, 0);
     HS_EXPECT_LE(error.max_channel, 2048);
@@ -1265,7 +1279,7 @@ inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
     GSWhiteBox::set_node(gs, i, 65535, b);
   }
   auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
-      gs, true, false, true, true, true);
+      gs, {.fixed_stencil = true, .center_pigment = true, .full_kernel = true});
   HS_EXPECT_EQ(error.coverage, 0);
   HS_EXPECT_LE(error.max_channel, 2048);
 }
