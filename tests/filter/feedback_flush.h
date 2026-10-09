@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Pixel::Feedback::flush through a live Canvas
+// Feedback rendering and spherical-field interpolation
 // ============================================================================
 
 /**
@@ -647,11 +647,11 @@ inline void test_feedback_spherical_ring_control_rows() {
 }
 
 /**
- * @brief Verifies the compact ring field has directionally balanced error.
- * @details The last bound anchors the compact field against metric_approximate,
- * a baseline stepping sin(phi)-scaled rows instead of reading the ring table.
+ * @brief Verifies equirectangular-offset interpolation on the compact ring field.
+ * @details Models bilinear offsets, including polar rows; Feedback uses cap-plane
+ * offsets there. The baseline steps sin(phi)-scaled rows without the ring table.
  */
-inline void test_feedback_spherical_field_angular_error() {
+inline void test_spherical_field_layout_angular_error() {
   constexpr int W = 288, H = 144;
   constexpr int DOWNSAMPLE = 4;
   constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
