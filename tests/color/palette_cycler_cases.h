@@ -323,6 +323,59 @@ inline void test_palette_cycler_hidden_advance_catches_up() {
   HS_EXPECT_EQ(full_provider_calls, hidden_provider_calls);
 }
 
+inline void test_palette_cycler_paused_hidden_advance_catches_up() {
+  const GenerativePalette first(PaletteRecipes::balanced_analogous(0.2f));
+  const GenerativePalette second(PaletteRecipes::balanced_analogous(0.7f));
+  const GenerativePalette tonal(PaletteRecipes::tonal_monochrome(0.4f));
+  for (const auto *target : {&second, &tonal}) {
+    const std::array<PaletteCycler::Entry, 2> entries = {{first, *target}};
+    for (int frames : {4, 8, 12}) {
+      alignas(std::max_align_t)
+          std::array<uint8_t, 2 * PaletteCycler::required_arena_bytes()>
+              buffer{};
+      Arena arena(buffer.data(), buffer.size());
+      bool paused = false;
+      PaletteCycler full, hidden;
+      full.init(arena, entries.data(), entries.size(), 3, 4, nullptr, &paused);
+      hidden.init(arena, entries.data(), entries.size(), 3, 4, nullptr,
+                  &paused);
+      for (int frame = 0; frame < frames; ++frame) {
+        full.step();
+        hidden.advance_without_display();
+      }
+      paused = true;
+      hidden.step();
+      expect_baked_equal(full.palette(), hidden.palette());
+      const uint32_t GENERATION = hidden.bake_generation();
+      hidden.step();
+      HS_EXPECT_EQ(hidden.bake_generation(), GENERATION);
+      expect_baked_equal(full.palette(), hidden.palette());
+    }
+  }
+  alignas(std::max_align_t)
+      std::array<uint8_t, 2 * PaletteCycler::generated_arena_bytes()>
+          buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  bool paused = false;
+  int full_calls = 0, hidden_calls = 0;
+  PaletteCycler full, hidden;
+  full.init_generated(arena, scripted_next_palette, &full_calls, 3, 4, nullptr,
+                      &paused);
+  hidden.init_generated(arena, scripted_next_palette, &hidden_calls, 3, 4,
+                        nullptr, &paused);
+  for (int frame = 0; frame < 4; ++frame) {
+    full.step();
+    hidden.advance_without_display();
+  }
+  paused = true;
+  hidden.step();
+  expect_baked_equal(full.palette(), hidden.palette());
+  HS_EXPECT_EQ(full_calls, hidden_calls);
+  const uint32_t GENERATION = hidden.bake_generation();
+  hidden.step();
+  HS_EXPECT_EQ(hidden.bake_generation(), GENERATION);
+}
+
 /** @brief The bake generation advances over a cycle and never holds still
  *         across a display-LUT change. */
 inline void test_palette_cycler_bake_generation() {

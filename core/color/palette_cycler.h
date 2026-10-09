@@ -205,7 +205,8 @@ public:
 
   /**
    * @brief Advances the cycle by one frame.
-   * @details Freezes while a wired pause flag is set. The step completing a
+   * @details The cycle clock freezes while a wired pause flag is set. A dirty
+   * display still rebuilds at its held phase. The step completing a
    * fade rebakes the display directly from the target entry, so the landing
    * is bit-exact regardless of easing endpoint behavior.
    */
@@ -318,9 +319,6 @@ public:
 private:
   __attribute__((always_inline)) inline bool
   advance_clock(bool update_display) {
-    if ((paused != nullptr && *paused) ||
-        (provider == nullptr && entry_count < 2))
-      return false;
     if (update_display && display_dirty && !fade_active) {
       if (provider != nullptr)
         rebake_display(*from_slot);
@@ -328,6 +326,9 @@ private:
         rebake_display_entry(entries[current]);
       display_dirty = false;
     }
+    if ((paused != nullptr && *paused) ||
+        (provider == nullptr && entry_count < 2))
+      return update_display && display_dirty && fade_active;
     ++frame;
     if (!fade_active) {
       if (frame >= dwell) {
