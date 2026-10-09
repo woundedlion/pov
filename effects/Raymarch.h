@@ -27,29 +27,34 @@ struct RaymarchWhiteBox;
 } // namespace hs_test
 
 /** Solids whose vertex counts fit Raymarch's copy and timeline capacity. */
+#define HS_RAYMARCH_PLACEMENT_LIST(X)                                          \
+  X(TETRAHEDRON)                                                               \
+  X(CUBE)                                                                      \
+  X(OCTAHEDRON)                                                                \
+  X(DODECAHEDRON)                                                              \
+  X(ICOSAHEDRON)                                                               \
+  X(TRUNCATED_TETRAHEDRON)                                                     \
+  X(CUBOCTAHEDRON)                                                             \
+  X(TRUNCATED_CUBE)                                                            \
+  X(TRUNCATED_OCTAHEDRON)                                                      \
+  X(RHOMBICUBOCTAHEDRON)                                                       \
+  X(SNUB_CUBE)                                                                 \
+  X(ICOSIDODECAHEDRON)                                                         \
+  X(TRIAKIS_TETRAHEDRON)                                                       \
+  X(RHOMBIC_DODECAHEDRON)                                                      \
+  X(TRIAKIS_OCTAHEDRON)                                                        \
+  X(TETRAKIS_HEXAHEDRON)                                                       \
+  X(DELTOIDAL_ICOSITETRAHEDRON)                                                \
+  X(DISDYAKIS_DODECAHEDRON)                                                    \
+  X(RHOMBIC_TRIACONTAHEDRON)                                                   \
+  X(TRIAKIS_ICOSAHEDRON)                                                       \
+  X(PENTAKIS_DODECAHEDRON)
+
 enum class RaymarchPlacementSolid : uint8_t {
-  TETRAHEDRON,
-  CUBE,
-  OCTAHEDRON,
-  DODECAHEDRON,
-  ICOSAHEDRON,
-  TRUNCATED_TETRAHEDRON,
-  CUBOCTAHEDRON,
-  TRUNCATED_CUBE,
-  TRUNCATED_OCTAHEDRON,
-  RHOMBICUBOCTAHEDRON,
-  SNUB_CUBE,
-  ICOSIDODECAHEDRON,
-  TRIAKIS_TETRAHEDRON,
-  RHOMBIC_DODECAHEDRON,
-  TRIAKIS_OCTAHEDRON,
-  TETRAKIS_HEXAHEDRON,
-  DELTOIDAL_ICOSITETRAHEDRON,
-  DISDYAKIS_DODECAHEDRON,
-  RHOMBIC_TRIACONTAHEDRON,
-  TRIAKIS_ICOSAHEDRON,
-  PENTAKIS_DODECAHEDRON,
-  COUNT
+#define HS_RAYMARCH_PLACEMENT_ENUM(name) name,
+  HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_ENUM)
+#undef HS_RAYMARCH_PLACEMENT_ENUM
+      COUNT
 };
 
 /** @brief Placement slot count, from the enum's COUNT sentinel. */
@@ -72,27 +77,6 @@ raymarch_placement_labels(const RaymarchPlacementTable &solids) {
   for (size_t i = 0; i < labels.size(); ++i)
     labels[i] = Solids::BASE_MESH_OPTIONS[static_cast<size_t>(solids[i])];
   return labels;
-}
-
-/**
- * @brief Whether every export literal names the enumerator the canonical
- *        BaseMesh export table names for that slot's solid.
- * @param solids BaseMesh each slot maps to.
- * @param export_options Export literals, one per slot; only the spelling after
- *   the enum-type prefix is compared, since the two tables name different enums.
- * @return True when every slot matches.
- */
-inline constexpr bool
-raymarch_exports_named(const RaymarchPlacementTable &solids,
-                       const char *const *export_options) {
-  for (size_t i = 0; i < solids.size(); ++i) {
-    const std::string_view mine(export_options[i]);
-    const std::string_view canonical(
-        Solids::BASE_MESH_EXPORT_OPTIONS[static_cast<size_t>(solids[i])]);
-    if (mine.substr(mine.rfind(':')) != canonical.substr(canonical.rfind(':')))
-      return false;
-  }
-  return true;
 }
 
 /** @brief Raymarch preset and live-control state. */
@@ -139,125 +123,23 @@ public:
   static constexpr size_t PLACEMENT_SOLID_COUNT =
       static_cast<size_t>(PlacementSolid::COUNT);
 
+#define HS_RAYMARCH_PLACEMENT_BASE(name) Solids::BaseMesh::name,
   static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
-      PLACEMENT_SOLIDS{Solids::BaseMesh::TETRAHEDRON,
-                       Solids::BaseMesh::CUBE,
-                       Solids::BaseMesh::OCTAHEDRON,
-                       Solids::BaseMesh::DODECAHEDRON,
-                       Solids::BaseMesh::ICOSAHEDRON,
-                       Solids::BaseMesh::TRUNCATED_TETRAHEDRON,
-                       Solids::BaseMesh::CUBOCTAHEDRON,
-                       Solids::BaseMesh::TRUNCATED_CUBE,
-                       Solids::BaseMesh::TRUNCATED_OCTAHEDRON,
-                       Solids::BaseMesh::RHOMBICUBOCTAHEDRON,
-                       Solids::BaseMesh::SNUB_CUBE,
-                       Solids::BaseMesh::ICOSIDODECAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_TETRAHEDRON,
-                       Solids::BaseMesh::RHOMBIC_DODECAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_OCTAHEDRON,
-                       Solids::BaseMesh::TETRAKIS_HEXAHEDRON,
-                       Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON,
-                       Solids::BaseMesh::DISDYAKIS_DODECAHEDRON,
-                       Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON,
-                       Solids::BaseMesh::TRIAKIS_ICOSAHEDRON,
-                       Solids::BaseMesh::PENTAKIS_DODECAHEDRON};
-
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::TETRAHEDRON)] ==
-      Solids::BaseMesh::TETRAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::CUBE)] ==
-                Solids::BaseMesh::CUBE);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::OCTAHEDRON)] ==
-      Solids::BaseMesh::OCTAHEDRON);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::DODECAHEDRON)] ==
-      Solids::BaseMesh::DODECAHEDRON);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::ICOSAHEDRON)] ==
-      Solids::BaseMesh::ICOSAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TRUNCATED_TETRAHEDRON)] ==
-                Solids::BaseMesh::TRUNCATED_TETRAHEDRON);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::CUBOCTAHEDRON)] ==
-      Solids::BaseMesh::CUBOCTAHEDRON);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::TRUNCATED_CUBE)] ==
-      Solids::BaseMesh::TRUNCATED_CUBE);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TRUNCATED_OCTAHEDRON)] ==
-                Solids::BaseMesh::TRUNCATED_OCTAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::RHOMBICUBOCTAHEDRON)] ==
-                Solids::BaseMesh::RHOMBICUBOCTAHEDRON);
-  static_assert(
-      PLACEMENT_SOLIDS[static_cast<size_t>(PlacementSolid::SNUB_CUBE)] ==
-      Solids::BaseMesh::SNUB_CUBE);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::ICOSIDODECAHEDRON)] ==
-                Solids::BaseMesh::ICOSIDODECAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TRIAKIS_TETRAHEDRON)] ==
-                Solids::BaseMesh::TRIAKIS_TETRAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::RHOMBIC_DODECAHEDRON)] ==
-                Solids::BaseMesh::RHOMBIC_DODECAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TRIAKIS_OCTAHEDRON)] ==
-                Solids::BaseMesh::TRIAKIS_OCTAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TETRAKIS_HEXAHEDRON)] ==
-                Solids::BaseMesh::TETRAKIS_HEXAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::DELTOIDAL_ICOSITETRAHEDRON)] ==
-                Solids::BaseMesh::DELTOIDAL_ICOSITETRAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::DISDYAKIS_DODECAHEDRON)] ==
-                Solids::BaseMesh::DISDYAKIS_DODECAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::RHOMBIC_TRIACONTAHEDRON)] ==
-                Solids::BaseMesh::RHOMBIC_TRIACONTAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::TRIAKIS_ICOSAHEDRON)] ==
-                Solids::BaseMesh::TRIAKIS_ICOSAHEDRON);
-  static_assert(PLACEMENT_SOLIDS[static_cast<size_t>(
-                    PlacementSolid::PENTAKIS_DODECAHEDRON)] ==
-                Solids::BaseMesh::PENTAKIS_DODECAHEDRON);
+      PLACEMENT_SOLIDS{HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_BASE)};
+#undef HS_RAYMARCH_PLACEMENT_BASE
 
   /** @brief Picker labels, read out of the canonical BaseMesh table. */
   static constexpr std::array<const char *, PLACEMENT_SOLID_COUNT>
       PLACEMENT_SOLID_OPTIONS = raymarch_placement_labels(PLACEMENT_SOLIDS);
 
+#define HS_RAYMARCH_PLACEMENT_EXPORT(name) "RaymarchPlacementSolid::" #name,
   static constexpr const char *PLACEMENT_SOLID_EXPORT_OPTIONS[] = {
-      "RaymarchPlacementSolid::TETRAHEDRON",
-      "RaymarchPlacementSolid::CUBE",
-      "RaymarchPlacementSolid::OCTAHEDRON",
-      "RaymarchPlacementSolid::DODECAHEDRON",
-      "RaymarchPlacementSolid::ICOSAHEDRON",
-      "RaymarchPlacementSolid::TRUNCATED_TETRAHEDRON",
-      "RaymarchPlacementSolid::CUBOCTAHEDRON",
-      "RaymarchPlacementSolid::TRUNCATED_CUBE",
-      "RaymarchPlacementSolid::TRUNCATED_OCTAHEDRON",
-      "RaymarchPlacementSolid::RHOMBICUBOCTAHEDRON",
-      "RaymarchPlacementSolid::SNUB_CUBE",
-      "RaymarchPlacementSolid::ICOSIDODECAHEDRON",
-      "RaymarchPlacementSolid::TRIAKIS_TETRAHEDRON",
-      "RaymarchPlacementSolid::RHOMBIC_DODECAHEDRON",
-      "RaymarchPlacementSolid::TRIAKIS_OCTAHEDRON",
-      "RaymarchPlacementSolid::TETRAKIS_HEXAHEDRON",
-      "RaymarchPlacementSolid::DELTOIDAL_ICOSITETRAHEDRON",
-      "RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON",
-      "RaymarchPlacementSolid::RHOMBIC_TRIACONTAHEDRON",
-      "RaymarchPlacementSolid::TRIAKIS_ICOSAHEDRON",
-      "RaymarchPlacementSolid::PENTAKIS_DODECAHEDRON"};
+      HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_EXPORT)};
+#undef HS_RAYMARCH_PLACEMENT_EXPORT
+#undef HS_RAYMARCH_PLACEMENT_LIST
 
   static_assert(std::size(PLACEMENT_SOLID_EXPORT_OPTIONS) ==
                 PLACEMENT_SOLID_COUNT);
-  static_assert(raymarch_exports_named(PLACEMENT_SOLIDS,
-                                       PLACEMENT_SOLID_EXPORT_OPTIONS),
-                "a Raymarch export literal names a different solid than its "
-                "PLACEMENT_SOLIDS entry");
 
   static constexpr float PULSE_SPEED_MIN = 0.0f;
   static constexpr float PULSE_SPEED_MAX = 10.0f;
