@@ -493,7 +493,7 @@ protected:
    * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
    * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
    * @details dual(P) is deferred to leg 3 so it never co-resides with the
-   * medial leg's peak. Each leg's scheduler compacts the arena before it runs.
+   * medial leg's peak. The caller compacts the arena before leg 1.
    * @param done Build stage entered after the closing leg.
    */
   HS_COLD_MEMBER void schedule_dual_bridge(BuildContinuation done) {
