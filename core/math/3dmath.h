@@ -33,7 +33,7 @@ __attribute__((always_inline)) inline float unit_bell(float t) {
   return 1.0f - unit_cup(t);
 }
 
-/** Exact 2^96 scale lifts subnormal divisors before squaring. */
+/** Exact 2^96 lift for divisors whose squared magnitude underflows the normal range. */
 inline constexpr float COMPLEX_UNDERFLOW_LIFT = 0x1p96f;
 
 /**
