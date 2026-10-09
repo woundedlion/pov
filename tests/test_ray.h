@@ -46,7 +46,7 @@ struct ThinNeighbors {
   }
 };
 
-/** @brief Pins camera. */
+/** @brief Camera transforms and normal projection obey the embedding contract and reject invalid state. */
 inline void test_camera() {
   Raycast::PreparedCamera camera;
   camera.center = {{4.0f, 5.0f, 6.0f, 0.0f}};
@@ -78,7 +78,7 @@ inline void test_camera() {
   HS_EXPECT_TRUE(!camera.valid());
 }
 
-/** @brief Pins surface boundaries. */
+/** @brief Sphere searches resolve entry, exit and on-surface starts while rejecting unsupported interior starts. */
 inline void test_surface_boundaries() {
   const Sphere SPHERE;
   const Raycast::VolumeQuery QUERY{
@@ -111,7 +111,7 @@ inline void test_surface_boundaries() {
   HS_EXPECT_TRUE(!result.has_surface);
 }
 
-/** @brief Pins bounded failures. */
+/** @brief Search failures preserve query and step budgets and reject invalid samples. */
 inline void test_bounded_failures() {
   const Raycast::Ray RAY{math::Vector(), math::Vector(1, 0, 0), {0, 6}};
   auto result = Raycast::surface_search(ConstantQuery{}, RAY, {});
@@ -140,7 +140,7 @@ inline void test_bounded_failures() {
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
-/** @brief Pins slice no phantom. */
+/** @brief An off-slice ball produces no surface while an intersecting slice matches its analytic root. */
 inline void test_slice_no_phantom() {
   Raycast::PreparedCamera camera;
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
@@ -160,7 +160,7 @@ inline void test_slice_no_phantom() {
   HS_EXPECT_NEAR(CUT.contribution.t, 2.0f - sqrtf(0.75f), 1e-4f);
 }
 
-/** @brief Pins placement and shapes. */
+/** @brief Placed and warped shapes resolve their first surface and reject invalid transforms. */
 inline void test_placement_and_shapes() {
   const Sphere SPHERE;
   const Raycast::VolumeQuery QUERY{
@@ -207,7 +207,7 @@ inline void test_placement_and_shapes() {
     HS_EXPECT_TRUE(WARPED.distance(DISPLACED_RAY.at(HIT * k / 64.0f)) > 0.0f);
 }
 
-/** @brief Pins first boundary and tolerances. */
+/** @brief Search resolves the first in-range thin boundary within the configured position tolerance. */
 inline void test_first_boundary_and_tolerances() {
   const ThinNeighbors NEIGHBORS;
   const Raycast::VolumeQuery QUERY{
@@ -245,7 +245,7 @@ inline void test_first_boundary_and_tolerances() {
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
 }
 
-/** @brief Pins limits and nonfinite. */
+/** @brief Zero layer and refinement budgets stop work and invalid footprints are rejected. */
 inline void test_limits_and_nonfinite() {
   HS_EXPECT_TRUE(!Raycast::finite(NAN));
   HS_EXPECT_TRUE(!Raycast::finite(INFINITY));
@@ -265,7 +265,7 @@ inline void test_limits_and_nonfinite() {
   HS_EXPECT_EQ(result.status, Raycast::TraceStatus::INVALID_QUERY);
 }
 
-/** @brief Pins nested query validation once. */
+/** @brief Nested query wrappers validate the underlying query once across repeated samples. */
 inline void test_nested_query_validation_once() {
   struct CountedQuery : ConstantQuery {
     mutable int validations = 0;

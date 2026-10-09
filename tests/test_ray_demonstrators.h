@@ -31,7 +31,7 @@ inline void test_appearance_palette_interval() {
   HS_EXPECT_FALSE(appearance.valid_for({0.0f, 10.0f}));
 }
 
-/** @brief Pins octet crossing coverage against ray line distance. */
+/** @brief Octet crossing coverage matches an independent ray-to-line distance reference. */
 inline void test_octet_crossing_coverage_against_ray_line_distance() {
   int compared = 0;
   int hits = 0;
@@ -118,7 +118,7 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
   HS_EXPECT_GT(hits, compared / 20);
 }
 
-/** @brief Pins framework generic event rendering. */
+/** @brief Framework events emit ordered crossings with expected distance, coverage and verification state. */
 inline void test_framework_generic_event_rendering() {
   SDF::TriangularFramework geometry;
   Raycast::TraceLimits limits;
@@ -178,7 +178,7 @@ struct CloseStreams {
   void advance(size_t i) { ++indices[i]; }
 };
 
-/** @brief Pins repeated stream grouping preserves order and endpoints. */
+/** @brief Repeated event groups preserve sorted output and terminal endpoints. */
 inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
   CloseStreams events;
   Raycast::TraceLimits limits;
@@ -204,7 +204,7 @@ inline void test_repeated_stream_grouping_preserves_order_and_endpoints() {
     HS_EXPECT_GE(output[i].t, output[i - 1].t);
 }
 
-/** @brief Pins lattice volume camera demonstrators. */
+/** @brief Lattice cameras resolve analytic entry and exit distances and reject empty 4D slices. */
 inline void test_lattice_volume_camera_demonstrators() {
   Raycast::PreparedCamera camera;
   camera.center = {{0.3f, 0.2f, 0.0f, 0.0f}};
@@ -349,7 +349,7 @@ void check_placed_volume_stage(const Shape &shape,
   HS_EXPECT_NE(hashes[0], hashes[1]);
 }
 
-/** @brief Pins torus and warped volume spherical stage. */
+/** @brief Placed torus stages preserve direct trace shading and respond to pose changes. */
 inline void test_torus_and_warped_volume_spherical_stage() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
@@ -375,7 +375,7 @@ struct OffSliceBall {
   }
 };
 
-/** @brief Pins verified filter off slice geometry and projected normal. */
+/** @brief Verified filtering suppresses off-slice geometry and preserves partial-hit coverage and failure state. */
 inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   Raycast::PreparedCamera camera;
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
@@ -418,7 +418,7 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   HS_EXPECT_EQ(PARTIAL.color.color.r, uint16_t{40000});
 }
 
-/** @brief Pins periodic shell roots and slices. */
+/** @brief Periodic-shell roots match analytic sphere chords and reject disjoint slices. */
 inline void test_periodic_shell_roots_and_slices() {
   SDF::PeriodicShells geometry{2, .3f};
   const auto SPHERE = geometry.intersect({{-2, 0, 0, 0}}, {{1, 0, 0, 0}}, 3);
@@ -434,7 +434,7 @@ inline void test_periodic_shell_roots_and_slices() {
   HS_EXPECT_NEAR(INSIDE.far, .6f, 1e-6f);
 }
 
-/** @brief Pins periodic shell traversal budgets. */
+/** @brief Shell traversal clips intervals, respects budgets and projects slice antialias coverage. */
 inline void test_periodic_shell_traversal_budgets() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
@@ -518,7 +518,7 @@ inline void test_periodic_shell_traversal_budgets() {
   HS_EXPECT_EQ(OFF_SLICE.trace.counters.layers, 0);
 }
 
-/** @brief Pins prepared shells match sphere roots. */
+/** @brief Prepared shell hits match analytic roots with unit normals and reject invalid embeddings. */
 inline void test_prepared_shells_match_sphere_roots() {
   alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
       buffer;
