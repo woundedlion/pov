@@ -207,3 +207,48 @@ inline void test_cap_may_touch_clip_is_conservative() {
   HS_EXPECT_GT(rejects, 100);
   HS_EXPECT_GT(reaches, 100);
 }
+
+/**
+ * @brief Checks one for_each_chunk_span walk against chunk_end and the mask.
+ * @tparam CHUNKS Chunk count under test.
+ */
+template <int CHUNKS> inline void check_chunk_spans(int lut_n, uint32_t mask) {
+  HS_CONTEXT("chunks / lut_n", CHUNKS, lut_n);
+  struct Span {
+    int begin, end;
+    bool visible;
+  };
+  std::vector<Span> spans;
+  Plot::for_each_chunk_span<CHUNKS>(
+      lut_n, mask,
+      [&](int begin, int end) { spans.push_back({begin, end, true}); },
+      [&](int begin, int end) { spans.push_back({begin, end, false}); });
+  HS_EXPECT_EQ(static_cast<int>(spans.size()), CHUNKS);
+  if (static_cast<int>(spans.size()) != CHUNKS)
+    return;
+  for (int c = 0; c < CHUNKS; ++c) {
+    const int begin = (c * lut_n + CHUNKS - 1) / CHUNKS;
+    HS_EXPECT_EQ(spans[c].begin, begin);
+    HS_EXPECT_EQ(spans[c].end, Plot::chunk_end<CHUNKS>(c, lut_n));
+    HS_EXPECT_EQ(spans[c].visible, ((mask >> c) & 1u) != 0);
+    if (c > 0)
+      HS_EXPECT_EQ(spans[c].begin, spans[c - 1].end);
+  }
+  HS_EXPECT_EQ(spans.front().begin, 0);
+  HS_EXPECT_EQ(spans.back().end, lut_n);
+}
+
+/**
+ * @brief Verifies for_each_chunk_span tiles [0, lut_n) in chunk order and
+ *        routes each chunk by its mask bit.
+ */
+inline void test_for_each_chunk_span_tiles_columns() {
+  const uint32_t masks[] = {0u, 0xFFFFFFFFu, 0x5u, 0xA5A5A5A5u, 0x80000001u};
+  for (int lut_n : {0, 1, 5, 16, 17, 31, 32, 33, 100, 288}) {
+    for (uint32_t mask : masks) {
+      check_chunk_spans<1>(lut_n, mask & 1u);
+      check_chunk_spans<16>(lut_n, mask & 0xFFFFu);
+      check_chunk_spans<32>(lut_n, mask);
+    }
+  }
+}

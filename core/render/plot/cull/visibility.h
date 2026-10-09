@@ -370,6 +370,32 @@ template <int CHUNKS> constexpr int chunk_end(int c, int lut_n) {
 }
 
 /**
+ * @brief Visits the column span of every chunk in a chunk mask, in order.
+ * @tparam CHUNKS Number of chunks, in [1, 32].
+ * @param lut_n Total column count.
+ * @param mask Bit c marks chunk c visible.
+ * @param on_visible Called as on_visible(begin, end) for a visible chunk.
+ * @param on_hidden Called as on_hidden(begin, end) for a hidden chunk.
+ * @details Chunk c spans [chunk_end(c - 1), chunk_end(c)), with chunk -1 ending
+ * at 0, so the spans tile [0, lut_n). A span is empty when lut_n < CHUNKS.
+ */
+template <int CHUNKS, typename OnVisible, typename OnHidden>
+__attribute__((always_inline)) inline void
+for_each_chunk_span(int lut_n, uint32_t mask, OnVisible &&on_visible,
+                    OnHidden &&on_hidden) {
+  static_assert(CHUNKS > 0 && CHUNKS <= 32);
+  int begin = 0;
+  for (int c = 0; c < CHUNKS; ++c) {
+    const int end = chunk_end<CHUNKS>(c, lut_n);
+    if (mask & (1u << c))
+      on_visible(begin, end);
+    else
+      on_hidden(begin, end);
+    begin = end;
+  }
+}
+
+/**
  * @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding.
  * @tparam H Canvas height.
  * @tparam CHUNKS Number of azimuth chunks, in [1, 31].

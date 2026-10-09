@@ -232,13 +232,11 @@ private:
     if (!use_hue_table)
       return;
     int visible_samples = 0;
-    int x_begin = 0;
-    for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-      if (visible & (1u << c))
-        visible_samples += x_end - x_begin;
-      x_begin = x_end;
-    }
+    Plot::for_each_chunk_span<BAKE_CHUNKS>(
+        lut_n, visible,
+        [&](int begin, int end)
+            __attribute__((always_inline)) { visible_samples += end - begin; },
+        [](int, int) __attribute__((always_inline)) {});
     precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
     cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
     hue_domain =
@@ -372,19 +370,16 @@ private:
         // rasterized pixels off their columns. Their shifts are zeroed:
         // DistortedRing scans every knot for its shift bounds.
         float max_shift = 0.0f;
-        {
-          int x = 0;
-          for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-            if (visible & (1u << c)) {
-              for (; x < x_end; ++x)
+        Plot::for_each_chunk_span<BAKE_CHUNKS>(
+            lut_n, visible,
+            [&](int begin, int end) __attribute__((always_inline)) {
+              for (int x = begin; x < end; ++x)
                 max_shift = fmaxf(max_shift, std::fabs(slut[x]));
-            } else {
-              for (; x < x_end; ++x)
+            },
+            [&](int begin, int end) __attribute__((always_inline)) {
+              for (int x = begin; x < end; ++x)
                 slut[x] = 0.0f;
-            }
-          }
-        }
+            });
 
         bool use_hue_table;
         bool precompute_hue_table;
@@ -416,18 +411,13 @@ private:
           return hue_rotate(hue_base, amount).color;
         };
 
-        {
-          int x = 0;
-          for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-            if (visible & (1u << c)) {
-              for (; x < x_end; ++x)
+        Plot::for_each_chunk_span<BAKE_CHUNKS>(
+            lut_n, visible,
+            [&](int begin, int end) __attribute__((always_inline)) {
+              for (int x = begin; x < end; ++x)
                 hlut[x] = hue_for_shift(slut[x]);
-            } else {
-              x = x_end;
-            }
-          }
-        }
+            },
+            [](int, int) __attribute__((always_inline)) {});
         slut[lut_n] = slut[0];
         hlut[lut_n] = hlut[0];
       }
@@ -466,6 +456,22 @@ private:
   }
 
   /**
+   * @brief Sets knot_visible[x] to whether knot x lies in a visible chunk.
+   * @param lut_n Knot count.
+   * @param visible Chunk mask from Plot::visible_chunk_mask.
+   */
+  __attribute__((always_inline)) void mark_visible_knots(int lut_n,
+                                                         uint32_t visible) {
+    int x = 0;
+    for (int c = 0; c < BAKE_CHUNKS; ++c) {
+      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
+      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
+      for (; x < x_end; ++x)
+        knot_visible[x] = v;
+    }
+  }
+
+  /**
    * @brief Bakes one ring's centerline shifts with each noise octave sampled on
    *        its own knot grid.
    * @param np The noise field's single active entity.
@@ -491,13 +497,7 @@ private:
                      uint32_t visible, int n_local, float *slut) {
     constexpr int D1 = OCTAVE1_STRIDE;
     constexpr int D2 = OCTAVE2_STRIDE;
-    int x = 0;
-    for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
-      for (; x < x_end; ++x)
-        knot_visible[x] = v;
-    }
+    mark_visible_knots(lut_n, visible);
     auto wrap = [lut_n](int k) {
       return k < 0 ? k + lut_n : k >= lut_n ? k - lut_n : k;
     };
@@ -506,7 +506,7 @@ private:
     int in_window = 0;
     for (int o = -REACH; o <= REACH; ++o)
       in_window += knot_visible[wrap(o)];
-    for (x = 0; x < lut_n; ++x) {
+    for (int x = 0; x < lut_n; ++x) {
       knot_near[x] = in_window > 0;
       in_window +=
           knot_visible[wrap(x + REACH + 1)] - knot_visible[wrap(x - REACH)];
@@ -515,7 +515,7 @@ private:
     HS_PROFILE(df_octave_noise);
     float cos_a = 1.0f;
     float sin_a = 0.0f;
-    for (x = 0; x < lut_n; ++x) {
+    for (int x = 0; x < lut_n; ++x) {
       const bool vis = knot_visible[x] != 0;
       const bool near = knot_near[x] != 0;
       const bool g1 = near && x % D1 == 0;
@@ -551,7 +551,7 @@ private:
                        t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 +
                             t * (3.0f * (p1 - p2) + p3 - p0)));
     };
-    for (x = 0; x < lut_n; ++x)
+    for (int x = 0; x < lut_n; ++x)
       if (knot_visible[x])
         slut[x] = slut[x] + np.amplitude * sample(octave1, D1, x) *
                                 sample(octave2, D2, x);
@@ -602,16 +602,10 @@ private:
     constexpr float COS_MARGIN = 2e-4f;
     float *num = octave1;
     float *den = octave2;
-    int x = 0;
-    for (int c = 0; c < BAKE_CHUNKS; ++c) {
-      const int x_end = Plot::chunk_end<BAKE_CHUNKS>(c, lut_n);
-      const uint8_t v = static_cast<uint8_t>((visible >> c) & 1u);
-      for (; x < x_end; ++x)
-        knot_visible[x] = v;
-    }
+    mark_visible_knots(lut_n, visible);
     float cos_a = 1.0f;
     float sin_a = 0.0f;
-    for (x = 0; x < lut_n; ++x) {
+    for (int x = 0; x < lut_n; ++x) {
       if (knot_visible[x]) {
         knot_pos[x] =
             (basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
@@ -658,7 +652,7 @@ private:
       }
     }
 
-    for (x = 0; x < lut_n; ++x)
+    for (int x = 0; x < lut_n; ++x)
       if (knot_visible[x])
         slut[x] = DominantFieldAccumulator::resolve(num[x], den[x]) +
                   noise_field.field(knot_pos[x]);
