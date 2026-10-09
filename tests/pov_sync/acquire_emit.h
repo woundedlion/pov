@@ -366,7 +366,7 @@ inline void test_emitter() {
   }
 }
 
-/** @brief Pins master beacon busy retry. */
+/** @brief A busy beacon is counted once and retried after the pending boundary clears. */
 inline void test_master_beacon_busy_retry() {
   const Config cfg = test_config();
   SyncBoard board(cfg);
