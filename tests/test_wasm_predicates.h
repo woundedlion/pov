@@ -453,7 +453,7 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
   // The real scratch high-water must fit the guard's per-element price.
   HS_EXPECT_LE(
       std::max(target.get_high_water_mark(), temp.get_high_water_mark()),
-      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT * row->bounds.elements *
+      hs_wasm::TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT * row->bounds.elements *
           in_elements);
 
   // What the tooling arena retains per live wrapper: the finalized copy plus the
@@ -462,7 +462,7 @@ inline void check_mesh_op_growth(const MeshOpProbe &probe, const PolyMesh &in,
   PolyMesh kept = Solids::finalize_solid(out, finalized);
   MeshOps::classify_faces_by_topology(kept, target, temp, finalized);
   HS_EXPECT_LE(finalized.get_offset(),
-               hs_wasm::TOOLING_ARENA_BYTES_PER_MESH_ELEMENT * out_elements);
+               hs_wasm::TOOLING_RETAINED_BYTES_PER_MESH_ELEMENT * out_elements);
 }
 
 /**
@@ -571,7 +571,7 @@ inline void test_mesh_op_growth_factors() {
 inline void test_mesh_op_growth_near_capacity() {
   constexpr size_t MAX_ELEMENTS = 65532;
   constexpr size_t SCRATCH_BYTES =
-      hs_wasm::TOOLING_BYTES_PER_MESH_ELEMENT * MAX_ELEMENTS;
+      hs_wasm::TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT * MAX_ELEMENTS;
   std::vector<uint8_t> input_bytes(SCRATCH_BYTES), target_bytes(SCRATCH_BYTES),
       temp_bytes(SCRATCH_BYTES), finalized_bytes(SCRATCH_BYTES);
   Arena input(input_bytes.data(), input_bytes.size());

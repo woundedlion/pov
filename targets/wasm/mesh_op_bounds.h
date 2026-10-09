@@ -75,14 +75,14 @@ inline constexpr MeshOpBounds SNUB_BOUNDS{5, 1, 1};
  * @details The heaviest operator keeps an intermediate mesh, its output and its
  *          index scratch live in one arena.
  */
-inline constexpr size_t TOOLING_BYTES_PER_MESH_ELEMENT = 64;
+inline constexpr size_t TOOLING_SCRATCH_BYTES_PER_MESH_ELEMENT = 64;
 
 /**
  * @brief Tooling-arena bytes a finalized mesh retains per element.
  * @details Covers the vertex, side count, index and the topology code
  *          classifyFaces() binds into the same arena, plus alignment slack.
  */
-inline constexpr size_t TOOLING_ARENA_BYTES_PER_MESH_ELEMENT = 20;
+inline constexpr size_t TOOLING_RETAINED_BYTES_PER_MESH_ELEMENT = 20;
 
 /** @brief One operator's declared growth factors, by name. */
 struct MeshOpBoundsEntry {
