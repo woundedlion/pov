@@ -305,8 +305,10 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
  * @param ts Output, up to GEODESIC_CLIP_MAX_SPLITS fractions in (0, 1),
  *        ascending and separated enough that no piece is degenerate.
  * @return Number of fractions written.
- * @details Every resulting piece lies wholly inside or wholly outside the
- * render band, with cuts placed CLIP_CUT_COL_PAD / CLIP_CUT_ROW_PAD outside it.
+ * @details Every resulting piece lies wholly inside or wholly outside the row
+ * band, and the column band when `es.azimuth_bounded`; azimuth-unbounded edges
+ * get no column cuts. Cuts sit CLIP_CUT_COL_PAD / CLIP_CUT_ROW_PAD outside the
+ * band.
  * Both solves run against pos(ang) = a·cos(ang) + cross(axis, a)·sin(ang) over
  * the TrigLUT boundary directions: a meridian half-plane is met at most once
  * (one atan2), a latitude row at most twice (one acos). A cut misplaced by fast
