@@ -510,8 +510,9 @@ protected:
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per neighbor index.
-   * @details Reads all RD_K slots unguarded; init_lattice verifies every slot
-   * is a valid node index.
+   * @details Reads all RD_K slots unguarded. init_lattice validates
+   * `ReactionGraph::neighbors`; the Compact run encoding is checked against
+   * that table only by `test_neighbor_runs_match_table`.
    */
   template <bool Compact = false, typename Fn>
   static void for_each_neighbor(int node, Fn &&fn) {
