@@ -299,14 +299,14 @@ private:
     for (const auto &attractor : particle_system.attractors) {
       const float cos_distance = math::dot(pos, attractor.position);
       const math::Vector toward = attractor.position - pos * cos_distance;
-      const float tangent_length = toward.magnitude();
+      const float tangent_sq = math::dot(toward, toward);
       const float dist_sq = math::distance_squared(pos, attractor.position);
       if (dist_sq > Animation::ATTRACTOR_MIN_DISTANCE_SQ &&
-          tangent_length > math::EPS_NORMALIZE_SQ)
+          tangent_sq > math::EPS_NORMALIZE_SQ)
         inward_acceleration -=
             particle_system.gravity * attractor.strength *
             math::dot(toward, outward) /
-            ((dist_sq + attractor.softening_sq) * tangent_length);
+            ((dist_sq + attractor.softening_sq) * sqrtf(tangent_sq));
     }
     return sqrtf(fmaxf(inward_acceleration * tanf(ring), 0.0f));
   }
