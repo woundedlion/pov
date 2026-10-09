@@ -6,9 +6,9 @@
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include <cstring>
 #include "math/spherical_field.h"
 #include "memory.h"
+#include "render/filter/feedback_cap_plane.h"
 #include "render/filter/feedback_style.h"
 #include "render/filter/pipeline.h"
 
@@ -35,6 +35,10 @@ namespace Pixel {
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
+  using CapPlane = FeedbackCapPlane<W, H>;
+  using CapOffset = typename CapPlane::CapOffset;
+  using CapPoint = typename CapPlane::CapPoint;
+  using CapCell = typename CapPlane::CapCell;
 
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's). Other values render uncached. */
@@ -249,12 +253,6 @@ private:
   struct WarpControl {
     int16_t x;
     int16_t y;
-  };
-
-  /** @brief An offset in a pole's cap plane, CAP_SCALE units per radian. */
-  struct CapOffset {
-    int16_t u;
-    int16_t v;
   };
 
   struct WarpField {
@@ -494,10 +492,10 @@ private:
           const PolarRings &polar = grid.polar;
           if (index < polar.north_samples || index >= polar.south_sample) {
             const bool south = index >= polar.south_sample;
-            const CapPoint from = cap_point(position, south);
-            const CapPoint to = cap_point(distorted, south);
+            const CapPoint from = CapPlane::cap_point(position, south);
+            const CapPoint to = CapPlane::cap_point(distorted, south);
             warp.sample_caps[polar.slot(index)] =
-                encode_cap(to.u - from.u, to.v - from.v);
+                CapPlane::encode_cap(to.u - from.u, to.v - from.v);
           }
           const auto projected = grid.field.project(distorted);
           const auto origin = origins
@@ -542,12 +540,7 @@ private:
             const CapOffset db =
                 warp.sample_caps[grid.polar.slot(longitude.right)];
             warp.cell_caps[grid.polar.row(field_y) * grid.columns + coarse_x] =
-                {static_cast<int16_t>(hs::lerp(static_cast<float>(da.u),
-                                               static_cast<float>(db.u),
-                                               longitude.mix)),
-                 static_cast<int16_t>(hs::lerp(static_cast<float>(da.v),
-                                               static_cast<float>(db.v),
-                                               longitude.mix))};
+                CapPlane::lerp_offset(da, db, longitude.mix);
           }
         }
       }
@@ -878,7 +871,6 @@ private:
         SphereField::Geometry::row_to_phi(static_cast<float>(y));
     const float cap_angle = north ? colatitude : math::PI_F - colatitude;
     const bool black_skips_color = ctx.black_skips_color;
-    constexpr float INVERSE_CAP = 1.0f / CAP_SCALE;
     const auto blend = blend_alpha(ctx.alpha);
     const bool plain_store = ctx.alpha >= 1.0f || defer_filter;
     for (int r = 0; r < ctx.runs.count; ++r) {
@@ -891,20 +883,13 @@ private:
       for (int x = xs; x < xe;) {
         if (cell_stale) {
           const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
-          const float left_u =
-              (caps0[cx0].u * wy0 + caps1[cx0].u * wy1) * INVERSE_CAP;
-          const float left_v =
-              (caps0[cx0].v * wy0 + caps1[cx0].v * wy1) * INVERSE_CAP;
-          cell = {
-              {left_u, left_v},
-              {(caps0[cx1].u * wy0 + caps1[cx1].u * wy1) * INVERSE_CAP - left_u,
-               (caps0[cx1].v * wy0 + caps1[cx1].v * wy1) * INVERSE_CAP -
-                   left_v}};
+          cell = CapPlane::decode_cell(caps0, caps1, cx0, cx1, wy0, wy1);
           cell_stale = false;
         }
 
-        const auto at = polar_lane(cell, x, cap_angle, north, half_res,
-                                   (sub + lane_offset) * inverse_downsample);
+        const auto at =
+            CapPlane::polar_lane(cell, x, cap_angle, north, half_res,
+                                 (sub + lane_offset) * inverse_downsample);
         const Sample s = sample_bilinear_prev(grid.field, ctx.previous,
                                               ctx.poles, at.x, at.y);
         ::Pixel p(0, 0, 0);
@@ -954,120 +939,6 @@ private:
   static constexpr float WARP_SCALE = 128.0f;
   /** @brief Column offsets in WARP_SCALE units, one full turn apart. */
   static constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
-
-  /** @brief Cap-plane offset units per radian. */
-  static constexpr float CAP_SCALE = 8192.0f;
-
-  /** @brief A point in a pole's cap plane: the angle from that pole, in
-   *  radians, laid along the point's longitude. */
-  struct CapPoint {
-    float u;
-    float v;
-  };
-
-  /** @brief Cap-plane coordinates of a direction, from the north pole or,
-   *  with @p south, from the south pole. */
-  __attribute__((noinline)) static CapPoint cap_point(const math::Vector &v,
-                                                      bool south) {
-    const float horizontal = sqrtf(v.x * v.x + v.z * v.z);
-    if (!(horizontal > 1e-9f))
-      return {0.0f, 0.0f};
-    const float scale =
-        math::precise_atan2(horizontal, south ? -v.y : v.y) / horizontal;
-    return {v.x * scale, v.z * scale};
-  }
-
-  static CapOffset encode_cap(float u, float v) {
-    auto quantize = [](float c) {
-      const float scaled = hs::clamp(c * CAP_SCALE, -32767.0f, 32767.0f);
-      return static_cast<int16_t>(scaled + (scaled < 0.0f ? -0.5f : 0.5f));
-    };
-    return {quantize(u), quantize(v)};
-  }
-
-  /** @brief A polar cell's cap-plane offset at its left edge and its change
-   *  across the cell, both blended between the cell's two rings. */
-  struct CapCell {
-    CapPoint left;
-    CapPoint slope;
-  };
-
-  /** @brief One arctangent's ratio terms and the octant folds it needs. */
-  struct AtanTerms {
-    float numerator;
-    float denominator;
-    bool steep;
-    bool negative_x;
-    bool negative_y;
-  };
-
-  static __attribute__((always_inline)) AtanTerms atan_terms(float y, float x) {
-    uint32_t y_bits, x_bits;
-    std::memcpy(&y_bits, &y, sizeof(y_bits));
-    std::memcpy(&x_bits, &x, sizeof(x_bits));
-    // Sign-cleared bit patterns order like the magnitudes.
-    const bool steep = (y_bits & 0x7fffffffu) > (x_bits & 0x7fffffffu);
-    const float abs_y = fabsf(y), abs_x = fabsf(x);
-    // A floor on the denominator keeps a pair's shared product normal; only
-    // the undefined longitude at an exact pole reaches it.
-    return {steep ? abs_x : abs_y, fmaxf(steep ? abs_y : abs_x, 1e-6f), steep,
-            (x_bits >> 31) != 0, (y_bits >> 31) != 0};
-  }
-
-  static __attribute__((always_inline)) float atan_fold(float ratio,
-                                                        const AtanTerms &t) {
-    float angle = math::atan_unit(ratio);
-    if (t.steep)
-      angle = 1.57079633f - angle;
-    if (t.negative_x)
-      angle = 3.14159265f - angle;
-    return t.negative_y ? -angle : angle;
-  }
-
-  /**
-   * @brief A polar lane's target in the cap plane: its own column at the
-   *        row's cap angle plus the cell's offset at @p fx.
-   * @details A half-resolution lane stands for its column pair, so its
-   * column turns half a column past the even column.
-   */
-  static __attribute__((always_inline)) CapPoint cap_lane(
-      const CapCell &cell, int x, float cap_angle, bool midpoint, float fx) {
-    constexpr float HALF = math::PI_F / W;
-    constexpr float HALF_COS =
-        1.0f - HALF * HALF * 0.5f + HALF * HALF * HALF * HALF * (1.0f / 24.0f);
-    constexpr float HALF_SIN =
-        HALF - HALF * HALF * HALF * (1.0f / 6.0f) +
-        HALF * HALF * HALF * HALF * HALF * (1.0f / 120.0f);
-    float cosine = math::TrigLUT<W, H>::cos_theta(x);
-    float sine = math::TrigLUT<W, H>::sin_theta[x];
-    if (midpoint) {
-      const float turned = cosine * HALF_COS - sine * HALF_SIN;
-      sine = cosine * HALF_SIN + sine * HALF_COS;
-      cosine = turned;
-    }
-    return {cap_angle * cosine + cell.left.u + cell.slope.u * fx,
-            cap_angle * sine + cell.left.v + cell.slope.v * fx};
-  }
-
-  /** @brief Field row of a cap angle from the north or the south pole. */
-  static __attribute__((always_inline)) float cap_row(const CapPoint &p,
-                                                      bool north) {
-    const float length_sq = fmaxf(p.u * p.u + p.v * p.v, 1e-12f);
-    const float angle = length_sq * math::fast_rsqrt(length_sq);
-    return SphereField::Geometry::phi_to_row(north ? angle
-                                                   : math::PI_F - angle);
-  }
-
-  /** @brief Source coordinates of one lane of a polar row. */
-  static __attribute__((always_inline)) typename SphereField::Coordinates
-  polar_lane(const CapCell &cell, int x, float cap_angle, bool north,
-             bool midpoint, float fx) {
-    const CapPoint p = cap_lane(cell, x, cap_angle, midpoint, fx);
-    const AtanTerms a = atan_terms(p.v, p.u);
-    return {atan_fold(a.numerator / a.denominator, a) *
-                (W / (2.0f * math::PI_F)),
-            cap_row(p, north)};
-  }
 
   /**
    * @brief Expands a half-resolution run's pair samples back to every column.
