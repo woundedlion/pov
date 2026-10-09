@@ -58,7 +58,7 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
   const size_t SCRATCH_A = scratch_arena_a.get_capacity();
   const size_t SCRATCH_B = scratch_arena_b.get_capacity();
   const size_t REQUIRED =
-      (Filter::Pixel::Feedback<W, H>::UNCACHED_SCRATCH_BYTES(downsample) +
+      (Filter::Pixel::Feedback<W, H>::uncached_scratch_bytes(downsample) +
        127) &
       ~size_t{63};
   configure_arenas(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B, REQUIRED,
