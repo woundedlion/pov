@@ -21,7 +21,9 @@
  * @details Adjacent morph-compatible GenerativePalettes fade by key-space
  * morph, other pairs by baked-LUT crossfade. Entries are caller-owned, must
  * outlive the cycler, and must remain unchanged between init() calls. Outside a
- * fade the display LUT is a bit-exact bake of the current entry.
+ * fade, after step(), the display LUT is a bit-exact bake of the current entry;
+ * after advance_without_display() it holds the last displayed bake until the
+ * next step().
  */
 class PaletteCycler {
 public:
