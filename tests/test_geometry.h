@@ -156,15 +156,14 @@ inline void test_pixel_to_vector_known_samples() {
 }
 
 /**
- * @brief Pins pixel_to_vector's fractional-y (float) branch to y_to_phi<H>, so
- *        the float and integer LUT paths cannot diverge on a build with non-zero
- *        H_OFFSET.
+ * @brief Pins pixel_to_vector's float overload, on fractional rows and on
+ *        integer rows that snap to the LUT, to the analytic y_to_phi<H>(float).
  * @details At x=0, Vector(Spherical(0, phi)) = (sin phi, cos phi, 0), so the
  *          recovered phi is acos(v.y).
  */
-inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
+inline void test_pixel_to_vector_float_rows_match_analytic_phi() {
   constexpr int W = 32, H = 32;
-  for (float y : {0.5f, 5.25f, 12.75f, 20.5f}) {
+  for (float y : {0.5f, 5.0f, 5.25f, 12.75f, 16.0f, 20.5f}) {
     math::Vector v = math::pixel_to_vector<W, H>(0.0f, y);
     float recovered_phi = std::acos(std::clamp(v.y, -1.0f, 1.0f));
     HS_EXPECT_NEAR(recovered_phi, math::y_to_phi<H>(y), 1e-4f);
@@ -840,7 +839,7 @@ inline int run_geometry_tests() {
 
   test_pixel_to_vector_unit_length();
   test_pixel_to_vector_known_samples();
-  test_pixel_to_vector_float_branch_matches_phi_lut();
+  test_pixel_to_vector_float_rows_match_analytic_phi();
   test_pixel_to_vector_float_out_of_lut_domain();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
 
