@@ -8,6 +8,28 @@
 // ============================================================================
 
 /**
+ * @brief Draws a near-meridian great circle: axis y in [-0.05, 0.05], x and z
+ *        in [-1, 1].
+ * @param cb Receives the circle's basis.
+ * @return False when the drawn axis is shorter than 0.1; @p cb is untouched.
+ */
+inline bool rand_near_meridian_basis(math::Basis &cb) {
+  const float adx = hs::rand_f(-1, 1);
+  const float ady = hs::rand_f(-0.05f, 0.05f);
+  const float adz = hs::rand_f(-1, 1);
+  const math::Vector ad(adx, ady, adz);
+  if (ad.length() < 0.1f)
+    return false;
+  cb = basis_from_normal(ad.normalized());
+  return true;
+}
+
+/** @brief Point at @p angle on the great circle spanned by @p cb.u, @p cb.w. */
+inline math::Vector circle_point(const math::Basis &cb, float angle) {
+  return (cb.u * cosf(angle) + cb.w * sinf(angle)).normalized();
+}
+
+/**
  * @brief Pins the shared cylindrical arc-overlap helper across the wrap
  *        topologies: disjoint, overlapping, seam-crossing, containment,
  *        full-width, and empty arcs.
@@ -73,17 +95,13 @@ inline void test_col_span_covers_arc() {
     math::Vector a, b;
     if (trial % 3 == 2) {
       // Near-meridian circle: pole-grazing arcs sweep far past the endpoints.
-      const float adx = hs::rand_f(-1, 1);
-      const float ady = hs::rand_f(-0.05f, 0.05f);
-      const float adz = hs::rand_f(-1, 1);
-      math::Vector ad(adx, ady, adz);
-      if (ad.length() < 0.1f)
+      math::Basis cb;
+      if (!rand_near_meridian_basis(cb))
         continue;
-      math::Basis cb = basis_from_normal(ad.normalized());
-      float a0 = hs::rand_f(0, 2 * math::PI_F);
-      float a1 = a0 + hs::rand_f(0.5f, 3.0f);
-      a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
-      b = (cb.u * cosf(a1) + cb.w * sinf(a1)).normalized();
+      const float a0 = hs::rand_f(0, 2 * math::PI_F);
+      const float a1 = a0 + hs::rand_f(0.5f, 3.0f);
+      a = circle_point(cb, a0);
+      b = circle_point(cb, a1);
     } else {
       a = rand_unit();
       b = rand_unit();
@@ -225,13 +243,7 @@ inline void test_edge_visible_in_clip_is_conservative() {
   };
   int visible = 0, culled = 0;
   for (const auto &bd : bands) {
-    ClipRegion cr;
-    cr.w = TW;
-    cr.h = TH;
-    cr.y_start = bd[0];
-    cr.y_end = bd[1];
-    cr.x_start = bd[2];
-    cr.x_end = bd[3];
+    const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
     constexpr int SAMPLES = 512;
     auto taps_in_clip = [&](const math::Vector &p) {
@@ -256,18 +268,14 @@ inline void test_edge_visible_in_clip_is_conservative() {
         b = (a + math::Vector(1e-4f, 0.0f, 0.0f)).normalized();
         break;
       case 2: { // near-meridian arc (pole-grazing, axis.y ~ 0)
-        const float adx = hs::rand_f(-1, 1);
-        const float ady = hs::rand_f(-0.05f, 0.05f);
-        const float adz = hs::rand_f(-1, 1);
-        math::Vector ad(adx, ady, adz);
-        if (ad.length() < 0.1f) {
+        math::Basis cb;
+        if (!rand_near_meridian_basis(cb)) {
           b = rand_unit();
           break;
         }
-        math::Basis cb = basis_from_normal(ad.normalized());
-        float a0 = hs::rand_f(0, 2 * math::PI_F);
-        a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
-        b = (cb.u * cosf(a0 + 1.5f) + cb.w * sinf(a0 + 1.5f)).normalized();
+        const float a0 = hs::rand_f(0, 2 * math::PI_F);
+        a = circle_point(cb, a0);
+        b = circle_point(cb, a0 + 1.5f);
         break;
       }
       default:
@@ -637,13 +645,7 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
   }
 
   for (int x0 = 0; x0 < TW; x0 += 24) {
-    ClipRegion cr;
-    cr.w = TW;
-    cr.h = TH;
-    cr.y_start = 0;
-    cr.y_end = TH;
-    cr.x_start = x0;
-    cr.x_end = std::min(x0 + 96, TW);
+    const ClipRegion cr{0, TH, x0, std::min(x0 + 96, TW), 1, TW, TH};
     const auto xc = cr.x_clip();
 
     const auto A = math::vector_to_pixel<TW, TH>(a);
@@ -690,13 +692,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
     return raw;
   };
 
-  ClipRegion cr;
-  cr.w = W;
-  cr.h = H;
-  cr.y_start = 0;
-  cr.y_end = H / 2;
-  cr.x_start = 0;
-  cr.x_end = W / 2;
+  ClipRegion cr{0, H / 2, 0, W / 2, 1, W, H};
 
   const math::Vector a = math::X_AXIS;
   auto arc = [&](float angle, const math::Vector &tangent) {
@@ -716,10 +712,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
   };
   int raw_count = 0;
   for (const auto &bounds : clips) {
-    cr.y_start = bounds[0];
-    cr.y_end = bounds[1];
-    cr.x_start = bounds[2];
-    cr.x_end = bounds[3];
+    cr = ClipRegion{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
     for (int trial = 0; trial < 5000; ++trial) {
       math::Vector p;
       do {
@@ -852,14 +845,7 @@ inline void test_wrap_one_period_matches_modulo() {
 inline void test_cartesian_quadrant_gate_classification() {
   constexpr int W = 288, H = 144;
   auto clip = [](int y0, int y1, int x0, int x1) {
-    ClipRegion cr;
-    cr.w = W;
-    cr.h = H;
-    cr.y_start = y0;
-    cr.y_end = y1;
-    cr.x_start = x0;
-    cr.x_end = x1;
-    return cr;
+    return ClipRegion{y0, y1, x0, x1, 1, W, H};
   };
   auto classify = [](const ClipRegion &cr,
                      std::initializer_list<math::Vector> points) {
@@ -922,14 +908,7 @@ inline void test_cartesian_quadrant_gate_classification() {
  */
 inline void test_cartesian_quadrant_gate_is_conservative() {
   for (int north : {0, 1}) {
-    ClipRegion cr;
-    cr.w = 96;
-    cr.h = 20;
-    cr.x_start = 0;
-    cr.x_end = 48;
-    cr.y_start = north ? 0 : 10;
-    cr.y_end = north ? 10 : 20;
-    cr.margin = 10;
+    const ClipRegion cr{north ? 0 : 10, north ? 10 : 20, 0, 48, 10, 96, 20};
     const auto clip = Plot::make_cartesian_quadrant_clip<96, 20>(cr);
     HS_EXPECT_TRUE(clip.active);
     HS_EXPECT_EQ(clip.latitude_threshold, -1.0f);
@@ -958,13 +937,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
   };
   int latitude_rejects = 0, meridian_rejects = 0;
   for (const auto &bounds : clips) {
-    ClipRegion cr;
-    cr.w = W;
-    cr.h = H;
-    cr.y_start = bounds[0];
-    cr.y_end = bounds[1];
-    cr.x_start = bounds[2];
-    cr.x_end = bounds[3];
+    const ClipRegion cr{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
     const auto xc = cr.x_clip();
     const auto cartesian = Plot::make_cartesian_quadrant_clip<W, H>(cr);
 
@@ -1049,13 +1022,7 @@ inline void test_gate_trail_edges_matches_edge_visible() {
   };
   int rejects = 0, visible = 0, culled = 0;
   for (const auto &bd : bands) {
-    ClipRegion cr;
-    cr.w = TW;
-    cr.h = TH;
-    cr.y_start = bd[0];
-    cr.y_end = bd[1];
-    cr.x_start = bd[2];
-    cr.x_end = bd[3];
+    const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
 
     for (int trial = 0; trial < 500; ++trial) {
@@ -1117,13 +1084,7 @@ inline void test_mesh_clip_cut_separates_band() {
   int cuts = 0, kept = 0, culled = 0;
   long shown_arc = 0, drawn_arc = 0;
   for (const auto &bd : bands) {
-    ClipRegion cr;
-    cr.w = TW;
-    cr.h = TH;
-    cr.y_start = bd[0];
-    cr.y_end = bd[1];
-    cr.x_start = bd[2];
-    cr.x_end = bd[3];
+    const ClipRegion cr{bd[0], bd[1], bd[2], bd[3], 1, TW, TH};
     const auto xc = cr.x_clip();
     const Plot::ClipCutBounds cb = Plot::make_clip_cut_bounds<TW, TH>(cr, xc);
 
