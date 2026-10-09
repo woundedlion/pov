@@ -156,7 +156,7 @@ private:
   }
 
   /**
-   * @brief Trail alpha below which a sample seeds nothing and a buffered point
+   * @brief Trail alpha at or below which a sample seeds nothing and a buffered point
    * emits nothing.
    */
   static constexpr float MIN_TRAIL_ALPHA = TRAIL_EMIT_ALPHA_FLOOR;
