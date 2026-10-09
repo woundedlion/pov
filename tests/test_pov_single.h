@@ -197,7 +197,7 @@ inline void test_column_step_cadence() {
   }
 }
 
-/** @brief Pins single column sequence. */
+/** @brief LED writes precede submission and frame advances occur at half-revolution boundaries. */
 inline void test_single_column_sequence() {
   constexpr int S = 8, W = 8;
   int x = 0, advances = 0;
