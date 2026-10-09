@@ -100,7 +100,7 @@ struct Style {
   /**
    * Coarse-grid downsample factor for the warp field; higher is cheaper, lower
    * is more detailed. Uncached full-resolution flushes exceed the default
-   * scratch split; reserve Feedback<W,H>::UNCACHED_SCRATCH_BYTES(downsample).
+   * scratch split; reserve Feedback<W,H>::uncached_scratch_bytes(downsample).
    */
   int downsample = 4;
   /**
