@@ -433,8 +433,8 @@ struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
 
   void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
                   const math::Vector &origin, bool valid) {
-    if (!valid || !ray.valid())
-      return;
+    HS_CHECK(valid, "framework event geometry must be valid");
+    HS_CHECK(ray.valid(), "framework event ray must be valid");
     const math::Vector START = ray.at(ray.interval.near) - origin;
     std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
     for (size_t i = 0; i < STREAM_COUNT; ++i)
@@ -547,8 +547,8 @@ struct OctetEvents : OctetStreams<4> {
               Raycast::Footprint footprint = {}) {
     this->footprint = footprint;
     live.fill(false);
-    if (!geometry.valid() || !ray.valid())
-      return;
+    HS_CHECK(geometry.valid(), "octet event geometry must be valid");
+    HS_CHECK(ray.valid(), "octet event ray must be valid");
     const auto FAMILIES = geometry.plane_families();
     const float SPACING = FAMILIES[0].spacing;
     wire_radius = geometry.wire_radius;
@@ -680,16 +680,16 @@ struct OctetEvents4 : OctetStreams<8> {
                Raycast::Footprint footprint = {}) {
     this->footprint = footprint;
     live.fill(false);
-    if (!geometry.valid() || !interval.valid())
-      return;
+    HS_CHECK(geometry.valid(), "octet4 event geometry must be valid");
+    HS_CHECK(interval.valid(), "octet4 event interval must be valid");
     float length2 = 0.0f;
     for (int i = 0; i < 4; ++i) {
-      if (!Raycast::finite(origin[i]) || !Raycast::finite(direction[i]))
-        return;
+      HS_CHECK(Raycast::finite(origin[i]) && Raycast::finite(direction[i]),
+               "octet4 event ray components must be finite");
       length2 += direction[i] * direction[i];
     }
-    if (fabsf(length2 - 1.0f) >= 1e-4f)
-      return;
+    HS_CHECK(fabsf(length2 - 1.0f) < 1e-4f,
+             "octet4 event direction must be unit length");
     scale = OctetFramework4::HALF_CUBE * geometry.cell_size;
     inverse_scale = 1.0f / scale;
     wire_radius = geometry.wire_radius;
