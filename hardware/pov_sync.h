@@ -283,7 +283,7 @@ public:
     return a;
   }
 
-  // ── Foreground interface (read-only; single aligned-word reads) ──────────
+  // ── Cross-context interface ───────────────────────────────────────────────
 
   /**
    * @brief Current build request.
@@ -321,7 +321,10 @@ public:
     hs::restore_interrupts(primask);
     return snapshot;
   }
-  /** Output envelope derived from the synchronized effect revolution. */
+  /**
+   * @brief Output envelope derived from the synchronized effect revolution.
+   * @details Flywheel-ISR context only: reads `tick`-owned state unguarded.
+   */
   __attribute__((always_inline)) float effect_envelope(int32_t column,
                                                        int32_t width) const {
     return content_tracker.output_envelope(protocol_config, column, width);
