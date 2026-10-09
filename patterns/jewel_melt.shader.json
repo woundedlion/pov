@@ -613,7 +613,7 @@
           "sample.lattice-cell-scale": 3.329972267150879,
           "sample.lattice-radius": 0.4141494333744049,
           "sample.lattice-shape": 1,
-          "sample.lattice-softness": 0.3657241761684418,
+          "sample.lattice-softness": 0.5,
           "sample.weight-mode": "projection",
           "surface.basis": "simplex",
           "surface.integrator": "euler",
