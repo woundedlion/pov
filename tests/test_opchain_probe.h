@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Geometry and provenance checks for the OpChainMorph build recipes
+ * Geometry and provenance checks for IslamicStars' op-chain build recipes
  * (docs/specs/opchain_morph_spec.md).
  */
 #pragma once
@@ -1060,7 +1060,7 @@ inline void test_needle_partition_lowering_builds_on_hankin() {
 }
 
 /**
- * @brief Runs the OpChainMorph pre-flight probes.
+ * @brief Runs the op-chain build-recipe probes.
  * @return Failure count.
  */
 inline int run_opchain_probe_tests() {
