@@ -272,6 +272,22 @@ inline void test_gnomonic_mobius_known_rotation() {
 }
 
 /**
+ * @brief Verifies a rotation with a complex divisor carries an equator point
+ *        to the rotated equator longitude, independent of coefficient scaling.
+ */
+inline void test_gnomonic_mobius_equator_rotation() {
+  const math::Vector v(1.0f, 0.0f, 0.0f);
+  math::MobiusParams times_i_by_divisor(1, 0, 0, 0, 0, 0, 0, -1); // z / -i
+  math::MobiusParams times_i(0, 1, 0, 0, 0, 0, 1, 0);             // i z / 1
+  for (const math::MobiusParams &p : {times_i_by_divisor, times_i}) {
+    const math::Vector r = math::gnomonic_mobius_transform(v, p);
+    HS_EXPECT_NEAR(r.x, 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
+    HS_EXPECT_NEAR(r.z, 1.0f, 1e-3f);
+  }
+}
+
+/**
  * @brief Verifies an equator point round-trips through the identity map for
  *        either signed zero.
  * @details The hemisphere sign keys on the sign bit, so y == -0.0f must not
@@ -1654,6 +1670,7 @@ inline int run_transformers_tests() {
   test_mobius_poles_map_to_coefficient_ratios();
   test_gnomonic_mobius_identity_roundtrip();
   test_gnomonic_mobius_known_rotation();
+  test_gnomonic_mobius_equator_rotation();
   test_gnomonic_mobius_signed_zero_equator();
   test_ripple_zero_amplitude_is_identity();
   test_ripple_center_point_is_identity();

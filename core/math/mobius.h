@@ -19,13 +19,45 @@ namespace math {
  */
 inline constexpr float MOBIUS_POLE_EPS = 1e-12f;
 
+namespace mobius_detail {
+/**
+ * @brief project_div's saturated result.
+ * @param num Numerator.
+ * @param den Divisor.
+ * @return The infinity sentinel along num * conj(den), along num when den is
+ * zero, or (0,0) when num is zero.
+ */
+HS_COLD_MEMBER inline math::Complex
+saturated_quotient(const math::Complex &num, const math::Complex &den) {
+  // Normalize each operand by its larger component first: a value squared far
+  // above the sentinel overflows to infinity and one far below it underflows to
+  // zero, and either collapses the direction onto the origin.
+  const float peak = fmaxf(std::abs(num.re), std::abs(num.im));
+  if (peak == 0.0f)
+    return math::Complex(0, 0);
+  float re = num.re / peak;
+  float im = num.im / peak;
+  const float den_peak = fmaxf(std::abs(den.re), std::abs(den.im));
+  if (den_peak > 0.0f) {
+    const float d_re = den.re / den_peak;
+    const float d_im = den.im / den_peak;
+    const float q_re = re * d_re + im * d_im;
+    im = im * d_re - re * d_im;
+    re = q_re;
+  }
+  return projections::stereographic_detail::radial_scale(
+      math::Complex(re, im), sqrtf(re * re + im * im), projections::STEREO_INF);
+}
+} // namespace mobius_detail
+
 /**
  * @brief Projection-domain complex division for the stereographic/Mobius maps.
  * @param num Numerator.
  * @param den Divisor.
  * @return num/den, except a quotient whose magnitude would reach STEREO_INF
- * clamps to the infinity sentinel along the numerator's direction, and an
- * exactly zero numerator returns (0,0).
+ * clamps to the infinity sentinel along the quotient's direction (the
+ * numerator's when the divisor is zero), and an exactly zero numerator returns
+ * (0,0).
  */
 inline math::Complex project_div(const math::Complex &num,
                                  const math::Complex &den) {
@@ -43,19 +75,8 @@ inline math::Complex project_div(const math::Complex &num,
     denom = den_re * den_re + den_im * den_im;
   }
   float num_mag = num_re * num_re + num_im * num_im;
-  if (num_mag >= denom * (projections::STEREO_INF * projections::STEREO_INF)) {
-    // Normalize by the larger component first: a numerator squared far above
-    // the sentinel overflows to infinity and one far below it underflows to
-    // zero, and either collapses the direction onto the origin.
-    const float peak = fmaxf(std::abs(num.re), std::abs(num.im));
-    if (peak == 0.0f)
-      return math::Complex(0, 0);
-    const float re = num.re / peak;
-    const float im = num.im / peak;
-    return projections::stereographic_detail::radial_scale(
-        math::Complex(re, im), sqrtf(re * re + im * im),
-        projections::STEREO_INF);
-  }
+  if (num_mag >= denom * (projections::STEREO_INF * projections::STEREO_INF))
+    return mobius_detail::saturated_quotient(num, den);
   return math::Complex((num_re * den_re + num_im * den_im) / denom,
                        (num_im * den_re - num_re * den_im) / denom);
 }
