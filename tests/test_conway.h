@@ -1033,6 +1033,10 @@ inline void test_transform_applies_translation_chain() {
   // Topology is borrowed (view) from the source; the dst bound no buffer.
   HS_EXPECT_EQ(dst.get_face_counts_size(), (size_t)1);
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
+  HS_EXPECT_TRUE(dst.get_face_counts_data() == src.face_counts.data());
+  HS_EXPECT_TRUE(dst.get_faces_data() == src.faces.data());
+  HS_EXPECT_FALSE(dst.face_counts.is_bound());
+  HS_EXPECT_FALSE(dst.faces.is_bound());
 
   // The per-face classes ride along: transform leaves the faces untouched.
   HS_EXPECT_EQ(dst.get_topology_size(), (size_t)1);
