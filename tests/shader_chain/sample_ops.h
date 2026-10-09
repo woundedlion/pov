@@ -352,6 +352,7 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
     return;
   for (uint8_t w = 0; w < 2; ++w)
     for (uint8_t c = 0; c < 4; ++c) {
+      HS_CONTEXT("weight / coverage", w, c);
       *weight = w;
       *coverage = c;
       if (static_cast<In::Op::WeightMode>(w) == In::Op::WeightMode::NONE)
@@ -786,8 +787,10 @@ inline void test_shader_chain_parity_sample_variants() {
            {In::Op::ProjectionCoverageMode::NONE,
             In::Op::ProjectionCoverageMode::WEIGHT,
             In::Op::ProjectionCoverageMode::WEIGHT_SQUARED,
-            In::Op::ProjectionCoverageMode::EDGE_FADE})
+            In::Op::ProjectionCoverageMode::EDGE_FADE}) {
+        HS_CONTEXT("weight / coverage", int(weight), int(coverage));
         run_sample_variant(program, ctx, weight, coverage);
+      }
     program.clear();
   }
 }
@@ -818,12 +821,14 @@ void expect_colorize_op_parity(In::ChainProgram &program,
 template <In::Op::HueShiftMode HueV, In::Op::EnvelopeMode EnvelopeV>
 void run_colorize_variant(In::ChainProgram &program,
                           const In::FrameContext &ctx) {
+  HS_CONTEXT("hue / envelope", int(HueV), int(EnvelopeV));
   auto &params = param_as<In::Op::GeneratedPaletteParams>(program, 3);
   params.hue_mode = static_cast<uint8_t>(HueV);
   params.envelope_mode = static_cast<uint8_t>(EnvelopeV);
   for (uint8_t palette_mode = 0; palette_mode < 3; ++palette_mode) {
     params.palette_mode = palette_mode;
     for (uint8_t mapping = 0; mapping < 4; ++mapping) {
+      HS_CONTEXT("palette / mapping", palette_mode, mapping);
       params.mapping_mode = mapping;
       expect_parity<PB::Weight::Projection, PB::ProjectionCoverage::Weight,
                     HueV, EnvelopeV>(program, ctx);
