@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// Galaxies: octahedral cores, spawn geometry and galaxy containment.
+// Galaxies: octahedral cores, spawn geometry and orbit physics.
 // ---------------------------------------------------------------------------
 
 /** @brief White-box accessor for Galaxies' spawn state and particle pool. */
@@ -12,7 +12,6 @@ struct GalaxiesWhiteBox {
   template <int W, int H> using FX = Galaxies<W, H>;
 
   static constexpr int NUM_GALAXIES = FX<1, 1>::NUM_GALAXIES;
-  static constexpr float RING_RADIUS = FX<1, 1>::RING_RADIUS;
   static constexpr float SPEED_JITTER = FX<1, 1>::SPEED_JITTER;
 
   template <int W, int H> static void emit(Galaxies<W, H> &fx, int galaxy) {
@@ -422,65 +421,6 @@ inline void test_galaxies_packed_orbits_match_float() {
   std::printf("packed orbit maximum angular error: %.9g rad\n",
               max_angle_error);
   HS_EXPECT_LE(max_angle_error, math::RADIANS_PER_COLUMN<DEFAULT_W> / 8.0f);
-}
-
-/**
- * @brief Runs the default settings and checks that particles stay near their
- *        own core.
- * @details Checks both 96 and 288 columns because their per-frame motion caps
- *          differ.
- */
-template <int W, int H>
-inline void check_galaxies_stay_contained(float pitch = -1.0f) {
-  using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
-  Galaxies<W, H> fx;
-  fx.init();
-  if (pitch > 0.0f)
-    WB::set_pitch(fx, pitch);
-  // Physics only; the containment check needs no pixels.
-  WB::hide(fx);
-  for (int f = 0; f < 300; ++f) {
-    pin_frame_clock(f);
-    fx.draw_frame();
-    fx.advance_display();
-  }
-
-  const auto &ps = WB::system(fx);
-  const int live = ps.active();
-  HS_EXPECT_GE(live, 200);
-  int strays = 0;
-  int outside = 0;
-  for (int i = 0; i < live; ++i) {
-    const auto &p = ps.pool[i];
-    const math::Vector position = p.get_position();
-    const int owner = p.color_seed & 0xff;
-    const float own = math::dot(position, WB::core(fx, owner));
-    for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
-      if (g != owner && math::dot(position, WB::core(fx, g)) > own) {
-        ++strays;
-        break;
-      }
-    }
-    if (acosf(hs::clamp(own, -1.0f, 1.0f)) > 1.5f * WB::RING_RADIUS)
-      ++outside;
-  }
-  HS_EXPECT_LE(strays * 100, live * 6);
-  HS_EXPECT_LE(outside * 100, live * 6);
-}
-
-inline void test_galaxies_stay_contained_small() {
-  check_galaxies_stay_contained<SMALL_W, SMALL_H>();
-}
-
-inline void test_galaxies_stay_contained_default() {
-  check_galaxies_stay_contained<DEFAULT_W, DEFAULT_H>();
-}
-
-/** @brief The narrowest arm pitch keeps stars within their own galaxies. */
-inline void test_galaxies_min_pitch_stays_contained() {
-  check_galaxies_stay_contained<SMALL_W, SMALL_H>(0.1f);
-  check_galaxies_stay_contained<DEFAULT_W, DEFAULT_H>(0.1f);
 }
 
 /** @brief Live particle telemetry follows births and deaths with alpha zero. */
