@@ -41,7 +41,8 @@ def project_files(paths=()):
 
 
 def minimums_for(project=None):
-    """The (rule, Default net class) floors project p must be restored to."""
+    """The (rule, Default net class) floors the parsed project document must be
+    restored to; unplaced projects get the wider Quilter floors."""
     layout = (project or {}).get("text_variables", {}).get("PHANTASM_LAYOUT")
     if layout == "unplaced":
         return UNPLACED_RULES, UNPLACED_DEFAULT_CLASS
