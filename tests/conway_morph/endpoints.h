@@ -16,7 +16,7 @@ enum class EndRegime {
   REGULAR,      /**< Relax-canonical arrival in a walk-dependent orientation
                      (tetra -> icosa bridge). */
   PAIR_COVER,   /**< Jitterbug octa end: vertices merge pairwise onto the node
-                     mesh's, and the edge-orbit faces are zero-area. */
+                     mesh's. */
   BAKED_RELAX,  /**< Registry node ends in relax_baked: identical topology, and
                      vertices within the relax convergence gate. */
 };
