@@ -91,15 +91,24 @@ struct GSWhiteBox {
     return first.lerp16(second, NOISE.weight);
   }
 
+  using Pigment = typename GS::Pigment;
+
+  /** @brief A pigment mass as a 16-bit first-palette lerp weight. */
+  static uint16_t first_weight16(int mass) {
+    return static_cast<uint16_t>(
+        (static_cast<unsigned>(mass) * 65535u + Pigment::FULL_MASS / 2) /
+        Pigment::FULL_MASS);
+  }
+
   /** @brief Blends a packed pigment's two palettes by its first-mass weight. */
   template <typename Sample>
   static Pixel mix_pigment(uint16_t pigment, Sample &&sample) {
-    Pixel first = sample(pigment & 31);
-    if ((pigment >> 10) == 63)
+    const auto PIGMENT = Pigment::unpack(pigment);
+    Pixel first = sample(PIGMENT.first);
+    if (PIGMENT.mass == Pigment::FULL_MASS)
       return first;
-    Pixel second = sample((pigment >> 5) & 31);
-    return second.lerp16(
-        first, static_cast<uint16_t>(((pigment >> 10) * 65535u + 31u) / 63u));
+    Pixel second = sample(PIGMENT.second);
+    return second.lerp16(first, first_weight16(PIGMENT.mass));
   }
 
   /** @brief Jacobi reference substep for the in-place physics. */
@@ -344,7 +353,7 @@ struct GSWhiteBox {
   static bool reaction_edited(GS &gs) { return gs.reaction_edited(); }
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
   static void set_pigment(GS &gs, int node, int seed) {
-    gs.state.pigment[node] = static_cast<uint16_t>(seed | (63u << 10));
+    gs.state.pigment[node] = Pigment::pack(seed, 0, Pigment::FULL_MASS);
   }
   static float pigment_weight(const GS &gs, int node, int seed) {
     float weights[SEEDS] = {};
@@ -648,12 +657,11 @@ struct GSWhiteBox {
                   const float MASS = gs.state.B[node] * w;
                   tw += w;
                   wb += MASS;
-                  const uint16_t PIGMENT = gs.state.pigment[node];
+                  const auto PIGMENT = Pigment::unpack(gs.state.pigment[node]);
                   const double FIRST_FRACTION =
-                      ((PIGMENT >> 10) * 65535u + 31u) / 63u / 65535.0;
-                  palette_mass[PIGMENT & 31] += MASS * FIRST_FRACTION;
-                  palette_mass[(PIGMENT >> 5) & 31] +=
-                      MASS * (1.0 - FIRST_FRACTION);
+                      first_weight16(PIGMENT.mass) / 65535.0;
+                  palette_mass[PIGMENT.first] += MASS * FIRST_FRACTION;
+                  palette_mass[PIGMENT.second] += MASS * (1.0 - FIRST_FRACTION);
                   total_mass += MASS;
                 });
             float b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT
@@ -667,11 +675,12 @@ struct GSWhiteBox {
           }
           if (center_pigment) {
             std::fill(std::begin(palette_mass), std::end(palette_mass), 0.0);
-            const uint16_t PIGMENT = gs.state.pigment[shared_center];
+            const auto PIGMENT =
+                Pigment::unpack(gs.state.pigment[shared_center]);
             const double FIRST_FRACTION =
-                ((PIGMENT >> 10) * 65535u + 31u) / 63u / 65535.0;
-            palette_mass[PIGMENT & 31] += FIRST_FRACTION;
-            palette_mass[(PIGMENT >> 5) & 31] += 1.0 - FIRST_FRACTION;
+                first_weight16(PIGMENT.mass) / 65535.0;
+            palette_mass[PIGMENT.first] += FIRST_FRACTION;
+            palette_mass[PIGMENT.second] += 1.0 - FIRST_FRACTION;
             total_mass = 1.0;
           }
           if (covered && total_mass > 0.0) {
@@ -953,9 +962,11 @@ inline void test_gs_sparse_pigment_matches_dense() {
         int first = mode == 1 ? 17 : static_cast<int>(h % GSWhiteBox::SEEDS);
         int second =
             mode == 1 ? 0 : static_cast<int>((h >> 8) % GSWhiteBox::SEEDS);
-        int mix = mode <= 2 ? 63 : mode == 3 ? 32 : static_cast<int>(h & 63u);
+        int mix = mode <= 2   ? GSWhiteBox::Pigment::FULL_MASS
+                  : mode == 3 ? 32
+                              : static_cast<int>(h & 63u);
         GSWhiteBox::pigments(gs)[i] =
-            static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+            GSWhiteBox::Pigment::pack(first, second, mix);
       }
       for (int step = 0; step < GSWhiteBox::STEPS_PER_FRAME; ++step) {
         GSWhiteBox::pigment_reference(gs, a.data(), b.data(), expected.data());
@@ -974,6 +985,24 @@ inline void test_gs_sparse_pigment_matches_dense() {
 }
 
 /** @brief Compares both cull rings to the original directed adjacency table. */
+/** @brief Verifies the pigment codec's bit layout and mass quantization. */
+inline void test_gs_pigment_codec_layout() {
+  using Pigment = GSWhiteBox::Pigment;
+  HS_EXPECT_EQ(Pigment::pack(7, 12, 40), 7u | (12u << 5) | (40u << 10));
+  const auto UNPACKED = Pigment::unpack(0xffffu);
+  HS_EXPECT_EQ(UNPACKED.first, 31);
+  HS_EXPECT_EQ(UNPACKED.second, 31);
+  HS_EXPECT_EQ(UNPACKED.mass, 63);
+  HS_EXPECT_EQ(Pigment::unpack(Pigment::pack(3, 29, 17)).second, 29);
+  HS_EXPECT_EQ(Pigment::pack(5, 9, 21) & Pigment::SOLID_KEY_MASK,
+               Pigment::pack(5, 0, 21));
+  HS_EXPECT_EQ(Pigment::first_mass(Pigment::FULL_MASS), 1.0f);
+  HS_EXPECT_EQ(Pigment::first_mass(0), 0.0f);
+  HS_EXPECT_EQ(Pigment::quantize_mass(1.0f, 1.0f), 63);
+  HS_EXPECT_EQ(Pigment::quantize_mass(1.0f, 2.0f), 32);
+  HS_EXPECT_EQ(Pigment::quantize_mass(0.0f, 2.0f), 0);
+}
+
 inline void test_gs_hot_flags_match_directed_graph() {
   constexpr int N = GSWhiteBox::N;
   constexpr uint8_t GUARD = 0xa5;
