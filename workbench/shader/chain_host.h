@@ -178,7 +178,9 @@ public:
             for (const auto &op : ops)
               for (uint16_t field = 0; field < op.op->schema_count; ++field) {
                 const auto &info = op.op->schema[field];
-                if (write.name != std::string(op.instance) + "." + info.id)
+                if (write.name !=
+                    reinterpret_cast<const char *>(
+                        base + op.name_offset + field * PER_PARAM_NAME_BYTES))
                   continue;
                 if (write.value < (info.enum_count > 0 ? 0.0f : info.min) ||
                     write.value > (info.enum_count > 0
