@@ -167,15 +167,6 @@ inline void test_clip_x_wrap_matches_modulo() {
   auto ref_end = [](int x_end, int margin, int w) {
     return (x_end + margin) % w;
   };
-  auto ref_contains = [&](const ClipRegion &cr, int x) {
-    if ((cr.x_end - cr.x_start) + 2 * cr.margin >= cr.w)
-      return true;
-    const int rs = ref_start(cr.x_start, cr.margin, cr.w);
-    const int re = ref_end(cr.x_end, cr.margin, cr.w);
-    if (rs == re)
-      return false; // sub-arc with coincident ends: zero width
-    return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
-  };
 
   // Edge accessors: full (x, margin) sweep.
   for (int w : {1, 2, 3, 7, 96, 288}) {
@@ -193,7 +184,8 @@ inline void test_clip_x_wrap_matches_modulo() {
   }
 
   // Whole predicate: every band and margin at a small width, every column.
-  for (int w : {1, 3, 13}) {
+  constexpr int MAX_SWEEP_W = 13;
+  for (int w : {1, 3, MAX_SWEEP_W}) {
     for (int x0 = 0; x0 <= w; ++x0) {
       for (int x1 = x0; x1 <= w; ++x1) {
         for (int margin = 0; margin < w; ++margin) {
@@ -204,8 +196,11 @@ inline void test_clip_x_wrap_matches_modulo() {
           cr.w = w;
           cr.h = MAX_H;
           cr.y_end = MAX_H;
+          bool covered[MAX_SWEEP_W] = {};
+          for (int k = x0 - margin; k < x1 + margin; ++k)
+            covered[((k % w) + w) % w] = true;
           for (int x = 0; x < w; ++x) {
-            HS_EXPECT_EQ(cr.contains_x(x), ref_contains(cr, x));
+            HS_EXPECT_EQ(cr.contains_x(x), covered[x]);
           }
           expect_xclip_parity(cr);
         }
