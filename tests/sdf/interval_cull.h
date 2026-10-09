@@ -642,7 +642,8 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
 template <int W, int H>
 inline int expect_face_cull_covers_fringe(int sides, float rho,
                                           const math::Vector &axis) {
-  HS_CONTEXT("face fringe", sides, rho);
+  HS_CONTEXT("face fringe sides / rho mrad", sides,
+             static_cast<int>(rho * 1000));
   HS_EXPECT_TRUE(sides >= 3 && sides <= 8);
   if (sides < 3 || sides > 8)
     return 0;
@@ -680,6 +681,7 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
     for (int x = 0; x < W; ++x) {
       const math::Vector p = math::pixel_to_vector<W, H>(x, y);
       if (SDF::distance_of(face, p).dist < pixel_width) {
+        HS_CONTEXT("paintable px", x, y);
         ++paintable;
         HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
       }
