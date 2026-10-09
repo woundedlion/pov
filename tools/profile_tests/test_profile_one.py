@@ -12,6 +12,9 @@ import unittest
 from pathlib import Path
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 PROFILE_ONE = REPO / "tools" / "profile_one.sh"
 EFFECTS = REPO / "effects"
@@ -170,7 +173,7 @@ class ProfileTreeResolution(unittest.TestCase):
         script = f"{shell_function('profile_tree')}\nprofile_tree\n"
         result = subprocess.run(
             ["bash", "-c", script, str(Path(script_dir) / "profile_one.sh")],
-            capture_output=True, text=True, encoding="utf-8")
+            capture_output=True, text=True, encoding="utf-8", env=isolated_env())
         self.assertEqual(result.returncode, 0, result.stderr)
         return Path(result.stdout.strip())
 
@@ -183,13 +186,12 @@ class ProfileTreeResolution(unittest.TestCase):
             root = Path(directory) / "main"
             tree = Path(directory) / "wt"
             subprocess.run(["git", "init", "-q", "-b", "main", str(root)],
-                           check=True)
+                           check=True, env=isolated_env())
             (root / "seed.txt").write_text("seed\n", encoding="utf-8")
             for args in (["add", "seed.txt"],
-                         ["-c", "user.name=t", "-c", "user.email=t@t",
-                          "commit", "-qm", "seed"],
+                         ["commit", "-qm", "seed"],
                          ["worktree", "add", "-q", str(tree), "-b", "branch"]):
-                subprocess.run(["git", "-C", str(root)] + args, check=True)
+                subprocess.run(["git", "-C", str(root)] + args, check=True, env=isolated_env())
             self.assertEqual(self._profile_tree_from(tree).resolve(),
                              tree.resolve())
 

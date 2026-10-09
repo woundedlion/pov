@@ -14,6 +14,9 @@ import time
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 LOCK_SH = REPO / "tools" / "device_lock.sh"
 LOCK_GUARD = REPO / "tools" / "device_lock_guard.py"
@@ -60,8 +63,8 @@ class CheckoutBuildLockTests(unittest.TestCase):
         tools.mkdir()
         for name in ("device_lock.sh", "device_lock_guard.py", "teensy_cold_build.sh"):
             shutil.copyfile(REPO / "tools" / name, tools / name)
-        subprocess.run(["git", "-C", str(self.root), "init", "--quiet"], check=True)
-        self.env = dict(os.environ, HS_PYTHON=sys.executable)
+        subprocess.run(["git", "-C", str(self.root), "init", "--quiet"], check=True, env=isolated_env())
+        self.env = isolated_env()
 
     def command(self, *args):
         return subprocess.run(["bash", *map(str, args)], cwd=self.root,
