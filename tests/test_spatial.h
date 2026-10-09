@@ -133,8 +133,7 @@ inline void test_kdtree_ties_prefer_source_index() {
 }
 
 /**
- * @brief Verifies requesting more neighbors than exist returns all available
- *        points, not k.
+ * @brief Oversized neighbor requests return every source point in nearest-first order.
  */
 inline void test_kdtree_k_caps_at_size() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
@@ -144,7 +143,11 @@ inline void test_kdtree_k_caps_at_size() {
   KDTree tree(arena, sp);
 
   auto r = tree.nearest(math::Vector(0, 0, 0), 5);
-  HS_EXPECT_EQ(r.size(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(r, 3);
+  for (size_t i = 0; i < r.size(); ++i) {
+    HS_EXPECT_EQ(r[i].original_index, static_cast<int>(i));
+    HS_EXPECT_EQ(r[i].d_sq, static_cast<float>(i * i));
+  }
 }
 
 /**
