@@ -186,7 +186,7 @@ private:
    */
   struct Params {
     float friction = 0.99965f;   /**< Velocity retention per frame. */
-    float core_mass = 0.12f;     /**< Attractor strength. */
+    float core_mass = 0.10478f;  /**< Attractor strength. */
     float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
     float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
     float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
