@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// In-code-flagged numeric invariants with no oracle in the smoke harness
+// Effect white-box checks the smoke harness cannot observe
 // ---------------------------------------------------------------------------
 
 /**
