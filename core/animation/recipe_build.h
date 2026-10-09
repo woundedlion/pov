@@ -64,7 +64,9 @@ protected:
       nullptr; /**< Per-face palette the previous leg landed on; survives the
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
-  int dual_bridges_built = 0;  /**< DUAL bridges scheduled (test coverage). */
+#if HS_ENABLE_TEST_HOOKS
+  int dual_bridges_built = 0; /**< DUAL bridges scheduled. */
+#endif
   int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames =
@@ -501,7 +503,9 @@ protected:
                  done == BuildContinuation::DTD_AFTER_BRIDGE2,
              "RecipeBuild: invalid dual bridge continuation");
     dual_bridge_done = done;
+#if HS_ENABLE_TEST_HOOKS
     ++dual_bridges_built;
+#endif
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = dual_sub_frames(0);
