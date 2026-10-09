@@ -36,15 +36,6 @@ struct MindSplatterParams {
   float angular_speed = 0.2f; /**< Emission phase rate in [0, 1] (rad/emit). */
   float warp_scale = 0.6f;    /**< Mobius warp magnitude in [0, 5]. */
   float active_count = 0.0f;  /**< Live particle count (engine-written). */
-
-  /**
-   * @brief Interpolates preset fields while preserving live particle telemetry.
-   * @param start Source snapshot (interpolation parameter t = 0).
-   * @param target Destination snapshot (interpolation parameter t = 1).
-   * @param t Interpolation factor in [0, 1].
-   */
-  void lerp(const MindSplatterParams &start, const MindSplatterParams &target,
-            float t);
 };
 
 static_assert(sizeof(MindSplatterParams) == 7 * sizeof(float));
@@ -644,10 +635,3 @@ private:
     timeline.add(0, warp);
   }
 };
-
-inline void MindSplatterParams::lerp(const MindSplatterParams &start,
-                                     const MindSplatterParams &target,
-                                     float t) {
-  Control::interpolate_fields(*this, start, target, t,
-                              MindSplatter<1, 1>::parameter_fields());
-}
