@@ -77,9 +77,6 @@ public:
   /** Frames each preset holds before its departure blend. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
 
-  /** @brief Initial live parameters from preset zero. */
-  static Params initial_params() { return PRESETS[0].params; }
-
   /**
    * @brief Constructs the effect, seeding the filters.
    */
