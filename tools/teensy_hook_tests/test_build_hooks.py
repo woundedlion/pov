@@ -120,12 +120,33 @@ def _option_lines(cfg, section, option, depth=0):
         line = line.strip()
         if not line:
             continue
-        ref = _INTERP.fullmatch(line)
-        if ref:
-            out.extend(_option_lines(cfg, ref.group(1), ref.group(2), depth + 1))
-        else:
-            out.append(line)
+        expanded = _INTERP.sub(
+            lambda ref: " ".join(_option_lines(cfg, ref.group(1), ref.group(2), depth + 1)),
+            line)
+        out.extend(expanded.split())
     return out
+
+
+class TestOptionInterpolation(unittest.TestCase):
+    def test_inline_source_references_include_shared_and_local_filters(self):
+        cfg = configparser.RawConfigParser()
+        cfg.read_dict({
+            "env": {"build_src_filter": "-<*>\n+<core/memory.cpp>"},
+            "shared": {"sources": "${env.build_src_filter} +<core/engine/static_storage.cpp>"},
+            "env:fixture": {"build_src_filter": "${shared.sources} +<targets/Profile/Profile.ino.cpp>"},
+        })
+        self.assertEqual(_option_lines(cfg, "env:fixture", "build_src_filter"), [
+            "-<*>", "+<core/memory.cpp>", "+<core/engine/static_storage.cpp>",
+            "+<targets/Profile/Profile.ino.cpp>"])
+
+    def test_inline_script_references_include_shared_and_local_hooks(self):
+        cfg = configparser.RawConfigParser()
+        cfg.read_dict({
+            "env": {"extra_scripts": "pre:tools/teensy_pre.py\npre:tools/teensy_map.py"},
+            "env:fixture": {"extra_scripts": "${env.extra_scripts} pre:tools/teensy_nano.py"},
+        })
+        self.assertEqual(_option_lines(cfg, "env:fixture", "extra_scripts"), [
+            "pre:tools/teensy_pre.py", "pre:tools/teensy_map.py", "pre:tools/teensy_nano.py"])
 
 
 class TestExtraScriptsExist(unittest.TestCase):
