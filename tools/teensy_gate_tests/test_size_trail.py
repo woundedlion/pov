@@ -20,6 +20,8 @@ from unittest import mock
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
+from git_test_env import isolated_env  # noqa: E402
+
 import teensy_size_trail as tst   # noqa: E402
 
 _EHDR_SIZE = 52
@@ -286,23 +288,25 @@ class PendingCapture(unittest.TestCase):
                 self.assertEqual(self.trail.exists(), matches)
 
     def test_untracked_scratch_does_not_invalidate_build_inputs(self):
-        tst._git(["init"], self.dir)
-        tst._git(["config", "user.name", "Test"], self.dir)
-        tst._git(["config", "user.email", "test@example.com"], self.dir)
+        real_git = tst._git
+        def in_repo(args, cwd=None, **kwargs):
+            return real_git(args, cwd or self.dir, env=isolated_env())
+        self.enterContext(mock.patch.object(tst, "_git", side_effect=in_repo))
+        tst._git(["init"], self.dir, env=isolated_env())
         (self.dir / "platformio.ini").write_text("[platformio]\n", encoding="utf-8")
         tests = self.dir / "tools" / "example_tests"
         tests.mkdir(parents=True)
         tracked = tests / "test_example.py"
         tracked.write_text("original", encoding="utf-8")
-        tst._git(["add", "platformio.ini", "tools/example_tests/test_example.py"], self.dir)
-        tst._git(["commit", "-m", "initial"], self.dir)
+        tst._git(["add", "platformio.ini", "tools/example_tests/test_example.py"], self.dir, env=isolated_env())
+        tst._git(["commit", "-m", "initial"], self.dir, env=isolated_env())
         tracked.write_text("changed", encoding="utf-8")
         pcb = self.dir / "hardware" / "phantasm"
         pcb.mkdir(parents=True)
         (pcb / "backup.kicad_pcb").write_text("scratch", encoding="utf-8")
         (self.dir / "scratch.txt").write_text("scratch", encoding="utf-8")
         tree = tst.working_tree(self.dir)
-        self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir))
+        self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir, env=isolated_env()))
         self.pending.write_text(json.dumps({"tree": tree,
             "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
         self.assertEqual(self.commit(), 0)
@@ -319,13 +323,11 @@ class RecordInputs(unittest.TestCase):
     def test_successful_build_accepts_unchanged_cached_elf(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            tst._git(["init", "--quiet"], root)
-            tst._git(["config", "user.name", "Test"], root)
-            tst._git(["config", "user.email", "test@example.com"], root)
+            tst._git(["init", "--quiet"], root, env=isolated_env())
             ini = root / "platformio.ini"
             ini.write_text("original", encoding="utf-8")
-            tst._git(["add", "--", "platformio.ini"], root)
-            tst._git(["commit", "-m", "initial"], root)
+            tst._git(["add", "--", "platformio.ini"], root, env=isolated_env())
+            tst._git(["commit", "-m", "initial"], root, env=isolated_env())
             elf = root / "build" / "phantasm" / tst.ELF_NAME
             elf.parent.mkdir(parents=True)
             elf.write_bytes(make_elf({".text.itcm": 17}))
@@ -335,7 +337,7 @@ class RecordInputs(unittest.TestCase):
             real_git = tst._git
 
             def in_repo(args, cwd=None, **kwargs):
-                return real_git(args, cwd or root, **kwargs)
+                return real_git(args, cwd or root, **{**kwargs, "env": isolated_env()})
 
             def record(built):
                 args = tst.build_parser().parse_args(
@@ -360,17 +362,15 @@ class RecordInputs(unittest.TestCase):
     def test_non_firmware_edits_preserve_capture(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            tst._git(["init", "--quiet"], root)
-            tst._git(["config", "user.name", "Test"], root)
-            tst._git(["config", "user.email", "test@example.com"], root)
+            tst._git(["init", "--quiet"], root, env=isolated_env())
             for path in ("platformio.ini", "targets/wasm/x.h", "tools/teensy_size_table.py"):
                 target = root / path
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text("original", encoding="utf-8")
                 os.utime(target, ns=(1, 1))
             tst._git(["add", "--", "platformio.ini", "targets/wasm/x.h",
-                      "tools/teensy_size_table.py"], root)
-            tst._git(["commit", "-m", "initial"], root)
+                      "tools/teensy_size_table.py"], root, env=isolated_env())
+            tst._git(["commit", "-m", "initial"], root, env=isolated_env())
             elf = root / "build" / "phantasm" / tst.ELF_NAME
             elf.parent.mkdir(parents=True)
             elf.write_bytes(make_elf({".text.itcm": 17}))
@@ -379,7 +379,7 @@ class RecordInputs(unittest.TestCase):
             trail = root / "trail.tsv"
             real_git = tst._git
             def in_repo(args, cwd=None, **kwargs):
-                return real_git(args, cwd or root, **kwargs)
+                return real_git(args, cwd or root, **{**kwargs, "env": isolated_env()})
             for path in ("targets/wasm/x.h", "tools/teensy_size_table.py"):
                 (root / path).write_text("changed", encoding="utf-8")
             with mock.patch.object(tst, "_git", side_effect=in_repo):
@@ -388,8 +388,8 @@ class RecordInputs(unittest.TestCase):
                 self.assertEqual(tst.cmd_record(args), 0)
                 self.assertEqual(json.loads(pending.read_text())["envs"]["phantasm"]["itcm"], 17)
                 (root / "targets/wasm/x.h").write_text("later", encoding="utf-8")
-                tst._git(["add", "--", "targets/wasm/x.h", "tools/teensy_size_table.py"])
-                tst._git(["commit", "-m", "non-firmware"])
+                tst._git(["add", "--", "targets/wasm/x.h", "tools/teensy_size_table.py"], env=isolated_env())
+                tst._git(["commit", "-m", "non-firmware"], env=isolated_env())
                 self.assertEqual(tst.cmd_commit(types.SimpleNamespace(
                     pending=pending, trail=trail, repo=root, rev="HEAD")), 0)
             self.assertEqual(tst.read_trail(trail)[0].sizes["itcm"], 17)
