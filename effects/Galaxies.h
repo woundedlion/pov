@@ -190,7 +190,7 @@ private:
     float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
     float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
     int arms = 2;                /**< Arms per galaxy. */
-    float emission_rate = 0.75f; /**< Particles per galaxy per frame. */
+    float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
     float active_count = 0.0f;   /**< Live particles (engine-written). */
   } params;

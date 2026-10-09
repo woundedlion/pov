@@ -170,7 +170,7 @@ inline void test_galaxies_emission_rate_and_capacity() {
       found = true;
       HS_EXPECT_EQ(param.min, 0.15f);
       HS_EXPECT_EQ(param.max, 4.0f);
-      HS_EXPECT_EQ(param.get(), 0.75f);
+      HS_EXPECT_EQ(param.get(), 2.5f);
     }
   }
   HS_EXPECT(found, "Emission Rate is registered");
