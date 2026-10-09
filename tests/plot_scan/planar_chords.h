@@ -7,8 +7,8 @@
 // Plot::PlanarChords  — chord-walked planar polylines
 // ============================================================================
 
-/** @brief One star contour to stroke with PlanarChords and Plot::rasterize. */
-struct PlanarChordStar {
+/** @brief One planar star or flower contour to stroke. */
+struct PlanarShapeCase {
   math::Quaternion orientation;
   float radius;
   int sides;
@@ -21,7 +21,7 @@ struct PlanarChordStar {
  */
 template <int W, int H>
 inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
-                                                   const PlanarChordStar &star,
+                                                   const PlanarShapeCase &star,
                                                    bool chords) {
   using Star = Plot::Star<Plot::PlanarProjection>;
   const math::Basis basis = math::make_basis(star.orientation, math::X_AXIS);
@@ -119,7 +119,7 @@ inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
 }
 
 /** @brief Stars away from the poles, near a pole, and past the equator. */
-inline std::array<PlanarChordStar, 4> planar_chord_stars() {
+inline std::array<PlanarShapeCase, 4> planar_chord_stars() {
   return {{
       {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 0.45f, 7,
        0.3f},
@@ -138,7 +138,7 @@ inline std::array<PlanarChordStar, 4> planar_chord_stars() {
 inline void test_planar_chords_match_rasterize_brightness() {
   constexpr int W = 288, H = 144;
   hs_test::StubEffect fx(W, H);
-  for (const PlanarChordStar &star : planar_chord_stars()) {
+  for (const PlanarShapeCase &star : planar_chord_stars()) {
     const auto reference = render_planar_chord_star<W, H>(fx, star, false);
     const auto chords = render_planar_chord_star<W, H>(fx, star, true);
     HS_EXPECT_GT(planar_chord_energy(reference), uint64_t{0});
@@ -146,14 +146,6 @@ inline void test_planar_chords_match_rasterize_brightness() {
                                           0.026);
   }
 }
-
-/** @brief One flower to rasterize whole and band-split. */
-struct BandSplitFlower {
-  math::Quaternion orientation;
-  float radius;
-  int sides;
-  float phase;
-};
 
 /** @brief What one band-split render of a flower produced. */
 struct BandSplitFrame {
@@ -167,7 +159,7 @@ struct BandSplitFrame {
  */
 template <int W, int H>
 inline BandSplitFrame
-render_band_split_flower(hs_test::StubEffect &fx, const BandSplitFlower &flower,
+render_band_split_flower(hs_test::StubEffect &fx, const PlanarShapeCase &flower,
                          const ClipRegion &clip, bool split) {
   constexpr int PIECES = 8;
   const math::Basis basis = math::make_basis(flower.orientation, math::X_AXIS);
@@ -238,7 +230,7 @@ inline void test_planar_band_split_matches_whole_polyline() {
       {H / 2, H, 0, W / 2, 1, W, H},
       {H / 2, H, W / 2, W, 1, W, H},
   };
-  const std::array<BandSplitFlower, 4> flowers = {{
+  const std::array<PlanarShapeCase, 4> flowers = {{
       {math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized(), 0.6f, 3,
        0.4f},
       {math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized(), 1.2f, 3,
@@ -248,7 +240,7 @@ inline void test_planar_band_split_matches_whole_polyline() {
        2.1f},
   }};
   size_t skipped = 0;
-  for (const BandSplitFlower &flower : flowers) {
+  for (const PlanarShapeCase &flower : flowers) {
     const auto whole =
         render_band_split_flower<W, H>(fx, flower, full, false).pixels;
     for (const ClipRegion &clip : quadrants) {
@@ -274,7 +266,7 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
                                {0, H / 2, W / 2, W},
                                {H / 2, H, 0, W / 2},
                                {H / 2, H, W / 2, W}};
-  const std::array<PlanarChordStar, 5> stars = {{
+  const std::array<PlanarShapeCase, 5> stars = {{
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.12f, 7, 0.6f},
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.35f, 7, 1.7f},
       {math::make_rotation(math::X_AXIS, -math::Y_AXIS), 0.22f, 5, 0.9f},
@@ -284,7 +276,7 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
        0.2f},
   }};
   size_t split_changed = 0;
-  for (const PlanarChordStar &star : stars) {
+  for (const PlanarShapeCase &star : stars) {
     fx.set_clip(0, H, 0, W);
     const auto whole = render_planar_chord_star<W, H>(fx, star, true);
     for (const auto &q : quadrants) {
