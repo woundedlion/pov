@@ -13,9 +13,8 @@ inline void expect_rejects(const Config &config, const char *clause) {
 }
 
 /**
- * @brief Verifies integer floor-div/mod and circular column distance, plus the
- *        derived Config timing fields (half-rev/column cycle counts, glitch
- *        window) at full rate.
+ * @brief Pins protocol timing helpers and Config timing/rejoin-budget
+ *        validation boundaries.
  */
 inline void test_helpers() {
   HS_EXPECT_EQ(floor_div(7, 2), 3);
