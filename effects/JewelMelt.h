@@ -63,7 +63,7 @@ public:
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "jewel-melt";
   static constexpr std::string_view DESCRIPTOR_DIGEST = "eb99693c0a7cf03b186d15806b8fb40244f09c85e1f03ca251e900d8d23cc680";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "3b975df9f1cbf1b0b9d9779fdb521f83fa334f6214c271078c651351f0a2c6bc";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "30e58bffbc44efdeaf1d6f0ed5be699cdfdc6b685218ab99c765b3ab30159cd2";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
   };
