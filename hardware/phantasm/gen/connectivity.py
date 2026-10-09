@@ -15,7 +15,7 @@ import os
 import sys
 
 import sexp
-from kicad_common import F, arc_extrema, is_copper_pour, net_name
+from kicad_common import F, arc_extrema, is_copper_pour, net_name, rotate_point
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -37,16 +37,6 @@ def net_id(node):
 
 def _xy(values):
     return float(values[0]), float(values[1])
-
-
-def _rotate(point, degrees):
-    if not degrees:
-        return point
-    angle = math.radians(degrees)
-    cos, sin = math.cos(angle), math.sin(angle)
-    x, y = point
-    # KiCad footprint rotation is counter-clockwise on a y-down canvas.
-    return x * cos + y * sin, -x * sin + y * cos
 
 
 def _point_segment_distance(point, start, end):
@@ -145,14 +135,14 @@ def _rectangle(centre, width, height, degrees):
     """Corners of a rectangle centred on `centre`, rotated into the board."""
     dx, dy = width / 2, height / 2
     return [(centre[0] + x, centre[1] + y)
-            for x, y in (_rotate(corner, degrees) for corner in
+            for x, y in (rotate_point(corner, degrees) for corner in
                          ((-dx, -dy), (dx, -dy), (dx, dy), (-dx, dy)))]
 
 
 def pad_copper(pad, origin, rotation, stack):
     """Rectangular and custom lands use rotated bounding boxes; others use discs."""
     placement = sexp.val(pad, "at")
-    offset = _rotate(_xy(placement), rotation)
+    offset = rotate_point(_xy(placement), rotation)
     centre = (origin[0] + offset[0], origin[1] + offset[1])
     width, height = _xy(sexp.val(pad, "size"))
     shape = str(pad[3])
@@ -207,7 +197,7 @@ def pad_copper(pad, origin, rotation, stack):
             corners = ((left, bottom), (right, bottom),
                        (right, top), (left, top))
             return Polygon([(centre[0] + x, centre[1] + y)
-                            for x, y in (_rotate(p, angle) for p in corners)],
+                            for x, y in (rotate_point(p, angle) for p in corners)],
                            layers)
     return Capsule(centre, centre, radius, layers)
 

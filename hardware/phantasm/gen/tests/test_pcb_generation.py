@@ -29,7 +29,7 @@ import connectivity     # noqa: E402
 import pcb              # noqa: E402
 import sexp             # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
-from kicad_common import F, export_netlist, is_copper_pour, kicad_cli  # noqa: E402
+from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
 COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
 
@@ -449,7 +449,7 @@ class TerminalEdgePlacementChecks:
         def pad_center(fp, number):
             pad = next(p for p in F(fp, "pad") if p[1] == number)
             x, y, angle = map(float, sexp.val(fp, "at"))
-            dx, dy = connectivity._rotate(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
+            dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
             return x + dx, y + dy
 
         for cap, parent, pin in (("C_DEC1", "U_MCU", "VIN"), ("C_DEC2", "U1", "14")):

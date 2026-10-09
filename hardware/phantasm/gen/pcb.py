@@ -27,7 +27,7 @@ from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, M
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
-                          export_netlist, kicad_cli, require_writable)
+                          export_netlist, kicad_cli, require_writable, rotate_point)
 from parts_rev13 import PARTS as REV13_PARTS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -432,11 +432,8 @@ def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
         for polygon in F(zone, "polygon"):
             for points in F(polygon, "pts"):
                 for point in F(points, "xy"):
-                    px, py = map(float, point[1:3])
-                    angle = math.radians(rot)
-                    point[1:3] = [
-                        sexp.Sym(fmt(x + px * math.cos(angle) + py * math.sin(angle))),
-                        sexp.Sym(fmt(y - px * math.sin(angle) + py * math.cos(angle)))]
+                    px, py = rotate_point((float(point[1]), float(point[2])), rot)
+                    point[1:3] = [sexp.Sym(fmt(x + px)), sexp.Sym(fmt(y + py))]
     node[1] = libid
     # strip lib-file-only headers
     node[:] = [c for c in node if not (isinstance(c, list) and c and
@@ -760,11 +757,8 @@ def local_routes(footprints):
             raise ValueError(f"local route requires locked {ref}")
         pad = next(pad for pad in F(footprint, "pad") if str(pad[1]) == number)
         x, y, angle = map(float, sexp.val(footprint, "at"))
-        dx, dy = map(float, sexp.val(pad, "at")[:2])
-        angle = math.radians(angle)
-        point = (x + dx * math.cos(angle) + dy * math.sin(angle),
-                 y - dx * math.sin(angle) + dy * math.cos(angle))
-        return point, sexp.val(pad, "net")
+        dx, dy = rotate_point(tuple(map(float, sexp.val(pad, "at")[:2])), angle)
+        return (x + dx, y + dy), sexp.val(pad, "net")
 
     routes = (
         (("C_DEC1", "1"), ("U_MCU", "VIN"), ()),

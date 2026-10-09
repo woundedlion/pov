@@ -130,6 +130,17 @@ def is_copper_pour(zone):
     return not F(zone, "keepout")
 
 
+def rotate_point(point, degrees):
+    """Footprint-local (x, y) rotated by a KiCad footprint angle in degrees."""
+    if not degrees:
+        return point
+    angle = math.radians(degrees)
+    cos, sin = math.cos(angle), math.sin(angle)
+    x, y = point
+    # KiCad footprint rotation is counter-clockwise on a y-down canvas.
+    return x * cos + y * sin, -x * sin + y * cos
+
+
 def arc_extrema(start, mid, end, collinear_error=None):
     """Axis-aligned extreme points of the arc through three (x, y) floats.
 
