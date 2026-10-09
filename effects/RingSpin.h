@@ -96,6 +96,7 @@ public:
       deep_tween_frames(ring.trail, [&](const math::Quaternion *qs,
                                         const float *ts, int count) {
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
+        static_assert(SUB_CAP <= Scan::RingGroup::MAX_RINGS);
         Color4 colors[SUB_CAP];
         SDF::Ring shapes[SUB_CAP];
         int slots = 0;

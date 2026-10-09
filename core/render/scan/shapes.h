@@ -558,6 +558,9 @@ struct Ring {
  */
 HS_O3_BEGIN
 struct RingGroup {
+  /** Maximum number of rings in one group. */
+  static constexpr int MAX_RINGS = 8;
+
   /**
    * @brief Rasterizes every ring of a group in one scan over the union band.
    * @tparam W Canvas width in pixels.
@@ -586,7 +589,6 @@ struct RingGroup {
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &&shader, bool debug_bb = false) {
-    static constexpr int MAX_RINGS = 8;
     check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n >= 1 && n <= MAX_RINGS,
