@@ -81,8 +81,8 @@ inline void test_galaxies_stellar_mass_tracks() {
   const auto old_dwarf = WB::color(fx, 0x4000, 1.0f);
   HS_EXPECT(dwarf.color == old_dwarf.color,
             "red dwarfs remain on the main sequence");
-  HS_EXPECT(dwarf.color.r > dwarf.color.g && dwarf.color.g > dwarf.color.b,
-            "red dwarfs have warm surface colors");
+  HS_EXPECT(dwarf.color.r > dwarf.color.b && dwarf.color.b > dwarf.color.g,
+            "red dwarfs use coral accents without amber");
   HS_EXPECT(old_dwarf.alpha > 0.0f && old_dwarf.alpha < 0.25f,
             "red dwarfs form a dim background population");
   const auto massive = WB::color(fx, 0xff00, 0.0f);
@@ -92,7 +92,7 @@ inline void test_galaxies_stellar_mass_tracks() {
   HS_EXPECT(massive.alpha > 4.0f * dwarf.alpha,
             "young massive stars outshine the orange dwarfs");
   HS_EXPECT(supergiant.color.r > 2u * supergiant.color.b,
-            "red supergiants have cool surface colors");
+            "red supergiants have red surface colors");
   HS_EXPECT_EQ(WB::color(fx, 0xff00, 0.31f).alpha, 0.0f);
   HS_EXPECT(WB::color(fx, 0xe000, 0.31f).alpha > 0.9f,
             "less massive stars evolve more slowly");
@@ -132,7 +132,9 @@ inline void test_galaxies_rendered_color_follows_age() {
     HS_EXPECT(colors[stage][0] > 0, "stellar stage is visible");
   }
   HS_EXPECT(colors[0][2] > colors[0][0], "main-sequence star is blue-white");
-  HS_EXPECT(colors[1][0] > 2u * colors[1][2], "giant is orange-red");
+  HS_EXPECT(colors[1][0] > 2u * colors[1][2], "giant is coral-red");
+  for (const auto &color : colors)
+    HS_EXPECT_GE(color[2], color[1]);
   HS_EXPECT(colors[2][2] > colors[2][0], "white dwarf is blue-white");
 }
 
