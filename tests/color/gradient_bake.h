@@ -187,6 +187,7 @@ inline void test_gradient_hard_stop_is_abrupt() {
 
 // ============================================================================
 // BakedPalette::get  (requires an Arena)
+// ============================================================================
 
 template <typename T>
 concept RebakeablePalette = requires(
@@ -224,7 +225,6 @@ inline void test_baked_palette_storage_and_views() {
   HS_EXPECT_EQ(writer.get_color(0.3f).r, 65535);
   HS_EXPECT_EQ(moved.get_color(0.3f).b, 65535);
 }
-// ============================================================================
 
 /**
  * @brief Verifies baked endpoint samples match a solid-color source.
