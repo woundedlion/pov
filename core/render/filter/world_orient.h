@@ -52,7 +52,7 @@ public:
    * @brief Binds the filter to a live orientation source.
    * @param orientation Orientation whose SLERP history drives the rotation.
    */
-  Orient(math::Orientation<> &orientation) : orientation(orientation) {}
+  Orient(const math::Orientation<> &orientation) : orientation(orientation) {}
 
   /**
    * @brief Rotates and re-emits the point across the orientation's tween sweep.
@@ -95,7 +95,7 @@ public:
   }
 
 private:
-  math::Orientation<>
+  const math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
 };
 
