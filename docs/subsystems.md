@@ -789,8 +789,9 @@ per-effect recipes the roster renders.
 sequence of palettes over time: it dwells on an entry for `dwell_frames`, then
 fades into the next over `fade_frames` (a dwell of 0 behaves as 1: the next fade begins on the following step).
 Effects call `step()` once per frame and shade from `palette()`, a
-`BakedPalette` — outside a fade the display is a bit-exact bake of the current
-entry.
+`BakedPalette` — outside a fade, after `step()`, the display is a bit-exact
+bake of the current entry; after `advance_without_display()` it holds the last
+displayed bake until the next `step()`.
 
 The fade mechanism is chosen per adjacent pair at `init()`. Two morph-compatible
 `GenerativePalette`s fade by **key-space morph**, interpolating control keys for
