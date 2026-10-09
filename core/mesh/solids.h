@@ -392,6 +392,21 @@ inline constexpr Recipe ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE =
     make_recipe(SEED_ICOSAHEDRON,
                 ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS);
 
+/** Step table for icosahedron_truncate25_hk60_ambo_relax100_hk60. */
+inline constexpr OpStep ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_STEPS[] =
+    {{Op::TRUNCATE, 0.25f},
+     {Op::HANKIN, 60.0f * IslamicStarPatterns::D2R},
+     {Op::AMBO},
+     {Op::RELAX, 100.0f},
+     {Op::HANKIN, 60.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::icosahedron_truncate25_hk60_ambo_relax100_hk60.
+ */
+inline constexpr Recipe ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE =
+    make_recipe(SEED_ICOSAHEDRON,
+                ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_STEPS);
+
 /**
  * @brief Registry of Islamic star-pattern solids.
  */
@@ -466,7 +481,11 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex, &TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosahedron_snub_relax_truncate033_hankin62",
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
-     Category::Complex, &ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE}};
+     Category::Complex, &ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE},
+    {"icosahedron_truncate25_hk60_ambo_relax100_hk60",
+     IslamicStarPatterns::icosahedron_truncate25_hk60_ambo_relax100_hk60,
+     Category::Complex,
+     &ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE}};
 
 /** Total number of solids across all three registries. */
 inline constexpr int NUM_ENTRIES =
@@ -488,7 +507,7 @@ static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
               "PLATONIC_COUNT must start the Archimedean run");
 
 inline constexpr size_t CATALAN_COUNT = 13;
-inline constexpr size_t ISLAMIC_COUNT = 23;
+inline constexpr size_t ISLAMIC_COUNT = 24;
 static_assert(CATALAN_COUNT == std::size(catalan_registry),
               "catalan_registry size changed; update CATALAN_COUNT");
 static_assert(ISLAMIC_COUNT == std::size(islamic_registry),
