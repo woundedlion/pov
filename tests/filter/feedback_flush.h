@@ -631,19 +631,28 @@ inline void test_feedback_spherical_ring_control_rows() {
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
   }
+  HS_EXPECT_LE(layout.sample_count(), (W / DOWNSAMPLE) * layout.ring_count());
+}
+
+/**
+ * @brief Verifies Feedback's persistent footprint from init_storage matches
+ * STORAGE_BYTES up to alignment padding.
+ */
+inline void test_feedback_init_storage_matches_storage_bytes() {
+  constexpr int W = 64, H = 64;
+  ::Feedback::Style style{};
+  style.space_fn = &metric_row_test_warp;
+  style.downsample = 4;
 
   // init_storage makes four allocations, each padded by less than alignof.
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
-  {
-    ScratchScope persistent_scope(persistent_arena);
-    Filter::Pixel::Feedback<W, H> storage_probe(style);
-    const size_t before = persistent_arena.get_offset();
-    storage_probe.init_storage(persistent_arena);
-    const size_t allocated = persistent_arena.get_offset() - before;
-    HS_EXPECT_GE(allocated, STORAGE);
-    HS_EXPECT_LT(allocated, STORAGE + 4 * alignof(std::max_align_t));
-  }
-  HS_EXPECT_LE(layout.sample_count(), (W / DOWNSAMPLE) * layout.ring_count());
+  ScratchScope persistent_scope(persistent_arena);
+  Filter::Pixel::Feedback<W, H> storage_probe(style);
+  const size_t before = persistent_arena.get_offset();
+  storage_probe.init_storage(persistent_arena);
+  const size_t allocated = persistent_arena.get_offset() - before;
+  HS_EXPECT_GE(allocated, STORAGE);
+  HS_EXPECT_LT(allocated, STORAGE + 4 * alignof(std::max_align_t));
 }
 
 /**

@@ -122,6 +122,7 @@ inline int run_filter_tests() {
   test_feedback_poles_resolve_one_source_longitude();
   test_feedback_half_res_warp_uses_pair_midpoint();
   test_feedback_spherical_ring_control_rows();
+  test_feedback_init_storage_matches_storage_bytes();
   test_spherical_field_layout_angular_error();
   test_feedback_seam_warp_keeps_its_latitude_row();
   test_feedback_cached_north_cap_clips_share_control_rows();
