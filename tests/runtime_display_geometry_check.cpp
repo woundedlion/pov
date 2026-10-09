@@ -110,15 +110,17 @@ int main() {
   constexpr float SOUTH = 2.8f;
   HS_EXPECT_TRUE(math::set_display_geometry(NORTH, SOUTH));
   for (const float invalid :
-       {-0.01f, SOUTH, math::PI_F, std::numeric_limits<float>::quiet_NaN(),
+       {-0.01f, std::nextafter(math::PI_F * 0.25f, math::PI_F), SOUTH,
+        math::PI_F, std::numeric_limits<float>::quiet_NaN(),
         std::numeric_limits<float>::infinity()}) {
     HS_EXPECT_FALSE(math::set_display_geometry(invalid, SOUTH));
     HS_EXPECT_EQ(math::DISPLAY_NORTH_PHI, NORTH);
     HS_EXPECT_EQ(math::DISPLAY_SOUTH_PHI, SOUTH);
   }
-  for (const float invalid : {-0.01f, NORTH, math::PI_F + 0.01f,
-                              std::numeric_limits<float>::quiet_NaN(),
-                              std::numeric_limits<float>::infinity()}) {
+  for (const float invalid :
+       {-0.01f, NORTH, std::nextafter(math::PI_F * 0.75f, 0.0f),
+        math::PI_F + 0.01f, std::numeric_limits<float>::quiet_NaN(),
+        std::numeric_limits<float>::infinity()}) {
     HS_EXPECT_FALSE(math::set_display_geometry(NORTH, invalid));
     HS_EXPECT_EQ(math::DISPLAY_NORTH_PHI, NORTH);
     HS_EXPECT_EQ(math::DISPLAY_SOUTH_PHI, SOUTH);
