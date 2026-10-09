@@ -43,15 +43,22 @@ inline int smoke_frames() {
   return DEFAULT_SMOKE_FRAMES;
 }
 
+/** @brief Reports whether CI-only runner depth levers must be enforced. */
+inline bool runs_in_ci() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *ci = std::getenv("CI");
+#pragma clang diagnostic pop
+  return ci && ci[0] != '\0';
+}
+
 /** @brief Rejects a shallow roster window when running under CI. */
 inline bool require_ci_smoke_frames() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *ci = std::getenv("CI");
   const char *frames = std::getenv("HS_SMOKE_FRAMES");
 #pragma clang diagnostic pop
-  if (!ci || ci[0] == '\0' ||
-      (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
+  if (!runs_in_ci() || (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
     return true;
   std::fprintf(stderr,
                "CI=on but HS_SMOKE_FRAMES is unset or below %d — "
