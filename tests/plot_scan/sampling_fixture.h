@@ -7,22 +7,6 @@
 // Local arena for sampling.
 // ---------------------------------------------------------------------------
 
-/**
- * @brief Draws a cube-sampled, normalized random unit vector (not uniform).
- * @return A unit Vector; draws inside a 0.1-radius ball are rejected and
- *         redrawn, so the normalize is well conditioned.
- */
-inline math::Vector rand_unit() {
-  for (;;) {
-    const float rx = hs::rand_f(-1, 1);
-    const float ry = hs::rand_f(-1, 1);
-    const float rz = hs::rand_f(-1, 1);
-    math::Vector r(rx, ry, rz);
-    if (r.length() > 0.1f)
-      return r.normalized();
-  }
-}
-
 /** @brief Backing storage for the module-local sampling arena. */
 inline uint8_t plot_scan_arena_buf[256 * 1024];
 

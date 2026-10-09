@@ -161,17 +161,7 @@ inline void test_mobius_matches_double_precision_oracle() {
   float worst_unit_err = 0.0f;
   float worst_oracle_err = 0.0f;
   for (int n = 0; n < 4000; ++n) {
-    math::Vector v;
-    for (;;) {
-      const float rx = hs::rand_f(-1, 1);
-      const float ry = hs::rand_f(-1, 1);
-      const float rz = hs::rand_f(-1, 1);
-      math::Vector r(rx, ry, rz);
-      if (r.length() > 0.1f) {
-        v = r.normalized();
-        break;
-      }
-    }
+    const math::Vector v = rand_unit();
     const float ar = hs::rand_f(-2, 2);
     const float ai = hs::rand_f(-2, 2);
     const float br = hs::rand_f(-2, 2);
@@ -1385,24 +1375,13 @@ inline void test_bump_field_envelope_gates() {
  */
 inline void test_bump_field_bound_is_conservative() {
   hs::random().seed(20260803);
-  auto random_unit = []() {
-    for (;;) {
-      const float r_x = hs::rand_f(-1.0f, 1.0f);
-      const float r_y = hs::rand_f(-1.0f, 1.0f);
-      const float r_z = hs::rand_f(-1.0f, 1.0f);
-      const math::Vector r(r_x, r_y, r_z);
-      if (r.length() > 0.1f)
-        return r.normalized();
-    }
-  };
-
   float worst_ratio = 0.0f;
   int nonfinite = 0;
   int over_bound = 0;
   for (int trial = 0; trial < 96; ++trial) {
     Animation::BumpParams p;
-    p.center = random_unit();
-    p.axis = random_unit();
+    p.center = rand_unit();
+    p.axis = rand_unit();
     p.radius = hs::rand_f(0.0f, 1.2f);
     p.envelope = hs::rand_f(0.0f, 1.0f);
     // Ball Amp tops out at 0.8 * 4 = 3.2 drape gain.
@@ -1411,7 +1390,7 @@ inline void test_bump_field_bound_is_conservative() {
     const float bound = p.field_bound();
 
     for (int i = 0; i < 512; ++i) {
-      const float f = bump_field(random_unit(), p);
+      const float f = bump_field(rand_unit(), p);
       nonfinite += !std::isfinite(f);
       over_bound += std::fabs(f) > bound;
       if (bound > 0.001f)
