@@ -62,6 +62,27 @@ struct FrameStats : ReferenceStats {
 inline constexpr auto hash_byte = hs_test::fnv1a64_byte;
 inline constexpr auto hash_channel = hs_test::fnv1a64_channel;
 
+inline void accumulate_pixel(ReferenceStats &stats, const uint16_t (&actual)[3],
+                             const uint16_t (&reference)[3]) {
+  bool changed = false;
+  for (int channel = 0; channel < 3; ++channel) {
+    stats.framebuffer_hash =
+        hash_channel(stats.framebuffer_hash, actual[channel]);
+    stats.expected_hash = hash_channel(stats.expected_hash, reference[channel]);
+    const uint16_t error = actual[channel] > reference[channel]
+                               ? actual[channel] - reference[channel]
+                               : reference[channel] - actual[channel];
+    if (error == 0)
+      continue;
+    changed = true;
+    ++stats.changed_channels;
+    stats.total_absolute_error += error;
+    stats.max_channel_error = std::max(stats.max_channel_error, error);
+  }
+  if (changed)
+    ++stats.changed_pixels;
+}
+
 inline uint16_t linear_luminance(uint16_t r, uint16_t g, uint16_t b) {
   return static_cast<uint16_t>((13933u * r + 46871u * g + 4732u * b + 32768u) >>
                                16);
@@ -110,24 +131,7 @@ FrameStats compare_frame(const Pixel *pixels, const ClipRegion &clip,
         stats.max_coverage_luminance =
             std::max(stats.max_coverage_luminance, coverage_error);
       }
-      bool changed = false;
-      for (int channel = 0; channel < 3; ++channel) {
-        stats.framebuffer_hash =
-            hash_channel(stats.framebuffer_hash, actual[channel]);
-        stats.expected_hash =
-            hash_channel(stats.expected_hash, reference[channel]);
-        const uint16_t error = actual[channel] > reference[channel]
-                                   ? actual[channel] - reference[channel]
-                                   : reference[channel] - actual[channel];
-        if (error == 0)
-          continue;
-        changed = true;
-        ++stats.changed_channels;
-        stats.total_absolute_error += error;
-        stats.max_channel_error = std::max(stats.max_channel_error, error);
-      }
-      if (changed)
-        ++stats.changed_pixels;
+      accumulate_pixel(stats, actual, reference);
     }
   }
   return stats;
@@ -172,24 +176,7 @@ compare_frame_reference(const Pixel *pixels, const ClipRegion &clip,
       const Pixel &expected = reference[reference_index++];
       const uint16_t actual[] = {pixel.r, pixel.g, pixel.b};
       const uint16_t baseline[] = {expected.r, expected.g, expected.b};
-      bool changed = false;
-      for (int channel = 0; channel < 3; ++channel) {
-        stats.framebuffer_hash =
-            hash_channel(stats.framebuffer_hash, actual[channel]);
-        stats.expected_hash =
-            hash_channel(stats.expected_hash, baseline[channel]);
-        const uint16_t error = actual[channel] > baseline[channel]
-                                   ? actual[channel] - baseline[channel]
-                                   : baseline[channel] - actual[channel];
-        if (error == 0)
-          continue;
-        changed = true;
-        ++stats.changed_channels;
-        stats.total_absolute_error += error;
-        stats.max_channel_error = std::max(stats.max_channel_error, error);
-      }
-      if (changed)
-        ++stats.changed_pixels;
+      accumulate_pixel(stats, actual, baseline);
     }
   }
   return stats;
