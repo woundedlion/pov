@@ -175,23 +175,6 @@ private:
   };
 
   /**
-   * @brief Effect parameters and read-only telemetry.
-   */
-  struct Params {
-    float friction = 0.99965f;   /**< Velocity retention per frame. */
-    float core_mass = 0.10478f;  /**< Attractor strength. */
-    float orbit_speed = 0.0134f; /**< Reference spawn speed (radians/frame). */
-    float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
-    float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
-    float arm_sharpness = 0.8f;  /**< Arm lobe narrowing; 1 is a cosine lobe. */
-    int arms = 2;                /**< Arms per galaxy. */
-    float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
-    float alpha = 1.0f;          /**< Overall opacity. */
-    float active_count = 0.0f;   /**< Live particles (engine-written). */
-    bool black_hole = false;     /**< Black core. */
-  } params;
-
-  /**
    * @brief Places the attractors and emitters on the octahedron vertices.
    * @details Single-shot: ParticleSystem::init traps on a second call.
    */
@@ -402,4 +385,21 @@ private:
    *          that points at it first.
    */
   Timeline timeline;
+
+  /**
+   * @brief Effect parameters and read-only telemetry.
+   */
+  struct Params {
+    float friction = 0.99965f;   /**< Velocity retention per frame. */
+    float core_mass = 0.10478f;  /**< Attractor strength. */
+    bool black_hole = false;     /**< Black core. */
+    float orbit_speed = 0.0134f; /**< Reference spawn speed (radians/frame). */
+    float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
+    float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
+    float arm_sharpness = 0.8f;  /**< Arm lobe narrowing; 1 is a cosine lobe. */
+    int arms = 2;                /**< Arms per galaxy. */
+    float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
+    float alpha = 1.0f;          /**< Overall opacity. */
+    float active_count = 0.0f;   /**< Live particles (engine-written). */
+  } params;
 };
