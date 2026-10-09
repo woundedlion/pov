@@ -600,8 +600,10 @@ inline constexpr bool fits_top_span_cap =
  * @param y_min First row to scan (inclusive).
  * @param y_max Last row to scan (inclusive).
  * @param get_intervals (int y, auto &out) -> bool. Pushes {float,float}
- *                      intervals via out(start, end). Returns true if intervals
- *                      were produced, false for full-row scan.
+ *                      intervals via out(start, end). Returns true when the
+ *                      row is handled (the pushed spans, possibly none, bound
+ *                      it); false requests a full-row scan and must push
+ *                      nothing.
  * @param pixel_fn (int wx, int y, const Vector &p, int max_run) -> int, offered
  *                 the columns [wx, wx+max_run) with p at column wx; returns how
  *                 many of them it consumed — max_run when the wx probe decided
