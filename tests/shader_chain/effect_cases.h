@@ -253,6 +253,9 @@ inline void test_shader_chain_projection_plane_bound() {
        {math::Vector(1e-4f, 1, 0), math::Vector(0, 1, 1e-4f),
         math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
     views.push_back(view.normalized());
+  const float NEAR_POLE_Y = std::nextafter(1.0f, 0.0f);
+  views.emplace_back(sqrtf(1.004f - NEAR_POLE_Y * NEAR_POLE_Y), NEAR_POLE_Y,
+                     0.0f);
   constexpr int SWEEP = 4096;
   for (int index = 0; index < SWEEP; ++index) {
     const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
@@ -337,26 +340,26 @@ inline void test_shader_chain_plane_growth_admission() {
     if (effect.update_parameters(step) != ParamSetResult::APPLIED)
       break;
   }
-  HS_EXPECT_EQ(admitted, 5);
-  HS_EXPECT_TRUE(effect.parameter_warning(scale_x[5].c_str()) ==
+  HS_EXPECT_EQ(admitted, 4);
+  HS_EXPECT_TRUE(effect.parameter_warning(scale_x[4].c_str()) ==
                  In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(effect.updateParameter(scale_y[5].c_str(), MIN_SCALE),
+  HS_EXPECT_EQ(effect.updateParameter(scale_y[4].c_str(), MIN_SCALE),
                ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_TRUE(effect.parameter_warning(scale_y[5].c_str()) ==
+  HS_EXPECT_TRUE(effect.parameter_warning(scale_y[4].c_str()) ==
                  In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(effect.getParameters().find(scale_y[5].c_str())->get_requested(),
+  HS_EXPECT_EQ(effect.getParameters().find(scale_y[4].c_str())->get_requested(),
                1.0f);
-  HS_EXPECT_EQ(effect.updateParameter(scale_x[5].c_str(), 1.5f),
+  HS_EXPECT_EQ(effect.updateParameter(scale_x[4].c_str(), 1.5f),
                ParamSetResult::APPLIED);
 
   const ChainSnapshot live = effect.snapshot();
   ChainSnapshot overflowing = live;
   for (auto &parameter : overflowing.parameters)
-    if (parameter.name == scale_y[5])
+    if (parameter.name == scale_y[4])
       parameter.value = MIN_SCALE;
   HS_EXPECT_EQ(effect.restore_snapshot(overflowing),
                ChainSnapshotRestoreResult::INVALID_VALUE);
-  HS_EXPECT_EQ(effect.getParameters().find(scale_y[5].c_str())->get_requested(),
+  HS_EXPECT_EQ(effect.getParameters().find(scale_y[4].c_str())->get_requested(),
                1.0f);
   HS_EXPECT_EQ(effect.restore_snapshot(live),
                ChainSnapshotRestoreResult::APPLIED);
