@@ -298,7 +298,6 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
 │   │   ├── noise_shimmer_palette.h Shared sphere-noise lightness lift palette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
-│   │   ├── effect_palette_recipes.h Per-effect authored PaletteRecipe constructors
 │   │   ├── mindsplatter_palette_luts.h  Generated bank of 256 triadic palette LUTs, one per base hue (from tools/mindsplatter_palette_gen.cpp)
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
@@ -373,7 +372,8 @@ files define line-ending policy and working-artifact exclusions.
 ├── effects/                    43 headers covering 43 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
-│                                reaction-diffusion base reaction_diffusion.h); the
+│                                reaction-diffusion base reaction_diffusion.h and the
+│                                authored palette recipes palette_recipes.h); the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │

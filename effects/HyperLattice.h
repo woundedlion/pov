@@ -16,7 +16,7 @@
 #include <string_view>
 #include <tuple>
 
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/render/sdf/lattice.h"
 #include "core/render/ray/shade.h"
 #include "core/render/pullback/ray.h"

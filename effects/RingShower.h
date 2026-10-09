@@ -11,7 +11,7 @@
  *        then recycle their slot.
  */
 
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor for Ring::radius_at's age+1 endpoint convention.

@@ -780,7 +780,7 @@ The `PaletteRecipes` namespace collects the stock builders — `hue_turns()`,
 `harmony()`, `balanced_analogous()`, `profile()`, `random_profile()`,
 `random_base_turns()`,
 `from_oklch_keys()`, `from_colors()`, `isolight_spectral_loop()` and
-`tonal_monochrome()` — and `core/color/effect_palette_recipes.h` holds the
+`tonal_monochrome()` — and `effects/common/palette_recipes.h` holds the
 per-effect recipes the roster renders.
 
 ### Palette Cycling
