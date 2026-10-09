@@ -576,7 +576,9 @@ public:
    * @param radians Interlace angle in radians (the unit MeshOps::hankin
    *        expects), in the operator's [0, MAX_HANKIN_ANGLE] domain.
    * @return Owning pointer to a new wrapper holding the result, or null if the
-   *         angle is non-finite or out of domain; getLastResult() names which.
+   *         angle is non-finite or out of domain, the wrapper is stale, the
+   *         tooling arena is unavailable or exhausted, or a stage would pass
+   *         the connectivity or face-degree limit; getLastResult() names which.
    * @details An out-of-domain angle is rejected, not clamped.
    */
   std::unique_ptr<MeshOpsWrapper> hankin(double radians) {
