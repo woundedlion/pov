@@ -671,9 +671,9 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
 }
 
 /**
- * @brief Emit the single horizontal interval where a row crosses a great-circle
- * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
- * the scan plane is (ny, r_val, alpha_angle).
+ * @brief Emit the single horizontal interval where a row crosses a spherical
+ * cap of angular radius `acos(cos_cap)` centred on an axis whose projection
+ * onto the scan plane is (ny, r_val, alpha_angle).
  *
  * @tparam W Canvas width in columns.
  * @tparam OutputIt Sink type invoked as out(float start, float end).
