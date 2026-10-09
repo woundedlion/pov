@@ -58,7 +58,7 @@ inline void expect_mosaic_matches(OracleState state, Render render,
                      ENERGY,
                  0.035);
     size_t uncovered = 0;
-    for (int y = 3; y < ORACLE_H - 3; ++y)
+    for (int y = 0; y < ORACLE_H; ++y)
       for (int x = 0; x < ORACLE_W; ++x) {
         if (pixel_is_bright(full.at(x, y)))
           uncovered += !candidate_covers_neighborhood(tiled, x, y);
