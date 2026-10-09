@@ -746,8 +746,7 @@ inline void test_compiled_hankin_clone_deep_copies() {
 }
 
 /**
- * @brief Verifies clear() empties every CompiledHankin array and resets
- *        static_offset.
+ * @brief Verifies clear() drops compiled arrays, borrowed corners and topology identity.
  */
 inline void test_compiled_hankin_clear() {
   Arena arena(hankin_target_buf, sizeof(hankin_target_buf));
@@ -760,6 +759,8 @@ inline void test_compiled_hankin_clear() {
   MeshOps::compile_hankin(cube, compiled, arena, temp);
   HS_EXPECT_TRUE(compiled.base_vertices.size() > 0);
   HS_EXPECT_TRUE(compiled.static_offset > 0);
+  HS_EXPECT_TRUE(compiled.corner_src.data() != nullptr);
+  HS_EXPECT_NE(compiled.topology_key, 0u);
 
   compiled.clear();
   HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
@@ -768,6 +769,8 @@ inline void test_compiled_hankin_clear() {
   HS_EXPECT_EQ(compiled.static_offset, 0);
   HS_EXPECT_EQ(compiled.face_counts.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.faces.size(), (size_t)0);
+  HS_EXPECT_TRUE(compiled.corner_src.data() == nullptr);
+  HS_EXPECT_EQ(compiled.topology_key, 0u);
 }
 
 /**
