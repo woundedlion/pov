@@ -297,8 +297,7 @@ inline void test_edge_reciprocity_high() {
 
 inline const ReactionGraph::CubemapLUT &built_cubemap_lut() {
   struct Fixture {
-    uint8_t buffer[6 * ReactionGraph::CubemapLUT::RES *
-                       ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
+    uint8_t buffer[ReactionGraph::CubemapLUT::BYTES +
                    RD_N * sizeof(math::Vector) + 64];
     Arena arena;
     ReactionGraph::CubemapLUT lut;
