@@ -649,9 +649,36 @@ inline void test_mobius_grid_circular_animation() {
 }
 
 /**
- * @brief Module entry point for the composed-effect base contract.
- * @return Module result code from hs_test::end_module (0 on success).
+ * @brief Pins exact endpoints and weighted coordinates during mapping crossfades.
  */
+inline void test_palette_mapping_crossfade() {
+  using namespace Pullback::Color;
+  constexpr float PHASE = 0.2f;
+  const auto LINEAR = PaletteMappingWeights::single(PaletteMapping::LINEAR);
+  const auto CUP = PaletteMappingWeights::single(PaletteMapping::CUP);
+  for (const float PROGRESS : {0.0f, 1.0f}) {
+    const auto weights = PaletteMappingWeights::lerp(LINEAR, CUP, PROGRESS);
+    const auto MAPPING =
+        PROGRESS == 0.0f ? PaletteMapping::LINEAR : PaletteMapping::CUP;
+    HS_EXPECT_EQ(weights.exact, static_cast<uint8_t>(MAPPING));
+    HS_EXPECT_EQ(palette_mapping_coordinate(PHASE, weights, 1.0f, 0.0f),
+                 palette_mapping_coordinate(PHASE, MAPPING, 1.0f, 0.0f));
+  }
+  const auto midpoint = PaletteMappingWeights::lerp(LINEAR, CUP, 0.5f);
+  HS_EXPECT_EQ(midpoint.exact, 0xff);
+  HS_EXPECT_NEAR(palette_mapping_coordinate(PHASE, midpoint, 1.0f, 0.0f),
+                 0.5f * PHASE + 0.5f * math::unit_cup(PHASE), 1e-6f);
+  const auto bell = PaletteMappingWeights::single(PaletteMapping::BELL);
+  HS_EXPECT_NEAR(
+      palette_mapping_coordinate(
+          PHASE, PaletteMappingWeights::lerp(CUP, bell, 0.5f), 1.0f, 0.0f),
+      0.5f, 1e-6f);
+  const auto unchanged = PaletteMappingWeights::lerp(CUP, CUP, 0.3f);
+  HS_EXPECT_EQ(unchanged.exact, CUP.exact);
+  HS_EXPECT_TRUE(unchanged.values == CUP.values);
+}
+
+/** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_alien_brain_preset_dwell();
@@ -671,6 +698,7 @@ inline int run_composed_effect_tests() {
   test_composed_preset_choreography();
   test_composed_log_positive_curve();
   test_composed_preset_interpolation();
+  test_palette_mapping_crossfade();
   test_composed_document_values();
   test_flowers_longitude_seam();
   test_composed_derivation_reach();
