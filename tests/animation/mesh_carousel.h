@@ -692,13 +692,13 @@ inline void test_per_face_segues_satisfy_draw_contract() {
 /**
  * @brief Verifies every segue policy hands schedule()'s pause gate to the
  * sprite it schedules.
- * @details A gated sprite holds its envelope: the opacity reaching the draw
+ * @details A gated sprite holds its envelope: the phase reaching the draw
  * callback must not move while the flag is set and must climb again once it
  * clears.
  */
 inline void test_segue_policies_forward_pause_gate() {
   struct Probe {
-    float opacity = -1.0f;
+    float phase = -1.0f;
     int draws = 0;
   };
   auto holds_under_pause = [](auto policy) {
@@ -707,27 +707,27 @@ inline void test_segue_policies_forward_pause_gate() {
     bool paused = false;
     policy.schedule(
         tl,
-        [&probe](Canvas &, float opacity) {
-          probe.opacity = opacity;
+        [&probe](Canvas &, float phase) {
+          probe.phase = phase;
           probe.draws++;
         },
         /*duration=*/60, /*window=*/20, &paused);
     tl.step(fake_canvas());
     tl.step(fake_canvas());
     const int drawn = probe.draws;
-    const float held = probe.opacity;
+    const float held = probe.phase;
     HS_EXPECT_GT(drawn, 0);
-    HS_EXPECT_LT(held, 1.0f); // mid fade-in, so a resumed frame is detectable
+    HS_EXPECT_LT(held, 1.0f); // mid fade-in phase
 
     paused = true;
     for (int i = 0; i < 5; ++i)
       tl.step(fake_canvas());
     HS_EXPECT_EQ(probe.draws, drawn + 5); // held frames still draw
-    HS_EXPECT_NEAR(probe.opacity, held, 1e-6f);
+    HS_EXPECT_NEAR(probe.phase, held, 1e-6f);
 
     paused = false;
     tl.step(fake_canvas());
-    HS_EXPECT_GT(probe.opacity, held);
+    HS_EXPECT_GT(probe.phase, held);
   };
   Segue::AllPolicies::for_each(holds_under_pause);
 }
