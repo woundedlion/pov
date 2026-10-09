@@ -232,10 +232,9 @@ def zip_members(names):
 
 
 def write_upload_zip(directory, members, path):
-    """Deflate `members` of `directory` into `path` at the pinned zlib level.
+    """Store `members` of `directory` uncompressed into `path`.
 
-    The level rides on writestr, not on the ZipFile: a caller-supplied ZipInfo
-    keeps its own (unset) level and never picks up the archive's.
+    Fixed member metadata makes an unchanged board rezip byte-identically.
     """
     with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as archive:
         for name in members:
