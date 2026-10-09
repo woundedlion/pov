@@ -78,7 +78,7 @@ check)
 g1_ship)
   run BZReactionDiffusion profile 130 32
   run Fishbowl profile 70 32
-  run DisplacementField profile 70 32
+  run DisplacementField profile 150 32
   run GnomonicStars profile 70 32
   run GSReactionDiffusion profile 130 32
   ;;
