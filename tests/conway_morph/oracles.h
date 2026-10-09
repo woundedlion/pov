@@ -112,7 +112,7 @@ constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
  * @param seed Source mesh the operator ran on.
  * @param out Operator output.
  * @param corners_per_source Output corners expected near each seed corner:
- *        2 for truncate (both edge cuts of a corner), 1 for expand/snub.
+ *        2 for truncate (both edge cuts of a corner), 1 for expand/snub/chamfer.
  * @param tol Max distance from an output corner to its seed corner.
  * @details Primary face fi must have seed_count(fi) * corners_per_source sides
  *          with exactly corners_per_source of them within tol of each seed
