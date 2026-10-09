@@ -83,11 +83,14 @@ inline void test_galaxies_stellar_mass_tracks() {
             "red dwarfs remain on the main sequence");
   HS_EXPECT(dwarf.color.r > dwarf.color.g && dwarf.color.g > dwarf.color.b,
             "red dwarfs have warm surface colors");
-  HS_EXPECT_EQ(old_dwarf.alpha, 1.0f);
+  HS_EXPECT(old_dwarf.alpha > 0.0f && old_dwarf.alpha < 0.25f,
+            "red dwarfs form a dim background population");
   const auto massive = WB::color(fx, 0xff00, 0.0f);
   const auto supergiant = WB::color(fx, 0xff00, 0.23f);
   HS_EXPECT(massive.color.b > massive.color.r,
             "massive young stars are blue-white");
+  HS_EXPECT(massive.alpha > 4.0f * dwarf.alpha,
+            "young massive stars outshine the orange dwarfs");
   HS_EXPECT(supergiant.color.r > 2u * supergiant.color.b,
             "red supergiants have cool surface colors");
   HS_EXPECT_EQ(WB::color(fx, 0xff00, 0.31f).alpha, 0.0f);
@@ -96,11 +99,13 @@ inline void test_galaxies_stellar_mass_tracks() {
   const auto remnant = WB::color(fx, 0xc000, 0.8f);
   const auto cooled = WB::color(fx, 0xc000, 1.0f);
   HS_EXPECT(remnant.color.b > remnant.color.r, "new white dwarfs are hot");
-  HS_EXPECT(cooled.color.r > cooled.color.b, "white dwarfs cool with age");
+  HS_EXPECT(static_cast<uint64_t>(cooled.color.r) * remnant.color.b >
+                static_cast<uint64_t>(remnant.color.r) * cooled.color.b,
+            "white dwarfs shift toward warmer colors as they cool");
   HS_EXPECT(remnant.alpha < 0.3f, "white dwarfs are dim remnants");
 }
 
-/** @brief A fixed-position star changes from warm white to red giant to white dwarf. */
+/** @brief A fixed-position star changes from blue-white to red giant to white dwarf. */
 inline void test_galaxies_rendered_color_follows_age() {
   using WB = GalaxiesWhiteBox;
   reset_effect_globals();
@@ -126,7 +131,7 @@ inline void test_galaxies_rendered_color_follows_age() {
       }
     HS_EXPECT(colors[stage][0] > 0, "stellar stage is visible");
   }
-  HS_EXPECT(colors[0][0] > colors[0][2], "main-sequence star is warm white");
+  HS_EXPECT(colors[0][2] > colors[0][0], "main-sequence star is blue-white");
   HS_EXPECT(colors[1][0] > 2u * colors[1][2], "giant is orange-red");
   HS_EXPECT(colors[2][2] > colors[2][0], "white dwarf is blue-white");
 }
