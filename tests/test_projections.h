@@ -199,7 +199,7 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
 /** @brief The fast Peirce kernel matches exact coordinates, edge distance and metadata across the sphere. */
 inline void test_peirce_fast_square_matches_exact() {
   // Half-step azimuths: the sector seams sit at even multiples of pi/96, so
-  // every sample lands in a sector interior.
+  // every off-pole sample lands in a sector interior.
   for (int latitude_step = 0; latitude_step <= 96; ++latitude_step) {
     const float y = -1.0f + 2.0f * latitude_step / 96.0f;
     const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
