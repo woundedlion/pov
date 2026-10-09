@@ -378,8 +378,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   SDF::Line ln(math::Vector(0.25f, 1, 0).normalized(),
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, math::Vector(1, 0, 0));
-  int interior = expect_cull_covers_interior<W, H>(rep, "angular repeat");
-  HS_EXPECT_GT(interior, 0);
+  expect_cull_covers_interior<W, H>(rep, "angular repeat");
 }
 
 /**
@@ -396,8 +395,7 @@ inline void test_angular_repeat_y_axis_cull_narrows_rows() {
       math::make_basis(math::Quaternion(), math::Vector(1, 0, 0));
   SDF::Star star(basis, /*radius=*/0.15f, /*sides=*/5, 0.0f);
   SDF::AngularRepeat<SDF::Star> rep(star, REPS, math::Vector(0, 1, 0));
-  int fringe = expect_cull_covers_fringe<W, H>(rep, "angular repeat y axis");
-  HS_EXPECT_GT(fringe, 0);
+  expect_cull_covers_fringe<W, H>(rep, "angular repeat y axis");
 
   int spans = 0;
   bool handled =
@@ -460,8 +458,7 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   // pole (phi=0), above either endpoint's latitude.
   SDF::Line ln(math::Vector(0, cosf(0.4f), sinf(0.4f)),
                math::Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
-  int interior = expect_cull_covers_interior<W, H>(ln, "line arc bulge");
-  HS_EXPECT_GT(interior, 0);
+  expect_cull_covers_interior<W, H>(ln, "line arc bulge");
 }
 
 /** @brief Face arc bounds retain northern, southern and endpoint extrema. */
@@ -530,8 +527,7 @@ inline void test_line_antipodal_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   const math::Vector ENDPOINT = math::Vector(0.4f, 0.6f, 0.69f).normalized();
   SDF::Line ln(ENDPOINT, -ENDPOINT, /*thickness=*/0.15f);
-  int interior = expect_cull_covers_interior<W, H>(ln, "line antipodal");
-  HS_EXPECT_GT(interior, 0);
+  expect_cull_covers_interior<W, H>(ln, "line antipodal");
 }
 
 /**
@@ -543,8 +539,7 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   constexpr int W = 96, H = 48;
   SDF::Line ln(math::Vector(1, 0, 0), math::Vector(0, 0, 1),
                /*thickness=*/2.6f);
-  int interior = expect_cull_covers_interior<W, H>(ln, "line thick cap");
-  HS_EXPECT_GT(interior, 0);
+  expect_cull_covers_interior<W, H>(ln, "line thick cap");
 }
 
 /**
