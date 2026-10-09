@@ -408,10 +408,10 @@ private:
   static constexpr int TRAIL_LEN_MAX =
       100; /**< "Trail Len" slider max, and the ceiling "Trail Cap" reports. */
   static constexpr float SPEED_MAX = 10.0f;
-  /** @brief Upper bound of the "Gap" slider; below W/2 so drag() terminates. */
+  /** @brief Upper bound of the "Gap" slider; below W/2 so the gap constraint can bind. */
   static constexpr float GAP_MAX = 20.0f;
   static_assert(2.0f * GAP_MAX < static_cast<float>(W),
-                "Gap max must stay below W/2 so drag() terminates");
+                "Gap max must stay below W/2 so the gap constraint can bind");
   static constexpr float WIPE_BLEND_WIDTH = math::PI_F / 4;
   /**
    * @brief Sentinel a completed wipe writes into its boundary slot so
