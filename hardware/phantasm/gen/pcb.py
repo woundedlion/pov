@@ -21,6 +21,7 @@ import sys
 import board as schematic_generator
 import builder
 import check
+import connectivity
 import sexp
 from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
@@ -545,12 +546,23 @@ def _on_layers(node, layers):
 def fp_bbox(node, pads_only=False, graphic_layers=None):
     """Footprint bounding box (minx,miny,maxx,maxy) in its local (origin) frame,
     over pads plus (unless `pads_only`) graphic outlines, restricted to
-    `graphic_layers` when given. Pad rotation is folded into a max-dim radius."""
+    `graphic_layers` when given. Custom pads use primitive copper bounds;
+    other pads use a max-dimension radius."""
     xs = []; ys = []
     for c in node:
         if not (isinstance(c, list) and c):
             continue
         if c[0] == "pad":
+            if str(c[3]) == "custom":
+                copper = connectivity.pad_copper(c, (0, 0), 0, ["F.Cu"])
+                if isinstance(copper, connectivity.Polygon):
+                    for x, y in copper.polygon:
+                        xs.append(x); ys.append(y)
+                else:
+                    x, y = copper.start
+                    r = copper.radius
+                    xs += [x - r, x + r]; ys += [y - r, y + r]
+                continue
             at = sexp.val(c, "at"); sz = sexp.val(c, "size")
             x = float(at[0]); y = float(at[1])
             r = max(float(sz[0]), float(sz[1])) / 2 if sz else 0.5
