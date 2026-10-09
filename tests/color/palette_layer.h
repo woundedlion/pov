@@ -619,7 +619,6 @@ inline void test_static_palette_composition() {
 
 /**
  * @brief Constant 0.5 falloff function for AlphaFalloffShade.
- * @param Unused normalized coordinate (the falloff is constant).
  * @return Constant falloff factor 0.5.
  * @details Must be a plain function pointer to bind to AlphaFalloffShade.
  */
