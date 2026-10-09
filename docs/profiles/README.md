@@ -1,6 +1,6 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **38 effects in the Phantasm image**, captured on
+On-device timing for the **39 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
@@ -30,11 +30,11 @@ The [`profile_o3` report set](O3/README.md) replaces `-Os` globally with
 `-O3 -ffast-math`. It is a single-effect optimization ceiling, not a shippable
 full-roster image.
 
-## Paired shipping/O3 captures
+## Shipping/O3 captures
 
-Rows rank by shipping spill fraction, then shipping peak render. Both peaks
+Rows rank by shipping spill fraction, then shipping peak render. JewelMelt has a shipping capture only; ● also marks its October 8 capture. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill; 🔴 any spill. Ship columns come from the 2026-10-06 full-roster sweep at `e2f5b0a3d`, except HyperLattice, re-captured after its 4D optimization at `a13c149d4`, GnomonicStars, re-captured on 2026-10-07 at `17390a7a1` with its original float clock and an added profiling scope, and the ● October 7 IslamicStars/HankinSolids optimized face-distance snapshots documented in their reports. Image
+render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill; 🔴 any spill. JewelMelt was captured on October 8 at softness 0.5. Other ship columns come from the 2026-10-06 full-roster sweep at `e2f5b0a3d`, except HyperLattice, re-captured after its 4D optimization at `a13c149d4`, GnomonicStars, re-captured on 2026-10-07 at `17390a7a1` with its original float clock and an added profiling scope, and the ● October 7 IslamicStars/HankinSolids optimized face-distance snapshots documented in their reports. Image
 deltas belong to each O3 capture's own shipping pair, not to the linked
 2026-10-06 shipping report; MeshFeedback and KaleidoscopeStainedGlass use
 adjacent-source pairs (`63268c376` O3 versus `20ca3cb48` shipping), so their
@@ -52,6 +52,7 @@ predate the October 5 shipping optimization.
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-07.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-07 15:16<br>O3 2026-09-28 16:50 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-06.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.34 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-06 19:05<br>O3 2026-08-26 01:16 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-10-06.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 50.750 | 🟢 0/1087 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-06 18:22<br>O3 2026-09-24 20:18 |
+| [JewelMelt](shipping/profile_jewelmelt_teensy_2026-10-08.md) ● | `fx_shader_draw` | 🟢 46.39 | — | 🟢 0/1087 (0.00%) | — | — | — | ship 2026-10-08 22:56 |
 | [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-10-06.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 46.99 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-10-06 18:50<br>O3 2026-08-26 02:51 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-10-06.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.67 | 🔴 79.81 | 🟢 0/1087 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-06 19:01<br>O3 2026-08-26 02:45 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-06.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-06 18:28<br>O3 2026-08-26 02:19 |
@@ -82,7 +83,7 @@ predate the October 5 shipping optimization.
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
 | [RingShower](shipping/profile_ringshower_teensy_2026-10-06.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-10-06 18:20<br>O3 2026-08-26 01:36 |
 
-Shipping columns re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports; setup frame 1 is excluded. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
+JewelMelt was captured on October 8 at softness 0.5. Other shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures; JewelMelt's report records its full-width initialization draw separately. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
