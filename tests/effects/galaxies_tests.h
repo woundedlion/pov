@@ -58,10 +58,7 @@ struct GalaxiesWhiteBox {
   static float alpha(uint16_t seed, float age, float arm) {
     return FX<1, 1>::particle_alpha(seed, age, arm);
   }
-  template <int W, int H>
-  static Color4 color(const Galaxies<W, H> &fx, uint16_t seed, float age) {
-    return fx.star_color(seed, age);
-  }
+  static Color4 color(uint16_t seed) { return FX<1, 1>::star_color(seed); }
   template <int W, int H>
   static float density(const Galaxies<W, H> &fx, int index,
                        const math::Vector &position) {
@@ -71,42 +68,33 @@ struct GalaxiesWhiteBox {
   }
 };
 
-/** @brief Stellar mass selects long-lived dwarfs and faster massive-star evolution. */
-inline void test_galaxies_stellar_mass_tracks() {
-  using WB = GalaxiesWhiteBox;
-  reset_effect_globals();
-  Galaxies<DEFAULT_W, DEFAULT_H> fx;
-  fx.init();
-  const auto dwarf = WB::color(fx, 0x4000, 0.0f);
-  const auto old_dwarf = WB::color(fx, 0x4000, 1.0f);
-  HS_EXPECT(dwarf.color == old_dwarf.color,
-            "red dwarfs remain on the main sequence");
-  HS_EXPECT(dwarf.color.r > dwarf.color.b && dwarf.color.b > dwarf.color.g,
-            "red dwarfs use coral accents without amber");
-  HS_EXPECT(old_dwarf.alpha > 0.0f && old_dwarf.alpha < 0.25f,
-            "red dwarfs form a dim background population");
-  const auto massive = WB::color(fx, 0xff00, 0.0f);
-  const auto supergiant = WB::color(fx, 0xff00, 0.23f);
-  HS_EXPECT(massive.color.b > massive.color.r,
-            "massive young stars are blue-white");
-  HS_EXPECT(massive.alpha > 4.0f * dwarf.alpha,
-            "young massive stars outshine the orange dwarfs");
-  HS_EXPECT(supergiant.color.r > 2u * supergiant.color.b,
-            "red supergiants have red surface colors");
-  HS_EXPECT_EQ(WB::color(fx, 0xff00, 0.31f).alpha, 0.0f);
-  HS_EXPECT(WB::color(fx, 0xe000, 0.31f).alpha > 0.9f,
-            "less massive stars evolve more slowly");
-  const auto remnant = WB::color(fx, 0xc000, 0.8f);
-  const auto cooled = WB::color(fx, 0xc000, 1.0f);
-  HS_EXPECT(remnant.color.b > remnant.color.r, "new white dwarfs are hot");
-  HS_EXPECT(static_cast<uint64_t>(cooled.color.r) * remnant.color.b >
-                static_cast<uint64_t>(remnant.color.r) * cooled.color.b,
-            "white dwarfs shift toward warmer colors as they cool");
-  HS_EXPECT(remnant.alpha < 0.3f, "white dwarfs are dim remnants");
+/** @brief Every galaxy has mostly white stars and sparse blue/red accents. */
+inline void test_galaxies_star_color_mix() {
+  for (int galaxy = 0; galaxy < GalaxiesWhiteBox::NUM_GALAXIES; ++galaxy) {
+    int white = 0;
+    int blue = 0;
+    int red = 0;
+    for (int seed = 0; seed < 256; ++seed) {
+      const auto color =
+          GalaxiesWhiteBox::color(static_cast<uint16_t>((seed << 8) | galaxy));
+      HS_EXPECT_EQ(color.alpha, 1.0f);
+      if (color.color.r == color.color.g && color.color.g == color.color.b)
+        ++white;
+      else if (color.color.b > color.color.g && color.color.g > color.color.r)
+        ++blue;
+      else if (color.color.r > color.color.g && color.color.g > color.color.b)
+        ++red;
+      else
+        HS_EXPECT(false, "star is white, blue or red");
+    }
+    HS_EXPECT_EQ(white, 216);
+    HS_EXPECT_EQ(blue, 20);
+    HS_EXPECT_EQ(red, 20);
+  }
 }
 
-/** @brief A fixed-position star changes from blue-white to red giant to white dwarf. */
-inline void test_galaxies_rendered_color_follows_age() {
+/** @brief A white star remains neutral while fading with age. */
+inline void test_galaxies_white_star_stays_white() {
   using WB = GalaxiesWhiteBox;
   reset_effect_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
@@ -129,13 +117,12 @@ inline void test_galaxies_rendered_color_follows_age() {
         colors[stage][1] += pixel.g;
         colors[stage][2] += pixel.b;
       }
-    HS_EXPECT(colors[stage][0] > 0, "stellar stage is visible");
+    HS_EXPECT(colors[stage][0] > 0, "star is visible");
   }
-  HS_EXPECT(colors[0][2] > colors[0][0], "main-sequence star is blue-white");
-  HS_EXPECT(colors[1][0] > 2u * colors[1][2], "giant is coral-red");
-  for (const auto &color : colors)
-    HS_EXPECT_GE(color[2], color[1]);
-  HS_EXPECT(colors[2][2] > colors[2][0], "white dwarf is blue-white");
+  for (const auto &color : colors) {
+    HS_EXPECT_EQ(color[0], color[1]);
+    HS_EXPECT_EQ(color[1], color[2]);
+  }
 }
 
 /** @brief The core toggle removes the core glow and restores it. */
