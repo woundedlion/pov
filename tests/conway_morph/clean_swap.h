@@ -33,9 +33,10 @@ inline void test_truncate_near_half_merges_onto_ambo() {
 /**
  * @brief Verifies each parameterized op at t = T_EPS emits primary faces that
  *        geometrically match the seed's faces, for every sweep seed.
- * @details truncate contributes two cut corners per seed corner; expand and
- *          snub (zero twist) contribute one inset corner each. Tolerances
- *          bound the T_EPS displacement plus the unit-sphere renormalization.
+ * @details truncate contributes two cut corners per seed corner; expand,
+ *          snub (zero twist) and chamfer contribute one inset corner each.
+ *          Tolerances bound the T_EPS displacement plus the unit-sphere
+ *          renormalization.
  */
 inline void test_ops_at_t_eps_primary_faces_match_seed() {
   for (MorphSeed s : MORPH_SEEDS) {
@@ -63,6 +64,15 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
       Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
       PolyMesh seed = build_morph_seed(s, aux, temp);
       PolyMesh out = MeshOps::snub(seed, target, temp, T_EPS, 0.0f);
+      check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
+                                     PRIMARY_CORNER_TOL_SINGLE);
+    }
+    {
+      Arena target(morph_target_buf, sizeof(morph_target_buf));
+      Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      PolyMesh seed = build_morph_seed(s, aux, temp);
+      PolyMesh out = MeshOps::chamfer(seed, target, temp, T_EPS);
       check_primary_faces_match_seed(seed, out, /*corners_per_source*/ 1,
                                      PRIMARY_CORNER_TOL_SINGLE);
     }
