@@ -1008,7 +1008,7 @@ Use `Effect` directly for an effect that owns its own lifecycle. For an authored
 
 Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
 
-The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields. See the [parameter description spec](docs/specs/parameter_description_spec.md).
+The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields. See the [parameter description spec](https://github.com/woundedlion/pov/blob/master/docs/specs/parameter_description_spec.md).
 
 ```cpp
 register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
@@ -1099,7 +1099,7 @@ Authoring operations live on `ShaderChainBindings`, acquired through
 invalid after replacement, resize, geometry rebuild or engine deletion. Release
 it with `delete()` after use. It owns program admission, parameter batches,
 program readback and complete snapshots. Its static `getShaderChainCatalog()`
-exports the catalog. [Chain snapshots](docs/specs/chain_snapshot_spec.md) define
+exports the catalog. [Chain snapshots](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md) define
 state restoration and archive conversion.
 
 `wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes the `HolosphereEngine` render class alongside `ShaderChainBindings`, `MeshOps` and `PaletteOps`. At most one engine instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
@@ -1121,7 +1121,7 @@ A trap is terminal for the whole module, not just for the call that tripped it. 
 | `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
 | `ShaderChainBindings.isValid()` → `bool` | Whether the handle still addresses the live chain incarnation. |
 | `ShaderChainBindings.getProgram()` | Read back the ordered chain entries as `[{instance, operator}]`. |
-| `ShaderChainBindings.getSnapshot()` | Capture the complete schema-version-two program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag; see [the snapshot contract](docs/specs/chain_snapshot_spec.md). |
+| `ShaderChainBindings.getSnapshot()` | Capture the complete schema-version-two program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag; see [the snapshot contract](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md). |
 | `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; a refusal commits no restoration writes. Side effects of caller accessors during payload cloning are not rolled back. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |
@@ -1496,8 +1496,8 @@ just docs         # docs-check, then build the Doxygen reference into build/docs
 The design specs carry their own index:
 [`docs/specs/README.md`](https://github.com/woundedlion/pov/blob/master/docs/specs/README.md)
 lists each one with its status and says which spec owns which half where two
-overlap. Doxygen also includes the [snapshot contract](docs/specs/chain_snapshot_spec.md)
-and [parameter-description contract](docs/specs/parameter_description_spec.md);
+overlap. Doxygen also includes the [snapshot contract](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md)
+and [parameter-description contract](https://github.com/woundedlion/pov/blob/master/docs/specs/parameter_description_spec.md);
 the remaining specs are outside the API reference.
 
 `just docs-check` runs [`tools/docs_check.py`](https://github.com/woundedlion/pov/blob/master/tools/docs_check.py); `just python-test` runs its unit tests. CI and pre-commit also validate fences, links, repository paths, maps and source-derived counts without rewriting documentation. Run `just docs-sync` explicitly to refresh generated maps and counts; prose still needs review. `just docs` needs `doxygen` on `PATH` at the version `tools/build_pins.py` pins — it runs `build_pins.py --check-tool doxygen` before running doxygen and refuses any other, because warning text and generated markup move between releases; it clones the pinned doxygen-awesome theme into `.doxygen-awesome/` on first run and synthesizes `Doxyfile.local` from `Doxyfile` plus [`docs/doxygen-theme.cfg`](https://github.com/woundedlion/pov/blob/master/docs/doxygen-theme.cfg) — the same combination `.github/workflows/docs.yml` publishes to <https://woundedlion.github.io/pov/>.
