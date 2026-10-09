@@ -301,6 +301,29 @@ inline void test_shader_clip_arc_matches_predicate() {
             return s.color * s.alpha;
           });
       break;
+    case 8: {
+      constexpr int BLOCK = 4;
+      const math::Vector site = math::UP;
+      ScratchScope scope(scratch_arena_a);
+      {
+        // Poison the scratch so a skipped in-clip block reads a bad count.
+        ScratchScope poison(scratch_arena_a);
+        constexpr size_t BYTES =
+            Scan::Shader::block_coherent_scratch_bytes<W, H, 1, BLOCK>() +
+            2 * alignof(std::max_align_t);
+        std::memset(scratch_arena_a.allocate(BYTES), 0xFF, BYTES);
+      }
+      Scan::Shader::draw_block_coherent<W, H, 1>(
+          c, BLOCK, &site, scratch_arena_a,
+          [](const math::Vector &) { return Scan::Shader::BlockCell<1>{0}; },
+          [&](const math::Vector &p,
+              const Scan::Shader::BlockCandidates<1> &cs) {
+            HS_EXPECT_EQ(static_cast<int>(cs.n), 1);
+            HS_EXPECT_EQ(static_cast<int>(cs.idx[0]), 0);
+            return positional(p);
+          });
+      break;
+    }
     default:
       HS_EXPECT(false, "unknown shader clip-arc variant");
       break;
@@ -326,7 +349,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
 
-  for (int variant = 0; variant < 8; ++variant) {
+  for (int variant = 0; variant < 9; ++variant) {
     HS_CONTEXT("variant", variant, 0);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.

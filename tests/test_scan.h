@@ -19,6 +19,7 @@
 #include "tests/test_harness.h"
 
 #include <cfloat>
+#include <cstring>
 #include <vector>
 
 namespace hs_test {
