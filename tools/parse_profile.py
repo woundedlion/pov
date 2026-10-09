@@ -684,7 +684,7 @@ def cmd_probe(windows):
     return 0
 
 
-PLOT_COLS = ("rings/f", "edges/f", "plan/f", "geo/f", "deg/f", "dot/f",
+PLOT_COLS = ("paths/f", "edges/f", "plan/f", "geo/f", "deg/f", "dot/f",
              "cull/f", "reject/f", "sim/e", "replay/e", "unproj/e",
              "arc/e", "norm/e", "shader/f", "plot/f", "peak", "back")
 
