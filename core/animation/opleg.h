@@ -1665,7 +1665,8 @@ private:
    * @brief Builds the per-face from-palettes (conway_morph_spec.md, section 2.5), the
    * shuffled target assignment (conway_morph_spec.md, section 2.6), and the distinct ramp-pair table.
    * @param tr Leg transients being populated.
-   * @param arrival Classified arrival mesh (for face counts).
+   * @param arrival Classified arrival mesh; its face centroids pick each
+   * collapsed face's host class.
    * @param handoff Departed-node provenance.
    * @param bookend Arrival-node bookend grouping the targets key on.
    * @param arena Leg arena for the face -> ramp table.
