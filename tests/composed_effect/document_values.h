@@ -479,6 +479,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
         if (text == ChainOp::PALETTE_MAPPING_IDS[index]) {
           built.template get<"color">().palette_mapping =
               static_cast<Pullback::Color::PaletteMapping>(index);
+          HS_EXPECT_TRUE(
+              derivation_value_reachable(slot.operator_id, field_id, text));
           return true;
         }
       return false;
@@ -486,18 +488,24 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "palette-mode") {
       const char *expected = palette_mode_id(Traits::HARMONY);
       HS_EXPECT_TRUE(expected != nullptr && text == expected);
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "hue-shift-mode") {
       HS_EXPECT_TRUE(
           text ==
           ChainOp::HUE_SHIFT_MODE_IDS[static_cast<uint8_t>(Traits::HUE)]);
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "brightness-envelope") {
       HS_EXPECT_TRUE(text ==
                      ChainOp::BRIGHTNESS_ENVELOPE_IDS[static_cast<uint8_t>(
                          Traits::BRIGHTNESS)]);
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
@@ -506,10 +514,14 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       HS_EXPECT_TRUE(
           text ==
           ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(Spec::COVERAGE)]);
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "weight-mode") {
       HS_EXPECT_TRUE(text == "projection");
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
@@ -517,18 +529,24 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     if (field_id == "frame") {
       HS_EXPECT_TRUE(text ==
                      (FX::ANIMATED_PROJECTION ? "spin-wander" : "identity"));
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     if (field_id == "hemisphere") {
       HS_EXPECT_TRUE(Spec::PROJECTION ==
                          Pullback::ProjectionKind::GNOMONIC_FOLDED &&
                      text == "folded");
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
   case SlotRole::LENS:
     if (field_id == "symmetry") {
       HS_EXPECT_EQ(text, lens_symmetry_id<typename Spec::LensPolicy>());
+      HS_EXPECT_TRUE(
+          derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
     }
     return false;
