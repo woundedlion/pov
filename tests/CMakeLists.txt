@@ -782,6 +782,7 @@ add_test(NAME unit_excluded_targets COMMAND ${CMAKE_COMMAND}
 
 add_test(NAME unit_composed_edge_fade_controls COMMAND ${CMAKE_COMMAND}
   "-DCOMPILER=${CMAKE_CXX_COMPILER}" "-DROOT=${HS_ROOT}"
+  "-DDEFINES=$<TARGET_PROPERTY:hs_host_abi,INTERFACE_COMPILE_DEFINITIONS>;$<TARGET_PROPERTY:hs_host_storage,INTERFACE_COMPILE_DEFINITIONS>"
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_composed_edge_fade.cmake)
 
 # Backstop TIMEOUT for every registered test without an explicit one. Applied
