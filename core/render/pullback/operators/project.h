@@ -156,8 +156,7 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
-  /** @brief Every projection stays within the stereographic sentinel; the
-      factor covers lens output off the unit sphere. */
+  /** @brief Bound for projection families with capped or bounded coordinates. */
   static float plane_bound(const Params &, float) {
     return 2.0f * projections::STEREO_INF;
   }
@@ -205,6 +204,13 @@ struct ProjectStereographic
     : ProjectOpModel<ProjectStereographic, ProjectChainParams> {
   static constexpr const char *ID = "project.stereographic.v2";
   static constexpr const char *NAME = "Stereographic";
+
+  static float plane_bound(const Params &, float) {
+    constexpr float MAX_NORM_SQUARED_EXCESS = 0.005f;
+    return sqrtf(MAX_NORM_SQUARED_EXCESS +
+                 2.0f * projections::STEREO_POLE_EPS) /
+           projections::STEREO_POLE_EPS;
+  }
 
   static ProjectionResult project(const math::Vector &local,
                                   const Params &params) {
