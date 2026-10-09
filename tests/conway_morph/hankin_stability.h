@@ -557,12 +557,12 @@ inline void test_opleg_hankin_sweep_smoke() {
     };
 
     constexpr int SWEEP = 8;
-    Animation::OpLeg anim(seed,
-                          Animation::OpLeg::HankinSweepSpec{
-                              .theta_start = Animation::OpLeg::THETA_EPS,
-                              .theta_end = site.theta_star,
-                              .sweep_frames = SWEEP},
-                          leg, cb, handoff);
+    Animation::OpLeg anim(
+        seed,
+        Animation::OpLeg::HankinSweepSpec{.theta_start = 0.0f,
+                                          .theta_end = site.theta_star,
+                                          .sweep_frames = SWEEP},
+        leg, cb, handoff);
 
     const Animation::OpLeg::Landing &landing = anim.landing();
     probe.ramp_count = landing.blend_pairs;
