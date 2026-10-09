@@ -130,8 +130,8 @@ public:
   [[nodiscard]] bool strobe_columns() const { return strobe; }
 
   /**
-   * @brief Whether this effect must render the FULL canvas per simulator worker
-   *        rather than be clipped to a segment band.
+   * @brief Whether this effect must render the FULL canvas rather than be
+   *        clipped to its segment band (device segment or simulator worker).
    * @return True for an effect whose output can cross segment boundaries;
    *         false (the default) when each segment can render independently.
    */
