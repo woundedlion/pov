@@ -221,7 +221,8 @@ private:
    */
   struct Curve {
     math::Basis basis; /**< Orthonormal basis of the spherical polygon. */
-    float radius; /**< Sampling radius of the curve, in unit-sphere coords. */
+    float radius; /**< Angular radius as a fraction of a hemisphere, in [0, 2];
+                     1 is a great circle. */
   };
 
   /**
