@@ -564,7 +564,7 @@
   "effect_id": "jewel-melt",
   "effect_metadata": {
     "description": "An octahedral jewel lattice rippling through sphere-space curl noise.",
-    "display_name": "JewelMelt"
+    "display_name": "Jewel Melt"
   },
   "preset_bank": {
     "absent_edge_fallback": {
@@ -585,7 +585,7 @@
     "edges": [],
     "presets": [
       {
-        "display_name": "JewelMelt",
+        "display_name": "Jewel Melt",
         "preset_id": "jewel-melt",
         "values": {
           "camera.wander": 1,
