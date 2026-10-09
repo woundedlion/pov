@@ -12,6 +12,7 @@
 #include <array>
 #include <cstdint>
 #include <span>
+#include <type_traits>
 
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
