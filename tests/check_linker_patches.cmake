@@ -28,7 +28,7 @@ if(_code_at EQUAL -1 OR _progmem_at EQUAL -1 OR _itcm_at EQUAL -1)
   list(APPEND _missing
     "phantasm.ld no longer defines all of .text.code, .text.progmem, .text.itcm")
 else()
-  # Both flash sections must precede .text.itcm's *(.text*) catch-all.
+  # .text.code, then .text.progmem, both before .text.itcm's *(.text*) catch-all.
   if(NOT _code_at LESS _progmem_at OR NOT _progmem_at LESS _itcm_at)
     list(APPEND _missing
       ".text.code, .text.progmem, .text.itcm are no longer in that order")
