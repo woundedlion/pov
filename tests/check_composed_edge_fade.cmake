@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.29)
+set(define_flags)
+foreach(definition IN LISTS DEFINES)
+  list(APPEND define_flags "-D${definition}")
+endforeach()
 function(check_fixture should_pass)
   execute_process(COMMAND "${COMPILER}" -std=gnu++20 -fsyntax-only
-    "-I${ROOT}" "-I${ROOT}/core" -DHS_TIMELINE_MAX_ANIM_BYTES=256
-    -DHS_GLOBAL_ARENA_BYTES=8388608 ${ARGN}
+    "-I${ROOT}" "-I${ROOT}/core" ${define_flags} ${ARGN}
     "${ROOT}/tests/composed_edge_fade_check.cpp"
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
   if(should_pass AND NOT result EQUAL 0)
