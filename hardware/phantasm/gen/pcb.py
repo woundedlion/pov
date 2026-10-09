@@ -2,11 +2,13 @@
 
 Embeds footprints from KiCad stock libraries, hand-maintained terminal blocks
 in phantasm.pretty, or the generated Teensy footprint. Assigns pad nets by name
-from the exported netlist, skyline-packs them
-into a PCB_W-wide board outline (R-MECH-6), and declares the nets.
+from the exported netlist and declares the nets. Draft mode skyline-packs
+footprints into a PCB_W-wide outline (R-MECH-6). --unplaced locks fixed
+connectors and filter parts on the QUILTER_LENGTH outline and stages every
+other footprint below it for the autoplacer.
 Emits a 4-layer SIG/GND/GND/SIG board: the physical stackup and the inner GND
 planes are encoded in the file, so an autoplacer/fab reads them on upload.
-Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
+Draft placement is a rough starting arrangement; route/refine it in Pcbnew.
 """
 import argparse
 import copy
