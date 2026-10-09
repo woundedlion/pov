@@ -154,7 +154,7 @@ private:
   static constexpr float FADE_IN_FRAMES = 2.0f;
   /** @brief Frames over which an expiring particle fades out. */
   static constexpr float FADE_OUT_FRAMES = 20.0f;
-  /** @brief Radius where an inward-moving particle starts to dim (radians). */
+  /** @brief Core distance inside which every particle starts to dim (radians). */
   static constexpr float HEAD_FADE_RADIUS = 0.03f;
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
