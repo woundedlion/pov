@@ -143,7 +143,9 @@ public:
             INSTANCE_SEED);
       }
     });
-    palette_cycler.init_generated(persistent_arena, next_palette, this, 0, 600,
+    palette_cycler.init_generated(persistent_arena, next_palette, this,
+                                  GeneratedPaletteBank::DWELL_FRAMES,
+                                  GeneratedPaletteBank::FADE_FRAMES,
                                   math::ease_in_out_sin);
     if constexpr (ANIMATED_PROJECTION)
       timeline.add(0, Animation::RandomWalk<W>(
@@ -639,12 +641,9 @@ private:
   static void next_palette(void *context, uint32_t sequence,
                            GenerativePalette &out) {
     ComposedEffect &effect = *static_cast<ComposedEffect *>(context);
-    if (sequence > 0)
-      effect.palette_hue += 159;
-    out = GenerativePalette{PaletteRecipes::profile(
-        PaletteDomain::STRAIGHT, Harmony, AxisCurve::ASCENDING,
-        PaletteRecipes::hue_turns(effect.palette_hue),
-        effect.params.template get<"color">().palette_chroma)};
+    GeneratedPaletteBank::next_palette(
+        effect.palette_hue, sequence, Harmony,
+        effect.params.template get<"color">().palette_chroma, out);
   }
 
   static constexpr const char *PALETTE_MAPPING_OPTIONS[] = {
