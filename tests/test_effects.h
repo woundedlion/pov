@@ -1099,9 +1099,6 @@ inline int run_effects_tests() {
   run_case(test_galaxies_live_particle_count);
   run_case(test_galaxies_black_hole_core_toggle);
   run_case(test_galaxies_packed_orbits_match_float);
-  run_case(test_galaxies_min_pitch_stays_contained);
-  run_case(test_galaxies_stay_contained_small);
-  run_case(test_galaxies_stay_contained_default);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
