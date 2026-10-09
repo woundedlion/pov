@@ -1,17 +1,18 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
- * Licensed under the PolyForm Noncommercial License 1.0.0
+ * LICENSE: ALL RIGHTS RESERVED. No redistribution or use without explicit
+ * permission.
  */
 #pragma once
 
 /**
- * @file effect_palette_recipes.h
+ * @file palette_recipes.h
  * @brief Per-effect PaletteRecipe builders and the authoring preset roster.
  */
 
 #include <array>
 
-#include "color/generative_palette.h"
+#include "core/color/generative_palette.h"
 
 /** @brief PaletteRecipe builders for effect palettes and standalone authoring presets. */
 namespace EffectPaletteRecipes {

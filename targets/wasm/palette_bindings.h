@@ -23,7 +23,7 @@
 #include <type_traits>
 
 #include "core/color/color.h"
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/platform/platform.h"
 #include "targets/wasm/payload_clone.h"
 

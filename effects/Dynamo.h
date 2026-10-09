@@ -12,7 +12,7 @@
  */
 
 #include "core/animation/orientation.h"
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
 
 namespace hs_test {

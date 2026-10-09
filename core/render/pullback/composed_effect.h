@@ -20,7 +20,6 @@
 #include <span>
 #include <type_traits>
 
-#include "color/effect_palette_recipes.h"
 #include "control/choreography.h"
 #include "color/palette_cycler.h"
 #include "control/registry.h"
