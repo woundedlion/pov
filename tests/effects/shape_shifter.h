@@ -163,7 +163,7 @@ inline void test_shapeshifter_slider_selections_render() {
     ss.advance_display();
 
     const uint64_t acc = frame_energy<SMALL_W, SMALL_H>(ss);
-    uint64_t fold = hs_test::FNV1A64_BASIS;
+    uint64_t fold = hs_test::HASH_SEED64;
     for (int y = 0; y < SMALL_H; ++y)
       for (int x = 0; x < SMALL_W; ++x) {
         const Pixel &pixel = ss.get_pixel(x, y);

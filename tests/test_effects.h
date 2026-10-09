@@ -141,7 +141,7 @@ inline void smoke_one(const char *name) {
     effect.draw_frame();
     // Consume the queued frame before the next Canvas constructor watchdog expires.
     effect.advance_display();
-    uint64_t hash = hs_test::FNV1A64_BASIS;
+    uint64_t hash = hs_test::HASH_SEED64;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         const Pixel &pixel = effect.get_pixel(x, y);
@@ -349,7 +349,7 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
 
   if (lit)
     *lit = false;
-  uint64_t fold = hs_test::FNV1A64_BASIS;
+  uint64_t fold = hs_test::HASH_SEED64;
 
   E<W, H> effect;
   effect.init();

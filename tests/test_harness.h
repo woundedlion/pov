@@ -18,14 +18,18 @@
 
 namespace hs_test {
 
-/** Project seed for FNV-1a 64-bit hashes. */
-inline constexpr uint64_t FNV1A64_BASIS = 1469598103934665603ull;
+/**
+ * Project seed for the FNV-1a 64-bit fold; the spec offset basis
+ * (14695981039346656037) with its last digit dropped, so hashes do not match
+ * standard FNV-1a.
+ */
+inline constexpr uint64_t HASH_SEED64 = 1469598103934665603ull;
 /** FNV-1a 64-bit prime. */
 inline constexpr uint64_t FNV1A64_PRIME = 1099511628211ull;
 
 /**
  * @brief Folds one byte into a running FNV-1a 64-bit hash.
- * @param hash Running hash, seeded from FNV1A64_BASIS.
+ * @param hash Running hash, seeded from HASH_SEED64.
  * @param byte Byte to absorb.
  * @return The updated hash.
  */
@@ -52,7 +56,7 @@ inline constexpr uint64_t fnv1a64_channel(uint64_t hash, uint16_t channel) {
  * @return The updated hash.
  */
 inline uint64_t fnv1a64_bytes(const void *data, size_t n,
-                              uint64_t hash = FNV1A64_BASIS) {
+                              uint64_t hash = HASH_SEED64) {
   const uint8_t *p = static_cast<const uint8_t *>(data);
   for (size_t i = 0; i < n; ++i)
     hash = fnv1a64_byte(hash, p[i]);
