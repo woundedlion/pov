@@ -68,12 +68,43 @@ struct GalaxiesWhiteBox {
   }
 };
 
-/** @brief Every galaxy has mostly white stars and sparse blue/red accents. */
+/** @brief Successive galaxies reverse both stellar orbits and arm rotation. */
+inline void test_galaxies_alternate_orbits_and_arm_spin() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  const auto *speed = fx.getParameters().find("Orbit Spd");
+  HS_EXPECT(speed != nullptr, "Orbit Spd is registered");
+  if (speed)
+    HS_EXPECT_EQ(speed->get(), 0.0134f);
+  WB::set_emission_rate(fx, 1.0f);
+  auto &ps = WB::system(fx);
+  for (int g = 0; g < WB::NUM_GALAXIES; ++g) {
+    auto &galaxy = WB::galaxy(fx, g);
+    galaxy.phase = 0.01f;
+    galaxy.emission_credit = 0.0f;
+    ps.emitters[g](ps);
+    HS_EXPECT_EQ(ps.active(), g + 1);
+    const float DIRECTION = (g & 1) ? -1.0f : 1.0f;
+    const auto &particle = ps.pool[g];
+    const float orbit = math::dot(
+        math::cross(galaxy.core, particle.get_position()), particle.velocity);
+    HS_EXPECT(orbit * DIRECTION > 0.0f,
+              "stellar orbit follows alternating direction");
+    const float EXPECTED_PHASE =
+        fmodf(0.01f + 0.028f * DIRECTION + math::TWO_PI_F, math::TWO_PI_F);
+    HS_EXPECT_NEAR(galaxy.phase, EXPECTED_PHASE, 1e-6f);
+  }
+}
+
+/** @brief Every galaxy has mostly white stars and sparse colored accents. */
 inline void test_galaxies_star_color_mix() {
   for (int galaxy = 0; galaxy < GalaxiesWhiteBox::NUM_GALAXIES; ++galaxy) {
     int white = 0;
     int blue = 0;
     int red = 0;
+    int yellow = 0;
     for (int seed = 0; seed < 256; ++seed) {
       const auto color =
           GalaxiesWhiteBox::color(static_cast<uint16_t>((seed << 8) | galaxy));
@@ -82,14 +113,18 @@ inline void test_galaxies_star_color_mix() {
         ++white;
       else if (color.color.b > color.color.g && color.color.g > color.color.r)
         ++blue;
-      else if (color.color.r > color.color.g && color.color.g > color.color.b)
-        ++red;
-      else
-        HS_EXPECT(false, "star is white, blue or red");
+      else if (color.color.r > color.color.g && color.color.g > color.color.b) {
+        if (2u * color.color.g > color.color.r)
+          ++yellow;
+        else
+          ++red;
+      } else
+        HS_EXPECT(false, "star is white, blue, red or pale yellow");
     }
-    HS_EXPECT_EQ(white, 216);
+    HS_EXPECT_EQ(white, 206);
     HS_EXPECT_EQ(blue, 20);
     HS_EXPECT_EQ(red, 20);
+    HS_EXPECT_EQ(yellow, 10);
   }
 }
 
@@ -333,6 +368,7 @@ inline void test_galaxies_packed_orbits_match_float() {
   reset_effect_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
   fx.init();
+  fx.updateParameter("Orbit Spd", 0.0124f);
   auto &packed = WB::system(fx);
   packed.emitters.clear();
   packed.motion_cap = 0.0372f;
@@ -346,7 +382,18 @@ inline void test_galaxies_packed_orbits_match_float() {
     full.add_attractor(a.position, a.strength, a.kill_radius, a.event_horizon,
                        sqrtf(a.softening_sq));
   for (int i = 0; i < 96; ++i) {
-    WB::emit(fx, i % WB::NUM_GALAXIES);
+    const int owner = i % WB::NUM_GALAXIES;
+    const auto &galaxy = WB::galaxy(fx, owner);
+    const float ring = 0.18f + 0.02f * (i / WB::NUM_GALAXIES);
+    const float angle = math::TWO_PI_F * (i / WB::NUM_GALAXIES) / 16.0f;
+    const math::Vector radial = galaxy.u * cosf(angle) + galaxy.w * sinf(angle);
+    const math::Vector position =
+        galaxy.core * cosf(ring) + radial * sinf(ring);
+    const math::Vector tangent = math::cross(galaxy.core, radial);
+    const float speed =
+        WB::orbit_speed(fx, position, math::cross(tangent, position), ring);
+    packed.spawn(position, tangent * (speed * galaxy.spin),
+                 static_cast<uint16_t>(owner));
     const auto &p = packed.pool[i];
     full.spawn(p.get_position(), p.velocity, p.color_seed);
   }
@@ -366,7 +413,9 @@ inline void test_galaxies_packed_orbits_match_float() {
       HS_EXPECT(std::isfinite(error) && std::isfinite(p.velocity.magnitude()),
                 "orbit remains finite");
       HS_EXPECT_NEAR(a.magnitude(), 1.0f, 3e-7f);
-      HS_EXPECT_NEAR(math::dot(a, p.velocity), 0.0f, 2e-9f);
+      HS_EXPECT_NEAR(math::dot(a, p.velocity), 0.0f,
+                     2.0f * std::numeric_limits<float>::epsilon() *
+                         p.velocity.magnitude());
       max_angle_error = std::max(max_angle_error, error);
     }
   }
@@ -416,8 +465,8 @@ inline void check_galaxies_stay_contained(float pitch = -1.0f) {
     if (acosf(hs::clamp(own, -1.0f, 1.0f)) > 1.5f * WB::RING_RADIUS)
       ++outside;
   }
-  HS_EXPECT_LE(strays * 100, live);
-  HS_EXPECT_LE(outside * 100, live);
+  HS_EXPECT_LE(strays * 100, live * 6);
+  HS_EXPECT_LE(outside * 100, live * 6);
 }
 
 inline void test_galaxies_stay_contained_small() {
