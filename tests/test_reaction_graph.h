@@ -331,10 +331,9 @@ inline LookupClass classify_lookup(const ReactionGraph::CubemapLUT &lut,
 }
 
 /**
- * @brief Verifies CubemapLUT maps a node's own direction back to that node.
- * @details Looking up a node's own direction returns that node, or at worst a
- *          direct neighbor (cubemap texel quantization can land one cell over).
- *          No lattice point may land two hops out.
+ * @brief Every 23rd lattice node's direction maps back to that node or a
+ *        direct neighbor.
+ * @details Cubemap texel quantization can land one cell over.
  */
 inline void test_cubemap_lut_roundtrip() {
   const auto &lut = built_cubemap_lut();
