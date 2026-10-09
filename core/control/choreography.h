@@ -108,7 +108,7 @@ public:
     HS_CHECK(this->selectPreset(index), "profile preset selection failed");
     if constexpr (requires { derived().after_profile_preset(); })
       derived().after_profile_preset();
-    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index + 1),
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(authored_preset_count()));
   }
 #endif

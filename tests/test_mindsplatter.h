@@ -16,10 +16,12 @@
 #include <cstdio>
 #include <limits>
 #include <span>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "tests/fd_capture_util.h"
 #include "tests/mindsplatter_whitebox.h"
 #include "tests/test_effects.h"
 #include "tests/test_fixture.h"
@@ -36,7 +38,14 @@ inline void test_mindsplatter_profile_selects_initialized_preset() {
   MS effect;
   effect.init();
   constexpr size_t INDEX = MS::authored_preset_count() - 1;
-  effect.profile_select_preset(INDEX);
+  const auto log = capture_stdout([&] { effect.profile_select_preset(INDEX); });
+  HS_EXPECT_TRUE(log.has_value());
+  if (log) {
+    char marker[64];
+    std::snprintf(marker, sizeof(marker), "Profile preset: %zu/%zu", INDEX,
+                  MS::authored_preset_count());
+    HS_EXPECT_EQ(log->rfind(marker, 0), size_t{0});
+  }
   HS_EXPECT_EQ(effect.getPresetIndex(), INDEX);
   HS_EXPECT_TRUE(effect.animations_paused());
 }
