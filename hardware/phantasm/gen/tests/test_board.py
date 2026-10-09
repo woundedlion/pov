@@ -1,7 +1,7 @@
 """Self-tests for the schematic generator.
 
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
-that do not also run against the committed rev 1.2 schematic.
+that do not need them also run against the committed rev 1.2 schematic.
 """
 import contextlib
 import io
