@@ -1677,8 +1677,8 @@ private:
    * @param forced_from Per-arrival-face from-palette, or nullptr to derive one.
    * @details With centroids, a full-correspondence departure maps every face to
    * its nearest departed centroid as a checked bijection; on a node-prefix
-   * departure each newborn class inherits its first face's nearest departed
-   * palette.
+   * departure each newborn palette slot inherits its first face's nearest
+   * departed palette.
    */
   HS_COLD_MEMBER void
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
@@ -1716,7 +1716,7 @@ private:
       prev_used = scratch_arena_a.allocate_n<bool>(handoff.prev_faces);
       std::fill_n(prev_used, handoff.prev_faces, false);
     }
-    // Newborn classes share the from-palette of their first face.
+    // Newborn palette slots share the from-palette of their first face.
     int newborn_from[PALETTES];
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
