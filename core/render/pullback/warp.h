@@ -355,9 +355,9 @@ struct PreparedVortexSlot {
 
 /**
  * @brief Resolves one warp slot's per-frame prepared state.
- * @details Wave shear prepares rotation only; the other overloads also
- * prepare transform state. The second argument is the phase clock (unused by
- * wave shear).
+ * @details Wave shear prepares rotation only; vortex prepares transform state
+ * only. Mirror, vector noise and affine prepare rotation and transform state.
+ * The second argument is the phase clock (unused by wave shear).
  * @param warp The slot's parameters.
  */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
