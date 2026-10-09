@@ -12,7 +12,8 @@
 #   HS_DEVICE_LOCK   lock path base (default $TMPDIR/holosphere-teensy-device)
 #   HS_DEVICE_WAIT   seconds to wait for a busy device (default 0 = fail fast)
 #   HS_DEVICE_FORCE  1 = break someone else's live lock
-#   HS_DEVICE_STALE_GRACE  seconds before an incomplete claim expires (default 120)
+#   HS_DEVICE_STALE_GRACE  seconds an incomplete claim, or a dead-owner claim
+#                    past its deadline, survives before it is stale (default 120)
 #   HS_SESSION      owner label recorded in the claim
 #   HS_PYTHON       Python interpreter for host lock operations
 #   HS_TEENSY_PORT   pin to one board (COMn) instead of searching for a free one
