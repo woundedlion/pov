@@ -144,7 +144,50 @@ private:
   };
   static constexpr float CACHED_HUE_LIMIT = 0.25f;
   static constexpr float CACHED_SHIMMER_LIMIT = 0.4f;
-  static_assert(NUM_SEED_CLUSTERS <= 32);
+
+  /**
+   * @brief Per-node pigment codec: two 5-bit seed-palette ids and a 6-bit
+   * quantized mass of the first palette.
+   */
+  struct Pigment {
+    static constexpr int ID_BITS = 5;
+    static constexpr int ID_MASK = (1 << ID_BITS) - 1;
+    static constexpr int MASS_SHIFT = 2 * ID_BITS;
+    /** @brief Mass of a pigment that is entirely its first palette. */
+    static constexpr int FULL_MASS = 63;
+    /** @brief Keeps the first id and the mass; clears the second id. */
+    static constexpr uint16_t SOLID_KEY_MASK =
+        static_cast<uint16_t>(~(ID_MASK << ID_BITS));
+    static_assert(NUM_SEED_CLUSTERS <= ID_MASK + 1);
+    static_assert(FULL_MASS << MASS_SHIFT <= 0xffff);
+
+    struct Unpacked {
+      int first;
+      int second;
+      int mass;
+    };
+
+    __attribute__((always_inline)) static constexpr uint16_t
+    pack(int first, int second, int mass) {
+      return static_cast<uint16_t>(first | (second << ID_BITS) |
+                                   (mass << MASS_SHIFT));
+    }
+    __attribute__((always_inline)) static constexpr Unpacked
+    unpack(uint16_t pigment) {
+      return {pigment & ID_MASK, (pigment >> ID_BITS) & ID_MASK,
+              pigment >> MASS_SHIFT};
+    }
+    /** @brief The first palette's share of a pigment with `mass`, in [0, 1]. */
+    __attribute__((always_inline)) static constexpr float first_mass(int mass) {
+      return static_cast<float>(mass) * (1.0f / FULL_MASS);
+    }
+    /** @brief Quantizes `first` as a share of `total`. */
+    __attribute__((always_inline)) static int quantize_mass(float first,
+                                                            float total) {
+      return static_cast<int>(static_cast<float>(FULL_MASS) * first / total +
+                              0.5f);
+    }
+  };
   /** @brief Substep budget used to calibrate the stabilization threshold. */
   static constexpr int BASELINE_STEPS_PER_FRAME = 16;
   /** @brief Rendered frames the dissolve takes to convert every node back to
@@ -197,11 +240,11 @@ private:
         EffectPaletteRecipes::random_base_turns())};
   }
 
-  // Two 5-bit palette indices and a 6-bit weight for the first palette.
   static void add_pigment(float *weights, uint16_t pigment, float mass) {
-    float first = static_cast<float>(pigment >> 10) * (1.0f / 63.0f);
-    weights[pigment & 31] += mass * first;
-    weights[(pigment >> 5) & 31] += mass * (1.0f - first);
+    const auto PIGMENT = Pigment::unpack(pigment);
+    float first = Pigment::first_mass(PIGMENT.mass);
+    weights[PIGMENT.first] += mass * first;
+    weights[PIGMENT.second] += mass * (1.0f - first);
   }
 
   static uint16_t pack_pigment(const float *weights) {
@@ -217,10 +260,9 @@ private:
       }
     }
     float mass = weights[first] + weights[second];
-    int mix = mass > 0.0f
-                  ? static_cast<int>(63.0f * weights[first] / mass + 0.5f)
-                  : 63;
-    return static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+    int mix = mass > 0.0f ? Pigment::quantize_mass(weights[first], mass)
+                          : Pigment::FULL_MASS;
+    return Pigment::pack(first, second, mix);
   }
 
   HS_COLD_MEMBER void seed_reaction(int first = 0,
@@ -230,7 +272,7 @@ private:
       for (int i = 0; i < RD_N; ++i) {
         state.A[i] = 65535;
         state.B[i] = 0;
-        state.pigment[i] = 63u << 10;
+        state.pigment[i] = Pigment::pack(0, 0, Pigment::FULL_MASS);
       }
       color_palette_valid = false;
     }
@@ -282,17 +324,18 @@ private:
           retained *= power;
           diffusion *= scale;
         }
-        uint16_t uniform = state.pigment[i] & 0xfc1fu;
-        bool same = (uniform >> 10) == 63;
+        uint16_t uniform = state.pigment[i] & Pigment::SOLID_KEY_MASK;
+        bool same = (uniform >> Pigment::MASS_SHIFT) == Pigment::FULL_MASS;
         for (int k = 0; k < RD_K && same; ++k)
-          same = (state.pigment[i + run.delta[k]] & 0xfc1fu) == uniform;
+          same = (state.pigment[i + run.delta[k]] & Pigment::SOLID_KEY_MASK) ==
+                 uniform;
         if (same) {
           float mass = retained;
           for (int k = 0; k < RD_K; ++k)
             mass += b[i + run.delta[k]] * diffusion;
-          int first = mass > 0.0f ? uniform & 31 : 0;
+          int first = mass > 0.0f ? Pigment::unpack(uniform).first : 0;
           int second = first == 0 ? 1 : 0;
-          next[i] = static_cast<uint16_t>(first | (second << 5) | (63u << 10));
+          next[i] = Pigment::pack(first, second, Pigment::FULL_MASS);
           continue;
         }
         uint32_t touched = 0;
@@ -301,10 +344,10 @@ private:
           touched |= 1u << id;
         };
         auto gather = [&](int node, float mass) __attribute__((always_inline)) {
-          uint16_t pigment = state.pigment[node];
-          float first = static_cast<float>(pigment >> 10) * (1.0f / 63.0f);
-          add(pigment & 31, mass * first);
-          add((pigment >> 5) & 31, mass * (1.0f - first));
+          const auto PIGMENT = Pigment::unpack(state.pigment[node]);
+          float first = Pigment::first_mass(PIGMENT.mass);
+          add(PIGMENT.first, mass * first);
+          add(PIGMENT.second, mass * (1.0f - first));
         };
         gather(i, retained);
         for (int k = 0; k < RD_K; ++k) {
@@ -343,9 +386,10 @@ private:
         float second_mass = std::bit_cast<float>(second_bits);
         float mass = first_mass + second_mass;
         int mix = (first_bits | second_bits) != 0
-                      ? static_cast<int>(63.0f * first_mass / mass + 0.5f)
-                      : 63;
-        next[i] = static_cast<uint16_t>(first | (second << 5) | (mix << 10));
+                      ? Pigment::quantize_mass(first_mass, mass)
+                      : Pigment::FULL_MASS;
+        next[i] = static_cast<uint16_t>(first | (second << Pigment::ID_BITS) |
+                                        (mix << Pigment::MASS_SHIFT));
       }
     }
     std::copy_n(next, RD_N, state.pigment);
@@ -704,8 +748,9 @@ private:
   HS_O3_FN __attribute__((always_inline)) Pixel shade_pigment(
       uint16_t pigment, float t, float scale, float noise_value) const {
     HS_PROFILE_DEEP(grd_shader_palette);
-    const float FIRST_MASS = (pigment >> 10) * (1.0f / 63.0f);
-    const int PALETTE_COUNT = (pigment >> 10) == 63 ? 1 : 2;
+    const auto PIGMENT = Pigment::unpack(pigment);
+    const float FIRST_MASS = Pigment::first_mass(PIGMENT.mass);
+    const int PALETTE_COUNT = PIGMENT.mass == Pigment::FULL_MASS ? 1 : 2;
     const float NOISE_POSITION =
         hs::clamp((noise_value + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(COLOR_NOISE_STEPS - 1));
@@ -723,7 +768,7 @@ private:
     const float SCALE11 = VALUE_WEIGHT * NOISE_WEIGHT * scale;
     float accum_r = 0, accum_g = 0, accum_b = 0;
     for (int component = 0; component < PALETTE_COUNT; ++component) {
-      int palette = component ? (pigment >> 5) & 31 : pigment & 31;
+      int palette = component ? PIGMENT.second : PIGMENT.first;
       float mass = component ? 1.0f - FIRST_MASS : FIRST_MASS;
       if (EXACT) {
         Pixel rgb =
@@ -1071,9 +1116,8 @@ private:
    */
   struct {
     uint16_t *A = nullptr,
-             *B = nullptr; /**< Per-node A/B concentrations, Q16. */
-    uint16_t *pigment =
-        nullptr; /**< Two 5-bit palette indices and a 6-bit mix weight per node. */
+             *B = nullptr;       /**< Per-node A/B concentrations, Q16. */
+    uint16_t *pigment = nullptr; /**< Per-node packed `Pigment`. */
   } state;
 
   /**
