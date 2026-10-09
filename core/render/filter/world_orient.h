@@ -53,6 +53,7 @@ public:
    * @param orientation Orientation whose SLERP history drives the rotation.
    */
   Orient(const math::Orientation<> &orientation) : orientation(orientation) {}
+  Orient(const math::Orientation<> &&) = delete;
 
   /**
    * @brief Rotates and re-emits the point across the orientation's tween sweep.
