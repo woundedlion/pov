@@ -99,6 +99,70 @@ inline void test_ring_long_radius_azimuth_unflipped() {
 }
 
 /**
+ * @brief Verifies the rasterized ring lights the analytically predicted row.
+ * @details A ring of normalized radius r is centered on the basis axis at polar
+ * angle target = r*(PI/2), lighting a single latitude band whose center row is
+ * phi_to_y(target). Rows well away from the band stay dark.
+ */
+inline void test_ring_rasterize_lights_expected_row() {
+  constexpr int W = 96, H = 48;
+
+  auto centroid_and_band = [](float radius) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipe;
+    {
+      Canvas c(fx);
+      math::Basis basis = math::make_basis(
+          math::Quaternion(), math::Y_AXIS); // axis = north pole (+Y)
+      Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, /*thickness=*/0.05f,
+                                    [](const math::Vector &, Fragment &f) {
+                                      f.color = Color4(
+                                          Pixel(60000, 60000, 60000), 1.0f);
+                                    });
+    }
+    fx.advance_display();
+
+    int lit[H] = {0};
+    long total = 0, weighted = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        if (!is_black(fx.get_pixel(x, y))) {
+          lit[y]++;
+          total++;
+          weighted += y;
+        }
+    /** @brief Per-radius result: lit-pixel centroid row, total lit count, and per-row lit counts. */
+    struct R {
+      float centroid;
+      int total;
+      int lit[H];
+    };
+    R r;
+    r.centroid = total ? static_cast<float>(weighted) / total : -1.0f;
+    r.total = static_cast<int>(total);
+    for (int y = 0; y < H; ++y)
+      r.lit[y] = lit[y];
+    return r;
+  };
+
+  for (float radius : {0.5f, 1.0f}) {
+    float target = radius * (math::PI_F / 2.0f);
+    float expected_y = math::phi_to_y<H>(target);
+    auto r = centroid_and_band(radius);
+
+    // The band lights more than W/2 pixels.
+    HS_EXPECT_GT(r.total, W / 2);
+    // Lit-pixel centroid lands on the analytically predicted row.
+    HS_EXPECT_NEAR(r.centroid, expected_y, 1.0f);
+    // Rows far from the band (> 4 px away) are dark.
+    int ey = static_cast<int>(expected_y + 0.5f);
+    for (int y = 0; y < H; ++y)
+      if (std::abs(y - ey) > 4)
+        HS_EXPECT_EQ(r.lit[y], 0);
+  }
+}
+
+/**
  * @brief Verifies a degenerate clip band makes rasterize plot nothing.
  */
 inline void test_ring_rasterize_empty_clip_draws_nothing() {
