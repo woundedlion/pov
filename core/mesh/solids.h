@@ -282,10 +282,10 @@ inline constexpr OpStep TRUNCATED_CUBE_HK90_META_STEPS[] = {
 inline constexpr Recipe TRUNCATED_CUBE_HK90_META_RECIPE =
     make_recipe(SEED_TRUNCATED_CUBE, TRUNCATED_CUBE_HK90_META_STEPS);
 
-/** Step table for truncatedOctahedron_gyro_kis_hk17. */
+/** Truncated-octahedron gyro/kis/Hankin step table. */
 inline constexpr OpStep TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS[] = {
     {Op::GYRO}, {Op::KIS}, {Op::HANKIN, 17.0f * IslamicStarPatterns::D2R}};
-/** Recipe mirror of IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17. */
+/** Authored truncated-octahedron gyro/kis/Hankin recipe without a registry generator. */
 inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = make_recipe(
     SEED_TRUNCATED_OCTAHEDRON, TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS);
 
