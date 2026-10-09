@@ -945,35 +945,27 @@ class ZipMemberTests(unittest.TestCase):
         info = fab.zip_member("phantasm-F_Cu.gtl")
         self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
         self.assertEqual(info.create_system, 3)
-        self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
+        self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
 
 
 class UploadZipTests(unittest.TestCase):
-    """The manifest digests the archive itself, so its deflate level is pinned."""
+    """Upload archives store members without host-dependent compression."""
 
     MEMBER = "phantasm-F_Cu.gtl"
-    PAYLOAD = b"".join(
-        b"X%06dY%06dD02*\n" % (step, step * 7 % 99991)
-        for step in range(4000))
+    PAYLOAD = b"X000123Y004567D02*\n" * 4000
 
-    def build(self, level="pinned"):
+    def build(self):
         directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        source = directory / self.MEMBER
-        source.write_bytes(self.PAYLOAD)
+        (directory / self.MEMBER).write_bytes(self.PAYLOAD)
         path = directory / fab.ARCHIVE
-        if level == "pinned":
-            fab.write_upload_zip(str(directory), [self.MEMBER], str(path))
-        else:
-            with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
-                archive.writestr(fab.zip_member(self.MEMBER),
-                                 source.read_bytes(), compresslevel=level)
+        fab.write_upload_zip(str(directory), [self.MEMBER], str(path))
         return path.read_bytes()
 
-    def test_archive_is_deflated_at_the_pinned_level(self):
-        self.assertEqual(self.build(), self.build(fab.ZIP_COMPRESS_LEVEL))
-
-    def test_a_different_level_would_have_produced_other_bytes(self):
-        self.assertNotEqual(self.build(), self.build(1))
+    def test_members_are_stored(self):
+        with zipfile.ZipFile(io.BytesIO(self.build())) as archive:
+            info = archive.getinfo(self.MEMBER)
+            self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
+            self.assertEqual(info.compress_size, len(self.PAYLOAD))
 
     def test_members_round_trip(self):
         with zipfile.ZipFile(io.BytesIO(self.build())) as archive:
