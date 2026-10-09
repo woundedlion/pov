@@ -545,7 +545,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       return;
     }
 
-    // Sub-step length at the segment start (also the first simulation step).
+    // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
     const float base_step = (2.0f * math::PI_F) / W;
     auto balanced_step = [&](float default_step) {
       const float POLE_GUARD =
