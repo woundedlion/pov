@@ -307,6 +307,9 @@ public:
               int vertices, const math::Basis &planar_basis,
               const Color4 &color, const F &fragment_shader) {
     using Geometry = math::DisplayGeometry<H>;
+    if constexpr (requires { pipeline.prepared_for(canvas); })
+      HS_CHECK(pipeline.prepared_for(canvas),
+               "direct raster pipeline not prepared for this canvas");
     HS_CHECK(prepared && clip_stamp == canvas.clip(),
              "PlanarChords: prepare() not called for this canvas clip");
     HS_CHECK(vertices >= 1 && vertices <= capacity,
