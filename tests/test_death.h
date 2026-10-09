@@ -1723,7 +1723,8 @@ inline bool &child_unhandled_illegal_instruction() {
  * @param name Case selector passed to the child via HS_DEATH_CASE.
  * @param timeout_ms Maximum child runtime in milliseconds.
  * @return The child's raw status (debugged process on Windows, fork+execv wait status
- *         on POSIX). -1 on a spawn failure.
+ *         on POSIX). -1 on a spawn failure, a wait failure, or a timeout
+ *         (the child is killed).
  * @details Child stdout/stderr are redirected to child_capture_path() and the
  *          tail is loaded into child_output(), so the caller can require the
  *          HS_CHECK breadcrumb of the guard the case is supposed to fire.
