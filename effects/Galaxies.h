@@ -165,11 +165,11 @@ private:
   static constexpr float BULGE_RADIUS =
       std::max(0.08f, 1.5f * math::RADIANS_PER_COLUMN<W>);
 
-  /** @brief Stellar surface colors with enhanced warm/cool contrast. */
+  /** @brief Cool stellar colors with coral and rose accents. */
   struct StellarPalette {
     Color4 get(float t) const {
       const std::array<Color4, 5> COLORS{
-          Color4(255, 85, 42), Color4(255, 230, 175), Color4(195, 225, 255),
+          Color4(255, 86, 118), Color4(255, 192, 218), Color4(195, 225, 255),
           Color4(100, 170, 255), Color4(95, 130, 255)};
       const float index = hs::clamp(t, 0.0f, 1.0f) * 4.0f;
       const int lower = std::min(static_cast<int>(index), 3);
@@ -397,7 +397,7 @@ private:
     }
 
     // Scan::Point leaves its quintic coverage in v2.
-    const Color4 core_color(255, 250, 209);
+    const Color4 core_color(230, 242, 255);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
       Color4 c = core_color;
       c.alpha *= hs::clamp(f.v2, 0.0f, 1.0f) * alpha;
