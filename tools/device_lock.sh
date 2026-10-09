@@ -295,7 +295,7 @@ hs_device_release() {
 # Reports every attached board. rc 0 if one is claimable, 1 if none is available,
 # and 2 if enumeration fails or the configured pin is unattached.
 hs_device_status() {
-  local ports p port d free=1
+  local ports p port d rc=1
   ports=$(hs_device_ports) || return 2
   if [ -z "$ports" ]; then
     echo "no Teensy is enumerated"
@@ -305,14 +305,14 @@ hs_device_status() {
     port=$p
     d=$(_hs_lock_dir "$port")
     if [ ! -d "$d" ]; then
-      echo "${port} free ($d)"; free=0
+      echo "${port} free ($d)"; rc=0
     elif _hs_lock_is_stale "$d"; then
-      echo "${port} lock STALE (breakable): $(_hs_holder_desc "$d")"; free=0
+      echo "${port} lock STALE (breakable): $(_hs_holder_desc "$d")"; rc=0
     else
       echo "${port} BUSY: $(_hs_holder_desc "$d")"
     fi
   done
-  return $free
+  return $rc
 }
 
 TREE_LOCK=""
