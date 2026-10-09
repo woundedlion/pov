@@ -651,4 +651,20 @@ FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
       .hankin(66.0f * D2R)
       .build();
 }
+/**
+ * @brief Builds the icosahedron_truncate25_hk60_ambo_relax100_hk60 star pattern.
+ * @param a First arena in the alternating construction pair.
+ * @param b Second arena; the result may borrow storage from either arena.
+ * @return The resulting star-pattern mesh.
+ */
+FLASHMEM static PolyMesh
+icosahedron_truncate25_hk60_ambo_relax100_hk60(Arena &a, Arena &b) {
+  return SolidBuilder(Archimedean::icosahedron(a, b), a, b)
+      .truncate(0.25f)
+      .hankin(60.0f * D2R)
+      .ambo()
+      .relax(100)
+      .hankin(60.0f * D2R)
+      .build();
+}
 } // namespace IslamicStarPatterns
