@@ -232,6 +232,7 @@ inline void check_roster_order_pinned() {
                                               "LatticeMelt",
                                               "ChromaticLichen",
                                               "MermaidSkin",
+                                              "JewelMelt",
                                               "DisplacementField",
                                               "DreamBalls",
                                               "Dynamo",
