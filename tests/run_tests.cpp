@@ -235,15 +235,6 @@ static bool runs_effects(int argc, char **argv) {
  */
 constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
 
-/** @brief Reports whether CI-only runner depth levers must be enforced. */
-static bool runs_in_ci() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *ci = std::getenv("CI");
-#pragma clang diagnostic pop
-  return ci && ci[0] != '\0';
-}
-
 /** @brief Reports whether a skipped case must fail the run. */
 static bool skips_are_errors() {
 #pragma clang diagnostic push
@@ -262,7 +253,7 @@ static bool skips_are_errors() {
  * HS_REQUIRE_EFFECTS_FULL are required only when an effects module runs.
  */
 static int check_ci_levers(bool effects_invocation) {
-  if (!runs_in_ci())
+  if (!hs_test::runs_in_ci())
     return 0;
 
   int missing = 0;
