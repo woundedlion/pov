@@ -47,7 +47,6 @@ inline void test_sin8_golden() {
     if (err > max_err)
       max_err = err;
   }
-  // sin8_C tracks the true sine to within a few LSBs.
   HS_EXPECT_LT(max_err, 4);
 }
 

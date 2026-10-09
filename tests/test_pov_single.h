@@ -27,7 +27,6 @@ using pov::strip_bottom_led;
 using pov::strip_opposite_col;
 using pov::strip_top_led;
 
-// Mapping helpers are constexpr-evaluable.
 static_assert(strip_top_led(0, 40) == 19);     // y=0 -> last top-half LED
 static_assert(strip_top_led(19, 40) == 0);     // y=ROWS-1 -> first LED
 static_assert(strip_bottom_led(0, 40) == 20);  // y=0 -> first bottom-half LED
@@ -35,7 +34,6 @@ static_assert(strip_bottom_led(19, 40) == 39); // y=ROWS-1 -> last LED
 static_assert(strip_opposite_col(0, 96) == 48);
 static_assert(strip_opposite_col(48, 96) == 0); // wraps back at the seam
 
-// Timer and column-step helpers are constexpr-evaluable.
 static_assert(column_interval_us(480ul * 96ul) > 1302.08f);
 static_assert(step_column(95, 96).next_x == 0);
 static_assert(step_column(95, 96).advance);
