@@ -6,7 +6,7 @@
 
 /**
  * @file transformer.h
- * @brief TransformerPool, its Transformer and FieldTransformer specializations,
+ * @brief TransformerPool, its Transformer and FieldTransformer derived pools,
  *        and the standalone OrientTransformer adapter.
  * @details Also holds the free warp and field functions those pools compose
  *          over Animation params.
