@@ -576,7 +576,9 @@ constexpr int pick_next_edge_ordered(int node, int prev_edge,
  * @param solid Simple-registry index.
  * @return True for tetra/cube/octa/dodeca/icosa.
  */
-constexpr bool is_platonic(int solid) { return solid <= ICOSAHEDRON; }
+constexpr bool is_platonic(int solid) {
+  return solid >= 0 && solid <= ICOSAHEDRON;
+}
 
 /**
  * @brief Platonic dual partner (tetrahedron is self-dual).
