@@ -1785,8 +1785,8 @@ inline void test_strap_open_fade() {
 /** Summed absolute channel change between two captures — the visible weight of
  * a transition, which a bare changed-pixel count misses when the same pixels
  * change by less. */
-inline long long frame_energy(const std::vector<Pixel> &a,
-                              const std::vector<Pixel> &b) {
+inline long long frame_delta_energy(const std::vector<Pixel> &a,
+                                    const std::vector<Pixel> &b) {
   long long e = 0;
   for (size_t i = 0; i < a.size() && i < b.size(); ++i)
     e += std::abs((int)a[i].r - b[i].r) + std::abs((int)a[i].g - b[i].g) +
@@ -1832,7 +1832,7 @@ inline void test_strap_close_dissolve() {
   capture_opening(fx, close_angle, 1.0f, last_plain, 1.0f, 1.0f, cf);
   capture_opening(fx, close_angle, 1.0f, last_shaped, close_blend, term, cf);
 
-  const long long e_plain = frame_energy(last_plain, bookend);
+  const long long e_plain = frame_delta_energy(last_plain, bookend);
   const long long e_shaped = frame_energy(last_shaped, bookend);
   std::printf("  [strap-close] wink energy unshaped=%lld shaped=%lld\n",
               e_plain, e_shaped);
