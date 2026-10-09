@@ -115,6 +115,12 @@ validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
  */
 struct CubemapLUT {
   static constexpr int RES = 64;
+  /** @brief Stored node index per texel. */
+  using Texel = uint16_t;
+  /** @brief Texels in the 6×RES² table. */
+  static constexpr size_t TEXELS = 6u * RES * RES;
+  /** @brief Arena bytes the retained table occupies. */
+  static constexpr size_t BYTES = TEXELS * sizeof(Texel);
 
   struct Projection {
     int face;
@@ -131,7 +137,7 @@ struct CubemapLUT {
    */
   HS_COLD_MEMBER void build(Arena &arena) {
     validate_neighbors(neighbors);
-    data.bind(arena, 6 * RES * RES);
+    data.bind(arena, TEXELS);
     // Precompute every lattice point once into scratch for the hill-climb.
     ScratchScope lattice_guard(arena);
     math::Vector *lattice = arena.allocate_n<math::Vector>(RD_N);
@@ -142,7 +148,7 @@ struct CubemapLUT {
 
   /** @brief Builds from a resident lattice whose neighbors are validated. */
   HS_COLD_MEMBER void build(Arena &arena, const math::Vector *lattice) {
-    data.bind(arena, 6 * RES * RES);
+    data.bind(arena, TEXELS);
     fill(lattice);
   }
 
@@ -156,7 +162,7 @@ private:
           float u = (x + 0.5f) / RES * 2.0f - 1.0f;
           float v = (y + 0.5f) / RES * 2.0f - 1.0f;
           seed = find_nearest_node(texel_direction(face, u, v), lattice, seed);
-          data.push_back(static_cast<uint16_t>(seed));
+          data.push_back(static_cast<Texel>(seed));
         }
       }
     }
@@ -237,7 +243,7 @@ private:
   /**
    * @brief Texel-to-node table, indexed (face*RES+y)*RES+x.
    */
-  ArenaVector<uint16_t> data;
+  ArenaVector<Texel> data;
 
   /**
    * @brief Converts a cubemap face plus texel coordinates to a unit direction.
