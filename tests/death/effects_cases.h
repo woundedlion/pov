@@ -82,6 +82,11 @@ inline void case_mindsplatter_profile_preset_oob() {
   effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
 }
 
+inline void case_mindsplatter_profile_preset_uninitialized() {
+  MindSplatter<96, 20> effect;
+  effect.profile_select_preset(opaque<size_t>(0));
+}
+
 /** @brief Death case: contour preparation past its table capacity traps. */
 inline void case_shapeshifter_count_over_capacity() {
   using namespace shapeshifter_oracle_tests;

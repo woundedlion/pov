@@ -30,6 +30,17 @@ namespace mindsplatter_tests {
 
 using namespace hs_test::effects_tests;
 
+inline void test_mindsplatter_profile_selects_initialized_preset() {
+  reset_effect_globals();
+  using MS = MindSplatter<96, 20>;
+  MS effect;
+  effect.init();
+  constexpr size_t INDEX = MS::authored_preset_count() - 1;
+  effect.profile_select_preset(INDEX);
+  HS_EXPECT_EQ(effect.getPresetIndex(), INDEX);
+  HS_EXPECT_TRUE(effect.animations_paused());
+}
+
 struct FrameRun {
   std::vector<Pixel> pixels;
   std::vector<uint16_t> active;
@@ -848,6 +859,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
 inline int run_mindsplatter_tests() {
   ModuleFixture fixture("mindsplatter");
 
+  test_mindsplatter_profile_selects_initialized_preset();
   test_mindsplatter_base_mesh_selector();
   test_mindsplatter_whitebox_geometry_replay();
   test_mindsplatter_replay_snapshot_exact();
