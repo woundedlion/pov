@@ -370,9 +370,10 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
-├── effects/                    44 headers covering 43 effects, all firmware — BZReactionDiffusion.h,
+├── effects/                    43 headers covering 43 effects, all firmware — BZReactionDiffusion.h,
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
-│                                shared base ReactionDiffusionBase.h; the
+│                                common/ for code two or more effects share (the
+│                                reaction-diffusion base reaction_diffusion.h); the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │
