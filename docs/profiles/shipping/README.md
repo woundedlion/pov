@@ -1,9 +1,9 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
+39 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. ● marks the October 8 JewelMelt capture. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -16,6 +16,7 @@ Rows rank by any spill, then peak render. 🟢 is zero spill; 🔴 is any spill.
 | [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 15:16 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
 | [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
+| [JewelMelt](profile_jewelmelt_teensy_2026-10-08.md) ● | `fx_shader_draw` | 🟢 46.39 | 🟢 0/1087 (0.00%) | 2026-10-08 22:56 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [AshCloud](profile_ashcloud_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 42.67 | 🟢 0/1087 (0.00%) | 2026-10-06 19:01 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-06.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 0/3647 (0.00%) | 2026-10-06 18:28 |
@@ -51,8 +52,9 @@ and COM4, except HyperLattice, re-captured after its 4D optimization at
 `a13c149d4`; its linked report records the 51.774 ms peak. GnomonicStars was
 re-captured on October 7; its report records the source and clock variant.
 ● marks the October 7 IslamicStars and HankinSolids optimized face-distance
-measurements. Each report names its board and source snapshot; setup frame 1
-is excluded from peak and spill figures.
+measurements. Each report names its board and source snapshot. Setup frame 1
+is excluded from display peak and spill figures. JewelMelt's October 8 capture
+at softness 0.5 records its full-width initialization draw separately.
 
 HankinSolids, HyperLattice and DisplacementField were re-captured with longer
 budgets than `tools/profile_sweep.sh` assigns them, so that each capture covers its

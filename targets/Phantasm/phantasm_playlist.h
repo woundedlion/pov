@@ -32,6 +32,7 @@
   X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
+  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \
   X(DisplacementField, 120)                                                    \
   X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
@@ -133,12 +134,11 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          Galaxies and JewelMelt wait on their first on-device shipping profiles.
+ *          Galaxies waits on its first on-device shipping profile.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(Dynamo)                                                                    \
   X(Galaxies)                                                                  \
-  X(JewelMelt)                                                                 \
   X(MobiusRings)                                                               \
   X(Thrusters)
 
