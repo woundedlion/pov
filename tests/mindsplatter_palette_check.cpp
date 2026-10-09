@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/color/mindsplatter_palette_luts.h"
 #include "core/engine/engine.h"
 

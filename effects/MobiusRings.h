@@ -12,7 +12,7 @@
  */
 
 #include "core/animation/orientation.h"
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the conformal-radius pole branch and the

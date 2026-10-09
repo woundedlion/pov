@@ -11,7 +11,7 @@
  */
 
 #include "core/animation/orientation.h"
-#include "core/color/effect_palette_recipes.h"
+#include "effects/common/palette_recipes.h"
 #include "core/color/noise_hue_palette.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"

@@ -20,5 +20,4 @@
 #include "color/palettes.h"
 #include "color/palette_cycler.h"
 #include "color/noise_hue_palette.h"
-#include "color/effect_palette_recipes.h"
 #include "color/layer_composite.h"
