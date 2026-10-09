@@ -241,14 +241,7 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
   const auto saved = hs::random();
   hs::random().seed(0x61786973);
   for (int i = 0; i < COUNT; ++i) {
-    math::Vector pos;
-    do {
-      const float pos_x = hs::rand_f(-1.0f, 1.0f);
-      const float pos_y = hs::rand_f(-1.0f, 1.0f);
-      const float pos_z = hs::rand_f(-1.0f, 1.0f);
-      pos = math::Vector(pos_x, pos_y, pos_z);
-    } while (pos.length() < 0.1f);
-    pos.normalize();
+    const math::Vector pos = rand_unit();
     const float vel_x = hs::rand_f(-0.1f, 0.1f);
     const float vel_y = hs::rand_f(-0.1f, 0.1f);
     const float vel_z = hs::rand_f(-0.1f, 0.1f);
