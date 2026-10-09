@@ -88,7 +88,7 @@ inline float median_of(std::vector<float> &v) {
 }
 
 // ---------------------------------------------------------------------------
-// Chamfer sweep over Hankin meshes to characterize the T_EPS boundary.
+// Chamfer sweep to characterize the T_EPS boundary.
 // ---------------------------------------------------------------------------
 
 /** @brief One chamfer-leg seed. */
