@@ -923,10 +923,9 @@ inline bool airocean_contains(const AiroceanVector &p, uint8_t face) {
  * @return Largest positive half-space determinant, or 0 if none is positive.
  */
 inline float airocean_outside_score(const AiroceanVector &p, uint8_t face) {
-  return std::max(0.0f,
-                  std::max(airocean_edge_halfspace(p, face, 0),
-                           std::max(airocean_edge_halfspace(p, face, 1),
-                                    airocean_edge_halfspace(p, face, 2))));
+  return fmaxf(0.0f, fmaxf(airocean_edge_halfspace(p, face, 0),
+                           fmaxf(airocean_edge_halfspace(p, face, 1),
+                                 airocean_edge_halfspace(p, face, 2))));
 }
 
 /**
