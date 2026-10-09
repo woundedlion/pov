@@ -77,16 +77,14 @@ inline void test_raymarch_volume_random_walks_are_independent() {
 
   effect.draw_frame();
   effect.advance_display();
-  const math::Quaternion first = RaymarchWhiteBox::volume_spin(effect, 0);
-  int distinct = 0;
-  for (int i = 1; i < count; ++i) {
-    const math::Quaternion q = RaymarchWhiteBox::volume_spin(effect, i);
-    const float dr = q.r - first.r;
-    const math::Vector dv = q.v - first.v;
-    if (dr * dr + math::dot(dv, dv) > 1e-8f)
-      ++distinct;
-  }
-  HS_EXPECT_EQ(distinct, count - 1);
+  for (int i = 0; i < count; ++i)
+    for (int j = i + 1; j < count; ++j) {
+      const math::Quaternion a = RaymarchWhiteBox::volume_spin(effect, i);
+      const math::Quaternion b = RaymarchWhiteBox::volume_spin(effect, j);
+      const float dr = a.r - b.r;
+      const math::Vector dv = a.v - b.v;
+      HS_EXPECT_GT(dr * dr + math::dot(dv, dv), 1e-8f);
+    }
 }
 
 /** @brief Pins Raymarch's named preset and selectable placement solids. */
