@@ -132,8 +132,7 @@ inline void test_lms_transform_pair_matches_scalar() {
 
 /**
  * @brief Runs every color-module test and reports the aggregate result.
- * @return Process exit code from hs_test::end_module: 0 on success, non-zero on
- *         any failure.
+ * @return The module's failure count from end_module() (0 on success).
  */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
