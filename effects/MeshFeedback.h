@@ -146,10 +146,6 @@ public:
       "registered slider range; widen the range to accommodate the "
       "preset (the range exposes the presets, it does not clamp them)");
 
-  /** @brief Startup parameters: preset 0 with the noise binding still null;
-   *  init() binds the effect-owned NoiseParams. */
-  static Params initial_params() { return PRESETS[0].params; }
-
   /**
    * @brief Wires up noise, orientation, and the filter pipeline.
    * @details The Feedback filter binds `params.style` by reference; the
@@ -174,7 +170,6 @@ public:
     noise_params.set_seed(hs::rand_int(0, 65536));
     noise_params.sync();
 
-    // initial_params() cannot bind the noise pointer; adopt_params() does.
     adopt_params(params);
 
     mesh_shade = Palettes::PEACH_POP.get(0.0f);
