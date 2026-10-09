@@ -102,7 +102,7 @@ struct ColorSliderBinding {
 };
 
 /**
- * @brief Every color slider the base registers, paired with its descriptor.
+ * @brief Ranged color sliders paired with the field descriptor each writes.
  * @details Lets a slider's authored range be compared against the range the
  * snapshot validator enforces.
  */
