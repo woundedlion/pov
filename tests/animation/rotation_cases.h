@@ -52,7 +52,7 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
 }
 
 /**
- * @brief Verifies a repeating Rotation lands its full sweep every cycle.
+ * @brief Verifies a Rotation rewound each cycle lands its full sweep every cycle.
  * @details An easing with zero slope at t=1 leaves a sub-MIN_STEP_ANGLE residual on
  * the final frame, which has no successor to accumulate into.
  */
