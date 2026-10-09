@@ -470,7 +470,7 @@ inline void clip_clear_parity_one(const char *name) {
 
   auto render = [&](int segment_id, bool full_clear) {
     reset_effect_globals();
-    hs::set_mock_time(0, 0);
+    pin_frame_clock(0);
     std::vector<Pixel> displayed;
     E<W, H> effect;
     effect.init();
@@ -481,8 +481,7 @@ inline void clip_clear_parity_one(const char *name) {
       const pov::SegmentClip clip =
           pov::segment_clip(map, (f & 1) == 0, S, PARITY_SEGMENTS, W);
       effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
+      pin_frame_clock(f);
       effect.draw_frame();
       effect.advance_display();
       for (int y = clip.y0; y < clip.y1; ++y)
@@ -731,7 +730,7 @@ template <typename FnT>
 inline void sh_render_pinned_mode(int idx, float amplitude, FnT &&inspect) {
   using WB = SphericalHarmonicsWhiteBox;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   WB::SH fx;
   fx.init();
   WB::pin_mode(fx, idx);
@@ -862,7 +861,7 @@ inline void test_sh_polarity_split_and_ao_shaping() {
 inline void test_sh_morph_chain_rearms() {
   using WB = SphericalHarmonicsWhiteBox;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   WB::SH fx;
   fx.init();
 
@@ -877,8 +876,7 @@ inline void test_sh_morph_chain_rearms() {
   float alpha_peak = 0.0f;
   std::vector<int> visited{seed};
   for (int f = 0; f < FRAMES; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
+    pin_frame_clock(f);
     fx.draw_frame();
     fx.advance_display();
 
@@ -944,7 +942,7 @@ inline void test_sh_preset_mode_mapping() {
 inline void test_sh_manual_preset_replaces_inflight_morph() {
   using WB = SphericalHarmonicsWhiteBox;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   WB::SH fx;
   fx.init();
 
@@ -952,8 +950,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::current_idx(fx), 6);
   for (int frame = 0; frame < 8; ++frame) {
-    hs::set_mock_time(static_cast<unsigned long>(frame) * FRAME_MS,
-                      static_cast<unsigned long>(frame) * FRAME_US);
+    pin_frame_clock(frame);
     fx.draw_frame();
     fx.advance_display();
   }
@@ -975,8 +972,7 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
 
   fx.setAnimationsPaused(false);
   for (int frame = 0; frame < 64; ++frame) {
-    hs::set_mock_time(static_cast<unsigned long>(frame + 9) * FRAME_MS,
-                      static_cast<unsigned long>(frame + 9) * FRAME_US);
+    pin_frame_clock(frame + 9);
     fx.draw_frame();
     fx.advance_display();
   }
