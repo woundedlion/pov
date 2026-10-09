@@ -909,7 +909,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   };
 
   for (size_t i = 0; i < count; i++) {
-    HS_PLOT_COUNT(edges);
     const Fragment &curr = points[i];
     const Fragment &next = segment_next(i);
     bool is_last_segment = (i == count - 1);
