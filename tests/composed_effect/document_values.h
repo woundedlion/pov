@@ -294,10 +294,6 @@ struct DocumentSlot {
   int warp_side = 0; /**< 0 = outer warp family, 1 = inner warp family. */
 };
 
-inline bool derivation_value_reachable(std::string_view operator_id,
-                                       std::string_view field_id,
-                                       std::string_view value);
-
 inline SlotRole classify_operator(std::string_view operator_id) {
   if (operator_id.starts_with("sphere.rotate."))
     return SlotRole::CAMERA;
