@@ -179,7 +179,7 @@ private:
   struct Params {
     float friction = 0.99965f;   /**< Velocity retention per frame. */
     float core_mass = 0.10478f;  /**< Attractor strength. */
-    float orbit_speed = 0.0124f; /**< Reference spawn speed (radians/frame). */
+    float orbit_speed = 0.0134f; /**< Reference spawn speed (radians/frame). */
     float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
     float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
     int arms = 2;                /**< Arms per galaxy. */
@@ -205,7 +205,7 @@ private:
       g.u = basis.u;
       g.w = basis.w;
       g.phase = hs::rand_f(0.0f, 2.0f * math::PI_F);
-      g.spin = hs::rand_f() < 0.5f ? -1.0f : 1.0f;
+      g.spin = (i & 1) ? -1.0f : 1.0f;
       g.emission_credit = hs::rand_f();
       g.arm = 0;
       particle_system.add_attractor(g.core, params.core_mass, KILL_RADIUS,
@@ -287,7 +287,7 @@ private:
     return background + (0.5f + 0.5f * u * u - background) * young * profile;
   }
 
-  /** @brief Stable white stars with sparse blue and red accents. */
+  /** @brief Stable white stars with sparse blue, red and pale-yellow accents. */
   static Color4 star_color(uint16_t color_seed) {
     const uint8_t tint = static_cast<uint8_t>((color_seed >> 8) * 73u +
                                               (color_seed & 0xff) * 29u + 41u);
@@ -295,6 +295,8 @@ private:
       return Color4(155, 200, 255);
     if (tint < 40)
       return Color4(255, 150, 140);
+    if (tint < 50)
+      return Color4(255, 245, 205);
     return Color4(255, 255, 255);
   }
 
