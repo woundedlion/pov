@@ -203,7 +203,8 @@ struct MeshState {
   size_t num_faces() const { return get_face_counts_size(); }
 
   /**
-   * @brief Deep-copies all owned data from src into dst using a target arena.
+   * @brief Deep-copies src's vertices and its active (owned or borrowed)
+   * connectivity into owned storage in dst.
    * @param src Source mesh to copy from.
    * @param dst Destination mesh to populate.
    * @param arena Arena providing storage for the destination buffers.
