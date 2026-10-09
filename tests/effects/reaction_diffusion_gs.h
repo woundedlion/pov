@@ -1476,28 +1476,22 @@ inline void test_gs_inplace_frame_matches_jacobi() {
 }
 
 /**
- * @brief Verifies one substep has the right reaction/diffusion signs and that
- *        the Q16 clamp is actually applied.
- * @details After one step from a single saturated-B nucleus, A at the seed
- *          underflows and must clamp to 0, not wrap, and B diffuses into an
- *          empty neighbor.
+ * @brief Verifies substep reaction/diffusion signs and the float [0, 1] clamp.
  */
 inline void test_gs_substep_signs_and_clamp() {
-  std::vector<uint16_t> cA(GSWhiteBox::N, 65535), cB(GSWhiteBox::N, 0),
-      nA(GSWhiteBox::N), nB(GSWhiteBox::N);
-  const int seed = 4000;
-  cB[seed] = 65535;
+  std::vector<float> a(GSWhiteBox::N, 1.0f), b(GSWhiteBox::N, 0.0f),
+      next_a(GSWhiteBox::N), next_b(GSWhiteBox::N);
+  constexpr int SEED = 4000;
+  b[SEED] = 1.0f;
   GSWhiteBox::GS gs;
   GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 2.5f);
-  GSWhiteBox::step(gs, cA.data(), cB.data(), nA.data(), nB.data());
+  GSWhiteBox::step_float(gs, a.data(), b.data(), next_a.data(), next_b.data());
 
-  // 1 - dt < 0 clamps to 0, not a negative-float-to-uint16 wrap.
-  HS_EXPECT_EQ((int)nA[seed], 0);
-  // B diffuses outward: at least one initially-empty neighbor is now lit.
+  HS_EXPECT_EQ(next_a[SEED], 0.0f);
   int spread = 0;
   for (int k = 0; k < ReactionGraph::RD_K; ++k) {
-    int nb = ReactionGraph::neighbors[seed][k];
-    if (nB[nb] > 0)
+    int nb = ReactionGraph::neighbors[SEED][k];
+    if (next_b[nb] > 0.0f)
       ++spread;
   }
   HS_EXPECT_GT(spread, 0);
