@@ -74,8 +74,7 @@ static_assert(!Pullback::ComposedDetail::PipelineMetadata<
               AshCloudSpec, CoverageFixture::Binding,
               CoverageFixture::RenderPipeline>::PATH_TRACKED);
 
-template <typename FX> struct ComposedTraits {
-  using Params = typename FX::Params;
+template <typename FX> struct TraitsOf {
   using Spec = typename FX::Spec;
   static constexpr PaletteHarmony HARMONY = Spec::HARMONY;
   static constexpr Pullback::HueMode HUE = Spec::HUE;
@@ -84,8 +83,6 @@ template <typename FX> struct ComposedTraits {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Spec::SURFACE_PLACEMENT;
 };
-
-template <typename FX> using TraitsOf = ComposedTraits<FX>;
 
 /** @brief Color sliders the base registers for every specialization. */
 constexpr const char *UNGATED_COLOR_SLIDERS[] = {
