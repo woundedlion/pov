@@ -465,6 +465,11 @@ inline const Case *all_cases(int &n) {
       {"timeline_pinned_add_on_full_timeline",
        case_timeline_pinned_add_on_full_timeline, "core/animation/timeline.h",
        "(pin == Pin::UNPINNED) Timeline full, dropped a pinned animation"},
+      {"timeline_pinned_after_cancelled_perpetual",
+       case_timeline_pinned_after_cancelled_perpetual,
+       "core/animation/timeline.h",
+       "(!prev || (!prev->is_canceled() && (!prev->is_finite() || prev->repeats()))) "
+       "pinned animation added after a retiring predecessor"},
       {"timeline_pinned_one_shot_timer", case_timeline_pinned_one_shot_timer,
        "core/animation/timeline.h",
        "(!e.pinned || anim->is_canceled()) pinned animation completed; only "
@@ -1970,7 +1975,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/recipe_build.h", 21},
     {"core/animation/segue.h", 1},
     {"core/animation/sprites.h", 10},
-    {"core/animation/timeline.h", 8},
+    {"core/animation/timeline.h", 7},
     {"core/animation/transformer.h", 3},
     {"core/color/baked_palette.h", 9},
     {"core/color/color_space.h", 1},
