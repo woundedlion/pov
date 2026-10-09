@@ -9,6 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks/post-commit"
 TOOL = """import json, os, pathlib, sys
@@ -35,13 +38,11 @@ class PostCommitHook(unittest.TestCase):
         self.worktree = self.root / "linked"
         neutral = str(self.root / "empty-config")
         Path(neutral).write_text("", encoding="utf-8")
-        self.env = dict(os.environ, GIT_CONFIG_GLOBAL=neutral,
+        self.env = dict(isolated_env(), GIT_CONFIG_GLOBAL=neutral,
                         GIT_CONFIG_SYSTEM=neutral,
                         GIT_AUTHOR_NAME="hook test", GIT_AUTHOR_EMAIL="hook@test.invalid",
                         GIT_COMMITTER_NAME="hook test", GIT_COMMITTER_EMAIL="hook@test.invalid",
                         HS_PYTHON=Path(sys.executable).as_posix())
-        for key in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE"):
-            self.env.pop(key, None)
         self.git("init", "--quiet", "-b", "master")
         (self.repo / "tools").mkdir()
         (self.repo / "tools/teensy_size_trail.py").write_text(TOOL, encoding="utf-8")

@@ -9,40 +9,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "pre-commit"
-LOCAL_GIT_ENV = {
-    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
-    "GIT_COMMON_DIR",
-    "GIT_CONFIG",
-    "GIT_CONFIG_COUNT",
-    "GIT_CONFIG_PARAMETERS",
-    "GIT_DIR",
-    "GIT_GRAFT_FILE",
-    "GIT_IMPLICIT_WORK_TREE",
-    "GIT_INDEX_FILE",
-    "GIT_NO_REPLACE_OBJECTS",
-    "GIT_OBJECT_DIRECTORY",
-    "GIT_PREFIX",
-    "GIT_REPLACE_REF_BASE",
-    "GIT_SHALLOW_FILE",
-    "GIT_WORK_TREE",
-}
-
-
-def isolated_env() -> dict[str, str]:
-    env = {key: value for key, value in os.environ.items()
-           if key not in LOCAL_GIT_ENV}
-    env.update({
-        "GIT_CONFIG_GLOBAL": os.devnull,
-        "GIT_CONFIG_SYSTEM": os.devnull,
-        "GIT_AUTHOR_NAME": "fixture",
-        "GIT_AUTHOR_EMAIL": "fixture@example.invalid",
-        "GIT_COMMITTER_NAME": "fixture",
-        "GIT_COMMITTER_EMAIL": "fixture@example.invalid",
-        "HS_PYTHON": sys.executable,
-    })
-    return env
 
 
 class PreCommitHook(unittest.TestCase):

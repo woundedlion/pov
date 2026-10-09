@@ -508,6 +508,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── build_pins.py           Shared external-tool version pins for CI and `just`
 │   ├── check_coverage.py       Catastrophic llvm-cov line-floor gate, repo-wide and per-directory
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
+│   ├── git_test_env.py         Isolated Git environments for fixture repositories
 │   ├── run_python_tests.py    Discovers and runs every tracked Python suite; rejects empty suites
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
 │   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`

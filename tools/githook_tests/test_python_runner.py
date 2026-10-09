@@ -1,10 +1,14 @@
 """Behavioral checks for tracked Python suite discovery."""
 
 from pathlib import Path
+
 import subprocess
 import sys
 import tempfile
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
 
 RUNNER = Path(__file__).resolve().parents[1] / "run_python_tests.py"
 
@@ -13,20 +17,20 @@ class PythonRunner(unittest.TestCase):
     def run_fixture(self, source=None, extra=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True)
+            subprocess.run(["git", "-C", str(root), "init", "--quiet"], check=True, env=isolated_env())
             if source is not None:
                 path = root / "new_suite" / "test_sample.py"
                 path.parent.mkdir()
                 path.write_text(source, encoding="utf-8")
                 subprocess.run(["git", "-C", str(root), "add", "--",
-                                "new_suite/test_sample.py"], check=True)
+                                "new_suite/test_sample.py"], check=True, env=isolated_env())
             if extra is not None:
                 empty = root / "new_suite/test_extra.py"
                 empty.write_text(extra, encoding="utf-8")
                 subprocess.run(["git", "-C", str(root), "add", "--",
-                                "new_suite/test_extra.py"], check=True)
+                                "new_suite/test_extra.py"], check=True, env=isolated_env())
             return subprocess.run([sys.executable, str(RUNNER), "--root", str(root)],
-                                  capture_output=True, text=True, check=False)
+                                  capture_output=True, text=True, check=False, env=isolated_env())
 
     def test_empty_repository_fails(self):
         result = self.run_fixture()
