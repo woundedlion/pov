@@ -6,8 +6,8 @@
  */
 #pragma once
 
-#include <cmath>  // for std::sqrt
-#include <cstdio> // for std::printf
+#include <cmath>
+#include <cstdio>
 
 #include "core/spatial/reaction_graph.h"
 #include "tests/vec_test_util.h"
@@ -88,7 +88,6 @@ inline void test_node_ordered_and_distinct() {
   HS_EXPECT_VEC(node(RD_N - 2),
                 math::Vector(-0.00214281073f, -0.999739528f, -0.0227209534f),
                 1e-6f);
-  // The walk stops at RD_N-1 so node(i+1) never reads past [0, RD_N).
   math::Vector prev = node(0);
   HS_EXPECT_TRUE(std::isfinite(prev.x) && std::isfinite(prev.y) &&
                  std::isfinite(prev.z));
@@ -360,7 +359,6 @@ inline void test_cubemap_lut_roundtrip() {
   }
   std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
               exact, near, miss);
-  // Seeded at lattice points the LUT misses none.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_EQ(miss, 0);
 }
