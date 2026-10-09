@@ -32,7 +32,7 @@ public:
    * @brief Binds the filter to a live Mobius parameter set.
    * @param params Mobius transform parameters applied per point.
    */
-  Mobius(math::MobiusParams &params) : params(params) {}
+  Mobius(const math::MobiusParams &params) : params(params) {}
   /**
    * @brief Stereographically projects, applies the Mobius map, and re-emits.
    * @param v World-space point on the unit sphere.
@@ -49,7 +49,7 @@ public:
   }
 
 private:
-  math::MobiusParams &params; /**< Live Mobius transform parameters. */
+  const math::MobiusParams &params; /**< Live Mobius transform parameters. */
 };
 
 } // namespace World
