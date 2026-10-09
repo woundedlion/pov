@@ -23,7 +23,7 @@ namespace palettes_tests {
  * @brief Pins named ProceduralPalette endpoints against golden 16-bit colors.
  */
 inline void test_named_procedural_palette_endpoints() {
-  // darkRainbow has integer frequencies, so t=0 and t=1 give the same color.
+  // `DARK_RAINBOW` has integer frequencies and matching endpoint colors.
   Color4 dr0 = Palettes::DARK_RAINBOW.get(0.0f);
   Color4 dr1 = Palettes::DARK_RAINBOW.get(1.0f);
   HS_EXPECT_EQ(dr0.color.r, 47426);
@@ -34,13 +34,13 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(dr1.color.b, dr0.color.b);
   HS_EXPECT_NEAR(dr0.alpha, 1.0f, 1e-6f);
 
-  // mauveFade: red and blue clamp to 1 at t=0.
+  // `MAUVE_FADE`: red and blue clamp to 1 at t=0.
   Color4 mf0 = Palettes::MAUVE_FADE.get(0.0f);
   HS_EXPECT_EQ(mf0.color.r, 65535);
   HS_EXPECT_EQ(mf0.color.g, 0);
   HS_EXPECT_EQ(mf0.color.b, 65535);
 
-  // fireGlow / peachPop: fully golden-pinned (fast_cosf channels).
+  // `FIRE_GLOW` / `PEACH_POP` endpoint goldens.
   Color4 fg0 = Palettes::FIRE_GLOW.get(0.0f);
   Color4 fg1 = Palettes::FIRE_GLOW.get(1.0f);
   HS_EXPECT_EQ(fg0.color.r, 108);
