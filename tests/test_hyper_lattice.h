@@ -512,7 +512,7 @@ constexpr uint16_t MAX_SHADE_CHANNEL_DELTA = 16;
  * @return The folded signature.
  */
 inline uint64_t shade_signature(const ShadeSample *samples, size_t count) {
-  uint64_t signature = hs_test::FNV1A64_BASIS;
+  uint64_t signature = hs_test::HASH_SEED64;
   for (size_t row = 0; row < count; ++row) {
     signature = hs_test::fnv1a64_channel(signature, samples[row].r);
     signature = hs_test::fnv1a64_channel(signature, samples[row].g);
