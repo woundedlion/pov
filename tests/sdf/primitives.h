@@ -423,6 +423,49 @@ inline void test_distorted_ring_polyline_distance_matches_bruteforce() {
   expect_polyline_distance_matches_bruteforce<97>();
 }
 
+/**
+ * @brief Verifies a budget-capped knot search near the axis returns a lower
+ *        bound on the brute-force distance.
+ */
+inline void test_distorted_ring_capped_search_is_lower_bound() {
+  constexpr int LUT_N = 1024;
+  constexpr float THICKNESS = 0.1f;
+  constexpr float PIXEL_POLAR = 0.1f;
+  constexpr float NEAR_POLAR = 0.18f;
+  constexpr float FAR_POLAR = 0.01f;
+  constexpr float BAND = 30.0f / 360.0f; // near band half-width, in turns
+  const math::Basis b = math::make_basis(math::Quaternion(), math::Y_AXIS);
+  // Within BAND of azimuth 0 the ring sits beyond the pixel; past it the ring
+  // drops toward the axis, outside the search budget's azimuth span.
+  std::vector<float> knots(LUT_N + 1);
+  for (int k = 0; k <= LUT_N; ++k) {
+    const float t = static_cast<float>(k % LUT_N) / LUT_N;
+    const bool near = t <= BAND || t >= 1.0f - BAND;
+    knots[k] = near ? 0.0f : FAR_POLAR - NEAR_POLAR;
+  }
+  SDF::KnotPrefilter pf;
+  SDF::DistortedRing ring(b, NEAR_POLAR / (math::PI_F / 2.0f), THICKNESS,
+                          knots.data(), LUT_N, 0.0f, pf);
+
+  auto at = [&](float theta, float a) {
+    return (b.v * std::cos(theta)) +
+           ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
+  };
+  const math::Vector p = at(PIXEL_POLAR, 0.3f * 2.0f * math::PI_F / LUT_N);
+  float brute = 100.0f;
+  for (int s = 0; s < LUT_N * 16; ++s) {
+    const int k = s / 16;
+    const float f = (s % 16) / 16.0f;
+    const float theta = NEAR_POLAR + knots[k] + f * (knots[k + 1] - knots[k]);
+    const math::Vector q = at(theta, 2.0f * math::PI_F * (k + f) / LUT_N);
+    brute = std::min(brute, std::acos(hs::clamp(math::dot(p, q), -1.0f, 1.0f)));
+  }
+  HS_EXPECT_LT(brute, NEAR_POLAR - PIXEL_POLAR - 0.01f);
+  const float d = SDF::distance_of(ring, p).raw_dist;
+  HS_EXPECT_GT(d, 0.0f);
+  HS_EXPECT_LE(d, brute);
+}
+
 /** @brief Verifies the knot reject band follows asymmetric extrema, not ±max_distortion. */
 inline void test_distorted_ring_knot_extrema_tighten_band() {
   constexpr int LUT_N = 8;

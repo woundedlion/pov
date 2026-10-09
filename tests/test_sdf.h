@@ -74,6 +74,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_sin_shift_varies_by_azimuth();
   test_distorted_ring_flat_matches_zero_knots();
   test_distorted_ring_polyline_distance_matches_bruteforce();
+  test_distorted_ring_capped_search_is_lower_bound();
   test_distorted_ring_closes_without_a_sentinel();
   test_distorted_ring_knot_extrema_tighten_band();
   test_distorted_ring_past_reach_reports_far_sentinel();
