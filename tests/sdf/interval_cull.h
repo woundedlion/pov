@@ -383,8 +383,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
 }
 
 /**
- * @brief Verifies a Y-axis AngularRepeat culls to its copies' columns without
- *        dropping any of them.
+ * @brief Verifies Y-axis AngularRepeat preserves the child's row band and narrows columns.
  * @details A Y-axis fold shifts azimuth by a whole sector and holds latitude,
  *   so the child's spans replayed once per copy bound every copy.
  */
@@ -412,6 +411,11 @@ inline void test_angular_repeat_y_axis_cull_narrows_rows() {
   for (uint8_t v : visited)
     visited_px += v;
   auto bounds = rep.get_vertical_bounds<H>();
+  const auto CHILD = star.get_vertical_bounds<H>();
+  HS_EXPECT_EQ(bounds.y_min, CHILD.y_min);
+  HS_EXPECT_EQ(bounds.y_max, CHILD.y_max);
+  HS_EXPECT_GT(bounds.y_min, 0);
+  HS_EXPECT_LT(bounds.y_max, H - 1);
   const int rows =
       std::min(H - 1, bounds.y_max) - std::max(0, bounds.y_min) + 1;
   HS_EXPECT_GT(rows, 0);
