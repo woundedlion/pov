@@ -74,12 +74,7 @@ public:
                                     .max = static_cast<float>(NUM_PARTICLES),
                                     .readonly = true});
 
-    // Cosine palette from a warm white core through lavender to blue arms.
-    palette.bake(persistent_arena,
-                 ProceduralPalette(/*bias*/ {0.62f, 0.6f, 0.9f},
-                                   /*amp*/ {0.38f, 0.4f, 0.1f},
-                                   /*freq*/ {0.5f, 0.5f, 0.5f},
-                                   /*phase*/ {0.0f, 0.05f, 0.4f}));
+    palette.bake(persistent_arena, StellarPalette{});
 
     build_particle_system();
 
@@ -169,6 +164,18 @@ private:
    */
   static constexpr float BULGE_RADIUS =
       std::max(0.08f, 1.5f * math::RADIANS_PER_COLUMN<W>);
+
+  /** @brief Approximate stellar surface colors from cool orange to hot blue-white. */
+  struct StellarPalette {
+    Color4 get(float t) const {
+      const std::array<Color4, 5> COLORS{
+          Color4(255, 177, 110), Color4(255, 238, 216), Color4(255, 255, 255),
+          Color4(202, 218, 255), Color4(167, 191, 255)};
+      const float index = hs::clamp(t, 0.0f, 1.0f) * 4.0f;
+      const int lower = std::min(static_cast<int>(index), 3);
+      return COLORS[lower].lerp(COLORS[lower + 1], index - lower);
+    }
+  };
 
   /** @brief Spawn geometry and arm state for one galaxy. */
   struct Galaxy {
@@ -295,6 +302,39 @@ private:
     return background + (0.5f + 0.5f * u * u - background) * young * profile;
   }
 
+  /**
+   * @brief Mass-dependent stellar colors at a normalized particle age.
+   * @details Evolutionary times are compressed; the seed's high byte selects mass.
+   */
+  Color4 star_color(uint16_t color_seed, float age) const {
+    const float mass = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
+    float temperature;
+    float luminosity = 1.0f;
+    if (mass < 0.5f) {
+      temperature = 0.06f + 0.32f * mass;
+    } else if (mass < 0.875f) {
+      const float main_sequence = 0.28f + 0.2f * (mass - 0.5f) / 0.375f;
+      const float giant = math::quintic_kernel((age - 0.45f) / 0.20f);
+      temperature = main_sequence + (0.02f - main_sequence) * giant;
+      const float remnant = math::quintic_kernel((age - 0.72f) / 0.06f);
+      const float cooling =
+          0.9f - 0.5f * math::quintic_kernel((age - 0.78f) / 0.22f);
+      temperature += (cooling - temperature) * remnant;
+      luminosity = 1.0f - 0.8f * remnant;
+    } else {
+      const float massive = (mass - 0.875f) / 0.125f;
+      const float lifetime = 0.45f - 0.15f * massive;
+      const float phase = age / lifetime;
+      const float main_sequence = 0.75f + 0.25f * massive;
+      const float supergiant = math::quintic_kernel((phase - 0.55f) / 0.20f);
+      temperature = main_sequence + (0.02f - main_sequence) * supergiant;
+      luminosity = 1.0f - math::quintic_kernel((phase - 0.80f) / 0.20f);
+    }
+    Color4 color = palette.get(temperature);
+    color.alpha *= luminosity;
+    return color;
+  }
+
   /** @brief Circular speed from the net inward pull of all six cores. */
   float circular_orbit_speed(const math::Vector &pos,
                              const math::Vector &outward, float ring) const {
@@ -321,10 +361,6 @@ private:
   void draw_particles(Canvas &canvas) {
     HS_PROFILE(gx_draw_particles);
     const math::RotationMatrix rotation(orientation.get());
-    // Maps cos(distance to core) onto the palette: 0 at the core, 1 at the
-    // disk rim.
-    const float cos_ring = math::fast_cosf(RING_RADIUS);
-    const float inv_ring_span = 1.0f / (1.0f - cos_ring);
     const float cos_hole = math::fast_cosf(HOLE_FADE_RADIUS);
     const float inv_head_span =
         1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
@@ -338,7 +374,6 @@ private:
       const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
       const math::Vector position = p.get_position();
       const float cos_distance = math::dot(position, galaxy.core);
-      const float radius = (1.0f - cos_distance) * inv_ring_span;
       const float hole =
           cos_distance < cos_hole
               ? 1.0f
@@ -354,14 +389,14 @@ private:
       const float arm = age < ARM_FADE_END ? arm_density(position, galaxy,
                                                          cos_distance, winding)
                                            : 0.0f;
-      Color4 c = palette.get(hs::clamp(radius, 0.0f, 1.0f));
+      Color4 c = star_color(p.color_seed, age / max_life);
       c.alpha *= hole * head_fade * fade_in * fade_out *
                  particle_alpha(p.color_seed, age, arm) * alpha;
       filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
     }
 
     // Scan::Point leaves its quintic coverage in v2.
-    const Color4 core_color = palette.get(0.0f);
+    const Color4 core_color(255, 250, 209);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
       Color4 c = core_color;
       c.alpha *= hs::clamp(f.v2, 0.0f, 1.0f) * alpha;
