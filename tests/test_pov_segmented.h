@@ -1063,7 +1063,8 @@ inline void test_submit_retries_dropped_column() {
 /**
  * @brief An accepted column leaves nothing to retry, and a fresh column wins.
  * @details Once the arm advances, the time-correct column supersedes the stale
- * packed one — the driver must never back-fill (spec §4.1).
+ * packed one — the driver must never back-fill
+ * (phantasm_frame_sync_spec.md §4.1).
  */
 inline void test_submit_fresh_column_supersedes_retry() {
   SubmitGate g;
@@ -1149,8 +1150,9 @@ struct SyncPinTrace {
 
 /**
  * @brief A pulse on a wake that renders is widthed and dropped in that wake.
- * @details The rising edge precedes the LED work (spec §5.2), so the render is
- * what gives the pulse its width; the pin is LOW again before the ISR returns.
+ * @details The rising edge precedes the LED work
+ * (phantasm_frame_sync_spec.md §5.2), so the render is what gives the pulse
+ * its width; the pin is LOW again before the ISR returns.
  */
 inline void test_sync_pulse_widthed_by_render() {
   SyncPinTrace t;
