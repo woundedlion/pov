@@ -358,6 +358,14 @@ inline void test_peirce_strip_scroll_is_periodic() {
             peirce_projection(v, 0.0f, layout, 1.125f);
         HS_EXPECT_NEAR(wrapped.coords.re, base.coords.re, 1e-4f);
         HS_EXPECT_NEAR(wrapped.coords.im, base.coords.im, 1e-4f);
+        HS_EXPECT_EQ(wrapped.region_id, base.region_id);
+        HS_EXPECT_EQ(wrapped.component_id, base.component_id);
+        HS_EXPECT_EQ(wrapped.boundary_flags, base.boundary_flags);
+        HS_EXPECT_NEAR(wrapped.fade_edge_distance, base.fade_edge_distance,
+                       1e-6f);
+        HS_EXPECT_EQ(wrapped.flags, base.flags);
+        HS_EXPECT_EQ(wrapped.traits, base.traits);
+        HS_EXPECT_EQ(wrapped.edge_class, base.edge_class);
         constexpr uint8_t HORIZONTAL_EDGE_CLASS = 4;
         constexpr uint8_t VERTICAL_EDGE_CLASS = 5;
         HS_EXPECT_EQ(wrapped.edge_class, layout == PeirceLayout::HORIZONTAL
