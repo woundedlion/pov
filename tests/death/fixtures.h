@@ -318,7 +318,6 @@ struct OverCapacityMockMesh {
   struct Verts {
     /**
      * @brief Returns a fixed vertex for any index.
-     * @param Unused vertex index.
      * @return A constant Vector{0,1,0}.
      */
     math::Vector operator[](size_t) const {
