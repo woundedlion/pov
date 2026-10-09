@@ -593,15 +593,105 @@ for module ownership and local validation commands.
 ├── vendor-importmap.js         CDN-by-default import map, with local opt-in
 ├── src/                        Handwritten browser modules
 │   ├── app/                    Startup, lifecycle, and application state
+│   │   ├── app_lifecycle.js    Frame-loop adapter, frame guard, key handlers, module-load deadline, and teardown
+│   │   ├── bootstrap.js        Boot sequence, stale-module and offline-CDN remedies, and the boot-failure banner
+│   │   ├── daydream.js         Composition root: driver, engine host, state, GUI, sidebar, apply pipeline, recording
+│   │   ├── main.js             index.html entry module; runs bootstrap()
+│   │   └── state.js            AppState store, URL-param parsing and rounding, and the debounced URL writer
 │   ├── engine/                 WASM engine ownership and display-buffer aliases
+│   │   ├── display_aliases.js  Re-points the Three.js instance colours and driver.pixels at the live WASM view
+│   │   ├── engine_host.js      EngineHost — main-thread engine, its pixel view, and late-bound adapter and recorder
+│   │   └── workbench_bindings.js Guarded calls into the engine's shader-chain bindings and operator catalog
 │   ├── renderer/               Three.js rendering, geometry, and pixel views
+│   │   ├── display_caps.js     Pole-cap percentages held until the engine loads, then published as display geometry
+│   │   ├── driver.js           Daydream Three.js driver — scene, LED dot mesh, camera fit, and pooled axis labels
+│   │   ├── frame_constants.js  Simulation FPS and the slow-frame threshold
+│   │   ├── geometry.js         Pixel-to-spherical mapping matching the engine's pixel_to_vector
+│   │   ├── pixel_view.js       Liveness test and re-fetch for the zero-copy WASM pixel view
+│   │   └── pole_lod.js         Pole LOD control binding, replayed once the engine loads
 │   ├── effects/                Effect roster, sequencing, persistence, and parameters
+│   │   ├── effect_persistence.js URL storage and replay of engine-accepted parameters and chain snapshots
+│   │   ├── effect_roster.js    Effects and display metadata per resolution, workbench effects, default effect
+│   │   ├── effect_sequencing.js Effect and resolution apply pipeline with its switch/rollback transaction
+│   │   ├── param_sync.js       DOM-free parameter logic: engine-to-control sync, enum choices, export blockers
+│   │   └── shader_stages.js    Pipeline-stage order, titles, and parameter assignments for composed effects
 │   ├── segments/               Worker pool, protocol, layout, and compositing
+│   │   ├── module_warmer.js    Deduplicated warm-up of the WASM module graph before a pool spawn
+│   │   ├── segment_compositor.js Composites per-segment worker results into the display buffer
+│   │   ├── segment_controller.js SegmentController — segmented-POV worker pool, watchdogs, retries, one-frame-deep pipeline
+│   │   ├── segment_layout.js   Pure segment-range math, extraction, compositing, and boundary stamps
+│   │   ├── segment_policy.js   Pool spawn guard, segmented fallback, and the device-bounded segment cap
+│   │   ├── segment_worker.js   Worker that renders one segment rectangle in its own WASM engine
+│   │   └── worker_protocol.js  Controller/worker message typedefs, PROTOCOL_VERSION, and fault kinds
 │   ├── recording/              Recording pipeline, settings, and controls
+│   │   ├── recorder.js         VideoRecorder — MediaRecorder capture locked to simulation ticks, to file or memory
+│   │   ├── recording_controls.js Recording panel: folder, settings, record toggle, and duration overlay
+│   │   └── recording_settings.js Recording settings bound before the recorder exists and replayed into it
 │   ├── ui/                     Simulator panels, sidebar, notices, and statistics
+│   │   ├── apply_notice.js     Shared page notice with per-owner raise and clear
+│   │   ├── effect_actions.js   Effect panel action row: Reset, Export to clipboard, and preset selection
+│   │   ├── effect_gui.js       Effect panel coordinator — build, mount, per-frame sync, schema rebuild, teardown
+│   │   ├── effect_panel_edits.js EffectPanelEdits — defers edit persistence until a slider gesture ends
+│   │   ├── effect_panel_view.js Panel mounting, focus, and folder state kept across rebuilds
+│   │   ├── effect_param_controls.js lil-gui control per parameter definition, warnings, telemetry, and stage labels
+│   │   ├── effect_param_values.js Per-frame sync of parameter controllers with engine values and selector states
+│   │   ├── global_stats_view.js GlobalStatsView — single-engine frame time and arena usage bar
+│   │   ├── gui.js              DeepLinkGUI — lil-gui wrapper persisting every control to URL params
+│   │   ├── segment_stats_view.js SegmentStatsView — per-segment timing and arena table, spawn and fault states
+│   │   ├── segmented_pov_controls.js Segmented POV panel: Enabled toggle, Segments slider, and bounded pool spawner
+│   │   ├── sidebar.js          EffectSidebar — effect list, sort controls, and keyboard navigation
+│   │   └── sidebar_logic.js    DOM-free sidebar sorting, column balancing, navigation, and scroll-arrow state
 │   ├── shared/                 Browser utilities shared by simulator and tools
+│   │   ├── banner.js           Fatal-error banners, failure reporting, and the tool-page bootstrap
+│   │   ├── clipboard.js        Copy with transient label feedback and copy-block wiring
+│   │   ├── color.js            sRGB/linear transfer functions mirroring core/color/color_space.h
+│   │   ├── copy_text.js        Clipboard API copy with a textarea fallback
+│   │   ├── cpp_format.js       C++ identifier check, column fill, and float literals for code generators
+│   │   ├── deadline.js         Races a promise against a timer-sourced deadline
+│   │   ├── download_file.js    Anchor-click blob download
+│   │   ├── engine_halt.js      Halted-engine predicate from HS_MODULE_DEAD and trap errors
+│   │   ├── export_params.js    Formats live parameters as a C++ PRESETS brace-init list
+│   │   ├── flyout.js           Button-controlled flyout with outside-click and Escape dismissal
+│   │   ├── kb_format.js        Byte count to kilobyte string
+│   │   ├── labels.js           Kebab-case to title case
+│   │   ├── layout.js           Mobile layout breakpoint shared with styles/index.css
+│   │   ├── page_lifecycle.js   Per-frame scheduler, media-query watch, and page teardown hooks
+│   │   ├── pointer_drag.js     Pointer-capture drag on one element and its padding-box rect
+│   │   └── slider.js           Labelled range slider with live readout and a scaled-value proxy
 │   ├── types/                  Browser API declarations
+│   │   └── file_system_access.d.ts showSaveFilePicker declaration missing from lib.dom
 │   └── workbench/              Shader, palettes, solids, Möbius, and Lissajous tools
+│       ├── shared.js           Three.js scene setup for tool pages and re-exported page helpers
+│       ├── lissajous/          Lissajous curve tool
+│       │   ├── lissajous_math.js Lissajous curves, rational-ratio matching, closing domain, and C++ export
+│       │   └── lissajous_page.js Page module for tools/lissajous.html
+│       ├── mobius/             Möbius transform tool
+│       │   ├── mobius_page.js  Page module for tools/mobius.html
+│       │   └── mobius_transforms.js Complex helpers, stereographic projection, preset generators, GLSL/C++ export
+│       ├── palettes/           Palette tool
+│       │   ├── hue_key_wheel_controller.js Generative tab hue-key wheel: selection, drag, slider handles, CUSTOM handoff
+│       │   ├── palette_canvas.js Gradient strip with drag-selection overlay and the RGB wave graph
+│       │   ├── palette_controls.js Pure control state: hue-wheel math, strip zoom window, and V4 recipe values
+│       │   ├── palette_math.js ProceduralPalette and GenerativePalette previews, recipe compile, and C++ export
+│       │   ├── palette_recipe_model.js PaletteRecipeModel — generative tab's template, control readings, and custom hue keys
+│       │   ├── palette_wheel.js OKLCH hue-key wheel raster, markers, labels, and key-move arithmetic
+│       │   ├── palettes_page.js Page module for tools/palettes.html
+│       │   └── procedural_sliders.js Procedural tab's coefficient sliders with locked R/G/B group drags
+│       ├── shader/             Shader workbench
+│       │   ├── chain_apply.js  Applies a compiled chain document and its preset to the chain engine
+│       │   ├── chain_document_store.js Chain document store: validated atomic edits, selection, bypass, and undo
+│       │   ├── chain_presentation.js Carrier bands, replacement offers, and field formatting for the chain strip
+│       │   ├── chain_strip.js  Chain strip UI: operator rows, sockets, inline parameter controls, bypass toggles
+│       │   ├── shader_deeplink.js Encodes and decodes the #shader= URL hash state
+│       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
+│       └── solids/             Solids tool
+│           ├── solid_build.js  WASM MeshOps orchestration: base and op-chain builds, face classes, readback
+│           ├── solid_codegen.js Op dispatch, C++ generation, saved solids, commit queue, and chain validation
+│           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
+│           ├── solid_op_rows.js DOM construction for one op-chain row
+│           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and Recipe mirror
+│           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
+│           └── solids_page.js  Page module for tools/solids.html
 ├── generated/                  Installed engine outputs; tracked type declarations
 ├── tools/                      Stable public HTML entry points and tool stylesheets
 ├── styles/                     Simulator CSS and Tailwind source
