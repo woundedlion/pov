@@ -169,7 +169,8 @@ public:
 
 private:
   /**
-   * @brief Trail alpha below which flush() emits nothing for a buffered point.
+   * @brief Trail alpha at or below which flush() emits nothing for a buffered
+   * point.
    * @details Gates emission only; plot() seeds every sample whatever its
    * alpha.
    */
