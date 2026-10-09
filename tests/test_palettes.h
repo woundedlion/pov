@@ -198,10 +198,10 @@ inline void test_named_procedural_palette_roster() {
       7425003234454588729ull,  51388825653918428ull,
       15037618790413056646ull};
   static_assert(std::size(palettes) == std::size(PALETTE_HASHES));
-  uint64_t hash = FNV1A64_BASIS;
+  uint64_t hash = HASH_SEED64;
   for (size_t index = 0; index < std::size(palettes); ++index) {
     HS_CONTEXT("palette index", index);
-    uint64_t palette_hash = FNV1A64_BASIS;
+    uint64_t palette_hash = HASH_SEED64;
     for (int sample = 0; sample <= 16; ++sample) {
       const Pixel pixel = palettes[index]->get(sample / 16.0f).color;
       for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {

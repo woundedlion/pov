@@ -313,7 +313,7 @@ void check_placed_volume_stage(const Shape &shape,
         math::make_rotation(math::Vector{1.0f, 0.0f, 0.0f}, -pose * 0.8f);
     const auto PREPARED = Pipeline::prepare_stages(frame);
     HS_EXPECT_EQ(frame.preparations, pose + 1);
-    uint64_t hash = hs_test::FNV1A64_BASIS;
+    uint64_t hash = hs_test::HASH_SEED64;
     int hits = 0;
     int misses = 0;
     for (int y = -6; y <= 6; ++y) {
