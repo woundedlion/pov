@@ -169,11 +169,11 @@ def pad_copper(pad, origin, rotation, stack):
             stroke = sexp.val(primitive, "width")
             half_stroke = float(stroke[0]) / 2 if stroke else 0.0
             if str(primitive[0]) == "gr_circle":
-                rim = _xy(sexp.val(primitive, "center"))
-                edge = _xy(sexp.val(primitive, "end"))
-                reach = math.dist(rim, edge) + half_stroke
-                points.extend(((rim[0] - reach, rim[1] - reach),
-                               (rim[0] + reach, rim[1] + reach)))
+                cx, cy = _xy(sexp.val(primitive, "center"))
+                rim = _xy(sexp.val(primitive, "end"))
+                reach = math.dist((cx, cy), rim) + half_stroke
+                points.extend(((cx - reach, cy - reach),
+                               (cx + reach, cy + reach)))
             elif str(primitive[0]) in {"gr_rect", "gr_line", "gr_arc"}:
                 vertices = [_xy(sexp.val(primitive, key))
                             for key in ("start", "end")]
