@@ -69,8 +69,8 @@ SECTIONS
 		*(.text._ZN9Animation*C2E*)
 		*(.text._ZN8PolyMeshC1E*)
 		*(.text._ZN8PolyMeshC2E*)
-		/* Destructor sections for Animation graph nodes, <288,144> effects,
-		 * Persist/ReactionDiffusionBase, and PolyMesh use flash. */
+		/* Teardown-only destructors use flash; no pattern may match a
+		 * destructor that runs per frame. */
 		*(.text._ZN9Animation*D0Ev*)
 		*(.text._ZN9Animation*D1Ev*)
 		*(.text._ZN9Animation*D2Ev*)
@@ -80,9 +80,7 @@ SECTIONS
 		*(.text._ZN7PersistI*D0Ev*)
 		*(.text._ZN7PersistI*D1Ev*)
 		*(.text._ZN7PersistI*D2Ev*)
-		*(.text._ZN*ILi288ELi144EED0Ev*)
-		*(.text._ZN*ILi288ELi144EED1Ev*)
-		*(.text._ZN*ILi288ELi144EED2Ev*)
+		*(.text._ZN*ILi288ELi144E*ED[012]Ev*)
 		*(.text.*classify_faces_impl*)
 		*(.text.*KDTree5build*)
 		*(.text._ZZN*13setup_presetsEv*)
