@@ -32,6 +32,32 @@ inline bool approx_vec(const math::Vector &a, const math::Vector &b,
          approx(a.z, b.z, tol);
 }
 
+inline float max_component_delta(const math::Vector &a, const math::Vector &b) {
+  return hs_test::fold_worst(
+      std::abs(a.x - b.x),
+      hs_test::fold_worst(std::abs(a.y - b.y), std::abs(a.z - b.z)));
+}
+
+/**
+ * @brief Angle between two near-parallel vectors, below angle_between's floor.
+ * @param a First vector (non-zero).
+ * @param b Second vector (non-zero).
+ * @return The angle in radians.
+ * @details Differences the normalized endpoints in double.
+ */
+inline double small_angle_between(const math::Vector &a,
+                                  const math::Vector &b) {
+  const double ax = a.x, ay = a.y, az = a.z;
+  const double bx = b.x, by = b.y, bz = b.z;
+  const double na = std::sqrt(ax * ax + ay * ay + az * az);
+  const double nb = std::sqrt(bx * bx + by * by + bz * bz);
+  const double dx = ax / na - bx / nb;
+  const double dy = ay / na - by / nb;
+  const double dz = az / na - bz / nb;
+  const double chord = std::sqrt(dx * dx + dy * dy + dz * dz);
+  return 2.0 * std::asin(std::min(1.0, chord / 2.0));
+}
+
 /** @brief Returns angular distance from a unit direction to a geodesic arc. */
 inline float arc_angular_distance(const math::Vector &p, const math::Vector &a,
                                   const math::Vector &b) {
