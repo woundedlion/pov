@@ -74,6 +74,23 @@ inline void case_timeline_pinned_finite_animation() {
              Timeline::Pin::PINNED);
 }
 
+inline void case_timeline_pinned_after_cancelled_perpetual() {
+  Timeline tl;
+  auto *predecessor = tl.add_get(0,
+                                 Animation::PeriodicTimer(
+                                     1, [](Canvas &) {}, true),
+                                 Timeline::Pin::UNPINNED);
+  tl.add_get(0,
+             Animation::PeriodicTimer(
+                 1, [](Canvas &) {}, true),
+             Timeline::Pin::PINNED);
+  predecessor->cancel();
+  tl.add_get(0,
+             Animation::PeriodicTimer(
+                 1, [](Canvas &) {}, true),
+             Timeline::Pin::PINNED);
+}
+
 /**
  * @brief Death case: dropping a pinned add on a full timeline must trap.
  * @details Animation surface — the capacity guard returns nullptr, which an
