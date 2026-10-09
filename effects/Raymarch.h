@@ -26,7 +26,8 @@ struct RaymarchWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
-/** Solids whose vertex counts fit Raymarch's copy and timeline capacity. */
+/** Solids with at most MAX_POINTS vertices (Raymarch's per-vertex copy
+ * capacity). */
 #define HS_RAYMARCH_PLACEMENT_LIST(X)                                          \
   X(TETRAHEDRON)                                                               \
   X(CUBE)                                                                      \
