@@ -9,7 +9,7 @@
 #   * anything else (e.g. `Derived`)       -> intermediate CRTP base; its own
 #                                             subclasses are animations too.
 # -D args: CORE_DIR (path to core/), ANIM_HEADER (path to animation.h);
-# or FIXTURE_DIR alone for the declaration-classifier self-test.
+# or FIXTURE_DIR alone for the self-test.
 
 cmake_minimum_required(VERSION 3.29)
 
@@ -28,6 +28,14 @@ if(DEFINED FIXTURE_DIR)
       message(FATAL_ERROR "missing animation accepted or wrong diagnostic: ${_error}")
     endif()
   endforeach()
+  file(WRITE "${FIXTURE_DIR}/fixture.h"
+    "class Present : public AnimationBase<Present> {};\nLARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<Present, Ghost>();\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DCORE_DIR=${FIXTURE_DIR}"
+    "-DANIM_HEADER=${FIXTURE_DIR}/fixture.h" -P "${CMAKE_CURRENT_LIST_FILE}"
+    RESULT_VARIABLE _rc ERROR_VARIABLE _error)
+  if(_rc EQUAL 0 OR NOT _error MATCHES "names a type that is not a concrete[^:]*: Ghost")
+    message(FATAL_ERROR "stale pack entry accepted or wrong diagnostic: ${_error}")
+  endif()
   return()
 endif()
 
