@@ -314,9 +314,9 @@ inline void test_galaxies_arm_sharpness() {
     WB::set_arms(fx, arms);
     auto &galaxy = WB::galaxy(fx, 0);
     const float ring = 0.35f;
-    const float angle =
-        galaxy.phase - galaxy.spin * logf(ring / WB::RING_RADIUS) / tanf(0.5f) +
-        math::PI_F / (3.0f * arms);
+    const float angle = galaxy.phase -
+                        galaxy.spin * logf(ring / 0.58f) / tanf(0.5f) +
+                        math::PI_F / (3.0f * arms);
     const math::Vector position =
         galaxy.core * cosf(ring) +
         (galaxy.u * cosf(angle) + galaxy.w * sinf(angle)) * sinf(ring);
