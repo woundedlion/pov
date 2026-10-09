@@ -39,6 +39,12 @@ def setUpModule():
 
 
 class TestWarningGate(unittest.TestCase):
+    def test_firmware_support_headers_are_first_party(self):
+        for path in ("tools/profile_isr_window.h", "tests/mindsplatter_replay_corpus.h"):
+            with self.subTest(path=path):
+                self.assertEqual(tw.extract_warnings(f"{path}:12:3: warning: unused variable"),
+                                 {f"{path}: warning: unused variable"})
+
     def test_toolchain_warning_uses_innermost_first_party_inline_frame(self):
         context = (
             "In file included from ./effects/Voronoi.h:3:\n"

@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-FIRST_PARTY = ("core/", "effects/", "workbench/", "hardware/", "targets/")
+FIRST_PARTY = ("core/", "effects/", "workbench/", "hardware/", "targets/", "tools/", "tests/")
 
 # Library/toolchain roots: a path through any of these is third-party even when a
 # nested dir reuses a first-party name (e.g. .platformio/lib/Foo/effects/x.h).
