@@ -352,7 +352,7 @@ inline void test_gamut_refine_matrices_match_the_conversions() {
  * @param r Out: linear red.
  * @param g Out: linear green.
  * @param bl Out: linear blue.
- * @details Double-precision mirror of oklab_to_linear_rgb (color.h).
+ * @details Double-precision mirror of `oklab_to_linear_rgb` (core/color/color_space.h).
  */
 inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
                                     double &g, double &bl) {
