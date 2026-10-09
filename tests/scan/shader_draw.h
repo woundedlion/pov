@@ -293,13 +293,16 @@ inline void test_shader_clip_arc_matches_predicate() {
             return COLOR.color * COLOR.alpha;
           });
       break;
-    default:
+    case 4:
       Scan::Shader::draw_grid<W, H>(
           c, [](Fragment &) {},
           [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
             Color4 s = positional(grid.at(x, 0));
             return s.color * s.alpha;
           });
+      break;
+    default:
+      HS_EXPECT(false, "unknown shader clip-arc variant");
       break;
     }
   };
