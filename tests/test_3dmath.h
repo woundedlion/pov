@@ -1368,8 +1368,9 @@ inline void test_stereo_roundtrip() {
 
 /**
  * @brief Verifies Complex +, -, *, / (ordinary complex division) and
- *        project_div's projection conventions (0/0 -> 0, nonzero/0 -> large
- *        magnitude in the numerator direction).
+ *        project_div's projection conventions (0/0 -> 0, a saturating
+ *        quotient -> large magnitude in the quotient's direction, the
+ *        numerator's when the divisor is zero).
  */
 inline void test_complex_arithmetic() {
   constexpr math::Complex VALUE(3.0f, -4.0f);
@@ -1428,6 +1429,17 @@ inline void test_complex_arithmetic() {
   math::Complex inf_dir =
       math::project_div(math::Complex(1, 0), math::Complex(0, 0));
   HS_EXPECT_TRUE(std::abs(inf_dir.re) > 1e3f);
+
+  // A saturating quotient over a nonzero divisor keeps the quotient's
+  // direction: 1e4 / -i = 1e4 i.
+  HS_EXPECT_COMPLEX(
+      math::project_div(math::Complex(1e4f, 0), math::Complex(0, -1)),
+      math::Complex(0, projections::STEREO_INF), 1e-1f);
+  HS_EXPECT_COMPLEX(
+      math::project_div(math::Complex(3e30f, 4e30f), math::Complex(1e-30f, 0)),
+      math::Complex(0.6f * projections::STEREO_INF,
+                    0.8f * projections::STEREO_INF),
+      1e-1f);
 
   // A divisor whose squared magnitude underflows is still a divisor, so a
   // tiny-but-equal homogeneous pair divides to 1 rather than to the sentinel.
