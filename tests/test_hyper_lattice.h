@@ -824,12 +824,10 @@ inline void test_presets_and_pipeline() {
   std::vector<std::vector<float>> values;
   for (size_t index = 0; index < Effect::PRESET_IDS.size(); ++index) {
     HS_EXPECT_TRUE(effect.selectPreset(index));
+    hs_test::expect_params_in_range(effect, "HyperLattice preset");
     std::vector<float> current;
-    for (const auto &def : effect.getParameters()) {
-      HS_EXPECT_GE(def.get(), def.min);
-      HS_EXPECT_LE(def.get(), def.max);
+    for (const auto &def : effect.getParameters())
       current.push_back(def.get());
-    }
     for (const auto &previous : values)
       HS_EXPECT_TRUE(current != previous);
     values.push_back(std::move(current));

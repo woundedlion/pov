@@ -140,22 +140,6 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     HS_EXPECT_TRUE(WB::preset_palette(db, i) == rows[i].palette);
   }
 
-  // Preset rows are assigned straight into params, bypassing register_param's
-  // range check.
-  auto expect_in_range = [&]() {
-    for (const auto &def : db.getParameters()) {
-      HS_CONTEXT(def.name);
-      const float v = def.get();
-      HS_EXPECT_TRUE(std::isfinite(v));
-      HS_EXPECT_GE(v, def.min);
-      HS_EXPECT_LE(v, def.max);
-      if (def.option_count > 0) {
-        HS_EXPECT_EQ(v, std::floor(v));
-        HS_EXPECT_LT(v, static_cast<float>(def.option_count));
-      }
-    }
-  };
-
   // Two full cycles: the bake slot ping-pongs and params reseed each step.
   int expect_bake = WB::active_bake(db); // 1
   std::vector<std::vector<float>> live_rows;
@@ -167,7 +151,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(db.getPresetIndex(), static_cast<size_t>(safe));
     HS_EXPECT_EQ(WB::live_mesh(db), WB::preset_mesh(safe));
-    expect_in_range();
+    hs_test::expect_params_in_range(db, "preset row");
     if (step <= WB::PRESETS) {
       std::vector<float> live_row;
       for (const auto &def : db.getParameters())

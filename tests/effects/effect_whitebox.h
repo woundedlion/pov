@@ -104,10 +104,7 @@ inline void test_raymarch_preset_and_placement_solids() {
   HS_EXPECT_EQ(effect.getPresetIndex(), 0u);
   HS_EXPECT_EQ(RM::PRESET_IDS[0], std::string_view("uv-surface-noise"));
 
-  for (const auto &def : effect.getParameters()) {
-    HS_EXPECT_GE(def.get(), def.min);
-    HS_EXPECT_LE(def.get(), def.max);
-  }
+  hs_test::expect_params_in_range(effect, "Raymarch preset");
 
   const auto *base_solid = effect.getParameters().find("Base Solid");
   HS_EXPECT_TRUE(base_solid != nullptr);
@@ -473,10 +470,7 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
     return def ? def->get() : -1.0f;
   };
 
-  for (const auto &def : fx.getParameters()) {
-    HS_EXPECT_GE(def.get(), def.min);
-    HS_EXPECT_LE(def.get(), def.max);
-  }
+  hs_test::expect_params_in_range(fx, "Fishbowl preset");
   HS_EXPECT_EQ(fx.getPresetCount(), 1u);
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
 
