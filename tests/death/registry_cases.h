@@ -16,6 +16,7 @@ constexpr EffectRegistration named_registration(std::string_view name,
   return entry;
 }
 
+// registration_names_unique rejects an empty name or stable ID.
 static_assert(!registration_names_unique(std::array{
     named_registration("DeathEmptyId", "")}));
 static_assert(!registration_names_unique(std::array{
