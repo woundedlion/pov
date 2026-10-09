@@ -694,42 +694,16 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
   tl.clear(); // no pinned event survived, so the guard passes
 }
 
-/**
- * @brief Runs @p fn with fd 1 redirected into a pipe and counts the timeline
- * drop-log lines it writes.
- * @return The line count, or -1 if the capture could not be established.
- * @details The captured output must fit the pipe buffer or the write blocks.
- */
+/** @brief Counts timeline drop-log lines, or returns -1 if capture fails. */
 template <typename Fn> int count_timeline_drop_logs(Fn &&fn) {
-  int fds[2] = {-1, -1};
-  std::fflush(stdout);
-  if (fd_pipe(fds) != 0)
+  const auto text = capture_stdout(std::forward<Fn>(fn));
+  if (!text)
     return -1;
-  const int saved_out = fd_dup(1);
-  if (saved_out < 0) {
-    fd_close(fds[0]);
-    fd_close(fds[1]);
-    return -1;
-  }
-  fd_dup2(fds[1], 1);
-  fn();
-  std::fflush(stdout);
-  fd_dup2(saved_out, 1);
-  fd_close(saved_out);
-  fd_close(fds[1]);
-  char buf[1024];
-  size_t n = 0;
-  for (;;) {
-    const long got = fd_read(fds[0], buf + n, sizeof(buf) - 1 - n);
-    if (got <= 0)
-      break;
-    n += static_cast<size_t>(got);
-  }
-  buf[n] = '\0';
-  fd_close(fds[0]);
   int lines = 0;
-  for (const char *p = buf;
-       (p = std::strstr(p, "Timeline full, failed to add animation!")); ++p)
+  for (size_t pos = 0;
+       (pos = text->find("Timeline full, failed to add animation!", pos)) !=
+       std::string::npos;
+       ++pos)
     ++lines;
   return lines;
 }
