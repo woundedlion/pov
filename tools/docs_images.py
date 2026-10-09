@@ -33,7 +33,7 @@ def references(html_root: Path) -> list[tuple[Path, str]]:
 def markdown_references(
         repo_root: Path
 ) -> tuple[list[tuple[PurePosixPath, str]], list[str], set[str]]:
-    """Return every (tracked Markdown file, <img> src) pair, and read errors."""
+    """Return (Markdown file, <img> src) pairs, read errors and tracked paths."""
     command = ["git", "-c", f"safe.directory={repo_root.as_posix()}",
                "-C", str(repo_root), "ls-files", "-z"]
     found: list[tuple[PurePosixPath, str]] = []
