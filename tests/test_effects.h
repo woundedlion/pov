@@ -1092,6 +1092,8 @@ inline int run_effects_tests() {
   run_case(test_gnomonicstars_spiral_cache_invalidation);
   run_case(test_galaxies_spawn_along_spiral_with_orbital_velocity);
   run_case(test_galaxies_arm_contrast_and_age_fade);
+  run_case(test_galaxies_stellar_mass_tracks);
+  run_case(test_galaxies_rendered_color_follows_age);
   run_case(test_galaxies_emission_rate_and_capacity);
   run_case(test_galaxies_live_particle_count);
   run_case(test_galaxies_black_hole_core_toggle);

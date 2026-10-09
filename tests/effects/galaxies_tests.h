@@ -59,6 +59,10 @@ struct GalaxiesWhiteBox {
     return FX<1, 1>::particle_alpha(seed, age, arm);
   }
   template <int W, int H>
+  static Color4 color(const Galaxies<W, H> &fx, uint16_t seed, float age) {
+    return fx.star_color(seed, age);
+  }
+  template <int W, int H>
   static float density(const Galaxies<W, H> &fx, int index,
                        const math::Vector &position) {
     const auto &galaxy = fx.galaxies[index];
@@ -66,6 +70,66 @@ struct GalaxiesWhiteBox {
                           1.0f / tanf(fx.params.arm_pitch));
   }
 };
+
+/** @brief Stellar mass selects long-lived dwarfs and faster massive-star evolution. */
+inline void test_galaxies_stellar_mass_tracks() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  const auto dwarf = WB::color(fx, 0x4000, 0.0f);
+  const auto old_dwarf = WB::color(fx, 0x4000, 1.0f);
+  HS_EXPECT(dwarf.color == old_dwarf.color,
+            "red dwarfs remain on the main sequence");
+  HS_EXPECT(dwarf.color.r > dwarf.color.g && dwarf.color.g > dwarf.color.b,
+            "red dwarfs have warm surface colors");
+  HS_EXPECT_EQ(old_dwarf.alpha, 1.0f);
+  const auto massive = WB::color(fx, 0xff00, 0.0f);
+  const auto supergiant = WB::color(fx, 0xff00, 0.23f);
+  HS_EXPECT(massive.color.b > massive.color.r,
+            "massive young stars are blue-white");
+  HS_EXPECT(supergiant.color.r > 2u * supergiant.color.b,
+            "red supergiants have cool surface colors");
+  HS_EXPECT_EQ(WB::color(fx, 0xff00, 0.31f).alpha, 0.0f);
+  HS_EXPECT(WB::color(fx, 0xe000, 0.31f).alpha > 0.9f,
+            "less massive stars evolve more slowly");
+  const auto remnant = WB::color(fx, 0xc000, 0.8f);
+  const auto cooled = WB::color(fx, 0xc000, 1.0f);
+  HS_EXPECT(remnant.color.b > remnant.color.r, "new white dwarfs are hot");
+  HS_EXPECT(cooled.color.r > cooled.color.b, "white dwarfs cool with age");
+  HS_EXPECT(remnant.alpha < 0.3f, "white dwarfs are dim remnants");
+}
+
+/** @brief A fixed-position star changes from warm white to red giant to white dwarf. */
+inline void test_galaxies_rendered_color_follows_age() {
+  using WB = GalaxiesWhiteBox;
+  reset_effect_globals();
+  Galaxies<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+  fx.updateParameter("Black Hole", 1.0f);
+  auto &ps = WB::system(fx);
+  const auto &galaxy = WB::galaxy(fx, 0);
+  ps.spawn(galaxy.core * cosf(0.35f) + galaxy.u * sinf(0.35f), math::Vector(),
+           0xc000);
+  std::array<std::array<uint64_t, 3>, 3> colors{};
+  const int AGES[] = {80, 520, 640};
+  for (int stage = 0; stage < 3; ++stage) {
+    ps.pool[0].life = ps.max_life - AGES[stage];
+    WB::render(fx);
+    fx.advance_display();
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const Pixel &pixel = fx.get_pixel(x, y);
+        colors[stage][0] += pixel.r;
+        colors[stage][1] += pixel.g;
+        colors[stage][2] += pixel.b;
+      }
+    HS_EXPECT(colors[stage][0] > 0, "stellar stage is visible");
+  }
+  HS_EXPECT(colors[0][0] > colors[0][2], "main-sequence star is warm white");
+  HS_EXPECT(colors[1][0] > 2u * colors[1][2], "giant is orange-red");
+  HS_EXPECT(colors[2][2] > colors[2][0], "white dwarf is blue-white");
+}
 
 /** @brief The core toggle removes the core glow and restores it. */
 inline void test_galaxies_black_hole_core_toggle() {
