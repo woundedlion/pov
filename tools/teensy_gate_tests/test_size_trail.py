@@ -24,6 +24,15 @@ from git_test_env import isolated_env  # noqa: E402
 
 import teensy_size_trail as tst   # noqa: E402
 
+
+def fixture_env(env=None):
+    """Isolate a fixture git call, keeping the caller's private index."""
+    fixed = isolated_env()
+    if env and "GIT_INDEX_FILE" in env:
+        fixed["GIT_INDEX_FILE"] = env["GIT_INDEX_FILE"]
+    return fixed
+
+
 _EHDR_SIZE = 52
 _SHDR_SIZE = 40
 
@@ -290,7 +299,7 @@ class PendingCapture(unittest.TestCase):
     def test_untracked_scratch_does_not_invalidate_build_inputs(self):
         real_git = tst._git
         def in_repo(args, cwd=None, **kwargs):
-            return real_git(args, cwd or self.dir, env=isolated_env())
+            return real_git(args, cwd or self.dir, env=fixture_env(kwargs.get("env")))
         self.enterContext(mock.patch.object(tst, "_git", side_effect=in_repo))
         tst._git(["init"], self.dir, env=isolated_env())
         (self.dir / "platformio.ini").write_text("[platformio]\n", encoding="utf-8")
@@ -305,7 +314,13 @@ class PendingCapture(unittest.TestCase):
         pcb.mkdir(parents=True)
         (pcb / "backup.kicad_pcb").write_text("scratch", encoding="utf-8")
         (self.dir / "scratch.txt").write_text("scratch", encoding="utf-8")
+        tst._git(["add", "tools/example_tests/test_example.py"], self.dir, env=isolated_env())
+        index = self.dir / ".git" / "index"
+        staged = index.read_bytes()
         tree = tst.working_tree(self.dir)
+        self.assertEqual(index.read_bytes(), staged)
+        self.assertEqual(tst._git(["diff", "--cached", "--name-only"], self.dir, env=isolated_env()),
+                         "tools/example_tests/test_example.py")
         self.assertEqual(tree, tst._git(["rev-parse", "HEAD^{tree}"], self.dir, env=isolated_env()))
         self.pending.write_text(json.dumps({"tree": tree,
             "envs": {"phantasm": {"itcm": 1}}}), encoding="utf-8")
@@ -337,7 +352,7 @@ class RecordInputs(unittest.TestCase):
             real_git = tst._git
 
             def in_repo(args, cwd=None, **kwargs):
-                return real_git(args, cwd or root, **{**kwargs, "env": isolated_env()})
+                return real_git(args, cwd or root, **{**kwargs, "env": fixture_env(kwargs.get("env"))})
 
             def record(built):
                 args = tst.build_parser().parse_args(
@@ -379,7 +394,7 @@ class RecordInputs(unittest.TestCase):
             trail = root / "trail.tsv"
             real_git = tst._git
             def in_repo(args, cwd=None, **kwargs):
-                return real_git(args, cwd or root, **{**kwargs, "env": isolated_env()})
+                return real_git(args, cwd or root, **{**kwargs, "env": fixture_env(kwargs.get("env"))})
             for path in ("targets/wasm/x.h", "tools/teensy_size_table.py"):
                 (root / path).write_text("changed", encoding="utf-8")
             with mock.patch.object(tst, "_git", side_effect=in_repo):
