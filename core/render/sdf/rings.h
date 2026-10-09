@@ -23,11 +23,9 @@ namespace SDF {
  * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
 struct Ring {
-  const math::Basis &basis; /**< Orientation frame (v = ring axis); retained by
-                         reference, so it must outlive the shape. */
-  float radius;             /**< Ring radius as a fraction of the hemisphere. */
-  float thickness;          /**< Half-width of the stroke (radians). */
-  float phase;              /**< Azimuth phase offset (radians). */
+  float radius;    /**< Ring radius as a fraction of the hemisphere. */
+  float thickness; /**< Half-width of the stroke (radians). */
+  float phase;     /**< Azimuth phase offset (radians). */
 
   math::Vector normal, u,
       w;    /**< Ring axis and the two in-plane basis vectors. */
@@ -44,20 +42,21 @@ struct Ring {
 
   /**
    * @brief Builds a ring from its basis, radius, thickness, and phase.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
+  Ring() = default;
+
   Ring(const math::Basis &b, float r, float th, float ph = 0)
-      : basis(b), radius(r), thickness(th), phase(ph) {
+      : radius(r), thickness(th), phase(ph) {
     HS_CHECK(radius >= 0.0f && radius <= 2.0f, "Ring: radius outside [0, 2]");
     // A negative half-width inverts the band, culling every probe.
     HS_CHECK(thickness >= 0.0f, "Ring: negative stroke half-width");
-    normal = basis.v;
-    u = basis.u;
-    w = basis.w;
+    normal = b.v;
+    u = b.u;
+    w = b.w;
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
 
@@ -83,13 +82,6 @@ struct Ring {
     r_val = ap.r_val;
     alpha_angle = ap.alpha_angle;
   }
-
-  /**
-   * @brief Deleted constructor from a temporary Basis.
-   * @details The ring retains its basis by reference, so binding a temporary
-   * would leave every later read of basis dangling.
-   */
-  Ring(const math::Basis &&, float, float, float = 0) = delete;
 
   /**
    * @brief Maps the ring's latitude band to its inclusive scanline row range.
@@ -255,8 +247,7 @@ struct DistortedRing {
 
   /**
    * @brief Builds a distorted ring with a per-azimuth centerline shift.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
@@ -290,8 +281,7 @@ protected:
   /**
    * @brief Builds the ring geometry shared by the modes carrying no shift
    *        callback.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param md Maximum magnitude of the centerline shift (radians).
@@ -304,9 +294,9 @@ protected:
              "DistortedRing: radius outside [0, 2]");
     // A negative half-width inverts the band, culling every probe.
     HS_CHECK(thickness >= 0.0f, "DistortedRing: negative stroke half-width");
-    normal = basis.v;
-    u = basis.u;
-    w = basis.w;
+    normal = b.v;
+    u = b.u;
+    w = b.w;
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
     target_angle = radius * (math::PI_F / 2.0f);
@@ -329,8 +319,7 @@ protected:
 public:
   /**
    * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param kn n centerline shifts (radians), one per equal azimuth cell;
@@ -768,8 +757,7 @@ struct FlatDistortedRing : private DistortedRing {
 
   /**
    * @brief Builds an undisplaced ring using exact polar centerline distance.
-   * @param b Orientation frame (v = ring axis); retained by reference, so it
-   *          must outlive the shape.
+   * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).

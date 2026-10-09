@@ -638,7 +638,9 @@ struct RingGroup {
           std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
       pad_th = std::max(pad_th, shapes[s].thickness + dev);
     }
-    SDF::Ring cover(shapes[mid].basis, shapes[mid].radius, pad_th);
+    SDF::Ring cover(
+        math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
+        shapes[mid].radius, pad_th);
 
     Fragment frag;
 
