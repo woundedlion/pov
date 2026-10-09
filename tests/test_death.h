@@ -995,6 +995,9 @@ inline const Case *all_cases(int &n) {
        "core/render/plot/raster.h",
        "(!plot_window || count == 1) a plot window requires a single-segment "
        "polyline"},
+      {"planar_chords_sink_unprepared", case_planar_chords_sink_unprepared,
+       "core/render/plot/chords.h",
+       "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared for this canvas"},
       {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared,
        "core/render/scan/raster.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "
@@ -1254,7 +1257,8 @@ inline const Case *all_cases(int &n) {
       {"sdf_line_negative_thickness", case_sdf_line_negative_thickness,
        "core/render/sdf/shapes.h",
        "(thickness >= 0.0f) Line: negative stroke half-width"},
-      {"chain_zero_alignment", case_chain_zero_alignment, "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
+      {"chain_zero_alignment", case_chain_zero_alignment,
+       "core/render/pullback/interpreter.h", "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
       {"chain_non_power_alignment", case_chain_non_power_alignment,
        "core/render/pullback/interpreter.h",
        "(layout.align != 0 && (layout.align & (layout.align - 1)) == 0 && layout.align <= alignof(std::max_align_t)) ChainProgram::bind_storage: invalid block alignment"},
