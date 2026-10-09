@@ -644,9 +644,13 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
       const float step_y = hs::rand_f(-1, 1);
       const float step_z = hs::rand_f(-1, 1);
       math::Vector step(step_x, step_y, step_z);
-      // Occasional near-antipodal edge.
-      float scale = (k == 7 && t % 9 == 0) ? 4.0f : 0.12f;
-      v = (v + step * scale).normalized();
+      if (k == 7 && t % 9 == 0) {
+        const math::Vector next = (v * -1.0f + step * 1e-3f).normalized();
+        HS_EXPECT_LT(math::dot(v, next), -0.999f);
+        v = next;
+      } else {
+        v = (v + step * 0.12f).normalized();
+      }
     }
     sys.pool.push_back(p);
   }
