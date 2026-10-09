@@ -1094,6 +1094,7 @@ inline int run_effects_tests() {
   run_case(test_galaxies_arm_contrast_and_age_fade);
   run_case(test_galaxies_emission_rate_and_capacity);
   run_case(test_galaxies_live_particle_count);
+  run_case(test_galaxies_black_hole_core_toggle);
   run_case(test_galaxies_packed_orbits_match_float);
   run_case(test_galaxies_min_pitch_stays_contained);
   run_case(test_galaxies_stay_contained_small);
