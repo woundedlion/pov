@@ -95,7 +95,7 @@ public:
   void set_enabled(bool value) { enabled = value; }
 
   /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
-  static size_t UNCACHED_SCRATCH_BYTES(int ds) {
+  static size_t uncached_scratch_bytes(int ds) {
     const int COLUMNS = W / ds;
     const SphereField FIELD(ds, ds, ds, COLUMNS);
     const int RINGS = FIELD.ring_count();
@@ -113,7 +113,7 @@ public:
    * @param arena Persistent arena supplying STORAGE_BYTES bytes.
    * @details Call from effect init(), not the constructor, and again after
    * any arena reset. Without storage every flush needs
-   * UNCACHED_SCRATCH_BYTES(downsample) scratch bytes.
+   * uncached_scratch_bytes(downsample) scratch bytes.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
 #ifndef NDEBUG
@@ -427,7 +427,7 @@ private:
       check_storage_alive();
 
     if (!cacheable) {
-      HS_CHECK(UNCACHED_SCRATCH_BYTES(grid.downsample) <=
+      HS_CHECK(uncached_scratch_bytes(grid.downsample) <=
                    scratch.get_capacity() - scratch.get_offset(),
                "uncached feedback needs more scratch: missing cache, custom "
                "SpaceFn, nondefault downsample, or x clip");

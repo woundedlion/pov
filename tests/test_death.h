@@ -1045,7 +1045,7 @@ inline const Case *all_cases(int &n) {
       {"feedback_uncached_scratch_budget",
        case_feedback_uncached_scratch_budget,
        "core/render/filter/pixel_feedback.h",
-       "(UNCACHED_SCRATCH_BYTES(grid.downsample) <= scratch.get_capacity() - scratch.get_offset()) uncached feedback needs more scratch:"},
+       "(uncached_scratch_bytes(grid.downsample) <= scratch.get_capacity() - scratch.get_offset()) uncached feedback needs more scratch:"},
       {"screen_trails_set_lifetime_nonpositive",
        case_screen_trails_set_lifetime_nonpositive,
        "core/render/filter/screen_trails.h",
