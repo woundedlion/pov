@@ -11,9 +11,13 @@ Run:  python -m unittest discover -s tools/githook_tests
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from git_test_env import isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "reference-transaction"
@@ -25,7 +29,7 @@ def git_env(repo: Path) -> dict[str, str]:
     """Environment that keeps the developer's git config out of the fixture."""
     neutral = str(repo / "empty-config")
     return dict(
-        os.environ,
+        isolated_env(),
         GIT_CONFIG_GLOBAL=neutral,
         GIT_CONFIG_SYSTEM=neutral,
         GIT_AUTHOR_NAME="hook test",
