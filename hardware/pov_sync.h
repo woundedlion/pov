@@ -246,8 +246,7 @@ public:
       // The master is force-locked and snaps to no wire bursts, so coast is
       // undefined for it.
       if (!is_master_board) {
-        if (halves_since_snap < 0xFFFFFFFFu)
-          ++halves_since_snap;
+        saturating_increment(halves_since_snap);
         if (halves_since_snap > telemetry_counters.max_coast_halves)
           telemetry_counters.max_coast_halves = halves_since_snap;
       }
