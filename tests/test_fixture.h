@@ -14,6 +14,7 @@
 #include "core/render/render_policy.h"
 #include "tests/test_harness.h"
 
+#include <cmath>
 #include <cstdlib>
 
 namespace hs_test {
@@ -163,5 +164,34 @@ struct ModuleFixture {
    */
   int result() const { return end_module(scope); }
 };
+
+/**
+ * @brief Expects every parameter finite and inside its registered range, with
+ * option params set to one of their option values.
+ * @param effect Effect whose current parameter values are checked.
+ * @param label Context label for failures.
+ */
+template <typename FX>
+inline void expect_params_in_range(const FX &effect, const char *label) {
+  HS_CONTEXT(label);
+  for (const auto &def : effect.getParameters()) {
+    HS_CONTEXT(def.name);
+    const float v = def.get();
+    HS_EXPECT_TRUE(std::isfinite(v));
+    HS_EXPECT_GE(v, def.min);
+    HS_EXPECT_LE(v, def.max);
+    if (def.option_count > 0) {
+      HS_EXPECT_EQ(v, std::floor(v));
+      if (def.option_values) {
+        bool listed = false;
+        for (int i = 0; i < def.option_count; ++i)
+          listed |= v == static_cast<float>(def.option_values[i]);
+        HS_EXPECT_TRUE(listed);
+      } else {
+        HS_EXPECT_LT(v, static_cast<float>(def.option_count));
+      }
+    }
+  }
+}
 
 } // namespace hs_test
