@@ -196,7 +196,7 @@ inline void case_restore_parameters_singular_mobius() {
 
 /**
  * @brief Death case: an integer param bound the target cannot store must trap.
- * @details Canvas surface — a value write narrows through
+ * @details ParamHost surface — a value write narrows through
  *          static_cast<Integer>(float), which is undefined once the registered
  *          range leaves the storage type.
  */
