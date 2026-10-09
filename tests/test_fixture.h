@@ -43,7 +43,7 @@ inline int smoke_frames() {
   return DEFAULT_SMOKE_FRAMES;
 }
 
-/** @brief Reports whether CI-only runner depth levers must be enforced. */
+/** @brief Reports whether the CI environment variable is set and non-empty. */
 inline bool runs_in_ci() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
