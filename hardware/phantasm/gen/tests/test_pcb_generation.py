@@ -414,10 +414,9 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
 
 class TerminalEdgePlacementChecks:
-    def test_vin_bypass_has_a_direct_locked_connection(self):
-        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
-        net_id = sexp.val(next(pad for pad in F(footprints["C_DEC1"], "pad")
-                              if pad[1] == "1"), "net")[0]
+    def locked_front_track_length(self, footprints, ref, pad_number):
+        net_id = sexp.val(next(pad for pad in F(footprints[ref], "pad")
+                              if pad[1] == pad_number), "net")[0]
         tracks = [track for track in F(self.root, "segment")
                   if sexp.val(track, "net") == [net_id]]
         self.assertTrue(tracks)
@@ -428,7 +427,11 @@ class TerminalEdgePlacementChecks:
             a = tuple(map(float, sexp.val(track, "start")))
             b = tuple(map(float, sexp.val(track, "end")))
             length += math.dist(a, b)
-        self.assertLess(length, 3.0)
+        return length
+
+    def test_vin_bypass_has_a_direct_locked_connection(self):
+        footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
+        self.assertLess(self.locked_front_track_length(footprints, "C_DEC1", "1"), 3.0)
         groups = connectivity.opens(self.root)["+5V_LOGIC"]
         self.assertTrue(any({("C_DEC1", "1"), ("U_MCU", "VIN")} <= set(group)
                             for group in groups), groups)
@@ -438,19 +441,7 @@ class TerminalEdgePlacementChecks:
         for ref in ("R1", "R2", "C_SYNC"):
             self.assertEqual(sexp.val(footprints[ref], "locked"), ["yes"], ref)
         self.assertNotIn("FRAME_SYNC", connectivity.opens(self.root))
-        net_id = sexp.val(next(pad for pad in F(footprints["C_SYNC"], "pad")
-                              if pad[1] == "1"), "net")[0]
-        tracks = [track for track in F(self.root, "segment")
-                  if sexp.val(track, "net") == [net_id]]
-        self.assertTrue(tracks)
-        length = 0.0
-        for track in tracks:
-            self.assertEqual(sexp.val(track, "locked"), ["yes"])
-            self.assertEqual(sexp.val(track, "layer"), ["F.Cu"])
-            a = tuple(map(float, sexp.val(track, "start")))
-            b = tuple(map(float, sexp.val(track, "end")))
-            length += math.dist(a, b)
-        self.assertLess(length, 10.0)
+        self.assertLess(self.locked_front_track_length(footprints, "C_SYNC", "1"), 10.0)
 
     def test_locked_decouplers_are_within_three_mm_of_supply_pins(self):
         footprints = {connectivity.footprint_reference(fp): fp for fp in F(self.root, "footprint")}
