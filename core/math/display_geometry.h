@@ -101,8 +101,8 @@ private:
 
 /**
  * @brief Display geometry; a non-negative HOffset selects the test pole-to-pole
- * mapping with that many virtual south rows; -1 selects the active display
- * profile.
+ * mapping with that many virtual south rows; -1 selects `HS_TEST_H_OFFSET` when
+ * defined, else the active display profile.
  */
 template <int H, int HOffset = -1> struct DisplayGeometry {
   static_assert(H > 1);
