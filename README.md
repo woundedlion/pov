@@ -567,7 +567,7 @@ files define line-ending policy and working-artifact exclusions.
 ├── .github/dependabot.yml      Grouped dependency updates for GitHub Actions, npm, and pip
 ├── .github/workflows/          ci.yml (native, WASM, format, Teensy, provenance), docs.yml (Doxygen → Pages), notify-daydream.yml (engine-ready event)
 ├── .github/actions/            Composite steps ci.yml and docs.yml run: pinned-doxygen (Doxygen install + theme)
-├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine); effects/, workbench/ and core/engine/effects_legacy.h reserved
+├── LICENSE                     PolyForm Noncommercial 1.0.0 (engine and workbench); effects/ and core/engine/effects_legacy.h reserved
 ├── CONTRIBUTING.md             Landing model, gates, and the tool pins a contributor has to match
 └── justfile                    Task runner: `just build` / `test` / `smoke` / `docs` / `install` (`just --list` for the rest)
 ```
@@ -1534,9 +1534,9 @@ After populating them, run `npm run importmap:local` to point [`vendor-importmap
 
 This project is split-licensed: the rendering engine and the visual effects carry different terms.
 
-**Engine — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, and test harness, which in the Holosphere repository is everything outside `effects/`, `workbench/` and `core/engine/effects_legacy.h` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](https://github.com/woundedlion/pov/blob/master/LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
+**Engine and workbench — non-commercial.** The core infrastructure — the rendering engine, math, scan/raster, hardware drivers, test harness, and shader workbench, which in the Holosphere repository is everything outside `effects/` and `core/engine/effects_legacy.h` — is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [`LICENSE`](https://github.com/woundedlion/pov/blob/master/LICENSE)). You may use, modify, and distribute it for any non-commercial purpose; commercial use is not granted.
 
-**Effects — proprietary.** The visual effects — the Holosphere repository's `effects/`, `workbench/` and `core/engine/effects_legacy.h` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
+**Effects — proprietary.** The visual effects — the Holosphere repository's `effects/` and `core/engine/effects_legacy.h` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
 
 **Per-file notices.** C/C++ sources must carry the `Required Notice` banner;
 `tools/license_check.py` gates them. Other files may carry it but are ungated.

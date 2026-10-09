@@ -54,7 +54,9 @@ class TestExpectedMarker(unittest.TestCase):
 
     def test_everything_else_is_polyform(self):
         for path in ("core/math/3dmath.h", "hardware/pov_sync.h",
-                     "tests/run_tests.cpp", "targets/wasm/wasm.cpp"):
+                     "tests/run_tests.cpp", "targets/wasm/wasm.cpp",
+                     "workbench/shader/chain_host.h",
+                     "workbench/shader/chain_snapshot.h"):
             self.assertEqual(lc.expected_marker(path), lc.POLYFORM, path)
 
     def test_named_exceptions_carry_their_own_terms(self):
@@ -64,8 +66,6 @@ class TestExpectedMarker(unittest.TestCase):
                          lc.MIT_GRANT)
         self.assertEqual(lc.expected_marker("core/vendor/FastNoiseLite.h"),
                          lc.MIT_TITLE)
-        self.assertEqual(lc.expected_marker("workbench/shader/chain_host.h"),
-                         lc.RESERVED)
 
     def test_the_first_party_file_under_core_vendor_is_polyform(self):
         self.assertEqual(
