@@ -253,9 +253,9 @@ inherited (mapped) palette to the target:
   fragment path is unchanged.
 - **Per-face from-indices** absorb class merges (§2.5): merged faces simply
   reference different from-ramps until w reaches 1.
-- **Newborn faces** open in the color of the face they are born inside: each
-  newborn palette slot inherits the from-palette of the departed face
-  nearest its first face, so a T_EPS-wide birth is a sliver of the underlying color
+- **Newborn faces** open in a departed color rather than a target one: each
+  newborn palette slot inherits the from-palette of the departed face nearest
+  its first face, so a T_EPS-wide birth is a sliver of an underlying color
   rather than a target-colored one.
 - **Collapsing faces** are the mirror: a face with no counterpart at the
   closing bookend takes the *target* class of the arrival face it collapses
