@@ -463,7 +463,6 @@ inline void test_distorted_ring_stack_matches_sequential() {
     }
     fused.advance_display();
 
-    // ScalarFn's inplace_function member is not trivially destructible.
     for (int s = 0; s < n_slots; ++s)
       shapes[s].~DistortedRing();
 
