@@ -202,19 +202,16 @@ inline void test_ring_group_matches_sequential() {
   const ScopedPoleLod lod(0.0f);
 
   auto run_case = [&](const math::Vector &normal, bool partial_clip) {
-    math::Basis bases[N];
     const float ths[N] = {0.08f, 0.04f, 0.04f, 0.08f};
     const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
                               Color4(Pixel(5000, 60000, 10000), 0.6f),
                               Color4(Pixel(10000, 5000, 60000), 0.4f),
                               Color4(Pixel(30000, 30000, 30000), 0.7f)};
-    alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
-    auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
+    SDF::Ring shapes[N];
     for (int s = 0; s < N; ++s) {
       math::Quaternion q = math::make_rotation(
           math::Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s);
-      bases[s] = math::make_basis(q, normal);
-      new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
+      shapes[s] = SDF::Ring(math::make_basis(q, normal), 1.0f, ths[s]);
     }
 
     std::vector<Pixel> expected(W * H);
@@ -491,15 +488,14 @@ inline void test_fused_walks_ignore_pole_lod() {
   };
 
   auto draw_group = [&](std::vector<Pixel> &out) {
-    math::Basis bases[N];
-    alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
-    auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
+    SDF::Ring shapes[N];
     for (int s = 0; s < N; ++s) {
-      bases[s] = math::make_basis(
-          math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(),
-                              0.02f * s),
-          normal);
-      new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
+      shapes[s] = SDF::Ring(
+          math::make_basis(
+              math::make_rotation(math::Vector(0.2f, 0.5f, 0.8f).normalized(),
+                                  0.02f * s),
+              normal),
+          1.0f, ths[s]);
     }
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipeline;

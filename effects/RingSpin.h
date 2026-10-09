@@ -13,7 +13,6 @@
 
 #include "core/animation/orientation.h"
 #include <array>
-#include <new> // std::launder
 #include "core/engine/engine.h"
 
 // Unit-test accessor for the ring pool's orientations and stroke geometry.
@@ -97,13 +96,8 @@ public:
       deep_tween_frames(ring.trail, [&](const math::Quaternion *qs,
                                         const float *ts, int count) {
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
-        math::Basis bases[SUB_CAP];
         Color4 colors[SUB_CAP];
-        // SDF::Ring binds its Basis by reference, so it is neither default-
-        // constructible nor assignable: slots are placement-new'd into raw
-        // storage referencing a bases[] entry that must outlive the slot.
-        static_assert(std::is_trivially_destructible_v<SDF::Ring>);
-        alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
+        SDF::Ring shapes[SUB_CAP];
         int slots = 0;
         const float pixel_w = math::coarse_pixel_pitch<W, H>();
         // Whole-slot rasterization cut, deliberately above the per-sample
@@ -122,15 +116,13 @@ public:
           float th =
               ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
               params.thickness;
-          bases[slots] = math::make_basis(qs[j], math::Y_AXIS);
-          ::new (shape_mem + slots * sizeof(SDF::Ring))
-              SDF::Ring(bases[slots], 1.0f, th);
+          shapes[slots] =
+              SDF::Ring(math::make_basis(qs[j], math::Y_AXIS), 1.0f, th);
           colors[slots] = c;
           ++slots;
         }
         if (slots == 0)
           return;
-        auto *shapes = std::launder(reinterpret_cast<SDF::Ring *>(shape_mem));
 
         HS_PROFILE(rs_ring_scan);
         Scan::RingGroup::draw<W, H>(
