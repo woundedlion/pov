@@ -231,8 +231,9 @@ public:
    * @param animation The animation object.
    * @param pin Pin::PINNED: the caller retains the pointer across frames, so
    * the event must never move: the animation must be infinite or repeating and
-   * no finite, non-repeating event may precede it (both trap). Pin::UNPINNED:
-   * the pointer is valid only at the call site.
+   * no finite, non-repeating or cancelled event may precede it (both trap).
+   * No predecessor may be cancelled while a later pinned event lives.
+   * Pin::UNPINNED: the pointer is valid only at the call site.
    * @param paused Optional event-level pause gate.
    * @param owner Optional lifetime owner used by cancel_owner().
    * @return Typed pointer to the inline-stored animation, or nullptr if full
@@ -264,12 +265,11 @@ public:
       // under the caller's retained pointer.
       HS_CHECK(!animation.is_finite() || animation.repeats(),
                "pinned animation must be infinite or repeating");
-      // A finite, non-repeating predecessor would relocate this event when it
-      // completes.
       for (int i = 0; i < global_timeline_num_events; ++i) {
         IAnimation *prev = global_timeline_events[i].animation();
-        HS_CHECK(!prev || !prev->is_finite() || prev->repeats(),
-                 "pinned animation added after a finite non-repeating one");
+        HS_CHECK(!prev || (!prev->is_canceled() &&
+                           (!prev->is_finite() || prev->repeats())),
+                 "pinned animation added after a retiring predecessor");
       }
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
