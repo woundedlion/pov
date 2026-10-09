@@ -64,6 +64,7 @@ public:
     register_param("Orbit Spd", &params.orbit_speed, 0.004f, 0.06f);
     register_param("Arm Spin", &params.arm_spin, 0.0f, 0.25f);
     register_param("Arm Pitch", &params.arm_pitch, 0.1f, 0.65f);
+    register_param("Arm Sharpness", &params.arm_sharpness, 0.0f, 3.0f);
     register_int_param("Arms", &params.arms, 1, MAX_ARMS);
     register_param("Emission Rate", &params.emission_rate, MIN_EMISSION_RATE,
                    MAX_EMISSION_RATE);
@@ -182,6 +183,7 @@ private:
     float orbit_speed = 0.0134f; /**< Reference spawn speed (radians/frame). */
     float arm_spin = 0.028f;     /**< Arm rotation (radians/frame). */
     float arm_pitch = 0.2f;      /**< Spiral pitch angle (radians). */
+    float arm_sharpness = 0.8f;  /**< Arm lobe narrowing; 1 is a cosine lobe. */
     int arms = 2;                /**< Arms per galaxy. */
     float emission_rate = 2.5f;  /**< Particles per galaxy per frame. */
     float alpha = 1.0f;          /**< Overall opacity. */
@@ -262,7 +264,10 @@ private:
     particle_system.spawn(pos, tangent * (speed * g.spin), color_seed);
   }
 
-  /** @brief Brightness pattern that stars move through while orbiting. */
+  /**
+   * @brief Brightness pattern that stars move through while orbiting.
+   * @details A cosine lobe per arm, narrowed by `Params::arm_sharpness`.
+   */
   float arm_density(const math::Vector &position, const Galaxy &galaxy,
                     float cos_distance, float winding) const {
     const float ring = math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f));
@@ -271,7 +276,11 @@ private:
     const float angle =
         azimuth - galaxy.phase +
         galaxy.spin * winding * logf(fmaxf(ring, KILL_RADIUS) / RING_RADIUS);
-    return fmaxf(math::fast_cosf(angle * hs::clamp(params.arms, 1, MAX_ARMS)),
+    const float lobe = angle * hs::clamp(params.arms, 1, MAX_ARMS);
+    const float offset =
+        lobe - math::TWO_PI_F * floorf(lobe * (1.0f / math::TWO_PI_F) + 0.5f);
+    return fmaxf(math::fast_cosf(fminf(fabsf(offset) * params.arm_sharpness,
+                                       0.5f * math::PI_F)),
                  0.0f);
   }
 

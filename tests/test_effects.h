@@ -1093,6 +1093,7 @@ inline int run_effects_tests() {
   run_case(test_galaxies_spawn_along_spiral_with_orbital_velocity);
   run_case(test_galaxies_alternate_orbits_and_arm_spin);
   run_case(test_galaxies_arm_contrast_and_age_fade);
+  run_case(test_galaxies_arm_sharpness);
   run_case(test_galaxies_star_color_mix);
   run_case(test_galaxies_white_star_stays_white);
   run_case(test_galaxies_emission_rate_and_capacity);
