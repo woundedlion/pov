@@ -1286,9 +1286,9 @@ gate diffs the whole generated file. The analytic `ReactionGraph::node()`
 remains the reference, with a native comparison across all 7,680 positions.
 Reaction-diffusion effects use these neighbors without rebuilding adjacency.
 
-`ReactionDiffusionBase` can either build canonical positions in its persistent
-arena or bind the flash array through `init_lattice<true>()`. Its arena-budget
-check takes the matching `FLASH_NODES` flag; the oriented positions remain a
+`ReactionDiffusionBase` (`effects/common/reaction_diffusion.h`) can either
+build canonical positions in its persistent arena or bind the flash array
+through `init_lattice<true>()`. Its arena-budget check takes the matching `FLASH_NODES` flag; the oriented positions remain a
 per-frame scratch allocation. GS uses flash positions, releasing 92,160 bytes of
 persistent storage for its palette cache. BZ retains the arena-backed default.
 

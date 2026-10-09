@@ -75,14 +75,7 @@ export async function loadPhantasmEffectRoster() {
 
 export async function loadEffectHeaders() {
   const dir = join(REPO_ROOT, 'effects');
-  const headers = [];
-  const visit = async current => {
-    for (const entry of await readdir(current, { withFileTypes: true })) {
-      const path = join(current, entry.name);
-      if (entry.isDirectory()) await visit(path);
-      else if (entry.name.endsWith('.h')) headers.push(path);
-    }
-  };
-  await visit(dir);
-  return headers;
+  return (await readdir(dir, { withFileTypes: true }))
+    .filter(entry => entry.isFile() && entry.name.endsWith('.h'))
+    .map(entry => join(dir, entry.name));
 }

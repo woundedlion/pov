@@ -6,7 +6,7 @@
 #pragma once
 
 /**
- * @file ReactionDiffusionBase.h
+ * @file reaction_diffusion.h
  * @brief CRTP base carrying the scaffolding the spherical reaction-diffusion
  *        effects share.
  */
