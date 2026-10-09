@@ -190,7 +190,9 @@ private:
   using Builder::build_seed;
   using Builder::build_total_frames;
   using Builder::device_persistent_budget;
+#if HS_ENABLE_TEST_HOOKS
   using Builder::dual_bridges_built;
+#endif
   using typename Builder::BuildContinuation;
   using Builder::check_build_budget;
   using Builder::schedule_dual_bridge;
