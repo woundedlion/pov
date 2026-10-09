@@ -1075,9 +1075,9 @@ inline void expect_concavity(const std::vector<float> &xy, bool expect) {
 /**
  * @brief Pins MeshOps::polygon_is_concave, the gate deciding which congruence
  *        classes are LUT-eligible.
- * @details Exactly-collinear turns (cr == 0) are discarded, so an inserted
- *          edge-midpoint vertex or a degenerate strip never flips a convex
- *          verdict.
+ * @details Turns within the relative SDF::TURN_EPS_SQ band, exactly collinear
+ *          ones included, are discarded, so an inserted edge-midpoint vertex
+ *          or a degenerate strip never flips a convex verdict.
  */
 inline void test_polygon_is_concave() {
   // Convex: unit square, an equilateral-ish triangle, and a regular hexagon.
@@ -1100,6 +1100,12 @@ inline void test_polygon_is_concave() {
   // convex, and a fully degenerate strip has no signed turn at all.
   expect_concavity({0.f, 0.f, 0.5f, 0.f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f}, false);
   expect_concavity({0.f, 0.f, 1.f, 0.f, 2.f, 0.f, 3.f, 0.f}, false);
+
+  // A midpoint vertex dented inward inside the turn epsilon stays convex; a
+  // dent well outside it is concave.
+  expect_concavity({0.f, 0.f, 0.5f, 1e-8f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f},
+                   false);
+  expect_concavity({0.f, 0.f, 0.5f, 1e-3f, 1.f, 0.f, 1.f, 1.f, 0.f, 1.f}, true);
 
   // Self-intersecting: the crossed quad's turn signs are mixed, so it is denied the
   // convex fast path.
