@@ -39,7 +39,7 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})) {}
 
   /**
-   * @brief Registers params, bakes the palette, builds the particle system,
+   * @brief Registers params, builds the particle system,
    *        and starts the orientation drift.
    */
   HS_COLD_MEMBER void init() override {
@@ -51,12 +51,11 @@ public:
     // GLOBAL_ARENA_SIZE is inflated on host; check the device arena.
     static constexpr size_t POOL_BYTES =
         sizeof(Animation::PointParticle) * NUM_PARTICLES;
-    static constexpr size_t AUX_RESERVE_BYTES =
-        6 * 1024 + BakedPalette::required_arena_bytes();
+    static constexpr size_t AUX_RESERVE_BYTES = 6 * 1024;
     static_assert(
         POOL_BYTES + AUX_RESERVE_BYTES <=
             ArenaSplit{SCRATCH_BYTES, SCRATCH_B_BYTES}.device_persistent(),
-        "Galaxies particle pool + attractor/emitter/palette storage "
+        "Galaxies particle pool + attractor/emitter storage "
         "overflow the device persistent arena");
 
     register_param("Friction", &params.friction, 0.999f, 1.0f);
@@ -73,8 +72,6 @@ public:
                    ParamSpec<float>{.min = 0.0f,
                                     .max = static_cast<float>(NUM_PARTICLES),
                                     .readonly = true});
-
-    palette.bake(persistent_arena, StellarPalette{});
 
     build_particle_system();
 
@@ -164,18 +161,6 @@ private:
    */
   static constexpr float BULGE_RADIUS =
       std::max(0.08f, 1.5f * math::RADIANS_PER_COLUMN<W>);
-
-  /** @brief Cool stellar colors with coral and rose accents. */
-  struct StellarPalette {
-    Color4 get(float t) const {
-      const std::array<Color4, 5> COLORS{
-          Color4(255, 86, 118), Color4(255, 192, 218), Color4(195, 225, 255),
-          Color4(100, 170, 255), Color4(95, 130, 255)};
-      const float index = hs::clamp(t, 0.0f, 1.0f) * 4.0f;
-      const int lower = std::min(static_cast<int>(index), 3);
-      return COLORS[lower].lerp(COLORS[lower + 1], index - lower);
-    }
-  };
 
   /** @brief Spawn geometry and arm state for one galaxy. */
   struct Galaxy {
@@ -302,38 +287,15 @@ private:
     return background + (0.5f + 0.5f * u * u - background) * young * profile;
   }
 
-  /**
-   * @brief Mass-dependent stellar colors at a normalized particle age.
-   * @details Evolutionary times are compressed; the seed's high byte selects mass.
-   */
-  Color4 star_color(uint16_t color_seed, float age) const {
-    const float mass = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
-    float temperature;
-    float luminosity = 1.0f;
-    if (mass < 0.5f) {
-      temperature = 0.06f + 0.32f * mass;
-      luminosity = 0.12f + 0.24f * mass;
-    } else if (mass < 0.875f) {
-      const float main_sequence = 0.28f + 0.2f * (mass - 0.5f) / 0.375f;
-      const float giant = math::quintic_kernel((age - 0.45f) / 0.20f);
-      temperature = main_sequence + (0.02f - main_sequence) * giant;
-      const float remnant = math::quintic_kernel((age - 0.72f) / 0.06f);
-      const float cooling =
-          0.9f - 0.5f * math::quintic_kernel((age - 0.78f) / 0.22f);
-      temperature += (cooling - temperature) * remnant;
-      luminosity = (0.8f + 0.2f * giant) * (1.0f - remnant) + 0.2f * remnant;
-    } else {
-      const float massive = (mass - 0.875f) / 0.125f;
-      const float lifetime = 0.45f - 0.15f * massive;
-      const float phase = age / lifetime;
-      const float main_sequence = 0.75f + 0.25f * massive;
-      const float supergiant = math::quintic_kernel((phase - 0.65f) / 0.13f);
-      temperature = main_sequence + (0.02f - main_sequence) * supergiant;
-      luminosity = 1.0f - math::quintic_kernel((phase - 0.80f) / 0.20f);
-    }
-    Color4 color = palette.get(temperature);
-    color.alpha *= luminosity;
-    return color;
+  /** @brief Stable white stars with sparse blue and red accents. */
+  static Color4 star_color(uint16_t color_seed) {
+    const uint8_t tint = static_cast<uint8_t>((color_seed >> 8) * 73u +
+                                              (color_seed & 0xff) * 29u + 41u);
+    if (tint < 20)
+      return Color4(155, 200, 255);
+    if (tint < 40)
+      return Color4(255, 150, 140);
+    return Color4(255, 255, 255);
   }
 
   /** @brief Circular speed from the net inward pull of all six cores. */
@@ -390,14 +352,14 @@ private:
       const float arm = age < ARM_FADE_END ? arm_density(position, galaxy,
                                                          cos_distance, winding)
                                            : 0.0f;
-      Color4 c = star_color(p.color_seed, age / max_life);
+      Color4 c = star_color(p.color_seed);
       c.alpha *= hole * head_fade * fade_in * fade_out *
                  particle_alpha(p.color_seed, age, arm) * alpha;
       filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
     }
 
     // Scan::Point leaves its quintic coverage in v2.
-    const Color4 core_color(230, 242, 255);
+    const Color4 core_color(255, 255, 255);
     auto bulge_shader = [&](const math::Vector &, Fragment &f) {
       Color4 c = core_color;
       c.alpha *= hs::clamp(f.v2, 0.0f, 1.0f) * alpha;
@@ -421,7 +383,6 @@ private:
   math::Orientation<> orientation;
   FastNoiseLite noise;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
-  BakedPaletteStorage palette;
   ParticleSystem particle_system;
   std::array<Galaxy, NUM_GALAXIES> galaxies;
   /**
