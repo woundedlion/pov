@@ -260,3 +260,60 @@ inline void case_sdf_angular_repeat_zero_copies() {
   SDF::AngularRepeat<SDF::Ring> shape(ring, opaque(0), math::Y_AXIS);
   (void)shape;
 }
+
+inline void case_framework_invalid_geometry() {
+  SDF::TriangularFramework geometry;
+  geometry.cell_size = opaque(0.0f);
+  SDF::FrameworkEvents events(geometry, {{0, 0, 0}, {1, 0, 0}, {0, 1}});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_framework_invalid_ray() {
+  SDF::FrameworkEvents events({}, {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet_invalid_geometry() {
+  SDF::OctetFramework geometry;
+  geometry.cell_size = opaque(0.0f);
+  SDF::OctetEvents events(geometry, {{0, 0, 0}, {1, 0, 0}, {0, 1}});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet_invalid_ray() {
+  SDF::OctetEvents events(SDF::OctetFramework{},
+                          {{0, 0, 0}, {opaque(0.0f), 0, 0}, {0, 1}});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet4_invalid_geometry() {
+  SDF::OctetFramework4 geometry;
+  geometry.wire_radius = opaque(0.0f);
+  SDF::OctetEvents4 events(geometry, {}, {{1, 0, 0, 0}}, {0, 1});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet4_invalid_interval() {
+  SDF::OctetEvents4 events({}, {}, {{1, 0, 0, 0}}, {opaque(2.0f), 1});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet4_nonfinite_ray() {
+  SDF::OctetEvents4 events(
+      {}, {{opaque(std::numeric_limits<float>::infinity()), 0, 0, 0}},
+      {{1, 0, 0, 0}}, {0, 1});
+  if (events.active(0))
+    std::printf("active");
+}
+
+inline void case_octet4_nonunit_direction() {
+  SDF::OctetEvents4 events({}, {}, {{opaque(2.0f), 0, 0, 0}}, {0, 1});
+  if (events.active(0))
+    std::printf("active");
+}

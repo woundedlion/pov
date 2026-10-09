@@ -206,7 +206,7 @@ inline void test_octet_fcc_geometry_and_symmetry() {
   HS_EXPECT_FALSE(octet.valid());
 }
 
-inline void test_octet_events_ties_limits_and_invalid_inputs() {
+inline void test_octet_events_ties_and_limits() {
   const SDF::OctetFramework OCTET;
   const Raycast::Ray RAY{{0, 0, 0}, {1, 0, 0}, {0, 1.5f}};
   SDF::OctetEvents events(OCTET, RAY);
@@ -245,16 +245,6 @@ inline void test_octet_events_ties_limits_and_invalid_inputs() {
   HS_EXPECT_FALSE(edge_events.active(2));
   edge_events.advance(0);
   HS_EXPECT_NEAR(edge_events.distance(0), 1.0f, 1e-6f);
-  auto invalid = RAY;
-  invalid.direction.x = 0;
-  SDF::OctetEvents bad_ray(OCTET, invalid);
-  auto bad_geometry = OCTET;
-  bad_geometry.cell_size = -1;
-  SDF::OctetEvents bad_shape(bad_geometry, RAY);
-  for (size_t i = 0; i < SDF::OctetEvents::STREAM_COUNT; ++i) {
-    HS_EXPECT_FALSE(bad_ray.active(i));
-    HS_EXPECT_FALSE(bad_shape.active(i));
-  }
   const Raycast::Ray OBLIQUE{
       {0.2f, -0.3f, 0.4f}, math::Vector{-1, 2, -3}.normalized(), {0.3f, 4}};
   SDF::OctetEvents slanted(OCTET, OBLIQUE, {0.05f, 0.1f});
@@ -805,14 +795,6 @@ inline void test_octet4_ambient_events_and_limits() {
   SDF::OctetEvents4 edge(OCTET, ORIGIN, {{H, H, 0, 0}}, INTERVAL);
   for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i)
     HS_EXPECT_EQ(edge.active(i), i == 0 || i == 2 || i == 4);
-  SDF::OctetEvents4 invalid(OCTET, ORIGIN, {{0, 0, 0, 2}}, INTERVAL);
-  auto bad_geometry = OCTET;
-  bad_geometry.wire_radius = 0;
-  SDF::OctetEvents4 bad_shape(bad_geometry, ORIGIN, DIRECTION, INTERVAL);
-  for (size_t i = 0; i < SDF::OctetEvents4::STREAM_COUNT; ++i) {
-    HS_EXPECT_FALSE(invalid.active(i));
-    HS_EXPECT_FALSE(bad_shape.active(i));
-  }
 }
 
 template <typename Surface> void check_periodic_surface() {
@@ -884,7 +866,7 @@ inline int run_sdf_pattern_tests() {
   test_lattice_reference_and_lipschitz();
   test_framework_geometry_and_plane_streams();
   test_octet_fcc_geometry_and_symmetry();
-  test_octet_events_ties_limits_and_invalid_inputs();
+  test_octet_events_ties_and_limits();
   test_octet_struts_have_one_angle_correct_coverage_layer();
   test_octet4_edges_parity_and_symmetry();
   test_octet4_nearest_edge_matches_line_search();
