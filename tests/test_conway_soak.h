@@ -24,6 +24,10 @@ namespace conway_soak_tests {
 constexpr int SOAK_W = 96;
 constexpr int SOAK_H = 20;
 
+static_assert(!ConwayGraph::is_platonic(-1));
+static_assert(!ConwayGraph::is_platonic(
+    ConwayGraph::dual_platonic(ConwayGraph::TRUNCATED_TETRAHEDRON)));
+
 /** Leg budget within which the seeded walk must have visited every node. */
 constexpr int SOAK_LEG_BOUND = 96;
 
@@ -131,8 +135,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     leg_scratch_b_hw = scratch_arena_b.get_high_water_mark();
 
     const int sid = HankinWalkProbe::seed_identity(fx);
-    // is_platonic carries no lower bound, and sid indexes post_offset.
-    const bool sid_ok = sid >= 0 && ConwayGraph::is_platonic(sid);
+    const bool sid_ok = ConwayGraph::is_platonic(sid);
     HS_EXPECT_TRUE(sid_ok);
     if (!sid_ok || node < 0 || node >= ConwayGraph::NUM_NODES ||
         departed_node < 0 || departed_node >= ConwayGraph::NUM_NODES)
