@@ -40,6 +40,8 @@ struct Ring {
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
 
+  Ring() = default;
+
   /**
    * @brief Builds a ring from its basis, radius, thickness, and phase.
    * @param b Orientation frame (v = ring axis).
@@ -47,8 +49,6 @@ struct Ring {
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
    */
-  Ring() = default;
-
   Ring(const math::Basis &b, float r, float th, float ph = 0)
       : radius(r), thickness(th), phase(ph) {
     HS_CHECK(radius >= 0.0f && radius <= 2.0f, "Ring: radius outside [0, 2]");
@@ -247,7 +247,8 @@ struct DistortedRing {
 
   /**
    * @brief Builds a distorted ring with a per-azimuth centerline shift.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
@@ -281,7 +282,8 @@ protected:
   /**
    * @brief Builds the ring geometry shared by the modes carrying no shift
    *        callback.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param md Maximum magnitude of the centerline shift (radians).
@@ -294,9 +296,9 @@ protected:
              "DistortedRing: radius outside [0, 2]");
     // A negative half-width inverts the band, culling every probe.
     HS_CHECK(thickness >= 0.0f, "DistortedRing: negative stroke half-width");
-    normal = b.v;
-    u = b.u;
-    w = b.w;
+    normal = basis.v;
+    u = basis.u;
+    w = basis.w;
     AxisProjection ap = project_axis(normal);
     ny = ap.ny;
     target_angle = radius * (math::PI_F / 2.0f);
@@ -319,7 +321,8 @@ protected:
 public:
   /**
    * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param kn n centerline shifts (radians), one per equal azimuth cell;
@@ -757,7 +760,8 @@ struct FlatDistortedRing : private DistortedRing {
 
   /**
    * @brief Builds an undisplaced ring using exact polar centerline distance.
-   * @param b Orientation frame (v = ring axis).
+   * @param b Orientation frame (v = ring axis); retained by reference, so it
+   *          must outlive the shape.
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param ph Azimuth phase offset (radians).
