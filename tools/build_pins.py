@@ -52,7 +52,7 @@ PINS = {
     # packaging suffix.
     "actionlint": requirement_pin("actionlint", "actionlint-py"),
     # The daydream revision used to validate the exhaustive documentation tree.
-    "daydream": "eb9d08e29e60a52bb2b5d9fc9162b4b1201d5302",
+    "daydream": "65854b49b33bc33e86575784ed7a22b0298cad2e",
     "doxygen-awesome": "568f56cde6ac78b6dfcc14acd380b2e745c301ea",
     "emsdk": "5.0.0",
     # PyPI's rust-just, so the recipe runner is installed and held like ruff.
