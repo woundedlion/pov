@@ -613,15 +613,12 @@ private:
       }
       bound2 = fminf(bound2, best2);
     }
+    // A budget-capped search leaves knots unvisited, each at least a frontier
+    // |u| away; fold that bound in.
+    if (budget_capped)
+      best2 = fminf(best2, fminf(ul * ul, ur * ur));
     if (best2 < th2)
       return sqrtf(best2);
-    // A budget-capped search leaves knots unvisited, each at least a frontier
-    // |u| away; report that bound.
-    if (budget_capped) {
-      float frontier2 = fminf(ul * ul, ur * ur);
-      if (frontier2 < th2)
-        return sqrtf(frontier2);
-    }
     // Past the stroke reach best2 is only an upper bound: report the far
     // sentinel (dist == 0 would read as on-surface to a CSG parent).
     return FAR_SENTINEL;
