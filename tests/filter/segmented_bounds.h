@@ -19,24 +19,32 @@ inline void test_effect_needs_full_frame_default_false() {
 }
 
 /**
- * @brief Proves Screen::Trails has reach 0: under a FIXED clip a banded render
- *        matches the full-frame one byte-for-byte.
+ * @brief Screen::Trails parity fixture: a fresh trail buffer that plots one
+ *        frame's seeds and flushes them onto an effect.
+ * @details Seeds span every row and both x halves, plus one point that sweeps
+ *          rows across frames. Trail brightness tracks remaining lifetime.
  */
-inline void test_screen_trails_banded_matches_full() {
-  constexpr int W = 32, H = 16, MAXP = 512;
+struct ScreenTrailRig {
+  static constexpr int W = 32, H = 16, MAXP = 512;
+  static constexpr int LIFETIME = 4; // trail fade length (frames)
   using Trails = Filter::Screen::Trails<MAXP>;
-  constexpr int K = 4;        // frames driven
-  constexpr int lifetime = 4; // trail fade length (frames)
-  constexpr int MID = H / 2;
 
-  // A fixed set of seed points spanning every row, with one point that sweeps
-  // rows across frames so the trail buffer holds live points in both bands.
   struct Seed {
     int x, y;
     Pixel c;
   };
-  auto frame_seeds = [](int f) {
-    return std::array<Seed, 6>{{
+
+  /** @brief Remaining-lifetime trail shade. */
+  struct Shade {
+    Color4 operator()(float, float, float t) const {
+      const uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
+      return Color4(Pixel(v, v, v), 1.0f);
+    }
+  };
+
+  /** @brief Seeds plotted on frame @p f. */
+  static std::array<Seed, 6> seeds(int f) {
+    return {{
         {3, 1, Pixel(10000, 0, 0)},
         {12, 4, Pixel(0, 20000, 0)},
         {20, 7, Pixel(0, 0, 30000)},
@@ -44,31 +52,41 @@ inline void test_screen_trails_banded_matches_full() {
         {25, 13, Pixel(0, 25000, 25000)},
         {17, (f * 3) % H, Pixel(40000, 40000, 40000)},
     }};
-  };
-  auto trail = [](float, float, float t) {
-    // Brightness tracks remaining lifetime so the decay path is exercised.
-    uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
-    return Color4(Pixel(v, v, v), 1.0f);
-  };
+  }
 
-  // One run = a fresh trail buffer + effect driven K frames under the given clip.
-  // Effect instances alias the same static double buffer (single-live guard), so
-  // each run is scoped closed before the next; the arena is reset per run.
+  static inline uint8_t buf[MAXP * 32];
+  Arena arena{buf, sizeof(buf)};
+  Pipeline<W, H, Trails> pipe{Trails(LIFETIME)};
+
+  ScreenTrailRig() { pipe.get<Trails>().init_storage(arena); }
+
+  /** @brief Plots and flushes frame @p f's seeds onto @p fx. */
+  void frame(hs_test::StubEffect &fx, int f) {
+    Canvas c(fx);
+    for (const Seed &s : seeds(f))
+      pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
+    const Shade shade;
+    pipe.flush(c, ScreenTrailFn(shade), 1.0f);
+  }
+};
+
+/**
+ * @brief Proves Screen::Trails has reach 0: under a FIXED clip a banded render
+ *        matches the full-frame one byte-for-byte.
+ */
+inline void test_screen_trails_banded_matches_full() {
+  constexpr int W = ScreenTrailRig::W, H = ScreenTrailRig::H;
+  constexpr int K = 4; // frames driven
+  constexpr int MID = H / 2;
+
+  // Effect instances alias the same static double buffer (single-live guard),
+  // so each run is scoped closed before the next.
   auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
-    static uint8_t buf[MAXP * 32];
-    Arena arena(buf, sizeof(buf));
-    Pipeline<W, H, Trails> pipe{Trails(lifetime)};
-    pipe.get<Trails>().init_storage(arena);
-
+    ScreenTrailRig rig;
     hs_test::StubEffect fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
     for (int f = 0; f < K; ++f) {
-      {
-        Canvas c(fx);
-        for (const auto &s : frame_seeds(f))
-          pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
-        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
-      }
+      rig.frame(fx, f);
       fx.advance_display();
     }
     for (int y = 0; y < H; ++y)
@@ -107,54 +125,21 @@ inline void test_screen_trails_banded_matches_full() {
  *          away must still re-emit once the clip swings back.
  */
 inline void test_screen_trails_alternating_clip_matches_full() {
-  constexpr int W = 32, H = 16, MAXP = 512;
-  using Trails = Filter::Screen::Trails<MAXP>;
-  constexpr int K = 6;        // frames driven
-  constexpr int lifetime = 4; // trail fade length (frames)
+  constexpr int W = ScreenTrailRig::W, H = ScreenTrailRig::H;
+  constexpr int K = 6; // frames driven
   constexpr int MID = W / 2;
 
-  // Seeds straddle both halves, with one point that sweeps rows across frames so
-  // successive frames differ where the alternation can drop them.
-  struct Seed {
-    int x, y;
-    Pixel c;
-  };
-  auto frame_seeds = [](int f) {
-    return std::array<Seed, 6>{{
-        {3, 1, Pixel(10000, 0, 0)},
-        {12, 4, Pixel(0, 20000, 0)},
-        {20, 7, Pixel(0, 0, 30000)},
-        {7, 10, Pixel(15000, 15000, 0)},
-        {25, 13, Pixel(0, 25000, 25000)},
-        {17, (f * 3) % H, Pixel(40000, 40000, 40000)},
-    }};
-  };
-  auto trail = [](float, float, float t) {
-    uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
-    return Color4(Pixel(v, v, v), 1.0f);
-  };
-
-  // One run = a fresh trail buffer + effect driven K frames, capturing every
-  // frame's display buffer. flip alternates the x clip per frame; the reference
-  // run leaves the effect at full canvas. Effect instances alias the same static
-  // double buffer, so each run is scoped closed before the next.
+  // flip alternates the x clip per frame; the reference run leaves the effect
+  // at full canvas. Effect instances alias the same static double buffer, so
+  // each run is scoped closed before the next.
   auto run = [&](bool flip, Pixel out[K][H][W]) {
-    static uint8_t buf[MAXP * 32];
-    Arena arena(buf, sizeof(buf));
-    Pipeline<W, H, Trails> pipe{Trails(lifetime)};
-    pipe.get<Trails>().init_storage(arena);
-
+    ScreenTrailRig rig;
     hs_test::StubEffect fx(W, H);
     for (int f = 0; f < K; ++f) {
       // Ahead of the Canvas: its stale-pixel clear honours the clip set here.
       if (flip)
         fx.set_clip(0, H, (f % 2) ? MID : 0, (f % 2) ? W : MID);
-      {
-        Canvas c(fx);
-        for (const auto &s : frame_seeds(f))
-          pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
-        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
-      }
+      rig.frame(fx, f);
       fx.advance_display();
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x)
