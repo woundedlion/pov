@@ -168,6 +168,9 @@ The fixed terminal origins are J2 at (36.6, 23.97), J3A at (48, 3.96),
 and J3B at (48, 16.52), in millimeters. U1, R_D1, R_D2, and C_DEC2
 are released for placement in the remaining area. The removed receive divider
 and C_SYNC require no local filter traces.
+The back silkscreen carries the ID truth table, N=8 line and revision stamp,
+but omits R-ID-4's writable board-ID field: its rev 1.1/1.2 position overlaps
+the relocated J2. Mark boards by other means until the field is re-placed.
 
 Route J3A to J3B as an uninterrupted pair over a continuous ground plane.
 Keep the connector-to-transceiver branch at most 20 mm and untwisted cable
