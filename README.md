@@ -251,7 +251,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── spherical_field.h       Latitude-ring field layout + bilinear sphere sampling
 │   │   ├── spherical_harmonics.h   Real spherical harmonics in Cartesian form on the unit sphere
 │   │   ├── noise_field.h           Shared scalar/vector noise-field sampling kernels
-│   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean uses PROJ-derived code, MIT)
+│   │   ├── projections.h           Bonne / Peirce quincuncial / Airocean / folded sinusoidal / equirectangular sphere → plane kernels (Airocean and Peirce coefficients PROJ-derived, MIT)
 │   │   ├── stereographic.h         Stereographic / gnomonic forward and inverse projection kernels
 │   │   ├── mobius.h                Fractional-linear complex transforms and sphere mappings
 │   │   ├── projection_patterns.h   Pole attenuation and bounded pattern coordinates
