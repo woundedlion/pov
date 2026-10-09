@@ -251,6 +251,7 @@ class PreCommitHook(unittest.TestCase):
             ("targets/effects.h", "ENOENT"),
             ("targets/Phantasm/phantasm_playlist.h", "ENOENT"),
             ("scripts/effect_roster.mjs", "ERR_MODULE_NOT_FOUND"),
+            ("scripts/exit.mjs", "ERR_MODULE_NOT_FOUND"),
             ("scripts/check_profiles.mjs", "MODULE_NOT_FOUND"),
         ]:
             with self.subTest(filename=filename):
