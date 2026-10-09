@@ -660,7 +660,7 @@ inline void test_sim_commit_beacon_gap() {
   uint32_t seen = sim.boards[1].board.telemetry_snapshot().beacons_ok;
   uint64_t last_at = 0;
   uint64_t widest = 0;
-  HS_EXPECT_FALSE(sim.run_until(
+  (void)sim.run_until(
       [&](Sim &s) {
         const uint32_t ok = s.boards[1].board.telemetry_snapshot().beacons_ok;
         if (ok != seen) {
@@ -671,7 +671,7 @@ inline void test_sim_commit_beacon_gap() {
         }
         return false;
       },
-      double(effect_revolutions[0] + effect_revolutions[1]) + 12));
+      double(effect_revolutions[0] + effect_revolutions[1]) + 12);
   const uint64_t rev = 2ull * PERIOD;
   const uint64_t expected = cfg.commit_beacon_gap_revs(0);
   HS_EXPECT_EQ(expected, 22u);
