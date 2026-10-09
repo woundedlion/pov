@@ -67,7 +67,7 @@ struct GalaxiesWhiteBox {
   }
 };
 
-/** @brief The core toggle replaces central light with a rim and restores it. */
+/** @brief The core toggle removes the core glow and restores it. */
 inline void test_galaxies_black_hole_core_toggle() {
   reset_effect_globals();
   Galaxies<DEFAULT_W, DEFAULT_H> fx;
@@ -101,7 +101,7 @@ inline void test_galaxies_black_hole_core_toggle() {
     }
     if (mode == 1) {
       HS_EXPECT_EQ(center_energy, 0u);
-      HS_EXPECT(rim_energy > 0, "black hole has a luminous rim");
+      HS_EXPECT_EQ(rim_energy, 0u);
     } else {
       HS_EXPECT(center_energy > 0, "glowing core lights the center");
       if (original_energy != 0)
