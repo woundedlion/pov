@@ -53,11 +53,11 @@ struct ShapeShifterParams {
   constexpr ShapeShifterParams() = default;
   constexpr ShapeShifterParams(ShapeType shape, float count, float sides,
                                PhaseFunction function, float amplitude,
-                               float speed, float opposite,
+                               float speed, bool opposite,
                                AlphaFalloff alpha_falloff,
                                RadiusSpacing spacing)
       : shape(shape), count(count), sides(sides), function(function),
-        amplitude(amplitude), speed(speed), opposite(opposite >= 0.5f),
+        amplitude(amplitude), speed(speed), opposite(opposite),
         alpha_falloff(alpha_falloff), spacing(spacing) {}
 };
 
@@ -780,35 +780,35 @@ private:
   static constexpr size_t PRESET_COUNT = 9;
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
-        0.016f, 0.0f, AlphaFalloff::TOWARD_EQUATOR,
+        0.016f, false, AlphaFalloff::TOWARD_EQUATOR,
         RadiusSpacing::SCREEN_BALANCED},
        DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 74.644997f, 3.0f, PhaseFunction::SINE,
-        1.0f, 0.0318f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        1.0f, 0.0318f, false, AlphaFalloff::CONSTANT_HALF,
         RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::PLANAR_STAR, 43.327999f, 6.562f, PhaseFunction::SINE, 1.0f,
-        0.0142f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+        0.0142f, false, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::FLOWER, 70.0f, 3.0f, PhaseFunction::SINE, 1.0f, 0.0186f,
-        0.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+        false, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::PLANAR_STAR, 72.0f, 4.417f, PhaseFunction::SINE, 1.0f,
-        0.0077f, 0.0f, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
+        0.0077f, false, AlphaFalloff::TOWARD_EQUATOR, RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 128.0f, 5.561f, PhaseFunction::SINE, 4.0f,
-        0.0405f, 1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+        0.0405f, true, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 4.001f, PhaseFunction::SINE,
-        2.377f, 0.027086f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        2.377f, 0.027086f, false, AlphaFalloff::CONSTANT_HALF,
         RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::SPHERICAL_POLYGON, 144.0f, 3.195f, PhaseFunction::SINE,
-        7.0696f, 0.0113f, 0.0f, AlphaFalloff::CONSTANT_HALF,
+        7.0696f, 0.0113f, false, AlphaFalloff::CONSTANT_HALF,
         RadiusSpacing::UNIFORM},
        DEPARTURE},
       {{ShapeType::FLOWER, 72.0f, 3.0f, PhaseFunction::SINE, 1.8721f, 0.00752f,
-        1.0f, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
+        true, AlphaFalloff::CONSTANT_HALF, RadiusSpacing::UNIFORM},
        DEPARTURE},
   }};
 
