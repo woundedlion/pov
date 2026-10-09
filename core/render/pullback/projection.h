@@ -102,9 +102,10 @@ peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
       sin_distance_sq, fmaxf(0.0f, 1.0f - sin_distance_sq), singularity_fade);
 }
 
+/** @brief `peirce_weight` for the folded (DIAMOND/SQUARE) layouts. */
 __attribute__((always_inline)) inline float
-peirce_weight(const math::Vector &input, float central_meridian,
-              float singularity_fade) {
+peirce_folded_weight(const math::Vector &input, float central_meridian,
+                     float singularity_fade) {
   return peirce_weight(input, cosf(central_meridian), sinf(central_meridian),
                        singularity_fade, true);
 }
@@ -251,7 +252,7 @@ peirce_fast_square(const math::Vector &input, float coordinate_scale,
                    float singularity_fade) {
   return from_kernel(projections::peirce_projection_fast_square(input),
                      coordinate_scale,
-                     peirce_weight(input, 0.0f, singularity_fade));
+                     peirce_folded_weight(input, 0.0f, singularity_fade));
 }
 
 template <typename State, typename Binding>
