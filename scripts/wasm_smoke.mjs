@@ -228,6 +228,15 @@ async function main(probe) {
             fail('batch-pause: rejected write changed the pause state');
           }
         }
+        const before = Array.from(engine.getParamValues());
+        const malformedName = chainCall(engine, 'setShaderChainParameters', [
+          { name: 'sample.pattern-freq', value: 2 },
+          { name: 'sample.pattern-freq\0junk', value: 3 },
+        ]);
+        if (malformedName !== Module.ParamSetResult.UNKNOWN_PARAM
+            || Array.from(engine.getParamValues()).some((value, index) => value !== before[index])) {
+          fail('batch names: embedded NUL applied a prefix parameter or partial batch');
+        }
         engine.setAnimationsPaused(false);
         const result = chainCall(engine, 'setShaderChainParameters', [
           { name: 'sample.pattern-freq', value: 2 },
