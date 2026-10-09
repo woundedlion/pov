@@ -542,9 +542,9 @@ inline void check_preset_interpolation(const char *name) {
   }
 }
 
+#include "tests/composed_effect/derivation_reach.h"
 #include "tests/composed_effect/document_values.h"
 #include "tests/composed_effect/roster_contracts.h"
-#include "tests/composed_effect/derivation_reach.h"
 #include "tests/composed_effect/stage_probes.h"
 #include "tests/composed_effect/parameter_schema.h"
 
