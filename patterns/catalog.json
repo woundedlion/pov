@@ -18,7 +18,8 @@
     "kaleidoscope-flowers": "kaleidoscope_flowers.shader.json",
     "cosmic-eyeball": "cosmic_eyeball.shader.json",
     "mobius-grid": "mobius_grid.shader.json",
-    "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json"
+    "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json",
+    "jewel-melt": "jewel_melt.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
@@ -59,6 +60,10 @@
       {
         "effect_id": "mermaid-skin",
         "display_name": "Mermaid Skin"
+      },
+      {
+        "effect_id": "jewel-melt",
+        "display_name": "JewelMelt"
       },
       {
         "effect_id": "ash-cloud",
