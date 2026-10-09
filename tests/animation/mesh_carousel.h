@@ -807,9 +807,13 @@ inline void test_spin_flip_warp_is_rigid() {
   HS_EXPECT_NEAR(spin.axis.length(), 1.0f, 1e-6f);
   math::Vector a = math::Vector(1.0f, 0.2f, 0.1f).normalized();
   math::Vector b = math::Vector(-0.3f, 0.9f, 0.4f).normalized();
-  math::Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);
-  HS_EXPECT_NEAR(math::dot(wa, wb), math::dot(a, b), 1e-3f);
-  HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
+  for (int i = 0; i <= 10; ++i) {
+    const float phase = static_cast<float>(i) / 10.0f;
+    math::Vector wa = spin.warp(a, phase), wb = spin.warp(b, phase);
+    HS_EXPECT_NEAR(math::dot(wa, wb), math::dot(a, b), 1e-3f);
+    HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(wb.length(), 1.0f, 1e-3f);
+  }
 
   // Winding is (1 - phase)^2 * REVS revolutions; this phase makes it a quarter
   // turn, so an axis-perpendicular input lands perpendicular to where it began.
