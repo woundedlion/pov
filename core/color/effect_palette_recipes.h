@@ -233,7 +233,7 @@ HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
            {"Raymarch", false, raymarch()},
            {"Standalone Liquid", false, standalone_liquid()},
            {"Standalone Flyby", false, standalone_flyby()},
-           {"HyperLattice", false, hyper_lattice()},
+           {"HyperLattice", true, hyper_lattice()},
            {"MindSplatter", true, mind_splatter(preview_hue)}}};
 }
 

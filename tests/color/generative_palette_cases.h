@@ -45,7 +45,7 @@ inline void test_effect_palette_recipe_roster() {
       {"Raymarch", false, R::raymarch()},
       {"Standalone Liquid", false, R::standalone_liquid()},
       {"Standalone Flyby", false, R::standalone_flyby()},
-      {"HyperLattice", false, R::hyper_lattice()},
+      {"HyperLattice", true, R::hyper_lattice()},
       {"MindSplatter", true, R::mind_splatter(hue)}};
   const auto presets = R::presets();
   static_assert(std::tuple_size_v<decltype(presets)> == std::size(expected));
