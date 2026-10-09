@@ -20,8 +20,7 @@
 
 /**
  * @file shapes.h
- * @brief The stroke primitives the curve rasterizer plots: line, ring, polygon,
- * star and flower, over the shared fragment-draw prelude.
+ * @brief Stroke primitives over the shared fragment-draw prelude.
  */
 
 namespace Plot {
