@@ -433,6 +433,8 @@ inline void test_ambo_cube_has_cuboctahedral_topology() {
   check_basic_invariants(a);
   HS_EXPECT_EQ(a.vertices.size(), (size_t)12);
   HS_EXPECT_EQ(a.face_counts.size(), (size_t)14); // 6 squares + 8 triangles
+  HS_EXPECT_TRUE(
+      (face_type_histogram(a) == std::map<int, int>{{4, 6}, {3, 8}}));
 }
 
 // ---------------------------------------------------------------------------
@@ -459,6 +461,8 @@ inline void test_truncate_cube_has_truncated_topology() {
 
   // 6 octagonal faces (8 sides) + 8 triangles = 6*8 + 8*3 = 72 indices
   HS_EXPECT_EQ(tr.faces.size(), (size_t)(6 * 8 + 8 * 3));
+  HS_EXPECT_TRUE(
+      (face_type_histogram(tr) == std::map<int, int>{{8, 6}, {3, 8}}));
 }
 
 /**
@@ -541,6 +545,8 @@ inline void test_expand_cube() {
   HS_EXPECT_EQ(e.vertices.size(), (size_t)24);
   // Faces: 6 original (shrunken squares) + 12 edge quads + 8 vertex triangles
   HS_EXPECT_EQ(e.face_counts.size(), (size_t)(6 + 12 + 8));
+  HS_EXPECT_TRUE(
+      (face_type_histogram(e) == std::map<int, int>{{4, 18}, {3, 8}}));
 }
 
 // ---------------------------------------------------------------------------
@@ -563,6 +569,8 @@ inline void test_chamfer_cube() {
   check_basic_invariants(c);
   HS_EXPECT_EQ(c.vertices.size(), (size_t)(8 + 2 * 12));
   HS_EXPECT_EQ(c.face_counts.size(), (size_t)(6 + 12));
+  HS_EXPECT_TRUE(
+      (face_type_histogram(c) == std::map<int, int>{{4, 6}, {6, 12}}));
 }
 
 // ---------------------------------------------------------------------------
