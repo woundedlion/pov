@@ -73,9 +73,6 @@ ZIP_MEMBERS = {
 SUMS_FILE = "SHA256SUMS.txt"
 #: The upload zip, digested in the manifest alongside its own members.
 ARCHIVE = "phantasm-jlc-gerbers.zip"
-#: zlib level the upload zip is deflated at, pinned so the archive digest does
-#: not depend on the host zlib build.
-ZIP_COMPRESS_LEVEL = 6
 #: Digest baseline of the package that was ordered, in the tracked tree.
 SHIPPED_SUMS = os.path.join(PROJ, "fab-SHA256SUMS.txt")
 
@@ -183,7 +180,7 @@ def normalize_fab_timestamps(directory):
 def zip_member(name):
     """Zip entry with fixed metadata, so an unchanged board rezips byte-identically."""
     info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
-    info.compress_type = zipfile.ZIP_DEFLATED
+    info.compress_type = zipfile.ZIP_STORED
     info.create_system = 3
     info.external_attr = 0o644 << 16
     return info
@@ -240,11 +237,10 @@ def write_upload_zip(directory, members, path):
     The level rides on writestr, not on the ZipFile: a caller-supplied ZipInfo
     keeps its own (unset) level and never picks up the archive's.
     """
-    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_STORED) as archive:
         for name in members:
             with open(os.path.join(directory, name), "rb") as fh:
-                archive.writestr(zip_member(name), fh.read(),
-                                 compresslevel=ZIP_COMPRESS_LEVEL)
+                archive.writestr(zip_member(name), fh.read())
 
 
 class PackageVerificationError(ValueError):
