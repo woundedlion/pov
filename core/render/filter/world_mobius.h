@@ -33,6 +33,7 @@ public:
    * @param params Mobius transform parameters applied per point.
    */
   Mobius(const math::MobiusParams &params) : params(params) {}
+  Mobius(const math::MobiusParams &&) = delete;
   /**
    * @brief Stereographically projects, applies the Mobius map, and re-emits.
    * @param v World-space point on the unit sphere.

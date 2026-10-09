@@ -17,6 +17,15 @@ struct Tap3D {
   float age, alpha; /**< Emitted age and alpha. */
 };
 
+static_assert(
+    std::is_constructible_v<Filter::World::Mobius, const math::MobiusParams &>);
+static_assert(
+    !std::is_constructible_v<Filter::World::Mobius, math::MobiusParams>);
+static_assert(std::is_constructible_v<Filter::World::Orient,
+                                      const math::Orientation<> &>);
+static_assert(
+    !std::is_constructible_v<Filter::World::Orient, math::Orientation<>>);
+
 /**
  * @brief Verifies Hole masks a spherical cap: outside the radius the point
  *        passes through untouched; inside, alpha is scaled by
