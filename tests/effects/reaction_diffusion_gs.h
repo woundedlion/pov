@@ -42,6 +42,91 @@ struct GSWhiteBox {
     return minimum;
   }
 
+  struct ColorNoiseSample {
+    int row;
+    uint16_t weight;
+    float value;
+    bool exact;
+  };
+
+  struct ColorValueSample {
+    int column;
+    uint16_t weight;
+    float value;
+  };
+
+  static ColorNoiseSample color_noise_sample(const GS &gs, float noise) {
+    float position =
+        hs::clamp((noise + 1.0f) * (0.5f * (GS::COLOR_NOISE_STEPS - 1)), 0.0f,
+                  static_cast<float>(GS::COLOR_NOISE_STEPS - 1));
+    const auto SELECTION = gs.color_noise_selection(position);
+    return {SELECTION.row,
+            static_cast<uint16_t>((position - SELECTION.row) * 65535.0f), noise,
+            SELECTION.exact};
+  }
+
+  static ColorValueSample color_value_sample(float t) {
+    float position = t * (GS::COLOR_VALUE_STEPS - 1);
+    int column =
+        std::min(static_cast<int>(position), GS::COLOR_VALUE_STEPS - 2);
+    return {column, lut_index_weight(position, column), t};
+  }
+
+  /** @brief Bilinear read of the cached palette rows, or the exact color. */
+  static Pixel cached_palette_color(const GS &gs, int seed, float t,
+                                    float noise) {
+    const ColorValueSample VALUE = color_value_sample(t);
+    const ColorNoiseSample NOISE = color_noise_sample(gs, noise);
+    if (NOISE.exact)
+      return gs.modified_palette_color(
+          seed, VALUE.value, NOISE.value * gs.params.hue_shift,
+          fmaxf(NOISE.value, 0.0f) * gs.params.shimmer);
+    const typename GS::FloatColor *row =
+        gs.modified_palettes +
+        (seed * GS::COLOR_NOISE_STEPS + NOISE.row) * GS::COLOR_VALUE_STEPS +
+        VALUE.column;
+    Pixel first = row[0].pixel().lerp16(row[1].pixel(), VALUE.weight);
+    Pixel second = row[GS::COLOR_VALUE_STEPS].pixel().lerp16(
+        row[GS::COLOR_VALUE_STEPS + 1].pixel(), VALUE.weight);
+    return first.lerp16(second, NOISE.weight);
+  }
+
+  /** @brief Blends a packed pigment's two palettes by its first-mass weight. */
+  template <typename Sample>
+  static Pixel mix_pigment(uint16_t pigment, Sample &&sample) {
+    Pixel first = sample(pigment & 31);
+    if ((pigment >> 10) == 63)
+      return first;
+    Pixel second = sample((pigment >> 5) & 31);
+    return second.lerp16(
+        first, static_cast<uint16_t>(((pigment >> 10) * 65535u + 31u) / 63u));
+  }
+
+  /** @brief Jacobi reference substep for the in-place physics. */
+  static void step_physics(GS &gs, const float *c_a, const float *c_b,
+                           float *n_a, float *n_b) {
+    gs.step_physics_nodes(c_a, c_b, [&](int i, float a, float b) {
+      n_a[i] = a;
+      n_b[i] = b;
+    });
+  }
+
+  /**
+   * @brief Kernel-weighted B at one point; 0 when no node is within the
+   * support radius.
+   */
+  static float interpolate_b(const GS &gs, const math::Vector &p, int seed,
+                             const math::Vector *nodes) {
+    float tw = 0, wb = 0;
+    GS::refine_and_accumulate(p, nodes, seed, [&](int i, float w) {
+      wb += GS::from_q16(gs.state.B[i]) * w;
+      tw += w;
+    });
+    if (tw <= GS::KERNEL_MIN_TOTAL_WEIGHT)
+      return 0.0f;
+    return wb / tw;
+  }
+
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
   static float from_q16(uint16_t v) { return GS::from_q16(v); }
   static void fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2,
@@ -195,7 +280,7 @@ struct GSWhiteBox {
   }
   static bool exact_color_path(GS &gs) {
     gs.refresh_color_palettes(true);
-    return gs.color_noise_sample(0.0f).exact;
+    return color_noise_sample(gs, 0.0f).exact;
   }
   static void refresh_color_palettes(GS &gs, bool complete = false) {
     gs.refresh_color_palettes(complete);
@@ -204,14 +289,14 @@ struct GSWhiteBox {
     return gs.color_palette_rows;
   }
   static bool exact_color_sample(const GS &gs, float noise) {
-    return gs.color_noise_sample(noise).exact;
+    return color_noise_sample(gs, noise).exact;
   }
   static Pixel staged_palette(const GS &gs, int seed, float t, float noise) {
-    return gs.cached_palette_color(seed, t, noise);
+    return cached_palette_color(gs, seed, t, noise);
   }
   static Pixel cached_palette(GS &gs, int seed, float t, float noise) {
     gs.refresh_color_palettes();
-    return gs.cached_palette_color(seed, t, noise);
+    return cached_palette_color(gs, seed, t, noise);
   }
   static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
                                float lightness) {
@@ -305,7 +390,8 @@ struct GSWhiteBox {
     }
   }
   static Pixel pigment_color(const GS &gs, int node, float t) {
-    return gs.pigment_color(gs.state.pigment[node], t);
+    return mix_pigment(gs.state.pigment[node],
+                       [&](int seed) { return gs.palette_color(seed, t); });
   }
   static void start_reaction(GS &gs) { gs.start_reaction(); }
   static void set_params(GS &gs, float feed, float k, float dA, float dB,
@@ -351,7 +437,7 @@ struct GSWhiteBox {
       fA[i] = GS::from_q16(cA[i]);
       fB[i] = GS::from_q16(cB[i]);
     }
-    gs.step_physics(fA.data(), fB.data(), gA.data(), gB.data());
+    step_physics(gs, fA.data(), fB.data(), gA.data(), gB.data());
     for (int i = 0; i < N; ++i) {
       nA[i] = GS::to_q16(gA[i]);
       nB[i] = GS::to_q16(gB[i]);
@@ -361,7 +447,7 @@ struct GSWhiteBox {
   // Float-domain substep, without step()'s clamping Q16 edges.
   static void step_float(GS &gs, const float *cA, const float *cB, float *nA,
                          float *nB) {
-    gs.step_physics(cA, cB, nA, nB);
+    step_physics(gs, cA, cB, nA, nB);
   }
 
   static void step_float_inplace(GS &gs, float *a, float *b) {
@@ -516,7 +602,7 @@ struct GSWhiteBox {
               b = tw <= GS::KERNEL_MIN_TOTAL_WEIGHT ? 0.0f
                                                     : wb * (GS::Q16_INV / tw);
             } else {
-              b = gs.interpolate_b(sample_v, seed, world_nodes);
+              b = interpolate_b(gs, sample_v, seed, world_nodes);
             }
             if (b < GS::B_CULL_THRESHOLD)
               continue;
@@ -529,13 +615,12 @@ struct GSWhiteBox {
             gs.kernel_accumulate(
                 sample_v, world_nodes, center, [&](int ni, float w) {
                   float weight = gs.state.B[ni] * w;
-                  Pixel color =
-                      GS::mix_pigment(gs.state.pigment[ni], [&](int id) {
-                        return direct_color
-                                   ? gs.modified_palette_color(id, t, shift,
-                                                               lightness)
-                                   : gs.cached_palette_color(id, t, noise);
-                      });
+                  Pixel color = mix_pigment(gs.state.pigment[ni], [&](int id) {
+                    return direct_color
+                               ? gs.modified_palette_color(id, t, shift,
+                                                           lightness)
+                               : cached_palette_color(gs, id, t, noise);
+                  });
                   mass += weight;
                   rgb[0] += color.r * weight;
                   rgb[1] += color.g * weight;
@@ -596,7 +681,7 @@ struct GSWhiteBox {
               Pixel color =
                   direct_color
                       ? gs.modified_palette_color(palette, t, shift, lightness)
-                      : gs.cached_palette_color(palette, t, noise);
+                      : cached_palette_color(gs, palette, t, noise);
               const double WEIGHT =
                   palette_mass[palette] * covered / (4 * total_mass);
               rgb[0] += color.r * WEIGHT;

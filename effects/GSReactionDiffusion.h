@@ -55,7 +55,6 @@ class GSReactionDiffusion
   using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::refine_and_accumulate;
   using Base::refine_render_center;
   using Base::register_param;
   using Base::to_q16;
@@ -417,19 +416,6 @@ private:
     }
   }
 
-  struct ColorNoiseSample {
-    int row;
-    uint16_t weight;
-    float value;
-    bool exact;
-  };
-
-  struct ColorValueSample {
-    int column;
-    uint16_t weight;
-    float value;
-  };
-
   struct ColorNoiseSelection {
     int row;
     bool exact;
@@ -441,46 +427,6 @@ private:
     return {ROW, !color_palette_valid ||
                      (color_palette_rows & (3u << ROW)) != (3u << ROW) ||
                      color_palette_exact};
-  }
-
-  __attribute__((always_inline)) ColorNoiseSample
-  color_noise_sample(float noise) const {
-    float position =
-        hs::clamp((noise + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
-                  static_cast<float>(COLOR_NOISE_STEPS - 1));
-    const auto SELECTION = color_noise_selection(position);
-    return {SELECTION.row,
-            static_cast<uint16_t>((position - SELECTION.row) * 65535.0f), noise,
-            SELECTION.exact};
-  }
-
-  __attribute__((always_inline)) static ColorValueSample
-  color_value_sample(float t) {
-    float position = t * (COLOR_VALUE_STEPS - 1);
-    int column = std::min(static_cast<int>(position), COLOR_VALUE_STEPS - 2);
-    return {column, lut_index_weight(position, column), t};
-  }
-
-  __attribute__((always_inline)) Pixel
-  cached_palette_color(int seed, const ColorValueSample &value,
-                       const ColorNoiseSample &noise) const {
-    if (noise.exact)
-      return modified_palette_color(seed, value.value,
-                                    noise.value * params.hue_shift,
-                                    fmaxf(noise.value, 0.0f) * params.shimmer);
-    const FloatColor *row =
-        modified_palettes +
-        (seed * COLOR_NOISE_STEPS + noise.row) * COLOR_VALUE_STEPS +
-        value.column;
-    Pixel first = row[0].pixel().lerp16(row[1].pixel(), value.weight);
-    Pixel second = row[COLOR_VALUE_STEPS].pixel().lerp16(
-        row[COLOR_VALUE_STEPS + 1].pixel(), value.weight);
-    return first.lerp16(second, noise.weight);
-  }
-
-  Pixel cached_palette_color(int seed, float t, float noise) const {
-    return cached_palette_color(seed, color_value_sample(t),
-                                color_noise_sample(noise));
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
@@ -506,21 +452,6 @@ private:
     const float U = FACE < 2 ? -projection.u : projection.u;
     const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
     return sample_hue_noise_face({color_noise_lut, true}, FACE, U, V);
-  }
-
-  template <typename Sample>
-  static Pixel mix_pigment(uint16_t pigment, Sample &&sample) {
-    Pixel first = sample(pigment & 31);
-    if ((pigment >> 10) == 63)
-      return first;
-    Pixel second = sample((pigment >> 5) & 31);
-    return second.lerp16(
-        first, static_cast<uint16_t>(((pigment >> 10) * 65535u + 31u) / 63u));
-  }
-
-  Pixel pigment_color(uint16_t pigment, float t) const {
-    return mix_pigment(pigment,
-                       [&](int seed) { return palette_color(seed, t); });
   }
 
   /**
@@ -622,25 +553,6 @@ private:
         mean_db < floor_db ? transition.stable_frames + 1 : 0;
     if (transition.stable_frames >= STABLE_HOLD_FRAMES)
       begin_dissolve();
-  }
-
-  /**
-   * @brief Jacobi reference substep for the in-place physics oracle tests.
-   * @param c_a Current A field (read-only), float in [0, 1] per node.
-   * @param c_b Current B field (read-only), float in [0, 1] per node.
-   * @param n_a Next A field (write target), float in [0, 1] per node.
-   * @param n_b Next B field (write target), float in [0, 1] per node.
-   * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
-   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. The [0, 1] clamp saturates
-   * explicit-Euler overshoot past the stability bound.
-   */
-  HS_O3_FN void step_physics(const float *__restrict c_a,
-                             const float *__restrict c_b, float *__restrict n_a,
-                             float *__restrict n_b) {
-    step_physics_nodes(c_a, c_b, [&](int i, float a, float b) {
-      n_a[i] = a;
-      n_b[i] = b;
-    });
   }
 
   static constexpr int PHYSICS_NEIGHBOR_REACH = 144;
@@ -755,29 +667,6 @@ private:
         ++i;
       }
     }
-  }
-
-  /**
-   * @brief Kernel-weighted sample of the B concentration at a point.
-   * @param p Query point on the sphere.
-   * @param seed Seed node id from the cubemap LUT; the fused stencil walk
-   * selects the nearest node among the seed and its direct neighbors.
-   * @param nodes Node positions in the same frame as `p`.
-   * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
-   * within the support radius.
-   * @details Single-sample test oracle for the per-pixel shared stencil.
-   */
-  float interpolate_b(const math::Vector &p, int seed,
-                      const math::Vector *nodes) const {
-    float tw = 0, wb = 0;
-    refine_and_accumulate(p, nodes, seed, [&](int i, float w) {
-      wb += from_q16(state.B[i]) * w;
-      tw += w;
-    });
-    // Zero remains cullable by the test oracle's b threshold.
-    if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
-      return 0.0f;
-    return wb / tw;
   }
 
   template <typename Grid, typename OnNode>
