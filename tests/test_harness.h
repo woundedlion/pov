@@ -530,7 +530,8 @@ inline int end_module(const ModuleScope &m) {
 #define HS_CONTEXT(...)                                                        \
   const hs_test::ContextScope HS_CTX_JOIN(hs_ctx, __LINE__)(__VA_ARGS__)
 
-// Core assertion all other HS_EXPECT_* macros funnel through.
+// Boolean assertion behind HS_EXPECT_TRUE/HS_EXPECT_FALSE; comparison macros
+// report through `report_cmp`, `report_near` and `report_near_rel`.
 #define HS_EXPECT(cond, msg)                                                   \
   do {                                                                         \
     if (cond) {                                                                \
