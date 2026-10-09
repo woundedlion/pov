@@ -89,7 +89,7 @@ class RotatedBoundsTests(unittest.TestCase):
 
 class RoutedTraceTests(unittest.TestCase):
     def test_master_enable_bottom_route_uses_an_obtuse_corner(self):
-        board_path = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+        board_path = ROUTED
         board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
         expected_corner = (23.544, 23.506)
         segments = [
@@ -130,7 +130,7 @@ class CathodeMarkTests(unittest.TestCase):
     its orientation on an assembled board."""
 
     def test_d_bus_carries_a_silk_bar_beside_its_cathode(self):
-        board_path = REPO_ROOT / "hardware" / "phantasm" / "1.1" / "phantasm.kicad_pcb"
+        board_path = ROUTED
         board = sexp.parse(board_path.read_text(encoding="utf-8"))[0]
         footprint, = [
             node
