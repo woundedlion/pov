@@ -684,7 +684,8 @@ inline void test_authored_field_snapshot_validation() {
   from.base_mesh = Solids::BaseMesh::CUBE;
   to.base_mesh = Solids::BaseMesh::ICOSAHEDRON;
   MindSplatterParams out{.active_count = 123};
-  out.lerp(from, to, .5f);
+  Control::interpolate_fields(out, from, to, .5f,
+                              MindSplatter<96, 48>::parameter_fields());
   HS_EXPECT_EQ(out.friction,
                from.friction + (to.friction - from.friction) * .5f);
   HS_EXPECT_EQ(out.base_mesh, to.base_mesh);
