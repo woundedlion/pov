@@ -17,7 +17,7 @@ inline void test_meshcarousel_compact_keep_front_drops_back() {
   static uint8_t polybuf[1 << 14];
   Arena polyarena(polybuf, sizeof(polybuf));
   PolyMesh poly;
-  build_octahedron(poly, polyarena);
+  build_solid<Solids::Octahedron>(poly, polyarena);
 
   MeshCarousel<Segue::Crossfade> carousel; // front slot 0
   MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
@@ -50,7 +50,7 @@ inline void test_meshcarousel_compact_drop_all_frees_both_slots() {
   static uint8_t polybuf[1 << 14];
   Arena polyarena(polybuf, sizeof(polybuf));
   PolyMesh poly;
-  build_octahedron(poly, polyarena);
+  build_solid<Solids::Octahedron>(poly, polyarena);
 
   MeshCarousel<Segue::Crossfade> carousel;
   MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
