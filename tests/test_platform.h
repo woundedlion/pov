@@ -269,51 +269,27 @@ inline void test_beatsin16_golden() {
 
 /**
  * @brief Verifies Serial.printf and comparison-operand output.
- * @details SerialMock writes to C stdout, so the test captures fd 1 through a
- *          pipe; the message fits the pipe buffer, so the write cannot block.
  */
 inline void test_stdout_formatting() {
-  int fds[2] = {-1, -1};
-  std::fflush(stdout);
-  int made = fd_pipe(fds);
-  int saved_out = made == 0 ? fd_dup(1) : -1;
-  HS_EXPECT(made == 0 && saved_out >= 0, "capture pipe opened");
-  if (made != 0 || saved_out < 0) {
-    if (made == 0) {
-      fd_close(fds[0]);
-      fd_close(fds[1]);
-    }
+  const auto text = capture_stdout([] {
+    Serial.printf("req %u / cap %u", 12u, 48u);
+    std::putchar('|');
+    print_operand(nullptr);
+    std::putchar('|');
+    print_operand(static_cast<const char *>(nullptr));
+    std::putchar('|');
+    print_operand(std::string_view{});
+    std::putchar('|');
+    print_operand(std::string_view("a\0b", 3));
+    std::putchar('|');
+    print_operand("text");
+  });
+  HS_EXPECT_TRUE(text.has_value());
+  if (!text)
     return;
-  }
-  fd_dup2(fds[1], 1);
-  Serial.printf("req %u / cap %u", 12u, 48u);
-  std::putchar('|');
-  print_operand(nullptr);
-  std::putchar('|');
-  print_operand(static_cast<const char *>(nullptr));
-  std::putchar('|');
-  print_operand(std::string_view{});
-  std::putchar('|');
-  print_operand(std::string_view("a\0b", 3));
-  std::putchar('|');
-  print_operand("text");
-  std::fflush(stdout);
-  fd_dup2(saved_out, 1);
-  fd_close(saved_out);
-  fd_close(fds[1]); // last write end; the read below now sees EOF
-  char buf[64] = {0};
-  size_t n = 0;
-  for (;;) {
-    long got = fd_read(fds[0], buf + n, sizeof(buf) - 1 - n);
-    if (got <= 0)
-      break;
-    n += static_cast<size_t>(got);
-  }
-  buf[n] = '\0';
-  fd_close(fds[0]);
   constexpr char EXPECTED[] =
       "req 12 / cap 48|null|null|\"\"|\"a\0b\"|\"text\"";
-  HS_EXPECT_EQ(std::string_view(buf, n),
+  HS_EXPECT_EQ(std::string_view(*text),
                std::string_view(EXPECTED, sizeof(EXPECTED) - 1));
 }
 

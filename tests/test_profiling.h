@@ -16,70 +16,16 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#if defined(_WIN32)
-#include <process.h> // _getpid
-#else
-#include <unistd.h> // getpid
-#endif
 
 namespace hs_test {
 namespace profiling_tests {
 
-/**
- * @brief Runs CycleCounter::log_all() with fd 1 redirected into @p out.
- * @param out Destination buffer; receives the NUL-terminated report.
- * @param n Capacity of @p out.
- * @return True if the redirect was established and the report captured.
- * @details Captures through a pid-named scratch file in TEMP (Windows) or
- * TMPDIR (POSIX); the report can outrun a pipe buffer.
- */
+/** @brief Captures the counter report into a NUL-terminated bounded buffer. */
 inline bool capture_log_all(char *out, size_t n) {
-  out[0] = '\0';
-  char path[512];
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-#if defined(_WIN32)
-  const char *dir = std::getenv("TEMP");
-  if (!dir || dir[0] == '\0')
-    dir = ".";
-  std::snprintf(path, sizeof(path), "%s\\profiling_log_capture_%d.tmp", dir,
-                _getpid());
-#else
-  const char *dir = std::getenv("TMPDIR");
-  if (!dir || dir[0] == '\0')
-    dir = "/tmp";
-  std::snprintf(path, sizeof(path), "%s/profiling_log_capture_%d.tmp", dir,
-                static_cast<int>(getpid()));
-#endif
-#pragma clang diagnostic pop
-  std::fflush(stdout);
-  int saved_out = fd_dup(1);
-#if defined(_WIN32)
-  std::FILE *cap = nullptr;
-  fopen_s(&cap, path, "w+");
-#else
-  std::FILE *cap = std::fopen(path, "w+");
-#endif
-  if (cap == nullptr || saved_out < 0) {
-    if (cap != nullptr) {
-      std::fclose(cap);
-      std::remove(path);
-    }
-    if (saved_out >= 0) {
-      fd_close(saved_out);
-    }
+  const auto text = capture_stdout([] { hs::CycleCounter::log_all(); });
+  if (!text || n == 0)
     return false;
-  }
-  fd_dup2(fd_fileno(cap), 1);
-  hs::CycleCounter::log_all();
-  std::fflush(stdout);
-  fd_dup2(saved_out, 1);
-  fd_close(saved_out);
-  std::rewind(cap);
-  size_t got = std::fread(out, 1, n - 1, cap);
-  out[got] = '\0';
-  std::fclose(cap);
-  std::remove(path);
+  std::snprintf(out, n, "%s", text->c_str());
   return true;
 }
 
