@@ -177,8 +177,8 @@ inline void test_wireframe_reuses_geodesic_cull_span() {
  * @brief Verifies the solid fill lights every face interior and tiles the whole
  *        sphere.
  * @details Each of the octahedron's 8 face centroids is lit, the fill covers
- *          far more than the wireframe, and a closed convex solid leaves
- *          essentially no holes.
+ *          far more than the wireframe, and a closed convex solid tiles
+ *          every pixel with no holes.
  */
 inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   constexpr int W = 288, H = 144;
