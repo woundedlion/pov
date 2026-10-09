@@ -1238,7 +1238,7 @@ inline void test_generate_lifecycle_and_forwarding() {
  * @brief Confirms sequential generate() calls accumulate target allocations
  *        while scratch is rolled back.
  */
-inline void test_generate_nested_target_persists() {
+inline void test_generate_sequential_target_accumulates() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
   (void)hs::generate(
@@ -1450,7 +1450,7 @@ inline int run_memory_tests() {
   test_persist_compaction_relocates_survivor();
 
   test_generate_lifecycle_and_forwarding();
-  test_generate_nested_target_persists();
+  test_generate_sequential_target_accumulates();
   test_generate_reentrant_nesting_does_not_clobber();
   test_generate_deep_nesting_stacks_and_unwinds();
 
