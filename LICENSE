@@ -1,8 +1,8 @@
 Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 
 Scope: These terms cover the core infrastructure — the rendering engine, math,
-scan/raster, hardware drivers, and test harness — everything outside
-`effects/`. The visual effects in `effects/`, including their compiled form in
+scan/raster, hardware drivers, test harness, and shader workbench — everything
+outside `effects/`. The visual effects in `effects/`, including their compiled form in
 any distributed build artifact, are Copyright 2025 Gabriel Levy. All rights
 reserved. They are not covered by the license below — no rights to use, copy,
 modify, or distribute them are granted.
@@ -11,8 +11,6 @@ Exceptions outside `effects/`, each carrying its own terms in its own header:
 
 - `core/engine/effects_legacy.h` — retired effect sources, All Rights Reserved
   on the same terms as `effects/`.
-- `workbench/` — the shader workbench and chain-interpreter surfaces, All
-  Rights Reserved on the same terms as `effects/`.
 - `core/math/projections.h` — derived from PROJ; MIT, Copyright Frank
   Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ
   contributors.
