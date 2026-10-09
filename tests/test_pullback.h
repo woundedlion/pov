@@ -1077,7 +1077,8 @@ inline void test_pullback_concrete_catalog() {
   HS_EXPECT_EQ(
       Pullback::Source::escape_fractal(origin, fractal_params, fractal_frame),
       1.0f);
-  // c = 0.6 escapes on iteration 3 of 8, landing on contour cycle 0.4219.
+  // c = 0.6 escapes at loop index 3 of 8 (orbit 0.4219), i.e. 1.6875 cycles
+  // at the default 4 contours.
   HS_EXPECT_NEAR(Pullback::Source::escape_fractal(
                      math::Complex(1.2f, 0.0f), fractal_params, fractal_frame),
                  -0.38298f, 5e-3f);
