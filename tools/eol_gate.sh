@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assert every tracked file whose .gitattributes entry declares an `eol` value
-# actually carries those line endings, in the index blob and in the working copy.
+# carries those line endings in the working copy and LF in the index blob.
 #
 # A working copy that diverged from its eol=lf blob is invisible to
 # `git status`.

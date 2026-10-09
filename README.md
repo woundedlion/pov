@@ -513,7 +513,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
 │   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`
 │   ├── clang_format_gate.sh    Tracked first-party C++ selection + clang-format run behind `just clang-format`
-│   ├── eol_gate.sh             Tracked line endings against the `eol` attribute `.gitattributes` declares, in index and working copy (CI, `just lint`)
+│   ├── eol_gate.sh             Working-copy line endings against the `eol` attribute `.gitattributes` declares, and LF index blobs (CI, `just lint`)
 │   ├── whitespace_gate.sh      Tracked whitespace check shared by CI and `just lint`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
 │   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
