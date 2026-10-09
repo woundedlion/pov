@@ -287,8 +287,7 @@ void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
  * per-frame sub-positions. A bare Orientation has no per-frame structure to
  * flatten — use tween() for that.
  * @param trail The OrientationTrail to iterate.
- * @param callback The function to call for each step: `void(const T&, float
- * t)`.
+ * @param callback The function to call for each step: `void(const math::Quaternion &, float t)`.
  */
 void deep_tween(const Tweenable auto &trail, TweenFn callback) {
   deep_tween_frames(
