@@ -1015,19 +1015,13 @@ inline void test_feedback_polar_rows_hit_their_targets() {
   HS_EXPECT_LT(worst * 180.0f / math::PI_F, 0.5f);
 }
 
-/**
- * @brief Warp-cache parity: an init_storage'd Feedback filter must render
- *        exactly what an uncached one does, frame for frame.
- * @details Covers a static style, a key-field mutation, a generator seed
- *          change that no Style scalar mirrors, advancing noise time, and a
- *          mid-run init_storage() re-allocation.
- */
+/** @brief Cached warp reuse matches uncached rendering. */
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   constexpr int FRAMES = 8;
   // Frames 3 and 4 share a band, so frame 4's seed change is the only key
   // difference between them and lands on a populated cache entry.
-  constexpr int CLIP_BEGIN[FRAMES] = {20, 36, 24, 40, 40, 20, 36, 24};
+  constexpr int CLIP_BEGIN[FRAMES] = {20, 20, 24, 40, 40, 20, 36, 24};
 
   // Only one Effect may be alive at a time (shared static buffers), so the
   // two pipelines run sequentially over recorded frames.
