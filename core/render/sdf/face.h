@@ -361,7 +361,8 @@ struct Face {
    *         band lies outside the render rows, or its azimuth coverage lies
    *         outside the render columns. A full-width face or an inactive x-clip
    *         never rejects on the horizontal axis.
-   * @details Mirrors Scan::rasterize's vertical clamp and per-fragment XClip.
+   * @details Mirrors the scan's vertical clamp (`Scan::clamp_rows_to_clip`)
+   * and its run-level column-arc clip (`Scan::clip_run`).
    */
   bool clip_rejects(const ClipRegion &cr) const {
     if (y_max < cr.render_y_start() || y_min > cr.render_y_end() - 1)
