@@ -7,6 +7,20 @@
 
 // Registry death cases.
 
+/** @brief Builds a registration carrying only a name and stable ID. */
+constexpr EffectRegistration named_registration(std::string_view name,
+                                                std::string_view stable_id) {
+  EffectRegistration entry{};
+  entry.name = name;
+  entry.stable_id = stable_id;
+  return entry;
+}
+
+static_assert(!registration_names_unique(std::array{
+    named_registration("DeathEmptyId", "")}));
+static_assert(!registration_names_unique(std::array{
+    named_registration("", "death-empty-name")}));
+
 /**
  * @brief Death case: a class name equal to another effect's stable ID must
  *        trap.
