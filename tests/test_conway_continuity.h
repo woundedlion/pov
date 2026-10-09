@@ -950,8 +950,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[math::wrap(
-        static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
+    const uint8_t to =
+        landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
     const uint8_t from = f < landing.primary_faces
                              ? pal[f]
                              : to; // newborn faces skip the crossfade
@@ -965,8 +965,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
     step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
-    const uint8_t to = landing.to_palette[math::wrap(
-        static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
+    const uint8_t to =
+        landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
                       bank.bank.entries[to].get(RAMP_SAMPLES[s]));
@@ -1046,8 +1046,8 @@ inline void test_palette_mapping_total_all_edges() {
     if (snap.colors.size() != landing.faces)
       continue;
     for (size_t f = 0; f < snap.colors.size(); ++f) {
-      const uint8_t to = landing.to_palette[math::wrap(
-          static_cast<int>(landing.topology[f]), Animation::OpLeg::PALETTES)];
+      const uint8_t to =
+          landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
       const uint8_t from = f < landing.primary_faces ? pal[f] : to;
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
         expect_color_eq(snap.colors[f][s],

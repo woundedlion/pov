@@ -13,6 +13,7 @@
  * @brief Animation fragment: OpLeg Conway-chain morph legs.
  */
 
+#include "color/palettes.h"
 #include "mesh/conway.h"
 #include "mesh/conway_graph.h"
 #include "mesh/hankin.h"
@@ -271,7 +272,7 @@ public:
     uint8_t landed_palette(size_t f) const {
       HS_CHECK(topology && f < faces,
                "OpLeg::Landing: landed_palette face out of range");
-      return to_palette[math::wrap(static_cast<int>(topology[f]), PALETTES)];
+      return to_palette[MeshPaletteBank::slot_of(topology[f])];
     }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
@@ -1720,8 +1721,8 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      const uint8_t to = tr.landing.to_palette[math::wrap(
-          static_cast<int>(target_topo[f]), PALETTES)];
+      const uint8_t to =
+          tr.landing.to_palette[MeshPaletteBank::slot_of(target_topo[f])];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
       if (forced_from) {
         from = forced_from[f];
@@ -1741,8 +1742,7 @@ private:
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
         } else {
-          const int slot =
-              math::wrap(static_cast<int>(target_topo[f]), PALETTES);
+          const int slot = MeshPaletteBank::slot_of(target_topo[f]);
           if (newborn_from[slot] < 0)
             newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                 start_centroid[f], handoff)];
