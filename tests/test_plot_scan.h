@@ -96,6 +96,7 @@ inline int run_plot_scan_tests() {
   test_clip_x_wrap_matches_modulo();
   test_row_span_covers_arc_bulge();
   test_cap_may_touch_clip_is_conservative();
+  test_for_each_chunk_span_tiles_columns();
   test_clip_arcs_overlap();
   test_col_span_rejects_ill_conditioned_pole();
   test_col_span_covers_arc();
