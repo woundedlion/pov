@@ -27,13 +27,18 @@
 #include "core/platform/platform.h"
 #include "targets/wasm/payload_clone.h"
 
+/// Size of `palette_lut`: 256 RGB entries.
 inline constexpr size_t PALETTE_LUT_BYTES = 256 * 3;
+/// Size of `palette_diagnostics`: 256 entries of 6 floats.
 inline constexpr size_t PALETTE_DIAGNOSTIC_FLOATS = 256 * 6;
 // Bake targets shared by every PaletteOps instance, handed to JS as views
 // over WASM linear memory rather than copies. See the memory-view contract on
 // compile().
+/// Baked 256-entry LUT, 8-bit RGB triples.
 static uint8_t palette_lut[PALETTE_LUT_BYTES];
+/// Per-entry {L, C, q, C_max, h_path, h_final} inspection values.
 static float palette_diagnostics[PALETTE_DIAGNOSTIC_FLOATS];
+/// Per-entry flag: 1 where the colour left sRGB and was clipped, else 0.
 static uint8_t palette_fallback[256];
 
 /**

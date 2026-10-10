@@ -32,6 +32,7 @@
 #include <string>
 
 // ---- Stack canary painting for high water mark tracking ----
+/// Byte painted over unused stack for high-water-mark scans.
 inline constexpr uint8_t STACK_CANARY = 0xCD;
 
 /**
@@ -88,10 +89,10 @@ static size_t stack_high_water_mark() {
   return static_cast<size_t>(top - p);
 }
 
-// Running max of effect construction + init() stack depth; survives repaints.
+/// Running max of effect construction + init() stack depth; survives repaints.
 static size_t init_stack_peak = 0;
 
-// Bound on one effect's exposed parameters.
+/// Bound on one effect's exposed parameters.
 inline constexpr size_t MAX_PARAMS = hs_wasm::ParamStreams::CAPACITY;
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -148,9 +149,9 @@ enum class EffectSetResult {
                                kept. */
 };
 
-// True while a HolosphereEngine is constructed-but-not-deleted. The engine is a
-// singleton: its Effect aliases shared static buffers and its arenas are
-// module-global, so a second instance would corrupt the first's frames.
+/// True while a HolosphereEngine is constructed-but-not-deleted. The engine is
+/// a singleton: its Effect aliases shared static buffers and its arenas are
+/// module-global, so a second instance would corrupt the first's frames.
 static bool engine_alive = false;
 
 /**

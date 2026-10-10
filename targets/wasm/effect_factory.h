@@ -20,6 +20,7 @@
 
 namespace hs_wasm {
 
+/** @brief One registration per HS_EFFECT_LIST entry, in list order. */
 inline constexpr std::array<EffectRegistration, HS_EFFECT_COUNT>
     EFFECT_REGISTRATIONS = {{
 #define HS_REGISTER_ENTRY(name) make_registration<name>(#name),
@@ -76,6 +77,7 @@ struct WasmResolution {
   int h; /**< Canvas height in pixels. */
 };
 
+/** @brief HS_RESOLUTIONS rows, in macro order. */
 inline constexpr WasmResolution WASM_RESOLUTIONS[] = {
 #define X(W, H) {(W), (H)},
     HS_RESOLUTIONS(X)
