@@ -97,6 +97,7 @@ public:
 
   /**
    * @brief Compiles a program shape transactionally.
+   * @param request Ordered program entries.
    * @return The compile refusal; {OK, -1} on commit.
    * @details On commit the parameter definitions are rebuilt and the schema
    * generation bumped BEFORE returning, so preset values never apply against a
@@ -117,7 +118,10 @@ public:
     return refusal;
   }
 
-  /** @brief Borrows the compiled entries until the next program replacement. */
+  /**
+   * @brief Borrows the compiled entries until the next program replacement.
+   * @return Compiled entries in program order.
+   */
   std::span<const Pullback::Interp::ChainProgram::ChainOp> chain_ops() const {
     return program.ops();
   }
@@ -281,7 +285,11 @@ public:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Validates the final parameter state, then commits every write. */
+  /**
+   * @brief Validates the final parameter state, then commits every write.
+   * @param writes Named parameter writes.
+   * @return APPLIED, or the first refusal with nothing committed.
+   */
   ParamSetResult
   update_parameters(std::span<const ShaderChainParameterWrite> writes) {
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
