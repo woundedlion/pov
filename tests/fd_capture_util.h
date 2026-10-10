@@ -10,7 +10,6 @@
 #include <string>
 #include <utility>
 #if defined(_WIN32)
-#include <fcntl.h>
 #include <io.h>
 #else
 #include <unistd.h>
@@ -19,14 +18,6 @@
 namespace hs_test {
 
 // POSIX fd primitives with their underscore-prefixed Windows equivalents.
-inline int fd_pipe(int fds[2]) {
-#if defined(_WIN32)
-  return _pipe(fds, 4096, _O_BINARY);
-#else
-  return pipe(fds);
-#endif
-}
-
 inline int fd_dup(int fd) {
 #if defined(_WIN32)
   return _dup(fd);
@@ -48,14 +39,6 @@ inline void fd_close(int fd) {
   _close(fd);
 #else
   close(fd);
-#endif
-}
-
-inline long fd_read(int fd, char *buf, size_t n) {
-#if defined(_WIN32)
-  return _read(fd, buf, static_cast<unsigned int>(n));
-#else
-  return static_cast<long>(read(fd, buf, n));
 #endif
 }
 
