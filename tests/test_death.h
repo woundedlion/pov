@@ -506,6 +506,10 @@ inline const Case *all_cases(int &n) {
        "core/animation/carousel.h",
        "(slot == front) MeshCarousel segue scheduled before incoming slot "
        "flip"},
+      {"mesh_carousel_unclassified_face_phases",
+       case_mesh_carousel_unclassified_face_phases, "core/animation/carousel.h",
+       "(transformed.get_topology_size() >= sweep.num_faces()) MeshCarousel: "
+       "face classes do not cover the swept faces"},
       {"timeline_double_construct", case_timeline_double_construct,
        "core/animation/timeline.h",
        "(!global_timeline_live) a second live Timeline would stomp the shared "

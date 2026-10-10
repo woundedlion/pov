@@ -203,6 +203,7 @@ public:
    * faces otherwise.
    * @param phase Segue progress passed to the policy.
    * @param out Per-face phase output, indexed by face.
+   * @pre `transformed` is classified with at least as many faces as the sweep.
    */
   __attribute__((always_inline)) void
   fill_face_phases(const MeshState &base, const MeshState &transformed,
@@ -213,6 +214,8 @@ public:
     const uint16_t *indices = sweep.get_faces_data();
     const uint16_t *offsets = sweep.get_face_offsets_data();
     const uint8_t *counts = sweep.get_face_counts_data();
+    HS_CHECK(transformed.get_topology_size() >= sweep.num_faces(),
+             "MeshCarousel: face classes do not cover the swept faces");
     out.clear();
     for (size_t face = 0; face < sweep.num_faces(); ++face) {
       const math::Vector center = MeshOps::face_vertex_sum(
