@@ -150,12 +150,11 @@ public:
         return out;
       arc_cache.bind(scratch_arena_a, count);
       seam_cache.bind(scratch_arena_a, count);
-      const math::Vector &pcenter = basis->v;
       for (size_t i = 0; i < count; i++) {
         const math::Vector &a = points[i].pos;
         const math::Vector &b = segment_next(i).pos;
-        const bool seam = math::dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
-                          math::dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
+        const bool seam =
+            at_planar_antipode(a, *basis) || at_planar_antipode(b, *basis);
         seam_cache.push_back(seam ? 1 : 0);
         float seg =
             seam ? unit_arc_length(a, b) : planar_arc_length(a, b, *basis);

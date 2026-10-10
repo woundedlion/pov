@@ -265,6 +265,78 @@ struct RasterOptions {
 };
 
 HS_O3_BEGIN
+/** @brief Arc fraction of a replayed step: exactly 1 at the terminal step,
+ * else @p dist over @p total_dist clamped to 1. */
+HS_HOT_INLINE inline float replay_t(bool terminal, float dist,
+                                    float total_dist) {
+  return terminal ? 1.0f : fminf(dist / total_dist, 1.0f);
+}
+
+/**
+ * @brief Moves an adaptive walk one step along its segment.
+ * @param current_dist Arc walked so far, advanced in place.
+ * @param total_dist Segment arc.
+ * @param step Desired step.
+ * @param endpoint_gap Set to the final step when it reaches the end.
+ * @details A step within @p step of the end lands on it; under two steps the
+ * walk halves the remainder so it never ends on a sliver.
+ */
+HS_HOT_INLINE inline void advance_distance(float &current_dist,
+                                           float total_dist, float step,
+                                           float &endpoint_gap) {
+  float remaining = total_dist - current_dist;
+  if (remaining <= step) {
+    endpoint_gap = remaining;
+    current_dist = total_dist;
+  } else if (remaining < 2.0f * step) {
+    current_dist += remaining * 0.5f;
+  } else {
+    current_dist += step;
+  }
+}
+
+/**
+ * @brief Balanced-policy step for a default-density step.
+ * @param default_step Default-density screen step.
+ * @param base_step Equatorial step 2π/W.
+ * @return @p default_step near the pole floor; else the step stretched to
+ *         BALANCED_SCREEN_STEP_PX, capped at @p base_step.
+ */
+HS_HOT_INLINE inline float balanced_step(float default_step, float base_step) {
+  const float POLE_GUARD =
+      base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
+  return default_step <= POLE_GUARD
+             ? default_step
+             : fminf(base_step,
+                     default_step * (BALANCED_SCREEN_STEP_PX / SCREEN_STEP_PX));
+}
+
+/**
+ * @brief Balanced-policy alpha scale of a segment's final endpoint.
+ * @param endpoint_gap Arc from the last plotted sample to the endpoint.
+ * @param default_step Default-density step at the last full sample.
+ * @param step Step the walk was taking.
+ * @return The gap the endpoint stands in for, clamped to
+ *         [default_step, step], over default_step.
+ */
+HS_HOT_INLINE inline float
+endpoint_alpha_scale(float endpoint_gap, float default_step, float step) {
+  return hs::clamp(endpoint_gap, default_step, step) / default_step;
+}
+
+/** @brief True when @p p lies at the antipode of @p basis, where the planar
+ * projection is singular. */
+HS_HOT_INLINE inline bool at_planar_antipode(const math::Vector &p,
+                                             const math::Basis &basis) {
+  return math::dot(p, basis.v) < -COS_PLANAR_ANTIPODE;
+}
+
+/** @brief True when @p bit is set in edge @p i's visibility byte. */
+HS_HOT_INLINE inline bool has_edge_flag(const uint8_t *edge_flags, size_t i,
+                                        uint8_t bit) {
+  return (edge_flags[i] & bit) != 0;
+}
+
 #include "render/plot/raster_walk.h"
 
 /**
@@ -430,14 +502,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
     // Equatorial step 2π/W: screen_step cap and balanced-threshold reference.
     const float base_step = (2.0f * math::PI_F) / W;
-    auto balanced_step = [&](float default_step) {
-      const float POLE_GUARD =
-          base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE;
-      return default_step <= POLE_GUARD
-                 ? default_step
-                 : fminf(base_step, default_step * (BALANCED_SCREEN_STEP_PX /
-                                                    SCREEN_STEP_PX));
-    };
     auto adaptive_step = [&](const SamplePT &value) {
 #if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
       if (!g_reference_screen_step)
@@ -514,15 +578,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       bool reuse_step = false;
       if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
         if (balanced_sampling)
-          desired_step = balanced_step(first_step);
+          desired_step = balanced_step(first_step, base_step);
       }
       size_t step_count = 0;
       float backstop_stretch = 1.0f;
       // Arc from the last plotted sample to the segment end; the terminal step
       // is `remaining`, not the stretched `desired_step`.
       [[maybe_unused]] float endpoint_gap = total_dist;
-      while (current_dist < total_dist) {
-        math::Vector p;
+      // Writes the unit position of `smp` to `p`.
+      auto unit_position = [&](math::Vector &p) __attribute__((always_inline)) {
         if constexpr (OPEN_GEODESIC || NEWTON_UNIT_SAMPLER) {
           HS_PLOT_COUNT(normalizations);
 #if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
@@ -545,6 +609,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           HS_PLOT_COUNT(normalizations);
           p = smp.pos.normalized();
         }
+      };
+      while (current_dist < total_dist) {
+        math::Vector p;
+        unit_position(p);
         if (!plot_window ||
             (current_t >= plot_t_start && current_t <= plot_t_hi)) {
           Fragment f;
@@ -571,15 +639,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           }
         }
         HS_PLOT_MAX(steps_peak, step_count);
-        float remaining = total_dist - current_dist;
-        if (remaining <= desired_step) {
-          endpoint_gap = remaining;
-          current_dist = total_dist;
-        } else if (remaining < 2.0f * desired_step) {
-          current_dist += remaining * 0.5f;
-        } else {
-          current_dist += desired_step;
-        }
+        advance_distance(current_dist, total_dist, desired_step, endpoint_gap);
         if (current_dist < total_dist) {
           current_t = current_dist / total_dist;
           HS_PLOT_COUNT(sim_samples);
@@ -624,7 +684,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           desired_step = default_desired_step;
           if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
-              desired_step = balanced_step(default_desired_step);
+              desired_step = balanced_step(default_desired_step, base_step);
           }
           desired_step *= backstop_stretch;
         }
@@ -639,9 +699,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           // Gain the endpoint by the arc it actually stands in for, floored
           // at the default step so it never dims below the DEFAULT policy.
           if (balanced_sampling)
-            alpha_scale =
-                hs::clamp(endpoint_gap, default_desired_step, desired_step) /
-                default_desired_step;
+            alpha_scale = endpoint_alpha_scale(
+                endpoint_gap, default_desired_step, desired_step);
         }
         shade_and_plot(pipeline, canvas, fragment_shader, next.pos, f,
                        alpha_scale);
@@ -704,7 +763,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       current_dist += step;
 
       const bool terminal = !omit_last && j == loop_limit - 1;
-      float t = terminal ? 1.0f : fminf(current_dist / total_dist, 1.0f);
+      float t = replay_t(terminal, current_dist, total_dist);
 
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
@@ -760,13 +819,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // Branch-cut guard: the planar projection is singular at the basis antipode,
     // so a segment with an endpoint there falls back to a geodesic edge.
     bool antipodal_seam = false;
-    if (has_planar_basis) {
-      antipodal_seam =
-          arcs.is_active()
-              ? arcs.seam(i)
-              : math::dot(curr.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE ||
-                    math::dot(next.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE;
-    }
+    if (has_planar_basis)
+      antipodal_seam = arcs.is_active()
+                           ? arcs.seam(i)
+                           : at_planar_antipode(curr.pos, *planar_basis) ||
+                                 at_planar_antipode(next.pos, *planar_basis);
     const bool use_planar = planar_basis && !antipodal_seam;
 
     arcs.advance(i, arc_uv);
@@ -784,7 +841,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         rebuild_planar_sampler = opts.rebuild_planar_sampler;
 #endif
         if (edge_flags != nullptr) {
-          visible = (edge_flags[i] & RasterOptions::EDGE_VISIBLE) != 0;
+          visible = has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE);
         } else if (use_planar && xc.active && !rebuild_planar_sampler) {
           planar_cull_span =
               make_planar_edge_span(curr.pos, next.pos, *planar_basis);
@@ -798,11 +855,12 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                                          use_planar ? planar_basis : nullptr);
         }
       } else {
-        visible = edge_flags != nullptr
-                      ? (edge_flags[i] & RasterOptions::EDGE_VISIBLE) != 0
-                      : edge_visible_in_clip<W, H>(
-                            pipeline, cr, xc, curr.pos, next.pos,
-                            use_planar ? planar_basis : nullptr);
+        visible =
+            edge_flags != nullptr
+                ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_VISIBLE)
+                : edge_visible_in_clip<W, H>(
+                      pipeline, cr, xc, curr.pos, next.pos,
+                      use_planar ? planar_basis : nullptr);
       }
       if (!visible) {
         HS_PLOT_COUNT(culled);
@@ -817,8 +875,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     const bool one_dot =
         world_identity && !has_planar_basis &&
         (edge_flags != nullptr &&
-                 (edge_flags[i] & RasterOptions::EDGE_CLASSIFIED) != 0
-             ? (edge_flags[i] & RasterOptions::EDGE_ONE_DOT) != 0
+                 has_edge_flag(edge_flags, i, RasterOptions::EDGE_CLASSIFIED)
+             ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_ONE_DOT)
              : edge_fits_one_dot<W, H>(curr.pos, next.pos));
     if (one_dot) {
       HS_PLOT_COUNT(one_dot);
