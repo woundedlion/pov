@@ -110,17 +110,11 @@ inline void test_shader_chain_effect_registers_params() {
                    .coverage_mode,
                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE));
 
-  uint64_t lit = 0;
   for (int frame = 0; frame < 4; ++frame) {
     effect.draw_frame();
     effect.advance_display();
   }
-  for (int y = 0; y < 20; ++y)
-    for (int x = 0; x < 96; ++x) {
-      const Pixel &pixel = effect.get_pixel(x, y);
-      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
-  HS_EXPECT_GT(lit, 0u);
+  HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
 
 inline void test_shader_chain_parameter_admission() {
@@ -445,17 +439,11 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), committed);
   HS_EXPECT_EQ(effect.getParameters().size(), param_count);
   HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") != nullptr);
-  uint64_t lit = 0;
   for (int frame = 0; frame < 2; ++frame) {
     effect.draw_frame();
     effect.advance_display();
   }
-  for (int y = 0; y < 20; ++y)
-    for (int x = 0; x < 96; ++x) {
-      const Pixel &pixel = effect.get_pixel(x, y);
-      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
-  HS_EXPECT_GT(lit, 0u);
+  HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
 
 /** @brief Pause gates preset selection only: chain clocks and the visible
@@ -492,11 +480,5 @@ inline void test_shader_chain_pause_semantics() {
   HS_EXPECT_TRUE(color_after.r != color_before.r ||
                  color_after.g != color_before.g ||
                  color_after.b != color_before.b);
-  uint64_t lit = 0;
-  for (int y = 0; y < 20; ++y)
-    for (int x = 0; x < 96; ++x) {
-      const Pixel &pixel = effect.get_pixel(x, y);
-      lit += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    }
-  HS_EXPECT_GT(lit, 0u);
+  HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
