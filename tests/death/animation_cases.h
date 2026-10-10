@@ -156,14 +156,11 @@ inline void case_opleg_rewind_refill() {
 }
 
 /**
- * @brief Death case: choosing an edge from a node outside the graph must trap.
- * @details ConwayGraph surface — no EDGES row touches such a node, so the
- *          weighted pick would have nothing to divide by.
+ * @brief Death case: routing from a node outside the graph must trap.
  */
-inline void case_pick_next_edge_unknown_node() {
-  uint8_t visits[ConwayGraph::NUM_NODES] = {};
-  const int e = ConwayGraph::pick_next_edge(opaque<int>(ConwayGraph::NUM_NODES),
-                                            -1, 0, visits, 0u);
+inline void case_next_edge_toward_unknown_node() {
+  const int e = ConwayGraph::next_edge_toward(
+      opaque<int>(ConwayGraph::NUM_NODES), ConwayGraph::TETRAHEDRON, 0u);
   if (e == opaque<int>(-42))
     std::printf("x");
 }

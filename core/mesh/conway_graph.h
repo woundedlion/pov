@@ -142,7 +142,7 @@ inline constexpr float truncate_off_pinch(float t) {
 }
 
 /** Operator-sweep frames per leg. */
-inline constexpr int SWEEP_FRAMES = 48;
+inline constexpr int SWEEP_FRAMES = 24;
 /** Settle (relax-slerp) frames appended to a settling leg; 0 for the rest. */
 inline constexpr int SETTLE_FRAMES = 12;
 
@@ -167,7 +167,7 @@ inline constexpr float TWIST_JITTERBUG_OCTA = -math::PI_F / 3.0f;
  * @brief One bidirectional graph edge: a single operator sweep on one seed.
  * @details Nodes and seed_solid are simple-registry indices. `settle` means
  * the to_node end uses the simple-registry canonical form.
- * `bridge` marks a symmetry-family crossing, used by the walk weighting.
+ * `bridge` marks a symmetry-family crossing.
  */
 struct EdgeSpec {
   uint8_t from_node;  /**< Node at the t_from end. */
@@ -181,7 +181,7 @@ struct EdgeSpec {
   float twist_to;   /**< Snub twist at to_node (snub legs only). */
   bool settle;      /**< to_node end uses the simple-registry canonical form. */
   Reseed reseed;    /**< Reseed primitive tabled for this row. */
-  bool bridge;      /**< Crosses symmetry families (walk weighting). */
+  bool bridge;      /**< Crosses symmetry families. */
 };
 
 /** The 23 edges; every simple-registry solid is a node. */
@@ -444,97 +444,135 @@ static_assert(bridge_flags_consistent());
 // Walk policy
 // ---------------------------------------------------------------------------
 
-/** Relative pick weight of a non-bridge edge. */
-inline constexpr uint32_t WALK_BASE_WEIGHT = 3;
-/** Bridge weight before the family is ripe for a change. */
-inline constexpr uint32_t WALK_BRIDGE_EARLY_WEIGHT = 1;
-/** Bridge weight once BRIDGE_RIPE_LEGS legs were spent in the family. */
-inline constexpr uint32_t WALK_BRIDGE_RIPE_WEIGHT = 12;
-/** Legs in one family after which bridges become the preferred move. */
-inline constexpr int BRIDGE_RIPE_LEGS = 4;
+static_assert(NUM_NODES <= 32, "node sets are uint32_t bitmasks");
 
-/** Recency scale: non-bridge candidate weights are base * SCALE^3 divided by
- * (1 + target visit count)^3. Bridges are recency-exempt at base * SCALE^2. */
-inline constexpr uint32_t WALK_RECENCY_SCALE = 12;
-/** Visit-count ceiling: reaching it halves every node's count, so the counts
- * track a sliding window instead of converging and flattening the weighting
- * out on a long walk. */
-inline constexpr uint8_t WALK_VISIT_CAP = 8;
+/** Hankin-swept nodes a destination pick excludes. */
+inline constexpr int RECENT_SWEEPS = 4;
+static_assert(RECENT_SWEEPS < NUM_NODES - 1,
+              "the destination pick needs an eligible node");
+
+/** Empty slot in a recent-sweep history. */
+inline constexpr uint8_t NO_NODE = 0xFF;
 
 /**
- * @brief Pick weight of one candidate edge.
- * @param edge Index into EDGES.
- * @param legs_in_family Completed legs since the last family change.
- * @return Unscaled relative weight, before pick_next_edge's recency scaling.
+ * @brief Expands a node set by one edge hop.
+ * @param set Node bitmask (bit n = node n).
+ * @return @p set plus every node adjacent to a member.
  */
-constexpr uint32_t edge_weight(int edge, int legs_in_family) {
-  if (!EDGES[edge].bridge)
-    return WALK_BASE_WEIGHT;
-  return legs_in_family >= BRIDGE_RIPE_LEGS ? WALK_BRIDGE_RIPE_WEIGHT
-                                            : WALK_BRIDGE_EARLY_WEIGHT;
+constexpr uint32_t expand_by_one_hop(uint32_t set) {
+  uint32_t out = set;
+  for (const auto &edge : EDGES) {
+    if (set >> edge.from_node & 1u)
+      out |= 1u << edge.to_node;
+    if (set >> edge.to_node & 1u)
+      out |= 1u << edge.from_node;
+  }
+  return out;
 }
 
 /**
- * @brief Records a node visit for the walk's recency weighting.
- * @param visits Per-node visit counts (NUM_NODES entries), caller-owned.
- * @param node Node just arrived at.
+ * @brief Shortest-path leg count between two nodes.
+ * @param from Start node id.
+ * @param to Goal node id.
+ * @return Edge hops on a shortest path, or -1 when @p to is unreachable.
  */
-constexpr void record_visit(uint8_t *visits, int node) {
-  ++visits[node];
-  if (visits[node] >= WALK_VISIT_CAP)
-    for (int i = 0; i < NUM_NODES; ++i)
-      visits[i] /= 2;
+HS_FLASH_MEMBER constexpr int hops(int from, int to) {
+  uint32_t reached = 1u << from;
+  int d = 0;
+  while (!(reached >> to & 1u)) {
+    const uint32_t next = expand_by_one_hop(reached);
+    if (next == reached)
+      return -1;
+    reached = next;
+    ++d;
+  }
+  return d;
 }
 
 /**
- * @brief Random-walk edge choice: weighted random incident edge biased toward
- * less-visited targets, never the immediate backtrack except at a degree-1
- * node.
+ * @brief Whether every node reaches every other node.
+ * @return True when the graph is connected.
+ */
+constexpr bool graph_connected() {
+  for (int node = 0; node < NUM_NODES; ++node)
+    if (hops(TETRAHEDRON, node) < 0)
+      return false;
+  return true;
+}
+static_assert(graph_connected());
+
+/**
+ * @brief Pushes a Hankin-swept node onto a recent-sweep history.
+ * @param recent RECENT_SWEEPS node ids, most recent first; NO_NODE marks an
+ * empty slot.
+ * @param node Node just swept.
+ */
+constexpr void record_sweep(uint8_t *recent, int node) {
+  for (int i = RECENT_SWEEPS - 1; i > 0; --i)
+    recent[i] = recent[i - 1];
+  recent[0] = static_cast<uint8_t>(node);
+}
+
+/**
+ * @brief Whether a node is in a recent-sweep history.
+ * @param recent RECENT_SWEEPS node ids (see record_sweep).
+ * @param node Node id.
+ * @return True when @p node was among the last RECENT_SWEEPS sweeps.
+ */
+constexpr bool recently_swept(const uint8_t *recent, int node) {
+  for (int i = 0; i < RECENT_SWEEPS; ++i)
+    if (recent[i] == node)
+      return true;
+  return false;
+}
+
+/**
+ * @brief Uniform random destination: any node other than @p node and the
+ * recently swept ones.
+ * @details The rule ignores graph position, so long-run sweep counts are
+ * uniform over the nodes.
  * @param node Current node id.
- * @param prev_edge Edge the walk arrived on, or -1 for the first leg.
- * @param legs_in_family Completed legs since the last family change.
- * @param visits Per-node visit counts maintained via record_visit().
+ * @param recent RECENT_SWEEPS node ids (see record_sweep).
+ * @param rnd Uniform random 32-bit value (e.g. hs::random()()).
+ * @return Destination node id.
+ */
+HS_FLASH_MEMBER constexpr int pick_destination(int node, const uint8_t *recent,
+                                               uint32_t rnd) {
+  int eligible = 0;
+  for (int n = 0; n < NUM_NODES; ++n)
+    if (n != node && !recently_swept(recent, n))
+      ++eligible;
+  HS_CHECK(eligible > 0, "pick_destination: every node is excluded");
+  int pick = static_cast<int>(rnd % static_cast<uint32_t>(eligible));
+  for (int n = 0; n < NUM_NODES; ++n)
+    if (n != node && !recently_swept(recent, n) && pick-- == 0)
+      return n;
+  __builtin_unreachable();
+}
+
+/**
+ * @brief Next leg on a shortest path to @p dest; ties between equally short
+ * paths are broken uniformly by @p rnd.
+ * @param node Current node id.
+ * @param dest Destination node id; must differ from @p node.
  * @param rnd Uniform random 32-bit value (e.g. hs::random()()).
  * @return Index into EDGES of the next leg.
  */
-HS_FLASH_MEMBER constexpr int pick_next_edge(int node, int prev_edge,
-                                             int legs_in_family,
-                                             const uint8_t *visits,
-                                             uint32_t rnd) {
-  uint8_t cand[MAX_DEGREE];
-  int n = edges_from(node, cand);
-  HS_CHECK(n > 0, "pick_next_edge: node outside the graph");
-  if (n == 1)
-    return cand[0]; // degree-1: out-and-back is the only legal move
-
-  uint32_t total = 0;
-  uint32_t weights[MAX_DEGREE] = {};
-  constexpr uint32_t S = WALK_RECENCY_SCALE;
-  for (int i = 0; i < n; ++i) {
-    if (cand[i] == prev_edge)
-      continue;
-    uint32_t w = 0;
-    if (EDGES[cand[i]].bridge) {
-      w = edge_weight(cand[i], legs_in_family) * S * S;
-    } else {
-      const uint32_t rec = 1u + visits[edge_other_end(cand[i], node)];
-      w = edge_weight(cand[i], legs_in_family) * S * S * S / (rec * rec * rec);
-      if (w == 0)
-        w = 1;
-    }
-    weights[i] = w;
-    total += w;
-  }
-
-  uint32_t pick = rnd % total;
-  for (int i = 0; i < n; ++i) {
-    if (weights[i] == 0)
-      continue;
-    if (pick < weights[i])
-      return cand[i];
-    pick -= weights[i];
-  }
-  HS_CHECK(false, "weighted edge selection exhausted a positive total");
+HS_FLASH_MEMBER constexpr int next_edge_toward(int node, int dest,
+                                               uint32_t rnd) {
+  HS_CHECK(node >= 0 && node < NUM_NODES && dest >= 0 && dest < NUM_NODES &&
+               node != dest,
+           "next_edge_toward: no route between the nodes");
+  const int d = hops(node, dest);
+  int closer = 0;
+  for (int e = 0; e < NUM_EDGES; ++e)
+    if (edge_touches(e, node) && hops(edge_other_end(e, node), dest) == d - 1)
+      ++closer;
+  int pick = static_cast<int>(rnd % static_cast<uint32_t>(closer));
+  for (int e = 0; e < NUM_EDGES; ++e)
+    if (edge_touches(e, node) && hops(edge_other_end(e, node), dest) == d - 1 &&
+        pick-- == 0)
+      return e;
   __builtin_unreachable();
 }
 
