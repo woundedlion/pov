@@ -87,14 +87,19 @@ inline bool valid(const ComposedDetail::ParameterSet<
   return result;
 }
 
+/** @brief Noise-field storage; empty when disabled.
+    @tparam Enabled Whether the field is stored. */
 template <bool Enabled> struct OptionalNoise {};
+/** @brief Enabled noise-field storage. */
 template <> struct OptionalNoise<true> {
-  FastNoiseLite noise;
+  FastNoiseLite noise; ///< The resource's noise field.
 };
 
 /** @brief Hue-rotation LUT storage; empty when the effect never rotates hue. */
 template <bool Enabled> struct OptionalHueRotationLut {};
+/** @brief Enabled hue-rotation LUT storage. */
 template <> struct OptionalHueRotationLut<true> {
+  /// Palette colours by palette coordinate and hue-rotation step.
   std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE> hue_rotation_lut;
   /** Palette bake the resident table was built from; 0 matches no bake,
       forcing the first build. */
@@ -104,30 +109,43 @@ template <> struct OptionalHueRotationLut<true> {
 /** @brief Hue-noise LUT and the inputs it was baked from; empty unless the
     hue source is the noise field. */
 template <bool Enabled> struct OptionalHueNoiseLut {};
+/** @brief Enabled hue-noise storage. */
 template <> struct OptionalHueNoiseLut<true> {
-  FastNoiseLite color_noise;
+  FastNoiseLite color_noise; ///< Hue-noise field the LUT is baked from.
+  /// Cube-face hue-noise samples.
   std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut;
+  /// Scale and phase the resident LUT was baked from.
   Pullback::Color::HueNoiseBakeCache hue_noise_bake;
 };
 
 /** @brief Projection-walk noise storage; empty when disabled. */
 template <bool Enabled> struct ProjectionWalkNoise {};
+/** @brief Enabled projection-walk noise storage. */
 template <> struct ProjectionWalkNoise<true> {
-  FastNoiseLite projection_walk_noise;
+  FastNoiseLite projection_walk_noise; ///< Noise driving the projection walk.
 };
 
 /** @brief Persistent projection-walk state; empty when disabled. */
 template <bool Enabled> struct ProjectionWalkState {
+  /** @brief Inverse projection frame rotation.
+      @return The identity: a static projection never rotates. */
   math::Quaternion frame_conjugate() const { return math::Quaternion(); }
 };
+/** @brief Enabled projection-walk state. */
 template <> struct ProjectionWalkState<true> {
-  math::Orientation<> projection_walk;
+  math::Orientation<> projection_walk; ///< Random-walk orientation.
+  /** Walk orientation at the previous frame, for the per-frame delta. */
   math::Quaternion projection_walk_previous;
+  /** Accumulated walk deltas, each scaled by the wander parameter. */
   math::Quaternion projection_wander;
+  /** Inverse of spin * `base_orientation` * `projection_wander`. */
   math::Quaternion projection_conjugate;
+  /** Fixed orientation the spin and wander compose onto. */
   math::Quaternion base_orientation = Pullback::projection_base_orientation();
-  float projection_spin = 0.0f;
+  float projection_spin = 0.0f; ///< Spin about Y, radians, |value| < 2 pi.
 
+  /** @brief Inverse projection frame rotation.
+      @return `projection_conjugate`. */
   math::Quaternion frame_conjugate() const { return projection_conjugate; }
 };
 

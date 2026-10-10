@@ -53,8 +53,9 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = RotateChainParams;
+  /** @brief Per-frame camera rotation. */
   struct Prepared {
-    math::Quaternion conjugate;
+    math::Quaternion conjugate; ///< Inverse of the spin-times-wander rotation.
   };
 
   static void init(State &state, InstanceId id) {
@@ -74,28 +75,36 @@ struct Rotate : ValueStateModel<SpatialWalkState> {
   }
 };
 
+/** @brief Which frame palette the colorize operator reads; indexes
+    `FrameContext::palettes`. */
 enum class PaletteMode : uint8_t {
-  TRIADIC = 0,
-  COMPLEMENTARY = 1,
-  ANALOGOUS = 2
+  TRIADIC = 0,       ///< Triadic-harmony palette.
+  COMPLEMENTARY = 1, ///< Complementary-harmony palette.
+  ANALOGOUS = 2      ///< Analogous-harmony palette.
 };
+/// Hue-rotation source of the colorize operator.
 using HueShiftMode = Color::HueMode;
+/// Brightness envelope of the colorize operator.
 using EnvelopeMode = Color::BrightnessEnvelope;
 
+/// Wire ids of `PaletteMode`, by enumerator value.
 inline constexpr const char *PALETTE_MODE_IDS[] = {"triadic", "complementary",
                                                    "analogous"};
 static_assert(std::size(PALETTE_MODE_IDS) ==
               static_cast<size_t>(PaletteMode::ANALOGOUS) + 1);
 static_assert(std::size(PALETTE_MODE_IDS) == FrameContext{}.palettes.size(),
               "frame palette storage must cover every palette mode");
+/// Wire ids of `Color::PaletteMapping`, by enumerator value.
 inline constexpr const char *PALETTE_MAPPING_IDS[] = {"cup", "bell", "linear",
                                                       "reverse"};
 static_assert(std::size(PALETTE_MAPPING_IDS) ==
               static_cast<size_t>(Color::PaletteMapping::REVERSE) + 1);
+/// Wire ids of `HueShiftMode`, by enumerator value.
 inline constexpr const char *HUE_SHIFT_MODE_IDS[] = {"none", "noise",
                                                      "path-length"};
 static_assert(std::size(HUE_SHIFT_MODE_IDS) ==
               static_cast<size_t>(HueShiftMode::PATH_LENGTH) + 1);
+/// Wire ids of `EnvelopeMode`, by enumerator value.
 inline constexpr const char *BRIGHTNESS_ENVELOPE_IDS[] = {
     "none", "cup", "bell", "ascending", "descending"};
 static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
@@ -103,9 +112,13 @@ static_assert(std::size(BRIGHTNESS_ENVELOPE_IDS) ==
 
 /** @brief Parameter family of colorize.generated-palette.v3. */
 struct GeneratedPaletteParams : Color::ColorControls {
+  /// A `PaletteMode` value.
   uint8_t palette_mode = static_cast<uint8_t>(PaletteMode::TRIADIC);
+  /// A `Color::PaletteMapping` value.
   uint8_t mapping_mode = static_cast<uint8_t>(Color::PaletteMapping::LINEAR);
+  /// A `HueShiftMode` value.
   uint8_t hue_mode = static_cast<uint8_t>(HueShiftMode::NOISE);
+  /// An `EnvelopeMode` value.
   uint8_t envelope_mode = static_cast<uint8_t>(EnvelopeMode::NONE);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -132,12 +145,23 @@ static_assert(appended_block_size_matches<GeneratedPaletteParams,
 
 /** @brief Per-frame color phase clocks. */
 struct ColorClockState {
-  int32_t hue_noise_seed = HUE_NOISE_SEED;
-  float oscillation_phase = 0.0f;
-  float hue_noise_phase = 0.0f; /**< Bake input for the engine's hue-noise
+  int32_t hue_noise_seed = HUE_NOISE_SEED; ///< Seed of the hue-noise field.
+  float oscillation_phase = 0.0f; ///< Mapping-phase oscillation clock, [0, 1).
+  float hue_noise_phase = 0.0f;   /**< Bake input for the engine's hue-noise
                                      LUT; not read by run(). */
 };
 
+/**
+ * @brief Resolves a generated-palette param block into the per-frame colour
+ *        state; mode fields out of range fail an `HS_CHECK`.
+ * @tparam Params Param block with the `GeneratedPaletteParams` fields.
+ * @param ctx Frame context supplying the palettes and hue LUTs.
+ * @param params Operator parameters.
+ * @param state Colour clocks.
+ * @param bottom Brightness at the envelope's low end.
+ * @param top Brightness at the envelope's high end.
+ * @return The prepared colour state for this frame.
+ */
 template <typename Params>
 Color::GeneratedPaletteState
 prepare_generated_palette(const FrameContext &ctx, const Params &params,
@@ -183,9 +207,10 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
 /** @brief Shared generated-palette clocks and evaluation. */
 template <typename Derived, typename ParamsT>
 struct GeneratedPaletteModel : ValueStateModel<ColorClockState> {
+  /** @brief Brightness endpoints of the envelope. */
   struct BrightnessRange {
-    float bottom;
-    float top;
+    float bottom; ///< Brightness where the envelope shape is 0.
+    float top;    ///< Brightness where the envelope shape is 1.
   };
   using Input = FieldSample;
   using Output = Color4;
@@ -221,6 +246,9 @@ struct ColorizeGeneratedPaletteV3
                             GeneratedPaletteParams> {
   static constexpr const char *ID = "colorize.generated-palette.v3";
   static constexpr const char *NAME = "Generated Palette";
+  /** @brief Reads the brightness endpoints from the param block.
+      @param params Operator parameters.
+      @return `brightness_bottom` and `brightness_top`. */
   static BrightnessRange brightness_range(const Params &params) {
     return {params.brightness_bottom, params.brightness_top};
   }
