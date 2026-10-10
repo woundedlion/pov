@@ -77,7 +77,9 @@ static inline float balanced_sample_alpha(float alpha, float step_ratio) {
 }
 
 #if HS_ENABLE_TEST_HOOKS
+/** @brief Single-pass planar samples taken with position and tangent. */
 inline uint32_t g_planar_full_samples = 0;
+/** @brief Planar samples taken for position only. */
 inline uint32_t g_planar_position_samples = 0;
 #endif
 

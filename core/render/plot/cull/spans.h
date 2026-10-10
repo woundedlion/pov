@@ -739,8 +739,20 @@ inline size_t g_step_budget_override = 0;
 #endif
 
 #if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+/** @brief Selects exact normalization and screen_step_reference() in place of
+    the fast unit-position and screen-step paths. */
 inline bool g_reference_screen_step = false;
 
+/**
+ * @brief Reference screen step computed from the explicit spherical-velocity
+ *        formula.
+ * @tparam W Rasterization width (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
+ * @param pos Unit-sphere sample position.
+ * @param tan Unit tangent with respect to arc length.
+ * @param base_step Equatorial step 2π/W; also the maximum returned step.
+ * @return Arc-length step clamped to [base_step·MIN_POLE_SCALE, base_step].
+ */
 template <int W, int H>
 static inline float screen_step_reference(const math::Vector &pos,
                                           const math::Vector &tan,

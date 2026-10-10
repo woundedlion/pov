@@ -38,7 +38,8 @@ EXTRACT_PRIV_VIRTUAL   = YES
 # EXPAND_ONLY_PREDEF keeps core/platform/build_features.h's defaults out of the
 # conditionals, so every feature macro the simulator build enables is spelled
 # out here, plus HS_ENABLE_EFFECT_CONTROL_API for the profile harness control
-# surface; an omitted macro publishes its headers as empty File References.
+# surface and the test hook and oracle macros; an omitted macro publishes its
+# headers as empty File References.
 # ARDUINO stays undefined: it is exclusive with the host branch of
 # core/platform/platform.h, which carries the EVERY_N_* timers and
 # hs::millis/micros, and taking it would trade those for the three device-only
@@ -59,6 +60,8 @@ PREDEFINED             = FLASHMEM= \
                          HS_ENABLE_EFFECT_CONTROL_API=1 \
                          HS_ENABLE_PARAM_GUI_BRIDGE=1 \
                          HS_ENABLE_CHAIN_INTERPRETER=1 \
+                         HS_ENABLE_TEST_HOOKS=1 \
+                         HS_ENABLE_TEST_ORACLES=1 \
                          HS_O3_BEGIN= \
                          HS_O3_END=
 
