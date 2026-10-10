@@ -129,7 +129,11 @@ public:
     return ref;
   }
 
-  /** @brief Appends without eviction; returns false when full. */
+  /**
+   * @brief Appends without eviction; returns false when full.
+   * @param item Element to copy into the new back slot.
+   * @return Whether the element was appended.
+   */
   [[nodiscard]] bool try_push_back(const T &item) {
     if (is_full())
       return false;
@@ -137,7 +141,11 @@ public:
     return true;
   }
 
-  /** @brief Appends without eviction; a full buffer leaves item untouched. */
+  /**
+   * @brief Appends without eviction; a full buffer leaves item untouched.
+   * @param item Element to move into the new back slot.
+   * @return Whether the element was appended.
+   */
   [[nodiscard]] bool try_push_back(T &&item) {
     if (is_full())
       return false;
