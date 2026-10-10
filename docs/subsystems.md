@@ -1,6 +1,6 @@
 # Core Subsystems
 
-Section 7 of the [Holosphere README](https://github.com/woundedlion/pov/blob/master/README.md).
+The engine subsystem reference for the [Holosphere README](https://github.com/woundedlion/pov/blob/master/README.md).
 
 ## Contents
 

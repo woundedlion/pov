@@ -1,6 +1,6 @@
 # Effects Reference
 
-Section 9 of the [Holosphere README](https://github.com/woundedlion/pov/blob/master/README.md).
+Section 6.6 of the [Holosphere README](https://github.com/woundedlion/pov/blob/master/README.md#66-effects-reference).
 
 All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) — the largest supported preset for each effect, either Phantasm 288×144 or Holosphere 96×20.
 
