@@ -386,6 +386,21 @@ class EmptyScanTests(unittest.TestCase):
             self.assertIn(f"test.kicad_pcb: {error}", output.getvalue())
             self.assertNotIn("Traceback", output.getvalue())
 
+    def test_main_exits_two_on_a_schematic_or_layerless_board(self):
+        documents = {
+            "schematic": '(kicad_sch (version 20231120) (generator "eeschema"))',
+            "layerless": BOARD[:BOARD.index("\t(layers")]
+            + BOARD[BOARD.index("\t(footprint"):],
+        }
+        for label, text in documents.items():
+            output = io.StringIO()
+            with self.subTest(document=label), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "input.kicad_pcb"
+                path.write_text(text, encoding="utf-8")
+                with contextlib.redirect_stderr(output):
+                    self.assertEqual(connectivity.main([str(path)]), 2)
+            self.assertNotIn("Traceback", output.getvalue())
+
     def test_main_exits_two_on_a_file_holding_no_document(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "blank.kicad_pcb"

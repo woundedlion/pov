@@ -23,9 +23,17 @@ TOUCH_TOLERANCE = 0.001
 
 
 def copper_layers(root):
-    """Copper layer names in stack order, which is what a via span enumerates."""
-    return [str(entry[1]) for entry in F(root, "layers")[0][1:]
-            if str(entry[1]).endswith(".Cu")]
+    """Copper layer names in stack order, which is what a via span enumerates.
+
+    Raises ValueError when the board declares no copper layers.
+    """
+    blocks = F(root, "layers")
+    layers = [str(entry[1]) for entry in (blocks[0][1:] if blocks else [])
+              if isinstance(entry, list) and len(entry) > 1
+              and str(entry[1]).endswith(".Cu")]
+    if not layers:
+        raise ValueError("board declares no copper layers")
+    return layers
 
 
 def net_id(node):
@@ -264,6 +272,8 @@ def zone_layers(zone, stack):
 
 def board_copper(root):
     """Returns copper, netted pads, and native net-id-to-name mappings."""
+    if not isinstance(root, list) or not root or str(root[0]) != "kicad_pcb":
+        raise ValueError("document is not a kicad_pcb")
     stack = copper_layers(root)
     copper, pads = {}, {}
     # A `(net id "name")` declaration is itself the node net_id and net_name
