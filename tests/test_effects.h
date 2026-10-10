@@ -1065,6 +1065,8 @@ inline int run_effects_tests() {
   run_case(test_sh_field_stays_inside_unit_range);
   run_case(test_sh_polarity_split_and_ao_shaping);
   run_case(test_gs_reaction_edit_starts_dissolve);
+  run_case(test_gs_stall_hold_starts_dissolve);
+  run_case(test_gs_dissolve_absorbs_edits_and_stages_reseed);
   run_case(test_bz_authored_palette);
   run_case(test_bz_min_diffusion_step_survives_quantization);
   run_case(test_bz_perturb_state_saturates_and_nudges);
