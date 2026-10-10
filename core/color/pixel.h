@@ -12,6 +12,13 @@
 #include "platform/platform.h"
 #include "color/srgb_decode.h"
 
+/**
+ * @brief Rounded Q16 lerp between two 16-bit values.
+ * @param a Value at weight 0.
+ * @param b Value at weight 65535.
+ * @param weight Blend weight, Q16 in [0, 65535].
+ * @return a + (b - a) * weight / 65535, rounded.
+ */
 __attribute__((always_inline)) inline uint16_t lerp_q16(uint16_t a, uint16_t b,
                                                         uint16_t weight) {
   const uint32_t inverse = 65535u - weight;
@@ -27,6 +34,12 @@ round_linear_channel(float value) {
 }
 
 #if defined(__ARM_FEATURE_DSP)
+/**
+ * @brief Per-halfword unsigned saturating add (ARM `uqadd16`).
+ * @param a Two packed 16-bit lanes.
+ * @param b Two packed 16-bit lanes.
+ * @return Each lane of a + b, saturated at 0xFFFF.
+ */
 __attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
                                                               uint32_t b) {
   uint32_t res;
@@ -36,6 +49,12 @@ __attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
 #else
 // Portable software model of ARM `uqadd16`: two independent 16-bit unsigned
 // saturating adds, one per halfword lane.
+/**
+ * @brief Per-halfword unsigned saturating add (portable `uqadd16`).
+ * @param a Two packed 16-bit lanes.
+ * @param b Two packed 16-bit lanes.
+ * @return Each lane of a + b, saturated at 0xFFFF.
+ */
 inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
   uint32_t lo = (a & 0xFFFFu) + (b & 0xFFFFu);
   uint32_t hi = (a >> 16) + (b >> 16);
@@ -63,7 +82,10 @@ inline uint16_t srgb_to_linear(uint8_t srgb);
  * to 8-bit output.
  */
 struct Pixel {
-  uint16_t r, g, b;
+  /// Linear red in [0, 65535].
+  uint16_t r, g, b; ///< Linear blue in [0, 65535].
+  /** @var g
+   *  Linear green in [0, 65535]. */
 
   /**
    * @brief Constructs a black pixel (all channels zero).
@@ -217,8 +239,8 @@ inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
  * premultiplication happens once, at the final canvas write (`color * alpha`).
  */
 struct Color4 {
-  Pixel color;
-  float alpha;
+  Pixel color; ///< Un-premultiplied linear color.
+  float alpha; ///< Coverage in [0, 1].
 
   /**
    * @brief Constructs a transparent black color (alpha 0.0).
@@ -363,6 +385,12 @@ inline Pixel::operator CRGB() const {
 
 // Packs g into the high lane and b into the low lane of one word.
 // A second word holds r alone, with a zero high lane.
+/**
+ * @brief Per-channel saturating add of two pixels.
+ * @param c1 First addend.
+ * @param c2 Second addend.
+ * @return c1 + c2 per channel, saturated at 65535.
+ */
 inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2) {
   uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
   uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
@@ -390,7 +418,10 @@ inline auto blend_alpha(float a) {
  * Layout compatible with CRGB but without non-constexpr constructors.
  */
 struct CPixel {
-  uint8_t r, g, b;
+  /// sRGB red in [0, 255].
+  uint8_t r, g, b; ///< sRGB blue in [0, 255].
+  /** @var g
+   *  sRGB green in [0, 255]. */
   /**
    * @brief Constructs a black CPixel (all channels zero).
    */

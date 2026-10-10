@@ -27,7 +27,7 @@
  */
 class PaletteCycler {
 public:
-  static constexpr int MAX_ENTRIES = 8;
+  static constexpr int MAX_ENTRIES = 8; ///< Roster capacity.
 
   PaletteCycler() = default;
   // The display and fade LUTs and the morph slots are arena handles, so a copy
@@ -45,9 +45,21 @@ public:
     const BakedPalette *baked = nullptr; /**< Prebaked LUT; null otherwise. */
 
     Entry() = default;
+    /**
+     * @brief References a generative palette, eligible for key morphs.
+     * @param palette Borrowed palette; must outlive the cycler.
+     */
     Entry(const GenerativePalette &palette)
         : source(&palette), generative(&palette) {}
+    /**
+     * @brief References a sampled palette source.
+     * @param palette Borrowed palette; must outlive the cycler.
+     */
     Entry(const Palette &palette) : source(&palette) {}
+    /**
+     * @brief References a prebaked LUT.
+     * @param palette Borrowed table; must outlive the cycler.
+     */
     Entry(const BakedPalette &palette) : baked(&palette) {}
 
     // The referenced palette must outlive the cycler; reject temporaries.
@@ -277,18 +289,30 @@ public:
   /** @brief True while a fade toward the next entry is in flight. */
   bool fading() const { return fade_active; }
 
+  /** @brief Serializable timeline state of a generated cycle. */
   struct GeneratedClock {
-    uint32_t frame = 0;
-    uint32_t next_sequence = 2;
-    bool fade_active = false;
-    bool display_dirty = false;
+    uint32_t frame = 0;         ///< Frame within the current dwell or fade.
+    uint32_t next_sequence = 2; ///< Sequence of the next provider call; >= 2.
+    bool fade_active = false;   ///< Whether a fade is in flight.
+    bool display_dirty = false; ///< Whether the display LUT is stale.
   };
 
+  /**
+   * @brief Captures the generated-cycle timeline.
+   * @return The current clock.
+   */
   GeneratedClock generated_clock() const {
     return {static_cast<uint32_t>(frame), next_sequence, fade_active,
             display_dirty};
   }
 
+  /**
+   * @brief Whether @p clock is a reachable state for the given timing.
+   * @param clock Clock to check.
+   * @param fade_frames Frames each fade spans.
+   * @param dwell_frames Hold frames between fades; minimum 1 is applied.
+   * @return True when `next_sequence` >= 2 and `frame` is inside its phase.
+   */
   static bool valid_generated_clock(const GeneratedClock &clock,
                                     uint32_t fade_frames,
                                     uint32_t dwell_frames) {
@@ -298,6 +322,14 @@ public:
                               : std::max(uint32_t{1}, dwell_frames));
   }
 
+  /**
+   * @brief Restores a generated cycle's timeline and endpoints, and rebakes
+   * the display LUT.
+   * @param clock Timeline to restore; check with valid_generated_clock().
+   * @param from Fade w = 0 endpoint.
+   * @param to Fade w = 1 endpoint.
+   * @pre init_generated() has run.
+   */
   HS_COLD_MEMBER void restore_generated(const GeneratedClock &clock,
                                         const GenerativePalette &from,
                                         const GenerativePalette &to) {
@@ -452,16 +484,25 @@ private:
 /** @brief Shared triadic, complementary, and analogous palette cyclers. */
 class GeneratedPaletteBank {
 public:
+  /// Base-hue advance per generated palette, in 1/256-turn wheel steps.
   static constexpr uint32_t HUE_STEP = 159;
-  static constexpr int DWELL_FRAMES = 0;
-  static constexpr int FADE_FRAMES = 600;
+  static constexpr int DWELL_FRAMES = 0;  ///< Hold frames between fades.
+  static constexpr int FADE_FRAMES = 600; ///< Frames each fade spans.
 
+  /** @brief Serializable state of all three cycles. */
   struct Snapshot {
-    float chroma = 0.0f;
+    float chroma = 0.0f; ///< Shared chroma control in [0, 1].
+    /// Current target hue per cycle (triadic, complementary, analogous),
+    /// wheel steps.
     std::array<uint32_t, 3> hues{};
+    /// Timeline per cycle, same order as `hues`.
     std::array<PaletteCycler::GeneratedClock, 3> cycles{};
   };
 
+  /**
+   * @brief Captures the bank's state.
+   * @return Chroma, hues and clocks of all three cycles.
+   */
   Snapshot snapshot() const {
     return {chroma,
             {triadic_hue, complementary_hue, analogous_hue},
@@ -469,6 +510,12 @@ public:
              analogous.generated_clock()}};
   }
 
+  /**
+   * @brief Whether @p snapshot is a state this bank can reach.
+   * @param snapshot Snapshot to check.
+   * @return True when chroma is in [0, 1] and each clock is valid and agrees
+   * with its hue.
+   */
   static bool valid_snapshot(const Snapshot &snapshot) {
     if (!std::isfinite(snapshot.chroma) || snapshot.chroma < 0.0f ||
         snapshot.chroma > 1.0f)
@@ -483,6 +530,11 @@ public:
     return true;
   }
 
+  /**
+   * @brief Restores all three cycles and rebakes their displays.
+   * @param snapshot State to restore; check with valid_snapshot().
+   * @pre init() has run.
+   */
   HS_COLD_MEMBER void restore_snapshot(const Snapshot &snapshot) {
     chroma = snapshot.chroma;
     triadic_hue = snapshot.hues[0];
@@ -512,6 +564,13 @@ public:
     return 3 * PaletteCycler::generated_arena_bytes();
   }
 
+  /**
+   * @brief Starts all three cycles from hue 0.
+   * @param arena Arena for the cyclers' LUTs and slots; see
+   *        required_arena_bytes().
+   * @param chroma Chroma control in [0, 1].
+   * @param easing Fade easing; null = linear.
+   */
   HS_COLD_MEMBER void init(Arena &arena, float chroma, float (*easing)(float)) {
     triadic_hue = 0;
     complementary_hue = 0;
@@ -525,12 +584,23 @@ public:
                              FADE_FRAMES, easing);
   }
 
+  /**
+   * @brief Advances all three cycles one frame; only @p visible rebakes.
+   * @tparam PaletteMode Enum with TRIADIC, COMPLEMENTARY and ANALOGOUS.
+   * @param visible Cycle whose display LUT is kept current.
+   */
   template <typename PaletteMode> void step(PaletteMode visible) {
     step_one(triadic, visible == PaletteMode::TRIADIC);
     step_one(complementary, visible == PaletteMode::COMPLEMENTARY);
     step_one(analogous, visible == PaletteMode::ANALOGOUS);
   }
 
+  /**
+   * @brief Display LUT of one cycle.
+   * @tparam PaletteMode Enum with TRIADIC, COMPLEMENTARY and ANALOGOUS.
+   * @param mode Cycle to read.
+   * @return That cycler's display table.
+   */
   template <typename PaletteMode>
   HS_COLD_MEMBER const BakedPalette &palette(PaletteMode mode) const {
     switch (mode) {
@@ -545,6 +615,10 @@ public:
     return triadic.palette();
   }
 
+  /**
+   * @brief Sets the shared chroma on all three cycles.
+   * @param chroma Chroma control in [0, 1].
+   */
   HS_COLD_MEMBER void set_chroma(float chroma) {
     if (chroma == this->chroma)
       return;
@@ -554,6 +628,15 @@ public:
     analogous.set_generated_chroma(chroma);
   }
 
+  /**
+   * @brief Builds the palette for one step of a cycle.
+   * @param hue In/out base hue, wheel steps; advanced by `HUE_STEP` unless
+   *        @p sequence is 0.
+   * @param sequence Provider sequence number.
+   * @param harmony Hue relationship.
+   * @param chroma Chroma control in [0, 1].
+   * @param out Receives the palette.
+   */
   static void next_palette(uint32_t &hue, uint32_t sequence,
                            PaletteHarmony harmony, float chroma,
                            GenerativePalette &out) {
