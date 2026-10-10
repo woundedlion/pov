@@ -161,6 +161,11 @@ private:
     return static_cast<size_t>(mode_index - (mode_index > SEED_MODE_IDX));
   }
 
+  /**
+   * @brief Starts at the mode of the target preset with no morph pending.
+   * @param change Preset change; only its target index is read.
+   * @return Always true.
+   */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     ++morph_generation;
     current_idx = mode_index_for_preset(change.to);
