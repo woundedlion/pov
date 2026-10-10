@@ -372,6 +372,8 @@ peirce_fast_square(const math::Vector &input, float coordinate_scale,
                      peirce_folded_weight(input, 0.0f, singularity_fade));
 }
 
+/** @brief A provider that hands out the projection frame's conjugate
+    rotation. */
 template <typename State, typename Binding>
 concept FrameProvider = Detail::ProviderFor<State, Binding> &&
                         requires(const typename Binding::FrameState &frame) {
