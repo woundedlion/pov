@@ -18,7 +18,9 @@
 #include "core/animation/recipe_build.h"
 
 namespace IslamicStarsDetail {
+/// Lowered primitive capacity of an on-screen recipe build.
 inline constexpr size_t MAX_BUILD_OPS = 8;
+/// Mesh face capacity of an on-screen recipe build.
 inline constexpr size_t MAX_BUILD_FACES = 1152;
 } // namespace IslamicStarsDetail
 
@@ -61,9 +63,12 @@ class IslamicStars
   friend Choreography;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "IslamicStars";
 
+  /// Live parameter set.
   using Params = IslamicStarsParams;
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Bookkeeping only; each shape's segue schedules the next advance. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 192;
@@ -84,8 +89,11 @@ public:
       "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
 #endif
 
+  /// Scratch split, in bytes, for a shape without a recipe.
   static constexpr ArenaSplit GENERATED_BUDGET{116 * 1024, 74 * 1024};
+  /// Scratch split, in bytes, for a recipe build.
   static constexpr ArenaSplit RECIPE_BUDGET{116 * 1024, 72 * 1024};
+  /// Scratch split, in bytes, for a recipe build with a smooth bridge.
   static constexpr ArenaSplit BRIDGE_BUDGET{129 * 1024 + 512, 74 * 1024};
   static_assert(BRIDGE_BUDGET.scratch_a + BRIDGE_BUDGET.scratch_b <
                 DEVICE_GLOBAL_ARENA_SIZE);

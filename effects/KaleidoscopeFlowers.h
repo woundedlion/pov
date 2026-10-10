@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Pullback stage spec for `KaleidoscopeFlowers`. */
 struct KaleidoscopeFlowersSpec : Pullback::Spec {
   static constexpr Pullback::ProjectionKind PROJECTION =
       Pullback::ProjectionKind::EQUIRECTANGULAR;
@@ -27,6 +28,11 @@ struct KaleidoscopeFlowersSpec : Pullback::Spec {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Pullback::SurfacePlacement::BEFORE_LENS;
   using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
+  /**
+   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens,
+   *  projection, mirror warp, grid source, generated palette.
+   * @tparam B The effect's Binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -59,6 +65,7 @@ class KaleidoscopeFlowers
                                       KaleidoscopeFlowersSpec> {
 
 public:
+  /// Parameter block derived from `KaleidoscopeFlowersSpec`.
   using Params = KaleidoscopeFlowersParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -73,6 +80,17 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
+  /** @var EFFECT_ID
+   *  @brief Stable effect ID; equals the shader document's effect_id. */
+  /** @var DESCRIPTOR_DIGEST
+   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
+  /** @var PRESET_BANK_DIGEST
+   *  @brief SHA-256 hex of the shader document's preset bank. */
+  /** @var PRESET_IDS
+   *  @brief Preset identities, indexed by preset number. */
+  /** @var PRESET_DWELL_FRAMES
+   *  @brief Frames each preset holds before advancing. */
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
@@ -126,4 +144,7 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @brief Parameters of the first preset.
+   *  @return The preset-0 `Params`. */
 };

@@ -33,10 +33,13 @@ struct HyperLatticeWhiteBox;
 } // namespace hs_test
 
 namespace HyperLatticeDetail {
-constexpr int DIMENSIONS = math::VEC4_DIMENSIONS;
-using LatticeMode = SDF::Lattice::Domain;
+constexpr int DIMENSIONS = math::VEC4_DIMENSIONS; ///< Lattice axes.
+using LatticeMode = SDF::Lattice::Domain;         ///< 3D or 4D-slice view.
+/// Cubic crossing planes per axis.
 using ShellCount = SDF::Lattice::ShellCount;
+/// Lattice geometry; values are persisted.
 enum class Pattern : uint8_t { CUBIC_WIRE = 0, OCTET = 1, SHELLS = 6 };
+/// Supported pattern and view pairs; values are persisted.
 enum class ConfigurationId : uint8_t {
   CUBIC_3D = 0,
   CUBIC_4D = 1,
@@ -46,23 +49,41 @@ enum class ConfigurationId : uint8_t {
   SHELLS_4D = 10,
   INVALID = 11
 };
+/** @brief HyperLattice's live parameters; also the per-preset value set. */
 struct Params {
+  /// 3D lattice, or a 3D slice of the 4D lattice.
   LatticeMode mode = LatticeMode::THREE_D;
+  /// Lattice geometry.
   Pattern pattern = Pattern::CUBIC_WIRE;
+  /// Ray start distance from the camera.
   float sphere_radius = 1.0f;
+  /// World edge length of one lattice cell.
   float cell_size = 1.0f;
+  /// Wire radius as a fraction of `cell_size`.
   float wire_radius = 0.055f;
+  /// Cubic wire edge softness in lattice cells; positive.
   float softness = 0.012f;
+  /// Near fade-in span; positive.
   float near_fade = 0.5f;
+  /// Ray length beyond which crossings are cut.
   float far_distance = 7.0f;
+  /// Pixel-footprint anti-aliasing multiplier; nonnegative.
   float aa_strength = 1.0f;
+  /// Camera drift per frame along a fixed oblique direction.
   float speed = 0.018f;
+  /// 3D view rotation rate, radians per frame before per-plane scaling.
   float spin_3d = 0.0024f;
+  /// 4D view rotation rate, radians per frame; FOUR_D_SLICE only.
   float spin_4d = 0.0f;
+  /// Crossing planes traced per axis; CUBIC_WIRE only.
   ShellCount shells = ShellCount::TWO;
+  /// Shell sphere radius in lattice cells; SHELLS only.
   float shell_radius = .30f;
+  /// Thin-film sheen weight in [0, 1]; 0 disables it.
   float iridescence = .25f;
+  /// Sheen cycles across the depth palette.
   float iridescent_frequency = 3.0f;
+  /// Sheen phase advance, radians per frame.
   float iridescent_speed = .02f;
 
   /**
@@ -78,28 +99,46 @@ static_assert(sizeof(Params) == 64,
 
 using SDF::Lattice::CrossingList;
 
+/** @brief Per-frame render inputs. */
 struct FrameState {
-  Params params;
-  math::Vec4 origin;
+  Params params;     ///< Live parameters.
+  math::Vec4 origin; ///< Cubic camera position in lattice cells, in [0, 1).
+  /// Rotation angles of the six coordinate planes, radians: xy, xz, yz, then
+  /// the w planes.
   std::array<float, 6> rotation_phase;
-  float pixel_half_angle;
-  const BakedPalette *depth_palette;
+  float pixel_half_angle;            ///< Angular half-width of one pixel.
+  const BakedPalette *depth_palette; ///< Palette indexed by ray depth.
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   CrossingList *crossings =
       nullptr; /**< Persistent-arena buffer the cubic trace sorts. */
 };
 
+/** @brief Pullback binding of the cubic render pipeline. */
 struct Binding {
+  /// Per-frame inputs.
   using FrameState = HyperLatticeDetail::FrameState;
+  /// No trace counters.
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
+/// Frame-constant cubic trace state.
 using PreparedTrace = SDF::Lattice::PreparedShading;
 using SDF::Lattice::composite_crossings;
 
+/**
+ * @brief Angular half-width of one pixel.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @return Half the coarse pixel pitch, in radians.
+ */
 template <int W, int H> constexpr float pixel_half_angle() {
   return .5f * math::coarse_pixel_pitch<W, H>();
 }
+/**
+ * @brief View rotation from the frame's plane angles.
+ * @param frame Frame state; the w-plane angles apply only in FOUR_D_SLICE.
+ * @return Rotation embedding view directions in the lattice.
+ */
 HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
   math::Mat4 embedding = math::Mat4::identity();
   math::rotate_plane(embedding, 0, 1, frame.rotation_phase[0]);
@@ -114,6 +153,12 @@ HS_FLASH_INLINE inline math::Mat4 view_embedding(const FrameState &frame) {
 }
 namespace Trace = SDF::LatticeTrace;
 
+/**
+ * @brief Octet or shell trace settings for a frame.
+ * @param frame Frame state; traps on CUBIC_WIRE.
+ * @param center Camera position in world units; w is zeroed in 3D.
+ * @return Trace settings with a world-unit wire radius.
+ */
 HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
                                                       math::Vec4 center) {
   const auto &p = frame.params;
@@ -148,6 +193,11 @@ HS_FLASH_INLINE inline Trace::Settings trace_settings(const FrameState &frame,
           p.shell_radius,
           frame.gain};
 }
+/**
+ * @brief Prepares the cubic wire trace for a frame.
+ * @param frame Frame state; must carry a crossing list.
+ * @return Frame-constant trace and shading state.
+ */
 inline PreparedTrace prepare_trace(const FrameState &frame) {
   HS_CHECK(frame.crossings, "HyperLattice: frame has no crossing list");
   const auto embedding = view_embedding(frame);
@@ -163,10 +213,26 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
           frame.crossings};
 }
 
+/**
+ * @brief Cubic wire ray stage.
+ * @tparam SLICE_4D Specializes the trace for FOUR_D_SLICE.
+ * @tparam SHELLS Fixed shell count, or 0 for the runtime count.
+ */
 template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
+  /**
+   * @brief Prepares the frame's trace.
+   * @param frame Frame state.
+   * @return Frame-constant trace state.
+   */
   static PreparedTrace prepare(const FrameState &frame) {
     return prepare_trace(frame);
   }
+  /**
+   * @brief Composites the lattice crossings along one view ray.
+   * @param normal Unit view direction.
+   * @param prepared Frame-constant trace state.
+   * @return Straight-alpha colour.
+   */
   __attribute__((always_inline)) static Color4
   shade(const math::Vector &normal, const FrameState &,
         const PreparedTrace &prepared) {
@@ -180,8 +246,13 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
         .premultiplied();
   }
 };
+/// Generic cubic render pipeline.
 using RenderPipeline =
     Pullback::Pipeline<Binding, Pullback::RayStage<Renderer<>>>;
+/**
+ * @brief Cubic render pipeline specialized for the 4D slice.
+ * @tparam SHELL_COUNT Fixed shell count.
+ */
 template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
     Pullback::Pipeline<Binding,
@@ -201,14 +272,21 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
   friend Choreography;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "HyperLattice";
 
+  /// Live parameters.
   using Params = HyperLatticeDetail::Params;
+  /// 3D or 4D-slice view.
   using LatticeMode = HyperLatticeDetail::LatticeMode;
+  /// Cubic crossing planes per axis.
   using ShellCount = HyperLatticeDetail::ShellCount;
+  /// Lattice geometry.
   using Pattern = HyperLatticeDetail::Pattern;
+  /// Pattern and view pair.
   using ConfigurationId = HyperLatticeDetail::ConfigurationId;
 
+  /// Preset identities, indexed by preset number.
   static constexpr auto PRESET_IDS = std::to_array<std::string_view>({
       "cubic-flight",
       "cubic-wide-flight",
@@ -220,16 +298,27 @@ public:
       "shell-close-flight",
       "shell-4d-flight",
   });
+  /// Index of "cubic-flight".
   static constexpr size_t CUBIC_PRESET_INDEX = 0;
+  /// Index of "cubic-wide-flight".
   static constexpr size_t WIDE_PRESET_INDEX = 1;
+  /// Index of "hypercube-flight".
   static constexpr size_t HYPERCUBE_PRESET_INDEX = 2;
+  /// Index of "octet-flight".
   static constexpr size_t OCTET_PRESET_INDEX = 3;
+  /// Index of "octet-wide-flight".
   static constexpr size_t OCTET_WIDE_PRESET_INDEX = 4;
+  /// Index of "octet-4d-flight".
   static constexpr size_t OCTET_4D_PRESET_INDEX = 5;
+  /// Index of "shell-flight".
   static constexpr size_t SHELL_PRESET_INDEX = 6;
+  /// Index of "shell-close-flight".
   static constexpr size_t SHELL_CLOSE_PRESET_INDEX = 7;
+  /// Index of "shell-4d-flight".
   static constexpr size_t SHELL_4D_PRESET_INDEX = 8;
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 16;
 
   /**
@@ -347,6 +436,12 @@ public:
                           : Segue::Preset::Departure{FADE}};
   }
 
+  /**
+   * @brief Parameters of the base preset for a pattern and view.
+   * @param pattern Lattice geometry; traps when unsupported.
+   * @param mode 3D or 4D-slice view.
+   * @return That preset's parameters.
+   */
   static constexpr Params pattern_defaults(Pattern pattern, LatticeMode mode) {
     const bool SLICE = mode == LatticeMode::FOUR_D_SLICE;
     if (pattern == Pattern::CUBIC_WIRE)
@@ -359,13 +454,15 @@ public:
     return {};
   }
 
+  /** @brief A supported pattern and view pair and its trace limits. */
   struct Configuration {
-    ConfigurationId id;
-    Pattern pattern;
-    LatticeMode domain;
-    uint8_t max_candidates;
-    uint8_t max_layers;
+    ConfigurationId id;     ///< Persisted identity.
+    Pattern pattern;        ///< Lattice geometry.
+    LatticeMode domain;     ///< 3D or 4D-slice view.
+    uint8_t max_candidates; ///< Candidate events a traced ray inspects.
+    uint8_t max_layers;     ///< Contributions a traced ray composites.
   };
+  /// Every supported configuration.
   static constexpr auto CONFIGURATIONS = std::to_array<Configuration>({
       {ConfigurationId::CUBIC_3D, Pattern::CUBIC_WIRE, LatticeMode::THREE_D, 9,
        9},
@@ -380,6 +477,11 @@ public:
        64, 32},
   });
 
+  /**
+   * @brief Index of the configuration matching a parameter set.
+   * @param value Parameters to match by pattern and mode.
+   * @return Index into `CONFIGURATIONS`, or its size when unsupported.
+   */
   static constexpr size_t configuration_index(const Params &value) {
     for (size_t i = 0; i < CONFIGURATIONS.size(); ++i)
       if (CONFIGURATIONS[i].pattern == value.pattern &&
@@ -388,17 +490,29 @@ public:
     return CONFIGURATIONS.size();
   }
 
+  /**
+   * @brief Configuration identity of a parameter set.
+   * @param value Parameters to match by pattern and mode.
+   * @return The matching id, or `ConfigurationId::INVALID`.
+   */
   static constexpr ConfigurationId configuration_id(const Params &value) {
     const size_t index = configuration_index(value);
     return index < CONFIGURATIONS.size() ? CONFIGURATIONS[index].id
                                          : ConfigurationId::INVALID;
   }
 
+  /**
+   * @brief Whether a parameter set's pattern and mode are supported.
+   * @param value Parameters to test.
+   * @return True when a configuration matches.
+   */
   static constexpr bool supported_combination(const Params &value) {
     return configuration_id(value) != ConfigurationId::INVALID;
   }
 
+  /// Lower bound of `HyperLatticeDetail::Params::shell_radius`.
   static constexpr float SHELL_RADIUS_MIN = .10f;
+  /// Upper bound of `HyperLatticeDetail::Params::shell_radius`.
   static constexpr float SHELL_RADIUS_MAX = .32f;
 
   /** @brief Shared registration, validation and interpolation descriptions. */
@@ -515,6 +629,11 @@ public:
             .spec = {.min = -.2f, .max = .2f, .animated = true}}};
   }
 
+  /**
+   * @brief Whether a parameter set is supported with every field in range.
+   * @param value Parameters to test.
+   * @return True when `value` is renderable.
+   */
   static constexpr bool valid_params(const Params &value) {
     return supported_combination(value) &&
            Control::valid_fields(value, parameter_fields());
@@ -535,6 +654,7 @@ public:
 
   HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
+  /** @brief Registers parameters and allocates palettes and trace scratch. */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
     constexpr size_t PARAM_CAPACITY =
@@ -563,6 +683,7 @@ public:
     shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
   }
 
+  /** @brief Advances the camera and palettes, then ray-traces the frame. */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {

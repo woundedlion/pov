@@ -37,6 +37,7 @@ template <int W, int H> class DisplacementField : public Effect {
   friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "DisplacementField";
 
   /**
@@ -835,7 +836,12 @@ private:
 
     /** @brief Constructed rings indexed by slot. */
     struct ShapeView {
-      ShapeStorage *storage;
+      ShapeStorage *storage; ///< Pool slots; not owned.
+      /**
+       * @brief Ring constructed in a slot.
+       * @param index Slot index in [0, SLOTS).
+       * @return The slot's ring.
+       */
       SDF::DistortedRing &operator[](size_t index) const {
         return (*storage)[index].ring;
       }
