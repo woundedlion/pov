@@ -80,6 +80,16 @@
 #endif
 
 // ---------------------------------------------------------------------------
+// HS_HOT_INLINE: always_inline in optimized builds. At -O0 inlined bodies keep
+// their own stack slots, so the helper stays an ordinary call there.
+// ---------------------------------------------------------------------------
+#ifdef __OPTIMIZE__
+#define HS_HOT_INLINE __attribute__((always_inline))
+#else
+#define HS_HOT_INLINE
+#endif
+
+// ---------------------------------------------------------------------------
 // HS_PROGMEM_UNIQUE: flash placement for a table defined in a header. Use this,
 // never PROGMEM, for any COMDAT (inline/template) table: the shared ".progmem"
 // section groups a TU's tables into one COMDAT, and ld can discard the whole
