@@ -24,7 +24,9 @@ struct MeshFeedbackWhiteBox;
 /** @brief MeshFeedback's parameter set: the wireframe solid and the feedback
  *  style rendering it. */
 struct MeshFeedbackParams {
+  /// Wireframe solid.
   Solids::BaseMesh base_mesh = Solids::BaseMesh::ICOSAHEDRON;
+  /// Feedback filter style.
   Feedback::Style style = Feedback::Style::ArcingLightning();
 };
 
@@ -41,31 +43,56 @@ template <int W, int H>
 class MeshFeedback
     : public ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams> {
 public:
+  /// Stable effect ID.
   static constexpr const char *EFFECT_ID = "MeshFeedback";
 
+  /// Preset-cycling base.
   using Choreography =
       ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams>;
-  using Params = MeshFeedbackParams;
-  using Style = Feedback::Style;
-  using BaseMesh = Solids::BaseMesh;
+  using Params = MeshFeedbackParams; ///< Live parameter struct.
+  using Style = Feedback::Style;     ///< Feedback style type.
+  using BaseMesh = Solids::BaseMesh; ///< Selectable solid enum.
 
   /** Snap: Style embeds a noise binding and base_mesh rewinds the mesh arena,
       so parameters cannot blend. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
+  /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 241;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 241; ///< Frames per preset.
 
   // Persistent gamut boundary bracket grid at the flash master's resolution.
+  /// Hue-angle steps of the gamut LUT.
   static constexpr int GAMUT_ANGLE_STEPS = GAMUT_LUT_ANGLE_STEPS;
-  static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS;
+  static constexpr int GAMUT_L_STEPS = GAMUT_LUT_L_STEPS; ///< Lightness steps.
 
+  /// Lower bound of `Feedback::Style::fade`, the per-frame fade.
   static constexpr float FADE_MIN = 0.0f, FADE_MAX = 0.99f;
+  /** @var FADE_MAX
+   *  @brief Upper bound of `Feedback::Style::fade`. */
+  /// Lower bound of `Feedback::Style::amplitude`, the warp strength.
   static constexpr float AMP_MIN = 0.0f, AMP_MAX = 30.0f;
+  /** @var AMP_MAX
+   *  @brief Upper bound of `Feedback::Style::amplitude`. */
+  /// Lower bound of `Feedback::Style::frequency`, the warp noise frequency.
   static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
+  /** @var FREQ_MAX
+   *  @brief Upper bound of `Feedback::Style::frequency`. */
+  /// Lower bound of `Feedback::Style::speed`, the warp animation rate.
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
+  /** @var SPEED_MAX
+   *  @brief Upper bound of `Feedback::Style::speed`. */
+  /// Lower bound of `Feedback::Style::scale`, the warp noise scale.
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
+  /** @var SCALE_MAX
+   *  @brief Upper bound of `Feedback::Style::scale`. */
+  /// Lower bound of `Feedback::Style::hue_shift`, in turns.
   static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
+  /** @var HUE_SHIFT_MAX
+   *  @brief Upper bound of `Feedback::Style::hue_shift`. */
+  /// Lower bound of `Feedback::Style::pole_half_res`, in row pitches.
   static constexpr float POLE_RES_MIN = 0.0f, POLE_RES_MAX = 2.0f;
+  /** @var POLE_RES_MAX
+   *  @brief Upper bound of `Feedback::Style::pole_half_res`. */
 
   /** @brief Shared registration, validation and interpolation descriptions. */
   static constexpr auto parameter_fields() {
@@ -120,10 +147,16 @@ public:
                                                       .animated = true}}}}};
   }
 
+  /**
+   * @brief Whether every field of @p p lies in its declared range.
+   * @param p Parameters to check.
+   * @return True if all fields are valid.
+   */
   static constexpr bool preset_in_ranges(const Params &p) {
     return Control::valid_fields(p, parameter_fields());
   }
-  static constexpr size_t PRESET_COUNT = 12;
+  static constexpr size_t PRESET_COUNT = 12; ///< Number of style presets.
+  /// Preset rows: solid, style and departure.
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{BaseMesh::ICOSAHEDRON, Style::ArcingLightning()}, DEPARTURE},
       {{BaseMesh::DODECAHEDRON, Style::SlowFire()}, DEPARTURE},
