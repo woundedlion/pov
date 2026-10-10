@@ -8,9 +8,10 @@
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies snub(tetrahedron, 0.5, SNUB_BRIDGE_TWIST).relax(50) is the
- *        regular icosahedron: 12 vertices, 20 triangles, equal edges on the
- *        unit sphere, at the bridge's tabled arrival twist.
+ * @brief Verifies snub(tetrahedron, 0.5, SNUB_BRIDGE_TWIST)
+ *        .relax(SETTLE_RELAX_ITERATIONS) is the regular icosahedron:
+ *        12 vertices, 20 triangles, equal edges on the unit sphere, at the
+ *        bridge's tabled arrival twist.
  */
 inline void test_snub_tetrahedron_relax_converges_to_icosahedron() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));
@@ -21,7 +22,8 @@ inline void test_snub_tetrahedron_relax_converges_to_icosahedron() {
   build_solid<Solids::Tetrahedron>(tetra, temp);
   PolyMesh snubbed =
       MeshOps::snub(tetra, target, temp, 0.5f, ConwayGraph::SNUB_BRIDGE_TWIST);
-  PolyMesh relaxed = MeshOps::relax(snubbed, aux, temp, 50);
+  PolyMesh relaxed =
+      MeshOps::relax(snubbed, aux, temp, ConwayGraph::SETTLE_RELAX_ITERATIONS);
 
   HS_EXPECT_EQ(relaxed.vertices.size(), (size_t)12);
   HS_EXPECT_EQ(relaxed.face_counts.size(), (size_t)20);
