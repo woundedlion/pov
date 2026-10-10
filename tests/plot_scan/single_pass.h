@@ -824,12 +824,6 @@ inline void test_rasterize_balanced_star_visual_budget() {
     return frame;
   };
 
-  auto energy = [](const Frame &frame) {
-    uint64_t total = 0;
-    for (const Pixel &pixel : frame.pixels)
-      total += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-    return total;
-  };
   auto covered = [](const Pixel &pixel) {
     return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > 512;
   };
@@ -851,7 +845,8 @@ inline void test_rasterize_balanced_star_visual_budget() {
     HS_EXPECT_EQ(standard.backstops, uint32_t{0});
     HS_EXPECT_EQ(balanced.backstops, uint32_t{0});
     const double energy_ratio =
-        static_cast<double>(energy(balanced)) / energy(standard);
+        static_cast<double>(frame_energy(balanced.pixels)) /
+        frame_energy(standard.pixels);
     HS_EXPECT_GT(energy_ratio, 0.98);
     HS_EXPECT_LT(energy_ratio, 1.06);
 

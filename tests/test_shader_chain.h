@@ -30,6 +30,7 @@
 #include "core/render/pullback/interpreter.h"
 #include "effects/AlienCore.h"
 #include "tests/composed_frame_fixture.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "workbench/shader/chain_host.h"
