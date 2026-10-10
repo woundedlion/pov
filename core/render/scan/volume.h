@@ -131,7 +131,8 @@ struct Volume {
    * @param local_vd Unit ray direction in local space.
    * @param bounds_radius Bounding sphere radius (past-the-back early-out).
    * @param max_steps Maximum sphere-tracing steps.
-   * @param aa_width Anti-aliasing band half-width (deep-hit early-out).
+   * @param aa_width Anti-aliasing band half-width; scales the hit threshold
+   *        and bounds the silhouette-graze stop.
    * @param closest_local Output: local-space point of closest approach.
    * @return Signed distance at the closest approach (FLT_MAX if never sampled).
    * @details Inside the AA band, stops at the first rising local minimum (the
