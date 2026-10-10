@@ -71,6 +71,7 @@ struct SimBoard {
     sync_pulse = {};
     submit_gate = {};
     instance = {};
+    edge_latched = false;
     seen_gen = 0;
     pending_pickup = 0;
     pending_index = -1;
