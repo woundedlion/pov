@@ -74,7 +74,7 @@ class TestParse(unittest.TestCase):
 
 
 class TestExempt(unittest.TestCase):
-    def test_defaulted_and_deleted_members(self):
+    def test_defaulted_deleted_and_assignment_members(self):
         self.assertTrue(cov.exempt(item(
             "operator==(const Axis &) const =default", "function", "Axis")))
         self.assertTrue(cov.exempt(item(
