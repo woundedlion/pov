@@ -431,6 +431,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_parity_displace_ripple();
   test_shader_chain_parity_lens_ops();
   test_shader_chain_parity_project_ops();
+  test_shader_chain_peirce_square_dispatch();
   test_shader_chain_projection_frame_policy();
   test_shader_chain_parity_project_hemispheres();
   test_shader_chain_parity_field_ops();

@@ -288,6 +288,48 @@ inline void run_peirce_variant(ValueSet set) {
   program.clear();
 }
 
+/** PeirceSquare takes the fast kernel at a zero central meridian and the exact
+    square Peirce kernel elsewhere. */
+inline void test_shader_chain_peirce_square_dispatch() {
+  using Square = typename PB::Stage::Project<PB::Projection::PeirceSquare<
+      PeirceProjMirror>>::template Bind<ProjMirrorBinding>;
+  using Fast = typename PB::Stage::Project<PB::Projection::PeirceFastSquare<
+      PeirceFastProjMirror>>::template Bind<ProjMirrorBinding>;
+  using Exact = typename PB::Stage::Project<PB::Projection::Peirce<
+      PeirceProjMirror, static_cast<uint8_t>(projections::PeirceLayout::SQUARE),
+      true>>::template Bind<ProjMirrorBinding>;
+  ProjMirrorFrame frame{};
+  frame.conjugate = math::make_rotation(math::Y_AXIS, 0.3f).conjugate();
+  frame.peirce.layout_scroll = 0.25f;
+  frame.peirce.coordinate_scale = 0.75f;
+  frame.peirce.singularity_fade = 0.5f;
+  frame.peirce_fast.coordinate_scale = frame.peirce.coordinate_scale;
+  frame.peirce_fast.singularity_fade = frame.peirce.singularity_fade;
+  for (const float meridian : {0.0f, 0.7f}) {
+    HS_CONTEXT(meridian == 0.0f ? "zero meridian" : "moving meridian");
+    frame.peirce.central_meridian = meridian;
+    const auto square = Square::prepare(frame);
+    const auto fast = Fast::prepare(frame);
+    const auto exact = Exact::prepare(frame);
+    int fast_matches = 0;
+    int exact_matches = 0;
+    for (const auto &view : sweep_views()) {
+      const PB::SphereSample seed{view, 0.25f};
+      const PB::PlaneSample got = Square::run(seed, frame, square);
+      fast_matches += plane_identical(got, Fast::run(seed, frame, fast));
+      exact_matches += plane_identical(got, Exact::run(seed, frame, exact));
+    }
+    const int views = static_cast<int>(sweep_views().size());
+    if (meridian == 0.0f) {
+      HS_EXPECT_EQ(fast_matches, views);
+      HS_EXPECT_TRUE(exact_matches < views);
+    } else {
+      HS_EXPECT_EQ(exact_matches, views);
+      HS_EXPECT_TRUE(fast_matches < views);
+    }
+  }
+}
+
 inline void test_shader_chain_parity_project_ops() {
   static_assert(PB::Projection::PeirceFastSquare<
                 PeirceFastProjMirror>::PROVIDER_VALID<ProjMirrorBinding>);
