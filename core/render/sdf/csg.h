@@ -585,8 +585,7 @@ template <typename A, typename B> struct Intersection {
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
   /// Rotation axis (unit length).
-  math::Vector axis, u,
-      w; /**< Rotation axis and the derived perpendicular plane (u, w). */
+  math::Vector axis, u, w; /**< cross(axis, u). */
   /// @var u
   /// Unit vector perpendicular to the axis; w = cross(axis, u).
   int repetitions; /**< Number of copies around the axis. */

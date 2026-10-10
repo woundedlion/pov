@@ -22,14 +22,13 @@ HS_O3_BEGIN
 /** @brief One sub-pixel sample resolved into its four nearest-neighbor taps. */
 struct SplatTaps {
   /// Wrapped left column.
-  int x0, x1; /**< Wrapped left and right columns. */
-  /// Top row.
-  int y0, y1;       /**< Top and bottom rows, either may lie outside [0, H). */
+  int x0, x1; /**< Wrapped right column. */
+  /// Top row; may lie outside [0, H).
+  int y0, y1;       /**< Bottom row; may lie outside [0, H). */
   bool y0_physical; /**< y0 lies in [0, H). */
   bool y1_physical; /**< y1 lies in [0, H). */
   /// Coverage of tap (x0, y0).
-  float v00, v10, v01,
-      v11; /**< Bilinear coverage per tap, row-major from (x0, y0). */
+  float v00, v10, v01, v11; /**< Coverage of tap (x1, y1). */
   /** @var v10
    *  Coverage of tap (x1, y0). */
   /** @var v01

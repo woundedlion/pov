@@ -35,9 +35,9 @@ struct ClassLut {
       nullptr; /**< n*n quantized signed distances (row-major). */
   int n = 0;   /**< Grid resolution per axis. */
   /// Canonical bounding-box center x.
-  float cx = 0, cy = 0; /**< Canonical bounding-box center. */
+  float cx = 0, cy = 0; /**< Canonical bounding-box center y. */
   /// Half-extent in x (+ margin).
-  float Rx = 0, Ry = 0; /**< Half-extents (+ margin). */
+  float Rx = 0, Ry = 0; /**< Half-extent in y (+ margin). */
   float inv_step_x = 0; /**< Reciprocal cell width. */
   float inv_step_y = 0; /**< Reciprocal cell height. */
   float safe_dist = 0;  /**< Cell diagonal (sign-pure interpolation bound). */
@@ -127,9 +127,9 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
  */
 struct AlignCorr {
   /// Real part of the sum of canon_k * conj(z'_k).
-  float rr, ri; /**< Sum of canon_k * conj(z'_k) (real, imaginary). */
+  float rr, ri; /**< Imaginary part of the sum of canon_k * conj(z'_k). */
   /// Sum of |canon_k|^2.
-  float cc, zz; /**< Power terms: sum |canon_k|^2 and sum |z'_k|^2. */
+  float cc, zz; /**< Sum of |z'_k|^2. */
 };
 
 /**
