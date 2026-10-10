@@ -51,8 +51,6 @@ __attribute__((always_inline)) inline uint32_t inline_uqadd16(uint32_t a,
   return res;
 }
 #else
-// Portable software model of ARM `uqadd16`: two independent 16-bit unsigned
-// saturating adds, one per halfword lane.
 /**
  * @brief Per-halfword unsigned saturating add (portable `uqadd16`).
  * @param a Two packed 16-bit lanes.

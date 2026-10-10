@@ -13,8 +13,8 @@
 /**
  * @brief Interpolates one parameter family across a preset transition.
  * @details Driven by the family's field table; each field moves on the curve
- * its descriptor names, and every member the table does not cover, the Mobius
- * coefficients included, snaps to @p b once progress reaches 1.
+ * its descriptor names, and every member the table does not cover snaps to
+ * @p b once progress reaches 1.
  * @param a Value at progress 0.
  * @param b Value at progress 1.
  * @param t Progress fraction.
