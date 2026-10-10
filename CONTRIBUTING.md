@@ -93,8 +93,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Shell edits:** the pre-commit hook runs `shellcheck -x` on staged `.sh` files and `.githooks/` scripts. Install its pinned prerequisite with `pip install --require-hashes -r requirements/shellcheck.txt`.
 - **clang-format is pinned to 22.1.8.** A different major reflows unrelated
   code, so the hook fails rather than trusting an off-major verdict. Install the
-  pin (`pip install clang-format==22.1.8`) or point `CLANG_FORMAT` at a
-  `clang-format-22` binary reporting that exact version. Every external tool version is single-sourced
+  pin (`pip install --require-hashes -r requirements/clang-format.txt`) or
+  point `CLANG_FORMAT` at a `clang-format-22` binary reporting that exact
+  version. Every external tool version is single-sourced
   through `tools/build_pins.py`, whose `--check` fails a partial bump.
 - **Guard tests:** Prove that a valid companion fixture is accepted. For the
   guarded fixture, assert the intended result or diagnostic. Deleting the
