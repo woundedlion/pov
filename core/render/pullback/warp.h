@@ -46,8 +46,11 @@ static_assert(field_defaults_in_range<CurlFlowParams>());
 /** @brief Largest angular harmonic a `PolarChart` accepts. */
 inline constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 
+/** @brief Fixed envelope policy: unit amplitude everywhere. */
 struct FlatEnvelope {};
+/** @brief Fixed envelope policy: amplitude follows the projection weight. */
 struct ProjectionWeightEnvelope {};
+/** @brief Fixed envelope policy: amplitude fades toward the projection edge. */
 struct EdgeFadeEnvelope {};
 
 /** @brief Envelope shaping a warp's amplitude across the projected domain. */
@@ -79,7 +82,9 @@ struct Midpoint2 {
 struct Midpoint4 {
   static constexpr uint8_t INTERVALS = 4; ///< Integration intervals.
 };
+/** @brief `PolarChart` mode mapping radius linearly. */
 struct LinearPolar {};
+/** @brief `PolarChart` mode mapping radius logarithmically. */
 struct LogarithmicPolar {};
 
 /**
@@ -447,12 +452,14 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
   return prepared;
 }
 
+/** @brief A provider whose `prepare` builds the slot's per-frame state. */
 template <typename State, typename Binding>
 concept PreparedProvider = Detail::ProviderFor<State, Binding> &&
                            requires(const typename Binding::FrameState &frame) {
                              State::prepare(frame);
                            };
 
+/** @brief A `PreparedProvider` that also hands out its parameter block. */
 template <typename State, typename Binding>
 concept ParamsPreparedProvider =
     PreparedProvider<State, Binding> && Detail::ParamsProvider<State, Binding>;

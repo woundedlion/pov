@@ -6,6 +6,8 @@ undocumented-member warnings. This gate reruns doxygen with EXTRACT_ALL off,
 drops the exempt symbol classes below, and reports each remaining source
 location once (a template's member warns once per instantiation). Doxygen
 skips global symbols of a file with no `@file` block, so such files fail too.
+Doxygen never warns for an empty struct or a concept, so a source scan checks
+those for a preceding doc comment.
 """
 
 from __future__ import annotations
@@ -203,6 +205,46 @@ def missing_file_blocks(root: Path, files: list[str]) -> list[str]:
         (root / path).read_text(encoding="utf-8", errors="replace"))]
 
 
+_COMMENT_RE = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+_SILENT_DECL_RE = re.compile(
+    r"(?:template\s*<[^;{}]*?>\s*)?(?:"
+    r"(?:struct|class)\s+(?P<struct>\w+)\s*(?:final\s*)?(?::[^{};]*)?"
+    r"\{\s*\}\s*;|concept\s+(?P<concept>\w+)\s*=)")
+_OP_NAMESPACE_RE = re.compile(r"\bnamespace\s+(?:\w+::)*Op\b")
+
+
+def silent_declarations(path: str, text: str) -> list[Undocumented]:
+    """Return the undocumented empty structs and concepts in a source file.
+
+    A declaration is documented by a `/**`, `/*!`, `///` or `//!` comment
+    directly above it (or above its template header), or by a trailing
+    `///<`. An empty operator-contract member in a file that opens an `Op`
+    namespace is exempt.
+    """
+    masked = _COMMENT_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group()), text)
+    in_op = bool(_OP_NAMESPACE_RE.search(masked))
+    found: list[Undocumented] = []
+    for match in _SILENT_DECL_RE.finditer(masked):
+        group = "struct" if match["struct"] else "concept"
+        name = match[group]
+        if group == "struct" and in_op and name in OPERATOR_CONTRACT:
+            continue
+        before = text[:match.start()].rstrip()
+        last = before.rpartition("\n")[2].lstrip()
+        if before.endswith("*/"):
+            if before[before.rfind("/*"):][:3] in ("/**", "/*!"):
+                continue
+        elif last.startswith(("///", "//!")):
+            continue
+        trailing = text[match.end():].partition("\n")[0]
+        if "///<" in trailing or "//!<" in trailing:
+            continue
+        line = text.count("\n", 0, match.start(group)) + 1
+        kind = "empty struct" if group == "struct" else "concept"
+        found.append(Undocumented(path, line, name, kind, ""))
+    return found
+
+
 def run_doxygen(doxygen: str, root: Path, paths: list[str]) -> str:
     """Run doxygen over the Doxyfile inputs and return its warning log."""
     with tempfile.TemporaryDirectory() as scratch:
@@ -237,9 +279,13 @@ def main(argv: list[str] | None = None) -> int:
                         help="doxygen executable (default: $DOXYGEN or doxygen)")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
-    files = missing_file_blocks(args.root, source_files(args.root, args.paths))
-    items = locations(parse(run_doxygen(args.doxygen, args.root, args.paths),
-                            args.root), args.root)
+    sources = source_files(args.root, args.paths)
+    files = missing_file_blocks(args.root, sources)
+    found = parse(run_doxygen(args.doxygen, args.root, args.paths), args.root)
+    for path in sources:
+        found += silent_declarations(path, (args.root / path).read_text(
+            encoding="utf-8", errors="replace"))
+    items = locations(found, args.root)
     for path in files:
         print(f"{path}:1: missing @file block")
     for item in items:

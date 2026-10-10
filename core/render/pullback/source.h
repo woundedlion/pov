@@ -379,6 +379,8 @@ HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
   return {primary, secondary, angle, cosf(angle), sinf(angle)};
 }
 
+/** @brief A parameter provider whose `prepare` builds the source's per-frame
+    state. */
 template <typename State, typename Binding>
 concept StateProvider = Detail::ParamsProvider<State, Binding> &&
                         requires(const typename Binding::FrameState &frame) {

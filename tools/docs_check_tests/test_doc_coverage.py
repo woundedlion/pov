@@ -178,5 +178,43 @@ class TestFileBlocks(unittest.TestCase):
             self.assertEqual(cov.source_files(root, []), ["src/a.h"])
 
 
+def silent(text):
+    return [(i.line, i.name, i.kind)
+            for i in cov.silent_declarations("a.h", text)]
+
+
+class TestSilentDeclarations(unittest.TestCase):
+    def test_undocumented_empty_struct_and_concept_are_reported(self):
+        self.assertEqual(silent(
+            "struct Tag {};\n"
+            "template <typename T>\nconcept C = true;\n"
+            "struct Base : std::false_type {};\n"), [
+            (1, "Tag", "empty struct"), (3, "C", "concept"),
+            (4, "Base", "empty struct")])
+
+    def test_doc_comments_document_the_declaration(self):
+        self.assertEqual(silent(
+            "/** @brief A. */\nstruct A {};\n"
+            "/// B.\nstruct B {};\n"
+            "struct C {}; ///< C.\n"
+            "/** @brief D. */\ntemplate <typename T>\nconcept D = true;\n"),
+            [])
+
+    def test_plain_comment_does_not_document(self):
+        self.assertEqual(silent("/* tag */\nstruct A {};\n// tag\nstruct B {};\n"),
+                         [(2, "A", "empty struct"), (4, "B", "empty struct")])
+
+    def test_non_empty_struct_specialization_and_comment_text_are_ignored(self):
+        self.assertEqual(silent(
+            "struct A { int x; };\n"
+            "template <> struct T<int> : std::true_type {};\n"
+            "// struct Hidden {};\n"), [])
+
+    def test_operator_contract_member_exempt_only_in_op_namespace(self):
+        model = "struct M {\n  struct Prepared {};\n};\n"
+        self.assertEqual(silent("namespace Op {\n" + model + "}\n"), [])
+        self.assertEqual(silent(model), [(2, "Prepared", "empty struct")])
+
+
 if __name__ == "__main__":
     unittest.main()

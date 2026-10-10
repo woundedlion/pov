@@ -28,6 +28,7 @@ constexpr std::string_view warp_speed_name(std::string_view key) {
                                : "Planar Warp Speed";
 }
 
+/** @brief Whether @p T is a `Stage::Sample` stage. @tparam T Stage type. */
 template <typename T> struct IsSampleStage : std::false_type {};
 template <typename S, typename W, typename C>
 struct IsSampleStage<Stage::Sample<S, W, C>> : std::true_type {};
@@ -62,20 +63,26 @@ struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
       ProjectionCoverageMode::EDGE_FADE; ///< The mode.
 };
 
+/** @brief Whether @p T is a `Stage::Lens` stage. @tparam T Stage type. */
 template <typename T> struct IsLensStage : std::false_type {};
 template <typename P> struct IsLensStage<Stage::Lens<P>> : std::true_type {};
+/** @brief Whether @p T is a `Stage::Displace` stage. @tparam T Stage type. */
 template <typename T> struct IsSurfaceStage : std::false_type {};
 template <typename P>
 struct IsSurfaceStage<Stage::Displace<P>> : std::true_type {};
+/** @brief Whether @p T is a `Stage::Project` stage. @tparam T Stage type. */
 template <typename T> struct IsProjectStage : std::false_type {};
 template <typename P>
 struct IsProjectStage<Stage::Project<P>> : std::true_type {};
+/** @brief Whether @p T is a `Stage::Transfer` stage. @tparam T Stage type. */
 template <typename T> struct IsTransferStage : std::false_type {};
 template <typename P>
 struct IsTransferStage<Stage::Transfer<P>> : std::true_type {};
+/** @brief Whether @p T is a `Stage::ApplyCoverage` stage. @tparam T Stage type. */
 template <typename T> struct IsCoverageStage : std::false_type {};
 template <typename P>
 struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
+/** @brief Whether @p T is a `Lens::Mobius` policy. @tparam T Policy type. */
 template <typename T> struct IsMobiusLens : std::false_type {};
 template <typename P> struct IsMobiusLens<Lens::Mobius<P>> : std::true_type {};
 
@@ -98,6 +105,10 @@ consteval size_t stage_index() {
     return stage_index<Pipeline, Predicate, Index + 1>();
 }
 
+/**
+ * @brief Whether @p Policy, or a provider it wraps, tracks path length.
+ * @tparam Policy Stage policy.
+ */
 template <typename Policy> struct PathTracked : std::false_type {};
 template <template <typename...> class Policy, typename... Arguments>
 struct PathTracked<Policy<Arguments...>>
@@ -122,6 +133,8 @@ struct PathTracked<Surface::CurlNoise<Provider, Basis, Integrator, Limit>>
 template <typename Provider, math::NoiseBasis Basis>
 struct PathTracked<Surface::DirectNoise<Provider, Basis>>
     : PathTracked<Provider> {};
+/** @brief Whether any policy of @p Stage tracks path length.
+ * @tparam Stage Pipeline stage. */
 template <typename Stage>
 struct StagePathTracked : PathTracked<typename Stage::Policies> {};
 

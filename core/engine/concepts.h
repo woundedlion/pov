@@ -329,6 +329,7 @@ inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
  * prepared_for().
  */
 class PipelineRef {
+  /** @brief Tag selecting the type-erasing constructor. */
   struct Erase {};
 
   void *ctx;
