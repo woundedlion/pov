@@ -44,19 +44,39 @@ struct is_inplace_function<inplace_function<Signature, Capacity, Alignment>>
     : std::true_type {};
 
 // Type-erased operation table, one shared instance per captured callable type.
+/**
+ * @brief Operation table for an inplace_function's stored callable.
+ * @tparam R Call return type.
+ * @tparam Args Call argument types.
+ */
 template <typename R, typename... Args> struct ipf_vtable {
+  /// Calls the callable in a storage buffer.
   using invoke_ptr_t = R (*)(void *, Args &&...);
+  /// Copy-constructs the callable from the second buffer into the first.
   using copy_ptr_t = void (*)(void *, const void *);
+  /// Move-constructs the callable from the second buffer into the first.
   using move_ptr_t = void (*)(void *, void *);
 
-  invoke_ptr_t invoke;
-  copy_ptr_t copy;
-  move_ptr_t move;
+  invoke_ptr_t invoke; ///< Invokes the stored callable.
+  copy_ptr_t copy;     ///< Copies the stored callable into another buffer.
+  move_ptr_t move;     ///< Moves the stored callable into another buffer.
 };
 
 // Concrete operations for a captured callable C placed in the inline buffer.
+/**
+ * @brief ipf_vtable entries for a stored callable of type C.
+ * @tparam C Stored callable type.
+ * @tparam R Call return type.
+ * @tparam Args Call argument types.
+ */
 template <typename C, typename R, typename... Args> struct ipf_ops {
   // The byte buffer is not pointer-interconvertible with C; launder each access.
+  /**
+   * @brief Calls the C stored in `storage`.
+   * @param storage Buffer holding a live C.
+   * @param args Call arguments, forwarded.
+   * @return The callable's result.
+   */
   static R invoke(void *storage, Args &&...args) {
     C &callable = *std::launder(static_cast<C *>(storage));
     if constexpr (std::is_void_v<R>) {
@@ -65,22 +85,45 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
       return callable(std::forward<Args>(args)...);
     }
   }
+  /**
+   * @brief Copy-constructs a C into `dst`.
+   * @param dst Uninitialized destination buffer.
+   * @param src Buffer holding a live C.
+   */
   static void copy(void *dst, const void *src) {
     ::new (dst) C(*std::launder(static_cast<const C *>(src)));
   }
+  /**
+   * @brief Move-constructs a C into `dst`; `src` stays live but moved-from.
+   * @param dst Uninitialized destination buffer.
+   * @param src Buffer holding a live C.
+   */
   static void move(void *dst, void *src) {
     ::new (dst) C(std::move(*std::launder(static_cast<C *>(src))));
   }
 
+  /// The shared vtable for C.
   static constexpr ipf_vtable<R, Args...> value{&invoke, &copy, &move};
 };
 
 // Empty-state operations: invoke traps; copy/move are no-ops.
+/**
+ * @brief ipf_vtable entries for an empty inplace_function.
+ * @tparam R Call return type.
+ * @tparam Args Call argument types.
+ */
 template <typename R, typename... Args> struct ipf_empty_ops {
+  /**
+   * @brief Traps via inplace_function_empty_call().
+   * @return Never returns.
+   */
   static R invoke(void *, Args &&...) { ::hs::inplace_function_empty_call(); }
+  /** @brief No-op; an empty function holds no callable. */
   static void copy(void *, const void *) {}
+  /** @brief No-op; an empty function holds no callable. */
   static void move(void *, void *) {}
 
+  /// The shared empty-state vtable.
   static constexpr ipf_vtable<R, Args...> value{&invoke, &copy, &move};
 };
 
@@ -153,9 +196,17 @@ public:
     vtable = &detail::ipf_ops<D, R, Args...>::value;
   }
 
+  /**
+   * @brief Copies the callable of `o` into this buffer.
+   * @param o Source function.
+   */
   inplace_function(const inplace_function &o) noexcept : vtable(o.vtable) {
     vtable->copy(storage, o.storage);
   }
+  /**
+   * @brief Moves the callable of `o` into this buffer and leaves `o` empty.
+   * @param o Source function.
+   */
   inplace_function(inplace_function &&o) noexcept : vtable(o.vtable) {
     vtable->move(storage, o.storage);
     o.vtable = empty_vtable();
@@ -189,7 +240,11 @@ public:
     return *this;
   }
 
-  /** @brief Invokes the stored callable; traps if empty. */
+  /**
+   * @brief Invokes the stored callable; traps if empty.
+   * @param args Call arguments, forwarded.
+   * @return The callable's result.
+   */
   R operator()(Args... args) const {
     return vtable->invoke(storage, std::forward<Args>(args)...);
   }

@@ -25,10 +25,16 @@ namespace hs {
  */
 class Pcg32 {
 public:
-  using result_type = uint32_t;
+  using result_type = uint32_t; ///< Output word type.
+  /** @return Smallest value operator() returns. */
   static constexpr result_type min() { return 0u; }
+  /** @return Largest value operator() returns. */
   static constexpr result_type max() { return 0xFFFFFFFFu; }
 
+  /**
+   * @brief Constructs the generator in the state seed() sets for `seed`.
+   * @param seed Seed value.
+   */
   explicit Pcg32(uint64_t seed = 1337u) { this->seed(seed); }
 
   /**
@@ -43,6 +49,7 @@ public:
     (*this)();
   }
 
+  /** @return The next uniformly distributed 32-bit output; advances state. */
   result_type operator()() {
     uint64_t old = state;
     state = old * 6364136223846793005ULL + inc;
@@ -77,6 +84,7 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
  * @brief Returns an effect type's persisted ID, falling back to its class name.
  * @tparam EffectType Concrete effect type at a fixed resolution.
  * @param class_name Effect class name.
+ * @return `EffectType::EFFECT_ID` when declared, else `class_name`.
  */
 template <typename EffectType>
 constexpr std::string_view stable_effect_id(std::string_view class_name) {
@@ -85,7 +93,11 @@ constexpr std::string_view stable_effect_id(std::string_view class_name) {
   return class_name;
 }
 
-/** @brief Derives a roster-position-independent seed from an effect ID. */
+/**
+ * @brief Derives a roster-position-independent seed from an effect ID.
+ * @param effect_id Stable effect ID.
+ * @return 64-bit seed hashed from `effect_id`.
+ */
 constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
   uint64_t hash = 1469598103934665603ULL;
   for (char value : effect_id) {

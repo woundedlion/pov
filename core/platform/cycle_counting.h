@@ -3,6 +3,12 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/**
+ * @file cycle_counting.h
+ * @brief Cycle-counter instrumentation: named cumulative counters, scoped
+ *        timers and ISR cycle statistics.
+ */
+
 // Included by core/platform/profiling.h.
 
 // ---------------------------------------------------------------------------
@@ -37,8 +43,10 @@ inline const char *u64_dec(uint64_t v, char (&buf)[21]) {
  */
 struct CycleCounter {
 #ifdef CORE_TEENSY
+  /// CPU cycles per microsecond.
   static constexpr uint32_t CYCLES_PER_US = F_CPU / 1000000;
 #else
+  /// CPU cycles per microsecond, fixed at the Teensy 4.0 clock on host.
   static constexpr uint32_t CYCLES_PER_US = 600;
 #endif
 
@@ -263,7 +271,10 @@ struct IsrCycleStats {
   uint32_t min = UINT32_MAX; /**< Shortest single scope, in cycles. */
   uint32_t max = 0;          /**< Longest single scope, in cycles. */
 
-  /** @brief Folds one scope's elapsed cycles into the accumulator. */
+  /**
+   * @brief Folds one scope's elapsed cycles into the accumulator.
+   * @param dt Elapsed cycles of one scope.
+   */
   void add(uint32_t dt) {
     cycles += dt;
     ++count;
@@ -288,6 +299,10 @@ struct IsrCycleScope {
   IsrCycleStats &stats; /**< Accumulator receiving the elapsed cycles. */
   uint32_t start;       /**< Cycle snapshot taken at construction. */
 
+  /**
+   * @brief Starts timing.
+   * @param s Accumulator receiving the elapsed cycles at scope exit.
+   */
   explicit IsrCycleScope(IsrCycleStats &s) : stats(s), start(HS_OS_CYCLES()) {}
   ~IsrCycleScope() { stats.add((uint32_t)(HS_OS_CYCLES() - start)); }
   IsrCycleScope(const IsrCycleScope &) = delete;
