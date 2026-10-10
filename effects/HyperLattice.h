@@ -663,12 +663,14 @@ public:
 
   HS_COLD_MEMBER HyperLattice() : Choreography(W, H, {.strobe = true}) {}
 
+  /// Parameter descriptors `init` registers, including the GUI bridge's.
+  static constexpr size_t PARAM_CAPACITY =
+      std::tuple_size_v<decltype(parameter_fields())> +
+      HS_ENABLE_PARAM_GUI_BRIDGE;
+
   /** @brief Registers parameters and allocates palettes and trace scratch. */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
-    constexpr size_t PARAM_CAPACITY =
-        std::tuple_size_v<decltype(parameter_fields())> +
-        HS_ENABLE_PARAM_GUI_BRIDGE;
     if constexpr (PARAM_CAPACITY > ParamList::FIXED_CAPACITY) {
       this->use_parameter_storage(
           persistent_arena,
@@ -1006,6 +1008,9 @@ private:
 
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
+      (PARAM_CAPACITY > ParamList::FIXED_CAPACITY
+           ? PARAM_CAPACITY * sizeof(ParamDef) + alignof(ParamDef)
+           : 0) +
       BakedPalette::required_arena_bytes() +
       sizeof(HyperLatticeDetail::CrossingList) +
       alignof(HyperLatticeDetail::CrossingList) +
