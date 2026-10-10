@@ -45,14 +45,10 @@ inline void test_chromatic_shift_fanout() {
   HS_EXPECT_EQ(taps[0].c.b, src.b);
 
   HS_EXPECT_EQ(taps[0].alpha, 1.0f);
-  constexpr int BACKGROUND = 400;
-  constexpr int MIN_RETAINED = BACKGROUND * 3 / 4 - 1;
+  // Fringe copies stay on the source row at a quarter of the source alpha.
   for (int i = 1; i < 4; ++i) {
-    const Pixel lit(BACKGROUND, BACKGROUND, BACKGROUND);
-    const Pixel mixed = blend_alpha(taps[i].alpha)(lit, taps[i].c);
-    HS_EXPECT_GE(mixed.r, MIN_RETAINED);
-    HS_EXPECT_GE(mixed.g, MIN_RETAINED);
-    HS_EXPECT_GE(mixed.b, MIN_RETAINED);
+    HS_EXPECT_EQ(taps[i].alpha, 0.25f);
+    HS_EXPECT_NEAR(taps[i].y, 5.0f, 1e-6f);
   }
 
   // Red-only copy at x+1.
