@@ -242,11 +242,23 @@ inline void verify_params_equal(const Params &actual, const Params &expected) {
   });
 }
 
-/** @brief Moves every tabled field of a family to the middle of its range. */
+/**
+ * @brief Moves every tabled field of a family to an in-range value that
+ * differs from its captured value.
+ * @param family Family to move.
+ * @param captured Values each field must move off.
+ * @details The midpoint, or the lower quartile where the midpoint is the
+ * captured value.
+ */
 template <Pullback::HasFields Family>
-inline void fill_midpoints(Family &family) {
-  for (const auto &field : Family::FIELDS)
-    family.*(field.member) = 0.5f * (field.min + field.max);
+inline void move_off_captured(Family &family, const Family &captured) {
+  for (const auto &field : Family::FIELDS) {
+    float value = 0.5f * (field.min + field.max);
+    if (bits(value) == bits(captured.*(field.member)))
+      value = field.min + 0.25f * (field.max - field.min);
+    family.*(field.member) = value;
+    HS_EXPECT_NE(bits(value), bits(captured.*(field.member)));
+  }
 }
 
 /**
@@ -401,9 +413,9 @@ inline void check_snapshot_contract(const char *name) {
   // Every family the parameter set names has to make the crossing, so the whole
   // set moves off its authored values at once.
   typename FX::ParameterSnapshot moved = captured;
-  moved.params.visit([]<typename Resource>(auto &family) {
+  moved.params.visit([&]<typename Resource>(auto &family) {
     if constexpr (Pullback::HasFields<typename Resource::Family>)
-      fill_midpoints(family);
+      move_off_captured(family, captured.params.template get<Resource::KEY>());
   });
   if constexpr (Params::template HAS<"lens">) {
     moved.params.template get<"lens">().mobius.a = {1.0f, 0.2f};
