@@ -167,8 +167,9 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
    * @details The maximum edge half-plane distance is exact inside a convex
    * polygon and in exterior edge slabs, and underestimates in a vertex's
-   * exterior normal cone. Concave, degenerate-edged, or wrongly-oriented
-   * polygons leave convex false and distance() on the exact walk.
+   * exterior normal cone. Concave, self-intersecting, degenerate-edged, or
+   * wrongly-oriented polygons leave convex false and distance() on the exact
+   * walk.
    */
 __attribute__((always_inline)) void
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
@@ -177,6 +178,10 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
   bool pos = false, neg = false;
   const math::Vector *e1 = &edge_vectors[count - 1];
   float l1 = edge_lengths_sq[count - 1];
+  // Edge-direction y sign flips, uncounted across the ring seam: one
+  // revolution of the edge directions makes one or two.
+  int flips = 0;
+  float dir = 0.0f;
   for (int i = 0; i < count; ++i) {
     const math::Vector &e2 = edge_vectors[i];
     float cr = e1->x * e2.y - e1->y * e2.x;
@@ -189,8 +194,12 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
       else
         neg = true;
     }
+    if (e2.y != 0.0f) {
+      flips += dir * e2.y < 0.0f;
+      dir = e2.y;
+    }
   }
-  if (pos && neg)
+  if ((pos && neg) || flips < 1 || flips > 2)
     return;
 
   float sign = area2 >= 0 ? 1.0f : -1.0f;

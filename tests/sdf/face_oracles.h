@@ -66,13 +66,15 @@ inline float exact_plane_distance(std::span<const math::Vector> verts,
  * @param rho Angular circumradius of the face, in radians.
  * @param axis Pole direction the face's basis is built around.
  * @param rho_inner Inner-vertex radius; > 0 interleaves star points (concave).
+ * @param stride Ring step between consecutive face vertices; a stride > 1
+ * coprime to sides joins the points into a self-intersecting star.
  * @details A convex face must match the oracle exactly inside and stay within
  * [0, oracle] outside (the half-plane path underestimates in vertex cones); a
  * concave face must match the oracle everywhere via the exact walk.
  */
 inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
                                        const math::Vector &axis,
-                                       float rho_inner = 0.0f) {
+                                       float rho_inner = 0.0f, int stride = 1) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
@@ -82,11 +84,17 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
       build_regular_face(basis, sides, rho, rho_inner, verts3d, idx);
   if (n_verts == 0)
     return;
+  if (stride != 1) {
+    math::Vector ring[16];
+    std::copy(verts3d, verts3d + n_verts, ring);
+    for (int i = 0; i < n_verts; ++i)
+      verts3d[i] = ring[(i * stride) % n_verts];
+  }
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const math::Vector>(verts3d, n_verts),
                  std::span<const uint16_t>(idx, n_verts), scratch, HV, H);
-  HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f);
+  HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f && stride == 1);
   const uint32_t probe_flags = face.probe_flags();
 
   int samples = 0;
@@ -548,6 +556,11 @@ inline void test_face_distance_matches_exact_oracle() {
   check_face_distance_oracle(samples, /*sides=*/6, 0.50f,
                              math::Vector(0.4f, 0.3f, 1.0f),
                              /*rho_inner=*/0.25f);
+  // Pentagram {5/2}: every turn shares one sign but the edges wind twice, so
+  // the parity walk must serve it.
+  check_face_distance_oracle(samples, /*sides=*/5, 0.50f,
+                             math::Vector(0.4f, 0.3f, 1.0f),
+                             /*rho_inner=*/0.0f, /*stride=*/2);
   HS_EXPECT_GT(samples, 1000);
 }
 
