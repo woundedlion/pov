@@ -95,6 +95,18 @@ struct HankinWalkProbe {
     return fx.node;
   }
   /**
+   * @brief Node the walk is routing to; equal to node() during a sweep.
+   */
+  template <int W, int H> static int dest(const HankinSolids<W, H> &fx) {
+    return fx.dest;
+  }
+  /**
+   * @brief Edge of the last (or in-flight) leg.
+   */
+  template <int W, int H> static int cur_edge(const HankinSolids<W, H> &fx) {
+    return fx.cur_edge;
+  }
+  /**
    * @brief Platonic solid the held seed mesh represents.
    */
   template <int W, int H>

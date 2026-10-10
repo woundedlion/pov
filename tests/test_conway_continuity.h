@@ -433,31 +433,33 @@ inline void test_palette_carry_across_arrivals() {
     fx.draw_frame();
     fx.advance_display();
 
+    // A pass-through arrival starts the next leg in the same frame, so the
+    // arrival is checked against the landing captured before it.
+    const int node = Probe::node(fx);
+    const bool arrived = node != prev_node && have_landing;
+    prev_node = node;
+    const std::array<uint8_t, PALETTES> arrived_palette = to_palette;
+    const std::vector<int> arrived_topo = topo;
+    have_landing = false;
     if (const Animation::OpLeg::Landing *landing = Probe::pending_landing(fx)) {
       to_palette = landing->to_palette;
       topo.assign(landing->topology, landing->topology + landing->faces);
       have_landing = true;
     }
-
-    const int node = Probe::node(fx);
-    if (node == prev_node)
+    if (!arrived)
       continue;
-    prev_node = node;
-    if (!have_landing)
-      continue;
-    have_landing = false;
     ++arrivals;
 
     // Base faces are the landing's emission prefix (all faces at a full
     // arrival; the primaries at a t = 0 arrival, whose newborn faces die).
     const size_t nf = Probe::node_faces(fx);
-    HS_EXPECT_LE(nf, topo.size());
-    if (nf > topo.size())
+    HS_EXPECT_LE(nf, arrived_topo.size());
+    if (nf > arrived_topo.size())
       continue;
     int landed[PALETTES] = {};
     int shown[PALETTES] = {};
     for (size_t f = 0; f < nf; ++f) {
-      ++landed[to_palette[MeshPaletteBank::slot_of(topo[f])]];
+      ++landed[arrived_palette[MeshPaletteBank::slot_of(arrived_topo[f])]];
       ++shown[Probe::node_face_palette(fx)[f]];
     }
     const int failed_before = hs_test::stats().failed;
@@ -1479,12 +1481,12 @@ struct StrapSweepStats {
 };
 
 /**
- * @brief Drives one HankinSolids walk across arrivals and pins the strap
+ * @brief Drives one HankinSolids walk across sweep arrivals and pins the strap
  *        crossfade: open state continuous with the previous cycle, endpoints
  *        bitwise exact, per-frame steps bounded, star faces on the exact bank
  *        entry at the bookends — including slots a star class shares.
  * @param epoch Epoch seed for hs::random() (the live per-visit reseed).
- * @param target_arrivals Arrivals to validate before returning.
+ * @param target_arrivals Sweep arrivals to validate before returning.
  * @param frame_cap Frame budget for the walk.
  * @return Coverage stats for the caller's discrimination pins.
  */
@@ -1517,6 +1519,8 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
     if (node == prev_node)
       continue;
     prev_node = node;
+    if (node != Probe::dest(fx))
+      continue;
     ++st.arrivals;
     const int failed_before = hs_test::stats().failed;
 
@@ -1635,7 +1639,7 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
 inline void test_strap_crossfade_across_cycle_start() {
   constexpr int TARGET_ARRIVALS = 10;
   const StrapSweepStats st =
-      check_strap_crossfade_arrivals(0, TARGET_ARRIVALS, 2600);
+      check_strap_crossfade_arrivals(0, TARGET_ARRIVALS, 4000);
   HS_EXPECT_EQ(st.arrivals, TARGET_ARRIVALS);
   std::printf("  [strap-crossfade] worst would-be open jump %d "
               "(16-bit max channel; crossfaded to per-frame steps)\n",
@@ -1664,7 +1668,7 @@ inline void test_strap_crossfade_seed_swept() {
   for (size_t i = 0; i < std::size(STRAP_SWEEP_EPOCHS); ++i) {
     const int want = STRAP_SWEEP_ARRIVALS[i];
     const StrapSweepStats st = check_strap_crossfade_arrivals(
-        STRAP_SWEEP_EPOCHS[i], want, 140 * (want + 1));
+        STRAP_SWEEP_EPOCHS[i], want, 360 * (want + 1));
     HS_EXPECT_EQ(st.arrivals, want);
     far += st.far_pairs;
     shared_far += st.shared_far;

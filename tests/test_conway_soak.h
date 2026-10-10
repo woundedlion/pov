@@ -9,6 +9,8 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <map>
+#include <set>
 
 #include "core/memory.h"
 #include "core/mesh/conway_graph.h"
@@ -29,7 +31,7 @@ static_assert(!ConwayGraph::is_platonic(
     ConwayGraph::dual_platonic(ConwayGraph::TRUNCATED_TETRAHEDRON)));
 
 /** Leg budget within which the seeded walk must have visited every node. */
-constexpr int SOAK_LEG_BOUND = 96;
+constexpr int SOAK_LEG_BOUND = 192;
 
 /** Extra legs run past full coverage so late-arriving leaf states also get
  * revisit (steady-state) checks. */
@@ -66,12 +68,11 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     }
   };
 
-  // Post-compaction persistent offset per (node, held platonic seed), with a
-  // separate seen flag so a zero offset still arms the drift check.
-  size_t post_offset[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
-  bool post_seen[ConwayGraph::NUM_NODES][ConwayGraph::ICOSAHEDRON + 1] = {};
-  bool transition_seen[ConwayGraph::NUM_NODES][ConwayGraph::NUM_NODES]
-                      [ConwayGraph::ICOSAHEDRON + 1] = {};
+  // Arrival state keys. A sweep arrival's work is fixed by (node, held seed).
+  // A pass-through arrival also starts the next leg in the same frame, whose
+  // seed fix depends on the seed held over the completed leg.
+  std::map<uint32_t, size_t> post_offset;
+  std::set<uint32_t> transition_seen;
 
   int prev_node = HankinWalkProbe::node(fx);
   mark(prev_node);
@@ -89,6 +90,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
   size_t leg_scratch_a_hw = scratch_arena_a.get_high_water_mark();
   size_t leg_scratch_b_hw = scratch_arena_b.get_high_water_mark();
   while (frames < SOAK_FRAME_CAP && legs < SOAK_LEG_BOUND + SOAK_EXTRA_LEGS) {
+    const int leg_sid = HankinWalkProbe::seed_identity(fx);
     fx.draw_frame();
     fx.advance_display();
     ++frames;
@@ -114,8 +116,8 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     if (node == prev_node)
       continue;
 
-    // Leg completion: the post-compaction persistent offset must reproduce
-    // exactly on every revisit of (node, seed).
+    // Leg completion: the post-arrival persistent offset must reproduce
+    // exactly on every revisit of the arrival key.
     ++legs;
     HS_EXPECT_NE(leg_min_energy, UINT64_MAX);
     if (leg_min_energy != UINT64_MAX) {
@@ -141,25 +143,32 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
         departed_node < 0 || departed_node >= ConwayGraph::NUM_NODES)
       continue;
 
-    // A repeated directed transition with the same seed cannot raise arena peaks.
-    if (transition_seen[departed_node][node][sid]) {
+    const bool swept = node == HankinWalkProbe::dest(fx);
+    const uint32_t start =
+        swept ? 0u
+              : 1u + static_cast<uint32_t>(HankinWalkProbe::cur_edge(fx)) * 8u +
+                    static_cast<uint32_t>(leg_sid);
+    const uint32_t arrival_key = (start * 32u + node) * 8u + sid;
+
+    // A repeated directed transition with the same arrival key cannot raise
+    // arena peaks.
+    const uint32_t transition_key = arrival_key * 32u + departed_node;
+    if (transition_seen.count(transition_key)) {
       HS_EXPECT_EQ(leg_hw, before_hw);
       HS_EXPECT_EQ(leg_scratch_a_hw, before_scratch_a_hw);
       HS_EXPECT_EQ(leg_scratch_b_hw, before_scratch_b_hw);
     }
-    transition_seen[departed_node][node][sid] = true;
+    transition_seen.insert(transition_key);
 
     const size_t off = persistent_arena.get_offset();
-    if (!post_seen[node][sid]) {
-      post_seen[node][sid] = true;
-      post_offset[node][sid] = off;
-    } else {
-      if (off != post_offset[node][sid])
-        std::printf("    [soak] persistent offset drift at '%s' (seed %d): "
-                    "%zu -> %zu\n",
-                    Solids::simple_registry[node].name, sid,
-                    post_offset[node][sid], off);
-      HS_EXPECT_EQ(off, post_offset[node][sid]);
+    const auto [it, first] = post_offset.emplace(arrival_key, off);
+    if (!first) {
+      if (off != it->second)
+        std::printf("    [soak] persistent offset drift at '%s' (seed %d, "
+                    "start %u): %zu -> %zu\n",
+                    Solids::simple_registry[node].name, sid, start, it->second,
+                    off);
+      HS_EXPECT_EQ(off, it->second);
     }
 
     if (visited_count == ConwayGraph::NUM_NODES) {
