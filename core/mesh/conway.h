@@ -557,16 +557,22 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target,
 }
 
 /**
- * @brief Ambo's body over connectivity the caller already holds.
+ * @brief Ambo's body over connectivity the caller already holds, with a
+ *   per-edge hook.
+ * @tparam EdgeFn Callable invoked as `void(const HalfEdge &)`.
  * @param mesh Source mesh; must be a closed manifold.
  * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena for the manifold check's scratch.
+ * @param op Operator name reported by the manifold check.
+ * @param on_edge Run once per edge as its midpoint vertex is emitted, in
+ *   output-vertex order.
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
-                                  const HalfEdgeMesh &he_mesh, Arena &target,
-                                  Arena &temp) {
+template <typename EdgeFn>
+HS_COLD static PolyMesh
+ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
+          Arena &temp, const char *op, EdgeFn &&on_edge) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -581,7 +587,7 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
     ScratchScope temp_guard(temp);
     ScratchScope target_guard(target);
 
-    require_closed_manifold(he_mesh, temp, "ambo");
+    require_closed_manifold(he_mesh, temp, op);
 
     uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
     std::fill_n(edge_to_vert, I, HE_NONE);
@@ -590,8 +596,7 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    emit_edge_midpoints(he_mesh, mesh, out_mesh, edge_to_vert,
-                        [](const HalfEdge &) {});
+    emit_edge_midpoints(he_mesh, mesh, out_mesh, edge_to_vert, on_edge);
 
     emit_primary_faces(he_mesh, mesh, out_mesh, 1, [&](uint16_t he_idx) {
       out_mesh.faces.push_back(edge_to_vert[he_idx]);
@@ -603,6 +608,21 @@ HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
   }
   normalize(out_mesh);
   return out_mesh;
+}
+
+/**
+ * @brief Ambo's body over connectivity the caller already holds.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param he_mesh Connectivity for @p mesh.
+ * @param target Arena receiving the output mesh and its index scratch.
+ * @param temp Arena for the manifold check's scratch.
+ * @return Fresh ambo PolyMesh allocated in `target`.
+ */
+HS_COLD static PolyMesh ambo_impl(const PolyMesh &mesh,
+                                  const HalfEdgeMesh &he_mesh, Arena &target,
+                                  Arena &temp) {
+  return ambo_impl(mesh, he_mesh, target, temp, "ambo",
+                   [](const HalfEdge &) {});
 }
 
 /**
@@ -661,56 +681,26 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
            "medial output vertex arrays must not alias");
   out_a = PolyMesh();
   out_b = ArenaVector<math::Vector>();
-  size_t V = mesh.vertices.size();
-  size_t F = mesh.get_face_counts_size();
-  size_t I = mesh.get_faces_size();
-  size_t E = I / 2;
+  ScratchScope temp_guard(temp);
+  HalfEdgeMesh he_mesh(temp, mesh);
 
-  out_a.vertices.bind(target, E);
-  out_a.face_counts.bind(target, F + V);
-  out_a.faces.bind(target, 2 * I);
-  out_b.bind(target, E);
+  // Dual vertex per source face: its unit centroid, as in MeshOps::dual.
+  math::Vector *dual_pos =
+      temp.allocate_n<math::Vector>(mesh.get_face_counts_size());
+  for (size_t i = 0; i < he_mesh.faces.size(); ++i)
+    dual_pos[i] = dual_vertex(he_mesh, mesh, i);
 
-  {
-    ScratchScope temp_guard(temp);
-    ScratchScope target_guard(target);
-
-    HalfEdgeMesh he_mesh(temp, mesh);
-    require_closed_manifold(he_mesh, temp, "medial");
-
-    // Dual vertex per source face: its unit centroid, as in MeshOps::dual.
-    math::Vector *dual_pos = temp.allocate_n<math::Vector>(F);
-    for (size_t i = 0; i < he_mesh.faces.size(); ++i)
-      dual_pos[i] = dual_vertex(he_mesh, mesh, i);
-
-    uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
-    std::fill_n(edge_to_vert, I, HE_NONE);
-
-    bool *visited_verts = target.allocate_n<bool>(V);
-
-    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
-
-    // One vertex per edge: a_e at the edge midpoint, b_e at the flanking dual
-    // vertices' midpoint.
-    emit_edge_midpoints(
-        he_mesh, mesh, out_a, edge_to_vert, [&](const HalfEdge &he) {
-          HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
-                       he_mesh.half_edges[he.pair].face != HE_NONE,
-                   "medial: open edge on a closed manifold");
-          math::Vector db =
-              dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
-          out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
-        });
-
-    emit_primary_faces(he_mesh, mesh, out_a, 1, [&](uint16_t he_idx) {
-      out_a.faces.push_back(edge_to_vert[he_idx]);
-    });
-
-    emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_a, visited_verts, orbit_buf, V, I, /*reverse=*/false,
-        [&](uint16_t idx) { return edge_to_vert[idx]; });
-  }
-  normalize(out_a);
+  // b_e sits at the flanking dual vertices' midpoint.
+  out_b.bind(target, mesh.get_faces_size() / 2);
+  out_a =
+      ambo_impl(mesh, he_mesh, target, temp, "medial", [&](const HalfEdge &he) {
+        HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
+                     he_mesh.half_edges[he.pair].face != HE_NONE,
+                 "medial: open edge on a closed manifold");
+        math::Vector db =
+            dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
+        out_b.push_back(math::normalized_or(db, dual_pos[he.face]));
+      });
 }
 
 /**
