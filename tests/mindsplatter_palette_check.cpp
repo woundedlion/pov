@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
-// Tolerance pin for core/color/mindsplatter_palette_luts.h: recompiles every
-// entry from EffectPaletteRecipes::mind_splatter and compares it to the
+// Tolerance pin for effects/generated/mind_splatter_palette_bank.h: recompiles
+// every entry from EffectPaletteRecipes::mind_splatter and compares it to the
 // committed table within a per-channel and a mean tolerance. The recipe's
 // powf/cbrtf last bits differ between libm builds, so entries cannot be
 // byte-diffed.
@@ -12,7 +12,7 @@
 #include <cstdlib>
 
 #include "effects/common/palette_recipes.h"
-#include "core/color/mindsplatter_palette_luts.h"
+#include "effects/generated/mind_splatter_palette_bank.h"
 #include "core/engine/engine.h"
 
 namespace {
@@ -79,13 +79,13 @@ int main() {
 
   const long long mean_milli = channels ? (delta_sum * 1000) / channels : 0;
   if (worst > MAX_CHANNEL_DELTA) {
-    std::printf(
-        "mindsplatter palette bank: entry [%d][%d] is off by %d "
-        "channel units (tolerance %d) — core/color/mindsplatter_palette_luts.h "
-        "no longer matches EffectPaletteRecipes::mind_splatter; "
-        "regenerate with: cmake --build --preset tests --target "
-        "regenerate_mindsplatter_palette\n",
-        worst_palette, worst_index, worst, MAX_CHANNEL_DELTA);
+    std::printf("mindsplatter palette bank: entry [%d][%d] is off by %d "
+                "channel units (tolerance %d) — "
+                "effects/generated/mind_splatter_palette_bank.h "
+                "no longer matches EffectPaletteRecipes::mind_splatter; "
+                "regenerate with: cmake --build --preset tests --target "
+                "regenerate_mindsplatter_palette\n",
+                worst_palette, worst_index, worst, MAX_CHANNEL_DELTA);
     return 1;
   }
   if (mean_milli > MAX_MEAN_DELTA_MILLI) {

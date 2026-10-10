@@ -17,7 +17,7 @@ string(REGEX REPLACE "${_pixel_pattern}" "Pixel(VALUE)" _generated_form
                      "${_generated}")
 if(NOT _committed_form STREQUAL _generated_form)
   message(FATAL_ERROR
-          "mindsplatter_palette_luts.h form differs from mindsplatter_palette_gen")
+          "mind_splatter_palette_bank.h form differs from mindsplatter_palette_gen")
 endif()
 
 message(STATUS "MindSplatter palette header form matches the generator")
