@@ -467,6 +467,10 @@ struct HopfWhiteBox {
     fx.flow_rad = flow_rad;
     fx.ty_rad = ty_rad;
   }
+  static const math::Spherical &fiber(const HF &fx, size_t i) {
+    return fx.fibers[i];
+  }
+  static float phase_step() { return HF::PHASE_STEP; }
   static void set_folding(HF &fx, float v) { fx.params.folding = v; }
   static void set_twist(HF &fx, float v) { fx.params.twist = v; }
   static size_t trim_start(size_t len, float alpha) {
@@ -475,12 +479,13 @@ struct HopfWhiteBox {
 };
 
 /**
- * @brief Pins HopfFibration::hopf_project against a closed form and asserts its
- *        unit-direction/finite invariant under a nontrivial 4D tumble.
+ * @brief Pins HopfFibration::hopf_project against closed forms under identity
+ *        and active 4D tumble.
  * @details Identity tumble with zero folding and twist reduces fiber 0
  *          (beta == 0) to a plain S3 lift, whose stereographic image is the
- *          normalized (q0, q1, q2). The second pass requires every fiber to be
- *          finite, unit-length and deterministic under active tumble/fold/twist.
+ *          normalized (q0, q1, q2). Under active tumble, with and without
+ *          fold and twist, every fiber off the S3 pole matches a
+ *          double-precision reference.
  */
 inline void test_hopf_projection_math() {
   reset_effect_globals();
@@ -509,19 +514,53 @@ inline void test_hopf_projection_math() {
   HS_EXPECT_NEAR(v.z, expected.z, 1e-4f);
   HS_EXPECT_NEAR(v.magnitude(), 1.0f, 1e-4f);
 
-  // Every fiber projects to a finite unit direction under active tumble/fold/twist.
-  const float ax = 0.9f, ay = 0.4f;
-  WB::set_cache(fx, math::fast_cosf(ax), math::fast_sinf(ax),
-                math::fast_cosf(ay), math::fast_sinf(ay),
-                math::fast_sinf(ax * 0.5f) * 0.5f, 0.3f, ay);
-  WB::set_folding(fx, 0.5f);
-  WB::set_twist(fx, 2.0f);
-  for (size_t i = 0; i < WB::fiber_count(); ++i) {
-    const math::Vector p = WB::project(fx, i);
-    HS_EXPECT_VEC(WB::project(fx, i), p, 0.0f);
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
-    HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
+  // Active tumble, then tumble with fold and twist, against a double-precision
+  // fold -> twist -> S3 -> R_xw/R_yz -> stereographic reference.
+  const double ax = 0.9, ay = 0.4, flow = 0.3;
+  const double fold_base = std::sin(ax * 0.5) * 0.5;
+  WB::set_cache(fx, static_cast<float>(std::cos(ax)),
+                static_cast<float>(std::sin(ax)),
+                static_cast<float>(std::cos(ay)),
+                static_cast<float>(std::sin(ay)), static_cast<float>(fold_base),
+                static_cast<float>(flow), static_cast<float>(ay));
+  for (const auto [folding, twist] : {std::pair{0.0f, 0.0f}, {0.5f, 2.0f}}) {
+    WB::set_folding(fx, folding);
+    WB::set_twist(fx, twist);
+    int checked = 0;
+    for (size_t i = 0; i < WB::fiber_count(); ++i) {
+      const math::Vector p = WB::project(fx, i);
+      HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
+                     std::isfinite(p.z));
+      HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
+
+      const math::Spherical &sph = WB::fiber(fx, i);
+      const double azimuth0 = sph.theta;
+      const double eta =
+          sph.phi / 2.0 +
+          std::sin(azimuth0 * 2.0 + ay + fold_base) * 0.2 * folding;
+      const double azimuth = azimuth0 + eta * twist;
+      const double beta = flow + static_cast<double>(i) * WB::phase_step();
+      const double q0 = std::cos(eta) * std::cos(azimuth + beta);
+      const double q1 = std::cos(eta) * std::sin(azimuth + beta);
+      const double q2 = std::sin(eta) * std::cos(beta);
+      const double q3 = std::sin(eta) * std::sin(beta);
+      const double r0 = q0 * std::cos(ax) - q3 * std::sin(ax);
+      const double r3 = q0 * std::sin(ax) + q3 * std::cos(ax);
+      const double r1 = q1 * std::cos(ay) - q2 * std::sin(ay);
+      const double r2 = q1 * std::sin(ay) + q2 * std::cos(ay);
+      const double factor = 1.0 / (1.0 + 0.001 - r3);
+      const double x = r0 * factor, y = r1 * factor, z = r2 * factor;
+      const double len = std::sqrt(x * x + y * y + z * z);
+      // Near the S3 pole the direction is ill-conditioned in q.
+      if (std::sqrt(r0 * r0 + r1 * r1 + r2 * r2) < 0.5)
+        continue;
+      ++checked;
+      // Tolerance absorbs the fast_sinf/fast_cosf approximation.
+      HS_EXPECT_NEAR(p.x, static_cast<float>(x / len), 5e-3f);
+      HS_EXPECT_NEAR(p.y, static_cast<float>(y / len), 5e-3f);
+      HS_EXPECT_NEAR(p.z, static_cast<float>(z / len), 5e-3f);
+    }
+    HS_EXPECT_GT(checked, static_cast<int>(WB::fiber_count() / 2));
   }
 }
 
