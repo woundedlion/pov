@@ -540,9 +540,15 @@ FLASHMEM void configure_arenas(size_t persistent, size_t scratch_a,
                                size_t scratch_b);
 /** @brief Scratch capacities and the remaining persistent arena budget. */
 struct ArenaSplit {
-  size_t scratch_a;
-  size_t scratch_b;
+  size_t scratch_a; ///< Scratch arena A capacity, bytes.
+  size_t scratch_b; ///< Scratch arena B capacity, bytes.
 
+  /**
+   * @brief Persistent capacity left after both scratch arenas.
+   * @param total Global arena budget, bytes; HS_CHECK-traps if the scratch
+   *        capacities exceed it.
+   * @return `total` minus both scratch capacities, bytes.
+   */
   constexpr size_t persistent(size_t total) const {
     HS_CHECK(scratch_a <= total && scratch_b <= total - scratch_a,
              "ArenaSplit: scratch %lu+%lu exceeds %lu B",
@@ -552,10 +558,15 @@ struct ArenaSplit {
     return total - scratch_a - scratch_b;
   }
 
+  /**
+   * @brief Persistent capacity under the device arena budget.
+   * @return Bytes left of `DEVICE_GLOBAL_ARENA_SIZE` after both scratches.
+   */
   constexpr size_t device_persistent() const {
     return persistent(DEVICE_GLOBAL_ARENA_SIZE);
   }
 
+  /** @brief Applies this split to the global arena via `configure_arenas`. */
   HS_COLD_MEMBER void configure() const {
     configure_arenas(persistent(GLOBAL_ARENA_SIZE), scratch_a, scratch_b);
   }
