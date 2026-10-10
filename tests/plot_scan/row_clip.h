@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// ClipRegion::could_intersect_y  (clip.h — pure clip culling)
+// ClipRegion row cull and cylindrical x-clip predicates (clip.h)
 // ============================================================================
 
 /**

@@ -283,10 +283,11 @@ public:
 
   /**
    * @brief Decodes an untrusted JS payload into @p out.
-   * @details `runtime` and `paletteBank` are optional. Fields are checked in
-   * wire order and the first failure is returned; `schemaVersion` is checked
-   * before every other field. @p out must start default-constructed and is
-   * partially filled on failure.
+   * @details `runtime` and `paletteBank` are optional. The first failure is
+   * returned; `schemaVersion` is checked before every other field. Within
+   * each group (`chain`/`parameters`, `hues`/`cycles`) the arrays' types are
+   * checked first, then their lengths, then their entries in wire order.
+   * @p out must start default-constructed and is partially filled on failure.
    * @param input JS payload, expected to be a caller-owned clone.
    * @param out Snapshot to fill.
    * @return `APPLIED` when every field decodes (nothing is applied here);
