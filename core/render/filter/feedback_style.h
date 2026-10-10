@@ -84,17 +84,18 @@ inline Pixel hue_fade(const Pixel &p, float fade, const Style &s);
  */
 struct Style {
   // --- Lerpable scalar params ---
-  float fade = 0.95f;
+  float fade = 0.95f; ///< Per-frame brightness multiplier in [0, 1].
   /** Hue rotation per e-fold decrease in feedback brightness, in turns. */
   float hue_shift = 0.0f;
-  float amplitude = 0.5f;
-  float frequency = 0.125f;
+  float amplitude = 0.5f;   ///< Warp noise amplitude.
+  float frequency = 0.125f; ///< Warp noise spatial frequency.
+  /// Warp noise temporal speed; also melt_warp's drip rate.
   float speed = 1.0f;
-  float scale = 4.0f;
+  float scale = 4.0f; ///< Warp noise spatial scale factor.
 
   // --- Function pointers (snap during lerp) ---
-  SpaceFn space_fn = &noise_warp;
-  ColorFn color_fn = &hue_fade;
+  SpaceFn space_fn = &noise_warp; ///< Spatial warp of each sample direction.
+  ColorFn color_fn = &hue_fade;   ///< Per-frame fade of each pixel.
 
   // --- Filter tuning (snap during lerp) ---
   /**
@@ -111,13 +112,15 @@ struct Style {
   float pole_half_res = 1.0f;
 
   // --- Bound state (set by effect at init, NOT part of presets) ---
+  /// Effect-owned noise (non-owning); null makes noise_warp the identity.
   Animation::NoiseParams *noise = nullptr;
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
   // cos/sin of the fade-scaled per-frame hue angle plus its cbrt-LMS rotation
   // matrix; identity until the first sync_hue().
-  float hue_ca = 1.0f;
-  float hue_sa = 0.0f;
+  float hue_ca = 1.0f; ///< Cosine of the per-frame hue angle.
+  float hue_sa = 0.0f; ///< Sine of the per-frame hue angle.
+  /// Row-major 3x3 cbrt-LMS hue rotation matrix.
   float hue_k[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
   /**

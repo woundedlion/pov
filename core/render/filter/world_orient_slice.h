@@ -21,7 +21,9 @@ namespace Filter {
 namespace World {
 
 namespace detail {
+/// Whether T is a std::span.
 template <typename T> inline constexpr bool IS_SPAN = false;
+/// Matches every std::span specialization.
 template <typename T, std::size_t E>
 inline constexpr bool IS_SPAN<std::span<T, E>> = true;
 } // namespace detail
@@ -32,6 +34,7 @@ inline constexpr bool IS_SPAN<std::span<T, E>> = true;
  */
 class OrientSlice : public Is3D {
 public:
+  /// Axis projection assumes unit points.
   static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Binds the slice selector to an orientation list and a slicing axis.

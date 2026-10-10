@@ -26,15 +26,21 @@ namespace World {
 template <int Capacity> class Trails : public Is3DWithHistory {
 public:
   static_assert(Capacity > 0, "World::Trails capacity must be positive");
+  /// Quantized samples are not exactly unit.
   static constexpr bool emits_nonunit_world = true;
+  /// Never samples the framebuffer.
   static constexpr bool reads_outside_band = false;
+  /// Plotted points pass through unmoved.
   static constexpr bool world_transform_is_identity = true;
 
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
+    /// Quantized x component.
     int16_t x, y, z; /**< Quantized unit vector components. */
-    uint8_t ttl;     /**< Remaining lifetime in frames. */
-    uint8_t pad;     /**< Pads the item to 8 bytes. */
+    /** @var y
+     *  Quantized y component. */
+    uint8_t ttl; /**< Remaining lifetime in frames. */
+    uint8_t pad; /**< Pads the item to 8 bytes. */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 

@@ -120,6 +120,7 @@ using Is2D = FilterTraits<true, false>;
 using Is3D = FilterTraits<false, false>;
 /** @brief Trait indicating a filter operates on the pixel domain. */
 struct IsPixel : Is2D {
+  /// Pixel domain: after world (0) and screen (1).
   static constexpr int domain_rank = 2;
 };
 /** @brief Trait indicating a 2D filter that maintains state/history. */
@@ -134,7 +135,7 @@ using Is3DWithHistory = FilterTraits<false, true>;
  * rejected by the `is_pipeline` assert.
  */
 struct IsPipelineSink : FilterTraits<true, false> {
-  static constexpr bool is_pipeline = true;
+  static constexpr bool is_pipeline = true; ///< Stands in for a whole pipeline.
 };
 
 /**
@@ -166,6 +167,10 @@ concept PipelineStorageSurface =
 
 /** @brief Probe callable for has_cull_edge detection. */
 struct PipelineCullEdgeProbe {
+  /**
+   * @brief Accepts every edge.
+   * @return Always true.
+   */
   bool operator()(const math::Vector &, const math::Vector &,
                   const math::Basis *) const {
     return true;
@@ -231,18 +236,29 @@ protected:
   PreparedTerminalFrame(PreparedTerminalFrame &&) = default;
 
 public:
+  /// Whole-pipeline marker.
   static constexpr bool is_pipeline = PipelineT::is_pipeline;
+  /// No stage moves world points.
   static constexpr bool world_transform_is_identity =
       PipelineT::world_transform_is_identity;
+  /// Writes the framebuffer through a cached base.
   static constexpr bool direct_raster_path = PipelineT::direct_raster_path;
+  /// Some stage moves output across bands.
   static constexpr bool any_crosses_segments = PipelineT::any_crosses_segments;
+  /// Some stage samples outside the band.
   static constexpr bool any_reads_outside_band =
       PipelineT::any_reads_outside_band;
+  /// Some screen-space stage keeps history.
   static constexpr bool any_2d_history = PipelineT::any_2d_history;
+  /// Some world-space stage keeps history.
   static constexpr bool any_3d_history = PipelineT::any_3d_history;
+  /// Clip culling runs through the pipeline.
   static constexpr bool has_world_cull = PipelineT::has_world_cull;
+  /// Some stage runs in world space.
   static constexpr bool has_world_stage = PipelineT::has_world_stage;
+  /// Maximum tap displacement, in pixels.
   static constexpr int segment_margin = PipelineT::segment_margin;
+  /// Summed stage displacement, in pixels.
   static constexpr int total_segment_margin = PipelineT::total_segment_margin;
 
   /** @brief Plots at pixel coordinates through the prepared pipeline. */
@@ -263,6 +279,15 @@ public:
     pipeline().plot_prepared(cv, v, c, age, alpha);
   }
 
+  /**
+   * @brief Clip-cull test through the pipeline's world stages.
+   * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a Edge start.
+   * @param b Edge end.
+   * @param planar_basis Planar basis of the edge, or null.
+   * @param pred Rasterizer row-span vs clip-band test.
+   * @return False when the edge cannot reach the clip band.
+   */
   template <typename Pred>
   bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
                             const math::Basis *planar_basis,
@@ -282,27 +307,37 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   template <int, int, typename...> friend struct Pipeline;
 
+  /// Pixel domain: last in stage order.
   static constexpr int domain_rank = Filter::IsPixel::domain_rank;
-  static constexpr bool is_2d = true;
-  static constexpr bool is_pipeline = true;
+  static constexpr bool is_2d = true;       ///< Screen-space terminal.
+  static constexpr bool is_pipeline = true; ///< Whole-pipeline marker.
+  /// Writes through Canvas, not a cached base.
   static constexpr bool direct_raster_path = false;
-  static constexpr bool is_terminal = false;
+  static constexpr bool is_terminal = false; ///< No terminal stage.
   // Stage vocabulary, so a nested Pipeline reaches the is_pipeline diagnostic.
-  static constexpr bool has_history = false;
-  static constexpr bool terminal_replaces = false;
+  static constexpr bool has_history = false;       ///< No stage keeps history.
+  static constexpr bool terminal_replaces = false; ///< No replacing terminal.
+  /// Emits unit world points.
   static constexpr bool emits_nonunit_world = false;
+  /// Accepts any world point.
   static constexpr bool requires_unit_world_input = false;
+  /// Keeps sub-pixel coordinates.
   static constexpr bool emits_pixel_centers = false;
+  /// Accepts integer coordinates.
   static constexpr bool requires_subpixel_input = false;
-  static constexpr bool crosses_segments = false;
+  static constexpr bool crosses_segments = false; ///< Output stays in its band.
+  /// Never samples outside the band.
   static constexpr bool reads_outside_band = false;
+  /// World points pass unmoved.
   static constexpr bool world_transform_is_identity = true;
-  static constexpr int segment_margin = 0;
+  static constexpr int segment_margin = 0; ///< No tap displacement.
+  /// No stage crosses bands.
   static constexpr bool any_crosses_segments = false;
+  /// No stage samples outside the band.
   static constexpr bool any_reads_outside_band = false;
-  static constexpr int total_segment_margin = 0;
-  static constexpr bool any_2d_history = false;
-  static constexpr bool any_3d_history = false;
+  static constexpr int total_segment_margin = 0; ///< No tap displacement.
+  static constexpr bool any_2d_history = false;  ///< No screen-space history.
+  static constexpr bool any_3d_history = false;  ///< No world-space history.
   /** @brief No stage re-emits clip-cull edges. */
   static constexpr bool has_world_cull = false;
   /** @brief No stage runs in world space. */
@@ -469,42 +504,59 @@ struct Pipeline<W, H, Head, Tail...>
   template <typename> friend class PreparedTerminalFrame;
   template <int, int, typename...> friend struct Pipeline;
 
-  using Next = Pipeline<W, H, Tail...>;
-  Next next;
+  using Next = Pipeline<W, H, Tail...>; ///< Pipeline of the Tail stages.
+  Next next;                            ///< Tail stages, run after Head.
 
-  static constexpr int domain_rank = Head::domain_rank;
-  static constexpr bool is_2d = Head::is_2d;
-  static constexpr bool is_pipeline = true;
+  static constexpr int domain_rank = Head::domain_rank; ///< Head's domain rank.
+  static constexpr bool is_2d = Head::is_2d; ///< Head runs in screen space.
+  static constexpr bool is_pipeline = true;  ///< Whole-pipeline marker.
+  /// Writes through Canvas, not a cached base.
   static constexpr bool direct_raster_path = false;
+  /// Some stage is terminal.
   static constexpr bool is_terminal = Head::is_terminal || Next::is_terminal;
+  /// Some stage moves output across bands.
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
+  /// Some stage samples outside the band.
   static constexpr bool any_reads_outside_band =
       Head::reads_outside_band || Next::any_reads_outside_band;
   // Chained stages displace already-displaced taps, so margins add.
+  /// Summed stage segment_margin, in pixels.
   static constexpr int total_segment_margin =
       Head::segment_margin + Next::total_segment_margin;
 
+  /// Stage-level view of any_crosses_segments.
   static constexpr bool crosses_segments = any_crosses_segments;
+  /// Stage-level view of any_reads_outside_band.
   static constexpr bool reads_outside_band = any_reads_outside_band;
+  /// Stage-level view of total_segment_margin.
   static constexpr int segment_margin = total_segment_margin;
 
+  /// Some screen-space stage keeps history.
   static constexpr bool any_2d_history =
       (Head::has_history && Head::is_2d) || Next::any_2d_history;
+  /// Some world-space stage keeps history.
   static constexpr bool any_3d_history =
       (Head::has_history && !Head::is_2d) || Next::any_3d_history;
   // Stage vocabulary, so a nested Pipeline reaches the is_pipeline diagnostic.
+  /// Some stage keeps history.
   static constexpr bool has_history = any_2d_history || any_3d_history;
+  /// Some stage is a replacing terminal.
   static constexpr bool terminal_replaces =
       Head::terminal_replaces || Next::terminal_replaces;
+  /// Some stage may leave the unit sphere.
   static constexpr bool emits_nonunit_world =
       Head::emits_nonunit_world || Next::emits_nonunit_world;
+  /// Some stage assumes unit world input.
   static constexpr bool requires_unit_world_input =
       Head::requires_unit_world_input || Next::requires_unit_world_input;
+  /// Some stage quantizes screen taps.
   static constexpr bool emits_pixel_centers =
       Head::emits_pixel_centers || Next::emits_pixel_centers;
+  /// Some stage uses fractional taps.
   static constexpr bool requires_subpixel_input =
       Head::requires_subpixel_input || Next::requires_subpixel_input;
+  /// Every stage leaves world points unmoved.
   static constexpr bool world_transform_is_identity =
       Head::world_transform_is_identity && Next::world_transform_is_identity;
 

@@ -56,6 +56,7 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   static constexpr int CACHE_CELLS = CACHE_COLUMNS * CACHE_FIELD.ring_count();
 
 public:
+  /// Pixel domain: runs after every screen stage.
   static constexpr int domain_rank = IsPixel::domain_rank;
   /** @brief Marks this as terminal: flush() writes the Canvas directly. */
   static constexpr bool is_terminal = true;

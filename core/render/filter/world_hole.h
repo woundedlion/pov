@@ -22,6 +22,7 @@ namespace World {
  */
 class Hole : public Is3D {
 public:
+  /// Angular test assumes unit points.
   static constexpr bool requires_unit_world_input = true;
   /** @brief Attenuates alpha only; world points pass through unmoved. */
   static constexpr bool world_transform_is_identity = true;

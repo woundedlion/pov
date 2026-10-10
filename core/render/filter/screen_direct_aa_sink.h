@@ -28,14 +28,21 @@ namespace Screen {
 HS_O3_BEGIN
 template <int W, int H> class DirectAntiAliasSink : public IsPipelineSink {
 public:
+  /// Output stays in its segment band.
   static constexpr bool any_crosses_segments = false;
+  /// Never samples outside the band.
   static constexpr bool any_reads_outside_band = false;
+  /// Splat taps land up to one pixel away.
   static constexpr int segment_margin = 1;
+  /// Equals segment_margin: a single stage.
   static constexpr int total_segment_margin = segment_margin;
-  static constexpr bool any_2d_history = false;
-  static constexpr bool any_3d_history = false;
+  static constexpr bool any_2d_history = false; ///< No screen-space history.
+  static constexpr bool any_3d_history = false; ///< No world-space history.
+  /// Clip culling runs on raw geometry.
   static constexpr bool has_world_cull = false;
+  /// Runs entirely in screen space.
   static constexpr bool has_world_stage = false;
+  /// Writes the framebuffer through a cached base.
   static constexpr bool direct_raster_path = true;
 
   /** @brief This sink owns no arena storage. */
@@ -223,6 +230,7 @@ private:
     *dst = dst->lerp16(src, alpha_q16);
   }
 };
+/// Closes the HS_O3_BEGIN optimization region.
 HS_O3_END
 
 static_assert(PipelineFoldSurface<::Pipeline<8, 8>>);
