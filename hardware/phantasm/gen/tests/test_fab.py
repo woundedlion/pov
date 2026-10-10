@@ -1115,6 +1115,34 @@ class ZipMembershipTests(unittest.TestCase):
                                          + ("phantasm-jlc-gerbers.zip",)))
 
 
+FAB_GATES = {
+    "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
+    "validate_plot_origin": None, "validate_via_geometry": 0,
+    "validate_solder_mask": None, "validate_zone_geometry": 0,
+    "validate_project_rules": 0, "run_drc": (0, 0),
+    "run_erc": 0, "run_parity": 0, "validate_netlist_spec": 0,
+    "parse_components": {}, "validate_assembled_refs": None,
+    "validate_rotation_refs": None, "validate_assembly_metadata": {},
+    "validate_part_catalog": None, "normalize_fab_timestamps": [],
+    "validate_fab_content": {"plated": 0, "unplated": 0},
+}
+
+
+def patch_fab_run(stack, out, export, **overrides):
+    """Stub every `fab.main` gate, export through `export`, and write into `out`.
+
+    `overrides` replace individual gate return values.
+    """
+    unknown = set(overrides) - set(FAB_GATES)
+    assert not unknown, f"not a stubbed gate: {sorted(unknown)}"
+    for name, value in {"OUT": str(out), "JLC": str(out / "jlc")}.items():
+        stack.enter_context(mock.patch.object(fab, name, value))
+    for name, value in {**FAB_GATES, **overrides}.items():
+        stack.enter_context(mock.patch.object(fab, name, return_value=value))
+    stack.enter_context(mock.patch.object(fab, "run_export", side_effect=export))
+    stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+
+
 class PackagePromotionTests(unittest.TestCase):
     def test_success_promotes_bom_cpl_archive_and_manifest(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
@@ -1149,23 +1177,8 @@ class PackagePromotionTests(unittest.TestCase):
                     for name in ZipMembershipTests.EXPORTED:
                         (target / name).write_bytes(f"fixture export: {name}\n".encode())
 
-            for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
-                stack.enter_context(mock.patch.object(fab, name, value))
-            gates = {
-                "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
-                "validate_plot_origin": None, "validate_via_geometry": 0,
-                "validate_solder_mask": None, "validate_zone_geometry": 0,
-                "validate_project_rules": 0, "run_drc": (0, 0),
-                "run_erc": 0, "run_parity": 0, "validate_netlist_spec": 0,
-                "parse_components": comps, "validate_assembled_refs": None,
-                "validate_rotation_refs": None, "validate_assembly_metadata": metadata,
-                "validate_part_catalog": None, "normalize_fab_timestamps": [],
-                "validate_fab_content": {"plated": 0, "unplated": 0},
-            }
-            for name, value in gates.items():
-                stack.enter_context(mock.patch.object(fab, name, return_value=value))
-            stack.enter_context(mock.patch.object(fab, "run_export", side_effect=export))
-            stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            patch_fab_run(stack, out, export, parse_components=comps,
+                          validate_assembly_metadata=metadata)
             fab.main()
 
             expected_files = set(ZipMembershipTests.EXPORTED) | {
@@ -1238,24 +1251,7 @@ class PackagePromotionTests(unittest.TestCase):
                         for name in names:
                             (target / name).write_text("fixture export")
 
-                for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
-                    stack.enter_context(unittest.mock.patch.object(fab, name, value))
-                gates = {
-                    "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
-                    "validate_plot_origin": None, "validate_via_geometry": 0,
-                    "validate_solder_mask": None,
-                    "validate_zone_geometry": 0, "validate_project_rules": 0,
-                    "run_drc": (0, 0), "run_erc": 0, "run_parity": 0,
-                    "validate_netlist_spec": 0, "parse_components": {},
-                    "validate_assembled_refs": None, "validate_rotation_refs": None,
-                    "validate_assembly_metadata": {}, "validate_part_catalog": None,
-                    "normalize_fab_timestamps": [],
-                    "validate_fab_content": {"plated": 0, "unplated": 0},
-                }
-                for name, value in gates.items():
-                    stack.enter_context(unittest.mock.patch.object(fab, name, return_value=value))
-                stack.enter_context(unittest.mock.patch.object(fab, "run_export", side_effect=export))
-                stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                patch_fab_run(stack, out, export)
                 if replacement == "archive-failure":
                     stack.enter_context(unittest.mock.patch.object(
                         fab, "write_upload_zip", side_effect=OSError("injected archive failure")))
@@ -1267,26 +1263,6 @@ class PackagePromotionTests(unittest.TestCase):
 
 
 class OutputLockTests(unittest.TestCase):
-    GATES = {
-        "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
-        "validate_plot_origin": None, "validate_via_geometry": 0,
-        "validate_solder_mask": None, "validate_zone_geometry": 0,
-        "validate_project_rules": 0, "run_drc": (0, 0),
-        "run_erc": 0, "run_parity": 0, "validate_netlist_spec": 0,
-        "parse_components": {}, "validate_assembled_refs": None,
-        "validate_rotation_refs": None, "validate_assembly_metadata": {},
-        "validate_part_catalog": None, "normalize_fab_timestamps": [],
-        "validate_fab_content": {"plated": 0, "unplated": 0},
-    }
-
-    def patch_run(self, stack, out, export):
-        for name, value in {"OUT": str(out), "JLC": str(out / "jlc")}.items():
-            stack.enter_context(mock.patch.object(fab, name, value))
-        for name, value in self.GATES.items():
-            stack.enter_context(mock.patch.object(fab, name, return_value=value))
-        stack.enter_context(mock.patch.object(fab, "run_export", side_effect=export))
-        stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
-
     def test_held_lock_refuses_without_touching_a_live_stage(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
             out = Path(directory)
@@ -1298,7 +1274,7 @@ class OutputLockTests(unittest.TestCase):
             def export(stage, args):
                 self.fail(f"a refused run must not export {stage}")
 
-            self.patch_run(stack, out, export)
+            patch_fab_run(stack, out, export)
             with self.assertRaisesRegex(SystemExit, "another fabrication run holds"):
                 fab.main()
             self.assertEqual((live / "phantasm-F_Cu.gtl").read_text(encoding="utf-8"),
@@ -1325,7 +1301,7 @@ class OutputLockTests(unittest.TestCase):
                     for name in ZipMembershipTests.EXPORTED:
                         (target / name).write_bytes(f"fixture export: {name}\n".encode())
 
-            self.patch_run(stack, out, export)
+            patch_fab_run(stack, out, export)
             fab.main()
             self.assertEqual(len(refusals), 1)
             self.assertIn("another fabrication run holds", refusals[0])
