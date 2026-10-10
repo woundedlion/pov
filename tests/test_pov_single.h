@@ -103,8 +103,8 @@ template <int S> void check_strip_tiling(int w, int x) {
 }
 
 /**
- * @brief Pin down that the top and bottom strip halves partition the physical
- * LED range [0, S) with no overlap for the production 96x20 config.
+ * @brief Verifies every row's top LED index is below S/2 and its bottom LED
+ * index is at least S/2 for the production 96x20 config.
  */
 inline void test_strip_derivation() {
   // Holosphere 96x20 config: S=40 -> ROWS=20.
