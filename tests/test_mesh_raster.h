@@ -979,8 +979,8 @@ inline void test_class_bake_budget_accounting() {
   HS_EXPECT_GT(full.n_elig, (size_t)0);
   HS_EXPECT_GT(full.luts_built, (uint16_t)0);
 
-  // Zero budget drops every eligible class before any grid is sized: the drop
-  // branch fires exactly, charging nothing.
+  // Zero budget drops every eligible class at the degrade step, before any LUT
+  // is built: the drop branch fires exactly, charging nothing.
   HS_EXPECT_EQ(none.luts_built, (uint16_t)0);
   HS_EXPECT_EQ(none.degraded, (uint16_t)0);
   HS_EXPECT_EQ(none.lut_bytes, (size_t)0);
