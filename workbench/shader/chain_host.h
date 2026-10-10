@@ -64,9 +64,7 @@ public:
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
     resources = persistent_arena.make<Resources>();
-    resources->hue_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    resources->hue_noise.SetSeed(Pullback::HUE_NOISE_SEED);
-    resources->hue_noise.SetFrequency(1.0f);
+    Pullback::init_effect_noise(resources->hue_noise, Pullback::HUE_NOISE_SEED);
     static_assert(
         Pullback::Interp::CHAIN_ARENA_BYTES % sizeof(std::max_align_t) == 0);
     auto *block_a = reinterpret_cast<uint8_t *>(
