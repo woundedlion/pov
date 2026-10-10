@@ -32,7 +32,8 @@ inline void test_blur_factor_zero_is_identity() {
   HS_EXPECT_NEAR(kept_y, 16.0f, 1e-5f);
 }
 
-/** @brief Blur folds sub-pole taps and drops virtual rows at all strengths. */
+/** @brief Blur folds boundary taps at both poles and drops virtual rows at all
+ *  strengths. */
 inline void test_blur_folds_boundary_and_drops_virtual_rows() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(0.0f);
@@ -45,6 +46,14 @@ inline void test_blur_folds_boundary_and_drops_virtual_rows() {
                 total += alpha;
               });
     HS_EXPECT_NEAR(total, 0.75f, 1e-5f);
+
+    float north_total = 0.0f;
+    blur.plot(8.0f, -0.75f, Pixel(4, 5, 6), 2.0f, 0.75f,
+              [&](float, float y, const Pixel &, float, float alpha) {
+                HS_EXPECT_EQ(y, 0.0f);
+                north_total += alpha;
+              });
+    HS_EXPECT_NEAR(north_total, 0.75f, 1e-5f);
   }
   int outside_taps = 0;
   for (float factor : {0.0f, 1e-6f, 1.0f}) {
