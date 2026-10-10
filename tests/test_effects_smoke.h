@@ -22,6 +22,7 @@ constexpr int PAUSED_FRAMES = 4;
 
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void paused_render_one(const char *name) {
+  HS_CONTEXT(name);
   reset_effect_globals();
   pin_frame_clock(0);
 

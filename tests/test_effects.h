@@ -121,6 +121,7 @@ typename E::Params preset_params_or_initial(size_t index) {
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
+  HS_CONTEXT(name);
   reset_effect_globals();
   const uint32_t dropped_before = Timeline::dropped_events();
   pin_frame_clock(0);
@@ -212,6 +213,7 @@ inline void smoke_one(const char *name) {
  */
 inline void lint_dead_sliders(Effect &effect, const char *name) {
   for (const auto &def : effect.getParameters()) {
+    HS_CONTEXT(def.name);
     if (def.animated || def.readonly)
       continue;
     const float range = def.max - def.min;
@@ -287,6 +289,7 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
       std::max(4, static_cast<int>((PAUSE_AUDIT_FRAMES + count - 1) / count));
   bool leaked = false;
   for (size_t index = 0; index < count; ++index) {
+    HS_CONTEXT(names[index]);
     for (size_t restore = 0; restore < count; ++restore)
       HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
                    ParamSetResult::APPLIED);
@@ -407,6 +410,7 @@ constexpr int PARITY_SEGMENTS = 4;
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
+  HS_CONTEXT(name);
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
   uint64_t fold_a = 0, fold_b = 0;
@@ -466,6 +470,7 @@ inline void determinism_one(const char *name) {
  */
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
 inline void clip_clear_parity_one(const char *name) {
+  HS_CONTEXT(name);
   constexpr int S = H * 2;
   const int frames = PARITY_FRAMES;
 
