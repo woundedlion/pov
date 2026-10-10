@@ -448,10 +448,9 @@ struct MindSplatterWhiteBox {
     HS_CHECK(index < ms.particle_system.active());
     return ms.particle_system.pool[index].color_seed;
   }
-  template <int W, int H>
-  static void draw_particles(MindSplatter<W, H> &ms, float opacity = 1.0f) {
+  template <int W, int H> static void draw_particles(MindSplatter<W, H> &ms) {
     Canvas canvas(ms);
-    ms.draw_particles(canvas, opacity);
+    ms.draw_particles(canvas);
   }
   template <int W, int H, typename Inspect>
   static void draw_particles_inspect(MindSplatter<W, H> &ms, Inspect inspect) {
