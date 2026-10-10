@@ -21,6 +21,7 @@ from test_pcb_generation import GENERATES, GENERATES_REASON, generate, read  # n
 
 
 MASK_BOARD = """(kicad_pcb
+    (title_block (rev "1.1"))
     (setup
         (pad_to_mask_clearance 0)
         (solder_mask_min_width 0.1)
@@ -77,6 +78,16 @@ class SolderMaskTests(unittest.TestCase):
             with self.assertRaisesRegex(SystemExit, "solder mask web"):
                 fab.main()
         export.assert_not_called()
+
+    def test_board_without_exactly_one_rev_1_1_title_block_stops_before_exports(self):
+        title = '(title_block (rev "1.1"))'
+        for replacement in ("", '(title_block (rev "1.2"))', title + " " + title):
+            with self.subTest(replacement=replacement):
+                root = sexp.parse_one(MASK_BOARD.replace(title, replacement))
+                with tempfile.TemporaryDirectory() as directory,                         mock.patch.object(fab, "OUT", directory),                         mock.patch.object(fab, "JLC", str(Path(directory) / "jlc")),                         mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"),                         mock.patch.object(fab, "read_board", return_value=root),                         mock.patch.object(fab, "run_export") as export,                         contextlib.redirect_stdout(io.StringIO()):
+                    with self.assertRaisesRegex(SystemExit, "rev 1.1 only"):
+                        fab.main()
+                export.assert_not_called()
 
 
 class NewProjectMarginsTests(unittest.TestCase):
