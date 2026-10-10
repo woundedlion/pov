@@ -23,12 +23,20 @@
 
 namespace math {
 
-/** @brief Unit cup curve over [0, 1]: 1 at both ends, 0 at the midpoint. */
+/**
+ * @brief Unit cup curve over [0, 1]: 1 at both ends, 0 at the midpoint.
+ * @param t Parameter in [0, 1].
+ * @return |2t - 1|.
+ */
 __attribute__((always_inline)) inline float unit_cup(float t) {
   return fabsf(2.0f * t - 1.0f);
 }
 
-/** @brief Unit bell curve over [0, 1]: 0 at both ends, 1 at the midpoint. */
+/**
+ * @brief Unit bell curve over [0, 1]: 0 at both ends, 1 at the midpoint.
+ * @param t Parameter in [0, 1].
+ * @return 1 - |2t - 1|.
+ */
 __attribute__((always_inline)) inline float unit_bell(float t) {
   return 1.0f - unit_cup(t);
 }
@@ -64,7 +72,9 @@ inline constexpr float INV_PHI = 1 / PHI;
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack
  */
 inline constexpr float TOLERANCE = 1e-4f;
+/// Geometric near-equality (positions, angles).
 inline constexpr float EPS_GEOMETRIC = 1e-5f;
+/// Squared edge length below which an edge is degenerate.
 inline constexpr float EPS_LEN_SQ = 1e-6f;
 /**
  * @brief Squared |cross(from, to)| below which make_rotation synthesizes a π
@@ -73,12 +83,17 @@ inline constexpr float EPS_LEN_SQ = 1e-6f;
  * (~2*ULP(1)/|cross|) meets the synthesized turn's (|cross|).
  */
 inline constexpr float EPS_ANTIPARALLEL_SQ = 4e-7f;
+/// Squared cross-product magnitude below which it is degenerate.
 inline constexpr float EPS_CROSS_SQ = 1e-8f;
+/// Squared face-normal magnitude below which the face is degenerate.
 inline constexpr float EPS_NORMAL_SQ = 1e-9f;
+/// Squared length below which normalize() has no reliable direction.
 inline constexpr float EPS_NORMALIZE_SQ = 1e-12f;
 /** @brief Squared length below which a blend of two directions has cancelled. */
 inline constexpr float EPS_BLEND_LEN_SQ = 1e-8f;
+/// Slack on |q|^2 - 1 for is-unit quaternion assertions.
 inline constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
+/// Slack on |v|^2 - 1 for is-unit vector assertions.
 inline constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
@@ -597,6 +612,12 @@ HS_O3_FN inline float fast_rsqrt(float x) {
 
 // Halley numerator/denominator for one cube root. A non-positive input gets a
 // zero numerator and a unit denominator, leaving a shared product unchanged.
+/**
+ * @brief One Halley cube-root step split into numerator and denominator.
+ * @param x Input value; x <= 0 yields num = 0, den = 1.
+ * @param num Receives the Halley numerator; cbrt(x) ~= num / den.
+ * @param den Receives the Halley denominator.
+ */
 HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
   if (x <= 0.0f) {
     num = 0.0f;
@@ -883,16 +904,28 @@ struct Complex {
    */
   constexpr Complex(float r, float i) : re(r), im(i) {}
 
-  /** @brief Sum of the squared real and imaginary components. */
+  /**
+   * @brief Sum of the squared real and imaginary components.
+   * @return re^2 + im^2.
+   */
   constexpr float squared_magnitude() const { return re * re + im * im; }
 
-  /** @brief Euclidean magnitude, with ordinary float overflow behavior. */
+  /**
+   * @brief Euclidean magnitude, with ordinary float overflow behavior.
+   * @return sqrt(re^2 + im^2).
+   */
   float magnitude() const { return sqrtf(squared_magnitude()); }
 
-  /** @brief Complex conjugate, reflecting the imaginary component. */
+  /**
+   * @brief Complex conjugate, reflecting the imaginary component.
+   * @return (re, -im).
+   */
   constexpr Complex conjugate() const { return Complex(re, -im); }
 
-  /** @brief Exact component equality; NaNs compare unequal. */
+  /**
+   * @brief Exact component equality; NaNs compare unequal.
+   * @return True when both components compare equal.
+   */
   constexpr bool operator==(const Complex &) const = default;
 
   /**
@@ -1037,7 +1070,10 @@ __attribute__((always_inline)) constexpr Vector cross(const Vector &v1,
  *          orientation: build once, then apply is three dot products.
  */
 struct RotationMatrix {
-  Vector r0, r1, r2;
+  /// First matrix row; rotating v yields (dot(r0, v), dot(r1, v), dot(r2, v)).
+  Vector r0, r1, r2; ///< Third matrix row.
+  /** @var r1
+   *  Second matrix row. */
 
   /**
    * @brief Expands a unit quaternion into its rows.

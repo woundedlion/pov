@@ -33,12 +33,17 @@ namespace hs {
  */
 template <int W, int H, int HOffset = -1> class SphericalFieldLayout {
 public:
+  /// Row-to-latitude mapping of the rendered domain.
   using Geometry = math::DisplayGeometry<H, HOffset>;
 #if HS_RUNTIME_DISPLAY_GEOMETRY
+  /// Whether row 0 reaches the north pole.
   inline static const bool &HAS_NORTH_POLE = Geometry::HAS_NORTH_POLE;
+  /// Whether row H-1 reaches the south pole.
   inline static const bool &HAS_SOUTH_POLE = Geometry::HAS_SOUTH_POLE;
 #else
+  /// Whether row 0 reaches the north pole.
   static constexpr bool HAS_NORTH_POLE = Geometry::HAS_NORTH_POLE;
+  /// Whether row H-1 reaches the south pole.
   static constexpr bool HAS_SOUTH_POLE = Geometry::HAS_SOUTH_POLE;
 #endif
 
@@ -48,9 +53,9 @@ public:
    * index of its first sample in the field's contiguous storage.
    */
   struct Ring {
-    int y;
-    int samples;
-    int offset;
+    int y;       ///< Latitude row.
+    int samples; ///< Periodic longitude sample count.
+    int offset;  ///< Storage index of the ring's first sample.
   };
 
   /**
@@ -58,9 +63,9 @@ public:
    * @details mix is the weight of upper, in [0, 1].
    */
   struct Row {
-    Ring lower;
-    Ring upper;
-    float mix;
+    Ring lower; ///< Ring at or north of the latitude.
+    Ring upper; ///< Ring south of the latitude.
+    float mix;  ///< Weight of `upper`, in [0, 1].
   };
 
   /**
@@ -69,15 +74,15 @@ public:
    *   seam, where left is clamped to the ring's last sample.
    */
   struct Longitude {
-    int left;
-    int right;
-    float mix;
+    int left;  ///< Storage index of the sample at or before x.
+    int right; ///< Storage index of the sample after `left`.
+    float mix; ///< Weight of `right`, in [0, 1].
   };
 
   /** @brief Field coordinates: longitude x in columns (possibly signed), latitude row y. */
   struct Coordinates {
-    float x;
-    float y;
+    float x; ///< Longitude in columns; may be negative.
+    float y; ///< Latitude row.
   };
 
   /**
@@ -120,7 +125,10 @@ public:
    *  the lattice index UB. */
   static constexpr float ROW_LIMIT = 1e9f;
 
-  /** @brief Rings in the chain, counting both endpoint rows. */
+  /**
+   * @brief Rings in the chain, counting both endpoint rows.
+   * @return Ring count.
+   */
   constexpr int ring_count() const {
     int count = 1;
     for (int y = 0; y < H - 1; ++count)
@@ -128,7 +136,10 @@ public:
     return count;
   }
 
-  /** @brief Samples across every ring, i.e. the storage a field needs. */
+  /**
+   * @brief Samples across every ring, i.e. the storage a field needs.
+   * @return Sample count.
+   */
   constexpr int sample_count() const {
     int count = 0;
     for (int y = 0;; y = next_ring_y(y)) {
@@ -143,6 +154,7 @@ public:
    * @param ring_index Ring position in [0, ring_count()); O(ring_index).
    * @details Prefer next_ring() when iterating: an index loop over the chain is
    * quadratic.
+   * @return The ring at `ring_index`.
    */
   constexpr Ring ring(int ring_index) const {
     HS_CHECK(ring_index >= 0, "SphericalFieldLayout: negative ring index %d",
@@ -289,6 +301,9 @@ public:
 
   /** @brief Reflects one lattice coordinate across poles.
    * @pre The column is already in [0, W).
+   * @param x Column in [0, W); rewritten to the reflected column.
+   * @param y Row; rewritten to the reflected row.
+   * @return False when the tap has no lattice sample.
    */
   static bool wrap_sample(int &x, int &y) {
     return ::math::pole_wrap<W, H, HOffset>(x, y);
@@ -305,6 +320,7 @@ public:
    * @param load Loads an in-domain, non-pole lattice sample.
    * @param combine Combines four topology-correct taps and fractional
    *   coordinates into the result.
+   * @return What `combine` returns.
    */
   template <typename Value, typename Load, typename Combine>
   __attribute__((always_inline)) decltype(auto)
@@ -372,6 +388,7 @@ public:
    * @brief Brackets a fractional latitude between two rings.
    * @param y Latitude row, clamped to [0, H-1].
    * @details Walks the ring chain; O(ring index).
+   * @return The bracketing rings and the weight of the upper one.
    */
   constexpr Row row(float y) const {
     const float bounded_y = hs::clamp(y, 0.0f, static_cast<float>(H - 1));
@@ -386,6 +403,7 @@ public:
   /**
    * @brief Index of the last ring whose row is at or above y.
    * @param y Latitude row, clamped to [0, H-1].
+   * @return Ring index.
    */
   constexpr int ring_index_at_or_before(float y) const {
     return ring_at_or_before(hs::clamp(y, 0.0f, static_cast<float>(H - 1)))
@@ -396,6 +414,7 @@ public:
    * @brief Index of the first ring whose row is at or below y, saturating at
    * the last ring.
    * @param y Latitude row, clamped to [0, H-1].
+   * @return Ring index.
    */
   constexpr int ring_index_at_or_after(float y) const {
     const IndexedRing lower =
@@ -429,6 +448,7 @@ public:
    * @brief Locates an integer longitude known to be inside the domain.
    * @param ring Target latitude ring.
    * @param x Longitude coordinate in [0, W).
+   * @return The bracketing samples and the weight of the right one.
    */
   constexpr Longitude longitude_bounded(const Ring &ring, int x) const {
     assert(x >= 0 && x < W);
@@ -650,12 +670,18 @@ private:
  */
 template <typename Value, int W, int H, int HOffset = -1> class SphericalField {
 public:
-  using Layout = SphericalFieldLayout<W, H, HOffset>;
-  using Ring = typename Layout::Ring;
+  using Layout = SphericalFieldLayout<W, H, HOffset>; ///< Storage layout.
+  using Ring = typename Layout::Ring;                 ///< Layout ring.
 
+  /**
+   * @brief Wraps caller-owned storage.
+   * @param values Storage of at least layout.sample_count() samples; not owned.
+   * @param layout Ring layout; copied.
+   */
   constexpr SphericalField(Value *values, const Layout &layout)
       : layout(layout), values(values) {}
 
+  /** @return Total samples across all rings. */
   constexpr int sample_count() const { return layout.sample_count(); }
 
   /**
@@ -703,10 +729,12 @@ public:
     }
   }
 
+  /** @return Contiguous sample storage, indexed by ring offset + sample. */
   Value *data() { return values; }
+  /** @return Contiguous sample storage, indexed by ring offset + sample. */
   const Value *data() const { return values; }
 
-  const Layout layout;
+  const Layout layout; ///< Ring layout of the storage.
 
 private:
   Value *values;
