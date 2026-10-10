@@ -431,6 +431,10 @@ inline const Case *all_cases(int &n) {
       {"arena_split_scratch_too_large", case_arena_split_scratch_too_large,
        "core/memory/arena.h",
        "(scratch_a <= total && scratch_b <= total - scratch_a) ArenaSplit: "},
+      {"arena_split_unaligned_scratch", case_arena_split_unaligned_scratch,
+       "core/memory/arena.h",
+       "(scratch_a % ALIGN == 0 && scratch_b % ALIGN == 0 && total % ALIGN == "
+       "0) ArenaSplit: "},
       {"arena_partition_too_large", case_arena_partition_too_large,
        "core/memory.cpp",
        "(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE && "

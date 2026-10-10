@@ -429,8 +429,8 @@ inline void test_arena_repeated_rewind_to_same_mark() {
  * @details Restores the default split on exit.
  */
 inline void test_configure_arenas_repartition() {
-  static_assert(ArenaSplit{300, 200}.persistent(1000) == 500);
-  static_assert(ArenaSplit{0, 0}.persistent(1000) == 1000);
+  static_assert(ArenaSplit{320, 192}.persistent(1024) == 512);
+  static_assert(ArenaSplit{0, 0}.persistent(1024) == 1024);
 
   constexpr size_t P = 60 * 1024;
   constexpr size_t A = 8 * 1024;

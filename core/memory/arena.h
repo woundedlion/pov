@@ -567,7 +567,8 @@ struct ArenaSplit {
   /**
    * @brief Persistent capacity left after both scratch arenas.
    * @param total Global arena budget, bytes; HS_CHECK-traps if the scratch
-   *        capacities exceed it.
+   *        capacities exceed it, or if `total` or either scratch capacity is
+   *        not a multiple of `alignof(std::max_align_t)`.
    * @return `total` minus both scratch capacities, bytes.
    */
   constexpr size_t persistent(size_t total) const {
@@ -576,6 +577,13 @@ struct ArenaSplit {
              static_cast<unsigned long>(scratch_a),
              static_cast<unsigned long>(scratch_b),
              static_cast<unsigned long>(total));
+    constexpr size_t ALIGN = alignof(std::max_align_t);
+    HS_CHECK(
+        scratch_a % ALIGN == 0 && scratch_b % ALIGN == 0 && total % ALIGN == 0,
+        "ArenaSplit: sizes %lu/%lu/%lu B (A/B/total) not %lu-aligned",
+        static_cast<unsigned long>(scratch_a),
+        static_cast<unsigned long>(scratch_b),
+        static_cast<unsigned long>(total), static_cast<unsigned long>(ALIGN));
     return total - scratch_a - scratch_b;
   }
 
