@@ -156,11 +156,8 @@ class TestExtraScriptsExist(unittest.TestCase):
         cfg = _pio_config()
         seen = 0
         for section in cfg.sections():
-            for line in cfg.get(section, "extra_scripts", fallback="").splitlines():
-                line = line.strip()
-                if not line or line.startswith("${"):
-                    continue
-                rel = line.split(":", 1)[1]
+            for script in _option_lines(cfg, section, "extra_scripts"):
+                rel = script.split(":", 1)[-1]
                 self.assertTrue((REPO / rel).is_file(),
                                 f"[{section}] extra_scripts names missing {rel}")
                 seen += 1
