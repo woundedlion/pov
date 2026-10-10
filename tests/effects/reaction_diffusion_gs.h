@@ -997,7 +997,6 @@ inline void test_gs_sparse_pigment_matches_dense() {
   }
 }
 
-/** @brief Compares both cull rings to the original directed adjacency table. */
 /** @brief Verifies the pigment codec's bit layout and mass quantization. */
 inline void test_gs_pigment_codec_layout() {
   using Pigment = GSWhiteBox::Pigment;
@@ -1016,6 +1015,7 @@ inline void test_gs_pigment_codec_layout() {
   HS_EXPECT_EQ(Pigment::quantize_mass(0.0f, 2.0f), 0);
 }
 
+/** @brief Compares both cull rings to the original directed adjacency table. */
 inline void test_gs_hot_flags_match_directed_graph() {
   constexpr int N = GSWhiteBox::N;
   constexpr uint8_t GUARD = 0xa5;
