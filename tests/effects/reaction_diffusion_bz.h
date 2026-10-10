@@ -257,7 +257,8 @@ inline void test_bz_advance_species_signs_and_clamp() {
  *        at the 65535 rail without wrapping.
  * @details At dt = 1 the nudge is the full PERTURB_AMOUNT. A saturated field
  *          stays saturated; on a zero field every touched entry is a multiple
- *          of the nudge step, and at least one entry is touched.
+ *          of the nudge step and the touched entries sum to NUM_PERTURBATIONS
+ *          steps.
  */
 inline void test_bz_perturb_state_saturates_and_nudges() {
   BZWhiteBox::BZ bz;
@@ -280,16 +281,20 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
         c(BZWhiteBox::N, 0);
     BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
     int touched = 0, malformed = 0;
+    int64_t total = 0;
     for (int i = 0; i < BZWhiteBox::N; ++i)
       for (uint16_t v : {a[i], b[i], c[i]}) {
         if (v == 0)
           continue;
         ++touched;
+        total += v;
         if (v % step != 0) // accumulations stay multiples of the nudge step
           ++malformed;
       }
     HS_EXPECT_GT(touched, 0);
     HS_EXPECT_EQ(malformed, 0);
+    HS_EXPECT_EQ(total,
+                 static_cast<int64_t>(BZWhiteBox::num_perturbations()) * step);
   }
 }
 
@@ -326,7 +331,7 @@ inline void test_bz_perturb_state_draw_count_pinned() {
  * @brief Verifies the stochastic nudge scales with the Speed slider and reaches
  *        zero where the integrator freezes.
  * @details At dt = 0 nothing may move; at a mid-slider dt the touched entries
- * must be multiples of the scaled step, between zero and the full-rate step.
+ * must be multiples of the scaled step and sum to one scaled step per nudge.
  */
 inline void test_bz_perturb_scales_with_timestep() {
   constexpr int PASSES = 64;
@@ -356,16 +361,20 @@ inline void test_bz_perturb_scales_with_timestep() {
     for (int p = 0; p < PASSES; ++p)
       BZWhiteBox::perturb(bz, a.data(), b.data(), c.data());
     int touched = 0, malformed = 0;
+    int64_t total = 0;
     for (int i = 0; i < BZWhiteBox::N; ++i)
       for (uint16_t v : {a[i], b[i], c[i]}) {
         if (v == 0)
           continue;
         ++touched;
+        total += v;
         if (v % step != 0)
           ++malformed;
       }
     HS_EXPECT_GT(touched, 0);
     HS_EXPECT_EQ(malformed, 0);
+    HS_EXPECT_EQ(total, static_cast<int64_t>(PASSES) *
+                            BZWhiteBox::num_perturbations() * step);
   }
 }
 
