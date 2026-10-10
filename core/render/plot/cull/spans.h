@@ -5,10 +5,16 @@
 
 // Included by core/render/plot/cull.h.
 
+/** @file spans.h
+ * @brief Screen row and column spans of geodesic and planar edges, their clip
+ * visibility tests, and adaptive screen-step lengths.
+ */
+
 /**
  * @brief Screen row of a unit-sphere y coordinate (the renderer's row map).
  * @tparam H Rasterization height (pixel grid).
  * @param y Unit-sphere y in [-1, 1] (clamped).
+ * @return Fractional screen row.
  */
 template <int H> static inline float y_to_screen_row(float y) {
   return math::phi_to_y<H>(math::fast_acos(hs::clamp(y, -1.0f, 1.0f)));
@@ -134,6 +140,11 @@ finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
 
 /**
  * @brief Pads a column span whose start is already within one period.
+ * @tparam W Rasterization width (pixel grid).
+ * @param start Fractional start column, in [0, W).
+ * @param length Fractional arc length in columns.
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns.
  */
 template <int W>
 static inline void finish_col_span_one_period(float start, float length,
@@ -469,14 +480,25 @@ exact_geodesic_edge_visible_hoisted(const ClipRegion &cr,
       });
 }
 
+/// Outcome of raw_geodesic_edge_gate().
 enum class RawGeodesicGateResult : uint8_t {
-  CULLED,
-  VISIBLE,
-  EXACT_FALLBACK,
+  CULLED,         ///< The edge cannot reach the clip.
+  VISIBLE,        ///< The edge may reach the clip.
+  EXACT_FALLBACK, ///< Undecided; run the exact gate.
 };
 
 /**
  * @brief Gates a regular geodesic edge without angle or cross normalization.
+ * @tparam W Rasterization width (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
+ * @param cr Active raster clip region.
+ * @param xc Precomputed horizontal clip interval.
+ * @param ra Screen row of @p a.
+ * @param rb Screen row of @p b.
+ * @param ca Screen column of @p a; read only when @p xc is active.
+ * @param cb Screen column of @p b; read only when @p xc is active.
+ * @param a Unit-sphere edge start.
+ * @param b Unit-sphere edge end.
  * @return Visibility, or EXACT_FALLBACK for numerically sensitive geometry.
  */
 template <int W, int H>
@@ -629,6 +651,7 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
  * @param end_sample Optional output for the unprojected edge endpoint, written
  *        by the column-span pass. Only an active @p xc reaches that pass, so
  *        requesting the endpoint requires one.
+ * @return False only when the edge cannot reach the clip.
  */
 template <int W, int H>
 static inline bool planar_edge_visible_in_clip(
@@ -651,6 +674,8 @@ static inline bool planar_edge_visible_in_clip(
 /**
  * @brief One-refinement reciprocal square root for adaptive screen spacing.
  * @details The biased refinement bounds relative error to about 0.089%.
+ * @param x Positive input.
+ * @return Approximate 1/sqrt(x).
  */
 static __attribute__((always_inline)) inline float screen_rsqrt(float x) {
   uint32_t bits;
@@ -692,6 +717,15 @@ static inline float screen_step_components(float pos_y, float tan_y,
   return hs::clamp(step, base_step * MIN_POLE_SCALE, base_step);
 }
 
+/**
+ * @brief screen_step_components() for a sample position and tangent.
+ * @tparam W Rasterization width (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
+ * @param pos Unit-sphere sample position.
+ * @param tan Unit tangent with respect to arc length.
+ * @param base_step Equatorial step 2π/W; also the maximum returned step.
+ * @return Arc-length step that advances ~SCREEN_STEP_PX pixels on screen.
+ */
 template <int W, int H>
 static inline float screen_step(const math::Vector &pos,
                                 const math::Vector &tan, float base_step) {

@@ -5,6 +5,11 @@
 
 // Included by core/render/plot/cull.h.
 
+/** @file visibility.h
+ * @brief Clip-visibility gates for dots, caps, rings and trails, and the
+ * pipeline-aware screen step.
+ */
+
 /**
  * @brief True when AntiAlias would emit any tap of a projected dot in @p cr.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -16,6 +21,7 @@
  * @details Tests the taps Screen::AntiAlias would emit, sharing splat_taps and
  * SPLAT_TAP_CUTOFF with it. The gate runs before shading, so it tests tap
  * geometry only.
+ * @return Whether any tap lands in @p cr.
  */
 template <int W, int H>
 static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
@@ -48,14 +54,15 @@ static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
  * rasterized geometry.
  */
 struct ScreenStepAxes {
-  static constexpr int CAPACITY = 16;
+  static constexpr int CAPACITY = 16;    ///< Most copies the table holds.
   std::array<math::Vector, CAPACITY> up; /**< Rᵀŷ per copy. */
   int count = 0;                         /**< Live entries in up. */
   bool nonrigid = false; /**< A stage cannot report its copies. */
   bool overflow =
       false; /**< More copies than CAPACITY, or a stage forwarded a copy without its basis. */
 
-  /** @brief True when the table replaces the per-sample stage walk. */
+  /** @brief True when the table replaces the per-sample stage walk.
+   *  @return Whether the table is usable. */
   bool usable() const { return !overflow; }
 };
 
@@ -107,7 +114,17 @@ HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
   return axes;
 }
 
-/** @brief Screen step at the rendered latitude of every world-stage copy. */
+/**
+ * @brief Screen step at the rendered latitude of every world-stage copy.
+ * @tparam W Rasterization width (pixel grid).
+ * @tparam H Rasterization height (pixel grid).
+ * @tparam PipelineT Render pipeline type.
+ * @param pipeline Pipeline whose world stages are walked.
+ * @param sample Unrotated sample position and tangent.
+ * @param world_identity True when the world stages leave the sample unmoved.
+ * @param axes Optional table from screen_step_axes(); used when usable().
+ * @return Minimum arc-length step over the copies, in radians.
+ */
 template <int W, int H, typename PipelineT>
 HS_HOT_FLASH_MEMBER float
 pipeline_screen_step(PipelineT &pipeline, const SamplePT &sample,
@@ -453,7 +470,14 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
   return visible & MASK;
 }
 
-/** @brief cap_may_touch_clip() for a single cap, deriving sin(half_angle). */
+/**
+ * @brief cap_may_touch_clip() for a single cap, deriving sin(half_angle).
+ * @tparam H Canvas height.
+ * @param cr Clip region.
+ * @param dir Cap center direction (unit vector).
+ * @param half_angle Cap angular radius including stroke/AA pad (radians).
+ * @return False only when the cap misses the clip.
+ */
 template <int H>
 inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                float half_angle) {
@@ -461,18 +485,20 @@ inline bool cap_may_touch_clip(const ClipRegion &cr, const math::Vector &dir,
                                sinf(fminf(half_angle, math::PI_F)));
 }
 
+/// Outcome of cartesian_quadrant_trail_gate().
 enum class CartesianTrailGateResult : uint8_t {
-  EXACT_FALLBACK,
-  LATITUDE_REJECT,
-  MERIDIAN_REJECT,
+  EXACT_FALLBACK,  ///< Undecided; run the exact gate.
+  LATITUDE_REJECT, ///< Rejected by the latitude halfspace.
+  MERIDIAN_REJECT, ///< Rejected by the meridian halfspace.
 };
 
+/// Halfspace superset of a segmented quadrant clip.
 struct CartesianQuadrantClip {
-  float latitude_sign = 0.0f;
-  float latitude_threshold = 0.0f;
-  float meridian_sign = 0.0f;
-  float meridian_threshold = 0.0f;
-  bool active = false;
+  float latitude_sign = 0.0f;      ///< +1 for the top half, -1 for the bottom.
+  float latitude_threshold = 0.0f; ///< Signed y below this misses the clip.
+  float meridian_sign = 0.0f;      ///< +1 or -1 by quadrant column half.
+  float meridian_threshold = 0.0f; ///< Signed z below this misses the clip.
+  bool active = false;             ///< False when the clip is no quadrant.
 };
 
 /**
