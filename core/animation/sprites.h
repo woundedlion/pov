@@ -384,6 +384,7 @@ public:
   ArenaVector<Attractor> attractors; /**< Active attractors. */
   ArenaVector<EmitterFn> emitters;   /**< Active emitters. */
 #if HS_ENABLE_TEST_ORACLES
+  /** @brief Disables the signed-axis attractor path. */
   bool reference_signed_axis_physics = false;
 #endif
 
