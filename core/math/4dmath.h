@@ -21,9 +21,19 @@ inline constexpr int VEC4_DIMENSIONS = 4;
  * @brief A point or direction in four dimensions.
  */
 struct Vec4 {
-  float v[VEC4_DIMENSIONS]{};
+  float v[VEC4_DIMENSIONS]{}; ///< Components x, y, z, w.
 
+  /**
+   * @brief Mutable component access.
+   * @param index Component index in [0, VEC4_DIMENSIONS).
+   * @return Reference to the component.
+   */
   constexpr float &operator[](int index) { return v[index]; }
+  /**
+   * @brief Component read.
+   * @param index Component index in [0, VEC4_DIMENSIONS).
+   * @return The component value.
+   */
   constexpr float operator[](int index) const { return v[index]; }
 };
 
@@ -31,9 +41,12 @@ struct Vec4 {
  * @brief A 4x4 matrix in row-major order, applied to Vec4 on the left.
  */
 struct Mat4 {
-  float m[VEC4_DIMENSIONS][VEC4_DIMENSIONS]{};
+  float m[VEC4_DIMENSIONS][VEC4_DIMENSIONS]{}; ///< Elements as m[row][col].
 
-  /** @brief The identity transform. */
+  /**
+   * @brief The identity transform.
+   * @return The identity matrix.
+   */
   static constexpr Mat4 identity() {
     Mat4 result;
     for (int i = 0; i < VEC4_DIMENSIONS; ++i)
@@ -41,7 +54,11 @@ struct Mat4 {
     return result;
   }
 
-  /** @brief Transforms a Vec4 by this matrix. */
+  /**
+   * @brief Transforms a Vec4 by this matrix.
+   * @param input Vector to transform.
+   * @return This matrix times `input`.
+   */
   __attribute__((always_inline)) Vec4 apply(const Vec4 &input) const {
     return {{m[0][0] * input[0] + m[0][1] * input[1] + m[0][2] * input[2] +
                  m[0][3] * input[3],

@@ -46,19 +46,27 @@ inline float phi_to_y_virtual(float phi, int h_virt) {
   return (phi * (h_virt - 1)) / PI_F;
 }
 
-/** @brief Polar angle to fractional display row. */
+/**
+ * @brief Polar angle to fractional display row.
+ * @param phi Polar angle, radians.
+ * @return Fractional row.
+ */
 template <int H> inline float phi_to_y(float phi) {
   return DisplayGeometry<H>::phi_to_row(phi);
 }
 
 #if HS_RUNTIME_DISPLAY_GEOMETRY
+/// Display rows per radian of polar angle at height H.
 template <int H>
 inline const float &ROWS_PER_RADIAN = DisplayGeometry<H>::ROWS_PER_RADIAN;
+/// Polar angle spanned by one display row at height H, radians.
 template <int H>
 inline const float &RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
 #else
+/// Display rows per radian of polar angle at height H.
 template <int H>
 inline constexpr float ROWS_PER_RADIAN = DisplayGeometry<H>::ROWS_PER_RADIAN;
+/// Polar angle spanned by one display row at height H, radians.
 template <int H>
 inline constexpr float RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
 
@@ -68,7 +76,10 @@ inline constexpr float RADIANS_PER_ROW = DisplayGeometry<H>::RADIANS_PER_ROW;
 template <int W>
 inline constexpr float RADIANS_PER_COLUMN = TWO_PI_F / static_cast<float>(W);
 
-/** @brief Larger angular pitch of a logical canvas's rows and columns. */
+/**
+ * @brief Larger angular pitch of a logical canvas's rows and columns.
+ * @return The larger of `RADIANS_PER_COLUMN` and `RADIANS_PER_ROW`, radians.
+ */
 template <int W, int H> constexpr float coarse_pixel_pitch() {
   return RADIANS_PER_COLUMN<W> > RADIANS_PER_ROW<H> ? RADIANS_PER_COLUMN<W>
                                                     : RADIANS_PER_ROW<H>;
@@ -79,6 +90,7 @@ template <int W, int H> constexpr float coarse_pixel_pitch() {
  * @tparam H Display height; test profiles may append virtual rows.
  */
 template <int H> struct PhiLUT {
+  /// Table rows: H plus any virtual test rows.
   static constexpr int H_VIRT =
       H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
   static std::array<float, H_VIRT> data; /**< phi per display row, radians. */
@@ -98,7 +110,9 @@ template <int H> struct PhiLUT {
   }
 };
 
+/// Storage for `PhiLUT::data`.
 template <int H> std::array<float, PhiLUT<H>::H_VIRT> PhiLUT<H>::data;
+/// Storage for `PhiLUT::initialized`.
 template <int H> bool PhiLUT<H>::initialized = false;
 
 /**
@@ -118,7 +132,12 @@ template <int H> inline float y_to_phi(int y) {
   return PhiLUT<H>::data[y];
 }
 
-/** @brief Fractional display row to polar angle, including extrapolated cap rows. */
+/**
+ * @brief Fractional display row to polar angle, including extrapolated cap
+ *        rows.
+ * @param y Fractional row.
+ * @return Polar angle, radians.
+ */
 template <int H> inline float y_to_phi(float y) {
   return DisplayGeometry<H>::row_to_phi(y);
 }
@@ -134,9 +153,11 @@ template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
                 "cos_theta is recovered as sin_theta[x + W/4]; W must be a "
                 "multiple of 4 for the quarter-turn offset to be exact");
+  /// Phi table rows: H plus any virtual test rows.
   static constexpr int H_VIRT =
       H + (DisplayGeometry<H>::OFFSET > 0 ? DisplayGeometry<H>::OFFSET : 0);
   // W/4 extra trailing entries: cos(theta) reads back as sin_theta[x + W/4].
+  /// Length of `sin_theta`: W columns plus a quarter-turn overrun.
   static constexpr int W_EXT = W + W / 4;
   static std::array<float, W_EXT> sin_theta; /**< sin(theta); cos via +W/4. */
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
@@ -145,6 +166,7 @@ template <int W, int H> struct TrigLUT {
   /**
    * @brief cos(theta) for column x, recovered from the extended sin table.
    * @param x Column in [0, W). Returns sin_theta[x + W/4] == cos(x*2*pi/W).
+   * @return cos(2 pi x / W).
    */
   static float cos_theta(int x) {
     assert(x >= 0 && x < W);
@@ -170,12 +192,16 @@ template <int W, int H> struct TrigLUT {
   }
 };
 
+/// Storage for `TrigLUT::sin_theta`.
 template <int W, int H>
 std::array<float, TrigLUT<W, H>::W_EXT> TrigLUT<W, H>::sin_theta;
+/// Storage for `TrigLUT::sin_phi`.
 template <int W, int H>
 std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::sin_phi;
+/// Storage for `TrigLUT::cos_phi`.
 template <int W, int H>
 std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::cos_phi;
+/// Storage for `TrigLUT::initialized`.
 template <int W, int H> bool TrigLUT<W, H>::initialized = false;
 
 /**
@@ -288,7 +314,13 @@ template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   return p;
 }
 
-/** @brief Reflects fractional coordinates across the true poles, preserving missing caps. */
+/**
+ * @brief Reflects fractional coordinates across the true poles, preserving
+ *        missing caps.
+ * @param col Column; rewritten to the reflected column.
+ * @param row Row; rewritten to the reflected row.
+ * @return False when the reflected row is outside the displayed rows.
+ */
 template <int W, int H, int HOffset = -1>
 HS_O3_FN bool pole_wrap(float &col, float &row) {
   using Geometry = DisplayGeometry<H, HOffset>;
@@ -305,6 +337,9 @@ HS_O3_FN bool pole_wrap(float &col, float &row) {
 
 /** @brief Resolves a lattice tap only when reflection lands on the lattice.
  * @pre The column is already in [0, W).
+ * @param col Column in [0, W); rewritten to the reflected column.
+ * @param row Row; rewritten to the reflected row.
+ * @return False when the tap has no lattice sample.
  */
 template <int W, int H, int HOffset = -1>
 HS_O3_FN bool pole_wrap(int &col, int &row) {

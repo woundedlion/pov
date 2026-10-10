@@ -101,6 +101,7 @@ constexpr uint8_t projection_boundary(ProjectionBoundary a) {
  *        edge searches.
  */
 inline constexpr float NO_EDGE_DISTANCE = 65536.0f;
+/// Square of `NO_EDGE_DISTANCE`, for squared-distance searches.
 inline constexpr float NO_EDGE_DISTANCE_SQUARED =
     NO_EDGE_DISTANCE * NO_EDGE_DISTANCE;
 
@@ -535,15 +536,15 @@ peirce_projection_fast_square(const math::Vector &v) {
  * permutes the engine's y-up Vector into this type on entry.
  */
 struct AiroceanVector {
-  float x;
-  float y;
-  float z;
+  float x; ///< Engine x rotated by the central meridian.
+  float y; ///< Engine z rotated by the central meridian.
+  float z; ///< Engine y (the up axis).
 };
 
 /** @brief A point in the Airocean unfolded plane. */
 struct AiroceanPoint {
-  float x;
-  float y;
+  float x; ///< Horizontal net coordinate.
+  float y; ///< Vertical net coordinate.
 };
 
 /**
@@ -623,12 +624,20 @@ inline constexpr AiroceanVector AIROCEAN_FACES[23][3] = {
      {-0.5884910224f, 0.5302967344f, 0.0627648018f},
      {-0.4146822253f, 0.6559624054f, 0.6306758079f}}};
 
+/**
+ * @brief Cross product in the Airocean axis convention.
+ * @param a Left operand.
+ * @param b Right operand.
+ * @return a x b.
+ */
 constexpr AiroceanVector airocean_cross(const AiroceanVector &a,
                                         const AiroceanVector &b) {
   return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 
+/** @brief Unnormalized edge normals of each `AIROCEAN_FACES` face. */
 struct AiroceanEdgeNormals {
+  /// values[face][i]: normal of the edge opposite vertex i of that face.
   AiroceanVector values[23][3]{};
 
   constexpr AiroceanEdgeNormals() {
@@ -643,7 +652,9 @@ struct AiroceanEdgeNormals {
   }
 };
 
+/// Edge normals of `AIROCEAN_FACES`, computed at compile time.
 inline constexpr AiroceanEdgeNormals AIROCEAN_EDGE_NORMALS{};
+/// Half-space slack of airocean_contains(); admits points on shared edges.
 inline constexpr float AIROCEAN_CONTAINS_EPS = 1e-7f;
 /** Floor on the gnomonic ray's plane component. */
 inline constexpr float AIROCEAN_RAY_EPS = 1e-6f;
@@ -896,6 +907,13 @@ inline uint8_t airocean_edge_identity(uint8_t face, uint8_t edge) {
   return AIROCEAN_EDGE_IDENTITIES[face][edge];
 }
 
+/**
+ * @brief Half-space determinant of a direction against one face edge.
+ * @param p Direction; need not be normalized.
+ * @param face Face index in [0, 23).
+ * @param opposite_vertex Vertex index in [0, 3) opposite the tested edge.
+ * @return Dot of `p` with the edge normal; <= 0 on the face's side.
+ */
 inline float airocean_edge_halfspace(const AiroceanVector &p, uint8_t face,
                                      uint8_t opposite_vertex) {
   const AiroceanVector &normal =
@@ -1070,6 +1088,15 @@ airocean_projection(const math::Vector &v, float c, float s, bool horizontal,
           .edge_class = edge_identity};
 }
 
+/**
+ * @brief airocean_projection() with the central meridian given as an angle.
+ * @param v Unit direction on the sphere.
+ * @param central_meridian Central-meridian longitude, radians.
+ * @param horizontal Rotates the finished net a quarter turn.
+ * @param calculate_edge_distance When false, per-edge cut distances are
+ *        skipped and `fade_edge_distance` stays at NO_EDGE_DISTANCE.
+ * @return Plane coordinates on the net, as airocean_projection().
+ */
 HS_O3_FN inline ProjectionKernelResult
 airocean_projection_meridian(const math::Vector &v, float central_meridian,
                              bool horizontal,
