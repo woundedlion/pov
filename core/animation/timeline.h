@@ -252,6 +252,8 @@ public:
     static_assert(alignof(A) <= alignof(std::max_align_t),
                   "Animation type is over-aligned for TimelineEvent inline "
                   "storage (placement-new would be misaligned)");
+    static_assert(std::is_base_of_v<Animation::AnimationCommon, A>,
+                  "Timeline animations must derive from AnimationCommon");
     HS_CHECK(in_frames >= 0, "Timeline delay must be non-negative");
     const uint32_t delay = static_cast<uint32_t>(in_frames);
     if (global_timeline_num_events >= MAX_EVENTS) {
