@@ -1743,7 +1743,7 @@ inline void test_gs_substep_signs_and_clamp() {
  * @brief Verifies the explicit-Euler integrator does not diverge over many
  *        substeps at a high-diffusion stable setting.
  * @details The stability product dt·D·|λ|max stays within the Euler bound, so
- *          almost no node may sit at the upper rail. Whether B persists or
+ *          fewer than 5% of nodes may sit at the upper rail. Whether B persists or
  *          decays is regime-dependent and not asserted.
  */
 inline void test_gs_evolution_stays_bounded() {
@@ -1759,8 +1759,8 @@ inline void test_gs_evolution_stays_bounded() {
     std::swap(cA, nA);
     std::swap(cB, nB);
   }
-  // No blow-up: a stable run leaves at most a handful of nodes at the upper
-  // rail; an unstable oscillation would clamp a large fraction there.
+  // No blow-up: an unstable oscillation would clamp a large fraction of nodes
+  // at the upper rail.
   int saturated = 0;
   for (int i = 0; i < GSWhiteBox::N; ++i)
     if (cB[i] == 65535)
