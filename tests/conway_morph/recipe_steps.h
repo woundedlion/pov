@@ -139,15 +139,27 @@ inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
   return Solids::finalize_solid(seed, persist);
 }
 
-/**
- * @brief Steps truncate sweeps on TRUNCATE_LEG_SITES, asserting
- *        constant raw and compiled face counts, two-face edge incidence, and Euler
- *        characteristic 2 at every sampled parameter.
- */
-inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
-  constexpr int SAMPLES = 33;
+/** @brief Recipe-step leg kind driven by the sweep and smoke tests. */
+enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
-  for (const StepLegSite &site : TRUNCATE_LEG_SITES) {
+/**
+ * @brief Steps a truncate or snub sweep on each site, asserting constant raw
+ *        and compiled face counts, two-face edge incidence, and Euler
+ *        characteristic 2 at every sampled parameter.
+ * @param kind `StepLegKind::TRUNCATE` or `StepLegKind::SNUB`.
+ * @param sites Seed sites and arrival parameters.
+ */
+inline void check_step_leg_sweep(StepLegKind kind,
+                                 std::span<const StepLegSite> sites) {
+  constexpr int SAMPLES = 33;
+  const bool truncate = kind == StepLegKind::TRUNCATE;
+  HS_EXPECT(truncate || kind == StepLegKind::SNUB,
+            "sweep takes truncate or snub");
+  const char *tag = truncate ? "truncate-leg" : "snub-leg";
+  const ConwayGraph::MorphOp op =
+      truncate ? ConwayGraph::MorphOp::TRUNCATE : ConwayGraph::MorphOp::SNUB;
+
+  for (const StepLegSite &site : sites) {
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     PolyMesh seed = build_step_leg_seed(site, persist);
@@ -161,68 +173,36 @@ inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);
       const SweepFingerprint fp =
-          check_sweep_sample(MeshOps::truncate(seed, a, b, t), a, b);
+          check_sweep_sample(truncate ? MeshOps::truncate(seed, a, b, t)
+                                      : MeshOps::snub(seed, a, b, t, 0.0f),
+                             a, b);
       if (s == 0) {
         first = fp;
-        expect_op_counts(fp.v, fp.f, fp.i,
-                         morph_op_counts(ConwayGraph::MorphOp::TRUNCATE, seed));
+        expect_op_counts(fp.v, fp.f, fp.i, morph_op_counts(op, seed));
       } else {
         expect_same_fingerprint(fp, first);
       }
     }
 
     if (hs_test::stats().failed != failed_before)
-      std::printf("    [truncate-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+      std::printf("    [%s] %s failed (raw F=%zu, compiled F=%zu)\n", tag,
                   site.name, first.f, first.compiled);
     else
-      std::printf("  [truncate-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
+      std::printf("  [%s] %s: t*=%.2f F=%zu compiled=%zu across %d "
                   "samples\n",
-                  site.name, (double)site.param, first.f, first.compiled,
+                  tag, site.name, (double)site.param, first.f, first.compiled,
                   SAMPLES);
   }
 }
 
-/**
- * @brief Steps snub sweeps on SNUB_LEG_SITES, asserting constant
- *        raw and compiled face counts, two-face edge incidence, and Euler
- *        characteristic 2 at every sampled parameter.
- */
+/** @brief Steps truncate sweeps on TRUNCATE_LEG_SITES. */
+inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
+  check_step_leg_sweep(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES);
+}
+
+/** @brief Steps snub sweeps on SNUB_LEG_SITES. */
 inline void test_snub_leg_on_recipe_seeds_holds_topology() {
-  constexpr int SAMPLES = 33;
-
-  for (const StepLegSite &site : SNUB_LEG_SITES) {
-    const int failed_before = hs_test::stats().failed;
-    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    PolyMesh seed = build_step_leg_seed(site, persist);
-
-    SweepFingerprint first;
-    Arena a(morph_target_buf, sizeof(morph_target_buf));
-    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
-    for (int s = 0; s < SAMPLES; ++s) {
-      const float t = T_EPS + (site.param - T_EPS) *
-                                  (static_cast<float>(s) / (SAMPLES - 1));
-      ScratchScope frame_a(a);
-      ScratchScope frame_b(b);
-      const SweepFingerprint fp =
-          check_sweep_sample(MeshOps::snub(seed, a, b, t, 0.0f), a, b);
-      if (s == 0) {
-        first = fp;
-        expect_op_counts(fp.v, fp.f, fp.i,
-                         morph_op_counts(ConwayGraph::MorphOp::SNUB, seed));
-      } else {
-        expect_same_fingerprint(fp, first);
-      }
-    }
-
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [snub-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
-                  site.name, first.f, first.compiled);
-    else
-      std::printf("  [snub-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
-                  "samples\n",
-                  site.name, (double)site.param, first.f, first.compiled,
-                  SAMPLES);
-  }
+  check_step_leg_sweep(StepLegKind::SNUB, SNUB_LEG_SITES);
 }
 
 /**
@@ -272,9 +252,6 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 }
-
-/** @brief Recipe-step leg kind driven by the smoke test. */
-enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
 /** Paused redraws check_step_leg_smoke issues at its pause frame. */
 inline constexpr int PAUSED_REDRAWS = 2;
