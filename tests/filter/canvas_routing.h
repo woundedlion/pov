@@ -109,11 +109,21 @@ inline void test_pipeline_sink_3d_plot_routes_to_canvas() {
  */
 inline void test_pipeline_world_replicate_fans_out() {
   constexpr int W = 32, H = 16;
-  // Replicate(2): original + one copy rotated 180 deg about Y (same latitude,
-  // longitude + W/2) -> two distinct columns -> two lit pixels.
   Pipeline<W, H, Filter::World::Replicate<W>> pipe(
       Filter::World::Replicate<W>(2));
   math::Vector v = math::Vector(0.6f, 0.4f, 0.69f).normalized();
+  // Each copy k lands where v rotated 2*pi*k/copies about Y projects.
+  auto expect_copies = [&](const hs_test::StubEffect &fx, int copies) {
+    HS_EXPECT_EQ(count_lit_canvas(fx), static_cast<size_t>(copies));
+    for (int k = 0; k < copies; ++k) {
+      const math::Vector copy = math::rotate(
+          v, math::make_rotation(math::Y_AXIS, 2 * math::PI_F * k / copies));
+      const math::PixelCoords pc = math::vector_to_pixel<W, H>(copy);
+      const int x = math::fast_wrap(static_cast<int>(std::round(pc.x)), W);
+      const int y = static_cast<int>(std::round(pc.y));
+      HS_EXPECT_PIXEL(fx.get_pixel(x, y), 60000, 60000, 60000);
+    }
+  };
   {
     hs_test::StubEffect fx(W, H);
     {
@@ -121,7 +131,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)2);
+    expect_copies(fx, 2);
   }
 
   pipe.get<Filter::World::Replicate<W>>().set_count(3);
@@ -132,7 +142,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)3);
+    expect_copies(fx, 3);
   }
 
   pipe.get<Filter::World::Replicate<W>>().set_count(0);
@@ -143,7 +153,7 @@ inline void test_pipeline_world_replicate_fans_out() {
       pipe.plot(c, v, Pixel(60000, 60000, 60000), 0.0f, 1.0f);
     }
     fx.advance_display();
-    HS_EXPECT_EQ(count_lit_canvas(fx), (size_t)1);
+    expect_copies(fx, 1);
   }
 }
 
