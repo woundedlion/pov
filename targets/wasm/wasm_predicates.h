@@ -95,6 +95,8 @@ inline int clamp_relax_iterations(double iterations, int max_iterations) {
 
 /**
  * @brief True when a [0,1] boundary fraction falls outside its domain.
+ * @param t Requested fraction from the JS boundary.
+ * @return True when out of range; false for NaN.
  */
 inline bool unit_fraction_out_of_range(double t) {
   return t < 0.0f || t > 1.0f;
@@ -121,6 +123,8 @@ static_assert(LARGEST_FRACTION_BELOW_ONE < 1.0f,
 
 /**
  * @brief True when a fraction exceeds the representable [0,1) domain.
+ * @param t Requested fraction from the JS boundary.
+ * @return True when out of range; false for NaN.
  */
 inline bool half_open_fraction_out_of_range(double t) {
   return t < 0.0f || t > LARGEST_FRACTION_BELOW_ONE;
@@ -161,6 +165,7 @@ inline float clamp_finite_float(double value) {
  * @param verts Mesh vertex count.
  * @param faces Mesh face count.
  * @param indices Mesh flat face-index count.
+ * @return The maximum of the three.
  */
 inline size_t mesh_largest_element_count(size_t verts, size_t faces,
                                          size_t indices) {

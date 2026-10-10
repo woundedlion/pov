@@ -1,8 +1,11 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Phantasm — Multi-Teensy segmented POV display (288×144)
+ */
+
+/**
+ * @file Phantasm.ino
+ * @brief Phantasm — Multi-Teensy segmented POV display (288×144).
  *
  * Target: 4× Teensy 4.0 by default; 8× with PHANTASM_NUM_SEGMENTS=8
  * Total physical LEDs: 288 (72 per default segment, 144 per arm)
@@ -26,12 +29,23 @@ void loop();
 namespace {
 // Generated from the Phantasm playlist roster; table order is identical on
 // every board (spec §6.1).
+/**
+ * @brief Expands to one EFFECT_FACTORIES entry.
+ * @param name Effect class template name.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
 #define HS_FACTORY_ONE(name, duration_seconds)                                 \
   &construct_effect<name<CANVAS_W, CANVAS_H>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
     HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)};
 #undef HS_FACTORY_ONE
 
+/**
+ * @brief Expands to one EFFECT_REVOLUTIONS entry: the duration in
+ *        revolutions at RPM.
+ * @param name Effect class name (unused).
+ * @param duration_seconds Show duration in seconds.
+ */
 #define HS_DURATION_ONE(name, duration_seconds)                                \
   static_cast<uint32_t>(duration_seconds) * RPM / 60,
 constexpr uint32_t EFFECT_REVOLUTIONS[] = {
@@ -57,6 +71,7 @@ static_assert(show_config().valid() == nullptr,
               "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
+/** @brief Parks the sync output, brings up serial, then starts the driver. */
 FLASHMEM void setup() {
   POV::park_sync_out();
   boot_serial();
@@ -64,6 +79,7 @@ FLASHMEM void setup() {
   POV::begin();
 }
 
+/** @brief Runs the show; never returns. */
 void loop() {
   // Never returns.
   POV::run_show(EFFECT_FACTORIES, &EFFECT_REVOLUTIONS, &EFFECT_SEEDS);

@@ -76,7 +76,10 @@ public:
    */
   explicit WorkbenchBindings(std::shared_ptr<WorkbenchBindingState> state)
       : state(std::move(state)), generation(this->state->generation) {}
-  /** @brief Whether the originating engine and effect incarnation remain live. */
+  /**
+   * @brief Whether the originating engine and effect incarnation remain live.
+   * @return True while the handle may be used.
+   */
   bool isValid() const {
     return workbench_module_alive() && state->alive && state->effect &&
            state->entry && state->generation == generation;
@@ -85,7 +88,14 @@ public:
 protected:
   std::shared_ptr<WorkbenchBindingState> state; ///< Engine-shared incarnation.
 #if HS_ENABLE_CHAIN_INTERPRETER
-  /** @brief Runs a callback when the live effect has the requested factory type. */
+  /**
+   * @brief Runs a callback when the live effect has the requested factory
+   *        type.
+   * @tparam EffectT Effect class template to match.
+   * @tparam Callback Callable taking `EffectT<W, H> &`.
+   * @param callback Invoked with the live effect on a type match.
+   * @return True when the callback ran.
+   */
   template <template <int, int> class EffectT, typename Callback>
   bool with_effect(Callback &&callback) {
     if (!isValid())
@@ -119,6 +129,7 @@ private:
 class ShaderChainBindings : public WorkbenchBindings {
 public:
   /// Inherits the incarnation-pinning constructor.
+  /// @param state Shared incarnation state owned by the engine.
   using WorkbenchBindings::WorkbenchBindings;
   ~ShaderChainBindings() {
     HS_CHECK(!decoding,
@@ -262,6 +273,8 @@ public:
    * for capacity overflow, NO_EFFECT for a missing or replaced chain,
    * UNKNOWN_PARAM for an unknown name, READONLY for a protected parameter,
    * NON_FINITE for NaN/infinite values, or INADMISSIBLE for cross-field conflicts.
+   * @param caller_entries JS array of `{name, value}` writes; cloned before
+   *        decoding.
    */
   ParamSetResult
   setShaderChainParameters(const emscripten::val &caller_entries) {
