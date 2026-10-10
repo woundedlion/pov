@@ -298,12 +298,14 @@ struct GSWhiteBox {
   static bool exact_color_sample(const GS &gs, float noise) {
     return color_noise_sample(gs, noise).exact;
   }
+  /** @brief `shade_pigment` of a solid `seed` pigment at unit scale. */
   static Pixel staged_palette(const GS &gs, int seed, float t, float noise) {
-    return cached_palette_color(gs, seed, t, noise);
+    return gs.shade_pigment(Pigment::pack(seed, seed, Pigment::FULL_MASS), t,
+                            1.0f, noise);
   }
   static Pixel cached_palette(GS &gs, int seed, float t, float noise) {
     gs.refresh_color_palettes();
-    return cached_palette_color(gs, seed, t, noise);
+    return staged_palette(gs, seed, t, noise);
   }
   static Pixel wrapped_palette(const GS &gs, int seed, float t, float shift,
                                float lightness) {
@@ -351,6 +353,7 @@ struct GSWhiteBox {
   static bool reaction_edited(GS &gs) { return gs.reaction_edited(); }
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
   static constexpr int COLOR_NOISE_STEPS = GS::COLOR_NOISE_STEPS;
+  static constexpr int COLOR_VALUE_STEPS = GS::COLOR_VALUE_STEPS;
   static void set_pigment(GS &gs, int node, int seed) {
     gs.state.pigment[node] = Pigment::pack(seed, 0, Pigment::FULL_MASS);
   }
@@ -1215,11 +1218,13 @@ inline void test_gs_partial_color_palette_rows() {
                                            std::max(noise, 0.0f) * shimmer));
     }
     for (int frame = 0; frame < 7; ++frame) {
-      for (float noise : {-1.0f, -0.8f, -0.5f, 0.0f, 0.5f, 0.8f, 1.0f}) {
-        if (!GSWhiteBox::exact_color_sample(gs, noise))
-          continue;
+      for (int n = 0; n < GSWhiteBox::COLOR_NOISE_STEPS; ++n) {
+        const float noise =
+            -1.0f + 2.0f * n / (GSWhiteBox::COLOR_NOISE_STEPS - 1);
+        const bool exact = GSWhiteBox::exact_color_sample(gs, noise);
+        const float knot = 5.0f / (GSWhiteBox::COLOR_VALUE_STEPS - 1);
         for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
-          for (float value : {0.0f, 0.37f, 1.0f})
+          for (float value : {0.0f, exact ? 0.37f : knot, 1.0f})
             HS_EXPECT_EQ(
                 GSWhiteBox::staged_palette(gs, seed, value, noise),
                 GSWhiteBox::modified_palette(gs, seed, value, noise * hue,
