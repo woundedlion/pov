@@ -276,6 +276,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
  * scaled by the parallel gate, so the edge-midpoint fallback fully replaces
  * the intersection from the far ratio onward only on near-parallel planes. */
 inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
+/// Squared ratio at the far end of the blend.
 inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
 /** Plane-cross squared floor below which fallback is always mixed in. */
 inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
@@ -288,6 +289,7 @@ inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 /** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
  * far-star fallback: fully on below LO (near-parallel planes), off above HI. */
 inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
+/// Gate window upper end; the fallback is off above it.
 inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
 /**

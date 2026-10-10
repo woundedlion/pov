@@ -21,15 +21,16 @@ HS_O3_BEGIN
  * what was baked against.
  */
 struct RelaxBake {
-  const char *name;
+  const char *name; ///< Bake identifier, matching its RelaxBakeSpecs entry.
+  /// Raw float bits of the output, xyz per vertex.
   const uint32_t *vertex_bits;
-  uint16_t vertex_count;
-  uint16_t face_count;
-  uint16_t index_count;
-  uint16_t iterations;
-  uint32_t source_hash;
-  uint32_t topology_hash;
-  uint32_t output_hash;
+  uint16_t vertex_count;  ///< Source and output vertex count.
+  uint16_t face_count;    ///< Source face count.
+  uint16_t index_count;   ///< Source flat face-index count.
+  uint16_t iterations;    ///< Relax iterations the payload was baked at.
+  uint32_t source_hash;   ///< relax_source_hash() of the source mesh.
+  uint32_t topology_hash; ///< relax_topology_hash() of the source mesh.
+  uint32_t output_hash;   ///< FNV-1a hash of `vertex_bits`.
 };
 
 /**
