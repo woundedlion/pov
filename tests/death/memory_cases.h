@@ -252,6 +252,13 @@ inline void case_arena_split_scratch_too_large() {
   (void)split.persistent(opaque<size_t>(GLOBAL_ARENA_SIZE));
 }
 
+/** @brief Death case: an ArenaSplit scratch size off max_align_t traps. */
+inline void case_arena_split_unaligned_scratch() {
+  const ArenaSplit split{opaque<size_t>(alignof(std::max_align_t) / 2),
+                         opaque<size_t>(0)};
+  (void)split.persistent(opaque<size_t>(GLOBAL_ARENA_SIZE));
+}
+
 /**
  * @brief Death case: a single partition larger than the whole block must trap.
  * @details Config surface — the per-request bound is checked before the sum, so
