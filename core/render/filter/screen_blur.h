@@ -26,6 +26,7 @@ namespace Screen {
  */
 template <int W, int H> class Blur : public Is2D {
 public:
+  /// Kernel taps reach one pixel away.
   static constexpr int segment_margin = 1;
   /** @brief Taps land on rounded integer coordinates. */
   static constexpr bool emits_pixel_centers = true;

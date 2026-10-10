@@ -25,7 +25,7 @@ namespace Screen {
 template <int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
   static_assert(MAX_PIXELS > 0, "Screen::Trails capacity must be positive");
-  // Re-emits each point at its own coordinate; never samples the framebuffer.
+  /// Re-emits each point at its own coordinate; never samples the framebuffer.
   static constexpr bool reads_outside_band = false;
 
   /**
@@ -56,7 +56,10 @@ public:
 
   /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
+    /// Pixel column.
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
+    /** @var y
+     *  Pixel row. */
   };
 
   /** @brief Persistent bytes init_storage() reserves. */

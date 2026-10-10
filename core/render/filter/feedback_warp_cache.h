@@ -32,21 +32,22 @@ template <int W, int H> class FeedbackWarpCache {
   using CapOffset = typename FeedbackCapPlane<W, H>::CapOffset;
 
 public:
+  /// Field coordinates of a lattice origin.
   using Coordinates = typename SphereField::Coordinates;
 
   /** @brief Inputs the coarse warp field is a pure function of (stock
    *  transforms only); equal keys make the cached field reusable. */
   struct Key {
-    ::Feedback::SpaceFn space_fn;
-    const Animation::NoiseParams *noise;
-    uint32_t noise_config;
-    float amplitude;
-    float frequency;
-    float speed;
-    float scale;
-    float time;
-    int field_y_begin;
-    int field_y_end;
+    ::Feedback::SpaceFn space_fn;        ///< Spatial warp transform.
+    const Animation::NoiseParams *noise; ///< Bound noise generator, or null.
+    uint32_t noise_config; ///< Generator configuration key (its seed).
+    float amplitude;       ///< Noise amplitude.
+    float frequency;       ///< Noise spatial frequency.
+    float speed;           ///< Noise temporal speed.
+    float scale;           ///< Noise spatial scale.
+    float time;            ///< Noise sampling time; 0 when unbound.
+    int field_y_begin;     ///< First field ring of the band.
+    int field_y_end;       ///< Last field ring of the band, inclusive.
     bool operator==(const Key &) const = default;
   };
 

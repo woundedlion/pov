@@ -31,6 +31,7 @@ namespace Pixel {
  * CAP_SCALE units per radian.
  */
 template <int W, int H> struct FeedbackCapPlane {
+  /// Spherical field layout of the W x H canvas.
   using SphereField = hs::SphericalFieldLayout<W, H>;
 
   /** @brief Cap-plane offset units per radian. */
@@ -38,22 +39,22 @@ template <int W, int H> struct FeedbackCapPlane {
 
   /** @brief An offset in a pole's cap plane, CAP_SCALE units per radian. */
   struct CapOffset {
-    int16_t u;
-    int16_t v;
+    int16_t u; ///< Offset along world x, CAP_SCALE units per radian.
+    int16_t v; ///< Offset along world z, CAP_SCALE units per radian.
   };
 
   /** @brief A point in a pole's cap plane: the angle from that pole, in
    *  radians, laid along the point's longitude. */
   struct CapPoint {
-    float u;
-    float v;
+    float u; ///< Component along world x, in radians.
+    float v; ///< Component along world z, in radians.
   };
 
   /** @brief A polar cell's cap-plane offset at its left edge and its change
    *  across the cell, both blended between the cell's two rings. */
   struct CapCell {
-    CapPoint left;
-    CapPoint slope;
+    CapPoint left;  ///< Offset at the cell's left column, in radians.
+    CapPoint slope; ///< Change from left to right column, in radians.
   };
 
   /** @brief Cap-plane coordinates of a direction, from the north pole or,

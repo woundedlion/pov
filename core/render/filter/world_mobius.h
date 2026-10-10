@@ -23,6 +23,7 @@ namespace World {
  */
 class Mobius : public Is3D {
 public:
+  /// Stereographic projection assumes unit points.
   static constexpr bool requires_unit_world_input = true;
   /**
    * @brief The map is non-rigid, so the effect must render the full canvas.
