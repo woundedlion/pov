@@ -72,33 +72,32 @@ class KaleidoscopeHexOil
 
 public:
   using Params = KaleidoscopeHexOilParams; ///< Live parameter struct.
-  /// Stable effect ID; also names the pattern document under patterns/.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-oil";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "d4cec300e807a48008dcd128903c97f00ca36d582a474e94231389f2ffa9a7c7";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "302f86fbdcd6122935cbc7e0c80bcff24f441401e3d44d39ec096e02849fcd18";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "kaleidoscope-hex-oil",
       "kaleidoscope-hex-oil-2"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 of the pattern document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 of the pattern document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before departing. */
   /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
-  /// Params the effect starts on, and the base every preset varies from.
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
@@ -124,7 +123,11 @@ public:
     return value;
   }
 
-  /** @brief The preset at index in PRESET_IDS and how it departs. */
+  /**
+   * @brief The preset at index in PRESET_IDS and how it departs.
+   * @param index Preset number; an index past the last yields preset 0.
+   * @return The preset's parameters and departure segue.
+   */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
@@ -135,9 +138,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn initial_params()
-   *  @return The preset-0 `Params`. */
-  /** @fn preset(size_t index)
-   *  @param index Preset number; indexes `PRESET_IDS`.
-   *  @return The preset's parameters and departure policy. */
 };

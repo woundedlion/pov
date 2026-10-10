@@ -75,28 +75,23 @@ public:
   using Params = AlienBrainParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "alien-brain";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "e6fad4aa8069af2a40b53f15b011164f24d3ae3b181d7ba00753eab7d0dac41c";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "463a8eddd452f7b0b04bda8d2736e92ccc979fac6fe88121b82e7cda888ca0e9";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 4> PRESET_IDS{
       "alien-brain",
       "alien-brain-2",
       "alien-brain-3",
       "alien-brain-4"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var EFFECT_ID
-   *  @brief Stable effect ID; equals the shader document's effect_id. */
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 hex of the shader document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities, indexed by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before advancing. */
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
@@ -113,6 +108,10 @@ public:
   }
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 0.8f;
@@ -143,7 +142,11 @@ public:
     return value;
   }
 
-  /** @brief The preset at index in PRESET_IDS and how it departs. */
+  /**
+   * @brief The preset at index in PRESET_IDS and how it departs.
+   * @param index Preset number; an index past the last yields preset 0.
+   * @return The preset's parameters and departure segue.
+   */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
@@ -167,10 +170,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn preset(size_t index)
-   *  @param index Preset number; indexes `PRESET_IDS`.
-   *  @return The preset's parameters and departure policy. */
-  /** @fn initial_params()
-   *  @brief Parameters of the first preset.
-   *  @return The preset-0 `Params`. */
 };

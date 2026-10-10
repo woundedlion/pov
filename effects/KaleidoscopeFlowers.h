@@ -76,32 +76,31 @@ public:
   using Params = KaleidoscopeFlowersParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-flowers";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "30721bbdccbe37bc46944c66976d97a25306e9654739848940db2a51d8ee82b3";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "d1bc04d4ed1aec4b7720a5d90429388da1933b83cd85b387ac56da440dc51970";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 3> PRESET_IDS{
       "double-map",
       "open-grid",
       "fine-grid"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var EFFECT_ID
-   *  @brief Stable effect ID; equals the shader document's effect_id. */
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 hex of the shader document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities, indexed by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before advancing. */
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
@@ -135,7 +134,11 @@ public:
     return value;
   }
 
-  /** @brief The preset at index in PRESET_IDS and how it departs. */
+  /**
+   * @brief The preset at index in PRESET_IDS and how it departs.
+   * @param index Preset number; an index past the last yields preset 0.
+   * @return The preset's parameters and departure segue.
+   */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     Params value = initial_params();
     if (index == 1) {
@@ -151,10 +154,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn preset(size_t index)
-   *  @param index Preset number; indexes `PRESET_IDS`.
-   *  @return The preset's parameters and departure policy. */
-  /** @fn initial_params()
-   *  @brief Parameters of the first preset.
-   *  @return The preset-0 `Params`. */
 };

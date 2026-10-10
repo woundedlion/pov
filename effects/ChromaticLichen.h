@@ -76,30 +76,29 @@ public:
   using Params = ChromaticLichenParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "chromatic-lichen";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "578df4dfb347b2bf93b8ac4af40e20c6ff087f3647072dca692878515507b558";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "7c7a8a2db55ea545c194c7aace61c4b0aab2aac22be649f38d6d6c78c789ad71";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "chromatic-lichen"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var EFFECT_ID
-   *  @brief Stable effect ID; equals the shader document's effect_id. */
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 hex of the shader document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities, indexed by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before advancing. */
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
@@ -130,7 +129,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn initial_params()
-   *  @brief Parameters of the first preset.
-   *  @return The preset-0 `Params`. */
 };

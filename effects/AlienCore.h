@@ -75,29 +75,28 @@ public:
   using Params = AlienCoreParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "alien-core";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "65a245d1dfbbc68eff720abe0fd1c6195e82954412646ee38e1d7a41397b3472";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "8b76fda1895b0572c30c79e00baa135e3bbcc151c2c051f3c1ab0773be83c366";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "folded-glitch"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var EFFECT_ID
-   *  @brief Stable effect ID; equals the shader document's effect_id. */
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 hex of the shader document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities, indexed by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before advancing. */
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
@@ -130,7 +129,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn initial_params()
-   *  @brief Parameters of the first preset.
-   *  @return The preset-0 `Params`. */
 };
