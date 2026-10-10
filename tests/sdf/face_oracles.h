@@ -199,6 +199,46 @@ inline double double_polygon_distance(const SDF::Face &face, float px,
   return (inside ? -1.0 : 1.0) * std::sqrt(minimum);
 }
 
+/** @brief Running error tally of probes against `double_polygon_distance`. */
+struct OracleStats {
+  size_t probes = 0;      ///< Probes recorded.
+  size_t sign_errors = 0; ///< Probes whose sign disagrees with the oracle.
+  double max_error = 0.0; ///< Largest absolute distance error.
+};
+
+/**
+ * @brief Advances an xorshift32 state.
+ * @param state Generator state, updated in place.
+ * @return Uniform value in [0, 1) from the state's top 24 bits.
+ */
+inline float xorshift_unit(uint32_t &state) {
+  state ^= state << 13;
+  state ^= state >> 17;
+  state ^= state << 5;
+  return float(state >> 8) * (1.0f / 16777216.0f);
+}
+
+/**
+ * @brief Records one squared plane distance against the double oracle.
+ * @param face Face the distance was taken on.
+ * @param squared Squared plane distance under test.
+ * @param inside Inside flag reported with @p squared.
+ * @param px Probe x in the face plane.
+ * @param py Probe y in the face plane.
+ * @param stats Tally receiving the probe.
+ * @details Sign disagreements count only where the oracle is beyond 1e-7.
+ */
+inline void probe_against_oracle(const SDF::Face &face, float squared,
+                                 bool inside, float px, float py,
+                                 OracleStats &stats) {
+  const double expected = double_polygon_distance(face, px, py);
+  const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
+  stats.max_error = std::max(stats.max_error, std::abs(actual - expected));
+  if (std::abs(expected) > 1e-7)
+    stats.sign_errors += (actual < 0.0) != (expected < 0.0);
+  ++stats.probes;
+}
+
 /** @brief Asymmetric monotonic stars certify omitted-edge distance and sign. */
 inline void test_face_asymmetric_sector_matches_oracle() {
   constexpr int COUNT = 12;
@@ -252,14 +292,9 @@ inline void test_face_asymmetric_sector_matches_oracle() {
 
 inline void test_face_randomized_sector_matches_oracle() {
   uint32_t state = 0x4a39b70du;
-  auto random = [&]() {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
-    return float(state >> 8) * (1.0f / 16777216.0f);
-  };
-  size_t probes = 0, sign_errors = 0, admitted = 0;
-  double max_error = 0.0;
+  auto random = [&]() { return xorshift_unit(state); };
+  OracleStats stats;
+  size_t admitted = 0;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count) {
     size_t admitted_count = 0;
     for (int variant = 0; variant < 16; ++variant) {
@@ -289,12 +324,7 @@ inline void test_face_randomized_sector_matches_oracle() {
       auto probe = [&](float px, float py) {
         bool inside;
         const float squared = face.plane_dsq_sector(px, py, inside);
-        const double expected = double_polygon_distance(face, px, py);
-        const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
-        max_error = std::max(max_error, std::abs(actual - expected));
-        if (std::abs(expected) > 1e-7)
-          sign_errors += (actual < 0.0) != (expected < 0.0);
-        ++probes;
+        probe_against_oracle(face, squared, inside, px, py, stats);
       };
       probe(0.0f, 0.0f);
       for (int i = 0; i < count; ++i)
@@ -318,23 +348,17 @@ inline void test_face_randomized_sector_matches_oracle() {
   }
   std::printf("random sector oracle: %zu admitted, %zu probes, "
               "%zu sign errors, max distance error %.9g\n",
-              admitted, probes, sign_errors, max_error);
+              admitted, stats.probes, stats.sign_errors, stats.max_error);
   HS_EXPECT_GT(admitted, 700u);
-  HS_EXPECT_GT(probes, 900000u);
-  HS_EXPECT_EQ(sign_errors, 0u);
-  HS_EXPECT_LT(max_error, 1e-5);
+  HS_EXPECT_GT(stats.probes, 900000u);
+  HS_EXPECT_EQ(stats.sign_errors, 0u);
+  HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
 inline void test_face_randomized_backtracking_matches_oracle() {
   uint32_t state = 0x39be4207u;
-  auto random = [&]() {
-    state ^= state << 13;
-    state ^= state >> 17;
-    state ^= state << 5;
-    return float(state >> 8) * (1.0f / 16777216.0f);
-  };
-  size_t probes = 0, sign_errors = 0;
-  double max_error = 0.0;
+  auto random = [&]() { return xorshift_unit(state); };
+  OracleStats stats;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count)
     for (int variant = 0; variant < 8; ++variant) {
       math::Vector vertices[SDF::FaceScratchBuffer::MAX_VERTS];
@@ -359,12 +383,7 @@ inline void test_face_randomized_backtracking_matches_oracle() {
       auto probe = [&](float px, float py) {
         bool inside;
         const float squared = face.plane_dsq_exact(px, py, inside);
-        const double expected = double_polygon_distance(face, px, py);
-        const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
-        max_error = std::max(max_error, std::abs(actual - expected));
-        if (std::abs(expected) > 1e-7)
-          sign_errors += (actual < 0.0) != (expected < 0.0);
-        ++probes;
+        probe_against_oracle(face, squared, inside, px, py, stats);
       };
       probe(0.0f, 0.0f);
       for (int i = 0; i < count; ++i) {
@@ -382,10 +401,10 @@ inline void test_face_randomized_backtracking_matches_oracle() {
     }
   std::printf("backtracking oracle: %zu probes, %zu sign errors, "
               "max distance error %.9g\n",
-              probes, sign_errors, max_error);
-  HS_EXPECT_GT(probes, 480000u);
-  HS_EXPECT_EQ(sign_errors, 0u);
-  HS_EXPECT_LT(max_error, 1e-5);
+              stats.probes, stats.sign_errors, stats.max_error);
+  HS_EXPECT_GT(stats.probes, 480000u);
+  HS_EXPECT_EQ(stats.sign_errors, 0u);
+  HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
 inline void test_face_tied_rows_match_oracle() {
@@ -393,8 +412,7 @@ inline void test_face_tied_rows_match_oracle() {
   const float z = sqrtf(0.75f);
   const math::Vector corners[4] = {
       {0.5f, 0.0f, z}, {0.0f, 0.5f, z}, {-0.5f, -0.0f, z}, {-0.0f, -0.5f, z}};
-  size_t errors = 0;
-  double max_error = 0.0;
+  OracleStats stats;
   for (bool reverse : {false, true}) {
     math::Vector vertices[COUNT];
     uint16_t indices[COUNT];
@@ -412,11 +430,7 @@ inline void test_face_tied_rows_match_oracle() {
     auto probe = [&](float x, float y) {
       bool inside;
       const float squared = face.plane_dsq_exact(x, y, inside);
-      const double expected = double_polygon_distance(face, x, y);
-      const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
-      max_error = std::max(max_error, std::abs(actual - expected));
-      if (std::abs(expected) > 1e-7)
-        errors += (actual < 0.0) != (expected < 0.0);
+      probe_against_oracle(face, squared, inside, x, y, stats);
     };
     for (int x = -40; x <= 40; ++x) {
       for (int y = -40; y <= 40; ++y)
@@ -428,8 +442,8 @@ inline void test_face_tied_rows_match_oracle() {
       }
     }
   }
-  HS_EXPECT_EQ(errors, 0u);
-  HS_EXPECT_LT(max_error, 1e-5);
+  HS_EXPECT_EQ(stats.sign_errors, 0u);
+  HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
 template <int W, int H> struct FaceOraclePipeline {
