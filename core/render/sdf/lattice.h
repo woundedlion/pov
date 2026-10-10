@@ -179,6 +179,17 @@ inline EdgeMetric edge_metric_3d_at(const math::Vec4 &ray_origin,
  * @brief Finds the nearest 4D edge within the supplied coverage radius.
  * @details An edge fixes two of the three remaining coordinates. Two outside
  * the radius reject the hit before evaluating its squared distance.
+ * @tparam AXIS0 First coordinate axis in the crossed hyperplane.
+ * @tparam AXIS1 Second coordinate axis in the crossed hyperplane.
+ * @tparam AXIS2 Third coordinate axis in the crossed hyperplane.
+ * @tparam NEED_AXIS When false, the result's free axis is left 0.
+ * @param ray_origin Ray origin in lattice cells.
+ * @param direction Ray direction in lattice cells per unit distance.
+ * @param distance Ray distance of the crossing.
+ * @param limit Coverage radius in cells.
+ * @param limit_sq Square of the coverage radius.
+ * @param result Receives the metric when the edge is within the radius.
+ * @return True when the nearest edge lies within the radius.
  */
 template <int AXIS0, int AXIS1, int AXIS2, bool NEED_AXIS = true>
 __attribute__((always_inline)) bool
@@ -483,6 +494,11 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
  * covered crossings enter the distance-ordered layer list; each run within the
  * relative tolerance of its first distance composites as one layer at that
  * distance with the run's largest coverage.
+ * @tparam SLICE_4D Uses the 4D-slice metric.
+ * @tparam SHELLS Shell count; at most MAX_SHELLS.
+ * @param normal Unit world ray direction.
+ * @param prepared Frame lattice, appearance, and crossing scratch.
+ * @return Front-to-back composite of the covered crossings.
  */
 template <bool SLICE_4D, uint8_t SHELLS>
 __attribute__((always_inline)) inline LayerComposite

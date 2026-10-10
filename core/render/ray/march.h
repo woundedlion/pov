@@ -15,7 +15,12 @@ namespace Raycast {
 /** @brief Fraction of a safe distance bound taken per step. */
 inline constexpr float STEP_SAFETY = 0.9f;
 
-/** @brief Shared bounded progress driver; false ends the current policy. */
+/**
+ * @brief Shared bounded progress driver; false ends the current policy.
+ * @tparam Step Callable `bool()`.
+ * @param limit Maximum step calls.
+ * @param step Advances one step; false stops early.
+ */
 template <typename Step>
 __attribute__((always_inline)) inline void march_steps(int limit, Step &&step) {
   for (int i = 0; i < limit; ++i)
@@ -37,7 +42,11 @@ advance(const math::Vector &p, const math::Vector &direction, float step) {
 }
 
 /** @brief True when two consecutive unbounding spheres leave a gap, so the
- * step between their centres crossed unbounded space. */
+ * step between their centres crossed unbounded space.
+ * @param radius Unbounding radius at the current sample.
+ * @param prev_radius Unbounding radius at the previous sample.
+ * @param step Distance between the two samples.
+ * @return True when the spheres leave a gap. */
 __attribute__((always_inline)) inline bool
 spheres_disjoint(float radius, float prev_radius, float step) {
   return radius + prev_radius < step;
@@ -50,6 +59,16 @@ HS_O3_BEGIN
  * unrelaxed. Stops on a hit within a small fraction of `aa_width`, or at the
  * first non-approaching sample once the closest approach is within
  * `aa_width`.
+ * @tparam Shape Type exposing `float distance(const math::Vector&)`.
+ * @param shape Signed distance field, in its local frame.
+ * @param origin Ray origin, local frame.
+ * @param direction Unit ray direction, local frame.
+ * @param end_t Parameter past which the march stops.
+ * @param max_steps Step budget.
+ * @param aa_width Anti-aliasing width, in distance units.
+ * @param closest_local Receives the local point of the closest approach.
+ * @param overrelaxation Initial step overrelaxation factor.
+ * @return Signed distance at the closest sampled approach.
  */
 template <typename Shape>
 __attribute__((always_inline)) inline float
@@ -133,7 +152,10 @@ valid_footprint(const Footprint &footprint) {
 }
 
 /** @brief True when `limits` has a positive tolerance that `guarantees`
- * verifies boundaries within. */
+ * verifies boundaries within.
+ * @param limits Trace limits carrying the tolerance.
+ * @param guarantees Query error guarantees.
+ * @return True when the tolerance is verifiable. */
 __attribute__((always_inline)) inline bool
 tolerance_verifiable(const TraceLimits &limits,
                      const QueryCapabilities &guarantees) {
@@ -144,7 +166,10 @@ tolerance_verifiable(const TraceLimits &limits,
 }
 
 /** @brief True when `guarantees` can sphere-trace and verify from a start on
- * the given side of the boundary. */
+ * the given side of the boundary.
+ * @param guarantees Query capability guarantees.
+ * @param inside True for a start inside the boundary.
+ * @return True when tracing from that side is supported. */
 __attribute__((always_inline)) inline bool
 can_start(const QueryCapabilities &guarantees, bool inside) {
   return (inside ? guarantees.interior_clearance
@@ -154,6 +179,12 @@ can_start(const QueryCapabilities &guarantees, bool inside) {
 
 /** @brief Finds one verified boundary; proximity never creates coverage.
  * @details The footprint is validated and reserved for coverage-aware queries.
+ * @tparam Query Distance query exposing capabilities() and sampling.
+ * @param query Field to search.
+ * @param ray Ray and parameter interval.
+ * @param footprint Pixel cone footprint.
+ * @param limits Step, refinement, and tolerance budgets.
+ * @return Status, counters, and the verified surface when found.
  */
 template <typename Query>
 HS_HOT_FLASH_MEMBER TraceResult surface_search(const Query &query,

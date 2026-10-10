@@ -409,7 +409,12 @@ template <typename Shape, typename WarpT> struct WarpedVolume {
                "major radius");
   }
 
-  /** @brief Squared distance to the twist-inflated torus centerline. */
+  /**
+   * @brief Squared distance to the twist-inflated torus centerline.
+   * @param p Query point in Cartesian ray-space.
+   * @param radial Distance of @p p from the torus axis.
+   * @return Squared distance to the inflated centerline.
+   */
   float torus_bound_squared(const math::Vector &p, float radial) const
     requires(TORUS_TWIST)
   {

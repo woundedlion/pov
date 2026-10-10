@@ -29,7 +29,10 @@ struct ClipRegion {
   int w = MAX_W; /**< Canvas width, in pixels. */
   int h = MAX_H; /**< Canvas height, in pixels. */
 
-  /** @brief Field-wise equality, for cached clip-state stamps. */
+  /**
+   * @brief Field-wise equality, for cached clip-state stamps.
+   * @return True when every field matches.
+   */
   bool operator==(const ClipRegion &) const = default;
 
   /**

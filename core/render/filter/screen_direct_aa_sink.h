@@ -48,7 +48,11 @@ public:
   /** @brief This sink owns no arena storage. */
   void init_storage(Arena &) {}
 
-  /** @brief Direct sinks contain no independently accessible filter stages. */
+  /**
+   * @brief Direct sinks contain no independently accessible filter stages.
+   * @tparam T Requested stage type; any instantiation fails to compile.
+   * @return Never returns.
+   */
   template <typename T> T &get() {
     static_assert(!sizeof(T *),
                   "DirectAntiAliasSink contains no filter stages");
@@ -63,7 +67,10 @@ public:
                 "DirectAntiAliasSink's stage-level traits contradict its "
                 "pipeline folds");
 
-  /** @brief Caches the current frame's framebuffer and clip bounds. */
+  /**
+   * @brief Caches the current frame's framebuffer and clip bounds.
+   * @param cv Canvas about to be drawn; must be W x H.
+   */
   void prepare(Canvas &cv) {
     HS_CHECK(cv.width() == W && cv.height() == H,
              "DirectAntiAliasSink: framebuffer dimensions do not match");
@@ -84,12 +91,21 @@ public:
    * @param cv Canvas the caller is about to draw into.
    * @details The base pointer alone repeats every other frame when the canvas
    * double-buffers, so the clip bounds are stamped alongside it.
+   * @return True when no re-prepare is needed.
    */
   bool prepared_for(Canvas &cv) const {
     return base == cv.data() && clip_stamp == cv.clip();
   }
 
-  /** @brief Splats one screen-space sample directly into the Canvas. */
+  /**
+   * @brief Splats one screen-space sample directly into the Canvas.
+   * @param cv Target canvas; must be prepared_for().
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames); ignored.
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     assert(age >= 0.0f && alpha >= 0.0f);
@@ -135,13 +151,28 @@ public:
     HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
   }
 
-  /** @brief Integer-coordinate overload matching a filtered Pipeline. */
+  /**
+   * @brief Integer-coordinate overload matching a filtered Pipeline.
+   * @param cv Target canvas; must be prepared_for().
+   * @param x Column in pixels.
+   * @param y Row in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames); ignored.
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
             float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
   }
 
-  /** @brief Projects a world point, then applies the direct screen-space splat. */
+  /**
+   * @brief Projects a world point, then applies the direct screen-space splat.
+   * @param cv Target canvas; must be prepared_for().
+   * @param v Unit world position.
+   * @param c Source color.
+   * @param age Temporal age channel (frames); ignored.
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
     HS_PLOT_STALL_START(projection_start);
@@ -175,7 +206,15 @@ public:
         "flush() call, or use a Pipeline carrying Pixel::Feedback.");
   }
 
-  /** @brief Terminal clip-cull predicate forwarding. */
+  /**
+   * @brief Terminal clip-cull predicate forwarding.
+   * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a Edge start, unit world position.
+   * @param b Edge end, unit world position.
+   * @param planar_basis Basis of a planar edge, or null for a geodesic.
+   * @param pred Clip-band test.
+   * @return pred(a, b, planar_basis).
+   */
   template <typename Pred>
   bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
                             const math::Basis *planar_basis,
