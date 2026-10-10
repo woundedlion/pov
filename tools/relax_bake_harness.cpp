@@ -17,7 +17,7 @@
 
 #if defined(HS_RELAX_BAKE_VERIFY)
 // Floor on relax_baked() steps reached; without it a sweep reaching none passes.
-static constexpr int MIN_RELAX_BAKES_VERIFIED = 21;
+static constexpr int MIN_RELAX_BAKES_VERIFIED = 22;
 #endif
 
 int main() {

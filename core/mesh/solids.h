@@ -407,7 +407,8 @@ inline constexpr OpStep ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_STEPS[] =
     {{Op::TRUNCATE, 0.25f},
      {Op::HANKIN, 60.0f * IslamicStarPatterns::D2R},
      {Op::AMBO},
-     {Op::RELAX, 100.0f},
+     {.op = Op::RELAX,
+      .bake = &RelaxBakes::icosahedron_truncate25_hankin60_ambo_relax100},
      {Op::HANKIN, 60.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
