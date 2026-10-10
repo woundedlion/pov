@@ -30,6 +30,9 @@ enum class FieldCurve : uint8_t {
   SNAP               /**< Holds the start value until progress reaches 1. */
 };
 
+/** @brief Maps a pullback curve to its `Control::FieldCurve` equivalent.
+ * @param curve Curve to map.
+ * @return The same-named control curve. */
 constexpr Control::FieldCurve control_curve(FieldCurve curve) {
   switch (curve) {
   case FieldCurve::LERP:
@@ -61,8 +64,8 @@ enum class FieldGate : uint8_t {
  * @details A null `field` marks a field every variant reads.
  */
 struct TopologyGate {
-  const char *field = nullptr;
-  uint16_t values = 0; /**< Bit per live topology value index. */
+  const char *field = nullptr; /**< Topology field id, or null. */
+  uint16_t values = 0;         /**< Bit per live topology value index. */
 };
 
 /** Declared only: a call makes the enclosing constant evaluation ill-formed. */
@@ -90,14 +93,16 @@ template <typename... Values> consteval uint16_t live_values(Values... values) {
  */
 template <typename Owner> struct Field {
   const char *id; /**< Stable machine id; kebab-case, unique in the family. */
-  float Owner::*member;
-  const char *name;
-  float min;
-  float max;
-  FieldCurve curve = FieldCurve::LERP;
-  FieldGate gate = FieldGate::ALWAYS;
-  TopologyGate topology_gate{};
+  float Owner::*member; /**< The float member this field drives. */
+  const char *name;     /**< Slider display name, or null. */
+  float min;            /**< Inclusive lower bound. */
+  float max;            /**< Inclusive upper bound. */
+  FieldCurve curve = FieldCurve::LERP; /**< Transition curve. */
+  FieldGate gate = FieldGate::ALWAYS;  /**< Slider registration gate. */
+  TopologyGate topology_gate{};        /**< Topology value(s) that read it. */
 
+  /** @brief The equivalent animated `Control::Field` descriptor.
+   * @return Descriptor carrying id, member, name, range and curve. */
   constexpr Control::Field<Owner, float> description() const {
     return {.id = id,
             .member = member,
@@ -127,6 +132,14 @@ concat_fields(const std::array<Field<BaseOwner>, N> &base,
   return out;
 }
 
+/**
+ * @brief The shared `edge-width` field: range [0, 1], linear, always shown.
+ * @tparam Owner The family struct the field belongs to.
+ * @param member The float member it drives.
+ * @param name Slider display name.
+ * @param topology_gate Topology value(s) that read it.
+ * @return The field descriptor.
+ */
 template <typename Owner>
 constexpr Field<Owner> edge_width_field(float Owner::*member,
                                         const char *name = "Edge Width",
@@ -165,6 +178,12 @@ template <HasFields Family> consteval bool field_defaults_in_range() {
 
 namespace Fields {
 
+/** @brief Interpolates @p from to @p to along @p curve.
+ * @param curve Transition curve.
+ * @param from Value at @p t = 0.
+ * @param to Value at @p t = 1.
+ * @param t Progress in [0, 1].
+ * @return The interpolated value. */
 HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
                                          float t) {
   return Control::apply_curve(control_curve(curve), from, to, t);
