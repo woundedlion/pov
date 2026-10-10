@@ -482,8 +482,7 @@ private:
       ArenaVector<math::Vector> &base_vertices,
       ArenaVector<math::Vector> &frame_u, ArenaVector<math::Vector> &offsets,
       MeshState &framed_mesh, ArenaVector<Plot::Mesh::Edge> &framed_edges) {
-    const size_t vertex_count =
-        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
+    const size_t vertex_count = woven_vertex_count(solid, medial);
     const size_t edge_count = edges.size();
 
     base_vertices.bind(scratch_arena_a, vertex_count);
