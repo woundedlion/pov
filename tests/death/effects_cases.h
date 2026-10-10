@@ -95,6 +95,36 @@ inline void case_shapeshifter_count_over_capacity() {
                                       opaque(OracleEffect::MAX_SHAPES + 1));
 }
 
+/** @brief Commits @p n flat rings into a DisplacementField ring pool. */
+template <typename Pool> inline void commit_flat_rings(Pool &pool, int n) {
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  for (int i = 0; i < n; ++i)
+    pool.commit(i, 1.0f, 16, basis, 0.5f, 0.03f,
+                ScalarFn([](float) { return 0.0f; }), 0.0f, 0.0f);
+}
+
+/** @brief Death case: a ring pool frame cannot start over live rings. */
+inline void case_displacement_field_ring_pool_live_begin() {
+  using WB = effects_tests::DisplacementFieldWhiteBox;
+  DisplacementField<96, 20> effect;
+  effect.init();
+  auto &pool = WB::ring_pool(effect);
+  pool.begin_frame();
+  commit_flat_rings(pool, opaque(1));
+  pool.begin_frame();
+}
+
+/** @brief Death case: a full ring pool has no next slot. */
+inline void case_displacement_field_ring_pool_full() {
+  using WB = effects_tests::DisplacementFieldWhiteBox;
+  DisplacementField<96, 20> effect;
+  effect.init();
+  auto &pool = WB::ring_pool(effect);
+  pool.begin_frame();
+  commit_flat_rings(pool, opaque(WB::ring_slots(effect)));
+  static_cast<void>(pool.next());
+}
+
 /** @brief Death case: a woven edge whose start vertex is absent must trap. */
 inline void case_dreamballs_woven_owner_vertex_oob() {
   using WB = effects_tests::DreamBallsWhiteBox;

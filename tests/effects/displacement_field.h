@@ -144,8 +144,17 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static Pixel hue_lut_value(const DisplacementField<W, H> &effect, int index) {
-    // Slot 0 of the pooled bake: the first drawn ring's hue LUT.
-    return effect.hue_pool[index];
+    return effect.rings.hue_row(0)[index];
+  }
+
+  template <int W, int H>
+  static auto &ring_pool(DisplacementField<W, H> &effect) {
+    return effect.rings;
+  }
+
+  template <int W, int H>
+  static int ring_slots(const DisplacementField<W, H> &) {
+    return DisplacementField<W, H>::RingPool::SLOTS;
   }
 
   template <int W, int H>
@@ -156,7 +165,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static int baked_lut_samples(const DisplacementField<W, H> &effect) {
-    return static_cast<int>(effect.slot_lut_nf[0]);
+    return static_cast<int>(effect.rings.lut_columns(0));
   }
 
   template <int W, int H>
@@ -614,4 +623,72 @@ inline void test_displacement_field_ball_spans_and_lifecycle() {
     DisplacementFieldWhiteBox::check_ball_spans(effect, balls, basis, theta);
   }
   hs::clear_mock_time();
+}
+
+/**
+ * @brief Verifies next() is idempotent until a commit, and a ring culled after
+ *        next() leaves the pool unchanged.
+ */
+inline void test_displacement_field_ring_pool_abandoned_slot() {
+  using WB = DisplacementFieldWhiteBox;
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  auto &pool = WB::ring_pool(effect);
+  using Pool = std::remove_reference_t<decltype(pool)>;
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  constexpr int LUT_N = 16;
+
+  pool.begin_frame();
+  const auto first = pool.next();
+  const auto again = pool.next();
+  HS_EXPECT_TRUE(first.shift_row == again.shift_row);
+  HS_EXPECT_TRUE(first.hue_row == again.hue_row);
+  HS_EXPECT_EQ(pool.size(), 0);
+
+  for (int x = 0; x <= LUT_N; ++x)
+    first.shift_row[x] = 0.0f;
+  pool.commit(2, 0.5f, LUT_N, basis, 0.5f, 0.03f, first.shift_row, LUT_N, 0.0f,
+              nullptr);
+  HS_EXPECT_EQ(pool.size(), 1);
+  HS_EXPECT_EQ(pool.slot_of(2), 0);
+  HS_EXPECT_EQ(pool.slot_of(0), Pool::CULLED);
+  HS_EXPECT_EQ(pool.slot_of(1), Pool::CULLED);
+  HS_EXPECT_EQ(pool.lut_columns(0), static_cast<float>(LUT_N));
+  HS_EXPECT_EQ(pool.frag_alpha(0), 0.5f);
+  HS_EXPECT_TRUE(pool.hue_row(0) == first.hue_row);
+  const auto second = pool.next();
+  HS_EXPECT_TRUE(second.shift_row != first.shift_row);
+  HS_EXPECT_TRUE(second.hue_row != first.hue_row);
+  pool.release();
+  HS_EXPECT_EQ(pool.size(), 0);
+}
+
+/**
+ * @brief Verifies the pool commits up to capacity and release() destroys
+ *        exactly the committed rings.
+ */
+inline void test_displacement_field_ring_pool_capacity_release() {
+  using WB = DisplacementFieldWhiteBox;
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  auto &pool = WB::ring_pool(effect);
+  const int slots = WB::ring_slots(effect);
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+
+  for (int frame = 0; frame < 2; ++frame) {
+    pool.begin_frame();
+    const int committed = frame == 0 ? slots : 3;
+    for (int i = 0; i < committed; ++i)
+      pool.commit(i, 1.0f, 16, basis, 0.5f, 0.03f,
+                  ScalarFn([](float) { return 0.0f; }), 0.0f, 0.0f);
+    HS_EXPECT_EQ(pool.size(), committed);
+    for (int i = 0; i < committed; ++i)
+      HS_EXPECT_EQ(pool.slot_of(i), i);
+    const int destroyed_before = pool.destroyed;
+    pool.release();
+    HS_EXPECT_EQ(pool.destroyed - destroyed_before, committed);
+    HS_EXPECT_EQ(pool.size(), 0);
+  }
 }
