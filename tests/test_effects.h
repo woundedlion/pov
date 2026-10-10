@@ -954,9 +954,9 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   WB::SH fx;
   fx.init();
 
-  HS_EXPECT_EQ(fx.getPresetCount(), 24u);
+  HS_EXPECT_EQ(fx.getPresetCount(), SH_PRESET_MODES.size());
   HS_EXPECT_EQ(fx.getPresetIndex(), 0u);
-  HS_EXPECT_EQ(WB::current_idx(fx), 6);
+  HS_EXPECT_EQ(WB::current_idx(fx), SH_PRESET_MODES[0]);
   for (int frame = 0; frame < 8; ++frame) {
     pin_frame_clock(frame);
     fx.draw_frame();
@@ -965,8 +965,11 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   HS_EXPECT_GT(WB::morph_alpha(fx), 0.0f);
   const int replaced_target = WB::next_idx(fx);
 
-  const size_t selected_preset = replaced_target == 24 ? 22u : 23u;
+  const size_t selected_preset = replaced_target == SH_PRESET_MODES.back()
+                                     ? SH_PRESET_MODES.size() - 2
+                                     : SH_PRESET_MODES.size() - 1;
   const int selected_mode = SH_PRESET_MODES[selected_preset];
+  HS_EXPECT_NE(selected_mode, replaced_target);
   HS_EXPECT_TRUE(fx.selectPreset(selected_preset));
   HS_EXPECT_TRUE(fx.animations_paused());
   HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
