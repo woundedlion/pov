@@ -153,6 +153,10 @@ public:
     HS_CHECK(max_points(edges, pieces) <= capacity,
              "PlanarBandSplit: %d edges of %d pieces exceed capacity %d", edges,
              pieces, capacity);
+    HS_CHECK(edges >= 1 && pieces >= 1 &&
+                 ring.size() > static_cast<size_t>(edges),
+             "PlanarBandSplit: %d edges of %d pieces over %d ring points",
+             edges, pieces, static_cast<int>(ring.size()));
     Fragment point;
     point.pos = ring[0].pos;
     out.push_back(point);

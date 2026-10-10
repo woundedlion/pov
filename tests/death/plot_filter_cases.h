@@ -461,6 +461,38 @@ inline void case_planar_band_split_over_capacity() {
                    Plot::ClipBand<16, 8>{});
 }
 
+/** @brief Death case: a band split with no pieces per edge traps. */
+inline void case_planar_band_split_zero_pieces() {
+  static uint8_t arena_buf[8192];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarBandSplit<16, 8> band_split;
+  band_split.init_storage(arena, 5);
+  Fragments out;
+  out.bind(arena, 5);
+  Fragments ring;
+  ring.bind(arena, 9);
+  for (int i = 0; i < 9; ++i)
+    ring.push_back(Fragment{});
+  band_split.split(out, ring, 8, opaque(0), math::Basis{},
+                   Plot::ClipBand<16, 8>{});
+}
+
+/** @brief Death case: a band split over a ring shorter than edges + 1 traps. */
+inline void case_planar_band_split_short_ring() {
+  static uint8_t arena_buf[8192];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarBandSplit<16, 8> band_split;
+  band_split.init_storage(arena, 5);
+  Fragments out;
+  out.bind(arena, 5);
+  Fragments ring;
+  ring.bind(arena, 2);
+  ring.push_back(Fragment{});
+  ring.push_back(Fragment{});
+  band_split.split(out, ring, opaque(2), 1, math::Basis{},
+                   Plot::ClipBand<16, 8>{});
+}
+
 /** @brief Death case: the coherent shader rejects a zero block edge. */
 inline void case_scan_block_coherent_zero_block() {
   constexpr int W = 32, H = 16;
