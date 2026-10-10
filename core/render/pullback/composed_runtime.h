@@ -239,6 +239,8 @@ public:
   }
 #endif
 #if HS_ENABLE_TEST_HOOKS
+  /** @brief Prepares and returns this draw's frame state.
+      @return The prepare_frame() result. */
   FrameState frame_for_test() { return prepare_frame(); }
 #endif
 

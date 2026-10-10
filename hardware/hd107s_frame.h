@@ -25,9 +25,12 @@
 namespace hd107s {
 
 #if HS_ENABLE_TEST_HOOKS
+/** @brief Buffer passed to the last dcache_flush(), or null. */
 inline const void *last_flushed_data = nullptr;
+/** @brief Byte count passed to the last dcache_flush(). */
 inline uint32_t last_flushed_bytes = 0;
 
+/** @brief Clears the recorded dcache_flush() arguments. */
 inline void reset_flush_observation() {
   last_flushed_data = nullptr;
   last_flushed_bytes = 0;
