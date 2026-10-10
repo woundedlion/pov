@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file AlienOcean.h
+ * @brief Composed pullback effect:
+ *        a broad folded grid with slow mirrored drift.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -53,6 +59,7 @@ struct AlienOceanSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `AlienOceanSpec`.
 using AlienOceanParams = Pullback::ParamsFor<AlienOceanSpec>;
 
 /**

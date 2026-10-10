@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file GridSpace.h
+ * @brief Composed pullback effect:
+ *        an affine primitive lattice rendered as soft contours.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -53,6 +59,7 @@ struct GridSpaceSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `GridSpaceSpec`.
 using GridSpaceParams = Pullback::ParamsFor<GridSpaceSpec>;
 
 /**

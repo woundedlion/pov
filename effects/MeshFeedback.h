@@ -94,7 +94,8 @@ public:
   /** @var POLE_RES_MAX
    *  @brief Upper bound of `Feedback::Style::pole_half_res`. */
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, BaseMesh>{

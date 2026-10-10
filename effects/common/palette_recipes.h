@@ -17,7 +17,8 @@
 /** @brief PaletteRecipe builders for effect palettes and standalone authoring presets. */
 namespace EffectPaletteRecipes {
 
-/** @brief The BZ reaction-diffusion ramp, pinned to three authored colors. */
+/** @brief The BZ reaction-diffusion ramp, pinned to three authored colors.
+ *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe bz_reaction_diffusion() {
   return PaletteRecipes::from_oklch_keys(PaletteDomain::STRAIGHT,
                                          pixel_to_oklch(Pixel(36844, 10770, 3)),
@@ -74,7 +75,9 @@ HS_FLASH_MEMBER inline PaletteRecipe gs_reaction_diffusion(float base_turns) {
   return recipe;
 }
 
-/** @brief HyperLattice's indigo-to-cyan depth ramp, with a hue offset in turns. */
+/** @brief HyperLattice's indigo-to-cyan depth ramp, with a hue offset in turns.
+ *  @param hue_offset Hue offset in turns added to every key.
+ *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe hyper_lattice(float hue_offset = 0.0f) {
   PaletteRecipe recipe;
   recipe.hue.mode = HueMode::CUSTOM;
@@ -159,7 +162,8 @@ HS_FLASH_MEMBER inline PaletteRecipe raymarch_at(float base_turns) {
                                  base_turns, 0.86f);
 }
 
-/** @brief The Raymarch ramp at its authored hue. */
+/** @brief The Raymarch ramp at its authored hue.
+ *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe raymarch() {
   return raymarch_at(PaletteRecipes::hue_turns(219));
 }
@@ -187,7 +191,8 @@ standalone_liquid_at(float rotation_turns) {
   return recipe;
 }
 
-/** @brief The liquid recipe at its authored hue. */
+/** @brief The liquid recipe at its authored hue.
+ *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe standalone_liquid() {
   return standalone_liquid_at(0.0f);
 }
@@ -203,7 +208,8 @@ HS_FLASH_MEMBER inline PaletteRecipe standalone_flyby_at(float base_turns) {
                                  AxisCurve::CONSTANT, base_turns);
 }
 
-/** @brief The flyby recipe at its authored hue. */
+/** @brief The flyby recipe at its authored hue.
+ *  @return The recipe. */
 HS_FLASH_MEMBER inline PaletteRecipe standalone_flyby() {
   return standalone_flyby_at(PaletteRecipes::hue_turns(42));
 }
@@ -216,12 +222,14 @@ struct Preset {
   PaletteRecipe recipe; /**< The recipe at its preview hue. */
 };
 
-/** @brief A base hue drawn from the 256-step hue wheel. */
+/** @brief A base hue drawn from the 256-step hue wheel.
+ *  @return The base hue in turns. */
 HS_FLASH_MEMBER inline float random_base_turns() {
   return PaletteRecipes::random_base_turns();
 }
 
-/** @brief The preset roster, every recipe at a fixed preview hue. */
+/** @brief The preset roster, every recipe at a fixed preview hue.
+ *  @return The roster rows. */
 HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
   const float preview_hue = PaletteRecipes::hue_turns(42);
   return {{{"BZReactionDiffusion", false, bz_reaction_diffusion()},

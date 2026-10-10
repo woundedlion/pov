@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file KaleidoscopeHexOil.h
+ * @brief Composed pullback effect:
+ *        a rotating spiral folded through a hexagonal prism.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -51,6 +57,7 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `KaleidoscopeHexOilSpec`.
 using KaleidoscopeHexOilParams = Pullback::ParamsFor<KaleidoscopeHexOilSpec>;
 
 /**
@@ -128,4 +135,9 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @return The preset-0 `Params`. */
+  /** @fn preset(size_t index)
+   *  @param index Preset number; indexes `PRESET_IDS`.
+   *  @return The preset's parameters and departure policy. */
 };

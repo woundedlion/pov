@@ -89,6 +89,9 @@ struct Params {
   /**
    * @brief Interpolates continuous fields; the pattern, view and shell
    *        count switch together at the midpoint.
+   * @param start Parameters at @p amount 0.
+   * @param target Parameters at @p amount 1.
+   * @param amount Blend fraction in [0, 1].
    */
   HS_FLASH_INLINE void lerp(const Params &start, const Params &target,
                             float amount);
@@ -238,7 +241,10 @@ template <bool SLICE_4D = false, uint8_t SHELLS = 0> struct Renderer {
         const PreparedTrace &prepared) {
     return composite_crossings<SLICE_4D, SHELLS>(normal, prepared).finish();
   }
-  /** @brief shade() premultiplied by its alpha, without the round trip. */
+  /** @brief shade() premultiplied by its alpha, without the round trip.
+   *  @param normal Unit view direction.
+   *  @param prepared Frame-constant trace state.
+   *  @return Premultiplied colour. */
   __attribute__((always_inline)) static Pixel
   shade_premultiplied(const math::Vector &normal,
                       const PreparedTrace &prepared) {
@@ -325,6 +331,8 @@ public:
    * @brief The preset at @p index and how it departs.
    * @details A preset morphs through its parameters into the next preset of
    * its pattern and view; any other departure fades through black.
+   * @param index Preset number.
+   * @return The preset's parameters and departure policy.
    */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
     constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin,
@@ -515,7 +523,8 @@ public:
   /// Upper bound of `HyperLatticeDetail::Params::shell_radius`.
   static constexpr float SHELL_RADIUS_MAX = .32f;
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, Pattern>{

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file CosmicEyeball.h
+ * @brief Composed pullback effect:
+ *        a high-contrast mirrored grid with displacement-driven hue.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -53,6 +59,7 @@ struct CosmicEyeballSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `CosmicEyeballSpec`.
 using CosmicEyeballParams = Pullback::ParamsFor<CosmicEyeballSpec>;
 
 /**

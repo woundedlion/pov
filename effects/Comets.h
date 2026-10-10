@@ -101,7 +101,8 @@ public:
             .debug_bb = false};
   }
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, float>{
@@ -234,7 +235,9 @@ private:
     update_path();
   }
 
-  /** @brief A manual selection restarts the authored path deterministically. */
+  /** @brief A manual selection restarts the authored path deterministically.
+   *  @param change The requested preset change.
+   *  @return False if the change was refused. */
   HS_FLASH_MEMBER bool
   apply_preset(const Effect::PresetChange &change) override {
     if (!Choreography::apply_preset(change))
@@ -251,7 +254,8 @@ private:
   }
 
   /** @brief The automatic cadence also rolls the palette; manual selection and
-   *  snapshot restores keep the live palette. */
+   *  snapshot restores keep the live palette.
+   *  @param change The committed preset change. */
   HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
     if (change.origin == Effect::PresetChangeOrigin::AUTOMATIC)

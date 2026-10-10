@@ -90,7 +90,8 @@ public:
   /** Bookkeeping only; mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, BaseMesh>{
@@ -215,6 +216,7 @@ private:
    *        retargets the live sprite.
    * @details An automatic advance leaves the rebake to the following
    * spawn_sprite(), so the new palette lands on the fresh sprite's slot.
+   * @param change The committed preset change.
    */
   HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
