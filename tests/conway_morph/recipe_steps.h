@@ -14,9 +14,9 @@ struct StepLegSite {
   PolyMesh (*seed)(Arena &a, Arena &b);     /**< Chain prefix up to the step. */
   float param;                              /**< Arrival t. */
   const MeshOps::RelaxBake *bake = nullptr; /**< Relax arrival bake. */
-  bool via_dt_macro = false; /**< Bridge follows the dt truncate leg. */
-  double min_face_area = 1e-3;
-  float seam_quiet_ratio = .70f;
+  bool via_dt_macro = false;     /**< Bridge follows the dt truncate leg. */
+  double min_face_area = 1e-3;   /**< Floor on the bridge sweep's face area. */
+  float seam_quiet_ratio = .70f; /**< Floor on seam-to-control quiet pixels. */
 };
 
 inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
