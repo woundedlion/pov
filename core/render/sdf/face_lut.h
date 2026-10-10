@@ -5,6 +5,12 @@
 
 // Included by core/render/sdf/face.h.
 
+/**
+ * @file face_lut.h
+ * @brief Congruence-class canonical distance LUTs: ClassLut, its baker, and
+ * the canonical-to-projection alignment helpers.
+ */
+
 // --- Congruence-class canonical distance LUTs --------------------------------
 // Optional static-mesh LUTs; see face_class_bake.h.
 
@@ -26,9 +32,11 @@ inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  */
 struct ClassLut {
   const int16_t *data =
-      nullptr;          /**< n*n quantized signed distances (row-major). */
-  int n = 0;            /**< Grid resolution per axis. */
+      nullptr; /**< n*n quantized signed distances (row-major). */
+  int n = 0;   /**< Grid resolution per axis. */
+  /// Canonical bounding-box center x.
   float cx = 0, cy = 0; /**< Canonical bounding-box center. */
+  /// Half-extent in x (+ margin).
   float Rx = 0, Ry = 0; /**< Half-extents (+ margin). */
   float inv_step_x = 0; /**< Reciprocal cell width. */
   float inv_step_y = 0; /**< Reciprocal cell height. */
@@ -118,7 +126,9 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
  *        centered projection (see align_correlate).
  */
 struct AlignCorr {
+  /// Real part of the sum of canon_k * conj(z'_k).
   float rr, ri; /**< Sum of canon_k * conj(z'_k) (real, imaginary). */
+  /// Sum of |canon_k|^2.
   float cc, zz; /**< Power terms: sum |canon_k|^2 and sum |z'_k|^2. */
 };
 

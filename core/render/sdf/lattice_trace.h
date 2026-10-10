@@ -21,19 +21,21 @@ enum class Geometry : uint8_t { OCTET, SHELLS };
 
 /** @brief Frame settings; camera distances and near fading use world units. */
 struct Settings {
+  /// 3D space or a 3D slice of 4D space.
   Raycast::SamplingDomain domain = Raycast::SamplingDomain::SPATIAL_3D;
-  float cell_size = 1.0f;
+  float cell_size = 1.0f;     ///< World edge length of one lattice cell.
   float wire_radius = 0.055f; /**< Octet wire radius in world units. */
-  float radial_start = 0.0f;
-  float far_distance = 7.0f;
-  float near_fade = 0.5f;
-  float aa_strength = 1.0f;
-  math::Vec4 center{};
+  float radial_start = 0.0f;  ///< Ray start distance from the center.
+  float far_distance = 7.0f;  ///< Ray length beyond the start.
+  float near_fade = 0.5f;     ///< Near fade-in span; must be positive.
+  float aa_strength = 1.0f;   ///< Pixel-footprint multiplier; nonnegative.
+  math::Vec4 center{};        ///< Camera position.
+  /// Rotation embedding view directions in the domain.
   math::Mat4 embedding = math::Mat4::identity();
-  float pixel_half_angle = 0.0f;
-  const BakedPalette *palette = nullptr;
-  Geometry geometry = Geometry::OCTET;
-  float shell_radius = .30f;
+  float pixel_half_angle = 0.0f;         ///< Angular half-width of one pixel.
+  const BakedPalette *palette = nullptr; ///< Required depth palette.
+  Geometry geometry = Geometry::OCTET;   ///< Geometry to trace.
+  float shell_radius = .30f;             ///< Shell sphere radius in cells.
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   /** Scratch the octet traces sort crossings in; required for OCTET. */
   CrossingStorage *crossings = nullptr;
@@ -43,19 +45,21 @@ struct Settings {
 
 /** @brief Frame state the traces read, built by prepare(). */
 struct Prepared {
-  Raycast::PreparedCamera camera;
-  Raycast::Footprint footprint;
-  Raycast::Appearance appearance;
-  Raycast::TraceLimits limits;
-  SDF::OctetFramework octet;
+  Raycast::PreparedCamera camera; ///< Ray camera.
+  Raycast::Footprint footprint;   ///< Pixel filter footprint.
+  Raycast::Appearance appearance; ///< Depth fade, palette and gain.
+  Raycast::TraceLimits limits;    ///< Candidate and layer budgets.
+  SDF::OctetFramework octet;      ///< 3D octet truss.
+  /// 3D octet plane families projected into view space.
   SDF::OctetEvents::PreparedProjection octet_projection{};
-  SDF::OctetFramework4 octet4;
+  SDF::OctetFramework4 octet4; ///< 4D octet truss.
+  /// 4D octet embedding and origin in half-cube units.
   SDF::OctetEvents4::PreparedProjection octet4_projection{};
-  SDF::PreparedPeriodicShells periodic_shells;
-  bool valid = false;
-  Geometry geometry = Geometry::OCTET;
-  CrossingStorage *crossings = nullptr;
-  SDF::ShellLayerStorage *shell_layers = nullptr;
+  SDF::PreparedPeriodicShells periodic_shells; ///< Shell frame constants.
+  bool valid = false;                   ///< Whether the frame can be traced.
+  Geometry geometry = Geometry::OCTET;  ///< Geometry to trace.
+  CrossingStorage *crossings = nullptr; ///< Octet crossing scratch.
+  SDF::ShellLayerStorage *shell_layers = nullptr; ///< Shell layer scratch.
 };
 
 /** @brief Validates settings and precomputes the frame's trace state. */

@@ -32,7 +32,7 @@ inline constexpr float CONGRUENCE_EPS_PX = 0.25f;
 inline constexpr float LUT_TARGET_DIAG_PX = 0.35f;
 /** Per-class LUT grid resolution bounds. */
 inline constexpr int CLASS_LUT_MIN_N = 32;
-inline constexpr int CLASS_LUT_MAX_N = 64;
+inline constexpr int CLASS_LUT_MAX_N = 64; ///< Largest LUT grid side.
 /** Per-mesh LUT byte budget, identical on every target. LUTs are allocated by
  *  descending face count until it is spent; remaining classes keep the exact
  *  distance path. */

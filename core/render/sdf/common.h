@@ -177,49 +177,64 @@ template <typename Shape> struct AngularRepeat;
  * Union/SmoothUnion merge both children into one MergedIntervalBuffer, so their
  * bound is the sum of the children's. */
 template <typename T> struct sdf_max_spans {
-  static constexpr size_t value = INTERVAL_SPAN_CAP;
+  static constexpr size_t value = INTERVAL_SPAN_CAP; ///< Max spans per row.
 };
 
 // Annular bands emit two arcs, or one when touching a pole.
+/// Ring emits up to two annular-band arcs per row.
 template <> struct sdf_max_spans<Ring> {
-  static constexpr size_t value = 2;
+  static constexpr size_t value = 2; ///< Max spans per row.
 };
+/// DistortedRing emits up to two annular-band arcs per row.
 template <> struct sdf_max_spans<DistortedRing> {
-  static constexpr size_t value = 2;
+  static constexpr size_t value = 2; ///< Max spans per row.
 };
+/// FlatDistortedRing emits up to two annular-band arcs per row.
 template <> struct sdf_max_spans<FlatDistortedRing> {
-  static constexpr size_t value = 2;
+  static constexpr size_t value = 2; ///< Max spans per row.
 };
 // emit_cap_interval: a single bounding-cap arc, or a full-scan request.
+/// PlanarPolygon emits one bounding-cap arc per row.
 template <> struct sdf_max_spans<PlanarPolygon> {
-  static constexpr size_t value = 1;
+  static constexpr size_t value = 1; ///< Max spans per row.
 };
+/// Flower emits one bounding-cap arc per row.
 template <> struct sdf_max_spans<Flower> {
-  static constexpr size_t value = 1;
+  static constexpr size_t value = 1; ///< Max spans per row.
 };
+/// SphericalPolygon emits one bounding-cap arc per row.
 template <> struct sdf_max_spans<SphericalPolygon> {
-  static constexpr size_t value = 1;
+  static constexpr size_t value = 1; ///< Max spans per row.
 };
+/// Star emits one bounding-cap arc per row.
 template <> struct sdf_max_spans<Star> {
-  static constexpr size_t value = 1;
+  static constexpr size_t value = 1; ///< Max spans per row.
 };
+/// Line emits one bounding-cap arc per row.
 template <> struct sdf_max_spans<Line> {
-  static constexpr size_t value = 1;
+  static constexpr size_t value = 1; ///< Max spans per row.
 };
 // Face replays its azimuth-coverage span from FaceScratchBuffer::intervals.
+/// Face replays up to two azimuth-coverage spans per row.
 template <> struct sdf_max_spans<Face> {
-  static constexpr size_t value = 2;
+  static constexpr size_t value = 2; ///< Max spans per row.
 };
 // AngularRepeat replays the child's spans once per copy, capped independently
 // of the child (past the cap it requests a full scan and emits nothing).
+/// AngularRepeat is capped at ANGULAR_REPEAT_SPAN_CAP spans.
 template <typename Shape> struct sdf_max_spans<AngularRepeat<Shape>> {
+  /// Max spans per row.
   static constexpr size_t value = ANGULAR_REPEAT_SPAN_CAP;
 };
+/// Union merges both children: the sum of their bounds.
 template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
+  /// Max spans per row.
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
+/// SmoothUnion merges both children: the sum of their bounds.
 template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
+  /// Max spans per row.
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
@@ -227,12 +242,16 @@ template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
 // the two start-sorted lists (one span per advance, |norm_a| + |norm_b| - 1
 // advances). A child's spans carry no common wrap frame -- a Union can merge
 // two that both cover θ=0 -- so every span may split: bound 2·|A| + 2·|B|.
+/// Intersection may seam-split every child span.
 template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
+  /// Max spans per row.
   static constexpr size_t value =
       2 * sdf_max_spans<A>::value + 2 * sdf_max_spans<B>::value;
 };
 // Subtract forwards the minuend's coverage bounds.
+/// Subtract forwards the minuend's span bound.
 template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
+  /// Max spans per row.
   static constexpr size_t value = sdf_max_spans<A>::value;
 };
 
@@ -246,27 +265,41 @@ inline constexpr bool blends_smoothly = [] {
   else
     return false;
 }();
+/// PlanarPolygon reports a usable signed distance outside itself.
 template <> inline constexpr bool blends_smoothly<PlanarPolygon> = true;
+/// SphericalPolygon reports a usable signed distance outside itself.
 template <> inline constexpr bool blends_smoothly<SphericalPolygon> = true;
+/// Star reports a usable signed distance outside itself.
 template <> inline constexpr bool blends_smoothly<Star> = true;
+/// Flower reports a usable signed distance outside itself.
 template <> inline constexpr bool blends_smoothly<Flower> = true;
+/// Line reports a usable signed distance outside itself.
 template <> inline constexpr bool blends_smoothly<Line> = true;
+/// Ring may report FAR_SENTINEL outside, so it does not blend.
 template <> inline constexpr bool blends_smoothly<Ring> = false;
+/// DistortedRing may report FAR_SENTINEL outside, so it does not blend.
 template <> inline constexpr bool blends_smoothly<DistortedRing> = false;
+/// FlatDistortedRing may report FAR_SENTINEL outside, so it does not blend.
 template <> inline constexpr bool blends_smoothly<FlatDistortedRing> = false;
+/// Face may report FAR_SENTINEL outside, so it does not blend.
 template <> inline constexpr bool blends_smoothly<Face> = false;
+/// AngularRepeat blends when its child does.
 template <typename Shape>
 inline constexpr bool blends_smoothly<AngularRepeat<Shape>> =
     blends_smoothly<Shape>;
+/// Union blends when both children do.
 template <typename A, typename B>
 inline constexpr bool blends_smoothly<Union<A, B>> =
     blends_smoothly<A> && blends_smoothly<B>;
+/// SmoothUnion blends when both children do.
 template <typename A, typename B>
 inline constexpr bool blends_smoothly<SmoothUnion<A, B>> =
     blends_smoothly<A> && blends_smoothly<B>;
+/// Intersection blends when both children do.
 template <typename A, typename B>
 inline constexpr bool blends_smoothly<Intersection<A, B>> =
     blends_smoothly<A> && blends_smoothly<B>;
+/// Subtract blends when both children do.
 template <typename A, typename B>
 inline constexpr bool blends_smoothly<Subtract<A, B>> =
     blends_smoothly<A> && blends_smoothly<B>;
@@ -284,35 +317,49 @@ inline constexpr float reject_margin = [] {
     return T::REJECT_MARGIN;
   return 0.0f;
 }();
+/// PlanarPolygon never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<PlanarPolygon> = FLT_MAX;
+/// SphericalPolygon never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<SphericalPolygon> = FLT_MAX;
+/// Star never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<Star> = FLT_MAX;
+/// Flower never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<Flower> = FLT_MAX;
+/// Line never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<Line> = FLT_MAX;
 // The bounding annulus is the stroke band itself, so every probe outside the
 // stroke is a candidate for the sentinel.
+/// Ring may substitute FAR_SENTINEL anywhere off its stroke.
 template <> inline constexpr float reject_margin<Ring> = 0.0f;
+/// DistortedRing may substitute FAR_SENTINEL anywhere off its stroke.
 template <> inline constexpr float reject_margin<DistortedRing> = 0.0f;
+/// FlatDistortedRing may substitute FAR_SENTINEL anywhere off its stroke.
 template <> inline constexpr float reject_margin<FlatDistortedRing> = 0.0f;
 // The cull disk clears the polygon by BOUNDS_MARGIN_WIDE in the gnomonic plane.
 // Large faces report that clearance as fast_atan2(BOUNDS_MARGIN_WIDE, 1),
 // which exceeds this margin at 0.1f. Linear faces report the plane clearance.
+/// Face reports true distances within its cull-disk clearance.
 template <>
 inline constexpr float reject_margin<Face> =
     BOUNDS_MARGIN_WIDE -
     BOUNDS_MARGIN_WIDE * BOUNDS_MARGIN_WIDE * BOUNDS_MARGIN_WIDE / 3.0f;
+/// AngularRepeat inherits its child's margin.
 template <typename Shape>
 inline constexpr float reject_margin<AngularRepeat<Shape>> =
     reject_margin<Shape>;
+/// Union takes the tighter of its children's margins.
 template <typename A, typename B>
 inline constexpr float reject_margin<Union<A, B>> =
     std::min(reject_margin<A>, reject_margin<B>);
+/// SmoothUnion takes the tighter of its children's margins.
 template <typename A, typename B>
 inline constexpr float reject_margin<SmoothUnion<A, B>> =
     std::min(reject_margin<A>, reject_margin<B>);
+/// Intersection takes the tighter of its children's margins.
 template <typename A, typename B>
 inline constexpr float reject_margin<Intersection<A, B>> =
     std::min(reject_margin<A>, reject_margin<B>);
+/// Subtract takes the tighter of its children's margins.
 template <typename A, typename B>
 inline constexpr float reject_margin<Subtract<A, B>> =
     std::min(reject_margin<A>, reject_margin<B>);
@@ -331,35 +378,49 @@ inline constexpr float ARC_STRETCH_PLANE = 1.25f;
  * takes the loosest child; an unstated shape is unbounded. */
 template <typename T>
 inline constexpr float arc_stretch = ARC_STRETCH_UNBOUNDED;
+/// Ring is bounded by the shared ARC_STRETCH_PLANE factor.
 template <> inline constexpr float arc_stretch<Ring> = ARC_STRETCH_PLANE;
+/// DistortedRing has no finite arc factor.
 template <>
 inline constexpr float arc_stretch<DistortedRing> = ARC_STRETCH_UNBOUNDED;
+/// FlatDistortedRing is bounded by the shared ARC_STRETCH_PLANE factor.
 template <>
 inline constexpr float arc_stretch<FlatDistortedRing> = ARC_STRETCH_PLANE;
+/// Face is bounded by the shared ARC_STRETCH_PLANE factor.
 template <> inline constexpr float arc_stretch<Face> = ARC_STRETCH_PLANE;
+/// SphericalPolygon is bounded by the shared ARC_STRETCH_PLANE factor.
 template <>
 inline constexpr float arc_stretch<SphericalPolygon> = ARC_STRETCH_PLANE;
+/// Line is bounded by the shared ARC_STRETCH_PLANE factor.
 template <> inline constexpr float arc_stretch<Line> = ARC_STRETCH_PLANE;
 // Sector fold in the azimuthal-equidistant chart: the azimuth term carries
 // polar/sin(polar), which the band's circumscribed-disc clamp keeps under 2.
+/// PlanarPolygon's sector fold keeps the factor under 2.
 template <> inline constexpr float arc_stretch<PlanarPolygon> = 2.0f;
+/// Star's sector fold keeps the factor under 2.
 template <> inline constexpr float arc_stretch<Star> = 2.0f;
 // Flower has no disc clamp, and its fold axis lies on the surface.
+/// Flower has no finite arc factor.
 template <> inline constexpr float arc_stretch<Flower> = ARC_STRETCH_UNBOUNDED;
 // The signed sector fold makes the child's distance jump at every sector
 // boundary unless it is mirror-symmetric about the bisector.
+/// AngularRepeat's sector fold has no finite arc factor.
 template <typename Shape>
 inline constexpr float arc_stretch<AngularRepeat<Shape>> =
     ARC_STRETCH_UNBOUNDED;
+/// Union takes the loosest of its children's factors.
 template <typename A, typename B>
 inline constexpr float arc_stretch<Union<A, B>> =
     std::max(arc_stretch<A>, arc_stretch<B>);
+/// SmoothUnion takes the loosest of its children's factors.
 template <typename A, typename B>
 inline constexpr float arc_stretch<SmoothUnion<A, B>> =
     std::max(arc_stretch<A>, arc_stretch<B>);
+/// Intersection takes the loosest of its children's factors.
 template <typename A, typename B>
 inline constexpr float arc_stretch<Intersection<A, B>> =
     std::max(arc_stretch<A>, arc_stretch<B>);
+/// Subtract takes the loosest of its children's factors.
 template <typename A, typename B>
 inline constexpr float arc_stretch<Subtract<A, B>> =
     std::max(arc_stretch<A>, arc_stretch<B>);
@@ -486,7 +547,8 @@ inline float clamp_phi(float x) {
 /** @brief A colatitude band as inclusive [phi_min, phi_max] bounds in [0, π].
  */
 struct PhiBand {
-  float phi_min, phi_max;
+  /// Lower colatitude bound (radians).
+  float phi_min, phi_max; ///< Upper colatitude bound (radians).
 };
 
 /**
@@ -510,6 +572,7 @@ inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
  * @brief Vertical scanline bounds (inclusive min/max row index).
  */
 struct Bounds {
+  /// Inclusive first row covered.
   int y_min, y_max; /**< Inclusive first/last row covered. */
 };
 
@@ -623,7 +686,16 @@ concept ScanShape =
  * r_val and azimuth alpha_angle.
  */
 struct AxisProjection {
+  /// Axis x-component.
   float nx, ny, nz, r_val, alpha_angle;
+  /// @var ny
+  /// Axis y-component.
+  /// @var nz
+  /// Axis z-component.
+  /// @var r_val
+  /// Length of the axis' XZ projection.
+  /// @var alpha_angle
+  /// Azimuth of the XZ projection, atan2f(z, x) (radians).
 };
 
 /**
@@ -641,10 +713,15 @@ inline AxisProjection project_axis(const math::Vector &axis) {
  * spans.
  */
 struct CapBounds {
+  /// Axis y-component.
   float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  /// Lower colatitude bound (radians).
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  /// Cosine of the cap radius.
   float cos_radius, sin_radius; /**< Cap radius trig, for the scanline pad. */
+  /// @var r_val
+  /// Length of the axis' XZ projection.
 };
 
 /**

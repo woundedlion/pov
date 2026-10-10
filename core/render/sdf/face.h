@@ -57,8 +57,18 @@ struct FaceScratchBuffer {
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
    */
   struct EdgePacked {
+    /** @var vy
+     *  Edge origin y. */
+    /** @var ex
+     *  Edge vector x. */
+    /** @var ey
+     *  Edge vector y. */
+    /** @var inv_len_sq
+     *  Reciprocal squared edge length. */
+    /// Edge origin x.
     float vx, vy, ex, ey, inv_len_sq,
         inv_ej; /**< Edge origin, vector, reciprocals. */
+    /// angle_key of this vertex's y.
     uint32_t key_vy,
         key_next_vy; /**< angle_key of this and the next vertex's y; equal when
                         the edge is degenerate in y. */
@@ -69,6 +79,11 @@ struct FaceScratchBuffer {
    * @brief Outward unit edge normal and line offset for the convex fast path.
    */
   struct HalfPlane {
+    /** @var ny
+     *  Outward unit normal y. */
+    /** @var off
+     *  Line offset: signed distance is nx*px + ny*py + off. */
+    /// Outward unit normal x.
     float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py +
                                off), padding to a 16-byte stride. */
   };
@@ -132,6 +147,9 @@ __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
  */
 struct Face {
   math::Vector center; /**< Normalized face centroid (projection axis). */
+  /** @var basis_u
+   *  Gnomonic x axis, perpendicular to center. */
+  /// Frame axis equal to center.
   math::Vector basis_v, basis_u,
       basis_w;              /**< Local tangent frame (v = center). */
   int count;                /**< Vertex/edge count; 0 if culled. */
@@ -147,8 +165,10 @@ struct Face {
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
 
+  /// First row of the inclusive vertical bounds.
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
+  /// Latitude mapping the bounds were computed for.
   math::LatitudeGeometry build_geometry;
   int build_width; /**< Clip width the azimuth cull ran against; 0 if unclipped. */
   const float *build_azimuth_pads; /**< Optional row padding table. */
@@ -195,10 +215,16 @@ struct Face {
   // scale folded together), and the sign-purity guard compares raw int16
   // magnitudes against a pre-divided quantized threshold.
   const int16_t *lut_data =
-      nullptr;                  /**< Class LUT samples; null = exact path. */
-  int lut_n = 0;                /**< LUT grid resolution per axis. */
-  int32_t lut_q_safe = 0;       /**< safe_dist in quantized units. */
+      nullptr;            /**< Class LUT samples; null = exact path. */
+  int lut_n = 0;          /**< LUT grid resolution per axis. */
+  int32_t lut_q_safe = 0; /**< safe_dist in quantized units. */
+  /** @var lut_bx
+   *  Grid-x coefficient on py. */
+  /// Grid-x coefficient on px.
   float lut_ax, lut_bx, lut_cx; /**< Grid-x affine coefficients. */
+  /** @var lut_by
+   *  Grid-y coefficient on py. */
+  /// Grid-y coefficient on px.
   float lut_ay, lut_by, lut_cy; /**< Grid-y affine coefficients. */
   float lut_clamp;              /**< Grid clamp bound (n - 2). */
   float lut_dequant;            /**< int16 -> plane-unit scale. */

@@ -14,18 +14,21 @@ namespace SDF {
 
 /** @brief Analytic intersections with disjoint periodic spherical sheets. */
 struct PeriodicShells {
-  float cell_size = 1;
-  float shell_radius = .3f;
+  float cell_size = 1;      ///< World edge length of one lattice cell; > 0.
+  float shell_radius = .3f; ///< Sphere radius in cells; in (0, 0.48].
 
+  /** @brief True when both parameters are finite and in range.
+   *  @return Whether the shells can be traced. */
   bool valid() const {
     return Raycast::finite(cell_size) && cell_size > 0 &&
            Raycast::finite(shell_radius) && shell_radius > 0 &&
            shell_radius <= .480001f;
   }
+  /** @brief Ordered ray parameters of a ray's two sphere roots. */
   struct Intersections {
-    float near = 0;
-    float far = 0;
-    bool hit = false;
+    float near = 0;   ///< Smaller root.
+    float far = 0;    ///< Larger root.
+    bool hit = false; ///< Whether the ray meets the sphere.
   };
   /** @brief Roots in world-distance units for a cell-centered ambient ray. */
   Intersections intersect(const math::Vec4 &origin, const math::Vec4 &direction,
@@ -51,10 +54,10 @@ struct PeriodicShells {
 
 /** @brief Validated frame constants; shade with the same camera used to prepare. */
 struct PreparedPeriodicShells {
-  PeriodicShells geometry;
-  Raycast::Footprint footprint;
-  float radius_squared = 0;
-  float inverse_cell = 0;
+  PeriodicShells geometry;      ///< Shell lattice parameters.
+  Raycast::Footprint footprint; ///< Ray filter footprint.
+  float radius_squared = 0;     ///< Squared sphere radius in world units.
+  float inverse_cell = 0;       ///< Reciprocal of the cell size.
   /**
    * @brief Whether trace_periodic_shells_3d() may serve this frame: a 3D
    *        camera whose widest filtered sphere stays inside one lattice layer's
@@ -66,9 +69,17 @@ struct PreparedPeriodicShells {
    *        widest filtered sphere stays within half a cell.
    */
   bool march = false;
-  bool valid = false;
+  bool valid = false; ///< Whether camera, geometry, and footprint are valid.
 };
 
+/**
+ * @brief Validates the shell parameters and derives per-frame constants.
+ * @param camera Camera the frame is shaded with.
+ * @param cell_size World edge length of one lattice cell.
+ * @param shell_radius Sphere radius in cells.
+ * @param footprint Ray filter footprint.
+ * @return Prepared constants; derived fields are set only when `valid`.
+ */
 inline PreparedPeriodicShells
 prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
                         float shell_radius, Raycast::Footprint footprint) {
@@ -101,17 +112,20 @@ prepare_periodic_shells(const Raycast::PreparedCamera &camera, float cell_size,
 
 /** @brief Premultiplied shell color and how its traversal ended. */
 struct ShellSample {
-  Pixel color;
+  Pixel color; ///< Premultiplied composited color.
+  /// Why the traversal stopped.
   Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
 };
 
 /** @brief Layers trace_periodic_shells_march() sorts per ray; the caller owns it. */
 struct ShellLayerStorage {
-  static constexpr int CAPACITY = 16;
+  static constexpr int CAPACITY = 16; ///< Maximum pending layers.
+  /** @brief One shell layer awaiting compositing. */
   struct Layer {
-    float t, coverage;
+    /// Ray distance of the layer.
+    float t, coverage; ///< Coverage of the layer.
   };
-  std::array<Layer, CAPACITY> pending;
+  std::array<Layer, CAPACITY> pending; ///< One ray's layers to composite.
 };
 
 /**
@@ -458,6 +472,16 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   return result;
 }
 
+/**
+ * @brief Shades one ray by a cell walk through the 3D or 4D shell lattice.
+ * @tparam DIMENSIONS Lattice dimension, 3 or 4.
+ * @param prepared Frame constants from prepare_periodic_shells().
+ * @param camera Camera `prepared` was built with.
+ * @param direction Unit view direction.
+ * @param limits Step and layer budgets.
+ * @param appearance Layer shading and compositing; needs a palette.
+ * @return Shaded color and trace record; INVALID_QUERY on bad input.
+ */
 template <int DIMENSIONS>
 HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
     const PreparedPeriodicShells &prepared,
@@ -623,6 +647,15 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
   return result;
 }
 
+/**
+ * @brief shade_periodic_shells_dimension() at the camera's domain dimension.
+ * @param prepared Frame constants from prepare_periodic_shells().
+ * @param camera Camera `prepared` was built with.
+ * @param direction Unit view direction.
+ * @param limits Step and layer budgets.
+ * @param appearance Layer shading and compositing.
+ * @return Shaded color and trace record.
+ */
 inline Raycast::ShadedTrace shade_periodic_shells(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
@@ -634,6 +667,17 @@ inline Raycast::ShadedTrace shade_periodic_shells(
                                                   limits, appearance);
 }
 
+/**
+ * @brief Prepares and shades one ray in a single call.
+ * @param camera Camera to shade with.
+ * @param direction Unit view direction.
+ * @param cell_size World edge length of one lattice cell.
+ * @param shell_radius Sphere radius in cells.
+ * @param footprint Ray filter footprint.
+ * @param limits Step and layer budgets.
+ * @param appearance Layer shading and compositing.
+ * @return Shaded color and trace record.
+ */
 inline Raycast::ShadedTrace shade_periodic_shells(
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
     float cell_size, float shell_radius, Raycast::Footprint footprint,

@@ -27,11 +27,20 @@ struct Ring {
   float thickness; /**< Half-width of the stroke (radians). */
   float phase;     /**< Azimuth phase offset (radians). */
 
+  /** @var u
+   *  First in-plane basis vector. */
+  /// Ring axis (unit).
   math::Vector normal, u,
       w;    /**< Ring axis and the two in-plane basis vectors. */
   float ny; /**< y-component of the ring axis. */
+  /// Centerline polar angle about the axis (radians).
   float target_angle,
       center_phi; /**< Centerline polar angle and axis colatitude. */
+  /** @var cos_min
+   *  Cosine of the outer band edge; -2 when the band reaches the antipode. */
+  /** @var cos_target
+   *  Cosine of target_angle. */
+  /// Cosine of the inner band edge; 2 when the band reaches the axis.
   float cos_max, cos_min, cos_target,
       inv_sin_target; /**< Precomputed band trig. */
 
@@ -227,15 +236,20 @@ struct DistortedRing {
   float max_distortion; /**< Maximum magnitude of the shift (radians). */
   float phase;          /**< Azimuth phase offset (radians). */
 
+  /** @var u
+   *  First in-plane basis vector. */
+  /// Ring axis (unit).
   math::Vector normal, u,
       w;    /**< Ring axis and the two in-plane basis vectors. */
   float ny; /**< y-component of the ring axis. */
+  /// Centerline polar angle about the axis (radians).
   float target_angle,
       center_phi;      /**< Centerline polar angle and axis colatitude. */
   float max_thickness; /**< thickness + max_distortion (radians). */
 
   float r_val;       /**< Horizontal projection length of the axis. */
   float alpha_angle; /**< Azimuth of the normal in the XZ plane. */
+  /// Cosine of the inner widened band edge.
   float cos_max_limit, cos_min_limit; /**< Cosines of the widened band edges. */
   bool suppress_pole_fill =
       false; /**< Drop the degenerate exact-pole row rather than full-row

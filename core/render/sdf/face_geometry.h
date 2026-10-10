@@ -5,6 +5,12 @@
 
 // Included by core/render/sdf/face.h.
 
+/**
+ * @file face_geometry.h
+ * @brief Face member functions: construction, per-frame binding, bounds and
+ * distance queries.
+ */
+
 // ---------------------------------------------------------------------------
 // Face construction, per-frame binding, bounds and distance queries.
 // ---------------------------------------------------------------------------

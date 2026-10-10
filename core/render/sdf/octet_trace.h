@@ -22,14 +22,15 @@ namespace SDF::OctetTrace {
 
 /** @brief One ray's covered plane crossings; the caller owns it. */
 struct CrossingStorage {
-  static constexpr int CAPACITY = 64;
-  std::array<float, CAPACITY> distances;
-  std::array<float, CAPACITY> coverages;
+  static constexpr int CAPACITY = 64;    ///< Maximum crossings per ray.
+  std::array<float, CAPACITY> distances; ///< Ray distance of each crossing.
+  std::array<float, CAPACITY> coverages; ///< Coverage of each crossing.
 };
 
 /** @brief Premultiplied ray color and how its traversal ended. */
 struct Sample {
-  Pixel color;
+  Pixel color; ///< Premultiplied composited color.
+  /// Why the traversal stopped.
   Raycast::TraceStatus status = Raycast::TraceStatus::RANGE_COMPLETE;
 };
 
@@ -128,15 +129,22 @@ trace_events(const Events &events, Raycast::Interval interval,
  * distance, each one layer at that distance with the run's largest coverage.
  */
 struct CoveredCrossings {
+  /// Maximum crossings held.
   static constexpr int CAPACITY = CrossingStorage::CAPACITY;
-  float *distances;
-  float *coverages;
-  int count = 0;
+  float *distances; ///< Sorted crossing distances, in the storage.
+  float *coverages; ///< Coverage of each entry of `distances`.
+  int count = 0;    ///< Number of crossings held.
 
+  /** @brief Views the caller's storage as an empty crossing list.
+   *  @param storage Backing arrays; must outlive this view. */
   explicit CoveredCrossings(CrossingStorage &storage)
       : distances(storage.distances.data()),
         coverages(storage.coverages.data()) {}
 
+  /** @brief Inserts a crossing in distance order; `count` must be below
+   *         CAPACITY.
+   *  @param t Ray distance of the crossing.
+   *  @param coverage Coverage of the crossing; positive. */
   __attribute__((always_inline)) void insert(float t, float coverage) {
     int slot = count++;
     for (; slot > 0 && distances[slot - 1] > t; --slot) {
@@ -147,6 +155,10 @@ struct CoveredCrossings {
     coverages[slot] = coverage;
   }
 
+  /** @brief Composites the merge groups front to back.
+   *  @param limits Layer budget.
+   *  @param appearance Layer shading and compositing.
+   *  @return Premultiplied color and the stop reason. */
   __attribute__((always_inline)) Sample
   composite(const Raycast::TraceLimits &limits,
             const Raycast::Appearance &appearance) const {
