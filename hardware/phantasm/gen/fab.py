@@ -1328,7 +1328,7 @@ def verify_main():
     """--verify: hold an already-generated package to the recorded digests."""
     try:
         checked = verify_package()
-    except (PackageVerificationError, UploadPackageError) as exc:
+    except PackageVerificationError as exc:
         sys.exit(str(exc))
     print(f"fab package verified: {checked} digests match {SHIPPED_SUMS}")
 
