@@ -4,19 +4,25 @@
  */
 #pragma once
 
+/**
+ * @file chain_snapshot.h
+ * @brief Serializable ShaderChain snapshot and its restore result codes.
+ */
+
 #include <optional>
 #include <string>
 #include <vector>
 #include "core/color/palette_cycler.h"
 #include "core/render/pullback/runtime_snapshot.h"
 
+/** @brief Outcome of decoding or restoring a ShaderChain snapshot. */
 enum class ChainSnapshotRestoreResult {
-  APPLIED,
-  NOT_SHADER_CHAIN,
-  UNSUPPORTED_VERSION,
-  INVALID_LENGTH,
-  INVALID_VALUE,
-  INVALID_CHAIN
+  APPLIED,             ///< Decoded or restored successfully.
+  NOT_SHADER_CHAIN,    ///< Stale handle, or the effect is not a ShaderChain.
+  UNSUPPORTED_VERSION, ///< schema_version is not ChainSnapshot::SCHEMA_VERSION.
+  INVALID_LENGTH,      ///< An array exceeds its capacity or fixed length.
+  INVALID_VALUE,       ///< A missing, mistyped or out-of-range value.
+  INVALID_CHAIN        ///< The program shape fails to compile.
 };
 
 /** @brief Serializable ShaderChain state: program, values and runtime. */
