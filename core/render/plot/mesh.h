@@ -280,6 +280,8 @@ struct Mesh {
    */
   struct Edge {
     uint16_t u, v; /**< Endpoint vertex indices into the mesh's vertex array. */
+    /** @var u
+     *  First endpoint vertex index. */
   };
 
   /**

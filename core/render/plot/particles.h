@@ -22,6 +22,8 @@
 
 namespace Plot {
 
+/** @brief Tallies a Cartesian trail-gate outcome in the plot profile.
+ *  @param result Gate outcome. */
 static inline void
 count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
   if (result == CartesianTrailGateResult::LATITUDE_REJECT)
@@ -32,6 +34,8 @@ count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
     HS_PLOT_RENDER_COUNT(cartesian_fallbacks);
 }
 
+/** @brief Tallies a trail edge as one-dot or long in the plot profile.
+ *  @param one_dot Whether the edge fits one dot. */
 static inline void count_particle_edge_class(bool one_dot) {
   if (one_dot)
     HS_PLOT_RENDER_COUNT(one_dot_edges);
@@ -39,6 +43,7 @@ static inline void count_particle_edge_class(bool one_dot) {
     HS_PLOT_RENDER_COUNT(long_edges);
 }
 
+/** @brief Tallies an exact-gate fallback in the plot profile. */
 static inline void count_particle_exact_gate_fallback() {
   HS_PLOT_RENDER_COUNT(exact_gate_fallbacks);
 }
@@ -52,7 +57,9 @@ static inline void count_particle_exact_gate_fallback() {
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
-  /** @brief Sampling stride declared by the particle system, or 1. */
+  /** @brief Sampling stride declared by the particle system, or 1.
+   *  @tparam SystemT Particle-system type.
+   *  @return Trail sample stride. */
   template <typename SystemT> static consteval int trail_sample_stride() {
     if constexpr (requires { SystemT::TRAIL_SAMPLE_STRIDE; })
       return SystemT::TRAIL_SAMPLE_STRIDE;
@@ -322,6 +329,16 @@ struct ParticleSystem {
    * @details The source pipeline's static cull trait survives plot-dispatch
    *          erasure; a pipeline declaring the direct raster path keeps its
    *          compile-time plot calls.
+   * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
+   * @tparam ParticleV2Fn Per-particle v2 mapper type.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param system Particle system supplying the active pool and trail history.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Vertex shader (position pass).
+   * @param deferred_shader Optional deferred vertex shader.
+   * @param particle_v2 Optional mapper from particle and pool index to v2.
    */
   template <int W, int H, typename PipelineT = PipelineRef,
             typename ParticleV2Fn = std::nullptr_t>

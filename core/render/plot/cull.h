@@ -25,7 +25,10 @@
 
 namespace Plot {
 
-/** @brief Arc length between unit sphere points, preserving short chords. */
+/** @brief Arc length between unit sphere points, preserving short chords.
+ *  @param a First unit vector.
+ *  @param b Second unit vector.
+ *  @return Angle between @p a and @p b, in radians. */
 __attribute__((always_inline)) inline float
 unit_arc_length(const math::Vector &a, const math::Vector &b) {
   const math::Vector chord = a - b;

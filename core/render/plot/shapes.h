@@ -377,6 +377,13 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
  * @brief Tangent-plane vector at LUT index i rotated by phase.
  * @details Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid,
  * then (u·cos_t + w·sin_t).
+ * @tparam W,H Rasterization resolution; the TrigLUT grid.
+ * @param i LUT index in [0, W).
+ * @param u First tangent-plane axis.
+ * @param w Second tangent-plane axis.
+ * @param cos_phase cos of the phase.
+ * @param sin_phase sin of the phase.
+ * @return The rotated tangent-plane vector.
  */
 template <int W, int H>
 static inline math::Vector ring_tangent(int i, const math::Vector &u,
@@ -398,6 +405,7 @@ static inline math::Vector ring_tangent(int i, const math::Vector &u,
  * @details stride <= 1/r_val holds consecutive control points within the
  * rasterizer's base_step (2π/W). r_val is floored at 1/MAX_STRIDE, keeping a
  * sub-pixel ring at MIN_RING_SAMPLES vertices and the reciprocal finite.
+ * @return LUT index stride, at least 1.
  */
 template <int W> static inline int ring_lut_stride(float r_val) {
   constexpr int MIN_RING_SAMPLES = 8;
@@ -409,10 +417,10 @@ template <int W> static inline int ring_lut_stride(float r_val) {
 
 /** @brief Antipode-folded working basis and the ring's colatitude trig. */
 struct RingFrame {
-  math::Basis basis;
-  float theta_eq;  ///< Ring colatitude (radians).
-  float sin_theta; ///< Tangent-plane radius of the ring.
-  float cos_theta; ///< Ring offset along the pole axis.
+  math::Basis basis; ///< Working basis, flipped to the antipode past radius 1.
+  float theta_eq;    ///< Ring colatitude (radians).
+  float sin_theta;   ///< Tangent-plane radius of the ring.
+  float cos_theta;   ///< Ring offset along the pole axis.
 };
 
 /**
@@ -421,6 +429,7 @@ struct RingFrame {
  * @param radius Angular radius (0-2).
  * @details Folds radius > 1 to the antipode, then derives the colatitude and
  * its sine/cosine.
+ * @return The ring's frame.
  */
 inline RingFrame ring_frame(const math::Basis &basis, float radius) {
   auto res = math::get_antipode(basis, radius);
@@ -596,22 +605,38 @@ struct Ring {
  *       rendered path.
  */
 struct PlanarProjection {
+  /**
+   * @brief Chart basis for a shape of @p radius drawn on @p basis.
+   * @param basis Shape orientation basis.
+   * @param radius Shape radius (0-2); past 1 the chart centers on the
+   * antipode.
+   * @param storage Receives the chart basis.
+   * @return Pointer to @p storage.
+   */
   static const math::Basis *edge_basis(const math::Basis &basis, float radius,
                                        math::Basis &storage) {
     storage = radius > 1.0f ? planar_chart_basis(-basis.v) : basis;
     return &storage;
   }
 
+  /** @brief No-op; the rasterizer derives planar v1. */
   static void finish_polygon_sample(Fragments &, size_t) {}
 };
 
 /** @brief Great-circle edge projection. */
 struct GeodesicProjection {
+  /** @brief No chart; edges are great circles.
+   *  @return nullptr. */
   static const math::Basis *edge_basis(const math::Basis &, float,
                                        math::Basis &) {
     return nullptr;
   }
 
+  /**
+   * @brief Writes cumulative great-circle arc length into v1.
+   * @param points Fragment list holding the sampled polygon.
+   * @param start_idx Index of the polygon's first fragment.
+   */
   static void finish_polygon_sample(Fragments &points, size_t start_idx) {
     float cumulative_length = 0.0f;
     for (size_t i = start_idx; i < points.size(); ++i) {
@@ -827,14 +852,14 @@ template <typename Projection> struct Star {
 public:
   /** @brief Sine/cosine values shared by every vertex at one radius. */
   struct RadiusTrig {
-    float sine[2];
-    float cosine[2];
+    float sine[2];   ///< sin of the outer [0] and inner [1] angular radius.
+    float cosine[2]; ///< cos of the outer [0] and inner [1] angular radius.
   };
 
   /** @brief Sine/cosine values shared by every angular step. */
   struct StepTrig {
-    float sine;
-    float cosine;
+    float sine;   ///< sin of the half-side step PI / num_sides.
+    float cosine; ///< cos of the half-side step PI / num_sides.
   };
 
 private:
@@ -951,7 +976,9 @@ private:
   }
 
 public:
-  /** @brief Computes reusable radius trigonometry for position-only sampling. */
+  /** @brief Computes reusable radius trigonometry for position-only sampling.
+   *  @param radius Outer radius (0-2).
+   *  @return Outer and inner radius trig. */
   static RadiusTrig radius_trig(float radius) {
     const float work_radius = radius > 1.0f ? 2.0f - radius : radius;
     const float outer_radius = work_radius * (math::PI_F / 2.0f);
@@ -960,7 +987,9 @@ public:
             {cosf(outer_radius), cosf(inner_radius)}};
   }
 
-  /** @brief Computes reusable angular-step trigonometry for a side count. */
+  /** @brief Computes reusable angular-step trigonometry for a side count.
+   *  @param num_sides Number of points.
+   *  @return Step trig. */
   static StepTrig step_trig(int num_sides) {
     const float angle_step = math::PI_F / num_sides;
     return {sinf(angle_step), cosf(angle_step)};
@@ -995,7 +1024,16 @@ public:
     sample_impl<false>(points, basis, radius, num_sides, phase);
   }
 
-  /** @brief Samples positions with caller-cached trigonometric values. */
+  /**
+   * @brief Samples positions with caller-cached trigonometric values.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius.
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   * @param radius_trig radius_trig() of @p radius.
+   * @param step_trig step_trig() of @p num_sides.
+   */
   static void sample_positions(Fragments &points, const math::Basis &basis,
                                float radius, int num_sides, float phase,
                                const RadiusTrig &radius_trig,
@@ -1082,13 +1120,27 @@ public:
     }
   }
 
-  /** @brief Samples Star levels that continue to the opposite pole. */
+  /**
+   * @brief Samples Star levels that continue to the opposite pole.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius in [0, 2].
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   */
   static void sample_continuous(Fragments &points, const math::Basis &basis,
                                 float radius, int num_sides, float phase = 0) {
     sample_continuous_impl<true>(points, basis, radius, num_sides, phase);
   }
 
-  /** @brief Samples Star levels that remain continuous across the equator. */
+  /**
+   * @brief Samples Star levels that remain continuous across the equator.
+   * @param points Output fragment list; num_sides*2+1 fragments are appended.
+   * @param basis Orientation basis.
+   * @param radius Outer radius in [0, 2].
+   * @param num_sides Number of points.
+   * @param phase Rotation phase (radians).
+   */
   static void sample_continuous_positions(Fragments &points,
                                           const math::Basis &basis,
                                           float radius, int num_sides,
@@ -1132,6 +1184,15 @@ public:
    * @brief Draws a Star level across the equator.
    * @note GeodesicProjection stays continuous across radius 1;
    * PlanarProjection switches charts there and may jump.
+   * @tparam W,H Rasterization resolution.
+   * @tparam PipelineT Render pipeline type.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Outer radius in [0, 2].
+   * @param num_sides Number of points.
+   * @param fragment_shader Shader function.
+   * @param phase Rotation phase (radians).
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw_continuous(PipelineT &pipeline, Canvas &canvas,

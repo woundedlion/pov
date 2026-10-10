@@ -5,11 +5,16 @@
 
 // Included by core/render/plot/cull.h.
 
+/** @file pipeline.h
+ * @brief Compile-time pipeline-stage queries and the one-dot edge test.
+ */
+
 /**
  * @brief True when @p P statically declares it has no world cull stage, so a
  *        cull predicate may be evaluated against the raw geometry.
  * @tparam P Pipeline type; types without the has_world_cull member are
  *           conservatively not hoistable.
+ * @return Whether the cull may be hoisted.
  */
 template <typename P> static consteval bool pipeline_hoistable_cull() {
   if constexpr (requires { P::has_world_cull; })
@@ -23,6 +28,7 @@ template <typename P> static consteval bool pipeline_hoistable_cull() {
  *        caller may plot a point through precomputed screen coordinates.
  * @tparam P Pipeline type; types without the has_world_stage member are
  *           conservatively not hoistable.
+ * @return Whether the projection may be hoisted.
  */
 template <typename P> static consteval bool pipeline_hoistable_projection() {
   if constexpr (requires { P::has_world_stage; })
@@ -37,6 +43,7 @@ template <typename P> static consteval bool pipeline_hoistable_projection() {
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
+ * @return True when the edge fits one dot.
  * @details A multiply-only tightening of the fast-path test
  * `total_dist <= screen_step(sample(0))`, valid for theta <= base_step
  * (enforced by the chord cap). True also implies theta >= EPS_GEOMETRIC.
