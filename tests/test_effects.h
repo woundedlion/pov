@@ -1104,6 +1104,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_hue_table_bind_clears_knots);
   run_case(test_displacement_field_ring_pool_abandoned_slot);
   run_case(test_displacement_field_ring_pool_capacity_release);
+  run_case(test_displacement_field_footprint_covers_init);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
   run_case(test_glitch_lens_unit_norm);
