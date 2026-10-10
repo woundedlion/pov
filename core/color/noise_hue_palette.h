@@ -22,25 +22,27 @@ inline constexpr float UNIT_OPEN_MAX = 0x1.fffffep-1f;
 
 /** @brief View over palette-coordinate by hue-rotation colors. */
 struct HueRotationLutView {
-  static constexpr int VALUE_STEPS = 64;
-  static constexpr int HUE_STEPS = 16;
+  static constexpr int VALUE_STEPS = 64; ///< Palette-coordinate samples.
+  static constexpr int HUE_STEPS = 16;   ///< Hue-rotation samples per turn.
   static_assert(HUE_STEPS > 0 && (HUE_STEPS & (HUE_STEPS - 1)) == 0,
                 "hue mask wrap requires a power of two");
-  static constexpr size_t SIZE = VALUE_STEPS * HUE_STEPS;
+  static constexpr size_t SIZE = VALUE_STEPS * HUE_STEPS; ///< Entries.
 
+  /// Borrowed table, indexed `value_index * HUE_STEPS + hue_index`.
   const Pixel *data;
-  bool active;
+  bool active; ///< Whether `data` holds a baked table to sample.
 };
 
 /** @brief View over a cube-map noise field used to select hue rotation. */
 struct HueNoiseLutView {
-  static constexpr int FACE_COUNT = 6;
-  static constexpr int FACE_STEPS = 24;
-  static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS;
-  static constexpr size_t SIZE = FACE_COUNT * FACE_SIZE;
+  static constexpr int FACE_COUNT = 6;  ///< Cube faces.
+  static constexpr int FACE_STEPS = 24; ///< Samples per face edge.
+  static constexpr int FACE_SIZE = FACE_STEPS * FACE_STEPS; ///< Per face.
+  static constexpr size_t SIZE = FACE_COUNT * FACE_SIZE;    ///< Entries.
 
+  /// Borrowed face-major, row-major table of noise in [-1, 1] times 127.
   const int8_t *data;
-  bool active;
+  bool active; ///< Whether `data` holds a baked table to sample.
 };
 
 /**
@@ -68,6 +70,13 @@ prepare_hue_rotation_lut(std::span<Pixel, HueRotationLutView::SIZE> output,
   }
 }
 
+/**
+ * @brief Unit direction through a cube-face sample point.
+ * @param face Cube face in [0, 6): +X, -X, +Y, -Y, +Z, -Z.
+ * @param u Face-local horizontal coordinate in [-1, 1].
+ * @param v Face-local vertical coordinate in [-1, 1].
+ * @return The normalized direction.
+ */
 __attribute__((always_inline)) inline math::Vector
 hue_noise_face_direction(int face, float u, float v) {
   switch (face) {
@@ -87,6 +96,14 @@ hue_noise_face_direction(int face, float u, float v) {
 }
 
 namespace hue_noise_detail {
+/**
+ * @brief Bakes the cube-map noise table; see `prepare_hue_noise_lut`.
+ * @tparam OPENSIMPLEX2_UNIT Use the unit-frequency OpenSimplex2 transform.
+ * @param output Destination LUT.
+ * @param noise Configured noise source.
+ * @param scale Spatial frequency over the sphere.
+ * @param phase Loop phase in turns.
+ */
 template <bool OPENSIMPLEX2_UNIT>
 HS_FLASH_INLINE __attribute__((always_inline)) inline void
 prepare(std::span<int8_t, HueNoiseLutView::SIZE> output,
@@ -143,6 +160,13 @@ prepare_hue_noise_lut(std::span<int8_t, HueNoiseLutView::SIZE> output,
   hue_noise_detail::prepare<OPENSIMPLEX2_UNIT>(output, noise, scale, phase);
 }
 
+/**
+ * @brief Inlined OpenSimplex2 unit-frequency form of `prepare_hue_noise_lut`.
+ * @param output Destination LUT.
+ * @param noise OpenSimplex2 source at frequency 1, default 3D rotation.
+ * @param scale Spatial frequency over the sphere.
+ * @param phase Loop phase in turns.
+ */
 template <>
 HS_FLASH_INLINE __attribute__((always_inline)) inline void
 prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE> output,
@@ -157,8 +181,8 @@ prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE> output,
  * scale. Owners keep the table itself and its `active` flag.
  */
 struct HueNoiseBakeCache {
-  float scale = 0.0f;
-  float phase = 0.0f;
+  float scale = 0.0f; ///< Baked spatial frequency; 0 when unbuilt.
+  float phase = 0.0f; ///< Baked loop phase, turns.
 
   /**
    * @brief Rebakes @p output when its scale or phase changed.

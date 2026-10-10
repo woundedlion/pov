@@ -40,24 +40,36 @@ inline float linear_to_srgb_float(float l) {
  * @brief OKLab perceptual color: lightness L and chroma axes a, b.
  */
 struct OKLab {
-  float L, a, b;
+  /// Lightness in [0, 1].
+  float L, a, b; ///< Blue-yellow axis; negative is blue.
+  /** @var a
+   *  Green-red axis; negative is green. */
 };
 /**
  * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
  */
 struct OKLCH {
-  float L, C, h;
+  /// Lightness in [0, 1].
+  float L, C, h; ///< Hue angle, radians.
+  /** @var C
+   *  Chroma, >= 0. */
 };
 
 /** @brief Cone-response (LMS) triple, the OKLab intermediate before the cube-root
  *  nonlinearity. */
 struct LMS {
-  float l, m, s;
+  /// Long-wavelength cone response.
+  float l, m, s; ///< Short-wavelength cone response.
+  /** @var m
+   *  Medium-wavelength cone response. */
 };
 
 /** @brief Linear-RGB triple; channels may lie outside the display gamut. */
 struct LinRGB {
-  float r, g, b;
+  /// Linear red.
+  float r, g, b; ///< Linear blue.
+  /** @var g
+   *  Linear green. */
 };
 
 /**
@@ -113,11 +125,13 @@ linear_rgb_to_oklab_fast(float r, float g, float b) {
                       math::fast_cbrt(lms.s));
 }
 
+/// Row-major OKLab (L, a, b) -> cube-rooted LMS matrix.
 inline constexpr float OKLAB_TO_LMS_CBRT[3][3] = {
     {1.0f, 0.3963377774f, 0.2158037573f},
     {1.0f, -0.1055613458f, -0.0638541728f},
     {1.0f, -0.0894841775f, -1.2914855480f}};
 
+/// Row-major cubed-LMS -> linear-RGB matrix (applied after cubing).
 inline constexpr float LMS_CBRT_TO_RGB[3][3] = {
     {4.0767416621f, -3.3077115913f, 0.2309699292f},
     {-1.2684380046f, 2.6097574011f, -0.3413193965f},
@@ -204,10 +218,12 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
 
 // Chroma pulled back off the refined crossing so the caller's re-conversion
 // does not round a channel past the gate.
+/// Chroma backoff from the refined gamut crossing, OKLab units.
 inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
 
 // Chroma below which an OKLCH color has no usable hue angle and is treated as
 // gray.
+/// Achromatic chroma threshold, OKLab units.
 inline constexpr float OKLCH_ACHROMATIC_C = 1e-4f;
 
 /**
@@ -273,6 +289,7 @@ inline constexpr GamutLut GAMUT_LUT_MASTER{};
  *  land past the first exit by up to 0.05 chroma; a finer grid lowers how many
  *  rays do that, not by how far. */
 inline constexpr int GAMUT_LUT_MIN_ANGLE_STEPS = 128;
+/// Coarsest accepted lightness downsample of the gamut grid.
 inline constexpr int GAMUT_LUT_MIN_L_STEPS = 64;
 
 /**
@@ -341,10 +358,12 @@ inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 
 // Equal steps the stored bracket is walked in, looking for the first exit; an
 // out-of-gamut gap shorter than one step is missed.
+/// Walk steps per stored gamut bracket.
 inline constexpr int GAMUT_SCAN_STEPS = 4;
 
 // Bisections inside the walk step that straddles the crossing; the residual is
 // the bracket width over GAMUT_SCAN_STEPS, halved once per step.
+/// Bisections within the straddling walk step.
 inline constexpr int GAMUT_BRACKET_STEPS = 3;
 /** Extra bisections over the whole-ray fallback [0, lo], on top of
  * GAMUT_BRACKET_STEPS. */
@@ -639,7 +658,17 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
 void lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt,
                                  float &r, float &g, float &b);
 
+/** @brief Gamut-clip policy: exact chroma reduction by bracket bisection. */
 struct LmsChromaClip {
+  /**
+   * @brief Maps an out-of-gamut cube-rooted LMS color into gamut.
+   * @param l Cube-rooted l cone response.
+   * @param m Cube-rooted m cone response.
+   * @param s Cube-rooted s cone response.
+   * @param r Out: linear red.
+   * @param g Out: linear green.
+   * @param b Out: linear blue.
+   */
   HS_O3_FN static inline void apply(float l, float m, float s, float &r,
                                     float &g, float &b) {
     const OKLab LAB = lms_to_oklab(l, m, s);
@@ -647,13 +676,35 @@ struct LmsChromaClip {
   }
 };
 
+/** @brief Gamut-clip policy: chroma scale read from `g_gamut_lut`. */
 struct LmsLutClip {
+  /**
+   * @brief Maps an out-of-gamut cube-rooted LMS color into gamut.
+   * @param l Cube-rooted l cone response.
+   * @param m Cube-rooted m cone response.
+   * @param s Cube-rooted s cone response.
+   * @param r Out: linear red.
+   * @param g Out: linear green.
+   * @param b Out: linear blue.
+   */
   HS_O3_FN static inline void apply(float l, float m, float s, float &r,
                                     float &g, float &b) {
     lms_cbrt_scale_to_gamut_lut(l, m, s, r, g, b);
   }
 };
 
+/**
+ * @brief Applies a cbrt-LMS 3x3 and converts to linear RGB, gamut-mapping an
+ * out-of-gamut result through @p Clip.
+ * @tparam Clip Policy with static `apply(l, m, s, r, g, b)`.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l_cbrt Cube-rooted l cone response.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: linear red.
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ */
 template <typename Clip>
 HS_O3_FN inline void lms_cbrt_transform_rgb_impl(const float k[9], float l_cbrt,
                                                  float m_cbrt, float s_cbrt,
@@ -668,6 +719,23 @@ HS_O3_FN inline void lms_cbrt_transform_rgb_impl(const float k[9], float l_cbrt,
   }
 }
 
+/**
+ * @brief Two-color form of `lms_cbrt_transform_rgb_impl`.
+ * @tparam Clip Policy with static `apply(l, m, s, r, g, b)`.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l0 First color's cube-rooted l.
+ * @param m0 First color's cube-rooted m.
+ * @param s0 First color's cube-rooted s.
+ * @param l1 Second color's cube-rooted l.
+ * @param m1 Second color's cube-rooted m.
+ * @param s1 Second color's cube-rooted s.
+ * @param r0 Out: first color's linear red.
+ * @param g0 Out: first color's linear green.
+ * @param b0 Out: first color's linear blue.
+ * @param r1 Out: second color's linear red.
+ * @param g1 Out: second color's linear green.
+ * @param b1 Out: second color's linear blue.
+ */
 template <typename Clip>
 HS_O3_FN inline void
 lms_cbrt_transform_rgb2_impl(const float k[9], float l0, float m0, float s0,

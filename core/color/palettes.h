@@ -97,7 +97,7 @@ HS_PROCEDURAL_PALETTE_LIST(HS_DECLARE_PALETTE)
  * @details Bakes a standard source-palette set into a BakedPaletteBank.
  */
 struct MeshPaletteBank {
-  static constexpr int N = BakedPaletteBank::N;
+  static constexpr int N = BakedPaletteBank::N; ///< Bank size.
 
   /**
    * @brief Conservative arena byte budget for bake_all(), including

@@ -29,6 +29,12 @@ public:
     float chroma;
     float h; /**< Hue in radians; unwrapped, so it may exceed a turn. */
 
+    /**
+     * @brief Constructs a key from its three coordinates.
+     * @param lightness Lightness in [0, 1].
+     * @param chroma Chroma control in the palette's chroma basis.
+     * @param hue Hue in radians, unwrapped.
+     */
     constexpr ControlKey(float lightness = 0.0f, float chroma = 0.0f,
                          float hue = 0.0f)
         : L(lightness), chroma(chroma), h(hue) {}
@@ -42,18 +48,19 @@ public:
   struct Snapshot {
     /** Quantized lightness and chroma plus the raw hue bits. */
     struct Key {
+      /// Little-endian: 12-bit L and 12-bit chroma, then the float hue.
       std::array<uint8_t, 7> bytes{};
     };
 
-    std::array<Key, PALETTE_MAX_KEYS> keys{};
-    float lightness_low = 0.0f;
-    float lightness_high = 0.0f;
-    float chroma_low = 0.0f;
-    float chroma_high = 0.0f;
-    uint8_t key_count = 0;
-    AxisCurve lightness_curve = AxisCurve::CONSTANT;
-    AxisCurve chroma_curve = AxisCurve::CONSTANT;
-    uint8_t reserved = 0;
+    std::array<Key, PALETTE_MAX_KEYS> keys{}; ///< First `key_count` used.
+    float lightness_low = 0.0f;               ///< Lightness axis lower bound.
+    float lightness_high = 0.0f;              ///< Lightness axis upper bound.
+    float chroma_low = 0.0f;  ///< Chroma-control axis lower bound.
+    float chroma_high = 0.0f; ///< Chroma-control axis upper bound.
+    uint8_t key_count = 0;    ///< Live keys, at most `PALETTE_MAX_KEYS`.
+    AxisCurve lightness_curve = AxisCurve::CONSTANT; ///< Lightness profile.
+    AxisCurve chroma_curve = AxisCurve::CONSTANT;    ///< Chroma profile.
+    uint8_t reserved = 0;                            ///< Padding; always 0.
   };
 
   /** @brief Authoring readout of one evaluated coordinate. */
