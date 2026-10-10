@@ -1508,7 +1508,7 @@ inline void test_regular_patterns() {
   static_assert(static_cast<uint8_t>(Effect::Pattern::CUBIC_WIRE) == 0);
   static_assert(static_cast<uint8_t>(Effect::Pattern::OCTET) == 1);
   static_assert(static_cast<uint8_t>(Effect::Pattern::SHELLS) == 6);
-  static_assert(Effect::PARAMETER_SCHEMA_VERSION == 15);
+  static_assert(Effect::PARAMETER_SCHEMA_VERSION == 16);
   reset_globals();
   Effect effect;
   effect.init();
