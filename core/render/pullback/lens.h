@@ -21,17 +21,24 @@ namespace Lens {
 
 /** @brief Empty parameter family of the parameterless lens operators. */
 struct NoLensParams {
+  /// Empty parameter registry.
   static constexpr std::array<Field<NoLensParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoLensParams>());
 static_assert(field_defaults_in_range<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
+  /// Message for coefficients that fail nondegenerate().
   static constexpr const char *DEGENERATE_WARNING =
       "Mobius coefficients must have |ad - bc| >= 0.001.";
-  static constexpr float COEFFICIENT_LIMIT = 4.0f;
-  static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f;
+  static constexpr float COEFFICIENT_LIMIT = 4.0f;  ///< Max abs re/im part.
+  static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f; ///< Minimum |ad - bc|^2.
 
+  /**
+   * @brief Squared magnitude of the complex determinant ad - bc.
+   * @param params Mobius coefficients.
+   * @return |ad - bc|^2.
+   */
   static constexpr float
   determinant_magnitude_squared(const math::MobiusParams &params) {
     const float re = params.a.re * params.d.re - params.a.im * params.d.im -
@@ -41,6 +48,11 @@ struct MobiusLensParams {
     return re * re + im * im;
   }
 
+  /**
+   * @brief Whether the coefficients define an invertible map.
+   * @param params Mobius coefficients.
+   * @return True when |ad - bc|^2 >= `MOBIUS_MIN_DET_SQ`.
+   */
   static constexpr bool nondegenerate(const math::MobiusParams &params) {
     return determinant_magnitude_squared(params) >= MOBIUS_MIN_DET_SQ;
   }
@@ -50,12 +62,25 @@ struct MobiusLensParams {
                             0.7071067811865475f, 0.0f};
 };
 
+/**
+ * @brief Applies a Mobius transform to a sphere direction.
+ * @param input Unit direction on the sphere.
+ * @param params Mobius coefficients.
+ * @return `math::mobius_transform(input, params)`.
+ */
 __attribute__((always_inline)) inline math::Vector
 mobius(const math::Vector &input, const math::MobiusParams &params) {
   return math::mobius_transform(input, params);
 }
 
+/** @brief Glitch lens: `lenses::glitch_lens`. */
 struct Glitch : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return `lenses::glitch_lens(input)`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -63,7 +88,14 @@ struct Glitch : ApproximationDefaults {
   }
 };
 
+/** @brief Twist lens: `lenses::twist_lens` at its default rate. */
 struct Twist : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return `lenses::twist_lens(input)`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -77,9 +109,14 @@ struct Twist : ApproximationDefaults {
  * params(frame) accessors.
  */
 template <typename State> struct Mobius : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding;       ///< The provider's binding.
+  using FrameState = typename State::FrameState; ///< The provider's frame.
 
+  /**
+   * @brief Whether `State` is a provider for `CandidateBinding` with every
+   * accessor this policy reads.
+   * @tparam CandidateBinding Chain binding to check against.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, CandidateBinding> &&
@@ -92,13 +129,26 @@ template <typename State> struct Mobius : ApproximationDefaults {
       std::is_lvalue_reference_v<decltype(State::params(
           std::declval<const typename CandidateBinding::FrameState &>()))>;
 
+  /**
+   * @brief Applies this frame's Mobius transform.
+   * @param input Unit direction on the sphere.
+   * @param frame Frame state the coefficients are read from.
+   * @return The transformed direction.
+   */
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &frame) {
     return mobius(input, State::params(frame));
   }
 };
 
+/** @brief Azimuthal kaleidoscope: `lenses::kaleidoscope_lens`. */
 struct Kaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the wedge.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -106,7 +156,14 @@ struct Kaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the tetrahedral chamber. */
 struct TetrahedralKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -115,7 +172,14 @@ struct TetrahedralKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the octahedral chamber. */
 struct OctahedralKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -124,7 +188,14 @@ struct OctahedralKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the dodecahedral chamber. */
 struct DodecahedralKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -132,7 +203,14 @@ struct DodecahedralKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the triangular-prism chamber. */
 struct TriangularPrismKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -141,7 +219,14 @@ struct TriangularPrismKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the square-prism chamber. */
 struct SquarePrismKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -150,7 +235,14 @@ struct SquarePrismKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the pentagonal-prism chamber. */
 struct PentagonalPrismKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -159,7 +251,14 @@ struct PentagonalPrismKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the hexagonal-prism chamber. */
 struct HexagonalPrismKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
@@ -168,7 +267,14 @@ struct HexagonalPrismKaleidoscope : ApproximationDefaults {
   }
 };
 
+/** @brief Kaleidoscope folding into the octagonal-prism chamber. */
 struct OctagonalPrismKaleidoscope : ApproximationDefaults {
+  /**
+   * @brief Applies the lens to a sphere direction.
+   * @tparam FrameState Frame state type; unused.
+   * @param input Unit direction on the sphere.
+   * @return A symmetry-equivalent direction inside the chamber.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {

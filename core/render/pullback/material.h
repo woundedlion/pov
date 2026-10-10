@@ -25,7 +25,14 @@ enum class ProjectionCoverageMode : uint8_t {
 
 namespace Weight {
 
+/** @brief Weight policy that leaves the field unweighted. */
 struct None : ApproximationDefaults {
+  /**
+   * @brief Passes the field through.
+   * @tparam FrameState Frame state type; unused.
+   * @param field Field value.
+   * @return `field`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(float field, const ProjectionProvenance &, const FrameState &) {
@@ -33,7 +40,15 @@ struct None : ApproximationDefaults {
   }
 };
 
+/** @brief Weight policy scaling the field by the projection weight. */
 struct Projection : ApproximationDefaults {
+  /**
+   * @brief Scales the field by the projection's value weight.
+   * @tparam FrameState Frame state type; unused.
+   * @param field Field value.
+   * @param provenance Projection provenance of the sample.
+   * @return `field * provenance.value_weight`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(float field, const ProjectionProvenance &provenance,
@@ -48,6 +63,7 @@ namespace Transfer {
 
 /** @brief Value placeholder for a chain with no value-stage parameters. */
 struct NoValueParams {
+  /// Empty parameter registry.
   static constexpr std::array<Field<NoValueParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoValueParams>());
@@ -61,6 +77,7 @@ struct IsoValueParams {
   float iso_level = 0.5f;  /**< Source value the band is centered on. */
   float iso_width = 0.05f; /**< Half-width of the band's plateau. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<IsoValueParams>{"iso-level", &IsoValueParams::iso_level,
                             "Iso Level", 0.0f, 1.0f, FieldCurve::LERP},
@@ -72,7 +89,14 @@ struct IsoValueParams {
 static_assert(field_ids_unique<IsoValueParams>());
 static_assert(field_defaults_in_range<IsoValueParams>());
 
+/** @brief Transfer peaking at mid-value: `math::unit_bell`. */
 struct Ridge : ApproximationDefaults, TransferRole {
+  /**
+   * @brief Applies the ridge transfer.
+   * @tparam FrameState Frame state type; unused.
+   * @param value Field value in [0, 1].
+   * @return `math::unit_bell(value)`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &) {
@@ -103,6 +127,11 @@ smooth_bands(float value, float band_count, float band_phase) {
  */
 template <typename State>
 struct IsoContour : ApproximationDefaults, TransferRole {
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -111,6 +140,13 @@ struct IsoContour : ApproximationDefaults, TransferRole {
         { State::iso_width(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Applies this frame's iso band.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param value Field value.
+   * @param frame Frame state the level and width are read from.
+   * @return iso_contour() of `value`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
@@ -125,6 +161,11 @@ struct IsoContour : ApproximationDefaults, TransferRole {
  */
 template <typename State>
 struct SmoothBands : ApproximationDefaults, TransferRole {
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -133,6 +174,13 @@ struct SmoothBands : ApproximationDefaults, TransferRole {
         { State::band_phase(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Applies this frame's cosine bands.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param value Field value.
+   * @param frame Frame state the band count and phase are read from.
+   * @return smooth_bands() of `value`, in [0, 1].
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {
@@ -149,7 +197,13 @@ struct SmoothBands : ApproximationDefaults, TransferRole {
  */
 namespace ProjectionCoverage {
 
+/** @brief Full coverage regardless of provenance. */
 struct None : ApproximationDefaults {
+  /**
+   * @brief Full coverage.
+   * @tparam FrameState Frame state type; unused.
+   * @return 1.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &, const FrameState &) {
@@ -157,7 +211,14 @@ struct None : ApproximationDefaults {
   }
 };
 
+/** @brief Coverage equal to the projection weight. */
 struct Weight : ApproximationDefaults {
+  /**
+   * @brief Coverage from the projection weight.
+   * @tparam FrameState Frame state type; unused.
+   * @param provenance Projection provenance of the sample.
+   * @return `provenance.value_weight`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &) {
@@ -165,7 +226,14 @@ struct Weight : ApproximationDefaults {
   }
 };
 
+/** @brief Coverage equal to the squared projection weight. */
 struct WeightSquared : ApproximationDefaults {
+  /**
+   * @brief Coverage from the squared projection weight.
+   * @tparam FrameState Frame state type; unused.
+   * @param provenance Projection provenance of the sample.
+   * @return `provenance.value_weight` squared.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &) {
@@ -181,6 +249,11 @@ using Detail::edge_fade;
  * edge_width(frame) accessors.
  */
 template <typename State> struct EdgeFade : ApproximationDefaults {
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -188,6 +261,13 @@ template <typename State> struct EdgeFade : ApproximationDefaults {
         { State::edge_width(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Coverage fading toward the projection's fade-eligible edge.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param provenance Projection provenance of the sample.
+   * @param frame Frame state the edge width is read from.
+   * @return `edge_fade(provenance, edge_width)`.
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float
   apply(const ProjectionProvenance &provenance, const FrameState &frame) {
@@ -201,6 +281,7 @@ struct EdgeValueParams {
       a hard cut. */
   float edge_width = 0.1f;
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       edge_width_field(&EdgeValueParams::edge_width),
   };
@@ -217,6 +298,7 @@ struct CutoutValueParams {
   float cutout_threshold = 0.5f; /**< Value the cut steps through. */
   float cutout_softness = 0.05f; /**< Half-width of the step's ramp. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<CutoutValueParams>{
           "cutout-threshold", &CutoutValueParams::cutout_threshold,
@@ -246,6 +328,11 @@ value_cutout(float value, float threshold, float width) {
  */
 template <typename State>
 struct ValueCutout : ApproximationDefaults, CoverageRole {
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -254,6 +341,13 @@ struct ValueCutout : ApproximationDefaults, CoverageRole {
         { State::cutout_softness(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Coverage factor of this frame's cutout.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param value Field value.
+   * @param frame Frame state the threshold and softness are read from.
+   * @return value_cutout() of `value`, in [0, 1].
+   */
   template <typename FrameState>
   __attribute__((always_inline)) static float apply(float value,
                                                     const FrameState &frame) {

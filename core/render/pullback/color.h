@@ -18,19 +18,21 @@ namespace Pullback {
 
 namespace Color {
 
+/** @brief Curve from the wrapped palette phase to the palette coordinate. */
 enum class PaletteMapping : uint8_t {
-  CUP = 0,
-  BELL = 1,
-  LINEAR = 2,
-  REVERSE = 3
+  CUP = 0,    ///< `math::unit_cup` of the phase.
+  BELL = 1,   ///< `math::unit_bell` of the phase.
+  LINEAR = 2, ///< The phase itself.
+  REVERSE = 3 ///< One minus the phase.
 };
 
+/** @brief Shape of the value-driven brightness gain. */
 enum class BrightnessEnvelope : uint8_t {
-  NONE = 0,
-  CUP = 1,
-  BELL = 2,
-  ASCENDING = 3,
-  DESCENDING = 4
+  NONE = 0,      ///< Constant gain of 1.
+  CUP = 1,       ///< `math::unit_cup` of the value.
+  BELL = 2,      ///< `math::unit_bell` of the value.
+  ASCENDING = 3, ///< Rises linearly with the value.
+  DESCENDING = 4 ///< Falls linearly with the value.
 };
 
 /** @brief What drives the color stage's hue rotation, if anything. */
@@ -45,8 +47,10 @@ enum class HueMode : uint8_t {
     brightness controls are read only under the matching topology value. */
 inline constexpr TopologyGate HUE_ROTATION_GATE{
     "hue-shift-mode", live_values(HueMode::NOISE, HueMode::PATH_LENGTH)};
+/// Gate of the hue-noise controls: live only in HueMode::NOISE.
 inline constexpr TopologyGate HUE_NOISE_GATE{"hue-shift-mode",
                                              live_values(HueMode::NOISE)};
+/// Gate of the brightness controls: live for every envelope but NONE.
 inline constexpr TopologyGate BRIGHTNESS_ENVELOPE_GATE{
     "brightness-envelope",
     live_values(BrightnessEnvelope::CUP, BrightnessEnvelope::BELL,
@@ -73,6 +77,7 @@ struct ColorControls {
   float opacity_low = 1.0f;       /**< Alpha gain at source value 0. */
   float opacity_high = 1.0f;      /**< Alpha gain at source value 1. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<ColorControls>{"hue-shift-amount", &ColorControls::hue_shift_amount,
                            nullptr, -4.0f, 4.0f, FieldCurve::LERP,
@@ -116,7 +121,8 @@ static_assert(field_defaults_in_range<ColorControls>());
 
 /** @brief Composed-effect controls with a snapped palette mapping curve. */
 struct ColorParams : ColorControls {
-  PaletteMapping palette_mapping = PaletteMapping::LINEAR;
+  PaletteMapping palette_mapping = PaletteMapping::LINEAR; ///< Mapping curve.
+  /// The ColorControls fields; `palette_mapping` has no field entry.
   static constexpr auto FIELDS = concat_fields<ColorParams>(
       ColorControls::FIELDS, std::array<Field<ColorParams>, 0>{});
   constexpr bool operator==(const ColorParams &) const = default;
@@ -124,10 +130,17 @@ struct ColorParams : ColorControls {
 static_assert(field_ids_unique<ColorParams>());
 static_assert(field_defaults_in_range<ColorParams>());
 
+/** @brief Blend weights over the PaletteMapping curves. */
 struct PaletteMappingWeights {
-  std::array<float, 4> values{};
+  std::array<float, 4> values{}; ///< Weight per PaletteMapping, by value.
+  /// PaletteMapping value when exactly one curve is selected, else 0xff.
   uint8_t exact = 0xff;
 
+  /**
+   * @brief Weights selecting exactly one curve.
+   * @param mapping Curve to select.
+   * @return Unit weight on `mapping`, with `exact` set.
+   */
   static constexpr PaletteMappingWeights single(PaletteMapping mapping) {
     PaletteMappingWeights result;
     result.values[static_cast<size_t>(mapping)] = 1.0f;
@@ -135,6 +148,14 @@ struct PaletteMappingWeights {
     return result;
   }
 
+  /**
+   * @brief Interpolates two weight sets.
+   * @param a Weights at progress 0.
+   * @param b Weights at progress 1.
+   * @param progress Blend amount; clamped to the endpoints.
+   * @return `a` when both select the same exact curve; otherwise the
+   * per-curve linear blend, inexact unless progress hits an endpoint.
+   */
   static constexpr PaletteMappingWeights lerp(const PaletteMappingWeights &a,
                                               const PaletteMappingWeights &b,
                                               float progress) {
@@ -162,6 +183,15 @@ using ::prepare_hue_rotation_lut;
 using ::sample_hue_noise_lut;
 using ::sample_hue_rotation_lut;
 
+/**
+ * @brief Maps a field value to a palette coordinate through one curve.
+ * @param value Field value in [0, 1].
+ * @param mapping Curve applied to the wrapped phase.
+ * @param frequency Palette repeats across the value range.
+ * @param offset Phase offset, in palette cycles.
+ * @return Palette coordinate in [0, 1]; `value` unchanged for the identity
+ * LINEAR mapping.
+ */
 __attribute__((always_inline)) inline float
 palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
                            float offset) {
@@ -182,6 +212,14 @@ palette_mapping_coordinate(float value, PaletteMapping mapping, float frequency,
   return phase;
 }
 
+/**
+ * @brief Maps a field value to a palette coordinate through blended curves.
+ * @param value Field value in [0, 1].
+ * @param weights Per-curve blend weights.
+ * @param frequency Palette repeats across the value range.
+ * @param offset Phase offset, in palette cycles.
+ * @return Weighted sum of the curves at the wrapped phase.
+ */
 __attribute__((always_inline)) inline float
 palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
                            float frequency, float offset) {
@@ -200,6 +238,14 @@ palette_mapping_coordinate(float value, const PaletteMappingWeights &weights,
              (1.0f - phase);
 }
 
+/**
+ * @brief Brightness gain of a field value under an envelope.
+ * @param value Field value in [0, 1].
+ * @param envelope Envelope shape.
+ * @param bottom Gain where the shape is 0.
+ * @param top Gain where the shape is 1.
+ * @return 1 for BrightnessEnvelope::NONE, else lerp(bottom, top, shape).
+ */
 __attribute__((always_inline)) inline float
 brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
                          float top) {
@@ -223,23 +269,31 @@ brightness_envelope_gain(float value, BrightnessEnvelope envelope, float bottom,
   return hs::lerp(bottom, top, shape);
 }
 
+/** @brief Per-frame state of the generated-palette colorizer. */
 struct GeneratedPaletteState {
-  PaletteMappingWeights mapping;
-  float mapping_frequency;
-  float mapping_offset;
-  const BakedPalette *palette;
+  PaletteMappingWeights mapping; ///< Palette mapping curve weights.
+  float mapping_frequency;       ///< Palette repeats across the value range.
+  float mapping_offset;          ///< Phase offset including the oscillation.
+  const BakedPalette *palette;   ///< Palette sampled; must be non-null.
   /** HueMode::NONE is carried as an inactive `hue_rotation` view. */
   HueMode hue_mode;
-  float hue_shift_amount;
-  HueRotationLutView hue_rotation;
-  HueNoiseLutView hue_noise;
-  BrightnessEnvelope brightness_envelope;
-  float brightness_bottom;
-  float brightness_top;
-  float opacity_low;
-  float opacity_high;
+  float hue_shift_amount;          ///< Hue rotation magnitude.
+  HueRotationLutView hue_rotation; ///< Hue rotation LUT; inactive disables.
+  HueNoiseLutView hue_noise;       ///< Hue noise LUT read in HueMode::NOISE.
+  BrightnessEnvelope brightness_envelope; ///< Value-driven brightness shape.
+  float brightness_bottom;                ///< Gain at the envelope's low point.
+  float brightness_top; ///< Gain at the envelope's high point.
+  float opacity_low;    ///< Alpha gain at value 0.
+  float opacity_high;   ///< Alpha gain at value 1.
 };
 
+/**
+ * @brief Colours a field sample: palette lookup, hue rotation, brightness
+ * envelope and value opacity.
+ * @param sample Field sample; its coverage scales the alpha.
+ * @param state Prepared per-frame colorizer state.
+ * @return Colour with alpha = palette alpha * coverage * value opacity.
+ */
 HS_HOT_FLASH_MEMBER inline Color4
 apply_generated_palette(const FieldSample &sample,
                         const GeneratedPaletteState &state) {
@@ -295,11 +349,18 @@ inline constexpr std::array<ApproximationMetric, 3> GENERATED_PALETTE_METRICS{{
  * accessors.
  */
 template <typename State> struct GeneratedPalette : ApproximationDefaults {
-  static constexpr bool APPROXIMATE = true;
+  static constexpr bool APPROXIMATE = true; ///< Output uses LUT approximations.
+  /// Oracle the approximation is checked against.
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS;
+  /// Approximation bounds; GENERATED_PALETTE_METRICS.
   static constexpr auto METRICS = GENERATED_PALETTE_METRICS;
 
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -325,8 +386,14 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         { State::opacity_high(frame) } -> std::same_as<float>;
       };
 
-  using Prepared = GeneratedPaletteState;
+  using Prepared = GeneratedPaletteState; ///< Per-frame colorizer state.
 
+  /**
+   * @brief Reads every accessor once and folds the phase oscillation in.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param frame Current frame state.
+   * @return This frame's colorizer state.
+   */
   template <typename FrameState>
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return {State::mapping_weights(frame),
@@ -347,6 +414,13 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
             State::opacity_high(frame)};
   }
 
+  /**
+   * @brief Colours one field sample.
+   * @tparam FrameState Frame state of the provider's binding.
+   * @param sample Field sample to colour.
+   * @param prepared This frame's colorizer state.
+   * @return apply_generated_palette(sample, prepared).
+   */
   template <typename FrameState>
   HS_O3_FN static Color4 apply(const FieldSample &sample, const FrameState &,
                                const Prepared &prepared) {
