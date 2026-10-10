@@ -221,6 +221,7 @@ inline int run_animation_tests() {
   test_periodic_timer_set_period_reschedules_from_now();
   test_periodic_timer_set_period_unchanged_does_not_defer();
   test_mobiusflow_degenerate_inputs_remain_finite();
+  test_mobiusflow_nonfinite_live_input_holds_last_value();
   test_mobiusflow_step_preserves_unit_product();
   test_particle_system_emitter_dispatch();
   test_motion_set_duration_below_position_rescales();
