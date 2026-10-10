@@ -46,8 +46,8 @@ struct SpriteOptions {
  */
 class Sprite : public AnimationBase<Sprite> {
 public:
-  using Fade = SpriteFade;
-  using Options = SpriteOptions;
+  using Fade = SpriteFade;       ///< One fade ramp.
+  using Options = SpriteOptions; ///< Fade ramps and pause gate.
 
   /**
    * @brief Constructs a Sprite animation.
@@ -106,6 +106,7 @@ public:
    * @details Holds the current frame after the sprite has stepped. Before its
    * first step, holds frame 1 instead of frame 0, so a fade-in remains visible
    * at the opacity the first unpaused step would report.
+   * @param canvas Frame canvas.
    */
   void step_paused(Canvas &canvas) override {
     draw_frame(canvas, t == 0 ? 1u : t);
@@ -158,10 +159,16 @@ template <int TRAIL_LEN = 8> struct Particle {
   /** Trail of world-space positions, snorm16-quantized (unit-sphere domain). */
   QuantizedVectorTrail<TRAIL_LEN> history;
 
-  /** @brief Reads the current world-space position. */
+  /**
+   * @brief Reads the current world-space position.
+   * @return The stored position.
+   */
   const math::Vector &get_position() const { return position; }
 
-  /** @brief Stores the current world-space position. */
+  /**
+   * @brief Stores the current world-space position.
+   * @param p World-space position.
+   */
   void set_position(const math::Vector &p) { position = p; }
 
   /**
@@ -192,12 +199,16 @@ template <int TRAIL_LEN = 8> struct Particle {
 
 /** @brief Point particle with a two-float octahedral direction and no trail. */
 struct PointParticle {
-  math::Vector velocity;
+  math::Vector velocity; ///< Velocity, tangent to the decoded direction.
+  /// Octahedral-encoded unit direction; use get_position()/set_position().
   std::array<float, 2> position{};
-  uint16_t color_seed = 0;
-  uint16_t life = 0;
+  uint16_t color_seed = 0; ///< Hue seed for palette offset.
+  uint16_t life = 0;       ///< Remaining life (frames or arbitrary units).
 
-  /** @brief Decodes and normalizes the stored direction. */
+  /**
+   * @brief Decodes and normalizes the stored direction.
+   * @return Unit direction.
+   */
   math::Vector get_position() const {
     math::Vector p(position[0], position[1], 0);
     p.z = 1.0f - fabsf(p.x) - fabsf(p.y);
@@ -209,7 +220,10 @@ struct PointParticle {
     return p.normalized();
   }
 
-  /** @brief Packs a unit direction and makes velocity tangent to its decode. */
+  /**
+   * @brief Packs a unit direction and makes velocity tangent to its decode.
+   * @param p Nonzero direction; normalized by the encoding.
+   */
   void set_position(const math::Vector &p) {
     const float inv = 1.0f / (fabsf(p.x) + fabsf(p.y) + fabsf(p.z));
     float x = p.x * inv, y = p.y * inv;
@@ -223,7 +237,13 @@ struct PointParticle {
     velocity -= decoded * math::dot(velocity, decoded);
   }
 
-  /** @brief Initializes a point particle; non-finite lifetime expires at once. */
+  /**
+   * @brief Initializes a point particle; non-finite lifetime expires at once.
+   * @param p Initial direction.
+   * @param v Initial velocity; made tangent to `p`.
+   * @param seed Hue seed for palette offset.
+   * @param l Lifetime; clamped to [0, 65535].
+   */
   void init(const math::Vector &p, const math::Vector &v, uint16_t seed,
             float l) {
     velocity = v;
@@ -234,7 +254,10 @@ struct PointParticle {
                : 0;
   }
 
-  /** @brief Point particles retain no trail positions. */
+  /**
+   * @brief Point particles retain no trail positions.
+   * @return 0.
+   */
   size_t history_length() const { return 0; }
 };
 static_assert(sizeof(PointParticle) == 24);
@@ -337,7 +360,7 @@ public:
                 "paired signed-axis physics requires room for six attractors");
   static_assert(STRIDE >= 1, "trail sample stride must be positive");
 
-  static constexpr int TRAIL_SAMPLE_STRIDE = STRIDE;
+  static constexpr int TRAIL_SAMPLE_STRIDE = STRIDE; ///< Frames per anchor.
 
   ArenaVector<ParticleType> pool; /**< Backing pool of particles. */
 

@@ -18,6 +18,7 @@ namespace Animation {
 
 /** @brief Shared trail motion sampling. */
 inline constexpr int TRAIL_HISTORY_LENGTH = 115;
+/// Orientation sub-frame capacity for trail motion.
 inline constexpr int TRAIL_ORIENTATION_SUBSTEPS = 16;
 
 /**
