@@ -5,6 +5,10 @@
 
 // Included by core/mesh/solid_generators.h.
 
+/** @file solid_tables.h
+ * @brief Hardcoded vertex and face tables of the five Platonic solids.
+ */
+
 // ==========================================================================================
 // DATA DEFINITIONS (Hardcoded Platonic Solids)
 // ==========================================================================================
@@ -13,7 +17,8 @@
  * @brief Tetrahedron geometry data.
  */
 struct Tetrahedron {
-  static constexpr int NUM_VERTS = 4;
+  static constexpr int NUM_VERTS = 4; ///< Vertex count.
+  /// Unit-length vertex positions.
   static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
       math::Vector(0.5773502691896258f, 0.5773502691896258f,
                    0.5773502691896258f),
@@ -23,8 +28,10 @@ struct Tetrahedron {
                    -0.5773502691896258f),
       math::Vector(-0.5773502691896258f, -0.5773502691896258f,
                    0.5773502691896258f)};
-  static constexpr int NUM_FACES = 4;
+  static constexpr int NUM_FACES = 4; ///< Face count.
+  /// Sides per face.
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {3, 3, 3, 3};
+  /// Flat vertex indices, counter-clockwise seen from outside.
   static constexpr std::array<int, 12> faces = {0, 3, 1, 0, 2, 3,
                                                 0, 1, 2, 1, 3, 2};
 };
@@ -33,7 +40,8 @@ struct Tetrahedron {
  * @brief Cube geometry data.
  */
 struct Cube {
-  static constexpr int NUM_VERTS = 8;
+  static constexpr int NUM_VERTS = 8; ///< Vertex count.
+  /// Unit-length vertex positions.
   static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
       math::Vector(-0.5773502691896258f, -0.5773502691896258f,
                    -0.5773502691896258f),
@@ -51,9 +59,11 @@ struct Cube {
                    0.5773502691896258f),
       math::Vector(-0.5773502691896258f, 0.5773502691896258f,
                    0.5773502691896258f)};
-  static constexpr int NUM_FACES = 6;
+  static constexpr int NUM_FACES = 6; ///< Face count.
+  /// Sides per face.
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {4, 4, 4,
                                                                  4, 4, 4};
+  /// Flat vertex indices, counter-clockwise seen from outside.
   static constexpr std::array<int, 24> faces = {
       0, 3, 2, 1, 0, 1, 5, 4, 0, 4, 7, 3, 6, 5, 1, 2, 6, 2, 3, 7, 6, 7, 4, 5};
 };
@@ -62,7 +72,8 @@ struct Cube {
  * @brief Octahedron geometry data.
  */
 struct Octahedron {
-  static constexpr int NUM_VERTS = 6;
+  static constexpr int NUM_VERTS = 6; ///< Vertex count.
+  /// Unit-length vertex positions.
   static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
       math::Vector(1.0000000000000000f, 0.0000000000000000f,
                    0.0000000000000000f),
@@ -76,9 +87,11 @@ struct Octahedron {
                    1.0000000000000000f),
       math::Vector(0.0000000000000000f, 0.0000000000000000f,
                    -1.0000000000000000f)};
-  static constexpr int NUM_FACES = 8;
+  static constexpr int NUM_FACES = 8; ///< Face count.
+  /// Sides per face.
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {3, 3, 3, 3,
                                                                  3, 3, 3, 3};
+  /// Flat vertex indices, counter-clockwise seen from outside.
   static constexpr std::array<int, 24> faces = {
       4, 0, 2, 4, 2, 1, 4, 1, 3, 4, 3, 0, 5, 2, 0, 5, 1, 2, 5, 3, 1, 5, 0, 3};
 };
@@ -87,7 +100,8 @@ struct Octahedron {
  * @brief Icosahedron geometry data.
  */
 struct Icosahedron {
-  static constexpr int NUM_VERTS = 12;
+  static constexpr int NUM_VERTS = 12; ///< Vertex count.
+  /// Unit-length vertex positions.
   static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
       math::Vector(-0.5257311121191336f, 0.0000000000000000f,
                    0.8506508083520400f),
@@ -113,9 +127,11 @@ struct Icosahedron {
                    0.0000000000000000f),
       math::Vector(-0.8506508083520400f, -0.5257311121191336f,
                    0.0000000000000000f)};
-  static constexpr int NUM_FACES = 20;
+  static constexpr int NUM_FACES = 20; ///< Face count.
+  /// Sides per face.
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
       3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3};
+  /// Flat vertex indices, counter-clockwise seen from outside.
   static constexpr std::array<int, 60> faces = {
       0, 1, 4, 0, 4, 9, 9,  4, 5, 4,  8, 5, 4,  1,  8,  8, 1, 10, 8,  10,
       3, 5, 8, 3, 5, 3, 2,  2, 3, 7,  7, 3, 10, 7,  10, 6, 7, 6,  11, 11,
@@ -126,7 +142,8 @@ struct Icosahedron {
  * @brief Dodecahedron geometry data.
  */
 struct Dodecahedron {
-  static constexpr int NUM_VERTS = 20;
+  static constexpr int NUM_VERTS = 20; ///< Vertex count.
+  /// Unit-length vertex positions.
   static constexpr std::array<math::Vector, NUM_VERTS> vertices = {
       math::Vector(0.5773502691896258f, 0.5773502691896258f,
                    0.5773502691896258f),
@@ -168,9 +185,11 @@ struct Dodecahedron {
                    -0.9341723589627157f),
       math::Vector(0.0000000000000000f, -0.3568220897730897f,
                    -0.9341723589627157f)};
-  static constexpr int NUM_FACES = 12;
+  static constexpr int NUM_FACES = 12; ///< Face count.
+  /// Sides per face.
   static constexpr std::array<uint8_t, NUM_FACES> face_counts = {
       5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5};
+  /// Flat vertex indices, counter-clockwise seen from outside.
   static constexpr std::array<int, 60> faces = {
       0, 8,  9,  4,  16, 0,  12, 13, 1,  8,  0,  16, 17, 2,  12,
       8, 1,  18, 5,  9,  12, 2,  10, 3,  13, 16, 4,  14, 6,  17,
