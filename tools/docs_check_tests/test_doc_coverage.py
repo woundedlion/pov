@@ -9,11 +9,12 @@ sys.path.insert(0, str(TOOLS))
 
 import doc_coverage as cov  # noqa: E402
 
-ROOT = Path("C:/repo")
+ROOT = Path(tempfile.gettempdir()).resolve() / "repo"
+PREFIX = ROOT.as_posix()
 
 
 def warning(path, line, body):
-    return f"C:/repo/{path}:{line}: warning: {body} is not documented."
+    return f"{PREFIX}/{path}:{line}: warning: {body} is not documented."
 
 
 def item(name, kind, scope):
@@ -44,13 +45,13 @@ class TestParse(unittest.TestCase):
 
     def test_windows_separators_are_normalized_to_relative_paths(self):
         (found,) = cov.parse(
-            "C:\\repo\\core\\a.h:7: warning: Compound X is not documented.",
-            ROOT)
+            f"{PREFIX}/core/a.h:7: warning: Compound X is not documented."
+            .replace("/", "\\"), ROOT)
         self.assertEqual((found.path, found.line), ("core/a.h", 7))
 
     def test_other_source_warning_keeps_its_text(self):
         (found,) = cov.parse(
-            "C:/repo/a.h:1: warning: argument 'x' of command @param is not "
+            f"{PREFIX}/a.h:1: warning: argument 'x' of command @param is not "
             "found", ROOT)
         self.assertEqual(found, cov.Undocumented(
             "a.h", 1, "argument 'x' of command @param is not found",
@@ -58,7 +59,7 @@ class TestParse(unittest.TestCase):
 
     def test_indented_continuation_joins_the_warning(self):
         (found,) = cov.parse(
-            "C:/repo/a.h:9: warning: The following parameters of f(int a) "
+            f"{PREFIX}/a.h:9: warning: The following parameters of f(int a) "
             "are not documented:\n  parameter 'a'", ROOT)
         self.assertEqual(found.name, "The following parameters of f(int a) "
                          "are not documented: parameter 'a'")
