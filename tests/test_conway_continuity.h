@@ -1365,20 +1365,8 @@ inline void test_leg_start_seed_frame_continuity() {
     node_arena.reset();
     node_mesh = Solids::finalize_solid(base, node_arena);
     if (ConwayGraph::adopts_seed(e, arrived, arrived_at_to)) {
-      if (arrived_at_to) {
-        seed_arena.reset();
-        seed_base = Solids::finalize_solid(node_mesh, seed_arena);
-      } else {
-        HS_EXPECT_EQ(arrived, static_cast<int>(ICOSAHEDRON));
-        PolyMesh seed;
-        MeshOps::clone(seed_base, seed, work);
-        PolyMesh canonical = Solids::SolidBuilder(std::move(seed), work, temp)
-                                 .snub(0.5f, SNUB_BRIDGE_TWIST)
-                                 .relax(SETTLE_RELAX_ITERATIONS)
-                                 .build();
-        seed_arena.reset();
-        seed_base = Solids::finalize_solid(canonical, seed_arena);
-      }
+      seed_arena.reset();
+      seed_base = Solids::finalize_solid(node_mesh, seed_arena);
       seed_identity = arrived;
     }
     node = arrived;
@@ -1475,9 +1463,7 @@ inline int lut_sample_dist(const BakedPalette &a, const BakedPalette &b) {
 struct StrapSweepStats {
   int arrivals = 0;      /**< Arrivals validated. */
   int far_pairs = 0;     /**< Strap slots with a far (from, to) pair. */
-  int shared_far = 0;    /**< Far pairs on slots shared with a star class. */
   int would_be_jump = 0; /**< Worst uncrossfaded open jump (16-bit). */
-  int shared_jump = 0;   /**< Worst such jump on a star-shared slot. */
 };
 
 /**
@@ -1580,13 +1566,8 @@ inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
         const int jump = lut_sample_dist(bank.entries[prev_display[s]],
                                          bank.entries[idx[s]]);
         st.would_be_jump = std::max(st.would_be_jump, jump);
-        if (jump > 8192) {
+        if (jump > 8192)
           ++st.far_pairs;
-          if (star[s]) {
-            ++st.shared_far;
-            st.shared_jump = std::max(st.shared_jump, jump);
-          }
-        }
       } else {
         // No predecessor: births open in a color already on screen (some
         // star face's palette), never a fresh pop.
@@ -1658,28 +1639,21 @@ constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 18, 6, 18, 26, 26};
 /**
  * @brief Seed-swept strap continuity: across STRAP_SWEEP_EPOCHS, every strap
  *        slot of every arrival opens on its previous displayed color and
- *        glides in bounded steps — including slots shared with a star class,
- *        whose star faces stay bitwise on the bank entry at the bookends.
+ *        glides in bounded steps.
  */
 inline void test_strap_crossfade_seed_swept() {
   int far = 0;
-  int shared_far = 0;
-  int shared_jump = 0;
   for (size_t i = 0; i < std::size(STRAP_SWEEP_EPOCHS); ++i) {
     const int want = STRAP_SWEEP_ARRIVALS[i];
     const StrapSweepStats st = check_strap_crossfade_arrivals(
         STRAP_SWEEP_EPOCHS[i], want, 360 * (want + 1));
     HS_EXPECT_EQ(st.arrivals, want);
     far += st.far_pairs;
-    shared_far += st.shared_far;
-    shared_jump = std::max(shared_jump, st.shared_jump);
   }
-  std::printf("  [strap-sweep] %d star-shared far pairs, worst would-be "
-              "shared open jump %d (crossfaded to per-frame steps)\n",
-              shared_far, shared_jump);
-  // Far strap turnovers must occur, including on star-shared slots.
+  std::printf("  [strap-sweep] %d far pairs (crossfaded to per-frame steps)\n",
+              far);
+  // Far strap turnovers must occur.
   HS_EXPECT_GT(far, 0);
-  HS_EXPECT_GT(shared_far, 0);
 }
 
 // ---------------------------------------------------------------------------

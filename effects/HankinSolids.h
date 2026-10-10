@@ -694,23 +694,9 @@ private:
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = node_mesh_at(seed_base, e, arrived_at_to, a, b);
       if (adopts_seed(e, arrived, arrived_at_to)) {
-        if (arrived_at_to) {
-          // Family bridge: the arrived solid becomes the new family seed.
-          seed_base = Solids::finalize_solid(base, target);
-          seed_identity = node;
-        } else if (arrived == ICOSAHEDRON) {
-          // Reverse jitterbug arrival: hold the icosahedron's canonical
-          // relax form, not the unrelaxed form the bookend displays.
-          PolyMesh s;
-          MeshOps::clone(seed_base, s, a);
-          seed_base = Solids::finalize_solid(
-              Solids::SolidBuilder(std::move(s), a, b)
-                  .snub(0.5f, SNUB_BRIDGE_TWIST)
-                  .relax(ConwayGraph::SETTLE_RELAX_ITERATIONS)
-                  .build(),
-              target);
-          seed_identity = node;
-        }
+        // Family bridge: the arrived solid becomes the new family seed.
+        seed_base = Solids::finalize_solid(base, target);
+        seed_identity = node;
       }
       record_node_faces(base);
 

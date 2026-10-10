@@ -13,8 +13,8 @@ enum class EndRegime {
   EXACT,        /**< Same code path: bitwise vertices, identical topology. */
   VERTEX_MATCH, /**< Same geometry, different vertex order (dual-family ambo,
                      ambo(tetra) bridge). */
-  REGULAR,      /**< Relax-canonical arrival in a walk-dependent orientation
-                     (tetra -> icosa bridge). */
+  REGULAR,      /**< Regular form in the seed frame, not the registry's
+                     orientation (tetra -> icosa bridge). */
   PAIR_COVER,   /**< Jitterbug octa end: vertices merge pairwise onto the node
                      mesh's. */
   BAKED_RELAX,  /**< Registry node ends in relax_baked: identical topology, and
@@ -42,9 +42,9 @@ inline bool is_relax_baked_node(uint8_t node) {
  * @return EXACT when op(seed, t_to) [+ relax] is the to_node registry chain;
  *         BAKED_RELAX when that chain ends in a flash bake rather than the live
  *         relax the leg runs; VERTEX_MATCH for arrivals off the registry seed
- *         (dual-family ambo, non-settle bridges); REGULAR for the settling
- *         bridge, whose relax orientation tracks the seed frame, not the
- *         registry icosahedron; PAIR_COVER for the jitterbug bridge's collapsed
+ *         (dual-family ambo, the other bridges); REGULAR for the tetra -> icosa
+ *         bridge, whose jitterbug icosahedron sits in the tetrahedron's
+ *         frame, not the registry icosahedron's; PAIR_COVER for the jitterbug bridge's collapsed
  *         octa end.
  */
 inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
@@ -56,7 +56,8 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
   if (e.to_node == ICOSIDODECAHEDRON && e.seed_solid == ICOSAHEDRON)
     return EndRegime::VERTEX_MATCH;
   if (e.bridge)
-    return e.settle ? EndRegime::REGULAR : EndRegime::VERTEX_MATCH;
+    return e.to_node == ICOSAHEDRON ? EndRegime::REGULAR
+                                    : EndRegime::VERTEX_MATCH;
   if (e.settle && is_relax_baked_node(e.to_node))
     return EndRegime::BAKED_RELAX;
   return EndRegime::EXACT;
@@ -203,7 +204,7 @@ inline void test_edge_endpoints_match_registry() {
         check_equal_up_to_vertex_order(got, want, 1e-4f);
         break;
       case EndRegime::REGULAR:
-        check_regular_form(got, want, 0.02f);
+        check_regular_form(got, want, 1e-4f);
         break;
       case EndRegime::PAIR_COVER:
         check_pairwise_vertex_cover(got, want, 1e-4f);
