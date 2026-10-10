@@ -34,7 +34,8 @@ inline constexpr float PALETTE_PHASE_ARG_LIMIT = 4096.0f;
  * A null offset driver is static: modify() passes t through.
  */
 struct CycleModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *offset; ///< Borrowed per-frame offset driver, or null.
@@ -59,7 +60,8 @@ struct CycleModifier {
  * @brief Oscillates the palette coordinate (Breathing).
  */
 struct BreatheModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *phase; ///< Borrowed per-frame phase driver, radians.
@@ -105,7 +107,8 @@ struct BreatheModifier {
  * ripple effect.
  */
 struct RippleModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *phase; ///< Borrowed per-frame phase driver, radians.
@@ -143,7 +146,8 @@ struct RippleModifier {
  * wander and smear.
  */
 struct NoiseWarpModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *time; ///< Borrowed per-frame noise time axis.
@@ -181,7 +185,8 @@ struct NoiseWarpModifier {
  * wanders, hesitates, and reverses.
  */
 struct DriftModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *time; ///< Borrowed per-frame time driver.
@@ -235,7 +240,8 @@ struct DriftModifier {
  * A null phase driver means no phase offset.
  */
 struct FoldModifier {
-  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  /** @brief Output stays in [0,1] and hits 1; as the final coord modifier it
+   * needs Wrap=false. */
   static constexpr bool bounded_output = true;
   /** @brief The triangle wave folds any input, in range or not, into [0,1]. */
   static constexpr bool rebounds_input = true;
@@ -275,8 +281,8 @@ struct FoldModifier {
  * A null tension driver passes t through.
  */
 struct PinchModifier {
-  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
-   */
+  /** @brief In-range input stays in [0,1] and hits 1; as the final coord
+   * modifier it needs Wrap=false. */
   static constexpr bool bounded_output = true;
 
   const float
@@ -316,8 +322,8 @@ struct PinchModifier {
  * @brief Snaps smooth gradients into harsh, distinct bands (Posterization).
  */
 struct QuantizeModifier {
-  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
-   */
+  /** @brief In-range input stays in [0,1] and hits 1; as the final coord
+   * modifier it needs Wrap=false. */
   static constexpr bool bounded_output = true;
 
   const float *dynamic_steps; ///< Borrowed step-count driver, or null.
@@ -353,7 +359,8 @@ struct QuantizeModifier {
  * so the palette repeats multiple times across the domain.
  */
 struct ScaleModifier {
-  /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
+  /** @brief Output leaves [0,1]; needs Wrap=true unless a later modifier
+   * declares `rebounds_input`. */
   static constexpr bool requires_wrap = true;
 
   const float *dynamic_scale; ///< Borrowed scale driver, or null.
@@ -393,8 +400,8 @@ struct ScaleModifier {
  * @brief Reverses the palette coordinate (t -> 1 - t).
  */
 struct ReverseModifier {
-  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
-   */
+  /** @brief In-range input stays in [0,1] and hits 1; as the final coord
+   * modifier it needs Wrap=false. */
   static constexpr bool bounded_output = true;
 
   /**
@@ -410,8 +417,8 @@ struct ReverseModifier {
  * @details One symmetric bounce, for a seamless loop.
  */
 struct MirrorModifier {
-  /** @brief In-range input stays in [0,1] and hits 1; palette needs Wrap=false.
-   */
+  /** @brief In-range input stays in [0,1] and hits 1; as the final coord
+   * modifier it needs Wrap=false. */
   static constexpr bool bounded_output = true;
 
   /**
@@ -428,7 +435,8 @@ struct MirrorModifier {
  * the last.
  */
 struct InsetModifier {
-  /** @brief Output stays in [0,1] and hits 1; palette needs Wrap=false. */
+  /** @brief Output stays in [0,1] and hits 1; as the final coord modifier it
+   * needs Wrap=false. */
   static constexpr bool bounded_output = true;
   /** @brief The clamp confines any input, in range or not, to [0,1]. */
   static constexpr bool rebounds_input = true;
