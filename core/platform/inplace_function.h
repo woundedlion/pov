@@ -37,6 +37,7 @@ class inplace_function; // primary template intentionally undefined
 
 namespace detail {
 
+/** @brief Whether @p T is an `inplace_function`. @tparam T Type to test. */
 template <typename T> struct is_inplace_function : std::false_type {};
 
 template <typename Signature, size_t Capacity, size_t Alignment>

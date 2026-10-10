@@ -359,8 +359,16 @@ struct LocalSweepName {
   static constexpr int LOCAL_SWEEP = 0; ///< Name probe.
 };
 
+/**
+ * @brief Policy @p S merged with a name carrier, so a hook @p S lacks
+ *        resolves to the carrier's probe.
+ * @tparam S Segue policy.
+ * @tparam Name Hook-name carrier.
+ */
 template <typename S, typename Name> struct Merged : S, Name {};
 
+/** @brief Whether @p S can be a `Merged` base.
+ * @tparam S Segue policy. */
 template <typename S>
 concept Mergeable = std::is_class_v<S> && !std::is_final_v<S>;
 

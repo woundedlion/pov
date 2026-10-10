@@ -229,6 +229,7 @@ enum class ProfileEvent : uint8_t {
 
 /** @brief Instrumentation that records nothing. */
 struct NoInstrumentation {
+  /** @brief Empty span token. */
   struct Token {};
 
   /** @brief Starts a span.
@@ -430,10 +431,13 @@ struct PoliciesBindable<std::tuple<Policies...>, Binding>
     : std::bool_constant<(policy_provider_valid<Policies, Binding>() && ...)> {
 };
 
+/** @brief Whether @p T is a `std::tuple` of policies. @tparam T Type to test. */
 template <typename T> struct IsPolicyTuple : std::false_type {};
 template <typename... Policies>
 struct IsPolicyTuple<std::tuple<Policies...>> : std::true_type {};
 
+/** @brief An empty, trivially constructible provider bound to @p Binding
+    and its `FrameState`. */
 template <typename State, typename Binding>
 concept ProviderFor =
     std::is_empty_v<State> && std::is_trivially_constructible_v<State> &&
@@ -495,6 +499,7 @@ edge_fade(const ProjectionProvenance &provenance, float width) {
 
 /** Probe binding for naming a descriptor's Bind without instantiating it. */
 struct ProbeBinding {
+  /** @brief Empty probe frame state. */
   struct FrameState {};
   using Instrumentation = NoInstrumentation; ///< No-op instrumentation.
 };
@@ -529,6 +534,8 @@ consteval bool descriptor_bindable() {
 
 namespace Detail {
 
+/** @brief Whether @p Descriptor declares a `prepare` for @p Binding's frame
+    state. */
 template <typename Descriptor, typename Binding>
 concept DescriptorPrepares =
     requires(const typename Binding::FrameState &frame) {
@@ -1149,6 +1156,7 @@ public:
   static constexpr bool APPROXIMATIONS = CallableRows::APPROXIMATIONS;
 };
 
+/** @brief Whether @p Stage declares an `implements` test for @p Key. */
 template <typename Stage, typename Key>
 concept StageMatchesKey = requires(const Key &key) {
   { Stage::implements(key) } -> std::convertible_to<bool>;

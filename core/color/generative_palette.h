@@ -417,6 +417,7 @@ private:
       keys[i] = {};
   }
 
+  /** @brief Tag selecting the constructor that skips recipe validation. */
   struct Unchecked {};
 
   struct Segment {
