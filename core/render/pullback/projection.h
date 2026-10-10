@@ -152,7 +152,6 @@ peirce_folded_weight(const math::Vector &input, float central_meridian,
  */
 __attribute__((always_inline)) inline ProjectionResult
 stereographic(const math::Vector &input, float singularity_fade) {
-  // Fade distance is the sphere-space measure 1 - y.
   const math::Complex coords = projections::stereo(input);
   return {coords,
           {.region_id = 0,
