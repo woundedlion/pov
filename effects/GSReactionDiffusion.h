@@ -50,12 +50,10 @@ class GSReactionDiffusion
   // Bring dependent-base names into scope (template base requires this).
   using Base::for_each_neighbor;
   using Base::from_q16;
-  using Base::init_lattice;
   using Base::orient_lattice;
   using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::refine_render_center;
   using Base::register_param;
   using Base::to_q16;
 
