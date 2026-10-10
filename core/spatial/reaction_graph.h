@@ -148,7 +148,11 @@ struct CubemapLUT {
     fill(lattice);
   }
 
-  /** @brief Builds from a resident lattice whose neighbors are validated. */
+  /**
+   * @brief Builds from a resident lattice whose neighbors are validated.
+   * @param arena Arena the table is allocated in.
+   * @param lattice RD_N lattice node directions.
+   */
   HS_COLD_MEMBER void build(Arena &arena, const math::Vector *lattice) {
     data.bind(arena, TEXELS);
     fill(lattice);
@@ -182,7 +186,11 @@ public:
    */
   int lookup(const math::Vector &p) const { return lookup(project(p)); }
 
-  /** @brief Projects a unit direction into the lattice cubemap face coordinates. */
+  /**
+   * @brief Projects a unit direction into the lattice cubemap face coordinates.
+   * @param p Unit-length direction.
+   * @return Cube face index and face coordinates u, v in [-1, 1].
+   */
   static __attribute__((always_inline)) Projection
   project(const math::Vector &p) {
     assert(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
@@ -228,7 +236,11 @@ public:
     return {face, u, v};
   }
 
-  /** @brief Looks up a previously projected lattice cubemap coordinate. */
+  /**
+   * @brief Looks up a previously projected lattice cubemap coordinate.
+   * @param projection Result of project().
+   * @return A seed lattice node index in [0, RD_N).
+   */
   __attribute__((always_inline)) int
   lookup(const Projection &projection) const {
     const int FACE = projection.face;
