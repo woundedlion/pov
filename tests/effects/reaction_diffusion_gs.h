@@ -414,6 +414,20 @@ struct GSWhiteBox {
   static int dissolve_frame(const GS &gs) {
     return gs.transition.dissolve_frames;
   }
+  static void advance_transition(GS &gs, float mean_db) {
+    gs.advance_transition(mean_db);
+  }
+  static bool reseed_pending(const GS &gs) {
+    return gs.transition.reseed_pending();
+  }
+  static int grow_frames(const GS &gs) { return gs.transition.grow_frames; }
+  static void finish_reseed(GS &gs) { gs.finish_reseed(); }
+  /** @brief The stabilization floor on mean |dB| at Speed `dt`. */
+  static float stable_floor(float dt) {
+    return GS::MEAN_DB_STABLE * (dt * (1.0f / GS::DEFAULT_DT)) *
+           (static_cast<float>(GS::EVOLUTION_STEPS_PER_FRAME) /
+            GS::BASELINE_STEPS_PER_FRAME);
+  }
   static const uint16_t *b_field(const GS &gs) { return gs.state.B; }
   static const uint16_t *a_field(const GS &gs) { return gs.state.A; }
   static float dissolve_hash(int i, uint32_t seed) {
@@ -1520,6 +1534,78 @@ inline void test_gs_reaction_edit_starts_dissolve() {
   gs.advance_display();
   HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
             "a Feed edit did not start a dissolve");
+}
+
+/** @brief Frames of synthetic mean |dB| until a dissolve starts, or -1. */
+template <typename MeanDb>
+inline int gs_frames_to_dissolve(float dt, MeanDb &&mean_db, int limit) {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, dt);
+  for (int frame = 1; frame <= limit; ++frame) {
+    GSWhiteBox::advance_transition(gs, mean_db(frame));
+    if (GSWhiteBox::dissolve_frame(gs) >= 0)
+      return frame;
+  }
+  return -1;
+}
+
+/**
+ * @brief Verifies a dt-scaled sub-floor mean |dB| held for STABLE_HOLD_FRAMES
+ *        after MIN_GROW_FRAMES starts a dissolve, and an above-floor frame
+ *        restarts the hold.
+ */
+inline void test_gs_stall_hold_starts_dissolve() {
+  constexpr int GROW = GSWhiteBox::MIN_GROW_FRAMES;
+  constexpr int HOLD = GSWhiteBox::STABLE_HOLD_FRAMES;
+  constexpr int LIMIT = GROW + 3 * HOLD;
+  constexpr int SPIKE = GROW + HOLD / 2;
+  constexpr float DT = 2.5f;
+  const float FLOOR = GSWhiteBox::stable_floor(DT);
+  HS_EXPECT_EQ(gs_frames_to_dissolve(
+                   DT, [](int) { return 0.0f; }, LIMIT),
+               GROW + HOLD - 1);
+  HS_EXPECT_EQ(gs_frames_to_dissolve(
+                   DT, [&](int) { return 0.75f * FLOOR; }, LIMIT),
+               GROW + HOLD - 1);
+  HS_EXPECT_EQ(
+      gs_frames_to_dissolve(
+          DT, [&](int frame) { return frame == SPIKE ? 2.0f * FLOOR : 0.0f; },
+          LIMIT),
+      SPIKE + HOLD);
+  HS_EXPECT_EQ(gs_frames_to_dissolve(
+                   DT / 2.0f, [&](int) { return 0.75f * FLOOR; }, LIMIT),
+               -1);
+}
+
+/**
+ * @brief Verifies a dissolve ends in a staged reseed after DISSOLVE_FRAMES
+ *        frames and edits made before the reseed completes start no dissolve.
+ */
+inline void test_gs_dissolve_absorbs_edits_and_stages_reseed() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  GSWhiteBox::set_params(gs, 0.035f, 0.06f, 0.02f, 0.01f, 2.5f);
+  GSWhiteBox::advance_transition(gs, 1.0f);
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), 0);
+  GSWhiteBox::set_params(gs, 0.03f, 0.06f, 0.02f, 0.01f, 2.5f);
+  for (int frame = 1; frame < GSWhiteBox::DISSOLVE_FRAMES; ++frame) {
+    GSWhiteBox::advance_transition(gs, 1.0f);
+    HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), frame);
+    HS_EXPECT_FALSE(GSWhiteBox::reseed_pending(gs));
+  }
+  GSWhiteBox::advance_transition(gs, 1.0f);
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+  HS_EXPECT_TRUE(GSWhiteBox::reseed_pending(gs));
+  HS_EXPECT_EQ(GSWhiteBox::grow_frames(gs), 0);
+  GSWhiteBox::set_params(gs, 0.045f, 0.06f, 0.02f, 0.01f, 2.5f);
+  GSWhiteBox::finish_reseed(gs);
+  HS_EXPECT_FALSE(GSWhiteBox::reseed_pending(gs));
+  GSWhiteBox::advance_transition(gs, 1.0f);
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+  HS_EXPECT_EQ(GSWhiteBox::grow_frames(gs), 1);
 }
 
 /**
