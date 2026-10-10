@@ -5,6 +5,10 @@
 
 // Included by core/mesh/solid_generators.h.
 
+/** @file procedural_solids.h
+ * @brief Platonic, Archimedean, Catalan, and star-pattern solid generators.
+ */
+
 // ==========================================================================================
 // PROCEDURAL GENERATORS
 // ==========================================================================================
