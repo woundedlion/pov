@@ -1168,6 +1168,13 @@ jobs:
       - name: Build + size + layout gate (shipping targets + compile profiles)
         # Shipping environments enforce budgets; other environments provide compile coverage.
         run: python tools/teensy_size_table.py
+      - name: Cap build-object cache
+        # Drop the oldest cached objects above 400 MB; config and the signature db stay.
+        shell: bash
+        run: |
+          find .pio/build_cache -mindepth 2 -type f -printf '%T@ %s %p\n' | sort -rn |
+            awk -v cap=$((400 * 1024 * 1024)) '{ total += $2 } total > cap { print $3 }' |
+            xargs -r rm -f
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
