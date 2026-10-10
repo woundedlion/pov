@@ -66,10 +66,11 @@ private:
 #ifndef NDEBUG
   ArenaBlockStamp stamp; /**< Arena state when the block was allocated. */
   /**
-   * @brief Per-vector counter bumped on every bind(), including storage reuse.
-   * @details A bind resets the element count and can replace the backing block
-   * without changing the arena generation. This counter invalidates spans
-   * captured before either path.
+   * @brief Per-vector counter bumped on every bind() (including storage reuse)
+   * and every clear().
+   * @details A bind or clear resets the element count, and a bind can replace
+   * the backing block, without changing the arena generation. This counter
+   * invalidates spans captured before any of these paths.
    */
   uint32_t rebind_generation = 0;
 
@@ -176,7 +177,7 @@ public:
 
 #ifndef NDEBUG
   /**
-   * @brief Allocation/reuse generation for debug lifetime diagnostics.
+   * @brief Bind/reuse/clear generation for debug lifetime diagnostics.
    * @return Current generation.
    */
   uint32_t debug_binding_generation() const { return rebind_generation; }
