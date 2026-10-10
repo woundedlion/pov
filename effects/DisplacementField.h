@@ -64,13 +64,7 @@ public:
     ball_cv = persistent_arena.allocate_n<float>(MAX_BALLS);
     ball_rho = persistent_arena.allocate_n<float>(MAX_BALLS);
     ball_azimuth = persistent_arena.allocate_n<float>(MAX_BALLS);
-    shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
-    // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
-    hue_pool = persistent_arena.make_n<Pixel>(RING_SLOTS * (W + 1));
-    slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
-    slot_lut_nf = persistent_arena.allocate_n<float>(RING_SLOTS);
-    slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
-    shape_storage = persistent_arena.make<ShapeStorage>();
+    rings.init_storage(persistent_arena);
     candidates = persistent_arena.allocate_n<CandidateTable>(1);
     octave1 = persistent_arena.allocate_n<float>(W + 1);
     octave2 = persistent_arena.allocate_n<float>(W + 1);
@@ -285,10 +279,7 @@ private:
     const float noise_feature =
         noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
 
-    const ShapeView shapes{shape_storage};
-    int n_slots = 0;
-    for (int i = 0; i < n_rings; ++i)
-      slot_by_ring[i] = -1;
+    rings.begin_frame();
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
@@ -314,8 +305,9 @@ private:
           palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
       HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
-      float *slut = shift_pool + n_slots * (W + 1);
-      Pixel *hlut = hue_pool + n_slots * (W + 1);
+      const typename RingPool::Pending rows = rings.next();
+      float *slut = rows.shift_row;
+      Pixel *hlut = rows.hue_row;
 
       int lut_n;
       if (band + noise_bound <= 0.0f) {
@@ -420,37 +412,28 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      ::new (static_cast<void *>(&(*shape_storage)[n_slots].ring))
-          SDF::DistortedRing(basis, radius, params.thickness, slut, lut_n, 0.0f,
-                             nullptr);
-      slot_lut_nf[n_slots] = static_cast<float>(lut_n);
-      slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
-      slot_by_ring[i] = static_cast<int8_t>(n_slots);
-      ++n_slots;
+      rings.commit(i, ring_color.alpha * opacity * params.alpha, lut_n, basis,
+                   radius, params.thickness, slut, lut_n, 0.0f, nullptr);
     }
 
-    if (n_slots == 0)
+    if (rings.size() == 0)
       return;
 
     // v2 is the stroke coverage the scan applies again on plot, so the ring
     // edge ramps as coverage squared. The stack hands v0 over in [0, 1).
     auto ring_shader = [this](int s, const math::Vector &, Fragment &f) {
-      const Pixel *hue = hue_pool + s * (W + 1);
-      float x = f.v0 * slot_lut_nf[s];
+      const Pixel *hue = rings.hue_row(s);
+      float x = f.v0 * rings.lut_columns(s);
       int j = static_cast<int>(x);
       f.color = Color4(
           hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
-          slot_frag_alpha[s] * f.v2);
+          rings.frag_alpha(s) * f.v2);
     };
     HS_PROFILE(df_fused_scan);
-    Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
-                                         slot_by_ring, n_slots, *candidates,
-                                         ring_shader);
-
-    // The device ScalarFn's inplace_function member is not trivially destructible;
-    // placement-built shapes must be destroyed before the storage is reused.
-    for (int s = 0; s < n_slots; ++s)
-      shapes[s].~DistortedRing();
+    Scan::DistortedRingStack::draw<W, H>(
+        filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
+        rings.size(), *candidates, ring_shader);
+    rings.release();
   }
 
   /**
@@ -811,33 +794,142 @@ private:
       0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   static constexpr int RING_SLOTS = std::min(
       72, H); /**< Baked-ring pool capacity and Rings slider maximum. */
-  static_assert(RING_SLOTS <= INT8_MAX,
-                "slot_by_ring is int8_t with -1 as the culled sentinel; a "
-                "larger pool wraps slot indices negative");
-  float *shift_pool =
-      nullptr; /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
-  Pixel *hue_pool =
-      nullptr; /**< RING_SLOTS x (W + 1) pooled hue-rotated ring colors, aligned with shift_pool. */
-  float *slot_frag_alpha =
-      nullptr; /**< Per-slot fragment alpha (ring alpha x sprite fade x Alpha slider). */
-  float *slot_lut_nf = nullptr; /**< Per-slot bake column count. */
-  int8_t *slot_by_ring =
-      nullptr; /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
-  union RingSlot {
-    char empty;
-    SDF::DistortedRing ring;
-    RingSlot() : empty{} {}
-    ~RingSlot() {}
-  };
-  static_assert(sizeof(RingSlot) == sizeof(SDF::DistortedRing));
-  using ShapeStorage = std::array<RingSlot, RING_SLOTS>;
-  struct ShapeView {
-    ShapeStorage *storage;
-    SDF::DistortedRing &operator[](size_t index) const {
-      return (*storage)[index].ring;
+
+  /**
+   * @brief The frame's drawn rings: placement-built DistortedRings with their
+   * shift and hue rows, shading values and the ring-to-slot map.
+   * @details A frame runs begin_frame(), then next() and commit() per drawn
+   * ring, then release(). next() changes no state, so a ring abandoned after
+   * its bake costs nothing; only commit() constructs a ring and counts it.
+   */
+  class RingPool {
+    union RingSlot {
+      char empty;
+      SDF::DistortedRing ring;
+      RingSlot() : empty{} {}
+      ~RingSlot() {}
+    };
+    static_assert(sizeof(RingSlot) == sizeof(SDF::DistortedRing));
+
+  public:
+    static constexpr int SLOTS = RING_SLOTS; /**< Slot capacity. */
+    static constexpr int ROW = W + 1;    /**< Entries per shift or hue row. */
+    static constexpr int8_t CULLED = -1; /**< slot_of() for an undrawn ring. */
+    static_assert(SLOTS <= INT8_MAX,
+                  "the ring-to-slot map is int8_t with CULLED = -1; a larger "
+                  "pool wraps slot indices negative");
+    using ShapeStorage = std::array<RingSlot, SLOTS>; /**< Ring storage. */
+
+    /** @brief The rows of the next free slot. */
+    struct Pending {
+      float *shift_row; /**< ROW centerline shifts; entry lut_n repeats entry
+                           0 to close the polyline. */
+      Pixel *hue_row;   /**< ROW hue-rotated ring colors. */
+    };
+
+    /** @brief Constructed rings indexed by slot. */
+    struct ShapeView {
+      ShapeStorage *storage;
+      SDF::DistortedRing &operator[](size_t index) const {
+        return (*storage)[index].ring;
+      }
+    };
+
+    /** @brief Allocates the slots from @p arena; hue rows start zeroed. */
+    HS_COLD_MEMBER void init_storage(Arena &arena) {
+      shift_rows = arena.allocate_n<float>(SLOTS * ROW);
+      // Zeroed, not raw: a culled azimuth chunk leaves its columns unbaked.
+      hue_rows = arena.make_n<Pixel>(SLOTS * ROW);
+      alphas = arena.allocate_n<float>(SLOTS);
+      columns = arena.allocate_n<float>(SLOTS);
+      slot_by_ring = arena.allocate_n<int8_t>(SLOTS);
+      storage = arena.make<ShapeStorage>();
     }
+
+    /** @brief Starts a frame with every ring culled; the pool must be empty. */
+    void begin_frame() {
+      HS_CHECK(size() == 0,
+               "DisplacementField: ring pool begins a frame with live rings");
+      for (int i = 0; i < SLOTS; ++i)
+        slot_by_ring[i] = CULLED;
+    }
+
+    /** @brief The next free slot's rows; repeated calls return the same rows. */
+    __attribute__((always_inline)) Pending next() const {
+      HS_CHECK(count < SLOTS, "DisplacementField: ring pool is full");
+      return {shift_rows + count * ROW, hue_rows + count * ROW};
+    }
+
+    /**
+     * @brief Constructs a ring in the slot next() returned and maps @p ring
+     * to it; the pool must not be full.
+     * @param ring Ring index in the stack.
+     * @param frag_alpha Fragment alpha the shader applies to the ring.
+     * @param lut_n Bake columns in the slot's rows.
+     * @param ring_args DistortedRing constructor arguments.
+     */
+    template <typename... RingArgs>
+    __attribute__((always_inline)) void
+    commit(int ring, float frag_alpha, int lut_n, RingArgs &&...ring_args) {
+      assert(count < SLOTS && "DisplacementField: ring pool is full");
+      const int s = count;
+      ::new (static_cast<void *>(&(*storage)[s].ring))
+          SDF::DistortedRing(std::forward<RingArgs>(ring_args)...);
+      columns[s] = static_cast<float>(lut_n);
+      alphas[s] = frag_alpha;
+      slot_by_ring[ring] = static_cast<int8_t>(s);
+      count = s + 1;
+    }
+
+    /**
+     * @brief Destroys every committed ring and empties the pool.
+     * @details The device ScalarFn member is not trivially destructible.
+     */
+    void release() {
+      for (int s = 0; s < count; ++s) {
+        (*storage)[s].ring.~DistortedRing();
+#if HS_ENABLE_TEST_HOOKS
+        ++destroyed;
+#endif
+      }
+      count = 0;
+    }
+
+    /** @brief Committed rings this frame. */
+    int size() const { return count; }
+    /** @brief Slot of @p ring, or CULLED. */
+    int8_t slot_of(int ring) const { return slot_by_ring[ring]; }
+    /** @brief The ring-to-slot map, SLOTS entries. */
+    const int8_t *slot_map() const { return slot_by_ring; }
+    /** @brief The committed rings. */
+    ShapeView shapes() const { return {storage}; }
+    /** @brief Hue row of slot @p s. */
+    __attribute__((always_inline)) const Pixel *hue_row(int s) const {
+      return hue_rows + s * ROW;
+    }
+    /** @brief Bake column count of slot @p s. */
+    __attribute__((always_inline)) float lut_columns(int s) const {
+      return columns[s];
+    }
+    /** @brief Fragment alpha of slot @p s. */
+    __attribute__((always_inline)) float frag_alpha(int s) const {
+      return alphas[s];
+    }
+
+  private:
+    float *shift_rows = nullptr;     /**< SLOTS shift rows. */
+    Pixel *hue_rows = nullptr;       /**< SLOTS hue rows. */
+    float *alphas = nullptr;         /**< Per-slot fragment alpha. */
+    float *columns = nullptr;        /**< Per-slot bake column count. */
+    int8_t *slot_by_ring = nullptr;  /**< Ring index to slot, or CULLED. */
+    ShapeStorage *storage = nullptr; /**< Placement storage for the rings. */
+    int count = 0;                   /**< Committed rings. */
+#if HS_ENABLE_TEST_HOOKS
+  public:
+    int destroyed = 0; /**< Rings release() has destroyed. */
+#endif
   };
-  ShapeStorage *shape_storage = nullptr;
+  RingPool rings; /**< Rings drawn this frame. */
   using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
   CandidateTable *candidates =
       nullptr; /**< Fused scan's per-frame ring candidate map. */
@@ -1028,8 +1120,9 @@ private:
       (sizeof(typename decltype(noise_field)::Entity) + sizeof(int)) +
       13 * alignof(float) + 2 * alignof(Pixel) + 3 * alignof(int) +
       2 * alignof(uint8_t) + alignof(int8_t) + alignof(math::Vector) +
-      alignof(const Animation::BumpParams *) + alignof(ShapeStorage) +
-      alignof(CandidateTable) + alignof(typename decltype(balls)::Entity) +
+      alignof(const Animation::BumpParams *) +
+      alignof(typename RingPool::ShapeStorage) + alignof(CandidateTable) +
+      alignof(typename decltype(balls)::Entity) +
       alignof(typename decltype(noise_field)::Entity);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "
