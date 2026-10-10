@@ -5,6 +5,10 @@
 
 // Included by core/render/plot/cull.h.
 
+/** @file samplers.h
+ * @brief Planar and geodesic edge samplers and their per-edge setup.
+ */
+
 // --- Strategy Helpers ---
 
 /**
@@ -57,8 +61,8 @@ static inline math::Vector azimuthal_unproject(float Px, float Py,
  * at the sample; zero for a degenerate edge.
  */
 struct SamplePT {
-  math::Vector pos;
-  math::Vector tan;
+  math::Vector pos; ///< Sphere position.
+  math::Vector tan; ///< Unit arc-length tangent, or zero.
 };
 
 /**
@@ -73,6 +77,7 @@ static inline math::Vector newton_unit(const math::Vector &v) {
   return v * (1.5f - 0.5f * norm2);
 }
 
+/// Chart intervals in a planar edge's cumulative-arc table.
 constexpr int PLANAR_LEN_SAMPLES = 4;
 
 /**
@@ -82,6 +87,11 @@ constexpr int PLANAR_LEN_SAMPLES = 4;
  * @details arc_cumul[0] = 0; arc_cumul.back() is the PLANAR_LEN_SAMPLES-chord sum,
  * an arc-length estimate. Trig and angle approximations prevent a guaranteed
  * one-sided error bound, even on radial edges.
+ * @param proj Projection of the edge start.
+ * @param dx Projected chord x-component.
+ * @param dy Projected chord y-component.
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ * @param arc_cumul Receives the cumulative lengths, in radians.
  */
 static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
@@ -115,13 +125,18 @@ struct PlanarEdgeSampler {
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   float dist; /**< Sampled on-sphere edge length (radians). */
 
-  /** @brief Maps normalized arc distance to normalized chart distance. */
+  /** @brief Maps normalized arc distance to normalized chart distance.
+   *  @param s Arc fraction in [0,1].
+   *  @return Projection fraction in [0,1]. */
   float projection_fraction(float s) const {
     int interval = 0;
     return projection_fraction_monotonic(s, interval);
   }
 
-  /** @brief Maps increasing arc fractions without rescanning prior intervals. */
+  /** @brief Maps increasing arc fractions without rescanning prior intervals.
+   *  @param s Arc fraction in [0,1], not below the previous call's.
+   *  @param interval Table interval cursor; start at 0, advanced in place.
+   *  @return Projection fraction in [0,1]. */
   float projection_fraction_monotonic(float s, int &interval) const {
     if (dist < math::EPS_GEOMETRIC)
       return s;
@@ -140,6 +155,8 @@ struct PlanarEdgeSampler {
    * @brief Unprojects the chart line at PROJECTION fraction p in [0,1].
    * @details Projection-uniform, so not arc-uniform under the anisotropic
    * metric; pos() maps an arc fraction onto it.
+   * @param p Projection fraction.
+   * @return Near-unit sphere point.
    */
   math::Vector unproject(float p) const {
     return azimuthal_unproject(proj1.first + dx * p, proj1.second + dy * p,
@@ -151,6 +168,8 @@ struct PlanarEdgeSampler {
    *        analytic tangent when `WithTangent`.
    * @tparam WithTangent Also derive and normalize the tangent; the position-only
    *         instantiation discards the rate terms before they are computed.
+   * @param p Projection fraction.
+   * @return Position, and unit tangent or zero when `WithTangent`.
    */
   template <bool WithTangent>
   __attribute__((always_inline)) SamplePT sample_at(float p) const {
@@ -195,29 +214,47 @@ struct PlanarEdgeSampler {
    * @brief Position at arc fraction s in [0,1].
    * @details Inverts the piecewise-linear cumulative-arc table to a projection
    * parameter, then unprojects.
+   * @param s Arc fraction.
+   * @return Near-unit sphere point.
    */
   math::Vector pos(float s) const { return unproject(projection_fraction(s)); }
 
-  /** @brief Evaluates position and analytic tangent without a second unproject. */
+  /** @brief Evaluates position and analytic tangent without a second
+   *  unproject.
+   *  @param s Arc fraction in [0,1].
+   *  @return Position and unit tangent. */
   HS_FLASH_MEMBER SamplePT one_pass(float s) const {
     return sample_at<true>(projection_fraction(s));
   }
 
-  /** @brief Evaluates an increasing sequence without rescanning arc intervals. */
+  /** @brief Evaluates an increasing sequence without rescanning arc intervals.
+   *  @param s Arc fraction in [0,1], not below the previous call's.
+   *  @param interval Table interval cursor; start at 0, advanced in place.
+   *  @return Position and unit tangent. */
   SamplePT one_pass_monotonic(float s, int &interval) const {
     return sample_at<true>(projection_fraction_monotonic(s, interval));
   }
 
-  /** @brief Evaluates only position for an increasing sample sequence. */
+  /** @brief Evaluates only position for an increasing sample sequence.
+   *  @param s Arc fraction in [0,1], not below the previous call's.
+   *  @param interval Table interval cursor; start at 0, advanced in place.
+   *  @return Near-unit sphere point. */
   math::Vector position_monotonic(float s, int &interval) const {
     return sample_at<false>(projection_fraction_monotonic(s, interval)).pos;
   }
 
-  /** @brief Position and unit tangent at arc fraction s in [0,1]. */
+  /** @brief Position and unit tangent at arc fraction s in [0,1].
+   *  @param s Arc fraction.
+   *  @return Position and unit tangent. */
   SamplePT operator()(float s) const { return one_pass(s); }
 };
 
-/** @brief Builds the reusable arc sampler for one planar edge. */
+/** @brief Builds the reusable arc sampler for one planar edge.
+ *  @param a Edge start (unit sphere point).
+ *  @param b Edge end (unit sphere point).
+ *  @param planar_basis Azimuthal-equidistant projection basis; must outlive
+ *  the sampler.
+ *  @return The edge sampler. */
 static inline PlanarEdgeSampler
 make_planar_edge_sampler(const math::Vector &a, const math::Vector &b,
                          const math::Basis &planar_basis) {
@@ -266,6 +303,10 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
  * @details Sums the same planar_arc_cumul lengths the planar sampler walks.
  * Trig and angle approximations prevent a guaranteed one-sided error bound,
  * even on radial edges.
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ * @return Length estimate, in radians.
  */
 static inline float planar_arc_length(const math::Vector &a,
                                       const math::Vector &b,
@@ -306,7 +347,11 @@ static inline math::Basis planar_chart_basis(const math::Vector &center) {
 struct DegenerateEdgeSampler {
   math::Vector p; /**< The collapsed edge's single position. */
 
+  /** @brief The collapsed position, for any arc fraction.
+   *  @return The single position. */
   math::Vector pos(float) const { return p; }
+  /** @brief The collapsed position with a zero tangent.
+   *  @return Position and zero tangent. */
   SamplePT operator()(float) const { return {p, math::Vector()}; }
 };
 
@@ -323,14 +368,18 @@ struct GeodesicEdgeSampler {
   math::Vector v_perp; /**< Unit vector perpendicular to v1 in the arc plane. */
   float total_dist;    /**< The edge's on-sphere length (radians). */
 
-  /** @brief Position at arc fraction t in [0,1]. */
+  /** @brief Position at arc fraction t in [0,1].
+   *  @param t Arc fraction.
+   *  @return Near-unit sphere point. */
   math::Vector pos(float t) const {
     float s, c;
     math::fast_sincosf_0_pi(total_dist * t, s, c);
     return (v1 * c) + (v_perp * s);
   }
 
-  /** @brief Near-unit position and tangent at arc fraction t in [0,1]. */
+  /** @brief Near-unit position and tangent at arc fraction t in [0,1].
+   *  @param t Arc fraction.
+   *  @return Position and tangent. */
   SamplePT operator()(float t) const {
     float s, c;
     math::fast_sincosf_0_pi(total_dist * t, s, c);
@@ -362,6 +411,7 @@ inline uint32_t g_geodesic_edge_span_builds = 0;
  * @brief Computes the shared geodesic edge setup once per edge.
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
+ * @return The edge's span setup.
  */
 static __attribute__((always_inline)) inline GeodesicEdgeSpan
 make_geodesic_edge_span(const math::Vector &a, const math::Vector &b) {
@@ -426,6 +476,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 }
 HS_O3_END
 
+/// Chart intervals a planar edge is sampled at for its span bounds.
 constexpr int PLANAR_SPAN_SAMPLES = 8;
 
 // make_planar_edge_sampler(span) reads the arc table from the span's interior
@@ -444,6 +495,7 @@ struct PlanarEdgeSpan {
   float dX;                   /**< Projected chord x-component. */
   float dY;                   /**< Projected chord y-component. */
   float gap_arc;              /**< Bound on each inter-sample arc length. */
+  /** Unprojected interior chart samples, endpoints excluded. */
   std::array<math::Vector, PLANAR_SPAN_SAMPLES - 1> interior;
 };
 
@@ -452,6 +504,7 @@ struct PlanarEdgeSpan {
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
  * @param planar_basis Azimuthal-equidistant projection basis.
+ * @return The edge's span setup.
  */
 static inline PlanarEdgeSpan
 make_planar_edge_span(const math::Vector &a, const math::Vector &b,
@@ -477,6 +530,7 @@ make_planar_edge_span(const math::Vector &a, const math::Vector &b,
  * @param span Planar cull setup whose interior samples cover eighth points.
  * @param end Unprojected edge endpoint from planar_col_span().
  * @param planar_basis Azimuthal-equidistant projection basis.
+ * @return The edge sampler.
  */
 static inline PlanarEdgeSampler
 make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,

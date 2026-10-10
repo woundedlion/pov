@@ -27,18 +27,20 @@ namespace Plot {
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H> struct ClipBand {
-  float row_lo = 0.0f;
-  float row_hi = 0.0f;
-  float x_center = 0.0f;
-  float x_half = 0.0f;
-  bool x_active = false;
+  float row_lo = 0.0f;   ///< Lowest row, one above the render region.
+  float row_hi = 0.0f;   ///< Exclusive end row of the render region.
+  float x_center = 0.0f; ///< Band centre column, unwrapped past W.
+  float x_half = 0.0f;   ///< Band half-width in columns.
+  bool x_active = false; ///< Whether the clip limits columns.
 
   /** @brief Rows and columns a splat and the fast-trig pixel map reach past a
    *  bound. */
   static constexpr float PAD = 2.0f;
 
   /** @brief The band a sample must splat into to touch @p clip's render
-   *  region. */
+   *  region.
+   *  @param clip Clip region to cover.
+   *  @return The band for @p clip. */
   HS_FLASH_MEMBER static ClipBand of(const ClipRegion &clip) {
     ClipBand band;
     const ClipRegion::XClip x_clip = clip.x_clip();
@@ -59,6 +61,7 @@ template <int W, int H> struct ClipBand {
    * @param pa Pixel coordinates of the piece's start.
    * @param pb Pixel coordinates of the piece's end.
    * @param arc The piece's chart length, in radians.
+   * @return False only when the piece cannot touch the band.
    * @details The azimuthal-equidistant chart-to-sphere map is 1-Lipschitz, so
    * every point of the piece lies within colatitude (phi_a + phi_b +- arc) / 2
    * and, above the smallest colatitude sine, longitude (lambda_a + lambda_b) /
@@ -108,17 +111,24 @@ template <int W, int H> struct ClipBand {
  */
 template <int W, int H> class PlanarBandSplit {
 public:
-  /** @brief Arena bytes init_storage() takes for up to @p max_points points. */
+  /** @brief Arena bytes init_storage() takes for up to @p max_points points.
+   *  @param max_points Point capacity.
+   *  @return Byte count. */
   static constexpr size_t storage_bytes(int max_points) {
     return static_cast<size_t>(max_points) + alignof(uint8_t);
   }
 
-  /** @brief Most points split() emits for @p edges edges of @p pieces each. */
+  /** @brief Most points split() emits for @p edges edges of @p pieces each.
+   *  @param edges Input edge count.
+   *  @param pieces Pieces per edge.
+   *  @return Point count. */
   static constexpr int max_points(int edges, int pieces) {
     return edges * pieces + 1;
   }
 
-  /** @brief Binds flag storage for polylines of up to @p max_points points. */
+  /** @brief Binds flag storage for polylines of up to @p max_points points.
+   *  @param arena Arena the flags are allocated from.
+   *  @param max_points Point capacity; at least 2. */
   HS_COLD_MEMBER void init_storage(Arena &arena, int max_points) {
     HS_CHECK(max_points >= 2, "PlanarBandSplit: max_points %d < 2", max_points);
     capacity = max_points;
@@ -246,6 +256,8 @@ public:
   /**
    * @brief Arena bytes init_storage() takes for polylines of up to
    *        @p max_vertices vertices.
+   * @param max_vertices Vertex capacity.
+   * @return Byte count.
    */
   static constexpr size_t storage_bytes(int max_vertices) {
     return static_cast<size_t>(max_vertices + 1) *
@@ -255,7 +267,8 @@ public:
            PlanarBandSplit<W, H>::storage_bytes(POLE_RUN_POINTS);
   }
 
-  /** @brief Peak transient bytes used by rasterize_run(). */
+  /** @brief Peak transient bytes used by rasterize_run().
+   *  @return Byte count. */
   static constexpr size_t scratch_a_bytes() {
     static_assert(PLANAR_CHORD_RASTER_CONFIG.single_pass &&
                   !PLANAR_CHORD_RASTER_CONFIG.derive_planar_arc_registers);
@@ -263,7 +276,9 @@ public:
   }
 
   /** @brief Binds chart and scratch storage for up to @p max_vertices
-   *  vertices. */
+   *  vertices.
+   *  @param arena Arena the storage is allocated from.
+   *  @param max_vertices Vertex capacity; at least 1. */
   HS_COLD_MEMBER void init_storage(Arena &arena, int max_vertices) {
     HS_CHECK(max_vertices >= 1, "PlanarChords: max_vertices %d < 1",
              max_vertices);
@@ -275,12 +290,15 @@ public:
     pole_split.init_storage(arena, POLE_RUN_POINTS);
   }
 
-  /** @brief Chart x coordinates of the next polyline, one per vertex. */
+  /** @brief Chart x coordinates of the next polyline, one per vertex.
+   *  @return Writable array. */
   float *chart_x() { return chart_x_storage; }
-  /** @brief Chart y coordinates of the next polyline, one per vertex. */
+  /** @brief Chart y coordinates of the next polyline, one per vertex.
+   *  @return Writable array. */
   float *chart_y() { return chart_y_storage; }
 
-  /** @brief Captures the frame's clip band; call once per frame. */
+  /** @brief Captures the frame's clip band; call once per frame.
+   *  @param clip The frame's clip region. */
   void prepare(const ClipRegion &clip) {
     band = ClipBand<W, H>::of(clip);
     clip_stamp = clip;
