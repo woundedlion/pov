@@ -148,8 +148,6 @@ inline constexpr int SETTLE_FRAMES = 12;
 
 /** Snub-dodecahedron cosmetic sweep twist. */
 inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
-/** Tetra -> icosa bridge snub twist; relax canonicalizes any value. */
-inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
 /** Live relax iteration cap at a settling edge's to_node end. */
 inline constexpr int SETTLE_RELAX_ITERATIONS = 50;
 
@@ -234,8 +232,9 @@ inline constexpr EdgeSpec EDGES[] = {
      0.0f, false, Reseed::ADOPT, true},
     {TRUNCATED_TETRAHEDRON, OCTAHEDRON, TETRAHEDRON, MorphOp::TRUNCATE,
      Solids::T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::ADOPT, true},
-    {TETRAHEDRON, ICOSAHEDRON, TETRAHEDRON, MorphOp::SNUB, 0.0f, 0.5f, 0.0f,
-     SNUB_BRIDGE_TWIST, true, Reseed::ADOPT, true},
+    {TETRAHEDRON, ICOSAHEDRON, TETRAHEDRON, MorphOp::SNUB, 0.0f,
+     T_JITTERBUG_ICOSA, 0.0f, TWIST_JITTERBUG_ICOSA, false, Reseed::ADOPT,
+     true},
     // Jitterbug bridge: a snub sweep between two interior parameter points,
     // the exact regular icosahedron and the pairwise-merged octahedron.
     {ICOSAHEDRON, OCTAHEDRON, TETRAHEDRON, MorphOp::SNUB, T_JITTERBUG_ICOSA,
