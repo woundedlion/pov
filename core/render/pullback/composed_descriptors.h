@@ -19,21 +19,35 @@ constexpr std::string_view warp_speed_name(std::string_view key) {
 template <typename T> struct IsSampleStage : std::false_type {};
 template <typename S, typename W, typename C>
 struct IsSampleStage<Stage::Sample<S, W, C>> : std::true_type {};
+/**
+ * @brief The `ProjectionCoverageMode` a `ProjectionCoverage` policy implements.
+ * @tparam T Coverage policy type.
+ */
 template <typename T> struct ProjectionCoverageModeOf {
+  /** Out-of-range sentinel: @p T is not a known coverage policy. */
   static constexpr auto VALUE = static_cast<ProjectionCoverageMode>(255);
 };
+/** @brief `ProjectionCoverage::None` is `NONE`. */
 template <> struct ProjectionCoverageModeOf<ProjectionCoverage::None> {
-  static constexpr auto VALUE = ProjectionCoverageMode::NONE;
+  static constexpr auto VALUE = ProjectionCoverageMode::NONE; ///< The mode.
 };
+/** @brief `ProjectionCoverage::Weight` is `WEIGHT`. */
 template <> struct ProjectionCoverageModeOf<ProjectionCoverage::Weight> {
-  static constexpr auto VALUE = ProjectionCoverageMode::WEIGHT;
+  static constexpr auto VALUE = ProjectionCoverageMode::WEIGHT; ///< The mode.
 };
+/** @brief `ProjectionCoverage::WeightSquared` is `WEIGHT_SQUARED`. */
 template <> struct ProjectionCoverageModeOf<ProjectionCoverage::WeightSquared> {
-  static constexpr auto VALUE = ProjectionCoverageMode::WEIGHT_SQUARED;
+  static constexpr auto VALUE =
+      ProjectionCoverageMode::WEIGHT_SQUARED; ///< The mode.
 };
+/**
+ * @brief `ProjectionCoverage::EdgeFade` is `EDGE_FADE`.
+ * @tparam P Edge-width provider.
+ */
 template <typename P>
 struct ProjectionCoverageModeOf<ProjectionCoverage::EdgeFade<P>> {
-  static constexpr auto VALUE = ProjectionCoverageMode::EDGE_FADE;
+  static constexpr auto VALUE =
+      ProjectionCoverageMode::EDGE_FADE; ///< The mode.
 };
 
 template <typename T> struct IsLensStage : std::false_type {};
@@ -92,14 +106,26 @@ struct PathTracked<Surface::DirectNoise<Provider, Basis>>
 template <typename Stage>
 struct StagePathTracked : PathTracked<typename Stage::Policies> {};
 
+/**
+ * @brief Checks of a Spec's metadata fields against its pipeline.
+ * @tparam Spec The effect's `Pullback::Spec`.
+ * @tparam Binding Frame binding of the effect.
+ * @tparam Pipeline The pipeline the Spec declares for @p Binding.
+ */
 template <typename Spec, typename Binding, typename Pipeline>
 struct PipelineMetadata {
+  /** Whether any stage's warp or surface provider tracks path length. */
   static constexpr bool PATH_TRACKED =
       Pipeline::template any_stage<StagePathTracked>;
+  /// The pipeline's `Stage::Lens`, or void when it has none.
   using LensStage = typename Pipeline::template stage_matching<IsLensStage>;
+  /// The pipeline's `Stage::Project`, or void when it has none.
   using ProjectStage =
       typename Pipeline::template stage_matching<IsProjectStage>;
+  /// The pipeline's `Stage::Sample`, or void when it has none.
   using SampleStage = typename Pipeline::template stage_matching<IsSampleStage>;
+  /** Whether `Spec::COVERAGE` names the Sample stage's coverage policy
+      (`NONE` without a Sample stage). */
   static constexpr bool COVERAGE_MATCHES = [] {
     if constexpr (std::is_void_v<SampleStage>)
       return Spec::COVERAGE == ProjectionCoverageMode::NONE;
@@ -107,6 +133,8 @@ struct PipelineMetadata {
       return ProjectionCoverageModeOf<
                  typename SampleStage::CoveragePolicy>::VALUE == Spec::COVERAGE;
   }();
+  /** Whether `Spec::LensPolicy` is the lens stage's policy, or void for no
+      lens or a Mobius lens. */
   static constexpr bool LENS_MATCHES = [] {
     if constexpr (std::is_void_v<LensStage>)
       return std::is_void_v<typename Spec::LensPolicy>;
@@ -116,6 +144,8 @@ struct PipelineMetadata {
       return std::is_same_v<typename LensStage::LensPolicy,
                             typename Spec::LensPolicy>;
   }();
+  /** Whether the Project stage uses the `Spec::PROJECTION` policy; false
+      without a Project stage. */
   static constexpr bool PROJECTION_MATCHES = [] {
     if constexpr (std::is_void_v<ProjectStage>)
       return false;
@@ -124,6 +154,8 @@ struct PipelineMetadata {
           typename ProjectStage::ProjectionPolicy,
           typename ProjectionPolicyFor<Spec::PROJECTION, Binding>::Type>;
   }();
+  /** Whether the surface and lens stage order agrees with
+      `Spec::SURFACE_PLACEMENT`; true unless both stages are present. */
   static constexpr bool SURFACE_PLACEMENT_MATCHES = [] {
     constexpr size_t SURFACE = stage_index<Pipeline, IsSurfaceStage>();
     constexpr size_t LENS = stage_index<Pipeline, IsLensStage>();
@@ -136,6 +168,8 @@ struct PipelineMetadata {
   }();
 };
 
+/** @brief The outer camera reads the "projection" family. @tparam B Frame
+    binding. */
 template <typename B> struct PolicyResources<OuterCameraProvider<B>> {
   using Type = ResourceList<ParameterResource<"projection", ProjectionParams,
                                               ResourceKind::PROJECTION>>;
@@ -143,31 +177,69 @@ template <typename B> struct PolicyResources<OuterCameraProvider<B>> {
 template <typename B>
 struct PolicyResources<ProjectionProvider<B>>
     : PolicyResources<OuterCameraProvider<B>> {};
+/**
+ * @brief A lens provider declares a Mobius lens family under @p Key.
+ * @tparam B Frame binding.
+ * @tparam Key Parameter resource key.
+ */
 template <typename B, ResourceKey Key>
 struct PolicyResources<LensProvider<B, Key>> {
   using Type = ResourceList<
       ParameterResource<Key, MobiusLensParams, ResourceKind::LENS>>;
 };
+/**
+ * @brief A warp provider declares its warp family under @p Key.
+ * @tparam B Frame binding.
+ * @tparam Key Parameter resource key.
+ * @tparam Family Warp parameter family.
+ * @tparam Track Whether path length is tracked.
+ * @tparam SourceKey Resource key of the source the warp reads.
+ */
 template <typename B, ResourceKey Key, typename Family, bool Track,
           ResourceKey SourceKey>
 struct PolicyResources<WarpProvider<B, Key, Family, Track, SourceKey>> {
   using Type = ResourceList<ParameterResource<Key, Family, ResourceKind::WARP>>;
 };
+/**
+ * @brief A surface provider declares its surface family under @p Key.
+ * @tparam B Frame binding.
+ * @tparam Family Surface parameter family.
+ * @tparam Track Whether path length is tracked.
+ * @tparam Key Parameter resource key.
+ */
 template <typename B, typename Family, bool Track, ResourceKey Key>
 struct PolicyResources<SurfaceProvider<B, Family, Track, Key>> {
   using Type =
       ResourceList<ParameterResource<Key, Family, ResourceKind::SURFACE>>;
 };
+/**
+ * @brief A source provider declares its source family under @p Key.
+ * @tparam B Frame binding.
+ * @tparam Family Source parameter family.
+ * @tparam Key Parameter resource key.
+ */
 template <typename B, typename Family, ResourceKey Key>
 struct PolicyResources<SourceProvider<B, Family, Key>> {
   using Type =
       ResourceList<ParameterResource<Key, Family, ResourceKind::SOURCE>>;
 };
+/**
+ * @brief A value provider declares its value family under @p Key.
+ * @tparam B Frame binding.
+ * @tparam Family Value parameter family.
+ * @tparam Key Parameter resource key.
+ */
 template <typename B, typename Family, ResourceKey Key>
 struct PolicyResources<ValueProvider<B, Family, Key>> {
   using Type =
       ResourceList<ParameterResource<Key, Family, ResourceKind::VALUE>>;
 };
+/**
+ * @brief A colour provider declares the "color" family.
+ * @tparam B Frame binding.
+ * @tparam Hue Hue rotation mode.
+ * @tparam Brightness Brightness envelope.
+ */
 template <typename B, HueMode Hue, Color::BrightnessEnvelope Brightness>
 struct PolicyResources<ColorProvider<B, Hue, Brightness>> {
   using Type = ResourceList<

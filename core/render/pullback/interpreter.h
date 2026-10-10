@@ -24,10 +24,13 @@ namespace Pullback {
 
 namespace Interp {
 
+/** Most entries one chain may hold; longer requests refuse `TOO_LONG`. */
 inline constexpr size_t MAX_CHAIN_OPS = 32;
+/** Longest instance id, in bytes, excluding the NUL. */
 inline constexpr size_t MAX_INSTANCE_ID = 48;
 /** One arena's capacity — the exported budget; the engine holds two. */
 inline constexpr size_t CHAIN_ARENA_BYTES = 96 * 1024;
+/** Most schema fields across a whole chain; more refuse `PARAM_OVERFLOW`. */
 inline constexpr size_t MAX_CHAIN_PARAMS = 224;
 /** Fixed per-entry arena cost beyond the cataloged blocks: the instance-id
     copy reservation. */
@@ -42,37 +45,45 @@ inline constexpr size_t PER_PARAM_NAME_BYTES =
 
 namespace Detail {
 
+/** @brief Size and alignment of a slot that holds any carrier of @p List.
+    @tparam List `Pullback::Detail::TypeList` of carrier types. */
 template <typename List> struct SlotTraits;
+/** @brief Slot traits over a carrier pack.
+    @tparam Carriers Carrier types; each must be trivially destructible. */
 template <typename... Carriers>
 struct SlotTraits<Pullback::Detail::TypeList<Carriers...>> {
   static_assert((std::is_trivially_destructible_v<Carriers> && ...),
                 "chain interpreter: every canonical carrier must be trivially "
                 "destructible");
-  static constexpr size_t SIZE = std::max({sizeof(Carriers)...});
-  static constexpr size_t ALIGN = std::max({alignof(Carriers)...});
+  static constexpr size_t SIZE =
+      std::max({sizeof(Carriers)...}); ///< Largest carrier size, in bytes.
+  static constexpr size_t ALIGN =
+      std::max({alignof(Carriers)...}); ///< Strictest carrier alignment.
 };
 
 } // namespace Detail
 
 /** @brief Ping-pong slot ABI, derived from the closed carrier set. */
 inline constexpr size_t SLOT_SIZE = Detail::SlotTraits<CarrierList>::SIZE;
+/** @brief Ping-pong slot alignment, the strictest carrier alignment. */
 inline constexpr size_t SLOT_ALIGN = Detail::SlotTraits<CarrierList>::ALIGN;
 
+/** @brief Outcome of a chain compile; every value but `OK` is a refusal. */
 enum class ChainStatus : uint8_t {
-  OK,
-  NOT_CHAIN_EFFECT,
-  MALFORMED_PAYLOAD,
-  EMPTY,
-  TOO_LONG,
-  UNKNOWN_OPERATOR,
-  DUPLICATE_INSTANCE,
-  MALFORMED_INSTANCE,
-  ENTRY_FAMILY,
-  EXIT_FAMILY,
-  CARRIER_MISMATCH,
-  ARENA_OVERFLOW,
-  PARAM_OVERFLOW,
-  MIGRATE_FAILED
+  OK,                 ///< Compiled and committed.
+  NOT_CHAIN_EFFECT,   ///< The loaded effect has no chain program.
+  MALFORMED_PAYLOAD,  ///< The wire payload or its parameter values are invalid.
+  EMPTY,              ///< The chain has no entries.
+  TOO_LONG,           ///< More than `MAX_CHAIN_OPS` entries.
+  UNKNOWN_OPERATOR,   ///< An operator id is not in the operator table.
+  DUPLICATE_INSTANCE, ///< An instance id repeats.
+  MALFORMED_INSTANCE, ///< An instance id fails `instance_id_wellformed`.
+  ENTRY_FAMILY,       ///< The first entry does not take the sphere carrier.
+  EXIT_FAMILY,        ///< The last entry does not produce the colour carrier.
+  CARRIER_MISMATCH,   ///< An input differs from the previous output.
+  ARENA_OVERFLOW,     ///< The program does not fit one arena.
+  PARAM_OVERFLOW,     ///< More than `MAX_CHAIN_PARAMS` schema fields.
+  MIGRATE_FAILED      ///< A surviving instance's state failed to migrate.
 };
 
 /** @brief Wire spelling of @p status. */
@@ -113,8 +124,8 @@ inline const char *chain_status_name(ChainStatus status) {
 /** @brief Structured refusal: the code plus the offending entry index
     (-1 refuses the chain as a whole). */
 struct ChainRefusal {
-  ChainStatus code;
-  int16_t entry_index;
+  ChainStatus code;    ///< Refusal reason, or `OK`.
+  int16_t entry_index; ///< Offending entry, or -1 for the whole chain.
 };
 
 /** Every shipped schema field id must fit the fixed name reservation. */
@@ -131,8 +142,8 @@ static_assert(operator_schema_ids_fit_names(),
 /** @brief One wire chain entry; the views are caller-owned and only read
     during compile(). */
 struct ChainEntryRequest {
-  std::string_view instance_id;
-  std::string_view operator_id;
+  std::string_view instance_id; ///< Kebab-case id, unique within the chain.
+  std::string_view operator_id; ///< Operator table id to resolve.
 };
 
 /** @brief Whether @p id matches [a-z][a-z0-9]*(-[a-z0-9]+)* within the length
@@ -175,12 +186,14 @@ public:
 
   /** @brief One compiled entry; offsets index the owning side's block. */
   struct ChainOp {
-    const OperatorDescriptor *op;
-    const char *instance; /**< Copy in the owning arena. */
+    const OperatorDescriptor *op; ///< Resolved operator table entry.
+    const char *instance;         /**< Copy in the owning arena. */
+    /** `instance_hash` of the instance and operator ids; seeds instance
+        resources. */
     uint32_t stable_hash;
-    uint32_t param_offset;
-    uint32_t prepared_offset;
-    uint32_t state_offset;
+    uint32_t param_offset;    ///< Byte offset of the param block.
+    uint32_t prepared_offset; ///< Byte offset of the prepared block.
+    uint32_t state_offset;    ///< Byte offset of the instance state.
     uint32_t
         name_offset; /**< "{instance}.{field-id}" slots, PER_PARAM_NAME_BYTES
                                apart, one per schema field. */
@@ -414,6 +427,8 @@ public:
     return {sides[active].ops, sides[active].count};
   }
 
+  /** @brief Whether a program has been committed.
+      @return False before the first successful compile and after clear(). */
   bool compiled() const { return has_program; }
 
   /** @brief Bytes the committed program occupies in its arena. */
@@ -427,6 +442,9 @@ public:
         block_ptr(active, sides[active].ops[index].param_offset));
   }
 
+  /** @brief Read-only param block of entry @p index.
+      @param index Entry index in the committed program.
+      @return The block in the active arena. */
   const uint8_t *param_block(size_t index) const {
     return const_cast<ChainProgram *>(this)->param_block(index);
   }
@@ -563,6 +581,7 @@ private:
     sampler frequency, stays finite. */
 inline constexpr float MAX_PLANE_BOUND = 0x1p48f;
 
+/** User-facing message for a chain `plane_bound_overflow` rejects. */
 inline constexpr const char *PLANE_GROWTH_WARNING =
     "Combined plane warps can overflow: move affine scales toward 1, or lower "
     "affine shear or polar radial scale";
