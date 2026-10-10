@@ -27,7 +27,11 @@ __attribute__((always_inline)) inline uint16_t lerp_q16(uint16_t a, uint16_t b,
   return static_cast<uint16_t>((x + (x >> 16) + 32768u) >> 16);
 }
 
-/** @brief Rounds and saturates a linear-light channel to [0, 65535]. */
+/**
+ * @brief Rounds and saturates a linear-light channel to [0, 65535].
+ * @param value Linear-light channel in 16-bit units.
+ * @return Rounded, saturated channel.
+ */
 __attribute__((always_inline)) inline uint16_t
 round_linear_channel(float value) {
   return static_cast<uint16_t>(hs::clamp(value + 0.5f, 0.0f, 65535.0f));
@@ -212,6 +216,8 @@ __attribute__((always_inline)) inline uint16_t frac_to_q16(float frac) {
 
 /**
  * @brief The interpolatable pixel of a lookup-table entry.
+ * @param e Table entry.
+ * @return `e` itself.
  */
 __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
   return e;
@@ -296,6 +302,8 @@ struct Color4 {
 
 /**
  * @brief The interpolatable pixel of a lookup-table entry.
+ * @param e Table entry.
+ * @return The entry's color; alpha is dropped.
  */
 __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Color4 &e) {
   return e.color;

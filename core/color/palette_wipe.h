@@ -45,7 +45,10 @@ struct PaletteWipe {
       0; /**< Frames left to rebake the LUT for the in-flight wipe. */
   bool pending = false; /**< Armed this frame; it first steps next frame. */
 
-  /** @brief True while an armed wipe still has rebake frames left. */
+  /**
+   * @brief True while an armed wipe still has rebake frames left.
+   * @return Whether rebake frames remain.
+   */
   bool in_flight() const { return frames_remaining > 0; }
 
   /**

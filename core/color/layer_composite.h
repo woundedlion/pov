@@ -61,7 +61,10 @@ struct LayerComposite {
    */
   bool saturated() const { return remaining < MIN_ENCODABLE_ALPHA; }
 
-  /** @brief Un-premultiplied color and its accumulated alpha. */
+  /**
+   * @brief Un-premultiplied color and its accumulated alpha.
+   * @return Composite color; zero when nothing accumulated.
+   */
   Color4 finish() const {
     const float alpha = 1.0f - remaining;
     if (alpha <= 0.0f)
@@ -73,7 +76,10 @@ struct LayerComposite {
     return {color, alpha};
   }
 
-  /** @brief Accumulated color premultiplied by its alpha. */
+  /**
+   * @brief Accumulated color premultiplied by its alpha.
+   * @return Premultiplied color.
+   */
   __attribute__((always_inline)) Pixel premultiplied() const {
     return {round_linear_channel(red), round_linear_channel(green),
             round_linear_channel(blue)};

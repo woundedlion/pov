@@ -353,6 +353,7 @@ inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 /**
  * @brief Registration that drops the copy when the persistent arena is handed
  * out again (configure_arenas(), reset_persistent_arena()).
+ * @return The registration.
  */
 inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 
@@ -557,6 +558,9 @@ HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float h) {
  * @brief Returns a hue-smoothed, in-gamut chroma envelope.
  * @details The filtered value is capped by the center sample, so smoothing can
  * only move a color farther inside the gamut.
+ * @param L OKLab lightness, clamped to [0,1].
+ * @param h Hue in radians.
+ * @return Smoothed chroma boundary.
  */
 HS_FLASH_MEMBER inline float gamut_continuous_chroma(float L, float h) {
   constexpr float STEP_SIN = 0x1.415e54p-4f; // sinf(PI_F / 40.0f)
@@ -1050,7 +1054,11 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
   return gamut_scale_to_boundary_lut(lab, GAMUT_LUT_MASTER);
 }
 
-/** @brief Converts OKLab to linear RGB with tabulated gamut clipping. */
+/**
+ * @brief Converts OKLab to linear RGB with tabulated gamut clipping.
+ * @param lab Source color.
+ * @return In-gamut linear RGB.
+ */
 inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
   LinRGB output = oklab_to_linear_rgb(lab);
   if (!linear_rgb_in_gamut(output.r, output.g, output.b)) {

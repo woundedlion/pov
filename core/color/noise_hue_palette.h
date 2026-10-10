@@ -247,7 +247,14 @@ sample_hue_rotation_lut(const HueRotationLutView &view, float value,
   return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
 }
 
-/** @brief Bilinear noise tap in the hue LUT's face coordinates, u/v in [-1, 1]. */
+/**
+ * @brief Bilinear noise tap in the hue LUT's face coordinates.
+ * @param view Prepared hue-noise LUT.
+ * @param face Cube face index, [0, 6).
+ * @param u Face coordinate in [-1, 1].
+ * @param v Face coordinate in [-1, 1].
+ * @return Noise value in [-1, 1].
+ */
 __attribute__((always_inline)) inline float
 sample_hue_noise_face(const HueNoiseLutView &view, int face, float u, float v) {
   constexpr float SCALE =
@@ -318,12 +325,20 @@ template <typename Source> class NoiseHuePalette {
 public:
   NoiseHuePalette() = default;
 
-  /** @brief Binds a source for direct hue rotation and a shared noise field. */
+  /**
+   * @brief Binds a source for direct hue rotation and a shared noise field.
+   * @param source Non-null palette; must outlive this wrapper.
+   * @param hue_noise_lut Non-null hue-noise LUT; must outlive this wrapper.
+   */
   NoiseHuePalette(const Source *source, const int8_t *hue_noise_lut) {
     bind(source, hue_noise_lut);
   }
 
-  /** @brief Binds direct hue rotation without a palette-by-hue LUT. */
+  /**
+   * @brief Binds direct hue rotation without a palette-by-hue LUT.
+   * @param source Non-null palette; must outlive this wrapper.
+   * @param hue_noise_lut Non-null hue-noise LUT; must outlive this wrapper.
+   */
   void bind(const Source *source, const int8_t *hue_noise_lut) {
     HS_CHECK(source != nullptr,
              "NoiseHuePalette direct mode bound to null source");
