@@ -260,9 +260,7 @@ inline void test_mindsplatter_replay_snapshot_exact() {
  * @brief MindSplatter's single-pass direct-AA path matches the cached
  * AntiAlias-sink reference in every quadrant of a frozen saturated particle
  * pool.
- * @details Single-pass stepping omits cached endpoint normalization. Under
- * fast-math, interior sample phases, one fringe pixel, and accumulated channels
- * can differ; the IEEE framebuffer is identical.
+ * @details Single-pass stepping omits cached endpoint normalization.
  */
 inline void test_mindsplatter_saturated_quadrant_sink_parity() {
   constexpr int W = SMALL_W;
@@ -328,14 +326,7 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
                 diff.different, diff.coverage, diff.max_channel,
                 static_cast<unsigned long long>(diff.total_channel));
     HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-#ifdef HS_TEST_FAST_MATH
-    HS_EXPECT_LE(diff.coverage, static_cast<size_t>(1));
-    HS_EXPECT_LE(diff.different, static_cast<size_t>(4));
-    HS_EXPECT_LE(diff.max_channel, 64);
-    HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
-#else
     HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
-#endif
   }
   hs::clear_mock_time();
 }
@@ -485,15 +476,9 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
               static_cast<unsigned long long>(diff.total_channel));
   HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
   HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-#ifdef HS_TEST_FAST_MATH
-  HS_EXPECT_LE(diff.different, static_cast<size_t>(96));
-  HS_EXPECT_LE(diff.max_channel, 8);
-  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(128));
-#else
   HS_EXPECT_LE(diff.different, static_cast<size_t>(24));
   HS_EXPECT_LE(diff.max_channel, 1);
   HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(24));
-#endif
 }
 
 /** @brief Particle hue seeds advance in deterministic emission order. */
@@ -628,13 +613,7 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
               static_cast<unsigned long long>(diff.total_channel));
   HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
   HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
-#ifdef HS_TEST_FAST_MATH
-  HS_EXPECT_LE(diff.different, static_cast<size_t>(64));
-  HS_EXPECT_LE(diff.max_channel, 8);
-  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(64));
-#else
   HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
-#endif
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
