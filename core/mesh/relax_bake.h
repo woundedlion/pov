@@ -47,7 +47,11 @@ inline constexpr float RELAX_SOURCE_BIAS = 0.7361977398f;
 /** @brief Required distance between a baked source and the nearest boundary. */
 inline constexpr float RELAX_SOURCE_MIN_MARGIN = 1.0e-5f;
 
-/** @brief Quantizes one relax source coordinate onto its identity grid. */
+/**
+ * @brief Quantizes one relax source coordinate onto its identity grid.
+ * @param coordinate Vertex coordinate.
+ * @return Sign-symmetric fixed-point grid value.
+ */
 inline int32_t relax_source_coordinate(float coordinate) {
   const float magnitude =
       (coordinate < 0.0f ? -coordinate : coordinate) * RELAX_SOURCE_SCALE;
@@ -68,13 +72,24 @@ inline uint32_t fnv1a_step(uint32_t hash, uint32_t word) {
   return (hash ^ word) * 16777619u;
 }
 
-/** @brief Folds one vertex's coordinate bits into an output hash. */
+/**
+ * @brief Folds one vertex's coordinate bits into an output hash.
+ * @param hash Accumulator, seeded from FNV1A_BASIS.
+ * @param x Bit pattern of the x coordinate.
+ * @param y Bit pattern of the y coordinate.
+ * @param z Bit pattern of the z coordinate.
+ * @return The updated accumulator.
+ */
 inline uint32_t relax_output_hash(uint32_t hash, uint32_t x, uint32_t y,
                                   uint32_t z) {
   return fnv1a_step(fnv1a_step(fnv1a_step(hash, x), y), z);
 }
 
-/** @brief Hashes platform-independent relax topology and dimensions. */
+/**
+ * @brief Hashes platform-independent relax topology and dimensions.
+ * @param mesh Mesh to hash.
+ * @return FNV-1a hash of the counts and face indices.
+ */
 inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
   uint32_t hash = FNV1A_BASIS;
   auto mix = [&](uint32_t word) { hash = fnv1a_step(hash, word); };
@@ -93,6 +108,8 @@ inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
  * @details A fixed-point grid absorbs endpoint reconstruction roundoff while
  * retaining vertex order and parameterized geometry in the identity. The grid
  * phase keeps generated sources clear of rounding boundaries.
+ * @param mesh Source mesh.
+ * @return FNV-1a hash of the quantized vertices.
  */
 inline uint32_t relax_source_hash(const PolyMesh &mesh) {
   uint32_t hash = FNV1A_BASIS;
@@ -110,6 +127,7 @@ inline uint32_t relax_source_hash(const PolyMesh &mesh) {
 
 /**
  * @brief Finds the nearest source-identity quantization boundary.
+ * @param mesh Source mesh.
  * @return Coordinate distance to the nearest boundary across the mesh.
  */
 inline float relax_source_quantization_margin(const PolyMesh &mesh) {

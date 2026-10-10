@@ -72,7 +72,13 @@ struct Recipe {
   uint8_t count;       /**< Number of steps. */
 };
 
-/** @brief Builds a recipe whose count is deduced from its step array. */
+/**
+ * @brief Builds a recipe whose count is deduced from its step array.
+ * @tparam N Step count; at most UINT8_MAX.
+ * @param seed simple_registry index of the base solid.
+ * @param steps Op chain; must outlive the recipe.
+ * @return Recipe over @p steps.
+ */
 template <size_t N>
 constexpr Recipe make_recipe(uint8_t seed, const OpStep (&steps)[N]) {
   static_assert(N <= UINT8_MAX);

@@ -54,7 +54,13 @@ inline math::Vector face_centroid(const HalfEdgeMesh &he_mesh,
   return c;
 }
 
-/** @brief Unit dual vertex, with a first-vertex fallback for a zero centroid. */
+/**
+ * @brief Unit dual vertex, with a first-vertex fallback for a zero centroid.
+ * @param he_mesh Half-edge topology of `mesh`.
+ * @param mesh Source mesh.
+ * @param face Face index.
+ * @return Unit-length dual vertex for `face`.
+ */
 inline math::Vector dual_vertex(const HalfEdgeMesh &he_mesh,
                                 const PolyMesh &mesh, size_t face) {
   int count;

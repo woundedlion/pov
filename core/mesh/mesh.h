@@ -178,6 +178,8 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
 
 /**
  * @brief Sorts half-edge pair records in place by (min_v, max_v).
+ * @param records Records to sort.
+ * @param n Record count.
  */
 [[maybe_unused]] HS_COLD static void
 sort_edge_records(HalfEdgePairRecord *records, size_t n) {
@@ -781,7 +783,13 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
   seed ^= v + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-/** @brief Derives the classifier's base hash from a canonical face key. */
+/**
+ * @brief Derives the classifier's base hash from a canonical face key.
+ * @param count Face vertex count.
+ * @param sorted_angles Interior corner angles in whole degrees, ascending;
+ * read only when @p count >= 3.
+ * @return Base face hash.
+ */
 static inline uint32_t face_topology_base_hash(int count,
                                                const int *sorted_angles) {
   uint32_t hash = 0x12345678;
@@ -814,13 +822,22 @@ static inline uint32_t connectivity_key(const uint8_t *face_counts, size_t F,
   return hash == 0 ? 1u : hash;
 }
 
-/** @brief Mixes a neighboring face's hash into its fold contribution. */
+/**
+ * @brief Mixes a neighboring face's hash into its fold contribution.
+ * @param face_hash Neighbor's face hash.
+ * @return Contribution to fold into the neighbor accumulator.
+ */
 static inline uint32_t neighbor_topology_contribution(uint32_t face_hash) {
   hash_combine(face_hash, 0);
   return fmix32(face_hash);
 }
 
-/** @brief Folds neighboring face hashes into a face's classifier hash. */
+/**
+ * @brief Folds neighboring face hashes into a face's classifier hash.
+ * @param face_hash Face's current hash.
+ * @param neighbor_acc Accumulated neighbor contributions.
+ * @return Folded face hash.
+ */
 static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
                                                uint32_t neighbor_acc) {
   hash_combine(face_hash, neighbor_acc);
@@ -1025,13 +1042,25 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   }
 }
 
-/** @brief Classifies a PolyMesh's faces by topology (see classify_faces_impl). */
+/**
+ * @brief Classifies a PolyMesh's faces by topology (see classify_faces_impl).
+ * @param mesh Mesh to classify; its topology array is filled with class ids.
+ * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
+ * @param scratch_b Scratch arena for the half-edge pairing records.
+ * @param persistent Arena backing the mesh topology array when it must grow.
+ */
 [[maybe_unused]] HS_COLD static void
 classify_faces_by_topology(PolyMesh &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
   classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
 }
-/** @brief Classifies a MeshState's faces by topology (see classify_faces_impl). */
+/**
+ * @brief Classifies a MeshState's faces by topology (see classify_faces_impl).
+ * @param mesh Mesh to classify; its topology array is filled with class ids.
+ * @param scratch_a Scratch arena for hashes, per-face data, and the node sort.
+ * @param scratch_b Scratch arena for the half-edge pairing records.
+ * @param persistent Arena backing the mesh topology array when it must grow.
+ */
 [[maybe_unused]] HS_COLD static void
 classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {

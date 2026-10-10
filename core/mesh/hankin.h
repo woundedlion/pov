@@ -60,7 +60,11 @@ struct CompiledHankin {
    * compiled. */
   uint32_t topology_key = 0;
 
-  /** Returns the corner vertex a HankinInstruction index refers to. */
+  /**
+   * @brief Returns the corner vertex a HankinInstruction index refers to.
+   * @param i Corner index into `corner_src`.
+   * @return The corner vertex.
+   */
   const math::Vector &corner(size_t i) const { return corner_src[i]; }
 
   /**
