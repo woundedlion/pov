@@ -104,14 +104,22 @@ export function generatedSections(compiled) {
       throw new Error(`Composed topology must be uniform: ${parameter.id}`);
   }
   const identity = [
+    "  /// Stable effect ID; equals the shader document's effect_id.",
     `  static constexpr std::string_view EFFECT_ID = ${JSON.stringify(document.effect_id)};`,
+    "  /// SHA-256 hex of the shader document's parameter descriptor.",
     `  static constexpr std::string_view DESCRIPTOR_DIGEST = "${compiled.descriptor_digest}";`,
+    "  /// SHA-256 hex of the shader document's preset bank.",
     `  static constexpr std::string_view PRESET_BANK_DIGEST = "${compiled.preset_bank_digest}";`,
+    '  /// Preset identities, indexed by preset number.',
     `  static constexpr std::array<std::string_view, ${order.length}> PRESET_IDS{`,
     ...order.map((id, i) => `      ${JSON.stringify(id)}${i + 1 < order.length ? ',' : ''}`),
     '  };',
+    '  /// Frames each preset holds before advancing.',
     `  static constexpr uint16_t PRESET_DWELL_FRAMES = ${dwell[0]};`,
-    ...(spin[0] === undefined ? [] : [`  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`]),
+    ...(spin[0] === undefined ? [] : [
+      '  /// Outer camera spin about +Y, in radians per frame.',
+      `  static constexpr float CAMERA_SPIN_RATE = ${floatLiteral(spin[0])};`,
+    ]),
   ].join('\n');
   const initial = presetAssignments(document, presets[0].values);
   const assignment = ([member, literal]) => {
@@ -119,13 +127,21 @@ export function generatedSections(compiled) {
     return `    value.template get<"${key}">().${path.join('.')} = ${literal};`;
   };
   const params = [
+    '  /**',
+    '   * @brief Parameters of the first preset; every preset varies from them.',
+    '   * @return The preset-0 `Params`.',
+    '   */',
     '  static constexpr Params initial_params() {',
     '    Params value;', ...[...initial].map(assignment), '    return value;', '  }',
   ];
   if (presets.length > 1) {
     const departures = order.map((id) => departureLiteral(bank, id, document.descriptor.path_policies));
     const uniform = departures.every((departure) => departure === departures[0]);
-    params.push('', '  /** @brief The preset at index in PRESET_IDS and how it departs. */',
+    params.push('', '  /**',
+      '   * @brief The preset at index in PRESET_IDS and how it departs.',
+      '   * @param index Preset number; an index past the last yields preset 0.',
+      "   * @return The preset's parameters and departure segue.",
+      '   */',
       '  HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {', '    Params value = initial_params();');
     if (!uniform) params.push(`    Segue::Preset::Departure segue = ${departures[0]};`);
     for (let i = 1; i < presets.length; ++i) {
