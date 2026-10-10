@@ -145,8 +145,8 @@ constexpr int hs_preset_window_seconds() {
                           HS_SHOW_FRAMES_PER_SECOND);
 }
 
-/** Shader promotion product group in gallery and composed-effect roster
- * order; the device show order is HS_PHANTASM_EFFECT_LIST's. */
+/** Shader promotion product group; the device show order is
+ * HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \

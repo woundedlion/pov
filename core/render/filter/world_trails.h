@@ -36,7 +36,7 @@ public:
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
     /// Quantized x component.
-    int16_t x, y, z; /**< Quantized unit vector components. */
+    int16_t x, y, z; /**< Quantized z component. */
     /** @var y
      *  Quantized y component. */
     uint8_t ttl; /**< Remaining lifetime in frames. */

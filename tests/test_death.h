@@ -2070,7 +2070,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
 /**
  * @brief Looks up a file's approved unpinned-site count.
  * @param file Repo-relative source path from the census.
- * @return The approved gap, or 0 for a file with no allowance row.
+ * @return The approved gap (0 for a file with no allowance row), plus under
+ *         NDEBUG one per distinct debug-only case guard in @p file.
  */
 inline int allowed_guard_gap(const char *file) {
   int debug_gap = 0;

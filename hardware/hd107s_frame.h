@@ -74,7 +74,7 @@ inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
 
 /**
  * @brief Pre-formatted DMA buffer for HD107S (APA102-compatible) LEDs.
- * @tparam N Maximum number of pixels.
+ * @tparam N Number of pixels on the strip; every frame clocks all N.
  *
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00

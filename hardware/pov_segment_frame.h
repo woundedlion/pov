@@ -5,8 +5,8 @@
 
 /**
  * @file pov_segment_frame.h
- * @brief Preserves the inactive arm half after the pre-clear hook selects the
- *        segment clip for the newly acquired draw buffer.
+ * @brief Copies the inactive arm half from the displayed buffer after drawing,
+ *        before the frame is queued (buffer-complete hook).
  */
 #pragma once
 

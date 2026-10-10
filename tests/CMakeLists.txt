@@ -274,8 +274,7 @@ add_test(NAME unit_mindsplatter_palette_form COMMAND ${CMAKE_COMMAND}
   -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mind_splatter_palette_bank.generated.h
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_palette_form.cmake)
 
-# Standalone tolerance check for the palette data, with its own error report
-# and provenance gate.
+# Standalone tolerance check for the palette data, with its own error report.
 add_executable(mindsplatter_palette_check
   ${CMAKE_CURRENT_SOURCE_DIR}/mindsplatter_palette_check.cpp
   ${HS_ENGINE_SOURCES})

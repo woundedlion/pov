@@ -95,7 +95,8 @@ screen_step_from_axes(const SamplePT &sample, const ScreenStepAxes &axes) {
  * @brief Collects each world-stage copy's up axis by sending the identity basis
  * through the pipeline's cull chain.
  * @param pipeline Pipeline whose world stages are walked.
- * @return The per-copy axes; nonrigid or overflow when the table is unusable.
+ * @return The per-copy axes; `overflow` marks a table usable() rejects,
+ *         `nonrigid` one that yields the pole-floor step.
  */
 template <typename PipelineT>
 HS_HOT_FLASH_MEMBER ScreenStepAxes screen_step_axes(PipelineT &pipeline) {
