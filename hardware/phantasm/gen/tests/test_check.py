@@ -193,12 +193,12 @@ class GateTests(unittest.TestCase):
         self.assertTrue(ok, out)
         self.assertIn("NOTE extra named net STRAY", out)
 
-    def test_notes_a_power_named_net_outside_the_spec_table(self):
+    def test_notes_a_net_sharing_a_prefix_with_the_auto_generated_skip(self):
         nets = expected_nodes()
-        nets["PWR_EN"] = [("J4", "9")]
+        nets["Net_EN"] = [("J4", "9")]
         ok, out = run(nets)
         self.assertTrue(ok, out)
-        self.assertIn("NOTE extra named net PWR_EN", out)
+        self.assertIn("NOTE extra named net Net_EN", out)
 
     def test_skips_kicad_auto_generated_net_names(self):
         nets = expected_nodes()
