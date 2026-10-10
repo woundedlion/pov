@@ -460,12 +460,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   if constexpr (!SINGLE_PASS)
     steps_cache.bind(scratch_arena_a, max_cache);
 
-  // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
-  // longer than the geodesic chord, so re-derive v0/v1 from sampled arc length
-  // (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
-  // geodesic polylines or when DERIVE_PLANAR_ARC_REGISTERS is false.
   const bool has_planar_basis = (planar_basis != nullptr);
-  const bool override_uv = DERIVE_PLANAR_ARC_REGISTERS && has_planar_basis;
   constexpr bool REUSE_PLANAR_CULL_SAMPLES =
       SINGLE_PASS && !DERIVE_PLANAR_ARC_REGISTERS && !INTERPOLATE_REGISTERS &&
       pipeline_hoistable_cull<PipelineT>();
@@ -474,28 +469,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       return *loop_seam;
     return points[(i + 1) % len];
   };
-  float total_arc = 0.0f;
-  // Per-segment rendered arc length and antipode-seam flag.
-  ArenaVector<float> seg_arc_cache;
-  ArenaVector<uint8_t> seg_seam_cache;
-  if (override_uv) {
-    seg_arc_cache.bind(scratch_arena_a, count);
-    seg_seam_cache.bind(scratch_arena_a, count);
-    const math::Vector &pcenter = planar_basis->v;
-    for (size_t i = 0; i < count; i++) {
-      const math::Vector &a = points[i].pos;
-      const math::Vector &b = segment_next(i).pos;
-      const bool seam = math::dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
-                        math::dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
-      seg_seam_cache.push_back(seam ? 1 : 0);
-      float seg =
-          seam ? unit_arc_length(a, b) : planar_arc_length(a, b, *planar_basis);
-      seg_arc_cache.push_back(seg);
-      total_arc += seg;
-    }
-  }
-  float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
-  float seg_base = 0.0f; // rendered arc at the in-flight segment's start
+  PlanarArcTable<DERIVE_PLANAR_ARC_REGISTERS> arcs;
+  PlanarArcStamp<DERIVE_PLANAR_ARC_REGISTERS> arc_uv =
+      arcs.bind_and_measure(points, segment_next, count, planar_basis);
 
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
   // point and tangent estimate at arc fraction t in [0,1] under the chosen
@@ -507,19 +483,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                              bool is_last_segment) {
     constexpr bool NEWTON_UNIT_SAMPLER =
         requires { std::remove_cvref_t<decltype(sample)>::NEWTON_UNIT; };
-    // Rewrite the arc registers from the rendered arc when a planar basis is in
-    // force: `d` is the arc drawn so far within this
-    // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
-    auto set_arc_uv = [&](Fragment &f, float d) {
-      if constexpr (!DERIVE_PLANAR_ARC_REGISTERS)
-        return;
-      if (!has_planar_basis)
-        return;
-      float arc = seg_base + d;
-      f.v1 = arc;
-      if (total_arc > math::EPS_GEOMETRIC)
-        f.v0 = arc / total_arc;
-    };
     // Direct plotting requires unit fragment positions.
     // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
@@ -527,7 +490,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (!should_omit && PLOT_START) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
-        set_arc_uv(f, 0.0f);
+        arc_uv.stamp(f, 0.0f);
         shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
       }
       return;
@@ -594,13 +557,13 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (PLOT_START) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
-        set_arc_uv(f, 0.0f);
+        arc_uv.stamp(f, 0.0f);
         shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
       }
       if (!close_loop && is_last_segment && !omit_end && PLOT_END) {
         Fragment fl;
         seed_fragment<INTERPOLATE_REGISTERS>(fl, next);
-        set_arc_uv(fl, total_dist);
+        arc_uv.stamp(fl, total_dist);
         shade_and_plot(pipeline, canvas, fragment_shader, next.pos, fl);
       }
       return;
@@ -654,7 +617,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
             (current_t >= plot_t_start && current_t <= plot_t_hi)) {
           Fragment f;
           lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, current_t, p);
-          set_arc_uv(f, current_dist);
+          arc_uv.stamp(f, current_dist);
           std::optional<float> alpha_scale;
           if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
             if (balanced_sampling)
@@ -738,7 +701,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           (!plot_window || plot_t_hi >= 1.0f)) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, next);
-        set_arc_uv(f, total_dist);
+        arc_uv.stamp(f, total_dist);
         std::optional<float> alpha_scale;
         if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
           // Gain the endpoint by the arc it actually stands in for, floored
@@ -796,7 +759,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       math::Vector start_pos = newton_unit(sample.pos(0.0f));
       Fragment f;
       lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, 0.0f, start_pos);
-      set_arc_uv(f, 0.0f);
+      arc_uv.stamp(f, 0.0f);
       HS_PLOT_STALL_STOP(normalized_replay, replay_start);
       shade_and_plot(pipeline, canvas, fragment_shader, start_pos, f);
     }
@@ -814,16 +777,16 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (plot_window && (t < plot_t_start || t > plot_t_hi))
         continue;
 
-      // `t` follows the rendered arc length. Under a planar basis set_arc_uv
-      // rewrites the lerped v0/v1 from the sampled arc, so arc-keyed shaders
-      // track the drawn position.
+      // `t` follows the rendered arc length. Under a planar basis
+      // `PlanarArcStamp::stamp` rewrites the lerped v0/v1 from the sampled arc,
+      // so arc-keyed shaders track the drawn position.
       HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
       math::Vector p = terminal ? next.pos : newton_unit(sample.pos(t));
       Fragment f;
       lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, t, p);
-      set_arc_uv(f, current_dist);
+      arc_uv.stamp(f, current_dist);
       HS_PLOT_STALL_STOP(normalized_replay, replay_start);
       shade_and_plot(pipeline, canvas, fragment_shader, p, f);
     }
@@ -867,18 +830,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     bool antipodal_seam = false;
     if (has_planar_basis) {
       antipodal_seam =
-          override_uv
-              ? seg_seam_cache[i] != 0
+          arcs.is_active()
+              ? arcs.seam(i)
               : math::dot(curr.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE ||
                     math::dot(next.pos, planar_basis->v) < -COS_PLANAR_ANTIPODE;
     }
     const bool use_planar = planar_basis && !antipodal_seam;
 
-    // Advance for every segment, drawn or culled, so v0/v1 span the full curve.
-    if (override_uv) {
-      seg_base = cumul;
-      cumul += seg_arc_cache[i];
-    }
+    arcs.advance(i, arc_uv);
 
     // Segment culling — skip if the edge's rendered row/column reach
     // (arc bulge included) lies outside the clip band; precomputed bits replace
@@ -920,9 +879,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     }
 
     // Single-dot shortcut: an edge proven to span <= one screen step renders
-    // exactly as process_segment's fast path (set_arc_uv is a no-op without a
-    // planar basis), so plot it without building the sampler. A predicate
-    // false negative falls through and re-evaluates exactly.
+    // exactly as process_segment's fast path (`PlanarArcStamp::stamp` is a
+    // no-op without a planar basis), so plot it without building the sampler.
+    // A predicate false negative falls through and re-evaluates exactly.
     const bool one_dot =
         world_identity && !has_planar_basis &&
         (edge_flags != nullptr &&

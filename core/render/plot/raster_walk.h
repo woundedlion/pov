@@ -85,3 +85,123 @@ shade_and_plot(PipelineT &pipeline, Canvas &canvas,
   HS_PLOT_COUNT(plotted_samples);
   pipeline.plot(canvas, pos, f.color.color, f.age, f.color.alpha);
 }
+
+/**
+ * @brief Rendered-arc v0/v1 registers for the in-flight segment of a
+ *        planar-basis polyline.
+ * @tparam DERIVE Derive the registers; false compiles the stamp out.
+ * @details Issued by PlanarArcTable::bind_and_measure and positioned per
+ * segment by PlanarArcTable::advance.
+ */
+template <bool DERIVE> class PlanarArcStamp {
+public:
+  /**
+   * @brief Rewrites @p f's v0/v1 from the rendered arc; no-op when inactive.
+   * @param f Sample fragment.
+   * @param d Arc drawn so far within the segment.
+   */
+  __attribute__((always_inline)) void stamp(Fragment &f, float d) const {
+    if constexpr (!DERIVE)
+      return;
+    if (!active)
+      return;
+    float arc = seg_base + d;
+    f.v1 = arc;
+    if (total_arc > math::EPS_GEOMETRIC)
+      f.v0 = arc / total_arc;
+  }
+
+private:
+  template <bool> friend class PlanarArcTable;
+  /** Rendered arc at the segment's start. */
+  float seg_base = 0.0f;
+  /** Rendered arc of the whole polyline. */
+  float total_arc = 0.0f;
+  /** False for a geodesic polyline, which keeps its source v0/v1. */
+  bool active = false;
+};
+
+/**
+ * @brief Per-segment rendered arc lengths and antipode-seam flags of a
+ *        planar-basis polyline.
+ * @tparam DERIVE Derive v0/v1 from the rendered arc; false compiles the table
+ *         out.
+ * @details Under a planar basis the rendered edge bows longer than the
+ * geodesic chord, so v1 is the rendered arc reached and v0 that arc over the
+ * polyline's total. The table owns the caches and the arc reached so far; it
+ * stays inactive for a geodesic polyline.
+ */
+template <bool DERIVE> class PlanarArcTable {
+public:
+  /**
+   * @brief Binds the caches in scratch_arena_a and measures every segment.
+   * @param points Polyline control points.
+   * @param segment_next Returns the end point of segment i.
+   * @param count Rasterized segment count.
+   * @param basis Planar basis, or null for a geodesic polyline.
+   * @return The v0/v1 stamp, positioned by advance() before each segment.
+   */
+  template <typename SegmentNextT>
+  __attribute__((always_inline)) PlanarArcStamp<DERIVE>
+  bind_and_measure(const Fragments &points, SegmentNextT &&segment_next,
+                   size_t count, const math::Basis *basis) {
+    PlanarArcStamp<DERIVE> out;
+    if constexpr (DERIVE) {
+      planar_basis = basis;
+      if (basis == nullptr)
+        return out;
+      arc_cache.bind(scratch_arena_a, count);
+      seam_cache.bind(scratch_arena_a, count);
+      const math::Vector &pcenter = basis->v;
+      for (size_t i = 0; i < count; i++) {
+        const math::Vector &a = points[i].pos;
+        const math::Vector &b = segment_next(i).pos;
+        const bool seam = math::dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
+                          math::dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
+        seam_cache.push_back(seam ? 1 : 0);
+        float seg =
+            seam ? unit_arc_length(a, b) : planar_arc_length(a, b, *basis);
+        arc_cache.push_back(seg);
+        total_arc += seg;
+      }
+      out.total_arc = total_arc;
+      out.active = true;
+    }
+    return out;
+  }
+
+  /** @brief True when the caches are bound for a planar polyline. */
+  __attribute__((always_inline)) bool is_active() const {
+    if constexpr (DERIVE)
+      return planar_basis != nullptr;
+    else
+      return false;
+  }
+
+  /** @brief Segment @p i has an endpoint at the basis antipode. */
+  __attribute__((always_inline)) bool seam(size_t i) const {
+    return seam_cache[i] != 0;
+  }
+
+  /**
+   * @brief Moves @p stamp's arc origin to the start of segment @p i.
+   * @details Called for every segment in order, drawn or culled, so v0/v1
+   * span the full curve.
+   * @param i Segment index.
+   * @param stamp Stamp returned by bind_and_measure.
+   */
+  __attribute__((always_inline)) void advance(size_t i,
+                                              PlanarArcStamp<DERIVE> &stamp) {
+    if (!is_active())
+      return;
+    stamp.seg_base = cumul;
+    cumul += arc_cache[i];
+  }
+
+private:
+  ArenaVector<float> arc_cache;
+  ArenaVector<uint8_t> seam_cache;
+  float total_arc = 0.0f;
+  float cumul = 0.0f;
+  const math::Basis *planar_basis = nullptr;
+};
