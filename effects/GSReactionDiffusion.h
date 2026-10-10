@@ -545,6 +545,16 @@ private:
   }
 
   /**
+   * @brief Plants the clusters a staged reseed deferred and latches edits made
+   * while it was pending.
+   */
+  __attribute__((always_inline)) void finish_reseed() {
+    seed_reaction(transition.next_seed, NUM_SEED_CLUSTERS);
+    transition.next_seed = NUM_SEED_CLUSTERS;
+    reaction_edited();
+  }
+
+  /**
    * @brief Reports whether the reaction constants moved since the last frame.
    * @return True on the first frame after any of feed/k/dA/dB changes.
    * @details Latches the current values, so a slider drag reports once per
@@ -1050,10 +1060,8 @@ private:
     }
     ScratchScope frame_guard(scratch_arena_a);
     float mean_db = 0.0f;
-    if (transition.next_seed < NUM_SEED_CLUSTERS) {
-      seed_reaction(transition.next_seed, NUM_SEED_CLUSTERS);
-      transition.next_seed = NUM_SEED_CLUSTERS;
-      reaction_edited();
+    if (transition.reseed_pending()) {
+      finish_reseed();
     } else {
       {
         // Q16 quantization occurs once per frame.
@@ -1086,7 +1094,7 @@ private:
         mean_db = static_cast<float>(db_sum_q16) * (Q16_INV / RD_N);
       }
       advance_transition(mean_db);
-      if (transition.next_seed < NUM_SEED_CLUSTERS)
+      if (transition.reseed_pending())
         return;
     }
     refresh_color_palettes();
@@ -1124,7 +1132,7 @@ private:
    * @brief Auto-transition state: current reaction's lifetime and dissolve
    *        progress.
    */
-  struct {
+  struct Transition {
     int next_seed = NUM_SEED_CLUSTERS; /**< First cluster awaiting placement. */
     int grow_frames = 0;        /**< Frames since this reaction was seeded. */
     int stable_frames = 0;      /**< Consecutive sub-floor frames. */
@@ -1133,6 +1141,9 @@ private:
     /** Reaction constants as of the last frame, latched by
      *  reaction_edited(). */
     float last_feed = 0.0f, last_k = 0.0f, last_d_a = 0.0f, last_d_b = 0.0f;
+
+    /** @brief True while a staged reseed has clusters left to plant. */
+    bool reseed_pending() const { return next_seed < NUM_SEED_CLUSTERS; }
   } transition;
 
   /** @brief Per-seed linear RGB ramps sampled by B concentration. */
