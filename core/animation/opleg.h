@@ -937,11 +937,13 @@ private:
     ArenaVector<math::Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
     ArenaVector<math::Snorm3>
-        medial_a; /**< Medial a_e (ambo(P)) endpoint, snorm16-packed
-                     (MEDIAL_SLERP). */
+        medial_a; /**< Opening endpoint, snorm16-packed (MEDIAL_SLERP:
+                     ambo(P) on the medial bridge, the identity mesh's vertices
+                     on a reconcile leg). */
     ArenaVector<math::Snorm3>
-        medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
-                     (MEDIAL_SLERP). */
+        medial_b; /**< Arrival endpoint, snorm16-packed (MEDIAL_SLERP:
+                     ambo(dual(P)) on the medial bridge, the authored positions
+                     on a reconcile leg). */
     ArenaVector<uint16_t>
         topo; /**< Hoisted arrival classification (drawn grouping). */
     bool topo_is_bookend = false; /**< topo holds the bookend classification
