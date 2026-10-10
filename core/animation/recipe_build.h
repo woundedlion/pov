@@ -35,7 +35,7 @@ protected:
       24; /**< identity-mesh -> authored kis/needle slerp. */
   /** Identity-mesh truncate depth of the smooth kis/needle path: the "uniform"
    * Conway depth at which dual(truncate(X)) matches kis(dual(X)) exactly on
-   * regular seeds (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle). */
+   * regular seeds. */
   static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
   // Build-chain state (entries with a non-null recipe): the shape is built op
   // by op between the fade-in and the still hold.
@@ -229,7 +229,7 @@ protected:
     const size_t k = build_step;
     const Solids::OpStep &step = build_step_chain[k];
 
-    // Smooth kis/needle lowering: docs/specs/opchain_morph_spec.md.
+    // Smooth kis/needle lowering.
     if (dt_pair_at(k)) {
       schedule_dt_macro();
       return;

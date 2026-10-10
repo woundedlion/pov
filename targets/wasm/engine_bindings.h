@@ -356,7 +356,6 @@ public:
    *         were accepted but the effect keeps the full-canvas clip, otherwise
    *         NO_EFFECT or INVALID_BOUNDS.
    * @details Malformed input is rejected without trapping.
-   *          See docs/specs/segmented_stateful_effects_spec.md.
    */
   ClipSetResult setClip(double x0, double x1, double y0, double y1) {
     if (!current_effect)

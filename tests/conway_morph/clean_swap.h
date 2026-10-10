@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// §7.5 Clean-swap invisibility: the boundary swaps exchange geometrically
+// Clean-swap invisibility: the boundary swaps exchange geometrically
 // matching meshes.
 // ---------------------------------------------------------------------------
 
