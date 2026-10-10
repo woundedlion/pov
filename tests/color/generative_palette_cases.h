@@ -566,6 +566,27 @@ inline void test_generative_palette_snapshot_keeps_absolute_gray_achromatic() {
   }
 }
 
+/** @brief A key gray at both morph endpoints keeps its neighbor's hue. */
+inline void test_generative_palette_lerp_gray_key_keeps_neighbor_hue() {
+  const GenerativePalette from(PaletteRecipes::from_colors(
+      PaletteDomain::STRAIGHT, CPixel(255, 255, 255), CPixel(0, 0, 255),
+      CPixel(255, 0, 0)));
+  const GenerativePalette to(
+      PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
+                                  CPixel(0, 0, 255), CPixel(255, 0, 0)));
+  HS_EXPECT_TRUE(from.morph_compatible(to));
+  const float blue_hue = from.resolved_oklch_key(1).h;
+  for (const float progress : {0.25f, 0.5f, 0.75f}) {
+    GenerativePalette morph;
+    morph.morph_palettes(from, to, progress);
+    HS_EXPECT_NEAR(morph.resolved_oklch_key(0).h, blue_hue, 1e-4f);
+    for (int i = 0; i <= 8; ++i) {
+      const Pixel color = morph.get(i / 16.0f).color;
+      HS_EXPECT_GE(color.b, color.g);
+    }
+  }
+}
+
 inline void test_generative_palette_lerp_target_aliases_this() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.25f));
