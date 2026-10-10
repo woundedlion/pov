@@ -542,7 +542,7 @@ inline void merge_intervals(StaticCircularBuffer<Interval, N> &merged,
  * With an exact 2π period this is acos(cos(x)); the rounded floating-point period
  * makes the result differ from acosf(cosf(x)), especially for large angles.
  */
-inline float clamp_phi(float x) {
+inline float fold_phi(float x) {
   x = fabsf(x);
   x = fmodf(x, math::TWO_PI_F);
   if (x > math::PI_F)
@@ -567,11 +567,11 @@ struct PhiBand {
  * sin(center_phi)sin(target_angle)cos ψ, so cos φ sweeps exactly
  * [cos(center_phi + target_angle), cos(center_phi − target_angle)] and the two
  * folded endpoints are its extremes; min/max orders them for a target_angle
- * outside [0, π]. Floating-point reduction uses clamp_phi's rounded period.
+ * outside [0, π]. Floating-point reduction uses fold_phi's rounded period.
  */
-inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
-  float p1 = clamp_phi(center_phi - target_angle);
-  float p2 = clamp_phi(center_phi + target_angle);
+inline PhiBand fold_phi_band(float center_phi, float target_angle) {
+  float p1 = fold_phi(center_phi - target_angle);
+  float p2 = fold_phi(center_phi + target_angle);
   return {std::min(p1, p2), std::max(p1, p2)};
 }
 /**

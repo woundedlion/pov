@@ -4,47 +4,47 @@
  */
 
 // ============================================================================
-// clamp_phi
+// fold_phi
 // ============================================================================
 
-/** @brief Verifies phi already in [0, π] passes through clamp_phi unchanged. */
-inline void test_clamp_phi_in_range() {
-  HS_EXPECT_NEAR(SDF::clamp_phi(0.0f), 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(0.5f), 0.5f, 1e-6f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(math::PI_F), math::PI_F, 1e-6f);
+/** @brief Verifies phi already in [0, π] passes through fold_phi unchanged. */
+inline void test_fold_phi_in_range() {
+  HS_EXPECT_NEAR(SDF::fold_phi(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(SDF::fold_phi(0.5f), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(SDF::fold_phi(math::PI_F), math::PI_F, 1e-6f);
 }
 
 /** @brief Verifies negative phi reflects across the north pole (|phi|). */
-inline void test_clamp_phi_negative_reflects() {
-  HS_EXPECT_NEAR(SDF::clamp_phi(-0.3f), 0.3f, 1e-6f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(-1.2f), 1.2f, 1e-6f);
+inline void test_fold_phi_negative_reflects() {
+  HS_EXPECT_NEAR(SDF::fold_phi(-0.3f), 0.3f, 1e-6f);
+  HS_EXPECT_NEAR(SDF::fold_phi(-1.2f), 1.2f, 1e-6f);
 }
 
 /** @brief Verifies phi above π reflects across the south pole (2π - phi). */
-inline void test_clamp_phi_above_pi_reflects() {
-  HS_EXPECT_NEAR(SDF::clamp_phi(math::PI_F + 0.2f), math::PI_F - 0.2f, 1e-5f);
-  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * math::PI_F), 0.0f, 1e-5f);
+inline void test_fold_phi_above_pi_reflects() {
+  HS_EXPECT_NEAR(SDF::fold_phi(math::PI_F + 0.2f), math::PI_F - 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(SDF::fold_phi(2.0f * math::PI_F), 0.0f, 1e-5f);
 }
 
 /**
  * @brief Verifies inputs outside [-π, 2π] still fold into [0, π] (full-range
  *        acosf(cosf(x)) equivalence).
  */
-inline void test_clamp_phi_full_range() {
+inline void test_fold_phi_full_range() {
   // 2π + 0.2 folds to 0.2.
-  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * math::PI_F + 0.2f), 0.2f, 1e-5f);
+  HS_EXPECT_NEAR(SDF::fold_phi(2.0f * math::PI_F + 0.2f), 0.2f, 1e-5f);
   // acosf(cosf(3π)) = π.
-  HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * math::PI_F), math::PI_F, 1e-5f);
+  HS_EXPECT_NEAR(SDF::fold_phi(3.0f * math::PI_F), math::PI_F, 1e-5f);
   // -1.5π folds to 0.5π.
-  HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * math::PI_F), 0.5f * math::PI_F, 1e-5f);
+  HS_EXPECT_NEAR(SDF::fold_phi(-1.5f * math::PI_F), 0.5f * math::PI_F, 1e-5f);
 }
 
 /**
- * @brief Verifies clamp_phi_band reports the exact colatitude extent of the
+ * @brief Verifies fold_phi_band reports the exact colatitude extent of the
  *        circle it bounds, against a brute-force sweep of that circle.
  * @details The extremes sit at psi = 0 and psi = π, both sampled exactly.
  */
-inline void test_clamp_phi_band_matches_circle_extent() {
+inline void test_fold_phi_band_matches_circle_extent() {
   constexpr int SAMPLES = 512;
   auto circle_extent = [](float c, float t) {
     float lo = math::PI_F, hi = 0.0f;
@@ -69,7 +69,7 @@ inline void test_clamp_phi_band_matches_circle_extent() {
       HS_CONTEXT("center/radius index", ci, ti);
       const float c = centers[ci];
       const float t = radii[ti];
-      SDF::PhiBand band = SDF::clamp_phi_band(c, t);
+      SDF::PhiBand band = SDF::fold_phi_band(c, t);
       auto expected = circle_extent(c, t);
       HS_EXPECT_NEAR(band.phi_min, expected.first, 1e-4f);
       HS_EXPECT_NEAR(band.phi_max, expected.second, 1e-4f);
@@ -85,12 +85,12 @@ inline void test_clamp_phi_band_matches_circle_extent() {
  *        opening to a pole: a pole-axis circle collapses to one latitude, and a
  *        circle whose far edge runs past the south pole reflects back.
  */
-inline void test_clamp_phi_band_pole_crossing_poses() {
-  SDF::PhiBand pole_axis = SDF::clamp_phi_band(0.0f, 0.5f);
+inline void test_fold_phi_band_pole_crossing_poses() {
+  SDF::PhiBand pole_axis = SDF::fold_phi_band(0.0f, 0.5f);
   HS_EXPECT_NEAR(pole_axis.phi_min, 0.5f, 1e-5f);
   HS_EXPECT_NEAR(pole_axis.phi_max, 0.5f, 1e-5f);
 
-  SDF::PhiBand wrapped = SDF::clamp_phi_band(3.0f, 2.5f);
+  SDF::PhiBand wrapped = SDF::fold_phi_band(3.0f, 2.5f);
   HS_EXPECT_NEAR(wrapped.phi_min, 0.5f, 1e-5f);
   HS_EXPECT_NEAR(wrapped.phi_max, math::TWO_PI_F - 5.5f, 1e-5f);
 }

@@ -54,12 +54,12 @@ inline math::Basis equator_basis() {
 inline int run_sdf_tests() {
   hs_test::ModuleFixture fixture("sdf");
 
-  test_clamp_phi_in_range();
-  test_clamp_phi_negative_reflects();
-  test_clamp_phi_above_pi_reflects();
-  test_clamp_phi_full_range();
-  test_clamp_phi_band_matches_circle_extent();
-  test_clamp_phi_band_pole_crossing_poses();
+  test_fold_phi_in_range();
+  test_fold_phi_negative_reflects();
+  test_fold_phi_above_pi_reflects();
+  test_fold_phi_full_range();
+  test_fold_phi_band_matches_circle_extent();
+  test_fold_phi_band_pole_crossing_poses();
   test_centered_sector_angle_matches_wrap();
 
   test_ring_roundoff_at_exact_center();
