@@ -520,8 +520,13 @@ inline void test_solid_builder_reclaims_intermediates() {
 // Recipe tables: bitwise replay parity.
 // ---------------------------------------------------------------------------
 
-/** Lowered-step buffer capacity. */
-constexpr size_t MAX_LOWERED_STEPS = 32;
+/** Single-step META recipe step. */
+constexpr Solids::OpStep META_STEP = {Solids::Op::META};
+
+/** Lowered-step buffer capacity: longest registry or one-composite chain. */
+constexpr size_t MAX_LOWERED_STEPS =
+    std::max(Solids::max_lowered_step_count(Solids::islamic_registry),
+             Solids::lowered_step_count(Solids::Recipe{0, &META_STEP, 1}));
 
 /**
  * @brief Verifies build_recipe replays every non-null recipe bitwise-identical
@@ -625,6 +630,7 @@ inline void check_composite_lowering(const Solids::OpStep &step) {
   const Solids::Recipe recipe = {0 /* tetrahedron */, &step, 1};
   Solids::OpStep lowered[MAX_LOWERED_STEPS];
   size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
+  HS_EXPECT_EQ(n, Solids::lowered_step_count(recipe));
   Arena geom1(solids_geom_a, sizeof(solids_geom_a));
   PolyMesh authored;
   {
@@ -689,6 +695,7 @@ inline void test_islamic_recipes_are_morph_feasible() {
     Solids::OpStep lowered[MAX_LOWERED_STEPS];
     size_t n =
         Solids::expand_to_primitives(*e.recipe, lowered, MAX_LOWERED_STEPS);
+    HS_EXPECT_EQ(n, Solids::lowered_step_count(*e.recipe));
     for (size_t i = 0; i < n; ++i) {
       if (!Solids::is_morphable_step(lowered[i]))
         std::printf("  [morph feasibility] %s: lowered step %zu "
