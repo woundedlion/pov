@@ -22,9 +22,15 @@
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 // Caller property access can re-enter embind, including delete().
+/// True while any caller payload is being decoded.
 static bool payload_decode_active = false;
+/// RAII latch on `payload_decode_active`; traps on a re-entrant decode.
 struct PayloadDecodeGuard {
-  bool *decoding;
+  bool *decoding; ///< Optional per-handle flag mirrored for the guard's life.
+  /**
+   * @brief Enters a decode; traps if one is already active.
+   * @param decoding Per-handle flag set for the guard's life, or null.
+   */
   explicit PayloadDecodeGuard(bool *decoding = nullptr) : decoding(decoding) {
     HS_CHECK(!payload_decode_active,
              "re-entrant engine decode from a caller accessor");
@@ -40,6 +46,7 @@ struct PayloadDecodeGuard {
 };
 #endif
 
+/** @brief False once the module aborted or was marked dead. */
 // clang-format off
 EM_JS(bool, workbench_module_alive, (), {
   return !ABORT && !Module['HS_MODULE_DEAD'];
@@ -48,19 +55,25 @@ EM_JS(bool, workbench_module_alive, (), {
 
 /** @brief WASM-only effect incarnation shared by engine and capability handles. */
 struct WorkbenchBindingState {
-  Effect *effect = nullptr;
-  const FactoryEntry *entry = nullptr;
-  uint64_t generation = 0;
-  int width = 0;
-  int height = 0;
-  bool alive = true;
-  bool paused = false;
+  Effect *effect = nullptr; ///< Live effect, or null between effects.
+  const FactoryEntry *entry = nullptr; ///< Factory entry `effect` came from.
+  uint64_t generation = 0;             ///< Bumped on every effect teardown.
+  int width = 0;                       ///< Active resolution width, in pixels.
+  int height = 0;                      ///< Active resolution height, in pixels.
+  bool alive = true;   ///< False once the owning engine is deleted.
+  bool paused = false; ///< Mirror of the effect's animations-paused flag.
 };
 
+/** @brief Base for capability handles pinned to one effect incarnation. */
 class WorkbenchBindings {
 public:
+  /// Reapplies captured state to a rebuilt effect; true on success.
   using RebuildRestore =
       std::function<bool(const std::shared_ptr<WorkbenchBindingState> &)>;
+  /**
+   * @brief Pins the handle to the state's current generation.
+   * @param state Shared incarnation state owned by the engine.
+   */
   explicit WorkbenchBindings(std::shared_ptr<WorkbenchBindingState> state)
       : state(std::move(state)), generation(this->state->generation) {}
   /** @brief Whether the originating engine and effect incarnation remain live. */
@@ -70,7 +83,7 @@ public:
   }
 
 protected:
-  std::shared_ptr<WorkbenchBindingState> state;
+  std::shared_ptr<WorkbenchBindingState> state; ///< Engine-shared incarnation.
 #if HS_ENABLE_CHAIN_INTERPRETER
   /** @brief Runs a callback when the live effect has the requested factory type. */
   template <template <int, int> class EffectT, typename Callback>
@@ -89,6 +102,11 @@ protected:
   }
 #endif
 
+  /**
+   * @brief JS `Array.isArray`.
+   * @param value Value to test.
+   * @return True if value is a JS array.
+   */
   static bool is_array(const emscripten::val &value) {
     return emscripten::val::global("Array").call<bool>("isArray", value);
   }
@@ -97,14 +115,24 @@ private:
   const uint64_t generation;
 };
 #if HS_ENABLE_CHAIN_INTERPRETER
+/** @brief JS handle for program and snapshot access on a ShaderChain effect. */
 class ShaderChainBindings : public WorkbenchBindings {
 public:
+  /// Inherits the incarnation-pinning constructor.
   using WorkbenchBindings::WorkbenchBindings;
   ~ShaderChainBindings() {
     HS_CHECK(!decoding,
              "delete() of a chain handle from a caller accessor during decode");
   }
+  /**
+   * @brief Whether the originating engine and effect incarnation remain live.
+   * @return True while the handle may be used.
+   */
   bool isValid() const { return WorkbenchBindings::isValid(); }
+  /**
+   * @brief Encodes the loaded chain's full state.
+   * @return Snapshot JS object, or null if the handle is stale or not a chain.
+   */
   emscripten::val getSnapshot() {
     auto result = emscripten::val::null();
     with_effect<ShaderChain>([&](auto &chain) {
@@ -113,6 +141,12 @@ public:
     return result;
   }
 
+  /**
+   * @brief Decodes and applies a snapshot from getSnapshot().
+   * @param caller_input Snapshot JS object; cloned before decoding.
+   * @return APPLIED, NOT_SHADER_CHAIN if the handle is stale or the effect
+   *         changed during decode, or the decode/restore refusal.
+   */
   ChainSnapshotRestoreResult
   restoreSnapshot(const emscripten::val &caller_input) {
     using Result = ChainSnapshotRestoreResult;
@@ -141,6 +175,10 @@ public:
     }
     return restored;
   }
+  /**
+   * @brief Captures the chain's snapshot for reapplication after a rebuild.
+   * @return Restorer for the rebuilt effect, or empty if no chain is loaded.
+   */
   RebuildRestore capture_rebuild_state() {
     RebuildRestore restore;
     with_effect<ShaderChain>([&](auto &chain) {
@@ -284,6 +322,11 @@ public:
     return catalog;
   }
 
+  /**
+   * @brief Lists the loaded program shape.
+   * @return JS array of {instance, operator} in chain order, or null if the
+   *         handle is stale or not a chain.
+   */
   emscripten::val getProgram() {
     emscripten::val result = emscripten::val::null();
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
@@ -316,6 +359,14 @@ private:
 };
 #endif
 
+/**
+ * @brief Creates a handle if the live effect is an EffectT instantiation.
+ * @tparam EffectT Effect template, instantiated at the active resolution.
+ * @tparam Bindings Handle type to construct.
+ * @param state Engine-shared incarnation state.
+ * @return New handle, or null if the module or engine is dead or the effect
+ *         type differs.
+ */
 template <template <int, int> class EffectT, typename Bindings>
 std::shared_ptr<Bindings> acquire_workbench_bindings(
     const std::shared_ptr<WorkbenchBindingState> &state) {
@@ -332,12 +383,18 @@ std::shared_ptr<Bindings> acquire_workbench_bindings(
 }
 
 #if HS_ENABLE_CHAIN_INTERPRETER
+/**
+ * @brief ShaderChain handle for the live effect.
+ * @param state Engine-shared incarnation state.
+ * @return New handle, or null if the live effect is not a ShaderChain.
+ */
 inline std::shared_ptr<ShaderChainBindings> acquire_shader_chain_bindings(
     const std::shared_ptr<WorkbenchBindingState> &state) {
   return acquire_workbench_bindings<ShaderChain, ShaderChainBindings>(state);
 }
 #endif
 
+/** @brief Registers the workbench adapter enums and classes with embind. */
 static void bind_workbench_adapters() {
 #if HS_ENABLE_CHAIN_INTERPRETER
   emscripten::enum_<ChainSnapshotRestoreResult>("ChainSnapshotRestoreResult")

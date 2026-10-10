@@ -22,11 +22,19 @@ namespace hs_wasm {
 /** @brief Joins engine replacement and effect-local schema changes into one token. */
 class ParamGenerationTracker {
 public:
+  /**
+   * @brief Records an engine/effect replacement; always advances the token.
+   * @param schema_generation Replacement effect's schema generation, 0 if none.
+   */
   void replace(uint32_t schema_generation) {
     observed_schema_generation = schema_generation;
     ++generation_value;
   }
 
+  /**
+   * @brief Advances the token if the effect's schema generation changed.
+   * @param schema_generation The effect's current schema generation.
+   */
   void observe(uint32_t schema_generation) {
     if (schema_generation == observed_schema_generation)
       return;
@@ -34,6 +42,10 @@ public:
     ++generation_value;
   }
 
+  /**
+   * @brief Current combined schema token.
+   * @return Count of replacements and observed schema changes.
+   */
   uint32_t generation() const { return generation_value; }
 
 private:
@@ -69,9 +81,9 @@ struct ParamView {
 
 /** @brief Reserved backing stores for the engine parameter streams. */
 struct ParamStreams {
-  static constexpr size_t CAPACITY = 256;
-  std::vector<float> values;
-  std::vector<ParamView> views;
+  static constexpr size_t CAPACITY = 256; ///< Reserved entries per stream.
+  std::vector<float> values;              ///< Per-frame values stream.
+  std::vector<ParamView> views;           ///< Definitions stream.
 
   ParamStreams() {
     values.reserve(CAPACITY);

@@ -12,6 +12,10 @@
 #include <emscripten.h>
 #include <emscripten/val.h>
 
+/**
+ * @brief structuredClone of a JS value; a clone failure yields a null handle.
+ * @details Rethrows when the module is aborted or dead, or on a wasm trap.
+ */
 // clang-format off
 EM_JS(emscripten::EM_VAL, clone_payload_handle, (emscripten::EM_VAL input), {
   try {
