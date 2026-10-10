@@ -155,7 +155,7 @@ class DuplicatesPin(unittest.TestCase):
 
     def test_the_tracked_workflows_duplicate_no_pin(self):
         # The live gate, so a real duplicate fails here as well as in CI.
-        for path in sorted((bp.ROOT / ".github/workflows").glob("*.yml")):
+        for path in sorted(set(bp.workflow_files()) | set(bp.CONSUMERS)):
             text = path.read_text(encoding="utf-8")
             for name, value in bp.PINS.items():
                 self.assertFalse(bp.duplicates_pin(text, name, value),
