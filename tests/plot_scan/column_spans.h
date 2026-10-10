@@ -903,6 +903,48 @@ inline void test_cartesian_quadrant_gate_classification() {
 }
 
 /**
+ * @brief A point trail the latitude gate rejects puts no tap row in the clip
+ *        under the renderer's fast_acos row map.
+ */
+inline void test_cartesian_latitude_gate_covers_row_map_error() {
+  constexpr int W = 288, H = 144;
+  for (bool north : {true, false}) {
+    HS_CONTEXT(north ? "north" : "south");
+    const ClipRegion cr{
+        north ? 0 : H / 2, north ? H / 2 : H, 0, W / 2, 1, W, H};
+    const auto clip = Plot::make_cartesian_quadrant_clip<W, H>(cr);
+    HS_EXPECT_TRUE(clip.active);
+    const math::Vector mid = math::pixel_to_vector<W, H>(W / 4, H / 2);
+    const float azimuth_norm = sqrtf(mid.x * mid.x + mid.z * mid.z);
+    int rejected = 0, near_misses = 0;
+    // Walk signed latitude down from the threshold, out of the clip.
+    for (int step = 1; step <= 4000; ++step) {
+      const float signed_y = clip.latitude_threshold - step * 5e-8f;
+      const float y = clip.latitude_sign * signed_y;
+      const float ring = sqrtf(1.0f - y * y) / azimuth_norm;
+      ScratchScope sc(plot_arena());
+      Fragments trail;
+      trail.bind(plot_arena(), 2);
+      Fragment f;
+      f.pos = math::Vector(mid.x * ring, y, mid.z * ring);
+      trail.push_back(f);
+      trail.push_back(f);
+      const int row =
+          static_cast<int>(floorf(math::vector_to_pixel<W, H>(f.pos).y));
+      const bool tap_in_clip = cr.contains_y(row) || cr.contains_y(row + 1);
+      near_misses += tap_in_clip;
+      if (Plot::cartesian_quadrant_trail_gate(clip, trail) ==
+          Plot::CartesianTrailGateResult::LATITUDE_REJECT) {
+        ++rejected;
+        HS_EXPECT_FALSE(tap_in_clip);
+      }
+    }
+    HS_EXPECT_GT(rejected, 0);
+    HS_EXPECT_GT(near_misses, 0);
+  }
+}
+
+/**
  * @brief Checks Cartesian rejections against per-edge bounds and dense arc taps.
  * @details A rejected trail has no bilinear tap in the render region.
  */

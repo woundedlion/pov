@@ -493,6 +493,9 @@ enum class CartesianTrailGateResult : uint8_t {
   MERIDIAN_REJECT, ///< Rejected by the meridian halfspace.
 };
 
+/// Unit-y slack covering the renderer's fast_acos row-map error.
+inline constexpr float CARTESIAN_LATITUDE_SLACK = 1e-4f;
+
 /// Halfspace superset of a segmented quadrant clip.
 struct CartesianQuadrantClip {
   float latitude_sign = 0.0f;      ///< +1 for the top half, -1 for the bottom.
@@ -575,7 +578,8 @@ cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
   // Every point on a minor arc lies within half its arc of one endpoint, and
   // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
   const float slack = (math::PI_F * 0.25f) * sqrtf(max_chord2);
-  if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC) {
+  if (latitude_max + slack <
+      clip.latitude_threshold - CARTESIAN_LATITUDE_SLACK) {
 #ifdef HS_PROFILE_PLOT_STALLS
     gate_batch.step();
     gate_batch.finish();
