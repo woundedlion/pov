@@ -49,7 +49,13 @@ inline constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
  *  enough that no AA reach or CSG blend reads it as near-surface. */
 inline constexpr float FAR_SENTINEL = 100.0f;
 
-/** @brief Folds an angle into the centered interval for one sector. */
+/**
+ * @brief Folds an angle into the centered interval for one sector.
+ * @param angle Angle in radians.
+ * @param sector Sector width in radians.
+ * @param reciprocal_sector 1 / @p sector.
+ * @return @p angle folded into [-sector/2, sector/2).
+ */
 inline float centered_sector_angle(float angle, float sector,
                                    float reciprocal_sector) {
   float shifted = angle + sector * 0.5f;
@@ -848,7 +854,14 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
   return {y_min, y_max};
 }
 
-/** @brief Maps bounds using an explicit pole-to-pole virtual grid. */
+/**
+ * @brief Maps bounds using an explicit pole-to-pole virtual grid.
+ * @param phi_min Lower polar-angle edge of the band (radians).
+ * @param phi_max Upper polar-angle edge of the band (radians).
+ * @param virtual_height Rows spanning pole to pole.
+ * @param height Canvas height in rows.
+ * @return Inclusive row bounds covering the band.
+ */
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
                                  int virtual_height, int height) {
   return phi_bounds_to_rows(

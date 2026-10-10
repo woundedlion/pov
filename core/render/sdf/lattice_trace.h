@@ -62,7 +62,11 @@ struct Prepared {
   SDF::ShellLayerStorage *shell_layers = nullptr; ///< Shell layer scratch.
 };
 
-/** @brief Validates settings and precomputes the frame's trace state. */
+/**
+ * @brief Validates settings and precomputes the frame's trace state.
+ * @param settings Frame settings.
+ * @return Trace state; `valid` is false for unusable settings.
+ */
 HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   Prepared result;
   if (!Raycast::finite(settings.cell_size) || settings.cell_size <= 0.0f ||
@@ -139,7 +143,13 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
   return result;
 }
 
-/** @brief shade() for a valid octet frame of the matching domain. */
+/**
+ * @brief shade() for a valid octet frame of the matching domain.
+ * @tparam SLICE_4D Whether the camera samples a 4D slice.
+ * @param direction Unit view direction.
+ * @param prepared Frame trace state.
+ * @return Premultiplied color and trace status.
+ */
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
                                        const Prepared &prepared) {
@@ -156,7 +166,13 @@ HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
   }
 }
 
-/** @brief shade() for a valid shell frame one of the shell traces serves. */
+/**
+ * @brief shade() for a valid shell frame one of the shell traces serves.
+ * @tparam SLICE_4D Whether the camera samples a 4D slice.
+ * @param direction Unit view direction.
+ * @param prepared Frame trace state.
+ * @return Premultiplied color and trace status.
+ */
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
                                         const Prepared &prepared) {
@@ -171,7 +187,14 @@ HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
   return {SHELLS.color, SHELLS.status};
 }
 
-/** @brief One ray's premultiplied color for the frame's geometry. */
+/**
+ * @brief One ray's premultiplied color for the frame's geometry.
+ * @tparam SLICE_4D Whether the camera samples a 4D slice.
+ * @param direction Unit view direction.
+ * @param prepared Frame trace state.
+ * @return Premultiplied color and trace status; INVALID_QUERY
+ * for an invalid frame or mismatched domain.
+ */
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
                                  const Prepared &prepared) {

@@ -49,7 +49,9 @@ template <PeriodicSurfaceKind Kind> struct PeriodicSurface {
              sinf(Q.z) * cosf(Q.x) - iso;
   }
 
-  /** @brief Signed conservative clearance, not an exact signed distance. */
+  /** @brief Signed conservative clearance, not an exact signed distance.
+   *  @param p World point.
+   *  @return field() divided by its Lipschitz bound. */
   float distance(const math::Vector &p) const { return field(p) / lipschitz(); }
 
   /** @brief Analytic field gradient.

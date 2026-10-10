@@ -93,14 +93,22 @@ public:
     origins.populate(0, field.ring_count() - 1, origin);
   }
 
-  /** @brief Whether init_storage() has run. */
+  /**
+   * @brief Whether init_storage() has run.
+   * @return True once storage is bound.
+   */
   bool ready() const { return column_offsets != nullptr; }
 
-  /** @brief Whether the buffers hold the field filled for @p key. */
+  /**
+   * @brief Whether the buffers hold the field filled for @p key.
+   * @param key Field identity to test.
+   * @return True when the cached field matches @p key.
+   */
   bool holds(const Key &key) const { return valid && key == stored_key; }
 
   /** @brief Projected origin of every lattice sample of the cache's layout,
-   *  or nullptr before init_storage(). */
+   *  or nullptr before init_storage().
+   *  @return Origin array. */
   const Coordinates *origins() const { return origin_points; }
 
   /**

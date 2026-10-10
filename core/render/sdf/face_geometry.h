@@ -287,7 +287,10 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
   sector_ok = true;
 }
 
-/** @brief Builds vertex-row crossing masks for exact non-convex probes. */
+/**
+ * @brief Builds vertex-row crossing masks for exact non-convex probes.
+ * @param scratch Buffer whose y-walk cache is populated.
+ */
 __attribute__((always_inline)) void build_y_walk(FaceScratchBuffer &scratch) {
   if (convex || sector_ok || count < SECTOR_MIN_COUNT)
     return;
@@ -755,7 +758,14 @@ bool horizontal_intervals_vary_by_row(int y_lo, int y_hi) const {
   return false;
 }
 
-/** @brief Whether two rows emit the same rounded azimuth intervals. */
+/**
+ * @brief Whether two rows emit the same rounded azimuth intervals.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param first_y First raster row.
+ * @param second_y Second raster row.
+ * @return True when both rows emit identical column intervals.
+ */
 template <int W, int H>
 bool horizontal_intervals_equal_rows(int first_y, int second_y) const {
   if (full_width || first_y == second_y)
@@ -810,7 +820,13 @@ bool get_horizontal_intervals(int y, OutputIt out) const {
   return true;
 }
 
-/** @brief Returns the latitude-adjusted AA padding for one raster row. */
+/**
+ * @brief Returns the latitude-adjusted AA padding for one raster row.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param y Raster row.
+ * @return Azimuth padding in radians.
+ */
 template <int W, int H> float azimuth_pad_at_row(int y) const {
   if (build_azimuth_pads)
     return build_azimuth_pads[y];
@@ -873,6 +889,10 @@ HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
    * @details Checks all edges crossing the query row, then incident edges at
    * neighboring vertex rows. Unvisited segments lie outside the visited strip;
    * its vertical gaps bound their distance. Requires a populated y-walk cache.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @param inside_out Set true when the query lies inside the polygon.
+   * @return Squared distance to the nearest edge, in the tangent plane.
    */
 HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
                                                     bool &inside_out) const {

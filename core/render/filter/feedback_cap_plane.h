@@ -58,7 +58,10 @@ template <int W, int H> struct FeedbackCapPlane {
   };
 
   /** @brief Cap-plane coordinates of a direction, from the north pole or,
-   *  with @p south, from the south pole. */
+   *  with @p south, from the south pole.
+   *  @param v Unit direction.
+   *  @param south Measure from the south pole.
+   *  @return Cap-plane offset in radians; zero at the pole itself. */
   __attribute__((noinline)) static CapPoint cap_point(const math::Vector &v,
                                                       bool south) {
     const float horizontal = sqrtf(v.x * v.x + v.z * v.z);
@@ -70,7 +73,10 @@ template <int W, int H> struct FeedbackCapPlane {
   }
 
   /** @brief Quantizes a cap-plane offset in radians, saturating at the
-   *  int16_t range. */
+   *  int16_t range.
+   *  @param u Offset along world x, in radians.
+   *  @param v Offset along world z, in radians.
+   *  @return Fixed-point offset in CAP_SCALE units. */
   static CapOffset encode_cap(float u, float v) {
     auto quantize = [](float c) {
       const float scaled = hs::clamp(c * CAP_SCALE, -32767.0f, 32767.0f);
@@ -79,7 +85,13 @@ template <int W, int H> struct FeedbackCapPlane {
     return {quantize(u), quantize(v)};
   }
 
-  /** @brief Encoded offsets @p a and @p b blended by @p mix, truncated. */
+  /**
+   * @brief Encoded offsets @p a and @p b blended by @p mix, truncated.
+   * @param a Offset at @p mix = 0.
+   * @param b Offset at @p mix = 1.
+   * @param mix Blend weight in [0,1].
+   * @return Blended offset.
+   */
   static __attribute__((always_inline)) CapOffset
   lerp_offset(const CapOffset &a, const CapOffset &b, float mix) {
     return {static_cast<int16_t>(hs::lerp(static_cast<float>(a.u),
@@ -97,6 +109,7 @@ template <int W, int H> struct FeedbackCapPlane {
    * @param cx1 Right column.
    * @param wy0 Weight of @p caps0.
    * @param wy1 Weight of @p caps1.
+   * @return Decoded cell, in radians.
    */
   static __attribute__((always_inline)) CapCell
   decode_cell(const CapOffset *caps0, const CapOffset *caps1, int cx0, int cx1,
@@ -119,6 +132,7 @@ template <int W, int H> struct FeedbackCapPlane {
    * @param north Whether the row's pole is the north pole.
    * @param midpoint Whether the lane stands for its column pair.
    * @param fx The lane's fraction across @p cell.
+   * @return The lane's source coordinates.
    */
   static __attribute__((always_inline)) typename SphereField::Coordinates
   polar_lane(const CapCell &cell, int x, float cap_angle, bool north,

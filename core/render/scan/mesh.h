@@ -405,7 +405,19 @@ struct Mesh {
     }
   }
 
-  /** @brief Rasterizes a mesh through the type-erased fragment shader path. */
+  /**
+   * @brief Rasterizes a mesh through the type-erased fragment shader path.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh providing vertices, face counts, indices, and offsets.
+   * @param fragment_shader Shader invoked per covered pixel; receives the
+   *        face index in register v2.
+   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param bake Optional congruence-class bake for this mesh.
+   */
   template <int W, int H, typename PipelineT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
@@ -415,7 +427,22 @@ struct Mesh {
                     bake, face_shader_setup);
   }
 
-  /** @brief Rasterizes a mesh with an inlinable per-face fragment shader. */
+  /**
+   * @brief Rasterizes a mesh with an inlinable per-face fragment shader.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh providing vertices, face counts, indices, and offsets.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT Callable `void(size_t face, float size)`.
+   * @param fragment_shader Shader invoked per covered pixel; must write
+   *        frag.color unconditionally.
+   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param bake Optional congruence-class bake for this mesh.
+   * @param face_shader_setup Non-null callback run once before each face.
+   */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
   static void

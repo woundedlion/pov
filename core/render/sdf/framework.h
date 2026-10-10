@@ -245,7 +245,12 @@ struct OctetFramework {
     return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
   }
 
-  /** @brief Distance to struts contained in the selected plane through p. */
+  /**
+   * @brief Distance to struts contained in the selected plane through p.
+   * @param index Plane family index, below STREAM_COUNT.
+   * @param p Query point.
+   * @return Signed distance and strut id; clearance is not provided.
+   */
   Raycast::QuerySample plane_sample(size_t index, const math::Vector &p) const {
     const auto FAMILIES = plane_families();
     const math::Vector Q = p - origin;
@@ -716,7 +721,14 @@ struct OctetEvents : OctetStreams<4> {
     initialize(ray.interval.near, SPACING * SPACING);
   }
 
-  /** @brief Initializes a unit ray from validated frame projections. */
+  /**
+   * @brief Initializes a unit ray from validated frame projections.
+   * @param prepared Per-frame plane projections.
+   * @param direction Unit view direction.
+   * @param radial_start Distance from the projection origin to t = 0.
+   * @param near Parameter where the streams start.
+   * @param footprint Pixel footprint for coverage.
+   */
   __attribute__((always_inline))
   OctetEvents(const PreparedProjection &prepared, const math::Vector &direction,
               float radial_start, float near,
@@ -730,7 +742,11 @@ struct OctetEvents : OctetStreams<4> {
     initialize(near, prepared.spacing2);
   }
 
-  /** @brief Assigns strut pairs to owners and starts the owning streams. */
+  /**
+   * @brief Assigns strut pairs to owners and starts the owning streams.
+   * @param near Parameter where the streams start.
+   * @param spacing2 Squared plane spacing.
+   */
   __attribute__((always_inline)) void initialize(float near, float spacing2) {
     owned_count.fill(0);
     uint8_t pair = 0;
@@ -755,7 +771,13 @@ struct OctetEvents : OctetStreams<4> {
     }
   }
 
-  /** @brief Coverage of the nearest owned strut at distance t on a stream. */
+  /**
+   * @brief Coverage of the nearest owned strut at distance t on a stream.
+   * @param index Stream index.
+   * @param t Ray parameter.
+   * @param feature Receives the nearest strut's feature id.
+   * @return Coverage in [0, 1]; 0 when no strut reaches the footprint.
+   */
   __attribute__((always_inline)) float coverage(size_t index, float t,
                                                 uint32_t &feature) const {
     const auto &pairs = owned[index];
@@ -872,7 +894,15 @@ struct OctetEvents4 : OctetStreams<8> {
     initialize(direction, interval.near);
   }
 
-  /** @brief Initializes a unit view ray from validated frame projections. */
+  /**
+   * @brief Initializes a unit view ray from validated frame projections.
+   * @param geometry Framework to trace.
+   * @param prepared Per-frame 4D embedding.
+   * @param direction Unit view direction.
+   * @param radial_start Distance from the projection origin to t = 0.
+   * @param near Parameter where the streams start.
+   * @param footprint Pixel footprint for coverage.
+   */
   __attribute__((always_inline))
   OctetEvents4(const OctetFramework4 &geometry,
                const PreparedProjection &prepared,
@@ -891,7 +921,11 @@ struct OctetEvents4 : OctetStreams<8> {
     initialize(ambient, near);
   }
 
-  /** @brief Assigns strut classes to owners and starts the owning streams. */
+  /**
+   * @brief Assigns strut classes to owners and starts the owning streams.
+   * @param direction Unit ambient 4D ray direction.
+   * @param near Parameter where the streams start.
+   */
   __attribute__((always_inline)) void initialize(const math::Vec4 &direction,
                                                  float near) {
     // The owners are the family matching the direction's sign pattern and
@@ -964,7 +998,13 @@ struct OctetEvents4 : OctetStreams<8> {
     }
   }
 
-  /** @brief Coverage of the nearest owned strut at distance t on a stream. */
+  /**
+   * @brief Coverage of the nearest owned strut at distance t on a stream.
+   * @param index Stream index.
+   * @param t Ray parameter.
+   * @param feature Receives the nearest strut's feature id.
+   * @return Coverage in [0, 1]; 0 when no strut reaches the footprint.
+   */
   __attribute__((always_inline)) float coverage(size_t index, float t,
                                                 uint32_t &feature) const {
     const auto &owner = owners[owner_of[index]];

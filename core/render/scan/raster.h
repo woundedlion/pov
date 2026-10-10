@@ -88,6 +88,7 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
  * @brief Factor from an angular step to the units a shape's distance() reports.
  * @details A block probe's slack is an arc, so a shape reporting in another
  * unit scales it. A shape without an overload does not compile.
+ * @return 1 for SDF::Ring (no rescaling).
  */
 __attribute__((always_inline)) inline float report_stretch(const SDF::Ring &) {
   return 1.0f;
@@ -148,7 +149,9 @@ __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
 }
 /** @brief SDF::Face reports gnomonic-plane distance, whose angular-step stretch
  *         grows as 1 + r^2. This factor uses max_dist_sq, though a class-LUT
- *         pad can admit ordinary and block probes past max_dist. */
+ *         pad can admit ordinary and block probes past max_dist.
+ *  @param shape Face whose `max_dist_sq` bounds the stretch.
+ *  @return 1 + `max_dist_sq`. */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Face &shape) {
   return 1.0f + shape.max_dist_sq;
@@ -265,6 +268,7 @@ probe_bounds_block(float threshold, float block_slack) {
  * @param run Columns in the block; 1 yields no slack.
  * @param p_y Probe's y coordinate on the unit sphere (cos of the colatitude).
  * @param shape Shape the probe reads distance() from.
+ * @return Slack in the shape's report units.
  */
 template <int W, typename ShapeT>
 __attribute__((always_inline)) inline float
