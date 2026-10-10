@@ -1097,6 +1097,7 @@ inline int run_effects_tests() {
   ThrustersWhiteBox::check_expired_slots_retire_by_pair();
   RingShowerWhiteBox::check_radius_endpoints();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+  DynamoWhiteBox::check_wipe_band_colors();
   run_case(test_dynamo_emitted_points_counts_ring_seeds);
   run_case(test_ringspin_trail_hugs_its_great_circles);
   run_case(test_hopf_trail_trim_keeps_a_segment);
