@@ -26,8 +26,9 @@ struct HankinSolidsWhiteBox;
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Sweeps the interlace angle, then transitions by walking the Conway
- * edge graph, each leg sweeping the destination solid's operator parameter.
+ * @details Sweeps the interlace angle on a solid, picks a uniformly random
+ * destination solid, and morphs along a shortest Conway edge-graph path to
+ * it, each leg sweeping the arriving solid's operator parameter.
  * Faces are colored by topology class.
  */
 template <int W, int H> class HankinSolids : public Effect {
@@ -78,7 +79,10 @@ public:
     });
     node = ConwayGraph::TETRAHEDRON;
     seed_identity = ConwayGraph::TETRAHEDRON;
-    ConwayGraph::record_visit(node_visits, node);
+    dest = node;
+    std::fill(std::begin(recent_sweeps), std::end(recent_sweeps),
+              ConwayGraph::NO_NODE);
+    ConwayGraph::record_sweep(recent_sweeps, node);
 
     params.hankin_angle = 0.0f;
     MeshPaletteBank::shuffle_indices(palette_idx);
@@ -121,7 +125,7 @@ private:
    * born inside them). */
   static constexpr size_t MAX_HANKIN_FACES = 256;
   /** Frames in one interlace-angle sweep. */
-  static constexpr int HANKIN_SWEEP_FRAMES = 64;
+  static constexpr int HANKIN_SWEEP_FRAMES = 80;
   /** Frames over which the terminal rosette sliver fades out. */
   static constexpr int STRAP_TERMINAL_FRAMES = 3;
   /** Frames shaping a face into or out of its neighbor at strap birth/close
@@ -505,6 +509,10 @@ private:
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
+    swept_idx = palette_idx;
+    std::fill(std::begin(swept_used), std::end(swept_used), false);
+    for (const auto topology : hankin_mesh.topology)
+      swept_used[MeshPaletteBank::slot_of(topology)] = true;
     timeline.add_pausable(2,
                           Animation::Mutation(params.hankin_angle, sweep_wave(),
                                               HANKIN_SWEEP_FRAMES,
@@ -557,16 +565,21 @@ private:
   }
 
   /**
-   * @brief Picks the next graph edge, reconciles the held seed, and schedules
-   * the OpLeg.
+   * @brief Picks a fresh destination when the walk has reached its current
+   * one, takes the next graph edge toward it, reconciles the held seed, and
+   * schedules the OpLeg.
    */
   HS_COLD_MEMBER void start_morph_cycle() {
     using namespace ConwayGraph;
 #ifdef HS_PROFILE_ORDERED_CYCLE
     cur_edge = pick_next_edge_ordered(node, cur_edge, leg_counter++);
+    dest = static_cast<uint8_t>(edge_other_end(cur_edge, node));
 #else
-    cur_edge = pick_next_edge(node, cur_edge, legs_in_family, node_visits,
-                              static_cast<uint32_t>(hs::random()()));
+    if (node == dest)
+      dest = static_cast<uint8_t>(pick_destination(
+          node, recent_sweeps, static_cast<uint32_t>(hs::random()())));
+    cur_edge =
+        next_edge_toward(node, dest, static_cast<uint32_t>(hs::random()()));
 #endif
     const EdgeSpec &e = EDGES[cur_edge];
     HS_CHECK(edge_touches(cur_edge, node),
@@ -663,7 +676,8 @@ private:
 
   /**
    * @brief Leg completion: clean-endpoint swap, reseed, hankin rebuild from
-   * the arrived mesh, forward palette mapping, compaction, next cycle.
+   * the arrived mesh, forward palette mapping, compaction, then a hankin
+   * sweep at the destination or the next leg toward it.
    */
   HS_COLD_MEMBER void finish_morph_cycle() {
     using namespace ConwayGraph;
@@ -672,20 +686,8 @@ private:
     const bool arrived_at_to = !reverse;
     const uint8_t arrived = arrived_at_to ? e.to_node : e.from_node;
 
-    if (family(arrived) != family(node))
-      legs_in_family = 0;
-    else
-      ++legs_in_family;
-    record_visit(node_visits, arrived);
     node = arrived;
     hs::log("Loading shape: '%s'", Solids::simple_registry[node].name);
-
-    // Outgoing cycle's display state: per-slot colors and which slots were on
-    // screen at all.
-    const std::array<int, NUM_PALETTES> prev_idx = palette_idx;
-    bool prev_used[NUM_PALETTES] = {};
-    for (size_t f = 0; f < hankin_mesh.topology.size(); ++f)
-      prev_used[MeshPaletteBank::slot_of(hankin_mesh.topology[f])] = true;
 
     // Built from the held seed so bridge arrivals keep the walk's
     // orientation.
@@ -738,7 +740,7 @@ private:
     }
     record_node_palettes();
     resolve_host_faces();
-    prepare_strap_crossfade(prev_idx, prev_used);
+    prepare_strap_crossfade(swept_idx, swept_used);
     pending_landing = nullptr;
 
     // Bookend-out: the next cycle's first drawn sample is exactly angle 0.
@@ -758,6 +760,11 @@ private:
 
     MeshOps::update_hankin(compiled_hankin, hankin_mesh, persistent_arena,
                            params.hankin_angle);
+    if (node != dest) {
+      start_morph_cycle();
+      return;
+    }
+    record_sweep(recent_sweeps, node);
     start_hankin_cycle();
   }
 
@@ -768,7 +775,11 @@ private:
   std::array<int, NUM_PALETTES> strap_from =
       {}; /**< Per-slot crossfade origin palette for the current cycle's
              opening window (equals palette_idx on unarmed slots). */
-  uint8_t strap_blend_mask = 0; /**< Bit s: slot s's strap faces crossfade
+  std::array<int, NUM_PALETTES> swept_idx =
+      {}; /**< Slot -> palette assignment the last hankin sweep displayed. */
+  bool swept_used[NUM_PALETTES] = {}; /**< Slots the last hankin sweep put on
+                                         screen. */
+  uint8_t strap_blend_mask = 0;       /**< Bit s: slot s's strap faces crossfade
                                     this cycle. */
   static_assert(NUM_PALETTES <= 8,
                 "strap_blend_mask holds one bit per palette slot; widen it "
@@ -793,10 +804,9 @@ private:
   uint8_t seed_identity = 0; /**< Platonic solid seed_base represents. */
   int cur_edge = -1;         /**< Edge of the last (or in-flight) leg. */
   bool reverse = false;      /**< In-flight leg runs to_node -> from_node. */
-  int legs_in_family =
-      0; /**< Legs since the last family change (walk weighting). */
-  uint8_t node_visits[ConwayGraph::NUM_NODES] =
-      {}; /**< Aged per-node visit counts (walk recency weighting). */
+  uint8_t dest = 0; /**< Node the walk is routing to for its next sweep. */
+  uint8_t recent_sweeps[ConwayGraph::RECENT_SWEEPS] =
+      {}; /**< Last swept nodes, most recent first. */
 #ifdef HS_PROFILE_ORDERED_CYCLE
   uint32_t leg_counter = 0; /**< Leg count (ordered-cycle picks). */
 #endif

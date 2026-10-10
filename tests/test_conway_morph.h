@@ -125,6 +125,9 @@ inline int run_conway_morph_tests() {
   test_recipe_chain_build_replay();
   test_reconcile_bijection_wellposed();
 
+  test_walk_hops_metric();
+  test_walk_routes_are_shortest();
+  test_walk_route_tie_break_varies();
   test_walk_policy_coverage_and_balance();
   test_ordered_tour_full_coverage_and_wrap();
 
