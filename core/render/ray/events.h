@@ -13,6 +13,7 @@
 
 namespace Raycast {
 
+/// Default merge window as a fraction of max(1, t).
 inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
 
 /**

@@ -23,6 +23,13 @@ __attribute__((always_inline)) inline void march_steps(int limit, Step &&step) {
       break;
 }
 
+/**
+ * @brief Steps a point along a direction.
+ * @param p Start point.
+ * @param direction Step direction.
+ * @param step Step length along `direction`.
+ * @return `p + direction * step`.
+ */
 __attribute__((always_inline)) inline math::Vector
 advance(const math::Vector &p, const math::Vector &direction, float step) {
   return math::Vector(p.x + direction.x * step, p.y + direction.y * step,
@@ -96,14 +103,29 @@ closest_approach(const Shape &shape, const math::Vector &origin,
 }
 HS_O3_END
 
+/**
+ * @brief Whether a value is finite and nonnegative.
+ * @param value Value to test.
+ * @return True for finite value >= 0.
+ */
 __attribute__((always_inline)) inline bool finite_nonnegative(float value) {
   return finite(value) && value >= 0.0f;
 }
 
+/**
+ * @brief Whether a query sample has a finite field and usable clearance.
+ * @param sample Sample to test.
+ * @return True for a finite field and finite nonnegative clearance.
+ */
 inline bool valid_sample(const QuerySample &sample) {
   return finite(sample.field) && finite_nonnegative(sample.clearance);
 }
 
+/**
+ * @brief Whether a footprint's radius and start are finite and nonnegative.
+ * @param footprint Footprint to test.
+ * @return True for a usable footprint.
+ */
 __attribute__((always_inline)) inline bool
 valid_footprint(const Footprint &footprint) {
   return finite_nonnegative(footprint.angular_radius) &&

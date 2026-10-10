@@ -20,10 +20,10 @@ namespace Raycast {
  * shaded distance t.
  */
 struct Appearance {
-  float inv_far = .1f;
-  float near_start = 0;
-  float near_inv_span = 1;
-  const BakedPalette *palette = nullptr;
+  float inv_far = .1f;     ///< Reciprocal of the fog distance.
+  float near_start = 0;    ///< Distance where the near fade-in starts.
+  float near_inv_span = 1; ///< Reciprocal of the near fade-in length.
+  const BakedPalette *palette = nullptr; ///< Depth palette; required to shade.
   float gain = 1; /**< Brightness scale applied to every layer's color. */
 
   /** @brief Whether an interval keeps depth palette lookups in [0, 1]. */
@@ -32,6 +32,11 @@ struct Appearance {
            interval.far * inv_far <= 1.0f;
   }
 
+  /**
+   * @brief Squared fog falloff times the near fade-in at distance t.
+   * @param t Ray distance.
+   * @return Opacity in [0, 1].
+   */
   __attribute__((always_inline)) float opacity(float t) const {
     const float fog = fmaxf(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
@@ -56,11 +61,21 @@ struct Appearance {
   }
 };
 
+/** @brief Shaded colour of a ray together with its trace result. */
 struct ShadedTrace {
-  Color4 color;
-  TraceResult trace;
+  Color4 color;      ///< Composited colour and alpha.
+  TraceResult trace; ///< Status, counters and surface hit of the trace.
 };
 
+/**
+ * @brief Composites every contribution of `trace_events` front to back.
+ * @tparam Adapter Candidate stream adapter accepted by `trace_events`.
+ * @param adapter Candidate streams to merge.
+ * @param interval Ray-parameter range to trace.
+ * @param limits Work budgets.
+ * @param appearance Depth appearance applied to each layer.
+ * @return Composited colour and the trace result; stops once saturated.
+ */
 template <typename Adapter>
 __attribute__((always_inline)) inline ShadedTrace
 shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
