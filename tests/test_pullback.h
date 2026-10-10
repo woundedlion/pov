@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 
 #include "core/render/pullback.h"
@@ -533,6 +534,85 @@ inline void test_pullback_placement_transparency() {
   HS_EXPECT_EQ(grouped_result.color.r, 3);
   HS_EXPECT_EQ(flat_result.color.g, 200);
   HS_EXPECT_EQ(grouped_result.color.g, 200);
+}
+
+struct PreparedOffsetStage
+    : Pullback::Stage::Contract<PreparedOffsetStage, Pullback::PlaneSample,
+                                Pullback::PlaneSample> {
+  using Policies = std::tuple<>;
+  struct Prepared {
+    float offset;
+  };
+
+  template <typename Binding> static Prepared prepare(const TestFrame &frame) {
+    return {frame.edge_width * 4.0f};
+  }
+
+  template <typename Binding>
+  static Pullback::PlaneSample run(const Pullback::PlaneSample &input,
+                                   const TestFrame &frame,
+                                   const Prepared &prepared) {
+    record(frame, 2);
+    Pullback::PlaneSample output = input;
+    output.path_length += prepared.offset;
+    return output;
+  }
+};
+
+struct PreparedScaleStage
+    : Pullback::Stage::Contract<PreparedScaleStage, Pullback::FieldSample,
+                                Pullback::FieldSample> {
+  using Policies = std::tuple<>;
+  struct Prepared {
+    float scale;
+  };
+
+  template <typename Binding> static Prepared prepare(const TestFrame &frame) {
+    return {frame.cutout_threshold * 2.0f};
+  }
+
+  template <typename Binding>
+  static Pullback::FieldSample run(const Pullback::FieldSample &input,
+                                   const TestFrame &frame,
+                                   const Prepared &prepared) {
+    record(frame, 4);
+    Pullback::FieldSample output = input;
+    output.value *= prepared.scale;
+    return output;
+  }
+};
+
+using PreparedGroupedPipeline = Pullback::Pipeline<
+    TestBinding, EntryStage,
+    Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+                            CrossingStage, PreparedOffsetStage>,
+    FieldCrossingStage,
+    Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY,
+                            PreparedScaleStage>,
+    ColorCrossingStage>;
+
+/** prepare_into() + shade_prepared() match prepare() + shade() bit for bit. */
+inline void test_pullback_type_erased_prepare() {
+  using Pipeline = PreparedGroupedPipeline;
+  TestFrame source;
+  source.edge_width = 0.75f;
+  const math::Vector view(1.0f, 2.0f, 3.0f);
+  const Pipeline::Frame frame = Pipeline::prepare(source);
+  const Color4 expected = Pipeline::shade(view, frame);
+
+  const TestFrame ctx = source;
+  alignas(Pipeline::PreparedTuple) unsigned char
+      storage[sizeof(Pipeline::PreparedTuple)];
+  Pipeline::prepare_into(ctx, storage);
+  const Color4 erased = Pipeline::shade_prepared(view, ctx, storage);
+
+  HS_EXPECT_EQ(expected.color.r, 4);
+  HS_EXPECT_EQ(expected.color.g, 100);
+  HS_EXPECT_EQ(erased.color.r, expected.color.r);
+  HS_EXPECT_EQ(erased.color.g, expected.color.g);
+  HS_EXPECT_EQ(erased.color.b, expected.color.b);
+  HS_EXPECT_EQ(std::memcmp(&erased.alpha, &expected.alpha, sizeof(float)), 0);
+  HS_EXPECT_EQ(ctx.call_count, 6U);
 }
 
 template <typename Stage> struct IsCrossingStage {
@@ -1466,6 +1546,7 @@ inline int run_pullback_tests() {
   test_pullback_validation_predicates();
   test_pullback_evaluation_order();
   test_pullback_placement_transparency();
+  test_pullback_type_erased_prepare();
   test_pullback_public_surface();
   test_pullback_no_instrumentation();
   test_pullback_counting_instrumentation();
