@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file arena.h
+ * @brief Arena bump allocator and arena-vector abandon accounting.
+ */
+
 // ============================================================================
 // Core Arena Allocator
 // ============================================================================
@@ -18,10 +23,16 @@
  */
 HS_COLD void note_arena_vector_abandon(size_t bytes);
 
-/** @brief ArenaVector abandoned-byte count modulo the size_t range. */
+/**
+ * @brief ArenaVector abandoned-byte count modulo the size_t range.
+ * @return Abandoned bytes.
+ */
 FLASHMEM size_t arena_vector_abandoned_bytes();
 
-/** @brief ArenaVector abandon-event count modulo the size_t range. */
+/**
+ * @brief ArenaVector abandon-event count modulo the size_t range.
+ * @return Abandon events.
+ */
 FLASHMEM size_t arena_vector_abandon_count();
 
 /**
@@ -441,7 +452,12 @@ struct ArenaBlockStamp {
            source_arena->reclaimed_since(p, bytes, birth_rewind_seq);
   }
 
-  /** @brief Whether the stamped block remains owned and live. */
+  /**
+   * @brief Whether the stamped block remains owned and live.
+   * @param p First byte of the block.
+   * @param bytes Block length in bytes.
+   * @return True unless the arena was reset or the block uncovered or reissued.
+   */
   bool block_alive(const void *p, size_t bytes) const {
     return !arena_reset() && !block_uncovered(p, bytes) &&
            !block_reissued(p, bytes);
@@ -463,9 +479,14 @@ struct ArenaBlockStamp {
 #define HS_ASSERT_BLOCK_ALIVE(stamp, ptr, bytes, owner) ((void)0)
 #endif
 
+/** @brief First scratch arena: transient per-frame/per-effect storage. */
 extern Arena scratch_arena_a;
+/** @brief Second scratch arena: transient per-frame/per-effect storage. */
 extern Arena scratch_arena_b;
 
+/**
+ * @brief Persistent arena: storage retained across frames until reclamation.
+ */
 extern Arena persistent_arena;
 
 /**

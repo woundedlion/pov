@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file persist.h
+ * @brief Persist: RAII evacuation of Cloneable objects across an arena reset.
+ */
+
 // ============================================================================
 // RAII Arena Evacuator
 // ============================================================================

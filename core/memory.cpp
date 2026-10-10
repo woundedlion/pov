@@ -3,6 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/**
+ * @file memory.cpp
+ * @brief Global arena storage and arena accounting.
+ */
+
 #include "memory.h"
 
 /**
@@ -11,17 +16,14 @@
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
-/**
- * @brief Persistent arena: storage retained across frames until reclamation.
- */
+/// @cond
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
-/** @brief First scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
                       DEFAULT_SCRATCH_A_SIZE);
-/** @brief Second scratch arena: transient per-frame/per-effect storage. */
 Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
                       DEFAULT_SCRATCH_B_SIZE);
+/// @endcond
 
 namespace {
 size_t abandoned_bytes_total = 0;

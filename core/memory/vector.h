@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file vector.h
+ * @brief ArenaVector: arena-backed growable array.
+ */
+
 // ============================================================================
 // Arena Structures
 // ============================================================================
@@ -170,7 +175,10 @@ public:
   }
 
 #ifndef NDEBUG
-  /** @brief Allocation/reuse generation for debug lifetime diagnostics. */
+  /**
+   * @brief Allocation/reuse generation for debug lifetime diagnostics.
+   * @return Current generation.
+   */
   uint32_t debug_binding_generation() const { return rebind_generation; }
 #endif
 
