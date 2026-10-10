@@ -113,7 +113,7 @@ struct Config {
   /** Borrowed per-roster-entry durations in revolutions; storage must outlive
       every Config copy and the running synchronization driver. */
   const uint32_t *effect_revolutions = nullptr;
-  size_t effect_revolutions_count = 0;
+  size_t effect_revolutions_count = 0; /**< Entries in `effect_revolutions`. */
   /** @brief Borrows an effect-duration table without copying its entries.
    * @param durations Table that remains alive and unchanged while any driver
    *        uses this Config or a copy, including from its ISR.
@@ -123,6 +123,8 @@ struct Config {
     effect_revolutions = durations;
     effect_revolutions_count = N;
   }
+  /** @brief Drops the borrowed duration table; every effect then uses
+   *  `revs_per_effect`. */
   constexpr void clear_effect_revolutions() {
     effect_revolutions = nullptr;
     effect_revolutions_count = 0;
@@ -651,19 +653,20 @@ private:
  * behind hs::debug.
  */
 struct Telemetry {
-  uint32_t symbols_accepted = 0;
-  uint32_t symbols_rejected_gate = 0;     /**< §5.3 plausibility rejections. */
+  uint32_t symbols_accepted = 0;      /**< Symbols that passed the snap gate. */
+  uint32_t symbols_rejected_gate = 0; /**< §5.3 plausibility rejections. */
   uint32_t symbols_discarded_invalid = 0; /**< Invalid pulse counts (§5.2). */
-  uint32_t beacons_ok = 0;
+  uint32_t beacons_ok = 0; /**< Beacons decoded with an in-roster index. */
   uint32_t beacons_rejected =
       0; /**< Checksum, digit-count, or staleness drops. */
   uint32_t beacon_index_corrections = 0; /**< Missed-epoch fixes (§6.3.2). */
-  uint32_t beacon_rev_mismatches = 0;
-  uint32_t epochs_refractory_ignored = 0;
+  uint32_t beacon_rev_mismatches = 0; /**< Rev-counter resyncs from beacons. */
+  uint32_t epochs_refractory_ignored =
+      0;                         /**< Zero-epoch symbols ignored as repeats. */
   uint32_t lock_transitions = 0; /**< ACQUIRE↔LOCKED edges. */
-  uint32_t flips = 0;
-  uint32_t emit_censored = 0; /**< Master skipped a late boundary symbol. */
-  uint32_t emit_aborted = 0;  /**< Master truncated a burst mid-emission. */
+  uint32_t flips = 0;            /**< Boundary buffer flips applied. */
+  uint32_t emit_censored = 0;    /**< Master skipped a late boundary symbol. */
+  uint32_t emit_aborted = 0;     /**< Master truncated a burst mid-emission. */
   uint32_t beacons_busy_dropped =
       0; /**< Revolutions whose beacon schedule found the emitter busy. */
   uint32_t beacons_late_dropped =
