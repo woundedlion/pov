@@ -106,6 +106,7 @@ enum class EffectTransitionStatus : uint8_t {
 struct EffectTransitionRequest {
   std::string_view effect_id; /**< Destination effect; empty is rejected. */
   std::string_view preset_id; /**< Destination preset, for the adapter. */
+  /// What initiated the transition.
   EffectTransitionOrigin origin = EffectTransitionOrigin::MANUAL;
   uint16_t fade_ticks = 1; /**< Envelope steps in each of the fade-out and
                                 fade-in spans, which each take one tick() more
@@ -118,26 +119,27 @@ struct EffectTransitionRequest {
  *   restore_outgoing(), so it must point at storage that lives that long.
  */
 struct EffectRestoreToken {
-  static constexpr uint16_t SCHEMA_VERSION = 1;
-  uint16_t schema_version = SCHEMA_VERSION;
-  std::string_view effect_id;
-  uint64_t seed_identity = 0;
-  uint32_t visit_position = 0;
+  static constexpr uint16_t SCHEMA_VERSION = 1; ///< Current token layout.
+  uint16_t schema_version = SCHEMA_VERSION;     ///< Layout the token uses.
+  std::string_view effect_id;  ///< Outgoing effect's stable ID.
+  uint64_t seed_identity = 0;  ///< Adapter-defined RNG seed identity.
+  uint32_t visit_position = 0; ///< Adapter-defined playback position.
+  /// Adapter-defined origin of the outgoing visit.
   EffectTransitionOrigin origin = EffectTransitionOrigin::RESTORE;
   EffectRestoreCapability capability =
       EffectRestoreCapability::NONE; /**< The one field the controller reads. */
-  bool animations_paused = false;
+  bool animations_paused = false; ///< Outgoing effect's animation pause state.
 };
 
 /**
  * @brief State the incoming effect takes over from the outgoing one.
  */
 struct EffectHandoffState {
-  static constexpr uint16_t SCHEMA_VERSION = 1;
-  uint16_t schema_version = SCHEMA_VERSION;
-  float projection_clock = 0.0f;
-  float palette_clock = 0.0f;
-  uint32_t choreography_position = 0;
+  static constexpr uint16_t SCHEMA_VERSION = 1; ///< Current state layout.
+  uint16_t schema_version = SCHEMA_VERSION;     ///< Layout the state uses.
+  float projection_clock = 0.0f;      ///< Adapter-defined projection clock.
+  float palette_clock = 0.0f;         ///< Adapter-defined palette clock.
+  uint32_t choreography_position = 0; ///< Adapter-defined choreography step.
 };
 
 /**
