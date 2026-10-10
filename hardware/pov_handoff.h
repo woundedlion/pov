@@ -267,7 +267,22 @@ private:
       1}; /**< ISR-written: 1 when the open window sweeps arm-A [0,W/2). */
 };
 
-/** @brief Rebuilds and publishes an effect after the ISR releases its predecessor. */
+/**
+ * @brief Rebuilds and publishes an effect after the ISR releases its
+ *        predecessor.
+ * @tparam T Effect type.
+ * @tparam Wait Nullary callable run while the release is outstanding.
+ * @tparam Destroy Nullary callable that tears down the old effect.
+ * @tparam Build Nullary callable returning the new `T *`.
+ * @tparam PublishBracket Callable that runs its nullary argument.
+ * @param handoff Foreground/ISR effect handoff.
+ * @param generation Build generation published with the new effect.
+ * @param wait_release Polled until the ISR acknowledges the release.
+ * @param destroy Tears down the released effect.
+ * @param build Constructs the replacement effect.
+ * @param publish_bracket Wraps the publish (e.g. in a critical section).
+ * @return The newly built effect.
+ */
 template <typename T, typename Wait, typename Destroy, typename Build,
           typename PublishBracket>
 T *rebuild_effect(EffectHandoff<T> &handoff, uint32_t generation,
