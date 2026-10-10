@@ -32,8 +32,8 @@ struct ShaderChainWhiteBox;
 
 /** @brief One named value in an atomic chain parameter update. */
 struct ShaderChainParameterWrite {
-  const char *name;
-  float value;
+  const char *name; ///< Registered "{instance}.{field-id}" parameter name.
+  float value;      ///< Requested value; enum fields take the option index.
 };
 
 /**
@@ -46,10 +46,13 @@ struct ShaderChainParameterWrite {
  */
 template <int W, int H> class ShaderChain : public Effect {
 public:
-  static constexpr std::string_view EFFECT_ID = "shader-chain";
+  static constexpr std::string_view EFFECT_ID = "shader-chain"; ///< Stable ID.
 
+  /// One {instance, operator} program entry.
   using ChainEntryRequest = Pullback::Interp::ChainEntryRequest;
+  /// Compile outcome: status code and offending entry index.
   using ChainRefusal = Pullback::Interp::ChainRefusal;
+  /// Compile status code.
   using ChainStatus = Pullback::Interp::ChainStatus;
 
   HS_COLD_MEMBER ShaderChain() : Effect(W, H, {.strobe = true}) {}
@@ -119,6 +122,11 @@ public:
     return program.ops();
   }
 
+  /**
+   * @brief Captures program shape, parameter values, runtime state, palette
+   *        bank and pause flag.
+   * @return Snapshot that restore_snapshot() accepts.
+   */
   ChainSnapshot snapshot() const {
     ChainSnapshot out;
     out.animations_paused = animations_paused();
@@ -145,6 +153,11 @@ public:
     return out;
   }
 
+  /**
+   * @brief Recompiles and restores a snapshot transactionally.
+   * @param snapshot State from snapshot().
+   * @return APPLIED on commit; otherwise the refusal, with prior state kept.
+   */
   HS_COLD_MEMBER ChainSnapshotRestoreResult
   restore_snapshot(const ChainSnapshot &snapshot) {
     using Result = ChainSnapshotRestoreResult;
@@ -327,6 +340,11 @@ public:
     return ParamSetResult::APPLIED;
   }
 
+  /**
+   * @brief Warning for the parameter whose last write was refused.
+   * @param name Registered parameter name.
+   * @return Borrowed warning text, or null for any other parameter.
+   */
   const char *parameter_warning(const char *name) const override {
     return refused_name != nullptr && std::strcmp(name, refused_name) == 0
                ? refusal_warning
