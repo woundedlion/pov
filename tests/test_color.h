@@ -201,7 +201,7 @@ inline int run_color_tests() {
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
   test_baked_palette_rebake_samples_closed_interval();
-  test_baked_palette_color_sampler_matches_get();
+  test_baked_palette_samplers_match_get();
   test_baked_palette_clone_from_matches_source();
   test_dot_key_inverts_dot_keyed_coordinate();
   test_dot_keyed_bake_round_trips_through_dot_key();
