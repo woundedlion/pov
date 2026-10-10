@@ -10,7 +10,10 @@
 #include "engine/concepts.h"
 #include "platform/inplace_function.h"
 
-// Engine timeline and framebuffer storage.
+/**
+ * @file static_storage.cpp
+ * @brief Engine timeline and framebuffer storage.
+ */
 
 /** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
