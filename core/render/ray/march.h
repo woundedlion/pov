@@ -111,8 +111,6 @@ closest_approach(const Shape &shape, const math::Vector &origin,
       if (LEAVING_GRAZE)
         return false;
     }
-    if (d < -aa_width)
-      return false;
     step_len = fmaxf(d * STEP_SAFETY * omega, MIN_STEP);
     t += step_len;
     local_p = advance(local_p, direction, step_len);
