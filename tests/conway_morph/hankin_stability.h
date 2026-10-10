@@ -40,7 +40,7 @@ inline float hankin_blend_above(float value, float start, float end) {
  * @param angle Contact angle in radians.
  * @param out Filled with one entry per dynamic instruction.
  * @details Reproduces the regularization anchor, the plane_cross_sq parallel
- *   gate and the fallback blend; positions must track update_hankin exactly.
+ *   gate and the fallback blend; positions must track update_hankin within HANKIN_MIRROR_TOL.
  */
 inline void hankin_solve(const CompiledHankin &compiled, float angle,
                          std::vector<HankinSolve> &out) {

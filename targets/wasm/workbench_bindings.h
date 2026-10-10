@@ -61,7 +61,7 @@ struct WorkbenchBindingState {
   int width = 0;                       ///< Active resolution width, in pixels.
   int height = 0;                      ///< Active resolution height, in pixels.
   bool alive = true;   ///< False once the owning engine is deleted.
-  bool paused = false; ///< Mirror of the effect's animations-paused flag.
+  bool paused = false; ///< Engine-owned animation pause; seeds each new effect.
 };
 
 /** @brief Base for capability handles pinned to one effect incarnation. */

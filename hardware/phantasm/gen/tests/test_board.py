@@ -174,8 +174,9 @@ class BypassConnectionChecks:
 
 
 class CommittedSchematicTests(BypassConnectionChecks, unittest.TestCase):
-    """Both checks read the file's own lib_symbols, so no stock library and no
-    kicad-cli is needed."""
+    """Every check reads the committed schematic's own lib_symbols (plus
+    pov_segmented.h for the Teensy pins), so no stock library and no kicad-cli
+    is needed."""
 
     @classmethod
     def setUpClass(cls):

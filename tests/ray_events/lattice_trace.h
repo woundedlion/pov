@@ -3,7 +3,17 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+// ============================================================================
+// Lattice trace: cubic compositor and octet preparation parity
+// ============================================================================
+
+/** @brief Palette that ramps hue with depth so layer order shows in colour. */
 struct DepthPalette {
+  /**
+   * @brief Samples the ramp.
+   * @param t Palette position in [0, 1].
+   * @return Opaque colour at @p t.
+   */
   Color4 get(float t) const {
     return {Pixel(uint16_t(1000 + 50000 * t), uint16_t(60000 - 45000 * t),
                   uint16_t(12000 + 30000 * t)),
@@ -11,6 +21,11 @@ struct DepthPalette {
   }
 };
 
+/**
+ * @brief Test view direction: the three axes, then a spiral over the sphere.
+ * @param sample Sample index.
+ * @return Unit view direction.
+ */
 inline math::Vector direction(int sample) {
   if (sample == 0)
     return math::X_AXIS;
@@ -24,6 +39,14 @@ inline math::Vector direction(int sample) {
   return {radius * cosf(phase), radius * sinf(phase), z};
 }
 
+/**
+ * @brief Checks one composite_crossings specialization against event shading.
+ * @tparam SLICE 4D-slice specialization.
+ * @tparam SHELLS Specialized shell count, 0 for the generic loop.
+ * @param prepared Prepared lattice shading.
+ * @param view View direction.
+ * @param lit Incremented when the composite has coverage.
+ */
 template <bool SLICE, uint8_t SHELLS>
 void check_cubic(const SDF::Lattice::PreparedShading &prepared,
                  const math::Vector &view, int &lit) {
@@ -49,6 +72,12 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
   lit += actual.alpha > 0.0f;
 }
 
+/**
+ * @brief Verifies the cubic crossing compositor matches Events tracing.
+ * @details The generic path runs for every case; each specialization runs on
+ * the domain/shell pairs where `HyperLattice` dispatches to the matching
+ * `HyperLatticeDetail::Renderer` instantiation.
+ */
 inline void test_cubic_compositor_matches_event_shading() {
   alignas(std::max_align_t) uint8_t storage[4096];
   Arena arena(storage, sizeof(storage));
@@ -94,6 +123,7 @@ inline void test_cubic_compositor_matches_event_shading() {
   HS_EXPECT_GT(lit, 100);
 }
 
+/** @brief Verifies LatticeTrace octet shading matches world-space octet events. */
 inline void test_octet_preparation_matches_world_events() {
   namespace Trace = SDF::LatticeTrace;
   alignas(std::max_align_t) uint8_t storage[4096];
@@ -158,6 +188,11 @@ inline void test_octet_preparation_matches_world_events() {
   HS_EXPECT_GT(lit, 10);
 }
 
+/**
+ * @brief Runs the lattice trace cases.
+ * @details Also checks prepare() validation per geometry: a non-positive or
+ * NaN wire radius invalidates OCTET but not SHELLS.
+ */
 inline void run_lattice_trace_cases() {
   namespace Trace = SDF::LatticeTrace;
   alignas(std::max_align_t) uint8_t storage[4096];

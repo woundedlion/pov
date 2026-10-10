@@ -47,7 +47,7 @@ UNPLACED_REASON = (
 FP_DIR = sexp.find_kicad_data_dir("footprints", "KICAD_FOOTPRINT_DIR")
 #: R-MECH-6 board-width cap (mm).
 PCB_W_MAX = MAX_BOARD_WIDTH_MM
-PCB_W = 32.0  # board width (mm), trimmed to part extent
+PCB_W = 32.0  # board width (mm), fixed
 if PCB_W > PCB_W_MAX:
     raise ValueError(f"PCB_W {fmt(PCB_W)} mm exceeds the R-MECH-6 cap of "
                      f"{fmt(PCB_W_MAX)} mm")
