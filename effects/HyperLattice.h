@@ -62,6 +62,8 @@ struct Params {
   ShellCount shells = ShellCount::TWO;
   float shell_radius = .30f;
   float iridescence = .25f;
+  float iridescent_frequency = 3.0f;
+  float iridescent_speed = .02f;
 
   /**
    * @brief Interpolates continuous fields; the pattern, view and shell
@@ -71,7 +73,7 @@ struct Params {
                             float amount);
 };
 
-static_assert(sizeof(Params) == 56,
+static_assert(sizeof(Params) == 64,
               "HyperLattice parameter snapshot layout changed");
 
 using SDF::Lattice::CrossingList;
@@ -500,7 +502,17 @@ public:
             .id = "iridescence",
             .member = &Params::iridescence,
             .name = "Iridescence",
-            .spec = {.min = 0.0f, .max = 1.0f, .animated = true}}};
+            .spec = {.min = 0.0f, .max = 1.0f, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescent_frequency",
+            .member = &Params::iridescent_frequency,
+            .name = "Iridescent Frequency",
+            .spec = {.min = 0.0f, .max = 12.0f, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescent_speed",
+            .member = &Params::iridescent_speed,
+            .name = "Iridescent Speed",
+            .spec = {.min = -.2f, .max = .2f, .animated = true}}};
   }
 
   static constexpr bool valid_params(const Params &value) {
@@ -525,6 +537,15 @@ public:
 
   HS_COLD_MEMBER void init() override {
     begin_choreography();
+    constexpr size_t PARAM_CAPACITY =
+        std::tuple_size_v<decltype(parameter_fields())> +
+        HS_ENABLE_PARAM_GUI_BRIDGE;
+    if constexpr (PARAM_CAPACITY > ParamList::FIXED_CAPACITY) {
+      this->use_parameter_storage(
+          persistent_arena,
+          persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
+          PARAM_CAPACITY);
+    }
     this->register_described_params();
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -551,10 +572,12 @@ public:
     step_choreography();
     advance_state();
     depth_palette.step();
-    iridescent_phase = math::wrap(iridescent_phase + .02f, math::TWO_PI_F);
+    iridescent_phase =
+        math::wrap(iridescent_phase + params.iridescent_speed, math::TWO_PI_F);
     const BakedPalette *frame_palette = &depth_palette.palette();
     if (params.iridescence > 0.0f) {
-      IridescentShade sheen(&iridescent_phase, 3.0f, params.iridescence);
+      IridescentShade sheen(&iridescent_phase, params.iridescent_frequency,
+                            params.iridescence);
       StaticPalette<BakedPalette, Coords<>, Colors<IridescentShade>, false>
           shaded;
       shaded.bind(frame_palette, &sheen);
@@ -633,9 +656,13 @@ private:
     if (selected_configuration != configuration) {
       const float near_fade = params.near_fade;
       const float IRIDESCENCE = params.iridescence;
+      const float IRIDESCENT_FREQUENCY = params.iridescent_frequency;
+      const float IRIDESCENT_SPEED = params.iridescent_speed;
       params = pattern_defaults(params.pattern, params.mode);
       params.near_fade = near_fade;
       params.iridescence = IRIDESCENCE;
+      params.iridescent_frequency = IRIDESCENT_FREQUENCY;
+      params.iridescent_speed = IRIDESCENT_SPEED;
       selected_configuration = configuration;
       refresh_configuration_schema();
     }

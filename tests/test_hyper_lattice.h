@@ -103,6 +103,12 @@ struct HyperLatticeWhiteBox {
     return effect.rotation_phase;
   }
   static HL::Params &params(Effect &effect) { return effect.params; }
+  static float iridescent_phase(const Effect &effect) {
+    return effect.iridescent_phase;
+  }
+  static Pixel iridescent_color(const Effect &effect, float amount) {
+    return effect.iridescent_palette.view().get(amount).color;
+  }
   /** @brief Steps the timeline and the preset choreography one frame. */
   static void step_choreography(Effect &effect, Canvas &canvas) {
     effect.timeline.step(canvas);
@@ -338,6 +344,39 @@ inline void test_pause_does_not_stop_motion() {
   const math::Vec4 stopped_after = HyperLatticeWhiteBox::origin(effect);
   for (int axis = 0; axis < HL::DIMENSIONS; ++axis)
     HS_EXPECT_EQ(stopped_after[axis], stopped_before[axis]);
+}
+
+inline void test_iridescent_controls_drive_palette() {
+  reset_globals();
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  HS_EXPECT_EQ(effect.updateParameter("Iridescent Speed", 0.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Iridescent Frequency", 1.0f),
+               ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::iridescent_phase(effect), 0.0f);
+  const Pixel initial = HyperLatticeWhiteBox::iridescent_color(effect, .25f);
+  HS_EXPECT_EQ(effect.updateParameter("Iridescent Frequency", 2.0f),
+               ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_EQ(HyperLatticeWhiteBox::iridescent_phase(effect), 0.0f);
+  HS_EXPECT_NE(HyperLatticeWhiteBox::iridescent_color(effect, .25f), initial);
+  HS_EXPECT_EQ(effect.updateParameter("Iridescent Speed", -.1f),
+               ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_NEAR(HyperLatticeWhiteBox::iridescent_phase(effect),
+                 math::TWO_PI_F - .1f, 1e-6f);
+  HS_EXPECT_EQ(effect.updateParameter("Pattern", 1.0f),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("View", 1.0f), ParamSetResult::APPLIED);
+  const auto saved = effect.serialize_parameters();
+  HS_EXPECT_EQ(saved.params.iridescent_frequency, 2.0f);
+  HS_EXPECT_EQ(saved.params.iridescent_speed, -.1f);
 }
 
 inline void test_depth_palette_mutates_slowly_while_paused() {
@@ -1724,6 +1763,7 @@ inline int run_hyper_lattice_tests() {
   test_near_field_fade();
   test_far_shell_fade();
   test_pause_does_not_stop_motion();
+  test_iridescent_controls_drive_palette();
   test_depth_palette_mutates_slowly_while_paused();
   test_depth_palette_keeps_cool_character();
   test_next_plane_is_strict();
