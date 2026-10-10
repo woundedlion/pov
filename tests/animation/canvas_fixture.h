@@ -8,8 +8,8 @@
 // ----------------------------------------------------------------------------
 // One genuine Canvas over a tiny Effect, shared across tests. The animations
 // under test take a Canvas& but never dereference it. No test may construct a
-// second Canvas on this shared effect: that would queue_frame() and spin the
-// next ctor on a display ISR the host never runs.
+// second Canvas on this shared effect: the fixture Canvas is live for the
+// whole module, so a second constructor traps on `canvas_active`.
 // ============================================================================
 
 /**
