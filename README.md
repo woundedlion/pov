@@ -521,7 +521,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── eol_gate.sh             Working-copy line endings against the `eol` attribute `.gitattributes` declares, and LF index blobs (CI, `just lint`)
 │   ├── whitespace_gate.sh      Tracked whitespace check shared by CI and `just lint`
 │   ├── teensy_gate.py          Size + memory-layout gate parser/classifier (toolchain-free)
-│   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate on every link
+│   ├── teensy_gate_extra.py    PlatformIO post-build glue that runs the gate when a budgeted env relinks
 │   ├── teensy_budgets.json     Per-env FLASH/RAM1/RAM2 budgets the gate enforces
 │   ├── teensy_size_table.py    `just teensy-size` wrapper: builds every env + prints the region table
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
