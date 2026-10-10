@@ -69,6 +69,10 @@ struct PeirceFastProjMirror : ProjMirrorBase {
   }
 };
 
+struct PeirceFastMovingMeridianMirror : PeirceFastProjMirror {
+  static constexpr bool ZERO_CENTRAL_MERIDIAN = false;
+};
+
 struct BonneProjMirror : ProjMirrorBase {
   static float central_meridian(const ProjMirrorFrame &frame) {
     return frame.bonne.central_meridian;
@@ -285,6 +289,13 @@ inline void run_peirce_variant(ValueSet set) {
 }
 
 inline void test_shader_chain_parity_project_ops() {
+  static_assert(PB::Projection::PeirceFastSquare<
+                PeirceFastProjMirror>::PROVIDER_VALID<ProjMirrorBinding>);
+  static_assert(
+      !PB::Projection::PeirceFastSquare<
+          PeirceFastMovingMeridianMirror>::PROVIDER_VALID<ProjMirrorBinding>);
+  static_assert(!PB::Projection::PeirceFastSquare<
+                PeirceProjMirror>::PROVIDER_VALID<ProjMirrorBinding>);
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
     HS_CONTEXT(value_set_name(set));
