@@ -717,28 +717,11 @@ template <typename... Nodes> struct Leaves<TypeList<Nodes...>> {
   using Type = typename ConcatAll<typename NodeLeaves<Nodes>::Type...>::Type;
 };
 
-/** Bound-stage placeholder when descriptor_bindable() fails; keeps the
-    pipeline compilable so the named BINDINGS assertion is what reports. */
-template <typename Descriptor, typename Binding> struct UnboundStage {
-  using Input = typename Descriptor::Input;   ///< Descriptor's input carrier.
-  using Output = typename Descriptor::Output; ///< Descriptor's output carrier.
-  using FrameState = typename Binding::FrameState; ///< Binding's frame state.
-  using Prepared = NoPrepared;                     ///< Always empty.
-
-  /** @brief Empty prepared state.
-   * @return `NoPrepared`. */
-  static constexpr Prepared prepare(const FrameState &) { return {}; }
-};
-
-/** @brief Bound form of a node: `Bind<Binding>`, or `UnboundStage` when
- *        not `descriptor_bindable`.
+/** @brief Bound form of a node: `Bind<Binding>`.
  * @tparam Node Stage descriptor or placement node.
  * @tparam Binding Pipeline binding. */
 template <typename Node, typename Binding> struct BindNode {
-  /// Bound node type.
-  using Type = std::conditional_t<descriptor_bindable<Node, Binding>(),
-                                  typename Node::template Bind<Binding>,
-                                  UnboundStage<Node, Binding>>;
+  using Type = typename Node::template Bind<Binding>; ///< Bound node type.
 };
 
 /** @brief Child types, carriers and prepare of a bound placement node.
