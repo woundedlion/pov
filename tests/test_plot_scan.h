@@ -112,6 +112,7 @@ inline int run_plot_scan_tests() {
   test_finish_col_span_one_period();
   test_wrap_one_period_matches_modulo();
   test_cartesian_quadrant_gate_classification();
+  test_cartesian_latitude_gate_covers_row_map_error();
   test_cartesian_quadrant_gate_is_conservative();
   test_gate_trail_edges_matches_edge_visible();
   test_mesh_clip_cut_separates_band();
