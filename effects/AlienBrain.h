@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Pullback stage spec for `AlienBrain`. */
 struct AlienBrainSpec : Pullback::Spec {
   static constexpr Pullback::ProjectionKind PROJECTION =
       Pullback::ProjectionKind::STEREOGRAPHIC;
@@ -27,6 +28,11 @@ struct AlienBrainSpec : Pullback::Spec {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Pullback::SurfacePlacement::BEFORE_LENS;
   using LensPolicy = Pullback::Lens::Glitch;
+  /**
+   * @brief Stage chain: camera rotation, glitch lens, projection, wave-shear warp,
+   *  grid source, generated palette.
+   * @tparam B The effect's Binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -58,6 +64,7 @@ class AlienBrain
     : public Pullback::ComposedEffect<W, H, AlienBrain<W, H>, AlienBrainSpec> {
 
 public:
+  /// Parameter block derived from `AlienBrainSpec`.
   using Params = AlienBrainParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -73,9 +80,26 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
+  /** @var EFFECT_ID
+   *  @brief Stable effect ID; equals the shader document's effect_id. */
+  /** @var DESCRIPTOR_DIGEST
+   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
+  /** @var PRESET_BANK_DIGEST
+   *  @brief SHA-256 hex of the shader document's preset bank. */
+  /** @var PRESET_IDS
+   *  @brief Preset identities, indexed by preset number. */
+  /** @var PRESET_DWELL_FRAMES
+   *  @brief Frames each preset holds before advancing. */
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Hot entry trampoline.
+  /**
+   * @brief Shades one view direction through `RenderPipeline`.
+   * @param view Unit view direction.
+   * @param frame Prepared per-frame state.
+   * @return Shaded colour with alpha.
+   */
   static HS_HOT_FLASH_MEMBER Color4
   shade(const math::Vector &view, const typename AlienBrain::Frame &frame) {
     return AlienBrain::RenderPipeline::shade(view, frame);
@@ -136,4 +160,7 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @brief Parameters of the first preset.
+   *  @return The preset-0 `Params`. */
 };

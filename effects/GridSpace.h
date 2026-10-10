@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Pullback stage spec for `GridSpace`. */
 struct GridSpaceSpec : Pullback::Spec {
   static constexpr Pullback::ProjectionKind PROJECTION =
       Pullback::ProjectionKind::GNOMONIC_FOLDED;
@@ -27,6 +28,11 @@ struct GridSpaceSpec : Pullback::Spec {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Pullback::SurfacePlacement::BEFORE_LENS;
   using LensPolicy = void;
+  /**
+   * @brief Stage chain: camera rotation, projection, affine warp, lattice
+   *  source, iso-contour transfer, generated palette.
+   * @tparam B The effect's Binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -59,6 +65,7 @@ class GridSpace
     : public Pullback::ComposedEffect<W, H, GridSpace<W, H>, GridSpaceSpec> {
 
 public:
+  /// Parameter block derived from `GridSpaceSpec`.
   using Params = GridSpaceParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
@@ -71,6 +78,17 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
+  /** @var EFFECT_ID
+   *  @brief Stable effect ID; equals the shader document's effect_id. */
+  /** @var DESCRIPTOR_DIGEST
+   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
+  /** @var PRESET_BANK_DIGEST
+   *  @brief SHA-256 hex of the shader document's preset bank. */
+  /** @var PRESET_IDS
+   *  @brief Preset identities, indexed by preset number. */
+  /** @var PRESET_DWELL_FRAMES
+   *  @brief Frames each preset holds before advancing. */
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Generated params: scripts/generate_composed_presets.mjs
@@ -109,4 +127,7 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @brief Parameters of the first preset.
+   *  @return The preset-0 `Params`. */
 };
