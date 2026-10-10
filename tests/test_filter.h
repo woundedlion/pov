@@ -77,6 +77,7 @@ inline int run_filter_tests() {
   test_antialias_seam_wraps_left_column();
   test_antialias_far_seam_wraps_both_taps();
   test_antialias_clips_virtual_subpole_row();
+  test_antialias_folds_north_boundary_row();
 
   test_blur_factor_zero_is_identity();
   test_blur_folds_boundary_and_drops_virtual_rows();
