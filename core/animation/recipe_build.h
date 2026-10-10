@@ -427,8 +427,9 @@ protected:
 
   /**
    * @brief Captures palette provenance for a leg departing the current seed.
-   * @param scratch Arena the centroid and palette arrays live in; must outlive
-   * the OpLeg constructor that reads them.
+   * @param scratch Arena the centroid array lives in (GEOMETRIC only); must
+   * outlive the OpLeg constructor that reads it. The palette array aliases
+   * slot or carry storage.
    * @param correspondence Departed-to-swept face-order relationship.
    * @return The handoff for the next leg.
    */
