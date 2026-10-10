@@ -293,7 +293,6 @@ private:
    * @brief Spawns one burst of burst_size ripples from a random origin,
    *        staggered ripple_stagger_eff frames apart, each expanding over
    *        ripple_dur_eff frames.
-   * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
     math::Vector origin = math::random_vector();
