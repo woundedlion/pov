@@ -415,6 +415,30 @@ private:
 };
 
 /**
+ * @brief Shades and plots a segment endpoint.
+ * @tparam INTERP Copy @p vertex's registers into the sample.
+ * @param pipeline Pipeline that plots the endpoint.
+ * @param canvas Target canvas.
+ * @param fragment_shader Fragment shader.
+ * @param arc_uv Planar v0/v1 stamp.
+ * @param vertex Endpoint control point.
+ * @param arc Arc from the segment start to @p vertex.
+ * @param alpha_scale Balanced-sampling step ratio; none plots the shaded alpha.
+ */
+template <bool INTERP, typename PipelineT, typename FragmentShaderT,
+          typename StampT>
+HS_HOT_INLINE inline void
+plot_vertex(PipelineT &pipeline, Canvas &canvas,
+            FragmentShaderT &fragment_shader, const StampT &arc_uv,
+            const Fragment &vertex, float arc,
+            std::optional<float> alpha_scale = std::nullopt) {
+  Fragment f;
+  seed_fragment<INTERP>(f, vertex);
+  arc_uv.stamp(f, arc);
+  shade_and_plot(pipeline, canvas, fragment_shader, vertex.pos, f, alpha_scale);
+}
+
+/**
  * @brief State of a single-pass adaptive walk along one segment: each sample
  * is plotted as soon as it is taken.
  * @tparam Cfg Rasterizer configuration.
@@ -637,9 +661,6 @@ template <RasterConfig Cfg> struct SinglePassWalk {
                                    FragmentShaderT &fragment_shader,
                                    const StampT &arc_uv,
                                    const Fragment &next) const {
-    Fragment f;
-    seed_fragment<INTERPOLATE_REGISTERS>(f, next);
-    arc_uv.stamp(f, total_dist);
     std::optional<float> alpha_scale;
     if constexpr (NON_DEFAULT_POLICY) {
       // Gain the endpoint by the arc it actually stands in for, floored
@@ -648,7 +669,8 @@ template <RasterConfig Cfg> struct SinglePassWalk {
         alpha_scale = endpoint_alpha_scale(endpoint_gap, default_desired_step,
                                            desired_step);
     }
-    shade_and_plot(pipeline, canvas, fragment_shader, next.pos, f, alpha_scale);
+    plot_vertex<INTERPOLATE_REGISTERS>(pipeline, canvas, fragment_shader,
+                                       arc_uv, next, total_dist, alpha_scale);
   }
 };
 
@@ -792,12 +814,9 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
-      if (!should_omit && window.plots_start()) {
-        Fragment f;
-        seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
-        arc_uv.stamp(f, 0.0f);
-        shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
-      }
+      if (!should_omit && window.plots_start())
+        plot_vertex<INTERPOLATE_REGISTERS>(pipeline, canvas, fragment_shader,
+                                           arc_uv, curr, 0.0f);
       return;
     }
 
@@ -851,18 +870,12 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // several pixels on a steep/near-polar segment.
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
-      if (window.plots_start()) {
-        Fragment f;
-        seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
-        arc_uv.stamp(f, 0.0f);
-        shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
-      }
-      if (!close_loop && is_last_segment && !omit_end && window.plots_end()) {
-        Fragment fl;
-        seed_fragment<INTERPOLATE_REGISTERS>(fl, next);
-        arc_uv.stamp(fl, total_dist);
-        shade_and_plot(pipeline, canvas, fragment_shader, next.pos, fl);
-      }
+      if (window.plots_start())
+        plot_vertex<INTERPOLATE_REGISTERS>(pipeline, canvas, fragment_shader,
+                                           arc_uv, curr, 0.0f);
+      if (!close_loop && is_last_segment && !omit_end && window.plots_end())
+        plot_vertex<INTERPOLATE_REGISTERS>(pipeline, canvas, fragment_shader,
+                                           arc_uv, next, total_dist);
       return;
     }
 
@@ -890,11 +903,11 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       return;
     }
 
-    steps_cache.clear();
-    float sim_dist = 0.0f;
-
-    {
+    // Walks the segment at the adaptive step, caching each step; returns the
+    // simulated arc.
+    auto simulate_steps = [&]() __attribute__((always_inline)) -> float {
       HS_PROFILE_DEEP(plot_seg_sim);
+      float sim_dist = 0.0f;
       while (sim_dist < total_dist) {
         float step = steps_cache.is_empty() ? first_step : adaptive_step(smp);
 
@@ -914,55 +927,64 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           smp = adaptive_sample(sim_dist / total_dist);
         }
       }
-    }
+      return sim_dist;
+    };
 
+    // Plots the cached steps, each scaled by `scale`; `omit_last` drops the
+    // final endpoint.
+    auto replay_steps = [&](float scale,
+                            bool omit_last) __attribute__((always_inline)) {
+      // Normalize interpolated positions before vector_to_pixel's acos(v.y).
+      HS_PROFILE_DEEP(plot_seg_draw);
+      if (window.opens_at_start()) {
+        HS_PLOT_STALL_START(replay_start);
+        HS_PLOT_COUNT(replay_samples);
+        HS_PLOT_COUNT(normalizations);
+        math::Vector start_pos = newton_unit(sample.pos(0.0f));
+        Fragment f;
+        lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, 0.0f, start_pos);
+        arc_uv.stamp(f, 0.0f);
+        HS_PLOT_STALL_STOP(normalized_replay, replay_start);
+        shade_and_plot(pipeline, canvas, fragment_shader, start_pos, f);
+      }
+
+      size_t loop_limit =
+          omit_last ? steps_cache.size() - 1 : steps_cache.size();
+      float current_dist = 0.0f;
+
+      for (size_t j = 0; j < loop_limit; j++) {
+        float step = steps_cache[j] * scale;
+        current_dist += step;
+
+        const bool terminal = !omit_last && j == loop_limit - 1;
+        float t = replay_t(terminal, current_dist, total_dist);
+
+        if (window.excludes(t))
+          continue;
+
+        // `t` follows the rendered arc length. Under a planar basis
+        // `PlanarArcStamp::stamp` rewrites the lerped v0/v1 from the sampled
+        // arc, so arc-keyed shaders track the drawn position.
+        HS_PLOT_STALL_START(replay_start);
+        HS_PLOT_COUNT(replay_samples);
+        HS_PLOT_COUNT(normalizations);
+        math::Vector p = terminal ? next.pos : newton_unit(sample.pos(t));
+        Fragment f;
+        lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, t, p);
+        arc_uv.stamp(f, current_dist);
+        HS_PLOT_STALL_STOP(normalized_replay, replay_start);
+        shade_and_plot(pipeline, canvas, fragment_shader, p, f);
+      }
+    };
+
+    steps_cache.clear();
+    const float sim_dist = simulate_steps();
     // scale <= 1 normally (the final step overshoots); > 1 after a backstop
     // break. Either way the replay spans exactly total_dist.
     HS_CHECK(sim_dist > 0.0f,
              "rasterize: simulated segment length is not positive");
-    float scale = total_dist / sim_dist;
-    bool omit_last = close_loop || !is_last_segment || omit_end;
-
-    // Normalize interpolated positions before vector_to_pixel's acos(v.y).
-    HS_PROFILE_DEEP(plot_seg_draw);
-    if (window.opens_at_start()) {
-      HS_PLOT_STALL_START(replay_start);
-      HS_PLOT_COUNT(replay_samples);
-      HS_PLOT_COUNT(normalizations);
-      math::Vector start_pos = newton_unit(sample.pos(0.0f));
-      Fragment f;
-      lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, 0.0f, start_pos);
-      arc_uv.stamp(f, 0.0f);
-      HS_PLOT_STALL_STOP(normalized_replay, replay_start);
-      shade_and_plot(pipeline, canvas, fragment_shader, start_pos, f);
-    }
-
-    size_t loop_limit = omit_last ? steps_cache.size() - 1 : steps_cache.size();
-    float current_dist = 0.0f;
-
-    for (size_t j = 0; j < loop_limit; j++) {
-      float step = steps_cache[j] * scale;
-      current_dist += step;
-
-      const bool terminal = !omit_last && j == loop_limit - 1;
-      float t = replay_t(terminal, current_dist, total_dist);
-
-      if (window.excludes(t))
-        continue;
-
-      // `t` follows the rendered arc length. Under a planar basis
-      // `PlanarArcStamp::stamp` rewrites the lerped v0/v1 from the sampled arc,
-      // so arc-keyed shaders track the drawn position.
-      HS_PLOT_STALL_START(replay_start);
-      HS_PLOT_COUNT(replay_samples);
-      HS_PLOT_COUNT(normalizations);
-      math::Vector p = terminal ? next.pos : newton_unit(sample.pos(t));
-      Fragment f;
-      lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, t, p);
-      arc_uv.stamp(f, current_dist);
-      HS_PLOT_STALL_STOP(normalized_replay, replay_start);
-      shade_and_plot(pipeline, canvas, fragment_shader, p, f);
-    }
+    replay_steps(total_dist / sim_dist,
+                 close_loop || !is_last_segment || omit_end);
   };
 
   const auto &cr = canvas.clip();
