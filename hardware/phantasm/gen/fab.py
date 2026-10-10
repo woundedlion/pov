@@ -1381,9 +1381,9 @@ def fabricate():
         board = read_board(PCB)
     except BoardReadError as exc:
         sys.exit(str(exc))
-    for title in F(board, "title_block"):
-        if sexp.val(title, "rev") != ["1.1"]:
-            sys.exit("the exporter supports rev 1.1 only")
+    titles = F(board, "title_block")
+    if len(titles) != 1 or sexp.val(titles[0], "rev") != ["1.1"]:
+        sys.exit("the exporter supports rev 1.1 only")
     print("[1/9] Plot origin + solder mask")
     try:
         validate_plot_origin(PCB, board=board)

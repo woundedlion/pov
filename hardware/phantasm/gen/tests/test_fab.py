@@ -17,7 +17,11 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import fab  # noqa: E402
+import sexp  # noqa: E402
 from constraints import NEW_LAYOUT_RULES  # noqa: E402
+
+
+TITLED_BOARD = sexp.parse_one('(kicad_pcb (title_block (rev "1.1")))')
 
 
 def checked_rule_count(project):
@@ -1148,7 +1152,7 @@ class PackagePromotionTests(unittest.TestCase):
             for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
                 stack.enter_context(mock.patch.object(fab, name, value))
             gates = {
-                "kicad_cli": "fixture-cli", "read_board": [],
+                "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
                 "validate_plot_origin": None, "validate_via_geometry": 0,
                 "validate_solder_mask": None, "validate_zone_geometry": 0,
                 "validate_project_rules": 0, "run_drc": (0, 0),
@@ -1237,7 +1241,7 @@ class PackagePromotionTests(unittest.TestCase):
                 for name, value in {"OUT": str(out), "JLC": str(jlc)}.items():
                     stack.enter_context(unittest.mock.patch.object(fab, name, value))
                 gates = {
-                    "kicad_cli": "fixture-cli", "read_board": [],
+                    "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
                     "validate_plot_origin": None, "validate_via_geometry": 0,
                     "validate_solder_mask": None,
                     "validate_zone_geometry": 0, "validate_project_rules": 0,
@@ -1264,7 +1268,7 @@ class PackagePromotionTests(unittest.TestCase):
 
 class OutputLockTests(unittest.TestCase):
     GATES = {
-        "kicad_cli": "fixture-cli", "read_board": [],
+        "kicad_cli": "fixture-cli", "read_board": TITLED_BOARD,
         "validate_plot_origin": None, "validate_via_geometry": 0,
         "validate_solder_mask": None, "validate_zone_geometry": 0,
         "validate_project_rules": 0, "run_drc": (0, 0),
