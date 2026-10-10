@@ -149,6 +149,8 @@ inline void test_budget_corrupted_timebase() {
   SimBoard &b2 = sim.boards[2];
   const int32_t bogus = floor_mod(sim.board_pos(2) + 72, cfg.W);
   const uint64_t corrupt_g = sim.g;
+  const uint32_t transitions_before =
+      b2.board.telemetry_snapshot().lock_transitions;
   flywheel_mut(b2.board).seed(Sim::local_now(b2, sim.g) -
                               static_cast<uint32_t>(bogus) * COL);
   flywheel_mut(b2.board).force_lock();
@@ -175,7 +177,8 @@ inline void test_budget_corrupted_timebase() {
   HS_EXPECT_LE(recovery_cols, 750u);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,
                static_cast<uint32_t>(cfg.reject_fallback));
-  HS_EXPECT_GE(b2.board.telemetry_snapshot().lock_transitions, 2u);
+  HS_EXPECT_EQ(
+      b2.board.telemetry_snapshot().lock_transitions - transitions_before, 2u);
 
   // The beacon rev cross-check (§6.4) resyncs any rev_in_effect hiccup before
   // the next epoch, so the commit is lockstep.
