@@ -675,6 +675,26 @@ template <RasterConfig Cfg> struct SinglePassWalk {
 };
 
 /**
+ * @brief True when edge @p i spans at most one screen step.
+ * @tparam W,H Rasterization resolution.
+ * @param edge_flags Per-edge visibility bytes, or null.
+ * @param i Edge index.
+ * @param a Edge start.
+ * @param b Edge end.
+ * @details A classified edge reads EDGE_ONE_DOT; any other edge evaluates
+ * edge_fits_one_dot, which may return a false negative.
+ */
+template <int W, int H>
+HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
+                                             size_t i, const math::Vector &a,
+                                             const math::Vector &b) {
+  return edge_flags != nullptr &&
+                 has_edge_flag(edge_flags, i, RasterOptions::EDGE_CLASSIFIED)
+             ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_ONE_DOT)
+             : edge_fits_one_dot<W, H>(a, b);
+}
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -1078,10 +1098,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // A predicate false negative falls through and re-evaluates exactly.
     const bool one_dot =
         world_identity && !has_planar_basis &&
-        (edge_flags != nullptr &&
-                 has_edge_flag(edge_flags, i, RasterOptions::EDGE_CLASSIFIED)
-             ? has_edge_flag(edge_flags, i, RasterOptions::EDGE_ONE_DOT)
-             : edge_fits_one_dot<W, H>(curr.pos, next.pos));
+        edge_spans_one_dot<W, H>(edge_flags, i, curr.pos, next.pos);
     if (one_dot) {
       HS_PLOT_COUNT(one_dot);
       plot_dot(curr, i);
