@@ -57,7 +57,9 @@ class Effect : public PresetHost {
   friend class Canvas;
 
 public:
+  /// Per-frame callback run as a Canvas opens, before the stale-pixel clear.
   using BufferReadyHook = void (*)(Effect &);
+  /// Per-frame callback run as a Canvas closes, before the frame is queued.
   using BufferCompleteHook = void (*)(Canvas &);
 
   bool debug_visuals = false; /**< Flag to enable visual debugging overlays. */
@@ -239,8 +241,17 @@ public:
     output_envelope = static_cast<uint16_t>(value * 65535.0f + 0.5f);
   }
 
+  /**
+   * @brief Output transition envelope in 16-bit fixed point.
+   * @return Envelope scaled to [0, 65535].
+   */
   [[nodiscard]] uint16_t output_envelope_u16() const { return output_envelope; }
 
+  /**
+   * @brief Scales a pixel by the output transition envelope.
+   * @param pixel Pixel to scale.
+   * @return `pixel` with each channel multiplied by the envelope, rounded.
+   */
   [[nodiscard]] Pixel apply_output_envelope(const Pixel &pixel) const {
     auto scale = [this](uint16_t channel) {
       return static_cast<uint16_t>(

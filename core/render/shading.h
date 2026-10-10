@@ -209,8 +209,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * it.
  */
 struct FacePaletteShader {
-  float scale = 1.0f;
-  float alpha = 1.0f;
+  float scale = 1.0f; ///< Multiplier mapping edge depth `-v1` to palette t.
+  float alpha = 1.0f; ///< Alpha written to every fragment.
 
   /**
    * @brief Sets the face's palette; the only way to populate it.
@@ -233,6 +233,10 @@ struct FacePaletteShader {
     counterpart_weight = frac_to_q16(hs::clamp(weight, 0.0f, 1.0f));
   }
 
+  /**
+   * @brief Shades one fragment from its inward edge depth.
+   * @param frag Fragment whose `v1` is read and whose colour is written.
+   */
   void operator()(const math::Vector &, Fragment &frag) const {
     assert(palette != nullptr);
     float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
