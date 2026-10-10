@@ -328,18 +328,21 @@ inline void test_rasterize_step_budget_backstop_finishes_segment() {
 
   // Both endpoints drawn, no hole in between, and the emitted count still bound
   // by the budget rather than by the unstretched cadence.
-  HS_EXPECT_GT(single.plotted.size(), size_t{0});
-  if (single.plotted.empty())
-    return;
-  HS_EXPECT_NEAR(math::angle_between(single.plotted.front(), a.pos), 0.0f,
-                 1e-3f);
-  HS_EXPECT_NEAR(math::angle_between(single.plotted.back(), b.pos), 0.0f,
-                 1e-3f);
+  for (const Capture *capture : {&single, &cached}) {
+    HS_EXPECT_GT(capture->plotted.size(), size_t{0});
+    if (capture->plotted.empty())
+      return;
+    HS_EXPECT_NEAR(math::angle_between(capture->plotted.front(), a.pos), 0.0f,
+                   1e-3f);
+    HS_EXPECT_NEAR(math::angle_between(capture->plotted.back(), b.pos), 0.0f,
+                   1e-3f);
+    HS_EXPECT_LE(capture->plotted.size(), 2 * BUDGET);
+    HS_EXPECT_LE(max_consecutive_gap(capture->plotted, /*wrap=*/false),
+                 2.5f * BASE_STEP);
+  }
   const float single_gap = max_consecutive_gap(single.plotted, /*wrap=*/false);
   const float cached_gap = max_consecutive_gap(cached.plotted, /*wrap=*/false);
-  HS_EXPECT_LE(single_gap, 2.5f * BASE_STEP);
   HS_EXPECT_LE(single_gap, 1.25f * cached_gap);
-  HS_EXPECT_LE(single.plotted.size(), 2 * BUDGET);
   HS_EXPECT_GT(single.plotted.size(), BUDGET);
 }
 
