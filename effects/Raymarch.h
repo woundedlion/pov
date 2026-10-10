@@ -53,6 +53,7 @@ struct RaymarchWhiteBox;
 
 /** @brief Placement solids for the torus copies; COUNT is a sentinel. */
 enum class RaymarchPlacementSolid : uint8_t {
+/// X-macro: emits one `RaymarchPlacementSolid` enumerator.
 #define HS_RAYMARCH_PLACEMENT_ENUM(name) name,
   HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_ENUM)
 #undef HS_RAYMARCH_PLACEMENT_ENUM
@@ -132,6 +133,7 @@ public:
   static constexpr size_t PLACEMENT_SOLID_COUNT =
       static_cast<size_t>(PlacementSolid::COUNT);
 
+  /// X-macro: emits the matching `Solids::BaseMesh` enumerator.
 #define HS_RAYMARCH_PLACEMENT_BASE(name) Solids::BaseMesh::name,
   /// BaseMesh for each `PlacementSolid`, in enum order.
   static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
@@ -142,6 +144,7 @@ public:
   static constexpr std::array<const char *, PLACEMENT_SOLID_COUNT>
       PLACEMENT_SOLID_OPTIONS = raymarch_placement_labels(PLACEMENT_SOLIDS);
 
+  /// X-macro: emits the qualified enumerator spelling as a string.
 #define HS_RAYMARCH_PLACEMENT_EXPORT(name) "RaymarchPlacementSolid::" #name,
   /// C++ enumerator spelling of each placement solid, for preset export.
   static constexpr const char *PLACEMENT_SOLID_EXPORT_OPTIONS[] = {
@@ -210,7 +213,8 @@ public:
    */
   static constexpr Params initial_params() { return {}; }
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, PlacementSolid>{

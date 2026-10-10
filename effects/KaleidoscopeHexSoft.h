@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file KaleidoscopeHexSoft.h
+ * @brief Composed pullback effect:
+ *        a drifting twin wave reflected through a kaleidoscope.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -51,6 +57,7 @@ struct KaleidoscopeHexSoftSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `KaleidoscopeHexSoftSpec`.
 using KaleidoscopeHexSoftParams = Pullback::ParamsFor<KaleidoscopeHexSoftSpec>;
 
 /**
@@ -122,4 +129,6 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @return The preset-0 `Params`. */
 };

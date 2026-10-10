@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file ChromaticLichen.h
+ * @brief Composed pullback effect:
+ *        a glitch-folded gnomonic grid displaced by curl noise.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -52,6 +58,7 @@ struct ChromaticLichenSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `ChromaticLichenSpec`.
 using ChromaticLichenParams = Pullback::ParamsFor<ChromaticLichenSpec>;
 
 /**

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file MermaidSkin.h
+ * @brief Composed pullback effect:
+ *        a high-chroma folded grid rippling through curl noise.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -50,6 +56,7 @@ struct MermaidSkinSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `MermaidSkinSpec`.
 using MermaidSkinParams = Pullback::ParamsFor<MermaidSkinSpec>;
 
 /**
@@ -119,4 +126,6 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @return The preset-0 `Params`. */
 };

@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file AshCloud.h
+ * @brief Composed pullback effect:
+ *        a softly cut lattice curled across dodecahedral facets.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -56,6 +62,7 @@ struct AshCloudSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `AshCloudSpec`.
 using AshCloudParams = Pullback::ParamsFor<AshCloudSpec>;
 
 /**
