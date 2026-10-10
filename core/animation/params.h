@@ -465,18 +465,15 @@ public:
     FiniteParamAnimationBase::step(canvas);
     float progress = normalized_progress();
     // Floor rings at 0 so the divisor rings + 1 stays >= 1.
-    float rings = num_rings;
-    if (!std::isfinite(rings) || rings < 0.0f)
-      rings = 0.0f;
-    float log_period = 5.0f / (rings + 1);
+    if (std::isfinite(num_rings.get()))
+      last_rings = fmaxf(num_rings.get(), 0.0f);
+    float log_period = 5.0f / (last_rings + 1);
     float flow_param = progress * log_period;
     float scale = expf(flow_param);
     float s = sqrtf(scale);
-    // Clamp lines to >= 1 before dividing; a non-finite lines falls back to 1.
-    float lines = num_lines;
-    if (!std::isfinite(lines) || lines < 1.0f)
-      lines = 1.0f;
-    float angle = progress * (2 * math::PI_F / lines);
+    if (std::isfinite(num_lines.get()))
+      last_lines = fmaxf(num_lines.get(), 1.0f);
+    float angle = progress * (2 * math::PI_F / last_lines);
 
     params.get().a.re = s * cosf(angle);
     params.get().a.im = s * sinf(angle);
@@ -491,6 +488,10 @@ private:
   std::reference_wrapper<const float> num_rings;
   /** @brief Live line count driving the angular step. */
   std::reference_wrapper<const float> num_lines;
+  /** @brief Last finite ring count read, floored at 0. */
+  float last_rings = 0.0f;
+  /** @brief Last finite line count read, floored at 1. */
+  float last_lines = 1.0f;
 };
 
 /**

@@ -212,6 +212,29 @@ inline void test_mobiusflow_degenerate_inputs_remain_finite() {
   }
 }
 
+/** @brief Verifies a non-finite live ring or line count holds the last finite value. */
+inline void test_mobiusflow_nonfinite_live_input_holds_last_value() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const float INF_VALUE = std::numeric_limits<float>::infinity();
+  math::MobiusParams held_params, ref_params;
+  float rings = 3.0f, lines = 5.0f;
+  const float ref_rings = 3.0f, ref_lines = 5.0f;
+  Animation::MobiusFlow held(held_params, rings, lines, 8, false);
+  Animation::MobiusFlow ref(ref_params, ref_rings, ref_lines, 8, false);
+  held.step(fake_canvas());
+  ref.step(fake_canvas());
+  for (float bad : {NAN_VALUE, INF_VALUE}) {
+    rings = bad;
+    lines = bad;
+    held.step(fake_canvas());
+    ref.step(fake_canvas());
+    HS_EXPECT_EQ(held_params.a.re, ref_params.a.re);
+    HS_EXPECT_EQ(held_params.a.im, ref_params.a.im);
+    HS_EXPECT_EQ(held_params.d.re, ref_params.d.re);
+    HS_EXPECT_EQ(held_params.d.im, ref_params.d.im);
+  }
+}
+
 /**
  * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
  * (a and d are reciprocal: d = 1/a) while actually moving the parameters.
