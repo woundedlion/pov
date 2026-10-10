@@ -31,9 +31,14 @@ struct PlanarPolygon {
   float sector;       /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float apothem;           /**< Precomputed inradius (radians). */
+  /** @var r_val
+   *  Length of the axis' XZ projection. */
+  /// y-component of the axis.
   float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  /// Cosine of the circumradius.
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  /// Minimum polar angle of the vertical band (radians).
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
@@ -159,9 +164,14 @@ struct SphericalPolygon {
   float circumradius; /**< Angular distance from center to vertex (radians). */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
+  /// Minimum polar angle of the vertical band (radians).
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  /** @var r_val
+   *  Length of the axis' XZ projection. */
+  /// y-component of the axis.
   float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  /// Cosine of the circumradius.
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
   float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
@@ -338,13 +348,21 @@ struct Star {
   static constexpr bool is_solid =
       true; /**< Star renders as a filled region. */
 
+  /** @var edge_ny
+   *  Edge plane normal y. */
+  /// Edge plane normal x.
   float edge_nx, edge_ny,
       plane_d;        /**< 2D edge plane (normal and offset) for one point. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
 
+  /** @var r_val
+   *  Length of the axis' XZ projection. */
+  /// y-component of the axis.
   float ny, r_val,
       alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  /// Cosine of the circumradius.
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  /// Minimum polar angle of the vertical band (radians).
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the star, -1 its complement. */
 
@@ -481,9 +499,14 @@ struct Flower {
                          (radians). */
   float apothem;           /**< Petal inradius offset (PI - outer radius). */
   math::Vector antipode;   /**< Antipode of the flower axis (scan origin). */
+  /** @var r_val
+   *  Length of the antipode's XZ projection. */
+  /// y-component of the antipode.
   float ny, r_val, alpha_angle; /**< Antipode y-component, XZ projection length
                                      and azimuth. */
+  /// Cosine of the circumradius.
   float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  /// Minimum polar angle of the vertical band (radians).
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the flower, -1 its complement. */
   static constexpr bool is_solid =
@@ -596,15 +619,20 @@ struct Flower {
  * circle through them, bounded and culled as such.
  */
 struct Line {
+  /// First arc endpoint (unit vector).
   math::Vector a, b; /**< Arc endpoints (unit vectors). */
   float thickness;   /**< Half-width of the stroke (radians). */
 
-  math::Vector n;         /**< Great-circle plane normal of the arc. */
-  float len;              /**< Arc length (radians). */
+  math::Vector n; /**< Great-circle plane normal of the arc. */
+  float len;      /**< Arc length (radians). */
+  /// Minimum polar angle of the vertical bounds (radians).
   float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
   // Bounding-cap geometry, precomputed in the ctor.
   math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
+  /** @var mid_r
+   *  Length of the midpoint axis' XZ projection. */
+  /// y-component of the midpoint axis.
   float mid_ny = 0.0f, mid_r = 0.0f,
         mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */

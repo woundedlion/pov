@@ -16,27 +16,37 @@
 
 namespace SDF {
 
+/**
+ * @brief Footprint coverage of a signed field value.
+ * @param width Footprint width in world units; nonpositive is a hard step.
+ * @param field Signed field value in world units.
+ * @return Coverage in [0, 1].
+ */
 __attribute__((always_inline)) inline float footprint_coverage(float width,
                                                                float field) {
   return width > 0.0f ? hs::clamp(0.5f - field / width, 0.0f, 1.0f)
                       : (field <= 0.0f ? 1.0f : 0.0f);
 }
 
+/** @brief One family of parallel planes. */
 struct FrameworkPlane {
-  math::Vector normal;
-  float spacing;
+  math::Vector normal; ///< Unit plane normal.
+  float spacing;       ///< Distance between adjacent planes.
 };
 
 /** @brief Triangular-prism edges with equilateral XY cells and Z layers. */
 struct TriangularFramework {
-  using PlaneFamily = FrameworkPlane;
-  static constexpr size_t STREAM_COUNT = 4;
+  using PlaneFamily = FrameworkPlane;       ///< Plane family type.
+  static constexpr size_t STREAM_COUNT = 4; ///< Number of plane families.
+  /// Row height per unit cell size (sqrt(3)/2).
   static constexpr float TRIANGLE_HEIGHT = 0.8660254037844386f;
-  float cell_size = 1.0f;
-  float layer_height = 1.0f;
-  float wire_radius = 0.05f;
-  math::Vector origin{};
+  float cell_size = 1.0f;    ///< Triangle edge length.
+  float layer_height = 1.0f; ///< Spacing of the Z layers.
+  float wire_radius = 0.05f; ///< Strut radius.
+  math::Vector origin{};     ///< Lattice origin.
 
+  /** @brief Whether all parameters are finite and sizes positive.
+   * @return True when the geometry is usable. */
   HS_HOT_FLASH_MEMBER bool valid() const {
     return Raycast::finite(cell_size) && cell_size > 0.0f &&
            Raycast::finite(layer_height) && layer_height > 0.0f &&
@@ -45,6 +55,8 @@ struct TriangularFramework {
            Raycast::finite(origin.z);
   }
 
+  /** @brief Three XY edge-line families and the Z layer planes.
+   * @return Unit normals and spacings of the four families. */
   std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
     const float HEIGHT = TRIANGLE_HEIGHT * cell_size;
     return {{{{0.0f, 1.0f, 0.0f}, HEIGHT},
@@ -53,6 +65,12 @@ struct TriangularFramework {
              {{0.0f, 0.0f, 1.0f}, layer_height}}};
   }
 
+  /**
+   * @brief Offset from the nearest edge to a point.
+   * @param p Query point.
+   * @param feature Set to the edge id: 0-2 horizontal family, 3 vertical.
+   * @return Vector from the nearest edge point to p.
+   */
   math::Vector edge_offset(const math::Vector &p, uint32_t &feature) const {
     const math::Vector Q = p - origin;
     const float HEIGHT = TRIANGLE_HEIGHT * cell_size;
@@ -87,11 +105,17 @@ struct TriangularFramework {
     return result;
   }
 
+  /** @brief Signed distance to the strut surface.
+   * @param p Query point.
+   * @return Distance to the nearest edge minus the wire radius. */
   float distance(const math::Vector &p) const {
     uint32_t feature;
     return edge_offset(p, feature).magnitude() - wire_radius;
   }
 
+  /** @brief Outward surface normal.
+   * @param p Query point.
+   * @return Unit normal, or zero on an edge axis. */
   math::Vector normal(const math::Vector &p) const {
     uint32_t feature;
     const math::Vector OFFSET = edge_offset(p, feature);
@@ -99,10 +123,15 @@ struct TriangularFramework {
     return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
   }
 
+  /** @brief Exact field with interior and exterior clearance.
+   * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return {true, true, true, 0.0f};
   }
 
+  /** @brief Field sample with the nearest edge as feature.
+   * @param p Query point.
+   * @return Signed distance, clearance and edge id. */
   Raycast::QuerySample sample(const math::Vector &p) const {
     uint32_t feature;
     const float VALUE = edge_offset(p, feature).magnitude() - wire_radius;
@@ -112,21 +141,28 @@ struct TriangularFramework {
 
 /** @brief FCC nearest-neighbor edges; cell_size is the strut length. */
 struct OctetFramework {
-  using PlaneFamily = FrameworkPlane;
-  static constexpr size_t STREAM_COUNT = 4;
+  using PlaneFamily = FrameworkPlane;       ///< Plane family type.
+  static constexpr size_t STREAM_COUNT = 4; ///< Number of plane families.
+  /// Normal component magnitude (1/sqrt(3)).
   static constexpr float NORMAL_COMPONENT = 0.5773502691896258f;
+  /// Plane spacing per unit cell size.
   static constexpr float PLANE_SPACING = 0.8164965809277260f;
+  /// Reciprocal sine of the dihedral angle between plane families.
   static constexpr float INVERSE_PLANE_SINE = 1.0606601717798213f;
-  float cell_size = 1.0f;
-  float wire_radius = 0.05f;
-  math::Vector origin{};
+  float cell_size = 1.0f;    ///< Strut length.
+  float wire_radius = 0.05f; ///< Strut radius.
+  math::Vector origin{};     ///< Lattice origin.
 
+  /** @brief Whether all parameters are finite and sizes positive.
+   * @return True when the geometry is usable. */
   bool valid() const {
     return Raycast::finite(cell_size) && cell_size > 0.0f &&
            Raycast::finite(wire_radius) && wire_radius > 0.0f &&
            Raycast::finite(origin);
   }
 
+  /** @brief The four tetrahedral plane families containing the struts.
+   * @return Unit normals and spacings of the four families. */
   std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
     const float N = NORMAL_COMPONENT;
     const float SPACING = PLANE_SPACING * cell_size;
@@ -136,6 +172,12 @@ struct OctetFramework {
              {{-N, -N, N}, SPACING}}};
   }
 
+  /**
+   * @brief Offset from the nearest strut to a point.
+   * @param p Query point.
+   * @param feature Set to the strut id: the plane-family pair index 0-5.
+   * @return Vector from the nearest strut point to p.
+   */
   math::Vector edge_offset(const math::Vector &p, uint32_t &feature) const {
     const auto FAMILIES = plane_families();
     const math::Vector Q = p - origin;
@@ -170,11 +212,17 @@ struct OctetFramework {
     return result;
   }
 
+  /** @brief Signed distance to the strut surface.
+   * @param p Query point.
+   * @return Distance to the nearest strut minus the wire radius. */
   float distance(const math::Vector &p) const {
     uint32_t feature;
     return edge_offset(p, feature).magnitude() - wire_radius;
   }
 
+  /** @brief Outward surface normal.
+   * @param p Query point.
+   * @return Unit normal, or zero on a strut axis. */
   math::Vector normal(const math::Vector &p) const {
     uint32_t feature;
     const math::Vector OFFSET = edge_offset(p, feature);
@@ -182,10 +230,15 @@ struct OctetFramework {
     return LENGTH > 0.0f ? OFFSET * (1.0f / LENGTH) : math::Vector{};
   }
 
+  /** @brief Exact field with interior and exterior clearance.
+   * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return {true, true, true, 0.0f};
   }
 
+  /** @brief Field sample with the nearest strut as feature.
+   * @param p Query point.
+   * @return Signed distance, clearance and strut id. */
   Raycast::QuerySample sample(const math::Vector &p) const {
     uint32_t feature;
     const float VALUE = edge_offset(p, feature).magnitude() - wire_radius;
@@ -220,16 +273,20 @@ struct OctetFramework {
 
 /** @brief D4 nearest-neighbor struts joining integer vertices of even sum. */
 struct OctetFramework4 {
+  /** @brief One family of parallel 3-planes. */
   struct PlaneFamily {
-    math::Vec4 normal;
-    float spacing;
+    math::Vec4 normal; ///< Unit plane normal.
+    float spacing;     ///< Distance between adjacent planes.
   };
-  static constexpr size_t STREAM_COUNT = 8;
+  static constexpr size_t STREAM_COUNT = 8; ///< Number of plane families.
+  /// Lattice unit per unit cell size (1/sqrt(2)).
   static constexpr float HALF_CUBE = 0.7071067811865475f;
-  float cell_size = 1.0f;
-  float wire_radius = 0.05f;
-  math::Vec4 origin{};
+  float cell_size = 1.0f;    ///< Strut length.
+  float wire_radius = 0.05f; ///< Strut radius.
+  math::Vec4 origin{};       ///< Lattice origin.
 
+  /** @brief Whether all parameters are finite and sizes positive.
+   * @return True when the geometry is usable. */
   bool valid() const {
     if (!Raycast::finite(cell_size) || cell_size <= 0.0f ||
         !Raycast::finite(wire_radius) || wire_radius <= 0.0f)
@@ -240,6 +297,8 @@ struct OctetFramework4 {
     return true;
   }
 
+  /** @brief The eight (1, +-1, +-1, +-1)/2 plane families.
+   * @return Unit normals and spacings of the eight families. */
   std::array<PlaneFamily, STREAM_COUNT> plane_families() const {
     std::array<PlaneFamily, STREAM_COUNT> result;
     for (size_t i = 0; i < STREAM_COUNT; ++i)
@@ -249,6 +308,15 @@ struct OctetFramework4 {
     return result;
   }
 
+  /**
+   * @brief Nearest strut query.
+   * @tparam WithOffset Return the offset vector instead of the distance.
+   * @tparam Normalized p is already in lattice units relative to origin;
+   *         results are then in lattice units.
+   * @param p Query point.
+   * @param feature Set to the strut id: 2 * axis-pair index + orientation.
+   * @return Vec4 from the nearest strut point to p, or its length.
+   */
   template <bool WithOffset, bool Normalized = false>
   HS_HOT_FLASH_MEMBER auto edge_query(const math::Vec4 &p,
                                       uint32_t &feature) const {
@@ -325,10 +393,17 @@ struct OctetFramework4 {
     }
   }
 
+  /** @brief Offset from the nearest strut to a point.
+   * @param p Query point.
+   * @param feature Set to the strut id.
+   * @return Vector from the nearest strut point to p. */
   math::Vec4 edge_offset(const math::Vec4 &p, uint32_t &feature) const {
     return edge_query<true>(p, feature);
   }
 
+  /** @brief Euclidean length.
+   * @param p Vector.
+   * @return Length of p. */
   static float magnitude(const math::Vec4 &p) {
     float squared = 0.0f;
     for (int i = 0; i < 4; ++i)
@@ -336,11 +411,17 @@ struct OctetFramework4 {
     return sqrtf(squared);
   }
 
+  /** @brief Signed distance to the strut surface.
+   * @param p Query point.
+   * @return Distance to the nearest strut minus the wire radius. */
   float distance(const math::Vec4 &p) const {
     uint32_t feature;
     return edge_query<false>(p, feature) - wire_radius;
   }
 
+  /** @brief Outward surface normal.
+   * @param p Query point.
+   * @return Unit normal, or zero on a strut axis. */
   math::Vec4 normal(const math::Vec4 &p) const {
     uint32_t feature;
     math::Vec4 offset = edge_offset(p, feature);
@@ -350,10 +431,15 @@ struct OctetFramework4 {
     return offset;
   }
 
+  /** @brief Exact field with interior and exterior clearance.
+   * @return The query capabilities. */
   Raycast::QueryCapabilities capabilities() const {
     return {true, true, true, 0.0f};
   }
 
+  /** @brief Field sample with the nearest strut as feature.
+   * @param p Query point.
+   * @return Signed distance, clearance and strut id. */
   Raycast::QuerySample sample(const math::Vec4 &p) const {
     uint32_t feature;
     const float VALUE = edge_query<false>(p, feature) - wire_radius;
@@ -361,17 +447,27 @@ struct OctetFramework4 {
   }
 };
 
+/** @brief Monotone crossing cursor over one plane family. */
 struct FrameworkPlaneCursor {
-  float next = 0.0f;
-  float step = 0.0f;
-  bool active = false;
+  float next = 0.0f;   ///< Ray distance of the next crossing.
+  float step = 0.0f;   ///< Ray distance between crossings.
+  bool active = false; ///< Whether next and step are usable.
 
+  /** @brief Ray projection onto one plane family. */
   struct Projection {
-    float position;
-    float speed;
-    float spacing;
+    float position; ///< Plane coordinate at the interval start.
+    float speed;    ///< Plane coordinate change per unit distance.
+    float spacing;  ///< Distance between adjacent planes.
   };
 
+  /**
+   * @brief Starts each cursor at its first plane at or beyond near.
+   * @details Cursors with zero speed are left unchanged.
+   * @param cursors Cursors to start.
+   * @param projections Per-cursor ray projections.
+   * @param count Number of cursors.
+   * @param near Ray distance of the interval start.
+   */
   HS_HOT_FLASH_MEMBER static void initialize(FrameworkPlaneCursor *cursors,
                                              const Projection *projections,
                                              size_t count, float near) {
@@ -394,17 +490,32 @@ struct FrameworkPlaneCursor {
 
 /** @brief Shared monotone plane streams and approximate coverage layers. */
 template <size_t Count> struct FrameworkPlaneStreams {
-  static constexpr size_t STREAM_COUNT = Count;
-  static constexpr size_t GROUP_CAPACITY = 1;
-  Raycast::Footprint footprint;
+  static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
+  static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
+  Raycast::Footprint footprint;               ///< Pixel footprint for coverage.
+  /// Per-family crossing cursors.
   std::array<FrameworkPlaneCursor, STREAM_COUNT> cursors{};
 
+  /** @brief Constructs inactive streams.
+   * @param footprint Pixel footprint for coverage. */
   explicit FrameworkPlaneStreams(Raycast::Footprint footprint)
       : footprint(footprint) {}
 
+  /** @brief Whether a stream has a pending crossing.
+   * @param index Stream index.
+   * @return True when active. */
   bool active(size_t index) const { return cursors[index].active; }
+  /** @brief Ray distance of a stream's next crossing.
+   * @param index Stream index.
+   * @return Distance of the pending crossing. */
   float distance(size_t index) const { return cursors[index].next; }
 
+  /**
+   * @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @param sample Geometry sample at the crossing.
+   * @return Contribution with footprint coverage of the sample field.
+   */
   Raycast::Contribution contribution(size_t index,
                                      const Raycast::QuerySample &sample) const {
     Raycast::Contribution result;
@@ -417,6 +528,8 @@ template <size_t Count> struct FrameworkPlaneStreams {
     return result;
   }
 
+  /** @brief Moves a stream to its next crossing.
+   * @param index Stream index. */
   void advance(size_t index) {
     auto &cursor = cursors[index];
     const float NEXT = cursor.next + cursor.step;
@@ -425,12 +538,22 @@ template <size_t Count> struct FrameworkPlaneStreams {
   }
 };
 
+/** @brief Four plane streams started from a world-space ray. */
 struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
-  Raycast::Ray ray;
+  Raycast::Ray ray; ///< Traced ray.
 
+  /** @brief Constructs streams; initialize() starts them.
+   * @param ray Traced ray.
+   * @param footprint Pixel footprint for coverage. */
   FrameworkPlaneEvents(const Raycast::Ray &ray, Raycast::Footprint footprint)
       : FrameworkPlaneStreams(footprint), ray(ray) {}
 
+  /**
+   * @brief Starts the streams at the ray interval start.
+   * @param families Plane families of the geometry.
+   * @param origin Lattice origin.
+   * @param valid Geometry validity; must be true.
+   */
   void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
                   const math::Vector &origin, bool valid) {
     HS_CHECK(valid, "framework event geometry must be valid");
@@ -448,14 +571,21 @@ struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
 
 /** @brief Four plane streams producing approximate framework coverage layers. */
 struct FrameworkEvents : FrameworkPlaneEvents {
-  TriangularFramework geometry;
+  TriangularFramework geometry; ///< Framework being traced.
 
+  /** @brief Starts the plane streams for a ray.
+   * @param geometry Framework to trace; must be valid.
+   * @param ray Traced ray; must be valid.
+   * @param footprint Pixel footprint for coverage. */
   FrameworkEvents(const TriangularFramework &geometry, const Raycast::Ray &ray,
                   Raycast::Footprint footprint = {})
       : FrameworkPlaneEvents(ray, footprint), geometry(geometry) {
     initialize(geometry.plane_families(), geometry.origin, geometry.valid());
   }
 
+  /** @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @return Contribution sampled from the geometry. */
   Raycast::Contribution candidate(size_t index) const {
     return contribution(index, geometry.sample(ray.at(distance(index))));
   }
@@ -463,16 +593,24 @@ struct FrameworkEvents : FrameworkPlaneEvents {
 
 /** @brief Plane cursors for the octet adapters; setup inlines into the caller. */
 template <size_t Count> struct OctetStreams {
-  static constexpr size_t STREAM_COUNT = Count;
-  static constexpr size_t GROUP_CAPACITY = 1;
-  Raycast::Footprint footprint;
-  std::array<float, STREAM_COUNT> next;
-  std::array<float, STREAM_COUNT> step;
-  std::array<bool, STREAM_COUNT> live;
+  static constexpr size_t STREAM_COUNT = Count; ///< Number of plane streams.
+  static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
+  Raycast::Footprint footprint;               ///< Pixel footprint for coverage.
+  std::array<float, STREAM_COUNT> next; ///< Ray distance of each next crossing.
+  std::array<float, STREAM_COUNT> step; ///< Ray distance between crossings.
+  std::array<bool, STREAM_COUNT> live;  ///< Whether each stream is active.
 
+  /** @brief Whether a stream has a pending crossing.
+   * @param index Stream index.
+   * @return True when active. */
   bool active(size_t index) const { return live[index]; }
+  /** @brief Ray distance of a stream's next crossing.
+   * @param index Stream index.
+   * @return Distance of the pending crossing. */
   float distance(size_t index) const { return next[index]; }
 
+  /** @brief Moves a stream to its next crossing.
+   * @param index Stream index. */
   void advance(size_t index) {
     const float NEXT = next[index] + step[index];
     live[index] = Raycast::finite(NEXT) && NEXT > next[index];
@@ -500,11 +638,21 @@ template <size_t Count> struct OctetStreams {
                   Raycast::finite(step[index]) && step[index] > 0.0f;
   }
 
+  /** @brief Footprint coverage of a field value at a ray distance.
+   * @param t Ray distance.
+   * @param field Signed field value in world units.
+   * @return Coverage in [0, 1]. */
   __attribute__((always_inline)) float coverage_of(float t, float field) const {
     const float WIDTH = footprint.at(t);
     return footprint_coverage(WIDTH, field);
   }
 
+  /**
+   * @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @param sample Geometry sample at the crossing.
+   * @return Contribution with footprint coverage of the sample field.
+   */
   Raycast::Contribution contribution(size_t index,
                                      const Raycast::QuerySample &sample) const {
     Raycast::Contribution result;
@@ -527,22 +675,30 @@ struct OctetEvents : OctetStreams<4> {
   struct PreparedProjection {
     std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
     std::array<float, STREAM_COUNT> offsets;        /**< In plane spacings. */
-    float spacing2;
-    float wire_radius;
+    float spacing2;                                 ///< Squared plane spacing.
+    float wire_radius;                              ///< Strut radius.
   };
   /** @brief A strut pair evaluated at its owner's crossings. */
   struct OwnedPair {
-    float numerator;
-    float denominator;
-    uint8_t other;
-    uint8_t pair;
+    float numerator;   ///< Owner speed^2 * spacing^2.
+    float denominator; ///< a^2 + b^2 + (2/3)ab of the pair speeds.
+    uint8_t other;     ///< Non-owner stream index.
+    uint8_t pair;      ///< Strut feature id.
   };
+  /// Owned pairs per stream.
   std::array<std::array<OwnedPair, PAIR_CAPACITY>, STREAM_COUNT> owned;
+  /// Owned pair count per stream.
   std::array<uint8_t, STREAM_COUNT> owned_count;
+  /// Plane coordinate at t = 0, in spacings.
   std::array<float, STREAM_COUNT> positions;
+  /// Plane coordinate per unit distance.
   std::array<float, STREAM_COUNT> speeds;
-  float wire_radius;
+  float wire_radius; ///< Strut radius.
 
+  /** @brief Starts the owning streams for a ray.
+   * @param geometry Framework to trace; must be valid.
+   * @param ray Traced ray; must be valid.
+   * @param footprint Pixel footprint for coverage. */
   OctetEvents(const OctetFramework &geometry, const Raycast::Ray &ray,
               Raycast::Footprint footprint = {}) {
     this->footprint = footprint;
@@ -622,6 +778,9 @@ struct OctetEvents : OctetStreams<4> {
     return coverage_of(t, sqrtf(numerator / denominator) - wire_radius);
   }
 
+  /** @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @return Contribution with the nearest owned strut's coverage. */
   Raycast::Contribution candidate(size_t index) const {
     Raycast::Contribution result;
     result.t = next[index];
@@ -645,36 +804,49 @@ struct OctetEvents4 : OctetStreams<8> {
   static constexpr size_t CLASS_CAPACITY = 6;
   /** @brief Validated frame projection of view directions into the lattice. */
   struct PreparedProjection {
+    /// Per ambient axis k, the 3D vector dotted with a view direction to
+    /// give its k-th ambient component.
     std::array<math::Vector, 4> embedding;
-    math::Vec4 origin; /**< Camera center in lattice units. */
-    float inverse_scale;
+    math::Vec4 origin;   /**< Camera center in lattice units. */
+    float inverse_scale; ///< 1 / lattice unit length.
   };
   /** @brief Per-ray constants of a strut class at its owner's crossings. */
   struct OwnedClass {
     float sign;        /**< s in (e_i + s e_j). */
     float transverse;  /**< (d_i - s d_j) / 2. */
     float denominator; /**< 1 - (d . u)^2. */
-    float dk;
-    float dl;
-    uint8_t i;
-    uint8_t j;
-    uint8_t k;
-    uint8_t l;
-    uint8_t feature;
+    float dk;          ///< Direction component on axis k.
+    float dl;          ///< Direction component on axis l.
+    uint8_t i;         ///< First strut axis.
+    uint8_t j;         ///< Second strut axis.
+    uint8_t k;         ///< First transverse axis.
+    uint8_t l;         ///< Second transverse axis.
+    uint8_t feature;   ///< Strut feature id.
   };
+  /** @brief Strut classes owned by one plane family. */
   struct Owner {
-    uint8_t count;
-    std::array<OwnedClass, CLASS_CAPACITY> classes;
+    uint8_t count; ///< Number of owned classes.
+    std::array<OwnedClass, CLASS_CAPACITY> classes; ///< Owned classes.
   };
+  /// owner_of value of an unowned family.
   static constexpr uint8_t UNOWNED = 0xff;
-  std::array<Owner, OWNER_CAPACITY> owners;
+  std::array<Owner, OWNER_CAPACITY> owners; ///< Owned classes per owner.
+  /// Owner index per family, or UNOWNED.
   std::array<uint8_t, STREAM_COUNT> owner_of;
   math::Vec4 local_origin;    /**< Ray origin in lattice units. */
   math::Vec4 local_direction; /**< Direction in lattice units per distance. */
-  float scale;
-  float inverse_scale;
-  float wire_radius;
+  float scale;                ///< Lattice unit length in world units.
+  float inverse_scale;        ///< 1 / scale.
+  float wire_radius;          ///< Strut radius.
 
+  /**
+   * @brief Starts the owning streams for an ambient 4D ray.
+   * @param geometry Framework to trace; must be valid.
+   * @param origin Ray origin.
+   * @param direction Unit ray direction.
+   * @param interval Traced distance interval; must be valid.
+   * @param footprint Pixel footprint for coverage.
+   */
   OctetEvents4(const OctetFramework4 &geometry, const math::Vec4 &origin,
                const math::Vec4 &direction, Raycast::Interval interval,
                Raycast::Footprint footprint = {}) {
@@ -842,6 +1014,9 @@ struct OctetEvents4 : OctetStreams<8> {
     return coverage_of(t, scale * sqrtf(numerator / denominator) - wire_radius);
   }
 
+  /** @brief Coverage layer at a stream's next crossing.
+   * @param index Stream index.
+   * @return Contribution with the nearest owned strut's coverage. */
   Raycast::Contribution candidate(size_t index) const {
     Raycast::Contribution result;
     result.t = next[index];
