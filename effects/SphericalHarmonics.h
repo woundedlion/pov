@@ -59,7 +59,7 @@ public:
     math::RotationMatrix
         orientation_conj; /**< World->local rotation (conjugate of
                                         the shape orientation). */
-    float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
+    float N1, N2;         /**< Normalization of the second harmonic. */
     /** @var N1
      *  @brief Normalization of the first harmonic. */
 

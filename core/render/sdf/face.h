@@ -67,11 +67,11 @@ struct FaceScratchBuffer {
      *  Reciprocal squared edge length. */
     /// Edge origin x.
     float vx, vy, ex, ey, inv_len_sq,
-        inv_ej; /**< Edge origin, vector, reciprocals. */
+        inv_ej; /**< Reciprocal of the edge's y-component. */
     /// angle_key of this vertex's y.
     uint32_t key_vy,
-        key_next_vy; /**< angle_key of this and the next vertex's y; equal when
-                        the edge is degenerate in y. */
+        key_next_vy; /**< angle_key of the next vertex's y; equals key_vy
+                        when the edge is degenerate in y. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 
@@ -84,8 +84,7 @@ struct FaceScratchBuffer {
     /** @var off
      *  Line offset: signed distance is nx*px + ny*py + off. */
     /// Outward unit normal x.
-    float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py +
-                               off), padding to a 16-byte stride. */
+    float nx, ny, off, pad; /**< Padding to a 16-byte stride. */
   };
   /** @brief Sorted vertex rows and their crossing-edge masks. */
   struct YWalkCache {
@@ -156,7 +155,7 @@ struct Face {
    *  Gnomonic x axis, perpendicular to center. */
   /// Frame axis equal to center.
   math::Vector basis_v, basis_u,
-      basis_w;              /**< Local tangent frame (v = center). */
+      basis_w;              /**< Gnomonic y axis, cross(center, basis_u). */
   int count;                /**< Vertex/edge count; 0 if culled. */
   float size = 0.0f;        /**< Inradius metric for AA normalization; radians
                                  unless linear_dist. */
@@ -171,7 +170,7 @@ struct Face {
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
 
   /// First row of the inclusive vertical bounds.
-  int y_min, y_max; /**< Inclusive vertical row bounds. */
+  int y_min, y_max; /**< Last row of the inclusive vertical bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
   /// Latitude mapping the bounds were computed for.
   math::LatitudeGeometry build_geometry;
@@ -226,11 +225,11 @@ struct Face {
   /** @var lut_bx
    *  Grid-x coefficient on py. */
   /// Grid-x coefficient on px.
-  float lut_ax, lut_bx, lut_cx; /**< Grid-x affine coefficients. */
+  float lut_ax, lut_bx, lut_cx; /**< Grid-x constant term. */
   /** @var lut_by
    *  Grid-y coefficient on py. */
   /// Grid-y coefficient on px.
-  float lut_ay, lut_by, lut_cy; /**< Grid-y affine coefficients. */
+  float lut_ay, lut_by, lut_cy; /**< Grid-y constant term. */
   float lut_clamp;              /**< Grid clamp bound (n - 2). */
   float lut_dequant;            /**< int16 -> plane-unit scale. */
 

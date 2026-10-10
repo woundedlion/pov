@@ -34,13 +34,13 @@ struct PlanarPolygon {
   /** @var r_val
    *  Length of the axis' XZ projection. */
   /// y-component of the axis.
-  float ny, r_val,
-      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
   /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  float cos_cap, sin_cap; /**< Sine of the circumradius. */
   /// Minimum polar angle of the vertical band (radians).
-  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float sign;             /**< +1 fills the polygon, -1 its complement. */
+  float phi_min,
+      phi_max; /**< Maximum polar angle of the vertical band (radians). */
+  float sign;  /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Polygon renders as a filled region. */
 
@@ -165,14 +165,14 @@ struct SphericalPolygon {
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
   /// Minimum polar angle of the vertical band (radians).
-  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float phi_min,
+      phi_max; /**< Maximum polar angle of the vertical band (radians). */
   /** @var r_val
    *  Length of the axis' XZ projection. */
   /// y-component of the axis.
-  float ny, r_val,
-      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
   /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  float cos_cap, sin_cap; /**< Sine of the circumradius. */
   float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Polygon renders as a filled region. */
@@ -351,20 +351,19 @@ struct Star {
   /** @var edge_ny
    *  Edge plane normal y. */
   /// Edge plane normal x.
-  float edge_nx, edge_ny,
-      plane_d;        /**< 2D edge plane (normal and offset) for one point. */
+  float edge_nx, edge_ny, plane_d; /**< Edge plane offset. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
 
   /** @var r_val
    *  Length of the axis' XZ projection. */
   /// y-component of the axis.
-  float ny, r_val,
-      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
   /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  float cos_cap, sin_cap; /**< Sine of the circumradius. */
   /// Minimum polar angle of the vertical band (radians).
-  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float sign;             /**< +1 fills the star, -1 its complement. */
+  float phi_min,
+      phi_max; /**< Maximum polar angle of the vertical band (radians). */
+  float sign;  /**< +1 fills the star, -1 its complement. */
 
   /**
    * @brief Builds a star from its basis, radius, point count, and phase.
@@ -502,13 +501,13 @@ struct Flower {
   /** @var r_val
    *  Length of the antipode's XZ projection. */
   /// y-component of the antipode.
-  float ny, r_val, alpha_angle; /**< Antipode y-component, XZ projection length
-                                     and azimuth. */
+  float ny, r_val, alpha_angle; /**< Azimuth of the antipode's XZ projection. */
   /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Circumradius trig for the scanline cap pad. */
+  float cos_cap, sin_cap; /**< Sine of the circumradius. */
   /// Minimum polar angle of the vertical band (radians).
-  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float sign;             /**< +1 fills the flower, -1 its complement. */
+  float phi_min,
+      phi_max; /**< Maximum polar angle of the vertical band (radians). */
+  float sign;  /**< +1 fills the flower, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Flower renders as a filled region. */
 
@@ -626,7 +625,8 @@ struct Line {
   math::Vector n; /**< Great-circle plane normal of the arc. */
   float len;      /**< Arc length (radians). */
   /// Minimum polar angle of the vertical bounds (radians).
-  float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
+  float phi_min,
+      phi_max; /**< Maximum polar angle of the vertical bounds (radians). */
 
   // Bounding-cap geometry, precomputed in the ctor.
   math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
@@ -634,7 +634,7 @@ struct Line {
    *  Length of the midpoint axis' XZ projection. */
   /// y-component of the midpoint axis.
   float mid_ny = 0.0f, mid_r = 0.0f,
-        mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
+        mid_alpha = 0.0f; /**< Azimuth of the midpoint axis' XZ projection. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
   bool cap_horiz_valid =
       false; /**< False when the cap yields no horizontal cull: a ~vertical cap
