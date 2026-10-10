@@ -323,7 +323,7 @@ __attribute__((noinline)) inline float palette_sample_coord(int i) {
   return static_cast<float>(i) / 65535.0f;
 }
 
-inline void test_baked_palette_color_sampler_matches_get() {
+inline void test_baked_palette_samplers_match_get() {
   struct Source {
     Color4 get(float t) const {
       return Color4(Pixel(static_cast<uint16_t>(123.0f + 59877.0f * t),
@@ -345,11 +345,22 @@ inline void test_baked_palette_color_sampler_matches_get() {
   for (int i = -128; i <= 65663; ++i) {
     const float t = palette_sample_coord(i);
     HS_EXPECT_EQ(baked.get_color(t), baked.get(t).color);
-    if (i >= 0 && i <= 65535)
-      HS_EXPECT_EQ(baked.get_color_unit(t), baked.get(t).color);
+    HS_EXPECT_EQ(baked.get_alpha(t), baked.get(t).alpha);
+    if (i < 0 || i > 65535)
+      continue;
+    const Pixel unit = baked.get_color_unit(t);
+    HS_EXPECT_EQ(unit, baked.get(t).color);
+    for (const float scale : {0.5f, 1.0f, 1.7f}) {
+      float rgb[3];
+      baked.view().get_color_unit_scaled(t, scale, rgb);
+      HS_EXPECT_NEAR(rgb[0], scale * unit.r, scale);
+      HS_EXPECT_NEAR(rgb[1], scale * unit.g, scale);
+      HS_EXPECT_NEAR(rgb[2], scale * unit.b, scale);
+    }
   }
   const float nan = std::numeric_limits<float>::quiet_NaN();
   HS_EXPECT_EQ(baked.get_color(nan), baked.get(nan).color);
+  HS_EXPECT_EQ(baked.get_alpha(nan), baked.get(nan).alpha);
 }
 
 /**
