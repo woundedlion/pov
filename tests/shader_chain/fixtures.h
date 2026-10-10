@@ -163,6 +163,62 @@ inline bool field_identical(const PB::FieldSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
+/** @brief Every field of a runtime snapshot as raw 32-bit words, led by the
+ *  alternative index. */
+inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
+  std::vector<uint32_t> words{static_cast<uint32_t>(snap.index())};
+  const auto put = [&](auto value) {
+    static_assert(sizeof(value) == sizeof(uint32_t));
+    words.push_back(std::bit_cast<uint32_t>(value));
+  };
+  const auto put_vec = [&](const math::Vector &v) {
+    put(v.x);
+    put(v.y);
+    put(v.z);
+  };
+  const auto put_walk = [&](const In::SpatialWalkSnapshot &w) {
+    put(w.noise_seed);
+    put(w.walk_time);
+    put_vec(w.position);
+    put_vec(w.direction);
+    put(w.wander.r);
+    put_vec(w.wander.v);
+    put(w.angular_velocity);
+    put(w.spin_phase);
+  };
+  std::visit(
+      [&](const auto &v) {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, In::SpatialWalkSnapshot>) {
+          put_walk(v);
+        } else if constexpr (std::is_same_v<T, In::SourceClockSnapshot>) {
+          put(v.primary);
+          put(v.secondary);
+          put(v.angle);
+        } else if constexpr (std::is_same_v<T, In::NoiseClockSnapshot>) {
+          put(v.phase);
+          put(v.noise_seed);
+        } else if constexpr (std::is_same_v<T, In::PhaseClockSnapshot> ||
+                             std::is_same_v<T, In::RippleClockSnapshot>) {
+          put(v.phase);
+        } else if constexpr (std::is_same_v<T, In::AffineClockSnapshot>) {
+          put(v.phase);
+          put(v.rotation);
+        } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
+          put(v.oscillation_phase);
+          put(v.hue_noise_phase);
+          put(v.hue_noise_seed);
+        } else if constexpr (std::is_same_v<T, In::SphericalRingsSnapshot>) {
+          put_walk(v.walk);
+          put(v.phase);
+        } else {
+          static_assert(std::is_same_v<T, std::monostate>);
+        }
+      },
+      snap);
+  return words;
+}
+
 /** @brief Selects defaults or a tabled parameter endpoint. */
 enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
 

@@ -74,6 +74,49 @@ inline void test_shader_chain_table_behavior() {
   }
 }
 
+/**
+ * @brief Verifies each stateful operator's snapshot restores every captured
+ *        field into a differently seeded instance.
+ */
+inline void test_shader_chain_state_restore_values() {
+  constexpr int FRAMES = 37;
+  const auto blocks = [](size_t bytes) {
+    return std::vector<std::max_align_t>(
+        (bytes + sizeof(std::max_align_t) - 1) / sizeof(std::max_align_t));
+  };
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    if (op.runtime.state.size == sizeof(In::EmptyState))
+      continue;
+    HS_CONTEXT(op.operator_id);
+    auto params = blocks(op.runtime.param.size);
+    op.runtime.construct_params(params.data());
+    for (uint16_t index = 0; index < op.schema_count; ++index) {
+      const In::ParamFieldInfo &field = op.schema[index];
+      if (field.enum_count == 0)
+        *static_cast<float *>(op.runtime.param_address(params.data(), index)) =
+            field.min + 0.37f * (field.max - field.min);
+    }
+    const auto *param_bytes = reinterpret_cast<const uint8_t *>(params.data());
+    auto advanced = blocks(op.runtime.state.size);
+    auto fresh = blocks(op.runtime.state.size);
+    auto restored = blocks(op.runtime.state.size);
+    op.runtime.init(advanced.data(), {"a", op.operator_id, 1337});
+    op.runtime.init(fresh.data(), {"a", op.operator_id, 1337});
+    op.runtime.init(restored.data(), {"b", op.operator_id, 4242});
+    for (int frame = 0; frame < FRAMES; ++frame)
+      op.runtime.advance(advanced.data(), param_bytes);
+    const auto a = op.runtime.capture_state(advanced.data());
+    HS_EXPECT_TRUE(snapshot_words(a) !=
+                   snapshot_words(op.runtime.capture_state(fresh.data())));
+    HS_EXPECT_TRUE(op.runtime.restore_state(restored.data(), a));
+    HS_EXPECT_TRUE(snapshot_words(op.runtime.capture_state(restored.data())) ==
+                   snapshot_words(a));
+    op.runtime.destroy(advanced.data());
+    op.runtime.destroy(fresh.data());
+    op.runtime.destroy(restored.data());
+  }
+}
+
 inline void test_shader_chain_table_integrity() {
   static_assert(In::operator_ids_unique());
   static_assert(In::operator_table_monotone());
