@@ -94,18 +94,20 @@ inline void reset_effect_globals() { hs_test::reset_globals(); }
  * @brief Params of a choreographed effect's preset @p index.
  * @tparam E The effect type.
  * @param index Preset index.
- * @return The effect's own preset entry, or its initial params when it
- *         declares no preset(index).
- * @details ChoreographedEffect falls back to initial params for a
- * single-preset effect, and its own resolver is private, so a test reproduces
- * the fallback.
+ * @return `preset(index)`'s params, else `PRESETS[index]`'s, else the
+ *         initial params, else default params.
+ * @details Mirrors `ChoreographedEffect::preset_row`, which is private.
  */
 template <typename E>
 typename E::Params preset_params_or_initial(size_t index) {
   if constexpr (requires { E::preset(index).params; })
     return E::preset(index).params;
-  else
+  else if constexpr (requires { E::PRESETS; })
+    return E::PRESETS[index].params;
+  else if constexpr (requires { E::initial_params(); })
     return E::initial_params();
+  else
+    return typename E::Params{};
 }
 
 /**
