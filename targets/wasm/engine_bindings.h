@@ -243,9 +243,7 @@ public:
       apply_display_geometry(NORTH, SOUTH);
       return true;
     }
-    hs_wasm::dispatch_resolution(
-        pixel_width, pixel_height,
-        [&]<int W, int H>() { rebuild_display_geometry<W, H>(NORTH, SOUTH); });
+    rebuild_display_geometry(NORTH, SOUTH);
     return true;
   }
 
@@ -877,7 +875,6 @@ private:
 #undef HS_REFRESH_DISPLAY_GEOMETRY
   }
 
-  template <int W, int H>
   void rebuild_display_geometry(float north, float south) {
     const std::string NAME(current_factory_entry->name);
     const size_t PRESET = current_effect->getPresetIndex();
