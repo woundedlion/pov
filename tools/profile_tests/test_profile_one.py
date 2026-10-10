@@ -208,7 +208,7 @@ def derived_paths(profile_out=None):
     if not block:
         raise AssertionError("missing artifact-path block")
     script = (
-        "LOWER=islamicstars; TAG=profile; ENV=profile\n"
+        "LOWER=islamicstars; TAG=ship; ENV=profile\n"
         "DEEP_SUFFIX=; MODE_SUFFIX=; MSP_SUFFIX=\n"
         + block.group(0) + "\n"
         + "".join(f'echo "{name}=${name}"\n' for name in ARTIFACT_VARS)
@@ -245,9 +245,9 @@ class ArtifactPaths(unittest.TestCase):
 
     def test_default_naming_is_unchanged(self):
         paths = derived_paths()
-        self.assertEqual(paths["OUT"], "build/prof/islamicstars_profile.log")
+        self.assertEqual(paths["OUT"], "build/prof/islamicstars_ship.log")
         self.assertEqual(paths["ATTEST_DIR"],
-                         "build/prof/attest/islamicstars_profile")
+                         "build/prof/attest/islamicstars_ship")
 
     def test_override_moves_every_artifact(self):
         override = "build/prof/islamicstars_big_ship.log"
