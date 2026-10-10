@@ -167,9 +167,10 @@ private:
 
   /**
    * @brief Ambient-occlusion shaping constants for the draw_frame shader.
-   * @details AO_FALLOFF is the field magnitude at which shading saturates,
-   * AO_AMBIENT is the ambient floor, and AO_RANGE is the range above it
-   * (AMBIENT + RANGE = 1.0 → full brightness at saturation).
+   * @details AO_FALLOFF is the amplitude-scaled field magnitude
+   * (|val| * Amplitude) at which shading saturates, AO_AMBIENT is the ambient
+   * floor, and AO_RANGE is the range above it (AMBIENT + RANGE = 1.0 → full
+   * brightness at saturation).
    */
   static constexpr float AO_FALLOFF = 0.4f;
   static constexpr float AO_AMBIENT = 0.15f;
