@@ -472,6 +472,33 @@ private:
   }
 
   /**
+   * @brief Steps a ring's knot positions around its azimuth by the
+   * angle-addition recurrence, starting at knot 0.
+   */
+  struct RingKnotWalk {
+    const math::Basis &basis; /**< Ring frame; basis.v is the stack axis. */
+    float cos_t;              /**< Cosine of the ring colatitude. */
+    float sin_t;              /**< Sine of the ring colatitude. */
+    float cos_d;              /**< Cosine of one knot cell's azimuth step. */
+    float sin_d;              /**< Sine of one knot cell's azimuth step. */
+    float cos_a = 1.0f;       /**< Cosine of the current knot's azimuth. */
+    float sin_a = 0.0f;       /**< Sine of the current knot's azimuth. */
+
+    /** @brief Unit position of the current knot. */
+    __attribute__((always_inline)) math::Vector position() const {
+      return (basis.v * cos_t) +
+             ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+    }
+
+    /** @brief Moves to the next knot. */
+    __attribute__((always_inline)) void advance() {
+      const float next_cos = cos_a * cos_d - sin_a * sin_d;
+      sin_a = sin_a * cos_d + cos_a * sin_d;
+      cos_a = next_cos;
+    }
+  };
+
+  /**
    * @brief Bakes one ring's centerline shifts with each noise octave sampled on
    *        its own knot grid.
    * @param np The noise field's single active entity.
@@ -513,16 +540,14 @@ private:
     }
 
     HS_PROFILE(df_octave_noise);
-    float cos_a = 1.0f;
-    float sin_a = 0.0f;
-    for (int x = 0; x < lut_n; ++x) {
+    RingKnotWalk knots{basis, cos_t, sin_t, cos_d, sin_d};
+    for (int x = 0; x < lut_n; ++x, knots.advance()) {
       const bool vis = knot_visible[x] != 0;
       const bool near = knot_near[x] != 0;
       const bool g1 = near && x % D1 == 0;
       const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
       if (vis || g1 || g2) {
-        math::Vector p =
-            (basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+        math::Vector p = knots.position();
         if (g1)
           octave1[x] = np.noise.GetNoise(p.x * np.scale1, p.y * np.scale1,
                                          p.z * np.scale1 + np.time);
@@ -533,9 +558,6 @@ private:
         if (vis)
           slut[x] = ball_field(p, ball_local, n_local, theta);
       }
-      float next_cos = cos_a * cos_d - sin_a * sin_d;
-      sin_a = sin_a * cos_d + cos_a * sin_d;
-      cos_a = next_cos;
     }
 
     auto sample = [&](const float *oct, int d, int k) {
@@ -603,18 +625,13 @@ private:
     float *num = octave1;
     float *den = octave2;
     mark_visible_knots(lut_n, visible);
-    float cos_a = 1.0f;
-    float sin_a = 0.0f;
-    for (int x = 0; x < lut_n; ++x) {
+    RingKnotWalk knots{basis, cos_t, sin_t, cos_d, sin_d};
+    for (int x = 0; x < lut_n; ++x, knots.advance()) {
       if (knot_visible[x]) {
-        knot_pos[x] =
-            (basis.v * cos_t) + ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+        knot_pos[x] = knots.position();
         num[x] = 0.0f;
         den[x] = 0.0f;
       }
-      float next_cos = cos_a * cos_d - sin_a * sin_d;
-      sin_a = sin_a * cos_d + cos_a * sin_d;
-      cos_a = next_cos;
     }
 
     const float cells_per_radian = lut_n / (2.0f * math::PI_F);
