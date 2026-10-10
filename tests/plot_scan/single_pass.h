@@ -62,7 +62,8 @@ inline void test_planar_one_pass_matches_forward_difference() {
       const math::Vector fd_tan =
           (fwd ? (step - fd_pos) : (fd_pos - step)).normalized();
       worst_len = fold_worst(worst_len, std::abs(one.pos.length() - 1.0f));
-      worst_pos = fold_worst(worst_pos, math::angle_between(one.pos, fd_pos));
+      worst_pos = fold_worst(
+          worst_pos, static_cast<float>(small_angle_between(one.pos, fd_pos)));
       worst_tan_len =
           fold_worst(worst_tan_len, std::abs(one.tan.length() - 1.0f));
       worst_tan_dot = -fold_worst(-worst_tan_dot, -math::dot(one.tan, fd_tan));
@@ -70,9 +71,9 @@ inline void test_planar_one_pass_matches_forward_difference() {
     }
   }
   HS_EXPECT_GT(checked, 1000);
-  // Bounds are the fast_sinf/fast_cosf budget the two derivations each pay.
+  // Length bounds are the fast_sinf/fast_cosf normalization budget.
   HS_EXPECT_LE(worst_len, 5e-3f);
-  HS_EXPECT_LE(worst_pos, 2e-2f);
+  HS_EXPECT_LE(worst_pos, 1e-5f);
   HS_EXPECT_LE(worst_tan_len, 5e-3f);
   // Same direction, not merely the same line.
   HS_EXPECT_GT(worst_tan_dot, 0.9998f);
