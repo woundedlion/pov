@@ -162,7 +162,7 @@ INLINE_USES = (
     (r"""python-version:\s*['"]?([^'"\s]+)['"]?""", "python", lambda v: v),
     (r"\bnumpy==([\w.]+)", "numpy", lambda v: v),
     (r"\b(?:clang\+\+|clang|llvm)-(\d+)\b", "clang", lambda v: v),
-    (r"\bllvm-\w+-(\d+)\b", "clang", lambda v: v),
+    (r"\bllvm-[\w-]+?-(\d+)\b", "clang", lambda v: v),
     (r"\bclang-format==([\w.]+)", "clang-format", lambda v: v),
     (r"\bcmake==([\w.]+)", "cmake", lambda v: v),
     (r"\bclang-format-(\d+)\b", "clang-format", lambda v: v.split(".")[0]),
