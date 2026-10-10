@@ -926,7 +926,7 @@ It resets both scratch arenas only at the outermost call (depth zero), scopes th
 auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view("icosahedron"));
 ```
 
-`SolidBuilder`'s fluent Conway chain (`solid_generators.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
+`SolidBuilder`'s fluent Conway chain (`solid_builder.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
 
 ## 7.9 The Preset System (`control/choreography.h`)
 
