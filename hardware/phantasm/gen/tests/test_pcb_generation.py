@@ -37,17 +37,33 @@ STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
 STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
 
 
-def pinned_kicad_cli():
-    """True when a kicad-cli on the pin resolves; kicad_cli() exits when not."""
+def pinned_kicad_cli_error():
+    """None when a kicad-cli on the pin resolves, else why kicad_cli() exited."""
     try:
-        return bool(kicad_cli())
-    except SystemExit:
-        return False
+        kicad_cli()
+    except SystemExit as error:
+        return str(error)
+    return None
 
 
-GENERATES = STOCK_SYMBOLS and STOCK_FOOTPRINTS and pinned_kicad_cli()
-GENERATES_REASON = (
-    f"KiCad {sexp.KICAD_MAJOR} stock libraries or kicad-cli not found")
+def generation_blockers():
+    """Every missing prerequisite for generating, as human-readable causes."""
+    blockers = []
+    if not STOCK_SYMBOLS:
+        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock symbols not found; "
+                        "set KICAD_SYMBOL_DIR")
+    if not STOCK_FOOTPRINTS:
+        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock footprints not found; "
+                        "set KICAD_FOOTPRINT_DIR")
+    cli_error = pinned_kicad_cli_error()
+    if cli_error:
+        blockers.append(cli_error)
+    return blockers
+
+
+GENERATION_BLOCKERS = generation_blockers()
+GENERATES = not GENERATION_BLOCKERS
+GENERATES_REASON = "; ".join(GENERATION_BLOCKERS)
 
 
 def generate(out, unplaced=False):
