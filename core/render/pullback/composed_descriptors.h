@@ -209,6 +209,27 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
   return false;
 }
 
+/** Declared only: a call makes the enclosing constant evaluation ill-formed. */
+void color_gate_names_unknown_topology();
+
+/**
+ * @brief Whether a colour field's topology gate is live under the Spec's
+ *        `HUE` and `BRIGHTNESS` selections.
+ */
+template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
+  if (gate.field == nullptr)
+    return true;
+  const std::string_view topology = gate.field;
+  unsigned value = 0;
+  if (topology == Color::HUE_ROTATION_GATE.field)
+    value = static_cast<unsigned>(Spec::HUE);
+  else if (topology == Color::BRIGHTNESS_ENVELOPE_GATE.field)
+    value = static_cast<unsigned>(Spec::BRIGHTNESS);
+  else
+    color_gate_names_unknown_topology();
+  return (gate.values >> value) & 1U;
+}
+
 template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
@@ -221,18 +242,8 @@ consteval size_t resource_parameter_count() {
                        : 0;
     for (const auto &field : Family::FIELDS) {
       if constexpr (Resource::KIND == ResourceKind::COLOR) {
-        if (field.member == &ColorParams::hue_shift_amount &&
-            Spec::HUE == HueMode::NONE)
-          continue;
-        if ((field.member == &ColorParams::hue_noise_scale ||
-             field.member == &ColorParams::hue_noise_speed) &&
-            Spec::HUE != HueMode::NOISE)
-          continue;
-        if ((field.member == &ColorParams::brightness_bottom ||
-             field.member == &ColorParams::brightness_top) &&
-            Spec::BRIGHTNESS == Color::BrightnessEnvelope::NONE)
-          continue;
-        ++count;
+        if (color_gate_open<Spec>(field.topology_gate))
+          ++count;
       } else if (field.name != nullptr && field_gate_open<Spec>(field.gate))
         ++count;
     }
