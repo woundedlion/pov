@@ -602,7 +602,6 @@ private:
 
     /**
      * @brief Post-increment; advances toward the back.
-     * @param int Unused disambiguation tag for post-increment.
      * @return Copy of the iterator before advancing.
      */
     Derived operator++(int) {
@@ -622,7 +621,6 @@ private:
 
     /**
      * @brief Post-decrement; moves toward the front.
-     * @param int Unused disambiguation tag for post-decrement.
      * @return Copy of the iterator before moving.
      */
     Derived operator--(int) {

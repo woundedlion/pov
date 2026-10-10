@@ -448,6 +448,8 @@ private:
 
     /**
      * @brief Latches `hue` and `shimmer` and bakes the next rows.
+     * @param hue Hue shift to latch; zero with zero `shimmer` disables.
+     * @param shimmer Shimmer amount to latch.
      * @param complete Bakes every remaining row.
      * @param bake Source color for (seed, t, hue shift, lightness).
      */
@@ -946,6 +948,10 @@ private:
    * @param world_nodes Oriented lattice node positions.
    * @param grid Row's SSAA sub-pixel grid.
    * @param x Pixel column.
+   * @param hot_flags Per-node flags; a pixel whose center node is unflagged
+   *        shades black. Null shades every pixel.
+   * @param projection Pixel's precomputed cubemap projection for color noise,
+   *        or null to project `center_rv`.
    * @return The finished alpha-premultiplied pixel.
    * @details Accepts seeds inside a proven nearest-node radius immediately;
    * boundary pixels check the neighbors. Sub-samples share the center
