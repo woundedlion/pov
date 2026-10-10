@@ -1063,13 +1063,13 @@ struct TestPayload {
    * @brief Move-constructs from another payload, stealing its storage.
    * @param other Source payload, left in a valid moved-from state.
    */
-  TestPayload(TestPayload &&) noexcept = default;
+  TestPayload(TestPayload &&other) noexcept = default;
   /**
    * @brief Move-assigns from another payload, stealing its storage.
    * @param other Source payload, left in a valid moved-from state.
    * @return Reference to this payload.
    */
-  TestPayload &operator=(TestPayload &&) noexcept = default;
+  TestPayload &operator=(TestPayload &&other) noexcept = default;
 
   /**
    * @brief Deep-copies src into dst, allocating dst's storage from arena.
