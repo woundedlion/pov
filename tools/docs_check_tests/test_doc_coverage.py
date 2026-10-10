@@ -85,6 +85,8 @@ class TestExempt(unittest.TestCase):
     def test_ordinary_operator_is_not_exempt(self):
         self.assertFalse(cov.exempt(item(
             "operator+(const Vec &b) const", "function", "Vec")))
+        self.assertFalse(cov.exempt(item(
+            "operator==(const Vec &b) const", "function", "Vec")))
 
     def test_container_alias(self):
         self.assertTrue(cov.exempt(item("value_type", "typedef", "Ring")))
