@@ -31,7 +31,7 @@ struct ThrustersWhiteBox;
  */
 template <int W, int H> class Thrusters : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "Thrusters";
+  static constexpr const char *EFFECT_ID = "Thrusters"; ///< Stable effect ID.
 
   /**
    * @brief Constructs the effect, seeding the filters and warp state.

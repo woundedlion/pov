@@ -44,7 +44,7 @@ template <int W, int H> class MobiusRings : public Effect {
   };
 
 public:
-  static constexpr const char *EFFECT_ID = "MobiusRings";
+  static constexpr const char *EFFECT_ID = "MobiusRings"; ///< Stable effect ID.
 
   /**
    * @brief Builds the palettes, Möbius generator, and the render filter

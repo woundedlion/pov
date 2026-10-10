@@ -33,7 +33,7 @@ struct VoronoiWhiteBox;
  */
 template <int W, int H> class Voronoi : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "Voronoi";
+  static constexpr const char *EFFECT_ID = "Voronoi"; ///< Stable effect ID.
 
   /** @brief Construction config. */
   static constexpr EffectConfig CONFIG{.strobe = true};

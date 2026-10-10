@@ -40,17 +40,31 @@ struct ShapeShifterParams {
   /** @brief Radial distributions available to presets. */
   enum class RadiusSpacing : uint8_t { UNIFORM, SCREEN_BALANCED };
 
-  ShapeType shape{};
+  ShapeType shape{}; ///< Plot primitive drawn for every contour.
+  /// Concentric contour count; truncated and clamped to [1, DRAW_LIMIT].
   float count{};
-  float sides{};
-  PhaseFunction function{};
-  float amplitude{};
+  float sides{};            ///< Polygon or star side count, truncated.
+  PhaseFunction function{}; ///< Waveform sampled across the contour radii.
+  float amplitude{};        ///< Peak contour rotation, in radians.
+  /// Sweep rate; the waveform phase advances speed / amplitude turns per frame.
   float speed{};
-  bool opposite{};
-  AlphaFalloff alpha_falloff{};
-  RadiusSpacing spacing{};
+  bool opposite{}; ///< Toggles the rotation sense past the equator.
+  AlphaFalloff alpha_falloff{}; ///< Per-contour alpha function.
+  RadiusSpacing spacing{};      ///< Radial distribution of the contours.
 
   constexpr ShapeShifterParams() = default;
+  /**
+   * @brief Constructs a preset from every field.
+   * @param shape Plot primitive.
+   * @param count Contour count.
+   * @param sides Side count.
+   * @param function Phase waveform.
+   * @param amplitude Peak contour rotation, in radians.
+   * @param speed Sweep rate.
+   * @param opposite Whether to toggle the far-side rotation sense.
+   * @param alpha_falloff Per-contour alpha function.
+   * @param spacing Radial distribution.
+   */
   constexpr ShapeShifterParams(ShapeType shape, float count, float sides,
                                PhaseFunction function, float amplitude,
                                float speed, bool opposite,
@@ -78,23 +92,28 @@ class ShapeShifter
   friend Choreography;
 
 public:
+  /// Stable effect ID.
   static constexpr const char *EFFECT_ID = "ShapeShifter";
 
-  using Params = ShapeShifterParams;
-  using ShapeType = Params::ShapeType;
-  using PhaseFunction = Params::PhaseFunction;
-  using AlphaFalloff = Params::AlphaFalloff;
-  using RadiusSpacing = Params::RadiusSpacing;
+  using Params = ShapeShifterParams;           ///< Live parameter struct.
+  using ShapeType = Params::ShapeType;         ///< Shape enum.
+  using PhaseFunction = Params::PhaseFunction; ///< Waveform enum.
+  using AlphaFalloff = Params::AlphaFalloff;   ///< Alpha-function enum.
+  using RadiusSpacing = Params::RadiusSpacing; ///< Spacing enum.
 
+  /// Number of `ShapeType` values.
   static constexpr int NUM_SHAPES =
       static_cast<int>(ShapeType::SPHERICAL_STAR) + 1;
+  /// Number of `PhaseFunction` values.
   static constexpr int NUM_FUNCTIONS =
       static_cast<int>(PhaseFunction::SQUARE) + 1;
+  /// Number of `AlphaFalloff` values.
   static constexpr int NUM_ALPHA_FALLOFFS =
       static_cast<int>(AlphaFalloff::TOWARD_EQUATOR) + 1;
+  /// Number of `RadiusSpacing` values.
   static constexpr int NUM_RADIUS_SPACINGS =
       static_cast<int>(RadiusSpacing::SCREEN_BALANCED) + 1;
-  static constexpr int MAX_SHAPES = 288;
+  static constexpr int MAX_SHAPES = 288; ///< Contour storage capacity.
   /** @brief Rendered contours and Count slider are capped at two per row. */
   static constexpr int DRAW_LIMIT = std::min(MAX_SHAPES, 2 * H);
   /** @brief Contour count from which star edges switch to screen-step-balanced

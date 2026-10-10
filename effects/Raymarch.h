@@ -51,6 +51,7 @@ struct RaymarchWhiteBox;
   X(TRIAKIS_ICOSAHEDRON)                                                       \
   X(PENTAKIS_DODECAHEDRON)
 
+/** @brief Placement solids for the torus copies; COUNT is a sentinel. */
 enum class RaymarchPlacementSolid : uint8_t {
 #define HS_RAYMARCH_PLACEMENT_ENUM(name) name,
   HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_ENUM)
@@ -82,19 +83,22 @@ raymarch_placement_labels(const RaymarchPlacementTable &solids) {
 
 /** @brief Raymarch preset and live-control state. */
 struct RaymarchParams {
+  /// Solid whose vertices each carry one torus.
   RaymarchPlacementSolid base_solid =
       RaymarchPlacementSolid::DISDYAKIS_DODECAHEDRON;
+  /// Rate multiplier for the torus spin and palette drift.
   float pulse_speed = 5.0f;
+  /// Torus outer radius as a fraction of half the nearest-neighbour gap.
   float fill = 0.75f;
-  uint8_t max_steps = 18;
-  float diffuse = 0.4f;
-  float specular = 1.2f;
-  float fresnel = 0.2f;
-  float twist = 2.0f;
-  float aa_mult = 0.5f;
-  float hue_shift = 0.76f;
-  float hue_noise_scale = 0.3f;
-  float hue_noise_speed = 0.0002f;
+  uint8_t max_steps = 18;          ///< Ray-march step cap per ray.
+  float diffuse = 0.4f;            ///< Half-Lambert diffuse weight.
+  float specular = 1.2f;           ///< Specular highlight weight.
+  float fresnel = 0.2f;            ///< Fresnel rim weight.
+  float twist = 2.0f;              ///< Twist lobe count, rounded to an integer.
+  float aa_mult = 0.5f;            ///< Edge AA width in tube radii.
+  float hue_shift = 0.76f;         ///< Hue rotation at full noise, in turns.
+  float hue_noise_scale = 0.3f;    ///< Spatial frequency of the hue noise.
+  float hue_noise_speed = 0.0002f; ///< Hue-noise phase cycles per frame.
 };
 
 /**
@@ -109,22 +113,27 @@ struct RaymarchParams {
 template <int W, int H>
 class Raymarch : public ChoreographedEffect<Raymarch<W, H>, RaymarchParams> {
 public:
-  static constexpr const char *EFFECT_ID = "Raymarch";
+  static constexpr const char *EFFECT_ID = "Raymarch"; ///< Stable effect ID.
 
+  /// Preset-cycling base.
   using Choreography = ChoreographedEffect<Raymarch<W, H>, RaymarchParams>;
-  using Params = RaymarchParams;
-  using PlacementSolid = RaymarchPlacementSolid;
+  using Params = RaymarchParams;                 ///< Live parameter struct.
+  using PlacementSolid = RaymarchPlacementSolid; ///< Placement enum.
 
+  /// Preset identities by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "uv-surface-noise"};
-  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600; ///< Frames per preset.
+  /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
-  static constexpr int MAX_POINTS = 32;
+  static constexpr int MAX_POINTS = 32; ///< Torus capacity: max solid vertices.
+  /// Number of placement solids.
   static constexpr size_t PLACEMENT_SOLID_COUNT =
       static_cast<size_t>(PlacementSolid::COUNT);
 
 #define HS_RAYMARCH_PLACEMENT_BASE(name) Solids::BaseMesh::name,
+  /// BaseMesh for each `PlacementSolid`, in enum order.
   static constexpr std::array<Solids::BaseMesh, PLACEMENT_SOLID_COUNT>
       PLACEMENT_SOLIDS{HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_BASE)};
 #undef HS_RAYMARCH_PLACEMENT_BASE
@@ -134,6 +143,7 @@ public:
       PLACEMENT_SOLID_OPTIONS = raymarch_placement_labels(PLACEMENT_SOLIDS);
 
 #define HS_RAYMARCH_PLACEMENT_EXPORT(name) "RaymarchPlacementSolid::" #name,
+  /// C++ enumerator spelling of each placement solid, for preset export.
   static constexpr const char *PLACEMENT_SOLID_EXPORT_OPTIONS[] = {
       HS_RAYMARCH_PLACEMENT_LIST(HS_RAYMARCH_PLACEMENT_EXPORT)};
 #undef HS_RAYMARCH_PLACEMENT_EXPORT
@@ -142,34 +152,62 @@ public:
   static_assert(std::size(PLACEMENT_SOLID_EXPORT_OPTIONS) ==
                 PLACEMENT_SOLID_COUNT);
 
+  /// Lower bound of `RaymarchParams::pulse_speed`.
   static constexpr float PULSE_SPEED_MIN = 0.0f;
+  /// Upper bound of `RaymarchParams::pulse_speed`.
   static constexpr float PULSE_SPEED_MAX = 10.0f;
+  /// Lower bound of `RaymarchParams::fill`.
   static constexpr float FILL_MIN = 0.3f;
+  /// Upper bound of `RaymarchParams::fill`.
   static constexpr float FILL_MAX = 1.3f;
+  /// Lower bound of `RaymarchParams::max_steps`.
   static constexpr int MAX_STEPS_MIN = 4;
+  /// Upper bound of `RaymarchParams::max_steps`.
   static constexpr int MAX_STEPS_MAX = 30;
+  /// Lower bound of `RaymarchParams::diffuse`.
   static constexpr float DIFFUSE_MIN = 0.0f;
+  /// Upper bound of `RaymarchParams::diffuse`.
   static constexpr float DIFFUSE_MAX = 1.0f;
+  /// Lower bound of `RaymarchParams::specular`.
   static constexpr float SPECULAR_MIN = 0.0f;
+  /// Upper bound of `RaymarchParams::specular`.
   static constexpr float SPECULAR_MAX = 1.5f;
+  /// Lower bound of `RaymarchParams::fresnel`.
   static constexpr float FRESNEL_MIN = 0.0f;
+  /// Upper bound of `RaymarchParams::fresnel`.
   static constexpr float FRESNEL_MAX = 1.0f;
+  /// Lower bound of `RaymarchParams::twist`.
   static constexpr float TWIST_MIN = 0.0f;
+  /// Upper bound of `RaymarchParams::twist`.
   static constexpr float TWIST_MAX = 8.0f;
+  /// Lower bound of `RaymarchParams::aa_mult`.
   static constexpr float AA_MULT_MIN = 0.1f;
+  /// Upper bound of `RaymarchParams::aa_mult`.
   static constexpr float AA_MULT_MAX = 1.5f;
+  /// Lower bound of `RaymarchParams::hue_shift`.
   static constexpr float HUE_SHIFT_MIN = -4.0f;
+  /// Upper bound of `RaymarchParams::hue_shift`.
   static constexpr float HUE_SHIFT_MAX = 4.0f;
+  /// Lower bound of `RaymarchParams::hue_noise_scale`.
   static constexpr float HUE_NOISE_SCALE_MIN = 1.0f / 64.0f;
+  /// Upper bound of `RaymarchParams::hue_noise_scale`.
   static constexpr float HUE_NOISE_SCALE_MAX = 8.0f;
+  /// Lower bound of `RaymarchParams::hue_noise_speed`.
   static constexpr float HUE_NOISE_SPEED_MIN = -0.001f;
+  /// Upper bound of `RaymarchParams::hue_noise_speed`.
   static constexpr float HUE_NOISE_SPEED_MAX = 0.001f;
 
+  /// Picker labels for the integer twist counts.
   static constexpr const char *TWIST_OPTIONS[] = {"0", "1", "2", "3", "4",
                                                   "5", "6", "7", "8"};
+  /// Number of twist options.
   static constexpr int NUM_TWISTS = static_cast<int>(std::size(TWIST_OPTIONS));
   static_assert(TWIST_MIN == 0 && TWIST_MAX == NUM_TWISTS - 1);
 
+  /**
+   * @brief Startup parameters.
+   * @return Default-constructed Params.
+   */
   static constexpr Params initial_params() { return {}; }
 
   /** @brief Shared registration, validation and interpolation descriptions. */
@@ -245,6 +283,11 @@ public:
             .spec = {.min = HUE_NOISE_SPEED_MIN, .max = HUE_NOISE_SPEED_MAX}}};
   }
 
+  /**
+   * @brief Whether every field of @p value lies in its declared range.
+   * @param value Parameters to check.
+   * @return True if all fields are valid.
+   */
   static constexpr bool preset_in_ranges(const Params &value) {
     return Control::valid_fields(value, parameter_fields());
   }

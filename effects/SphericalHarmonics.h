@@ -36,8 +36,10 @@ struct SphericalHarmonicsWhiteBox;
  */
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
+  /// Stable effect ID.
   static constexpr const char *EFFECT_ID = "SphericalHarmonics";
 
+  /// Preset identities: one per (l, m) mode.
   static constexpr std::array<std::string_view, 24> PRESET_IDS{
       "sh-l2-m0",  "sh-l1-m-1", "sh-l1-m0",  "sh-l1-m1",  "sh-l2-m-2",
       "sh-l2-m-1", "sh-l2-m1",  "sh-l2-m2",  "sh-l3-m-3", "sh-l3-m-2",
@@ -49,13 +51,17 @@ public:
    * @brief Field sampler that evaluates the (blended) harmonic at a world point.
    */
   struct HarmonicField {
-    int l1, m1;
-    int l2, m2;
-    float blend;
+    /// Degree of the first harmonic.
+    int l1, m1; ///< Order of the first harmonic.
+    /// Degree of the second harmonic.
+    int l2, m2;  ///< Order of the second harmonic.
+    float blend; ///< Morph fraction in [0, 1] toward (l2, m2).
     math::RotationMatrix
         orientation_conj; /**< World->local rotation (conjugate of
                                         the shape orientation). */
     float N1, N2; /**< Per-mode harmonic scales, precomputed once per shape. */
+    /** @var N1
+     *  @brief Normalization of the first harmonic. */
 
     /**
      * @brief Construct a field for blending mode (l1, m1) into (l2, m2).

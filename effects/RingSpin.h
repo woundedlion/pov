@@ -31,7 +31,7 @@ struct RingSpinWhiteBox;
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "RingSpin";
+  static constexpr const char *EFFECT_ID = "RingSpin"; ///< Stable effect ID.
 
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
