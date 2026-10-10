@@ -45,7 +45,8 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
   return from;
 }
 
-/** @brief Typed registration, validation and interpolation of one member. */
+/** @brief Describes one parameter member: its GUI registration, valid range
+    and interpolation curve. */
 template <typename Owner, typename Value = float> struct Field {
   const char *id;
   Value Owner::*member;
@@ -117,7 +118,7 @@ template <typename Owner, typename Value>
 Field(const char *, Value Owner::*, const char *, ParamSpec<Value>)
     -> Field<Owner, Value>;
 
-/** @brief Descriptions of a nested parameter aggregate. */
+/** @brief Describes the fields of a nested struct member. */
 template <typename Owner, typename Value, typename Fields> struct FieldGroup {
   Value Owner::*member;
   Fields fields;
@@ -157,7 +158,7 @@ template <typename Owner, typename Value, typename Fields> struct FieldGroup {
 template <typename Owner, typename Value, typename Fields>
 FieldGroup(Value Owner::*, Fields) -> FieldGroup<Owner, Value, Fields>;
 
-/** @brief Whether described fields use curves supported by their value types. */
+/** @brief Whether every non-float field uses MIDPOINT or SNAP. */
 template <typename Fields>
 constexpr bool curves_supported(const Fields &fields) {
   return std::apply(
@@ -172,7 +173,9 @@ constexpr bool valid_fields(const Owner &owner, const Fields &fields) {
       fields);
 }
 
-/** @brief Writes described fields, preserving excluded and untabled state. */
+/** @brief Interpolates each described field of @p out between @p from and
+    @p to; undescribed members and fields with interpolated=false are left
+    unchanged. */
 template <typename Owner, typename Fields>
 HS_FLASH_INLINE void interpolate_fields(Owner &out, const Owner &from,
                                         const Owner &to, float progress,

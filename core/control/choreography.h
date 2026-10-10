@@ -22,27 +22,38 @@
 #include "render/canvas.h"
 
 /**
- * @brief Effect base owning one parameter set and its preset choreography:
- *        automatic transitions by each preset's departure policy, manual preset
- *        snaps and schema-versioned parameter snapshots.
- * @details Curiously recurring: `Derived` supplies `PARAMETER_SCHEMA_VERSION`,
- * `PRESET_DWELL_FRAMES` and parameter_fields() or valid_params(params), plus its
- * presets as `PresetEntry` rows: a `PRESETS` table or a static `preset(index)`,
- * and/or `PRESET_IDS` naming them. A member `preset_params(index)` may derive a
- * preset's live parameters from its row; the row still names the departure.
- * The effect calls `begin_choreography()` once from init() and
- * `step_choreography()` every frame; each preset dwells for
- * `PRESET_DWELL_FRAMES`, then departs to the next over its own policy's frames.
- * Transition hooks: `blend_params(progress)` writes a Segue::Preset::Lerp
- * departure's interpolated parameters, `set_preset_opacity(value)` receives a
- * Segue::Preset::Fade departure's opacity, and shadowing `adopt_params(target)`
- * / `transition_armed(target)` keeps derived state consistent across snaps and
- * crossfade arming. `finish_blend(target)` may specialize automatic target
- * adoption for Lerp endpoints and Fade midpoints. `initial_params()` overrides
- * the first preset as the startup default. A `Derived` keeping its hooks
- * non-public befriends this base.
+ * @brief Base class for an effect driven by one parameter struct that cycles
+ *        through a list of presets.
+ * @details Each preset holds for `PRESET_DWELL_FRAMES`, then moves to the next
+ * by its departure policy: Snap switches at once, Lerp interpolates the
+ * parameters, and Fade dims out, switches at the midpoint and dims back in.
+ * Manual preset selection always snaps. The live parameters can be saved and
+ * restored as snapshots tagged with `PARAMETER_SCHEMA_VERSION`.
+ *
+ * `Derived` must provide:
+ * - `PARAMETER_SCHEMA_VERSION` and `PRESET_DWELL_FRAMES`.
+ * - parameter_fields() (defaults to `Params::FIELDS`) or valid_params(params).
+ * - Its presets as `PresetEntry` rows, in a `PRESETS` array or a static
+ *   `preset(index)`, optionally named by `PRESET_IDS`. With none of these the
+ *   effect has a single preset.
+ *
+ * `Derived` calls `begin_choreography()` once from init() and
+ * `step_choreography()` every frame.
+ *
+ * Optional members `Derived` may define (befriend this base if non-public):
+ * - `blend_params(progress)`: writes a Lerp's interpolated parameters; the
+ *   default interpolates the fields parameter_fields() describes.
+ * - `set_preset_opacity(value)`: receives a Fade's opacity; required for Fade.
+ * - `adopt_params(target)`: installs new parameters; define it to update state
+ *   computed from them.
+ * - `transition_armed(target)`: called when a Lerp starts.
+ * - `finish_blend(target)`: used instead of adopt_params() at the end of a Lerp
+ *   and at a Fade's midpoint.
+ * - `preset_params(index)`: computes a preset's parameters at runtime instead
+ *   of taking them from its row.
+ * - `initial_params()`: startup parameters, instead of the first preset's.
  * @tparam Derived The effect class deriving from this base.
- * @tparam ParamsT The effect's parameter-set type.
+ * @tparam ParamsT The effect's parameter struct.
  */
 template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
@@ -80,13 +91,13 @@ public:
   }
 
   /**
-   * @brief Adopts a snapshot's parameters if it is admissible.
-   * @details A snapshot from a different `PARAMETER_SCHEMA_VERSION` is
-   * rejected. On success any in-flight preset transition is
-   * cancelled and the preset dwell restarts. Cancelling an unadopted fade
-   * restores its departing preset index; other cancellations retain the index.
-   * On rejection nothing is touched.
-   * @param snapshot Snapshot to adopt.
+   * @brief Replaces the live parameters with a snapshot's.
+   * @details Rejects, changing nothing, a snapshot with a different
+   * `PARAMETER_SCHEMA_VERSION` or invalid parameters. On success any
+   * transition in progress is cancelled and the dwell restarts; a cancelled
+   * fade that had not reached its midpoint returns to the preset it was
+   * leaving.
+   * @param snapshot Snapshot to restore.
    * @return True when the snapshot's schema version matches and its parameters
    *         are valid, false otherwise.
    */
@@ -113,11 +124,11 @@ public:
   }
 #endif
 
-  /** @brief Authored preset count: the count preset_row() indexes. */
+  /** @brief Number of presets the effect defines. */
   static consteval size_t authored_preset_count() { return preset_count_of(); }
 
-  /** @brief The departure policy of the preset at @p index; a single preset
-      with no row snaps. */
+  /** @brief How the preset at @p index moves to the next one; Snap for an
+      effect with no preset rows. */
   static constexpr Segue::Preset::Departure preset_departure(size_t index) {
     if constexpr (requires { Derived::preset(index); })
       return Derived::preset(index).segue;
@@ -127,8 +138,8 @@ public:
       return Segue::Preset::Snap{};
   }
 
-  /** @brief Frames one pass through every preset spans: each preset's dwell
-      and each departure but the last preset's. */
+  /** @brief Frames to play every preset once: all dwells plus every
+      departure except the last preset's. */
   static consteval size_t cycle_frames() {
     size_t frames = preset_count_of() * Derived::PRESET_DWELL_FRAMES;
     for (size_t index = 0; index + 1 < preset_count_of(); ++index)
@@ -168,36 +179,35 @@ protected:
     uint16_t elapsed_frames = 0; /**< Unpaused steps elapsed. */
     uint16_t frames = 0;         /**< Steps the departure spans. */
     bool fades = false;          /**< A Fade departure rather than a Lerp. */
-    bool adopted = false;        /**< A fade has adopted its target. */
+    bool adopted = false;        /**< A fade has passed its midpoint. */
     uint16_t serial = 0;
-    size_t from_index = 0; /**< Preset before an unadopted fade. */
+    size_t from_index = 0; /**< Preset the transition is leaving. */
   };
 
   HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
       : Effect(W, H, cfg) {}
 
-  /** @brief Adopts a snap target; shadow to re-derive dependent state. */
+  /** @brief Installs @p target as the live parameters. */
   void adopt_params(const Params &target) { params = target; }
 
-  /** @brief Notified when a crossfade arms; shadow to capture endpoint state
-      the blend hook interpolates alongside the parameters. */
+  /** @brief Called when a Lerp transition to @p target starts. */
   void transition_armed(const Params &) {}
 
   /**
-   * @brief Overrides the dwell remaining before the next automatic transition.
-   * @param frames Frames to hold; 0 lets the next frame start a transition.
+   * @brief Sets the frames left before the next automatic transition.
+   * @param frames Frames to hold; 0 starts a transition on the next step.
    */
   HS_COLD_MEMBER void hold_initial_preset(uint16_t frames) {
     preset_dwell_remaining = frames;
   }
 
   /**
-   * @brief Adopts a preset through the departing preset's policy.
-   * @details A manual or synchronized change snaps; an AUTOMATIC change follows
-   * the departing preset's policy. A transition the timeline has no slot for
-   * restarts the dwell.
-   * @param change The requested preset move.
-   * @return False if an automatic transition cannot be scheduled.
+   * @brief Switches to the preset @p change names.
+   * @details A manual or synchronized change snaps. An automatic change follows
+   * the departing preset's policy; if a transition is already running or the
+   * timeline is full it is refused, and a full timeline restarts the dwell.
+   * @param change The requested preset change.
+   * @return False if the change was refused.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     if constexpr (requires { Derived::parameter_fields(); })
@@ -241,8 +251,8 @@ protected:
   }
 
   /**
-   * @brief Ends an in-flight transition when the user takes a parameter over.
-   * @details A fade returns to full opacity, and the preset dwell restarts.
+   * @brief Cancels any running transition after a manual parameter edit.
+   * @details Restores full opacity and restarts the dwell.
    */
   HS_COLD_MEMBER void parameter_written() override {
     end_transition();
@@ -250,8 +260,8 @@ protected:
   }
 
   /**
-   * @brief Configures the preset controller from `PRESET_IDS` or the preset
-   *        rows. Call once from init().
+   * @brief Sets the preset count and registers a timeline-clear hook that
+   *        cancels transitions. Call once from init().
    */
   HS_COLD_MEMBER void begin_choreography() {
     configure_presets(preset_count_of());
@@ -263,9 +273,9 @@ protected:
     });
   }
 
-  /// Retires the preset dwell and starts the next automatic preset transition.
-  /// @details Call every frame. Pause suppresses preset selection, so no new
-  /// transition begins while paused, and a paused fade shows full opacity.
+  /// Counts down the dwell and starts the next preset's transition when it
+  /// expires. Call every frame. While paused it does nothing, except that a
+  /// fade in progress shows at full opacity.
   HS_COLD_MEMBER void step_choreography() {
     if constexpr (preset_count_of() == 1)
       return;
@@ -289,10 +299,9 @@ protected:
   }
 
   /**
-   * @brief Advances the in-flight transition one step.
+   * @brief Advances the running transition one step.
    * @param progress Eased transition progress in [0, 1].
-   * @details A transition cancelled by a manual preset, an edit or a snapshot
-   * restore keeps stepping but writes nothing.
+   * @details Does nothing once the transition has been cancelled.
    */
   HS_COLD_MEMBER void run_transition(float progress) {
     if (!transition.active)
@@ -332,18 +341,17 @@ protected:
 private:
   Derived &derived() { return static_cast<Derived &>(*this); }
 
-  /** @brief Whether the effect interpolates its parameters. */
+  /** @brief Whether `Derived` has blend_params(). */
   static constexpr bool BLENDS =
       requires(Derived &effect) { effect.blend_params(0.0f); };
 
-  /** @brief Feeds a fade's opacity to an effect that takes one. */
+  /** @brief Forwards a fade's opacity to set_preset_opacity() if defined. */
   void set_opacity(float value) {
     if constexpr (requires { derived().set_preset_opacity(value); })
       derived().set_preset_opacity(value);
   }
 
-  /** @brief Logs the preset whose parameters now drive the frame (profiling
-      builds only). */
+  /** @brief Logs the current preset number (profiling builds only). */
   void log_preset() {
 #ifdef HS_PROFILE_ENABLE
     hs::log("Preset: %u/%u", static_cast<unsigned>(getPresetIndex() + 1),
@@ -351,9 +359,9 @@ private:
 #endif
   }
 
-  /** @brief Cancels any in-flight transition, restoring a fade's opacity.
-   * @param restore_preset Restore an unadopted fade's index and notify observers;
-   *        false when a replacement preset will commit its own notification.
+  /** @brief Cancels any running transition and restores a fade's opacity.
+   * @param restore_preset If a fade has not reached its midpoint, return to the
+   *        preset it was leaving and call preset_changed().
    */
   HS_COLD_MEMBER void end_transition(bool restore_preset = true) {
     const bool FADING = transition.active && transition.fades;
@@ -433,8 +441,8 @@ private:
       return Params{};
   }
 
-  /** @brief Params for the preset at @p index: the member `preset_params`
-      hook when the effect patches runtime state in, else the row's own. */
+  /** @brief Parameters for the preset at @p index: `Derived::preset_params()`
+      if defined, else the preset row's. */
   Params preset_target(size_t index) {
     if constexpr (requires { derived().preset_params(index); })
       return derived().preset_params(index);

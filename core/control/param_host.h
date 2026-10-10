@@ -6,9 +6,8 @@
 
 /**
  * @file param_host.h
- * @brief ParamHost: the runtime parameter registry an effect exposes, the
- *        validated write gate the WASM bridge calls, and the animation pause
- *        an accepted animated write engages.
+ * @brief ParamHost: an effect's named, GUI-editable parameters, validated
+ *        writes to them, and the animation pause flag.
  */
 
 #include "control/params.h"
@@ -24,8 +23,8 @@
 #include <type_traits>
 
 /**
- * @brief Owns an effect's registered parameters and the pause gate their
- *        writes engage.
+ * @brief Holds an effect's registered parameters and validates writes to
+ *        them by name.
  * @details JS/embind boundary methods are camelCase; the internal C++ API is
  * snake_case.
  */
@@ -42,8 +41,8 @@ public:
    * @param value The new value (mapped to bool if necessary).
    * @return APPLIED if the value was written; otherwise the rejection reason
    *         (UNKNOWN_PARAM, READONLY, NON_FINITE, or INADMISSIBLE).
-   * @details An accepted write to an animated parameter engages the effect's
-   *          animation pause before storing the manual value.
+   * @details Writing a parameter registered as animated first pauses the
+   *          effect's animations.
    */
   ParamSetResult updateParameter(const char *name, float value) {
     check_parameter_storage();
@@ -62,7 +61,8 @@ public:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Restores trusted captured writes in order, then validates the state. */
+  /** @brief Reapplies recorded writes in order without per-write checks, then
+      fails fatally if the final values are not admissible. */
   template <typename Values>
   void replay_parameter_writes(const Values &values) {
     check_parameter_storage();
@@ -89,7 +89,7 @@ public:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Refreshes values exposed through parameter display mirrors. */
+  /** @brief Updates the displayed values of mirrored parameters. */
   virtual void refresh_parameter_display() {}
 
   /**
@@ -113,16 +113,16 @@ public:
   }
 #endif
 
-  /** @brief Ordered parameter schema-change token; 0 without the GUI bridge. */
+  /** @brief Counter bumped whenever the parameter list or a descriptor's
+      flags change; always 0 without the GUI bridge. */
   uint32_t getParameterSchemaGeneration() const {
     return parameters.schema_generation();
   }
 
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
-   * @details Events wired to this flag freeze their active-time clocks and
-   * callbacks while paused. Ambient motion and unpausable preset blends keep
-   * running.
+   * @details Animations bound to this flag stop advancing while it is set;
+   * unbound animations and unpausable preset blends keep running.
    * @param paused True to freeze parameter-driving animations, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused = paused; }
@@ -141,20 +141,21 @@ protected:
   }
 
   /**
-   * @brief Runs after any accepted write to a preset (non-global) parameter.
-   * @details Preset crossfades must stop rewriting the manually edited state.
+   * @brief Called after an accepted write to a parameter that presets
+   *        include (not one marked global).
    */
   virtual void parameter_written() {}
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Validates a candidate value before any parameter state changes. */
+  /** @brief Returns false to reject a write; called before anything is
+      stored. */
   virtual bool parameter_write_admitted(const ParamDef &, float) {
     return true;
   }
 
   using ParameterUpdatedHook = void (*)(ParamHost *, const char *, bool);
 
-  /** @brief Installs an opt-in reaction to accepted GUI parameter writes. */
+  /** @brief Sets a callback run after each accepted parameter write. */
   void set_parameter_updated_hook(ParameterUpdatedHook hook) {
     parameter_updated_hook = hook;
   }
@@ -164,8 +165,7 @@ protected:
    * @brief Repoints the registry at external descriptor storage.
    * @param storage Descriptor array the registry registers into.
    * @param capacity Slots @p storage holds.
-   * @details Relocates the array getParameters() hands out, so it bumps the
-   * schema generation a cached descriptor view is keyed on.
+   * @details Bumps the schema generation.
    */
   void use_parameter_storage(ParamDef *storage, size_t capacity) {
     HS_CHECK(parameters.count == 0,
@@ -186,7 +186,8 @@ protected:
 #endif
   }
 
-  /** @brief Binds arena-owned descriptor storage and records its lifetime. */
+  /** @brief Repoints the registry at arena-owned descriptor storage; debug
+      builds check the arena block is still alive on each access. */
   void use_parameter_storage(Arena &arena, ParamDef *storage, size_t capacity) {
     use_parameter_storage(storage, capacity);
 #ifndef NDEBUG
@@ -212,9 +213,10 @@ protected:
   }
 
   /**
-   * @brief Reads registered values from a live mirror while writes target the
-   *        corresponding requested state.
-   * @details Targets outside @p requested read their requested value directly.
+   * @brief Displays parameter values from @p displayed while writes still go
+   *        to @p requested.
+   * @details Each parameter whose target lies inside @p requested displays the
+   * member at the same offset in @p displayed; others display their target.
    */
   template <typename State>
   void mirror_parameter_display_state(const State &requested,
@@ -249,19 +251,16 @@ protected:
       parameter->display_target = nullptr;
   }
 #endif
-  ParamList parameters; /**< List of parameters. */
+  ParamList parameters; /**< Registered parameters. */
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   ParameterUpdatedHook parameter_updated_hook = nullptr;
 #endif
-  /**
-   * @brief Pause gate for parameter-driving animations.
-   */
+  /** @brief True while parameter-driving animations are paused. */
   bool anims_paused = false;
 
   /**
    * @brief Flag a registered param as engine-written telemetry (read-only).
-   * @details The GUI keeps showing its live value but disables editing. Use for
-   * output-only values clobbered every frame (e.g. an active-particle count).
+   * @details The GUI shows its value but disables editing.
    */
   void mark_readonly(const char *name, bool readonly = true) {
     auto *def = parameters.find(name);
@@ -281,9 +280,10 @@ protected:
   }
 
   /**
-   * @brief Registers one typed description without changing its target.
-   * @details PRESERVE_REQUESTED_FLOAT admits a finite out-of-range initial value
-   * for non-enum float targets; later edits obey the published bounds.
+   * @brief Registers a parameter described by @p spec; the target's current
+   *        value is its initial value.
+   * @details PRESERVE_REQUESTED_FLOAT allows a finite out-of-range initial
+   * value for a non-enum float; later writes are clamped to [min, max].
    */
   template <typename T>
   HS_COLD_MEMBER void register_param(const char *name, T *ptr,
@@ -442,7 +442,8 @@ protected:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Registers an animated float with a finite requested value. */
+  /** @brief Registers an animated float whose initial value may lie outside
+      [min, max]. */
   HS_COLD_MEMBER void register_animated_param_preserving_value(const char *name,
                                                                float *ptr,
                                                                float min,
@@ -457,7 +458,7 @@ protected:
   }
 #endif
 
-  /** @brief Registers a float-backed dropdown with numeric preset exports. */
+  /** @brief Registers a float-backed dropdown over indices 0..option_count-1. */
   HS_COLD_MEMBER void register_param(const char *name, float *ptr,
                                      const char *const *options,
                                      int option_count) {
@@ -465,7 +466,8 @@ protected:
                    ParamSpec<float>::enumerated(options, option_count));
   }
 
-  /** @brief Registers a typed dropdown with optional C++ export literals. */
+  /** @brief Registers an enum dropdown; @p export_options optionally names
+      each option's C++ enumerator for preset export. */
   template <typename Enum>
     requires std::is_enum_v<Enum>
   HS_COLD_MEMBER void register_param(const char *name, Enum *ptr,
