@@ -648,17 +648,30 @@ inline void test_sim_variable_effect_durations() {
           45.0 + 1.0));
 }
 
+/** Two-entry roster whose commit window opens the widest beacon gap. */
+constexpr uint32_t BEACON_GAP_REVOLUTIONS[2] = {49, 50};
+
+/**
+ * @brief Builds the two-entry, period-16 config whose commit gap sets
+ *        Config::rejoin_bound_revs().
+ * @return The validated config.
+ */
+inline Config beacon_gap_config() {
+  Config cfg = test_config(2);
+  cfg.beacon_period_revs = 16;
+  cfg.set_effect_revolutions(BEACON_GAP_REVOLUTIONS);
+  cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
+  HS_EXPECT_TRUE(cfg.valid() == nullptr);
+  return cfg;
+}
+
 /**
  * @brief Verifies the widest beacon-to-beacon gap a receiver sees across
  *        commits matches Config::commit_beacon_gap_revs().
  */
 inline void test_sim_commit_beacon_gap() {
-  const uint32_t effect_revolutions[2] = {49, 50};
-  Config cfg = test_config(2);
-  cfg.beacon_period_revs = 16;
-  cfg.set_effect_revolutions(effect_revolutions);
-  cfg.rejoin_budget_revs = cfg.rejoin_bound_revs();
-  HS_EXPECT_TRUE(cfg.valid() == nullptr);
+  const uint32_t *effect_revolutions = BEACON_GAP_REVOLUTIONS;
+  const Config cfg = beacon_gap_config();
   const int32_t ppm[2] = {0, 0};
   Sim sim(cfg, 2, ppm);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
@@ -683,6 +696,36 @@ inline void test_sim_commit_beacon_gap() {
   HS_EXPECT_EQ(expected, 22u);
   HS_EXPECT_EQ(cfg.commit_beacon_gap_revs(1), 7u);
   HS_EXPECT_EQ((widest + rev / 2) / rev, expected);
+}
+
+/**
+ * @brief Verifies a board rebooted just after the last beacon before the
+ *        widest commit gap goes live on the master's effect within
+ *        Config::rejoin_bound_revs().
+ */
+inline void test_sim_rejoin_worst_case() {
+  const Config cfg = beacon_gap_config();
+  const int32_t ppm[2] = {0, 0};
+  Sim sim(cfg, 2, ppm);
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  // Revolution 33 carries effect 0's last beacon before its commit.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].live_index == 0 &&
+               content(s.boards[0].board).rev_in_effect == 34;
+      },
+      double(BEACON_GAP_REVOLUTIONS[0])));
+
+  const uint64_t reboot_at = sim.g;
+  SimBoard &b1 = sim.boards[1];
+  b1.reboot(Sim::local_now(b1, sim.g));
+  HS_EXPECT_TRUE(sim.run_until([](Sim &s) { return s.boards[1].live; },
+                               double(cfg.rejoin_bound_revs())));
+  const uint64_t rev = 2ull * PERIOD;
+  HS_EXPECT_LE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs()) * rev);
+  HS_EXPECT_GE(sim.g - reboot_at, uint64_t(cfg.rejoin_bound_revs() - 3) * rev);
+  HS_EXPECT_EQ(b1.live_index, 1);
+  HS_EXPECT_EQ(b1.live_index, sim.boards[0].live_index);
 }
 
 /**
