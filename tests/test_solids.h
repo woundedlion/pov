@@ -362,7 +362,7 @@ inline void test_euler_platonic_solids() {
       {12, 30, 20}, // icosahedron
   };
   const auto platonic = Solids::Collections::get_platonic_solids();
-  HS_EXPECT_EQ(platonic.size(), sizeof(PLATONIC) / sizeof(PLATONIC[0]));
+  HS_EXPECT_SIZE_OR_RETURN(platonic, std::size(PLATONIC));
   for (size_t i = 0; i < platonic.size(); ++i)
     check_euler_for_index(i, PLATONIC[i].v, PLATONIC[i].e, PLATONIC[i].f);
 }
