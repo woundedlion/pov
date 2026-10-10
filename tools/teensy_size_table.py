@@ -10,7 +10,6 @@ Run:  python tools/teensy_size_table.py [--record-trail] [<env> ...]
 
 from __future__ import annotations
 
-import re
 import shutil
 import subprocess
 import sys
@@ -18,9 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import teensy_gate  # noqa: E402
-
-# PlatformIO's per-env banner, e.g. "Processing phantasm (board: teensy40; ...)".
-_PROCESSING_RE = re.compile(r"^Processing (\S+) \(")
+import teensy_warnings  # noqa: E402
 
 # Table rows: (region, key, label). key is a teensy_size component, "free", or
 # "used" (the component sum the size gate budgets against).
@@ -41,20 +38,14 @@ _ROWS = (
 
 
 def split_by_env(lines: list[str]) -> tuple[list[str], dict[str, str]]:
-    """Split a full `pio run` log into per-env chunks, in build order."""
-    order: list[str] = []
+    """Split a full `pio run` log into per-env chunks, in first-seen order.
+
+    Repeated banners for one env join into that env's chunk.
+    """
     chunks: dict[str, list[str]] = {}
-    cur: str | None = None
-    for line in lines:
-        m = _PROCESSING_RE.match(line)
-        if m:
-            cur = m.group(1)
-            if cur not in chunks:
-                order.append(cur)
-                chunks[cur] = []
-        if cur is not None:
-            chunks[cur].append(line)
-    return order, {env: "\n".join(ls) for env, ls in chunks.items()}
+    for section in teensy_warnings.parse_env_sections("\n".join(lines)):
+        chunks.setdefault(section.name, []).extend(section.lines)
+    return list(chunks), {env: "\n".join(ls) for env, ls in chunks.items()}
 
 
 def collect_sizes(lines: list[str]) -> tuple[list[str], dict[str, dict]]:

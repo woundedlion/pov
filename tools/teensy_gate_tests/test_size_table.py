@@ -62,6 +62,16 @@ class SplitByEnv(unittest.TestCase):
         self.assertEqual(order, ["holosphere", "phantasm8"])
         self.assertEqual(sizes["phantasm8"], {})
 
+    def test_repeated_env_banner_joins_one_chunk(self):
+        log = (_env_chunk("holosphere")
+               + _env_chunk("phantasm")
+               + _env_chunk("holosphere", "good_teensy_size.txt"))
+        order, sizes = tst.collect_sizes(log)
+        self.assertEqual(order, ["holosphere", "phantasm"])
+        self.assertEqual(sizes["holosphere"]["ram1"]["components"]["code"],
+                         62240)
+        self.assertEqual(sizes["phantasm"], {})
+
 
 class RenderTable(unittest.TestCase):
     def test_renders_all_regions_and_dashes_for_failed_env(self):
