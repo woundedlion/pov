@@ -20,7 +20,7 @@
     "regions": {
       // Holosphere runs nonstrobed RingSpin at 96x20 and sizes its framebuffers to that
       // canvas, so every region retains wide headroom.
-      // FLASH max_bytes is the T4.0 2 MB device wall, held below 100% so there
+      // FLASH max_bytes is the 1984 KiB program-flash wall, held below 100% so there
       // is room to flash — a "won't fit" cap, not a ratchet. Image growth is
       // tracked by tools/teensy_size_trail.py instead.
       "flash": { "max_bytes": 1900000 },

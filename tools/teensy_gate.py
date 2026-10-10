@@ -33,6 +33,9 @@ MEMORY_MAP: tuple[tuple[str, int, int], ...] = (
     ("FLASH", 0x60000000, 0x60200000),  # 2 MiB T4.0 flash
 )
 
+#: Program-image capacity of FLASH: the linker scripts' `LENGTH = 1984K`.
+FLASH_PROGRAM_BYTES = 0x1F0000
+
 #: FlexRAM allocation granule. The 512 KiB of RAM1 is split ITCM/DTCM in whole
 #: banks of this size, so ITCM code always occupies a bank-rounded footprint.
 FLEXRAM_BANK_BYTES = 0x8000
@@ -203,9 +206,8 @@ def fallback_sizes_from_size_a(text: str) -> dict[str, RegionSizes]:
     initialized_data = sum(size for name, size, addr in allocated
                            if name == ".data" and region_for_address(addr) == "DTCM")
     flash = totals["FLASH"] + totals["ITCM"] + initialized_data
-    flash_capacity = next(hi - lo for name, lo, hi in MEMORY_MAP if name == "FLASH")
     return {
-        "flash": {"used": flash, "free": flash_capacity - flash},
+        "flash": {"used": flash, "free": FLASH_PROGRAM_BYTES - flash},
         "ram1": {"used": ram1, "free": 0x80000 - ram1},
         "ram2": {"used": totals["OCRAM"],
                  "free": 0x80000 - totals["OCRAM"]},
