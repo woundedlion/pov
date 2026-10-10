@@ -325,7 +325,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
-│   │   │   ├── raster_walk.h           Raster sample setup, shading and plotting included by raster.h
+│   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
 │   │   │   └── cull/                   Cull strategy sections included by cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/

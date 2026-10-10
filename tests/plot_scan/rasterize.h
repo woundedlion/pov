@@ -591,6 +591,69 @@ inline void test_rasterize_register_copy_follows_interpolate_registers() {
   run.template operator()<BALANCED_OFF>();
 }
 
+/**
+ * @brief Planar arc registers keep the unclipped rendered arc when culled
+ *        segments precede the drawn ones.
+ */
+inline void test_rasterize_planar_arc_registers_skip_culled_segments() {
+  constexpr int W = 128, H = 64;
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 16);
+  const math::Basis shape_basis = math::make_basis(
+      math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), math::X_AXIS);
+  Plot::Star<Plot::PlanarProjection>::sample(points, shape_basis, 0.74f, 7,
+                                             1.37f);
+  const math::Basis planar_basis =
+      Plot::planar_chart_basis(math::get_antipode(shape_basis, 0.74f).first.v);
+
+  struct Sample {
+    std::array<uint32_t, 3> pos;
+    float v0, v1;
+  };
+  auto capture = [&](bool clipped) {
+    hs_test::StubEffect fx(W, H);
+    if (clipped)
+      fx.set_clip(0, H, W / 2, W / 2 + W / 8);
+    DirectCapturePipeline pipeline;
+    std::vector<Sample> out;
+    auto shader = [&](const math::Vector &p, Fragment &f) {
+      out.push_back(
+          {{std::bit_cast<uint32_t>(p.x), std::bit_cast<uint32_t>(p.y),
+            std::bit_cast<uint32_t>(p.z)},
+           f.v0,
+           f.v1});
+    };
+    {
+      Canvas canvas(fx);
+      Plot::rasterize<W, H>(
+          pipeline, canvas, points, shader,
+          {.loop = Plot::RasterLoop::closed(),
+           .projection = Plot::RasterProjection::planar(planar_basis)});
+    }
+    fx.advance_display();
+    return out;
+  };
+
+  const std::vector<Sample> full = capture(false);
+  const std::vector<Sample> clipped = capture(true);
+  HS_EXPECT_GT(clipped.size(), (size_t)0);
+  HS_EXPECT_LT(clipped.size(), full.size());
+  HS_EXPECT_GT(clipped.front().v1, 0.0f);
+  size_t matched = 0;
+  for (const Sample &c : clipped) {
+    const auto it =
+        std::find_if(full.begin(), full.end(),
+                     [&](const Sample &f) { return f.pos == c.pos; });
+    if (it == full.end())
+      continue;
+    ++matched;
+    HS_EXPECT_EQ(c.v0, it->v0);
+    HS_EXPECT_EQ(c.v1, it->v1);
+  }
+  HS_EXPECT_EQ(matched, clipped.size());
+}
+
 /** @brief Sampling follows rendered latitude, including cached one-dot flags. */
 inline void test_rasterize_sampling_follows_world_transforms() {
   constexpr int W = 288, H = 144, N = 64;
