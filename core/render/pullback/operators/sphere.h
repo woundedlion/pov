@@ -185,7 +185,10 @@ template <typename Derived> struct FixedLensModel : StatelessModel {
   }
 };
 
-/** @brief SPHERE endomorphism: the octant-fold glitch lens. */
+/**
+ * @brief SPHERE endomorphism: the glitch lens (latitude doubling, azimuth
+ *        tripling).
+ */
 struct LensGlitch : FixedLensModel<LensGlitch> {
   static constexpr const char *ID = "sphere.lens.glitch.v2";
   static constexpr const char *NAME = "Glitch Lens";
