@@ -6,6 +6,7 @@
  */
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <utility>
@@ -21,8 +22,8 @@ namespace memory_tests {
  * @details Shared by every test; do not retain an ArenaVector into a buffer
  *   past its own test.
  */
-inline uint8_t test_buf_a[64 * 1024];
-inline uint8_t test_buf_b[16 * 1024];
+alignas(std::max_align_t) inline uint8_t test_buf_a[64 * 1024];
+alignas(std::max_align_t) inline uint8_t test_buf_b[16 * 1024];
 
 struct MoveOnlyValue {
   int value;
@@ -1184,7 +1185,7 @@ inline void test_persist_compaction_relocates_survivor() {
   HS_EXPECT_EQ(compacted_other[1], 8);
 }
 
-inline uint8_t gen_target_buf[8 * 1024];
+alignas(std::max_align_t) inline uint8_t gen_target_buf[8 * 1024];
 
 /**
  * @brief Verifies the full generate() contract in one pass.
