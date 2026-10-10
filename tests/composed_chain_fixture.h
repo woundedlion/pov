@@ -21,7 +21,7 @@ template <typename FX> void verify_export(size_t preset) {
   HS_CONTEXT("preset", preset);
   std::string name(FX::EFFECT_ID);
   std::replace(name.begin(), name.end(), '-', '_');
-  const std::string text = read_document(
+  const std::string text = read_text_file(
       std::string(HS_PROMOTED_PATTERNS_DIR "/") + name + ".shader.json");
   JsonParser parser{text};
   const auto document = parser.parse_value();
