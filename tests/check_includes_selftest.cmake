@@ -43,4 +43,13 @@ file(APPEND "${WORK}/tests/test_alpha.h" "inline int run_orphan_tests() { return
 check_fixture("${_valid}" FALSE "module entry point is absent from roster")
 file(WRITE "${WORK}/tests/test_alpha.h" "inline int run_alpha_tests() { return 0; }\n")
 check_fixture("${_valid}" TRUE "")
+check_fixture([=[X("alpha", hs_test::alpha::run_alpha_tests, false)]=] FALSE
+  "1 HS_TEST_MODULE_LIST rows")
+file(WRITE "${WORK}/tests/test_gamma.h" "inline int gamma_helper() { return 0; }\n")
+check_fixture("${_valid}" FALSE "run_tests.cpp includes no such header: test_gamma.h")
+file(WRITE "${WORK}/tests/off_roster_headers.cmake"
+  "set(HS_OFF_ROSTER_HEADER_NAMES test_gamma.h)\n")
+check_fixture("${_valid}" FALSE "off_roster_headers.cmake entry nothing includes: test_gamma.h")
+file(APPEND "${WORK}/tests/test_beta.h" "#include \"tests/test_gamma.h\"\n")
+check_fixture("${_valid}" TRUE "")
 message(STATUS "module entry-point controls passed")
