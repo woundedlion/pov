@@ -415,6 +415,244 @@ private:
 };
 
 /**
+ * @brief State of a single-pass adaptive walk along one segment: each sample
+ * is plotted as soon as it is taken.
+ * @tparam Cfg Rasterizer configuration.
+ */
+template <RasterConfig Cfg> struct SinglePassWalk {
+  static constexpr bool NON_DEFAULT_POLICY =
+      Cfg.sampling_policy != RasterSamplingPolicy::DEFAULT;
+  static constexpr bool INTERPOLATE_REGISTERS = Cfg.interpolate_registers;
+
+  /** Segment arc. */
+  float total_dist;
+  /** Equatorial step 2π/W. */
+  float base_step;
+  /** Balanced sampling is selected. */
+  bool balanced;
+  /** Sample at current_t; position-only after a reused step. */
+  SamplePT smp;
+  /** Arc walked so far. */
+  float current_dist = 0.0f;
+  /** Arc fraction of current_dist. */
+  float current_t = 0.0f;
+  /** Step to the next sample, after the balanced stretch and backstop. */
+  float desired_step;
+  /** Default-density step at the last full sample. */
+  float default_desired_step;
+  /** Default-density step at the previous full sample. */
+  float previous_full_step;
+  /** Tangent at the previous full sample. */
+  math::Vector previous_full_tangent;
+  /** The next step reuses desired_step from a position-only sample. */
+  bool reuse_step = false;
+  /** Samples taken. */
+  size_t step_count = 0;
+  /** Step multiplier set once the walk exhausts its step budget. */
+  float backstop_stretch = 1.0f;
+  /**
+   * Arc from the last plotted sample to the segment end; the terminal step is
+   * the remainder, not the stretched desired_step.
+   */
+  float endpoint_gap;
+
+  /**
+   * @param first Full sample at t = 0.
+   * @param first_step Default-density step at @p first.
+   * @param total_dist Segment arc.
+   * @param base_step Equatorial step 2π/W.
+   * @param balanced Balanced sampling is selected.
+   */
+  HS_HOT_INLINE SinglePassWalk(const SamplePT &first, float first_step,
+                               float total_dist, float base_step, bool balanced)
+      : total_dist(total_dist), base_step(base_step), balanced(balanced),
+        smp(first), desired_step(first_step), default_desired_step(first_step),
+        previous_full_step(first_step), previous_full_tangent(first.tan),
+        endpoint_gap(total_dist) {
+    if constexpr (NON_DEFAULT_POLICY) {
+      if (balanced)
+        desired_step = balanced_step(first_step, base_step);
+    }
+  }
+
+  /** @brief True while the walk has not reached the segment end. */
+  HS_HOT_INLINE bool unfinished() const { return current_dist < total_dist; }
+
+  /**
+   * @brief Writes the unit position of smp to @p p; direct plotting requires
+   * unit fragment positions.
+   * @param p Output position.
+   * @param sample Segment sampler.
+   */
+  template <typename SampleT>
+  HS_HOT_INLINE void unit_position(math::Vector &p, SampleT &sample) const {
+    constexpr bool NEWTON_UNIT_SAMPLER =
+        requires { std::remove_cvref_t<SampleT>::NEWTON_UNIT; };
+    if constexpr (Cfg.open_geodesic || NEWTON_UNIT_SAMPLER) {
+      HS_PLOT_COUNT(normalizations);
+#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
+      if (g_reference_screen_step) {
+        p = smp.pos.normalized();
+      } else
+#endif
+        p = newton_unit(smp.pos);
+    } else if constexpr (NON_DEFAULT_POLICY &&
+                         requires { sample.one_pass(current_t); }) {
+      // Balanced walks use the Newton step, default-density walks the
+      // exact normalize; the two can plot different rows.
+      HS_PLOT_COUNT(normalizations);
+      if (balanced) {
+        p = newton_unit(smp.pos);
+      } else {
+        p = smp.pos.normalized();
+      }
+    } else {
+      HS_PLOT_COUNT(normalizations);
+      p = smp.pos.normalized();
+    }
+  }
+
+  /**
+   * @brief Shades and plots the sample at @p p.
+   * @param pipeline Pipeline that plots the sample.
+   * @param canvas Target canvas.
+   * @param fragment_shader Fragment shader.
+   * @param arc_uv Planar v0/v1 stamp.
+   * @param curr Segment start.
+   * @param next Segment end.
+   * @param p Unit sample position.
+   */
+  template <typename PipelineT, typename FragmentShaderT, typename StampT>
+  HS_HOT_INLINE void plot_sample(PipelineT &pipeline, Canvas &canvas,
+                                 FragmentShaderT &fragment_shader,
+                                 const StampT &arc_uv, const Fragment &curr,
+                                 const Fragment &next,
+                                 const math::Vector &p) const {
+    Fragment f;
+    lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, current_t, p);
+    arc_uv.stamp(f, current_dist);
+    std::optional<float> alpha_scale;
+    if constexpr (NON_DEFAULT_POLICY) {
+      if (balanced)
+        alpha_scale = desired_step / default_desired_step;
+    }
+    shade_and_plot(pipeline, canvas, fragment_shader, p, f, alpha_scale);
+  }
+
+  /**
+   * @brief Counts the sample just taken against the step budget.
+   * @param max_steps Step budget.
+   * @return True when the walk must stop, leaving the segment's tail
+   *         unplotted.
+   * @details Exhausting the budget once stretches every later step to fit the
+   * rest of the segment, as the two-pass replay does; exhausting it twice
+   * stops the walk.
+   */
+  HS_HOT_INLINE bool note_backstop(size_t max_steps) {
+    if (++step_count >= max_steps) {
+      if (backstop_stretch == 1.0f) {
+        HS_PLOT_COUNT(backstops);
+        HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
+        backstop_stretch = total_dist / current_dist;
+      } else if (step_count >= 2 * max_steps) {
+        endpoint_gap = total_dist - current_dist;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * @brief Moves the walk one desired_step along the segment.
+   * @return True when the walk is still short of the segment end.
+   */
+  HS_HOT_INLINE bool advance() {
+    advance_distance(current_dist, total_dist, desired_step, endpoint_gap);
+    return current_dist < total_dist;
+  }
+
+  /**
+   * @brief Samples the segment at the new current_dist and sets the next step.
+   * @param sample Segment sampler.
+   * @param planar_arc_interval Monotonic planar sampler cursor.
+   * @param adaptive_sample Takes a full sample at an arc fraction.
+   * @param adaptive_step Default-density step at a full sample.
+   * @param world_identity The pipeline has no world-space transform.
+   * @details A balanced walk whose step barely changed takes the next sample
+   * position-only and reuses the step.
+   */
+  template <typename SampleT, typename AdaptiveSampleT, typename AdaptiveStepT>
+  HS_HOT_INLINE void resample(SampleT &sample, int &planar_arc_interval,
+                              AdaptiveSampleT &adaptive_sample,
+                              AdaptiveStepT &adaptive_step,
+                              bool world_identity) {
+    current_t = current_dist / total_dist;
+    HS_PLOT_COUNT(sim_samples);
+    if constexpr (NON_DEFAULT_POLICY && requires {
+                    sample.position_monotonic(current_t, planar_arc_interval);
+                  }) {
+      if (balanced && reuse_step) {
+        HS_PLOT_STALL_START(position_start);
+        smp.pos = sample.position_monotonic(current_t, planar_arc_interval);
+        HS_PLOT_RENDER_COUNT(adaptive_samples);
+        HS_PLOT_STALL_STOP(adaptive_sim, position_start);
+#if HS_ENABLE_TEST_HOOKS
+        ++g_planar_position_samples;
+#endif
+        reuse_step = false;
+      } else {
+        smp = adaptive_sample(current_t);
+        default_desired_step = adaptive_step(smp);
+        if (balanced) {
+          reuse_step =
+              world_identity &&
+              can_reuse_step(smp, default_desired_step, previous_full_step,
+                             previous_full_tangent, base_step);
+          previous_full_step = default_desired_step;
+          previous_full_tangent = smp.tan;
+        }
+      }
+    } else {
+      smp = adaptive_sample(current_t);
+      default_desired_step = adaptive_step(smp);
+    }
+    desired_step = default_desired_step;
+    if constexpr (NON_DEFAULT_POLICY) {
+      if (balanced)
+        desired_step = balanced_step(default_desired_step, base_step);
+    }
+    desired_step *= backstop_stretch;
+  }
+
+  /**
+   * @brief Shades and plots the segment's final endpoint.
+   * @param pipeline Pipeline that plots the endpoint.
+   * @param canvas Target canvas.
+   * @param fragment_shader Fragment shader.
+   * @param arc_uv Planar v0/v1 stamp.
+   * @param next Segment end.
+   */
+  template <typename PipelineT, typename FragmentShaderT, typename StampT>
+  HS_HOT_INLINE void plot_terminal(PipelineT &pipeline, Canvas &canvas,
+                                   FragmentShaderT &fragment_shader,
+                                   const StampT &arc_uv,
+                                   const Fragment &next) const {
+    Fragment f;
+    seed_fragment<INTERPOLATE_REGISTERS>(f, next);
+    arc_uv.stamp(f, total_dist);
+    std::optional<float> alpha_scale;
+    if constexpr (NON_DEFAULT_POLICY) {
+      // Gain the endpoint by the arc it actually stands in for, floored
+      // at the default step so it never dims below the DEFAULT policy.
+      if (balanced)
+        alpha_scale = endpoint_alpha_scale(endpoint_gap, default_desired_step,
+                                           desired_step);
+    }
+    shade_and_plot(pipeline, canvas, fragment_shader, next.pos, f, alpha_scale);
+  }
+};
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -488,7 +726,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   const float *point_rows = opts.point_projections.rows();
   const float *point_cols = opts.point_projections.cols();
   const Fragment *loop_seam = OPEN_GEODESIC ? nullptr : opts.loop.seam();
-  const bool balanced_sampling =
+  [[maybe_unused]] const bool balanced_sampling =
       SAMPLING_POLICY == RasterSamplingPolicy::BALANCED ||
       (SAMPLING_POLICY == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
@@ -551,9 +789,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool is_last_segment) {
-    constexpr bool NEWTON_UNIT_SAMPLER =
-        requires { std::remove_cvref_t<decltype(sample)>::NEWTON_UNIT; };
-    // Direct plotting requires unit fragment positions.
     // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
@@ -635,134 +870,23 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // screen space. `smp`/`first_step` seed the first iteration.
     if constexpr (SINGLE_PASS) {
       HS_PROFILE_DEEP(plot_seg_single_pass);
-      float current_dist = 0.0f;
-      float current_t = 0.0f;
-      float desired_step = first_step;
-      float default_desired_step = first_step;
-      float previous_full_step = first_step;
-      math::Vector previous_full_tangent = smp.tan;
-      bool reuse_step = false;
-      if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-        if (balanced_sampling)
-          desired_step = balanced_step(first_step, base_step);
-      }
-      size_t step_count = 0;
-      float backstop_stretch = 1.0f;
-      // Arc from the last plotted sample to the segment end; the terminal step
-      // is `remaining`, not the stretched `desired_step`.
-      [[maybe_unused]] float endpoint_gap = total_dist;
-      // Writes the unit position of `smp` to `p`.
-      auto unit_position = [&](math::Vector &p) __attribute__((always_inline)) {
-        if constexpr (OPEN_GEODESIC || NEWTON_UNIT_SAMPLER) {
-          HS_PLOT_COUNT(normalizations);
-#if HS_ENABLE_TEST_ORACLES || defined(HS_MINDSPLATTER_REPLAY)
-          if (g_reference_screen_step) {
-            p = smp.pos.normalized();
-          } else
-#endif
-            p = newton_unit(smp.pos);
-        } else if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
-                             requires { sample.one_pass(current_t); }) {
-          // Balanced walks use the Newton step, default-density walks the
-          // exact normalize; the two can plot different rows.
-          HS_PLOT_COUNT(normalizations);
-          if (balanced_sampling) {
-            p = newton_unit(smp.pos);
-          } else {
-            p = smp.pos.normalized();
-          }
-        } else {
-          HS_PLOT_COUNT(normalizations);
-          p = smp.pos.normalized();
-        }
-      };
-      while (current_dist < total_dist) {
+      SinglePassWalk<Cfg> walk(smp, first_step, total_dist, base_step,
+                               balanced_sampling);
+      while (walk.unfinished()) {
         math::Vector p;
-        unit_position(p);
-        if (window.contains(current_t)) {
-          Fragment f;
-          lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, current_t, p);
-          arc_uv.stamp(f, current_dist);
-          std::optional<float> alpha_scale;
-          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-            if (balanced_sampling)
-              alpha_scale = desired_step / default_desired_step;
-          }
-          shade_and_plot(pipeline, canvas, fragment_shader, p, f, alpha_scale);
-        }
-
-        if (++step_count >= max_cache) {
-          // Stretch factor matches the two-pass replay's; the hard stop bounds
-          // the extra steps and can leave the segment's tail unplotted.
-          if (backstop_stretch == 1.0f) {
-            HS_PLOT_COUNT(backstops);
-            HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
-            backstop_stretch = total_dist / current_dist;
-          } else if (step_count >= 2 * max_cache) {
-            endpoint_gap = total_dist - current_dist;
-            break;
-          }
-        }
-        HS_PLOT_MAX(steps_peak, step_count);
-        advance_distance(current_dist, total_dist, desired_step, endpoint_gap);
-        if (current_dist < total_dist) {
-          current_t = current_dist / total_dist;
-          HS_PLOT_COUNT(sim_samples);
-          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT &&
-                        requires {
-                          sample.position_monotonic(current_t,
-                                                    planar_arc_interval);
-                        }) {
-            if (balanced_sampling && reuse_step) {
-              HS_PLOT_STALL_START(position_start);
-              smp.pos =
-                  sample.position_monotonic(current_t, planar_arc_interval);
-              HS_PLOT_RENDER_COUNT(adaptive_samples);
-              HS_PLOT_STALL_STOP(adaptive_sim, position_start);
-#if HS_ENABLE_TEST_HOOKS
-              ++g_planar_position_samples;
-#endif
-              reuse_step = false;
-            } else {
-              smp = adaptive_sample(current_t);
-              default_desired_step = adaptive_step(smp);
-              if (balanced_sampling) {
-                reuse_step = world_identity &&
-                             can_reuse_step(smp, default_desired_step,
-                                            previous_full_step,
-                                            previous_full_tangent, base_step);
-                previous_full_step = default_desired_step;
-                previous_full_tangent = smp.tan;
-              }
-            }
-          } else {
-            smp = adaptive_sample(current_t);
-            default_desired_step = adaptive_step(smp);
-          }
-          desired_step = default_desired_step;
-          if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-            if (balanced_sampling)
-              desired_step = balanced_step(default_desired_step, base_step);
-          }
-          desired_step *= backstop_stretch;
-        }
+        walk.unit_position(p, sample);
+        if (window.contains(walk.current_t))
+          walk.plot_sample(pipeline, canvas, fragment_shader, arc_uv, curr,
+                           next, p);
+        if (walk.note_backstop(max_cache))
+          break;
+        HS_PLOT_MAX(steps_peak, walk.step_count);
+        if (walk.advance())
+          walk.resample(sample, planar_arc_interval, adaptive_sample,
+                        adaptive_step, world_identity);
       }
-      if (!close_loop && is_last_segment && !omit_end &&
-          window.closes_at_end()) {
-        Fragment f;
-        seed_fragment<INTERPOLATE_REGISTERS>(f, next);
-        arc_uv.stamp(f, total_dist);
-        std::optional<float> alpha_scale;
-        if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-          // Gain the endpoint by the arc it actually stands in for, floored
-          // at the default step so it never dims below the DEFAULT policy.
-          if (balanced_sampling)
-            alpha_scale = endpoint_alpha_scale(
-                endpoint_gap, default_desired_step, desired_step);
-        }
-        shade_and_plot(pipeline, canvas, fragment_shader, next.pos, f,
-                       alpha_scale);
-      }
+      if (!close_loop && is_last_segment && !omit_end && window.closes_at_end())
+        walk.plot_terminal(pipeline, canvas, fragment_shader, arc_uv, next);
       return;
     }
 
