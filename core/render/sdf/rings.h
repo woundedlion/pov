@@ -96,7 +96,7 @@ struct Ring {
    * @return Row bounds covering the ring plus its AA falloff.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    PhiBand band = clamp_phi_band(center_phi, target_angle);
+    PhiBand band = fold_phi_band(center_phi, target_angle);
 
     // Exact distance trims the outer 5% (negligible quintic alpha); the
     // linearized metric retains the full stroke band.
@@ -409,7 +409,7 @@ public:
    * @return Inclusive row bounds covering the ring plus distortion margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    PhiBand band = clamp_phi_band(center_phi, target_angle);
+    PhiBand band = fold_phi_band(center_phi, target_angle);
 
     float margin = max_thickness + BOUNDS_MARGIN_WIDE;
     float f_phi_min = std::max(0.0f, band.phi_min - margin);
@@ -764,7 +764,7 @@ struct FlatDistortedRing : private DistortedRing {
    * `thickness` is tight.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    PhiBand band = clamp_phi_band(center_phi, target_angle);
+    PhiBand band = fold_phi_band(center_phi, target_angle);
     return phi_bounds_to_rows<H>(
         std::max(0.0f, band.phi_min - thickness),
         std::min(math::PI_F, band.phi_max + thickness));
