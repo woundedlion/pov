@@ -26,6 +26,7 @@ namespace Source {
 struct RingsSourceParams {
   float pattern_freq = 1.0f; /**< Radial pattern frequency. */
   float speed = 0.0f;        /**< Phase advance per frame, in radians. */
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<RingsSourceParams>{"pattern-freq", &RingsSourceParams::pattern_freq,
                                "Pattern Freq", 0.1f, 20.0f, FieldCurve::LERP},
@@ -36,7 +37,13 @@ struct RingsSourceParams {
 static_assert(field_ids_unique<RingsSourceParams>());
 static_assert(field_defaults_in_range<RingsSourceParams>());
 
-/** @brief Advances the phase clocks declared by one scalar source family. */
+/** @brief Advances the phase clocks declared by one scalar source family.
+    @tparam Params Parameter block; `speed`, `secondary_rate` and
+            `angle_rate` each drive a clock only when declared.
+    @param params The family's parameters.
+    @param primary Primary phase, wrapped into (-2pi, 2pi).
+    @param secondary Secondary phase, wrapped into (-2pi, 2pi).
+    @param angle Source rotation, wrapped into (-2pi, 2pi). */
 template <typename Params>
 inline void advance_clocks(const Params &params, float &primary,
                            float &secondary, float &angle) {
@@ -65,6 +72,7 @@ struct GridSourceParams {
                                     `speed`. */
   float angle_rate = 0.0f;     /**< Per-frame advance of the source rotation. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<GridSourceParams>{"pattern-freq", &GridSourceParams::pattern_freq,
                               "Pattern Freq", 0.01f, 64.0f, FieldCurve::LERP},
@@ -96,6 +104,7 @@ struct TwinWaveSourceParams {
   float angle_rate = 0.0f; /**< Per-frame advance of the angle between the two
                                 waves. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<TwinWaveSourceParams>{
           "pattern-freq", &TwinWaveSourceParams::pattern_freq, "Pattern Freq",
@@ -122,6 +131,7 @@ struct SpiralSourceParams {
   float speed = 0.0f;        /**< Per-frame advance of the primary phase. */
   float angle_rate = 0.0f;   /**< Per-frame advance of the spiral rotation. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<SpiralSourceParams>{"pattern-freq",
                                 &SpiralSourceParams::pattern_freq,
@@ -146,6 +156,7 @@ struct NoiseSourceParams {
   float noise_time_rate = 0.0f; /**< Per-frame advance of the noise time
                                      coordinate. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<NoiseSourceParams>{"noise-scale", &NoiseSourceParams::noise_scale,
                                "Source Noise Scale", 1.0f / 64.0f, 64.0f,
@@ -188,6 +199,7 @@ struct LatticeSourceParams {
                                          primitive's boundary. */
   float lattice_radius = 0.25f;     /**< Primitive radius in cell units. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<LatticeSourceParams>{
           "lattice-cell-scale", &LatticeSourceParams::lattice_cell_scale,
@@ -215,6 +227,7 @@ struct SphericalRingsSourceParams {
   float spin_rate = 0.0f;       /**< Per-frame rotation of the band axis. */
   float wander = 0.0f;          /**< Fraction of the random walk applied. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<SphericalRingsSourceParams>{
           "ring-count", &SphericalRingsSourceParams::ring_count, "Ring Count",
@@ -250,6 +263,7 @@ struct FractalSourceParams {
   float speed = 0.0f;      /**< Per-frame rotation of the Julia seed. */
   float angle_rate = 0.0f; /**< Per-frame rotation of the source plane. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<FractalSourceParams>{"fractal-scale", &FractalSourceParams::scale,
                                  "Fractal Scale", 1.0f / 64.0f, 8.0f,
@@ -278,6 +292,7 @@ struct FractalSourceParams {
 static_assert(field_ids_unique<FractalSourceParams>());
 static_assert(field_defaults_in_range<FractalSourceParams>());
 
+/** @brief Cell shape of a `Tessellation` source. */
 enum class TessellationKind : uint8_t {
   TRIANGULAR = 0,
   SQUARE = 1,
@@ -291,6 +306,7 @@ struct TessellationSourceParams {
   float line_softness = 0.02f;  /**< Width of the antialiased edge. */
   float angle_rate = 0.0f;      /**< Per-frame rotation of the tessellation. */
 
+  /** @brief Per-parameter id, member, label, range and curve. */
   static constexpr auto FIELDS = std::array{
       Field<TessellationSourceParams>{
           "cell-scale", &TessellationSourceParams::cell_scale, "Cell Scale",
@@ -320,12 +336,20 @@ struct PreparedSource {
 
 /** @brief Frame-constant quadratic-fractal seed and iteration controls. */
 struct PreparedFractal : PreparedSource {
-  float seed_re;
-  float seed_im;
-  float mix;
-  int iterations;
+  float seed_re;  ///< Julia seed, real part, rotated by `primary`.
+  float seed_im;  ///< Julia seed, imaginary part, rotated by `primary`.
+  float mix;      ///< Julia mix clamped to [0, 1].
+  int iterations; ///< Escape iterations clamped to [2, 16].
 };
 
+/**
+ * @brief Resolves the fractal's frame-constant seed and iteration controls.
+ * @tparam Params FractalSourceParams-shaped parameter block.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param params Fractal parameters.
+ * @param source This frame's phases; `primary` rotates the Julia seed.
+ * @return @p source extended with the seed, mix and iteration count.
+ */
 template <typename Params, typename Prepared>
 HS_FLASH_INLINE inline PreparedFractal prepare_fractal(const Params &params,
                                                        const Prepared &source) {
@@ -345,7 +369,11 @@ struct PreparedSphericalRings {
   float phase;       /**< Angular band offset, in radians. */
 };
 
-/** @brief Wraps this frame's source phases with the rotation's cosine pair. */
+/** @brief Wraps this frame's source phases with the rotation's cosine pair.
+    @param primary Primary phase.
+    @param secondary Secondary phase.
+    @param angle Source rotation, in radians.
+    @return The phases with the cosine and sine of @p angle. */
 HS_FLASH_INLINE inline PreparedSource prepare(float primary, float secondary,
                                               float angle) {
   return {primary, secondary, angle, cosf(angle), sinf(angle)};
@@ -357,6 +385,14 @@ concept StateProvider = Detail::ParamsProvider<State, Binding> &&
                           State::prepare(frame);
                         };
 
+/**
+ * @brief Two-wave interference: waves along x and along
+ *        the axis at the source angle.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param input Pattern-space coordinate.
+ * @param prepared Per-frame phases and rotation.
+ * @return Field value in [-1, 1].
+ */
 template <typename Prepared>
 HS_HOT_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
                                            const Prepared &prepared) {
@@ -366,12 +402,27 @@ HS_HOT_FLASH_MEMBER inline float twin_wave(const math::Complex &input,
                  math::fast_sinf(rotated + prepared.secondary));
 }
 
+/**
+ * @brief Concentric rings about the origin, moving outward with `primary`.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param input Pattern-space coordinate.
+ * @param prepared Per-frame phases.
+ * @return Field value in [-1, 1].
+ */
 template <typename Prepared>
 HS_HOT_FLASH_MEMBER inline float rings(const math::Complex &input,
                                        const Prepared &prepared) {
   return math::fast_sinf(input.magnitude() - prepared.primary);
 }
 
+/**
+ * @brief Latitude bands about the prepared axis.
+ * @tparam Params SphericalRingsSourceParams-shaped parameter block.
+ * @param input Unit direction.
+ * @param params Band count, thickness and softness.
+ * @param prepared Band axis and phase.
+ * @return 1 inside a band, -1 outside, ramped across the edge.
+ */
 template <typename Params>
 HS_HOT_FLASH_MEMBER inline float
 spherical_rings(const math::Vector &input, const Params &params,
@@ -391,6 +442,13 @@ spherical_rings(const math::Vector &input, const Params &params,
   return 1.0f - 2.0f * edge;
 }
 
+/**
+ * @brief Three-armed Archimedean spiral turned by the source angle.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param input Pattern-space coordinate.
+ * @param prepared Per-frame phase and rotation.
+ * @return Field value in [-1, 1].
+ */
 template <typename Prepared>
 HS_HOT_FLASH_MEMBER inline float spiral(const math::Complex &input,
                                         const Prepared &prepared) {
@@ -400,6 +458,15 @@ HS_HOT_FLASH_MEMBER inline float spiral(const math::Complex &input,
                          prepared.primary);
 }
 
+/**
+ * @brief Coupled sine grid in the rotated frame.
+ * @tparam Params Parameter block of the source family.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param input Pattern-space coordinate.
+ * @param params Complexity and pattern mix.
+ * @param prepared Per-frame phases and rotation.
+ * @return Field value in [-1, 1].
+ */
 template <typename Params, typename Prepared>
 HS_HOT_FLASH_MEMBER inline float grid(const math::Complex &input,
                                       const Params &params,
@@ -424,6 +491,13 @@ HS_HOT_FLASH_MEMBER inline float grid(const math::Complex &input,
   return hs::lerp(coupled, direct, params.pattern_mix);
 }
 
+/**
+ * @brief Repeating cell primitive blended between circle and square.
+ * @tparam Params LatticeSourceParams-shaped parameter block.
+ * @param input Plane coordinate.
+ * @param params Cell scale, shape blend, radius and softness.
+ * @return 1 inside the primitive, -1 outside, ramped across the edge.
+ */
 template <typename Params>
 HS_HOT_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
                                                    const Params &params) {
@@ -442,6 +516,15 @@ HS_HOT_FLASH_MEMBER inline float primitive_lattice(const math::Complex &input,
                                            params.lattice_softness, distance);
 }
 
+/**
+ * @brief Quadratic escape-time fractal, blended from Mandelbrot to Julia.
+ * @tparam Params FractalSourceParams-shaped parameter block.
+ * @tparam Prepared PreparedFractal-shaped per-frame state.
+ * @param input Plane coordinate.
+ * @param params Scale and contour count.
+ * @param prepared Rotation, seed, mix and iteration count.
+ * @return Cosine contour of the escape orbit; 1 for points that never escape.
+ */
 template <typename Params, typename Prepared>
 HS_HOT_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
                                                 const Params &params,
@@ -471,12 +554,21 @@ HS_HOT_FLASH_MEMBER inline float escape_fractal(const math::Complex &input,
   return 1.0f;
 }
 
+/**
+ * @brief Distance to the nearest integer.
+ * @param coordinate Lattice coordinate.
+ * @return Distance in [0, 0.5].
+ */
 HS_O3_FN inline float distance_to_lattice_line(float coordinate) {
   return fabsf(math::wrap_t(coordinate + 0.5f) - 0.5f);
 }
 
 /** @brief Distance from the scaled, rotated plane point to the nearest cell
-    edge of @p kind. */
+    edge of @p kind.
+    @param x Cell-space x.
+    @param y Cell-space y.
+    @param kind Cell shape.
+    @return Nonnegative distance in cell units. */
 __attribute__((always_inline)) inline float
 tessellation_distance(float x, float y, TessellationKind kind) {
   constexpr float SQRT_3 = 1.7320508075688772f;
@@ -517,6 +609,16 @@ tessellation_distance(float x, float y, TessellationKind kind) {
                      fabsf(0.5f * SQRT_3 * local_x - 0.5f * local_y)));
 }
 
+/**
+ * @brief Antialiased edge lines of a periodic polygon tessellation.
+ * @tparam Params TessellationSourceParams-shaped parameter block.
+ * @tparam Prepared PreparedSource-shaped per-frame phases.
+ * @param input Plane coordinate.
+ * @param params Cell scale, line thickness and softness.
+ * @param kind Cell shape.
+ * @param prepared Per-frame rotation.
+ * @return 1 on an edge, -1 inside a cell, ramped between.
+ */
 template <typename Params, typename Prepared>
 HS_HOT_FLASH_MEMBER inline float
 tessellation(const math::Complex &input, const Params &params,
@@ -532,6 +634,14 @@ tessellation(const math::Complex &input, const Params &params,
   return 1.0f - 2.0f * edge;
 }
 
+/**
+ * @brief Octave noise sample with contrast sharpening.
+ * @param noise Noise generator.
+ * @param basis Octave basis.
+ * @param coordinate Noise-space sample point.
+ * @param contrast Nonnegative sharpening; 0 leaves the sample unchanged.
+ * @return Sharpened sample in [-1, 1].
+ */
 HS_O3_FN inline float noise_contour(const FastNoiseLite &noise,
                                     math::NoiseBasis basis,
                                     const math::Vector &coordinate,
@@ -547,9 +657,14 @@ HS_O3_FN inline float noise_contour(const FastNoiseLite &noise,
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct TwinWave : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the pattern
+   *        frequency, rotation and both phases.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -561,13 +676,26 @@ template <typename State> struct TwinWave : ApproximationDefaults {
         { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -584,9 +712,14 @@ template <typename State> struct TwinWave : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct Rings : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the pattern
+   *        frequency and primary phase.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -595,13 +728,26 @@ template <typename State> struct Rings : ApproximationDefaults {
         { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -618,9 +764,14 @@ template <typename State> struct Rings : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct SphericalRings : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the band
+   *        parameters, axis and phase.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -632,13 +783,26 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
         { State::prepare(frame).phase } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Sphere carrier; its direction is sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -652,9 +816,14 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct Spiral : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the pattern
+   *        frequency, angle and primary phase.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -664,13 +833,26 @@ template <typename State> struct Spiral : ApproximationDefaults {
         { State::prepare(frame).primary } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -687,9 +869,14 @@ template <typename State> struct Spiral : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct Grid : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the grid
+   *        parameters, rotation and both phases.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -703,13 +890,26 @@ template <typename State> struct Grid : ApproximationDefaults {
         { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -726,9 +926,14 @@ template <typename State> struct Grid : ApproximationDefaults {
  * params(frame) accessors.
  */
 template <typename State> struct PrimitiveLattice : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the lattice
+   *        parameters.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ParamsProvider<State, CandidateBinding> &&
@@ -743,6 +948,12 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
         { State::params(frame).lattice_radius } -> std::convertible_to<float>;
       };
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame) {
     return primitive_lattice(input.coords, State::params(frame));
@@ -755,9 +966,14 @@ template <typename State> struct PrimitiveLattice : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State> struct EscapeFractal : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the fractal
+   *        parameters and phases.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -775,12 +991,25 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
         { State::prepare(frame).angle } -> std::convertible_to<float>;
       };
 
+  /// Frame-constant seed and iteration controls.
   using Prepared = PreparedFractal;
 
+  /**
+   * @brief Resolves the fractal seed and controls for the frame.
+   * @param frame Frame state.
+   * @return `prepare_fractal` of `State`'s parameters and phases.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return prepare_fractal(State::params(frame), State::prepare(frame));
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -795,9 +1024,14 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
  */
 template <typename State, TessellationKind KindV>
 struct Tessellation : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the line
+   *        parameters and rotation.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       StateProvider<State, CandidateBinding> &&
@@ -809,13 +1043,26 @@ struct Tessellation : ApproximationDefaults {
         { State::prepare(frame).angle_sin } -> std::convertible_to<float>;
       };
 
+  /// Phases `State::prepare` resolves for the frame.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the frame's phases from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -831,9 +1078,14 @@ struct Tessellation : ApproximationDefaults {
  */
 template <typename State, math::NoiseBasis BasisV>
 struct ProjectedNoise : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the noise
+   *        generator, scale, time and contrast.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, CandidateBinding> &&
@@ -844,12 +1096,25 @@ struct ProjectedNoise : ApproximationDefaults {
         { State::noise_contrast(frame) } -> std::same_as<float>;
       };
 
+  /// Noise-space loop offset for the frame's noise time.
   using Prepared = math::Vector;
 
+  /**
+   * @brief Resolves the loop offset for the frame's noise time.
+   * @param frame Frame state.
+   * @return Offset added to the noise-space coordinate.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return math::noise_projected_loop_offset(State::noise_time(frame));
   }
 
+  /**
+   * @brief Samples the signed field.
+   * @param input Plane carrier; its coords are sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -868,21 +1133,36 @@ struct ProjectedNoise : ApproximationDefaults {
  */
 template <typename State, math::NoiseBasis BasisV>
 struct SphericalNoise : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies what
+   *        `ProjectedNoise` requires.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       ProjectedNoise<State, BasisV>::template PROVIDER_VALID<CandidateBinding>;
 
+  /// Noise-space loop offset for the frame's noise time.
   using Prepared = math::Vector;
 
+  /**
+   * @brief Resolves the loop offset for the frame's noise time.
+   * @param frame Frame state.
+   * @return Offset added to the noise-space coordinate.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return math::noise_sphere_loop_offset(State::noise_time(frame));
   }
 
   /** @brief Post-projection form: samples the plane carrier's retained
-      pre-projection point. */
+      pre-projection point.
+      @param input Plane carrier; its `sphere` point is sampled.
+      @param frame Frame state.
+      @param prepared This frame's `prepare` result.
+      @return Field value in [-1, 1]. */
   __attribute__((always_inline)) static float sample(const PlaneSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {
@@ -891,6 +1171,13 @@ struct SphericalNoise : ApproximationDefaults {
                              input.sphere, State::noise_scale(frame), prepared),
                          State::noise_contrast(frame));
   }
+  /**
+   * @brief Samples the signed field.
+   * @param input Sphere carrier; its direction is sampled.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field value in [-1, 1].
+   */
   __attribute__((always_inline)) static float sample(const SphereSample &input,
                                                      const FrameState &frame,
                                                      const Prepared &prepared) {

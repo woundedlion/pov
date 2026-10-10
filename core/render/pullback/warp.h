@@ -29,6 +29,7 @@ struct CurlFlowParams {
   float speed = 0.0f;    /**< Loop phase advance per frame. */
   float strength = 0.0f; /**< Signed curl displacement strength. */
   float scale = 1.0f;    /**< Spatial frequency of the curl field. */
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<CurlFlowParams>{"speed", &CurlFlowParams::speed, nullptr, -0.02f,
                             0.02f, FieldCurve::LERP},
@@ -42,6 +43,7 @@ struct CurlFlowParams {
 static_assert(field_ids_unique<CurlFlowParams>());
 static_assert(field_defaults_in_range<CurlFlowParams>());
 
+/** @brief Largest angular harmonic a `PolarChart` accepts. */
 inline constexpr uint8_t MAX_POLAR_HARMONIC = 16;
 
 struct FlatEnvelope {};
@@ -55,6 +57,7 @@ enum class Envelope : uint8_t {
   EDGE_FADE = 2
 };
 
+/** @brief Serialized `Envelope` ids, indexed by enumerator value. */
 inline constexpr const char *ENVELOPE_IDS[] = {"flat", "projection-weight",
                                                "edge-fade"};
 static_assert(std::size(ENVELOPE_IDS) ==
@@ -64,14 +67,17 @@ static_assert(std::size(ENVELOPE_IDS) ==
     envelope reads. */
 inline constexpr TopologyGate ENVELOPE_EDGE_FADE_GATE{
     "envelope", live_values(Envelope::EDGE_FADE)};
+/** @brief Curl-flow integrator taking one Euler step. */
 struct Euler1 {
-  static constexpr uint8_t INTERVALS = 1;
+  static constexpr uint8_t INTERVALS = 1; ///< Integration intervals.
 };
+/** @brief Curl-flow integrator taking two midpoint steps. */
 struct Midpoint2 {
-  static constexpr uint8_t INTERVALS = 2;
+  static constexpr uint8_t INTERVALS = 2; ///< Integration intervals.
 };
+/** @brief Curl-flow integrator taking four midpoint steps. */
 struct Midpoint4 {
-  static constexpr uint8_t INTERVALS = 4;
+  static constexpr uint8_t INTERVALS = 4; ///< Integration intervals.
 };
 struct LinearPolar {};
 struct LogarithmicPolar {};
@@ -82,6 +88,7 @@ struct LogarithmicPolar {};
 struct NoWarpParams {
   float speed = 0.0f; /**< Described speed value; no stage consumes it. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<NoWarpParams>{"speed", &NoWarpParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
@@ -103,6 +110,7 @@ struct MirrorParams {
                               slot's phase. */
   float offset_y = 0.0f; /**< Pre-fold translation along y; does not scroll. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<MirrorParams>{"speed", &MirrorParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
@@ -131,6 +139,7 @@ struct WaveShearParams {
   float edge_width = 0.1f;  /**< Fade band width, read only under an
                                  EdgeFadeEnvelope; 0 is a hard cut. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<WaveShearParams>{"speed", &WaveShearParams::speed, nullptr, -0.02f,
                              0.02f, FieldCurve::LERP},
@@ -163,6 +172,7 @@ struct VectorNoiseParams {
   float edge_width = 0.1f;   /**< Fade band width, read only under an
                                   EdgeFadeEnvelope; 0 is a hard cut. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<VectorNoiseParams>{"speed", &VectorNoiseParams::speed, nullptr,
                                -0.02f, 0.02f, FieldCurve::LERP},
@@ -198,6 +208,7 @@ struct AffineParams {
   float scale_y = 1.0f; /**< Scale along y, oscillated over the phase cycle. */
   float shear = 0.0f;   /**< Shear, oscillated over the phase cycle. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<AffineParams>{"speed", &AffineParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
@@ -221,7 +232,9 @@ struct AffineParams {
 static_assert(field_ids_unique<AffineParams>());
 static_assert(field_defaults_in_range<AffineParams>());
 
-/** @brief Advances the affine frame rotation by one frame. */
+/** @brief Advances the affine frame rotation by one frame.
+    @param rotation Accumulated rotation in radians, wrapped into [0, 2pi).
+    @param params Speed and rotation rate. */
 inline void advance_affine_rotation(float &rotation,
                                     const AffineParams &params) {
   rotation = math::TWO_PI_F *
@@ -237,6 +250,7 @@ struct PolarParams {
   float radial_phase = 0.0f;  /**< Offset added to the radial coordinate. */
   float angular_phase = 0.0f; /**< Offset added to the angular coordinate. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<PolarParams>{"speed", &PolarParams::speed, nullptr, -0.02f, 0.02f,
                          FieldCurve::LERP},
@@ -265,6 +279,7 @@ struct VortexParams {
   float center_orbit_radius = 0.0f; /**< Radius the center orbits over the
                                          phase cycle; 0 pins the center. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<VortexParams>{"speed", &VortexParams::speed, nullptr, -0.02f, 0.02f,
                           FieldCurve::LERP},
@@ -321,36 +336,36 @@ struct PreparedVortex {
 
 /** @brief Mirror slot state: the rotation pair plus the fold offsets. */
 struct PreparedMirrorSlot {
-  float rotation_cos;
-  float rotation_sin;
+  float rotation_cos; ///< Cosine of the fold-lattice rotation.
+  float rotation_sin; ///< Sine of the fold-lattice rotation.
   struct {
     PreparedMirror mirror;
-  } transform;
+  } transform; ///< Fold offsets.
 };
 
 /** @brief Affine slot state: the rotation pair plus the frame coefficients. */
 struct PreparedAffineSlot {
-  float rotation_cos;
-  float rotation_sin;
+  float rotation_cos; ///< Cosine of the frame rotation.
+  float rotation_sin; ///< Sine of the frame rotation.
   struct {
     PreparedAffine affine;
-  } transform;
+  } transform; ///< Frame coefficients.
 };
 
 /** @brief Vector-noise slot state: the rotation pair plus the loop point. */
 struct PreparedVectorNoiseSlot {
-  float rotation_cos;
-  float rotation_sin;
+  float rotation_cos; ///< Cosine of the vector rotation.
+  float rotation_sin; ///< Sine of the vector rotation.
   struct {
     PreparedNoiseLoop noise_loop;
-  } transform;
+  } transform; ///< Noise-loop point.
 };
 
 /** @brief Vortex slot state: the vortex coefficients; no slot rotation. */
 struct PreparedVortexSlot {
   struct {
     PreparedVortex vortex;
-  } transform;
+  } transform; ///< Vortex coefficients.
 };
 
 /**
@@ -359,12 +374,19 @@ struct PreparedVortexSlot {
  * only. Mirror, vector noise and affine prepare rotation and transform state.
  * The second argument is the phase clock (unused by wave shear).
  * @param warp The slot's parameters.
- */
+  * @return Field-axis rotation.
+  */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
                                                 float) {
   return {cosf(warp.field_angle), sinf(warp.field_angle)};
 }
 
+/**
+ * @brief Mirror overload; the phase scrolls the x offset.
+ * @param warp The slot's parameters.
+ * @param phase The slot's phase clock, in cells of x scroll.
+ * @return Fold-lattice rotation and wrapped offsets.
+ */
 HS_FLASH_INLINE inline PreparedMirrorSlot prepare(const MirrorParams &warp,
                                                   float phase) {
   PreparedMirrorSlot prepared{cosf(warp.rotation), sinf(warp.rotation), {}};
@@ -374,6 +396,12 @@ HS_FLASH_INLINE inline PreparedMirrorSlot prepare(const MirrorParams &warp,
   return prepared;
 }
 
+/**
+ * @brief Vector-noise overload; the phase walks the noise loop.
+ * @param warp The slot's parameters.
+ * @param phase The slot's phase clock.
+ * @return Vector rotation and noise-loop point.
+ */
 HS_FLASH_INLINE inline PreparedVectorNoiseSlot
 prepare(const VectorNoiseParams &warp, float phase) {
   PreparedVectorNoiseSlot prepared{
@@ -382,6 +410,12 @@ prepare(const VectorNoiseParams &warp, float phase) {
   return prepared;
 }
 
+/**
+ * @brief Vortex overload; the phase orbits the center.
+ * @param warp The slot's parameters.
+ * @param phase The slot's phase clock, in orbits.
+ * @return Orbited center, squared radius and twist in radians.
+ */
 HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
                                                   float phase) {
   const float orbit = math::TWO_PI_F * math::wrap_t(phase);
@@ -397,7 +431,8 @@ HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
  * @param phase The slot's phase clock.
  * @param frame_rotation Accumulated frame rotation for the slot.
  * @param lattice_period Plane units per lattice cell.
- */
+  * @return Frame rotation and affine coefficients.
+  */
 HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
                                                   float phase,
                                                   float frame_rotation,
@@ -422,7 +457,10 @@ template <typename State, typename Binding>
 concept ParamsPreparedProvider =
     PreparedProvider<State, Binding> && Detail::ParamsProvider<State, Binding>;
 
-/** @brief Length of a stage delta, or zero when @p required is false. */
+/** @brief Length of a stage delta, or zero when @p required is false.
+    @param delta Stage displacement.
+    @param required Whether to measure it.
+    @return Length of @p delta, or 0. */
 __attribute__((always_inline)) inline float
 displacement(const math::Complex &delta, bool required) {
   if (!required)
@@ -433,6 +471,13 @@ displacement(const math::Complex &delta, bool required) {
   return sqrtf(squared);
 }
 
+/**
+ * @brief Packages a closed-form warp output with its displacement.
+ * @param input Coordinate before the warp.
+ * @param output Coordinate after the warp.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return @p output and the input-to-output distance.
+ */
 __attribute__((always_inline)) inline WarpStepResult
 finish_closed_form(const math::Complex &input, const math::Complex &output,
                    bool path_length_required) {
@@ -440,6 +485,13 @@ finish_closed_form(const math::Complex &input, const math::Complex &output,
   return {output, displacement(delta, path_length_required)};
 }
 
+/**
+ * @brief Envelope factor chosen at run time.
+ * @param provenance Projection provenance of the sample.
+ * @param edge_width Fade band width, read only by EDGE_FADE.
+ * @param mode Envelope to evaluate.
+ * @return 1 for FLAT, else the projection weight or edge fade.
+ */
 __attribute__((always_inline)) inline float
 envelope(const ProjectionProvenance &provenance, float edge_width,
          Envelope mode) {
@@ -450,6 +502,15 @@ envelope(const ProjectionProvenance &provenance, float edge_width,
   return 1.0f;
 }
 
+/**
+ * @brief Envelope factor chosen at compile time.
+ * @tparam EnvelopePolicy FlatEnvelope, ProjectionWeightEnvelope or
+ *         EdgeFadeEnvelope.
+ * @tparam Params Warp parameters; `edge_width` is read by EdgeFadeEnvelope.
+ * @param provenance Projection provenance of the sample.
+ * @param params The slot's parameters.
+ * @return 1 for FlatEnvelope, else the projection weight or edge fade.
+ */
 template <typename EnvelopePolicy, typename Params>
 __attribute__((always_inline)) inline float
 fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
@@ -461,6 +522,15 @@ fixed_envelope(const ProjectionProvenance &provenance, const Params &params) {
     return 1.0f;
 }
 
+/**
+ * @brief Rotates into the affine frame, then undoes its scale and shear and
+ *        subtracts its translation.
+ * @tparam Prepared PreparedAffineSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param prepared Frame rotation and affine coefficients.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Warped coordinate and path length.
+ */
 template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 affine_frame(const math::Complex &input, const Prepared &prepared,
@@ -478,6 +548,18 @@ affine_frame(const math::Complex &input, const Prepared &prepared,
                             path_length_required);
 }
 
+/**
+ * @brief Sine shear displacing across the field axis.
+ * @tparam Params WaveShearParams-shaped parameter block.
+ * @tparam Prepared PreparedRotation-shaped slot state.
+ * @param input Plane coordinate.
+ * @param params Strength and frequency; zero strength returns @p input.
+ * @param phase The slot's phase clock, in cycles.
+ * @param amplitude Shear amplitude, the strength times the envelope.
+ * @param prepared Field-axis rotation.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Sheared coordinate; path length is the shear offset's magnitude.
+ */
 template <typename Params, typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 wave_shear(const math::Complex &input, const Params &params, float phase,
@@ -500,6 +582,15 @@ wave_shear(const math::Complex &input, const Params &params, float phase,
           path_length_required ? fabsf(offset) : 0.0f};
 }
 
+/**
+ * @brief Folds the rotated plane into mirrored cells.
+ * @tparam Params MirrorParams-shaped parameter block.
+ * @tparam Prepared PreparedMirrorSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param params Cell width and height.
+ * @param prepared Fold-lattice rotation and offsets.
+ * @return Folded coordinate, rotated back to the input orientation.
+ */
 template <typename Params, typename Prepared>
 __attribute__((always_inline)) inline math::Complex
 mirror_tile_coords(const math::Complex &input, const Params &params,
@@ -519,6 +610,16 @@ mirror_tile_coords(const math::Complex &input, const Params &params,
   return {c * folded_x - s * folded_y, s * folded_x + c * folded_y};
 }
 
+/**
+ * @brief `mirror_tile_coords` as a warp step.
+ * @tparam Params MirrorParams-shaped parameter block.
+ * @tparam Prepared PreparedMirrorSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param params Cell width and height.
+ * @param prepared Fold-lattice rotation and offsets.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Folded coordinate and path length.
+ */
 template <typename Params, typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 mirror_tile(const math::Complex &input, const Params &params,
@@ -527,6 +628,15 @@ mirror_tile(const math::Complex &input, const Params &params,
                             path_length_required);
 }
 
+/**
+ * @brief Twists about the vortex center; the twist halves at the vortex
+ *        radius.
+ * @tparam Prepared PreparedVortexSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param prepared Center, squared radius and center twist.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Twisted coordinate and path length.
+ */
 template <typename Prepared>
 __attribute__((always_inline)) inline WarpStepResult
 vortex(const math::Complex &input, const Prepared &prepared,
@@ -543,8 +653,19 @@ vortex(const math::Complex &input, const Prepared &prepared,
       path_length_required);
 }
 
+/** @brief Bound on each curl-vector component. */
 inline constexpr float CURL_VECTOR_COMPONENT_MAX = 4.0f;
 
+/**
+ * @brief Curl (-dn/dy, dn/dx) of the noise field by central differences.
+ * @param input Plane coordinate.
+ * @param noise Noise generator.
+ * @param basis Octave basis.
+ * @param scale Spatial scale of the sampled field.
+ * @param loop_offset This frame's noise-loop point.
+ * @return Curl vector, each component clamped to
+ *         +-`CURL_VECTOR_COMPONENT_MAX`.
+ */
 HS_O3_FN inline math::Complex curl_vector(const math::Complex &input,
                                           const FastNoiseLite &noise,
                                           math::NoiseBasis basis, float scale,
@@ -571,6 +692,19 @@ HS_O3_FN inline math::Complex curl_vector(const math::Complex &input,
           hs::clamp(dx, -CURL_VECTOR_COMPONENT_MAX, CURL_VECTOR_COMPONENT_MAX)};
 }
 
+/**
+ * @brief Advects along the noise curl field.
+ * @param input Plane coordinate.
+ * @param noise Noise generator.
+ * @param basis Octave basis.
+ * @param intervals Steps to split @p distance into: 1 takes one Euler step,
+ *        more take midpoint steps.
+ * @param scale Spatial scale of the sampled field.
+ * @param distance Signed advection distance; 0 returns @p input.
+ * @param loop_offset This frame's noise-loop point.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Advected coordinate and the summed step lengths.
+ */
 HS_O3_FN inline WarpStepResult
 curl_flow(const math::Complex &input, const FastNoiseLite &noise,
           math::NoiseBasis basis, uint8_t intervals, float scale,
@@ -603,7 +737,14 @@ curl_flow(const math::Complex &input, const FastNoiseLite &noise,
 }
 
 /** @brief A chart change, not a step: the angular output is in radians, so
-    the stage contributes no plane-unit path length. */
+    the stage contributes no plane-unit path length.
+    @tparam Params PolarParams-shaped parameter block.
+    @param input Plane coordinate.
+    @param params Radial scale and phases.
+    @param phase The slot's phase clock, in cycles.
+    @param logarithmic Use log radius instead of radius.
+    @param harmonic Angular multiplier.
+    @return (radial, angular) chart coordinate with zero path length. */
 template <typename Params>
 __attribute__((always_inline)) inline WarpStepResult
 polar_chart(const math::Complex &input, const Params &params, float phase,
@@ -618,6 +759,19 @@ polar_chart(const math::Complex &input, const Params &params, float phase,
   return {output, 0.0f};
 }
 
+/**
+ * @brief Displaces by the rotated noise vector for a fixed basis.
+ * @tparam BasisV Octave basis.
+ * @tparam Params VectorNoiseParams-shaped parameter block.
+ * @tparam Prepared PreparedVectorNoiseSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param params Strength and scale; zero strength returns @p input.
+ * @param amplitude Displacement amplitude, the strength times the envelope.
+ * @param noise Noise generator.
+ * @param prepared Vector rotation and noise-loop point.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Displaced coordinate and path length.
+ */
 template <math::NoiseBasis BasisV, typename Params, typename Prepared>
 HS_HOT_FLASH_MEMBER inline WarpStepResult
 vector_noise_fixed(const math::Complex &input, const Params &params,
@@ -645,6 +799,19 @@ vector_noise_fixed(const math::Complex &input, const Params &params,
           displacement(delta, path_length_required)};
 }
 
+/**
+ * @brief `vector_noise_fixed` dispatched on a run-time basis.
+ * @tparam Params VectorNoiseParams-shaped parameter block.
+ * @tparam Prepared PreparedVectorNoiseSlot-shaped slot state.
+ * @param input Plane coordinate.
+ * @param params Strength and scale; zero strength returns @p input.
+ * @param amplitude Displacement amplitude, the strength times the envelope.
+ * @param noise Noise generator.
+ * @param basis Octave basis.
+ * @param prepared Vector rotation and noise-loop point.
+ * @param path_length_required Measure the step's path length; else 0.
+ * @return Displaced coordinate and path length.
+ */
 template <typename Params, typename Prepared>
 HS_HOT_FLASH_MEMBER inline WarpStepResult
 vector_noise(const math::Complex &input, const Params &params, float amplitude,
@@ -670,9 +837,14 @@ vector_noise(const math::Complex &input, const Params &params, float amplitude,
  * prepare(frame), path_length_required(frame) accessors.
  */
 template <typename State> struct AffineFrame : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the affine slot
+   *        state and the path-length flag.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
@@ -697,13 +869,26 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  /// Slot state `State::prepare` resolves.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the slot's per-frame state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Applies the affine frame change.
+   * @param input Plane coordinate.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
@@ -719,9 +904,15 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
  */
 template <typename State, typename EnvelopePolicy = FlatEnvelope>
 struct WaveShear : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the shear
+   *        parameters, phase, rotation and path-length flag, and `edge_width`
+   *        under EdgeFadeEnvelope.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       ParamsPreparedProvider<State, CandidateBinding> &&
@@ -738,13 +929,27 @@ struct WaveShear : ApproximationDefaults {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
 
+  /// Slot state `State::prepare` resolves.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the slot's per-frame state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Applies the sine shear.
+   * @param input Plane coordinate.
+   * @param provenance Projection provenance the envelope reads.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
@@ -762,9 +967,14 @@ struct WaveShear : ApproximationDefaults {
  * prepare(frame), path_length_required(frame) accessors.
  */
 template <typename State> struct Vortex : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the vortex slot
+   *        state and the path-length flag.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       PreparedProvider<State, CandidateBinding> &&
@@ -784,13 +994,26 @@ template <typename State> struct Vortex : ApproximationDefaults {
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  /// Slot state `State::prepare` resolves.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the slot's per-frame state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Applies the vortex twist.
+   * @param input Plane coordinate.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
@@ -804,9 +1027,14 @@ template <typename State> struct Vortex : ApproximationDefaults {
  * params(frame), prepare(frame), path_length_required(frame) accessors.
  */
 template <typename State> struct MirrorTile : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the cell size,
+   *        mirror slot state and path-length flag.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       ParamsPreparedProvider<State, CandidateBinding> &&
@@ -824,13 +1052,26 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  /// Slot state `State::prepare` resolves.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the slot's per-frame state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Applies the mirrored tiling.
+   * @param input Plane coordinate.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
@@ -852,9 +1093,14 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
 template <typename State, typename PolarMode, uint8_t Harmonic>
 struct PolarChart : ApproximationDefaults {
   static_assert(Harmonic >= 1 && Harmonic <= MAX_POLAR_HARMONIC);
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the polar
+   *        parameters and phase.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ParamsProvider<State, CandidateBinding> &&
@@ -865,6 +1111,12 @@ struct PolarChart : ApproximationDefaults {
         { State::phase(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Maps the coordinate to its polar chart; path length is 0.
+   * @param input Plane coordinate.
+   * @param frame Frame state.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame) {
@@ -881,9 +1133,15 @@ struct PolarChart : ApproximationDefaults {
  */
 template <typename State, math::NoiseBasis BasisV, typename EnvelopePolicy>
 struct VectorNoise : ApproximationDefaults {
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the noise
+   *        parameters, generator, slot state and path-length flag, and
+   *        `edge_width` under EdgeFadeEnvelope.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       ParamsPreparedProvider<State, CandidateBinding> &&
@@ -903,13 +1161,27 @@ struct VectorNoise : ApproximationDefaults {
          { State::params(frame).edge_width } -> std::convertible_to<float>;
        });
 
+  /// Slot state `State::prepare` resolves.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves the slot's per-frame state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Applies the noise-vector displacement.
+   * @param input Plane coordinate.
+   * @param provenance Projection provenance the envelope reads.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
@@ -933,9 +1205,15 @@ struct CurlFlow : ApproximationDefaults {
   static_assert(IntegratorPolicy::INTERVALS == 1 ||
                 IntegratorPolicy::INTERVALS == 2 ||
                 IntegratorPolicy::INTERVALS == 4);
-  using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using Binding = typename State::Binding; ///< Binding of the provider `State`.
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the curl
+   *        parameters, phase, generator and path-length flag, and `edge_width`
+   *        under EdgeFadeEnvelope.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       Detail::ParamsProvider<State, CandidateBinding> &&
@@ -954,10 +1232,23 @@ struct CurlFlow : ApproximationDefaults {
   /** @brief This frame's point on the plane domain's time loop. */
   using Prepared = math::Vector;
 
+  /**
+   * @brief Resolves the noise-loop point for the frame's phase.
+   * @param frame Frame state.
+   * @return Offset the plane coordinate is taken against.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return math::noise_projected_loop_offset(State::phase(frame));
   }
 
+  /**
+   * @brief Advects along the curl field.
+   * @param input Plane coordinate.
+   * @param provenance Projection provenance the envelope reads.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Warped coordinate and the step's path length.
+   */
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &provenance,
         const FrameState &frame, const Prepared &prepared) {
