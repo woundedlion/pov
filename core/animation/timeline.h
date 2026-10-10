@@ -96,17 +96,16 @@ struct TimelineEvent {
 inline constexpr int TIMELINE_MAX_EVENTS = 64;
 /** @brief Process-wide timeline storage shared by all template instances. */
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-// True while a Timeline instance is alive.
 /// True while a Timeline instance is alive.
 extern bool global_timeline_live;
 /// Current global frame count.
-extern uint32_t global_timeline_t; // current global frame count
+extern uint32_t global_timeline_t;
 /// Number of active events.
-extern int global_timeline_num_events; // current number of active events
+extern int global_timeline_num_events;
 /// Events dropped on a full timeline; wraps.
-extern uint32_t global_timeline_dropped; // wrapping full-timeline drop count
-// Set once per saturation episode, cleared whenever the event table empties.
-/// Whether the current saturation episode has logged its drop.
+extern uint32_t global_timeline_dropped;
+/// Whether the current saturation episode has logged its drop; set once per
+/// episode, cleared whenever the event table empties.
 extern bool global_timeline_drop_logged;
 
 /**

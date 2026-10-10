@@ -152,9 +152,11 @@ public:
   /**
    * @brief The carousel's segue policy instance (holds per-transition state
    * such as a sweep axis or wave origin).
+   * @return Mutable reference to the segue policy.
    */
   SegueT &segue() { return segue_policy; }
-  /** @brief Const view of the segue policy instance. */
+  /** @brief Const view of the segue policy instance.
+   *  @return Const reference to the segue policy. */
   const SegueT &segue() const { return segue_policy; }
 
   /**
@@ -193,7 +195,15 @@ public:
     after_reset(persistent_arena);
   }
 
-  /** @brief Evaluates per-face segue phases into a bound output buffer. */
+  /**
+   * @brief Evaluates per-face segue phases into a bound output buffer.
+   * @param base Untransformed mesh; supplies the sweep faces under a
+   * `LOCAL_SWEEP` policy.
+   * @param transformed Displayed mesh; supplies face classes, and the sweep
+   * faces otherwise.
+   * @param phase Segue progress passed to the policy.
+   * @param out Per-face phase output, indexed by face.
+   */
   __attribute__((always_inline)) void
   fill_face_phases(const MeshState &base, const MeshState &transformed,
                    float phase, ArenaVector<float> &out) const {
