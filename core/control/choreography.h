@@ -58,16 +58,23 @@
 template <typename Derived, typename ParamsT>
 class ChoreographedEffect : public Effect {
 public:
-  using Params = ParamsT;
+  using Params = ParamsT; ///< The effect's parameter aggregate.
 
-  /** @brief Uses the parameter aggregate's static descriptions when present. */
+  /**
+   * @brief Uses the parameter aggregate's static descriptions when present.
+   * @return `Params::FIELDS`.
+   */
   static constexpr auto parameter_fields()
     requires requires { Params::FIELDS; }
   {
     return Params::FIELDS;
   }
 
-  /** @brief Checks the derived effect's described parameter ranges. */
+  /**
+   * @brief Checks the derived effect's described parameter ranges.
+   * @param value Parameters to check.
+   * @return True when every described field is in range.
+   */
   static constexpr bool valid_params(const Params &value)
     requires requires { Derived::parameter_fields(); }
   {
@@ -112,7 +119,10 @@ public:
   }
 
 #if HS_ENABLE_EFFECT_CONTROL_API
-  /** @brief Selects and pauses one authored preset for profiling. */
+  /**
+   * @brief Selects and pauses one authored preset for profiling.
+   * @param index Authored preset index.
+   */
   void profile_select_preset(size_t index) {
     HS_CHECK(index < authored_preset_count(),
              "profile preset index out of range");
@@ -124,11 +134,17 @@ public:
   }
 #endif
 
-  /** @brief Number of presets the effect defines. */
+  /**
+   * @brief Number of presets the effect defines.
+   * @return Authored preset count.
+   */
   static consteval size_t authored_preset_count() { return preset_count_of(); }
 
   /** @brief How the preset at @p index moves to the next one; Snap for an
-      effect with no preset rows. */
+      effect with no preset rows.
+   * @param index Preset index.
+   * @return The preset's departure.
+   */
   static constexpr Segue::Preset::Departure preset_departure(size_t index) {
     if constexpr (requires { Derived::preset(index); })
       return Derived::preset(index).segue;
@@ -139,7 +155,9 @@ public:
   }
 
   /** @brief Frames to play every preset once: all dwells plus every
-      departure except the last preset's. */
+      departure except the last preset's.
+   * @return Frame count of one full preset cycle.
+   */
   static consteval size_t cycle_frames() {
     size_t frames = preset_count_of() * Derived::PRESET_DWELL_FRAMES;
     for (size_t index = 0; index + 1 < preset_count_of(); ++index)
@@ -148,6 +166,8 @@ public:
   }
 
 protected:
+  /** @return The preset being left while a fade is before its midpoint, else
+   *          the committed preset. */
   size_t displayed_preset_index() const override {
     return transition.active && transition.fades && !transition.adopted
                ? transition.from_index
@@ -163,7 +183,10 @@ protected:
         });
   }
 
-  /** @brief Interpolates the derived effect's described parameter members. */
+  /**
+   * @brief Interpolates the derived effect's described parameter members.
+   * @param progress Transition progress in [0, 1].
+   */
   HS_COLD_MEMBER void blend_params(float progress)
     requires requires { Derived::parameter_fields(); }
   {
@@ -180,14 +203,23 @@ protected:
     uint16_t frames = 0;         /**< Steps the departure spans. */
     bool fades = false;          /**< A Fade departure rather than a Lerp. */
     bool adopted = false;        /**< A fade has passed its midpoint. */
-    uint16_t serial = 0;
+    uint16_t serial = 0; ///< Increments per armed transition; stale steps skip.
     size_t from_index = 0; /**< Preset the transition is leaving. */
   };
 
+  /**
+   * @brief Constructs the effect base.
+   * @param W Canvas width in pixels.
+   * @param H Canvas height in pixels.
+   * @param cfg Effect configuration.
+   */
   HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
       : Effect(W, H, cfg) {}
 
-  /** @brief Installs @p target as the live parameters. */
+  /**
+   * @brief Installs @p target as the live parameters.
+   * @param target Parameters to install.
+   */
   void adopt_params(const Params &target) { params = target; }
 
   /** @brief Called when a Lerp transition to @p target starts. */
@@ -335,8 +367,8 @@ protected:
 
   /** Live parameters; the registered sliders write straight into these. */
   Params params = initial_params_of();
-  Transition transition;
-  Timeline timeline;
+  Transition transition; ///< The in-flight automatic preset transition.
+  Timeline timeline;     ///< Runs the effect's animations.
 
 private:
   Derived &derived() { return static_cast<Derived &>(*this); }
