@@ -732,10 +732,10 @@ struct PeirceFastSquare : FrameConjugateFromState<State> {
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
       requires(const typename CandidateBinding::FrameState &frame) {
-        { State::ZERO_CENTRAL_MERIDIAN } -> std::convertible_to<bool>;
+        requires State::ZERO_CENTRAL_MERIDIAN;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
         { State::singularity_fade(frame) } -> std::same_as<float>;
-      } && State::ZERO_CENTRAL_MERIDIAN;
+      };
 
   /**
    * @brief Projects a direction given in the projection frame.
