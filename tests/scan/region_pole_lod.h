@@ -22,7 +22,7 @@ inline void test_face_rasterize_matches_scan_region() {
   // seam-wrapping band.
   auto run_case = [&](const math::Vector &axis, float rho, int sides,
                       float phase, int x0, int x1, int margin) {
-    HS_CONTEXT("face", sides, x0);
+    HS_CONTEXT("face", sides, x1);
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     math::Vector verts[8];
     uint16_t idx[8];
@@ -556,19 +556,27 @@ inline void test_pole_lod_shading_matches_undecimated() {
   for (float lod : {1.0f, 4.0f})
     for (bool typed : {false, true}) {
       HS_CONTEXT("folded", static_cast<int>(lod), typed);
-      compare(draw_folded(std::type_identity<Scan::PlanarPolygon>{}, 0.0f,
-                          rim_axis, 0.99f, 3, typed),
-              draw_folded(std::type_identity<Scan::PlanarPolygon>{}, lod,
-                          rim_axis, 0.99f, 3, typed));
-      compare(draw_folded(std::type_identity<Scan::Star>{}, 0.0f, rim_axis,
-                          0.99f, 4, typed),
-              draw_folded(std::type_identity<Scan::Star>{}, lod, rim_axis,
-                          0.99f, 4, typed));
-      for (int petals : {3, 6})
+      {
+        HS_CONTEXT("planar_polygon");
+        compare(draw_folded(std::type_identity<Scan::PlanarPolygon>{}, 0.0f,
+                            rim_axis, 0.99f, 3, typed),
+                draw_folded(std::type_identity<Scan::PlanarPolygon>{}, lod,
+                            rim_axis, 0.99f, 3, typed));
+      }
+      {
+        HS_CONTEXT("star");
+        compare(draw_folded(std::type_identity<Scan::Star>{}, 0.0f, rim_axis,
+                            0.99f, 4, typed),
+                draw_folded(std::type_identity<Scan::Star>{}, lod, rim_axis,
+                            0.99f, 4, typed));
+      }
+      for (int petals : {3, 6}) {
+        HS_CONTEXT("flower", petals);
         compare(draw_folded(std::type_identity<Scan::Flower>{}, 0.0f, fold_axis,
                             0.6f, petals, typed),
                 draw_folded(std::type_identity<Scan::Flower>{}, lod, fold_axis,
                             0.6f, petals, typed));
+      }
     }
 }
 

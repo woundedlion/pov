@@ -350,7 +350,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}};
 
   for (int variant = 0; variant < 9; ++variant) {
-    HS_CONTEXT("variant", variant, 0);
+    HS_CONTEXT("variant", variant);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
     std::vector<Pixel> reference;
@@ -361,6 +361,7 @@ inline void test_shader_clip_arc_matches_predicate() {
     HS_EXPECT_EQ(painted, static_cast<size_t>(W * H));
 
     for (const Band &b : bands) {
+      HS_CONTEXT("band", b.x0, b.margin);
       ClipRegion cr;
       cr.w = W;
       cr.h = H;
