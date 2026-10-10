@@ -365,9 +365,9 @@ public:
   template <size_t K> struct BlockCandidates {
     static_assert(K > 0 && 4 * K <= UINT8_MAX,
                   "block candidates require 1..63 sites per corner");
-    math::Vector pos[4 * K];
-    uint16_t idx[4 * K];
-    uint8_t n;
+    math::Vector pos[4 * K]; ///< Site positions, parallel to `idx`.
+    uint16_t idx[4 * K];     ///< Distinct site indices; first `n` valid.
+    uint8_t n;               ///< Number of valid entries.
   };
 
   /** @brief Maximum corner-grid and candidate-row bytes at a minimum block size.
