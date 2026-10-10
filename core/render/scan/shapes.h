@@ -146,8 +146,8 @@ struct DistortedRingStack {
     static constexpr int MAX_RINGS = 255; /**< Ring indices fit a byte. */
     /** @brief Inclusive ring-index range; lo > hi when no ring reaches. */
     struct Range {
-      uint8_t lo;
-      uint8_t hi;
+      uint8_t lo; ///< Lowest ring index that can reach the cell.
+      uint8_t hi; ///< Highest ring index that can reach the cell.
     };
     Range cells[BINS * CHUNKS]; /**< Row-major [bin][chunk]. */
   };

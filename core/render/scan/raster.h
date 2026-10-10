@@ -92,29 +92,57 @@ __attribute__((always_inline)) inline float pole_lod_slack(int run,
 __attribute__((always_inline)) inline float report_stretch(const SDF::Ring &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::DistortedRing.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::DistortedRing &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::FlatDistortedRing.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::FlatDistortedRing &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::PlanarPolygon.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::PlanarPolygon &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::SphericalPolygon.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::SphericalPolygon &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::Star.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float report_stretch(const SDF::Star &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::Flower.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Flower &) {
   return 1.0f;
 }
+/**
+ * @brief Report stretch of an SDF::Line.
+ * @return 1 (no rescaling).
+ */
 __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
   return 1.0f;
 }
@@ -137,26 +165,60 @@ inline float report_stretch(const SDF::Subtract<A, B> &shape);
 template <typename Shape>
 inline float report_stretch(const SDF::AngularRepeat<Shape> &shape);
 
+/**
+ * @brief Report stretch of an SDF::Union: the larger of its operands'.
+ * @tparam A First operand shape.
+ * @tparam B Second operand shape.
+ * @param shape Composite whose operands are queried.
+ * @return max(report_stretch(shape.a), report_stretch(shape.b)).
+ */
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Union<A, B> &shape) {
   return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
+/**
+ * @brief Report stretch of an SDF::SmoothUnion: the larger of its operands'.
+ * @tparam A First operand shape.
+ * @tparam B Second operand shape.
+ * @param shape Composite whose operands are queried.
+ * @return max(report_stretch(shape.a), report_stretch(shape.b)).
+ */
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::SmoothUnion<A, B> &shape) {
   return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
+/**
+ * @brief Report stretch of an SDF::Intersection: the larger of its operands'.
+ * @tparam A First operand shape.
+ * @tparam B Second operand shape.
+ * @param shape Composite whose operands are queried.
+ * @return max(report_stretch(shape.a), report_stretch(shape.b)).
+ */
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Intersection<A, B> &shape) {
   return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
+/**
+ * @brief Report stretch of an SDF::Subtract: the larger of its operands'.
+ * @tparam A First operand shape.
+ * @tparam B Second operand shape.
+ * @param shape Composite whose operands are queried.
+ * @return max(report_stretch(shape.a), report_stretch(shape.b)).
+ */
 template <typename A, typename B>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::Subtract<A, B> &shape) {
   return fmaxf(report_stretch(shape.a), report_stretch(shape.b));
 }
+/**
+ * @brief Report stretch of an SDF::AngularRepeat: that of its repeated shape.
+ * @tparam Shape Repeated shape.
+ * @param shape Repeat whose inner shape is queried.
+ * @return report_stretch(shape.shape).
+ */
 template <typename Shape>
 __attribute__((always_inline)) inline float
 report_stretch(const SDF::AngularRepeat<Shape> &shape) {
@@ -687,7 +749,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H> struct BoundingSphere {
-  int y_min, y_max;
+  /// First canvas row the cap can touch; rows are inclusive and clamped.
+  int y_min, y_max;     ///< Last canvas row the cap can touch.
   float center_theta;   /**< Longitude of center in pixel units. */
   float cos_rho;        /**< cos of the cap's angular radius. */
   float cos_center_phi; /**< cos of the cap center's colatitude. */

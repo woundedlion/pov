@@ -47,6 +47,7 @@ template <typename Shape> struct TransformedVolume {
   TransformedVolume(const Shape &&, const math::Vector &,
                     const math::Quaternion &) = delete;
 
+  /** @brief Forwards the SDF's trace precondition check, if it has one. */
   void check_trace_preconditions() const {
     if constexpr (requires { sdf.check_trace_preconditions(); })
       sdf.check_trace_preconditions();
