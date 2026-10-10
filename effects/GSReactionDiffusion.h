@@ -853,10 +853,8 @@ private:
                  row[COLOR_VALUE_STEPS].b * w10 +
                  row[COLOR_VALUE_STEPS + 1].b * w11;
     }
-    return Pixel(
-        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
+    return Pixel(round_linear_channel(accum_r), round_linear_channel(accum_g),
+                 round_linear_channel(accum_b));
   }
 
   HS_HOT_FLASH_MEMBER Pixel shade_render(

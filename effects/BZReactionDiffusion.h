@@ -302,10 +302,8 @@ private:
     float accum_r = ca.r * mix_a + cb.r * mix_b + cc.r * mix_c;
     float accum_g = ca.g * mix_a + cb.g * mix_b + cc.g * mix_c;
     float accum_b = ca.b * mix_a + cb.b * mix_b + cc.b * mix_c;
-    return Pixel(
-        static_cast<uint16_t>(hs::clamp(accum_r + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_g + 0.5f, 0.0f, 65535.0f)),
-        static_cast<uint16_t>(hs::clamp(accum_b + 0.5f, 0.0f, 65535.0f)));
+    return Pixel(round_linear_channel(accum_r), round_linear_channel(accum_g),
+                 round_linear_channel(accum_b));
   }
 
   /**
