@@ -1314,7 +1314,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── face_classes.h       Congruence-class ids and rasterizer records
 │   │   │   └── face_class_bake.h    Congruence clustering and canonical distance-LUT bake
 │   │   ├── ray.h                   Spherical ray rendering umbrella
-│   │   ├── ray/                    Ray contracts, camera embeddings, query adapters and shared marching
+│   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
