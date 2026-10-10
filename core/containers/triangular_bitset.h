@@ -28,8 +28,8 @@ template <int MAX_V> struct TriangularBitset {
   // Below 2 there is no unordered pair, so BYTES is 0 and data[] is a
   // zero-length array (a GNU extension, not ISO C++).
   static_assert(MAX_V >= 2, "TriangularBitset: MAX_V must be at least 2");
-  static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
-  static constexpr int BYTES = (BITS + 7) / 8;
+  static constexpr int BITS = MAX_V * (MAX_V - 1) / 2; ///< Unordered pairs.
+  static constexpr int BYTES = (BITS + 7) / 8; ///< Storage size in bytes.
   uint8_t data[BYTES] = {}; /**< Packed bit storage, zero-initialized. */
 
   /**
