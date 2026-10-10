@@ -119,13 +119,18 @@ struct PeriodicRippleParams {
 static_assert(field_ids_unique<PeriodicRippleParams>());
 static_assert(field_defaults_in_range<PeriodicRippleParams>());
 
-/** @brief Advances the periodic ripple phase by one frame. */
+/** @brief Advances the periodic ripple phase by one frame.
+ *  @param phase Ripple clock in frames, wrapped to [0, period).
+ *  @param params Ripple parameters supplying the period. */
 inline void advance_ripple_phase(float &phase,
                                  const PeriodicRippleParams &params) {
   phase = fmodf(phase + 1.0f, params.period);
 }
 
-/** @brief Converts the ripple clock in frames to a normalized cycle. */
+/** @brief Converts the ripple clock in frames to a normalized cycle.
+ *  @param phase Ripple clock in frames.
+ *  @param params Ripple parameters supplying the period.
+ *  @return @p phase over the period. */
 inline float ripple_cycle(float phase, const PeriodicRippleParams &params) {
   return phase / params.period;
 }
@@ -135,7 +140,9 @@ struct PreparedLoop {
   math::Vector loop_offset; ///< Noise-space offset of the loop point.
 };
 
-/** @brief Resolves this frame's loop point from the loop phase. */
+/** @brief Resolves this frame's loop point from the loop phase.
+ *  @param phase Position on the time loop, in turns.
+ *  @return The prepared loop point. */
 HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
   return {math::noise_sphere_loop_offset(phase)};
 }
@@ -152,7 +159,10 @@ struct PreparedRipple {
   Animation::RippleParams ripple; ///< Synced ripple with the cycle envelope.
 };
 
-/** @brief Resolves a seamless ripple cycle for ripple_transform(). */
+/** @brief Resolves a seamless ripple cycle for ripple_transform().
+ *  @param params Ripple parameters.
+ *  @param cycle Normalized cycle; wrapped to [0, 1).
+ *  @return The synced ripple, its amplitude enveloped over the cycle. */
 HS_FLASH_INLINE inline PreparedRipple
 prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   Animation::RippleParams ripple;
@@ -169,7 +179,12 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   return {ripple};
 }
 
-/** @brief Applies a prepared periodic ripple and reports its angular travel. */
+/** @brief Applies a prepared periodic ripple and reports its angular travel.
+ *  @param input Unit sphere direction.
+ *  @param prepared This frame's ripple.
+ *  @param path_length_required Whether to compute the angular travel.
+ *  @return Displaced direction and travel in radians; travel is 0 when not
+ *          required or when the point did not move. */
 __attribute__((always_inline)) inline SurfaceResult
 periodic_ripple(const math::Vector &input, const PreparedRipple &prepared,
                 bool path_length_required) {
@@ -182,7 +197,10 @@ periodic_ripple(const math::Vector &input, const PreparedRipple &prepared,
           math::fast_acos(hs::clamp(math::dot(input, displaced), -1.0f, 1.0f))};
 }
 
-/** @brief Resolves the loop point and steering frame for DirectNoise. */
+/** @brief Resolves the loop point and steering frame for DirectNoise.
+ *  @param phase Position on the time loop, in turns.
+ *  @param direction Steering angle, in turns.
+ *  @return The prepared loop point and steering cos/sin. */
 HS_FLASH_INLINE inline PreparedDirect prepare_direct(float phase,
                                                      float direction) {
   const float angle = math::TWO_PI_F * direction;

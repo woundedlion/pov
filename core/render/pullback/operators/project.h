@@ -37,7 +37,11 @@ static_assert(std::size(PROJECTION_FRAME_IDS) ==
 inline constexpr TopologyGate SPIN_WANDER_FRAME_GATE{
     "frame", live_values(ProjectionFrame::SPIN_WANDER)};
 
-/** @brief Shared projection frame topology followed by family-specific fields. */
+/** @brief Shared projection frame topology followed by family-specific fields.
+ *  @tparam Params Projection parameter family.
+ *  @tparam Extra Additional topology field types.
+ *  @param extra Family-specific topology fields.
+ *  @return The "frame" field, defaulting to spin-wander, then @p extra. */
 template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 1 + sizeof...(Extra)>
 projection_frame_topology(const Extra &...extra) {
@@ -159,7 +163,8 @@ struct ProjectOpModel : ValueStateModel<SpatialWalkState> {
   static void init(State &state, InstanceId id) {
     init_walk(state, static_cast<int32_t>(id.stable_hash));
   }
-  /** @brief Bound for projection families with capped or bounded coordinates. */
+  /** @brief Bound for projection families with capped or bounded coordinates.
+   *  @return Twice `projections::STEREO_INF`. */
   static float plane_bound(const Params &, float) {
     return 2.0f * projections::STEREO_INF;
   }

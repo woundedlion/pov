@@ -5,6 +5,12 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
+/** @file composed_providers.h
+ * @brief Providers binding pullback stages to a composed effect's
+ * frame state and parameter families.
+ */
+
+/** @brief Pipeline order of the surface stage relative to the lens stage. */
 enum class SurfacePlacement : uint8_t { BEFORE_LENS, AFTER_LENS };
 
 // The stage vocabulary a composed effect names, re-exported from the
@@ -360,6 +366,9 @@ struct ValueProvider {
 /**
  * @brief Whether the colorizer samples the hue-rotation LUT this frame.
  * @details The runtime rebuilds the LUT on this same condition.
+ * @tparam HueV Hue-rotation source.
+ * @param color Colour family.
+ * @return True when hue rotation is enabled with a non-zero amount.
  */
 template <HueMode HueV>
 inline bool hue_rotation_active(const ColorParams &color) {

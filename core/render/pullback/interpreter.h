@@ -86,7 +86,9 @@ enum class ChainStatus : uint8_t {
   MIGRATE_FAILED      ///< A surviving instance's state failed to migrate.
 };
 
-/** @brief Wire spelling of @p status. */
+/** @brief Wire spelling of @p status.
+ *  @param status Chain status.
+ *  @return The enumerator name. */
 inline const char *chain_status_name(ChainStatus status) {
   switch (status) {
   case ChainStatus::OK:
@@ -128,7 +130,8 @@ struct ChainRefusal {
   int16_t entry_index; ///< Offending entry, or -1 for the whole chain.
 };
 
-/** Every shipped schema field id must fit the fixed name reservation. */
+/** Every shipped schema field id must fit the fixed name reservation.
+ *  @return True when no id exceeds `MAX_FIELD_ID`. */
 consteval bool operator_schema_ids_fit_names() {
   for (const OperatorDescriptor &op : OPERATOR_TABLE)
     for (uint16_t index = 0; index < op.schema_count; ++index)
@@ -147,7 +150,9 @@ struct ChainEntryRequest {
 };
 
 /** @brief Whether @p id matches [a-z][a-z0-9]*(-[a-z0-9]+)* within the length
-    cap: one kebab segment, no dots. */
+    cap: one kebab segment, no dots.
+    @param id Candidate instance id.
+    @return True when well-formed. */
 inline bool instance_id_wellformed(std::string_view id) {
   if (id.empty() || id.size() > MAX_INSTANCE_ID)
     return false;
@@ -271,6 +276,8 @@ public:
    *  @param request Ordered {instance_id, operator_id} entries.
    *  @param initialize Candidate entries and their arena base; false refuses.
    *  @param migrate_existing Preserve matching live states before initialization.
+   *  @tparam Initializer Callable taking the candidate entries and arena base.
+   *  @return {OK, -1} on commit, else the refusal.
    */
   template <typename Initializer>
   ChainRefusal compile(std::span<const ChainEntryRequest> request,
@@ -383,7 +390,8 @@ public:
     }
   }
 
-  /** @brief Resolves every op's prepared block from @p ctx. */
+  /** @brief Resolves every op's prepared block from @p ctx.
+   *  @param ctx Frame context. */
   void prepare(const FrameContext &ctx) {
     Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
@@ -405,7 +413,10 @@ public:
     HS_CHECK(!needs_prepare, "ChainProgram::evaluate before prepare()");
   }
 
-  /** @brief Seeds the entry carrier and runs the chain over @p view. */
+  /** @brief Seeds the entry carrier and runs the chain over @p view.
+   *  @param view Unit view direction.
+   *  @param ctx Frame context the program was prepared from.
+   *  @return The shaded colour. */
   Color4 evaluate(const math::Vector &view, const FrameContext &ctx) const {
     alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE];
     alignas(SLOT_ALIGN) uint8_t slot_b[SLOT_SIZE];
@@ -422,7 +433,8 @@ public:
     return *std::launder(reinterpret_cast<const Color4 *>(in));
   }
 
-  /** @brief The committed program's entries, in chain order. */
+  /** @brief The committed program's entries, in chain order.
+   *  @return View of the active side's ops. */
   std::span<const ChainOp> ops() const {
     return {sides[active].ops, sides[active].count};
   }
@@ -431,11 +443,14 @@ public:
       @return False before the first successful compile and after clear(). */
   bool compiled() const { return has_program; }
 
-  /** @brief Bytes the committed program occupies in its arena. */
+  /** @brief Bytes the committed program occupies in its arena.
+   *  @return The byte count. */
   size_t used_bytes() const { return sides[active].used_bytes; }
 
   /** @brief Mutable param block of entry @p index; the value channel's
-      storage and the registration target. */
+      storage and the registration target.
+      @param index Entry index in the committed program.
+      @return The block in the active arena. */
   uint8_t *param_block(size_t index) {
     HS_CHECK(index < sides[active].count, "ChainProgram::param_block range");
     return static_cast<uint8_t *>(
@@ -452,7 +467,10 @@ public:
   /** @brief Registered parameter name "{instance}.{field-id}" of schema entry
       @p schema_index of entry @p index.
       @details Storage lives in the winning arena; the pointer dies at the next
-      successful compile, so re-register after every commit. */
+      successful compile, so re-register after every commit.
+      @param index Entry index in the committed program.
+      @param schema_index Field index in the entry's operator schema.
+      @return The NUL-terminated name. */
   const char *param_name(size_t index, uint16_t schema_index) const {
     HS_CHECK(index < sides[active].count, "ChainProgram::param_name range");
     const ChainOp &op = sides[active].ops[index];
@@ -462,13 +480,17 @@ public:
         active, op.name_offset + schema_index * PER_PARAM_NAME_BYTES));
   }
 
-  /** @brief Instance state of entry @p index (LUT bake inputs, inspection). */
+  /** @brief Instance state of entry @p index (LUT bake inputs, inspection).
+   *  @param index Entry index in the committed program.
+   *  @return The state block in the active arena. */
   const void *state_block(size_t index) const {
     HS_CHECK(index < sides[active].count, "ChainProgram::state_block range");
     return const_block_ptr(active, sides[active].ops[index].state_offset);
   }
 
-  /** @brief Prepared block of entry @p index; valid after prepare(). */
+  /** @brief Prepared block of entry @p index; valid after prepare().
+   *  @param index Entry index in the committed program.
+   *  @return The prepared block in the active arena. */
   const uint8_t *prepared_block(size_t index) const {
     HS_CHECK(index < sides[active].count, "ChainProgram::prepared_block range");
     return const_block_ptr(active, sides[active].ops[index].prepared_offset);

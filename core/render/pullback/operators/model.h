@@ -32,7 +32,12 @@ namespace Pullback {
 
 namespace Interp {
 
-/** @brief Whether a derived parameter block appends the expected member bytes. */
+/** @brief Whether a derived parameter block appends the expected member bytes.
+ *  @tparam Derived Derived parameter block.
+ *  @tparam Base Base parameter block.
+ *  @tparam Bytes Bytes of the members @p Derived adds.
+ *  @return True when sizeof(Derived) is Base plus @p Bytes, padded to
+ *          alignof(Derived). */
 template <typename Derived, typename Base, size_t Bytes>
 consteval bool appended_block_size_matches() {
   return sizeof(Derived) ==
@@ -56,7 +61,9 @@ enum class CarrierId : uint8_t {
 /** @brief Result of a fallible lifecycle callback. */
 enum class Status : uint8_t { OK, FAILED };
 
-/** @brief CarrierId of a canonical carrier type. */
+/** @brief CarrierId of a canonical carrier type.
+ *  @tparam T Canonical carrier.
+ *  @return The carrier's identity. */
 template <CanonicalCarrier T> consteval CarrierId carrier_id_of() {
   return static_cast<CarrierId>(
       ::Pullback::Detail::FamilyRank<T, CarrierList>::VALUE);
@@ -68,7 +75,10 @@ inline constexpr auto CARRIER_NAMES =
 static_assert(CARRIER_NAMES.size() == CarrierList::SIZE);
 static_assert(CARRIER_NAMES.size() == static_cast<size_t>(CarrierId::COUNT));
 
-/** @brief Whether the catalog spells carrier @p T as @p name. */
+/** @brief Whether the catalog spells carrier @p T as @p name.
+ *  @tparam T Canonical carrier.
+ *  @param name Candidate catalog spelling.
+ *  @return True on a match. */
 template <CanonicalCarrier T>
 consteval bool carrier_named(std::string_view name) {
   return CARRIER_NAMES[static_cast<size_t>(carrier_id_of<T>())] == name;
@@ -89,7 +99,10 @@ struct InstanceId {
   uint32_t stable_hash;    ///< instance_hash() of the pair.
 };
 
-/** @brief FNV-1a over the instance label, a separator, and the operator id. */
+/** @brief FNV-1a over the instance label, a separator, and the operator id.
+ *  @param instance Instance label.
+ *  @param operator_id Operator id.
+ *  @return The pair's stable hash. */
 constexpr uint32_t instance_hash(std::string_view instance,
                                  std::string_view operator_id) {
   return fnv1a(operator_id, fnv1a(std::string_view("\0", 1), fnv1a(instance)));
@@ -235,7 +248,9 @@ struct OperatorDescriptor {
 
 namespace Detail {
 
-/** @brief The family's TOPOLOGY table, or an empty one when it declares none. */
+/** @brief The family's TOPOLOGY table, or an empty one when it declares none.
+ *  @tparam Params Parameter family.
+ *  @return The topology table. */
 template <typename Params> consteval auto topology_of() {
   if constexpr (requires { Params::TOPOLOGY; })
     return Params::TOPOLOGY;
@@ -245,7 +260,9 @@ template <typename Params> consteval auto topology_of() {
 
 } // namespace Detail
 
-/** @brief Whether topology catalog defaults match the parameter defaults. */
+/** @brief Whether topology catalog defaults match the parameter defaults.
+ *  @tparam Params Parameter family.
+ *  @return True when every topology default matches. */
 template <typename Params> consteval bool topology_defaults_match() {
   constexpr auto TOPOLOGY = Detail::topology_of<Params>();
   constexpr Params DEFAULTS{};
@@ -296,7 +313,10 @@ template <typename Model> consteval auto make_schema() {
 
 } // namespace Detail
 
-/** @brief Whether every schema id is non-null and unique across the schema. */
+/** @brief Whether every schema id is non-null and unique across the schema.
+ *  @tparam N Schema size.
+ *  @param schema Registered schema.
+ *  @return True when the ids are valid. */
 template <size_t N>
 consteval bool schema_ids_unique(const std::array<ParamFieldInfo, N> &schema) {
   for (size_t i = 0; i < N; ++i) {
@@ -309,7 +329,11 @@ consteval bool schema_ids_unique(const std::array<ParamFieldInfo, N> &schema) {
   return true;
 }
 
-/** @brief Every topology enum8 is a genuine switch with well-formed values. */
+/** @brief Every topology enum8 is a genuine switch with well-formed values.
+ *  @tparam N Schema size.
+ *  @param schema Registered schema.
+ *  @return True when each has at least two named values and an in-range
+ *          default. */
 template <size_t N>
 consteval bool
 topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
@@ -329,6 +353,9 @@ topology_wellformed(const std::array<ParamFieldInfo, N> &schema) {
 /**
  * @brief Every gated field names a topology enum8 of the same schema whose
  *        live-value mask both admits and rejects at least one value.
+ * @tparam N Schema size.
+ * @param schema Registered schema.
+ * @return True when every gate is well-formed.
  */
 template <size_t N>
 consteval bool gates_wellformed(const std::array<ParamFieldInfo, N> &schema) {
@@ -352,7 +379,10 @@ consteval bool gates_wellformed(const std::array<ParamFieldInfo, N> &schema) {
   return true;
 }
 
-/** @brief Whether every float default lies within its declared range. */
+/** @brief Whether every float default lies within its declared range.
+ *  @tparam N Schema size.
+ *  @param schema Registered schema.
+ *  @return True when every default is in range. */
 template <size_t N>
 consteval bool defaults_in_range(const std::array<ParamFieldInfo, N> &schema) {
   for (const ParamFieldInfo &field : schema)
@@ -365,7 +395,9 @@ consteval bool defaults_in_range(const std::array<ParamFieldInfo, N> &schema) {
 template <typename Model>
 inline constexpr auto SCHEMA = Detail::make_schema<Model>();
 
-/** @brief Constrained families snap their fields or state a convexity contract. */
+/** @brief Constrained families snap their fields or state a convexity contract.
+ *  @tparam Model The operator model.
+ *  @return True when the model satisfies the contract or is unconstrained. */
 template <typename Model> consteval bool admissibility_curves_valid() {
   if constexpr (requires(const typename Model::Params &params) {
                   Model::validate(params);
@@ -649,6 +681,7 @@ struct StatelessModel : ValueStateModel<EmptyState> {
  * family FIELDS and TOPOLOGY tables, the callbacks as typed-to-erased
  * trampolines, and approximation metadata from the model's declarations.
  * @tparam Model The operator model.
+ * @return The model's descriptor.
  */
 template <typename Model>
 constexpr OperatorDescriptor make_operator_descriptor() {
