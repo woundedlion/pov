@@ -450,13 +450,7 @@ hs_chain_capture_fixtures(pullback_capture_native "${HS_ROOT}")
 target_include_directories(pullback_capture_native PRIVATE
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
-target_compile_definitions(pullback_capture_native PRIVATE
-  HS_ENABLE_EFFECT_REGISTRY=1
-  HS_ENABLE_PARAM_GUI_BRIDGE=1
-  HS_ENABLE_TEST_HOOKS=1
-  HS_ENABLE_TEST_ORACLES=1
-  HS_ENABLE_CHAIN_INTERPRETER=1
-  HS_ENABLE_EFFECT_CONTROL_API=1)
+hs_capture_feature_defines(pullback_capture_native)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)
 _hs_sanitize(pullback_capture_native)
