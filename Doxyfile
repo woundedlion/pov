@@ -58,7 +58,9 @@ PREDEFINED             = FLASHMEM= \
                          HS_ENABLE_EFFECT_REGISTRY=1 \
                          HS_ENABLE_EFFECT_CONTROL_API=1 \
                          HS_ENABLE_PARAM_GUI_BRIDGE=1 \
-                         HS_ENABLE_CHAIN_INTERPRETER=1
+                         HS_ENABLE_CHAIN_INTERPRETER=1 \
+                         HS_O3_BEGIN= \
+                         HS_O3_END=
 
 GENERATE_HTML          = YES
 GENERATE_LATEX         = NO

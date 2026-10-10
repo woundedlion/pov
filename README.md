@@ -553,6 +553,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── mindsplatter_replay_main.cpp  Replay comparator over that corpus (its fixtures live under tests/)
 │   ├── docs_check.py           Markdown fence/link/anchor/path validator (CI)
 │   ├── docs_images.py          Resolves every documented `<img>`; `--stage` copies them into the Doxygen output (CI)
+│   ├── doc_coverage.py         Fails on any Doxygen input symbol without a documentation comment (CI)
 │   ├── license_check.py        Checks every tracked C/C++ source against the terms LICENSE grants it (CI)
 │   ├── *_tests/                Host unit tests for the size and coverage gates, build + git hooks, profile parser, bakes, build pins, docs and license checks
 │   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts

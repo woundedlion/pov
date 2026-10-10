@@ -112,6 +112,11 @@ docs-check:
     {{ python_command }} tools/docs_images.py
     {{ python_command }} tools/build_pins.py --check
 
+# Fail on any Doxygen input symbol without a documentation comment.
+docs-coverage:
+    {{ python_command }} tools/build_pins.py --check-tool doxygen
+    {{ python_command }} tools/doc_coverage.py
+
 # Build the themed Doxygen API reference.
 docs: docs-check _doxygen-theme _doxyfile-local
     {{ python_command }} tools/build_pins.py --check-tool doxygen
