@@ -579,7 +579,7 @@ inline PhiBand fold_phi_band(float center_phi, float target_angle) {
  */
 struct Bounds {
   /// Inclusive first row covered.
-  int y_min, y_max; /**< Inclusive first/last row covered. */
+  int y_min, y_max; /**< Inclusive last row covered. */
 };
 
 /** Bounds naming no row: y_min > y_max, so every row test rejects. */
@@ -720,12 +720,11 @@ inline AxisProjection project_axis(const math::Vector &axis) {
  */
 struct CapBounds {
   /// Axis y-component.
-  float ny, r_val,
-      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
   /// Lower colatitude bound (radians).
-  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float phi_min, phi_max; /**< Upper colatitude bound (radians). */
   /// Cosine of the cap radius.
-  float cos_radius, sin_radius; /**< Cap radius trig, for the scanline pad. */
+  float cos_radius, sin_radius; /**< Sine of the cap radius. */
   /// @var r_val
   /// Length of the axis' XZ projection.
 };

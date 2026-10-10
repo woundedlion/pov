@@ -279,7 +279,7 @@ struct Mesh {
    * @brief Precomputed edge pair for static-topology meshes.
    */
   struct Edge {
-    uint16_t u, v; /**< Endpoint vertex indices into the mesh's vertex array. */
+    uint16_t u, v; /**< Second endpoint vertex index. */
     /** @var u
      *  First endpoint vertex index. */
   };
