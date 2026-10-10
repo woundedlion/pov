@@ -446,18 +446,30 @@ class CheckTool(unittest.TestCase):
             self.assertEqual(self._check("ruff", "ruff 99.0.0")[0], 0)
             status, message = self._check("ruff", "ruff 98.0.0")
         self.assertEqual(status, 1)
-        self.assertIn("pip install ruff==99.0.0", message)
+        self.assertIn("pip install --require-hashes -r requirements/ruff.txt",
+                      message)
 
     def test_a_missing_tool_reports_how_to_install_that_tool(self):
-        for name, want in (("just", f"pip install rust-just=={bp.PINS['just']}"),
+        for name, want in (("just",
+                            "pip install --require-hashes -r requirements/just.txt"),
                            ("shellcheck",
-                            f"pip install shellcheck-py=={bp.PINS['shellcheck']}"),
+                            "pip install --require-hashes -r "
+                            "requirements/shellcheck.txt"),
                            ("node", f"install Node {bp.PINS['node']}"),
                            ("doxygen", f"install Doxygen {bp.INLINE_PINS['doxygen']}")):
             status, message = self._check(name, None)
             self.assertEqual(status, 1, name)
             self.assertIn("nothing runnable", message)
             self.assertIn(want, message)
+
+    def test_pip_remediation_installs_an_existing_hash_lock(self):
+        for name in bp.CHECK_TOOLS:
+            hint = bp.install_hint(name)
+            if hint.startswith("pip "):
+                lock = hint.removeprefix("pip install --require-hashes -r ")
+                self.assertNotEqual(lock, hint, name)
+                self.assertIn("--hash=sha256:",
+                              (bp.ROOT / lock).read_text(encoding="utf-8"), name)
 
     def test_the_remediation_is_not_a_blanket_pip_install(self):
         for name in bp.CHECK_TOOLS:

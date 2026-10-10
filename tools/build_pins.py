@@ -246,35 +246,31 @@ SHARED_LITERAL_USES = (
 )
 
 # --check-tool targets: pin name -> (version command, install hint, the form
-# of the pin that command reports). `{pin}` is filled with the pin value.
+# of the pin that command reports). `{pin}` is filled with the pin value. A
+# None hint means the tool installs from its hash-locked requirements file.
 CHECK_TOOLS = {
-    "cmake": (["cmake", "--version"], "pip install cmake=={pin}", lambda v: v),
-    "actionlint": (["actionlint", "-version"],
-                   "pip install actionlint-py=={pin}",
+    "cmake": (["cmake", "--version"], None, lambda v: v),
+    "actionlint": (["actionlint", "-version"], None,
                    lambda v: v.rsplit(".", 1)[0]),
     "clang": (["clang-{pin}", "--version"], "apt install clang-{pin}",
               lambda v: v),
-    "clang-format": (["clang-format", "--version"],
-                     "pip install clang-format=={pin}", lambda v: v),
+    "clang-format": (["clang-format", "--version"], None, lambda v: v),
     "doxygen": (["doxygen", "--version"],
                 "install Doxygen {pin} from doxygen.nl", lambda v: v),
-    "just": (["just", "--version"], "pip install rust-just=={pin}",
-             lambda v: v),
+    "just": (["just", "--version"], None, lambda v: v),
     "node": (["node", "--version"], "install Node {pin}", lambda v: v),
     # No console script; the pin is met by the module the interpreter imports.
     "numpy": ([sys.executable, "-c", "import numpy; print(numpy.__version__)"],
-              "pip install numpy=={pin}", lambda v: v),
-    "platformio": (["platformio", "--version"],
-                   "pip install platformio=={pin}", lambda v: v),
+              None, lambda v: v),
+    "platformio": (["platformio", "--version"], None, lambda v: v),
     # The interpreter that matters is the one running this script, not
     # whatever `python` resolves to on PATH.
     "python": ([sys.executable, "--version"], "install Python {pin}",
                lambda v: v),
-    "ruff": (["ruff", "--version"], "pip install ruff=={pin}", lambda v: v),
+    "ruff": (["ruff", "--version"], None, lambda v: v),
     # shellcheck-py's version is the shellcheck release plus a packaging
     # suffix, which the binary itself never reports.
-    "shellcheck": (["shellcheck", "--version"],
-                   "pip install shellcheck-py=={pin}",
+    "shellcheck": (["shellcheck", "--version"], None,
                    lambda v: v.rsplit(".", 1)[0]),
 }
 
@@ -676,6 +672,16 @@ def check_consumers() -> int:
     return 0
 
 
+def install_hint(name: str) -> str:
+    """Return the command that installs the pinned version of a checked tool."""
+    install = CHECK_TOOLS[name][1]
+    if install is not None:
+        return install.format(pin=(PINS | INLINE_PINS)[name])
+    lock = next(path for path in INLINE_AUTHORITIES[name]
+                if path.startswith("requirements/") and path.endswith(".txt"))
+    return f"pip install --require-hashes -r {lock}"
+
+
 def check_tool(name: str) -> int:
     """Fail unless the installed tool reports the version pinned here.
 
@@ -683,7 +689,7 @@ def check_tool(name: str) -> int:
     is met by any release of that major, which is all the pin claims.
     """
     pin = (PINS | INLINE_PINS)[name]
-    command, install, form = CHECK_TOOLS[name]
+    command, _, form = CHECK_TOOLS[name]
     command = [part.format(pin=pin) for part in command]
     if name == "clang-format":
         command[0] = os.environ.get("CLANG_FORMAT", command[0])
@@ -698,7 +704,7 @@ def check_tool(name: str) -> int:
     if found is None or found.group().split(".")[: len(want)] != want:
         got = found.group() if found else "nothing runnable"
         print(f"{name} is pinned to {pin} but PATH has {got} "
-              f"({install.format(pin=pin)})")
+              f"({install_hint(name)})")
         return 1
     print(f"{name} {pin} matches the pin")
     return 0
