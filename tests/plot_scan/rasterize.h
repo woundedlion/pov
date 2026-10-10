@@ -480,6 +480,117 @@ struct WorldSampleCapture : Filter::Is3D {
   }
 };
 
+/**
+ * @brief Raster samples copy source registers only when interpolate_registers
+ *        is on, and otherwise start from Fragment defaults.
+ */
+inline void test_rasterize_register_copy_follows_interpolate_registers() {
+  constexpr int W = 128, H = 64;
+  Fragment proto;
+  proto.v0 = 0.75f;
+  proto.v1 = 0.625f;
+  proto.v2 = 0.25f;
+  proto.v3 = 0.5f;
+  proto.age = 3.0f;
+  proto.size = 2.0f;
+  const Fragment defaults;
+
+  struct AgePipeline {
+    std::vector<float> ages;
+    void plot(Canvas &, const math::Vector &, const Pixel &, float age, float) {
+      ages.push_back(age);
+    }
+    void plot(Canvas &, float, float, const Pixel &, float age, float) {
+      ages.push_back(age);
+    }
+  };
+
+  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  const math::Vector far_a = disk_point(basis, 0.3f, 0.0f);
+  const math::Vector far_b = disk_point(basis, 1.3f, 1.0f);
+  const math::Vector near_a = disk_point(basis, 0.9f, 0.0f);
+  const math::Vector near_b = disk_point(basis, 0.9f, 0.01f);
+  struct Case {
+    math::Vector a, b;
+    bool planar;
+    size_t min_plots;
+    size_t max_plots;
+  };
+  const Case cases[] = {
+      {far_a, far_a, true, 1, 1},      {far_a, far_a, false, 1, 1},
+      {near_a, near_b, false, 2, 2},   {near_a, near_b, true, 2, 2},
+      {far_a, far_b, false, 10, 1000}, {far_a, far_b, true, 10, 1000},
+  };
+
+  auto run = [&]<Plot::RasterConfig Cfg>() {
+    const Fragment &expect = Cfg.interpolate_registers ? proto : defaults;
+    for (const Case &c : cases) {
+      hs_test::StubEffect fx(W, H);
+      ScratchScope sc(plot_arena());
+      Fragments points;
+      points.bind(plot_arena(), 2);
+      Fragment a = proto, b = proto;
+      a.pos = c.a;
+      b.pos = c.b;
+      points.push_back(a);
+      points.push_back(b);
+      AgePipeline pipe;
+      size_t shaded = 0;
+      auto shader = [&](const math::Vector &pos, Fragment &f) {
+        ++shaded;
+        HS_EXPECT_EQ(f.v0, expect.v0);
+        HS_EXPECT_EQ(f.v1, expect.v1);
+        HS_EXPECT_EQ(f.v2, expect.v2);
+        HS_EXPECT_EQ(f.v3, expect.v3);
+        HS_EXPECT_EQ(f.age, expect.age);
+        HS_EXPECT_EQ(f.size, expect.size);
+        HS_EXPECT_EQ(f.color.alpha, 0.0f);
+        HS_EXPECT_EQ(f.pos.x, pos.x);
+        HS_EXPECT_EQ(f.pos.y, pos.y);
+        HS_EXPECT_EQ(f.pos.z, pos.z);
+        f.color = Color4(Pixel(255, 255, 255), 0.5f);
+      };
+      {
+        Canvas canvas(fx);
+        Plot::RasterOptions opts;
+        if (c.planar)
+          opts.projection = Plot::RasterProjection::planar(basis);
+        Plot::rasterize<W, H, Cfg>(pipe, canvas, points, shader, opts);
+      }
+      fx.advance_display();
+      HS_EXPECT_EQ(pipe.ages.size(), shaded);
+      HS_EXPECT_GE(shaded, c.min_plots);
+      HS_EXPECT_LE(shaded, c.max_plots);
+      for (float age : pipe.ages)
+        HS_EXPECT_EQ(age, expect.age);
+    }
+  };
+
+  constexpr Plot::RasterConfig REPLAY_ON{.derive_planar_arc_registers = false};
+  constexpr Plot::RasterConfig REPLAY_OFF{.derive_planar_arc_registers = false,
+                                          .interpolate_registers = false};
+  constexpr Plot::RasterConfig SINGLE_ON{.single_pass = true,
+                                         .derive_planar_arc_registers = false};
+  constexpr Plot::RasterConfig SINGLE_OFF{.single_pass = true,
+                                          .derive_planar_arc_registers = false,
+                                          .interpolate_registers = false};
+  constexpr Plot::RasterConfig BALANCED_ON{
+      .single_pass = true,
+      .derive_planar_arc_registers = false,
+      .sampling_policy = Plot::RasterSamplingPolicy::BALANCED};
+  constexpr Plot::RasterConfig BALANCED_OFF{
+      .single_pass = true,
+      .derive_planar_arc_registers = false,
+      .interpolate_registers = false,
+      .sampling_policy = Plot::RasterSamplingPolicy::BALANCED};
+  run.template operator()<REPLAY_ON>();
+  run.template operator()<REPLAY_OFF>();
+  run.template operator()<SINGLE_ON>();
+  run.template operator()<SINGLE_OFF>();
+  run.template operator()<BALANCED_ON>();
+  run.template operator()<BALANCED_OFF>();
+}
+
 /** @brief Sampling follows rendered latitude, including cached one-dot flags. */
 inline void test_rasterize_sampling_follows_world_transforms() {
   constexpr int W = 288, H = 144, N = 64;
