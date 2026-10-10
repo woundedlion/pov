@@ -19,6 +19,8 @@ HOOK = REPO / ".githooks" / "pre-commit"
 class PreCommitHook(unittest.TestCase):
     def setUp(self):
         if shutil.which("sh") is None:
+            if os.environ.get("CI"):
+                self.fail("POSIX shell required in CI")
             self.skipTest("no POSIX shell")
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)

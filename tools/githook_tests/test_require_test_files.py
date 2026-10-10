@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """End-to-end tests for the glob-discovered test-suite non-empty guard."""
 
+import os
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,8 @@ ENV = {**isolated_env(), "MSYS": "noglob"}
 class RequireTestFiles(unittest.TestCase):
     def setUp(self):
         if shutil.which("bash") is None:
+            if os.environ.get("CI"):
+                self.fail("Bash shell required in CI")
             self.skipTest("no Bash shell")
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)
