@@ -93,7 +93,7 @@ inline int run_conway_morph_tests() {
 
   test_relax_is_vertex_order_identity();
 
-  test_snub_tetrahedron_relax_converges_to_icosahedron();
+  test_snub_bridge_icosahedron_classifies_like_registry();
   test_ambo_tetrahedron_is_regular_octahedron();
 
   test_jitterbug_icosa_point_is_regular();
