@@ -206,6 +206,7 @@ inline void test_mobiuswarp_evolving_value_semantics() {
   const auto saved_rng = hs::random();
   hs::random().seed(1337);
   math::MobiusParams params;
+  const math::MobiusParams base = params;
   int completions = 0;
   Animation::MobiusWarpEvolving original(params, 0.5f, 0.05f);
   original.then([&]() { ++completions; });
@@ -247,13 +248,35 @@ inline void test_mobiuswarp_evolving_value_semantics() {
   assigned_from_moved.step(fake_canvas());
   assigned_from_moved = copied;
   from_moved.step(fake_canvas());
+  {
+    const float baseline[] = {base.a.re, base.a.im, base.b.re, base.b.im,
+                              base.c.re, base.c.im, base.d.re, base.d.im};
+    const float observed[] = {params.a.re, params.a.im, params.b.re,
+                              params.b.im, params.c.re, params.c.im,
+                              params.d.re, params.d.im};
+    constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
+                                     0.71f, 0.83f, 0.97f, 1.09f};
+    for (int i = 0; i < 8; ++i) {
+      const float angle =
+          static_cast<float>(static_cast<double>(0.05f) *
+                             static_cast<double>(FREQUENCIES[i])) +
+          from_moved.phase(i);
+      HS_EXPECT_NEAR(observed[i],
+                     baseline[i] + (i % 2 ? cosf(angle) : sinf(angle)) * 0.5f,
+                     1e-5f);
+    }
+  }
   const math::MobiusParams expected_from_moved = params;
   assigned_from_moved.step(fake_canvas());
   HS_EXPECT_TRUE(std::memcmp(&params, &expected_from_moved, sizeof(params)) ==
                  0);
   HS_EXPECT_TRUE(std::isfinite(params.a.re));
+  const size_t before_reassign = persistent_arena.get_offset();
   copied = donor;
-  HS_EXPECT_GE(persistent_arena.get_offset() - before_move, 8 * sizeof(double));
+  HS_EXPECT_GE(persistent_arena.get_offset() - before_reassign,
+               8 * sizeof(double));
+  HS_EXPECT_LE(persistent_arena.get_offset() - before_reassign,
+               8 * sizeof(double) + alignof(double) - 1);
   const size_t before_move_assignment = persistent_arena.get_offset();
   assigned = std::move(moved);
   HS_EXPECT_EQ(persistent_arena.get_offset(), before_move_assignment);
