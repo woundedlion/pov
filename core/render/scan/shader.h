@@ -244,67 +244,24 @@ public:
              "Scan::Shader::draw requires a non-null vertex_shader");
     HS_CHECK(fragment_shader,
              "Scan::Shader::draw requires a non-null fragment_shader");
-    check_canvas_dims<W, H>(canvas);
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    // frag_base is per pixel, so registers never carry over between pixels.
-    if constexpr (SAMPLES == 1) {
-      const auto &cr = canvas.clip();
-      check_lut_domain<W, H>(cr);
-      const auto xc = cr.x_clip();
-      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        const float sp = math::TrigLUT<W, H>::sin_phi[y];
-        const float cp = math::TrigLUT<W, H>::cos_phi[y];
-        walk_clip_columns<W>(xc, [&](int x) {
-          math::Vector center_v =
-              math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
-                           sp * math::TrigLUT<W, H>::sin_theta[x]);
-          Fragment frag_base;
-          frag_base.pos = center_v;
-          vertex_shader(frag_base);
-          fragment_shader(center_v, frag_base);
-          canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
-        });
+    auto shade = [&](Fragment &frag_base, const auto &grid, int x) {
+      if constexpr (SAMPLES == 1) {
+        fragment_shader(frag_base.pos, frag_base);
+        return frag_base.color.color * frag_base.color.alpha;
+      } else {
+        constexpr float inv_samples = 1.0f / SAMPLES;
+        Pixel accum(0, 0, 0);
+        for (int i = 0; i < SAMPLES; ++i) {
+          const math::Vector v = grid.at(x, i);
+          Fragment sub_frag = frag_base;
+          sub_frag.pos = v;
+          fragment_shader(v, sub_frag);
+          accum += sub_frag.color.color * (sub_frag.color.alpha * inv_samples);
+        }
+        return accum;
       }
-    } else {
-      constexpr float inv_samples = 1.0f / SAMPLES;
-      SsaaGrid<W, H> grid;
-
-      const auto &cr = canvas.clip();
-      check_lut_domain<W, H>(cr);
-      const auto xc = cr.x_clip();
-      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        const float sp = math::TrigLUT<W, H>::sin_phi[y];
-        const float cp = math::TrigLUT<W, H>::cos_phi[y];
-        grid.set_row(y);
-        walk_clip_columns<W>(xc, [&](int x) {
-          math::Vector center_v =
-              math::Vector(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
-                           sp * math::TrigLUT<W, H>::sin_theta[x]);
-
-          Fragment frag_base;
-          frag_base.pos = center_v;
-          vertex_shader(frag_base);
-
-          // Premultiplied SSAA: accumulate coverage-weighted color directly.
-          Pixel accum(0, 0, 0);
-
-          for (int i = 0; i < SAMPLES; ++i) {
-            math::Vector v = grid.at(x, i);
-
-            Fragment sub_frag = frag_base;
-            sub_frag.pos = v;
-
-            fragment_shader(v, sub_frag);
-
-            Color4 sample = sub_frag.color;
-            accum += sample.color * (sample.alpha * inv_samples);
-          }
-
-          canvas(x, y) = accum;
-        });
-      }
-    }
+    };
+    draw_grid<W, H>(canvas, vertex_shader, shade);
   }
 
   /**
