@@ -75,22 +75,13 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
                                        float rho_inner = 0.0f) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
-  HS_EXPECT_TRUE(sides >= 3 && sides <= 8);
-  if (sides < 3 || sides > 8)
-    return;
-
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector verts3d[16];
   uint16_t idx[16];
-  const int n_verts = rho_inner > 0.0f ? 2 * sides : sides;
-  for (int i = 0; i < n_verts; ++i) {
-    float a = (2.0f * math::PI_F * i) / n_verts + 0.37f;
-    float r = (rho_inner > 0.0f && (i & 1)) ? rho_inner : rho;
-    verts3d[i] =
-        (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
-            .normalized();
-    idx[i] = static_cast<uint16_t>(i);
-  }
+  const int n_verts =
+      build_regular_face(basis, sides, rho, rho_inner, verts3d, idx);
+  if (n_verts == 0)
+    return;
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const math::Vector>(verts3d, n_verts),
@@ -599,19 +590,13 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
 
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector orig[n_verts];
-  for (int i = 0; i < n_verts; ++i) {
-    float a = (2.0f * math::PI_F * i) / n_verts + 0.37f;
-    float r = (i & 1) ? rho_inner : rho;
-    orig[i] =
-        (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
-            .normalized();
-  }
+  uint16_t canon_idx[n_verts];
+  HS_EXPECT_EQ(
+      build_regular_face(basis, sides, rho, rho_inner, orig, canon_idx),
+      n_verts);
 
   // Canonical polygon: the untransformed face's own centered 2D projection.
   SDF::FaceScratchBuffer canon_scratch;
-  uint16_t canon_idx[n_verts];
-  for (int i = 0; i < n_verts; ++i)
-    canon_idx[i] = static_cast<uint16_t>(i);
   SDF::Face canon_face(std::span<const math::Vector>(orig, n_verts),
                        std::span<const uint16_t>(canon_idx, n_verts),
                        canon_scratch, HV, H);

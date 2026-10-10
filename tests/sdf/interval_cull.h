@@ -642,22 +642,14 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
                                           const math::Vector &axis) {
   HS_CONTEXT("face fringe sides / rho mrad", sides,
              static_cast<int>(rho * 1000));
-  HS_EXPECT_TRUE(sides >= 3 && sides <= 8);
-  if (sides < 3 || sides > 8)
-    return 0;
   constexpr int HV = H + hs::H_OFFSET;
-  if (!math::TrigLUT<W, H>::initialized)
-    math::TrigLUT<W, H>::init();
   math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector verts3d[8];
   uint16_t idx[8];
-  for (int i = 0; i < sides; ++i) {
-    float a = (2.0f * math::PI_F * i) / sides + 0.37f;
-    verts3d[i] = (basis.v * cosf(rho) +
-                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
-                     .normalized();
-    idx[i] = static_cast<uint16_t>(i);
-  }
+  if (build_regular_face(basis, sides, rho, 0.0f, verts3d, idx) == 0)
+    return 0;
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const math::Vector>(verts3d, sides),
                  std::span<const uint16_t>(idx, sides), scratch, HV, H);
@@ -707,14 +699,7 @@ inline void test_face_hemisphere_clip_covers_fringe() {
             math::Quaternion(), math::Vector(sinf(phi), cosf(phi), 0));
         math::Vector vertices[8];
         uint16_t indices[8];
-        for (int i = 0; i < sides; ++i) {
-          const float angle = math::TWO_PI_F * i / sides + 0.37f;
-          vertices[i] =
-              (basis.v * cosf(rho) +
-               (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(rho))
-                  .normalized();
-          indices[i] = static_cast<uint16_t>(i);
-        }
+        build_regular_face(basis, sides, rho, 0.0f, vertices, indices);
         const auto verts = std::span<const math::Vector>(vertices, sides);
         const auto idx = std::span<const uint16_t>(indices, sides);
         SDF::FaceScratchBuffer reference_scratch;
@@ -836,13 +821,7 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
   const math::Basis basis = math::make_basis(math::Quaternion(), axis);
   math::Vector vertices[3];
   const uint16_t indices[] = {0, 1, 2};
-  for (int i = 0; i < 3; ++i) {
-    const float angle = math::TWO_PI_F * i / 3.0f + 0.37f;
-    vertices[i] =
-        (basis.v * cosf(0.025f) +
-         (basis.u * cosf(angle) + basis.w * sinf(angle)) * sinf(0.025f))
-            .normalized();
-  }
+  build_regular_face(basis, 3, 0.025f, 0.0f, vertices);
   SDF::FaceScratchBuffer original_scratch, widened_scratch;
   SDF::Face original(vertices, indices, original_scratch, HV, H);
   SDF::Face widened(vertices, indices, widened_scratch, HV, H, nullptr, nullptr,
@@ -959,13 +938,7 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     math::Basis basis = math::make_basis(math::Quaternion(), axis);
     math::Vector verts[6];
     uint16_t idx[6];
-    for (int i = 0; i < cfg.sides; ++i) {
-      const float a = math::TWO_PI_F * i / cfg.sides + 0.37f;
-      verts[i] = (basis.v * cosf(cfg.rho) +
-                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(cfg.rho))
-                     .normalized();
-      idx[i] = static_cast<uint16_t>(i);
-    }
+    build_regular_face(basis, cfg.sides, cfg.rho, 0.0f, verts, idx);
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(std::span<const math::Vector>(verts, cfg.sides),
                    std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H);
