@@ -380,6 +380,21 @@ concept FrameProvider = Detail::ProviderFor<State, Binding> &&
                           } -> std::same_as<const math::Quaternion &>;
                         };
 
+/** @brief Exact projection base whose frame conjugate is the provider
+    @p State's. */
+template <typename State>
+struct FrameConjugateFromState : ApproximationDefaults {
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
+  __attribute__((always_inline)) static const math::Quaternion &
+  frame_conjugate(const typename State::FrameState &frame) {
+    return State::conjugate(frame);
+  }
+};
+
 /**
  * @brief Airocean icosahedral net.
  * @param input Unit direction in the projection frame.
@@ -420,7 +435,8 @@ airocean(const math::Vector &input, bool horizontal,
 
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
     the standard parallel, and so the hemisphere the cone opens toward. */
-template <typename State, bool North> struct Bonne : ApproximationDefaults {
+template <typename State, bool North>
+struct Bonne : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   /// Binding of the frame-state provider `State`.
@@ -443,16 +459,6 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
       };
 
   /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
-
-  /**
    * @brief Projects a direction given in the projection frame.
    * @param input Unit direction in the projection frame.
    * @param frame Frame state.
@@ -469,7 +475,8 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
 
 /** @brief Stereographic projection: conformal, with one singular pole the
     singularity fade attenuates. */
-template <typename State> struct Stereographic : ApproximationDefaults {
+template <typename State>
+struct Stereographic : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   /// Binding of the frame-state provider `State`.
@@ -489,16 +496,6 @@ template <typename State> struct Stereographic : ApproximationDefaults {
       };
 
   /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
-
-  /**
    * @brief Projects a direction given in the projection frame.
    * @param input Unit direction in the projection frame.
    * @param frame Frame state.
@@ -513,7 +510,8 @@ template <typename State> struct Stereographic : ApproximationDefaults {
 /** @brief Sinusoidal projection with the azimuth folded about the central
     meridian: both hemispheres share one image, and there is no singular locus
     to attenuate. */
-template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
+template <typename State>
+struct FoldedSinusoidal : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
@@ -531,16 +529,6 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
       };
 
   /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
-
-  /**
    * @brief Projects a direction given in the projection frame.
    * @param input Unit direction in the projection frame.
    * @param frame Frame state.
@@ -554,7 +542,8 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
 
 /** @brief Equirectangular projection: cut at the antimeridian, with both
     poles attenuated by the singularity fade. */
-template <typename State> struct Equirectangular : ApproximationDefaults {
+template <typename State>
+struct Equirectangular : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   /// Binding of the frame-state provider `State`.
@@ -575,16 +564,6 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
       };
 
   /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
-
-  /**
    * @brief Projects a direction given in the projection frame.
    * @param input Unit direction in the projection frame.
    * @param frame Frame state.
@@ -600,7 +579,7 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
 /** @brief Gnomonic projection about the Y axis, singular on the y = 0 great
     circle; `Hemisphere` folds the two halves together or keeps one. */
 template <typename State, GnomonicHemisphere Hemisphere>
-struct Gnomonic : ApproximationDefaults {
+struct Gnomonic : FrameConjugateFromState<State> {
   /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
   /// Binding of the frame-state provider `State`.
@@ -618,16 +597,6 @@ struct Gnomonic : ApproximationDefaults {
       requires(const typename CandidateBinding::FrameState &frame) {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
 
   /**
    * @brief Projects a direction given in the projection frame.
@@ -660,7 +629,7 @@ struct PreparedMeridian {
     `Layout` picks diamond, square or strip tiling and `EdgeDistanceRequired`
     makes the kernel compute edge distance unconditionally. */
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
-struct Peirce : ApproximationDefaults {
+struct Peirce : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
@@ -673,16 +642,6 @@ struct Peirce : ApproximationDefaults {
    */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
-  }
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  static const math::Quaternion &frame_conjugate(const FrameState &frame,
-                                                 const Prepared &) {
-    return State::conjugate(frame);
   }
 
   /// Whether `fade_edge_distance` is measured.
@@ -703,16 +662,6 @@ struct Peirce : ApproximationDefaults {
         { State::coordinate_scale(frame) } -> std::same_as<float>;
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
 
   /**
    * @brief Projects a direction given in the projection frame.
@@ -755,7 +704,8 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
 
 /** @brief Approximate square-layout Peirce projection; the provider must pin
     the central meridian to zero. */
-template <typename State> struct PeirceFastSquare : ApproximationDefaults {
+template <typename State>
+struct PeirceFastSquare : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
@@ -796,16 +746,6 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
     return peirce_fast_square(input, State::coordinate_scale(frame),
                               State::singularity_fade(frame));
   }
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
 };
 
 /**
@@ -826,16 +766,6 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
    */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
-  }
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  static const math::Quaternion &frame_conjugate(const FrameState &frame,
-                                                 const Prepared &) {
-    return State::conjugate(frame);
   }
 
   /**
@@ -889,7 +819,7 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
     quarter turn and `EdgeDistanceRequired` makes the kernel compute the
     per-edge cut distances unconditionally. */
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
-struct Airocean : ApproximationDefaults {
+struct Airocean : FrameConjugateFromState<State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
@@ -902,16 +832,6 @@ struct Airocean : ApproximationDefaults {
    */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
-  }
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  static const math::Quaternion &frame_conjugate(const FrameState &frame,
-                                                 const Prepared &) {
-    return State::conjugate(frame);
   }
 
   /// Whether `fade_edge_distance` is measured.
@@ -929,16 +849,6 @@ struct Airocean : ApproximationDefaults {
         { State::central_meridian(frame) } -> std::same_as<float>;
         { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
-
-  /**
-   * @brief Rotation taking world directions into the projection frame.
-   * @param frame Frame state.
-   * @return `State`'s frame conjugate.
-   */
-  __attribute__((always_inline)) static const math::Quaternion &
-  frame_conjugate(const FrameState &frame) {
-    return State::conjugate(frame);
-  }
 
   /**
    * @brief Projects a direction given in the projection frame.

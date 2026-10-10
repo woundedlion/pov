@@ -836,7 +836,7 @@ vector_noise(const math::Complex &input, const Params &params, float amplitude,
  * @tparam State Provider with Binding and FrameState types and
  * prepare(frame), path_length_required(frame) accessors.
  */
-template <typename State> struct AffineFrame : ApproximationDefaults {
+template <typename State> struct AffineFrame : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -870,17 +870,7 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
       };
 
   /// Slot state `State::prepare` resolves.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the slot's per-frame state from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Applies the affine frame change.
@@ -903,7 +893,7 @@ template <typename State> struct AffineFrame : ApproximationDefaults {
  * path_length_required(frame) accessors.
  */
 template <typename State, typename EnvelopePolicy = FlatEnvelope>
-struct WaveShear : ApproximationDefaults {
+struct WaveShear : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -930,17 +920,7 @@ struct WaveShear : ApproximationDefaults {
        });
 
   /// Slot state `State::prepare` resolves.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the slot's per-frame state from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Applies the sine shear.
@@ -966,7 +946,7 @@ struct WaveShear : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * prepare(frame), path_length_required(frame) accessors.
  */
-template <typename State> struct Vortex : ApproximationDefaults {
+template <typename State> struct Vortex : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -995,17 +975,7 @@ template <typename State> struct Vortex : ApproximationDefaults {
       };
 
   /// Slot state `State::prepare` resolves.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the slot's per-frame state from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Applies the vortex twist.
@@ -1026,7 +996,7 @@ template <typename State> struct Vortex : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame), path_length_required(frame) accessors.
  */
-template <typename State> struct MirrorTile : ApproximationDefaults {
+template <typename State> struct MirrorTile : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -1053,17 +1023,7 @@ template <typename State> struct MirrorTile : ApproximationDefaults {
       };
 
   /// Slot state `State::prepare` resolves.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the slot's per-frame state from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Applies the mirrored tiling.
@@ -1132,7 +1092,7 @@ struct PolarChart : ApproximationDefaults {
  * path_length_required(frame) accessors.
  */
 template <typename State, math::NoiseBasis BasisV, typename EnvelopePolicy>
-struct VectorNoise : ApproximationDefaults {
+struct VectorNoise : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -1162,17 +1122,7 @@ struct VectorNoise : ApproximationDefaults {
        });
 
   /// Slot state `State::prepare` resolves.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the slot's per-frame state from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Applies the noise-vector displacement.

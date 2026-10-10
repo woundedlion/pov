@@ -255,6 +255,25 @@ struct ApproximationDefaults {
   static constexpr std::array<ApproximationMetric, 0> METRICS{};
 };
 
+/** @brief Prepared type the provider @p State resolves per frame. */
+template <typename State>
+using StatePrepared = std::remove_cvref_t<decltype(State::prepare(
+    std::declval<const typename State::FrameState &>()))>;
+
+/** @brief Exact policy base whose prepared state is the provider @p State's
+    own, passed through unchanged. */
+template <typename State> struct PrepareFromState : ApproximationDefaults {
+  /**
+   * @brief Resolves the frame's prepared state from `State`.
+   * @param frame Frame state.
+   * @return `State::prepare(frame)`.
+   */
+  HS_FLASH_INLINE static StatePrepared<State>
+  prepare(const typename State::FrameState &frame) {
+    return State::prepare(frame);
+  }
+};
+
 /** @brief Prepared type of a stage or policy with no per-frame state. */
 struct NoPrepared {};
 

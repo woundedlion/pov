@@ -240,8 +240,8 @@ consteval bool orientation_policy_callable() {
 
 /**
  * @brief Whether @p Policy has the projection `frame_conjugate` and `project`
- *        signature for @p FrameState, taking its prepared state when it
- *        declares one.
+ *        signature for @p FrameState, `project` taking its prepared state
+ *        when it declares one.
  * @tparam Policy Policy being checked.
  * @tparam FrameState Frame state of the binding.
  * @return True when the call is well formed.
@@ -252,7 +252,7 @@ consteval bool projection_policy_callable() {
     return requires(const math::Vector &input, const FrameState &frame,
                     const typename Policy::Prepared &prepared) {
       {
-        Policy::frame_conjugate(frame, prepared)
+        Policy::frame_conjugate(frame)
       } -> std::same_as<const math::Quaternion &>;
       {
         Policy::project(input, frame, prepared)
@@ -541,8 +541,8 @@ struct Project
     ProjectionResult result;
     if constexpr (Detail::PolicyPrepares<ProjectionPolicyT,
                                          typename Binding::FrameState>) {
-      local = math::rotate(input.dir,
-                           ProjectionPolicyT::frame_conjugate(frame, prepared));
+      local =
+          math::rotate(input.dir, ProjectionPolicyT::frame_conjugate(frame));
       result = ProjectionPolicyT::project(local, frame, prepared);
     } else {
       local =

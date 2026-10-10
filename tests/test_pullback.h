@@ -697,8 +697,7 @@ struct PreparedLensPolicy : Pullback::ApproximationDefaults {
 struct PreparedProjectionPolicy : Pullback::ApproximationDefaults {
   using Prepared = int;
   static Prepared prepare(const TestFrame &) { return 3; }
-  static const math::Quaternion &frame_conjugate(const TestFrame &,
-                                                 const Prepared &) {
+  static const math::Quaternion &frame_conjugate(const TestFrame &) {
     static constexpr math::Quaternion IDENTITY;
     return IDENTITY;
   }

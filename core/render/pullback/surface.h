@@ -379,7 +379,7 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
  * path_length_required(frame) accessors.
  */
 template <typename State, math::NoiseBasis Basis>
-struct DirectNoise : ApproximationDefaults {
+struct DirectNoise : PrepareFromState<State> {
   using FrameState = typename State::FrameState; ///< The provider's frame.
 
   /**
@@ -403,17 +403,7 @@ struct DirectNoise : ApproximationDefaults {
       };
 
   /// The provider's prepared type, e.g. PreparedDirect.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves this frame's loop point and steering frame.
-   * @param frame Current frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Displaces one sphere point.
@@ -440,7 +430,7 @@ struct DirectNoise : ApproximationDefaults {
  */
 template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy,
           math::TangentLimit Limit>
-struct CurlNoise : ApproximationDefaults {
+struct CurlNoise : PrepareFromState<State> {
   using FrameState = typename State::FrameState; ///< The provider's frame.
 
   /**
@@ -464,17 +454,7 @@ struct CurlNoise : ApproximationDefaults {
       };
 
   /// The provider's prepared type, e.g. PreparedLoop.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves this frame's loop point.
-   * @param frame Current frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Displaces one sphere point.
