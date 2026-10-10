@@ -532,15 +532,14 @@ private:
    *        by the attractor event-horizon kernels and coloring from its
    *        per-particle flash palette.
    * @param canvas Target canvas to draw the particle system into.
-   * @param opacity Global opacity multiplier in [0, 1] applied to each fragment.
    */
-  void draw_particles(Canvas &canvas, float opacity = 1.0f) {
+  void draw_particles(Canvas &canvas) {
     HS_PROFILE(msp_draw_particles);
-    draw_particles_with(filters, canvas, opacity);
+    draw_particles_with(filters, canvas);
   }
 
   template <typename Sink>
-  void draw_particles_with(Sink &sink, Canvas &canvas, float opacity = 1.0f) {
+  void draw_particles_with(Sink &sink, Canvas &canvas) {
     if constexpr (requires { sink.prepare(canvas); })
       sink.prepare(canvas);
 
@@ -584,8 +583,7 @@ private:
         HS_PLOT_RENDER_COUNT(palette_endpoints);
       else
         HS_PLOT_RENDER_COUNT(palette_interpolated);
-      f.color = Color4(sample_trail_palette(trail_palette, palette_t),
-                       alpha * opacity);
+      f.color = Color4(sample_trail_palette(trail_palette, palette_t), alpha);
     };
 
     // v2 mapper doubles as a per-particle palette bind; it runs before the
