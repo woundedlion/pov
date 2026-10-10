@@ -553,6 +553,8 @@ jobs:
           touch "${{ runner.temp }}/daydream-install/generated/shader/patterns/stale.shader.json"
           cmake --preset wasm-release -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-release 2>&1 | tee build/wasm-release-build.log
+          cmake --build --preset wasm-release --target pullback_capture_wasm 2>&1 \
+            | tee -a build/wasm-release-build.log
 
       - name: Configure + build WASM debug (compile check)
         # Compile coverage for debug-only code and developer bindings.
@@ -568,6 +570,8 @@ jobs:
         run: |
           cmake --preset wasm-strict-fp -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
+          cmake --build --preset wasm-strict-fp --target pullback_capture_wasm 2>&1 \
+            | tee -a build/wasm-strict-fp-build.log
 
       - name: First-party WASM warning gate
         # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
@@ -581,7 +585,7 @@ jobs:
               exit 1
             fi
           done
-          if grep -nE '(^|[[:space:]/])(core|effects|workbench|hardware|targets)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' "${logs[@]}"; then
+          if grep -nE '(^|[[:space:]/])(core|effects|workbench|hardware|targets|tools)/[^:[:space:]]+:[0-9]+:([0-9]+:)?[[:space:]]*warning:' "${logs[@]}"; then
             echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
             exit 1
           fi
