@@ -45,7 +45,8 @@ struct IslamicStarsParams {
  *          morph the lowered chain into the finished pattern. Each shape's
  *          segue schedules the next automatic advance; a manual or synchronized
  *          change cuts the current shape and spawns the selected one. Pause
- *          holds a shape at the end of its plateau, before its segue out.
+ *          holds a shape at the end of its plateau with repeating ripple bursts,
+ *          before its segue out.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -161,6 +162,8 @@ public:
     Canvas canvas(*this);
     hold_departure = departure_due && anims_paused;
     departure_due = hold_departure;
+    if (hold_departure && ripple_gen.active_count() == 0)
+      ripple(canvas);
     {
       HS_PROFILE(is_ripple_prepare);
       ripple_gen.prepare_frame();
