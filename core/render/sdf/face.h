@@ -307,8 +307,8 @@ struct Face {
     // an empty row range can never be rasterized.
     const bool phi_culled = [&] {
       HS_PROFILE_DEEP(face_phi_extent);
-      return compute_phi_extent(vertices, indices, geometry, height,
-                                bounds_margin, clip);
+      return phi_band_rejects(vertices, indices, geometry, height,
+                              bounds_margin, clip);
     }();
     if (phi_culled) {
       mark_culled();
