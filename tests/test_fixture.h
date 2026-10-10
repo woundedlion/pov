@@ -15,7 +15,9 @@
 #include "tests/test_harness.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
+#include <string>
 
 namespace hs_test {
 
@@ -199,6 +201,22 @@ inline void expect_params_in_range(const FX &effect, const char *label) {
       }
     }
   }
+}
+
+/** @brief Reads available bytes, or returns empty if the file cannot be opened. */
+inline std::string read_text_file(const std::string &path) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  std::FILE *file = std::fopen(path.c_str(), "rb");
+#pragma clang diagnostic pop
+  if (file == nullptr)
+    return {};
+  std::string text;
+  char buffer[4096];
+  for (size_t n; (n = std::fread(buffer, 1, sizeof buffer, file)) > 0;)
+    text.append(buffer, n);
+  std::fclose(file);
+  return text;
 }
 
 } // namespace hs_test

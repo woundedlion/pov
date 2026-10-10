@@ -516,27 +516,11 @@ inline void test_shader_chain_slot_and_hash_contract() {
   HS_EXPECT_NE(In::instance_hash("ab", "c"), In::instance_hash("a", "bc"));
 }
 
-inline std::string read_file(const char *path) {
-  std::string content;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  std::FILE *file = std::fopen(path, "rb");
-#pragma clang diagnostic pop
-  if (file == nullptr)
-    return content;
-  char buffer[4096];
-  size_t bytes;
-  while ((bytes = std::fread(buffer, 1, sizeof(buffer), file)) > 0)
-    content.append(buffer, bytes);
-  std::fclose(file);
-  return content;
-}
-
 inline void test_shader_chain_catalog_golden() {
   std::string catalog;
   In::append_catalog_json(catalog);
   catalog += '\n';
-  const std::string golden = read_file(HS_SHADER_CHAIN_CATALOG_PATH);
+  const std::string golden = read_text_file(HS_SHADER_CHAIN_CATALOG_PATH);
   HS_EXPECT_FALSE(golden.empty());
   HS_EXPECT_TRUE(catalog == golden);
   if (catalog != golden)

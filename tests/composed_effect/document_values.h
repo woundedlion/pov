@@ -257,22 +257,6 @@ inline void test_catalog_semantic_export() {
   }
 }
 
-/** @brief Reads available bytes, or returns empty if the file cannot be opened. */
-inline std::string read_document(const std::string &path) {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  std::FILE *file = std::fopen(path.c_str(), "rb");
-#pragma clang diagnostic pop
-  if (file == nullptr)
-    return {};
-  std::string text;
-  char buffer[4096];
-  for (size_t n; (n = std::fread(buffer, 1, sizeof buffer, file)) > 0;)
-    text.append(buffer, n);
-  std::fclose(file);
-  return text;
-}
-
 /** @brief The parameter family a document chain instance addresses. */
 enum class SlotRole : uint8_t {
   CAMERA,
@@ -581,7 +565,7 @@ inline void check_document_values(const char *name) {
       c = '_';
   const std::string path =
       std::string(HS_PROMOTED_PATTERNS_DIR "/") + file_name + ".shader.json";
-  const std::string text = read_document(path);
+  const std::string text = read_text_file(path);
   HS_EXPECT(!text.empty(), "promoted shader document is readable");
   if (text.empty())
     return;
