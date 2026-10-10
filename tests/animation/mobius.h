@@ -10,6 +10,19 @@
 // MobiusWarpEvolving modulates all eight coefficients perpetually.
 // ============================================================================
 
+/** @brief MobiusWarpEvolving's per-channel modulation frequencies. */
+constexpr float MOBIUS_FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
+                                        0.71f, 0.83f, 0.97f, 1.09f};
+
+/**
+ * @brief Flattens Mobius coefficients into channel order.
+ * @param p Coefficients to read.
+ * @return a.re, a.im, b.re, b.im, c.re, c.im, d.re, d.im.
+ */
+inline std::array<float, 8> mobius_channels(const math::MobiusParams &p) {
+  return {p.a.re, p.a.im, p.b.re, p.b.im, p.c.re, p.c.im, p.d.re, p.d.im};
+}
+
 /**
  * @brief Verifies MobiusWarp leaves the origin, closes near b == 0 at
  * completion, and reports done() only on the final frame.
@@ -132,14 +145,12 @@ inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
   HS_EXPECT_FALSE(warp.done());
 
   const math::MobiusParams base = params;
-  const float baseline[8] = {base.a.re, base.a.im, base.b.re, base.b.im,
-                             base.c.re, base.c.im, base.d.re, base.d.im};
+  const std::array<float, 8> baseline = mobius_channels(base);
   float peak[8] = {};
   for (int i = 0; i < 50; ++i) {
     warp.step(fake_canvas());
     HS_EXPECT_FALSE(warp.done()); // perpetual: duration -1
-    const float live[8] = {params.a.re, params.a.im, params.b.re, params.b.im,
-                           params.c.re, params.c.im, params.d.re, params.d.im};
+    const std::array<float, 8> live = mobius_channels(params);
     for (int c = 0; c < 8; ++c) {
       float delta = std::abs(live[c] - baseline[c]);
       HS_EXPECT_LE(delta, scale + 1e-4f);
@@ -163,10 +174,7 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
   const size_t allocated = persistent_arena.get_offset() - allocated_before;
   HS_EXPECT_GE(allocated, 8 * sizeof(double));
   HS_EXPECT_LE(allocated, 8 * sizeof(double) + alignof(double) - 1);
-  const float baseline[] = {base.a.re, base.a.im, base.b.re, base.b.im,
-                            base.c.re, base.c.im, base.d.re, base.d.im};
-  constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                   0.71f, 0.83f, 0.97f, 1.09f};
+  const std::array<float, 8> baseline = mobius_channels(base);
   constexpr double PERIOD = 6.283185307179586476925286766559;
   double phases[8] = {};
   float effective_speed = 0.05f;
@@ -179,12 +187,10 @@ inline void test_mobiuswarp_evolving_wrapped_live_channels() {
     if (std::isfinite(speed))
       effective_speed = speed;
     warp.step(fake_canvas());
-    const float observed[] = {params.a.re, params.a.im, params.b.re,
-                              params.b.im, params.c.re, params.c.im,
-                              params.d.re, params.d.im};
+    const std::array<float, 8> observed = mobius_channels(params);
     for (int i = 0; i < 8; ++i) {
       const double increment = static_cast<double>(effective_speed) *
-                               static_cast<double>(FREQUENCIES[i]);
+                               static_cast<double>(MOBIUS_FREQUENCIES[i]);
       phases[i] = std::fmod(phases[i] + std::fmod(increment, PERIOD), PERIOD);
       if (phases[i] < 0.0)
         phases[i] += PERIOD;
@@ -249,17 +255,12 @@ inline void test_mobiuswarp_evolving_value_semantics() {
   assigned_from_moved = copied;
   from_moved.step(fake_canvas());
   {
-    const float baseline[] = {base.a.re, base.a.im, base.b.re, base.b.im,
-                              base.c.re, base.c.im, base.d.re, base.d.im};
-    const float observed[] = {params.a.re, params.a.im, params.b.re,
-                              params.b.im, params.c.re, params.c.im,
-                              params.d.re, params.d.im};
-    constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                     0.71f, 0.83f, 0.97f, 1.09f};
+    const std::array<float, 8> baseline = mobius_channels(base);
+    const std::array<float, 8> observed = mobius_channels(params);
     for (int i = 0; i < 8; ++i) {
       const float angle =
           static_cast<float>(static_cast<double>(0.05f) *
-                             static_cast<double>(FREQUENCIES[i])) +
+                             static_cast<double>(MOBIUS_FREQUENCIES[i])) +
           from_moved.phase(i);
       HS_EXPECT_NEAR(observed[i],
                      baseline[i] + (i % 2 ? cosf(angle) : sinf(angle)) * 0.5f,
@@ -311,17 +312,13 @@ inline void test_mobiuswarp_evolving_long_uptime() {
   const math::MobiusParams aged = params;
   warp.step(fake_canvas());
   HS_EXPECT_TRUE(std::memcmp(&params, &aged, sizeof(params)) != 0);
-  constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                   0.71f, 0.83f, 0.97f, 1.09f};
-  const float baseline[] = {base.a.re, base.a.im, base.b.re, base.b.im,
-                            base.c.re, base.c.im, base.d.re, base.d.im};
-  const float observed[] = {params.a.re, params.a.im, params.b.re, params.b.im,
-                            params.c.re, params.c.im, params.d.re, params.d.im};
+  const std::array<float, 8> baseline = mobius_channels(base);
+  const std::array<float, 8> observed = mobius_channels(params);
   constexpr double PERIOD = 6.283185307179586476925286766559;
   for (int i = 0; i < 8; ++i) {
     const double accumulated = static_cast<double>(FRAMES + 1) *
                                static_cast<double>(0.01f) *
-                               static_cast<double>(FREQUENCIES[i]);
+                               static_cast<double>(MOBIUS_FREQUENCIES[i]);
     const float angle =
         static_cast<float>(std::fmod(accumulated, PERIOD)) + warp.phase(i);
     const float expected =
