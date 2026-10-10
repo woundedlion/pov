@@ -158,6 +158,11 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
+  static size_t footprint_bytes(const DisplacementField<W, H> &) {
+    return DisplacementField<W, H>::FOOTPRINT_BYTES;
+  }
+
+  template <int W, int H>
   static Color4 current_ring_color(const DisplacementField<W, H> &effect,
                                    float ring_t) {
     return effect.palette.get(math::wrap_t(ring_t + effect.color_spin));
@@ -691,4 +696,15 @@ inline void test_displacement_field_ring_pool_capacity_release() {
     HS_EXPECT_EQ(pool.destroyed - destroyed_before, committed);
     HS_EXPECT_EQ(pool.size(), 0);
   }
+}
+
+/** @brief Verifies FOOTPRINT_BYTES covers every persistent allocation. */
+inline void test_displacement_field_footprint_covers_init() {
+  reset_effect_globals();
+  const size_t before = persistent_arena.get_offset();
+  DisplacementField<DEFAULT_W, DEFAULT_H> effect;
+  effect.init();
+  const size_t used = persistent_arena.get_offset() - before;
+  HS_EXPECT_GT(used, size_t{0});
+  HS_EXPECT_LE(used, DisplacementFieldWhiteBox::footprint_bytes(effect));
 }

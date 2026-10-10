@@ -819,6 +819,12 @@ private:
                   "the ring-to-slot map is int8_t with CULLED = -1; a larger "
                   "pool wraps slot indices negative");
     using ShapeStorage = std::array<RingSlot, SLOTS>; /**< Ring storage. */
+    /** @brief Persistent bytes init_storage() takes, alignment included. */
+    static constexpr size_t BYTES =
+        SLOTS * ROW * (sizeof(float) + sizeof(Pixel)) +
+        SLOTS * (2 * sizeof(float) + sizeof(int8_t)) + sizeof(ShapeStorage) +
+        3 * alignof(float) + alignof(Pixel) + alignof(int8_t) +
+        alignof(ShapeStorage);
 
     /** @brief The rows of the next free slot. */
     struct Pending {
@@ -961,6 +967,8 @@ private:
    */
   struct HueTable {
     static constexpr int KNOTS = HUE_TABLE_SIZE + 1; /**< Knots per table. */
+    /** @brief Persistent bytes of the knot storage, alignment included. */
+    static constexpr size_t BYTES = KNOTS * sizeof(Pixel) + alignof(Pixel);
     Pixel *knots = nullptr; /**< KNOTS hue-rotated colors of the bound ring. */
     uint64_t valid[(HUE_TABLE_SIZE + 64) / 64] =
         {}; /**< Knots sample_lazy() has baked since the last bind(). */
@@ -1106,24 +1114,33 @@ private:
                 "DisplacementField Thickness default falls outside its "
                 "W-scaled slider range at this build resolution");
 
-  // Every persistent allocation init() makes.
-  static constexpr size_t FOOTPRINT_BYTES =
-      RING_SLOTS * (W + 1) * (sizeof(float) + sizeof(Pixel)) +
-      RING_SLOTS *
-          (2 * sizeof(float) + sizeof(int8_t) + sizeof(SDF::DistortedRing)) +
-      sizeof(CandidateTable) +
-      (W + 1) * (2 * sizeof(float) + 2 + sizeof(math::Vector)) +
+  /** @brief Persistent bytes of the knot bake scratch, alignment included. */
+  static constexpr size_t KNOT_SCRATCH_BYTES =
+      (W + 1) *
+          (2 * sizeof(float) + 2 * sizeof(uint8_t) + sizeof(math::Vector)) +
+      2 * alignof(float) + 2 * alignof(uint8_t) + alignof(math::Vector);
+  /** @brief Persistent bytes of the per-frame ball cache. */
+  static constexpr size_t BALL_CACHE_BYTES =
       MAX_BALLS * (6 * sizeof(float) + sizeof(int) +
                    sizeof(const Animation::BumpParams *)) +
-      (HUE_TABLE_SIZE + 1) * sizeof(Pixel) + 2 * BAKE_CHUNKS * sizeof(float) +
+      6 * alignof(float) + alignof(int) +
+      alignof(const Animation::BumpParams *);
+  /** @brief Persistent bytes of the chunk mid-azimuth trig tables. */
+  static constexpr size_t CHUNK_TRIG_BYTES =
+      2 * BAKE_CHUNKS * sizeof(float) + 2 * alignof(float);
+  /** @brief Persistent bytes of the fused scan's candidate table. */
+  static constexpr size_t CANDIDATE_BYTES =
+      sizeof(CandidateTable) + alignof(CandidateTable);
+  /** @brief Persistent bytes of the two displacement-field pools. */
+  static constexpr size_t FIELD_BYTES =
       MAX_BALLS * (sizeof(typename decltype(balls)::Entity) + sizeof(int)) +
-      (sizeof(typename decltype(noise_field)::Entity) + sizeof(int)) +
-      13 * alignof(float) + 2 * alignof(Pixel) + 3 * alignof(int) +
-      2 * alignof(uint8_t) + alignof(int8_t) + alignof(math::Vector) +
-      alignof(const Animation::BumpParams *) +
-      alignof(typename RingPool::ShapeStorage) + alignof(CandidateTable) +
-      alignof(typename decltype(balls)::Entity) +
-      alignof(typename decltype(noise_field)::Entity);
+      alignof(typename decltype(balls)::Entity) + alignof(int) +
+      sizeof(typename decltype(noise_field)::Entity) + sizeof(int) +
+      alignof(typename decltype(noise_field)::Entity) + alignof(int);
+  /** @brief Every persistent allocation init() makes. */
+  static constexpr size_t FOOTPRINT_BYTES =
+      RingPool::BYTES + HueTable::BYTES + KNOT_SCRATCH_BYTES +
+      BALL_CACHE_BYTES + CHUNK_TRIG_BYTES + CANDIDATE_BYTES + FIELD_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");
