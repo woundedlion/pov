@@ -41,8 +41,8 @@ using Warp::WaveShearParams;
  * @brief The public frame context the pipeline's stages prepare from and
  *        shade against, resolved before the scan.
  * @details Its pointers alias the runtime's persistent state and the palette
- * cycler's current bake, so a frame outlives only the draw_frame() call that
- * built it.
+ * cycler's current bake, so a frame stays valid only until the next
+ * draw_frame().
  */
 template <typename ParamsT> struct FrameState {
   /** Conjugate of the projection orientation; identity unless the effect sets
