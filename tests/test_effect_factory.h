@@ -30,8 +30,8 @@ constexpr int FACTORY_OUTPUT_WINDOW = 64;
  * @brief Checks one resolution's factory table against the registry.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Every registration yields one entry with a name, a creator and a
- *          non-zero size; the table is the same object on every call.
+ * @details Every registration yields one entry with a name, a creator, a type
+ *          key and a non-zero size; the table is the same object on every call.
  */
 template <int W, int H> inline void verify_factory_table() {
   const std::vector<FactoryEntry> &table = hs_wasm::get_factory<W, H>();
@@ -47,6 +47,7 @@ template <int W, int H> inline void verify_factory_table() {
     HS_EXPECT_TRUE(entry.stable_id ==
                    hs_wasm::EFFECT_REGISTRATIONS[index].stable_id);
     HS_EXPECT_TRUE(static_cast<bool>(entry.creator));
+    HS_EXPECT_TRUE(entry.type_key != nullptr);
     HS_EXPECT_TRUE(entry.size > 0);
   }
 }
