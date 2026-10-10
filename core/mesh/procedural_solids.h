@@ -663,7 +663,7 @@ FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
  */
 FLASHMEM static PolyMesh
 icosahedron_truncate25_hk60_ambo_relax100_hk60(Arena &a, Arena &b) {
-  return SolidBuilder(Archimedean::icosahedron(a, b), a, b)
+  return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .truncate(0.25f)
       .hankin(60.0f * D2R)
       .ambo()
