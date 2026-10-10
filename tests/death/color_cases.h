@@ -34,7 +34,7 @@ inline void case_hue_wobble_depth_out_of_range() {
 }
 
 /**
- * @brief Death case: a negative IridescentShade weight zeroes the overlay.
+ * @brief Death case: a negative IridescentShade weight must trap.
  */
 inline void case_iridescent_weight_negative() {
   static float phase = 0.0f;
