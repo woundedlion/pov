@@ -639,6 +639,8 @@ inline void test_rasterize_planar_arc_registers_skip_culled_segments() {
   const std::vector<Sample> clipped = capture(true);
   HS_EXPECT_GT(clipped.size(), (size_t)0);
   HS_EXPECT_LT(clipped.size(), full.size());
+  if (clipped.empty())
+    return;
   HS_EXPECT_GT(clipped.front().v1, 0.0f);
   size_t matched = 0;
   for (const Sample &c : clipped) {
