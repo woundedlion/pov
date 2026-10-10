@@ -19,8 +19,9 @@
 #include <array>
 
 namespace DreamBallsDetail {
+/// Default `DreamBallsParams::weave_gap`.
 inline constexpr float WEAVE_GAP_DEFAULT = 0.18f;
-}
+} // namespace DreamBallsDetail
 
 namespace hs_test {
 namespace effects_tests {
@@ -33,6 +34,7 @@ struct DreamBallsWhiteBox;
  *        value set.
  */
 struct DreamBallsParams {
+  /// Polyhedron selector.
   using BaseMesh = Solids::BaseMesh;
 
   /** @brief Selects automatic, source, or forced-medial weave topology. */
@@ -42,12 +44,19 @@ struct DreamBallsParams {
     MEDIAL,
   };
 
+  /// Solid whose wireframe is drawn.
   BaseMesh base_mesh = BaseMesh::TETRAHEDRON;
+  /// Edge set the woven wireframe draws.
   WeaveTopology weave_topology = WeaveTopology::AUTOMATIC;
+  /// Under-crossing fade width at each edge's end, as a fraction of the edge.
   float weave_gap = DreamBallsDetail::WEAVE_GAP_DEFAULT;
+  /// Orbiting copies; truncated to an integer, at least 1.
   float num_copies = 1.0f;
+  /// Tangent-plane orbit radius of each vertex, in unit-sphere lengths.
   float offset_radius = 0.0f;
+  /// Orbit rate; the orbit phase advances 0.01 * this turns per frame.
   float offset_speed = 0.0f;
+  /// Wireframe opacity multiplier in [0, 1].
   float alpha = 0.0f;
 };
 
@@ -66,15 +75,17 @@ class DreamBalls
   friend Choreography;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "DreamBalls";
 
-  using Params = DreamBallsParams;
-  using BaseMesh = Solids::BaseMesh;
-  using WeaveTopology = Params::WeaveTopology;
+  using Params = DreamBallsParams;             ///< Live parameter set.
+  using BaseMesh = Solids::BaseMesh;           ///< Polyhedron selector.
+  using WeaveTopology = Params::WeaveTopology; ///< Weave edge-set selector.
 
   /** Snaps. Presets advance at each sprite hand-off; the dwell countdown
       never runs. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Bookkeeping only; mirrors the sprite hand-off period. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;

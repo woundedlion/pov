@@ -30,6 +30,7 @@ struct GalaxiesWhiteBox;
  */
 template <int W, int H> class Galaxies : public Effect {
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "Galaxies";
 
   /**

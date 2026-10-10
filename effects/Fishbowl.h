@@ -53,21 +53,57 @@ class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
   using Choreography::step_choreography;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "Fishbowl";
 
-  using Params = FishbowlParams;
+  using Params = FishbowlParams; ///< Live parameter set.
+  /// Preset change snaps.
   static constexpr Segue::Preset::Snap DEPARTURE{};
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 1;
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  /** @var ALPHA_MIN
+   *  @brief Lower bound of `FishbowlParams::alpha`. */
+  /** @var ALPHA_MAX
+   *  @brief Upper bound of `FishbowlParams::alpha`. */
   static constexpr float CYCLE_DURATION_MIN = 10.0f,
                          CYCLE_DURATION_MAX = 200.0f;
+  /** @var CYCLE_DURATION_MIN
+   *  @brief Lower bound of `FishbowlParams::cycle_duration`, in frames. */
+  /** @var CYCLE_DURATION_MAX
+   *  @brief Upper bound of `FishbowlParams::cycle_duration`, in frames. */
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
+  /** @var SPEED_MIN
+   *  @brief Lower bound of `FishbowlParams::speed`. */
+  /** @var SPEED_MAX
+   *  @brief Upper bound of `FishbowlParams::speed`. */
   static constexpr float JITTER_AMP_MIN = 0.0f, JITTER_AMP_MAX = 10.0f;
+  /** @var JITTER_AMP_MIN
+   *  @brief Lower bound of `FishbowlParams::jitter_amp`. */
+  /** @var JITTER_AMP_MAX
+   *  @brief Upper bound of `FishbowlParams::jitter_amp`. */
   static constexpr float NOISE_FREQ_MIN = 0.01f, NOISE_FREQ_MAX = 10.0f;
+  /** @var NOISE_FREQ_MIN
+   *  @brief Lower bound of `FishbowlParams::noise_freq`. */
+  /** @var NOISE_FREQ_MAX
+   *  @brief Upper bound of `FishbowlParams::noise_freq`. */
   static constexpr float SCALE_FACTOR_MIN = 1.0f, SCALE_FACTOR_MAX = 500.0f;
+  /** @var SCALE_FACTOR_MIN
+   *  @brief Lower bound of `FishbowlParams::scale_factor`. */
+  /** @var SCALE_FACTOR_MAX
+   *  @brief Upper bound of `FishbowlParams::scale_factor`. */
   static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
+  /** @var CYCLE_SPEED_MIN
+   *  @brief Lower bound of `FishbowlParams::cycle_speed`. */
+  /** @var CYCLE_SPEED_MAX
+   *  @brief Upper bound of `FishbowlParams::cycle_speed`. */
   static constexpr float DUTY_CYCLE_MIN = 0.0f, DUTY_CYCLE_MAX = 1.0f;
+  /** @var DUTY_CYCLE_MIN
+   *  @brief Lower bound of `FishbowlParams::duty_cycle`. */
+  /** @var DUTY_CYCLE_MAX
+   *  @brief Upper bound of `FishbowlParams::duty_cycle`. */
   /** @brief Shared registration, validation and interpolation descriptions. */
   static constexpr auto parameter_fields() {
     return std::tuple{
@@ -113,17 +149,25 @@ public:
             .spec = {.min = DUTY_CYCLE_MIN, .max = DUTY_CYCLE_MAX}}};
   }
 
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{"fire-trail"};
+  /// Past orientations retained in the trail.
   static constexpr int TRAIL_LENGTH = Animation::TRAIL_HISTORY_LENGTH;
+  /// Interpolation slots per recorded orientation.
   static constexpr int ORIENTATION_SUBSTEPS =
       Animation::TRAIL_ORIENTATION_SUBSTEPS;
+  /// Capacity of the per-frame trail vertex buffer.
   static constexpr int MAX_FRAGMENTS = 2 * TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
   /** @brief Compact multiline control point carrying its palette coordinate. */
   struct TrailVertex {
-    math::Vector pos;
-    float palette_t;
+    math::Vector pos; ///< Unit-sphere position.
+    float palette_t;  ///< Fill-scaled palette coordinate.
 
+    /**
+     * @brief Fragment at `pos` with `palette_t` in v3.
+     * @return The converted fragment.
+     */
     operator Fragment() const {
       Fragment fragment;
       fragment.pos = pos;
@@ -155,7 +199,9 @@ public:
 
   // Scratch A holds the vertices, the Multiline fragment buffer and
   // rasterize's sub-step cache live at once.
+  /// Scratch arena A size, in bytes.
   static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
+  /// Peak scratch A demand, in bytes.
   static constexpr size_t SCRATCH_A_ESTIMATE =
       MAX_FRAGMENTS * sizeof(TrailVertex) +
       (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
@@ -166,7 +212,9 @@ public:
                 "at once");
 
   // Persistent allocations: the noise transformer pool and the Node.
+  /// Pool entry of the trail noise transformer.
   using NoiseEntity = typename NoiseTransformer<1>::Entity;
+  /// Persistent arena demand, in bytes, alignment included.
   static constexpr size_t FOOTPRINT_BYTES = sizeof(Node) + sizeof(NoiseEntity) +
                                             alignof(NoiseEntity) + sizeof(int) +
                                             alignof(int);

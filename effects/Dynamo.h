@@ -31,6 +31,7 @@ struct DynamoWhiteBox;
  */
 template <int W, int H> class Dynamo : public Effect {
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "Dynamo";
 
   /**

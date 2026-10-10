@@ -49,8 +49,10 @@ class Comets : public ChoreographedEffect<Comets<W, H>, CometsParams> {
   friend Choreography;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "Comets";
 
+  /// Live parameter set.
   using Params = CometsParams;
 
   static constexpr int TRAIL_LENGTH = Animation::
@@ -61,6 +63,7 @@ public:
 
   /** Snaps the path function; the palette rolls over via a ColorWipe. */
   static constexpr Segue::Preset::Snap DEPARTURE{};
+  /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Preset cadence: two default-duration motion cycles. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 160;
@@ -69,11 +72,27 @@ public:
   static constexpr float THICKNESS_PX = math::RADIANS_PER_COLUMN<W>;
 
   static constexpr float ALPHA_MIN = 0.0f, ALPHA_MAX = 1.0f;
+  /** @var ALPHA_MIN
+   *  @brief Lower bound of `CometsParams::alpha`. */
+  /** @var ALPHA_MAX
+   *  @brief Upper bound of `CometsParams::alpha`. */
   static constexpr float THICKNESS_MIN = 0.0f,
                          THICKNESS_MAX = 7.0f * THICKNESS_PX;
+  /** @var THICKNESS_MIN
+   *  @brief Lower bound of `CometsParams::thickness`, in radians. */
+  /** @var THICKNESS_MAX
+   *  @brief Upper bound of `CometsParams::thickness`: seven columns. */
   static constexpr float CYCLE_DURATION_MIN = 10.0f,
                          CYCLE_DURATION_MAX = 200.0f;
+  /** @var CYCLE_DURATION_MIN
+   *  @brief Lower bound of `CometsParams::cycle_duration`, in frames. */
+  /** @var CYCLE_DURATION_MAX
+   *  @brief Upper bound of `CometsParams::cycle_duration`, in frames. */
 
+  /**
+   * @brief Startup parameters: the first preset's path at full opacity.
+   * @return Initial `Params`.
+   */
   static Params initial_params() {
     return {.function = PRESETS[0].params,
             .alpha = 1.0f,
@@ -106,6 +125,12 @@ public:
                                      .spec = {.min = 0, .max = 1}}};
   }
 
+  /**
+   * @brief Checks the path function is finite with m2 > 0 and every field
+   *        is in range.
+   * @param p Candidate parameters.
+   * @return True when `p` is renderable.
+   */
   static bool valid_params(const Params &p) {
     return std::isfinite(p.function.m1) && std::isfinite(p.function.m2) &&
            std::isfinite(p.function.a) && std::isfinite(p.function.domain) &&

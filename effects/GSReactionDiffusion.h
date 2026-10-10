@@ -60,6 +60,7 @@ class GSReactionDiffusion
   using Base::to_q16;
 
 public:
+  /// Stable persisted effect ID; seeds the effect RNG stream.
   static constexpr const char *EFFECT_ID = "GSReactionDiffusion";
 
   /**
@@ -161,10 +162,11 @@ private:
     static_assert(NUM_SEED_CLUSTERS <= ID_MASK + 1);
     static_assert(FULL_MASS << MASS_SHIFT <= 0xffff);
 
+    /** @brief Decoded pigment fields. */
     struct Unpacked {
-      int first;
-      int second;
-      int mass;
+      int first;  ///< First seed-palette id.
+      int second; ///< Second seed-palette id.
+      int mass;   ///< First palette's share, in [0, FULL_MASS].
     };
 
     __attribute__((always_inline)) static constexpr uint16_t
@@ -429,9 +431,10 @@ private:
    */
   class ShimmerCache {
   public:
+    /** @brief Noise row pair to blend and whether to bypass the cache. */
     struct Selection {
-      int row;
-      bool exact;
+      int row;    ///< Lower noise row; the pair is row and row + 1.
+      bool exact; ///< True when the pair is unbaked or past the cached limits.
     };
 
     /** @brief Binds the bake storage, one row per seed and noise step. */
