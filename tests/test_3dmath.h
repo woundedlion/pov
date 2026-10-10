@@ -1295,7 +1295,15 @@ inline void test_scaled_rotation_delta() {
   HS_EXPECT_NEAR(half.magnitude(), 1.0f, 1e-3f);
   const math::Vector v(1, 0, 0);
   HS_EXPECT_VEC(math::rotate(math::rotate(v, half), half), math::rotate(v, q),
-                1e-2f);
+                1e-5f);
+
+  // Off the midpoint, the scaled delta turns by that fraction of the arc.
+  for (const float amount : {0.25f, 0.75f}) {
+    HS_EXPECT_QUAT(
+        math::scaled_rotation_delta(q, amount),
+        math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f * amount),
+        1e-6f);
+  }
 
   // The scaled turn is monotone in amount: the angle away from the start grows.
   float previous = -1.0f;
