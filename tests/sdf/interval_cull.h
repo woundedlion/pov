@@ -741,7 +741,7 @@ inline void test_face_hemisphere_clip_covers_fringe() {
             SDF::FaceScratchBuffer clipped_scratch;
             const SDF::Face clipped(verts, idx, clipped_scratch, HV, H, &clip,
                                     nullptr, bounds_margin);
-            const bool early_rejected = reference.compute_phi_extent(
+            const bool early_rejected = reference.phi_band_rejects(
                 verts, idx, reference.build_geometry, H, bounds_margin, &clip);
             early_rejects += early_rejected;
             std::vector<uint8_t> visited;

@@ -16,20 +16,20 @@
 // ---------------------------------------------------------------------------
 
 /**
-   * @brief Latitude-band reject for the face.
-   * @param vertices Shared vertex pool.
-   * @param indices Indices selecting this face's vertices.
-   * @param geometry Display latitude mapping.
-   * @param height Canvas height in rows.
-   * @param bounds_margin Angular padding around the vertical bounds.
-   * @param clip Optional render-row clip.
-   * @return True when the padded face cannot overlap the canvas or render clip.
-   */
+ * @brief Latitude-band reject for the face.
+ * @param vertices Shared vertex pool.
+ * @param indices Indices selecting this face's vertices.
+ * @param geometry Display latitude mapping.
+ * @param height Canvas height in rows.
+ * @param bounds_margin Angular padding around the vertical bounds.
+ * @param clip Optional render-row clip.
+ * @return True when the padded face cannot overlap the canvas or render clip.
+ */
 __attribute__((always_inline)) bool
-compute_phi_extent(std::span<const math::Vector> vertices,
-                   std::span<const uint16_t> indices,
-                   const math::LatitudeGeometry &geometry, int height,
-                   float bounds_margin, const ClipRegion *clip) const {
+phi_band_rejects(std::span<const math::Vector> vertices,
+                 std::span<const uint16_t> indices,
+                 const math::LatitudeGeometry &geometry, int height,
+                 float bounds_margin, const ClipRegion *clip) const {
   float min_y_val = 2.0f;
   float max_y_val = -2.0f;
 
