@@ -56,4 +56,8 @@ inline constexpr MeshOps::RelaxBake
 /// Icosahedron, snub, relaxed to convergence.
 inline constexpr MeshOps::RelaxBake icosahedron_snub_converged =
     make_spec("icosahedron_snub_converged", 4096);
+/// Icosahedron, truncate 0.25, hankin 60, ambo, relaxed 100 iterations.
+inline constexpr MeshOps::RelaxBake
+    icosahedron_truncate25_hankin60_ambo_relax100 =
+        make_spec("icosahedron_truncate25_hankin60_ambo_relax100", 100);
 } // namespace Solids::RelaxBakeSpecs

@@ -667,7 +667,7 @@ icosahedron_truncate25_hk60_ambo_relax100_hk60(Arena &a, Arena &b) {
       .truncate(0.25f)
       .hankin(60.0f * D2R)
       .ambo()
-      .relax(100)
+      .relax_baked(RelaxBakes::icosahedron_truncate25_hankin60_ambo_relax100)
       .hankin(60.0f * D2R)
       .build();
 }
