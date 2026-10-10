@@ -121,7 +121,7 @@ def exempt(item: Undocumented, local_macros: frozenset[str] = frozenset()
     if item.kind == "macro definition" and name in local_macros:
         return True
     if item.kind == "function" and (_DEFAULTED_RE.search(item.name)
-                                    or name.startswith("operator=")):
+                                    or name == "operator="):
         return True
     if item.kind == "typedef" and name in CONTAINER_ALIASES:
         return True
