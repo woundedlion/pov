@@ -364,6 +364,52 @@ struct DynamoWhiteBox {
     }
   }
 
+  /**
+   * @brief Verifies color() picks each band's palette under two ordered
+   *        boundaries and crossfades to the lerp16 midpoint on each boundary.
+   */
+  static void check_wipe_band_colors() {
+    reset_effect_globals();
+
+    Dynamo<DEFAULT_W, DEFAULT_H> effect;
+    effect.init();
+    effect.color_wipe();
+    effect.color_wipe();
+    HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
+
+    const auto direction = [](float theta) {
+      return math::Vector(std::sin(theta), 0.0f, std::cos(theta));
+    };
+    const auto angle = [&](float theta) {
+      return math::fast_acos(hs::clamp(
+          math::dot(direction(theta), effect.PALETTE_NORMAL), -1.0f, 1.0f));
+    };
+    constexpr float FIRST = 0.9f, SECOND = 2.6f;
+    effect.palette_boundaries[0] = angle(FIRST);
+    effect.palette_boundaries[1] = angle(SECOND);
+    HS_EXPECT_LT(effect.palette_boundaries[0] + effect.WIPE_BLEND_WIDTH,
+                 effect.palette_boundaries[1] - effect.WIPE_BLEND_WIDTH);
+
+    constexpr float T = 0.5f;
+    Pixel bands[3];
+    for (int i = 0; i < 3; ++i)
+      bands[i] = effect.baked_palettes[i].get(T).color;
+    HS_EXPECT_NE(bands[0], bands[1]);
+    HS_EXPECT_NE(bands[1], bands[2]);
+
+    HS_EXPECT_EQ(effect.color(math::Z_AXIS, T).color, bands[0]);
+    HS_EXPECT_EQ(effect.color(direction(1.75f), T).color, bands[1]);
+    const float boundaries[2] = {FIRST, SECOND};
+    for (int i = 0; i < 2; ++i) {
+      const Pixel mid = effect.color(direction(boundaries[i]), T).color;
+      const Pixel expected =
+          bands[i].lerp16(bands[i + 1], float_to_pixel16(0.5f));
+      HS_EXPECT_NEAR(mid.r, expected.r, 1);
+      HS_EXPECT_NEAR(mid.g, expected.g, 1);
+      HS_EXPECT_NEAR(mid.b, expected.b, 1);
+    }
+  }
+
   using D = Dynamo<DEFAULT_W, DEFAULT_H>;
   using Ring = Filter::World::Trails<D::TRAIL_CAPACITY>;
   static constexpr int trail_capacity() { return D::TRAIL_CAPACITY; }
