@@ -220,6 +220,7 @@ public:
    *
    * Valid only until the next `advance_display()` flip. Bypasses any
    * `get_pixel` transform; check `overrides_get_pixel()` first.
+   * @return Base pointer of the displayed buffer.
    */
   [[nodiscard]] const Pixel *display_buffer() const {
     return bufs[prev.load(std::memory_order_relaxed)];
@@ -231,10 +232,14 @@ public:
    *
    * When true, readers must use virtual get_pixel() instead of
    * display_buffer().
+   * @return True when get_pixel is overridden.
    */
   [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
 
-  /** @brief Sets the complete-output transition envelope in [0,1]. */
+  /**
+   * @brief Sets the complete-output transition envelope in [0,1].
+   * @param value Envelope in [0,1].
+   */
   void set_output_envelope(float value) {
     HS_AUDIT_CHECK(std::isfinite(value) && value >= 0.0f && value <= 1.0f,
                    "output envelope must be finite and in [0,1]");
@@ -287,7 +292,11 @@ public:
    * and the stale-pixel clear, so a clip it sets governs the clear.
    */
   void set_buffer_ready_hook(BufferReadyHook hook) { buffer_ready_hook = hook; }
-  /** @brief Runs after drawing, while the previous buffer is still stable. */
+  /**
+   * @brief Installs a callback run after drawing, while the previous buffer is
+   * still stable.
+   * @param hook Callback to install, or null to disable it.
+   */
   void set_buffer_complete_hook(BufferCompleteHook hook) {
     buffer_complete_hook = hook;
   }
@@ -537,12 +546,20 @@ public:
     return effect.render_x_clip;
   }
 
-  /** @brief Tests a column against the frame's cached render clip. */
+  /**
+   * @brief Tests a column against the frame's cached render clip.
+   * @param x Column, in pixels.
+   * @return True when @p x is inside the clip.
+   */
   [[nodiscard]] inline bool clip_contains_x(int x) const {
     return !effect.render_x_clip.clipped(x);
   }
 
-  /** @brief Tests a row against the frame's cached render clip. */
+  /**
+   * @brief Tests a row against the frame's cached render clip.
+   * @param y Row, in pixels.
+   * @return True when @p y is inside the clip.
+   */
   [[nodiscard]] inline bool clip_contains_y(int y) const {
     return y >= effect.render_y_start && y < effect.render_y_end;
   }

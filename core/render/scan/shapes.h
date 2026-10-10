@@ -460,6 +460,17 @@ struct PlanarPolygon {
 
   /**
    * @brief Rasterizes a constant-color tangent-plane regular polygon.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the polygon plane.
+   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param sides Number of polygon sides.
+   * @param color Fill color and alpha.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
@@ -818,7 +829,20 @@ struct Star {
                                       debug_bb);
   }
 
-  /** @brief Rasterizes a constant-color solid star. */
+  /**
+   * @brief Rasterizes a constant-color solid star.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the star plane.
+   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param sides Number of star points.
+   * @param color Fill color and alpha.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
                          const math::Basis &basis, float radius, int sides,
@@ -859,7 +883,20 @@ struct Flower {
                                       debug_bb);
   }
 
-  /** @brief Rasterizes a constant-color solid flower. */
+  /**
+   * @brief Rasterizes a constant-color solid flower.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the flower plane.
+   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param sides Number of flower petals.
+   * @param color Fill color and alpha.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
   template <int W, int H, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,
                          const math::Basis &basis, float radius, int sides,
@@ -908,6 +945,17 @@ struct SphericalPolygon {
   /**
    * @brief Rasterizes a constant-color solid spherical polygon.
    * @tparam SineDistance Use edge-plane distance for the AA band.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the polygon.
+   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param sides Number of polygon sides.
+   * @param color Fill color and alpha.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool SineDistance = false, typename PipelineT>
   static void draw_solid(PipelineT &pipeline, Canvas &canvas,

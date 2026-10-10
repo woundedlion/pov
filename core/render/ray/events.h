@@ -22,6 +22,15 @@ inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
  * in one tolerance window; the default is STREAM_COUNT. Overflow retains the
  * buffered contributions and returns BUDGET_EXHAUSTED unless the consumer
  * refuses a retained contribution during the flush, yielding SATURATED.
+ * @tparam Adapter Stream source exposing STREAM_COUNT, active(), distance(),
+ * candidate(), and advance().
+ * @tparam Consume Callable `bool(const Contribution&)`; false stops the trace.
+ * @param adapter Candidate streams, each monotone in distance.
+ * @param interval Parameter range; candidates before `near` are skipped.
+ * @param limits Candidate and layer budgets.
+ * @param consume Receives merged contributions in distance order.
+ * @param relative_tolerance Merge window as a fraction of max(1, t).
+ * @return Completion status and work counters.
  */
 template <typename Adapter, typename Consume>
 __attribute__((always_inline)) inline TraceResult

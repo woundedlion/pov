@@ -26,7 +26,11 @@ struct Appearance {
   const BakedPalette *palette = nullptr; ///< Depth palette; required to shade.
   float gain = 1; /**< Brightness scale applied to every layer's color. */
 
-  /** @brief Whether an interval keeps depth palette lookups in [0, 1]. */
+  /**
+   * @brief Whether an interval keeps depth palette lookups in [0, 1].
+   * @param interval Ray-parameter range to shade.
+   * @return True when the interval is valid and within the fog distance.
+   */
   bool valid_for(Interval interval) const {
     return interval.valid() && finite(inv_far) && inv_far >= 0.0f &&
            interval.far * inv_far <= 1.0f;
@@ -41,7 +45,11 @@ struct Appearance {
     const float fog = fmaxf(0.0f, 1.0f - t * inv_far);
     return fog * fog * math::cubic_kernel((t - near_start) * near_inv_span);
   }
-  /** @brief Depth-graded palette color at distance t. */
+  /**
+   * @brief Depth-graded palette color at distance t.
+   * @param t Ray distance.
+   * @return Palette color scaled by gain and nearness.
+   */
   __attribute__((always_inline)) Pixel color(float t) const {
     const float nearness = 1 - t * inv_far;
     return palette->get_color_unit(nearness) *
@@ -50,6 +58,9 @@ struct Appearance {
   /**
    * @brief Adds the depth-graded color at distance t as one layer of
    *        coverage times opacity(t), without rounding the color first.
+   * @param layers Front-to-back composite to add to.
+   * @param t Ray distance.
+   * @param coverage Layer coverage in [0, 1].
    */
   __attribute__((always_inline)) void composite(LayerComposite &layers, float t,
                                                 float coverage) const {
@@ -93,6 +104,13 @@ shade_events(Adapter &adapter, Interval interval, const TraceLimits &limits,
 
 /** @brief Shades one verified boundary.
  * @details The footprint is validated and reserved for coverage-aware queries.
+ * @tparam Query Distance query accepted by `surface_search`.
+ * @param query Field to search.
+ * @param ray Ray and parameter interval.
+ * @param footprint Pixel cone footprint.
+ * @param limits Step, refinement, and tolerance budgets.
+ * @param appearance Depth appearance applied to the hit.
+ * @return Shaded hit colour and the trace result.
  */
 template <typename Query>
 HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
@@ -108,7 +126,15 @@ HS_HOT_FLASH_MEMBER ShadedTrace shade_surface(const Query &query,
   return {composite.finish(), trace};
 }
 
-/** @brief Averages verified single-surface subrays; layered traces are excluded. */
+/**
+ * @brief Averages verified single-surface subrays; layered traces are excluded.
+ * @tparam COUNT Subray count.
+ * @tparam Trace Callable `ShadedTrace(const math::Vector&)`.
+ * @param directions Subray directions.
+ * @param trace Shades one subray.
+ * @return Alpha-weighted mean colour, summed counters, and hit-fraction
+ * coverage.
+ */
 template <size_t COUNT, typename Trace>
 ShadedTrace verified_filter(const std::array<math::Vector, COUNT> &directions,
                             Trace trace) {

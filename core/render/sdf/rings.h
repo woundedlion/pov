@@ -392,7 +392,16 @@ public:
       cos_min_limit = -2.0f;
   }
 
-  /** @brief The knot constructor with its prefilter storage attached. */
+  /**
+   * @brief The knot constructor with its prefilter storage attached.
+   * @param b Orientation frame (v = ring axis), copied into the shape.
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param kn n centerline shifts (radians); must outlive the shape.
+   * @param n Number of knot cells; at least 3.
+   * @param ph Azimuth phase offset (radians).
+   * @param pf Prefilter storage filled here; must outlive the shape.
+   */
   DistortedRing(const math::Basis &b, float r, float th, const float *kn, int n,
                 float ph, KnotPrefilter &pf)
       : DistortedRing(b, r, th, kn, n, ph, &pf) {}

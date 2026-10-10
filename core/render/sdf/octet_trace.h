@@ -38,6 +38,12 @@ struct Sample {
  * @brief Composites an octet adapter's plane crossings front to back.
  * @details Matches Raycast::trace_events over the adapter, whose single merge
  * group keeps the first distance and largest coverage of coincident crossings.
+ * @tparam Events Octet event adapter (OctetEvents or OctetEvents4).
+ * @param events Initialized event streams for the ray.
+ * @param interval Ray-parameter range to trace.
+ * @param limits Candidate and layer budgets.
+ * @param appearance Depth appearance applied to each layer.
+ * @return Premultiplied color and trace status.
  */
 template <typename Events>
 __attribute__((always_inline)) inline Sample
@@ -193,6 +199,13 @@ struct CoveredCrossings {
  * @details Each stream walks its own crossings with the same accumulated
  * distances trace_events() pops. A ray with more crossings than the candidate
  * budget defers to trace_events(), which truncates them in distance order.
+ * @tparam Events Octet event adapter (OctetEvents or OctetEvents4).
+ * @param events Initialized event streams for the ray.
+ * @param interval Ray-parameter range to trace.
+ * @param limits Candidate and layer budgets.
+ * @param appearance Depth appearance applied to each layer.
+ * @param storage Per-ray crossing scratch.
+ * @return Premultiplied color and trace status.
  */
 template <typename Events>
 __attribute__((always_inline)) inline Sample

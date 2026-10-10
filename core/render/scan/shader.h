@@ -60,7 +60,10 @@ struct Shader {
       sin_dphi = sinf(d_phi);
     }
 
-    /** @brief Loads the two phi trig pairs for pixel row y from the LUT. */
+    /**
+     * @brief Loads the two phi trig pairs for pixel row y from the LUT.
+     * @param y Pixel row.
+     */
     void set_row(int y) {
       const float sy = math::TrigLUT<W, H>::sin_phi[y];
       const float cy = math::TrigLUT<W, H>::cos_phi[y];
@@ -77,6 +80,7 @@ struct Shader {
      * @param x Pixel column.
      * @param i Sample index in [0, SAMPLES); the low bit selects the column
      * offset (±0.25 px) and bit 1 the row offset (±0.25 px).
+     * @return Unit sample direction.
      */
     math::Vector at(int x, int i) const {
       const float st = math::TrigLUT<W, H>::sin_theta[x];
@@ -372,6 +376,11 @@ public:
 
   /** @brief Maximum corner-grid and candidate-row bytes at a minimum block size.
    * @details Excludes caller-owned site positions and any arena alignment pad.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam K Sites classified per corner.
+   * @tparam MIN_BLOCK Minimum block edge, in pixels.
+   * @return Scratch byte count.
    */
   template <int W, int H, size_t K, int MIN_BLOCK>
   static constexpr size_t block_coherent_scratch_bytes() {

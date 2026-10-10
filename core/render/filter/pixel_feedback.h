@@ -102,7 +102,11 @@ public:
    */
   void set_enabled(bool value) { enabled = value; }
 
-  /** @brief Scratch bytes for a full-width uncached flush at downsample ds. */
+  /**
+   * @brief Scratch bytes for a full-width uncached flush at downsample ds.
+   * @param ds Downsample factor.
+   * @return Scratch byte count.
+   */
   static size_t uncached_scratch_bytes(int ds) {
     const int COLUMNS = W / ds;
     const SphereField FIELD(ds, ds, ds, COLUMNS);

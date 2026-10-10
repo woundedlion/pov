@@ -92,7 +92,11 @@ template <typename Query> struct PlacedQuery {
     result.error *= scale;
     return result;
   }
-  /** @brief Samples a placement for which valid() returned true. */
+  /**
+   * @brief Samples a placement for which valid() returned true.
+   * @param p World point.
+   * @return Inner sample with field and clearance in world units.
+   */
   QuerySample sample(const math::Vector &p) const {
     auto result = query.sample(
         math::rotate((p - center) * (1.0f / scale), inverse_rotation));
@@ -135,7 +139,11 @@ template <typename Query, bool FOUR_DIMENSIONAL> struct DomainQuery {
     if constexpr (requires { query.check_trace_preconditions(); })
       query.check_trace_preconditions();
   }
-  /** @brief Samples a domain for which valid() returned true. */
+  /**
+   * @brief Samples a domain for which valid() returned true.
+   * @param p World point, embedded through the camera.
+   * @return Inner query sample.
+   */
   QuerySample sample(const math::Vector &p) const {
     if constexpr (FOUR_DIMENSIONAL)
       return query.sample(camera.point4(p));

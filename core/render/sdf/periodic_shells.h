@@ -30,7 +30,13 @@ struct PeriodicShells {
     float far = 0;    ///< Larger root.
     bool hit = false; ///< Whether the ray meets the sphere.
   };
-  /** @brief Roots in world-distance units for a cell-centered ambient ray. */
+  /**
+   * @brief Roots in world-distance units for a cell-centered ambient ray.
+   * @param origin Ray origin relative to the cell center, world units.
+   * @param direction Ray direction.
+   * @param dimensions Coordinates used, 3 or 4.
+   * @return Ordered roots and whether the ray meets the sphere.
+   */
   Intersections intersect(const math::Vec4 &origin, const math::Vec4 &direction,
                           int dimensions) const {
     float a = 0, b = 0,
@@ -137,6 +143,11 @@ struct ShellLayerStorage {
  * own cell, so a crossing whose ray-to-center clearance exceeds the widest
  * contribution is rejected before any root solve. Matches
  * shade_periodic_shells_dimension<3>, with the step budget counting layers.
+ * @param prepared Frame shell constants.
+ * @param camera Prepared camera embedding.
+ * @param direction Unit view direction.
+ * @param limits Step and layer budgets.
+ * @param appearance Depth appearance applied to each layer.
  * @return The premultiplied composite.
  */
 __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
@@ -266,6 +277,12 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  * neighbors within reach, composited in distance order per layer. Matches
  * shade_periodic_shells_dimension<DIMENSIONS>, with the step budget counting
  * layers.
+ * @param prepared Frame shell constants.
+ * @param camera Prepared camera embedding.
+ * @param direction Unit view direction.
+ * @param limits Step and layer budgets.
+ * @param appearance Depth appearance applied to each layer.
+ * @param storage Per-ray layer sort scratch.
  * @return The premultiplied composite.
  */
 template <int DIMENSIONS>

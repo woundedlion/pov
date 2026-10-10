@@ -118,6 +118,8 @@ static_assert(sdf_max_spans<Face>::value >= FaceScratchBuffer::MAX_INTERVALS,
 /**
  * @brief Order-preserving unsigned key for a non-NaN float: key(a) <= key(b)
  *        exactly when a <= b, with -0.0 and +0.0 mapping to the same key.
+ * @param x Non-NaN value.
+ * @return Order-preserving key.
  */
 __attribute__((always_inline)) inline uint32_t angle_key(float x) {
   uint32_t u = std::bit_cast<uint32_t>(x);
@@ -127,6 +129,9 @@ __attribute__((always_inline)) inline uint32_t angle_key(float x) {
 /**
  * @brief Diamond pseudo-angle of (x, y) in [0, 4), strictly monotonic with
  *        atan2 but trig-free.
+ * @param y Ordinate.
+ * @param x Abscissa.
+ * @return Pseudo-angle in [0, 4); 0 at the origin.
  */
 __attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
   float d = fabsf(x) + fabsf(y);
@@ -241,7 +246,19 @@ struct Face {
     y_max = BOUNDS_CULLED.y_max;
   }
 
-  /** @brief Builds a face on an explicit pole-to-pole virtual grid. */
+  /**
+   * @brief Builds a face on an explicit pole-to-pole virtual grid.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices from the pool.
+   * @param scratch Scratch storage the spans alias; exclusive to this Face for
+   *        its whole lifetime.
+   * @param virtual_height Rows spanning pole to pole; must reproduce the
+   *        display geometry's first and last rows.
+   * @param height Canvas height in rows.
+   * @param clip Optional render clip used to tighten the face bounds.
+   * @param azimuth_pads Optional latitude-adjusted padding table.
+   * @param bounds_margin Angular padding around the vertical bounds.
+   */
   Face(std::span<const math::Vector> vertices,
        std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
        int virtual_height, int height, const ClipRegion *clip = nullptr,

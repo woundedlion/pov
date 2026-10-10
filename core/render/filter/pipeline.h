@@ -261,19 +261,42 @@ public:
   /// Summed stage displacement, in pixels.
   static constexpr int total_segment_margin = PipelineT::total_segment_margin;
 
-  /** @brief Plots at pixel coordinates through the prepared pipeline. */
+  /**
+   * @brief Plots at pixel coordinates through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  /** @brief Plots at pixel coordinates through the prepared pipeline. */
+  /**
+   * @brief Plots at pixel coordinates through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  /** @brief Plots at world position through the prepared pipeline. */
+  /**
+   * @brief Plots at world position through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param v Unit world position.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha) {
     pipeline().plot_prepared(cv, v, c, age, alpha);
@@ -382,7 +405,14 @@ template <int W, int H> struct Pipeline<W, H> {
     plot_in_bounds(cv, xi, y, c, 0.0f, alpha);
   }
 
-  /** @brief Writes a sample whose integer coordinates are already clip-tested. */
+  /**
+   * @brief Writes a sample whose integer coordinates are already clip-tested.
+   * @param cv Target canvas.
+   * @param x Column in [0, W), inside the clip.
+   * @param y Row inside the clip.
+   * @param c Source color.
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot_in_bounds(Canvas &cv, int x, int y, const ::Pixel &c, float,
                       float alpha) {
     HS_PROFILE(filter_blend);
@@ -479,6 +509,10 @@ public:
    * @brief Clip-cull terminal: the edge has cleared every world stage, so run
    *        the rasterizer's row-span vs clip-band test on it.
    * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a Edge start, unit world position.
+   * @param b Edge end, unit world position.
+   * @param planar_basis Basis of a planar edge, or null for a geodesic.
+   * @param pred Clip-band test.
    * @return pred(a, b, planar_basis).
    */
   template <typename Pred>
@@ -649,7 +683,15 @@ struct Pipeline<W, H, Head, Tail...>
     next.init_storage(arena);
   }
 
-  /** @brief Plots at pixel coordinates through the prepared pipeline. */
+  /**
+   * @brief Plots at pixel coordinates through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, float x, float y, const ::Pixel &c, float age,
             float alpha)
     requires(!terminal_replaces)
@@ -657,14 +699,29 @@ struct Pipeline<W, H, Head, Tail...>
     plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  /** @brief Plots at pixel coordinates through the prepared pipeline. */
+  /**
+   * @brief Plots at pixel coordinates through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param x Column coordinate in pixels.
+   * @param y Row coordinate in pixels.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age, float alpha)
     requires(!terminal_replaces)
   {
     plot_prepared(cv, x, y, c, age, alpha);
   }
 
-  /** @brief Plots at world position through the prepared pipeline. */
+  /**
+   * @brief Plots at world position through the prepared pipeline.
+   * @param cv Target canvas.
+   * @param v Unit world position.
+   * @param c Source color.
+   * @param age Temporal age channel (frames).
+   * @param alpha Blend alpha in [0, 1].
+   */
   void plot(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
             float alpha)
     requires(!terminal_replaces)
@@ -744,6 +801,11 @@ public:
    *          applies at plot() time; identity stages forward unchanged and a
    *          moving stage without cull_edge returns true. Returns true once any
    *          transformed copy could intersect the band.
+   * @param a Edge start, unit world position.
+   * @param b Edge end, unit world position.
+   * @param planar_basis Basis of a planar edge, or null for a geodesic.
+   * @param pred Clip-band test.
+   * @return True when any transformed copy could intersect the band.
    */
   template <typename Pred>
   bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
