@@ -11,6 +11,11 @@
 
 namespace Raycast {
 
+/**
+ * @brief Bitwise finiteness test, immune to fast-math folding.
+ * @param value Value to test.
+ * @return False for infinities and NaNs.
+ */
 inline bool finite(float value) {
   uint32_t bits;
   static_assert(sizeof(bits) == sizeof(value));
@@ -18,32 +23,58 @@ inline bool finite(float value) {
   return (bits & 0x7f800000u) != 0x7f800000u;
 }
 
+/** @brief Ray-parameter range [near, far] in world units. */
 struct Interval {
-  float near = 0.0f;
-  float far = 10.0f;
+  float near = 0.0f; ///< Start distance; nonnegative.
+  float far = 10.0f; ///< End distance; greater than `near`.
+  /**
+   * @brief Whether both ends are finite and 0 <= near < far.
+   * @return True for a traceable interval.
+   */
   bool valid() const {
     return finite(near) && finite(far) && near >= 0.0f && far > near;
   }
 };
 
+/**
+ * @brief Whether every component of a vector is finite.
+ * @param p Vector to test.
+ * @return False if any component is infinite or NaN.
+ */
 inline bool finite(const math::Vector &p) {
   return finite(p.x) && finite(p.y) && finite(p.z);
 }
 
+/** @brief Parametric ray with a unit direction and a traced interval. */
 struct Ray {
-  math::Vector origin;
-  math::Vector direction;
-  Interval interval;
+  math::Vector origin;    ///< Position at t = 0.
+  math::Vector direction; ///< Unit-length direction.
+  Interval interval;      ///< Parameter range to trace.
+  /**
+   * @brief Point at parameter t.
+   * @param t Distance along `direction` from `origin`.
+   * @return `origin + direction * t`.
+   */
   math::Vector at(float t) const { return origin + direction * t; }
+  /**
+   * @brief Whether the ray is finite, unit-direction and has a valid interval.
+   * @return True for a traceable ray.
+   */
   bool valid() const {
     return interval.valid() && finite(origin) && finite(direction) &&
            fabsf(math::dot(direction, direction) - 1.0f) < 1e-4f;
   }
 };
 
+/** @brief Cone footprint of a pixel ray, growing linearly with distance. */
 struct Footprint {
-  float angular_radius = 0.0f;
-  float radial_start = 0.0f;
+  float angular_radius = 0.0f; ///< Cone half-angle in radians; nonnegative.
+  float radial_start = 0.0f;   ///< Distance from the cone apex to t = 0.
+  /**
+   * @brief Footprint radius at parameter t.
+   * @param t Ray parameter.
+   * @return World-unit radius `(radial_start + t) * angular_radius`.
+   */
   float at(float t) const { return (radial_start + t) * angular_radius; }
 };
 
@@ -68,30 +99,32 @@ struct TraceLimits {
   float position_tolerance = 1e-4f; /**< Boundary tolerance in world units. */
 };
 
+/** @brief Work spent by one trace, counted against `TraceLimits`. */
 struct TraceCounters {
-  int queries = 0;
-  int steps = 0;
-  int refinements = 0;
-  int candidates = 0;
-  int layers = 0;
+  int queries = 0;     ///< Distance query evaluations.
+  int steps = 0;       ///< Marching or traversal steps.
+  int refinements = 0; ///< Boundary refinement iterations.
+  int candidates = 0;  ///< Candidate events inspected.
+  int layers = 0;      ///< Contributions passed to the consumer.
 };
 
+/** @brief One surface or layer hit along a ray. */
 struct Contribution {
-  float t = 0.0f;
-  float coverage = 1.0f;
-  uint32_t material = 0;
-  uint32_t feature = 0;
-  uint64_t merge_identity = 0;
-  bool verified = false;
-  bool has_normal = false;
-  math::Vector normal;
+  float t = 0.0f;              ///< Ray parameter of the hit.
+  float coverage = 1.0f;       ///< Fractional coverage in [0, 1].
+  uint32_t material = 0;       ///< Material identity at the hit.
+  uint32_t feature = 0;        ///< Geometric feature identity at the hit.
+  uint64_t merge_identity = 0; ///< Key under which near-coincident hits merge.
+  bool verified = false;       ///< Boundary membership was verified.
+  bool has_normal = false;     ///< Whether `normal` is set.
+  math::Vector normal;         ///< Unit surface normal when `has_normal`.
 };
 
 /** @brief Trace completion status and optional verified single-surface result. */
 struct TraceResult {
-  TraceStatus status = TraceStatus::RANGE_COMPLETE;
-  TraceCounters counters;
-  Contribution contribution;
+  TraceStatus status = TraceStatus::RANGE_COMPLETE; ///< Completion reason.
+  TraceCounters counters;    ///< Work spent by the trace.
+  Contribution contribution; ///< The surface hit when `has_surface`.
   bool has_surface =
       false; /**< A verified single surface, not layered coverage. */
 };
