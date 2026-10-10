@@ -26,17 +26,24 @@ namespace Op {
 
 /** @brief Per-frame source phase clocks. */
 struct SourceClockState {
-  float primary = 0.0f;
-  float secondary = 0.0f;
-  float angle = 0.0f;
+  float primary = 0.0f;   ///< Primary phase, radians wrapped at 2π.
+  float secondary = 0.0f; ///< Secondary phase, radians wrapped at 2π.
+  float angle = 0.0f;     ///< Rotation angle, radians wrapped at 2π.
 };
 
-enum class WeightMode : uint8_t { NONE = 0, PROJECTION = 1 };
+/** @brief Sample crossing weighting of the raw field. */
+enum class WeightMode : uint8_t {
+  NONE = 0,      ///< Raw field unweighted.
+  PROJECTION = 1 ///< Raw field scaled by the projection weight.
+};
+/** @brief Sample crossing coverage policy. */
 using ProjectionCoverageMode = Pullback::ProjectionCoverageMode;
 
+/** @brief Weight topology values, in WeightMode order. */
 inline constexpr const char *WEIGHT_MODE_IDS[] = {"none", "projection"};
 static_assert(std::size(WEIGHT_MODE_IDS) ==
               static_cast<size_t>(WeightMode::PROJECTION) + 1);
+/** @brief Coverage topology values, in ProjectionCoverageMode order. */
 inline constexpr const char *COVERAGE_MODE_IDS[] = {
     "none", "weight", "weight-squared", "edge-fade"};
 static_assert(std::size(COVERAGE_MODE_IDS) ==
@@ -89,7 +96,9 @@ inline float projection_coverage(uint8_t coverage_mode,
 struct SampleCrossingParams {
   /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
+  /** WeightMode topology value. */
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  /** ProjectionCoverageMode topology value. */
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
 };
 
@@ -274,8 +283,8 @@ using SphericalRingsSampleParams = Source::SphericalRingsSourceParams;
 
 /** @brief Instance state of the animated spherical ring source. */
 struct SphericalRingsState {
-  SpatialWalkState walk;
-  float phase = 0.0f;
+  SpatialWalkState walk; ///< Band-axis spin and wander walk.
+  float phase = 0.0f;    ///< Band phase, radians wrapped at 2π.
 };
 
 /** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */
@@ -407,6 +416,7 @@ struct SampleFractal : SourceClockModel {
   }
 };
 
+/** @brief Kind topology values, in Source::TessellationKind order. */
 inline constexpr const char *TESSELLATION_KIND_IDS[] = {"triangular", "square",
                                                         "hexagonal"};
 static_assert(std::size(TESSELLATION_KIND_IDS) ==
@@ -414,9 +424,13 @@ static_assert(std::size(TESSELLATION_KIND_IDS) ==
 
 /** @brief Parameter family of sample.tessellation.v2. */
 struct TessellationSampleParams : Source::TessellationSourceParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
+  /** WeightMode topology value. */
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  /** ProjectionCoverageMode topology value. */
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
+  /** Source::TessellationKind topology value. */
   uint8_t kind = static_cast<uint8_t>(Source::TessellationKind::TRIANGULAR);
 
   static constexpr auto FIELDS = concat_fields<TessellationSampleParams>(
@@ -460,9 +474,13 @@ struct SampleTessellation : SourceClockModel {
 
 /** @brief Parameter family of sample.projected-noise.v2. */
 struct ProjectedNoiseSampleParams : Source::NoiseSourceParams {
+  /** Edge-fade band width; read only under edge-fade coverage. */
   float edge_width = 0.1f;
+  /** WeightMode topology value. */
   uint8_t weight_mode = static_cast<uint8_t>(WeightMode::PROJECTION);
+  /** ProjectionCoverageMode topology value. */
   uint8_t coverage_mode = static_cast<uint8_t>(ProjectionCoverageMode::WEIGHT);
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
 
   static constexpr auto FIELDS = concat_fields<ProjectedNoiseSampleParams>(
@@ -480,6 +498,7 @@ static_assert(sample_crossing_defaults_match<ProjectedNoiseSampleParams>());
 
 /** @brief Parameter family of sample.spherical-noise.v3. */
 struct SphericalNoiseSampleParams : Source::NoiseSourceParams {
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -494,8 +513,8 @@ static_assert(field_defaults_in_range<SphericalNoiseSampleParams>());
 /** @brief The noise sources' prepared block: the owned noise field plus this
     frame's loop offset. */
 struct PreparedNoiseSource {
-  const FastNoiseLite *noise;
-  math::Vector loop_offset;
+  const FastNoiseLite *noise; ///< The instance-owned noise field.
+  math::Vector loop_offset;   ///< Lattice offset of this frame's loop phase.
 };
 
 /** @brief PLANE→FIELD crossing: the projected-plane noise contour source. */

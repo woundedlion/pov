@@ -26,6 +26,7 @@ namespace Op {
 /** @brief Projection orientation policy. */
 enum class ProjectionFrame : uint8_t { IDENTITY, SPIN_WANDER };
 
+/** @brief Frame topology values, in ProjectionFrame order. */
 inline constexpr const char *PROJECTION_FRAME_IDS[] = {"identity",
                                                        "spin-wander"};
 static_assert(std::size(PROJECTION_FRAME_IDS) ==
@@ -50,10 +51,12 @@ projection_frame_topology(const Extra &...extra) {
     @details `singularity-fade` is read by projections with a singular locus; it is
     omitted for folded sinusoidal, Bonne, and Airocean. */
 struct ProjectChainParams {
+  /** ProjectionFrame topology value. */
   uint8_t frame = static_cast<uint8_t>(ProjectionFrame::SPIN_WANDER);
+  /** Singularity attenuation sharpness, [1, 20]; 1 is the widest fade. */
   float singularity_fade = 1.0f;
-  float spin_rate = 0.0f;
-  float wander = 0.0f;
+  float spin_rate = 0.0f; /**< Per-frame spin about Y, in radians. */
+  float wander = 0.0f;    /**< Fraction of the walk delta absorbed per frame. */
 
   static constexpr auto FIELDS = std::array{
       Field<ProjectChainParams>{
@@ -135,12 +138,12 @@ static_assert(field_defaults_in_range<RegularProjectChainParams>());
 
 /** @brief Prepared projection frame conjugate. */
 struct ProjectOrientation {
-  math::Quaternion conjugate;
+  math::Quaternion conjugate; ///< Conjugate of the projection frame rotation.
 };
 /** @brief Projection frame with cached meridian trigonometry. */
 struct MeridianProjectOrientation : ProjectOrientation {
-  float meridian_cos;
-  float meridian_sin;
+  float meridian_cos; ///< cos of the central meridian.
+  float meridian_sin; ///< sin of the central meridian.
 };
 
 /** @brief Shared projection walk state, frame conjugate, and family call. */
@@ -205,6 +208,7 @@ struct ProjectStereographic
   static constexpr const char *ID = "project.stereographic.v2";
   static constexpr const char *NAME = "Stereographic";
 
+  /** @brief Bound at the stereographic pole cap. @return The bound. */
   static float plane_bound(const Params &, float) {
     constexpr float MAX_NORM_SQUARED_EXCESS = 0.005f;
     return sqrtf(MAX_NORM_SQUARED_EXCESS +
@@ -244,6 +248,8 @@ struct ProjectEquirectangular
   }
 };
 
+/** @brief Hemisphere topology values, in Projection::GnomonicHemisphere
+    order. */
 inline constexpr const char *GNOMONIC_HEMISPHERE_IDS[] = {"folded", "front",
                                                           "back"};
 static_assert(std::size(GNOMONIC_HEMISPHERE_IDS) ==
@@ -251,6 +257,7 @@ static_assert(std::size(GNOMONIC_HEMISPHERE_IDS) ==
 
 /** @brief Parameter family of project.gnomonic.v2. */
 struct GnomonicChainParams : ProjectChainParams {
+  /** Projection::GnomonicHemisphere topology value. */
   uint8_t hemisphere =
       static_cast<uint8_t>(Projection::GnomonicHemisphere::FOLDED);
 
@@ -292,6 +299,7 @@ struct ProjectGnomonic : ProjectOpModel<ProjectGnomonic, GnomonicChainParams> {
 inline constexpr uint8_t PEIRCE_SQUARE_LAYOUT =
     static_cast<uint8_t>(projections::PeirceLayout::SQUARE);
 
+/** @brief Hemisphere topology values of project.bonne.v3. */
 inline constexpr const char *BONNE_HEMISPHERE_IDS[] = {"north", "south"};
 static_assert(std::size(BONNE_HEMISPHERE_IDS) == 2);
 
@@ -300,6 +308,7 @@ inline constexpr float BONNE_STANDARD_PARALLEL = math::PI_F * 0.25f;
 
 /** @brief Parameter family of project.bonne.v3. */
 struct BonneChainParams : RegularProjectChainParams {
+  /** Standard-parallel magnitude, radians in [0, π/2]. */
   float standard_parallel = BONNE_STANDARD_PARALLEL;
   uint8_t hemisphere = 0; /**< 0 north, 1 south. */
 
@@ -319,13 +328,14 @@ static_assert(appended_block_size_matches<BonneChainParams,
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<BonneChainParams>());
 
+/** @brief Layout topology values of project.airocean.v3. */
 inline constexpr const char *AIROCEAN_LAYOUT_IDS[] = {"vertical", "horizontal"};
 
 static_assert(std::size(AIROCEAN_LAYOUT_IDS) == 2);
 
 /** @brief Parameter family of project.airocean.v3. */
 struct AiroceanChainParams : RegularProjectChainParams {
-  uint8_t layout = 0;
+  uint8_t layout = 0; /**< 0 vertical, 1 horizontal. */
 
   static constexpr auto TOPOLOGY =
       projection_frame_topology<AiroceanChainParams>(
@@ -338,8 +348,12 @@ static_assert(appended_block_size_matches<AiroceanChainParams,
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<AiroceanChainParams>());
 
+/**
+ * @brief A projection family extended with a coordinate scale.
+ * @tparam Base The projection param family.
+ */
 template <typename Base> struct ScaledProjectParams : Base {
-  float coordinate_scale = 1.0f;
+  float coordinate_scale = 1.0f; /**< Plane coordinate scale, [0.25, 4]. */
   static constexpr auto FIELDS = concat_fields<ScaledProjectParams>(
       Base::FIELDS,
       std::array{Field<ScaledProjectParams>{
@@ -347,14 +361,18 @@ template <typename Base> struct ScaledProjectParams : Base {
           "Coordinate Scale", 0.25f, 4.0f, FieldCurve::LOG_POSITIVE}});
 };
 
+/** @brief Layout topology values, in projections::PeirceLayout order. */
 inline constexpr const char *PEIRCE_LAYOUT_IDS[] = {"diamond", "square",
                                                     "horizontal", "vertical"};
 
 static_assert(std::size(PEIRCE_LAYOUT_IDS) ==
               static_cast<size_t>(projections::PeirceLayout::VERTICAL) + 1);
 
+/** @brief Parameter family of project.peirce.v3. */
 struct PeirceChainParams : ScaledProjectParams<MeridianProjectChainParams> {
+  /** Strip-layout translation, fraction of a period in [-1, 1]. */
   float layout_scroll = 0.0f;
+  /** projections::PeirceLayout topology value. */
   uint8_t layout = PEIRCE_SQUARE_LAYOUT;
   static constexpr auto FIELDS = concat_fields<PeirceChainParams>(
       ScaledProjectParams<MeridianProjectChainParams>::FIELDS,
@@ -370,6 +388,8 @@ struct PeirceChainParams : ScaledProjectParams<MeridianProjectChainParams> {
                                        PEIRCE_SQUARE_LAYOUT});
 };
 
+/** @brief SPHERE→PLANE crossing: the Peirce quincuncial projection under a
+    layout topology. */
 struct ProjectPeirceV3
     : ProjectOpModel<ProjectPeirceV3, PeirceChainParams, true> {
   static constexpr const char *ID = "project.peirce.v3";
@@ -390,6 +410,7 @@ struct ProjectPeirceV3
   }
 };
 
+/** @brief SPHERE→PLANE crossing: the approximate square Peirce projection. */
 struct ProjectPeirceSquareFastV3
     : ProjectOpModel<ProjectPeirceSquareFastV3,
                      ScaledProjectParams<ProjectChainParams>> {
@@ -406,6 +427,7 @@ struct ProjectPeirceSquareFastV3
   }
 };
 
+/** @brief SPHERE→PLANE crossing: the scaled Bonne projection. */
 struct ProjectBonneV3
     : ProjectOpModel<ProjectBonneV3, ScaledProjectParams<BonneChainParams>> {
   static constexpr const char *ID = "project.bonne.v3";
@@ -425,6 +447,7 @@ struct ProjectBonneV3
   }
 };
 
+/** @brief SPHERE→PLANE crossing: the scaled Airocean projection. */
 struct ProjectAiroceanV3
     : ProjectOpModel<ProjectAiroceanV3,
                      ScaledProjectParams<AiroceanChainParams>, true> {

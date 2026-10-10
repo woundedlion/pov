@@ -22,8 +22,10 @@ namespace Interp {
 
 namespace Op {
 
+/** @brief Amplitude envelope of the warp operators. */
 using WarpEnvelope = Warp::Envelope;
 
+/** @brief Envelope topology values, in WarpEnvelope order. */
 inline constexpr auto &WARP_ENVELOPE_IDS = Warp::ENVELOPE_IDS;
 
 /**
@@ -45,12 +47,12 @@ inline float warp_envelope(uint8_t envelope,
 
 /** @brief Phase clock of the single-clock warp operators. */
 struct WarpPhaseState {
-  float phase = 0.0f;
+  float phase = 0.0f; ///< Normalized loop phase in [0, 1).
 };
 
 /** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
 struct AffineWarpParams : Warp::AffineParams {
-  float lattice_period = 1.0f;
+  float lattice_period = 1.0f; /**< Lattice cell size, [1/64, 100]. */
   static constexpr auto FIELDS = concat_fields<AffineWarpParams>(
       Warp::AffineParams::FIELDS,
       std::array{Field<AffineWarpParams>{
@@ -65,8 +67,8 @@ static_assert(field_defaults_in_range<AffineWarpParams>());
 
 /** @brief Phase clock plus the accumulated frame rotation of warp.affine.v3. */
 struct AffineClockState {
-  float phase = 0.0f;
-  float rotation = 0.0f;
+  float phase = 0.0f;    ///< Normalized oscillation phase in [0, 1).
+  float rotation = 0.0f; ///< Frame rotation, radians in [0, 2π).
 };
 
 /** @brief PLANE endomorphism: the oscillating affine frame change. */
@@ -106,6 +108,7 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
 
 /** @brief Parameter family of warp.wave-shear.v2. */
 struct WaveShearWarpParams : Warp::WaveShearParams {
+  /** WarpEnvelope topology value. */
   uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -123,8 +126,8 @@ static_assert(field_defaults_in_range<WaveShearWarpParams>());
 /** @brief The wave shear's prepared block: the field frame plus the phase the
     kernel consumes per sample. */
 struct PreparedWaveShear {
-  Warp::PreparedRotation rotation;
-  float phase;
+  Warp::PreparedRotation rotation; ///< Shear field frame.
+  float phase;                     ///< Normalized loop phase.
 };
 
 /** @brief PLANE endomorphism: the travelling sine shear. */
@@ -187,7 +190,9 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
 
 /** @brief Parameter family of warp.vector-noise.v2. */
 struct VectorNoiseWarpParams : Warp::VectorNoiseParams {
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
+  /** WarpEnvelope topology value. */
   uint8_t envelope = static_cast<uint8_t>(WarpEnvelope::FLAT);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -208,8 +213,8 @@ static_assert(field_defaults_in_range<VectorNoiseWarpParams>());
 /** @brief The vector-noise warp's prepared block: the owned noise field plus
     the vector frame and loop point. */
 struct PreparedVectorNoiseWarp {
-  const FastNoiseLite *noise;
-  Warp::PreparedVectorNoiseSlot slot;
+  const FastNoiseLite *noise;         ///< The instance-owned noise field.
+  Warp::PreparedVectorNoiseSlot slot; ///< Vector frame and loop point.
 };
 
 /** @brief PLANE endomorphism: the noise-vector displacement. */
@@ -276,8 +281,13 @@ struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   }
 };
 
-enum class PolarMode : uint8_t { LINEAR = 0, LOGARITHMIC = 1 };
+/** @brief Radial coordinate of the polar chart. */
+enum class PolarMode : uint8_t {
+  LINEAR = 0,     ///< Radius.
+  LOGARITHMIC = 1 ///< Log radius.
+};
 
+/** @brief Mode topology values, in PolarMode order. */
 inline constexpr const char *POLAR_MODE_IDS[] = {"linear", "logarithmic"};
 static_assert(std::size(POLAR_MODE_IDS) ==
               static_cast<size_t>(PolarMode::LOGARITHMIC) + 1);
@@ -290,6 +300,7 @@ static_assert(std::size(POLAR_HARMONIC_IDS) == Warp::MAX_POLAR_HARMONIC);
 
 /** @brief Parameter family of warp.polar-chart.v2. */
 struct PolarChartParams : Warp::PolarParams {
+  /** PolarMode topology value. */
   uint8_t mode = static_cast<uint8_t>(PolarMode::LINEAR);
   uint8_t harmonic = 0; /**< Harmonic value index; harmonic = index + 1. */
 
@@ -314,8 +325,9 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   using Input = PlaneSample;
   using Output = PlaneSample;
   using Params = PolarChartParams;
+  /** @brief The frame's loop phase. */
   struct Prepared {
-    float phase;
+    float phase; ///< Normalized loop phase.
   };
 
   /** @brief Radial bound plus the angular reach of the harmonic, phases and
@@ -348,8 +360,18 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   }
 };
 
-enum class CurlIntegrator : uint8_t { EULER1, MIDPOINT2, MIDPOINT4 };
+/** @brief Curl-flow integrator; value v takes 2^v sub-steps. */
+enum class CurlIntegrator : uint8_t {
+  EULER1,    ///< One Euler step.
+  MIDPOINT2, ///< Two midpoint steps.
+  MIDPOINT4  ///< Four midpoint steps.
+};
 
+/**
+ * @brief Sub-step count of an integrator.
+ * @param integrator The integrator.
+ * @return 1, 2 or 4.
+ */
 inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
   static_assert(Warp::Euler1::INTERVALS ==
                 (1U << static_cast<uint8_t>(CurlIntegrator::EULER1)));
@@ -360,6 +382,7 @@ inline constexpr uint8_t curl_intervals(CurlIntegrator integrator) {
   return static_cast<uint8_t>(1U << static_cast<uint8_t>(integrator));
 }
 
+/** @brief Integrator topology values, in CurlIntegrator order. */
 inline constexpr const char *CURL_INTEGRATOR_IDS[] = {"euler-1", "midpoint-2",
                                                       "midpoint-4"};
 static_assert(std::size(CURL_INTEGRATOR_IDS) ==
@@ -367,7 +390,9 @@ static_assert(std::size(CURL_INTEGRATOR_IDS) ==
 
 /** @brief Parameter family of warp.curl-flow.v2. */
 struct CurlFlowWarpParams : Warp::CurlFlowParams {
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
+  /** CurlIntegrator topology value. */
   uint8_t integrator = static_cast<uint8_t>(CurlIntegrator::EULER1);
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlFlowWarpParams>{
@@ -387,9 +412,9 @@ static_assert(field_defaults_in_range<CurlFlowWarpParams>());
 /** @brief The curl flow's prepared block: the owned noise field, this frame's
     point on the loop, and the sub-step count decoded from the integrator. */
 struct PreparedCurlFlow {
-  const FastNoiseLite *noise;
-  math::Vector loop_offset;
-  uint8_t intervals;
+  const FastNoiseLite *noise; ///< The instance-owned noise field.
+  math::Vector loop_offset;   ///< Lattice offset of this frame's loop phase.
+  uint8_t intervals;          ///< Integrator sub-steps, curl_intervals().
 };
 
 /** @brief PLANE endomorphism: flow along the component-clamped curl field. */
