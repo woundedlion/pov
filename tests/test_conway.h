@@ -756,7 +756,8 @@ inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
 }
 
 /**
- * @brief Verifies every operator returns its output in `target`.
+ * @brief Verifies every operator returns its vertex and topology arrays in
+ *        `target`.
  * @details Covers a primitive (dual), the odd-length composition (meta), and
  *          each even-length composed operator (gyro/needle/zip/bevel), with the
  *          seed built in `temp`. Each output must also satisfy the basic
@@ -767,6 +768,14 @@ inline void test_conway_composition_polarity() {
   const uint8_t *tmp = conway_temp_buf;
   const size_t tgt_n = sizeof(conway_target_buf);
   const size_t tmp_n = sizeof(conway_temp_buf);
+  auto expect_in_target = [&](const PolyMesh &m) {
+    for (const void *p : {static_cast<const void *>(m.vertices.data()),
+                          static_cast<const void *>(m.face_counts.data()),
+                          static_cast<const void *>(m.faces.data())}) {
+      HS_EXPECT_TRUE(ptr_in_buffer(p, tgt, tgt_n));
+      HS_EXPECT_FALSE(ptr_in_buffer(p, tmp, tmp_n));
+    }
+  };
 
   // A primitive returns in `target`.
   {
@@ -776,8 +785,7 @@ inline void test_conway_composition_polarity() {
     build_solid<Solids::Cube>(cube, temp);
     PolyMesh d = MeshOps::dual(cube, target, temp);
     check_basic_invariants(d);
-    HS_EXPECT_TRUE(ptr_in_buffer(&d.vertices[0], tgt, tgt_n));
-    HS_EXPECT_FALSE(ptr_in_buffer(&d.vertices[0], tmp, tmp_n));
+    expect_in_target(d);
   }
 
   // Odd-length meta (three steps) returns in `target` like a primitive.
@@ -788,8 +796,7 @@ inline void test_conway_composition_polarity() {
     build_solid<Solids::Cube>(cube, temp);
     PolyMesh m = MeshOps::meta(cube, target, temp);
     check_basic_invariants(m);
-    HS_EXPECT_TRUE(ptr_in_buffer(&m.vertices[0], tgt, tgt_n));
-    HS_EXPECT_FALSE(ptr_in_buffer(&m.vertices[0], tmp, tmp_n));
+    expect_in_target(m);
   }
 
   // Each even-length composed operator also returns in `target`.
@@ -801,8 +808,7 @@ inline void test_conway_composition_polarity() {
     build_solid<Solids::Cube>(seed, temp);                                     \
     PolyMesh out = MeshOps::CALL;                                              \
     check_basic_invariants(out);                                               \
-    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));               \
-    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));              \
+    expect_in_target(out);                                                     \
   } while (0)
 
   HS_POLARITY_COMPOSED(gyro(seed, target, temp));
