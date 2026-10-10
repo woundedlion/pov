@@ -281,7 +281,7 @@ The knob reaches the walk, not every primitive. `Scan::RingGroup` and `Scan::Dis
 
 ## 7.2 The Curve Rasterizer (`plot.h`)
 
-`plot.h` is an umbrella over `core/render/plot/` (`core/render/plot/cull.h`, `core/render/plot/raster.h`, `core/render/plot/shapes.h`, `core/render/plot/mesh.h`, `core/render/plot/particles.h`, and `core/render/plot/chords.h`). For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/planar rasterizer with adaptive step size. Each sub-step is sized from the curve's full 2-D screen-space speed (`sqrt(vx² + vy²)`, combining longitudinal and latitudinal motion), so samples land roughly one pixel apart everywhere on the curve regardless of latitude. The step is clamped to keep the equator near one sample per column and floored near the poles — where screen speed diverges — so pole oversampling stays bounded.
+`plot.h` is an umbrella over `core/render/plot/` (`core/render/plot/cull.h`, `core/render/plot/raster.h` with its sample helpers in `core/render/plot/raster_walk.h`, `core/render/plot/shapes.h`, `core/render/plot/mesh.h`, `core/render/plot/particles.h`, and `core/render/plot/chords.h`). For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/planar rasterizer with adaptive step size. Each sub-step is sized from the curve's full 2-D screen-space speed (`sqrt(vx² + vy²)`, combining longitudinal and latitudinal motion), so samples land roughly one pixel apart everywhere on the curve regardless of latitude. The step is clamped to keep the equator near one sample per column and floored near the poles — where screen speed diverges — so pole oversampling stays bounded.
 
 ```cpp
 Plot::Line::draw<W, H>(pipeline, canvas, start, end, fragment_shader);

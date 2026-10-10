@@ -10,6 +10,7 @@
 #include <concepts>
 #include <span>
 #include <limits>
+#include <optional>
 #include "math/geometry.h"
 #include "render/shading.h"
 #include "render/clip.h"
@@ -331,6 +332,9 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
 }
 HS_O3_END
 
+HS_O3_BEGIN
+#include "render/plot/raster_walk.h"
+
 /**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
@@ -352,7 +356,6 @@ HS_O3_END
  *                        polyline; a typed shader cannot be empty.
  * @param opts Optional loop/projection/culling behaviors.
  */
-HS_O3_BEGIN
 template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
 static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
@@ -494,13 +497,6 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
   float seg_base = 0.0f; // rendered arc at the in-flight segment's start
 
-  auto shade_fragment = [&](const math::Vector &position, Fragment &fragment) {
-    HS_PLOT_STALL_START(shade_start);
-    HS_PLOT_RENDER_COUNT(fragment_shader_calls);
-    fragment_shader(position, fragment);
-    HS_PLOT_STALL_STOP(shade_palette, shade_start);
-  };
-
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
   // point and tangent estimate at arc fraction t in [0,1] under the chosen
   // strategy, `sample.pos(t)` the point alone; `total_dist` is the segment's
@@ -529,18 +525,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
       if (!should_omit && PLOT_START) {
-        Fragment f_copy;
-        if constexpr (INTERPOLATE_REGISTERS)
-          f_copy = curr;
-        f_copy.pos = curr.pos;
-        f_copy.color = Color4(0, 0, 0, 0);
-        set_arc_uv(f_copy, 0.0f);
-
-        HS_PLOT_COUNT(shader_calls);
-        shade_fragment(curr.pos, f_copy);
-        HS_PLOT_COUNT(plotted_samples);
-        pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
-                      f_copy.color.alpha);
+        Fragment f;
+        seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
+        set_arc_uv(f, 0.0f);
+        shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
       }
       return;
     }
@@ -605,27 +593,15 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_COUNT(one_dot);
       if (PLOT_START) {
         Fragment f;
-        if constexpr (INTERPOLATE_REGISTERS)
-          f = curr;
-        f.pos = curr.pos;
-        f.color = Color4(0, 0, 0, 0);
+        seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
         set_arc_uv(f, 0.0f);
-        HS_PLOT_COUNT(shader_calls);
-        shade_fragment(curr.pos, f);
-        HS_PLOT_COUNT(plotted_samples);
-        pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
+        shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
       }
       if (!close_loop && is_last_segment && !omit_end && PLOT_END) {
         Fragment fl;
-        if constexpr (INTERPOLATE_REGISTERS)
-          fl = next;
-        fl.pos = next.pos;
-        fl.color = Color4(0, 0, 0, 0);
+        seed_fragment<INTERPOLATE_REGISTERS>(fl, next);
         set_arc_uv(fl, total_dist);
-        HS_PLOT_COUNT(shader_calls);
-        shade_fragment(next.pos, fl);
-        HS_PLOT_COUNT(plotted_samples);
-        pipeline.plot(canvas, next.pos, fl.color.color, fl.age, fl.color.alpha);
+        shade_and_plot(pipeline, canvas, fragment_shader, next.pos, fl);
       }
       return;
     }
@@ -677,21 +653,14 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         if (!plot_window ||
             (current_t >= plot_t_start && current_t <= plot_t_hi)) {
           Fragment f;
-          if constexpr (INTERPOLATE_REGISTERS)
-            f = Fragment::lerp_registers(curr, next, current_t);
-          f.pos = p;
-          f.color = Color4(0, 0, 0, 0);
+          lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, current_t, p);
           set_arc_uv(f, current_dist);
-          HS_PLOT_COUNT(shader_calls);
-          shade_fragment(p, f);
+          std::optional<float> alpha_scale;
           if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-            if (balanced_sampling) {
-              const float alpha_scale = desired_step / default_desired_step;
-              f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
-            }
+            if (balanced_sampling)
+              alpha_scale = desired_step / default_desired_step;
           }
-          HS_PLOT_COUNT(plotted_samples);
-          pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
+          shade_and_plot(pipeline, canvas, fragment_shader, p, f, alpha_scale);
         }
 
         if (++step_count >= max_cache) {
@@ -768,25 +737,19 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       if (!close_loop && is_last_segment && !omit_end &&
           (!plot_window || plot_t_hi >= 1.0f)) {
         Fragment f;
-        if constexpr (INTERPOLATE_REGISTERS)
-          f = next;
-        f.pos = next.pos;
-        f.color = Color4(0, 0, 0, 0);
+        seed_fragment<INTERPOLATE_REGISTERS>(f, next);
         set_arc_uv(f, total_dist);
-        HS_PLOT_COUNT(shader_calls);
-        shade_fragment(next.pos, f);
+        std::optional<float> alpha_scale;
         if constexpr (SAMPLING_POLICY != RasterSamplingPolicy::DEFAULT) {
-          if (balanced_sampling) {
-            // Gain the endpoint by the arc it actually stands in for, floored
-            // at the default step so it never dims below the DEFAULT policy.
-            const float alpha_scale =
+          // Gain the endpoint by the arc it actually stands in for, floored
+          // at the default step so it never dims below the DEFAULT policy.
+          if (balanced_sampling)
+            alpha_scale =
                 hs::clamp(endpoint_gap, default_desired_step, desired_step) /
                 default_desired_step;
-            f.color.alpha = balanced_sample_alpha(f.color.alpha, alpha_scale);
-          }
         }
-        HS_PLOT_COUNT(plotted_samples);
-        pipeline.plot(canvas, next.pos, f.color.color, f.age, f.color.alpha);
+        shade_and_plot(pipeline, canvas, fragment_shader, next.pos, f,
+                       alpha_scale);
       }
       return;
     }
@@ -832,17 +795,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_COUNT(normalizations);
       math::Vector start_pos = newton_unit(sample.pos(0.0f));
       Fragment f;
-      if constexpr (INTERPOLATE_REGISTERS)
-        f = Fragment::lerp_registers(curr, next, 0.0f);
-      f.pos = start_pos;
-      f.color = Color4(0, 0, 0, 0);
+      lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, 0.0f, start_pos);
       set_arc_uv(f, 0.0f);
       HS_PLOT_STALL_STOP(normalized_replay, replay_start);
-
-      HS_PLOT_COUNT(shader_calls);
-      shade_fragment(start_pos, f);
-      HS_PLOT_COUNT(plotted_samples);
-      pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
+      shade_and_plot(pipeline, canvas, fragment_shader, start_pos, f);
     }
 
     size_t loop_limit = omit_last ? steps_cache.size() - 1 : steps_cache.size();
@@ -866,17 +822,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       HS_PLOT_COUNT(normalizations);
       math::Vector p = terminal ? next.pos : newton_unit(sample.pos(t));
       Fragment f;
-      if constexpr (INTERPOLATE_REGISTERS)
-        f = Fragment::lerp_registers(curr, next, t);
-      f.pos = p;
-      f.color = Color4(0, 0, 0, 0);
+      lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, t, p);
       set_arc_uv(f, current_dist);
       HS_PLOT_STALL_STOP(normalized_replay, replay_start);
-
-      HS_PLOT_COUNT(shader_calls);
-      shade_fragment(p, f);
-      HS_PLOT_COUNT(plotted_samples);
-      pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
+      shade_and_plot(pipeline, canvas, fragment_shader, p, f);
     }
   };
 
@@ -890,12 +839,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     if (plot_window && ((k == 0 && !PLOT_START) || (k == 1 && !PLOT_END)))
       return;
     Fragment f;
-    if constexpr (INTERPOLATE_REGISTERS)
-      f = src;
-    f.pos = src.pos;
-    f.color = Color4(0, 0, 0, 0);
-    HS_PLOT_COUNT(shader_calls);
-    shade_fragment(src.pos, f);
+    seed_fragment<INTERPOLATE_REGISTERS>(f, src);
+    shade_fragment(fragment_shader, src.pos, f);
     if constexpr (pipeline_hoistable_projection<PipelineT>()) {
       if (point_rows != nullptr && point_cols != nullptr) {
         HS_PLOT_COUNT(plotted_samples);
