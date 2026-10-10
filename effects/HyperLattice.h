@@ -61,6 +61,7 @@ struct Params {
   float spin_4d = 0.0f;
   ShellCount shells = ShellCount::TWO;
   float shell_radius = .30f;
+  float iridescence = .25f;
 
   /**
    * @brief Interpolates continuous fields; the pattern, view and shell
@@ -70,7 +71,7 @@ struct Params {
                             float amount);
 };
 
-static_assert(sizeof(Params) == 52,
+static_assert(sizeof(Params) == 56,
               "HyperLattice parameter snapshot layout changed");
 
 using SDF::Lattice::CrossingList;
@@ -227,7 +228,7 @@ public:
   static constexpr size_t SHELL_CLOSE_PRESET_INDEX = 7;
   static constexpr size_t SHELL_4D_PRESET_INDEX = 8;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 320;
-  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 15;
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 16;
 
   /**
    * @brief The preset at @p index and how it departs.
@@ -494,7 +495,12 @@ public:
                                       .name = "Shell Radius",
                                       .spec = {.min = SHELL_RADIUS_MIN,
                                                .max = SHELL_RADIUS_MAX,
-                                               .animated = true}}};
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescence",
+            .member = &Params::iridescence,
+            .name = "Iridescence",
+            .spec = {.min = 0.0f, .max = 1.0f, .animated = true}}};
   }
 
   static constexpr bool valid_params(const Params &value) {
@@ -528,6 +534,7 @@ public:
     refresh_configuration_schema();
     depth_palette.init_generated(persistent_arena, next_depth_palette, nullptr,
                                  0, PALETTE_FADE_FRAMES, math::ease_in_out_sin);
+    iridescent_palette.bake(persistent_arena, depth_palette.palette());
     crossing_list =
         persistent_arena.allocate_n<HyperLatticeDetail::CrossingList>(1);
     crossing_storage =
@@ -544,13 +551,20 @@ public:
     step_choreography();
     advance_state();
     depth_palette.step();
+    iridescent_phase = math::wrap(iridescent_phase + .02f, math::TWO_PI_F);
+    const BakedPalette *frame_palette = &depth_palette.palette();
+    if (params.iridescence > 0.0f) {
+      IridescentShade sheen(&iridescent_phase, 3.0f, params.iridescence);
+      StaticPalette<BakedPalette, Coords<>, Colors<IridescentShade>, false>
+          shaded;
+      shaded.bind(frame_palette, &sheen);
+      iridescent_palette.rebake(shaded);
+      frame_palette = &iridescent_palette.view();
+    }
     const HyperLatticeDetail::FrameState context{
-        params,
-        origin,
-        rotation_phase,
-        HyperLatticeDetail::pixel_half_angle<W, H>(),
-        &depth_palette.palette(),
-        preset_gain,
+        params,         origin,
+        rotation_phase, HyperLatticeDetail::pixel_half_angle<W, H>(),
+        frame_palette,  preset_gain,
         crossing_list};
     unfinished_rays = 0;
     if (params.pattern != Pattern::CUBIC_WIRE) {
@@ -618,8 +632,10 @@ private:
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float near_fade = params.near_fade;
+      const float IRIDESCENCE = params.iridescence;
       params = pattern_defaults(params.pattern, params.mode);
       params.near_fade = near_fade;
+      params.iridescence = IRIDESCENCE;
       selected_configuration = configuration;
       refresh_configuration_schema();
     }
@@ -823,6 +839,8 @@ private:
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
   PaletteCycler depth_palette;
+  BakedPaletteStorage iridescent_palette;
+  float iridescent_phase = 0.0f;
   HyperLatticeDetail::CrossingList *crossing_list = nullptr;
   SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
@@ -831,6 +849,7 @@ private:
 
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
+      BakedPalette::required_arena_bytes() +
       sizeof(HyperLatticeDetail::CrossingList) +
       alignof(HyperLatticeDetail::CrossingList) +
       sizeof(SDF::OctetTrace::CrossingStorage) +
