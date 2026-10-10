@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file scratch.h
+ * @brief ScratchScope: RAII save and restore of an arena offset.
+ */
+
 // ============================================================================
 // ScratchScope — RAII Arena Offset Guard
 // ============================================================================

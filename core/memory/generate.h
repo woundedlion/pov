@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file generate.h
+ * @brief generate(): scratch-scoped generation into a destination arena.
+ */
+
 // ============================================================================
 // generate() — Scratch-Scoped Generation Wrapper
 // ============================================================================
@@ -23,6 +28,7 @@ inline int &generate_depth() {
 }
 } // namespace detail
 
+/// Deepest allowed generate() nesting.
 constexpr int MAX_GENERATE_DEPTH = 16;
 
 /**
