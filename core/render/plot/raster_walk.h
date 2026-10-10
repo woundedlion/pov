@@ -6,6 +6,12 @@
 // Included by core/render/plot/raster.h.
 
 /**
+ * @file raster_walk.h
+ * @brief Per-sample seeding, shading and plotting helpers and the planar
+ * rendered-arc table used by rasterize().
+ */
+
+/**
  * @brief Starts a raster sample at @p src's position.
  * @tparam INTERP Copy @p src's registers; otherwise every register takes its
  *         Fragment default, including age = 0, and @p src's registers are not
@@ -167,7 +173,10 @@ public:
     return out;
   }
 
-  /** @brief True when the caches are bound for a planar polyline. */
+  /**
+   * @brief True when the caches are bound for a planar polyline.
+   * @return Whether bind_and_measure ran with a planar basis.
+   */
   HS_HOT_INLINE bool is_active() const {
     if constexpr (DERIVE)
       return planar_basis != nullptr;
@@ -175,7 +184,11 @@ public:
       return false;
   }
 
-  /** @brief Segment @p i has an endpoint at the basis antipode. */
+  /**
+   * @brief Segment @p i has an endpoint at the basis antipode.
+   * @param i Segment index; requires an active table.
+   * @return True when segment @p i uses a geodesic edge.
+   */
   HS_HOT_INLINE bool seam(size_t i) const { return seam_cache[i] != 0; }
 
   /**
