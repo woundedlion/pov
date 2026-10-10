@@ -102,6 +102,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     // The displacement policies pin the basis and the integrator.
     {"sphere.displace.curl.v2", "basis", {{"simplex"}}},
     {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
+    {"sphere.displace.curl.v2", "limit", {{"smooth"}}},
     {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
     // Spec::LensPolicy names one lens policy per symmetry.
     {"sphere.lens.kaleidoscope.v2",
@@ -253,6 +254,6 @@ inline void test_composed_derivation_reach() {
 
   HS_EXPECT_EQ(In::OPERATOR_TABLE.size(), 38u);
   HS_EXPECT_EQ(unreachable_operators, 12u);
-  HS_EXPECT_EQ(catalog_values, 150u);
-  HS_EXPECT_EQ(unreachable_values, 90u);
+  HS_EXPECT_EQ(catalog_values, 152u);
+  HS_EXPECT_EQ(unreachable_values, 91u);
 }

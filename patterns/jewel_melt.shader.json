@@ -475,6 +475,22 @@
       },
       {
         "classification": "preset",
+        "default": "smooth",
+        "domain": {
+          "values": [
+            "smooth",
+            "clamp"
+          ]
+        },
+        "id": "surface.limit",
+        "interpolation": {
+          "kind": "MIXED_ENUM"
+        },
+        "storage": "enum8",
+        "unit": "mode"
+      },
+      {
+        "classification": "preset",
         "default": 1,
         "domain": {
           "maximum": 64,
@@ -553,6 +569,7 @@
         "sample.weight-mode",
         "surface.basis",
         "surface.integrator",
+        "surface.limit",
         "surface.scale",
         "surface.speed",
         "surface.strength"
@@ -617,6 +634,7 @@
           "sample.weight-mode": "projection",
           "surface.basis": "simplex",
           "surface.integrator": "euler",
+          "surface.limit": "smooth",
           "surface.scale": 4.63116455078125,
           "surface.speed": 0.00017089843458961695,
           "surface.strength": 0.03880208358168602

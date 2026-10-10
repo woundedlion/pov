@@ -257,7 +257,7 @@ inline void test_shader_chain_schema_and_field_ids() {
   const In::OperatorDescriptor &curl =
       *In::find_operator("sphere.displace.curl.v2");
   constexpr size_t CURL_FIELDS = In::Op::CurlDisplaceParams::FIELDS.size();
-  HS_EXPECT_EQ(curl.schema_count, CURL_FIELDS + 2);
+  HS_EXPECT_EQ(curl.schema_count, CURL_FIELDS + 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS].id) == "basis");
   HS_EXPECT_EQ(curl.schema[CURL_FIELDS].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].id) ==
@@ -265,6 +265,10 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(curl.schema[CURL_FIELDS + 1].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].enum_ids[2]) ==
                  "midpoint-2x");
+  HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 2].id) == "limit");
+  HS_EXPECT_EQ(curl.schema[CURL_FIELDS + 2].enum_count, 2);
+  HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 2].enum_ids[0]) ==
+                 "smooth");
   const In::OperatorDescriptor &direct =
       *In::find_operator("sphere.displace.direct.v2");
   constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();

@@ -147,27 +147,36 @@ inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {
   return mirror;
 }
 
-template <math::NoiseBasis Basis, typename Integrator>
+template <math::NoiseBasis Basis, typename Integrator, math::TangentLimit Limit>
 inline void run_curl_displace_variant(In::ChainProgram &program,
                                       const In::FrameContext &ctx) {
   using Bound = typename PB::Stage::Displace<
-      PB::Surface::CurlNoise<CurlMirrorProvider, Basis,
-                             Integrator>>::template Bind<SphereOpMirrorBinding>;
+      PB::Surface::CurlNoise<CurlMirrorProvider, Basis, Integrator,
+                             Limit>>::template Bind<SphereOpMirrorBinding>;
   expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
+}
+
+template <math::NoiseBasis Basis, math::TangentLimit Limit>
+inline void run_curl_displace_integrators(In::ChainProgram &program,
+                                          const In::FrameContext &ctx) {
+  auto &params = param_as<In::Op::CurlDisplaceParams>(program, 1);
+  params.basis = static_cast<uint8_t>(Basis);
+  params.limit = static_cast<uint8_t>(Limit);
+  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::EULER);
+  run_curl_displace_variant<Basis, PB::Surface::Euler, Limit>(program, ctx);
+  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT);
+  run_curl_displace_variant<Basis, PB::Surface::Midpoint, Limit>(program, ctx);
+  params.integrator =
+      static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT_2X);
+  run_curl_displace_variant<Basis, PB::Surface::Midpoint2, Limit>(program, ctx);
 }
 
 template <math::NoiseBasis Basis>
 inline void run_curl_displace_basis(In::ChainProgram &program,
                                     const In::FrameContext &ctx) {
-  auto &params = param_as<In::Op::CurlDisplaceParams>(program, 1);
-  params.basis = static_cast<uint8_t>(Basis);
-  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::EULER);
-  run_curl_displace_variant<Basis, PB::Surface::Euler>(program, ctx);
-  params.integrator = static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT);
-  run_curl_displace_variant<Basis, PB::Surface::Midpoint>(program, ctx);
-  params.integrator =
-      static_cast<uint8_t>(PB::Surface::Integrator::MIDPOINT_2X);
-  run_curl_displace_variant<Basis, PB::Surface::Midpoint2>(program, ctx);
+  run_curl_displace_integrators<Basis, math::TangentLimit::SMOOTH>(program,
+                                                                   ctx);
+  run_curl_displace_integrators<Basis, math::TangentLimit::CLAMP>(program, ctx);
 }
 
 inline void test_shader_chain_parity_displace_curl() {

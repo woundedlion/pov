@@ -293,6 +293,21 @@ clamp_tangent_to_unit(math::Vector &u) {
 }
 
 /**
+ * @brief Scales a tangent by 1/sqrt(1 + |u|^2), bounding it below unit length
+ *   without clamp_tangent_to_unit()'s kink at |u| = 1.
+ * @param u Tangent to saturate.
+ */
+__attribute__((always_inline)) inline void saturate_tangent(math::Vector &u) {
+  u *= math::fast_rsqrt(1.0f + math::dot(u, u));
+}
+
+/** @brief Length limit applied to a curl tangent. */
+enum class TangentLimit : uint8_t {
+  SMOOTH, /**< saturate_tangent() */
+  CLAMP   /**< clamp_tangent_to_unit() */
+};
+
+/**
  * @brief Tangent field from a 3D noise vector projected onto the sphere.
  * @param noise Prepared generator.
  * @param basis Octave structure to apply.
@@ -381,13 +396,18 @@ inline math::Vector tetrahedral_gradient(const math::Vector &q, Sample sample) {
  * @brief Curl-oriented tangent from a scalar field's gradient.
  * @param gradient Gradient of the scalar field at the lattice coordinate.
  * @param v Unit point the tangent is taken at.
- * @return A tangent at @p v, clamped by clamp_tangent_to_unit().
- * @details The length clamp can introduce divergence.
+ * @param limit Length limit applied to the tangent.
+ * @return A tangent at @p v of length at most 1.
+ * @details The length limit can introduce divergence.
  */
 HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
-                                                const math::Vector &v) {
+                                                const math::Vector &v,
+                                                TangentLimit limit) {
   math::Vector u = math::cross(v, gradient);
-  clamp_tangent_to_unit(u);
+  if (limit == TangentLimit::CLAMP)
+    clamp_tangent_to_unit(u);
+  else
+    saturate_tangent(u);
   return u;
 }
 
@@ -396,16 +416,17 @@ HS_O3_FN inline math::Vector curl_from_gradient(const math::Vector &gradient,
  * @param noise Prepared generator.
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
+ * @param limit Length limit applied to the tangent.
  * @return A tangent at @p v of length at most 1.
  * @details The CURL_ANALYTIC_V2 path. Simplex only.
  */
 HS_O3_FN inline math::Vector
 sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
-                            const math::Vector &v) {
+                            const math::Vector &v, TangentLimit limit) {
   math::Vector gradient;
   noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
                                gradient.z);
-  return curl_from_gradient(gradient, v);
+  return curl_from_gradient(gradient, v, limit);
 }
 
 /**
@@ -414,6 +435,7 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
  * @param basis Octave structure to apply.
  * @param q Lattice coordinate.
  * @param v Unit point the tangent is taken at.
+ * @param limit Length limit applied to the tangent.
  * @return A tangent at @p v of length at most 1.
  * @details SIMPLEX uses its analytic gradient; the other bases use a
  * finite-difference stencil.
@@ -421,14 +443,15 @@ sample_simplex_curl_tangent(const FastNoiseLite &noise, const math::Vector &q,
 HS_O3_FN inline math::Vector sample_curl_tangent(const FastNoiseLite &noise,
                                                  NoiseBasis basis,
                                                  const math::Vector &q,
-                                                 const math::Vector &v) {
+                                                 const math::Vector &v,
+                                                 TangentLimit limit) {
   if (basis == NoiseBasis::SIMPLEX)
-    return sample_simplex_curl_tangent(noise, q, v);
+    return sample_simplex_curl_tangent(noise, q, v, limit);
   const math::Vector gradient =
       tetrahedral_gradient(q, [&](const math::Vector &point) {
         return sample_noise_octaves(noise, basis, point);
       });
-  return curl_from_gradient(gradient, v);
+  return curl_from_gradient(gradient, v, limit);
 }
 
 /**

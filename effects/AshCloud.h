@@ -65,8 +65,8 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "ash-cloud";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "6bde4043e907674b80f6b12bf66c873366359c9a7b1996e8804ae24da673518e";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "bb8b1dc6fe15beaf9a4c11730c902d9743a3035942e3b123e3760e25e50c214e";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "0afa6dd8e36bdcf902a3029f5216f95d305d7a1a98a391810eb6e4b5acf9f639";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "8f80ea066def76f491cca7fde4aeebca835e74488dfd504c915f4a7a452027a2";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "ash-cloud"
   };

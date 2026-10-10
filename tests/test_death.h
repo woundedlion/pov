@@ -1474,6 +1474,11 @@ inline const Case *all_cases(int &n) {
        case_pullback_operator_invalid_surface_integrator,
        "core/render/pullback/operators/sphere.h",
        "(params.integrator <= static_cast<uint8_t>(Surface::Integrator::MIDPOINT_2X)) sphere.displace.curl: invalid integrator"},
+      {"pullback_operator_invalid_tangent_limit",
+       case_pullback_operator_invalid_tangent_limit,
+       "core/render/pullback/operators/sphere.h",
+       "(params.limit <= static_cast<uint8_t>(math::TangentLimit::CLAMP)) "
+       "sphere.displace.curl: invalid limit"},
       {"pullback_operator_invalid_bonne_hemisphere",
        case_pullback_operator_invalid_bonne_hemisphere,
        "core/render/pullback/operators/project.h",

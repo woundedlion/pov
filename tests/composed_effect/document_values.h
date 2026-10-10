@@ -548,8 +548,9 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::SURFACE:
   case SlotRole::WARP:
-    if (field_id == "basis" || field_id == "integrator" || field_id == "mode" ||
-        field_id == "envelope" || field_id == "harmonic") {
+    if (field_id == "basis" || field_id == "integrator" ||
+        field_id == "limit" || field_id == "mode" || field_id == "envelope" ||
+        field_id == "harmonic") {
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;

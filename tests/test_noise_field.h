@@ -312,8 +312,8 @@ inline void test_noise_field_simplex_curl_approximation() {
       const float angle = math::TWO_PI_F * longitude / 48.0f;
       const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
       const math::Vector q = math::noise_sphere_coordinate(v, 2.0f, 0.125f);
-      const math::Vector analytic =
-          math::sample_simplex_curl_tangent(noise, q, v);
+      const math::Vector analytic = math::sample_simplex_curl_tangent(
+          noise, q, v, math::TangentLimit::CLAMP);
       const math::Vector reference_gradient =
           math::tetrahedral_gradient(q, [&](const math::Vector &point) {
             return math::sample_noise_octaves(noise, math::NoiseBasis::SIMPLEX,
@@ -349,7 +349,8 @@ inline void test_noise_field_curl_tangent() {
         const float angle = math::TWO_PI_F * longitude / 24.0f;
         const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
         const math::Vector q = math::noise_sphere_coordinate(v, 2.0f, 0.125f);
-        const math::Vector u = math::sample_curl_tangent(noise, basis, q, v);
+        const math::Vector u = math::sample_curl_tangent(
+            noise, basis, q, v, math::TangentLimit::CLAMP);
         magnitude_sum += u.length();
         HS_EXPECT_TRUE(std::isfinite(u.x) && std::isfinite(u.y) &&
                        std::isfinite(u.z));
@@ -362,6 +363,32 @@ inline void test_noise_field_curl_tangent() {
         basis == math::NoiseBasis::FBM3 ? 0.954f : 0.987f;
     HS_EXPECT_NEAR(MEAN_MAGNITUDE, EXPECTED_MEAN, 0.005f);
   }
+}
+
+/** @brief The smooth limit scales the raw curl tangent by 1/sqrt(1 + |u|^2). */
+inline void test_noise_field_smooth_curl_tangent() {
+  const FastNoiseLite noise = make_noise(7127);
+  int saturated = 0;
+  for (int latitude = -8; latitude <= 8; ++latitude) {
+    const float y = latitude / 8.0f;
+    const float radius = sqrtf(1.0f - y * y);
+    for (int longitude = 0; longitude < 24; ++longitude) {
+      const float angle = math::TWO_PI_F * longitude / 24.0f;
+      const math::Vector v(radius * cosf(angle), y, radius * sinf(angle));
+      const math::Vector q = math::noise_sphere_coordinate(v, 2.0f, 0.125f);
+      math::Vector gradient;
+      noise.GetNoiseGradientSingle(q.x, q.y, q.z, gradient.x, gradient.y,
+                                   gradient.z);
+      const math::Vector raw = math::cross(v, gradient);
+      const math::Vector expected = raw / sqrtf(1.0f + math::dot(raw, raw));
+      const math::Vector u = math::sample_curl_tangent(
+          noise, math::NoiseBasis::SIMPLEX, q, v, math::TangentLimit::SMOOTH);
+      HS_EXPECT_NEAR((u - expected).length(), 0.0f, 2e-3f);
+      HS_EXPECT_LT(u.length(), 1.0f);
+      saturated += raw.length() > 1.0f;
+    }
+  }
+  HS_EXPECT_GT(saturated, 0);
 }
 
 /** @brief Sphere displacement and tangent transport preserve geometric length constraints. */
@@ -424,6 +451,7 @@ inline int run_noise_field_tests() {
   test_vector_noise_rotation_setter_order();
   test_noise_field_simplex_curl_approximation();
   test_noise_field_curl_tangent();
+  test_noise_field_smooth_curl_tangent();
   test_sphere_exp_map_and_transport();
   test_half_radian_exp_map_approximation();
   return fixture.result();

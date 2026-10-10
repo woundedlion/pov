@@ -159,6 +159,17 @@ inline void case_pullback_operator_invalid_surface_integrator() {
     std::printf("x");
 }
 
+/** @brief Death case: the curl displacement rejects an unknown tangent limit. */
+inline void case_pullback_operator_invalid_tangent_limit() {
+  Pullback::Interp::Op::CurlDisplaceParams params;
+  params.limit = opaque<uint8_t>(0xff);
+  Pullback::Interp::Op::NoisePhaseState state;
+  Pullback::Interp::FrameContext context{};
+  if (Pullback::Interp::Op::DisplaceCurl::prepare(context, params, state)
+          .noise != nullptr)
+    std::printf("x");
+}
+
 /** @brief Rejects an unknown Bonne hemisphere. */
 inline void case_pullback_operator_invalid_bonne_hemisphere() {
   Pullback::Interp::Op::ProjectBonneV3::Params params;

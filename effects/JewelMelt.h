@@ -62,8 +62,8 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "jewel-melt";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "eb99693c0a7cf03b186d15806b8fb40244f09c85e1f03ca251e900d8d23cc680";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "30e58bffbc44efdeaf1d6f0ed5be699cdfdc6b685218ab99c765b3ab30159cd2";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "4a5674fa7a9af30c024c518e3057dcd38fef427f77f196ead79ef5546ca6d697";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "8919dafdfd00f6b4a9de07524013905eb1acdfd78d9223d6ed92929a408df4fa";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
   };
