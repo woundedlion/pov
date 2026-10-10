@@ -6,8 +6,8 @@
 
 /**
  * @file preset_host.h
- * @brief PresetHost: the shared preset controller — index bookkeeping, the
- *        vetoable change hook, and the manual navigation surface.
+ * @brief PresetHost: tracks an effect's current preset and handles preset
+ *        selection.
  */
 
 #include "control/param_host.h"
@@ -16,10 +16,10 @@
 #include <cstdint>
 
 /**
- * @brief Preset index controller for effects that expose selectable presets.
- * @details configure_presets() enables it; apply_preset() vetoes or accepts a
- * candidate before its index is committed. Manual navigation pauses the
- * parameter animations, choreography (advance_preset) leaves them running.
+ * @brief Current preset index and preset selection for an effect.
+ * @details configure_presets() sets the preset count. Every change goes
+ * through apply_preset(), which may refuse it. Manual selection pauses the
+ * parameter animations; advance_preset() does not.
  */
 class PresetHost : public ParamHost {
 public:
@@ -27,7 +27,7 @@ public:
   size_t getPresetCount() const { return preset_count; }
   /** @brief Index of the preset currently displayed. */
   size_t getPresetIndex() const { return displayed_preset_index(); }
-  /** @brief Selects and pauses one preset, or reports that it is unavailable. */
+  /** @brief Selects a preset and pauses animations; false if refused. */
   bool selectPreset(size_t index) {
     if (!change_preset(index, PresetChangeOrigin::MANUAL))
       return false;
@@ -54,7 +54,8 @@ public:
 protected:
   ~PresetHost() = default;
 
-  /** @brief Source of a preset move or cancellation restoring its displayed index. */
+  /** @brief What caused a preset change; RESTORED is a cancelled fade
+      returning to the preset it was leaving. */
   enum class PresetChangeOrigin : uint8_t {
     AUTOMATIC,
     MANUAL,
@@ -62,7 +63,7 @@ protected:
     RESTORED
   };
 
-  /** @brief One validated preset transition handed to the effect hook. */
+  /** @brief A preset change passed to apply_preset() and preset_changed(). */
   struct PresetChange {
     size_t from;               /**< Previously committed preset index. */
     size_t to;                 /**< Candidate preset index. */
@@ -72,7 +73,7 @@ protected:
   /** @brief Preset whose parameters currently drive the display. */
   virtual size_t displayed_preset_index() const { return preset_index; }
 
-  /** @brief Enables the shared preset controller for this effect. */
+  /** @brief Sets the preset count; call once with a positive count. */
   HS_FLASH_MEMBER void configure_presets(size_t count) {
     HS_CHECK(count > 0, "preset count must be positive: count=%lu",
              static_cast<unsigned long>(count));
@@ -83,17 +84,17 @@ protected:
     preset_count = count;
   }
 
-  /** @brief Advances choreography through the shared preset controller. */
+  /** @brief Moves to the next preset, wrapping, as an AUTOMATIC change. */
   HS_FLASH_MEMBER bool advance_preset() {
     return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
                                              PresetChangeOrigin::AUTOMATIC);
   }
 
   /**
-   * @brief Applies a candidate preset before its index is committed.
-   * @return True to commit the candidate index, false to veto the change.
-   * @details A veto leaves the committed index untouched and is not rolled
-   *          back, so reject before mutating any effect state.
+   * @brief Applies a preset change before the index is updated.
+   * @return True to accept the change, false to refuse it.
+   * @details A refusal leaves the index unchanged but does not undo anything
+   *          this function already did.
    */
   virtual bool apply_preset(const PresetChange &) { return false; }
   /** @brief Runs after a successful preset change has been committed. */

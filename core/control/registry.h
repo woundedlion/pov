@@ -56,7 +56,7 @@ struct FactoryEntry {
   size_t size = 0; /**< sizeof the effect at this resolution, in bytes. */
   size_t preset_count = 0; /**< Number of authored presets. */
   PresetIdFn preset_id =
-      nullptr; /**< Registry-only stable preset lookup, when declared. */
+      nullptr; /**< Stable ID of a preset by index; null without PRESET_IDS. */
 };
 
 // Supported render resolutions; per-resolution registration code expands from

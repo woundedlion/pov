@@ -6,8 +6,8 @@
 
 /**
  * @file params.h
- * @brief Runtime parameter registry: ParamDef descriptors, the fixed-capacity
- *        ParamList an Effect owns, and the live-value change gate.
+ * @brief Runtime parameter descriptors (ParamDef), the fixed-capacity list
+ *        that holds them (ParamList), and apply_if_changed().
  */
 
 #include "platform/build_features.h"
@@ -128,7 +128,7 @@ public:
 
   /**
    * @brief Reads the writable target value as float (bool maps to 0/1).
-   * @return The value a new renderer must adopt, independent of display lerp.
+   * @return The target's value, ignoring any display mirror.
    */
   float get_requested() const { return get_from(target); }
 
@@ -240,8 +240,7 @@ struct ParamList {
    */
   const ParamDef *end() const { return data() + count; }
   /**
-   * @brief Looks up a registered parameter by name (the public, read-only
-   * lookup).
+   * @brief Looks up a registered parameter by name.
    * @param name Parameter name to match (exact string compare).
    * @return Const pointer to the matching parameter, or nullptr if not found.
    */
