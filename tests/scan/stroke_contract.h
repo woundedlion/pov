@@ -8,18 +8,18 @@
 // ============================================================================
 
 /**
- * @brief Capturing plot sink that records the AA alpha process_pixel forwards.
+ * @brief Capturing plot sink that records the alpha process_pixel forwards.
  * @details Bypasses the canvas-blend round trip. The recorded alpha is
- * frag.alpha (=1) times the AA alpha; count tracks whether the pixel was drawn
- * at all.
+ * frag.alpha times the AA alpha (scan_alpha_at pins frag.alpha to 1); count
+ * tracks whether the pixel was drawn at all.
  */
 struct AlphaSink {
   float last_alpha =
-      -1.0f;     /**< AA alpha from the most recent plot, -1 if none. */
+      -1.0f;     /**< Alpha forwarded by the most recent plot, -1 if none. */
   int count = 0; /**< Number of times plot() was invoked. */
   /**
-   * @brief Records the forwarded AA alpha and increments the plot count.
-   * @param a Anti-aliasing alpha forwarded by process_pixel.
+   * @brief Records the forwarded alpha and increments the plot count.
+   * @param a Alpha forwarded by process_pixel.
    */
   void plot(Canvas &, int, int, const Pixel &, float, float a) {
     last_alpha = a;

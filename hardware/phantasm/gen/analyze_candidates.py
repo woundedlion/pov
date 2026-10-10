@@ -2,7 +2,8 @@
 
 Parses each candidate's `phantasm.kicad_pcb` (KiCad 10 s-expr) directly
 -- no KiCad needed -- and scores the fast nets (the 24 MHz SPI DATA/CLK to the
-strip, DATA_IN/CLK_IN from the Teensy, and the SYNC pair).
+strip, DATA_IN/CLK_IN from the Teensy, their DATA_SRC/CLK_SRC stubs, and the
+sync nets SYNC_BUS, FRAME_SYNC, SYNC_TX and SYNC_SRC).
 
 Usage:
     python analyze_candidates.py [DIR ...]
