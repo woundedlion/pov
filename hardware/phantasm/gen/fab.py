@@ -19,7 +19,8 @@ Exports only the committed, hand-routed rev 1.1 board.
 A run holds gen/out/.fab.lock until it finishes; a second run refuses while it
 exists. A lock left by a killed run must be removed by hand.
 
-kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
+kicad-cli is found via $KICAD_CLI, else the pinned release among common install
+paths; PATH is consulted only when no install-path kicad-cli exists.
 """
 import argparse
 import contextlib
