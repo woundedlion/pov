@@ -997,7 +997,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
           walk.resample(sample, planar_arc_interval, adaptive_sample,
                         adaptive_step, world_identity);
       }
-      if (!close_loop && is_last_segment && !omit_end && window.closes_at_end())
+      if (!close_loop && is_last_segment && !omit_end && window.plots_end())
         walk.plot_terminal(pipeline, canvas, fragment_shader, arc_uv, next);
       return;
     }
@@ -1035,7 +1035,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                             bool omit_last) __attribute__((always_inline)) {
       // Normalize interpolated positions before vector_to_pixel's acos(v.y).
       HS_PROFILE_DEEP(plot_seg_draw);
-      if (window.opens_at_start()) {
+      if (window.plots_start()) {
         HS_PLOT_STALL_START(replay_start);
         HS_PLOT_COUNT(replay_samples);
         HS_PLOT_COUNT(normalizations);
