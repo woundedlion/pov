@@ -222,6 +222,7 @@ class ChainSnapshotCodec {
 public:
   /**
    * @brief Encodes @p snapshot as a JS object.
+   * @param snapshot Snapshot to encode.
    * @return Object with `schemaVersion`, `animationsPaused`, `chain` and
    *         `parameters`, plus `runtime` and `paletteBank` when present.
    */

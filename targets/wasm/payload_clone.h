@@ -33,6 +33,7 @@ EM_JS(emscripten::EM_VAL, clone_payload_handle, (emscripten::EM_VAL input), {
  * @details An uncloneable value yields JS `null`, which callers must reject as
  * an invalid payload. The clone error is rethrown when the module has aborted
  * or is marked dead, or when it is a `WebAssembly.RuntimeError`.
+ * @param input Caller-owned JS value.
  * @return The clone, or JS `null` when @p input cannot be cloned.
  */
 inline emscripten::val clone_payload(const emscripten::val &input) {

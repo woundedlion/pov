@@ -65,6 +65,11 @@
     hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
   X(Voronoi, 120)
 
+/**
+ * @brief Expands to +1 so HS_PHANTASM_EFFECT_LIST sums into an entry count.
+ * @param name Effect type name (unused).
+ * @param duration_seconds Show duration in seconds (unused).
+ */
 #define HS_PHANTASM_EFFECT_COUNT_ADD(name, duration_seconds) +1
 /**
  * @brief Number of entries in HS_PHANTASM_EFFECT_LIST.
@@ -73,6 +78,11 @@ constexpr int HS_PHANTASM_EFFECT_COUNT =
     0 HS_PHANTASM_EFFECT_LIST(HS_PHANTASM_EFFECT_COUNT_ADD);
 #undef HS_PHANTASM_EFFECT_COUNT_ADD
 
+/**
+ * @brief Expands to one HS_PHANTASM_EFFECT_SEEDS initializer.
+ * @param name Effect class template name, instantiated at `<W, H>`.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
 #define HS_PHANTASM_SEED_ONE(name, duration_seconds)                           \
   hs::stable_effect_seed(hs::stable_effect_id<name<W, H>>(#name)),
 /** @brief Device playlist seeds in roster order. */
@@ -82,8 +92,15 @@ inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {
 #undef HS_PHANTASM_SEED_ONE
 
 /**
+ * @def HS_PHANTASM_NAME_MATCH(cls, duration_seconds)
+ * @brief Expands to `|| hs_effect_name_eq(name, #cls)`.
+ * @param cls Effect class name.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
+/**
  * @brief True when `name` is one of the HS_PHANTASM_EFFECT_LIST class names.
  * @param name Effect class name to look up.
+ * @return True when listed.
  */
 constexpr bool hs_in_phantasm_effect_list(const char *name) {
 #define HS_PHANTASM_NAME_MATCH(cls, duration_seconds)                          \
@@ -93,8 +110,15 @@ constexpr bool hs_in_phantasm_effect_list(const char *name) {
 }
 
 /**
+ * @def HS_PHANTASM_NAME_COUNT(cls, duration_seconds)
+ * @brief Expands to +1 when `name` equals @p cls, else +0.
+ * @param cls Effect class name.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
+/**
  * @brief Occurrences of `name` in HS_PHANTASM_EFFECT_LIST.
  * @param name Effect class name to count.
+ * @return Number of matching entries.
  */
 constexpr int hs_phantasm_effect_list_count(const char *name) {
 #define HS_PHANTASM_NAME_COUNT(cls, duration_seconds)                          \
@@ -104,8 +128,15 @@ constexpr int hs_phantasm_effect_list_count(const char *name) {
 }
 
 /**
+ * @def HS_PHANTASM_NAME_DURATION(cls, duration_seconds)
+ * @brief Expands to `+duration_seconds` when `name` equals @p cls, else +0.
+ * @param cls Effect class name.
+ * @param duration_seconds Show duration in seconds.
+ */
+/**
  * @brief Show duration HS_PHANTASM_EFFECT_LIST assigns `name`, 0 when absent.
  * @param name Effect class name to look up.
+ * @return Duration in seconds.
  */
 constexpr int hs_phantasm_duration_seconds(const char *name) {
 #define HS_PHANTASM_NAME_DURATION(cls, duration_seconds)                       \
@@ -114,7 +145,16 @@ constexpr int hs_phantasm_duration_seconds(const char *name) {
 #undef HS_PHANTASM_NAME_DURATION
 }
 
-/** @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice. */
+/**
+ * @def HS_PHANTASM_NAME_ONCE(cls, duration_seconds)
+ * @brief Expands to `&&` a check that @p cls occurs exactly once.
+ * @param cls Effect class name.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
+/**
+ * @brief True when no HS_PHANTASM_EFFECT_LIST name appears twice.
+ * @return True when every entry is distinct.
+ */
 constexpr bool hs_phantasm_effect_list_is_distinct() {
 #define HS_PHANTASM_NAME_ONCE(cls, duration_seconds)                           \
   &&(hs_phantasm_effect_list_count(#cls) == 1)
@@ -122,7 +162,16 @@ constexpr bool hs_phantasm_effect_list_is_distinct() {
 #undef HS_PHANTASM_NAME_ONCE
 }
 
-/** @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST. */
+/**
+ * @def HS_PHANTASM_NAME_ON_ROSTER(cls, duration_seconds)
+ * @brief Expands to `&& hs_in_effect_list(#cls)`.
+ * @param cls Effect class name.
+ * @param duration_seconds Show duration in seconds (unused).
+ */
+/**
+ * @brief True when every HS_PHANTASM_EFFECT_LIST name is in HS_EFFECT_LIST.
+ * @return True when the playlist is a roster subset.
+ */
 constexpr bool hs_phantasm_effect_list_is_subset() {
 #define HS_PHANTASM_NAME_ON_ROSTER(cls, duration_seconds)                      \
   &&hs_in_effect_list(#cls)
@@ -142,20 +191,40 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
   X(MobiusRings)                                                               \
   X(Thrusters)
 
+/**
+ * @brief Expands to +1 so HS_PHANTASM_EXCLUDED_EFFECTS sums into a count.
+ * @param cls Effect class name (unused).
+ */
 #define HS_PHANTASM_EXCLUDED_COUNT_ADD(cls) +1
 /** @brief Number of HS_PHANTASM_EXCLUDED_EFFECTS entries. */
 constexpr int HS_PHANTASM_EXCLUDED_COUNT =
     0 HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUDED_COUNT_ADD);
 #undef HS_PHANTASM_EXCLUDED_COUNT_ADD
 
-/** @brief True when every excluded name is in HS_EFFECT_LIST. */
+/**
+ * @def HS_PHANTASM_EXCLUSION_ON_ROSTER(cls)
+ * @brief Expands to `&& hs_in_effect_list(#cls)`.
+ * @param cls Excluded effect class name.
+ */
+/**
+ * @brief True when every excluded name is in HS_EFFECT_LIST.
+ * @return True when all exclusions are roster effects.
+ */
 constexpr bool hs_phantasm_exclusions_are_on_roster() {
 #define HS_PHANTASM_EXCLUSION_ON_ROSTER(cls) &&hs_in_effect_list(#cls)
   return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_ON_ROSTER);
 #undef HS_PHANTASM_EXCLUSION_ON_ROSTER
 }
 
-/** @brief True when no excluded name appears in HS_PHANTASM_EFFECT_LIST. */
+/**
+ * @def HS_PHANTASM_EXCLUSION_OMITTED(cls)
+ * @brief Expands to `&& !hs_in_phantasm_effect_list(#cls)`.
+ * @param cls Excluded effect class name.
+ */
+/**
+ * @brief True when no excluded name appears in HS_PHANTASM_EFFECT_LIST.
+ * @return True when every exclusion is absent from the playlist.
+ */
 constexpr bool hs_phantasm_exclusions_are_omitted() {
 #define HS_PHANTASM_EXCLUSION_OMITTED(cls) &&!hs_in_phantasm_effect_list(#cls)
   return true HS_PHANTASM_EXCLUDED_EFFECTS(HS_PHANTASM_EXCLUSION_OMITTED);
@@ -185,7 +254,12 @@ static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
               "HS_PHANTASM_EFFECT_LIST must exclude ShaderChain and "
               "every HS_PHANTASM_EXCLUDED_EFFECTS entry");
 
-// Product-group durations mirror the Phantasm playlist.
+/**
+ * @brief Static-asserts that a product-group duration mirrors the Phantasm
+ *        playlist.
+ * @param cls Effect class name.
+ * @param duration_seconds HS_SHADER_PRODUCT_GROUP show duration in seconds.
+ */
 #define HS_SHADER_GROUP_DURATION_MATCHES(cls, duration_seconds)                \
   static_assert(!hs_in_phantasm_effect_list(#cls) ||                           \
                     hs_phantasm_duration_seconds(#cls) == (duration_seconds),  \
