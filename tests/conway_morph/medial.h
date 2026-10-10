@@ -159,7 +159,7 @@ inline void test_medial_dual_bridge_wellformed() {
   constexpr int SAMPLES = 33;
   // Well clear of an antipodal/coincident slerp singularity.
   constexpr float MIN_ENDPOINT_DOT = 0.9f;
-  constexpr float MAX_INTER_SAMPLE_STEP = 0.05f;
+  constexpr float MAX_INTER_SAMPLE_STEP = 0.015f;
   constexpr float ENDPOINT_TOL = 1e-4f;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
@@ -317,7 +317,7 @@ inline void test_opleg_medial_leg_smoke() {
   bank.bake_all(bank_arena);
 
   constexpr int SWEEP = 24;
-  constexpr float MAX_STEP_CHORD = 0.15f;
+  constexpr float MAX_STEP_CHORD = 0.03f;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
     const int failed_before = hs_test::stats().failed;
