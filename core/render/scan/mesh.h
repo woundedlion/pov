@@ -264,10 +264,11 @@ new_face_scratch(Arena &arena) {
 
 HS_O3_BEGIN
 /**
- * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
- *        threading the face index through register v2 so the shader can vary
- *        color per face.
- * @details canvas.debug() does not tint a mesh.
+ * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face.
+ * @details Without a face-shader setup callback the face index reaches the
+ * shader in register v2; with one, it reaches the shader only through what
+ * the callback hoists.
+ * canvas.debug() does not tint a mesh.
  */
 struct Mesh {
   /**
@@ -293,9 +294,10 @@ struct Mesh {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param mesh Mesh providing vertices, face counts, indices, and offsets.
-   * @param fragment_shader Shader invoked per covered pixel; receives the face
-   *                        index in register v2. v2 is a float, so the index is
-   *                        exact only up to 2^24 faces.
+   * @param fragment_shader Shader invoked per covered pixel; without
+   *                        @p face_shader_setup it receives the face index in
+   *                        register v2. v2 is a float, so the index is exact
+   *                        only up to 2^24 faces.
    * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
    * @param bake Optional congruence-class bake for this mesh (null = exact
    *        distance path for every face). When present, each face is
