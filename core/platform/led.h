@@ -41,6 +41,7 @@ inline bool &correction_guard_live() {
   return live;
 }
 
+/** @brief Marks a correction guard live; traps if one already is. */
 inline void acquire_correction_guard() {
   HS_CHECK(!correction_guard_live(),
            "NoColorCorrection and NoTempCorrection guards cannot overlap");

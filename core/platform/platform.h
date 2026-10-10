@@ -14,10 +14,13 @@
 #include "platform/build_features.h"
 
 #if HS_ENABLE_TEST_HOOKS
+/// Source path reported in check sites.
 #define HS_SOURCE_FILE __FILE__
 #elif defined(__FILE_NAME__)
+/// Source basename reported in check sites.
 #define HS_SOURCE_FILE __FILE_NAME__
 #else
+/// Source path reported in check sites.
 #define HS_SOURCE_FILE __FILE__
 #endif
 
@@ -35,7 +38,15 @@
       ::hs::check_fail(HS_CHECK_SITE(#cond) __VA_OPT__(, ) __VA_ARGS__);       \
   } while (0)
 
+/**
+ * @brief Stringizes a token without expanding it (inner stage).
+ * @param x Token to stringize.
+ */
 #define HS_CHECK_STRINGIZE_IMPL(x) #x
+/**
+ * @brief Stringizes a token after expanding it, e.g. __LINE__.
+ * @param x Token to stringize.
+ */
 #define HS_CHECK_STRINGIZE(x) HS_CHECK_STRINGIZE_IMPL(x)
 /**
  * @brief Folds a check site into one "file:line: (cond)" string literal.
@@ -168,6 +179,11 @@ inline unsigned long millis();
  */
 #define HS_CONCAT(a, b) HS_CONCAT_INNER(a, b)
 
+/**
+ * @brief EVERY_N_MILLIS with an explicit throttle-object name.
+ * @param NAME Name of the static hs::EveryNMillis.
+ * @param N Interval in milliseconds.
+ */
 #define EVERY_N_MILLIS_I(NAME, N)                                              \
   static hs::EveryNMillis NAME((N));                                           \
   if (NAME)
@@ -180,6 +196,11 @@ inline unsigned long millis();
  */
 #define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(hs_every_, __COUNTER__), N)
 
+/**
+ * @brief EVERY_N_SECONDS with an explicit throttle-object name.
+ * @param NAME Name of the static hs::EveryNSeconds.
+ * @param N Interval in seconds.
+ */
 #define EVERY_N_SECONDS_I(NAME, N)                                             \
   static hs::EveryNSeconds NAME((N));                                          \
   if (NAME)
@@ -220,10 +241,17 @@ inline unsigned long millis() {
  */
 class EveryNMillis {
 public:
+  /**
+   * @brief Starts the period at the current millis().
+   * @param interval_ms Period in milliseconds.
+   */
   explicit EveryNMillis(unsigned long interval_ms)
       : last(millis()), period(static_cast<uint32_t>(interval_ms)) {}
 
-  /** @brief True at most once per `period` ms; stamps the trigger when it fires. */
+  /**
+   * @brief True at most once per `period` ms; stamps the trigger when it fires.
+   * @return True when the period has elapsed.
+   */
   bool ready() {
     unsigned long now = millis();
     // 32-bit modular elapsed: matches the device's uint32 millis() wrap on LP64 hosts.
@@ -252,10 +280,17 @@ private:
  */
 class EveryNSeconds {
 public:
+  /**
+   * @brief Starts the period at the current second.
+   * @param interval_s Period in whole seconds.
+   */
   explicit EveryNSeconds(unsigned long interval_s)
       : last(now_seconds()), period(static_cast<uint32_t>(interval_s)) {}
 
-  /** @brief True at most once per `period` s; stamps the trigger when it fires. */
+  /**
+   * @brief True at most once per `period` s; stamps the trigger when it fires.
+   * @return True when the period has elapsed.
+   */
   bool ready() {
     const uint32_t now = now_seconds();
     if (now - last >= period) {
@@ -370,6 +405,10 @@ check_fail(const char *site, const char *fmt, ...) {
 }
 
 // HS_CHECK(cond) with no message; "%s" avoids -Wformat-zero-length.
+/**
+ * @brief Logs a failed check with no message, then traps.
+ * @param site Source location string of the failed check.
+ */
 [[noreturn]] HS_FLASH_INLINE inline void check_fail(const char *site) {
   check_fail(site, "%s", "");
 }
