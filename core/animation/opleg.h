@@ -378,15 +378,9 @@ public:
              "OpLeg: truncate sweep needs a positive endpoint");
     const float trunc_floor =
         ConwayGraph::truncate_birth_floor(std::max(spec.t_start, spec.t_end));
-    auto clamp_param = [&](float t) {
-      t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
-      if (truncate)
-        t = std::min(t, far_side ? ConwayGraph::T_TRUNCATE_FAR_MAX
-                                 : 0.5f - ConwayGraph::T_EPS_AMBO);
-      return t;
-    };
-    tr.t_start = clamp_param(spec.t_start);
-    tr.t_end = clamp_param(spec.t_end);
+    tr.t_start =
+        clamp_sweep_param(spec.t_start, truncate, far_side, trunc_floor);
+    tr.t_end = clamp_sweep_param(spec.t_end, truncate, far_side, trunc_floor);
     tr.twist_start = spec.twist_start;
     tr.twist_end = spec.twist_end;
 
@@ -776,26 +770,13 @@ private:
       return;
     }
 
-    // One eased clock spans sweep and settle; reverse legs un-settle first.
     // Clamp easing to the compiled topology-constant interval.
     const float progress = hs::clamp(
         easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
         0.0f, 1.0f);
-    float k = progress;
-    float settle_alpha = 0.0f;
-    if (tr.settle_frames > 0) {
-      float split = (tr.reverse ? tr.settle_frames : tr.sweep_frames) /
-                    static_cast<float>(duration);
-      if (!tr.reverse) {
-        k = std::min(progress / split, 1.0f);
-        settle_alpha = std::max(0.0f, (progress - split) / (1.0f - split));
-      } else {
-        settle_alpha = 1.0f - std::min(progress / split, 1.0f);
-        k = std::max(0.0f, (progress - split) / (1.0f - split));
-      }
-    }
-    float tp = tr.t_start + (tr.t_end - tr.t_start) * k;
-    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * k;
+    const SweepPhase phase = sweep_phase(tr, progress);
+    float tp = tr.t_start + (tr.t_end - tr.t_start) * phase.k;
+    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * phase.k;
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -803,32 +784,15 @@ private:
     PolyMesh swept;
     {
       HS_PROFILE(hk_conway_sweep);
-      if (tr.kind == LegKind::HANKIN_SWEEP) {
+      if (tr.kind == LegKind::HANKIN_SWEEP)
         hankin_at(tr, swept, scratch_arena_a, tp);
-      } else if (tr.kind == LegKind::RELAX_SLERP) {
+      else if (tr.kind == LegKind::RELAX_SLERP)
         relax_at(tr, swept, scratch_arena_a, tp);
-      } else if (tr.kind == LegKind::MEDIAL_SLERP) {
+      else if (tr.kind == LegKind::MEDIAL_SLERP)
         medial_at(tr, swept, scratch_arena_a, tp);
-      } else {
-        HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
-        swept = run_op(tr.op, *tr.seed_ref, scratch_arena_a, scratch_arena_b,
-                       tp, tw);
-        if (settle_alpha > 0.0f) {
-          HS_CHECK(swept.vertices.size() == tr.relaxed.size(),
-                   "OpLeg relax: swept vertices %lu != relaxed vertices %lu",
-                   static_cast<unsigned long>(swept.vertices.size()),
-                   static_cast<unsigned long>(tr.relaxed.size()));
-          // Alpha 1 copies the relaxed endpoint verbatim, so the settled
-          // bookend is bitwise it.
-          if (settle_alpha >= 1.0f)
-            for (size_t i = 0; i < swept.vertices.size(); ++i)
-              swept.vertices[i] = tr.relaxed[i];
-          else
-            for (size_t i = 0; i < swept.vertices.size(); ++i)
-              swept.vertices[i] =
-                  math::slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
-        }
-      }
+      else
+        conway_at(tr, swept, scratch_arena_a, scratch_arena_b, tp, tw,
+                  phase.settle_alpha);
     }
 
     finish_frame(canvas, swept, tr.blend_fn(frame, duration));
@@ -968,6 +932,84 @@ private:
     Landing landing; /**< Arrival data exposed to the effect. */
   };
 
+  /** @brief Split of a swept leg's eased progress into its two stages. */
+  struct SweepPhase {
+    float k;            /**< Operator-sweep fraction in [0, 1]. */
+    float settle_alpha; /**< Relax-slerp fraction in [0, 1]. */
+  };
+
+  /**
+   * @brief Sweep and settle fractions at one leg frame.
+   * @details One eased clock spans sweep and settle; reverse legs un-settle
+   * first.
+   */
+  __attribute__((always_inline)) SweepPhase sweep_phase(const Transients &tr,
+                                                        float progress) const {
+    float k = progress;
+    float settle_alpha = 0.0f;
+    if (tr.settle_frames > 0) {
+      float split = (tr.reverse ? tr.settle_frames : tr.sweep_frames) /
+                    static_cast<float>(duration);
+      if (!tr.reverse) {
+        k = std::min(progress / split, 1.0f);
+        settle_alpha = std::max(0.0f, (progress - split) / (1.0f - split));
+      } else {
+        settle_alpha = 1.0f - std::min(progress / split, 1.0f);
+        k = std::max(0.0f, (progress - split) / (1.0f - split));
+      }
+    }
+    return {k, settle_alpha};
+  }
+
+  /**
+   * @brief Builds a Conway leg's swept mesh at one parameter, slerped toward
+   * the relaxed endpoint by @p settle_alpha.
+   */
+  __attribute__((always_inline)) static void
+  conway_at(const Transients &tr, PolyMesh &out, Arena &target, Arena &temp,
+            float t, float twist, float settle_alpha) {
+    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
+    out = run_op(tr.op, *tr.seed_ref, target, temp, t, twist);
+    if (settle_alpha > 0.0f)
+      settle_toward_relaxed(tr, out, settle_alpha);
+  }
+
+  /** @brief Slerps a swept mesh's vertices toward the relaxed endpoint. */
+  __attribute__((always_inline)) static void
+  settle_toward_relaxed(const Transients &tr, PolyMesh &swept,
+                        float settle_alpha) {
+    HS_CHECK(swept.vertices.size() == tr.relaxed.size(),
+             "OpLeg relax: swept vertices %lu != relaxed vertices %lu",
+             static_cast<unsigned long>(swept.vertices.size()),
+             static_cast<unsigned long>(tr.relaxed.size()));
+    // Alpha 1 copies the relaxed endpoint verbatim, so the settled bookend is
+    // bitwise it.
+    if (settle_alpha >= 1.0f)
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        swept.vertices[i] = tr.relaxed[i];
+    else
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        swept.vertices[i] =
+            math::slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+  }
+
+  /**
+   * @brief Clamps a recipe-step sweep endpoint into its op's
+   * topology-constant interval.
+   * @param t Authored endpoint.
+   * @param truncate Whether the swept op is truncate.
+   * @param far_side Whether a truncate leg sweeps past ambo.
+   * @param trunc_floor Truncate's birth floor for this leg.
+   */
+  __attribute__((always_inline)) static float
+  clamp_sweep_param(float t, bool truncate, bool far_side, float trunc_floor) {
+    t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
+    if (truncate)
+      t = std::min(t, far_side ? ConwayGraph::T_TRUNCATE_FAR_MAX
+                               : 0.5f - ConwayGraph::T_EPS_AMBO);
+    return t;
+  }
+
   HS_COLD_MEMBER Transients &init_transients(LegKind kind, int sweep_frames,
                                              Arena &arena,
                                              const PaletteHandoff &handoff,
@@ -1055,52 +1097,22 @@ private:
     // Closing-bridge face blocks transpose the handoff order; use the start
     // mesh's own centroids, built before arrival to avoid co-resident scratch.
     const math::Vector *start_centroid = nullptr;
-    if (bridge_provenance && handoff.prev_face_centroid &&
-        tr.t_start > tr.t_end) {
-      math::Vector *cen =
-          scratch_arena_a.allocate_n<math::Vector>(handoff.prev_faces);
-      {
-        ScratchScope ta(scratch_arena_a);
-        ScratchScope tb(scratch_arena_b);
-        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                                tr.t_start, tr.twist_start);
-        HS_CHECK(start.face_counts.size() == handoff.prev_faces,
-                 "OpLeg: closing bridge start faces differ from the handoff");
-        MeshOps::face_centroids_into(start, cen);
-      }
-      start_centroid = cen;
-    }
+    const bool closing_bridge = bridge_provenance &&
+                                handoff.prev_face_centroid &&
+                                tr.t_start > tr.t_end;
+    if (closing_bridge)
+      start_centroid = closing_bridge_centroids(tr, seed, handoff);
 
     PolyMesh arrival = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
                               tr.t_end, tr.twist_end);
-    // Classification is hoisted per leg, taken at arrival geometry; a
-    // settling forward leg lands on the relaxed form, so classify that.
     PolyMesh *classified = &arrival;
     PolyMesh relaxed_mesh;
-    if (settle) {
-      if (!tr.reverse) {
-        relaxed_mesh = MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a,
-                                      ConwayGraph::SETTLE_RELAX_ITERATIONS);
-        classified = &relaxed_mesh;
-      } else {
-        // Reverse legs un-settle at the start parameter.
-        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                                tr.t_start, tr.twist_start);
-        relaxed_mesh = MeshOps::relax(start, scratch_arena_b, scratch_arena_a,
-                                      ConwayGraph::SETTLE_RELAX_ITERATIONS);
-      }
-      tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
-      tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
-                             relaxed_mesh.vertices.size());
-      HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
-               "OpLeg: relax changed the vertex count");
-    }
+    if (settle)
+      classified =
+          hoist_settle_endpoint(tr, seed, arrival, arena, relaxed_mesh);
     tr.topo_is_bookend =
         hoist_arrival_topology(*classified, bookend, arena, tr.topo);
 
-    // Geometric provenance needs the mesh the first frame draws: the
-    // relaxed start on a reverse settling leg (settle_alpha == 1 there),
-    // the plain op at t_start otherwise.
     PolyMesh start_mesh;
     if (handoff.prev_face_centroid) {
       if (bridge_provenance) {
@@ -1109,25 +1121,98 @@ private:
         if (!start_centroid)
           start_centroid = face_centroids(*classified, scratch_arena_a);
       } else {
-        const PolyMesh *start = &relaxed_mesh;
-        if (!(settle && tr.reverse)) {
-          start_mesh = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
-                              tr.t_start, tr.twist_start);
-          start = &start_mesh;
-        }
-        HS_CHECK(start->face_counts.size() == tr.topo.size(),
-                 "OpLeg: start face count differs from arrival");
-        start_centroid = face_centroids(*start, scratch_arena_a);
+        start_centroid =
+            opening_frame_centroids(tr, seed, relaxed_mesh, settle, start_mesh);
       }
     }
 
-    // Emission-order prefix corresponding 1:1 to a node base mesh at the
-    // boundary swaps: the seed's face count, plus its vertex-orbit faces on
-    // the jitterbug bridge.
-    const size_t survivors =
-        jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
     build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                          start_centroid, survivors, forced_from);
+                          start_centroid, survivor_faces(tr, seed, jitterbug),
+                          forced_from);
+  }
+
+  /**
+   * @brief Start-parameter face centroids of a closing dual-bridge leg.
+   * @return Centroids in the leg's own start emission order, one per handoff
+   * face, allocated from scratch_arena_a.
+   */
+  __attribute__((always_inline)) static const math::Vector *
+  closing_bridge_centroids(const Transients &tr, const PolyMesh &seed,
+                           const PaletteHandoff &handoff) {
+    math::Vector *cen =
+        scratch_arena_a.allocate_n<math::Vector>(handoff.prev_faces);
+    {
+      ScratchScope ta(scratch_arena_a);
+      ScratchScope tb(scratch_arena_b);
+      PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_start, tr.twist_start);
+      HS_CHECK(start.face_counts.size() == handoff.prev_faces,
+               "OpLeg: closing bridge start faces differ from the handoff");
+      MeshOps::face_centroids_into(start, cen);
+    }
+    return cen;
+  }
+
+  /**
+   * @brief Relaxes a settling leg's endpoint into tr.relaxed.
+   * @param relaxed_mesh Receives the relaxed mesh (scratch-backed).
+   * @return The mesh the arrival classification is taken from: the relaxed
+   * form on a forward leg, which lands on it; @p arrival on a reverse leg,
+   * which un-settles at the start parameter.
+   */
+  __attribute__((always_inline)) static PolyMesh *
+  hoist_settle_endpoint(Transients &tr, const PolyMesh &seed, PolyMesh &arrival,
+                        Arena &arena, PolyMesh &relaxed_mesh) {
+    PolyMesh *classified = &arrival;
+    if (!tr.reverse) {
+      relaxed_mesh = MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a,
+                                    ConwayGraph::SETTLE_RELAX_ITERATIONS);
+      classified = &relaxed_mesh;
+    } else {
+      PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_start, tr.twist_start);
+      relaxed_mesh = MeshOps::relax(start, scratch_arena_b, scratch_arena_a,
+                                    ConwayGraph::SETTLE_RELAX_ITERATIONS);
+    }
+    tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
+    tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
+                           relaxed_mesh.vertices.size());
+    HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
+             "OpLeg: relax changed the vertex count");
+    return classified;
+  }
+
+  /**
+   * @brief Face centroids of the mesh a Conway leg's first frame draws, the
+   * geometric provenance source.
+   * @param relaxed_mesh Relaxed start, drawn first on a reverse settling leg
+   * (settle_alpha == 1 there); otherwise the plain op at t_start is.
+   * @param start_mesh Receives the t_start mesh when it is the one drawn.
+   * @return Centroids allocated from scratch_arena_a.
+   */
+  __attribute__((always_inline)) static const math::Vector *
+  opening_frame_centroids(const Transients &tr, const PolyMesh &seed,
+                          const PolyMesh &relaxed_mesh, bool settle,
+                          PolyMesh &start_mesh) {
+    const PolyMesh *start = &relaxed_mesh;
+    if (!(settle && tr.reverse)) {
+      start_mesh = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                          tr.t_start, tr.twist_start);
+      start = &start_mesh;
+    }
+    HS_CHECK(start->face_counts.size() == tr.topo.size(),
+             "OpLeg: start face count differs from arrival");
+    return face_centroids(*start, scratch_arena_a);
+  }
+
+  /**
+   * @brief Emission-order prefix of a Conway leg corresponding 1:1 to a node
+   * base mesh at the boundary swaps: the seed's face count, plus its
+   * vertex-orbit faces on the jitterbug bridge.
+   */
+  __attribute__((always_inline)) static size_t
+  survivor_faces(const Transients &tr, const PolyMesh &seed, bool jitterbug) {
+    return jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
   }
 
   /**
@@ -1180,19 +1265,28 @@ private:
     for (size_t f = 0; f < seed_faces; ++f) {
       const uint8_t pal = handoff.prev_face_palette[f];
       HS_CHECK(pal < PALETTES, "OpLeg palette: index out of range");
-      int ramp = -1;
-      for (int r = 0; r < tr.seed_num_ramps; ++r) {
-        if (tr.seed_ramp_pal[r] == pal) {
-          ramp = r;
-          break;
-        }
-      }
-      if (ramp < 0) {
-        ramp = tr.seed_num_ramps++;
-        tr.seed_ramp_pal[ramp] = pal;
-      }
-      tr.seed_face_ramp.push_back(static_cast<uint8_t>(ramp));
+      tr.seed_face_ramp.push_back(intern_seed_ramp(tr, pal));
     }
+  }
+
+  /**
+   * @brief Index of the seed-side identity ramp for a departed palette,
+   * appending one on first use.
+   */
+  __attribute__((always_inline)) static uint8_t intern_seed_ramp(Transients &tr,
+                                                                 uint8_t pal) {
+    int ramp = -1;
+    for (int r = 0; r < tr.seed_num_ramps; ++r) {
+      if (tr.seed_ramp_pal[r] == pal) {
+        ramp = r;
+        break;
+      }
+    }
+    if (ramp < 0) {
+      ramp = tr.seed_num_ramps++;
+      tr.seed_ramp_pal[ramp] = pal;
+    }
+    return static_cast<uint8_t>(ramp);
   }
 
   /**
@@ -1290,32 +1384,52 @@ private:
 
       // The orbit's own source vertex: the dual face's centroid lies in that
       // vertex's cell, so the nearest seed vertex is it.
-      math::Vector v = tr.seed.vertices[0];
-      float best_dot = -2.0f;
-      for (size_t i = 0; i < tr.seed.vertices.size(); ++i) {
-        const float d = math::dot(tr.seed.vertices[i], c);
-        if (d > best_dot) {
-          best_dot = d;
-          v = tr.seed.vertices[i];
-        }
-      }
-
-      uint16_t best_face = arrival.faces[off];
-      float best_sq = 1e9f;
-      for (int k = 0; k < n; ++k) {
-        const uint16_t j = arrival.faces[off + k];
-        const math::Vector d = arrival.vertices[j] - v;
-        const float dsq = math::dot(d, d);
-        if (dsq < best_sq) {
-          best_sq = dsq;
-          best_face = j;
-        }
-      }
+      const math::Vector v = nearest_vertex(tr.seed, c);
+      const uint16_t best_face = nearest_orbit_vertex(arrival, off, n, v);
       HS_CHECK(best_face < handoff.prev_faces,
                "OpLeg: dual face index outside the departed face list");
       from[f] = handoff.prev_face_palette[best_face];
       off += n;
     }
+  }
+
+  /**
+   * @brief The vertex of @p mesh with the largest dot product against unit
+   * direction @p c; the first wins a tie.
+   */
+  __attribute__((always_inline)) static math::Vector
+  nearest_vertex(const PolyMesh &mesh, const math::Vector &c) {
+    math::Vector v = mesh.vertices[0];
+    float best_dot = -2.0f;
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      const float d = math::dot(mesh.vertices[i], c);
+      if (d > best_dot) {
+        best_dot = d;
+        v = mesh.vertices[i];
+      }
+    }
+    return v;
+  }
+
+  /**
+   * @brief Index of the vertex of the face at @p off (with @p n sides)
+   * nearest @p v; the first wins a tie.
+   */
+  __attribute__((always_inline)) static uint16_t
+  nearest_orbit_vertex(const PolyMesh &mesh, size_t off, int n,
+                       const math::Vector &v) {
+    uint16_t best = mesh.faces[off];
+    float best_sq = 1e9f;
+    for (int k = 0; k < n; ++k) {
+      const uint16_t j = mesh.faces[off + k];
+      const math::Vector d = mesh.vertices[j] - v;
+      const float dsq = math::dot(d, d);
+      if (dsq < best_sq) {
+        best_sq = dsq;
+        best = j;
+      }
+    }
+    return best;
   }
 
   /**
@@ -1387,6 +1501,20 @@ private:
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
 
+    Shading sh{blend_ramps(tr, w, seed_side), face_ramp.data(),
+               face_ramp.size()};
+    draw_fn(canvas, compiled, sh);
+  }
+
+  /**
+   * @brief Bakes this frame's ramp per interned pair into scratch_arena_b.
+   * @param tr Leg transients holding the ramp tables.
+   * @param w Crossfade weight in [0, 1].
+   * @param seed_side Bake the seed-side identity ramps instead.
+   * @return One LUT per ramp index, scratch-backed.
+   */
+  __attribute__((always_inline)) static BakedPalette *
+  blend_ramps(const Transients &tr, float w, bool seed_side) {
     const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
     BakedPalette *ramps = scratch_arena_b.make_n<BakedPalette>(num_ramps);
     for (int r = 0; r < num_ramps; ++r) {
@@ -1402,9 +1530,7 @@ private:
         ramps[r] = bake_palette_blend(scratch_arena_b, from, to, w);
       }
     }
-
-    Shading sh{ramps, face_ramp.data(), face_ramp.size()};
-    draw_fn(canvas, compiled, sh);
+    return ramps;
   }
 
   /**
@@ -1547,10 +1673,19 @@ private:
    */
   HS_COLD_MEMBER static size_t
   nearest_prev_face(const math::Vector &c, const PaletteHandoff &handoff) {
+    return nearest_point(c, handoff.prev_face_centroid, handoff.prev_faces);
+  }
+
+  /**
+   * @brief Index of the point in @p points[0, n) nearest @p c by squared
+   * distance; the first wins a tie.
+   */
+  __attribute__((always_inline)) static size_t
+  nearest_point(const math::Vector &c, const math::Vector *points, size_t n) {
     size_t best = 0;
     float best_d = 1e9f;
-    for (size_t j = 0; j < handoff.prev_faces; ++j) {
-      const math::Vector d = c - handoff.prev_face_centroid[j];
+    for (size_t j = 0; j < n; ++j) {
+      const math::Vector d = c - points[j];
       const float dsq = math::dot(d, d);
       if (dsq < best_d) {
         best_d = dsq;
@@ -1590,33 +1725,9 @@ private:
     const size_t landed = bookend.faces;
     const bool structural_closing =
         handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
-    // A closing leg's corner face k is born on the k-th first-seen vertex of
-    // the dual seed's face walk; the face whose walk first reaches that vertex
-    // is the corner's host.
     int *corner_host = nullptr;
-    if (structural_closing && landed < total) {
-      HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
-      const PolyMesh &dual = *tr.seed_ref;
-      const size_t corners = total - landed;
-      HS_CHECK(landed == dual.face_counts.size() &&
-                   corners == dual.vertices.size(),
-               "OpLeg: closing-leg blocks differ from the dual seed");
-      corner_host = scratch_arena_a.allocate_n<int>(corners);
-      bool *seen = scratch_arena_a.allocate_n<bool>(corners);
-      std::fill_n(seen, corners, false);
-      size_t out = 0, off = 0;
-      for (size_t fi = 0; fi < landed; ++fi) {
-        for (int j = 0; j < dual.face_counts[fi]; ++j) {
-          const uint16_t v = dual.faces[off + j];
-          if (!seen[v]) {
-            seen[v] = true;
-            corner_host[out++] = static_cast<int>(fi);
-          }
-        }
-        off += dual.face_counts[fi];
-      }
-      HS_CHECK(out == corners, "OpLeg: dual corner hosts incomplete");
-    }
+    if (structural_closing && landed < total)
+      corner_host = dual_corner_hosts(tr, landed, total);
     const math::Vector *arrival_centroid =
         landed < total && !structural_closing
             ? face_centroids(arrival, scratch_arena_a)
@@ -1631,20 +1742,111 @@ private:
         tr.target_topo.push_back(bookend.topology[corner_host[f - landed]]);
         continue;
       }
-      size_t host = 0;
-      float best_d = 1e9f;
-      for (size_t j = 0; j < landed; ++j) {
-        const math::Vector d = arrival_centroid[f] - arrival_centroid[j];
-        const float dsq = math::dot(d, d);
-        if (dsq < best_d) {
-          best_d = dsq;
-          host = j;
-        }
-      }
+      const size_t host =
+          nearest_point(arrival_centroid[f], arrival_centroid, landed);
       tr.target_topo.push_back(bookend.topology[host]);
     }
     return tr.target_topo.data();
   }
+
+  /**
+   * @brief Landed host face of each corner face on a closing leg.
+   * @return One host face index per corner face, allocated from
+   * scratch_arena_a.
+   * @details Corner face k is born on the k-th first-seen vertex of the dual
+   * seed's face walk; the face whose walk first reaches that vertex is the
+   * corner's host.
+   */
+  __attribute__((always_inline)) static int *
+  dual_corner_hosts(const Transients &tr, size_t landed, size_t total) {
+    HS_CHECK(tr.seed_ref, "OpLeg: leg carries no seed mesh");
+    const PolyMesh &dual = *tr.seed_ref;
+    const size_t corners = total - landed;
+    HS_CHECK(landed == dual.face_counts.size() &&
+                 corners == dual.vertices.size(),
+             "OpLeg: closing-leg blocks differ from the dual seed");
+    int *corner_host = scratch_arena_a.allocate_n<int>(corners);
+    bool *seen = scratch_arena_a.allocate_n<bool>(corners);
+    std::fill_n(seen, corners, false);
+    size_t out = 0, off = 0;
+    for (size_t fi = 0; fi < landed; ++fi) {
+      for (int j = 0; j < dual.face_counts[fi]; ++j) {
+        const uint16_t v = dual.faces[off + j];
+        if (!seen[v]) {
+          seen[v] = true;
+          corner_host[out++] = static_cast<int>(fi);
+        }
+      }
+      off += dual.face_counts[fi];
+    }
+    HS_CHECK(out == corners, "OpLeg: dual corner hosts incomplete");
+    return corner_host;
+  }
+
+  /** @brief Per-face from-palette selection of one palette mapping. */
+  struct DepartedPalettes {
+    const PaletteHandoff &handoff; /**< Departed-node provenance. */
+    const uint8_t *forced_from;    /**< Per-face override, or null to derive. */
+    const math::Vector *start_centroid; /**< Start-parameter centroids, or
+                                           null for the emission-order
+                                           mapping. */
+    const uint16_t *target_topo;        /**< Target class per swept face. */
+    size_t total;                       /**< Swept face count. */
+    bool full_correspondence;           /**< Every swept face maps to a
+                                           departed face by centroid. */
+    bool *prev_used;   /**< Claimed departed faces (full correspondence
+                        only). */
+    int *newborn_from; /**< Newborn palette slot -> from-palette of its first
+                          face; -1 until set. */
+
+    /**
+     * @brief From-palette of swept face @p f.
+     * @param to The face's landed palette, the fallback for a newborn face,
+     * which skips the crossfade.
+     */
+    __attribute__((always_inline)) uint8_t for_face(size_t f,
+                                                    uint8_t to) const {
+      uint8_t from = to;
+      if (forced_from) {
+        from = forced_from[f];
+      } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
+        HS_CHECK(handoff.prev_faces == total,
+                 "OpLeg: identity handoff face count differs");
+        from = handoff.prev_face_palette[f];
+      } else if (full_correspondence) {
+        from = claim_nearest(f);
+      } else if (start_centroid) { // prev_faces == survivors
+        if (f < handoff.prev_faces)
+          from = handoff.prev_face_palette[f];
+        else
+          from = newborn(f);
+      } else if (f < handoff.prev_faces) {
+        from = handoff.prev_face_palette[f];
+      }
+      return from;
+    }
+
+    /** @brief Palette of the departed face nearest @p f's start centroid,
+     * claimed so no other face maps to it. */
+    __attribute__((always_inline)) uint8_t claim_nearest(size_t f) const {
+      const size_t j = nearest_prev_face(start_centroid[f], handoff);
+      const math::Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
+      HS_CHECK(!prev_used[j] && math::dot(d, d) < PROVENANCE_TOL_SQ,
+               "OpLeg: start face has no unique departed counterpart");
+      prev_used[j] = true;
+      return handoff.prev_face_palette[j];
+    }
+
+    /** @brief Newborn face @p f's from-palette, shared across its palette
+     * slot and taken from the slot's first face's nearest departed face. */
+    __attribute__((always_inline)) uint8_t newborn(size_t f) const {
+      const int slot = MeshPaletteBank::slot_of(target_topo[f]);
+      if (newborn_from[slot] < 0)
+        newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
+            start_centroid[f], handoff)];
+      return static_cast<uint8_t>(newborn_from[slot]);
+    }
+  };
 
   // always_inline: an out-of-line copy inherits no cold attribute from its
   // HS_COLD_MEMBER caller and would land in ITCM.
@@ -1721,6 +1923,9 @@ private:
     int newborn_from[PALETTES];
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
+    const DepartedPalettes departed{
+        handoff, forced_from,         start_centroid, target_topo,
+        total,   full_correspondence, prev_used,      newborn_from};
 
     uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
     tr.landing.from_palette = from_palette;
@@ -1729,34 +1934,7 @@ private:
     for (size_t f = 0; f < total; ++f) {
       const uint8_t to =
           tr.landing.to_palette[MeshPaletteBank::slot_of(target_topo[f])];
-      uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (forced_from) {
-        from = forced_from[f];
-      } else if (handoff.correspondence == FaceCorrespondence::IDENTITY) {
-        HS_CHECK(handoff.prev_faces == total,
-                 "OpLeg: identity handoff face count differs");
-        from = handoff.prev_face_palette[f];
-      } else if (full_correspondence) {
-        const size_t j = nearest_prev_face(start_centroid[f], handoff);
-        const math::Vector d =
-            start_centroid[f] - handoff.prev_face_centroid[j];
-        HS_CHECK(!prev_used[j] && math::dot(d, d) < PROVENANCE_TOL_SQ,
-                 "OpLeg: start face has no unique departed counterpart");
-        prev_used[j] = true;
-        from = handoff.prev_face_palette[j];
-      } else if (start_centroid) { // prev_faces == survivors
-        if (f < handoff.prev_faces) {
-          from = handoff.prev_face_palette[f];
-        } else {
-          const int slot = MeshPaletteBank::slot_of(target_topo[f]);
-          if (newborn_from[slot] < 0)
-            newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
-                start_centroid[f], handoff)];
-          from = static_cast<uint8_t>(newborn_from[slot]);
-        }
-      } else if (f < handoff.prev_faces) {
-        from = handoff.prev_face_palette[f];
-      }
+      const uint8_t from = departed.for_face(f, to);
       HS_CHECK(from < PALETTES && to < PALETTES,
                "OpLeg: crossfade ramp endpoint outside the palette bank");
       from_palette[f] = from;
@@ -1765,17 +1943,24 @@ private:
     }
     tr.landing.blend_pairs = tr.num_ramps;
 
-    // Per-frame scratch peak: the ramp array plus one baked LUT per
-    // non-identity pair.
+    HS_CHECK(ramps_fit_scratch(tr),
+             "OpLeg: blended palette LUTs exceed scratch_arena_b");
+  }
+
+  /**
+   * @brief Whether the per-frame scratch peak fits scratch_arena_b: the ramp
+   * array plus one baked LUT per non-identity pair.
+   */
+  __attribute__((always_inline)) static bool
+  ramps_fit_scratch(const Transients &tr) {
     int blended = 0;
     for (int r = 0; r < tr.num_ramps; ++r)
       if (tr.ramp_from[r] != tr.ramp_to[r])
         ++blended;
-    HS_CHECK(static_cast<size_t>(tr.num_ramps) * sizeof(BakedPalette) +
-                     static_cast<size_t>(blended) *
-                         BakedPalette::required_arena_bytes() <=
-                 scratch_arena_b.get_capacity(),
-             "OpLeg: blended palette LUTs exceed scratch_arena_b");
+    return static_cast<size_t>(tr.num_ramps) * sizeof(BakedPalette) +
+               static_cast<size_t>(blended) *
+                   BakedPalette::required_arena_bytes() <=
+           scratch_arena_b.get_capacity();
   }
 
   /**
