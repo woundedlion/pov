@@ -330,7 +330,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            umbrella over filter/
 │   │   ├── filter/                 Pipeline composition (pipeline) and the shared splat
 │   │   │                            helper (splat), feedback presets (feedback_style), the
-│   │   │                            feedback pole cap plane (feedback_cap_plane), and stages
+│   │   │                            feedback pole cap plane (feedback_cap_plane) and warp
+│   │   │                            cache (feedback_warp_cache), and stages
 │   │   │                            (world_orient, world_orient_slice, world_hole,
 │   │   │                            world_replicate, world_vertex_replicate, world_mobius,
 │   │   │                            world_trails, screen_anti_alias,

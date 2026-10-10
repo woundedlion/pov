@@ -15,6 +15,7 @@
 #include <type_traits>
 
 #include "core/render/filter.h"
+#include "core/render/filter/feedback_warp_cache.h"
 #include "core/render/filter/pixel_feedback.h"
 #include "core/render/canvas.h"
 #include "tests/pixel_test_util.h"
@@ -90,6 +91,7 @@ inline int run_filter_tests() {
 
   test_feedback_style_binding();
   test_feedback_plot_is_passthrough();
+  test_feedback_warp_cache_valid_only_after_fill();
 
   test_world_hole_masks_cap();
   test_world_hole_setters();
