@@ -16,14 +16,12 @@
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
-/// @cond
-Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
-Arena scratch_arena_a(global_arena_block + DEFAULT_PERSISTENT_SIZE,
-                      DEFAULT_SCRATCH_A_SIZE);
-Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
+Arena persistent_arena{global_arena_block, DEFAULT_PERSISTENT_SIZE};
+Arena scratch_arena_a{global_arena_block + DEFAULT_PERSISTENT_SIZE,
+                      DEFAULT_SCRATCH_A_SIZE};
+Arena scratch_arena_b{global_arena_block + DEFAULT_PERSISTENT_SIZE +
                           DEFAULT_SCRATCH_A_SIZE,
-                      DEFAULT_SCRATCH_B_SIZE);
-/// @endcond
+                      DEFAULT_SCRATCH_B_SIZE};
 
 namespace {
 size_t abandoned_bytes_total = 0;

@@ -34,13 +34,13 @@ inline constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
 /// Capacity of each scratch arena, in bytes.
 inline constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
 /// Retained storage for MeshOps wrapper meshes.
-static Arena tooling_arena(nullptr, 0);
+static Arena tooling_arena{nullptr, 0};
 // Scratch-using MeshOps entry points reset both arenas and hold a ToolingOpGuard.
 // Scratch is valid only within one synchronous call.
 /// First per-call operator scratch arena.
-static Arena tooling_scratch_a(nullptr, 0);
+static Arena tooling_scratch_a{nullptr, 0};
 /// Second per-call operator scratch arena.
-static Arena tooling_scratch_b(nullptr, 0);
+static Arena tooling_scratch_b{nullptr, 0};
 
 /// Largest element count any operator stage may reach: face/index counts
 /// narrow to uint16_t behind an always-on HS_CHECK, so a larger mesh is
