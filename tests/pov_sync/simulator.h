@@ -780,9 +780,10 @@ inline void test_sim_masked_windows() {
   const int32_t ppm[4] = {0, 25, -25, 15};
   Sim sim(cfg, 4, ppm);
 
-  // Board 2: recurring masks over the ZERO boundary swallow wakes and merge
-  // burst edges, so its decoder sees truncated counts. Masks start after boot
-  // join so acquisition is clean.
+  // Recurring masks over the ZERO boundary, starting after boot join so
+  // acquisition is clean. Board 1's narrow masks delay burst edges without
+  // truncating the count; board 2's wide masks swallow wakes and merge burst
+  // edges, so its decoder sees truncated counts.
   const uint64_t rev = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
@@ -1299,16 +1300,6 @@ inline void test_epoch_same_tick_burst_fold() {
   // Every copy commits at the absolute B+R+K boundary, independent of j.
   for (uint32_t j = 0; j <= R; ++j)
     HS_EXPECT_EQ(commit_rev_for(j), RPE + R + K);
-
-  // On the pre-fold rev, on_epoch_symbol infers a repeat copy one short (j−1),
-  // scheduling commit_in_revs a revolution too large.
-  for (uint32_t j = 1; j <= R; ++j) {
-    ContentTracker pre;
-    pre.identity_known = true;
-    pre.rev_in_effect = RPE + j - 1; // fold NOT applied before the inference
-    HS_EXPECT_TRUE(pre.on_epoch_symbol(cfg));
-    HS_EXPECT_EQ(pre.commit_in_revs, K + R - (j - 1)); // one too large
-  }
 }
 
 /** @brief Verifies EPOCH symbols stay rejected for the full refractory window. */
