@@ -82,9 +82,15 @@ public:
     return false;
   }
 
-  /** @brief Whether the fail-dark black frame has been accepted. */
+  /**
+   * @brief Whether the fail-dark black frame has been accepted.
+   * @return True once the black frame is latched.
+   */
   bool dark_latched() const { return black_frame_accepted; }
-  /** @brief Whether a dropped frame is still awaiting re-submission. */
+  /**
+   * @brief Whether a dropped frame is still awaiting re-submission.
+   * @return True while a re-submission is pending.
+   */
   bool resubmit_pending() const { return resubmit_needed; }
 
 private:
@@ -131,7 +137,10 @@ public:
     return false;
   }
 
-  /** @brief Whether a pulse is being held HIGH across the ISR boundary. */
+  /**
+   * @brief Whether a pulse is being held HIGH across the ISR boundary.
+   * @return True while the LOW edge is deferred.
+   */
   bool low_deferred() const { return low_pending; }
 
 private:

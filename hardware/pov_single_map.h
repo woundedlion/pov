@@ -30,7 +30,12 @@ namespace pov {
 /// FastLED WS2801 data rate, in MHz.
 inline constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
 
-/** @brief WS2801 transfer and latch duration for a positive MHz clock. */
+/**
+ * @brief WS2801 transfer and latch duration for a positive MHz clock.
+ * @param leds Number of LEDs on the strip.
+ * @param clock_mhz SPI clock in MHz; must be positive.
+ * @return Duration in microseconds.
+ */
 constexpr unsigned long fastled_show_us(int leds, uint32_t clock_mhz) {
   return 1000UL + dma::transfer_us(3UL * leds, clock_mhz * 1000000UL);
 }
@@ -96,7 +101,22 @@ constexpr ColumnStep step_column(int x, int w) {
   return {next_x, next_x == 0 || next_x == w / 2};
 }
 
-/** @brief Packs and submits one strip column, then advances the display boundary. */
+/**
+ * @brief Packs and submits one strip column, then advances the display
+ *        boundary.
+ * @tparam S Strip length in LEDs.
+ * @tparam Read Callable `(x, y)` returning a canvas pixel.
+ * @tparam Write Callable `(led, pixel)` storing one LED.
+ * @tparam Submit Nullary callable that sends the packed strip.
+ * @tparam Advance Nullary callable that advances the display buffer.
+ * @param x Current canvas column.
+ * @param width Canvas width in columns; must be even.
+ * @param read Reads a canvas pixel.
+ * @param write Writes one LED.
+ * @param submit Sends the strip.
+ * @param advance Called when the next column is a half-revolution boundary.
+ * @return The next column.
+ */
 template <int S, typename Read, typename Write, typename Submit,
           typename Advance>
 __attribute__((always_inline)) inline int

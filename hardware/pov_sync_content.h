@@ -19,7 +19,17 @@
 namespace pov {
 namespace sync {
 
-/** Synchronized fade-through-clear envelope for one displayed column. */
+/**
+ * Synchronized fade-through-clear envelope for one displayed column.
+ * @param rev_in_effect Revolutions elapsed in the current effect.
+ * @param effect_revolutions Effect length in revolutions.
+ * @param column Displayed canvas column.
+ * @param width Canvas width in columns.
+ * @param fade_revolutions Fade-in and fade-out length in revolutions; 0
+ *        disables the envelope.
+ * @return Brightness multiplier in [0, 1]: eased up over the first
+ *         @p fade_revolutions, down over the last.
+ */
 inline float effect_output_envelope(uint32_t rev_in_effect,
                                     uint32_t effect_revolutions, int32_t column,
                                     int32_t width,
