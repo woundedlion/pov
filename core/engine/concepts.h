@@ -113,7 +113,10 @@ public:
     };
   }
 
-  /** @brief Stores a non-throwing function pointer by value. */
+  /**
+   * @brief Stores a non-throwing function pointer by value.
+   * @param func Function to call; null yields an empty reference.
+   */
   FunctionRef(Ret (*func)(Args...) noexcept) noexcept
       : FunctionRef(static_cast<Ret (*)(Args...)>(func)) {}
 
@@ -187,12 +190,18 @@ public:
  */
 template <typename Signature> class StoredFunctionRef;
 
+/**
+ * @brief StoredFunctionRef for the signature `Ret(Args...)`.
+ * @tparam Ret Return type.
+ * @tparam Args Argument types.
+ */
 template <typename Ret, typename... Args>
 class StoredFunctionRef<Ret(Args...)> : public FunctionRef<Ret(Args...)> {
 public:
   using FunctionRef<Ret(Args...)>::FunctionRef;
 
   StoredFunctionRef() = default;
+  /** @brief Constructs an empty reference. */
   StoredFunctionRef(std::nullptr_t) noexcept {}
 
   // Reject rvalue temporaries the base would accept; the guards keep lvalue
@@ -208,19 +217,27 @@ public:
 };
 
 // Borrow-only aliases; stored callbacks use StoredFunctionRef.
+/// Screen trail colour: (x, y, t) with t the point's age in [0, 1].
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
+/// World trail colour: (position, t) with t the point's age in [0, 1].
 using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
+/// Fragment shader: shades the fragment at a sphere position.
 using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
+/// Vertex shader: rewrites a fragment before projection.
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // Deferred per-control-point shader: receives the (position-shaded) fragment's
 // shading registers and its original pre-shader position. It runs after
 // projection, so it cannot move the fragment.
+/// Deferred shader: (shading registers, pre-shader position).
 using DeferredShaderRef =
     FunctionRef<void(FragmentRegisters, const math::Vector &)>;
+/// Orientation history visitor: (orientation, t) with t in [0, 1].
 using TweenFn = FunctionRef<void(const math::Quaternion &, float)>;
+/// Position history visitor: (position, t) with t in [0, 1].
 using VectorTweenFn = FunctionRef<void(const math::Vector &, float)>;
 // Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
 // optional planar basis, intersect the clip band?
+/// Clip-cull predicate: (a, b, planar basis or null) intersects the clip band.
 using CullEdgePredRef = FunctionRef<bool(
     const math::Vector &, const math::Vector &, const math::Basis *)>;
 
@@ -239,6 +256,7 @@ struct DissolveMask {
   /**
    * @brief Ownership of the element identified by the key pair (a, b).
    * @param a,b Key components; order-sensitive.
+   * @return True when this mask owns the element.
    */
   bool owns(int a, int b) const {
     uint32_t h = static_cast<uint32_t>(a) * 0x9E3779B1u ^
@@ -252,6 +270,7 @@ struct DissolveMask {
 /**
  * @brief Whether P writes the framebuffer through a cached base.
  * @tparam P Pipeline type; one without the member is not a direct-raster path.
+ * @return `P::direct_raster_path`, or false when P lacks it.
  */
 template <typename P> consteval bool pipeline_direct_raster_path() {
   if constexpr (requires { P::direct_raster_path; })
@@ -274,7 +293,15 @@ concept Plottable =
       p.plot(cv, v, c, 0.0f, 0.0f);
     };
 
-/** @brief Dispatches a clip query through world stages or a bare plot provider. */
+/**
+ * @brief Dispatches a clip query through world stages or a bare plot provider.
+ * @param pipeline Pipeline queried.
+ * @param a Edge start (unit sphere point, pre-world-transform).
+ * @param b Edge end (unit sphere point, pre-world-transform).
+ * @param pb Optional planar basis for the edge (null = geodesic).
+ * @param pred Rasterizer's screen-row-span vs clip-band test.
+ * @return Whether the edge could intersect the clip band.
+ */
 template <typename PipelineT, typename Pred>
 inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
                                           const math::Vector &a,
@@ -424,11 +451,16 @@ public:
   }
 };
 
+/// Owned path function mapping a parameter to a sphere point.
 using PlotFn = Fn<math::Vector(float), 16>;
 // 16 B: holds two pointers on the 64-bit host, four on device.
+/// Owned sprite draw callback: (canvas, opacity in [0, 1]).
 using SpriteFn = Fn<void(Canvas &, float), 16>;
+/// Owned timer callback, invoked with the frame's canvas.
 using TimerFn = Fn<void(Canvas &), 16>;
+/// Owned scalar function of one float.
 using ScalarFn = Fn<float(float), 32>;
+/// Easing curve mapping progress in [0, 1] to eased progress.
 using EasingFn = float (*)(float);
 
 /**
