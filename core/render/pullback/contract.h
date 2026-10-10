@@ -25,42 +25,48 @@
 
 namespace Pullback {
 
+/** @brief How a `Stage::Placed` group's run is emitted. */
 enum class CodeEmission : uint8_t {
-  INLINE_ONLY,
-  OUT_OF_LINE_FLASH,
-  OUT_OF_LINE_ITCM
+  INLINE_ONLY,       ///< Always inlined into the caller.
+  OUT_OF_LINE_FLASH, ///< Non-inlined call in hot flash.
+  OUT_OF_LINE_ITCM   ///< Non-inlined call placed in ITCM.
 };
 
+/** @brief Exact reference an approximate policy is measured against. */
 enum class ApproximationOracleId : uint8_t {
-  NONE,
-  PEIRCE_FAST_SQUARE,
-  HUE_ROTATION_AND_NOISE_LUTS
+  NONE,                       ///< Exact; no oracle.
+  PEIRCE_FAST_SQUARE,         ///< Fast square-layout Peirce projection.
+  HUE_ROTATION_AND_NOISE_LUTS ///< LUT hue rotation and hue noise.
 };
 
+/** @brief Quantity an approximation metric bounds. */
 enum class ApproximationDomain : uint8_t {
-  PROJECTED_COORDINATE,
-  PROJECTED_EDGE_DISTANCE,
-  COLOR_CHANNEL,
-  FRAMEBUFFER
+  PROJECTED_COORDINATE,    ///< Planar projection output.
+  PROJECTED_EDGE_DISTANCE, ///< `ProjectionProvenance::fade_edge_distance`.
+  COLOR_CHANNEL,           ///< One colour channel.
+  FRAMEBUFFER              ///< One final framebuffer channel.
 };
 
+/** @brief Reduction of a metric's per-sample errors. */
 enum class ApproximationAggregation : uint8_t { MAXIMUM, MEAN };
 
+/** @brief One declared error bound of an approximate policy. */
 struct ApproximationMetric {
-  ApproximationDomain domain;
-  ApproximationAggregation aggregation;
-  float limit;
-  const char *unit;
+  ApproximationDomain domain;           ///< Quantity bounded.
+  ApproximationAggregation aggregation; ///< Worst case or mean.
+  float limit;                          ///< Bound, in `unit`.
+  const char *unit;                     ///< Human-readable unit name.
 };
 
+/// Boundary-kind bits of `ProjectionProvenance::boundary_flags`.
 using ProjectionBoundary = projections::ProjectionBoundary;
 
 /**
  * @brief Rank-0 carrier: a unit view direction plus the accumulated path.
  */
 struct SphereSample {
-  math::Vector dir;
-  float path_length;
+  math::Vector dir;  ///< Unit view direction.
+  float path_length; ///< Accumulated path length; 0 at entry.
 };
 
 /** @brief Exactly what a projection computes: regions, fades, weights. */
@@ -88,8 +94,8 @@ struct ProjectionProvenance {
 
 /** @brief The projection policy protocol: planar coordinates plus provenance. */
 struct ProjectionResult {
-  math::Complex coords;
-  ProjectionProvenance provenance;
+  math::Complex coords;            ///< Planar coordinates.
+  ProjectionProvenance provenance; ///< Region, edge and weight metadata.
 };
 
 /**
@@ -99,10 +105,10 @@ struct ProjectionResult {
  * and `sphere` are immutable once the crossing writes them.
  */
 struct PlaneSample {
-  math::Complex coords;
-  ProjectionProvenance provenance;
-  math::Vector sphere;
-  float path_length;
+  math::Complex coords;            ///< Working planar coordinate.
+  ProjectionProvenance provenance; ///< Written at the projection crossing.
+  math::Vector sphere;             ///< Sphere point the projection sampled.
+  float path_length;               ///< Accumulated path length.
 };
 
 /**
@@ -112,11 +118,11 @@ struct PlaneSample {
  * re-clamp; `coverage` is in [0, 1] and non-increasing.
  */
 struct FieldSample {
-  float value;
-  float coverage;
+  float value;    ///< Field value in [0, 1].
+  float coverage; ///< Accumulated coverage in [0, 1].
   /** Projection-frame direction from PLANE; camera-frame direction from SPHERE. */
   math::Vector sphere;
-  float path_length;
+  float path_length; ///< Accumulated path length.
 };
 
 static_assert(sizeof(SphereSample) == 4 * sizeof(float));
@@ -130,29 +136,37 @@ static_assert(std::is_trivially_copyable_v<Color4>);
 
 /** @brief The surface policy protocol: a displaced point plus its step length. */
 struct SurfaceResult {
-  math::Vector sphere;
-  float path_length;
+  math::Vector sphere; ///< Displaced sphere point.
+  float path_length;   ///< Length of this step.
 };
 
 /** @brief The warp policy protocol: stepped coordinates plus the step length. */
 struct WarpStepResult {
-  math::Complex coords;
-  float path_length;
+  math::Complex coords; ///< Stepped planar coordinates.
+  float path_length;    ///< Length of this step.
 };
 
 namespace Detail {
 
+/** @brief Compile-time type sequence.
+ * @tparam Ts The types. */
 template <typename... Ts> struct TypeList {
-  static constexpr size_t SIZE = sizeof...(Ts);
+  static constexpr size_t SIZE = sizeof...(Ts); ///< Number of types.
 };
 
 template <typename A, typename B> struct Concat;
+/** @brief Concatenation of two `TypeList`s.
+ * @tparam As First list's types.
+ * @tparam Bs Second list's types. */
 template <typename... As, typename... Bs>
 struct Concat<TypeList<As...>, TypeList<Bs...>> {
   using Type = TypeList<As..., Bs...>;
 };
 
 template <size_t Index, typename List> struct TypeAt;
+/** @brief The @p Index-th type of a `TypeList`.
+ * @tparam Index Zero-based position.
+ * @tparam Ts The list's types. */
 template <size_t Index, typename... Ts> struct TypeAt<Index, TypeList<Ts...>> {
   using Type = std::tuple_element_t<Index, std::tuple<Ts...>>;
 };
@@ -172,8 +186,12 @@ inline constexpr size_t FOREIGN_FAMILY_RANK = static_cast<size_t>(-1);
 namespace Detail {
 
 template <typename T, typename List> struct FamilyRank;
+/** @brief Index of @p T in the carrier list, or `FOREIGN_FAMILY_RANK`.
+ * @tparam T Type to rank.
+ * @tparam Carriers The ordered carriers. */
 template <typename T, typename... Carriers>
 struct FamilyRank<T, TypeList<Carriers...>> {
+  /// The rank.
   static constexpr size_t VALUE = [] {
     constexpr bool MATCHES[] = {std::is_same_v<T, Carriers>...};
     for (size_t index = 0; index < sizeof...(Carriers); ++index)
@@ -197,6 +215,7 @@ template <typename T>
 concept CanonicalCarrier =
     Detail::FamilyRank<T, CarrierList>::VALUE != FOREIGN_FAMILY_RANK;
 
+/** @brief Pipeline segment a profiling span is attributed to. */
 enum class ProfileEvent : uint8_t {
   LENS,
   SURFACE_NOISE,
@@ -208,11 +227,16 @@ enum class ProfileEvent : uint8_t {
   COLOR
 };
 
+/** @brief Instrumentation that records nothing. */
 struct NoInstrumentation {
   struct Token {};
 
+  /** @brief Starts a span.
+   * @return An empty token. */
   __attribute__((always_inline)) static Token mark() { return {}; }
 
+  /** @brief Ends a span; a no-op.
+   * @tparam Event Segment the span is attributed to. */
   template <ProfileEvent Event>
   __attribute__((always_inline)) static void span(Token) {
     static_cast<void>(Event);
@@ -221,9 +245,13 @@ struct NoInstrumentation {
 
 /** @brief Default approximation metadata: exact, no oracle, no metrics. */
 struct ApproximationDefaults {
+  /// Whether the policy approximates.
   static constexpr bool APPROXIMATE = false;
+  /// Whether non-float outputs (ids, flags) match the oracle exactly.
   static constexpr bool NON_FLOATING_FIELDS_EXACT = true;
+  /// `NONE` when exact.
   static constexpr ApproximationOracleId ORACLE = ApproximationOracleId::NONE;
+  /// Error bounds; empty when exact.
   static constexpr std::array<ApproximationMetric, 0> METRICS{};
 };
 
@@ -235,15 +263,23 @@ enum class ValueRole : uint8_t { TRANSFER, COVERAGE };
 
 /** @brief Tags a policy for Stage::Transfer, which overwrites the value. */
 struct TransferRole {
+  /// Role this tag selects.
   static constexpr ValueRole VALUE_ROLE = ValueRole::TRANSFER;
 };
 
 /** @brief Tags a policy for Stage::ApplyCoverage, which multiplies the
     accumulated coverage. */
 struct CoverageRole {
+  /// Role this tag selects.
   static constexpr ValueRole VALUE_ROLE = ValueRole::COVERAGE;
 };
 
+/**
+ * @brief Whether @p Stage declares an `ApproximationDomain::FRAMEBUFFER`
+ *        metric.
+ * @tparam Stage Type with a `METRICS` array.
+ * @return True if any metric bounds the framebuffer.
+ */
 template <typename Stage> consteval bool has_final_framebuffer_metric() {
   for (const ApproximationMetric &metric : Stage::METRICS)
     if (metric.domain == ApproximationDomain::FRAMEBUFFER)
@@ -259,10 +295,16 @@ concept PolicyPrepares = requires(const FrameState &frame) {
   { Policy::prepare(frame) } -> std::same_as<typename Policy::Prepared>;
 };
 
+/** @brief Fallback: @p Policy declares no prepared state.
+ * @tparam Policy Stage policy.
+ * @tparam FrameState Binding's frame state. */
 template <typename Policy, typename FrameState> struct PolicyPreparedImpl {
-  using Type = NoPrepared;
+  using Type = NoPrepared; ///< Resolved prepared type.
 };
 
+/** @brief @p Policy whose `prepare` returns its `Prepared`.
+ * @tparam Policy Stage policy.
+ * @tparam FrameState Binding's frame state. */
 template <typename Policy, typename FrameState>
   requires PolicyPrepares<Policy, FrameState>
 struct PolicyPreparedImpl<Policy, FrameState> {
@@ -289,17 +331,25 @@ concept HasApproximation = requires { Policy::APPROXIMATE; };
 
 /** @brief @p Policy's approximation metadata; a plain provider is exact. */
 template <typename Policy> struct PolicyApproximation {
-  using Type = ApproximationDefaults;
+  using Type = ApproximationDefaults; ///< Metadata source.
 };
 
+/** @brief A policy declaring its own metadata supplies it.
+ * @tparam Policy Policy with `APPROXIMATE`. */
 template <HasApproximation Policy> struct PolicyApproximation<Policy> {
   using Type = Policy;
 };
 
+/** @brief First policy flagged `APPROXIMATE`, else
+ *        `ApproximationDefaults`.
+ * @tparam Policies Policies to search. */
 template <typename... Policies> struct FirstApproximate {
-  using Type = ApproximationDefaults;
+  using Type = ApproximationDefaults; ///< Selected metadata source.
 };
 
+/** @brief Recursive case: @p Head if approximate, else search @p Tail.
+ * @tparam Head First policy.
+ * @tparam Tail Remaining policies. */
 template <typename Head, typename... Tail>
 struct FirstApproximate<Head, Tail...> {
   using Type =
@@ -307,7 +357,11 @@ struct FirstApproximate<Head, Tail...> {
                          typename FirstApproximate<Tail...>::Type>;
 };
 
+/** @brief Approximation metadata of a policy set; at most one policy may
+ *        approximate.
+ * @tparam Policies The stage's policies. */
 template <typename... Policies> struct CombinedApproximation {
+  /// Number of approximate policies.
   static constexpr size_t COUNT =
       (static_cast<size_t>(PolicyApproximation<Policies>::Type::APPROXIMATE) +
        ... + 0U);
@@ -315,12 +369,16 @@ template <typename... Policies> struct CombinedApproximation {
       COUNT <= 1,
       "pullback stage: multiple approximation oracles require an explicit "
       "combined oracle");
+  /// Policy supplying the metadata.
   using Owner = typename FirstApproximate<Policies...>::Type;
+  /// Whether any policy approximates.
   static constexpr bool APPROXIMATE = Owner::APPROXIMATE;
+  /// `Owner`'s non-float exactness flag.
   static constexpr bool NON_FLOATING_FIELDS_EXACT =
       Owner::NON_FLOATING_FIELDS_EXACT;
+  /// `Owner`'s oracle.
   static constexpr ApproximationOracleId ORACLE = Owner::ORACLE;
-  static constexpr auto METRICS = Owner::METRICS;
+  static constexpr auto METRICS = Owner::METRICS; ///< `Owner`'s error bounds.
 };
 
 template <typename Tuple> struct TupleApproximation;
@@ -328,6 +386,13 @@ template <typename... Policies>
 struct TupleApproximation<std::tuple<Policies...>>
     : CombinedApproximation<Policies...> {};
 
+/**
+ * @brief @p Policy's `PROVIDER_VALID` for @p Binding; true if it declares
+ *        none.
+ * @tparam Policy Stage policy.
+ * @tparam Binding Pipeline binding.
+ * @return Whether the policy accepts the binding.
+ */
 template <typename Policy, typename Binding>
 consteval bool policy_provider_valid() {
   if constexpr (requires { Policy::template PROVIDER_VALID<Binding>; })
@@ -368,6 +433,9 @@ concept ParamsProvider =
     std::is_const_v<std::remove_reference_t<decltype(State::params(
         std::declval<const typename Binding::FrameState &>()))>>;
 
+/** @brief Clamps to [0, 1]; a NaN input fails the audit check.
+ * @param value Non-NaN input.
+ * @return @p value clamped to [0, 1]. */
 __attribute__((always_inline)) inline float clamp_unit(float value) {
   HS_AUDIT_CHECK(value == value, "unit clamp: NaN input");
   if (value <= 0.0f)
@@ -402,7 +470,7 @@ edge_fade(const ProjectionProvenance &provenance, float width) {
 /** Probe binding for naming a descriptor's Bind without instantiating it. */
 struct ProbeBinding {
   struct FrameState {};
-  using Instrumentation = NoInstrumentation;
+  using Instrumentation = NoInstrumentation; ///< No-op instrumentation.
 };
 
 } // namespace Detail
@@ -438,11 +506,18 @@ concept DescriptorPrepares =
       Descriptor::template prepare<Binding>(frame);
     };
 
+/** @brief Fallback: the descriptor declares no `prepare`.
+ * @tparam Descriptor Stage descriptor.
+ * @tparam Binding Pipeline binding.
+ * @tparam Has Whether `DescriptorPrepares` holds. */
 template <typename Descriptor, typename Binding, bool Has>
 struct DescriptorPreparedImpl {
-  using Type = NoPrepared;
+  using Type = NoPrepared; ///< Resolved prepared type.
 };
 
+/** @brief The prepared type is `prepare`'s return type.
+ * @tparam Descriptor Stage descriptor.
+ * @tparam Binding Pipeline binding. */
 template <typename Descriptor, typename Binding>
 struct DescriptorPreparedImpl<Descriptor, Binding, true> {
   using Type = decltype(Descriptor::template prepare<Binding>(
@@ -467,21 +542,28 @@ namespace Stage {
  * @tparam OutputT The stage's output carrier.
  */
 template <typename Derived, typename InputT, typename OutputT> struct Contract {
-  using Input = InputT;
-  using Output = OutputT;
+  using Input = InputT;   ///< Input carrier.
+  using Output = OutputT; ///< Output carrier.
 
+  /** @brief The descriptor bound to one pipeline binding.
+   * @tparam BindingT Pipeline binding. */
   template <typename BindingT>
   struct Bind : Detail::TupleApproximation<typename Derived::Policies> {
-    using Descriptor = Derived;
-    using Binding = BindingT;
+    using Descriptor = Derived; ///< The bound descriptor.
+    using Binding = BindingT;   ///< The pipeline binding.
+    /// Binding's per-frame state.
     using FrameState = typename BindingT::FrameState;
-    using Input = InputT;
-    using Output = OutputT;
+    using Input = InputT;   ///< Input carrier.
+    using Output = OutputT; ///< Output carrier.
+    /// Descriptor's prepared type, or `NoPrepared`.
     using Prepared = Detail::DescriptorPrepared<Derived, BindingT>;
 
     static_assert(descriptor_bindable<Derived, BindingT>(),
                   "pullback stage: malformed or foreign provider");
 
+    /** @brief Calls the descriptor's `prepare`, or returns empty state.
+     * @param frame Per-frame state.
+     * @return Prepared state for this frame. */
     HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
       if constexpr (Detail::DescriptorPrepares<Derived, BindingT>)
         return Derived::template prepare<BindingT>(frame);
@@ -489,6 +571,11 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
         return {};
     }
 
+    /** @brief Calls the descriptor's `run`.
+     * @param input Input carrier.
+     * @param frame Per-frame state.
+     * @param prepared State from `prepare`.
+     * @return Output carrier. */
     __attribute__((always_inline)) static Output
     run(const Input &input, const FrameState &frame, const Prepared &prepared) {
       return Derived::template run<BindingT>(input, frame, prepared);
@@ -503,6 +590,7 @@ template <typename Derived, typename InputT, typename OutputT> struct Contract {
  * prepared-state layout and code emission.
  */
 template <CodeEmission EmissionV, typename... Stages> struct Placed {
+  /// How the group is emitted.
   static constexpr CodeEmission EMISSION = EmissionV;
 };
 
@@ -510,17 +598,25 @@ template <CodeEmission EmissionV, typename... Stages> struct Placed {
 
 namespace Detail {
 
+/** @brief `TypeList` of the non-void types.
+ * @tparam Ts Types to filter. */
 template <typename... Ts> struct FilterVoid {
-  using Type = TypeList<>;
+  using Type = TypeList<>; ///< Filtered list.
 };
 
+/** @brief Recursive case.
+ * @tparam Head First type.
+ * @tparam Tail Remaining types. */
 template <typename Head, typename... Tail> struct FilterVoid<Head, Tail...> {
-  using Rest = typename FilterVoid<Tail...>::Type;
+  using Rest = typename FilterVoid<Tail...>::Type; ///< Filtered tail.
   using Type = std::conditional_t<std::is_void_v<Head>, Rest,
                                   typename Concat<TypeList<Head>, Rest>::Type>;
 };
 
 template <CodeEmission EmissionV, typename List> struct RepackPlaced;
+/** @brief `Stage::Placed` over a `TypeList`'s types.
+ * @tparam EmissionV Code emission.
+ * @tparam Stages Child entries. */
 template <CodeEmission EmissionV, typename... Stages>
 struct RepackPlaced<EmissionV, TypeList<Stages...>> {
   using Type = Stage::Placed<EmissionV, Stages...>;
@@ -528,11 +624,15 @@ struct RepackPlaced<EmissionV, TypeList<Stages...>> {
 
 /** Filters void entries; an empty Placed collapses to void like its members. */
 template <typename Entry> struct NormalizeNode {
-  using Type = Entry;
+  using Type = Entry; ///< The entry unchanged.
 };
 
+/** @brief Normalizes a placement node; void when no children remain.
+ * @tparam EmissionV Code emission.
+ * @tparam Children Child entries. */
 template <CodeEmission EmissionV, typename... Children>
 struct NormalizeNode<Stage::Placed<EmissionV, Children...>> {
+  /// Normalized non-void children.
   using Filtered =
       typename FilterVoid<typename NormalizeNode<Children>::Type...>::Type;
   using Type =
@@ -540,30 +640,43 @@ struct NormalizeNode<Stage::Placed<EmissionV, Children...>> {
                          typename RepackPlaced<EmissionV, Filtered>::Type>;
 };
 
+/** @brief Normalized, void-free `TypeList` of pipeline entries.
+ * @tparam Entries Raw entries. */
 template <typename... Entries> struct NormalizeEntries {
+  /// Normalized list.
   using Type =
       typename FilterVoid<typename NormalizeNode<Entries>::Type...>::Type;
 };
 
+/** @brief Concatenation of several `TypeList`s.
+ * @tparam Lists Lists to join. */
 template <typename... Lists> struct ConcatAll {
-  using Type = TypeList<>;
+  using Type = TypeList<>; ///< Joined list.
 };
 
+/** @brief Recursive case.
+ * @tparam Head First list.
+ * @tparam Tail Remaining lists. */
 template <typename Head, typename... Tail> struct ConcatAll<Head, Tail...> {
   using Type = typename Concat<Head, typename ConcatAll<Tail...>::Type>::Type;
 };
 
 /** Semantic leaf projection: placement nodes flatten to their children. */
 template <typename Node> struct NodeLeaves {
-  using Type = TypeList<Node>;
+  using Type = TypeList<Node>; ///< The node itself.
 };
 
+/** @brief A placement node's leaves are its children's leaves.
+ * @tparam EmissionV Code emission.
+ * @tparam Children Child entries. */
 template <CodeEmission EmissionV, typename... Children>
 struct NodeLeaves<Stage::Placed<EmissionV, Children...>> {
   using Type = typename ConcatAll<typename NodeLeaves<Children>::Type...>::Type;
 };
 
 template <typename NodeList> struct Leaves;
+/** @brief Concatenated leaves of every node.
+ * @tparam Nodes Normalized nodes. */
 template <typename... Nodes> struct Leaves<TypeList<Nodes...>> {
   using Type = typename ConcatAll<typename NodeLeaves<Nodes>::Type...>::Type;
 };
@@ -571,39 +684,64 @@ template <typename... Nodes> struct Leaves<TypeList<Nodes...>> {
 /** Bound-stage placeholder when descriptor_bindable() fails; keeps the
     pipeline compilable so the named BINDINGS assertion is what reports. */
 template <typename Descriptor, typename Binding> struct UnboundStage {
-  using Input = typename Descriptor::Input;
-  using Output = typename Descriptor::Output;
-  using FrameState = typename Binding::FrameState;
-  using Prepared = NoPrepared;
+  using Input = typename Descriptor::Input;   ///< Descriptor's input carrier.
+  using Output = typename Descriptor::Output; ///< Descriptor's output carrier.
+  using FrameState = typename Binding::FrameState; ///< Binding's frame state.
+  using Prepared = NoPrepared;                     ///< Always empty.
 
+  /** @brief Empty prepared state.
+   * @return `NoPrepared`. */
   static constexpr Prepared prepare(const FrameState &) { return {}; }
 };
 
+/** @brief Bound form of a node: `Bind<Binding>`, or `UnboundStage` when
+ *        not `descriptor_bindable`.
+ * @tparam Node Stage descriptor or placement node.
+ * @tparam Binding Pipeline binding. */
 template <typename Node, typename Binding> struct BindNode {
+  /// Bound node type.
   using Type = std::conditional_t<descriptor_bindable<Node, Binding>(),
                                   typename Node::template Bind<Binding>,
                                   UnboundStage<Node, Binding>>;
 };
 
+/** @brief Child types, carriers and prepare of a bound placement node.
+ * @tparam EmissionV Code emission.
+ * @tparam Binding Pipeline binding.
+ * @tparam Children Child entries. */
 template <CodeEmission EmissionV, typename Binding, typename... Children>
 struct BoundPlacedBase {
+  /// Bound children.
   using BoundTuple = std::tuple<typename BindNode<Children, Binding>::Type...>;
+  /// Number of children.
   static constexpr size_t CHILD_COUNT = sizeof...(Children);
+  /// Bound child at `Index`.
   template <size_t Index>
   using child_at = std::tuple_element_t<Index, BoundTuple>;
-  using Input = typename child_at<0>::Input;
+  using Input = typename child_at<0>::Input; ///< First child's input.
+  /// Last child's output.
   using Output = typename child_at<CHILD_COUNT - 1>::Output;
-  using FrameState = typename Binding::FrameState;
+  using FrameState = typename Binding::FrameState; ///< Binding's frame state.
   /** Nested per placement node: an out-of-line call receives one contiguous
       prepared sub-tuple. */
   using Prepared =
       std::tuple<typename BindNode<Children, Binding>::Type::Prepared...>;
 
+  /** @brief Prepares every child.
+   * @param frame Per-frame state.
+   * @return Children's prepared states, in order. */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return Prepared{BindNode<Children, Binding>::Type::prepare(frame)...};
   }
 
 protected:
+  /** @brief Runs children from @p Index to the last.
+   * @tparam Index First child to run.
+   * @tparam In Carrier fed to it.
+   * @param input Carrier fed to child @p Index.
+   * @param frame Per-frame state.
+   * @param prepared Children's prepared states.
+   * @return The last child's output. */
   template <size_t Index, typename In>
   __attribute__((always_inline)) static Output
   run_children(const In &input, const FrameState &frame,
@@ -623,12 +761,22 @@ protected:
 template <CodeEmission EmissionV, typename Binding, typename... Children>
 struct BoundPlaced;
 
+/** @brief Placement group run inline in the caller.
+ * @tparam Binding Pipeline binding.
+ * @tparam Children Child entries. */
 template <typename Binding, typename... Children>
 struct BoundPlaced<CodeEmission::INLINE_ONLY, Binding, Children...>
     : BoundPlacedBase<CodeEmission::INLINE_ONLY, Binding, Children...> {
+  /// Shared bound state.
   using Base = BoundPlacedBase<CodeEmission::INLINE_ONLY, Binding, Children...>;
+  /// This group's emission.
   static constexpr CodeEmission EMISSION = CodeEmission::INLINE_ONLY;
 
+  /** @brief Runs the children in order.
+   * @param input Input carrier.
+   * @param frame Per-frame state.
+   * @param prepared Children's prepared states.
+   * @return Output carrier. */
   __attribute__((always_inline)) static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
@@ -636,13 +784,23 @@ struct BoundPlaced<CodeEmission::INLINE_ONLY, Binding, Children...>
   }
 };
 
+/** @brief Placement group run as a non-inlined call in hot flash.
+ * @tparam Binding Pipeline binding.
+ * @tparam Children Child entries. */
 template <typename Binding, typename... Children>
 struct BoundPlaced<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...>
     : BoundPlacedBase<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...> {
+  /// Shared bound state.
   using Base =
       BoundPlacedBase<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...>;
+  /// This group's emission.
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_FLASH;
 
+  /** @brief Runs the children in order.
+   * @param input Input carrier.
+   * @param frame Per-frame state.
+   * @param prepared Children's prepared states.
+   * @return Output carrier. */
   __attribute__((noinline)) HS_HOT_FLASH_MEMBER static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
@@ -650,13 +808,23 @@ struct BoundPlaced<CodeEmission::OUT_OF_LINE_FLASH, Binding, Children...>
   }
 };
 
+/** @brief Placement group run as a non-inlined call in ITCM.
+ * @tparam Binding Pipeline binding.
+ * @tparam Children Child entries. */
 template <typename Binding, typename... Children>
 struct BoundPlaced<CodeEmission::OUT_OF_LINE_ITCM, Binding, Children...>
     : BoundPlacedBase<CodeEmission::OUT_OF_LINE_ITCM, Binding, Children...> {
+  /// Shared bound state.
   using Base =
       BoundPlacedBase<CodeEmission::OUT_OF_LINE_ITCM, Binding, Children...>;
+  /// This group's emission.
   static constexpr CodeEmission EMISSION = CodeEmission::OUT_OF_LINE_ITCM;
 
+  /** @brief Runs the children in order.
+   * @param input Input carrier.
+   * @param frame Per-frame state.
+   * @param prepared Children's prepared states.
+   * @return Output carrier. */
   FASTRUN HS_NOINLINE_NOCLONE static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
@@ -664,6 +832,10 @@ struct BoundPlaced<CodeEmission::OUT_OF_LINE_ITCM, Binding, Children...>
   }
 };
 
+/** @brief A placement node binds to its `BoundPlaced`.
+ * @tparam EmissionV Code emission.
+ * @tparam Children Child entries.
+ * @tparam Binding Pipeline binding. */
 template <CodeEmission EmissionV, typename... Children, typename Binding>
 struct BindNode<Stage::Placed<EmissionV, Children...>, Binding> {
   using Type = BoundPlaced<EmissionV, Binding, Children...>;
@@ -671,6 +843,13 @@ struct BindNode<Stage::Placed<EmissionV, Children...>, Binding> {
 
 } // namespace Detail
 
+/**
+ * @brief @p Binding's `ExtraValidation` over the leaves; true if it
+ *        declares none.
+ * @tparam Binding Pipeline binding.
+ * @tparam Stages Leaf stage descriptors.
+ * @return Whether the consumer check passes.
+ */
 template <typename Binding, typename... Stages>
 consteval bool binding_extra_validation() {
   if constexpr (requires {
@@ -684,20 +863,33 @@ consteval bool binding_extra_validation() {
 namespace Detail {
 
 template <typename LeafList> struct LeafShape;
+/** @brief Count and descriptor-contract rows of a leaf list.
+ * @tparam Ls Leaf descriptors. */
 template <typename... Ls> struct LeafShape<TypeList<Ls...>> {
-  static constexpr size_t COUNT = sizeof...(Ls);
-  static constexpr bool NONEMPTY = COUNT > 0;
+  static constexpr size_t COUNT = sizeof...(Ls); ///< Leaf count.
+  static constexpr bool NONEMPTY = COUNT > 0;    ///< At least one leaf.
+  /// Every leaf is a `StageDescriptor`.
   static constexpr bool CONTRACTS = (StageDescriptor<Ls> && ...);
 };
 
+/** @brief Carrier rows; all false unless the shape is valid.
+ * @tparam ShapeValid Whether the `LeafShape` rows passed.
+ * @tparam LeafList Leaf descriptors. */
 template <bool ShapeValid, typename LeafList> struct LeafCarrierRows {
+  /// Every carrier is in `CarrierList`.
   static constexpr bool CANONICAL = false;
+  /// No stage decreases family rank.
   static constexpr bool MONOTONE = false;
+  /// Adjacent carriers agree.
   static constexpr bool CARRIERS = false;
+  /// The first stage consumes `SphereSample`.
   static constexpr bool ENTRY = false;
+  /// The last stage produces `Color4`.
   static constexpr bool EXIT = false;
 };
 
+/** @brief Carrier rows of a well-shaped leaf list.
+ * @tparam Ls Leaf descriptors. */
 template <typename... Ls> struct LeafCarrierRows<true, TypeList<Ls...>> {
 private:
   using Tuple = std::tuple<Ls...>;
@@ -711,30 +903,50 @@ private:
   }
 
 public:
+  /// Every carrier is in `CarrierList`.
   static constexpr bool CANONICAL = ((CanonicalCarrier<typename Ls::Input> &&
                                       CanonicalCarrier<typename Ls::Output>) &&
                                      ...);
+  /// No stage decreases family rank.
   static constexpr bool MONOTONE =
       ((Detail::FamilyRank<typename Ls::Input, CarrierList>::VALUE <=
         Detail::FamilyRank<typename Ls::Output, CarrierList>::VALUE) &&
        ...);
+  /// Adjacent carriers agree.
   static constexpr bool CARRIERS =
       adjacent(std::make_index_sequence<sizeof...(Ls) - 1>{});
+  /// The first stage consumes `SphereSample`.
   static constexpr bool ENTRY =
       std::is_same_v<typename std::tuple_element_t<0, Tuple>::Input,
                      SphereSample>;
+  /// The last stage produces `Color4`.
   static constexpr bool EXIT = std::is_same_v<
       typename std::tuple_element_t<sizeof...(Ls) - 1, Tuple>::Output, Color4>;
 };
 
+/** @brief Binding rows; all false unless the shape is valid.
+ * @tparam ShapeValid Whether the `LeafShape` rows passed.
+ * @tparam Binding Pipeline binding.
+ * @tparam LeafList Leaf descriptors. */
 template <bool ShapeValid, typename Binding, typename LeafList>
 struct LeafBindingRows {
+  /// Every leaf is `descriptor_bindable`.
   static constexpr bool BINDINGS = false;
+  /// Every leaf's `Bind::Descriptor` is the leaf.
   static constexpr bool DESCRIPTOR_IDENTITY = false;
+  /// Every leaf descriptor is an empty type.
   static constexpr bool EMPTY_DESCRIPTORS = false;
+  /// The binding's `ExtraValidation` passes.
   static constexpr bool EXTRA_VALIDATION = false;
 };
 
+/**
+ * @brief Whether @p Descriptor is bindable and its `Bind::Descriptor`
+ *        names itself.
+ * @tparam Descriptor Stage descriptor.
+ * @tparam Binding Pipeline binding.
+ * @return True if both hold.
+ */
 template <typename Descriptor, typename Binding>
 consteval bool descriptor_identity() {
   if constexpr (!descriptor_bindable<Descriptor, Binding>())
@@ -748,16 +960,26 @@ consteval bool descriptor_identity() {
     return false;
 }
 
+/** @brief Binding rows of a well-shaped leaf list.
+ * @tparam Binding Pipeline binding.
+ * @tparam Ls Leaf descriptors. */
 template <typename Binding, typename... Ls>
 struct LeafBindingRows<true, Binding, TypeList<Ls...>> {
+  /// Every leaf is `descriptor_bindable`.
   static constexpr bool BINDINGS = (descriptor_bindable<Ls, Binding>() && ...);
+  /// Every leaf's `Bind::Descriptor` is the leaf.
   static constexpr bool DESCRIPTOR_IDENTITY =
       (descriptor_identity<Ls, Binding>() && ...);
+  /// Every leaf descriptor is an empty type.
   static constexpr bool EMPTY_DESCRIPTORS = (std::is_empty_v<Ls> && ...);
+  /// The binding's `ExtraValidation` passes.
   static constexpr bool EXTRA_VALIDATION =
       binding_extra_validation<Binding, Ls...>();
 };
 
+/** @brief Whether `Bound::run` returns exactly `Bound::Output`.
+ * @tparam Bound Bound stage.
+ * @return True if it does. */
 template <typename Bound> consteval bool bound_run_returns() {
   return requires(const typename Bound::Input &input,
                   const typename Bound::FrameState &frame,
@@ -768,12 +990,27 @@ template <typename Bound> consteval bool bound_run_returns() {
   };
 }
 
+/** @brief Whether `Bound::prepare` returns exactly `Bound::Prepared`.
+ * @tparam Bound Bound stage.
+ * @return True if it does. */
 template <typename Bound> consteval bool bound_prepares() {
   return requires(const typename Bound::FrameState &frame) {
     { Bound::prepare(frame) } -> std::same_as<typename Bound::Prepared>;
   };
 }
 
+/**
+ * @brief Whether approximation metadata is consistent.
+ * @details An approximate stage names an oracle, declares metrics
+ * including a framebuffer bound and keeps non-float fields exact; an
+ * exact stage declares neither oracle nor metrics.
+ * @param approximate Whether the stage approximates.
+ * @param oracle Declared oracle.
+ * @param metric_count Number of declared metrics.
+ * @param exact_fields Whether non-float fields are exact.
+ * @param framebuffer_metric Whether a framebuffer metric is declared.
+ * @return True if consistent.
+ */
 constexpr bool approximation_metadata_wellformed(bool approximate,
                                                  ApproximationOracleId oracle,
                                                  size_t metric_count,
@@ -785,25 +1022,41 @@ constexpr bool approximation_metadata_wellformed(bool approximate,
              : oracle == ApproximationOracleId::NONE && metric_count == 0;
 }
 
+/** @brief `approximation_metadata_wellformed` over @p Bound's metadata.
+ * @tparam Bound Bound stage.
+ * @return True if well-formed. */
 template <typename Bound> consteval bool bound_approximation_wellformed() {
   return approximation_metadata_wellformed(
       Bound::APPROXIMATE, Bound::ORACLE, Bound::METRICS.size(),
       Bound::NON_FLOATING_FIELDS_EXACT, has_final_framebuffer_metric<Bound>());
 }
 
+/** @brief Callable rows; all false unless the bindings are valid.
+ * @tparam BindingsValid Whether the binding rows passed.
+ * @tparam Binding Pipeline binding.
+ * @tparam LeafList Leaf descriptors. */
 template <bool BindingsValid, typename Binding, typename LeafList>
 struct LeafCallableRows {
+  /// Every bound `run` returns its `Output`.
   static constexpr bool RUN_RETURNS = false;
+  /// Every bound `prepare` returns its `Prepared`.
   static constexpr bool PREPARES = false;
+  /// Every bound stage's approximation metadata is well-formed.
   static constexpr bool APPROXIMATIONS = false;
 };
 
+/** @brief Callable rows of a bindable leaf list.
+ * @tparam Binding Pipeline binding.
+ * @tparam Ls Leaf descriptors. */
 template <typename Binding, typename... Ls>
 struct LeafCallableRows<true, Binding, TypeList<Ls...>> {
+  /// Every bound `run` returns its `Output`.
   static constexpr bool RUN_RETURNS =
       (bound_run_returns<typename Ls::template Bind<Binding>>() && ...);
+  /// Every bound `prepare` returns its `Prepared`.
   static constexpr bool PREPARES =
       (bound_prepares<typename Ls::template Bind<Binding>>() && ...);
+  /// Every bound stage's approximation metadata is well-formed.
   static constexpr bool APPROXIMATIONS =
       (bound_approximation_wellformed<typename Ls::template Bind<Binding>>() &&
        ...);
@@ -819,7 +1072,9 @@ struct LeafCallableRows<true, Binding, TypeList<Ls...>> {
  * diagnostics on CANONICAL. Placement wrappers do not contribute leaves.
  */
 template <typename Binding, typename... Entries> struct PipelineValidation {
+  /// Normalized execution nodes.
   using NodeList = typename Detail::NormalizeEntries<Entries...>::Type;
+  /// Flattened semantic leaves.
   using LeafList = typename Detail::Leaves<NodeList>::Type;
 
 private:
@@ -833,20 +1088,35 @@ private:
                                Binding, LeafList>;
 
 public:
+  /// Number of semantic leaf stages.
   static constexpr size_t LEAF_COUNT = Shape::COUNT;
+  /// At least one leaf stage.
   static constexpr bool NONEMPTY = Shape::NONEMPTY;
+  /// Every leaf satisfies `StageDescriptor`.
   static constexpr bool CONTRACTS = Shape::CONTRACTS;
+  /// Every carrier is in `CarrierList`.
   static constexpr bool CANONICAL = CarrierRows::CANONICAL;
+  /// No stage decreases family rank.
   static constexpr bool MONOTONE = CarrierRows::MONOTONE;
+  /// Adjacent carriers agree.
   static constexpr bool CARRIERS = CarrierRows::CARRIERS;
+  /// The first stage consumes `SphereSample`.
   static constexpr bool ENTRY = CarrierRows::ENTRY;
+  /// The last stage produces `Color4`.
   static constexpr bool EXIT = CarrierRows::EXIT;
+  /// Every leaf is `descriptor_bindable`.
   static constexpr bool BINDINGS = BindingRows::BINDINGS;
+  /// Every leaf's `Bind::Descriptor` is the leaf.
   static constexpr bool DESCRIPTOR_IDENTITY = BindingRows::DESCRIPTOR_IDENTITY;
+  /// Every leaf descriptor is an empty type.
   static constexpr bool EMPTY_DESCRIPTORS = BindingRows::EMPTY_DESCRIPTORS;
+  /// The binding's `ExtraValidation` passes.
   static constexpr bool EXTRA_VALIDATION = BindingRows::EXTRA_VALIDATION;
+  /// Every bound `run` returns its `Output`.
   static constexpr bool RUN_RETURNS = CallableRows::RUN_RETURNS;
+  /// Every bound `prepare` returns its `Prepared`.
   static constexpr bool PREPARES = CallableRows::PREPARES;
+  /// Every bound stage's approximation metadata is well-formed.
   static constexpr bool APPROXIMATIONS = CallableRows::APPROXIMATIONS;
 };
 
@@ -857,11 +1127,18 @@ concept StageMatchesKey = requires(const Key &key) {
 
 namespace Detail {
 
+/** @brief First type satisfying @p Predicate, or void.
+ * @tparam Predicate Unary trait with a boolean `value`.
+ * @tparam Ls Candidates. */
 template <template <typename> class Predicate, typename... Ls>
 struct FirstMatching {
-  using Type = void;
+  using Type = void; ///< Matching type, or void.
 };
 
+/** @brief Recursive case.
+ * @tparam Predicate Unary trait.
+ * @tparam Head First candidate.
+ * @tparam Tail Remaining candidates. */
 template <template <typename> class Predicate, typename Head, typename... Tail>
 struct FirstMatching<Predicate, Head, Tail...> {
   using Type =
@@ -870,48 +1147,83 @@ struct FirstMatching<Predicate, Head, Tail...> {
 };
 
 template <typename LeafList> struct LeafOps;
+/** @brief Queries over a leaf list.
+ * @tparam Ls Leaf descriptors. */
 template <typename... Ls> struct LeafOps<TypeList<Ls...>> {
+  /** @brief Whether every leaf has `implements(Key)`.
+   * @tparam Key Topology key type. */
   template <typename Key>
   static constexpr bool MATCHES_KEY = (StageMatchesKey<Ls, Key> && ...);
 
+  /** @brief Conjunction of every leaf's `implements`.
+   * @tparam Key Topology key type.
+   * @param key Key to test.
+   * @return True only if every leaf implements @p key. */
   template <typename Key>
     requires(MATCHES_KEY<Key>)
   static constexpr bool implements(const Key &key) {
     return (Ls::implements(key) && ...);
   }
 
+  /** @brief Whether any leaf satisfies @p Predicate.
+   * @tparam Predicate Unary trait. */
   template <template <typename> class Predicate>
   static constexpr bool ANY = (Predicate<Ls>::value || ...);
 
+  /** @brief First leaf satisfying @p Predicate, or void.
+   * @tparam Predicate Unary trait. */
   template <template <typename> class Predicate>
   using Matching = typename FirstMatching<Predicate, Ls...>::Type;
 };
 
+/** @brief Inert execution core of a pipeline that failed validation.
+ * @tparam Valid Whether validation passed.
+ * @tparam Binding Pipeline binding.
+ * @tparam NodeList Normalized execution nodes. */
 template <bool Valid, typename Binding, typename NodeList> struct PipelineCore {
-  using PreparedTuple = std::tuple<>;
-  static constexpr size_t NODE_COUNT = 0;
-  template <size_t Index> using NodeAt = void;
+  using PreparedTuple = std::tuple<>;          ///< Empty.
+  static constexpr size_t NODE_COUNT = 0;      ///< No nodes.
+  template <size_t Index> using NodeAt = void; ///< Always void.
 
+  /** @brief Empty prepared state.
+   * @return An empty tuple. */
   static PreparedTuple prepare_stages(const typename Binding::FrameState &) {
     return {};
   }
 };
 
+/** @brief Execution core of a validated pipeline.
+ * @tparam Binding Pipeline binding.
+ * @tparam Nodes Normalized execution nodes. */
 template <typename Binding, typename... Nodes>
 struct PipelineCore<true, Binding, TypeList<Nodes...>> {
+  /// Binding's per-frame state.
   using FrameState = typename Binding::FrameState;
+  /// Bound execution nodes.
   using BoundNodes = std::tuple<typename BindNode<Nodes, Binding>::Type...>;
+  /// Number of execution nodes.
   static constexpr size_t NODE_COUNT = sizeof...(Nodes);
+  /// Bound execution node at `Index`.
   template <size_t Index>
   using NodeAt = std::tuple_element_t<Index, BoundNodes>;
   /** Per-node prepared state; a placement node's entry nests its children. */
   using PreparedTuple =
       std::tuple<typename BindNode<Nodes, Binding>::Type::Prepared...>;
 
+  /** @brief Prepares every node.
+   * @param ctx Per-frame state.
+   * @return Per-node prepared state. */
   HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx) {
     return PreparedTuple{BindNode<Nodes, Binding>::Type::prepare(ctx)...};
   }
 
+  /** @brief Runs nodes from @p Index to the last.
+   * @tparam Index First node to run.
+   * @tparam Input Carrier fed to it.
+   * @param input Carrier fed to node @p Index.
+   * @param ctx Per-frame state.
+   * @param prepared Per-node prepared state.
+   * @return The last node's `Color4`. */
   template <size_t Index, typename Input>
   __attribute__((always_inline)) static Color4
   run_stage(const Input &input, const FrameState &ctx,
@@ -940,10 +1252,14 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
  * (STAGE_COUNT, stage_at) and execution-node indices are distinct.
  */
 template <typename BindingT, typename... Entries> struct Pipeline {
-  using Binding = BindingT;
+  using Binding = BindingT; ///< The pipeline binding.
+  /// Binding's per-frame state.
   using FrameState = typename Binding::FrameState;
+  /// Named validation rows.
   using Validation = PipelineValidation<BindingT, Entries...>;
+  /// Normalized execution nodes.
   using NodeList = typename Validation::NodeList;
+  /// Flattened semantic leaves.
   using LeafList = typename Validation::LeafList;
 
   static_assert(Validation::NONEMPTY,
@@ -995,6 +1311,7 @@ template <typename BindingT, typename... Entries> struct Pipeline {
 
   /** Semantic leaf view: counts and indexes leaves, never execution nodes. */
   static constexpr size_t STAGE_COUNT = Validation::LEAF_COUNT;
+  /// Leaf stage descriptor at `Index`.
   template <size_t Index>
   using stage_at = typename Detail::TypeAt<Index, LeafList>::Type;
 
@@ -1007,6 +1324,7 @@ private:
 public:
   /** Execution view: prepare and run recurse over placement nodes. */
   static constexpr size_t NODE_COUNT = Core::NODE_COUNT;
+  /// Bound execution node at `Index`.
   template <size_t Index> using node_at = typename Core::template NodeAt<Index>;
 
   /** Per-node prepared state, nested per placement group. */
@@ -1020,9 +1338,11 @@ public:
    *        the stages' private prepared state.
    */
   struct Frame {
-    FrameState ctx;
-    PreparedTuple prepared;
+    FrameState ctx;         ///< Frame context, copied from the source.
+    PreparedTuple prepared; ///< Stages' prepared state, resolved from `ctx`.
 
+    /** @brief Copies @p source and prepares every stage from the copy.
+     * @param source Frame context. */
     explicit Frame(const FrameState &source)
         : ctx(source), prepared(Core::prepare_stages(ctx)) {}
     Frame(const Frame &) = delete;

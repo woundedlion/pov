@@ -16,13 +16,24 @@ namespace Pullback {
  * prepared), returning Color4 from shade(). */
 template <typename Renderer>
 struct RayStage : Stage::Contract<RayStage<Renderer>, SphereSample, Color4> {
-  using Policies = std::tuple<>;
+  using Policies = std::tuple<>; ///< No stage policies.
 
+  /** @brief Forwards to `Renderer::prepare`.
+   * @tparam Binding Pipeline binding supplying `FrameState`.
+   * @param frame Per-frame state.
+   * @return The renderer's prepared state. */
   template <typename Binding>
   static auto prepare(const typename Binding::FrameState &frame) {
     return Renderer::prepare(frame);
   }
 
+  /** @brief Shades the sample's sphere direction via `Renderer::shade`.
+   * @tparam Binding Pipeline binding supplying `FrameState`.
+   * @tparam Prepared The renderer's prepared state type.
+   * @param input Sphere sample; only `dir` is read.
+   * @param frame Per-frame state.
+   * @param prepared Result of `prepare` for this frame.
+   * @return Shaded colour. */
   template <typename Binding, typename Prepared>
   __attribute__((always_inline)) static Color4
   run(const SphereSample &input, const typename Binding::FrameState &frame,

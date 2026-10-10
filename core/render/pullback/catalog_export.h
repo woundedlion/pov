@@ -26,6 +26,9 @@ namespace Interp {
 
 namespace Detail {
 
+/** @brief Appends @p text as a JSON string literal, escaping `"` and `\`.
+ * @param out Destination buffer.
+ * @param text NUL-terminated text; control characters are not escaped. */
 inline void append_json_string(std::string &out, const char *text) {
   out += '"';
   for (const char *cursor = text; *cursor != '\0'; ++cursor) {
@@ -36,18 +39,27 @@ inline void append_json_string(std::string &out, const char *text) {
   out += '"';
 }
 
+/** @brief Appends @p value in shortest round-trip decimal form.
+ * @param out Destination buffer.
+ * @param value Finite value to write. */
 inline void append_json_number(std::string &out, float value) {
   char buffer[32];
   const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
   out.append(buffer, result.ptr);
 }
 
+/** @brief Appends @p value as a decimal integer.
+ * @param out Destination buffer.
+ * @param value Value to write. */
 inline void append_json_number(std::string &out, size_t value) {
   char buffer[32];
   const auto result = std::to_chars(buffer, buffer + sizeof(buffer), value);
   out.append(buffer, result.ptr);
 }
 
+/** @brief Catalog spelling of a field curve.
+ * @param curve Curve to name.
+ * @return Static kebab-case name; `"snap"` for `FieldCurve::SNAP`. */
 inline const char *curve_name(FieldCurve curve) {
   switch (curve) {
   case FieldCurve::LERP:
@@ -64,6 +76,10 @@ inline const char *curve_name(FieldCurve curve) {
   return "snap";
 }
 
+/** @brief Appends `"name":{"size":N,"align":N}` for one runtime block.
+ * @param out Destination buffer.
+ * @param name Block key.
+ * @param block Block layout to write. */
 inline void append_block_json(std::string &out, const char *name,
                               const BlockLayout &block) {
   append_json_string(out, name);
@@ -97,6 +113,10 @@ inline void append_gate_json(std::string &out, const ParamFieldInfo &field,
   out += "]}";
 }
 
+/** @brief Appends one parameter-schema entry as a JSON object.
+ * @param out Destination buffer.
+ * @param field Field to write; topology fields emit their enum ids.
+ * @param schema The operator's full schema, for resolving gates. */
 inline void append_param_json(std::string &out, const ParamFieldInfo &field,
                               std::span<const ParamFieldInfo> schema) {
   out += "{\"id\":";
