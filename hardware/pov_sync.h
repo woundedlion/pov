@@ -174,7 +174,12 @@ public:
     edge_mailbox.on_edge(now, protocol_config.glitch_filter_cycles);
   }
 
-  /** @brief Claims a completed burst and ages prior edges under one IRQ mask. */
+  /**
+   * @brief Claims a completed burst and ages prior edges under one IRQ mask.
+   * @param now Current timestamp, in cycles.
+   * @param[out] out Burst snapshot, written only when true is returned.
+   * @return True if a burst had terminated and was claimed.
+   */
   bool claim_sync_burst(uint32_t now, BurstSnapshot *out) {
     const uint32_t primask = hs::save_disable_interrupts();
     const bool claimed = edge_mailbox.try_claim(now, cached_gap_timeout_cycles,
@@ -327,6 +332,9 @@ public:
   }
   /**
    * @brief Output envelope derived from the synchronized effect revolution.
+   * @param column Displayed canvas column.
+   * @param width Canvas width in columns.
+   * @return Brightness multiplier in [0, 1].
    * @details Flywheel-ISR context only: reads `tick`-owned state unguarded.
    */
   __attribute__((always_inline)) float effect_envelope(int32_t column,

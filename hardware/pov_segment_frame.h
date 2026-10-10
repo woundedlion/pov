@@ -21,6 +21,7 @@ namespace pov {
  * @pre The display clip is one non-wrapping horizontal half, [0, width/2) or
  * [width/2, width), as returned by segment_clip() for an even canvas width.
  * Only rows within the display clip are preserved.
+ * @param canvas Canvas whose other half is copied from its previous buffer.
  */
 inline void preserve_segment_half(Canvas &canvas) {
   HS_PROFILE(pov_preserve_half);
