@@ -37,7 +37,7 @@ struct CycleModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *offset;
+  const float *offset; ///< Borrowed per-frame offset driver, or null.
 
   /**
    * @brief Constructs with an optional offset driver.
@@ -62,8 +62,8 @@ struct BreatheModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *phase;
-  float amplitude;
+  const float *phase; ///< Borrowed per-frame phase driver, radians.
+  float amplitude;    ///< Peak coordinate offset.
   /**
    * @brief Per-instance memo of fast_sinf(*phase).
    * @details Recomputed only when *phase changes.
@@ -108,9 +108,9 @@ struct RippleModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *phase;
-  float frequency;
-  float amplitude;
+  const float *phase; ///< Borrowed per-frame phase driver, radians.
+  float frequency;    ///< Ripple cycles across t in [0, 1].
+  float amplitude;    ///< Peak coordinate offset.
 
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and amplitude.
@@ -146,10 +146,10 @@ struct NoiseWarpModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *time;
-  float frequency;
-  float amplitude;
-  uint32_t seed;
+  const float *time; ///< Borrowed per-frame noise time axis.
+  float frequency;   ///< Noise cells across t in [0, 1].
+  float amplitude;   ///< Peak coordinate offset.
+  uint32_t seed;     ///< Noise stream selector.
 
   /**
    * @brief Constructs with a mandatory time driver, frequency, and amplitude.
@@ -184,10 +184,10 @@ struct DriftModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *time;
-  float speed;
-  float amplitude;
-  uint32_t seed;
+  const float *time; ///< Borrowed per-frame time driver.
+  float speed;       ///< Walk rate, noise cells per time unit.
+  float amplitude;   ///< Peak coordinate offset.
+  uint32_t seed;     ///< Noise stream selector.
   /**
    * @brief Per-instance memo of the frame's centered walk sample.
    * @details Keyed on *time alone, so speed and seed must not change between
@@ -240,8 +240,8 @@ struct FoldModifier {
   /** @brief The triangle wave folds any input, in range or not, into [0,1]. */
   static constexpr bool rebounds_input = true;
 
-  const float *phase;
-  float folds;
+  const float *phase; ///< Borrowed phase offset driver, or null for none.
+  float folds;        ///< Half-bounces across t in [0, 1].
 
   /**
    * @brief Constructs with a fold count and optional phase driver.
@@ -320,8 +320,8 @@ struct QuantizeModifier {
    */
   static constexpr bool bounded_output = true;
 
-  const float *dynamic_steps;
-  float base_steps;
+  const float *dynamic_steps; ///< Borrowed step-count driver, or null.
+  float base_steps;           ///< Step count when no driver is bound.
 
   /**
    * @brief Constructs with a base step count and optional dynamic driver.
@@ -356,8 +356,8 @@ struct ScaleModifier {
   /** @brief Output leaves [0,1]; the consuming palette must have Wrap=true. */
   static constexpr bool requires_wrap = true;
 
-  const float *dynamic_scale;
-  float base_scale;
+  const float *dynamic_scale; ///< Borrowed scale driver, or null.
+  float base_scale;           ///< Scale factor when no driver is bound.
 
   /**
    * @brief Constructs with a base scale and optional dynamic driver.
@@ -433,7 +433,8 @@ struct InsetModifier {
   /** @brief The clamp confines any input, in range or not, to [0,1]. */
   static constexpr bool rebounds_input = true;
 
-  float lo, hi;
+  /// Domain value mapped to 0.
+  float lo, hi; ///< Domain value mapped to 1; greater than `lo`.
   /**
    * @brief Constructs the inset window bounds.
    * @param lo Lower domain bound mapped to 0; defaults to 0.2.
@@ -532,9 +533,9 @@ struct HueSpinShade {
  * @details Builds a rotation per sample.
  */
 struct HueWobbleShade {
-  const float *phase;
-  float frequency;
-  float depth;
+  const float *phase; ///< Borrowed per-frame phase driver, radians.
+  float frequency;    ///< Wobble cycles across t in [0, 1].
+  float depth;        ///< Peak hue rotation, turns.
 
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and depth.
@@ -573,10 +574,10 @@ struct HueWobbleShade {
  * the domain exceeds a threshold, the sample lerps toward white.
  */
 struct SparkleShade {
-  const float *time;
-  float frequency;
-  float threshold;
-  uint32_t seed;
+  const float *time; ///< Borrowed per-frame noise time axis.
+  float frequency;   ///< Noise cells across t in [0, 1].
+  float threshold;   ///< Noise level in [0, 1) above which a glint shows.
+  uint32_t seed;     ///< Noise stream selector.
 
   /**
    * @brief Constructs with a mandatory time driver, density, and threshold.
@@ -616,8 +617,8 @@ struct SparkleShade {
  * 1 + depth * sin(phase), swinging every sample between pastel and vivid.
  */
 struct ChromaPulseShade {
-  const float *phase;
-  float depth;
+  const float *phase; ///< Borrowed per-frame phase driver, radians.
+  float depth;        ///< Chroma swing in [0, 1] about a scale of 1.
   /**
    * @brief Per-instance memo of fast_sinf(*phase).
    * @details Recomputed only when *phase changes; depth is applied outside the
@@ -674,10 +675,10 @@ struct ChromaPulseShade {
  * rounding; a gain above 1 clips bright channels.
  */
 struct LightnessGrainShade {
-  const float *time;
-  float frequency;
-  float amplitude;
-  uint32_t seed;
+  const float *time; ///< Borrowed per-frame noise time axis.
+  float frequency;   ///< Noise cells across t in [0, 1].
+  float amplitude;   ///< Gain swing in [0, 1] about a gain of 1.
+  uint32_t seed;     ///< Noise stream selector.
 
   /**
    * @brief Constructs with a mandatory time driver, grain density, and depth.
@@ -715,9 +716,9 @@ struct LightnessGrainShade {
  * additively over the sample, saturating at white.
  */
 struct IridescentShade {
-  const float *phase;
-  float frequency;
-  float weight;
+  const float *phase; ///< Borrowed per-frame phase driver, radians.
+  float frequency;    ///< Sheen cycles across t in [0, 1].
+  float weight;       ///< Non-negative overlay strength.
 
   /**
    * @brief Constructs with a mandatory phase driver, frequency, and weight.
@@ -759,8 +760,9 @@ struct IridescentShade {
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
+  /// Maps a coordinate to an alpha multiplier.
   using FalloffFunction = float (*)(float);
-  FalloffFunction fn;
+  FalloffFunction fn; ///< Non-null falloff curve.
   /**
    * @brief Constructs with the falloff function.
    * @param fn Non-null function mapping a coordinate to an alpha multiplier.
@@ -787,7 +789,7 @@ struct AlphaFalloffShade {
  * to the source's first/last stop before fading.
  */
 struct EdgeFadeShade {
-  float edge;
+  float edge; ///< Fade width per edge, fraction of the domain in (0, 0.5].
   /**
    * @brief Constructs with the edge fade width.
    * @param edge Fraction of the domain over which each edge fades; default 0.2.
@@ -821,7 +823,7 @@ struct EdgeFadeShade {
  * @details Transparent vignette. Pair with InsetModifier as with EdgeFadeShade.
  */
 struct EdgeAlphaShade {
-  float edge;
+  float edge; ///< Fade width per edge, fraction of the domain in (0, 0.5].
   /**
    * @brief Constructs with the edge fade width.
    * @param edge Fraction of the domain over which each edge fades; default 0.2.
@@ -1003,7 +1005,7 @@ class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap, Shade> {
                 "WrapModifier ahead of the bounded tail.");
 
 public:
-  static constexpr bool WRAPS_COORDINATE = Wrap;
+  static constexpr bool WRAPS_COORDINATE = Wrap; ///< Mirrors @p Wrap.
 
   /**
    * @brief Default-constructs an unbound composition (bind() before use).

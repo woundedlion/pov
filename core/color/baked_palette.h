@@ -35,7 +35,7 @@ inline void bake_palette_schedule(bool mirrors, bool loops, Sample sample,
  */
 class BakedPalette {
 public:
-  static constexpr int LUT_SIZE = 256;
+  static constexpr int LUT_SIZE = 256; ///< Table entries per channel.
 
   /**
    * @brief Conservative arena byte budget for a table, with alignment allowances.
@@ -170,6 +170,10 @@ public:
   BakedPaletteStorage() = default;
   BakedPaletteStorage(const BakedPaletteStorage &) = delete;
   BakedPaletteStorage &operator=(const BakedPaletteStorage &) = delete;
+  /**
+   * @brief Takes the table and its mutation rights from @p other.
+   * @param other Source storage; left unbound.
+   */
   BakedPaletteStorage(BakedPaletteStorage &&other) noexcept
       : table(other.table) {
     other.table.colors = nullptr;
@@ -186,16 +190,40 @@ public:
   /** @brief Borrows the read-only view while this storage object lives. */
   const BakedPalette &view() const & { return table; }
   const BakedPalette &view() const && = delete;
+  /**
+   * @brief Borrows the read-only view while this storage object lives.
+   * @return The table view.
+   */
   operator const BakedPalette &() const & { return table; }
   operator const BakedPalette &() const && = delete;
 
+  /**
+   * @brief Interpolated lookup; see `BakedPalette::get`.
+   * @param t Lookup coordinate; clamped to [0, 1].
+   * @return The interpolated color.
+   */
   Color4 get(float t) const { return table.get(t); }
+  /**
+   * @brief RGB-only lookup; see `BakedPalette::get_color`.
+   * @param t Lookup coordinate; clamped to [0, 1].
+   * @return The interpolated pixel.
+   */
   __attribute__((always_inline)) Pixel get_color(float t) const {
     return table.get_color(t);
   }
+  /**
+   * @brief RGB lookup; see `BakedPalette::get_color_unit`.
+   * @param t Lookup coordinate, already in [0, 1].
+   * @return The interpolated pixel.
+   */
   __attribute__((always_inline)) Pixel get_color_unit(float t) const {
     return table.get_color_unit(t);
   }
+  /**
+   * @brief Alpha-only lookup; see `BakedPalette::get_alpha`.
+   * @param t Lookup coordinate; clamped to [0, 1].
+   * @return The interpolated alpha in [0, 1].
+   */
   __attribute__((always_inline)) float get_alpha(float t) const {
     return table.get_alpha(t);
   }
@@ -355,9 +383,15 @@ private:
  * acos(1 - 2u)/PI.
  */
 template <typename Source> struct DotKeyed {
+  /// Whether @p Source wraps its coordinate.
   static constexpr bool WRAPS_COORDINATE = palette_wraps_coordinate<Source>();
 
-  const Source &source;
+  const Source &source; ///< Borrowed palette sampled over t = angle/PI.
+  /**
+   * @brief Samples the source at the angle for a LUT coordinate.
+   * @param u LUT coordinate in [0, 1]; u = 0 is d = 1, u = 1 is d = -1.
+   * @return `source.get(acos(1 - 2u) / PI)`.
+   */
   Color4 get(float u) const {
     float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
     return source.get(math::fast_acos(d) / math::PI_F);
@@ -400,8 +434,8 @@ inline BakedPalette bake_palette_blend(Arena &arena, const BakedPalette &from,
  * @brief Bank of N baked palettes for bulk Persist/clone operations.
  */
 struct BakedPaletteBank {
-  static constexpr int N = 6;
-  BakedPaletteStorage entries[N];
+  static constexpr int N = 6;     ///< Bank size.
+  BakedPaletteStorage entries[N]; ///< Owned palette tables.
 
   /**
    * @brief Deep-copies all entries into a target arena.

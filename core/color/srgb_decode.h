@@ -21,13 +21,20 @@
 // Split-decode bucket geometry, shared with scripts/generate_srgb_decode.cpp:
 // the low region is 1<<LOW_SHIFT wide below VSPLIT, the high region
 // 1<<HIGH_SHIFT above it. Retuning requires regenerating srgb_decode_lut.h.
+/// Linear value where the low region ends and the high region starts.
 inline constexpr int SRGB_DECODE_VSPLIT = 4096;
+/// log2 of the low-region bucket width.
 inline constexpr int SRGB_DECODE_LOW_SHIFT = 4;
+/// log2 of the high-region bucket width.
 inline constexpr int SRGB_DECODE_HIGH_SHIFT = 7;
+/// Offset-within-bucket mask for the low region.
 inline constexpr int SRGB_DECODE_LOW_MASK = (1 << SRGB_DECODE_LOW_SHIFT) - 1;
+/// Offset-within-bucket mask for the high region.
 inline constexpr int SRGB_DECODE_HIGH_MASK = (1 << SRGB_DECODE_HIGH_SHIFT) - 1;
+/// Low-region bucket count.
 inline constexpr int SRGB_DECODE_LOW_N =
     SRGB_DECODE_VSPLIT >> SRGB_DECODE_LOW_SHIFT;
+/// High-region bucket count.
 inline constexpr int SRGB_DECODE_HIGH_N =
     (65536 - SRGB_DECODE_VSPLIT) >> SRGB_DECODE_HIGH_SHIFT;
 
@@ -50,6 +57,8 @@ static_assert(
 
 // Non-const tables reside in DTCM; phantasm.ld places const rodata in FLASH.
 // constinit makes the tables available to other translation units' static initializers.
+/// Low-region buckets: sRGB8 base in the low byte, in-bucket step offset in
+/// the high byte.
 inline constinit std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low =
     []() constexpr {
       std::array<uint16_t, SRGB_DECODE_LOW_N> t{};
@@ -57,6 +66,7 @@ inline constinit std::array<uint16_t, SRGB_DECODE_LOW_N> srgb_decode_low =
         t[i] = srgb_decode_low_src[i];
       return t;
     }();
+/// High-region buckets, encoded as `srgb_decode_low`.
 inline constinit std::array<uint16_t, SRGB_DECODE_HIGH_N> srgb_decode_high =
     []() constexpr {
       std::array<uint16_t, SRGB_DECODE_HIGH_N> t{};

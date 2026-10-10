@@ -19,9 +19,9 @@
  * blended hue and the returned alpha its coverage.
  */
 struct LayerComposite {
-  float red = 0.0f;
-  float green = 0.0f;
-  float blue = 0.0f;
+  float red = 0.0f;       ///< Coverage-weighted red sum, Pixel channel units.
+  float green = 0.0f;     ///< Coverage-weighted green sum, Pixel channel units.
+  float blue = 0.0f;      ///< Coverage-weighted blue sum, Pixel channel units.
   float remaining = 1.0f; /**< Transmittance left in front of the next layer. */
 
   /**
