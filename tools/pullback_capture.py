@@ -167,8 +167,8 @@ def load_backend(
         end = offset + width * height * 6
         if end > len(data):
             raise CaptureError("capture backend stream is truncated")
-        # Three little-endian 16-bit channels plus opaque alpha; the frame hash
-        # is taken over these bytes.
+        # The backend sends three little-endian 16-bit channels; they expand to
+        # four with opaque alpha, and the frame hash covers that form.
         channels = data[offset:end]
         offset = end
         pixels = bytearray(width * height * 8)
