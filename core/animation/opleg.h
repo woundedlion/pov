@@ -22,7 +22,7 @@ namespace Animation {
 
 /**
  * @brief Animates a Conway sweep, hankin sweep, relax slerp, medial slerp, or
- * gated partition swap (docs/specs/opchain_morph_spec.md, "Leg kinds").
+ * gated partition swap.
  * @details Bulk state lives in an arena-allocated Transients that no
  * destructor reclaims; the caller compacts the arena between legs.
  */
@@ -217,7 +217,7 @@ public:
   };
 
   /**
-   * @brief Palette provenance of the departed node (docs/specs/conway_morph_spec.md, sections 2.5/2.6).
+   * @brief Palette provenance of the departed node.
    * @details prev_face_palette describes the node base mesh the leg departs
    * from, in emission order; read only during construction. Supplying
    * prev_face_centroid makes the mapping geometric.
@@ -558,7 +558,7 @@ public:
   /**
    * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
    * rectified connectivity of P and slerps every vertex from ambo(P) to
-   * ambo(dual(P)) at a fixed emission order (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle).
+   * ambo(dual(P)) at a fixed emission order.
    * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
    * @param spec Slerp frame count.
    * @param arena Leg arena backing the medial connectivity and both
@@ -640,8 +640,7 @@ public:
    * @brief Constructs the reconcile leg closing a smooth kis/needle path: slerps
    * every vertex of the topology-exact identity mesh (dt/dtd) onto its
    * counterpart in the authored kis/needle mesh, along the caller's
-   * nearest-vertex bijection
-   * (docs/specs/opchain_morph_spec.md, Smooth dual/kis/needle).
+   * nearest-vertex bijection.
    * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
    * vertex order are the leg's fixed emission order. Cloned, not borrowed.
    * @param spec Authored slerp endpoints and frame count.
@@ -869,7 +868,7 @@ public:
   }
 
   /**
-   * @brief Mid-leg crossfade weight (conway_morph_spec.md, section 2.6), the swept ctors' default:
+   * @brief Mid-leg crossfade weight, the swept ctors' default:
    * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
    * 80%.
    * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
@@ -1662,8 +1661,8 @@ private:
   }
 
   /**
-   * @brief Builds the per-face from-palettes (conway_morph_spec.md, section 2.5), the
-   * shuffled target assignment (conway_morph_spec.md, section 2.6), and the distinct ramp-pair table.
+   * @brief Builds the per-face from-palettes, the
+   * shuffled target assignment, and the distinct ramp-pair table.
    * @param tr Leg transients being populated.
    * @param arrival Classified arrival mesh; its face centroids pick each
    * collapsed face's host class.

@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
  * Native soak of the OpLeg graph walk through the real HankinSolids frame
- * loop (docs/specs/conway_morph_spec.md §7.8).
+ * loop.
  */
 #pragma once
 

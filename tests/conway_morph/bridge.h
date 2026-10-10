@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// §7.4 Bridge convergence: the tetrahedral edges that cross symmetry families.
+// Bridge convergence: the tetrahedral edges that cross symmetry families.
 // ---------------------------------------------------------------------------
 
 /**

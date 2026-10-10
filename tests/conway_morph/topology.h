@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// §7.2 Topology-constancy sweep: connectivity is fixed on the open interval,
+// Topology-constancy sweep: connectivity is fixed on the open interval,
 // so classification and palette assignment can hoist to once per leg.
 // ---------------------------------------------------------------------------
 

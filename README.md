@@ -45,7 +45,7 @@ In daydream, run `npm ci`, then `python -m http.server 8000` and open <http://lo
 
 If configuration cannot find Emscripten, activate its environment in the same shell and check `EMSDK`. If daydream’s provenance test reports a bundle mismatch, rebuild the install preset to refresh the engine and provenance together. A missing pinned sibling revision during documentation checks requires the daydream checkout and its pinned commit; see `tools/build_pins.py`.
 
-Design decisions are indexed under [Engineering Philosophies](#2-engineering-philosophies), with detailed constraints in [Core Subsystems](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md) and the [shipped pullback stage model](https://github.com/woundedlion/pov/blob/master/docs/specs/pullback_stage_families_spec.md).
+Design decisions are indexed under [Engineering Philosophies](#2-engineering-philosophies), with detailed constraints in [Core Subsystems](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md).
 
 ## Table of Contents
 
@@ -173,7 +173,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards seams where a vi
 - **Y-up Cartesian**: `Vector(x, y, z)` — `y` is the vertical axis
 - **Spherical**: `theta` = azimuth (longitude), `phi` = polar angle from +Y (co-latitude)
 - **Pixel mapping**: columns map to longitude; rows sample the calibrated LED-center span with `phi = north + y*(south-north)/(H-1)`.
-- **Display geometry**: firmware defaults to provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Daydream defaults to full coverage and offers Top cap (%) and Bottom cap (%) in the global controls. Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles. See [display geometry](https://github.com/woundedlion/pov/blob/master/docs/specs/display_geometry.md) for calibration and profile selection.
+- **Display geometry**: firmware defaults to provisional LED-center endpoints at 3.6 and 176.4 degrees (2% caps). Daydream defaults to full coverage and offers Top cap (%) and Bottom cap (%) in the global controls. Both endpoint rows are latitude rings. Missing-row antialias contributions are discarded. The ideal profile explicitly includes both poles.
 - **SDF distances**: shape-specific signed distance reports. Rings and spherical primitives use angular units; PlanarPolygon, Star and Flower use chart distances. `SDF::Face` uses gnomonic tangent-plane distance for small faces and `atan` of that distance for larger faces; the latter is angular but is not a metric geodesic distance. Each shape's `size` uses its corresponding distance units.
 - All geometry LUTs (`PhiLUT<H>`, `TrigLUT<W,H>`) are pre-computed eagerly via `init_geometry_luts()` at engine setup
 
@@ -559,7 +559,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus phantasm_circuit.svg, design specs (docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       subsystems.md and effects.md — README sections 7 and 9 — plus phantasm_circuit.svg, the Phantasm hardware specs (docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
@@ -1103,7 +1103,7 @@ Use `Effect` directly for an effect that owns its own lifecycle. For an authored
 
 Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
 
-The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields. See the [parameter description spec](https://github.com/woundedlion/pov/blob/master/docs/specs/parameter_description_spec.md).
+The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields.
 
 ```cpp
 register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
@@ -1194,8 +1194,8 @@ Authoring operations live on `ShaderChainBindings`, acquired through
 invalid after replacement, resize, geometry rebuild or engine deletion. Release
 it with `delete()` after use. It owns program admission, parameter batches,
 program readback and complete snapshots. Its static `getShaderChainCatalog()`
-exports the catalog. [Chain snapshots](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md) define
-state restoration and archive conversion.
+exports the catalog. Chain snapshots define state restoration and archive
+conversion.
 
 `wasm.cpp` compiles to `holosphere_wasm.js` + `.wasm` and exposes the `HolosphereEngine` render class alongside `ShaderChainBindings`, `MeshOps` and `PaletteOps`. At most one engine instance may be live per module — its effect and arenas are shared module-global storage — so `delete()` the current engine before constructing another; the constructor traps otherwise. Decoder re-entry and deletion during payload decoding also trap. The payloads
 for `setShaderChain`, `setShaderChainParameters`, `restoreSnapshot`,
@@ -1216,7 +1216,7 @@ A trap is terminal for the whole module, not just for the call that tripped it. 
 | `getShaderChainBindings()` | Acquire the loaded chain's authoring capability, or null for a fixed effect. Release it with `delete()` after use. |
 | `ShaderChainBindings.isValid()` → `bool` | Whether the handle still addresses the live chain incarnation. |
 | `ShaderChainBindings.getProgram()` | Read back the ordered chain entries as `[{instance, operator}]`. |
-| `ShaderChainBindings.getSnapshot()` | Capture the complete schema-version-two program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag; see [the snapshot contract](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md). |
+| `ShaderChainBindings.getSnapshot()` | Capture the complete schema-version-two program, named parameters, typed clocks/noise/walk state, generated palette bank and pause flag. |
 | `ShaderChainBindings.restoreSnapshot(snapshot)` | Restore atomically; a refusal commits no restoration writes. Side effects of caller accessors during payload cloning are not rolled back. Returns `Module.ChainSnapshotRestoreResult`. |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory, spanning the active resolution's prefix of the fixed backing buffer |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view, and the staleness test for a cached one: a `setResolution` moves this length without detaching the outstanding view |
@@ -1588,12 +1588,9 @@ just docs-check   # validate tracked Markdown (the ci.yml docs-markdown job)
 just docs         # docs-check, then build the Doxygen reference into build/docs/html/
 ```
 
-The design specs carry their own index:
-[`docs/specs/README.md`](https://github.com/woundedlion/pov/blob/master/docs/specs/README.md)
-lists each one with its status and says which spec owns which half where two
-overlap. Doxygen also includes the [snapshot contract](https://github.com/woundedlion/pov/blob/master/docs/specs/chain_snapshot_spec.md)
-and [parameter-description contract](https://github.com/woundedlion/pov/blob/master/docs/specs/parameter_description_spec.md);
-the remaining specs are outside the API reference.
+The Phantasm hardware specs are indexed in
+[`docs/specs/README.md`](https://github.com/woundedlion/pov/blob/master/docs/specs/README.md);
+they are outside the API reference.
 
 `just docs-check` runs [`tools/docs_check.py`](https://github.com/woundedlion/pov/blob/master/tools/docs_check.py); `just python-test` runs its unit tests. CI and pre-commit also validate fences, links, repository paths, maps and source-derived counts without rewriting documentation. Run `just docs-sync` explicitly to refresh generated maps and counts; prose still needs review. `just docs` needs `doxygen` on `PATH` at the version `tools/build_pins.py` pins — it runs `build_pins.py --check-tool doxygen` before running doxygen and refuses any other, because warning text and generated markup move between releases; it clones the pinned doxygen-awesome theme into `.doxygen-awesome/` on first run and synthesizes `Doxyfile.local` from `Doxyfile` plus [`docs/doxygen-theme.cfg`](https://github.com/woundedlion/pov/blob/master/docs/doxygen-theme.cfg) — the same combination `.github/workflows/docs.yml` publishes to <https://woundedlion.github.io/pov/>.
 
