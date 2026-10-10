@@ -14,8 +14,7 @@
  * @param src Source control point.
  */
 template <bool INTERP>
-__attribute__((always_inline)) inline void seed_fragment(Fragment &f,
-                                                         const Fragment &src) {
+HS_HOT_INLINE inline void seed_fragment(Fragment &f, const Fragment &src) {
   if constexpr (INTERP)
     f = src;
   else
@@ -36,9 +35,9 @@ __attribute__((always_inline)) inline void seed_fragment(Fragment &f,
  * @param pos Sample position.
  */
 template <bool INTERP>
-__attribute__((always_inline)) inline void
-lerp_fragment(Fragment &f, const Fragment &a, const Fragment &b, float t,
-              const math::Vector &pos) {
+HS_HOT_INLINE inline void lerp_fragment(Fragment &f, const Fragment &a,
+                                        const Fragment &b, float t,
+                                        const math::Vector &pos) {
   if constexpr (INTERP)
     f = Fragment::lerp_registers(a, b, t);
   else
@@ -54,9 +53,8 @@ lerp_fragment(Fragment &f, const Fragment &a, const Fragment &b, float t,
  * @param f Sample fragment, shaded in place.
  */
 template <typename FragmentShaderT>
-__attribute__((always_inline)) inline void
-shade_fragment(FragmentShaderT &fragment_shader, const math::Vector &pos,
-               Fragment &f) {
+HS_HOT_INLINE inline void shade_fragment(FragmentShaderT &fragment_shader,
+                                         const math::Vector &pos, Fragment &f) {
   HS_PLOT_COUNT(shader_calls);
   HS_PLOT_STALL_START(shade_start);
   HS_PLOT_RENDER_COUNT(fragment_shader_calls);
@@ -75,7 +73,7 @@ shade_fragment(FragmentShaderT &fragment_shader, const math::Vector &pos,
  *        through balanced_sample_alpha; none plots the shaded alpha.
  */
 template <typename PipelineT, typename FragmentShaderT>
-__attribute__((always_inline)) inline void
+HS_HOT_INLINE inline void
 shade_and_plot(PipelineT &pipeline, Canvas &canvas,
                FragmentShaderT &fragment_shader, const math::Vector &pos,
                Fragment &f, std::optional<float> alpha_scale = std::nullopt) {
@@ -100,7 +98,7 @@ public:
    * @param f Sample fragment.
    * @param d Arc drawn so far within the segment.
    */
-  __attribute__((always_inline)) void stamp(Fragment &f, float d) const {
+  HS_HOT_INLINE void stamp(Fragment &f, float d) const {
     if constexpr (!DERIVE)
       return;
     if (!active)
@@ -142,7 +140,7 @@ public:
    * @return The v0/v1 stamp, positioned by advance() before each segment.
    */
   template <typename SegmentNextT>
-  __attribute__((always_inline)) PlanarArcStamp<DERIVE>
+  HS_HOT_INLINE PlanarArcStamp<DERIVE>
   bind_and_measure(const Fragments &points, SegmentNextT &&segment_next,
                    size_t count, const math::Basis *basis) {
     PlanarArcStamp<DERIVE> out;
@@ -171,7 +169,7 @@ public:
   }
 
   /** @brief True when the caches are bound for a planar polyline. */
-  __attribute__((always_inline)) bool is_active() const {
+  HS_HOT_INLINE bool is_active() const {
     if constexpr (DERIVE)
       return planar_basis != nullptr;
     else
@@ -179,9 +177,7 @@ public:
   }
 
   /** @brief Segment @p i has an endpoint at the basis antipode. */
-  __attribute__((always_inline)) bool seam(size_t i) const {
-    return seam_cache[i] != 0;
-  }
+  HS_HOT_INLINE bool seam(size_t i) const { return seam_cache[i] != 0; }
 
   /**
    * @brief Moves @p stamp's arc origin to the start of segment @p i.
@@ -190,8 +186,7 @@ public:
    * @param i Segment index.
    * @param stamp Stamp returned by bind_and_measure.
    */
-  __attribute__((always_inline)) void advance(size_t i,
-                                              PlanarArcStamp<DERIVE> &stamp) {
+  HS_HOT_INLINE void advance(size_t i, PlanarArcStamp<DERIVE> &stamp) {
     if (!is_active())
       return;
     stamp.seg_base = cumul;
