@@ -155,8 +155,11 @@ HS_O3_BEGIN
  * (min_v, max_v) vertex key.
  */
 struct HalfEdgePairRecord {
+  /// Lower vertex index.
   uint16_t min_v, max_v,
       he; /**< Lower vertex index, upper vertex index, and the half-edge index. */
+  /** @var max_v
+   *  Upper vertex index. */
 };
 
 /**
@@ -246,10 +249,13 @@ class HalfEdgeMesh;
  * conversion. Arena byte capacity is independent.
  */
 namespace MeshLimits {
-inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX;
+inline constexpr size_t MAX_VERTEX_INDEX = INT16_MAX; ///< Largest vertex index.
+/// Vertex count ceiling.
 inline constexpr size_t MAX_VERTICES = MAX_VERTEX_INDEX + 1;
+/// Half-edge count ceiling.
 inline constexpr size_t MAX_HALF_EDGES = UINT16_MAX;
-inline constexpr size_t MAX_FACES = UINT16_MAX;
+inline constexpr size_t MAX_FACES = UINT16_MAX; ///< Face count ceiling.
+/// Largest face degree (sides per face).
 inline constexpr int MAX_FACE_DEGREE = UINT8_MAX;
 } // namespace MeshLimits
 

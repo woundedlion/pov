@@ -104,24 +104,34 @@ inline constexpr Entry catalan_registry[] = {
      Category::Simple}};
 
 // Recipe seed identities in simple_registry order.
+/// simple_registry index of the octahedron seed.
 inline constexpr uint8_t SEED_OCTAHEDRON =
     static_cast<uint8_t>(BaseMesh::OCTAHEDRON);
+/// simple_registry index of the dodecahedron seed.
 inline constexpr uint8_t SEED_DODECAHEDRON =
     static_cast<uint8_t>(BaseMesh::DODECAHEDRON);
+/// simple_registry index of the icosahedron seed.
 inline constexpr uint8_t SEED_ICOSAHEDRON =
     static_cast<uint8_t>(BaseMesh::ICOSAHEDRON);
+/// simple_registry index of the truncated cube seed.
 inline constexpr uint8_t SEED_TRUNCATED_CUBE =
     static_cast<uint8_t>(BaseMesh::TRUNCATED_CUBE);
+/// simple_registry index of the truncated octahedron seed.
 inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON =
     static_cast<uint8_t>(BaseMesh::TRUNCATED_OCTAHEDRON);
+/// simple_registry index of the rhombicuboctahedron seed.
 inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON =
     static_cast<uint8_t>(BaseMesh::RHOMBICUBOCTAHEDRON);
+/// simple_registry index of the icosidodecahedron seed.
 inline constexpr uint8_t SEED_ICOSIDODECAHEDRON =
     static_cast<uint8_t>(BaseMesh::ICOSIDODECAHEDRON);
+/// simple_registry index of the truncated icosahedron seed.
 inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON =
     static_cast<uint8_t>(BaseMesh::TRUNCATED_ICOSAHEDRON);
+/// simple_registry index of the truncated icosidodecahedron seed.
 inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON =
     static_cast<uint8_t>(BaseMesh::TRUNCATED_ICOSIDODECAHEDRON);
+/// simple_registry index of the snub dodecahedron seed.
 inline constexpr uint8_t SEED_SNUB_DODECAHEDRON =
     static_cast<uint8_t>(BaseMesh::SNUB_DODECAHEDRON);
 
@@ -494,7 +504,9 @@ inline constexpr int NUM_ENTRIES =
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
 // simple_registry is [Platonic | Archimedean].
+/// Platonic entries at the head of simple_registry.
 inline constexpr size_t PLATONIC_COUNT = 5;
+/// Archimedean entries following the Platonic run.
 inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
               "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
@@ -506,8 +518,8 @@ static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
                   "truncatedTetrahedron",
               "PLATONIC_COUNT must start the Archimedean run");
 
-inline constexpr size_t CATALAN_COUNT = 13;
-inline constexpr size_t ISLAMIC_COUNT = 24;
+inline constexpr size_t CATALAN_COUNT = 13; ///< Entries in catalan_registry.
+inline constexpr size_t ISLAMIC_COUNT = 24; ///< Entries in islamic_registry.
 static_assert(CATALAN_COUNT == std::size(catalan_registry),
               "catalan_registry size changed; update CATALAN_COUNT");
 static_assert(ISLAMIC_COUNT == std::size(islamic_registry),

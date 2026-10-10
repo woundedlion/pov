@@ -47,14 +47,17 @@ namespace Solids {
   X(DISDYAKIS_TRIACONTAHEDRON, "Disdyakis Triacontahedron")                    \
   X(PENTAGONAL_HEXECONTAHEDRON, "Pentagonal Hexecontahedron")
 
+/** @brief Base mesh identity; ordinals follow HS_BASE_MESH_LIST order. */
 enum class BaseMesh : uint8_t {
 #define HS_BASE_MESH_ENUM(name, label) name,
   HS_BASE_MESH_LIST(HS_BASE_MESH_ENUM)
 #undef HS_BASE_MESH_ENUM
 };
 
+/// Number of BaseMesh enumerators.
 inline constexpr size_t BASE_MESH_COUNT =
     static_cast<size_t>(BaseMesh::PENTAGONAL_HEXECONTAHEDRON) + 1;
+/// Platonic solids lead BaseMesh, through ICOSAHEDRON.
 inline constexpr size_t PLATONIC_BASE_MESH_COUNT = 5;
 
 /**
@@ -69,12 +72,14 @@ inline constexpr size_t MAX_SOLID_FACES = 120;
 /** @brief Unique edges implied by MAX_SOLID_FACE_SLOTS. */
 inline constexpr size_t MAX_SOLID_EDGES = MAX_SOLID_FACE_SLOTS / 2;
 
+/// Display labels, indexed by BaseMesh ordinal.
 inline constexpr const char *BASE_MESH_OPTIONS[] = {
 #define HS_BASE_MESH_LABEL(name, label) label,
     HS_BASE_MESH_LIST(HS_BASE_MESH_LABEL)
 #undef HS_BASE_MESH_LABEL
 };
 
+/// C++ spellings (`BaseMesh::NAME`), indexed by BaseMesh ordinal.
 inline constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
 #define HS_BASE_MESH_EXPORT(name, label) "BaseMesh::" #name,
     HS_BASE_MESH_LIST(HS_BASE_MESH_EXPORT)

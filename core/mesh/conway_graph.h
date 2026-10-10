@@ -27,42 +27,61 @@
 namespace ConwayGraph {
 
 // Node ids are simple-registry indices (Solids::simple_registry order).
+/// Node id of the tetrahedron.
 inline constexpr uint8_t TETRAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TETRAHEDRON);
+/// Node id of the cube.
 inline constexpr uint8_t CUBE = static_cast<uint8_t>(Solids::BaseMesh::CUBE);
+/// Node id of the octahedron.
 inline constexpr uint8_t OCTAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::OCTAHEDRON);
+/// Node id of the dodecahedron.
 inline constexpr uint8_t DODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::DODECAHEDRON);
+/// Node id of the icosahedron.
 inline constexpr uint8_t ICOSAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::ICOSAHEDRON);
+/// Node id of the truncated tetrahedron.
 inline constexpr uint8_t TRUNCATED_TETRAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_TETRAHEDRON);
+/// Node id of the cuboctahedron.
 inline constexpr uint8_t CUBOCTAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::CUBOCTAHEDRON);
+/// Node id of the truncated cube.
 inline constexpr uint8_t TRUNCATED_CUBE =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_CUBE);
+/// Node id of the truncated octahedron.
 inline constexpr uint8_t TRUNCATED_OCTAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_OCTAHEDRON);
+/// Node id of the rhombicuboctahedron.
 inline constexpr uint8_t RHOMBICUBOCTAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::RHOMBICUBOCTAHEDRON);
+/// Node id of the truncated cuboctahedron.
 inline constexpr uint8_t TRUNCATED_CUBOCTAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_CUBOCTAHEDRON);
+/// Node id of the snub cube.
 inline constexpr uint8_t SNUB_CUBE =
     static_cast<uint8_t>(Solids::BaseMesh::SNUB_CUBE);
+/// Node id of the icosidodecahedron.
 inline constexpr uint8_t ICOSIDODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::ICOSIDODECAHEDRON);
+/// Node id of the truncated dodecahedron.
 inline constexpr uint8_t TRUNCATED_DODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_DODECAHEDRON);
+/// Node id of the truncated icosahedron.
 inline constexpr uint8_t TRUNCATED_ICOSAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_ICOSAHEDRON);
+/// Node id of the rhombicosidodecahedron.
 inline constexpr uint8_t RHOMBICOSIDODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::RHOMBICOSIDODECAHEDRON);
+/// Node id of the truncated icosidodecahedron.
 inline constexpr uint8_t TRUNCATED_ICOSIDODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::TRUNCATED_ICOSIDODECAHEDRON);
+/// Node id of the snub dodecahedron.
 inline constexpr uint8_t SNUB_DODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::SNUB_DODECAHEDRON);
 
+/// Graph node count; node ids lie in [0, NUM_NODES).
 inline constexpr int NUM_NODES = 18;
 
 static_assert(NUM_NODES == static_cast<int>(std::size(Solids::simple_registry)),
@@ -135,6 +154,7 @@ inline constexpr int SETTLE_RELAX_ITERATIONS = 50;
  * exact regular icosahedron — all 30 edges equal with no relax (double-refined
  * t = 0.7299092432622736, twist = -0.3881395153701886). */
 inline constexpr float T_JITTERBUG_ICOSA = 0.72990924f;
+/// Snub twist paired with T_JITTERBUG_ICOSA.
 inline constexpr float TWIST_JITTERBUG_ICOSA = -0.38813952f;
 /** Jitterbug octa twist: snub(tetrahedron, 0.5, -pi/3) merges its 12 vertices
  * pairwise onto the octahedron's 6 (the jitterbug closure). */
@@ -220,6 +240,7 @@ inline constexpr EdgeSpec EDGES[] = {
      true},
 };
 
+/// Number of rows in EDGES.
 inline constexpr int NUM_EDGES = static_cast<int>(std::size(EDGES));
 static_assert(NUM_EDGES == 23);
 
@@ -395,6 +416,10 @@ constexpr Family family(int node) {
 }
 
 // Every bridge row crosses families and every non-bridge row does not.
+/**
+ * @brief Whether every EDGES row's `bridge` flag matches a family change.
+ * @return True when bridge rows, and only those, join different families.
+ */
 constexpr bool bridge_flags_consistent() {
   for (int e = 0; e < NUM_EDGES; ++e) {
     bool crosses = family(EDGES[e].from_node) != family(EDGES[e].to_node);
@@ -510,6 +535,7 @@ HS_FLASH_MEMBER constexpr int pick_next_edge(int node, int prev_edge,
 inline constexpr uint8_t ORDERED_TOUR[] = {
     18, 20, 6,  7,  5,  5,  1,  3,  3,  4,  4, 0,  2,  8,  19,
     21, 12, 13, 17, 17, 10, 15, 15, 16, 16, 9, 11, 14, 22, 19};
+/// Number of edges in ORDERED_TOUR.
 inline constexpr int ORDERED_TOUR_LEN =
     static_cast<int>(std::size(ORDERED_TOUR));
 
