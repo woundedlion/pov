@@ -273,7 +273,7 @@ An affine primitive lattice rendered as soft iso contours through a folded gnomo
 
 ### HyperLattice
 
-A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. Schema 15 includes Cubic, Octet Truss, and Shells in regular builds, each supporting both views. Numeric pattern IDs remain 0, 1, and 6.
+A flight through periodic wire lattices and curved shells in 3D perspective or a rotating 4D slice. Cubic, Octet Truss, and Shells each support both views. Numeric pattern IDs remain 0, 1, and 6.
 
 | Index | Preset ID |
 | --- | --- |
