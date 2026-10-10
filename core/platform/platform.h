@@ -384,9 +384,9 @@ check_fail(const char *site, const char *fmt, ...) {
 // Cap is an inline byte budget; overflowing it is a compile error. A pointer
 // capture is wider on the 64-bit host.
 //
-// Invoking an unbound Fn diverges: hs::inplace_function traps, while
-// teensy::inplace_function returns static_cast<R>(0), so on device R must be
-// constructible from 0.
+// Invoking an unbound Fn differs by platform: hs::inplace_function traps
+// (noreturn), while teensy::inplace_function returns static_cast<R>(0), so on
+// device R must be constructible from 0.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
