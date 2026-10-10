@@ -1218,6 +1218,9 @@ jobs:
       - name: Generate docs
         run: mkdir -p build/docs && doxygen Doxyfile
 
+      - name: Documentation coverage
+        run: python tools/doc_coverage.py
+
   ci-green:
     name: CI green
     # Branch protection requires ci-green; always() prevents failed dependencies from skipping it.
