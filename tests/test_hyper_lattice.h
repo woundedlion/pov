@@ -1323,6 +1323,89 @@ inline void test_octet_4d_canonical_boundary_directions() {
   HS_EXPECT_GT(lit, size_t{0});
 }
 
+/**
+ * @brief OctetTrace::trace_sorted reproduces trace_events over random 3D and
+ *        4D flights, under default, candidate-starved and layer-starved
+ *        budgets.
+ */
+inline void test_octet_trace_sorted_matches_events() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  using Domain = Raycast::SamplingDomain;
+  reset_globals();
+  Effect effect;
+  effect.init();
+  Trace::Settings settings;
+  settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
+  settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
+  uint32_t state = 0x50f7ed5u;
+  const auto uniform = [&state](float low, float high) {
+    state = state * 1664525u + 1013904223u;
+    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
+  };
+  SDF::OctetTrace::CrossingStorage storage;
+  size_t compared = 0, lit = 0, candidate_exhausted = 0, layer_exhausted = 0;
+  const auto compare = [&](const auto &events, Raycast::Interval interval,
+                           const Raycast::TraceLimits &limits,
+                           const Raycast::Appearance &appearance) {
+    const auto EXPECTED =
+        SDF::OctetTrace::trace_events(events, interval, limits, appearance);
+    const auto ACTUAL = SDF::OctetTrace::trace_sorted(events, interval, limits,
+                                                      appearance, storage);
+    HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
+    HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
+    ++compared;
+    lit += EXPECTED.color != Pixel{};
+    if (EXPECTED.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
+      ++(limits.max_candidates < 16 ? candidate_exhausted : layer_exhausted);
+  };
+  for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
+    HS_CONTEXT(domain == Domain::SLICE_4D ? "4d" : "3d");
+    settings.domain = domain;
+    for (int frame = 0; frame < 12; ++frame) {
+      settings.cell_size = uniform(.6f, 3.0f);
+      settings.wire_radius = uniform(.015f, .09f) * settings.cell_size;
+      settings.far_distance = uniform(3.0f, 9.0f);
+      settings.radial_start = frame % 3 ? 0.0f : uniform(0.0f, 1.5f);
+      settings.center = {{uniform(-3, 3), uniform(-3, 3), uniform(-3, 3),
+                          domain == Domain::SLICE_4D ? uniform(-3, 3) : 0.0f}};
+      settings.embedding = math::Mat4::identity();
+      for (int a = 0; a < 4; ++a)
+        for (int b = a + 1; b < 4; ++b)
+          if (domain == Domain::SLICE_4D || b < 3)
+            math::rotate_plane(settings.embedding, a, b, uniform(0.0f, 6.3f));
+      const auto prepared = prepare_traced(settings);
+      HS_EXPECT_TRUE(prepared.valid);
+      const auto &camera = prepared.camera;
+      Raycast::TraceLimits starved_candidates = prepared.limits;
+      starved_candidates.max_candidates = 6;
+      Raycast::TraceLimits starved_layers = prepared.limits;
+      starved_layers.max_layers = 2;
+      for (int ray = 0; ray < 100; ++ray) {
+        const math::Vector DIRECTION =
+            math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
+                .normalized();
+        for (const Raycast::TraceLimits &limits :
+             {prepared.limits, starved_candidates, starved_layers}) {
+          if (domain == Domain::SLICE_4D)
+            compare(SDF::OctetEvents4(prepared.octet4,
+                                      prepared.octet4_projection, DIRECTION,
+                                      camera.radial_start, camera.interval.near,
+                                      prepared.footprint),
+                    camera.interval, limits, prepared.appearance);
+          else
+            compare(SDF::OctetEvents(prepared.octet_projection, DIRECTION,
+                                     camera.radial_start, camera.interval.near,
+                                     prepared.footprint),
+                    camera.interval, limits, prepared.appearance);
+        }
+      }
+    }
+  }
+  HS_EXPECT_GT(lit, compared / 10);
+  HS_EXPECT_GT(candidate_exhausted, size_t{0});
+  HS_EXPECT_GT(layer_exhausted, size_t{0});
+}
+
 /** @brief Trace geometry maps each persisted pattern explicitly. */
 inline void test_trace_geometry_mapping() {
   static_assert(static_cast<uint8_t>(Trace::Geometry::OCTET) == 0);
@@ -1783,6 +1866,7 @@ inline int run_hyper_lattice_tests() {
   test_octet_prepared_projection();
   test_octet_4d_canonical_trace();
   test_octet_4d_canonical_boundary_directions();
+  test_octet_trace_sorted_matches_events();
   test_regular_patterns();
   test_octet_continuous_flight();
   test_trace_geometry_mapping();
