@@ -288,7 +288,8 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   bool leaked = false;
   for (size_t index = 0; index < count; ++index) {
     for (size_t restore = 0; restore < count; ++restore)
-      effect.updateParameter(names[restore], original[restore]);
+      HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
+                   ParamSetResult::APPLIED);
     HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
                  ParamSetResult::APPLIED);
     HS_EXPECT_TRUE(effect.animations_paused());
