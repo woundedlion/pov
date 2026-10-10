@@ -663,8 +663,9 @@ inline void test_orientation_set_at_normalized() {
 /**
  * @brief Verifies wrap(float, m) folds the sampled values into [0, m)
  *        for positive normal periods.
- * @details Checks in-range identity, negative fold-up, above-m fold-down, multiple
- *          periods, a non-unit base, and that results stay in [0, m) across signs.
+ * @details Checks in-range identity, negative fold-up, the fold of a rounded-up m
+ *          back to 0, above-m fold-down, multiple periods, a non-unit base, and
+ *          that results stay in [0, m) across signs.
  */
 inline void test_wrap_float() {
   HS_EXPECT_NEAR(math::wrap(0.25f, 1.0f), 0.25f, 1e-6f);
@@ -673,6 +674,9 @@ inline void test_wrap_float() {
   HS_EXPECT_NEAR(math::wrap(-3.25f, 1.0f), 0.75f, 1e-6f);
   HS_EXPECT_NEAR(math::wrap(7.0f, 5.0f), 2.0f, 1e-6f);
   HS_EXPECT_NEAR(math::wrap(-1.0f, 5.0f), 4.0f, 1e-6f);
+  // fmod(x, m) + m rounds up to exactly m for tiny negative x.
+  HS_EXPECT_EQ(math::wrap(-1e-9f, 1.0f), 0.0f);
+  HS_EXPECT_EQ(math::wrap(-1e-7f, 8.0f), 0.0f);
 
   for (int i = -30; i <= 30; ++i) {
     float w = math::wrap(i * 0.37f, 2.0f);
