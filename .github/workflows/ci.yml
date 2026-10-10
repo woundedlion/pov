@@ -106,7 +106,7 @@ jobs:
 
       - name: Upload mismatched MindSplatter replay corpus
         if: ${{ always() && steps.mindsplatter_corpus_mismatch.outputs.mismatch == 'true' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mindsplatter-replay-corpus-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/tests/tests/mindsplatter_replay_corpus.generated.h
@@ -420,7 +420,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: native-coverage
           path: |
@@ -512,7 +512,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -703,7 +703,7 @@ jobs:
           diff -u "$out/mirror-source.txt" "$out/mirror-installed.txt"
 
       - name: Upload verified engine bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: holosphere-engine-${{ github.sha }}
           path: ${{ runner.temp }}/holosphere-engine
@@ -846,7 +846,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -880,7 +880,7 @@ jobs:
           python tools/build_pins.py --check-tool cmake
 
       # The unit suite uses no npm dependencies.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -916,7 +916,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -1022,7 +1022,7 @@ jobs:
         id: pins
         run: python tools/build_pins.py --github-output
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ steps.pins.outputs.node }}
 
@@ -1166,7 +1166,7 @@ jobs:
         run: python tools/teensy_size_table.py
       - name: Upload firmware artifacts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: teensy-firmware
           path: .pio/build/*/firmware.*
