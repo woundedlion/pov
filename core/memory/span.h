@@ -5,6 +5,11 @@
 
 // Included by core/memory.h.
 
+/**
+ * @file span.h
+ * @brief ArenaSpan: read-only, non-owning view of arena-allocated data.
+ */
+
 // ============================================================================
 // Non-Owning Span (Explicit Borrow)
 // ============================================================================
@@ -66,7 +71,10 @@ public:
   using const_iterator = const T *;
 
 #ifndef NDEBUG
-  /** @brief Source binding generation snapshotted by this debug view. */
+  /**
+   * @brief Source binding generation snapshotted by this debug view.
+   * @return Snapshotted generation.
+   */
   uint32_t debug_binding_generation() const { return source_rebind_generation; }
 #endif
 
