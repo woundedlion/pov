@@ -297,14 +297,20 @@ inline void test_registry_angles_clear_rounding_boundary() {
 }
 
 /**
- * @brief Verifies NUM_ENTRIES equals the sum of the simple, Catalan and
- *        Islamic registries.
+ * @brief Verifies get_entry() lays out the simple, then Catalan, then Islamic
+ *        registries in global-index order.
  */
-inline void test_registry_count_matches_collections() {
-  size_t sum = Solids::Collections::get_simple_solids().size() +
-               Solids::Collections::get_catalan_solids().size() +
-               Solids::Collections::get_islamic_solids().size();
-  HS_EXPECT_EQ(sum, (size_t)Solids::NUM_ENTRIES);
+inline void test_registry_global_index_layout() {
+  const std::span<const Solids::Entry> blocks[] = {
+      Solids::Collections::get_simple_solids(),
+      Solids::Collections::get_catalan_solids(),
+      Solids::Collections::get_islamic_solids()};
+  size_t base = 0;
+  for (std::span<const Solids::Entry> block : blocks) {
+    for (size_t k = 0; k < block.size(); ++k)
+      HS_EXPECT_TRUE(&Solids::get_entry(base + k) == &block[k]);
+    base += block.size();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -726,7 +732,7 @@ inline int run_solids_tests() {
   hs_test::ModuleFixture fixture("solids");
 
   test_build_vertex_directions();
-  test_registry_count_matches_collections();
+  test_registry_global_index_layout();
 
   test_simple_registry_solids_are_spherical_and_valid();
   test_catalan_registry_solids_are_spherical_and_valid();
