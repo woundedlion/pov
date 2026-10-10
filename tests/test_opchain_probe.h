@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Geometry and provenance checks for IslamicStars' op-chain build recipes
- * (docs/specs/opchain_morph_spec.md).
+ * Geometry and provenance checks for IslamicStars' op-chain build recipes.
  */
 #pragma once
 

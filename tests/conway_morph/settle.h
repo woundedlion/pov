@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// §7.3 Settle correspondence: relax output vertex order is the identity over
+// Settle correspondence: relax output vertex order is the identity over
 // its input, so a relaxed endpoint is per-vertex slerpable.
 // ---------------------------------------------------------------------------
 

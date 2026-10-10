@@ -2,10 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Boundary color-continuity tests for the OpLeg transition design
- * (docs/specs/conway_morph_spec.md §7.6): every mesh swap at a leg or cycle
- * boundary must exchange geometrically matching meshes whose positive-area
- * faces keep their colors.
+ * Boundary color-continuity tests for the OpLeg transition design: every mesh
+ * swap at a leg or cycle boundary must exchange geometrically matching meshes
+ * whose positive-area faces keep their colors.
  */
 #pragma once
 
@@ -176,7 +175,7 @@ inline std::vector<Color4> face_palette(int n) {
 }
 
 // ---------------------------------------------------------------------------
-// §7.6a remainder — cycle-end and following-leg angle invariant.
+// Cycle-end and following-leg angle invariant.
 // ---------------------------------------------------------------------------
 
 /**
@@ -266,7 +265,7 @@ inline void test_no_empty_frame_across_cycle_joins() {
 }
 
 // ---------------------------------------------------------------------------
-// §7.6b — bookend swaps (hankin at angle 0 <-> node base mesh), one node per
+// Bookend swaps (hankin at angle 0 <-> node base mesh), one node per
 // symmetry family.
 // ---------------------------------------------------------------------------
 
@@ -328,7 +327,7 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
  * @brief Bookend swap for one solid: mesh-level geometric identity plus the
  *        framebuffer diff under identity face colors.
  * @tparam Solid Seed solid descriptor.
- * @details The hankin render colors star face f like base face f (the §2.5
+ * @details The hankin render colors star face f like base face f (the
  *          identity mapping) and paints rosette faces a loud sentinel; the
  *          swap preserves face colors. Boundary AA may differ by <= 2 LSB
  *          within QUANT_BAND_BUDGET; zero-area rosettes draw none.
@@ -473,7 +472,7 @@ inline void test_palette_carry_across_arrivals() {
 }
 
 // ---------------------------------------------------------------------------
-// §7.6c — leg swaps: swap-in (base <-> op(seed, T_EPS)), the ADOPT bridge
+// Leg swaps: swap-in (base <-> op(seed, T_EPS)), the ADOPT bridge
 // arrival, and the DUAL_SWAP ambo crossover.
 // ---------------------------------------------------------------------------
 
@@ -689,7 +688,7 @@ inline void test_dual_swap_crossover_framebuffer() {
 }
 
 // ---------------------------------------------------------------------------
-// §7.6c unit items — palette mappings are total and deterministic; the
+// Palette mappings are total and deterministic; the
 // crossfade is exact at its endpoints.
 // ---------------------------------------------------------------------------
 

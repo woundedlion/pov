@@ -4,7 +4,7 @@
  */
 
 // ---------------------------------------------------------------------------
-// §7.1 Endpoint exactness: sweeping to an edge endpoint arrives at the
+// Endpoint exactness: sweeping to an edge endpoint arrives at the
 // registry generator's output.
 // ---------------------------------------------------------------------------
 

@@ -74,7 +74,7 @@ inline void test_jitterbug_octa_end_covers_octahedron() {
  *        the icosa point to the T_JITTERBUG_OCTA_MIN clamp with the tabled twist
  *        endpoints — holds V12/F20/E30 with two-face edge incidence,
  *        >= 3-side faces, and unit vertices, with the collapsing edge never
- *        shorter than the clamp chord (spec section 7.2 for the edge).
+ *        shorter than the clamp chord.
  */
 inline void test_jitterbug_sweep_holds_topology() {
   constexpr int SAMPLES = 17;
