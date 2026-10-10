@@ -101,16 +101,8 @@ inline void arm_project_op_chain(In::ChainProgram &program, const char *op_id,
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<OpParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, OpParams, In::Op::GridSampleParams,
+            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
@@ -216,21 +208,10 @@ template <typename BoundStage>
 inline void expect_project_op_parity(In::ChainProgram &program,
                                      const In::FrameContext &ctx) {
   program.prepare(ctx);
-  const ProjMirrorFrame mirror = project_mirror(program, ctx);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[1].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::SphereSample seed{view, 0.25f};
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&seed, out, ctx, program.param_block(1),
-                   program.prepared_block(1));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
-    const PB::PlaneSample reference = BoundStage::run(seed, mirror, prepared);
-    HS_EXPECT_TRUE(plane_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 1, project_mirror(program, ctx),
+      [](const math::Vector &view) { return PB::SphereSample{view, 0.25f}; },
+      plane_identical);
 }
 
 template <typename BoundStage>
