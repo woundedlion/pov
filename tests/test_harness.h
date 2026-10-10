@@ -418,8 +418,8 @@ inline void report_near(double a, double b, double tol, const char *expr,
   ++stats().failed;
   if (!claim_fail_print())
     return;
-  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, delta=%g)", case_name, file,
-              line, expr, a, b, std::fabs(a - b));
+  std::printf("  FAIL [%s] %s:%d  %s  (%.17g vs %.17g, delta=%g)", case_name,
+              file, line, expr, a, b, std::fabs(a - b));
   print_context();
   std::printf("\n");
 }
@@ -440,8 +440,8 @@ inline void report_near_rel(double a, double b, double rel_tol,
   const double scale = std::max(std::fabs(a), std::fabs(b));
   const double rel_error =
       scale > 0.0 ? std::fabs(a - b) / scale : std::fabs(a - b);
-  std::printf("  FAIL [%s] %s:%d  %s  (%g vs %g, rel_error=%g)", case_name,
-              file, line, expr, a, b, rel_error);
+  std::printf("  FAIL [%s] %s:%d  %s  (%.17g vs %.17g, rel_error=%g)",
+              case_name, file, line, expr, a, b, rel_error);
   print_context();
   std::printf("\n");
 }
