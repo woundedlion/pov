@@ -26,19 +26,24 @@ namespace Interp {
 
 namespace Op {
 
+/** @brief Integrator topology values, in Surface::Integrator order. */
 inline constexpr const char *SURFACE_INTEGRATOR_IDS[] = {"euler", "midpoint",
                                                          "midpoint-2x"};
 static_assert(std::size(SURFACE_INTEGRATOR_IDS) ==
               static_cast<size_t>(Surface::Integrator::MIDPOINT_2X) + 1);
 
+/** @brief Limit topology values, in math::TangentLimit order. */
 inline constexpr const char *TANGENT_LIMIT_IDS[] = {"smooth", "clamp"};
 static_assert(std::size(TANGENT_LIMIT_IDS) ==
               static_cast<size_t>(math::TangentLimit::CLAMP) + 1);
 
 /** @brief Parameter family of sphere.displace.curl.v2. */
 struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
+  /** Surface::Integrator topology value. */
   uint8_t integrator = static_cast<uint8_t>(Surface::Integrator::EULER);
+  /** math::TangentLimit topology value. */
   uint8_t limit = static_cast<uint8_t>(math::TangentLimit::SMOOTH);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -62,8 +67,8 @@ static_assert(field_defaults_in_range<CurlDisplaceParams>());
 /** @brief The displacement operators' prepared block: the owned noise field
     and this frame's loop point. */
 struct PreparedDisplace {
-  const FastNoiseLite *noise;
-  Surface::PreparedLoop loop;
+  const FastNoiseLite *noise; ///< The instance-owned noise field.
+  Surface::PreparedLoop loop; ///< This frame's loop point.
 };
 
 /** @brief SPHERE endomorphism: the length-limited curl-noise displacement. */
@@ -100,6 +105,7 @@ struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
 
 /** @brief Parameter family of sphere.displace.direct.v2. */
 struct DirectDisplaceParams : Surface::DirectSurfaceParams {
+  /** math::NoiseBasis topology value. */
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
 
   static constexpr auto TOPOLOGY = std::array{
@@ -117,8 +123,8 @@ static_assert(field_defaults_in_range<DirectDisplaceParams>());
 /** @brief The direct displacement's prepared block: noise field, loop point
     and steering frame. */
 struct PreparedDirectDisplace {
-  const FastNoiseLite *noise;
-  Surface::PreparedDirect direct;
+  const FastNoiseLite *noise;     ///< The instance-owned noise field.
+  Surface::PreparedDirect direct; ///< Loop point and steering frame.
 };
 
 /** @brief SPHERE endomorphism: the direction-steered noise displacement. */
@@ -151,7 +157,7 @@ struct DisplaceDirect : PhaseClockModel<NoisePhaseState> {
 
 /** @brief Frame clock of sphere.displace.ripple.v2. */
 struct RipplePhaseState {
-  float phase = 0.0f;
+  float phase = 0.0f; ///< Frames into the current period.
 };
 
 /** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */
@@ -202,6 +208,11 @@ template <typename Derived> struct FixedLensModel : StatelessModel {
 struct LensGlitch : FixedLensModel<LensGlitch> {
   static constexpr const char *ID = "sphere.lens.glitch.v2";
   static constexpr const char *NAME = "Glitch Lens";
+  /**
+   * @brief The glitch lens map.
+   * @param input Unit direction.
+   * @return The lensed direction.
+   */
   static math::Vector lens(const math::Vector &input) {
     return lenses::glitch_lens(input);
   }
@@ -209,7 +220,7 @@ struct LensGlitch : FixedLensModel<LensGlitch> {
 
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
-  float twist_rate = lenses::TWIST_RATE;
+  float twist_rate = lenses::TWIST_RATE; /**< Radians per unit height. */
 
   static constexpr auto FIELDS = std::array{
       Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
@@ -245,14 +256,14 @@ inline constexpr float MOBIUS_COEFFICIENT_LIMIT =
 /** @brief Parameter family of sphere.lens.mobius.v2: the flat coefficient
     fields the chain registers. */
 struct MobiusChainParams {
-  float a_re = 0.7071067811865475f;
-  float a_im = 0.0f;
-  float b_re = 0.0f;
-  float b_im = 0.0f;
-  float c_re = 0.0f;
-  float c_im = 0.0f;
-  float d_re = 0.7071067811865475f;
-  float d_im = 0.0f;
+  float a_re = 0.7071067811865475f; /**< Re a of (az + b) / (cz + d). */
+  float a_im = 0.0f;                /**< Im a. */
+  float b_re = 0.0f;                /**< Re b. */
+  float b_im = 0.0f;                /**< Im b. */
+  float c_re = 0.0f;                /**< Re c. */
+  float c_im = 0.0f;                /**< Im c. */
+  float d_re = 0.7071067811865475f; /**< Re d. */
+  float d_im = 0.0f;                /**< Im d. */
 
   static constexpr auto FIELDS = std::array{
       Field<MobiusChainParams>{"mobius-a-re", &MobiusChainParams::a_re,
@@ -291,15 +302,26 @@ struct LensMobius : StatelessModel {
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = MobiusChainParams;
+  /** @brief The frame's validated coefficients. */
   struct Prepared {
-    math::MobiusParams mobius;
+    math::MobiusParams mobius; ///< Nondegenerate Mobius coefficients.
   };
 
+  /**
+   * @brief Gathers the flat coefficient fields.
+   * @param params Param block.
+   * @return The Mobius coefficients.
+   */
   static math::MobiusParams coefficients(const Params &params) {
     return {params.a_re, params.a_im, params.b_re, params.b_im,
             params.c_re, params.c_im, params.d_re, params.d_im};
   }
 
+  /**
+   * @brief Rejects degenerate coefficients.
+   * @param params Param block.
+   * @return The degenerate-map warning, or null.
+   */
   static const char *validate(const Params &params) {
     const math::MobiusParams mobius = coefficients(params);
     return Lens::MobiusLensParams::nondegenerate(mobius)
@@ -320,18 +342,20 @@ struct LensMobius : StatelessModel {
   }
 };
 
+/** @brief Symmetry group of the kaleidoscope lens. */
 enum class KaleidoscopeSymmetry : uint8_t {
-  AZIMUTHAL = 0,
-  TETRAHEDRAL = 1,
-  OCTAHEDRAL = 2,
-  DODECAHEDRAL = 3,
-  TRIANGULAR_PRISM = 4,
-  SQUARE_PRISM = 5,
-  PENTAGONAL_PRISM = 6,
-  HEXAGONAL_PRISM = 7,
-  OCTAGONAL_PRISM = 8
+  AZIMUTHAL = 0,        ///< Azimuthal wedge fold.
+  TETRAHEDRAL = 1,      ///< Tetrahedral group.
+  OCTAHEDRAL = 2,       ///< Octahedral group.
+  DODECAHEDRAL = 3,     ///< Icosahedral/dodecahedral group.
+  TRIANGULAR_PRISM = 4, ///< 3-fold prism group.
+  SQUARE_PRISM = 5,     ///< 4-fold prism group.
+  PENTAGONAL_PRISM = 6, ///< 5-fold prism group.
+  HEXAGONAL_PRISM = 7,  ///< 6-fold prism group.
+  OCTAGONAL_PRISM = 8   ///< 8-fold prism group.
 };
 
+/** @brief Symmetry topology values, in KaleidoscopeSymmetry order. */
 inline constexpr const char *KALEIDOSCOPE_SYMMETRY_IDS[] = {
     "azimuthal",        "tetrahedral",      "octahedral",
     "dodecahedral",     "triangular-prism", "square-prism",
@@ -342,6 +366,7 @@ static_assert(std::size(KALEIDOSCOPE_SYMMETRY_IDS) ==
 /** @brief Parameter family of sphere.lens.kaleidoscope.v2: the symmetry
     topology alone. */
 struct KaleidoscopeChainParams {
+  /** KaleidoscopeSymmetry topology value. */
   uint8_t symmetry = static_cast<uint8_t>(KaleidoscopeSymmetry::AZIMUTHAL);
 
   static constexpr std::array<Field<KaleidoscopeChainParams>, 0> FIELDS{};

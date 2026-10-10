@@ -20,6 +20,7 @@ namespace Pullback {
 
 namespace Interp {
 
+/** @brief Every chain operator's descriptor, one per operator model. */
 inline constexpr std::array<OperatorDescriptor, 38> OPERATOR_TABLE{
     make_operator_descriptor<Op::Rotate>(),
     make_operator_descriptor<Op::DisplaceCurl>(),
@@ -61,6 +62,10 @@ inline constexpr std::array<OperatorDescriptor, 38> OPERATOR_TABLE{
     make_operator_descriptor<Op::ColorizeGeneratedPaletteV3>(),
 };
 
+/**
+ * @brief Whether every table operator id is unique.
+ * @return False on a duplicate id.
+ */
 consteval bool operator_ids_unique() {
   for (size_t i = 0; i < OPERATOR_TABLE.size(); ++i)
     for (size_t j = 0; j < i; ++j)
@@ -70,6 +75,10 @@ consteval bool operator_ids_unique() {
   return true;
 }
 
+/**
+ * @brief Whether every table display name is unique.
+ * @return False on a duplicate name.
+ */
 consteval bool operator_names_unique() {
   for (size_t i = 0; i < OPERATOR_TABLE.size(); ++i)
     for (size_t j = 0; j < i; ++j)

@@ -26,11 +26,12 @@ namespace Op {
 
 /** @brief Shared shape of the stateless FIELD endomorphisms. */
 template <typename ParamsT> struct FieldEndoModel : StatelessModel {
-  using Input = FieldSample;
-  using Output = FieldSample;
-  using Params = ParamsT;
+  using Input = FieldSample;  ///< FIELD in.
+  using Output = FieldSample; ///< FIELD out.
+  using Params = ParamsT;     ///< The transfer's param family.
   struct Prepared {};
 
+  /** @brief Empty prepared block. @return `{}`. */
   static Prepared prepare(const FrameContext &, const Params &,
                           const StatelessModel::State &) {
     return {};

@@ -84,9 +84,9 @@ static_assert(carrier_named<SphereSample>("sphere") &&
  * the same pair reconstructs the same resources deterministically.
  */
 struct InstanceId {
-  const char *instance;
-  const char *operator_id;
-  uint32_t stable_hash;
+  const char *instance;    ///< Instance label of the chain entry.
+  const char *operator_id; ///< Operator id of the chain entry.
+  uint32_t stable_hash;    ///< instance_hash() of the pair.
 };
 
 /** @brief FNV-1a over the instance label, a separator, and the operator id. */
@@ -106,8 +106,8 @@ struct FrameContext {
   math::Quaternion projection_base;
   /** Generated palette bakes, indexed by the colorize palette-mode value. */
   std::array<const BakedPalette *, 3> palettes{};
-  const Pixel *hue_rotation_lut = nullptr;
-  const int8_t *hue_noise_lut = nullptr;
+  const Pixel *hue_rotation_lut = nullptr; ///< Hue-rotation lookup table.
+  const int8_t *hue_noise_lut = nullptr;   ///< Hue-noise offset table.
 };
 
 /**
@@ -116,12 +116,20 @@ struct FrameContext {
  * @tparam Owner The family struct the enum8 lives in.
  */
 template <typename Owner> struct TopologyField {
-  const char *id; /**< Stable machine id, kebab-case. */
-  uint8_t Owner::*member;
+  const char *id;               /**< Stable machine id, kebab-case. */
+  uint8_t Owner::*member;       /**< The enum8 member of @p Owner. */
   const char *const *value_ids; /**< Kebab-case value spellings. */
-  uint8_t value_count;
-  uint8_t def; /**< Default value index. */
+  uint8_t value_count;          /**< Entries in `value_ids`. */
+  uint8_t def;                  /**< Default value index. */
 
+  /**
+   * @brief Binds an enum8 member to its value spellings.
+   * @tparam N Number of values.
+   * @param id Stable machine id, kebab-case.
+   * @param member The enum8 member of @p Owner.
+   * @param value_ids Kebab-case value spellings, one per value.
+   * @param def Default value index.
+   */
   template <size_t N>
   constexpr TopologyField(const char *id, uint8_t Owner::*member,
                           const char *const (&value_ids)[N], uint8_t def)
@@ -135,16 +143,16 @@ template <typename Owner> struct TopologyField {
  *        union across topology variants, topology enum8s included.
  */
 struct ParamFieldInfo {
-  const char *id;
-  const char *display_name; /**< Nullable; cosmetic. */
-  float min;
-  float max;
-  float def;
-  FieldCurve curve;
-  bool topology;
-  uint8_t enum_count; /**< 0 marks a float field. */
-  uint8_t enum_def;
-  const char *const *enum_ids;
+  const char *id;              /**< Stable machine id, kebab-case. */
+  const char *display_name;    /**< Nullable; cosmetic. */
+  float min;                   /**< Float range minimum. */
+  float max;                   /**< Float range maximum. */
+  float def;                   /**< Float default. */
+  FieldCurve curve;            /**< Preset-transition curve. */
+  bool topology;               /**< Whether this is a topology enum8. */
+  uint8_t enum_count;          /**< 0 marks a float field. */
+  uint8_t enum_def;            /**< Default enum value index. */
+  const char *const *enum_ids; /**< Enum value spellings; null for floats. */
   /** Id of the topology enum8 selecting this field; null when every variant
       reads it. */
   const char *gated_by;
@@ -153,8 +161,8 @@ struct ParamFieldInfo {
 
 /** @brief Size and alignment of one arena-allocated block. */
 struct BlockLayout {
-  uint32_t size;
-  uint32_t align;
+  uint32_t size;  ///< Bytes.
+  uint32_t align; ///< Alignment in bytes.
 };
 
 /**
@@ -169,22 +177,32 @@ struct BlockLayout {
  * carrier, licensed by validated adjacency.
  */
 struct OperatorRuntime {
-  BlockLayout param;
-  BlockLayout prepared;
-  BlockLayout state;
+  BlockLayout param;    ///< Parameter block layout.
+  BlockLayout prepared; ///< Per-frame prepared block layout.
+  BlockLayout state;    ///< Instance state block layout.
+  /** Default-constructs a param block in place. */
   void (*construct_params)(void *params);
+  /** Constructs and seeds a state block in place. */
   void (*init)(void *state, InstanceId id);
+  /** Clones `src` state into unconstructed `dst` storage. */
   Status (*migrate)(void *dst, const void *src, InstanceId id);
+  /** Destroys a constructed state block. */
   void (*destroy)(void *state);
+  /** Steps the instance's per-frame clocks. */
   void (*advance)(void *state, const uint8_t *params);
+  /** Constructs the frame's prepared block. */
   void (*prepare)(const FrameContext &ctx, const uint8_t *params,
                   const void *state, uint8_t *prepared);
+  /** Constructs the output carrier at `out` from the input at `in`. */
   void (*run)(const void *in, void *out, const FrameContext &ctx,
               const uint8_t *params, const uint8_t *prepared);
   /** Address of one schema field inside a param block, by schema index. */
   void *(*param_address)(void *params, uint16_t schema_index);
+  /** Admission warning for a param block, or null when admissible. */
   const char *(*validate)(const void *params);
+  /** Serialises the instance state. */
   RuntimeSnapshot (*capture_state)(const void *state) = nullptr;
+  /** Restores instance state from a snapshot; false when not applied. */
   bool (*restore_state)(void *state, const RuntimeSnapshot &snapshot) = nullptr;
   /** Bound on the output plane magnitude over every phase, given a bound on
       the input's; null unless the output carrier is PLANE. */
@@ -195,19 +213,21 @@ struct OperatorRuntime {
  * @brief One operator's record.
  */
 struct OperatorDescriptor {
-  const char *operator_id;
-  const char *display_name;
-  CarrierId input;
-  CarrierId output;
-  const ParamFieldInfo *schema;
-  uint16_t schema_count;
-  OperatorRuntime runtime;
-  bool approximate;
-  ApproximationOracleId oracle;
-  const ApproximationMetric *metrics;
-  uint8_t metric_count;
+  const char *operator_id;      ///< Stable versioned operator id.
+  const char *display_name;     ///< Catalog display name.
+  CarrierId input;              ///< Input carrier.
+  CarrierId output;             ///< Output carrier.
+  const ParamFieldInfo *schema; ///< Registered parameter schema.
+  uint16_t schema_count;        ///< Entries in `schema`.
+  OperatorRuntime runtime;      ///< Erased lifecycle callbacks and layouts.
+  bool approximate;             ///< Whether the operator is approximate.
+  ApproximationOracleId oracle; ///< Reference kernel of an approximation.
+  const ApproximationMetric *metrics; ///< Approximation metrics; may be null.
+  uint8_t metric_count;               ///< Entries in `metrics`.
+  /** Whether a projection's plane output carries edge distance. */
   bool edge_distance_available;
 
+  /** @brief The schema as a span. @return `schema` over `schema_count`. */
   std::span<const ParamFieldInfo> schema_span() const {
     return {schema, schema_count};
   }
@@ -237,6 +257,11 @@ template <typename Params> consteval bool topology_defaults_match() {
 
 namespace Detail {
 
+/**
+ * @brief Builds the registered schema of @p Model.
+ * @tparam Model The operator model.
+ * @return Family FIELDS entries, then TOPOLOGY entries.
+ */
 template <typename Model> consteval auto make_schema() {
   using Params = typename Model::Params;
   static_assert(topology_defaults_match<Params>());
@@ -358,24 +383,42 @@ namespace Detail {
 
 /** Typed-to-erased trampolines over one operator model. */
 template <typename Model> struct ErasedAdapter {
-  using Params = typename Model::Params;
-  using State = typename Model::State;
-  using Prepared = typename Model::Prepared;
-  using Input = typename Model::Input;
-  using Output = typename Model::Output;
+  using Params = typename Model::Params;     ///< The model's param block.
+  using State = typename Model::State;       ///< The model's instance state.
+  using Prepared = typename Model::Prepared; ///< The model's prepared block.
+  using Input = typename Model::Input;       ///< The model's input carrier.
+  using Output = typename Model::Output;     ///< The model's output carrier.
 
+  /** @brief Default-constructs a param block. @param params Raw storage. */
   static void construct_params(void *params) { ::new (params) Params{}; }
 
+  /**
+   * @brief Runs `Model::validate` when declared.
+   * @param params Param block.
+   * @return Admission warning, or null when admissible or undeclared.
+   */
   static const char *validate(const void *params) {
     if constexpr (requires(const Params &p) { Model::validate(p); })
       return Model::validate(*static_cast<const Params *>(params));
     return nullptr;
   }
 
+  /**
+   * @brief Constructs a State and runs `Model::init` on it.
+   * @param state Raw state storage.
+   * @param id Chain-entry identity.
+   */
   static void init(void *state, InstanceId id) {
     Model::init(*::new (state) State{}, id);
   }
 
+  /**
+   * @brief Constructs a State at @p dst and migrates @p src into it.
+   * @param dst Raw state storage; left unconstructed on failure.
+   * @param src Constructed source state.
+   * @param id Chain-entry identity.
+   * @return The model's migrate status.
+   */
   static Status migrate(void *dst, const void *src, InstanceId id) {
     State &clone = *::new (dst) State{};
     const Status status =
@@ -385,23 +428,47 @@ template <typename Model> struct ErasedAdapter {
     return status;
   }
 
+  /** @brief Destroys a State. @param state Constructed state. */
   static void destroy(void *state) { static_cast<State *>(state)->~State(); }
 
+  /**
+   * @brief Captures a State through its RuntimeStateCodec.
+   * @param state Constructed state.
+   * @return The snapshot.
+   */
   static RuntimeSnapshot capture_state(const void *state) {
     return RuntimeStateCodec<State>::capture(
         *static_cast<const State *>(state));
   }
 
+  /**
+   * @brief Restores a State through its RuntimeStateCodec.
+   * @param state Constructed state.
+   * @param snapshot Captured snapshot.
+   * @return Whether the snapshot was applied.
+   */
   static bool restore_state(void *state, const RuntimeSnapshot &snapshot) {
     return RuntimeStateCodec<State>::restore(*static_cast<State *>(state),
                                              snapshot);
   }
 
+  /**
+   * @brief Forwards to `Model::advance`.
+   * @param state Constructed state.
+   * @param params Param block bytes.
+   */
   static void advance(void *state, const uint8_t *params) {
     Model::advance(*std::launder(static_cast<State *>(state)),
                    *std::launder(reinterpret_cast<const Params *>(params)));
   }
 
+  /**
+   * @brief Constructs the prepared block from `Model::prepare`.
+   * @param ctx Frame context.
+   * @param params Param block bytes.
+   * @param state Constructed state.
+   * @param prepared Raw prepared storage.
+   */
   static void prepare(const FrameContext &ctx, const uint8_t *params,
                       const void *state, uint8_t *prepared) {
     ::new (static_cast<void *>(prepared)) Prepared{Model::prepare(
@@ -409,6 +476,14 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(static_cast<const State *>(state)))};
   }
 
+  /**
+   * @brief Constructs the output carrier from `Model::run`.
+   * @param in Input carrier.
+   * @param out Raw output carrier storage.
+   * @param ctx Frame context.
+   * @param params Param block bytes.
+   * @param prepared Prepared block bytes.
+   */
   static void run(const void *in, void *out, const FrameContext &ctx,
                   const uint8_t *params, const uint8_t *prepared) {
     ::new (out) Output{Model::run(
@@ -417,11 +492,23 @@ template <typename Model> struct ErasedAdapter {
         *std::launder(reinterpret_cast<const Prepared *>(prepared)))};
   }
 
+  /**
+   * @brief Forwards to `Model::plane_bound`.
+   * @param params Param block.
+   * @param input_bound Bound on the input plane magnitude.
+   * @return Bound on the output plane magnitude.
+   */
   static float plane_bound(const void *params, float input_bound) {
     return Model::plane_bound(*static_cast<const Params *>(params),
                               input_bound);
   }
 
+  /**
+   * @brief Address of one schema field inside a param block.
+   * @param params Param block.
+   * @param schema_index Index into the model's SCHEMA.
+   * @return The field's address.
+   */
   static void *param_address(void *params, uint16_t schema_index) {
     Params &block = *static_cast<Params *>(params);
     constexpr size_t FIELD_COUNT = Params::FIELDS.size();
@@ -435,6 +522,11 @@ template <typename Model> struct ErasedAdapter {
   }
 };
 
+/**
+ * @brief The erased plane_bound of @p Model, or null unless it outputs PLANE.
+ * @tparam Model The operator model.
+ * @return The callback pointer.
+ */
 template <typename Model> constexpr auto model_plane_bound() {
   using PlaneBound = float (*)(const void *, float);
   if constexpr (std::is_same_v<typename Model::Output, PlaneSample>)
@@ -443,6 +535,11 @@ template <typename Model> constexpr auto model_plane_bound() {
     return static_cast<PlaneBound>(nullptr);
 }
 
+/**
+ * @brief `Model::APPROXIMATE`, defaulting to false.
+ * @tparam Model The operator model.
+ * @return Whether the model is approximate.
+ */
 template <typename Model> consteval bool model_approximate() {
   if constexpr (requires { Model::APPROXIMATE; })
     return Model::APPROXIMATE;
@@ -450,6 +547,11 @@ template <typename Model> consteval bool model_approximate() {
     return false;
 }
 
+/**
+ * @brief `Model::ORACLE`, defaulting to ApproximationOracleId::NONE.
+ * @tparam Model The operator model.
+ * @return The oracle id.
+ */
 template <typename Model> consteval ApproximationOracleId model_oracle() {
   if constexpr (requires { Model::ORACLE; })
     return Model::ORACLE;
@@ -457,6 +559,11 @@ template <typename Model> consteval ApproximationOracleId model_oracle() {
     return ApproximationOracleId::NONE;
 }
 
+/**
+ * @brief `Model::METRICS` data, or null when undeclared.
+ * @tparam Model The operator model.
+ * @return Pointer to the first metric.
+ */
 template <typename Model> constexpr const ApproximationMetric *model_metrics() {
   if constexpr (requires { Model::METRICS; })
     return Model::METRICS.data();
@@ -464,6 +571,11 @@ template <typename Model> constexpr const ApproximationMetric *model_metrics() {
     return nullptr;
 }
 
+/**
+ * @brief Number of `Model::METRICS`, or 0 when undeclared.
+ * @tparam Model The operator model.
+ * @return The metric count.
+ */
 template <typename Model> consteval uint8_t model_metric_count() {
   if constexpr (requires { Model::METRICS; })
     return static_cast<uint8_t>(Model::METRICS.size());
@@ -471,6 +583,11 @@ template <typename Model> consteval uint8_t model_metric_count() {
     return 0;
 }
 
+/**
+ * @brief `Model::NON_FLOATING_FIELDS_EXACT`, defaulting to true.
+ * @tparam Model The operator model.
+ * @return Whether non-floating fields are exact.
+ */
 template <typename Model> consteval bool model_non_floating_fields_exact() {
   if constexpr (requires { Model::NON_FLOATING_FIELDS_EXACT; })
     return Model::NON_FLOATING_FIELDS_EXACT;
@@ -478,6 +595,11 @@ template <typename Model> consteval bool model_non_floating_fields_exact() {
     return true;
 }
 
+/**
+ * @brief Whether `Model::METRICS` includes a final framebuffer metric.
+ * @tparam Model The operator model.
+ * @return False when METRICS is undeclared.
+ */
 template <typename Model> consteval bool model_final_framebuffer_metric() {
   if constexpr (requires { Model::METRICS; })
     return has_final_framebuffer_metric<Model>();
@@ -499,8 +621,15 @@ struct EmptyState {};
  * @tparam S The model's State type.
  */
 template <typename S> struct ValueStateModel {
-  using State = S;
+  using State = S; ///< The model's instance state.
+  /** @brief Leaves the default-constructed state. */
   static void init(State &, InstanceId) {}
+  /**
+   * @brief Clones @p src into @p dst by assignment.
+   * @param dst Destination state.
+   * @param src Source state.
+   * @return Status::OK.
+   */
   static Status migrate(State &dst, const State &src, InstanceId) {
     dst = src;
     return Status::OK;
@@ -509,6 +638,7 @@ template <typename S> struct ValueStateModel {
 
 /** @brief State and defaulted lifecycle for a model with no instance state. */
 struct StatelessModel : ValueStateModel<EmptyState> {
+  /** @brief No clocks to step. @tparam Params The model's param block. */
   template <typename Params> static void advance(State &, const Params &) {}
 };
 
