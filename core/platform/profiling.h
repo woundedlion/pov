@@ -275,7 +275,10 @@ private:
 
 } // namespace hs
 
-// Per-pixel scan instrumentation, compiled in only under HS_SCAN_METRICS.
+/** @def HS_SCAN_METRIC(stmt)
+ *  @brief Per-pixel scan instrumentation, compiled in only under
+ *         HS_SCAN_METRICS.
+ *  @param stmt Statement to run. */
 #ifdef HS_SCAN_METRICS
 #define HS_SCAN_METRIC(stmt)                                                   \
   do {                                                                         \
@@ -285,9 +288,20 @@ private:
 #define HS_SCAN_METRIC(stmt) ((void)0)
 #endif
 
-// Per-probe stage timing, compiled in only under HS_PROBE_BREAKDOWN.
-// HS_PROBE_MARK opens a rolling timestamp; HS_PROBE_SPAN closes one stage and
-// reopens the next off the same read.
+/** @def HS_PROBE_MARK(var)
+ *  @brief Per-probe stage timing, compiled in only under HS_PROBE_BREAKDOWN:
+ *         opens a rolling timestamp.
+ *  @param var Name of the declared `uint32_t` cycle timestamp. */
+/** @def HS_PROBE_SPAN(field, var)
+ *  @brief Closes one stage and reopens the next off the same read.
+ *  @param field `hs::ProbeBreakdown` member that accumulates the cycles.
+ *  @param var Timestamp opened by `HS_PROBE_MARK`; advanced to now. */
+/** @def HS_PROBE_COUNT(field)
+ *  @brief Increments a `hs::ProbeBreakdown` counter.
+ *  @param field Counter member to increment. */
+/** @def HS_PROBE_TICK()
+ *  @brief Adds the cost of two back-to-back cycle reads to
+ *         `hs::ProbeBreakdown::tick`. */
 #ifdef HS_PROBE_BREAKDOWN
 #define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
 #define HS_PROBE_SPAN(field, var)                                              \
@@ -313,6 +327,10 @@ private:
 #define HS_PROBE_TICK() ((void)0)
 #endif
 
+/** @def HS_PULLBACK_PROJECTION_COUNT(stmt)
+ *  @brief Pullback projection counter hook, compiled in only under
+ *         HS_PROFILE_PULLBACK_PROJECTION.
+ *  @param stmt Statement to run. */
 #ifdef HS_PROFILE_PULLBACK_PROJECTION
 #define HS_PULLBACK_PROJECTION_COUNT(stmt)                                     \
   do {                                                                         \
@@ -322,6 +340,17 @@ private:
 #define HS_PULLBACK_PROJECTION_COUNT(stmt) ((void)0)
 #endif
 
+/** @def HS_PLOT_COUNT(field)
+ *  @brief Increments a `hs::g_plot_counts` counter under HS_PLOT_COUNTS.
+ *  @param field `hs::PlotCounts` member. */
+/** @def HS_PLOT_ADD(field, value)
+ *  @brief Adds to a `hs::g_plot_counts` counter under HS_PLOT_COUNTS.
+ *  @param field `hs::PlotCounts` member.
+ *  @param value Amount to add. */
+/** @def HS_PLOT_MAX(field, value)
+ *  @brief Raises a `hs::g_plot_counts` high-water mark under HS_PLOT_COUNTS.
+ *  @param field `hs::PlotCounts` member.
+ *  @param value Candidate maximum, cast to `uint32_t`. */
 #ifdef HS_PLOT_COUNTS
 #define HS_PLOT_COUNT(field) (++hs::g_plot_counts.field)
 #define HS_PLOT_ADD(field, value) (hs::g_plot_counts.field += (value))
@@ -337,12 +366,23 @@ private:
 #define HS_PLOT_MAX(field, value) ((void)0)
 #endif
 
+/** @def HS_PLOT_RENDER_COUNT(field)
+ *  @brief Increments a `hs::g_plot_render_counts` counter under
+ *         HS_PROFILE_PLOT_RENDER_COUNTS.
+ *  @param field `hs::PlotRenderCounts` member. */
 #ifdef HS_PROFILE_PLOT_RENDER_COUNTS
 #define HS_PLOT_RENDER_COUNT(field) (++hs::g_plot_render_counts.field)
 #else
 #define HS_PLOT_RENDER_COUNT(field) ((void)0)
 #endif
 
+/** @def HS_PLOT_STALL_START(var)
+ *  @brief Declares a DWT stall sample under HS_PROFILE_PLOT_STALLS.
+ *  @param var Name of the declared `hs::DwtStallSample`. */
+/** @def HS_PLOT_STALL_STOP(field, var)
+ *  @brief Adds the stalls since @p var to a `hs::g_plot_stalls` bucket.
+ *  @param field `hs::PlotStalls` member.
+ *  @param var Sample declared by `HS_PLOT_STALL_START`. */
 #ifdef HS_PROFILE_PLOT_STALLS
 #define HS_PLOT_STALL_START(var)                                               \
   const hs::DwtStallSample var = hs::plot_stall_sample()
