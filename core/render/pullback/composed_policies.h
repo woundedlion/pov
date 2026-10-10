@@ -82,10 +82,9 @@ template <typename Family, typename Binding, bool TrackPath>
 struct SurfacePolicyFor;
 template <typename B, bool T>
 struct SurfacePolicyFor<SurfaceNoiseParams, B, T> {
-  using Type =
-      Pullback::Surface::CurlNoise<SurfaceProvider<B, SurfaceNoiseParams, T>,
-                                   math::NoiseBasis::SIMPLEX,
-                                   Pullback::Surface::Euler>;
+  using Type = Pullback::Surface::CurlNoise<
+      SurfaceProvider<B, SurfaceNoiseParams, T>, math::NoiseBasis::SIMPLEX,
+      Pullback::Surface::Euler, math::TangentLimit::SMOOTH>;
 };
 template <typename B, bool T>
 struct SurfacePolicyFor<DirectSurfaceParams, B, T> {

@@ -71,8 +71,8 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "lattice-melt";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "61022b59731fab1ec0646b1626bff40fc4e26966800c7c06369357d824f1b241";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "8ac39502f71557b9f81e1534c89e8e276e2262687e3a78672e7d8dd7237c5f8e";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "4cc1588e002b45e00fe137bebc0cf952efc4e9e37511338762801d6e43a04f96";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "24597f49745e42abd1c244bb6e5e78f9a738738c94272b7c1e228e4aeb87580e";
   static constexpr std::array<std::string_view, 2> PRESET_IDS{
       "open-curl",
       "dense-curl"

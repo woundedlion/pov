@@ -82,8 +82,9 @@ struct PathTracked<Warp::PolarChart<Provider, Mode, Harmonic>>
 template <typename Provider, math::NoiseBasis Basis, typename Envelope>
 struct PathTracked<Warp::VectorNoise<Provider, Basis, Envelope>>
     : PathTracked<Provider> {};
-template <typename Provider, math::NoiseBasis Basis, typename Integrator>
-struct PathTracked<Surface::CurlNoise<Provider, Basis, Integrator>>
+template <typename Provider, math::NoiseBasis Basis, typename Integrator,
+          math::TangentLimit Limit>
+struct PathTracked<Surface::CurlNoise<Provider, Basis, Integrator, Limit>>
     : PathTracked<Provider> {};
 template <typename Provider, math::NoiseBasis Basis>
 struct PathTracked<Surface::DirectNoise<Provider, Basis>>
@@ -188,8 +189,9 @@ struct PolicyResources<Warp::PolarChart<Provider, Mode, Harmonic>>
 template <typename Provider, math::NoiseBasis Basis, typename Envelope>
 struct PolicyResources<Warp::VectorNoise<Provider, Basis, Envelope>>
     : PolicyResources<Provider> {};
-template <typename Provider, math::NoiseBasis Basis, typename Integrator>
-struct PolicyResources<Surface::CurlNoise<Provider, Basis, Integrator>>
+template <typename Provider, math::NoiseBasis Basis, typename Integrator,
+          math::TangentLimit Limit>
+struct PolicyResources<Surface::CurlNoise<Provider, Basis, Integrator, Limit>>
     : PolicyResources<Provider> {};
 template <typename Provider, math::NoiseBasis Basis>
 struct PolicyResources<Surface::DirectNoise<Provider, Basis>>

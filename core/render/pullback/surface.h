@@ -228,24 +228,24 @@ direct_noise(const math::Vector &input, const FastNoiseLite &noise,
 
 __attribute__((always_inline)) inline math::Vector
 curl_field(const math::Vector &input, const FastNoiseLite &noise,
-           math::NoiseBasis basis, float scale,
+           math::NoiseBasis basis, math::TangentLimit limit, float scale,
            const math::Vector &loop_offset) {
   const math::Vector q =
       math::noise_sphere_coordinate(input, scale, loop_offset);
-  return math::sample_curl_tangent(noise, basis, q, input);
+  return math::sample_curl_tangent(noise, basis, q, input, limit);
 }
 
 __attribute__((always_inline)) inline SurfaceResult
 curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
-                   math::NoiseBasis basis, float scale,
-                   const math::Vector &loop_offset, float distance,
+                   math::NoiseBasis basis, math::TangentLimit limit,
+                   float scale, const math::Vector &loop_offset, float distance,
                    bool path_length_required) {
   const math::Vector first =
-      curl_field(input, noise, basis, scale, loop_offset);
+      curl_field(input, noise, basis, limit, scale, loop_offset);
   const math::Vector midpoint =
       math::sphere_exp_map_half_radian(input, 0.5f * distance * first);
   const math::Vector midpoint_field =
-      curl_field(midpoint, noise, basis, scale, loop_offset);
+      curl_field(midpoint, noise, basis, limit, scale, loop_offset);
   return finish_step(
       input,
       distance * math::parallel_transport(midpoint, input, midpoint_field),
@@ -254,23 +254,25 @@ curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
 
 HS_O3_FN inline SurfaceResult
 curl_noise(const math::Vector &input, const FastNoiseLite &noise,
-           math::NoiseBasis basis, Integrator integrator, float scale,
+           math::NoiseBasis basis, Integrator integrator,
+           math::TangentLimit limit, float scale,
            const math::Vector &loop_offset, float strength,
            bool path_length_required) {
   if (strength == 0.0f)
     return {input, 0.0f};
   if (integrator == Integrator::EULER)
     return finish_step(
-        input, strength * curl_field(input, noise, basis, scale, loop_offset),
+        input,
+        strength * curl_field(input, noise, basis, limit, scale, loop_offset),
         path_length_required);
   if (integrator == Integrator::MIDPOINT)
-    return curl_midpoint_step(input, noise, basis, scale, loop_offset, strength,
-                              path_length_required);
+    return curl_midpoint_step(input, noise, basis, limit, scale, loop_offset,
+                              strength, path_length_required);
   const SurfaceResult first =
-      curl_midpoint_step(input, noise, basis, scale, loop_offset,
+      curl_midpoint_step(input, noise, basis, limit, scale, loop_offset,
                          0.5f * strength, path_length_required);
   SurfaceResult second =
-      curl_midpoint_step(first.sphere, noise, basis, scale, loop_offset,
+      curl_midpoint_step(first.sphere, noise, basis, limit, scale, loop_offset,
                          0.5f * strength, path_length_required);
   second.path_length += first.path_length;
   return second;
@@ -324,7 +326,8 @@ struct DirectNoise : ApproximationDefaults {
  * noise(frame), scale(frame), strength(frame), prepare(frame),
  * path_length_required(frame) accessors.
  */
-template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy>
+template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy,
+          math::TangentLimit Limit>
 struct CurlNoise : ApproximationDefaults {
   using FrameState = typename State::FrameState;
 
@@ -354,7 +357,7 @@ struct CurlNoise : ApproximationDefaults {
                                       const FrameState &frame,
                                       const Prepared &prepared) {
     return curl_noise(input, State::noise(frame), Basis,
-                      IntegratorPolicy::VALUE, State::scale(frame),
+                      IntegratorPolicy::VALUE, Limit, State::scale(frame),
                       prepared.loop_offset, State::strength(frame),
                       State::path_length_required(frame));
   }

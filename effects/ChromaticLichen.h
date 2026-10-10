@@ -63,8 +63,8 @@ public:
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "chromatic-lichen";
-  static constexpr std::string_view DESCRIPTOR_DIGEST = "86311a6f7c59e89dc9aaec7ffa7929cd249d40d08408873e094d96a4b9fdcf29";
-  static constexpr std::string_view PRESET_BANK_DIGEST = "8a6c7cda1ac938cd2f39211a251841a586ce134ee750683b3c1a9d2d2d524f63";
+  static constexpr std::string_view DESCRIPTOR_DIGEST = "578df4dfb347b2bf93b8ac4af40e20c6ff087f3647072dca692878515507b558";
+  static constexpr std::string_view PRESET_BANK_DIGEST = "7c7a8a2db55ea545c194c7aace61c4b0aab2aac22be649f38d6d6c78c789ad71";
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "chromatic-lichen"
   };

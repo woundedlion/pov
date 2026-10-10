@@ -31,10 +31,15 @@ inline constexpr const char *SURFACE_INTEGRATOR_IDS[] = {"euler", "midpoint",
 static_assert(std::size(SURFACE_INTEGRATOR_IDS) ==
               static_cast<size_t>(Surface::Integrator::MIDPOINT_2X) + 1);
 
+inline constexpr const char *TANGENT_LIMIT_IDS[] = {"smooth", "clamp"};
+static_assert(std::size(TANGENT_LIMIT_IDS) ==
+              static_cast<size_t>(math::TangentLimit::CLAMP) + 1);
+
 /** @brief Parameter family of sphere.displace.curl.v2. */
 struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
   uint8_t basis = static_cast<uint8_t>(math::NoiseBasis::SIMPLEX);
   uint8_t integrator = static_cast<uint8_t>(Surface::Integrator::EULER);
+  uint8_t limit = static_cast<uint8_t>(math::TangentLimit::SMOOTH);
 
   static constexpr auto TOPOLOGY = std::array{
       TopologyField<CurlDisplaceParams>{
@@ -43,11 +48,14 @@ struct CurlDisplaceParams : Surface::SurfaceNoiseParams {
       TopologyField<CurlDisplaceParams>{
           "integrator", &CurlDisplaceParams::integrator, SURFACE_INTEGRATOR_IDS,
           static_cast<uint8_t>(Surface::Integrator::EULER)},
+      TopologyField<CurlDisplaceParams>{
+          "limit", &CurlDisplaceParams::limit, TANGENT_LIMIT_IDS,
+          static_cast<uint8_t>(math::TangentLimit::SMOOTH)},
   };
 };
 static_assert(field_ids_unique<CurlDisplaceParams>());
 static_assert(appended_block_size_matches<CurlDisplaceParams,
-                                          Surface::SurfaceNoiseParams, 2>(),
+                                          Surface::SurfaceNoiseParams, 3>(),
               "appended parameter block must have the expected rounded size");
 static_assert(field_defaults_in_range<CurlDisplaceParams>());
 
@@ -58,7 +66,7 @@ struct PreparedDisplace {
   Surface::PreparedLoop loop;
 };
 
-/** @brief SPHERE endomorphism: the length-clamped curl-noise displacement. */
+/** @brief SPHERE endomorphism: the length-limited curl-noise displacement. */
 struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
   static constexpr const char *ID = "sphere.displace.curl.v2";
   static constexpr const char *NAME = "Curl Displace";
@@ -74,17 +82,19 @@ struct DisplaceCurl : PhaseClockModel<NoisePhaseState> {
     HS_CHECK(params.integrator <=
                  static_cast<uint8_t>(Surface::Integrator::MIDPOINT_2X),
              "sphere.displace.curl: invalid integrator");
+    HS_CHECK(params.limit <= static_cast<uint8_t>(math::TangentLimit::CLAMP),
+             "sphere.displace.curl: invalid limit");
     return {&state.noise, Surface::prepare(state.phase)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &params, const Prepared &prepared) {
     return Kernel::displace(
-        input,
-        Surface::curl_noise(input.dir, *prepared.noise,
-                            static_cast<math::NoiseBasis>(params.basis),
-                            static_cast<Surface::Integrator>(params.integrator),
-                            params.scale, prepared.loop.loop_offset,
-                            params.strength, true));
+        input, Surface::curl_noise(
+                   input.dir, *prepared.noise,
+                   static_cast<math::NoiseBasis>(params.basis),
+                   static_cast<Surface::Integrator>(params.integrator),
+                   static_cast<math::TangentLimit>(params.limit), params.scale,
+                   prepared.loop.loop_offset, params.strength, true));
   }
 };
 
