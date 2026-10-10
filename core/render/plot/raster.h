@@ -365,6 +365,56 @@ HS_HOT_INLINE inline bool can_reuse_step(const SamplePT &sample, float step,
 }
 
 /**
+ * @brief Arc-fraction window inside which rasterize shades and plots samples.
+ * @details A window that does not narrow [0, 1] admits every sample. A window
+ * ending at or past t = 1 has no upper bound: replay can overshoot t = 1 by an
+ * ULP.
+ */
+class PlotWindow {
+public:
+  /**
+   * @param t_start Lower bound, RasterOptions::plot_t_start.
+   * @param t_end Upper bound, RasterOptions::plot_t_end.
+   */
+  PlotWindow(float t_start, float t_end)
+      : start(t_start),
+        hi(t_end < 1.0f ? t_end : std::numeric_limits<float>::infinity()),
+        active(t_start > 0.0f || t_end < 1.0f),
+        start_vertex(!active || (start <= 0.0f && hi >= 0.0f)),
+        end_vertex(!active || (start <= 1.0f && hi >= 1.0f)) {}
+
+  /** @brief True when the window narrows [0, 1]. */
+  HS_HOT_INLINE bool is_active() const { return active; }
+  /** @brief True when a sample at @p t is plotted. */
+  HS_HOT_INLINE bool contains(float t) const {
+    return !active || (t >= start && t <= hi);
+  }
+  /** @brief True when a sample at @p t lies strictly outside an active window. */
+  HS_HOT_INLINE bool excludes(float t) const {
+    return active && (t < start || t > hi);
+  }
+  /** @brief True when the segment's start vertex, t = 0, is plotted. */
+  HS_HOT_INLINE bool plots_start() const { return start_vertex; }
+  /** @brief True when the segment's end vertex, t = 1, is plotted. */
+  HS_HOT_INLINE bool plots_end() const { return end_vertex; }
+  /** @brief True when the window opens at or before t = 0. */
+  HS_HOT_INLINE bool opens_at_start() const { return !active || start <= 0.0f; }
+  /** @brief True when the window closes at or past t = 1. */
+  HS_HOT_INLINE bool closes_at_end() const { return !active || hi >= 1.0f; }
+  /** @brief True when vertex @p k of a one-dot edge falls outside the window. */
+  HS_HOT_INLINE bool skips_vertex(size_t k) const {
+    return active && ((k == 0 && !plots_start()) || (k == 1 && !plots_end()));
+  }
+
+private:
+  float start;
+  float hi;
+  bool active;
+  bool start_vertex;
+  bool end_vertex;
+};
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -462,17 +512,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   size_t count = close_loop ? len : len - 1;
   HS_CHECK(edge_flags == nullptr || opts.projection.flags().size() == count,
            "edge_flags length must match the rasterized edge count");
-  const float plot_t_start = opts.plot_t_start;
-  const float plot_t_end = opts.plot_t_end;
-  const bool plot_window = plot_t_start > 0.0f || plot_t_end < 1.0f;
-  // Replay can overshoot t=1 by an ULP.
-  const float plot_t_hi =
-      plot_t_end < 1.0f ? plot_t_end : std::numeric_limits<float>::infinity();
-  const bool PLOT_START =
-      !plot_window || (plot_t_start <= 0.0f && plot_t_hi >= 0.0f);
-  const bool PLOT_END =
-      !plot_window || (plot_t_start <= 1.0f && plot_t_hi >= 1.0f);
-  HS_CHECK(!plot_window || count == 1,
+  const PlotWindow window(opts.plot_t_start, opts.plot_t_end);
+  HS_CHECK(!window.is_active() || count == 1,
            "a plot window requires a single-segment polyline");
   HS_PLOT_ADD(edges, count);
   // scratch_arena_a is a LIFO bump allocator; a raw pointer into it must not
@@ -516,7 +557,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
-      if (!should_omit && PLOT_START) {
+      if (!should_omit && window.plots_start()) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
         arc_uv.stamp(f, 0.0f);
@@ -575,13 +616,13 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // several pixels on a steep/near-polar segment.
     if (total_dist <= first_step) {
       HS_PLOT_COUNT(one_dot);
-      if (PLOT_START) {
+      if (window.plots_start()) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, curr);
         arc_uv.stamp(f, 0.0f);
         shade_and_plot(pipeline, canvas, fragment_shader, curr.pos, f);
       }
-      if (!close_loop && is_last_segment && !omit_end && PLOT_END) {
+      if (!close_loop && is_last_segment && !omit_end && window.plots_end()) {
         Fragment fl;
         seed_fragment<INTERPOLATE_REGISTERS>(fl, next);
         arc_uv.stamp(fl, total_dist);
@@ -638,8 +679,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       while (current_dist < total_dist) {
         math::Vector p;
         unit_position(p);
-        if (!plot_window ||
-            (current_t >= plot_t_start && current_t <= plot_t_hi)) {
+        if (window.contains(current_t)) {
           Fragment f;
           lerp_fragment<INTERPOLATE_REGISTERS>(f, curr, next, current_t, p);
           arc_uv.stamp(f, current_dist);
@@ -708,7 +748,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         }
       }
       if (!close_loop && is_last_segment && !omit_end &&
-          (!plot_window || plot_t_hi >= 1.0f)) {
+          window.closes_at_end()) {
         Fragment f;
         seed_fragment<INTERPOLATE_REGISTERS>(f, next);
         arc_uv.stamp(f, total_dist);
@@ -761,7 +801,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
 
     // Normalize interpolated positions before vector_to_pixel's acos(v.y).
     HS_PROFILE_DEEP(plot_seg_draw);
-    if (!plot_window || plot_t_start <= 0.0f) {
+    if (window.opens_at_start()) {
       HS_PLOT_STALL_START(replay_start);
       HS_PLOT_COUNT(replay_samples);
       HS_PLOT_COUNT(normalizations);
@@ -783,7 +823,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       const bool terminal = !omit_last && j == loop_limit - 1;
       float t = replay_t(terminal, current_dist, total_dist);
 
-      if (plot_window && (t < plot_t_start || t > plot_t_hi))
+      if (window.excludes(t))
         continue;
 
       // `t` follows the rendered arc length. Under a planar basis
@@ -808,7 +848,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // Emits one shader-run dot for points[k]; the precomputed projection is
   // consumed only when no world stage would lift it back to a world vector.
   auto plot_dot = [&](const Fragment &src, size_t k) {
-    if (plot_window && ((k == 0 && !PLOT_START) || (k == 1 && !PLOT_END)))
+    if (window.skips_vertex(k))
       return;
     Fragment f;
     seed_fragment<INTERPOLATE_REGISTERS>(f, src);
