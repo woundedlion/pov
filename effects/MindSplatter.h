@@ -128,7 +128,8 @@ public:
     draw_particles(canvas);
   }
 
-  /** @brief Shared registration, validation and interpolation descriptions. */
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
   static constexpr auto parameter_fields() {
     return std::tuple{
         Control::Field<Params, BaseMesh>{

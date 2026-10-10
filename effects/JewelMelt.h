@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file JewelMelt.h
+ * @brief Composed pullback effect:
+ *        an octahedral jewel lattice rippling through curl noise.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -53,6 +59,7 @@ struct JewelMeltSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `JewelMeltSpec`.
 using JewelMeltParams = Pullback::ParamsFor<JewelMeltSpec>;
 
 /**

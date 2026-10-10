@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file AlienBrain.h
+ * @brief Composed pullback effect:
+ *        glitch-folded grids pulled through an animated wave shear.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -52,6 +58,7 @@ struct AlienBrainSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `AlienBrainSpec`.
 using AlienBrainParams = Pullback::ParamsFor<AlienBrainSpec>;
 
 /**
@@ -160,6 +167,9 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn preset(size_t index)
+   *  @param index Preset number; indexes `PRESET_IDS`.
+   *  @return The preset's parameters and departure policy. */
   /** @fn initial_params()
    *  @brief Parameters of the first preset.
    *  @return The preset-0 `Params`. */

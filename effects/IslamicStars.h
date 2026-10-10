@@ -73,7 +73,9 @@ public:
   /** Bookkeeping only; each shape's segue schedules the next advance. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 192;
 
-  /** @brief Whether every parameter lies inside its slider range. */
+  /** @brief Whether every parameter lies inside its slider range.
+   *  @param p Parameter set to check.
+   *  @return True if all fields are in range. */
   static constexpr bool valid_params(const Params &p) {
     return p.burst_size >= 1 && p.burst_size <= BURST_MAX &&
            p.ripple_duration >= RIPPLE_DURATION_MIN &&
@@ -432,7 +434,8 @@ private:
   /** @brief Every preset keeps the live slider values. */
   Params preset_params(size_t) const { return params; }
 
-  /** @brief Restarts the shape sequence on a manual or synchronized change. */
+  /** @brief Restarts the shape sequence on a manual or synchronized change.
+   *  @param change The committed preset change. */
   HS_COLD_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
     if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC)

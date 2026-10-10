@@ -5,6 +5,12 @@
  */
 #pragma once
 
+/**
+ * @file KaleidoscopeStainedGlass.h
+ * @brief Composed pullback effect:
+ *        a vector-noise grid refracted across dodecahedral facets.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -54,6 +60,7 @@ struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `KaleidoscopeStainedGlassSpec`.
 using KaleidoscopeStainedGlassParams =
     Pullback::ParamsFor<KaleidoscopeStainedGlassSpec>;
 
@@ -144,4 +151,6 @@ public:
   }
   // clang-format on
   // End generated params.
+  /** @fn initial_params()
+   *  @return The preset-0 `Params`. */
 };

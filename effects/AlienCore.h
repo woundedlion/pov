@@ -5,6 +5,11 @@
  */
 #pragma once
 
+/**
+ * @file AlienCore.h
+ * @brief Composed pullback effect: a mirrored grid folded by the glitch lens.
+ */
+
 #include <array>
 #include <string_view>
 
@@ -53,6 +58,7 @@ struct AlienCoreSpec : Pullback::Spec {
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
+/// Parameter block derived from `AlienCoreSpec`.
 using AlienCoreParams = Pullback::ParamsFor<AlienCoreSpec>;
 
 /**
