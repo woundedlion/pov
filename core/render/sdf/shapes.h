@@ -31,16 +31,8 @@ struct PlanarPolygon {
   float sector;       /**< Angular width of one polygon sector. */
   float reciprocal_sector; /**< Reciprocal angular sector width. */
   float apothem;           /**< Precomputed inradius (radians). */
-  /** @var r_val
-   *  Length of the axis' XZ projection. */
-  /// y-component of the axis.
-  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
-  /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Sine of the circumradius. */
-  /// Minimum polar angle of the vertical band (radians).
-  float phi_min,
-      phi_max; /**< Maximum polar angle of the vertical band (radians). */
-  float sign;  /**< +1 fills the polygon, -1 its complement. */
+  CapBounds cap; /**< Circumscribed cap: axis projection, row band, radius. */
+  float sign;    /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Polygon renders as a filled region. */
 
@@ -68,14 +60,7 @@ struct PlanarPolygon {
     reciprocal_sector = static_cast<float>(sides) / math::TWO_PI_F;
     apothem = circumradius * cosf(math::PI_F / sides);
 
-    CapBounds cb = cap_bounds(basis.v, circumradius, invert);
-    ny = cb.ny;
-    r_val = cb.r_val;
-    alpha_angle = cb.alpha_angle;
-    phi_min = cb.phi_min;
-    phi_max = cb.phi_max;
-    cos_cap = cb.cos_radius;
-    sin_cap = cb.sin_radius;
+    cap = cap_bounds(basis.v, circumradius, invert);
   }
 
   /**
@@ -91,7 +76,7 @@ struct PlanarPolygon {
    * @return Row bounds covering the polygon plus margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(phi_min, phi_max);
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
   }
 
   /**
@@ -108,8 +93,9 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
-                                     alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
+                                     cap.ny, cap.r_val, cap.alpha_angle, y,
+                                     out);
   }
 
   /**
@@ -164,16 +150,8 @@ struct SphericalPolygon {
   float circumradius; /**< Angular distance from center to vertex (radians). */
   float edge_nv;      /**< Edge normal dotted with the center axis. */
   float edge_nu;      /**< Edge normal dotted with the u-axis. */
-  /// Minimum polar angle of the vertical band (radians).
-  float phi_min,
-      phi_max; /**< Maximum polar angle of the vertical band (radians). */
-  /** @var r_val
-   *  Length of the axis' XZ projection. */
-  /// y-component of the axis.
-  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
-  /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Sine of the circumradius. */
-  float sign;             /**< +1 fills the polygon, -1 its complement. */
+  CapBounds cap; /**< Circumscribed cap: axis projection, row band, radius. */
+  float sign;    /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Polygon renders as a filled region. */
 
@@ -231,14 +209,7 @@ struct SphericalPolygon {
     edge_nv = math::dot(en, basis.v);
     edge_nu = math::dot(en, basis.u);
 
-    CapBounds cb = cap_bounds(basis.v, circumradius, invert);
-    ny = cb.ny;
-    r_val = cb.r_val;
-    alpha_angle = cb.alpha_angle;
-    phi_min = cb.phi_min;
-    phi_max = cb.phi_max;
-    cos_cap = cb.cos_radius;
-    sin_cap = cb.sin_radius;
+    cap = cap_bounds(basis.v, circumradius, invert);
   }
 
   /**
@@ -255,7 +226,7 @@ struct SphericalPolygon {
    * @return Row bounds covering the polygon plus margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(phi_min, phi_max);
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
   }
 
   /**
@@ -272,8 +243,9 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
-                                     alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
+                                     cap.ny, cap.r_val, cap.alpha_angle, y,
+                                     out);
   }
 
   /**
@@ -329,7 +301,7 @@ struct SphericalPolygon {
 
     float local = centered_sector_angle(azimuth, sector, reciprocal_sector);
     float dp = edge_nv * cos_p + edge_nu * math::fast_cosf(local) * sin_p;
-    float disc = sin_p * cos_cap - cos_p * sin_cap;
+    float disc = sin_p * cap.cos_radius - cos_p * cap.sin_radius;
     return sign * fmaxf(hs::clamp(dp, -cos_p, 1.0f), disc);
   }
 };
@@ -353,17 +325,8 @@ struct Star {
   /// Edge plane normal x.
   float edge_nx, edge_ny, plane_d; /**< Edge plane offset. */
   float circumradius; /**< Angular radius from center to point tip (radians). */
-
-  /** @var r_val
-   *  Length of the axis' XZ projection. */
-  /// y-component of the axis.
-  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
-  /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Sine of the circumradius. */
-  /// Minimum polar angle of the vertical band (radians).
-  float phi_min,
-      phi_max; /**< Maximum polar angle of the vertical band (radians). */
-  float sign;  /**< +1 fills the star, -1 its complement. */
+  CapBounds cap; /**< Circumscribed cap: axis projection, row band, radius. */
+  float sign;    /**< +1 fills the star, -1 its complement. */
 
   /**
    * @brief Builds a star from its basis, radius, point count, and phase.
@@ -401,14 +364,7 @@ struct Star {
     plane_d = -(edge_nx * v_t);
     circumradius = outer_radius;
 
-    CapBounds cb = cap_bounds(basis.v, outer_radius, invert);
-    ny = cb.ny;
-    r_val = cb.r_val;
-    alpha_angle = cb.alpha_angle;
-    phi_min = cb.phi_min;
-    phi_max = cb.phi_max;
-    cos_cap = cb.cos_radius;
-    sin_cap = cb.sin_radius;
+    cap = cap_bounds(basis.v, outer_radius, invert);
   }
 
   /**
@@ -424,7 +380,7 @@ struct Star {
    * @return Row bounds covering the star plus margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(phi_min, phi_max);
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
   }
 
   /**
@@ -441,8 +397,9 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
-                                     alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
+                                     cap.ny, cap.r_val, cap.alpha_angle, y,
+                                     out);
   }
 
   /**
@@ -498,16 +455,8 @@ struct Flower {
                          (radians). */
   float apothem;           /**< Petal inradius offset (PI - outer radius). */
   math::Vector antipode;   /**< Antipode of the flower axis (scan origin). */
-  /** @var r_val
-   *  Length of the antipode's XZ projection. */
-  /// y-component of the antipode.
-  float ny, r_val, alpha_angle; /**< Azimuth of the antipode's XZ projection. */
-  /// Cosine of the circumradius.
-  float cos_cap, sin_cap; /**< Sine of the circumradius. */
-  /// Minimum polar angle of the vertical band (radians).
-  float phi_min,
-      phi_max; /**< Maximum polar angle of the vertical band (radians). */
-  float sign;  /**< +1 fills the flower, -1 its complement. */
+  CapBounds cap; /**< Cap about the antipode: projection, row band, radius. */
+  float sign;    /**< +1 fills the flower, -1 its complement. */
   static constexpr bool is_solid =
       true; /**< Flower renders as a filled region. */
 
@@ -537,14 +486,7 @@ struct Flower {
     circumradius = outer;
     antipode = -basis.v;
 
-    CapBounds cb = cap_bounds(antipode, circumradius, invert);
-    ny = cb.ny;
-    r_val = cb.r_val;
-    alpha_angle = cb.alpha_angle;
-    phi_min = cb.phi_min;
-    phi_max = cb.phi_max;
-    cos_cap = cb.cos_radius;
-    sin_cap = cb.sin_radius;
+    cap = cap_bounds(antipode, circumradius, invert);
   }
 
   /**
@@ -560,7 +502,7 @@ struct Flower {
    * @return Row bounds covering the flower plus margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    return phi_bounds_to_rows<H>(phi_min, phi_max);
+    return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
   }
 
   /**
@@ -578,8 +520,9 @@ struct Flower {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    return emit_padded_cap_row<W, H>(sign, cos_cap, sin_cap, ny, r_val,
-                                     alpha_angle, y, out);
+    return emit_padded_cap_row<W, H>(sign, cap.cos_radius, cap.sin_radius,
+                                     cap.ny, cap.r_val, cap.alpha_angle, y,
+                                     out);
   }
 
   /**
