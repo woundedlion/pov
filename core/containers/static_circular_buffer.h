@@ -37,7 +37,9 @@ template <typename T, size_t N> class StaticCircularBuffer {
 public:
   using iterator = Iterator;
   using const_iterator = ConstIterator;
+  /** @brief Mutable back-to-front iterator. */
   using reverse_iterator = std::reverse_iterator<Iterator>;
+  /** @brief Read-only back-to-front iterator. */
   using const_reverse_iterator = std::reverse_iterator<ConstIterator>;
   using value_type = T;
   using size_type = size_t;
