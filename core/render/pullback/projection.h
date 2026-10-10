@@ -14,7 +14,8 @@
 
 namespace Pullback {
 
-/** @brief Canonical base orientation of a projection. */
+/** @brief Canonical base orientation of a projection.
+    @return Rotation taking -Z onto -Y. */
 inline math::Quaternion projection_base_orientation() {
   return math::make_rotation(math::Vector(0, 0, -1), math::Vector(0, -1, 0));
 }
@@ -34,6 +35,7 @@ struct ProjectionParams {
   float central_meridian = 0.0f; /**< Central meridian handed to projections
                                       that take one, in radians. */
 
+  /** @brief Per-parameter id, member, label, range, curve and gate. */
   static constexpr auto FIELDS = std::array{
       Field<ProjectionParams>{"singularity-fade",
                               &ProjectionParams::singularity_fade,
@@ -57,8 +59,11 @@ struct ProjectionParams {
 static_assert(field_ids_unique<ProjectionParams>());
 static_assert(field_defaults_in_range<ProjectionParams>());
 
+/** @brief Half of the sphere a `Gnomonic` projection images; FOLDED
+    overlays both halves. */
 enum class GnomonicHemisphere : uint8_t { FOLDED, FRONT, BACK };
 
+/** @brief `ProjectionProvenance::flags` bit set by folded projections. */
 inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
 /** Render-space divisor floor that caps gnomonic coordinates near 1000. */
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
@@ -70,7 +75,8 @@ inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
  *                             regular locus.
  * @param singularity_fade Attenuation sharpness: 1 reaches the regular locus;
  *                         20 confines the fade to a narrow cap.
- */
+  * @return Weight in [0, 1]: 0 at the singularity, 1 on the regular locus.
+  */
 __attribute__((always_inline)) inline float
 singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
                         float singularity_fade) {
@@ -79,12 +85,32 @@ singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
   return scaled_distance_sq / (scaled_distance_sq + singular_distance_sq);
 }
 
+/**
+ * @brief Singularity weight of the equirectangular projection, singular at the
+ *        y = +-1 poles.
+ * @param input Unit direction in the projection frame.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @return Weight in [0, 1]; 0 at the poles.
+ */
 __attribute__((always_inline)) inline float
 equirectangular_weight(const math::Vector &input, float singularity_fade) {
   return singularity_attenuation(input.x * input.x + input.z * input.z,
                                  input.y * input.y, singularity_fade);
 }
 
+/**
+ * @brief Singularity weight of the Peirce projection, singular at the four
+ *        equatorial points midway between the meridian-rotated x and z axes.
+ * @param input Unit direction in the projection frame.
+ * @param meridian_cos Cosine of the central meridian.
+ * @param meridian_sin Sine of the central meridian.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @param folded Also fade toward the |x| = |z| fold diagonals of the y < 0
+ *        hemisphere (DIAMOND and SQUARE layouts).
+ * @return Weight in [0, 1]; 0 at a singularity.
+ */
 __attribute__((always_inline)) inline float
 peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
               float singularity_fade, bool folded) {
@@ -102,7 +128,12 @@ peirce_weight(const math::Vector &input, float meridian_cos, float meridian_sin,
       sin_distance_sq, fmaxf(0.0f, 1.0f - sin_distance_sq), singularity_fade);
 }
 
-/** @brief `peirce_weight` for the folded (DIAMOND/SQUARE) layouts. */
+/** @brief `peirce_weight` for the folded (DIAMOND/SQUARE) layouts.
+    @param input Unit direction in the projection frame.
+    @param central_meridian Central meridian, in radians.
+    @param singularity_fade Attenuation sharpness, as in
+           `singularity_attenuation`.
+    @return Weight in [0, 1]; 0 at a singularity. */
 __attribute__((always_inline)) inline float
 peirce_folded_weight(const math::Vector &input, float central_meridian,
                      float singularity_fade) {
@@ -110,6 +141,13 @@ peirce_folded_weight(const math::Vector &input, float central_meridian,
                        singularity_fade, true);
 }
 
+/**
+ * @brief Stereographic projection, singular at the +Y pole.
+ * @param input Unit direction in the projection frame.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @return Plane coordinates and provenance; edge distance is 1 - y.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 stereographic(const math::Vector &input, float singularity_fade) {
   // Fade distance is the sphere-space measure 1 - y.
@@ -127,6 +165,13 @@ stereographic(const math::Vector &input, float singularity_fade) {
                projections::ProjectionTrait::SINGULAR)}};
 }
 
+/**
+ * @brief Sinusoidal projection folded about the central meridian.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Fold meridian, in radians.
+ * @return Plane coordinates and provenance; `region_id` is 1 on the
+ *         negative-longitude half. No edge distance.
+ */
 #if defined(__EMSCRIPTEN__)
 __attribute__((noinline))
 #else
@@ -148,6 +193,14 @@ inline ProjectionResult folded_sinusoidal(const math::Vector &input,
                projections::ProjectionTrait::FOLDED)}};
 }
 
+/**
+ * @brief Equirectangular projection cut at the antimeridian.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Longitude at the image centre, in radians.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @return Plane coordinates and provenance; edge distance is pi - |re|.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 equirectangular(const math::Vector &input, float central_meridian,
                 float singularity_fade) {
@@ -165,6 +218,16 @@ equirectangular(const math::Vector &input, float central_meridian,
                projections::ProjectionTrait::SINGULAR)}};
 }
 
+/**
+ * @brief Gnomonic projection (x / y, z / y), singular on the y = 0 circle.
+ * @param input Unit direction in the projection frame; |y| is floored at
+ *        `GNOMONIC_AXIS_EPS`.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @param hemisphere Half kept; `domain_coverage` is 0 outside it.
+ * @return Plane coordinates and provenance; `region_id` and `component_id`
+ *         are 1 for y < 0.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 gnomonic(const math::Vector &input, float singularity_fade,
          GnomonicHemisphere hemisphere) {
@@ -197,6 +260,14 @@ gnomonic(const math::Vector &input, float singularity_fade,
            .domain_coverage = in_domain ? 1.0f : 0.0f}};
 }
 
+/**
+ * @brief Wraps a kernel result as a ProjectionResult.
+ * @param result Kernel output.
+ * @param coordinate_scale Factor applied to the coordinates; its magnitude
+ *        scales `fade_edge_distance`.
+ * @param value_weight Weight stored in the provenance.
+ * @return The scaled result with the kernel's provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 from_kernel(const projections::ProjectionKernelResult &result,
             float coordinate_scale, float value_weight = 1.0f) {
@@ -213,6 +284,14 @@ from_kernel(const projections::ProjectionKernelResult &result,
            .edge_class = result.edge_class}};
 }
 
+/**
+ * @brief Bonne pseudoconical equal-area projection.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Longitude of the image axis, in radians.
+ * @param standard_parallel Signed standard parallel, in radians.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 bonne(const math::Vector &input, float central_meridian,
       float standard_parallel, float coordinate_scale) {
@@ -221,6 +300,21 @@ bonne(const math::Vector &input, float central_meridian,
       coordinate_scale);
 }
 
+/**
+ * @brief Peirce quincuncial projection with a precomputed meridian rotation.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Longitude of the image axis, in radians.
+ * @param layout A `projections::PeirceLayout` value.
+ * @param layout_scroll Fraction of a period to translate a strip layout by.
+ * @param edge_distance_required Measure `fade_edge_distance`; when false it
+ *        is `projections::NO_EDGE_DISTANCE`.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @param meridian_cos Cosine of @p central_meridian.
+ * @param meridian_sin Sine of @p central_meridian.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 peirce(const math::Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
@@ -238,6 +332,19 @@ peirce(const math::Vector &input, float central_meridian, uint8_t layout,
                   static_cast<uint8_t>(projections::PeirceLayout::SQUARE)));
 }
 
+/**
+ * @brief Peirce quincuncial projection.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Longitude of the image axis, in radians.
+ * @param layout A `projections::PeirceLayout` value.
+ * @param layout_scroll Fraction of a period to translate a strip layout by.
+ * @param edge_distance_required Measure `fade_edge_distance`; when false it
+ *        is `projections::NO_EDGE_DISTANCE`.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 peirce(const math::Vector &input, float central_meridian, uint8_t layout,
        float layout_scroll, bool edge_distance_required, float coordinate_scale,
@@ -247,6 +354,15 @@ peirce(const math::Vector &input, float central_meridian, uint8_t layout,
                 cosf(central_meridian), sinf(central_meridian));
 }
 
+/**
+ * @brief Approximate square-layout Peirce projection at a zero central
+ *        meridian.
+ * @param input Unit direction in the projection frame.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @param singularity_fade Attenuation sharpness, as in
+ *        `singularity_attenuation`.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 peirce_fast_square(const math::Vector &input, float coordinate_scale,
                    float singularity_fade) {
@@ -263,6 +379,15 @@ concept FrameProvider = Detail::ProviderFor<State, Binding> &&
                           } -> std::same_as<const math::Quaternion &>;
                         };
 
+/**
+ * @brief Airocean icosahedral net.
+ * @param input Unit direction in the projection frame.
+ * @param central_meridian Longitude of the net's axis, in radians.
+ * @param horizontal Turn the finished net a quarter turn.
+ * @param edge_distance_required Measure the per-edge cut distances.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 airocean(const math::Vector &input, float central_meridian, bool horizontal,
          bool edge_distance_required, float coordinate_scale) {
@@ -272,6 +397,16 @@ airocean(const math::Vector &input, float central_meridian, bool horizontal,
       coordinate_scale);
 }
 
+/**
+ * @brief Airocean icosahedral net with a precomputed meridian rotation.
+ * @param input Unit direction in the projection frame.
+ * @param horizontal Turn the finished net a quarter turn.
+ * @param edge_distance_required Measure the per-edge cut distances.
+ * @param coordinate_scale Factor applied to the plane coordinates.
+ * @param meridian_cos Cosine of the central meridian.
+ * @param meridian_sin Sine of the central meridian.
+ * @return Plane coordinates and provenance.
+ */
 __attribute__((always_inline)) inline ProjectionResult
 airocean(const math::Vector &input, bool horizontal,
          bool edge_distance_required, float coordinate_scale,
@@ -285,10 +420,18 @@ airocean(const math::Vector &input, bool horizontal,
 /** @brief Bonne pseudoconical equal-area projection; `North` picks the sign of
     the standard parallel, and so the hemisphere the cone opens toward. */
 template <typename State, bool North> struct Bonne : ApproximationDefaults {
+  /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, central meridian, standard parallel and
+   *        coordinate scale.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -298,11 +441,22 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
         { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     const float hemisphere = North ? 1.0f : -1.0f;
@@ -315,10 +469,17 @@ template <typename State, bool North> struct Bonne : ApproximationDefaults {
 /** @brief Stereographic projection: conformal, with one singular pole the
     singularity fade attenuates. */
 template <typename State> struct Stereographic : ApproximationDefaults {
+  /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate and singularity fade.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -326,11 +487,22 @@ template <typename State> struct Stereographic : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     return stereographic(input, State::singularity_fade(frame));
@@ -341,9 +513,15 @@ template <typename State> struct Stereographic : ApproximationDefaults {
     meridian: both hemispheres share one image, and there is no singular locus
     to attenuate. */
 template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate and central meridian.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -351,11 +529,22 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
         { State::central_meridian(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     return folded_sinusoidal(input, State::central_meridian(frame));
@@ -365,10 +554,17 @@ template <typename State> struct FoldedSinusoidal : ApproximationDefaults {
 /** @brief Equirectangular projection: cut at the antimeridian, with both
     poles attenuated by the singularity fade. */
 template <typename State> struct Equirectangular : ApproximationDefaults {
+  /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, central meridian and singularity fade.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -377,11 +573,22 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     return equirectangular(input, State::central_meridian(frame),
@@ -393,10 +600,17 @@ template <typename State> struct Equirectangular : ApproximationDefaults {
     circle; `Hemisphere` folds the two halves together or keeps one. */
 template <typename State, GnomonicHemisphere Hemisphere>
 struct Gnomonic : ApproximationDefaults {
+  /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate and singularity fade.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -404,11 +618,22 @@ struct Gnomonic : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     return gnomonic(input, State::singularity_fade(frame), Hemisphere);
@@ -417,9 +642,14 @@ struct Gnomonic : ApproximationDefaults {
 
 /** @brief Central-meridian rotation prepared once per frame. */
 struct PreparedMeridian {
-  float cosine;
-  float sine;
+  float cosine; ///< Cosine of the central meridian.
+  float sine;   ///< Sine of the central meridian.
 
+  /**
+   * @brief Prepares the rotation for one central meridian.
+   * @param angle Central meridian, in radians.
+   * @return Cosine and sine of @p angle.
+   */
   static PreparedMeridian from_angle(float angle) {
     return {cosf(angle), sinf(angle)};
   }
@@ -430,21 +660,39 @@ struct PreparedMeridian {
     makes the kernel compute edge distance unconditionally. */
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
 struct Peirce : ApproximationDefaults {
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
-  using Prepared = PreparedMeridian;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
+  using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
+  /**
+   * @brief Caches the central meridian's cosine and sine for the frame.
+   * @param frame Frame state.
+   * @return The prepared meridian rotation.
+   */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
   }
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
                                                  const Prepared &) {
     return State::conjugate(frame);
   }
 
+  /// Whether `fade_edge_distance` is measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, central meridian, layout scroll, coordinate
+   *        scale and singularity fade.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -455,11 +703,23 @@ struct Peirce : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame,
           const Prepared &prepared) {
@@ -469,6 +729,12 @@ struct Peirce : ApproximationDefaults {
                   State::singularity_fade(frame), prepared.cosine,
                   prepared.sine);
   }
+  /**
+   * @brief Projects a direction, preparing the meridian rotation inline.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   static ProjectionResult project(const math::Vector &input,
                                   const FrameState &frame) {
     return project(input, frame, prepare(frame));
@@ -489,16 +755,26 @@ inline constexpr std::array<ApproximationMetric, 3> PEIRCE_FAST_SQUARE_METRICS{{
 /** @brief Approximate square-layout Peirce projection; the provider must pin
     the central meridian to zero. */
 template <typename State> struct PeirceFastSquare : ApproximationDefaults {
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
+  /// `fade_edge_distance` is always measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = true;
+  /// Takes the approximate fast-square kernel.
   static constexpr bool APPROXIMATE = true;
+  /// Reference the approximation is checked against.
   static constexpr ApproximationOracleId ORACLE =
       ApproximationOracleId::PEIRCE_FAST_SQUARE;
   static constexpr std::array<ApproximationMetric, 3> METRICS =
-      PEIRCE_FAST_SQUARE_METRICS;
+      PEIRCE_FAST_SQUARE_METRICS; ///< Approximation error bounds.
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, coordinate scale and singularity fade, and
+   *        pins the central meridian to zero.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -508,12 +784,23 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       } && State::ZERO_CENTRAL_MERIDIAN;
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame) {
     return peirce_fast_square(input, State::coordinate_scale(frame),
                               State::singularity_fade(frame));
   }
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
@@ -528,18 +815,34 @@ template <typename State> struct PeirceFastSquare : ApproximationDefaults {
  * it runs the exact quincuncial kernel and those bounds are slack.
  */
 template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
-  using FrameState = typename State::FrameState;
-  using Prepared = PreparedMeridian;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
+  using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
+  /**
+   * @brief Caches the central meridian's cosine and sine for the frame.
+   * @param frame Frame state.
+   * @return The prepared meridian rotation.
+   */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
   }
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
                                                  const Prepared &) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, central meridian, layout scroll, coordinate
+   *        scale and singularity fade.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -550,6 +853,13 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
         { State::singularity_fade(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame,
           const Prepared &prepared) {
@@ -562,6 +872,12 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
         State::layout_scroll(frame), true, State::coordinate_scale(frame),
         State::singularity_fade(frame), prepared.cosine, prepared.sine);
   }
+  /**
+   * @brief Projects a direction, preparing the meridian rotation inline.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   static ProjectionResult project(const math::Vector &input,
                                   const FrameState &frame) {
     return project(input, frame, prepare(frame));
@@ -573,21 +889,38 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
     per-edge cut distances unconditionally. */
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
 struct Airocean : ApproximationDefaults {
+  /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
-  using FrameState = typename State::FrameState;
-  using Prepared = PreparedMeridian;
+  using FrameState = typename State::FrameState; ///< Frame state `State` reads.
+  using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
+  /**
+   * @brief Caches the central meridian's cosine and sine for the frame.
+   * @param frame Frame state.
+   * @return The prepared meridian rotation.
+   */
   static Prepared prepare(const FrameState &frame) {
     return Prepared::from_angle(State::central_meridian(frame));
   }
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   static const math::Quaternion &frame_conjugate(const FrameState &frame,
                                                  const Prepared &) {
     return State::conjugate(frame);
   }
 
+  /// Whether `fade_edge_distance` is measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
 
+  /**
+   * @brief Whether `State` under @p CandidateBinding supplies the frame
+   *        conjugate, central meridian and coordinate scale.
+   * @tparam CandidateBinding Binding being checked.
+   */
   template <typename CandidateBinding>
   static constexpr bool PROVIDER_VALID =
       FrameProvider<State, CandidateBinding> &&
@@ -596,11 +929,23 @@ struct Airocean : ApproximationDefaults {
         { State::coordinate_scale(frame) } -> std::same_as<float>;
       };
 
+  /**
+   * @brief Rotation taking world directions into the projection frame.
+   * @param frame Frame state.
+   * @return `State`'s frame conjugate.
+   */
   __attribute__((always_inline)) static const math::Quaternion &
   frame_conjugate(const FrameState &frame) {
     return State::conjugate(frame);
   }
 
+  /**
+   * @brief Projects a direction given in the projection frame.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Plane coordinates and provenance.
+   */
   __attribute__((always_inline)) static ProjectionResult
   project(const math::Vector &input, const FrameState &frame,
           const Prepared &prepared) {
@@ -608,6 +953,12 @@ struct Airocean : ApproximationDefaults {
                     State::coordinate_scale(frame), prepared.cosine,
                     prepared.sine);
   }
+  /**
+   * @brief Projects a direction, preparing the meridian rotation inline.
+   * @param input Unit direction in the projection frame.
+   * @param frame Frame state.
+   * @return Plane coordinates and provenance.
+   */
   static ProjectionResult project(const math::Vector &input,
                                   const FrameState &frame) {
     return project(input, frame, prepare(frame));

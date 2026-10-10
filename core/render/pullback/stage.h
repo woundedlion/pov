@@ -22,17 +22,32 @@ namespace Pullback {
  */
 namespace Kernel {
 
+/**
+ * @brief Rotates the direction by @p conjugate; path length is unchanged.
+ * @param input Sphere carrier.
+ * @param conjugate Rotation applied to the direction.
+ * @return The rotated carrier.
+ */
 __attribute__((always_inline)) inline SphereSample
 rotate_dir(const SphereSample &input, const math::Quaternion &conjugate) {
   return {math::rotate(input.dir, conjugate), input.path_length};
 }
 
-/** @brief Displacement adds to the path accumulator, never replaces it. */
+/** @brief Displacement adds to the path accumulator, never replaces it.
+    @param input Sphere carrier.
+    @param step Surface step.
+    @return The displaced carrier. */
 __attribute__((always_inline)) inline SphereSample
 displace(const SphereSample &input, const SurfaceResult &step) {
   return {step.sphere, input.path_length + step.path_length};
 }
 
+/**
+ * @brief Replaces the direction with a lensed one; path length is unchanged.
+ * @param input Sphere carrier.
+ * @param lensed Lens output direction.
+ * @return The lensed carrier.
+ */
 __attribute__((always_inline)) inline SphereSample
 lens(const SphereSample &input, const math::Vector &lensed) {
   return {lensed, input.path_length};
@@ -40,7 +55,11 @@ lens(const SphereSample &input, const math::Vector &lensed) {
 
 /** @brief The Project crossing assembles the plane carrier: the policy's
     coords and provenance embed unchanged; `sphere` is combinator state
-    written from the pre-projection point. */
+    written from the pre-projection point.
+    @param input Unit-direction sphere carrier.
+    @param local Direction in the projection frame.
+    @param result Projection policy output.
+    @return The plane carrier. */
 __attribute__((always_inline)) inline PlaneSample
 project(const SphereSample &input, const math::Vector &local,
         const ProjectionResult &result) {
@@ -52,7 +71,10 @@ project(const SphereSample &input, const math::Vector &local,
 }
 
 /** @brief A warp advances coords and path only; provenance and sphere are
-    immutable through PLANE endomorphisms. */
+    immutable through PLANE endomorphisms.
+    @param input Plane carrier.
+    @param step Warp step.
+    @return The warped carrier. */
 __attribute__((always_inline)) inline PlaneSample
 warp(const PlaneSample &input, const WarpStepResult &step) {
   return {step.coords, input.provenance, input.sphere,
@@ -60,7 +82,11 @@ warp(const PlaneSample &input, const WarpStepResult &step) {
 }
 
 /** @brief The Sample crossing ramps the weighted field and consumes the
-    provenance coverage into the field carrier. */
+    provenance coverage into the field carrier.
+    @param input Plane carrier.
+    @param weighted Weighted signed field in [-1, 1].
+    @param coverage Projected coverage in [0, 1].
+    @return The field carrier. */
 __attribute__((always_inline)) inline FieldSample
 sample(const PlaneSample &input, float weighted, float coverage) {
   HS_AUDIT_CHECK(coverage >= 0.0f && coverage <= 1.0f &&
@@ -73,7 +99,10 @@ sample(const PlaneSample &input, float weighted, float coverage) {
 }
 
 /** @brief The spherical Sample crossing ramps a signed field with opaque
-    coverage. */
+    coverage.
+    @param input Sphere carrier.
+    @param field Signed field in [-1, 1].
+    @return The field carrier. */
 __attribute__((always_inline)) inline FieldSample
 sample(const SphereSample &input, float field) {
   return {Detail::clamp_unit((field + 1.0f) * 0.5f), 1.0f, input.dir,
@@ -81,7 +110,10 @@ sample(const SphereSample &input, float field) {
 }
 
 /** @brief A transfer replaces the field value; @p value must already be in
-    [0, 1], which this does not re-clamp. */
+    [0, 1], which this does not re-clamp.
+    @param input Field carrier.
+    @param value New field value.
+    @return The carrier with @p value. */
 __attribute__((always_inline)) inline FieldSample
 transfer(const FieldSample &input, float value) {
   HS_AUDIT_CHECK(value >= 0.0f && value <= 1.0f,
@@ -91,6 +123,12 @@ transfer(const FieldSample &input, float value) {
   return output;
 }
 
+/**
+ * @brief Multiplies @p factor into the accumulated coverage.
+ * @param input Field carrier.
+ * @param factor Coverage factor in [0, 1].
+ * @return @p input with the scaled coverage.
+ */
 __attribute__((always_inline)) inline FieldSample
 coverage(const FieldSample &input, float factor) {
   HS_AUDIT_CHECK(factor >= 0.0f && factor <= 1.0f,
@@ -104,6 +142,14 @@ coverage(const FieldSample &input, float factor) {
 
 namespace Detail {
 
+/**
+ * @brief Whether @p Policy has the warp `apply(coords, provenance, frame)`
+ *        signature for @p FrameState, taking its prepared state when it
+ *        declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename FrameState>
 consteval bool warp_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -124,6 +170,14 @@ consteval bool warp_policy_callable() {
     };
 }
 
+/**
+ * @brief Whether @p Policy has the `sample(input, frame)` signature for
+ *        @p FrameState, taking its prepared state when it declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam Input Carrier the policy reads.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename Input, typename FrameState>
 consteval bool sample_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -137,6 +191,14 @@ consteval bool sample_policy_callable() {
     };
 }
 
+/**
+ * @brief Whether @p Policy has the weight `apply(field, provenance, frame)`
+ *        signature for @p FrameState, taking its prepared state when it
+ *        declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename FrameState>
 consteval bool weight_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -154,6 +216,13 @@ consteval bool weight_policy_callable() {
     };
 }
 
+/**
+ * @brief Whether @p Policy has the `conjugate(frame)` signature for
+ *        @p FrameState, taking its prepared state when it declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename FrameState>
 consteval bool orientation_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -169,6 +238,14 @@ consteval bool orientation_policy_callable() {
     };
 }
 
+/**
+ * @brief Whether @p Policy has the projection `frame_conjugate` and `project`
+ *        signature for @p FrameState, taking its prepared state when it
+ *        declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename FrameState>
 consteval bool projection_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -190,6 +267,15 @@ consteval bool projection_policy_callable() {
     };
 }
 
+/**
+ * @brief Whether @p Policy has the `apply(input, frame)` signature for
+ *        @p FrameState, taking its prepared state when it declares one.
+ * @tparam Policy Policy being checked.
+ * @tparam Input Carrier the policy reads.
+ * @tparam Output Result type `apply` must return.
+ * @tparam FrameState Frame state of the binding.
+ * @return True when the call is well formed.
+ */
 template <typename Policy, typename Input, typename Output, typename FrameState>
 consteval bool apply_policy_callable() {
   if constexpr (PolicyPrepares<Policy, FrameState>)
@@ -203,7 +289,10 @@ consteval bool apply_policy_callable() {
     };
 }
 
-/** @brief Whether @p Policy declares value role @p Role. */
+/** @brief Whether @p Policy declares value role @p Role.
+    @tparam Policy Policy being checked.
+    @tparam Role Expected role.
+    @return True when it does; false when it declares no `VALUE_ROLE`. */
 template <typename Policy, ValueRole Role> consteval bool value_role_is() {
   if constexpr (requires { Policy::VALUE_ROLE; })
     return Policy::VALUE_ROLE == Role;
@@ -222,21 +311,41 @@ namespace Stage {
 template <typename OrientationProvider>
 struct Rotate
     : Contract<Rotate<OrientationProvider>, SphereSample, SphereSample> {
+  /// Policies the stage binds.
   using Policies = std::tuple<OrientationProvider>;
-  using Provider = OrientationProvider;
+  using Provider = OrientationProvider; ///< The orientation provider.
 
+  /**
+   * @brief Whether `OrientationProvider` is a provider with a callable
+   *        `conjugate` under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<OrientationProvider, Binding> &&
       Detail::orientation_policy_callable<OrientationProvider,
                                           typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the orientation provider's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<OrientationProvider>(frame);
   }
 
+  /**
+   * @brief Rotates the view direction by the provider's conjugate.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Sphere carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The rotated carrier.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static SphereSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
@@ -258,20 +367,39 @@ struct Rotate
 template <typename SurfacePolicyT>
 struct Displace
     : Contract<Displace<SurfacePolicyT>, SphereSample, SphereSample> {
-  using Policies = std::tuple<SurfacePolicyT>;
-  using SurfacePolicy = SurfacePolicyT;
+  using Policies = std::tuple<SurfacePolicyT>; ///< Policies the stage binds.
+  using SurfacePolicy = SurfacePolicyT;        ///< The surface policy.
 
+  /**
+   * @brief Whether `SurfacePolicyT::apply` is callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::apply_policy_callable<SurfacePolicyT, math::Vector, SurfaceResult,
                                     typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the surface policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<SurfacePolicyT>(frame);
   }
 
+  /**
+   * @brief Displaces the view point and accumulates the step's path
+   *        length.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Sphere carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The displaced carrier.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static SphereSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
@@ -297,20 +425,38 @@ struct Displace
  */
 template <typename LensPolicyT>
 struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
-  using Policies = std::tuple<LensPolicyT>;
-  using LensPolicy = LensPolicyT;
+  using Policies = std::tuple<LensPolicyT>; ///< Policies the stage binds.
+  using LensPolicy = LensPolicyT;           ///< The lens policy.
 
+  /**
+   * @brief Whether `LensPolicyT::apply` is callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::apply_policy_callable<LensPolicyT, math::Vector, math::Vector,
                                     typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the lens policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<LensPolicyT>(frame);
   }
 
+  /**
+   * @brief Applies the lens to the view direction.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Sphere carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The lensed carrier.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static SphereSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
@@ -340,9 +486,11 @@ struct Lens : Contract<Lens<LensPolicyT>, SphereSample, SphereSample> {
 template <typename ProjectionPolicyT>
 struct Project
     : Contract<Project<ProjectionPolicyT>, SphereSample, PlaneSample> {
-  using Policies = std::tuple<ProjectionPolicyT>;
-  using ProjectionPolicy = ProjectionPolicyT;
+  using Policies = std::tuple<ProjectionPolicyT>; ///< Policies the stage binds.
+  using ProjectionPolicy = ProjectionPolicyT;     ///< The projection policy.
 
+  /** @brief Whether the projection policy measures `fade_edge_distance`;
+      false when it does not declare `EDGE_DISTANCE_AVAILABLE`. */
   static constexpr bool EDGE_DISTANCE_AVAILABLE = [] {
     if constexpr (requires { ProjectionPolicyT::EDGE_DISTANCE_AVAILABLE; })
       return ProjectionPolicyT::EDGE_DISTANCE_AVAILABLE;
@@ -350,17 +498,37 @@ struct Project
       return false;
   }();
 
+  /**
+   * @brief Whether the projection policy's `frame_conjugate` and `project`
+   *        are callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::projection_policy_callable<ProjectionPolicyT,
                                          typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the projection policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<ProjectionPolicyT>(frame);
   }
 
+  /**
+   * @brief Rotates into the projection frame and projects.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Sphere carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Plane carrier recording the projection-frame
+   *         point.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static PlaneSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
@@ -393,19 +561,37 @@ struct Project
  */
 template <typename WarpPolicyT>
 struct Warp : Contract<Warp<WarpPolicyT>, PlaneSample, PlaneSample> {
-  using Policies = std::tuple<WarpPolicyT>;
-  using WarpPolicy = WarpPolicyT;
+  using Policies = std::tuple<WarpPolicyT>; ///< Policies the stage binds.
+  using WarpPolicy = WarpPolicyT;           ///< The warp policy.
 
+  /**
+   * @brief Whether `WarpPolicyT::apply` is callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::warp_policy_callable<WarpPolicyT, typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the warp policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<WarpPolicyT>(frame);
   }
 
+  /**
+   * @brief Advances the plane coordinate by one warp step.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Plane carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The warped carrier.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static PlaneSample
   run(const PlaneSample &input, const typename Binding::FrameState &frame,
@@ -440,11 +626,17 @@ template <typename SourcePolicyT, typename WeightPolicyT = Weight::Projection,
           typename CoveragePolicyT = ProjectionCoverage::Weight>
 struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
                          PlaneSample, FieldSample> {
+  /// Policies the stage binds.
   using Policies = std::tuple<SourcePolicyT, WeightPolicyT, CoveragePolicyT>;
-  using SourcePolicy = SourcePolicyT;
-  using WeightPolicy = WeightPolicyT;
-  using CoveragePolicy = CoveragePolicyT;
+  using SourcePolicy = SourcePolicyT;     ///< The scalar source policy.
+  using WeightPolicy = WeightPolicyT;     ///< The signal-weight policy.
+  using CoveragePolicy = CoveragePolicyT; ///< The projected-coverage policy.
 
+  /**
+   * @brief Whether the source, weight and coverage policies are callable under
+   *        @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::sample_policy_callable<SourcePolicyT, PlaneSample,
@@ -454,11 +646,21 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
       Detail::apply_policy_callable<CoveragePolicyT, ProjectionProvenance,
                                     float, typename Binding::FrameState>();
 
+  /**
+   * @brief Whether the weight or coverage policy prepares state under
+   *        @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool MATERIAL_PREPARES =
       Detail::PolicyPrepares<WeightPolicyT, typename Binding::FrameState> ||
       Detail::PolicyPrepares<CoveragePolicyT, typename Binding::FrameState>;
 
+  /**
+   * @brief Prepared state: a (source, weight, coverage) tuple when
+   *        `MATERIAL_PREPARES`, else the source's prepared state alone.
+   * @tparam Binding Binding of the pipeline.
+   */
   template <typename Binding>
   using Prepared = std::conditional_t<
       MATERIAL_PREPARES<Binding>,
@@ -469,6 +671,12 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
                                  typename Binding::FrameState>>,
       Detail::PolicyPrepared<SourcePolicyT, typename Binding::FrameState>>;
 
+  /**
+   * @brief Resolves the per-frame state of the stage's policies.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The stage's `Prepared` state.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
@@ -480,6 +688,15 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
       return Detail::prepare_policy<SourcePolicyT>(frame);
   }
 
+  /**
+   * @brief Samples the source, weights it and seeds the field carrier.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Plane carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Field carrier with the ramped value and
+   *         coverage.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const PlaneSample &input, const typename Binding::FrameState &frame,
@@ -525,20 +742,39 @@ struct Sample : Contract<Sample<SourcePolicyT, WeightPolicyT, CoveragePolicyT>,
 template <typename SourcePolicyT>
 struct SampleSphere
     : Contract<SampleSphere<SourcePolicyT>, SphereSample, FieldSample> {
-  using Policies = std::tuple<SourcePolicyT>;
-  using SourcePolicy = SourcePolicyT;
+  using Policies = std::tuple<SourcePolicyT>; ///< Policies the stage binds.
+  using SourcePolicy = SourcePolicyT;         ///< The scalar source policy.
 
+  /**
+   * @brief Whether `SourcePolicyT::sample` is callable on a SphereSample under
+   *        @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::sample_policy_callable<SourcePolicyT, SphereSample,
                                      typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the source policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<SourcePolicyT>(frame);
   }
 
+  /**
+   * @brief Samples the spherical source and seeds the field carrier.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Sphere carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Opaque field carrier with the ramped value.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const SphereSample &input, const typename Binding::FrameState &frame,
@@ -565,21 +801,40 @@ struct SampleSphere
 template <typename TransferPolicyT>
 struct Transfer
     : Contract<Transfer<TransferPolicyT>, FieldSample, FieldSample> {
-  using Policies = std::tuple<TransferPolicyT>;
-  using TransferPolicy = TransferPolicyT;
+  using Policies = std::tuple<TransferPolicyT>; ///< Policies the stage binds.
+  using TransferPolicy = TransferPolicyT;       ///< The transfer policy.
 
+  /**
+   * @brief Whether `TransferPolicyT` has the TRANSFER role and a callable
+   *        `apply` under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::value_role_is<TransferPolicyT, ValueRole::TRANSFER>() &&
       Detail::apply_policy_callable<TransferPolicyT, float, float,
                                     typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the transfer policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<TransferPolicyT>(frame);
   }
 
+  /**
+   * @brief Replaces the field value with the transferred one.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Field carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The carrier with the new value.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const FieldSample &input, const typename Binding::FrameState &frame,
@@ -611,21 +866,40 @@ struct Transfer
 template <typename CoveragePolicyT>
 struct ApplyCoverage
     : Contract<ApplyCoverage<CoveragePolicyT>, FieldSample, FieldSample> {
-  using Policies = std::tuple<CoveragePolicyT>;
-  using CoveragePolicy = CoveragePolicyT;
+  using Policies = std::tuple<CoveragePolicyT>; ///< Policies the stage binds.
+  using CoveragePolicy = CoveragePolicyT;       ///< The value-coverage policy.
 
+  /**
+   * @brief Whether `CoveragePolicyT` has the COVERAGE role and a callable
+   *        `apply` under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::value_role_is<CoveragePolicyT, ValueRole::COVERAGE>() &&
       Detail::apply_policy_callable<CoveragePolicyT, float, float,
                                     typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the coverage policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<CoveragePolicyT>(frame);
   }
 
+  /**
+   * @brief Multiplies the value-dependent factor into the coverage.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Field carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return The carrier with the scaled coverage.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static FieldSample
   run(const FieldSample &input, const typename Binding::FrameState &frame,
@@ -651,20 +925,38 @@ struct ApplyCoverage
  */
 template <typename ColorPolicyT>
 struct Colorize : Contract<Colorize<ColorPolicyT>, FieldSample, Color4> {
-  using Policies = std::tuple<ColorPolicyT>;
-  using ColorPolicy = ColorPolicyT;
+  using Policies = std::tuple<ColorPolicyT>; ///< Policies the stage binds.
+  using ColorPolicy = ColorPolicyT;          ///< The color policy.
 
+  /**
+   * @brief Whether `ColorPolicyT::apply` is callable under @p Binding.
+   * @tparam Binding Binding being checked.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::apply_policy_callable<ColorPolicyT, FieldSample, Color4,
                                     typename Binding::FrameState>();
 
+  /**
+   * @brief Resolves the color policy's per-frame state.
+   * @tparam Binding Binding of the pipeline.
+   * @param frame Frame state.
+   * @return The prepared state, or NoPrepared when the policy declares none.
+   */
   template <typename Binding>
   HS_FLASH_INLINE static auto
   prepare(const typename Binding::FrameState &frame) {
     return Detail::prepare_policy<ColorPolicyT>(frame);
   }
 
+  /**
+   * @brief Colorizes the field carrier.
+   * @tparam Binding Binding of the pipeline.
+   * @param input Field carrier.
+   * @param frame Frame state.
+   * @param prepared This frame's `prepare` result.
+   * @return Straight-alpha color.
+   */
   template <typename Binding>
   __attribute__((always_inline)) static Color4
   run(const FieldSample &input, const typename Binding::FrameState &frame,
