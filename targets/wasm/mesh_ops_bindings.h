@@ -29,17 +29,22 @@
 
 // Arenas for the JS mesh-editor tools, malloc'd lazily on first MeshOps use
 // (capacity 0 until then); the block lives for the module's lifetime.
+/// Capacity of `tooling_arena`, which holds finished meshes, in bytes.
 inline constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
+/// Capacity of each scratch arena, in bytes.
 inline constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
+/// Retained storage for MeshOps wrapper meshes.
 static Arena tooling_arena(nullptr, 0);
 // Scratch-using MeshOps entry points reset both arenas and hold a ToolingOpGuard.
 // Scratch is valid only within one synchronous call.
+/// First per-call operator scratch arena.
 static Arena tooling_scratch_a(nullptr, 0);
+/// Second per-call operator scratch arena.
 static Arena tooling_scratch_b(nullptr, 0);
 
-// Largest element count any operator stage may reach: face/index counts narrow
-// to uint16_t behind an always-on HS_CHECK, so a larger mesh is rejected at the
-// JS boundary.
+/// Largest element count any operator stage may reach: face/index counts
+/// narrow to uint16_t behind an always-on HS_CHECK, so a larger mesh is
+/// rejected at the JS boundary.
 inline constexpr size_t MAX_MESH_CONNECTIVITY_ELEMENTS =
     MeshLimits::MAX_HALF_EDGES;
 static_assert(MAX_MESH_CONNECTIVITY_ELEMENTS <=
@@ -51,17 +56,19 @@ static_assert(sizeof(math::Vector) + sizeof(uint8_t) + 2 * sizeof(uint16_t) <
                   hs_wasm::TOOLING_RETAINED_BYTES_PER_MESH_ELEMENT,
               "finalized mesh element must fit its predicted arena bytes");
 
-// Widest face a mesh can hold: per-face side counts are uint8_t and
-// narrow_face_count traps past this.
+/// Widest face a mesh can hold: per-face side counts are uint8_t and
+/// narrow_face_count traps past this.
 inline constexpr size_t MAX_MESH_FACE_DEGREE = MeshLimits::MAX_FACE_DEGREE;
 
-// Bumped on every clearToolingMemory(). Each wrapper records the generation it
-// was built under and rejects via wrapper_live() if a wipe reclaimed its storage.
+/// Bumped on every clearToolingMemory(). Each wrapper records the generation
+/// it was built under and rejects via wrapper_live() if a wipe reclaimed its
+/// storage.
 static uint32_t tooling_generation = 0;
 
-// Module-global scratch permits one active MeshOps call; traps leave this
-// latched because wasm unreachable does not unwind and the module is terminal.
+/// Module-global scratch permits one active MeshOps call; traps leave this
+/// latched because wasm unreachable does not unwind and the module is terminal.
 static bool tooling_op_active = false;
+/// RAII latch on `tooling_op_active`; traps if a MeshOps call is already live.
 struct ToolingOpGuard {
   ToolingOpGuard() {
     HS_CHECK(!tooling_op_active,
@@ -133,12 +140,12 @@ enum class MeshOpResult {
                               arena-backed mesh operations are unavailable. */
 };
 
-// Outcome of the most recent MeshOps call that could answer null
-// (getLastResult()).
+/// Outcome of the most recent MeshOps call that could answer null
+/// (getLastResult()).
 static MeshOpResult last_mesh_op_result = MeshOpResult::OK;
 
-// Whether that call saturated an argument into its operator's domain
-// (getLastAdjusted()).
+/// Whether that call saturated an argument into its operator's domain
+/// (getLastAdjusted()).
 static bool last_mesh_op_adjusted = false;
 
 /**

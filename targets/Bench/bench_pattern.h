@@ -33,12 +33,17 @@ public:
 
   /** @brief One colour the cycle holds on, in 8-bit sRGB. */
   struct Key {
-    uint8_t r, g, b;
+    /// Red channel level.
+    uint8_t r, g, b; ///< Blue channel level.
+    /** @var g
+     *  Green channel level. */
   };
   /** @brief The held colours, in cycle order. */
   static constexpr Key KEYS[] = {
       {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 255}};
+  /** @brief Number of entries in KEYS. */
   static constexpr int KEY_COUNT = static_cast<int>(std::size(KEYS));
+  /** @brief Frames per key: hold plus ramp to the next key. */
   static constexpr int STEP_FRAMES = HOLD_FRAMES + RAMP_FRAMES;
   /** @brief Frames in one full pass over KEYS. */
   static constexpr uint32_t CYCLE_FRAMES =
