@@ -377,12 +377,12 @@ inline DisplacementHueFrame render_displacement_hue_frame(bool exact) {
   constexpr int H = 40;
   constexpr int FRAMES = 64;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   DisplacementField<W, H> effect;
   effect.init();
   DisplacementFieldWhiteBox::set_force_exact_hue(effect, exact);
   for (int frame = 0; frame < FRAMES; ++frame) {
-    hs::set_mock_time(frame * FRAME_MS, frame * FRAME_US);
+    pin_frame_clock(frame);
     effect.draw_frame();
     effect.advance_display();
   }
@@ -511,7 +511,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
   constexpr int W = 256;
   constexpr int H = 40;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   DisplacementField<W, H> effect;
   effect.init();
   DisplacementFieldWhiteBox::configure_noise(effect, 1.0f, 0.0f);
@@ -549,7 +549,7 @@ inline void test_displacement_field_clip_tiles_full() {
   size_t lit = 0;
   auto capture_region = [&](bool clip, const Quad &q, bool widest) {
     reset_effect_globals();
-    hs::set_mock_time(0, 0);
+    pin_frame_clock(0);
     DisplacementField<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
     if (widest)
@@ -559,8 +559,7 @@ inline void test_displacement_field_clip_tiles_full() {
       fx.set_clip(q.y0, q.y1, q.x0, q.x1);
     std::vector<Pixel> pixels;
     for (int f = 0; f < (widest ? widest_frames : frames); ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
+      pin_frame_clock(f);
       fx.draw_frame();
       fx.advance_display();
       for (int y = q.y0; y < q.y1; ++y)
@@ -599,7 +598,7 @@ inline void test_displacement_field_clip_tiles_full() {
 
 inline void test_displacement_field_ball_spans_and_lifecycle() {
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   DisplacementFieldWhiteBox::fill_ball_pool(effect);
