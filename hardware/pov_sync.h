@@ -48,6 +48,10 @@ struct SyncBoardTestAccess;
 namespace pov {
 namespace sync {
 
+/**
+ * @brief Increments a counter, sticking at `UINT32_MAX` instead of wrapping.
+ * @param counter Counter to bump in place.
+ */
 inline void saturating_increment(uint32_t &counter) {
   if (counter != UINT32_MAX)
     ++counter;
