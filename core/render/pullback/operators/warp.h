@@ -31,13 +31,18 @@ inline constexpr auto &WARP_ENVELOPE_IDS = Warp::ENVELOPE_IDS;
 /**
  * @brief Bounds a warp operator's envelope enum8.
  * @details warp_envelope() relies on this check and carries no per-pixel guard.
+ * @param envelope Raw `WarpEnvelope` value.
  */
 inline void check_warp_envelope(uint8_t envelope) {
   HS_CHECK(envelope <= static_cast<uint8_t>(WarpEnvelope::EDGE_FADE),
            "warp operator: invalid envelope");
 }
 
-/** @brief The envelope switch over the shared warp envelope kernel. */
+/** @brief The envelope switch over the shared warp envelope kernel.
+ *  @param envelope Checked `WarpEnvelope` value.
+ *  @param provenance Projection provenance of the plane sample.
+ *  @param edge_width Edge-fade width.
+ *  @return Amplitude factor for the sample. */
 inline float warp_envelope(uint8_t envelope,
                            const ProjectionProvenance &provenance,
                            float edge_width) {
@@ -85,7 +90,10 @@ struct WarpAffineV3 : ValueStateModel<AffineClockState> {
     Warp::advance_affine_rotation(state.rotation, params);
   }
   /** @brief Diagonal plus shear norm of the frame at its oscillation
-      extreme, plus a full turn of translation. */
+      extreme, plus a full turn of translation.
+      @param params Warp parameters.
+      @param input_bound Bound on the input plane coordinates.
+      @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     const float x_gain = fmaxf(params.scale_x, 1.0f / params.scale_x);
     const float y_gain = fmaxf(params.scale_y, 1.0f / params.scale_y);
@@ -139,7 +147,10 @@ struct WarpWaveShear : PhaseClockModel<WarpPhaseState> {
   using Params = WaveShearWarpParams;
   using Prepared = PreparedWaveShear;
 
-  /** @brief The factor covers the approximate sine. */
+  /** @brief The factor covers the approximate sine.
+   *  @param params Warp parameters.
+   *  @param input_bound Bound on the input plane coordinates.
+   *  @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     return input_bound + 2.0f * fabsf(params.strength);
   }
@@ -172,7 +183,10 @@ struct WarpVortex : PhaseClockModel<WarpPhaseState> {
   using Params = VortexWarpParams;
   using Prepared = Warp::PreparedVortexSlot;
 
-  /** @brief A rotation about a center no farther than the orbit's reach. */
+  /** @brief A rotation about a center no farther than the orbit's reach.
+   *  @param params Warp parameters.
+   *  @param input_bound Bound on the input plane coordinates.
+   *  @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     return input_bound + 2.0f * (std::hypot(params.center_x, params.center_y) +
                                  params.center_orbit_radius);
@@ -226,7 +240,10 @@ struct WarpVectorNoise : PhaseClockModel<NoisePhaseState> {
   using Params = VectorNoiseWarpParams;
   using Prepared = PreparedVectorNoiseWarp;
 
-  /** @brief The factor covers both noise channels with headroom. */
+  /** @brief The factor covers both noise channels with headroom.
+   *  @param params Warp parameters.
+   *  @param input_bound Bound on the input plane coordinates.
+   *  @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     return input_bound + 4.0f * fabsf(params.strength);
   }
@@ -265,7 +282,9 @@ struct WarpMirrorTile : PhaseClockModel<WarpPhaseState> {
   using Params = MirrorWarpParams;
   using Prepared = Warp::PreparedMirrorSlot;
 
-  /** @brief The fold lands inside one cell, whatever the input. */
+  /** @brief The fold lands inside one cell, whatever the input.
+   *  @param params Warp parameters.
+   *  @return The cell diagonal. */
   static float plane_bound(const Params &params, float) {
     return std::hypot(params.cell_x, params.cell_y);
   }
@@ -331,7 +350,10 @@ struct WarpPolarChart : PhaseClockModel<WarpPhaseState> {
   };
 
   /** @brief Radial bound plus the angular reach of the harmonic, phases and
-      atan2. */
+      atan2.
+      @param params Warp parameters.
+      @param input_bound Bound on the input plane coordinates.
+      @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     const float radial =
         static_cast<PolarMode>(params.mode) == PolarMode::LOGARITHMIC
@@ -437,7 +459,10 @@ struct WarpCurlFlow : PhaseClockModel<NoisePhaseState> {
   using Params = CurlFlowWarpParams;
   using Prepared = PreparedCurlFlow;
 
-  /** @brief Every sub-step follows a component-clamped vector. */
+  /** @brief Every sub-step follows a component-clamped vector.
+   *  @param params Warp parameters.
+   *  @param input_bound Bound on the input plane coordinates.
+   *  @return Bound on the warped coordinates. */
   static float plane_bound(const Params &params, float input_bound) {
     return input_bound +
            fabsf(params.strength) * 2.0f * Warp::CURL_VECTOR_COMPONENT_MAX;

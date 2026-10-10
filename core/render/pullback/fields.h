@@ -71,7 +71,10 @@ struct TopologyGate {
 /** Declared only: a call makes the enclosing constant evaluation ill-formed. */
 void live_values_index_exceeds_gate_width();
 
-/** @brief TopologyGate::values over the enumerators in @p values. */
+/** @brief TopologyGate::values over the enumerators in @p values.
+ *  @tparam Values Enumerator types.
+ *  @param values Live topology values; each index must fit the gate width.
+ *  @return Mask with one bit per value index. */
 template <typename... Values> consteval uint16_t live_values(Values... values) {
   constexpr unsigned GATE_BITS =
       std::numeric_limits<decltype(TopologyGate::values)>::digits;
@@ -116,6 +119,13 @@ template <typename Owner> struct Field {
  * @brief Rebuilds a base family's field table over a derived family.
  * @details A `float Base::*` converts implicitly to `float Combined::*`, so
  * the concatenation stays a homogeneous Field<Combined> array.
+ * @tparam Combined Derived family type.
+ * @tparam BaseOwner Base family type.
+ * @tparam N Base field count.
+ * @tparam M Extra field count.
+ * @param base Base family's field table.
+ * @param extra Fields the derived family adds.
+ * @return @p base followed by @p extra.
  */
 template <typename Combined, typename BaseOwner, size_t N, size_t M>
 consteval std::array<Field<Combined>, N + M>
@@ -152,7 +162,9 @@ constexpr Field<Owner> edge_width_field(float Owner::*member,
 template <typename T>
 concept HasFields = requires { T::FIELDS; };
 
-/** @brief Whether every tabled field id is non-null and unique in the family. */
+/** @brief Whether every tabled field id is non-null and unique in the family.
+ *  @tparam Family Parameter family.
+ *  @return True when the ids are valid. */
 template <HasFields Family> consteval bool field_ids_unique() {
   for (size_t i = 0; i < Family::FIELDS.size(); ++i) {
     if (Family::FIELDS[i].id == nullptr)
@@ -165,7 +177,9 @@ template <HasFields Family> consteval bool field_ids_unique() {
 }
 
 /** @brief Whether every tabled field's default lies within its declared
-    range. */
+    range.
+    @tparam Family Parameter family.
+    @return True when every default is in range. */
 template <HasFields Family> consteval bool field_defaults_in_range() {
   constexpr Family DEFAULTS{};
   for (const auto &field : Family::FIELDS) {
@@ -193,6 +207,11 @@ HS_FLASH_INLINE inline float apply_curve(FieldCurve curve, float from, float to,
  * @brief Interpolates every tabled field of a family.
  * @details Members the table does not cover — topology enum8s, non-float
  * carriers — snap: they hold @p a's value until progress reaches 1.
+ * @tparam T Parameter family.
+ * @param a Value at progress 0.
+ * @param b Value at progress 1.
+ * @param t Progress fraction.
+ * @return The interpolated family.
  */
 template <HasFields T>
 HS_FLASH_INLINE inline T interpolate(const T &a, const T &b, float t) {
@@ -202,7 +221,10 @@ HS_FLASH_INLINE inline T interpolate(const T &a, const T &b, float t) {
   return out;
 }
 
-/** @brief Whether every tabled field is finite and inside its range. */
+/** @brief Whether every tabled field is finite and inside its range.
+ *  @tparam T Parameter family.
+ *  @param value Family to check.
+ *  @return True when every field passes. */
 template <HasFields T> HS_FLASH_INLINE inline bool valid(const T &value) {
   for (const auto &field : T::FIELDS) {
     if (!field.description().valid(value))

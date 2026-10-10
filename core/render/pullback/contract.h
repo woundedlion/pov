@@ -315,7 +315,11 @@ struct PolicyPreparedImpl<Policy, FrameState> {
 template <typename Policy, typename FrameState>
 using PolicyPrepared = typename PolicyPreparedImpl<Policy, FrameState>::Type;
 
-/** @brief Resolves one policy's prepared state; empty when it declares none. */
+/** @brief Resolves one policy's prepared state; empty when it declares none.
+ *  @tparam Policy Stage policy.
+ *  @tparam FrameState Effect frame state.
+ *  @param frame Frame state the policy prepares from.
+ *  @return The policy's prepared state. */
 template <typename Policy, typename FrameState>
 __attribute__((always_inline)) inline PolicyPrepared<Policy, FrameState>
 prepare_policy(const FrameState &frame) {
@@ -461,7 +465,10 @@ smooth_ramp_or_step(float low, float high, float value) {
   return t * t * (3.0f - 2.0f * t);
 }
 
-/** @brief Shared edge-fade kernel; width 0 makes the edge a hard cut. */
+/** @brief Shared edge-fade kernel; width 0 makes the edge a hard cut.
+ *  @param provenance Projection provenance carrying the edge distance.
+ *  @param width Fade width in the same units as the edge distance.
+ *  @return Coverage in [0, 1], smoothstepped across @p width. */
 __attribute__((always_inline)) inline float
 edge_fade(const ProjectionProvenance &provenance, float width) {
   return smooth_ramp_or_step(0.0f, width, provenance.fade_edge_distance);
@@ -488,6 +495,9 @@ concept StageDescriptor = requires {
  * @brief Whether @p Descriptor's policies and providers agree with @p Binding.
  * @details Non-asserting; evaluated before the bind step instantiates
  * anything.
+ * @tparam Descriptor Stage descriptor.
+ * @tparam Binding Effect binding.
+ * @return True when the descriptor can bind.
  */
 template <typename Descriptor, typename Binding>
 consteval bool descriptor_bindable() {
@@ -1349,12 +1359,16 @@ public:
     Frame(Frame &&) = delete;
   };
 
-  /** @brief Resolves every stage's prepared state from @p ctx. */
+  /** @brief Resolves every stage's prepared state from @p ctx.
+   *  @param ctx Frame context.
+   *  @return The stages' prepared state. */
   HS_FLASH_MEMBER static PreparedTuple prepare_stages(const FrameState &ctx) {
     return Core::prepare_stages(ctx);
   }
 
-  /** @brief Bundles @p ctx with the stages' prepared state. */
+  /** @brief Bundles @p ctx with the stages' prepared state.
+   *  @param ctx Frame context.
+   *  @return The prepared frame. */
   HS_FLASH_MEMBER static Frame prepare(const FrameState &ctx) {
     return Frame(ctx);
   }
@@ -1363,26 +1377,39 @@ public:
    * @brief Type-erased prepare for dynamic program dispatch.
    * @details @p storage must hold sizeof(PreparedTuple) bytes at
    * alignof(PreparedTuple); the caller guarantees both.
+   * @param ctx Frame context.
+   * @param storage Destination of the constructed `PreparedTuple`.
    */
   HS_FLASH_MEMBER static void prepare_into(const FrameState &ctx,
                                            void *storage) {
     new (storage) PreparedTuple{prepare_stages(ctx)};
   }
 
-  /** @brief Seeds the entry carrier and runs the chain over @p view. */
+  /** @brief Seeds the entry carrier and runs the chain over @p view.
+   *  @param view Unit view direction.
+   *  @param ctx Frame context.
+   *  @param prepared Stages' prepared state for @p ctx.
+   *  @return The shaded colour. */
   __attribute__((always_inline)) static Color4
   evaluate(const math::Vector &view, const FrameState &ctx,
            const PreparedTuple &prepared) {
     return Core::template run_stage<0>(SphereSample{view, 0.0f}, ctx, prepared);
   }
 
-  /** @brief Shades a view direction using a frame returned by prepare(). */
+  /** @brief Shades a view direction using a frame returned by prepare().
+   *  @param view Unit view direction.
+   *  @param frame Prepared frame.
+   *  @return The shaded colour. */
   HS_HOT_FLASH_MEMBER static Color4 shade(const math::Vector &view,
                                           const Frame &frame) {
     return evaluate(view, frame.ctx, frame.prepared);
   }
 
-  /** @brief Type-erased shade over prepare_into()'s storage. */
+  /** @brief Type-erased shade over prepare_into()'s storage.
+   *  @param view Unit view direction.
+   *  @param ctx Frame context the storage was prepared from.
+   *  @param storage Storage filled by prepare_into().
+   *  @return The shaded colour. */
   HS_HOT_FLASH_MEMBER static Color4 shade_prepared(const math::Vector &view,
                                                    const FrameState &ctx,
                                                    const void *storage) {
@@ -1391,7 +1418,10 @@ public:
   }
 
   /** @brief Fold of every leaf's topology matcher, exposed only when every
-      leaf carries one. */
+      leaf carries one.
+      @tparam Key Topology key type.
+      @param key Key to test.
+      @return True only if every leaf implements @p key. */
   template <typename Key>
     requires(Detail::LeafOps<LeafList>::template MATCHES_KEY<Key>)
   static constexpr bool implements(const Key &key) {

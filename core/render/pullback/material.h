@@ -105,7 +105,11 @@ struct Ridge : ApproximationDefaults, TransferRole {
 };
 
 /** @brief Shared iso-band kernel: a unit plateau of half-width @p width
-    around @p level, falling to zero across a second half-width. */
+    around @p level, falling to zero across a second half-width.
+    @param value Field value.
+    @param level Contour level.
+    @param width Band half-width; 0 gives a hard band edge.
+    @return Band weight in [0, 1]. */
 __attribute__((always_inline)) inline float
 iso_contour(float value, float level, float width) {
   const float distance = fabsf(value - level);
@@ -113,7 +117,11 @@ iso_contour(float value, float level, float width) {
 }
 
 /** @brief Shared banding kernel: @p band_count cosine bands over the unit
-    value, offset by @p band_phase. */
+    value, offset by @p band_phase.
+    @param value Field value in [0, 1].
+    @param band_count Bands across the unit value.
+    @param band_phase Phase offset, radians.
+    @return Band weight in [0, 1]. */
 __attribute__((always_inline)) inline float
 smooth_bands(float value, float band_count, float band_phase) {
   return 0.5f - 0.5f * math::fast_cosf(math::TWO_PI_F * band_count * value +
@@ -312,7 +320,11 @@ static_assert(field_ids_unique<CutoutValueParams>());
 static_assert(field_defaults_in_range<CutoutValueParams>());
 
 /** @brief Shared cutout kernel: a smooth step through @p threshold with a
-    half-width of @p width. */
+    half-width of @p width.
+    @param value Field value.
+    @param threshold Cutout threshold.
+    @param width Step half-width; 0 gives a hard cut.
+    @return Coverage in [0, 1]. */
 __attribute__((always_inline)) inline float
 value_cutout(float value, float threshold, float width) {
   return Detail::smooth_ramp_or_step(threshold - width, threshold + width,

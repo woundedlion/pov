@@ -91,7 +91,10 @@ inline void append_block_json(std::string &out, const char *name,
 }
 
 /** @brief Appends a gated field's activation relation: the topology field it
-    reads and the value ids that keep it live. */
+    reads and the value ids that keep it live.
+    @param out Destination buffer.
+    @param field Gated field.
+    @param schema Operator schema holding the topology field. */
 inline void append_gate_json(std::string &out, const ParamFieldInfo &field,
                              std::span<const ParamFieldInfo> schema) {
   out += ",\"gated_by\":{\"field\":";
@@ -157,6 +160,7 @@ inline void append_param_json(std::string &out, const ParamFieldInfo &field,
  *        operator-table entry — to @p out.
  * @details Block sizes are the building ABI's: a pointer-bearing `prepared`
  * block is 8-byte-aligned and wider under LP64 than under wasm32.
+ * @param out Destination buffer.
  */
 inline void append_catalog_json(std::string &out) {
   out += "{\"catalog_version\":2,\"budgets\":{\"max_chain_ops\":";
