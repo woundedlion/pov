@@ -46,15 +46,14 @@ struct MeshFeedbackWhiteBox {
 inline void meshfeedback_capture(std::vector<Pixel> &out, int frames,
                                  bool feedback) {
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
 
   MeshFeedbackWhiteBox::MF fx;
   fx.init();
   HS_EXPECT_EQ(fx.updateParameter("Feedback", feedback ? 1.0f : 0.0f),
                ParamSetResult::APPLIED);
   for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
+    pin_frame_clock(f);
     fx.draw_frame();
     fx.advance_display();
   }
@@ -105,7 +104,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   using WB = MeshFeedbackWhiteBox;
   using MF = WB::MF;
   reset_effect_globals();
-  hs::set_mock_time(0, 0);
+  pin_frame_clock(0);
 
   MF fx;
   fx.init();
@@ -128,8 +127,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
 
   int switches = 0, desynced = 0, wrong_preset = 0;
   for (int f = 1; f <= 2 * MF::PRESET_DWELL_FRAMES + 1; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                      static_cast<unsigned long>(f) * FRAME_US);
+    pin_frame_clock(f);
     fx.draw_frame();
     fx.advance_display();
 
