@@ -393,7 +393,8 @@ class ManifestValidation(unittest.TestCase):
             with self.subTest(enum=enum):
                 body = re.search(rf"enum class {enum} : uint8_t \{{([^}}]*)\}};", contract)
                 self.assertIsNotNone(body, f"{enum} not found in contract.h")
-                names = [name.strip() for name in body[1].split(",") if name.strip()]
+                members = re.sub(r"//[^\n]*|/\*.*?\*/", "", body[1], flags=re.S)
+                names = [name.strip() for name in members.split(",") if name.strip()]
                 self.assertEqual(metric[field]["enum"], names)
 
     def test_schema_operations_follow_the_protocol_table(self):
