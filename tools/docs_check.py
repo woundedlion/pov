@@ -1106,8 +1106,8 @@ SYMBOL_COMMENT_SUFFIXES = frozenset({".c", ".cc", ".cpp", ".h", ".hpp", ".inl",
 SCRIPT_SUFFIXES = frozenset({".cjs", ".js", ".mjs", ".mts", ".ts"})
 SYMBOL_COMMENT_EXCLUDED_RE = re.compile(
     r"^core/vendor/|effects_legacy"
-    r"|^core/color/(?:color_luts|gamut_lut|srgb_decode_lut"
-    r"|mindsplatter_palette_luts)\.h$"
+    r"|^core/color/(?:color_luts|gamut_lut|srgb_decode_lut)\.h$"
+    r"|^effects/generated/"
     r"|^core/mesh/relax_bakes_generated\.h$"
     r"|^core/spatial/reaction_graph\.cpp$"
     r"|^tests/mindsplatter_replay_corpus\.h$")

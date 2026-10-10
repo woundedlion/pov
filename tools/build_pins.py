@@ -207,7 +207,7 @@ SHARED_LITERALS = {
         r"|(^|/)core/color/color_luts\.h$"
         r"|(^|/)core/color/gamut_lut\.h$"
         r"|(^|/)core/color/srgb_decode_lut\.h$"
-        r"|(^|/)core/color/mindsplatter_palette_luts\.h$"
+        r"|(^|/)effects/generated/"
         r"|(^|/)core/mesh/relax_bakes_generated\.h$"
         r"|(^|/)core/spatial/reaction_graph\.cpp$"
         r"|(^|/)tests/mindsplatter_replay_corpus\.h$"

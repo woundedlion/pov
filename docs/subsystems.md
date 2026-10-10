@@ -782,6 +782,8 @@ The `PaletteRecipes` namespace collects the stock builders — `hue_turns()`,
 `from_oklch_keys()`, `from_colors()`, `isolight_spectral_loop()` and
 `tonal_monochrome()` — and `effects/common/palette_recipes.h` holds the
 per-effect recipes the roster renders.
+`effects/generated/mind_splatter_palette_bank.h` is the MindSplatter recipe
+baked at 256 base hues by `tools/mindsplatter_palette_gen.cpp`.
 
 ### Palette Cycling
 

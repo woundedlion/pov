@@ -94,7 +94,7 @@ HS_FLASH_MEMBER inline PaletteRecipe hyper_lattice(float hue_offset = 0.0f) {
  * @param base_turns Base hue in turns.
  * @return The recipe.
  * @details The recipe of record for the baked bank in
- *          core/color/mindsplatter_palette_luts.h.
+ *          effects/generated/mind_splatter_palette_bank.h.
  */
 HS_FLASH_MEMBER inline PaletteRecipe mind_splatter(float base_turns) {
   PaletteRecipe recipe;
