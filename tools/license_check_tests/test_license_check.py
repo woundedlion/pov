@@ -177,13 +177,27 @@ class TestMain(unittest.TestCase):
 
     def test_a_git_that_cannot_be_run_is_a_tooling_error(self):
         for error in (FileNotFoundError("git"),
-                      subprocess.TimeoutExpired("git", 30),
-                      UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid")):
+                      subprocess.TimeoutExpired("git", 30)):
             with self.subTest(error=type(error).__name__):
                 with mock.patch.object(lc.subprocess, "run", side_effect=error), \
                         contextlib.redirect_stderr(io.StringIO()) as err:
                     self.assertEqual(lc.main(["--root", "."]), 2)
                 self.assertIn("tooling error", err.getvalue())
+
+    def test_a_failed_or_undecodable_listing_is_a_tooling_error(self):
+        cases = (
+            (subprocess.CompletedProcess("git", 0, stdout=b"\xff\0", stderr=b""),
+             "tooling error"),
+            (subprocess.CompletedProcess("git", 128, stdout=b"",
+                                         stderr=b"fatal: not a git repository"),
+             "cannot list tracked sources"),
+        )
+        for listed, message in cases:
+            with self.subTest(returncode=listed.returncode):
+                with mock.patch.object(lc.subprocess, "run", return_value=listed), \
+                        contextlib.redirect_stderr(io.StringIO()) as err:
+                    self.assertEqual(lc.main(["--root", "."]), 2)
+                self.assertIn(message, err.getvalue())
 
     def test_stale_exception_is_a_failure(self):
         with tempfile.TemporaryDirectory() as directory:
