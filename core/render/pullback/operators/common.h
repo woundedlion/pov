@@ -74,7 +74,7 @@ struct SpatialWalkState {
   math::Vector direction;        ///< Walker heading, tangent at `position`.
   math::Quaternion wander;       ///< Accumulated wander orientation.
   float angular_velocity = 0.0f; ///< Walker angular velocity.
-  float spin_phase = 0.0f;       ///< Spin about Y, radians, wrapped at 2π.
+  float spin_phase = 0.0f;       ///< Spin angle, radians, |value| < 2π.
   uint32_t walk_time = 0;        ///< Walk steps taken.
   int32_t noise_seed = 0;        ///< Seed of `walk_noise`.
 };
@@ -96,7 +96,7 @@ inline void init_walk(SpatialWalkState &state, int32_t seed) {
  * @brief Steps the random walk one frame and accumulates wander and spin.
  * @param state Walk state to advance.
  * @param wander Fraction of the walk rotation absorbed this frame, [0, 1].
- * @param spin_rate Spin about Y added this frame, in radians.
+ * @param spin_rate Spin angle added this frame, in radians.
  */
 inline void advance_walk(SpatialWalkState &state, float wander,
                          float spin_rate) {

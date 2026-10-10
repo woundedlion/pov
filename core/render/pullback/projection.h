@@ -69,14 +69,16 @@ inline constexpr uint8_t FOLDED_FLAG = 1U << 0;
 inline constexpr float GNOMONIC_AXIS_EPS = 1e-3f;
 
 /**
+ * @brief Rational singularity weight f^2 r / (f^2 r + s), with r and s the
+ *        squared distances and f the fade sharpness floored at 1e-3.
  * @param regular_distance_sq Squared-distance term that vanishes at the
  *                            singularity.
  * @param singular_distance_sq Squared-distance term that vanishes at the
  *                             regular locus.
  * @param singularity_fade Attenuation sharpness: 1 reaches the regular locus;
  *                         20 confines the fade to a narrow cap.
-  * @return Weight in [0, 1]: 0 at the singularity, 1 on the regular locus.
-  */
+ * @return Weight in [0, 1]: 0 at the singularity, 1 on the regular locus.
+ */
 __attribute__((always_inline)) inline float
 singularity_attenuation(float regular_distance_sq, float singular_distance_sq,
                         float singularity_fade) {

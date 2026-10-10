@@ -30,19 +30,17 @@ struct Ring {
   /** @var u
    *  First in-plane basis vector. */
   /// Ring axis (unit).
-  math::Vector normal, u,
-      w;    /**< Ring axis and the two in-plane basis vectors. */
-  float ny; /**< y-component of the ring axis. */
+  math::Vector normal, u, w; /**< Second in-plane basis vector. */
+  float ny;                  /**< y-component of the ring axis. */
   /// Centerline polar angle about the axis (radians).
-  float target_angle,
-      center_phi; /**< Centerline polar angle and axis colatitude. */
+  float target_angle, center_phi; /**< Colatitude of the ring axis (radians). */
   /** @var cos_min
    *  Cosine of the outer band edge; -2 when the band reaches the antipode. */
   /** @var cos_target
    *  Cosine of target_angle. */
   /// Cosine of the inner band edge; 2 when the band reaches the axis.
   float cos_max, cos_min, cos_target,
-      inv_sin_target; /**< Precomputed band trig. */
+      inv_sin_target; /**< 1 / sin(target_angle); 0 when not linearized. */
 
   float r_val;       /**< Horizontal projection length of the axis (for full-row
                          check). */
@@ -239,18 +237,17 @@ struct DistortedRing {
   /** @var u
    *  First in-plane basis vector. */
   /// Ring axis (unit).
-  math::Vector normal, u,
-      w;    /**< Ring axis and the two in-plane basis vectors. */
-  float ny; /**< y-component of the ring axis. */
+  math::Vector normal, u, w; /**< Second in-plane basis vector. */
+  float ny;                  /**< y-component of the ring axis. */
   /// Centerline polar angle about the axis (radians).
-  float target_angle,
-      center_phi;      /**< Centerline polar angle and axis colatitude. */
-  float max_thickness; /**< thickness + max_distortion (radians). */
+  float target_angle, center_phi; /**< Colatitude of the ring axis (radians). */
+  float max_thickness;            /**< thickness + max_distortion (radians). */
 
   float r_val;       /**< Horizontal projection length of the axis. */
   float alpha_angle; /**< Azimuth of the normal in the XZ plane. */
   /// Cosine of the inner widened band edge.
-  float cos_max_limit, cos_min_limit; /**< Cosines of the widened band edges. */
+  float cos_max_limit,
+      cos_min_limit; /**< Cosine of the outer widened band edge. */
   bool suppress_pole_fill =
       false; /**< Drop the degenerate exact-pole row rather than full-row
                 filling it (see get_horizontal_intervals). */

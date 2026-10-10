@@ -84,7 +84,7 @@ inline math::Complex project_div(const math::Complex &num,
 /** @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d). */
 struct MobiusParams {
   /// Coefficient a.
-  math::Complex a, b, c, d; /**< The four transform coefficients. */
+  math::Complex a, b, c, d; /**< Coefficient d. */
   /** @var b
    *  Coefficient b. */
   /** @var c

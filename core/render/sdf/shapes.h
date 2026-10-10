@@ -620,7 +620,7 @@ struct Flower {
  */
 struct Line {
   /// First arc endpoint (unit vector).
-  math::Vector a, b; /**< Arc endpoints (unit vectors). */
+  math::Vector a, b; /**< Second arc endpoint (unit vector). */
   float thickness;   /**< Half-width of the stroke (radians). */
 
   math::Vector n; /**< Great-circle plane normal of the arc. */

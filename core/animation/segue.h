@@ -702,7 +702,8 @@ struct Breakdown : Base {
    * @brief Orders faces by their class's draw of the shuffled fade order; an
    * out-of-range class shares class 0's rank.
    * @return Position in [0, 1]: 1 for the class that vanishes first.
-   * @param cls Face topology class.
+   * @param cls Face palette-slot class (MeshPaletteBank::slot_of of the
+   *        topology class).
    */
   float face_offset(const math::Vector &, int, int cls) const {
     if (num_classes <= 1)

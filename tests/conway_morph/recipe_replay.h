@@ -219,7 +219,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       size_t leg_faces = 0;
       int off_palette_frames = 0;
       const OpLeg::Landing *lp = nullptr;
-      // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
+      // Ramp sample coordinates; both sides sample through BakedPalette, so the
+      // comparison is exact.
       constexpr float PROBE_T[] = {0.0f, 0.5f, 1.0f};
       Arena blend_arena(morph_temp_buf, sizeof(morph_temp_buf));
       // Every frame must draw every face's (from, to) ramp bit-exact at the

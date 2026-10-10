@@ -642,7 +642,7 @@ for module ownership and local validation commands.
 │   │   ├── effect_param_controls.js lil-gui control per parameter definition, warnings, telemetry, and stage labels
 │   │   ├── effect_param_values.js Per-frame sync of parameter controllers with engine values and selector states
 │   │   ├── global_stats_view.js GlobalStatsView — single-engine frame time and arena usage bar
-│   │   ├── gui.js              DeepLinkGUI — lil-gui wrapper persisting every control to URL params
+│   │   ├── gui.js              DeepLinkGUI — lil-gui wrapper deep-linking add() controls to URL params
 │   │   ├── segment_stats_view.js SegmentStatsView — per-segment timing and arena table, spawn and fault states
 │   │   ├── segmented_pov_controls.js Segmented POV panel: Enabled toggle, Segments slider, and bounded pool spawner
 │   │   ├── sidebar.js          EffectSidebar — effect list, sort controls, and keyboard navigation
@@ -663,7 +663,7 @@ for module ownership and local validation commands.
 │   │   ├── layout.js           Mobile layout breakpoint shared with styles/index.css
 │   │   ├── page_lifecycle.js   Per-frame scheduler, media-query watch, and page teardown hooks
 │   │   ├── pointer_drag.js     Pointer-capture drag on one element and its padding-box rect
-│   │   └── slider.js           Labelled range slider with live readout and a scaled-value proxy
+│   │   └── slider.js           Labelled range slider with live readout, and a keyboard ARIA proxy for painted sliders
 │   ├── types/                  Browser API declarations
 │   │   └── file_system_access.d.ts showSaveFilePicker declaration missing from lib.dom
 │   └── workbench/              Shader, palettes, solids, Möbius, and Lissajous tools
@@ -687,7 +687,7 @@ for module ownership and local validation commands.
 │       │   ├── chain_apply.js  Applies a compiled chain document and its preset to the chain engine
 │       │   ├── chain_document_store.js Chain document store: validated atomic edits, selection, bypass, and undo
 │       │   ├── chain_presentation.js Carrier bands, replacement offers, and field formatting for the chain strip
-│       │   ├── chain_strip.js  Chain strip UI: operator rows, sockets, inline parameter controls, bypass toggles
+│       │   ├── chain_strip.js  Chain strip UI: operator chips in carrier bands, socket chips, inline parameter controls, bypass toggles
 │       │   ├── shader_deeplink.js Encodes and decodes the #shader= URL hash state
 │       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
 │       └── solids/             Solids tool

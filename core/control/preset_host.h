@@ -17,9 +17,11 @@
 
 /**
  * @brief Current preset index and preset selection for an effect.
- * @details configure_presets() sets the preset count. Every change goes
- * through apply_preset(), which may refuse it. Manual selection pauses the
- * parameter animations; advance_preset() does not.
+ * @details configure_presets() sets the preset count. Every MANUAL,
+ * SYNCHRONIZED and AUTOMATIC change goes through apply_preset(), which may
+ * refuse it; a RESTORED change (a cancelled fade) is reported only through
+ * preset_changed(). Manual selection pauses the parameter animations;
+ * advance_preset() does not.
  */
 class PresetHost : public ParamHost {
 public:
@@ -83,7 +85,8 @@ protected:
     RESTORED
   };
 
-  /** @brief A preset change passed to apply_preset() and preset_changed(). */
+  /** @brief A preset change passed to preset_changed(), and to apply_preset()
+      for every origin except RESTORED. */
   struct PresetChange {
     size_t from;               /**< Previously committed preset index. */
     size_t to;                 /**< Candidate preset index. */

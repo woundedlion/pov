@@ -1056,7 +1056,8 @@ HS_FLASH_INLINE inline OKLab gamut_scale_to_boundary_lut(OKLab lab) {
 /**
  * @brief Converts OKLab to linear RGB with tabulated gamut clipping.
  * @param lab Source color.
- * @return In-gamut linear RGB.
+ * @return Linear RGB on or inside the tabulated boundary (may sit a hair past
+ *         the cube; callers still clamp).
  */
 inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
   LinRGB output = oklab_to_linear_rgb(lab);

@@ -79,7 +79,9 @@ struct HueControls {
   PaletteHarmony harmony = PaletteHarmony::ANALOGOUS;
   /// Travel direction between keys.
   HueDirection direction = HueDirection::SHORTEST;
-  float base_turns = 0.0f;    ///< First-key hue, turns; wrapped into [0, 1).
+  /// Harmony/sweep anchor hue, turns; wrapped into [0, 1). The second key for
+  /// (accented) analogous harmonies, the first key otherwise; unused in CUSTOM.
+  float base_turns = 0.0f;
   float spread_turns = 0.07f; ///< Harmony spread, turns in [0, 0.25].
   /// SWEEP-mode hue travel across the run, turns; whole turns under LOOP.
   float sweep_turns = 1.0f;

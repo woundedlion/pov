@@ -21,8 +21,9 @@ inline void test_effect_needs_full_frame_default_false() {
 /**
  * @brief Screen::Trails parity fixture: a fresh trail buffer that plots one
  *        frame's seeds and flushes them onto an effect.
- * @details Seeds span every row and both x halves, plus one point that sweeps
- *          rows across frames. Trail brightness tracks remaining lifetime.
+ * @details Fixed seeds sit on every third row and both x halves, plus one
+ *          point that sweeps rows across frames. Trail brightness tracks
+ *          remaining lifetime.
  */
 struct ScreenTrailRig {
   static constexpr int W = 32, H = 16, MAXP = 512;
