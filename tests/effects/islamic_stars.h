@@ -80,6 +80,14 @@ struct IslamicBuildProbe {
   static int cached_burst_window(const IslamicStars<W, H> &e) {
     return (e.burst_size_eff - 1) * e.ripple_stagger_eff + e.ripple_dur_eff;
   }
+  template <int W, int H>
+  static int active_ripples(const IslamicStars<W, H> &e) {
+    return e.ripple_gen.active_count();
+  }
+  template <int W, int H>
+  static float first_ripple_phase(const IslamicStars<W, H> &e) {
+    return e.ripple_gen.active_params(0).phase;
+  }
   template <int W, int H> static int fire_ripple(IslamicStars<W, H> &e) {
     int count = 0;
     {
@@ -265,13 +273,14 @@ inline void test_islamicstars_manual_select_cuts_build() {
 }
 
 /**
- * @brief Pause lets the resident shape finish building, then holds it lit;
+ * @brief Pause holds the built preset with moving, repeating ripples;
  *        unpausing resumes advances.
  */
 inline void test_islamicstars_pause_holds_shape() {
   reset_effect_globals();
   IslamicBuildProbe::IS effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  IslamicBuildProbe::set_burst_size(effect, 1);
   effect.init();
   const size_t held = effect.getPresetIndex();
   effect.draw_frame();
@@ -287,6 +296,24 @@ inline void test_islamicstars_pause_holds_shape() {
   HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), held);
   HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(effect)), uint64_t(0));
+
+  const int window = IslamicBuildProbe::cached_burst_window(effect);
+  int moving_frames = 0;
+  int repeated_bursts = 0;
+  float previous_phase = 0.0f;
+  for (int frame = 0; frame < 3 * window + 3; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_EQ(effect.getPresetIndex(), held);
+    if (IslamicBuildProbe::active_ripples(effect) > 0) {
+      const float phase = IslamicBuildProbe::first_ripple_phase(effect);
+      moving_frames += phase > previous_phase;
+      repeated_bursts += phase < previous_phase;
+      previous_phase = phase;
+    }
+  }
+  HS_EXPECT_GT(moving_frames, window);
+  HS_EXPECT_GE(repeated_bursts, 2);
 
   effect.setAnimationsPaused(false);
   int frames = 0;
