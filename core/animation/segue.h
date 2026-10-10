@@ -174,16 +174,28 @@ struct Base {
    */
   static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = false;
   /** @brief Default scheduling: one sequential sprite (see
-   * schedule_sequential). @p paused is the optional event-level pause gate. */
+   * schedule_sequential). @p paused is the optional event-level pause gate.
+   * @param timeline Timeline receiving the sprite.
+   * @param draw_fn Draws the mesh at the envelope phase.
+   * @param duration Total frames the mesh is on screen.
+   * @param window Requested transition window in frames.
+   * @param paused Optional event-level pause gate.
+   * @return Frames until the next transition starts.
+   */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     return schedule_sequential(timeline, std::move(draw_fn), duration, window,
                                paused);
   }
   /** @brief Whether drawing at this phase can produce visible output. The
-   * identity policy never culls. */
+   * identity policy never culls.
+   * @return True.
+   */
   bool visible(float) const { return true; }
-  /** @brief Global alpha at this phase. */
+  /**
+   * @brief Global alpha at this phase.
+   * @return 1.
+   */
   float opacity(float) const { return 1.0f; }
   /**
    * @brief Coverage mask over the face interior.
@@ -197,7 +209,11 @@ struct Base {
     (void)phase;
     return 1.0f;
   }
-  /** @brief Color regrade applied after the palette lookup. */
+  /**
+   * @brief Color regrade applied after the palette lookup.
+   * @param c Palette colour.
+   * @return `c` unchanged.
+   */
   Color4 grade(Color4 c, float) const { return c; }
   /**
    * @brief Per-face fade length as a fraction of the transition window.
@@ -224,9 +240,15 @@ namespace detail {
  * the hook was found on so an inherited and a shadowing declaration of the same
  * signature compare equal. */
 template <typename M> struct HookSignature {};
+/**
+ * @brief HookSignature for a const member function of C.
+ * @tparam C Class the member was found on.
+ * @tparam R Return type.
+ * @tparam A Parameter types.
+ */
 template <typename C, typename R, typename... A>
 struct HookSignature<R (C::*)(A...) const> {
-  using type = R(A...);
+  using type = R(A...); ///< The member's plain function type.
 };
 
 } // namespace detail
@@ -308,26 +330,33 @@ concept LocalSweeps = requires {
  */
 namespace detail {
 
+/** @brief Carrier of the `warp` hook name. */
 struct WarpName {
-  void warp();
+  void warp(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `retarget` hook name. */
 struct RetargetName {
-  void retarget();
+  void retarget(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `reorder` hook name. */
 struct ReorderName {
-  void reorder();
+  void reorder(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `mask_pair` hook name. */
 struct MaskPairName {
-  void mask_pair();
+  void mask_pair(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `face_offset` hook name. */
 struct FaceOffsetName {
-  void face_offset();
+  void face_offset(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `face_phase` hook name. */
 struct FacePhaseName {
-  void face_phase();
+  void face_phase(); ///< Name probe; never defined.
 };
+/** @brief Carrier of the `LOCAL_SWEEP` trait name. */
 struct LocalSweepName {
-  static constexpr int LOCAL_SWEEP = 0;
+  static constexpr int LOCAL_SWEEP = 0; ///< Name probe.
 };
 
 template <typename S, typename Name> struct Merged : S, Name {};
@@ -396,7 +425,7 @@ inline constexpr bool SHADOWS_FRAGMENT_HOOKS =
  * through black).
  */
 struct Crossfade : Base {
-  static constexpr bool OVERLAPS = true;
+  static constexpr bool OVERLAPS = true; ///< Consecutive sprites coexist.
   int overlap = -1; /**< Frames consecutive sprites coexist; clamped to the
                          fade window, negative selects the full window. */
   /**
@@ -415,9 +444,17 @@ struct Crossfade : Base {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,
                                overlap, paused);
   }
-  /** @brief Culls once the fade has taken the mesh to black. */
+  /**
+   * @brief Culls once the fade has taken the mesh to black.
+   * @param phase Transition phase in [0, 1].
+   * @return False once the mesh has faded to black.
+   */
   bool visible(float phase) const { return fades_to_black(phase); }
-  /** @brief Global alpha: the fade envelope itself. */
+  /**
+   * @brief Global alpha: the fade envelope itself.
+   * @param phase Transition phase in [0, 1].
+   * @return `phase`.
+   */
   float opacity(float phase) const { return phase; }
 };
 
@@ -518,12 +555,16 @@ struct TerminatorSweep : Base {
    * @brief Orders faces along the sweep axis.
    * @return Position in [0, 1]: 1 at the axis's positive pole, which the front
    * reaches first.
+   * @param center Unit face center.
    */
   float face_offset(const math::Vector &center, int, int) const {
     return 0.5f * (1.0f + math::dot(center, axis));
   }
   /** @brief Per-face fade length as a window fraction: a stable hash of the
-   * face index into the frame range; the frame bounds may be unordered. */
+   * face index into the frame range; the frame bounds may be unordered.
+   * @param i Face index.
+   * @return Fade length as a fraction of the window, in [0, 1].
+   */
   float face_fade_frac(int i) const {
     float t = math::hash01(static_cast<uint32_t>(i), fade_seed);
     float lo = min_fade_frac();
@@ -544,11 +585,18 @@ struct TerminatorSweep : Base {
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
   /** @brief Culls once the last face the front reaches, at the shortest
-   * fade, has gone black. */
+   * fade, has gone black.
+   * @param phase Transition phase in [0, 1].
+   * @return False once every face has faded to black.
+   */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f, min_fade_frac()));
   }
-  /** @brief Squared phase, for a perceptually even fade in linear light. */
+  /**
+   * @brief Squared phase, for a perceptually even fade in linear light.
+   * @param phase Face-local phase in [0, 1].
+   * @return `phase` squared.
+   */
   float opacity(float phase) const { return phase * phase; }
 
 private:
@@ -581,6 +629,7 @@ struct Shockwave : Base {
   /**
    * @brief Orders faces by angular distance from the origin.
    * @return Position in [0, 1]: 1 at the origin, which extinguishes first.
+   * @param center Unit face center.
    */
   float face_offset(const math::Vector &center, int, int) const {
     float angle =
@@ -591,15 +640,25 @@ struct Shockwave : Base {
    * @brief Face-local phase behind the eased wave front (see sweep_phase); the
    * fade fraction is unused, every face crossing over the same BAND.
    * @return The face's own phase in [0, 1].
+   * @param phase Global transition phase in [0, 1].
+   * @param offset Face ordering from face_offset().
    */
   float face_phase(float phase, float offset, float = 0.0f) const {
     return sweep_phase(phase, offset, BAND);
   }
-  /** @brief Culls once the last face the front reaches has gone black. */
+  /**
+   * @brief Culls once the last face the front reaches has gone black.
+   * @param phase Transition phase in [0, 1].
+   * @return False once every face has faded to black.
+   */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
-  /** @brief Global alpha, applied to the face-local phase: a linear fade. */
+  /**
+   * @brief Global alpha, applied to the face-local phase: a linear fade.
+   * @param phase Face-local phase in [0, 1].
+   * @return `phase`.
+   */
   float opacity(float phase) const { return phase; }
 };
 
@@ -643,6 +702,7 @@ struct Breakdown : Base {
    * @brief Orders faces by their class's draw of the shuffled fade order; an
    * out-of-range class shares class 0's rank.
    * @return Position in [0, 1]: 1 for the class that vanishes first.
+   * @param cls Face topology class.
    */
   float face_offset(const math::Vector &, int, int cls) const {
     if (num_classes <= 1)
@@ -655,6 +715,8 @@ struct Breakdown : Base {
    * @brief Face-local phase within the class's own slice of the phase range;
    * the fade fraction is unused, a class fading over its whole slice.
    * @return The face's own phase in [0, 1].
+   * @param phase Global transition phase in [0, 1].
+   * @param offset Face ordering from face_offset().
    */
   float face_phase(float phase, float offset, float = 0.0f) const {
     // Class windows tile [BLACK_DWELL, 1]; phase 1 stays the identity plateau.
@@ -664,11 +726,18 @@ struct Breakdown : Base {
         0.0f, 1.0f);
   }
   /** @brief Culls once the last class has faded, including the BLACK_DWELL
-   * slice. */
+   * slice.
+   * @param phase Transition phase in [0, 1].
+   * @return False once every class has faded to black.
+   */
   bool visible(float phase) const {
     return fades_to_black(face_phase(phase, 0.0f));
   }
-  /** @brief Global alpha, applied to the face-local phase: a linear fade. */
+  /**
+   * @brief Global alpha, applied to the face-local phase: a linear fade.
+   * @param phase Face-local phase in [0, 1].
+   * @return `phase`.
+   */
   float opacity(float phase) const { return phase; }
 };
 
@@ -717,7 +786,11 @@ struct GoldConvergence : Base {
   Color4 grade(Color4 c, float phase) const {
     return c.lerp(Color4(gold, c.alpha), 1.0f - phase);
   }
-  /** @brief Global alpha: dips at the swap, never to black. */
+  /**
+   * @brief Global alpha: dips at the swap, never to black.
+   * @param phase Transition phase in [0, 1].
+   * @return 0.4 + 0.6 * phase.
+   */
   float opacity(float phase) const { return 0.4f + 0.6f * phase; }
 };
 
@@ -731,7 +804,7 @@ struct GoldConvergence : Base {
  * cannot dissolve.
  */
 struct Dissolve : Base {
-  static constexpr bool OVERLAPS = true;
+  static constexpr bool OVERLAPS = true; ///< Consecutive sprites coexist.
   /** @brief One mask_pair() call feeds both halves of a frame, so a
    * mid-overlap seed rewrite keeps the split complementary. */
   static constexpr bool RETARGET_SAFE_UNDER_OVERLAP = true;
@@ -766,7 +839,14 @@ struct Dissolve : Base {
     return {DissolveMask{thr, salt, false}, DissolveMask{thr, salt, true}};
   }
   /** @brief Overlapping schedule, fixed at the full fade window: the masks
-   * partition the edges only while both meshes are on the timeline. */
+   * partition the edges only while both meshes are on the timeline.
+   * @param timeline Timeline receiving the sprite.
+   * @param draw_fn Draws the mesh at the envelope phase.
+   * @param duration Total frames the mesh is on screen.
+   * @param window Requested transition window in frames.
+   * @param paused Optional event-level pause gate.
+   * @return Frames until the next transition starts.
+   */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window,
                const bool *paused = nullptr) {
     return schedule_overlapped(timeline, std::move(draw_fn), duration, window,

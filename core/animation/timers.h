@@ -46,6 +46,7 @@ public:
   }
 
   /** @brief A one-shot timer is removed on its single trigger, so it is finite.
+   * @return True for a one-shot timer.
    */
   bool is_finite() const override { return !this->repeat; }
 
@@ -77,7 +78,7 @@ struct RandomTimerOptions {
  */
 class RandomTimer : public TimerBase<RandomTimer> {
 public:
-  using Options = RandomTimerOptions;
+  using Options = RandomTimerOptions; ///< Delay range and repeat behaviour.
 
   /**
    * @brief Constructs a RandomTimer.

@@ -290,12 +290,16 @@ protected:
 #undef HS_ANIMATION_INTERNAL
 
 // Inline-storage budget audit over the concrete animation types.
-/** @brief Largest sizeof over a pack of types. */
+/**
+ * @brief Largest sizeof over a pack of types.
+ * @return max(sizeof(Ts)...), in bytes.
+ */
 template <typename... Ts> constexpr size_t largest_sizeof() {
   return std::max({sizeof(Ts)...});
 }
 
 // Every non-templated Animation type belongs in this pack.
+/// Largest sizeof over the non-templated Animation types, in bytes.
 constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::RandomTimer, Animation::PeriodicTimer, Animation::Transition,
     Animation::Mutation, Animation::Progress, Animation::Driver,

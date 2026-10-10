@@ -27,9 +27,11 @@ class RecipeBuild {
 
 protected:
   // Recipe-build leg lengths, before the Trans Speed divisor.
+  /// Hankin leg length in frames.
   static constexpr int HANKIN_LEG_FRAMES = 32;
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
+  /// Relax leg length in frames.
   static constexpr int RELAX_LEG_FRAMES = 16;
   static constexpr int RECONCILE_LEG_FRAMES =
       24; /**< identity-mesh -> authored kis/needle slerp. */
@@ -71,6 +73,7 @@ protected:
                                                        kis/needle macro. */
   int build_reconcile_frames =
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
+  /** @brief Build stage entered when a scheduled leg completes. */
   enum class BuildContinuation : uint8_t {
     FINISH,
     DUAL_MEDIAL,
@@ -82,6 +85,7 @@ protected:
     DTD_AFTER_TRUNCATE,
     DTD_AFTER_BRIDGE2,
   };
+  /// Stage entered after the current dual bridge's closing leg.
   BuildContinuation dual_bridge_done = BuildContinuation::FINISH;
 
   /**
@@ -119,6 +123,7 @@ protected:
    * @brief Whether a lowered DUAL step pairs with a trailing KIS (needle = kd =
    *        dt): the pair builds as the smooth dt macro over both steps.
    * @param k Lowered step index.
+   * @return True when step k is DUAL and step k + 1 is KIS.
    */
   HS_COLD_MEMBER bool dt_pair_at(size_t k) const {
     return k + 1 < build_step_count &&
@@ -130,6 +135,7 @@ protected:
    * @brief Whether a lowered KIS step stands alone (not the tail of a dt pair);
    *        such a kis builds as the dtd macro (kis = dtd).
    * @param k Lowered step index.
+   * @return True when step k is KIS and step k - 1 is not DUAL.
    */
   HS_COLD_MEMBER bool standalone_kis_at(size_t k) const {
     return build_step_chain[k].op == Solids::Op::KIS &&
@@ -138,6 +144,7 @@ protected:
 
   /**
    * @brief Whether the lowered chain needs the scratch_a-heavy bridge split.
+   * @return True when any step starts a dt or dtd macro.
    */
   bool build_uses_smooth_bridge() const {
     for (size_t k = 0; k < build_step_count; ++k)
@@ -332,6 +339,11 @@ protected:
     }
   }
 
+  /**
+   * @brief Queues a build leg and records its landing.
+   * @param leg Leg to run; its landing must stay valid until the next leg.
+   * @param next Stage entered when the leg completes.
+   */
   HS_COLD_MEMBER void
   schedule_build_leg(Animation::OpLeg &&leg,
                      BuildContinuation next = BuildContinuation::FINISH) {
@@ -357,11 +369,16 @@ protected:
     build_next_seed = PolyMesh();
   }
 
+  /** @brief Traps when the persistent arena exceeds the device budget. */
   void check_build_budget() const {
     HS_CHECK(persistent_arena.get_offset() <= device_persistent_budget,
              "RecipeBuild: build leg exceeds the device persistent budget");
   }
 
+  /**
+   * @brief Enters a build stage.
+   * @param next Stage to run.
+   */
   HS_COLD_MEMBER void continue_build(BuildContinuation next) {
     switch (next) {
     case BuildContinuation::FINISH:
@@ -413,6 +430,7 @@ protected:
    * @param scratch Arena the centroid and palette arrays live in; must outlive
    * the OpLeg constructor that reads them.
    * @param correspondence Departed-to-swept face-order relationship.
+   * @return The handoff for the next leg.
    */
   HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
   seed_handoff(Arena &scratch,
@@ -453,6 +471,7 @@ protected:
    * landing face order (so its face f carries build_landing face f's palette).
    * @param scratch Arena the arrays live in.
    * @param correspondence Departed-to-swept face-order relationship.
+   * @return The handoff for the next leg.
    */
   HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
   landing_handoff(const PolyMesh &departed, Arena &scratch,
@@ -480,6 +499,8 @@ protected:
   /**
    * @brief Frame count of DUAL bridge sub-leg `sub` (0/1/2); each is at least
    * one frame and they sum to the step's budget when it is at least three.
+   * @param sub Sub-leg index in [0, 2].
+   * @return Frame count of the sub-leg.
    */
   int dual_sub_frames(int sub) const {
     const int total = build_leg_frames[build_step];
@@ -692,10 +713,12 @@ protected:
                             BuildContinuation::DT_AFTER_TRUNCATE);
   }
 
+  /** @brief dt macro: after the truncate sweep, schedules the dual bridge. */
   HS_COLD_MEMBER void dt_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(X, 1/3)
     schedule_dual_bridge(BuildContinuation::DT_AFTER_BRIDGE);
   }
+  /** @brief dt macro: after the dual bridge, schedules the reconcile leg. */
   HS_COLD_MEMBER void dt_after_bridge() {
     carry_landing_to_seed(); // build_seed = dual(truncate(X, 1/3)) (identity)
     HS_CHECK(dt_pair_at(build_step),
@@ -712,15 +735,18 @@ protected:
   HS_COLD_MEMBER void schedule_dtd_macro() {
     schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE1);
   }
+  /** @brief dtd macro: after the first bridge, schedules the truncate sweep. */
   HS_COLD_MEMBER void dtd_after_bridge1() {
     carry_landing_to_seed(); // build_seed = dual(X)
     schedule_macro_truncate("dtd truncate",
                             BuildContinuation::DTD_AFTER_TRUNCATE);
   }
+  /** @brief dtd macro: after the truncate, schedules the second bridge. */
   HS_COLD_MEMBER void dtd_after_truncate() {
     carry_landing_to_seed(); // build_seed = truncate(dual(X), 1/3)
     schedule_dual_bridge(BuildContinuation::DTD_AFTER_BRIDGE2);
   }
+  /** @brief dtd macro: after the second bridge, schedules the reconcile leg. */
   HS_COLD_MEMBER void dtd_after_bridge2() {
     carry_landing_to_seed(); // build_seed = dual(truncate(dual(X), 1/3))
     HS_CHECK(standalone_kis_at(build_step),

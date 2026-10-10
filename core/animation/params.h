@@ -23,11 +23,18 @@ namespace Animation {
 template <typename Derived>
 class FiniteParamAnimationBase : public AnimationBase<Derived> {
 protected:
+  /**
+   * @brief Constructs the base; traps on a negative duration.
+   * @param duration Length in frames; >= 0.
+   * @param repeat Restarts on completion when true.
+   */
   FiniteParamAnimationBase(int duration, bool repeat)
       : AnimationBase<Derived>(duration, repeat) {
     HS_CHECK(duration >= 0, "finite parameter animation duration must be >= 0");
   }
 
+  /** @return Elapsed frames over duration, clamped to [0, 1]; 1 once the
+   *          duration is zero. */
   float normalized_progress() const {
     // finish() zeroes duration; the animation is over, so report full progress
     // rather than dividing by it.
@@ -60,6 +67,12 @@ public:
   }
 
 protected:
+  /**
+   * @brief Constructs the base with an optional pause gate.
+   * @param duration Length in frames; >= 0.
+   * @param repeat Restarts on completion when true.
+   * @param paused Pause flag; null always runs. Must outlive the animation.
+   */
   PausableParamAnimationBase(int duration, bool repeat, const bool *paused)
       : FiniteParamAnimationBase<Derived>(duration, repeat), paused(paused) {}
 
@@ -68,7 +81,7 @@ protected:
 
 /** @brief Step-only pause gate; pending timeline delays continue to elapse. */
 struct ParamPauseOptions {
-  const bool *paused = nullptr;
+  const bool *paused = nullptr; ///< Pause gate; null = always runs.
 };
 
 /** @brief Optional behaviour of a Transition. */
@@ -87,7 +100,7 @@ struct TransitionOptions {
  */
 class Transition : public PausableParamAnimationBase<Transition> {
 public:
-  using Options = TransitionOptions;
+  using Options = TransitionOptions; ///< Quantize, repeat and pause options.
 
   /**
    * @brief Constructs a Transition animation.
@@ -140,7 +153,7 @@ private:
  */
 class Mutation : public PausableParamAnimationBase<Mutation> {
 public:
-  using Options = ParamPauseOptions;
+  using Options = ParamPauseOptions; ///< Pause gate.
   /**
    * @brief Constructs a Mutation animation.
    * @param mutant The float variable to modify.
@@ -180,7 +193,7 @@ private:
  */
 class Progress : public PausableParamAnimationBase<Progress> {
 public:
-  using Options = ParamPauseOptions;
+  using Options = ParamPauseOptions; ///< Pause gate.
   /** @brief Per-frame callback signature: `void f(float eased_progress)`. */
   using StepFn = Fn<void(float), 16>;
 
@@ -312,7 +325,7 @@ private:
  */
 class Lerp : public PausableParamAnimationBase<Lerp> {
 public:
-  using Options = ParamPauseOptions;
+  using Options = ParamPauseOptions; ///< Pause gate.
   /**
    * @brief Constructs a Lerp animation.
    * @tparam T Interpolated type implementing lerp(start, target, t).
@@ -368,7 +381,7 @@ private:
  */
 class ColorWipe : public PausableParamAnimationBase<ColorWipe> {
 public:
-  using Options = ParamPauseOptions;
+  using Options = ParamPauseOptions; ///< Pause gate.
   /**
    * @brief Constructs a ColorWipe animation.
    * @param palette The GenerativePalette to animate.
@@ -599,6 +612,10 @@ public:
     channel_phases = persistent_arena.make_n<double>(8);
   }
 
+  /**
+   * @brief Copies `other` with an independently allocated phase block.
+   * @param other Source warp.
+   */
   MobiusWarpEvolving(const MobiusWarpEvolving &other) noexcept
       : AnimationBase(other), params(other.params), speed(other.speed),
         scale(other.scale), base(other.base), seed(other.seed),
@@ -621,6 +638,10 @@ public:
     return *this;
   }
 
+  /**
+   * @brief Takes `other`'s phase block, leaving it without one.
+   * @param other Source warp.
+   */
   MobiusWarpEvolving(MobiusWarpEvolving &&other) noexcept
       : AnimationBase(std::move(other)), params(other.params),
         speed(other.speed), scale(other.scale), base(other.base),
@@ -640,13 +661,19 @@ public:
     return *this;
   }
 
-  /** @brief Sets the modulation speed (radians of phase per frame unit). */
+  /**
+   * @brief Sets the modulation speed (radians of phase per frame unit).
+   * @param speed New speed; a non-finite value is ignored.
+   */
   void set_speed(float speed) {
     if (std::isfinite(speed))
       this->speed = speed;
   }
 
-  /** @brief Sets the per-channel modulation magnitude. */
+  /**
+   * @brief Sets the per-channel modulation magnitude.
+   * @param scale New magnitude; a non-finite value is ignored.
+   */
   void set_scale(float scale) {
     if (std::isfinite(scale))
       this->scale = scale;
@@ -757,6 +784,7 @@ struct RippleParams {
   /**
    * @brief Ricker wavelet half-width, floored so the distance normalization
    * never divides by zero.
+   * @return max(thickness / 2, 0.001).
    */
   float half_width() const {
     float hw = thickness * 0.5f;
@@ -861,10 +889,18 @@ private:
  */
 class NoiseTimeLoop {
 public:
+  /**
+   * @brief Starts the loop at a seed time.
+   * @param initial_time Seed, taken modulo the loop; non-finite starts at 0.
+   */
   explicit NoiseTimeLoop(float initial_time)
       : phase(std::isfinite(initial_time) ? wrap(0.0, initial_time) : 0.0) {}
 
-  /** @brief Advances the trajectory. @pre speed is finite and nonzero. */
+  /**
+   * @brief Advances the trajectory. @pre speed is finite and nonzero.
+   * @param speed Phase step this frame.
+   * @return The noise time coordinate.
+   */
   float advance(float speed) {
     HS_PROFILE(animation_noise_clock);
     phase = wrap(phase, speed);
@@ -1068,6 +1104,7 @@ public:
    * frame, re-derives the displacement axis from the stack's current
    * orientation, and ramps the pole-edge envelope so the bump emerges from
    * and vanishes into the poles smoothly.
+   * @param canvas Frame canvas, forwarded to the base step.
    */
   void step(Canvas &canvas) override {
     AnimationBase<BallDrop<CAP>>::step(canvas);
