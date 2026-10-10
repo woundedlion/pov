@@ -68,23 +68,32 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
-  static void prepare_hue_table(DisplacementField<W, H> &effect,
-                                const Color4 &color, float domain) {
-    effect.prepare_hue_table(make_hue_rotate_base(color), domain);
+  static void bind_hue_table(DisplacementField<W, H> &effect,
+                             const HueRotateBase &base, float domain,
+                             bool cyclic) {
+    effect.hue_table.bind(base, domain, cyclic);
+  }
+
+  template <int W, int H>
+  static void prepare_hue_table(DisplacementField<W, H> &effect) {
+    effect.hue_table.prepare();
   }
 
   template <int W, int H>
   static Pixel sample_hue_table(const DisplacementField<W, H> &effect,
-                                float amount, float domain, bool cyclic) {
-    return effect.sample_hue_table(amount, domain, cyclic);
+                                float amount) {
+    return effect.hue_table.sample(amount);
   }
 
   template <int W, int H>
-  static Pixel sample_hue_table_cached(DisplacementField<W, H> &effect,
-                                       float amount, float domain, bool cyclic,
-                                       const HueRotateBase &base,
-                                       uint64_t *valid) {
-    return effect.sample_hue_table_cached(amount, domain, cyclic, base, valid);
+  static Pixel sample_hue_table_lazy(DisplacementField<W, H> &effect,
+                                     float amount) {
+    return effect.hue_table.sample_lazy(amount);
+  }
+
+  template <int W, int H>
+  static bool hue_knot_valid(const DisplacementField<W, H> &effect, int index) {
+    return (effect.hue_table.valid[index >> 6] >> (index & 63)) & 1u;
   }
 
   template <int W, int H>
@@ -95,13 +104,13 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static Pixel hue_table_value(const DisplacementField<W, H> &effect,
                                int index) {
-    return effect.hue_table[index];
+    return effect.hue_table.knots[index];
   }
 
   template <int W, int H>
   static void clear_hue_table(DisplacementField<W, H> &effect) {
     for (int i = 0; i <= DisplacementField<W, H>::HUE_TABLE_SIZE; ++i)
-      effect.hue_table[i] = Pixel(0, 0, 0);
+      effect.hue_table.knots[i] = Pixel(0, 0, 0);
   }
 
   template <int W, int H>
@@ -185,8 +194,7 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
   GenerativePalette palette(PaletteRecipes::profile(PaletteDomain::MIRROR,
                                                     PaletteHarmony::ANALOGOUS,
                                                     AxisCurve::CONSTANT, 0.0f));
-  const Color4 color = palette.get(0.37f);
-  const HueRotateBase base = make_hue_rotate_base(color);
+  const HueRotateBase base = make_hue_rotate_base(palette.get(0.37f));
   struct TableCase {
     float domain;
     float max_amount;
@@ -200,31 +208,31 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
   const int table_size = DisplacementFieldWhiteBox::hue_table_size(effect);
 
   for (const TableCase &table_case : cases) {
-    DisplacementFieldWhiteBox::prepare_hue_table(effect, color,
-                                                 table_case.domain);
+    DisplacementFieldWhiteBox::bind_hue_table(effect, base, table_case.domain,
+                                              table_case.cyclic);
+    DisplacementFieldWhiteBox::prepare_hue_table(effect);
     std::vector<Pixel> endpoints(table_size + 1);
     for (int i = 0; i <= table_size; ++i)
       endpoints[i] = DisplacementFieldWhiteBox::hue_table_value(effect, i);
     std::vector<Pixel> expected(SAMPLE_COUNT + 1);
     for (int i = 0; i <= SAMPLE_COUNT; ++i) {
       const float amount = table_case.max_amount * i / SAMPLE_COUNT;
-      expected[i] = DisplacementFieldWhiteBox::sample_hue_table(
-          effect, amount, table_case.domain, table_case.cyclic);
+      expected[i] = DisplacementFieldWhiteBox::sample_hue_table(effect, amount);
     }
 
     DisplacementFieldWhiteBox::clear_hue_table(effect);
-    std::vector<uint64_t> valid((table_size + 64) / 64);
+    DisplacementFieldWhiteBox::bind_hue_table(effect, base, table_case.domain,
+                                              table_case.cyclic);
     for (int i = 0; i <= SAMPLE_COUNT; ++i) {
       const float amount = table_case.max_amount * i / SAMPLE_COUNT;
-      Pixel actual = DisplacementFieldWhiteBox::sample_hue_table_cached(
-          effect, amount, table_case.domain, table_case.cyclic, base,
-          valid.data());
+      Pixel actual =
+          DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
       HS_EXPECT_EQ(actual.r, expected[i].r);
       HS_EXPECT_EQ(actual.g, expected[i].g);
       HS_EXPECT_EQ(actual.b, expected[i].b);
     }
     for (int i = 0; i <= table_size; ++i)
-      HS_EXPECT_TRUE(valid[i >> 6] & (uint64_t{1} << (i & 63)));
+      HS_EXPECT_TRUE(DisplacementFieldWhiteBox::hue_knot_valid(effect, i));
     for (int i = 0; i <= table_size; ++i) {
       Pixel actual = DisplacementFieldWhiteBox::hue_table_value(effect, i);
       HS_EXPECT_EQ(actual.r, endpoints[i].r);
@@ -232,6 +240,39 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
       HS_EXPECT_EQ(actual.b, endpoints[i].b);
     }
   }
+}
+
+/**
+ * @brief Verifies a bind() for a new ring rebakes a knot the previous ring's
+ *        lazy samples already baked.
+ */
+inline void test_displacement_field_hue_table_bind_clears_knots() {
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  GenerativePalette palette(PaletteRecipes::profile(PaletteDomain::MIRROR,
+                                                    PaletteHarmony::ANALOGOUS,
+                                                    AxisCurve::CONSTANT, 0.0f));
+  const HueRotateBase first = make_hue_rotate_base(palette.get(0.1f));
+  const HueRotateBase second = make_hue_rotate_base(palette.get(0.6f));
+  const float domain = 0.4f;
+  const float amount = 0.0f;
+
+  DisplacementFieldWhiteBox::bind_hue_table(effect, first, domain, false);
+  const Pixel first_sample =
+      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
+  DisplacementFieldWhiteBox::bind_hue_table(effect, second, domain, false);
+  HS_EXPECT_FALSE(DisplacementFieldWhiteBox::hue_knot_valid(effect, 0));
+  const Pixel second_sample =
+      DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
+
+  const Pixel expected = hue_rotate(second, amount).color;
+  HS_EXPECT_EQ(second_sample.r, expected.r);
+  HS_EXPECT_EQ(second_sample.g, expected.g);
+  HS_EXPECT_EQ(second_sample.b, expected.b);
+  HS_EXPECT_TRUE(first_sample.r != second_sample.r ||
+                 first_sample.g != second_sample.g ||
+                 first_sample.b != second_sample.b);
 }
 
 /**
@@ -260,12 +301,14 @@ inline void test_displacement_field_hue_table_fidelity() {
         const bool cyclic = mode == 1;
         const float domain = cyclic ? 1.0f : 0.4f;
         const float max_amount = cyclic ? 3.0f : domain;
-        DisplacementFieldWhiteBox::prepare_hue_table(effect, base, domain);
+        DisplacementFieldWhiteBox::bind_hue_table(effect, exact_base, domain,
+                                                  cyclic);
+        DisplacementFieldWhiteBox::prepare_hue_table(effect);
         for (int i = 0; i <= 1024; ++i) {
           const float amount = max_amount * i / 1024.0f;
           Pixel exact = hue_rotate(exact_base, amount).color;
-          Pixel approx = DisplacementFieldWhiteBox::sample_hue_table(
-              effect, amount, domain, cyclic);
+          Pixel approx =
+              DisplacementFieldWhiteBox::sample_hue_table(effect, amount);
           OKLab exact_lab = linear_rgb_to_oklab(
               exact.r * INV16, exact.g * INV16, exact.b * INV16);
           OKLab approx_lab = linear_rgb_to_oklab(
