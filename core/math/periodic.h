@@ -17,7 +17,13 @@
 
 namespace math {
 
-/** @brief Wraps into [0, period); requires a positive period. */
+/**
+ * @brief Wraps into [0, period); requires a positive period.
+ * @tparam T Arithmetic type.
+ * @param value Value to wrap.
+ * @param period Positive period.
+ * @return `value` modulo `period`, in [0, period).
+ */
 template <typename T> inline T wrap_positive(T value, T period) {
   T result = std::fmod(value, period);
   if (result < 0)

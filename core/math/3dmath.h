@@ -610,11 +610,10 @@ HS_O3_FN inline float fast_rsqrt(float x) {
   return y;
 }
 
-// Halley numerator/denominator for one cube root. A non-positive input gets a
-// zero numerator and a unit denominator, leaving a shared product unchanged.
 /**
  * @brief One Halley cube-root step split into numerator and denominator.
- * @param x Input value; x <= 0 yields num = 0, den = 1.
+ * @param x Input value; x <= 0 yields num = 0, den = 1, leaving a shared
+ * product unchanged.
  * @param num Receives the Halley numerator; cbrt(x) ~= num / den.
  * @param den Receives the Halley denominator.
  */

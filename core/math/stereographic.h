@@ -53,7 +53,13 @@ inline constexpr float STEREO_EQUATOR_EPS = 1e-9f;
 
 namespace stereographic_detail {
 
-/** @brief Scales a nonzero planar direction from its supplied length. */
+/**
+ * @brief Scales a nonzero planar direction from its supplied length.
+ * @param direction Planar direction.
+ * @param length Nonzero length of `direction`.
+ * @param radius Target length.
+ * @return `direction` rescaled to length `radius`.
+ */
 inline math::Complex radial_scale(const math::Complex &direction, float length,
                                   float radius) {
   const float scale = radius / length;
