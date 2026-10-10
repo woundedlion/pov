@@ -24,6 +24,7 @@ namespace Surface {
 
 /** @brief Empty parameter family. */
 struct NoSurfaceParams {
+  /// Empty parameter registry.
   static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
 };
 static_assert(field_ids_unique<NoSurfaceParams>());
@@ -38,6 +39,7 @@ struct SurfaceNoiseParams {
   float strength = 0.0f; /**< Displacement distance; 0 skips the stage. */
   float speed = 0.0f;    /**< Per-frame advance of the field's loop phase. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<SurfaceNoiseParams>{"scale", &SurfaceNoiseParams::scale,
                                 "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
@@ -63,6 +65,7 @@ struct DirectSurfaceParams {
   float speed = 0.0f;     /**< Per-frame advance of the field's loop phase. */
   float direction = 0.0f; /**< Tangent steering, in turns. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<DirectSurfaceParams>{"scale", &DirectSurfaceParams::scale,
                                  "Surface Noise Scale", 1.0f / 64.0f, 64.0f,
@@ -91,6 +94,7 @@ struct PeriodicRippleParams {
   float center_polar =
       0.5f * math::PI_F; /**< Center polar angle, in radians. */
 
+  /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
       Field<PeriodicRippleParams>{"period", &PeriodicRippleParams::period,
                                   "Ripple Period", 30.0f, 143.0f,
@@ -128,7 +132,7 @@ inline float ripple_cycle(float phase, const PeriodicRippleParams &params) {
 
 /** @brief This frame's point on the displacement field's closed loop. */
 struct PreparedLoop {
-  math::Vector loop_offset;
+  math::Vector loop_offset; ///< Noise-space offset of the loop point.
 };
 
 /** @brief Resolves this frame's loop point from the loop phase. */
@@ -138,14 +142,14 @@ HS_FLASH_INLINE inline PreparedLoop prepare(float phase) {
 
 /** @brief Loop point plus the steering frame the direct displacement reads. */
 struct PreparedDirect {
-  math::Vector loop_offset;
-  float direction_cos;
-  float direction_sin;
+  math::Vector loop_offset; ///< Noise-space offset of the loop point.
+  float direction_cos;      ///< cos of the steering angle.
+  float direction_sin;      ///< sin of the steering angle.
 };
 
 /** @brief Prepared parameters for one frame of a periodic ripple. */
 struct PreparedRipple {
-  Animation::RippleParams ripple;
+  Animation::RippleParams ripple; ///< Synced ripple with the cycle envelope.
 };
 
 /** @brief Resolves a seamless ripple cycle for ripple_transform(). */
@@ -185,25 +189,48 @@ HS_FLASH_INLINE inline PreparedDirect prepare_direct(float phase,
   return {prepare(phase).loop_offset, cosf(angle), sinf(angle)};
 }
 
-enum class Integrator : uint8_t { EULER, MIDPOINT, MIDPOINT_2X };
+/** @brief Integration scheme of a curl-noise displacement. */
+enum class Integrator : uint8_t {
+  EULER,      ///< One step along the field at the start point.
+  MIDPOINT,   ///< One midpoint step.
+  MIDPOINT_2X ///< Two half-length midpoint steps.
+};
 
+/** @brief Integrator policy tag selecting Integrator::EULER. */
 struct Euler {
-  static constexpr Integrator VALUE = Integrator::EULER;
+  static constexpr Integrator VALUE = Integrator::EULER; ///< Selected scheme.
 };
 
+/** @brief Integrator policy tag selecting Integrator::MIDPOINT. */
 struct Midpoint {
-  static constexpr Integrator VALUE = Integrator::MIDPOINT;
+  static constexpr Integrator VALUE =
+      Integrator::MIDPOINT; ///< Selected scheme.
 };
 
+/** @brief Integrator policy tag selecting Integrator::MIDPOINT_2X. */
 struct Midpoint2 {
-  static constexpr Integrator VALUE = Integrator::MIDPOINT_2X;
+  static constexpr Integrator VALUE =
+      Integrator::MIDPOINT_2X; ///< Selected scheme.
 };
 
+/**
+ * @brief Arc length of a tangent step, if required.
+ * @param step Tangent step; its length is the arc in radians.
+ * @param required Whether to compute the length.
+ * @return |step| when `required`, else 0.
+ */
 __attribute__((always_inline)) inline float
 path_length(const math::Vector &step, bool required) {
   return required ? sqrtf(math::dot(step, step)) : 0.0f;
 }
 
+/**
+ * @brief Moves a sphere point along a tangent step.
+ * @param input Unit start point.
+ * @param step Tangent at `input`; length at most half a radian.
+ * @param path_length_required Whether to report the step's arc length.
+ * @return The point reached and, when required, the arc length.
+ */
 __attribute__((always_inline)) inline SurfaceResult
 finish_step(const math::Vector &input, const math::Vector &step,
             bool path_length_required) {
@@ -211,6 +238,19 @@ finish_step(const math::Vector &input, const math::Vector &step,
           path_length(step, path_length_required)};
 }
 
+/**
+ * @brief Displaces a sphere point along a steered noise tangent.
+ * @param input Unit point on the sphere.
+ * @param noise Prepared noise generator.
+ * @param basis Octave structure to apply.
+ * @param scale Spatial scale of the noise field.
+ * @param loop_offset Noise-space offset of this frame's loop point.
+ * @param strength Displacement distance; 0 returns `input` unchanged.
+ * @param direction_cos cos of the steering angle.
+ * @param direction_sin sin of the steering angle.
+ * @param path_length_required Whether to report the arc length.
+ * @return Displaced point and its arc length when required.
+ */
 __attribute__((always_inline)) inline SurfaceResult
 direct_noise(const math::Vector &input, const FastNoiseLite &noise,
              math::NoiseBasis basis, float scale,
@@ -226,6 +266,16 @@ direct_noise(const math::Vector &input, const FastNoiseLite &noise,
   return finish_step(input, strength * tangent, path_length_required);
 }
 
+/**
+ * @brief Curl-noise tangent at a sphere point.
+ * @param input Unit point on the sphere.
+ * @param noise Prepared noise generator.
+ * @param basis Octave structure to apply.
+ * @param limit Length limit applied to the tangent.
+ * @param scale Spatial scale of the noise field.
+ * @param loop_offset Noise-space offset of this frame's loop point.
+ * @return Tangent at `input` of length at most 1.
+ */
 __attribute__((always_inline)) inline math::Vector
 curl_field(const math::Vector &input, const FastNoiseLite &noise,
            math::NoiseBasis basis, math::TangentLimit limit, float scale,
@@ -235,6 +285,19 @@ curl_field(const math::Vector &input, const FastNoiseLite &noise,
   return math::sample_curl_tangent(noise, basis, q, input, limit);
 }
 
+/**
+ * @brief One midpoint-rule step through the curl field.
+ * @param input Unit start point.
+ * @param noise Prepared noise generator.
+ * @param basis Octave structure to apply.
+ * @param limit Length limit applied to the tangent.
+ * @param scale Spatial scale of the noise field.
+ * @param loop_offset Noise-space offset of this frame's loop point.
+ * @param distance Step length scale; the midpoint field is transported back
+ * to `input`.
+ * @param path_length_required Whether to report the arc length.
+ * @return The point reached and, when required, the arc length.
+ */
 __attribute__((always_inline)) inline SurfaceResult
 curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
                    math::NoiseBasis basis, math::TangentLimit limit,
@@ -252,6 +315,19 @@ curl_midpoint_step(const math::Vector &input, const FastNoiseLite &noise,
       path_length_required);
 }
 
+/**
+ * @brief Displaces a sphere point through the curl field.
+ * @param input Unit point on the sphere.
+ * @param noise Prepared noise generator.
+ * @param basis Octave structure to apply.
+ * @param integrator Integration scheme.
+ * @param limit Length limit applied to the tangent.
+ * @param scale Spatial scale of the noise field.
+ * @param loop_offset Noise-space offset of this frame's loop point.
+ * @param strength Displacement distance; 0 returns `input` unchanged.
+ * @param path_length_required Whether to report the total arc length.
+ * @return Displaced point and its arc length when required.
+ */
 HS_O3_FN inline SurfaceResult
 curl_noise(const math::Vector &input, const FastNoiseLite &noise,
            math::NoiseBasis basis, Integrator integrator,
@@ -286,8 +362,13 @@ curl_noise(const math::Vector &input, const FastNoiseLite &noise,
  */
 template <typename State, math::NoiseBasis Basis>
 struct DirectNoise : ApproximationDefaults {
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< The provider's frame.
 
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -303,13 +384,26 @@ struct DirectNoise : ApproximationDefaults {
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
+  /// The provider's prepared type, e.g. PreparedDirect.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves this frame's loop point and steering frame.
+   * @param frame Current frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Displaces one sphere point.
+   * @param input Unit point on the sphere.
+   * @param frame Current frame state.
+   * @param prepared This frame's prepared state.
+   * @return Displaced point and its path length when required.
+   */
   __attribute__((always_inline)) static SurfaceResult
   apply(const math::Vector &input, const FrameState &frame,
         const Prepared &prepared) {
@@ -329,8 +423,13 @@ struct DirectNoise : ApproximationDefaults {
 template <typename State, math::NoiseBasis Basis, typename IntegratorPolicy,
           math::TangentLimit Limit>
 struct CurlNoise : ApproximationDefaults {
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< The provider's frame.
 
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -346,13 +445,26 @@ struct CurlNoise : ApproximationDefaults {
         { IntegratorPolicy::VALUE } -> std::convertible_to<Integrator>;
       };
 
+  /// The provider's prepared type, e.g. PreparedLoop.
   using Prepared = std::remove_cvref_t<decltype(State::prepare(
       std::declval<const FrameState &>()))>;
 
+  /**
+   * @brief Resolves this frame's loop point.
+   * @param frame Current frame state.
+   * @return `State::prepare(frame)`.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return State::prepare(frame);
   }
 
+  /**
+   * @brief Displaces one sphere point.
+   * @param input Unit point on the sphere.
+   * @param frame Current frame state.
+   * @param prepared This frame's prepared state.
+   * @return Displaced point and its path length when required.
+   */
   HS_O3_FN static SurfaceResult apply(const math::Vector &input,
                                       const FrameState &frame,
                                       const Prepared &prepared) {
@@ -370,8 +482,13 @@ struct CurlNoise : ApproximationDefaults {
  * phase(frame) returns a normalized cycle, as produced by ripple_cycle().
  */
 template <typename State> struct PeriodicRipple : ApproximationDefaults {
-  using FrameState = typename State::FrameState;
+  using FrameState = typename State::FrameState; ///< The provider's frame.
 
+  /**
+   * @brief Whether `State` is a provider for `Binding` with every accessor
+   * this policy reads.
+   * @tparam Binding Chain binding to check against.
+   */
   template <typename Binding>
   static constexpr bool PROVIDER_VALID =
       Detail::ProviderFor<State, Binding> &&
@@ -381,12 +498,24 @@ template <typename State> struct PeriodicRipple : ApproximationDefaults {
         { State::path_length_required(frame) } -> std::same_as<bool>;
       };
 
-  using Prepared = PreparedRipple;
+  using Prepared = PreparedRipple; ///< This frame's resolved ripple.
 
+  /**
+   * @brief Resolves this frame's ripple.
+   * @param frame Current frame state.
+   * @return prepare_ripple() of the frame's params and cycle.
+   */
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return prepare_ripple(State::params(frame), State::phase(frame));
   }
 
+  /**
+   * @brief Displaces one sphere point.
+   * @param input Unit point on the sphere.
+   * @param frame Current frame state.
+   * @param prepared This frame's prepared state.
+   * @return Displaced point and its path length when required.
+   */
   HS_O3_FN static SurfaceResult apply(const math::Vector &input,
                                       const FrameState &frame,
                                       const Prepared &prepared) {
