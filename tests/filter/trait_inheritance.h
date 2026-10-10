@@ -173,14 +173,14 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::terminal_replaces));
   HS_EXPECT_FALSE((Filter::Screen::Trails<>::terminal_replaces));
 
-  using WarpStack =
+  using TrailBlurStack =
       Pipeline<W, H, Filter::World::Trails<16>, Filter::Screen::Blur<W, H>>;
-  HS_EXPECT_TRUE(WarpStack::emits_nonunit_world);
-  HS_EXPECT_FALSE(WarpStack::requires_unit_world_input);
-  HS_EXPECT_TRUE(WarpStack::emits_pixel_centers);
-  HS_EXPECT_FALSE(WarpStack::requires_subpixel_input);
-  HS_EXPECT_TRUE(WarpStack::world_transform_is_identity);
-  HS_EXPECT_FALSE(WarpStack::terminal_replaces);
+  HS_EXPECT_TRUE(TrailBlurStack::emits_nonunit_world);
+  HS_EXPECT_FALSE(TrailBlurStack::requires_unit_world_input);
+  HS_EXPECT_TRUE(TrailBlurStack::emits_pixel_centers);
+  HS_EXPECT_FALSE(TrailBlurStack::requires_subpixel_input);
+  HS_EXPECT_TRUE(TrailBlurStack::world_transform_is_identity);
+  HS_EXPECT_FALSE(TrailBlurStack::terminal_replaces);
 
   HS_EXPECT_TRUE(MeshStack::emits_pixel_centers);
   HS_EXPECT_TRUE(MeshStack::requires_subpixel_input);
