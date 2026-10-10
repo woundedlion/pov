@@ -52,7 +52,9 @@ struct Fade {
  * leaves it. */
 using Departure = std::variant<Snap, Lerp, Fade>;
 
-/** @brief Frames a departure spans; zero for Snap. */
+/** @brief Frames a departure spans; zero for Snap.
+ *  @param departure Departure policy to measure.
+ *  @return Duration in frames. */
 constexpr uint16_t frames(const Departure &departure) {
   if (const auto *lerp = std::get_if<Lerp>(&departure))
     return lerp->frames;
