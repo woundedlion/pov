@@ -72,7 +72,7 @@ inline IsrCycleStats g_dma_submit_cycles;
 /**
  * @brief Multi-Teensy segmented POV display driver.
  * @tparam S   Total number of physical LEDs across the full strip (both arms).
- * @tparam N   Number of Teensy segments (must be even; N/2 per arm).
+ * @tparam N   Number of Teensy segments (even power of two, <= 8; N/2 per arm).
  * @tparam RPM Rotations per minute of the spinner.
  *
  * Each segment drives S/N LEDs on a single arm. Northern segments count
