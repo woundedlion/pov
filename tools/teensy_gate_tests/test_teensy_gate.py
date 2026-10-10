@@ -938,8 +938,8 @@ class TestDerivedComponentCeiling(unittest.TestCase):
 class TestRealCapture(unittest.TestCase):
     """Parse REAL toolchain output from `pio run -e holosphere -e phantasm`.
 
-    Covers teensy_size on stderr, readelf printing large sizes in HEX, and the
-    arena's _ZL-mangled internal-linkage name.
+    Covers readelf printing large sizes in HEX and the arena's _ZL-mangled
+    internal-linkage name.
     """
 
     def test_real_holosphere_build_passes_the_calibrated_gate(self):
@@ -1338,6 +1338,12 @@ class TestGateExtra(unittest.TestCase):
         out = self.ge._run([sys.executable, "-c",
                             "import sys; sys.stdout.buffer.write(b'don\\x92t')"])
         self.assertEqual(out, "don\ufffdt")
+
+    def test_tool_output_combines_stdout_and_stderr(self):
+        out = self.ge._run([sys.executable, "-c",
+                            "import sys; sys.stdout.write('out|'); "
+                            "sys.stderr.write('err')"])
+        self.assertEqual(out, "out|err")
 
     def test_tool_derives_sibling_arm_tools(self):
         self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
