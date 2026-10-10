@@ -1,7 +1,7 @@
 # Device/Host Divergence — Coverage Ledger
 
-*A tracked inventory of every place engine behavior forks on a `CORE_TEENSY`/`ARDUINO`-only
-constant, each tagged with whether an automated **device-value** test build reaches it.*
+*A tracked inventory of every place engine behavior forks on a device-only constant
+(`CORE_TEENSY`/`ARDUINO`/`__arm__`), each tagged with whether an automated **device-value** test build reaches it.*
 
 ## Why this document exists
 
@@ -42,14 +42,15 @@ exists; a red row is a real device-only path that no automated test currently re
 | 11 | **`addmod8` zero modulus** (`addmod8`, `core/platform/arduino_mocks.h`) | FastLED's non-AVR `addmod8` is `a += b; while (a >= m) a -= m;` (`lib8tion/math8.h`), so `m == 0` subtracts zero forever and hangs the device. The host mock returns the `uint8_t`-wrapped sum instead. Every `m != 0` input is bit-identical, including the past-255 wrap (`addmod8(200, 100, 7)` is `44 % 7`, not `300 % 7`). | **Yes**, on the bug path only — a zero modulus is a caller error either way, but the device hangs while the host returns and continues. No shipped call site reaches it: every caller in `core/engine/effects_legacy.h` passes a nonzero dimension or literal (`W`, `H`, `16`, `sizeof(counts)`). | ❌ **No.** `tests/test_platform.h`'s `test_addmod8_wraps_before_reducing` pins the host side including `m == 0`, and sweeps all 256×256 addends against a repeated-subtraction reference at `m = 7`. A non-terminating device loop is not observable from a host test; closing it means a guard in FastLED's own header. | This row. |
 | 12 | **Per-effect RNG seed identity** (`stable_effect_id`, `core/platform/rng.h`) | Device and host both prefer an effect's persisted `EFFECT_ID` and fall back to its class name, then hash that identity with `stable_effect_seed`. | **No** — animation, segue, and noise-generator seeds are derived from the same identity on both platforms. | ✅ **Yes.** `tests/test_effect_factory.h` expands `HS_PHANTASM_EFFECT_LIST` and checks every firmware-derived seed against the seed of its registry entry's `stable_id`, covering both explicit IDs and class-name fallbacks. | Closed by the shared `stable_effect_id` selector. |
 | 13 | **`CRGB` default-initialization** (`core/platform/arduino_mocks.h`, FastLED `pixeltypes.h`) | `CRGB color;` calls the host mock's zeroing constructor; FastLED's defaulted constructor leaves the device channels uninitialized. Value-initialization (`CRGB{}`) zeroes both. | **Yes**, when channels are read before being assigned; default-constructing and then assigning them does not expose the difference. | ❌ **No.** No device-value test covers this read-before-write gap; host mock tests exercise the zeroing constructor. | Known model gap; initialize channels before reading them. |
+| 14 | **GS Laplacian evaluation order** (`step_physics_nodes`, `effects/GSReactionDiffusion.h`) | Under `__arm__` the device seeds each node's Laplacian with a fused multiply-add of the first two neighbours and pins the remaining summation order with an empty `asm`. Builds with `__FAST_MATH__` (WASM release) start from `-RD_K * a` and add the neighbours reassociably; other host builds (native tests) sum the neighbours, then subtract `RD_K * a`. | **Yes** (float rounding only) — the iterated reaction-diffusion amplifies the rounding difference, so the device pattern drifts from the simulator's over time. | ❌ **No.** No device-value test compiles the `__arm__` branch. | This row. |
 
 Legend: ✅ reached by a device-value test · ❌ real device-only path with no device-value test
 · ⚪ no behavioral fork / divergent by design (nothing to cover).
 
 ## Standing risk
 
-**Two red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
-read-before-write model gap. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
+**Three red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
+read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
 when a caller invokes an unbound callable; the cost of closing it is device codegen and ITCM
 footprint on every `Fn` instantiation. Row 11 (`addmod8` zero modulus) fires only on a zero
 modulus, which no shipped call site passes; closing it means guarding inside FastLED's own
@@ -60,13 +61,13 @@ silent (a hang, a zero return) on the device.
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
 device/wasm builds produce bit-identical phases. The default-initialization gap in row 13 is also uncovered on device.
-Every behavioral fork other than rows 9, 11 and 13 either has device-value coverage (rows 3–4 and 12), host model-level coverage with only a
+Every behavioral fork other than rows 9, 11, 13 and 14 either has device-value coverage (rows 3–4 and 12), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
 10). Row 2 is an explicit display profile with coverage for both caps.
 
 ## Maintenance rule
 
-When a new behavior is gated on a `CORE_TEENSY`/`ARDUINO`-only constant — or an existing
+When a new behavior is gated on a device-only constant (`CORE_TEENSY`/`ARDUINO`/`__arm__`) — or an existing
 device-only constant grows a new dependent path — add a row here and state plainly whether a
 device-value test reaches it. A new fork with no green test is a known, accepted risk only once
 it is written down; until then it is the kind of silent sim≠device gap this ledger exists to
