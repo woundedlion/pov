@@ -285,8 +285,9 @@ inline SeamStats compare(const std::vector<Pixel> &a,
   return st;
 }
 
-/** Gated-swap envelope, bracketed on both sides. Fraction and energy count
- * only pixels past DELTA_THRESH. */
+/** Gated-swap envelope, bracketed on both sides; a max band calibrated at the
+ * PS_H ceiling is pinned exactly. Fraction and energy count only pixels past
+ * DELTA_THRESH. */
 constexpr double CHANGED_FRAC_RELATIVE_MARGIN = 0.10;
 constexpr double MEASURED_CHANGED_FRAC_KIS_ICOSA = 0.1533;
 constexpr double MEASURED_CHANGED_FRAC_KIS_CUBE = 0.1019;
@@ -336,8 +337,12 @@ inline void expect_within_envelope(const SeamStats &st,
   HS_EXPECT_LE(st.max_bright, MAX_PIXEL_DELTA);
   HS_EXPECT_GE(st.mean_band, 2.0);
   HS_EXPECT_LE(st.mean_band, 4.5);
-  HS_EXPECT_LE(st.max_band, measured_max_band + MAX_BAND_MARGIN);
-  HS_EXPECT_GE(st.max_band, measured_max_band - MAX_BAND_MARGIN);
+  if (measured_max_band == PS_H) {
+    HS_EXPECT_EQ(st.max_band, PS_H);
+  } else {
+    HS_EXPECT_LE(st.max_band, measured_max_band + MAX_BAND_MARGIN);
+    HS_EXPECT_GE(st.max_band, measured_max_band - MAX_BAND_MARGIN);
+  }
   HS_EXPECT_GT(st.changed_near_v, size_t(0));
   HS_EXPECT_LE(st.changed_near_v * 10, st.changed);
   HS_EXPECT_GT(st.mean_near, 0.0);
