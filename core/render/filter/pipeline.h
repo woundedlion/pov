@@ -415,7 +415,7 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot_in_bounds(Canvas &cv, int x, int y, const ::Pixel &c, float,
                       float alpha) {
-    HS_PROFILE(filter_blend);
+    HS_PROFILE_DEEP(filter_blend);
     assert(x >= 0 && x < W && cv.clip_contains_x(x));
     assert(cv.clip_contains_y(y));
     ::Pixel &dst = cv(x, y);
