@@ -340,6 +340,31 @@ HS_HOT_INLINE inline bool has_edge_flag(const uint8_t *edge_flags, size_t i,
 #include "render/plot/raster_walk.h"
 
 /**
+ * @brief True when a balanced walk may take its next step from a position-only
+ * sample, reusing the current step.
+ * @param sample Full sample just taken.
+ * @param step Default-density step at @p sample.
+ * @param previous_step Default-density step at the previous full sample.
+ * @param previous_tangent Tangent at the previous full sample.
+ * @param base_step Equatorial step 2π/W.
+ * @details Requires a sample away from the poles, a step clear of the pole
+ * floor and below the reuse ceiling, and a tangent and step that have barely
+ * changed since the previous full sample.
+ */
+HS_HOT_INLINE inline bool can_reuse_step(const SamplePT &sample, float step,
+                                         float previous_step,
+                                         const math::Vector &previous_tangent,
+                                         float base_step) {
+  const float sin2 = 1.0f - sample.pos.y * sample.pos.y;
+  return sin2 > BALANCED_REUSE_MIN_SIN2 &&
+         step > base_step * MIN_POLE_SCALE * BALANCED_POLE_GUARD_SCALE &&
+         step < base_step * BALANCED_REUSE_MAX_STEP_SCALE &&
+         math::dot(sample.tan, previous_tangent) >
+             BALANCED_REUSE_MIN_TANGENT_DOT &&
+         fabsf(step - previous_step) < step * BALANCED_REUSE_STEP_TOLERANCE;
+}
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -662,17 +687,10 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
               smp = adaptive_sample(current_t);
               default_desired_step = adaptive_step(smp);
               if (balanced_sampling) {
-                const float sin2 = 1.0f - smp.pos.y * smp.pos.y;
-                reuse_step =
-                    world_identity && sin2 > BALANCED_REUSE_MIN_SIN2 &&
-                    default_desired_step > base_step * MIN_POLE_SCALE *
-                                               BALANCED_POLE_GUARD_SCALE &&
-                    default_desired_step <
-                        base_step * BALANCED_REUSE_MAX_STEP_SCALE &&
-                    math::dot(smp.tan, previous_full_tangent) >
-                        BALANCED_REUSE_MIN_TANGENT_DOT &&
-                    fabsf(default_desired_step - previous_full_step) <
-                        default_desired_step * BALANCED_REUSE_STEP_TOLERANCE;
+                reuse_step = world_identity &&
+                             can_reuse_step(smp, default_desired_step,
+                                            previous_full_step,
+                                            previous_full_tangent, base_step);
                 previous_full_step = default_desired_step;
                 previous_full_tangent = smp.tan;
               }
