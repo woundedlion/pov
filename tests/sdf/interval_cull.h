@@ -463,7 +463,6 @@ inline void test_line_arc_bulge_cull_covers_interior() {
 
 /** @brief Face arc bounds retain northern, southern and endpoint extrema. */
 inline void test_face_arc_extrema_bounds() {
-  constexpr double PI_D = 3.14159265358979323846;
   const double intervals[][2] = {{-0.9, 0.7},
                                  {0.1, 0.9},
                                  {-0.9, -0.1},
@@ -472,11 +471,11 @@ inline void test_face_arc_extrema_bounds() {
                                  {-0.6, -1e-7},
                                  {-0.6, 1e-7},
                                  {2.4, 3.8},
-                                 {PI_D - 1e-7, PI_D + 0.6},
-                                 {PI_D + 1e-7, PI_D + 0.6},
-                                 {PI_D - 0.6, PI_D - 1e-7},
-                                 {PI_D - 0.6, PI_D + 1e-7}};
-  for (double latitude : {0.005, 0.04, 0.3, 1.0, PI_D * 0.5 - 1e-4})
+                                 {PI_DBL - 1e-7, PI_DBL + 0.6},
+                                 {PI_DBL + 1e-7, PI_DBL + 0.6},
+                                 {PI_DBL - 0.6, PI_DBL - 1e-7},
+                                 {PI_DBL - 0.6, PI_DBL + 1e-7}};
+  for (double latitude : {0.005, 0.04, 0.3, 1.0, PI_DBL * 0.5 - 1e-4})
     for (double azimuth : {0.0, 0.37, 1.2, 2.8})
       for (const auto &interval : intervals) {
         const double first = interval[0], last = interval[1];
@@ -495,7 +494,7 @@ inline void test_face_arc_extrema_bounds() {
                                 std::sin(latitude) * std::cos(last));
         if (first < 0.0 && last > 0.0)
           max_y = std::sin(latitude);
-        if (first < PI_D && last > PI_D)
+        if (first < PI_DBL && last > PI_DBL)
           min_y = -std::sin(latitude);
         for (bool reverse : {false, true}) {
           const math::Vector a = point(reverse ? last : first);
