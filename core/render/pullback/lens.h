@@ -28,7 +28,7 @@ static_assert(field_defaults_in_range<NoLensParams>());
 /** @brief Lens parameters for the Mobius map (Pullback::Lens::Mobius). */
 struct MobiusLensParams {
   static constexpr const char *DEGENERATE_WARNING =
-      "Mobius coefficients must have a nonzero determinant.";
+      "Mobius coefficients must have |ad - bc| >= 0.001.";
   static constexpr float COEFFICIENT_LIMIT = 4.0f;
   static constexpr float MOBIUS_MIN_DET_SQ = 1e-6f;
 
