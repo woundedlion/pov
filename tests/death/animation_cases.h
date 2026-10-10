@@ -588,6 +588,20 @@ inline void case_mesh_carousel_unflipped_slot() {
   carousel.schedule_segue(tl, 1, [](Canvas &, float) {}, 4, 1);
 }
 
+/** @brief Death case: fill_face_phases on an unclassified mesh must trap. */
+inline void case_mesh_carousel_unclassified_face_phases() {
+  static uint8_t buf[1 << 14];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh poly;
+  build_solid<Solids::Octahedron>(poly, arena);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
+  ArenaVector<float> phases;
+  phases.bind(persistent_arena, mesh.num_faces());
+  MeshCarousel<Segue::Breakdown> carousel;
+  carousel.fill_face_phases(mesh, mesh, opaque(0.5f), phases);
+}
+
 /**
  * @brief Death case: a second simultaneously-live Timeline must trap.
  * @details Animation surface — every Timeline shares the single global event
