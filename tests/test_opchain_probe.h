@@ -812,6 +812,10 @@ inline void test_build_chain_provenance_ambiguity() {
       {"icosahedron_snub_relax_truncate033_hankin62", 0, 20, 92, 1.000f},
       {"icosahedron_snub_relax_truncate033_hankin62", 2, 92, 152, 0.997f},
       {"icosahedron_snub_relax_truncate033_hankin62", 3, 152, 452, 0.955f},
+      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 0, 20, 32, 1.000f},
+      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 1, 32, 92, 0.608f},
+      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 2, 92, 182, 1.000f},
+      {"icosahedron_truncate25_hk60_ambo_relax100_hk60", 4, 182, 542, 0.682f},
   };
   size_t checked = 0;
   size_t max_prev_faces = 0;
