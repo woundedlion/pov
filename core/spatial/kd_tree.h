@@ -56,12 +56,23 @@ public:
 
   /** @brief Contiguous nearest neighbors, ordered by distance. */
   struct Neighbors {
-    std::array<Neighbor, MAX_K> values;
-    size_t count = 0;
+    std::array<Neighbor, MAX_K> values; ///< Slots; only [0, count) are valid.
+    size_t count = 0; ///< Number of valid neighbors, at most MAX_K.
+    /** @brief Number of valid neighbors.
+     *  @return `count`. */
     size_t size() const { return count; }
+    /** @brief Whether no neighbor was found.
+     *  @return True when `count` is zero. */
     bool empty() const { return count == 0; }
+    /** @brief Neighbor at rank i (0 = nearest).
+     *  @param i Rank in [0, count).
+     *  @return The i-th nearest neighbor. */
     const Neighbor &operator[](size_t i) const { return values[i]; }
+    /** @brief Iterator to the nearest neighbor.
+     *  @return Pointer to the first slot. */
     const Neighbor *begin() const { return values.data(); }
+    /** @brief Past-the-end iterator over the valid neighbors.
+     *  @return Pointer one past the last valid slot. */
     const Neighbor *end() const { return values.data() + count; }
   };
 
