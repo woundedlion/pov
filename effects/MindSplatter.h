@@ -15,7 +15,7 @@
 #include "core/math/mobius.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
-#include "core/color/mindsplatter_palette_luts.h"
+#include "effects/generated/mind_splatter_palette_bank.h"
 
 namespace hs_test {
 namespace effects_tests {

@@ -298,7 +298,6 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── noise_hue_palette.h     Sphere-noise hue LUTs + reusable NoiseHuePalette wrapper
 │   │   ├── noise_shimmer_palette.h Shared sphere-noise lightness lift palette wrapper
 │   │   ├── palette_cycler.h        PaletteCycler: dwell-and-fade display LUT over a palette sequence
-│   │   ├── mindsplatter_palette_luts.h  Generated bank of 256 triadic palette LUTs, one per base hue (from tools/mindsplatter_palette_gen.cpp)
 │   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
 │   ├── render/                 Canvas, rasterizers, and the filter pipeline
 │   │   ├── canvas.h                Effect base class (framebuffer half) + Canvas RAII write-buffer guard
@@ -373,7 +372,9 @@ files define line-ending policy and working-artifact exclusions.
 │                                HopfFibration.h, IslamicStars.h, Raymarch.h, … — plus
 │                                common/ for code two or more effects share (the
 │                                reaction-diffusion base reaction_diffusion.h and the
-│                                authored palette recipes palette_recipes.h); the
+│                                authored palette recipes palette_recipes.h) and
+│                                generated/ for generated effect data (the MindSplatter
+│                                palette bank, from tools/mindsplatter_palette_gen.cpp); the
 │                                composed-effect base is
 │                                core/render/pullback/composed_effect.h — see §9
 │
