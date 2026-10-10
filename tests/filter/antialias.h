@@ -161,3 +161,30 @@ inline void test_antialias_clips_virtual_subpole_row() {
   HS_EXPECT_EQ(max_row, H - 1);
   HS_EXPECT_NEAR(sum, 1.0f, 1e-4f);
 }
+
+/**
+ * @brief Verifies AntiAlias folds a north boundary sample (-1 < y < 0) onto
+ *        row 0 at full alpha and drops a fully virtual one (y < -1).
+ */
+inline void test_antialias_folds_north_boundary_row() {
+  constexpr int W = 32, H = 16;
+  Filter::Screen::AntiAlias<W, H> aa;
+
+  int row_taps = 0;
+  bool all_row0 = true;
+  float sum = 0.0f;
+  aa.plot(10.5f, -0.7f, Pixel(40000, 0, 0), 0.0f, 1.0f,
+          [&](float, float y, const Pixel &, float, float alpha) {
+            ++row_taps;
+            all_row0 = all_row0 && y == 0.0f;
+            sum += alpha;
+          });
+  HS_EXPECT_EQ(row_taps, 2);
+  HS_EXPECT_TRUE(all_row0);
+  HS_EXPECT_NEAR(sum, 1.0f, 1e-5f);
+
+  int virtual_taps = 0;
+  aa.plot(10.5f, -1.3f, Pixel(40000, 0, 0), 0.0f, 1.0f,
+          [&](float, float, const Pixel &, float, float) { ++virtual_taps; });
+  HS_EXPECT_EQ(virtual_taps, 0);
+}
