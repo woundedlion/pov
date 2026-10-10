@@ -275,10 +275,8 @@ inline void test_shade_blinn_phong() {
                  1e-5f);
 }
 
-// --- shade_mesh_topology (segue overload) -----------------------------------
-
 /** @brief Palette stub encoding depth in red and palette identity in blue. */
-struct StubSeguePalette {
+struct StubPalette {
   int id = 0;
   float alpha = 1.0f;
   Color4 get(float t) const {
@@ -288,11 +286,7 @@ struct StubSeguePalette {
   }
 };
 
-/** @brief Indexable bank of palette stubs, slot i carrying id i. */
-struct StubSegueBank {
-  StubSeguePalette pals[4];
-  const StubSeguePalette &operator[](int i) const { return pals[i]; }
-};
+// --- shade_mesh_topology (segue overload) -----------------------------------
 
 /**
  * @brief Segue policy stub: fill() scales depth by cover, grade() stamps the
@@ -316,7 +310,7 @@ struct StubSegue {
  *        color is graded and alpha becomes cover * opacity.
  */
 inline void test_shade_mesh_topology_segue() {
-  StubSeguePalette palette;
+  StubPalette palette;
   palette.id = 3;
 
   Fragment f;
@@ -341,6 +335,12 @@ inline void test_shade_mesh_topology_segue() {
 
 // --- shade_mesh_topology (direct non-segue overload) ------------------------
 
+/** @brief Indexable bank of palette stubs, slot i carrying id i. */
+struct StubPaletteBank {
+  StubPalette pals[4];
+  const StubPalette &operator[](int i) const { return pals[i]; }
+};
+
 /**
  * @brief Verifies the direct shade_mesh_topology overload: the resolved
  *        palette slot's color is returned with alpha overwritten by the
@@ -349,7 +349,7 @@ inline void test_shade_mesh_topology_segue() {
 inline void test_shade_mesh_topology_direct() {
   const uint16_t topology[] = {2};               // face 0 -> topology class 2
   std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
-  StubSegueBank bank;
+  StubPaletteBank bank;
   for (int i = 0; i < 4; ++i)
     bank.pals[i].id = i;
   bank.pals[3].alpha = 0.25f;
