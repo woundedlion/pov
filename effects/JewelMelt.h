@@ -76,30 +76,29 @@ public:
   using Params = JewelMeltParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
+  /// Stable effect ID; equals the shader document's effect_id.
   static constexpr std::string_view EFFECT_ID = "jewel-melt";
+  /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "4a5674fa7a9af30c024c518e3057dcd38fef427f77f196ead79ef5546ca6d697";
+  /// SHA-256 hex of the shader document's preset bank.
   static constexpr std::string_view PRESET_BANK_DIGEST = "8919dafdfd00f6b4a9de07524013905eb1acdfd78d9223d6ed92929a408df4fa";
+  /// Preset identities, indexed by preset number.
   static constexpr std::array<std::string_view, 1> PRESET_IDS{
       "jewel-melt"
   };
+  /// Frames each preset holds before advancing.
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
-  /** @var EFFECT_ID
-   *  @brief Stable effect ID; equals the shader document's effect_id. */
-  /** @var DESCRIPTOR_DIGEST
-   *  @brief SHA-256 hex of the shader document's parameter descriptor. */
-  /** @var PRESET_BANK_DIGEST
-   *  @brief SHA-256 hex of the shader document's preset bank. */
-  /** @var PRESET_IDS
-   *  @brief Preset identities, indexed by preset number. */
-  /** @var PRESET_DWELL_FRAMES
-   *  @brief Frames each preset holds before advancing. */
   /// Snapshot schema version; changes with the `Params` layout.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
+  /**
+   * @brief Parameters of the first preset; every preset varies from them.
+   * @return The preset-0 `Params`.
+   */
   static constexpr Params initial_params() {
     Params value;
     value.template get<"projection">().camera_wander = 1.0f;
@@ -129,7 +128,4 @@ public:
   }
   // clang-format on
   // End generated params.
-  /** @fn initial_params()
-   *  @brief Parameters of the first preset.
-   *  @return The preset-0 `Params`. */
 };
