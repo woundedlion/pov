@@ -21,6 +21,7 @@
 #include <cstring>
 #include <iterator>
 #include <limits>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -35,6 +36,38 @@ namespace sdf_tests {
 inline math::Basis equator_basis() {
   return math::Basis{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
                      math::Vector(0, 0, 1)};
+}
+
+/**
+ * @brief Builds a regular polygon (or star) face ringed about @p basis.v.
+ * @param basis Face frame; the vertex ring is centred on basis.v.
+ * @param sides Polygon side count, or star point count when rho_inner > 0.
+ * @param rho Angular radius of the (outer) vertices, in radians.
+ * @param rho_inner Angular radius of the inner star vertices; 0 for a polygon.
+ * @param verts Output vertices.
+ * @param idx Output identity indices, or empty to skip them.
+ * @return The vertex count (2 * sides for a star), or 0 when sides is out of
+ *         range or an output cannot hold the vertices.
+ */
+inline int build_regular_face(const math::Basis &basis, int sides, float rho,
+                              float rho_inner, std::span<math::Vector> verts,
+                              std::span<uint16_t> idx = {}) {
+  const int n_verts = rho_inner > 0.0f ? 2 * sides : sides;
+  const bool fits = sides >= 3 && n_verts <= static_cast<int>(verts.size()) &&
+                    (idx.empty() || n_verts <= static_cast<int>(idx.size()));
+  HS_EXPECT_TRUE(fits);
+  if (!fits)
+    return 0;
+  for (int i = 0; i < n_verts; ++i) {
+    const float a = (2.0f * math::PI_F * i) / n_verts + 0.37f;
+    const float r = (rho_inner > 0.0f && (i & 1)) ? rho_inner : rho;
+    verts[i] =
+        (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
+            .normalized();
+    if (!idx.empty())
+      idx[i] = static_cast<uint16_t>(i);
+  }
+  return n_verts;
 }
 
 #include "tests/sdf/primitives.h"
