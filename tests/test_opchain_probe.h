@@ -213,6 +213,7 @@ inline void test_chamfer_sweep_holds_topology() {
   constexpr int SAMPLES = 32;
 
   for (const ChamferSite &site : CHAMFER_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
 
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -248,10 +249,14 @@ inline void test_chamfer_sweep_holds_topology() {
         compiled0 = compiled.face_counts.size();
         HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
       } else {
-        HS_EXPECT_SIZE_OR_RETURN(swept.vertices, v0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.face_counts, f0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.faces, i0);
-        HS_EXPECT_SIZE_OR_RETURN(compiled.face_counts, compiled0);
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
+            swept.faces.size() != i0 ||
+            compiled.face_counts.size() != compiled0)
+          break;
       }
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
@@ -354,6 +359,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
   HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_TRUNCATE_ARRIVAL_MIN);
 
   for (const TruncateSite &site : TRUNCATE_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
 
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -387,10 +393,14 @@ inline void test_truncate001_birth_sweep_holds_topology() {
         compiled0 = compiled.face_counts.size();
         HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
       } else {
-        HS_EXPECT_SIZE_OR_RETURN(swept.vertices, v0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.face_counts, f0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.faces, i0);
-        HS_EXPECT_SIZE_OR_RETURN(compiled.face_counts, compiled0);
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
+            swept.faces.size() != i0 ||
+            compiled.face_counts.size() != compiled0)
+          break;
       }
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
@@ -482,6 +492,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
   HS_EXPECT_TRUE(ConwayGraph::truncate_off_pinch(0.5f) != 0.5f);
 
   for (const TruncateSite &site : FAR_TRUNCATE_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
 
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
@@ -520,10 +531,14 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
         HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
       } else {
         // Topology is t-independent off the pinch: no pop across 0.5.
-        HS_EXPECT_SIZE_OR_RETURN(swept.vertices, v0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.face_counts, f0);
-        HS_EXPECT_SIZE_OR_RETURN(swept.faces, i0);
-        HS_EXPECT_SIZE_OR_RETURN(compiled.face_counts, compiled0);
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
+            swept.faces.size() != i0 ||
+            compiled.face_counts.size() != compiled0)
+          break;
       }
       check_face_counts_consistent(swept);
       check_indices_in_range(swept);
