@@ -1084,6 +1084,7 @@ inline int run_effects_tests() {
   run_case(test_bz_perturb_state_saturates_and_nudges);
   run_case(test_bz_perturb_scales_with_timestep);
   run_case(test_bz_substep_diffuses);
+  run_case(test_bz_substep_predator_wiring);
   run_case(test_bz_raster_matches_reference);
   run_case(test_bz_render_center_matches_reference);
   run_case(test_dreamballs_preset_cycle_bookkeeping);
