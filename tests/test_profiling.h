@@ -289,7 +289,10 @@ inline void test_duplicate_name_tags_active_counters() {
   }
   HS_EXPECT_EQ(idle.count, 0u);
   char report[4096];
-  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  if (!capture_log_all(report, sizeof(report))) {
+    HS_EXPECT(false, "log_all capture set up");
+    return;
+  }
   const char *tag = std::strstr(report, "DUPLICATE-NAME");
   HS_EXPECT_TRUE(tag != nullptr);
   if (tag != nullptr) {
@@ -299,7 +302,10 @@ inline void test_duplicate_name_tags_active_counters() {
       HS_EXPECT_TRUE(std::strstr(tag + 1, "DUPLICATE-NAME") == nullptr);
   }
   first.reset();
-  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  if (!capture_log_all(report, sizeof(report))) {
+    HS_EXPECT(false, "log_all capture set up");
+    return;
+  }
   HS_EXPECT_TRUE(std::strstr(report, "prof_duplicate") != nullptr);
   HS_EXPECT_TRUE(std::strstr(report, "DUPLICATE-NAME") == nullptr);
 }
@@ -328,7 +334,10 @@ inline void test_parent_retirement_prevents_cycle() {
   child.cycles = 100;
   descendant.cycles = 50;
   char report[4096];
-  HS_EXPECT_TRUE(capture_log_all(report, sizeof(report)));
+  if (!capture_log_all(report, sizeof(report))) {
+    HS_EXPECT(false, "log_all capture set up");
+    return;
+  }
   HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_child") != nullptr);
   HS_EXPECT_TRUE(std::strstr(report, "prof_cycle_descendant") != nullptr);
 }
