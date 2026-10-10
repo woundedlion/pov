@@ -868,8 +868,6 @@ inline void test_gs_noise_bake_matches_reference() {
     for (float phase : {0.0f, 1.0f / 65536.0f, 1.0f / 6.0f, 0.5f, 0.999f}) {
       HS_EXPECT_TRUE(
           GSWhiteBox::noise_bake_matches_reference(gs, scale, phase));
-      HS_EXPECT_TRUE(
-          GSWhiteBox::noise_bake_matches_reference(gs, scale, phase));
     }
   }
 }
