@@ -145,7 +145,9 @@ protected:
       on_weight(u * u);
   }
 
-  /** @brief Visits a factored 2x2 SSAA stencil with the compact biweight kernel.
+#if HS_ENABLE_TEST_ORACLES
+  /** @brief Reference 2x2 SSAA biweight stencil for GS
+   *         `accumulate_render_stencil`.
    * @param grid SSAA grid loaded for the current pixel row.
    * @param x Pixel column in the grid's canvas.
    * @param center Reaction-graph node at the stencil center.
@@ -195,6 +197,7 @@ protected:
       }
     }
   }
+#endif
 
   /**
    * @brief Refines a cubemap-LUT seed by argmin over the seed and its one-ring.
