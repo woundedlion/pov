@@ -51,6 +51,14 @@ public:
   }
 
 protected:
+  /**
+   * @brief Scans the full canvas, seeding each fragment's lattice node first.
+   * @tparam VertexFn Callable `(Fragment &)` run after the node seed.
+   * @tparam PixelFn Pixel shader passed to `Scan::Shader::draw_grid`.
+   * @param canvas Target canvas.
+   * @param vertex Per-fragment vertex stage; frag.v0 holds the seeded node id.
+   * @param pixel Per-pixel shader.
+   */
   template <typename VertexFn, typename PixelFn>
   __attribute__((always_inline)) void
   rasterize_lattice(Canvas &canvas, VertexFn &&vertex, PixelFn &&pixel) {
@@ -124,6 +132,12 @@ protected:
     with_biweight_u(1.0f - d2 * INV_R2, on_weight);
   }
 
+  /**
+   * @brief Invokes `on_weight(u * u)` when @p u is positive.
+   * @tparam OnWeight Callable accepting the kernel weight.
+   * @param u Biweight base, 1 - d²/R².
+   * @param on_weight Callable invoked with the weight inside the support.
+   */
   template <typename OnWeight>
   static __attribute__((always_inline)) void
   with_biweight_u(float u, OnWeight &&on_weight) {
@@ -571,6 +585,7 @@ private:
 protected:
   math::Orientation<>
       orientation; /**< Current view orientation on the sphere. */
+  /// World-to-lattice rotation: conjugate of `orientation`.
   math::RotationMatrix inverse_orientation{math::Quaternion()};
   FastNoiseLite noise; /**< Noise source driving the orientation walk. */
   ReactionGraph::CubemapLUT

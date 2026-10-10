@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Stage spec for `KaleidoscopeStainedGlass`. */
 struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
   static constexpr Pullback::ProjectionKind PROJECTION =
       Pullback::ProjectionKind::GNOMONIC_FOLDED;
@@ -27,6 +28,10 @@ struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Pullback::SurfacePlacement::BEFORE_LENS;
   using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
+  /**
+   * @brief The ranked stage pipeline.
+   * @tparam B The effect's Binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -63,7 +68,8 @@ class KaleidoscopeStainedGlass
                                       KaleidoscopeStainedGlassSpec> {
 
 public:
-  using Params = KaleidoscopeStainedGlassParams;
+  using Params = KaleidoscopeStainedGlassParams; ///< Live parameter struct.
+  /// Stable effect ID; also names the pattern document under patterns/.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "kaleidoscope-stained-glass";
@@ -75,14 +81,30 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
+  /** @var DESCRIPTOR_DIGEST
+   *  @brief SHA-256 of the pattern document's parameter descriptor. */
+  /** @var PRESET_BANK_DIGEST
+   *  @brief SHA-256 of the pattern document's preset bank. */
+  /** @var PRESET_IDS
+   *  @brief Preset identities by preset number. */
+  /** @var PRESET_DWELL_FRAMES
+   *  @brief Frames each preset holds before departing. */
+  /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
   // Hot entry trampoline.
+  /**
+   * @brief Shades one pixel through the render pipeline.
+   * @param view Unit view direction for the pixel.
+   * @param frame Per-frame transforms, params and LUTs from the runtime.
+   * @return The pixel colour.
+   */
   static HS_HOT_FLASH_MEMBER Color4
   shade(const math::Vector &view,
         const typename KaleidoscopeStainedGlass::Frame &frame) {
     return KaleidoscopeStainedGlass::RenderPipeline::shade(view, frame);
   }
+  /// Params the effect starts on, and the base every preset varies from.
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr Params initial_params() {

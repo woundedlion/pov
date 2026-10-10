@@ -29,6 +29,7 @@ struct MindSplatterWhiteBox;
  *          are driven by the preset Lerp or by user input when paused.
  */
 struct MindSplatterParams {
+  /** Emitter solid; attractors sit on its dual. */
   Solids::BaseMesh base_mesh = Solids::BaseMesh::CUBE;
   float friction = 0.85f;       /**< Velocity retention per step in [0.5, 1]. */
   float well_strength = 0.85f;  /**< Attractor pull strength in [0, 20]. */
@@ -56,14 +57,16 @@ class MindSplatter
   friend Choreography;
 
 public:
+  /// Stable effect ID.
   static constexpr const char *EFFECT_ID = "MindSplatter";
 
-  using BaseMesh = Solids::BaseMesh;
-  using Params = MindSplatterParams;
+  using BaseMesh = Solids::BaseMesh; ///< Selectable solid enum.
+  using Params = MindSplatterParams; ///< Live parameter struct.
 
   /** Crossfades the live parameters; pause freezes an in-flight crossfade. */
   static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear,
                                                  /*pausable=*/true};
+  /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Frames each preset holds before its departure blend. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;

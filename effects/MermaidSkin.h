@@ -10,6 +10,7 @@
 
 #include "core/render/pullback/composed_effect.h"
 
+/** @brief Stage spec for `MermaidSkin`. */
 struct MermaidSkinSpec : Pullback::Spec {
   static constexpr Pullback::ProjectionKind PROJECTION =
       Pullback::ProjectionKind::FOLDED_SINUSOIDAL;
@@ -27,6 +28,10 @@ struct MermaidSkinSpec : Pullback::Spec {
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
       Pullback::SurfacePlacement::BEFORE_LENS;
   using LensPolicy = void;
+  /**
+   * @brief The ranked stage pipeline.
+   * @tparam B The effect's Binding.
+   */
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -57,7 +62,8 @@ class MermaidSkin : public Pullback::ComposedEffect<W, H, MermaidSkin<W, H>,
                                                     MermaidSkinSpec> {
 
 public:
-  using Params = MermaidSkinParams;
+  using Params = MermaidSkinParams; ///< Live parameter struct.
+  /// Stable effect ID; also names the pattern document under patterns/.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr std::string_view EFFECT_ID = "mermaid-skin";
@@ -69,8 +75,18 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
   // clang-format on
   // End generated identity.
+  /** @var DESCRIPTOR_DIGEST
+   *  @brief SHA-256 of the pattern document's parameter descriptor. */
+  /** @var PRESET_BANK_DIGEST
+   *  @brief SHA-256 of the pattern document's preset bank. */
+  /** @var PRESET_IDS
+   *  @brief Preset identities by preset number. */
+  /** @var PRESET_DWELL_FRAMES
+   *  @brief Frames each preset holds before departing. */
+  /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 2;
 
+  /// Params the effect starts on, and the base every preset varies from.
   // Generated params: scripts/generate_composed_presets.mjs
   // clang-format off
   static constexpr Params initial_params() {
