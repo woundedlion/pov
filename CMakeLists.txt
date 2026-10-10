@@ -125,16 +125,10 @@ if(EMSCRIPTEN)
   target_include_directories(pullback_capture_wasm PRIVATE
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
     ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
-  # Feature set matches the native capture producer.
+  hs_capture_feature_defines(pullback_capture_wasm)
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256
-    HS_GLOBAL_ARENA_BYTES=524288
-    HS_ENABLE_EFFECT_REGISTRY=1
-    HS_ENABLE_PARAM_GUI_BRIDGE=1
-    HS_ENABLE_TEST_HOOKS=1
-    HS_ENABLE_TEST_ORACLES=1
-    HS_ENABLE_CHAIN_INTERPRETER=1
-    HS_ENABLE_EFFECT_CONTROL_API=1)
+    HS_GLOBAL_ARENA_BYTES=524288)
   target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra")
   target_link_options(pullback_capture_wasm PRIVATE
     "-sALLOW_MEMORY_GROWTH=1"
