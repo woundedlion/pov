@@ -72,6 +72,50 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
   return interior;
 }
 
+/** @brief Coverage above which expect_cull_covers_painted requires a visit. */
+inline constexpr float PAINTED_ALPHA = 0.002f;
+
+/**
+ * @brief Asserts no pixel the rasterizer would paint is dropped by the cull.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Shape SDF shape type providing the cull and distance interface.
+ * @param shape Shape under test.
+ * @param label Caller-identifying label reported with each failing pixel.
+ * @return Count of painted pixels found.
+ * @details A pixel counts as painted when its rasterizer coverage (solid or
+ *   stroke ramp) exceeds `PAINTED_ALPHA`.
+ */
+template <int W, int H, typename Shape>
+inline int expect_cull_covers_painted(const Shape &shape, const char *label) {
+  HS_CONTEXT(label);
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(shape, visited);
+
+  constexpr float pixel_width = 2.0f * math::PI_F / W;
+  int painted = 0;
+  for (int y = 0; y < H; ++y) {
+    for (int x = 0; x < W; ++x) {
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
+      const SDF::DistanceResult r = SDF::distance_of(shape, p);
+      float alpha = 0.0f;
+      if constexpr (Shape::is_solid)
+        alpha = Scan::solid_coverage(r.dist, pixel_width);
+      else if (r.dist < 0.0f && r.size > 0.0f)
+        alpha = math::quintic_kernel(-r.dist / r.size);
+      if (alpha > PAINTED_ALPHA) {
+        ++painted;
+        HS_CONTEXT("painted px", x, y);
+        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
+      }
+    }
+  }
+  HS_EXPECT_GT(painted, 0);
+  return painted;
+}
+
 /**
  * @brief Asserts no pixel the AA band would shade is dropped by the cull.
  * @tparam W Canvas width in pixels.
@@ -167,6 +211,7 @@ inline void test_cull_covers_interior_over_orientation_grid() {
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
       expect_cull_covers_interior<W, H>(ring, "ring");
+      expect_cull_covers_painted<W, H>(ring, "ring");
       SDF::FlatDistortedRing flat_ring(basis, radius, 0.25f);
       expect_cull_covers_interior<W, H>(flat_ring, "flat distorted ring");
       expect_cull_covers_fringe<W, H>(flat_ring, "flat distorted ring");
@@ -186,6 +231,7 @@ inline void test_cull_covers_interior_over_orientation_grid() {
 
       SDF::Flower flower(basis, radius, /*sides=*/5, 0.0f);
       expect_cull_covers_interior<W, H>(flower, "flower");
+      expect_cull_covers_painted<W, H>(flower, "flower");
     }
   }
 }
@@ -206,6 +252,7 @@ inline void test_pole_axis_ring_bounds_skip_pole_rows() {
   HS_EXPECT_GT(bounds.y_min, 0);
   HS_EXPECT_LT(bounds.y_max, H - 1);
   expect_cull_covers_interior<W, H>(ring, "pole-axis ring");
+  expect_cull_covers_painted<W, H>(ring, "pole-axis ring");
 }
 
 /** @brief Linearized ring bounds retain every row with visible stroke alpha. */
@@ -263,6 +310,7 @@ inline void test_intersection_cull_covers_interior_over_polygon_pairs() {
 
     SDF::Intersection<Poly, Poly> both(poly_a, poly_b);
     expect_cull_covers_interior<W, H>(both, "intersection leaf pair");
+    expect_cull_covers_painted<W, H>(both, "intersection leaf pair");
   }
 }
 
@@ -298,6 +346,7 @@ inline void test_subtract_cull_covers_interior_over_leaf_pairs() {
 
     SDF::Subtract<Poly, Star> carved(poly, star);
     expect_cull_covers_interior<W, H>(carved, "subtract leaf pair");
+    expect_cull_covers_painted<W, H>(carved, "subtract leaf pair");
   }
 }
 
@@ -379,6 +428,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
                math::Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, math::Vector(1, 0, 0));
   expect_cull_covers_interior<W, H>(rep, "angular repeat");
+  expect_cull_covers_painted<W, H>(rep, "angular repeat");
 }
 
 /**
@@ -459,6 +509,7 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   SDF::Line ln(math::Vector(0, cosf(0.4f), sinf(0.4f)),
                math::Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
   expect_cull_covers_interior<W, H>(ln, "line arc bulge");
+  expect_cull_covers_painted<W, H>(ln, "line arc bulge");
 }
 
 /** @brief Face arc bounds retain northern, southern and endpoint extrema. */
@@ -527,6 +578,7 @@ inline void test_line_antipodal_cull_covers_interior() {
   const math::Vector ENDPOINT = math::Vector(0.4f, 0.6f, 0.69f).normalized();
   SDF::Line ln(ENDPOINT, -ENDPOINT, /*thickness=*/0.15f);
   expect_cull_covers_interior<W, H>(ln, "line antipodal");
+  expect_cull_covers_painted<W, H>(ln, "line antipodal");
 }
 
 /**
@@ -539,6 +591,7 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
   SDF::Line ln(math::Vector(1, 0, 0), math::Vector(0, 0, 1),
                /*thickness=*/2.6f);
   expect_cull_covers_interior<W, H>(ln, "line thick cap");
+  expect_cull_covers_painted<W, H>(ln, "line thick cap");
 }
 
 /**
@@ -561,11 +614,13 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
         math::make_basis(math::Quaternion(), math::Vector(c.tilt, 1.0f, 0.0f));
     SDF::Ring ring_n(basis_n, c.radius, c.thickness);
     expect_cull_covers_interior<W, H>(ring_n, "ring north pole");
+    expect_cull_covers_painted<W, H>(ring_n, "ring north pole");
 
     math::Basis basis_s =
         math::make_basis(math::Quaternion(), math::Vector(c.tilt, -1.0f, 0.0f));
     SDF::Ring ring_s(basis_s, c.radius, c.thickness);
     expect_cull_covers_interior<W, H>(ring_s, "ring south pole");
+    expect_cull_covers_painted<W, H>(ring_s, "ring south pole");
   }
 }
 
@@ -604,6 +659,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
                               shift,
                               /*max_distortion=*/amp, /*phase=*/0.0f);
       expect_cull_covers_interior<W, H>(ring, "distorted ring");
+      expect_cull_covers_painted<W, H>(ring, "distorted ring");
 
       // The knot overload's exact distance widens the interior toward the
       // band edges.
@@ -615,6 +671,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       SDF::DistortedRing poly(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
                               knots, LUT_N, /*phase=*/0.0f, poly_pf);
       expect_cull_covers_interior<W, H>(poly, "distorted polygon");
+      expect_cull_covers_painted<W, H>(poly, "distorted polygon");
     }
   }
 
@@ -629,6 +686,7 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
   SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric, ASYM_LUT_N,
                                      0.0f, asymmetric_pf);
   expect_cull_covers_interior<W, H>(asymmetric_ring, "asymmetric ring");
+  expect_cull_covers_painted<W, H>(asymmetric_ring, "asymmetric ring");
 }
 
 /**
