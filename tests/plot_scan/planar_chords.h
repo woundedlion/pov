@@ -71,13 +71,6 @@ inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
   return frame;
 }
 
-inline uint64_t planar_chord_energy(const std::vector<Pixel> &frame) {
-  uint64_t energy = 0;
-  for (const Pixel &p : frame)
-    energy += static_cast<uint64_t>(p.r) + p.g + p.b;
-  return energy;
-}
-
 template <int W, int H>
 inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
                                             const std::vector<Pixel> &candidate,
@@ -141,7 +134,7 @@ inline void test_planar_chords_match_rasterize_brightness() {
   for (const PlanarShapeCase &star : planar_chord_stars()) {
     const auto reference = render_planar_chord_star<W, H>(fx, star, false);
     const auto chords = render_planar_chord_star<W, H>(fx, star, true);
-    HS_EXPECT_GT(planar_chord_energy(reference), uint64_t{0});
+    HS_EXPECT_GT(frame_energy(reference), uint64_t{0});
     expect_covered_within_one_pixel<W, H>(reference, chords, 0, H, 0, W, 0,
                                           0.026);
   }

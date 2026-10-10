@@ -219,10 +219,5 @@ inline void test_ring_draw_accepts_direct_sink() {
   }
   fx.advance_display();
 
-  size_t lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      if (!is_black(fx.get_pixel(x, y)))
-        ++lit;
-  HS_EXPECT_GT(lit, size_t{0});
+  HS_EXPECT_GT(count_lit_canvas(fx), size_t{0});
 }
