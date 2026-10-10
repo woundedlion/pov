@@ -149,10 +149,18 @@ struct RasterConfig {
 class RasterLoop {
 public:
   constexpr RasterLoop() = default;
+  /**
+   * @brief A closed loop whose last segment returns to the first point.
+   * @param seam Registers for the closing endpoint, or null to reuse the
+   *        first point's.
+   * @return The closed loop.
+   */
   static constexpr RasterLoop closed(const Fragment *seam = nullptr) {
     return RasterLoop(seam);
   }
+  /** @return True for a closed loop. */
   constexpr bool is_closed() const { return closed_loop; }
+  /** @return The closing-endpoint fragment, or null. */
   constexpr const Fragment *seam() const { return closing_fragment; }
 
 private:
@@ -168,6 +176,8 @@ public:
   constexpr RasterProjection() = default;
   /** @brief Supplies one visibility byte per rasterized edge, or none.
    * @details Flags combine EDGE_VISIBLE, EDGE_CLASSIFIED and EDGE_ONE_DOT.
+   * @param flags One byte per edge, or empty for none.
+   * @return The geodesic projection.
    */
   static constexpr RasterProjection
   geodesic(std::span<const uint8_t> flags = {}) {
@@ -176,6 +186,9 @@ public:
   /** @brief Selects azimuthal-equidistant interpolation in the supplied chart.
    * @details Flags contain one byte per edge; planar rasterization reads only
    * EDGE_VISIBLE to replace the clip cull when the clip is active.
+   * @param basis Planar chart; must outlive the projection.
+   * @param flags One byte per edge, or empty for none.
+   * @return The planar projection.
    */
   static constexpr RasterProjection
   planar(const math::Basis &basis, std::span<const uint8_t> flags = {}) {
@@ -185,7 +198,9 @@ public:
                                  std::span<const uint8_t> = {}) = delete;
   static RasterProjection planar(const math::Basis &&,
                                  std::span<const uint8_t> = {}) = delete;
+  /** @return The planar chart, or null for geodesic edges. */
   constexpr const math::Basis *basis() const { return planar_basis; }
+  /** @return Per-edge visibility bytes, or empty. */
   constexpr std::span<const uint8_t> flags() const { return edge_flags; }
 
 private:
@@ -204,17 +219,32 @@ private:
 class PointProjections {
 public:
   constexpr PointProjections() = default;
+  /**
+   * @brief Views equal-length row and column arrays.
+   * @tparam N Point count.
+   * @param rows Screen row per point.
+   * @param cols Screen column per point.
+   */
   template <size_t N>
   constexpr PointProjections(const float (&rows)[N], const float (&cols)[N])
       : screen_rows(rows), screen_cols(cols), count(N) {}
+  /**
+   * @brief Views row and column spans; fails fast on a length mismatch.
+   * @param rows Screen row per point.
+   * @param cols Screen column per point.
+   * @return The paired view; null pointers when empty.
+   */
   static PointProjections paired(std::span<const float> rows,
                                  std::span<const float> cols) {
     HS_CHECK(rows.size() == cols.size(),
              "hoisted point projection rows and columns differ in length");
     return PointProjections(rows, cols);
   }
+  /** @return Screen rows, or null. */
   constexpr const float *rows() const { return screen_rows; }
+  /** @return Screen columns, or null. */
   constexpr const float *cols() const { return screen_cols; }
+  /** @return Point count. */
   constexpr size_t size() const { return count; }
 
 private:
@@ -239,7 +269,9 @@ struct RasterOptions {
   /** edge_flags bit: EDGE_ONE_DOT carries a verdict; else it is unclassified. */
   static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
 
+  /** Open polyline or closed loop. */
   RasterLoop loop{};
+  /** Geodesic or planar edges and per-edge flags. */
   RasterProjection projection{};
   /** Skip the final endpoint of an open line so adjoining arcs tile once. */
   bool omit_end = false;
@@ -266,7 +298,11 @@ struct RasterOptions {
 
 HS_O3_BEGIN
 /** @brief Arc fraction of a replayed step: exactly 1 at the terminal step,
- * else @p dist over @p total_dist clamped to 1. */
+ * else @p dist over @p total_dist clamped to 1.
+ * @param terminal The step reaches the segment end.
+ * @param dist Arc walked at the step.
+ * @param total_dist Segment arc.
+ * @return Arc fraction in [0, 1]. */
 HS_HOT_INLINE inline float replay_t(bool terminal, float dist,
                                     float total_dist) {
   return terminal ? 1.0f : fminf(dist / total_dist, 1.0f);
@@ -325,13 +361,22 @@ endpoint_alpha_scale(float endpoint_gap, float default_step, float step) {
 }
 
 /** @brief True when @p p lies at the antipode of @p basis, where the planar
- * projection is singular. */
+ * projection is singular.
+ * @param p Unit point.
+ * @param basis Planar chart.
+ * @return True past the COS_PLANAR_ANTIPODE cutoff. */
 HS_HOT_INLINE inline bool at_planar_antipode(const math::Vector &p,
                                              const math::Basis &basis) {
   return math::dot(p, basis.v) < -COS_PLANAR_ANTIPODE;
 }
 
-/** @brief True when @p bit is set in edge @p i's visibility byte. */
+/**
+ * @brief True when @p bit is set in edge @p i's visibility byte.
+ * @param edge_flags Per-edge visibility bytes; non-null.
+ * @param i Edge index.
+ * @param bit Flag mask.
+ * @return Whether the bit is set.
+ */
 HS_HOT_INLINE inline bool has_edge_flag(const uint8_t *edge_flags, size_t i,
                                         uint8_t bit) {
   return (edge_flags[i] & bit) != 0;
@@ -342,6 +387,7 @@ HS_HOT_INLINE inline bool has_edge_flag(const uint8_t *edge_flags, size_t i,
 /**
  * @brief True when a balanced walk may take its next step from a position-only
  * sample, reusing the current step.
+ * @return Whether the next sample may be position-only.
  * @param sample Full sample just taken.
  * @param step Default-density step at @p sample.
  * @param previous_step Default-density step at the previous full sample.
@@ -383,25 +429,52 @@ public:
         start_vertex(!active || (start <= 0.0f && hi >= 0.0f)),
         end_vertex(!active || (start <= 1.0f && hi >= 1.0f)) {}
 
-  /** @brief True when the window narrows [0, 1]. */
+  /**
+   * @brief True when the window narrows [0, 1].
+   * @return Whether the window is active.
+   */
   HS_HOT_INLINE bool is_active() const { return active; }
-  /** @brief True when a sample at @p t is plotted. */
+  /**
+   * @brief True when a sample at @p t is plotted.
+   * @param t Arc fraction.
+   * @return Whether @p t lies in the window.
+   */
   HS_HOT_INLINE bool contains(float t) const {
     return !active || (t >= start && t <= hi);
   }
-  /** @brief True when a sample at @p t lies strictly outside an active window. */
+  /**
+   * @brief True when a sample at @p t lies strictly outside an active window.
+   * @param t Arc fraction.
+   * @return Whether @p t is excluded.
+   */
   HS_HOT_INLINE bool excludes(float t) const {
     return active && (t < start || t > hi);
   }
-  /** @brief True when the segment's start vertex, t = 0, is plotted. */
+  /**
+   * @brief True when the segment's start vertex, t = 0, is plotted.
+   * @return Whether t = 0 lies in the window.
+   */
   HS_HOT_INLINE bool plots_start() const { return start_vertex; }
-  /** @brief True when the segment's end vertex, t = 1, is plotted. */
+  /**
+   * @brief True when the segment's end vertex, t = 1, is plotted.
+   * @return Whether t = 1 lies in the window.
+   */
   HS_HOT_INLINE bool plots_end() const { return end_vertex; }
-  /** @brief True when the window opens at or before t = 0. */
+  /**
+   * @brief True when the window opens at or before t = 0.
+   * @return Whether the window has no effective lower bound.
+   */
   HS_HOT_INLINE bool opens_at_start() const { return !active || start <= 0.0f; }
-  /** @brief True when the window closes at or past t = 1. */
+  /**
+   * @brief True when the window closes at or past t = 1.
+   * @return Whether the window has no effective upper bound.
+   */
   HS_HOT_INLINE bool closes_at_end() const { return !active || hi >= 1.0f; }
-  /** @brief True when vertex @p k of a one-dot edge falls outside the window. */
+  /**
+   * @brief True when vertex @p k of a one-dot edge falls outside the window.
+   * @param k Vertex index: 0 for the start, 1 for the end.
+   * @return Whether the vertex is skipped.
+   */
   HS_HOT_INLINE bool skips_vertex(size_t k) const {
     return active && ((k == 0 && !plots_start()) || (k == 1 && !plots_end()));
   }
@@ -444,8 +517,10 @@ plot_vertex(PipelineT &pipeline, Canvas &canvas,
  * @tparam Cfg Rasterizer configuration.
  */
 template <RasterConfig Cfg> struct SinglePassWalk {
+  /** Cfg selects a sampling policy other than DEFAULT. */
   static constexpr bool NON_DEFAULT_POLICY =
       Cfg.sampling_policy != RasterSamplingPolicy::DEFAULT;
+  /** Samples interpolate the endpoints' registers. */
   static constexpr bool INTERPOLATE_REGISTERS = Cfg.interpolate_registers;
 
   /** Segment arc. */
@@ -499,7 +574,10 @@ template <RasterConfig Cfg> struct SinglePassWalk {
     }
   }
 
-  /** @brief True while the walk has not reached the segment end. */
+  /**
+   * @brief True while the walk has not reached the segment end.
+   * @return Whether current_dist is short of total_dist.
+   */
   HS_HOT_INLINE bool unfinished() const { return current_dist < total_dist; }
 
   /**
@@ -683,6 +761,7 @@ template <RasterConfig Cfg> struct SinglePassWalk {
  * @param b Edge end.
  * @details A classified edge reads EDGE_ONE_DOT; any other edge evaluates
  * edge_fits_one_dot, which may return a false negative.
+ * @return Whether the edge plots as a single dot.
  */
 template <int W, int H>
 HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
