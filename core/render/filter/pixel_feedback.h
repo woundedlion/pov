@@ -10,6 +10,7 @@
 #include "memory.h"
 #include "render/filter/feedback_cap_plane.h"
 #include "render/filter/feedback_style.h"
+#include "render/filter/feedback_warp_cache.h"
 #include "render/filter/pipeline.h"
 
 /**
@@ -39,6 +40,8 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   using CapOffset = typename CapPlane::CapOffset;
   using CapPoint = typename CapPlane::CapPoint;
   using CapCell = typename CapPlane::CapCell;
+  using WarpCache = FeedbackWarpCache<W, H>;
+  using WarpField = typename WarpCache::Buffers;
 
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's). Other values render uncached. */
@@ -120,34 +123,16 @@ public:
    * uncached_scratch_bytes(downsample) scratch bytes.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
-#ifndef NDEBUG
-    HS_CHECK(
-        !cached_warp_x ||
-            !stamp.block_alive(cached_warp_x, CACHE_CELLS * sizeof(int16_t)),
-        "feedback filter: storage already initialized");
-#endif
-    cached_warp_x = arena.allocate_n<int16_t>(CACHE_CELLS);
-    cached_warp_y = arena.allocate_n<int16_t>(CACHE_CELLS);
-    cached_origin =
-        arena.allocate_n<typename SphereField::Coordinates>(CACHE_CELLS);
-    const int cap_cells =
-        polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
-        CACHE_COLUMNS;
-    cached_cap =
-        cap_cells > 0 ? arena.allocate_n<CapOffset>(cap_cells) : nullptr;
-    warp_cache_valid = false;
-#ifndef NDEBUG
-    stamp.record(arena);
-#endif
     // Projected from the same incremental-rotation positions populate() hands
     // out, so the per-frame offset subtracts them exactly.
-    hs::SphericalField<typename SphereField::Coordinates, W, H> origins(
-        cached_origin, CACHE_FIELD);
-    origins.populate(0, CACHE_FIELD.ring_count() - 1,
-                     [](const math::Vector &position,
-                        const typename SphereField::Coordinates &point) {
-                       return lattice_origin(CACHE_FIELD, position, point);
-                     });
+    warp_cache.template init_storage<CACHE_CELLS>(
+        arena, CACHE_FIELD,
+        polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
+            CACHE_COLUMNS,
+        [](const math::Vector &position,
+           const typename SphereField::Coordinates &point) {
+          return lattice_origin(CACHE_FIELD, position, point);
+        });
   }
 
   /**
@@ -253,15 +238,6 @@ private:
   struct WarpControl {
     int16_t x;
     int16_t y;
-  };
-
-  struct WarpField {
-    int16_t *x_offsets;
-    int16_t *y_offsets;
-    WarpControl *controls;
-    CapOffset *cell_caps;
-    CapOffset *sample_caps;
-    bool needs_population;
   };
 
   struct PixelAccumulator {
@@ -413,17 +389,22 @@ private:
     return runs;
   }
 
-  __attribute__((always_inline)) WarpField select_warp_field(
+  /**
+   * @brief The frame's populated warp field: the cache's when the Style and
+   * band allow it, otherwise a scratch field.
+   */
+  __attribute__((always_inline)) WarpField acquire_warp_field(
       Arena &scratch, const CoarseGrid &grid, const RenderBand &band) {
     const bool stock_transform =
         feedback_style->space_fn == &::Feedback::noise_warp ||
         feedback_style->space_fn == &::Feedback::melt_warp;
-    const bool cacheable = cached_warp_x && !band.x_clip.active &&
+    const bool cacheable = warp_cache.ready() && !band.x_clip.active &&
                            grid.downsample == CACHE_DOWNSAMPLE &&
                            stock_transform;
     if (cacheable)
-      check_storage_alive();
+      warp_cache.check_storage_alive();
 
+    WarpField uncached{};
     if (!cacheable) {
       HS_CHECK(uncached_scratch_bytes(grid.downsample) <=
                    scratch.get_capacity() - scratch.get_offset(),
@@ -431,52 +412,53 @@ private:
                "SpaceFn, nondefault downsample, or x clip");
       const int cells = grid.field_rows * grid.columns;
       const int polar_cells = grid.polar.rows() * grid.columns;
-      return {scratch.allocate_n<int16_t>(cells),
-              scratch.allocate_n<int16_t>(cells),
-              scratch.allocate_n<WarpControl>(grid.field.sample_count()),
-              polar_cells > 0 ? scratch.allocate_n<CapOffset>(polar_cells)
-                              : nullptr,
-              grid.polar.samples > 0
-                  ? scratch.allocate_n<CapOffset>(grid.polar.samples)
-                  : nullptr,
-              true};
+      uncached.x_offsets = scratch.allocate_n<int16_t>(cells);
+      uncached.y_offsets = scratch.allocate_n<int16_t>(cells);
+      uncached.cell_caps = polar_cells > 0
+                               ? scratch.allocate_n<CapOffset>(polar_cells)
+                               : nullptr;
     }
 
     const Animation::NoiseParams *noise = feedback_style->noise;
-    const WarpKey key{feedback_style->space_fn,  noise,
-                      noise_config_key(noise),   feedback_style->amplitude,
-                      feedback_style->frequency, feedback_style->speed,
-                      feedback_style->scale,     noise ? noise->time : 0.0f,
-                      band.field_y_begin,        band.field_y_end};
+    const typename WarpCache::Key key{
+        feedback_style->space_fn,  noise,
+        noise_config_key(noise),   feedback_style->amplitude,
+        feedback_style->frequency, feedback_style->speed,
+        feedback_style->scale,     noise ? noise->time : 0.0f,
+        band.field_y_begin,        band.field_y_end};
 
-    const bool needs_population = !(warp_cache_valid && key == cached_warp_key);
-    cached_warp_key = key;
-    warp_cache_valid = true;
-    return {cached_warp_x,
-            cached_warp_y,
-            needs_population
-                ? scratch.allocate_n<WarpControl>(grid.field.sample_count())
-                : nullptr,
-            cached_cap,
-            needs_population && grid.polar.samples > 0
-                ? scratch.allocate_n<CapOffset>(grid.polar.samples)
-                : nullptr,
-            needs_population};
+    HS_PROFILE(feedback_populate);
+    return warp_cache.acquire(
+        cacheable ? &key : nullptr, uncached,
+        [&](const WarpField &warp) __attribute__((always_inline)) {
+          WarpControl *controls =
+              scratch.allocate_n<WarpControl>(grid.field.sample_count());
+          CapOffset *sample_caps =
+              grid.polar.samples > 0
+                  ? scratch.allocate_n<CapOffset>(grid.polar.samples)
+                  : nullptr;
+          populate_warp_field(grid, band, warp, controls, sample_caps);
+        });
   }
 
+  /**
+   * @brief Fills @p warp's cells for the band from the Style's warp.
+   * @param grid Coarse layout of the frame.
+   * @param band Rows and columns the frame renders.
+   * @param warp Field to fill.
+   * @param controls Scratch for every lattice sample's offset.
+   * @param sample_caps Scratch for every polar lattice sample's cap offset.
+   */
   __attribute__((always_inline)) void
   populate_warp_field(const CoarseGrid &grid, const RenderBand &band,
-                      const WarpField &warp) {
-    HS_PROFILE(feedback_populate);
-    if (!warp.needs_population)
-      return;
-
-    hs::SphericalField<WarpControl, W, H> compact(warp.controls, grid.field);
+                      const WarpField &warp, WarpControl *controls,
+                      CapOffset *sample_caps) {
+    hs::SphericalField<WarpControl, W, H> compact(controls, grid.field);
     // The cached origins belong to the cached layout.
     const typename SphereField::Coordinates *origins =
-        grid.downsample == CACHE_DOWNSAMPLE ? cached_origin : nullptr;
+        grid.downsample == CACHE_DOWNSAMPLE ? warp_cache.origins() : nullptr;
     if (origins)
-      check_storage_alive();
+      warp_cache.check_storage_alive();
     // noinline keeps the per-sample warp out of flash-resident prepare_flush.
     compact.populate(
         band.field_y_begin, band.field_y_end,
@@ -494,7 +476,7 @@ private:
             const bool south = index >= polar.south_sample;
             const CapPoint from = CapPlane::cap_point(position, south);
             const CapPoint to = CapPlane::cap_point(distorted, south);
-            warp.sample_caps[polar.slot(index)] =
+            sample_caps[polar.slot(index)] =
                 CapPlane::encode_cap(to.u - from.u, to.v - from.v);
           }
           const auto projected = grid.field.project(distorted);
@@ -520,8 +502,8 @@ private:
             continue;
           const int x = coarse_x * grid.downsample;
           const auto longitude = grid.field.longitude_bounded(ring, x);
-          const WarpControl a = warp.controls[longitude.left];
-          const WarpControl b = warp.controls[longitude.right];
+          const WarpControl a = controls[longitude.left];
+          const WarpControl b = controls[longitude.right];
           const float bx = unwrap_near(b.x, a.x, WRAP_PERIOD);
           const int index = field_y * grid.columns + coarse_x;
           // Keep the stored offset canonical: the seam correction can lift the
@@ -535,10 +517,8 @@ private:
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
           if (field_y < grid.polar.north_rings ||
               field_y >= grid.polar.south_ring) {
-            const CapOffset da =
-                warp.sample_caps[grid.polar.slot(longitude.left)];
-            const CapOffset db =
-                warp.sample_caps[grid.polar.slot(longitude.right)];
+            const CapOffset da = sample_caps[grid.polar.slot(longitude.left)];
+            const CapOffset db = sample_caps[grid.polar.slot(longitude.right)];
             warp.cell_caps[grid.polar.row(field_y) * grid.columns + coarse_x] =
                 CapPlane::lerp_offset(da, db, longitude.mix);
           }
@@ -574,8 +554,7 @@ private:
     const CoarseGrid &grid = ctx.grid;
     ctx.band = make_render_band(cv.clip(), grid);
     const RenderBand &band = ctx.band;
-    ctx.warp = select_warp_field(scratch, grid, band);
-    populate_warp_field(grid, band, ctx.warp);
+    ctx.warp = acquire_warp_field(scratch, grid, band);
     ctx.filtered_row = (!band.x_clip.active &&
                         (grid.downsample > 1 || !SphereField::HAS_NORTH_POLE ||
                          !SphereField::HAS_SOUTH_POLE))
@@ -1125,57 +1104,9 @@ private:
     return noise ? static_cast<uint32_t>(noise->seed) : 0u;
   }
 
-  /** @brief Inputs the coarse warp field is a pure function of (stock
-   *  transforms only); equal keys make the cached field reusable. */
-  struct WarpKey {
-    ::Feedback::SpaceFn space_fn;
-    const Animation::NoiseParams *noise;
-    uint32_t noise_config;
-    float amplitude;
-    float frequency;
-    float speed;
-    float scale;
-    float time;
-    int field_y_begin;
-    int field_y_end;
-    bool operator==(const WarpKey &) const = default;
-  };
-
   ::Feedback::Style *feedback_style; /**< Bound feedback Style (non-owning). */
   bool enabled = true;               /**< When false, flush() is skipped. */
-  WarpKey cached_warp_key{};         /**< Key for the cached warp field. */
-  bool warp_cache_valid = false;    /**< True when the cached field is valid. */
-  int16_t *cached_warp_x = nullptr; /**< Arena-owned cached column deltas. */
-  int16_t *cached_warp_y = nullptr; /**< Arena-owned cached row deltas. */
-  /** @brief Arena-owned projected origin of every cached-layout lattice sample. */
-  typename SphereField::Coordinates *cached_origin = nullptr;
-  /** @brief Arena-owned cap-plane offset of every polar-ring cell. */
-  CapOffset *cached_cap = nullptr;
-#ifndef NDEBUG
-  ArenaBlockStamp
-      stamp; /**< Arena state when the warp fields were allocated. */
-#endif
-
-  /**
-   * @brief Debug-only use-after-free check on the arena-owned warp fields.
-   */
-  void check_storage_alive() const {
-    HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_x, CACHE_CELLS * sizeof(int16_t),
-                          "Pixel::Feedback warp cache");
-    HS_ASSERT_BLOCK_ALIVE(stamp, cached_warp_y, CACHE_CELLS * sizeof(int16_t),
-                          "Pixel::Feedback warp cache");
-    HS_ASSERT_BLOCK_ALIVE(stamp, cached_origin,
-                          CACHE_CELLS *
-                              sizeof(typename SphereField::Coordinates),
-                          "Pixel::Feedback warp cache");
-    if (cached_cap) {
-      HS_ASSERT_BLOCK_ALIVE(
-          stamp, cached_cap,
-          polar_rings(CACHE_FIELD, CACHE_FIELD.ring_count()).rows() *
-              CACHE_COLUMNS * sizeof(CapOffset),
-          "Pixel::Feedback warp cache");
-    }
-  }
+  WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
 
 public:
   /** @brief Cap-cell budget; runtime geometry reserves a full-ring upper bound. */
