@@ -656,7 +656,7 @@ HS_O3_FN inline float noise_contour(const FastNoiseLite &noise,
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
  */
-template <typename State> struct TwinWave : ApproximationDefaults {
+template <typename State> struct TwinWave : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -677,17 +677,7 @@ template <typename State> struct TwinWave : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -711,7 +701,7 @@ template <typename State> struct TwinWave : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
  */
-template <typename State> struct Rings : ApproximationDefaults {
+template <typename State> struct Rings : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -729,17 +719,7 @@ template <typename State> struct Rings : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -763,7 +743,7 @@ template <typename State> struct Rings : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
  */
-template <typename State> struct SphericalRings : ApproximationDefaults {
+template <typename State> struct SphericalRings : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -784,17 +764,7 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -815,7 +785,7 @@ template <typename State> struct SphericalRings : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
  */
-template <typename State> struct Spiral : ApproximationDefaults {
+template <typename State> struct Spiral : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -834,17 +804,7 @@ template <typename State> struct Spiral : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -868,7 +828,7 @@ template <typename State> struct Spiral : ApproximationDefaults {
  * @tparam State Provider with Binding and FrameState types and
  * params(frame), prepare(frame) accessors.
  */
-template <typename State> struct Grid : ApproximationDefaults {
+template <typename State> struct Grid : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -891,17 +851,7 @@ template <typename State> struct Grid : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
@@ -1023,7 +973,7 @@ template <typename State> struct EscapeFractal : ApproximationDefaults {
  * params(frame), prepare(frame) accessors.
  */
 template <typename State, TessellationKind KindV>
-struct Tessellation : ApproximationDefaults {
+struct Tessellation : PrepareFromState<State> {
   using Binding = typename State::Binding; ///< Binding of the provider `State`.
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
 
@@ -1044,17 +994,7 @@ struct Tessellation : ApproximationDefaults {
       };
 
   /// Phases `State::prepare` resolves for the frame.
-  using Prepared = std::remove_cvref_t<decltype(State::prepare(
-      std::declval<const FrameState &>()))>;
-
-  /**
-   * @brief Resolves the frame's phases from `State`.
-   * @param frame Frame state.
-   * @return `State::prepare(frame)`.
-   */
-  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return State::prepare(frame);
-  }
+  using Prepared = StatePrepared<State>;
 
   /**
    * @brief Samples the signed field.
