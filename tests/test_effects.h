@@ -1029,6 +1029,7 @@ inline int run_effects_tests() {
   run_case(test_gs_support_certificate_matches_display_geometry);
   run_case(test_gs_nearest_pigment_shader_fidelity);
   run_case(test_gs_partial_color_palette_rows);
+  run_case(test_gs_reseed_invalidates_shimmer_cache);
   run_case(test_gs_dissolve_frontier_fades_before_clear);
   run_case(test_gs_substep_matches_scalar_reference);
   run_case(test_gs_inplace_frame_matches_jacobi);

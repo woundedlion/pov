@@ -104,8 +104,8 @@ public:
     state.pigment = persistent_arena.allocate_n<uint16_t>(RD_N);
     palettes =
         persistent_arena.allocate_n<Pixel>(NUM_SEED_CLUSTERS * PALETTE_SIZE);
-    modified_palettes = persistent_arena.allocate_n<FloatColor>(
-        NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS);
+    shimmer_cache.attach(persistent_arena.allocate_n<FloatColor>(
+        NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS));
     color_noise_lut =
         persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -274,7 +274,7 @@ private:
         state.B[i] = 0;
         state.pigment[i] = Pigment::pack(0, 0, Pigment::FULL_MASS);
       }
-      color_palette_valid = false;
+      shimmer_cache.invalidate();
     }
     for (int seed = first; seed < end; ++seed) {
       auto palette = make_palette();
@@ -421,56 +421,102 @@ private:
         .color;
   }
 
-  HS_HOT_FLASH_MEMBER void refresh_color_palettes(bool complete = false) {
-    color_noise_enabled = params.hue_shift != 0.0f || params.shimmer != 0.0f;
-    color_palette_exact = !color_noise_enabled ||
-                          fabsf(params.hue_shift) > CACHED_HUE_LIMIT ||
-                          params.shimmer > CACHED_SHIMMER_LIMIT;
-    const bool RESTART = !color_palette_valid ||
-                         color_palette_hue != params.hue_shift ||
-                         color_palette_shimmer != params.shimmer;
-    if (RESTART) {
-      color_palette_hue = params.hue_shift;
-      color_palette_shimmer = params.shimmer;
-      color_palette_valid = true;
-      color_palette_rows = 0;
-      color_palette_next_row = 0;
-    }
-    if (color_palette_next_row == COLOR_NOISE_STEPS ||
-        fabsf(params.hue_shift) > CACHED_HUE_LIMIT ||
-        params.shimmer > CACHED_SHIMMER_LIMIT ||
-        (params.hue_shift == 0.0f && params.shimmer == 0.0f))
-      return;
-    HS_PROFILE(grd_color_palette);
-    int count = complete ? COLOR_NOISE_STEPS : RESTART ? 5 : 2;
-    for (; count > 0 && color_palette_next_row < COLOR_NOISE_STEPS; --count) {
-      int index = color_palette_next_row++;
-      int n =
-          COLOR_NOISE_STEPS / 2 + ((index & 1) ? -(index + 1) / 2 : index / 2);
-      float noise = -1.0f + 2.0f * n / (COLOR_NOISE_STEPS - 1);
-      for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed)
-        for (int t = 0; t < COLOR_VALUE_STEPS; ++t)
-          modified_palettes[(seed * COLOR_NOISE_STEPS + n) * COLOR_VALUE_STEPS +
-                            t] =
-              modified_palette_color(
-                  seed, static_cast<float>(t) / (COLOR_VALUE_STEPS - 1),
-                  noise * params.hue_shift,
-                  fmaxf(noise, 0.0f) * params.shimmer);
-      color_palette_rows |= 1u << n;
-    }
-  }
+  /**
+   * @brief Hue-shifted, shimmer-lifted seed palettes baked over a grid of noise
+   * rows, keyed on the latched hue and shimmer.
+   * @details Rows bake centre-out across frames. A row pair that is not baked
+   * yet, or a hue or shimmer past the cached limits, reads as exact.
+   */
+  class ShimmerCache {
+  public:
+    struct Selection {
+      int row;
+      bool exact;
+    };
 
-  struct ColorNoiseSelection {
-    int row;
-    bool exact;
+    /** @brief Binds the bake storage, one row per seed and noise step. */
+    void attach(FloatColor *storage) { palettes = storage; }
+
+    /** @brief Marks every row stale after the source palettes change. */
+    void invalidate() { valid = false; }
+
+    /** @brief True when the latched hue or shimmer is nonzero. */
+    bool noise_enabled() const { return enabled; }
+
+    /**
+     * @brief Latches `hue` and `shimmer` and bakes the next rows.
+     * @param complete Bakes every remaining row.
+     * @param bake Source color for (seed, t, hue shift, lightness).
+     */
+    template <typename Bake>
+    __attribute__((always_inline)) void refresh(float hue, float shimmer,
+                                                bool complete, Bake &&bake) {
+      enabled = hue != 0.0f || shimmer != 0.0f;
+      exact = !enabled || fabsf(hue) > CACHED_HUE_LIMIT ||
+              shimmer > CACHED_SHIMMER_LIMIT;
+      const bool RESTART =
+          !valid || latched_hue != hue || latched_shimmer != shimmer;
+      if (RESTART) {
+        latched_hue = hue;
+        latched_shimmer = shimmer;
+        valid = true;
+        rows = 0;
+        next_row = 0;
+      }
+      if (next_row == COLOR_NOISE_STEPS || fabsf(hue) > CACHED_HUE_LIMIT ||
+          shimmer > CACHED_SHIMMER_LIMIT || (hue == 0.0f && shimmer == 0.0f))
+        return;
+      HS_PROFILE(grd_color_palette);
+      int count = complete ? COLOR_NOISE_STEPS : RESTART ? 5 : 2;
+      for (; count > 0 && next_row < COLOR_NOISE_STEPS; --count) {
+        int index = next_row++;
+        int n = COLOR_NOISE_STEPS / 2 +
+                ((index & 1) ? -(index + 1) / 2 : index / 2);
+        float noise = -1.0f + 2.0f * n / (COLOR_NOISE_STEPS - 1);
+        for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed)
+          for (int t = 0; t < COLOR_VALUE_STEPS; ++t)
+            palettes[(seed * COLOR_NOISE_STEPS + n) * COLOR_VALUE_STEPS + t] =
+                bake(seed, static_cast<float>(t) / (COLOR_VALUE_STEPS - 1),
+                     noise * hue, fmaxf(noise, 0.0f) * shimmer);
+        rows |= 1u << n;
+      }
+    }
+
+    /** @brief The noise row pair below `position`, and whether to shade it
+     * exactly. */
+    __attribute__((always_inline)) Selection selection(float position) const {
+      const int ROW =
+          std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
+      return {ROW, !valid || (rows & (3u << ROW)) != (3u << ROW) || exact};
+    }
+
+    /** @brief The baked colors of `seed` at noise row `noise_row`. */
+    __attribute__((always_inline)) const FloatColor *row(int seed,
+                                                         int noise_row) const {
+      return palettes +
+             (seed * COLOR_NOISE_STEPS + noise_row) * COLOR_VALUE_STEPS;
+    }
+
+  private:
+    friend struct ::hs_test::effects_tests::GSWhiteBox;
+
+    FloatColor *palettes = nullptr;
+    bool valid = false;
+    bool exact = true;
+    bool enabled = false;
+    uint16_t rows = 0;
+    uint8_t next_row = 0;
+    float latched_hue = 0.0f;
+    float latched_shimmer = 0.0f;
   };
 
-  __attribute__((always_inline)) ColorNoiseSelection
-  color_noise_selection(float position) const {
-    const int ROW = std::min(static_cast<int>(position), COLOR_NOISE_STEPS - 2);
-    return {ROW, !color_palette_valid ||
-                     (color_palette_rows & (3u << ROW)) != (3u << ROW) ||
-                     color_palette_exact};
+  HS_HOT_FLASH_MEMBER void refresh_color_palettes(bool complete = false) {
+    shimmer_cache.refresh(
+        params.hue_shift, params.shimmer, complete,
+        [this](int seed, float t, float shift, float lightness)
+            __attribute__((always_inline)) {
+              return modified_palette_color(seed, t, shift, lightness);
+            });
   }
 
   HS_FLASH_INLINE void refresh_color_noise() {
@@ -764,7 +810,7 @@ private:
     const float NOISE_POSITION =
         hs::clamp((noise_value + 1.0f) * (0.5f * (COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(COLOR_NOISE_STEPS - 1));
-    const auto NOISE_SELECTION = color_noise_selection(NOISE_POSITION);
+    const auto NOISE_SELECTION = shimmer_cache.selection(NOISE_POSITION);
     const int NOISE_ROW = NOISE_SELECTION.row;
     const bool EXACT = NOISE_SELECTION.exact;
     const float VALUE_POSITION = t * (COLOR_VALUE_STEPS - 1);
@@ -791,9 +837,7 @@ private:
         continue;
       }
       const FloatColor *row =
-          modified_palettes +
-          (palette * COLOR_NOISE_STEPS + NOISE_ROW) * COLOR_VALUE_STEPS +
-          VALUE_COLUMN;
+          shimmer_cache.row(palette, NOISE_ROW) + VALUE_COLUMN;
       float w00 = mass * SCALE00, w01 = mass * SCALE01;
       float w10 = mass * SCALE10, w11 = mass * SCALE11;
       accum_r += row[0].r * w00 + row[1].r * w01 +
@@ -818,7 +862,7 @@ private:
     float noise_value = 0;
     {
       HS_PROFILE_DEEP(grd_shader_noise);
-      if (color_noise_enabled)
+      if (shimmer_cache.noise_enabled())
         noise_value = projection != nullptr
                           ? sample_color_noise(*projection)
                           : sample_color_noise(
@@ -1148,14 +1192,7 @@ private:
 
   /** @brief Per-seed linear RGB ramps sampled by B concentration. */
   Pixel *palettes = nullptr;
-  FloatColor *modified_palettes = nullptr;
-  bool color_palette_valid = false;
-  bool color_palette_exact = true;
-  bool color_noise_enabled = false;
-  uint16_t color_palette_rows = 0;
-  uint8_t color_palette_next_row = 0;
-  float color_palette_hue = 0.0f;
-  float color_palette_shimmer = 0.0f;
+  ShimmerCache shimmer_cache;
   int8_t *color_noise_lut = nullptr;
   FastNoiseLite color_noise;
   HueNoiseBakeCache color_noise_cache;

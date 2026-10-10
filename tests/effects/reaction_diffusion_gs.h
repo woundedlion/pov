@@ -59,7 +59,7 @@ struct GSWhiteBox {
     float position =
         hs::clamp((noise + 1.0f) * (0.5f * (GS::COLOR_NOISE_STEPS - 1)), 0.0f,
                   static_cast<float>(GS::COLOR_NOISE_STEPS - 1));
-    const auto SELECTION = gs.color_noise_selection(position);
+    const auto SELECTION = gs.shimmer_cache.selection(position);
     return {SELECTION.row,
             static_cast<uint16_t>((position - SELECTION.row) * 65535.0f), noise,
             SELECTION.exact};
@@ -82,9 +82,7 @@ struct GSWhiteBox {
           seed, VALUE.value, NOISE.value * gs.params.hue_shift,
           fmaxf(NOISE.value, 0.0f) * gs.params.shimmer);
     const typename GS::FloatColor *row =
-        gs.modified_palettes +
-        (seed * GS::COLOR_NOISE_STEPS + NOISE.row) * GS::COLOR_VALUE_STEPS +
-        VALUE.column;
+        gs.shimmer_cache.row(seed, NOISE.row) + VALUE.column;
     Pixel first = row[0].pixel().lerp16(row[1].pixel(), VALUE.weight);
     Pixel second = row[GS::COLOR_VALUE_STEPS].pixel().lerp16(
         row[GS::COLOR_VALUE_STEPS + 1].pixel(), VALUE.weight);
@@ -295,7 +293,7 @@ struct GSWhiteBox {
     gs.refresh_color_palettes(complete);
   }
   static uint16_t color_palette_rows(const GS &gs) {
-    return gs.color_palette_rows;
+    return gs.shimmer_cache.rows;
   }
   static bool exact_color_sample(const GS &gs, float noise) {
     return color_noise_sample(gs, noise).exact;
@@ -352,6 +350,7 @@ struct GSWhiteBox {
   }
   static bool reaction_edited(GS &gs) { return gs.reaction_edited(); }
   static constexpr int SEEDS = GS::NUM_SEED_CLUSTERS;
+  static constexpr int COLOR_NOISE_STEPS = GS::COLOR_NOISE_STEPS;
   static void set_pigment(GS &gs, int node, int seed) {
     gs.state.pigment[node] = Pigment::pack(seed, 0, Pigment::FULL_MASS);
   }
@@ -1233,6 +1232,35 @@ inline void test_gs_partial_color_palette_rows() {
     HS_EXPECT_EQ(GSWhiteBox::color_palette_rows(gs), ALL_ROWS);
     HS_EXPECT_EQ(persistent_arena.get_offset(), OFFSET);
   }
+}
+
+/**
+ * @brief Verifies a reseed at unchanged hue and shimmer rebakes the shimmer
+ *        cache from the new palettes.
+ */
+inline void test_gs_reseed_invalidates_shimmer_cache() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  const auto CONTROLS = GSWhiteBox::color_params(gs);
+  const float HUE = CONTROLS[2], SHIMMER = CONTROLS[3];
+  HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, 0.0f));
+  const Pixel BEFORE = GSWhiteBox::staged_palette(gs, 0, 1.0f, 0.0f);
+  GSWhiteBox::start_reaction(gs);
+  HS_EXPECT(GSWhiteBox::modified_palette(gs, 0, 1.0f, 0.0f, 0.0f) != BEFORE,
+            "reseed kept the first seed palette");
+  GSWhiteBox::refresh_color_palettes(gs, true);
+  int stale = 0;
+  for (int n = 0; n < GSWhiteBox::COLOR_NOISE_STEPS; ++n) {
+    const float NOISE = -1.0f + 2.0f * n / (GSWhiteBox::COLOR_NOISE_STEPS - 1);
+    HS_EXPECT_FALSE(GSWhiteBox::exact_color_sample(gs, NOISE));
+    for (int seed = 0; seed < GSWhiteBox::SEEDS; ++seed)
+      for (float value : {0.0f, 1.0f})
+        stale += GSWhiteBox::staged_palette(gs, seed, value, NOISE) !=
+                 GSWhiteBox::modified_palette(gs, seed, value, NOISE * HUE,
+                                              std::max(NOISE, 0.0f) * SHIMMER);
+  }
+  HS_EXPECT_EQ(stale, 0);
 }
 
 /** @brief Checks certified support against the fixed-profile SSAA offsets. */
