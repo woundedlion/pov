@@ -42,7 +42,6 @@ class BZReactionDiffusion
 
   // Bring dependent-base names into scope (template base requires this).
   using Base::accumulate_stencil;
-  using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::from_q16;
   using Base::gather_stencil;
