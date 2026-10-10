@@ -161,19 +161,31 @@ public:
         index, last);
   }
 
-  /** @brief How the coordinate is folded across the key run. */
+  /** @brief How the coordinate is folded across the key run. @return Domain. */
   PaletteDomain palette_domain() const { return domain; }
-  /** @brief The space segments interpolate in. */
+  /** @brief The space segments interpolate in. @return Color path. */
   ColorPath palette_color_path() const { return color_path; }
-  /** @brief Relative-chroma ceiling as a fraction of the gamut envelope. */
+  /**
+   * @brief Relative-chroma ceiling as a fraction of the gamut envelope.
+   * @return Headroom fraction.
+   */
   float palette_headroom() const { return headroom; }
-  /** @brief Hue shift per unit lightness away from L = 0.5, in radians. */
+  /**
+   * @brief Hue shift per unit lightness away from L = 0.5, in radians.
+   * @return Torsion in radians.
+   */
   float palette_hue_torsion() const { return hue_torsion; }
-  /** @brief Start of the source sub-window the keys map across. */
+  /**
+   * @brief Start of the source sub-window the keys map across.
+   * @return Window start.
+   */
   float palette_input_offset() const { return input_offset; }
-  /** @brief Width of the source sub-window the keys map across. */
+  /**
+   * @brief Width of the source sub-window the keys map across.
+   * @return Window width.
+   */
   float palette_input_span() const { return input_span; }
-  /** @brief Number of live control keys. */
+  /** @brief Number of live control keys. @return Key count. */
   uint8_t palette_key_count() const { return key_count; }
 
   /** @brief Sets every control key to one chroma.
@@ -189,9 +201,12 @@ public:
       keys[i].chroma = chroma;
   }
 
-  /** @brief True when the second half replays the first. */
+  /**
+   * @brief True when the second half replays the first.
+   * @return Whether the domain mirrors.
+   */
   bool mirrors_domain() const { return domain == PaletteDomain::MIRROR; }
-  /** @brief True when t = 1 rejoins t = 0. */
+  /** @brief True when t = 1 rejoins t = 0. @return Whether the domain loops. */
   bool loops_domain() const { return domain == PaletteDomain::LOOP; }
 
   /**
@@ -229,6 +244,8 @@ public:
    * @details Requires identical evaluation policy plus corresponding segment
    * hue deltas within half a turn of each other. A loop additionally requires
    * the same integer closing travel, or its seam breaks mid-morph.
+   * @param other Candidate morph partner.
+   * @return Whether the pair can be key-morphed.
    */
   bool morph_compatible(const GenerativePalette &other) const {
     if (domain != other.domain || easing != other.easing ||
@@ -1321,17 +1338,30 @@ static_assert(sizeof(GenerativePalette) <= 160);
 
 namespace PaletteRecipes {
 
-/** @brief Converts an 8-bit hue wheel position to turns. */
+/**
+ * @brief Converts an 8-bit hue wheel position to turns.
+ * @param hue Wheel position; only the low 8 bits are read.
+ * @return Hue in turns, [0, 1).
+ */
 inline float hue_turns(uint32_t hue) {
   return static_cast<float>(hue & 0xFFu) * (1.0f / 256.0f);
 }
 
-/** @brief A base hue drawn uniformly from the 256-step hue wheel. */
+/**
+ * @brief A base hue drawn uniformly from the 256-step hue wheel.
+ * @return Hue in turns, [0, 1).
+ */
 HS_FLASH_MEMBER inline float random_base_turns() {
   return hue_turns(static_cast<uint32_t>(hs::rand_int(0, 256)));
 }
 
-/** @brief Builds the common defaults for a domain and named hue harmony. */
+/**
+ * @brief Builds the common defaults for a domain and named hue harmony.
+ * @param domain Coordinate domain.
+ * @param harmony Hue harmony.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 inline PaletteRecipe harmony(PaletteDomain domain, PaletteHarmony harmony,
                              float base_turns = 0.0f) {
   PaletteRecipe recipe;
@@ -1341,13 +1371,25 @@ inline PaletteRecipe harmony(PaletteDomain domain, PaletteHarmony harmony,
   return recipe;
 }
 
-/** @brief Builds the default straight-domain analogous recipe. */
+/**
+ * @brief Builds the default straight-domain analogous recipe.
+ * @param base_turns Base hue in turns.
+ * @return The recipe.
+ */
 inline PaletteRecipe balanced_analogous(float base_turns = 0.0f) {
   return harmony(PaletteDomain::STRAIGHT, PaletteHarmony::ANALOGOUS,
                  base_turns);
 }
 
-/** @brief Builds a named harmony with an explicit lightness profile. */
+/**
+ * @brief Builds a named harmony with an explicit lightness profile.
+ * @param domain Coordinate domain.
+ * @param harmony Hue harmony.
+ * @param lightness_curve Lightness axis shape.
+ * @param base_turns Base hue in turns.
+ * @param chroma Chroma axis center.
+ * @return The recipe.
+ */
 inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
                              AxisCurve lightness_curve, float base_turns,
                              float chroma = 0.62f) {
@@ -1361,7 +1403,14 @@ inline PaletteRecipe profile(PaletteDomain domain, PaletteHarmony harmony,
   return recipe;
 }
 
-/** @brief Builds profile() with a uniformly selected base hue. */
+/**
+ * @brief Builds profile() with a uniformly selected base hue.
+ * @param domain Coordinate domain.
+ * @param harmony Hue harmony.
+ * @param lightness_curve Lightness axis shape.
+ * @param chroma Chroma axis center.
+ * @return The recipe.
+ */
 HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
                                                     PaletteHarmony harmony,
                                                     AxisCurve lightness_curve,
@@ -1369,7 +1418,14 @@ HS_FLASH_MEMBER inline PaletteRecipe random_profile(PaletteDomain domain,
   return profile(domain, harmony, lightness_curve, random_base_turns(), chroma);
 }
 
-/** @brief Builds a custom three-key recipe from OKLCH control colors. */
+/**
+ * @brief Builds a custom three-key recipe from OKLCH control colors.
+ * @param domain Coordinate domain.
+ * @param a First key; an achromatic key takes the nearest chromatic hue.
+ * @param b Middle key.
+ * @param c Last key.
+ * @return Recipe with absolute chroma and custom hue/lightness/chroma.
+ */
 inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
                                      OKLCH c) {
   OKLCH *keys[] = {&a, &b, &c};
@@ -1403,14 +1459,25 @@ inline PaletteRecipe from_oklch_keys(PaletteDomain domain, OKLCH a, OKLCH b,
   return recipe;
 }
 
-/** @brief Converts three encoded colors into a custom OKLCH recipe. */
+/**
+ * @brief Converts three encoded colors into a custom OKLCH recipe.
+ * @param domain Coordinate domain.
+ * @param a First key color.
+ * @param b Middle key color.
+ * @param c Last key color.
+ * @return Recipe from from_oklch_keys().
+ */
 inline PaletteRecipe from_colors(PaletteDomain domain, const CPixel &a,
                                  const CPixel &b, const CPixel &c) {
   return from_oklch_keys(domain, pixel_to_oklch(Pixel(a)),
                          pixel_to_oklch(Pixel(b)), pixel_to_oklch(Pixel(c)));
 }
 
-/** @brief Builds a constant-lightness loop spanning one complete hue turn. */
+/**
+ * @brief Builds a constant-lightness loop spanning one complete hue turn.
+ * @param base_turns Starting hue in turns.
+ * @return The recipe.
+ */
 inline PaletteRecipe isolight_spectral_loop(float base_turns = 0.0f) {
   PaletteRecipe recipe;
   recipe.domain = PaletteDomain::LOOP;
@@ -1422,7 +1489,11 @@ inline PaletteRecipe isolight_spectral_loop(float base_turns = 0.0f) {
   return recipe;
 }
 
-/** @brief Builds a straight monochrome ramp with bell-shaped chroma. */
+/**
+ * @brief Builds a straight monochrome ramp with bell-shaped chroma.
+ * @param base_turns Hue in turns.
+ * @return The recipe.
+ */
 inline PaletteRecipe tonal_monochrome(float base_turns = 0.0f) {
   PaletteRecipe recipe = harmony(PaletteDomain::STRAIGHT,
                                  PaletteHarmony::MONOCHROMATIC, base_turns);

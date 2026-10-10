@@ -83,6 +83,14 @@
 
 namespace Palettes {
 
+/**
+ * @brief Declares one named constexpr ProceduralPalette from a roster row.
+ * @param name Palette identifier.
+ * @param A Parenthesized a coefficient triple.
+ * @param B Parenthesized b coefficient triple.
+ * @param C Parenthesized c coefficient triple.
+ * @param D Parenthesized d coefficient triple.
+ */
 #define HS_DECLARE_PALETTE(name, A, B, C, D)                                   \
   inline constexpr ProceduralPalette name(                                     \
       {HS_PALETTE_VEC3 A}, {HS_PALETTE_VEC3 B}, {HS_PALETTE_VEC3 C},           \
@@ -102,12 +110,16 @@ struct MeshPaletteBank {
   /**
    * @brief Conservative arena byte budget for bake_all(), including
    *        per-palette alignment allowances.
+   *  @return Byte budget.
    */
   static constexpr size_t required_arena_bytes() {
     return N * BakedPalette::required_arena_bytes();
   }
 
-  /** @brief Shared source palettes, in bank-slot order. */
+  /**
+   * @brief Shared source palettes, in bank-slot order.
+   * @return Array of `N` palette pointers.
+   */
   static constexpr auto sources() {
     return std::array{&Palettes::EMBERS,         &Palettes::RICH_SUNSET,
                       &Palettes::BRIGHT_SUNRISE, &Palettes::BRUISED_MOSS,
