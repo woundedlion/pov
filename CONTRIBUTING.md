@@ -2,9 +2,9 @@
 
 This repository holds the Holosphere engine and firmware; the browser simulator
 lives in the sibling [daydream](https://github.com/woundedlion/daydream)
-repository and is built and installed from here. Read `README.md` §3–4 first —
-its file map is gated against the tracked tree, and §4 describes the architecture.
-[§11 Building](README.md#11-building) has the commands for all three
+repository and is built and installed from here. Read `README.md` §2 and §9 first —
+§2 describes the architecture, and the §9 file map is gated against the tracked tree.
+[§8 Building and Testing](README.md#8-building-and-testing) has the commands for all three
 targets: the Teensy firmware, the WASM module, and the native test suite.
 
 ## Licensing
