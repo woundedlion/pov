@@ -66,7 +66,7 @@ inline void expect_mosaic_matches(OracleState state, Render render,
     HS_EXPECT_EQ(uncovered, size_t{0});
     return;
   }
-  const FrameErrorStats error = compare_buffers(full, tiled);
+  const FrameErrorStats error = compare_buffers(full.pixels, tiled.pixels);
   HS_EXPECT_GT(frame_energy(full), uint64_t{0});
   HS_EXPECT_TRUE(error.exact());
   HS_EXPECT_EQ(error.different_pixels, size_t{0});

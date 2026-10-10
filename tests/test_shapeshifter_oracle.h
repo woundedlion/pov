@@ -11,11 +11,13 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "effects/ShapeShifter.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -88,67 +90,6 @@ struct OracleFrame {
     return pixels[static_cast<size_t>(y) * ORACLE_W + x];
   }
 };
-
-/** @brief Exact and aggregate channel-error statistics for two captures. */
-struct FrameErrorStats {
-  size_t compared_pixels = 0;
-  size_t different_pixels = 0;
-  size_t different_channels = 0;
-  uint32_t max_absolute_error = 0;
-  uint64_t total_absolute_error = 0;
-  uint64_t total_squared_error = 0;
-  int first_different_pixel = -1;
-
-  bool exact() const { return different_pixels == 0; }
-
-  double mean_absolute_error() const {
-    const size_t channels = compared_pixels * 3;
-    return channels == 0 ? 0.0
-                         : static_cast<double>(total_absolute_error) / channels;
-  }
-
-  double root_mean_squared_error() const {
-    const size_t channels = compared_pixels * 3;
-    return channels == 0
-               ? 0.0
-               : std::sqrt(static_cast<double>(total_squared_error) / channels);
-  }
-};
-
-/** @brief Compares two same-sized captures channel by channel. */
-inline FrameErrorStats compare_buffers(const OracleFrame &reference,
-                                       const OracleFrame &candidate) {
-  HS_CHECK(reference.pixels.size() == candidate.pixels.size(),
-           "oracle captures differ in size");
-  FrameErrorStats stats;
-  stats.compared_pixels = reference.pixels.size();
-
-  for (size_t i = 0; i < reference.pixels.size(); ++i) {
-    const Pixel &a = reference.pixels[i];
-    const Pixel &b = candidate.pixels[i];
-    const uint16_t channels_a[] = {a.r, a.g, a.b};
-    const uint16_t channels_b[] = {b.r, b.g, b.b};
-    bool pixel_differs = false;
-    for (int channel = 0; channel < 3; ++channel) {
-      const uint32_t error = channels_a[channel] > channels_b[channel]
-                                 ? channels_a[channel] - channels_b[channel]
-                                 : channels_b[channel] - channels_a[channel];
-      if (error == 0)
-        continue;
-      pixel_differs = true;
-      ++stats.different_channels;
-      stats.max_absolute_error = std::max(stats.max_absolute_error, error);
-      stats.total_absolute_error += error;
-      stats.total_squared_error += static_cast<uint64_t>(error) * error;
-    }
-    if (!pixel_differs)
-      continue;
-    if (stats.first_different_pixel < 0)
-      stats.first_different_pixel = static_cast<int>(i);
-    ++stats.different_pixels;
-  }
-  return stats;
-}
 
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
@@ -397,7 +338,7 @@ inline RenderComparison compare_renders(const OracleState &state,
   comparison.candidate =
       capture_frame(state, std::forward<CandidateRender>(candidate_render));
   comparison.error =
-      compare_buffers(comparison.reference, comparison.candidate);
+      compare_buffers(comparison.reference.pixels, comparison.candidate.pixels);
   return comparison;
 }
 
@@ -476,7 +417,7 @@ inline void test_buffer_comparator_statistics() {
   reference.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
   OracleFrame candidate = reference;
 
-  FrameErrorStats exact = compare_buffers(reference, candidate);
+  FrameErrorStats exact = compare_buffers(reference.pixels, candidate.pixels);
   HS_EXPECT_TRUE(exact.exact());
   HS_EXPECT_EQ(exact.compared_pixels, static_cast<size_t>(ORACLE_W) * ORACLE_H);
   HS_EXPECT_EQ(exact.different_pixels, static_cast<size_t>(0));
@@ -490,7 +431,7 @@ inline void test_buffer_comparator_statistics() {
 
   constexpr size_t PIXEL_INDEX = 17;
   candidate.pixels[PIXEL_INDEX] = Pixel(7, 11, 0);
-  FrameErrorStats changed = compare_buffers(reference, candidate);
+  FrameErrorStats changed = compare_buffers(reference.pixels, candidate.pixels);
   HS_EXPECT_FALSE(changed.exact());
   HS_EXPECT_EQ(changed.different_pixels, static_cast<size_t>(1));
   HS_EXPECT_EQ(changed.different_channels, static_cast<size_t>(2));
@@ -498,6 +439,21 @@ inline void test_buffer_comparator_statistics() {
   HS_EXPECT_EQ(changed.total_absolute_error, static_cast<uint64_t>(18));
   HS_EXPECT_EQ(changed.total_squared_error, static_cast<uint64_t>(170));
   HS_EXPECT_EQ(changed.first_different_pixel, static_cast<int>(PIXEL_INDEX));
+  HS_EXPECT_EQ(changed.lit_reference_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(changed.coverage_mismatches, static_cast<size_t>(1));
+
+  // Accumulating over split spans indexes across the whole comparison.
+  const std::span<const Pixel> reference_span(reference.pixels);
+  const std::span<const Pixel> candidate_span(candidate.pixels);
+  const FrameErrorStats head =
+      compare_buffers(reference_span.first(PIXEL_INDEX - 1),
+                      candidate_span.first(PIXEL_INDEX - 1));
+  const FrameErrorStats split =
+      compare_buffers(reference_span.subspan(PIXEL_INDEX - 1),
+                      candidate_span.subspan(PIXEL_INDEX - 1), head);
+  HS_EXPECT_EQ(split.compared_pixels, changed.compared_pixels);
+  HS_EXPECT_EQ(split.total_squared_error, changed.total_squared_error);
+  HS_EXPECT_EQ(split.first_different_pixel, static_cast<int>(PIXEL_INDEX));
 }
 
 /**
@@ -646,8 +602,9 @@ inline void test_star_projection_policies_render_different_edges() {
   const OracleFrame planar = capture_frame(state, candidate_renderer());
   state.shape = OracleEffect::ShapeType::SPHERICAL_STAR;
   const OracleFrame spherical = capture_frame(state, candidate_renderer());
-  HS_EXPECT_GT(compare_buffers(planar, spherical).different_pixels,
-               size_t{100});
+  HS_EXPECT_GT(
+      compare_buffers(planar.pixels, spherical.pixels).different_pixels,
+      size_t{100});
 }
 
 inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
@@ -667,8 +624,9 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
     const OracleFrame uniform = capture_frame(state, candidate_renderer());
     state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
     const OracleFrame balanced = capture_frame(state, candidate_renderer());
-    HS_EXPECT_GT(compare_buffers(uniform, balanced).different_pixels,
-                 size_t{100});
+    HS_EXPECT_GT(
+        compare_buffers(uniform.pixels, balanced.pixels).different_pixels,
+        size_t{100});
   }
 }
 
@@ -953,8 +911,9 @@ inline void test_opposite_halves_direction() {
   const OracleFrame unchecked = capture_frame(state, candidate_renderer());
   state.opposite = true;
   const OracleFrame checked = capture_frame(state, candidate_renderer());
-  HS_EXPECT_GT(compare_buffers(unchecked, checked).different_pixels,
-               static_cast<size_t>(0));
+  HS_EXPECT_GT(
+      compare_buffers(unchecked.pixels, checked.pixels).different_pixels,
+      static_cast<size_t>(0));
 }
 
 inline void test_folded_shapes_draw_from_equator_to_both_poles() {
