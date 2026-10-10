@@ -8,6 +8,7 @@
 #include "core/animation/transformer.h"
 
 #include <cmath>
+#include <span>
 #include <vector>
 
 #include "core/render/canvas.h"
@@ -550,19 +551,18 @@ inline void test_clip_band_matches_full() {
       Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
     }
     fx.advance_display();
-    size_t mismatches = 0, ref_lit = 0;
-    for (int y = b.y0; y < b.y1; ++y)
-      for (int x = b.x0; x < b.x1; ++x) {
-        const Pixel &p = fx.get_pixel(x, y);
-        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-        if (!is_black(r))
-          ++ref_lit;
-        if (p.r != r.r || p.g != r.g || p.b != r.b)
-          ++mismatches;
-      }
+    std::vector<Pixel> banded;
+    capture_frame<W, H>(fx, banded);
+    FrameErrorStats error;
+    for (int y = b.y0; y < b.y1; ++y) {
+      const size_t offset = static_cast<size_t>(y) * W + b.x0;
+      const size_t count = static_cast<size_t>(b.x1 - b.x0);
+      error = compare_buffers(std::span(ref).subspan(offset, count),
+                              std::span(banded).subspan(offset, count), error);
+    }
     // The band carries geometry, so agreeing with it is not agreeing on black.
-    HS_EXPECT_GT(ref_lit, (size_t)0);
-    HS_EXPECT_EQ(mismatches, (size_t)0);
+    HS_EXPECT_GT(error.lit_reference_pixels, (size_t)0);
+    HS_EXPECT_EQ(error.different_pixels, (size_t)0);
   }
 }
 
@@ -818,22 +818,14 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
               exact_hits,
               100.0f * lut_hits / std::max(1u, lut_hits + exact_hits));
 
-  uint64_t delta_sum = 0;
-  int delta_max = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &p = lutted.get_pixel(x, y);
-      const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-      int d = std::abs((int)p.r - (int)r.r);
-      delta_sum += d;
-      if (d > delta_max)
-        delta_max = d;
-    }
-  const float mean = static_cast<float>(delta_sum) / (W * H);
-  std::printf("  [%s] delta mean=%.1f max=%d (of 60000)\n", label, mean,
-              delta_max);
-  HS_EXPECT_LT(mean, 15.0f);
-  HS_EXPECT_LT(delta_max, 2000);
+  std::vector<Pixel> lutted_frame;
+  capture_frame<W, H>(lutted, lutted_frame);
+  const FrameErrorStats error = compare_buffers(ref, lutted_frame);
+  const double mean = error.mean_absolute_error();
+  std::printf("  [%s] delta mean=%.1f max=%u (of 60000)\n", label, mean,
+              error.max_absolute_error);
+  HS_EXPECT_LT(mean, 15.0);
+  HS_EXPECT_LT(error.max_absolute_error, 2000u);
 }
 
 /**

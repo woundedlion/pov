@@ -23,6 +23,7 @@
 
 #include "tests/fd_capture_util.h"
 #include "tests/mindsplatter_whitebox.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_effects.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -55,14 +56,6 @@ struct FrameRun {
   std::vector<uint16_t> active;
 };
 
-struct FrameDiff {
-  size_t lit = 0;
-  size_t different = 0;
-  size_t coverage = 0;
-  int max_channel = 0;
-  uint64_t total_channel = 0;
-};
-
 template <int W, int H, int FRAMES, typename Toggle>
 std::array<FrameRun, 2> render_toggled(Toggle toggle) {
   std::array<FrameRun, 2> runs;
@@ -87,29 +80,6 @@ std::array<FrameRun, 2> render_toggled(Toggle toggle) {
   }
   hs::clear_mock_time();
   return runs;
-}
-
-inline FrameDiff diff_frames(std::span<const Pixel> reference,
-                             std::span<const Pixel> candidate,
-                             FrameDiff diff = {}) {
-  HS_EXPECT_EQ(reference.size(), candidate.size());
-  for (size_t i = 0; i < reference.size(); ++i) {
-    const Pixel a = reference[i];
-    const Pixel b = candidate[i];
-    const bool a_black = (a.r | a.g | a.b) == 0;
-    const bool b_black = (b.r | b.g | b.b) == 0;
-    diff.lit += !a_black;
-    diff.different += a != b;
-    diff.coverage += a_black != b_black;
-    for (int delta :
-         {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
-          std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
-          std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
-      diff.max_channel = std::max(diff.max_channel, delta);
-      diff.total_channel += static_cast<uint64_t>(delta);
-    }
-  }
-  return diff;
 }
 
 /** @brief Verifies MindSplatter's Platonic emitter/dual-attractor selector. */
@@ -312,21 +282,22 @@ inline void test_mindsplatter_saturated_quadrant_sink_parity() {
     effect.advance_display();
     const Pixel *const direct = effect.display_buffer();
 
-    FrameDiff diff;
+    FrameErrorStats diff;
     for (int y = quadrant.y0; y < quadrant.y1; ++y) {
       const size_t offset = static_cast<size_t>(y) * W + quadrant.x0;
       const size_t count = static_cast<size_t>(quadrant.x1 - quadrant.x0);
-      diff =
-          diff_frames(std::span<const Pixel>(reference.data() + offset, count),
-                      std::span<const Pixel>(direct + offset, count), diff);
+      diff = compare_buffers(
+          std::span<const Pixel>(reference.data() + offset, count),
+          std::span<const Pixel>(direct + offset, count), diff);
     }
     std::printf("sink parity quadrant x[%d,%d) y[%d,%d) lit=%zu changed=%zu "
-                "coverage=%zu max_channel=%d total=%llu\n",
-                quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1, diff.lit,
-                diff.different, diff.coverage, diff.max_channel,
-                static_cast<unsigned long long>(diff.total_channel));
-    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-    HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+                "coverage=%zu max_channel=%u total=%llu\n",
+                quadrant.x0, quadrant.x1, quadrant.y0, quadrant.y1,
+                diff.lit_reference_pixels, diff.different_pixels,
+                diff.coverage_mismatches, diff.max_absolute_error,
+                static_cast<unsigned long long>(diff.total_absolute_error));
+    HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+    HS_EXPECT_EQ(diff.different_pixels, static_cast<size_t>(0));
   }
   hs::clear_mock_time();
 }
@@ -468,17 +439,17 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   });
   const FrameRun &matrix = runs[0];
   const FrameRun &reference = runs[1];
-  const FrameDiff diff = diff_frames(reference.pixels, matrix.pixels);
+  const FrameErrorStats diff = compare_buffers(reference.pixels, matrix.pixels);
   std::printf("matrix framebuffer samples=%zu different=%zu coverage=%zu "
-              "max_channel=%d total_channel=%llu\n",
-              reference.pixels.size(), diff.different, diff.coverage,
-              diff.max_channel,
-              static_cast<unsigned long long>(diff.total_channel));
-  HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
-  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-  HS_EXPECT_LE(diff.different, static_cast<size_t>(24));
-  HS_EXPECT_LE(diff.max_channel, 1);
-  HS_EXPECT_LE(diff.total_channel, static_cast<uint64_t>(24));
+              "max_channel=%u total_channel=%llu\n",
+              reference.pixels.size(), diff.different_pixels,
+              diff.coverage_mismatches, diff.max_absolute_error,
+              static_cast<unsigned long long>(diff.total_absolute_error));
+  HS_EXPECT_EQ(diff.coverage_mismatches, static_cast<size_t>(0));
+  HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+  HS_EXPECT_LE(diff.different_pixels, static_cast<size_t>(24));
+  HS_EXPECT_LE(diff.max_absolute_error, 1u);
+  HS_EXPECT_LE(diff.total_absolute_error, static_cast<uint64_t>(24));
 }
 
 /** @brief Particle hue seeds advance in deterministic emission order. */
@@ -585,11 +556,12 @@ inline void test_mindsplatter_fused_vertex_framebuffer_parity() {
   const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
     WB::use_reference_vertex_pass(effect, value);
   });
-  const FrameDiff diff = diff_frames(runs[1].pixels, runs[0].pixels);
+  const FrameErrorStats diff = compare_buffers(runs[1].pixels, runs[0].pixels);
   std::printf("fused vertex framebuffer samples=%zu lit=%zu different=%zu\n",
-              runs[1].pixels.size(), diff.lit, diff.different);
-  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-  HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+              runs[1].pixels.size(), diff.lit_reference_pixels,
+              diff.different_pixels);
+  HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(diff.different_pixels, static_cast<size_t>(0));
 }
 
 /**
@@ -605,15 +577,16 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
   const auto runs = render_toggled<W, H, FRAMES>([](MS &effect, bool value) {
     WB::use_reference_hole_kernel(effect, value);
   });
-  const FrameDiff diff = diff_frames(runs[1].pixels, runs[0].pixels);
+  const FrameErrorStats diff = compare_buffers(runs[1].pixels, runs[0].pixels);
   std::printf("hole kernel framebuffer samples=%zu lit=%zu different=%zu "
-              "coverage=%zu max_channel=%d total_channel=%llu\n",
-              runs[1].pixels.size(), diff.lit, diff.different, diff.coverage,
-              diff.max_channel,
-              static_cast<unsigned long long>(diff.total_channel));
-  HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-  HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
-  HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
+              "coverage=%zu max_channel=%u total_channel=%llu\n",
+              runs[1].pixels.size(), diff.lit_reference_pixels,
+              diff.different_pixels, diff.coverage_mismatches,
+              diff.max_absolute_error,
+              static_cast<unsigned long long>(diff.total_absolute_error));
+  HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(diff.coverage_mismatches, static_cast<size_t>(0));
+  HS_EXPECT_EQ(diff.different_pixels, static_cast<size_t>(0));
 }
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
@@ -663,17 +636,18 @@ inline void test_mindsplatter_clip_clear_display_parity() {
       HS_EXPECT_EQ(full_clear.active[i], clip_clear.active[i]);
     HS_EXPECT_EQ(full_clear.displayed.size(), clip_clear.displayed.size());
 
-    const FrameDiff diff =
-        diff_frames(full_clear.displayed, clip_clear.displayed);
+    const FrameErrorStats diff =
+        compare_buffers(full_clear.displayed, clip_clear.displayed);
     std::printf("clip clear segment=%d samples=%zu lit=%zu different=%zu "
                 "coverage=%zu\n",
-                segment_id, full_clear.displayed.size(), diff.lit,
-                diff.different, diff.coverage);
+                segment_id, full_clear.displayed.size(),
+                diff.lit_reference_pixels, diff.different_pixels,
+                diff.coverage_mismatches);
     HS_EXPECT_EQ(full_clear.displayed.size(),
                  static_cast<size_t>(W / 2) * (S / N) * FRAMES);
-    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-    HS_EXPECT_EQ(diff.different, static_cast<size_t>(0));
-    HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
+    HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+    HS_EXPECT_EQ(diff.different_pixels, static_cast<size_t>(0));
+    HS_EXPECT_EQ(diff.coverage_mismatches, static_cast<size_t>(0));
   }
   hs::clear_mock_time();
 }
@@ -700,24 +674,25 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
 
   constexpr int CHECKPOINTS[] = {16, 80, 160};
   constexpr size_t MAX_DIFFERENT[] = {1, 192, 192};
-  constexpr int MAX_CHANNEL[] = {1, 256, 1152};
+  constexpr uint32_t MAX_CHANNEL[] = {1, 256, 1152};
   constexpr uint64_t MAX_TOTAL[] = {1, 2048, 4608};
   for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
     const int frame = CHECKPOINTS[checkpoint];
     const size_t offset = static_cast<size_t>(frame - 1) * W * H;
-    const FrameDiff diff =
-        diff_frames(std::span(reference.pixels).subspan(offset, W * H),
-                    std::span(specialized.pixels).subspan(offset, W * H));
+    const FrameErrorStats diff =
+        compare_buffers(std::span(reference.pixels).subspan(offset, W * H),
+                        std::span(specialized.pixels).subspan(offset, W * H));
     std::printf(
         "axis framebuffer frame=%d active=%u different=%zu coverage=%zu "
-        "max_channel=%d total_channel=%llu\n",
-        frame, reference.active[frame - 1], diff.different, diff.coverage,
-        diff.max_channel, static_cast<unsigned long long>(diff.total_channel));
-    HS_EXPECT_EQ(diff.coverage, static_cast<size_t>(0));
-    HS_EXPECT_GT(diff.lit, static_cast<size_t>(0));
-    HS_EXPECT_LE(diff.different, MAX_DIFFERENT[checkpoint]);
-    HS_EXPECT_LE(diff.max_channel, MAX_CHANNEL[checkpoint]);
-    HS_EXPECT_LE(diff.total_channel, MAX_TOTAL[checkpoint]);
+        "max_channel=%u total_channel=%llu\n",
+        frame, reference.active[frame - 1], diff.different_pixels,
+        diff.coverage_mismatches, diff.max_absolute_error,
+        static_cast<unsigned long long>(diff.total_absolute_error));
+    HS_EXPECT_EQ(diff.coverage_mismatches, static_cast<size_t>(0));
+    HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
+    HS_EXPECT_LE(diff.different_pixels, MAX_DIFFERENT[checkpoint]);
+    HS_EXPECT_LE(diff.max_absolute_error, MAX_CHANNEL[checkpoint]);
+    HS_EXPECT_LE(diff.total_absolute_error, MAX_TOTAL[checkpoint]);
   }
 }
 
