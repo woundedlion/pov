@@ -293,6 +293,39 @@ pole_lod_block_settles(float clearance, float threshold, float block_slack) {
          probe_bounds_block<ShapeT>(threshold, block_slack);
 }
 
+/** @brief How one probe settles a pole-LOD block. */
+enum class BlockSettle : uint8_t {
+  PER_COLUMN, ///< Unsettled: the walk probes each column.
+  CLEAR,      ///< Every column is clear: skip the block.
+  INTERIOR,   ///< Every column is solid interior: splat the probe's result.
+};
+
+/**
+ * @brief Settles a pole-LOD block from its first column's probe.
+ * @tparam W Canvas width in pixels.
+ * @tparam Solid Whether the shape is solid, so its interior can settle too.
+ * @tparam ShapeT Shape the probe read distance() from.
+ * @param d Probe's signed distance report.
+ * @param threshold Clearance the walk tests the probe against.
+ * @param run Block width in columns.
+ * @param p_y Probe's y coordinate.
+ * @param shape Shape the probe read.
+ * @return The side the probe settles the block on, or PER_COLUMN.
+ */
+template <int W, bool Solid, typename ShapeT>
+__attribute__((always_inline)) inline BlockSettle
+pole_lod_settle_block(float d, float threshold, int run, float p_y,
+                      const ShapeT &shape) {
+  const float block_slack = pole_lod_block_slack<W>(run, p_y, shape);
+  if (pole_lod_block_settles<ShapeT>(d, threshold, block_slack))
+    return BlockSettle::CLEAR;
+  // A sentineled subtrahend loses Subtract's max, so an inside report is
+  // bounded no further than a clear one.
+  if (Solid && pole_lod_block_settles<ShapeT>(-d, threshold, block_slack))
+    return BlockSettle::INTERIOR;
+  return BlockSettle::PER_COLUMN;
+}
+
 /**
  * @brief Validates that the canvas is the size the scan was instantiated for.
  * @tparam W Canvas width in pixels.
@@ -407,13 +440,11 @@ inline int process_pixel(int x, int y, const math::Vector &p,
   int span = 1;
   if constexpr (pole_lod_blocks<decltype(shape)>) {
     if (max_run > 1 && !debug_bb) {
-      const float block_slack = pole_lod_block_slack<W>(max_run, p.y, shape);
-      if (pole_lod_block_settles<decltype(shape)>(d, threshold, block_slack))
+      const BlockSettle settle =
+          pole_lod_settle_block<W, solid>(d, threshold, max_run, p.y, shape);
+      if (settle == BlockSettle::CLEAR)
         return max_run;
-      // A sentineled subtrahend loses Subtract's max, so an inside report is
-      // bounded no further than a clear one.
-      if (solid &&
-          pole_lod_block_settles<decltype(shape)>(-d, pixel_width, block_slack))
+      if (settle == BlockSettle::INTERIOR)
         span = max_run;
     }
   }
@@ -964,15 +995,11 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         int span = 1;
         if constexpr (pole_lod_blocks<decltype(shape)>) {
           if (max_run > 1) {
-            const float block_slack =
-                pole_lod_block_slack<W>(max_run, p.y, shape);
-            if (pole_lod_block_settles<decltype(shape)>(d, PIXEL_WIDTH,
-                                                        block_slack))
+            const BlockSettle settle = pole_lod_settle_block<W, true>(
+                d, PIXEL_WIDTH, max_run, p.y, shape);
+            if (settle == BlockSettle::CLEAR)
               return max_run;
-            // A sentineled subtrahend loses Subtract's max, so an inside report
-            // is bounded no further than a clear one.
-            if (pole_lod_block_settles<decltype(shape)>(-d, PIXEL_WIDTH,
-                                                        block_slack))
+            if (settle == BlockSettle::INTERIOR)
               span = max_run;
           }
         }
