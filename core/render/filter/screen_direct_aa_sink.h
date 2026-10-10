@@ -33,7 +33,7 @@ public:
   /// Never samples outside the band.
   static constexpr bool any_reads_outside_band = false;
   /// Splat taps land up to one pixel away.
-  static constexpr int segment_margin = 1;
+  static constexpr int segment_margin = AntiAlias<W, H>::segment_margin;
   /// Equals segment_margin: a single stage.
   static constexpr int total_segment_margin = segment_margin;
   static constexpr bool any_2d_history = false; ///< No screen-space history.
@@ -58,8 +58,7 @@ public:
                   "DirectAntiAliasSink contains no filter stages");
   }
 
-  // Pipeline<> derives its stage-level view from the fold; a sink writes both
-  // by hand, so pin them to the same identities.
+  // Stage-level traits equal the folds, as Pipeline<> derives them.
   static_assert(crosses_segments == any_crosses_segments &&
                     reads_outside_band == any_reads_outside_band &&
                     segment_margin == total_segment_margin &&
@@ -281,6 +280,29 @@ static_assert(PipelineStorageSurface<DirectAntiAliasSink<8, 8>>);
 static_assert(PipelineFoldSurface<DirectAntiAliasSink<8, 8>>,
               "DirectAntiAliasSink stands in for a Pipeline<>, so it must "
               "declare every pipeline fold member itself");
+
+/// The pipeline DirectAntiAliasSink stands in for.
+using DirectAntiAliasReference = ::Pipeline<8, 8, AntiAlias<8, 8>>;
+static_assert(
+    DirectAntiAliasSink<8, 8>::any_crosses_segments ==
+            DirectAntiAliasReference::any_crosses_segments &&
+        DirectAntiAliasSink<8, 8>::any_reads_outside_band ==
+            DirectAntiAliasReference::any_reads_outside_band &&
+        DirectAntiAliasSink<8, 8>::segment_margin ==
+            DirectAntiAliasReference::segment_margin &&
+        DirectAntiAliasSink<8, 8>::total_segment_margin ==
+            DirectAntiAliasReference::total_segment_margin &&
+        DirectAntiAliasSink<8, 8>::any_2d_history ==
+            DirectAntiAliasReference::any_2d_history &&
+        DirectAntiAliasSink<8, 8>::any_3d_history ==
+            DirectAntiAliasReference::any_3d_history &&
+        DirectAntiAliasSink<8, 8>::has_world_cull ==
+            DirectAntiAliasReference::has_world_cull &&
+        DirectAntiAliasSink<8, 8>::has_world_stage ==
+            DirectAntiAliasReference::has_world_stage &&
+        DirectAntiAliasSink<8, 8>::world_transform_is_identity ==
+            DirectAntiAliasReference::world_transform_is_identity,
+    "DirectAntiAliasSink's folds differ from the pipeline it stands in for");
 
 } // namespace Screen
 } // namespace Filter
