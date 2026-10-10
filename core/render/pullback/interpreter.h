@@ -505,6 +505,8 @@ private:
 
   /**
    * @brief Computes the exact arena layout of a resolved chain.
+   * @param resolved Operator descriptor for each request entry, in order.
+   * @param request Chain entries to lay out.
    * @param out Side to fill with offsets, instance-id copies, and parameter
    *        name slots, or null for the budget dry run.
    * @return Layout byte count, or capacity + 1 if it exceeds the arena budget.
