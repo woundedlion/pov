@@ -9,8 +9,10 @@
  *        POVSegmented ISR.
  *
  * The transport's accept/drop verdict is injected as a bool. Both submit
- * paths (fail-dark black frame and image column) clear their pending state
- * only on an accepted submit; a drop retries on later flywheel wakes.
+ * paths (fail-dark black frame and image column) clear their pending state on
+ * an accepted submit; a drop retries on later flywheel wakes. A dark wake also
+ * abandons a pending column retry, since the black frame overwrites its back
+ * buffer.
  * Re-submission needs no repack: an overrun returns before the controller
  * swaps buffers.
  */
