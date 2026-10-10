@@ -157,12 +157,20 @@ inline void test_budget_corrupted_timebase() {
   constexpr uint64_t RECOVERY_COLUMNS = 750 + 144;
   const uint32_t rej_before =
       b2.board.telemetry_snapshot().symbols_rejected_gate;
+  bool saw_acquire = false;
+  bool lit_in_acquire = false;
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
+      [&](Sim &s) {
+        if (lock(s.boards[2].board) == LockState::ACQUIRE) {
+          saw_acquire = true;
+          lit_in_acquire |= !s.boards[2].engine_dark;
+        }
         return lock(s.boards[2].board) == LockState::LOCKED &&
                circ_dist(s.board_pos(2), s.board_pos(0), s.cfg.W) <= 1;
       },
       double(RECOVERY_COLUMNS) / cfg.W));
+  HS_EXPECT_TRUE(saw_acquire);
+  HS_EXPECT_FALSE(lit_in_acquire);
   const uint64_t recovery_cols = (sim.g - corrupt_g) / COL;
   HS_EXPECT_LE(recovery_cols, 750u);
   HS_EXPECT_GE(b2.board.telemetry_snapshot().symbols_rejected_gate - rej_before,

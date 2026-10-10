@@ -60,6 +60,7 @@ struct SimBoard {
   // Probes.
   uint64_t flips = 0;
   bool dark_now = true;
+  bool engine_dark = true; /**< The engine's own TickActions::dark. */
   float envelope = 0.0f;
   int32_t envelope_column = -1;
 
@@ -85,6 +86,7 @@ struct SimBoard {
     trapped = false;
     flips = 0;
     dark_now = true;
+    engine_dark = true;
     envelope = 0.0f;
     envelope_column = -1;
   }
@@ -365,6 +367,7 @@ private:
       ++b.flips;
     b.t = b.instance.frames;
     b.dark_now = w.dark;
+    b.engine_dark = a.dark;
   }
 };
 
@@ -555,6 +558,7 @@ inline void test_sim_epoch_commit() {
   for (auto &b : sim.boards) {
     HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_FALSE(b.dark_now);
+    HS_EXPECT_FALSE(b.engine_dark);
   }
   // Then all enter the K-revolution construction window together.
   HS_EXPECT_TRUE(sim.run_until(
@@ -566,6 +570,7 @@ inline void test_sim_epoch_commit() {
   for (auto &b : sim.boards) {
     HS_EXPECT_TRUE(content(b.board).commit_pending);
     HS_EXPECT_TRUE(b.dark_now);
+    HS_EXPECT_TRUE(b.engine_dark);
   }
 
   // Commit: all four swap to effect 1 at the same boundary, frame counters
