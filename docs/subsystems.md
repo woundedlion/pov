@@ -867,7 +867,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `MeshOps::relax` | Edge-length relaxation by spring forces on the unit sphere. |
 | `MeshOps::relax_baked` | Substitute a flash-baked relax result for the pass. Its runtime checks catch a source/bake mismatch (dimensions, topology hash, quantized source-vertex hash) and payload corruption (output hash, re-derived from the bake's own vertex bits) — they say nothing about freshness, since a change to `relax` itself that leaves its input intact passes these checks. Freshness is the `unit_relax_bake_verify` ctest's job: it re-runs the live `relax` and asserts bit-exact equality with the committed payload |
 | `MeshOps::normalize` | Project all vertices onto the unit sphere |
-| `MeshOps::reconcile_vertices` | Certify and reorder a nearest-vertex bijection into a non-scratch target arena using 4%/8% z bands |
+| `MeshOps::reconcile_vertices` | Certify and reorder a nearest-vertex bijection into a non-scratch target arena using 4%/8%/10% z bands |
 
 ### Hankin Pattern System (`core/mesh/hankin.h`)
 
