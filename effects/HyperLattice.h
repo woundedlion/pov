@@ -815,12 +815,7 @@ private:
   }
 
   HS_COLD_MEMBER void refresh_configuration_schema() {
-    if (auto *parameter = this->getParameters().find("4D Spin")) {
-      const bool readonly = params.mode == LatticeMode::THREE_D;
-      if (parameter->readonly != readonly) {
-        this->mark_readonly("4D Spin", readonly);
-      }
-    }
+    this->mark_readonly("4D Spin", params.mode == LatticeMode::THREE_D);
     const bool CUBIC = params.pattern == Pattern::CUBIC_WIRE;
     this->mark_readonly("Lattice Planes", !CUBIC);
     this->mark_readonly("Softness", !CUBIC);
