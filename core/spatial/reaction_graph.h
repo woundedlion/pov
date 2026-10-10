@@ -22,8 +22,8 @@
 namespace ReactionGraph {
 
 // Changing RD_N requires regenerating neighbors[] and updating D_AVG.
-inline constexpr int RD_N = 7680;
-inline constexpr int RD_K = 6;
+inline constexpr int RD_N = 7680; ///< Fibonacci-lattice node count.
+inline constexpr int RD_K = 6;    ///< Neighbors stored per node.
 
 /**
  * @brief Characteristic spacing sqrt(4π / RD_N) for an RD_N-point unit-sphere
@@ -86,6 +86,7 @@ struct NeighborRun {
 
 /** @brief Generated lossless run encoding for sequential neighbor sweeps. */
 extern HS_PROGMEM_UNIQUE(neighbor_runs) const NeighborRun neighbor_runs[];
+/** @brief Number of entries in neighbor_runs[]. */
 extern HS_PROGMEM_UNIQUE(neighbor_run_count) const unsigned NEIGHBOR_RUN_COUNT;
 
 /** @brief Node-to-run map for random access to ordered neighbor offsets. */
@@ -114,7 +115,7 @@ validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
  * @details Memory: 6 × RES² × 2B = 48 KB at RES=64.
  */
 struct CubemapLUT {
-  static constexpr int RES = 64;
+  static constexpr int RES = 64; ///< Texels per face edge.
   /** @brief Stored node index per texel. */
   using Texel = uint16_t;
   /** @brief Texels in the 6×RES² table. */
@@ -122,10 +123,11 @@ struct CubemapLUT {
   /** @brief Arena bytes the retained table occupies. */
   static constexpr size_t BYTES = TEXELS * sizeof(Texel);
 
+  /** @brief A direction projected onto a cube face. */
   struct Projection {
-    int face;
-    float u;
-    float v;
+    int face; ///< Cube face in [0, 6): +X,-X,+Y,-Y,+Z,-Z.
+    float u;  ///< Horizontal face coordinate in [-1, 1].
+    float v;  ///< Vertical face coordinate in [-1, 1].
   };
 
   /**
