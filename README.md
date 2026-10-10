@@ -332,7 +332,7 @@ The paths fall into two families:
 | [Scan](#53-forward-rendering-scan) | Forward | Analytic shapes and mesh faces with a signed distance | `Scan::Ring`, `Scan::Star`, `Scan::Mesh`, … (`scan.h`, `sdf.h`) | Filter pipeline | IslamicStars, HankinSolids, RingSpin |
 | [Plot](#54-forward-rendering-plot) | Forward | Lines, curves, wireframes and particle trails | `Plot::Line`, `Plot::Multiline`, `Plot::Mesh`, `Plot::ParticleSystem`, … (`plot.h`) | Filter pipeline | HopfFibration, Fishbowl, MeshFeedback |
 | [Full-screen shading](#55-full-screen-shading) | Inverse | A shader evaluated at every pixel's direction | `Scan::Shader::draw*` (`scan.h`) | Replaces canvas pixels | Voronoi, SphericalHarmonics, BZReactionDiffusion |
-| [Pullback](#56-pullback-shading) | Inverse | A typed chain of stages that maps a view direction to a color | `Pullback::Pipeline`, `Pullback::ComposedEffect` (`pullback.h`) | Full-screen shading | AlienOcean, the Kaleidoscope family, MobiusGrid |
+| [Pullback](#56-pullback-shading) | Inverse | A typed chain of stages that maps a view direction to a color | `Pullback::Pipeline` (`pullback.h`), `Pullback::ComposedEffect` (`pullback/composed_effect.h`) | Full-screen shading | AlienOcean, the Kaleidoscope family, MobiusGrid |
 | [Raycasting](#57-raycasting-and-raymarching) | Inverse | Rays cast from the display into a 3D scene or 4D slice | `Scan::Volume`, `Raycast::` (`render/ray.h`), `Pullback::RayStage` | Filter pipeline (`Scan::Volume`) or full-screen shading (`Raycast`) | Raymarch, HyperLattice |
 
 ```text
