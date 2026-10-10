@@ -6,9 +6,9 @@
 
 /**
  * @file transition.h
- * @brief Fenced effect-to-effect transition: the state machine
- *        (EffectTransitionController) and the host-side operations it drives
- *        through EffectTransitionAdapter.
+ * @brief Effect-to-effect transition: fade out, swap effects behind a dark
+ *        frame, fade in, and roll back on failure. EffectTransitionController
+ *        is the state machine; EffectTransitionAdapter is the host side.
  */
 
 #include <cstdint>
@@ -29,8 +29,8 @@ namespace hs {
  *
  *   Rollback: any adapter failure in CONSTRUCTING or PREPARING_FIRST_FRAME
  *   destroys the incoming effect and diverts to RESTORING_OUT ->
- *   RESTORE_FRAME_READY -> FADING_BACK -> STEADY_OUT. A rollback that itself fails, or one with no restorable
- *   outgoing, goes to CLEAR_FAILSAFE, whose only exit is
+ *   RESTORE_FRAME_READY -> FADING_BACK -> STEADY_OUT. A rollback that itself
+ *   fails, or one with no restorable outgoing, goes to CLEAR_FAILSAFE, whose only exit is
  *   CLEAR_FAILSAFE --request()--> CONSTRUCTING (output is already dark and
  *   the outgoing is gone, so the fade-out and clear steps are skipped).
  */
@@ -130,7 +130,7 @@ struct EffectRestoreToken {
 };
 
 /**
- * @brief Continuity the incoming effect inherits from the outgoing one.
+ * @brief State the incoming effect takes over from the outgoing one.
  */
 struct EffectHandoffState {
   static constexpr uint16_t SCHEMA_VERSION = 1;
@@ -168,8 +168,8 @@ public:
   virtual void set_output_envelope(float value) = 0;
   /**
    * @brief Whether the last published frame has actually reached the display.
-   * @return True once the frame is out; the fence the tear-down and commit
-   *         steps wait on.
+   * @return True once the frame is out. The controller waits on this before
+   *         destroying the outgoing effect and before committing.
    */
   virtual bool presentation_complete() const = 0;
   /** @brief Publishes the outgoing frame with the current output envelope. */
@@ -206,8 +206,8 @@ public:
   /**
    * @brief Destroys the incoming effect on a rollback.
    * @details Runs on the tick that diverts to RESTORING_OUT, before
-   *   restore_outgoing(). Must tolerate an incoming that construct_incoming()
-   *   never finished building, so a retried transition stacks no allocation.
+   *   restore_outgoing(). Must also handle an incoming effect that
+   *   construct_incoming() only partly built.
    */
   virtual void destroy_incoming() = 0;
   /**
