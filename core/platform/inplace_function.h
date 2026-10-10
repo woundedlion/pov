@@ -43,9 +43,9 @@ template <typename Signature, size_t Capacity, size_t Alignment>
 struct is_inplace_function<inplace_function<Signature, Capacity, Alignment>>
     : std::true_type {};
 
-// Type-erased operation table, one shared instance per captured callable type.
 /**
- * @brief Operation table for an inplace_function's stored callable.
+ * @brief Type-erased operation table for an inplace_function's stored
+ *        callable; one shared instance per captured callable type.
  * @tparam R Call return type.
  * @tparam Args Call argument types.
  */
@@ -62,9 +62,9 @@ template <typename R, typename... Args> struct ipf_vtable {
   move_ptr_t move;     ///< Moves the stored callable into another buffer.
 };
 
-// Concrete operations for a captured callable C placed in the inline buffer.
 /**
- * @brief ipf_vtable entries for a stored callable of type C.
+ * @brief ipf_vtable entries for a captured callable of type C placed in the
+ *        inline buffer.
  * @tparam C Stored callable type.
  * @tparam R Call return type.
  * @tparam Args Call argument types.
@@ -106,9 +106,9 @@ template <typename C, typename R, typename... Args> struct ipf_ops {
   static constexpr ipf_vtable<R, Args...> value{&invoke, &copy, &move};
 };
 
-// Empty-state operations: invoke traps; copy/move are no-ops.
 /**
- * @brief ipf_vtable entries for an empty inplace_function.
+ * @brief ipf_vtable entries for an empty inplace_function: invoke traps;
+ *        copy/move are no-ops.
  * @tparam R Call return type.
  * @tparam Args Call argument types.
  */
