@@ -353,9 +353,8 @@ inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
 /**
  * @brief Registration that drops the copy when the persistent arena is handed
  * out again (configure_arenas(), reset_persistent_arena()).
- * @return The registration.
  */
-inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
+inline const ArenaResetHook GAMUT_LUT_RESET_HOOK{release_gamut_lut};
 
 // Equal steps the stored bracket is walked in, looking for the first exit; an
 // out-of-gamut gap shorter than one step is missed.
