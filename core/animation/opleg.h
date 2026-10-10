@@ -33,6 +33,7 @@ public:
     HS_CHECK(Timeline::remaining() > 0, "OpLeg requires a free timeline event");
   }
 
+  /// Palette slots a leg maps between; one per baked palette.
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Capacity of the intern table: the full (from, to) pair space. Each
    * distinct non-identity pair also bakes a LUT into scratch_arena_b each
@@ -92,11 +93,19 @@ public:
   /** @brief Conway sweep source; cloned unless explicitly borrowed. */
   class SweepSeed {
   public:
+    /**
+     * @brief Seed that clones `mesh` when the leg starts.
+     * @param mesh Sweep source mesh.
+     */
     SweepSeed(const PolyMesh &mesh) : mesh(mesh) {}
     SweepSeed(PolyMesh &&) = delete;
     SweepSeed(const PolyMesh &&) = delete;
 
-    /** @brief Borrows a mesh that remains unmoved until the leg completes. */
+    /**
+     * @brief Borrows a mesh that remains unmoved until the leg completes.
+     * @param mesh Sweep source mesh, used in place.
+     * @return Seed that borrows `mesh`.
+     */
     static SweepSeed borrow(const PolyMesh &mesh) {
       return SweepSeed(mesh, true);
     }
@@ -266,6 +275,7 @@ public:
     /**
      * @brief Palette id face f displays once the leg arrives (w = 1).
      * @param f Swept face index.
+     * @return Landed palette index.
      * @details Every face — newborn or carried — lands on its target-class
      * palette.
      */
@@ -753,6 +763,7 @@ public:
    * @brief Redraws the current morph frame without advancing the leg.
    * @note This rebuilds and recompiles the swept mesh on every paused frame;
    *       pausing freezes progression, not morph rendering cost.
+   * @param canvas The canvas passed through to the draw callback.
    */
   HS_COLD_MEMBER void step_paused(Canvas &canvas) override {
     draw_frame(canvas);
@@ -837,6 +848,7 @@ public:
    * 80%.
    * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
+   * @return Crossfade weight in [0, 1].
    */
   static float classic_blend(int frame, int duration) {
     return blend_weight(static_cast<float>(frame) /
@@ -851,6 +863,7 @@ public:
    * @param duration Whole leg length in frames (sweep plus settle).
    * @param window Trailing window in frames, clamped to duration - 1 so a leg
    * shorter than the window still opens on the zero plateau.
+   * @return Crossfade weight in [0, 1].
    */
   static float trailing_blend(int frame, int duration, int window) {
     const int win = std::max(1, std::min(window, duration - 1));
@@ -866,6 +879,7 @@ public:
    * the BlendWeightFn form.
    * @param frame Leg frame in [0, duration]; 0 is the paused initial state.
    * @param duration Whole leg length in frames (sweep plus settle).
+   * @return Crossfade weight in [0, 1].
    * @details Reaches exactly 1 on the final frame.
    */
   static float trailing_blend(int frame, int duration) {
