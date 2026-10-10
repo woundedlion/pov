@@ -118,7 +118,10 @@ void test_noise_loop_coordinates_and_samples() {
       params.speed = sign * fixture.phase;
       animation.step(fake_canvas());
       HS_EXPECT_NEAR(params.time, sign * fixture.coordinate, 1e-5f);
-      Params expected = params;
+      Params expected;
+      expected.amplitude = 0.5f;
+      if constexpr (std::is_same_v<Params, Animation::NoiseParams>)
+        expected.sync();
       expected.time = sign * fixture.coordinate;
       HS_EXPECT_NEAR(noise_loop_sample(params), noise_loop_sample(expected),
                      1e-6f);
