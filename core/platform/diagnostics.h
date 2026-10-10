@@ -102,6 +102,7 @@ inline void log_fragment(const char *fmt, ...) {
 inline void flush_log() { fflush(stdout); }
 } // namespace hs
 
+/// Cycle-counter read: DWT CYCCNT on Teensy, 0 elsewhere.
 #define HS_OS_CYCLES() 0
 
 #endif
@@ -117,7 +118,10 @@ inline constexpr bool DEBUG_TELEMETRY_DEFAULT = false;
 /** @brief Global debug-logging toggle; off by default. */
 inline bool debug = false;
 
-/** @brief Enables or disables debug telemetry from foreground code. */
+/**
+ * @brief Enables or disables debug telemetry from foreground code.
+ * @param enabled New value of `hs::debug`.
+ */
 inline void configure_debug_telemetry(bool enabled = DEBUG_TELEMETRY_DEFAULT) {
   debug = enabled;
 }

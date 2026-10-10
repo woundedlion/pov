@@ -27,14 +27,16 @@
 #error "CANVAS_H must be positive"
 #endif
 
-// Device arena block size; not overridable (hosts override
-// HS_GLOBAL_ARENA_BYTES).
+/// Device arena block size; not overridable (hosts override
+/// HS_GLOBAL_ARENA_BYTES).
 #define HS_DEVICE_ARENA_BYTES 305152
 
+/** @brief Global arena block size in bytes; defaults to the device size. */
 #ifndef HS_GLOBAL_ARENA_BYTES
 #define HS_GLOBAL_ARENA_BYTES HS_DEVICE_ARENA_BYTES
 #endif
 
+/** @brief Inline storage budget, in bytes, for one Timeline animation. */
 #ifndef HS_TIMELINE_MAX_ANIM_BYTES
 #define HS_TIMELINE_MAX_ANIM_BYTES 112
 #endif
@@ -55,9 +57,9 @@
 #endif
 #endif
 
-// Arena-backed ParamDef storage for effects that outgrow ParamList's inline
-// array (Effect::use_parameter_storage). Changes ParamList/Effect layout, so it
-// must hold for every TU in an image.
+/// Arena-backed ParamDef storage for effects that outgrow ParamList's inline
+/// array (Effect::use_parameter_storage). Changes ParamList/Effect layout, so
+/// it must hold for every TU in an image.
 #ifndef HS_EXTERNAL_PARAM_STORAGE
 #if defined(ARDUINO)
 #define HS_EXTERNAL_PARAM_STORAGE 1
@@ -71,13 +73,14 @@
     "HS_PARAM_EXTERNAL_STORAGE is derived; configure HS_EXTERNAL_PARAM_STORAGE instead"
 #endif
 
-// External ParamDef storage covers the GUI bridge and builds that opt in.
+/// External ParamDef storage covers the GUI bridge and builds that opt in.
 #if HS_ENABLE_PARAM_GUI_BRIDGE || HS_EXTERNAL_PARAM_STORAGE
 #define HS_PARAM_EXTERNAL_STORAGE 1
 #else
 #define HS_PARAM_EXTERNAL_STORAGE 0
 #endif
 
+/** @brief Slot count of ParamList's default inline ParamDef storage. */
 #ifndef HS_INLINE_PARAM_CAPACITY
 #if defined(ARDUINO)
 #define HS_INLINE_PARAM_CAPACITY 16
@@ -86,10 +89,12 @@
 #endif
 #endif
 
+/** @brief 1 compiles test-only hooks and state; 0 by default. */
 #ifndef HS_ENABLE_TEST_HOOKS
 #define HS_ENABLE_TEST_HOOKS 0
 #endif
 
+/** @brief 1 compiles test-only reference oracles; 0 by default. */
 #ifndef HS_ENABLE_TEST_ORACLES
 #define HS_ENABLE_TEST_ORACLES 0
 #endif
@@ -102,6 +107,7 @@
 #endif
 #endif
 
+/** @brief 1 enables `HS_AUDIT_CHECK` structural audits; 0 by default. */
 #ifndef HS_ENABLE_STRUCTURAL_AUDITS
 #define HS_ENABLE_STRUCTURAL_AUDITS 0
 #endif
