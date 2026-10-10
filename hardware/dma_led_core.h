@@ -15,9 +15,13 @@
 
 namespace dma {
 
+/// In-flight transfer age, in µs, past which the DMA channel counts as wedged.
 inline constexpr unsigned long TRANSFER_WATCHDOG_US = 5000UL;
+/// Default SPI bit clock for a single-strip transport, in Hz.
 inline constexpr uint32_t DEFAULT_CLOCK_HZ = 12000000;
+/// SPI bit clock for the segmented POV transport, in Hz.
 inline constexpr uint32_t SEGMENTED_CLOCK_HZ = 24000000;
+/// LPSPI functional (root) clock the SCK divider divides, in Hz.
 inline constexpr uint32_t LPSPI_FUNCTIONAL_CLOCK_HZ = 240000000;
 
 /**

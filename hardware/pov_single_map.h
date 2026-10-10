@@ -27,6 +27,7 @@
 
 namespace pov {
 
+/// FastLED WS2801 data rate, in MHz.
 inline constexpr uint32_t FASTLED_CLOCK_MHZ = 6;
 
 /** @brief WS2801 transfer and latch duration for a positive MHz clock. */

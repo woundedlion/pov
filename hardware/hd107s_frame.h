@@ -54,13 +54,16 @@ inline void dcache_flush(void *data, uint32_t bytes) {
 #endif
 }
 
+/// Per-channel 8-bit factors (255 = ×1.0, 0 = off).
 struct ChannelScale {
-  uint8_t r;
-  uint8_t g;
-  uint8_t b;
+  uint8_t r; ///< Red factor.
+  uint8_t g; ///< Green factor.
+  uint8_t b; ///< Blue factor.
 };
 
+/// Strip colour-correction factors for `HD107SFrame::set_correction`.
 inline constexpr ChannelScale LINEAR_STRIP_GAIN{255, 176, 240};
+/// Warm white-balance factors for `HD107SFrame::set_temperature`.
 inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
 
 } // namespace hd107s
@@ -255,10 +258,17 @@ private:
 };
 
 // Static member definitions (256 = unity; see factor()).
+/// Red temperature multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::temp_r = 256;
+/// Green temperature multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::temp_g = 256;
+/// Blue temperature multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::temp_b = 256;
+/// Red correction multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::corr_r = 256;
+/// Green correction multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::corr_g = 256;
+/// Blue correction multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::corr_b = 256;
+/// Global brightness multiplier (256 = ×1.0).
 template <int N> uint16_t HD107SFrame<N>::brightness_gain = 256;
