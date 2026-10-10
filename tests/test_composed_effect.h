@@ -578,7 +578,10 @@ inline void test_flowers_longitude_seam() {
   }
 }
 
-/** @brief AlienBrain holds each preset for its declared dwell. */
+/**
+ * @brief AlienBrain holds its first preset for PRESET_DWELL_FRAMES, then
+ * advances to preset 1.
+ */
 inline void test_alien_brain_preset_dwell() {
   using FX = AlienBrain<SMALL_W, SMALL_H>;
   reset_effect_globals();
