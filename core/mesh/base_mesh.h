@@ -79,8 +79,6 @@ inline constexpr const char *BASE_MESH_OPTIONS[] = {
     HS_BASE_MESH_LIST(HS_BASE_MESH_LABEL)
 #undef HS_BASE_MESH_LABEL
 };
-/** @def HS_BASE_MESH_LABEL
- *  X-macro row as its display label. */
 
 /// C++ spellings (`BaseMesh::NAME`), indexed by BaseMesh ordinal.
 inline constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
@@ -88,8 +86,6 @@ inline constexpr const char *BASE_MESH_EXPORT_OPTIONS[] = {
     HS_BASE_MESH_LIST(HS_BASE_MESH_EXPORT)
 #undef HS_BASE_MESH_EXPORT
 };
-/** @def HS_BASE_MESH_EXPORT
- *  X-macro row as its `BaseMesh::NAME` spelling. */
 #undef HS_BASE_MESH_LIST
 
 static_assert(BASE_MESH_COUNT == std::size(BASE_MESH_OPTIONS));

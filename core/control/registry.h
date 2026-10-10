@@ -145,13 +145,6 @@ void validate_effect_registrations(
 template <int> constexpr bool unsupported_resolution = false;
 
 /**
- * @def HS_REG_FILL_BRANCH(w, h)
- * @brief In get_fill_fn(): returns the fill pointer when <W,H> is <w,h>.
- * @param w Width in pixels.
- * @param h Height in pixels.
- */
-
-/**
  * @brief Selects the fill function pointer matching the given <W,H>.
  * @tparam W Frame width in pixels.
  * @tparam H Frame height in pixels.
@@ -195,14 +188,6 @@ void fill_registration(FactoryEntry &entry) {
     entry.preset_count = ClassName<W, H>::authored_preset_count();
   }
 }
-
-/**
- * @def HS_REG_FILL_POINTER(W, H)
- * @brief In make_registration(): one resolution's fill_registration()
- *        pointer.
- * @param W Width in pixels.
- * @param H Height in pixels.
- */
 
 /**
  * @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry.

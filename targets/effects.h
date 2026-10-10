@@ -196,11 +196,6 @@ constexpr bool hs_effect_name_eq(const char *a, const char *b) {
 }
 
 /**
- * @def HS_EFFECT_NAME_MATCH(cls)
- * @brief Expands to `|| hs_effect_name_eq(name, #cls)`.
- * @param cls Effect class name.
- */
-/**
  * @brief True when `name` is one of the HS_EFFECT_LIST class names.
  * @param name Effect class name to look up.
  * @return True when listed.
@@ -211,12 +206,6 @@ constexpr bool hs_in_effect_list(const char *name) {
 #undef HS_EFFECT_NAME_MATCH
 }
 
-/**
- * @def HS_SHADER_PRODUCT_NAME_COUNT(cls, duration_seconds)
- * @brief Expands to +1 when `name` equals @p cls, else +0.
- * @param cls Effect class name.
- * @param duration_seconds Show duration in seconds (unused).
- */
 /**
  * @brief Occurrences of `name` in HS_SHADER_PRODUCT_GROUP.
  * @param name Effect class name to count.
@@ -230,12 +219,6 @@ constexpr int hs_shader_product_group_count(const char *name) {
 }
 
 /**
- * @def HS_SHADER_PRODUCT_NAME_ONCE(cls, duration_seconds)
- * @brief Expands to `&&` a check that @p cls occurs exactly once.
- * @param cls Effect class name.
- * @param duration_seconds Show duration in seconds (unused).
- */
-/**
  * @brief True when no HS_SHADER_PRODUCT_GROUP name appears twice.
  * @return True when every entry is distinct.
  */
@@ -246,12 +229,6 @@ constexpr bool hs_shader_product_group_is_distinct() {
 #undef HS_SHADER_PRODUCT_NAME_ONCE
 }
 
-/**
- * @def HS_SHADER_PRODUCT_NAME_ON_ROSTER(cls, duration_seconds)
- * @brief Expands to `&& hs_in_effect_list(#cls)`.
- * @param cls Effect class name.
- * @param duration_seconds Show duration in seconds (unused).
- */
 /**
  * @brief True when every HS_SHADER_PRODUCT_GROUP name is in HS_EFFECT_LIST.
  * @return True when the group is a roster subset.

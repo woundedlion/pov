@@ -155,13 +155,6 @@ enum class EffectSetResult {
 static bool engine_alive = false;
 
 /**
- * @def HS_REFRESH_DISPLAY_GEOMETRY(W, H)
- * @brief Rebuilds the geometry LUTs of one HS_RESOLUTIONS row.
- * @param W Canvas width in pixels.
- * @param H Canvas height in pixels.
- */
-
-/**
  * @brief JS-facing render engine driving one resolution/effect at a time.
  * @details Owns the current effect and the stable readback buffers.
  *          At most one instance may be live: delete() the current engine before
