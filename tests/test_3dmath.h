@@ -1114,12 +1114,17 @@ inline void test_vector_slerp() {
   HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 5e-3f);
   HS_EXPECT_NEAR(mid.z, 0.0f, 5e-3f);
 
-  // Nearly-identical vectors take the lerp fallback; result stays unit-length.
+  // Nearly-identical vectors take the normalized-lerp fallback.
   math::Vector v1(1, 0, 0);
   math::Vector v2 = math::Vector(1.0f, 0.01f, 0.0f).normalized();
   HS_EXPECT_GT(math::dot(v1, v2), 1.0f - math::TOLERANCE);
   math::Vector lerp_result = math::slerp(v1, v2, 0.5f);
   HS_EXPECT_NEAR(lerp_result.length(), 1.0f, 1e-6f);
+  HS_EXPECT_VEC(math::slerp(v1, v2, 0.0f), v1, 1e-6f);
+  HS_EXPECT_VEC(math::slerp(v1, v2, 1.0f), v2, 1e-6f);
+  HS_EXPECT_VEC(lerp_result, (v1 + v2).normalized(), 1e-6f);
+  HS_EXPECT_VEC(math::slerp(v1, v2, 0.25f),
+                (v1 + (v2 - v1) * 0.25f).normalized(), 1e-6f);
 
   const math::Vector same = math::Vector(0.2f, -0.6f, 0.75f).normalized();
   for (int step = 0; step <= 4; ++step) {
