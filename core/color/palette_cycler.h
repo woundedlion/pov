@@ -68,29 +68,42 @@ public:
     Entry(const BakedPalette &&) = delete;
   };
 
-  /** @brief Conservative arena byte budget for the display LUT allocated by init(). */
+  /**
+   * @brief Conservative arena byte budget for the display LUT allocated by
+   * init().
+   * @return Byte budget.
+   */
   static constexpr size_t display_arena_bytes() {
     return BakedPalette::required_arena_bytes();
   }
 
   /** @brief Conservative extra arena byte budget when any adjacent pair fades by
-   *  LUT crossfade rather than key morph. */
+   *  LUT crossfade rather than key morph.
+   *  @return Byte budget.
+   */
   static constexpr size_t crossfade_arena_bytes() {
     return 2 * BakedPalette::required_arena_bytes();
   }
 
-  /** @brief Conservative extra arena byte budget when any adjacent pair key-morphs. */
+  /**
+   * @brief Conservative extra arena byte budget when any adjacent pair
+   * key-morphs.
+   * @return Byte budget.
+   */
   static constexpr size_t morph_arena_bytes() {
     return sizeof(GenerativePalette) + alignof(GenerativePalette);
   }
 
-  /** @brief Conservative arena byte budget for init(). */
+  /** @brief Conservative arena byte budget for init(). @return Byte budget. */
   static constexpr size_t required_arena_bytes() {
     return display_arena_bytes() + crossfade_arena_bytes() +
            morph_arena_bytes();
   }
 
-  /** @brief Conservative arena byte budget for init_generated(). */
+  /**
+   * @brief Conservative arena byte budget for init_generated().
+   * @return Byte budget.
+   */
   static constexpr size_t generated_arena_bytes() {
     return display_arena_bytes() + 3 * morph_arena_bytes();
   }
@@ -254,11 +267,16 @@ public:
       display_dirty = true;
   }
 
-  /** @brief The display LUT effects shade from. */
+  /**
+   * @brief The display LUT effects shade from.
+   * @return The display LUT.
+   */
   const BakedPalette &palette() const { return display; }
 
   /** @brief Counter incremented on every display-LUT bake; a cache key for
-   *  tables derived from palette(). */
+   *  tables derived from palette().
+   *  @return Bake count.
+   */
   uint32_t bake_generation() const { return generation; }
 
   /** @brief Sets generated endpoint chroma and rebakes the current display.
@@ -283,10 +301,15 @@ public:
   }
 
   /** @brief Index of the roster entry currently dwelt on or faded away from.
-   *  @details Always 0 for a generated cycle (init_generated()). */
+   *  @details Always 0 for a generated cycle (init_generated()).
+   *  @return Roster index.
+   */
   int current_index() const { return current; }
 
-  /** @brief True while a fade toward the next entry is in flight. */
+  /**
+   * @brief True while a fade toward the next entry is in flight.
+   * @return Whether a fade is active.
+   */
   bool fading() const { return fade_active; }
 
   /** @brief Serializable timeline state of a generated cycle. */
@@ -559,7 +582,11 @@ public:
   GeneratedPaletteBank(const GeneratedPaletteBank &) = delete;
   GeneratedPaletteBank &operator=(const GeneratedPaletteBank &) = delete;
 
-  /** @brief Conservative arena byte budget for init(), one generated cycler per harmony. */
+  /**
+   * @brief Conservative arena byte budget for init(), one generated cycler per
+   * harmony.
+   * @return Byte budget.
+   */
   static constexpr size_t required_arena_bytes() {
     return 3 * PaletteCycler::generated_arena_bytes();
   }

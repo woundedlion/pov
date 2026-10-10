@@ -14,7 +14,16 @@
 #include "memory.h"
 #include "math/3dmath.h"
 
-/** @brief Samples a palette domain and copies its exact mirror or loop seam. */
+/**
+ * @brief Samples a palette domain and copies its exact mirror or loop seam.
+ * @tparam Size Table entry count.
+ * @tparam Sample Callable `(int index, float t)`.
+ * @tparam Copy Callable `(int dst, int src)`.
+ * @param mirrors Domain is mirrored: sample the first half, copy the rest.
+ * @param loops Domain loops: the last entry copies entry 0.
+ * @param sample Writes the entry at `index` from palette coordinate `t`.
+ * @param copy Copies entry `src` into entry `dst`.
+ */
 template <int Size, typename Sample, typename Copy>
 inline void bake_palette_schedule(bool mirrors, bool loops, Sample sample,
                                   Copy copy) {
@@ -39,6 +48,7 @@ public:
 
   /**
    * @brief Conservative arena byte budget for a table, with alignment allowances.
+   * @return Byte budget.
    */
   static constexpr size_t required_arena_bytes() {
     return LUT_SIZE * (sizeof(Pixel) + sizeof(uint16_t)) + alignof(Pixel) +
@@ -127,7 +137,10 @@ public:
     rgb[2] = BLUE * scale + (static_cast<float>(ABOVE.b) - BLUE) * FRAC;
   }
 
-  /** @brief Returns a read-only handle to this arena-backed table. */
+  /**
+   * @brief Returns a read-only handle to this arena-backed table.
+   * @return Copy of this view; shares the table storage.
+   */
   BakedPalette view() const { return *this; }
 
 private:
@@ -187,7 +200,10 @@ public:
     return *this;
   }
 
-  /** @brief Borrows the read-only view while this storage object lives. */
+  /**
+   * @brief Borrows the read-only view while this storage object lives.
+   * @return The table view.
+   */
   const BakedPalette &view() const & { return table; }
   const BakedPalette &view() const && = delete;
   /**
@@ -400,14 +416,21 @@ template <typename Source> struct DotKeyed {
 
 /**
  * @brief Wraps a palette source for a DotKeyed bake.
+ * @tparam Source Palette type with `get(float)`.
  * @param source Palette sampled over t = angle/PI; must outlive the bake call.
+ * @return Adapter referencing `source`.
  */
 template <typename Source>
 inline DotKeyed<Source> dot_keyed(const Source &source) {
   return DotKeyed<Source>{source};
 }
 
-/// LUT coordinate for cos-value d = dot(axis, v); inverse of DotKeyed's mapping.
+/**
+ * @brief LUT coordinate for cos-value d = dot(axis, v).
+ * @details Inverse of DotKeyed's mapping.
+ * @param d Cosine; clamped to [-1, 1].
+ * @return LUT coordinate in [0, 1].
+ */
 inline float dot_key(float d) {
   return (1.0f - hs::clamp(d, -1.0f, 1.0f)) * 0.5f;
 }
@@ -418,6 +441,7 @@ inline float dot_key(float d) {
  * @param from The w = 0 endpoint.
  * @param to The w = 1 endpoint.
  * @param w Blend weight; endpoint weights share the endpoint table.
+ * @return View of the blended (or endpoint) table.
  */
 inline BakedPalette bake_palette_blend(Arena &arena, const BakedPalette &from,
                                        const BakedPalette &to, float w) {
