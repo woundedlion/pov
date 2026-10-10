@@ -57,6 +57,11 @@ inline void test_reconcile_bijection_wellposed() {
     HS_EXPECT_TRUE(site.dtd || kis > 0);
     if (kis >= count || (!site.dtd && kis == 0))
       continue;
+    const bool dt_pair_or_dtd =
+        site.dtd || lowered[kis - 1].op == Solids::Op::DUAL;
+    HS_EXPECT_TRUE(dt_pair_or_dtd);
+    if (!dt_pair_or_dtd)
+      continue;
     const size_t x_prefix = site.dtd ? kis : kis - 1; // steps to reach X
 
     PolyMesh X =
