@@ -20,6 +20,11 @@
 
 namespace hs_wasm {
 
+/**
+ * @def HS_REGISTER_ENTRY(name)
+ * @brief Expands to one EFFECT_REGISTRATIONS initializer.
+ * @param name Effect class template name.
+ */
 /** @brief One registration per HS_EFFECT_LIST entry, in list order. */
 inline constexpr std::array<EffectRegistration, HS_EFFECT_COUNT>
     EFFECT_REGISTRATIONS = {{
@@ -77,6 +82,13 @@ struct WasmResolution {
   int h; /**< Canvas height in pixels. */
 };
 
+/**
+ * @def X(W, H)
+ * @brief HS_RESOLUTIONS row visitor: a WASM_RESOLUTIONS initializer, or a
+ *        size match that invokes `f` in `dispatch_resolution`.
+ * @param W Canvas width in pixels.
+ * @param H Canvas height in pixels.
+ */
 /** @brief HS_RESOLUTIONS rows, in macro order. */
 inline constexpr WasmResolution WASM_RESOLUTIONS[] = {
 #define X(W, H) {(W), (H)},

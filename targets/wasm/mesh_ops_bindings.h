@@ -818,6 +818,12 @@ public:
   static bool getLastAdjusted() { return last_mesh_op_adjusted; }
 };
 
+/**
+ * @def MESHOP_BIND(name, ...)
+ * @brief Binds MeshOpsWrapper::name as JS method @p name; serves both
+ *        MESHOP_LIST metadata entries and MESHOP_IRREGULAR_LIST bare names.
+ * @param name Operator name.
+ */
 /** @brief Registers the mesh editor bridge's enum and class with Embind. */
 static void bind_mesh_ops() {
   emscripten::enum_<MeshOpResult>("MeshOpResult")
@@ -846,7 +852,6 @@ static void bind_mesh_ops() {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-// Binds both MESHOP_LIST metadata entries and MESHOP_IRREGULAR_LIST bare names.
 #define MESHOP_BIND(name, ...) .function(#name, &MeshOpsWrapper::name)
           MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
               MESHOP_IRREGULAR_LIST(MESHOP_BIND);

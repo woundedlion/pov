@@ -1,12 +1,16 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Profile — single-effect on-device profiling harness (288×144, segmented)
+ */
+
+/**
+ * @file Profile.ino
+ * @brief Profile — single-effect on-device profiling harness (288×144,
+ *        segmented).
  *
  * Target: one Teensy 4.0 running as segment 0 of the shipping 4-segment
  * Phantasm configuration. Runs exactly one effect (selected at build time via
- * -D HS_PROFILE_TARGET=<EffectClass>, default DisplacementField) under the
+ * `-D HS_PROFILE_TARGET=<EffectClass>`, default DisplacementField) under the
  * real POVSegmented driver — flywheel ISR, DMA LED output, and segment
  * clipping all live — and periodically dumps the HS_PROFILE cycle-counter
  * tree plus exact per-frame wall-clock stats over USB serial.
@@ -15,13 +19,14 @@
  * drive it via `just profile <EffectClass>`.
  */
 
-// Effect class to profile; overridden per-run by `just profile <EffectClass>`.
+/// Effect class to profile; overridden per-run by
+/// `just profile <EffectClass>`.
 #ifndef HS_PROFILE_TARGET
 #define HS_PROFILE_TARGET DisplacementField
 #endif
 
-// Frames per readout window; override (via PLATFORMIO_BUILD_FLAGS) for finer
-// phase resolution at the cost of more serial traffic.
+/// Frames per readout window; override (via PLATFORMIO_BUILD_FLAGS) for finer
+/// phase resolution at the cost of more serial traffic.
 #ifndef HS_PROFILE_WINDOW
 #define HS_PROFILE_WINDOW 128
 #endif
@@ -73,7 +78,15 @@
 #error "Plot count and stall captures require separate images"
 #endif
 
+/**
+ * @brief Stringizes @p x without expanding it.
+ * @param x Token sequence.
+ */
 #define HS_PROFILE_STR2(x) #x
+/**
+ * @brief Stringizes the expansion of @p x.
+ * @param x Macro to expand and stringize.
+ */
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
 #include "../Phantasm/phantasm_target.h"
@@ -701,6 +714,10 @@ static_assert(profile_config().valid() == nullptr,
               "Profile pov::sync::Config invariants violated");
 } // namespace
 
+/**
+ * @brief Parks the sync output, logs the harness configuration, starts the
+ *        driver, and requires segment 0.
+ */
 FLASHMEM void setup() {
   POV::park_sync_out();
   boot_serial();
@@ -720,6 +737,7 @@ FLASHMEM void setup() {
            POV::segment_index());
 }
 
+/** @brief Runs the show; never returns. */
 void loop() {
   // Never returns: runs the single-entry playlist forever.
   POV::run_show(EFFECT_FACTORIES, &PROFILE_REVOLUTIONS, &PROFILE_SEEDS);

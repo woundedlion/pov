@@ -1,8 +1,11 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Bench — stationary test image for the segmented rig (288×144)
+ */
+
+/**
+ * @file Bench.ino
+ * @brief Bench — stationary test image for the segmented rig (288×144).
  *
  * Target: the shipping 4× Teensy 4.0 Phantasm rig, flashed to every board.
  * Runs BenchPattern alone: one colour across the whole canvas, holding on red,
@@ -41,6 +44,7 @@ static_assert(bench_config().valid() == nullptr,
               "Bench pov::sync::Config invariants violated");
 } // namespace
 
+/** @brief Parks the sync output, brings up serial, then starts the driver. */
 FLASHMEM void setup() {
   POV::park_sync_out();
   boot_serial();
@@ -48,6 +52,7 @@ FLASHMEM void setup() {
   POV::begin();
 }
 
+/** @brief Runs the show; never returns. */
 void loop() {
   // Never returns: runs the single-entry playlist forever.
   POV::run_show(EFFECT_FACTORIES, &BENCH_REVOLUTIONS);

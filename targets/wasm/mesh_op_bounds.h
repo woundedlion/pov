@@ -59,8 +59,8 @@ struct MeshOpBounds {
   OP1H(chamfer, 4, 1, 0) OP1H(expand, 4, 1, 1)
 // clang-format on
 
-// Irregular ops: hand-written wrapper methods (custom signatures/validation),
-// enumerated here so their embind bindings expand from one list.
+/// Irregular ops: hand-written wrapper methods (custom signatures/validation),
+/// enumerated here so their embind bindings expand from one list.
 #define MESHOP_IRREGULAR_LIST(_) _(relax) _(hankin) _(snub)
 
 /** @brief relax growth factors: it preserves topology. */
@@ -91,6 +91,13 @@ struct MeshOpBoundsEntry {
   MeshOpBounds bounds; /**< Factors the boundary guard prices it against. */
 };
 
+/**
+ * @brief Expands to one MESHOP_BOUNDS row.
+ * @param name Operator name.
+ * @param elements Element growth factor.
+ * @param degree Face-degree growth factor.
+ * @param valence Valence growth factor.
+ */
 #define MESHOP_BOUNDS_ENTRY(name, elements, degree, valence)                   \
   {#name, {(elements), (degree), (valence)}},
 
@@ -114,6 +121,7 @@ inline constexpr size_t MESHOP_BOUNDS_COUNT = std::size(MESHOP_BOUNDS);
 
 // The irregular rows are hand-written: an operator joining
 // MESHOP_IRREGULAR_LIST needs a row in MESHOP_BOUNDS.
+/// Expands to +1 per roster operator.
 #define MESHOP_COUNT_ONE(...) +1
 static_assert(
     MESHOP_BOUNDS_COUNT ==
@@ -124,7 +132,8 @@ static_assert(
 #undef MESHOP_COUNT_ONE
 
 /** @brief True iff every roster row declares the nonzero element factor the
- *         guards divide by. */
+ *         guards divide by.
+ *  @return True when no row has a zero element factor. */
 constexpr bool mesh_op_elements_all_nonzero() {
   for (const MeshOpBoundsEntry &entry : MESHOP_BOUNDS)
     if (entry.bounds.elements == 0)

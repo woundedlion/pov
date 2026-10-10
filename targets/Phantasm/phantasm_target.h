@@ -1,19 +1,23 @@
 /*
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
- *
- * Target boilerplate shared by the Phantasm-class sketches.
+ */
+#pragma once
+
+/**
+ * @file phantasm_target.h
+ * @brief Target boilerplate shared by the Phantasm-class sketches.
  *
  * Include it FIRST from the sketch (it selects the LED transport) and from
  * exactly ONE translation unit per image (it emits a strong definition).
  */
-#pragma once
 
-// Select the DMA HD107S output path; PlatformIO builds pass -D USE_DMA_LEDS.
+/// Select the DMA HD107S output path; PlatformIO builds pass -D USE_DMA_LEDS.
 #ifndef USE_DMA_LEDS
 #define USE_DMA_LEDS
 #endif
 
+/** @brief Teensy boards (strip segments) in the rig; defaults to 4. */
 #ifndef PHANTASM_NUM_SEGMENTS
 #define PHANTASM_NUM_SEGMENTS 4
 #endif
@@ -27,19 +31,20 @@
 #include "pov_segmented.h"
 #include "targets/effects.h"
 
-inline constexpr int TOTAL_PIXELS = 288;
-inline constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
-inline constexpr unsigned int RPM = 480;
+inline constexpr int TOTAL_PIXELS = 288; ///< Physical LEDs across both arms.
+inline constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS; ///< Segment boards.
+inline constexpr unsigned int RPM = 480; ///< Nominal rotation speed.
 static_assert(HS_SHOW_FRAMES_PER_SECOND == RPM / 60 * 2,
               "one frame per half-revolution");
 
 /** Per-effect heap-object budget for the Phantasm playlist, in bytes. */
 inline constexpr size_t HS_PHANTASM_EFFECT_HEAP_BYTES = 3584;
 
+/// Segmented POV driver for this rig.
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
-// DMAMEM keeps the TX buffers out of RAM1/DTCM. Cached OCRAM requires a cache
-// flush before each DMA transfer.
+/// DMAMEM keeps the TX buffers out of RAM1/DTCM. Cached OCRAM requires a cache
+/// flush before each DMA transfer.
 HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 
 namespace {

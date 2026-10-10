@@ -155,6 +155,13 @@ enum class EffectSetResult {
 static bool engine_alive = false;
 
 /**
+ * @def HS_REFRESH_DISPLAY_GEOMETRY(W, H)
+ * @brief Rebuilds the geometry LUTs of one HS_RESOLUTIONS row.
+ * @param W Canvas width in pixels.
+ * @param H Canvas height in pixels.
+ */
+
+/**
  * @brief JS-facing render engine driving one resolution/effect at a time.
  * @details Owns the current effect and the stable readback buffers.
  *          At most one instance may be live: delete() the current engine before
@@ -224,6 +231,8 @@ public:
 
   /**
    * @brief Sets the missing arc at each pole as a percentage in [0, 25].
+   * @param top_percent North-pole gap, percent of the meridian.
+   * @param bottom_percent South-pole gap, percent of the meridian.
    * @return False for non-finite or out-of-range inputs; otherwise true.
    * @details Changes rebuild geometry caches, retaining parameters, preset,
    *          pause and clip; ShaderChain restores its full executable snapshot,
@@ -248,10 +257,16 @@ public:
     return true;
   }
 
-  /** @brief Polar angle in radians of the first displayed LED row. */
+  /**
+   * @brief Polar angle in radians of the first displayed LED row.
+   * @return North display phi.
+   */
   float getDisplayNorthPhi() const { return math::DISPLAY_NORTH_PHI; }
 
-  /** @brief Polar angle in radians of the last displayed LED row. */
+  /**
+   * @brief Polar angle in radians of the last displayed LED row.
+   * @return South display phi.
+   */
   float getDisplaySouthPhi() const { return math::DISPLAY_SOUTH_PHI; }
 
   /**
@@ -833,7 +848,10 @@ public:
   }
 
 #if HS_ENABLE_CHAIN_INTERPRETER
-  /** @brief Acquires a chain authoring handle, or null for other effects. */
+  /**
+   * @brief Acquires a chain authoring handle, or null for other effects.
+   * @return Shared handle, or null.
+   */
   std::shared_ptr<ShaderChainBindings> getShaderChainBindings() const {
     return acquire_shader_chain_bindings(binding_state);
   }

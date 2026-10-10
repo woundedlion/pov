@@ -35,6 +35,16 @@ static emscripten::val vector_to_xyz(const math::Vector &r) {
   return v;
 }
 
+/**
+ * @def HS_EXPORT_PALETTE(name, A, B, C, D)
+ * @brief Pushes one HS_PROCEDURAL_PALETTE_LIST entry as a JS
+ *        `{name, a, b, c, d}` object.
+ * @param name Palette identifier.
+ * @param A Parenthesized offset coefficient triple.
+ * @param B Parenthesized amplitude coefficient triple.
+ * @param C Parenthesized frequency coefficient triple.
+ * @param D Parenthesized phase coefficient triple.
+ */
 /** @brief Registers the free color/palette/geometry exports with Embind. */
 static void bind_math_exports() {
   // ── Color / palette / geometry exports ─────────────────────────────────────

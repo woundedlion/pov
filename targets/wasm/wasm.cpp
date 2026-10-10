@@ -3,6 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/**
+ * @file wasm.cpp
+ * @brief Embind module entry point for the simulator WASM build.
+ */
+
 #ifdef __EMSCRIPTEN__
 
 #include "targets/wasm/engine_bindings.h"
