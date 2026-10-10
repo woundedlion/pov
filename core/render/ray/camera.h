@@ -12,16 +12,26 @@
 
 namespace Raycast {
 
-enum class SamplingDomain { SPATIAL_3D, SLICE_4D };
+/** @brief Ambient space a camera samples. */
+enum class SamplingDomain {
+  SPATIAL_3D, ///< Ordinary 3D space; the w row of the embedding is zero.
+  SLICE_4D    ///< A 3D slice embedded in 4D space.
+};
 
 /** @brief Camera embedding with three orthonormal ambient columns. */
 struct PreparedCamera {
-  SamplingDomain domain = SamplingDomain::SPATIAL_3D;
-  math::Vec4 center{};
+  SamplingDomain domain = SamplingDomain::SPATIAL_3D; ///< Ambient space.
+  math::Vec4 center{}; ///< Ambient position of the camera-space origin.
+  /// Columns 0-2 map camera-space x, y, z to ambient axes; column 3 unused.
   math::Mat4 embedding = math::Mat4::identity();
-  float radial_start = 0.0f;
-  Interval interval;
+  float radial_start = 0.0f; ///< Ray origin distance from the camera centre.
+  Interval interval;         ///< Parameter range given to every ray.
 
+  /**
+   * @brief Whether the camera is finite, consistent with its domain and has
+   * orthonormal embedding columns.
+   * @return True for a usable camera.
+   */
   bool valid() const {
     if (domain != SamplingDomain::SPATIAL_3D &&
         domain != SamplingDomain::SLICE_4D)
@@ -50,10 +60,20 @@ struct PreparedCamera {
     return true;
   }
 
+  /**
+   * @brief Camera-space ray starting `radial_start` out along a direction.
+   * @param direction Unit camera-space direction.
+   * @return Ray carrying the camera's `interval`.
+   */
   Ray ray(const math::Vector &direction) const {
     return {direction * radial_start, direction, interval};
   }
 
+  /**
+   * @brief Maps a camera-space point into ambient space.
+   * @param p Camera-space point.
+   * @return `center + embedding * p` in 4D.
+   */
   math::Vec4 point4(const math::Vector &p) const {
     math::Vec4 result;
     for (int i = 0; i < 4; ++i)
@@ -62,11 +82,22 @@ struct PreparedCamera {
     return result;
   }
 
+  /**
+   * @brief Maps a camera-space point into ambient space, dropping w.
+   * @param p Camera-space point.
+   * @return xyz of point4().
+   */
   math::Vector point3(const math::Vector &p) const {
     const auto value = point4(p);
     return math::Vector(value[0], value[1], value[2]);
   }
 
+  /**
+   * @brief Projects an ambient gradient onto camera space and normalizes it.
+   * @param gradient Ambient-space field gradient.
+   * @param normal Receives the unit camera-space normal, or zero on failure.
+   * @return False when the projection is non-finite or vanishing.
+   */
   bool project_normal(const math::Vec4 &gradient, math::Vector &normal) const {
     float components[3]{};
     for (int j = 0; j < 3; ++j)
