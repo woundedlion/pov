@@ -15,6 +15,7 @@
 #pragma once
 
 #include "core/math/mobius.h"
+#include <bit>
 #include <cstdio>
 #include <cstring>
 #include <memory>
@@ -22,6 +23,8 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
+#include <vector>
 
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/interpreter.h"
@@ -413,6 +416,7 @@ inline void test_shader_chain_snapshot_refusals() {
 inline int run_shader_chain_tests() {
   ModuleFixture fixture("shader_chain");
   test_shader_chain_table_integrity();
+  test_shader_chain_state_restore_values();
   test_shader_chain_table_behavior();
   test_shader_chain_schema_and_field_ids();
   test_shader_chain_instance_id_wellformed();
