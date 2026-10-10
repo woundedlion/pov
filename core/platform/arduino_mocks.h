@@ -23,6 +23,10 @@
 struct CHSV {
   /** @brief Hue, saturation and value, each in [0, 255]. */
   uint8_t h, s, v;
+  /** @var s
+   *  Saturation in [0, 255]. */
+  /** @var v
+   *  Value (brightness) in [0, 255]. */
   /**
    * @brief Constructs a zero-initialised (black) color.
    */
@@ -45,6 +49,10 @@ struct CHSV {
 struct CRGB {
   /** @brief Red, green and blue channels, each in [0, 255]. */
   uint8_t r, g, b;
+  /** @var g
+   *  Green channel in [0, 255]. */
+  /** @var b
+   *  Blue channel in [0, 255]. */
   /**
    * @brief Constructs a zero-initialised (black) color.
    */
@@ -179,6 +187,7 @@ inline uint8_t qsub8(uint8_t i, uint8_t j) {
 }
 
 #ifndef PI // Arduino/FastLED define PI on-device; guard the host definition.
+/// Host stand-in for Arduino's PI.
 #define PI 3.1415926535897932384626433832795
 #endif
 
@@ -201,6 +210,10 @@ enum FastLEDCheck {
 enum LEDType { WS2801 };
 /** @brief Mock LED color-order selector for addLeds template arguments. */
 enum ColorOrder { RGB };
+/**
+ * @brief Host stand-in for FastLED's SPI data-rate macro.
+ * @param x Rate in MHz.
+ */
 #define DATA_RATE_MHZ(x) (1000000u * (x))
 
 /**
@@ -245,7 +258,7 @@ struct FastLEDMock {
    */
   void showColor(const CRGB &) {}
 };
-inline FastLEDMock FastLED;
+inline FastLEDMock FastLED; ///< Host stand-in for FastLED's global controller.
 
 // --- Mock Arduino Functions ---
 // Global scope, as on Arduino/FastLED.
@@ -377,7 +390,8 @@ struct SerialMock {
     fputs(buf, stdout);
   }
 };
-inline SerialMock Serial;
+inline SerialMock
+    Serial; ///< Host stand-in for Arduino's Serial; writes stdout.
 
 // --- FastLED Mocks ---
 // Route through hs::random(); not bit-identical to the device's FastLED LCG.
