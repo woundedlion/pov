@@ -528,6 +528,8 @@ inline void test_build_request_reset() {
   board.seed(2000u, false);
   HS_EXPECT_EQ(board.build_word(), 0u);
 
+  board.seed(2500u, true);
+  HS_EXPECT_NE(board.build_word(), 0u);
   Config replacement = test_config(3);
   replacement.cycles_per_half_rev /= 2;
   replacement.glitch_filter_cycles /= 2;
