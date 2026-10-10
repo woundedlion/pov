@@ -511,6 +511,14 @@ private:
   };
   uint8_t (*candidates)[PARAM_BYTES] = nullptr;
 
+  /**
+   * @brief Validates a chain parameter write on a candidate copy of its
+   *        operator's parameter block before admitting it.
+   * @param parameter Parameter being written.
+   * @param value Proposed value.
+   * @return False when the candidate fails validation or overflows the plane
+   *         bound; `refusal_warning` then says why.
+   */
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
     const auto ops = program.ops();
