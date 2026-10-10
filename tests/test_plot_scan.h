@@ -151,6 +151,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_planar_arc_registers_track_drawn_arc();
   test_planar_sampler_from_cull_parity();
   test_rasterize_planar_policy_parity();
+  test_rasterize_register_copy_follows_interpolate_registers();
   test_rasterize_sampling_follows_world_transforms();
   test_screen_step_axes_match_stage_walk();
   test_rasterize_cull_follows_filter_orientation();
