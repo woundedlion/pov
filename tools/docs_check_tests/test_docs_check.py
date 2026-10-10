@@ -11,6 +11,7 @@ TOOLS = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(TOOLS))
 
+import build_pins  # noqa: E402
 import docs_check as dc  # noqa: E402
 
 
@@ -1005,6 +1006,15 @@ class TestCommentSymbols(unittest.TestCase):
 
     def names(self, *spans):
         return [issue.message.split("`")[1] for issue in self.issues(*spans)]
+
+    def test_generated_format_excludes_are_not_scanned(self):
+        pattern = build_pins.SHARED_LITERALS["format-exclude"]
+        for alternative in pattern.replace("(^|/)", "").split("|"):
+            path = alternative.replace(r"\.", ".").removesuffix("$")
+            if path.endswith("/"):
+                path += "table.h"
+            with self.subTest(path=path):
+                self.assertTrue(dc.SYMBOL_COMMENT_EXCLUDED_RE.search(path))
 
     def test_existing_symbols_and_paths_pass(self):
         self.assertEqual(self.issues(
