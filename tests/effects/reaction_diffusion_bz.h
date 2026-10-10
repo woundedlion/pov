@@ -413,6 +413,39 @@ inline void test_bz_substep_diffuses() {
 }
 
 /**
+ * @brief Verifies each species is advanced against its cyclic predator
+ *        (C preys on A, A on B, B on C).
+ */
+inline void test_bz_substep_predator_wiring() {
+  const uint16_t QA = BZWhiteBox::to_q16(0.5f), QB = BZWhiteBox::to_q16(0.25f),
+                 QC = BZWhiteBox::to_q16(0.75f);
+  std::vector<uint16_t> sA(BZWhiteBox::N, QA), sB(BZWhiteBox::N, QB),
+      sC(BZWhiteBox::N, QC);
+  const float a = BZWhiteBox::from_q16(QA), b = BZWhiteBox::from_q16(QB),
+              c = BZWhiteBox::from_q16(QC);
+
+  BZWhiteBox::BZ bz;
+  BZWhiteBox::set_params(bz, 3.0f, 0.05f, 0.35f);
+  const int expected[3] = {BZWhiteBox::advance_species(bz, a, c, 0.0f),
+                           BZWhiteBox::advance_species(bz, b, a, 0.0f),
+                           BZWhiteBox::advance_species(bz, c, b, 0.0f)};
+  BZWhiteBox::step(bz, sA.data(), sB.data(), sC.data());
+
+  const std::vector<uint16_t> *fields[3] = {&sA, &sB, &sC};
+  int below = 0, above = 0;
+  for (int s = 0; s < 3; ++s) {
+    for (int i = 0; i < BZWhiteBox::N; ++i) {
+      const int v = (*fields[s])[i];
+      below += v < expected[s] - 1;
+      above += v > expected[s] + 1;
+    }
+  }
+  HS_EXPECT_EQ(below, 0);
+  // perturb_state only raises nodes
+  HS_EXPECT_LE(above, BZWhiteBox::num_perturbations());
+}
+
+/**
  * @brief Pins the optimized BZ raster against its scalar sampling contract.
  * @details reference_shade rounds each SSAA sample's blend and premultiply to
  *          uint16; shade_pixel fuses the same algebra in float and quantizes
