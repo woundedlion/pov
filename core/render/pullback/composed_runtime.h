@@ -430,11 +430,13 @@ private:
     return ColorParams::FIELDS[index];
   }
 
+  /** @brief Registers a colour slider when its topology gate is live. */
   template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &field = color_descriptor<Member>();
-    register_animated_param(name, &(params.template get<"color">().*Member),
-                            field.min, field.max);
+    if constexpr (ComposedDetail::color_gate_open<SpecT>(field.topology_gate))
+      register_animated_param(name, &(params.template get<"color">().*Member),
+                              field.min, field.max);
   }
 
   template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
@@ -468,19 +470,13 @@ private:
         "Phase Oscillation Depth");
     register_color_field<&ColorParams::phase_oscillation_speed>(
         "Phase Oscillation Speed");
-    if constexpr (BrightnessV != Pullback::Color::BrightnessEnvelope::NONE) {
-      register_color_field<&ColorParams::brightness_bottom>(
-          "Brightness Bottom");
-      register_color_field<&ColorParams::brightness_top>("Brightness Top");
-    }
+    register_color_field<&ColorParams::brightness_bottom>("Brightness Bottom");
+    register_color_field<&ColorParams::brightness_top>("Brightness Top");
     register_color_field<&ColorParams::opacity_low>("Opacity at Value 0");
     register_color_field<&ColorParams::opacity_high>("Opacity at Value 1");
-    if constexpr (HueV != HueMode::NONE)
-      register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
-    if constexpr (HueV == HueMode::NOISE) {
-      register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");
-      register_color_field<&ColorParams::hue_noise_speed>("Hue Noise Speed");
-    }
+    register_color_field<&ColorParams::hue_shift_amount>("Hue Shift Amount");
+    register_color_field<&ColorParams::hue_noise_scale>("Hue Noise Scale");
+    register_color_field<&ColorParams::hue_noise_speed>("Hue Noise Speed");
   }
 
   /**
