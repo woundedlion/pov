@@ -1010,8 +1010,8 @@ inline const Case *all_cases(int &n) {
        "the plot's W/H"},
       {"plot_window_multi_segment", case_plot_window_multi_segment,
        "core/render/plot/raster.h",
-       "(!plot_window || count == 1) a plot window requires a single-segment "
-       "polyline"},
+       "(!window.is_active() || count == 1) a plot window requires a "
+       "single-segment polyline"},
       {"planar_chords_sink_unprepared", case_planar_chords_sink_unprepared,
        "core/render/plot/chords.h",
        "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared for this canvas"},
