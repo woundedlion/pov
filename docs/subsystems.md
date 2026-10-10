@@ -272,7 +272,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 
 A row at colatitude φ has horizontal pixel pitch that scales with `sin(φ)`; its ratio to row spacing also depends on the display aspect and latitude span. The scan walk offers those columns as a block of `pole_lod_aggressiveness / sin(φ)` (`core/render/render_policy.h`, clamped to `POLE_LOD_MAX_RUN = 32`), and the sink settles the whole block from one probe wherever the probe can vouch for it. Only full canvas-aligned blocks are offered, so an offer never straddles two blocks and a settled column always takes its shade from its own block's anchor. A block truncated by a clip or span edge goes per column instead, so the columns beside a segment seam shade at full resolution rather than from the anchor the neighbouring segment would have used.
 
-`pole_lod_aggressiveness` is a hardware-calibrated knob, not a derived constant: the true masking width depends on the display aspect, LED angular size and per-column exposure. Smaller values reduce the run; 0 makes every offer one column and the walk bit-identical to an undecimated one. It defaults to 0 (`HS_POLE_LOD_DEFAULT`). Firmware compiles it in as a `constexpr` with no setter — at the default, the decimation branches fold away entirely — while host and WASM builds keep it mutable so it can be tuned live (§10.2 `setPoleLod`).
+`pole_lod_aggressiveness` is a hardware-calibrated knob, not a derived constant: the true masking width depends on the display aspect, LED angular size and per-column exposure. Smaller values reduce the run; 0 makes every offer one column and the walk bit-identical to an undecimated one. It defaults to 0 (`HS_POLE_LOD_DEFAULT`). Firmware compiles it in as a `constexpr` with no setter — at the default, the decimation branches fold away entirely — while host and WASM builds keep it mutable so it can be tuned live ([README §7.2](../README.md#72-the-wasm-bridge) `setPoleLod`).
 
 The knob reaches the walk, not every primitive. `Scan::RingGroup` and `Scan::DistortedRingStack` replace the per-ring walk with one fused scan over the group's union band and shade every column of it, so raising the knob leaves them undecimated. Their equivalence to rasterizing the members one by one is stated at aggressiveness 0 for exactly that reason.
 
@@ -545,7 +545,7 @@ inline const ArenaResetHook GAMUT_LUT_RESET_HOOK(release_gamut_lut);
 }                                        // restore offset — all allocations freed
 ```
 
-Geometry operators take explicit `Arena&` parameters. Global scratch consumers include `MeshCarousel::compact_*`, `OpLeg`, `Filter::Pixel::Feedback::flush()`, `Plot::rasterize`, `gate_trail_edges`, `Plot::Mesh`, `Plot::ParticleSystem`, the cull projection helpers, and `RecipeBuild`; see [Why Arena Allocation?](../README.md#why-arena-allocation). Scratch lifetimes are LIFO: callbacks allocate only under their own `ScratchScope` and never call `reset()`, which would invalidate their caller's live buffers.
+Geometry operators take explicit `Arena&` parameters. Global scratch consumers include `MeshCarousel::compact_*`, `OpLeg`, `Filter::Pixel::Feedback::flush()`, `Plot::rasterize`, `gate_trail_edges`, `Plot::Mesh`, `Plot::ParticleSystem`, the cull projection helpers, and `RecipeBuild`; see [Why Arena Allocation?](../README.md#33-why-arena-allocation). Scratch lifetimes are LIFO: callbacks allocate only under their own `ScratchScope` and never call `reset()`, which would invalidate their caller's live buffers.
 
 ```cpp
 ScratchScope scope_a(scratch_arena_a);
