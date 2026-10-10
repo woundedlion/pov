@@ -5,6 +5,11 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
+/** @file composed_policies.h
+ * @brief Composed-effect `Spec` metadata and the policy selectors that map
+ * it to pipeline stages.
+ */
+
 /**
  * @brief Metadata accompanying an effect's explicit ranked stage pipeline.
  * @details A derived Spec supplies `template <typename B> using Pipeline`;

@@ -157,6 +157,7 @@ static_assert(std::size(NOISE_BASIS_IDS) ==
 /**
  * @brief Bounds a noise-driven operator's basis enum8.
  * @details Per-pixel basis switches rely on this check and carry no guard.
+ * @param basis Raw `math::NoiseBasis` value.
  */
 inline void check_noise_basis(uint8_t basis) {
   HS_CHECK(basis <= static_cast<uint8_t>(math::NoiseBasis::RIDGED3),

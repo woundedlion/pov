@@ -5,11 +5,23 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
+/** @file composed_descriptors.h
+ * @brief Compile-time stage classification, Spec checks and parameter
+ * counting for composed effects.
+ */
+
 namespace ComposedDetail {
 
+/// Slider names of the Mobius coefficients, in `math::MobiusParams` order.
 inline constexpr const char *MOBIUS_PARAM_NAMES[] = {
     "Mobius A Re", "Mobius A Im", "Mobius B Re", "Mobius B Im",
     "Mobius C Re", "Mobius C Im", "Mobius D Re", "Mobius D Im"};
+/**
+ * @brief Slider name of a warp instance's speed parameter.
+ * @param key Warp instance key.
+ * @return The numbered name for `outer_warp` / `inner_warp`, else the plain
+ *         name.
+ */
 constexpr std::string_view warp_speed_name(std::string_view key) {
   return key == "outer_warp"   ? "Planar Warp 1 Speed"
          : key == "inner_warp" ? "Planar Warp 2 Speed"
@@ -67,6 +79,13 @@ struct IsCoverageStage<Stage::ApplyCoverage<P>> : std::true_type {};
 template <typename T> struct IsMobiusLens : std::false_type {};
 template <typename P> struct IsMobiusLens<Lens::Mobius<P>> : std::true_type {};
 
+/**
+ * @brief Index of the first stage of @p Pipeline matching @p Predicate.
+ * @tparam Pipeline Stage pipeline.
+ * @tparam Predicate Stage trait with a boolean `value`.
+ * @tparam Index Stage the search starts at.
+ * @return The stage index, or `Pipeline::STAGE_COUNT` when none matches.
+ */
 template <typename Pipeline, template <typename> class Predicate,
           size_t Index = 0>
 consteval size_t stage_index() {
@@ -269,6 +288,12 @@ template <typename Provider, math::NoiseBasis Basis>
 struct PolicyResources<Surface::DirectNoise<Provider, Basis>>
     : PolicyResources<Provider> {};
 
+/**
+ * @brief Whether a field gate is live under the Spec's projection metadata.
+ * @tparam Spec Composed-effect Spec.
+ * @param gate Field gate.
+ * @return True when the gated field gets a slider.
+ */
 template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
   switch (gate) {
   case FieldGate::ALWAYS:
@@ -289,6 +314,9 @@ void color_gate_names_unknown_topology();
 /**
  * @brief Whether a colour field's topology gate is live under the Spec's
  *        `HUE` and `BRIGHTNESS` selections.
+ * @tparam Spec Composed-effect Spec.
+ * @param gate Topology gate; a null `field` is always open.
+ * @return True when the gated colour field gets a slider.
  */
 template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
   if (gate.field == nullptr)
@@ -304,6 +332,13 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
   return (gate.values >> value) & 1U;
 }
 
+/**
+ * @brief Number of sliders one resource contributes.
+ * @tparam Spec Composed-effect Spec, for gate evaluation.
+ * @tparam Resource Parameter resource.
+ * @return Open fields, plus the speed slider of a warp or the palette-mapping
+ *         slider of a colour family; the Mobius coefficients for a lens.
+ */
 template <typename Spec, typename Resource>
 consteval size_t resource_parameter_count() {
   using Family = typename Resource::Family;
@@ -324,16 +359,34 @@ consteval size_t resource_parameter_count() {
     return count;
   }
 }
+/**
+ * @brief Total slider count of a resource list.
+ * @tparam Spec Composed-effect Spec.
+ * @tparam Resources Parameter resources.
+ * @return Sum of `resource_parameter_count` over @p Resources.
+ */
 template <typename Spec, typename... Resources>
 consteval size_t parameter_count(ResourceList<Resources...>) {
   return (resource_parameter_count<Spec, Resources>() + ... + 0);
 }
 
+/**
+ * @brief Number of resources in a list whose family is @p Family.
+ * @tparam Family Parameter family type.
+ * @tparam Resources Parameter resources.
+ * @return The instance count.
+ */
 template <typename Family, typename... Resources>
 consteval size_t family_instances(ResourceList<Resources...>) {
   return (size_t(std::is_same_v<Family, typename Resources::Family>) + ... + 0);
 }
 
+/**
+ * @brief Whether two distinct same-kind resources share a field name.
+ * @tparam Resource Resource checked.
+ * @tparam Other Resource compared against.
+ * @return False for identical resources, different kinds and lenses.
+ */
 template <typename Resource, typename Other>
 consteval bool resource_names_overlap() {
   if constexpr (Resource::KIND != Other::KIND ||
@@ -350,17 +403,39 @@ consteval bool resource_names_overlap() {
   }
 }
 
+/**
+ * @brief Whether @p Resource shares a field name with any resource of a list.
+ * @tparam Resource Resource checked.
+ * @tparam Resources Resource list.
+ * @return True on any overlap.
+ */
 template <typename Resource, typename... Resources>
 consteval bool resource_names_overlap(ResourceList<Resources...>) {
   return (resource_names_overlap<Resource, Resources>() || ... || false);
 }
 
+/**
+ * @brief Whether a resource's slider names and noise seed carry its instance
+ *        key.
+ * @tparam Resource Parameter resource.
+ * @tparam List The effect's resource list.
+ * @return True for a non-standard key, a repeated family or a field-name
+ *         overlap.
+ */
 template <typename Resource, typename List> consteval bool qualified() {
   return !Resource::STANDARD ||
          family_instances<typename Resource::Family>(List{}) > 1 ||
          resource_names_overlap<Resource>(List{});
 }
 
+/**
+ * @brief Arena bytes the qualified slider names of one resource need.
+ * @tparam Spec Composed-effect Spec, for gate evaluation.
+ * @tparam Resource Parameter resource.
+ * @tparam List The effect's resource list.
+ * @return Bytes of "key.name" strings with terminators; 0 when unqualified or
+ *         a colour family.
+ */
 template <typename Spec, typename Resource, typename List>
 consteval size_t resource_name_bytes() {
   constexpr bool QUALIFY = qualified<Resource, List>();
@@ -387,6 +462,12 @@ consteval size_t resource_name_bytes() {
     }
   }
 }
+/**
+ * @brief Arena bytes all qualified slider names of a resource list need.
+ * @tparam Spec Composed-effect Spec.
+ * @tparam Resources Parameter resources.
+ * @return Sum of `resource_name_bytes` over @p Resources.
+ */
 template <typename Spec, typename... Resources>
 consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
   return (resource_name_bytes<Spec, Resources, ResourceList<Resources...>>() +

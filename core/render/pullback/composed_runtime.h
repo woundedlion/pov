@@ -5,6 +5,10 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
+/** @file composed_runtime.h
+ * @brief `ComposedEffect`, the lifecycle base of composed pullback effects.
+ */
+
 /**
  * @brief A complete composed effect: the shared lifecycle plus a pipeline
  *        declared by a ranked stage Spec.
@@ -209,12 +213,15 @@ public:
    * @brief Shades one pixel; forwards to RenderPipeline::shade.
    * @param view Unit view direction for the pixel.
    * @param frame Per-frame transforms, params and LUTs from the runtime.
+   * @return The pixel colour.
    */
   static HS_O3_FN Color4 shade(const math::Vector &view, const Frame &frame) {
     return RenderPipeline::shade(view, frame);
   }
 
-  /** @brief Whether a parameter set is admissible, family by family. */
+  /** @brief Whether a parameter set is admissible, family by family.
+   *  @param params Parameter set to check.
+   *  @return True when every family is in range. */
   static bool valid_params(const Params &params) {
     return Pullback::valid(params);
   }
@@ -315,7 +322,10 @@ protected:
     }
   }
 
-  /** @brief Registers the named descriptors of one independent instance. */
+  /** @brief Registers the named descriptors of one independent instance.
+   *  @tparam Resource The instance's parameter resource.
+   *  @tparam T Parameter family type.
+   *  @param family Live family the sliders write. */
   template <typename Resource, typename T>
   HS_COLD_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
@@ -324,14 +334,16 @@ protected:
                              &(family.*field.member), field.description().spec);
   }
 
-  /** @brief Adopts a snap target and re-derives the palette mapping weights. */
+  /** @brief Adopts a snap target and re-derives the palette mapping weights.
+   *  @param target Parameters to adopt. */
   HS_COLD_MEMBER void adopt_params(const Params &target) {
     params = target;
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
         target.template get<"color">().palette_mapping);
   }
 
-  /** @brief Adopts an automatic target while retaining animated lens coefficients. */
+  /** @brief Adopts an automatic target while retaining animated lens coefficients.
+   *  @param target Parameters to adopt. */
   HS_COLD_MEMBER void finish_blend(const Params &target)
     requires(requires { Derived::ANIMATED_MOBIUS; } && Derived::ANIMATED_MOBIUS)
   {
@@ -355,7 +367,8 @@ protected:
         params.template get<"color">().palette_mapping);
   }
 
-  /** @brief Captures the palette-mapping endpoints of an arming crossfade. */
+  /** @brief Captures the palette-mapping endpoints of an arming crossfade.
+   *  @param target Crossfade's destination parameters. */
   HS_COLD_MEMBER void transition_armed(const Params &target) {
     mapping_from = palette_mapping;
     mapping_to = Pullback::Color::PaletteMappingWeights::single(
@@ -367,6 +380,7 @@ protected:
    * @details Under `Derived::ANIMATED_MOBIUS` the live lens coefficients are
    * carried across the interpolation, so the transition does not overwrite the
    * timeline animation driving them.
+   * @param progress Eased transition progress, 0 to 1.
    */
   HS_COLD_MEMBER void blend_params(float progress) {
     const auto before = params;

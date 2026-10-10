@@ -52,6 +52,8 @@ static_assert(std::size(COVERAGE_MODE_IDS) ==
 /**
  * @brief Bounds the Sample crossing's topology enum8s.
  * @details The per-pixel switches rely on this check and carry no guard.
+ * @param weight_mode Raw `WeightMode` value.
+ * @param coverage_mode Raw `ProjectionCoverageMode` value.
  */
 inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
   HS_CHECK(weight_mode <= static_cast<uint8_t>(WeightMode::PROJECTION),
@@ -61,7 +63,12 @@ inline void check_sample_topology(uint8_t weight_mode, uint8_t coverage_mode) {
            "sample operator: invalid projection coverage mode");
 }
 
-/** @brief The Sample crossing's weight switch over the shared policies. */
+/** @brief The Sample crossing's weight switch over the shared policies.
+ *  @param weight_mode Checked `WeightMode` value.
+ *  @param raw Raw source value.
+ *  @param provenance Projection provenance of the plane sample.
+ *  @param ctx Frame context.
+ *  @return The weighted field value. */
 inline float weighted_field(uint8_t weight_mode, float raw,
                             const ProjectionProvenance &provenance,
                             const FrameContext &ctx) {
@@ -74,7 +81,12 @@ inline float weighted_field(uint8_t weight_mode, float raw,
   return Weight::Projection::apply(raw, provenance, ctx);
 }
 
-/** @brief The Sample crossing's coverage switch over the shared policies. */
+/** @brief The Sample crossing's coverage switch over the shared policies.
+ *  @param coverage_mode Checked `ProjectionCoverageMode` value.
+ *  @param provenance Projection provenance of the plane sample.
+ *  @param edge_width Edge-fade width; read only under edge-fade coverage.
+ *  @param ctx Frame context.
+ *  @return Coverage in [0, 1]. */
 inline float projection_coverage(uint8_t coverage_mode,
                                  const ProjectionProvenance &provenance,
                                  float edge_width, const FrameContext &ctx) {
@@ -109,6 +121,8 @@ struct SampleCrossingParams {
  * produce different inherited layouts under MSVC and Itanium ABIs. Those
  * families repeat the crossing members and assert this instead. Appended
  * floats require four-byte alignment and cannot occupy that padding.
+ * @tparam Params Sample crossing parameter family.
+ * @return True when all three defaults match.
  */
 template <typename Params> consteval bool sample_crossing_defaults_match() {
   constexpr Params PARAMS{};
@@ -122,7 +136,9 @@ template <typename Params> consteval bool sample_crossing_defaults_match() {
 inline constexpr TopologyGate COVERAGE_EDGE_FADE_GATE{
     "coverage-mode", live_values(ProjectionCoverageMode::EDGE_FADE)};
 
-/** @brief The tabled field of SampleCrossingParams, retyped to the family. */
+/** @brief The tabled field of SampleCrossingParams, retyped to the family.
+ *  @tparam Params Sample crossing parameter family.
+ *  @return The edge-width field, gated on edge-fade coverage. */
 template <typename Params>
 constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
   return {edge_width_field<Params>(&Params::edge_width, "Edge Width",
@@ -132,6 +148,10 @@ constexpr std::array<Field<Params>, 1> sample_crossing_fields() {
 /**
  * @brief The Sample crossing's shared weight and coverage enum8s, followed by
  *        any family-specific topology fields in @p extra.
+ * @tparam Params Sample crossing parameter family.
+ * @tparam Extra Additional topology field types.
+ * @param extra Family-specific topology fields.
+ * @return The weight-mode and coverage-mode fields, then @p extra.
  */
 template <typename Params, typename... Extra>
 constexpr std::array<TopologyField<Params>, 2 + sizeof...(Extra)>
@@ -146,7 +166,13 @@ sample_crossing_topology(const Extra &...extra) {
 }
 
 /** @brief Builds the field carrier from a raw source value under the family's
-    weight and coverage enum8s. */
+    weight and coverage enum8s.
+    @tparam Params Sample crossing parameter family.
+    @param input Plane sample the value was read at.
+    @param raw Raw source value.
+    @param params Family parameters.
+    @param ctx Frame context.
+    @return The field carrier. */
 template <typename Params>
 __attribute__((always_inline)) inline FieldSample
 finish_sample(const PlaneSample &input, float raw, const Params &params,

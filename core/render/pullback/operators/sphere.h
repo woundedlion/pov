@@ -380,7 +380,10 @@ struct KaleidoscopeChainParams {
 static_assert(field_ids_unique<KaleidoscopeChainParams>());
 static_assert(field_defaults_in_range<KaleidoscopeChainParams>());
 
-/** @brief The symmetry switch over the shared kaleidoscope lens kernels. */
+/** @brief The symmetry switch over the shared kaleidoscope lens kernels.
+ *  @param input Unit sphere direction.
+ *  @param symmetry Checked `KaleidoscopeSymmetry` value.
+ *  @return The folded direction. */
 inline math::Vector kaleidoscope_lens(const math::Vector &input,
                                       uint8_t symmetry) {
   switch (static_cast<KaleidoscopeSymmetry>(symmetry)) {

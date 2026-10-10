@@ -5,6 +5,11 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
+/** @file composed_parameters.h
+ * @brief Parameter-family interpolation, range validation and optional
+ * runtime storage for composed effects.
+ */
+
 /**
  * @brief Interpolates one parameter family across a preset transition.
  * @details Driven by the family's field table; each field moves on the curve
@@ -20,6 +25,13 @@ inline T interpolate(const T &a, const T &b, float t) {
   return Pullback::Fields::interpolate(a, b, t);
 }
 
+/**
+ * @brief Mobius lens transition: coefficients hold @p a, then snap to @p b.
+ * @param a Value at progress 0.
+ * @param b Value at progress 1.
+ * @param t Progress fraction.
+ * @return @p a while @p t < 1, else @p b.
+ */
 inline MobiusLensParams interpolate(const MobiusLensParams &a,
                                     const MobiusLensParams &b, float t) {
   MobiusLensParams value;
@@ -51,11 +63,20 @@ interpolate(const ComposedDetail::ParameterSet<
  * @brief Whether every field of a parameter family is inside its authored
  *        range.
  * @details Ranges come from the family's field table.
+ * @tparam T Parameter family with a field table.
+ * @param value Family to check.
+ * @return True when every field is in range.
  */
 template <Pullback::HasFields T> inline bool valid(const T &value) {
   return Pullback::Fields::valid(value);
 }
 
+/**
+ * @brief Whether Mobius coefficients are finite, within
+ *        `MobiusLensParams::COEFFICIENT_LIMIT` and nondegenerate.
+ * @param p Lens family to check.
+ * @return True when the lens is usable.
+ */
 inline bool valid(const MobiusLensParams &p) {
   const float values[] = {p.mobius.a.re, p.mobius.a.im, p.mobius.b.re,
                           p.mobius.b.im, p.mobius.c.re, p.mobius.c.im,
@@ -67,6 +88,11 @@ inline bool valid(const MobiusLensParams &p) {
   return MobiusLensParams::nondegenerate(p.mobius);
 }
 
+/**
+ * @brief Whether a colour family's fields and palette mapping are in range.
+ * @param p Colour family to check.
+ * @return True when every field and the mapping enumerator are valid.
+ */
 inline bool valid(const ColorParams &p) {
   return Pullback::Fields::valid(p) &&
          static_cast<uint8_t>(p.palette_mapping) <=
@@ -75,6 +101,8 @@ inline bool valid(const ColorParams &p) {
 
 /**
  * @brief Whether every family of a parameter set is in range.
+ * @tparam Resources The set's parameter resources.
+ * @param params Parameter set to check.
  * @return True only when every declared instance passes.
  */
 template <typename... Resources>
@@ -157,14 +185,18 @@ enum class ProjectionKind : uint8_t {
   FOLDED_SINUSOIDAL
 };
 
-/** @brief Whether @p projection reads the central-meridian field. */
+/** @brief Whether @p projection reads the central-meridian field.
+    @param projection Projection kind.
+    @return True for the equirectangular and folded-sinusoidal projections. */
 constexpr bool uses_central_meridian(ProjectionKind projection) {
   return projection == ProjectionKind::EQUIRECTANGULAR ||
          projection == ProjectionKind::FOLDED_SINUSOIDAL;
 }
 
 /** @brief Whether @p projection reads the singularity-fade field. Folded
-    sinusoidal has no singular locus and returns fixed weights. */
+    sinusoidal has no singular locus and returns fixed weights.
+    @param projection Projection kind.
+    @return False only for folded sinusoidal. */
 constexpr bool uses_singularity_fade(ProjectionKind projection) {
   return projection != ProjectionKind::FOLDED_SINUSOIDAL;
 }
