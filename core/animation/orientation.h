@@ -62,7 +62,7 @@ template <int CAP = 4> class Orientation {
                           "write past the storage array.");
 
 public:
-  static constexpr int CAPACITY = CAP;
+  static constexpr int CAPACITY = CAP; ///< Maximum frames held.
   /**
    * @brief Default constructor (identity rotation).
    */

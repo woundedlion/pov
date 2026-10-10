@@ -21,6 +21,7 @@
 struct TimelineEvent {
   // Inline storage budget for a type-erased animation: 112 B for device/WASM,
   // 256 B for 64-bit host effect harnesses.
+  /// Inline animation storage in bytes.
   static constexpr size_t MAX_ANIM_SIZE = HS_TIMELINE_MAX_ANIM_BYTES;
 
   uint32_t remaining_delay = 0; /**< Active frames until first eligibility. */
@@ -96,11 +97,16 @@ inline constexpr int TIMELINE_MAX_EVENTS = 64;
 /** @brief Process-wide timeline storage shared by all template instances. */
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // True while a Timeline instance is alive.
+/// True while a Timeline instance is alive.
 extern bool global_timeline_live;
-extern uint32_t global_timeline_t;       // current global frame count
-extern int global_timeline_num_events;   // current number of active events
+/// Current global frame count.
+extern uint32_t global_timeline_t; // current global frame count
+/// Number of active events.
+extern int global_timeline_num_events; // current number of active events
+/// Events dropped on a full timeline; wraps.
 extern uint32_t global_timeline_dropped; // wrapping full-timeline drop count
 // Set once per saturation episode, cleared whenever the event table empties.
+/// Whether the current saturation episode has logged its drop.
 extern bool global_timeline_drop_logged;
 
 /**

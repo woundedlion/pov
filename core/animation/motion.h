@@ -468,11 +468,21 @@ private:
 
 namespace Detail {
 
+/**
+ * @brief Out-of-line |q|^2.
+ * @param q Quaternion.
+ * @return Sum of the squared components.
+ */
 [[nodiscard]] HS_NOINLINE_NOCLONE inline float
 stable_rotation_squared_magnitude(const math::Quaternion &q) {
   return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
 }
 
+/**
+ * @brief Out-of-line quaternion normalization; traps on a degenerate input.
+ * @param q Quaternion with |q|^2 >= `math::EPS_NORMALIZE_SQ`.
+ * @return q scaled to unit magnitude.
+ */
 [[nodiscard]] HS_NOINLINE_NOCLONE inline math::Quaternion
 stable_rotation_normalized(const math::Quaternion &q) {
   float m2 = stable_rotation_squared_magnitude(q);
@@ -482,6 +492,12 @@ stable_rotation_normalized(const math::Quaternion &q) {
   return math::Quaternion(q.r / m, q.v / m);
 }
 
+/**
+ * @brief Out-of-line unit rotation quaternion about an axis.
+ * @param axis Unit rotation axis.
+ * @param theta Rotation angle, radians.
+ * @return The normalized rotation.
+ */
 [[nodiscard]] HS_NOINLINE_NOCLONE inline math::Quaternion
 make_stable_rotation(const math::Vector &axis, float theta) {
   return stable_rotation_normalized(
@@ -592,7 +608,7 @@ step_random_walk(math::Vector &position, math::Vector &direction,
 template <int W, int CAP = 4>
 class RandomWalk : public AnimationBase<RandomWalk<W, CAP>> {
 public:
-  using Options = RandomWalkOptions;
+  using Options = RandomWalkOptions; ///< Walk tuning parameters.
 
   /**
    * @brief Constructs a RandomWalk animation.

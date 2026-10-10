@@ -37,13 +37,14 @@ template <typename T> struct ExternalParamsHooks {};
 
 /** @brief MobiusParams (math/mobius.h) carries neither hook. */
 template <> struct ExternalParamsHooks<math::MobiusParams> {
-  static constexpr bool NEEDS_REFRESH_FROM = false;
-  static constexpr bool NEEDS_SYNC = false;
+  static constexpr bool NEEDS_REFRESH_FROM = false; ///< No refresh_from hook.
+  static constexpr bool NEEDS_SYNC = false;         ///< No sync hook.
 };
 
 /**
  * @brief Whether a params type declares its hook intent at all.
  * @tparam T Candidate params type.
+ * @return True when both NEEDS_REFRESH_FROM and NEEDS_SYNC are declared.
  */
 template <typename T> constexpr bool declares_hooks() {
   constexpr bool REFRESH_DECLARED = requires {
@@ -59,6 +60,7 @@ template <typename T> constexpr bool declares_hooks() {
  * @brief A params type's declared refresh_from-hook intent, false when
  *        undeclared.
  * @tparam T Candidate params type.
+ * @return The declared NEEDS_REFRESH_FROM, else false.
  */
 template <typename T> constexpr bool declared_needs_refresh_from() {
   if constexpr (requires { T::NEEDS_REFRESH_FROM; })
@@ -72,6 +74,7 @@ template <typename T> constexpr bool declared_needs_refresh_from() {
 /**
  * @brief A params type's declared sync-hook intent, false when undeclared.
  * @tparam T Candidate params type.
+ * @return The declared NEEDS_SYNC, else false.
  */
 template <typename T> constexpr bool declared_needs_sync() {
   if constexpr (requires { T::NEEDS_SYNC; })
@@ -572,19 +575,35 @@ constexpr float FIELD_DOMINANT_DEN_EPS = 1e-9f;
  * At or below FIELD_DOMINANT_DEN_EPS the result is zero, a discontinuity.
  */
 struct DominantFieldAccumulator {
-  /** @brief Folds one field sample into the blend. */
+  /**
+   * @brief Folds one field sample into the blend.
+   * @param field Field sample.
+   */
   void add(float field) { accumulate(numerator, denominator, field); }
 
-  /** @brief Adds one sample to caller-owned blend terms. */
+  /**
+   * @brief Adds one sample to caller-owned blend terms.
+   * @param num Running sum of cubed samples.
+   * @param den Running sum of squared samples.
+   * @param field Field sample.
+   */
   static void accumulate(float &num, float &den, float field) {
     num += field * field * field;
     den += field * field;
   }
 
-  /** @brief The blend so far: sum(s_i^3) / sum(s_i^2); 0 with nothing added. */
+  /**
+   * @brief The blend so far: sum(s_i^3) / sum(s_i^2); 0 with nothing added.
+   * @return The dominant-field blend.
+   */
   float value() const { return resolve(numerator, denominator); }
 
-  /** @brief Resolves caller-owned blend terms. */
+  /**
+   * @brief Resolves caller-owned blend terms.
+   * @param num Sum of cubed samples.
+   * @param den Sum of squared samples.
+   * @return num / den, or 0 when `den` is at or below FIELD_DOMINANT_DEN_EPS.
+   */
   static float resolve(float num, float den) {
     return den > FIELD_DOMINANT_DEN_EPS ? num / den : 0.0f;
   }
@@ -689,6 +708,7 @@ template <int CAPACITY = 4> struct OrientTransformer {
   }
 };
 
+/** @brief Deduces CAPACITY from the Orientation. */
 template <int CAPACITY>
 OrientTransformer(const math::Orientation<CAPACITY> &)
     -> OrientTransformer<CAPACITY>;
