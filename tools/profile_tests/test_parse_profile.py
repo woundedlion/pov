@@ -178,7 +178,7 @@ class RenderIsWall(unittest.TestCase):
         n = len(walls)
         w = pp.Window("Fx", 288, 144, 1, n, 1)
         # No wait scope => render == wall on every frame (the degenerate case).
-        w.frame_rows = [(i + 1, x, x if not wait_scope else x - 10_000)
+        w.frame_rows = [(i + 1, x, x if not wait_scope else x - 10_000, None)
                         for i, x in enumerate(walls)]
         w.render = (sum(walls) // n, max(walls))
         w.wall = (min(walls), sum(walls) // n, max(walls), sum(walls))
@@ -199,8 +199,7 @@ class RenderIsWall(unittest.TestCase):
         # 0 us and render == wall on every row. The scope is present and the
         # renders are exact: this must not degrade the whole capture.
         w = self._w([125_000] * 4, wait_scope=True)
-        w.frame_rows = [(i + 1, x, x) for i, (_, x, _) in
-                        enumerate(w.frame_rows)]
+        w.frame_rows = [(n, x, x, owner) for n, x, _, owner in w.frame_rows]
         self.assertFalse(w.render_is_wall())
         peak, exact = w.peak_render_ms()
         self.assertTrue(exact)
@@ -232,7 +231,6 @@ class RenderIsWall(unittest.TestCase):
         for wait_scope, expected in ((False, "n/a"), (True, "1")):
             with self.subTest(wait_scope=wait_scope):
                 window = self._w([125_000], wait_scope=wait_scope)
-                window.frame_rows = [(*row, None) for row in window.frame_rows]
                 with mock.patch.object(sys, "argv", ["parse_profile", "capture", "frames"]), \
                         mock.patch.object(pp, "parse_capture", return_value=([window], "Fx")), \
                         contextlib.redirect_stdout(io.StringIO()) as output:
