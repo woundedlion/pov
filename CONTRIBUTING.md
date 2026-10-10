@@ -157,10 +157,11 @@ protected branch's `CI green` status is the authoritative correctness gate.
   `python tools/doc_coverage.py` (`just docs-coverage`; the ci.yml
   docs-doxygen job) fails on any Doxygen input symbol without a doc comment,
   any input file without an `@file` block, and any documented function
-  missing an `@param` or `@return`. It exempts only defaulted special members,
-  container aliases, per-model `Pullback::Interp::Op` contract members,
-  effect-spec overrides of `Pullback::Spec` fields, trait-specialization
-  `Type` results, and macros the same file `#undef`s.
+  missing an `@param` or `@return`. It exempts only defaulted or deleted
+  members, assignment operators, container aliases, per-model
+  `Pullback::Interp::Op` contract members, effect-spec overrides of
+  `Pullback::Spec` fields, trait-specialization `Type` results, and macros
+  the same file `#undef`s.
 - **License headers:** `python tools/license_check.py`. The staged-tree
   pre-commit check and `just license-headers` run it; `just python-test` runs
   the checker's unit tests.
