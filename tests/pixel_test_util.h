@@ -11,8 +11,10 @@
 #include "tests/test_fixture.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace hs_test {
@@ -152,6 +154,72 @@ inline uint64_t frame_energy(const std::vector<Pixel> &frame) {
   for (const Pixel &p : frame)
     energy += static_cast<uint64_t>(p.r) + p.g + p.b;
   return energy;
+}
+
+/** @brief Exact and aggregate channel-error statistics for two captures. */
+struct FrameErrorStats {
+  size_t compared_pixels = 0;
+  size_t lit_reference_pixels = 0; /**< Reference pixels that are not black. */
+  size_t coverage_mismatches = 0;  /**< Pixels black in exactly one capture. */
+  size_t different_pixels = 0;
+  size_t different_channels = 0;
+  uint32_t max_absolute_error = 0;
+  uint64_t total_absolute_error = 0;
+  uint64_t total_squared_error = 0;
+  int first_different_pixel = -1; /**< Index across all compared spans. */
+
+  bool exact() const { return different_pixels == 0; }
+
+  double mean_absolute_error() const {
+    const size_t channels = compared_pixels * 3;
+    return channels == 0 ? 0.0
+                         : static_cast<double>(total_absolute_error) / channels;
+  }
+
+  double root_mean_squared_error() const {
+    const size_t channels = compared_pixels * 3;
+    return channels == 0
+               ? 0.0
+               : std::sqrt(static_cast<double>(total_squared_error) / channels);
+  }
+};
+
+/**
+ * @brief Compares two same-sized pixel spans channel by channel.
+ * @param reference Reference pixels.
+ * @param candidate Candidate pixels, same length as reference.
+ * @param stats Statistics to accumulate into, for comparing several spans.
+ * @return stats extended by this span pair.
+ */
+inline FrameErrorStats compare_buffers(std::span<const Pixel> reference,
+                                       std::span<const Pixel> candidate,
+                                       FrameErrorStats stats = {}) {
+  HS_CHECK(reference.size() == candidate.size(), "captures differ in size");
+  const size_t base = stats.compared_pixels;
+  stats.compared_pixels += reference.size();
+  for (size_t i = 0; i < reference.size(); ++i) {
+    const Pixel &a = reference[i];
+    const Pixel &b = candidate[i];
+    stats.lit_reference_pixels += !is_black(a);
+    stats.coverage_mismatches += is_black(a) != is_black(b);
+    bool pixel_differs = false;
+    for (const uint32_t error : {channel_gap(a.r, b.r), channel_gap(a.g, b.g),
+                                 channel_gap(a.b, b.b)}) {
+      if (error == 0)
+        continue;
+      pixel_differs = true;
+      ++stats.different_channels;
+      stats.max_absolute_error = std::max(stats.max_absolute_error, error);
+      stats.total_absolute_error += error;
+      stats.total_squared_error += static_cast<uint64_t>(error) * error;
+    }
+    if (!pixel_differs)
+      continue;
+    if (stats.first_different_pixel < 0)
+      stats.first_different_pixel = static_cast<int>(base + i);
+    ++stats.different_pixels;
+  }
+  return stats;
 }
 
 } // namespace hs_test
