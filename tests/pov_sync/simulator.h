@@ -975,6 +975,22 @@ inline void test_sim_forged_burst() {
 // ── Scenario: epoch-repeat lockstep (§6.3.1) ────────────────────────────────
 
 /**
+ * @brief Asserts board @p deaf missed the EPOCH primary copy: it ignored one
+ *        repeat fewer than every other downstream board.
+ * @param sim The simulation to inspect.
+ * @param deaf Index of the board deafened for the primary copy.
+ */
+inline void expect_refractory_ignored(Sim &sim, int deaf) {
+  const uint32_t repeats = static_cast<uint32_t>(sim.cfg.epoch_repeats);
+  for (int i = 1; i < static_cast<int>(sim.boards.size()); ++i) {
+    HS_CONTEXT("board", static_cast<long long>(i));
+    HS_EXPECT_EQ(
+        sim.boards[i].board.telemetry_snapshot().epochs_refractory_ignored,
+        i == deaf ? repeats - 1 : repeats);
+  }
+}
+
+/**
  * @brief Verifies a board that misses the EPOCH primary copy at B but accepts
  *        a repeat at B+j commits at the same absolute boundary as its peers,
  *        with equal frame counters (§6.3.1).
@@ -1029,6 +1045,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     sim.boards[2].drop_from = sim.g + rev - 4 * COL;
     sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
+    expect_refractory_ignored(sim, 2);
     expect_lockstep(sim);
   }
 
@@ -1102,6 +1119,7 @@ inline void test_sim_rev_resync() {
         return true;
       },
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8));
+  expect_refractory_ignored(sim, 3);
   for (int i = 1; i < 4; ++i) {
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
