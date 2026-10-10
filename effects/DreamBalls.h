@@ -418,6 +418,20 @@ private:
     return math::cubic_kernel((1.0f - edge_t) / gap);
   }
 
+  /** @brief Edge array the woven scene draws for @p solid. */
+  __attribute__((always_inline)) static const ArenaVector<Plot::Mesh::Edge> &
+  woven_edges(const SolidData &solid, bool medial) {
+    return medial && solid.four_regular ? solid.medial_edges
+                                        : solid.automatic_edges;
+  }
+
+  /** @brief Vertex count the woven scene's edges index into. */
+  __attribute__((always_inline)) static size_t
+  woven_vertex_count(const SolidData &solid, bool medial) {
+    return medial ? solid.original_edges.size()
+                  : solid.mesh_state.vertices.size();
+  }
+
   HS_FLASH_MEMBER static void
   assign_woven_start_owners(const ArenaVector<Plot::Mesh::Edge> &edges,
                             uint16_t *owners, size_t vertex_count) {
@@ -667,10 +681,8 @@ private:
 
   void draw_woven_scene(Canvas &canvas, const Params &p, const SolidData &solid,
                         bool medial, float opacity, const BakedPalette &baked) {
-    const auto &edges = medial && solid.four_regular ? solid.medial_edges
-                                                     : solid.automatic_edges;
-    const size_t vertex_count =
-        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
+    const auto &edges = woven_edges(solid, medial);
+    const size_t vertex_count = woven_vertex_count(solid, medial);
     const size_t edge_count = edges.size();
 
     ArenaVector<math::Vector> base_vertices;

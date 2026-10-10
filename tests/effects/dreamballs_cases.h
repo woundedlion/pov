@@ -51,18 +51,14 @@ struct DreamBallsWhiteBox {
   static const auto &automatic_edges(const DB &db, size_t idx) {
     return db.loaded_solids[idx].automatic_edges;
   }
-  static const auto &medial_edges(const DB &db, size_t idx) {
-    const auto &solid = db.loaded_solids[idx];
-    return solid.four_regular ? solid.medial_edges : solid.automatic_edges;
+  static const auto &forced_medial_drawn_edges(const DB &db, size_t idx) {
+    return DB::woven_edges(db.loaded_solids[idx], true);
   }
   static std::vector<uint16_t> woven_start_owners(const DB &db, size_t idx,
                                                   bool medial) {
     const auto &solid = db.loaded_solids[idx];
-    const auto &edges = medial && solid.four_regular ? solid.medial_edges
-                                                     : solid.automatic_edges;
-    const size_t vertex_count =
-        medial ? solid.original_edges.size() : solid.mesh_state.vertices.size();
-    std::vector<uint16_t> owners(vertex_count);
+    const auto &edges = DB::woven_edges(solid, medial);
+    std::vector<uint16_t> owners(DB::woven_vertex_count(solid, medial));
     DB::assign_woven_start_owners(edges, owners.data(), owners.size());
     return owners;
   }
@@ -257,7 +253,8 @@ inline void test_dreamballs_max_edge_solid_render() {
   HS_EXPECT_EQ(db.updateParameter("Weave Topology", 2.0f),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
-  HS_EXPECT_EQ(WB::medial_edges(db, widest).size(), 2 * widest_edges);
+  HS_EXPECT_EQ(WB::forced_medial_drawn_edges(db, widest).size(),
+               2 * widest_edges);
 
   db.setAnimationsPaused(false);
   scratch_arena_a.reset_high_water_mark();
@@ -309,7 +306,7 @@ inline void test_dreamballs_weave_topology() {
   for (int i = 0; i < EXPECTED_SOLIDS; ++i) {
     const auto &original = WB::original_edges(db, i);
     const auto &automatic = WB::automatic_edges(db, i);
-    const auto &medial = WB::medial_edges(db, i);
+    const auto &medial = WB::forced_medial_drawn_edges(db, i);
     const bool four_regular = WB::four_regular(db, i);
     const bool expected_four_regular =
         i == static_cast<int>(WB::DB::BaseMesh::OCTAHEDRON) ||
