@@ -74,8 +74,9 @@ template <int H> __attribute__((always_inline)) inline int round_row(float y) {
  * `is_terminal`: writes the Canvas directly; must be the last stage, and its
  * flush is `flush(Canvas&, float)`.
  * `terminal_replaces`: a terminal that overwrites the whole frame; no
- * history-bearing stage may precede it, and the effect must flush before the
- * frame's plot() calls (at alpha >= 1 the flush overwrites every pixel).
+ * history-bearing stage may precede it, and the effect must call
+ * `Pipeline::begin_frame()` before the frame's plot() calls (at alpha >= 1 the
+ * terminal pass overwrites every pixel).
  * `emits_nonunit_world` must not precede `requires_unit_world_input`;
  * `emits_pixel_centers` must not precede `requires_subpixel_input`.
  * `crosses_segments`: output can move between segment bands, forcing a
