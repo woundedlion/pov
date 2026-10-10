@@ -25,7 +25,7 @@ class Effect;
 
 /** @brief Storage for a concrete effect type identity. */
 template <typename T> struct EffectTypeTag {
-  static constexpr char id = 0;
+  static constexpr char id = 0; ///< Its address is the type's identity.
 };
 
 /**
@@ -44,6 +44,7 @@ template <typename T> constexpr const void *effect_type_key() {
  * sets the resolution-specific fields.
  */
 struct FactoryEntry {
+  /// Maps a preset index to its stable preset ID.
   using PresetIdFn = std::string_view (*)(size_t);
 
   std::string_view name; /**< Effect class name (string literal). */
@@ -61,10 +62,19 @@ struct FactoryEntry {
 
 // Supported render resolutions; per-resolution registration code expands from
 // this X-macro.
+/**
+ * @brief Applies X to each supported render resolution.
+ * @param X Macro invoked as X(W, H).
+ */
 #define HS_RESOLUTIONS(X)                                                      \
   X(96, 20)                                                                    \
   X(288, 144)
 
+/**
+ * @brief Asserts one resolution fits MAX_W x MAX_H.
+ * @param W Width in pixels.
+ * @param H Height in pixels.
+ */
 #define HS_REG_RESOLUTION_FITS(W, H)                                           \
   static_assert(W <= MAX_W && H <= MAX_H,                                      \
                 "HS_RESOLUTIONS entry exceeds MAX_W/MAX_H");
@@ -73,6 +83,7 @@ HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
 
 // Instantiation that answers stable-id queries; fixed so the persisted id and
 // its RNG stream do not depend on HS_RESOLUTIONS order.
+/// Resolution whose instantiation answers stable-ID queries, as W, H.
 #define HS_REG_IDENTITY_RESOLUTION 96, 20
 
 /**
@@ -83,6 +94,11 @@ struct EffectRegistration {
   std::string_view name; /**< Effect class/header stem. */
   using FillFn = void (*)(
       FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
+/**
+ * @brief Declares the fill pointer for one resolution.
+ * @param W Width in pixels.
+ * @param H Height in pixels.
+ */
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
@@ -90,7 +106,11 @@ struct EffectRegistration {
                                         resolution's FactoryEntry. */
 };
 
-/** @brief Validates the shared class-name and stable-ID lookup namespace. */
+/**
+ * @brief Validates the shared class-name and stable-ID lookup namespace.
+ * @param entries Registrations to check.
+ * @return False on an empty or repeated name or stable ID.
+ */
 template <size_t N>
 constexpr bool
 registration_names_unique(const std::array<EffectRegistration, N> &entries) {
@@ -107,6 +127,11 @@ registration_names_unique(const std::array<EffectRegistration, N> &entries) {
   return true;
 }
 
+/**
+ * @brief Traps unless registration_names_unique() holds.
+ * @tparam N Registration count.
+ * @param entries Registrations to check.
+ */
 template <size_t N>
 void validate_effect_registrations(
     const std::array<EffectRegistration, N> &entries) {
@@ -116,7 +141,15 @@ void validate_effect_registrations(
 
 // Dependent condition delays the diagnostic until an unsupported resolution
 // is instantiated.
+/// Always false; a dependent static_assert condition.
 template <int> constexpr bool unsupported_resolution = false;
+
+/**
+ * @def HS_REG_FILL_BRANCH(w, h)
+ * @brief In get_fill_fn(): returns the fill pointer when <W,H> is <w,h>.
+ * @param w Width in pixels.
+ * @param h Height in pixels.
+ */
 
 /**
  * @brief Selects the fill function pointer matching the given <W,H>.
@@ -141,7 +174,10 @@ constexpr auto get_fill_fn(const EffectRegistration &reg) {
   }
 }
 
-/** @brief Populates resolution-specific fields of one factory entry. */
+/**
+ * @brief Populates resolution-specific fields of one factory entry.
+ * @param entry Entry to populate.
+ */
 template <template <int, int> class ClassName, int W, int H>
 void fill_registration(FactoryEntry &entry) {
   entry.creator = []() -> std::unique_ptr<Effect> {
@@ -160,7 +196,19 @@ void fill_registration(FactoryEntry &entry) {
   }
 }
 
-/** @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry. */
+/**
+ * @def HS_REG_FILL_POINTER(W, H)
+ * @brief In make_registration(): one resolution's fill_registration()
+ *        pointer.
+ * @param W Width in pixels.
+ * @param H Height in pixels.
+ */
+
+/**
+ * @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry.
+ * @param name Effect class name.
+ * @return The registration.
+ */
 template <template <int, int> class ClassName>
 constexpr EffectRegistration make_registration(std::string_view name) {
   static_assert(

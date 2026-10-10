@@ -23,29 +23,49 @@
  */
 class PresetHost : public ParamHost {
 public:
-  /** @brief Number of presets exposed for manual navigation. */
+  /**
+   * @brief Number of presets exposed for manual navigation.
+   * @return Preset count.
+   */
   size_t getPresetCount() const { return preset_count; }
-  /** @brief Index of the preset currently displayed. */
+  /**
+   * @brief Index of the preset currently displayed.
+   * @return Displayed preset index.
+   */
   size_t getPresetIndex() const { return displayed_preset_index(); }
-  /** @brief Selects a preset and pauses animations; false if refused. */
+  /**
+   * @brief Selects a preset and pauses animations; false if refused.
+   * @param index Preset index.
+   * @return False when the change was refused.
+   */
   bool selectPreset(size_t index) {
     if (!change_preset(index, PresetChangeOrigin::MANUAL))
       return false;
     setAnimationsPaused(true);
     return true;
   }
-  /** @brief Selects one preset without changing the animation pause state. */
+  /**
+   * @brief Selects one preset without changing the animation pause state.
+   * @param index Preset index.
+   * @return False when the change was refused.
+   */
   bool synchronizePreset(size_t index) {
     return preset_count > 0 &&
            ((index == preset_index && index == displayed_preset_index()) ||
             change_preset(index, PresetChangeOrigin::SYNCHRONIZED));
   }
-  /** @brief Selects and pauses the next preset. */
+  /**
+   * @brief Selects and pauses the next preset.
+   * @return False when the change was refused.
+   */
   bool nextPreset() {
     return preset_count > 0 &&
            selectPreset((getPresetIndex() + 1) % preset_count);
   }
-  /** @brief Selects and pauses the previous preset. */
+  /**
+   * @brief Selects and pauses the previous preset.
+   * @return False when the change was refused.
+   */
   bool previousPreset() {
     return preset_count > 0 &&
            selectPreset((getPresetIndex() + preset_count - 1) % preset_count);
@@ -70,10 +90,16 @@ protected:
     PresetChangeOrigin origin; /**< Source of the preset change. */
   };
 
-  /** @brief Preset whose parameters currently drive the display. */
+  /**
+   * @brief Preset whose parameters currently drive the display.
+   * @return Displayed preset index.
+   */
   virtual size_t displayed_preset_index() const { return preset_index; }
 
-  /** @brief Sets the preset count; call once with a positive count. */
+  /**
+   * @brief Sets the preset count; call once with a positive count.
+   * @param count Preset count; > 0.
+   */
   HS_FLASH_MEMBER void configure_presets(size_t count) {
     HS_CHECK(count > 0, "preset count must be positive: count=%lu",
              static_cast<unsigned long>(count));
@@ -84,7 +110,10 @@ protected:
     preset_count = count;
   }
 
-  /** @brief Moves to the next preset, wrapping, as an AUTOMATIC change. */
+  /**
+   * @brief Moves to the next preset, wrapping, as an AUTOMATIC change.
+   * @return False when the change was refused.
+   */
   HS_FLASH_MEMBER bool advance_preset() {
     return preset_count > 0 && change_preset((preset_index + 1) % preset_count,
                                              PresetChangeOrigin::AUTOMATIC);
@@ -100,6 +129,12 @@ protected:
   /** @brief Runs after a successful preset change has been committed. */
   virtual void preset_changed(const PresetChange &) {}
 
+  /**
+   * @brief Offers a change to apply_preset(), commits it, then notifies.
+   * @param index Candidate preset index.
+   * @param origin Source of the change.
+   * @return False if `index` is out of range or apply_preset() refused.
+   */
   bool change_preset(size_t index, PresetChangeOrigin origin) {
     if (index >= preset_count)
       return false;
@@ -111,6 +146,6 @@ protected:
     return true;
   }
 
-  size_t preset_count = 0;
-  size_t preset_index = 0;
+  size_t preset_count = 0; ///< Configured preset count; 0 until configured.
+  size_t preset_index = 0; ///< Committed preset index.
 };

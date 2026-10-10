@@ -62,7 +62,9 @@ public:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Reapplies recorded writes in order without per-write checks, then
-      fails fatally if the final values are not admissible. */
+      fails fatally if the final values are not admissible.
+   * @param values Ordered (name, value) pairs.
+   */
   template <typename Values>
   void replay_parameter_writes(const Values &values) {
     check_parameter_storage();
@@ -114,7 +116,9 @@ public:
 #endif
 
   /** @brief Counter bumped whenever the parameter list or a descriptor's
-      flags change; always 0 without the GUI bridge. */
+      flags change; always 0 without the GUI bridge.
+   * @return The schema generation.
+   */
   uint32_t getParameterSchemaGeneration() const {
     return parameters.schema_generation();
   }
@@ -135,7 +139,11 @@ public:
 protected:
   ~ParamHost() = default;
 
-  /** @brief Stores a trusted internal value without edit policy or callbacks. */
+  /**
+   * @brief Stores a trusted internal value without edit policy or callbacks.
+   * @param parameter Descriptor whose target is written.
+   * @param value Value to store.
+   */
   static void write_parameter_unchecked(ParamDef &parameter, float value) {
     parameter.write_unchecked(value);
   }
@@ -148,14 +156,20 @@ protected:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Returns false to reject a write; called before anything is
-      stored. */
+      stored.
+   * @return False to reject the write.
+   */
   virtual bool parameter_write_admitted(const ParamDef &, float) {
     return true;
   }
 
+  /// Post-write callback: (host, parameter name, parameter is an enum).
   using ParameterUpdatedHook = void (*)(ParamHost *, const char *, bool);
 
-  /** @brief Sets a callback run after each accepted parameter write. */
+  /**
+   * @brief Sets a callback run after each accepted parameter write.
+   * @param hook Callback; null clears it.
+   */
   void set_parameter_updated_hook(ParameterUpdatedHook hook) {
     parameter_updated_hook = hook;
   }
@@ -187,7 +201,11 @@ protected:
   }
 
   /** @brief Repoints the registry at arena-owned descriptor storage; debug
-      builds check the arena block is still alive on each access. */
+      builds check the arena block is still alive on each access.
+   * @param arena Arena that owns `storage`.
+   * @param storage Descriptor array the registry registers into.
+   * @param capacity Slots in `storage`.
+   */
   void use_parameter_storage(Arena &arena, ParamDef *storage, size_t capacity) {
     use_parameter_storage(storage, capacity);
 #ifndef NDEBUG
@@ -207,6 +225,7 @@ protected:
     use_parameter_storage(storage.data(), storage.size());
   }
 
+  /** @brief Clears every registration and bumps the schema generation. */
   void reset_parameters() {
     parameters.count = 0;
     parameters.bump_schema_generation();
@@ -217,6 +236,8 @@ protected:
    *        to @p requested.
    * @details Each parameter whose target lies inside @p requested displays the
    * member at the same offset in @p displayed; others display their target.
+   * @param requested State the parameter targets point into.
+   * @param displayed State whose members are displayed.
    */
   template <typename State>
   void mirror_parameter_display_state(const State &requested,
@@ -244,7 +265,10 @@ protected:
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  /** @brief Shows a parameter's requested value instead of its render mirror. */
+  /**
+   * @brief Shows a parameter's requested value instead of its render mirror.
+   * @param name Parameter name; unknown names are ignored.
+   */
   void show_requested_parameter_value(const char *name) {
     ParamDef *parameter = parameters.find(name);
     if (parameter != nullptr)
@@ -253,7 +277,7 @@ protected:
 #endif
   ParamList parameters; /**< Registered parameters. */
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  ParameterUpdatedHook parameter_updated_hook = nullptr;
+  ParameterUpdatedHook parameter_updated_hook = nullptr; ///< Null for none.
 #endif
   /** @brief True while parameter-driving animations are paused. */
   bool anims_paused = false;
@@ -261,6 +285,8 @@ protected:
   /**
    * @brief Flag a registered param as engine-written telemetry (read-only).
    * @details The GUI shows its value but disables editing.
+   * @param name Registered parameter name.
+   * @param readonly New read-only flag.
    */
   void mark_readonly(const char *name, bool readonly = true) {
     auto *def = parameters.find(name);
@@ -271,7 +297,10 @@ protected:
     }
   }
 
-  /** @brief Excludes a global parameter from preset exports. */
+  /**
+   * @brief Excludes a global parameter from preset exports.
+   * @param name Registered parameter name.
+   */
   void mark_global(const char *name) {
     auto *def = parameters.find(name);
     HS_CHECK(def, "mark_global: unknown parameter name name=%s", name);
@@ -284,6 +313,9 @@ protected:
    *        value is its initial value.
    * @details PRESERVE_REQUESTED_FLOAT allows a finite out-of-range initial
    * value for a non-enum float; later writes are clamped to [min, max].
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param spec Range, options and flags.
    */
   template <typename T>
   HS_COLD_MEMBER void register_param(const char *name, T *ptr,
@@ -427,7 +459,17 @@ protected:
 
   void register_param(const char *, float *, int, int) = delete;
 
-  /** @brief Registers a float slider, optionally with dropdown labels. */
+  /**
+   * @brief Registers a float slider, optionally with dropdown labels.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member; its current value is the initial value.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param animated True if an animation drives the target.
+   * @param readonly True for engine-written telemetry.
+   * @param options Dropdown labels, or null.
+   * @param option_count Label count.
+   */
   HS_COLD_MEMBER void
   register_param(const char *name, float *ptr, float min = 0.0f,
                  float max = 1.0f, bool animated = false, bool readonly = false,
@@ -443,7 +485,12 @@ protected:
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   /** @brief Registers an animated float whose initial value may lie outside
-      [min, max]. */
+      [min, max].
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member; its current value is the initial value.
+   * @param min Lower bound for later writes.
+   * @param max Upper bound for later writes.
+   */
   HS_COLD_MEMBER void register_animated_param_preserving_value(const char *name,
                                                                float *ptr,
                                                                float min,
@@ -458,7 +505,13 @@ protected:
   }
 #endif
 
-  /** @brief Registers a float-backed dropdown over indices 0..option_count-1. */
+  /**
+   * @brief Registers a float-backed dropdown over indices 0..option_count-1.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member holding the selected index.
+   * @param options Dropdown labels.
+   * @param option_count Label count.
+   */
   HS_COLD_MEMBER void register_param(const char *name, float *ptr,
                                      const char *const *options,
                                      int option_count) {
@@ -467,7 +520,14 @@ protected:
   }
 
   /** @brief Registers an enum dropdown; @p export_options optionally names
-      each option's C++ enumerator for preset export. */
+      each option's C++ enumerator for preset export.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param options Dropdown labels, indexed by enumerator value.
+   * @param export_options C++ enumerator names indexed like `options`, or null.
+   * @param option_count Label count.
+   * @param animated True if an animation drives the target.
+   */
   template <typename Enum>
     requires std::is_enum_v<Enum>
   HS_COLD_MEMBER void register_param(const char *name, Enum *ptr,
@@ -480,7 +540,14 @@ protected:
     register_param(name, ptr, spec);
   }
 
-  /** @brief Registers an integer slider with exactly float-representable bounds. */
+  /**
+   * @brief Registers an integer slider with exactly float-representable bounds.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   * @param animated True if an animation drives the target.
+   */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
@@ -491,7 +558,13 @@ protected:
         ParamSpec<Integer>{.min = min, .max = max, .animated = animated});
   }
 
-  /** @brief Registers an animation-driven integer slider. */
+  /**
+   * @brief Registers an animation-driven integer slider.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_animated_int_param(const char *name,
@@ -502,13 +575,24 @@ protected:
         ParamSpec<Integer>{.min = min, .max = max, .animated = true});
   }
 
-  /** @brief Registers a bool without changing its initial value. */
+  /**
+   * @brief Registers a bool without changing its initial value.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param animated True if an animation drives the target.
+   */
   HS_COLD_MEMBER void register_param(const char *name, bool *ptr,
                                      bool animated = false) {
     register_param(name, ptr, ParamSpec<bool>{.animated = animated});
   }
 
-  /** @brief Registers an animation-driven float slider. */
+  /**
+   * @brief Registers an animation-driven float slider.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   */
   HS_COLD_MEMBER void register_animated_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {
@@ -516,12 +600,23 @@ protected:
                    ParamSpec<float>{.min = min, .max = max, .animated = true});
   }
 
-  /** @brief Registers an animation-driven bool. */
+  /**
+   * @brief Registers an animation-driven bool.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   */
   HS_COLD_MEMBER void register_animated_param(const char *name, bool *ptr) {
     register_param(name, ptr, ParamSpec<bool>{.animated = true});
   }
 
-  /** @brief Registers an animation-driven typed dropdown. */
+  /**
+   * @brief Registers an animation-driven typed dropdown.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param options Dropdown labels, indexed by enumerator value.
+   * @param export_options C++ enumerator names indexed like `options`, or null.
+   * @param option_count Label count.
+   */
   template <typename Enum>
     requires std::is_enum_v<Enum>
   HS_COLD_MEMBER void register_animated_param(const char *name, Enum *ptr,
@@ -534,7 +629,13 @@ protected:
     register_param(name, ptr, spec);
   }
 
-  /** @brief Registers an animation-driven uint8_t-backed dropdown. */
+  /**
+   * @brief Registers an animation-driven uint8_t-backed dropdown.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member holding the selected index.
+   * @param options Dropdown labels.
+   * @param option_count Label count.
+   */
   HS_COLD_MEMBER void register_animated_enum8_param(const char *name,
                                                     uint8_t *ptr,
                                                     const char *const *options,
@@ -544,7 +645,13 @@ protected:
     register_param(name, ptr, spec);
   }
 
-  /** @brief Registers a readonly float slider. */
+  /**
+   * @brief Registers a readonly float slider.
+   * @param name Parameter name; must outlive the host.
+   * @param ptr Target member.
+   * @param min Lower bound.
+   * @param max Upper bound.
+   */
   HS_COLD_MEMBER void register_readonly_param(const char *name, float *ptr,
                                               float min = 0.0f,
                                               float max = 1.0f) {

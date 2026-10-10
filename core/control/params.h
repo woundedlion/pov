@@ -75,6 +75,12 @@ struct ParamDef {
   bool readonly = false; /**< True if this is engine-written telemetry. */
   bool preset = true;    /**< Whether preset exports include this parameter. */
 
+  /**
+   * @brief Reads an integer target as a float.
+   * @tparam Integer Stored integer type.
+   * @param source Pointer to the stored value; need not be aligned.
+   * @return The value converted to float.
+   */
   template <typename Integer> static float get_integer(const void *source) {
     Integer value;
     std::memcpy(&value, source, sizeof(value));
@@ -90,7 +96,11 @@ private:
   }
 
 public:
-  /** @brief Reads one value source as a float (bool maps to 0/1). */
+  /**
+   * @brief Reads one value source as a float (bool maps to 0/1).
+   * @param source Pointer to a value stored as `target_type`.
+   * @return The value as a float.
+   */
   float get_from(const void *source) const {
     switch (target_type) {
     case TargetType::FLOAT:
@@ -169,6 +179,7 @@ public:
   /**
    * @brief Whether the target's storage is whole-numbered.
    * @details False for a float-backed enum.
+   * @return True for integer targets.
    */
   bool is_integer() const {
     return target_type != TargetType::FLOAT && target_type != TargetType::BOOL;
@@ -180,7 +191,11 @@ public:
    */
   bool is_enum() const { return option_count > 0; }
 
-  /** @brief Validates and normalizes a proposed write without storing it. */
+  /**
+   * @brief Validates and normalizes a proposed write without storing it.
+   * @param value Proposed value; rewritten to the value that would be stored.
+   * @return APPLIED when the write is admissible, else the rejection reason.
+   */
   ParamSetResult normalize(float &value) const {
     if (readonly)
       return ParamSetResult::READONLY;
@@ -214,6 +229,7 @@ struct ParamList {
   /** @brief Slot count of the default inline storage. */
   static constexpr size_t FIXED_CAPACITY = HS_INLINE_PARAM_CAPACITY;
 
+  /** @return The active descriptor array, inline or external. */
   const ParamDef *data() const {
 #if HS_PARAM_EXTERNAL_STORAGE
     return external_elements != nullptr ? external_elements : elements.data();
@@ -221,6 +237,7 @@ struct ParamList {
     return elements.data();
 #endif
   }
+  /** @return Slot count of the active descriptor array. */
   size_t capacity() const {
 #if HS_PARAM_EXTERNAL_STORAGE
     return external_elements != nullptr ? external_capacity : elements.size();
@@ -256,7 +273,10 @@ struct ParamList {
    * @return The count of registered parameters.
    */
   size_t size() const { return count; }
-  /** @brief Descriptor schema-change token; 0 without the GUI bridge. */
+  /**
+   * @brief Descriptor schema-change token; 0 without the GUI bridge.
+   * @return The schema generation.
+   */
   uint32_t schema_generation() const {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     return schema_gen;
