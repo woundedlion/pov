@@ -124,17 +124,9 @@ inline void arm_warp_op_chain(In::ChainProgram &program, const char *op_id,
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
-  apply_value_set(param_as<OpParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 3), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams, OpParams,
+            In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
+      program, chain, frames, set);
 }
 
 /** Erased-vs-bound parity of the warp at entry 2. */
@@ -143,20 +135,12 @@ inline void expect_warp_op_parity(In::ChainProgram &program,
                                   const In::FrameContext &ctx,
                                   const WarpMirrorFrame &mirror) {
   program.prepare(ctx);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[2].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::PlaneSample input = projected_input(program, ctx, view);
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&input, out, ctx, program.param_block(2),
-                   program.prepared_block(2));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
-    const PB::PlaneSample reference = BoundStage::run(input, mirror, prepared);
-    HS_EXPECT_TRUE(plane_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 2, mirror,
+      [&](const math::Vector &view) {
+        return projected_input(program, ctx, view);
+      },
+      plane_identical);
 }
 
 inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {

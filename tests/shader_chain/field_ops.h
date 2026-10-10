@@ -62,17 +62,9 @@ inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
       {"op", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
-  apply_value_set(param_as<OpParams>(program, 3), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
+            In::Op::GridSampleParams, OpParams, In::Op::GeneratedPaletteParams>(
+      program, chain, frames, set);
 }
 
 /** The FIELD op's input carrier for @p view: the erased camera, projection
@@ -105,21 +97,10 @@ template <typename BoundStage>
 inline void expect_field_op_parity(In::ChainProgram &program,
                                    const In::FrameContext &ctx) {
   program.prepare(ctx);
-  const FieldMirrorFrame mirror = field_mirror(program);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[3].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::FieldSample input = field_input(program, ctx, view);
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&input, out, ctx, program.param_block(3),
-                   program.prepared_block(3));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::FieldSample *>(out));
-    const PB::FieldSample reference = BoundStage::run(input, mirror, prepared);
-    HS_EXPECT_TRUE(field_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 3, field_mirror(program),
+      [&](const math::Vector &view) { return field_input(program, ctx, view); },
+      field_identical);
 }
 
 template <typename BoundStage, typename OpParams>

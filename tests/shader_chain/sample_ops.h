@@ -150,16 +150,8 @@ inline void arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
       {"source", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
-  apply_value_set(param_as<OpParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams, OpParams,
+            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 template <typename OpParams>
@@ -171,15 +163,8 @@ inline void arm_spherical_sample_op_chain(In::ChainProgram &program,
       {"source", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<OpParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 2), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, OpParams,
+            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
@@ -251,27 +236,17 @@ inline void expect_spherical_sample_op_parity(In::ChainProgram &program,
   using BoundStage = typename PB::Stage::SampleSphere<SourceP>::template Bind<
       SampleMirrorBinding>;
   program.prepare(ctx);
-  const SampleMirrorFrame mirror = sample_mirror(program, 1);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
-  const In::OperatorDescriptor &sample_op = *program.ops()[1].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::SphereSample seed{view, 0.0f};
-    alignas(In::SLOT_ALIGN) uint8_t rotated_out[In::SLOT_SIZE];
-    rotate_op.runtime.run(&seed, rotated_out, ctx, program.param_block(0),
-                          program.prepared_block(0));
-    const auto &input =
-        *std::launder(reinterpret_cast<PB::SphereSample *>(rotated_out));
-    alignas(In::SLOT_ALIGN) uint8_t sampled_out[In::SLOT_SIZE];
-    sample_op.runtime.run(&input, sampled_out, ctx, program.param_block(1),
-                          program.prepared_block(1));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::FieldSample *>(sampled_out));
-    const PB::FieldSample reference = BoundStage::run(input, mirror, prepared);
-    HS_EXPECT_TRUE(field_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 1, sample_mirror(program, 1),
+      [&](const math::Vector &view) {
+        const PB::SphereSample seed{view, 0.0f};
+        alignas(In::SLOT_ALIGN) uint8_t rotated_out[In::SLOT_SIZE];
+        rotate_op.runtime.run(&seed, rotated_out, ctx, program.param_block(0),
+                              program.prepared_block(0));
+        return *std::launder(reinterpret_cast<PB::SphereSample *>(rotated_out));
+      },
+      field_identical);
 }
 
 /** Erased-vs-bound parity of the sample crossing at entry 2. */
@@ -279,21 +254,12 @@ template <typename BoundStage>
 inline void expect_sample_op_parity(In::ChainProgram &program,
                                     const In::FrameContext &ctx) {
   program.prepare(ctx);
-  const SampleMirrorFrame mirror = sample_mirror(program);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[2].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::PlaneSample input = projected_input(program, ctx, view);
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&input, out, ctx, program.param_block(2),
-                   program.prepared_block(2));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::FieldSample *>(out));
-    const PB::FieldSample reference = BoundStage::run(input, mirror, prepared);
-    HS_EXPECT_TRUE(field_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 2, sample_mirror(program),
+      [&](const math::Vector &view) {
+        return projected_input(program, ctx, view);
+      },
+      field_identical);
 }
 
 /** Address of a topology enum8 inside entry @p index's param block, resolved

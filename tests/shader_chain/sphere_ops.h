@@ -84,17 +84,9 @@ inline void arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(chain));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<OpParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 3), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 4), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, OpParams, In::Op::ProjectChainParams,
+            In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
+      program, chain, frames, set);
 }
 
 /** Erased-vs-bound parity of the sphere endomorphism at entry 1: identical
@@ -104,20 +96,10 @@ inline void expect_sphere_op_parity(In::ChainProgram &program,
                                     const In::FrameContext &ctx,
                                     const SphereOpMirrorFrame &mirror) {
   program.prepare(ctx);
-  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[1].op;
-  int view_index = 0;
-  for (const math::Vector &view : sweep_views()) {
-    HS_CONTEXT("view", view_index++);
-    const PB::SphereSample seed{view, 0.25f};
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&seed, out, ctx, program.param_block(1),
-                   program.prepared_block(1));
-    const auto &erased =
-        *std::launder(reinterpret_cast<PB::SphereSample *>(out));
-    const PB::SphereSample reference = BoundStage::run(seed, mirror, prepared);
-    HS_EXPECT_TRUE(sphere_identical(erased, reference));
-  }
+  expect_op_parity<BoundStage>(
+      program, ctx, 1, mirror,
+      [](const math::Vector &view) { return PB::SphereSample{view, 0.25f}; },
+      sphere_identical);
 }
 
 inline SphereOpMirrorFrame sphere_op_mirror(In::ChainProgram &program) {

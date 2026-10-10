@@ -187,16 +187,9 @@ void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
 /** Compiles the default chain and steps it @p frames times. */
 inline void arm_default_chain(In::ChainProgram &program, int frames,
                               ValueSet set) {
-  const In::ChainRefusal refusal =
-      program.compile(std::span<const In::ChainEntryRequest>(DEFAULT_CHAIN));
-  HS_EXPECT_EQ(static_cast<int>(refusal.code),
-               static_cast<int>(In::ChainStatus::OK));
-  apply_value_set(param_as<In::Op::RotateChainParams>(program, 0), set);
-  apply_value_set(param_as<In::Op::ProjectChainParams>(program, 1), set);
-  apply_value_set(param_as<In::Op::GridSampleParams>(program, 2), set);
-  apply_value_set(param_as<In::Op::GeneratedPaletteParams>(program, 3), set);
-  for (int frame = 0; frame < frames; ++frame)
-    program.advance();
+  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
+            In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
+      program, DEFAULT_CHAIN, frames, set);
 }
 
 /** @brief Runs the erased camera and projection entries (0, 1) over the seed. */

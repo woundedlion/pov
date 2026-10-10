@@ -185,3 +185,42 @@ template <typename T> void apply_value_set(T &params, ValueSet set) {
   for (const auto &field : T::FIELDS)
     params.*(field.member) = set == ValueSet::MINIMUMS ? field.min : field.max;
 }
+
+/** Compiles @p chain, applies @p set to entry i's block typed as the i-th of
+    @p Params, and steps the program @p frames times. */
+template <typename... Params>
+void arm_chain(In::ChainProgram &program,
+               std::span<const In::ChainEntryRequest> chain, int frames,
+               ValueSet set) {
+  const In::ChainRefusal refusal = program.compile(chain);
+  HS_EXPECT_EQ(static_cast<int>(refusal.code),
+               static_cast<int>(In::ChainStatus::OK));
+  size_t index = 0;
+  (apply_value_set(param_as<Params>(program, index++), set), ...);
+  for (int frame = 0; frame < frames; ++frame)
+    program.advance();
+}
+
+/** Erased-vs-bound parity of the prepared entry @p index: on @p input_of
+    each swept view, the erased op and @p BoundStage yield identical
+    @p OutCarrier values. */
+template <typename BoundStage, typename OutCarrier, typename Mirror,
+          typename InputFn>
+void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
+                      size_t index, const Mirror &mirror, InputFn input_of,
+                      bool (*identical)(const OutCarrier &,
+                                        const OutCarrier &)) {
+  const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
+  const In::OperatorDescriptor &op = *program.ops()[index].op;
+  int view_index = 0;
+  for (const math::Vector &view : sweep_views()) {
+    HS_CONTEXT("view", view_index++);
+    const auto input = input_of(view);
+    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+    op.runtime.run(&input, out, ctx, program.param_block(index),
+                   program.prepared_block(index));
+    const auto &erased = *std::launder(reinterpret_cast<OutCarrier *>(out));
+    const OutCarrier reference = BoundStage::run(input, mirror, prepared);
+    HS_EXPECT_TRUE(identical(erased, reference));
+  }
+}
