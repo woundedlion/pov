@@ -56,7 +56,7 @@ template <typename ParamsT> struct FrameState {
   Pullback::Color::PaletteMappingWeights palette_mapping;
   ComposedDetail::ResourceStorage<ComposedDetail::ResourceFrame,
                                   typename ParamsT::ResourceTypes>
-      resources;
+      resources; ///< Per-resource clocks and noise views, keyed by resource.
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
 };
 
@@ -67,14 +67,17 @@ template <typename ParamsT> struct FrameState {
  * @tparam FrameT The effect's FrameState specialization.
  */
 template <typename FrameT> struct Binding {
-  using FrameState = FrameT;
-  using Instrumentation = Pullback::NoInstrumentation;
+  using FrameState = FrameT;                           ///< Frame type.
+  using Instrumentation = Pullback::NoInstrumentation; ///< Uninstrumented.
 };
 
 /** @brief Supplies the camera orientation to Pullback::Stage::Rotate. */
 template <typename BindingT> struct OuterCameraProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Conjugate of the outer camera orientation.
+   *  @param frame Current frame.
+   *  @return `frame.outer_conjugate`. */
   __attribute__((always_inline)) static const math::Quaternion &
   conjugate(const FrameState &frame) {
     return frame.outer_conjugate;
@@ -86,16 +89,25 @@ template <typename BindingT> struct OuterCameraProvider {
  *        Pullback::Projection policies.
  */
 template <typename BindingT> struct ProjectionProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Conjugate of the projection orientation.
+   *  @param frame Current frame.
+   *  @return `frame.projection_conjugate`. */
   __attribute__((always_inline)) static const math::Quaternion &
   conjugate(const FrameState &frame) {
     return frame.projection_conjugate;
   }
+  /** @brief Projection singularity fade width.
+   *  @param frame Current frame.
+   *  @return The projection family's `singularity_fade`. */
   __attribute__((always_inline)) static float
   singularity_fade(const FrameState &frame) {
     return frame.params.template get<"projection">().singularity_fade;
   }
+  /** @brief Projection central meridian.
+   *  @param frame Current frame.
+   *  @return The projection family's `central_meridian`. */
   __attribute__((always_inline)) static float
   central_meridian(const FrameState &frame) {
     return frame.params.template get<"projection">().central_meridian;
@@ -104,8 +116,11 @@ template <typename BindingT> struct ProjectionProvider {
 
 /** @brief Supplies the Mobius coefficients to Pullback::Lens::Mobius. */
 template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief The lens's Mobius coefficients.
+   *  @param frame Current frame.
+   *  @return The `Key` family's `mobius`. */
   __attribute__((always_inline)) static const math::MobiusParams &
   params(const FrameState &frame) {
     return frame.params.template get<Key>().mobius;
@@ -116,12 +131,19 @@ template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
 template <typename BindingT, ResourceKey Key, typename Family,
           bool TrackPath = false, ResourceKey SourceKey = "source">
 struct WarpProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief The warp instance's parameters.
+   *  @param frame Current frame.
+   *  @return The `Key` family. */
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
+  /** @brief Per-frame prepared warp state.
+   *  @param frame Current frame.
+   *  @return `Pullback::Warp::prepare` of the params and clocks, or
+   *  `Pullback::NoPrepared` for a polar warp. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     using WarpT = std::remove_cvref_t<decltype(params(frame))>;
     if constexpr (std::is_same_v<WarpT, AffineParams>) {
@@ -140,13 +162,21 @@ struct WarpProvider {
       return Pullback::Warp::prepare(params(frame), phase(frame));
     }
   }
+  /** @brief The warp's phase clock.
+   *  @param frame Current frame.
+   *  @return Phase in [0, 1). */
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     return frame.resources.template get<Key>().phase;
   }
+  /** @brief The warp's noise generator.
+   *  @param frame Current frame.
+   *  @return The runtime-owned generator. */
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
+  /** @brief Whether the stage accumulates path length.
+   *  @return `TrackPath`. */
   __attribute__((always_inline)) static bool
   path_length_required(const FrameState &) {
     return TrackPath;
@@ -162,12 +192,19 @@ struct WarpProvider {
 template <typename BindingT, typename Family, bool TrackPath = false,
           ResourceKey Key = "surface">
 struct SurfaceProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief The surface's noise generator.
+   *  @param frame Current frame.
+   *  @return The runtime-owned generator. */
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
+  /** @brief Per-frame prepared surface state.
+   *  @param frame Current frame.
+   *  @return `Pullback::Surface::prepare_direct` for a directed family,
+   *  else `Pullback::Surface::prepare`. */
   __attribute__((always_inline)) static auto prepare(const FrameState &frame) {
     if constexpr (requires { frame.params.template get<Key>().direction; })
       return Pullback::Surface::prepare_direct(
@@ -177,10 +214,16 @@ struct SurfaceProvider {
       return Pullback::Surface::prepare(
           frame.resources.template get<Key>().phase);
   }
+  /** @brief The surface instance's parameters.
+   *  @param frame Current frame.
+   *  @return The `Key` family. */
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
+  /** @brief The surface's normalized phase.
+   *  @param frame Current frame.
+   *  @return Ripple: the cycle in [0, 1); others: the phase clock. */
   __attribute__((always_inline)) static float phase(const FrameState &frame) {
     using SurfaceParams = Family;
     if constexpr (std::is_same_v<SurfaceParams, PeriodicRippleParams>)
@@ -190,13 +233,21 @@ struct SurfaceProvider {
     else
       return frame.resources.template get<Key>().phase;
   }
+  /** @brief Displacement field spatial scale.
+   *  @param frame Current frame.
+   *  @return The family's `scale`. */
   __attribute__((always_inline)) static float scale(const FrameState &frame) {
     return frame.params.template get<Key>().scale;
   }
+  /** @brief Displacement strength.
+   *  @param frame Current frame.
+   *  @return The family's `strength`. */
   __attribute__((always_inline)) static float
   strength(const FrameState &frame) {
     return frame.params.template get<Key>().strength;
   }
+  /** @brief Whether the stage accumulates path length.
+   *  @return `TrackPath`. */
   __attribute__((always_inline)) static bool
   path_length_required(const FrameState &) {
     return TrackPath;
@@ -211,12 +262,19 @@ struct SurfaceProvider {
  */
 template <typename BindingT, typename Family, ResourceKey Key = "source">
 struct SourceProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief The source instance's parameters.
+   *  @param frame Current frame.
+   *  @return The `Key` family. */
   __attribute__((always_inline)) static const auto &
   params(const FrameState &frame) {
     return frame.params.template get<Key>();
   }
+  /** @brief Prepared pattern state from the source clocks.
+   *  @param frame Current frame.
+   *  @return `Pullback::Source::prepare` of the primary, secondary and
+   *  angle clocks. */
   __attribute__((always_inline)) static Pullback::Source::PreparedSource
   prepare(const FrameState &frame) {
     return Pullback::Source::prepare(
@@ -224,18 +282,30 @@ struct SourceProvider {
         frame.resources.template get<Key>().secondary,
         frame.resources.template get<Key>().angle);
   }
+  /** @brief The source's noise generator.
+   *  @param frame Current frame.
+   *  @return The runtime-owned generator. */
   __attribute__((always_inline)) static const FastNoiseLite &
   noise(const FrameState &frame) {
     return *frame.resources.template get<Key>().noise;
   }
+  /** @brief Noise spatial scale.
+   *  @param frame Current frame.
+   *  @return The family's `noise_scale`. */
   __attribute__((always_inline)) static float
   noise_scale(const FrameState &frame) {
     return frame.params.template get<Key>().noise_scale;
   }
+  /** @brief Noise time coordinate.
+   *  @param frame Current frame.
+   *  @return The source clock's `noise_time`, in [0, 1). */
   __attribute__((always_inline)) static float
   noise_time(const FrameState &frame) {
     return frame.resources.template get<Key>().noise_time;
   }
+  /** @brief Noise contrast.
+   *  @param frame Current frame.
+   *  @return The family's `noise_contrast`. */
   __attribute__((always_inline)) static float
   noise_contrast(const FrameState &frame) {
     return frame.params.template get<Key>().noise_contrast;
@@ -248,24 +318,39 @@ struct SourceProvider {
  */
 template <typename BindingT, typename Family, ResourceKey Key = "value">
 struct ValueProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Iso-contour level.
+   *  @param frame Current frame.
+   *  @return The family's `iso_level`. */
   __attribute__((always_inline)) static float
   iso_level(const FrameState &frame) {
     return frame.params.template get<Key>().iso_level;
   }
+  /** @brief Iso-contour width.
+   *  @param frame Current frame.
+   *  @return The family's `iso_width`. */
   __attribute__((always_inline)) static float
   iso_width(const FrameState &frame) {
     return frame.params.template get<Key>().iso_width;
   }
+  /** @brief Projection edge-fade width.
+   *  @param frame Current frame.
+   *  @return The family's `edge_width`. */
   __attribute__((always_inline)) static float
   edge_width(const FrameState &frame) {
     return frame.params.template get<Key>().edge_width;
   }
+  /** @brief Value-cutout threshold.
+   *  @param frame Current frame.
+   *  @return The family's `cutout_threshold`. */
   __attribute__((always_inline)) static float
   cutout_threshold(const FrameState &frame) {
     return frame.params.template get<Key>().cutout_threshold;
   }
+  /** @brief Value-cutout softness.
+   *  @param frame Current frame.
+   *  @return The family's `cutout_softness`. */
   __attribute__((always_inline)) static float
   cutout_softness(const FrameState &frame) {
     return frame.params.template get<Key>().cutout_softness;
@@ -293,67 +378,111 @@ inline bool hue_rotation_active(const ColorParams &color) {
 template <typename BindingT, HueMode HueV,
           Pullback::Color::BrightnessEnvelope BrightnessV>
 struct ColorProvider {
-  using Binding = BindingT;
-  using FrameState = typename Binding::FrameState;
+  using Binding = BindingT;                        ///< The effect's Binding.
+  using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Palette mapping weights.
+   *  @param frame Current frame.
+   *  @return `frame.palette_mapping`. */
   __attribute__((always_inline)) static Pullback::Color::PaletteMappingWeights
   mapping_weights(const FrameState &frame) {
     return frame.palette_mapping;
   }
+  /** @brief Palette mapping frequency.
+   *  @param frame Current frame.
+   *  @return The color family's `mapping_frequency`. */
   __attribute__((always_inline)) static float
   mapping_frequency(const FrameState &frame) {
     return frame.params.template get<"color">().mapping_frequency;
   }
+  /** @brief Palette mapping phase.
+   *  @param frame Current frame.
+   *  @return The color family's `mapping_phase`. */
   __attribute__((always_inline)) static float
   mapping_phase(const FrameState &frame) {
     return frame.params.template get<"color">().mapping_phase;
   }
+  /** @brief Mapping-phase oscillation depth.
+   *  @param frame Current frame.
+   *  @return The color family's `phase_oscillation_depth`. */
   __attribute__((always_inline)) static float
   oscillation_depth(const FrameState &frame) {
     return frame.params.template get<"color">().phase_oscillation_depth;
   }
+  /** @brief Mapping-phase oscillation phase.
+   *  @param frame Current frame.
+   *  @return `frame.palette_oscillation_phase`. */
   __attribute__((always_inline)) static float
   oscillation_phase(const FrameState &frame) {
     return frame.palette_oscillation_phase;
   }
+  /** @brief The cycler's current baked palette.
+   *  @param frame Current frame.
+   *  @return `*frame.palette`. */
   __attribute__((always_inline)) static const BakedPalette &
   palette(const FrameState &frame) {
     return *frame.palette;
   }
+  /** @brief Hue-rotation source.
+   *  @return `HueV`. */
   __attribute__((always_inline)) static Pullback::Color::HueMode
   hue_mode(const FrameState &) {
     return HueV;
   }
+  /** @brief Hue shift amount.
+   *  @param frame Current frame.
+   *  @return The color family's `hue_shift_amount`. */
   __attribute__((always_inline)) static float
   hue_shift_amount(const FrameState &frame) {
     return frame.params.template get<"color">().hue_shift_amount;
   }
+  /** @brief Hue-rotation LUT view.
+   *  @param frame Current frame.
+   *  @return `frame.hue_rotation_lut`, active per hue_rotation_active(). */
   __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
             hue_rotation_active<HueV>(frame.params.template get<"color">())};
   }
+  /** @brief Hue-noise LUT view.
+   *  @param frame Current frame.
+   *  @return `frame.hue_noise_lut`, active only under HueMode::NOISE
+   *  with an active rotation. */
   __attribute__((always_inline)) static Pullback::Color::HueNoiseLutView
   hue_noise(const FrameState &frame) {
     return {frame.hue_noise_lut, HueV == HueMode::NOISE &&
                                      hue_rotation_active<HueV>(
                                          frame.params.template get<"color">())};
   }
+  /** @brief Brightness envelope.
+   *  @return `BrightnessV`. */
   __attribute__((always_inline)) static Pullback::Color::BrightnessEnvelope
   brightness_envelope(const FrameState &) {
     return BrightnessV;
   }
+  /** @brief Brightness envelope floor.
+   *  @param frame Current frame.
+   *  @return The color family's `brightness_bottom`. */
   __attribute__((always_inline)) static float
   brightness_bottom(const FrameState &frame) {
     return frame.params.template get<"color">().brightness_bottom;
   }
+  /** @brief Brightness envelope ceiling.
+   *  @param frame Current frame.
+   *  @return The color family's `brightness_top`. */
   __attribute__((always_inline)) static float
   brightness_top(const FrameState &frame) {
     return frame.params.template get<"color">().brightness_top;
   }
+  /** @brief Opacity at value 0.
+   *  @param frame Current frame.
+   *  @return The color family's `opacity_low`. */
   __attribute__((always_inline)) static float
   opacity_low(const FrameState &frame) {
     return frame.params.template get<"color">().opacity_low;
   }
+  /** @brief Opacity at value 1.
+   *  @param frame Current frame.
+   *  @return The color family's `opacity_high`. */
   __attribute__((always_inline)) static float
   opacity_high(const FrameState &frame) {
     return frame.params.template get<"color">().opacity_high;

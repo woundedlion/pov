@@ -39,8 +39,8 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsFor<SpecT>>,
 #endif
 
 public:
-  using Params = ParamsT;
-  using Spec = SpecT;
+  using Params = ParamsT; ///< Keyed parameter storage derived from `SpecT`.
+  using Spec = SpecT;     ///< The effect's ranked stage Spec.
   static_assert(
       Spec::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
         p.template get<"value">().iso_level;
@@ -57,9 +57,16 @@ public:
             p.template get<"value">().cutout_softness;
           },
       "value-cutout coverage requires threshold and softness");
-  using FrameState = Pullback::FrameState<ParamsT>;
-  using Binding = Pullback::Binding<FrameState>;
+  using FrameState = Pullback::FrameState<ParamsT>; ///< Frame context type.
+  using Binding = Pullback::Binding<FrameState>;    ///< Pipeline binding.
+  /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
+  /**
+   * @brief Whether any resource of a kind samples a noise field.
+   * @tparam Kind Resource kind to test.
+   * @return True when a `Kind` resource satisfies
+   *         `ComposedDetail::RESOURCE_NOISE`.
+   */
   template <ResourceKind Kind> static consteval bool has_noise() {
     bool result = false;
     Params{}.visit([&]<typename Resource>(const auto &) {
@@ -69,10 +76,15 @@ public:
     });
     return result;
   }
+  /// Whether a surface resource samples noise.
   static constexpr bool HAS_SURFACE_NOISE = has_noise<ResourceKind::SURFACE>();
+  /// Whether a warp resource samples noise.
   static constexpr bool HAS_WARP_NOISE = has_noise<ResourceKind::WARP>();
+  /// Whether a source resource samples noise.
   static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
+  /// The Spec's pipeline bound to this effect's frame.
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
+  /// Topology metadata the Spec declares, checked against `RenderPipeline`.
   using Metadata =
       ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
   static_assert(Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
@@ -96,13 +108,14 @@ public:
       RenderPipeline::template any_stage<ComposedDetail::IsCoverageStage> ==
           (Spec::FIELD_COVERAGE != FieldCoverageKind::NONE),
       "field coverage metadata must match the pipeline");
+  /// Prepared per-frame state the pipeline shades from.
   using Frame = typename RenderPipeline::Frame;
 
   /** @brief Per-field noise seeds; an effect shadows one to decorrelate its
       field from the shared spatial phase. */
   static constexpr int32_t WARP_NOISE_SEED = EFFECT_NOISE_SEED;
-  static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;
-  static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED;
+  static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;  ///< Source.
+  static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED; ///< Surface.
 
   /** @brief Constructs the effect at W x H with the POV column strobe on. */
   HS_COLD_MEMBER ComposedEffect() : Choreography(W, H, {.strobe = true}) {}
@@ -206,6 +219,12 @@ public:
     return Pullback::valid(params);
   }
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  /**
+   * @brief Warning text for a slider whose last write was refused.
+   * @param name Parameter name.
+   * @return Lens::MobiusLensParams::DEGENERATE_WARNING when `name` is the
+   *         last refused parameter, else null.
+   */
   const char *parameter_warning(const char *name) const override {
     return refused_name != nullptr && std::strcmp(name, refused_name) == 0
                ? Lens::MobiusLensParams::DEGENERATE_WARNING
@@ -226,6 +245,15 @@ protected:
   using Choreography::params;
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
+  /**
+   * @brief Refuses a lens write that would make the lens invalid.
+   * @details Applies the write to a copy of the targeted lens family and
+   * checks it with Pullback::valid(); records the refused name for
+   * parameter_warning().
+   * @param parameter Descriptor being written.
+   * @param value Proposed value.
+   * @return False when the write is refused.
+   */
   bool parameter_write_admitted(const ParamDef &parameter,
                                 float value) override {
     bool admitted = true;
@@ -251,6 +279,7 @@ protected:
     return true;
   }
 
+  /// Name of the last refused parameter, or null after an admitted write.
   const char *refused_name = nullptr;
 #endif
 
@@ -260,6 +289,14 @@ protected:
   using Choreography::transition;
   using Choreography::use_parameter_storage;
 
+  /**
+   * @brief Slider name for a field of one resource instance.
+   * @tparam Resource The instance the field belongs to.
+   * @param name Unqualified field name.
+   * @return `name`, or a copy prefixed with the instance key and a dot,
+   *         allocated from `persistent_arena`, when the instance is
+   *         qualified.
+   */
   template <typename Resource>
   HS_COLD_MEMBER const char *resource_parameter_name(const char *name) {
     constexpr bool QUALIFY =
@@ -311,6 +348,7 @@ protected:
         target.template get<"color">().palette_mapping);
   }
 
+  /** @brief Re-derives the palette mapping weights after a slider write. */
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
     palette_mapping = Pullback::Color::PaletteMappingWeights::single(
