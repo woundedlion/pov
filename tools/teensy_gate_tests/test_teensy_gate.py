@@ -1087,8 +1087,10 @@ class TestSizeAFallback(unittest.TestCase):
                 authoritative = tg.parse_teensy_size(
                     (REAL_DIR / name.replace("size_a", "teensy_size")).read_text(
                         encoding="utf-8"))
-                self.assertLessEqual(abs(sizes["flash"]["used"] -
-                                         authoritative["flash"]["used"]), 4)
+                for field in ("used", "free"):
+                    self.assertLessEqual(abs(sizes["flash"][field] -
+                                             authoritative["flash"][field]), 4,
+                                         msg=f"flash.{field}")
                 for region in ("ram1", "ram2"):
                     for field in ("used", "free"):
                         self.assertEqual(sizes[region][field],
