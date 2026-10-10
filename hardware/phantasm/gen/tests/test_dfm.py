@@ -84,7 +84,13 @@ class SolderMaskTests(unittest.TestCase):
         for replacement in ("", '(title_block (rev "1.2"))', title + " " + title):
             with self.subTest(replacement=replacement):
                 root = sexp.parse_one(MASK_BOARD.replace(title, replacement))
-                with tempfile.TemporaryDirectory() as directory,                         mock.patch.object(fab, "OUT", directory),                         mock.patch.object(fab, "JLC", str(Path(directory) / "jlc")),                         mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"),                         mock.patch.object(fab, "read_board", return_value=root),                         mock.patch.object(fab, "run_export") as export,                         contextlib.redirect_stdout(io.StringIO()):
+                with tempfile.TemporaryDirectory() as directory, \
+                        mock.patch.object(fab, "OUT", directory), \
+                        mock.patch.object(fab, "JLC", str(Path(directory) / "jlc")), \
+                        mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"), \
+                        mock.patch.object(fab, "read_board", return_value=root), \
+                        mock.patch.object(fab, "run_export") as export, \
+                        contextlib.redirect_stdout(io.StringIO()):
                     with self.assertRaisesRegex(SystemExit, "rev 1.1 only"):
                         fab.main()
                 export.assert_not_called()
