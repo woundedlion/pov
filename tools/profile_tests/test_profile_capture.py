@@ -235,10 +235,12 @@ class TestOpenPort(unittest.TestCase):
         self.assertIn("[COM9]", str(caught.exception))
 
     def test_a_zero_window_never_touches_the_bus(self):
-        with ports(FakePort("COM3")), mock.patch.object(
-                pc.serial, "Serial", None):
+        with mock.patch.object(pc.list_ports, "comports",
+                               return_value=[FakePort("COM3")]) as comports, \
+                mock.patch.object(pc.serial, "Serial", None):
             with self.assertRaises(SystemExit):
                 pc.open_port(0.0)
+        comports.assert_not_called()
         self.assertEqual(self.clock.sleeps, [])
 
 
