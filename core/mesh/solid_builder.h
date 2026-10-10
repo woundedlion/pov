@@ -5,6 +5,10 @@
 
 // Included by core/mesh/solid_generators.h.
 
+/** @file solid_builder.h
+ * @brief Fluent Conway-operator chain builder over a ping-pong arena pair.
+ */
+
 #if defined(HS_RELAX_BAKE_VERIFY)
 /** @brief Payloads relax_baked() has re-derived and matched this run. */
 inline int relax_bakes_verified = 0;

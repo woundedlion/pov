@@ -116,6 +116,7 @@ inline constexpr float TRUNCATE_BIRTH_FRAC = 0.2f;
 /**
  * @brief Birth param of a recipe-step truncate leg.
  * @param arrival Larger endpoint of the leg's sweep.
+ * @return Birth param, at most T_EPS.
  */
 constexpr float truncate_birth_floor(float arrival) {
   return std::min(T_EPS, arrival * TRUNCATE_BIRTH_FRAC);
@@ -133,7 +134,9 @@ inline constexpr float T_EPS_TRUNCATE_PINCH = 1e-4f;
 /** @brief Returns @p t clear of the exact t = 0.5 truncate ambo short-circuit.
  * @details A far-side truncate sample landing on 0.5 is pushed to 0.5 +
  * T_EPS_TRUNCATE_PINCH so the leg stays on the constant-topology truncate
- * branch through the pinch instead of emitting one ambo frame. */
+ * branch through the pinch instead of emitting one ambo frame.
+ * @param t Truncate param.
+ * @return @p t, or 0.5 + T_EPS_TRUNCATE_PINCH when @p t is exactly 0.5. */
 inline constexpr float truncate_off_pinch(float t) {
   return t == 0.5f ? 0.5f + T_EPS_TRUNCATE_PINCH : t;
 }
@@ -248,12 +251,19 @@ static_assert(NUM_EDGES == 23);
  * @brief Whether an edge is the icosahedron <-> octahedron jitterbug bridge:
  * a snub sweep whose t = 0.5 end collapses onto the octahedron by pairwise
  * vertex merge.
+ * @param e Edge to test.
+ * @return True for the jitterbug bridge.
  */
 constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
   return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
 }
 
-/** @brief Clamps an edge endpoint inside its topology-constant interval. */
+/**
+ * @brief Clamps an edge endpoint inside its topology-constant interval.
+ * @param edge Edge whose operator sets the interval.
+ * @param t Endpoint param.
+ * @return Clamped param.
+ */
 constexpr float clamp_edge_endpoint(const EdgeSpec &edge, float t) {
   t = std::max(t, T_EPS);
   if (edge.op == MorphOp::TRUNCATE)
@@ -542,6 +552,7 @@ inline constexpr int ORDERED_TOUR_LEN =
 /**
  * @brief Whether ORDERED_TOUR is a closed walk from TETRAHEDRON covering
  * every node.
+ * @return True when the tour is valid.
  */
 constexpr bool ordered_tour_valid() {
   bool seen[NUM_NODES] = {};
@@ -566,6 +577,7 @@ static_assert(ordered_tour_valid());
 /**
  * @brief Whether ORDERED_TOUR traverses every settle edge and every family
  * bridge.
+ * @return True when every heavy leg is covered.
  */
 constexpr bool ordered_tour_covers_heavy_legs() {
   bool has[NUM_EDGES] = {};
@@ -670,14 +682,27 @@ constexpr SeedFix seed_fix_at_start(int edge, int held_identity) {
   return SeedFix::INVALID;
 }
 
-/** @brief Whether a completed graph leg adopts its arrival as the seed. */
+/**
+ * @brief Whether a completed graph leg adopts its arrival as the seed.
+ * @param edge Completed leg.
+ * @param arrived Registry index of the node the leg arrived at.
+ * @param arrived_at_to True when the leg arrived at `EdgeSpec::to_node`.
+ * @return True when the arrival becomes the held seed.
+ */
 constexpr bool adopts_seed(const EdgeSpec &edge, int arrived,
                            bool arrived_at_to) {
   return edge.reseed == Reseed::ADOPT && is_platonic(arrived) &&
          (arrived_at_to || arrived == ICOSAHEDRON);
 }
 
-/** @brief Resolves a departing leg's held identity; INVALID marks corrupt state. */
+/**
+ * @brief Resolves a departing leg's held identity; INVALID marks corrupt state.
+ * @param edge Index into EDGES of the leg about to start.
+ * @param node Registry index of the node the leg departs from.
+ * @param held Registry index of the currently held seed solid.
+ * @param fix Receives the SeedFix to apply.
+ * @return Held seed identity after the fix.
+ */
 constexpr int reconciled_seed_identity(int edge, int node, int held,
                                        SeedFix &fix) {
   fix = seed_fix_at_start(edge, held);
