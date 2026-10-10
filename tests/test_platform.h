@@ -16,6 +16,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
 #include <string_view>
 #include <vector>
 
@@ -292,6 +293,50 @@ inline void test_stdout_formatting() {
                std::string_view(EXPECTED, sizeof(EXPECTED) - 1));
 }
 
+/**
+ * @brief Verifies failing expects are counted, past the print cap included,
+ *        and that an assertion-free module fails.
+ */
+inline void test_harness_counts_failures() {
+  const Stats saved = stats();
+  const FailPrintBudget saved_budget = fail_print_budget();
+  constexpr int EXTRA = 5;
+  int failed_delta = -1;
+  int passed_delta = -1;
+  int suppressed = -1;
+  int empty_module = -1;
+  const auto text = capture_stdout([&] {
+    const Stats before = stats();
+    fail_print_budget() = FailPrintBudget{};
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double inf = std::numeric_limits<double>::infinity();
+    HS_EXPECT_TRUE(false);
+    HS_EXPECT_EQ(1, 2);
+    HS_EXPECT_NEAR(nan, nan, 1.0);
+    HS_EXPECT_NEAR(inf, inf, 1.0);
+    HS_EXPECT_STREQ(nullptr, "");
+    for (int i = 0; i < FAIL_PRINT_CAP + EXTRA; ++i)
+      HS_EXPECT_TRUE(false);
+    failed_delta = stats().failed - before.failed;
+    passed_delta = stats().passed - before.passed;
+    suppressed = fail_print_budget().suppressed;
+    empty_module = end_module(begin_module("harness_empty"));
+  });
+  stats() = saved;
+  fail_print_budget() = saved_budget;
+
+  HS_EXPECT_TRUE(text.has_value());
+  HS_EXPECT_EQ(failed_delta, 5 + FAIL_PRINT_CAP + EXTRA);
+  HS_EXPECT_EQ(passed_delta, 0);
+  HS_EXPECT_EQ(suppressed, 5 + EXTRA);
+  HS_EXPECT_EQ(empty_module, 1);
+  HS_EXPECT_FALSE(approx(std::nanf(""), std::nanf(""), 1.0f));
+  HS_EXPECT_FALSE(approx(std::numeric_limits<float>::infinity(),
+                         std::numeric_limits<float>::infinity(), 1.0f));
+  HS_EXPECT_FALSE(str_equal(nullptr, ""));
+  HS_EXPECT_TRUE(str_equal(nullptr, nullptr));
+}
+
 /** @brief Verifies debug telemetry starts off and is foreground-configurable. */
 inline void test_debug_telemetry_configuration() {
   static_assert(!hs::DEBUG_TELEMETRY_DEFAULT);
@@ -501,6 +546,7 @@ inline int run_platform_tests() {
   test_beatsin8_faithful();
   test_beatsin16_golden();
   test_stdout_formatting();
+  test_harness_counts_failures();
   test_debug_telemetry_configuration();
   test_every_n_seconds_quantizes();
 
