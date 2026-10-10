@@ -53,8 +53,9 @@ constexpr float STAR_RECURRENCE_DRIFT =
     32.0f * std::numeric_limits<float>::epsilon();
 
 /**
- * @brief Star radius-trig reuse reproduces per-vertex evaluation, and the two
- *        sampling entry points place the same vertices.
+ * @brief Star radius-trig reuse reproduces per-vertex evaluation, the two
+ *        sampling entry points place the same vertices, and the ring registers
+ *        carry vertex fraction, cumulative arc length and vertex index.
  * @details Cached and uncached sample_positions() are compared bit for bit.
  */
 inline void test_star_sample_radius_trig_parity() {
@@ -67,11 +68,9 @@ inline void test_star_sample_radius_trig_parity() {
       for (float phase : {-7.1f, 0.0f, 2.37f}) {
         ScratchScope iteration(plot_arena());
         Fragments actual;
-        Fragments reference;
         Fragments positions;
         Fragments cached_positions;
         actual.bind(plot_arena(), sides * 2 + 2);
-        reference.bind(plot_arena(), sides * 2 + 2);
         positions.bind(plot_arena(), sides * 2 + 2);
         cached_positions.bind(plot_arena(), sides * 2 + 2);
         Plot::Star<Plot::PlanarProjection>::sample(actual, b, radius, sides,
@@ -88,7 +87,9 @@ inline void test_star_sample_radius_trig_parity() {
         const float outer_radius = res.second * (math::PI_F / 2.0f);
         const float inner_radius = outer_radius * Plot::STAR_INNER_RATIO;
         const float angle_step = math::PI_F / sides;
-        Plot::sample_closed_ring(reference, sides * 2, [&](int i) {
+        const int verts = sides * 2;
+        std::vector<math::Vector> reference(verts);
+        for (int i = 0; i < verts; ++i) {
           const float theta = phase + i * angle_step;
           const float r = (i % 2 == 0) ? outer_radius : inner_radius;
           const float sin_r = sinf(r);
@@ -99,20 +100,30 @@ inline void test_star_sample_radius_trig_parity() {
                            (work_basis.u * (cos_t * sin_r)) +
                            (work_basis.w * (sin_t * sin_r));
           p.normalize();
-          return p;
-        });
+          reference[i] = p;
+        }
 
-        HS_EXPECT_SIZE_OR_RETURN(actual, reference.size());
+        HS_EXPECT_SIZE_OR_RETURN(actual, static_cast<size_t>(verts + 1));
         HS_EXPECT_SIZE_OR_RETURN(actual, positions.size());
         HS_EXPECT_SIZE_OR_RETURN(positions, cached_positions.size());
+        double arc_total = 0.0;
         for (size_t i = 0; i < actual.size(); ++i) {
           HS_CONTEXT("star vertex", static_cast<long long>(i));
+          const math::Vector &ref = reference[i % verts];
           // Separately-written expression tree: tolerance, not bit equality.
-          HS_EXPECT_NEAR(actual[i].pos.x, reference[i].pos.x, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.y, reference[i].pos.y, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.z, reference[i].pos.z, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].v0, reference[i].v0, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].v1, reference[i].v1, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.x, ref.x, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.y, ref.y, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].pos.z, ref.z, 1e-6f);
+          HS_EXPECT_NEAR(actual[i].v0, static_cast<float>(i) / verts, 1e-6f);
+          HS_EXPECT_EQ(actual[i].v2, static_cast<float>(i));
+          if (i > 0) {
+            const float arc =
+                math::angle_between(actual[i - 1].pos, actual[i].pos);
+            arc_total += arc;
+            HS_EXPECT_NEAR(actual[i].v1 - actual[i - 1].v1, arc, 1e-5f);
+          } else {
+            HS_EXPECT_EQ(actual[i].v1, 0.0f);
+          }
           // Recurrence positions omit per-vertex normalization.
           HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x,
                          STAR_RECURRENCE_DRIFT);
@@ -130,6 +141,7 @@ inline void test_star_sample_radius_trig_parity() {
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);
         }
+        HS_EXPECT_NEAR_REL(actual.back().v1, arc_total, 4e-6);
       }
     }
   }
