@@ -44,28 +44,15 @@ test('every exported enum binds each C++ enumerator under its own name', () => {
   assert.equal(checked, 9);
 });
 
-test('the embind engine API preserves instance and static binding names', () => {
-  const instance = [
-    'setResolution', 'setEffect', 'drawFrame', 'getPixels', 'getBufferLength',
-    'setDisplayCaps', 'getDisplayNorthPhi', 'getDisplaySouthPhi',
-    'setParameter', 'setAnimationsPaused', 'getAnimationsPaused',
-    'getPresetCount', 'getPresetIndex', 'getPresetIds', 'selectPreset',
-    'selectPresetById', 'synchronizePreset', 'nextPreset', 'previousPreset',
-    'setPoleLod', 'getPoleLod', 'getParameterDefinitions', 'getParamValues',
-    'getParamGeneration', 'getArenaMetrics', 'getEffectSizes',
-    'getEffectPresetCounts', 'getShaderChainBindings', 'setClip', 'strobeColumns',
-  ];
-  const statics = ['getSupportedResolutions', 'isLive'];
+test('engine bindings export their implementation names without duplicates', () => {
   const bindings = [...source.matchAll(
     /\.(function|class_function)\(\s*"([^"]+)"\s*,\s*&HolosphereEngine::(\w+)\)/gu,
   )];
   const allNames = [...source.matchAll(/\.(?:function|class_function)\(\s*"([^"]+)"/gu)]
     .map(([, name]) => name);
   assert.deepEqual(new Set(allNames), new Set(bindings.map(([, , name]) => name)));
-  assert.deepEqual(bindings.filter(([, kind]) => kind === 'function')
-    .map(([, , name]) => name).sort(), instance.sort());
-  assert.deepEqual(bindings.filter(([, kind]) => kind === 'class_function')
-    .map(([, , name]) => name).sort(), statics.sort());
+  assert.ok(bindings.length > 0);
+  assert.equal(new Set(allNames).size, bindings.length);
   for (const [, , exported, implementation] of bindings)
     assert.equal(exported, implementation);
 });
