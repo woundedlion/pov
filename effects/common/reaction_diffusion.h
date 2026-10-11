@@ -89,7 +89,7 @@ protected:
    * @details clamp bounds the input so 65535.5 -> 65535 with no overflow.
    */
   static __attribute__((always_inline)) inline uint16_t to_q16(float v) {
-    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
+    return frac_to_q16(v);
   }
 
   // Compact biweight kernel (C1 at the support edge): w(d) = max(0, 1 - d²/R²)²
