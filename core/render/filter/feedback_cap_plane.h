@@ -161,8 +161,6 @@ private:
     // Sign-cleared bit patterns order like the magnitudes.
     const bool steep = (y_bits & 0x7fffffffu) > (x_bits & 0x7fffffffu);
     const float abs_y = fabsf(y), abs_x = fabsf(x);
-    // A floor on the denominator keeps a pair's shared product normal; only
-    // the undefined longitude at an exact pole reaches it.
     return {steep ? abs_x : abs_y, fmaxf(steep ? abs_y : abs_x, 1e-6f), steep,
             (x_bits >> 31) != 0, (y_bits >> 31) != 0};
   }
