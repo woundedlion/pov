@@ -203,6 +203,22 @@ class TestFileBlocks(unittest.TestCase):
             self.assertEqual(
                 cov.missing_file_blocks(root, ["a.h", "b.h", "c.h"]), ["c.h"])
 
+    def test_missing_tracked_source_is_a_path_qualified_tooling_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with mock.patch.object(cov, "source_files", return_value=["missing.h"]), \
+                 contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(cov.main(["--root", str(root)]), 2)
+            self.assertIn("missing.h:1: cannot read source", errors.getvalue())
+            (root / "exists.h").write_text("/** @file */", encoding="utf-8")
+            with mock.patch.object(cov, "source_files", return_value=["exists.h"]), \
+                 mock.patch.object(cov, "run_doxygen", return_value=""), \
+                 mock.patch.object(cov, "missing_file_blocks", return_value=[]), \
+                 mock.patch.object(cov, "read_source", side_effect=OSError("exists.h:1: unreadable")), \
+                 contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(cov.main(["--root", str(root)]), 2)
+            self.assertIn("exists.h:1:", errors.getvalue())
+
     def test_source_files_apply_patterns_and_excludes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
