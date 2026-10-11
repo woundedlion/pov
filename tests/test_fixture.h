@@ -133,7 +133,7 @@ inline void reset_globals() {
  * unspecified, so a multi-argument call reorders the stream per compiler.
  */
 inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
-  return lo + hs::random_to_unit(rng(), hs::Pcg32::max()) * (hi - lo);
+  return lo + hs::random_to_unit(rng()) * (hi - lo);
 }
 
 /**
