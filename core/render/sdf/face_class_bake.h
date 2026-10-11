@@ -227,15 +227,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
               min_y = std::min(min_y, cy);
               max_y = std::max(max_y, cy);
             });
-        const float rx =
-            std::max((max_x - min_x) * 0.5f + SDF::BOUNDS_MARGIN_WIDE, 0.01f);
-        const float ry =
-            std::max((max_y - min_y) * 0.5f + SDF::BOUNDS_MARGIN_WIDE, 0.01f);
+        const auto [HALF_X, HALF_Y] =
+            SDF::canonical_lut_half_extents(min_x, max_x, min_y, max_y);
         // The finest allowed grid has the smallest runtime deviation cap.
         const float step = 2.0f / (CLASS_LUT_MAX_N - 1);
         const float cap_sq = SDF::ALIGN_MAX_DEV_DIAGS *
                              SDF::ALIGN_MAX_DEV_DIAGS * step * step *
-                             (rx * rx + ry * ry);
+                             (HALF_X * HALF_X + HALF_Y * HALF_Y);
         bindable = max_dev_sq <= cap_sq;
       }
     }
@@ -309,7 +307,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
     // Size the grid so the cell diagonal lands on target_diag (the box gains
-    // BOUNDS_MARGIN_WIDE per side inside the builder, mirrored here).
+    // including the canonical LUT margin).
     float bmin_x = FLT_MAX, bmax_x = -FLT_MAX, bmin_y = FLT_MAX,
           bmax_y = -FLT_MAX;
     for (int k = 0; k < cls.n_verts; ++k) {
@@ -318,12 +316,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       bmin_y = std::min(bmin_y, cls.canon_xy[2 * k + 1]);
       bmax_y = std::max(bmax_y, cls.canon_xy[2 * k + 1]);
     }
-    float Rx = (bmax_x - bmin_x) * 0.5f + SDF::BOUNDS_MARGIN_WIDE;
-    float Ry = (bmax_y - bmin_y) * 0.5f + SDF::BOUNDS_MARGIN_WIDE;
-    int n = static_cast<int>(
-        hs::clamp(ceilf(2.0f * sqrtf(Rx * Rx + Ry * Ry) / target_diag) + 1.0f,
-                  static_cast<float>(CLASS_LUT_MIN_N),
-                  static_cast<float>(CLASS_LUT_MAX_N)));
+    const auto [HALF_X, HALF_Y] =
+        SDF::canonical_lut_half_extents(bmin_x, bmax_x, bmin_y, bmax_y);
+    int n = static_cast<int>(hs::clamp(
+        ceilf(2.0f * sqrtf(HALF_X * HALF_X + HALF_Y * HALF_Y) / target_diag) +
+            1.0f,
+        static_cast<float>(CLASS_LUT_MIN_N),
+        static_cast<float>(CLASS_LUT_MAX_N)));
     // Degrade resolution before dropping a class.
     size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
     if (bytes > budget) {
