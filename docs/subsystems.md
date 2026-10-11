@@ -394,7 +394,7 @@ animations. GnomonicStars spawns one pinned warp per effect initialization.
 `Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. The `Filter::World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
 
 ```cpp
-timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, true));
+timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
 // orientation.length() upsamples to min(substeps + 1, CAP) when larger
 // Filter::World::Orient distributes all steps → motion blur
 ```
@@ -451,7 +451,7 @@ const GenerativePalette::Snapshot palette_start = palette.snapshot();
 const GenerativePalette::Snapshot palette_target = target_palette.snapshot();
 
 // Timeline drives state via animations:
-timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, true));
+timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
 timeline.add(0, Animation::Transition(twist, 2.5f, 1000, ease_in_out_cubic));
 timeline.add(0, Animation::ColorWipe(palette, palette_start, palette_target, 2000, ease_linear));
 

@@ -31,8 +31,8 @@ inline void test_mobiuswarp_closes_at_completion() {
   math::MobiusParams params;
   const float scale = 0.4f;
   const int duration = 8;
-  Animation::MobiusWarp warp(params, scale, duration, /*repeat=*/false,
-                             math::ease_linear);
+  Animation::MobiusWarp warp(params, scale, duration,
+                             {.repeat = false, .easing = math::ease_linear});
   HS_EXPECT_FALSE(warp.done());
 
   warp.step(fake_canvas()); // t=1: b lifts off the origin
@@ -52,8 +52,10 @@ inline void test_mobiuswarp_closes_at_completion() {
 inline void test_mobiuswarp_retains_last_finite_scale() {
   math::MobiusParams params, reference;
   float live = 0.4f;
-  Animation::MobiusWarp warp(params, 0.1f, 8, false, math::ease_linear);
-  Animation::MobiusWarp expected(reference, 0.4f, 8, false, math::ease_linear);
+  Animation::MobiusWarp warp(params, 0.1f, 8,
+                             {.repeat = false, .easing = math::ease_linear});
+  Animation::MobiusWarp expected(
+      reference, 0.4f, 8, {.repeat = false, .easing = math::ease_linear});
   warp.bind_scale(live);
   warp.step(fake_canvas());
   expected.step(fake_canvas());
@@ -72,8 +74,8 @@ inline void test_mobiuswarp_bind_scale_reads_live() {
   math::MobiusParams params;
   float live = 1.0f;
   const int duration = 4;
-  Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration, /*repeat=*/false,
-                             math::ease_linear);
+  Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration,
+                             {.repeat = false, .easing = math::ease_linear});
   warp.bind_scale(live);
   warp.step(
       fake_canvas()); // captured scale is 0, so any motion comes from live
@@ -88,8 +90,8 @@ inline void test_mobiuswarp_circular_traces_radius() {
   math::MobiusParams params;
   const float scale = 0.3f;
   const int duration = 8;
-  Animation::MobiusWarpCircular warp(params, scale, duration, /*repeat=*/false,
-                                     math::ease_linear);
+  Animation::MobiusWarpCircular warp(
+      params, scale, duration, {.repeat = false, .easing = math::ease_linear});
   warp.step(fake_canvas()); // |b| sits on the scale-radius circle every frame
   HS_EXPECT_NEAR(
       std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), scale,
@@ -122,8 +124,9 @@ inline void test_mobiuswarp_circular_bind_scale_reads_live() {
   math::MobiusParams params;
   float live = 0.5f;
   const int duration = 4;
-  Animation::MobiusWarpCircular warp(params, /*scale=*/0.0f, duration,
-                                     /*repeat=*/false, math::ease_linear);
+  Animation::MobiusWarpCircular warp(
+      params, /*scale=*/0.0f, duration,
+      {.repeat = false, .easing = math::ease_linear});
   warp.bind_scale(live);
   warp.step(fake_canvas()); // captured scale is 0: any radius comes from live
   HS_EXPECT_NEAR(

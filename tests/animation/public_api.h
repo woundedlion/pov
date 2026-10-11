@@ -58,7 +58,7 @@ inline void test_random_timer_fires_within_range() {
  * @details Timeline's pin-completion guard exempts is_canceled() animations.
  */
 inline void test_one_shot_timer_ends_by_completion_not_cancel() {
-  Animation::PeriodicTimer periodic(2, [](Canvas &) {}, /*repeat=*/false);
+  Animation::PeriodicTimer periodic(2, [](Canvas &) {}, {.repeat = false});
   periodic.step(fake_canvas());
   HS_EXPECT_FALSE(periodic.done());
   periodic.step(fake_canvas()); // t=2: fires and ends itself
@@ -141,13 +141,12 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
     int fires = 0;
     int frame = 0;
   } st;
-  Animation::PeriodicTimer timer(
-      5,
-      [&st](Canvas &) {
-        st.fires++;
-        st.fire_frame = st.frame;
-      },
-      /*repeat=*/true);
+  Animation::PeriodicTimer timer(5,
+                                 [&st](Canvas &) {
+                                   st.fires++;
+                                   st.fire_frame = st.frame;
+                                 },
+                                 {.repeat = true});
   st.frame = 1;
   timer.step(fake_canvas());
   timer.set_period(3);
@@ -166,7 +165,8 @@ inline void test_periodic_timer_set_period_reschedules_from_now() {
 inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   for (int period : {0, -1, std::numeric_limits<int>::min()}) {
     int calls = 0;
-    Animation::PeriodicTimer clamped(period, [&](Canvas &) { ++calls; }, true);
+    Animation::PeriodicTimer clamped(period, [&](Canvas &) { ++calls; },
+                                     {.repeat = true});
     for (int frame = 0; frame < 3; ++frame) {
       clamped.step(fake_canvas());
       HS_EXPECT_EQ(calls, frame + 1);
@@ -181,8 +181,8 @@ inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
   struct {
     int fires = 0;
   } st;
-  Animation::PeriodicTimer timer(
-      4, [&st](Canvas &) { st.fires++; }, /*repeat=*/true);
+  Animation::PeriodicTimer timer(4, [&st](Canvas &) { st.fires++; },
+                                 {.repeat = true});
   for (int frame = 1; frame <= 8; ++frame) {
     timer.set_period(4); // live-slider write with no change
     timer.step(fake_canvas());
@@ -198,7 +198,7 @@ inline void test_mobiusflow_degenerate_inputs_remain_finite() {
   for (float rings : {-1.0f, NAN_VALUE, INF_VALUE}) {
     for (float lines : {0.0f, NAN_VALUE, INF_VALUE}) {
       math::MobiusParams params;
-      Animation::MobiusFlow flow(params, rings, lines, 8, false);
+      Animation::MobiusFlow flow(params, rings, lines, 8, {.repeat = false});
       flow.step(fake_canvas());
       HS_EXPECT_TRUE(std::isfinite(params.a.re));
       HS_EXPECT_TRUE(std::isfinite(params.a.im));
@@ -219,8 +219,9 @@ inline void test_mobiusflow_nonfinite_live_input_holds_last_value() {
   math::MobiusParams held_params, ref_params;
   float rings = 3.0f, lines = 5.0f;
   const float ref_rings = 3.0f, ref_lines = 5.0f;
-  Animation::MobiusFlow held(held_params, rings, lines, 8, false);
-  Animation::MobiusFlow ref(ref_params, ref_rings, ref_lines, 8, false);
+  Animation::MobiusFlow held(held_params, rings, lines, 8, {.repeat = false});
+  Animation::MobiusFlow ref(ref_params, ref_rings, ref_lines, 8,
+                            {.repeat = false});
   held.step(fake_canvas());
   ref.step(fake_canvas());
   for (float bad : {NAN_VALUE, INF_VALUE}) {
@@ -243,7 +244,7 @@ inline void test_mobiusflow_step_preserves_unit_product() {
   math::MobiusParams params;
   const float rings = 2.0f, lines = 4.0f;
   const int duration = 8;
-  Animation::MobiusFlow flow(params, rings, lines, duration, /*repeat=*/false);
+  Animation::MobiusFlow flow(params, rings, lines, duration, {.repeat = false});
   for (int i = 0; i < duration; ++i) {
     flow.step(fake_canvas());
     const double progress = static_cast<double>(i + 1) / duration;
@@ -295,7 +296,7 @@ inline void test_motion_set_duration_below_position_rescales() {
     return math::Vector(std::cos(a), std::sin(a), 0.0f);
   };
   Ori o;
-  Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
+  Animation::Motion<288, 16> motion(o, path, 60, {.repeat = true});
 
   const math::Vector probe = math::X_AXIS;
   for (int i = 0; i < 40; ++i)

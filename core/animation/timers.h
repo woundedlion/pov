@@ -108,23 +108,43 @@ private:
   int max; /**< Maximum frame delay. */
 };
 
+/** @brief Repeat behaviour of a PeriodicTimer. */
+struct PeriodicTimerOptions {
+  /** @brief Resets the timer after each call instead of ending it. */
+  bool repeat = false;
+};
+
 /**
  * @brief An animation that triggers a callback at regular intervals.
  */
 class PeriodicTimer : public TimerBase<PeriodicTimer> {
 public:
+  using Options = PeriodicTimerOptions; ///< Repeat behaviour.
+
   /**
    * @brief Constructs a PeriodicTimer.
    * @param period The interval between calls, in frames; clamped to >= 1, so
    * period 0 fires on the next step.
    * @param f The function to call when the timer elapses.
-   * @param repeat If true, the timer resets after calling the function.
+   * @param options Repeat behaviour.
    */
-  PeriodicTimer(int period, TimerFn f, bool repeat = false)
+  HS_HOT_INLINE PeriodicTimer(int period, TimerFn f,
+                              const Options &options = {})
+      : PeriodicTimer(period, std::move(f), options.repeat) {}
+
+private:
+  /**
+   * @brief Positional form of the Options constructor.
+   * @param period The interval between calls, in frames; clamped to >= 1.
+   * @param f The function to call when the timer elapses.
+   * @param repeat Resets the timer after each call instead of ending it.
+   */
+  PeriodicTimer(int period, TimerFn &&f, bool repeat)
       : TimerBase(std::move(f), repeat), period(clamp_period(period)) {
     reset();
   }
 
+public:
   /**
    * @brief Schedules the next periodic active-frame delay.
    */
