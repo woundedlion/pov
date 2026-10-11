@@ -193,9 +193,8 @@ inline void test_timeline_rollover_preserves_eligibility() {
          Animation::Transition(delayed, 1.0f, 1, math::ease_linear).then([&]() {
            ++completions;
          }));
-  tl.add(0,
-         Animation::Mutation(
-             repeating, [](float p) { return p; }, 2, math::ease_linear, true));
+  tl.add(0, Animation::Mutation(repeating, [](float p) { return p; }, 2,
+                                math::ease_linear, {.repeat = true}));
   for (int frame = 1; frame <= 6; ++frame) {
     tl.step(fake_canvas());
     HS_EXPECT_EQ(steps, frame);
@@ -284,9 +283,8 @@ inline void test_timers_rollover_preserves_intervals() {
 inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   Timeline tl;
   float v = -1.0f;
-  tl.add(0, Animation::Mutation(
-                v, [](float e) { return e; }, 2, math::ease_linear,
-                /*repeat=*/true));
+  tl.add(0, Animation::Mutation(v, [](float e) { return e; }, 2,
+                                math::ease_linear, {.repeat = true}));
 
   tl.step(fake_canvas()); // t=1 -> v = eased(0.5) = 0.5
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
@@ -308,9 +306,8 @@ inline void test_timeline_cancel_removes_repeating_animation() {
   Timeline tl;
   float v = -1.0f;
   auto *h = tl.add_get(0,
-                       Animation::Mutation(
-                           v, [](float e) { return e; }, 2, math::ease_linear,
-                           /*repeat=*/true),
+                       Animation::Mutation(v, [](float e) { return e; }, 2,
+                                           math::ease_linear, {.repeat = true}),
                        Timeline::Pin::PINNED);
   tl.step(fake_canvas());
   tl.step(fake_canvas()); // completes a cycle, rewinds, and stays (repeating)
@@ -343,9 +340,8 @@ inline void test_timeline_repeating_canceled_in_callback_fires_then_once() {
     Animation::Mutation *anim = nullptr;
   } st;
   st.anim = tl.add_get(0,
-                       Animation::Mutation(
-                           v, [](float e) { return e; }, 2, math::ease_linear,
-                           /*repeat=*/true)
+                       Animation::Mutation(v, [](float e) { return e; }, 2,
+                                           math::ease_linear, {.repeat = true})
                            .then([&st]() {
                              st.thens++;
                              st.anim->cancel();
@@ -452,12 +448,12 @@ inline void test_timeline_cancel_before_start() {
     Timeline tl;
     float value = -1.0f;
     int callbacks = 0;
-    auto *event = tl.add_get(
-        100,
-        Animation::Mutation(
-            value, [](float e) { return e; }, 4, math::ease_linear, true)
-            .then([&] { ++callbacks; }),
-        Timeline::Pin::PINNED, &paused);
+    auto *event =
+        tl.add_get(100,
+                   Animation::Mutation(value, [](float e) { return e; }, 4,
+                                       math::ease_linear, {.repeat = true})
+                       .then([&] { ++callbacks; }),
+                   Timeline::Pin::PINNED, &paused);
     tl.step(fake_canvas());
     HS_EXPECT_EQ(tl.event_count(), 1);
     event->cancel();
@@ -477,9 +473,8 @@ inline void test_timeline_cancel_while_paused_removes_event() {
   float v = -1.0f;
   int thens = 0;
   auto *h = tl.add_get(0,
-                       Animation::Mutation(
-                           v, [](float e) { return e; }, 4, math::ease_linear,
-                           /*repeat=*/true)
+                       Animation::Mutation(v, [](float e) { return e; }, 4,
+                                           math::ease_linear, {.repeat = true})
                            .then([&]() { thens++; }),
                        Timeline::Pin::PINNED, &paused);
   tl.step(fake_canvas()); // starts while unpaused
