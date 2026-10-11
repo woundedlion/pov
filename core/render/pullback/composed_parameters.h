@@ -115,14 +115,6 @@ inline bool valid(const ComposedDetail::ParameterSet<
   return result;
 }
 
-/** @brief Noise-field storage; empty when disabled.
-    @tparam Enabled Whether the field is stored. */
-template <bool Enabled> struct OptionalNoise {};
-/** @brief Enabled noise-field storage. */
-template <> struct OptionalNoise<true> {
-  FastNoiseLite noise; ///< The resource's noise field.
-};
-
 /** @brief Hue-rotation LUT storage; empty when the effect never rotates hue. */
 template <bool Enabled> struct OptionalHueRotationLut {};
 /** @brief Enabled hue-rotation LUT storage. */

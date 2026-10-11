@@ -195,54 +195,6 @@ struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
 };
 
 /**
- * @brief Maps a `TransferKind` to its `Pullback::Transfer` policy, exposed as
- *        `Type`; undefined for `TransferKind::NONE`.
- * @tparam TransferV Transfer kind.
- * @tparam Binding Frame binding of the effect.
- * @tparam Family Value parameter family; void when none is read.
- */
-template <TransferKind TransferV, typename Binding, typename Family = void>
-struct TransferPolicyFor;
-/**
- * @brief Iso-contour transfer.
- * @tparam B Frame binding.
- * @tparam Family Value parameter family.
- */
-template <typename B, typename Family>
-struct TransferPolicyFor<TransferKind::ISO_CONTOUR, B, Family> {
-  using Type = Pullback::Transfer::IsoContour<ValueProvider<B, Family>>;
-};
-
-/**
- * @brief Maps a `TransferKind` to its `Stage::Transfer`, exposed as `Type`
- *        (void for `TransferKind::NONE`).
- * @tparam TransferV Transfer kind.
- * @tparam Binding Frame binding of the effect.
- * @tparam Family Value parameter family; void when none is read.
- */
-template <TransferKind TransferV, typename Binding, typename Family = void>
-struct TransferStageFor;
-/**
- * @brief No transfer stage.
- * @tparam B Frame binding.
- * @tparam Family Value parameter family.
- */
-template <typename B, typename Family>
-struct TransferStageFor<TransferKind::NONE, B, Family> {
-  using Type = void;
-};
-/**
- * @brief Iso-contour transfer stage.
- * @tparam B Frame binding.
- * @tparam Family Value parameter family.
- */
-template <typename B, typename Family>
-struct TransferStageFor<TransferKind::ISO_CONTOUR, B, Family> {
-  using Type = Pullback::Stage::Transfer<
-      typename TransferPolicyFor<TransferKind::ISO_CONTOUR, B, Family>::Type>;
-};
-
-/**
  * @brief Maps a `ProjectionCoverageMode` to its `Pullback::ProjectionCoverage`
  *        policy, exposed as `Type`.
  * @tparam CoverageV Coverage mode.
@@ -287,33 +239,4 @@ struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B, Family> {
 template <typename B, typename Family>
 struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B, Family> {
   using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B, Family>>;
-};
-
-/**
- * @brief Maps a `FieldCoverageKind` to its `Stage::ApplyCoverage`, exposed as
- *        `Type` (void for `FieldCoverageKind::NONE`).
- * @tparam CoverageV Field coverage kind.
- * @tparam Binding Frame binding of the effect.
- * @tparam Family Value parameter family; void when none is read.
- */
-template <FieldCoverageKind CoverageV, typename Binding, typename Family = void>
-struct FieldCoverageStageFor;
-/**
- * @brief No field coverage stage.
- * @tparam B Frame binding.
- * @tparam Family Value parameter family.
- */
-template <typename B, typename Family>
-struct FieldCoverageStageFor<FieldCoverageKind::NONE, B, Family> {
-  using Type = void;
-};
-/**
- * @brief Value-cutout coverage stage.
- * @tparam B Frame binding.
- * @tparam Family Value parameter family.
- */
-template <typename B, typename Family>
-struct FieldCoverageStageFor<FieldCoverageKind::VALUE_CUTOUT, B, Family> {
-  using Type = Pullback::Stage::ApplyCoverage<
-      Pullback::ValueCoverage::ValueCutout<ValueProvider<B, Family>>>;
 };

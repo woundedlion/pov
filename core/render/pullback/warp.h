@@ -88,21 +88,6 @@ struct LinearPolar {};
 struct LogarithmicPolar {};
 
 /**
- * @brief Parameter family consumed by no composed or chain stage.
- */
-struct NoWarpParams {
-  float speed = 0.0f; /**< Described speed value; no stage consumes it. */
-
-  /** @brief Per-parameter id, member, label, range, curve and gate. */
-  static constexpr auto FIELDS = std::array{
-      Field<NoWarpParams>{"speed", &NoWarpParams::speed, nullptr, -0.02f, 0.02f,
-                          FieldCurve::LERP},
-  };
-};
-static_assert(field_ids_unique<NoWarpParams>());
-static_assert(field_defaults_in_range<NoWarpParams>());
-
-/**
  * @brief Warp parameters for the mirrored tiling
  *        (Pullback::Warp::MirrorTile).
  */

@@ -22,14 +22,6 @@ namespace Pullback {
 
 namespace Surface {
 
-/** @brief Empty parameter family. */
-struct NoSurfaceParams {
-  /// Empty parameter registry.
-  static constexpr std::array<Field<NoSurfaceParams>, 0> FIELDS{};
-};
-static_assert(field_ids_unique<NoSurfaceParams>());
-static_assert(field_defaults_in_range<NoSurfaceParams>());
-
 /**
  * @brief Surface parameters for the sphere-space curl displacement
  *        (Pullback::Surface::CurlNoise).
