@@ -644,7 +644,7 @@ public:
       const auto &entry = Solids::get_entry(i);
       emscripten::val item = emscripten::val::object();
       item.set("name", emscripten::val(entry.name));
-      item.set("category", entry.category == Solids::Category::Simple
+      item.set("category", entry.category == Solids::Category::SIMPLE
                                ? "Simple"
                                : "Complex");
       registry.set(i, item);
