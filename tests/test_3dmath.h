@@ -1826,10 +1826,21 @@ inline void test_polyhedral_kaleidoscope_chambers() {
       lenses::SQUARE_PRISM_MIRRORS,    lenses::PENTAGONAL_PRISM_MIRRORS,
       lenses::HEXAGONAL_PRISM_MIRRORS, lenses::OCTAGONAL_PRISM_MIRRORS,
   };
-  for (const std::array<math::Vector, 3> &mirrors : tables)
+  constexpr int ORDERS[][3] = {{3, 3, 2}, {4, 3, 2}, {5, 3, 2}, {2, 3, 2},
+                               {2, 4, 2}, {2, 5, 2}, {2, 6, 2}, {2, 8, 2}};
+  for (size_t index = 0; index < std::size(tables); ++index) {
+    HS_CONTEXT("chamber", index);
+    const auto &mirrors = tables[index];
+    for (int pair = 0; pair < 3; ++pair) {
+      constexpr int FIRST[] = {0, 1, 0};
+      constexpr int SECOND[] = {1, 2, 2};
+      HS_EXPECT_NEAR(math::dot(mirrors[FIRST[pair]], mirrors[SECOND[pair]]),
+                     -std::cos(std::acos(-1.0) / ORDERS[index][pair]), 1e-6);
+    }
     expect_chamber_fold(mirrors, [&mirrors](const math::Vector &v) {
       return lenses::polyhedral_kaleidoscope_lens(v, mirrors);
     });
+  }
   expect_chamber_fold(lenses::DODECAHEDRAL_MIRRORS, [](const math::Vector &v) {
     return lenses::dodecahedral_kaleidoscope_lens(v);
   });
