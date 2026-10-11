@@ -16,6 +16,15 @@ inline void snapshot_render(In::ChainProgram &program,
     out[index] = program.evaluate(views[index], ctx);
 }
 
+/** @brief Expects @p actual to match @p expected byte for byte. */
+inline void expect_sweep_identical(const SweepColors &actual,
+                                   const SweepColors &expected) {
+  for (size_t index = 0; index < actual.size(); ++index) {
+    HS_CONTEXT("view", static_cast<int>(index));
+    HS_EXPECT_TRUE(color4_identical(actual[index], expected[index]));
+  }
+}
+
 inline void expect_refusal(In::ChainProgram &program,
                            std::span<const In::ChainEntryRequest> request,
                            In::ChainStatus expected, int16_t expected_index,
@@ -27,8 +36,7 @@ inline void expect_refusal(In::ChainProgram &program,
   HS_EXPECT_EQ(program.ops().size(), 4u);
   SweepColors after;
   snapshot_render(program, ctx, after);
-  for (size_t index = 0; index < after.size(); ++index)
-    HS_EXPECT_TRUE(color4_identical(after[index], baseline[index]));
+  expect_sweep_identical(after, baseline);
 }
 
 inline void test_shader_chain_refusal_shape() {
@@ -269,8 +277,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
   SweepColors after;
   snapshot_render(program, ctx, after);
-  for (size_t index = 0; index < after.size(); ++index)
-    HS_EXPECT_TRUE(color4_identical(after[index], baseline[index]));
+  expect_sweep_identical(after, baseline);
 
   // A failing migrate deeper in the chain destroys only the candidate states
   // constructed before it: "fresh" inits at entry 0, "counter" fails at 1.
@@ -297,8 +304,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 2.0f);
   SweepColors after_deep;
   snapshot_render(program, ctx, after_deep);
-  for (size_t index = 0; index < after_deep.size(); ++index)
-    HS_EXPECT_TRUE(color4_identical(after_deep[index], baseline[index]));
+  expect_sweep_identical(after_deep, baseline);
   CountLifecycle::fail_migrate = false;
   program.clear();
 }
@@ -489,11 +495,11 @@ inline void test_shader_chain_determinism() {
   const In::FrameContext ctx = shared_resources().context();
   first->program.prepare(ctx);
   second->program.prepare(ctx);
-  for (const math::Vector &view : sweep_views()) {
-    const Color4 a = first->program.evaluate(view, ctx);
-    const Color4 b = second->program.evaluate(view, ctx);
-    HS_EXPECT_TRUE(color4_identical(a, b));
-  }
+  SweepColors first_colors;
+  SweepColors second_colors;
+  snapshot_render(first->program, ctx, first_colors);
+  snapshot_render(second->program, ctx, second_colors);
+  expect_sweep_identical(second_colors, first_colors);
   // Instance labels participate in stateful-resource identity.
   auto relabeled = std::make_unique<ProgramFixture>();
   const In::ChainEntryRequest renamed[] = {
