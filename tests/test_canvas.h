@@ -1642,6 +1642,11 @@ inline void test_canvas_cached_render_clip_matches_region() {
 inline void test_effect_config_margin() {
   const int base = ClipRegion{}.margin;
   {
+    TestEffect fx(96, 20, {.required_margin = 3});
+    HS_EXPECT_EQ(fx.clip().margin, 3);
+  }
+
+  {
     TestEffect fx(96, 20);
     HS_EXPECT_EQ(fx.clip().margin, base);
   }
