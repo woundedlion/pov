@@ -171,16 +171,24 @@ inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
 }
 
 /**
+ * @brief Draws a vector uniformly from the cube [-1, 1]^3 via hs::rand_f.
+ * @return The drawn Vector; components are drawn in x, y, z order.
+ */
+inline math::Vector rand_cube_vector() {
+  const float x = hs::rand_f(-1, 1);
+  const float y = hs::rand_f(-1, 1);
+  const float z = hs::rand_f(-1, 1);
+  return math::Vector(x, y, z);
+}
+
+/**
  * @brief Draws a cube-sampled, normalized random unit vector (not uniform).
  * @return A unit Vector; draws inside a 0.1-radius ball are rejected and
  *         redrawn, so the normalize is well conditioned.
  */
 inline math::Vector rand_unit() {
   for (;;) {
-    const float rx = hs::rand_f(-1, 1);
-    const float ry = hs::rand_f(-1, 1);
-    const float rz = hs::rand_f(-1, 1);
-    math::Vector r(rx, ry, rz);
+    const math::Vector r = rand_cube_vector();
     if (r.length() > 0.1f)
       return r.normalized();
   }
