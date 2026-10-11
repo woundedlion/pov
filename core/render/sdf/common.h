@@ -632,7 +632,7 @@ struct DistanceResult {
   /**
    * @brief Packs the five per-pixel SDF outputs into a result.
    * @param d Signed distance (negative inside).
-   * @param t_val Per-shape normalized parameter (0-1) or angle.
+   * @param t_val Per-shape register; see the register table.
    * @param rd Per-shape unsigned or supplementary distance.
    * @param ax Per-shape auxiliary value.
    * @param sz Size metric for AA-falloff normalization.

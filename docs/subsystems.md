@@ -122,7 +122,7 @@ Each SDF shape's `distance<ComputeUVs>()` method writes a `DistanceResult`. Ring
 ```cpp
 struct DistanceResult {
   float dist;        // Signed distance (negative = inside)
-  float t;           // Shape-dependent parameter or angle
+  float t;           // Per-shape register; see the producer table
   float raw_dist;    // Per-shape register (signed for mesh faces)
   float aux;         // Auxiliary (0 for every current producer)
   float size = 1.0f; // Size metric

@@ -1071,7 +1071,7 @@ uint32_t probe_flags() const {
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = raw_dist = the signed edge distance,
-   *        size = inradius, both in gnomonic plane units on a linear_dist
+   *        size = max(inradius, 0.25 * circumradius), both in gnomonic plane units on a linear_dist
    *        face and in radians otherwise.
    * @param reject_dsq Squared plane distance at/above which an outside probe
    *        is reported as the far sentinel without taking the square root.
