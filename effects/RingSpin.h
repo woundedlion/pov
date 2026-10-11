@@ -38,12 +38,16 @@ public:
   /// Canonical machine ID.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
+  enum class Strobe { ENABLED, DISABLED }; ///< Per-column driver blanking.
+
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
-   * @param strobe Whether the POV driver blanks after each column.
+   * @param strobe Per-column driver blanking mode.
    */
-  HS_COLD_MEMBER explicit RingSpin(bool strobe = true)
-      : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = strobe})) {}
+  HS_COLD_MEMBER explicit RingSpin(Strobe strobe = Strobe::ENABLED)
+      : Effect(W, H,
+               pipeline_config<decltype(filters)>(
+                   {.strobe = strobe == Strobe::ENABLED})) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
