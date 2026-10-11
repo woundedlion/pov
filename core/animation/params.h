@@ -84,6 +84,12 @@ struct ParamPauseOptions {
   const bool *paused = nullptr; ///< Pause gate; null = always runs.
 };
 
+/** @brief Repeat and step-only pause options for Mutation. */
+struct MutationOptions {
+  bool repeat = false;          ///< Restarts after each completed cycle.
+  const bool *paused = nullptr; ///< Pause gate; null = always runs.
+};
+
 /** @brief Optional behaviour of a Transition. */
 struct TransitionOptions {
   /** @brief Floors every stepped value, making the ramp an integer staircase
@@ -153,19 +159,18 @@ private:
  */
 class Mutation : public PausableParamAnimationBase<Mutation> {
 public:
-  using Options = ParamPauseOptions; ///< Pause gate.
+  using Options = MutationOptions; ///< Repeat and pause options.
   /**
    * @brief Constructs a Mutation animation.
    * @param mutant The float variable to modify.
    * @param f The custom mutation function: `float f(float eased_t)`.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to apply to the time factor.
-   * @param repeat If true, the mutation repeats indefinitely.
-   * @param options Step-only pause gate; pending start delays still elapse.
+   * @param options Repeat and step-only pause gate; pending delays still elapse.
    */
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
-           bool repeat = false, const Options &options = {})
-      : PausableParamAnimationBase(duration, repeat, options.paused),
+           const Options &options = {})
+      : PausableParamAnimationBase(duration, options.repeat, options.paused),
         mutant(mutant), f(std::move(f)), easing_fn(std::move(easing_fn)) {}
 
   /**

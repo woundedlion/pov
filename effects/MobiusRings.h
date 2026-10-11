@@ -93,13 +93,13 @@ public:
             0,
             Animation::Mutation(params.num_rings,
                                 math::sin_wave(1.0f, 12.0f, 1.0f, 0.5f), 320,
-                                math::ease_linear, true),
+                                math::ease_linear, {.repeat = true}),
             &anims_paused)
         .add_pausable(
             0,
             Animation::Mutation(params.num_lines,
                                 math::sin_wave(1.0f, 12.0f, 1.0f, 0.0f), 320,
-                                math::ease_linear, true),
+                                math::ease_linear, {.repeat = true}),
             &anims_paused);
   }
 
