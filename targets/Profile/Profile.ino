@@ -692,7 +692,11 @@ const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
 
 // One hour at RPM: an epoch rebuilds the effect and resets the profile
 // counters, so park the boundary past any capture.
-constexpr uint32_t PROFILE_REVOLUTIONS[] = {RPM * 60};
+#ifndef HS_PROFILE_EPOCH_REVS
+#define HS_PROFILE_EPOCH_REVS (RPM * 60)
+#endif
+static_assert(HS_PROFILE_EPOCH_REVS > 0);
+constexpr uint32_t PROFILE_REVOLUTIONS[] = {HS_PROFILE_EPOCH_REVS};
 
 static_assert(std::size(PROFILE_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 
