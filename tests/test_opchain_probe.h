@@ -46,6 +46,34 @@ using Solids::OpStep;
 // Geometry helpers
 // ---------------------------------------------------------------------------
 
+inline bool sweep_holds_topology(const PolyMesh &swept, Arena &a, Arena &b,
+                                 int sample, size_t &v0, size_t &f0, size_t &i0,
+                                 size_t &compiled0, bool closed = true) {
+  MeshState compiled;
+  MeshOps::compile(swept, compiled, a, b);
+  if (sample == 0) {
+    v0 = swept.vertices.size();
+    f0 = swept.face_counts.size();
+    i0 = swept.faces.size();
+    compiled0 = compiled.face_counts.size();
+    HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+  } else {
+    HS_EXPECT_EQ(swept.vertices.size(), v0);
+    HS_EXPECT_EQ(swept.face_counts.size(), f0);
+    HS_EXPECT_EQ(swept.faces.size(), i0);
+    HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+    if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
+        swept.faces.size() != i0 || compiled.face_counts.size() != compiled0)
+      return false;
+  }
+  check_face_counts_consistent(swept);
+  check_indices_in_range(swept);
+  check_all_unit_vertices(swept, 1e-3f);
+  if (closed)
+    conway_tests::check_euler_characteristic_two(swept);
+  return true;
+}
+
 /** @brief Face-vertex offset table for a PolyMesh, in emission order. */
 inline void face_offsets(const PolyMesh &m, std::vector<size_t> &out) {
   out.assign(m.face_counts.size(), 0);
@@ -240,28 +268,8 @@ inline void test_chamfer_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::chamfer(seed, a, b, t);
-      MeshState compiled;
-      MeshOps::compile(swept, compiled, a, b);
-      if (s == 0) {
-        v0 = swept.vertices.size();
-        f0 = swept.face_counts.size();
-        i0 = swept.faces.size();
-        compiled0 = compiled.face_counts.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
-      } else {
-        HS_EXPECT_EQ(swept.vertices.size(), v0);
-        HS_EXPECT_EQ(swept.face_counts.size(), f0);
-        HS_EXPECT_EQ(swept.faces.size(), i0);
-        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
-        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
-            swept.faces.size() != i0 ||
-            compiled.face_counts.size() != compiled0)
-          break;
-      }
-      check_face_counts_consistent(swept);
-      check_indices_in_range(swept);
-      check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_characteristic_two(swept);
+      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, true))
+        break;
 
       face_offsets(swept, off);
       std::vector<math::Vector> normal(swept.face_counts.size());
@@ -384,28 +392,8 @@ inline void test_truncate001_birth_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      MeshState compiled;
-      MeshOps::compile(swept, compiled, a, b);
-      if (s == 0) {
-        v0 = swept.vertices.size();
-        f0 = swept.face_counts.size();
-        i0 = swept.faces.size();
-        compiled0 = compiled.face_counts.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
-      } else {
-        HS_EXPECT_EQ(swept.vertices.size(), v0);
-        HS_EXPECT_EQ(swept.face_counts.size(), f0);
-        HS_EXPECT_EQ(swept.faces.size(), i0);
-        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
-        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
-            swept.faces.size() != i0 ||
-            compiled.face_counts.size() != compiled0)
-          break;
-      }
-      check_face_counts_consistent(swept);
-      check_indices_in_range(swept);
-      check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_characteristic_two(swept);
+      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, true))
+        break;
 
       face_offsets(swept, off);
       std::vector<math::Vector> normal(swept.face_counts.size());
@@ -521,28 +509,8 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
       ScratchScope fa(a);
       ScratchScope fb(b);
       PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      MeshState compiled;
-      MeshOps::compile(swept, compiled, a, b);
-      if (s == 0) {
-        v0 = swept.vertices.size();
-        f0 = swept.face_counts.size();
-        i0 = swept.faces.size();
-        compiled0 = compiled.face_counts.size();
-        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
-      } else {
-        // Topology is t-independent off the pinch: no pop across 0.5.
-        HS_EXPECT_EQ(swept.vertices.size(), v0);
-        HS_EXPECT_EQ(swept.face_counts.size(), f0);
-        HS_EXPECT_EQ(swept.faces.size(), i0);
-        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
-        if (swept.vertices.size() != v0 || swept.face_counts.size() != f0 ||
-            swept.faces.size() != i0 ||
-            compiled.face_counts.size() != compiled0)
-          break;
-      }
-      check_face_counts_consistent(swept);
-      check_indices_in_range(swept);
-      check_all_unit_vertices(swept, 1e-3f);
+      if (!sweep_holds_topology(swept, a, b, s, v0, f0, i0, compiled0, false))
+        break;
       int nonfinite = 0;
       for (size_t i = 0; i < swept.vertices.size(); ++i)
         nonfinite += !std::isfinite(swept.vertices[i].length());
