@@ -35,12 +35,9 @@ public:
 
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
-    /// Quantized x component.
-    int16_t x, y, z; /**< Quantized z component. */
-    /** @var y
-     *  Quantized y component. */
-    uint8_t ttl; /**< Remaining lifetime in frames. */
-    uint8_t pad; /**< Pads the item to 8 bytes. */
+    math::Snorm3 direction; /**< Quantized world-space direction. */
+    uint8_t ttl;            /**< Remaining lifetime in frames. */
+    uint8_t pad;            /**< Pads the item to 8 bytes. */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
@@ -198,8 +195,6 @@ private:
     HS_ASSERT_BLOCK_ALIVE(stamp, items, STORAGE_BYTES, "World::Trails");
   }
 
-  static constexpr float Q =
-      32767.0f; /**< Quantization scale for unit-vector components. */
   /**
    * @brief Encodes a unit vector and ttl into a quantized Item.
    * @param v World-space point; each component is clamped to [-1, 1] before scaling.
@@ -207,10 +202,7 @@ private:
    * @return Packed Item with quantized coordinates.
    */
   static Item encode(const math::Vector &v, uint8_t ttl) {
-    // clamp before scaling: an unclamped component past 1 overflows int16
-    return {static_cast<int16_t>(hs::clamp(v.x, -1.0f, 1.0f) * Q),
-            static_cast<int16_t>(hs::clamp(v.y, -1.0f, 1.0f) * Q),
-            static_cast<int16_t>(hs::clamp(v.z, -1.0f, 1.0f) * Q), ttl, 0};
+    return {math::Snorm3::encode(v), ttl, 0};
   }
   /**
    * @brief Decodes a quantized Item back into a near-unit vector.
@@ -220,8 +212,7 @@ private:
    * a World::Trails must not precede a unit-assuming World filter.
    */
   static math::Vector decode(const Item &item) {
-    constexpr float INV_Q = 1.0f / Q;
-    return math::Vector(item.x * INV_Q, item.y * INV_Q, item.z * INV_Q);
+    return item.direction.decode();
   }
 
   /**
