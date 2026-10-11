@@ -790,30 +790,32 @@ private:
     Choreography::parameter_written();
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
-      const float near_fade = params.near_fade;
+      const float NEAR_FADE = params.near_fade;
       const float IRIDESCENCE = params.iridescence;
       const float IRIDESCENT_FREQUENCY = params.iridescent_frequency;
       const float IRIDESCENT_SPEED = params.iridescent_speed;
       params = pattern_defaults(params.pattern, params.mode);
-      params.near_fade = near_fade;
+      params.near_fade = NEAR_FADE;
       params.iridescence = IRIDESCENCE;
       params.iridescent_frequency = IRIDESCENT_FREQUENCY;
       params.iridescent_speed = IRIDESCENT_SPEED;
-      selected_configuration = configuration;
-      refresh_configuration_schema();
+      sync_configuration();
     }
   }
   void adopt_params(const Params &target) {
     params = target;
-    if (configuration_id(params) != selected_configuration) {
-      selected_configuration = configuration_id(params);
-      refresh_configuration_schema();
-    }
+    sync_configuration();
   }
   HS_COLD_MEMBER void blend_params(float progress) {
     params.lerp(transition.from, transition.to, progress);
-    if (configuration_id(params) != selected_configuration) {
-      selected_configuration = configuration_id(params);
+    sync_configuration();
+  }
+
+  /** @brief Refreshes parameter flags after the pattern or mode changes. */
+  void sync_configuration() {
+    const auto configuration = configuration_id(params);
+    if (configuration != selected_configuration) {
+      selected_configuration = configuration;
       refresh_configuration_schema();
     }
   }
