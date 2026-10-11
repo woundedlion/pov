@@ -148,6 +148,11 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
         swept ? 0u
               : 1u + static_cast<uint32_t>(HankinWalkProbe::cur_edge(fx)) * 8u +
                     static_cast<uint32_t>(leg_sid);
+    static_assert(ConwayGraph::NUM_NODES <= 32);
+    static_assert(ConwayGraph::TETRAHEDRON < 8 && ConwayGraph::CUBE < 8 &&
+                  ConwayGraph::OCTAHEDRON < 8 &&
+                  ConwayGraph::DODECAHEDRON < 8 &&
+                  ConwayGraph::ICOSAHEDRON < 8);
     const uint32_t arrival_key = (start * 32u + node) * 8u + sid;
 
     // A repeated directed transition with the same arrival key cannot raise
