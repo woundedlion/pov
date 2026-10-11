@@ -216,6 +216,35 @@ inline std::optional<JsonValue> load_promoted_document() {
   return document;
 }
 
+/** @brief Returns a promoted document's `descriptor.chain`, or null. */
+inline const JsonValue *document_chain(const JsonValue &document) {
+  const JsonValue *descriptor = document.find("descriptor");
+  return descriptor != nullptr ? descriptor->find("chain") : nullptr;
+}
+
+/** @brief Returns a promoted document's `preset_bank.presets`, or null. */
+inline const JsonValue *document_presets(const JsonValue &document) {
+  const JsonValue *bank = document.find("preset_bank");
+  return bank != nullptr ? bank->find("presets") : nullptr;
+}
+
+/**
+ * @brief Finds the values object of the last preset entry named @p preset_id.
+ * @param presets The `preset_bank.presets` array.
+ * @param preset_id Preset to look up.
+ * @return The entry's `values` member, or null when absent.
+ */
+inline const JsonValue *preset_values(const JsonValue &presets,
+                                      std::string_view preset_id) {
+  const JsonValue *preset = nullptr;
+  for (const JsonValue &candidate : presets.items) {
+    const JsonValue *id = candidate.find("preset_id");
+    if (id != nullptr && id->text == preset_id)
+      preset = &candidate;
+  }
+  return preset != nullptr ? preset->find("values") : nullptr;
+}
+
 inline void test_catalog_semantic_export() {
   namespace Catalog = Pullback::Interp;
   std::string text;
@@ -585,9 +614,7 @@ inline void check_document_values(const char *name) {
   const JsonValue *effect_id = document.find("effect_id");
   HS_EXPECT_TRUE(effect_id != nullptr && effect_id->text == FX::EFFECT_ID);
 
-  const JsonValue *descriptor = document.find("descriptor");
-  const JsonValue *chain =
-      descriptor != nullptr ? descriptor->find("chain") : nullptr;
+  const JsonValue *chain = document_chain(document);
   HS_EXPECT_TRUE(chain != nullptr);
   if (chain == nullptr)
     return;
@@ -647,11 +674,11 @@ inline void check_document_values(const char *name) {
                      Pullback::SurfacePlacement::AFTER_LENS);
   }
 
-  const JsonValue *bank = document.find("preset_bank");
-  const JsonValue *presets = bank != nullptr ? bank->find("presets") : nullptr;
+  const JsonValue *presets = document_presets(document);
   HS_EXPECT_TRUE(presets != nullptr);
   if (presets == nullptr)
     return;
+  const JsonValue *bank = document.find("preset_bank");
   HS_EXPECT_EQ(presets->items.size(), FX::PRESET_IDS.size());
 
   const JsonValue *choreography = bank->find("choreography");
@@ -716,16 +743,7 @@ inline void check_document_values(const char *name) {
 
   for (size_t index = 0; index < FX::PRESET_IDS.size(); ++index) {
     HS_CONTEXT("preset", static_cast<int>(index));
-    const JsonValue *preset = nullptr;
-    for (const JsonValue &candidate : presets->items) {
-      const JsonValue *preset_id = candidate.find("preset_id");
-      if (preset_id != nullptr && preset_id->text == FX::PRESET_IDS[index])
-        preset = &candidate;
-    }
-    HS_EXPECT_TRUE(preset != nullptr);
-    if (preset == nullptr)
-      continue;
-    const JsonValue *values = preset->find("values");
+    const JsonValue *values = preset_values(*presets, FX::PRESET_IDS[index]);
     HS_EXPECT_TRUE(values != nullptr);
     if (values == nullptr)
       continue;
