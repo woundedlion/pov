@@ -298,47 +298,37 @@ public:
     if (writes.size() > Pullback::Interp::MAX_CHAIN_PARAMS)
       return ParamSetResult::TOO_LONG;
     const auto ops = program.ops();
-    for (size_t index = 0; index < ops.size(); ++index) {
-      const auto &runtime = ops[index].op->runtime;
-      runtime.construct_params(candidates[index]);
-      std::memcpy(candidates[index], program.param_block(index),
-                  runtime.param.size);
-    }
     bool animated = false;
-    for (const auto &write : writes) {
-      if (write.name == nullptr)
-        return ParamSetResult::MALFORMED_PAYLOAD;
-      const ParamDef *parameter = getParameters().find(write.name);
-      if (parameter == nullptr)
-        return ParamSetResult::UNKNOWN_PARAM;
-      float value = write.value;
-      const ParamSetResult result = parameter->normalize(value);
-      if (result != ParamSetResult::APPLIED)
-        return result;
-      for (size_t index = 0; index < ops.size(); ++index)
-        for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
-          if (std::strcmp(write.name, program.param_name(index, field)) == 0) {
-            ParamDef proposed = *parameter;
-            proposed.target =
-                ops[index].op->runtime.param_address(candidates[index], field);
-            write_parameter_unchecked(proposed, value);
-          }
-      animated |= parameter->animated;
-    }
-    for (size_t index = 0; index < ops.size(); ++index)
-      if (const char *warning = validate_parameters(index, candidates[index])) {
-        refused_name = written_name(writes, index, index);
-        refusal_warning = warning;
-        return ParamSetResult::INADMISSIBLE;
+    const auto refusal = stage_candidates(0, ops.size(), [&] {
+      for (const auto &write : writes) {
+        if (write.name == nullptr)
+          return ParamSetResult::MALFORMED_PAYLOAD;
+        const ParamDef *parameter = getParameters().find(write.name);
+        if (parameter == nullptr)
+          return ParamSetResult::UNKNOWN_PARAM;
+        float value = write.value;
+        const ParamSetResult result = parameter->normalize(value);
+        if (result != ParamSetResult::APPLIED)
+          return result;
+        for (size_t index = 0; index < ops.size(); ++index)
+          for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
+            if (std::strcmp(write.name, program.param_name(index, field)) ==
+                0) {
+              ParamDef proposed = *parameter;
+              proposed.target = ops[index].op->runtime.param_address(
+                  candidates[index], field);
+              write_parameter_unchecked(proposed, value);
+            }
+        animated |= parameter->animated;
       }
-    const int overflow =
-        Pullback::Interp::plane_bound_overflow(ops, [&](size_t index) {
-          return static_cast<const void *>(candidates[index]);
-        });
-    if (overflow >= 0) {
-      refused_name = written_name(writes, 0, static_cast<size_t>(overflow));
-      refusal_warning = Pullback::Interp::PLANE_GROWTH_WARNING;
-      return ParamSetResult::INADMISSIBLE;
+      return ParamSetResult::APPLIED;
+    });
+    if (refusal.result != ParamSetResult::APPLIED) {
+      if (refusal.warning != nullptr) {
+        refused_name = written_name(writes, refusal.first, refusal.last);
+        refusal_warning = refusal.warning;
+      }
+      return refusal.result;
     }
     for (size_t index = 0; index < ops.size(); ++index)
       std::memcpy(program.param_block(index), candidates[index],
@@ -514,6 +504,48 @@ private:
   };
   uint8_t (*candidates)[PARAM_BYTES] = nullptr;
 
+  struct CandidateRefusal {
+    ParamSetResult result = ParamSetResult::APPLIED;
+    const char *warning = nullptr;
+    size_t first = 0;
+    size_t last = 0;
+  };
+
+  /**
+   * @brief Stages and validates writes to operator blocks in [first, end).
+   * @param first First staged operator.
+   * @param end One past the last staged operator.
+   * @param write Applies writes to candidates; returns any normalization refusal.
+   * @return Status, warning, and operator interval identifying refused writes.
+   */
+  template <typename Write>
+  CandidateRefusal stage_candidates(size_t first, size_t end, Write &&write) {
+    const auto ops = program.ops();
+    for (size_t index = first; index < end; ++index) {
+      const auto &runtime = ops[index].op->runtime;
+      runtime.construct_params(candidates[index]);
+      std::memcpy(candidates[index], program.param_block(index),
+                  runtime.param.size);
+    }
+    const auto result = write();
+    if (result != ParamSetResult::APPLIED)
+      return {result};
+    for (size_t index = first; index < end; ++index)
+      if (const char *warning = validate_parameters(index, candidates[index]))
+        return {ParamSetResult::INADMISSIBLE, warning, index, index};
+    const int overflow =
+        Pullback::Interp::plane_bound_overflow(ops, [&](size_t index) {
+          return static_cast<const void *>(index >= first && index < end
+                                               ? candidates[index]
+                                               : program.param_block(index));
+        });
+    if (overflow >= 0)
+      return {ParamSetResult::INADMISSIBLE,
+              Pullback::Interp::PLANE_GROWTH_WARNING, 0,
+              static_cast<size_t>(overflow)};
+    return {};
+  }
+
   /**
    * @brief Validates a chain parameter write on a candidate copy of its
    *        operator's parameter block before admitting it.
@@ -529,21 +561,14 @@ private:
       for (uint16_t field = 0; field < ops[index].op->schema_count; ++field)
         if (std::strcmp(parameter.name, program.param_name(index, field)) ==
             0) {
-          const auto &runtime = ops[index].op->runtime;
-          alignas(std::max_align_t) uint8_t candidate[PARAM_BYTES];
-          runtime.construct_params(candidate);
-          std::memcpy(candidate, program.param_block(index),
-                      runtime.param.size);
-          ParamDef proposed = parameter;
-          proposed.target = runtime.param_address(candidate, field);
-          write_parameter_unchecked(proposed, value);
-          refusal_warning = validate_parameters(index, candidate);
-          if (refusal_warning == nullptr &&
-              Pullback::Interp::plane_bound_overflow(ops, [&](size_t entry) {
-                return static_cast<const void *>(
-                    entry == index ? candidate : program.param_block(entry));
-              }) >= 0)
-            refusal_warning = Pullback::Interp::PLANE_GROWTH_WARNING;
+          const auto refusal = stage_candidates(index, index + 1, [&] {
+            ParamDef proposed = parameter;
+            proposed.target =
+                ops[index].op->runtime.param_address(candidates[index], field);
+            write_parameter_unchecked(proposed, value);
+            return ParamSetResult::APPLIED;
+          });
+          refusal_warning = refusal.warning;
           refused_name = refusal_warning != nullptr ? parameter.name : nullptr;
           return refusal_warning == nullptr;
         }
