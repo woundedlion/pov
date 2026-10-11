@@ -110,6 +110,40 @@ inline void build_polymesh(PolyMesh &mesh, Arena &arena, size_t num_verts,
     mesh.faces.push_back(opaque(indices[i]));
 }
 
+/**
+ * @brief Borrows opaque side counts, faces and offsets into a fresh MeshState.
+ * @param counts Per-face side counts.
+ * @param index_count Length of the flat face list; entry i holds index i.
+ * @param offsets Per-face offsets; empty borrows no offsets span.
+ * @param topology_key Key borrowed alongside an empty topology span.
+ */
+inline void death_set_borrowed(std::initializer_list<uint8_t> counts,
+                               uint16_t index_count,
+                               std::initializer_list<uint16_t> offsets,
+                               uint32_t topology_key = 0) {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  ArenaVector<uint8_t> count_list(arena, counts.size());
+  for (uint8_t count : counts)
+    count_list.push_back(opaque(count));
+  ArenaVector<uint16_t> faces(arena, index_count);
+  for (uint16_t i = 0; i < index_count; ++i)
+    faces.push_back(opaque(i));
+  ArenaVector<uint16_t> offset_list;
+  ArenaSpan<uint16_t> offset_span;
+  if (offsets.size() > 0) {
+    offset_list.bind(arena, offsets.size());
+    for (uint16_t offset : offsets)
+      offset_list.push_back(opaque(offset));
+    offset_span = ArenaSpan<uint16_t>(offset_list);
+  }
+  MeshState m;
+  m.set_borrowed(ArenaSpan<uint8_t>(count_list), ArenaSpan<uint16_t>(faces),
+                 offset_span, {}, opaque(topology_key));
+  if (m.num_faces() == opaque<size_t>(0x7fff))
+    std::printf("x");
+}
+
 inline void run_invalid_recipe_step(const Solids::OpStep &step) {
   static uint8_t a_buf[64 * 1024];
   static uint8_t b_buf[64 * 1024];
