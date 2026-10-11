@@ -29,9 +29,9 @@ HS_O3_BEGIN
 
 /**
  * @brief Coarse generator-cost hint surfaced to the picker UI.
- * @details Complex = Islamic star-pattern registry; Simple = everything else.
+ * @details COMPLEX = Islamic star-pattern registry; SIMPLE = everything else.
  */
-enum class Category { Simple, Complex };
+enum class Category { SIMPLE, COMPLEX };
 
 /**
  * @brief One named solid in a registry.
@@ -40,7 +40,7 @@ struct Entry {
   const char *name; /**< Registry key / display name. */
   PolyMesh (*generate)(
       Arena &a, Arena &b); /**< Generator building into arena pair (a, b). */
-  Category category;       /**< Simple or Complex cost class. */
+  Category category;       /**< SIMPLE or COMPLEX cost class. */
   const Recipe *recipe = nullptr; /**< Declarative chain mirror; null = none. */
 };
 
@@ -51,57 +51,57 @@ struct Entry {
 inline constexpr Entry simple_registry[] = {
 
     // Platonic
-    {"tetrahedron", Platonic::tetrahedron, Category::Simple},
-    {"cube", Platonic::cube, Category::Simple},
-    {"octahedron", Platonic::octahedron, Category::Simple},
-    {"dodecahedron", Platonic::dodecahedron, Category::Simple},
-    {"icosahedron", Platonic::icosahedron, Category::Simple},
+    {"tetrahedron", Platonic::tetrahedron, Category::SIMPLE},
+    {"cube", Platonic::cube, Category::SIMPLE},
+    {"octahedron", Platonic::octahedron, Category::SIMPLE},
+    {"dodecahedron", Platonic::dodecahedron, Category::SIMPLE},
+    {"icosahedron", Platonic::icosahedron, Category::SIMPLE},
 
     // Archimedean
     {"truncatedTetrahedron", Archimedean::truncatedTetrahedron,
-     Category::Simple},
-    {"cuboctahedron", Archimedean::cuboctahedron, Category::Simple},
-    {"truncatedCube", Archimedean::truncatedCube, Category::Simple},
-    {"truncatedOctahedron", Archimedean::truncatedOctahedron, Category::Simple},
-    {"rhombicuboctahedron", Archimedean::rhombicuboctahedron, Category::Simple},
+     Category::SIMPLE},
+    {"cuboctahedron", Archimedean::cuboctahedron, Category::SIMPLE},
+    {"truncatedCube", Archimedean::truncatedCube, Category::SIMPLE},
+    {"truncatedOctahedron", Archimedean::truncatedOctahedron, Category::SIMPLE},
+    {"rhombicuboctahedron", Archimedean::rhombicuboctahedron, Category::SIMPLE},
     {"truncatedCuboctahedron", Archimedean::truncatedCuboctahedron,
-     Category::Simple},
-    {"snubCube", Archimedean::snubCube, Category::Simple},
-    {"icosidodecahedron", Archimedean::icosidodecahedron, Category::Simple},
+     Category::SIMPLE},
+    {"snubCube", Archimedean::snubCube, Category::SIMPLE},
+    {"icosidodecahedron", Archimedean::icosidodecahedron, Category::SIMPLE},
     {"truncatedDodecahedron", Archimedean::truncatedDodecahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"truncatedIcosahedron", Archimedean::truncatedIcosahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
-     Category::Simple},
-    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple}};
+     Category::SIMPLE},
+    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::SIMPLE}};
 
 /**
  * @brief Registry of Catalan solids (duals of the Archimedean solids).
  */
 inline constexpr Entry catalan_registry[] = {
     // Catalan
-    {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::Simple},
-    {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::Simple},
-    {"triakisOctahedron", Catalan::triakisOctahedron, Category::Simple},
-    {"tetrakisHexahedron", Catalan::tetrakisHexahedron, Category::Simple},
+    {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::SIMPLE},
+    {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::SIMPLE},
+    {"triakisOctahedron", Catalan::triakisOctahedron, Category::SIMPLE},
+    {"tetrakisHexahedron", Catalan::tetrakisHexahedron, Category::SIMPLE},
     {"deltoidalIcositetrahedron", Catalan::deltoidalIcositetrahedron,
-     Category::Simple},
-    {"disdyakisDodecahedron", Catalan::disdyakisDodecahedron, Category::Simple},
+     Category::SIMPLE},
+    {"disdyakisDodecahedron", Catalan::disdyakisDodecahedron, Category::SIMPLE},
     {"pentagonalIcositetrahedron", Catalan::pentagonalIcositetrahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"rhombicTriacontahedron", Catalan::rhombicTriacontahedron,
-     Category::Simple},
-    {"triakisIcosahedron", Catalan::triakisIcosahedron, Category::Simple},
-    {"pentakisDodecahedron", Catalan::pentakisDodecahedron, Category::Simple},
+     Category::SIMPLE},
+    {"triakisIcosahedron", Catalan::triakisIcosahedron, Category::SIMPLE},
+    {"pentakisDodecahedron", Catalan::pentakisDodecahedron, Category::SIMPLE},
     {"deltoidalHexecontahedron", Catalan::deltoidalHexecontahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"disdyakisTriacontahedron", Catalan::disdyakisTriacontahedron,
-     Category::Simple},
+     Category::SIMPLE},
     {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
-     Category::Simple}};
+     Category::SIMPLE}};
 
 // Recipe seed identities in simple_registry order.
 /// simple_registry index of the octahedron seed.
@@ -423,79 +423,79 @@ inline constexpr Recipe ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE =
  */
 inline constexpr Entry islamic_registry[] = {
     {"dodecahedron_hk62_ambo_hk62",
-     IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex,
+     IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::COMPLEX,
      &DODECAHEDRON_HK62_AMBO_HK62_RECIPE},
     {"truncatedIcosahedron_hk58_chamfer63",
      IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
-     Category::Complex, &TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE},
+     Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
-     Category::Complex, &DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE},
+     Category::COMPLEX, &DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64,
-     Category::Complex,
+     Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE},
     {"dodecahedron_bevel2_relax_gyro",
-     IslamicStarPatterns::dodecahedron_bevel2_relax_gyro, Category::Complex,
+     IslamicStarPatterns::dodecahedron_bevel2_relax_gyro, Category::COMPLEX,
      &DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_bevel5_relax_hk77",
      IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77,
-     Category::Complex, &TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE},
+     Category::COMPLEX, &TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE},
     {"truncatedCube_hk90_meta", IslamicStarPatterns::truncatedCube_hk90_meta,
-     Category::Complex, &TRUNCATED_CUBE_HK90_META_RECIPE},
+     Category::COMPLEX, &TRUNCATED_CUBE_HK90_META_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59,
-     Category::Complex,
+     Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin73,
-     Category::Complex,
+     Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_RECIPE},
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
-     Category::Complex, &ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE},
+     Category::COMPLEX, &ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE},
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
-     Category::Complex, &DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE},
+     Category::COMPLEX, &DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE},
     {"octahedron_hk17_ambo_hk73",
-     IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex,
+     IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::COMPLEX,
      &OCTAHEDRON_HK17_AMBO_HK73_RECIPE},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
-     Category::Complex, &ICOSAHEDRON_KIS_GYRO_RECIPE},
+     Category::COMPLEX, &ICOSAHEDRON_KIS_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual,
-     Category::Complex,
+     Category::COMPLEX,
      &TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosidodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual,
-     Category::Complex, &ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
+     Category::COMPLEX, &ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"snubDodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual,
-     Category::Complex, &SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
+     Category::COMPLEX, &SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"octahedron_hk34_ambo_hk72",
-     IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex,
+     IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::COMPLEX,
      &OCTAHEDRON_HK34_AMBO_HK72_RECIPE},
     {"rhombicuboctahedron_hk63_ambo_hk63",
-     IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63, Category::Complex,
+     IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63, Category::COMPLEX,
      &RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_RECIPE},
     {"truncatedIcosahedron_hk54_ambo_hk72",
      IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
-     Category::Complex, &TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE},
+     Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk54_ambo_hk72",
-     IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex,
+     IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::COMPLEX,
      &DODECAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk72_ambo_dual_hk20",
-     IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex,
+     IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::COMPLEX,
      &DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual,
-     Category::Complex, &TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
+     Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosahedron_snub_relax_truncate033_hankin62",
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
-     Category::Complex, &ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE},
+     Category::COMPLEX, &ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE},
     {"icosahedron_truncate25_hk60_ambo_relax100_hk60",
      IslamicStarPatterns::icosahedron_truncate25_hk60_ambo_relax100_hk60,
-     Category::Complex,
+     Category::COMPLEX,
      &ICOSAHEDRON_TRUNCATE25_HK60_AMBO_RELAX100_HK60_RECIPE}};
 
 /** Total number of solids across all three registries. */
@@ -636,18 +636,18 @@ static_assert(all_recipe_seeds_in_range(),
 
 /**
  * @brief Tests whether every entry's Category matches the registry it sits in.
- * @return True when islamic_registry is uniformly Complex and the other two are
- * uniformly Simple.
+ * @return True when islamic_registry is uniformly COMPLEX and the other two are
+ * uniformly SIMPLE.
  */
 inline constexpr bool all_categories_match_registry() {
   for (const Entry &entry : simple_registry)
-    if (entry.category != Category::Simple)
+    if (entry.category != Category::SIMPLE)
       return false;
   for (const Entry &entry : catalan_registry)
-    if (entry.category != Category::Simple)
+    if (entry.category != Category::SIMPLE)
       return false;
   for (const Entry &entry : islamic_registry)
-    if (entry.category != Category::Complex)
+    if (entry.category != Category::COMPLEX)
       return false;
   return true;
 }

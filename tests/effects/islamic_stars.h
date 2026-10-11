@@ -115,7 +115,7 @@ inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
 /** The needle-ending recipe as a spawnable entry. */
 inline constexpr Solids::Entry NEEDLE_ENTRY = {
     "truncatedIcosahedron_ambo_relax_hk54_needle", generate_needle_recipe_solid,
-    Solids::Category::Complex,
+    Solids::Category::COMPLEX,
     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_HK54_NEEDLE_RECIPE};
 
 /**
@@ -178,7 +178,7 @@ inline void test_islamicstars_smooth_recipe_completion() {
     HS_EXPECT_TRUE(
         std::string_view(Solids::simple_registry[recipe.seed].name) == "cube");
     const Solids::Entry entry = {"cube_bridge", Solids::Platonic::cube,
-                                 Solids::Category::Complex, &recipe};
+                                 Solids::Category::COMPLEX, &recipe};
     IslamicBuildProbe::IS effect;
     IslamicBuildProbe::set_trans_speed(effect, 2.0f);
     effect.init();
