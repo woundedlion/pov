@@ -35,8 +35,8 @@
  * - `PARAMETER_SCHEMA_VERSION` and `PRESET_DWELL_FRAMES`.
  * - parameter_fields() (defaults to `Params::FIELDS`) or valid_params(params).
  * - Its presets as `PresetEntry` rows, in a `PRESETS` array or a static
- *   `preset(index)`, optionally named by `PRESET_IDS`. With none of these the
- *   effect has a single preset.
+ *   `preset(index)` with `PRESET_IDS` naming its rows. `PRESETS` may also
+ *   supply `PRESET_IDS`. With none of these the effect has a single preset.
  *
  * `Derived` calls `begin_choreography()` once from init() and
  * `step_choreography()` every frame.
@@ -525,6 +525,10 @@ private:
   /** @brief Preset count: `PRESET_IDS` when present, else the `PRESETS`
       table, else one. */
   static consteval size_t preset_count_of() {
+    static_assert(
+        !has_hook<Control::ChoreographyHook::PRESET_ROW>() || requires {
+          Derived::PRESET_IDS;
+        }, "preset(index) requires PRESET_IDS naming its rows");
     if constexpr (requires { Derived::PRESET_IDS; }) {
       if constexpr (requires { Derived::PRESETS; })
         static_assert(Derived::PRESET_IDS.size() == Derived::PRESETS.size(),
