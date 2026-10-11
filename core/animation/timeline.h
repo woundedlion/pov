@@ -506,7 +506,7 @@ public:
   static uint32_t frame() { return global_timeline_t; }
 
   static constexpr int MAX_EVENTS =
-      TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
+      TIMELINE_MAX_EVENTS; /**< Process-wide scheduled event capacity. */
 
   /** @brief clear_hooks capacity. */
   static constexpr int MAX_CLEAR_HOOKS = 4;
