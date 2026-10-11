@@ -599,10 +599,13 @@ inline void test_iterator_after_wrap() {
   StaticCircularBuffer<int, 3> buf;
   for (int i = 1; i <= 5; ++i)
     buf.push_back(i); // ends as [3, 4, 5] logical
-  int values[3];
+  int values[3] = {};
   int n = 0;
-  for (int x : buf)
-    values[n++] = x;
+  for (int x : buf) {
+    if (n < static_cast<int>(std::size(values)))
+      values[n] = x;
+    ++n;
+  }
   HS_EXPECT_EQ(n, 3);
   HS_EXPECT_EQ(values[0], 3);
   HS_EXPECT_EQ(values[1], 4);
@@ -664,8 +667,11 @@ inline void test_reverse_iteration() {
   StaticCircularBuffer<int, 4> buf{10, 20, 30};
   int values[3] = {};
   int n = 0;
-  for (auto it = buf.rbegin(); it != buf.rend(); ++it)
-    values[n++] = *it;
+  for (auto it = buf.rbegin(); it != buf.rend(); ++it) {
+    if (n < static_cast<int>(std::size(values)))
+      values[n] = *it;
+    ++n;
+  }
   HS_EXPECT_EQ(n, 3);
   HS_EXPECT_EQ(values[0], 30);
   HS_EXPECT_EQ(values[1], 20);
@@ -695,8 +701,11 @@ inline void test_reverse_iteration_after_wrap() {
   HS_EXPECT_FALSE(buf.is_linear());
   int values[3] = {};
   int n = 0;
-  for (auto it = buf.crbegin(); it != buf.crend(); ++it)
-    values[n++] = *it;
+  for (auto it = buf.crbegin(); it != buf.crend(); ++it) {
+    if (n < static_cast<int>(std::size(values)))
+      values[n] = *it;
+    ++n;
+  }
   HS_EXPECT_EQ(n, 3);
   HS_EXPECT_EQ(values[0], 5);
   HS_EXPECT_EQ(values[1], 4);
@@ -881,8 +890,10 @@ inline void test_for_each_visits_front_to_back() {
   uint32_t indices[4] = {};
   int n = 0;
   buf.for_each([&](const int &v, uint32_t i) {
-    values[n] = v;
-    indices[n] = i;
+    if (n < static_cast<int>(std::size(values))) {
+      values[n] = v;
+      indices[n] = i;
+    }
     ++n;
   });
   HS_EXPECT_EQ(n, 3);
@@ -906,8 +917,12 @@ inline void test_for_each_after_wrap_matches_indexing() {
   int values[3] = {};
   int n = 0;
   buf.for_each([&](const int &v, uint32_t i) {
-    values[n] = v;
-    HS_EXPECT_EQ(v, buf[i]);
+    if (n < static_cast<int>(std::size(values)))
+      values[n] = v;
+    if (i < buf.size())
+      HS_EXPECT_EQ(v, buf[i]);
+    else
+      HS_EXPECT_TRUE(i < buf.size());
     ++n;
   });
   HS_EXPECT_EQ(n, 3);
