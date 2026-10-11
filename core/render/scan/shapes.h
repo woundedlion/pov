@@ -307,7 +307,8 @@ struct DistortedRingStack {
    * evaluated in ascending ring index via
    * SDF::DistortedRing::distance_from_frame. At pole_lod_aggressiveness 0 the
    * output matches rasterizing the rings one by one under suppress_pole_fill,
-   * to float rounding. Does not read canvas.debug().
+   * to float rounding, when each plot writes one destination pixel.
+   * Does not read canvas.debug().
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>
@@ -594,8 +595,9 @@ struct RingGroup {
    * @details Row intervals come from one covering ring: the middle member (n/2)
    * inflated by the group's maximum plane/radius deviation plus thickness.
    * Members evaluate per pixel in ascending slot order. At
-   * pole_lod_aggressiveness 0 the only divergence from rasterizing the rings
-   * one by one is AA-tail pixels a member's own interval clip would drop.
+   * pole_lod_aggressiveness 0 and one destination pixel per plot, the only
+   * divergence from rasterizing the rings one by one is AA-tail pixels a
+   * member's own interval clip would drop.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
