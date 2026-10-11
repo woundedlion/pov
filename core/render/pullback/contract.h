@@ -25,6 +25,13 @@
 
 namespace Pullback {
 
+/** @brief Maximum direction squared-norm error accepted by projection. */
+inline constexpr float DIRECTION_NORM_SQUARED_TOLERANCE = 0.004f;
+/** @brief Squared-norm excess covered by the stereographic plane bound. */
+inline constexpr float STEREO_NORM_SQUARED_EXCESS_BOUND = 0.005f;
+static_assert(DIRECTION_NORM_SQUARED_TOLERANCE <=
+              STEREO_NORM_SQUARED_EXCESS_BOUND);
+
 /** @brief How a `Stage::Placed` group's run is emitted. */
 enum class CodeEmission : uint8_t {
   INLINE_ONLY,       ///< Always inlined into the caller.

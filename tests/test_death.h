@@ -1652,7 +1652,7 @@ inline const Case *all_cases(int &n) {
                    case_pullback_project_nonunit_direction,
                    "core/render/pullback/stage.h",
                    "(fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y + "
-                   "input.dir.z * input.dir.z - 1.0f) <= 0.004f) "
+                   "input.dir.z * input.dir.z - 1.0f) <= DIRECTION_NORM_SQUARED_TOLERANCE) "
                    "Project requires a unit direction within lens approximation error"},
                   {"pullback_operator_invalid_coverage_mode",
                    case_pullback_operator_invalid_coverage_mode,

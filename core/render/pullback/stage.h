@@ -65,7 +65,8 @@ project(const SphereSample &input, const math::Vector &local,
         const ProjectionResult &result) {
   HS_AUDIT_CHECK(
       fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y +
-            input.dir.z * input.dir.z - 1.0f) <= 0.004f,
+            input.dir.z * input.dir.z - 1.0f) <=
+          DIRECTION_NORM_SQUARED_TOLERANCE,
       "Project requires a unit direction within lens approximation error");
   return {result.coords, result.provenance, local, input.path_length};
 }

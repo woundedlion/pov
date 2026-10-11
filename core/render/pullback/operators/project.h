@@ -215,8 +215,7 @@ struct ProjectStereographic
 
   /** @brief Bound at the stereographic pole cap. @return The bound. */
   static float plane_bound(const Params &, float) {
-    constexpr float MAX_NORM_SQUARED_EXCESS = 0.005f;
-    return sqrtf(MAX_NORM_SQUARED_EXCESS +
+    return sqrtf(STEREO_NORM_SQUARED_EXCESS_BOUND +
                  2.0f * projections::STEREO_POLE_EPS) /
            projections::STEREO_POLE_EPS;
   }
