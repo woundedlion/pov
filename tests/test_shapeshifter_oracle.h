@@ -544,10 +544,7 @@ inline void expect_candidate_within_visual_budget(const OracleState &state,
       if (!candidate_covers_neighborhood(comparison.candidate, x, y))
         ++uncovered_bright_pixels;
     }
-    const uint32_t max_error = std::max({a.r > b.r ? a.r - b.r : b.r - a.r,
-                                         a.g > b.g ? a.g - b.g : b.g - a.g,
-                                         a.b > b.b ? a.b - b.b : b.b - a.b});
-    if (max_error > HIGH_CHANNEL_ERROR)
+    if (max_channel_gap(a, b) > HIGH_CHANNEL_ERROR)
       ++high_error_pixels;
   }
   report_visual_budget(state, comparison.error, energy_ratio, high_error_pixels,
