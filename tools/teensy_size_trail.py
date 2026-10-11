@@ -539,6 +539,10 @@ def cmd_backfill(args) -> int:
     build_dir = Path(args.build_dir) if args.build_dir else worktree / ".pio" / "build"
 
     try:
+        if _git(["status", "--porcelain", "--untracked-files=no"], worktree):
+            print(f"[size-trail] tracked changes in {worktree}; backfill refused",
+                  file=sys.stderr)
+            return 2
         revs = _git(["rev-list", "--reverse", args.rev_range], worktree).split()
     except GitError as exc:
         print(f"[size-trail] {exc}", file=sys.stderr)
