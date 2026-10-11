@@ -520,7 +520,8 @@ private:
     timeline.add_pausable(2,
                           Animation::Mutation(params.hankin_angle, sweep_wave(),
                                               HANKIN_SWEEP_FRAMES,
-                                              math::ease_linear, false)
+                                              math::ease_linear,
+                                              {.repeat = false})
                               .then([this]() {
                                 // Pin exact zero for device libm and fast-math.
                                 params.hankin_angle = 0.0f;
