@@ -23,6 +23,15 @@ struct HankinSolidsWhiteBox;
 } // namespace effects_tests
 } // namespace hs_test
 
+namespace HankinSolidsDetail {
+struct ShapeWeights {
+  float strap_open = 1.0f;     ///< Opening strap alpha and rim blend.
+  float strap_close = 1.0f;    ///< Closing strap rim blend.
+  float strap_terminal = 1.0f; ///< Terminal strap alpha.
+  float star_close = 1.0f;     ///< Midpoint star rim blend.
+};
+} // namespace HankinSolidsDetail
+
 /**
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
@@ -205,9 +214,7 @@ private:
                               static_cast<float>(SHAPE_FRAMES));
   }
 
-  struct ShapeWeights {
-    float strap_open, strap_close, strap_terminal, star_close;
-  };
+  using ShapeWeights = HankinSolidsDetail::ShapeWeights;
 
   static ShapeWeights shape_weights(int cycle_frame) {
     const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
@@ -342,24 +349,14 @@ private:
    * @param star_by_slot Resolved palette LUT per class slot for star faces
    * (emission index < node_faces); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
-   * @param strap_open_fade Alpha multiplier for strap (emission index >=
-   * node_faces) faces over the opening window, in [0, 1]. Also blends toward
-   * the host rim color using the minimum of this and strap_close_blend.
-   * @param strap_close_blend Blend of strap faces toward the rim color of the
-   * base face they collapse onto, over the closing window, in [0, 1].
-   * @param strap_terminal_fade Alpha multiplier over the last frames of the
-   * close, in [0, 1].
-   * @param star_close_blend Blend of star faces toward the rim color of the
-   * rosettes hosted inside them, over the sweep's midpoint, in [0, 1].
+   * @param weights Opening/closing alpha and host-rim blend weights.
    * @details At either angle-0 bookend the straps are zero-area, so the
    * star-face bookend stays bitwise exact.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 float strap_open_fade = 1.0f, float strap_close_blend = 1.0f,
-                 float strap_terminal_fade = 1.0f,
-                 float star_close_blend = 1.0f) {
+                 const ShapeWeights &weights = {}) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -378,18 +375,11 @@ private:
     HS_CHECK(topology_faces == rotated_mesh.num_faces(),
              "Hankin topology must cover every face");
 
-    const bool fade_straps = strap_open_fade < 1.0f;
-    const bool close_straps =
-        strap_close_blend < 1.0f || strap_terminal_fade < 1.0f;
     const size_t star_faces = node_faces;
-    const float strap_blend = strap_open_fade < strap_close_blend
-                                  ? strap_open_fade
-                                  : strap_close_blend;
-    float strap_alpha = 1.0f;
-    if (fade_straps)
-      strap_alpha *= strap_open_fade;
-    if (close_straps)
-      strap_alpha *= strap_terminal_fade;
+    const float strap_blend = weights.strap_open < weights.strap_close
+                                  ? weights.strap_open
+                                  : weights.strap_close;
+    const float strap_alpha = weights.strap_open * weights.strap_terminal;
 
     // Face-hoisted: the class palette, its counterpart and the
     // intensity/inradius gradient scale resolve once per face.
@@ -405,7 +395,7 @@ private:
       fragment_shader.alpha = is_strap ? strap_alpha : 1.0f;
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
-      const float blend = is_strap ? strap_blend : star_close_blend;
+      const float blend = is_strap ? strap_blend : weights.star_close;
       if (blend < 1.0f) {
         const uint8_t counterpart =
             is_strap ? host_face_palette[fi] : star_rim_palette[fi];
@@ -561,9 +551,7 @@ private:
               // Collapse points: strap birth at the opening bookend, strap
               // close at the closing one, star close at the midpoint.
               const ShapeWeights weights = shape_weights(cycle_frame);
-              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot,
-                        weights.strap_open, weights.strap_close,
-                        weights.strap_terminal, weights.star_close);
+              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, weights);
             },
             HANKIN_SWEEP_FRAMES + 1),
         &anims_paused);
