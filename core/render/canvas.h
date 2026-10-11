@@ -41,7 +41,8 @@ struct EffectConfig {
       false; /**< Frame generation samples pixels outside the display band. */
   /**
    * @brief Render-bound expansion the effect's filters need, in pixels
-   *        (ClipRegion::margin). Raised to the ClipRegion default when lower.
+   *        (ClipRegion::margin). Raised to cover the ClipRegion default and
+   *        required_margin.
    */
   int margin = ClipRegion{}.margin;
   int required_margin = 0; /**< Folded minimum filter tap coverage. */
@@ -95,9 +96,8 @@ public:
     clip_region.h = H;
     clip_region.y_end = H;
     clip_region.x_end = W;
-    // Only widen the ClipRegion default margin.
     const int widened =
-        cfg.margin > clip_region.margin ? cfg.margin : clip_region.margin;
+        std::max({cfg.margin, clip_region.margin, required_margin});
     // A one-column canvas is already fully covered and has no representable
     // positive cylindrical margin.
     set_margin(W == 1 ? 0 : widened);
