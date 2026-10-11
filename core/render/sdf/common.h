@@ -322,7 +322,8 @@ template <typename T>
 inline constexpr float reject_margin = [] {
   if constexpr (requires { T::REJECT_MARGIN; })
     return T::REJECT_MARGIN;
-  return 0.0f;
+  else
+    return 0.0f;
 }();
 /// PlanarPolygon never substitutes FAR_SENTINEL.
 template <> inline constexpr float reject_margin<PlanarPolygon> = FLT_MAX;
