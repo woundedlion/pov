@@ -17,6 +17,36 @@
 namespace Animation {
 
 /**
+ * @brief Adds an increment while retaining phase precision across wraps.
+ * @param current Phase in [lo, lo + period).
+ * @param inc Phase increment.
+ * @param lo Lower phase bound.
+ * @param period Positive phase period.
+ * @return Advanced phase in [lo, lo + period).
+ */
+__attribute__((always_inline)) inline double
+advance_wrapped(double current, double inc, double lo, double period) {
+  const double hi = lo + period;
+  double next = current + inc;
+  if (next >= hi) {
+    next -= period;
+    if (next >= hi) {
+      next = current + std::fmod(inc, period);
+      if (next >= hi)
+        next -= period;
+    }
+  } else if (next < lo) {
+    next += period;
+    if (next < lo) {
+      next = current + std::fmod(inc, period);
+      if (next < lo)
+        next += period;
+    }
+  }
+  return next;
+}
+
+/**
  * @brief Shared timing contract for finite parameter animations.
  * @tparam Derived Concrete animation type used by AnimationBase.
  */
@@ -708,23 +738,8 @@ public:
     for (int i = 0; i < 8; ++i) {
       const double increment =
           static_cast<double>(speed) * static_cast<double>(FREQUENCIES[i]);
-      double next = channel_phases[i] + increment;
-      if (next >= PERIOD) {
-        next -= PERIOD;
-        if (next >= PERIOD) {
-          next = channel_phases[i] + std::fmod(increment, PERIOD);
-          if (next >= PERIOD)
-            next -= PERIOD;
-        }
-      } else if (next < 0.0) {
-        next += PERIOD;
-        if (next < 0.0) {
-          next = channel_phases[i] + std::fmod(increment, PERIOD);
-          if (next < 0.0)
-            next += PERIOD;
-        }
-      }
-      channel_phases[i] = next;
+      channel_phases[i] =
+          advance_wrapped(channel_phases[i], increment, 0.0, PERIOD);
     }
     float s = scale;
 
@@ -900,7 +915,9 @@ public:
    * @param initial_time Seed, taken modulo the loop; non-finite starts at 0.
    */
   explicit NoiseTimeLoop(float initial_time)
-      : phase(std::isfinite(initial_time) ? wrap(0.0, initial_time) : 0.0) {}
+      : phase(std::isfinite(initial_time)
+                  ? advance_wrapped(0.0, initial_time, -2048.0, 4096.0)
+                  : 0.0) {}
 
   /**
    * @brief Advances the trajectory. @pre speed is finite and nonzero.
@@ -909,7 +926,7 @@ public:
    */
   float advance(float speed) {
     HS_PROFILE(animation_noise_clock);
-    phase = wrap(phase, speed);
+    phase = advance_wrapped(phase, speed, -2048.0, 4096.0);
     const float magnitude = static_cast<float>(std::fabs(phase));
     float value;
     if (magnitude <= 960.0f) {
@@ -925,26 +942,6 @@ public:
   }
 
 private:
-  static double wrap(double current, double increment) {
-    double phase = current + increment;
-    if (phase >= 2048.0) {
-      phase -= 4096.0;
-      if (phase >= 2048.0) {
-        phase = current + std::fmod(increment, 4096.0);
-        if (phase >= 2048.0)
-          phase -= 4096.0;
-      }
-    } else if (phase < -2048.0) {
-      phase += 4096.0;
-      if (phase < -2048.0) {
-        phase = current + std::fmod(increment, 4096.0);
-        if (phase < -2048.0)
-          phase += 4096.0;
-      }
-    }
-    return phase;
-  }
-
   double phase;
 };
 
