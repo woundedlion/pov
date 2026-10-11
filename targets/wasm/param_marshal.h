@@ -59,7 +59,8 @@ private:
  *          toggles carry no meaningful range.
  */
 struct ParamView {
-  const char *name;      /**< Parameter name, as exposed to the JS boundary. */
+  const char *name; /**< Parameter name, as exposed to the JS boundary. */
+  const ParameterGroup *group; ///< Optional parameter family metadata.
   float value;           /**< Rendered value in the parameter's native units. */
   float requested_value; /**< Writable target used to seed another renderer. */
   float accepted_value;  /**< Last value admitted for rendering. */
@@ -117,10 +118,15 @@ inline void collect_param_views(const Effect &effect,
   out.clear();
   for (const auto &def : effect.getParameters()) {
     out.push_back(ParamView{
-        def.name, def.get(), def.get_requested(),
-        effect.accepted_parameter_value(def), def.min, def.max, def.is_bool(),
-        def.is_integer() || def.is_enum(), def.animated, def.readonly,
-        def.preset, def.options, def.option_count,
+        def.name,
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+        def.group,
+#else
+        nullptr,
+#endif
+        def.get(), def.get_requested(), effect.accepted_parameter_value(def),
+        def.min, def.max, def.is_bool(), def.is_integer() || def.is_enum(),
+        def.animated, def.readonly, def.preset, def.options, def.option_count,
 #if HS_ENABLE_PARAM_GUI_BRIDGE
         def.export_options,
 #else
