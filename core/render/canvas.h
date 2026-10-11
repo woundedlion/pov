@@ -243,7 +243,7 @@ public:
   void set_output_envelope(float value) {
     HS_AUDIT_CHECK(std::isfinite(value) && value >= 0.0f && value <= 1.0f,
                    "output envelope must be finite and in [0,1]");
-    output_envelope = static_cast<uint16_t>(value * 65535.0f + 0.5f);
+    output_envelope = frac_to_q16(value);
   }
 
   /**
