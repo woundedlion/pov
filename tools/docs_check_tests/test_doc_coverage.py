@@ -1,4 +1,7 @@
+import contextlib
+import io
 import subprocess
+from unittest import mock
 import sys
 import tempfile
 import unittest
@@ -152,6 +155,42 @@ class TestDoxyfileSetting(unittest.TestCase):
     def test_reassignment_replaces(self):
         self.assertEqual(cov.doxyfile_setting(
             "EXCLUDE = a\nEXCLUDE = b\n", "EXCLUDE"), ["b"])
+
+
+class TestMain(unittest.TestCase):
+    def test_empty_selection_refuses_before_doxygen(self):
+        with mock.patch.object(cov, "source_files", return_value=[]), \
+             mock.patch.object(cov, "run_doxygen") as run, \
+             contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(cov.main([]), 2)
+        self.assertIn("no source files", errors.getvalue())
+        run.assert_not_called()
+
+    def test_tool_errors_are_distinct_from_coverage_failures(self):
+        for error in (OSError("missing executable"), subprocess.CalledProcessError(1, "git")):
+            with self.subTest(error=error), \
+                 mock.patch.object(cov, "source_files", side_effect=error), \
+                 contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertEqual(cov.main([]), 2)
+                self.assertIn("tooling error", errors.getvalue())
+        with mock.patch.object(cov, "source_files", return_value=["a.h"]), \
+             mock.patch.object(cov, "missing_file_blocks", return_value=[]), \
+             mock.patch.object(cov, "run_doxygen", side_effect=FileNotFoundError("doxygen")), \
+             contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertEqual(cov.main([]), 2)
+        self.assertIn("doxygen", errors.getvalue())
+
+    def test_complete_input_passes_and_missing_file_block_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "a.h").write_text("/** @file */", encoding="utf-8")
+            with mock.patch.object(cov, "source_files", return_value=["a.h"]), \
+                 mock.patch.object(cov, "run_doxygen", return_value=""), \
+                 contextlib.redirect_stdout(io.StringIO()), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(cov.main(["--root", str(root)]), 0)
+                (root / "a.h").write_text("", encoding="utf-8")
+                self.assertEqual(cov.main(["--root", str(root)]), 1)
 
 
 class TestFileBlocks(unittest.TestCase):
