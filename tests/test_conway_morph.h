@@ -25,7 +25,6 @@
 #include "tests/conway_test_util.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
-#include "tests/test_conway.h" // check_euler_characteristic_two, face_type_histogram
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

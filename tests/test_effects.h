@@ -44,17 +44,6 @@ constexpr int DEFAULT_W = 288;
 constexpr int DEFAULT_H = 144;
 
 /**
- * @brief Small-aspect render width in pixels.
- * @details The holosphere <96,20> resolution, run here under asserts.
- */
-constexpr int SMALL_W = 96;
-/**
- * @brief Small-aspect render height in pixels.
- * @details Paired with SMALL_W for the <96,20> specialization.
- */
-constexpr int SMALL_H = 20;
-
-/**
  * @brief Per-effect smoke frame count, resolved from HS_SMOKE_FRAMES.
  */
 using hs_test::smoke_frames;
@@ -82,33 +71,6 @@ inline void lint_dead_sliders(Effect &effect, const char *name);
  * @param name Effect name used in diagnostic output.
  */
 inline void lint_animated_pause(Effect &effect, const char *name);
-
-/**
- * @brief Resets the process-global effect state to a clean per-effect baseline.
- * @details Forwards to hs_test::reset_globals(), which also releases the mock
- *          clock.
- */
-inline void reset_effect_globals() { hs_test::reset_globals(); }
-
-/**
- * @brief Params of a choreographed effect's preset @p index.
- * @tparam E The effect type.
- * @param index Preset index.
- * @return `preset(index)`'s params, else `PRESETS[index]`'s, else the
- *         initial params, else default params.
- * @details Mirrors `ChoreographedEffect::preset_row`, which is private.
- */
-template <typename E>
-typename E::Params preset_params_or_initial(size_t index) {
-  if constexpr (requires { E::preset(index).params; })
-    return E::preset(index).params;
-  else if constexpr (requires { E::PRESETS; })
-    return E::PRESETS[index].params;
-  else if constexpr (requires { E::initial_params(); })
-    return E::initial_params();
-  else
-    return typename E::Params{};
-}
 
 /**
  * @brief Drives one effect type through construct -> init -> render -> read-back.

@@ -12,6 +12,7 @@
 #include "core/platform/platform.h"
 #include "core/render/canvas.h"
 #include "core/render/render_policy.h"
+#include "hardware/hd107s_frame.h"
 #include "tests/test_harness.h"
 
 #include <cmath>
@@ -218,5 +219,60 @@ inline std::string read_text_file(const std::string &path) {
   std::fclose(file);
   return text;
 }
+
+/**
+ * @brief Restores HD107SFrame<S>'s shared static correction state to unity
+ *        (255 = exact ×1.0).
+ * @tparam S Pixel count of the frame instantiation to reset; the correction
+ *           state is a static of HD107SFrame<S>, so each S carries its own.
+ * @details Resets the per-channel correction, temperature, and brightness to an
+ * identity color pipeline.
+ */
+template <int S> inline void reset_correction() {
+  HD107SFrame<S>::set_correction(255, 255, 255);
+  HD107SFrame<S>::set_temperature(255, 255, 255);
+  HD107SFrame<S>::set_brightness(255);
+}
+
+namespace effects_tests {
+/**
+ * @brief Small-aspect render width in pixels.
+ * @details The holosphere <96,20> resolution, run here under asserts.
+ */
+constexpr int SMALL_W = 96;
+/**
+ * @brief Small-aspect render height in pixels.
+ * @details Paired with SMALL_W for the <96,20> specialization.
+ */
+constexpr int SMALL_H = 20;
+
+/**
+ * @brief Resets the process-global effect state to a clean per-effect baseline.
+ * @details Forwards to hs_test::reset_globals(), which also releases the mock
+ *          clock.
+ */
+inline void reset_effect_globals() { hs_test::reset_globals(); }
+
+/**
+ * @brief Params of a choreographed effect's preset @p index.
+ * @tparam E The effect type.
+ * @param index Preset index.
+ * @return `preset(index)`'s params, else `PRESETS[index]`'s, else the
+ *         initial params, else default params.
+ * @details Mirrors `ChoreographedEffect::preset_row`, which is private.
+ */
+template <typename E>
+typename E::Params preset_params_or_initial(size_t index) {
+  if constexpr (requires { E::preset(index).params; })
+    return E::preset(index).params;
+  else if constexpr (requires { E::PRESETS; })
+    return E::PRESETS[index].params;
+  else if constexpr (requires { E::initial_params(); })
+    return E::initial_params();
+  else
+    return typename E::Params{};
+}
+
+} // namespace effects_tests
 
 } // namespace hs_test

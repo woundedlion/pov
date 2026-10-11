@@ -25,7 +25,6 @@
 #include "core/render/pullback/catalog_export.h"
 #include "core/render/pullback/composed_effect.h"
 #include "core/render/pullback/operators/table.h"
-#include "tests/test_effects.h" // reset_effect_globals, SMALL_W/SMALL_H
 #include "tests/test_fixture.h"
 #include "tests/composed_frame_fixture.h"
 #include "tests/test_harness.h"
