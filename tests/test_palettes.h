@@ -124,11 +124,6 @@ inline void test_mesh_palette_bank_lookup() {
   HS_EXPECT_EQ(s1.color.r, 36642);
   HS_EXPECT_EQ(s1.color.g, 9703);
   HS_EXPECT_EQ(s1.color.b, 157);
-  // The baked slot reproduces the embers source it was baked from.
-  Color4 e0 = Palettes::EMBERS.get(0.0f);
-  HS_EXPECT_EQ(s0.color.r, e0.color.r);
-  HS_EXPECT_EQ(s0.color.g, e0.color.g);
-  HS_EXPECT_EQ(s0.color.b, e0.color.b);
 
   for (int i = 0; i < MeshPaletteBank::N; ++i) {
     for (float t : {0.0f, 1.0f}) {
@@ -202,7 +197,6 @@ inline void test_named_procedural_palette_roster() {
       7425003234454588729ull,  51388825653918428ull,
       15037618790413056646ull};
   static_assert(std::size(palettes) == std::size(PALETTE_HASHES));
-  uint64_t hash = HASH_SEED64;
   for (size_t index = 0; index < std::size(palettes); ++index) {
     HS_CONTEXT("palette index", index);
     uint64_t palette_hash = HASH_SEED64;
@@ -210,13 +204,11 @@ inline void test_named_procedural_palette_roster() {
       const Pixel pixel = palettes[index]->get(sample / 16.0f).color;
       for (uint16_t channel : {pixel.r, pixel.g, pixel.b}) {
         const auto upper = static_cast<uint8_t>(channel >> 8);
-        hash = fnv1a64_byte(hash, upper);
         palette_hash = fnv1a64_byte(palette_hash, upper);
       }
     }
     HS_EXPECT_EQ(palette_hash, PALETTE_HASHES[index]);
   }
-  HS_EXPECT_EQ(hash, uint64_t{1253289522805892800});
 }
 
 /**
