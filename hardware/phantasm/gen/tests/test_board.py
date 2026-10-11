@@ -242,7 +242,7 @@ class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
         pad_numbers = {pad[1] for pad in pads if pad[1]}
         lib = next(node for node in sexp.val(self.root, "lib_symbols")
                    if node[0:2] == ["symbol", "phantasm:Teensy4.0"])
-        pins = builder._index_unit_pins(lib)[1]
+        pins = builder.index_unit_pins(lib)[1]
         self.assertEqual(set(pins), pad_numbers)
         inst = next(node for node in F(self.root, "symbol")
                     if sexp.val(node, "lib_id") == ["phantasm:Teensy4.0"])

@@ -83,26 +83,29 @@ class Builder:
         self._unit_pins = {}     # lib_id -> {unit -> {num -> pin}}
 
     # ---- library symbol management ----
-    def _resolve(self, lib, name):
-        """Return a fully-resolved symbol node (extends flattened)."""
+    def resolve(self, lib, name):
+        """Return a mutable deep copy of a stock symbol with extends flattened.
+
+        Mutating the result leaves the library cache and later resolutions unchanged.
+        """
         node = copy.deepcopy(sexp.get_symbol(lib, name))
         ext = sexp.val(node, "extends")
         if ext:
-            base = self._resolve(lib, ext[0])
+            base = self.resolve(lib, ext[0])
             base = copy.deepcopy(base)
-            _rename_subsymbols(base, ext[0], name)
+            rename_subsymbols(base, ext[0], name)
             base[1] = name
-            _overlay_props(base, node)
+            overlay_props(base, node)
             node = base
         return node
 
     def ensure_lib(self, lib, name, lib_id=None):
         lib_id = lib_id or f"{lib}:{name}"
         if lib_id not in self.lib_defs:
-            node = self._resolve(lib, name)
+            node = self.resolve(lib, name)
             node[1] = lib_id  # top name becomes the full lib_id
             self.lib_defs[lib_id] = node
-            self._unit_pins[lib_id] = _index_unit_pins(node)
+            self._unit_pins[lib_id] = index_unit_pins(node)
         return lib_id
 
     def register_custom(self, node, lib_id):
@@ -110,7 +113,7 @@ class Builder:
         node = copy.deepcopy(node)
         node[1] = lib_id
         self.lib_defs[lib_id] = node
-        self._unit_pins[lib_id] = _index_unit_pins(node)
+        self._unit_pins[lib_id] = index_unit_pins(node)
         return lib_id
 
     # ---- placement / drawing ----
@@ -268,14 +271,16 @@ def _prop(name, value, x, y, hide=False, angle=0):
 
 
 # ---------- lib symbol helpers ----------
-def _rename_subsymbols(node, old_root, new_root):
+def rename_subsymbols(node, old_root, new_root):
+    """Rename a symbol node's unit children in place."""
     for c in node:
         if isinstance(c, list) and c and c[0] == "symbol" and isinstance(c[1], str):
             if c[1].startswith(old_root + "_"):
                 c[1] = new_root + c[1][len(old_root):]
 
 
-def _overlay_props(base, node):
+def overlay_props(base, node):
+    """Overlay independent property copies from node onto base in place."""
     wanted = {}
     for c in node:
         if isinstance(c, list) and c and c[0] == "property":
@@ -294,7 +299,7 @@ def _overlay_props(base, node):
     base[:] = newchildren
 
 
-def _index_unit_pins(node):
+def index_unit_pins(node):
     """Return {unit -> {number -> {x,y,angle,name}}}."""
     res = {}
 

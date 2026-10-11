@@ -119,7 +119,7 @@ class DumpsTests(unittest.TestCase):
                 ['symbol', 'Base_1_1']]
         derived = ['symbol', 'Derived', ['property', 'Value', 'derived'],
                    ['property', 'Manufacturer', 'Vendor']]
-        builder._overlay_props(base, derived)
+        builder.overlay_props(base, derived)
         self.assertEqual(base, ['symbol', 'Base',
                                ['property', 'Value', 'derived'],
                                ['property', 'Manufacturer', 'Vendor'],
@@ -135,11 +135,25 @@ class DumpsTests(unittest.TestCase):
                         ['property', 'Manufacturer', 'Vendor']],
         }
         with mock.patch.object(sexp, 'get_symbol', side_effect=lambda lib, name: symbols[name]):
-            resolved = builder.Builder('Test')._resolve('Test', 'Derived')
+            resolved = builder.Builder('Test').resolve('Test', 'Derived')
         self.assertEqual(resolved[1], 'Derived')
         self.assertEqual(sexp.val(resolved, 'property'), ['Value', 'base'])
         self.assertIn(['property', 'Manufacturer', 'Vendor'], resolved)
         self.assertIn(['symbol', 'Derived_1_1'], resolved)
+
+    def test_resolved_stock_symbol_is_an_independent_deep_copy(self):
+        original = ['symbol', 'Base', ['property', 'Value', 'base'],
+                    ['symbol', 'Base_1_1']]
+        with mock.patch.object(sexp, 'get_symbol', return_value=original):
+            b = builder.Builder('Test')
+            resolved = b.resolve('Test', 'Base')
+            resolved[2][2] = 'changed'
+            resolved[3][1] = 'Changed_1_1'
+            self.assertEqual(b.resolve('Test', 'Base'),
+                             ['symbol', 'Base', ['property', 'Value', 'base'],
+                              ['symbol', 'Base_1_1']])
+        self.assertEqual(original, ['symbol', 'Base', ['property', 'Value', 'base'],
+                                    ['symbol', 'Base_1_1']])
 
 
 class SchematicPinnedTests(unittest.TestCase):

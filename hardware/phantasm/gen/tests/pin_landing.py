@@ -12,7 +12,7 @@ def dangling_pins(root):
     Pin coordinates come from the schematic's own lib_symbols, so a stock
     symbol whose pin moved is measured where the generated file placed it.
     """
-    libs = {node[1]: builder._index_unit_pins(node)
+    libs = {node[1]: builder.index_unit_pins(node)
             for node in sexp.val(root, "lib_symbols", [])
             if isinstance(node, list) and node and node[0] == "symbol"}
     _, wires, junctions = shorts.geometry(root)
@@ -48,7 +48,7 @@ def dangling_pins(root):
 
 def pin_positions(root):
     """(reference, pin number) -> schematic point, from the file's lib_symbols."""
-    libs = {node[1]: builder._index_unit_pins(node)
+    libs = {node[1]: builder.index_unit_pins(node)
             for node in sexp.val(root, "lib_symbols")}
     positions = {}
     for inst in F(root, "symbol"):
