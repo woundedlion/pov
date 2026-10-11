@@ -563,6 +563,13 @@ class MindSplatterInstrumentationLines(unittest.TestCase):
         self.assertEqual(window.msp_counts["tap4"], 90)
         self.assertEqual(set(window.counters), {"frame"})
 
+    def test_integer_plot_counts_preserve_legacy_capture_support(self):
+        self.assertEqual(self._parse()[0].msp_counts["integer"], 0)
+        self.LOG = self.LOG.replace("boundary=10", "boundary=10 integer=37")
+        window = self._parse()[0]
+        self.assertEqual(window.msp_counts["boundary"], 10)
+        self.assertEqual(window.msp_counts["integer"], 37)
+
     def test_aliased_stalls_are_retained_and_reported(self):
         self.LOG += "plot stall aliased: stage=history_vertex cpi/lsu/exc understated\n"
         windows = self._parse()

@@ -215,7 +215,8 @@ struct AASinkSample {
 template <typename Sink>
 inline std::vector<Pixel>
 render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
-                    const std::vector<AASinkSample> &samples) {
+                    const std::vector<AASinkSample> &samples,
+                    bool integer_coordinates = false) {
   std::vector<Pixel> frame;
   {
     hs_test::StubEffect fx(w, h);
@@ -233,8 +234,13 @@ render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
                            static_cast<uint16_t>(n * 313u + 101u),
                            static_cast<uint16_t>(n * 701u + 7u));
         }
-      for (const AASinkSample &s : samples)
-        sink.plot(cv, s.x, s.y, s.color, 0.0f, s.alpha);
+      for (const AASinkSample &s : samples) {
+        if (integer_coordinates)
+          sink.plot(cv, static_cast<int>(s.x), static_cast<int>(s.y), s.color,
+                    0.0f, s.alpha);
+        else
+          sink.plot(cv, s.x, s.y, s.color, 0.0f, s.alpha);
+      }
     }
     fx.advance_display();
     frame.reserve(static_cast<size_t>(w * h));
@@ -344,6 +350,16 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
       {0, H, 4, 12, W - 1},
   }};
 
+  std::vector<AASinkSample> integer_samples;
+  for (int y = -1; y <= H; ++y)
+    for (int x = -W; x < 2 * W; ++x) {
+      const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
+      integer_samples.push_back({static_cast<float>(x), static_cast<float>(y),
+                                 Pixel(n, static_cast<uint16_t>(n * 3u),
+                                       static_cast<uint16_t>(65535u - n)),
+                                 alphas[sequence % alphas.size()]});
+    }
+
   for (const ClipCase &clip : clips) {
     const auto background = render_aa_sink_case<Reference>(
         W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, {});
@@ -360,5 +376,18 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
         ++changed;
     }
     HS_EXPECT_GT(changed, 0);
+    const auto integer_expected = render_aa_sink_case<Reference>(
+        W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, integer_samples);
+    const auto integer_actual =
+        render_aa_sink_case<Direct>(W, H, clip.y0, clip.y1, clip.x0, clip.x1,
+                                    clip.margin, integer_samples, true);
+    HS_EXPECT_EQ(integer_actual.size(), integer_expected.size());
+    int integer_changed = 0;
+    for (size_t i = 0; i < integer_expected.size(); ++i) {
+      HS_EXPECT_EQ(integer_actual[i], integer_expected[i]);
+      if (integer_expected[i] != background[i])
+        ++integer_changed;
+    }
+    HS_EXPECT_GT(integer_changed, 0);
   }
 }

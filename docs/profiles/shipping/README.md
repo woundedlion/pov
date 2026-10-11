@@ -137,3 +137,5 @@ Preserved architecture snapshots, superseded in the ranking by the 2026-10-06 sw
 - [KaleidoscopeSmooth 2026-10-01](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md).
 
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.
+
+Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
