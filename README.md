@@ -133,7 +133,7 @@ C++ codebase
 - **`effects/`** holds the visual effects. Each one renders a frame into a `Canvas` using engine primitives ([§6](#6-effects)).
 - **`core/`** is the engine: math, geometry, memory, color, animation, the rasterizers and shaders ([§5](#5-rendering)), and the effect control surface (parameters, presets, choreography).
 - **`hardware/`** drives the LEDs: the single-board and segmented POV drivers, DMA LED controller and multi-board frame sync.
-- **`targets/`** has one entry point per build: the two firmware sketches, the WASM bridge, and the effect rosters they register.
+- **`targets/`** has one entry point per build: the Holosphere, Phantasm, Bench and Profile firmware sketches, the WASM bridge, and the effect rosters they register.
 
 The engine's subsystems — shaders, rasterizers, animation, transformers, memory, color, meshes, generators, presets, math kernels, spatial queries and hardware drivers — are documented in depth in [`docs/subsystems.md`](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md). Every effect is catalogued in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
