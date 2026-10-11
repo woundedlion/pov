@@ -88,12 +88,14 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   double total = 0.0;
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
     math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
       c = c + m.vertices[m.faces[off + k]];
     c = c.normalized();
     for (int k = 0; k < n; ++k) {
+      HS_CONTEXT("k", k);
       const math::Vector a = m.vertices[m.faces[off + k]];
       const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
       const double num = math::dot(c, math::cross(a, b));
@@ -111,6 +113,7 @@ inline double medial_min_face_area(const PolyMesh &m) {
   double mn = 1e9;
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
     math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
@@ -118,6 +121,7 @@ inline double medial_min_face_area(const PolyMesh &m) {
     c = c.normalized();
     double area = 0.0;
     for (int k = 0; k < n; ++k) {
+      HS_CONTEXT("k", k);
       const math::Vector a = m.vertices[m.faces[off + k]];
       const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
       area += 0.5 * math::cross(a - c, b - c).length();
@@ -133,6 +137,7 @@ inline int medial_inverted_faces(const PolyMesh &m) {
   int inv = 0;
   size_t off = 0;
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
     math::Vector c(0, 0, 0);
     for (int k = 0; k < n; ++k)
@@ -140,6 +145,7 @@ inline int medial_inverted_faces(const PolyMesh &m) {
     c = c.normalized();
     math::Vector nrm(0, 0, 0);
     for (int k = 0; k < n; ++k) {
+      HS_CONTEXT("k", k);
       const math::Vector a = m.vertices[m.faces[off + k]];
       const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
       nrm = nrm + math::cross(a, b);
@@ -163,6 +169,7 @@ inline void test_medial_dual_bridge_wellformed() {
   constexpr float ENDPOINT_TOL = 1e-4f;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     PolyMesh P = build_step_leg_seed(site, persist);
@@ -201,6 +208,7 @@ inline void test_medial_dual_bridge_wellformed() {
     size_t bit_diff = 0;
     float worst_bit = 0.0f;
     for (size_t v = 0; v < pair_n; ++v) {
+      HS_CONTEXT("v", v);
       const math::Vector &mv = med_a.vertices[v];
       const math::Vector &av = ambo_p.vertices[v];
       if (std::bit_cast<uint32_t>(mv.x) != std::bit_cast<uint32_t>(av.x) ||
@@ -243,6 +251,7 @@ inline void test_medial_dual_bridge_wellformed() {
     SweepFingerprint first;
     std::vector<math::Vector> prev(med_a.vertices.size());
     for (int s = 0; s < SAMPLES; ++s) {
+      HS_CONTEXT("s", s);
       const float k = static_cast<float>(s) / (SAMPLES - 1);
       ScratchScope frame_a(aux);
       PolyMesh frame;
@@ -320,6 +329,7 @@ inline void test_opleg_medial_leg_smoke() {
   constexpr float MAX_STEP_CHORD = 0.03f;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
     PolyMesh P = build_step_leg_seed(site, persist);
@@ -340,6 +350,7 @@ inline void test_opleg_medial_leg_smoke() {
     std::vector<math::Vector> centroid(prev_faces);
     size_t off = 0;
     for (size_t f = 0; f < prev_faces; ++f) {
+      HS_CONTEXT("f", f);
       pal[f] = static_cast<uint8_t>(
           math::wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
       const int n = ambo_p.face_counts[f];
@@ -367,6 +378,7 @@ inline void test_opleg_medial_leg_smoke() {
 
     hs_test::StubEffect fx(288, 144);
     for (int f = 0; f < SWEEP; ++f) {
+      HS_CONTEXT("f", f);
       {
         Canvas c(fx);
         anim.step(c);
@@ -403,6 +415,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   static Pipeline<RW, RH> filters;
 
   for (const StepLegSite &site : DUAL_LEG_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     reset_globals();
     const ScopedArenaSplit split(
@@ -483,6 +496,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
     rasterize_at = SWEEP;
     for (int f = 0; f < SWEEP; ++f) {
+      HS_CONTEXT("f", f);
       {
         Canvas c(fx);
         leg2.step(c);
@@ -498,8 +512,10 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const PolyMesh &arrival = *landing2.arrival_topology;
     size_t off = 0;
     for (size_t f = 0; f < nf; ++f) {
+      HS_CONTEXT("f", f);
       math::Vector c(0.0f, 0.0f, 0.0f);
       for (int j = 0; j < arrival.face_counts[f]; ++j) {
+        HS_CONTEXT("j", j);
         const size_t v = arrival.faces[off + j];
         c = c + landing2.arrival_point[v].decode().normalized();
       }
@@ -556,6 +572,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       int bad_match = 0, non_bijective = 0;
       size_t off = 0;
       for (size_t l = 0; l < nf; ++l) {
+        HS_CONTEXT("l", l);
         math::Vector c(0.0f, 0.0f, 0.0f);
         for (int j = 0; j < ambo_d.face_counts[l]; ++j)
           c = c + ambo_d.vertices[ambo_d.faces[off + j]];
@@ -564,6 +581,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
         size_t best = 0;
         float bd = 1e9f;
         for (size_t m = 0; m < nf; ++m) {
+          HS_CONTEXT("m", m);
           const float d = math::distance_between(c, cen3[m]);
           if (d < bd) {
             bd = d;
@@ -585,6 +603,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     // order; D-vertex orbit faces land in the medial's P-face block.
     int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
     for (size_t l = 0; l < nf; ++l) {
+      HS_CONTEXT("l", l);
       if (l < DF && perm[l] != static_cast<int>(PF + l))
         ++block1_viol;
       if (l >= DF && perm[l] >= static_cast<int>(PF))
@@ -625,6 +644,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       sumabs = 0;
       changed = 0;
       for (size_t i = 0; i < a.size(); ++i) {
+        HS_CONTEXT("i", i);
         const int dr = std::abs((a[i].r >> 8) - (b[i].r >> 8));
         const int dg = std::abs((a[i].g >> 8) - (b[i].g >> 8));
         const int db = std::abs((a[i].b >> 8) - (b[i].b >> 8));
