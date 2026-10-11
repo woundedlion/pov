@@ -435,26 +435,11 @@ inline void test_rasterize_balanced_sampling_scope() {
     b.pos = end;
     points.push_back(a);
     points.push_back(b);
-    auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-      hs_test::StubEffect fx(W, H);
-      AlphaCapturePipeline pipeline;
-      Canvas canvas(fx);
-      auto shader = [](const math::Vector &, Fragment &f) {
-        f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
-      };
-      Plot::rasterize<W, H,
-                      Plot::RasterConfig{.single_pass = true,
-                                         .sampling_policy = Policy}>(
-          pipeline, canvas, points, shader,
-          {.projection = Plot::RasterProjection::planar(basis),
-           .balanced_sampling =
-               Policy == Plot::RasterSamplingPolicy::SELECTABLE});
-      return pipeline;
-    };
     const AlphaCapturePipeline standard =
-        capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
-    const AlphaCapturePipeline balanced =
-        capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+        capture_planar_alpha_policy<W, H, Plot::RasterSamplingPolicy::DEFAULT>(
+            points, basis);
+    const AlphaCapturePipeline balanced = capture_planar_alpha_policy<
+        W, H, Plot::RasterSamplingPolicy::SELECTABLE>(points, basis);
     HS_EXPECT_SIZE_OR_RETURN(standard.plotted, balanced.plotted.size());
     HS_EXPECT_SIZE_OR_RETURN(standard.alphas, balanced.alphas.size());
     HS_EXPECT_GT(standard.plotted.size(), size_t{0});
@@ -488,26 +473,12 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
   points.push_back(a);
   points.push_back(b);
 
-  auto capture = [&]<Plot::RasterSamplingPolicy Policy>() {
-    hs_test::StubEffect fx(W, H);
-    AlphaCapturePipeline pipeline;
-    Canvas canvas(fx);
-    auto shader = [](const math::Vector &, Fragment &f) {
-      f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
-    };
-    Plot::rasterize<W, H,
-                    Plot::RasterConfig{.single_pass = true,
-                                       .sampling_policy = Policy}>(
-        pipeline, canvas, points, shader,
-        {.projection = Plot::RasterProjection::planar(basis),
-         .balanced_sampling =
-             Policy == Plot::RasterSamplingPolicy::SELECTABLE});
-    return pipeline;
-  };
   const AlphaCapturePipeline standard =
-      capture.template operator()<Plot::RasterSamplingPolicy::DEFAULT>();
+      capture_planar_alpha_policy<W, H, Plot::RasterSamplingPolicy::DEFAULT>(
+          points, basis);
   const AlphaCapturePipeline balanced =
-      capture.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+      capture_planar_alpha_policy<W, H, Plot::RasterSamplingPolicy::SELECTABLE>(
+          points, basis);
 
   HS_EXPECT_GT(standard.plotted.size(), balanced.plotted.size());
   HS_EXPECT_GE(balanced.plotted.size() * 5, standard.plotted.size() * 3);
@@ -550,9 +521,7 @@ inline void test_rasterize_balanced_pole_guard() {
   points.push_back(b);
 
   constexpr float POLICY_TOL = 1e-4f;
-  auto shader = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
-  };
+  auto shader = white_shader(0.4f);
   AlphaCapturePipeline pipeline;
   {
     hs_test::StubEffect fx(W, H);
@@ -618,9 +587,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
     Canvas canvas(fx);
     Plot::g_planar_full_samples = 0;
     Plot::g_planar_position_samples = 0;
-    auto shader = [](const math::Vector &, Fragment &f) {
-      f.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
-    };
+    auto shader = white_shader(0.4f);
     Plot::rasterize<W, H,
                     Plot::RasterConfig{.single_pass = true,
                                        .derive_planar_arc_registers = false,
@@ -707,9 +674,7 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
     hs_test::StubEffect fx(W, H);
     AlphaCapturePipeline pipeline;
     Canvas canvas(fx);
-    auto shader = [](const math::Vector &, Fragment &f) {
-      f.color = Color4(Pixel(65535, 65535, 65535), ALPHA);
-    };
+    auto shader = white_shader(ALPHA);
     Plot::rasterize<W, H,
                     Plot::RasterConfig{.single_pass = true,
                                        .sampling_policy = Policy}>(
@@ -800,9 +765,7 @@ inline void test_rasterize_balanced_star_visual_budget() {
       Canvas canvas(fx);
       initialize_parity_frame<W, H>(canvas);
       sink.prepare(canvas);
-      auto shader = [](const math::Vector &, Fragment &f) {
-        f.color = Color4(Pixel(65535, 65535, 65535), 0.32f);
-      };
+      auto shader = white_shader(0.32f);
       Plot::rasterize<W, H,
                       Plot::RasterConfig{.single_pass = true,
                                          .derive_planar_arc_registers = false,
@@ -1017,9 +980,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
       {2, H / 2},
       {W - 2, H / 2},
   }};
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.8f);
-  };
+  auto shade = white_shader(0.8f);
   auto render = [&](hs_test::StubEffect &fx) {
     Filter::Screen::DirectAntiAliasSink<W, H> sink;
     ScratchScope sc(plot_arena());
@@ -1057,12 +1018,7 @@ inline void test_rasterize_single_pass_geodesic_quadrant_clip_parity() {
     hs_test::capture_frame<W, H>(fx, reference);
   }
 
-  const int quadrants[4][4] = {
-      {0, H / 2, 0, W / 2},
-      {0, H / 2, W / 2, W},
-      {H / 2, H, 0, W / 2},
-      {H / 2, H, W / 2, W},
-  };
+  constexpr auto quadrants = quadrant_clips<W, H>();
   int margin_lit = 0;
   for (const auto &quadrant : quadrants) {
     hs_test::StubEffect fx(W, H);

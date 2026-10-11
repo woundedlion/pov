@@ -756,9 +756,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
 
   math::Orientation<> orientation(
       math::make_rotation(math::X_AXIS, math::PI_F / 2.0f));
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
-  };
+  auto shade = white_shader(1.0f);
 
   auto band_lit = [&](int cy0, int cy1) -> int {
     hs_test::StubEffect fx(W, H);

@@ -256,10 +256,7 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
   constexpr int W = 288, H = 144;
   constexpr int POLE_ROWS = 3;
   hs_test::StubEffect fx(W, H);
-  const int quadrants[4][4] = {{0, H / 2, 0, W / 2},
-                               {0, H / 2, W / 2, W},
-                               {H / 2, H, 0, W / 2},
-                               {H / 2, H, W / 2, W}};
+  constexpr auto quadrants = quadrant_clips<W, H>();
   const std::array<PlanarShapeCase, 5> stars = {{
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.12f, 7, 0.6f},
       {math::make_rotation(math::X_AXIS, math::Y_AXIS), 0.35f, 7, 1.7f},

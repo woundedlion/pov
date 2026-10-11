@@ -337,13 +337,10 @@ inline void test_mesh_edge_gate_pixel_parity() {
   const MeshState &mesh = ico.mesh;
   const ArenaVector<Plot::Mesh::Edge> &edges = ico.edges;
 
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
-  };
+  auto shade = white_shader(0.9f);
 
   hs::random().seed(0x5EED);
-  const int clips[4][4] = {
-      {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
+  constexpr auto clips = quadrant_wedge_clips<W, H>();
   int lit_total = 0, margin_lit_total = 0;
 
   MeshState posed;
@@ -526,13 +523,10 @@ inline void test_rasterize_window_preserves_terminal_sample() {
  */
 inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
-  };
+  auto shade = white_shader(0.9f);
 
   hs::random().seed(0xC01C);
-  const int clips[4][4] = {
-      {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
+  constexpr auto clips = quadrant_wedge_clips<W, H>();
   int lit_total = 0, margin_lit_total = 0, row_margin_lit_total = 0;
 
   for (int trial = 0; trial < 50; ++trial) {
@@ -948,12 +942,7 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
       Filter::Screen::AntiAlias<W, H>()};
   hs::random().seed(0xCA47);
 
-  const int clips[][4] = {
-      {0, H / 2, 0, W / 2},
-      {0, H / 2, W / 2, W},
-      {H / 2, H, 0, W / 2},
-      {H / 2, H, W / 2, W},
-  };
+  constexpr auto clips = quadrant_clips<W, H>();
   int latitude_rejects = 0, meridian_rejects = 0;
   for (const auto &bounds : clips) {
     const ClipRegion cr{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
@@ -1165,9 +1154,7 @@ inline void test_mesh_clip_cut_separates_band() {
  */
 inline void test_rasterize_gate_bits_pixel_parity() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
-  };
+  auto shade = white_shader(0.9f);
   hs::random().seed(0x617E);
 
   const int clips[3][4] = {

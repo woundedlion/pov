@@ -94,9 +94,7 @@ inline void test_ring_sample_lut_matches_direct() {
  */
 inline void test_ring_draw_stride_tracks_full_grid() {
   constexpr int W = 96, H = 48;
-  auto shade = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
-  };
+  auto shade = white_shader(1.0f);
 
   const math::Vector centers[] = {math::Vector(0, 1, 0),
                                   math::Vector(0.3f, 0.8f, 0.5f),
@@ -212,9 +210,7 @@ inline void test_ring_draw_accepts_direct_sink() {
     sink.prepare(canvas);
     const math::Basis basis =
         math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
-    auto shade = [](const math::Vector &, Fragment &f) {
-      f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
-    };
+    auto shade = white_shader(1.0f);
     Plot::Ring::draw<W, H>(sink, canvas, basis, 0.5f, shade);
   }
   fx.advance_display();
