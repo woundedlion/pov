@@ -403,30 +403,49 @@ protected:
                 name, option_count);
           }
         }
-        HS_CHECK(min <= max,
-                 "register_param: min must be <= max name=%s min=%lld max=%lld",
-                 name, static_cast<long long>(min),
-                 static_cast<long long>(max));
+        HS_CHECK(
+            min <= max,
+            "register_param: min must be <= max name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+            name, static_cast<unsigned long>(static_cast<uint64_t>(min) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(min) & UINT32_MAX),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) &
+                                       UINT32_MAX));
         const bool range_fits =
             min >= static_cast<int64_t>(std::numeric_limits<Integer>::min()) &&
             max <= static_cast<int64_t>(std::numeric_limits<Integer>::max());
         HS_CHECK(
             range_fits,
-            "register_param: [min,max] must fit the target integer type name=%s min=%lld max=%lld",
-            name, static_cast<long long>(min), static_cast<long long>(max));
+            "register_param: [min,max] must fit the target integer type name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+            name, static_cast<unsigned long>(static_cast<uint64_t>(min) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(min) & UINT32_MAX),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) &
+                                       UINT32_MAX));
         const bool bounds_exact =
             static_cast<int64_t>(static_cast<float>(min)) == min &&
             static_cast<int64_t>(static_cast<float>(max)) == max;
         HS_CHECK(
             bounds_exact,
-            "register_param: bounds must be exactly representable as float name=%s min=%lld max=%lld",
-            name, static_cast<long long>(min), static_cast<long long>(max));
+            "register_param: bounds must be exactly representable as float name=%s min=0x%08lx%08lx max=0x%08lx%08lx",
+            name, static_cast<unsigned long>(static_cast<uint64_t>(min) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(min) & UINT32_MAX),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) &
+                                       UINT32_MAX));
         const int64_t value = static_cast<int64_t>(*ptr);
         HS_CHECK(
             value >= min && value <= max,
-            "register_param: default *ptr outside [min,max] name=%s value=%lld min=%lld max=%lld",
-            name, static_cast<long long>(value), static_cast<long long>(min),
-            static_cast<long long>(max));
+            "register_param: default *ptr outside [min,max] name=%s value=0x%08lx%08lx min=0x%08lx%08lx max=0x%08lx%08lx",
+            name,
+            static_cast<unsigned long>(static_cast<uint64_t>(value) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(value) &
+                                       UINT32_MAX),
+            static_cast<unsigned long>(static_cast<uint64_t>(min) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(min) & UINT32_MAX),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) >> 32),
+            static_cast<unsigned long>(static_cast<uint64_t>(max) &
+                                       UINT32_MAX));
         target_type = integer_target_type<Integer>();
       }
     }
