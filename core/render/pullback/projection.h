@@ -627,24 +627,42 @@ struct PreparedMeridian {
   }
 };
 
+/** @brief Shared meridian preparation and inline-prepared projection.
+ *  @tparam Derived Projection implementing the prepared overload.
+ *  @tparam State Central-meridian frame provider. */
+template <typename Derived, typename State> struct MeridianPrepared {
+  using FrameState = typename State::FrameState; ///< Provider frame state.
+  using Prepared = PreparedMeridian;             ///< Cached meridian rotation.
+  /** @brief Prepares the frame's meridian rotation.
+   *  @param frame Provider frame state.
+   *  @return Cached meridian rotation. */
+  static Prepared prepare(const FrameState &frame) {
+    return Prepared::from_angle(State::central_meridian(frame));
+  }
+  /** @brief Projects with inline meridian preparation.
+   *  @param input Unit direction in the projection frame.
+   *  @param frame Provider frame state.
+   *  @return Plane coordinates and provenance. */
+  static ProjectionResult project(const math::Vector &input,
+                                  const FrameState &frame) {
+    return Derived::project(input, frame, prepare(frame));
+  }
+};
+
 /** @brief Peirce quincuncial projection, conformal but for four singularities;
     `Layout` picks diamond, square or strip tiling and `EdgeDistanceRequired`
     makes the kernel compute edge distance unconditionally. */
 template <typename State, uint8_t Layout, bool EdgeDistanceRequired>
-struct Peirce : FrameConjugateFromState<State> {
+struct Peirce
+    : FrameConjugateFromState<State>,
+      MeridianPrepared<Peirce<State, Layout, EdgeDistanceRequired>, State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
   using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
-  /**
-   * @brief Caches the central meridian's cosine and sine for the frame.
-   * @param frame Frame state.
-   * @return The prepared meridian rotation.
-   */
-  static Prepared prepare(const FrameState &frame) {
-    return Prepared::from_angle(State::central_meridian(frame));
-  }
+  using MeridianPrepared<Peirce<State, Layout, EdgeDistanceRequired>,
+                         State>::project;
 
   /// Whether `fade_edge_distance` is measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
@@ -680,16 +698,6 @@ struct Peirce : FrameConjugateFromState<State> {
                   State::coordinate_scale(frame),
                   State::singularity_fade(frame), prepared.cosine,
                   prepared.sine);
-  }
-  /**
-   * @brief Projects a direction, preparing the meridian rotation inline.
-   * @param input Unit direction in the projection frame.
-   * @param frame Frame state.
-   * @return Plane coordinates and provenance.
-   */
-  static ProjectionResult project(const math::Vector &input,
-                                  const FrameState &frame) {
-    return project(input, frame, prepare(frame));
   }
 };
 
@@ -757,18 +765,13 @@ struct PeirceFastSquare : FrameConjugateFromState<State> {
  * PeirceFastSquare and so cover the whole policy; off a zero central meridian
  * it runs the exact quincuncial kernel and those bounds are slack.
  */
-template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
+template <typename State>
+struct PeirceSquare : PeirceFastSquare<State>,
+                      MeridianPrepared<PeirceSquare<State>, State> {
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
   using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
-  /**
-   * @brief Caches the central meridian's cosine and sine for the frame.
-   * @param frame Frame state.
-   * @return The prepared meridian rotation.
-   */
-  static Prepared prepare(const FrameState &frame) {
-    return Prepared::from_angle(State::central_meridian(frame));
-  }
+  using MeridianPrepared<PeirceSquare<State>, State>::project;
 
   /**
    * @brief Whether `State` under @p CandidateBinding supplies the frame
@@ -805,36 +808,23 @@ template <typename State> struct PeirceSquare : PeirceFastSquare<State> {
         State::layout_scroll(frame), true, State::coordinate_scale(frame),
         State::singularity_fade(frame), prepared.cosine, prepared.sine);
   }
-  /**
-   * @brief Projects a direction, preparing the meridian rotation inline.
-   * @param input Unit direction in the projection frame.
-   * @param frame Frame state.
-   * @return Plane coordinates and provenance.
-   */
-  static ProjectionResult project(const math::Vector &input,
-                                  const FrameState &frame) {
-    return project(input, frame, prepare(frame));
-  }
 };
 
 /** @brief Airocean icosahedral net; `Horizontal` turns the finished net a
     quarter turn and `EdgeDistanceRequired` makes the kernel compute the
     per-edge cut distances unconditionally. */
 template <typename State, bool Horizontal, bool EdgeDistanceRequired>
-struct Airocean : FrameConjugateFromState<State> {
+struct Airocean
+    : FrameConjugateFromState<State>,
+      MeridianPrepared<Airocean<State, Horizontal, EdgeDistanceRequired>,
+                       State> {
   /// Binding of the frame-state provider `State`.
   using Binding = typename State::Binding;
   using FrameState = typename State::FrameState; ///< Frame state `State` reads.
   using Prepared = PreparedMeridian; ///< Per-frame central-meridian rotation.
 
-  /**
-   * @brief Caches the central meridian's cosine and sine for the frame.
-   * @param frame Frame state.
-   * @return The prepared meridian rotation.
-   */
-  static Prepared prepare(const FrameState &frame) {
-    return Prepared::from_angle(State::central_meridian(frame));
-  }
+  using MeridianPrepared<Airocean<State, Horizontal, EdgeDistanceRequired>,
+                         State>::project;
 
   /// Whether `fade_edge_distance` is measured.
   static constexpr bool EDGE_DISTANCE_AVAILABLE = EdgeDistanceRequired;
@@ -865,16 +855,6 @@ struct Airocean : FrameConjugateFromState<State> {
     return airocean(input, Horizontal, EdgeDistanceRequired,
                     State::coordinate_scale(frame), prepared.cosine,
                     prepared.sine);
-  }
-  /**
-   * @brief Projects a direction, preparing the meridian rotation inline.
-   * @param input Unit direction in the projection frame.
-   * @param frame Frame state.
-   * @return Plane coordinates and provenance.
-   */
-  static ProjectionResult project(const math::Vector &input,
-                                  const FrameState &frame) {
-    return project(input, frame, prepare(frame));
   }
 };
 
