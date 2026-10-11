@@ -112,8 +112,7 @@ inline void test_mobius_frame_admission() {
           math::Vector{0, 0, 1}}) {
       const auto output = math::mobius_transform(
           view, frame.params.template get<"lens">().mobius);
-      HS_EXPECT_TRUE(std::isfinite(output.x) && std::isfinite(output.y) &&
-                     std::isfinite(output.z));
+      HS_EXPECT_TRUE(finite_vec(output));
     }
   }
 }

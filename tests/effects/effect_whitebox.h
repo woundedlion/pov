@@ -331,9 +331,7 @@ inline void test_gnomonicstars_spiral_cache_invalidation() {
     for (int i = 0; i < n; ++i) {
       const math::Vector want = math::fib_spiral(n, 0.5f, i);
       const math::Vector got = WB::cache_at(fx, i);
-      HS_EXPECT_EQ(got.x, want.x);
-      HS_EXPECT_EQ(got.y, want.y);
-      HS_EXPECT_EQ(got.z, want.z);
+      HS_EXPECT_VEC(got, want, 0.0f);
     }
   };
 
@@ -751,9 +749,11 @@ inline void test_glitch_lens_unit_norm() {
       const math::Vector input(sinf(polar) * cosf(azimuth), cosf(polar),
                                sinf(polar) * sinf(azimuth));
       const math::Vector mapped = lenses::glitch_lens(input);
-      HS_EXPECT_NEAR(mapped.x, sinf(2 * polar) * cosf(3 * azimuth), 2e-6f);
-      HS_EXPECT_NEAR(mapped.y, cosf(2 * polar), 2e-6f);
-      HS_EXPECT_NEAR(mapped.z, sinf(2 * polar) * sinf(3 * azimuth), 2e-6f);
+      HS_EXPECT_VEC(mapped,
+                    math::Vector(sinf(2 * polar) * cosf(3 * azimuth),
+                                 cosf(2 * polar),
+                                 sinf(2 * polar) * sinf(3 * azimuth)),
+                    2e-6f);
     }
   }
   const math::Vector dirs[] = {math::Vector(1, 0, 0),
@@ -770,9 +770,7 @@ inline void test_glitch_lens_unit_norm() {
   }
 
   const math::Vector equator_x = lenses::glitch_lens(math::Vector(1, 0, 0));
-  HS_EXPECT_NEAR(equator_x.x, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(equator_x.y, -1.0f, 1e-6f);
-  HS_EXPECT_NEAR(equator_x.z, 0.0f, 1e-6f);
+  HS_EXPECT_VEC(equator_x, math::Vector(0, -1, 0), 1e-6f);
 
   const math::Vector north = lenses::glitch_lens(math::Vector(0, 1, 0));
   HS_EXPECT_NEAR(north.y, 1.0f, 1e-6f);
@@ -789,9 +787,7 @@ inline void test_glitch_lens_unit_norm() {
       lenses::glitch_lens(math::Vector(0.8f * radial, -EPSILON, 0.6f * radial));
   const math::Vector forward = above - center;
   const math::Vector backward = center - below;
-  HS_EXPECT_NEAR(forward.x, backward.x, 1e-6f);
-  HS_EXPECT_NEAR(forward.y, backward.y, 1e-6f);
-  HS_EXPECT_NEAR(forward.z, backward.z, 1e-6f);
+  HS_EXPECT_VEC(forward, backward, 1e-6f);
 }
 
 /** @brief White-box accessor for MobiusRings' singular numeric branches. */
@@ -825,9 +821,7 @@ inline void test_mobius_rings_conformal_and_counter_rotation() {
 
   math::Vector mid(0.3f, -0.7f, 0.4f);
   math::Vector r = math::rotate(mid.normalized(), WB::counter_rotation(mid));
-  HS_EXPECT_NEAR(r.x, 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(r.z, 1.0f, 1e-3f);
+  HS_EXPECT_VEC(r, math::Z_AXIS, 1e-3f);
 }
 
 /**

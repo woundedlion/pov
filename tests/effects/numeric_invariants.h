@@ -386,9 +386,7 @@ struct DynamoWhiteBox {
       const Pixel mid = effect.color(direction(boundaries[i]), T).color;
       const Pixel expected =
           bands[i].lerp16(bands[i + 1], float_to_pixel16(0.5f));
-      HS_EXPECT_NEAR(mid.r, expected.r, 1);
-      HS_EXPECT_NEAR(mid.g, expected.g, 1);
-      HS_EXPECT_NEAR(mid.b, expected.b, 1);
+      HS_EXPECT_LE(max_channel_gap(mid, expected), 1);
     }
   }
 
@@ -537,9 +535,7 @@ inline void test_hopf_projection_math() {
   const math::Vector expected = math::Vector(ce * math::fast_cosf(azimuth),
                                              ce * math::fast_sinf(azimuth), se)
                                     .normalized();
-  HS_EXPECT_NEAR(v.x, expected.x, 1e-4f);
-  HS_EXPECT_NEAR(v.y, expected.y, 1e-4f);
-  HS_EXPECT_NEAR(v.z, expected.z, 1e-4f);
+  HS_EXPECT_VEC(v, expected, 1e-4f);
   HS_EXPECT_NEAR(v.magnitude(), 1.0f, 1e-4f);
 
   // Active tumble, then tumble with fold and twist, against a double-precision
@@ -557,8 +553,7 @@ inline void test_hopf_projection_math() {
     int checked = 0;
     for (size_t i = 0; i < WB::fiber_count(); ++i) {
       const math::Vector p = WB::project(fx, i);
-      HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                     std::isfinite(p.z));
+      HS_EXPECT_TRUE(finite_vec(p));
       HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
 
       const math::Spherical &sph = WB::fiber(fx, i);
@@ -584,9 +579,11 @@ inline void test_hopf_projection_math() {
         continue;
       ++checked;
       // Tolerance absorbs the fast_sinf/fast_cosf approximation.
-      HS_EXPECT_NEAR(p.x, static_cast<float>(x / len), 5e-3f);
-      HS_EXPECT_NEAR(p.y, static_cast<float>(y / len), 5e-3f);
-      HS_EXPECT_NEAR(p.z, static_cast<float>(z / len), 5e-3f);
+      HS_EXPECT_VEC(p,
+                    math::Vector(static_cast<float>(x / len),
+                                 static_cast<float>(y / len),
+                                 static_cast<float>(z / len)),
+                    5e-3f);
     }
     HS_EXPECT_GT(checked, static_cast<int>(WB::fiber_count() / 2));
   }
