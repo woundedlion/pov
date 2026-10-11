@@ -331,10 +331,13 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     Filter::Screen::AntiAlias<W, H> aa;
     aa.plot(p.x, p.y, Pixel(), 0.0f, 1.0f,
             [&](float x, float y, const Pixel &, float, float alpha) {
-              result[count++] = {static_cast<int>(x), static_cast<int>(y),
+              if (count < result.size())
+                result[count] = {static_cast<int>(x), static_cast<int>(y),
                                  static_cast<uint16_t>(hs::clamp(
                                      alpha * 65535.0f + 0.5f, 0.0f, 65535.0f))};
+              ++count;
             });
+    HS_EXPECT_TRUE(count <= result.size());
     return std::pair{result, count};
   };
 
@@ -366,14 +369,18 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     const auto matrix_taps = taps(matrix_pixel);
     bool same_coverage = reference_taps.second == matrix_taps.second;
     if (same_coverage) {
-      for (size_t j = 0; j < reference_taps.second; ++j)
+      for (size_t j = 0;
+           j < std::min(reference_taps.second, reference_taps.first.size());
+           ++j)
         same_coverage &= reference_taps.first[j].x == matrix_taps.first[j].x &&
                          reference_taps.first[j].y == matrix_taps.first[j].y;
     }
     if (!same_coverage) {
       ++coverage_differences;
     } else {
-      for (size_t j = 0; j < reference_taps.second; ++j) {
+      for (size_t j = 0;
+           j < std::min(reference_taps.second, reference_taps.first.size());
+           ++j) {
         const int delta =
             std::abs(static_cast<int>(reference_taps.first[j].alpha) -
                      static_cast<int>(matrix_taps.first[j].alpha));
