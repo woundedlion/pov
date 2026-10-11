@@ -10,84 +10,14 @@
  * it to pipeline stages.
  */
 
-/**
- * @brief Metadata accompanying an effect's explicit ranked stage pipeline.
- * @details A derived Spec supplies `template <typename B> using Pipeline`;
- * the *PolicyFor helpers are optional conveniences for authoring it.
- */
+/** @brief Authored controls accompanying an explicit typed stage pipeline.
+ * @details Derived specs supply `template <typename B> using Pipeline`.
+ * Stage topology is exposed by `MetadataFor`. */
 struct Spec {
-  /**
-   * @brief Sphere-to-plane projection of the pipeline's `Stage::Project`.
-   * @details Must name the policy `ProjectionPolicyFor<PROJECTION, B>::Type`
-   * the pipeline projects through; a pipeline without a Project stage fails
-   * to compile. Also gates the central-meridian (`uses_central_meridian`) and
-   * singularity-fade (`uses_singularity_fade`) projection parameters.
-   * Default: stereographic.
-   */
-  static constexpr ProjectionKind PROJECTION = ProjectionKind::STEREOGRAPHIC;
-  /**
-   * @brief Transfer curve the pipeline applies to the sampled value.
-   * @details `NONE` requires a pipeline with no `Stage::Transfer`; any other
-   * kind requires one. `ISO_CONTOUR` also requires `iso_level` and `iso_width`
-   * in the "value" parameter family. Default: no transfer stage.
-   */
-  static constexpr TransferKind TRANSFER = TransferKind::NONE;
-  /**
-   * @brief Projection coverage the `Stage::Sample` crossing applies.
-   * @details Must match the Sample stage's coverage policy (`NONE` when the
-   * pipeline has no Sample stage). `EDGE_FADE` also requires an `edge_width`
-   * "value" field and a projection that reports edge distance. Default:
-   * coverage equals the projection's value weight.
-   */
-  static constexpr ProjectionCoverageMode COVERAGE =
-      ProjectionCoverageMode::WEIGHT;
-  /**
-   * @brief Value-dependent coverage applied after sampling.
-   * @details `NONE` requires a pipeline with no `Stage::ApplyCoverage`; any
-   * other kind requires one. `VALUE_CUTOUT` also requires `cutout_threshold`
-   * and `cutout_softness` in the "value" family. Default: no cutout stage.
-   */
-  static constexpr FieldCoverageKind FIELD_COVERAGE = FieldCoverageKind::NONE;
-  /** @brief Hue harmony of every palette in the generated palette cycle.
-      Default: triadic. */
+  /// Hue harmony of generated palettes.
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  /**
-   * @brief What drives the colour stage's per-pixel hue rotation.
-   * @details Gates the hue-rotation colour parameters and the hue LUT storage
-   * (`NOISE` adds the hue-noise field and its LUT). `PATH_LENGTH` must be set
-   * exactly when a pipeline warp or surface provider tracks path length.
-   * Default: no hue rotation.
-   */
-  static constexpr HueMode HUE = HueMode::NONE;
-  /**
-   * @brief Brightness envelope the colour stage applies over the palette
-   *        coordinate.
-   * @details Gates the brightness-range colour parameters; any value other than
-   * `NONE` exposes them. Default: flat, full brightness.
-   */
-  static constexpr Color::BrightnessEnvelope BRIGHTNESS =
-      Color::BrightnessEnvelope::NONE;
-  /**
-   * @brief Whether the projection frame random-walks and spins.
-   * @details True adds the projection walk, its noise and the spin-rate and
-   * wander projection parameters; false pins the projection to the identity
-   * frame. Default: animated.
-   */
+  /// Whether the projection frame random-walks and spins.
   static constexpr bool ANIMATED_PROJECTION = true;
-  /**
-   * @brief Pipeline order of the surface (`Stage::Displace`) stage relative to
-   *        the lens stage.
-   * @details Checked only when the pipeline has both stages. Default: surface
-   * displacement before the lens.
-   */
-  static constexpr SurfacePlacement SURFACE_PLACEMENT =
-      SurfacePlacement::BEFORE_LENS;
-  /**
-   * @brief Policy type of the pipeline's non-Mobius `Stage::Lens`.
-   * @details Must equal that stage's `LensPolicy`; `void` when the pipeline has
-   * no lens stage or only a `Lens::Mobius` one. Default: `void`.
-   */
-  using LensPolicy = void;
 };
 
 /**

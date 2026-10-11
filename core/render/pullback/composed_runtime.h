@@ -52,17 +52,18 @@ class ComposedEffect
 public:
   using Params = ParamsT; ///< Keyed parameter storage derived from `SpecT`.
   using Spec = SpecT;     ///< The effect's ranked stage Spec.
+  using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   static_assert(
-      Spec::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
+      Metadata::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
         p.template get<"value">().iso_level;
         p.template get<"value">().iso_width;
       }, "iso-contour transfer requires iso-level and iso-width");
   static_assert(
-      Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+      Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
           requires(Params p) { p.template get<"value">().edge_width; },
       "edge-fade coverage requires edge-width");
   static_assert(
-      Spec::FIELD_COVERAGE != FieldCoverageKind::VALUE_CUTOUT ||
+      Metadata::FIELD_COVERAGE != FieldCoverageKind::VALUE_CUTOUT ||
           requires(Params p) {
             p.template get<"value">().cutout_threshold;
             p.template get<"value">().cutout_softness;
@@ -95,30 +96,12 @@ public:
   static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
   /// The Spec's pipeline bound to this effect's frame.
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
-  /// Topology metadata the Spec declares, checked against `RenderPipeline`.
-  using Metadata =
-      ComposedDetail::PipelineMetadata<Spec, Binding, RenderPipeline>;
-  static_assert(Spec::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
+  static_assert(Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
                     Metadata::ProjectStage::EDGE_DISTANCE_AVAILABLE,
                 "edge-fade coverage requires projection edge distance");
-  static_assert(Metadata::PATH_TRACKED == (Spec::HUE == HueMode::PATH_LENGTH),
-                "path length hue metadata must match pipeline tracking");
-  static_assert(Metadata::COVERAGE_MATCHES,
-                "projection coverage metadata must match the pipeline");
-  static_assert(Metadata::LENS_MATCHES,
-                "lens policy metadata must match the pipeline");
-  static_assert(Metadata::PROJECTION_MATCHES,
-                "projection metadata must match the pipeline");
-  static_assert(Metadata::SURFACE_PLACEMENT_MATCHES,
-                "surface placement metadata must match the pipeline");
-  static_assert(
-      RenderPipeline::template any_stage<ComposedDetail::IsTransferStage> ==
-          (Spec::TRANSFER != TransferKind::NONE),
-      "transfer metadata must match the pipeline");
-  static_assert(
-      RenderPipeline::template any_stage<ComposedDetail::IsCoverageStage> ==
-          (Spec::FIELD_COVERAGE != FieldCoverageKind::NONE),
-      "field coverage metadata must match the pipeline");
+  static_assert(Metadata::PATH_TRACKED ==
+                    (Metadata::HUE == HueMode::PATH_LENGTH),
+                "path length hue must match pipeline tracking");
   /// Prepared per-frame state the pipeline shades from.
   using Frame = typename RenderPipeline::Frame;
 
@@ -144,7 +127,7 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    if constexpr (SpecT::HUE == HueMode::NOISE)
+    if constexpr (Metadata::HUE == HueMode::NOISE)
       Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
     params.visit([&]<typename Resource>(auto &) {
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
@@ -452,8 +435,8 @@ public:
 
 private:
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-                 OptionalHueRotationLut<SpecT::HUE != HueMode::NONE>,
-                 OptionalHueNoiseLut<SpecT::HUE == HueMode::NOISE> {
+                 OptionalHueRotationLut<Metadata::HUE != HueMode::NONE>,
+                 OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -601,7 +584,7 @@ private:
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
-    if constexpr (SpecT::HUE == HueMode::NOISE)
+    if constexpr (Metadata::HUE == HueMode::NOISE)
       hue_noise_phase = math::wrap_t(
           hue_noise_phase + params.template get<"color">().hue_noise_speed);
     palette_oscillation_phase =
@@ -645,7 +628,7 @@ private:
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
   const Pixel *hue_rotation_lut_data() const {
-    if constexpr (SpecT::HUE != HueMode::NONE)
+    if constexpr (Metadata::HUE != HueMode::NONE)
       return state->hue_rotation_lut.data();
     else
       return nullptr;
@@ -653,7 +636,7 @@ private:
 
   /** @brief The hue-noise LUT base, or null outside HueMode::NOISE. */
   const int8_t *hue_noise_lut_data() const {
-    if constexpr (SpecT::HUE == HueMode::NOISE)
+    if constexpr (Metadata::HUE == HueMode::NOISE)
       return state->hue_noise_lut.data();
     else
       return nullptr;
@@ -669,15 +652,15 @@ private:
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
-    if constexpr (SpecT::HUE == HueMode::NOISE) {
-      if (hue_rotation_active<SpecT::HUE>(params.template get<"color">())) {
+    if constexpr (Metadata::HUE == HueMode::NOISE) {
+      if (hue_rotation_active<Metadata::HUE>(params.template get<"color">())) {
         state->hue_noise_bake.refresh(
             state->hue_noise_lut, state->color_noise,
             params.template get<"color">().hue_noise_scale, hue_noise_phase);
       }
     }
-    if constexpr (SpecT::HUE != HueMode::NONE)
-      if (hue_rotation_active<SpecT::HUE>(params.template get<"color">()) &&
+    if constexpr (Metadata::HUE != HueMode::NONE)
+      if (hue_rotation_active<Metadata::HUE>(params.template get<"color">()) &&
           state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(

@@ -5,28 +5,29 @@
 #include "core/render/pullback/composed_effect.h"
 
 struct EdgeFadeSpec : Pullback::Spec {
-#ifdef HS_EDGE_FADE_NO_DISTANCE
-  static constexpr auto PROJECTION =
-      Pullback::ProjectionKind::FOLDED_SINUSOIDAL;
-#endif
-#ifdef HS_EDGE_FADE_DISABLED
-  static constexpr auto COVERAGE = Pullback::ProjectionCoverageMode::NONE;
-#else
-  static constexpr auto COVERAGE = Pullback::ProjectionCoverageMode::EDGE_FADE;
-#endif
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B,
       Pullback::Stage::Project<
-          typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>,
-      Pullback::Stage::Sample<
-          typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
-                                             B>::Type,
-          Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<
-              COVERAGE, B, Pullback::EdgeValueParams>::Type>,
+#ifdef HS_EDGE_FADE_NO_DISTANCE
+          Pullback::Projection::FoldedSinusoidal<
+              Pullback::ProjectionProvider<B>>>,
+#else
+          Pullback::Projection::Stereographic<Pullback::ProjectionProvider<B>>>,
+#endif
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::GridSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+#ifdef HS_EDGE_FADE_DISABLED
+                              Pullback::ProjectionCoverage::None>,
+#else
+                              Pullback::ProjectionCoverage::EdgeFade<
+                                  Pullback::ValueProvider<
+                                      B, Pullback::EdgeValueParams>>>,
+#endif
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 struct EdgeFadeEffect
     : Pullback::ComposedEffect<32, 16, EdgeFadeEffect, EdgeFadeSpec> {

@@ -104,7 +104,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sphere.displace.curl.v2", "integrator", {{"euler"}}},
     {"sphere.displace.curl.v2", "limit", {{"smooth"}}},
     {"sphere.displace.direct.v2", "basis", {{"simplex"}}},
-    // Spec::LensPolicy names one lens policy per symmetry.
     {"sphere.lens.kaleidoscope.v2",
      "symmetry",
      {{"azimuthal", "tetrahedral", "octahedral", "dodecahedral",
@@ -197,7 +196,7 @@ inline bool derivation_value_reachable(std::string_view operator_id,
  * does a catalog addition the table has not classified.
  */
 inline void test_composed_derivation_reach() {
-  static_assert(AshCloudSpec::FIELD_COVERAGE ==
+  static_assert(Pullback::MetadataFor<AshCloudSpec>::FIELD_COVERAGE ==
                 Pullback::FieldCoverageKind::VALUE_CUTOUT);
   size_t unreachable_operators = 0;
   size_t unreachable_values = 0;

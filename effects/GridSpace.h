@@ -18,22 +18,8 @@
 
 /** @brief Pullback stage spec for `GridSpace`. */
 struct GridSpaceSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::GNOMONIC_FOLDED;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::ISO_CONTOUR;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::NONE;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::BEFORE_LENS;
-  using LensPolicy = void;
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, lattice
    *  source, iso-contour transfer, generated palette.
@@ -44,20 +30,21 @@ struct GridSpaceSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::AffineParams, B, "outer_warp",
-          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::AffineParams, B, "outer_warp", false>::Type>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::LatticeSourceParams, B>::Type,
                               Pullback::Weight::Projection,
                               typename Pullback::CoveragePolicyFor<
-                                  COVERAGE, B, Pullback::IsoValueParams>::Type>,
+                                  Pullback::ProjectionCoverageMode::WEIGHT, B,
+                                  Pullback::IsoValueParams>::Type>,
       Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
           Pullback::ValueProvider<B, Pullback::IsoValueParams>>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `GridSpaceSpec`.
 using GridSpaceParams = Pullback::ParamsFor<GridSpaceSpec>;

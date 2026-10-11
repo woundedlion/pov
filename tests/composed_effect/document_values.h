@@ -386,14 +386,13 @@ template <typename Lens> constexpr std::string_view lens_symmetry_id() {
  * @details Numeric entries write through the owning family's field table, so a
  * document key the engine does not table fails loudly. String entries
  * are chain topology: the ones with a composed-effect equivalent are checked
- * against the effect's Spec, base-template arguments and DERIVATION_REACH.
+ * against the derived topology and DERIVATION_REACH.
  */
 template <typename FX>
 inline bool
 apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
                      std::string_view field_id, const JsonValue &value) {
   using Traits = TraitsOf<FX>;
-  using Spec = typename Traits::Spec;
   if (value.kind == JsonValue::Kind::NUMBER) {
     const float number = static_cast<float>(value.number);
     switch (slot.role) {
@@ -435,7 +434,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       // The sample operators always carry an edge-width; without edge-fade
       // coverage it is inert in the chain and has no composed-effect field.
       return field_id == "edge-width" &&
-             Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE;
+             FX::Metadata::COVERAGE !=
+                 Pullback::ProjectionCoverageMode::EDGE_FADE;
     case SlotRole::FIELD:
       if constexpr (FX::Params::template HAS<"value">)
         return assign_field(built.template get<"value">(), field_id, number);
@@ -491,9 +491,8 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::SAMPLE:
     if (field_id == "coverage-mode") {
-      HS_EXPECT_TRUE(
-          text ==
-          ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(Spec::COVERAGE)]);
+      HS_EXPECT_TRUE(text == ChainOp::COVERAGE_MODE_IDS[static_cast<uint8_t>(
+                                 FX::Metadata::COVERAGE)]);
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
@@ -514,7 +513,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
       return true;
     }
     if (field_id == "hemisphere") {
-      HS_EXPECT_TRUE(Spec::PROJECTION ==
+      HS_EXPECT_TRUE(FX::Metadata::PROJECTION ==
                          Pullback::ProjectionKind::GNOMONIC_FOLDED &&
                      text == "folded");
       HS_EXPECT_TRUE(
@@ -524,7 +523,7 @@ apply_document_value(typename FX::Params &built, const DocumentSlot &slot,
     return false;
   case SlotRole::LENS:
     if (field_id == "symmetry") {
-      HS_EXPECT_EQ(text, lens_symmetry_id<typename Spec::LensPolicy>());
+      HS_EXPECT_EQ(text, lens_symmetry_id<typename FX::Metadata::LensPolicy>());
       HS_EXPECT_TRUE(
           derivation_value_reachable(slot.operator_id, field_id, text));
       return true;
@@ -602,9 +601,8 @@ inline void check_document_values(const char *name) {
     slot.role = classify_operator(operator_id->text);
     HS_EXPECT(slot.role != SlotRole::UNKNOWN, "chain operator classified");
     if (slot.role == SlotRole::PROJECT) {
-      using Spec = typename TraitsOf<FX>::Spec;
       const char *expected = nullptr;
-      switch (Spec::PROJECTION) {
+      switch (FX::Metadata::PROJECTION) {
       case Pullback::ProjectionKind::STEREOGRAPHIC:
         expected = "project.stereographic.v2";
         break;
@@ -742,7 +740,8 @@ inline void check_document_values(const char *name) {
           if (!gate_open<FX>(field.gate))
             continue;
           if (std::string_view(field.id) == "edge-width" &&
-              FX::Spec::COVERAGE != Pullback::ProjectionCoverageMode::EDGE_FADE)
+              FX::Metadata::COVERAGE !=
+                  Pullback::ProjectionCoverageMode::EDGE_FADE)
             continue;
           if constexpr (std::is_same_v<Family, Pullback::ColorParams>) {
             if ((field.member == &Family::brightness_bottom ||

@@ -18,22 +18,8 @@
 
 /** @brief Pullback stage spec for `JewelMelt`. */
 struct JewelMeltSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::EQUIRECTANGULAR;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::NONE;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::AFTER_LENS;
-  using LensPolicy = Pullback::Lens::OctahedralKaleidoscope;
   /**
    * @brief Stage chain: camera rotation, octahedral kaleidoscope lens,
    *  surface-noise displacement, projection, lattice source, generated
@@ -45,19 +31,20 @@ struct JewelMeltSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-          Pullback::Stage::Lens<LensPolicy>,
+          Pullback::Stage::Lens<Pullback::Lens::OctahedralKaleidoscope>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::SurfaceNoiseParams, B,
-              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+              Pullback::SurfaceNoiseParams, B, false>::Type>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::EQUIRECTANGULAR, B>::Type>>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
                                              B>::Type,
           Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+          typename Pullback::CoveragePolicyFor<
+              Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `JewelMeltSpec`.
 using JewelMeltParams = Pullback::ParamsFor<JewelMeltSpec>;

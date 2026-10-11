@@ -18,22 +18,8 @@
 
 /** @brief Stage spec for `KaleidoscopeHexOil`. */
 struct KaleidoscopeHexOilSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::STEREOGRAPHIC;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::NONE;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::AFTER_LENS;
-  using LensPolicy = Pullback::Lens::HexagonalPrismKaleidoscope;
   /**
    * @brief The ranked stage pipeline.
    * @tparam B The effect's Binding.
@@ -45,17 +31,18 @@ struct KaleidoscopeHexOilSpec : Pullback::Spec {
           Pullback::CodeEmission::OUT_OF_LINE_FLASH,
           Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::DirectSurfaceParams, B,
-              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+              Pullback::DirectSurfaceParams, B, true>::Type>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::SpiralSourceParams,
                                              B>::Type,
           Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+          typename Pullback::CoveragePolicyFor<
+              Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `KaleidoscopeHexOilSpec`.
 using KaleidoscopeHexOilParams = Pullback::ParamsFor<KaleidoscopeHexOilSpec>;

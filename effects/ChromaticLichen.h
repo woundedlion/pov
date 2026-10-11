@@ -18,22 +18,8 @@
 
 /** @brief Pullback stage spec for `ChromaticLichen`. */
 struct ChromaticLichenSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::GNOMONIC_FOLDED;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::NONE;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::AFTER_LENS;
-  using LensPolicy = Pullback::Lens::Glitch;
   /**
    * @brief Stage chain: camera rotation, glitch lens, surface-noise
    *  displacement, projection, grid source, generated palette.
@@ -46,17 +32,18 @@ struct ChromaticLichenSpec : Pullback::Spec {
           Pullback::CodeEmission::OUT_OF_LINE_FLASH,
           Pullback::Stage::Lens<Pullback::Lens::Glitch>,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::SurfaceNoiseParams, B,
-              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+              Pullback::SurfaceNoiseParams, B, false>::Type>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::GNOMONIC_FOLDED, B>::Type>>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::GridSourceParams,
                                              B>::Type,
           Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+          typename Pullback::CoveragePolicyFor<
+              Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `ChromaticLichenSpec`.
 using ChromaticLichenParams = Pullback::ParamsFor<ChromaticLichenSpec>;

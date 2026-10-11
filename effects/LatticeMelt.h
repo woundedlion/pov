@@ -24,22 +24,8 @@ struct LatticeMeltWhiteBox;
 
 /** @brief Stage spec for `LatticeMelt`. */
 struct LatticeMeltSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::FOLDED_SINUSOIDAL;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::CUP;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::BEFORE_LENS;
-  using LensPolicy = void;
   /**
    * @brief The ranked stage pipeline.
    * @tparam B The effect's Binding.
@@ -50,17 +36,18 @@ struct LatticeMeltSpec : Pullback::Spec {
       Pullback::Stage::Placed<
           Pullback::CodeEmission::OUT_OF_LINE_FLASH,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::SurfaceNoiseParams, B,
-              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+              Pullback::SurfaceNoiseParams, B, false>::Type>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::FOLDED_SINUSOIDAL, B>::Type>>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
                                              B>::Type,
           Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+          typename Pullback::CoveragePolicyFor<
+              Pullback::ProjectionCoverageMode::WEIGHT, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+                                  Pullback::Color::BrightnessEnvelope::CUP>>>>;
 };
 /// Parameter block derived from `LatticeMeltSpec`.
 using LatticeMeltParams = Pullback::ParamsFor<LatticeMeltSpec>;

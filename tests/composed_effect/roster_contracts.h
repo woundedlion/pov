@@ -200,7 +200,8 @@ inline void test_composed_direct_surface_placement() {
   using Lens =
       Pullback::Stage::Lens<Pullback::Lens::HexagonalPrismKaleidoscope>;
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
-      KaleidoscopeHexOilSpec::PROJECTION, FX::Binding>::Type>;
+      Pullback::MetadataFor<KaleidoscopeHexOilSpec>::PROJECTION,
+      FX::Binding>::Type>;
   static_assert(std::is_same_v<typename FX::RenderPipeline::template NodeAt<1>,
                                Pullback::Detail::BoundPlaced<
                                    Pullback::CodeEmission::OUT_OF_LINE_FLASH,

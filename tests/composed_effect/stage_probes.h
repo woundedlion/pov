@@ -9,7 +9,6 @@
 
 template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = Animated;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
   template <typename B>
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
@@ -17,16 +16,16 @@ template <bool Animated> struct RippleProbeSpec : Pullback::Spec {
           Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Displace<
               Pullback::Surface::PeriodicRipple<Pullback::SurfaceProvider<
-                  B, Pullback::PeriodicRippleParams,
-                  HUE == Pullback::HueMode::PATH_LENGTH>>>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+                  B, Pullback::PeriodicRippleParams, true>>>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
                                   Pullback::GridSourceParams, B>::Type,
                               Pullback::Weight::Projection,
                               Pullback::ProjectionCoverage::Weight>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 template <int W, int H, bool AnimatedProjection = false>
@@ -98,7 +97,8 @@ struct AffineNamedSourceSpec : Pullback::Spec {
       Pullback::Stage::Sample<Pullback::Source::PrimitiveLattice<
           Pullback::SourceProvider<B, Pullback::LatticeSourceParams, "cells">>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 inline void test_composed_affine_named_source() {
@@ -131,8 +131,8 @@ struct RepeatedStagesSpec : Pullback::Spec {
               Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_a">>>,
           Pullback::Stage::Lens<
               Pullback::Lens::Mobius<Pullback::LensProvider<B, "lens_b">>>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
           Pullback::VectorNoiseParams, B, "warp_a", false>::Type>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
@@ -142,7 +142,8 @@ struct RepeatedStagesSpec : Pullback::Spec {
       Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
           Pullback::GridSourceParams, B>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 template <int W, int H>
 class RepeatedStagesProbe
@@ -342,13 +343,14 @@ template <typename SourceT> struct NoiseSourceProbeSpec : Pullback::Spec {
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
           Pullback::CodeEmission::INLINE_ONLY,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<SourceT, B>::Type,
           Pullback::Weight::Projection, Pullback::ProjectionCoverage::Weight>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
 template <int W, int H, typename SourceT>
