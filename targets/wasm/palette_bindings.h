@@ -412,7 +412,7 @@ private:
    */
   static void bake(const GenerativePalette &palette, bool inspect) {
     bake_palette_schedule<256>(
-        palette.mirrors_domain(), palette.loops_domain(),
+        {.mirrors = palette.mirrors_domain(), .loops = palette.loops_domain()},
         [&](int i, float t) { store_sample(i, palette, t, inspect); },
         [&](int destination, int source) {
           copy_sample(destination, source, inspect);
