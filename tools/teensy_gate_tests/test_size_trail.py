@@ -199,6 +199,55 @@ class Collect(unittest.TestCase):
 SHA = "d" * 40
 
 
+class BackfillSafety(unittest.TestCase):
+    def test_tracked_changes_are_preserved_and_clean_checkout_is_restored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real_git = tst._git
+
+            def in_repo(cmd, cwd=None, **kwargs):
+                return real_git(cmd, cwd or root, env=fixture_env(kwargs.get("env")))
+
+            with mock.patch.object(tst, "_git", side_effect=in_repo):
+                tst._git(["init", "--quiet"])
+                tracked = root / "platformio.ini"
+                tracked.write_text("[env:holosphere]\n", encoding="utf-8")
+                tst._git(["add", "--", "platformio.ini"])
+                tst._git(["commit", "-m", "initial"])
+                restore = tst.head_position(root)
+                args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
+                                             env=["holosphere"], build_dir=root / "build",
+                                             rev_range="HEAD")
+                for staged in (False, True):
+                    with self.subTest(staged=staged):
+                        tracked.write_text("changed", encoding="utf-8")
+                        if staged:
+                            tst._git(["add", "--", "platformio.ini"])
+                        index = (root / ".git/index").read_bytes()
+                        with mock.patch.object(tst.subprocess, "run", wraps=subprocess.run) as run:
+                            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                                self.assertEqual(tst.cmd_backfill(args), 2)
+                        self.assertIn("tracked changes", errors.getvalue())
+                        self.assertEqual(tracked.read_text(encoding="utf-8"), "changed")
+                        self.assertEqual(tst.head_position(root), restore)
+                        self.assertEqual((root / ".git/index").read_bytes(), index)
+                        self.assertFalse(any(call.args[0][0] == "pio" for call in run.call_args_list))
+                        tst._git(["restore", "--staged", "--worktree", "platformio.ini"])
+                (root / "scratch.txt").write_text("scratch", encoding="utf-8")
+                original = subprocess.run
+                with mock.patch.object(tst.subprocess, "run", wraps=original) as run:
+
+                    def no_pio(cmd, **kwargs):
+                        if cmd[0] == "pio":
+                            return subprocess.CompletedProcess(cmd, 1)
+                        return original(cmd, **kwargs)
+
+                    run.side_effect = no_pio
+                    self.assertEqual(tst.cmd_backfill(args), 0)
+                self.assertEqual(tst.head_position(root), restore)
+                self.assertEqual((root / "scratch.txt").read_text(encoding="utf-8"), "scratch")
+
+
 class Backfill(unittest.TestCase):
     """Successful builds may reuse ELFs; failed builds require a fresh ELF."""
 
@@ -225,7 +274,8 @@ class Backfill(unittest.TestCase):
             args = types.SimpleNamespace(
                 worktree=str(worktree), trail=str(trail), env=["holosphere"],
                 build_dir=str(root / "build"), rev_range="a..b")
-            with mock.patch.object(tst, "_git", return_value=SHA), \
+            with mock.patch.object(tst, "_git",
+                                   side_effect=lambda cmd, cwd=None: "" if cmd[0] == "status" else SHA), \
                  mock.patch.object(
                      tst, "head_stamp",
                      return_value=(SHA, "2026-08-03T00:00:00-07:00", "s")), \
