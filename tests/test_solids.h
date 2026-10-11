@@ -15,6 +15,7 @@
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_harness.h"
 
 namespace solid_table_fixtures {
@@ -94,8 +95,7 @@ inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 inline void check_all_finite(const PolyMesh &m) {
   for (size_t i = 0; i < m.vertices.size(); ++i) {
     const math::Vector &v = m.vertices[i];
-    HS_EXPECT_TRUE(std::isfinite(v.x) && std::isfinite(v.y) &&
-                   std::isfinite(v.z));
+    HS_EXPECT_TRUE(finite_vec(v));
   }
 }
 
