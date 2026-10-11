@@ -1404,6 +1404,7 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── effect_factory.h    Pure per-resolution effect factory + HS_RESOLUTIONS dispatch (host-testable)
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
 │       ├── payload_clone.h     Exception-contained snapshots of caller-owned JS payloads
+│       ├── module_halt.js      Emscripten abort observer marking the module unrecoverable
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
 │
 ├── CMakeLists.txt              Two-mode build: Emscripten WASM (+ daydream install) or native Clang tests + CTest
@@ -1457,6 +1458,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   ├── wasm_smoke_predicates.mjs Module-free WASM smoke predicates
 │   ├── wasm_smoke_predicates.test.mjs Node unit tests for the WASM smoke predicates
+│   ├── wasm_module_halt.test.mjs Node tests for the Emscripten abort observer
 │   ├── wasm_cache_key.test.mjs Node regression tests for generated WASM URL versioning
 │   ├── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 │   ├── screenshot_capture_config.mjs Per-effect capture offsets shared by capture and the CI gate
