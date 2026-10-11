@@ -172,18 +172,26 @@ def _flatten(text: str) -> str:
 def parse_trail(text: str) -> list[TrailRow]:
     """Parse trail TSV text. Malformed rows are skipped, never fatal."""
     rows: list[TrailRow] = []
+    columns = _COLUMNS
     for line in text.splitlines():
-        if not line.strip() or line.startswith("#"):
+        if line.startswith("#"):
+            header = tuple(line[1:].split("\t"))
+            if {"sha", "date", "env", "subject"}.issubset(header):
+                columns = header
+            continue
+        if not line.strip():
             continue
         fields = line.split("\t")
-        if len(fields) < len(_COLUMNS):
+        if len(fields) != len(columns) or len(set(columns)) != len(columns):
             continue
+        values = dict(zip(columns, fields))
         try:
-            sizes = {r: int(fields[3 + i]) for i, r in enumerate(REGIONS)}
+            sizes = {name: int(value) for name, value in values.items()
+                     if name not in {"sha", "date", "env", "subject"}}
         except ValueError:
             continue
-        rows.append(TrailRow(sha=fields[0], date=fields[1], env=fields[2],
-                             sizes=sizes, subject=fields[len(_COLUMNS) - 1]))
+        rows.append(TrailRow(sha=values["sha"], date=values["date"], env=values["env"],
+                             sizes=sizes, subject=values["subject"]))
     return rows
 
 

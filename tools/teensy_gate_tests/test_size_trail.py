@@ -521,6 +521,21 @@ class TrailStorage(unittest.TestCase):
                                + ["nope"] * len(tst.REGIONS) + ["s"]) + "\n")
         self.assertEqual([r.sha[0] for r in tst.read_trail(self.path)], ["d"])
 
+    def test_header_names_resolve_reordered_added_and_removed_regions(self):
+        for columns in (("subject", "itcm", "env", "date", "sha"),
+                        ("sha", "date", "env", "future", "itcm", "subject")):
+            with self.subTest(columns=columns):
+                values = {"sha": "a" * 40, "date": "date", "env": "phantasm",
+                          "itcm": "17", "future": "29", "subject": "caption"}
+                text = "#" + "\t".join(columns) + "\n"
+                text += "\t".join(values[name] for name in columns) + "\n"
+                rows = tst.parse_trail(text)
+                self.assertEqual(len(rows), 1)
+                self.assertEqual((rows[0].sha, rows[0].date, rows[0].env, rows[0].subject),
+                                 ("a" * 40, "date", "phantasm", "caption"))
+                self.assertEqual(rows[0].sizes, {name: int(values[name]) for name in columns
+                                                if name in ("itcm", "future")})
+
     def test_missing_trail_reads_empty(self):
         self.assertEqual(tst.read_trail(self.path / "nope"), [])
 
