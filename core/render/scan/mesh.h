@@ -107,21 +107,21 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
   const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
-  constexpr float pixel_width = 2.0f * math::PI_F / W;
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
 
   SDF::DistanceResult res;
   Fragment frag;
 
   // 1.0002 margin keeps the sqrt-free cull strictly conservative.
-  const float base_reject_rad = pixel_width * 1.0002f;
+  const float base_reject_rad = PIXEL_WIDTH * 1.0002f;
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
   float radial_cull = shape.max_dist;
   if (!(probe_flags & SDF::Face::PROBE_CONVEX)) {
     const float shade_reach = (probe_flags & SDF::Face::PROBE_LINEAR)
-                                  ? pixel_width
-                                  : tanf(pixel_width);
+                                  ? PIXEL_WIDTH
+                                  : tanf(PIXEL_WIDTH);
     radial_cull = shape.radius + shade_reach;
     if (probe_flags & SDF::Face::PROBE_HAS_LUT)
       radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
@@ -132,7 +132,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
         Render::pole_lod_aggressiveness > 0.0f) {
       const float block_reach = std::min(
-          pixel_width + Render::pole_lod_aggressiveness * pixel_width *
+          PIXEL_WIDTH + Render::pole_lod_aggressiveness * PIXEL_WIDTH *
                             SDF::arc_stretch<SDF::Face> * plane_stretch,
           SDF::reject_margin<SDF::Face>);
       float block_radius =
@@ -165,7 +165,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
       // the block test reads d, so the cull must not sentinel a probe inside
       // its threshold
-      const float reject_rad = (pixel_width + block_slack) * 1.0002f;
+      const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;
       reject_dsq = reject_rad * reject_rad;
     }
 
@@ -180,7 +180,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         float probe_min_cos = min_cos;
         if constexpr (pole_lod_blocks<SDF::Face>)
           if (stride > 1 && x == next_block && x + stride <= rx2 &&
-              probe_bounds_block<SDF::Face>(pixel_width, block_slack))
+              probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
         shape.template distance_with_flags<true>(p, res, reject_dsq,
                                                  probe_flags, probe_min_cos);
@@ -193,21 +193,21 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           if (stride > 1 && x == next_block) {
             next_block += stride;
             if (x + stride <= rx2 && (pole_lod_block_settles<SDF::Face>(
-                                          -d, pixel_width, block_slack) ||
+                                          -d, PIXEL_WIDTH, block_slack) ||
                                       pole_lod_block_settles<SDF::Face>(
-                                          d, pixel_width, block_slack)))
+                                          d, PIXEL_WIDTH, block_slack)))
               span = stride;
           }
         }
 
-        if (d >= pixel_width) {
+        if (d >= PIXEL_WIDTH) {
           x += span;
           continue;
         }
         HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
         HS_PROBE_COUNT(n_alpha);
         HS_PROBE_MARK(hs_ta);
-        const float alpha = solid_coverage(d, pixel_width);
+        const float alpha = solid_coverage(d, PIXEL_WIDTH);
         HS_PROBE_SPAN(alpha, hs_ta);
         if (alpha <= MIN_ALPHA) {
           x += span;

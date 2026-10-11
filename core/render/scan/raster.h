@@ -431,9 +431,9 @@ inline int process_pixel(int x, int y, const math::Vector &p,
   shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
-  constexpr float pixel_width = 2.0f * math::PI_F / W;
-  constexpr bool solid = std::remove_cvref_t<decltype(shape)>::is_solid;
-  float threshold = solid ? pixel_width : 0.0f;
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  constexpr bool SOLID = std::remove_cvref_t<decltype(shape)>::is_solid;
+  float threshold = SOLID ? PIXEL_WIDTH : 0.0f;
 
   // Strokes never splat: their coverage varies inside the band, so only the
   // all-clear case consumes the block.
@@ -441,7 +441,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
   if constexpr (pole_lod_blocks<decltype(shape)>) {
     if (max_run > 1 && !debug_bb) {
       const BlockSettle settle =
-          pole_lod_settle_block<W, solid>(d, threshold, max_run, p.y, shape);
+          pole_lod_settle_block<W, SOLID>(d, threshold, max_run, p.y, shape);
       if (settle == BlockSettle::CLEAR)
         return max_run;
       if (settle == BlockSettle::INTERIOR)
@@ -452,8 +452,8 @@ inline int process_pixel(int x, int y, const math::Vector &p,
   if (debug_bb || d < threshold) {
     float alpha = 1.0f;
 
-    if constexpr (solid) {
-      alpha = solid_coverage(d, pixel_width);
+    if constexpr (SOLID) {
+      alpha = solid_coverage(d, PIXEL_WIDTH);
     } else {
       // Inward-only ramp over the winning leaf's half-width: d=0 is the tube
       // edge (alpha 0), d=-size the centerline (alpha 1).

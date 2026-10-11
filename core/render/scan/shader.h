@@ -52,12 +52,12 @@ struct Shader {
     float sin_dphi;   /**< sin of the ±0.25 px row rotation. */
 
     SsaaGrid() {
-      constexpr float d_theta = 0.5f * math::PI_F / static_cast<float>(W);
-      const float d_phi = 0.25f * math::RADIANS_PER_ROW<H>;
-      cos_dtheta = cosf(d_theta);
-      sin_dtheta = sinf(d_theta);
-      cos_dphi = cosf(d_phi);
-      sin_dphi = sinf(d_phi);
+      constexpr float D_THETA = 0.5f * math::PI_F / static_cast<float>(W);
+      const float D_PHI = 0.25f * math::RADIANS_PER_ROW<H>;
+      cos_dtheta = cosf(D_THETA);
+      sin_dtheta = sinf(D_THETA);
+      cos_dphi = cosf(D_PHI);
+      sin_dphi = sinf(D_PHI);
     }
 
     /**
@@ -155,7 +155,7 @@ private:
         });
       }
     } else {
-      constexpr float inv_samples = 1.0f / SAMPLES;
+      constexpr float INV_SAMPLES = 1.0f / SAMPLES;
       SsaaGrid<W, H> grid;
 
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -169,10 +169,10 @@ private:
 
           for (int i = 0; i < SAMPLES; ++i) {
             if constexpr (PREMULTIPLIED)
-              accum += sample(grid.at(x, i), x, y) * inv_samples;
+              accum += sample(grid.at(x, i), x, y) * INV_SAMPLES;
             else {
               Color4 color = sample(grid.at(x, i), x, y);
-              accum += color.color * (color.alpha * inv_samples);
+              accum += color.color * (color.alpha * INV_SAMPLES);
             }
           }
 
@@ -249,14 +249,14 @@ public:
         fragment_shader(frag_base.pos, frag_base);
         return frag_base.color.color * frag_base.color.alpha;
       } else {
-        constexpr float inv_samples = 1.0f / SAMPLES;
+        constexpr float INV_SAMPLES = 1.0f / SAMPLES;
         Pixel accum(0, 0, 0);
         for (int i = 0; i < SAMPLES; ++i) {
           const math::Vector v = grid.at(x, i);
           Fragment sub_frag = frag_base;
           sub_frag.pos = v;
           fragment_shader(v, sub_frag);
-          accum += sub_frag.color.color * (sub_frag.color.alpha * inv_samples);
+          accum += sub_frag.color.color * (sub_frag.color.alpha * INV_SAMPLES);
         }
         return accum;
       }
