@@ -72,11 +72,8 @@ inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
 inline PB::FieldSample field_input(In::ChainProgram &program,
                                    const In::FrameContext &ctx,
                                    const math::Vector &view) {
-  const PB::PlaneSample plane = projected_input(program, ctx, view);
-  alignas(In::SLOT_ALIGN) uint8_t sampled[In::SLOT_SIZE];
-  program.ops()[2].op->runtime.run(&plane, sampled, ctx, program.param_block(2),
-                                   program.prepared_block(2));
-  return *std::launder(reinterpret_cast<PB::FieldSample *>(sampled));
+  return run_entry<PB::FieldSample>(program, ctx, 2,
+                                    projected_input(program, ctx, view));
 }
 
 inline FieldMirrorFrame field_mirror(In::ChainProgram &program) {

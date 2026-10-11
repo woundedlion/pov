@@ -236,15 +236,11 @@ inline void expect_spherical_sample_op_parity(In::ChainProgram &program,
   using BoundStage = typename PB::Stage::SampleSphere<SourceP>::template Bind<
       SampleMirrorBinding>;
   program.prepare(ctx);
-  const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
   expect_op_parity<BoundStage>(
       program, ctx, 1, sample_mirror(program, 1),
       [&](const math::Vector &view) {
-        const PB::SphereSample seed{view, 0.0f};
-        alignas(In::SLOT_ALIGN) uint8_t rotated_out[In::SLOT_SIZE];
-        rotate_op.runtime.run(&seed, rotated_out, ctx, program.param_block(0),
-                              program.prepared_block(0));
-        return *std::launder(reinterpret_cast<PB::SphereSample *>(rotated_out));
+        return run_entry<PB::SphereSample>(program, ctx, 0,
+                                           PB::SphereSample{view, 0.0f});
       },
       field_identical);
 }
@@ -526,20 +522,9 @@ inline void test_shader_chain_composed_noise_domain() {
     param_as<In::Op::ProjectedNoiseSampleParams>(program, 7).basis =
         static_cast<uint8_t>(basis);
     program.prepare(ctx);
-    PB::PlaneSample plane{};
-    for (int index = 0; index < 7; ++index) {
-      PB::PlaneSample next{};
-      program.ops()[index].op->runtime.run(
-          index == 0 ? static_cast<const void *>(&sphere)
-                     : static_cast<const void *>(&plane),
-          &next, ctx, program.param_block(index),
-          program.prepared_block(index));
-      plane = next;
-    }
+    const PB::PlaneSample plane = run_to_plane(program, ctx, sphere, 7);
     HS_EXPECT_GT(plane.coords.re, 1e11f);
-    PB::FieldSample field{};
-    program.ops()[7].op->runtime.run(
-        &plane, &field, ctx, program.param_block(7), program.prepared_block(7));
+    const auto field = run_entry<PB::FieldSample>(program, ctx, 7, plane);
     HS_EXPECT_EQ(field.value, 0.5f);
     const Color4 actual = program.evaluate(sphere.dir, ctx);
     HS_EXPECT_TRUE(std::isfinite(actual.alpha));
@@ -578,11 +563,9 @@ inline void test_shader_chain_large_finite_path_length() {
   PB::PlaneSample plane{};
   double expected_path = 0.0;
   for (int index = 0; index < 12; ++index) {
-    PB::PlaneSample next{};
-    program.ops()[index].op->runtime.run(
-        index == 0 ? static_cast<const void *>(&sphere)
-                   : static_cast<const void *>(&plane),
-        &next, ctx, program.param_block(index), program.prepared_block(index));
+    const PB::PlaneSample next =
+        index == 0 ? run_entry<PB::PlaneSample>(program, ctx, 0, sphere)
+                   : run_entry<PB::PlaneSample>(program, ctx, index, plane);
     if (index != 0)
       expected_path +=
           std::hypot(static_cast<double>(next.coords.re) - plane.coords.re,
@@ -592,14 +575,9 @@ inline void test_shader_chain_large_finite_path_length() {
   HS_EXPECT_TRUE(std::isfinite(plane.path_length));
   HS_EXPECT_NEAR(plane.path_length, expected_path, expected_path * 1e-6);
   plane.path_length = static_cast<float>(expected_path);
-  PB::FieldSample expected_field{};
-  program.ops()[12].op->runtime.run(&plane, &expected_field, ctx,
-                                    program.param_block(12),
-                                    program.prepared_block(12));
-  Color4 expected;
-  program.ops()[13].op->runtime.run(&expected_field, &expected, ctx,
-                                    program.param_block(13),
-                                    program.prepared_block(13));
+  const auto expected_field =
+      run_entry<PB::FieldSample>(program, ctx, 12, plane);
+  const Color4 expected = run_entry<Color4>(program, ctx, 13, expected_field);
   const Color4 actual = program.evaluate(sphere.dir, ctx);
   HS_EXPECT_GT(expected.color.r, 1000);
   HS_EXPECT_EQ(expected.color.g, 0);
@@ -771,9 +749,7 @@ void expect_colorize_op_parity(In::ChainProgram &program,
   using Unrotated = PB::Stage::Colorize<PB::Color::GeneratedPalette<MirrorColor<
       In::Op::HueShiftMode::NONE, EnvelopeV>>>::template Bind<MirrorBinding>;
   const PB::FieldSample sample{0.4f, 1.0f, math::Vector(0, 1, 0), 0.37f};
-  Color4 erased;
-  program.ops()[3].op->runtime.run(
-      &sample, &erased, ctx, program.param_block(3), program.prepared_block(3));
+  const Color4 erased = run_entry<Color4>(program, ctx, 3, sample);
   const MirrorFrame mirror = mirror_from(program, ctx);
   HS_EXPECT_TRUE(color4_identical(
       erased, Bound::run(sample, mirror, Bound::prepare(mirror))));
