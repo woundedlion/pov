@@ -480,7 +480,7 @@ private:
    * @details No-op for an effect that needs_full_frame() or persists_pixels().
    */
   static void clip_to_segment(Effect *e, bool arm_a_left) {
-    if (!pov::segment_clip_applies(e->needs_full_frame(), e->persists_pixels()))
+    if (!pov::segment_clip_applies(*e))
       return;
     const pov::SegmentClip c =
         pov::segment_clip(segment, arm_a_left, S, N, CANVAS_W);

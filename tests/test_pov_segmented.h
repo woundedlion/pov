@@ -266,18 +266,15 @@ inline void test_segment_clip_applies() {
 
   {
     ConfigEffect plain(EffectConfig{});
-    HS_EXPECT_TRUE(segment_clip_applies(plain.needs_full_frame(),
-                                        plain.persists_pixels()));
+    HS_EXPECT_TRUE(segment_clip_applies(plain));
   }
   {
     ConfigEffect persisting(EffectConfig{.persist = true});
-    HS_EXPECT_FALSE(segment_clip_applies(persisting.needs_full_frame(),
-                                         persisting.persists_pixels()));
+    HS_EXPECT_FALSE(segment_clip_applies(persisting));
   }
   {
     ConfigEffect full(EffectConfig{.full_frame = true});
-    HS_EXPECT_FALSE(
-        segment_clip_applies(full.needs_full_frame(), full.persists_pixels()));
+    HS_EXPECT_FALSE(segment_clip_applies(full));
   }
 }
 
