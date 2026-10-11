@@ -122,7 +122,7 @@ public:
     math::Vector axis = math::Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(
                         orientation, axis, 2 * math::PI_F * SPIN_TURNS,
-                        SPIN_FRAMES, math::ease_linear, true));
+                        SPIN_FRAMES, math::ease_linear, {.repeat = true}));
 
     start_morph();
   }

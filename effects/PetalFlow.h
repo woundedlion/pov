@@ -200,12 +200,13 @@ private:
    * @brief Seeds the timeline and pre-fills the path with evenly spaced rings.
    */
   HS_COLD_MEMBER void init_timeline() {
-    timeline.add(0, Animation::Rotation<W>(orientation, math::UP,
-                                           math::PI_F / 4.0f, 160,
-                                           math::ease_linear, true));
+    timeline.add(
+        0, Animation::Rotation<W>(orientation, math::UP, math::PI_F / 4.0f, 160,
+                                  math::ease_linear, {.repeat = true}));
     gap_accumulator = 0.0f;
-    timeline.add(0, Animation::PeriodicTimer(
-                        1, [this](Canvas &) { this->check_spawn(); }, true));
+    timeline.add(
+        0, Animation::PeriodicTimer(
+               1, [this](Canvas &) { this->check_spawn(); }, {.repeat = true}));
 
     float last_r = END_RHO - 0.01f;
     for (float r = last_r; r > START_RHO; r -= spacing()) {

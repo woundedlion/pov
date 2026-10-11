@@ -481,7 +481,7 @@ protected:
       timeline.add_pausable(
           0,
           Animation::MobiusWarpCircular(params.template get<Key>().mobius,
-                                        scale, duration, true),
+                                        scale, duration),
           &anims_paused);
   }
 

@@ -635,7 +635,8 @@ private:
    * @brief Runs one Mobius warp animation, then re-arms the timer for the next.
    */
   void perform_warp() {
-    auto warp = Animation::MobiusWarp(mobius, params.warp_scale, 160, false);
+    auto warp = Animation::MobiusWarp(mobius, params.warp_scale, 160,
+                                      {.repeat = false});
     warp.bind_scale(params.warp_scale);
     warp.then([this]() { schedule_warp(); });
     timeline.add(0, warp);

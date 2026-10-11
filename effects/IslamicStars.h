@@ -606,23 +606,20 @@ private:
     // Added after the sprite, so the first leg draws the frame after the
     // sprite's last seed draw: no gap, no double draw.
     if (recipe) {
-      timeline.add(fade, Animation::PeriodicTimer(
-                             0,
-                             [this](Canvas &) {
-                               build_active = true;
-                               start_build_leg();
-                             },
-                             false));
+      timeline.add(fade, Animation::PeriodicTimer(0, [this](Canvas &) {
+                     build_active = true;
+                     start_build_leg();
+                   }));
     }
 
     timeline.add(fade + build_span + still,
                  Animation::PeriodicTimer(
-                     0, [this](Canvas &canvas) { ripple(canvas); }, false));
+                     0, [this](Canvas &canvas) { ripple(canvas); }));
 
     // Fires on the step that draws the sprite's last full-opacity frame.
-    timeline.add(duration - fade,
-                 Animation::PeriodicTimer(
-                     0, [this](Canvas &) { departure_due = true; }, false));
+    timeline.add(duration - fade, Animation::PeriodicTimer(0, [this](Canvas &) {
+                   departure_due = true;
+                 }));
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
@@ -633,11 +630,10 @@ private:
             recipe ? " seed" : "");
 
     // The segue decides when the next shape starts relative to this one.
-    timeline.add_pausable(
-        next_delay,
-        Animation::PeriodicTimer(
-            0, [this](Canvas &) { this->advance_shape(); }, false),
-        &hold_departure);
+    timeline.add_pausable(next_delay,
+                          Animation::PeriodicTimer(
+                              0, [this](Canvas &) { this->advance_shape(); }),
+                          &hold_departure);
   }
 
 public:

@@ -80,15 +80,16 @@ public:
     register_animated_param("Lines", &params.num_lines, 0.0f, 20.0f);
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    auto *warp = mobius_gen.spawn_pinned(0, 1.0f, 160, true);
+    auto *warp = mobius_gen.spawn_pinned(0, 1.0f, 160);
     HS_CHECK(warp, "MobiusRings: pinned warp spawn must succeed");
 
     timeline
         .add(0,
              Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F,
-                                    400, math::ease_linear, true))
-        .add(0, Animation::PeriodicTimer(
-                    WIPE_PERIOD, [this](Canvas &) { wipe_palette(); }, true))
+                                    400, math::ease_linear, {.repeat = true}))
+        .add(0, Animation::PeriodicTimer(WIPE_PERIOD,
+                                         [this](Canvas &) { wipe_palette(); },
+                                         {.repeat = true}))
         .add_pausable(
             0,
             Animation::Mutation(params.num_rings,

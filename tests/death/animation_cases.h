@@ -83,8 +83,7 @@ inline void case_timeline_pinned_after_destroyed_predecessor() {
   tl.add(0, Animation::Transition(a, 1.0f, 1, math::ease_linear));
   tl.add(0, Animation::Transition(b, 1.0f, 1, math::ease_linear).then([&]() {
     tl.add_get(0,
-               Animation::PeriodicTimer(
-                   1, [](Canvas &) {}, true),
+               Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
                Timeline::Pin::PINNED);
   }));
   tl.step(canvas);
@@ -92,18 +91,13 @@ inline void case_timeline_pinned_after_destroyed_predecessor() {
 
 inline void case_timeline_pinned_after_cancelled_perpetual() {
   Timeline tl;
-  auto *predecessor = tl.add_get(0,
-                                 Animation::PeriodicTimer(
-                                     1, [](Canvas &) {}, true),
-                                 Timeline::Pin::UNPINNED);
-  tl.add_get(0,
-             Animation::PeriodicTimer(
-                 1, [](Canvas &) {}, true),
+  auto *predecessor = tl.add_get(
+      0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
+      Timeline::Pin::UNPINNED);
+  tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
              Timeline::Pin::PINNED);
   predecessor->cancel();
-  tl.add_get(0,
-             Animation::PeriodicTimer(
-                 1, [](Canvas &) {}, true),
+  tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
              Timeline::Pin::PINNED);
 }
 
@@ -117,9 +111,7 @@ inline void case_timeline_pinned_add_on_full_timeline() {
   float sink = 0.0f;
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
-  tl.add_get(0,
-             Animation::PeriodicTimer(
-                 1, [](Canvas &) {}, /*repeat=*/true),
+  tl.add_get(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
              opaque(Timeline::Pin::PINNED));
 }
 
@@ -132,7 +124,7 @@ inline void case_timeline_pinned_one_shot_timer() {
   static hs_test::StubEffect fx(8, 8);
   static Canvas canvas(fx);
   Timeline tl;
-  tl.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}, /*repeat=*/false));
+  tl.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = false}));
   global_timeline_events[0].pinned = opaque(true);
   tl.step(canvas); // t=1: fires, finish() -> done() && !canceled -> trap
 }

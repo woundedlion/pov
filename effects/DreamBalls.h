@@ -181,13 +181,14 @@ public:
     this->register_described_params();
 
     timeline.add(0, Animation::PeriodicTimer(
-                        160, [this](Canvas &) { this->spin_slices(); }, true));
+                        160, [this](Canvas &) { this->spin_slices(); },
+                        {.repeat = true}));
     timeline.add(9, Animation::RandomWalk<W>(
                         global_orientation, math::Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
     // Wrap the integrated phase to [0,1) so the orbit trig stays in precise range.
-    timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
-                                      /*wrap=*/true));
+    timeline.add(0,
+                 Animation::Driver(orbit_phase, &params.offset_speed, 0.01f));
 
     crossfade.overlap = CROSSFADE_OVERLAP;
     spawn_sprite();
@@ -627,7 +628,7 @@ private:
     // Fires on the step that draws the sprite's last full-opacity frame.
     timeline.add(SPRITE_LIFE - FADE_WINDOW,
                  Animation::PeriodicTimer(
-                     0, [this](Canvas &) { departure_due = true; }, false));
+                     0, [this](Canvas &) { departure_due = true; }));
 
     // A sprite paused mid fade-out hands off to a respawn of the same preset.
     timeline.add_pausable(period,
@@ -641,8 +642,7 @@ private:
                                            "advance must succeed");
                                 }
                                 this->spawn_sprite();
-                              },
-                              false),
+                              }),
                           &hold_departure);
   }
 
@@ -840,7 +840,7 @@ private:
     math::Vector axis = math::random_vector();
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis,
                                            2 * math::PI_F, 80,
-                                           math::ease_in_out_sin, false));
+                                           math::ease_in_out_sin));
   }
 
 public:

@@ -67,15 +67,15 @@ public:
         ACTUAL_FIBERS);
 
     init_fibers();
-    timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS,
-                                           2 * math::PI_F, 600,
-                                           math::ease_linear, true));
     timeline.add(
-        0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE, true));
+        0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F,
+                                  600, math::ease_linear, {.repeat = true}));
+    timeline.add(0,
+                 Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
-                                      TUMBLE_X_RATE, true));
+                                      TUMBLE_X_RATE));
     timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
-                                      TUMBLE_Y_RATE, true));
+                                      TUMBLE_Y_RATE));
   }
 
   /**
