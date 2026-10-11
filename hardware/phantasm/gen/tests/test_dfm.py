@@ -17,7 +17,7 @@ import fab  # noqa: E402
 import pcb  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F, kicad_cli  # noqa: E402
-from test_pcb_generation import GENERATES, GENERATES_REASON, generate, read  # noqa: E402
+from kicad_env import GENERATES, GENERATES_REASON, generate, read  # noqa: E402
 
 
 MASK_BOARD = """(kicad_pcb
