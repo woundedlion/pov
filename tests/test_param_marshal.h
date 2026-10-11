@@ -71,11 +71,7 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
   hs_wasm::fill_param_values(effect, values);
 
   // Count the source params independently of the marshaled streams.
-  size_t n = 0;
-  for (const auto &def : effect.getParameters()) {
-    (void)def;
-    ++n;
-  }
+  const size_t n = effect.getParameters().size();
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
   if (views.size() != n || values.size() != n)
@@ -175,11 +171,7 @@ inline void count_one(size_t &max_count) {
   E<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
 
-  size_t n = 0;
-  for (const auto &def : effect.getParameters()) {
-    (void)def;
-    ++n;
-  }
+  const size_t n = effect.getParameters().size();
   if (n > max_count)
     max_count = n;
 }
