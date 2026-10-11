@@ -82,7 +82,7 @@ inline void expect_color_within(const Color4 &actual, const Color4 &expected,
  * @param fx Effect whose framebuffer is scanned, fx.width() by fx.height().
  * @return Number of lit (non-black) pixels.
  */
-inline size_t count_lit_canvas(const StubEffect &fx) {
+template <typename Fx> inline size_t count_lit_canvas(const Fx &fx) {
   size_t n = 0;
   for (int y = 0; y < fx.height(); ++y)
     for (int x = 0; x < fx.width(); ++x)
@@ -98,7 +98,8 @@ inline size_t count_lit_canvas(const StubEffect &fx) {
  * @param fx Effect whose framebuffer is scanned.
  * @return Number of lit (non-black) pixels in the region.
  */
-template <int W, int H> inline size_t count_lit_region(const StubEffect &fx) {
+template <int W, int H, typename Fx>
+inline size_t count_lit_region(const Fx &fx) {
   size_t n = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
