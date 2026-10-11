@@ -53,7 +53,8 @@ inline void test_octet_crossing_coverage_against_ray_line_distance() {
     const auto PLANES = geometry.plane_families();
     SDF::OctetEvents events(geometry, RAY, FOOTPRINT);
     SDF::FrameworkPlaneEvents reference(RAY, FOOTPRINT);
-    reference.initialize(PLANES, geometry.origin, geometry.valid());
+    HS_EXPECT_TRUE(geometry.valid());
+    reference.initialize(PLANES, geometry.origin);
     std::array<bool, SDF::OctetEvents::STREAM_COUNT> owns_pair{};
     for (size_t i = 0; i < PLANES.size(); ++i) {
       for (size_t j = i + 1; j < PLANES.size(); ++j) {
