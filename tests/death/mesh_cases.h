@@ -25,22 +25,7 @@ inline void case_hankin_clone_aliases_dst() {
  *          not one entry per face would read past its end.
  */
 inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  ArenaVector<uint8_t> counts(arena, 1);
-  counts.push_back(opaque<uint8_t>(3));
-  ArenaVector<uint16_t> faces(arena, 3);
-  for (uint16_t i = 0; i < 3; ++i)
-    faces.push_back(opaque(i));
-  ArenaVector<uint16_t> offsets(arena, 2);
-  offsets.push_back(opaque<uint16_t>(0));
-  offsets.push_back(opaque<uint16_t>(3));
-  MeshState m;
-  // 2 offsets for 1 face -> HS_CHECK
-  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-                 ArenaSpan<uint16_t>(offsets));
-  if (m.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  death_set_borrowed({3}, 3, {0, 3}); // 2 offsets for 1 face -> HS_CHECK
 }
 
 /**
@@ -51,21 +36,7 @@ inline void case_mesh_state_set_borrowed_offsets_count_mismatch() {
  *          short of the data the view claims to cover.
  */
 inline void case_mesh_state_set_borrowed_offsets_short_span() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  ArenaVector<uint8_t> counts(arena, 1);
-  counts.push_back(opaque<uint8_t>(3));
-  ArenaVector<uint16_t> faces(arena, 4);
-  for (uint16_t i = 0; i < 4; ++i)
-    faces.push_back(opaque(i));
-  ArenaVector<uint16_t> offsets(arena, 1);
-  offsets.push_back(opaque<uint16_t>(0));
-  MeshState m;
-  // 0 + 3 != 4 -> HS_CHECK
-  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-                 ArenaSpan<uint16_t>(offsets));
-  if (m.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  death_set_borrowed({3}, 4, {0}); // 0 + 3 != 4 -> HS_CHECK
 }
 
 /**
@@ -73,18 +44,7 @@ inline void case_mesh_state_set_borrowed_offsets_short_span() {
  * @details The key names the connectivity a topology was classified for.
  */
 inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  ArenaVector<uint8_t> counts(arena, 1);
-  counts.push_back(opaque<uint8_t>(3));
-  ArenaVector<uint16_t> faces(arena, 3);
-  for (uint16_t i = 0; i < 3; ++i)
-    faces.push_back(opaque(i));
-  MeshState m;
-  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces), {}, {},
-                 opaque<uint32_t>(0x1234u));
-  if (m.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  death_set_borrowed({3}, 3, {}, 0x1234u);
 }
 
 /**
@@ -94,22 +54,7 @@ inline void case_mesh_state_set_borrowed_keyed_empty_topology() {
  *          over another's indices. The audit walk catches it.
  */
 inline void case_mesh_state_set_borrowed_offsets_not_prefix_sum() {
-  static uint8_t buf[1024];
-  Arena arena(buf, sizeof(buf));
-  ArenaVector<uint8_t> counts(arena, 2);
-  counts.push_back(opaque<uint8_t>(3));
-  counts.push_back(opaque<uint8_t>(3));
-  ArenaVector<uint16_t> faces(arena, 6);
-  for (uint16_t i = 0; i < 6; ++i)
-    faces.push_back(opaque(i));
-  ArenaVector<uint16_t> offsets(arena, 2);
-  offsets.push_back(opaque<uint16_t>(1)); // prefix sum starts at 0
-  offsets.push_back(opaque<uint16_t>(3));
-  MeshState m;
-  m.set_borrowed(ArenaSpan<uint8_t>(counts), ArenaSpan<uint16_t>(faces),
-                 ArenaSpan<uint16_t>(offsets));
-  if (m.num_faces() == opaque<size_t>(0x7fff))
-    std::printf("x");
+  death_set_borrowed({3, 3}, 6, {1, 3}); // prefix sum starts at 0
 }
 
 /**
