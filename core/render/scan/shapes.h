@@ -23,6 +23,16 @@
 
 namespace Scan {
 
+/** @brief Optional DistortedRing draw settings; defaults draw a plain ring. */
+struct RingDrawOptions {
+  /** Angular phase offset in radians. */
+  float phase = 0.0f;
+  /** Render the bounding box for debugging. */
+  bool debug_bb = false;
+  /** Drop the degenerate exact-pole row instead of full-row filling it. */
+  bool suppress_pole_fill = false;
+};
+
 /**
  * @brief Draws a ring whose radius is modulated around the circumference by
  *        shift_fn.
@@ -39,21 +49,17 @@ struct DistortedRing {
    * @param radius Ring radius as a fraction of the hemisphere.
    * @param thickness Ring stroke half-width (radians).
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
-   * @param debug_bb When true, renders the bounding box for debugging.
-   * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
-   *        full-row filling it.
+   * @param options Phase, debug bounding box and pole-fill settings.
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw_flat(PipelineRef pipeline, Canvas &canvas,
                         const math::Basis &basis, float radius, float thickness,
-                        FragmentShaderFn fragment_shader, float phase = 0,
-                        bool debug_bb = false,
-                        bool suppress_pole_fill = false) {
-    SDF::FlatDistortedRing shape(basis, radius, thickness, phase);
-    shape.suppress_pole_fill = suppress_pole_fill;
+                        FragmentShaderFn fragment_shader,
+                        const RingDrawOptions &options = {}) {
+    SDF::FlatDistortedRing shape(basis, radius, thickness, options.phase);
+    shape.suppress_pole_fill = options.suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
-                                      debug_bb);
+                                      options.debug_bb);
   }
 
   /**
@@ -100,23 +106,19 @@ struct DistortedRing {
    *        Storage must outlive the call.
    * @param lut_n Number of knot cells; at least 3.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
-   * @param debug_bb When true, renders the bounding box for debugging.
-   * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
-   *        full-row filling it.
+   * @param options Phase, debug bounding box and pole-fill settings.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, float thickness,
-                   const float *knots, int lut_n,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false, bool suppress_pole_fill = false) {
+  static void
+  draw(PipelineRef pipeline, Canvas &canvas, const math::Basis &basis,
+       float radius, float thickness, const float *knots, int lut_n,
+       FragmentShaderFn fragment_shader, const RingDrawOptions &options = {}) {
     SDF::KnotPrefilter prefilter;
-    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, phase,
-                             prefilter);
-    shape.suppress_pole_fill = suppress_pole_fill;
+    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n,
+                             options.phase, prefilter);
+    shape.suppress_pole_fill = options.suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
-                                      debug_bb);
+                                      options.debug_bb);
   }
 };
 
