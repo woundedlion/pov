@@ -39,6 +39,9 @@ enum class HookOwnership {
 namespace HookDetail {
 /** @brief Function-pointer signature traits. @tparam Function Pointer type. */
 template <typename Function> struct Signature;
+/** @brief Static function signature.
+ * @tparam ReturnT Return type.
+ * @tparam Args Argument types. */
 template <typename ReturnT, typename... Args>
 struct Signature<ReturnT (*)(Args...)> {
   using Return = ReturnT;                ///< Return type.
@@ -46,6 +49,10 @@ struct Signature<ReturnT (*)(Args...)> {
   using Arguments = std::tuple<Args...>; ///< Exact argument types.
   static constexpr bool MEMBER = false;  ///< Static function.
 };
+/** @brief Member function signature.
+ * @tparam ReturnT Return type.
+ * @tparam Owner Member owner.
+ * @tparam Args Argument types. */
 template <typename ReturnT, typename Owner, typename... Args>
 struct Signature<ReturnT (Owner::*)(Args...)>
     : Signature<ReturnT (*)(Args...)> {
