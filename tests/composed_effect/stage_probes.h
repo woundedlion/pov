@@ -588,14 +588,6 @@ public:
   }
 };
 
-/** @brief Runs @p frames whole frames of @p effect, buffer swap included. */
-template <typename FX> void run_probe_frames(FX &effect, int frames) {
-  for (int frame = 0; frame < frames; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
-}
-
 /**
  * @brief Pins a Segue::Preset::Fade departure.
  * @details After the dwell the departing preset holds while the opacity falls,
@@ -611,12 +603,12 @@ inline void test_choreography_fade_departure() {
   FX effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), size_t{3});
-  run_probe_frames(effect, DWELL);
+  hs_test::run_frames(effect, DWELL);
   HS_EXPECT_EQ(effect.opacity_samples, 0);
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   HS_EXPECT_EQ(effect.level(), 0.25f);
 
-  run_probe_frames(effect, FADE + 1);
+  hs_test::run_frames(effect, FADE + 1);
   HS_EXPECT_EQ(effect.opacity_samples, FADE);
   HS_EXPECT_EQ(effect.dimming_level, 0.25f);
   HS_EXPECT_EQ(effect.rising_level, 0.5f);
@@ -627,25 +619,25 @@ inline void test_choreography_fade_departure() {
   // The cadence wraps the table back to the first preset.
   int frames = 0;
   while (effect.getPresetIndex() != 0 && frames < 4 * (DWELL + FADE)) {
-    run_probe_frames(effect, 1);
+    hs_test::run_frames(effect, 1);
     ++frames;
   }
   HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
-  run_probe_frames(effect, FADE + 1);
+  hs_test::run_frames(effect, FADE + 1);
   HS_EXPECT_EQ(effect.level(), 0.25f);
 
   // Paused mid-fade: full opacity, and no advance while paused.
   HS_EXPECT_TRUE(effect.selectPreset(0));
   effect.setAnimationsPaused(false);
-  run_probe_frames(effect, DWELL + 2);
+  hs_test::run_frames(effect, DWELL + 2);
   HS_EXPECT_LT(effect.last_opacity, 1.0f);
   const size_t HELD = effect.getPresetIndex();
   effect.setAnimationsPaused(true);
-  run_probe_frames(effect, 2 * (DWELL + FADE));
+  hs_test::run_frames(effect, 2 * (DWELL + FADE));
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);
   HS_EXPECT_EQ(effect.getPresetIndex(), HELD);
   HS_EXPECT_TRUE(effect.selectPreset(0));
-  run_probe_frames(effect, 1);
+  hs_test::run_frames(effect, 1);
   HS_EXPECT_EQ(effect.last_opacity, 1.0f);
   HS_EXPECT_EQ(effect.level(), 0.25f);
 }
@@ -666,13 +658,13 @@ inline void test_choreography_lerp_transition_hooks() {
     HS_EXPECT_EQ(effect.level(), 0.0f);
 
     // Retire the dwell; the next frame arms the crossfade to PRESETS[1].
-    run_probe_frames(effect, FX::PRESET_DWELL_FRAMES);
+    hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES);
     HS_EXPECT_EQ(effect.armed_count, 1);
     HS_EXPECT_EQ(effect.armed_target, 1.0f);
     HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 
     // Mid-crossfade the level is strictly between the endpoints.
-    run_probe_frames(effect, FX::DEPARTURE.frames / 2);
+    hs_test::run_frames(effect, FX::DEPARTURE.frames / 2);
     HS_EXPECT_GT(effect.blend_calls, 0);
     HS_EXPECT_GT(effect.level(), 0.0f);
     HS_EXPECT_LT(effect.level(), 1.0f);
@@ -682,8 +674,8 @@ inline void test_choreography_lerp_transition_hooks() {
     const int blends = effect.blend_calls;
     HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f),
                  ParamSetResult::APPLIED);
-    run_probe_frames(effect, Animated ? 2 * FX::DEPARTURE.frames
-                                      : FX::DEPARTURE.frames / 2);
+    hs_test::run_frames(effect, Animated ? 2 * FX::DEPARTURE.frames
+                                         : FX::DEPARTURE.frames / 2);
     HS_EXPECT_EQ(effect.blend_calls, blends);
     HS_EXPECT_EQ(effect.level(), 0.3f);
     HS_EXPECT_EQ(effect.armed_count, 1);
@@ -699,15 +691,15 @@ inline void test_choreography_lerp_pause_policy() {
     reset_effect_globals();
     FX effect;
     effect.init();
-    run_probe_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
+    hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
     const float held = effect.level();
     HS_EXPECT_GT(held, 0.0f);
     HS_EXPECT_LT(held, 1.0f);
     effect.setAnimationsPaused(true);
-    run_probe_frames(effect, FX::DEPARTURE.frames);
+    hs_test::run_frames(effect, FX::DEPARTURE.frames);
     HS_EXPECT_EQ(effect.level(), Pausable ? held : 1.0f);
     effect.setAnimationsPaused(false);
-    run_probe_frames(effect, FX::DEPARTURE.frames);
+    hs_test::run_frames(effect, FX::DEPARTURE.frames);
     HS_EXPECT_EQ(effect.level(), 1.0f);
   };
   check.template operator()<true>();

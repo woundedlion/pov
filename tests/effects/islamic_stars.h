@@ -390,10 +390,7 @@ inline void test_islamicstars_recipe_build_smoke() {
   HS_EXPECT_EQ(changed_after_build, 0);
 
   // Entry 2 has started; its frames may overlap entry 1's fade.
-  for (int f = 0; f < 12; ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 12);
   const uint64_t acc = frame_energy<SMALL_W, SMALL_H>(effect);
   HS_EXPECT_GT(acc, (uint64_t)0);
 }

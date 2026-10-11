@@ -518,10 +518,7 @@ inline void test_bz_render_center_matches_reference() {
   {
     BZWhiteBox::BZ bz;
     bz.init();
-    for (int frame = 0; frame < 4; ++frame) {
-      bz.draw_frame();
-      bz.advance_display();
-    }
+    hs_test::run_frames(bz, 4);
     auto error = BZWhiteBox::render_center_error<DEFAULT_W, DEFAULT_H>(bz);
     std::printf("BZ render centers: pixels=%d refined_seeds=%d mismatches=%d\n",
                 error.pixels, error.refined_seeds, error.center_mismatches);
