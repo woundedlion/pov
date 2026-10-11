@@ -1272,3 +1272,53 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   }
   HS_EXPECT_GT(lit_total, 200);
 }
+
+/** @brief Chunk culling conservatively covers brute-force ring samples. */
+inline void test_visible_chunk_mask_covers_sampled_ring() {
+  constexpr int W = 128, H = 64, CHUNKS = 16, SAMPLES = 2048;
+  std::array<float, CHUNKS> cosines{}, sines{};
+  for (int chunk = 0; chunk < CHUNKS; ++chunk) {
+    const double angle = (chunk + 0.5) * 2.0 * std::acos(-1.0) / CHUNKS;
+    cosines[chunk] = static_cast<float>(std::cos(angle));
+    sines[chunk] = static_cast<float>(std::sin(angle));
+  }
+  const ClipRegion clips[] = {{0, H, 0, W, 0, W, H},
+                              {0, H / 2, 0, W / 2, 0, W, H},
+                              {H / 2, H, W / 2, W, 0, W, H}};
+  size_t covered = 0;
+  for (const auto &orientation :
+       {math::Quaternion(),
+        math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized()}) {
+    const auto basis = math::make_basis(orientation, math::Y_AXIS);
+    for (float theta : {0.0f, 0.01f, 0.4f, 1.5f, 2.8f, math::PI_F}) {
+      const float sin_t = std::sin(theta), cos_t = std::cos(theta);
+      for (const auto &clip : clips) {
+        HS_CONTEXT("ring theta", static_cast<long long>(theta * 1000));
+        const uint32_t mask = Plot::visible_chunk_mask<H, CHUNKS>(
+            clip, basis, theta, cos_t, sin_t, 0.01f, 0.01f, cosines.data(),
+            sines.data());
+        for (int sample = 0; sample < SAMPLES; ++sample) {
+          const double angle = sample * 2.0 * std::acos(-1.0) / SAMPLES;
+          const math::Vector point =
+              basis.v * cos_t +
+              (basis.u * static_cast<float>(std::cos(angle)) +
+               basis.w * static_cast<float>(std::sin(angle))) *
+                  sin_t;
+          const auto pixel = math::vector_to_pixel<W, H>(point);
+          if (pixel.y >= clip.y_start && pixel.y < clip.y_end &&
+              pixel.x >= clip.x_start && pixel.x < clip.x_end) {
+            ++covered;
+            HS_EXPECT_NE(mask & (1u << (sample * CHUNKS / SAMPLES)), 0u);
+          }
+        }
+        if (clip.is_full()) {
+          const uint32_t full_pad = Plot::visible_chunk_mask<H, CHUNKS>(
+              clip, basis, theta, cos_t, sin_t, math::PI_F, 1.0f,
+              cosines.data(), sines.data());
+          HS_EXPECT_EQ(full_pad, (1u << CHUNKS) - 1);
+        }
+      }
+    }
+  }
+  HS_EXPECT_GT(covered, size_t{0});
+}
