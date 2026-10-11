@@ -85,7 +85,8 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
       seed = Solids::finalize_solid(site.seed(ga, gb), persist);
     }
 
-    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    SweepFingerprint first;
+    size_t f0 = 0, compiled0 = 0;
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
     for (int s = 0; s < SAMPLES; ++s) {
@@ -94,25 +95,16 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
       ScratchScope frame_a(a);
       ScratchScope frame_b(b);
       PolyMesh swept = MeshOps::truncate(seed, a, b, t);
-      MeshState compiled;
-      MeshOps::compile(swept, compiled, a, b);
+      const auto fingerprint = check_sweep_sample(swept, a, b);
       if (s == 0) {
-        v0 = swept.vertices.size();
-        f0 = swept.face_counts.size();
-        i0 = swept.faces.size();
-        compiled0 = compiled.face_counts.size();
-        expect_op_counts(v0, f0, i0,
+        first = fingerprint;
+        f0 = first.f;
+        compiled0 = first.compiled;
+        expect_op_counts(first.v, first.f, first.i,
                          morph_op_counts(ConwayGraph::MorphOp::TRUNCATE, seed));
       } else {
-        HS_EXPECT_EQ(swept.vertices.size(), v0);
-        HS_EXPECT_EQ(swept.face_counts.size(), f0);
-        HS_EXPECT_EQ(swept.faces.size(), i0);
-        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+        expect_same_fingerprint(fingerprint, first);
       }
-      check_face_counts_consistent(swept);
-      check_indices_in_range(swept);
-      check_all_unit_vertices(swept, 1e-3f);
-      conway_tests::check_euler_characteristic_two(swept);
     }
 
     if (hs_test::stats().failed != failed_before)
