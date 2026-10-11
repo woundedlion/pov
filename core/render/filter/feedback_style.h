@@ -397,7 +397,7 @@ hue_fade_apply2(const float k[9], float r0, float g0, float b0, float r1,
 // matrix precomputed once per frame by Style::sync_hue.
 HS_FLASH_INLINE inline Pixel hue_fade(const Pixel &p, float fade,
                                       const Style &s) {
-  const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
+  const float sc = math::fast_cbrt(fade * Q16_TO_UNIT);
   float k[9];
   for (int i = 0; i < 9; ++i)
     k[i] = s.hue_k[i] * sc;

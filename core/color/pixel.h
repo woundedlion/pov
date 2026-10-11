@@ -212,6 +212,9 @@ __attribute__((always_inline)) inline uint16_t frac_to_q16(float frac) {
   return static_cast<uint16_t>(hs::clamp(frac, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
+/** @brief Scale that decodes a Q16 weight or channel in [0, 65535] to [0, 1]. */
+inline constexpr float Q16_TO_UNIT = 1.0f / 65535.0f;
+
 /**
  * @brief The interpolatable pixel of a lookup-table entry.
  * @param e Table entry.
