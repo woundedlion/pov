@@ -1528,7 +1528,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pullback_operations.def                Shared capture operation codes and preset count
 │   ├── pullback_capture.py / pullback_capture_native.cpp  Canonical producer + native/WASM backend
 │   ├── gen_chain_capture_fixtures.py Typed C++ snapshot generator for frozen capture cases
-│   ├── test_chain_capture_fixtures.py Capture fixture generator contracts
 │   ├── pullback_crosscheck.py  Isolated base/candidate pullback capture runner and comparator
 │   ├── device_lock.sh          Host-global per-board lock every device path takes
 │   ├── device_lock_guard.py    OS file-lock guard for claim creation and removal
