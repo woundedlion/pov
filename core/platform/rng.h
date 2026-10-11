@@ -143,16 +143,14 @@ template <typename EffectType> inline void seed_effect_stream() {
 }
 
 /**
- * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
- * @param value Raw RNG draw, in [0, max].
- * @param max Maximum possible draw value.
- * @pre max == UINT32_MAX.
+ * @brief Maps a raw 32-bit RNG draw onto the half-open interval [0.0, 1.0).
+ * @param value Raw 32-bit RNG draw.
  * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
  * @details Top-band draws round to exactly 1.0f in float32; they clamp to the
  *          float just below 1.0f.
  */
-inline float random_to_unit(uint32_t value, uint32_t max) {
-  float r = static_cast<float>(value) / static_cast<float>(max);
+inline float random_to_unit(uint32_t value) {
+  float r = static_cast<float>(value) / static_cast<float>(UINT32_MAX);
   constexpr float JUST_BELOW_ONE = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
   return r > JUST_BELOW_ONE ? JUST_BELOW_ONE : r;
 }
@@ -167,8 +165,7 @@ inline float rand_f() {
       Rng::max() == 0xFFFFFFFFu,
       "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
       "if the global generator changes.");
-  return random_to_unit(static_cast<uint32_t>(hs::random()()),
-                        static_cast<uint32_t>(Rng::max()));
+  return random_to_unit(static_cast<uint32_t>(hs::random()()));
 }
 
 /**
