@@ -474,7 +474,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
     frag_scratch.pos = p;
     frag_scratch.v0 = result_scratch.t;
     frag_scratch.v1 = result_scratch.raw_dist;
-    frag_scratch.v2 = solid ? 0.0f : alpha;
+    frag_scratch.v2 = SOLID ? 0.0f : alpha;
     frag_scratch.v3 = result_scratch.aux;
     frag_scratch.size = result_scratch.size;
     frag_scratch.age = 0;
