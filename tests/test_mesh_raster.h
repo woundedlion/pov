@@ -174,6 +174,10 @@ inline void test_wireframe_reuses_geodesic_cull_span() {
 // Scan::Mesh::draw / SDF::Face — solid fill: interior lit, tiling has no holes
 // ============================================================================
 
+template <int W, int H>
+inline size_t check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
+                                     Arena &scratch);
+
 /**
  * @brief Verifies the solid fill lights every face interior and tiles the whole
  *        sphere.
@@ -205,37 +209,9 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     wire_lit = count_lit_region<W, H>(wire);
   }
 
-  MeshState mesh;
-  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
-
-  hs_test::StubEffect fx(W, H);
-  {
-    Canvas c(fx);
-    Pipeline<W, H> pipe;
-    Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
-  }
-  fx.advance_display();
-
-  const uint8_t *fc = mesh.get_face_counts_data();
-  const uint16_t *fi = mesh.get_faces_data();
-  const uint16_t *fo = mesh.get_face_offsets_data();
-  const size_t num_f = mesh.get_face_counts_size();
-  HS_EXPECT_EQ(num_f, (size_t)8); // octahedron has 8 triangular faces
-  for (size_t f = 0; f < num_f; ++f) {
-    math::Vector centroid(0, 0, 0);
-    for (int k = 0; k < fc[f]; ++k)
-      centroid = centroid + mesh.vertices[fi[fo[f] + k]];
-    centroid = centroid.normalized();
-    math::PixelCoords p = math::vector_to_pixel<W, H>(centroid);
-    HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
-  }
-
-  const size_t fill_lit = count_lit_region<W, H>(fx);
+  HS_EXPECT_EQ(poly.face_counts.size(), size_t{8});
+  const size_t fill_lit = check_solid_fill_tiles<W, H>(poly, geom, scratch);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
-
-  // A closed convex solid tiles the whole sphere.
-  const size_t total = static_cast<size_t>(W) * H;
-  HS_EXPECT_EQ(fill_lit, total);
 }
 
 /** @brief Near-horizon face interiors survive distance and raster culls. */
@@ -417,10 +393,11 @@ inline void test_wireframe_pixels_lie_on_edges() {
  * @param poly Closed convex mesh to compile and fill.
  * @param geom Arena backing the compiled MeshState.
  * @param scratch Arena for the solid scan path.
+ * @return Number of lit pixels.
  */
 template <int W, int H>
-inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
-                                   Arena &scratch) {
+inline size_t check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
+                                     Arena &scratch) {
   configure_arenas_default();
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
@@ -450,6 +427,7 @@ inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
   const size_t total = static_cast<size_t>(W) * H;
   const size_t fill_lit = count_lit_region<W, H>(fx);
   HS_EXPECT_EQ(fill_lit, total);
+  return fill_lit;
 }
 
 /**
