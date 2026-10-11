@@ -61,18 +61,8 @@ inline constexpr StepLegSite DUAL_LEG_SITES[] = {
 };
 
 /** @brief Max nearest-vertex distance from every vertex of @p x to @p y. */
-inline float medial_vertex_set_dist(const PolyMesh &x, const PolyMesh &y) {
-  float worst = 0.0f;
-  for (const auto &vx : x.vertices) {
-    float best = 1e9f;
-    for (const auto &vy : y.vertices)
-      best = std::min(best, math::distance_between(vx, vy));
-    worst = fold_worst(worst, best);
-  }
-  return worst;
-}
-inline float medial_vertex_set_dist(const ArenaVector<math::Vector> &x,
-                                    const PolyMesh &y) {
+template <typename Vertices>
+inline float medial_vertex_set_dist(const Vertices &x, const PolyMesh &y) {
   float worst = 0.0f;
   for (const auto &vx : x) {
     float best = 1e9f;
@@ -82,6 +72,9 @@ inline float medial_vertex_set_dist(const ArenaVector<math::Vector> &x,
   }
   return worst;
 }
+inline float medial_vertex_set_dist(const PolyMesh &x, const PolyMesh &y) {
+  return medial_vertex_set_dist(x.vertices, y);
+}
 
 /** @brief Signed total solid angle of a mesh (per-face fan from its centroid). */
 inline double medial_total_solid_angle(const PolyMesh &m) {
@@ -90,10 +83,7 @@ inline double medial_total_solid_angle(const PolyMesh &m) {
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
-    math::Vector c(0, 0, 0);
-    for (int k = 0; k < n; ++k)
-      c = c + m.vertices[m.faces[off + k]];
-    c = c.normalized();
+    const math::Vector c = face_centroid_unit(m, off, n);
     for (int k = 0; k < n; ++k) {
       HS_CONTEXT("k", k);
       const math::Vector a = m.vertices[m.faces[off + k]];
@@ -115,10 +105,7 @@ inline double medial_min_face_area(const PolyMesh &m) {
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
-    math::Vector c(0, 0, 0);
-    for (int k = 0; k < n; ++k)
-      c = c + m.vertices[m.faces[off + k]];
-    c = c.normalized();
+    const math::Vector c = face_centroid_unit(m, off, n);
     double area = 0.0;
     for (int k = 0; k < n; ++k) {
       HS_CONTEXT("k", k);
@@ -139,10 +126,7 @@ inline int medial_inverted_faces(const PolyMesh &m) {
   for (size_t f = 0; f < m.face_counts.size(); ++f) {
     HS_CONTEXT("f", f);
     const int n = m.face_counts[f];
-    math::Vector c(0, 0, 0);
-    for (int k = 0; k < n; ++k)
-      c = c + m.vertices[m.faces[off + k]];
-    c = c.normalized();
+    const math::Vector c = face_centroid_unit(m, off, n);
     math::Vector nrm(0, 0, 0);
     for (int k = 0; k < n; ++k) {
       HS_CONTEXT("k", k);
@@ -573,10 +557,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       size_t off = 0;
       for (size_t l = 0; l < nf; ++l) {
         HS_CONTEXT("l", l);
-        math::Vector c(0.0f, 0.0f, 0.0f);
-        for (int j = 0; j < ambo_d.face_counts[l]; ++j)
-          c = c + ambo_d.vertices[ambo_d.faces[off + j]];
-        c = c.normalized();
+        const math::Vector c =
+            face_centroid_unit(ambo_d, off, ambo_d.face_counts[l]);
         off += ambo_d.face_counts[l];
         size_t best = 0;
         float bd = 1e9f;
