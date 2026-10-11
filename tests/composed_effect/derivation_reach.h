@@ -141,7 +141,6 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"sample.lattice.v2",
      "coverage-mode",
      {{"weight", "weight-squared", "edge-fade"}}},
-    // Shipped Specs select only the none and cup brightness envelopes.
     {"colorize.generated-palette.v3",
      "palette-mode",
      {{"triadic", "complementary", "analogous"}}},
@@ -151,6 +150,7 @@ constexpr DerivationReach DERIVATION_REACH[] = {
     {"colorize.generated-palette.v3",
      "hue-shift-mode",
      {{"none", "noise", "path-length"}}},
+    // Shipped Specs select only the none and cup brightness envelopes.
     {"colorize.generated-palette.v3", "brightness-envelope", {{"none", "cup"}}},
 };
 
