@@ -314,3 +314,26 @@ inline void case_sample_sphere_nan() {
   const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
   (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
 }
+
+/** @brief Readiness requires a committed chain. */
+inline void case_chain_ready_without_program() {
+  Pullback::Interp::ChainProgram program;
+  program.check_ready();
+}
+
+/** @brief A committed chain requires preparation before evaluation. */
+inline void case_chain_ready_before_prepare() {
+  namespace In = Pullback::Interp;
+  alignas(std::max_align_t) uint8_t block_a[In::CHAIN_ARENA_BYTES];
+  alignas(std::max_align_t) uint8_t block_b[In::CHAIN_ARENA_BYTES];
+  In::ChainProgram program;
+  program.bind_storage(block_a, block_b);
+  const In::ChainEntryRequest request[] = {
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"color", "colorize.generated-palette.v3"}};
+  const auto result = program.compile(request);
+  if (result.code != In::ChainStatus::OK)
+    std::exit(0);
+  program.check_ready();
+}
