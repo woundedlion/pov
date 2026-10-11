@@ -591,7 +591,8 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
   }
   reset_effect_globals();
   pin_frame_clock(0);
-  RingSpin<SMALL_W, SMALL_H> firmware_effect(false);
+  RingSpin<SMALL_W, SMALL_H> firmware_effect(
+      RingSpin<SMALL_W, SMALL_H>::Strobe::DISABLED);
   HS_EXPECT_FALSE(firmware_effect.strobe_columns());
   firmware_effect.init();
   for (int frame = 0; frame < 2; ++frame) {

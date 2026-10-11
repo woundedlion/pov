@@ -42,7 +42,8 @@ void setup() {
 
 /** @brief Shows RingSpin for 120 seconds. */
 FLASHMEM static void run_show_sequence() {
-  POV::show<RingSpin<CANVAS_W, CANVAS_H>>(120, false);
+  POV::show<RingSpin<CANVAS_W, CANVAS_H>>(
+      120, RingSpin<CANVAS_W, CANVAS_H>::Strobe::DISABLED);
 }
 
 /** @brief Logs a heartbeat, then runs the show sequence. */
