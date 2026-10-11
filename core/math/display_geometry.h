@@ -25,6 +25,15 @@
 #define HS_DISPLAY_SOUTH_FRACTION 0.98f
 #endif
 
+namespace hs {
+/** @brief Test-only pixel-mapping height offset (HS_TEST_H_OFFSET). */
+#if defined(HS_TEST_H_OFFSET)
+inline constexpr int H_OFFSET = HS_TEST_H_OFFSET;
+#else
+inline constexpr int H_OFFSET = 0;
+#endif
+} // namespace hs
+
 namespace math {
 static_assert(HS_DISPLAY_PROFILE == 0 || HS_DISPLAY_PROFILE == 1,
               "HS_DISPLAY_PROFILE must be 0 (ideal) or 1 (physical)");

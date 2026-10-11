@@ -337,12 +337,6 @@ inline uint32_t save_disable_interrupts() { return 0; }
 /** @brief Restores a saved interrupt mask (no-op on host). */
 inline void restore_interrupts(uint32_t) {}
 
-/** @brief Test-only pixel-mapping height offset (HS_TEST_H_OFFSET). */
-#if defined(HS_TEST_H_OFFSET)
-inline constexpr int H_OFFSET = HS_TEST_H_OFFSET;
-#else
-inline constexpr int H_OFFSET = 0;
-#endif
 } // namespace hs
 
 /**
