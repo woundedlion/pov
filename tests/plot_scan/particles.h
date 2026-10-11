@@ -466,7 +466,7 @@ inline void test_particle_system_direct_trail_materialization_output_parity() {
     int lit = 0;
     int diff = 0;
     for (size_t i = 0; i < direct.size(); ++i) {
-      if (reference[i].r | reference[i].g | reference[i].b)
+      if (!is_black(reference[i]))
         ++lit;
       if (direct[i] != reference[i])
         ++diff;
