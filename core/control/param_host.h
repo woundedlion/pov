@@ -578,6 +578,20 @@ protected:
   }
 
   /**
+   * @brief Assigns presentation metadata to the most recently registered parameter.
+   * @param group Metadata that outlives the host; omitted on device builds.
+   */
+  void set_last_parameter_group(const ParameterGroup *group) {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    HS_CHECK(parameters.count > 0,
+             "parameter group requires a registered parameter");
+    parameters.data()[parameters.count - 1].group = group;
+#else
+    (void)group;
+#endif
+  }
+
+  /**
    * @brief Registers an animation-driven integer slider.
    * @param name Parameter name; must outlive the host.
    * @param ptr Target member.

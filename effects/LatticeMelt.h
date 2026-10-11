@@ -24,6 +24,23 @@ struct LatticeMeltWhiteBox;
 
 /** @brief Stage spec for `LatticeMelt`. */
 struct LatticeMeltSpec : Pullback::Spec {
+  /** @brief Folder title for a pipeline group.
+   *  @param group Stable group name.
+   *  @return Displayed title. */
+  static constexpr const char *parameter_group_title(std::string_view group) {
+    if (group == "Surface Noise")
+      return "Curl";
+    if (group == "Projection Frame")
+      return "Spin + Wander";
+    if (group == "Projection")
+      return "Folded Sinusoidal";
+    if (group == "Function")
+      return "Primitive Lattice";
+    if (group == "Colorize")
+      return "Generated Triadic";
+    return group.data();
+  }
+
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

@@ -316,6 +316,75 @@ protected:
     }
   }
 
+  /** @brief Parameter folder positions in the pipeline. */
+  enum class ParameterStage : uint8_t {
+    CAMERA,           ///< Outer camera orientation.
+    LENS,             ///< Sphere-space lens.
+    SURFACE,          ///< Sphere displacement.
+    PROJECTION_FRAME, ///< Projection orientation.
+    PROJECTION,       ///< Sphere-to-plane map.
+    WARP_1,           ///< Outer planar warp.
+    WARP_2,           ///< Inner planar warp.
+    FUNCTION,         ///< Scalar source.
+    VALUE_TRANSFER,   ///< Scalar transfer.
+    COVERAGE,         ///< Coverage function.
+    COLORIZE          ///< Palette and hue controls.
+  };
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+  /// Group names, titles and pipeline positions for this spec.
+  inline static constexpr auto PARAMETER_GROUPS = [] {
+    std::array<ParameterGroup, 11> groups{
+        { {"Camera", "Camera", 0},
+          {"Lens", "Lens", 1},
+          {"Surface Noise", "Surface Noise", 2},
+          {"Projection Frame", "Projection Frame", 3},
+          {"Projection", "Projection", 4},
+          {"Planar Warp 1", "Planar Warp 1", 5},
+          {"Planar Warp 2", "Planar Warp 2", 6},
+          {"Function", "Function", 7},
+          {"Value Transfer", "Value Transfer", 8},
+          {"Coverage", "Coverage", 9},
+          {"Colorize", "Colorize", 10} }};
+    if constexpr (requires { SpecT::parameter_group_title(groups[0].name); })
+      for (auto &group : groups)
+        group.title = SpecT::parameter_group_title(group.name);
+    return groups;
+  }();
+#endif
+
+  /** @brief Assigns a pipeline group to the most recently registered field.
+   *  @param stage Field's pipeline role. */
+  void set_parameter_stage(ParameterStage stage) {
+#if HS_ENABLE_PARAM_GUI_BRIDGE
+    this->set_last_parameter_group(
+        &PARAMETER_GROUPS[static_cast<size_t>(stage)]);
+#else
+    (void)stage;
+#endif
+  }
+
+  /** @brief Pipeline role of an independent parameter resource.
+   *  @tparam Resource Resource supplying the field.
+   *  @return Default stage for the resource's fields. */
+  template <typename Resource>
+  static constexpr ParameterStage resource_parameter_stage() {
+    if constexpr (Resource::KIND == ResourceKind::SOURCE)
+      return ParameterStage::FUNCTION;
+    else if constexpr (Resource::KIND == ResourceKind::SURFACE)
+      return ParameterStage::SURFACE;
+    else if constexpr (Resource::KIND == ResourceKind::WARP)
+      return Resource::KEY.view() == "outer_warp" ? ParameterStage::WARP_1
+                                                  : ParameterStage::WARP_2;
+    else if constexpr (Resource::KIND == ResourceKind::LENS)
+      return ParameterStage::LENS;
+    else if constexpr (Resource::KIND == ResourceKind::VALUE)
+      return std::is_same_v<typename Resource::Family, IsoValueParams>
+                 ? ParameterStage::VALUE_TRANSFER
+                 : ParameterStage::COVERAGE;
+    else
+      return ParameterStage::PROJECTION;
+  }
+
   /** @brief Registers the named descriptors of one independent instance.
    *  @tparam Resource The instance's parameter resource.
    *  @tparam T Parameter family type.
@@ -323,9 +392,18 @@ protected:
   template <typename Resource, typename T>
   HS_COLD_MEMBER void register_fields(T &family) {
     for (const auto &field : T::FIELDS)
-      if (field.name != nullptr && field_gate_open(field.gate))
+      if (field.name != nullptr && field_gate_open(field.gate)) {
         this->register_param(resource_parameter_name<Resource>(field.name),
                              &(family.*field.member), field.description().spec);
+        ParameterStage stage = resource_parameter_stage<Resource>();
+        if constexpr (Resource::KIND == ResourceKind::PROJECTION) {
+          if (field.member == &T::camera_wander)
+            stage = ParameterStage::CAMERA;
+          else if (field.member == &T::spin_rate || field.member == &T::wander)
+            stage = ParameterStage::PROJECTION_FRAME;
+        }
+        set_parameter_stage(stage);
+      }
   }
 
   /** @brief Adopts a snap target and re-derives the palette mapping weights.
@@ -470,6 +548,7 @@ private:
         ComposedDetail::warp_speed_name(Resource::KEY.view()).data();
     this->register_param(resource_parameter_name<Resource>(SPEED_NAME),
                          &warp.speed, T::FIELDS[0].description().spec);
+    set_parameter_stage(resource_parameter_stage<Resource>());
     register_fields<Resource>(warp);
   }
 
@@ -482,11 +561,13 @@ private:
                                                   &math::Complex::im};
     constexpr float LIMIT = MobiusLensParams::COEFFICIENT_LIMIT;
     for (size_t i = 0; i < std::size(COEFFICIENTS); ++i)
-      for (size_t j = 0; j < std::size(CHANNELS); ++j)
+      for (size_t j = 0; j < std::size(CHANNELS); ++j) {
         register_animated_param(
             resource_parameter_name<Resource>(
                 ComposedDetail::MOBIUS_PARAM_NAMES[i * 2 + j]),
             &((lens.mobius.*COEFFICIENTS[i]).*CHANNELS[j]), -LIMIT, LIMIT);
+        set_parameter_stage(ParameterStage::LENS);
+      }
   }
 
   template <float Color::ColorControls::*Member>
@@ -506,9 +587,11 @@ private:
   template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
     constexpr const auto &FIELD = color_descriptor<Member>();
-    if constexpr (ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate))
+    if constexpr (ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate)) {
       register_animated_param(name, &(params.template get<"color">().*Member),
                               FIELD.min, FIELD.max);
+      set_parameter_stage(ParameterStage::COLORIZE);
+    }
   }
 
   template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
@@ -536,6 +619,7 @@ private:
         "Palette Mapping", &params.template get<"color">().palette_mapping,
         PALETTE_MAPPING_OPTIONS, PALETTE_MAPPING_EXPORT_OPTIONS,
         std::size(PALETTE_MAPPING_OPTIONS));
+    set_parameter_stage(ParameterStage::COLORIZE);
     register_color_field<&ColorParams::mapping_frequency>("Mapping Frequency");
     register_color_field<&ColorParams::mapping_phase>("Mapping Phase");
     register_color_field<&ColorParams::phase_oscillation_depth>(
