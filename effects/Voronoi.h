@@ -114,9 +114,9 @@ public:
     // block shrinks with the site count, as cell size falls ~1/sqrt(n).
     const float cell_px = (2.0f * H / math::PI_F) /
                           sqrtf(static_cast<float>(sites_buffer.size()));
-    const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
-                            COHERENCE_BLOCK);
-    if (B == 1) {
+    const int BLOCK = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
+                                COHERENCE_BLOCK);
+    if (BLOCK == 1) {
       Scan::Shader::draw<W, H>(canvas, [&](const math::Vector &p) {
         const auto nearest = tree.nearest(p, 2);
         const uint16_t i0 = nearest[0].original_index;
@@ -128,7 +128,7 @@ public:
       return;
     }
     Scan::Shader::draw_block_coherent<W, H, SITES_PER_CORNER>(
-        canvas, B, positions, scratch_arena_a,
+        canvas, BLOCK, positions, scratch_arena_a,
         [&](const math::Vector &p) {
           const CellId pair = classify(tree, p);
           return std::array<uint16_t, SITES_PER_CORNER>{pair.lo, pair.hi};

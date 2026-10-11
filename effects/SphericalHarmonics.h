@@ -57,11 +57,10 @@ public:
     int l2, m2;  ///< Order of the second harmonic.
     float blend; ///< Morph fraction in [0, 1] toward (l2, m2).
     math::RotationMatrix
-        orientation_conj; /**< World->local rotation (conjugate of
+        orientation_conj;  /**< World->local rotation (conjugate of
                                         the shape orientation). */
-    float N1, N2;         /**< Normalization of the second harmonic. */
-    /** @var N1
-     *  @brief Normalization of the first harmonic. */
+    float normalization_1; ///< Normalization of the first harmonic.
+    float normalization_2; ///< Normalization of the second harmonic.
 
     /**
      * @brief Construct a field for blending mode (l1, m1) into (l2, m2).
@@ -77,8 +76,9 @@ public:
                   math::Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2),
           blend(l1 == l2 && m1 == m2 ? 0.0f : blend),
-          orientation_conj(q.conjugate()), N1(SHMath::harmonic_scale(l1, m1)),
-          N2(SHMath::harmonic_scale(l2, m2)) {}
+          orientation_conj(q.conjugate()),
+          normalization_1(SHMath::harmonic_scale(l1, m1)),
+          normalization_2(SHMath::harmonic_scale(l2, m2)) {}
 
     /**
      * @brief Sample the (possibly blended) harmonic at world point p.
@@ -90,9 +90,9 @@ public:
 
       // The local frame varies across a screen row, so no part of the
       // harmonic can be hoisted to a per-row precompute.
-      float val = SHMath::spherical_harmonic(l1, m1, local, N1);
+      float val = SHMath::spherical_harmonic(l1, m1, local, normalization_1);
       if (blend > 0.001f) {
-        float val2 = SHMath::spherical_harmonic(l2, m2, local, N2);
+        float val2 = SHMath::spherical_harmonic(l2, m2, local, normalization_2);
         val += (val2 - val) * blend;
       }
       return val;

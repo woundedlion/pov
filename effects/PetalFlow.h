@@ -321,12 +321,12 @@ private:
 
         // Inverse stereographic projection of (radius exp(rho + wobble), angle
         // final_theta) onto the unit sphere, poles on +/-Z.
-        float R = exp_rho * exp_shift[i];
+        float radius = exp_rho * exp_shift[i];
 
-        float r2 = R * R;
+        float r2 = radius * radius;
         float denom = 1.0f + r2;
-        float x = 2.0f * R * math::fast_cosf(final_theta) / denom;
-        float y = 2.0f * R * math::fast_sinf(final_theta) / denom;
+        float x = 2.0f * radius * math::fast_cosf(final_theta) / denom;
+        float y = 2.0f * radius * math::fast_sinf(final_theta) / denom;
         float z = (r2 - 1.0f) / denom;
 
         Fragment f;
