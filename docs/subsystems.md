@@ -934,7 +934,7 @@ auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view
 
 ## 7.9 The Preset System (`control/choreography.h`)
 
-`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a static `preset(index)` returning one entry, and/or `PRESET_IDS` naming them — plus a dwell, a parameter schema version, and either `parameter_fields()` (from which the base derives `valid_params()` and `blend_params()`; a `Params::FIELDS` table supplies it) or its own `valid_params()`. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
+`ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a bound static `preset(index)` returning one entry with `PRESET_IDS` naming its rows; a `PRESETS` table may also supply `PRESET_IDS` — plus a dwell, a parameter schema version, and either `parameter_fields()` (from which the base derives `valid_params()` and `blend_params()`; a `Params::FIELDS` table supplies it) or its own `valid_params()`. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
 
 ```cpp
 static constexpr Segue::Preset::Fade DEPARTURE{16};
