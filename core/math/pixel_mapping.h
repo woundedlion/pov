@@ -163,6 +163,8 @@ template <int W, int H> struct TrigLUT {
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
   static std::array<float, H_VIRT> cos_phi;  /**< cos(phi) per virtual row. */
   static bool initialized; /**< Lazy-init guard; true once tables are filled. */
+  /** @return Cosine samples for columns [0, W). */
+  static const float *cos_theta_data() { return sin_theta.data() + W / 4; }
   /**
    * @brief cos(theta) for column x, recovered from the extended sin table.
    * @param x Column in [0, W). Returns sin_theta[x + W/4] == cos(x*2*pi/W).
@@ -170,7 +172,7 @@ template <int W, int H> struct TrigLUT {
    */
   static float cos_theta(int x) {
     assert(x >= 0 && x < W);
-    return sin_theta[x + W / 4];
+    return cos_theta_data()[x];
   }
   /**
    * @brief Fills the theta and phi tables and marks them initialized.

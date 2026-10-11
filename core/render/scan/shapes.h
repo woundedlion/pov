@@ -326,7 +326,7 @@ struct DistortedRingStack {
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
-    const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
     int y_lo = H, y_hi = -1;
@@ -660,7 +660,7 @@ struct RingGroup {
     Fragment frag;
 
     // Walk the covering ring's row runs (shared emit_row_runs).
-    const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const auto xc = cr.x_clip();
     StaticCircularBuffer<SDF::Interval, 4> intervals;

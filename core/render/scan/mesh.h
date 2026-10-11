@@ -105,7 +105,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       return;
   }
 
-  const float *cos_theta = math::TrigLUT<W, H>::sin_theta.data() + W / 4;
+  const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
