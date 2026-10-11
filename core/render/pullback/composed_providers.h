@@ -365,7 +365,6 @@ struct ValueProvider {
 
 /**
  * @brief Whether the colorizer samples the hue-rotation LUT this frame.
- * @details The runtime rebuilds the LUT on this same condition.
  * @tparam HueV Hue-rotation source.
  * @param color Colour family.
  * @return True when hue rotation is enabled with a non-zero amount.
