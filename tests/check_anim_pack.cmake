@@ -18,7 +18,9 @@ if(DEFINED FIXTURE_DIR)
   foreach(_declaration IN ITEMS
       "class Missing final : public AnimationBase<Missing> {}"
       "class Missing : public AnimationBase<Missing>, public Other<int> {}"
-      "class Missing final : public AnimationBase<Missing>, public Other<int> {}")
+      "class Missing final : public AnimationBase<Missing>, public Other<int> {}"
+      "struct Missing : AnimationBase<Missing> {}"
+      "class Missing : public Mixin<int>, public AnimationBase<Missing> {}")
     file(WRITE "${FIXTURE_DIR}/fixture.h"
       "class Present : public AnimationBase<Present> {};\n${_declaration};\nLARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<Present>();\n")
     execute_process(COMMAND "${CMAKE_COMMAND}" "-DCORE_DIR=${FIXTURE_DIR}"
@@ -26,6 +28,14 @@ if(DEFINED FIXTURE_DIR)
       RESULT_VARIABLE _rc ERROR_VARIABLE _error)
     if(_rc EQUAL 0 OR NOT _error MATCHES "concrete animation type missing.*Missing")
       message(FATAL_ERROR "missing animation accepted or wrong diagnostic: ${_error}")
+    endif()
+    file(WRITE "${FIXTURE_DIR}/fixture.h"
+      "class Present : public AnimationBase<Present> {};\n${_declaration};\nLARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<Present, Missing>();\n")
+    execute_process(COMMAND "${CMAKE_COMMAND}" "-DCORE_DIR=${FIXTURE_DIR}"
+      "-DANIM_HEADER=${FIXTURE_DIR}/fixture.h" -P "${CMAKE_CURRENT_LIST_FILE}"
+      RESULT_VARIABLE _rc ERROR_VARIABLE _error)
+    if(NOT _rc EQUAL 0)
+      message(FATAL_ERROR "packed animation rejected: ${_error}")
     endif()
   endforeach()
   file(WRITE "${FIXTURE_DIR}/fixture.h"
@@ -51,9 +61,8 @@ foreach(_hdr IN LISTS _headers)
   string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
   string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
   string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
-  # Allow newlines around the colon and after `public` (wrapped base-clauses).
   string(REGEX MATCHALL
-    "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+[A-Za-z0-9_]+[ \t\r\n]*<[^;{]*>"
+    "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[^;{]*"
     _matches "${_text}")
   list(APPEND _decls ${_matches})
 endforeach()
@@ -71,26 +80,28 @@ while(_changed)
   set(_changed FALSE)
   foreach(_decl IN LISTS _decls)
     string(REGEX REPLACE "^(class|struct)[ \t\r\n]+([A-Za-z0-9_]+).*" "\\2" _name "${_decl}")
-    string(REGEX REPLACE "^(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[ \t\r\n]*public[ \t\r\n]+([A-Za-z0-9_]+).*"
-      "\\3" _base "${_decl}")
-    if(NOT _base IN_LIST _roots)
-      continue()
-    endif()
-    # Template argument of the first base, allowing one nested template.
-    string(REGEX REPLACE "^[^<]*<([^<>]*(<[^<>]*>)?[^<>]*)>.*$" "\\1" _arg "${_decl}")
-    string(STRIP "${_arg}" _arg)
-    if(_arg STREQUAL "${_name}")
-      if(NOT _name IN_LIST _concrete)
-        list(APPEND _concrete "${_name}")
+    string(REGEX MATCHALL "[A-Za-z0-9_]+[ \t\r\n]*<[^<>]*(<[^<>]*>)?[^<>]*>"
+      _bases "${_decl}")
+    foreach(_base_decl IN LISTS _bases)
+      string(REGEX REPLACE "^([A-Za-z0-9_]+).*" "\\1" _base "${_base_decl}")
+      if(NOT _base IN_LIST _roots)
+        continue()
       endif()
-    elseif(_arg MATCHES "^${_name}[ \t\r\n]*<")
-      if(NOT _name IN_LIST _templated)
-        list(APPEND _templated "${_name}")
+      string(REGEX REPLACE "^[^<]*<(.*)>$" "\\1" _arg "${_base_decl}")
+      string(STRIP "${_arg}" _arg)
+      if(_arg STREQUAL "${_name}")
+        if(NOT _name IN_LIST _concrete)
+          list(APPEND _concrete "${_name}")
+        endif()
+      elseif(_arg MATCHES "^${_name}[ \t\r\n]*<")
+        if(NOT _name IN_LIST _templated)
+          list(APPEND _templated "${_name}")
+        endif()
+      elseif(NOT _name IN_LIST _roots)
+        list(APPEND _roots "${_name}")
+        set(_changed TRUE)
       endif()
-    elseif(NOT _name IN_LIST _roots)
-      list(APPEND _roots "${_name}")
-      set(_changed TRUE)
-    endif()
+    endforeach()
   endforeach()
 endwhile()
 
