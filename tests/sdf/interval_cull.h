@@ -436,7 +436,7 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
  * @details A Y-axis fold shifts azimuth by a whole sector and holds latitude,
  *   so the child's spans replayed once per copy bound every copy.
  */
-inline void test_angular_repeat_y_axis_cull_narrows_rows() {
+inline void test_angular_repeat_y_axis_cull_keeps_rows_narrows_columns() {
   constexpr int W = 288, H = 144;
   constexpr int REPS = 5;
   math::init_geometry_luts<W, H>();
