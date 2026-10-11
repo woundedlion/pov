@@ -169,7 +169,7 @@ public:
     assert(x >= -W && x < 2 * W);
     HS_AUDIT_CHECK(
         prepared_for(cv),
-        "DirectAntiAliasSink: prepare current canvas before plotting");
+        "DirectAntiAliasSink: prepare current canvas before integer plotting");
     (void)age;
     (void)cv;
     const int COLUMN = math::fast_wrap(x, W);

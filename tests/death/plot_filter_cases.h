@@ -798,6 +798,13 @@ inline void case_direct_sink_unprepared_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
   Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.plot(canvas, 2.0f, 2.0f, Pixel(65535, 0, 0), 0, 1);
+}
+
+inline void case_direct_sink_unprepared_integer_plot() {
+  hs_test::StubEffect effect(16, 8);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
   sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
 }
 
