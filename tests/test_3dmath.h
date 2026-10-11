@@ -426,7 +426,7 @@ inline void test_fast_expf() {
 /**
  * @brief Verifies fast_sinf/fast_cosf at key angles, the Pythagorean identity,
  *        and periodicity.
- * @details The periodicity check exercises range reduction beyond Â±2Ï€.
+ * @details The periodicity check exercises range reduction beyond ±2π.
  */
 inline void test_fast_sinf_cosf() {
   HS_EXPECT_NEAR(math::fast_sinf(0.0f), 0.0f, 1.8e-3f);
@@ -480,7 +480,7 @@ inline void test_fast_sincosf_0_pi() {
 }
 
 // ============================================================================
-// Vector â€” construction
+// Vector — construction
 // ============================================================================
 
 /**
@@ -514,17 +514,17 @@ inline void test_vector_construction() {
  *        preservation.
  */
 inline void test_vector_spherical_construction() {
-  // theta=0, phi=Ï€/2 â†’ +X axis
+  // theta=0, phi=π/2 → +X axis
   HS_EXPECT_VEC(math::Vector::from_spherical(0.0f, math::PI_F * 0.5f),
                 math::Vector(1, 0, 0), 1e-6f);
-  // theta=Ï€/2, phi=Ï€/2 â†’ +Z axis
+  // theta=π/2, phi=π/2 → +Z axis
   HS_EXPECT_VEC(
       math::Vector::from_spherical(math::PI_F * 0.5f, math::PI_F * 0.5f),
       math::Vector(0, 0, 1), 1e-6f);
-  // phi=0 â†’ +Y (north pole)
+  // phi=0 → +Y (north pole)
   HS_EXPECT_VEC(math::Vector::from_spherical(0.0f, 0.0f), math::Vector(0, 1, 0),
                 1e-6f);
-  // phi=Ï€ â†’ -Y (south pole)
+  // phi=π → -Y (south pole)
   HS_EXPECT_VEC(math::Vector::from_spherical(0.0f, math::PI_F),
                 math::Vector(0, -1, 0), 1e-6f);
 
@@ -553,7 +553,7 @@ inline void test_vector_equality() {
 }
 
 // ============================================================================
-// Vector â€” arithmetic
+// Vector — arithmetic
 // ============================================================================
 
 /**
@@ -657,12 +657,12 @@ inline void test_snorm3_roundtrip_bound() {
 }
 
 // ============================================================================
-// Vector â€” free functions (dot, cross, distance, angle_between)
+// Vector — free functions (dot, cross, distance, angle_between)
 // ============================================================================
 
 /**
  * @brief Verifies dot and cross: orthogonality, the right-handed basis,
- *        anticommutativity, and that aÃ—b is perpendicular to both operands.
+ *        anticommutativity, and that a×b is perpendicular to both operands.
  */
 inline void test_dot_cross() {
   math::Vector x(1, 0, 0), y(0, 1, 0), z(0, 0, 1);
@@ -679,7 +679,7 @@ inline void test_dot_cross() {
   HS_EXPECT_VEC(math::cross(y, x), -z, 1e-6f);
   HS_EXPECT_VEC(math::cross(math::Vector(2, 3, 5), math::Vector(2, 3, 5)),
                 math::Vector(0, 0, 0), 1e-6f);
-  // a Ã— b is perpendicular to both operands.
+  // a × b is perpendicular to both operands.
   math::Vector a(1, 2, 3), b(4, -5, 6);
   math::Vector c = math::cross(a, b);
   HS_EXPECT_NEAR(math::dot(c, a), 0.0f, 1e-4f);
@@ -842,7 +842,7 @@ inline void test_quaternion_normalize() {
 
 /**
  * @brief Verifies the Hamilton product: identity laws, basis relations
- *        (iÂ²=jÂ²=kÂ²=ijk=-1, cyclic products), non-commutativity, and *=
+ *        (i²=j²=k²=ijk=-1, cyclic products), non-commutativity, and *=
  *        consistency.
  */
 inline void test_quaternion_multiplication() {
@@ -852,7 +852,7 @@ inline void test_quaternion_multiplication() {
   HS_EXPECT_QUAT(id * q, q, 1e-6f);
   HS_EXPECT_QUAT(q * id, q, 1e-6f);
 
-  // Hamilton basis: iÂ² = jÂ² = kÂ² = ijk = -1
+  // Hamilton basis: i² = j² = k² = ijk = -1
   math::Quaternion i(0, 1, 0, 0), j(0, 0, 1, 0), k(0, 0, 0, 1);
   math::Quaternion neg_one(-1, 0, 0, 0);
   HS_EXPECT_QUAT(i * i, neg_one, 1e-6f);
@@ -909,11 +909,11 @@ inline void test_make_rotation_axis_angle() {
       math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
   HS_EXPECT_NEAR(qy90.magnitude(), 1.0f, 1e-4f);
 
-  // 90Â° around +Y rotates (1,0,0) to (0,0,-1) [right-handed]
+  // 90° around +Y rotates (1,0,0) to (0,0,-1) [right-handed]
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qy90),
                 math::Vector(0, 0, -1), 5e-3f);
 
-  // 180Â° around +Z rotates (1,0,0) to (-1,0,0)
+  // 180° around +Z rotates (1,0,0) to (-1,0,0)
   math::Quaternion qz180 =
       math::make_rotation(math::Vector(0, 0, 1), math::PI_F);
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qz180),
@@ -968,11 +968,11 @@ inline void test_least_parallel_axis() {
 
 /**
  * @brief Verifies make_rotation(from, to): parallel (identity), perpendicular,
- *        the antiparallel degenerate case (180Â°), and a generic
+ *        the antiparallel degenerate case (180°), and a generic
  *        direction-to-direction rotation.
  */
 inline void test_make_rotation_from_to() {
-  // Parallel â†’ identity
+  // Parallel → identity
   math::Quaternion id =
       math::make_rotation(math::Vector(1, 0, 0), math::Vector(1, 0, 0));
   HS_EXPECT_QUAT(id, math::Quaternion(1, 0, 0, 0), 1e-4f);
@@ -982,7 +982,7 @@ inline void test_make_rotation_from_to() {
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), q), math::Vector(0, 1, 0),
                 5e-3f);
 
-  // Antiparallel (degenerate): x to -x â†’ 180Â° rotation.
+  // Antiparallel (degenerate): x to -x → 180° rotation.
   math::Quaternion qa =
       math::make_rotation(math::Vector(1, 0, 0), math::Vector(-1, 0, 0));
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qa), math::Vector(-1, 0, 0),
@@ -1000,7 +1000,7 @@ inline void test_make_rotation_from_to() {
 /**
  * @brief Verifies quaternion_from_basis recovers the rotation whose columns are
  *        the given orthonormal axes, for an identity frame and a generic one.
- * @details Also covers the trace<=0 branch (a 180Â° frame).
+ * @details Also covers the trace<=0 branch (a 180° frame).
  */
 inline void test_quaternion_from_basis() {
   math::Quaternion id = math::quaternion_from_basis(
@@ -1035,7 +1035,7 @@ inline void test_quaternion_from_basis() {
     HS_EXPECT_VEC(math::rotate(math::Z_AXIS, RESTORED), Z, 5e-3f);
   }
 
-  // trace <= 0 branch: 180Â° rotation about Z (diagonal = (-1,-1,1)).
+  // trace <= 0 branch: 180° rotation about Z (diagonal = (-1,-1,1)).
   math::Quaternion qz = math::quaternion_from_basis(
       math::Vector(-1, 0, 0), math::Vector(0, -1, 0), math::Vector(0, 0, 1));
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qz), math::Vector(-1, 0, 0),
@@ -1112,7 +1112,7 @@ inline void test_vector_slerp() {
   HS_EXPECT_VEC(math::slerp(a, b, 0.0f), a, 5e-3f);
   HS_EXPECT_VEC(math::slerp(a, b, 1.0f), b, 5e-3f);
 
-  // Midpoint on unit sphere is (âˆš2/2, âˆš2/2, 0)
+  // Midpoint on unit sphere is (√2/2, √2/2, 0)
   math::Vector mid = math::slerp(a, b, 0.5f);
   HS_EXPECT_NEAR(mid.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(mid.x, std::sqrt(2.0f) * 0.5f, 5e-3f);
@@ -1347,7 +1347,7 @@ inline void test_stereo_roundtrip() {
     HS_EXPECT_VEC(back, v, 5e-3f);
   }
 
-  // North pole maps to the infinity sentinel (azimuth undefined â†’ +real axis).
+  // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
   math::Complex zN = projections::stereo(math::Vector(0, 1, 0));
   HS_EXPECT_EQ(zN.re, projections::STEREO_INF);
   HS_EXPECT_EQ(zN.im, 0.0f);
@@ -1427,10 +1427,10 @@ inline void test_complex_arithmetic() {
 
   HS_EXPECT_COMPLEX(a + b, math::Complex(4, 6), 1e-6f);
   HS_EXPECT_COMPLEX(a - b, math::Complex(-2, -2), 1e-6f);
-  // (1+2i)(3+4i) = 3 + 4i + 6i + 8iÂ² = -5 + 10i
+  // (1+2i)(3+4i) = 3 + 4i + 6i + 8i² = -5 + 10i
   HS_EXPECT_COMPLEX(a * b, math::Complex(-5, 10), 1e-5f);
 
-  // operator/ is ordinary complex division: (a / b) * b â‰ˆ a.
+  // operator/ is ordinary complex division: (a / b) * b ≈ a.
   math::Complex q = a / b;
   HS_EXPECT_COMPLEX(q * b, a, 1e-4f);
 
@@ -1439,11 +1439,11 @@ inline void test_complex_arithmetic() {
   // project_div matches ordinary division away from the singularity.
   HS_EXPECT_COMPLEX(math::project_div(a, b), a / b, 1e-6f);
 
-  // project_div convention: 0 / 0 â†’ 0.
+  // project_div convention: 0 / 0 → 0.
   HS_EXPECT_COMPLEX(math::project_div(math::Complex(0, 0), math::Complex(0, 0)),
                     math::Complex(0, 0), 1e-6f);
 
-  // project_div convention: nonzero / 0 â†’ large magnitude in the numerator
+  // project_div convention: nonzero / 0 → large magnitude in the numerator
   // direction.
   math::Complex inf_dir =
       math::project_div(math::Complex(1, 0), math::Complex(0, 0));
@@ -1510,12 +1510,12 @@ inline void test_mobius_transform() {
   math::MobiusParams id;
   HS_EXPECT_COMPLEX(math::mobius(z, id), z, 1e-4f);
 
-  // Pure translation: (1Â·z + (2 - i)) / (0Â·z + 1) = z + (2 - i)
+  // Pure translation: (1·z + (2 - i)) / (0·z + 1) = z + (2 - i)
   math::MobiusParams trans(1, 0, 2.0f, -1.0f, 0, 0, 1, 0);
   HS_EXPECT_COMPLEX(math::mobius(z, trans),
                     math::Complex(z.re + 2.0f, z.im - 1.0f), 1e-4f);
 
-  // Pure scaling: (3Â·z) / 1 = 3z
+  // Pure scaling: (3·z) / 1 = 3z
   math::MobiusParams scl(3, 0, 0, 0, 0, 0, 1, 0);
   HS_EXPECT_COMPLEX(math::mobius(z, scl),
                     math::Complex(z.re * 3.0f, z.im * 3.0f), 1e-4f);
@@ -1566,13 +1566,13 @@ inline void test_gnomonic_roundtrip() {
   math::Vector vDn_back = projections::inv_gnomonic(zDn, -1.0f);
   HS_EXPECT_VEC(vDn_back, vDn, 5e-3f);
 
-  // North-pole pre-image: gnomonic(0,1,0) = (0, 0); inv â†’ (0, 1, 0)
+  // North-pole pre-image: gnomonic(0,1,0) = (0, 0); inv → (0, 1, 0)
   HS_EXPECT_COMPLEX(projections::gnomonic(math::Vector(0, 1, 0)),
                     math::Complex(0, 0), 1e-4f);
   HS_EXPECT_VEC(projections::inv_gnomonic(math::Complex(0, 0), 1.0f),
                 math::Vector(0, 1, 0), 1e-6f);
 
-  // Saturated input â†’ the equator point in the direction of z, sign-dependent
+  // Saturated input → the equator point in the direction of z, sign-dependent
   // (gnomonic's singularity is the equator, not a pole).
   HS_EXPECT_VEC(projections::inv_gnomonic(
                     math::Complex(projections::STEREO_INF, 0), 1.0f),
@@ -1620,7 +1620,7 @@ inline void test_gnomonic_roundtrip() {
 }
 
 // ============================================================================
-// wrap_index (core/math/rotate.h) â€” ordinary samples and a half-step grid
+// wrap_index (core/math/rotate.h) — ordinary samples and a half-step grid
 // ============================================================================
 
 /**
@@ -1690,7 +1690,7 @@ inline void test_hash01() {
 
 /**
  * @brief Verifies value noise hits lattice hashes at integers, stays in range,
- *        and is continuous â€” including across the x=0 cell boundary, where the
+ *        and is continuous — including across the x=0 cell boundary, where the
  *        negative-coordinate int cast could break adjacency.
  */
 inline void test_value_noise() {

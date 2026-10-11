@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases â€” each MUST trap (HS_CHECK / __builtin_trap) ------
+// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Plot filter death cases.
 
