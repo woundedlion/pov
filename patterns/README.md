@@ -59,7 +59,7 @@ hand edit to those files is lost on the next run — change the spec instead. Th
 
 Eight documents are authored directly in this directory: `ash_cloud`,
 `chromatic_lichen`, `mermaid_skin`, `example`, `kaleidoscope_hex_oil`,
-`kaleidoscope_smooth`, `lattice_melt` and `jewel_melt`. Edit these version 2 documents here.
+`kaleidoscope_smooth`, `kaleidoscope_melt` and `jewel_melt`. Edit these version 2 documents here.
 
 After editing any document, run `node scripts/generate_composed_presets.mjs`
 to refresh its effect header. Documents use canonical serialization: sorted
@@ -85,9 +85,10 @@ the running module's registered controls. Fixed topology fields and
 Derived values are also exempt when the compiled controls used to derive them
 match the document.
 
-`lattice_melt.shader.json` is the editable source for the `LatticeMelt`
-effect. Its two presets share one descriptor and vary only the
-logarithmically interpolated sphere-noise scale (`LOG_POSITIVE`).
+`kaleidoscope_melt.shader.json` is the editable source for the `KaleidoscopeMelt`
+effect. Its single preset combines a dodecahedral kaleidoscope lens, sphere-space
+curl displacement, an equirectangular primitive lattice, and an analogous
+generated palette.
 
 `chromatic_lichen.shader.json` is the editable source for the
 `ChromaticLichen` effect. It combines a glitch lens, post-lens curl
@@ -119,7 +120,7 @@ Every document except `example.shader.json` backs a
 | `grid_space` | `GridSpace` |
 | `cosmic_eyeball` | `CosmicEyeball` |
 | `ash_cloud` | `AshCloud` |
-| `lattice_melt` | `LatticeMelt` |
+| `kaleidoscope_melt` | `KaleidoscopeMelt` |
 | `jewel_melt` | `JewelMelt` |
 | `chromatic_lichen` | `ChromaticLichen` |
 | `mermaid_skin` | `MermaidSkin` |

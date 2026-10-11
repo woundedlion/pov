@@ -225,7 +225,7 @@ test('an absent effect is reported once alongside stale exemptions', () => {
 test('a baked-constant exemption no document carries is stale', () => {
   const problems = promotedBindingProblems(bindings({
     documents: [{
-      document: 'patterns/lattice_melt.shader.json',
+      document: 'patterns/kaleidoscope_melt.shader.json',
       effect: 'ash-cloud',
       parameterIds: ['camera.wander'],
     }],

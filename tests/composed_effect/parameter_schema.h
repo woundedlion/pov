@@ -108,7 +108,7 @@ constexpr ParameterSchemaPin PARAMETER_SCHEMA_PINS[] = {
     {"AlienCore", 2, 124, 5732924260995353001ULL},
     {"KaleidoscopeMandala", 2, 140, 13066144578015210057ULL},
     {"GridSpace", 2, 124, 1602663564915579084ULL},
-    {"LatticeMelt", 6, 100, 6646121068342335885ULL},
+    {"KaleidoscopeMelt", 1, 100, 6646121068342335885ULL},
     {"ChromaticLichen", 2, 108, 149313388846503452ULL},
     {"MermaidSkin", 2, 108, 149313388846503452ULL},
     {"JewelMelt", 1, 100, 6646121068342335885ULL},

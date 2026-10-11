@@ -110,7 +110,7 @@ g5_ship)
   run KaleidoscopeMandala profile 150 32
   run GridSpace profile 70 32
   run HyperLattice profile 320 16 "-D HS_PROFILE_EPOCH_REVS=2720"
-  run LatticeMelt profile 110 16 "-D HS_PROFILE_EPOCH_REVS=1200"
+  run KaleidoscopeMelt profile 70 32
   run ChromaticLichen profile 70 32
   run MermaidSkin profile 70 32
   run JewelMelt profile 70 32

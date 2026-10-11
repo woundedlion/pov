@@ -2,7 +2,7 @@
 
 /** Loads a hydrated effect and confirms selection at its capture offset. */
 export async function loadEffectForCapture(page, baseUrl, effect, resolution, offsetMs) {
-  const params = new URLSearchParams({ effect, resolution });
+  const params = new URLSearchParams({ effect, resolution, view: 'simulator' });
   await page.goto(`${baseUrl}?${params.toString()}`,
     { waitUntil: 'load', timeout: 60000 });
   await page.waitForSelector('#canvas', { timeout: 30000 });
