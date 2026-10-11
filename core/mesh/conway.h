@@ -713,28 +713,40 @@ HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
 }
 
 /**
+ * @brief A truncate edge's two cut-vertex indices, keyed by endpoint index.
+ * @details k1 = min(endpoint indices), k2 = max. The sides are combinatorial,
+ *   not metric: at t > 0.5 the k1-side cut lies nearer k2.
+ */
+struct TruncateEdgeCuts {
+  uint16_t k1_side; /**< Cut at fraction t from k1. */
+  uint16_t k2_side; /**< Cut at fraction t from k2. */
+};
+
+/**
+ * @brief A truncate edge's two cut-vertex indices in half-edge walk order.
+ */
+struct OrientedCut {
+  uint16_t tail_side; /**< Cut on the half-edge's tail side. */
+  uint16_t head_side; /**< Cut on the half-edge's head side. */
+};
+
+/**
  * @brief Recover a truncate edge's two cut vertices in half-edge walk order.
  * @param he_mesh Half-edge connectivity describing the edge.
- * @param edge_to_vert Per-half-edge table of the edge's two cut-vertex indices,
- *   stored canonically as {k1-side, k2-side} with k1 = min(endpoint indices):
- *   the point at fraction t from k1 first, the point at fraction t from k2
- *   second.
+ * @param edge_to_vert Per-half-edge table of the edge's canonical cuts.
  * @param he_idx Half-edge (tail->head) whose oriented cut pair is recovered.
- * @return {tail-side cut, head-side cut}; the stored order is reversed when the
- *   tail is not the canonical k1.
- * @details The sides are combinatorial, not metric: at t > 0.5 the tail-side
- *   cut lies nearer the head.
+ * @return The cuts oriented to the half-edge; the stored order is reversed when
+ *   the tail is not the canonical k1.
  */
-inline std::pair<uint16_t, uint16_t>
-truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
-                      const std::pair<uint16_t, uint16_t> *edge_to_vert,
-                      uint16_t he_idx) {
+inline OrientedCut truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
+                                         const TruncateEdgeCuts *edge_to_vert,
+                                         uint16_t he_idx) {
   const HalfEdge &he = he_mesh.half_edges[he_idx];
   uint16_t tail = he_mesh.half_edges[he.prev].vertex;
   uint16_t head = he.vertex;
-  const std::pair<uint16_t, uint16_t> &cut = edge_to_vert[he_idx];
-  return (tail <= head) ? std::pair<uint16_t, uint16_t>{cut.first, cut.second}
-                        : std::pair<uint16_t, uint16_t>{cut.second, cut.first};
+  const TruncateEdgeCuts &cut = edge_to_vert[he_idx];
+  return (tail <= head) ? OrientedCut{cut.k1_side, cut.k2_side}
+                        : OrientedCut{cut.k2_side, cut.k1_side};
 }
 
 /**
@@ -767,17 +779,15 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     require_closed_manifold(he_mesh, temp, "truncate");
 
     // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
-    std::pair<uint16_t, uint16_t> *edge_to_vert =
-        target.allocate_n<std::pair<uint16_t, uint16_t>>(I);
-    std::fill_n(edge_to_vert, I,
-                std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
+    TruncateEdgeCuts *edge_to_vert = target.allocate_n<TruncateEdgeCuts>(I);
+    std::fill_n(edge_to_vert, I, TruncateEdgeCuts{HE_NONE, HE_NONE});
 
     bool *visited_verts = target.allocate_n<bool>(V);
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      if (edge_to_vert[i].first == HE_NONE) {
+      if (edge_to_vert[i].k1_side == HE_NONE) {
         const HalfEdge &he = he_mesh.half_edges[i];
         uint16_t vi = he_mesh.half_edges[he.prev].vertex;
         uint16_t vj = he.vertex;
@@ -812,8 +822,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
         [&](uint16_t idx) {
-          // Each outgoing half-edge contributes its tail-side cut.
-          return truncate_oriented_cut(he_mesh, edge_to_vert, idx).first;
+          return truncate_oriented_cut(he_mesh, edge_to_vert, idx).tail_side;
         });
   }
   normalize(out_mesh);
