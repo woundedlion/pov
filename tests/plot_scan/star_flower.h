@@ -29,9 +29,7 @@ inline void test_star_sample_unit_length_closed() {
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
-  HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
+  HS_EXPECT_VEC(points.back().pos, points[0].pos, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 
   // Alternating outer/inner colatitude about the center axis.
@@ -118,9 +116,7 @@ inline void test_star_sample_radius_trig_parity() {
           HS_CONTEXT("star vertex", static_cast<long long>(i));
           const math::Vector &ref = reference[i % verts];
           // Separately-written expression tree: tolerance, not bit equality.
-          HS_EXPECT_NEAR(actual[i].pos.x, ref.x, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.y, ref.y, 1e-6f);
-          HS_EXPECT_NEAR(actual[i].pos.z, ref.z, 1e-6f);
+          HS_EXPECT_VEC(actual[i].pos, ref, 1e-6f);
           HS_EXPECT_NEAR(actual[i].v0, static_cast<float>(i) / verts, 1e-6f);
           HS_EXPECT_EQ(actual[i].v2, static_cast<float>(i));
           if (i > 0) {
@@ -132,12 +128,7 @@ inline void test_star_sample_radius_trig_parity() {
             HS_EXPECT_EQ(actual[i].v1, 0.0f);
           }
           // Recurrence positions omit per-vertex normalization.
-          HS_EXPECT_NEAR(actual[i].pos.x, positions[i].pos.x,
-                         STAR_RECURRENCE_DRIFT);
-          HS_EXPECT_NEAR(actual[i].pos.y, positions[i].pos.y,
-                         STAR_RECURRENCE_DRIFT);
-          HS_EXPECT_NEAR(actual[i].pos.z, positions[i].pos.z,
-                         STAR_RECURRENCE_DRIFT);
+          HS_EXPECT_VEC(actual[i].pos, positions[i].pos, STAR_RECURRENCE_DRIFT);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.x),
                        std::bit_cast<uint32_t>(cached_positions[i].pos.x));
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].pos.y),
@@ -177,9 +168,7 @@ inline void test_star_continuous_matches_standard_near_side() {
     HS_EXPECT_SIZE_OR_RETURN(standard, size_t{15});
     HS_EXPECT_SIZE_OR_RETURN(standard, continuous.size());
     for (size_t i = 0; i < standard.size(); ++i) {
-      HS_EXPECT_NEAR(standard[i].pos.x, continuous[i].pos.x, NEAR_SIDE_TOL);
-      HS_EXPECT_NEAR(standard[i].pos.y, continuous[i].pos.y, NEAR_SIDE_TOL);
-      HS_EXPECT_NEAR(standard[i].pos.z, continuous[i].pos.z, NEAR_SIDE_TOL);
+      HS_EXPECT_VEC(standard[i].pos, continuous[i].pos, NEAR_SIDE_TOL);
     }
   }
 }
@@ -243,9 +232,7 @@ inline void test_flower_sample_unit_length_closed() {
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
-  HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
+  HS_EXPECT_VEC(points.back().pos, points[0].pos, 1e-3f);
 
   // Constant colatitude about the center axis.
   const math::Vector axis = math::get_antipode(b, 0.5f).first.v;

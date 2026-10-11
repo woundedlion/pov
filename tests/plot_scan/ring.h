@@ -31,9 +31,7 @@ inline void test_ring_sample_unit_length_and_progress() {
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[points.size() - 1].v0, 1.0f, 1e-6f);
 
-  HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
+  HS_EXPECT_VEC(points.back().pos, points[0].pos, 1e-3f);
 }
 
 /** @brief sin of a ring's polar radius: the arc-length scale of its v1. */
@@ -68,16 +66,12 @@ inline void test_ring_sample_lut_matches_direct() {
   const float step = 2.0f * math::PI_F / W;
 
   for (int i = 0; i < W; ++i) {
-    HS_EXPECT_NEAR(points[i].pos.x, expected[i].x, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.y, expected[i].y, 2e-3f);
-    HS_EXPECT_NEAR(points[i].pos.z, expected[i].z, 2e-3f);
+    HS_EXPECT_VEC(points[i].pos, expected[i], 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(points[i].v1, i * step * r_val, 2e-3f);
   }
 
-  HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
-  HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
+  HS_EXPECT_VEC(points.back().pos, points[0].pos, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 
   // Close vertex carries the full-perimeter arc length: the ring's true
