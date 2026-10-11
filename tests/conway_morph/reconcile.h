@@ -38,6 +38,7 @@ inline void test_reconcile_bijection_wellposed() {
   // Bound the gap closed by the reconcile slerp.
   constexpr float MAX_RESIDUAL_CHORD = 0.12f;
   for (const ReconcileSite &site : RECONCILE_SITES) {
+    HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
@@ -102,9 +103,11 @@ inline void test_reconcile_bijection_wellposed() {
     float worst_chord = 0.0f;
     bool injective = true;
     for (size_t i = 0; i < V; ++i) {
+      HS_CONTEXT("i", i);
       int best = -1;
       float best_dot = -2.0f;
       for (size_t j = 0; j < V; ++j) {
+        HS_CONTEXT("j", j);
         const float d = math::dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;

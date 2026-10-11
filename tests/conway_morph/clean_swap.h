@@ -17,6 +17,7 @@ inline void test_truncate_near_half_merges_onto_ambo() {
   constexpr float MERGE_EPS = 1e-3f;
   constexpr float MERGE_TOL = 1e-2f;
   for (MorphSeed s : MORPH_SEEDS) {
+    HS_CONTEXT(seed_name(s));
     Arena target(morph_target_buf, sizeof(morph_target_buf));
     Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
     Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
@@ -25,7 +26,6 @@ inline void test_truncate_near_half_merges_onto_ambo() {
     PolyMesh tr = MeshOps::truncate(seed, target, temp, 0.5f - MERGE_EPS);
     PolyMesh am = MeshOps::ambo(seed, temp, target);
 
-    HS_CONTEXT(seed_name(s));
     check_pairwise_vertex_cover(tr, am, MERGE_TOL);
   }
 }
@@ -40,6 +40,7 @@ inline void test_truncate_near_half_merges_onto_ambo() {
  */
 inline void test_ops_at_t_eps_primary_faces_match_seed() {
   for (MorphSeed s : MORPH_SEEDS) {
+    HS_CONTEXT(seed_name(s));
     {
       Arena target(morph_target_buf, sizeof(morph_target_buf));
       Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
