@@ -135,6 +135,10 @@ public:
         key ? Buffers{column_offsets, row_offsets, cap_field} : scratch;
     if (key)
       valid = false;
+#if HS_ENABLE_TEST_HOOKS
+    if (key)
+      ++cached_fills;
+#endif
     fill(buffers);
     if (key) {
       stored_key = *key;
@@ -163,6 +167,10 @@ public:
     }
 #endif
   }
+
+#if HS_ENABLE_TEST_HOOKS
+  size_t cached_fills = 0; ///< Cache population calls observed by native tests.
+#endif
 
 private:
   Key stored_key{};   /**< Key the buffers were last filled for. */
