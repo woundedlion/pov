@@ -235,7 +235,8 @@ struct DeathEffect : public Effect {
    */
   void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
   void reg_float_options(float *p, const char *const *options, int count) {
-    register_param("options", p, 0.0f, 1.0f, false, false, options, count);
+    register_param("options", p,
+                   ParamSpec<float>{.options = options, .option_count = count});
   }
   /** @brief Registers a typed enum with the requested option count. */
   template <typename Enum> void reg_enum(Enum *p, int count) {
