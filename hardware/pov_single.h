@@ -13,6 +13,7 @@
  */
 #pragma once
 #include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
+#include "core/platform/rng.h"
 #include "pov_single_map.h"
 
 #ifdef ARDUINO
@@ -71,6 +72,7 @@ public:
   static void show(unsigned long duration, Args &&...args) {
     math::GeometryResolution<E>::init();
     configure_arenas_default(); // Reset before init so effects can override
+    hs::seed_effect_stream<E>();
     E *e = new (std::nothrow) E(std::forward<Args>(args)...);
     HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
     e->init();

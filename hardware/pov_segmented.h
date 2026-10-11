@@ -339,7 +339,7 @@ public:
               // Per-effect RNG seed from the synchronized effect index (spec §2).
               HS_CHECK(effect_index >= 0 && effect_index < R,
                        "sync published an out-of-roster effect index");
-              hs::random().seed(
+              hs::seed_effect_stream(
                   effect_seed_identities
                       ? effect_seed_identities[effect_index]
                       : hs::epoch_seed(static_cast<uint32_t>(effect_index)));
