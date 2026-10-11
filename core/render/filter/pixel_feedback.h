@@ -608,7 +608,7 @@ private:
     const bool hue_identity =
         feedback_style->hue_ca == 1.0f && feedback_style->hue_sa == 0.0f;
     if (hue_fade && !hue_identity) {
-      const float sc = math::fast_cbrt(fade * (1.0f / 65535.0f));
+      const float sc = math::fast_cbrt(fade * Q16_TO_UNIT);
       for (int i = 0; i < 9; ++i)
         ctx.hue_k[i] = feedback_style->hue_k[i] * sc;
       ctx.mode = FlushMode::HUE;

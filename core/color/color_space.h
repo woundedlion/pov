@@ -923,8 +923,7 @@ HS_O3_FN inline uint16_t float_to_pixel16(float v) { return frac_to_q16(v); }
  * @return The three channels scaled by 1/65535.
  */
 __attribute__((always_inline)) inline LinRGB pixel_to_linrgb(const Pixel &p) {
-  constexpr float INV16 = 1.0f / 65535.0f;
-  return {p.r * INV16, p.g * INV16, p.b * INV16};
+  return {p.r * Q16_TO_UNIT, p.g * Q16_TO_UNIT, p.b * Q16_TO_UNIT};
 }
 
 /**
@@ -1208,10 +1207,9 @@ inline OKLab oklch_to_oklab(OKLCH lch) {
  * @return The color in OKLCH space.
  */
 inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
-  constexpr float INV16 = 1.0f / 65535.0f;
-  float rf = srgb_to_linear_lut[r] * INV16;
-  float gf = srgb_to_linear_lut[g] * INV16;
-  float bf = srgb_to_linear_lut[b] * INV16;
+  float rf = srgb_to_linear_lut[r] * Q16_TO_UNIT;
+  float gf = srgb_to_linear_lut[g] * Q16_TO_UNIT;
+  float bf = srgb_to_linear_lut[b] * Q16_TO_UNIT;
   return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
 }
 

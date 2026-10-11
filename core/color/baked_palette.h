@@ -95,10 +95,10 @@ public:
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     const int lo = lut_index_lo(idx);
     if (lo >= LUT_SIZE - 1)
-      return alpha_q16[LUT_SIZE - 1] * (1.0f / 65535.0f);
+      return alpha_q16[LUT_SIZE - 1] * Q16_TO_UNIT;
     return lerp_q16(alpha_q16[lo], alpha_q16[lo + 1],
                     lut_index_weight(idx, lo)) *
-           (1.0f / 65535.0f);
+           Q16_TO_UNIT;
   }
 
   /**
@@ -161,14 +161,13 @@ private:
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     const int lo = lut_index_lo(idx);
     if (lo >= LUT_SIZE - 1) {
-      out = Color4(colors[LUT_SIZE - 1],
-                   alpha_q16[LUT_SIZE - 1] * (1.0f / 65535.0f));
+      out = Color4(colors[LUT_SIZE - 1], alpha_q16[LUT_SIZE - 1] * Q16_TO_UNIT);
       return;
     }
     const uint16_t weight = lut_index_weight(idx, lo);
     out = Color4(colors[lo].lerp16(colors[lo + 1], weight),
                  lerp_q16(alpha_q16[lo], alpha_q16[lo + 1], weight) *
-                     (1.0f / 65535.0f));
+                     Q16_TO_UNIT);
   }
   Pixel *colors = nullptr;
   uint16_t *alpha_q16 = nullptr;
