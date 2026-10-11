@@ -43,14 +43,14 @@ public:
   /** Initializes the transport after Arduino core startup; call once. */
   static void begin() {
 #ifdef USE_DMA_LEDS
-    ledController.begin();
-    ledController.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                                 hd107s::LINEAR_STRIP_GAIN.g,
-                                 hd107s::LINEAR_STRIP_GAIN.b);
-    ledController.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
-                                  hd107s::LINEAR_WARM_GAIN.g,
-                                  hd107s::LINEAR_WARM_GAIN.b);
-    ledController.set_brightness(255);
+    led_controller.begin();
+    led_controller.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
+                                  hd107s::LINEAR_STRIP_GAIN.g,
+                                  hd107s::LINEAR_STRIP_GAIN.b);
+    led_controller.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
+                                   hd107s::LINEAR_WARM_GAIN.g,
+                                   hd107s::LINEAR_WARM_GAIN.b);
+    led_controller.set_brightness(255);
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB,
                     DATA_RATE_MHZ(pov::FASTLED_CLOCK_MHZ)>(leds, S);
@@ -144,7 +144,7 @@ private:
     HS_CHECK(timer.begin(show_col, interval_us),
              "column IntervalTimer failed to start (no PIT channel)");
 #if defined(USE_DMA_LEDS)
-    uint32_t last_overrun = ledController.get_overrun_count();
+    uint32_t last_overrun = led_controller.get_overrun_count();
 #endif
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
@@ -154,7 +154,7 @@ private:
         Serial.print("ft ");
         Serial.println(dt);
 #if defined(USE_DMA_LEDS)
-        const uint32_t overruns = ledController.get_overrun_count();
+        const uint32_t overruns = led_controller.get_overrun_count();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
@@ -176,7 +176,7 @@ private:
     const bool slow = effect->overrides_get_pixel();
     const Pixel *buf = slow ? nullptr : effect->display_buffer();
 #if defined(USE_DMA_LEDS)
-    auto &frame = ledController.back_frame();
+    auto &frame = led_controller.back_frame();
 #endif
     x = pov::run_single_column<S>(
         x, w,
@@ -192,7 +192,7 @@ private:
         },
         [&] {
 #if defined(USE_DMA_LEDS)
-          (void)ledController.submit_frame(effect->strobe_columns());
+          (void)led_controller.submit_frame(effect->strobe_columns());
 #else
           FastLED.show();
           if (effect->strobe_columns())
@@ -212,7 +212,7 @@ private:
                      Seeded only while the column timer is detached. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<S>
-      ledController; /**< HD107S DMA controller driving the physical strip. */
+      led_controller; /**< HD107S DMA controller driving the physical strip. */
 #endif
 };
 
@@ -229,7 +229,7 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds[S];
 // single-board target invokes HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM) once
 // at file scope.
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
-  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController {   \
+  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::led_controller {  \
     POVDisplay<S, RPM>::SPI_CLOCK_HZ                                           \
   }
 #endif
