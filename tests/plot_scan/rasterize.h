@@ -769,8 +769,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
     int lit = 0;
     for (int y = H - BAND; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        Pixel p = fx.get_pixel(x, y);
-        if (p.r | p.g | p.b)
+        if (!is_black(fx.get_pixel(x, y)))
           ++lit;
       }
     return lit;

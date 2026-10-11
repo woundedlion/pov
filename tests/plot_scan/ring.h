@@ -109,10 +109,9 @@ inline void test_ring_draw_stride_tracks_full_grid() {
         }
         fx.advance_display();
         for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x) {
-            Pixel p = fx.get_pixel(x, y);
-            mask[static_cast<size_t>(y) * W + x] = (p.r | p.g | p.b) ? 1 : 0;
-          }
+          for (int x = 0; x < W; ++x)
+            mask[static_cast<size_t>(y) * W + x] =
+                is_black(fx.get_pixel(x, y)) ? 0 : 1;
         return mask;
       };
 
