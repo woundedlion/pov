@@ -212,14 +212,14 @@ public:
     read_id();
     configure_segment();
 
-    ledController.begin();
-    ledController.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                                 hd107s::LINEAR_STRIP_GAIN.g,
-                                 hd107s::LINEAR_STRIP_GAIN.b);
-    ledController.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
-                                  hd107s::LINEAR_WARM_GAIN.g,
-                                  hd107s::LINEAR_WARM_GAIN.b);
-    ledController.set_brightness(255);
+    led_controller.begin();
+    led_controller.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
+                                  hd107s::LINEAR_STRIP_GAIN.g,
+                                  hd107s::LINEAR_STRIP_GAIN.b);
+    led_controller.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
+                                   hd107s::LINEAR_WARM_GAIN.g,
+                                   hd107s::LINEAR_WARM_GAIN.b);
+    led_controller.set_brightness(255);
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
     // DWT block on, then CYCCNTENA starts the counter.
@@ -312,7 +312,7 @@ public:
     // ── Foreground: construct effects on request, render, report ────────
     Effect *cur = nullptr;
     uint32_t built_gen = 0;
-    uint32_t last_overrun = ledController.get_overrun_count();
+    uint32_t last_overrun = led_controller.get_overrun_count();
     unsigned long last_report = millis();
     // The K-revolution construction budget, in the flywheel's own timebase.
     const uint32_t commit_budget_cycles =
@@ -413,7 +413,7 @@ public:
                 (unsigned long)tm.beacons_rejected,
                 (unsigned long)tm.beacon_index_corrections,
                 (unsigned long)tm.beacon_rev_mismatches);
-        const uint32_t overruns = ledController.get_overrun_count();
+        const uint32_t overruns = led_controller.get_overrun_count();
         if (overruns != last_overrun) {
           Serial.print("overrun ");
           Serial.println(overruns);
@@ -571,7 +571,7 @@ private:
     // Bypasses get_pixel(); effects are checked not to override it.
     const Pixel *buf = e->display_buffer();
 
-    auto &frame = ledController.back_frame();
+    auto &frame = led_controller.back_frame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       const int stride = pov::segment_row_stride(segment, w);
@@ -584,7 +584,7 @@ private:
           frame.pack_pixel(i, e->apply_output_envelope(buf[off]));
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submit_frame(e->strobe_columns());
+    return led_controller.submit_frame(e->strobe_columns());
   }
 
   /**
@@ -596,7 +596,7 @@ private:
    */
   [[nodiscard]] static bool resubmit_frame(bool strobe) {
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submit_frame(strobe);
+    return led_controller.submit_frame(strobe);
   }
 
   /**
@@ -605,7 +605,7 @@ private:
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
   [[nodiscard]] static bool pack_black() {
-    auto &frame = ledController.back_frame();
+    auto &frame = led_controller.back_frame();
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       for (int i = 0; i < PPS; ++i) {
@@ -613,7 +613,7 @@ private:
       }
     }
     HS_ISR_PROFILE(hs::g_dma_submit_cycles);
-    return ledController.submit_frame(false);
+    return led_controller.submit_frame(false);
   }
 
   // ── Static state ────────────────────────────────────────────────────
@@ -649,7 +649,7 @@ private:
       segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static pov::SegmentMap segment; /**< Precomputed canvas mapping. */
   static DMALEDController<PPS>
-      ledController; /**< DMA SPI LED controller for the segment strip. */
+      led_controller; /**< DMA SPI LED controller for the segment strip. */
 };
 
 // ── Static member definitions ───────────────────────────────────────────
@@ -685,7 +685,7 @@ pov::SegmentMap POVSegmented<S, N, RPM>::segment{false, 0, 1};
 // scope.
 #define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
-  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController {  \
+  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::led_controller { \
     POVSegmented<S, N, RPM>::SPI_CLOCK_HZ                                      \
   }
 

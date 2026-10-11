@@ -40,6 +40,7 @@ REAL_CAPTURES = (
     "phantasm_readelf_syms.txt",
     "phantasm_size_a.txt",
     "phantasm_teensy_size.txt",
+    "phantasm_teensy_size_historical.txt",
 )
 
 
@@ -979,7 +980,7 @@ class TestRealCapture(unittest.TestCase):
 
     def test_historical_phantasm_fixture_has_expected_bank_headroom(self):
         sizes = tg.parse_teensy_size(
-            (REAL_DIR / "phantasm_teensy_size.txt").read_text())
+            (REAL_DIR / "phantasm_teensy_size_historical.txt").read_text())
         ram1 = sizes["ram1"]
         components = ram1["components"]
         self.assertEqual(
