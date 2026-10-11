@@ -336,37 +336,14 @@ def val(node, key, default=None):
     return default
 
 
-def pins(sym):
-    """Return list of dicts: number, name, x, y, angle, length (local coords)."""
-    out = []
-
-    def walk(node):
-        for c in node:
-            if isinstance(c, list) and c:
-                if c[0] == "pin":
-                    at = val(c, "at")
-                    length = val(c, "length", [0])[0]
-                    num = None; name = None
-                    for d in c:
-                        if isinstance(d, list) and d and d[0] == "number":
-                            num = d[1]
-                        if isinstance(d, list) and d and d[0] == "name":
-                            name = d[1]
-                    out.append(dict(number=str(num), name=str(name),
-                                    x=float(at[0]), y=float(at[1]),
-                                    angle=float(at[2]) if len(at) > 2 else 0.0,
-                                    length=float(length)))
-                else:
-                    walk(c)
-    walk(sym)
-    return out
-
-
 if __name__ == "__main__":
     import sys
+    from builder import index_unit_pins
+
     lib, name = sys.argv[1], sys.argv[2]
     sym = get_symbol(lib, name)
     print(f"# {lib}:{name}")
-    for p in pins(sym):
-        print(f"  pin {p['number']:>3} {p['name']:<8} at ({p['x']:>7.3f},{p['y']:>7.3f}) "
-              f"ang={p['angle']:>5.0f} len={p['length']}")
+    for unit, pins in sorted(index_unit_pins(sym).items()):
+        for number, pin in pins.items():
+            print(f"  unit {unit} pin {number:>3} {pin['name']:<8} "
+                  f"at ({pin['x']:>7.3f},{pin['y']:>7.3f}) ang={pin['angle']:>5.0f}")
