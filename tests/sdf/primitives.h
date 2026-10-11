@@ -223,15 +223,14 @@ inline void test_ring_small_radius_distance_symmetric() {
 inline void test_distorted_ring_copies_basis() {
   const float knots[] = {0.0f, 0.0f, 0.0f, 0.0f};
   SDF::KnotPrefilter prefilter;
-  SDF::DistortedRing shifted(
-      equator_basis(), 1.0f, 0.05f, [](float) { return 0.0f; }, 0.0f, 0.0f);
-  SDF::DistortedRing pointer_knots(equator_basis(), 1.0f, 0.05f, knots, 4, 0.0f,
-                                   nullptr);
-  SDF::DistortedRing prefetched_knots(equator_basis(), 1.0f, 0.05f, knots, 4,
-                                      0.0f, prefilter);
-  SDF::FlatDistortedRing flat(equator_basis(), 1.0f, 0.05f);
   math::Basis basis = equator_basis();
-  SDF::FlatDistortedRing copied(basis, 1.0f, 0.05f);
+  SDF::DistortedRing shifted(
+      basis, 1.0f, 0.05f, [](float) { return 0.0f; }, 0.0f, 0.0f);
+  SDF::DistortedRing pointer_knots(basis, 1.0f, 0.05f, knots, 4, 0.0f, nullptr);
+  SDF::DistortedRing prefetched_knots(basis, 1.0f, 0.05f, knots, 4, 0.0f,
+                                      prefilter);
+  SDF::FlatDistortedRing flat(basis, 1.0f, 0.05f);
+
   basis.v = math::X_AXIS;
   HS_EXPECT_NEAR(SDF::distance_of(shifted, math::X_AXIS).dist, -0.05f, 1e-5f);
   HS_EXPECT_NEAR(SDF::distance_of(pointer_knots, math::X_AXIS).dist, -0.05f,
@@ -239,7 +238,6 @@ inline void test_distorted_ring_copies_basis() {
   HS_EXPECT_NEAR(SDF::distance_of(prefetched_knots, math::X_AXIS).dist, -0.05f,
                  1e-5f);
   HS_EXPECT_NEAR(SDF::distance_of(flat, math::X_AXIS).dist, -0.05f, 1e-5f);
-  HS_EXPECT_NEAR(SDF::distance_of(copied, math::X_AXIS).dist, -0.05f, 1e-5f);
 }
 
 /**
