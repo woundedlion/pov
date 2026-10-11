@@ -103,6 +103,18 @@ inline std::array<math::Vector, 14> sweep_views() {
   return views;
 }
 
+/** @brief OpenSimplex2 noise seeded from the instance hash of @p instance
+    and @p operator_id, as an operator's authored oracle. */
+inline FastNoiseLite make_oracle_noise(std::string_view instance,
+                                       std::string_view operator_id,
+                                       float frequency) {
+  FastNoiseLite noise;
+  noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+  noise.SetSeed(static_cast<int32_t>(In::instance_hash(instance, operator_id)));
+  noise.SetFrequency(frequency);
+  return noise;
+}
+
 template <typename T> T &param_as(In::ChainProgram &program, size_t index) {
   return *reinterpret_cast<T *>(program.param_block(index));
 }

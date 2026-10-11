@@ -483,11 +483,8 @@ inline void test_shader_chain_determinism() {
   auto second = std::make_unique<ProgramFixture>();
   arm_default_chain(first->program, 5, ValueSet::MAXIMUMS);
   arm_default_chain(second->program, 5, ValueSet::MAXIMUMS);
-  FastNoiseLite authored_walk_noise;
-  authored_walk_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  authored_walk_noise.SetSeed(
-      static_cast<int32_t>(In::instance_hash("camera", "sphere.rotate.v2")));
-  authored_walk_noise.SetFrequency(In::Op::WALK_OPTIONS.noise_scale);
+  const FastNoiseLite authored_walk_noise = make_oracle_noise(
+      "camera", "sphere.rotate.v2", In::Op::WALK_OPTIONS.noise_scale);
   const auto &seeded_walk =
       state_as<In::Op::SpatialWalkState>(first->program, 0);
   HS_EXPECT_EQ(seeded_walk.walk_noise.GetNoise(0.25f, -0.5f, 0.75f),
