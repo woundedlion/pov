@@ -175,6 +175,31 @@ inline bool field_identical(const PB::FieldSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
+/** @brief Whether @p s is a finite, non-degenerate view direction. */
+inline bool carrier_live(const PB::SphereSample &s) {
+  return std::isfinite(s.dir.x) && std::isfinite(s.dir.y) &&
+         std::isfinite(s.dir.z) && std::isfinite(s.path_length) &&
+         math::dot(s.dir, s.dir) > 0.25f;
+}
+
+/** @brief Whether @p s is a finite plane point inside the projection domain. */
+inline bool carrier_live(const PB::PlaneSample &s) {
+  return std::isfinite(s.coords.re) && std::isfinite(s.coords.im) &&
+         std::isfinite(s.path_length) && s.provenance.domain_coverage > 0.0f;
+}
+
+/** @brief Whether @p s is a finite field value with coverage. */
+inline bool carrier_live(const PB::FieldSample &s) {
+  return std::isfinite(s.value) && std::isfinite(s.path_length) &&
+         s.coverage > 0.0f;
+}
+
+/** @brief Whether @p c is a finite, visible, non-black color. */
+inline bool carrier_live(const Color4 &c) {
+  return std::isfinite(c.alpha) && c.alpha > 0.0f &&
+         (c.color.r | c.color.g | c.color.b) != 0;
+}
+
 /** @brief Every field of a runtime snapshot as raw 32-bit words, led by the
  *  alternative index. */
 inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
@@ -254,13 +279,29 @@ template <typename T> void apply_value_set(T &params, ValueSet set) {
     params.*(field.member) = set == ValueSet::MINIMUMS ? field.min : field.max;
 }
 
+/** @brief The value set of the enclosing for_each_value_set iteration;
+    DEFAULTS outside one. */
+inline ValueSet &active_value_set() {
+  static ValueSet set = ValueSet::DEFAULTS;
+  return set;
+}
+
 /** @brief Calls @p fn with each ValueSet under its failure-context label. */
 template <typename Fn> void for_each_value_set(Fn &&fn) {
   for (const ValueSet set :
        {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
     HS_CONTEXT(value_set_name(set));
+    active_value_set() = set;
     fn(set);
   }
+  active_value_set() = ValueSet::DEFAULTS;
+}
+
+/** @brief Expects @p live swept views to be nonzero except under MINIMUMS,
+    whose endpoints may legitimately render nothing. */
+inline void expect_live_sweep(int live) {
+  if (active_value_set() != ValueSet::MINIMUMS)
+    HS_EXPECT_GT(live, 0);
 }
 
 /** @brief Calls @p fn with a fresh program for each ValueSet, clearing the
@@ -315,7 +356,7 @@ inline PB::PlaneSample run_to_plane(In::ChainProgram &program,
 
 /** Erased-vs-bound parity of the prepared entry @p index: on @p input_of
     each swept view, the erased op and @p BoundStage yield identical
-    @p OutCarrier values. */
+    @p OutCarrier values, at least one of them live. */
 template <typename BoundStage, typename OutCarrier, typename Mirror,
           typename InputFn>
 void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
@@ -324,11 +365,14 @@ void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
                                         const OutCarrier &)) {
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
   int view_index = 0;
+  int live = 0;
   for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const auto input = input_of(view);
     const OutCarrier erased = run_entry<OutCarrier>(program, ctx, index, input);
     const OutCarrier reference = BoundStage::run(input, mirror, prepared);
     HS_EXPECT_TRUE(identical(erased, reference));
+    live += carrier_live(erased) ? 1 : 0;
   }
+  expect_live_sweep(live);
 }

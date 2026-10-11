@@ -168,12 +168,15 @@ void expect_frame_parity(In::ChainProgram &program, const In::FrameContext &ctx,
                          const MirrorFrame &mirror) {
   const typename Pipe::Frame reference_frame = Pipe::prepare(mirror);
   int view_index = 0;
+  int live = 0;
   for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const Color4 erased = program.evaluate(view, ctx);
     const Color4 reference = Pipe::shade(view, reference_frame);
     HS_EXPECT_TRUE(color4_identical(erased, reference));
+    live += carrier_live(erased) ? 1 : 0;
   }
+  expect_live_sweep(live);
 }
 
 template <typename WeightP, typename CoverageP, PB::Color::HueMode HueV,
