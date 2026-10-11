@@ -611,8 +611,8 @@ planar_col_span(const math::Vector &a, const math::Basis &planar_basis,
     };
     for (const math::Vector &s : es.interior)
       step(s);
-    math::Vector end = azimuthal_unproject(es.p1.first + es.dX,
-                                           es.p1.second + es.dY, planar_basis);
+    math::Vector end = azimuthal_unproject(es.p1.first + es.dx,
+                                           es.p1.second + es.dy, planar_basis);
     if (end_sample != nullptr)
       *end_sample = end;
     step(end);
