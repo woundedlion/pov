@@ -123,6 +123,28 @@ inline Pcg32 &random() {
 }
 
 /**
+ * @brief Resets the effect RNG stream before construction.
+ * @param seed Stable effect seed or synchronized epoch fallback.
+ */
+inline void seed_effect_stream(uint64_t seed) { random().seed(seed); }
+
+/**
+ * @brief Resets the effect RNG stream from its persisted identity.
+ * @param effect_id Stable effect ID.
+ */
+inline void seed_effect_stream(std::string_view effect_id) {
+  seed_effect_stream(stable_effect_seed(effect_id));
+}
+
+/**
+ * @brief Resets the RNG stream for a registered effect type.
+ * @tparam EffectType Concrete effect with a declared EFFECT_ID.
+ */
+template <typename EffectType> inline void seed_effect_stream() {
+  seed_effect_stream(std::string_view(EffectType::EFFECT_ID));
+}
+
+/**
  * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
  * @param value Raw RNG draw, in [0, max].
  * @param max Maximum possible draw value.
