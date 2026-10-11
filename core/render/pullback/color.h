@@ -18,6 +18,16 @@ namespace Pullback {
 
 namespace Color {
 
+/** @brief Applies sinusoidal oscillation to a mapping phase.
+ *  @param phase Base mapping phase.
+ *  @param depth Oscillation amplitude.
+ *  @param oscillation_phase Oscillation phase in turns.
+ *  @return Oscillated mapping offset. */
+__attribute__((always_inline)) inline float
+oscillated_mapping_offset(float phase, float depth, float oscillation_phase) {
+  return phase + depth * math::fast_sinf(math::TWO_PI_F * oscillation_phase);
+}
+
 /** @brief Curve from the wrapped palette phase to the palette coordinate. */
 enum class PaletteMapping : uint8_t {
   CUP = 0,    ///< `math::unit_cup` of the phase.
@@ -398,10 +408,9 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
     return {State::mapping_weights(frame),
             State::mapping_frequency(frame),
-            State::mapping_phase(frame) +
-                State::oscillation_depth(frame) *
-                    math::fast_sinf(math::TWO_PI_F *
-                                    State::oscillation_phase(frame)),
+            oscillated_mapping_offset(State::mapping_phase(frame),
+                                      State::oscillation_depth(frame),
+                                      State::oscillation_phase(frame)),
             &State::palette(frame),
             State::hue_mode(frame),
             State::hue_shift_amount(frame),
