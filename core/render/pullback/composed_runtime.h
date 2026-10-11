@@ -35,9 +35,6 @@ class ComposedEffect : public ChoreographedEffect<Derived, ParamsFor<SpecT>>,
   using ParamsT = ParamsFor<SpecT>;
   using Choreography = ChoreographedEffect<Derived, ParamsT>;
   friend Choreography;
-  static constexpr PaletteHarmony Harmony = SpecT::HARMONY;
-  static constexpr HueMode HueV = SpecT::HUE;
-  static constexpr Color::BrightnessEnvelope BrightnessV = SpecT::BRIGHTNESS;
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
 #endif
@@ -137,7 +134,7 @@ public:
     use_parameter_storage(persistent_arena,
                           persistent_arena.allocate_n<ParamDef>(PARAM_CAPACITY),
                           PARAM_CAPACITY);
-    if constexpr (HueV == HueMode::NOISE)
+    if constexpr (SpecT::HUE == HueMode::NOISE)
       Pullback::init_effect_noise(state->color_noise, HUE_NOISE_SEED);
     params.visit([&]<typename Resource>(auto &) {
       if constexpr (ComposedDetail::RESOURCE_NOISE<Resource>) {
@@ -417,8 +414,8 @@ protected:
 
 private:
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
-                 OptionalHueRotationLut<HueV != HueMode::NONE>,
-                 OptionalHueNoiseLut<HueV == HueMode::NOISE> {
+                 OptionalHueRotationLut<SpecT::HUE != HueMode::NONE>,
+                 OptionalHueNoiseLut<SpecT::HUE == HueMode::NOISE> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -473,24 +470,24 @@ private:
 
   template <float Color::ColorControls::*Member>
   static consteval const Field<ColorParams> &color_descriptor() {
-    constexpr size_t index = [] {
+    constexpr size_t INDEX = [] {
       for (size_t i = 0; i < ColorParams::FIELDS.size(); ++i)
         if (ColorParams::FIELDS[i].member == Member)
           return i;
       return ColorParams::FIELDS.size();
     }();
-    static_assert(index < ColorParams::FIELDS.size(),
+    static_assert(INDEX < ColorParams::FIELDS.size(),
                   "ColorParams member has no field descriptor");
-    return ColorParams::FIELDS[index];
+    return ColorParams::FIELDS[INDEX];
   }
 
   /** @brief Registers a colour slider when its topology gate is live. */
   template <float Color::ColorControls::*Member>
   HS_COLD_MEMBER void register_color_field(const char *name) {
-    constexpr const auto &field = color_descriptor<Member>();
-    if constexpr (ComposedDetail::color_gate_open<SpecT>(field.topology_gate))
+    constexpr const auto &FIELD = color_descriptor<Member>();
+    if constexpr (ComposedDetail::color_gate_open<SpecT>(FIELD.topology_gate))
       register_animated_param(name, &(params.template get<"color">().*Member),
-                              field.min, field.max);
+                              FIELD.min, FIELD.max);
   }
 
   template <ResourceKind Kind> HS_COLD_MEMBER void register_resource_kind() {
@@ -566,7 +563,7 @@ private:
     if constexpr (requires { Derived::CAMERA_SPIN_RATE; })
       camera_spin =
           fmodf(camera_spin + Derived::CAMERA_SPIN_RATE, math::TWO_PI_F);
-    if constexpr (HueV == HueMode::NOISE)
+    if constexpr (SpecT::HUE == HueMode::NOISE)
       hue_noise_phase = math::wrap_t(
           hue_noise_phase + params.template get<"color">().hue_noise_speed);
     palette_oscillation_phase =
@@ -610,7 +607,7 @@ private:
 
   /** @brief The hue-rotation LUT base, or null when no hue mode reads one. */
   const Pixel *hue_rotation_lut_data() const {
-    if constexpr (HueV != HueMode::NONE)
+    if constexpr (SpecT::HUE != HueMode::NONE)
       return state->hue_rotation_lut.data();
     else
       return nullptr;
@@ -618,7 +615,7 @@ private:
 
   /** @brief The hue-noise LUT base, or null outside HueMode::NOISE. */
   const int8_t *hue_noise_lut_data() const {
-    if constexpr (HueV == HueMode::NOISE)
+    if constexpr (SpecT::HUE == HueMode::NOISE)
       return state->hue_noise_lut.data();
     else
       return nullptr;
@@ -634,15 +631,15 @@ private:
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
-    if constexpr (HueV == HueMode::NOISE) {
-      if (hue_rotation_active<HueV>(params.template get<"color">())) {
+    if constexpr (SpecT::HUE == HueMode::NOISE) {
+      if (hue_rotation_active<SpecT::HUE>(params.template get<"color">())) {
         state->hue_noise_bake.refresh(
             state->hue_noise_lut, state->color_noise,
             params.template get<"color">().hue_noise_scale, hue_noise_phase);
       }
     }
-    if constexpr (HueV != HueMode::NONE)
-      if (hue_rotation_active<HueV>(params.template get<"color">()) &&
+    if constexpr (SpecT::HUE != HueMode::NONE)
+      if (hue_rotation_active<SpecT::HUE>(params.template get<"color">()) &&
           state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
@@ -691,7 +688,7 @@ private:
                            GenerativePalette &out) {
     ComposedEffect &effect = *static_cast<ComposedEffect *>(context);
     GeneratedPaletteBank::next_palette(
-        effect.palette_hue, sequence, Harmony,
+        effect.palette_hue, sequence, SpecT::HARMONY,
         effect.params.template get<"color">().palette_chroma, out);
   }
 
