@@ -25,7 +25,7 @@ class ParamHost;
 
 /** @brief Outcome of a named parameter write. */
 enum class ParamSetResult {
-  APPLIED,       /**< Value written (floats clamped to [min,max] first). */
+  APPLIED, /**< Value written after numeric clamping and integer/enum rounding. */
   NO_EFFECT,     /**< No effect is installed to receive the write. */
   UNKNOWN_PARAM, /**< No registered parameter has this name. */
   READONLY,      /**< Parameter is engine-written telemetry. */
