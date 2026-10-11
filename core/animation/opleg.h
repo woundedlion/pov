@@ -447,7 +447,7 @@ public:
       ScratchScope sb(scratch_arena_b);
 
       MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a,
-                              /*borrow_base_vertices=*/true);
+                              MeshOps::BaseVertices::BORROW);
 
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
