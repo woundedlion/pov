@@ -3,13 +3,13 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+// --- Individual death cases â€” each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Math spatial death cases.
 
 /**
  * @brief Death case: normalizing a degenerate (zero-length) vector must trap.
- * @details Math-core surface — length below epsilon fires the normalize guard.
+ * @details Math-core surface â€” length below epsilon fires the normalize guard.
  */
 inline void case_normalize_zero() {
   math::Vector z{opaque(0.0f), opaque(0.0f), opaque(0.0f)};
@@ -45,7 +45,7 @@ inline void case_angle_between_zero() {
 
 /**
  * @brief Death case: normalizing a NaN vector must trap.
- * @details Math-core surface — a NaN coordinate poisons the length to NaN, and
+ * @details Math-core surface â€” a NaN coordinate poisons the length to NaN, and
  *          `NaN >= epsilon` is false, so the normalize guard fires.
  */
 inline void case_normalize_nan() {
@@ -58,7 +58,7 @@ inline void case_normalize_nan() {
 
 /**
  * @brief Death case: requesting more KDTree neighbors than MAX_K must trap.
- * @details Spatial surface — k beyond the MAX_K-sized result/heap buffers makes
+ * @details Spatial surface â€” k beyond the MAX_K-sized result/heap buffers makes
  *          nearest() trap.
  */
 inline void case_spatial_knn_over_max() {
@@ -77,7 +77,7 @@ inline void case_spatial_knn_over_max() {
 
 /**
  * @brief Death case: a lattice index outside [0, RD_N) must trap.
- * @details Spatial surface — node()'s index maps affinely onto the sphere, so an
+ * @details Spatial surface â€” node()'s index maps affinely onto the sphere, so an
  *          out-of-range one would silently return a direction off the lattice
  *          instead of naming the caller's mistake.
  */
@@ -89,7 +89,7 @@ inline void case_reaction_graph_node_index_out_of_range() {
 
 /**
  * @brief Death case: a neighbor-table slot outside the lattice must trap.
- * @details Spatial surface — validate_neighbors() traps on a slot that is not
+ * @details Spatial surface â€” validate_neighbors() traps on a slot that is not
  *          a node index.
  */
 inline void case_reaction_graph_slot_out_of_range() {
@@ -100,7 +100,7 @@ inline void case_reaction_graph_slot_out_of_range() {
 
 /**
  * @brief Death case: a Flywheel period of zero must trap at construction.
- * @details POV-sync surface — position() divides the int32 elapsed window by the
+ * @details POV-sync surface â€” position() divides the int32 elapsed window by the
  *          period, so a zero divides by zero and an over-large one voids the
  *          signed-safe coast window.
  */
@@ -113,7 +113,7 @@ inline void case_flywheel_period_zero() {
 
 /**
  * @brief Death case: a virtual height of one row must trap in the phi mapping.
- * @details Geometry surface — the row-to-angle scale divides by (h_virt - 1),
+ * @details Geometry surface â€” the row-to-angle scale divides by (h_virt - 1),
  *          so a single-row canvas would map every row to a non-finite phi.
  */
 inline void case_y_to_phi_degenerate_height() {
@@ -125,7 +125,7 @@ inline void case_y_to_phi_degenerate_height() {
 
 /**
  * @brief Death case: make_basis with a non-unit quaternion must trap.
- * @details Geometry surface — the rotation assumes a unit quaternion, so a
+ * @details Geometry surface â€” the rotation assumes a unit quaternion, so a
  *          finite but over-long one would scale and shear the frame rather than
  *          rotate it; the guard fires before the axes are built.
  */
@@ -139,7 +139,7 @@ inline void case_make_basis_nonunit_quaternion() {
 
 /**
  * @brief Death case: parallel transport between antipodal endpoints must trap.
- * @details Geometry surface — the great circle through antipodes is
+ * @details Geometry surface â€” the great circle through antipodes is
  *          ill-determined and the transport divides by 1 + dot, so the guard
  *          fires before the tangent is amplified.
  */
@@ -151,6 +151,12 @@ inline void case_parallel_transport_antipodal() {
       math::parallel_transport(from, to, tangent); // dot = -1 -> HS_CHECK
   if (t.x == opaque(42.0f))
     std::printf("x");
+}
+
+/** @brief A dodecahedral fold rejects a NaN direction. */
+inline void case_dodecahedral_kaleidoscope_nan() {
+  const float nan = std::bit_cast<float>(opaque<uint32_t>(0x7fc00000u));
+  (void)lenses::dodecahedral_kaleidoscope_lens(math::Vector(nan, 0.0f, 0.0f));
 }
 
 /**
@@ -170,7 +176,7 @@ inline void case_polyhedral_kaleidoscope_no_converge() {
 
 /**
  * @brief Death case: a negative equator sample count must trap.
- * @details Spherical-field surface — the count sizes every ring's longitude
+ * @details Spherical-field surface â€” the count sizes every ring's longitude
  *          walk, so a negative one underflows the per-ring sample allocation.
  */
 inline void case_spherical_field_negative_equator_samples() {
@@ -181,7 +187,7 @@ inline void case_spherical_field_negative_equator_samples() {
 
 /**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
- * @details Math-core surface — the NaN poisons interpolation through both
+ * @details Math-core surface â€” the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps.
  */
 inline void case_slerp_nan() {
@@ -210,7 +216,7 @@ inline void case_make_rotation_vectors_nan() {
 
 /**
  * @brief Death case: make_rotation(axis, theta) with a NaN angle must trap.
- * @details Math-core surface — cos/sin of a NaN poison the quaternion, and its
+ * @details Math-core surface â€” cos/sin of a NaN poison the quaternion, and its
  *          normalized() traps on the NaN magnitude.
  */
 inline void case_make_rotation_angle_nan() {
@@ -224,7 +230,7 @@ inline void case_make_rotation_angle_nan() {
 
 /**
  * @brief Death case: make_basis with a NaN normal must trap.
- * @details Geometry surface — rotate(normal,.).normalized() is the first strict
+ * @details Geometry surface â€” rotate(normal,.).normalized() is the first strict
  *          normalize in the basis construction and traps on the NaN-poisoned
  *          vector rather than returning a garbage frame.
  */
@@ -256,7 +262,7 @@ inline void case_noise_transform_nan() {
 
 /**
  * @brief Death case: make_rotation(from, to) with a non-unit source must trap.
- * @details Math-core surface — the d-based parallel/antiparallel branches assume
+ * @details Math-core surface â€” the d-based parallel/antiparallel branches assume
  *          |from| = |to| = 1, so a finite but non-unit input must trap at the
  *          unit-vector guard rather than silently skewing the rotation angle.
  */
@@ -270,7 +276,7 @@ inline void case_make_rotation_nonunit() {
 
 /**
  * @brief Death case: a ring index past the last ring must trap.
- * @details SphericalFieldLayout surface — the chain walk saturates at row H-1
+ * @details SphericalFieldLayout surface â€” the chain walk saturates at row H-1
  *          while the offset keeps accumulating, so an out-of-range index would
  *          otherwise hand back a Ring pointing past the sample array.
  */
