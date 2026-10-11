@@ -419,8 +419,8 @@ inline void transform_in_place(MeshState &mesh,
 // Prebuilt HalfEdgeMesh may occupy either arena: ambo/truncate/expand scope both
 // arenas; chamfer/snub scope temp. Target scopes start above live output bindings.
 //
-// ambo/truncate/expand/chamfer/snub and compositions require distinct arenas.
-// dual/kis/medial/relax permit one arena: their output binds before scratch scopes.
+// ambo/truncate/medial/expand/chamfer/snub and compositions require distinct arenas.
+// dual/kis/relax permit one arena: their output binds before scratch scopes.
 //
 // dual/ambo/truncate/expand/chamfer/snub/medial require a closed manifold.
 // kis is per-face; relax permits boundary meshes.
@@ -674,6 +674,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
 HS_COLD static inline void medial(const PolyMesh &mesh, PolyMesh &out_a,
                                   ArenaVector<math::Vector> &out_b,
                                   Arena &target, Arena &temp) {
+  HS_CHECK(&target != &temp, "medial: target and temp must differ");
   HS_CHECK(&mesh != &out_a, "medial input mesh must not alias output mesh");
   HS_CHECK(&mesh.vertices != &out_b,
            "medial input vertices must not alias output vertices");

@@ -631,6 +631,9 @@ inline const Case *all_cases(int &n) {
       {"mesh_narrow_index", case_mesh_narrow_index, "core/mesh/mesh.h",
        "(i <= MeshLimits::MAX_VERTEX_INDEX) mesh index exceeds topology "
        "vertex range (oversized mesh?)"},
+      {"medial_aliased_arenas", case_medial_aliased_arenas,
+       "core/mesh/conway.h",
+       "(&target != &temp) medial: target and temp must differ"},
       {"medial_aliases_input", case_medial_aliases_input, "core/mesh/conway.h",
        "(&mesh != &out_a) medial input mesh must not alias output mesh"},
       {"needle_aliased_arenas", case_needle_aliased_arenas,

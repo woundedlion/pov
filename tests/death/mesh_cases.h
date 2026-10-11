@@ -311,6 +311,15 @@ inline void case_mesh_narrow_index() {
     std::printf("x");
 }
 
+/** @brief Medial rejects aliased target and scratch arenas. */
+inline void case_medial_aliased_arenas() {
+  static uint8_t buf[64];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh, out;
+  ArenaVector<math::Vector> positions;
+  MeshOps::medial(mesh, out, positions, arena, arena);
+}
+
 /** @brief Death case: medial rejects an input used as both outputs. */
 inline void case_medial_aliases_input() {
   static uint8_t target_buf[64];
