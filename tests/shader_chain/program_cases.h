@@ -730,27 +730,17 @@ inline void test_shader_chain_parity_rotate_project() {
     using BoundRotate = PB::Stage::Rotate<MirrorCamera>::Bind<MirrorBinding>;
     using BoundProject = PB::Stage::Project<
         PB::Projection::Stereographic<MirrorProjection>>::Bind<MirrorBinding>;
-    const In::OperatorDescriptor &rotate_op = *program.ops()[0].op;
-    const In::OperatorDescriptor &project_op = *program.ops()[1].op;
-    for (const math::Vector &view : sweep_views()) {
-      const PB::SphereSample seed{view, 0.0f};
-      alignas(In::SLOT_ALIGN) uint8_t erased_out[In::SLOT_SIZE];
-      rotate_op.runtime.run(&seed, erased_out, ctx, program.param_block(0),
-                            program.prepared_block(0));
-      const auto &erased_rotated =
-          *std::launder(reinterpret_cast<PB::SphereSample *>(erased_out));
-      const PB::SphereSample reference_rotated =
-          BoundRotate::run(seed, mirror, {});
-      HS_EXPECT_TRUE(sphere_identical(erased_rotated, reference_rotated));
-      alignas(In::SLOT_ALIGN) uint8_t projected_out[In::SLOT_SIZE];
-      project_op.runtime.run(&erased_rotated, projected_out, ctx,
-                             program.param_block(1), program.prepared_block(1));
-      const auto &erased_projected =
-          *std::launder(reinterpret_cast<PB::PlaneSample *>(projected_out));
-      const PB::PlaneSample reference_projected =
-          BoundProject::run(reference_rotated, mirror, {});
-      HS_EXPECT_TRUE(plane_identical(erased_projected, reference_projected));
-    }
+    expect_op_parity<BoundRotate>(
+        program, ctx, 0, mirror,
+        [](const math::Vector &view) { return PB::SphereSample{view, 0.0f}; },
+        sphere_identical);
+    expect_op_parity<BoundProject>(
+        program, ctx, 1, mirror,
+        [&](const math::Vector &view) {
+          return run_entry<PB::SphereSample>(program, ctx, 0,
+                                             PB::SphereSample{view, 0.0f});
+        },
+        plane_identical);
     program.clear();
   }
 }

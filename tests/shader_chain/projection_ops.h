@@ -164,14 +164,9 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_EXPECT_EQ(std::memcmp(&state.wander, &wander, sizeof(math::Quaternion)),
                0);
   program.prepare(ctx);
-  const In::OperatorDescriptor &op = *program.ops()[1].op;
   for (const math::Vector &view : sweep_views()) {
     const PB::SphereSample seed{view, 0.25f};
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&seed, out, ctx, program.param_block(1),
-                   program.prepared_block(1));
-    const auto &actual =
-        *std::launder(reinterpret_cast<PB::PlaneSample *>(out));
+    const auto actual = run_entry<PB::PlaneSample>(program, ctx, 1, seed);
     const auto projected = [&] {
       if constexpr (requires { Model::project(view, params, prepared); })
         return Model::project(view, params, prepared);
