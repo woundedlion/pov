@@ -14,6 +14,10 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS{
       {{{0.0f}, Segue::Preset::Lerp{2, math::ease_linear}},
        {{1.0f}, Segue::Preset::Fade{2}}}};
+#if defined(HS_HOOK_PRESET_ROW) && !defined(HS_HOOK_PRESET_ROW_NO_IDS)
+  static constexpr std::array<const char *, 2> PRESET_IDS{"a", "b"};
+#endif
+  static constexpr auto preset(size_t index) { return PRESETS[index]; }
   HookFixture() : Base(8, 8) {}
   static bool valid_params(const Params &) { return true; }
   static constexpr Params initial_params() { return {}; }
@@ -37,6 +41,9 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
     using Hook = Control::ChoreographyHook;
     return Control::HookSet<
         HookFixture,
+#ifdef HS_HOOK_PRESET_ROW
+        Control::HookBinding<Hook::PRESET_ROW, &HookFixture::preset>,
+#endif
 #ifdef HS_HOOK_VALIDATION_DEFAULT
         Control::HookBinding<Hook::VALID_PARAMS, &Base::valid_params>,
 #else
