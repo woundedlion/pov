@@ -15,28 +15,7 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
-struct LatticeMeltWhiteBox {
-  using FX = LatticeMelt<SMALL_W, SMALL_H>;
-  using Params = FX::Params;
-
-  static constexpr size_t PARAM_CAPACITY = FX::PARAM_CAPACITY;
-
-  static const Params &params(const FX &effect) { return effect.params; }
-  static bool transition_active(const FX &effect) {
-    return effect.transition.active;
-  }
-  static bool advance_preset(FX &effect) { return effect.advance_preset(); }
-  static void tick_choreography(FX &effect) { effect.step_choreography(); }
-  static void saturate_timeline(FX &effect, float &sink) {
-    while (Timeline::remaining() > 0)
-      effect.timeline.add(
-          0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
-  }
-  static void clear_timeline(FX &effect) { effect.timeline.clear(); }
-  static void drive_transition(FX &effect, float progress) {
-    effect.run_transition(progress);
-  }
-};
+using LatticeMeltWhiteBox = ComposedWhiteBox<LatticeMelt<SMALL_W, SMALL_H>>;
 
 inline void test_lattice_melt_identity_and_presets() {
   using WB = LatticeMeltWhiteBox;
@@ -94,54 +73,14 @@ inline void test_lattice_melt_identity_and_presets() {
 }
 
 inline void test_lattice_melt_transition_contract() {
-  using WB = LatticeMeltWhiteBox;
-  using FX = WB::FX;
-  reset_effect_globals();
-  WB::FX effect;
-  effect.init();
-  HS_EXPECT_EQ(effect.getPresetCount(), size_t{2});
-  HS_EXPECT_TRUE(WB::advance_preset(effect));
-  HS_EXPECT_TRUE(WB::transition_active(effect));
-  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
-
-  uint16_t frames = 0;
-  const auto drive = [&](float amount) {
-    WB::drive_transition(effect, amount);
-    ++frames;
-  };
-
-  drive(0.0f);
-  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
-                 FX::preset(0).params.template get<"surface">().scale, 0.0f);
-
-  drive(0.25f);
-  HS_EXPECT_NEAR(
-      WB::params(effect).template get<"surface">().scale,
-      FX::preset(0).params.template get<"surface">().scale *
-          powf(FX::preset(1).params.template get<"surface">().scale /
-                   FX::preset(0).params.template get<"surface">().scale,
-               0.25f),
-      1e-6f);
-
-  drive(0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
-                 sqrtf(FX::preset(0).params.template get<"surface">().scale *
-                       FX::preset(1).params.template get<"surface">().scale),
-                 1e-6f);
-
-  drive(1.0f);
-  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
-                 FX::preset(1).params.template get<"surface">().scale, 0.0f);
-  HS_EXPECT_TRUE(WB::transition_active(effect));
-
-  for (uint16_t frame = frames;
-       frame + 1 < Segue::Preset::frames(FX::preset_departure(0)); ++frame)
-    drive(0.5f);
-  HS_EXPECT_TRUE(WB::transition_active(effect));
-  drive(0.5f);
-  HS_EXPECT_NEAR(WB::params(effect).template get<"surface">().scale,
-                 FX::preset(1).params.template get<"surface">().scale, 0.0f);
-  HS_EXPECT_FALSE(WB::transition_active(effect));
+  using FX = LatticeMeltWhiteBox::FX;
+  check_preset_transition<FX>(
+      [](const FX::Params &params) {
+        return params.template get<"surface">().scale;
+      },
+      [](float from, float to, float amount) {
+        return from * std::pow(to / from, amount);
+      });
 }
 
 inline void test_lattice_melt_full_timeline_retries_transition() {

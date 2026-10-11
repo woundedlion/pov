@@ -18,9 +18,7 @@
 #include "core/render/pullback/composed_effect.h"
 
 namespace hs_test {
-namespace lattice_melt_tests {
-struct LatticeMeltWhiteBox;
-} // namespace lattice_melt_tests
+template <typename FX> struct ComposedWhiteBox;
 } // namespace hs_test
 
 /** @brief Stage spec for `LatticeMelt`. */
@@ -81,7 +79,7 @@ using LatticeMeltParams = Pullback::ParamsFor<LatticeMeltSpec>;
 template <int W, int H>
 class LatticeMelt : public Pullback::ComposedEffect<W, H, LatticeMelt<W, H>,
                                                     LatticeMeltSpec> {
-  friend struct ::hs_test::lattice_melt_tests::LatticeMeltWhiteBox;
+  friend struct ::hs_test::ComposedWhiteBox<LatticeMelt<W, H>>;
 
 public:
   using Params = LatticeMeltParams; ///< Live parameter struct.
