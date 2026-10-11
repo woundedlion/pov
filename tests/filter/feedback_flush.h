@@ -1080,7 +1080,18 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
       {
         Canvas c(fx);
+        const auto &feedback =
+            pipe.template get<Filter::Pixel::Feedback<W, H>>();
+        const size_t fills_before = FeedbackWhiteBox::fills(feedback);
+        if (cached && frame == 1)
+          HS_EXPECT_TRUE(FeedbackWhiteBox::holds(feedback, c));
         (void)pipe.begin_frame(c, 1.0f);
+        if (cached && frame <= 1) {
+          HS_EXPECT_TRUE(FeedbackWhiteBox::holds(feedback, c));
+          HS_EXPECT_EQ(FeedbackWhiteBox::fills(feedback), size_t{1});
+          if (frame == 1)
+            HS_EXPECT_EQ(FeedbackWhiteBox::fills(feedback), fills_before);
+        }
       }
       fx.advance_display();
 
