@@ -260,8 +260,8 @@ struct Face {
    */
   Face(std::span<const math::Vector> vertices,
        std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-       int virtual_height, int height, const ClipRegion *clip = nullptr,
-       const float *azimuth_pads = nullptr, float bounds_margin = BOUNDS_MARGIN)
+       int virtual_height, int height, const ClipRegion *clip,
+       const float *azimuth_pads, float bounds_margin)
       : Face(vertices, indices, scratch,
              math::LatitudeGeometry(height, 0.0f,
                                     math::PI_F * (height - 1) /
@@ -285,15 +285,14 @@ struct Face {
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
    * @param bounds_margin Angular padding around the vertical bounds. Callers
-   *        rendering antialiasing fringes must pass at least `2Ï€ / width`;
+   *        rendering antialiasing fringes must pass at least `2π / width`;
    *        the default is suitable only when that reach is not required.
    */
   HS_O3_FN Face(std::span<const math::Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
                 const math::LatitudeGeometry &geometry, int height,
-                const ClipRegion *clip = nullptr,
-                const float *azimuth_pads = nullptr,
-                float bounds_margin = BOUNDS_MARGIN)
+                const ClipRegion *clip, const float *azimuth_pads,
+                float bounds_margin)
       : build_height(height), build_geometry(geometry),
         build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
         full_width(true) {
@@ -399,7 +398,7 @@ struct Face {
   /**
    * @brief Tests whether the clip band excludes the whole face.
    * @param cr Clip region (display bounds plus render margin).
-   * @return True when no in-band pixel can be produced â€” the face's vertical
+   * @return True when no in-band pixel can be produced — the face's vertical
    *         band lies outside the render rows, or its azimuth coverage lies
    *         outside the render columns. A full-width face or an inactive x-clip
    *         never rejects on the horizontal axis.

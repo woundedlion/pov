@@ -149,10 +149,10 @@ inline void test_report_stretch_forwards_through_csg() {
   static SDF::FaceScratchBuffer small_scratch, large_scratch;
   const SDF::Face small(std::span<const math::Vector>(verts, 6),
                         std::span<const uint16_t>(small_idx, 3), small_scratch,
-                        HV, H);
+                        HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   const SDF::Face large(std::span<const math::Vector>(verts, 6),
                         std::span<const uint16_t>(large_idx, 3), large_scratch,
-                        HV, H);
+                        HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
 
   HS_EXPECT_TRUE(Scan::supports_distance_report(small, .049f));
   HS_EXPECT_FALSE(Scan::supports_distance_report(small, .051f));

@@ -316,7 +316,7 @@ inline void test_scan_epilogue_contract() {
       Canvas canvas(effect);
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(vertices, indices, scratch, H + hs::H_OFFSET, H,
-                     &canvas.clip());
+                     &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
       const auto face_coverage = [&](const math::Vector &point) {
         const float d = SDF::distance_of(face, point).dist;
         return Scan::solid_coverage(d, math::TWO_PI_F / W);

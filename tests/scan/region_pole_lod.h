@@ -46,7 +46,8 @@ inline void test_face_rasterize_matches_scan_region() {
       {
         Canvas canvas(fx);
         SDF::FaceScratchBuffer scratch;
-        SDF::Face face(vspan, ispan, scratch, HV, H, &canvas.clip());
+        SDF::Face face(vspan, ispan, scratch, HV, H, &canvas.clip(), nullptr,
+                       SDF::BOUNDS_MARGIN);
         auto shader = [&](const math::Vector &, Fragment &f) {
           f.color = color;
         };
@@ -362,7 +363,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(std::span<const math::Vector>(verts, sides),
                      std::span<const uint16_t>(idx, sides), scratch, HV, H,
-                     &canvas.clip());
+                     &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
       auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
       if (fused)
         Scan::rasterize_face<W, H, Pipeline<W, H>>(pipe, canvas, face, shader);
@@ -478,7 +479,7 @@ inline void test_pole_lod_shading_matches_undecimated() {
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(std::span<const math::Vector>(verts, 3),
                      std::span<const uint16_t>(idx, 3), scratch, HV, H,
-                     &canvas.clip());
+                     &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN);
       HS_EXPECT_TRUE(face.linear_dist);
       HS_EXPECT_GT(face.max_dist_sq, 0.25f);
       auto shader = [&](const math::Vector &, Fragment &f) { f.color = color; };
@@ -611,7 +612,8 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
         SDF::FaceScratchBuffer scratch;
         SDF::Face face(std::span<const math::Vector>(vertices, 8),
                        std::span<const uint16_t>(indices, 8), scratch,
-                       H + hs::H_OFFSET, H, &canvas.clip());
+                       H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
+                       SDF::BOUNDS_MARGIN);
         HS_EXPECT_FALSE(face.convex);
         HS_EXPECT_EQ(face.linear_dist, fc.rho < 0.2f);
         auto shade = [](const math::Vector &, Fragment &f) {
