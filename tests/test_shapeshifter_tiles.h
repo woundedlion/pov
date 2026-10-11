@@ -148,6 +148,10 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
 }
 
 inline void test_split_pole_runs_tiles_within_energy_budget() {
+  struct PoleRunScope {
+    bool saved = Plot::g_planar_chords_split_pole_runs;
+    ~PoleRunScope() { Plot::g_planar_chords_split_pole_runs = saved; }
+  } scope;
   Plot::g_planar_chords_split_pole_runs = true;
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
