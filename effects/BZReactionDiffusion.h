@@ -87,7 +87,7 @@ public:
     register_param("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler is stable while dt·D·λmax ≤ 2, with |λ|max ≤ 2·RD_K;
     // this bounds the Diff/Speed tops.
-    register_param("Diff", &params.D, 0.001f, 0.1f);
+    register_param("Diff", &params.diffusion, 0.001f, 0.1f);
     register_param("Speed", &params.dt, 0.0f, 1.0f);
 
     allocate_state();
@@ -175,7 +175,7 @@ private:
    */
   HS_O3_FN uint16_t advance_species(float conc, float predator,
                                     float laplacian) const {
-    return to_q16(conc + (params.D * laplacian +
+    return to_q16(conc + (params.diffusion * laplacian +
                           conc * (1 - conc - params.alpha * predator)) *
                              params.dt);
   }
@@ -366,8 +366,8 @@ private:
 
   /** @brief User-tunable Lotka-Volterra and diffusion parameters. */
   struct Params {
-    float alpha = 3.0f; /**< Competition (predation) coefficient. */
-    float D = 0.05f;    /**< Diffusion coefficient. */
-    float dt = 0.35f;   /**< Integration timestep per substep. */
+    float alpha = 3.0f;      /**< Competition (predation) coefficient. */
+    float diffusion = 0.05f; /**< Diffusion coefficient. */
+    float dt = 0.35f;        /**< Integration timestep per substep. */
   } params;
 };
