@@ -44,14 +44,16 @@ exists; a red row is a real device-only path that no automated test currently re
 | 13 | **`CRGB` default-initialization** (`core/platform/arduino_mocks.h`, FastLED `pixeltypes.h`) | `CRGB color;` calls the host mock's zeroing constructor; FastLED's defaulted constructor leaves the device channels uninitialized. Value-initialization (`CRGB{}`) zeroes both. | **Yes**, when channels are read before being assigned; default-constructing and then assigning them does not expose the difference. | ❌ **No.** No device-value test covers this read-before-write gap; host mock tests exercise the zeroing constructor. | Known model gap; initialize channels before reading them. |
 | 14 | **GS Laplacian evaluation order** (`step_physics_nodes`, `effects/GSReactionDiffusion.h`) | Under `__arm__` the device seeds each node's Laplacian with a fused multiply-add of the first two neighbours and pins the remaining summation order with an empty `asm`. Builds with `__FAST_MATH__` (WASM release) start from `-RD_K * a` and add the neighbours reassociably; other host builds (native tests) sum the neighbours, then subtract `RD_K * a`. | **Yes** (float rounding only) — the iterated reaction-diffusion amplifies the rounding difference, so the device pattern drifts from the simulator's over time. | ❌ **No.** No device-value test compiles the `__arm__` branch. | This row. |
 | 15 | **Inline parameter capacity and arena overflow** (`HS_INLINE_PARAM_CAPACITY`, `HS_EXTERNAL_PARAM_STORAGE`, `core/platform/build_features.h`) | Device defaults to 16 inline parameter slots and permits arena-backed storage; host defaults to 32 inline slots. WASM also permits external storage through its GUI bridge. HyperLattice allocates persistent arena storage when its registry outgrows the inline array. | **Yes** — device-only arena usage, and registration traps when an effect exceeds its storage capacity without configuring overflow storage. | ✅ **Yes.** `unit_arena_budget` builds `tests/arena_measure.cpp` with the device inline capacity read from `core/platform/build_features.h` and external parameter storage enabled, then checks effect high-water usage against device arena budgets. | Closed by the device-capacity arena measurement build. |
+| 16 | **HSV to RGB conversion** (`CRGB(const CHSV&)`, `core/platform/arduino_mocks.h`) | The host mock uses a six-sector conversion; FastLED 3.4 uses `hsv2rgb_rainbow`. `Pixel(const CHSV&)` exposes this difference in rendered colors. | **Yes** — identical HSV inputs can produce different RGB channels. | ❌ **No.** The host suite does not execute FastLED's device conversion. | Known model gap; HSV-rendered pixels have no host/device color-parity guarantee. |
 
 Legend: ✅ reached by a device-value test · ❌ real device-only path with no device-value test
 · ⚪ no behavioral fork / divergent by design (nothing to cover).
 
 ## Standing risk
 
-**Three red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
-read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
+**Four red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
+read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork;
+row 16 is an HSV color-conversion model gap. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
 when a caller invokes an unbound callable; the cost of closing it is device codegen and ITCM
 footprint on every `Fn` instantiation. Row 11 (`addmod8` zero modulus) fires only on a zero
 modulus, which no shipped call site passes; closing it means guarding inside FastLED's own
@@ -62,7 +64,7 @@ silent (a hang, a zero return) on the device.
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
 device/wasm builds produce bit-identical phases. The default-initialization gap in row 13 is also uncovered on device.
-Every behavioral fork other than rows 9, 11, 13 and 14 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
+Every behavioral fork other than rows 9, 11, 13, 14 and 16 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
 10). Row 2 is an explicit display profile with coverage for both caps.
 

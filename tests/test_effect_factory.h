@@ -14,7 +14,7 @@
 #include "core/render/canvas.h"
 #include "targets/Phantasm/phantasm_playlist.h"
 #include "targets/wasm/effect_factory.h"
-#include "tests/test_effects.h" // reset_effect_globals
+#include "tests/test_effects.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

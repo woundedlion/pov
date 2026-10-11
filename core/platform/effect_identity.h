@@ -18,7 +18,7 @@ struct EffectIdentity {
   std::string_view machine_id;   ///< Canonical kebab-case machine ID.
   std::string_view display_name; ///< Class/browser name retained for display.
   std::string_view
-      legacy_id; ///< Previously persisted ID; empty without an alias.
+      legacy_id; ///< Compatibility ID; equals machine_id when there is no distinct alias.
   std::string_view rng_seed_key; ///< Immutable key for the effect's RNG stream.
 
   /** @return Canonical, display and legacy lookup keys. */

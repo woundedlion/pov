@@ -1065,8 +1065,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  * @tparam H Canvas height in pixels.
  */
 template <int W, int H> struct BoundingSphere {
-  /// First canvas row the cap can touch; rows are inclusive and clamped.
-  int y_min, y_max;     ///< Last canvas row the cap can touch.
+  int y_min; ///< First canvas row the cap can touch; inclusive and clamped.
+  int y_max; ///< Last canvas row the cap can touch; inclusive and clamped.
   float center_theta;   /**< Longitude of center in pixel units. */
   float cos_rho;        /**< cos of the cap's angular radius. */
   float cos_center_phi; /**< cos of the cap center's colatitude. */

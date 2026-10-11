@@ -680,7 +680,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 ### 6.4 Registration
 
-`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names and original IDs remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. See the [effect identity contract](docs/specs/effect_identity.md). Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
+`HS_EFFECT_LIST` in `targets/effects.h` generates the constexpr registration array used by the WASM factory (`control/registry.h`). Each entry carries resolution-specific fill functions and a typed `hs::EffectIdentity` from `core/platform/effect_identity.h`. Canonical machine IDs are kebab-case `std::string_view` values; class/browser names and original IDs remain accepted aliases. Compile-time checks reject collisions across that shared lookup namespace. Immutable RNG keys preserve the original stream independently of the canonical ID. See the [effect identity contract](https://github.com/woundedlion/pov/blob/master/docs/specs/effect_identity.md). Effect headers need no registration initializer. The Phantasm firmware plays its own subset, `HS_PHANTASM_EFFECT_LIST` in `targets/Phantasm/phantasm_playlist.h`.
 
 ### 6.5 Adding an Effect
 
@@ -694,7 +694,7 @@ With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the n
 
 Every effect — screenshot, description and parameter list — plus the shader authoring workbench and the legacy roster is documented in [`docs/effects.md`](https://github.com/woundedlion/pov/blob/master/docs/effects.md).
 
-The compile-time roster and tests carry 43 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 38 effects, including the promoted composed effects; it excludes the effects that only suit Holosphere's 96×20 display RingShower by product curation, and any effect still awaiting its first on-device profile, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 38-entry roster. Full-cycle Teensy measurements for the playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
+The compile-time roster and tests carry 43 firmware-capable effects. Native and WASM builds add the simulator-only `ShaderChain` interpreter, which opens through its standalone tool rather than the effect sidebar ([§7.5](#75-the-effect-sidebar-sidebarjs)). The Phantasm firmware playlist (`HS_PHANTASM_EFFECT_LIST`) contains 38 effects, including the promoted composed effects; it excludes Dynamo, MobiusRings and Thrusters for their 96×20 display profile, RingShower by product curation, and Galaxies while awaiting its first on-device profile, as recorded by `HS_PHANTASM_EXCLUDED_EFFECTS`. Each entry carries its own on-air duration alongside its name in the 38-entry roster. Full-cycle Teensy measurements for the playlist are indexed in the [on-device effect profiles](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md).
 
 ### 6.7 Fenced Effect Transitions (`control/transition.h`)
 
@@ -921,7 +921,7 @@ Three behaviours the definitions loop above does not show. **Stage folders**: pu
 
 ### 7.7 Segmented POV Workers (`segment_worker.js`)
 
-Phantasm hardware uses N Teensys, each rendering one segment rectangle: an arm's half-width crossed with a Y-band computed by the engine's `segment_map()`/`segment_x_col()` (`pov_segment_map.h`). N=4 is the qualified default; N=8 is the compile-tested firmware profile. Daydream reproduces the *partitioning* in software — its `computeSegmentRange()` (`src/segments/segment_layout.js`) mirrors the engine's arm/Y-band split (a general even-N tiler that also drives the 2–8-way preview), though it does not model southern segments' reversed strip direction (`y_step = -1`) or the hardware's power-of-two segment-count constraint — so the band partition, not the full strip wiring, is exercised before fabrication. A `SegmentController` (`src/segments/segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `src/segments/segment_worker.js` hosts one WASM instance:
+Phantasm hardware uses N Teensys, each rendering one segment rectangle: an arm's half-width crossed with a Y-band computed by the engine's `segment_map()`/`segment_x_col()` (`pov_segment_map.h`). N=4 is the qualified default; N=8 is the compile-tested firmware profile. Daydream reproduces the *partitioning* in software — its `computeSegmentRange()` (`src/segments/segment_layout.js`) calls the engine's `pov::segment_range()` compiled to JavaScript by `targets/wasm/segment_geometry.cpp`, using the same arm/Y-band split (a general even-N tiler that also drives the 2–8-way preview), though it does not model southern segments' reversed strip direction (`y_step = -1`) or the hardware's power-of-two segment-count constraint — so the band partition, not the full strip wiring, is exercised before fabrication. A `SegmentController` (`src/segments/segment_controller.js`) owns the worker pool — dispatching renders (`renderParallel()`), fencing stale frames by generation, and compositing results (`composite()`) — while each `src/segments/segment_worker.js` hosts one WASM instance:
 
 ```
 Main thread                         Workers (one WASM each)
@@ -1070,7 +1070,7 @@ Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Bu
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
 - Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/engine/static_storage.cpp`, `core/spatial/reaction_graph.cpp`
-- Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
+- Include paths: repository root only (root-qualified includes)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output
 - `-sSTACK_SIZE` — set exactly once per build type, never in the shared block, so link-line order cannot change it. Release builds keep it small because effects use arenas rather than deep recursion; debug gets more because `-O0` disables inlining and stack-slot coalescing
@@ -1158,7 +1158,7 @@ just docs-check   # validate tracked Markdown (the ci.yml docs-markdown job)
 just docs         # docs-check, then build the Doxygen reference into build/docs/html/
 ```
 
-The Phantasm hardware specs are indexed in
+The design specs (Phantasm hardware, effect identity and browser contract) are indexed in
 [`docs/specs/README.md`](https://github.com/woundedlion/pov/blob/master/docs/specs/README.md);
 they are outside the API reference.
 
@@ -1259,7 +1259,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   └── relax_bake_specs.h      Authored relax-bake names and iteration budgets
 │   ├── spatial/                Spatial indexing and spherical graph structures
 │   │   ├── kd_tree.h               KDTree k-nearest-neighbor search
-│   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph: neighbors, node positions and neighbor-run encoding
+│   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph: neighbors, node_positions, neighbor-run encoding and the 48 KiB CubemapLUT
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Color and palette umbrella
 │   │   ├── pixel.h                 Linear pixels, alpha, and integer sRGB conversion
@@ -1547,7 +1547,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the Phantasm hardware specs (docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (Phantasm hardware, effect identity and browser contract in docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
@@ -1605,6 +1605,7 @@ for module ownership and local validation commands.
 │   │   ├── pixel_view.js       Liveness test and re-fetch for the zero-copy WASM pixel view
 │   │   └── pole_lod.js         Pole LOD control binding, replayed once the engine loads
 │   ├── effects/                Effect roster, sequencing, persistence, and parameters
+│   │   ├── effect_identity.js  Canonical effect identities and compatibility alias lookup
 │   │   ├── effect_persistence.js URL storage and replay of engine-accepted parameters and chain snapshots
 │   │   ├── effect_roster.js    Effects and display metadata per resolution, workbench effects, default effect
 │   │   ├── effect_sequencing.js Effect and resolution apply pipeline with its switch/rollback transaction
@@ -1652,7 +1653,8 @@ for module ownership and local validation commands.
 │   │   ├── layout.js           Mobile layout breakpoint shared with styles/index.css
 │   │   ├── page_lifecycle.js   Per-frame scheduler, media-query watch, and page teardown hooks
 │   │   ├── pointer_drag.js     Pointer-capture drag on one element and its padding-box rect
-│   │   └── slider.js           Labelled range slider with live readout, and a keyboard ARIA proxy for painted sliders
+│   │   ├── slider.js           Labelled range slider with live readout, and a keyboard ARIA proxy for painted sliders
+│   │   └── url.js              Browser history URL replacement with refused-write reporting
 │   ├── types/                  Browser API declarations
 │   │   └── file_system_access.d.ts showSaveFilePicker declaration missing from lib.dom
 │   └── workbench/              Shader, palettes, solids, Möbius, and Lissajous tools
@@ -1681,13 +1683,14 @@ for module ownership and local validation commands.
 │       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
 │       └── solids/             Solids tool
 │           ├── solid_build.js  WASM MeshOps orchestration: base and op-chain builds, face classes, readback
-│           ├── solid_codegen.js Op dispatch, C++ generation, saved solids, commit queue, and chain validation
+│           ├── solid_codegen.js Op dispatch, C++ generation, saved solids, and commit queue
 │           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
 │           ├── solid_op_rows.js DOM construction for one op-chain row
 │           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and Recipe mirror
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
-│           └── solids_page.js  Page module for tools/solids.html
-├── generated/                  Installed engine outputs; tracked type declarations
+│           ├── solids_page.js  Page module for tools/solids.html
+│           └── solid_validation.js WASM solid-chain validation and arena usage checks
+├── generated/                  Installed engine outputs
 ├── tools/                      Stable public HTML entry points and tool stylesheets
 ├── styles/                     Simulator CSS and Tailwind source
 ├── scripts/                    Development, validation, browser probes, and deployment

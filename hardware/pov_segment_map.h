@@ -51,16 +51,16 @@ struct SegmentMap {
  * @brief Truncated division of nonnegative integer coordinates.
  * @param numerator Nonnegative coordinate.
  * @param denominator Positive partition count.
- * @return Integer quotient or remainder.
+ * @return Truncated integer quotient.
  */
 constexpr int segment_quotient(int numerator, int denominator) {
   return numerator / denominator;
 }
 /**
- * @brief Truncated division of nonnegative browser coordinates.
+ * @brief Floor division of nonnegative browser coordinates.
  * @param numerator Nonnegative coordinate.
  * @param denominator Positive partition count.
- * @return Integer quotient or remainder.
+ * @return Floor of the coordinate quotient.
  */
 inline double segment_quotient(double numerator, double denominator) {
   return __builtin_floor(numerator / denominator);
@@ -69,7 +69,7 @@ inline double segment_quotient(double numerator, double denominator) {
  * @brief Integer coordinate remainder.
  * @param numerator Nonnegative coordinate.
  * @param denominator Positive partition count.
- * @return Integer quotient or remainder.
+ * @return Integer coordinate remainder.
  */
 constexpr int segment_remainder(int numerator, int denominator) {
   return numerator % denominator;
@@ -78,7 +78,7 @@ constexpr int segment_remainder(int numerator, int denominator) {
  * @brief Browser coordinate remainder.
  * @param numerator Nonnegative coordinate.
  * @param denominator Positive partition count.
- * @return Integer quotient or remainder.
+ * @return Floating-point remainder from fmod.
  */
 inline double segment_remainder(double numerator, double denominator) {
   return __builtin_fmod(numerator, denominator);

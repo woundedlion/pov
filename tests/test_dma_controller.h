@@ -158,7 +158,7 @@ inline void test_ctor_forwards_clock() {
 }
 
 /**
- * @brief A clean submit hands the image-frame bytes to the transport and bumps
+ * @brief A clean submit hands the frame buffer to the transport and bumps
  * the transfer counter.
  */
 inline void test_submit_happy_path() {
