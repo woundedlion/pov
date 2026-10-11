@@ -972,7 +972,7 @@ const Pixel* buf = effect->display_buffer();               // 16-bit linear pixe
 // Physical LED index comes from the single-source-of-truth map (pov_single_map.h),
 // which applies the top-arm reversal / bottom-arm offset — never the raw row index.
 frame.pack_pixel(pov::strip_top_led(y, S), buf[y * width + x]); // Pixel → HD107S frame
-(void)ledController.submit_frame();                          // non-blocking DMA; returns false on overrun
+(void)led_controller.submit_frame();                          // non-blocking DMA; returns false on overrun
 ```
 
 ### Single-Teensy POV Driver (`pov_single.h`)

@@ -35,6 +35,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `real/holosphere_readelf_secs.txt` | Verbatim `readelf -SW`. |
 | `real/holosphere_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
 | `real/phantasm_teensy_size.txt` | Verbatim `teensy_size` for `[env:phantasm]` — the calibrated region totals the end-to-end `evaluate()` test runs against. |
+| `real/phantasm_teensy_size_historical.txt` | Retained earlier `teensy_size` output for the calibrated bank-headroom regression. |
 | `real/phantasm_readelf_syms.txt` | `readelf -sW` rows for the layout symbols `tools/teensy_budgets.json` names, excerpted verbatim from the full table (the whole dump is ~600 KB). |
 | `real/phantasm_readelf_secs.txt` | Verbatim `readelf -SW`; also pins `.ARM.exidx` to flash, where `tools/phantasm.ld` routes it. |
 | `real/phantasm_size_a.txt` | Verbatim `size -A` for the fallback bucketing path. |
@@ -51,3 +52,15 @@ The `real/*` fixtures are verbatim output from actual `[env:holosphere]` and
 `[env:phantasm]` builds (`teensy_size`, `readelf -sW`/`-SW`, `size -A`,
 `pio run -v`), so the parsers are exercised against exact toolchain formatting
 alongside the hand-built pass path.
+
+The current Phantasm quartet was recaptured on 2026-10-10 after the
+`led_controller` rename, from source parent `8d3020708` plus that rename.
+ELF SHA256:
+
+```text
+35868f6a6200740a7607f84978ce5ad00ddb8bc2f21411b5da76020528e07be4
+```
+
+`phantasm_readelf_syms.txt` contains the verbatim header and budget-selected
+rows; the other three files contain complete tool output. The historical
+size-only capture retains the earlier calibration independently of this image.
