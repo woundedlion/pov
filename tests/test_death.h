@@ -1366,7 +1366,7 @@ inline const Case *all_cases(int &n) {
                   {"framework_invalid_geometry",
                    case_framework_invalid_geometry,
                    "core/render/sdf/framework.h",
-                   "(valid) framework event geometry must be valid"},
+                   "(geometry.valid()) framework event geometry must be valid"},
                   {"framework_invalid_ray", case_framework_invalid_ray,
                    "core/render/sdf/framework.h",
                    "(ray.valid()) framework event ray must be valid"},
