@@ -6,6 +6,7 @@ GEN_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN_DIR))
 
 import pcb  # noqa: E402
+from rev11_placements import QUILTER_FIXED  # noqa: E402
 import sexp  # noqa: E402
 from kicad_common import F  # noqa: E402
 
@@ -30,8 +31,8 @@ class LockedPlacementTests(unittest.TestCase):
 
     def test_captured_placements_match_the_routed_board(self):
         routed = placements(ROUTED)
-        self.assertTrue(pcb.QUILTER_FIXED)
-        for ref, (x, y, rot) in sorted(pcb.QUILTER_FIXED.items()):
+        self.assertTrue(QUILTER_FIXED)
+        for ref, (x, y, rot) in sorted(QUILTER_FIXED.items()):
             with self.subTest(ref=ref):
                 self.assertEqual(routed.get(ref), (float(x), float(y), float(rot)))
 
