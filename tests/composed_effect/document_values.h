@@ -197,6 +197,25 @@ struct JsonParser {
   }
 };
 
+template <typename FX>
+inline std::optional<JsonValue> load_promoted_document() {
+  std::string name(FX::EFFECT_ID);
+  std::replace(name.begin(), name.end(), '-', '_');
+  const std::string text = read_text_file(
+      std::string(HS_PROMOTED_PATTERNS_DIR "/") + name + ".shader.json");
+  HS_EXPECT(!text.empty(), "promoted shader document is readable");
+  if (text.empty())
+    return std::nullopt;
+  JsonParser parser{text};
+  JsonValue document = parser.parse_value();
+  parser.skip_space();
+  HS_EXPECT_EQ(parser.position, text.size());
+  HS_EXPECT_FALSE(parser.failed);
+  if (parser.failed || parser.position != text.size())
+    return std::nullopt;
+  return document;
+}
+
 inline void test_catalog_semantic_export() {
   namespace Catalog = Pullback::Interp;
   std::string text;
@@ -558,24 +577,10 @@ inline void check_document_values(const char *name) {
   using Params = typename FX::Params;
   HS_CONTEXT(name);
 
-  std::string file_name(FX::EFFECT_ID);
-  for (char &c : file_name)
-    if (c == '-')
-      c = '_';
-  const std::string path =
-      std::string(HS_PROMOTED_PATTERNS_DIR "/") + file_name + ".shader.json";
-  const std::string text = read_text_file(path);
-  HS_EXPECT(!text.empty(), "promoted shader document is readable");
-  if (text.empty())
+  const auto loaded = load_promoted_document<FX>();
+  if (!loaded)
     return;
-
-  JsonParser parser{text};
-  const JsonValue document = parser.parse_value();
-  parser.skip_space();
-  HS_EXPECT_EQ(parser.position, text.size());
-  HS_EXPECT(!parser.failed, "promoted shader document parses");
-  if (parser.failed)
-    return;
+  const JsonValue &document = *loaded;
 
   const JsonValue *effect_id = document.find("effect_id");
   HS_EXPECT_TRUE(effect_id != nullptr && effect_id->text == FX::EFFECT_ID);
