@@ -333,19 +333,9 @@ inline void test_mesh_edge_gate_pixel_parity() {
   constexpr int W = 96, H = 48;
   configure_arenas_default();
 
-  alignas(32) static uint8_t seed_a[24 * 1024];
-  alignas(32) static uint8_t seed_b[24 * 1024];
-  alignas(32) static uint8_t geom[16 * 1024];
-  Arena sa(seed_a, sizeof(seed_a));
-  Arena sb(seed_b, sizeof(seed_b));
-  Arena ga(geom, sizeof(geom));
-
-  MeshState mesh;
-  build_icosahedron_meshstate(sa, sb, ga, mesh);
-
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(ga, mesh.faces.size());
-  Plot::Mesh::extract_edges(mesh, edges);
+  IcosahedronEdges ico;
+  const MeshState &mesh = ico.mesh;
+  const ArenaVector<Plot::Mesh::Edge> &edges = ico.edges;
 
   auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
@@ -357,7 +347,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
   int lit_total = 0, margin_lit_total = 0;
 
   MeshState posed;
-  posed.vertices.bind(ga, mesh.vertices.size());
+  posed.vertices.bind(ico.geom, mesh.vertices.size());
   for (size_t i = 0; i < mesh.vertices.size(); ++i)
     posed.vertices.push_back(mesh.vertices[i]);
 

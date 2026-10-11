@@ -16,19 +16,9 @@ inline void test_mesh_dissolve_masks_partition_edges() {
   constexpr int W = 96, H = 48;
   configure_arenas_default();
 
-  alignas(32) static uint8_t seed_a[24 * 1024];
-  alignas(32) static uint8_t seed_b[24 * 1024];
-  alignas(32) static uint8_t geom[16 * 1024];
-  Arena sa(seed_a, sizeof(seed_a));
-  Arena sb(seed_b, sizeof(seed_b));
-  Arena ga(geom, sizeof(geom));
-
-  MeshState mesh;
-  build_icosahedron_meshstate(sa, sb, ga, mesh);
-
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(ga, mesh.faces.size());
-  Plot::Mesh::extract_edges(mesh, edges);
+  IcosahedronEdges ico;
+  const MeshState &mesh = ico.mesh;
+  const ArenaVector<Plot::Mesh::Edge> &edges = ico.edges;
   const size_t num_edges = edges.size();
 
   Segue::Dissolve dissolve;

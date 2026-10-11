@@ -21,6 +21,36 @@ inline Arena &plot_arena() {
   return a;
 }
 
+/** @brief Seed-A backing storage for IcosahedronEdges. */
+alignas(32) inline uint8_t icosahedron_seed_a_buf[24 * 1024];
+/** @brief Seed-B backing storage for IcosahedronEdges. */
+alignas(32) inline uint8_t icosahedron_seed_b_buf[24 * 1024];
+/** @brief Geometry backing storage for IcosahedronEdges. */
+alignas(32) inline uint8_t icosahedron_geom_buf[16 * 1024];
+
+/**
+ * @brief Icosahedron MeshState with its extracted unique edges.
+ * @details Arenas wrap module-static buffers, so only one instance may be live
+ *          at a time.
+ */
+struct IcosahedronEdges {
+  Arena seed_a{icosahedron_seed_a_buf,
+               sizeof(icosahedron_seed_a_buf)}; /**< Seed scratch A. */
+  Arena seed_b{icosahedron_seed_b_buf,
+               sizeof(icosahedron_seed_b_buf)}; /**< Seed scratch B. */
+  Arena geom{icosahedron_geom_buf,
+             sizeof(icosahedron_geom_buf)}; /**< Mesh and edge storage. */
+  MeshState mesh;                           /**< Icosahedron geometry. */
+  ArenaVector<Plot::Mesh::Edge> edges;      /**< Unique edges of mesh. */
+
+  /** @brief Builds the icosahedron and extracts its edges. */
+  IcosahedronEdges() {
+    build_icosahedron_meshstate(seed_a, seed_b, geom, mesh);
+    edges.bind(geom, mesh.faces.size());
+    Plot::Mesh::extract_edges(mesh, edges);
+  }
+};
+
 /**
  * @brief Builds an orthonormal basis from a unit normal without a quaternion.
  * @param n Direction used as the basis normal; need not be pre-normalized.
