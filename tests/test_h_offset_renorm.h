@@ -53,7 +53,8 @@ inline void test_face_bounds_use_virtual_height() {
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(std::span<const math::Vector>(vertices, 3),
                    std::span<const uint16_t>(indices, 3), scratch,
-                   H + hs::H_OFFSET, H, &canvas.clip());
+                   H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
+                   SDF::BOUNDS_MARGIN);
     const SDF::Bounds actual = face.get_vertical_bounds<H>();
     const SDF::Bounds expected = SDF::phi_bounds_to_rows(
         PHI_MIN - SDF::BOUNDS_MARGIN, PHI_MAX + SDF::BOUNDS_MARGIN,
@@ -87,7 +88,7 @@ inline void test_face_rejects_only_the_virtual_south_rows() {
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(std::span<const math::Vector>(vertices, 3),
                    std::span<const uint16_t>(indices, 3), scratch,
-                   H + hs::H_OFFSET, H);
+                   H + hs::H_OFFSET, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
     const SDF::Bounds bounds = face.get_vertical_bounds<H>();
     if (virtual_only) {
       HS_EXPECT_EQ(face.count, 0);

@@ -598,9 +598,11 @@ inline void case_face_scratch_retargeted() {
   }
   static SDF::FaceScratchBuffer scratch;
   SDF::Face first(std::span<const math::Vector>(verts, 6),
-                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
+                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H, nullptr,
+                  nullptr, SDF::BOUNDS_MARGIN);
   SDF::Face second(std::span<const math::Vector>(verts, 6),
-                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
+                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H, nullptr,
+                   nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
   (void)first.get_vertical_bounds<H>();
 }
@@ -611,7 +613,8 @@ inline void case_face_virtual_height_mismatched_geometry() {
   const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const uint16_t indices[] = {0, 1, 2};
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1), H);
+  SDF::Face face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1), H,
+                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)face;
 }
 
@@ -640,9 +643,11 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   verts[3] = basis.v;
   static SDF::FaceScratchBuffer scratch;
   SDF::Face first(std::span<const math::Vector>(verts, 4),
-                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H);
+                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H, nullptr,
+                  nullptr, SDF::BOUNDS_MARGIN);
   SDF::Face second(std::span<const math::Vector>(verts, 4),
-                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H);
+                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H, nullptr,
+                   nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
   (void)first.get_vertical_bounds<H>();
 }
