@@ -391,8 +391,7 @@ private:
         int mix = (first_bits | second_bits) != 0
                       ? Pigment::quantize_mass(first_mass, mass)
                       : Pigment::FULL_MASS;
-        next[i] = static_cast<uint16_t>(first | (second << Pigment::ID_BITS) |
-                                        (mix << Pigment::MASS_SHIFT));
+        next[i] = Pigment::pack(first, second, mix);
       }
     }
     std::copy_n(next, RD_N, state.pigment);
