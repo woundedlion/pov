@@ -140,8 +140,13 @@ struct GSWhiteBox {
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
   }
+  /**
+   * @brief Compares the render stencil against the SSAA reference stencil.
+   * @return Count of non-zero reference weights compared.
+   */
   template <typename Compare>
-  static void check_render_kernel(GS &gs, Compare &&compare) {
+  static int check_render_kernel(GS &gs, Compare &&compare) {
+    int weighted = 0;
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
     using Grid = Scan::Shader::SsaaGrid<DEFAULT_W, DEFAULT_H>;
@@ -170,14 +175,23 @@ struct GSWhiteBox {
               };
             });
         for (int slot = 0; slot < 7; ++slot)
-          for (int sample = 0; sample < 4; ++sample)
+          for (int sample = 0; sample < 4; ++sample) {
+            weighted += expected[slot][sample] != 0.0f;
             compare(actual[slot][sample], expected[slot][sample]);
+          }
       }
     }
+    return weighted;
   }
+  /**
+   * @brief Compares direct lattice drawing against the rasterizer per clip.
+   * @return Fewest lit reference pixels drawn in any clip.
+   */
   template <int Width, int Height, typename Compare>
-  static void check_direct_draw(GSReactionDiffusion<Width, Height> &gs,
-                                Compare &&compare) {
+  static size_t check_direct_draw(GSReactionDiffusion<Width, Height> &gs,
+                                  Compare &&compare) {
+    constexpr Pixel SENTINEL(123, 456, 789);
+    size_t fewest_lit = SIZE_MAX;
     using TestGS = GSReactionDiffusion<Width, Height>;
     ScratchScope guard(scratch_arena_a);
     auto lattice = gs.orient_lattice();
@@ -196,7 +210,7 @@ struct GSWhiteBox {
         auto clear = [&] {
           for (int y = 0; y < Height; ++y)
             for (int x = 0; x < Width; ++x)
-              canvas(x, y) = Pixel(123, 456, 789);
+              canvas(x, y) = SENTINEL;
         };
         clear();
         auto vertex = [&](Fragment &frag) {
@@ -208,9 +222,13 @@ struct GSWhiteBox {
                                 lattice.get(), grid, x, hot1.data());
         };
         gs.rasterize_lattice(canvas, vertex, pixel);
+        size_t lit = 0;
         for (int y = 0; y < Height; ++y)
-          for (int x = 0; x < Width; ++x)
+          for (int x = 0; x < Width; ++x) {
             expected[y * Width + x] = canvas(x, y);
+            lit += canvas(x, y) != SENTINEL && !is_black(canvas(x, y));
+          }
+        fewest_lit = std::min(fewest_lit, lit);
         clear();
         gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
         for (int y = 0; y < Height; ++y)
@@ -220,6 +238,7 @@ struct GSWhiteBox {
       gs.advance_display();
     }
     gs.set_clip(0, Height, 0, Width);
+    return fewest_lit;
   }
   template <typename Compare>
   static void check_staged_reseed(GS &gs, Compare &&compare) {
@@ -928,9 +947,9 @@ inline void test_gs_dot_kernel_matches_squared_distance() {
   const auto compare = [](float actual, float expected) {
     HS_EXPECT_LE(fabsf(actual - expected), 0.001f);
   };
-  GSWhiteBox::check_render_kernel(gs, compare);
+  HS_EXPECT_GT(GSWhiteBox::check_render_kernel(gs, compare), 0);
   hs_test::run_frames(gs, 40);
-  GSWhiteBox::check_render_kernel(gs, compare);
+  HS_EXPECT_GT(GSWhiteBox::check_render_kernel(gs, compare), 0);
 }
 
 inline void test_gs_direct_draw_matches_grid() {
@@ -940,9 +959,9 @@ inline void test_gs_direct_draw_matches_grid() {
   const auto compare = [](Pixel actual, Pixel expected) {
     HS_EXPECT(actual == expected, "GS direct traversal changes clipped pixels");
   };
-  GSWhiteBox::check_direct_draw(gs, compare);
+  HS_EXPECT_GT(GSWhiteBox::check_direct_draw(gs, compare), size_t{0});
   hs_test::run_frames(gs, 40);
-  GSWhiteBox::check_direct_draw(gs, compare);
+  HS_EXPECT_GT(GSWhiteBox::check_direct_draw(gs, compare), size_t{0});
 }
 
 inline void test_gs_sparse_pigment_matches_dense() {
@@ -1288,6 +1307,7 @@ inline void test_gs_signed_coverage_and_concentration() {
     HS_EXPECT_LE(ERROR.total_channel,
                  static_cast<uint64_t>(ERROR.lit) * 3u * 125u);
   }
+  int pattern_lit = 0, fallback_lit = 0;
   for (int pattern = 0; pattern < 8; ++pattern) {
     for (int node = 0; node < GSWhiteBox::N; ++node) {
       const uint32_t HASH = static_cast<uint32_t>(node) * 2654435761u;
@@ -1299,11 +1319,15 @@ inline void test_gs_signed_coverage_and_concentration() {
     }
     const auto ERROR =
         GSWhiteBox::concentration_shader_error<DEFAULT_W, DEFAULT_H>(gs);
+    pattern_lit += ERROR.lit;
     HS_EXPECT_EQ(ERROR.coverage, 0);
     const auto FALLBACK = GSWhiteBox::concentration_shader_error<16, 8>(gs);
+    fallback_lit += FALLBACK.lit;
     HS_EXPECT_EQ(FALLBACK.max_channel, 0);
     HS_EXPECT_EQ(FALLBACK.total_channel, 0u);
   }
+  HS_EXPECT_GT(pattern_lit, 0);
+  HS_EXPECT_GT(fallback_lit, 0);
 }
 
 /** @brief Bounds nearest-pigment color fidelity against procedural and aggregate references. */
@@ -1430,6 +1454,7 @@ inline void test_gs_nearest_pigment_shader_matches_scalar_reference() {
   }
   auto error = GSWhiteBox::shared_shader_error<DEFAULT_W, DEFAULT_H>(
       gs, {.fixed_stencil = true, .center_pigment = true, .full_kernel = true});
+  HS_EXPECT_GT(error.lit, DEFAULT_W * DEFAULT_H / 100);
   HS_EXPECT_EQ(error.coverage, 0);
   HS_EXPECT_LE(error.max_channel, 2048);
 }
