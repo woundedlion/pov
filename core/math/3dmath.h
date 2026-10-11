@@ -1070,9 +1070,9 @@ __attribute__((always_inline)) constexpr Vector cross(const Vector &v1,
  */
 struct RotationMatrix {
   /// First matrix row; rotating v yields (dot(r0, v), dot(r1, v), dot(r2, v)).
-  Vector r0, r1, r2; ///< Third matrix row.
-  /** @var r1
-   *  Second matrix row. */
+  Vector r0;
+  Vector r1; ///< Second matrix row.
+  Vector r2; ///< Third matrix row.
 
   /**
    * @brief Expands a unit quaternion into its rows.
