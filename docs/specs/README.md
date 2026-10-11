@@ -2,6 +2,12 @@
 
 Every spec carries its own status banner; the lines below repeat it.
 
+## Browser contracts
+
+| Document | Status and scope |
+|---|---|
+| [browser_contract_spec.md](browser_contract_spec.md) | IMPLEMENTED. Engine-owned emitted declarations, numeric contracts and compiled segment geometry. |
+
 ## Phantasm hardware
 
 | Document | Status and scope |

@@ -611,7 +611,7 @@ jobs:
         run: |
           cmake --build --preset wasm-release-install
           dd="${{ runner.temp }}/daydream-install"
-          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json shader/composed_effect_roster.mjs shader/shader_workbench.mjs shader/sha256.mjs shader/engine_catalog.json; do
+          for f in holosphere_wasm.wasm holosphere_wasm.js holosphere_wasm.d.ts holosphere_bindings.d.ts engine_types.d.ts engine_contract.mjs segment_geometry.js segment_geometry.d.ts holosphere_wasm.sha holosphere_wasm.wasm.sha256 holosphere_wasm.toolchain pov_segment_map.json shader/composed_effect_roster.mjs shader/shader_workbench.mjs shader/sha256.mjs shader/engine_catalog.json; do
             if [ ! -f "$dd/generated/$f" ]; then
               echo "::error::install did not produce $f — a consumer in the daydream checkout depends on it"
               exit 1
@@ -670,7 +670,7 @@ jobs:
           bundle="${{ runner.temp }}/holosphere-engine"
           mkdir -p "$bundle/generated"
           cp "$dd/generated"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
-            "$dd/generated/pov_segment_map.json" "$bundle/generated/"
+            "$dd/generated/pov_segment_map.json" "$dd/generated/"{holosphere_wasm.d.ts,holosphere_bindings.d.ts,engine_types.d.ts,engine_contract.mjs,segment_geometry.js,segment_geometry.d.ts} "$bundle/generated/"
           mkdir -p "$bundle/generated/shader/patterns"
           cp "$dd/generated/shader/"{composed_effect_roster.mjs,shader_workbench.mjs,sha256.mjs,engine_catalog.json} "$bundle/generated/shader/"
           find "$dd/generated/shader/patterns" -maxdepth 1 -type f \

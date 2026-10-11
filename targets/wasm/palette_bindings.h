@@ -13,6 +13,8 @@
  */
 #pragma once
 
+#include "targets/wasm/ts_types.h"
+
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -53,7 +55,7 @@ struct PaletteOps {
    *         canonicalRecipe, lut}. See compile() for the memory-view contract
    *         the lut view rides on.
    */
-  emscripten::val compileAndBakeV4(const emscripten::val &input) {
+  PaletteResultValue compileAndBakeV4(const ObjectValue &input) {
     return compile(input, false);
   }
 
@@ -64,7 +66,7 @@ struct PaletteOps {
    *         h_path, h_final}) and fallback (one gamut-mapping flag per sample),
    *         under the same memory-view contract.
    */
-  emscripten::val inspectV4(const emscripten::val &input) {
+  PaletteResultValue inspectV4(const ObjectValue &input) {
     return compile(input, true);
   }
 
@@ -73,7 +75,7 @@ struct PaletteOps {
    * @return JS array of {name, randomHue, recipe}, each recipe in the schema
    *         compileAndBakeV4() and inspectV4() accept.
    */
-  emscripten::val effectPresetsV4() {
+  PalettePresetsValue effectPresetsV4() {
     emscripten::val output = emscripten::val::array();
     int index = 0;
     for (const auto &preset : EffectPaletteRecipes::presets()) {
