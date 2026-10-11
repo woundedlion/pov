@@ -511,10 +511,10 @@ inline void test_pullback_placement_transparency() {
   // leaves, validation and output; only the execution-node view differs.
   static_assert(TestPipeline::STAGE_COUNT == 6);
   static_assert(GroupedPipeline::STAGE_COUNT == 6);
-  static_assert(std::is_same_v<GroupedPipeline::stage_at<1>, CrossingStage>);
-  static_assert(std::is_same_v<GroupedPipeline::stage_at<2>, PlaneStage>);
+  static_assert(std::is_same_v<GroupedPipeline::StageAt<1>, CrossingStage>);
+  static_assert(std::is_same_v<GroupedPipeline::StageAt<2>, PlaneStage>);
   static_assert(
-      std::is_same_v<TestPipeline::stage_at<5>, GroupedPipeline::stage_at<5>>);
+      std::is_same_v<TestPipeline::StageAt<5>, GroupedPipeline::StageAt<5>>);
   static_assert(TestPipeline::NODE_COUNT == 6);
   static_assert(GroupedPipeline::NODE_COUNT == 5);
   static_assert(GroupedPipeline::Validation::MONOTONE);
@@ -630,14 +630,14 @@ template <typename Stage> struct NoStageMatches {
 inline void test_pullback_public_surface() {
   static_assert(std::is_same_v<TestPipeline::Binding, TestBinding>);
   static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
-  static_assert(std::is_same_v<TestPipeline::stage_at<0>, EntryStage>);
-  static_assert(std::is_same_v<TestPipeline::stage_at<5>, ColorCrossingStage>);
+  static_assert(std::is_same_v<TestPipeline::StageAt<0>, EntryStage>);
+  static_assert(std::is_same_v<TestPipeline::StageAt<5>, ColorCrossingStage>);
   static_assert(TestPipeline::any_stage<IsCrossingStage>);
   static_assert(!TestPipeline::any_stage<NoStageMatches>);
-  static_assert(std::is_same_v<TestPipeline::stage_matching<IsColorStage>,
+  static_assert(std::is_same_v<TestPipeline::StageMatching<IsColorStage>,
                                ColorCrossingStage>);
   static_assert(
-      std::is_same_v<TestPipeline::stage_matching<NoStageMatches>, void>);
+      std::is_same_v<TestPipeline::StageMatching<NoStageMatches>, void>);
   static_assert(
       Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_FLASH,
                               CrossingStage>::EMISSION ==
