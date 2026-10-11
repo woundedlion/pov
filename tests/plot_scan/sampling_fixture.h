@@ -76,6 +76,30 @@ inline math::Vector disk_point(const math::Basis &basis, float colat,
   return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
 }
 
+/** @brief Unit-sphere point at a colatitude from +Y and a longitude from +X. */
+inline math::Vector sphere_point(float colatitude, float longitude) {
+  const float radial = sinf(colatitude);
+  return math::Vector(radial * cosf(longitude), cosf(colatitude),
+                      radial * sinf(longitude))
+      .normalized();
+}
+
+/**
+ * @brief Steps a random walk along a random great circle through @p from.
+ * @param from Current unit position.
+ * @param lo Smallest hop angle (radians).
+ * @param hi Largest hop angle (radians).
+ * @return The hopped unit position, or @p from when the drawn direction is
+ *         near-parallel to it (no hop angle is drawn then).
+ */
+inline math::Vector random_hop(const math::Vector &from, float lo, float hi) {
+  const math::Vector step = math::cross(from, rand_unit());
+  if (step.length() < 0.05f)
+    return from;
+  const float hop = hs::rand_f(lo, hi);
+  return (from * cosf(hop) + step.normalized() * sinf(hop)).normalized();
+}
+
 /** @brief Random planar disk edge with the cull sweep's angular limits. */
 inline void random_disk_edge(const math::Basis &basis, math::Vector &a,
                              math::Vector &b) {

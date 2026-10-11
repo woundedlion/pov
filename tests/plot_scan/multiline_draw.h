@@ -71,10 +71,7 @@ inline void test_multiline_draw_covers_only_its_geodesic_edges() {
 
   // Every control point is reached, so no edge was skipped.
   for (const math::Vector &c : control) {
-    float nearest = math::PI_F;
-    for (const math::Vector &p : pipe.plotted)
-      nearest = std::min(nearest, math::angle_between(p, c));
-    HS_EXPECT_LT(nearest, row);
+    HS_EXPECT_LT(nearest_angle(c, pipe.plotted), row);
   }
 
   // Consecutive samples in the open walk stay within a row.

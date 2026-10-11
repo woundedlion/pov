@@ -167,10 +167,7 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   HS_EXPECT_LE(single.plotted.size(), cached.plotted.size() + 2);
   HS_EXPECT_GE(single.plotted.size() + 2, cached.plotted.size());
   for (const math::Vector &p : single.plotted) {
-    float nearest = math::PI_F;
-    for (const math::Vector &q : cached.plotted)
-      nearest = std::min(nearest, math::angle_between(p, q));
-    HS_EXPECT_LE(nearest, base_step);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), base_step);
   }
 }
 
@@ -225,10 +222,7 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   const math::Vector seam_delta = single.plotted.back() - points[0].pos;
   HS_EXPECT_GT(math::dot(seam_delta, seam_delta), 1e-10f);
   for (const math::Vector &p : single.plotted) {
-    float nearest = math::PI_F;
-    for (const math::Vector &q : cached.plotted)
-      nearest = std::min(nearest, math::angle_between(p, q));
-    HS_EXPECT_LE(nearest, base_step);
+    HS_EXPECT_LE(nearest_angle(p, cached.plotted), base_step);
   }
 }
 
@@ -655,12 +649,6 @@ inline void test_rasterize_balanced_high_alpha_saturates() {
   constexpr int W = 128, H = 64;
   constexpr float BASE_STEP = 2.0f * math::PI_F / W;
   constexpr float ALPHA = 0.95f;
-  auto sphere_point = [](float colatitude, float longitude) {
-    const float radial = sinf(colatitude);
-    return math::Vector(radial * cosf(longitude), cosf(colatitude),
-                        radial * sinf(longitude))
-        .normalized();
-  };
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
@@ -918,12 +906,6 @@ inline void test_rasterize_single_pass_geodesic_endpoints_and_omit_end() {
 /** @brief Single-pass geodesics remain gap-free at poles, seams, and long arcs. */
 inline void test_rasterize_single_pass_geodesic_stress_arcs_are_gap_free() {
   constexpr int W = 128, H = 64;
-  auto sphere_point = [](float colatitude, float longitude) {
-    const float radial = sinf(colatitude);
-    return math::Vector(radial * cosf(longitude), cosf(colatitude),
-                        radial * sinf(longitude))
-        .normalized();
-  };
   const std::array<std::pair<math::Vector, math::Vector>, 6> arcs = {{
       {math::Vector(0, 1, 0), sphere_point(0.9f, 1.1f)},
       {sphere_point(math::PI_F - 0.8f, -0.7f), math::Vector(0, -1, 0)},
