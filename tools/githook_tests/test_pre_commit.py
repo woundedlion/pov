@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "pre-commit"
@@ -50,9 +50,7 @@ class PreCommitHook(unittest.TestCase):
         self.git("commit", "--quiet", "-m", "base")
 
     def git(self, *args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", *args], cwd=self.repo, env=self.env,
-            capture_output=True, text=True, check=True)
+        return git_run(self.repo, *args, env=self.env)
 
     def run_hook(self, **extra: str) -> subprocess.CompletedProcess[str]:
         env = dict(self.env, GIT_DIR=str(self.repo / ".git"),

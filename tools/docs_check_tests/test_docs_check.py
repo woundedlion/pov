@@ -13,6 +13,7 @@ sys.path.insert(0, str(TOOLS))
 
 import build_pins  # noqa: E402
 import docs_check as dc  # noqa: E402
+from git_test_env import git_run  # noqa: E402
 
 
 class TestDocumentationChecker(unittest.TestCase):
@@ -64,8 +65,7 @@ class TestDocumentationChecker(unittest.TestCase):
             checkout = Path(directory, "daydream").resolve()
 
             def git(root, *args):
-                return subprocess.check_output(["git", "-C", str(root), *args],
-                                               text=True).strip()
+                return git_run(root, *args).stdout.strip()
 
             for root in (engine, checkout):
                 root.mkdir()
