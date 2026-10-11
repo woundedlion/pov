@@ -950,6 +950,9 @@ inline const Case *all_cases(int &n) {
            "targets/wasm/param_marshal.h",
            "(count <= ParamStreams::CAPACITY) effect exposes 257 params, past the "
            "256 reserved"},
+          {"parameter_group_empty_registry",
+           case_parameter_group_empty_registry, "core/control/param_host.h",
+           "(parameters.count > 0) parameter group requires a registered parameter"},
           {"register_param_duplicate", case_register_param_duplicate,
            "core/control/param_host.h",
            "(parameters.find(name) == nullptr) register_param: duplicate parameter name name=duplicate"},
@@ -2270,6 +2273,8 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
  */
 inline int run_death_tests() {
   hs_test::ModuleFixture fixture("death");
+
+  test_parameter_group_registered_companion();
 
   if (!self_exe() || self_exe()[0] == '\0') {
     report_unrunnable("no argv[0] to re-exec", 0);
