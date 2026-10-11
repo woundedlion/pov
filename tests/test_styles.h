@@ -17,30 +17,32 @@ namespace styles_tests {
 
 // --- Named presets ----------------------------------------------------------
 
+struct PresetCase {
+  Feedback::Style style;
+  Feedback::SpaceFn space;
+  float frame_shift;
+};
+inline const PresetCase PRESETS[] = {
+    {Feedback::Style::ArcingLightning(), &Feedback::noise_warp, 0.1f},
+    {Feedback::Style::SlowFire(), &Feedback::noise_warp, 0.0167f},
+    {Feedback::Style::EnergeticFire(), &Feedback::noise_warp, 0.0167f},
+    {Feedback::Style::SlowDust(), &Feedback::noise_warp, 0.0167f},
+    {Feedback::Style::WavyTrails(), &Feedback::noise_warp, 0.0722f},
+    {Feedback::Style::MeltingHi(), &Feedback::melt_warp, 0.1f},
+    {Feedback::Style::MeltingLo(), &Feedback::melt_warp, 0.1f},
+    {Feedback::Style::Miasma(), &Feedback::noise_warp, 0.05050779f},
+    {Feedback::Style::LooseWormhole(), &Feedback::noise_warp, 0.07220009f},
+    {Feedback::Style::TightWormhole(), &Feedback::noise_warp, 0.07220009f},
+    {Feedback::Style::WigglingWormhole(), &Feedback::noise_warp, 0.07220009f},
+    {Feedback::Style::Smoke(), &Feedback::noise_warp, 0.01f},
+};
+
 /**
  * @brief Verifies preset parameter domains and their space/color transforms.
  */
 inline void test_named_presets() {
-  struct PresetCase {
-    Feedback::Style style;
-    Feedback::SpaceFn space;
-  };
-  const PresetCase presets[] = {
-      {Feedback::Style::ArcingLightning(), &Feedback::noise_warp},
-      {Feedback::Style::SlowFire(), &Feedback::noise_warp},
-      {Feedback::Style::EnergeticFire(), &Feedback::noise_warp},
-      {Feedback::Style::SlowDust(), &Feedback::noise_warp},
-      {Feedback::Style::WavyTrails(), &Feedback::noise_warp},
-      {Feedback::Style::MeltingHi(), &Feedback::melt_warp},
-      {Feedback::Style::MeltingLo(), &Feedback::melt_warp},
-      {Feedback::Style::Miasma(), &Feedback::noise_warp},
-      {Feedback::Style::LooseWormhole(), &Feedback::noise_warp},
-      {Feedback::Style::TightWormhole(), &Feedback::noise_warp},
-      {Feedback::Style::WigglingWormhole(), &Feedback::noise_warp},
-      {Feedback::Style::Smoke(), &Feedback::noise_warp},
-  };
-  for (size_t index = 0; index < std::size(presets); ++index) {
-    const auto &style = presets[index].style;
+  for (size_t index = 0; index < std::size(PRESETS); ++index) {
+    const auto &style = PRESETS[index].style;
     HS_CONTEXT("style", static_cast<long long>(index));
     HS_EXPECT_TRUE(std::isfinite(style.fade) && style.fade >= 0.0f &&
                    style.fade <= 1.0f);
@@ -50,7 +52,7 @@ inline void test_named_presets() {
     HS_EXPECT_TRUE(std::isfinite(style.speed));
     HS_EXPECT_TRUE(std::isfinite(style.scale) && style.scale > 0.0f);
     HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
-    HS_EXPECT_TRUE(style.space_fn == presets[index].space);
+    HS_EXPECT_TRUE(style.space_fn == PRESETS[index].space);
   }
 }
 
@@ -59,25 +61,7 @@ inline void test_named_presets() {
  * @details Recovers the angle from sync_hue()'s cached cos/sin.
  */
 inline void test_named_presets_preserve_frame_hue() {
-  struct Case {
-    Feedback::Style style;
-    float frame_shift;
-  };
-  const Case cases[] = {
-      {Feedback::Style::ArcingLightning(), 0.1f},
-      {Feedback::Style::SlowFire(), 0.0167f},
-      {Feedback::Style::EnergeticFire(), 0.0167f},
-      {Feedback::Style::Smoke(), 0.01f},
-      {Feedback::Style::SlowDust(), 0.0167f},
-      {Feedback::Style::WavyTrails(), 0.0722f},
-      {Feedback::Style::MeltingHi(), 0.1f},
-      {Feedback::Style::MeltingLo(), 0.1f},
-      {Feedback::Style::Miasma(), 0.05050779f},
-      {Feedback::Style::LooseWormhole(), 0.07220009f},
-      {Feedback::Style::TightWormhole(), 0.07220009f},
-      {Feedback::Style::WigglingWormhole(), 0.07220009f},
-  };
-  for (const Case &c : cases) {
+  for (const PresetCase &c : PRESETS) {
     Feedback::Style s = c.style;
     s.sync_hue();
     // The cached angle comes from fast trig.
