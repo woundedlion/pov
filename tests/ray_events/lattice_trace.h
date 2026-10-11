@@ -188,6 +188,32 @@ inline void test_octet_preparation_matches_world_events() {
   HS_EXPECT_GT(lit, 10);
 }
 
+/** @brief Octet preparation reduces distant 4D centres by lattice symmetry. */
+inline void test_octet_distant_center_periodicity() {
+  namespace Trace = SDF::LatticeTrace;
+  alignas(std::max_align_t) uint8_t storage[4096];
+  Arena arena(storage, sizeof(storage));
+  BakedPaletteStorage palette;
+  palette.bake(arena, DepthPalette{});
+  Trace::CrossingStorage crossings;
+  Trace::Settings settings;
+  settings.palette = &palette.view();
+  settings.crossings = &crossings;
+  settings.domain = Raycast::SamplingDomain::SLICE_4D;
+  settings.cell_size = std::nextafter(1.0f / SDF::OctetFramework4::HALF_CUBE,
+                                      std::numeric_limits<float>::infinity());
+  settings.center = {{32768.25f, -65536.5f, 98304.75f, -131072.0f}};
+  const auto distant = Trace::prepare(settings);
+  settings.center = {{.25f, -.5f, .75f, 0.0f}};
+  const auto local = Trace::prepare(settings);
+  HS_EXPECT_TRUE(distant.valid);
+  for (int i = 0; i < 4; ++i) {
+    HS_EXPECT_NEAR(distant.octet4_projection.origin[i],
+                   local.octet4_projection.origin[i], 1e-6f);
+    HS_EXPECT_TRUE(std::abs(distant.octet4_projection.origin[i]) < 2.0f);
+  }
+}
+
 /**
  * @brief Runs the lattice trace cases.
  * @details Also checks prepare() validation per geometry: a non-positive or
@@ -222,4 +248,5 @@ inline void run_lattice_trace_cases() {
   }
   test_cubic_compositor_matches_event_shading();
   test_octet_preparation_matches_world_events();
+  test_octet_distant_center_periodicity();
 }
