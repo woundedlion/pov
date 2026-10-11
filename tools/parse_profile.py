@@ -86,9 +86,9 @@ MSP_RENDER_FIELDS = ("one_dot", "long", "adaptive", "shader", "pal_end",
                      "pal_lerp", "hole_early")
 MSP_AA_RE = re.compile(
     r"^(?:msp|plot render) counts aa: tap0=(\d+) tap1=(\d+) tap2=(\d+) tap3=(\d+) "
-    r"tap4=(\d+) interior=(\d+) boundary=(\d+)\s*$")
+    r"tap4=(\d+) interior=(\d+) boundary=(\d+)(?: integer=(\d+))?\s*$")
 MSP_AA_FIELDS = ("tap0", "tap1", "tap2", "tap3", "tap4", "interior",
-                 "boundary")
+                 "boundary", "integer")
 MSP_STALL_RE = re.compile(
     r"^(?:msp|plot) stall: stage=(\S+) batches=(\d+) cyc=(\d+) cpi=(\d+) lsu=(\d+) "
     r"exc=(\d+)\s*$")
@@ -279,7 +279,7 @@ def parse_capture(path):
                 if m and cur:
                     cur.msp_counts = dict(cur.msp_counts or {})
                     cur.msp_counts.update(zip(fields,
-                                              (int(g) for g in m.groups())))
+                                              (int(g) if g is not None else 0 for g in m.groups())))
                     matched_msp_counts = True
                     break
             if matched_msp_counts:

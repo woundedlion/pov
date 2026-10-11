@@ -137,7 +137,8 @@ struct PlotRenderCounts {
   uint32_t exact_gate_fallbacks = 0;    /**< Exact visibility fallbacks. */
   uint32_t fragment_shader_calls = 0;   /**< Fragment-shader invocations. */
   uint32_t aa_tap_masks[5]{};           /**< AA masks by populated tap count. */
-  uint32_t interior_splats = 0;         /**< Splats wholly inside the clip. */
+  uint32_t integer_plots = 0;   /**< Integer-coordinate single-tap plots. */
+  uint32_t interior_splats = 0; /**< Splats wholly inside the clip. */
   uint32_t clip_boundary_splats = 0; /**< Splats crossing the clip boundary. */
   uint32_t palette_endpoints = 0;    /**< Endpoint palette samples. */
   uint32_t palette_interpolated = 0; /**< Interpolated palette samples. */

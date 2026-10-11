@@ -161,7 +161,28 @@ public:
    */
   void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
             float alpha) {
-    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
+    if (y < 0 || y >= H) {
+      plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
+      return;
+    }
+    assert(age >= 0.0f && alpha >= 0.0f);
+    assert(x >= -W && x < 2 * W);
+    HS_AUDIT_CHECK(
+        prepared_for(cv),
+        "DirectAntiAliasSink: prepare current canvas before plotting");
+    (void)age;
+    (void)cv;
+    const int COLUMN = math::fast_wrap(x, W);
+    const bool VISIBLE = x_visible[COLUMN] && y_visible[y];
+    HS_PLOT_RENDER_COUNT(integer_plots);
+#ifdef HS_PROFILE_PLOT_RENDER_COUNTS
+    ++hs::g_plot_render_counts.aa_tap_masks[VISIBLE ? 1 : 0];
+#endif
+    if (VISIBLE) {
+      HS_PLOT_STALL_START(blend_start);
+      blend_tap(base + y * W + COLUMN, c, tap_alpha_q16(alpha, 1.0f));
+      HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
+    }
   }
 
   /**
