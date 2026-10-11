@@ -18,6 +18,17 @@
 namespace pov {
 
 /**
+ * @brief Whether @p effect renders only its segment_clip() rectangle.
+ * @param effect Effect whose needs_full_frame() and persists_pixels() gate the
+ *        clip.
+ * @return False when the effect reads cross-segment or prior-frame state.
+ */
+inline bool segment_clip_applies(const Effect &effect) {
+  return segment_clip_applies(effect.needs_full_frame(),
+                              effect.persists_pixels());
+}
+
+/**
  * @brief Selects the arm-A half for the window after the open one.
  * @param window_left True when the current window sweeps arm A's left half.
  * @return True when the queued frame will sweep arm A's left half.
@@ -54,8 +65,7 @@ inline void preserve_segment_half(Canvas &canvas) {
  */
 inline void prime_segment_frame(Effect &effect, const SegmentClip &initial_clip,
                                 Effect::BufferReadyHook prepare) {
-  const bool CLIPPED =
-      segment_clip_applies(effect.needs_full_frame(), effect.persists_pixels());
+  const bool CLIPPED = segment_clip_applies(effect);
   if (CLIPPED)
     effect.set_clip(initial_clip.y0, initial_clip.y1, initial_clip.x0,
                     initial_clip.x1);

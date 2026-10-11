@@ -19,7 +19,7 @@
 #include "targets/effects.h"
 #include "core/control/registry.h"
 #include "core/platform/platform.h"
-#include "hardware/pov_segment_map.h"
+#include "hardware/pov_segment_frame.h"
 #include "targets/wasm/arena_metrics.h"
 #include "targets/wasm/workbench_bindings.h"
 #include "targets/wasm/effect_factory.h"
@@ -377,8 +377,7 @@ public:
       return ClipSetResult::INVALID_BOUNDS;
     }
     // A band-clipped stateful effect has stale cv.prev outside its band.
-    if (!pov::segment_clip_applies(current_effect->needs_full_frame(),
-                                   current_effect->persists_pixels()))
+    if (!pov::segment_clip_applies(*current_effect))
       return ClipSetResult::FULL_FRAME_KEPT;
     current_effect->set_clip(static_cast<int>(y0), static_cast<int>(y1),
                              static_cast<int>(x0), static_cast<int>(x1));
