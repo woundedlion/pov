@@ -46,8 +46,7 @@ inline uint8_t cc_bank_buf[64 * 1024];  /**< Baked palette LUT arena. */
 
 /** Applies HankinSolids' shipping arena split for the enclosing scope. The
  * split is canvas-independent; the instantiation only names it. */
-[[nodiscard]] inline conway_morph_tests::ScopedArenaSplit
-configure_hankin_split() {
+[[nodiscard]] inline ScopedArenaSplit configure_hankin_split() {
   using Fx = HankinSolids<96, 20>;
   const ArenaSplit split{Fx::SCRATCH_A_BYTES, Fx::SCRATCH_B_BYTES};
   return {split.persistent(GLOBAL_ARENA_SIZE), split.scratch_a,
