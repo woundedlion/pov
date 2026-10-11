@@ -387,11 +387,11 @@ inline void test_mesh_edge_gate_pixel_parity() {
         if (!clip.contains_x(x) || !clip.contains_y(y))
           continue;
         const Pixel &expected = ref[static_cast<size_t>(y) * W + x];
-        if ((expected.r | expected.g | expected.b) == 0)
+        if (is_black(expected))
           continue;
         const Pixel &actual = fx.get_pixel(x, y);
         HS_CONTEXT("mesh endpoint", edge.u, edge.v);
-        HS_EXPECT_TRUE((actual.r | actual.g | actual.b) != 0);
+        HS_EXPECT_TRUE(!is_black(actual));
       }
       const RenderBandDiff diff = render_band_diff<W>(fx, ref);
       expect_render_band_parity("mesh edge gate", diff);
@@ -1189,13 +1189,8 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
         render(fx, false);
         fx.advance_display();
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x) {
-            const Pixel p = fx.get_pixel(x, y);
-            ref[static_cast<size_t>(y) * W + x] = p;
-            if (p.r | p.g | p.b)
-              ++lit_total;
-          }
+        hs_test::capture_frame<W, H>(fx, ref);
+        lit_total += static_cast<int>(count_lit_region<W, H>(fx));
       }
       {
         hs_test::StubEffect fx(W, H);
@@ -1205,9 +1200,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
         int diff = 0;
         for (int y = 0; y < H; ++y)
           for (int x = 0; x < W; ++x) {
-            const Pixel p = fx.get_pixel(x, y);
-            const Pixel &r = ref[static_cast<size_t>(y) * W + x];
-            if (p.r != r.r || p.g != r.g || p.b != r.b)
+            if (fx.get_pixel(x, y) != ref[static_cast<size_t>(y) * W + x])
               ++diff;
           }
         HS_EXPECT_EQ(diff, 0);

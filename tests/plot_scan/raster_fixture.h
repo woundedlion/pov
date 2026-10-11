@@ -175,7 +175,7 @@ inline RenderBandDiff render_band_diff(const hs_test::StubEffect &fx,
       const bool in_display_row = y >= clip.y_start && y < clip.y_end;
       const bool in_display =
           in_display_row && x >= clip.x_start && x < clip.x_end;
-      const bool lit = (expected.r | expected.g | expected.b) != 0;
+      const bool lit = !is_black(expected);
       out.lit += lit;
       out.margin_lit += !in_display && lit;
       out.row_margin_lit += !in_display_row && lit;
