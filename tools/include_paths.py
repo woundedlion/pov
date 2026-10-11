@@ -25,7 +25,11 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
         if name.startswith("core/vendor/") and name != CONFIG_HEADER:
             continue
         path = root / name
-        text = path.read_text(encoding="utf-8")
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            diagnostics.append(f"{name}:1: cannot read source ({exc})")
+            continue
         text = COMMENTS.sub(lambda match: "\n" * match.group().count("\n"), text)
         for match in INCLUDE.finditer(text):
             include = match.group(1)
