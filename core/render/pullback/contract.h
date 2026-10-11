@@ -736,10 +736,10 @@ struct BoundPlacedBase {
   static constexpr size_t CHILD_COUNT = sizeof...(Children);
   /// Bound child at `Index`.
   template <size_t Index>
-  using child_at = std::tuple_element_t<Index, BoundTuple>;
-  using Input = typename child_at<0>::Input; ///< First child's input.
+  using ChildAt = std::tuple_element_t<Index, BoundTuple>;
+  using Input = typename ChildAt<0>::Input; ///< First child's input.
   /// Last child's output.
-  using Output = typename child_at<CHILD_COUNT - 1>::Output;
+  using Output = typename ChildAt<CHILD_COUNT - 1>::Output;
   using FrameState = typename Binding::FrameState; ///< Binding's frame state.
   /** Nested per placement node: an out-of-line call receives one contiguous
       prepared sub-tuple. */
@@ -765,7 +765,7 @@ protected:
   __attribute__((always_inline)) static Output
   run_children(const In &input, const FrameState &frame,
                const Prepared &prepared) {
-    using Current = child_at<Index>;
+    using Current = ChildAt<Index>;
     static_assert(std::is_same_v<In, typename Current::Input>,
                   "pullback pipeline: stage input mismatch");
     const typename Current::Output output =
@@ -1269,7 +1269,7 @@ struct PipelineCore<true, Binding, TypeList<Nodes...>> {
  * list. `void` entries and empty placement groups vanish. The chain must be
  * non-decreasing in family rank, adjacent carriers must agree, the first stage
  * consumes SphereSample and the last produces Color4. Leaf indices
- * (STAGE_COUNT, stage_at) and execution-node indices are distinct.
+ * (STAGE_COUNT, StageAt) and execution-node indices are distinct.
  */
 template <typename BindingT, typename... Entries> struct Pipeline {
   using Binding = BindingT; ///< The pipeline binding.
@@ -1333,7 +1333,7 @@ template <typename BindingT, typename... Entries> struct Pipeline {
   static constexpr size_t STAGE_COUNT = Validation::LEAF_COUNT;
   /// Leaf stage descriptor at `Index`.
   template <size_t Index>
-  using stage_at = typename Detail::TypeAt<Index, LeafList>::Type;
+  using StageAt = typename Detail::TypeAt<Index, LeafList>::Type;
 
 private:
   static constexpr bool CORE_VALID = Validation::NONEMPTY &&
@@ -1345,7 +1345,7 @@ public:
   /** Execution view: prepare and run recurse over placement nodes. */
   static constexpr size_t NODE_COUNT = Core::NODE_COUNT;
   /// Bound execution node at `Index`.
-  template <size_t Index> using node_at = typename Core::template NodeAt<Index>;
+  template <size_t Index> using NodeAt = typename Core::template NodeAt<Index>;
 
   /** Per-node prepared state, nested per placement group. */
   using PreparedTuple = typename Core::PreparedTuple;
@@ -1445,7 +1445,7 @@ public:
 
   /** @brief The first leaf stage satisfying @p Predicate, or void. */
   template <template <typename> class Predicate>
-  using stage_matching =
+  using StageMatching =
       typename Detail::LeafOps<LeafList>::template Matching<Predicate>;
 };
 
