@@ -1722,13 +1722,8 @@ inline void test_strap_open_fade() {
   std::vector<Pixel> bookend, full, faded;
   int arrival = 0;
   for (; arrival < MAX_ARRIVALS; ++arrival) {
-    const int prev_node = Probe::node(fx);
-    int guard = 0;
-    while (Probe::node(fx) == prev_node && guard++ < 400) {
-      fx.draw_frame();
-      fx.advance_display();
-    }
-    HS_EXPECT_NE(Probe::node(fx), prev_node);
+    if (!Probe::advance_to_arrival(fx))
+      return;
 
     fade = Probe::shape_weights(fx, 1).strap_open;
     capture_opening(fx, 0.0f, 1.0f, bookend); // straps zero-area
@@ -1779,13 +1774,8 @@ inline void test_strap_close_dissolve() {
   HankinSolids<W, H> fx;
   fx.init();
 
-  int prev_node = Probe::node(fx);
-  int guard = 0;
-  while (Probe::node(fx) == prev_node && guard++ < 400) {
-    fx.draw_frame();
-    fx.advance_display();
-  }
-  HS_EXPECT_NE(Probe::node(fx), prev_node);
+  if (!Probe::advance_to_arrival(fx))
+    return;
 
   // Frame adjacent to the closing bookend: the sweep is a full sine period, so
   // it samples the same angle as the opening's first strap frame.
@@ -1826,13 +1816,8 @@ inline void test_star_midpoint_dissolve() {
   HankinSolids<W, H> fx;
   fx.init();
 
-  int prev_node = Probe::node(fx);
-  int guard = 0;
-  while (Probe::node(fx) == prev_node && guard++ < 400) {
-    fx.draw_frame();
-    fx.advance_display();
-  }
-  HS_EXPECT_NE(Probe::node(fx), prev_node);
+  if (!Probe::advance_to_arrival(fx))
+    return;
 
   // Drive on until a node whose rosettes carry a different palette from the
   // star hosting them; the mod-NUM_PALETTES wrap can alias the two.
@@ -1846,12 +1831,8 @@ inline void test_star_midpoint_dissolve() {
   };
   int hops = 0;
   while (!has_distinct_rim() && hops++ < 40) {
-    const int at = Probe::node(fx);
-    int spin = 0;
-    while (Probe::node(fx) == at && spin++ < 400) {
-      fx.draw_frame();
-      fx.advance_display();
-    }
+    if (!Probe::advance_to_arrival(fx))
+      return;
   }
   HS_EXPECT_TRUE(has_distinct_rim());
 

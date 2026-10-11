@@ -62,6 +62,17 @@ namespace conway_soak_tests {
  * @brief White-box accessor for HankinSolids' graph-walk state.
  */
 struct HankinWalkProbe {
+  template <int W, int H>
+  static bool advance_to_arrival(HankinSolids<W, H> &fx, int limit = 400) {
+    const int before = node(fx);
+    for (int frame = 0; frame < limit && node(fx) == before; ++frame) {
+      fx.draw_frame();
+      fx.advance_display();
+    }
+    HS_EXPECT_NE(node(fx), before);
+    return node(fx) != before;
+  }
+
   /** @brief Builds a clean endpoint mesh from the held seed. */
   static PolyMesh node_mesh_at(const ConwayGraph::EdgeSpec &edge, bool to_end,
                                const PolyMesh &seed, Arena &a, Arena &b) {
