@@ -21,38 +21,38 @@
  */
 static inline std::pair<float, float>
 azimuthal_project(const math::Vector &p, const math::Basis &basis) {
-  float R = math::angle_between(p, basis.v);
-  if (R < math::EPS_GEOMETRIC)
+  float radius = math::angle_between(p, basis.v);
+  if (radius < math::EPS_GEOMETRIC)
     return {0.0f, 0.0f};
   float theta = math::fast_atan2(math::dot(p, basis.w), math::dot(p, basis.u));
-  return {R * math::fast_cosf(theta), R * math::fast_sinf(theta)};
+  return {radius * math::fast_cosf(theta), radius * math::fast_sinf(theta)};
 }
 
 /**
  * @brief Inverse azimuthal-equidistant projection from the plane to the sphere.
- * @param Px Plane x-coordinate (azimuthal-equidistant).
- * @param Py Plane y-coordinate (azimuthal-equidistant).
+ * @param px Plane x-coordinate (azimuthal-equidistant).
+ * @param py Plane y-coordinate (azimuthal-equidistant).
  * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
- * @return Near-unit point from fast trig at chart radius sqrt(Px²+Py²).
+ * @return Near-unit point from fast trig at chart radius sqrt(px²+py²).
  * @details Up to approximation error, the radius is the great-circle angle
  * only through PI; larger radii fold around the sphere.
  */
-static inline math::Vector azimuthal_unproject(float Px, float Py,
+static inline math::Vector azimuthal_unproject(float px, float py,
                                                const math::Basis &basis) {
   HS_PLOT_COUNT(planar_unprojects);
-  float R = sqrtf(Px * Px + Py * Py);
-  if (R < math::EPS_GEOMETRIC)
+  float radius = sqrtf(px * px + py * py);
+  if (radius < math::EPS_GEOMETRIC)
     return basis.v;
   float sin_r;
   float cos_r;
-  if (R <= math::PI_F) {
-    math::fast_sincosf_0_pi(R, sin_r, cos_r);
+  if (radius <= math::PI_F) {
+    math::fast_sincosf_0_pi(radius, sin_r, cos_r);
   } else {
-    sin_r = math::fast_sinf(R);
-    cos_r = math::fast_cosf(R);
+    sin_r = math::fast_sinf(radius);
+    cos_r = math::fast_cosf(radius);
   }
-  const math::Vector radial = (basis.u * Px) + (basis.w * Py);
-  return (basis.v * cos_r) + (radial * (sin_r / R));
+  const math::Vector radial = (basis.u * px) + (basis.w * py);
+  return (basis.v * cos_r) + (radial * (sin_r / radius));
 }
 
 /**
@@ -492,8 +492,8 @@ static_assert(PLANAR_SPAN_SAMPLES == 2 * PLANAR_LEN_SAMPLES);
  */
 struct PlanarEdgeSpan {
   std::pair<float, float> p1; /**< Projection of the edge start. */
-  float dX;                   /**< Projected chord x-component. */
-  float dY;                   /**< Projected chord y-component. */
+  float dx;                   /**< Projected chord x-component. */
+  float dy;                   /**< Projected chord y-component. */
   float gap_arc;              /**< Bound on each inter-sample arc length. */
   /** Unprojected interior chart samples, endpoints excluded. */
   std::array<math::Vector, PLANAR_SPAN_SAMPLES - 1> interior;
@@ -512,15 +512,15 @@ make_planar_edge_span(const math::Vector &a, const math::Vector &b,
   PlanarEdgeSpan es;
   es.p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
-  es.dX = p2.first - es.p1.first;
-  es.dY = p2.second - es.p1.second;
+  es.dx = p2.first - es.p1.first;
+  es.dy = p2.second - es.p1.second;
   // The projected chord over-estimates the on-sphere arc, so gap_arc bounds
   // each inter-sample arc length.
-  es.gap_arc = sqrtf(es.dX * es.dX + es.dY * es.dY) / PLANAR_SPAN_SAMPLES;
+  es.gap_arc = sqrtf(es.dx * es.dx + es.dy * es.dy) / PLANAR_SPAN_SAMPLES;
   for (int k = 1; k < PLANAR_SPAN_SAMPLES; ++k) {
     float p = static_cast<float>(k) / PLANAR_SPAN_SAMPLES;
     es.interior[k - 1] = azimuthal_unproject(
-        es.p1.first + es.dX * p, es.p1.second + es.dY * p, planar_basis);
+        es.p1.first + es.dx * p, es.p1.second + es.dy * p, planar_basis);
   }
   return es;
 }
@@ -537,8 +537,8 @@ make_planar_edge_sampler(const PlanarEdgeSpan &span, const math::Vector &end,
                          const math::Basis &planar_basis) {
   PlanarEdgeSampler sampler;
   sampler.proj1 = span.p1;
-  sampler.dx = span.dX;
-  sampler.dy = span.dY;
+  sampler.dx = span.dx;
+  sampler.dy = span.dy;
   sampler.basis = &planar_basis;
   sampler.chart_tangent =
       (planar_basis.u * sampler.dx) + (planar_basis.w * sampler.dy);

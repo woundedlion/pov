@@ -314,7 +314,7 @@ inline void test_edge_visible_in_clip_is_conservative() {
       for (int k = 0; k <= SAMPLES && !reached; ++k) {
         const float t = static_cast<float>(k) / SAMPLES;
         reached = taps_in_clip(Plot::azimuthal_unproject(
-            ps.p1.first + ps.dX * t, ps.p1.second + ps.dY * t, basis));
+            ps.p1.first + ps.dx * t, ps.p1.second + ps.dy * t, basis));
       }
       HS_EXPECT_TRUE(got || !reached);
       (got ? visible : culled)++;

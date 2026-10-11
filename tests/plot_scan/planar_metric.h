@@ -228,7 +228,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     // Table, edge sampler and planar_arc_length total the same length.
     const Plot::PlanarEdgeSpan span = Plot::make_planar_edge_span(a, b, basis);
     const math::Vector span_end = Plot::azimuthal_unproject(
-        span.p1.first + span.dX, span.p1.second + span.dY, basis);
+        span.p1.first + span.dx, span.p1.second + span.dy, basis);
     const Plot::PlanarEdgeSampler sampler =
         Plot::make_planar_edge_sampler(span, span_end, basis);
     constexpr float total_tol = 2e-5f;
