@@ -242,13 +242,7 @@ inline void test_no_empty_frame_across_cycle_joins() {
   for (int f = 0; f < FRAMES; ++f) {
     fx.draw_frame();
     fx.advance_display();
-    size_t lit = 0;
-    for (int y = 0; y < CH; ++y)
-      for (int x = 0; x < CW; ++x) {
-        const Pixel &p = fx.get_pixel(x, y);
-        if (p.r || p.g || p.b)
-          ++lit;
-      }
+    const size_t lit = count_lit_region<CW, CH>(fx);
     if (lit < min_lit)
       min_lit = lit;
     if (lit == 0) {

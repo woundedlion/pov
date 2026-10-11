@@ -7,6 +7,7 @@
 #include "effects/HyperLattice.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/pixel_test_util.h"
 
 namespace hs_test {
 namespace hyper_lattice_tests {
@@ -1493,19 +1494,15 @@ inline void test_traced_presets() {
     for (int draw = 0; draw < 2; ++draw) {
       effect.draw_frame();
       effect.advance_display();
-      int lit = 0, changed = 0;
-      for (int y = 0; y < 20; ++y)
-        for (int x = 0; x < 96; ++x) {
-          const auto PIXEL = effect.get_pixel(x, y);
-          lit += PIXEL.r != 0 || PIXEL.g != 0 || PIXEL.b != 0;
-          if (draw == 0)
-            previous.push_back(PIXEL);
-          else
-            changed += PIXEL != previous[y * 96 + x];
-        }
-      HS_EXPECT_GT(lit, 0);
+      std::vector<Pixel> current;
+      capture_frame<96, 20>(effect, current);
+      const size_t lit = count_lit_region<96, 20>(effect);
+      const size_t changed =
+          draw == 0 ? 0 : compare_buffers(previous, current).different_pixels;
+      previous = std::move(current);
+      HS_EXPECT_GT(lit, size_t{0});
       if (draw)
-        HS_EXPECT_GT(changed, 0);
+        HS_EXPECT_GT(changed, size_t{0});
       const auto *unfinished = required_param(effect, "Unfinished Rays");
       if (!unfinished)
         return;
@@ -1665,12 +1662,7 @@ inline void test_regular_patterns() {
     HS_EXPECT_EQ(wire_radius->readonly, SHELLS);
     effect.draw_frame();
     effect.advance_display();
-    size_t lit = 0;
-    for (int y = 0; y < 20; ++y)
-      for (int x = 0; x < 96; ++x) {
-        const auto pixel = effect.get_pixel(x, y);
-        lit += pixel.r || pixel.g || pixel.b;
-      }
+    const size_t lit = count_lit_region<96, 20>(effect);
     HS_EXPECT_GT(lit, size_t{0});
     HS_EXPECT_TRUE(effect.restore_parameters(snapshot));
     const auto current = effect.serialize_parameters();
@@ -1711,9 +1703,7 @@ inline void test_regular_patterns() {
     effect.advance_display();
     if (configuration.pattern != Effect::Pattern::CUBIC_WIRE) {
       std::vector<Pixel> actual;
-      for (int y = 0; y < 20; ++y)
-        for (int x = 0; x < 96; ++x)
-          actual.push_back(effect.get_pixel(x, y));
+      capture_frame<96, 20>(effect, actual);
       const auto frame = HyperLatticeWhiteBox::frame(effect);
       const auto prepared = HyperLatticeDetail::prepare_trace(frame);
       {
@@ -1730,10 +1720,10 @@ inline void test_regular_patterns() {
           draw_cubic.template operator()<false>();
       }
       effect.advance_display();
-      size_t differing = 0;
-      for (int y = 0; y < 20; ++y)
-        for (int x = 0; x < 96; ++x)
-          differing += effect.get_pixel(x, y) != actual[y * 96 + x];
+      std::vector<Pixel> reference;
+      capture_frame<96, 20>(effect, reference);
+      const size_t differing =
+          compare_buffers(reference, actual).different_pixels;
       HS_EXPECT_GT(differing, size_t{0});
     }
   }

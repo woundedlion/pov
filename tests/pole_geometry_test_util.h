@@ -11,6 +11,7 @@
 #include "core/render/filter/pixel_feedback.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/pixel_test_util.h"
 
 namespace hs_test::pole_geometry {
 /**
@@ -33,14 +34,7 @@ template <int W, int H> inline int plot_stroke(float phi) {
                            });
   }
   effect.advance_display();
-  int lit = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &pixel = effect.get_pixel(x, y);
-      if ((pixel.r | pixel.g | pixel.b) != 0)
-        ++lit;
-    }
-  return lit;
+  return static_cast<int>(count_lit_region<W, H>(effect));
 }
 
 inline math::Vector rotate_longitude(const math::Vector &v,
