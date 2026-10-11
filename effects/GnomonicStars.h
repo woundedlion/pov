@@ -143,7 +143,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
       alignof(int) + MAX_POINTS * sizeof(math::Vector) + alignof(math::Vector) +
-      BakedPalette::required_arena_bytes() + 8 * sizeof(double) +
+      BakedPalette::required_arena_bytes() +
+      Animation::MobiusWarpEvolving::CHANNEL_COUNT * sizeof(double) +
       alignof(double) - 1;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "

@@ -628,6 +628,8 @@ private:
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:
+  static constexpr int CHANNEL_COUNT = 8; ///< Animated complex components.
+
   /**
    * @brief Constructs a MobiusWarpEvolving animation.
    * @param params The params to animate.
@@ -645,7 +647,7 @@ public:
         seed(hs::random()()) {
     HS_CHECK(std::isfinite(scale) && std::isfinite(speed),
              "MobiusWarpEvolving scale and speed must be finite");
-    channel_phases = persistent_arena.make_n<double>(8);
+    channel_phases = persistent_arena.make_n<double>(CHANNEL_COUNT);
   }
 
   /**
@@ -655,7 +657,7 @@ public:
   MobiusWarpEvolving(const MobiusWarpEvolving &other) noexcept
       : AnimationBase(other), params(other.params), speed(other.speed),
         scale(other.scale), base(other.base), seed(other.seed),
-        channel_phases(persistent_arena.make_n<double>(8)) {
+        channel_phases(persistent_arena.make_n<double>(CHANNEL_COUNT)) {
     copy_phases(other.channel_phases, channel_phases);
   }
 
@@ -669,7 +671,7 @@ public:
     base = other.base;
     seed = other.seed;
     if (!channel_phases)
-      channel_phases = persistent_arena.make_n<double>(8);
+      channel_phases = persistent_arena.make_n<double>(CHANNEL_COUNT);
     copy_phases(other.channel_phases, channel_phases);
     return *this;
   }
@@ -732,10 +734,10 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     HS_PROFILE(animation_mobius_step);
-    constexpr float FREQUENCIES[] = {1.0f,  1.13f, 1.27f, 1.39f,
-                                     0.71f, 0.83f, 0.97f, 1.09f};
+    constexpr float FREQUENCIES[CHANNEL_COUNT] = {1.0f,  1.13f, 1.27f, 1.39f,
+                                                  0.71f, 0.83f, 0.97f, 1.09f};
     constexpr double PERIOD = 6.283185307179586476925286766559;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < CHANNEL_COUNT; ++i) {
       const double increment =
           static_cast<double>(speed) * static_cast<double>(FREQUENCIES[i]);
       channel_phases[i] =
@@ -776,9 +778,9 @@ private:
   /** @brief Copies src's phases into dst; a moved-from (null) src zero-fills. */
   static void copy_phases(const double *src, double *dst) {
     if (src)
-      std::copy_n(src, 8, dst);
+      std::copy_n(src, CHANNEL_COUNT, dst);
     else
-      std::fill_n(dst, 8, 0.0);
+      std::fill_n(dst, CHANNEL_COUNT, 0.0);
   }
 };
 
