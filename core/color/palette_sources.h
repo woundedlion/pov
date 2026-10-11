@@ -44,7 +44,7 @@ public:
 
     // Flat fills bake through the same OKLCH path as the segment endpoints, so
     // a flat region matches its adjacent segment at the shared stop.
-    int first_stop = static_cast<int>(prev_pos * 255.0f + 0.5f);
+    int first_stop = stop_index(prev_pos);
     Pixel prev_solid =
         oklch_to_pixel(srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b));
     for (int i = 0; i <= first_stop; i++)
@@ -55,8 +55,8 @@ public:
       float next_pos = it->first;
       CPixel next_color = it->second;
 
-      int start = static_cast<int>(prev_pos * 255.0f + 0.5f);
-      int end = static_cast<int>(next_pos * 255.0f + 0.5f);
+      int start = stop_index(prev_pos);
+      int end = stop_index(next_pos);
 
       // end == start (two stops quantizing to the same index) is a hard stop.
       if (end > start) {
@@ -72,7 +72,7 @@ public:
       it++;
     }
 
-    int last_stop = static_cast<int>(prev_pos * 255.0f + 0.5f);
+    int last_stop = stop_index(prev_pos);
     Pixel last_solid =
         oklch_to_pixel(srgb_to_oklch(prev_color.r, prev_color.g, prev_color.b));
     for (int i = last_stop; i < 256; i++)
@@ -92,6 +92,15 @@ public:
   }
 
 private:
+  /**
+   * @brief The LUT entry nearest a stop position.
+   * @param pos Stop position in [0, 1].
+   * @return Entry index in [0, 255].
+   */
+  __attribute__((always_inline)) static int stop_index(float pos) {
+    return static_cast<int>(pos * 255.0f + 0.5f);
+  }
+
   Pixel entries[256];
 };
 
