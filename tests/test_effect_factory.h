@@ -228,11 +228,7 @@ template <int W, int H> inline void drive_factory_lifecycle() {
       effect->draw_frame();
       // Consume the queued frame, else the next Canvas ctor spin-waits.
       effect->advance_display();
-      for (int y = 0; y < H && !lit; ++y)
-        for (int x = 0; x < W; ++x) {
-          const Pixel p = effect->get_pixel(x, y);
-          lit = lit || p.r || p.g || p.b;
-        }
+      lit = lit || count_lit_region<W, H>(*effect) > 0;
       if (lit && f + 1 >= FACTORY_FRAMES)
         break;
     }
