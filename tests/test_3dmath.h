@@ -1218,11 +1218,11 @@ inline void test_quaternion_slerp() {
   math::Quaternion q =
       math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
 
-  HS_EXPECT_QUAT(math::slerp(id, q, 0.0f), id, 5e-3f);
+  HS_EXPECT_QUAT(math::slerp(id, q, 0.0f), id, 1e-5f);
 
   // t=1 may return -q; |dot| == 1 since q and -q are the same orientation.
   math::Quaternion s1 = math::slerp(id, q, 1.0f);
-  HS_EXPECT_NEAR(std::abs(math::dot(s1, q)), 1.0f, 5e-3f);
+  HS_EXPECT_NEAR(std::abs(math::dot(s1, q)), 1.0f, 1e-5f);
 
   for (float t : {0.25f, 0.75f}) {
     const math::Quaternion expected =
@@ -1238,12 +1238,12 @@ inline void test_quaternion_slerp() {
   math::Vector v(1, 0, 0);
   math::Vector r_twice = math::rotate(math::rotate(v, half), half);
   math::Vector r_full = math::rotate(v, q);
-  HS_EXPECT_VEC(r_twice, r_full, 1e-2f);
+  HS_EXPECT_VEC(r_twice, r_full, 1e-5f);
 
   // long_way negates the start: t=0 returns -id, and its midpoint differs from
   // the short-arc one.
   math::Quaternion long_start = math::slerp(id, q, 0.0f, true);
-  HS_EXPECT_QUAT(long_start, -id, 5e-3f);
+  HS_EXPECT_QUAT(long_start, -id, 1e-5f);
 
   math::Quaternion mid_short = math::slerp(id, q, 0.5f, false);
   math::Quaternion mid_long = math::slerp(id, q, 0.5f, true);
@@ -1293,7 +1293,7 @@ inline void test_scaled_rotation_delta() {
   HS_EXPECT_QUAT(math::scaled_rotation_delta(q, 1.0f), q, 1e-6f);
   HS_EXPECT_QUAT(math::scaled_rotation_delta(q, 0.0f), id, 1e-6f);
   // Identity in, identity out, at any fraction.
-  HS_EXPECT_QUAT(math::scaled_rotation_delta(id, 0.5f), id, 5e-3f);
+  HS_EXPECT_QUAT(math::scaled_rotation_delta(id, 0.5f), id, 1e-5f);
 
   // Half the arc, applied twice, recovers the full delta.
   const math::Quaternion half = math::scaled_rotation_delta(q, 0.5f);
