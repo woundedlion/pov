@@ -28,6 +28,11 @@ class IncludePathsTests(unittest.TestCase):
                                     '#include "Arduino.h"\n'
                                     '#include "generated_fixture.h"\n'), [])
 
+    def test_missing_tracked_source_is_diagnosed(self):
+        diagnostics = include_paths.check_includes(self.root, self.files)
+        self.assertEqual(len(diagnostics), 1)
+        self.assertTrue(diagnostics[0].startswith("effects/sample.h:1: cannot read source"))
+
     def test_core_relative_alias_is_rejected(self):
         self.assertEqual(self.check('#include "math/vector.h"\n'), [
             'effects/sample.h:1: include "core/math/vector.h" instead of "math/vector.h"'])

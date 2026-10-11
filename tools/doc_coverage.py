@@ -199,10 +199,18 @@ def source_files(root: Path, paths: list[str]) -> list[str]:
 _FILE_COMMAND_RE = re.compile(r"[@\\]file\b")
 
 
+def read_source(root: Path, path: str) -> str:
+    """Read a source with a path-qualified tooling diagnostic."""
+    try:
+        return (root / path).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise OSError(f"{path}:1: cannot read source ({exc})") from exc
+
+
 def missing_file_blocks(root: Path, files: list[str]) -> list[str]:
     """Return the files without an `@file` documentation block."""
     return [path for path in files if not _FILE_COMMAND_RE.search(
-        (root / path).read_text(encoding="utf-8", errors="replace"))]
+        read_source(root, path))]
 
 
 _COMMENT_RE = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
@@ -287,8 +295,7 @@ def main(argv: list[str] | None = None) -> int:
         files = missing_file_blocks(args.root, sources)
         found = parse(run_doxygen(args.doxygen, args.root, args.paths), args.root)
         for path in sources:
-            found += silent_declarations(path, (args.root / path).read_text(
-                encoding="utf-8", errors="replace"))
+            found += silent_declarations(path, read_source(args.root, path))
         items = locations(found, args.root)
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f"[doc-coverage] tooling error: {exc}", file=sys.stderr)
