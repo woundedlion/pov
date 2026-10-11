@@ -11,6 +11,13 @@ endif()
 file(READ "${COMMITTED}" _committed)
 file(READ "${GENERATED}" _generated)
 set(_pixel_pattern "Pixel\\([0-9]+, [0-9]+, [0-9]+\\)")
+foreach(_source IN ITEMS committed generated)
+  string(REGEX MATCHALL "${_pixel_pattern}" _pixels "${_${_source}}")
+  list(LENGTH _pixels _pixel_count)
+  if(_pixel_count EQUAL 0)
+    message(FATAL_ERROR "MindSplatter palette ${_source} header holds no Pixel entries")
+  endif()
+endforeach()
 string(REGEX REPLACE "${_pixel_pattern}" "Pixel(VALUE)" _committed_form
                      "${_committed}")
 string(REGEX REPLACE "${_pixel_pattern}" "Pixel(VALUE)" _generated_form
