@@ -2217,7 +2217,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/math/3dmath.h", 2},
     {"core/math/pixel_mapping.h", 2},
     {"core/math/spherical_field.h", 2},
-    {"core/mesh/conway.h", 31},
+    {"core/mesh/conway.h", 27},
     {"core/mesh/conway_graph.h", 1},
     {"core/mesh/hankin.h", 8},
     {"core/mesh/mesh.h", 9},

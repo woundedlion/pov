@@ -741,6 +741,7 @@ truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
 HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
                                       const HalfEdgeMesh &he_mesh,
                                       Arena &target, Arena &temp, float t) {
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -829,7 +830,6 @@ inline constexpr float TRUNCATE_DEFAULT_T = 0.25f;
  */
 HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
                                  Arena &temp, float t = TRUNCATE_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   HS_CHECK(&target != &temp, "truncate: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
@@ -854,7 +854,6 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
 [[maybe_unused]] HS_COLD static PolyMesh
 truncate(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
          Arena &temp, float t = TRUNCATE_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   require_matching_half_edges(he_mesh, mesh, "truncate");
   if (t == 0.5f)
     return ambo_impl(mesh, he_mesh, target, temp);
@@ -871,12 +870,13 @@ inline constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
  * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena for the manifold check's scratch.
- * @param t Expansion factor, range-checked by the callers.
+ * @param t Expansion factor in [0, 1); checked before allocation.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
                                     const HalfEdgeMesh &he_mesh, Arena &target,
                                     Arena &temp, float t) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -926,7 +926,6 @@ HS_COLD static PolyMesh expand_impl(const PolyMesh &mesh,
  */
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                float t = EXPAND_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
   HS_CHECK(&target != &temp, "expand: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
@@ -948,7 +947,6 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                                 const HalfEdgeMesh &he_mesh,
                                                 Arena &target, Arena &temp,
                                                 float t = EXPAND_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "expand: t out of [0,1)");
   require_matching_half_edges(he_mesh, mesh, "expand");
   return expand_impl(mesh, he_mesh, target, temp, t);
 }
@@ -959,12 +957,13 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the operator's index scratch.
- * @param t Thickness factor for the new hexagons, range-checked by the callers.
+ * @param t Thickness factor for the new hexagons in [0, 1); checked before allocation.
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh chamfer_impl(const PolyMesh &mesh,
                                      const HalfEdgeMesh &he_mesh, Arena &target,
                                      Arena &temp, float t) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1040,7 +1039,6 @@ inline constexpr float CHAMFER_DEFAULT_T = 0.5f;
  */
 HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
                                 Arena &temp, float t = CHAMFER_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   HS_CHECK(&target != &temp, "chamfer: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
@@ -1063,7 +1061,6 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
                                                  const HalfEdgeMesh &he_mesh,
                                                  Arena &target, Arena &temp,
                                                  float t = CHAMFER_DEFAULT_T) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "chamfer: t out of [0,1)");
   require_matching_half_edges(he_mesh, mesh, "chamfer");
   return chamfer_impl(mesh, he_mesh, target, temp, t);
 }
@@ -1267,6 +1264,7 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
 HS_COLD static PolyMesh snub_impl(const PolyMesh &mesh,
                                   const HalfEdgeMesh &he_mesh, Arena &target,
                                   Arena &temp, float t, float twist) {
+  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -1348,7 +1346,6 @@ inline constexpr float SNUB_DEFAULT_TWIST = 0.0f;
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                              float t = SNUB_DEFAULT_T,
                              float twist = SNUB_DEFAULT_TWIST) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   HS_CHECK(&target != &temp, "snub: target and temp must differ");
   ScratchScope temp_guard(temp);
   HalfEdgeMesh he_mesh(temp, mesh);
@@ -1371,7 +1368,6 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 [[maybe_unused]] HS_COLD static PolyMesh
 snub(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
      Arena &temp, float t = SNUB_DEFAULT_T, float twist = SNUB_DEFAULT_TWIST) {
-  HS_CHECK(t >= 0.0f && t < 1.0f, "snub: t out of [0,1)");
   require_matching_half_edges(he_mesh, mesh, "snub");
   return snub_impl(mesh, he_mesh, target, temp, t, twist);
 }
