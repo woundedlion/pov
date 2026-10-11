@@ -333,9 +333,7 @@ inline void test_shader_chain_parity_project_ops() {
           PeirceFastMovingMeridianMirror>::PROVIDER_VALID<ProjMirrorBinding>);
   static_assert(!PB::Projection::PeirceFastSquare<
                 PeirceProjMirror>::PROVIDER_VALID<ProjMirrorBinding>);
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
+  for_each_value_set([&](ValueSet set) {
     run_project_parity<PB::Projection::FoldedSinusoidal<MeridianProjMirror>,
                        In::Op::MeridianProjectChainParams>(
         In::Op::ProjectFoldedSinusoidal::ID, set);
@@ -361,7 +359,7 @@ inline void test_shader_chain_parity_project_ops() {
         AiroceanProjMirror, true, true>>::template Bind<ProjMirrorBinding>;
     expect_project_op_parity<Horizontal>(program, shared_resources().context());
     program.clear();
-  }
+  });
 }
 
 template <PB::Projection::GnomonicHemisphere Hemisphere>
@@ -392,11 +390,7 @@ inline void run_bonne_variant(In::ChainProgram &program,
 
 inline void test_shader_chain_parity_project_hemispheres() {
   using Hemisphere = PB::Projection::GnomonicHemisphere;
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_project_op_chain<In::Op::GnomonicChainParams>(
         program, In::Op::ProjectGnomonic::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -411,6 +405,5 @@ inline void test_shader_chain_parity_project_hemispheres() {
     arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
         program, In::Op::ProjectBonneV3::ID, 4, set);
     run_bonne_variant<false>(program, ctx);
-    program.clear();
-  }
+  });
 }

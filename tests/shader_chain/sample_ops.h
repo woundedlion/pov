@@ -326,91 +326,61 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_sample_twin_wave() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
         program, In::Op::SampleTwinWaveV3::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::TwinWave<TwinWaveSampleMirror>>(program,
                                                                      ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_rings() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::RingsSampleParams>(
         program, In::Op::SampleRings::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Rings<RingsSampleMirror>>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_spherical_rings() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_spherical_sample_op_chain<In::Op::SphericalRingsSampleParams>(
         program, In::Op::SampleSphericalRings::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     expect_spherical_sample_op_parity<
         PB::Source::SphericalRings<SphericalRingsSampleMirror>>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_spiral() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::SpiralSampleParams>(
         program, In::Op::SampleSpiral::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Spiral<SpiralSampleMirror>>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_lattice() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::LatticeSampleParams>(
         program, In::Op::SampleLattice::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
         program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_fractal() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::FractalSampleParams>(
         program, In::Op::SampleFractal::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::EscapeFractal<FractalSampleMirror>>(
         program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_noise_operator_domain() {
@@ -587,11 +557,7 @@ inline void test_shader_chain_large_finite_path_length() {
 }
 
 inline void test_shader_chain_parity_sample_tessellation() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::TessellationSampleParams>(
         program, In::Op::SampleTessellation::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -609,16 +575,11 @@ inline void test_shader_chain_parity_sample_tessellation() {
     run_sample_op_matrix<PB::Source::Tessellation<
         TessellationSampleMirror, PB::Source::TessellationKind::HEXAGONAL>>(
         program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_projected_noise() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sample_op_chain<In::Op::ProjectedNoiseSampleParams>(
         program, In::Op::SampleProjectedNoise::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -638,16 +599,11 @@ inline void test_shader_chain_parity_sample_projected_noise() {
     run_sample_op_matrix<PB::Source::ProjectedNoise<ProjectedNoiseSampleMirror,
                                                     math::NoiseBasis::RIDGED3>>(
         program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_sample_spherical_noise() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_spherical_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
         program, In::Op::SampleSphericalNoise::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -660,8 +616,7 @@ inline void test_shader_chain_parity_sample_spherical_noise() {
     params.basis = static_cast<uint8_t>(math::NoiseBasis::RIDGED3);
     expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
         SphericalNoiseSampleMirror, math::NoiseBasis::RIDGED3>>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void run_sample_variant(In::ChainProgram &program,
@@ -718,11 +673,7 @@ inline void run_sample_variant(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_sample_variants() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_default_chain(program, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     for (const In::Op::WeightMode weight :
@@ -735,8 +686,7 @@ inline void test_shader_chain_parity_sample_variants() {
         HS_CONTEXT("weight / coverage", int(weight), int(coverage));
         run_sample_variant(program, ctx, weight, coverage);
       }
-    program.clear();
-  }
+  });
 }
 
 /** Checks entry 3 alone against the bound mirror stage on a sample with a
@@ -793,11 +743,7 @@ inline constexpr auto COLORIZE_ENVELOPES = std::make_index_sequence<
     static_cast<size_t>(In::Op::EnvelopeMode::DESCENDING) + 1>{};
 
 inline void test_shader_chain_parity_colorize_variants() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_default_chain(program, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx,
@@ -806,6 +752,5 @@ inline void test_shader_chain_parity_colorize_variants() {
                                                         COLORIZE_ENVELOPES);
     run_colorize_envelopes<In::Op::HueShiftMode::PATH_LENGTH>(
         program, ctx, COLORIZE_ENVELOPES);
-    program.clear();
-  }
+  });
 }
