@@ -11,6 +11,7 @@
  *        an affine primitive lattice rendered as soft contours.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -63,8 +64,10 @@ public:
   using Params = GridSpaceParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "grid-space";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::GridSpace::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "67870f99cc8812d737d30ef890622c30f49f49172af1fd649dcd49821c5d1aca";
   /// SHA-256 hex of the shader document's preset bank.

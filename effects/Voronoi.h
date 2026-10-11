@@ -11,6 +11,7 @@
  *        with edge sharpening and optional cell borders.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/engine/engine.h"
 #include "core/spatial/kd_tree.h"
 
@@ -33,7 +34,11 @@ struct VoronoiWhiteBox;
  */
 template <int W, int H> class Voronoi : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "Voronoi"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::Voronoi::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /** @brief Construction config. */
   static constexpr EffectConfig CONFIG{.strobe = true};

@@ -10,6 +10,7 @@
  * @brief Hankin interlace patterns over Platonic and Archimedean solids.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
@@ -33,8 +34,11 @@ struct HankinSolidsWhiteBox;
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "HankinSolids";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::HankinSolids::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.

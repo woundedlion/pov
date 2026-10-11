@@ -6,10 +6,10 @@
 
 /**
  * @file rng.h
- * @brief Deterministic PRNG (Pcg32), hs::rand_* helpers, epoch/effect seeds
- *        and the stable effect identity used by effect seeding.
+ * @brief Deterministic PRNG (Pcg32), hs::rand_* helpers and epoch/effect seeds.
  */
 
+#include "core/platform/effect_identity.h"
 #include <algorithm>
 #include <cstdint>
 #include <string_view>
@@ -81,21 +81,8 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
 }
 
 /**
- * @brief Returns an effect type's persisted ID, falling back to its class name.
- * @tparam EffectType Concrete effect type at a fixed resolution.
- * @param class_name Effect class name.
- * @return `EffectType::EFFECT_ID` when declared, else `class_name`.
- */
-template <typename EffectType>
-constexpr std::string_view stable_effect_id(std::string_view class_name) {
-  if constexpr (requires { EffectType::EFFECT_ID; })
-    return EffectType::EFFECT_ID;
-  return class_name;
-}
-
-/**
- * @brief Derives a roster-position-independent seed from an effect ID.
- * @param effect_id Stable effect ID.
+ * @brief Derives a roster-position-independent seed from an immutable RNG key.
+ * @param effect_id Immutable effect RNG key.
  * @return 64-bit seed hashed from `effect_id`.
  */
 constexpr uint64_t stable_effect_seed(std::string_view effect_id) {
@@ -129,19 +116,30 @@ inline Pcg32 &random() {
 inline void seed_effect_stream(uint64_t seed) { random().seed(seed); }
 
 /**
- * @brief Resets the effect RNG stream from its persisted identity.
- * @param effect_id Stable effect ID.
+ * @brief Resets the effect RNG stream from its immutable compatibility key.
+ * @param effect_id Immutable effect RNG key.
  */
 inline void seed_effect_stream(std::string_view effect_id) {
   seed_effect_stream(stable_effect_seed(effect_id));
 }
 
 /**
+ * @brief Resets an effect's RNG without changing its historical seed key.
+ * @param identity Canonical effect and compatibility identity.
+ */
+inline void seed_effect_stream(const EffectIdentity &identity) {
+  seed_effect_stream(identity.rng_seed_key);
+}
+
+/**
  * @brief Resets the RNG stream for a registered effect type.
- * @tparam EffectType Concrete effect with a declared EFFECT_ID.
+ * @tparam EffectType Concrete effect with a declared effect identity.
  */
 template <typename EffectType> inline void seed_effect_stream() {
-  seed_effect_stream(std::string_view(EffectType::EFFECT_ID));
+  if constexpr (requires { EffectType::EFFECT_IDENTITY; })
+    seed_effect_stream(EffectType::EFFECT_IDENTITY);
+  else
+    seed_effect_stream(std::string_view(EffectType::EFFECT_ID));
 }
 
 /**

@@ -26,6 +26,124 @@ constexpr int FACTORY_FRAMES = 2;
 /** @brief Maximum startup window for a factory-built effect to produce output. */
 constexpr int FACTORY_OUTPUT_WINDOW = 64;
 
+/** @brief Frozen compatibility keys and seed hashes for installed effects. */
+struct IdentityGolden {
+  std::string_view name;     ///< Class/browser lookup alias.
+  std::string_view seed_key; ///< Immutable RNG compatibility key.
+  uint64_t seed;             ///< Frozen 64-bit seed hash.
+};
+/// Original effect RNG streams, independent of the identity roster.
+constexpr std::array IDENTITY_GOLDENS{
+    IdentityGolden{"AlienBrain", "alien-brain", 0x1B7D2D407B3D2D0DULL},
+    IdentityGolden{"AlienCore", "alien-core", 0xD295C46DF9FAC866ULL},
+    IdentityGolden{"AlienOcean", "alien-ocean", 0x210664B0D66AFB48ULL},
+    IdentityGolden{"AshCloud", "ash-cloud", 0xC252C918EF8F2C62ULL},
+    IdentityGolden{"BZReactionDiffusion", "BZReactionDiffusion",
+                   0xEA36F0CB4D53FE03ULL},
+    IdentityGolden{"ChromaticLichen", "chromatic-lichen",
+                   0xBDB34E556EC2CB67ULL},
+    IdentityGolden{"Comets", "Comets", 0x20CC05B1BB853C06ULL},
+    IdentityGolden{"CosmicEyeball", "cosmic-eyeball", 0xC66D1C858490A981ULL},
+    IdentityGolden{"DisplacementField", "DisplacementField",
+                   0x66DEEE04DCD50C4FULL},
+    IdentityGolden{"DreamBalls", "DreamBalls", 0xB9C2D5D2EF43B3DAULL},
+    IdentityGolden{"Dynamo", "Dynamo", 0xE278943A66B53DF4ULL},
+    IdentityGolden{"Fishbowl", "Fishbowl", 0x3F899529C749D7A0ULL},
+    IdentityGolden{"Galaxies", "Galaxies", 0x9874FB9E47360D77ULL},
+    IdentityGolden{"GnomonicStars", "GnomonicStars", 0x025960528523F2FEULL},
+    IdentityGolden{"GridSpace", "grid-space", 0x816DB39119548BD2ULL},
+    IdentityGolden{"GSReactionDiffusion", "GSReactionDiffusion",
+                   0xFA20DF830B51B72FULL},
+    IdentityGolden{"HankinSolids", "HankinSolids", 0x30B3BDF0CC9BF813ULL},
+    IdentityGolden{"HopfFibration", "HopfFibration", 0x4D6A1E9746B48E48ULL},
+    IdentityGolden{"HyperLattice", "HyperLattice", 0x6954B5B68BA922CEULL},
+    IdentityGolden{"IslamicStars", "IslamicStars", 0xB085099D2EA92F09ULL},
+    IdentityGolden{"JewelMelt", "jewel-melt", 0x59D1DF6060825FE6ULL},
+    IdentityGolden{"KaleidoscopeFlowers", "kaleidoscope-flowers",
+                   0x00B1D40F7728DCDCULL},
+    IdentityGolden{"KaleidoscopeHexBright", "kaleidoscope-hex-bright",
+                   0xFD71C050E167C355ULL},
+    IdentityGolden{"KaleidoscopeHexOil", "kaleidoscope-hex-oil",
+                   0x0DB2472904AF2C50ULL},
+    IdentityGolden{"KaleidoscopeHexSoft", "kaleidoscope-hex-soft",
+                   0x2FA8CC12BC456AEAULL},
+    IdentityGolden{"KaleidoscopeMandala", "kaleidoscope-mandala",
+                   0xF65DEA98AF8BFB80ULL},
+    IdentityGolden{"KaleidoscopePentBright", "kaleidoscope-pent-bright",
+                   0xAE0AE13EF286A15BULL},
+    IdentityGolden{"KaleidoscopeSmooth", "kaleidoscope-smooth",
+                   0xDC60947F5EF28B5CULL},
+    IdentityGolden{"KaleidoscopeStainedGlass", "kaleidoscope-stained-glass",
+                   0x458439924D917BF4ULL},
+    IdentityGolden{"LatticeMelt", "lattice-melt", 0x8A8239B618698E89ULL},
+    IdentityGolden{"MermaidSkin", "mermaid-skin", 0xF49045D62E42DE36ULL},
+    IdentityGolden{"MeshFeedback", "MeshFeedback", 0xC445C3A1098582B6ULL},
+    IdentityGolden{"MindSplatter", "MindSplatter", 0x206A75CB20AE4025ULL},
+    IdentityGolden{"MobiusGrid", "mobius-grid", 0x090E86805292EE94ULL},
+    IdentityGolden{"MobiusRings", "MobiusRings", 0xB7C98BEE3FB3F04EULL},
+    IdentityGolden{"PetalFlow", "PetalFlow", 0xC3F812CFF88DFE2AULL},
+    IdentityGolden{"Raymarch", "Raymarch", 0x64165ACC0D1BEA95ULL},
+    IdentityGolden{"RingShower", "RingShower", 0x8A0968F09B972CE9ULL},
+    IdentityGolden{"RingSpin", "RingSpin", 0x128AE1065F9277BBULL},
+    IdentityGolden{"ShapeShifter", "ShapeShifter", 0xE50A50290CAC42C0ULL},
+    IdentityGolden{"SphericalHarmonics", "SphericalHarmonics",
+                   0x9CB01486B8230EFEULL},
+    IdentityGolden{"Thrusters", "Thrusters", 0x61547828E9116CB4ULL},
+    IdentityGolden{"Voronoi", "Voronoi", 0xBC5209F3455BC431ULL},
+    IdentityGolden{"ShaderChain", "shader-chain", 0x1968066A5CD68D2BULL},
+};
+
+/**
+ * @brief Finds a frozen RNG identity by class/browser name.
+ * @param name Class/browser name.
+ * @return Matching snapshot, or null for an unknown effect.
+ */
+constexpr const IdentityGolden *identity_golden(std::string_view name) {
+  for (const auto &value : IDENTITY_GOLDENS)
+    if (value.name == name)
+      return &value;
+  return nullptr;
+}
+
+/** @brief Pins canonical ID types and immutable aliases/seeds for every effect. */
+inline void test_identity_contract() {
+#define HS_VERIFY_EFFECT_IDENTITY(Name, Id, Display, Legacy, Seed)             \
+  do {                                                                         \
+    using E = Name<96, 20>;                                                    \
+    static_assert(                                                             \
+        std::is_same_v<decltype(E::EFFECT_ID), const std::string_view>);       \
+    constexpr auto identity = E::EFFECT_IDENTITY;                              \
+    HS_EXPECT_TRUE(hs::canonical_effect_id(identity.machine_id));              \
+    HS_EXPECT_TRUE(identity.machine_id == E::EFFECT_ID);                       \
+    const auto *golden = identity_golden(#Name);                               \
+    HS_EXPECT_TRUE(golden != nullptr);                                         \
+    if (golden) {                                                              \
+      HS_EXPECT_TRUE(identity.display_name == golden->name);                   \
+      HS_EXPECT_TRUE(identity.legacy_id == golden->seed_key);                  \
+      HS_EXPECT_TRUE(identity.rng_seed_key == golden->seed_key);               \
+      HS_EXPECT_EQ(hs::stable_effect_seed(identity.rng_seed_key),              \
+                   golden->seed);                                              \
+    }                                                                          \
+  } while (false);
+  HS_EFFECT_IDENTITY_LIST(HS_VERIFY_EFFECT_IDENTITY)
+#undef HS_VERIFY_EFFECT_IDENTITY
+  constexpr hs::EffectIdentity ALPHA{"alpha", "Alpha", "old-alpha",
+                                     "rng-alpha"};
+  static_assert(ALPHA.matches("alpha") && ALPHA.matches("Alpha") &&
+                ALPHA.matches("old-alpha"));
+  static_assert(!ALPHA.matches("") && !ALPHA.matches("ALPHA") &&
+                !ALPHA.matches("alph"));
+  EffectRegistration first{};
+  first.identity = ALPHA;
+  EffectRegistration second{};
+  second.identity = {"beta", "Beta", "old-beta", "rng-beta"};
+  HS_EXPECT_TRUE(registration_names_unique(std::array{first, second}));
+  second.identity.legacy_id = "old-alpha";
+  HS_EXPECT_FALSE(registration_names_unique(std::array{first, second}));
+  second.identity.legacy_id = "alpha";
+  HS_EXPECT_FALSE(registration_names_unique(std::array{first, second}));
+}
+
 /**
  * @brief Checks one resolution's factory table against the registry.
  * @tparam W Canvas width in pixels.
@@ -42,10 +160,10 @@ template <int W, int H> inline void verify_factory_table() {
 
   for (size_t index = 0; index < table.size(); ++index) {
     const FactoryEntry &entry = table[index];
-    HS_EXPECT_TRUE(!entry.name.empty());
-    HS_EXPECT_TRUE(!entry.stable_id.empty());
-    HS_EXPECT_TRUE(entry.stable_id ==
-                   hs_wasm::EFFECT_REGISTRATIONS[index].stable_id);
+    HS_EXPECT_TRUE(!entry.identity.display_name.empty());
+    HS_EXPECT_TRUE(!entry.identity.machine_id.empty());
+    HS_EXPECT_TRUE(entry.identity.machine_id ==
+                   hs_wasm::EFFECT_REGISTRATIONS[index].identity.machine_id);
     HS_EXPECT_TRUE(static_cast<bool>(entry.creator));
     HS_EXPECT_TRUE(entry.type_key != nullptr);
     HS_EXPECT_TRUE(entry.size > 0);
@@ -64,20 +182,21 @@ template <int W, int H> inline void verify_factory_lookup() {
     return hs_wasm::find_factory_entry<W, H>(name);
   };
   for (const auto &registration : hs_wasm::EFFECT_REGISTRATIONS) {
-    const char *name = registration.name.data();
+    const char *name = registration.identity.display_name.data();
     const FactoryEntry *entry = lookup(name);
     HS_EXPECT_TRUE(entry != nullptr);
     if (entry)
-      HS_EXPECT_TRUE(entry->name == name);
+      HS_EXPECT_TRUE(entry->identity.display_name == name);
   }
   for (const FactoryEntry &expected : hs_wasm::get_factory<W, H>()) {
-    const FactoryEntry *entry = lookup(expected.stable_id);
-    HS_EXPECT_TRUE(entry == &expected);
+    for (std::string_view key : expected.identity.accepted_ids())
+      HS_EXPECT_TRUE(lookup(key) == &expected);
   }
   HS_EXPECT_TRUE(lookup("") == nullptr);
   HS_EXPECT_TRUE(lookup("NoSuchEffect") == nullptr);
   // A prefix of a registered name must miss: the scan compares whole names.
-  const std::string_view first = hs_wasm::EFFECT_REGISTRATIONS[0].name;
+  const std::string_view first =
+      hs_wasm::EFFECT_REGISTRATIONS[0].identity.display_name;
   HS_EXPECT_TRUE(lookup(first.substr(0, first.size() - 1)) == nullptr);
 }
 
@@ -119,7 +238,7 @@ template <int W, int H> inline void drive_factory_lifecycle() {
     }
     if (!lit)
       std::printf("  factory produced no output: %s @ %dx%d\n",
-                  entry.name.data(), W, H);
+                  entry.identity.display_name.data(), W, H);
     HS_EXPECT_TRUE(lit);
     effect.reset();
     hs::clear_mock_time();
@@ -171,8 +290,10 @@ inline void test_bootstrap_rows() {
   HS_EXPECT_TRUE(hs_wasm::dispatch_resolution(
       hs_wasm::WASM_RESOLUTIONS[0].w, hs_wasm::WASM_RESOLUTIONS[0].h,
       []<int W, int H>() {
-        HS_EXPECT_TRUE((hs_wasm::find_factory_entry<W, H>(
-                            hs_wasm::EFFECT_REGISTRATIONS[0].name) != nullptr));
+        HS_EXPECT_TRUE(
+            (hs_wasm::find_factory_entry<W, H>(
+                 hs_wasm::EFFECT_REGISTRATIONS[0].identity.display_name) !=
+             nullptr));
       }));
 }
 
@@ -253,7 +374,7 @@ inline void test_phantasm_seed_identity() {
     HS_EXPECT_TRUE(entry != nullptr);                                          \
     if (entry)                                                                 \
       HS_EXPECT_EQ((HS_PHANTASM_EFFECT_SEEDS<288, 144>[index]),                \
-                   hs::stable_effect_seed(entry->stable_id));                  \
+                   identity_golden(#name)->seed);                              \
     ++index;                                                                   \
   } while (false);
   HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
@@ -265,16 +386,18 @@ inline void test_effect_stream_restarts() {
 #define HS_VERIFY_EFFECT_STREAM(name)                                          \
   do {                                                                         \
     using E = name<96, 20>;                                                    \
-    hs::Pcg32 expected(hs::stable_effect_seed(E::EFFECT_ID));                  \
+    const auto *golden = identity_golden(#name);                               \
+    HS_EXPECT_TRUE(golden != nullptr);                                         \
+    hs::Pcg32 expected(golden->seed);                                          \
     const uint32_t first = expected();                                         \
     hs::random()();                                                            \
     hs::seed_effect_stream<E>();                                               \
     HS_EXPECT_EQ(hs::random()(), first);                                       \
     hs::random()();                                                            \
-    hs::seed_effect_stream(std::string_view(E::EFFECT_ID));                    \
+    hs::seed_effect_stream(E::EFFECT_IDENTITY);                                \
     HS_EXPECT_EQ(hs::random()(), first);                                       \
     hs::random()();                                                            \
-    hs::seed_effect_stream(hs::stable_effect_seed(E::EFFECT_ID));              \
+    hs::seed_effect_stream(golden->seed);                                      \
     HS_EXPECT_EQ(hs::random()(), first);                                       \
   } while (false);
   HS_EFFECT_LIST(HS_VERIFY_EFFECT_STREAM)
@@ -306,6 +429,7 @@ inline void test_factory_lifecycle() {
  */
 inline int run_effect_factory_tests() {
   hs_test::ModuleFixture fixture("effect_factory");
+  test_identity_contract();
   test_bootstrap_rows();
   test_resolution_dispatch();
   test_factory_tables();

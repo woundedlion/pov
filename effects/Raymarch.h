@@ -10,6 +10,7 @@
  * @brief Twisted-torus SDFs ray-marched at every vertex of a selectable solid.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
 #include "core/color/noise_hue_palette.h"
@@ -114,7 +115,11 @@ struct RaymarchParams {
 template <int W, int H>
 class Raymarch : public ChoreographedEffect<Raymarch<W, H>, RaymarchParams> {
 public:
-  static constexpr const char *EFFECT_ID = "Raymarch"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::Raymarch::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// Preset-cycling base.
   using Choreography = ChoreographedEffect<Raymarch<W, H>, RaymarchParams>;

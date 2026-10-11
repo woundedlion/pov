@@ -23,12 +23,12 @@ namespace hs_wasm {
 /** @brief One registration per HS_EFFECT_LIST entry, in list order. */
 inline constexpr std::array<EffectRegistration, HS_EFFECT_COUNT>
     EFFECT_REGISTRATIONS = {{
-#define HS_REGISTER_ENTRY(name) make_registration<name>(#name),
+#define HS_REGISTER_ENTRY(name) make_registration<name>(),
         HS_EFFECT_LIST(HS_REGISTER_ENTRY)
 #undef HS_REGISTER_ENTRY
     }};
 static_assert(registration_names_unique(EFFECT_REGISTRATIONS),
-              "effect names and stable IDs must be unique");
+              "effect IDs and compatibility aliases must be unique");
 
 /**
  * @brief Builds a concrete factory table from the HS_EFFECT_LIST registrations.
@@ -43,8 +43,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     const auto &regs = EFFECT_REGISTRATIONS;
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i) {
-      t[i].name = regs[i].name;
-      t[i].stable_id = regs[i].stable_id;
+      t[i].identity = regs[i].identity;
       get_fill_fn<W, H>(regs[i])(t[i]);
     }
     return t;
@@ -53,10 +52,10 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
 }
 
 /**
- * @brief Looks up an effect by class name or stable ID in the (W,H) factory.
+ * @brief Looks up a canonical ID or compatibility alias in the (W,H) factory.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @param name Effect class name or stable EFFECT_ID to look up.
+ * @param name Canonical machine ID, legacy ID or class/browser name to look up.
  * @return Pointer to the matching entry, or null if the class name or ID is
  *         unknown. The entry belongs to the static per-(W,H) table and stays
  *         valid for the module's lifetime.
@@ -64,7 +63,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
 template <int W, int H>
 const FactoryEntry *find_factory_entry(std::string_view name) {
   for (const auto &entry : get_factory<W, H>())
-    if (name == entry.name || name == entry.stable_id)
+    if (entry.identity.matches(name))
       return &entry;
   return nullptr;
 }

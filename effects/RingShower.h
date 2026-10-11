@@ -11,6 +11,7 @@
  *        then recycle their slot.
  */
 
+#include "core/platform/effect_identity.h"
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
 
@@ -31,7 +32,11 @@ struct RingShowerWhiteBox;
  */
 template <int W, int H> class RingShower : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "RingShower"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::RingShower::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect at the templated canvas dimensions.

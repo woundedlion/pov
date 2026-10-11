@@ -11,6 +11,7 @@
  *        evolving Mobius transform.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
@@ -29,8 +30,11 @@ struct GnomonicStarsWhiteBox;
  */
 template <int W, int H> class GnomonicStars : public Effect {
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "GnomonicStars";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::GnomonicStars::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect at the W x H canvas resolution.

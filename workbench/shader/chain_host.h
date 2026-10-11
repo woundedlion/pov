@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include "core/platform/effect_identity.h"
 #include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
@@ -46,7 +47,11 @@ struct ShaderChainParameterWrite {
  */
 template <int W, int H> class ShaderChain : public Effect {
 public:
-  static constexpr std::string_view EFFECT_ID = "shader-chain"; ///< Stable ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::ShaderChain::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// One {instance, operator} program entry.
   using ChainEntryRequest = Pullback::Interp::ChainEntryRequest;

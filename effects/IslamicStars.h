@@ -11,6 +11,7 @@
  *        one into the next.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/animation/animation.h"
 #include "core/control/choreography.h"
@@ -63,8 +64,11 @@ class IslamicStars
   friend Choreography;
 
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "IslamicStars";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::IslamicStars::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// Live parameter set.
   using Params = IslamicStarsParams;

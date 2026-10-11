@@ -11,6 +11,7 @@
  *        flowing petals.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include <cmath>
 #include "core/engine/engine.h"
@@ -33,7 +34,11 @@ struct PetalFlowWhiteBox;
  */
 template <int W, int H> class PetalFlow : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "PetalFlow"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::PetalFlow::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect, wiring up palette and orientation filters.

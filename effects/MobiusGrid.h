@@ -11,6 +11,7 @@
  *        an animated Mobius lens over a mirrored twin wave.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -66,8 +67,10 @@ public:
   using Params = MobiusGridParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "mobius-grid";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::MobiusGrid::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "eef46eb35e8a9bf17957a06530bf4409f8cb4ffd0c120b28d85eb0c65dfd314e";
   /// SHA-256 hex of the shader document's preset bank.

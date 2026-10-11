@@ -10,6 +10,7 @@
  * @brief Composed pullback effect: a mirrored grid folded by the glitch lens.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -61,8 +62,10 @@ public:
   using Params = AlienCoreParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "alien-core";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::AlienCore::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "65a245d1dfbbc68eff720abe0fd1c6195e82954412646ee38e1d7a41397b3472";
   /// SHA-256 hex of the shader document's preset bank.

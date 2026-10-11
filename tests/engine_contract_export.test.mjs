@@ -31,6 +31,9 @@ test('browser contracts preserve emitted signatures and derive names, values and
     writeFileSync(modulePath, `
 class Engine {}
 Engine.prototype.getBufferLength = function() {};
+Engine.prototype.getEffectIdentities = function() {
+  return [{id: 'future-effect', display_name: 'FutureEffect', legacy_ids: ['OldFuture']}];
+};
 ${extra ? 'Engine.prototype.futureMethod = function() {};' : ''}
 class Result { constructor(value) { this.value = value; } }
 Result.APPLIED = new Result(${extra ? 73 : 0});
@@ -53,6 +56,8 @@ export default async function() {
   assert.equal(first.bindings, BINDINGS.replace('transform(): MeshOps;', 'transform(): MeshOps | null;'));
   assert.match(first.contract, /FPS = 16;/);
   assert.match(first.contract, /"FutureResult": \{\s*"APPLIED": 0/);
+  assert.match(first.contract, /"id": "future-effect"/);
+  assert.match(first.contract, /"OldFuture"/);
   const changed = generate(true);
   assert.match(changed.bindings, /futureMethod\(_0: number\): number;/);
   assert.match(changed.contract, /"futureMethod"/);

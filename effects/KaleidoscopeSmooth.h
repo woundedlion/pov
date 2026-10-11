@@ -11,6 +11,7 @@
  *        mirrored grids folded through a dodecahedral lens.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -88,8 +89,10 @@ public:
   using Params = KaleidoscopeSmoothParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-smooth";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeSmooth::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "48f48e0af5cb2f041007567815457c26824eafd8a4397e605da1d6ba57438b16";
   /// SHA-256 hex of the shader document's preset bank.

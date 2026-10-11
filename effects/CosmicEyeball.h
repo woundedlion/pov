@@ -11,6 +11,7 @@
  *        a high-contrast mirrored grid with displacement-driven hue.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -62,8 +63,10 @@ public:
   using Params = CosmicEyeballParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "cosmic-eyeball";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::CosmicEyeball::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "9b0e9fb6b8e1cd9fddc0bfb95847ae484eaec378dd0b987eb51f68d70ceb38da";
   /// SHA-256 hex of the shader document's preset bank.

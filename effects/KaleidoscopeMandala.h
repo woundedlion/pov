@@ -11,6 +11,7 @@
  *        a wave-sheared grid moving across dodecahedral facets.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -63,8 +64,10 @@ public:
   using Params = KaleidoscopeMandalaParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-mandala";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeMandala::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "b37f0b27686b2dea268c8860d63a062e0a2ad59dd694d1d861139b6b5ab8da3e";
   /// SHA-256 hex of the shader document's preset bank.

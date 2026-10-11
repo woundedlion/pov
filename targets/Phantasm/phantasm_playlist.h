@@ -83,7 +83,7 @@ constexpr int HS_PHANTASM_EFFECT_COUNT =
  * @param duration_seconds Show duration in seconds (unused).
  */
 #define HS_PHANTASM_SEED_ONE(name, duration_seconds)                           \
-  hs::stable_effect_seed(hs::stable_effect_id<name<W, H>>(#name)),
+  hs::stable_effect_seed(hs::effect_seed_key<name<W, H>>(#name)),
 /** @brief Device playlist seeds in roster order. */
 template <int W, int H>
 inline constexpr uint64_t HS_PHANTASM_EFFECT_SEEDS[] = {

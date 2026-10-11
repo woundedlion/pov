@@ -10,6 +10,7 @@
  * @brief Analytic flight through periodic lattices and shells in 3D and 4D.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -278,8 +279,11 @@ class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
   friend Choreography;
 
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "HyperLattice";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::HyperLattice::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// Live parameters.
   using Params = HyperLatticeDetail::Params;

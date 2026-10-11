@@ -11,6 +11,7 @@
  *        an octahedral jewel lattice rippling through curl noise.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -63,8 +64,10 @@ public:
   using Params = JewelMeltParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "jewel-melt";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::JewelMelt::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "4a5674fa7a9af30c024c518e3057dcd38fef427f77f196ead79ef5546ca6d697";
   /// SHA-256 hex of the shader document's preset bank.

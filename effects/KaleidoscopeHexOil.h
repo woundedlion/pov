@@ -11,6 +11,7 @@
  *        a rotating spiral folded through a hexagonal prism.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -61,8 +62,10 @@ public:
   using Params = KaleidoscopeHexOilParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-oil";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeHexOil::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "d4cec300e807a48008dcd128903c97f00ca36d582a474e94231389f2ffa9a7c7";
   /// SHA-256 hex of the shader document's preset bank.

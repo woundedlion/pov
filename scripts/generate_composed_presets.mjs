@@ -4,6 +4,7 @@ import { exitAfterStderr, isMain } from './exit.mjs';
 import { resolve } from 'node:path';
 import { BAKED_CONSTANT_IDS, LIVE_TOPOLOGY_FIELD, compileShaderDocument, fixedDerivedBinding } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
+import { loadEffectIdentities } from './effect_roster.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const SECTIONS = ['identity', 'params'];
@@ -14,6 +15,7 @@ const RENAMES = { 'sample.angle-speed': 'angle_rate', 'sample.drift': 'secondary
   'project.projection-wander': 'wander', 'colorize.value-opacity-low': 'opacity_low',
   'colorize.value-opacity-high': 'opacity_high' };
 const catalog = await loadOperatorCatalog();
+const identities = await loadEffectIdentities();
 
 const topologyIds = (document) => new Set(document.descriptor.chain.flatMap((slot) =>
   catalog.operators.find((operator) => operator.id === slot.operator).params
@@ -85,7 +87,7 @@ export function departureLiteral(bank, presetId, policies) {
   return `Segue::Preset::Lerp{${edge.duration}, ${easing}}`;
 }
 
-export function generatedSections(compiled) {
+export function generatedSections(compiled, metadata) {
   if (compiled.status !== 'VALID') throw new Error(JSON.stringify(compiled.diagnostics));
   const document = compiled.document;
   const bank = document.preset_bank;
@@ -103,9 +105,13 @@ export function generatedSections(compiled) {
     if (!values.every((value) => value === values[0]))
       throw new Error(`Composed topology must be uniform: ${parameter.id}`);
   }
+  metadata ??= identities.find(row => row.id === document.effect_id);
+  if (!metadata) throw new Error(`Unregistered composed effect ID: ${document.effect_id}`);
   const identity = [
-    "  /// Stable effect ID; equals the shader document's effect_id.",
-    `  static constexpr std::string_view EFFECT_ID = ${JSON.stringify(document.effect_id)};`,
+    '  /// Machine/display identity and compatibility keys.',
+    `  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::${metadata.name}::VALUE;`,
+    "  /// Canonical machine ID; equals the shader document's effect_id.",
+    '  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;',
     "  /// SHA-256 hex of the shader document's parameter descriptor.",
     `  static constexpr std::string_view DESCRIPTOR_DIGEST = "${compiled.descriptor_digest}";`,
     "  /// SHA-256 hex of the shader document's preset bank.",
@@ -156,8 +162,8 @@ export function generatedSections(compiled) {
   return { identity, params: params.join('\n') };
 }
 
-export function updateHeader(source, compiled) {
-  const sections = generatedSections(compiled);
+export function updateHeader(source, compiled, metadata) {
+  const sections = generatedSections(compiled, metadata);
   for (const section of SECTIONS) {
     const begin = `  // Generated ${section}: scripts/generate_composed_presets.mjs\n  // clang-format off\n`;
     const end = `  // clang-format on\n  // End generated ${section}.`;
@@ -170,6 +176,7 @@ export function updateHeader(source, compiled) {
 }
 
 export async function generate({ check = false, root = ROOT } = {}) {
+  const metadata = await loadEffectIdentities(root);
   const composed = [];
   const ids = new Set();
   const stale = [];
@@ -188,8 +195,12 @@ export async function generate({ check = false, root = ROOT } = {}) {
     if (!file.endsWith('.h')) continue;
     const path = resolve(root, 'effects', file);
     const source = (await readFile(path, 'utf8')).replaceAll('\r\n', '\n');
-    const id = /static constexpr std::string_view EFFECT_ID = "([^"]+)"/.exec(source)?.[1];
-    if (!id || !source.includes('DESCRIPTOR_DIGEST')) continue;
+    if (!source.includes('DESCRIPTOR_DIGEST')) continue;
+    const name = /EFFECT_IDENTITY\s*=\s*hs::effect_identities::(\w+)/u.exec(source)?.[1];
+    const declaredId = /static constexpr std::string_view EFFECT_ID = "([^"]+)"/u.exec(source)?.[1];
+    const record = metadata.find(row => name ? row.name === name : row.id === declaredId);
+    if (!record) throw new Error(`Unregistered composed identity: effects/${file}`);
+    const id = record.id;
     if (ids.has(id)) throw new Error(`Duplicate composed effect ID: ${id}`);
     ids.add(id);
     const input = await readFile(resolve(root, 'patterns', `${id.replaceAll('-', '_')}.shader.json`), 'utf8');
@@ -198,7 +209,7 @@ export async function generate({ check = false, root = ROOT } = {}) {
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json: ${JSON.stringify(compiled.diagnostics)}`);
     if (compiled.document.effect_id !== id)
       throw new Error(`patterns/${id.replaceAll('-', '_')}.shader.json names effect "${compiled.document.effect_id}", expected "${id}"`);
-    const output = updateHeader(source, compiled);
+    const output = updateHeader(source, compiled, record);
     await emit(`effects/${file}`, output);
     composed.push(file);
   }
