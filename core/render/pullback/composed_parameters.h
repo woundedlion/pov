@@ -6,8 +6,8 @@
 // Included by core/render/pullback/composed_effect.h.
 
 /** @file composed_parameters.h
- * @brief Parameter-family interpolation, range validation and optional
- * runtime storage for composed effects.
+ * @brief Parameter-kind enums, uses_* predicates, interpolation, range
+ * validation and runtime storage for composed effects.
  */
 
 /**

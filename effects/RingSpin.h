@@ -38,7 +38,8 @@ public:
   /// Canonical machine ID.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
-  enum class Strobe { ENABLED, DISABLED }; ///< Per-column driver blanking.
+  /** @brief Per-column driver blanking mode. */
+  enum class Strobe { ENABLED, DISABLED };
 
   /**
    * @brief Constructs the effect at the W x H canvas resolution.

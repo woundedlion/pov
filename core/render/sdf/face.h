@@ -285,8 +285,7 @@ struct Face {
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
    * @param bounds_margin Angular padding around the vertical bounds. Callers
-   *        rendering antialiasing fringes must pass at least `2π / width`;
-   *        the default is suitable only when that reach is not required.
+   *        rendering antialiasing fringes must pass at least `2π / width`.
    */
   HS_O3_FN Face(std::span<const math::Vector> vertices,
                 std::span<const uint16_t> indices, FaceScratchBuffer &scratch,

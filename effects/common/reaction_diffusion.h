@@ -199,6 +199,7 @@ protected:
   }
 #endif
 
+#if HS_ENABLE_TEST_ORACLES
   /**
    * @brief Refines a cubemap-LUT seed by argmin over the seed and its one-ring.
    * @param rv Query direction (unit vector on the sphere).
@@ -222,6 +223,7 @@ protected:
     });
     return best;
   }
+#endif
 
   /**
    * @brief Nodes nearest each pole, given the tighter polar certificate; covers
@@ -279,6 +281,7 @@ protected:
     return best;
   }
 
+#if HS_ENABLE_TEST_ORACLES
   /**
    * @brief Selects the nearest node in a cubemap-LUT seed's one-ring and runs
    *        the compact biweight kernel walk in one stencil pass.
@@ -316,6 +319,7 @@ protected:
     }
     kernel_accumulate(rv, nodes, ids[best], on_weight);
   }
+#endif
 
   /**
    * @brief Gathers a render stencil: the center node and its one-ring.
@@ -562,6 +566,7 @@ protected:
   }
 
 private:
+#if HS_ENABLE_TEST_ORACLES
   /**
    * @brief compact biweight kernel walk over `center` and its neighbors.
    * @tparam OnWeight Callable accepting (node_index, weight).
@@ -584,6 +589,7 @@ private:
     visit(center);
     for_each_neighbor(center, visit);
   }
+#endif
 
 protected:
   math::Orientation<>
