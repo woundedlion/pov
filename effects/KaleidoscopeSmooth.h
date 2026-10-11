@@ -18,9 +18,7 @@
 #include "core/render/pullback/composed_effect.h"
 
 namespace hs_test {
-namespace kaleidoscope_smooth_tests {
-struct KaleidoscopeSmoothWhiteBox;
-} // namespace kaleidoscope_smooth_tests
+template <typename FX> struct ComposedWhiteBox;
 } // namespace hs_test
 
 /** @brief Stage spec for `KaleidoscopeSmooth`. */
@@ -82,8 +80,7 @@ template <int W, int H>
 class KaleidoscopeSmooth
     : public Pullback::ComposedEffect<W, H, KaleidoscopeSmooth<W, H>,
                                       KaleidoscopeSmoothSpec> {
-  friend struct ::hs_test::kaleidoscope_smooth_tests::
-      KaleidoscopeSmoothWhiteBox;
+  friend struct ::hs_test::ComposedWhiteBox<KaleidoscopeSmooth<W, H>>;
 
 public:
   using Params = KaleidoscopeSmoothParams; ///< Live parameter struct.
