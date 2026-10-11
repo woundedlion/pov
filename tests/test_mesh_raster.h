@@ -263,7 +263,8 @@ inline void test_wide_face_preserves_near_horizon_interior() {
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(std::span<const math::Vector>(verts, 4),
                    std::span<const uint16_t>(indices, 4), scratch,
-                   H + hs::H_OFFSET, H, &canvas.clip());
+                   H + hs::H_OFFSET, H, &canvas.clip(), nullptr,
+                   SDF::BOUNDS_MARGIN);
     const float cosine = math::dot(probe, face.center);
     HS_EXPECT_GT(cosine, 0.0f);
     HS_EXPECT_LT(cosine, 0.01f);
@@ -1138,7 +1139,8 @@ inline void check_face_concavity_agrees(size_t islamic_idx) {
   size_t checked = 0, concave_seen = 0;
   for (size_t f = 0; f < F; ++f) {
     SDF::Face face(verts, std::span<const uint16_t>(fi + fo[f], fc[f]),
-                   face_scratch, H + hs::H_OFFSET, H);
+                   face_scratch, H + hs::H_OFFSET, H, nullptr, nullptr,
+                   SDF::BOUNDS_MARGIN);
     // A culled face never reached the turn test.
     if (face.count == 0)
       continue;

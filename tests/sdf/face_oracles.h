@@ -93,7 +93,8 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const math::Vector>(verts3d, n_verts),
-                 std::span<const uint16_t>(idx, n_verts), scratch, HV, H);
+                 std::span<const uint16_t>(idx, n_verts), scratch, HV, H,
+                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f && stride == 1);
   const uint32_t probe_flags = face.probe_flags();
 
@@ -153,7 +154,8 @@ inline void test_face_sector_backtrack_sign() {
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(std::span<const math::Vector>(vertices, 12),
                    std::span<const uint16_t>(indices, 12), scratch,
-                   144 + hs::H_OFFSET, 144);
+                   144 + hs::H_OFFSET, 144, nullptr, nullptr,
+                   SDF::BOUNDS_MARGIN);
     HS_EXPECT_EQ(face.sector_ok, bend >= 0.0f);
     if (!face.sector_ok) {
       HS_EXPECT_EQ(face.probe_flags() & SDF::Face::PROBE_SECTOR, 0u);
@@ -256,7 +258,7 @@ inline void test_face_asymmetric_sector_matches_oracle() {
       }
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144),
-                     144);
+                     144, nullptr, nullptr, SDF::BOUNDS_MARGIN);
       HS_EXPECT_TRUE(face.sector_ok);
       if (!face.sector_ok)
         continue;
@@ -315,7 +317,8 @@ inline void test_face_randomized_sector_matches_oracle() {
       }
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(std::span(vertices, count), std::span(indices, count),
-                     scratch, math::LatitudeGeometry(144), 144);
+                     scratch, math::LatitudeGeometry(144), 144, nullptr,
+                     nullptr, SDF::BOUNDS_MARGIN);
       if (!face.sector_ok)
         continue;
       ++admitted;
@@ -377,7 +380,8 @@ inline void test_face_randomized_backtracking_matches_oracle() {
         vertices[indices[(swap + 1) % count]] = vertices[indices[swap]];
       SDF::FaceScratchBuffer scratch;
       SDF::Face face(std::span(vertices, count), std::span(indices, count),
-                     scratch, math::LatitudeGeometry(144), 144);
+                     scratch, math::LatitudeGeometry(144), 144, nullptr,
+                     nullptr, SDF::BOUNDS_MARGIN);
       HS_EXPECT_EQ(face.count, count);
       auto probe = [&](float px, float py) {
         bool inside;
@@ -421,8 +425,8 @@ inline void test_face_tied_rows_match_oracle() {
     }
     std::swap(indices[2], indices[3]);
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144),
-                   144);
+    SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144), 144,
+                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
     HS_EXPECT_EQ(face.count, COUNT);
     HS_EXPECT_FALSE(face.convex);
     HS_EXPECT_FALSE(face.sector_ok);
@@ -467,7 +471,7 @@ inline void check_face_shipping_recipes_match_oracle(const PolyMesh &mesh) {
     offset += count;
     SDF::FaceScratchBuffer scratch;
     SDF::Face face(mesh.vertices, indices, scratch, math::LatitudeGeometry(H),
-                   H);
+                   H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
     if (face.count == 0)
       continue;
     const uint32_t flags = face.probe_flags();
@@ -612,7 +616,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   SDF::FaceScratchBuffer canon_scratch;
   SDF::Face canon_face(std::span<const math::Vector>(orig, n_verts),
                        std::span<const uint16_t>(canon_idx, n_verts),
-                       canon_scratch, HV, H);
+                       canon_scratch, HV, H, nullptr, nullptr,
+                       SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(!canon_face.convex);
   float canon[2 * n_verts];
   float mx = 0.0f, my = 0.0f;
@@ -651,7 +656,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
 
   SDF::FaceScratchBuffer scratch;
   SDF::Face face(std::span<const math::Vector>(verts, n_verts),
-                 std::span<const uint16_t>(canon_idx, n_verts), scratch, HV, H);
+                 std::span<const uint16_t>(canon_idx, n_verts), scratch, HV, H,
+                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
 
@@ -661,7 +667,8 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
     static const float zeros[2 * n_verts] = {};
     SDF::Face reject_face(std::span<const math::Vector>(verts, n_verts),
                           std::span<const uint16_t>(canon_idx, n_verts),
-                          reject_scratch, HV, H);
+                          reject_scratch, HV, H, nullptr, nullptr,
+                          SDF::BOUNDS_MARGIN);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
   }
 
