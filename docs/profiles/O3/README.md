@@ -1,7 +1,7 @@
 # Global-O3 reference profiles
 
-Ranked captures covering all **37 effects** in the 288×144 Phantasm
-image. These are single-effect `profile_o3` compiler-reference images built
+Ranked captures covering **36 effects** from the Phantasm image.
+KaleidoscopeMelt and JewelMelt have no global-O3 reference capture. These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
 Peak is worst-frame render time (never wall). Spilled is the fraction of frames
@@ -23,7 +23,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 46.52 | 🟢 0/1088 (0%) | 2026-08-26 01:27 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 38.94 (3) | 🟢 0/2208 (0%) | 2026-08-26 02:49 |
-| [LatticeMelt](profile_latticemelt_architecture_teensy_2026-10-01.md) § ● | `fx_shader_draw` | 🟢 38.705 (2) | 🟢 0/1736 (0.00%) | 2026-10-01 09:49 |
 | [HyperLattice](profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.975 (3) | 🟢 0/2696 (0.00%) | 2026-10-01 09:26 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 36.86 (3) | 🟢 0/2368 (0%) | 2026-08-26 03:17 |
 | [ChromaticLichen](profile_chromaticlichen_architecture_teensy_2026-10-01.md) ● | `fx_shader_draw` | 🟢 35.218 | 🟢 0/1096 (0.00%) | 2026-10-01 09:51 |
@@ -47,7 +46,7 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [PetalFlow](profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 10.77 | 🟢 0/1088 (0%) | 2026-08-26 01:32 |
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 7.71 | 🟢 0/1088 (0%) | 2026-08-26 01:39 |
 
-● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
+● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 
 IslamicStars refreshed on 2026-09-28 from current baseline source; setup frame 1 excluded.
 
@@ -110,7 +109,6 @@ Preserved canonical snapshots; current architecture rankings use the dated varia
 
 - [MindSplatter 2026-08-26](profile_mindsplatter_teensy_2026-08-26.md).
 - [HyperLattice 2026-09-27](profile_hyperlattice_teensy_2026-09-27.md).
-- [LatticeMelt 2026-08-26](profile_latticemelt_teensy_2026-08-26.md).
 - [ChromaticLichen 2026-08-26](profile_chromaticlichen_teensy_2026-08-26.md).
 - [KaleidoscopeSmooth 2026-08-26](profile_kaleidoscopesmooth_teensy_2026-08-26.md).
 

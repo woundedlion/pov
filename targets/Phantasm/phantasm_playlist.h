@@ -29,7 +29,7 @@
   X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
-  X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
+  X(KaleidoscopeMelt, hs_preset_window_seconds<KaleidoscopeMelt>())            \
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
   X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \

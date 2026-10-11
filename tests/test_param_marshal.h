@@ -227,7 +227,7 @@ inline void check_roster_order_pinned() {
                                               "GridSpace",
                                               "HyperLattice",
                                               "AshCloud",
-                                              "LatticeMelt",
+                                              "KaleidoscopeMelt",
                                               "ChromaticLichen",
                                               "MermaidSkin",
                                               "JewelMelt",

@@ -63,7 +63,7 @@
 #include "tests/test_mindsplatter.h"
 #include "tests/test_effects_smoke.h"
 #include "tests/test_effect_factory.h"
-#include "tests/test_lattice_melt.h"
+#include "tests/test_kaleidoscope_melt.h"
 #include "tests/test_kaleidoscope_smooth.h"
 #include "tests/test_composed_effect.h"
 #include "tests/test_shapeshifter_oracle.h"
@@ -170,8 +170,8 @@ struct TestModule {
     true)                                                                      \
   X("effect_factory", hs_test::effect_factory_tests::run_effect_factory_tests, \
     true)                                                                      \
-  X("lattice_melt", hs_test::lattice_melt_tests::run_lattice_melt_tests,       \
-    false)                                                                     \
+  X("kaleidoscope_melt",                                                       \
+    hs_test::kaleidoscope_melt_tests::run_kaleidoscope_melt_tests, false)      \
   X("kaleidoscope_smooth",                                                     \
     hs_test::kaleidoscope_smooth_tests::run_kaleidoscope_smooth_tests, false)  \
   X("composed_effect",                                                         \
