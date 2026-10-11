@@ -278,7 +278,7 @@ inline void test_face_shader_setup_matches_face_index() {
                              static_cast<uint16_t>(7000 + i * 3000)),
                        1.0f);
 
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  std::vector<Pixel> ref;
   {
     hs_test::StubEffect indexed(W, H);
     auto shader = [&](const math::Vector &, Fragment &frag) {
@@ -290,9 +290,7 @@ inline void test_face_shader_setup_matches_face_index() {
       Scan::Mesh::draw<W, H>(pipe, c, mesh, shader, scratch);
     }
     indexed.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = indexed.get_pixel(x, y);
+    capture_frame<W, H>(indexed, ref);
   }
 
   hs_test::StubEffect selected(W, H);
@@ -498,7 +496,7 @@ inline void test_clip_band_matches_full() {
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  std::vector<Pixel> ref;
   {
     hs_test::StubEffect full(W, H);
     {
@@ -507,9 +505,7 @@ inline void test_clip_band_matches_full() {
       Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
     }
     full.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = full.get_pixel(x, y);
+    capture_frame<W, H>(full, ref);
   }
 
   struct Band {
@@ -767,7 +763,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   constexpr int W = 288, H = 144;
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
-  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  std::vector<Pixel> ref;
   {
     hs_test::StubEffect exact(W, H);
     {
@@ -776,9 +772,7 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
       Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch);
     }
     exact.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        ref[static_cast<size_t>(y) * W + x] = exact.get_pixel(x, y);
+    capture_frame<W, H>(exact, ref);
   }
 
   hs::g_scan_metrics.reset();
