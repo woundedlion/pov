@@ -183,15 +183,15 @@ dodecahedral_kaleidoscope_lens(math::Vector v) {
   constexpr math::Vector OBLIQUE = DODECAHEDRAL_MIRRORS[1];
   for (int reflection = 0; reflection < POLYHEDRAL_REFLECTION_LIMIT;
        ++reflection) {
-    if (v.x < -POLYHEDRAL_MIRROR_EPS) {
+    if (!(v.x >= -POLYHEDRAL_MIRROR_EPS)) {
       v.x = -v.x;
     } else {
       const float distance = math::dot(v, OBLIQUE);
-      if (distance < -POLYHEDRAL_MIRROR_EPS) {
+      if (!(distance >= -POLYHEDRAL_MIRROR_EPS)) {
         v.x -= 2.0f * distance * OBLIQUE.x;
         v.y -= 2.0f * distance * OBLIQUE.y;
         v.z -= 2.0f * distance * OBLIQUE.z;
-      } else if (v.z < -POLYHEDRAL_MIRROR_EPS) {
+      } else if (!(v.z >= -POLYHEDRAL_MIRROR_EPS)) {
         v.z = -v.z;
       } else {
         HS_PULLBACK_PROJECTION_COUNT(

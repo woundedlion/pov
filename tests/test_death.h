@@ -1205,6 +1205,9 @@ inline const Case *all_cases(int &n) {
        "core/math/spherical.h",
        "(denominator > 1.0f || dot(cross(from, to), cross(from, to)) > "
        "MIN_TRANSPORT_CROSS_SQ) parallel_transport: antipodal endpoints"},
+      {"dodecahedral_kaleidoscope_nan", case_dodecahedral_kaleidoscope_nan,
+       "core/math/lenses.h",
+       "(false) dodecahedral kaleidoscope fold did not converge"},
       {"polyhedral_kaleidoscope_no_converge",
        case_polyhedral_kaleidoscope_no_converge, "core/math/lenses.h",
        "(false) polyhedral kaleidoscope fold did not converge"},
