@@ -496,7 +496,8 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
   Arena geom(mr_geom, sizeof(mr_geom));
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
-  PolyMesh goldberg = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
+  PolyMesh goldberg =
+      Solids::Archimedean::truncated_icosahedron(seed_a, seed_b);
   check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128);
   Arena geom2(mr_geom, sizeof(mr_geom));
   check_solid_fill_tiles<W, H>(goldberg, geom2, scratch);
@@ -514,7 +515,7 @@ inline void test_clip_band_matches_full() {
   Arena geom(mr_geom, sizeof(mr_geom));
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
-  PolyMesh poly = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
+  PolyMesh poly = Solids::Archimedean::truncated_icosahedron(seed_a, seed_b);
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 

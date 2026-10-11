@@ -117,7 +117,7 @@ inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
  */
 inline PolyMesh build_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+  return Solids::SolidBuilder(Solids::Archimedean::truncated_icosahedron(a, b),
                               a, b)
       .ambo()
       .relax(100)
