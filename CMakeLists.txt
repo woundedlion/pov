@@ -46,7 +46,8 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}/core)
 
   set_property(TARGET ${TARGET_NAME} APPEND PROPERTY LINK_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake")
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake"
+    "${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/module_halt.js")
   add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND}
       "-DGLUE=$<TARGET_FILE:${TARGET_NAME}>"
@@ -61,10 +62,12 @@ if(EMSCRIPTEN)
     HS_GLOBAL_ARENA_BYTES=524288)
 
   # Not -Werror: emscripten system headers ride this compile line.
-  target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra")
+  target_compile_options(${TARGET_NAME} PRIVATE "-Wall" "-Wextra" "-fno-exceptions")
 
   target_link_options(${TARGET_NAME} PRIVATE
     "-lembind"
+    "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/module_halt.js"
+    "-sDISABLE_EXCEPTION_THROWING=1"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sMODULARIZE=1"
     "-sEXPORT_ES6=1"
