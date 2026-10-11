@@ -191,26 +191,26 @@ def main(force=False, revision=B.REVISION, output_dir=None):
                 prop[2] = "https://www.ti.com/lit/ds/symlink/thvd2410.pdf"
         b.register_custom(node, "phantasm:THVD2410DR")
         protection = '''(symbol "phantasm:CDSOT23-SM712"
-            (pin_names (offset 0.5)) (in_bom yes) (on_board yes)
-            (property "Reference" "D" (at 0 7.62 0)
-                (effects (font (size 1.27 1.27))))
-            (property "Value" "CDSOT23-SM712" (at 0 -7.62 0)
-                (effects (font (size 1.27 1.27))))
-            (property "Datasheet" "https://www.bourns.com/docs/product-datasheets/cdsot23-sm712.pdf"
-                (at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
-            (symbol "CDSOT23-SM712_0_1"
-                (rectangle (start -5.08 5.08) (end 5.08 -5.08)
-                    (stroke (width 0.254) (type default)) (fill (type background))))
-            (symbol "CDSOT23-SM712_1_1"
-                (pin passive line (at -7.62 2.54 0) (length 2.54)
-                    (name "LINE1" (effects (font (size 1.27 1.27))))
-                    (number "1" (effects (font (size 1.27 1.27)))))
-                (pin passive line (at -7.62 -2.54 0) (length 2.54)
-                    (name "LINE2" (effects (font (size 1.27 1.27))))
-                    (number "2" (effects (font (size 1.27 1.27)))))
-                (pin passive line (at 0 -7.62 90) (length 2.54)
-                    (name "GND" (effects (font (size 1.27 1.27))))
-                    (number "3" (effects (font (size 1.27 1.27)))))))'''
+	(pin_names (offset 0.5)) (in_bom yes) (on_board yes)
+	(property "Reference" "D" (at 0 7.62 0)
+		(effects (font (size 1.27 1.27))))
+	(property "Value" "CDSOT23-SM712" (at 0 -7.62 0)
+		(effects (font (size 1.27 1.27))))
+	(property "Datasheet" "https://www.bourns.com/docs/product-datasheets/cdsot23-sm712.pdf"
+		(at 0 0 0) (effects (font (size 1.27 1.27)) (hide yes)))
+	(symbol "CDSOT23-SM712_0_1"
+		(rectangle (start -5.08 5.08) (end 5.08 -5.08)
+			(stroke (width 0.254) (type default)) (fill (type background))))
+	(symbol "CDSOT23-SM712_1_1"
+		(pin passive line (at -7.62 2.54 0) (length 2.54)
+			(name "LINE1" (effects (font (size 1.27 1.27))))
+			(number "1" (effects (font (size 1.27 1.27)))))
+		(pin passive line (at -7.62 -2.54 0) (length 2.54)
+			(name "LINE2" (effects (font (size 1.27 1.27))))
+			(number "2" (effects (font (size 1.27 1.27)))))
+		(pin passive line (at 0 -7.62 90) (length 2.54)
+			(name "GND" (effects (font (size 1.27 1.27))))
+			(number "3" (effects (font (size 1.27 1.27)))))))'''
         b.register_custom(sexp.parse_one(protection), "phantasm:CDSOT23-SM712")
 
 
