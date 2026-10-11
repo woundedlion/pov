@@ -218,7 +218,7 @@ inline void test_voronoi_segment_render_matches_full_frame() {
         const Pixel &reference = full[static_cast<size_t>(y) * W + x];
         if (banded[i] != reference)
           ++different;
-        if (reference.r | reference.g | reference.b)
+        if (!is_black(reference))
           ++lit;
       }
     if (different)
