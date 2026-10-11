@@ -122,8 +122,8 @@ public:
    *  @param edges Input edge count.
    *  @param pieces Pieces per edge.
    *  @return Point count. */
-  static constexpr int max_points(int edges, int pieces) {
-    return edges * pieces + 1;
+  static constexpr int64_t max_points(int edges, int pieces) {
+    return static_cast<int64_t>(edges) * pieces + 1;
   }
 
   /** @brief Binds flag storage for polylines of up to @p max_points points.
@@ -150,13 +150,13 @@ public:
   split(Fragments &out, const Fragments &ring, int edges, int pieces,
         const math::Basis &planar_basis, const ClipBand<W, H> &band) {
     HS_CHECK(out.empty(), "PlanarBandSplit::split: out must be empty");
-    HS_CHECK(max_points(edges, pieces) <= capacity,
-             "PlanarBandSplit: %d edges of %d pieces exceed capacity %d", edges,
-             pieces, capacity);
     HS_CHECK(edges >= 1 && pieces >= 1 &&
                  ring.size() > static_cast<size_t>(edges),
              "PlanarBandSplit: %d edges of %d pieces over %d ring points",
              edges, pieces, static_cast<int>(ring.size()));
+    HS_CHECK(max_points(edges, pieces) <= capacity,
+             "PlanarBandSplit: %d edges of %d pieces exceed capacity %d", edges,
+             pieces, capacity);
     Fragment point;
     point.pos = ring[0].pos;
     out.push_back(point);
@@ -337,6 +337,8 @@ public:
     HS_CHECK(vertices >= 1 && vertices <= capacity,
              "PlanarChords: %d vertices outside capacity %d", vertices,
              capacity);
+    HS_CHECK(points.size() > static_cast<size_t>(vertices),
+             "PlanarChords: closing vertex is missing");
     float *const x_chart = chart_x_storage;
     float *const y_chart = chart_y_storage;
     for (int i = 0; i < vertices; ++i)

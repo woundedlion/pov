@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+// --- Individual death cases â€” each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Plot filter death cases.
 
@@ -373,6 +373,25 @@ inline void case_planar_chords_over_capacity() {
                      shader);
 }
 
+/** @brief A chord draw rejects a missing closing vertex. */
+inline void case_planar_chords_missing_closing_vertex() {
+  static uint8_t arena_buf[1024];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarChords<16, 8> chords;
+  chords.init_storage(arena, 2);
+  static hs_test::StubEffect fx(16, 8);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<16, 8> sink;
+  sink.prepare(canvas);
+  chords.prepare(canvas.clip());
+  Fragments points;
+  points.bind(arena, 2);
+  points.push_back(Fragment{math::Y_AXIS});
+  points.push_back(Fragment{math::Y_AXIS});
+  auto shader = [](const math::Vector &, Fragment &) {};
+  chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
+}
+
 /** @brief Death case: a chord draw rejects an unprepared direct sink. */
 inline void case_planar_chords_sink_unprepared() {
   static uint8_t arena_buf[1024];
@@ -451,13 +470,30 @@ inline void case_planar_band_split_nonempty_output() {
 
 /** @brief Death case: a band split past its bound storage traps. */
 inline void case_planar_band_split_over_capacity() {
-  static uint8_t arena_buf[64];
+  static uint8_t arena_buf[1024];
   Arena arena(arena_buf, sizeof(arena_buf));
   Plot::PlanarBandSplit<16, 8> band_split;
   band_split.init_storage(arena, 5);
   Fragments out;
   Fragments ring;
+  ring.bind(arena, 3);
+  for (int i = 0; i < 3; ++i)
+    ring.push_back(Fragment{});
   band_split.split(out, ring, opaque(2), 4, math::Basis{},
+                   Plot::ClipBand<16, 8>{});
+}
+
+/** @brief A band split rejects a point product beyond the signed-int range. */
+inline void case_planar_band_split_large_product() {
+  static uint8_t arena_buf[1024];
+  Arena arena(arena_buf, sizeof(arena_buf));
+  Plot::PlanarBandSplit<16, 8> band_split;
+  band_split.init_storage(arena, 5);
+  Fragments out, ring;
+  ring.bind(arena, 2);
+  ring.push_back(Fragment{});
+  ring.push_back(Fragment{});
+  band_split.split(out, ring, 1, opaque(INT_MAX), math::Basis{},
                    Plot::ClipBand<16, 8>{});
 }
 
