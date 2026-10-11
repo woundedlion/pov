@@ -608,9 +608,10 @@ class CaptureComparison(unittest.TestCase):
             references.append(weakref.ref(document))
             return document
 
-        def compare(base, candidate, *args, **kwargs):
-            self.assertEqual(kwargs, {"oracles": []})
-            documents = (base, candidate, *args[-2:])
+        def compare(base, candidate, programs, digest, *, base_sha, candidate_sha,
+                    strict_base, strict_candidate, oracles):
+            self.assertEqual(oracles, [])
+            documents = (base, candidate, strict_base, strict_candidate)
             comparisons.append(
                 tuple(
                     document["name"] if document is not None else None
@@ -633,9 +634,9 @@ class CaptureComparison(unittest.TestCase):
                 selected[1],
                 {},
                 "digest",
-                "a" * 40,
-                "b" * 40,
-                *selected[2:],
+                base_sha="a" * 40,
+                candidate_sha="b" * 40,
+                **dict(zip(("strict_base_path", "strict_candidate_path"), selected[2:])),
                 oracles=[],
             )
 
@@ -684,15 +685,16 @@ class CaptureComparison(unittest.TestCase):
     def test_orchestration_rejects_identical_revisions(self):
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "must differ"):
             crosscheck.orchestrate(
-                Path("repository"), Path("controller"), "a" * 40, "a" * 40,
-                Path("output"))
+                Path("repository"), Path("controller"), base_sha="a" * 40,
+                candidate_sha="a" * 40, output=Path("output"))
 
     def test_orchestration_rejects_short_or_named_revisions_before_io(self):
         for base, candidate in (("main", "b" * 40), ("a" * 40, "abcd"),
                                 ("A" * 40, "b" * 40)):
             with self.assertRaisesRegex(crosscheck.CrosscheckError, "full lowercase"):
                 crosscheck.orchestrate(Path("missing"), Path("missing"),
-                                      base, candidate, Path("missing-output"))
+                                      base_sha=base, candidate_sha=candidate,
+                                      output=Path("missing-output"))
 
     def test_toolchain_mismatch_is_refused(self):
         programs, digest = _test_manifest()
@@ -702,7 +704,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["toolchain"]["compiler"] = "different"
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "toolchain"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -728,8 +731,8 @@ class CaptureComparison(unittest.TestCase):
                 candidate,
                 programs,
                 digest,
-                "a" * 40,
-                "b" * 40,
+                base_sha="a" * 40,
+                candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -741,11 +744,13 @@ class CaptureComparison(unittest.TestCase):
         candidate["checkout_sha"] = "b" * 40
         with self.assertRaises(TypeError):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40
             )
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "coverage"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -816,7 +821,8 @@ class CaptureComparison(unittest.TestCase):
         candidate = copy.deepcopy(base)
         candidate["checkout_sha"] = "b" * 40
         crosscheck.compare_captures(
-            base, candidate, programs, digest, "a" * 40, "b" * 40,
+            base, candidate, programs, digest,
+            base_sha="a" * 40, candidate_sha="b" * 40,
             oracles=_oracles_for(programs),
         )
 
@@ -836,7 +842,8 @@ class CaptureComparison(unittest.TestCase):
         )
         with self.assertRaisesRegex(crosscheck.StrictFpRequired, "strict-FP"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
         strict_base = _capture(programs, digest, "wasm-strict-fp", 3)
@@ -847,10 +854,10 @@ class CaptureComparison(unittest.TestCase):
             candidate,
             programs,
             digest,
-            "a" * 40,
-            "b" * 40,
-            strict_base,
-            strict_candidate,
+            base_sha="a" * 40,
+            candidate_sha="b" * 40,
+            strict_base=strict_base,
+            strict_candidate=strict_candidate,
             oracles=_oracles_for(programs),
         )
 
@@ -869,7 +876,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["frames"][0]["sha256"] = "0" * 64
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "raw hash"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
         candidate = copy.deepcopy(base)
@@ -877,7 +885,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["frames"][0]["pixels"].pop()
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "pixels"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
         candidate = copy.deepcopy(base)
@@ -885,7 +894,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["manifest_sha256"] = "0" * 64
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "manifest hash"):
             crosscheck.compare_captures(
-                base, candidate, programs, digest, "a" * 40, "b" * 40,
+                base, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -927,7 +937,8 @@ class CaptureComparison(unittest.TestCase):
         ).hexdigest()
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "outside mapping"):
             crosscheck.compare_captures(
-                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40,
+                capture_doc, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -955,7 +966,8 @@ class CaptureComparison(unittest.TestCase):
         candidate["checkout_sha"] = "b" * 40
         with self.assertRaisesRegex(crosscheck.CrosscheckError, "aliases at"):
             crosscheck.compare_captures(
-                capture_doc, candidate, programs, digest, "a" * 40, "b" * 40,
+                capture_doc, candidate, programs, digest,
+                base_sha="a" * 40, candidate_sha="b" * 40,
                 oracles=_oracles_for(programs),
             )
 
@@ -974,10 +986,10 @@ class CaptureComparison(unittest.TestCase):
                 candidate,
                 programs,
                 digest,
-                "a" * 40,
-                "b" * 40,
-                strict_base,
-                strict_candidate,
+                base_sha="a" * 40,
+                candidate_sha="b" * 40,
+                strict_base=strict_base,
+                strict_candidate=strict_candidate,
                 oracles=_oracles_for(programs),
             )
         strict_candidate = copy.deepcopy(strict_base)
@@ -999,10 +1011,10 @@ class CaptureComparison(unittest.TestCase):
                 candidate,
                 programs,
                 digest,
-                "a" * 40,
-                "b" * 40,
-                strict_base,
-                strict_candidate,
+                base_sha="a" * 40,
+                candidate_sha="b" * 40,
+                strict_base=strict_base,
+                strict_candidate=strict_candidate,
                 oracles=_oracles_for(programs),
             )
 
