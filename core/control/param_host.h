@@ -327,7 +327,7 @@ protected:
     const char *const *options = spec.options;
     const int option_count = spec.option_count;
     HS_CHECK((options == nullptr) == (option_count == 0),
-             "register_param: inconsistent options and count");
+             "register_param: inconsistent options and count name=%s", name);
     HS_CHECK(spec.export_options == nullptr || options != nullptr,
              "register_param: export labels require options name=%s", name);
     HS_CHECK(spec.initial_value == ParamInitialValue::REQUIRE_IN_RANGE ||
@@ -336,7 +336,8 @@ protected:
              "register_param: invalid initial-value policy name=%s", name);
     if (options != nullptr && spec.option_values.empty())
       HS_CHECK(option_count > 0 && min == 0 && max == option_count - 1,
-               "register_param: option range does not match labels");
+               "register_param: option range does not match labels name=%s",
+               name);
 
     ParamDef::TargetType target_type;
     if constexpr (std::is_same_v<T, float>) {
