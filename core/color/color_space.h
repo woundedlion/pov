@@ -658,8 +658,59 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
   }
 }
 
-void lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt,
-                                 float &r, float &g, float &b);
+/**
+ * @brief Rescales an OKLab color onto a tabulated sRGB gamut boundary.
+ * @param lab Source color; lightness is clamped to [0, 1] first.
+ * @param lut Boundary grid to read: the flash master or an arena copy.
+ * @return The color scaled to the tabulated boundary chroma for its hue and
+ *         lightness cell, or the neutral axis when chroma underflows.
+ * @details Scales unconditionally, so an in-gamut color is pushed outward to
+ * the boundary; call only once the color is known to be out of gamut. The
+ * one-Newton-step reciprocal square root is one-sided low, so the rescale
+ * lands at or inside the boundary.
+ */
+__attribute__((always_inline)) inline OKLab
+gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
+  if (!(chroma_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+  uint32_t inverse_bits;
+  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
+  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
+  float inverse_chroma;
+  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
+  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
+  const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
+  const uint16_t stored =
+      lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
+                2];
+  const float max_chroma =
+      fmaxf(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
+                      GAMUT_CLIP_MARGIN);
+  const float scale = max_chroma * inverse_chroma;
+  return {lab.L, lab.a * scale, lab.b * scale};
+}
+
+/**
+ * @brief Cube-rooted LMS to linear RGB, chroma-scaled onto the live gamut grid.
+ * @param l_cbrt Cube-rooted l cone response of an out-of-gamut color.
+ * @param m_cbrt Cube-rooted m cone response.
+ * @param s_cbrt Cube-rooted s cone response.
+ * @param r Out: linear red on or inside the tabulated boundary.
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details Scales directly to the stored cell minimum instead of refining the
+ * bracket. The sampled grid supplies no certified chroma-deficit bound against
+ * the exact first exit. Reads g_gamut_lut.
+ */
+HS_O3_FN __attribute__((noinline)) inline void
+lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
+                            float &g, float &b) {
+  const OKLab lab = gamut_scale_to_boundary_lut(
+      lms_to_oklab(l_cbrt, m_cbrt, s_cbrt), g_gamut_lut);
+  oklab_to_linear_rgb(lab, r, g, b);
+}
 
 /** @brief Gamut-clip policy: exact chroma reduction by bracket bisection. */
 struct LmsChromaClip {
@@ -1008,40 +1059,6 @@ inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
 }
 
 /**
- * @brief Rescales an OKLab color onto a tabulated sRGB gamut boundary.
- * @param lab Source color; lightness is clamped to [0, 1] first.
- * @param lut Boundary grid to read: the flash master or an arena copy.
- * @return The color scaled to the tabulated boundary chroma for its hue and
- *         lightness cell, or the neutral axis when chroma underflows.
- * @details Scales unconditionally, so an in-gamut color is pushed outward to
- * the boundary; call only once the color is known to be out of gamut. The
- * one-Newton-step reciprocal square root is one-sided low, so the rescale
- * lands at or inside the boundary.
- */
-__attribute__((always_inline)) inline OKLab
-gamut_scale_to_boundary_lut(OKLab lab, const GamutLut &lut) {
-  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
-  const float chroma_sq = lab.a * lab.a + lab.b * lab.b;
-  if (!(chroma_sq > 1e-12f))
-    return {lab.L, 0.0f, 0.0f};
-  uint32_t inverse_bits;
-  std::memcpy(&inverse_bits, &chroma_sq, sizeof(inverse_bits));
-  inverse_bits = 0x5f3759dfu - (inverse_bits >> 1);
-  float inverse_chroma;
-  std::memcpy(&inverse_chroma, &inverse_bits, sizeof(inverse_chroma));
-  inverse_chroma *= 1.5f - 0.5f * chroma_sq * inverse_chroma * inverse_chroma;
-  const GamutCell cell = gamut_cell(lut, lab.L, lab.a, lab.b);
-  const uint16_t stored =
-      lut.table[(cell.lightness_index * lut.angle_steps + cell.angle_index) *
-                2];
-  const float max_chroma =
-      fmaxf(0.0f, static_cast<float>(stored) * GAMUT_LUT_INV_SCALE -
-                      GAMUT_CLIP_MARGIN);
-  const float scale = max_chroma * inverse_chroma;
-  return {lab.L, lab.a * scale, lab.b * scale};
-}
-
-/**
  * @brief Rescales an OKLab color onto the flash master's gamut boundary.
  * @param lab Source color; lightness is clamped to [0, 1] first.
  * @return The color scaled to the tabulated boundary chroma for its hue and
@@ -1066,26 +1083,6 @@ inline LinRGB oklab_to_linear_rgb_lut_gamut(OKLab lab) {
     output = oklab_to_linear_rgb(gamut_scale_to_boundary_lut(lab));
   }
   return output;
-}
-
-/**
- * @brief Cube-rooted LMS to linear RGB, chroma-scaled onto the live gamut grid.
- * @param l_cbrt Cube-rooted l cone response of an out-of-gamut color.
- * @param m_cbrt Cube-rooted m cone response.
- * @param s_cbrt Cube-rooted s cone response.
- * @param r Out: linear red on or inside the tabulated boundary.
- * @param g Out: linear green.
- * @param b Out: linear blue.
- * @details Scales directly to the stored cell minimum instead of refining the
- * bracket. The sampled grid supplies no certified chroma-deficit bound against
- * the exact first exit. Reads g_gamut_lut.
- */
-HS_O3_FN __attribute__((noinline)) inline void
-lms_cbrt_scale_to_gamut_lut(float l_cbrt, float m_cbrt, float s_cbrt, float &r,
-                            float &g, float &b) {
-  const OKLab lab = gamut_scale_to_boundary_lut(
-      lms_to_oklab(l_cbrt, m_cbrt, s_cbrt), g_gamut_lut);
-  oklab_to_linear_rgb(lab, r, g, b);
 }
 
 /**
