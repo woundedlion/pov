@@ -29,6 +29,12 @@
 namespace hs_test {
 namespace sdf_tests {
 
+struct RejectMarginShape {
+  static constexpr double REJECT_MARGIN = 0.125;
+};
+static_assert(SDF::reject_margin<RejectMarginShape> == 0.125f);
+static_assert(SDF::reject_margin<int> == 0.0f);
+
 /**
  * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
  * @return A Basis oriented so its pole points along +Y.
