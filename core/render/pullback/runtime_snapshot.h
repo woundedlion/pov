@@ -8,9 +8,9 @@
  * @brief Captured operator runtime state and restore codecs. */
 
 #include <variant>
-#include "render/pullback/runtime_seeds.h"
-#include "math/3dmath.h"
-#include "math/spherical.h"
+#include "core/render/pullback/runtime_seeds.h"
+#include "core/math/3dmath.h"
+#include "core/math/spherical.h"
 
 namespace Pullback::Interp {
 

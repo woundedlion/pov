@@ -4,10 +4,10 @@
  */
 #pragma once
 
-#include "render/pullback/contract.h"
-#include "render/pullback/lens.h"
-#include "render/pullback/material.h"
-#include "render/pullback/surface.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/lens.h"
+#include "core/render/pullback/material.h"
+#include "core/render/pullback/surface.h"
 
 /**
  * @file stage.h

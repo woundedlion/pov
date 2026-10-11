@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "mesh/mesh.h"
+#include "core/mesh/mesh.h"
 
 /**
  * @file hankin.h

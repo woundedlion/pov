@@ -53,7 +53,7 @@ set(HS_ENGINE_SOURCES
   ${HS_ROOT}/core/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
   ${HS_ROOT}/core/spatial/reaction_graph.cpp)
-set(HS_ENGINE_INCLUDES ${HS_ROOT} ${HS_ROOT}/core)
+set(HS_ENGINE_INCLUDES ${HS_ROOT})
 
 # The host configuration widens inline/arena budgets because 64-bit pointers
 # inflate several objects past their 32-bit device footprints.
@@ -113,11 +113,11 @@ list(FILTER _color_headers EXCLUDE REGEX "_luts?\\.h$")
 foreach(_header_path IN LISTS _color_headers)
   get_filename_component(_header "${_header_path}" NAME_WE)
   set(_source "${CMAKE_CURRENT_BINARY_DIR}/color_header_${_header}.cpp")
-  file(CONFIGURE OUTPUT "${_source}" CONTENT "#include \"color/${_header}.h\"\n")
+  file(CONFIGURE OUTPUT "${_source}" CONTENT "#include \"core/color/${_header}.h\"\n")
   list(APPEND _color_header_sources "${_source}")
 endforeach()
 add_library(color_header_checks OBJECT ${_color_header_sources})
-target_include_directories(color_header_checks PRIVATE ${HS_ROOT}/core)
+target_include_directories(color_header_checks PRIVATE ${HS_ROOT})
 _hs_warnings(color_header_checks)
 add_dependencies(run_tests color_header_checks)
 
@@ -149,6 +149,9 @@ add_custom_target(death_guard_census DEPENDS "${_guard_output}")
 add_dependencies(run_tests death_guard_census)
 add_test(NAME unit_death_pins COMMAND "${Python3_EXECUTABLE}"
          "${CMAKE_CURRENT_SOURCE_DIR}/check_death_pins.py" "${HS_ROOT}")
+
+add_test(NAME unit_include_paths COMMAND "${Python3_EXECUTABLE}"
+         "${HS_ROOT}/tools/include_paths.py" --root "${HS_ROOT}")
 
 # Headers are included as "tests/..." and "core/..." from the repo root; the
 # binary dir carries the generated guard census.
@@ -447,8 +450,7 @@ add_executable(pullback_capture_native
 include(${HS_ROOT}/cmake/chain_capture_fixtures.cmake)
 hs_chain_capture_fixtures(pullback_capture_native "${HS_ROOT}")
 target_include_directories(pullback_capture_native PRIVATE
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT})
 hs_capture_feature_defines(pullback_capture_native)
 target_link_libraries(pullback_capture_native PRIVATE hs_host_storage)
 _hs_warnings(pullback_capture_native)

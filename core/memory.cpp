@@ -8,7 +8,7 @@
  * @brief Global arena storage and arena accounting.
  */
 
-#include "memory.h"
+#include "core/memory.h"
 
 /**
  * @brief Single contiguous memory block that all arenas partition.

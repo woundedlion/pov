@@ -4,12 +4,12 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/operators.h"
-#include "render/pullback/operators/snapshot.h"
+#include "core/render/pullback/operators.h"
+#include "core/render/pullback/operators/snapshot.h"
 
 /**
  * @file table.h

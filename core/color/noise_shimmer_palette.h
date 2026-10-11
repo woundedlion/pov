@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "color/noise_hue_palette.h"
+#include "core/color/noise_hue_palette.h"
 
 /**
  * @file noise_shimmer_palette.h

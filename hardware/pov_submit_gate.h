@@ -18,7 +18,7 @@
  */
 #pragma once
 
-#include "pov_handoff.h"
+#include "hardware/pov_handoff.h"
 
 #include <concepts>
 #include <cstdint>

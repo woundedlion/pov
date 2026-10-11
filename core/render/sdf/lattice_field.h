@@ -9,8 +9,8 @@
 
 #include <cmath>
 #include <type_traits>
-#include "math/4dmath.h"
-#include "render/ray/contract.h"
+#include "core/math/4dmath.h"
+#include "core/render/ray/contract.h"
 
 namespace SDF {
 

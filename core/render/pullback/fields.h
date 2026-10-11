@@ -9,8 +9,8 @@
 #include <limits>
 #include <string_view>
 
-#include "control/fields.h"
-#include "render/pullback/contract.h"
+#include "core/control/fields.h"
+#include "core/render/pullback/contract.h"
 
 /**
  * @file fields.h

@@ -13,9 +13,9 @@
 #include <type_traits>
 #include <utility>
 
-#include "color/color.h"
-#include "math/geometry.h"
-#include "math/projections.h"
+#include "core/color/color.h"
+#include "core/math/geometry.h"
+#include "core/math/projections.h"
 
 /**
  * @file contract.h

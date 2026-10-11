@@ -34,11 +34,11 @@
  */
 #pragma once
 #include "core/platform/led.h"
-#include "pov_segment_map.h"
-#include "pov_segment_frame.h"
-#include "pov_sync.h"
-#include "pov_handoff.h"
-#include "pov_submit_gate.h"
+#include "hardware/pov_segment_map.h"
+#include "hardware/pov_segment_frame.h"
+#include "hardware/pov_sync.h"
+#include "hardware/pov_handoff.h"
+#include "hardware/pov_submit_gate.h"
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -50,7 +50,7 @@
 #endif
 
 #ifdef USE_DMA_LEDS
-#include "dma_led.h"
+#include "hardware/dma_led.h"
 #else
 #error                                                                         \
     "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): FastLED's bit-bang show() masks IRQs for windows that break the sync symbol margins (pitch > M, gap timeout > pitch + M; spec §5.2)."

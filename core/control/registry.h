@@ -10,12 +10,12 @@
  * @details Compiled only when HS_ENABLE_EFFECT_REGISTRY is set.
  */
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_EFFECT_REGISTRY
 
-#include "platform/constants.h"
-#include "platform/platform.h"
+#include "core/platform/constants.h"
+#include "core/platform/platform.h"
 #include <array>
 #include <string_view>
 #include <functional>

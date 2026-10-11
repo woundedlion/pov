@@ -11,7 +11,7 @@
  *        single include still covers the whole platform surface.
  */
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_TEST_HOOKS
 /// Source path reported in check sites.
@@ -73,9 +73,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "platform/attributes.h"
-#include "platform/diagnostics.h"
-#include "platform/rng.h"
+#include "core/platform/attributes.h"
+#include "core/platform/diagnostics.h"
+#include "core/platform/rng.h"
 
 #ifdef ARDUINO
 #include <FastLED.h>
@@ -162,7 +162,7 @@ inline void clear_mock_time() { use_mock_time = false; }
 inline unsigned long millis();
 } // namespace hs
 
-#include "platform/arduino_mocks.h"
+#include "core/platform/arduino_mocks.h"
 
 // Mock EVERY_N_MILLIS using a simple static checker.
 // Two-level macro so __COUNTER__ expands before pasting.
@@ -437,7 +437,7 @@ check_fail(const char *site, const char *fmt, ...) {
 template <typename Sig, size_t Cap = 16>
 using Fn = teensy::inplace_function<Sig, Cap>;
 #else
-#include "platform/inplace_function.h" // hs::inplace_function
+#include "core/platform/inplace_function.h" // hs::inplace_function
 /**
  * @brief Platform-aware callable wrapper (host/WASM: heap-free inplace_function).
  * @tparam Sig Call signature, e.g. void(int).
@@ -532,4 +532,4 @@ inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
 
 } // namespace hs
 
-#include "platform/profiling.h"
+#include "core/platform/profiling.h"

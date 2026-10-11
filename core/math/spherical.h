@@ -8,7 +8,7 @@
  * @brief Spherical generators, bases, and transport helpers.
  */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 #include <utility>
 
 namespace math {

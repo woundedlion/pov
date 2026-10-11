@@ -15,9 +15,9 @@
 #include <memory>      // std::addressof
 #include <type_traits> // std::remove_cvref_t
 #include <utility>     // std::forward
-#include "math/3dmath.h"
-#include "color/pixel.h"       // Pixel
-#include "platform/platform.h" // Fn
+#include "core/math/3dmath.h"
+#include "core/color/pixel.h"       // Pixel
+#include "core/platform/platform.h" // Fn
 
 namespace math {
 struct Basis;

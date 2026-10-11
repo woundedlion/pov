@@ -12,10 +12,10 @@
 #include <type_traits>
 #include <utility>
 
-#include "math/noise_field.h"
-#include "render/pullback/source.h"
-#include "render/pullback/stage.h"
-#include "render/pullback/warp.h"
+#include "core/math/noise_field.h"
+#include "core/render/pullback/source.h"
+#include "core/render/pullback/stage.h"
+#include "core/render/pullback/warp.h"
 
 namespace Pullback {
 

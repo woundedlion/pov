@@ -8,8 +8,8 @@
  * @brief Periodic implicit surface tracing. */
 
 #include <cmath>
-#include "math/3dmath.h"
-#include "render/ray/contract.h"
+#include "core/math/3dmath.h"
+#include "core/render/ray/contract.h"
 
 namespace SDF {
 

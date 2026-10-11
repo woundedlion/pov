@@ -7,9 +7,9 @@
 /** @file ray.h
  * @brief Ray casting contracts, queries, tracing and shading. */
 
-#include "render/ray/contract.h"
-#include "render/ray/camera.h"
-#include "render/ray/query.h"
-#include "render/ray/march.h"
-#include "render/ray/events.h"
-#include "render/ray/shade.h"
+#include "core/render/ray/contract.h"
+#include "core/render/ray/camera.h"
+#include "core/render/ray/query.h"
+#include "core/render/ray/march.h"
+#include "core/render/ray/events.h"
+#include "core/render/ray/shade.h"

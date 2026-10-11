@@ -7,7 +7,7 @@
 /** @file relax_bake.h
  * @brief Relax bake payloads and platform-independent mesh identity checks.
  */
-#include "mesh/mesh.h"
+#include "core/mesh/mesh.h"
 
 namespace MeshOps {
 HS_O3_BEGIN

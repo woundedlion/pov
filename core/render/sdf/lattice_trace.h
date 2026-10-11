@@ -7,8 +7,8 @@
 /** @file lattice_trace.h
  * @brief Lattice event tracing adapters. */
 
-#include "render/sdf/octet_trace.h"
-#include "render/sdf/periodic_shells.h"
+#include "core/render/sdf/octet_trace.h"
+#include "core/render/sdf/periodic_shells.h"
 
 /** @brief Event adapters for octet trusses and periodic shells. */
 namespace SDF::LatticeTrace {

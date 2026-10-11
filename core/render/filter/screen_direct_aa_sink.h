@@ -7,9 +7,9 @@
 #include <array>
 #include <cstdint>
 
-#include "render/filter/screen_anti_alias.h"
-#include "render/canvas.h"
-#include "engine/concepts.h"
+#include "core/render/filter/screen_anti_alias.h"
+#include "core/render/canvas.h"
+#include "core/engine/concepts.h"
 
 /**
  * @file screen_direct_aa_sink.h

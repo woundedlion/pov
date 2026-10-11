@@ -8,8 +8,8 @@
  */
 #pragma once
 
-#include "animation.h"
-#include "mesh/recipe.h"
+#include "core/animation/animation.h"
+#include "core/mesh/recipe.h"
 
 namespace Animation {
 

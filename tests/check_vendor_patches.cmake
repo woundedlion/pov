@@ -66,9 +66,9 @@ if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
     "FastNoiseLite_config.h no longer defines FASTNOISELITE_ONLY_OPENSIMPLEX2")
 endif()
 
-if(NOT _config MATCHES "#include \"platform/platform\\.h\"")
+if(NOT _config MATCHES "#include \"core/platform/platform\\.h\"")
   list(APPEND _missing
-    "FastNoiseLite_config.h no longer includes platform/platform.h (HS_O3_FN)")
+    "FastNoiseLite_config.h no longer includes core/platform/platform.h (HS_O3_FN)")
 endif()
 
 if(_missing)

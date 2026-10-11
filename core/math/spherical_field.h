@@ -17,7 +17,7 @@
 #include <type_traits>
 #include <utility>
 
-#include "math/geometry.h"
+#include "core/math/geometry.h"
 
 namespace hs {
 

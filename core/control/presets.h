@@ -13,7 +13,7 @@
 #include <array>
 #include <cstddef>
 
-#include "animation/preset_departure.h"
+#include "core/animation/preset_departure.h"
 
 /**
  * @brief One preset: its parameters and the policy it departs by.

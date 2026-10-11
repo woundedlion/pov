@@ -7,8 +7,8 @@
 /** @file periodic_shells.h
  * @brief Periodic sphere shells and ray shading. */
 
-#include "render/ray/camera.h"
-#include "render/ray/shade.h"
+#include "core/render/ray/camera.h"
+#include "core/render/ray/shade.h"
 
 namespace SDF {
 

@@ -10,7 +10,7 @@
  *        and the plane rotation that composes a 4D orientation.
  */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 namespace math {
 

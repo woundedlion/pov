@@ -8,10 +8,10 @@
  * @brief Perceptual color spaces, gamut mapping, and blending.
  */
 
-#include "color/pixel.h"
-#include "color/gamut_lut.h"
-#include "math/3dmath.h"
-#include "memory.h"
+#include "core/color/pixel.h"
+#include "core/color/gamut_lut.h"
+#include "core/math/3dmath.h"
+#include "core/memory.h"
 
 /**
  * @brief High-precision sRGB float [0,1] -> linear float [0,1].

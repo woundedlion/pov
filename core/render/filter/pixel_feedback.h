@@ -6,12 +6,12 @@
 #include <algorithm>
 #include <bitset>
 #include <cstdint>
-#include "math/spherical_field.h"
-#include "memory.h"
-#include "render/filter/feedback_cap_plane.h"
-#include "render/filter/feedback_style.h"
-#include "render/filter/feedback_warp_cache.h"
-#include "render/filter/pipeline.h"
+#include "core/math/spherical_field.h"
+#include "core/memory.h"
+#include "core/render/filter/feedback_cap_plane.h"
+#include "core/render/filter/feedback_style.h"
+#include "core/render/filter/feedback_warp_cache.h"
+#include "core/render/filter/pipeline.h"
 
 /**
  * @file pixel_feedback.h

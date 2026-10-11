@@ -10,9 +10,9 @@
  * headers. Other render/sdf/ primitives require their direct headers.
  */
 
-#include "render/sdf/common.h"
-#include "render/sdf/shapes.h"
-#include "render/sdf/rings.h"
-#include "render/sdf/csg.h"
-#include "render/sdf/face.h"
-#include "render/sdf/volume.h"
+#include "core/render/sdf/common.h"
+#include "core/render/sdf/shapes.h"
+#include "core/render/sdf/rings.h"
+#include "core/render/sdf/csg.h"
+#include "core/render/sdf/face.h"
+#include "core/render/sdf/volume.h"

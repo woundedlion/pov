@@ -4,9 +4,9 @@
  */
 #pragma once
 
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
-#include "math/3dmath.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
+#include "core/math/3dmath.h"
 
 /**
  * @file material.h

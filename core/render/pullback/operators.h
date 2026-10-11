@@ -4,18 +4,18 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/operators/model.h"
-#include "render/pullback/operators/common.h"
-#include "render/pullback/operators/field.h"
-#include "render/pullback/operators/project.h"
-#include "render/pullback/operators/sample.h"
-#include "render/pullback/operators/sphere.h"
-#include "render/pullback/operators/warp.h"
-#include "render/pullback/stage.h"
+#include "core/render/pullback/operators/model.h"
+#include "core/render/pullback/operators/common.h"
+#include "core/render/pullback/operators/field.h"
+#include "core/render/pullback/operators/project.h"
+#include "core/render/pullback/operators/sample.h"
+#include "core/render/pullback/operators/sphere.h"
+#include "core/render/pullback/operators/warp.h"
+#include "core/render/pullback/stage.h"
 
 /**
  * @file operators.h
