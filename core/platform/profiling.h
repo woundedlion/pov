@@ -158,32 +158,35 @@ inline PlotRenderCounts g_plot_render_counts;
 
 /** @brief One DWT cycle/stall interval start sample. */
 struct DwtStallSample {
-  uint32_t cycles;
-  uint8_t cpi;
-  uint8_t lsu;
-  uint8_t exc;
+  uint32_t cycles; ///< Cycle-counter sample.
+  uint8_t cpi;     ///< CPI event-counter sample.
+  uint8_t lsu;     ///< Load/store event-counter sample.
+  uint8_t exc;     ///< Exception event-counter sample.
 };
 
+/** @return CPI event-counter register. */
 inline volatile uint32_t &dwt_cpi_counter() {
   return *reinterpret_cast<volatile uint32_t *>(0xe0001008u);
 }
 
+/** @return Exception event-counter register. */
 inline volatile uint32_t &dwt_exc_counter() {
   return *reinterpret_cast<volatile uint32_t *>(0xe000100cu);
 }
 
+/** @return Load/store event-counter register. */
 inline volatile uint32_t &dwt_lsu_counter() {
   return *reinterpret_cast<volatile uint32_t *>(0xe0001014u);
 }
 
 /** @brief Accumulated short DWT intervals for one pipeline stage. */
 struct DwtStallBucket {
-  uint64_t cycles = 0;
-  uint64_t cpi = 0;
-  uint64_t lsu = 0;
-  uint64_t exc = 0;
-  uint32_t batches = 0;
-  uint32_t wrapped = 0;
+  uint64_t cycles = 0;  ///< Accumulated elapsed cycles.
+  uint64_t cpi = 0;     ///< Accumulated CPI events.
+  uint64_t lsu = 0;     ///< Accumulated load/store events.
+  uint64_t exc = 0;     ///< Accumulated exception events.
+  uint32_t batches = 0; ///< Recorded intervals.
+  uint32_t wrapped = 0; ///< Intervals that may wrap the 8-bit event counters.
 
   /**
    * @brief Adds one interval to the bucket.
@@ -224,6 +227,7 @@ struct PlotStalls {
   void reset() { *this = {}; }
 };
 
+/** @brief Process-wide plot stall accumulators. */
 inline PlotStalls g_plot_stalls;
 
 /** @brief Enables the Cortex-M7 DWT counters used by stall captures. */
@@ -232,7 +236,8 @@ inline void enable_plot_stall_counters() {
   ARM_DWT_CTRL |= (1u << 17) | (1u << 18) | (1u << 20) | ARM_DWT_CTRL_CYCCNTENA;
 }
 
-/** @brief Reads all four DWT counters at one stage boundary. */
+/** @brief Reads all four DWT counters at one stage boundary.
+ * @return Counter sample for the interval start. */
 inline DwtStallSample plot_stall_sample() {
   return {ARM_DWT_CYCCNT, static_cast<uint8_t>(dwt_cpi_counter()),
           static_cast<uint8_t>(dwt_lsu_counter()),
@@ -242,6 +247,8 @@ inline DwtStallSample plot_stall_sample() {
 /** @brief Explicit two-operation batches for variable-length hot loops. */
 class DwtStallBatch {
 public:
+  /** @brief Starts a batch interval.
+   * @param target Accumulator receiving completed intervals. */
   explicit DwtStallBatch(DwtStallBucket &target)
       : bucket(target), start(plot_stall_sample()) {}
 
@@ -262,15 +269,17 @@ public:
     }
   }
 
+  /** @brief Records any final partial batch. */
   ~DwtStallBatch() { finish(); }
   DwtStallBatch(const DwtStallBatch &) = delete;
   DwtStallBatch &operator=(const DwtStallBatch &) = delete;
 
 private:
+  /** @brief Operations per complete interval. */
   static constexpr uint8_t OPERATIONS_PER_BATCH = 2;
-  DwtStallBucket &bucket;
-  DwtStallSample start;
-  uint8_t operations = 0;
+  DwtStallBucket &bucket; ///< Interval accumulator.
+  DwtStallSample start;   ///< Current interval start.
+  uint8_t operations = 0; ///< Operations in the current interval.
 };
 #endif
 
