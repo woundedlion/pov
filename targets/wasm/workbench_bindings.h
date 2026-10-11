@@ -7,6 +7,8 @@
  * @brief Typed WASM authoring adapters bound to an effect incarnation.
  */
 #pragma once
+
+#include "targets/wasm/ts_types.h"
 #include <emscripten/bind.h>
 #include "targets/wasm/effect_factory.h"
 #include "targets/wasm/payload_clone.h"
@@ -144,7 +146,7 @@ public:
    * @brief Encodes the loaded chain's full state.
    * @return Snapshot JS object, or null if the handle is stale or not a chain.
    */
-  emscripten::val getSnapshot() {
+  SnapshotValue getSnapshot() {
     auto result = emscripten::val::null();
     with_effect<ShaderChain>([&](auto &chain) {
       result = hs_wasm::ChainSnapshotCodec::encode(chain.snapshot());
@@ -159,7 +161,7 @@ public:
    *         changed during decode, or the decode/restore refusal.
    */
   ChainSnapshotRestoreResult
-  restoreSnapshot(const emscripten::val &caller_input) {
+  restoreSnapshot(const SnapshotInputValue &caller_input) {
     using Result = ChainSnapshotRestoreResult;
     const PayloadDecodeGuard guard(&decoding);
     if (!isValid())
@@ -219,7 +221,7 @@ public:
    * mid-decode. A refusal commits nothing, but side effects of caller
    * accessors are not rolled back.
    */
-  emscripten::val setShaderChain(const emscripten::val &caller_entries) {
+  ChainResultValue setShaderChain(const ChainEntriesValue &caller_entries) {
     const PayloadDecodeGuard decode_guard(&decoding);
     using Pullback::Interp::ChainStatus;
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
@@ -277,7 +279,7 @@ public:
    *        decoding.
    */
   ParamSetResult
-  setShaderChainParameters(const emscripten::val &caller_entries) {
+  setShaderChainParameters(const ParameterWritesValue &caller_entries) {
     const PayloadDecodeGuard decode_guard(&decoding);
     if (!with_effect<ShaderChain>([]<typename SC>(SC &) {}))
       return ParamSetResult::NO_EFFECT;
@@ -340,7 +342,7 @@ public:
    * @return JS array of {instance, operator} in chain order, or null if the
    *         handle is stale or not a chain.
    */
-  emscripten::val getProgram() {
+  ProgramValue getProgram() {
     emscripten::val result = emscripten::val::null();
     with_effect<ShaderChain>([&]<typename SC>(SC &chain) {
       result = emscripten::val::array();

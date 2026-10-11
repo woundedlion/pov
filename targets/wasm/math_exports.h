@@ -10,6 +10,8 @@
  */
 #pragma once
 
+#include "targets/wasm/ts_types.h"
+
 #include <emscripten/bind.h>
 #include "core/color/color.h"
 #include "core/color/palettes.h"
@@ -27,7 +29,7 @@
  * @param r Vector to pack.
  * @return JS object with the x, y and z components as numbers.
  */
-static emscripten::val vector_to_xyz(const math::Vector &r) {
+static XYZValue vector_to_xyz(const math::Vector &r) {
   emscripten::val v = emscripten::val::object();
   v.set("x", r.x);
   v.set("y", r.y);
@@ -58,27 +60,27 @@ static void bind_math_exports() {
                        }));
 
   // OKLab matrix oracle.
-  emscripten::function("linear_rgb_to_oklab",
-                       emscripten::optional_override(
-                           [](float r, float g, float b) -> emscripten::val {
-                             OKLab lab = linear_rgb_to_oklab(r, g, b);
-                             emscripten::val v = emscripten::val::object();
-                             v.set("L", lab.L);
-                             v.set("a", lab.a);
-                             v.set("b", lab.b);
-                             return v;
-                           }));
-  emscripten::function("oklab_to_linear_rgb",
-                       emscripten::optional_override(
-                           [](float L, float a, float b) -> emscripten::val {
-                             float r, g, bb;
-                             oklab_to_linear_rgb({L, a, b}, r, g, bb);
-                             emscripten::val v = emscripten::val::object();
-                             v.set("r", r);
-                             v.set("g", g);
-                             v.set("b", bb);
-                             return v;
-                           }));
+  emscripten::function(
+      "linear_rgb_to_oklab",
+      emscripten::optional_override([](float r, float g, float b) -> LabValue {
+        OKLab lab = linear_rgb_to_oklab(r, g, b);
+        emscripten::val v = emscripten::val::object();
+        v.set("L", lab.L);
+        v.set("a", lab.a);
+        v.set("b", lab.b);
+        return v;
+      }));
+  emscripten::function(
+      "oklab_to_linear_rgb",
+      emscripten::optional_override([](float L, float a, float b) -> RGBValue {
+        float r, g, bb;
+        oklab_to_linear_rgb({L, a, b}, r, g, bb);
+        emscripten::val v = emscripten::val::object();
+        v.set("r", r);
+        v.set("g", g);
+        v.set("b", bb);
+        return v;
+      }));
 
   emscripten::function(
       "gamut_max_chroma",
@@ -93,7 +95,7 @@ static void bind_math_exports() {
   // semantics).
   emscripten::function(
       "hsv_to_rgb",
-      emscripten::optional_override([](int h, int s, int v) -> emscripten::val {
+      emscripten::optional_override([](int h, int s, int v) -> RGBValue {
         CRGB c = CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
                            static_cast<uint8_t>(v)));
         emscripten::val o = emscripten::val::object();
@@ -109,7 +111,7 @@ static void bind_math_exports() {
                        emscripten::optional_override(
                            [](float a0, float a1, float a2, float b0, float b1,
                               float b2, float c0, float c1, float c2, float d0,
-                              float d1, float d2, float t) -> emscripten::val {
+                              float d1, float d2, float t) -> RGBValue {
                              ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2},
                                                    {c0, c1, c2}, {d0, d1, d2});
                              Color4 col = pal.get(t);
@@ -124,7 +126,7 @@ static void bind_math_exports() {
   // in declaration order, from HS_PROCEDURAL_PALETTE_LIST.
   emscripten::function(
       "named_procedural_palettes",
-      emscripten::optional_override([]() -> emscripten::val {
+      emscripten::optional_override([]() -> ProceduralPalettesValue {
         emscripten::val out = emscripten::val::array();
         int index = 0;
         auto push = [&](const char *name, std::array<float, 3> a,
@@ -152,11 +154,10 @@ static void bind_math_exports() {
 
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   emscripten::function(
-      "lissajous",
-      emscripten::optional_override(
-          [](float m1, float m2, float a, float t) -> emscripten::val {
-            return vector_to_xyz(math::lissajous(m1, m2, a, t));
-          }));
+      "lissajous", emscripten::optional_override(
+                       [](float m1, float m2, float a, float t) -> XYZValue {
+                         return vector_to_xyz(math::lissajous(m1, m2, a, t));
+                       }));
 
   // Mobius sphere map (mobius_transforms.js coefficients), via core/math/mobius.h.
   // The coefficient floats are taken in the order mobiusCodeString emits them.
@@ -164,7 +165,7 @@ static void bind_math_exports() {
       "mobius_transform",
       emscripten::optional_override(
           [](float x, float y, float z, float ar, float ai, float br, float bi,
-             float cr, float ci, float dr, float di) -> emscripten::val {
+             float cr, float ci, float dr, float di) -> XYZValue {
             return vector_to_xyz(math::mobius_transform(
                 math::Vector(x, y, z),
                 math::MobiusParams(ar, ai, br, bi, cr, ci, dr, di)));

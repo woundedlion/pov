@@ -14,6 +14,8 @@
  */
 #pragma once
 
+#include "targets/wasm/ts_types.h"
+
 #include <emscripten/bind.h>
 #include "core/platform/platform.h"
 #include "core/mesh/solids.h"
@@ -303,7 +305,7 @@ public:
    * @details Copies directly from packed arena storage without allocating in
    *          WASM, so this readback cannot detach outstanding memory views.
    */
-  emscripten::val getVertices() const {
+  MeshVerticesValue getVertices() const {
     begin_mesh_op();
     if (!wrapper_live())
       return emscripten::val::null();
@@ -329,7 +331,7 @@ public:
    *         Null if a clearToolingMemory() reclaimed this wrapper's storage;
    *         getLastResult() then reports STALE_WRAPPER.
    */
-  emscripten::val getFaces() const {
+  MeshFacesValue getFaces() const {
     begin_mesh_op();
     if (!wrapper_live())
       return emscripten::val::null();
@@ -356,7 +358,7 @@ public:
    *          clearToolingMemory(). The returned Int32Array is a JS-owned copy,
    *          valid across later mesh operations and arena resets.
    */
-  emscripten::val classifyFaces() {
+  MeshClassificationValue classifyFaces() {
     begin_mesh_op();
     if (!wrapper_live())
       return emscripten::val::null();
@@ -638,7 +640,7 @@ public:
    * @brief Lists all available solids for the editor's solid picker.
    * @return JS array of {name, category} objects, one per registered solid.
    */
-  static emscripten::val getRegistry() {
+  static SolidRegistryValue getRegistry() {
     emscripten::val registry = emscripten::val::array();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       const auto &entry = Solids::get_entry(i);
@@ -701,7 +703,7 @@ public:
    *          engine-native units (radians for hankin, raw t, relax iteration
    *          count). A recipe-less known entry returns null without logging.
    */
-  static emscripten::val getRecipe(const std::string &name) {
+  static SolidRecipeValue getRecipe(const std::string &name) {
     begin_mesh_op();
     const Solids::Entry *entry = Solids::find_entry(name);
     if (!entry) {
@@ -737,7 +739,7 @@ public:
    * @details Dev-only, compiled with the HS_WASM_DEV_BINDINGS CMake option.
    *          Measures in the scratch arenas only, never tooling_arena.
    */
-  static emscripten::val getMaxBounds() {
+  static MeshBoundsValue getMaxBounds() {
     begin_mesh_op();
     int max_v = 0;
     int max_f = 0;
@@ -794,7 +796,9 @@ public:
    * @return JS object of {usage, high_water_mark, lifetime_high_water_mark,
    *         capacity} metrics per arena, in bytes.
    */
-  static emscripten::val getArenaMetrics() { return collect_arena_metrics(); }
+  static MeshArenaMetricsValue getArenaMetrics() {
+    return collect_arena_metrics();
+  }
 
   /**
    * @brief Reports why the most recent checked mesh operation answered null.

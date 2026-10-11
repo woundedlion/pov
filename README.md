@@ -1411,6 +1411,9 @@ files define line-ending policy and working-artifact exclusions.
 │       ├── arena_metrics.h     Arena metrics report shared by the render and mesh editor bridges
 │       ├── effect_factory.h    Pure per-resolution effect factory + HS_RESOLUTIONS dispatch (host-testable)
 │       ├── param_marshal.h     Pure parameter definition/value marshaling, single ordering source (host-testable)
+│       ├── engine_types.d.ts   Authored JavaScript payload schemas and loader extensions
+│       ├── ts_types.h          Embind JavaScript payload type registrations
+│       ├── segment_geometry.cpp  Pure segment coordinates compiled to standalone JavaScript
 │       ├── payload_clone.h     Exception-contained snapshots of caller-owned JS payloads
 │       ├── module_halt.js      Emscripten abort observer marking the module unrecoverable
 │       └── wasm_predicates.h   Pure embind boundary validation/clamping predicates (host-testable)
@@ -1425,6 +1428,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
+│   ├── engine_contract_export.test.mjs  Browser contract generation and emitted signature preservation tests
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
 │   ├── color/             Sections included by test_color.h
@@ -1460,6 +1464,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── promoted_digests.test.mjs Checks header/document/product-group roster; generate_composed_presets.test.mjs pins digests
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
 │   ├── export_engine_catalog.mjs / export_engine_catalog.test.mjs  Exports and validates the WASM operator catalog; CLI failure fixtures
+│   ├── export_engine_contract.mjs  Emits browser runtime contracts and binding aliases
 │   ├── exit.mjs                  Shared command exit after pending stderr writes drain
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
@@ -1559,8 +1564,10 @@ files define line-ending policy and working-artifact exclusions.
 Handwritten browser modules live under `src/`, grouped by responsibility.
 The public simulator and design-tool pages retain their existing URLs.
 Holosphere installs runtime assets and their provenance under `generated/`;
-these outputs are ignored, while the adjacent hand-written type declarations
-are tracked. The current shader document catalog lives under
+these outputs and the emitted binding declarations are ignored. Authored object
+schemas and loader extensions live in `targets/wasm/engine_types.d.ts`; methods
+and enums come from Embind. The install exports FPS and numeric enums from the
+bound module and compiles shared segment geometry to standalone JavaScript. The current shader document catalog lives under
 `generated/shader/patterns/`.
 Build and install the runtime assets with the Quickstart commands;
 CI installs the verified engine bundle before testing and deploying the simulator.
