@@ -305,6 +305,8 @@ inline void test_harness_counts_failures() {
   int passed_delta = -1;
   int suppressed = -1;
   int empty_module = -1;
+  int skipped_delta = -1;
+  bool size_returned = false;
   const auto text = capture_stdout([&] {
     const Stats before = stats();
     fail_print_budget() = FailPrintBudget{};
@@ -315,6 +317,29 @@ inline void test_harness_counts_failures() {
     HS_EXPECT_NEAR(nan, nan, 1.0);
     HS_EXPECT_NEAR(inf, inf, 1.0);
     HS_EXPECT_STREQ(nullptr, "");
+    HS_EXPECT_NEAR_REL(1.0, 2.0, 0.01);
+    HS_EXPECT_NEAR_REL(2.0, 2.0, 0.01);
+    const std::array<int, 1> values{1};
+    HS_EXPECT_SIZE_OR_RETURN(values, 1);
+    const auto wrong_size = [&] {
+      HS_EXPECT_SIZE_OR_RETURN(values, 2);
+      size_returned = true;
+    };
+    wrong_size();
+    const int depth = context_depth();
+    const auto nest = [&](auto &&self, int remaining) -> void {
+      if (remaining == 0) {
+        HS_EXPECT_EQ(context_depth(), depth + CONTEXT_CAP + 2);
+        print_context();
+        return;
+      }
+      ContextScope scope("nested", remaining);
+      self(self, remaining - 1);
+    };
+    nest(nest, CONTEXT_CAP + 2);
+    HS_EXPECT_EQ(context_depth(), depth);
+    skip_case("test_specialized_render_signature", "harness self-test");
+    skipped_delta = stats().skipped - before.skipped;
     for (int i = 0; i < FAIL_PRINT_CAP + EXTRA; ++i)
       HS_EXPECT_TRUE(false);
     failed_delta = stats().failed - before.failed;
@@ -326,10 +351,14 @@ inline void test_harness_counts_failures() {
   fail_print_budget() = saved_budget;
 
   HS_EXPECT_TRUE(text.has_value());
-  HS_EXPECT_EQ(failed_delta, 5 + FAIL_PRINT_CAP + EXTRA);
-  HS_EXPECT_EQ(passed_delta, 0);
-  HS_EXPECT_EQ(suppressed, 5 + EXTRA);
+  HS_EXPECT_EQ(failed_delta, 7 + FAIL_PRINT_CAP + EXTRA);
+  HS_EXPECT_EQ(passed_delta, 4);
+  HS_EXPECT_EQ(suppressed, 7 + EXTRA);
   HS_EXPECT_EQ(empty_module, 1);
+  HS_EXPECT_EQ(skipped_delta, 1);
+  HS_EXPECT_FALSE(size_returned);
+  if (text)
+    HS_EXPECT_NE(text->find("rel_error="), std::string::npos);
   HS_EXPECT_FALSE(approx(std::nanf(""), std::nanf(""), 1.0f));
   HS_EXPECT_FALSE(approx(std::numeric_limits<float>::infinity(),
                          std::numeric_limits<float>::infinity(), 1.0f));
