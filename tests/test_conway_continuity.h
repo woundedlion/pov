@@ -1443,11 +1443,8 @@ constexpr int STRAP_STEP_SLACK = 64;
 inline int lut_sample_dist(const BakedPalette &a, const BakedPalette &b) {
   int d = 0;
   for (int s = 0; s < NUM_RAMP_SAMPLES; ++s) {
-    const Color4 ca = a.get(RAMP_SAMPLES[s]);
-    const Color4 cb = b.get(RAMP_SAMPLES[s]);
-    d = std::max(d, std::abs((int)ca.color.r - (int)cb.color.r));
-    d = std::max(d, std::abs((int)ca.color.g - (int)cb.color.g));
-    d = std::max(d, std::abs((int)ca.color.b - (int)cb.color.b));
+    d = std::max<int>(d, max_channel_gap(a.get(RAMP_SAMPLES[s]).color,
+                                         b.get(RAMP_SAMPLES[s]).color));
   }
   return d;
 }
@@ -1671,13 +1668,9 @@ inline float sweep_angle(const HankinSolids<W, H> &fx, int cycle_frame) {
 inline int hard_recolor_count(const std::vector<Pixel> &a,
                               const std::vector<Pixel> &b) {
   int n = 0;
-  for (size_t i = 0; i < a.size() && i < b.size(); ++i) {
-    const int dr = std::abs((int)a[i].r - b[i].r);
-    const int dg = std::abs((int)a[i].g - b[i].g);
-    const int db = std::abs((int)a[i].b - b[i].b);
-    if (std::max({dr, dg, db}) > STRAP_OPEN_HARD)
+  for (size_t i = 0; i < a.size() && i < b.size(); ++i)
+    if (max_channel_gap(a[i], b[i]) > STRAP_OPEN_HARD)
       ++n;
-  }
   return n;
 }
 
