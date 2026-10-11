@@ -7,6 +7,8 @@ import subprocess
 import sys
 import unittest
 
+from git_files import git_nul_list
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -32,10 +34,8 @@ def main():
             failed = True
         return int(failed)
 
-    paths = subprocess.check_output(
-        ["git", "-C", str(root), "ls-files", "-z", "--", "*/test*.py"]
-    ).decode("utf-8").split("\0")
-    directories = sorted({str(Path(path).parent) for path in paths if path and Path(path).name.startswith("test")})
+    paths = git_nul_list(root, "ls-files", "-z", "--", "*/test*.py", timeout=None)
+    directories = sorted({str(Path(path).parent) for path in paths if Path(path).name.startswith("test")})
     if not directories:
         parser.error("no tracked Python test suites discovered")
     failed = False

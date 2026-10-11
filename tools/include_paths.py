@@ -6,7 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import re
-import subprocess
+
+from git_files import git_nul_list
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
 CONFIG_HEADER = "core/vendor/FastNoiseLite_config.h"
@@ -53,9 +54,7 @@ def main() -> int:
     parser.add_argument("--root", type=Path,
                         default=Path(__file__).resolve().parents[1])
     args = parser.parse_args()
-    files = subprocess.check_output(
-        ["git", "-C", str(args.root), "ls-files", "-z"]
-    ).decode("utf-8").rstrip("\0").split("\0")
+    files = git_nul_list(args.root, "ls-files", "-z", timeout=None)
     diagnostics = check_includes(args.root, files)
     if diagnostics:
         print("\n".join(diagnostics))

@@ -22,6 +22,8 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from git_files import git_nul_list
+
 ROOT = Path(__file__).resolve().parents[1]
 
 _WARNING_RE = re.compile(
@@ -186,12 +188,10 @@ def source_files(root: Path, paths: list[str]) -> list[str]:
     patterns = doxyfile_setting(config, "FILE_PATTERNS")
     excluded = [e.rstrip("/") for e in doxyfile_setting(config, "EXCLUDE")]
     inputs = paths or doxyfile_setting(config, "INPUT")
-    listed = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z", "--", *inputs],
-        check=True, capture_output=True).stdout.decode("utf-8").split("\0")
+    listed = git_nul_list(root, "ls-files", "-z", "--", *inputs, timeout=None)
     return [
         path for path in listed
-        if path and any(fnmatch.fnmatch(Path(path).name, p) for p in patterns)
+        if any(fnmatch.fnmatch(Path(path).name, p) for p in patterns)
         and not any(path == e or path.startswith(e + "/") for e in excluded)
     ]
 
