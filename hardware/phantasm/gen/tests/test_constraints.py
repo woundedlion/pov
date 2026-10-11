@@ -9,7 +9,7 @@ sys.path.insert(0, str(GEN))
 
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES, RULE_MINIMUMS,  # noqa: E402
                          UNPLACED_DEFAULT_CLASS, UNPLACED_RULES, rule_checks,
-                         rule_shortfalls)
+                         rule_shortfalls, apply_project_floors)
 
 
 def default_class(project):
@@ -71,6 +71,26 @@ class RuleCheckTests(unittest.TestCase):
         self.assertTrue(all(met for _, _, met in checks.values()))
         self.assertEqual(rule_shortfalls(self.project(), RULE_MINIMUMS,
                                          DEFAULT_CLASS_MINIMUMS), {})
+
+    def test_nonnumeric_rule_and_class_values_are_unmet_and_repaired(self):
+        for value in ("0.2", True, False, None, [], {}):
+            with self.subTest(value=value):
+                project = self.project()
+                project["board"]["design_settings"]["rules"]["min_clearance"] = value
+                project["net_settings"]["classes"][0]["via_drill"] = value
+                checks = rule_checks(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
+                self.assertFalse(checks["min_clearance"][2])
+                self.assertFalse(checks["Default.via_drill"][2])
+                apply_project_floors(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
+                self.assertEqual(rule_shortfalls(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS), {})
+
+    def test_nondict_class_entries_are_skipped(self):
+        project = self.project()
+        project["net_settings"]["classes"][:0] = [None, True, "Default", []]
+        self.assertTrue(all(met for _, _, met in rule_checks(
+            project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS).values()))
+        apply_project_floors(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS)
+        self.assertEqual(rule_shortfalls(project, RULE_MINIMUMS, DEFAULT_CLASS_MINIMUMS), {})
 
     def test_shortfalls_are_the_unmet_checks(self):
         project = self.project()

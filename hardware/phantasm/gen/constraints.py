@@ -71,19 +71,22 @@ def rule_checks(d, rule_minimums, class_minimums):
     checks = {}
     for field, minimum in {**rule_minimums, **NEW_LAYOUT_RULES}.items():
         current = rules.get(field, 0) or 0
-        checks[field] = (current, minimum, current >= minimum)
+        met = isinstance(current, (int, float)) and not isinstance(current, bool) and current >= minimum
+        checks[field] = (current, minimum, met)
 
     severity = d.get("board", {}).get("design_settings", {}).get(
         "rule_severities", {}).get("silk_over_copper")
     checks["rule_severities.silk_over_copper"] = (severity, "error", severity == "error")
 
     classes = d.get("net_settings", {}).get("classes", [])
-    default = next((item for item in classes if item.get("name") == "Default"), None)
+    default = next((item for item in classes
+                    if isinstance(item, dict) and item.get("name") == "Default"), None)
     if default is None:
         raise ValueError("missing Default net class")
     for field, minimum in class_minimums.items():
         current = default.get(field, 0) or 0
-        checks[f"Default.{field}"] = (current, minimum, current >= minimum)
+        met = isinstance(current, (int, float)) and not isinstance(current, bool) and current >= minimum
+        checks[f"Default.{field}"] = (current, minimum, met)
     return checks
 
 
@@ -99,7 +102,8 @@ def apply_project_floors(document, rule_minimums, class_minimums):
     settings = document.setdefault("board", {}).setdefault("design_settings", {})
     rules = settings.setdefault("rules", {})
     classes = document.setdefault("net_settings", {}).setdefault("classes", [])
-    default = next((item for item in classes if item.get("name") == "Default"), None)
+    default = next((item for item in classes
+                    if isinstance(item, dict) and item.get("name") == "Default"), None)
     if default is None:
         default = {"name": "Default"}
         classes.append(default)
