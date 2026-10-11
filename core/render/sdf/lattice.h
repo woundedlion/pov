@@ -508,7 +508,6 @@ composite_crossings(const math::Vector &normal,
   static_assert(SHELLS <= MAX_SHELLS);
   HS_PROFILE_DEEP(hl_shade);
   using SDF::Lattice::DIRECTION_EPSILON;
-  constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
   static_assert(CrossingList::CAPACITY <= Raycast::TraceLimits{}.max_layers);
   const auto &lattice = prepared.lattice;
   const math::Vec4 direction =
@@ -529,9 +528,8 @@ composite_crossings(const math::Vector &normal,
   const float INVERSE_PRODUCT = 1.0f / product;
   const uint8_t SHELL_COUNT =
       SHELLS ? SHELLS : static_cast<uint8_t>(lattice.params.shells) + 1;
-  auto &distances = prepared.crossings->distances;
-  auto &coverages = prepared.crossings->coverages;
-  int count = 0;
+  Raycast::CoveredCrossings<CrossingList::CAPACITY> covered(
+      prepared.crossings->distances, prepared.crossings->coverages);
   const auto cross = [&](int axis) __attribute__((always_inline)) {
     if (!(magnitude[axis] >= DIRECTION_EPSILON))
       return;
@@ -554,32 +552,14 @@ composite_crossings(const math::Vector &normal,
                                                magnitude[axis]);
       if (!(COVERAGE > 0.0f))
         continue;
-      int slot = count++;
-      for (; slot > 0 && distances[slot - 1] > distance; --slot) {
-        distances[slot] = distances[slot - 1];
-        coverages[slot] = coverages[slot - 1];
-      }
-      distances[slot] = distance;
-      coverages[slot] = COVERAGE;
+      covered.insert(distance, COVERAGE);
     }
   };
   cross(0);
   cross(1);
   cross(2);
   cross(3);
-  LayerComposite composite;
-  for (int layer = 0; layer < count;) {
-    HS_PROFILE_DEEP(hl_layer_composite);
-    const float T = distances[layer];
-    const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
-    float coverage = coverages[layer];
-    for (++layer; layer < count && distances[layer] <= GROUP_END; ++layer)
-      coverage = fmaxf(coverage, coverages[layer]);
-    prepared.appearance.composite(composite, T, coverage);
-    if (composite.saturated())
-      break;
-  }
-  return composite;
+  return covered.composite<false>(prepared.appearance);
 }
 
 } // namespace SDF::Lattice

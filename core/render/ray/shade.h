@@ -7,6 +7,8 @@
 /** @file shade.h
  * @brief Depth appearance, layer compositing and subray filtering. */
 
+#include <array>
+#include <type_traits>
 #include "core/color/baked_palette.h"
 #include "core/color/layer_composite.h"
 #include "core/render/ray/events.h"
@@ -69,6 +71,92 @@ struct Appearance {
     palette->get_color_unit_scaled(nearness, gain * (.45f + .55f * nearness),
                                    rgb);
     layers.add(rgb, coverage * opacity(t));
+  }
+};
+
+/** @brief Covered crossings sorted and composited in first-distance merge groups.
+ *  @tparam N Maximum crossings in the borrowed storage.
+ *  @tparam Storage Borrowed array reference or float pointer. */
+template <int N, typename Storage = std::array<float, N> &>
+struct CoveredCrossings {
+  static_assert(std::is_same_v<Storage, std::array<float, N> &> ||
+                std::is_same_v<Storage, float *>);
+  static constexpr int CAPACITY = N; ///< Borrowed storage capacity.
+  Storage distances;                 ///< Sorted crossing distances.
+  Storage coverages;                 ///< Positive coverage of each crossing.
+  int count = 0;                     ///< Number of stored crossings.
+
+  /** @brief Borrows empty crossing storage.
+   *  @param distances Backing distances; must outlive this view.
+   *  @param coverages Backing coverages; must outlive this view. */
+  CoveredCrossings(std::array<float, N> &distances,
+                   std::array<float, N> &coverages)
+      : distances(borrow(distances)), coverages(borrow(coverages)) {}
+
+private:
+  static Storage borrow(std::array<float, N> &values) {
+    if constexpr (std::is_pointer_v<Storage>)
+      return values.data();
+    else
+      return values;
+  }
+
+public:
+  /** @brief Inserts a covered crossing in distance order.
+   *  @param t Ray distance.
+   *  @param coverage Positive crossing coverage.
+   *  @pre count is below CAPACITY. */
+  __attribute__((always_inline)) void insert(float t, float coverage) {
+    int slot = count++;
+    for (; slot > 0 && distances[slot - 1] > t; --slot) {
+      distances[slot] = distances[slot - 1];
+      coverages[slot] = coverages[slot - 1];
+    }
+    distances[slot] = t;
+    coverages[slot] = coverage;
+  }
+
+  /** @brief Composites merge groups front to back.
+   *  @tparam LIMIT_LAYERS Whether the layer budget is enforced.
+   *  @tparam Result LayerComposite or a premultiplied color/status sample.
+   *  @param appearance Depth shading applied to each group.
+   *  @param limits Layer budget.
+   *  @return Composite in the caller's result representation. */
+  template <bool LIMIT_LAYERS = true, typename Result = LayerComposite>
+  __attribute__((always_inline)) Result composite(
+      const Appearance &appearance, const TraceLimits &limits = {}) const {
+    constexpr float RELATIVE_TOLERANCE = MERGE_RELATIVE_TOLERANCE;
+    Result result;
+    LayerComposite layers;
+    int composited = 0;
+    for (int index = 0; index < count;) {
+      HS_PROFILE_DEEP(hl_layer_composite);
+      if constexpr (LIMIT_LAYERS) {
+        if (composited >= limits.max_layers) {
+          if constexpr (!std::is_same_v<Result, LayerComposite>)
+            result.status = TraceStatus::BUDGET_EXHAUSTED;
+          break;
+        }
+        ++composited;
+      }
+      const float T = distances[index];
+      const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
+      float coverage = coverages[index];
+      for (++index; index < count && distances[index] <= GROUP_END; ++index)
+        coverage = fmaxf(coverage, coverages[index]);
+      appearance.composite(layers, T, coverage);
+      if (layers.saturated()) {
+        if constexpr (!std::is_same_v<Result, LayerComposite>)
+          result.status = TraceStatus::SATURATED;
+        break;
+      }
+    }
+    if constexpr (std::is_same_v<Result, LayerComposite>) {
+      return layers;
+    } else {
+      result.color = layers.premultiplied();
+      return result;
+    }
   }
 };
 
