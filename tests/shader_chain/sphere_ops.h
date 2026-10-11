@@ -162,19 +162,14 @@ inline void run_curl_displace_basis(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_displace_curl() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
         program, In::Op::DisplaceCurl::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_curl_displace_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_curl_displace_basis<math::NoiseBasis::FBM3>(program, ctx);
     run_curl_displace_basis<math::NoiseBasis::RIDGED3>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 template <math::NoiseBasis Basis>
@@ -188,35 +183,25 @@ inline void run_direct_displace_variant(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_displace_direct() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
         program, In::Op::DisplaceDirect::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_direct_displace_variant<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_direct_displace_variant<math::NoiseBasis::FBM3>(program, ctx);
     run_direct_displace_variant<math::NoiseBasis::RIDGED3>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_displace_ripple() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
         program, In::Op::DisplaceRipple::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     using Bound = typename PB::Stage::Displace<PB::Surface::PeriodicRipple<
         RippleMirrorProvider>>::template Bind<SphereOpMirrorBinding>;
     expect_sphere_op_parity<Bound>(program, ctx, sphere_op_mirror(program));
-    program.clear();
-  }
+  });
 }
 
 template <typename LensPolicy, typename OpParams>
@@ -247,14 +232,12 @@ inline void run_kaleidoscope_variant(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_lens_ops() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
+  for_each_value_set([&](ValueSet set) {
     run_lens_parity<PB::Lens::Glitch, PB::Lens::NoLensParams>(
         In::Op::LensGlitch::ID, set);
     run_lens_parity<PB::Lens::Mobius<MobiusMirrorProvider>,
                     In::Op::MobiusChainParams>(In::Op::LensMobius::ID, set);
-  }
+  });
 
   run_lens_parity<PB::Lens::Twist, In::Op::TwistChainParams>(
       In::Op::LensTwist::ID, ValueSet::DEFAULTS);

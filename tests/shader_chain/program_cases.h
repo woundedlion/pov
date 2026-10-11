@@ -701,11 +701,7 @@ inline void test_shader_chain_param_address_channel() {
 }
 
 inline void test_shader_chain_parity_rotate_project() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_default_chain(program, 5, set);
     const In::FrameContext ctx = shared_resources().context();
     program.prepare(ctx);
@@ -741,6 +737,5 @@ inline void test_shader_chain_parity_rotate_project() {
                                              PB::SphereSample{view, 0.0f});
         },
         plane_identical);
-    program.clear();
-  }
+  });
 }
