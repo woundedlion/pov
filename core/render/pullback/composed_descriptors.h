@@ -99,7 +99,7 @@ consteval size_t stage_index() {
   if constexpr (Index == Pipeline::STAGE_COUNT)
     return Index;
   else if constexpr (Predicate<
-                         typename Pipeline::template stage_at<Index>>::value)
+                         typename Pipeline::template StageAt<Index>>::value)
     return Index;
   else
     return stage_index<Pipeline, Predicate, Index + 1>();
@@ -150,12 +150,12 @@ struct PipelineMetadata {
   static constexpr bool PATH_TRACKED =
       Pipeline::template any_stage<StagePathTracked>;
   /// The pipeline's `Stage::Lens`, or void when it has none.
-  using LensStage = typename Pipeline::template stage_matching<IsLensStage>;
+  using LensStage = typename Pipeline::template StageMatching<IsLensStage>;
   /// The pipeline's `Stage::Project`, or void when it has none.
   using ProjectStage =
-      typename Pipeline::template stage_matching<IsProjectStage>;
+      typename Pipeline::template StageMatching<IsProjectStage>;
   /// The pipeline's `Stage::Sample`, or void when it has none.
-  using SampleStage = typename Pipeline::template stage_matching<IsSampleStage>;
+  using SampleStage = typename Pipeline::template StageMatching<IsSampleStage>;
   /** Whether `Spec::COVERAGE` names the Sample stage's coverage policy
       (`NONE` without a Sample stage). */
   static constexpr bool COVERAGE_MATCHES = [] {
