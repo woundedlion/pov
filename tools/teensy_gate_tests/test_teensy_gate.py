@@ -106,6 +106,19 @@ def _size_a(itcm, dtcm, ocram, flash):
         f".text.progmem 0x{flash:x} 0x60000000\n")
 
 
+def _fake_toolchain(*, teensy_size=None, size_a=None):
+    """`_run` stand-in: the given teensy_size or `size -A` text, good readelf fixtures."""
+    def run(args, check=True):
+        if teensy_size is not None and args[0] == "teensy_size":
+            return teensy_size
+        if size_a is not None and "-A" in args:
+            return size_a
+        if "-sW" in args:
+            return _read("good_readelf_syms.txt")
+        return _read("good_readelf_secs.txt")
+    return run
+
+
 def _invalid_size_a_cases():
     valid = _size_a(0x10000, 0x40000, 0x70000, 0x20000)
     return {
@@ -1427,13 +1440,7 @@ class TestGateExtra(unittest.TestCase):
         for size_fixture, expected in (("broken_over_cap_teensy_size.txt", 1),
                                        ("good_teensy_size.txt", 0)):
             with self.subTest(fixture=size_fixture):
-                def run(args, check=True):
-                    if args[0] == "teensy_size":
-                        return _read(size_fixture)
-                    if "-sW" in args:
-                        return _read("good_readelf_syms.txt")
-                    return _read("good_readelf_secs.txt")
-                self.ge._run = run
+                self.ge._run = _fake_toolchain(teensy_size=_read(size_fixture))
                 rc, out = self._run_gate("holosphere")
                 self.assertEqual(rc, expected, out)
                 self.assertIn("::error::" if expected else "PASS", out)
@@ -1474,15 +1481,7 @@ class TestGateExtra(unittest.TestCase):
 
     def test_unparseable_teensy_size_blob_exits_2(self):
         self.ge._find_teensy_size = lambda env: "teensy_size"
-
-        def _run(args, check=True):
-            if args[0] == "teensy_size":
-                return UNPARSEABLE_TEENSY_SIZE
-            if "-sW" in args:
-                return _read("good_readelf_syms.txt")
-            return _read("good_readelf_secs.txt")
-
-        self.ge._run = _run
+        self.ge._run = _fake_toolchain(teensy_size=UNPARSEABLE_TEENSY_SIZE)
         rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2, msg=out)
         self.assertIn("invalid teensy_size output", out)
@@ -1491,15 +1490,7 @@ class TestGateExtra(unittest.TestCase):
     def test_size_a_fallback_pass_exits_advisory_not_zero(self):
         # A bucketed guess must not report as a calibrated PASS.
         self.ge._find_teensy_size = lambda env: None
-
-        def _run(args, check=True):
-            if "-A" in args:
-                return _size_a(0x10000, 0x40000, 0x70000, 0x20000)
-            if "-sW" in args:
-                return _read("good_readelf_syms.txt")
-            return _read("good_readelf_secs.txt")
-
-        self.ge._run = _run
+        self.ge._run = _fake_toolchain(size_a=_size_a(0x10000, 0x40000, 0x70000, 0x20000))
         rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, tg.EXIT_UNCALIBRATED_PASS, msg=out)
         self.assertIn("using `size -A` fallback", out)
@@ -1511,15 +1502,7 @@ class TestGateExtra(unittest.TestCase):
         # code ceiling has no measurement under the fallback, so the gate must
         # not red-flag it as a renamed field or a code-size regression.
         self.ge._find_teensy_size = lambda env: None
-
-        def _run(args, check=True):
-            if "-A" in args:
-                return _size_a(0x10000, 0x40000, 0x70000, 0x20000)
-            if "-sW" in args:
-                return _read("good_readelf_syms.txt")
-            return _read("good_readelf_secs.txt")
-
-        self.ge._run = _run
+        self.ge._run = _fake_toolchain(size_a=_size_a(0x10000, 0x40000, 0x70000, 0x20000))
         rc, out = self._run_gate("phantasm")
         self.assertEqual(rc, 2, msg=out)
         self.assertIn("per-component ceilings", out)
