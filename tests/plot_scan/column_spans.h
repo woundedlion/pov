@@ -362,10 +362,7 @@ inline void test_mesh_edge_gate_pixel_parity() {
     posed.vertices.push_back(mesh.vertices[i]);
 
   for (int trial = 0; trial < 12; ++trial) {
-    const float axis_x = hs::rand_f(-1, 1);
-    const float axis_y = hs::rand_f(-1, 1);
-    const float axis_z = hs::rand_f(-1, 1);
-    math::Vector axis = math::Vector(axis_x, axis_y, axis_z);
+    math::Vector axis = rand_cube_vector();
     if (axis.length() < 0.1f)
       axis = math::Y_AXIS;
     math::Quaternion q =
@@ -714,20 +711,10 @@ inline void test_raw_geodesic_edge_gate_parity() {
   for (const auto &bounds : clips) {
     cr = ClipRegion{bounds[0], bounds[1], bounds[2], bounds[3], 1, W, H};
     for (int trial = 0; trial < 5000; ++trial) {
-      math::Vector p;
-      do {
-        const float px = hs::rand_f(-1.0f, 1.0f);
-        const float py = hs::rand_f(-1.0f, 1.0f);
-        const float pz = hs::rand_f(-1.0f, 1.0f);
-        p = math::Vector(px, py, pz);
-      } while (p.length() < 0.1f);
-      p = p.normalized();
+      const math::Vector p = rand_unit();
       math::Vector tangent;
       do {
-        const float rx = hs::rand_f(-1.0f, 1.0f);
-        const float ry = hs::rand_f(-1.0f, 1.0f);
-        const float rz = hs::rand_f(-1.0f, 1.0f);
-        math::Vector r(rx, ry, rz);
+        const math::Vector r = rand_cube_vector();
         tangent = r - p * math::dot(r, p);
       } while (tangent.length() < 0.05f);
       tangent = tangent.normalized();
