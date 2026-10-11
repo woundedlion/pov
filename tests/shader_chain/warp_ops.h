@@ -420,23 +420,28 @@ template <typename Model> inline void expect_warp_plane_bound() {
   const auto probe = [&](const Params &params) {
     for (float phase : {0.0f, 0.125f, 0.375f, 0.75f}) {
       state.phase = phase;
-      const auto prepared = Model::prepare(ctx, params, state);
-      for (float input_bound : {0.0f, 0.25f, 1.0f, 4.0f, 32.0f}) {
-        const float bound = Model::plane_bound(params, input_bound);
-        for (float radius_fraction : {0.0f, 0.5f, 1.0f}) {
-          for (int direction = 0; direction < 32; ++direction) {
-            const double angle = 2.0 * std::acos(-1.0) * direction / 32;
-            PB::PlaneSample input{};
-            input.coords = {input_bound * radius_fraction *
-                                static_cast<float>(std::cos(angle)),
-                            input_bound * radius_fraction *
-                                static_cast<float>(std::sin(angle))};
-            input.provenance.value_weight = 1.0f;
-            input.provenance.fade_edge_distance = 2.0f;
-            input.sphere = math::UP;
-            const auto output = Model::run(input, ctx, params, prepared);
-            HS_EXPECT_LE(std::hypot(output.coords.re, output.coords.im),
-                         bound + 5e-5f * std::max(1.0f, bound));
+      const int rotations = std::is_same_v<Model, In::Op::WarpAffineV3> ? 8 : 1;
+      for (int rotation = 0; rotation < rotations; ++rotation) {
+        if constexpr (std::is_same_v<Model, In::Op::WarpAffineV3>)
+          state.rotation = rotation * math::PI_F / 4.0f;
+        const auto prepared = Model::prepare(ctx, params, state);
+        for (float input_bound : {0.0f, 0.25f, 1.0f, 4.0f, 32.0f}) {
+          const float bound = Model::plane_bound(params, input_bound);
+          for (float radius_fraction : {0.0f, 0.5f, 1.0f}) {
+            for (int direction = 0; direction < 32; ++direction) {
+              const double angle = 2.0 * std::acos(-1.0) * direction / 32;
+              PB::PlaneSample input{};
+              input.coords = {input_bound * radius_fraction *
+                                  static_cast<float>(std::cos(angle)),
+                              input_bound * radius_fraction *
+                                  static_cast<float>(std::sin(angle))};
+              input.provenance.value_weight = 1.0f;
+              input.provenance.fade_edge_distance = 2.0f;
+              input.sphere = math::UP;
+              const auto output = Model::run(input, ctx, params, prepared);
+              HS_EXPECT_LE(std::hypot(output.coords.re, output.coords.im),
+                           bound + 5e-5f * std::max(1.0f, bound));
+            }
           }
         }
       }
@@ -486,8 +491,9 @@ template <typename Model> inline void expect_warp_plane_bound() {
   }
 }
 
-/** @brief Non-affine warp bounds contain outputs at parameter extremes. */
+/** @brief Warp bounds contain outputs at parameter extremes. */
 inline void test_shader_chain_warp_plane_bound() {
+  expect_warp_plane_bound<In::Op::WarpAffineV3>();
   expect_warp_plane_bound<In::Op::WarpWaveShear>();
   expect_warp_plane_bound<In::Op::WarpVortex>();
   expect_warp_plane_bound<In::Op::WarpVectorNoise>();
