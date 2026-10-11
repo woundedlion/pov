@@ -287,7 +287,7 @@ A flight through periodic wire lattices and curved shells in 3D perspective or a
 | 7 | `shell-close-flight` |
 | 8 | `shell-4d-flight` |
 
-**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes, Iridescence, Iridescent Frequency, Iridescent Speed, Unfinished Rays (read-only). Shell Radius controls Shells; Wire Radius controls Cubic and Octet Truss.
+**Parameters**: Pattern, View (3D perspective, 4D slice), Sphere Radius, Cell Size, Wire Radius, Softness, Near Fade, Far Distance, AA Strength, Speed, 3D Spin, 4D Spin, Lattice Planes, Shell Radius, Iridescence, Iridescent Frequency, Iridescent Speed, Unfinished Rays (read-only). 4D Spin is read-only in 3D view. Lattice Planes and Softness are read-only outside Cubic; Shell Radius is read-only outside Shells; Wire Radius is read-only in Shells.
 
 </td></tr></table>
 
