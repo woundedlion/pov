@@ -832,7 +832,7 @@ inline void test_build_chain_provenance_ambiguity() {
       switch (step.op) {
       case Op::HANKIN: {
         CompiledHankin hk;
-        MeshOps::compile_hankin(seed, hk, b, a, true);
+        MeshOps::compile_hankin(seed, hk, b, a, MeshOps::BaseVertices::BORROW);
         MeshOps::update_hankin(
             hk, start, a, std::max(step.param, Animation::OpLeg::THETA_EPS));
         const size_t statics = hk.static_vertices.size();
