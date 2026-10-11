@@ -37,20 +37,6 @@ inline const uint8_t *pixel(const Frame &f, int i) {
 }
 
 /**
- * @brief Restores HD107SFrame<S>'s shared static correction state to unity
- *        (255 = exact ×1.0).
- * @tparam S Pixel count of the frame instantiation to reset; the correction
- *           state is a static of HD107SFrame<S>, so each S carries its own.
- * @details Resets the per-channel correction, temperature, and brightness to an
- * identity color pipeline.
- */
-template <int S> inline void reset_correction() {
-  HD107SFrame<S>::set_correction(255, 255, 255);
-  HD107SFrame<S>::set_temperature(255, 255, 255);
-  HD107SFrame<S>::set_brightness(255);
-}
-
-/**
  * @brief Verifies the spec-derived buffer-sizing formulas and that size()/
  * size_with_bg() agree with the compile-time layout constants.
  */

@@ -23,7 +23,6 @@
 #include "core/render/sdf.h"
 #include "tests/conway_test_util.h"
 #include "tests/mesh_test_util.h"
-#include "tests/test_conway.h" // check_euler_characteristic_two
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

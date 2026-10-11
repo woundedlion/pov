@@ -13,7 +13,6 @@
 #include "core/mesh/hankin.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
-#include "tests/test_conway.h" // check_euler_characteristic_two, check_consistent_winding
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

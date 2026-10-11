@@ -10,7 +10,6 @@
 #include "hardware/dma_led_controller.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
-#include "tests/test_hd107s_frame.h" // reset_correction
 
 #include <cstddef>
 #include <cstdint>
@@ -163,7 +162,7 @@ inline void test_ctor_forwards_clock() {
  * the transfer counter.
  */
 inline void test_submit_happy_path() {
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -186,7 +185,7 @@ inline void test_submit_happy_path() {
  * is never the one the next back_frame() exposes for writing.
  */
 inline void test_double_buffer_flip() {
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -218,7 +217,7 @@ inline void test_double_buffer_flip() {
  * watchdog is consulted, and the active buffer does not flip.
  */
 inline void test_overrun_drop() {
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -252,7 +251,7 @@ inline void test_overrun_drop() {
  * @brief with_bg selects the composite (image + trailing black) transfer length.
  */
 inline void test_withbg_length() {
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   hd107s::reset_flush_observation();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
@@ -282,7 +281,7 @@ inline void test_withbg_length() {
  * input colors, then pins corrected white's encoded channels.
  */
 inline void test_end_to_end_wire_bytes() {
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
@@ -317,7 +316,7 @@ inline void test_end_to_end_wire_bytes() {
   HS_EXPECT_EQ(r, 65535u);
   HS_EXPECT_EQ(g, 26195u);
   HS_EXPECT_EQ(b, 10121u);
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
 }
 
 /**
@@ -334,7 +333,7 @@ inline int run_dma_controller_tests() {
   test_withbg_length();
   test_end_to_end_wire_bytes();
   // Leave the shared static state clean for any later module.
-  hd107s_tests::reset_correction<N>();
+  reset_correction<N>();
   return fixture.result();
 }
 
