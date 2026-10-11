@@ -354,6 +354,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     float max_dist_sq = max_dist * max_dist;
     float step_x = (2.0f * lut.half_x) / (n - 1);
     float step_y = (2.0f * lut.half_y) / (n - 1);
+    const int32_t SAFE_Q = static_cast<int32_t>(
+        lut.safe_dist * (1.0f + SDF::ALIGN_MAX_DEV_DIAGS) / lut.dequant);
     int in_disk = 0, safe = 0;
     for (int gy = 0; gy + 1 < n; ++gy) {
       float ccy = (lut.cy - lut.half_y) + (gy + 0.5f) * step_y;
@@ -369,7 +371,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                          (q00 > 0) == (q11 > 0);
         int min_q = std::min(
             {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
-        if (same_sign && min_q * lut.dequant > lut.safe_dist)
+        if (same_sign && min_q > SAFE_Q)
           ++safe;
       }
     }
