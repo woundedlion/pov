@@ -126,6 +126,24 @@ inline void capture_frame(const Fx &fx, std::vector<Pixel> &out) {
       out[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
 }
 
+/** @brief Folds a displayed frame into a running channel hash.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @tparam Fx Effect type.
+ * @param fx Effect to read.
+ * @param hash Initial running hash.
+ * @return Hash extended by every channel in row-major order. */
+template <int W, int H, typename Fx>
+inline uint64_t frame_hash(const Fx &fx, uint64_t hash = HASH_SEED64) {
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &pixel = fx.get_pixel(x, y);
+      for (uint16_t channel : {pixel.r, pixel.g, pixel.b})
+        hash = fnv1a64_channel(hash, channel);
+    }
+  return hash;
+}
+
 /**
  * @brief Sums every RGB channel across a fixed W by H framebuffer window.
  * @tparam W Window width in pixels.
