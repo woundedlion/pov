@@ -804,7 +804,7 @@ inline void test_compile_hankin_recompiles_after_arena_reset() {
 
   target.reset();
   MeshOps::compile_hankin(cube, compiled, target, temp,
-                          /*borrow_base_vertices=*/true);
+                          MeshOps::BaseVertices::BORROW);
   HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)0);
   HS_EXPECT_EQ(compiled.static_vertices.size(), statics);
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(), dynamics);

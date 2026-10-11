@@ -119,23 +119,30 @@ namespace MeshOps {
 HS_O3_BEGIN
 
 /**
+ * @brief How a CompiledHankin sources its corner vertices.
+ */
+enum class BaseVertices : uint8_t {
+  OWNED_COPY, /**< Copy the mesh vertices into the target arena. */
+  BORROW,     /**< Alias the source mesh's vertices. */
+};
+
+/**
  * @brief Bakes the angle-independent Hankin topology for a mesh.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
  * @param compiled Output topology, allocated from @p target_arena.
  * @param target_arena Arena that backs the persistent compiled vectors.
  * @param temp_arena Arena holding the transient half-edge structures.
- * @param borrow_base_vertices When true, corner reads alias @p mesh's vertices
- * instead of copying them; the caller must keep @p mesh alive for every
- * update_hankin/hankin_at call that reads the compiled topology. Defaults to
- * false (owned copy).
+ * @param base How corner reads source @p mesh's vertices; BORROW requires the
+ * caller to keep @p mesh alive for every update_hankin/hankin_at call that
+ * reads the compiled topology.
  * @details Builds a half-edge mesh, emits one shared midpoint per edge into
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces.
  */
-HS_COLD static void compile_hankin(const PolyMesh &mesh,
-                                   CompiledHankin &compiled,
-                                   Arena &target_arena, Arena &temp_arena,
-                                   bool borrow_base_vertices = false) {
+HS_COLD static void
+compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
+               Arena &target_arena, Arena &temp_arena,
+               BaseVertices base = BaseVertices::OWNED_COPY) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
@@ -144,7 +151,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh,
   // arena has already reclaimed.
   compiled = CompiledHankin();
 
-  if (borrow_base_vertices) {
+  if (base == BaseVertices::BORROW) {
     compiled.corner_src = ArenaSpan<math::Vector>(mesh.vertices);
   } else {
     compiled.base_vertices.bind(target_arena, V);
@@ -482,8 +489,7 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
     CompiledHankin compiled;
     // The throwaway CompiledHankin lives in `temp`; `target` is
     // compile_hankin's working arena, then update_hankin builds `out` into it.
-    compile_hankin(mesh, compiled, temp, target,
-                   /*borrow_base_vertices=*/true);
+    compile_hankin(mesh, compiled, temp, target, BaseVertices::BORROW);
     update_hankin(compiled, out, target, angle);
   }
 
