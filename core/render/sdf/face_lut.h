@@ -44,6 +44,18 @@ struct ClassLut {
   float dequant = 0;    /**< int16 -> plane-unit scale. */
 };
 
+/** @brief Margin-expanded canonical LUT half extents.
+ * @param min_x Minimum polygon x-coordinate.
+ * @param max_x Maximum polygon x-coordinate.
+ * @param min_y Minimum polygon y-coordinate.
+ * @param max_y Maximum polygon y-coordinate.
+ * @return Half extents in x and y, floored for degenerate boxes. */
+inline std::pair<float, float>
+canonical_lut_half_extents(float min_x, float max_x, float min_y, float max_y) {
+  return {std::max((max_x - min_x) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f),
+          std::max((max_y - min_y) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f)};
+}
+
 /**
  * @brief Bakes the signed point-to-polygon distance field of a canonical
  *        centered 2D polygon into an int16 grid.
@@ -73,8 +85,10 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
   }
   lut.cx = (bb_min_x + bb_max_x) * 0.5f;
   lut.cy = (bb_min_y + bb_max_y) * 0.5f;
-  lut.Rx = std::max((bb_max_x - bb_min_x) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
-  lut.Ry = std::max((bb_max_y - bb_min_y) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
+  const auto HALF_EXTENTS =
+      canonical_lut_half_extents(bb_min_x, bb_max_x, bb_min_y, bb_max_y);
+  lut.Rx = HALF_EXTENTS.first;
+  lut.Ry = HALF_EXTENTS.second;
   lut.n = n;
   lut.inv_step_x = (n - 1) / (2.0f * lut.Rx);
   lut.inv_step_y = (n - 1) / (2.0f * lut.Ry);
