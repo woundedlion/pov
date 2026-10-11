@@ -29,6 +29,7 @@
 #include "tests/test_fixture.h"
 #include "tests/composed_frame_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/vec_test_util.h"
 
 namespace hs_test {
 namespace composed_effect_tests {

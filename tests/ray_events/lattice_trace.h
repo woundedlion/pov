@@ -66,9 +66,7 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
   // Independent reciprocal evaluation can cross one final pixel rounding boundary.
   const Pixel ACTUAL_PIXEL = composite.premultiplied();
   const Pixel REFERENCE_PIXEL = reference.premultiplied();
-  HS_EXPECT_NEAR(ACTUAL_PIXEL.r, REFERENCE_PIXEL.r, 1);
-  HS_EXPECT_NEAR(ACTUAL_PIXEL.g, REFERENCE_PIXEL.g, 1);
-  HS_EXPECT_NEAR(ACTUAL_PIXEL.b, REFERENCE_PIXEL.b, 1);
+  HS_EXPECT_LE(max_channel_gap(ACTUAL_PIXEL, REFERENCE_PIXEL), 1);
   lit += actual.alpha > 0.0f;
 }
 
@@ -177,9 +175,7 @@ inline void test_octet_preparation_matches_world_events() {
           const Pixel premultiplied =
               expected.color.color * expected.color.alpha;
           HS_EXPECT_EQ(actual.status, expected.trace.status);
-          HS_EXPECT_NEAR(actual.color.r, premultiplied.r, 2);
-          HS_EXPECT_NEAR(actual.color.g, premultiplied.g, 2);
-          HS_EXPECT_NEAR(actual.color.b, premultiplied.b, 2);
+          HS_EXPECT_LE(max_channel_gap(actual.color, premultiplied), 2);
           lit += actual.color != Pixel{};
         }
       }

@@ -241,17 +241,13 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
       const float amount = table_case.max_amount * i / SAMPLE_COUNT;
       Pixel actual =
           DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
-      HS_EXPECT_EQ(actual.r, expected[i].r);
-      HS_EXPECT_EQ(actual.g, expected[i].g);
-      HS_EXPECT_EQ(actual.b, expected[i].b);
+      HS_EXPECT_EQ(actual, expected[i]);
     }
     for (int i = 0; i <= table_size; ++i)
       HS_EXPECT_TRUE(DisplacementFieldWhiteBox::hue_knot_valid(effect, i));
     for (int i = 0; i <= table_size; ++i) {
       Pixel actual = DisplacementFieldWhiteBox::hue_table_value(effect, i);
-      HS_EXPECT_EQ(actual.r, endpoints[i].r);
-      HS_EXPECT_EQ(actual.g, endpoints[i].g);
-      HS_EXPECT_EQ(actual.b, endpoints[i].b);
+      HS_EXPECT_EQ(actual, endpoints[i]);
     }
   }
 }
@@ -281,9 +277,7 @@ inline void test_displacement_field_hue_table_bind_clears_knots() {
       DisplacementFieldWhiteBox::sample_hue_table_lazy(effect, amount);
 
   const Pixel expected = hue_rotate(second, amount).color;
-  HS_EXPECT_EQ(second_sample.r, expected.r);
-  HS_EXPECT_EQ(second_sample.g, expected.g);
-  HS_EXPECT_EQ(second_sample.b, expected.b);
+  HS_EXPECT_EQ(second_sample, expected);
   HS_EXPECT_TRUE(first_sample != second_sample);
 }
 
@@ -515,9 +509,7 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
   const int lut_n = DisplacementFieldWhiteBox::baked_lut_samples(effect);
   for (int i = 0; i <= lut_n; ++i) {
     Pixel actual = DisplacementFieldWhiteBox::hue_lut_value(effect, i);
-    HS_EXPECT_EQ(actual.r, expected.r);
-    HS_EXPECT_EQ(actual.g, expected.g);
-    HS_EXPECT_EQ(actual.b, expected.b);
+    HS_EXPECT_EQ(actual, expected);
   }
   effect.advance_display();
   hs::clear_mock_time();

@@ -70,10 +70,7 @@ inline void test_shader_chain_composed_frame_parity() {
     for (const math::Vector &view : sweep_views()) {
       const Color4 expected = FX::shade(view, prepared);
       const Color4 actual = program.evaluate(view, ctx);
-      HS_EXPECT_NEAR(actual.color.r, expected.color.r, 1);
-      HS_EXPECT_NEAR(actual.color.g, expected.color.g, 1);
-      HS_EXPECT_NEAR(actual.color.b, expected.color.b, 1);
-      HS_EXPECT_NEAR(actual.alpha, expected.alpha, 1e-6f);
+      expect_color_within(actual, expected, 1, 1e-6f);
       visible += expected.alpha > 0.0f &&
                  (expected.color.r != 0 || expected.color.g != 0 ||
                   expected.color.b != 0);
@@ -458,8 +455,6 @@ inline void test_shader_chain_pause_semantics() {
       state_as<In::Op::SpatialWalkState>(WB::program(effect), 0).wander !=
       wander_before);
   const Pixel color_after = WB::palette_color(effect, 0.25f);
-  HS_EXPECT_TRUE(color_after.r != color_before.r ||
-                 color_after.g != color_before.g ||
-                 color_after.b != color_before.b);
+  HS_EXPECT_TRUE(color_after != color_before);
   HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }

@@ -11,6 +11,7 @@
 #include "core/render/sdf/lattice_trace.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
+#include "tests/pixel_test_util.h"
 
 namespace hs_test::ray_event_tests {
 
