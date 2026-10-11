@@ -12,7 +12,7 @@
 #include <cmath>
 #include <limits>
 #include <type_traits>
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <cassert>
 
 namespace math {

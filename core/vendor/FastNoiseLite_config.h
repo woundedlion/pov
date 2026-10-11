@@ -17,9 +17,9 @@
 //   - raw-octave paths used by first-party basis and derivative policies
 //   - a raw vector-noise path used by spherical tangent displacement
 //   - an analytic raw OpenSimplex2 gradient path used by spherical curl
-//   - the `#include "platform/platform.h"` below, which supplies HS_O3_FN
+//   - the `#include "core/platform/platform.h"` that supplies HS_O3_FN
 //
-// HS_O3_FN comes from platform/platform.h below. Version bumps must preserve
+// HS_O3_FN comes from core/platform/platform.h. Version bumps must preserve
 // the configured patches.
 #pragma once
 
@@ -36,4 +36,4 @@
 /// this define to re-enable the full FastNoiseLite feature set.
 #define FASTNOISELITE_ONLY_OPENSIMPLEX2
 
-#include "platform/platform.h"
+#include "core/platform/platform.h"

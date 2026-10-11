@@ -14,12 +14,12 @@
 #pragma once
 #include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
 #include "core/platform/rng.h"
-#include "pov_single_map.h"
+#include "hardware/pov_single_map.h"
 
 #ifdef ARDUINO
 #include <Arduino.h>
 #ifdef USE_DMA_LEDS
-#include "dma_led.h"
+#include "hardware/dma_led.h"
 #else
 #include <FastLED.h>
 #endif

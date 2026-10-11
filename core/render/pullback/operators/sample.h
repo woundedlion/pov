@@ -4,14 +4,14 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "math/projection_patterns.h"
+#include "core/math/projection_patterns.h"
 
-#include "render/pullback/operators/common.h"
-#include "render/pullback/source.h"
+#include "core/render/pullback/operators/common.h"
+#include "core/render/pullback/source.h"
 
 /**
  * @file sample.h

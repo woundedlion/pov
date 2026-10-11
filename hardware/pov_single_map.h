@@ -23,7 +23,7 @@
 #pragma once
 
 #include <cstdint>
-#include "dma_led_core.h"
+#include "hardware/dma_led_core.h"
 
 namespace pov {
 

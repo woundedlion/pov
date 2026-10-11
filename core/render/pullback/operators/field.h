@@ -4,13 +4,13 @@
  */
 #pragma once
 
-#include "math/3dmath.h"
-#include "platform/build_features.h"
+#include "core/math/3dmath.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/material.h"
-#include "render/pullback/operators/common.h"
+#include "core/render/pullback/material.h"
+#include "core/render/pullback/operators/common.h"
 
 /**
  * @file field.h

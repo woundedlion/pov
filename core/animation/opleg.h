@@ -13,10 +13,10 @@
  * @brief Animation fragment: OpLeg Conway-chain morph legs.
  */
 
-#include "color/palettes.h"
-#include "mesh/conway.h"
-#include "mesh/conway_graph.h"
-#include "mesh/hankin.h"
+#include "core/color/palettes.h"
+#include "core/mesh/conway.h"
+#include "core/mesh/conway_graph.h"
+#include "core/mesh/hankin.h"
 
 namespace Animation {
 

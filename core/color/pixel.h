@@ -9,8 +9,8 @@
  */
 
 #include <algorithm>
-#include "platform/platform.h"
-#include "color/srgb_decode.h"
+#include "core/platform/platform.h"
+#include "core/color/srgb_decode.h"
 
 /**
  * @brief Rounded Q16 lerp between two 16-bit values.
@@ -350,7 +350,7 @@ lut_sample_pixel(const Entry *table, int size, float idx) {
                                            lut_index_weight(idx, lo));
 }
 
-#include "color/color_luts.h"
+#include "core/color/color_luts.h"
 
 inline uint16_t srgb_to_linear(uint8_t srgb) {
   return srgb_to_linear_lut[srgb];

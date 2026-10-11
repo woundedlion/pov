@@ -12,13 +12,13 @@
  *        name/index lookups over them.
  */
 
-#include "mesh/solid_generators.h"
+#include "core/mesh/solid_generators.h"
 
 #include <array>
-#include "math/geometry.h"
-#include "mesh/mesh.h"
-#include "mesh/recipe_types.h"
-#include "mesh/relax_bakes_generated.h"
+#include "core/math/geometry.h"
+#include "core/mesh/mesh.h"
+#include "core/mesh/recipe_types.h"
+#include "core/mesh/relax_bakes_generated.h"
 #include <cmath>
 #include <string_view>
 #include <span>

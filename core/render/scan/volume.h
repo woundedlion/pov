@@ -6,13 +6,13 @@
 
 #include <algorithm>
 #include <utility>
-#include "render/sdf.h"
-#include "render/ray/march.h"
-#include "render/shading.h"
-#include "render/filter/pipeline.h"
-#include "render/canvas.h"
-#include "platform/platform.h"
-#include "render/scan/raster.h"
+#include "core/render/sdf.h"
+#include "core/render/ray/march.h"
+#include "core/render/shading.h"
+#include "core/render/filter/pipeline.h"
+#include "core/render/canvas.h"
+#include "core/platform/platform.h"
+#include "core/render/scan/raster.h"
 
 /**
  * @file volume.h

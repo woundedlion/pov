@@ -10,9 +10,9 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include "math/3dmath.h"
-#include "math/4dmath.h"
-#include "render/ray/contract.h"
+#include "core/math/3dmath.h"
+#include "core/math/4dmath.h"
+#include "core/render/ray/contract.h"
 
 namespace SDF {
 

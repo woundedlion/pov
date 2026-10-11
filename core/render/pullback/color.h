@@ -4,10 +4,10 @@
  */
 #pragma once
 
-#include "math/3dmath.h"
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
-#include "color/noise_hue_palette.h"
+#include "core/math/3dmath.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
+#include "core/color/noise_hue_palette.h"
 
 /**
  * @file color.h

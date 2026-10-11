@@ -11,8 +11,8 @@
  *        stage Spec, with the engine's preset choreography and palette lifecycle.
  */
 
-#include "animation/orientation.h"
-#include "math/mobius.h"
+#include "core/animation/orientation.h"
+#include "core/math/mobius.h"
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -20,15 +20,15 @@
 #include <span>
 #include <type_traits>
 
-#include "control/choreography.h"
-#include "color/palette_cycler.h"
-#include "control/registry.h"
-#include "memory.h"
-#include "render/scan.h"
-#include "math/noise_field.h"
-#include "render/pullback.h"
-#include "render/pullback/runtime_seeds.h"
-#include "render/pullback/composed_resources.h"
+#include "core/control/choreography.h"
+#include "core/color/palette_cycler.h"
+#include "core/control/registry.h"
+#include "core/memory.h"
+#include "core/render/scan.h"
+#include "core/math/noise_field.h"
+#include "core/render/pullback.h"
+#include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/composed_resources.h"
 
 #if HS_ENABLE_TEST_HOOKS
 namespace hs_test {
@@ -38,9 +38,9 @@ struct ComposedFrameWhiteBox;
 
 namespace Pullback {
 
-#include "render/pullback/composed_providers.h"
-#include "render/pullback/composed_parameters.h"
-#include "render/pullback/composed_policies.h"
-#include "render/pullback/composed_descriptors.h"
-#include "render/pullback/composed_runtime.h"
+#include "core/render/pullback/composed_providers.h"
+#include "core/render/pullback/composed_parameters.h"
+#include "core/render/pullback/composed_policies.h"
+#include "core/render/pullback/composed_descriptors.h"
+#include "core/render/pullback/composed_runtime.h"
 } // namespace Pullback

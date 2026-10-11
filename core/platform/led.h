@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 
 /**
  * @file led.h

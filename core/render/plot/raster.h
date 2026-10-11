@@ -11,13 +11,13 @@
 #include <span>
 #include <limits>
 #include <optional>
-#include "math/geometry.h"
-#include "render/shading.h"
-#include "render/clip.h"
-#include "render/canvas.h"
-#include "engine/concepts.h"
-#include "memory.h"
-#include "render/plot/cull.h"
+#include "core/math/geometry.h"
+#include "core/render/shading.h"
+#include "core/render/clip.h"
+#include "core/render/canvas.h"
+#include "core/engine/concepts.h"
+#include "core/memory.h"
+#include "core/render/plot/cull.h"
 
 /**
  * @file raster.h
@@ -384,7 +384,7 @@ HS_HOT_INLINE inline bool has_edge_flag(const uint8_t *edge_flags, size_t i,
   return (edge_flags[i] & bit) != 0;
 }
 
-#include "render/plot/raster_walk.h"
+#include "core/render/plot/raster_walk.h"
 
 /**
  * @brief True when a balanced walk may take its next step from a position-only

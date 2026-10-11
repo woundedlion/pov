@@ -9,7 +9,7 @@
  * @brief Compact upper-triangular bitset for unordered pair membership.
  */
 
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <climits>
 #include <cstdint>
 #include <cstring>

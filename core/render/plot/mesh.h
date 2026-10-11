@@ -5,16 +5,16 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
-#include "math/geometry.h"
-#include "render/shading.h"
-#include "render/clip.h"
-#include "render/canvas.h"
-#include "engine/concepts.h"
-#include "memory.h"
-#include "containers/triangular_bitset.h"
-#include "render/plot/raster.h"
-#include "render/plot/shapes.h"
-#include "mesh/mesh.h"
+#include "core/math/geometry.h"
+#include "core/render/shading.h"
+#include "core/render/clip.h"
+#include "core/render/canvas.h"
+#include "core/engine/concepts.h"
+#include "core/memory.h"
+#include "core/containers/triangular_bitset.h"
+#include "core/render/plot/raster.h"
+#include "core/render/plot/shapes.h"
+#include "core/mesh/mesh.h"
 
 /**
  * @file mesh.h

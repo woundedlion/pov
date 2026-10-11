@@ -11,7 +11,7 @@
 #pragma once
 
 #include "core/render/canvas.h"
-#include "pov_segment_map.h"
+#include "hardware/pov_segment_map.h"
 
 #include <cstring>
 

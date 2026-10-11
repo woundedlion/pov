@@ -6,16 +6,16 @@
 
 // platform.h defines NDEBUG on device; include before <cassert> so assert
 // stripping does not depend on include order.
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <cassert>
 
 #include <array>
 #include <limits>
 
-#include "memory.h"
-#include "math/geometry.h"
-#include "math/3dmath.h"
-#include "color/color.h"
+#include "core/memory.h"
+#include "core/math/geometry.h"
+#include "core/math/3dmath.h"
+#include "core/color/color.h"
 
 /**
  * @file shading.h

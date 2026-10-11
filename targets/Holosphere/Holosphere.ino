@@ -16,7 +16,7 @@
 #include <SPI.h>
 #include <new>
 
-#include "pov_single.h"
+#include "hardware/pov_single.h"
 #include "targets/effects.h"
 #include "core/engine/effects_legacy.h"
 

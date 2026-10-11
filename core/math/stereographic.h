@@ -9,7 +9,7 @@
  */
 
 #include <cmath>
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 namespace projections {
 

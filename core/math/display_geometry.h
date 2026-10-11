@@ -7,7 +7,7 @@
 /** @file display_geometry.h
  * @brief Unclamped display latitude and pole-row mappings. */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 #ifndef HS_RUNTIME_DISPLAY_GEOMETRY
 #define HS_RUNTIME_DISPLAY_GEOMETRY 0

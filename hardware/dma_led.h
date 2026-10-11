@@ -20,9 +20,9 @@
 #include <atomic>
 #include "core/platform/platform.h"
 
-#include "hd107s_frame.h"
+#include "hardware/hd107s_frame.h"
 
-#include "dma_led_core.h"
+#include "hardware/dma_led_core.h"
 
 // ============================================================================
 // TeensySPIDMA — Low-level async DMA+SPI driver for Teensy 4.x
@@ -176,6 +176,6 @@ private:
 inline TeensySPIDMA *TeensySPIDMA::instance = nullptr;
 
 // Included after TeensySPIDMA so its default transport resolves.
-#include "dma_led_controller.h"
+#include "hardware/dma_led_controller.h"
 
 #endif // ARDUINO

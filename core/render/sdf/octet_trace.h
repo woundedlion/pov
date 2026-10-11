@@ -13,9 +13,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "render/ray/camera.h"
-#include "render/ray/shade.h"
-#include "render/sdf/framework.h"
+#include "core/render/ray/camera.h"
+#include "core/render/ray/shade.h"
+#include "core/render/sdf/framework.h"
 
 /** @brief Front-to-back ray traces of the 3D and 4D octet trusses. */
 namespace SDF::OctetTrace {

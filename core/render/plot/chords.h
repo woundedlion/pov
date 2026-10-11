@@ -10,13 +10,13 @@
  *        chart, culled conservatively against the clip band.
  */
 
-#include "memory.h"
-#include "math/display_geometry.h"
-#include "math/pixel_mapping.h"
-#include "render/canvas.h"
-#include "render/clip.h"
-#include "render/plot/cull.h"
-#include "render/plot/raster.h"
+#include "core/memory.h"
+#include "core/math/display_geometry.h"
+#include "core/math/pixel_mapping.h"
+#include "core/render/canvas.h"
+#include "core/render/clip.h"
+#include "core/render/plot/cull.h"
+#include "core/render/plot/raster.h"
 
 namespace Plot {
 

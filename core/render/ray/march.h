@@ -8,7 +8,7 @@
  * @brief Bounded verified surface searches. */
 
 #include <cfloat>
-#include "render/ray/contract.h"
+#include "core/render/ray/contract.h"
 
 namespace Raycast {
 

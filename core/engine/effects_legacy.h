@@ -9,10 +9,10 @@
  * @brief Legacy effects written before this engine, plus the timers,
  *        oscillators and color sequences they share.
  */
-#include "render/canvas.h"
-#include "math/rotate.h"
-#include "math/geometry.h"
-#include "platform/led.h"
+#include "core/render/canvas.h"
+#include "core/math/rotate.h"
+#include "core/math/geometry.h"
+#include "core/platform/led.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Legacy effects built before this engine

@@ -10,10 +10,10 @@
  *        mesh operators are written against.
  */
 
-#include "math/3dmath.h"
-#include "math/geometry.h"
-#include "mesh/mesh_state.h"
-#include "memory.h"
+#include "core/math/3dmath.h"
+#include "core/math/geometry.h"
+#include "core/mesh/mesh_state.h"
+#include "core/memory.h"
 
 #include <algorithm>
 #include <cmath>

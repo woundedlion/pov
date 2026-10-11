@@ -8,10 +8,10 @@
  * @brief Prepared periodic lattice crossings and shading. */
 
 #include <array>
-#include "math/4dmath.h"
-#include "math/periodic.h"
-#include "render/ray/contract.h"
-#include "render/ray/shade.h"
+#include "core/math/4dmath.h"
+#include "core/math/periodic.h"
+#include "core/render/ray/contract.h"
+#include "core/render/ray/shade.h"
 
 namespace SDF::Lattice {
 /// Lattice coordinate count; 3D lattices leave axis 3 inactive.

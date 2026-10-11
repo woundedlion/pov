@@ -9,8 +9,8 @@
 
 #include <cstdint>
 #include <variant>
-#include "engine/concepts.h"
-#include "math/easing.h"
+#include "core/engine/concepts.h"
+#include "core/math/easing.h"
 
 namespace Segue {
 /**

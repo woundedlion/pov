@@ -8,8 +8,8 @@
 #include <cmath>
 #include <cstdint>
 
-#include "color/generative_palette.h"
-#include "color/baked_palette.h"
+#include "core/color/generative_palette.h"
+#include "core/color/baked_palette.h"
 
 /**
  * @file palette_cycler.h

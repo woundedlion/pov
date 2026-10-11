@@ -8,8 +8,8 @@
 #include <cmath>
 #include <concepts>
 #include <type_traits>
-#include "math/3dmath.h"
-#include "platform/platform.h"
+#include "core/math/3dmath.h"
+#include "core/platform/platform.h"
 
 /**
  * @file volume.h

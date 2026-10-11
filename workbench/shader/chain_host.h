@@ -22,7 +22,7 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/pullback/runtime_seeds.h"
-#include "chain_snapshot.h"
+#include "workbench/shader/chain_snapshot.h"
 
 namespace hs_test {
 namespace shader_chain_tests {

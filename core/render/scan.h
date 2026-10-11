@@ -9,8 +9,8 @@
  * @brief The scanline rasterizer: umbrella over render/scan/.
  */
 
-#include "render/scan/raster.h"
-#include "render/scan/shapes.h"
-#include "render/scan/mesh.h"
-#include "render/scan/shader.h"
-#include "render/scan/volume.h"
+#include "core/render/scan/raster.h"
+#include "core/render/scan/shapes.h"
+#include "core/render/scan/mesh.h"
+#include "core/render/scan/shader.h"
+#include "core/render/scan/volume.h"

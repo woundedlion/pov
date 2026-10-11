@@ -42,8 +42,7 @@ if(EMSCRIPTEN)
     ${CMAKE_CURRENT_SOURCE_DIR}/core/spatial/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/core)
+    ${CMAKE_CURRENT_SOURCE_DIR})
 
   set_property(TARGET ${TARGET_NAME} APPEND PROPERTY LINK_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/cmake/wasm_cache_key.cmake"
@@ -126,8 +125,7 @@ if(EMSCRIPTEN)
   include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/chain_capture_fixtures.cmake)
   hs_chain_capture_fixtures(pullback_capture_wasm "${CMAKE_CURRENT_SOURCE_DIR}")
   target_include_directories(pullback_capture_wasm PRIVATE
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}
-    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core)
+    ${HS_PULLBACK_CAPTURE_SOURCE_ROOT})
   hs_capture_feature_defines(pullback_capture_wasm)
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256

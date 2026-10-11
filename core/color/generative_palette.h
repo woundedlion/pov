@@ -8,11 +8,11 @@
  * @brief Recipe-compiled perceptual palettes and stock recipes.
  */
 
-#include "math/3dmath.h"
-#include "color/palette.h"
-#include "color/palette_recipe.h"
-#include "color/color_space.h"
-#include "math/geometry.h"
+#include "core/math/3dmath.h"
+#include "core/color/palette.h"
+#include "core/color/palette_recipe.h"
+#include "core/color/color_space.h"
+#include "core/math/geometry.h"
 
 /**
  * @brief A perceptual palette compiled from a PaletteRecipe.

@@ -8,12 +8,12 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "math/geometry.h"
-#include "render/shading.h"
-#include "render/canvas.h"
-#include "engine/concepts.h"
-#include "memory.h"
-#include "render/plot/raster.h"
+#include "core/math/geometry.h"
+#include "core/render/shading.h"
+#include "core/render/canvas.h"
+#include "core/engine/concepts.h"
+#include "core/memory.h"
+#include "core/render/plot/raster.h"
 
 /**
  * @file particles.h

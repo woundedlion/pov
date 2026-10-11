@@ -10,9 +10,9 @@
 
 #include <cstring>
 #include <utility>
-#include "color/palette.h"
-#include "memory.h"
-#include "math/3dmath.h"
+#include "core/color/palette.h"
+#include "core/memory.h"
+#include "core/math/3dmath.h"
 
 /**
  * @brief Samples a palette domain and copies its exact mirror or loop seam.
