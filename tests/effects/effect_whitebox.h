@@ -399,8 +399,7 @@ inline void test_gnomonicstars_radius_px_covers_both_axes() {
   double max_arc = 0.0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
-      const Pixel &p = fx.get_pixel(x, y);
-      if (p.r == 0 && p.g == 0 && p.b == 0)
+      if (is_black(fx.get_pixel(x, y)))
         continue;
       ++lit;
       const math::Vector v = math::pixel_to_vector<W, H>(x, y);
@@ -603,11 +602,7 @@ inline void test_ringspin_strobe_configuration_preserves_rendering() {
   HS_EXPECT_EQ(expected.size(), size_t{SMALL_W * SMALL_H});
   for (int y = 0; y < SMALL_H; ++y)
     for (int x = 0; x < SMALL_W; ++x) {
-      const Pixel &actual = firmware_effect.get_pixel(x, y);
-      const Pixel &reference = expected[y * SMALL_W + x];
-      HS_EXPECT_EQ(actual.r, reference.r);
-      HS_EXPECT_EQ(actual.g, reference.g);
-      HS_EXPECT_EQ(actual.b, reference.b);
+      HS_EXPECT_EQ(firmware_effect.get_pixel(x, y), expected[y * SMALL_W + x]);
     }
 }
 
@@ -633,8 +628,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   float worst = 0.0f;
   for (int y = 0; y < DEFAULT_H; ++y)
     for (int x = 0; x < DEFAULT_W; ++x) {
-      const Pixel p = fx.get_pixel(x, y);
-      if (p.r == 0 && p.g == 0 && p.b == 0)
+      if (is_black(fx.get_pixel(x, y)))
         continue;
       ++lit;
       const math::Vector v = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(x, y);
@@ -657,14 +651,7 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
   HS_EXPECT_EQ(fx.updateParameter("Alpha", 0.0f), ParamSetResult::APPLIED);
   fx.draw_frame();
   fx.advance_display();
-  int still_lit = 0;
-  for (int y = 0; y < DEFAULT_H; ++y)
-    for (int x = 0; x < DEFAULT_W; ++x) {
-      const Pixel p = fx.get_pixel(x, y);
-      if (p.r != 0 || p.g != 0 || p.b != 0)
-        ++still_lit;
-    }
-  HS_EXPECT_EQ(still_lit, 0);
+  HS_EXPECT_EQ((count_lit_region<DEFAULT_W, DEFAULT_H>(fx)), size_t{0});
 }
 
 // PetalFlow spawn-gap, hue-cursor and ring-pool bounds on every frame.

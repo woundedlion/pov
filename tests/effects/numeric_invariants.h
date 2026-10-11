@@ -161,13 +161,7 @@ inline void test_ash_cloud_value_cutout_gates_the_frame() {
     effect.draw_frame();
     effect.advance_display();
 
-    size_t lit = 0;
-    for (int y = 0; y < SMALL_H; ++y)
-      for (int x = 0; x < SMALL_W; ++x) {
-        const Pixel &p = effect.get_pixel(x, y);
-        lit += (p.r != 0 || p.g != 0 || p.b != 0) ? 1u : 0u;
-      }
-    return lit;
+    return count_lit_region<SMALL_W, SMALL_H>(effect);
   };
 
   HS_EXPECT_GT(lit_pixels(0.0f), size_t{0});

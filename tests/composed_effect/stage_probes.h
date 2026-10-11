@@ -263,9 +263,7 @@ inline void test_composed_repeated_instances() {
   size_t differences = 0;
   const auto rendered = render(changed.params);
   for (size_t i = 0; i < initial.size(); ++i)
-    differences += initial[i].color.r != rendered[i].color.r ||
-                   initial[i].color.g != rendered[i].color.g ||
-                   initial[i].color.b != rendered[i].color.b;
+    differences += initial[i].color != rendered[i].color;
   HS_EXPECT_GT(differences, size_t{0});
   auto invalid = changed;
   invalid.params.template get<"lens_b">().mobius.c =
@@ -330,8 +328,7 @@ inline void test_composed_periodic_ripple_surface() {
   const auto RIPPLE = RENDER(0.15f);
   size_t changed = 0;
   for (size_t i = 0; i < FLAT.size(); ++i)
-    changed += FLAT[i].r != RIPPLE[i].r || FLAT[i].g != RIPPLE[i].g ||
-               FLAT[i].b != RIPPLE[i].b;
+    changed += FLAT[i] != RIPPLE[i];
   HS_EXPECT_GT(changed, size_t{0});
   hs::clear_mock_time();
 }
@@ -417,7 +414,7 @@ inline void test_composed_noise_sources() {
     effect.advance_display();
     for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
       projected[i] = effect.display_buffer()[i];
-      lit += projected[i].r != 0 || projected[i].g != 0 || projected[i].b != 0;
+      lit += !is_black(projected[i]);
     }
   }
   HS_EXPECT_GT(lit, size_t(0));
@@ -432,9 +429,8 @@ inline void test_composed_noise_sources() {
     effect.advance_display();
     for (int i = 0; i < SMALL_W * SMALL_H; ++i) {
       const Pixel &pixel = effect.display_buffer()[i];
-      spherical_lit += pixel.r != 0 || pixel.g != 0 || pixel.b != 0;
-      differing += pixel.r != projected[i].r || pixel.g != projected[i].g ||
-                   pixel.b != projected[i].b;
+      spherical_lit += !is_black(pixel);
+      differing += pixel != projected[i];
     }
   }
   HS_EXPECT_GT(spherical_lit, size_t(0));

@@ -284,9 +284,7 @@ inline void test_displacement_field_hue_table_bind_clears_knots() {
   HS_EXPECT_EQ(second_sample.r, expected.r);
   HS_EXPECT_EQ(second_sample.g, expected.g);
   HS_EXPECT_EQ(second_sample.b, expected.b);
-  HS_EXPECT_TRUE(first_sample.r != second_sample.r ||
-                 first_sample.g != second_sample.g ||
-                 first_sample.b != second_sample.b);
+  HS_EXPECT_TRUE(first_sample != second_sample);
 }
 
 /**
@@ -388,10 +386,7 @@ inline DisplacementHueFrame render_displacement_hue_frame(bool exact) {
   }
   DisplacementHueFrame result{
       {}, DisplacementFieldWhiteBox::hue_table_uses(effect)};
-  result.pixels.resize(W * H);
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      result.pixels[y * W + x] = effect.get_pixel(x, y);
+  capture_frame<W, H>(effect, result.pixels);
   hs::clear_mock_time();
   return result;
 }
@@ -411,9 +406,7 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
   size_t lit = 0;
   for (size_t i = 0; i < exact.pixels.size(); ++i) {
     lit += !is_black(exact.pixels[i]) && !is_black(table.pixels[i]);
-    if (exact.pixels[i].r != table.pixels[i].r ||
-        exact.pixels[i].g != table.pixels[i].g ||
-        exact.pixels[i].b != table.pixels[i].b)
+    if (exact.pixels[i] != table.pixels[i])
       ++changed;
     OKLab a = linear_rgb_to_oklab(exact.pixels[i].r * INV16,
                                   exact.pixels[i].g * INV16,
@@ -566,7 +559,7 @@ inline void test_displacement_field_clip_tiles_full() {
         for (int x = q.x0; x < q.x1; ++x) {
           const Pixel p = fx.get_pixel(x, y);
           if (!clip) {
-            if (p.r | p.g | p.b)
+            if (!is_black(p))
               ++lit;
           }
           pixels.push_back(p);
@@ -589,9 +582,7 @@ inline void test_displacement_field_clip_tiles_full() {
       int max_error = 0;
       for (size_t i = 0; i < full.size(); ++i)
         max_error =
-            std::max({max_error, std::abs(int(full[i].r) - clipped[i].r),
-                      std::abs(int(full[i].g) - clipped[i].g),
-                      std::abs(int(full[i].b) - clipped[i].b)});
+            std::max<int>(max_error, max_channel_gap(full[i], clipped[i]));
       HS_EXPECT_LE(max_error, 1);
     }
 }
