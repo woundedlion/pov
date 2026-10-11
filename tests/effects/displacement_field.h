@@ -54,8 +54,9 @@ struct DisplacementFieldWhiteBox {
     }
     std::array<float, W> shifts{};
     const float step = math::TWO_PI_F / W;
-    effect.bake_ball_spans(basis, theta, cosf(theta), sinf(theta), cosf(step),
-                           sinf(step), W, effect.CHUNK_MASK, N, shifts.data());
+    effect.bake_ball_spans(basis,
+                           {cosf(theta), sinf(theta), cosf(step), sinf(step)},
+                           theta, W, effect.CHUNK_MASK, N, shifts.data());
     int displaced = 0;
     for (int x = 0; x < W; ++x) {
       const float expected =
@@ -192,9 +193,9 @@ struct DisplacementFieldWhiteBox {
                                  const math::Basis &basis, float theta,
                                  int lut_n, float *slut) {
     const float dphi = 2.0f * math::PI_F / lut_n;
-    effect.bake_noise_octaves(np, basis, theta, cosf(theta), sinf(theta),
-                              cosf(dphi), sinf(dphi), lut_n,
-                              DisplacementField<W, H>::CHUNK_MASK, 0, slut);
+    effect.bake_noise_octaves(
+        np, basis, {cosf(theta), sinf(theta), cosf(dphi), sinf(dphi)}, theta,
+        lut_n, DisplacementField<W, H>::CHUNK_MASK, 0, slut);
   }
 };
 
