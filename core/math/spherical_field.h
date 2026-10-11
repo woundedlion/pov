@@ -112,11 +112,13 @@ public:
              equator_samples);
   }
 
-  /** @brief Pole-value storage capacity; runtime geometry reserves both poles. */
 #if HS_RUNTIME_DISPLAY_GEOMETRY
+  /** @brief Pole-value storage capacity; runtime geometry reserves both poles. */
   static constexpr int POLE_STORAGE_COUNT = 2;
 #else
+  /** @brief Number of poles present in the static geometry. */
   static constexpr int POLE_COUNT = int(HAS_NORTH_POLE) + int(HAS_SOUTH_POLE);
+  /** @brief Pole-value storage capacity, including an empty-layout sentinel. */
   static constexpr int POLE_STORAGE_COUNT = POLE_COUNT > 0 ? POLE_COUNT : 1;
 #endif
 
