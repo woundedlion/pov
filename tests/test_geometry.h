@@ -411,6 +411,13 @@ inline void test_make_basis_orthonormal() {
   HS_EXPECT_NEAR(math::dot(b.u, b.v), 0.0f, 1e-4f);
   HS_EXPECT_NEAR(math::dot(b.v, b.w), 0.0f, 1e-4f);
   HS_EXPECT_NEAR(math::dot(b.u, b.w), 0.0f, 1e-4f);
+  const math::Quaternion rotation =
+      math::make_rotation(math::Z_AXIS, math::PI_F * 0.5f);
+  const math::Basis rotated = math::make_basis(rotation, math::Y_AXIS);
+  HS_EXPECT_VEC(rotated.v, -math::X_AXIS, 1e-5f);
+  HS_EXPECT_VEC(rotated.u, -math::Z_AXIS, 1e-5f);
+  HS_EXPECT_VEC(rotated.w, -math::Y_AXIS, 1e-5f);
+  HS_EXPECT_VEC(math::cross(rotated.v, rotated.u), rotated.w, 1e-5f);
 }
 
 /**
