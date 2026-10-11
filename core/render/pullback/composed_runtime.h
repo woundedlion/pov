@@ -574,7 +574,6 @@ private:
                      params.template get<"color">().phase_oscillation_speed);
   }
 
-  // Rotation samples are eased within each walk step.
   HS_COLD_MEMBER void update_spatial_frames() {
     if constexpr (ANIMATED_PROJECTION) {
       const math::Quaternion projection = this->projection_walk.get();
