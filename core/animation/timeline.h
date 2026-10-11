@@ -272,8 +272,8 @@ public:
                "pinned animation must be infinite or repeating");
       for (int i = 0; i < global_timeline_num_events; ++i) {
         IAnimation *prev = global_timeline_events[i].animation();
-        HS_CHECK(!prev || (!prev->is_canceled() &&
-                           (!prev->is_finite() || prev->repeats())),
+        HS_CHECK(prev && !prev->is_canceled() &&
+                     (!prev->is_finite() || prev->repeats()),
                  "pinned animation added after a retiring predecessor");
       }
     }
