@@ -289,7 +289,6 @@ private:
     *dst = dst->lerp16(src, alpha_q16);
   }
 };
-/// Closes the HS_O3_BEGIN optimization region.
 HS_O3_END
 
 static_assert(PipelineFoldSurface<::Pipeline<8, 8>>);
