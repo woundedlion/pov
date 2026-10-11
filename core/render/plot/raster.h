@@ -911,7 +911,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   // closed segments so a shared vertex isn't plotted twice.
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
-                             bool is_last_segment) {
+                             bool is_last_segment) HS_HOT_INLINE {
     // Coincident endpoints emit at most one dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool should_omit = close_loop || !is_last_segment || omit_end;
