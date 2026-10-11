@@ -6,7 +6,7 @@
 // Included by core/render/pullback/composed_effect.h.
 
 /** @file composed_descriptors.h
- * @brief Compile-time stage classification, Spec checks and parameter
+ * @brief Compile-time stage classification, topology derivation and parameter
  * counting for composed effects.
  */
 
@@ -138,66 +138,188 @@ struct PathTracked<Surface::DirectNoise<Provider, Basis>>
 template <typename Stage>
 struct StagePathTracked : PathTracked<typename Stage::Policies> {};
 
-/**
- * @brief Checks of a Spec's metadata fields against its pipeline.
- * @tparam Spec The effect's `Pullback::Spec`.
- * @tparam Binding Frame binding of the effect.
- * @tparam Pipeline The pipeline the Spec declares for @p Binding.
- */
-template <typename Spec, typename Binding, typename Pipeline>
-struct PipelineMetadata {
-  /** Whether any stage's warp or surface provider tracks path length. */
+/** @brief Semantic leaves without binding executable stages.
+ * @tparam Pipeline Typed pipeline declaration. */
+template <typename Pipeline> struct PipelineLeaves;
+/** @brief Normalized leaf view of a typed pipeline.
+ * @tparam B Declaration binding.
+ * @tparam Entries Stage descriptors and placement groups. */
+template <typename B, typename... Entries>
+struct PipelineLeaves<Pullback::Pipeline<B, Entries...>> {
+  using Nodes =
+      typename Detail::NormalizeEntries<Entries...>::Type; ///< Execution nodes.
+  using Leaves =
+      typename Detail::Leaves<Nodes>::Type; ///< Flattened stage descriptors.
+  static constexpr size_t STAGE_COUNT =
+      Detail::LeafShape<Leaves>::COUNT; ///< Leaf count.
+  /** @brief Leaf at an index. @tparam Index Leaf index. */
+  template <size_t Index>
+  using StageAt = typename Detail::TypeAt<Index, Leaves>::Type;
+  /** @brief Whether any leaf satisfies a trait. @tparam Predicate Stage trait. */
+  template <template <typename> class Predicate>
+  static constexpr bool ANY_STAGE =
+      Detail::LeafOps<Leaves>::template ANY<Predicate>;
+  /** @brief First matching leaf, or void. @tparam Predicate Stage trait. */
+  template <template <typename> class Predicate>
+  using StageMatching =
+      typename Detail::LeafOps<Leaves>::template Matching<Predicate>;
+};
+
+/** @brief Projection kind of a typed policy. @tparam Policy Projection policy. */
+template <typename Policy> struct ProjectionKindOf {
+  static_assert(!std::is_same_v<Policy, Policy>,
+                "composed metadata: unsupported projection policy");
+};
+/** @brief Stereographic projection. @tparam P Projection provider. */
+template <typename P> struct ProjectionKindOf<Projection::Stereographic<P>> {
+  static constexpr auto VALUE =
+      ProjectionKind::STEREOGRAPHIC; ///< Projection kind.
+};
+/** @brief Folded gnomonic projection. @tparam P Projection provider. */
+template <typename P>
+struct ProjectionKindOf<
+    Projection::Gnomonic<P, Projection::GnomonicHemisphere::FOLDED>> {
+  static constexpr auto VALUE =
+      ProjectionKind::GNOMONIC_FOLDED; ///< Projection kind.
+};
+/** @brief Equirectangular projection. @tparam P Projection provider. */
+template <typename P> struct ProjectionKindOf<Projection::Equirectangular<P>> {
+  static constexpr auto VALUE =
+      ProjectionKind::EQUIRECTANGULAR; ///< Projection kind.
+};
+/** @brief Folded sinusoidal projection. @tparam P Projection provider. */
+template <typename P> struct ProjectionKindOf<Projection::FoldedSinusoidal<P>> {
+  static constexpr auto VALUE =
+      ProjectionKind::FOLDED_SINUSOIDAL; ///< Projection kind.
+};
+/** @brief Transfer kind of a typed policy. @tparam Policy Transfer policy. */
+template <typename Policy> struct TransferKindOf {
+  static_assert(!std::is_same_v<Policy, Policy>,
+                "composed metadata: unsupported transfer policy");
+};
+/** @brief Iso-contour transfer. @tparam P Value provider. */
+template <typename P> struct TransferKindOf<Transfer::IsoContour<P>> {
+  static constexpr auto VALUE = TransferKind::ISO_CONTOUR; ///< Transfer kind.
+};
+/** @brief Field coverage kind of a typed policy. @tparam Policy Coverage policy. */
+template <typename Policy> struct FieldCoverageKindOf {
+  static_assert(!std::is_same_v<Policy, Policy>,
+                "composed metadata: unsupported field coverage policy");
+};
+/** @brief Value cutout. @tparam P Value provider. */
+template <typename P>
+struct FieldCoverageKindOf<ValueCoverage::ValueCutout<P>> {
+  static constexpr auto VALUE =
+      FieldCoverageKind::VALUE_CUTOUT; ///< Coverage kind.
+};
+/** @brief Color modes encoded by a typed color policy. @tparam Policy Color policy. */
+template <typename Policy> struct ColorModesOf {
+  static_assert(!std::is_same_v<Policy, Policy>,
+                "composed metadata: unsupported color policy");
+};
+/** @brief Generated-palette color modes.
+ * @tparam B Declaration binding.
+ * @tparam Hue Hue rotation mode.
+ * @tparam Brightness Brightness envelope. */
+template <typename B, HueMode Hue, Color::BrightnessEnvelope Brightness>
+struct ColorModesOf<
+    Color::GeneratedPalette<ColorProvider<B, Hue, Brightness>>> {
+  static constexpr auto HUE = Hue;               ///< Hue rotation mode.
+  static constexpr auto BRIGHTNESS = Brightness; ///< Brightness envelope.
+};
+/** @brief Whether a leaf colorizes sampled values. @tparam T Stage descriptor. */
+template <typename T> struct IsColorStage : std::false_type {};
+template <typename P>
+struct IsColorStage<Stage::Colorize<P>> : std::true_type {};
+
+/** @brief Topology derived from normalized typed pipeline entries.
+ * @tparam Pipeline Semantic leaf view. */
+template <typename Pipeline> struct PipelineMetadata {
+  /// Whether a warp or surface tracks path length.
   static constexpr bool PATH_TRACKED =
-      Pipeline::template any_stage<StagePathTracked>;
-  /// The pipeline's `Stage::Lens`, or void when it has none.
-  using LensStage = typename Pipeline::template StageMatching<IsLensStage>;
-  /// The pipeline's `Stage::Project`, or void when it has none.
-  using ProjectStage =
-      typename Pipeline::template StageMatching<IsProjectStage>;
-  /// The pipeline's `Stage::Sample`, or void when it has none.
-  using SampleStage = typename Pipeline::template StageMatching<IsSampleStage>;
-  /** Whether `Spec::COVERAGE` names the Sample stage's coverage policy
-      (`NONE` without a Sample stage). */
-  static constexpr bool COVERAGE_MATCHES = [] {
+      Pipeline::template ANY_STAGE<StagePathTracked>;
+  using LensStage = typename Pipeline::template StageMatching<
+      IsLensStage>; ///< First lens stage, or void.
+  using ProjectStage = typename Pipeline::template StageMatching<
+      IsProjectStage>; ///< Projection stage, or void.
+  using SampleStage = typename Pipeline::template StageMatching<
+      IsSampleStage>; ///< Sample stage, or void.
+  using TransferStage = typename Pipeline::template StageMatching<
+      IsTransferStage>; ///< Transfer stage, or void.
+  using CoverageStage = typename Pipeline::template StageMatching<
+      IsCoverageStage>; ///< Field coverage stage, or void.
+  using ColorStage = typename Pipeline::template StageMatching<
+      IsColorStage>; ///< Color stage, or void.
+  static_assert(!std::is_void_v<ProjectStage>,
+                "composed metadata: projection stage is required");
+  static_assert(!std::is_void_v<ColorStage>,
+                "composed metadata: color stage is required");
+  /// Sphere-to-plane projection kind.
+  static constexpr auto PROJECTION =
+      ProjectionKindOf<typename ProjectStage::ProjectionPolicy>::VALUE;
+  /// Projection coverage applied at sampling.
+  static constexpr auto COVERAGE = [] {
     if constexpr (std::is_void_v<SampleStage>)
-      return Spec::COVERAGE == ProjectionCoverageMode::NONE;
+      return ProjectionCoverageMode::NONE;
     else
       return ProjectionCoverageModeOf<
-                 typename SampleStage::CoveragePolicy>::VALUE == Spec::COVERAGE;
+          typename SampleStage::CoveragePolicy>::VALUE;
   }();
-  /** Whether `Spec::LensPolicy` is the lens stage's policy, or void for no
-      lens or a Mobius lens. */
-  static constexpr bool LENS_MATCHES = [] {
+  static_assert(COVERAGE != static_cast<ProjectionCoverageMode>(255),
+                "composed metadata: unsupported projection coverage policy");
+  /// Sampled-value transfer kind.
+  static constexpr auto TRANSFER = [] {
+    if constexpr (std::is_void_v<TransferStage>)
+      return TransferKind::NONE;
+    else
+      return TransferKindOf<typename TransferStage::TransferPolicy>::VALUE;
+  }();
+  /// Value-dependent field coverage kind.
+  static constexpr auto FIELD_COVERAGE = [] {
+    if constexpr (std::is_void_v<CoverageStage>)
+      return FieldCoverageKind::NONE;
+    else
+      return FieldCoverageKindOf<typename CoverageStage::CoveragePolicy>::VALUE;
+  }();
+  /// Non-Mobius lens policy, or void.
+  using LensPolicy = typename decltype([] {
     if constexpr (std::is_void_v<LensStage>)
-      return std::is_void_v<typename Spec::LensPolicy>;
+      return std::type_identity<void>{};
     else if constexpr (IsMobiusLens<typename LensStage::LensPolicy>::value)
-      return std::is_void_v<typename Spec::LensPolicy>;
+      return std::type_identity<void>{};
     else
-      return std::is_same_v<typename LensStage::LensPolicy,
-                            typename Spec::LensPolicy>;
-  }();
-  /** Whether the Project stage uses the `Spec::PROJECTION` policy; false
-      without a Project stage. */
-  static constexpr bool PROJECTION_MATCHES = [] {
-    if constexpr (std::is_void_v<ProjectStage>)
-      return false;
-    else
-      return std::is_same_v<
-          typename ProjectStage::ProjectionPolicy,
-          typename ProjectionPolicyFor<Spec::PROJECTION, Binding>::Type>;
-  }();
-  /** Whether the surface and lens stage order agrees with
-      `Spec::SURFACE_PLACEMENT`; true unless both stages are present. */
-  static constexpr bool SURFACE_PLACEMENT_MATCHES = [] {
+      return std::type_identity<typename LensStage::LensPolicy>{};
+  }())::type;
+  /// Surface position relative to the lens; BEFORE_LENS when either is absent.
+  static constexpr auto SURFACE_PLACEMENT = [] {
     constexpr size_t SURFACE = stage_index<Pipeline, IsSurfaceStage>();
     constexpr size_t LENS = stage_index<Pipeline, IsLensStage>();
     if constexpr (SURFACE == Pipeline::STAGE_COUNT ||
-                  LENS == Pipeline::STAGE_COUNT)
-      return true;
+                  LENS == Pipeline::STAGE_COUNT || SURFACE < LENS)
+      return SurfacePlacement::BEFORE_LENS;
     else
-      return (SURFACE < LENS) ==
-             (Spec::SURFACE_PLACEMENT == SurfacePlacement::BEFORE_LENS);
+      return SurfacePlacement::AFTER_LENS;
   }();
+  using ColorModes = ColorModesOf<
+      typename ColorStage::ColorPolicy>;       ///< Typed color selections.
+  static constexpr auto HUE = ColorModes::HUE; ///< Hue rotation mode.
+  static constexpr auto BRIGHTNESS =
+      ColorModes::BRIGHTNESS; ///< Brightness envelope.
+};
+/** @brief Topology derived without constructing a runtime frame.
+ * @tparam Spec Authored pipeline spec. */
+template <typename Spec>
+struct MetadataFor
+    : PipelineMetadata<
+          PipelineLeaves<typename Spec::template Pipeline<DiscoveryBinding>>> {
+  static_assert(
+      !requires { Spec::PROJECTION; } && !requires { Spec::TRANSFER; } &&
+          !requires { Spec::COVERAGE; } &&
+          !requires { Spec::FIELD_COVERAGE; } && !requires { Spec::HUE; } &&
+          !requires { Spec::BRIGHTNESS; } &&
+          !requires { Spec::SURFACE_PLACEMENT; } &&
+          !requires { typename Spec::LensPolicy; },
+      "composed metadata: declare topology through typed pipeline entries");
 };
 
 /** @brief The outer camera reads the "projection" family. @tparam B Frame
@@ -302,7 +424,7 @@ struct PolicyResources<Surface::DirectNoise<Provider, Basis>>
     : PolicyResources<Provider> {};
 
 /**
- * @brief Whether a field gate is live under the Spec's projection metadata.
+ * @brief Whether a field gate is live under the derived projection topology.
  * @tparam Spec Composed-effect Spec.
  * @param gate Field gate.
  * @return True when the gated field gets a slider.
@@ -314,9 +436,9 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
   case FieldGate::ANIMATED_PROJECTION:
     return Spec::ANIMATED_PROJECTION;
   case FieldGate::CENTRAL_MERIDIAN:
-    return uses_central_meridian(Spec::PROJECTION);
+    return uses_central_meridian(MetadataFor<Spec>::PROJECTION);
   case FieldGate::SINGULARITY_FADE:
-    return uses_singularity_fade(Spec::PROJECTION);
+    return uses_singularity_fade(MetadataFor<Spec>::PROJECTION);
   }
   return false;
 }
@@ -325,8 +447,7 @@ template <typename Spec> constexpr bool field_gate_open(FieldGate gate) {
 void color_gate_names_unknown_topology();
 
 /**
- * @brief Whether a colour field's topology gate is live under the Spec's
- *        `HUE` and `BRIGHTNESS` selections.
+ * @brief Whether a colour field's gate is live under the typed color policy.
  * @tparam Spec Composed-effect Spec.
  * @param gate Topology gate; a null `field` is always open.
  * @return True when the gated colour field gets a slider.
@@ -337,9 +458,9 @@ template <typename Spec> consteval bool color_gate_open(TopologyGate gate) {
   const std::string_view topology = gate.field;
   unsigned value = 0;
   if (topology == Color::HUE_ROTATION_GATE.field)
-    value = static_cast<unsigned>(Spec::HUE);
+    value = static_cast<unsigned>(MetadataFor<Spec>::HUE);
   else if (topology == Color::BRIGHTNESS_ENVELOPE_GATE.field)
-    value = static_cast<unsigned>(Spec::BRIGHTNESS);
+    value = static_cast<unsigned>(MetadataFor<Spec>::BRIGHTNESS);
   else
     color_gate_names_unknown_topology();
   return (gate.values >> value) & 1U;
@@ -488,3 +609,6 @@ consteval size_t parameter_name_bytes(ResourceList<Resources...>) {
 }
 
 } // namespace ComposedDetail
+
+/** @brief Topology inferred from a spec's typed pipeline. @tparam Spec Authored pipeline spec. */
+template <typename Spec> using MetadataFor = ComposedDetail::MetadataFor<Spec>;

@@ -54,34 +54,21 @@ using effects_tests::reset_effect_globals;
 using effects_tests::SMALL_H;
 using effects_tests::SMALL_W;
 
-struct MismatchedCoverageSpec : AshCloudSpec {
-  static constexpr auto COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
-};
 using CoverageFixture = AshCloud<SMALL_W, SMALL_H>;
-static_assert(Pullback::ComposedDetail::PipelineMetadata<
-              AshCloudSpec, CoverageFixture::Binding,
-              CoverageFixture::RenderPipeline>::COVERAGE_MATCHES);
-static_assert(!Pullback::ComposedDetail::PipelineMetadata<
-              MismatchedCoverageSpec, CoverageFixture::Binding,
-              CoverageFixture::RenderPipeline>::COVERAGE_MATCHES);
-
+static_assert(CoverageFixture::Metadata::COVERAGE ==
+              Pullback::ProjectionCoverageMode::WEIGHT);
 using TrackedFixture = CosmicEyeball<SMALL_W, SMALL_H>;
-static_assert(Pullback::ComposedDetail::PipelineMetadata<
-              CosmicEyeballSpec, TrackedFixture::Binding,
-              TrackedFixture::RenderPipeline>::PATH_TRACKED);
-static_assert(!Pullback::ComposedDetail::PipelineMetadata<
-              AshCloudSpec, CoverageFixture::Binding,
-              CoverageFixture::RenderPipeline>::PATH_TRACKED);
+static_assert(TrackedFixture::Metadata::PATH_TRACKED);
+static_assert(!CoverageFixture::Metadata::PATH_TRACKED);
 
 template <typename FX> struct TraitsOf {
   using Spec = typename FX::Spec;
   static constexpr PaletteHarmony HARMONY = Spec::HARMONY;
-  static constexpr Pullback::HueMode HUE = Spec::HUE;
+  static constexpr Pullback::HueMode HUE = FX::Metadata::HUE;
   static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Spec::BRIGHTNESS;
+      FX::Metadata::BRIGHTNESS;
   static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Spec::SURFACE_PLACEMENT;
+      FX::Metadata::SURFACE_PLACEMENT;
 };
 
 /** @brief Color sliders the base registers for every specialization. */
@@ -130,9 +117,9 @@ template <typename FX> constexpr bool gate_open(Pullback::FieldGate gate) {
   case Pullback::FieldGate::ANIMATED_PROJECTION:
     return FX::ANIMATED_PROJECTION;
   case Pullback::FieldGate::CENTRAL_MERIDIAN:
-    return Pullback::uses_central_meridian(FX::Spec::PROJECTION);
+    return Pullback::uses_central_meridian(FX::Metadata::PROJECTION);
   case Pullback::FieldGate::SINGULARITY_FADE:
-    return Pullback::uses_singularity_fade(FX::Spec::PROJECTION);
+    return Pullback::uses_singularity_fade(FX::Metadata::PROJECTION);
   }
   return false;
 }

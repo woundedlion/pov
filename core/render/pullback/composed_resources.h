@@ -170,8 +170,7 @@ struct PipelineResources<Pipeline<Binding, Entries...>> {
       typename MergeAll<typename StageResources<Entries>::Type...>::Type;
 };
 
-/** @brief Binding that instantiates a Spec's pipeline only to read its
- *  resources. */
+/** @brief Declaration binding for resource and topology discovery. */
 struct DiscoveryBinding {
   struct FrameState;
   using Instrumentation = NoInstrumentation; ///< Uninstrumented.

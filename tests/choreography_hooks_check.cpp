@@ -79,7 +79,8 @@ struct DefaultHookSpec : Pullback::Spec {
       Pullback::Stage::Sample<Pullback::Source::Grid<
           Pullback::SourceProvider<B, Pullback::GridSourceParams>>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 struct AuthoredHookFixture
     : Pullback::ComposedEffect<8, 8, AuthoredHookFixture, DefaultHookSpec> {
