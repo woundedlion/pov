@@ -409,7 +409,7 @@ add_test(NAME unit_mirrored_prune COMMAND ${CMAKE_COMMAND}
 
 set(HS_PYTHON "${Python3_EXECUTABLE}")
 add_test(NAME unit_chain_capture_fixtures COMMAND "${Python3_EXECUTABLE}"
-  "${CMAKE_CURRENT_SOURCE_DIR}/../tools/test_chain_capture_fixtures.py")
+  "${CMAKE_CURRENT_SOURCE_DIR}/../tools/profile_tests/test_chain_capture_fixtures.py")
 
 set(PULLBACK_MANIFEST_DIR ${HS_ROOT}/tests/data/pullback)
 set(PULLBACK_MANIFEST_HEADER

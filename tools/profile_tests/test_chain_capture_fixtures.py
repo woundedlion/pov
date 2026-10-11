@@ -6,18 +6,21 @@ import copy
 import json
 from pathlib import Path
 import struct
+import sys
 import unittest
 
-import gen_chain_capture_fixtures as generator
-from generate_pullback_manifest_header import load_and_validate, protocol_definition
-from pullback_capture import operation_specs, oracle_operation_specs
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+import gen_chain_capture_fixtures as generator  # noqa: E402
+from generate_pullback_manifest_header import load_and_validate, protocol_definition  # noqa: E402
+from pullback_capture import operation_specs, oracle_operation_specs  # noqa: E402
 
 
 class ChainCaptureFixtureTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         path = (
-            Path(__file__).resolve().parents[1]
+            Path(__file__).resolve().parents[2]
             / "tests/data/chain_capture_fixtures.jsonl"
         )
         cls.records = [
@@ -25,7 +28,7 @@ class ChainCaptureFixtureTests(unittest.TestCase):
         ]
 
     def test_authored_corpus_is_complete_and_emits_typed_state(self):
-        directory = Path(__file__).resolve().parents[1] / "tests/data/pullback"
+        directory = Path(__file__).resolve().parents[2] / "tests/data/pullback"
         programs, oracles, _ = load_and_validate(directory)
         codes = protocol_definition()[1]
         expected = set()
