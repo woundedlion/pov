@@ -61,7 +61,7 @@ struct HookFixture : ChoreographedEffect<HookFixture, HookParams> {
         Control::HookBinding<Hook::TRANSITION_ARMED,
                              &HookFixture::transition_armed>,
 #ifdef HS_HOOK_BOUND_TYPO
-        Control::HookBinding<Hook::FINISH_BLEND, &HookFixture::finsh_blend>,
+        Control::HookBinding<Hook::FINISH_BLEND, &HookFixture::blend_params>,
 #else
         Control::HookBinding<Hook::FINISH_BLEND, &HookFixture::finish_blend>,
 #endif
