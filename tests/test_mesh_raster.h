@@ -826,8 +826,12 @@ check_class_lut_render_matches_exact(const MeshState &mesh,
   const double mean = error.mean_absolute_error();
   std::printf("  [%s] delta mean=%.1f max=%u (of 60000)\n", label, mean,
               error.max_absolute_error);
-  HS_EXPECT_LT(mean, 15.0);
-  HS_EXPECT_LT(error.max_absolute_error, 2000u);
+  constexpr double MEASURED_MEAN = 6.1;
+  constexpr double MEAN_HEADROOM = 8.9;
+  constexpr uint32_t MEASURED_MAX = 795;
+  constexpr uint32_t MAX_HEADROOM = 1205;
+  HS_EXPECT_LT(mean, MEASURED_MEAN + MEAN_HEADROOM);
+  HS_EXPECT_LT(error.max_absolute_error, MEASURED_MAX + MAX_HEADROOM);
 }
 
 /**
