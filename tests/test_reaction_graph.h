@@ -89,14 +89,12 @@ inline void test_node_ordered_and_distinct() {
                 math::Vector(-0.00214281073f, -0.999739528f, -0.0227209534f),
                 1e-6f);
   math::Vector prev = node(0);
-  HS_EXPECT_TRUE(std::isfinite(prev.x) && std::isfinite(prev.y) &&
-                 std::isfinite(prev.z));
+  HS_EXPECT_TRUE(finite_vec(prev));
   int out_of_order = 0;
   int coincident = 0;
   for (int i = 0; i < RD_N - 1; ++i) {
     math::Vector next = node(i + 1);
-    HS_EXPECT_TRUE(std::isfinite(next.x) && std::isfinite(next.y) &&
-                   std::isfinite(next.z));
+    HS_EXPECT_TRUE(finite_vec(next));
     // y = 1 - 2i/(RD_N-1): index order is the north-to-south sweep order.
     out_of_order += next.y >= prev.y;
     coincident += chord2(prev, next) <= 0.0f;

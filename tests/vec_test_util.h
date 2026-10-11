@@ -15,6 +15,13 @@
 
 namespace hs_test {
 
+/** @brief Whether every vector component is finite.
+ * @param v Vector to inspect.
+ * @return True when all components are finite. */
+inline bool finite_vec(const math::Vector &v) {
+  return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
 /** @brief Snorm3 half-step quantization plus float encode/decode rounding. */
 inline constexpr float SNORM3_COMPONENT_BOUND =
     0.5f / math::Snorm3::SCALE + 1e-7f;

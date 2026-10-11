@@ -10,6 +10,7 @@
 
 #include "core/math/noise_field.h"
 #include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -352,8 +353,7 @@ inline void test_noise_field_curl_tangent() {
         const math::Vector u = math::sample_curl_tangent(
             noise, basis, q, v, math::TangentLimit::CLAMP);
         magnitude_sum += u.length();
-        HS_EXPECT_TRUE(std::isfinite(u.x) && std::isfinite(u.y) &&
-                       std::isfinite(u.z));
+        HS_EXPECT_TRUE(finite_vec(u));
         HS_EXPECT_NEAR(math::dot(u, v), 0.0f, 2e-5f);
         HS_EXPECT_LE(u.length(), 1.00001f);
       }

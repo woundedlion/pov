@@ -13,6 +13,7 @@
 #include "core/render/filter/feedback_style.h"
 #include "core/math/easing.h"
 #include "tests/test_fixture.h"
+#include "tests/vec_test_util.h"
 #include "tests/test_harness.h"
 
 #include <cstdint>
@@ -20,15 +21,6 @@
 
 namespace hs_test {
 namespace transformers_tests {
-
-/**
- * @brief Tests whether all three components of a vector are finite.
- * @param v Vector to inspect.
- * @return True when x, y, and z are all finite (no NaN/Inf).
- */
-inline bool finite_vec(const math::Vector &v) {
-  return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
-}
 
 /**
  * @brief Tests whether two vectors are bit-for-bit identical.
