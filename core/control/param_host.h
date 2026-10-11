@@ -479,27 +479,15 @@ protected:
   void register_param(const char *, float *, int, int) = delete;
 
   /**
-   * @brief Registers a float slider, optionally with dropdown labels.
+   * @brief Registers a float slider with the default parameter policies.
    * @param name Parameter name; must outlive the host.
    * @param ptr Target member; its current value is the initial value.
    * @param min Lower bound.
    * @param max Upper bound.
-   * @param animated True if an animation drives the target.
-   * @param readonly True for engine-written telemetry.
-   * @param options Dropdown labels, or null.
-   * @param option_count Label count.
    */
-  HS_COLD_MEMBER void
-  register_param(const char *name, float *ptr, float min = 0.0f,
-                 float max = 1.0f, bool animated = false, bool readonly = false,
-                 const char *const *options = nullptr, int option_count = 0) {
-    register_param(name, ptr,
-                   ParamSpec<float>{.min = min,
-                                    .max = max,
-                                    .animated = animated,
-                                    .readonly = readonly,
-                                    .options = options,
-                                    .option_count = option_count});
+  HS_COLD_MEMBER void register_param(const char *name, float *ptr,
+                                     float min = 0.0f, float max = 1.0f) {
+    register_param(name, ptr, ParamSpec<float>{.min = min, .max = max});
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -545,17 +533,14 @@ protected:
    * @param options Dropdown labels, indexed by enumerator value.
    * @param export_options C++ enumerator names indexed like `options`, or null.
    * @param option_count Label count.
-   * @param animated True if an animation drives the target.
    */
   template <typename Enum>
     requires std::is_enum_v<Enum>
-  HS_COLD_MEMBER void register_param(const char *name, Enum *ptr,
-                                     const char *const *options,
-                                     const char *const *export_options,
-                                     int option_count, bool animated = false) {
+  HS_COLD_MEMBER void
+  register_param(const char *name, Enum *ptr, const char *const *options,
+                 const char *const *export_options, int option_count) {
     auto spec =
         ParamSpec<Enum>::enumerated(options, option_count, export_options);
-    spec.animated = animated;
     register_param(name, ptr, spec);
   }
 
@@ -565,16 +550,12 @@ protected:
    * @param ptr Target member.
    * @param min Lower bound.
    * @param max Upper bound.
-   * @param animated True if an animation drives the target.
    */
   template <typename Integer>
     requires(std::is_integral_v<Integer> && !std::is_same_v<Integer, bool>)
   HS_COLD_MEMBER void register_int_param(const char *name, Integer *ptr,
-                                         int min, int max,
-                                         bool animated = false) {
-    register_param(
-        name, ptr,
-        ParamSpec<Integer>{.min = min, .max = max, .animated = animated});
+                                         int min, int max) {
+    register_param(name, ptr, ParamSpec<Integer>{.min = min, .max = max});
   }
 
   /**
@@ -612,11 +593,9 @@ protected:
    * @brief Registers a bool without changing its initial value.
    * @param name Parameter name; must outlive the host.
    * @param ptr Target member.
-   * @param animated True if an animation drives the target.
    */
-  HS_COLD_MEMBER void register_param(const char *name, bool *ptr,
-                                     bool animated = false) {
-    register_param(name, ptr, ParamSpec<bool>{.animated = animated});
+  HS_COLD_MEMBER void register_param(const char *name, bool *ptr) {
+    register_param(name, ptr, ParamSpec<bool>{});
   }
 
   /**
