@@ -229,7 +229,7 @@ private:
   static constexpr float TRANS_SPEED_MAX = 8.0f;
   static constexpr int SPRITE_FADE_FRAMES = 16;
   static constexpr int STILL_FRAMES =
-      16; /**< 1 s hold (16 fps) between fade and ripple stages. */
+      16; /**< Hold frames between fade and ripple, before the Trans Speed divisor. */
   static constexpr float RIPPLE_THICKNESS =
       0.7f; /**< Fixed ripple wavelet width (radians). */
   /** Amplitude ceiling; every ripple rotation takes the series-form
