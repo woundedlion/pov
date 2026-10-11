@@ -201,7 +201,7 @@ inline int run_sdf_tests() {
   test_smooth_union_cull_covers_fringe_over_leaf_pairs();
   test_smooth_union_scans_rows_past_both_children();
   test_angular_repeat_non_y_axis_cull_covers_copies();
-  test_angular_repeat_y_axis_cull_narrows_rows();
+  test_angular_repeat_y_axis_cull_keeps_rows_narrows_columns();
   test_angular_repeat_tilted_axis_forfeits_cull();
   test_line_arc_bulge_cull_covers_interior();
   test_face_arc_extrema_bounds();
