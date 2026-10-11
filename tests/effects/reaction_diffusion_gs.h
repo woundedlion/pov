@@ -932,10 +932,7 @@ inline void test_gs_dot_kernel_matches_squared_distance() {
     HS_EXPECT_LE(fabsf(actual - expected), 0.001f);
   };
   GSWhiteBox::check_render_kernel(gs, compare);
-  for (int i = 0; i < 40; ++i) {
-    gs.draw_frame();
-    gs.advance_display();
-  }
+  hs_test::run_frames(gs, 40);
   GSWhiteBox::check_render_kernel(gs, compare);
 }
 
@@ -947,10 +944,7 @@ inline void test_gs_direct_draw_matches_grid() {
     HS_EXPECT(actual == expected, "GS direct traversal changes clipped pixels");
   };
   GSWhiteBox::check_direct_draw(gs, compare);
-  for (int frame = 0; frame < 40; ++frame) {
-    gs.draw_frame();
-    gs.advance_display();
-  }
+  hs_test::run_frames(gs, 40);
   GSWhiteBox::check_direct_draw(gs, compare);
 }
 
@@ -1524,10 +1518,7 @@ inline void test_gs_dissolve_clears_and_reseeds() {
             "default reaction grew no pattern to dissolve");
 
   // Sample the last frame before the dissolve window closes.
-  for (int i = 0; i < GSWhiteBox::DISSOLVE_FRAMES - 1; ++i) {
-    gs.draw_frame();
-    gs.advance_display();
-  }
+  hs_test::run_frames(gs, GSWhiteBox::DISSOLVE_FRAMES - 1);
   HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
             "dissolve ended before its window closed");
   HS_EXPECT(covered() < grown / 8,

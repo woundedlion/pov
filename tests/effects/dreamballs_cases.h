@@ -216,10 +216,7 @@ inline void test_dreamballs_base_mesh_selector() {
   HS_EXPECT_TRUE(db.animations_paused());
 
   db.setAnimationsPaused(false);
-  for (int frame = 0; frame < 20; ++frame) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, 20);
   const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
 }
@@ -258,10 +255,7 @@ inline void test_dreamballs_max_edge_solid_render() {
 
   db.setAnimationsPaused(false);
   scratch_arena_a.reset_high_water_mark();
-  for (int frame = 0; frame < 20; ++frame) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, 20);
 
   // Three per-vertex buffers plus the framed vertex + edge-head mesh, at the
   // medial bound.
@@ -414,10 +408,7 @@ inline void test_dreamballs_weave_topology() {
   HS_EXPECT_EQ(WB::live_weave_topology(db), WB::DB::WeaveTopology::MEDIAL);
 
   db.setAnimationsPaused(false);
-  for (int frame = 0; frame < 20; ++frame) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, 20);
   const uint64_t energy = frame_energy<SMALL_W, SMALL_H>(db);
   HS_EXPECT_GT(energy, 0u);
 }
@@ -436,10 +427,7 @@ inline void test_dreamballs_defect_weave_renders() {
     HS_EXPECT_EQ(defects.updateParameter("Weave Gap", weave_gap),
                  ParamSetResult::APPLIED);
     defects.setAnimationsPaused(false);
-    for (int frame = 0; frame < 20; ++frame) {
-      defects.draw_frame();
-      defects.advance_display();
-    }
+    hs_test::run_frames(defects, 20);
     HS_EXPECT_GT((frame_energy<SMALL_W, SMALL_H>(defects)), 0u);
     std::vector<Pixel> frame;
     capture_frame<SMALL_W, SMALL_H>(defects, frame);
@@ -459,18 +447,12 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
   db.init();
   const int held_bake = WB::active_bake(db);
   db.setAnimationsPaused(true);
-  for (int f = 0; f < 340; ++f) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, 340);
   HS_EXPECT_EQ(db.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake);
 
   db.setAnimationsPaused(false);
-  for (int f = 0; f < 340; ++f) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, 340);
   HS_EXPECT_EQ(db.getPresetIndex(), 1u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake ^ 1);
 }
@@ -487,10 +469,7 @@ inline void check_dreamballs_select_mid_fade(int lead_frames, bool respawned) {
   WB::DB db;
   db.init();
   db.setAnimationsPaused(false);
-  for (int f = 0; f < lead_frames; ++f) {
-    db.draw_frame();
-    db.advance_display();
-  }
+  hs_test::run_frames(db, lead_frames);
   const uint64_t faded = frame_energy<SMALL_W, SMALL_H>(db);
   const int bake = WB::active_bake(db);
   constexpr size_t SELECTED = 3;

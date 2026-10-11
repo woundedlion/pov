@@ -110,10 +110,7 @@ inline void test_shader_chain_effect_registers_params() {
                    .coverage_mode,
                static_cast<uint8_t>(In::Op::ProjectionCoverageMode::EDGE_FADE));
 
-  for (int frame = 0; frame < 4; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 4);
   HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
 
@@ -429,10 +426,7 @@ inline void test_shader_chain_effect_refusal_keeps_schema() {
   HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), committed);
   HS_EXPECT_EQ(effect.getParameters().size(), param_count);
   HS_EXPECT_TRUE(effect.getParameters().find("camera.wander") != nullptr);
-  for (int frame = 0; frame < 2; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 2);
   HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
 
@@ -454,10 +448,7 @@ inline void test_shader_chain_pause_semantics() {
       state_as<In::Op::SpatialWalkState>(WB::program(effect), 0).wander;
   const Pixel color_before = WB::palette_color(effect, 0.25f);
 
-  for (int frame = 0; frame < 60; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 60);
 
   HS_EXPECT_TRUE(effect.animations_paused());
   HS_EXPECT_NE(

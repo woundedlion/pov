@@ -245,6 +245,14 @@ inline void expect_params_in_range(const FX &effect, const char *label) {
   }
 }
 
+/** @brief Runs @p frames whole frames of @p effect, buffer swap included. */
+template <typename FX> inline void run_frames(FX &effect, int frames) {
+  for (int frame = 0; frame < frames; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+}
+
 /** @brief Reads available bytes, or returns empty if the file cannot be opened. */
 inline std::string read_text_file(const std::string &path) {
 #pragma clang diagnostic push

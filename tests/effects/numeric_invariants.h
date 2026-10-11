@@ -100,10 +100,7 @@ inline void test_comets_rollover_skipped_mid_wipe() {
   HS_EXPECT_TRUE(palette_snapshots_equal(target, WB::palette_target(effect)));
 
   // step_wipe_rebake burns one armed frame plus WIPE_FRAMES stepped ones.
-  for (int f = 0; f <= WB::wipe_frames(); ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, WB::wipe_frames() + 1);
   HS_EXPECT_EQ(WB::wipe_frames_remaining(effect), 0);
 
   WB::roll_palette_over(effect);
@@ -117,10 +114,7 @@ inline void test_comets_manual_preset_restarts_path() {
 
   WB::C effect;
   effect.init();
-  for (int f = 0; f < 7; ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 7);
 
   constexpr size_t PRESET = 4;
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
@@ -132,10 +126,7 @@ inline void test_comets_manual_preset_restarts_path() {
   const math::Quaternion first_step = WB::node_orientation(effect);
   HS_EXPECT_EQ(WB::trail_length(effect), 1u);
 
-  for (int f = 0; f < 7; ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 7);
   HS_EXPECT_TRUE(effect.selectPreset(PRESET));
   HS_EXPECT_EQ(WB::node_orientation(effect), math::Quaternion());
   HS_EXPECT_EQ(WB::trail_length(effect), 0u);
@@ -146,10 +137,7 @@ inline void test_comets_manual_preset_restarts_path() {
 
   // Manual selection pauses the automatic dwell countdown as well as
   // selecting the requested path.
-  for (int f = 0; f < WB::dwell_frames(); ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, WB::dwell_frames());
   HS_EXPECT_EQ(effect.getPresetIndex(), PRESET);
 }
 

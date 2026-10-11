@@ -383,10 +383,7 @@ inline void test_depth_palette_mutates_slowly_while_paused() {
   HS_EXPECT_TRUE(HyperLatticeWhiteBox::depth_palette_fading(effect));
   HS_EXPECT_EQ(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
 
-  for (int frame = 0; frame < 480; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  run_frames(effect, 480);
   HS_EXPECT_NE(HyperLatticeWhiteBox::depth_color(effect, 0.5f), initial);
 }
 

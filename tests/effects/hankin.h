@@ -38,18 +38,12 @@ inline void test_hankinsolids_manual_pause_holds_morph() {
   }
   HS_EXPECT_TRUE(HankinSolidsWhiteBox::morph_active(effect));
 
-  for (int i = 0; i < 5; ++i) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 5);
   const uint8_t held_node = HankinSolidsWhiteBox::node(effect);
   HS_EXPECT_EQ(effect.updateParameter("Angle", 0.7f), ParamSetResult::APPLIED);
   HS_EXPECT_TRUE(effect.animations_paused());
 
-  for (int i = 0; i < 300; ++i) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 300);
   HS_EXPECT_TRUE(HankinSolidsWhiteBox::morph_active(effect));
   HS_EXPECT_EQ(HankinSolidsWhiteBox::node(effect), held_node);
   const auto *angle = effect.getParameters().find("Angle");
