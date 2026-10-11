@@ -128,4 +128,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, JewelMelt<W, H>,
+                                    JewelMeltSpec>::choreography_hooks()
+        .template extend<
+            JewelMelt,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &JewelMelt::initial_params>>();
+  }
 };

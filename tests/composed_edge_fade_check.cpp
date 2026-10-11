@@ -29,5 +29,14 @@ struct EdgeFadeSpec : Pullback::Spec {
           Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
 };
 struct EdgeFadeEffect
-    : Pullback::ComposedEffect<32, 16, EdgeFadeEffect, EdgeFadeSpec> {};
+    : Pullback::ComposedEffect<32, 16, EdgeFadeEffect, EdgeFadeSpec> {
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<32, 16, EdgeFadeEffect,
+                                    EdgeFadeSpec>::choreography_hooks()
+        .template extend<EdgeFadeEffect>();
+  }
+};
 static_assert(sizeof(EdgeFadeEffect) > 0);

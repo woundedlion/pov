@@ -873,4 +873,28 @@ private:
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShapeShifter persistent footprint exceeds the default "
                 "partition; retune MAX_SHAPES or carve arenas");
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    using Hooks =
+        decltype(Control::HookSet<
+                 ShapeShifter,
+                 Control::HookBinding<
+                     Control::ChoreographyHook::PARAMETER_FIELDS,
+                     &ShapeShifter::parameter_fields>,
+                 Control::HookBinding<Control::ChoreographyHook::ADOPT_PARAMS,
+                                      &ShapeShifter::adopt_params>,
+                 Control::HookBinding<Control::ChoreographyHook::PRESET_OPACITY,
+                                      &ShapeShifter::set_preset_opacity>>{});
+#if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_SHAPESHIFTER_COUNT)
+    return Hooks::template extend<
+        ShapeShifter,
+        Control::HookBinding<Control::ChoreographyHook::AFTER_PROFILE_PRESET,
+                             &ShapeShifter::after_profile_preset>>();
+#else
+    return Hooks{};
+#endif
+  }
 };

@@ -113,6 +113,18 @@ struct PresetZeroBootEffect
   void draw_frame() override {}
 
   float boot_value() const { return params.value; }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        PresetZeroBootEffect,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &PresetZeroBootEffect::preset>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &PresetZeroBootEffect::valid_params>>{};
+  }
 };
 
 /**
@@ -155,6 +167,18 @@ struct HoldEffect : public ChoreographedEffect<HoldEffect, HoldParams> {
   void hold(uint16_t frames) { hold_initial_preset(frames); }
   void tick() { step_choreography(); }
   float value() const { return params.value; }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        HoldEffect,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &HoldEffect::preset>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &HoldEffect::valid_params>>{};
+  }
 };
 
 /**
@@ -221,6 +245,20 @@ struct SaturatedPresetEffect
   void set_value(float value) { params.value = value; }
   void progress(float value) { run_transition(value); }
   uint16_t elapsed() const { return transition.elapsed_frames; }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        SaturatedPresetEffect,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &SaturatedPresetEffect::preset>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &SaturatedPresetEffect::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &SaturatedPresetEffect::blend_params>>{};
+  }
 };
 
 inline void test_preset_saturation_veto_restarts_dwell() {
@@ -287,6 +325,20 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   float opacity = 1.0f;
   bool cancel_from_notification = false;
   std::vector<Notification> notifications;
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        FadePresetEffect,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &FadePresetEffect::preset>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &FadePresetEffect::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_OPACITY,
+                             &FadePresetEffect::set_preset_opacity>>{};
+  }
 };
 
 inline void test_timeline_clear_releases_fade() {

@@ -454,7 +454,7 @@ private:
   static constexpr std::array<PresetEntry<Params>, 1> PRESETS{
       {{PRESET, DEPARTURE}}};
   static_assert(all_presets_in_ranges(PRESETS, [](const Params &p) {
-    return Choreography::valid_params(p);
+    return Control::valid_fields(p, parameter_fields());
   }));
 
   ScaleModifier scale_mod{
@@ -475,4 +475,14 @@ private:
   Node *node = nullptr; /**< The single animated body, arena-allocated. */
   NoiseTransformer<1>
       noise_xform; /**< Warps the trail with noise each frame. */
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        Fishbowl,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &Fishbowl::parameter_fields>>{};
+  }
 };

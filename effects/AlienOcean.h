@@ -130,4 +130,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, AlienOcean<W, H>,
+                                    AlienOceanSpec>::choreography_hooks()
+        .template extend<
+            AlienOcean,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &AlienOcean::initial_params>>();
+  }
 };

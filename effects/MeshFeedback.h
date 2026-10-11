@@ -369,4 +369,18 @@ private:
                 "MeshFeedback persistent storage exceeds the "
                 "default persistent partition; retune the feedback downsample, "
                 "coarsen the gamut grid, or carve arenas");
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        MeshFeedback,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &MeshFeedback::parameter_fields>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_PARAMS,
+                             &MeshFeedback::preset_params>,
+        Control::HookBinding<Control::ChoreographyHook::ADOPT_PARAMS,
+                             &MeshFeedback::adopt_params>>{};
+  }
 };

@@ -134,4 +134,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, AshCloud<W, H>,
+                                    AshCloudSpec>::choreography_hooks()
+        .template extend<
+            AshCloud,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &AshCloud::initial_params>>();
+  }
 };

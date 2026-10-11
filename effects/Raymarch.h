@@ -547,4 +547,16 @@ private:
       alignof(VolumeSpin) + sizeof(PaletteState) + alignof(PaletteState);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Raymarch persistent footprint exceeds the default partition");
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        Raymarch,
+        Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                             &Raymarch::initial_params>,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &Raymarch::parameter_fields>>{};
+  }
 };

@@ -48,6 +48,19 @@ public:
     value.template get<"surface">().thickness = 0.7f;
     return value;
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<
+               W, H, RippleProbe<W, H, AnimatedProjection>,
+               RippleProbeSpec<AnimatedProjection>>::choreography_hooks()
+        .template extend<
+            RippleProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &RippleProbe::initial_params>>();
+  }
 };
 
 inline void test_composed_keyed_parameters() {
@@ -149,6 +162,18 @@ public:
     value.template get<"warp_b">().strength = 0.4f;
     value.template get<"warp_c">().strength = 0.3f;
     return value;
+  }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, RepeatedStagesProbe<W, H>,
+                                    RepeatedStagesSpec>::choreography_hooks()
+        .template extend<
+            RepeatedStagesProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &RepeatedStagesProbe::initial_params>>();
   }
 };
 
@@ -344,6 +369,19 @@ public:
     value.template get<"source">().noise_time_rate = 1.0f / 128.0f;
     return value;
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<
+               W, H, NoiseSourceProbe<W, H, SourceT>,
+               NoiseSourceProbeSpec<SourceT>>::choreography_hooks()
+        .template extend<
+            NoiseSourceProbe,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &NoiseSourceProbe::initial_params>>();
+  }
 };
 
 template <int W, int H>
@@ -457,6 +495,18 @@ private:
     last_opacity = value;
     min_opacity = std::min(min_opacity, value);
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        FadeChoreoProbe,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &FadeChoreoProbe::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_OPACITY,
+                             &FadeChoreoProbe::set_preset_opacity>>{};
+  }
 };
 
 /**
@@ -519,6 +569,20 @@ private:
     ++blend_calls;
     this->params.level = hs::lerp(this->transition.from.level,
                                   this->transition.to.level, progress);
+  }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        LerpChoreoProbe,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &LerpChoreoProbe::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::TRANSITION_ARMED,
+                             &LerpChoreoProbe::transition_armed>,
+        Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &LerpChoreoProbe::blend_params>>{};
   }
 };
 

@@ -128,4 +128,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, CosmicEyeball<W, H>,
+                                    CosmicEyeballSpec>::choreography_hooks()
+        .template extend<
+            CosmicEyeball,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &CosmicEyeball::initial_params>>();
+  }
 };

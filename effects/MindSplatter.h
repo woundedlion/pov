@@ -636,4 +636,14 @@ private:
     warp.then([this]() { schedule_warp(); });
     timeline.add(0, warp);
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        MindSplatter,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &MindSplatter::parameter_fields>>{};
+  }
 };

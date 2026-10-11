@@ -149,4 +149,18 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, LatticeMelt<W, H>,
+                                    LatticeMeltSpec>::choreography_hooks()
+        .template extend<
+            LatticeMelt,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &LatticeMelt::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &LatticeMelt::preset>>();
+  }
 };

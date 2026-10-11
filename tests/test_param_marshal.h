@@ -473,6 +473,13 @@ public:
     transition.to = PRESETS[1].params;
     blend_params(progress);
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<DefaultFieldsEffect>{};
+  }
 };
 
 inline void test_choreography_descriptions_default() {

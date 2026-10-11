@@ -632,4 +632,18 @@ private:
             0, [this](Canvas &) { this->advance_shape(); }, false),
         &hold_departure);
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        IslamicStars,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &IslamicStars::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                             &IslamicStars::initial_params>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_PARAMS,
+                             &IslamicStars::preset_params>>{};
+  }
 };
