@@ -111,9 +111,7 @@ inline void run_field_parity(const char *op_id, ValueSet set) {
 }
 
 inline void test_shader_chain_parity_field_ops() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
+  for_each_value_set([&](ValueSet set) {
     run_field_parity<typename PB::Stage::Transfer<PB::Transfer::Ridge>::
                          template Bind<FieldMirrorBinding>,
                      PB::Transfer::NoValueParams>(In::Op::TransferRidge::ID,
@@ -130,5 +128,5 @@ inline void test_shader_chain_parity_field_ops() {
         typename PB::Stage::ApplyCoverage<PB::ValueCoverage::ValueCutout<
             ValueCutoutFieldMirror>>::template Bind<FieldMirrorBinding>,
         In::Op::ValueCutoutChainParams>(In::Op::CoverageValueCutout::ID, set);
-  }
+  });
 }

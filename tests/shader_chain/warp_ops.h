@@ -176,11 +176,7 @@ inline WarpMirrorFrame warp_mirror(In::ChainProgram &program) {
 }
 
 inline void test_shader_chain_parity_warp_affine_mirror() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     const In::FrameContext ctx = shared_resources().context();
     arm_warp_op_chain<In::Op::AffineWarpParams>(
         program, In::Op::WarpAffineV3::ID, 4, set);
@@ -195,8 +191,7 @@ inline void test_shader_chain_parity_warp_affine_mirror() {
     using BoundMirror = typename PB::Stage::Warp<PB::Warp::MirrorTile<
         MirrorTileMirrorProvider>>::template Bind<WarpMirrorBinding>;
     expect_warp_op_parity<BoundMirror>(program, ctx, warp_mirror(program));
-    program.clear();
-  }
+  });
 }
 
 template <typename Envelope>
@@ -211,11 +206,7 @@ inline void run_wave_shear_variant(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_warp_wave_shear() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::WaveShearWarpParams>(
         program, In::Op::WarpWaveShear::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -225,16 +216,11 @@ inline void test_shader_chain_parity_warp_wave_shear() {
         program, ctx, In::Op::WarpEnvelope::PROJECTION_WEIGHT);
     run_wave_shear_variant<PB::Warp::EdgeFadeEnvelope>(
         program, ctx, In::Op::WarpEnvelope::EDGE_FADE);
-    program.clear();
-  }
+  });
 }
 
 inline void test_shader_chain_parity_warp_vortex() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::VortexWarpParams>(program, In::Op::WarpVortex::ID,
                                                 4, set);
     const In::FrameContext ctx = shared_resources().context();
@@ -242,8 +228,7 @@ inline void test_shader_chain_parity_warp_vortex() {
         typename PB::Stage::Warp<PB::Warp::Vortex<VortexMirrorProvider>>::
             template Bind<WarpMirrorBinding>;
     expect_warp_op_parity<Bound>(program, ctx, warp_mirror(program));
-    program.clear();
-  }
+  });
 }
 
 template <math::NoiseBasis Basis, typename Envelope>
@@ -271,11 +256,7 @@ inline void run_vector_noise_basis(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_warp_vector_noise() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::VectorNoiseWarpParams>(
         program, In::Op::WarpVectorNoise::ID, 4, set);
     FastNoiseLite authored_noise;
@@ -290,8 +271,7 @@ inline void test_shader_chain_parity_warp_vector_noise() {
     run_vector_noise_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_vector_noise_basis<math::NoiseBasis::FBM3>(program, ctx);
     run_vector_noise_basis<math::NoiseBasis::RIDGED3>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 /** Two instances of one noise operator own decorrelated fields, each seeded
@@ -354,18 +334,13 @@ inline void run_polar_harmonics(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_warp_polar_chart() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::PolarChartParams>(
         program, In::Op::WarpPolarChart::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_polar_harmonics<PB::Warp::LinearPolar>(program, ctx);
     run_polar_harmonics<PB::Warp::LogarithmicPolar>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 template <math::NoiseBasis Basis, typename Integrator>
@@ -393,19 +368,14 @@ inline void run_curl_flow_basis(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_warp_curl_flow() {
-  for (const ValueSet set :
-       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
-    HS_CONTEXT(value_set_name(set));
-    auto fixture = std::make_unique<ProgramFixture>();
-    In::ChainProgram &program = fixture->program;
+  for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::CurlFlowWarpParams>(
         program, In::Op::WarpCurlFlow::ID, 4, set);
     const In::FrameContext ctx = shared_resources().context();
     run_curl_flow_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_curl_flow_basis<math::NoiseBasis::FBM3>(program, ctx);
     run_curl_flow_basis<math::NoiseBasis::RIDGED3>(program, ctx);
-    program.clear();
-  }
+  });
 }
 
 /** @brief Sweeps one warp's numeric parameter corners against its plane bound.

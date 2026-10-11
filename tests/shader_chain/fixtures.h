@@ -242,6 +242,25 @@ template <typename T> void apply_value_set(T &params, ValueSet set) {
     params.*(field.member) = set == ValueSet::MINIMUMS ? field.min : field.max;
 }
 
+/** @brief Calls @p fn with each ValueSet under its failure-context label. */
+template <typename Fn> void for_each_value_set(Fn &&fn) {
+  for (const ValueSet set :
+       {ValueSet::DEFAULTS, ValueSet::MINIMUMS, ValueSet::MAXIMUMS}) {
+    HS_CONTEXT(value_set_name(set));
+    fn(set);
+  }
+}
+
+/** @brief Calls @p fn with a fresh program for each ValueSet, clearing the
+    program afterwards. */
+template <typename Fn> void for_each_value_set_program(Fn &&fn) {
+  for_each_value_set([&](ValueSet set) {
+    auto fixture = std::make_unique<ProgramFixture>();
+    fn(fixture->program, set);
+    fixture->program.clear();
+  });
+}
+
 /** Compiles @p chain, applies @p set to entry i's block typed as the i-th of
     @p Params, and steps the program @p frames times. */
 template <typename... Params>
