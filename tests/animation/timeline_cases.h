@@ -255,7 +255,8 @@ inline void test_timers_rollover_preserves_intervals() {
     }
   };
   int periodic_calls = 0, random_calls = 0;
-  AgedPeriodic periodic(3, [&](Canvas &) { ++periodic_calls; }, true);
+  AgedPeriodic periodic(3, [&](Canvas &) { ++periodic_calls; },
+                        {.repeat = true});
   AgedRandom random({.min = 3, .max = 3, .repeat = true},
                     [&](Canvas &) { ++random_calls; });
   periodic.age(UINT32_MAX - 4);
@@ -362,10 +363,11 @@ inline void test_timeline_cancel_suppresses_step_side_effects() {
   {
     Timeline tl;
     int fires = 0;
-    auto *timer = tl.add_get(0,
-                             Animation::PeriodicTimer(
-                                 3, [&](Canvas &) { ++fires; }, true),
-                             Timeline::Pin::UNPINNED);
+    auto *timer =
+        tl.add_get(0,
+                   Animation::PeriodicTimer(3, [&](Canvas &) { ++fires; },
+                                            {.repeat = true}),
+                   Timeline::Pin::UNPINNED);
     tl.step(fake_canvas());
     tl.step(fake_canvas());
     timer->cancel();
@@ -559,8 +561,8 @@ inline void test_timeline_then_chains_follow_up_event() {
 inline void test_repeating_timer_fires_then_each_cycle() {
   Timeline tl;
   int triggers = 0, thens = 0;
-  tl.add(0, Animation::PeriodicTimer(
-                3, [&](Canvas &) { triggers++; }, /*repeat=*/true)
+  tl.add(0, Animation::PeriodicTimer(3, [&](Canvas &) { triggers++; },
+                                     {.repeat = true})
                 .then([&]() { thens++; }));
   for (int i = 0; i < 9; ++i)
     tl.step(fake_canvas()); // triggers at t=3,6,9
@@ -628,7 +630,8 @@ inline void test_timer_then_self_cancellation_completes_once() {
           Timeline::Pin::PINNED);
     else
       state.periodic = tl.add_get(
-          0, Animation::PeriodicTimer(1, trigger, true).then(complete),
+          0,
+          Animation::PeriodicTimer(1, trigger, {.repeat = true}).then(complete),
           Timeline::Pin::PINNED);
     tl.step(fake_canvas());
     HS_EXPECT_EQ(state.triggers, 1);
@@ -673,8 +676,7 @@ inline void test_timeline_instance_boundary_reclaims_pinned_event() {
   {
     Timeline tl;
     tl.add_get(0,
-               Animation::PeriodicTimer(
-                   1, [](Canvas &) {}, /*repeat=*/true),
+               Animation::PeriodicTimer(1, [](Canvas &) {}, {.repeat = true}),
                Timeline::Pin::PINNED);
     tl.step(fake_canvas());
     HS_EXPECT_EQ(tl.event_count(), 1);

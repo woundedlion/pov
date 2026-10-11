@@ -116,9 +116,10 @@ public:
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, STACK_AXIS, walk_noise));
 
-    timeline.add(0, Animation::PeriodicTimer(
-                        PALETTE_CYCLE_FRAMES,
-                        [this](Canvas &) { this->roll_palette(); }, true));
+    timeline.add(
+        0, Animation::PeriodicTimer(PALETTE_CYCLE_FRAMES,
+                                    [this](Canvas &) { this->roll_palette(); },
+                                    {.repeat = true}));
 
     enter_noise();
   }

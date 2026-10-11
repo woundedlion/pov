@@ -134,6 +134,12 @@ inline int rotation_substeps(float angle, float max_angle) {
   return static_cast<int>(std::min(steps, MAX_SUBSTEPS));
 }
 
+/** @brief Repeat and coordinate-space options for Motion and Rotation. */
+struct MotionOptions {
+  bool repeat = false;        ///< Restarts after each completed cycle.
+  Space space = Space::World; ///< Coordinate space for the applied rotations.
+};
+
 /**
  * @brief An animation that moves an Orientation along a defined Path.
  * @tparam W The width of the LED display (used for calculating maximum rotation
@@ -146,21 +152,43 @@ class Motion : public AnimationBase<Motion<W, CAP>> {
   static_assert(CAP >= 2, "Motion requires an Orientation capacity >= 2");
 
 public:
+  using Options = MotionOptions; ///< Repeat and coordinate-space options.
+
   /**
    * @brief Constructs a Motion animation.
    * @tparam P Path type exposing get_point(float t).
    * @param orientation The Orientation object to update.
    * @param path_obj The path to follow (must have get_point(float t)).
    * @param duration The duration in frames.
-   * @param repeat If true, the motion repeats.
-   * @param space Coordinate space for the applied rotations.
+   * @param options Repeat and the coordinate space for applied rotations.
    * @note `path_obj` is borrowed by reference and read every frame, so it must
    *       outlive this Motion; a temporary is rejected at compile time (the
    *       rvalue overload is deleted).
    */
   template <typename P>
+  HS_HOT_INLINE Motion(math::Orientation<CAP> &orientation, const P &path_obj,
+                       int duration, const Options &options = {})
+      : Motion(orientation, path_obj, duration, options.repeat, options.space) {
+  }
+
+  template <typename P,
+            typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
+  Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
+         const Options &options = {}) = delete;
+
+private:
+  /**
+   * @brief Positional form of the Options constructor.
+   * @tparam P Path type exposing get_point(float t).
+   * @param orientation The Orientation object to update.
+   * @param path_obj The path to follow; borrowed for the Motion's lifetime.
+   * @param duration The duration in frames.
+   * @param repeat Restarts after each completed cycle.
+   * @param space Coordinate space for the applied rotations.
+   */
+  template <typename P>
   Motion(math::Orientation<CAP> &orientation, const P &path_obj, int duration,
-         bool repeat = false, Space space = Space::World)
+         bool repeat, Space space)
       : AnimationBase<Motion<W, CAP>>(duration, repeat),
         orientation(orientation),
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
@@ -169,11 +197,7 @@ public:
     HS_CHECK(duration >= 0, "Motion duration must be >= 0");
   }
 
-  template <typename P,
-            typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
-  Motion(math::Orientation<CAP> &orientation, P &&path_obj, int duration,
-         bool repeat = false, Space space = Space::World) = delete;
-
+public:
   /**
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.
@@ -329,6 +353,8 @@ class Rotation : public AnimationBase<Rotation<W, CAP>> {
   static_assert(CAP >= 2, "Rotation requires an Orientation capacity >= 2");
 
 public:
+  using Options = MotionOptions; ///< Repeat and coordinate-space options.
+
   /**
    * @brief Creates an inactive, unbound rotation (must be reassigned before
    *        stepping; stepping an unbound Rotation traps).
@@ -345,12 +371,28 @@ public:
    * @param angle The total rotation angle in radians.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
-   * @param repeat If true, the rotation repeats.
-   * @param space The coordinate space for rotation ("World" or "Local").
+   * @param options Repeat and the coordinate space for rotation.
+   */
+  HS_HOT_INLINE Rotation(math::Orientation<CAP> &orientation,
+                         const math::Vector &axis, float angle, int duration,
+                         EasingFn easing_fn, const Options &options = {})
+      : Rotation(orientation, axis, angle, duration, easing_fn, options.repeat,
+                 options.space) {}
+
+private:
+  /**
+   * @brief Positional form of the Options constructor.
+   * @param orientation The Orientation object to update.
+   * @param axis The rotation axis; normalized here. A zero axis traps.
+   * @param angle The total rotation angle in radians.
+   * @param duration The duration in frames.
+   * @param easing_fn The easing function to use.
+   * @param repeat Restarts after each completed cycle.
+   * @param space The coordinate space for rotation.
    */
   Rotation(math::Orientation<CAP> &orientation, const math::Vector &axis,
-           float angle, int duration, EasingFn easing_fn, bool repeat = false,
-           Space space = Space::World)
+           float angle, int duration, EasingFn easing_fn, bool repeat,
+           Space space)
       : AnimationBase<Rotation<W, CAP>>(duration, repeat),
         orientation(&orientation), axis(axis.normalized()), total_angle(angle),
         easing_fn(std::move(easing_fn)), last_angle(0), space(space) {
@@ -358,6 +400,7 @@ public:
     HS_CHECK(std::isfinite(angle), "Rotation angle must be finite");
   }
 
+public:
   /**
    * @brief Accesses the associated Orientation.
    * @return Reference to the bound Orientation.

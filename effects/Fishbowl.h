@@ -260,11 +260,11 @@ public:
 
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, math::random_vector(), noise));
-    motion = timeline.add_get(
-        0,
-        Animation::Motion<W, ORIENTATION_SUBSTEPS>(
-            node->orientation, path, (int)params.cycle_duration, true),
-        Timeline::Pin::PINNED);
+    motion = timeline.add_get(0,
+                              Animation::Motion<W, ORIENTATION_SUBSTEPS>(
+                                  node->orientation, path,
+                                  (int)params.cycle_duration, {.repeat = true}),
+                              Timeline::Pin::PINNED);
 
     timeline.add(0, Animation::Driver(cycle_phase, &palette_speed, 1.0f));
 

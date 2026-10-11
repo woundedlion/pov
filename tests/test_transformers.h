@@ -803,8 +803,10 @@ inline void test_transformer_pinned_repeat_retains_slot() {
   Canvas canvas(effect);
   MobiusWarpTransformer<1> transformer(timeline);
   transformer.init_storage(persistent_arena);
-  auto *animation =
-      transformer.spawn_pinned(0, 0.4f, 4, true, math::ease_linear);
+  auto *animation = transformer.spawn_pinned(
+      0, 0.4f, 4,
+      Animation::MobiusWarpOptions{.repeat = true,
+                                   .easing = math::ease_linear});
   HS_EXPECT_TRUE(animation != nullptr);
   if (!animation)
     return;
@@ -820,7 +822,9 @@ inline void test_transformer_pinned_repeat_retains_slot() {
   animation->cancel();
   timeline.step(canvas);
   HS_EXPECT_EQ(transformer.active_count(), 0);
-  HS_EXPECT_TRUE(transformer.spawn_pinned(0, 0.4f, 4, true) != nullptr);
+  HS_EXPECT_TRUE(
+      transformer.spawn_pinned(
+          0, 0.4f, 4, Animation::MobiusWarpOptions{.repeat = true}) != nullptr);
 }
 
 /**

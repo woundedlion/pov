@@ -28,7 +28,7 @@ inline void test_motion_repeating_does_not_drift() {
   const math::Vector node_v = math::Y_AXIS;
 
   Timeline tl;
-  tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
+  tl.add(0, Animation::Motion<288, 16>(o, path, duration, {.repeat = true}));
 
   math::Vector late_heads[duration + 1]; // indexed by phase 1..duration
   const int cycles = 600;
@@ -66,7 +66,8 @@ inline void test_motion_reanchor_after_path_swap() {
       return math::Vector(cosf(ANGLE), sinf(ANGLE), 0);
     };
     math::Orientation<16> orientation;
-    Animation::Motion<288, 16> motion(orientation, path, 1000, true);
+    Animation::Motion<288, 16> motion(orientation, path, 1000,
+                                      {.repeat = true});
     for (int frame = 0; frame < 5; ++frame)
       motion.step(fake_canvas());
     const math::Vector BEFORE = orientation.orient(math::X_AXIS);
@@ -105,10 +106,10 @@ inline void test_motion_codriven_survives_repeat_seam() {
   Ori o; // identity
   Timeline tl;
   // Repeating Motion + a repeating co-driver rotation about Y, both driving `o`.
-  tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
+  tl.add(0, Animation::Motion<288, 16>(o, path, duration, {.repeat = true}));
   tl.add(0, Animation::Rotation<288, 16>(o, math::Y_AXIS, 2.0f * math::PI_F,
                                          duration, math::ease_linear,
-                                         /*repeat=*/true));
+                                         {.repeat = true}));
 
   const math::Vector probe = math::Z_AXIS;
   math::Vector prev = o.orient(probe);

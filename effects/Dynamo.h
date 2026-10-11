@@ -176,9 +176,9 @@ private:
    * @brief Schedules a half-turn rotation about a random axis, eased in/out.
    */
   void rotate() {
-    timeline.add(0, Animation::Rotation<W>(orientation, math::random_vector(),
-                                           math::PI_F, 40,
-                                           math::ease_in_out_sin, false));
+    timeline.add(0,
+                 Animation::Rotation<W>(orientation, math::random_vector(),
+                                        math::PI_F, 40, math::ease_in_out_sin));
   }
 
   /**

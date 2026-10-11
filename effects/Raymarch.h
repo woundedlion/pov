@@ -346,9 +346,9 @@ public:
     // spin_phase / palette_phase are wrapped to [0,1) each step; spin_phase is
     // scaled to radians where consumed.
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * math::TWO_PI_F), true));
+                                      1.5f / (60.0f * math::TWO_PI_F)));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
-                                      0.05f / 60.0f, true));
+                                      0.05f / 60.0f));
   }
 
   /**
