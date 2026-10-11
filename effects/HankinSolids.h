@@ -119,7 +119,7 @@ private:
   friend struct ::hs_test::effects_tests::HankinSolidsWhiteBox;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
-  /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
+  /** Largest node base-mesh face count (snub_dodecahedron, F = 92). */
   static constexpr size_t MAX_NODE_FACES = 92;
   /** Largest hankin mesh face count (star faces plus the rosette/strap faces
    * born inside them). */

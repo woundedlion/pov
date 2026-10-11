@@ -639,7 +639,7 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
     Arena b(hankin_reso_b, sizeof(hankin_reso_b));
     prefix = Solids::finalize_solid(
         Solids::SolidBuilder(
-            Solids::Archimedean::truncatedIcosidodecahedron(a, b), a, b)
+            Solids::Archimedean::truncated_icosidodecahedron(a, b), a, b)
             .bevel(0.5f)
             .relax_baked(Solids::RelaxBakes::
                              truncated_icosidodecahedron_bevel50_relax100)

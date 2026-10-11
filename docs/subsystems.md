@@ -886,7 +886,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | Registry | Count | Description |
 |---|---|---|
 | `simple_registry` | `PLATONIC_COUNT + ARCHIMEDEAN_COUNT` | 5 Platonic (tetrahedron through icosahedron) + 13 Archimedean solids |
-| `catalan_registry` | `CATALAN_COUNT` | Duals of the Archimedean solids (triakisTetrahedron, rhombicDodecahedron, pentakisDodecahedron, etc.) |
+| `catalan_registry` | `CATALAN_COUNT` | Duals of the Archimedean solids (triakis tetrahedron, rhombic dodecahedron, pentakis dodecahedron, etc.) |
 | `islamic_registry` | `ISLAMIC_COUNT` | Complex multi-operator recipes producing Islamic star patterns from base solids |
 
 Total: `Solids::NUM_ENTRIES`. Each count is a named constant in `solids.h`, `static_assert`ed against its registry's size (and their sum against `NUM_ENTRIES`), so the values live there rather than being restated here.

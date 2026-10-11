@@ -58,49 +58,51 @@ inline constexpr Entry simple_registry[] = {
     {"icosahedron", Platonic::icosahedron, Category::SIMPLE},
 
     // Archimedean
-    {"truncatedTetrahedron", Archimedean::truncatedTetrahedron,
+    {"truncatedTetrahedron", Archimedean::truncated_tetrahedron,
      Category::SIMPLE},
     {"cuboctahedron", Archimedean::cuboctahedron, Category::SIMPLE},
-    {"truncatedCube", Archimedean::truncatedCube, Category::SIMPLE},
-    {"truncatedOctahedron", Archimedean::truncatedOctahedron, Category::SIMPLE},
+    {"truncatedCube", Archimedean::truncated_cube, Category::SIMPLE},
+    {"truncatedOctahedron", Archimedean::truncated_octahedron,
+     Category::SIMPLE},
     {"rhombicuboctahedron", Archimedean::rhombicuboctahedron, Category::SIMPLE},
-    {"truncatedCuboctahedron", Archimedean::truncatedCuboctahedron,
+    {"truncatedCuboctahedron", Archimedean::truncated_cuboctahedron,
      Category::SIMPLE},
-    {"snubCube", Archimedean::snubCube, Category::SIMPLE},
+    {"snubCube", Archimedean::snub_cube, Category::SIMPLE},
     {"icosidodecahedron", Archimedean::icosidodecahedron, Category::SIMPLE},
-    {"truncatedDodecahedron", Archimedean::truncatedDodecahedron,
+    {"truncatedDodecahedron", Archimedean::truncated_dodecahedron,
      Category::SIMPLE},
-    {"truncatedIcosahedron", Archimedean::truncatedIcosahedron,
+    {"truncatedIcosahedron", Archimedean::truncated_icosahedron,
      Category::SIMPLE},
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
      Category::SIMPLE},
-    {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
+    {"truncatedIcosidodecahedron", Archimedean::truncated_icosidodecahedron,
      Category::SIMPLE},
-    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::SIMPLE}};
+    {"snubDodecahedron", Archimedean::snub_dodecahedron, Category::SIMPLE}};
 
 /**
  * @brief Registry of Catalan solids (duals of the Archimedean solids).
  */
 inline constexpr Entry catalan_registry[] = {
     // Catalan
-    {"triakisTetrahedron", Catalan::triakisTetrahedron, Category::SIMPLE},
-    {"rhombicDodecahedron", Catalan::rhombicDodecahedron, Category::SIMPLE},
-    {"triakisOctahedron", Catalan::triakisOctahedron, Category::SIMPLE},
-    {"tetrakisHexahedron", Catalan::tetrakisHexahedron, Category::SIMPLE},
-    {"deltoidalIcositetrahedron", Catalan::deltoidalIcositetrahedron,
+    {"triakisTetrahedron", Catalan::triakis_tetrahedron, Category::SIMPLE},
+    {"rhombicDodecahedron", Catalan::rhombic_dodecahedron, Category::SIMPLE},
+    {"triakisOctahedron", Catalan::triakis_octahedron, Category::SIMPLE},
+    {"tetrakisHexahedron", Catalan::tetrakis_hexahedron, Category::SIMPLE},
+    {"deltoidalIcositetrahedron", Catalan::deltoidal_icositetrahedron,
      Category::SIMPLE},
-    {"disdyakisDodecahedron", Catalan::disdyakisDodecahedron, Category::SIMPLE},
-    {"pentagonalIcositetrahedron", Catalan::pentagonalIcositetrahedron,
+    {"disdyakisDodecahedron", Catalan::disdyakis_dodecahedron,
      Category::SIMPLE},
-    {"rhombicTriacontahedron", Catalan::rhombicTriacontahedron,
+    {"pentagonalIcositetrahedron", Catalan::pentagonal_icositetrahedron,
      Category::SIMPLE},
-    {"triakisIcosahedron", Catalan::triakisIcosahedron, Category::SIMPLE},
-    {"pentakisDodecahedron", Catalan::pentakisDodecahedron, Category::SIMPLE},
-    {"deltoidalHexecontahedron", Catalan::deltoidalHexecontahedron,
+    {"rhombicTriacontahedron", Catalan::rhombic_triacontahedron,
      Category::SIMPLE},
-    {"disdyakisTriacontahedron", Catalan::disdyakisTriacontahedron,
+    {"triakisIcosahedron", Catalan::triakis_icosahedron, Category::SIMPLE},
+    {"pentakisDodecahedron", Catalan::pentakis_dodecahedron, Category::SIMPLE},
+    {"deltoidalHexecontahedron", Catalan::deltoidal_hexecontahedron,
      Category::SIMPLE},
-    {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
+    {"disdyakisTriacontahedron", Catalan::disdyakis_triacontahedron,
+     Category::SIMPLE},
+    {"pentagonalHexecontahedron", Catalan::pentagonal_hexecontahedron,
      Category::SIMPLE}};
 
 // Recipe seed identities in simple_registry order.
@@ -217,12 +219,12 @@ inline constexpr Recipe ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE =
     make_recipe(SEED_ICOSIDODECAHEDRON,
                 ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS);
 
-/** Step table for snubDodecahedron_truncate5d_ambo_dual. */
+/** Step table for snub_dodecahedron_truncate5d_ambo_dual. */
 inline constexpr OpStep SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS[] = {
     {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_NEAR},
     {Op::AMBO},
     {Op::DUAL}};
-/** Recipe mirror of IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual. */
+/** Recipe mirror of IslamicStarPatterns::snub_dodecahedron_truncate5d_ambo_dual. */
 inline constexpr Recipe SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE =
     make_recipe(SEED_SNUB_DODECAHEDRON,
                 SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS);
@@ -237,15 +239,15 @@ inline constexpr OpStep DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS[] = {
 inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE =
     make_recipe(SEED_DODECAHEDRON, DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS);
 
-/** Step table for truncatedIcosahedron_hk58_chamfer63. */
+/** Step table for truncated_icosahedron_hk58_chamfer63. */
 inline constexpr OpStep TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[] = {
     {Op::HANKIN, 58.0f * IslamicStarPatterns::D2R}, {Op::CHAMFER, 0.63f}};
-/** Recipe mirror of IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63. */
+/** Recipe mirror of IslamicStarPatterns::truncated_icosahedron_hk58_chamfer63. */
 inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE =
     make_recipe(SEED_TRUNCATED_ICOSAHEDRON,
                 TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS);
 
-/** Step table for truncatedIcosahedron_ambo_relax_truncate33_hk64. */
+/** Step table for truncated_icosahedron_ambo_relax_truncate33_hk64. */
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_STEPS[] = {
         {Op::AMBO},
@@ -255,7 +257,7 @@ inline constexpr OpStep
         {Op::HANKIN, 64.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64.
+ * IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate33_hk64.
  */
 inline constexpr Recipe
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE =
@@ -271,7 +273,7 @@ inline constexpr OpStep DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS[] = {
 inline constexpr Recipe DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE =
     make_recipe(SEED_DODECAHEDRON, DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS);
 
-/** Step table for truncatedIcosidodecahedron_bevel5_relax_hk77. */
+/** Step table for truncated_icosidodecahedron_bevel5_relax_hk77. */
 inline constexpr OpStep TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS[] =
     {{Op::BEVEL, 0.5f},
      {.op = Op::RELAX,
@@ -279,16 +281,16 @@ inline constexpr OpStep TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS[] =
      {Op::HANKIN, 77.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77.
+ * IslamicStarPatterns::truncated_icosidodecahedron_bevel5_relax_hk77.
  */
 inline constexpr Recipe TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE =
     make_recipe(SEED_TRUNCATED_ICOSIDODECAHEDRON,
                 TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS);
 
-/** Step table for truncatedCube_hk90_meta. */
+/** Step table for truncated_cube_hk90_meta. */
 inline constexpr OpStep TRUNCATED_CUBE_HK90_META_STEPS[] = {
     {Op::HANKIN, 90.0f * IslamicStarPatterns::D2R}, {Op::META}};
-/** Recipe mirror of IslamicStarPatterns::truncatedCube_hk90_meta. */
+/** Recipe mirror of IslamicStarPatterns::truncated_cube_hk90_meta. */
 inline constexpr Recipe TRUNCATED_CUBE_HK90_META_RECIPE =
     make_recipe(SEED_TRUNCATED_CUBE, TRUNCATED_CUBE_HK90_META_STEPS);
 
@@ -299,7 +301,7 @@ inline constexpr OpStep TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS[] = {
 inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = make_recipe(
     SEED_TRUNCATED_OCTAHEDRON, TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS);
 
-/** Step table for truncatedIcosahedron_ambo_relax_truncate001_hankin59. */
+/** Step table for truncated_icosahedron_ambo_relax_truncate001_hankin59. */
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[] = {
         {Op::AMBO},
@@ -309,14 +311,14 @@ inline constexpr OpStep
         {Op::HANKIN, 59.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59.
+ * IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate001_hankin59.
  */
 inline constexpr Recipe
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE = make_recipe(
         SEED_TRUNCATED_ICOSAHEDRON,
         TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS);
 
-/** Step table for truncatedIcosahedron_ambo_relax_truncate001_hankin73. */
+/** Step table for truncated_icosahedron_ambo_relax_truncate001_hankin73. */
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS[] = {
         {Op::AMBO},
@@ -326,7 +328,7 @@ inline constexpr OpStep
         {Op::HANKIN, 73.0f * IslamicStarPatterns::D2R}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin73.
+ * IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate001_hankin73.
  */
 inline constexpr Recipe
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_RECIPE = make_recipe(
@@ -350,7 +352,7 @@ inline constexpr Recipe DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE =
     make_recipe(SEED_DODECAHEDRON,
                 DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS);
 
-/** Step table for truncatedIcosidodecahedron_truncate50d_ambo_dual. */
+/** Step table for truncated_icosidodecahedron_truncate50d_ambo_dual. */
 inline constexpr OpStep
     TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
         {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_FAR},
@@ -358,31 +360,31 @@ inline constexpr OpStep
         {Op::DUAL}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual.
+ * IslamicStarPatterns::truncated_icosidodecahedron_truncate50d_ambo_dual.
  */
 inline constexpr Recipe
     TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE =
         make_recipe(SEED_TRUNCATED_ICOSIDODECAHEDRON,
                     TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS);
 
-/** Step table for truncatedIcosahedron_hk54_ambo_hk72. */
+/** Step table for truncated_icosahedron_hk54_ambo_hk72. */
 inline constexpr OpStep TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_STEPS[] = {
     {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
     {Op::AMBO},
     {Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}};
-/** Recipe mirror of IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72. */
+/** Recipe mirror of IslamicStarPatterns::truncated_icosahedron_hk54_ambo_hk72. */
 inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE =
     make_recipe(SEED_TRUNCATED_ICOSAHEDRON,
                 TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_STEPS);
 
-/** Step table for truncatedIcosahedron_truncate50d_ambo_dual. */
+/** Step table for truncated_icosahedron_truncate50d_ambo_dual. */
 inline constexpr OpStep TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
     {Op::TRUNCATE, IslamicStarPatterns::TRUNCATE_T_FAR},
     {Op::AMBO},
     {Op::DUAL}};
 /**
  * Recipe mirror of
- * IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual.
+ * IslamicStarPatterns::truncated_icosahedron_truncate50d_ambo_dual.
  */
 inline constexpr Recipe TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE =
     make_recipe(SEED_TRUNCATED_ICOSAHEDRON,
@@ -426,29 +428,29 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::COMPLEX,
      &DODECAHEDRON_HK62_AMBO_HK62_RECIPE},
     {"truncatedIcosahedron_hk58_chamfer63",
-     IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
+     IslamicStarPatterns::truncated_icosahedron_hk58_chamfer63,
      Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
      Category::COMPLEX, &DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
-     IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64,
+     IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate33_hk64,
      Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE},
     {"dodecahedron_bevel2_relax_gyro",
      IslamicStarPatterns::dodecahedron_bevel2_relax_gyro, Category::COMPLEX,
      &DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_bevel5_relax_hk77",
-     IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77,
+     IslamicStarPatterns::truncated_icosidodecahedron_bevel5_relax_hk77,
      Category::COMPLEX, &TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE},
-    {"truncatedCube_hk90_meta", IslamicStarPatterns::truncatedCube_hk90_meta,
+    {"truncatedCube_hk90_meta", IslamicStarPatterns::truncated_cube_hk90_meta,
      Category::COMPLEX, &TRUNCATED_CUBE_HK90_META_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
-     IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59,
+     IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate001_hankin59,
      Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
-     IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin73,
+     IslamicStarPatterns::truncated_icosahedron_ambo_relax_truncate001_hankin73,
      Category::COMPLEX,
      &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_RECIPE},
     {"icosahedron_ambo_truncate033_hankin59",
@@ -463,14 +465,14 @@ inline constexpr Entry islamic_registry[] = {
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
      Category::COMPLEX, &ICOSAHEDRON_KIS_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
-     IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual,
+     IslamicStarPatterns::truncated_icosidodecahedron_truncate50d_ambo_dual,
      Category::COMPLEX,
      &TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosidodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual,
      Category::COMPLEX, &ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"snubDodecahedron_truncate5d_ambo_dual",
-     IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual,
+     IslamicStarPatterns::snub_dodecahedron_truncate5d_ambo_dual,
      Category::COMPLEX, &SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"octahedron_hk34_ambo_hk72",
      IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::COMPLEX,
@@ -479,7 +481,7 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63, Category::COMPLEX,
      &RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_RECIPE},
     {"truncatedIcosahedron_hk54_ambo_hk72",
-     IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
+     IslamicStarPatterns::truncated_icosahedron_hk54_ambo_hk72,
      Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk54_ambo_hk72",
      IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::COMPLEX,
@@ -488,7 +490,7 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::COMPLEX,
      &DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
-     IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual,
+     IslamicStarPatterns::truncated_icosahedron_truncate50d_ambo_dual,
      Category::COMPLEX, &TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosahedron_snub_relax_truncate033_hankin62",
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
