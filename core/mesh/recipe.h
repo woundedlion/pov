@@ -198,14 +198,21 @@ HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
 }
 
 /**
+ * @brief Which step ops apply_step accepts.
+ * @details Composite steps are bevel, gyro, meta, needle and zip; under
+ * PRIMITIVE_ONLY they trap.
+ */
+enum class StepSet : uint8_t { PRIMITIVE_ONLY, ALLOW_COMPOSITE };
+
+/**
  * @brief Applies one step to a builder.
  * @param builder Builder the step runs on.
  * @param step Step to apply.
- * @param allow_composite Whether composite steps (bevel, gyro, meta, needle,
- *   zip) are legal; a composite step traps when false.
+ * @param steps Which ops are legal.
  */
 FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
-                                bool allow_composite) {
+                                StepSet steps) {
+  const bool allow_composite = steps == StepSet::ALLOW_COMPOSITE;
   HS_CHECK(!step.bake || step.op == Op::RELAX,
            "apply_step: only RELAX accepts a bake");
   HS_CHECK(step.twist == 0.0f || step.op == Op::SNUB,
@@ -292,7 +299,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
            "build_recipe: seed outside simple_registry");
   SolidBuilder builder(simple_registry[recipe.seed].generate(a, b), a, b);
   for (size_t i = 0; i < recipe.count; ++i)
-    apply_step(builder, recipe.steps[i], true);
+    apply_step(builder, recipe.steps[i], StepSet::ALLOW_COMPOSITE);
   return builder.build();
 }
 
@@ -316,7 +323,7 @@ FLASHMEM static void apply_step(SolidBuilder &builder, const OpStep &step,
            "build_steps: seed outside simple_registry");
   SolidBuilder builder(simple_registry[seed].generate(a, b), a, b);
   for (size_t i = 0; i < count; ++i)
-    apply_step(builder, steps[i], false);
+    apply_step(builder, steps[i], StepSet::PRIMITIVE_ONLY);
   return builder.build();
 }
 
