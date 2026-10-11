@@ -55,6 +55,9 @@ template <int S> inline void reset_correction() {
  * size_with_bg() agree with the compile-time layout constants.
  */
 inline void test_layout_constants() {
+  static_assert(HD107SFrame<1>::END_FRAME_BYTES == 4);
+  static_assert(HD107SFrame<64>::END_FRAME_BYTES == 4);
+  static_assert(HD107SFrame<65>::END_FRAME_BYTES == 8);
   HS_EXPECT_EQ(Frame::END_FRAME_BYTES, 4);
   HS_EXPECT_EQ(Frame::BUFFER_SIZE, 4 + N * 4 + Frame::END_FRAME_BYTES);
   HS_EXPECT_EQ(Frame::COMPOSITE_SIZE, Frame::BUFFER_SIZE * 2);
