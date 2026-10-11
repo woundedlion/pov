@@ -10,234 +10,43 @@
 #pragma once
 #include <emscripten/bind.h>
 
-/** @brief JavaScript payload type for PixelsValue. */
-struct PixelsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  PixelsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ParameterValuesValue. */
-struct ParameterValuesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ParameterValuesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for PresetIdsValue. */
-struct PresetIdsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  PresetIdsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for DefinitionsValue. */
-struct DefinitionsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  DefinitionsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ArenaMetricsValue. */
-struct ArenaMetricsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ArenaMetricsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for SizesValue. */
-struct SizesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  SizesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ResolutionsValue. */
-struct ResolutionsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ResolutionsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for MeshVerticesValue. */
-struct MeshVerticesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  MeshVerticesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for MeshFacesValue. */
-struct MeshFacesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  MeshFacesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for MeshClassificationValue. */
-struct MeshClassificationValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  MeshClassificationValue(const emscripten::val &value)
-      : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for SolidRegistryValue. */
-struct SolidRegistryValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  SolidRegistryValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for SolidRecipeValue. */
-struct SolidRecipeValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  SolidRecipeValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for MeshBoundsValue. */
-struct MeshBoundsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  MeshBoundsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for MeshArenaMetricsValue. */
-struct MeshArenaMetricsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  MeshArenaMetricsValue(const emscripten::val &value)
-      : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for PaletteResultValue. */
-struct PaletteResultValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  PaletteResultValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for PalettePresetsValue. */
-struct PalettePresetsValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  PalettePresetsValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ObjectValue. */
-struct ObjectValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ObjectValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for SnapshotValue. */
-struct SnapshotValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  SnapshotValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for SnapshotInputValue. */
-struct SnapshotInputValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  SnapshotInputValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ChainEntriesValue. */
-struct ChainEntriesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ChainEntriesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ProgramValue. */
-struct ProgramValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ProgramValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ParameterWritesValue. */
-struct ParameterWritesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ParameterWritesValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ChainResultValue. */
-struct ChainResultValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ChainResultValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for XYZValue. */
-struct XYZValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  XYZValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for RGBValue. */
-struct RGBValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  RGBValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for LabValue. */
-struct LabValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  LabValue(const emscripten::val &value) : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for ProceduralPalettesValue. */
-struct ProceduralPalettesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  ProceduralPalettesValue(const emscripten::val &value)
-      : emscripten::val(value) {}
-};
-/** @brief JavaScript payload type for EffectIdentitiesValue. */
-struct EffectIdentitiesValue : emscripten::val {
-  /**
-   * @brief Wraps the existing JavaScript payload without copying it.
-   * @param value Existing JavaScript payload.
-   */
-  EffectIdentitiesValue(const emscripten::val &value)
-      : emscripten::val(value) {}
-};
+#define HS_TS_PAYLOAD(Name)                                                    \
+  /** @brief Distinct JavaScript payload identity for TypeScript emission. */  \
+  struct Name : emscripten::val {                                              \
+    /** @brief Borrows the existing JavaScript payload. */                     \
+    Name(const emscripten::val &value) : emscripten::val(value) {}             \
+  };
+
+HS_TS_PAYLOAD(PixelsValue)
+HS_TS_PAYLOAD(ParameterValuesValue)
+HS_TS_PAYLOAD(PresetIdsValue)
+HS_TS_PAYLOAD(DefinitionsValue)
+HS_TS_PAYLOAD(ArenaMetricsValue)
+HS_TS_PAYLOAD(SizesValue)
+HS_TS_PAYLOAD(ResolutionsValue)
+HS_TS_PAYLOAD(MeshVerticesValue)
+HS_TS_PAYLOAD(MeshFacesValue)
+HS_TS_PAYLOAD(MeshClassificationValue)
+HS_TS_PAYLOAD(SolidRegistryValue)
+HS_TS_PAYLOAD(SolidRecipeValue)
+HS_TS_PAYLOAD(MeshBoundsValue)
+HS_TS_PAYLOAD(MeshArenaMetricsValue)
+HS_TS_PAYLOAD(PaletteResultValue)
+HS_TS_PAYLOAD(PalettePresetsValue)
+HS_TS_PAYLOAD(ObjectValue)
+HS_TS_PAYLOAD(SnapshotValue)
+HS_TS_PAYLOAD(SnapshotInputValue)
+HS_TS_PAYLOAD(ChainEntriesValue)
+HS_TS_PAYLOAD(ProgramValue)
+HS_TS_PAYLOAD(ParameterWritesValue)
+HS_TS_PAYLOAD(ChainResultValue)
+HS_TS_PAYLOAD(XYZValue)
+HS_TS_PAYLOAD(RGBValue)
+HS_TS_PAYLOAD(LabValue)
+HS_TS_PAYLOAD(ProceduralPalettesValue)
+HS_TS_PAYLOAD(EffectIdentitiesValue)
+
+#undef HS_TS_PAYLOAD
 
 /** @brief Registers structured payload types for TypeScript emission. */
 inline void bind_ts_types() {
