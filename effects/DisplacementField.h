@@ -203,46 +203,45 @@ private:
     return accumulator.value();
   }
 
+  struct HueMode {
+    bool use_table = false;  ///< Sample the hue table instead of rotating.
+    bool precompute = false; ///< Populate table cells before sampling.
+    float domain = 0.0f;     ///< Hue-turn span covered by the table.
+    bool cyclic = false;     ///< Wrap table lookups at the domain boundary.
+  };
+
   /**
    * @brief Chooses how one ring's bake evaluates its hue rotation.
    * @param lut_n Bake columns for the ring.
    * @param visible Chunk mask from Plot::visible_chunk_mask.
-   * @param hue_extent Signed hue turns the ring's displacement range covers.
-   * @param use_hue_table Out: sample a HUE_TABLE_SIZE-cell table instead of
-   * rotating per column.
-   * @param precompute_hue_table Out: fill the table up front rather than
-   * populating cells on demand.
-   * @param hue_domain Out: hue-turn span the table's cells cover.
-   * @param cyclic_hue_table Out: the domain wraps, so lookups wrap with it.
+   * @param hue_extent Signed hue turns the displacement range covers.
+   * @return Table sampling mode and domain.
    * @details Culled chunks bake no columns, so the precompute decision
    * amortizes the table over the visible chunks' columns rather than lut_n.
    */
-  __attribute__((always_inline)) void
-  select_hue_mode(int lut_n, uint32_t visible, float hue_extent,
-                  bool &use_hue_table, bool &precompute_hue_table,
-                  float &hue_domain, bool &cyclic_hue_table) {
-    use_hue_table = params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
+  __attribute__((always_inline)) HueMode select_hue_mode(int lut_n,
+                                                         uint32_t visible,
+                                                         float hue_extent) {
+    HueMode mode;
+    mode.use_table = params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
 #if HS_ENABLE_TEST_ORACLES
-    use_hue_table = use_hue_table && !force_exact_hue;
+    mode.use_table = mode.use_table && !force_exact_hue;
 #endif
-    precompute_hue_table = false;
-    hue_domain = 0.0f;
-    cyclic_hue_table = false;
-    if (!use_hue_table)
-      return;
+    if (!mode.use_table)
+      return mode;
     int visible_samples = 0;
     Plot::for_each_chunk_span<BAKE_CHUNKS>(
         lut_n, visible,
         [&](int begin, int end)
             __attribute__((always_inline)) { visible_samples += end - begin; },
         [](int, int) __attribute__((always_inline)) {});
-    precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
-    cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
-    hue_domain =
-        cyclic_hue_table ? std::copysign(1.0f, hue_extent) : hue_extent;
+    mode.precompute = visible_samples > 2 * HUE_TABLE_SIZE;
+    mode.cyclic = std::fabs(hue_extent) > 1.0f;
+    mode.domain = mode.cyclic ? std::copysign(1.0f, hue_extent) : hue_extent;
 #if HS_ENABLE_TEST_HOOKS
     ++hue_table_uses;
 #endif
+    return mode;
   }
 
   /**
@@ -378,16 +377,11 @@ private:
                 slut[x] = 0.0f;
             });
 
-        bool use_hue_table;
-        bool precompute_hue_table;
-        float hue_domain;
-        bool cyclic_hue_table;
-        select_hue_mode(lut_n, visible, (band + noise_bound) * params.hue_scale,
-                        use_hue_table, precompute_hue_table, hue_domain,
-                        cyclic_hue_table);
-        if (use_hue_table)
-          hue_table.bind(hue_base, hue_domain, cyclic_hue_table);
-        if (precompute_hue_table) {
+        const HueMode mode = select_hue_mode(
+            lut_n, visible, (band + noise_bound) * params.hue_scale);
+        if (mode.use_table)
+          hue_table.bind(hue_base, mode.domain, mode.cyclic);
+        if (mode.precompute) {
           HS_PROFILE(df_hue_table_prep);
           hue_table.prepare(hue_table.cells(max_shift * params.hue_scale));
         }
@@ -399,9 +393,9 @@ private:
           if (params.hue_scale == 0.0f)
             return zero_hue;
           const float amount = std::fabs(shift) * params.hue_scale;
-          if (precompute_hue_table)
+          if (mode.precompute)
             return hue_table.sample(amount);
-          if (use_hue_table)
+          if (mode.use_table)
             return hue_table.sample_lazy(amount);
           return hue_rotate(hue_base, amount).color;
         };
