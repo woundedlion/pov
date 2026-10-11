@@ -27,6 +27,7 @@ import check            # noqa: E402
 import fab              # noqa: E402
 import connectivity     # noqa: E402
 import pcb              # noqa: E402
+from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
@@ -198,7 +199,7 @@ class TerminalFootprintTests(unittest.TestCase):
             comps = {ref: (ref, pcb.REVISION_LAYOUTS["1.3"]["terminal_by_ref"][ref], "", False)
                      for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
             self.assertEqual(pcb.fixed_placements(comps), pcb.TERMINAL_EDGE_PLACEMENTS_1_3)
-            comps = {ref: (ref, pcb.QUILTER_FIXED_FOOTPRINTS[ref], "", False)
+            comps = {ref: (ref, QUILTER_FIXED_FOOTPRINTS[ref], "", False)
                      for ref in pcb.TERMINAL_EDGE_PLACEMENTS_1_3}
             self.assertFalse(pcb.TERMINAL_EDGE_PLACEMENTS_1_3.keys() &
                              pcb.fixed_placements(comps).keys())
@@ -614,7 +615,7 @@ class UnplacedBoardTests(TerminalBodyChecks, TerminalEdgePlacementChecks, unitte
         for ref, (x, y, rot) in fixed.items():
             with self.subTest(ref=ref):
                 self.assertEqual(placed[ref], (float(x), float(y), float(rot)))
-        for ref in (pcb.QUILTER_FIXED.keys() & placed.keys()) - fixed.keys():
+        for ref in (QUILTER_FIXED.keys() & placed.keys()) - fixed.keys():
             with self.subTest(staged=ref):
                 self.assertGreater(placed[ref][1], pcb.PCB_W)
 
@@ -668,7 +669,7 @@ class ConnectorEdgePlacementGateTests(unittest.TestCase):
 
         def legacy_led(comps):
             fixed = fixed_placements(comps)
-            fixed["J2"] = pcb.QUILTER_FIXED["J2"]
+            fixed["J2"] = QUILTER_FIXED["J2"]
             return fixed
 
         out = self.enterContext(tempfile.TemporaryDirectory())
@@ -680,7 +681,7 @@ class ConnectorEdgePlacementGateTests(unittest.TestCase):
         components = pcb.schematic_components
 
         def legacy_led(schematic):
-            return [(ref, pcb.QUILTER_FIXED_FOOTPRINTS[ref] if ref == "J2" else fp, value, dnp)
+            return [(ref, QUILTER_FIXED_FOOTPRINTS[ref] if ref == "J2" else fp, value, dnp)
                     for ref, fp, value, dnp in components(schematic)]
 
         out = self.enterContext(tempfile.TemporaryDirectory())
