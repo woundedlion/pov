@@ -104,6 +104,8 @@ inline int run_scan_tests() {
   test_pole_lod_shading_matches_undecimated();
   test_pole_lod_concave_face_matches_undecimated();
   test_report_stretch_forwards_through_csg();
+  test_prepared_face_reports_match_unprepared();
+  test_convex_face_pole_fringe_matches_undecimated();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
   test_star_pixel_placement();

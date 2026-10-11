@@ -123,7 +123,7 @@ struct CsgStretchFixture {
 };
 
 /**
- * @brief A composite's report_stretch bounds every child, not only the first.
+ * @brief CSG forwards report stretch and supported reject bands.
  * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
  * angular step is 1 + max_dist_sq. A Union of two differently sized faces
  * reports the larger factor either way round.
@@ -153,6 +153,50 @@ inline void test_report_stretch_forwards_through_csg() {
   const SDF::Face large(std::span<const math::Vector>(verts, 6),
                         std::span<const uint16_t>(large_idx, 3), large_scratch,
                         HV, H);
+
+  HS_EXPECT_TRUE(Scan::supports_distance_report(small, .049f));
+  HS_EXPECT_FALSE(Scan::supports_distance_report(small, .051f));
+  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
+                                                      2, 1.0f, small)),
+               Scan::BlockSettle::PER_COLUMN);
+  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .02f,
+                                                      2, 1.0f, small)),
+               Scan::BlockSettle::CLEAR);
+  HS_EXPECT_EQ(
+      (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, small)),
+      Scan::BlockSettle::CLEAR);
+  HS_EXPECT_EQ(
+      (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, small)),
+      Scan::BlockSettle::INTERIOR);
+  const SDF::Union<SDF::Face, SDF::Face> combined{small, large};
+  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .049f));
+  HS_EXPECT_FALSE(Scan::supports_distance_report(combined, .051f));
+  HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
+                                                      2, 1.0f, combined)),
+               Scan::BlockSettle::PER_COLUMN);
+
+  HS_EXPECT_EQ(
+      (Scan::pole_lod_settle_block<96, true>(.07f, .06f, 2, 1.0f, combined)),
+      Scan::BlockSettle::PER_COLUMN);
+  HS_EXPECT_EQ(
+      (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, combined)),
+      Scan::BlockSettle::PER_COLUMN);
+
+  const SDF::Line line(math::X_AXIS, math::Y_AXIS, .01f);
+  HS_EXPECT_TRUE(Scan::supports_distance_report(line, .1f));
+
+  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .06f, &small.center));
+  const auto antipode = -small.center;
+  HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .06f, &antipode));
+  const auto just_culled =
+      (small.center + small.basis_u * (small.max_dist + .0001f)).normalized();
+  HS_EXPECT_FALSE(Scan::supports_distance_report(small, .06f, &just_culled));
+  const SDF::AngularRepeat<SDF::Face> repeat(small, 3, basis.v);
+  HS_EXPECT_FALSE(Scan::supports_distance_report(repeat, .06f, &small.center));
+  Scan::PreparedDistance<SDF::AngularRepeat<SDF::Face>> prepared_repeat(repeat);
+  prepared_repeat.prepare_row(repeat, .06f, 0.0f, 1.0f);
+  HS_EXPECT_FALSE(prepared_repeat.row_supported);
+  HS_EXPECT_FALSE(prepared_repeat.supports(repeat, &small.center));
 
   const float small_stretch = Scan::report_stretch(small);
   const float large_stretch = Scan::report_stretch(large);
@@ -189,6 +233,133 @@ inline void test_report_stretch_forwards_through_csg() {
   HS_EXPECT_EQ(
       Scan::report_stretch(SDF::AngularRepeat<SDF::Face>(large, 3, basis.v)),
       large_stretch);
+}
+
+/** @brief Prepared Face reports preserve distances and certify uniform rows. */
+inline void test_prepared_face_reports_match_unprepared() {
+  constexpr int W = 96, H = 144;
+  math::TrigLUT<W, H>::init();
+  int certified_rows = 0, mixed_rows = 0;
+  for (float tilt : {0.0f, .225f, .9f, 1.8f, 2.9f}) {
+    const auto basis = math::make_basis(
+        math::Quaternion(), math::Vector(sinf(tilt), cosf(tilt), 0.0f));
+    for (float radius : {.08f, .6f}) {
+      for (float squish : {1.0f, .15f}) {
+        math::Vector vertices[3];
+        const uint16_t indices[3] = {0, 1, 2};
+        for (int i = 0; i < 3; ++i) {
+          const float angle = math::TWO_PI_F * (i / 3.0f + 5.0f / 24.0f);
+          vertices[i] = (basis.v + (basis.u * cosf(angle) +
+                                    basis.w * (sinf(angle) * squish)) *
+                                       radius)
+                            .normalized();
+        }
+        SDF::FaceScratchBuffer scratch;
+        const SDF::Face face(vertices, indices, scratch,
+                             math::LatitudeGeometry(H), H, nullptr, nullptr,
+                             SDF::BOUNDS_MARGIN);
+        Scan::PreparedDistance<SDF::Face> prepared(face);
+        for (int y = 0; y < H; ++y) {
+          prepared.prepare_row(face, .08f, math::TrigLUT<W, H>::sin_phi[y],
+                               math::TrigLUT<W, H>::cos_phi[y]);
+          bool all_finite = true, all_culled = true;
+          for (int x = 0; x < W; ++x) {
+            const auto point = math::pixel_to_vector<W, H>(x, y);
+            SDF::DistanceResult ordinary, cached;
+            face.distance<false>(point, ordinary);
+            prepared.distance<false>(face, point, cached);
+            HS_EXPECT_EQ(cached.dist, ordinary.dist);
+            HS_EXPECT_EQ(cached.raw_dist, ordinary.raw_dist);
+            HS_EXPECT_EQ(cached.size, ordinary.size);
+            face.distance<true>(point, ordinary);
+            prepared.distance<true>(face, point, cached);
+            HS_EXPECT_EQ(cached.dist, ordinary.dist);
+            HS_EXPECT_EQ(cached.raw_dist, ordinary.raw_dist);
+            HS_EXPECT_EQ(cached.size, ordinary.size);
+            HS_EXPECT_EQ(cached.t, ordinary.t);
+            HS_EXPECT_EQ(cached.aux, ordinary.aux);
+            all_finite &= ordinary.dist != SDF::FAR_SENTINEL;
+            all_culled &= ordinary.dist == SDF::FAR_SENTINEL;
+          }
+          if (prepared.row_supported && !face.supports_distance_report(.08f)) {
+            HS_EXPECT_TRUE(all_finite || all_culled);
+            ++certified_rows;
+          }
+          if (!all_finite && !all_culled)
+            ++mixed_rows;
+        }
+      }
+    }
+  }
+  HS_EXPECT_GT(certified_rows, 0);
+  HS_EXPECT_GT(mixed_rows, 0);
+}
+
+/** @brief Convex vertex fringes survive pole-block settling through CSG. */
+inline void test_convex_face_pole_fringe_matches_undecimated() {
+  constexpr int W = 96, H = 144;
+  const ScopedPoleLod scoped_lod(0.0f);
+  const auto basis = math::make_basis(
+      math::Quaternion(), math::Vector(sinf(.225f), cosf(.225f), 0.0f));
+  math::Vector vertices[3], far_vertices[3];
+  const uint16_t indices[3] = {0, 1, 2};
+  for (int i = 0; i < 3; ++i) {
+    const float angle = math::TWO_PI_F * (i / 3.0f + 5.0f / 24.0f);
+    vertices[i] =
+        (basis.v + (basis.u * cosf(angle) + basis.w * sinf(angle)) * .08f)
+            .normalized();
+    far_vertices[i] = -vertices[i];
+  }
+  StubEffect effect(W, H);
+  Canvas canvas(effect);
+  SDF::FaceScratchBuffer scratch, far_scratch;
+  const SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(H), H,
+                       nullptr, nullptr, math::TWO_PI_F / W);
+  const SDF::Face far(far_vertices, indices, far_scratch,
+                      math::LatitudeGeometry(H), H, nullptr, nullptr,
+                      math::TWO_PI_F / W);
+  HS_EXPECT_TRUE(face.convex);
+  HS_EXPECT_TRUE(far.convex);
+  const SDF::Union<SDF::Face, SDF::Face> combined{face, far};
+  const SDF::Intersection<SDF::Face, SDF::Face> intersection{face, face};
+  const SDF::Subtract<SDF::Face, SDF::Face> carved{face, far};
+  const SDF::Union<decltype(intersection), SDF::Face> nested{intersection, far};
+  struct CoverageSink {
+    std::vector<float> coverage = std::vector<float>(W * H);
+    void plot(Canvas &, int x, int y, const Pixel &, float, float alpha) {
+      coverage[y * W + (x % W + W) % W] = alpha;
+    }
+  };
+  const auto check = [&](const auto &shape) {
+    const Color4 color(Pixel(60000, 45000, 30000), 1.0f);
+    const auto draw = [&](CoverageSink &sink, bool solid) {
+      if (solid)
+        Scan::rasterize_solid<W, H>(sink, canvas, shape, color);
+      else
+        Scan::rasterize<W, H, false>(
+            sink, canvas, shape, [&](const math::Vector &, Fragment &fragment) {
+              fragment.color = color;
+            });
+    };
+    for (bool solid : {false, true}) {
+      CoverageSink plain;
+      Render::pole_lod_aggressiveness = 0.0f;
+      draw(plain, solid);
+      HS_EXPECT_GT(plain.coverage[17 * W + 91], .003f);
+      for (float lod : {1.0f, 4.0f}) {
+        CoverageSink decimated;
+        Render::pole_lod_aggressiveness = lod;
+        draw(decimated, solid);
+        for (int i = 0; i < W * H; ++i)
+          HS_EXPECT_NEAR(decimated.coverage[i], plain.coverage[i], 1e-6f);
+      }
+    }
+  };
+  check(face);
+  check(combined);
+  check(intersection);
+  check(carved);
+  check(nested);
 }
 
 /**

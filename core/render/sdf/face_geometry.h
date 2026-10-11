@@ -227,6 +227,28 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
 }
 
 /**
+ * @brief Whether the cull disk supports a distance-report threshold.
+ * @param threshold Widened clearance, also bounding the angular block reach.
+ * @param point Optional query direction for a local cull certificate.
+ * @return True when the report supports this clearance.
+ */
+bool supports_distance_report(float threshold,
+                              const math::Vector *point = nullptr) const {
+  if (!convex)
+    return true;
+  // Outside radius + m, a supporting half-plane reports at least m * inradius / radius.
+  if (threshold * threshold * radius * radius <=
+      reject_margin<Face> * reject_margin<Face> * sector_min_radius_sq)
+    return true;
+  if (!point)
+    return false;
+  const float cos_angle = math::dot(*point, center);
+  const float min_cos = 1.0f / sqrtf(1.0f + max_dist_sq);
+  // The cull cosine changes by at most the angular step.
+  return cos_angle >= min_cos || cos_angle + threshold < min_cos;
+}
+
+/**
    * @brief Builds the angular sector table for the concave sector walk.
    * @param scratch Scratch storage receiving the unwrapped vertex
    * pseudo-angles.

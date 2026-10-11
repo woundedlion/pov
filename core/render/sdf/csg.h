@@ -21,6 +21,22 @@
 
 namespace SDF {
 
+/** @brief Evaluates a child through its ordinary distance interface. */
+struct DirectDistance {
+  /**
+   * @brief Forwards a distance query to the child shape.
+   * @tparam ComputeUVs Whether to compute shader registers.
+   * @param shape Child shape to evaluate.
+   * @param p Unit query direction.
+   * @param res Output distance and shader registers.
+   */
+  template <bool ComputeUVs, typename Shape>
+  void distance(const Shape &shape, const math::Vector &p,
+                DistanceResult &res) const {
+    shape.template distance<ComputeUVs>(p, res);
+  }
+};
+
 /**
  * @brief Row bounds covering either child's band, padded and clamped.
  * @param a First child's band; culled when y_min > y_max.
@@ -150,9 +166,25 @@ template <typename A, typename B> struct Union {
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
-    a.template distance<ComputeUVs>(p, res);
+    distance_with_probes<ComputeUVs>(p, res, DirectDistance{},
+                                     DirectDistance{});
+  }
+
+  /**
+   * @brief Evaluates the combination through supplied child probes.
+   * @tparam ComputeUVs Forwarded to each child's evaluator.
+   * @param p Unit query direction.
+   * @param res Combined distance result.
+   * @param probe_a First child's distance evaluator.
+   * @param probe_b Second child's distance evaluator.
+   */
+  template <bool ComputeUVs, typename ProbeA, typename ProbeB>
+  void distance_with_probes(const math::Vector &p, DistanceResult &res,
+                            const ProbeA &probe_a,
+                            const ProbeB &probe_b) const {
+    probe_a.template distance<ComputeUVs>(a, p, res);
     DistanceResult res_b;
-    b.template distance<ComputeUVs>(p, res_b);
+    probe_b.template distance<ComputeUVs>(b, p, res_b);
     if (res.dist < res_b.dist)
       return;
     res = res_b;
@@ -399,9 +431,25 @@ template <typename A, typename B> struct Subtract {
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
-    a.template distance<ComputeUVs>(p, res);
+    distance_with_probes<ComputeUVs>(p, res, DirectDistance{},
+                                     DirectDistance{});
+  }
+
+  /**
+   * @brief Evaluates the combination through supplied child probes.
+   * @tparam ComputeUVs Forwarded to each child's evaluator.
+   * @param p Unit query direction.
+   * @param res Combined distance result.
+   * @param probe_a First child's distance evaluator.
+   * @param probe_b Second child's distance evaluator.
+   */
+  template <bool ComputeUVs, typename ProbeA, typename ProbeB>
+  void distance_with_probes(const math::Vector &p, DistanceResult &res,
+                            const ProbeA &probe_a,
+                            const ProbeB &probe_b) const {
+    probe_a.template distance<ComputeUVs>(a, p, res);
     DistanceResult res_b;
-    b.template distance<ComputeUVs>(p, res_b);
+    probe_b.template distance<ComputeUVs>(b, p, res_b);
     if (-res_b.dist > res.dist) {
       // is_solid tracks the minuend, so the AA branch normalizes over A's
       // metric; the carve edge must not widen to B's.
@@ -560,9 +608,25 @@ template <typename A, typename B> struct Intersection {
    */
   template <bool ComputeUVs = true>
   void distance(const math::Vector &p, DistanceResult &res) const {
-    a.template distance<ComputeUVs>(p, res);
+    distance_with_probes<ComputeUVs>(p, res, DirectDistance{},
+                                     DirectDistance{});
+  }
+
+  /**
+   * @brief Evaluates the combination through supplied child probes.
+   * @tparam ComputeUVs Forwarded to each child's evaluator.
+   * @param p Unit query direction.
+   * @param res Combined distance result.
+   * @param probe_a First child's distance evaluator.
+   * @param probe_b Second child's distance evaluator.
+   */
+  template <bool ComputeUVs, typename ProbeA, typename ProbeB>
+  void distance_with_probes(const math::Vector &p, DistanceResult &res,
+                            const ProbeA &probe_a,
+                            const ProbeB &probe_b) const {
+    probe_a.template distance<ComputeUVs>(a, p, res);
     DistanceResult res_b;
-    b.template distance<ComputeUVs>(p, res_b);
+    probe_b.template distance<ComputeUVs>(b, p, res_b);
     if (res.dist > res_b.dist)
       return;
     res = res_b;

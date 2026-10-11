@@ -229,6 +229,40 @@ report_stretch(const SDF::AngularRepeat<Shape> &shape) {
 }
 
 /**
+ * @brief Whether the current geometry supports a distance-report threshold.
+ * @tparam ShapeT Shape type.
+ * @param shape Shape whose report is tested.
+ * @param threshold Nonnegative threshold within the static reject margin.
+ * @param point Optional query direction, forwarded through binary CSG.
+ * @return True when sentinel substitution preserves the threshold.
+ */
+template <typename ShapeT>
+__attribute__((always_inline)) inline bool
+supports_distance_report(const ShapeT &shape, float threshold,
+                         const math::Vector *point = nullptr) {
+  if constexpr (requires { shape.supports_distance_report(threshold, point); })
+    return shape.supports_distance_report(threshold, point);
+  else if constexpr (requires {
+                       shape.a;
+                       shape.b;
+                       requires SDF::SDFShape<
+                           std::remove_cvref_t<decltype(shape.a)>>;
+                       requires SDF::SDFShape<
+                           std::remove_cvref_t<decltype(shape.b)>>;
+                     })
+    return supports_distance_report(shape.a, threshold, point) &&
+           supports_distance_report(shape.b, threshold, point);
+  else if constexpr (requires {
+                       shape.shape;
+                       requires SDF::SDFShape<
+                           std::remove_cvref_t<decltype(shape.shape)>>;
+                     })
+    return supports_distance_report(shape.shape, threshold);
+  else
+    return true;
+}
+
+/**
  * @brief Whether a walk over a shape may settle a whole pole-LOD block from one
  *        probe of it.
  * @tparam ShapeT Shape the probe reads distance() from.
@@ -252,7 +286,8 @@ inline constexpr bool pole_lod_blocks =
  *         every column in the block.
  * @details Past its reject band (SDF::reject_margin) a shape may report
  * FAR_SENTINEL, which bounds nothing; the block test holds only where the
- * widened threshold sits inside the margin.
+ * widened threshold sits inside the static margin. Generic settling further
+ * narrows it with supports_distance_report(shape, threshold).
  */
 template <typename ShapeT>
 __attribute__((always_inline)) inline bool
@@ -302,6 +337,50 @@ enum class BlockSettle : uint8_t {
 
 /**
  * @brief Settles a pole-LOD block from its first column's probe.
+ * @tparam Solid Whether the shape is solid, so its interior can settle too.
+ * @tparam ShapeT Shape the probe read distance() from.
+ * @param d Probe's signed distance report.
+ * @param threshold Clearance the walk tests the probe against.
+ * @param block_slack Prepared clearance for the offered block.
+ * @param shape Shape the probe read.
+ * @param point Optional query direction for per-leaf cull checks.
+ * @param probe Optional prepared distance and row certificate.
+ * @return The side the probe settles the block on, or PER_COLUMN.
+ */
+template <bool Solid, typename ShapeT, typename Probe = SDF::DirectDistance>
+__attribute__((always_inline)) inline BlockSettle pole_lod_settle_with_slack(
+    float d, float threshold, float block_slack, const ShapeT &shape,
+    const math::Vector *point = nullptr, const Probe &probe = {}) {
+  const auto report_bounded = [&] {
+    if constexpr (std::is_same_v<std::remove_cvref_t<ShapeT>, SDF::Face>) {
+      if (d != SDF::FAR_SENTINEL)
+        return true;
+    }
+    if constexpr (requires { probe.supports(shape, point); })
+      return probe.supports(shape, point);
+    else
+      return supports_distance_report(shape, threshold + block_slack, point);
+  };
+  const auto settles = [&](float clearance) {
+    if constexpr (requires {
+                    probe.block_allowed;
+                    probe.threshold;
+                  })
+      return probe.block_allowed && clearance >= probe.threshold;
+    else
+      return pole_lod_block_settles<ShapeT>(clearance, threshold, block_slack);
+  };
+  if (settles(d))
+    return report_bounded() ? BlockSettle::CLEAR : BlockSettle::PER_COLUMN;
+  // A sentineled subtrahend loses Subtract's max, so an inside report is
+  // bounded no further than a clear one.
+  if (Solid && settles(-d))
+    return report_bounded() ? BlockSettle::INTERIOR : BlockSettle::PER_COLUMN;
+  return BlockSettle::PER_COLUMN;
+}
+
+/**
+ * @brief Settles a pole-LOD block from its first column's probe.
  * @tparam W Canvas width in pixels.
  * @tparam Solid Whether the shape is solid, so its interior can settle too.
  * @tparam ShapeT Shape the probe read distance() from.
@@ -310,20 +389,16 @@ enum class BlockSettle : uint8_t {
  * @param run Block width in columns.
  * @param p_y Probe's y coordinate.
  * @param shape Shape the probe read.
+ * @param point Optional query direction for per-leaf cull checks.
  * @return The side the probe settles the block on, or PER_COLUMN.
  */
 template <int W, bool Solid, typename ShapeT>
 __attribute__((always_inline)) inline BlockSettle
 pole_lod_settle_block(float d, float threshold, int run, float p_y,
-                      const ShapeT &shape) {
-  const float block_slack = pole_lod_block_slack<W>(run, p_y, shape);
-  if (pole_lod_block_settles<ShapeT>(d, threshold, block_slack))
-    return BlockSettle::CLEAR;
-  // A sentineled subtrahend loses Subtract's max, so an inside report is
-  // bounded no further than a clear one.
-  if (Solid && pole_lod_block_settles<ShapeT>(-d, threshold, block_slack))
-    return BlockSettle::INTERIOR;
-  return BlockSettle::PER_COLUMN;
+                      const ShapeT &shape,
+                      const math::Vector *point = nullptr) {
+  return pole_lod_settle_with_slack<Solid>(
+      d, threshold, pole_lod_block_slack<W>(run, p_y, shape), shape, point);
 }
 
 /**
@@ -399,6 +474,194 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
 }
 
 /**
+ * @brief Distance state captured for one generic raster call.
+ * @details Row preparation records the widened clearance and whether a block
+ * can be certified without consulting its query direction. Geometry and LUT
+ * bindings remain fixed for the evaluator's lifetime.
+ */
+template <typename Shape> struct PreparedDistance : SDF::DirectDistance {
+  static constexpr bool HAS_FACE = false; ///< Contains an untransformed Face.
+  float threshold = 0.0f;     ///< Shading threshold plus block clearance.
+  bool row_supported = true;  ///< All row queries have bounded reports.
+  bool block_allowed = false; ///< Row supports block settlement.
+  /** @brief Captures distance state from the shape. */
+  explicit PreparedDistance(const Shape &) {}
+  /**
+   * @brief Prepares clearance and report bounds for one latitude.
+   * @param shape Shape captured by this evaluator.
+   * @param widened_threshold Shading threshold plus block clearance.
+   */
+  void prepare_row(const Shape &shape, float widened_threshold, float, float) {
+    threshold = widened_threshold;
+    row_supported = supports_distance_report(shape, threshold);
+    block_allowed = threshold <= SDF::reject_margin<Shape>;
+  }
+  /**
+   * @brief Whether the query report supports the prepared clearance.
+   * @param shape Shape captured by this evaluator.
+   * @param point Optional unit query direction.
+   * @return Whether the report certifies the offered block.
+   */
+  bool supports(const Shape &shape, const math::Vector *point) const {
+    return supports_distance_report(shape, threshold, point);
+  }
+};
+
+/** @brief Cached Face probe flags, cull cosine, and latitude certificate. */
+template <> struct PreparedDistance<SDF::Face> {
+  static constexpr bool HAS_FACE = true; ///< Contains an untransformed Face.
+  float min_cos;              ///< Cosine of the radial cull boundary.
+  uint32_t flags;             ///< Face distance dispatch flags.
+  float horizontal_radius;    ///< Center projection onto the equatorial plane.
+  bool row_supported = true;  ///< All row queries have bounded reports.
+  bool block_allowed = false; ///< Row supports block settlement.
+  float threshold = 0.0f;     ///< Shading threshold plus block clearance.
+
+  /**
+   * @brief Captures distance state from the shape.
+   * @param shape Face whose geometry and LUT bindings remain fixed.
+   */
+  explicit PreparedDistance(const SDF::Face &shape)
+      : min_cos(1.0f / sqrtf(1.0f + shape.max_dist_sq)),
+        flags(shape.probe_flags()),
+        horizontal_radius(sqrtf(shape.center.x * shape.center.x +
+                                shape.center.z * shape.center.z)) {}
+
+  /**
+   * @brief Evaluates distance with captured leaf state.
+   * @tparam ComputeUVs Whether to compute shader registers.
+   * @param shape Shape captured by this evaluator.
+   * @param p Unit query direction.
+   * @param res Output distance and shader registers.
+   */
+  template <bool ComputeUVs>
+  __attribute__((flatten)) HS_NOINLINE_NOCLONE void
+  distance(const SDF::Face &shape, const math::Vector &p,
+           SDF::DistanceResult &res) const {
+    shape.template distance_with_flags<ComputeUVs>(p, res, FLT_MAX, flags,
+                                                   min_cos);
+  }
+  /**
+   * @brief Prepares clearance and report bounds for one latitude.
+   * @param shape Shape captured by this evaluator.
+   * @param widened_threshold Shading threshold plus block clearance.
+   * @param sin_phi Sine of the row's polar angle.
+   * @param cos_phi Cosine of the row's polar angle.
+   */
+  void prepare_row(const SDF::Face &shape, float widened_threshold,
+                   float sin_phi, float cos_phi) {
+    threshold = widened_threshold;
+    const float latitude_cos = shape.center.y * cos_phi;
+    // Enclose trig-table and dot-product rounding at the row's cosine extrema.
+    const float extent =
+        horizontal_radius * fabsf(sin_phi) + 8.0f * FLT_EPSILON;
+    const bool uniform =
+        latitude_cos - extent >= min_cos || latitude_cos + extent < min_cos;
+    // A uniform row has no sentinel boundary, including beyond the static band.
+    block_allowed = uniform || threshold <= SDF::reject_margin<SDF::Face>;
+    row_supported = uniform || shape.supports_distance_report(threshold);
+  }
+  /**
+   * @brief Whether the query report supports the prepared clearance.
+   * @param shape Shape captured by this evaluator.
+   * @param point Optional unit query direction.
+   * @return Whether the report certifies the offered block.
+   */
+  bool supports(const SDF::Face &shape, const math::Vector *point) const {
+    if (row_supported)
+      return true;
+    if (!point)
+      return false;
+    const float cos_angle = math::dot(*point, shape.center);
+    return cos_angle >= min_cos || cos_angle + threshold < min_cos;
+  }
+};
+
+/** @brief Prepared child probes for hard CSG combinations. */
+template <template <typename, typename> class Csg, typename A, typename B>
+  requires(std::is_same_v<Csg<A, B>, SDF::Union<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Intersection<A, B>> ||
+           std::is_same_v<Csg<A, B>, SDF::Subtract<A, B>>)
+struct PreparedDistance<Csg<A, B>> {
+  /** @brief Whether either child contains an untransformed Face. */
+  static constexpr bool HAS_FACE =
+      PreparedDistance<std::remove_cvref_t<A>>::HAS_FACE ||
+      PreparedDistance<std::remove_cvref_t<B>>::HAS_FACE;
+  PreparedDistance<std::remove_cvref_t<A>> a; ///< First child evaluator.
+  PreparedDistance<std::remove_cvref_t<B>> b; ///< Second child evaluator.
+  float threshold = 0.0f;     ///< Shading threshold plus block clearance.
+  bool row_supported = true;  ///< All row queries have bounded reports.
+  bool block_allowed = false; ///< Row supports block settlement.
+
+  /**
+   * @brief Captures distance state from the shape.
+   * @param shape Combination whose child geometry remains fixed.
+   */
+  explicit PreparedDistance(const Csg<A, B> &shape) : a(shape.a), b(shape.b) {}
+
+  /**
+   * @brief Evaluates distance with captured leaf state.
+   * @tparam ComputeUVs Whether to compute shader registers.
+   * @param shape Shape captured by this evaluator.
+   * @param p Unit query direction.
+   * @param res Output distance and shader registers.
+   */
+  template <bool ComputeUVs>
+  void distance(const Csg<A, B> &shape, const math::Vector &p,
+                SDF::DistanceResult &res) const {
+    shape.template distance_with_probes<ComputeUVs>(p, res, a, b);
+  }
+  /**
+   * @brief Evaluates a solid CSG probe outside the pixel body.
+   * @param shape Combination captured by this evaluator.
+   * @param p Unit query direction.
+   * @param res Output distance result.
+   */
+  HS_NOINLINE_NOCLONE void distance_for_solid(const Csg<A, B> &shape,
+                                              const math::Vector &p,
+                                              SDF::DistanceResult &res) const {
+    shape.template distance_with_probes<false>(p, res, a, b);
+  }
+  /**
+   * @brief Prepares clearance and report bounds for one latitude.
+   * @param shape Shape captured by this evaluator.
+   * @param widened_threshold Shading threshold plus block clearance.
+   * @param sin_phi Sine of the row's polar angle.
+   * @param cos_phi Cosine of the row's polar angle.
+   */
+  void prepare_row(const Csg<A, B> &shape, float widened_threshold,
+                   float sin_phi, float cos_phi) {
+    threshold = widened_threshold;
+    a.prepare_row(shape.a, threshold, sin_phi, cos_phi);
+    b.prepare_row(shape.b, threshold, sin_phi, cos_phi);
+    row_supported = a.row_supported && b.row_supported;
+    block_allowed = a.block_allowed && b.block_allowed;
+  }
+  /**
+   * @brief Whether the query report supports the prepared clearance.
+   * @param shape Shape captured by this evaluator.
+   * @param point Optional unit query direction.
+   * @return Whether the report certifies the offered block.
+   */
+  bool supports(const Csg<A, B> &shape, const math::Vector *point) const {
+    return row_supported ||
+           (a.supports(shape.a, point) && b.supports(shape.b, point));
+  }
+};
+
+/**
+ * @brief Captures Face state only for trees containing an untransformed Face.
+ * @param shape Shape whose geometry remains fixed during the raster call.
+ * @return Prepared leaf state, or a stateless distance forwarder.
+ */
+template <typename Shape> auto prepare_distance(const Shape &shape) {
+  if constexpr (PreparedDistance<Shape>::HAS_FACE)
+    return PreparedDistance<Shape>(shape);
+  else
+    return SDF::DirectDistance{};
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -416,19 +679,22 @@ __attribute__((always_inline)) inline float solid_coverage(float d,
  * @param result_scratch Reused DistanceResult scratch (avoids per-pixel alloc).
  * @param frag_scratch Reused Fragment scratch (avoids per-pixel alloc).
  * @param max_run Columns [x, x+max_run) offered by the scan; see scan_region.
+ * @param probe Optional prepared distance evaluator and row certificate.
  * @return Columns consumed: max_run when the probe at x decided the whole
  *         offer (all clear, or a solid interior shaded once and splatted),
  *         else 1.
  * @details The shader is type-erased (FragmentShaderFn); the pipeline type
  * is deduced from the caller and specializes the pixel body.
  */
-template <int W, int H, bool ComputeUVs = true, typename PipelineT>
+template <int W, int H, bool ComputeUVs = true, typename PipelineT,
+          typename Probe = SDF::DirectDistance>
 inline int process_pixel(int x, int y, const math::Vector &p,
                          PipelineT &pipeline, Canvas &canvas, const auto &shape,
                          FragmentShaderFn fragment_shader, bool debug_bb,
                          SDF::DistanceResult &result_scratch,
-                         Fragment &frag_scratch, int max_run = 1) {
-  shape.template distance<ComputeUVs>(p, result_scratch);
+                         Fragment &frag_scratch, int max_run = 1,
+                         const Probe &probe = {}) {
+  probe.template distance<ComputeUVs>(shape, p, result_scratch);
 
   float d = result_scratch.dist;
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
@@ -440,8 +706,14 @@ inline int process_pixel(int x, int y, const math::Vector &p,
   int span = 1;
   if constexpr (pole_lod_blocks<decltype(shape)>) {
     if (max_run > 1 && !debug_bb) {
-      const BlockSettle settle =
-          pole_lod_settle_block<W, SOLID>(d, threshold, max_run, p.y, shape);
+      const float block_slack = [&] {
+        if constexpr (requires { probe.threshold; })
+          return 0.0f;
+        else
+          return pole_lod_block_slack<W>(max_run, p.y, shape);
+      }();
+      const BlockSettle settle = pole_lod_settle_with_slack<SOLID>(
+          d, threshold, block_slack, shape, &p, probe);
       if (settle == BlockSettle::CLEAR)
         return max_run;
       if (settle == BlockSettle::INTERIOR)
@@ -911,16 +1183,38 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
+  auto probe = prepare_distance(shape);
+  float block_slack = 0.0f;
 
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
+        if constexpr (pole_lod_blocks<decltype(shape)> &&
+                      !std::is_same_v<decltype(probe), SDF::DirectDistance>) {
+          const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
+          if (run > 1 && !effective_debug) {
+            block_slack = pole_lod_block_slack<W>(
+                run, math::TrigLUT<W, H>::cos_phi[y], shape);
+            constexpr float threshold =
+                std::remove_cvref_t<decltype(shape)>::is_solid
+                    ? 2.0f * math::PI_F / W
+                    : 0.0f;
+            probe.prepare_row(shape, threshold + block_slack,
+                              math::TrigLUT<W, H>::sin_phi[y],
+                              math::TrigLUT<W, H>::cos_phi[y]);
+          }
+        }
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const math::Vector &p, int max_run) {
-        return process_pixel<W, H, ComputeUVs>(
-            wx, y, p, pipeline, canvas, shape, fragment_shader, effective_debug,
-            result_scratch, frag_scratch, max_run);
+        if constexpr (std::is_same_v<decltype(probe), SDF::DirectDistance>)
+          return process_pixel<W, H, ComputeUVs>(
+              wx, y, p, pipeline, canvas, shape, fragment_shader,
+              effective_debug, result_scratch, frag_scratch, max_run);
+        else
+          return process_pixel<W, H, ComputeUVs>(
+              wx, y, p, pipeline, canvas, shape, fragment_shader,
+              effective_debug, result_scratch, frag_scratch, max_run, probe);
       },
       xc);
 }
@@ -966,12 +1260,29 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 
   SDF::DistanceResult result;
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  auto probe = prepare_distance(shape);
+  float block_slack = 0.0f;
   Pixel plot_color = color.color;
   if (effective_debug)
     plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
+        if constexpr (pole_lod_blocks<decltype(shape)> &&
+                      !std::is_same_v<decltype(probe), SDF::DirectDistance>) {
+          const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
+          if (run > 1 && !effective_debug) {
+            block_slack = pole_lod_block_slack<W>(
+                run, math::TrigLUT<W, H>::cos_phi[y], shape);
+            constexpr float threshold =
+                std::remove_cvref_t<decltype(shape)>::is_solid
+                    ? 2.0f * math::PI_F / W
+                    : 0.0f;
+            probe.prepare_row(shape, threshold + block_slack,
+                              math::TrigLUT<W, H>::sin_phi[y],
+                              math::TrigLUT<W, H>::cos_phi[y]);
+          }
+        }
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int x, int y, const math::Vector &p, int max_run) {
@@ -985,7 +1296,12 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         if constexpr (SineDistance) {
           d = shape.sine_distance(p);
         } else {
-          shape.template distance<false>(p, result);
+          if constexpr (requires {
+                          probe.distance_for_solid(shape, p, result);
+                        })
+            probe.distance_for_solid(shape, p, result);
+          else
+            probe.template distance<false>(shape, p, result);
           d = result.dist;
         }
 
@@ -995,8 +1311,15 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         int span = 1;
         if constexpr (pole_lod_blocks<decltype(shape)>) {
           if (max_run > 1) {
-            const BlockSettle settle = pole_lod_settle_block<W, true>(
-                d, PIXEL_WIDTH, max_run, p.y, shape);
+            const BlockSettle settle = [&] {
+              if constexpr (std::is_same_v<decltype(probe),
+                                           SDF::DirectDistance>)
+                return pole_lod_settle_block<W, true>(d, PIXEL_WIDTH, max_run,
+                                                      p.y, shape, &p);
+              else
+                return pole_lod_settle_with_slack<true>(
+                    d, PIXEL_WIDTH, block_slack, shape, &p, probe);
+            }();
             if (settle == BlockSettle::CLEAR)
               return max_run;
             if (settle == BlockSettle::INTERIOR)
