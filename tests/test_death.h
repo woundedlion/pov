@@ -136,6 +136,7 @@ struct Case {
   const char *guard_text;  /**< Expected "(condition) message" tail of that
                                guard's breadcrumb line. */
   bool debug_only = false; /**< Guard absent in NDEBUG builds. */
+  const char *output_detail = nullptr; /**< Additional required child output. */
 };
 
 inline bool case_enabled(const Case &entry) {
@@ -760,7 +761,8 @@ inline const Case *all_cases(int &n) {
                    "(he_mesh.half_edges[i].pair != HE_NONE) MeshOps::truncate requires a "
                    "closed manifold (unpaired half-edge)"},
                   {"conway_target_exhausted", case_conway_target_exhausted,
-                   "core/memory.cpp", "(false) Arena::allocate: out of memory"},
+                   "core/memory.cpp", "(false) Arena::allocate: out of memory",
+                   false, "/ cap 16"},
                   {"relax_baked_dimension_mismatch",
                    case_relax_baked_dimension_mismatch, "core/mesh/conway.h",
                    "(V == bake.vertex_count && F == bake.face_count && I == "
@@ -2506,7 +2508,9 @@ inline int run_death_tests() {
     // The child must die at this case's guard, not at another trap.
     int line = breadcrumb_names_guard(child_output(), cs[i].guard_file,
                                       cs[i].guard_text);
-    bool at_guard = line != 0;
+    bool at_guard =
+        line != 0 && (!cs[i].output_detail ||
+                      std::strstr(child_output(), cs[i].output_detail));
     lines[i] = trapped ? line : 0;
     HS_EXPECT_TRUE(trapped);
     HS_EXPECT_TRUE(at_guard);
