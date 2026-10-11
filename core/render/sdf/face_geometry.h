@@ -407,10 +407,10 @@ HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
   float m10 = s, m11 = reflected ? -c : c;
   lut_ax = m00 * lut->inv_step_x;
   lut_bx = m01 * lut->inv_step_x;
-  lut_cx = (-(m00 * mx + m01 * my) - lut->cx + lut->Rx) * lut->inv_step_x;
+  lut_cx = (-(m00 * mx + m01 * my) - lut->cx + lut->half_x) * lut->inv_step_x;
   lut_ay = m10 * lut->inv_step_y;
   lut_by = m11 * lut->inv_step_y;
-  lut_cy = (-(m10 * mx + m11 * my) - lut->cy + lut->Ry) * lut->inv_step_y;
+  lut_cy = (-(m10 * mx + m11 * my) - lut->cy + lut->half_y) * lut->inv_step_y;
   lut_n = lut->n;
   lut_clamp = static_cast<float>(lut->n - 2);
   lut_dequant = lut->dequant;
