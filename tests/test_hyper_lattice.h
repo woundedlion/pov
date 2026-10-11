@@ -1224,10 +1224,9 @@ inline void test_octet_4d_canonical_trace() {
   settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
   settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
-  uint32_t state = 0x0c7e74du;
-  const auto uniform = [&state](float low, float high) {
-    state = state * 1664525u + 1013904223u;
-    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
+  hs::Pcg32 rng(0x0c7e74du);
+  const auto uniform = [&rng](float low, float high) {
+    return rand_uniform(rng, low, high);
   };
   size_t compared = 0, lit = 0, differing = 0;
   for (int frame = 0; frame < 40; ++frame) {
@@ -1338,10 +1337,9 @@ inline void test_octet_trace_sorted_matches_events() {
   Trace::Settings settings;
   settings.palette = HyperLatticeWhiteBox::depth_palette(effect);
   settings.pixel_half_angle = HL::pixel_half_angle<288, 144>();
-  uint32_t state = 0x50f7ed5u;
-  const auto uniform = [&state](float low, float high) {
-    state = state * 1664525u + 1013904223u;
-    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
+  hs::Pcg32 rng(0x50f7ed5u);
+  const auto uniform = [&rng](float low, float high) {
+    return rand_uniform(rng, low, high);
   };
   SDF::OctetTrace::CrossingStorage storage;
   size_t compared = 0, lit = 0, candidate_exhausted = 0, layer_exhausted = 0;
