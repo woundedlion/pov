@@ -74,6 +74,22 @@ inline void case_timeline_pinned_finite_animation() {
              Timeline::Pin::PINNED);
 }
 
+/** @brief Pinning from a callback rejects a destroyed predecessor. */
+inline void case_timeline_pinned_after_destroyed_predecessor() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  Timeline tl;
+  float a = 0.0f, b = 0.0f;
+  tl.add(0, Animation::Transition(a, 1.0f, 1, math::ease_linear));
+  tl.add(0, Animation::Transition(b, 1.0f, 1, math::ease_linear).then([&]() {
+    tl.add_get(0,
+               Animation::PeriodicTimer(
+                   1, [](Canvas &) {}, true),
+               Timeline::Pin::PINNED);
+  }));
+  tl.step(canvas);
+}
+
 inline void case_timeline_pinned_after_cancelled_perpetual() {
   Timeline tl;
   auto *predecessor = tl.add_get(0,
