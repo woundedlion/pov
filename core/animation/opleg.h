@@ -342,9 +342,9 @@ public:
     tr.twist_start = spec.reverse ? edge.twist_to : edge.twist_from;
     tr.twist_end = spec.reverse ? edge.twist_from : edge.twist_to;
 
-    init_conway(handoff, bookend, arena, edge.settle,
-                ConwayGraph::is_jitterbug_edge(edge),
-                /*bridge_provenance=*/false);
+    init_conway(handoff, bookend, arena,
+                {.settle = edge.settle,
+                 .jitterbug = ConwayGraph::is_jitterbug_edge(edge)});
     seal_transients();
   }
 
@@ -395,8 +395,8 @@ public:
     tr.twist_start = spec.twist_start;
     tr.twist_end = spec.twist_end;
 
-    init_conway(handoff, bookend, arena, /*settle=*/false,
-                /*jitterbug=*/false, spec.bridge_provenance);
+    init_conway(handoff, bookend, arena,
+                {.bridge_provenance = spec.bridge_provenance});
     seal_transients();
   }
 
@@ -1079,6 +1079,19 @@ private:
     return from;
   }
 
+  /** @brief Per-leg switches for init_conway. */
+  struct ConwayLegFlags {
+    /** Whether the leg relax-slerps: at arrival on a forward leg, at
+     * departure on a reverse leg. */
+    bool settle = false;
+    /** Whether the leg is the jitterbug bridge (vertex-orbit faces survive
+     * into the node mesh). */
+    bool jitterbug = false;
+    /** Dual-bridge provenance: start centroids come from the leg's own start
+     * mesh when closing, or arrival mesh when opening. */
+    bool bridge_provenance = false;
+  };
+
   /**
    * @brief Shared CONWAY_SWEEP construction tail: arrival classification
    * (relaxed form on a forward settling leg), start centroids, and palette
@@ -1086,20 +1099,17 @@ private:
    * @param handoff Palette provenance of the departed mesh.
    * @param bookend Bookend grouping of the arrival mesh.
    * @param arena Leg arena for the hoisted state.
-   * @param settle Whether the leg relax-slerps: at arrival on a forward
-   * leg, at departure on a reverse leg.
-   * @param jitterbug Whether the leg is the jitterbug bridge (vertex-orbit
-   * faces survive into the node mesh).
-   * @param bridge_provenance Dual-bridge provenance takes start centroids
-   * from the leg's own start mesh when closing, or arrival mesh when opening.
+   * @param flags Settle, jitterbug and bridge-provenance switches.
    * @details Requires tr.op, tr.reverse, the tr.t_start/t_end and
    * tr.twist_start/twist_end endpoints and tr.settle_frames already set by the
    * calling constructor.
    */
   HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
                                   const BookendClasses &bookend, Arena &arena,
-                                  bool settle, bool jitterbug,
-                                  bool bridge_provenance) {
+                                  const ConwayLegFlags &flags) {
+    const bool settle = flags.settle;
+    const bool jitterbug = flags.jitterbug;
+    const bool bridge_provenance = flags.bridge_provenance;
     Transients &tr = *buf;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
