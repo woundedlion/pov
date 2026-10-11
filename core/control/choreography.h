@@ -154,9 +154,10 @@ public:
       return Segue::Preset::Snap{};
   }
 
-  /** @brief Frames to play every preset once: all dwells plus every
-      departure except the last preset's.
-   * @return Frame count of one full preset cycle.
+  /** @brief Conservative show budget: all dwells plus every departure
+      except the last preset's. Completing a Lerp or Fade also consumes the
+      next dwell's first frame, leaving one slack frame per included departure.
+   * @return Conservative frame budget through the final dwell.
    */
   static consteval size_t cycle_frames() {
     size_t frames = preset_count_of() * Derived::PRESET_DWELL_FRAMES;
