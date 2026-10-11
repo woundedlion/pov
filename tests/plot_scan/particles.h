@@ -640,10 +640,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
         (t % 5 == 0) ? math::Vector(0, t % 10 == 0 ? 1 : -1, 0) : rand_unit();
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
-      const float step_x = hs::rand_f(-1, 1);
-      const float step_y = hs::rand_f(-1, 1);
-      const float step_z = hs::rand_f(-1, 1);
-      math::Vector step(step_x, step_y, step_z);
+      const math::Vector step = rand_cube_vector();
       if (k == 7 && t % 9 == 0) {
         const math::Vector next = (v * -1.0f + step * 1e-3f).normalized();
         HS_EXPECT_LT(math::dot(v, next), -0.999f);
@@ -728,10 +725,7 @@ inline void test_particle_system_subpixel_trail_dot_parity() {
                    std::cos(lat) * std::sin(az));
     for (int k = 0; k < 12; ++k) {
       p.history.record(v);
-      const float step_x = hs::rand_f(-1, 1);
-      const float step_y = hs::rand_f(-1, 1);
-      const float step_z = hs::rand_f(-1, 1);
-      math::Vector step(step_x, step_y, step_z);
+      const math::Vector step = rand_cube_vector();
       v = (v + step * (base_step * 0.2f)).normalized();
     }
     sys.pool.push_back(p);
