@@ -173,15 +173,15 @@ python-ci: python-test
 
 # Windows only: build, flash, and capture one effect under the device lock.
 profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
-    bash tools/profile_one.sh "{{ effect }}" profile "{{ seconds }}" 32
+    bash tools/profile_one.sh {{ effect }} profile {{ seconds }} 32
 
 # Windows only: repeated render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter "{{ env }}" "{{ seconds }}" 32 -D HS_MINDSPLATTER_REPLAY
+    bash tools/profile_one.sh MindSplatter {{ env }} {{ seconds }} 32 -D HS_MINDSPLATTER_REPLAY
 
 # Windows only: same-device candidate/reference visual comparison.
 profile-mindsplatter-replay-ab env="profile" seconds="150":
-    bash tools/profile_one.sh MindSplatter "{{ env }}" "{{ seconds }}" 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
+    bash tools/profile_one.sh MindSplatter {{ env }} {{ seconds }} 32 -D HS_MINDSPLATTER_REPLAY -D HS_MINDSPLATTER_REPLAY_AB
 
 # Export fabrication files from the committed routed board.
 pcb:
