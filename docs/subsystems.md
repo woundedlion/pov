@@ -150,7 +150,11 @@ Registers are not pre-populated — the shader receives only `pos` (reconstructe
 
 The fragment shader receives `pos` set to the closest local-space hit point (in the SDF's coordinate frame) and `size` set to the closest signed distance. No register convention — the shader computes lighting from the local-space position directly.
 
-### Spherical ray rendering
+### Composed pullback metadata
+
+`Pullback::Spec` supplies a typed `Pipeline<B>` plus palette harmony and projection animation controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
+
+## Spherical ray rendering
 
 The reusable ray entry is [ray.h](../core/render/ray.h). `Raycast::PreparedCamera`
 embeds unit display directions in 3D or a 4D slice with world-distance near/far

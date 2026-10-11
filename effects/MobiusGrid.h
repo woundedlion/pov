@@ -18,22 +18,8 @@
 
 /** @brief Stage spec for `MobiusGrid`. */
 struct MobiusGridSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::STEREOGRAPHIC;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT_SQUARED;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::NONE;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::PATH_LENGTH;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::CUP;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::BEFORE_LENS;
-  using LensPolicy = void;
   /**
    * @brief The ranked stage pipeline.
    * @tparam B The effect's Binding.
@@ -45,18 +31,19 @@ struct MobiusGridSpec : Pullback::Spec {
           Pullback::CodeEmission::INLINE_ONLY,
           Pullback::Stage::Lens<
               Pullback::Lens::Mobius<Pullback::LensProvider<B>>>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
       Pullback::Stage::Warp<typename Pullback::WarpPolicyFor<
-          Pullback::MirrorParams, B, "inner_warp",
-          HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+          Pullback::MirrorParams, B, "inner_warp", true>::Type>,
       Pullback::Stage::Sample<
           typename Pullback::SourcePolicyFor<Pullback::TwinWaveSourceParams,
                                              B>::Type,
           Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<COVERAGE, B, void>::Type>,
+          typename Pullback::CoveragePolicyFor<
+              Pullback::ProjectionCoverageMode::WEIGHT_SQUARED, B, void>::Type>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::PATH_LENGTH,
+                                  Pullback::Color::BrightnessEnvelope::CUP>>>>;
 };
 /// Parameter block derived from `MobiusGridSpec`.
 using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;

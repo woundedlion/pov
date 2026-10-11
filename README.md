@@ -423,6 +423,8 @@ Pullback chains reach the screen two ways:
 - **Composed effects.** A shader document under `patterns/` (`*.shader.json`) is the authored source of a chain: its ordered operators, parameters and presets. A `Pullback::ComposedEffect` wrapper in `effects/` compiles that chain into a typed pipeline, with generated identity and preset sections ([§6.5](#65-adding-an-effect)). These are ordinary firmware effects.
 - **`ShaderChain`.** The workbench's runtime interpreter loads an arbitrary chain from the operator catalog. It is simulator-only and powers the `shader.html` authoring tool ([§7.11](#711-standalone-design-tools-daydreamtools)).
 
+A composed effect's `Spec::Pipeline<B>` is the topology declaration. `Pullback::MetadataFor<Spec>` derives its projection, sampling coverage, value transfer and cutout, lens policy, surface order, path tracking, hue mode and brightness envelope from the typed stages. Slider gates and optional runtime storage use those derived values. `Spec` supplies the authored `HARMONY` and `ANIMATED_PROJECTION` controls; topology fields belong in the pipeline's policy types.
+
 The shader-document format and authoring CLI are described in [`patterns/README.md`](https://github.com/woundedlion/pov/blob/master/patterns/README.md).
 
 ### 5.7 Raycasting and Raymarching

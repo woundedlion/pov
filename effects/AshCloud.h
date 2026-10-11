@@ -18,22 +18,8 @@
 
 /** @brief Pullback stage spec for `AshCloud`. */
 struct AshCloudSpec : Pullback::Spec {
-  static constexpr Pullback::ProjectionKind PROJECTION =
-      Pullback::ProjectionKind::STEREOGRAPHIC;
-  static constexpr Pullback::TransferKind TRANSFER =
-      Pullback::TransferKind::NONE;
-  static constexpr Pullback::ProjectionCoverageMode COVERAGE =
-      Pullback::ProjectionCoverageMode::WEIGHT;
-  static constexpr Pullback::FieldCoverageKind FIELD_COVERAGE =
-      Pullback::FieldCoverageKind::VALUE_CUTOUT;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
-  static constexpr Pullback::HueMode HUE = Pullback::HueMode::NOISE;
-  static constexpr Pullback::Color::BrightnessEnvelope BRIGHTNESS =
-      Pullback::Color::BrightnessEnvelope::NONE;
   static constexpr bool ANIMATED_PROJECTION = true;
-  static constexpr Pullback::SurfacePlacement SURFACE_PLACEMENT =
-      Pullback::SurfacePlacement::BEFORE_LENS;
-  using LensPolicy = Pullback::Lens::DodecahedralKaleidoscope;
   /**
    * @brief Stage chain: camera rotation, surface-noise displacement, dodecahedral
    *  kaleidoscope lens, projection, lattice source, value cutout, generated
@@ -46,21 +32,21 @@ struct AshCloudSpec : Pullback::Spec {
       Pullback::Stage::Placed<
           Pullback::CodeEmission::OUT_OF_LINE_FLASH,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
-              Pullback::SurfaceNoiseParams, B,
-              HUE == Pullback::HueMode::PATH_LENGTH>::Type>,
+              Pullback::SurfaceNoiseParams, B, false>::Type>,
           Pullback::Stage::Lens<Pullback::Lens::DodecahedralKaleidoscope>,
-          Pullback::Stage::Project<
-              typename Pullback::ProjectionPolicyFor<PROJECTION, B>::Type>>,
-      Pullback::Stage::Sample<
-          typename Pullback::SourcePolicyFor<Pullback::LatticeSourceParams,
-                                             B>::Type,
-          Pullback::Weight::Projection,
-          typename Pullback::CoveragePolicyFor<
-              COVERAGE, B, Pullback::CutoutValueParams>::Type>,
+          Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+              Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::LatticeSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              typename Pullback::CoveragePolicyFor<
+                                  Pullback::ProjectionCoverageMode::WEIGHT, B,
+                                  Pullback::CutoutValueParams>::Type>,
       Pullback::Stage::ApplyCoverage<Pullback::ValueCoverage::ValueCutout<
           Pullback::ValueProvider<B, Pullback::CutoutValueParams>>>,
       Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
-          Pullback::ColorProvider<B, HUE, BRIGHTNESS>>>>;
+          Pullback::ColorProvider<B, Pullback::HueMode::NOISE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 /// Parameter block derived from `AshCloudSpec`.
 using AshCloudParams = Pullback::ParamsFor<AshCloudSpec>;
