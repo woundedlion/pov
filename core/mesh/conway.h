@@ -111,6 +111,14 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
 }
 
 /**
+ * @brief Order in which emit_vertex_orbit_faces writes an orbit's indices.
+ */
+enum class Winding : uint8_t {
+  NATURAL, /**< Visit order. */
+  FLIPPED, /**< Reverse of visit order. */
+};
+
+/**
  * @brief Emit one output face per source-vertex orbit.
  * @tparam DIR Orbit direction passed through to vertex_orbit.
  * @tparam ValueFn Callable mapping a half-edge index to an output vertex index.
@@ -120,8 +128,8 @@ inline math::Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
  * @param orbit_buf Caller-allocated uint16_t[I] scratch for the current orbit.
  * @param V Vertex count (size of visited_verts).
  * @param I Half-edge/index count (size of orbit_buf).
- * @param reverse Flip the winding for PAIR_NEXT orbits whose natural order is
- *   opposite the desired front.
+ * @param winding FLIPPED for PAIR_NEXT orbits whose natural order is opposite
+ *   the desired front.
  * @param value_of Maps each visited half-edge index to its output vertex index.
  * @details Degenerate orbits of fewer than three sides emit no face.
  */
@@ -129,7 +137,7 @@ template <OrbitDir DIR, typename ValueFn>
 inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
                                     PolyMesh &out_mesh, bool *visited_verts,
                                     uint16_t *orbit_buf, size_t V, size_t I,
-                                    bool reverse, ValueFn &&value_of) {
+                                    Winding winding, ValueFn &&value_of) {
   std::fill_n(visited_verts, V, false);
   for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
     uint16_t he_start_idx = static_cast<uint16_t>(i);
@@ -148,7 +156,7 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 
     if (orbit_count >= 3) {
       out_mesh.face_counts.push_back(narrow_face_count(orbit_count));
-      if (reverse) {
+      if (winding == Winding::FLIPPED) {
         for (int k = orbit_count - 1; k >= 0; --k)
           out_mesh.faces.push_back(orbit_buf[k]);
       } else {
@@ -339,7 +347,7 @@ emit_expanded_shell(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh,
   // Orbit and edge faces are emitted regardless of primary-face
   // well-formedness.
   emit_vertex_orbit_faces<OrbitDir::PAIR_NEXT>(
-      he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
+      he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::FLIPPED,
       [&](uint16_t idx) {
         return he_to_vert_idx[he_mesh.half_edges[idx].prev];
       });
@@ -493,7 +501,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
         [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
   }
   normalize(out_mesh);
@@ -603,7 +611,7 @@ ambo_impl(const PolyMesh &mesh, const HalfEdgeMesh &he_mesh, Arena &target,
     });
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
   }
   normalize(out_mesh);
@@ -802,7 +810,7 @@ HS_COLD static PolyMesh truncate_impl(const PolyMesh &mesh,
     });
 
     emit_vertex_orbit_faces<OrbitDir::PREV_PAIR>(
-        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        he_mesh, out_mesh, visited_verts, orbit_buf, V, I, Winding::NATURAL,
         [&](uint16_t idx) {
           // Each outgoing half-edge contributes its tail-side cut.
           return truncate_oriented_cut(he_mesh, edge_to_vert, idx).first;
