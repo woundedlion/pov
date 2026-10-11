@@ -66,6 +66,56 @@ class TestGamutLutMirrors(unittest.TestCase):
         self.assertIn("could not parse 3dmath.h diamond_angle()", error.getvalue())
         self.assertIn("re-derive the mirror", error.getvalue())
 
+    def test_refinement_slack_and_matrix_contract_mutations_are_rejected(self):
+        color_path = ROOT / "core/color/color_space.h"
+        math_path = ROOT / "core/math/3dmath.h"
+        source = color_path.read_text(encoding="utf-8")
+        mutations = (
+            (r"(GAMUT_SCAN_STEPS\s*=\s*)4", r"\g<1>5", "GAMUT_SCAN_STEPS differs"),
+            (r"(GAMUT_BRACKET_STEPS\s*=\s*)3", r"\g<1>4", "GAMUT_BRACKET_STEPS differs"),
+            (r"(GATE_LO\s*=\s*)-1e-4f", r"\g<1>-2e-4f", "slack"),
+            (r"inline constexpr float OKLAB_TO_LMS_CBRT\[3\]\[3\]", "inline constexpr float RENAMED[3][3]", "missing shared matrix"),
+            (r"0.3963377774f,", "", "has 8 coefficients"),
+        )
+        self.assertTrue(generator.check_mirrors(color_path, math_path))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "color_space.h"
+            for pattern, replacement, diagnostic in mutations:
+                with self.subTest(diagnostic=diagnostic):
+                    changed, count = re.subn(pattern, replacement, source, count=1)
+                    self.assertEqual(count, 1)
+                    path.write_text(changed, encoding="utf-8")
+                    with contextlib.redirect_stderr(io.StringIO()) as errors:
+                        self.assertFalse(generator.check_mirrors(path, math_path))
+                    self.assertIn(diagnostic, errors.getvalue())
+
+    def test_parseable_angle_semantic_drift_is_rejected(self):
+        original = ROOT / "core/math/3dmath.h"
+        source = original.read_text(encoding="utf-8")
+        self.assertTrue(generator.check_diamond_angle_mirror(original))
+        changed, count = re.subn(r"(inline float diamond_angle\([^)]*\)\s*\{)",
+                                r"\g<1> return 0.0f;", source, count=1)
+        self.assertEqual(count, 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "3dmath.h"
+            path.write_text(changed, encoding="utf-8")
+            with contextlib.redirect_stderr(io.StringIO()) as errors:
+                self.assertFalse(generator.check_diamond_angle_mirror(path))
+            self.assertIn("mirror drift", errors.getvalue())
+
+    def test_angle_roundtrip_refuses_a_changed_direction(self):
+        self.assertTrue(generator.check_angle_roundtrip())
+        real = generator.diamond_direction
+
+        def changed(angle):
+            x, y = real(angle)
+            return y, x
+
+        with mock.patch.object(generator, "diamond_direction", side_effect=changed), \
+             contextlib.redirect_stderr(io.StringIO()) as errors:
+            self.assertFalse(generator.check_angle_roundtrip())
+        self.assertIn("no longer inverts", errors.getvalue())
+
     def test_operand_swaps_fail_the_oklab_mirror_check(self):
         color_h = (ROOT / "core" / "color" / "color_space.h").read_text(
             encoding="utf-8")
