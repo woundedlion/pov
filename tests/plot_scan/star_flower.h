@@ -59,6 +59,13 @@ constexpr float STAR_RECURRENCE_DRIFT =
  * @details Cached and uncached sample_positions() are compared bit for bit.
  */
 inline void test_star_sample_radius_trig_parity() {
+#if defined(HS_TEST_FAST_MATH)
+  constexpr float ARC_STEP_TOL = 4e-5f;
+  constexpr double ARC_TOTAL_REL_TOL = 6e-4;
+#else
+  constexpr float ARC_STEP_TOL = 1e-5f;
+  constexpr double ARC_TOTAL_REL_TOL = 4e-6;
+#endif
   ScratchScope sc(plot_arena());
   const math::Basis b = math::make_basis(
       math::Quaternion(0.91f, 0.13f, -0.27f, 0.28f).normalized(), math::X_AXIS);
@@ -120,7 +127,7 @@ inline void test_star_sample_radius_trig_parity() {
             const float arc =
                 math::angle_between(actual[i - 1].pos, actual[i].pos);
             arc_total += arc;
-            HS_EXPECT_NEAR(actual[i].v1 - actual[i - 1].v1, arc, 1e-5f);
+            HS_EXPECT_NEAR(actual[i].v1 - actual[i - 1].v1, arc, ARC_STEP_TOL);
           } else {
             HS_EXPECT_EQ(actual[i].v1, 0.0f);
           }
@@ -141,7 +148,7 @@ inline void test_star_sample_radius_trig_parity() {
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v1), 0u);
           HS_EXPECT_EQ(std::bit_cast<uint32_t>(positions[i].v2), 0u);
         }
-        HS_EXPECT_NEAR_REL(actual.back().v1, arc_total, 4e-6);
+        HS_EXPECT_NEAR_REL(actual.back().v1, arc_total, ARC_TOTAL_REL_TOL);
       }
     }
   }
