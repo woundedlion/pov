@@ -8,17 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from git_files import git_nul_list
+
 
 def changed_sources(root: Path) -> list[str]:
-    changed = subprocess.check_output(
-        ["git", "-C", str(root), "diff", "HEAD", "--name-only", "-z"],
-        timeout=30).decode("utf-8").split("\0")
-    changed = [name for name in changed if name]
-    untracked = subprocess.check_output(
-        ["git", "-C", str(root), "ls-files", "--others", "--exclude-standard", "-z"],
-        timeout=30).decode("utf-8").split("\0")
-    changed.extend(name for name in untracked if name)
-    return changed
+    return [*git_nul_list(root, "diff", "HEAD", "--name-only", "-z"),
+            *git_nul_list(root, "ls-files", "--others", "--exclude-standard", "-z")]
 
 
 def main() -> int:

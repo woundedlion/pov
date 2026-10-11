@@ -18,6 +18,7 @@ on:
       - 'tools/docs_check.py'
       - 'tools/docs_sync.py'
       - 'tools/docs_images.py'
+      - 'tools/git_files.py'
       - 'justfile'
       - '.github/actions/pinned-doxygen/action.yml'
       - '.github/workflows/docs.yml'

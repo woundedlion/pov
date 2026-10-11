@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+from git_files import GIT_TIMEOUT_SECONDS, git_command, git_nul_list
+
 
 @dataclass(frozen=True, order=True)
 class Issue:
@@ -149,7 +151,6 @@ CARDINALITY_CLAIMS = (
 
 # Names are matched against the source file kinds Doxyfile documents.
 _DOXYFILE = PurePosixPath("Doxyfile")
-_GIT_TIMEOUT_SECONDS = 30
 _DOXYGEN_SOURCE_SUFFIXES = frozenset({".h", ".cpp", ".ino"})
 _DOXYFILE_TAG_RE = re.compile(r"^(\w+)[ \t]*\+?=[ \t]*(.*)$")
 _DOXYFILE_ENTRY_RE = re.compile(r'"[^"]*"|\S+')
@@ -1225,9 +1226,9 @@ def _read_tracked(root: Path, revision: str | None,
         return texts
     request = "".join(f"{revision}:{path.as_posix()}\n" for path in paths)
     result = subprocess.run(
-        ["git", "-c", f"safe.directory={root.as_posix()}", "-C", str(root),
-         "cat-file", "--batch"], input=request.encode("utf-8"), check=True,
-        stdout=subprocess.PIPE, timeout=_GIT_TIMEOUT_SECONDS)
+        git_command(root, "cat-file", "--batch"),
+        input=request.encode("utf-8"), check=True,
+        stdout=subprocess.PIPE, timeout=GIT_TIMEOUT_SECONDS)
     output = result.stdout
     offset = 0
     for relative in paths:
@@ -1385,14 +1386,9 @@ def check_text(source: PurePosixPath, text: str,
 
 def tracked_entries(root: Path, revision: str | None = None
                      ) -> tuple[list[PurePosixPath], set[PurePosixPath]]:
-    command = ["git", "-c", f"safe.directory={root.as_posix()}",
-               "-C", str(root)]
-    command.extend(["ls-tree", "-r", "--name-only", "-z", revision]
-                   if revision else ["ls-files", "-z"])
-    result = subprocess.run(command, check=True, stdout=subprocess.PIPE,
-                            timeout=_GIT_TIMEOUT_SECONDS)
-    files = [PurePosixPath(name) for name in
-             result.stdout.decode("utf-8").split("\0") if name]
+    listing = (["ls-tree", "-r", "--name-only", "-z", revision]
+               if revision else ["ls-files", "-z"])
+    files = [PurePosixPath(name) for name in git_nul_list(root, *listing)]
     entries = set(files)
     for file_path in files:
         entries.update(parent for parent in file_path.parents

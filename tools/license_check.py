@@ -15,6 +15,8 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
+from git_files import GIT_TIMEOUT_SECONDS, git_command
+
 NOTICE = "Required Notice: Copyright 2025 Gabriel Levy. All rights reserved."
 POLYFORM = "Licensed under the PolyForm Noncommercial License 1.0.0"
 RESERVED = "LICENSE: ALL RIGHTS RESERVED."
@@ -26,8 +28,6 @@ THIRD_PARTY = frozenset({MIT_GRANT, MIT_TITLE})
 
 SOURCE_SUFFIXES = (".h", ".hpp", ".c", ".cc", ".cpp", ".def", ".inl",
                    ".ino")
-
-_GIT_TIMEOUT_SECONDS = 30
 
 # Bytes of a file the header must appear within.
 HEAD_BYTES = 600
@@ -100,11 +100,9 @@ def tracked_sources(root: Path) -> list[str]:
     """Repo-relative paths of every tracked C/C++ source under root."""
     # Bytes, not text=True: the text wrapper's locale decode has undefined
     # bytes, and a decode error here must be a report, not a traceback.
-    command = ["git", "-c", f"safe.directory={root.as_posix()}",
-               "-C", str(root), "ls-files", "-z"]
     try:
-        listed = subprocess.run(command, capture_output=True,
-                                timeout=_GIT_TIMEOUT_SECONDS)
+        listed = subprocess.run(git_command(root, "ls-files", "-z"),
+                                capture_output=True, timeout=GIT_TIMEOUT_SECONDS)
         if listed.returncode != 0:
             detail = (listed.stderr.decode("utf-8", "replace").strip()
                       or f"git exited {listed.returncode}")

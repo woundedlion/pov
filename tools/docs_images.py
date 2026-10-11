@@ -12,13 +12,14 @@ import sys
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+from git_files import git_nul_list
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_HTML_ROOT = ROOT / "build" / "docs" / "html"
 
 _IMG_SRC_RE = re.compile(
     r"<img\b[^>]*?\bsrc[ \t]*=[ \t]*[\"']([^\"']*)[\"']", re.IGNORECASE)
 _MARKDOWN_SUFFIXES = (".md", ".markdown")
-_GIT_TIMEOUT_SECONDS = 30
 
 
 def references(html_root: Path) -> list[tuple[Path, str]]:
@@ -34,15 +35,10 @@ def markdown_references(
         repo_root: Path
 ) -> tuple[list[tuple[PurePosixPath, str]], list[str], set[str]]:
     """Return (Markdown file, <img> src) pairs, read errors and tracked paths."""
-    command = ["git", "-c", f"safe.directory={repo_root.as_posix()}",
-               "-C", str(repo_root), "ls-files", "-z"]
     found: list[tuple[PurePosixPath, str]] = []
     errors: list[str] = []
     try:
-        result = subprocess.run(
-            command, check=True, stdout=subprocess.PIPE,
-            timeout=_GIT_TIMEOUT_SECONDS)
-        names = sorted(result.stdout.decode("utf-8").split("\0"))
+        names = sorted(git_nul_list(repo_root, "ls-files", "-z"))
     except (OSError, subprocess.SubprocessError, UnicodeError) as error:
         return found, [f"git ls-files failed: {error}"], set()
     for name in names:
