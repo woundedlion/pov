@@ -4,8 +4,7 @@ import math
 import sexp
 from kicad_common import uid, fmt
 
-#: Board revision, carried by the schematic title block, the routed board's
-#: title block (the Gerber X2 ProjectId attribute) and the bottom silkscreen.
+#: Default revision selected by the schematic and PCB generators.
 REVISION = "1.2"
 
 
