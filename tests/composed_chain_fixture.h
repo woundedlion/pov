@@ -19,15 +19,10 @@ template <typename FX> void verify_export(size_t preset) {
   using namespace shader_chain_tests;
   HS_CONTEXT(FX::EFFECT_ID.data());
   HS_CONTEXT("preset", preset);
-  std::string name(FX::EFFECT_ID);
-  std::replace(name.begin(), name.end(), '-', '_');
-  const std::string text = read_text_file(
-      std::string(HS_PROMOTED_PATTERNS_DIR "/") + name + ".shader.json");
-  JsonParser parser{text};
-  const auto document = parser.parse_value();
-  HS_EXPECT_FALSE(parser.failed);
-  if (parser.failed)
+  const auto loaded = load_promoted_document<FX>();
+  if (!loaded)
     return;
+  const JsonValue &document = *loaded;
   const auto *descriptor = document.find("descriptor");
   HS_EXPECT_TRUE(descriptor != nullptr);
   if (!descriptor)
