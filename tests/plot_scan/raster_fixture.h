@@ -43,6 +43,58 @@ struct AlphaCapturePipeline {
 inline void noop_shader(const math::Vector &, Fragment &) {}
 
 /**
+ * @brief Fragment shader painting full white at a fixed alpha.
+ * @param alpha Alpha written to every fragment.
+ */
+inline auto white_shader(float alpha) {
+  return [alpha](const math::Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), alpha);
+  };
+}
+
+/** @brief The four W x H quadrants as {y0, y1, x0, x1}, row-major. */
+template <int W, int H>
+constexpr std::array<std::array<int, 4>, 4> quadrant_clips() {
+  return {{{0, H / 2, 0, W / 2},
+           {0, H / 2, W / 2, W},
+           {H / 2, H, 0, W / 2},
+           {H / 2, H, W / 2, W}}};
+}
+
+/**
+ * @brief Two opposite quadrants, a mid-width wedge and a seam-edge wedge as
+ *        {y0, y1, x0, x1}.
+ */
+template <int W, int H>
+constexpr std::array<std::array<int, 4>, 4> quadrant_wedge_clips() {
+  return {{{0, H / 2, 0, W / 2},
+           {H / 2, H, W / 2, W},
+           {0, H, 10, 34},
+           {0, H, 0, 8}}};
+}
+
+/**
+ * @brief Captures a single-pass planar raster of white alpha-0.4 fragments.
+ * @tparam Policy Sampling policy; SELECTABLE also enables balanced sampling.
+ * @param points Polyline to rasterize.
+ * @param basis Planar projection basis.
+ * @return The recorded positions and alphas.
+ */
+template <int W, int H, Plot::RasterSamplingPolicy Policy>
+inline AlphaCapturePipeline
+capture_planar_alpha_policy(const Fragments &points, const math::Basis &basis) {
+  hs_test::StubEffect fx(W, H);
+  AlphaCapturePipeline pipeline;
+  Canvas canvas(fx);
+  Plot::rasterize<
+      W, H, Plot::RasterConfig{.single_pass = true, .sampling_policy = Policy}>(
+      pipeline, canvas, points, white_shader(0.4f),
+      {.projection = Plot::RasterProjection::planar(basis),
+       .balanced_sampling = Policy == Plot::RasterSamplingPolicy::SELECTABLE});
+  return pipeline;
+}
+
+/**
  * @brief Largest angular gap (radians) between consecutive recorded positions.
  * @param pts Plotted positions in plot order.
  * @param wrap When true, also measures the gap from the last point back to the
