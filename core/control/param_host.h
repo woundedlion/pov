@@ -304,8 +304,10 @@ protected:
   void mark_global(const char *name) {
     auto *def = parameters.find(name);
     HS_CHECK(def, "mark_global: unknown parameter name name=%s", name);
-    def->preset = false;
-    parameters.bump_schema_generation();
+    if (def->preset) {
+      def->preset = false;
+      parameters.bump_schema_generation();
+    }
   }
 
   /**

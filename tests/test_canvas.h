@@ -1364,7 +1364,11 @@ inline void test_typed_enum_and_global_param_metadata() {
   TestMode mode = TestMode::WARP;
   fx.add_typed_enum("Mode", &mode, MODES, EXPORT_MODES, 3);
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  const auto before_global = fx.getParameterSchemaGeneration();
   fx.mark_global("Speed");
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
+  fx.mark_global("Speed");
+  HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
 
   const auto *mode_def = fx.getParameters().find("Mode");
   const auto *speed_def = fx.getParameters().find("Speed");
