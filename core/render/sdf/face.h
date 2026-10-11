@@ -285,7 +285,7 @@ struct Face {
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
    * @param bounds_margin Angular padding around the vertical bounds. Callers
-   *        rendering antialiasing fringes must pass at least `2π / width`;
+   *        rendering antialiasing fringes must pass at least `2Ï€ / width`;
    *        the default is suitable only when that reach is not required.
    */
   HS_O3_FN Face(std::span<const math::Vector> vertices,
@@ -399,7 +399,7 @@ struct Face {
   /**
    * @brief Tests whether the clip band excludes the whole face.
    * @param cr Clip region (display bounds plus render margin).
-   * @return True when no in-band pixel can be produced — the face's vertical
+   * @return True when no in-band pixel can be produced â€” the face's vertical
    *         band lies outside the render rows, or its azimuth coverage lies
    *         outside the render columns. A full-width face or an inactive x-clip
    *         never rejects on the horizontal axis.
