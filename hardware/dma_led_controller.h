@@ -159,6 +159,15 @@ public:
     HD107SFrame<N>::set_correction(r, g, b);
   }
 
+  /** @brief Applies the HD107S strip gains, warm white balance, and full brightness. */
+  static void apply_default_calibration() {
+    set_correction(hd107s::LINEAR_STRIP_GAIN.r, hd107s::LINEAR_STRIP_GAIN.g,
+                   hd107s::LINEAR_STRIP_GAIN.b);
+    set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                    hd107s::LINEAR_WARM_GAIN.b);
+    set_brightness(255);
+  }
+
 private:
   HD107SFrame<N>
       frames[2]; /**< Double-buffered protocol frames (front/back). */

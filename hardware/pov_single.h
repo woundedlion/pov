@@ -44,13 +44,7 @@ public:
   static void begin() {
 #ifdef USE_DMA_LEDS
     led_controller.begin();
-    led_controller.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                                  hd107s::LINEAR_STRIP_GAIN.g,
-                                  hd107s::LINEAR_STRIP_GAIN.b);
-    led_controller.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
-                                   hd107s::LINEAR_WARM_GAIN.g,
-                                   hd107s::LINEAR_WARM_GAIN.b);
-    led_controller.set_brightness(255);
+    led_controller.apply_default_calibration();
 #else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB,
                     DATA_RATE_MHZ(pov::FASTLED_CLOCK_MHZ)>(leds, S);

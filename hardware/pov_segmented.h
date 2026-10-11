@@ -213,13 +213,7 @@ public:
     configure_segment();
 
     led_controller.begin();
-    led_controller.set_correction(hd107s::LINEAR_STRIP_GAIN.r,
-                                  hd107s::LINEAR_STRIP_GAIN.g,
-                                  hd107s::LINEAR_STRIP_GAIN.b);
-    led_controller.set_temperature(hd107s::LINEAR_WARM_GAIN.r,
-                                   hd107s::LINEAR_WARM_GAIN.g,
-                                   hd107s::LINEAR_WARM_GAIN.b);
-    led_controller.set_brightness(255);
+    led_controller.apply_default_calibration();
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
     // DWT block on, then CYCCNTENA starts the counter.
