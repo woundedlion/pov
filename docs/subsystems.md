@@ -356,7 +356,7 @@ The fragments compile only inside `animation.h` (a direct include fails with an 
 | `PeriodicTimer` | Fires a callback at regular intervals (once or repeatedly) |
 | `RandomTimer` | Fires a callback after a random delay within a min/max range |
 | `Transition` | Smoothly interpolates a float variable from its current value to a target over a duration with easing |
-| `Mutation` | Applies a custom scalar function to a float variable over time with easing |
+| `Mutation` | Applies a custom scalar function to a float variable over time with easing; `Mutation::Options` names repeat and step-only pause settings |
 | `Progress` | Invokes a caller-supplied `void(float)` callback once per frame with eased progress, leaving the caller to write whatever state it drives |
 | `Driver` | Continuously increments a float variable each frame (optionally wraps at 0..1) |
 | `Lerp` | Type-erased interpolation between any `T` that implements `lerp(start, target, t)`. The caller owns start, subject, and target data; Lerp holds pointers and a type-erased lerp function. |
@@ -629,7 +629,7 @@ Pixel (linear 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, 
 
 ### The Gamut Boundary Grid
 
-The chroma clip brackets the sRGB boundary from a generated table (`core/color/gamut_lut.h`, emitted by `tools/gen_gamut_lut.py`) indexed by the diamond angle of (b, a) and by L. Each cell stores guarded extrema of sampled first-exit chroma estimates, which do not certify enclosure of every ray's exact first exit; the per-pixel path walks that bracket in `GAMUT_SCAN_STEPS` and bisects the straddling step `GAMUT_BRACKET_STEPS` times. Grid resolution sets how wide the bracket starts, and the bisection sets how far it is narrowed; coarser grids increase the chroma deficit (about 0.003 at 256 × 128, 0.007 at 32 × 16). At every grid, including the shipped master, a handful of rays stride over a narrow out-of-gamut gap and land past the first exit — an oversaturation of up to about 0.05 chroma that no amount of bisection recovers, since the wrong step is already selected; a finer grid reduces how many rays do this, not how far they overshoot.
+The chroma clip brackets the sRGB boundary from a generated table (`core/color/gamut_lut.h`, emitted by `tools/gen_gamut_lut.py`) indexed by the diamond angle of (b, a) and by L. Each cell stores guarded extrema of sampled first-exit chroma estimates, which do not certify enclosure of every ray's exact first exit; the per-pixel path walks that bracket in `GAMUT_SCAN_STEPS` and bisects the straddling step `GAMUT_BRACKET_STEPS` times. Grid resolution sets how wide the bracket starts, and the bisection sets how far it is narrowed; coarser grids increase the chroma deficit (about 0.003 at 256 × 128, 0.0043 at the minimum accepted 128 × 64). At every grid, including the shipped master, a handful of rays stride over a narrow out-of-gamut gap and land past the first exit — an oversaturation of up to about 0.05 chroma that no amount of bisection recovers, since the wrong step is already selected; a finer grid reduces how many rays do this, not how far they overshoot.
 
 The clip reads the 256 × 128 flash master by default. An effect that clips per pixel can arm an arena copy at the master's resolution or coarser, which improves read latency (RAM rather than QSPI flash). Coarser grids also change the brackets and clipping results:
 
@@ -740,6 +740,8 @@ StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
 | `PaletteFacade<SP>` | Exposes a compile-time `StaticPalette` composition through the polymorphic `Palette` API, for preset tables and baking |
 | `BakedPalette` | Read-only view of an arena-backed 256-entry color/alpha LUT. |
 | `BakedPaletteStorage` | Owns mutation rights to a palette LUT and rebakes a `Palette` or `StaticPalette` source into it. |
+| `NoiseShimmerPalette<Source>` | Modulates a source palette with its bound noise LUT. |
+| `LayerComposite` | Composes straight-alpha color layers. |
 | `NoiseHuePalette<Source>` | Applies a sphere-domain noise field as a spatial OKLab hue rotation over any palette source. Its shared hue-rotation and cube-map noise LUT preparation is used by ordinary effects, composed shader effects, and the Shader workbench. Call `hue_shift(direction, amount)` once when a whole primitive shares a noise coordinate, `noise_uv(cos_u, sin_u, cos_v, sin_v)` for a seamless two-axis surface field, or `get(t, direction, amount)` directly per sample. |
 
 ### Recipe-Compiled Palettes
@@ -893,7 +895,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 | `catalan_registry` | `CATALAN_COUNT` | Duals of the Archimedean solids (triakis tetrahedron, rhombic dodecahedron, pentakis dodecahedron, etc.) |
 | `islamic_registry` | `ISLAMIC_COUNT` | Complex multi-operator recipes producing Islamic star patterns from base solids |
 
-Total: `Solids::NUM_ENTRIES`. Each count is a named constant in `solids.h`, `static_assert`ed against its registry's size (and their sum against `NUM_ENTRIES`), so the values live there rather than being restated here.
+Total: `Solids::NUM_ENTRIES`. Counts are derived in `solids.h` from registry sizes and the `BaseMesh` Platonic boundary; assertions pin the registry slice boundaries and `BaseMesh` census.
 
 `Collections` namespace provides typed spans for iterating subsets: `get_platonic_solids()`, `get_archimedean_solids()`, `get_simple_solids()`, `get_catalan_solids()`, `get_islamic_solids()`.
 
@@ -1288,6 +1290,12 @@ The generator of record is `scripts/generate_reaction_graph.py`; its provenance
 gate diffs the whole generated file. The analytic `ReactionGraph::node()`
 remains the reference, with a native comparison across all 7,680 positions.
 Reaction-diffusion effects use these neighbors without rebuilding adjacency.
+
+| Interface | Description |
+|---|---|
+| `ReactionGraph::node_positions` | Generated immutable float positions for the Fibonacci lattice. |
+| `ReactionGraph::neighbor_runs` / `ReactionGraph::neighbor_run_index` | Run-length encoding of the generated neighbor table. |
+| `ReactionGraph::CubemapLUT` | Arena-backed 64 × 64 cube-face lookup of nearest-node seeds; `BYTES` is 48 KiB. |
 
 `ReactionDiffusionBase` (`effects/common/reaction_diffusion.h`) can either
 build canonical positions in its persistent arena or bind the flash array

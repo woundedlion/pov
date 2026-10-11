@@ -33,10 +33,9 @@ public:
 
   /** @brief One colour the cycle holds on, in 8-bit sRGB. */
   struct Key {
-    /// Red channel level.
-    uint8_t r, g, b; ///< Blue channel level.
-    /** @var g
-     *  Green channel level. */
+    uint8_t r; ///< Red channel level.
+    uint8_t g; ///< Green channel level.
+    uint8_t b; ///< Blue channel level.
   };
   /** @brief The held colours, in cycle order. */
   static constexpr Key KEYS[] = {

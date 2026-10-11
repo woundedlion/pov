@@ -359,13 +359,10 @@ struct PreparedVortexSlot {
 };
 
 /**
- * @brief Resolves one warp slot's per-frame prepared state.
- * @details Wave shear prepares rotation only; vortex prepares transform state
- * only. Mirror, vector noise and affine prepare rotation and transform state.
- * The second argument is the phase clock (unused by wave shear).
+ * @brief Prepares the wave-shear field rotation.
  * @param warp The slot's parameters.
-  * @return Field-axis rotation.
-  */
+ * @return Field-axis rotation.
+ */
 HS_FLASH_INLINE inline PreparedRotation prepare(const WaveShearParams &warp,
                                                 float) {
   return {cosf(warp.field_angle), sinf(warp.field_angle)};
@@ -421,8 +418,8 @@ HS_FLASH_INLINE inline PreparedVortexSlot prepare(const VortexParams &warp,
  * @param phase The slot's phase clock.
  * @param frame_rotation Accumulated frame rotation for the slot.
  * @param lattice_period Plane units per lattice cell.
-  * @return Frame rotation and affine coefficients.
-  */
+ * @return Frame rotation and affine coefficients.
+ */
 HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
                                                   float phase,
                                                   float frame_rotation,

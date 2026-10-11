@@ -181,7 +181,7 @@ private:
   friend struct ::hs_test::effects_tests::SphericalHarmonicsWhiteBox;
 
   /**
-   * @brief Ambient-occlusion shaping constants for the draw_frame shader.
+   * @brief Ambient-occlusion shaping constants for colorize_harmonic.
    * @details AO_FALLOFF is the amplitude-scaled field magnitude
    * (|val| * Amplitude) at which shading saturates, AO_AMBIENT is the ambient
    * floor, and AO_RANGE is the range above it (AMBIENT + RANGE = 1.0 → full

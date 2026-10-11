@@ -10,7 +10,8 @@
  * @brief Fibonacci lattice K-NN graph and nearest-node lookup.
  *
  * node() mirrors the lattice math of scripts/generate_reaction_graph.py, which
- * emits neighbors[].
+ * emits neighbors[], node_positions[] and neighbor-run encoding.
+ * CubemapLUT retains an arena-backed direction-to-node lookup table.
  */
 
 #include "core/platform/platform.h"

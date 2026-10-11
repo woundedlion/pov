@@ -543,7 +543,7 @@ struct RandomWalkDelta {
 
 /**
  * @brief Advances a random-walk cursor one frame across the unit sphere.
- * @tparam STABLE_ROTATION Preserve rotation helper call boundaries.
+ * @tparam STABLE_ROTATION Use the rotation helper with stable floating-point evaluation order.
  * @param position Current forward direction; advanced in place.
  * @param direction Current pivoting direction, orthogonal to @p position;
  *   advanced in place.

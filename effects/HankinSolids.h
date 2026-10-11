@@ -24,6 +24,7 @@ struct HankinSolidsWhiteBox;
 } // namespace hs_test
 
 namespace HankinSolidsDetail {
+/** @brief Strap alpha and rim blend weights during shape transitions. */
 struct ShapeWeights {
   float strap_open = 1.0f;     ///< Opening strap alpha and rim blend.
   float strap_close = 1.0f;    ///< Closing strap rim blend.
