@@ -1015,6 +1015,26 @@ private:
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        HyperLattice,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                             &HyperLattice::preset>,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &HyperLattice::parameter_fields>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &HyperLattice::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::ADOPT_PARAMS,
+                             &HyperLattice::adopt_params>,
+        Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &HyperLattice::blend_params>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_OPACITY,
+                             &HyperLattice::set_preset_opacity>>{};
+  }
 };
 
 inline void HyperLatticeDetail::Params::lerp(const Params &start,

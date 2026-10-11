@@ -28,12 +28,22 @@
  * @tparam H Canvas height in pixels.
  * @tparam Derived The effect class deriving from this base.
  * @tparam SpecT The effect's `Spec`.
+ * @tparam Ownership Whether Derived declares hooks or inherits composed defaults.
  */
-template <int W, int H, typename Derived, typename SpecT>
-class ComposedEffect : public ChoreographedEffect<Derived, ParamsFor<SpecT>>,
-                       private ProjectionWalkState<SpecT::ANIMATED_PROJECTION> {
+template <int W, int H, typename Derived, typename SpecT,
+          Control::HookOwnership Ownership = Control::HookOwnership::AUTHORED>
+class ComposedEffect
+    : public ChoreographedEffect<
+          Derived, ParamsFor<SpecT>,
+          std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
+                             ComposedEffect<W, H, Derived, SpecT, Ownership>,
+                             Derived>>,
+      private ProjectionWalkState<SpecT::ANIMATED_PROJECTION> {
   using ParamsT = ParamsFor<SpecT>;
-  using Choreography = ChoreographedEffect<Derived, ParamsT>;
+  using Choreography = ChoreographedEffect<
+      Derived, ParamsT,
+      std::conditional_t<Ownership == Control::HookOwnership::INHERITED,
+                         ComposedEffect, Derived>>;
   friend Choreography;
 #if HS_ENABLE_TEST_HOOKS
   friend struct hs_test::ComposedFrameWhiteBox;
@@ -172,8 +182,10 @@ public:
                         typename Animation::RandomWalk<W>::Options{},
                         CAMERA_WALK_SEED));
     register_parameters();
-    if constexpr (requires(Derived &effect) { effect.after_composed_init(); })
-      static_cast<Derived &>(*this).after_composed_init();
+    if constexpr (Choreography::template has_hook<
+                      Control::ChoreographyHook::AFTER_COMPOSED_INIT>())
+      this->template invoke_hook<
+          Control::ChoreographyHook::AFTER_COMPOSED_INIT>();
   }
 
   /**
@@ -410,6 +422,32 @@ protected:
           Animation::MobiusWarpCircular(params.template get<Key>().mobius,
                                         scale, duration, true),
           &anims_paused);
+  }
+
+public:
+  /** @brief Default composed-effect choreography bindings.
+   * @return Type-only hook list owned by this composed base. */
+  static consteval auto choreography_hooks() {
+    using Hooks = Control::HookSet<
+        ComposedEffect,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &ComposedEffect::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::ADOPT_PARAMS,
+                             &ComposedEffect::adopt_params>,
+        Control::HookBinding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &ComposedEffect::blend_params>,
+        Control::HookBinding<Control::ChoreographyHook::TRANSITION_ARMED,
+                             &ComposedEffect::transition_armed>>;
+    if constexpr (requires { Derived::ANIMATED_MOBIUS; }) {
+      if constexpr (Derived::ANIMATED_MOBIUS)
+        return Hooks::template extend<
+            ComposedEffect,
+            Control::HookBinding<Control::ChoreographyHook::FINISH_BLEND,
+                                 &ComposedEffect::finish_blend>>();
+      else
+        return Hooks{};
+    } else
+      return Hooks{};
   }
 
 private:

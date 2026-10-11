@@ -170,4 +170,18 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, AlienBrain<W, H>,
+                                    AlienBrainSpec>::choreography_hooks()
+        .template extend<
+            AlienBrain,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &AlienBrain::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &AlienBrain::preset>>();
+  }
 };

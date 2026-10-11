@@ -366,4 +366,22 @@ private:
       nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
   int last_cycle_dur =
       -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        Comets,
+        Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                             &Comets::initial_params>,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &Comets::parameter_fields>,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &Comets::valid_params>,
+        Control::HookBinding<Control::ChoreographyHook::PRESET_PARAMS,
+                             &Comets::preset_params>,
+        Control::HookBinding<Control::ChoreographyHook::ADOPT_PARAMS,
+                             &Comets::adopt_params>>{};
+  }
 };

@@ -16,6 +16,7 @@
 
 #include "core/animation/animation.h"
 #include "core/control/presets.h"
+#include "core/control/choreography_hooks.h"
 #include "core/control/fields.h"
 #include "core/platform/platform.h"
 #include "core/math/easing.h"
@@ -40,7 +41,12 @@
  * `Derived` calls `begin_choreography()` once from init() and
  * `step_choreography()` every frame.
  *
- * Optional members `Derived` may define (befriend this base if non-public):
+ * `choreography_hooks()` returns a `Control::HookSet` owned by `HookOwner`.
+ * Bind customizations through `Control::HookBinding`; a method without a binding
+ * is not a customization. Signatures and declaration ownership are checked at
+ * construction. An empty hook list uses the base defaults.
+ *
+ * Optional hook bindings:
  * - `blend_params(progress)`: writes a Lerp's interpolated parameters; the
  *   default interpolates the fields parameter_fields() describes.
  * - `set_preset_opacity(value)`: receives a Fade's opacity; required for Fade.
@@ -54,8 +60,9 @@
  * - `initial_params()`: startup parameters, instead of the first preset's.
  * @tparam Derived The effect class deriving from this base.
  * @tparam ParamsT The effect's parameter struct.
+ * @tparam HookOwner Type declaring the hook list; defaults to Derived.
  */
-template <typename Derived, typename ParamsT>
+template <typename Derived, typename ParamsT, typename HookOwner = Derived>
 class ChoreographedEffect : public Effect {
 public:
   using Params = ParamsT; ///< The effect's parameter aggregate.
@@ -75,10 +82,8 @@ public:
    * @param value Parameters to check.
    * @return True when every described field is in range.
    */
-  static constexpr bool valid_params(const Params &value)
-    requires requires { Derived::parameter_fields(); }
-  {
-    return Control::valid_fields(value, Derived::parameter_fields());
+  static constexpr bool valid_params(const Params &value) {
+    return valid_params_of(value);
   }
 
   /** @brief A parameter set tagged with the schema version that produced it. */
@@ -110,10 +115,10 @@ public:
    */
   bool restore_parameters(const ParameterSnapshot &snapshot) {
     if (snapshot.schema_version != Derived::PARAMETER_SCHEMA_VERSION ||
-        !Derived::valid_params(snapshot.params))
+        !valid_params_of(snapshot.params))
       return false;
     end_transition();
-    derived().adopt_params(snapshot.params);
+    adopt_target(snapshot.params);
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     return true;
   }
@@ -127,8 +132,8 @@ public:
     HS_CHECK(index < authored_preset_count(),
              "profile preset index out of range");
     HS_CHECK(this->selectPreset(index), "profile preset selection failed");
-    if constexpr (requires { derived().after_profile_preset(); })
-      derived().after_profile_preset();
+    if constexpr (has_hook<Control::ChoreographyHook::AFTER_PROFILE_PRESET>())
+      invoke_hook<Control::ChoreographyHook::AFTER_PROFILE_PRESET>();
     hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
             static_cast<unsigned>(authored_preset_count()));
   }
@@ -146,8 +151,10 @@ public:
    * @return The preset's departure.
    */
   static constexpr Segue::Preset::Departure preset_departure(size_t index) {
-    if constexpr (requires { Derived::preset(index); })
-      return Derived::preset(index).segue;
+    if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+                 Control::ChoreographyHook::PRESET_ROW>(index)
+          .segue;
     else if constexpr (requires { Derived::PRESETS; })
       return Derived::PRESETS[index].segue;
     else
@@ -167,6 +174,88 @@ public:
   }
 
 protected:
+  /** @brief Whether an explicit hook binding is present.
+   * @tparam Kind Customization point.
+   * @return True for a bound hook. */
+  template <Control::ChoreographyHook Kind> static consteval bool has_hook() {
+    return decltype(Derived::choreography_hooks())::template HAS<Kind>;
+  }
+
+  /** @brief Calls an explicitly bound hook.
+   * @tparam Kind Customization point.
+   * @tparam Args Argument types.
+   * @param args Hook arguments.
+   * @return Hook result. */
+  template <Control::ChoreographyHook Kind, typename... Args>
+  constexpr decltype(auto) invoke_hook(Args &&...args) {
+    return decltype(Derived::choreography_hooks())::template invoke<Kind>(
+        derived(), std::forward<Args>(args)...);
+  }
+
+  static consteval bool has_parameter_fields() {
+    return has_hook<Control::ChoreographyHook::PARAMETER_FIELDS>() ||
+           requires { Params::FIELDS; };
+  }
+
+  static constexpr auto parameter_fields_of() {
+    if constexpr (has_hook<Control::ChoreographyHook::PARAMETER_FIELDS>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+          Control::ChoreographyHook::PARAMETER_FIELDS>();
+    else
+      return Params::FIELDS;
+  }
+
+  static constexpr bool valid_params_of(const Params &value) {
+    if constexpr (has_hook<Control::ChoreographyHook::VALID_PARAMS>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+          Control::ChoreographyHook::VALID_PARAMS>(value);
+    else
+      return Control::valid_fields(value, parameter_fields_of());
+  }
+
+  void adopt_target(const Params &target) {
+    if constexpr (has_hook<Control::ChoreographyHook::ADOPT_PARAMS>())
+      invoke_hook<Control::ChoreographyHook::ADOPT_PARAMS>(target);
+    else
+      adopt_params(target);
+  }
+
+  void finish_target(const Params &target) {
+    if constexpr (has_hook<Control::ChoreographyHook::FINISH_BLEND>())
+      invoke_hook<Control::ChoreographyHook::FINISH_BLEND>(target);
+    else
+      adopt_target(target);
+  }
+
+  template <Control::ChoreographyHook Kind, auto Default>
+  static consteval void reject_default_binding() {
+    if constexpr (has_hook<Kind>()) {
+      constexpr auto FUNCTION =
+          decltype(Derived::choreography_hooks())::template function<Kind>();
+      if constexpr (std::is_same_v<std::remove_cv_t<decltype(FUNCTION)>,
+                                   decltype(Default)>)
+        static_assert(FUNCTION != Default,
+                      "choreography hooks: bound inherited default");
+    }
+  }
+
+  static consteval void validate_hook_defaults() {
+    reject_default_binding<Control::ChoreographyHook::ADOPT_PARAMS,
+                           &ChoreographedEffect::adopt_params>();
+    reject_default_binding<Control::ChoreographyHook::TRANSITION_ARMED,
+                           &ChoreographedEffect::transition_armed>();
+    reject_default_binding<Control::ChoreographyHook::VALID_PARAMS,
+                           &ChoreographedEffect::valid_params>();
+    if constexpr (has_parameter_fields()) {
+      reject_default_binding<Control::ChoreographyHook::BLEND_PARAMS,
+                             &ChoreographedEffect::blend_params>();
+
+      if constexpr (requires { Params::FIELDS; })
+        reject_default_binding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                               &ChoreographedEffect::parameter_fields>();
+    }
+  }
+
   /** @return The preset being left while a fade is before its midpoint, else
    *          the committed preset. */
   size_t displayed_preset_index() const override {
@@ -178,7 +267,7 @@ protected:
   /** @brief Registers the derived effect's typed parameter descriptions. */
   HS_COLD_MEMBER void register_described_params() {
     Control::register_fields(
-        params, Derived::parameter_fields(),
+        params, parameter_fields_of(),
         [this](const char *name, auto *target, const auto &spec) {
           this->register_param(name, target, spec);
         });
@@ -188,11 +277,9 @@ protected:
    * @brief Interpolates the derived effect's described parameter members.
    * @param progress Transition progress in [0, 1].
    */
-  HS_COLD_MEMBER void blend_params(float progress)
-    requires requires { Derived::parameter_fields(); }
-  {
+  HS_COLD_MEMBER void blend_params(float progress) {
     Control::interpolate_fields(params, transition.from, transition.to,
-                                progress, Derived::parameter_fields());
+                                progress, parameter_fields_of());
   }
 
   /** @brief An automatic preset transition's endpoints and progress. */
@@ -215,7 +302,16 @@ protected:
    * @param cfg Effect configuration.
    */
   HS_COLD_MEMBER ChoreographedEffect(int W, int H, EffectConfig cfg = {})
-      : Effect(W, H, cfg) {}
+      : Effect(W, H, cfg) {
+    static_assert(
+        std::is_same_v<typename decltype(Derived::choreography_hooks())::Owner,
+                       HookOwner>,
+        "choreography hooks: declaration owner mismatch");
+    static_assert(decltype(Derived::choreography_hooks())::template valid<
+                      Params, PresetEntry<Params>>(),
+                  "choreography hooks: wrong hook signature");
+    validate_hook_defaults();
+  }
 
   /**
    * @brief Installs @p target as the live parameters.
@@ -243,8 +339,8 @@ protected:
    * @return False if the change was refused.
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
-    if constexpr (requires { Derived::parameter_fields(); })
-      static_assert(Control::curves_supported(Derived::parameter_fields()),
+    if constexpr (has_parameter_fields())
+      static_assert(Control::curves_supported(parameter_fields_of()),
                     "discrete fields require MIDPOINT or SNAP curves");
     static_assert(departures_are_supported(),
                   "a preset's departure outlasts PRESET_DWELL_FRAMES, or its "
@@ -273,12 +369,14 @@ protected:
       transition = {params,     target,          true,  0,
                     FRAMES,     LERP == nullptr, false, TRANSITION_SERIAL,
                     change.from};
-      if (LERP)
-        derived().transition_armed(target);
+      if (LERP) {
+        if constexpr (has_hook<Control::ChoreographyHook::TRANSITION_ARMED>())
+          invoke_hook<Control::ChoreographyHook::TRANSITION_ARMED>(target);
+      }
       return true;
     }
     end_transition(false);
-    derived().adopt_params(target);
+    adopt_target(target);
     preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
     return true;
   }
@@ -343,23 +441,20 @@ protected:
     const float PROGRESS = COMPLETE ? 1.0f : progress;
     if (transition.fades) {
       if (PROGRESS >= 0.5f && !transition.adopted) {
-        if constexpr (requires { derived().finish_blend(transition.to); })
-          derived().finish_blend(transition.to);
-        else
-          derived().adopt_params(transition.to);
+        finish_target(transition.to);
         transition.adopted = true;
         log_preset();
       }
       set_opacity(fabsf(1.0f - 2.0f * PROGRESS));
     } else if constexpr (BLENDS) {
-      derived().blend_params(PROGRESS);
+      if constexpr (has_hook<Control::ChoreographyHook::BLEND_PARAMS>())
+        invoke_hook<Control::ChoreographyHook::BLEND_PARAMS>(PROGRESS);
+      else
+        blend_params(PROGRESS);
     }
     if (COMPLETE) {
       if (!transition.fades) {
-        if constexpr (requires { derived().finish_blend(transition.to); })
-          derived().finish_blend(transition.to);
-        else
-          derived().adopt_params(transition.to);
+        finish_target(transition.to);
       }
       transition.active = false;
       preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
@@ -374,14 +469,15 @@ protected:
 private:
   Derived &derived() { return static_cast<Derived &>(*this); }
 
-  /** @brief Whether `Derived` has blend_params(). */
+  /** @brief Whether a bound blend or described-field interpolation is available. */
   static constexpr bool BLENDS =
-      requires(Derived &effect) { effect.blend_params(0.0f); };
+      has_hook<Control::ChoreographyHook::BLEND_PARAMS>() ||
+      has_parameter_fields();
 
-  /** @brief Forwards a fade's opacity to set_preset_opacity() if defined. */
+  /** @brief Forwards a fade's opacity through its bound hook. */
   void set_opacity(float value) {
-    if constexpr (requires { derived().set_preset_opacity(value); })
-      derived().set_preset_opacity(value);
+    if constexpr (has_hook<Control::ChoreographyHook::PRESET_OPACITY>())
+      invoke_hook<Control::ChoreographyHook::PRESET_OPACITY>(value);
   }
 
   /** @brief Logs the current preset number (profiling builds only). */
@@ -430,8 +526,9 @@ private:
   /** @brief The row of the preset at @p index: the static `preset(index)`,
       else the `PRESETS` table, else a single preset of the startup params. */
   static auto preset_row(size_t index) {
-    if constexpr (requires { Derived::preset(index); })
-      return Derived::preset(index);
+    if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+          Control::ChoreographyHook::PRESET_ROW>(index);
     else if constexpr (requires { Derived::PRESETS; })
       return Derived::PRESETS[index];
     else {
@@ -447,7 +544,7 @@ private:
       Fade. */
   static consteval bool departures_are_supported() {
     constexpr bool TAKES_OPACITY =
-        requires(Derived &effect) { effect.set_preset_opacity(1.0f); };
+        has_hook<Control::ChoreographyHook::PRESET_OPACITY>();
     for (size_t index = 0; index < preset_count_of(); ++index) {
       const auto DEPARTURE = preset_departure(index);
       if (Segue::Preset::frames(DEPARTURE) >= Derived::PRESET_DWELL_FRAMES)
@@ -464,10 +561,13 @@ private:
   /** @brief Startup parameters: `Derived::initial_params()` when declared,
       else the first preset row's parameters. */
   static Params initial_params_of() {
-    if constexpr (requires { Derived::initial_params(); })
-      return Derived::initial_params();
-    else if constexpr (requires { Derived::preset(size_t{0}); })
-      return Derived::preset(0).params;
+    if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+          Control::ChoreographyHook::INITIAL_PARAMS>();
+    else if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
+      return decltype(Derived::choreography_hooks())::template invoke_static<
+                 Control::ChoreographyHook::PRESET_ROW>(size_t{0})
+          .params;
     else if constexpr (requires { Derived::PRESETS; })
       return Derived::PRESETS[0].params;
     else
@@ -477,8 +577,8 @@ private:
   /** @brief Parameters for the preset at @p index: `Derived::preset_params()`
       if defined, else the preset row's. */
   Params preset_target(size_t index) {
-    if constexpr (requires { derived().preset_params(index); })
-      return derived().preset_params(index);
+    if constexpr (has_hook<Control::ChoreographyHook::PRESET_PARAMS>())
+      return invoke_hook<Control::ChoreographyHook::PRESET_PARAMS>(index);
     else
       return preset_row(index).params;
   }

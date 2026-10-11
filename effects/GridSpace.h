@@ -133,4 +133,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, GridSpace<W, H>,
+                                    GridSpaceSpec>::choreography_hooks()
+        .template extend<
+            GridSpace,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &GridSpace::initial_params>>();
+  }
 };

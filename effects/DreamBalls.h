@@ -835,4 +835,14 @@ private:
                                            2 * math::PI_F, 80,
                                            math::ease_in_out_sin, false));
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<
+        DreamBalls,
+        Control::HookBinding<Control::ChoreographyHook::PARAMETER_FIELDS,
+                             &DreamBalls::parameter_fields>>{};
+  }
 };
