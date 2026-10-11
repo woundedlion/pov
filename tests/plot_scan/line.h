@@ -25,12 +25,8 @@ inline void test_line_sample_endpoints_and_unit_length() {
 
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
 
-  HS_EXPECT_EQ(points[0].pos.x, a.pos.x);
-  HS_EXPECT_EQ(points[0].pos.y, a.pos.y);
-  HS_EXPECT_EQ(points[0].pos.z, a.pos.z);
-  HS_EXPECT_EQ(points[density].pos.x, b.pos.x);
-  HS_EXPECT_EQ(points[density].pos.y, b.pos.y);
-  HS_EXPECT_EQ(points[density].pos.z, b.pos.z);
+  HS_EXPECT_VEC(points[0].pos, a.pos, 0.0f);
+  HS_EXPECT_VEC(points[density].pos, b.pos, 0.0f);
 
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
@@ -99,9 +95,7 @@ inline void test_line_sample_degenerate_segment() {
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)2);
   for (size_t i = 0; i < points.size(); ++i) {
     HS_CONTEXT("sample", (long long)i);
-    HS_EXPECT_EQ(points[i].pos.x, a.pos.x);
-    HS_EXPECT_EQ(points[i].pos.y, a.pos.y);
-    HS_EXPECT_EQ(points[i].pos.z, a.pos.z);
+    HS_EXPECT_VEC(points[i].pos, a.pos, 0.0f);
     HS_EXPECT_EQ(points[i].v0, 0.0f);
     HS_EXPECT_EQ(points[i].v1, 0.0f);
     HS_EXPECT_EQ(points[i].v2, 0.0f);
@@ -132,8 +126,7 @@ inline void test_line_sample_antipodal_stable_axis() {
 
   for (size_t i = 0; i < points.size(); ++i) {
     const math::Vector &p = points[i].pos;
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
+    HS_EXPECT_TRUE(finite_vec(p));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 
@@ -168,8 +161,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   HS_EXPECT_SIZE_OR_RETURN(points, (size_t)(density + 1));
   for (size_t i = 0; i < points.size(); ++i) {
     const math::Vector &p = points[i].pos;
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
+    HS_EXPECT_TRUE(finite_vec(p));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
   const math::Vector &mid = points[density / 2].pos;
@@ -192,8 +184,7 @@ inline void test_line_sample_near_antipodal_ulp_stable_axis() {
   fx.advance_display();
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)0);
   for (const math::Vector &p : pipe.plotted) {
-    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
-                   std::isfinite(p.z));
+    HS_EXPECT_TRUE(finite_vec(p));
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 }

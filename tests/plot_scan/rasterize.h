@@ -441,19 +441,10 @@ inline void test_rasterize_planar_policy_parity() {
   size_t source_differences = 0;
   for (size_t i = 0; i < derived.positions.size(); ++i) {
     for (const Stream *stream : {&source_registers, &positions_only}) {
-      HS_EXPECT_NEAR(derived.positions[i].x, stream->positions[i].x,
-                     POLICY_TOL);
-      HS_EXPECT_NEAR(derived.positions[i].y, stream->positions[i].y,
-                     POLICY_TOL);
-      HS_EXPECT_NEAR(derived.positions[i].z, stream->positions[i].z,
-                     POLICY_TOL);
+      HS_EXPECT_VEC(derived.positions[i], stream->positions[i], POLICY_TOL);
     }
-    HS_EXPECT_NEAR(positions_only.positions[i].x,
-                   rebuilt_positions_only.positions[i].x, POLICY_TOL);
-    HS_EXPECT_NEAR(positions_only.positions[i].y,
-                   rebuilt_positions_only.positions[i].y, POLICY_TOL);
-    HS_EXPECT_NEAR(positions_only.positions[i].z,
-                   rebuilt_positions_only.positions[i].z, POLICY_TOL);
+    HS_EXPECT_VEC(positions_only.positions[i],
+                  rebuilt_positions_only.positions[i], POLICY_TOL);
     derived_differences +=
         derived.registers[i][0] != source_registers.registers[i][0] ||
         derived.registers[i][1] != source_registers.registers[i][1];
@@ -546,9 +537,7 @@ inline void test_rasterize_register_copy_follows_interpolate_registers() {
         HS_EXPECT_EQ(f.age, expect.age);
         HS_EXPECT_EQ(f.size, expect.size);
         HS_EXPECT_EQ(f.color.alpha, 0.0f);
-        HS_EXPECT_EQ(f.pos.x, pos.x);
-        HS_EXPECT_EQ(f.pos.y, pos.y);
-        HS_EXPECT_EQ(f.pos.z, pos.z);
+        HS_EXPECT_VEC(f.pos, pos, 0.0f);
         f.color = Color4(Pixel(255, 255, 255), 0.5f);
       };
       {

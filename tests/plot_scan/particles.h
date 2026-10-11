@@ -85,9 +85,7 @@ inline void test_particle_system_fused_optional_deferred_shader() {
     else {
       HS_EXPECT_SIZE_OR_RETURN(pipe.plotted, reference.size());
       for (size_t i = 0; i < reference.size(); ++i) {
-        HS_EXPECT_EQ(pipe.plotted[i].x, reference[i].x);
-        HS_EXPECT_EQ(pipe.plotted[i].y, reference[i].y);
-        HS_EXPECT_EQ(pipe.plotted[i].z, reference[i].z);
+        HS_EXPECT_VEC(pipe.plotted[i], reference[i], 0.0f);
       }
     }
   }
@@ -333,9 +331,7 @@ inline void test_particle_system_direct_trail_materialization_registers() {
     HS_EXPECT_SIZE_OR_RETURN(vertices, len);
     for (size_t i = 0; i < len; ++i) {
       math::Vector expected = particle.history.get(i);
-      HS_EXPECT_EQ(vertices[i].pos.x, expected.x);
-      HS_EXPECT_EQ(vertices[i].pos.y, expected.y);
-      HS_EXPECT_EQ(vertices[i].pos.z, expected.z);
+      HS_EXPECT_VEC(vertices[i].pos, expected, 0.0f);
       HS_EXPECT_NEAR(vertices[i].v0,
                      static_cast<float>(i) / static_cast<float>(len - 1),
                      std::numeric_limits<float>::epsilon());
@@ -367,9 +363,7 @@ inline void test_particle_system_sparse_history_live_tip() {
   HS_EXPECT_EQ(vertices[0].v0, 0.0f);
   HS_EXPECT_EQ(vertices[1].v0, 0.5f);
   HS_EXPECT_EQ(vertices[2].v0, 1.0f);
-  HS_EXPECT_EQ(vertices[2].pos.x, particle.position.x);
-  HS_EXPECT_EQ(vertices[2].pos.y, particle.position.y);
-  HS_EXPECT_EQ(vertices[2].pos.z, particle.position.z);
+  HS_EXPECT_VEC(vertices[2].pos, particle.position, 0.0f);
 
   particle.life = 51;
   vertices = capture_particle_system_vertices(system);

@@ -492,9 +492,7 @@ inline void test_rasterize_window_preserves_terminal_sample() {
         return;
       HS_EXPECT_LT(clipped.plotted.size(), full.plotted.size());
       HS_EXPECT_EQ(terminal_t, FULL_TERMINAL_T);
-      HS_EXPECT_EQ(clipped.plotted.back().x, full.plotted.back().x);
-      HS_EXPECT_EQ(clipped.plotted.back().y, full.plotted.back().y);
-      HS_EXPECT_EQ(clipped.plotted.back().z, full.plotted.back().z);
+      HS_EXPECT_VEC(clipped.plotted.back(), full.plotted.back(), 0.0f);
       CapturePipeline bounded;
       Plot::rasterize<W, H, Plot::RasterConfig{.single_pass = SinglePass}>(
           bounded, canvas, points, shade,
