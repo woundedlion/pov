@@ -204,17 +204,13 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
           params.opacity_high};
 }
 
-/** @brief Shared generated-palette clocks and evaluation. */
-template <typename Derived, typename ParamsT>
-struct GeneratedPaletteModel : ValueStateModel<ColorClockState> {
-  /** @brief Brightness endpoints of the envelope. */
-  struct BrightnessRange {
-    float bottom; ///< Brightness where the envelope shape is 0.
-    float top;    ///< Brightness where the envelope shape is 1.
-  };
+/** @brief FIELD-to-COLOR crossing with generated-palette clocks and endpoints. */
+struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
+  static constexpr const char *ID = "colorize.generated-palette.v3";
+  static constexpr const char *NAME = "Generated Palette";
   using Input = FieldSample;
   using Output = Color4;
-  using Params = ParamsT;
+  using Params = GeneratedPaletteParams;
   using Prepared = Color::GeneratedPaletteState;
 
   static constexpr bool APPROXIMATE = true;
@@ -230,27 +226,12 @@ struct GeneratedPaletteModel : ValueStateModel<ColorClockState> {
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    const auto RANGE = Derived::brightness_range(params);
-    return prepare_generated_palette(ctx, params, state, RANGE.bottom,
-                                     RANGE.top);
+    return prepare_generated_palette(
+        ctx, params, state, params.brightness_bottom, params.brightness_top);
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
     return Color::apply_generated_palette(input, prepared);
-  }
-};
-
-/** @brief FIELD-to-COLOR crossing with explicit brightness endpoints. */
-struct ColorizeGeneratedPaletteV3
-    : GeneratedPaletteModel<ColorizeGeneratedPaletteV3,
-                            GeneratedPaletteParams> {
-  static constexpr const char *ID = "colorize.generated-palette.v3";
-  static constexpr const char *NAME = "Generated Palette";
-  /** @brief Reads the brightness endpoints from the param block.
-      @param params Operator parameters.
-      @return `brightness_bottom` and `brightness_top`. */
-  static BrightnessRange brightness_range(const Params &params) {
-    return {params.brightness_bottom, params.brightness_top};
   }
 };
 
