@@ -246,6 +246,14 @@ inline void test_mobiusflow_step_preserves_unit_product() {
   Animation::MobiusFlow flow(params, rings, lines, duration, /*repeat=*/false);
   for (int i = 0; i < duration; ++i) {
     flow.step(fake_canvas());
+    const double progress = static_cast<double>(i + 1) / duration;
+    const double magnitude = std::exp(progress * 2.5 / (rings + 1.0));
+    const double angle = progress * 2.0 * std::acos(-1.0) / lines;
+    HS_CONTEXT("flow frame", i);
+    HS_EXPECT_NEAR(params.a.re, magnitude * std::cos(angle), 1e-5);
+    HS_EXPECT_NEAR(params.a.im, magnitude * std::sin(angle), 1e-5);
+    HS_EXPECT_NEAR(params.d.re, std::cos(angle) / magnitude, 1e-5);
+    HS_EXPECT_NEAR(params.d.im, -std::sin(angle) / magnitude, 1e-5);
     const float re = params.a.re * params.d.re - params.a.im * params.d.im;
     const float im = params.a.re * params.d.im + params.a.im * params.d.re;
     HS_EXPECT_NEAR(re, 1.0f, 1e-4f);
