@@ -314,22 +314,8 @@ struct EmplaceOnly {
    * @param b Y coordinate.
    */
   EmplaceOnly(int a, int b) : x(a), y(b) {}
-  /**
-   * @brief Defaulted copy constructor.
-   * @param other Source instance to copy from.
-   */
   EmplaceOnly(const EmplaceOnly &) = default;
-  /**
-   * @brief Deleted copy assignment.
-   * @param other Source instance (unused; overload is deleted).
-   * @return Reference to this (never invoked).
-   */
   EmplaceOnly &operator=(const EmplaceOnly &) = delete;
-  /**
-   * @brief Deleted move assignment.
-   * @param other Source instance (unused; overload is deleted).
-   * @return Reference to this (never invoked).
-   */
   EmplaceOnly &operator=(EmplaceOnly &&) = delete;
 };
 
