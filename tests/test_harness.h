@@ -552,16 +552,17 @@ inline int end_module(const ModuleScope &m) {
 // invoke hs_test::approx(float,float,float) directly.
 #define HS_EXPECT_NEAR(a, b, tol)                                              \
   do {                                                                         \
-    double _hs_a = (a);                                                        \
-    double _hs_b = (b);                                                        \
-    hs_test::report_near(_hs_a, _hs_b, (tol), #a " ~= " #b " (tol=" #tol ")",  \
-                         __func__, __FILE__, __LINE__);                        \
+    double hs_lhs = (a);                                                       \
+    double hs_rhs = (b);                                                       \
+    hs_test::report_near(hs_lhs, hs_rhs, (tol),                                \
+                         #a " ~= " #b " (tol=" #tol ")", __func__, __FILE__,   \
+                         __LINE__);                                            \
   } while (0)
 #define HS_EXPECT_NEAR_REL(a, b, rel_tol)                                      \
   do {                                                                         \
-    double _hs_a = (a);                                                        \
-    double _hs_b = (b);                                                        \
-    hs_test::report_near_rel(_hs_a, _hs_b, (rel_tol),                          \
+    double hs_lhs = (a);                                                       \
+    double hs_rhs = (b);                                                       \
+    hs_test::report_near_rel(hs_lhs, hs_rhs, (rel_tol),                        \
                              #a " ~= " #b " (rel_tol=" #rel_tol ")", __func__, \
                              __FILE__, __LINE__);                              \
   } while (0)
@@ -571,22 +572,23 @@ inline int end_module(const ModuleScope &m) {
 // pair is rejected here and routed to HS_EXPECT_STREQ/HS_EXPECT_STRNE.
 #define HS_EXPECT_CMP(a, b, op, opstr)                                         \
   do {                                                                         \
-    auto _hs_a = (a);                                                          \
-    auto _hs_b = (b);                                                          \
-    static_assert(!(hs_test::detail::IS_C_STRING<decltype(_hs_a)> &&           \
-                    hs_test::detail::IS_C_STRING<decltype(_hs_b)>),            \
+    auto hs_lhs = (a);                                                         \
+    auto hs_rhs = (b);                                                         \
+    static_assert(!(hs_test::detail::IS_C_STRING<decltype(hs_lhs)> &&          \
+                    hs_test::detail::IS_C_STRING<decltype(hs_rhs)>),           \
                   "comparing two C strings compares pointers; use "            \
                   "HS_EXPECT_STREQ or HS_EXPECT_STRNE");                       \
-    hs_test::report_cmp(_hs_a op _hs_b, _hs_a, _hs_b, #a " " opstr " " #b,     \
+    hs_test::report_cmp(hs_lhs op hs_rhs, hs_lhs, hs_rhs, #a " " opstr " " #b, \
                         __func__, __FILE__, __LINE__);                         \
   } while (0)
 // Content comparison for C strings, null-safe on either side.
 #define HS_EXPECT_STR_CMP(a, b, negate, opstr)                                 \
   do {                                                                         \
-    const char *_hs_a = (a);                                                   \
-    const char *_hs_b = (b);                                                   \
-    hs_test::report_cmp(negate hs_test::str_equal(_hs_a, _hs_b), _hs_a, _hs_b, \
-                        #a " " opstr " " #b, __func__, __FILE__, __LINE__);    \
+    const char *hs_lhs = (a);                                                  \
+    const char *hs_rhs = (b);                                                  \
+    hs_test::report_cmp(negate hs_test::str_equal(hs_lhs, hs_rhs), hs_lhs,     \
+                        hs_rhs, #a " " opstr " " #b, __func__, __FILE__,       \
+                        __LINE__);                                             \
   } while (0)
 #define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
 #define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
@@ -603,11 +605,11 @@ inline int end_module(const ModuleScope &m) {
 // mismatch so the indexing that follows cannot read past the end.
 #define HS_EXPECT_SIZE_OR_RETURN(container, expected)                          \
   do {                                                                         \
-    const std::size_t _hs_size = (container).size();                           \
-    const std::size_t _hs_want = static_cast<std::size_t>(expected);           \
-    hs_test::report_cmp(_hs_size == _hs_want, _hs_size, _hs_want,              \
+    const std::size_t hs_size = (container).size();                            \
+    const std::size_t hs_want = static_cast<std::size_t>(expected);            \
+    hs_test::report_cmp(hs_size == hs_want, hs_size, hs_want,                  \
                         #container ".size() == " #expected, __func__,          \
                         __FILE__, __LINE__);                                   \
-    if (_hs_size != _hs_want)                                                  \
+    if (hs_size != hs_want)                                                    \
       return;                                                                  \
   } while (0)
