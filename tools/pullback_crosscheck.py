@@ -493,11 +493,11 @@ def compare_captures(
     candidate: dict,
     programs: dict,
     digest: str,
+    *,
     base_sha: str,
     candidate_sha: str,
     strict_base: dict | None = None,
     strict_candidate: dict | None = None,
-    *,
     oracles: list[dict],
 ) -> None:
     if base_sha != programs["base_sha"]:
@@ -574,11 +574,11 @@ def _compare_capture_paths(
     candidate_path: Path,
     programs: dict,
     digest: str,
+    *,
     base_sha: str,
     candidate_sha: str,
     strict_base_path: Path | None = None,
     strict_candidate_path: Path | None = None,
-    *,
     oracles: list[dict],
 ) -> tuple[bool, dict[str, dict]]:
     """Compare captures loaded for this call; return strict request and toolchains."""
@@ -594,10 +594,10 @@ def _compare_capture_paths(
             candidate,
             programs,
             digest,
-            base_sha,
-            candidate_sha,
-            strict_base,
-            strict_candidate,
+            base_sha=base_sha,
+            candidate_sha=candidate_sha,
+            strict_base=strict_base,
+            strict_candidate=strict_candidate,
             oracles=oracles,
         )
     except StrictFpRequired:
@@ -711,7 +711,7 @@ def _produce_capture(
 
 
 def orchestrate(
-    repository: Path, controller: Path, base_sha: str, candidate_sha: str, output: Path
+    repository: Path, controller: Path, *, base_sha: str, candidate_sha: str, output: Path
 ) -> None:
     if base_sha == candidate_sha:
         raise CrosscheckError("base and candidate revisions must differ")
@@ -793,8 +793,8 @@ def orchestrate(
                         capture_paths[("candidate", configuration)],
                         programs,
                         digest,
-                        base_sha,
-                        candidate_sha,
+                        base_sha=base_sha,
+                        candidate_sha=candidate_sha,
                         oracles=oracles,
                     )
                     observed_toolchains.update(compared_toolchains)
@@ -824,10 +824,10 @@ def orchestrate(
                         capture_paths[("candidate", "wasm-release")],
                         programs,
                         digest,
-                        base_sha,
-                        candidate_sha,
-                        capture_paths[("base", "wasm-strict-fp")],
-                        capture_paths[("candidate", "wasm-strict-fp")],
+                        base_sha=base_sha,
+                        candidate_sha=candidate_sha,
+                        strict_base_path=capture_paths[("base", "wasm-strict-fp")],
+                        strict_candidate_path=capture_paths[("candidate", "wasm-strict-fp")],
                         oracles=oracles,
                     )
                     observed_toolchains.update(compared_toolchains)
@@ -891,9 +891,9 @@ def main(argv=None) -> int:
             orchestrate(
                 args.repository.resolve(),
                 args.controller.resolve(),
-                args.base_sha,
-                args.candidate_sha,
-                args.output.resolve(),
+                base_sha=args.base_sha,
+                candidate_sha=args.candidate_sha,
+                output=args.output.resolve(),
             )
         else:
             programs, oracles, schema = load_and_validate(args.manifest_dir)
@@ -902,10 +902,12 @@ def main(argv=None) -> int:
                 _load_capture(args.candidate),
                 programs,
                 manifest_sha256(programs, oracles, schema),
-                args.base_sha,
-                args.candidate_sha,
-                _load_capture(args.strict_base) if args.strict_base else None,
-                _load_capture(args.strict_candidate) if args.strict_candidate else None,
+                base_sha=args.base_sha,
+                candidate_sha=args.candidate_sha,
+                strict_base=_load_capture(args.strict_base) if args.strict_base else None,
+                strict_candidate=(
+                    _load_capture(args.strict_candidate) if args.strict_candidate else None
+                ),
                 oracles=oracles,
             )
     except (
