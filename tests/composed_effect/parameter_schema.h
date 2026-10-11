@@ -12,7 +12,7 @@ struct ParameterLayoutHash {
 
   void number(uint64_t number) {
     for (unsigned i = 0; i < 8; ++i) {
-      value = (value ^ (number & 0xff)) * 1099511628211ULL;
+      value = fnv1a64_byte(value, static_cast<uint8_t>(number));
       number >>= 8;
     }
   }
@@ -20,7 +20,7 @@ struct ParameterLayoutHash {
   void text(std::string_view text) {
     number(text.size());
     for (const unsigned char ch : text)
-      value = (value ^ ch) * 1099511628211ULL;
+      value = fnv1a64_byte(value, ch);
   }
 
   template <typename Root, typename Member>
