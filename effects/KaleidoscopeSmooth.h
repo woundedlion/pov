@@ -24,6 +24,23 @@ struct KaleidoscopeSmoothWhiteBox;
 
 /** @brief Stage spec for `KaleidoscopeSmooth`. */
 struct KaleidoscopeSmoothSpec : Pullback::Spec {
+  /** @brief Folder title for a pipeline group.
+   *  @param group Stable group name.
+   *  @return Displayed title. */
+  static constexpr const char *parameter_group_title(std::string_view group) {
+    if (group == "Projection Frame")
+      return "Spin + Wander";
+    if (group == "Projection")
+      return "Stereographic";
+    if (group == "Planar Warp 2")
+      return "Mirror Tile";
+    if (group == "Function")
+      return "Grid";
+    if (group == "Colorize")
+      return "Generated Analogous";
+    return group.data();
+  }
+
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

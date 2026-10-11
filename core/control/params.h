@@ -35,6 +35,13 @@ enum class ParamSetResult {
   TOO_LONG,          /**< Batch exceeds the chain parameter capacity. */
 };
 
+/** @brief Presentation metadata for a registered parameter family. */
+struct ParameterGroup {
+  const char *name;  ///< Stable pipeline group name.
+  const char *title; ///< Displayed folder title.
+  uint8_t order;     ///< Folder position in the pipeline.
+};
+
 /**
  * @brief Defines a runtime-adjustable parameter.
  */
@@ -55,6 +62,8 @@ struct ParamDef {
   void *target = nullptr;     /**< Writable parameter target. */
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   const void *display_target = nullptr; /**< Optional live-value source. */
+  const ParameterGroup *group =
+      nullptr; ///< Optional parameter family metadata.
 #endif
   const char *const *options = nullptr; /**< Option labels for an enumerated
                              param (GUI dropdown), or null for a plain param.
@@ -215,7 +224,7 @@ public:
   }
 };
 static_assert(sizeof(void *) != 4 ||
-                  sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 40 : 32),
+                  sizeof(ParamDef) == (HS_ENABLE_PARAM_GUI_BRIDGE ? 44 : 32),
               "ParamDef must keep its 32-bit device footprint");
 
 /**

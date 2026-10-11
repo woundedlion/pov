@@ -696,6 +696,13 @@ public:
     for (const auto &v : param_streams.views) {
       emscripten::val entry = emscripten::val::object();
       entry.set("name", emscripten::val(v.name));
+      if (v.group != nullptr) {
+        emscripten::val group = emscripten::val::object();
+        group.set("name", v.group->name);
+        group.set("title", v.group->title);
+        group.set("order", v.group->order);
+        entry.set("group", group);
+      }
 
       if (v.is_bool) {
         // Booleans carry no range.

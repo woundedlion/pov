@@ -105,6 +105,12 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
     HS_EXPECT_EQ(views[i].option_count, def.option_count);
     HS_EXPECT_TRUE(views[i].export_options == def.export_options);
     HS_EXPECT_TRUE(views[i].option_values == def.option_values);
+    HS_EXPECT_TRUE(views[i].group == def.group);
+    if constexpr (requires { typename E<DEFAULT_W, DEFAULT_H>::Spec; }) {
+      HS_EXPECT_TRUE(views[i].group != nullptr);
+      if (views[i].group != nullptr)
+        HS_EXPECT_TRUE(views[i].group->name[0] != '\0');
+    }
     if (def.option_count > 0) {
       HS_EXPECT_GE(views[i].value, 0.0f);
       if (def.option_values == nullptr)
