@@ -140,6 +140,22 @@ async function main(probe) {
 
 
   const { default: createHolosphereModule } = await import(pathToFileURL(jsPath));
+  {
+    let abortObserved = false;
+    const failedModule = {
+      wasmBinary: new Uint8Array([0]),
+      printErr: () => {},
+      onAbort() { abortObserved = this.HS_MODULE_DEAD === true; },
+    };
+    let aborted = false;
+    try {
+      await createHolosphereModule(failedModule);
+    } catch (error) {
+      aborted = error instanceof WebAssembly.RuntimeError;
+    }
+    if (!aborted || !abortObserved || !failedModule.HS_MODULE_DEAD)
+      fail('abort did not mark the module dead before notifying its observer');
+  }
   // Surface engine-side hs::log output and any abort() message.
   const Module = await createHolosphereModule({
     print: (s) => console.log(`[wasm] ${s}`),
