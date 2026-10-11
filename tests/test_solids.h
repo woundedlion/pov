@@ -71,6 +71,10 @@ static_assert(!Solids::solid_tables_consistent<OutOfRange>());
 
 namespace hs_test {
 namespace solids_tests {
+inline size_t islamic_base() {
+  return Solids::Collections::get_simple_solids().size() +
+         Solids::Collections::get_catalan_solids().size();
+}
 
 // Two scratch arenas (reset per solid) plus two geometry arenas.
 inline uint8_t solids_geom_a[4 * 1024 * 1024];
@@ -175,8 +179,7 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
  * @details Islamic indices follow the simple + Catalan blocks in the registry.
  */
 inline void test_islamic_registry_solids_are_valid() {
-  const size_t base = Solids::Collections::get_simple_solids().size() +
-                      Solids::Collections::get_catalan_solids().size();
+  const size_t base = islamic_base();
   for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size();
        ++k) {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
@@ -192,8 +195,7 @@ inline void test_islamic_registry_solids_are_valid() {
  *          from their corners, producing sliver faces.
  */
 inline void test_islamic_solids_have_no_sliver_edges() {
-  const size_t base = Solids::Collections::get_simple_solids().size() +
-                      Solids::Collections::get_catalan_solids().size();
+  const size_t base = islamic_base();
   for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size();
        ++k) {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
@@ -391,8 +393,7 @@ inline void test_euler_archimedean_catalan_solids() {
  * @brief Verifies every Islamic-pattern entry has paired edges and V-E+F==2.
  */
 inline void test_islamic_registry_solids_are_closed() {
-  const size_t base = Solids::Collections::get_simple_solids().size() +
-                      Solids::Collections::get_catalan_solids().size();
+  const size_t base = islamic_base();
   for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size(); ++k)
     check_euler_for_index(base + k);
 }
@@ -479,8 +480,7 @@ inline void test_determinism_archimedean_with_conway_ops() {
  * @brief Verifies determinism across the whole Islamic-pattern family.
  */
 inline void test_determinism_complex_islamic() {
-  const size_t base = Solids::Collections::get_simple_solids().size() +
-                      Solids::Collections::get_catalan_solids().size();
+  const size_t base = islamic_base();
   for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size(); ++k)
     check_determinism_for_index(base + k);
 }
@@ -560,6 +560,8 @@ inline void test_recipes_match_generators_bitwise() {
   HS_EXPECT_EQ(checked, Solids::Collections::get_islamic_solids().size());
 }
 
+inline void check_lowered_replay(const Solids::Recipe &recipe);
+
 /**
  * @brief Verifies lowered replay (expand_to_primitives + build_steps) matches
  *        authored replay (build_recipe) bitwise for every non-null recipe.
@@ -569,27 +571,7 @@ inline void test_recipe_lowered_replay_matches_authored() {
     for (const Solids::Entry &e : reg) {
       if (!e.recipe)
         continue;
-      Solids::OpStep lowered[MAX_LOWERED_STEPS];
-      size_t n =
-          Solids::expand_to_primitives(*e.recipe, lowered, MAX_LOWERED_STEPS);
-      HS_EXPECT_EQ(n, Solids::lowered_step_count(*e.recipe));
-      Arena geom1(solids_geom_a, sizeof(solids_geom_a));
-      PolyMesh authored;
-      {
-        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-        authored = Solids::finalize_solid(Solids::build_recipe(*e.recipe, a, b),
-                                          geom1);
-      }
-      Arena geom2(solids_geom_b, sizeof(solids_geom_b));
-      PolyMesh low;
-      {
-        Arena a(solids_scratch_a, sizeof(solids_scratch_a));
-        Arena b(solids_scratch_b, sizeof(solids_scratch_b));
-        low = Solids::finalize_solid(
-            Solids::build_steps(e.recipe->seed, lowered, n, a, b), geom2);
-      }
-      check_bitwise_equal_meshes(authored, low);
+      check_lowered_replay(*e.recipe);
     }
   }
 }
@@ -621,12 +603,10 @@ inline void test_shipping_recipe_lowering_is_identity() {
 }
 
 /**
- * @brief Builds a one-step recipe on the tetrahedron seed and asserts lowered
- *        replay equals authored replay bitwise.
- * @param step The (composite) op step to pin.
+ * @brief Asserts lowered replay equals authored recipe replay bitwise.
+ * @param recipe Recipe to replay.
  */
-inline void check_composite_lowering(const Solids::OpStep &step) {
-  const Solids::Recipe recipe = {0 /* tetrahedron */, &step, 1};
+inline void check_lowered_replay(const Solids::Recipe &recipe) {
   Solids::OpStep lowered[MAX_LOWERED_STEPS];
   size_t n = Solids::expand_to_primitives(recipe, lowered, MAX_LOWERED_STEPS);
   HS_EXPECT_EQ(n, Solids::lowered_step_count(recipe));
@@ -647,6 +627,11 @@ inline void check_composite_lowering(const Solids::OpStep &step) {
         Solids::build_steps(recipe.seed, lowered, n, a, b), geom2);
   }
   check_bitwise_equal_meshes(authored, low);
+}
+
+inline void check_composite_lowering(const Solids::OpStep &step) {
+  const Solids::Recipe recipe = {0, &step, 1};
+  check_lowered_replay(recipe);
 }
 
 /**
