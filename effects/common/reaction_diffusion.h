@@ -19,7 +19,7 @@
  * @tparam Derived Concrete effect supplying the system-specific render().
  * @tparam W Framebuffer width in pixels.
  * @tparam H Framebuffer height in pixels.
- * @details Holds the static Fibonacci-lattice K-NN graph, the Languid
+ * @details Holds node positions and the cubemap lookup, the Languid
  * random-walk view orientation, the compact biweight kernel and blob seeding.
  * draw_frame() forwards to Derived::render(); derived classes befriend this base
  * so render() can stay private.
