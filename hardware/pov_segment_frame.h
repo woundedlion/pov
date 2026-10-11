@@ -11,10 +11,20 @@
 #pragma once
 
 #include "core/render/canvas.h"
+#include "pov_segment_map.h"
 
 #include <cstring>
 
 namespace pov {
+
+/**
+ * @brief Selects the arm-A half for the window after the open one.
+ * @param window_left True when the current window sweeps arm A's left half.
+ * @return True when the queued frame will sweep arm A's left half.
+ */
+constexpr bool upcoming_window_arm_a_left(bool window_left) {
+  return !window_left;
+}
 
 /**
  * @brief Retains the previous image outside this frame's segment half.
@@ -34,6 +44,26 @@ inline void preserve_segment_half(Canvas &canvas) {
     const int OFFSET = y * canvas.width() + X0;
     std::memcpy(dest + OFFSET, source + OFFSET, (X1 - X0) * sizeof(Pixel));
   }
+}
+
+/**
+ * @brief Draws the initial full-width band before installing segment hooks.
+ * @param effect Newly constructed effect.
+ * @param initial_clip Segment bounds for the initial arm-A-left window.
+ * @param prepare Hook that selects the upcoming window after buffer acquisition.
+ */
+inline void prime_segment_frame(Effect &effect, const SegmentClip &initial_clip,
+                                Effect::BufferReadyHook prepare) {
+  const bool CLIPPED =
+      segment_clip_applies(effect.needs_full_frame(), effect.persists_pixels());
+  if (CLIPPED)
+    effect.set_clip(initial_clip.y0, initial_clip.y1, initial_clip.x0,
+                    initial_clip.x1);
+  effect.set_clip_x(0, effect.width());
+  effect.draw_frame();
+  effect.set_buffer_ready_hook(prepare);
+  if (CLIPPED)
+    effect.set_buffer_complete_hook(preserve_segment_half);
 }
 
 } // namespace pov

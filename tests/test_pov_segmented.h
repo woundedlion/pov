@@ -737,7 +737,8 @@ inline void set_phase_clip(Effect &effect, bool arm_a_left) {
 }
 
 inline void prepare_phase_clip(Effect &effect) {
-  set_phase_clip(effect, phase_handoff->window_left() == 0);
+  set_phase_clip(effect,
+                 pov::upcoming_window_arm_a_left(phase_handoff->window_left()));
 }
 
 inline bool phase_frame_matches(const PhaseEffect &effect, uint16_t stamp,
@@ -803,13 +804,15 @@ inline PhaseRun run_phase_scheduler(bool post_wait, bool clipped_clear) {
   score_phase_frame(result, effect, effect.last_stamp(), true);
 
   if (!post_wait)
-    set_phase_clip(effect, handoff.window_left() == 0);
+    set_phase_clip(effect,
+                   pov::upcoming_window_arm_a_left(handoff.window_left()));
   effect.draw_frame();
 
   for (int flip = 1; flip < 16; ++flip) {
     const uint16_t queued_stamp = effect.last_stamp();
     if (!post_wait)
-      set_phase_clip(effect, handoff.window_left() == 0);
+      set_phase_clip(effect,
+                     pov::upcoming_window_arm_a_left(handoff.window_left()));
 
     std::atomic<bool> draw_returned{false};
     const unsigned long spins_before = Canvas::buffer_free_spin_count();
@@ -930,6 +933,28 @@ inline void test_segment_half_survives_missed_boundaries() {
       }
     }
   }
+}
+
+/** @brief Segment priming fills both arm halves before preserving queued halves. */
+inline void test_prime_segment_frame() {
+  EffectHandoff<Effect> handoff;
+  phase_handoff = &handoff;
+  PhaseEffect effect(true);
+  const SegmentClip clip = segment_clip(segment_map(0, 8, 4), true, 8, 4, 8);
+  pov::prime_segment_frame(effect, clip, prepare_phase_clip);
+  effect.advance_display();
+  for (int y = clip.y0; y < clip.y1; ++y)
+    for (int x = 0; x < 8; ++x)
+      HS_EXPECT_EQ(effect.get_pixel(x, y).r, 1);
+
+  handoff.set_window_left(true);
+  effect.draw_frame();
+  effect.advance_display();
+  for (int y = clip.y0; y < clip.y1; ++y)
+    for (int x = 0; x < 8; ++x)
+      HS_EXPECT_EQ(effect.get_pixel(x, y).r, x >= 4 ? 2 : 1);
+  effect.set_buffer_ready_hook(nullptr);
+  phase_handoff = nullptr;
 }
 
 /** @brief Payload whose access is ordered only by EffectHandoff. */
@@ -1287,6 +1312,7 @@ inline int run_pov_segmented_tests() {
   test_composed_wake_sequence();
   test_commit_failure_settles_sync_pulse();
   test_clip_phase_after_buffer_release();
+  test_prime_segment_frame();
   test_segment_half_survives_missed_boundaries();
   test_handoff_release_acquire_across_threads();
 
