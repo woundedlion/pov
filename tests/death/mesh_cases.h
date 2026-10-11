@@ -418,21 +418,27 @@ inline void case_mesh_transform_aliases_source() {
 
 /** @brief Death case: chamfer rejects the face-collapse endpoint. */
 inline void case_chamfer_collapsed_endpoint() {
-  static uint8_t target_buf[64];
-  static uint8_t temp_buf[64];
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  static uint8_t temp_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
   Arena target(target_buf, sizeof(target_buf));
   Arena temp(temp_buf, sizeof(temp_buf));
   PolyMesh mesh;
+  build_solid<Solids::Tetrahedron>(mesh, source);
   MeshOps::chamfer(mesh, target, temp, opaque(1.0f));
 }
 
 /** @brief Death case: snub rejects the face-collapse endpoint. */
 inline void case_snub_collapsed_endpoint() {
-  static uint8_t target_buf[64];
-  static uint8_t temp_buf[64];
+  static uint8_t source_buf[4096];
+  static uint8_t target_buf[4096];
+  static uint8_t temp_buf[4096];
+  Arena source(source_buf, sizeof(source_buf));
   Arena target(target_buf, sizeof(target_buf));
   Arena temp(temp_buf, sizeof(temp_buf));
   PolyMesh mesh;
+  build_solid<Solids::Tetrahedron>(mesh, source);
   MeshOps::snub(mesh, target, temp, opaque(1.0f));
 }
 
