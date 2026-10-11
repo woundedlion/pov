@@ -844,6 +844,33 @@ clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
   }
 }
 
+/** @brief Up to two non-empty column runs admitted by a clip arc. */
+struct ClipPieces {
+  int lo[2]{};   /**< First columns. */
+  int hi[2]{};   /**< Exclusive end columns. */
+  int count = 0; /**< Number of non-empty runs. */
+};
+
+/**
+ * @brief Collects a clip arc's column runs in ascending order.
+ * @tparam W Canvas width in pixels.
+ * @param xc Column-arc clip.
+ * @return Non-empty clipped pieces of [0, W).
+ */
+template <int W>
+__attribute__((always_inline)) inline ClipPieces
+clip_pieces(ClipRegion::XClip xc) {
+  ClipPieces pieces;
+  clip_run(0, W, xc, [&](int x1, int x2) {
+    if (x1 >= x2)
+      return;
+    pieces.lo[pieces.count] = x1;
+    pieces.hi[pieces.count] = x2;
+    ++pieces.count;
+  });
+  return pieces;
+}
+
 /**
  * @brief Walks the canvas columns a clip arc admits, skipping the rest whole.
  * @tparam W Canvas width in pixels.
@@ -855,16 +882,7 @@ clip_run(int x1, int x2, ClipRegion::XClip xc, EmitFn &&emit) {
 template <int W, typename BodyFn>
 __attribute__((always_inline)) inline void
 walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
-  int lo[2];
-  int hi[2];
-  int pieces = 0;
-  clip_run(0, W, xc, [&](int x1, int x2) {
-    if (x1 >= x2)
-      return;
-    lo[pieces] = x1;
-    hi[pieces] = x2;
-    ++pieces;
-  });
+  auto [lo, hi, pieces] = clip_pieces<W>(xc);
   for (int i = 0; i < pieces; ++i)
     for (int x = lo[i]; x < hi[i]; ++x)
       body(x);
@@ -882,16 +900,7 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
 template <int W, typename BodyFn>
 __attribute__((always_inline)) inline void
 walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
-  int lo[2];
-  int hi[2];
-  int pieces = 0;
-  clip_run(0, W, xc, [&](int x1, int x2) {
-    if (x1 >= x2)
-      return;
-    lo[pieces] = x1;
-    hi[pieces] = x2;
-    ++pieces;
-  });
+  auto [lo, hi, pieces] = clip_pieces<W>(xc);
   if (pieces == 0)
     return;
   int x = lo[0];
