@@ -333,7 +333,7 @@ public:
     });
     // Per-load RNG stream keyed by the effect's stable id; seeded after
     // teardown so a teardown draw cannot advance it.
-    hs::random().seed(hs::stable_effect_seed(entry->stable_id));
+    hs::seed_effect_stream(entry->stable_id);
     current_effect = entry->creator();
     current_factory_entry = entry;
     binding_state->effect = current_effect.get();

@@ -260,6 +260,27 @@ inline void test_phantasm_seed_identity() {
 #undef HS_VERIFY_PHANTASM_SEED
 }
 
+/** @brief Each installation seed path restarts every roster effect's stream. */
+inline void test_effect_stream_restarts() {
+#define HS_VERIFY_EFFECT_STREAM(name)                                          \
+  do {                                                                         \
+    using E = name<96, 20>;                                                    \
+    hs::Pcg32 expected(hs::stable_effect_seed(E::EFFECT_ID));                  \
+    const uint32_t first = expected();                                         \
+    hs::random()();                                                            \
+    hs::seed_effect_stream<E>();                                               \
+    HS_EXPECT_EQ(hs::random()(), first);                                       \
+    hs::random()();                                                            \
+    hs::seed_effect_stream(std::string_view(E::EFFECT_ID));                    \
+    HS_EXPECT_EQ(hs::random()(), first);                                       \
+    hs::random()();                                                            \
+    hs::seed_effect_stream(hs::stable_effect_seed(E::EFFECT_ID));              \
+    HS_EXPECT_EQ(hs::random()(), first);                                       \
+  } while (false);
+  HS_EFFECT_LIST(HS_VERIFY_EFFECT_STREAM)
+#undef HS_VERIFY_EFFECT_STREAM
+}
+
 /**
  * @brief Drives the create/render/destroy lifecycle at every HS_RESOLUTIONS
  *        row.
@@ -289,6 +310,7 @@ inline int run_effect_factory_tests() {
   test_resolution_dispatch();
   test_factory_tables();
   test_phantasm_seed_identity();
+  test_effect_stream_restarts();
   test_fixed_preset_ids();
   test_factory_lifecycle();
   return fixture.result();
