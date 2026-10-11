@@ -74,12 +74,7 @@ inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
 inline void check_equal_within_relax_gate(const PolyMesh &got,
                                           const PolyMesh &want) {
   const float tol = std::sqrt(MeshOps::RELAX_CONVERGE_EPS_SQ);
-  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
-  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
-  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
-  if (got.vertices.size() != want.vertices.size() ||
-      got.face_counts.size() != want.face_counts.size() ||
-      got.faces.size() != want.faces.size())
+  if (!expect_same_mesh_sizes(got, want))
     return;
   for (size_t i = 0; i < got.vertices.size(); ++i)
     HS_EXPECT_LE(math::distance_between(got.vertices[i], want.vertices[i]),
@@ -97,9 +92,7 @@ inline void check_equal_within_relax_gate(const PolyMesh &got,
  */
 inline void check_equal_up_to_vertex_order(const PolyMesh &got,
                                            const PolyMesh &want, float tol) {
-  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
-  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
-  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  expect_same_mesh_sizes(got, want);
   HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
                  conway_tests::face_type_histogram(want));
   if (got.vertices.size() != want.vertices.size())
@@ -125,9 +118,7 @@ inline void check_equal_up_to_vertex_order(const PolyMesh &got,
  */
 inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
                                float edge_dev_tol) {
-  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
-  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
-  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  expect_same_mesh_sizes(got, want);
   HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
                  conway_tests::face_type_histogram(want));
   check_all_unit_vertices(got, 1e-3f);

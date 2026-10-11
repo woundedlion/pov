@@ -68,12 +68,7 @@ inline void check_pairwise_vertex_cover(const PolyMesh &got,
  */
 inline bool check_vertex_order_identity(const PolyMesh &got,
                                         const PolyMesh &src) {
-  HS_EXPECT_EQ(got.vertices.size(), src.vertices.size());
-  HS_EXPECT_EQ(got.face_counts.size(), src.face_counts.size());
-  HS_EXPECT_EQ(got.faces.size(), src.faces.size());
-  if (got.vertices.size() != src.vertices.size() ||
-      got.face_counts.size() != src.face_counts.size() ||
-      got.faces.size() != src.faces.size())
+  if (!expect_same_mesh_sizes(got, src))
     return false;
   HS_EXPECT_EQ(std::memcmp(got.face_counts.data(), src.face_counts.data(),
                            got.face_counts.size() * sizeof(uint8_t)),
