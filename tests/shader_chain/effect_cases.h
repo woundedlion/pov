@@ -248,8 +248,9 @@ inline void test_shader_chain_projection_plane_bound() {
         math::Vector(1, 1e-6f, 0), math::Vector(0, -1e-6f, 1)})
     views.push_back(view.normalized());
   const float NEAR_POLE_Y = std::nextafter(1.0f, 0.0f);
-  views.emplace_back(sqrtf(1.004f - NEAR_POLE_Y * NEAR_POLE_Y), NEAR_POLE_Y,
-                     0.0f);
+  views.emplace_back(sqrtf(1.0f + PB::DIRECTION_NORM_SQUARED_TOLERANCE -
+                           NEAR_POLE_Y * NEAR_POLE_Y),
+                     NEAR_POLE_Y, 0.0f);
   constexpr int SWEEP = 4096;
   for (int index = 0; index < SWEEP; ++index) {
     const float y = 1.0f - 2.0f * (index + 0.5f) / SWEEP;
