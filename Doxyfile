@@ -63,6 +63,7 @@ PREDEFINED             = FLASHMEM= \
                          HS_ENABLE_CHAIN_INTERPRETER=1 \
                          HS_ENABLE_TEST_HOOKS=1 \
                          HS_ENABLE_TEST_ORACLES=1 \
+                         HS_HOT_INLINE= \
                          HS_O3_BEGIN= \
                          HS_O3_END=
 
