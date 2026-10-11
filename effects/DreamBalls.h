@@ -695,6 +695,19 @@ private:
     }
   }
 
+  /** @brief Number of scene copies, with a minimum of one. */
+  static int copy_count(const Params &params) {
+    const int copies = static_cast<int>(params.num_copies);
+    return copies < 1 ? 1 : copies;
+  }
+
+  /** @brief Applies the frame's global orientation in place. */
+  __attribute__((always_inline)) void orient_mesh(MeshState &mesh) {
+    HS_PROFILE(db_orient);
+    for (auto &vertex : mesh.vertices)
+      vertex = global_orientation.orient(vertex);
+  }
+
   void draw_woven_scene(Canvas &canvas, const Params &p, const SolidData &solid,
                         bool medial, float opacity, const BakedPalette &baked) {
     const auto &edges = woven_edges(solid, medial);
@@ -724,8 +737,7 @@ private:
       f.color = c;
     };
 
-    const int num_copies_raw = static_cast<int>(p.num_copies);
-    const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
+    const int num_copies = copy_count(p);
     for (int copy = 0; copy < num_copies; ++copy) {
       const float copy_phase =
           orbit_phase * 2 * math::PI_F +
@@ -752,11 +764,7 @@ private:
         }
       }
 
-      {
-        HS_PROFILE(db_orient);
-        for (auto &vertex : framed_mesh.vertices)
-          vertex = global_orientation.orient(vertex);
-      }
+      orient_mesh(framed_mesh);
 
       {
         HS_PROFILE(db_mesh_plot);
@@ -775,8 +783,7 @@ private:
       MeshOps::transform(solid.mesh_state, target, scratch_arena_a);
     }
 
-    const int num_copies_raw = static_cast<int>(p.num_copies);
-    const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
+    const int num_copies = copy_count(p);
     for (int copy = 0; copy < num_copies; ++copy) {
       const float offset =
           (static_cast<float>(copy) / num_copies) * 2 * math::PI_F;
@@ -786,11 +793,7 @@ private:
                               offset);
       }
 
-      {
-        HS_PROFILE(db_orient);
-        for (auto &vertex : target.vertices)
-          vertex = global_orientation.orient(vertex);
-      }
+      orient_mesh(target);
 
       {
         HS_PROFILE(db_mesh_plot);
