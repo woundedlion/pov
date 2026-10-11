@@ -1,6 +1,6 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **39 effects in the Phantasm image**, captured on
+On-device timing for the **38 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
@@ -81,7 +81,6 @@ predate the October 5 shipping optimization.
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-10-06.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 13.29 | 🟢 10.77 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-06 18:12<br>O3 2026-08-26 01:32 |
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-06.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 12.92 (24) | 🟢 11.70 (24) | 🟢 0/3487 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-06 18:42<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
-| [RingShower](shipping/profile_ringshower_teensy_2026-10-06.md) / [O3](O3/profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 3.86 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,336 B | +15,136 B | ship 2026-10-06 18:20<br>O3 2026-08-26 01:36 |
 
 JewelMelt was captured on October 8 at softness 0.5. Other shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures; JewelMelt's report records its full-width initialization draw separately. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
@@ -197,3 +196,12 @@ authored preset count plus one; raw logs are no longer available to rederive
 these buckets.
 
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.
+
+## Effects excluded by product curation
+
+RingShower remains in the Holosphere roster. Its archived captures precede removal from the Phantasm image.
+
+| Effect | Dominant scope | Peak ms | Spilled | Captured |
+|---|---|--:|--:|---|
+| [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
+| [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |

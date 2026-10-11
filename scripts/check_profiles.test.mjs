@@ -300,6 +300,13 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
       await writeFile(join(root, 'retired', 'README.md'), '# Retired profiles\n');
       await cp(join(root, 'shipping', first.file), join(root, 'retired', first.file));
     }, 'retired profile still names a registered effect: ' + first.key],
+    ['shipping effect in excluded archive', async root => {
+      await cp(join(root, 'shipping', first.file), join(root, 'excluded', first.file));
+    }, 'excluded profile must name a registered non-Phantasm effect: ' + first.key],
+    ['unknown effect in excluded archive', async root => {
+      await writeFile(join(root, 'excluded',
+        'profile_example_teensy_2026-08-24.md'), validReport);
+    }, 'excluded profile must name a registered non-Phantasm effect: example'],
     ['missing main index link', async root => {
       const path = join(root, 'README.md');
       const text = await readFile(path, 'utf8');
