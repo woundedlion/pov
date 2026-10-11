@@ -87,7 +87,6 @@ g2_ship)
   run MobiusGrid profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
   run PetalFlow profile 70 32
   run Raymarch profile 70 32
-  run RingShower profile 70 32
   run RingSpin profile 70 32
   run Voronoi profile 70 32
   ;;
