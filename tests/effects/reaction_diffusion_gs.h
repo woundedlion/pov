@@ -267,10 +267,7 @@ struct GSWhiteBox {
     for (int i = 0; i < GS::NUM_SEED_CLUSTERS * GS::PALETTE_SIZE; ++i)
       compare(gs.palettes[i], EXPECTED_PALETTES[i],
               "staged reseed must preserve palette generation order");
-    bool lit = false;
-    for (int y = 0; y < SMALL_H; ++y)
-      for (int x = 0; x < SMALL_W; ++x)
-        lit |= gs.get_pixel(x, y) != Pixel(0, 0, 0);
+    const bool lit = count_lit_region<SMALL_W, SMALL_H>(gs) > 0;
     compare(lit, true, "complete seed field was not displayed");
     gs.draw_frame();
     gs.advance_display();
@@ -549,11 +546,11 @@ struct GSWhiteBox {
             gs.shade_pixel(SEED, frag.pos, lattice.get(), grid, x);
         const Pixel EXPECTED =
             gs.shade_pixel_full(SEED, frag.pos, lattice.get(), grid, x);
-        const int DR = std::abs(static_cast<int>(GOT.r) - EXPECTED.r);
-        const int DG = std::abs(static_cast<int>(GOT.g) - EXPECTED.g);
-        const int DB = std::abs(static_cast<int>(GOT.b) - EXPECTED.b);
-        const bool GOT_LIT = GOT.r || GOT.g || GOT.b;
-        const bool EXPECTED_LIT = EXPECTED.r || EXPECTED.g || EXPECTED.b;
+        const int DR = channel_gap(GOT.r, EXPECTED.r);
+        const int DG = channel_gap(GOT.g, EXPECTED.g);
+        const int DB = channel_gap(GOT.b, EXPECTED.b);
+        const bool GOT_LIT = !is_black(GOT);
+        const bool EXPECTED_LIT = !is_black(EXPECTED);
         error.coverage += GOT_LIT != EXPECTED_LIT;
         error.lit += GOT_LIT || EXPECTED_LIT;
         error.max_channel =
@@ -718,12 +715,12 @@ struct GSWhiteBox {
                              round_linear_channel(rgb[2]));
           }
         }
-        int dr = std::abs(static_cast<int>(got.r) - expected.r);
-        int dg = std::abs(static_cast<int>(got.g) - expected.g);
-        int db = std::abs(static_cast<int>(got.b) - expected.b);
-        int pixel_max = std::max(dr, std::max(dg, db));
-        bool got_lit = got.r || got.g || got.b;
-        bool expected_lit = expected.r || expected.g || expected.b;
+        const int dr = channel_gap(got.r, expected.r);
+        const int dg = channel_gap(got.g, expected.g);
+        const int db = channel_gap(got.b, expected.b);
+        const int pixel_max = std::max(dr, std::max(dg, db));
+        const bool got_lit = !is_black(got);
+        const bool expected_lit = !is_black(expected);
         if (got != expected)
           ++error.different;
         if (pixel_max > 2)
