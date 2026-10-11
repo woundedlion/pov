@@ -88,12 +88,7 @@ inline void test_reconcile_bijection_wellposed() {
     }
 
     const size_t V = identity.vertices.size();
-    HS_EXPECT_EQ(V, authored.vertices.size());
-    HS_EXPECT_EQ(identity.face_counts.size(), authored.face_counts.size());
-    HS_EXPECT_EQ(identity.faces.size(), authored.faces.size());
-    if (V != authored.vertices.size() ||
-        identity.face_counts.size() != authored.face_counts.size() ||
-        identity.faces.size() != authored.faces.size())
+    if (!expect_same_mesh_sizes(identity, authored))
       continue;
 
     // Per-vertex nearest (argmax-dot) map identity -> authored;
@@ -130,12 +125,7 @@ inline void test_reconcile_bijection_wellposed() {
     if (injective) {
       PolyMesh reconciled;
       MeshOps::reconcile_vertices(identity, authored, reconciled, b, aux);
-      HS_EXPECT_EQ(reconciled.vertices.size(), V);
-      HS_EXPECT_EQ(reconciled.face_counts.size(), identity.face_counts.size());
-      HS_EXPECT_EQ(reconciled.faces.size(), identity.faces.size());
-      if (reconciled.vertices.size() != V ||
-          reconciled.face_counts.size() != identity.face_counts.size() ||
-          reconciled.faces.size() != identity.faces.size())
+      if (!expect_same_mesh_sizes(reconciled, identity))
         continue;
       bool connectivity_kept = true;
       for (size_t f = 0; f < identity.face_counts.size(); ++f)
