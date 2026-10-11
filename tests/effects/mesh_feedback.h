@@ -126,6 +126,7 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
   };
 
   int switches = 0, desynced = 0, wrong_preset = 0;
+  size_t previous_index = WB::preset_index(fx);
   for (int f = 1; f <= 2 * MF::PRESET_DWELL_FRAMES + 1; ++f) {
     pin_frame_clock(f);
     fx.draw_frame();
@@ -135,8 +136,11 @@ inline void test_meshfeedback_preset_rotation_syncs_noise() {
         static_cast<size_t>(f / MF::PRESET_DWELL_FRAMES) % MF::PRESETS.size();
     if (WB::preset_index(fx) != expect_idx)
       ++wrong_preset;
-    if (f % MF::PRESET_DWELL_FRAMES == 0) {
+    if (WB::preset_index(fx) != previous_index) {
       ++switches;
+      previous_index = WB::preset_index(fx);
+    }
+    if (f % MF::PRESET_DWELL_FRAMES == 0) {
       // The live style is the incoming preset, and the noise the flush reads
       // already followed it within this same frame.
       HS_EXPECT_TRUE(matches_preset(expect_idx));
