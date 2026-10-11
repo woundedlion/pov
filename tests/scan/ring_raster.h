@@ -432,10 +432,9 @@ inline void test_distorted_ring_stack_matches_sequential() {
           if (s < 0)
             continue;
           auto shader = [&](const math::Vector &, Fragment &f) { shade(s, f); };
-          Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis,
-                                          ring_radius(i), ths[i], knots[i],
-                                          LUT_N, shader, 0.0f, false,
-                                          /*suppress_pole_fill=*/true);
+          Scan::DistortedRing::draw<W, H>(
+              pipeline, canvas, basis, ring_radius(i), ths[i], knots[i], LUT_N,
+              shader, {.suppress_pole_fill = true});
         }
       }
       seq.advance_display();
