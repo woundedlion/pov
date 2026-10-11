@@ -803,6 +803,34 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
 // Transformer<> spawn_pausable() gates the whole event, start delay included
 // ============================================================================
 
+/** @brief A pinned repeating warp retains its slot across cycles until cancellation. */
+inline void test_transformer_pinned_repeat_retains_slot() {
+  Timeline timeline;
+  global_timeline_t = 0;
+  StubEffect effect(8, 8);
+  Canvas canvas(effect);
+  MobiusWarpTransformer<1> transformer(timeline);
+  transformer.init_storage(persistent_arena);
+  auto *animation =
+      transformer.spawn_pinned(0, 0.4f, 4, true, math::ease_linear);
+  HS_EXPECT_TRUE(animation != nullptr);
+  if (!animation)
+    return;
+  for (int frame = 0; frame < 12; ++frame) {
+    HS_CONTEXT("repeat frame", frame);
+    timeline.step(canvas);
+    HS_EXPECT_EQ(transformer.active_count(), 1);
+    if (transformer.active_count() != 1)
+      return;
+    if (frame % 4 == 0)
+      HS_EXPECT_GT(std::abs(transformer.active_params(0).b.im), 0.1f);
+  }
+  animation->cancel();
+  timeline.step(canvas);
+  HS_EXPECT_EQ(transformer.active_count(), 0);
+  HS_EXPECT_TRUE(transformer.spawn_pinned(0, 0.4f, 4, true) != nullptr);
+}
+
 /**
  * @brief Verifies spawn_pausable() freezes the spawned event's pending start
  *        delay, not just the animation once it has begun.
@@ -1687,6 +1715,7 @@ inline int run_transformers_tests() {
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
   test_transformer_live_edit_preserves_instance_phase_and_seed();
+  test_transformer_pinned_repeat_retains_slot();
   test_transformer_spawn_pausable_freezes_start_delay();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_callback_after_pool_destroyed();
