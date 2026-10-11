@@ -12,6 +12,7 @@
 #ifdef HS_OFFSET_FULL_RESOLUTION
 #include "effects/Comets.h"
 #include "effects/RingSpin.h"
+#include "tests/pixel_test_util.h"
 #include <memory>
 
 template <template <int, int> class E> void render_offset_effect() {
@@ -20,17 +21,11 @@ template <template <int, int> class E> void render_offset_effect() {
   effect->init();
   for (int frame = 0; frame < hs_test::smoke_frames(); ++frame) {
     HS_CONTEXT("frame", frame);
-    uint64_t energy = 0;
     hs_test::pin_frame_clock(frame);
     effect->draw_frame();
     effect->advance_display();
-    for (int y = 0; y < 20; ++y)
-      for (int x = 0; x < 96; ++x) {
-        const Pixel &pixel = effect->get_pixel(x, y);
-        energy += pixel.r + pixel.g + pixel.b;
-      }
     if (frame > 0)
-      HS_EXPECT_GT(energy, uint64_t{0});
+      HS_EXPECT_GT((hs_test::frame_energy<96, 20>(*effect)), uint64_t{0});
   }
 }
 #endif
