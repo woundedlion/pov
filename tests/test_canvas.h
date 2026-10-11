@@ -42,6 +42,7 @@ struct TestEffect : public Effect {
   using Effect::mark_global;
   using Effect::mark_readonly;
   using Effect::register_param;
+  using Effect::register_int_param;
 
   float speed = 1.5f; /**< Sample float param backing store. */
   bool flag = false;  /**< Sample bool param backing store. */
@@ -104,6 +105,37 @@ struct TestEffect : public Effect {
   }
   void clear_params() { reset_parameters(); }
 };
+
+template <typename Host>
+concept named_registration_policies =
+    requires(Host &host, float *f, bool *b, int *i, TestMode *mode) {
+      host.register_param("float", f, ParamSpec<float>{.animated = true});
+      host.register_param("bool", b, ParamSpec<bool>{.readonly = true});
+      host.register_param("integer", i, ParamSpec<int>{.preset = false});
+      host.register_param("enum", mode, ParamSpec<TestMode>{.animated = true});
+    };
+template <typename Host>
+concept positional_float_policy = requires(Host &host, float *value) {
+  host.register_param("float", value, 0.0f, 1.0f, true);
+};
+template <typename Host>
+concept positional_bool_policy = requires(Host &host, bool *value) {
+  host.register_param("bool", value, true);
+};
+template <typename Host>
+concept positional_integer_policy = requires(Host &host, int *value) {
+  host.register_int_param("integer", value, 0, 1, true);
+};
+template <typename Host>
+concept positional_enum_policy =
+    requires(Host &host, TestMode *value, const char *const *labels) {
+      host.register_param("enum", value, labels, labels, 3, true);
+    };
+static_assert(named_registration_policies<TestEffect>);
+static_assert(!positional_float_policy<TestEffect>);
+static_assert(!positional_bool_policy<TestEffect>);
+static_assert(!positional_integer_policy<TestEffect>);
+static_assert(!positional_enum_policy<TestEffect>);
 
 struct PresetTestEffect : public Effect {
   PresetTestEffect() : Effect(8, 8) { configure_presets(3); }
