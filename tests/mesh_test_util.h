@@ -308,17 +308,27 @@ inline void build_meshstate_solid(MeshState &mesh, Arena &arena,
 }
 
 /**
+ * @brief Asserts two meshes have equal vertex, face_counts and faces sizes.
+ * @param a First mesh.
+ * @param b Second mesh.
+ * @return True when all three sizes match.
+ */
+inline bool expect_same_mesh_sizes(const PolyMesh &a, const PolyMesh &b) {
+  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
+  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
+  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
+  return a.vertices.size() == b.vertices.size() &&
+         a.face_counts.size() == b.face_counts.size() &&
+         a.faces.size() == b.faces.size();
+}
+
+/**
  * @brief Asserts two meshes are bitwise identical: same counts and same bytes
  *        for vertices, face_counts, and faces.
  * @param m1,m2 Meshes to compare.
  */
 inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
-  HS_EXPECT_EQ(m1.vertices.size(), m2.vertices.size());
-  HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
-  HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
-  if (m1.vertices.size() != m2.vertices.size() ||
-      m1.face_counts.size() != m2.face_counts.size() ||
-      m1.faces.size() != m2.faces.size())
+  if (!expect_same_mesh_sizes(m1, m2))
     return;
   HS_EXPECT_EQ(std::memcmp(m1.vertices.data(), m2.vertices.data(),
                            m1.vertices.size() * sizeof(math::Vector)),
@@ -339,12 +349,7 @@ inline void check_bitwise_equal_meshes(const PolyMesh &m1, const PolyMesh &m2) {
  *          zero differences and rejects NaNs.
  */
 inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
-  HS_EXPECT_EQ(a.vertices.size(), b.vertices.size());
-  HS_EXPECT_EQ(a.face_counts.size(), b.face_counts.size());
-  HS_EXPECT_EQ(a.faces.size(), b.faces.size());
-  if (a.vertices.size() != b.vertices.size() ||
-      a.face_counts.size() != b.face_counts.size() ||
-      a.faces.size() != b.faces.size())
+  if (!expect_same_mesh_sizes(a, b))
     return;
   for (size_t i = 0; i < a.vertices.size(); ++i) {
     HS_EXPECT_EQ(a.vertices[i].x, b.vertices[i].x);
