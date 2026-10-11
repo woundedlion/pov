@@ -16,6 +16,7 @@
 
 #include "control/param_spec.h"
 #include "math/interpolate.h"
+#include "math/3dmath.h"
 
 namespace Control {
 

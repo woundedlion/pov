@@ -9,6 +9,7 @@
 
 #include <array>
 #include "math/4dmath.h"
+#include "math/periodic.h"
 #include "render/ray/contract.h"
 #include "render/ray/shade.h"
 

@@ -10,6 +10,7 @@
 #include <variant>
 #include "render/pullback/runtime_seeds.h"
 #include "math/3dmath.h"
+#include "math/spherical.h"
 
 namespace Pullback::Interp {
 
