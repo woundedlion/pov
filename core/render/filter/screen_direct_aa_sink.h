@@ -180,7 +180,7 @@ public:
 #endif
     if (VISIBLE) {
       HS_PLOT_STALL_START(blend_start);
-      blend_tap(base + y * W + COLUMN, c, tap_alpha_q16(alpha, 1.0f));
+      blend_tap(base + y * W + COLUMN, c, frac_to_q16(alpha * 1.0f));
       HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
     }
   }
@@ -250,19 +250,13 @@ private:
   std::array<uint8_t, W> x_visible{};
   std::array<uint8_t, H> y_visible{};
 
-  static __attribute__((always_inline)) uint16_t tap_alpha_q16(float alpha,
-                                                               float weight) {
-    return static_cast<uint16_t>(
-        hs::clamp(alpha * weight * 65535.0f + 0.5f, 0.0f, 65535.0f));
-  }
-
   static __attribute__((always_inline)) void
   blend_four(::Pixel *row0, ::Pixel *row1, int x0, int x1, const ::Pixel &src,
              float alpha, float v00, float v10, float v01, float v11) {
-    const uint16_t a00 = tap_alpha_q16(alpha, v00);
-    const uint16_t a10 = tap_alpha_q16(alpha, v10);
-    const uint16_t a01 = tap_alpha_q16(alpha, v01);
-    const uint16_t a11 = tap_alpha_q16(alpha, v11);
+    const uint16_t a00 = frac_to_q16(alpha * v00);
+    const uint16_t a10 = frac_to_q16(alpha * v10);
+    const uint16_t a01 = frac_to_q16(alpha * v01);
+    const uint16_t a11 = frac_to_q16(alpha * v11);
     blend_tap(row0 + x0, src, a00);
     blend_tap(row0 + x1, src, a10);
     blend_tap(row1 + x0, src, a01);
@@ -275,13 +269,13 @@ private:
                                                float v00, float v10, float v01,
                                                float v11, uint8_t tap_mask) {
     if (tap_mask & 0x01)
-      blend_tap(base + y0 * W + x0, src, tap_alpha_q16(alpha, v00));
+      blend_tap(base + y0 * W + x0, src, frac_to_q16(alpha * v00));
     if (tap_mask & 0x02)
-      blend_tap(base + y0 * W + x1, src, tap_alpha_q16(alpha, v10));
+      blend_tap(base + y0 * W + x1, src, frac_to_q16(alpha * v10));
     if (tap_mask & 0x04)
-      blend_tap(base + y1 * W + x0, src, tap_alpha_q16(alpha, v01));
+      blend_tap(base + y1 * W + x0, src, frac_to_q16(alpha * v01));
     if (tap_mask & 0x08)
-      blend_tap(base + y1 * W + x1, src, tap_alpha_q16(alpha, v11));
+      blend_tap(base + y1 * W + x1, src, frac_to_q16(alpha * v11));
   }
 
   static __attribute__((always_inline)) void
