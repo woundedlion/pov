@@ -37,6 +37,22 @@ static XYZValue vector_to_xyz(const math::Vector &r) {
   return v;
 }
 
+/**
+ * @brief Packs three channel values into a JS {r,g,b} object.
+ * @tparam T Channel value type, passed to JS unchanged.
+ * @param r Red channel.
+ * @param g Green channel.
+ * @param b Blue channel.
+ * @return JS object with the r, g and b components.
+ */
+template <typename T> static RGBValue make_rgb(T r, T g, T b) {
+  emscripten::val v = emscripten::val::object();
+  v.set("r", r);
+  v.set("g", g);
+  v.set("b", b);
+  return v;
+}
+
 /** @brief Registers the free color/palette/geometry exports with Embind. */
 static void bind_math_exports() {
   // ── Color / palette / geometry exports ─────────────────────────────────────
@@ -75,11 +91,7 @@ static void bind_math_exports() {
       emscripten::optional_override([](float L, float a, float b) -> RGBValue {
         float r, g, bb;
         oklab_to_linear_rgb({L, a, b}, r, g, bb);
-        emscripten::val v = emscripten::val::object();
-        v.set("r", r);
-        v.set("g", g);
-        v.set("b", bb);
-        return v;
+        return make_rgb(r, g, bb);
       }));
 
   emscripten::function(
@@ -98,11 +110,8 @@ static void bind_math_exports() {
       emscripten::optional_override([](int h, int s, int v) -> RGBValue {
         CRGB c = CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
                            static_cast<uint8_t>(v)));
-        emscripten::val o = emscripten::val::object();
-        o.set("r", static_cast<int>(c.r));
-        o.set("g", static_cast<int>(c.g));
-        o.set("b", static_cast<int>(c.b));
-        return o;
+        return make_rgb(static_cast<int>(c.r), static_cast<int>(c.g),
+                        static_cast<int>(c.b));
       }));
 
   // ProceduralPalette cosine formula (palette_math.js ProceduralPalette). Returns
@@ -115,11 +124,9 @@ static void bind_math_exports() {
                              ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2},
                                                    {c0, c1, c2}, {d0, d1, d2});
                              Color4 col = pal.get(t);
-                             emscripten::val o = emscripten::val::object();
-                             o.set("r", static_cast<int>(col.color.r));
-                             o.set("g", static_cast<int>(col.color.g));
-                             o.set("b", static_cast<int>(col.color.b));
-                             return o;
+                             return make_rgb(static_cast<int>(col.color.r),
+                                             static_cast<int>(col.color.g),
+                                             static_cast<int>(col.color.b));
                            }));
 
   // The named procedural palettes (palette_math.js NAMED_PROCEDURAL_PALETTES),
