@@ -1250,9 +1250,7 @@ inline void test_octet_4d_canonical_trace() {
           prepared.footprint, prepared.limits, prepared.appearance,
           *prepared.crossings);
       HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      const int DELTA = std::max({abs(ACTUAL.color.r - EXPECTED.color.r),
-                                  abs(ACTUAL.color.g - EXPECTED.color.g),
-                                  abs(ACTUAL.color.b - EXPECTED.color.b)});
+      const int DELTA = max_channel_gap(ACTUAL.color, EXPECTED.color);
       differing += DELTA > 1;
       HS_EXPECT_LE(DELTA, 16);
       ++compared;
@@ -1305,10 +1303,7 @@ inline void test_octet_4d_canonical_boundary_directions() {
           prepared.footprint, prepared.limits, prepared.appearance,
           *prepared.crossings);
       HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
-      HS_EXPECT_LE(std::max({abs(ACTUAL.color.r - EXPECTED.color.r),
-                             abs(ACTUAL.color.g - EXPECTED.color.g),
-                             abs(ACTUAL.color.b - EXPECTED.color.b)}),
-                   2);
+      HS_EXPECT_LE(max_channel_gap(ACTUAL.color, EXPECTED.color), 2);
       lit += EXPECTED.color != Pixel{};
     }
   }
