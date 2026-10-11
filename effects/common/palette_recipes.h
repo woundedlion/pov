@@ -230,20 +230,21 @@ HS_FLASH_MEMBER inline float random_base_turns() {
 
 /** @brief The preset roster, every recipe at a fixed preview hue.
  *  @return The roster rows. */
-HS_FLASH_MEMBER inline std::array<Preset, 11> presets() {
+HS_FLASH_MEMBER inline auto presets() {
   const float preview_hue = PaletteRecipes::hue_turns(42);
-  return {{{"BZReactionDiffusion", false, bz_reaction_diffusion()},
-           {"Comets", true, comets(preview_hue)},
-           {"DisplacementField / RingShower", true,
-            displacement_field(preview_hue)},
-           {"Dynamo", true, dynamo(preview_hue)},
-           {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
-           {"MobiusRings", true, mobius_rings(preview_hue)},
-           {"Raymarch", false, raymarch()},
-           {"Standalone Liquid", false, standalone_liquid()},
-           {"Standalone Flyby", false, standalone_flyby()},
-           {"HyperLattice", true, hyper_lattice()},
-           {"MindSplatter", true, mind_splatter(preview_hue)}}};
+  return std::to_array<Preset>(
+      {{"BZReactionDiffusion", false, bz_reaction_diffusion()},
+       {"Comets", true, comets(preview_hue)},
+       {"DisplacementField / RingShower", true,
+        displacement_field(preview_hue)},
+       {"Dynamo", true, dynamo(preview_hue)},
+       {"GSReactionDiffusion", true, gs_reaction_diffusion(preview_hue)},
+       {"MobiusRings", true, mobius_rings(preview_hue)},
+       {"Raymarch", false, raymarch()},
+       {"Standalone Liquid", false, standalone_liquid()},
+       {"Standalone Flyby", false, standalone_flyby()},
+       {"HyperLattice", true, hyper_lattice()},
+       {"MindSplatter", true, mind_splatter(preview_hue)}});
 }
 
 } // namespace EffectPaletteRecipes
