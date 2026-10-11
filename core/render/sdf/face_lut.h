@@ -37,7 +37,9 @@ struct ClassLut {
   /// Canonical bounding-box center x.
   float cx = 0, cy = 0; /**< Canonical bounding-box center y. */
   /// Half-extent in x (+ margin).
-  float Rx = 0, Ry = 0; /**< Half-extent in y (+ margin). */
+  float half_x = 0;
+  /// Half-extent in y (+ margin).
+  float half_y = 0;
   float inv_step_x = 0; /**< Reciprocal cell width. */
   float inv_step_y = 0; /**< Reciprocal cell height. */
   float safe_dist = 0;  /**< Cell diagonal (sign-pure interpolation bound). */
@@ -87,25 +89,25 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
   lut.cy = (bb_min_y + bb_max_y) * 0.5f;
   const auto HALF_EXTENTS =
       canonical_lut_half_extents(bb_min_x, bb_max_x, bb_min_y, bb_max_y);
-  lut.Rx = HALF_EXTENTS.first;
-  lut.Ry = HALF_EXTENTS.second;
+  lut.half_x = HALF_EXTENTS.first;
+  lut.half_y = HALF_EXTENTS.second;
   lut.n = n;
-  lut.inv_step_x = (n - 1) / (2.0f * lut.Rx);
-  lut.inv_step_y = (n - 1) / (2.0f * lut.Ry);
-  float step_x = (2.0f * lut.Rx) / (n - 1);
-  float step_y = (2.0f * lut.Ry) / (n - 1);
+  lut.inv_step_x = (n - 1) / (2.0f * lut.half_x);
+  lut.inv_step_y = (n - 1) / (2.0f * lut.half_y);
+  float step_x = (2.0f * lut.half_x) / (n - 1);
+  float step_y = (2.0f * lut.half_y) / (n - 1);
   // The plane SDF is 1-Lipschitz, so a zero anywhere in a cell puts every
   // corner within one cell diagonal of it; a min corner magnitude above the
   // diagonal guarantees a sign-pure cell (safe to interpolate).
   lut.safe_dist = sqrtf(step_x * step_x + step_y * step_y);
-  float dmax = 2.0f * sqrtf(lut.Rx * lut.Rx + lut.Ry * lut.Ry);
+  float dmax = 2.0f * sqrtf(lut.half_x * lut.half_x + lut.half_y * lut.half_y);
   lut.dequant = dmax / 32767.0f;
   float quant = 32767.0f / dmax;
 
   for (int gy = 0; gy < n; ++gy) {
-    float qy = (lut.cy - lut.Ry) + gy * step_y;
+    float qy = (lut.cy - lut.half_y) + gy * step_y;
     for (int gx = 0; gx < n; ++gx) {
-      float qx = (lut.cx - lut.Rx) + gx * step_x;
+      float qx = (lut.cx - lut.half_x) + gx * step_x;
       float d_sq = FLT_MAX;
       bool inside = false;
       for (int i = 0; i < count; ++i) {

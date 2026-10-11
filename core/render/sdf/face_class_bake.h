@@ -352,13 +352,13 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
     float max_dist = sqrtf(circ_sq) + SDF::BOUNDS_MARGIN_WIDE;
     float max_dist_sq = max_dist * max_dist;
-    float step_x = (2.0f * lut.Rx) / (n - 1);
-    float step_y = (2.0f * lut.Ry) / (n - 1);
+    float step_x = (2.0f * lut.half_x) / (n - 1);
+    float step_y = (2.0f * lut.half_y) / (n - 1);
     int in_disk = 0, safe = 0;
     for (int gy = 0; gy + 1 < n; ++gy) {
-      float ccy = (lut.cy - lut.Ry) + (gy + 0.5f) * step_y;
+      float ccy = (lut.cy - lut.half_y) + (gy + 0.5f) * step_y;
       for (int gx = 0; gx + 1 < n; ++gx) {
-        float ccx = (lut.cx - lut.Rx) + (gx + 0.5f) * step_x;
+        float ccx = (lut.cx - lut.half_x) + (gx + 0.5f) * step_x;
         if (ccx * ccx + ccy * ccy > max_dist_sq)
           continue;
         ++in_disk;
