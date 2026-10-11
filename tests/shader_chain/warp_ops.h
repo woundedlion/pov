@@ -407,3 +407,91 @@ inline void test_shader_chain_parity_warp_curl_flow() {
     program.clear();
   }
 }
+
+/** @brief Sweeps one warp's numeric parameter corners against its plane bound.
+ * @tparam Model Plane-to-plane operator model. */
+template <typename Model> inline void expect_warp_plane_bound() {
+  using Params = typename Model::Params;
+  typename Model::State state{};
+  if constexpr (requires { Model::init(state, In::InstanceId{}); })
+    Model::init(state,
+                {"bound", Model::ID, In::instance_hash("bound", Model::ID)});
+  const In::FrameContext ctx = shared_resources().context();
+  const auto probe = [&](const Params &params) {
+    for (float phase : {0.0f, 0.125f, 0.375f, 0.75f}) {
+      state.phase = phase;
+      const auto prepared = Model::prepare(ctx, params, state);
+      for (float input_bound : {0.0f, 0.25f, 1.0f, 4.0f, 32.0f}) {
+        const float bound = Model::plane_bound(params, input_bound);
+        for (float radius_fraction : {0.0f, 0.5f, 1.0f}) {
+          for (int direction = 0; direction < 32; ++direction) {
+            const double angle = 2.0 * std::acos(-1.0) * direction / 32;
+            PB::PlaneSample input{};
+            input.coords = {input_bound * radius_fraction *
+                                static_cast<float>(std::cos(angle)),
+                            input_bound * radius_fraction *
+                                static_cast<float>(std::sin(angle))};
+            input.provenance.value_weight = 1.0f;
+            input.provenance.fade_edge_distance = 2.0f;
+            input.sphere = math::UP;
+            const auto output = Model::run(input, ctx, params, prepared);
+            HS_EXPECT_LE(std::hypot(output.coords.re, output.coords.im),
+                         bound + 5e-5f * std::max(1.0f, bound));
+          }
+        }
+      }
+    }
+  };
+  HS_CONTEXT(Model::ID);
+  probe(Params{});
+  if constexpr (std::is_same_v<Model, In::Op::WarpVortex>) {
+    Params displaced{};
+    displaced.center_x = 1.0f;
+    displaced.radius = 8.0f;
+    displaced.turns = 0.5f;
+    probe(displaced);
+  }
+  constexpr size_t CORNERS = size_t{1} << Params::FIELDS.size();
+  for (size_t corner = 0; corner < CORNERS; ++corner) {
+    Params params{};
+    for (size_t field = 0; field < Params::FIELDS.size(); ++field) {
+      const auto &descriptor = Params::FIELDS[field];
+      params.*descriptor.member =
+          corner & (size_t{1} << field) ? descriptor.max : descriptor.min;
+    }
+    if constexpr (std::is_same_v<Model, In::Op::WarpVectorNoise>) {
+      for (uint8_t basis = 0; basis < 3; ++basis)
+        for (uint8_t envelope = 0; envelope < 3; ++envelope) {
+          params.basis = basis;
+          params.envelope = envelope;
+          probe(params);
+        }
+    } else if constexpr (std::is_same_v<Model, In::Op::WarpPolarChart>) {
+      for (uint8_t mode = 0; mode < 2; ++mode)
+        for (uint8_t harmonic : {uint8_t{0}, uint8_t{15}}) {
+          params.mode = mode;
+          params.harmonic = harmonic;
+          probe(params);
+        }
+    } else if constexpr (std::is_same_v<Model, In::Op::WarpCurlFlow>) {
+      for (uint8_t basis = 0; basis < 3; ++basis)
+        for (uint8_t integrator = 0; integrator < 3; ++integrator) {
+          params.basis = basis;
+          params.integrator = integrator;
+          probe(params);
+        }
+    } else {
+      probe(params);
+    }
+  }
+}
+
+/** @brief Non-affine warp bounds contain outputs at parameter extremes. */
+inline void test_shader_chain_warp_plane_bound() {
+  expect_warp_plane_bound<In::Op::WarpWaveShear>();
+  expect_warp_plane_bound<In::Op::WarpVortex>();
+  expect_warp_plane_bound<In::Op::WarpVectorNoise>();
+  expect_warp_plane_bound<In::Op::WarpMirrorTile>();
+  expect_warp_plane_bound<In::Op::WarpPolarChart>();
+  expect_warp_plane_bound<In::Op::WarpCurlFlow>();
+}
