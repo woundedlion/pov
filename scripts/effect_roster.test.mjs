@@ -3,7 +3,31 @@ import assert from 'node:assert/strict';
 import {
   parseEffectRoster, parsePhantasmEffectRoster,
   loadEffectRoster, loadPhantasmEffectRoster,
+  parseEffectIdentities, loadEffectIdentities,
 } from './effect_roster.mjs';
+
+test('identity metadata covers gallery classes with canonical IDs and original keys', async () => {
+  const identities = await loadEffectIdentities();
+  for (const name of await loadEffectRoster())
+    assert.ok(identities.some(row => row.name === name));
+  assert.deepEqual(identities.find(row => row.name === 'Galaxies'),
+    { name: 'Galaxies', id: 'galaxies', display_name: 'Galaxies', legacy: 'Galaxies', seed_key: 'Galaxies' });
+});
+
+test('identity parser rejects malformed IDs and cross-effect alias collisions', () => {
+  const src = rows => `#define HS_EFFECT_IDENTITY_LIST(X) ${rows}\n`;
+  assert.deepEqual(parseEffectIdentities(src('X(Alpha, "alpha", "Alpha", "Alpha", "rng-alpha")')),
+    [{ name: 'Alpha', id: 'alpha', display_name: 'Alpha', legacy: 'Alpha', seed_key: 'rng-alpha' }]);
+  for (const id of ['Alpha', '-alpha', 'alpha-', 'alpha--beta', 'alpha_beta'])
+    assert.throws(() => parseEffectIdentities(src(`X(Alpha, "${id}", "Alpha", "Alpha", "rng-alpha")`)), /Invalid canonical/);
+  assert.throws(() => parseEffectIdentities(src(
+    'X(Alpha, "alpha", "Alpha", "old-alpha", "rng-alpha") X(Beta, "beta", "Beta", "old-alpha", "rng-beta")')), /alias collision/);
+  assert.throws(() => parseEffectIdentities(src(
+    'X(Alpha, "alpha", "Alpha", "beta", "rng-alpha") X(Beta, "beta", "Beta", "Beta", "rng-beta")')), /alias collision/);
+  assert.throws(() => parseEffectIdentities(src('')), /zero rows/);
+  assert.throws(() => parseEffectIdentities(src('X(Alpha)')), /Unknown effect identity row/);
+  assert.throws(() => parseEffectIdentities(''), /Could not locate/);
+});
 
 const rosterOf = (...rows) =>
   `#define HS_EFFECT_LIST(X) \\\n${rows.map(r => `  ${r} \\`).join('\n')}\n  X(Last)\n\nint after;\n`;

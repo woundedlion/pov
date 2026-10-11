@@ -8,8 +8,10 @@ import { SHADER_DOCUMENT_EFFECTS } from './composed_effect_roster.mjs';
 import { departureLiteral, floatLiteral, generate, generatedSections, presetAssignments, updateHeader } from './generate_composed_presets.mjs';
 import { compileShaderDocument } from './shader_workbench.mjs';
 import { loadOperatorCatalog } from './pattern_documents.mjs';
+import { loadEffectIdentities } from './effect_roster.mjs';
 
 const catalog = await loadOperatorCatalog();
+const identities = await loadEffectIdentities();
 const document = JSON.parse(await readFile(new URL('../patterns/kaleidoscope_smooth.shader.json', import.meta.url), 'utf8'));
 
 test('composed preset headers reproduce their document values and digests', async () => {
@@ -19,7 +21,8 @@ test('composed preset headers reproduce their document values and digests', asyn
   const count = sources.filter(source => source.includes('DESCRIPTOR_DIGEST')).length;
   assert.equal(await generate({ check: true }), count);
   const ids = sources.filter(source => source.includes('DESCRIPTOR_DIGEST'))
-    .map(source => /EFFECT_ID = "([^"]+)"/.exec(source)[1]).sort();
+    .map(source => identities.find(row => row.name ===
+      /EFFECT_IDENTITY\s*=\s*hs::effect_identities::(\w+)/u.exec(source)[1]).id).sort();
   assert.deepEqual(SHADER_DOCUMENT_EFFECTS, ids);
   assert.ok(Object.isFrozen(SHADER_DOCUMENT_EFFECTS));
 });
@@ -29,6 +32,9 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   for (const directory of ['effects', 'patterns', 'scripts', 'targets'])
     await mkdir(join(root, directory));
+  await mkdir(join(root, 'core/platform'), { recursive: true });
+  await copyFile(new URL('../core/platform/effect_identity.h', import.meta.url),
+    join(root, 'core/platform/effect_identity.h'));
   for (const [name, file, id] of [
     ['Zulu.h', 'KaleidoscopeSmooth.h', 'kaleidoscope_smooth'],
     ['Alpha.h', 'AlienBrain.h', 'alien_brain'],

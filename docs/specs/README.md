@@ -17,3 +17,9 @@ Every spec carries its own status banner; the lines below repeat it.
 
 Related indexes: [on-device effect profiles](../profiles/README.md) and the
 ledgers under [`docs/ledgers/`](../ledgers).
+
+## Engine contracts
+
+| Document | Status and scope |
+|---|---|
+| [effect_identity.md](effect_identity.md) | IMPLEMENTED; canonical machine IDs, display/browser aliases and immutable RNG keys. |

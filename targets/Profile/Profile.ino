@@ -699,7 +699,7 @@ static_assert(std::size(PROFILE_REVOLUTIONS) == std::size(EFFECT_FACTORIES));
 // The shipping playlist's RNG identity for the profiled class, not the
 // ProfiledEffect wrapper.
 constexpr uint64_t PROFILE_SEEDS[] = {hs::stable_effect_seed(
-    hs::stable_effect_id<HS_PROFILE_TARGET<CANVAS_W, CANVAS_H>>(
+    hs::effect_seed_key<HS_PROFILE_TARGET<CANVAS_W, CANVAS_H>>(
         HS_PROFILE_STR(HS_PROFILE_TARGET)))};
 
 static_assert(std::size(PROFILE_SEEDS) == std::size(EFFECT_FACTORIES));

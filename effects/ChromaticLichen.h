@@ -11,6 +11,7 @@
  *        a glitch-folded gnomonic grid displaced by curl noise.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -63,8 +64,10 @@ public:
   using Params = ChromaticLichenParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "chromatic-lichen";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::ChromaticLichen::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "578df4dfb347b2bf93b8ac4af40e20c6ff087f3647072dca692878515507b558";
   /// SHA-256 hex of the shader document's preset bank.

@@ -11,6 +11,7 @@
  *        a folded sinusoidal lattice displaced by curl noise.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -86,8 +87,10 @@ public:
   using Params = LatticeMeltParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "lattice-melt";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::LatticeMelt::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "4cc1588e002b45e00fe137bebc0cf952efc4e9e37511338762801d6e43a04f96";
   /// SHA-256 hex of the shader document's preset bank.

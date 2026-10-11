@@ -11,6 +11,7 @@
  *        a high-chroma folded grid rippling through curl noise.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -59,8 +60,10 @@ public:
   using Params = MermaidSkinParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "mermaid-skin";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::MermaidSkin::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "8596de9b360af501a7c3a83b0d208fddec8a5a92a06af8ef39904ebb76939482";
   /// SHA-256 hex of the shader document's preset bank.

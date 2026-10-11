@@ -105,8 +105,9 @@ sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
 deterministic RNG. For (c) the driver reseeds `hs::random()` at every effect
 construction from the roster's per-entry seed identity:
 `targets/Phantasm/phantasm_playlist.h` fills that table with
-`hs::stable_effect_seed(hs::stable_effect_id<E>(#name))`, so the stream an effect
-draws follows its identity rather than its roster position. The
+`hs::stable_effect_seed(hs::effect_seed_key<E>(#name))`, so the stream an effect
+draws follows its immutable RNG key, independently of its canonical ID and
+roster position. The
 beacon-synchronized index selects the entry, so all boards render identical
 streams regardless of boot/join history, and a board wrong about that index
 is already building the wrong effect. A driver handed no seed table falls

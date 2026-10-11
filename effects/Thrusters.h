@@ -11,6 +11,7 @@
  *        expanding rings.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 
@@ -31,7 +32,11 @@ struct ThrustersWhiteBox;
  */
 template <int W, int H> class Thrusters : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "Thrusters"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::Thrusters::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect, seeding the filters and warp state.

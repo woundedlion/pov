@@ -11,6 +11,7 @@
  *        attractors through a Mobius warp.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include "core/control/choreography.h"
@@ -57,8 +58,11 @@ class MindSplatter
   friend Choreography;
 
 public:
-  /// Stable effect ID.
-  static constexpr const char *EFFECT_ID = "MindSplatter";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::MindSplatter::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   using BaseMesh = Solids::BaseMesh; ///< Selectable solid enum.
   using Params = MindSplatterParams; ///< Live parameter struct.

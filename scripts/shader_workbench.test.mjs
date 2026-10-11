@@ -27,6 +27,7 @@ import {
   validateShaderDocument,
 } from './shader_workbench.mjs';
 import { sha256Hex } from './sha256.mjs';
+import { loadEffectIdentities } from './effect_roster.mjs';
 
 // scripts/shader_workbench.mjs and scripts/sha256.mjs are the sources of
 // daydream's shader/ mirrors.
@@ -313,11 +314,13 @@ test('every promoted shader document matches its compiled effect identity', asyn
   const manifest = JSON.parse(await readFile(
     new URL('../patterns/catalog.json', import.meta.url), 'utf8'));
   const headers = new Map();
+  const identities = await loadEffectIdentities();
   for (const name of await readdir(new URL('../effects/', import.meta.url))) {
     if (!name.endsWith('.h')) continue;
     const source = await readFile(new URL(`../effects/${name}`, import.meta.url), 'utf8');
-    const id = /EFFECT_ID\s*=\s*"([a-z0-9-]+)"/.exec(source);
-    if (id) headers.set(id[1], source);
+    const type = /EFFECT_IDENTITY\s*=\s*hs::effect_identities::(\w+)/u.exec(source)?.[1];
+    const identity = identities.find(row => row.name === type);
+    if (identity) headers.set(identity.id, source);
   }
   assert.deepEqual(Object.keys(manifest.source_documents).sort(),
     manifest.product_group.children.map((child) => child.effect_id).sort());

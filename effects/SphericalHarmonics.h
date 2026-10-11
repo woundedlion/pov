@@ -11,6 +11,7 @@
  *        morphing between modes.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
@@ -36,8 +37,11 @@ struct SphericalHarmonicsWhiteBox;
  */
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
-  /// Stable effect ID.
-  static constexpr const char *EFFECT_ID = "SphericalHarmonics";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::SphericalHarmonics::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// Preset identities: one per (l, m) mode.
   static constexpr std::array<std::string_view, 24> PRESET_IDS{

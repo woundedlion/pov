@@ -11,6 +11,7 @@
  *        a vector-noise grid refracted across dodecahedral facets.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -64,8 +65,10 @@ public:
   using Params = KaleidoscopeStainedGlassParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-stained-glass";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeStainedGlass::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "a3268abb09bb4ee782c6a93204773063c226e82dbe9b6d46e72dc6472e555b35";
   /// SHA-256 hex of the shader document's preset bank.

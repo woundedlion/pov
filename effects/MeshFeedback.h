@@ -10,6 +10,7 @@
  * @brief Feedback filter over a selectable polyhedral wireframe.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
@@ -43,8 +44,11 @@ template <int W, int H>
 class MeshFeedback
     : public ChoreographedEffect<MeshFeedback<W, H>, MeshFeedbackParams> {
 public:
-  /// Stable effect ID.
-  static constexpr const char *EFFECT_ID = "MeshFeedback";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::MeshFeedback::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /// Preset-cycling base.
   using Choreography =

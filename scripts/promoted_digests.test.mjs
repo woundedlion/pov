@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { loadEffectHeaders, stripComments } from './effect_roster.mjs';
+import { loadEffectHeaders, loadEffectIdentities, stripComments } from './effect_roster.mjs';
 import { basename, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -13,14 +13,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 const promotedHeaders = async () => {
   const paths = await loadEffectHeaders();
+  const identities = await loadEffectIdentities();
   const headers = new Map();
   for (const path of paths) {
     const name = relative(resolve(ROOT, 'effects'), path);
     const source = await readFile(path, 'utf8');
     if (!source.includes('DESCRIPTOR_DIGEST')) continue;
-    const id = /EFFECT_ID\s*=\s*"([a-z0-9-]+)"/.exec(source);
-    assert.ok(id, `${name} carries a digest but no EFFECT_ID`);
-    headers.set(id[1],
+    const type = /EFFECT_IDENTITY\s*=\s*hs::effect_identities::(\w+)/u.exec(source)?.[1];
+    const identity = identities.find(row => row.name === type);
+    assert.ok(identity, `${name} carries a digest but no registered identity`);
+    headers.set(identity.id,
       { name, types: [basename(path, '.h')] });
   }
   return headers;

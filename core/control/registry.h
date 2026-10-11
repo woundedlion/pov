@@ -11,6 +11,7 @@
  */
 
 #include "core/platform/build_features.h"
+#include "core/platform/effect_identity.h"
 
 #if HS_ENABLE_EFFECT_REGISTRY
 
@@ -40,16 +41,15 @@ template <typename T> constexpr const void *effect_type_key() {
 
 /**
  * @brief Concrete factory record for one registered effect at a fixed resolution.
- * @details name and stable_id come from EffectRegistration; its fill function
+ * @details identity comes from EffectRegistration; its fill function
  * sets the resolution-specific fields.
  */
 struct FactoryEntry {
   /// Maps a preset index to its stable preset ID.
   using PresetIdFn = std::string_view (*)(size_t);
 
-  std::string_view name; /**< Effect class name (string literal). */
-  std::string_view
-      stable_id; /**< Declared EFFECT_ID; also keys the RNG seed. */
+  hs::EffectIdentity
+      identity; /**< Canonical IDs, aliases and immutable RNG key. */
   std::function<std::unique_ptr<Effect>()>
       creator; /**< Allocates a new effect instance. */
   const void *type_key =
@@ -81,9 +81,7 @@ struct FactoryEntry {
 HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
 #undef HS_REG_RESOLUTION_FITS
 
-// Instantiation that answers stable-id queries; fixed so the persisted id and
-// its RNG stream do not depend on HS_RESOLUTIONS order.
-/// Resolution whose instantiation answers stable-ID queries, as W, H.
+/// Resolution whose instantiation supplies the effect identity, as W, H.
 #define HS_REG_IDENTITY_RESOLUTION 96, 20
 
 /**
@@ -91,7 +89,8 @@ HS_RESOLUTIONS(HS_REG_RESOLUTION_FITS)
  * @details One `fill_<W>_<H>` function pointer per HS_RESOLUTIONS entry.
  */
 struct EffectRegistration {
-  std::string_view name; /**< Effect class/header stem. */
+  hs::EffectIdentity
+      identity; /**< Machine/display identity and compatibility keys. */
   using FillFn = void (*)(
       FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
 /**
@@ -102,27 +101,24 @@ struct EffectRegistration {
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
-  std::string_view stable_id{}; /**< Persisted identity shared by every
-                                        resolution's FactoryEntry. */
 };
 
 /**
- * @brief Validates the shared class-name and stable-ID lookup namespace.
+ * @brief Validates the canonical-ID and compatibility-alias lookup namespace.
  * @param entries Registrations to check.
- * @return False on an empty or repeated name or stable ID.
+ * @return False on an empty primary identity or a key shared by different effects.
  */
 template <size_t N>
 constexpr bool
 registration_names_unique(const std::array<EffectRegistration, N> &entries) {
   for (size_t i = 0; i < N; ++i) {
-    if (entries[i].name.empty() || entries[i].stable_id.empty())
+    const auto &identity = entries[i].identity;
+    if (identity.display_name.empty() || identity.machine_id.empty())
       return false;
     for (size_t j = 0; j < i; ++j)
-      if (entries[i].name == entries[j].name ||
-          entries[i].stable_id == entries[j].stable_id ||
-          entries[i].name == entries[j].stable_id ||
-          entries[i].stable_id == entries[j].name)
-        return false;
+      for (std::string_view key : identity.accepted_ids())
+        if (!key.empty() && entries[j].identity.matches(key))
+          return false;
   }
   return true;
 }
@@ -191,18 +187,22 @@ void fill_registration(FactoryEntry &entry) {
 
 /**
  * @brief Builds resolution fill pointers for one HS_EFFECT_LIST entry.
- * @param name Effect class name.
+ * @tparam ClassName Registered effect family.
  * @return The registration.
  */
 template <template <int, int> class ClassName>
-constexpr EffectRegistration make_registration(std::string_view name) {
+constexpr EffectRegistration make_registration() {
   static_assert(
-      requires { ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_ID; },
-      "registered effects require a stable EFFECT_ID");
+      requires { ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_IDENTITY; },
+      "registered effects require a typed EFFECT_IDENTITY");
+  constexpr auto identity =
+      ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_IDENTITY;
+  static_assert(hs::canonical_effect_id(identity.machine_id));
+  static_assert(!identity.rng_seed_key.empty());
+  static_assert(ClassName<HS_REG_IDENTITY_RESOLUTION>::EFFECT_ID ==
+                identity.machine_id);
 #define HS_REG_FILL_POINTER(W, H) &fill_registration<ClassName, W, H>,
-  return {name, HS_RESOLUTIONS(HS_REG_FILL_POINTER)
-                    hs::stable_effect_id<ClassName<HS_REG_IDENTITY_RESOLUTION>>(
-                        name)};
+  return {identity, HS_RESOLUTIONS(HS_REG_FILL_POINTER)};
 #undef HS_REG_FILL_POINTER
 }
 

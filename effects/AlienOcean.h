@@ -11,6 +11,7 @@
  *        a broad folded grid with slow mirrored drift.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -62,8 +63,10 @@ public:
   using Params = AlienOceanParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "alien-ocean";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::AlienOcean::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "2ff3688974c2200915e43dcdad54c1c83fea2e0a312b46ad6eecbc409bf90a57";
   /// SHA-256 hex of the shader document's preset bank.

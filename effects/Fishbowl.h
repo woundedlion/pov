@@ -11,6 +11,7 @@
  *        multiline.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include "core/control/choreography.h"
@@ -53,8 +54,11 @@ class Fishbowl : public ChoreographedEffect<Fishbowl<W, H>, FishbowlParams> {
   using Choreography::step_choreography;
 
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "Fishbowl";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::Fishbowl::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   using Params = FishbowlParams; ///< Live parameter set.
   /// Preset change snaps.
