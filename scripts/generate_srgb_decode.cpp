@@ -7,7 +7,7 @@
 // low region [0, SRGB_DECODE_VSPLIT) and the coarse high region holds at most
 // one output step, so the encoding is a single branchless compare per region.
 // Fails if a bucket holds more, and verifies bit-exactness over every input.
-// Build: clang++ -std=c++20 -I. -Icore scripts/generate_srgb_decode.cpp
+// Build: clang++ -std=c++20 -I. scripts/generate_srgb_decode.cpp
 // Run from the repo root; argv[1] overrides the output path.
 #define HS_ENABLE_TEST_ORACLES 1
 #define HS_SRGB_DECODE_GENERATOR 1
