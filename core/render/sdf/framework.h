@@ -557,11 +557,9 @@ struct FrameworkPlaneEvents : FrameworkPlaneStreams<4> {
    * @brief Starts the streams at the ray interval start.
    * @param families Plane families of the geometry.
    * @param origin Lattice origin.
-   * @param valid Geometry validity; must be true.
    */
   void initialize(const std::array<FrameworkPlane, STREAM_COUNT> &families,
-                  const math::Vector &origin, bool valid) {
-    HS_CHECK(valid, "framework event geometry must be valid");
+                  const math::Vector &origin) {
     HS_CHECK(ray.valid(), "framework event ray must be valid");
     const math::Vector START = ray.at(ray.interval.near) - origin;
     std::array<FrameworkPlaneCursor::Projection, STREAM_COUNT> projections;
@@ -585,7 +583,8 @@ struct FrameworkEvents : FrameworkPlaneEvents {
   FrameworkEvents(const TriangularFramework &geometry, const Raycast::Ray &ray,
                   Raycast::Footprint footprint = {})
       : FrameworkPlaneEvents(ray, footprint), geometry(geometry) {
-    initialize(geometry.plane_families(), geometry.origin, geometry.valid());
+    HS_CHECK(geometry.valid(), "framework event geometry must be valid");
+    initialize(geometry.plane_families(), geometry.origin);
   }
 
   /** @brief Coverage layer at a stream's next crossing.
