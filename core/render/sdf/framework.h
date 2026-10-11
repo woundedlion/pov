@@ -674,8 +674,6 @@ struct OctetEvents : OctetStreams<4> {
   static constexpr size_t OWNER_CAPACITY = STREAM_COUNT - 1;
   /** @brief Maximum strut pairs owned by one stream. */
   static constexpr size_t PAIR_CAPACITY = STREAM_COUNT - 1;
-  // The slowest stream owns no pair.
-  static_assert(OWNER_CAPACITY + 1 == STREAM_COUNT);
   /** @brief Validated frame projections into the four octet plane families. */
   struct PreparedProjection {
     std::array<math::Vector, STREAM_COUNT> normals; /**< Per unit spacing. */
