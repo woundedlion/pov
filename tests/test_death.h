@@ -2082,7 +2082,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/control/preset_host.h", 2},
     {"core/memory/arena.h", 1},
     {"core/math/3dmath.h", 2},
-    {"core/math/lenses.h", 1},
     {"core/math/pixel_mapping.h", 2},
     {"core/math/spherical_field.h", 2},
     {"core/mesh/conway.h", 31},
