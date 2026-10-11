@@ -13,9 +13,9 @@
 #include <cstdint>
 #include <utility>
 
-#include "math/3dmath.h"
-#include "memory.h"
-#include "platform/platform.h"
+#include "core/math/3dmath.h"
+#include "core/memory.h"
+#include "core/platform/platform.h"
 
 namespace MeshOps {
 

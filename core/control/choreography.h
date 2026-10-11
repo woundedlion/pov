@@ -14,12 +14,12 @@
 #include <cstdint>
 #include <variant>
 
-#include "animation/animation.h"
-#include "control/presets.h"
-#include "control/fields.h"
-#include "platform/platform.h"
-#include "math/easing.h"
-#include "render/canvas.h"
+#include "core/animation/animation.h"
+#include "core/control/presets.h"
+#include "core/control/fields.h"
+#include "core/platform/platform.h"
+#include "core/math/easing.h"
+#include "core/render/canvas.h"
 
 /**
  * @brief Base class for an effect driven by one parameter struct that cycles

@@ -10,8 +10,8 @@
  *        color transforms with their scalar parameters.
  */
 
-#include "animation/transformer.h"
-#include "color/color.h"
+#include "core/animation/transformer.h"
+#include "core/color/color.h"
 
 /**
  * @brief Feedback presets that bundle spatial/color transforms with scalar

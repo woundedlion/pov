@@ -11,7 +11,7 @@
  *        exact at both endpoints and snaps to the nearer one outside [0,1].
  */
 
-#include "math/periodic.h"
+#include "core/math/periodic.h"
 
 #include <array>
 #include <cmath>

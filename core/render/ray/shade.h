@@ -7,10 +7,10 @@
 /** @file shade.h
  * @brief Depth appearance, layer compositing and subray filtering. */
 
-#include "color/baked_palette.h"
-#include "color/layer_composite.h"
-#include "render/ray/events.h"
-#include "render/ray/march.h"
+#include "core/color/baked_palette.h"
+#include "core/color/layer_composite.h"
+#include "core/render/ray/events.h"
+#include "core/render/ray/march.h"
 
 namespace Raycast {
 

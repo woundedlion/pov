@@ -12,15 +12,15 @@
  *          over Animation params.
  */
 
-#include "animation/orientation.h"
-#include "math/3dmath.h"
-#include "math/mobius.h"
-#include "engine/concepts.h"
-#include "memory.h"
+#include "core/animation/orientation.h"
+#include "core/math/3dmath.h"
+#include "core/math/mobius.h"
+#include "core/engine/concepts.h"
+#include "core/memory.h"
 #include <new>
 #include <type_traits>
-#include "vendor/FastNoiseLite.h"
-#include "animation/animation.h"
+#include "core/vendor/FastNoiseLite.h"
+#include "core/animation/animation.h"
 
 namespace transformer_detail {
 

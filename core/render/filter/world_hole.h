@@ -4,9 +4,9 @@
  */
 #pragma once
 
-#include "render/filter/pipeline.h"
-#include "math/geometry.h"
-#include "color/color.h"
+#include "core/render/filter/pipeline.h"
+#include "core/math/geometry.h"
+#include "core/color/color.h"
 
 /**
  * @file world_hole.h

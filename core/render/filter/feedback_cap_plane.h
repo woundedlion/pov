@@ -6,9 +6,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
-#include "math/3dmath.h"
-#include "math/pixel_mapping.h"
-#include "math/spherical_field.h"
+#include "core/math/3dmath.h"
+#include "core/math/pixel_mapping.h"
+#include "core/math/spherical_field.h"
 
 /**
  * @file feedback_cap_plane.h

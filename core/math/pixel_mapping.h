@@ -8,9 +8,9 @@
  * @brief Resolution-dependent sphere/canvas mapping and lookup tables.
  */
 
-#include "math/3dmath.h"
-#include "math/periodic.h"
-#include "math/display_geometry.h"
+#include "core/math/3dmath.h"
+#include "core/math/periodic.h"
+#include "core/math/display_geometry.h"
 #include <array>
 
 namespace math {

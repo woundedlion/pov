@@ -13,10 +13,10 @@
 #include <cstdint>
 #include <span>
 #include <new>
-#include "math/geometry.h"
-#include "platform/constants.h"
-#include "render/clip.h"
-#include "render/sdf/common.h"
+#include "core/math/geometry.h"
+#include "core/platform/constants.h"
+#include "core/render/clip.h"
+#include "core/render/sdf/common.h"
 
 /**
  * @file face.h
@@ -26,7 +26,7 @@
 
 namespace SDF {
 
-#include "render/sdf/face_lut.h"
+#include "core/render/sdf/face_lut.h"
 /**
  * @brief Scratch buffer for Face computations to avoid allocations.
  */
@@ -457,7 +457,7 @@ struct Face {
     return true;
   }
 
-#include "render/sdf/face_geometry.h"
+#include "core/render/sdf/face_geometry.h"
 };
 
 // Leaf roster for the CSG composition contract.

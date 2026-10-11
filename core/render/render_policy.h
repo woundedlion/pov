@@ -7,7 +7,7 @@
 /** @file render_policy.h
  * @brief Shared shape geometry and pole shading policy.
  */
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 namespace Render {
 

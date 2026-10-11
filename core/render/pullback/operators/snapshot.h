@@ -8,10 +8,10 @@
  * @brief Chain-operator runtime state snapshot codecs.
  */
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/operators.h"
+#include "core/render/pullback/operators.h"
 
 namespace Pullback::Interp {
 

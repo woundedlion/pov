@@ -14,9 +14,9 @@
 #include <type_traits>
 #include <limits>
 
-#include "control/param_spec.h"
-#include "math/interpolate.h"
-#include "math/3dmath.h"
+#include "core/control/param_spec.h"
+#include "core/math/interpolate.h"
+#include "core/math/3dmath.h"
 
 namespace Control {
 

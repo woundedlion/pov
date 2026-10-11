@@ -10,8 +10,8 @@
 
 #include <array>
 #include <initializer_list>
-#include "color/palette.h"
-#include "color/color_space.h"
+#include "core/color/palette.h"
+#include "core/color/color_space.h"
 
 /**
  * @brief A palette backed by a precomputed 256-entry linear-RGB lookup table,

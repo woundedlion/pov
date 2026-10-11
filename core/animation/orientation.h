@@ -8,7 +8,7 @@
  * @brief Quaternion history for animation and motion blur.
  */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 #include <algorithm>
 #include <array>
 

@@ -10,8 +10,8 @@
  *        that holds them (ParamList), and apply_if_changed().
  */
 
-#include "platform/build_features.h"
-#include "platform/platform.h"
+#include "core/platform/build_features.h"
+#include "core/platform/platform.h"
 #include <array>
 #include <algorithm>
 #include <cmath>

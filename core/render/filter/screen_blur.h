@@ -5,10 +5,10 @@
 #pragma once
 
 #include <array>
-#include "render/filter/pipeline.h"
-#include "render/filter/splat.h"
-#include "color/color.h"
-#include "math/geometry.h"
+#include "core/render/filter/pipeline.h"
+#include "core/render/filter/splat.h"
+#include "core/color/color.h"
+#include "core/math/geometry.h"
 
 /**
  * @file screen_blur.h

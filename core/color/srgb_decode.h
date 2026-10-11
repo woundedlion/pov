@@ -11,9 +11,9 @@
  */
 
 #ifndef HS_SRGB_DECODE_GENERATOR
-#include "color/srgb_decode_lut.h"
+#include "core/color/srgb_decode_lut.h"
 #endif
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <array>
 #include <cstdint>
 #include <iterator>

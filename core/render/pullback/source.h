@@ -6,12 +6,12 @@
 
 #include <cmath>
 
-#include "math/noise_field.h"
+#include "core/math/noise_field.h"
 
-#include "math/projection_patterns.h"
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
-#include "math/3dmath.h"
+#include "core/math/projection_patterns.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
+#include "core/math/3dmath.h"
 
 /**
  * @file source.h

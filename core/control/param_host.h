@@ -10,10 +10,10 @@
  *        writes to them, and the animation pause flag.
  */
 
-#include "control/params.h"
-#include "control/param_spec.h"
-#include "memory.h"
-#include "platform/platform.h"
+#include "core/control/params.h"
+#include "core/control/param_spec.h"
+#include "core/memory.h"
+#include "core/platform/platform.h"
 #include <array>
 #include <bit>
 #include <cmath>

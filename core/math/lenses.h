@@ -17,8 +17,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "platform/platform.h"
-#include "math/3dmath.h"
+#include "core/platform/platform.h"
+#include "core/math/3dmath.h"
 
 /**
  * @brief Lenses that remap a sphere direction to another sphere direction.

@@ -12,7 +12,7 @@
 
 #include <cmath>
 #include <cstdint>
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 /** @brief Two Pi. */
 inline constexpr float tau = 2 * math::PI_F;

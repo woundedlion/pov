@@ -7,7 +7,7 @@
 /** @file contract.h
  * @brief Ray tracing query, budget and result contracts. */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 namespace Raycast {
 

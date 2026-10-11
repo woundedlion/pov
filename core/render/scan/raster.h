@@ -6,14 +6,14 @@
 
 #include <algorithm>
 #include <type_traits>
-#include "render/sdf.h"
-#include "render/shading.h"
-#include "render/render_policy.h"
-#include "color/color.h"
-#include "render/filter/pipeline.h"
-#include "containers/static_circular_buffer.h"
-#include "render/canvas.h"
-#include "platform/platform.h"
+#include "core/render/sdf.h"
+#include "core/render/shading.h"
+#include "core/render/render_policy.h"
+#include "core/color/color.h"
+#include "core/render/filter/pipeline.h"
+#include "core/containers/static_circular_buffer.h"
+#include "core/render/canvas.h"
+#include "core/platform/platform.h"
 
 /**
  * @file raster.h

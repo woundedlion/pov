@@ -4,8 +4,8 @@
  */
 #pragma once
 
-#include "render/filter/splat.h"
-#include "color/color.h"
+#include "core/render/filter/splat.h"
+#include "core/color/color.h"
 
 /**
  * @file screen_anti_alias.h

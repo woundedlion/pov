@@ -4,9 +4,9 @@
  */
 #pragma once
 
-#include "render/filter/pipeline.h"
-#include "color/color.h"
-#include "math/geometry.h"
+#include "core/render/filter/pipeline.h"
+#include "core/color/color.h"
+#include "core/math/geometry.h"
 
 /**
  * @file pixel_chromatic_shift.h

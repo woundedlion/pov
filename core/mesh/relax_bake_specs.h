@@ -8,7 +8,7 @@
  * @brief Solids::RelaxBakeSpecs: the name and iteration budget of every relax
  * bake.
  */
-#include "mesh/relax_bake.h"
+#include "core/mesh/relax_bake.h"
 
 /** @brief Authored relax-bake names and iteration budgets. */
 namespace Solids::RelaxBakeSpecs {

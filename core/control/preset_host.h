@@ -10,8 +10,8 @@
  *        selection.
  */
 
-#include "control/param_host.h"
-#include "platform/platform.h"
+#include "core/control/param_host.h"
+#include "core/platform/platform.h"
 #include <cstddef>
 #include <cstdint>
 

@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "color/pixel.h"
+#include "core/color/pixel.h"
 #include <cassert>
 
 /**

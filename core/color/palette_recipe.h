@@ -9,7 +9,7 @@
  */
 
 #include <array>
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 /** @brief How key hues are generated: harmony offsets, an even sweep, or
  *  per-key custom turns. */

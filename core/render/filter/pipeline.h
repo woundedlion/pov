@@ -10,11 +10,11 @@
 #include <cassert>
 
 #include <algorithm>
-#include "math/geometry.h"
-#include "color/color.h"
-#include "render/canvas.h"
-#include "engine/concepts.h"
-#include "memory.h"
+#include "core/math/geometry.h"
+#include "core/color/color.h"
+#include "core/render/canvas.h"
+#include "core/engine/concepts.h"
+#include "core/memory.h"
 
 /**
  * @file pipeline.h

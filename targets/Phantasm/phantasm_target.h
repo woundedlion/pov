@@ -28,7 +28,7 @@
 
 #include "core/math/geometry.h"
 #include "core/memory.h"
-#include "pov_segmented.h"
+#include "hardware/pov_segmented.h"
 #include "targets/effects.h"
 
 inline constexpr int TOTAL_PIXELS = 288; ///< Physical LEDs across both arms.

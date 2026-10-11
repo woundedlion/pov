@@ -9,9 +9,9 @@
  * @brief The curve rasterizer: umbrella over render/plot/.
  */
 
-#include "render/plot/cull.h"
-#include "render/plot/raster.h"
-#include "render/plot/shapes.h"
-#include "render/plot/mesh.h"
-#include "render/plot/particles.h"
-#include "render/plot/chords.h"
+#include "core/render/plot/cull.h"
+#include "core/render/plot/raster.h"
+#include "core/render/plot/shapes.h"
+#include "core/render/plot/mesh.h"
+#include "core/render/plot/particles.h"
+#include "core/render/plot/chords.h"

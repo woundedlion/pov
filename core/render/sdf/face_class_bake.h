@@ -8,11 +8,11 @@
 #include <cmath>
 #include <cstdint>
 
-#include "math/3dmath.h"
-#include "memory.h"
-#include "platform/platform.h"
-#include "render/sdf/face_classes.h"
-#include "mesh/mesh_state.h"
+#include "core/math/3dmath.h"
+#include "core/memory.h"
+#include "core/platform/platform.h"
+#include "core/render/sdf/face_classes.h"
+#include "core/mesh/mesh_state.h"
 
 /**
  * @file face_class_bake.h

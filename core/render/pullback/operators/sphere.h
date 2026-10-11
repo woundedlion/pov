@@ -4,15 +4,15 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "math/mobius.h"
+#include "core/math/mobius.h"
 
-#include "render/pullback/lens.h"
-#include "render/pullback/operators/common.h"
-#include "render/pullback/surface.h"
+#include "core/render/pullback/lens.h"
+#include "core/render/pullback/operators/common.h"
+#include "core/render/pullback/surface.h"
 
 /**
  * @file sphere.h

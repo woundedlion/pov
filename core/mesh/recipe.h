@@ -13,9 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "mesh/conway_graph.h"
-#include "mesh/recipe_types.h"
-#include "mesh/solids.h"
+#include "core/mesh/conway_graph.h"
+#include "core/mesh/recipe_types.h"
+#include "core/mesh/solids.h"
 
 namespace Solids {
 

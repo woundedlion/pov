@@ -11,11 +11,11 @@
 #include <cstdint>
 #include <cstring>
 #include <array>
-#include "math/geometry.h"
-#include "render/shading.h"
-#include "render/clip.h"
-#include "render/filter/splat.h"
-#include "memory.h"
+#include "core/math/geometry.h"
+#include "core/render/shading.h"
+#include "core/render/clip.h"
+#include "core/render/filter/splat.h"
+#include "core/memory.h"
 
 /**
  * @file cull.h
@@ -114,8 +114,8 @@ inline constexpr int CLIP_CUT_COL_PAD = COL_FOOTPRINT + 1;
  */
 inline constexpr int CLIP_CUT_ROW_PAD = 1;
 
-#include "render/plot/cull/samplers.h"
-#include "render/plot/cull/spans.h"
-#include "render/plot/cull/pipeline.h"
-#include "render/plot/cull/visibility.h"
+#include "core/render/plot/cull/samplers.h"
+#include "core/render/plot/cull/spans.h"
+#include "core/render/plot/cull/pipeline.h"
+#include "core/render/plot/cull/visibility.h"
 } // namespace Plot

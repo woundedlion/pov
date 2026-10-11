@@ -8,6 +8,6 @@
  * @brief Umbrella for periodic math, sphere/canvas mapping, and spherical helpers.
  */
 
-#include "math/periodic.h"
-#include "math/pixel_mapping.h"
-#include "math/spherical.h"
+#include "core/math/periodic.h"
+#include "core/math/pixel_mapping.h"
+#include "core/math/spherical.h"

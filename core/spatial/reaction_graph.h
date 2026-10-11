@@ -13,9 +13,9 @@
  * emits neighbors[].
  */
 
-#include "platform/platform.h"
-#include "math/3dmath.h"
-#include "memory.h"
+#include "core/platform/platform.h"
+#include "core/math/3dmath.h"
+#include "core/memory.h"
 #include <cassert>
 #include <cmath>
 

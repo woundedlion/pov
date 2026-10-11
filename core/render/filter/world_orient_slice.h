@@ -4,12 +4,12 @@
  */
 #pragma once
 
-#include "animation/orientation.h"
+#include "core/animation/orientation.h"
 #include <span>
 #include <type_traits>
-#include "render/filter/world_orient.h"
-#include "math/geometry.h"
-#include "color/color.h"
+#include "core/render/filter/world_orient.h"
+#include "core/math/geometry.h"
+#include "core/color/color.h"
 
 /**
  * @file world_orient_slice.h

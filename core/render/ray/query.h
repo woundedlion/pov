@@ -7,7 +7,7 @@
 /** @file query.h
  * @brief Distance query adapters and placement transforms. */
 
-#include "render/ray/camera.h"
+#include "core/render/ray/camera.h"
 
 namespace Raycast {
 

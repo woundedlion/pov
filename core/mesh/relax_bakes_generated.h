@@ -12,8 +12,8 @@
 #include <cstdint>
 #include <bit>
 #include <iterator>
-#include "mesh/relax_bake.h"
-#include "mesh/relax_bake_specs.h"
+#include "core/mesh/relax_bake.h"
+#include "core/mesh/relax_bake_specs.h"
 
 #if defined(HS_RELAX_BAKE_EXTRACT)
 namespace Solids { namespace RelaxBakes = RelaxBakeSpecs; }

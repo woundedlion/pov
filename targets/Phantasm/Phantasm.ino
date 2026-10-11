@@ -20,8 +20,8 @@
  * arm A; IDs [N/2, N) map arm B. ID 0 has all straps open and is the master.
  */
 
-#include "phantasm_target.h"
-#include "phantasm_playlist.h"
+#include "targets/Phantasm/phantasm_target.h"
+#include "targets/Phantasm/phantasm_playlist.h"
 
 FLASHMEM void setup();
 void loop();

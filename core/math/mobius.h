@@ -9,7 +9,7 @@
  */
 
 #include <cmath>
-#include "math/stereographic.h"
+#include "core/math/stereographic.h"
 
 namespace math {
 

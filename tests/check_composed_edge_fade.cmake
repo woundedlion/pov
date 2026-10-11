@@ -5,7 +5,7 @@ foreach(definition IN LISTS DEFINES)
 endforeach()
 function(check_fixture should_pass)
   execute_process(COMMAND "${COMPILER}" -std=gnu++20 -fsyntax-only
-    "-I${ROOT}" "-I${ROOT}/core" ${define_flags} ${ARGN}
+    "-I${ROOT}" ${define_flags} ${ARGN}
     "${ROOT}/tests/composed_edge_fade_check.cpp"
     RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
   if(should_pass AND NOT result EQUAL 0)

@@ -13,10 +13,10 @@
  * live-tunable setter, is ignored on non-finite and the last good value kept.
  */
 
-#include "animation/orientation.h"
-#include "color/generative_palette.h"
-#include "color/baked_palette.h"
-#include "math/mobius.h"
+#include "core/animation/orientation.h"
+#include "core/color/generative_palette.h"
+#include "core/color/baked_palette.h"
+#include "core/math/mobius.h"
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -24,17 +24,17 @@
 #include <new> // std::launder
 #include <type_traits>
 #include <utility>
-#include "math/3dmath.h"
-#include "platform/platform.h"
-#include "vendor/FastNoiseLite.h"
-#include "math/geometry.h"
-#include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
-#include "mesh/mesh.h"       // MeshOps
-#include "memory.h"
-#include "mesh/mesh_state.h"
-#include "containers/static_circular_buffer.h"
-#include "math/rotate.h"
-#include "math/easing.h"
+#include "core/math/3dmath.h"
+#include "core/platform/platform.h"
+#include "core/vendor/FastNoiseLite.h"
+#include "core/math/geometry.h"
+#include "core/engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
+#include "core/mesh/mesh.h"       // MeshOps
+#include "core/memory.h"
+#include "core/mesh/mesh_state.h"
+#include "core/containers/static_circular_buffer.h"
+#include "core/math/rotate.h"
+#include "core/math/easing.h"
 
 /**
  * @brief Non-templated interface for all animations.
@@ -278,15 +278,15 @@ protected:
 
 // Internal fragments, in dependency order.
 #define HS_ANIMATION_INTERNAL
-#include "animation/timers.h"
-#include "animation/params.h"
-#include "animation/motion.h"
-#include "animation/trails.h"
-#include "animation/sprites.h"
-#include "animation/timeline.h"
-#include "animation/opleg.h"
-#include "animation/segue.h"
-#include "animation/carousel.h"
+#include "core/animation/timers.h"
+#include "core/animation/params.h"
+#include "core/animation/motion.h"
+#include "core/animation/trails.h"
+#include "core/animation/sprites.h"
+#include "core/animation/timeline.h"
+#include "core/animation/opleg.h"
+#include "core/animation/segue.h"
+#include "core/animation/carousel.h"
 #undef HS_ANIMATION_INTERNAL
 
 // Inline-storage budget audit over the concrete animation types.

@@ -18,8 +18,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "dma_led_core.h"
-#include "hd107s_frame.h"
+#include "hardware/dma_led_core.h"
+#include "hardware/hd107s_frame.h"
 
 /**
  * @brief The transmit/completion/watchdog contract a controller transport must

@@ -10,9 +10,9 @@
  *        range.
  */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 #include <cmath>
-#include "math/periodic.h"
+#include "core/math/periodic.h"
 
 namespace math {
 

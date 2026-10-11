@@ -10,7 +10,7 @@
  */
 
 // platform.h supplies the Arduino IDE/VMicro NDEBUG fallback before <cassert>.
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
@@ -53,9 +53,9 @@ static_assert(WASM_GLOBAL_ARENA_SIZE == GLOBAL_ARENA_SIZE,
 constexpr size_t WASM_PERSISTENT_BUDGET =
     WASM_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
-#include "memory/arena.h"
-#include "memory/vector.h"
-#include "memory/span.h"
-#include "memory/scratch.h"
-#include "memory/persist.h"
-#include "memory/generate.h"
+#include "core/memory/arena.h"
+#include "core/memory/vector.h"
+#include "core/memory/span.h"
+#include "core/memory/scratch.h"
+#include "core/memory/persist.h"
+#include "core/memory/generate.h"

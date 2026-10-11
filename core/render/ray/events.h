@@ -9,7 +9,7 @@
 
 #include <array>
 #include <cmath>
-#include "render/ray/contract.h"
+#include "core/render/ray/contract.h"
 
 namespace Raycast {
 

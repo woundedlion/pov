@@ -5,8 +5,8 @@
 #pragma once
 
 #include <cmath>
-#include "render/filter/pipeline.h"
-#include "math/geometry.h"
+#include "core/render/filter/pipeline.h"
+#include "core/math/geometry.h"
 
 /**
  * @file splat.h

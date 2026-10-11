@@ -172,7 +172,7 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
     VERBOSE_SOURCE_LAST = (
         "arm-none-eabi-g++ -o .pio/build/phantasm/src/core/memory.cpp.o "
         "-c -std=gnu++20 -fno-exceptions -O3 -DPLATFORMIO=60119 "
-        "-I. -Icore -Ieffects -Ihardware core/memory.cpp")
+        "-I. core/memory.cpp")
 
     def _run(self, log_text):
         return _run_warning_gate(log_text)
@@ -210,10 +210,9 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
         self.assertEqual(self._run(banner + "\n" + self.VERBOSE_SOURCE_LAST + "\n"), 0)
 
     def test_include_flags_alone_are_not_evidence(self):
-        # -Icore/-Ieffects/-Ihardware ride on every invocation, third-party ones
-        # included; only the positional source may vote.
+        # A project include path also appears on third-party compiler invocations.
         line = ("arm-none-eabi-g++ -o .pio/build/phantasm/lib999/FastLED/noise.cpp.o "
-                "-c -std=gnu++20 -I. -Icore -Ieffects -Ihardware "
+                "-c -std=gnu++20 -I. "
                 ".pio/libdeps/phantasm/FastLED/src/noise.cpp")
         self.assertEqual(tw.count_first_party_compiles(line), 0)
 
@@ -240,7 +239,7 @@ class TestColdCaptureAudit(unittest.TestCase):
 
     def _compile(self, env, source):
         return (f"arm-none-eabi-g++ -o .pio/build/{env}/src/{source}.o -c "
-                f"-std=gnu++20 -O3 -I. -Icore -Ieffects -Ihardware {source}")
+                f"-std=gnu++20 -O3 -I. {source}")
 
     def _cache_hit(self, env, source):
         return f"Retrieved `.pio/build/{env}/src/{source}.o' from cache"
@@ -356,7 +355,7 @@ class TestExpectedEnvironmentSet(unittest.TestCase):
     def _cold_env(self, env):
         return (_banner(env, self.TU) + "\n"
                 + f"arm-none-eabi-g++ -o .pio/build/{env}/src/{self.TU}.o -c "
-                  f"-std=gnu++20 -O3 -I. -Icore {self.TU}\n")
+                  f"-std=gnu++20 -O3 -I. {self.TU}\n")
 
     def test_truncated_run_fails(self):
         self.assertEqual(

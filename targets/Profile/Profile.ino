@@ -89,7 +89,7 @@
  */
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
-#include "../Phantasm/phantasm_target.h"
+#include "targets/Phantasm/phantasm_target.h"
 #include "tools/profile_isr_window.h"
 
 #ifdef HS_PROFILE_SPHERICAL_EXPERIMENT

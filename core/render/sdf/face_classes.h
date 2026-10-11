@@ -7,8 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "memory.h"
-#include "render/sdf/face.h"
+#include "core/memory.h"
+#include "core/render/sdf/face.h"
 
 /**
  * @file face_classes.h

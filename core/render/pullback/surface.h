@@ -5,13 +5,13 @@
 #pragma once
 #include <cmath>
 
-#include "math/noise_field.h"
+#include "core/math/noise_field.h"
 
 #include <algorithm>
 
-#include "animation/transformer.h"
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
+#include "core/animation/transformer.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
 
 /**
  * @file surface.h

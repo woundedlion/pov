@@ -18,7 +18,7 @@
 #include <algorithm>
 // platform.h defines NDEBUG on device; include before <cassert> so assert
 // stripping does not depend on include order.
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 #include <cassert>
 
 namespace math {

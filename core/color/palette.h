@@ -8,7 +8,7 @@
  * @brief Runtime palette interface and source traits.
  */
 
-#include "color/pixel.h"
+#include "core/color/pixel.h"
 
 /**
  * @brief Abstract base for all palettes.

@@ -13,9 +13,9 @@
  * @brief Animation fragment: the Segue transition library.
  */
 
-#include "animation/preset_departure.h"
+#include "core/animation/preset_departure.h"
 
-#include "color/color.h"
+#include "core/color/color.h"
 
 /**
  * @brief Compile-time segue policies for MeshCarousel: the styles by which one

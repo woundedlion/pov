@@ -4,11 +4,11 @@
  */
 #pragma once
 
-#include "math/lenses.h"
+#include "core/math/lenses.h"
 
-#include "math/mobius.h"
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
+#include "core/math/mobius.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
 
 /**
  * @file lens.h

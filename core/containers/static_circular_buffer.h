@@ -17,7 +17,7 @@
 #include <new>
 #include <type_traits>
 #include <utility>
-#include "platform/platform.h"
+#include "core/platform/platform.h"
 
 /**
  * @brief A fixed-size circular buffer optimized for stability.

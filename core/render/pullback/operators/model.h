@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
@@ -15,11 +15,11 @@
 #include <string_view>
 #include <type_traits>
 
-#include "render/pullback/color.h"
-#include "render/pullback/contract.h"
-#include "render/pullback/fields.h"
-#include "render/pullback/runtime_snapshot.h"
-#include "render/pullback/runtime_seeds.h"
+#include "core/render/pullback/color.h"
+#include "core/render/pullback/contract.h"
+#include "core/render/pullback/fields.h"
+#include "core/render/pullback/runtime_snapshot.h"
+#include "core/render/pullback/runtime_seeds.h"
 
 /**
  * @file model.h

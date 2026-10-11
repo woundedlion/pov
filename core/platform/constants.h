@@ -9,7 +9,7 @@
  * @brief Engine-wide compile-time canvas bounds.
  */
 
-#include "platform/build_features.h" // CANVAS_W/CANVAS_H
+#include "core/platform/build_features.h" // CANVAS_W/CANVAS_H
 
 /**
  * @brief Maximum horizontal resolution (width) for effects, from CANVAS_W.

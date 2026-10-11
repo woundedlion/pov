@@ -4,15 +4,15 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "animation/animation.h"
-#include "render/pullback/material.h"
-#include "render/pullback/operators/model.h"
-#include "render/pullback/stage.h"
-#include "render/pullback/runtime_seeds.h"
+#include "core/animation/animation.h"
+#include "core/render/pullback/material.h"
+#include "core/render/pullback/operators/model.h"
+#include "core/render/pullback/stage.h"
+#include "core/render/pullback/runtime_seeds.h"
 
 /**
  * @file common.h

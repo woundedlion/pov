@@ -10,7 +10,7 @@
  *        cycle-counting instrumentation.
  */
 
-#include "platform/diagnostics.h" // HS_OS_CYCLES, hs::log
+#include "core/platform/diagnostics.h" // HS_OS_CYCLES, hs::log
 #include <cstdint>
 #include <cstring>
 
@@ -402,4 +402,4 @@ private:
 #define HS_PLOT_STALL_STOP(field, var) ((void)0)
 #endif
 
-#include "platform/cycle_counting.h"
+#include "core/platform/cycle_counting.h"

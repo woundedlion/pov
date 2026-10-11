@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "render/pullback/contract.h"
+#include "core/render/pullback/contract.h"
 
 /** @file ray.h
  * @brief Spherical ray renderer adapter for pullback stage pipelines. */

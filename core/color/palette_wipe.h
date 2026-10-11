@@ -8,8 +8,8 @@
  * @brief Palette snapshot transitions and their rebake window.
  */
 
-#include "color/generative_palette.h"
-#include "color/baked_palette.h"
+#include "core/color/generative_palette.h"
+#include "core/color/baked_palette.h"
 
 /**
  * @brief Steps a palette cross-fade rebake for one frame.

@@ -12,13 +12,13 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 #include <algorithm>
 #include <span>
 
 #include <cfloat>
 #include <array>
-#include "memory.h"
+#include "core/memory.h"
 
 /**
  * @brief A single node of the KDTree.

@@ -6,7 +6,7 @@
 
 #include <cstdint>
 #include <string_view>
-#include "vendor/FastNoiseLite.h"
+#include "core/vendor/FastNoiseLite.h"
 
 /**
  * @file runtime_seeds.h

@@ -12,9 +12,9 @@
 #include <array>
 #include <cassert>
 
-#include "math/geometry.h"
-#include "math/3dmath.h"
-#include "vendor/FastNoiseLite.h"
+#include "core/math/geometry.h"
+#include "core/math/3dmath.h"
+#include "core/vendor/FastNoiseLite.h"
 
 namespace math {
 

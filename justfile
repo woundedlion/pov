@@ -71,6 +71,7 @@ lint:
     just --fmt --check
     bash tools/whitespace_gate.sh
     bash tools/eol_gate.sh
+    {{ python_command }} tools/include_paths.py
     {{ python_command }} tools/build_pins.py --check-tool ruff
     bash tools/ruff_selection_guard.sh
     ruff check --no-cache .

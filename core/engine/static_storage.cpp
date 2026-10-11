@@ -3,12 +3,12 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-#include "platform/platform.h"
-#include "animation/animation.h"
-#include "render/canvas.h"
+#include "core/platform/platform.h"
+#include "core/animation/animation.h"
+#include "core/render/canvas.h"
 
-#include "engine/concepts.h"
-#include "platform/inplace_function.h"
+#include "core/engine/concepts.h"
+#include "core/platform/inplace_function.h"
 
 /**
  * @file static_storage.cpp

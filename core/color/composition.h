@@ -8,12 +8,12 @@
  * @brief Coordinate and color modifiers and static palette composition.
  */
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 #include <tuple>
-#include "color/palette.h"
-#include "color/palette_recipe.h"
-#include "color/color_space.h"
-#include "math/geometry.h"
+#include "core/color/palette.h"
+#include "core/color/palette_recipe.h"
+#include "core/color/color_space.h"
+#include "core/math/geometry.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 // Palette Modifiers

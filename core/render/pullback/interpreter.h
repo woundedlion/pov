@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
@@ -13,7 +13,7 @@
 #include <cstring>
 #include <new>
 
-#include "render/pullback/operators/table.h"
+#include "core/render/pullback/operators/table.h"
 
 /**
  * @file interpreter.h

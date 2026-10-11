@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include "pov_sync_protocol.h"
+#include "hardware/pov_sync_protocol.h"
 
 #include <cassert>
 #include <cstdint>

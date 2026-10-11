@@ -4,7 +4,7 @@
  */
 #pragma once
 
-#include "color/palettes.h"
+#include "core/color/palettes.h"
 
 #ifndef HS_ANIMATION_INTERNAL
 #error internal fragment of animation.h; include "animation.h" instead

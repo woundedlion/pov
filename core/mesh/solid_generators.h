@@ -11,12 +11,12 @@
  */
 
 #include <array>
-#include "mesh/base_mesh.h"
-#include "math/geometry.h"
-#include "mesh/mesh.h" // For MeshOps
-#include "mesh/hankin.h"
-#include "mesh/conway.h"
-#include "mesh/relax_bakes_generated.h"
+#include "core/mesh/base_mesh.h"
+#include "core/math/geometry.h"
+#include "core/mesh/mesh.h" // For MeshOps
+#include "core/mesh/hankin.h"
+#include "core/mesh/conway.h"
+#include "core/mesh/relax_bakes_generated.h"
 #include <cmath>
 
 namespace Solids {
@@ -54,9 +54,9 @@ FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
   return final_mesh;
 }
 
-#include "mesh/solid_tables.h"
-#include "mesh/solid_builder.h"
-#include "mesh/procedural_solids.h"
+#include "core/mesh/solid_tables.h"
+#include "core/mesh/solid_builder.h"
+#include "core/mesh/procedural_solids.h"
 HS_O3_END
 
 } // namespace Solids

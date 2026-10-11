@@ -13,8 +13,8 @@
  * rest. A stable wrong segment ID is invisible under this uniform pattern.
  */
 
-#include "../Phantasm/phantasm_target.h"
-#include "bench_pattern.h"
+#include "targets/Phantasm/phantasm_target.h"
+#include "targets/Bench/bench_pattern.h"
 
 FLASHMEM void setup();
 void loop();

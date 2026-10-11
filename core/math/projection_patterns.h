@@ -8,7 +8,7 @@
  * @brief Pole attenuation and bounded projection-space pattern inputs.
  */
 
-#include "math/stereographic.h"
+#include "core/math/stereographic.h"
 
 namespace projections {
 

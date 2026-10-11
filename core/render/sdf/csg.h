@@ -7,11 +7,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
-#include "math/geometry.h"
-#include "platform/constants.h"
-#include "memory.h"
-#include "containers/static_circular_buffer.h"
-#include "render/sdf/common.h"
+#include "core/math/geometry.h"
+#include "core/platform/constants.h"
+#include "core/memory.h"
+#include "core/containers/static_circular_buffer.h"
+#include "core/render/sdf/common.h"
 
 /**
  * @file csg.h

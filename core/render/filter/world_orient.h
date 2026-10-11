@@ -4,11 +4,11 @@
  */
 #pragma once
 
-#include "animation/orientation.h"
-#include "render/filter/pipeline.h"
-#include "animation/animation.h"
-#include "math/geometry.h"
-#include "color/color.h"
+#include "core/animation/orientation.h"
+#include "core/render/filter/pipeline.h"
+#include "core/animation/animation.h"
+#include "core/math/geometry.h"
+#include "core/color/color.h"
 
 /**
  * @file world_orient.h

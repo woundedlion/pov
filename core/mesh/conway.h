@@ -10,9 +10,9 @@
  */
 
 #include <bit>
-#include "math/geometry.h"
-#include "mesh/mesh.h"
-#include "mesh/relax_bake.h"
+#include "core/math/geometry.h"
+#include "core/mesh/mesh.h"
+#include "core/mesh/relax_bake.h"
 
 /**
  * @brief Operations on meshes (Conway operators and utilities).

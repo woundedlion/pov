@@ -8,8 +8,8 @@
 #include <cmath>
 #include <span>
 
-#include "color/color_space.h"
-#include "math/noise_field.h"
+#include "core/color/color_space.h"
+#include "core/math/noise_field.h"
 
 /**
  * @file noise_hue_palette.h

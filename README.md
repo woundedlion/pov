@@ -1100,7 +1100,7 @@ below are for Holosphere:
 1. Install [Arduino IDE](https://www.arduino.cc/en/software) with Teensyduino (or use [Visual Micro](https://www.visualmicro.com/) for Visual Studio).
 2. Install the `FastLED` library.
 3. Open `targets/Holosphere/Holosphere.ino`.
-4. In Visual Micro, set **Additional Include Directories** to: `../..;../../core;../../effects;../../hardware`.
+4. In Visual Micro, set **Additional Include Directories** to: `../..`.
 5. Select **Board: Teensy 4.0**, **CPU Speed: 600 MHz**.
 6. Upload.
 
@@ -1494,6 +1494,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_size_trail.py    Per-commit firmware size trail: ELF section parser, recorder, regression report
 │   ├── teensy_cold_build.sh    Cold `pio run -v` over every environment, teed for the warning gate
 │   ├── teensy_warnings.py      Cold-build first-party warning gate
+│   ├── include_paths.py        Canonical first-party include-path gate
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs

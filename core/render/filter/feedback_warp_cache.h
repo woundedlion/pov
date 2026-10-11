@@ -4,10 +4,10 @@
  */
 #pragma once
 #include <cstdint>
-#include "math/spherical_field.h"
-#include "memory.h"
-#include "render/filter/feedback_cap_plane.h"
-#include "render/filter/feedback_style.h"
+#include "core/math/spherical_field.h"
+#include "core/memory.h"
+#include "core/render/filter/feedback_cap_plane.h"
+#include "core/render/filter/feedback_style.h"
 
 /**
  * @file feedback_warp_cache.h

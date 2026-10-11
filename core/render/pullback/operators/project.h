@@ -4,12 +4,12 @@
  */
 #pragma once
 
-#include "platform/build_features.h"
+#include "core/platform/build_features.h"
 
 #if HS_ENABLE_CHAIN_INTERPRETER
 
-#include "render/pullback/operators/common.h"
-#include "render/pullback/projection.h"
+#include "core/render/pullback/operators/common.h"
+#include "core/render/pullback/projection.h"
 
 /**
  * @file project.h

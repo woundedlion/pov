@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <span>
 #include <type_traits>
-#include "platform/attributes.h"
+#include "core/platform/attributes.h"
 
 /** @brief Registration policy for a target's initial value. */
 enum class ParamInitialValue {

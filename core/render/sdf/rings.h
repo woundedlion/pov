@@ -6,10 +6,10 @@
 
 #include <algorithm>
 #include <cmath>
-#include "math/geometry.h"
-#include "platform/constants.h"
-#include "engine/concepts.h"
-#include "render/sdf/common.h"
+#include "core/math/geometry.h"
+#include "core/platform/constants.h"
+#include "core/engine/concepts.h"
+#include "core/render/sdf/common.h"
 
 /**
  * @file rings.h

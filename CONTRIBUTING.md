@@ -36,6 +36,10 @@ non-fast-forward move of the ref, so a rewind needs a deliberate one-shot token
 One logical change is one commit, with an imperative subject naming the
 component (`scan: clamp the row index before the cast`).
 
+Quoted first-party includes use repository-root paths, such as
+`#include "core/math/3dmath.h"`. The repository root is the sole first-party
+include directory; generated build headers use their build directory.
+
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --
 'old behavior phrase' .`. Read each match and correct stale contracts in the
@@ -143,8 +147,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   fabrication suite (`python tools/run_python_tests.py --suite hardware/phantasm/gen/tests`)
   against pinned KiCad 10.0.4; locally it needs that KiCad install.
 - **Lint:** `just lint` checks `just --fmt --check`, working-tree whitespace,
-  declared line endings, Python selection and ruff, JavaScript selection and
-  eslint, tracked shell files with shellcheck, the profiling roster, and
+  declared line endings, canonical first-party includes, Python selection and
+  ruff, JavaScript selection and eslint, tracked shell files with shellcheck, the profiling roster, and
   actionlint last. CI applies the
   corresponding checks; the hook lints staged Python, JavaScript, and shell files.
 - **Documentation:** the ci.yml docs-markdown job runs `tools/docs_check.py`

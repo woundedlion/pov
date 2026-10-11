@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include "pov_sync_protocol.h"
+#include "hardware/pov_sync_protocol.h"
 #include "core/math/3dmath.h"
 
 #include <cstdint>

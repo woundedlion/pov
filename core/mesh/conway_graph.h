@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <iterator>
 
-#include "mesh/solids.h"
+#include "core/mesh/solids.h"
 
 /**
  * @brief Edge graph for animated Conway-operator transitions between the

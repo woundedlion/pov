@@ -14,7 +14,7 @@
 #include <cstdlib>
 #include <utility>
 
-#include "math/3dmath.h"
+#include "core/math/3dmath.h"
 
 namespace SHMath {
 /**
