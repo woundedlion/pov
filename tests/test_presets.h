@@ -267,6 +267,7 @@ struct FadePresetEffect : ChoreographedEffect<FadePresetEffect, HoldParams> {
   void arm() { begin_choreography(); }
   bool attempt() { return advance_preset(); }
   void clear_timeline() { timeline.clear(); }
+  void step_events(Canvas &canvas) { timeline.step(canvas); }
   void tick() { step_choreography(); }
   bool active() const { return transition.active; }
   void progress(float value) { run_transition(value); }
@@ -467,6 +468,37 @@ inline void test_completed_crossfade_adopts_exact_endpoint() {
   HS_EXPECT_EQ(effect.value(), SaturatedPresetEffect::preset(1).params.value);
 }
 
+/** @brief Automatic departures share the completing frame with the next dwell. */
+inline void test_cycle_frames_conservative_departure_slack() {
+  const auto probe = []<typename FX>() {
+    reset_globals();
+    FX effect;
+    Canvas canvas(effect);
+    effect.arm();
+    size_t previous = effect.getPresetIndex();
+    int departures = 0, first_frame = -1;
+    constexpr int DWELL = FX::PRESET_DWELL_FRAMES;
+    constexpr int DEPARTURE = Segue::Preset::frames(FX::preset(0).segue);
+    static_assert(FX::cycle_frames() == 2 * DWELL + DEPARTURE);
+    for (int frame = 1; frame <= 3 * (DWELL + DEPARTURE); ++frame) {
+      effect.step_events(canvas);
+      effect.tick();
+      if (effect.getPresetIndex() != previous) {
+        if (departures++ == 0)
+          first_frame = frame;
+        else {
+          HS_EXPECT_EQ(frame - first_frame, DWELL + DEPARTURE - 1);
+          break;
+        }
+        previous = effect.getPresetIndex();
+      }
+    }
+    HS_EXPECT_EQ(departures, 2);
+  };
+  probe.template operator()<SaturatedPresetEffect>();
+  probe.template operator()<FadePresetEffect>();
+}
+
 /**
  * @brief Runs the preset choreography test cases.
  * @return The module's failure count.
@@ -474,6 +506,7 @@ inline void test_completed_crossfade_adopts_exact_endpoint() {
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
+  test_cycle_frames_conservative_departure_slack();
   test_all_presets_in_ranges_folds_predicate();
   test_apply_if_changed();
   test_preset_zero_supplies_startup_params();
