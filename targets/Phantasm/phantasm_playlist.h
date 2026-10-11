@@ -55,7 +55,6 @@
     hs_preset_window_seconds<KaleidoscopePentBright>())                        \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
   X(Raymarch, 120)                                                             \
-  X(RingShower, 120)                                                           \
   X(RingSpin, 120)                                                             \
   X(ShapeShifter, 135)                                                         \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
@@ -153,12 +152,14 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
+ *          RingShower is omitted by product curation.
  *          Galaxies waits on its first on-device shipping profile.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(Dynamo)                                                                    \
   X(Galaxies)                                                                  \
   X(MobiusRings)                                                               \
+  X(RingShower)                                                                \
   X(Thrusters)
 
 /**

@@ -260,6 +260,7 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   const shipping = reportSets.get('shipping');
   const o3 = reportSets.get('O3');
   const retired = reportSets.get('retired');
+  const excluded = reportSets.get('excluded');
   if (!shipping) errors.push('shipping profile directory is missing');
   else {
     compareSets('shipping profiles',
@@ -281,6 +282,12 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
     for (const { key } of retired) {
       if (effectKeys.has(key))
         errors.push(`retired profile still names a registered effect: ${key}`);
+    }
+  }
+  if (excluded) {
+    for (const { key } of excluded) {
+      if (!effectKeys.has(key) || phantasmKeys.has(key))
+        errors.push(`excluded profile must name a registered non-Phantasm effect: ${key}`);
     }
   }
 

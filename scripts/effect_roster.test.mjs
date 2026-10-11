@@ -88,6 +88,11 @@ test('the loaders agree on the checked-in roster', async () => {
   assert.ok(phantasm.every(name => roster.includes(name)));
 });
 
+test('RingShower remains in the full roster and is excluded from Phantasm', async () => {
+  assert.ok((await loadEffectRoster()).includes('RingShower'));
+  assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
+});
+
 test('roster parsers ignore block-comment openers inside line comments', () => {
   const prefix = '// helpers live in effects/*.h\n';
   assert.deepEqual(parseEffectRoster(prefix + rosterOf('X(Alpha)') + '\n/** doc */'), ['Alpha', 'Last']);

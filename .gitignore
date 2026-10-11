@@ -64,9 +64,12 @@ docs/PROJECT_ASSESSMENT.md
 !/docs/profiles/memory/
 !/docs/profiles/shipping/
 !/docs/profiles/O3/
+!/docs/profiles/excluded/
 /docs/profiles/memory/*
 /docs/profiles/shipping/*
 /docs/profiles/O3/*
+/docs/profiles/excluded/*
 !/docs/profiles/memory/*.md
 !/docs/profiles/shipping/*.md
 !/docs/profiles/O3/*.md
+!/docs/profiles/excluded/*.md
