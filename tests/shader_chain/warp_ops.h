@@ -259,11 +259,8 @@ inline void test_shader_chain_parity_warp_vector_noise() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
     arm_warp_op_chain<In::Op::VectorNoiseWarpParams>(
         program, In::Op::WarpVectorNoise::ID, 4, set);
-    FastNoiseLite authored_noise;
-    authored_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    authored_noise.SetSeed(static_cast<int32_t>(
-        In::instance_hash("warp", In::Op::WarpVectorNoise::ID)));
-    authored_noise.SetFrequency(1.0f);
+    const FastNoiseLite authored_noise =
+        make_oracle_noise("warp", In::Op::WarpVectorNoise::ID, 1.0f);
     const auto &state = state_as<In::Op::NoisePhaseState>(program, 2);
     HS_EXPECT_EQ(state.noise.GetNoise(0.25f, -0.5f, 0.75f),
                  authored_noise.GetNoise(0.25f, -0.5f, 0.75f));
@@ -300,11 +297,8 @@ inline void test_shader_chain_noise_instances_decorrelate() {
       differs = true;
   HS_EXPECT_TRUE(differs);
   // Deterministic: the seed is the instance's stable hash.
-  FastNoiseLite authored;
-  authored.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-  authored.SetSeed(static_cast<int32_t>(
-      In::instance_hash("warp-b", In::Op::WarpVectorNoise::ID)));
-  authored.SetFrequency(1.0f);
+  const FastNoiseLite authored =
+      make_oracle_noise("warp-b", In::Op::WarpVectorNoise::ID, 1.0f);
   HS_EXPECT_EQ(second.noise.GetNoise(0.25f, -0.5f, 0.75f),
                authored.GetNoise(0.25f, -0.5f, 0.75f));
   program.clear();
