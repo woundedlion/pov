@@ -23,38 +23,18 @@ template <typename FX> void verify_export(size_t preset) {
   if (!loaded)
     return;
   const JsonValue &document = *loaded;
-  const auto *descriptor = document.find("descriptor");
-  HS_EXPECT_TRUE(descriptor != nullptr);
-  if (!descriptor)
-    return;
-  const auto *chain = descriptor->find("chain");
+  const JsonValue *chain = document_chain(document);
+  const JsonValue *presets = document_presets(document);
   HS_EXPECT_TRUE(chain != nullptr);
-  if (!chain)
+  HS_EXPECT_TRUE(presets != nullptr);
+  if (!chain || !presets)
     return;
-  const auto *bank = document.find("preset_bank");
-  HS_EXPECT_TRUE(bank != nullptr);
-  if (!bank)
-    return;
-  const auto *preset_entries = bank->find("presets");
-  HS_EXPECT_TRUE(preset_entries != nullptr);
-  if (!preset_entries)
-    return;
-  const auto &entries = chain->items;
-  const auto &presets = preset_entries->items;
-  const JsonValue *values = nullptr;
-  for (const auto &entry : presets) {
-    const auto *id = entry.find("preset_id");
-    HS_EXPECT_TRUE(id != nullptr);
-    if (!id)
-      return;
-    if (id->text == FX::PRESET_IDS[preset])
-      values = entry.find("values");
-  }
+  const JsonValue *values = preset_values(*presets, FX::PRESET_IDS[preset]);
   HS_EXPECT_TRUE(values != nullptr);
   if (!values)
     return;
   std::vector<In::ChainEntryRequest> requests;
-  for (const auto &entry : entries) {
+  for (const auto &entry : chain->items) {
     const auto *label = entry.find("label");
     const auto *op = entry.find("operator");
     HS_EXPECT_TRUE(label != nullptr);
