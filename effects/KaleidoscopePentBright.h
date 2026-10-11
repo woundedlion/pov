@@ -134,4 +134,17 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<
+               W, H, KaleidoscopePentBright<W, H>,
+               KaleidoscopePentBrightSpec>::choreography_hooks()
+        .template extend<
+            KaleidoscopePentBright,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &KaleidoscopePentBright::initial_params>>();
+  }
 };

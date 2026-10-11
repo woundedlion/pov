@@ -164,4 +164,20 @@ public:
   HS_COLD_MEMBER void after_composed_init() {
     this->start_mobius_animation(1.0f, 160);
   }
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, MobiusGrid<W, H>,
+                                    MobiusGridSpec>::choreography_hooks()
+        .template extend<
+            MobiusGrid,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &MobiusGrid::initial_params>,
+            Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
+                                 &MobiusGrid::preset>,
+            Control::HookBinding<Control::ChoreographyHook::AFTER_COMPOSED_INIT,
+                                 &MobiusGrid::after_composed_init>>();
+  }
 };

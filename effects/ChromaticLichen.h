@@ -129,4 +129,16 @@ public:
   }
   // clang-format on
   // End generated params.
+
+public:
+  /** @brief Explicit choreography customization bindings.
+   * @return Type-only hook list. */
+  static consteval auto choreography_hooks() {
+    return Pullback::ComposedEffect<W, H, ChromaticLichen<W, H>,
+                                    ChromaticLichenSpec>::choreography_hooks()
+        .template extend<
+            ChromaticLichen,
+            Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
+                                 &ChromaticLichen::initial_params>>();
+  }
 };

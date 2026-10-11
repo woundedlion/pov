@@ -618,6 +618,12 @@ public:
     return std::isfinite(p.speed) && p.speed >= 0.0f && p.speed <= 10.0f;
   }
 
+  static consteval auto choreography_hooks() {
+    return Control::HookSet<MyEffect,
+        Control::HookBinding<Control::ChoreographyHook::VALID_PARAMS,
+                             &MyEffect::valid_params>>{};
+  }
+
   void init() override {
     this->register_param("Speed", &params.speed, 0.0f, 10.0f);
     this->begin_choreography();
@@ -643,7 +649,7 @@ private:
 
 Effects expose live-adjustable parameters through the float `register_param()`, integer `register_int_param()`, typed-enum overloads, and runtime `enum8` registration (`control/param_host.h`). These are reflected into the WASM bridge and auto-generate GUI controls in the simulator.
 
-The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields.
+The typed `register_param(name, T*, ParamSpec<T>)` overload carries bounds and control metadata. `Control::Field` and `Control::FieldGroup` describe members through `parameter_fields()` or `Params::FIELDS`. Bind custom methods explicitly in `choreography_hooks()` with `Control::HookBinding`; the returned `Control::HookSet` names the declaring effect as its owner. An empty owned list uses defaults, and a `Pullback::ComposedEffect` can explicitly inherit its default list with `Control::HookOwnership::INHERITED`. A `ChoreographedEffect` with these descriptions uses `register_described_params()` for registration and derives validation and the Lerp blend from the same fields.
 
 ```cpp
 register_param("Twist",   &params.twist, -5.0f, 5.0f);        // float slider (min, max)
