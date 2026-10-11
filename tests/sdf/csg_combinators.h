@@ -223,8 +223,9 @@ inline void test_subtract_empty_b_passes_a_through_verbatim() {
   SDF::Subtract<Mock, Mock> s(A, B);
 
   std::vector<P> out;
-  s.get_horizontal_intervals<256, 128>(
+  const bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
   HS_EXPECT_SIZE_OR_RETURN(out, 2);
   HS_EXPECT_NEAR(out[0].first, 50.0f, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 60.0f, 1e-4f);
