@@ -100,6 +100,31 @@ inline void pin_frame_clock(int f) {
 }
 
 /**
+ * @brief Repartitions the global arena for the enclosing scope and restores the
+ *        previous split on the way out.
+ * @details Declare it ahead of every Arena the scope carves out of the global
+ * block, so the restore runs once those are gone.
+ */
+struct ScopedArenaSplit {
+  size_t saved_persistent = persistent_arena.get_capacity();
+  size_t saved_a = scratch_arena_a.get_capacity();
+  size_t saved_b = scratch_arena_b.get_capacity();
+
+  /**
+   * @brief Installs the split.
+   * @param persistent Bytes for the persistent arena.
+   * @param scratch_a Bytes for scratch arena A.
+   * @param scratch_b Bytes for scratch arena B.
+   */
+  ScopedArenaSplit(size_t persistent, size_t scratch_a, size_t scratch_b) {
+    configure_arenas(persistent, scratch_a, scratch_b);
+  }
+  ~ScopedArenaSplit() { configure_arenas(saved_persistent, saved_a, saved_b); }
+  ScopedArenaSplit(const ScopedArenaSplit &) = delete;
+  ScopedArenaSplit &operator=(const ScopedArenaSplit &) = delete;
+};
+
+/**
  * @brief Concrete Effect that draws nothing, for tests that only need a Canvas.
  * @details A fresh effect's buffer_free() is true, so a Canvas built over it
  * does not spin in its constructor. Shows no background, so the canvas starts

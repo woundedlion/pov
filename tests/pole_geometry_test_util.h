@@ -49,14 +49,13 @@ template <int W, int H>
 inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
                                          int downsample = 4,
                                          float alpha = 1.0f) {
-  const size_t SCRATCH_A = scratch_arena_a.get_capacity();
   const size_t SCRATCH_B = scratch_arena_b.get_capacity();
   const size_t REQUIRED =
       (Filter::Pixel::Feedback<W, H>::uncached_scratch_bytes(downsample) +
        127) &
       ~size_t{63};
-  configure_arenas(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B, REQUIRED,
-                   SCRATCH_B);
+  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B,
+                               REQUIRED, SCRATCH_B);
   constexpr Pixel BRIGHT(12000, 30000, 50000);
   constexpr int SOURCE_X = W / 3;
   hs_test::StubEffect effect(W, H);
@@ -95,7 +94,5 @@ inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
   HS_EXPECT_GT(lit, 0);
   HS_EXPECT_LT(lit, W);
   HS_EXPECT_NEAR(moment / mass, -0.6 * W / (2 * math::PI_F), 0.5);
-  configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A - SCRATCH_B, SCRATCH_A,
-                   SCRATCH_B);
 }
 } // namespace hs_test::pole_geometry

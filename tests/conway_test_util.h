@@ -9,6 +9,7 @@
 #include "core/mesh/solids.h"
 #include "effects/HankinSolids.h"
 #include "tests/test_harness.h"
+#include "tests/test_fixture.h"
 
 namespace hs_test {
 
@@ -29,27 +30,6 @@ inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
 }
 
 namespace conway_morph_tests {
-/**
- * @brief Repartitions the global arena for the enclosing scope and restores the
- *        default split on the way out.
- * @details Declare it ahead of every Arena the scope carves out of the global
- * block, so the restore runs once those are gone.
- */
-struct ScopedArenaSplit {
-  /**
-   * @brief Installs the split.
-   * @param persistent Bytes for the persistent arena.
-   * @param scratch_a Bytes for scratch arena A.
-   * @param scratch_b Bytes for scratch arena B.
-   */
-  ScopedArenaSplit(size_t persistent, size_t scratch_a, size_t scratch_b) {
-    configure_arenas(persistent, scratch_a, scratch_b);
-  }
-  ~ScopedArenaSplit() { configure_arenas_default(); }
-  ScopedArenaSplit(const ScopedArenaSplit &) = delete;
-  ScopedArenaSplit &operator=(const ScopedArenaSplit &) = delete;
-};
-
 /**
  * @brief Runs an edge's operator on a seed at one parameter point.
  * @param e Edge whose op kind is dispatched.
