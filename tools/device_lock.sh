@@ -347,6 +347,19 @@ acquire_tree_lock() {
   return 1
 }
 
+# Releases the checkout build lock this shell holds, if any.
+hs_tree_release() {
+  [ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :
+}
+
+# Runs $1 (default hs_tree_release) on EXIT; INT and TERM exit 130 and 143.
+hs_exit_traps() {
+  # shellcheck disable=SC2064
+  trap "${1:-hs_tree_release}" EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+}
+
 # `tree <command...>` runs a command under the checkout build lock.
 if [ "${BASH_SOURCE[0]}" = "$0" ]; then
   case "${1:-status}" in
@@ -357,9 +370,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
       [ "$#" -gt 0 ] || { echo "usage: $0 tree <command...>" >&2; exit 2; }
       TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel) || exit 2
       cd "$TREE" || exit 2
-      trap '[ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :' EXIT
-      trap 'exit 130' INT
-      trap 'exit 143' TERM
+      hs_exit_traps
       acquire_tree_lock || exit "$?"
       "$@"
       ;;

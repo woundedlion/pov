@@ -272,7 +272,7 @@ prepare_retry() {
 
 cleanup() {
   hs_device_release
-  [ -z "$TREE_TOKEN" ] || _hs_break_lock "$TREE_LOCK" "$TREE_TOKEN" || :
+  hs_tree_release
   [ -z "$RETRY_CACHE" ] || rm -rf "$RETRY_CACHE"
 }
 
@@ -328,9 +328,7 @@ verify() {
 
 # Armed before the claim (release is a no-op without a token); INT/TERM exit
 # and leave the release to the EXIT trap.
-trap cleanup EXIT
-trap 'exit 130' INT
-trap 'exit 143' TERM
+hs_exit_traps cleanup
 
 # ETA covers a clean rebuild, capture, and one retry.
 acquire_tree_lock "$((SECONDS_ARG * 2 + 900))" || exit $?

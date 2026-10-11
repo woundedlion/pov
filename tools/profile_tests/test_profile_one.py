@@ -138,10 +138,11 @@ class ProfileTreeLock(unittest.TestCase):
             cache = root / 'cache'
             cache.mkdir()
             (cache / 'large-build').write_text('artifact')
-            script = ('set -e\n' + shell_function('cleanup')
+            script = ('. "$2"\nset -e\n' + shell_function('cleanup')
                       + 'hs_device_release() { :; }; _hs_break_lock() { return 1; }\n'
                       + 'TREE_LOCK=unused; TREE_TOKEN=old; RETRY_CACHE=$1; cleanup\n')
-            result = subprocess.run(['bash', '-c', script, 'cleanup-test', cache.as_posix()],
+            result = subprocess.run(['bash', '-c', script, 'cleanup-test', cache.as_posix(),
+                                     (REPO / 'tools/device_lock.sh').as_posix()],
                                     capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(cache.exists())
