@@ -2405,8 +2405,6 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
 inline int run_death_tests() {
   hs_test::ModuleFixture fixture("death");
 
-  test_parameter_group_registered_companion();
-
   if (!self_exe() || self_exe()[0] == '\0') {
     report_unrunnable("no argv[0] to re-exec", 0);
     return fixture.result();

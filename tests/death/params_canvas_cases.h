@@ -162,25 +162,6 @@ inline void case_parameter_group_empty_registry() {
   host.set_last_parameter_group(&GROUP);
 }
 
-/** @brief Assigns and clears metadata only on the last registered parameter. */
-inline void test_parameter_group_registered_companion() {
-  ParameterGroupHost host;
-  const ParameterGroup FIRST_GROUP{"first", "First", 0};
-  const ParameterGroup LAST_GROUP{"last", "Last", 1};
-  float first = 0.5f;
-  float last = 0.5f;
-  host.register_param("first", &first, 0.0f, 1.0f);
-  host.set_last_parameter_group(&FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
-  host.register_param("last", &last, 0.0f, 1.0f);
-  host.set_last_parameter_group(&LAST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[1].group == &LAST_GROUP);
-  host.set_last_parameter_group(nullptr);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[1].group == nullptr);
-}
-
 inline void case_register_param_duplicate() {
   DeathEffect fx;
   float value = 0.5f;

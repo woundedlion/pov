@@ -1742,6 +1742,29 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
 // Runner
 // ============================================================================
 
+/** @brief Assigns and clears metadata only on the last registered parameter. */
+inline void test_parameter_group_registered_companion() {
+  struct GroupHost : ParamHost {
+    using ParamHost::register_param;
+    using ParamHost::set_last_parameter_group;
+  };
+  GroupHost host;
+  const ParameterGroup FIRST_GROUP{"first", "First", 0};
+  const ParameterGroup LAST_GROUP{"last", "Last", 1};
+  float first = 0.5f;
+  float last = 0.5f;
+  host.register_param("first", &first, 0.0f, 1.0f);
+  host.set_last_parameter_group(&FIRST_GROUP);
+  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
+  host.register_param("last", &last, 0.0f, 1.0f);
+  host.set_last_parameter_group(&LAST_GROUP);
+  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
+  HS_EXPECT_TRUE(host.getParameters().data()[1].group == &LAST_GROUP);
+  host.set_last_parameter_group(nullptr);
+  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
+  HS_EXPECT_TRUE(host.getParameters().data()[1].group == nullptr);
+}
+
 /**
  * @brief Runs every canvas test in order.
  * @return The module's failure count reported by end_module().
@@ -1774,6 +1797,7 @@ inline int run_canvas_tests() {
   test_double_buffer_handoff_concurrent();
   test_ctor_spin_waits_for_buffer_free();
   test_canvas_2d_and_1d_access_and_prev();
+  test_parameter_group_registered_companion();
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
 #if HS_ENABLE_PARAM_GUI_BRIDGE
