@@ -23,6 +23,15 @@ struct StubSystem {
   int active() const { return active_count; }
 };
 
+/** @brief One active @p particle in a system with max_life 100. */
+inline StubSystem single_particle_system(const StubParticle &particle) {
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 1;
+  sys.pool.push_back(particle);
+  return sys;
+}
+
 /** @brief Shader and output counts from drawing one particle. */
 struct ParticleDrawCapture {
   int vertex_calls = 0;
@@ -34,14 +43,11 @@ struct ParticleDrawCapture {
 /** @brief Optional fused deferred shaders preserve absent output. */
 inline void test_particle_system_fused_optional_deferred_shader() {
   constexpr int W = 96, H = 48;
-  StubSystem sys;
-  sys.max_life = 100;
-  sys.active_count = 1;
   StubParticle particle;
   particle.life = 50;
   particle.history.record(math::Vector(1, 0, 0));
   particle.history.record(math::Vector(0, 0, 1));
-  sys.pool.push_back(particle);
+  StubSystem sys = single_particle_system(particle);
   std::vector<math::Vector> reference;
   int deferred_calls = 0;
   for (int form = 0; form < 4; ++form) {
@@ -91,10 +97,7 @@ inline void test_particle_system_fused_optional_deferred_shader() {
 inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
   constexpr int W = 96, H = 48;
   hs_test::StubEffect fx(W, H);
-  StubSystem sys;
-  sys.max_life = 100;
-  sys.active_count = 1;
-  sys.pool.push_back(particle);
+  StubSystem sys = single_particle_system(particle);
 
   ParticleDrawCapture capture;
   CapturePipeline pipe;
@@ -120,10 +123,7 @@ inline std::vector<Fragment>
 capture_particle_vertices(const StubParticle &particle) {
   constexpr int W = 96, H = 48;
   hs_test::StubEffect fx(W, H);
-  StubSystem sys;
-  sys.max_life = 100;
-  sys.active_count = 1;
-  sys.pool.push_back(particle);
+  StubSystem sys = single_particle_system(particle);
 
   std::vector<Fragment> vertices;
   CapturePipeline pipe;
@@ -199,10 +199,7 @@ render_particle_materialization(const StubParticle &particle,
       });
       Plot::rasterize<W, H>(filters, c, trail, shade);
     } else {
-      StubSystem sys;
-      sys.max_life = 100;
-      sys.active_count = 1;
-      sys.pool.push_back(particle);
+      StubSystem sys = single_particle_system(particle);
       Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade);
     }
   }

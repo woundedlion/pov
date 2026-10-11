@@ -547,14 +547,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
     } else {
       walk[0] = rand_unit();
       for (size_t i = 1; i < WALK; ++i) {
-        math::Vector step = math::cross(walk[i - 1], rand_unit());
-        if (step.length() < 0.05f) {
-          walk[i] = walk[i - 1];
-          continue;
-        }
-        float hop = hs::rand_f(0.15f, 0.7f);
-        walk[i] = (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop))
-                      .normalized();
+        walk[i] = random_hop(walk[i - 1], 0.15f, 0.7f);
       }
     }
 
@@ -1043,11 +1036,7 @@ inline void test_gate_trail_edges_matches_edge_visible() {
         Fragment f;
         f.pos = p;
         trail.push_back(f);
-        math::Vector step = math::cross(p, rand_unit());
-        if (step.length() < 0.05f)
-          continue;
-        const float hop = hs::rand_f(0.005f, 0.4f);
-        p = (p * cosf(hop) + step.normalized() * sinf(hop)).normalized();
+        p = random_hop(p, 0.005f, 0.4f);
       }
 
       uint8_t bits[40];
@@ -1166,14 +1155,7 @@ inline void test_rasterize_gate_bits_pixel_parity() {
     math::Vector walk[WALK];
     walk[0] = rand_unit();
     for (size_t i = 1; i < WALK; ++i) {
-      math::Vector step = math::cross(walk[i - 1], rand_unit());
-      if (step.length() < 0.05f) {
-        walk[i] = walk[i - 1];
-        continue;
-      }
-      const float hop = hs::rand_f(0.05f, 0.6f);
-      walk[i] = (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop))
-                    .normalized();
+      walk[i] = random_hop(walk[i - 1], 0.05f, 0.6f);
     }
 
     for (auto &cl : clips) {

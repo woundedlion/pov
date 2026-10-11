@@ -95,6 +95,18 @@ capture_planar_alpha_policy(const Fragments &points, const math::Basis &basis) {
 }
 
 /**
+ * @brief Smallest angle (radians) from @p p to any of @p points.
+ * @return PI_F when @p points is empty.
+ */
+inline float nearest_angle(const math::Vector &p,
+                           const std::vector<math::Vector> &points) {
+  float nearest = math::PI_F;
+  for (const math::Vector &q : points)
+    nearest = std::min(nearest, math::angle_between(p, q));
+  return nearest;
+}
+
+/**
  * @brief Largest angular gap (radians) between consecutive recorded positions.
  * @param pts Plotted positions in plot order.
  * @param wrap When true, also measures the gap from the last point back to the
