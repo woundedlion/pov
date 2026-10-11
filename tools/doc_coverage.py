@@ -279,13 +279,20 @@ def main(argv: list[str] | None = None) -> int:
                         help="doxygen executable (default: $DOXYGEN or doxygen)")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args(argv)
-    sources = source_files(args.root, args.paths)
-    files = missing_file_blocks(args.root, sources)
-    found = parse(run_doxygen(args.doxygen, args.root, args.paths), args.root)
-    for path in sources:
-        found += silent_declarations(path, (args.root / path).read_text(
-            encoding="utf-8", errors="replace"))
-    items = locations(found, args.root)
+    try:
+        sources = source_files(args.root, args.paths)
+        if not sources:
+            print("[doc-coverage] no source files selected", file=sys.stderr)
+            return 2
+        files = missing_file_blocks(args.root, sources)
+        found = parse(run_doxygen(args.doxygen, args.root, args.paths), args.root)
+        for path in sources:
+            found += silent_declarations(path, (args.root / path).read_text(
+                encoding="utf-8", errors="replace"))
+        items = locations(found, args.root)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"[doc-coverage] tooling error: {exc}", file=sys.stderr)
+        return 2
     for path in files:
         print(f"{path}:1: missing @file block")
     for item in items:
