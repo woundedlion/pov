@@ -242,7 +242,6 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
   if (count == 0)
     return;
 
-  HS_EXPECT_TRUE(effect.animations_paused());
   constexpr int PAUSE_AUDIT_FRAMES = 500;
   const int frames_per_param =
       std::max(4, static_cast<int>((PAUSE_AUDIT_FRAMES + count - 1) / count));
@@ -252,8 +251,10 @@ inline void lint_animated_pause(Effect &effect, const char *name) {
     for (size_t restore = 0; restore < count; ++restore)
       HS_EXPECT_EQ(effect.updateParameter(names[restore], original[restore]),
                    ParamSetResult::APPLIED);
+    effect.setAnimationsPaused(false);
     HS_EXPECT_EQ(effect.updateParameter(names[index], target[index]),
                  ParamSetResult::APPLIED);
+    HS_EXPECT_TRUE(effect.animations_paused());
     const auto *written_def = effect.getParameters().find(names[index]);
     const float WRITTEN = written_def->get_requested();
     const float EPS =
