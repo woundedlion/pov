@@ -100,7 +100,7 @@ def main(force=False, revision=B.REVISION, output_dir=None):
     # ---------------------------------------------------------------- custom symbols
     def make_power(net):
         node = copy.deepcopy(sexp.get_symbol("power", "+5V"))
-        B._rename_subsymbols(node, "+5V", net)
+        B.rename_subsymbols(node, "+5V", net)
         for c in node:
             if isinstance(c, list) and c and c[0] == "property":
                 if c[1] == "Value":
@@ -180,8 +180,8 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
     if revision == "1.3":
         b.ensure_lib("Connector_Generic", "Conn_01x04")
-        node = b._resolve("Interface_UART", "THVD1450D")
-        B._rename_subsymbols(node, "THVD1450D", "THVD2410DR")
+        node = b.resolve("Interface_UART", "THVD1450D")
+        B.rename_subsymbols(node, "THVD1450D", "THVD2410DR")
         for prop in [item for item in node if isinstance(item, list) and item and item[0] == "property"]:
             if prop[1] == "Value":
                 prop[2] = "THVD2410DR"
