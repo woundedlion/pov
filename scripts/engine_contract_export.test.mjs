@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const EXPORTER = fileURLToPath(new URL('../scripts/export_engine_contract.mjs', import.meta.url));
+const EXPORTER = fileURLToPath(new URL('./export_engine_contract.mjs', import.meta.url));
 const BINDINGS = `export interface ClassHandle {}
 export interface HolosphereEngine extends ClassHandle {
   getBufferLength(): number;

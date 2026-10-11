@@ -1435,7 +1435,6 @@ files define line-ending policy and working-artifact exclusions.
 │   └── toolchain-native-clang.cmake  Native Clang toolchain behind the tests preset
 ├── platformio.ini              Teensy envs: the two shipping images plus the compile/profiling profiles
 ├── tests/                      Unit tests (CMake subdirectory)
-│   ├── engine_contract_export.test.mjs  Browser contract generation and emitted signature preservation tests
 │   ├── animation/         Sections included by test_animation.h
 │   ├── canvas/            Sections included by test_canvas.h
 │   ├── color/             Sections included by test_color.h
@@ -1471,7 +1470,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── promoted_digests.test.mjs Checks header/document/product-group roster; generate_composed_presets.test.mjs pins digests
 │   ├── engine_catalog.json     wasm32 operator ABI catalog the browser workbench budgets against
 │   ├── export_engine_catalog.mjs / export_engine_catalog.test.mjs  Exports and validates the WASM operator catalog; CLI failure fixtures
-│   ├── export_engine_contract.mjs  Emits browser runtime contracts and binding aliases
+│   ├── export_engine_contract.mjs / engine_contract_export.test.mjs  Emits browser runtime contracts and binding aliases; generation and emitted-signature tests
 │   ├── exit.mjs                  Shared command exit after pending stderr writes drain
 │   ├── sha256.mjs              Shared SHA-256 implementation for shader documents
 │   ├── engine_bindings_contract.test.mjs Node contract tests for WASM engine binding invariants
