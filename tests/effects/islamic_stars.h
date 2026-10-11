@@ -227,13 +227,22 @@ inline size_t first_recipe_entry() {
   return 0;
 }
 
-/** @brief One preset per Islamic solid, opening on the first recipe entry. */
+/** @brief IslamicStars preset registration excludes its global controls. */
 inline void test_islamicstars_presets_cover_registry() {
   reset_effect_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
   HS_EXPECT_EQ(effect.getPresetCount(), std::size(Solids::islamic_registry));
   HS_EXPECT_EQ(effect.getPresetIndex(), first_recipe_entry());
+  for (const char *name :
+       {"Face Fade Lo", "Face Fade Hi", "Ripp Amp", "Ripp Decay"}) {
+    const auto *def = effect.getParameters().find(name);
+    HS_EXPECT_TRUE(def && !def->preset);
+  }
+  for (const char *name : {"Burst", "Ripp Dur", "Trans Speed"}) {
+    const auto *def = effect.getParameters().find(name);
+    HS_EXPECT_TRUE(def && def->preset);
+  }
 }
 
 /**

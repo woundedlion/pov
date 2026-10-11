@@ -147,6 +147,9 @@ public:
                          0.0f, RIPPLE_AMP_MAX);
     this->register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f,
                          5.0f);
+    for (const char *name :
+         {"Face Fade Lo", "Face Fade Hi", "Ripp Amp", "Ripp Decay"})
+      this->mark_global(name);
     this->register_param("Ripp Dur", &params.ripple_duration,
                          RIPPLE_DURATION_MIN, RIPPLE_DURATION_MAX);
     this->register_param("Trans Speed", &params.trans_speed, TRANS_SPEED_MIN,
