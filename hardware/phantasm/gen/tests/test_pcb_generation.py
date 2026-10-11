@@ -394,7 +394,7 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
     def test_stamps_the_revision_on_the_back_silkscreen(self):
         texts = [str(node[1]) for node in F(self.root, "gr_text")
                  if str(sexp.val(node, "layer")[0]) == "B.SilkS"]
-        self.assertIn(pcb.SILK_REVISION, texts)
+        self.assertIn(pcb.silk_revision(builder.REVISION), texts)
 
     def test_board_id_has_large_legible_digits(self):
         labels = [node for node in F(self.root, "gr_text")
