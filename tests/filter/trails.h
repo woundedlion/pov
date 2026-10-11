@@ -10,7 +10,7 @@
 /**
  * @brief Verifies plot() passes the frame through and stores it, and flush()
  *        decodes the int16 entry and re-emits it (then ages) within the
- *        quantization error bound (< 1/32767).
+ *        rounded snorm16 component error bound.
  */
 inline void test_world_trails_int16_quantization_roundtrip() {
   constexpr int Cap = 8;
@@ -41,10 +41,9 @@ inline void test_world_trails_int16_quantization_roundtrip() {
                  ++emitted;
                });
   HS_EXPECT_EQ(emitted, 1);
-  // Quantization is v*32767 truncated to int16 then *(1/32767): |err| < 1/32767.
-  HS_EXPECT_NEAR(decoded.x, v0.x, 1.0f / 32767.0f + 1e-7f);
-  HS_EXPECT_NEAR(decoded.y, v0.y, 1.0f / 32767.0f + 1e-7f);
-  HS_EXPECT_NEAR(decoded.z, v0.z, 1.0f / 32767.0f + 1e-7f);
+  HS_EXPECT_NEAR(decoded.x, v0.x, 0.5f / 32767.0f + 1e-7f);
+  HS_EXPECT_NEAR(decoded.y, v0.y, 0.5f / 32767.0f + 1e-7f);
+  HS_EXPECT_NEAR(decoded.z, v0.z, 0.5f / 32767.0f + 1e-7f);
 }
 
 /**
@@ -104,7 +103,7 @@ inline void test_world_trails_capacity_evicts_one_slot() {
                  decoded.push_back(v);
                });
   HS_EXPECT_SIZE_OR_RETURN(decoded, Cap);
-  constexpr float TOLERANCE = 1.0f / 32767.0f + 1e-7f;
+  constexpr float TOLERANCE = 0.5f / 32767.0f + 1e-7f;
   auto matches = [&](const math::Vector &want) {
     int n = 0;
     for (const math::Vector &v : decoded)
