@@ -184,8 +184,10 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   }
 };
 
-/** @brief Shared shape of the parameterless lens operators. */
-template <typename Derived> struct FixedLensModel : StatelessModel {
+/** @brief SPHERE endomorphism: latitude doubling and azimuth tripling. */
+struct LensGlitch : StatelessModel {
+  static constexpr const char *ID = "sphere.lens.glitch.v2";
+  static constexpr const char *NAME = "Glitch Lens";
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = Lens::NoLensParams;
@@ -197,24 +199,7 @@ template <typename Derived> struct FixedLensModel : StatelessModel {
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
                           const Params &, const Prepared &) {
-    return Kernel::lens(input, Derived::lens(input.dir));
-  }
-};
-
-/**
- * @brief SPHERE endomorphism: the glitch lens (latitude doubling, azimuth
- *        tripling).
- */
-struct LensGlitch : FixedLensModel<LensGlitch> {
-  static constexpr const char *ID = "sphere.lens.glitch.v2";
-  static constexpr const char *NAME = "Glitch Lens";
-  /**
-   * @brief The glitch lens map.
-   * @param input Unit direction.
-   * @return The lensed direction.
-   */
-  static math::Vector lens(const math::Vector &input) {
-    return lenses::glitch_lens(input);
+    return Kernel::lens(input, lenses::glitch_lens(input.dir));
   }
 };
 

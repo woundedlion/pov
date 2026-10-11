@@ -238,9 +238,8 @@ struct SampleGridV3 : SourceClockModel {
   using Output = FieldSample;
   using Params = GridSampleParams;
 
-  template <typename P>
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const P &params, const Prepared &prepared) {
+                         const Params &params, const Prepared &prepared) {
     const float raw = Source::grid(
         projections::stereo_pattern_args(input.coords, params.pattern_freq),
         static_cast<const Source::GridSourceParams &>(params), prepared);
@@ -268,9 +267,8 @@ struct SampleTwinWaveV3 : SourceClockModel {
   using Output = FieldSample;
   using Params = TwinWaveSampleParams;
 
-  template <typename P>
   static FieldSample run(const PlaneSample &input, const FrameContext &ctx,
-                         const P &params, const Prepared &prepared) {
+                         const Params &params, const Prepared &prepared) {
     const float raw = Source::twin_wave(
         projections::stereo_pattern_args(input.coords, params.pattern_freq),
         prepared);
