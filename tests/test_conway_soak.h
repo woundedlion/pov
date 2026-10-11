@@ -18,6 +18,7 @@
 #include "tests/conway_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/pixel_test_util.h"
 
 namespace hs_test {
 namespace conway_soak_tests {
@@ -95,16 +96,8 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
     fx.advance_display();
     ++frames;
     if (frames % 16 == 0) {
-      int lit = 0;
-      uint64_t frame_energy = 0;
-      for (int y = 0; y < SOAK_H; ++y)
-        for (int x = 0; x < SOAK_W; ++x) {
-          const Pixel &p = fx.get_pixel(x, y);
-          const uint64_t channels = static_cast<uint64_t>(p.r) + p.g + p.b;
-          frame_energy += channels;
-          if (channels != 0)
-            ++lit;
-        }
+      const int lit = static_cast<int>(count_lit_region<SOAK_W, SOAK_H>(fx));
+      const uint64_t frame_energy = hs_test::frame_energy<SOAK_W, SOAK_H>(fx);
       render_energy += frame_energy;
       if (lit < leg_min_lit)
         leg_min_lit = lit;
