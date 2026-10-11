@@ -311,6 +311,12 @@ inline void test_end_to_end_wire_bytes() {
   HS_EXPECT_EQ(capture[5], 188);
   HS_EXPECT_EQ(capture[6], 137);
   HS_EXPECT_EQ(capture[7], 137);
+  DMALEDController<N, MockStrip>::apply_default_calibration();
+  uint32_t r = 65535, g = 65535, b = 65535;
+  ctl.back_frame().correct(r, g, b);
+  HS_EXPECT_EQ(r, 65535u);
+  HS_EXPECT_EQ(g, 26195u);
+  HS_EXPECT_EQ(b, 10121u);
   hd107s_tests::reset_correction<N>();
 }
 
