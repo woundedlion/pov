@@ -101,11 +101,11 @@ inline PolyMesh probe_cube(Arena &a, Arena &b) {
   return Solids::Platonic::cube(a, b);
 }
 inline PolyMesh probe_ticosa(Arena &a, Arena &b) {
-  return Solids::Archimedean::truncatedIcosahedron(a, b);
+  return Solids::Archimedean::truncated_icosahedron(a, b);
 }
 inline PolyMesh probe_ticosa_hk58(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+  return Solids::SolidBuilder(Solids::Archimedean::truncated_icosahedron(a, b),
                               a, b)
       .hankin(58.0f * D2R)
       .build();
@@ -460,7 +460,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
 // ---------------------------------------------------------------------------
 
 inline PolyMesh probe_ticosidodeca(Arena &a, Arena &b) {
-  return Solids::Archimedean::truncatedIcosidodecahedron(a, b);
+  return Solids::Archimedean::truncated_icosidodecahedron(a, b);
 }
 
 inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {

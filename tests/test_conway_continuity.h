@@ -573,7 +573,7 @@ inline void test_swap_in_framebuffer() {
 /**
  * @brief Verifies the DERIVE_AMBO departure swap: the displayed cuboctahedron
  *        base vs truncate(ambo(cube), T_EPS) — the first frame of the
- *        cuboctahedron -> truncatedCuboctahedron leg — under the
+ *        cuboctahedron -> truncated_cuboctahedron leg — under the
  *        emission-identity mapping on the derived seed.
  */
 inline void test_derive_ambo_departure_swap_framebuffer() {
@@ -890,7 +890,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
 
 /**
  * @brief Verifies the crossfade endpoints on an emission-order leg (cube ->
- *        truncatedCube): frame 1 (w = 0) shades every surviving face from the
+ *        truncated_cube): frame 1 (w = 0) shades every surviving face from the
  *        handed-off palette and every newborn face from its target; the final
  *        frame (w = 1) shades every face from the landed target assignment.
  */
