@@ -281,6 +281,30 @@ inline void test_displacement_field_hue_table_bind_clears_knots() {
   HS_EXPECT_TRUE(first_sample != second_sample);
 }
 
+/** @brief Reciprocal of the RGB16 channel full scale. */
+constexpr float HUE_INV16 = 1.0f / 65535.0f;
+
+/** @brief OKLab Euclidean distance between two linear RGB16 pixels. */
+inline float oklab_delta_e(const Pixel &a, const Pixel &b) {
+  const OKLab lab_a =
+      linear_rgb_to_oklab(a.r * HUE_INV16, a.g * HUE_INV16, a.b * HUE_INV16);
+  const OKLab lab_b =
+      linear_rgb_to_oklab(b.r * HUE_INV16, b.g * HUE_INV16, b.b * HUE_INV16);
+  const float dl = lab_a.L - lab_b.L;
+  const float da = lab_a.a - lab_b.a;
+  const float db = lab_a.b - lab_b.b;
+  return sqrtf(dl * dl + da * da + db * db);
+}
+
+/** @brief Largest per-channel gap between two linear RGB16 pixels in sRGB8. */
+inline int srgb8_channel_gap(const Pixel &a, const Pixel &b) {
+  const auto gap = [](uint16_t x, uint16_t y) {
+    return std::abs(static_cast<int>(linear_float_to_srgb8(x * HUE_INV16)) -
+                    linear_float_to_srgb8(y * HUE_INV16));
+  };
+  return std::max({gap(a.r, b.r), gap(a.g, b.g), gap(a.b, b.b)});
+}
+
 /**
  * @brief Bounds dynamic and periodic hue tables over effect palette colors.
  * @details Each bound is the sweep's measured worst case plus headroom. The
@@ -291,7 +315,6 @@ inline void test_displacement_field_hue_table_fidelity() {
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
 
-  constexpr float INV16 = 1.0f / 65535.0f;
   float default_delta_e = 0.0f;
   float cyclic_delta_e = 0.0f;
   int default_srgb_delta = 0;
@@ -315,24 +338,8 @@ inline void test_displacement_field_hue_table_fidelity() {
           Pixel exact = hue_rotate(exact_base, amount).color;
           Pixel approx =
               DisplacementFieldWhiteBox::sample_hue_table(effect, amount);
-          OKLab exact_lab = linear_rgb_to_oklab(
-              exact.r * INV16, exact.g * INV16, exact.b * INV16);
-          OKLab approx_lab = linear_rgb_to_oklab(
-              approx.r * INV16, approx.g * INV16, approx.b * INV16);
-          const float dl = exact_lab.L - approx_lab.L;
-          const float da = exact_lab.a - approx_lab.a;
-          const float db = exact_lab.b - approx_lab.b;
-          const float delta_e = sqrtf(dl * dl + da * da + db * db);
-          const int srgb_delta = std::max(
-              std::abs(
-                  static_cast<int>(linear_float_to_srgb8(exact.r * INV16)) -
-                  linear_float_to_srgb8(approx.r * INV16)),
-              std::max(std::abs(static_cast<int>(
-                                    linear_float_to_srgb8(exact.g * INV16)) -
-                                linear_float_to_srgb8(approx.g * INV16)),
-                       std::abs(static_cast<int>(
-                                    linear_float_to_srgb8(exact.b * INV16)) -
-                                linear_float_to_srgb8(approx.b * INV16))));
+          const float delta_e = oklab_delta_e(exact, approx);
+          const int srgb_delta = srgb8_channel_gap(exact, approx);
           if (cyclic) {
             cyclic_delta_e = hs_test::fold_worst(cyclic_delta_e, delta_e);
             cyclic_srgb_delta = std::max(cyclic_srgb_delta, srgb_delta);
@@ -393,7 +400,6 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
   DisplacementHueFrame table = render_displacement_hue_frame(false);
   HS_EXPECT_EQ(exact.table_uses, 0);
   HS_EXPECT_GT(table.table_uses, 0);
-  constexpr float INV16 = 1.0f / 65535.0f;
   float max_delta_e = 0.0f;
   int max_srgb_delta = 0;
   int changed = 0;
@@ -402,32 +408,10 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
     lit += !is_black(exact.pixels[i]) && !is_black(table.pixels[i]);
     if (exact.pixels[i] != table.pixels[i])
       ++changed;
-    OKLab a = linear_rgb_to_oklab(exact.pixels[i].r * INV16,
-                                  exact.pixels[i].g * INV16,
-                                  exact.pixels[i].b * INV16);
-    OKLab b = linear_rgb_to_oklab(table.pixels[i].r * INV16,
-                                  table.pixels[i].g * INV16,
-                                  table.pixels[i].b * INV16);
-    const float dl = a.L - b.L;
-    const float da = a.a - b.a;
-    const float db = a.b - b.b;
-    max_delta_e =
-        hs_test::fold_worst(max_delta_e, sqrtf(dl * dl + da * da + db * db));
+    max_delta_e = hs_test::fold_worst(
+        max_delta_e, oklab_delta_e(exact.pixels[i], table.pixels[i]));
     max_srgb_delta = std::max(
-        max_srgb_delta,
-        std::abs(
-            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].r * INV16)) -
-            linear_float_to_srgb8(table.pixels[i].r * INV16)));
-    max_srgb_delta = std::max(
-        max_srgb_delta,
-        std::abs(
-            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].g * INV16)) -
-            linear_float_to_srgb8(table.pixels[i].g * INV16)));
-    max_srgb_delta = std::max(
-        max_srgb_delta,
-        std::abs(
-            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].b * INV16)) -
-            linear_float_to_srgb8(table.pixels[i].b * INV16)));
+        max_srgb_delta, srgb8_channel_gap(exact.pixels[i], table.pixels[i]));
   }
   std::printf("  [hue frame] changed=%d/%zu uses=%d deltaE=%g sRGB8=%d\n",
               changed, exact.pixels.size(), table.table_uses, max_delta_e,
