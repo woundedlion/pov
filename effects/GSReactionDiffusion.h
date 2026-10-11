@@ -469,8 +469,7 @@ private:
         rows = 0;
         next_row = 0;
       }
-      if (next_row == COLOR_NOISE_STEPS || fabsf(hue) > CACHED_HUE_LIMIT ||
-          shimmer > CACHED_SHIMMER_LIMIT || (hue == 0.0f && shimmer == 0.0f))
+      if (next_row == COLOR_NOISE_STEPS || exact)
         return;
       HS_PROFILE(grd_color_palette);
       int count = complete ? COLOR_NOISE_STEPS : RESTART ? 5 : 2;
