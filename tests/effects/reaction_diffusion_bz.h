@@ -28,7 +28,7 @@ struct BZWhiteBox {
   static float from_q16(uint16_t v) { return BZ::from_q16(v); }
   static void set_params(BZ &bz, float alpha, float D, float dt) {
     bz.params.alpha = alpha;
-    bz.params.D = D;
+    bz.params.diffusion = D;
     bz.params.dt = dt;
   }
   static uint16_t advance_species(const BZ &bz, float conc, float predator,
