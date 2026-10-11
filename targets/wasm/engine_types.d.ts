@@ -170,7 +170,7 @@ export interface RuntimeState {
   onAbort?: (reason: unknown) => void;
 }
 /** Emscripten loader hooks supplied by the browser. */
-export interface ModuleOptions {
+export interface ModuleOptions extends Pick<RuntimeState, 'onAbort'> {
   print?: (text: string) => void;
   printErr?: (text: string) => void;
   instantiateWasm?: (imports: WebAssembly.Imports,
