@@ -388,28 +388,21 @@ inline math::Vector kaleidoscope_lens(const math::Vector &input,
                                       uint8_t symmetry) {
   switch (static_cast<KaleidoscopeSymmetry>(symmetry)) {
   case KaleidoscopeSymmetry::TETRAHEDRAL:
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::TETRAHEDRAL_MIRRORS);
+    return Lens::TetrahedralKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::OCTAHEDRAL:
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::OCTAHEDRAL_MIRRORS);
+    return Lens::OctahedralKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::DODECAHEDRAL:
     return lenses::dodecahedral_kaleidoscope_lens(input);
   case KaleidoscopeSymmetry::TRIANGULAR_PRISM:
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::TRIANGULAR_PRISM_MIRRORS);
+    return Lens::TriangularPrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::SQUARE_PRISM:
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::SQUARE_PRISM_MIRRORS);
+    return Lens::SquarePrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::PENTAGONAL_PRISM:
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::PENTAGONAL_PRISM_MIRRORS);
+    return Lens::PentagonalPrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::HEXAGONAL_PRISM:
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::HEXAGONAL_PRISM_MIRRORS);
+    return Lens::HexagonalPrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::OCTAGONAL_PRISM:
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::OCTAGONAL_PRISM_MIRRORS);
+    return Lens::OctagonalPrismKaleidoscope::apply(input, 0);
   case KaleidoscopeSymmetry::AZIMUTHAL:
     break;
   }
