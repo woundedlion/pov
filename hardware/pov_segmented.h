@@ -353,13 +353,9 @@ public:
                   !cur->overrides_get_pixel(),
                   "POVSegmented: effect must not override get_pixel(); the "
                   "segmented pack_column path bypasses it");
-              clip_to_segment(cur, /*arm_a_left=*/true);
-              cur->set_clip_x(0, CANVAS_W);
-              cur->draw_frame();
-              cur->set_buffer_ready_hook(prepare_segment_clip);
-              if (pov::segment_clip_applies(cur->needs_full_frame(),
-                                            cur->persists_pixels()))
-                cur->set_buffer_complete_hook(pov::preserve_segment_half);
+              pov::prime_segment_frame(
+                  *cur, pov::segment_clip(segment, true, S, N, CANVAS_W),
+                  prepare_segment_clip);
               return cur;
             },
             [&](auto publish) {
@@ -500,7 +496,7 @@ private:
   static void prepare_segment_clip(Effect &e) {
     // One window ahead: the frame being drawn displays in the window after the
     // open one, which sweeps the opposite half.
-    clip_to_segment(&e, handoff.window_left() == 0);
+    clip_to_segment(&e, pov::upcoming_window_arm_a_left(handoff.window_left()));
   }
 
   // ── ISRs ────────────────────────────────────────────────────────────
