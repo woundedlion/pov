@@ -615,10 +615,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     snap(snaps[2]);
     HS_EXPECT_EQ(drawn, 2);
     for (const auto &frame : snaps) {
-      size_t lit = 0;
-      for (const Pixel &pixel : frame)
-        lit += !is_black(pixel);
-      HS_EXPECT_GT(lit, static_cast<size_t>(RW * RH / 100));
+      HS_EXPECT_GT(count_lit(frame), static_cast<size_t>(RW * RH / 100));
     }
 
     auto diff = [&](const std::vector<Pixel> &a, const std::vector<Pixel> &b,

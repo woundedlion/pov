@@ -187,10 +187,9 @@ inline void test_circle_and_point_match_their_rings() {
     fx.advance_display();
     capture_frame<W, H>(fx, ring_frame);
   }
-  size_t circle_lit = 0, circle_diff = 0;
+  const size_t circle_lit = count_lit(circle_frame);
+  size_t circle_diff = 0;
   for (size_t i = 0; i < circle_frame.size(); ++i) {
-    if (!is_black(circle_frame[i]))
-      ++circle_lit;
     if (!(circle_frame[i] == ring_frame[i]))
       ++circle_diff;
   }
@@ -219,10 +218,9 @@ inline void test_circle_and_point_match_their_rings() {
     fx.advance_display();
     capture_frame<W, H>(fx, point_ring_frame);
   }
-  size_t point_lit = 0, point_diff = 0;
+  const size_t point_lit = count_lit(point_frame);
+  size_t point_diff = 0;
   for (size_t i = 0; i < point_frame.size(); ++i) {
-    if (!is_black(point_frame[i]))
-      ++point_lit;
     if (!(point_frame[i] == point_ring_frame[i]))
       ++point_diff;
   }

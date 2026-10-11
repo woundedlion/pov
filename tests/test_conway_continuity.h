@@ -383,10 +383,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
     return f < F ? Color4(Pixel(0, 0, 0), 1.0f)
                  : Color4(Pixel(65535, 65535, 65535), 1.0f);
   });
-  size_t rosette_lit = 0;
-  for (const Pixel &p : rosette_px)
-    if (p.r || p.g || p.b)
-      ++rosette_lit;
+  const size_t rosette_lit = count_lit(rosette_px);
   std::printf("  [bookend] F=%d: rosette contribution %zu px\n", F,
               rosette_lit);
   HS_EXPECT_EQ(rosette_lit, (size_t)0);

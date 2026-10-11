@@ -78,6 +78,18 @@ inline void expect_color_within(const Color4 &actual, const Color4 &expected,
 }
 
 /**
+ * @brief Counts the non-black pixels in a pixel span.
+ * @param pixels Pixels to scan.
+ * @return Number of lit (non-black) pixels.
+ */
+inline size_t count_lit(std::span<const Pixel> pixels) {
+  size_t n = 0;
+  for (const Pixel &p : pixels)
+    n += !is_black(p);
+  return n;
+}
+
+/**
  * @brief Counts the non-black pixels across the effect's reported canvas.
  * @param fx Effect whose framebuffer is scanned, fx.width() by fx.height().
  * @return Number of lit (non-black) pixels.
