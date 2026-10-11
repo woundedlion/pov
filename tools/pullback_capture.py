@@ -19,16 +19,8 @@ from generate_pullback_manifest_header import (
     load_and_validate,
     manifest_sha256,
 )
-from pullback_crosscheck import expected_toolchain
+from pullback_crosscheck import corpus_operations, expected_toolchain, framebuffer_metric
 from engine_source_state import changed_sources
-
-
-CASE_OPERATIONS = {
-    "default": "CASE_DEFAULT",
-    "endpoint_min": "CASE_ENDPOINT_MIN",
-    "endpoint_max": "CASE_ENDPOINT_MAX",
-    "interior": "CASE_INTERIOR",
-}
 
 
 class CaptureError(RuntimeError):
@@ -48,25 +40,8 @@ def _read_u32(data: bytes, offset: int) -> tuple[int, int]:
 
 
 def operation_specs(programs: dict) -> list[dict]:
-    mappings = programs["corpus"]["probe_operations"]
-    specs = []
-    for program in programs["programs"]:
-        for preset in program["presets"]:
-            for case in program["parameter_cases"]:
-                case_id = case["id"]
-                specs.append(
-                    {
-                        "preset": preset,
-                        "name": f"case:{case_id}",
-                        "mapping": CASE_OPERATIONS[case_id],
-                    }
-                )
-            for category, probes in program["probes"].items():
-                for probe in probes:
-                    name = f"{category}:{probe}"
-                    specs.append(
-                        {"preset": preset, "name": name, "mapping": mappings[name]}
-                    )
+    specs = [{name: op[name] for name in ("preset", "name", "mapping")}
+             for op in corpus_operations(programs)]
     keys = [(spec["preset"], spec["name"]) for spec in specs]
     if len(keys) != len(set(keys)):
         raise CaptureError("capture corpus operations are not unique")
@@ -209,12 +184,6 @@ def load_backend(
     return (width, height), records, metrics
 
 
-def _framebuffer_metric(oracle: dict) -> dict:
-    return next(metric for metric in oracle["metrics"]
-                if metric["domain"] == "FRAMEBUFFER"
-                and metric["aggregation"] == "MAXIMUM")
-
-
 def validate_backend_oracles(
     metrics: dict,
     oracles: list[dict],
@@ -223,7 +192,7 @@ def validate_backend_oracles(
 ) -> None:
     for oracle in oracles:
         oracle_id = oracle["oracle_id"]
-        manifest_metric = _framebuffer_metric(oracle)
+        manifest_metric = framebuffer_metric(oracle)
         observed = metrics[oracle_id]["value"]
         limit = manifest_metric["accepted_limit"]
         if observed > limit:
@@ -465,44 +434,18 @@ def produce(
                     f"{dimensions[0]}x{dimensions[1]}"
                 ] = metric["value"]
     frames = []
-    for program in programs["programs"]:
-        for preset in program["presets"]:
-            for resolution in programs["corpus"]["resolutions"]:
-                dimensions = tuple(resolution)
-                for case in program["parameter_cases"]:
-                    case_id = case["id"]
-                    record = backend_records[(dimensions, preset, f"case:{case_id}")]
-                    frame = {
-                        "program": program["id"],
-                        "preset": preset,
-                        "case": case_id,
-                        "resolution": resolution,
-                        "probe": "steady",
-                        "operation": _frame_operation(record),
-                        "pixels": record["pixels"],
-                    }
-                    frame["sha256"] = hashlib.sha256(record["pixels"]).hexdigest()
-                    frames.append(frame)
-                for category, probes in program["probes"].items():
-                    for probe in probes:
-                        name = f"{category}:{probe}"
-                        record = backend_records[(dimensions, preset, name)]
-                        frame = {
-                            "program": program["id"],
-                            "preset": preset,
-                            "case": "default",
-                            "resolution": resolution,
-                            "probe": name,
-                            "operation": _frame_operation(record),
-                            "pixels": record["pixels"],
-                        }
-                        frame["sha256"] = hashlib.sha256(
-                            record["pixels"]).hexdigest()
-                        frames.append(frame)
+    for op in corpus_operations(programs):
+        for resolution in programs["corpus"]["resolutions"]:
+            record = backend_records[(tuple(resolution), op["preset"], op["name"])]
+            frame = {name: op[name] for name in ("program", "preset", "case", "probe")}
+            frame.update(resolution=resolution, operation=_frame_operation(record),
+                         pixels=record["pixels"])
+            frame["sha256"] = hashlib.sha256(record["pixels"]).hexdigest()
+            frames.append(frame)
     validate_backend_oracles(oracle_totals, oracles, configuration)
     oracle_metrics = []
     for oracle in oracles:
-        manifest_metric = _framebuffer_metric(oracle)
+        manifest_metric = framebuffer_metric(oracle)
         observed = oracle_totals[oracle["oracle_id"]]
         oracle_metrics.append(
             {
