@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.29)
-get_filename_component(_gate_dir "${CALL_GATE}" DIRECTORY)
-file(REMOVE_RECURSE "${WORK}")
-file(MAKE_DIRECTORY "${WORK}/tests/alpha" "${WORK}/tools")
-file(COPY "${_gate_dir}/header_sections.cmake" DESTINATION "${WORK}/tests")
-file(WRITE "${WORK}/tests/off_roster_headers.cmake" "set(HS_OFF_ROSTER_HEADER_NAMES)\n")
+include("${CMAKE_CURRENT_LIST_DIR}/gate_selftest.cmake")
+hs_gate_workspace("${CALL_GATE}")
+file(MAKE_DIRECTORY "${WORK}/tests/alpha")
 set(_header [=[#include "tests/alpha/guards.h"
 inline int run_alpha_tests() {
   test_guard();
@@ -23,17 +21,14 @@ X("alpha", hs_test::alpha::run_alpha_tests, false)
 ]=])
 
 function(check_gate gate should_pass diagnostic)
-  execute_process(COMMAND "${CMAKE_COMMAND}"
-    "-DSRC=${WORK}/run_tests.cpp" "-DTESTS_DIR=${WORK}/tests"
-    "-DTOOLS_DIR=${WORK}/tools" -P "${gate}"
-    RESULT_VARIABLE _result OUTPUT_VARIABLE _output ERROR_VARIABLE _error)
+  hs_run_gate("${gate}" _result _output)
   if(should_pass AND NOT _result EQUAL 0)
-    message(FATAL_ERROR "valid section rejected: ${_output}${_error}")
+    message(FATAL_ERROR "valid section rejected: ${_output}")
   elseif(NOT should_pass AND _result EQUAL 0)
     message(FATAL_ERROR "invalid section accepted: ${diagnostic}")
   endif()
-  if(NOT "${_output}${_error}" MATCHES "${diagnostic}")
-    message(FATAL_ERROR "unexpected section verdict: ${_output}${_error}")
+  if(NOT "${_output}" MATCHES "${diagnostic}")
+    message(FATAL_ERROR "unexpected section verdict: ${_output}")
   endif()
 endfunction()
 
