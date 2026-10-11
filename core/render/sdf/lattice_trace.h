@@ -136,8 +136,10 @@ HS_FLASH_INLINE inline Prepared prepare(const Settings &settings) {
         1.0f / (SDF::OctetFramework4::HALF_CUBE * settings.cell_size);
     for (int i = 0; i < 4; ++i) {
       projection.embedding[i] = math::Vector(E[i][0], E[i][1], E[i][2]);
-      projection.origin[i] = (settings.center[i] - result.octet4.origin[i]) *
-                             projection.inverse_scale;
+      projection.origin[i] =
+          fmodf((settings.center[i] - result.octet4.origin[i]) *
+                    projection.inverse_scale,
+                2.0f);
     }
   }
   return result;
