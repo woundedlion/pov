@@ -188,7 +188,7 @@ inline void test_octet_preparation_matches_world_events() {
   HS_EXPECT_GT(lit, 10);
 }
 
-/** @brief Octet preparation reduces distant 4D centres by lattice symmetry. */
+/** @brief Distant octet centres match a metric-aware periodic oracle. */
 inline void test_octet_distant_center_periodicity() {
   namespace Trace = SDF::LatticeTrace;
   alignas(std::max_align_t) uint8_t storage[4096];
@@ -204,10 +204,21 @@ inline void test_octet_distant_center_periodicity() {
                                       std::numeric_limits<float>::infinity());
   settings.center = {{32768.25f, -65536.5f, 98304.75f, -131072.0f}};
   const auto distant = Trace::prepare(settings);
-  settings.center = {{.25f, -.5f, .75f, 0.0f}};
-  const auto local = Trace::prepare(settings);
   HS_EXPECT_TRUE(distant.valid);
+  float expected[4];
   for (int i = 0; i < 4; ++i) {
+    const float NORMALIZED =
+        settings.center[i] * distant.octet4_projection.inverse_scale;
+    expected[i] = static_cast<float>(
+        static_cast<double>(NORMALIZED) -
+        2.0 * std::trunc(static_cast<double>(NORMALIZED) / 2.0));
+    settings.center[i] = expected[i] / distant.octet4_projection.inverse_scale;
+  }
+  const auto local = Trace::prepare(settings);
+  HS_EXPECT_TRUE(local.valid);
+  for (int i = 0; i < 4; ++i) {
+    HS_CONTEXT("axis", i);
+    HS_EXPECT_NEAR(distant.octet4_projection.origin[i], expected[i], 1e-6f);
     HS_EXPECT_NEAR(distant.octet4_projection.origin[i],
                    local.octet4_projection.origin[i], 1e-6f);
     HS_EXPECT_TRUE(std::abs(distant.octet4_projection.origin[i]) < 2.0f);
