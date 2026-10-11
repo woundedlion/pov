@@ -356,10 +356,10 @@ private:
         const float sin_d = sinf(dphi);
 
         if (octaves) {
-          bake_noise_octaves(*octaves, basis, theta, cos_t, sin_t, cos_d, sin_d,
-                             lut_n, visible, n_local, slut);
+          bake_noise_octaves(*octaves, basis, {cos_t, sin_t, cos_d, sin_d},
+                             theta, lut_n, visible, n_local, slut);
         } else {
-          bake_ball_spans(basis, theta, cos_t, sin_t, cos_d, sin_d, lut_n,
+          bake_ball_spans(basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
                           visible, n_local, slut);
         }
 
@@ -452,6 +452,14 @@ private:
     }
   }
 
+  /** @brief A ring's colatitude and knot-step trig, passed in VFP registers. */
+  struct KnotStep {
+    float cos_t; /**< Cosine of the ring colatitude. */
+    float sin_t; /**< Sine of the ring colatitude. */
+    float cos_d; /**< Cosine of one knot cell's azimuth step. */
+    float sin_d; /**< Sine of one knot cell's azimuth step. */
+  };
+
   /**
    * @brief Steps a ring's knot positions around its azimuth by the
    * angle-addition recurrence, starting at knot 0.
@@ -484,11 +492,8 @@ private:
    *        its own knot grid.
    * @param np The noise field's single active entity.
    * @param basis Ring frame; basis.v is the stack axis.
+   * @param step Trig of theta and of one knot cell's azimuth step.
    * @param theta Ring colatitude.
-   * @param cos_t Cosine of theta.
-   * @param sin_t Sine of theta.
-   * @param cos_d Cosine of one knot cell's azimuth step.
-   * @param sin_d Sine of one knot cell's azimuth step.
    * @param lut_n Knot count, a multiple of OCTAVE_GRID.
    * @param visible Chunk mask from Plot::visible_chunk_mask.
    * @param n_local Balls that can reach the ring (ball_local).
@@ -500,9 +505,8 @@ private:
    */
   HS_HOT_FLASH_MEMBER void
   bake_noise_octaves(const Animation::NoiseProductParams &np,
-                     const math::Basis &basis, float theta, float cos_t,
-                     float sin_t, float cos_d, float sin_d, int lut_n,
-                     uint32_t visible, int n_local, float *slut) {
+                     const math::Basis &basis, KnotStep step, float theta,
+                     int lut_n, uint32_t visible, int n_local, float *slut) {
     constexpr int D1 = OCTAVE1_STRIDE;
     constexpr int D2 = OCTAVE2_STRIDE;
     mark_visible_knots(lut_n, visible);
@@ -521,7 +525,7 @@ private:
     }
 
     HS_PROFILE(df_octave_noise);
-    RingKnotWalk knots{basis, cos_t, sin_t, cos_d, sin_d};
+    RingKnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
     for (int x = 0; x < lut_n; ++x, knots.advance()) {
       const bool vis = knot_visible[x] != 0;
       const bool near = knot_near[x] != 0;
@@ -564,11 +568,8 @@ private:
    * @brief Bakes one ring's centerline shifts from the balls, each evaluated
    *        only across the knots its cap can cover.
    * @param basis Ring frame; basis.v is the stack axis.
+   * @param step Trig of theta and of one knot cell's azimuth step.
    * @param theta Ring colatitude.
-   * @param cos_t Cosine of theta.
-   * @param sin_t Sine of theta.
-   * @param cos_d Cosine of one knot cell's azimuth step.
-   * @param sin_d Sine of one knot cell's azimuth step.
    * @param lut_n Knot count.
    * @param visible Chunk mask from Plot::visible_chunk_mask.
    * @param n_local Balls that can reach the ring (ball_local).
@@ -579,17 +580,17 @@ private:
    * rejected ball adds, and each knot folds its balls in ball_local order, so
    * the shifts match evaluating every ball at every knot.
    */
-  HS_HOT_FLASH_MEMBER void
-  bake_ball_spans(const math::Basis &basis, float theta, float cos_t,
-                  float sin_t, float cos_d, float sin_d, int lut_n,
-                  uint32_t visible, int n_local, float *slut) {
+  HS_HOT_FLASH_MEMBER void bake_ball_spans(const math::Basis &basis,
+                                           KnotStep step, float theta,
+                                           int lut_n, uint32_t visible,
+                                           int n_local, float *slut) {
     // Covers the recurrence's drift from the analytic knot azimuth and the
     // float slop in the cap dot product.
     constexpr float COS_MARGIN = 2e-4f;
     float *num = octave1;
     float *den = octave2;
     mark_visible_knots(lut_n, visible);
-    RingKnotWalk knots{basis, cos_t, sin_t, cos_d, sin_d};
+    RingKnotWalk knots{basis, step.cos_t, step.sin_t, step.cos_d, step.sin_d};
     for (int x = 0; x < lut_n; ++x, knots.advance()) {
       if (knot_visible[x]) {
         knot_pos[x] = knots.position();
@@ -602,8 +603,8 @@ private:
     for (int j = 0; j < n_local; ++j) {
       const int k = ball_local[j];
       const Animation::BumpParams &bp = *ball_params[k];
-      const float a_term = cos_t * ball_cv[k];
-      const float b_term = sin_t * ball_rho[k];
+      const float a_term = step.cos_t * ball_cv[k];
+      const float b_term = step.sin_t * ball_rho[k];
       int first = 0;
       int count = lut_n;
       if (b_term > COS_MARGIN) {
