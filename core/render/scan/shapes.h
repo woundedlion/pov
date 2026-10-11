@@ -205,7 +205,7 @@ struct DistortedRingStack {
                         CandidateTable<W, H> &table) {
     using Table = CandidateTable<W, H>;
     constexpr int C = Table::CHUNKS;
-    constexpr float bin_scale = Table::BINS / math::PI_F;
+    constexpr float BIN_SCALE = Table::BINS / math::PI_F;
     for (auto &cell : table.cells)
       cell = typename Table::Range{255, 0};
     ScratchScope scratch(scratch_arena_b);
@@ -265,8 +265,8 @@ struct DistortedRingStack {
         }
         const float p0 = ring.target_angle + lo - reach;
         const float p1 = ring.target_angle + hi + reach;
-        const int b0 = static_cast<int>(fmaxf(0.0f, p0) * bin_scale);
-        int b1 = static_cast<int>(fminf(math::PI_F, p1) * bin_scale);
+        const int b0 = static_cast<int>(fmaxf(0.0f, p0) * BIN_SCALE);
+        int b1 = static_cast<int>(fminf(math::PI_F, p1) * BIN_SCALE);
         if (b1 > Table::BINS - 1)
           b1 = Table::BINS - 1;
         if (b0 > b1)
@@ -346,7 +346,7 @@ struct DistortedRingStack {
       HS_PROFILE(ring_stack_table);
       build_candidate_table<W, H>(n_rings, shapes, slot_by_ring, table);
     }
-    constexpr float bin_scale = Table::BINS / math::PI_F;
+    constexpr float BIN_SCALE = Table::BINS / math::PI_F;
 
     // Aliased exact-pole rows are skipped unless the axis is near a canvas pole
     // (r_val below the projection floor).
@@ -374,7 +374,7 @@ struct DistortedRingStack {
         // azimuth is in [0, 2 PI], so wrap_t reduces to folding 1 onto 0.
         float t_norm = azimuth / (2 * math::PI_F);
         t_norm = t_norm >= 1.0f ? 0.0f : t_norm;
-        int bin = static_cast<int>(polar * bin_scale);
+        int bin = static_cast<int>(polar * BIN_SCALE);
         if (bin > Table::BINS - 1)
           bin = Table::BINS - 1;
         int chunk = static_cast<int>(t_norm * Table::CHUNKS);
