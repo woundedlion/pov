@@ -48,6 +48,86 @@ struct SegmentMap {
 };
 
 /**
+ * @brief Truncated division of nonnegative integer coordinates.
+ * @param numerator Nonnegative coordinate.
+ * @param denominator Positive partition count.
+ * @return Integer quotient or remainder.
+ */
+constexpr int segment_quotient(int numerator, int denominator) {
+  return numerator / denominator;
+}
+/**
+ * @brief Truncated division of nonnegative browser coordinates.
+ * @param numerator Nonnegative coordinate.
+ * @param denominator Positive partition count.
+ * @return Integer quotient or remainder.
+ */
+inline double segment_quotient(double numerator, double denominator) {
+  return __builtin_floor(numerator / denominator);
+}
+/**
+ * @brief Integer coordinate remainder.
+ * @param numerator Nonnegative coordinate.
+ * @param denominator Positive partition count.
+ * @return Integer quotient or remainder.
+ */
+constexpr int segment_remainder(int numerator, int denominator) {
+  return numerator % denominator;
+}
+/**
+ * @brief Browser coordinate remainder.
+ * @param numerator Nonnegative coordinate.
+ * @param denominator Positive partition count.
+ * @return Integer quotient or remainder.
+ */
+inline double segment_remainder(double numerator, double denominator) {
+  return __builtin_fmod(numerator, denominator);
+}
+
+/**
+ * @brief Row-band index for a segment within one arm.
+ * @param arm_segment Segment index within the arm.
+ * @param bands Row bands per arm.
+ * @return Northern bands in order, followed by southern bands in reverse order.
+ */
+template <typename Coordinate>
+constexpr Coordinate segment_band(Coordinate arm_segment, Coordinate bands) {
+  const Coordinate NORTH_BANDS = segment_quotient(bands, Coordinate{2});
+  return arm_segment < NORTH_BANDS ? arm_segment
+                                   : bands - 1 - (arm_segment - NORTH_BANDS);
+}
+
+/** @brief Browser worker partition of a two-arm canvas. */
+template <typename Coordinate> struct SegmentRange {
+  Coordinate x0; /**< Inclusive left column. */
+  Coordinate x1; /**< Exclusive right column. */
+  Coordinate y0; /**< Inclusive top row. */
+  Coordinate y1; /**< Exclusive bottom row. */
+};
+
+/**
+ * @brief Partitions an even-width canvas into two arms and row bands.
+ * @param id Segment index in [0, total).
+ * @param total Positive even segment count.
+ * @param width Positive even canvas width.
+ * @param height Canvas height, at least total/2 rows.
+ * @return Segment rectangle; remainder rows fill bands from north to south.
+ */
+template <typename Coordinate>
+constexpr SegmentRange<Coordinate>
+segment_range(Coordinate id, Coordinate total, Coordinate width,
+              Coordinate height) {
+  const Coordinate BANDS = segment_quotient(total, Coordinate{2});
+  const Coordinate BAND = segment_band(segment_remainder(id, BANDS), BANDS);
+  const Coordinate ARM_WIDTH = width / 2;
+  const Coordinate X0 = segment_quotient(id, BANDS) * ARM_WIDTH;
+  const Coordinate ROWS = segment_quotient(height, BANDS);
+  const Coordinate REMAINDER = segment_remainder(height, BANDS);
+  const Coordinate Y0 = BAND * ROWS + (BAND < REMAINDER ? BAND : REMAINDER);
+  return {X0, X0 + ARM_WIDTH, Y0, Y0 + ROWS + (BAND < REMAINDER ? 1 : 0)};
+}
+
+/**
  * @brief Derive a segment's vertical mapping from its hardware ID.
  * @param segment_id  Hardware-strapped ID in [0, N).
  * @param S  Total LEDs across both arms (ROWS = S/2).
@@ -60,7 +140,6 @@ struct SegmentMap {
  */
 constexpr SegmentMap segment_map(int segment_id, int S, int N) {
   const int SEGS_PER_ARM = N / 2;
-  const int ROWS = S / 2;
   const int PPS = S / N;
   // SEGS_PER_ARM is a power of two, so mask for the within-arm index.
   const int ARM_SEG = segment_id & (SEGS_PER_ARM - 1);
@@ -69,11 +148,10 @@ constexpr SegmentMap segment_map(int segment_id, int S, int N) {
 
   const int SEGS_PER_HEMISPHERE = SEGS_PER_ARM / 2;
   if (SEGS_PER_ARM == 1 || ARM_SEG < SEGS_PER_HEMISPHERE) {
-    m.y_base = ARM_SEG * PPS;
+    m.y_base = segment_band(ARM_SEG, SEGS_PER_ARM) * PPS;
     m.y_step = 1;
   } else {
-    const int SOUTH_SEG = ARM_SEG - SEGS_PER_HEMISPHERE;
-    m.y_base = ROWS - 1 - SOUTH_SEG * PPS;
+    m.y_base = (segment_band(ARM_SEG, SEGS_PER_ARM) + 1) * PPS - 1;
     m.y_step = -1;
   }
   return m;

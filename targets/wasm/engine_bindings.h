@@ -12,6 +12,8 @@
  */
 #pragma once
 
+#include "targets/wasm/ts_types.h"
+
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
 #include "targets/effects.h"
@@ -463,7 +465,7 @@ public:
    *          across frames must test both buffer.byteLength !== 0 and
    *          length === getBufferLength().
    */
-  emscripten::val getPixels() {
+  PixelsValue getPixels() {
     return emscripten::val(emscripten::typed_memory_view(
         pixel_width * pixel_height * CHANNELS, pixel_buffer.data()));
   }
@@ -552,7 +554,7 @@ public:
    * @brief Stable preset IDs in numeric navigation order.
    * @return The preset ID array, empty when no effect or ID table is set.
    */
-  emscripten::val getPresetIds() const {
+  PresetIdsValue getPresetIds() const {
     emscripten::val ids = emscripten::val::array();
     if (!current_effect || !current_factory_entry ||
         !current_factory_entry->preset_id)
@@ -683,7 +685,7 @@ public:
    *          getParamValues(); pin getParamGeneration() beside a snapshot to
    *          detect a rebind.
    */
-  emscripten::val getParameterDefinitions() {
+  DefinitionsValue getParameterDefinitions() {
     if (!current_effect)
       return emscripten::val::array();
 
@@ -755,7 +757,7 @@ public:
    *          memory and must be consumed before the next allocation. Never
    *          reallocates (size <= MAX_PARAMS), so it detaches no other view.
    */
-  emscripten::val getParamValues() {
+  ParameterValuesValue getParamValues() {
     if (!current_effect) {
       // clear() keeps the reserved capacity, so the zero-length view's backing
       // pointer stays valid.
@@ -801,7 +803,7 @@ public:
    *          reading, which a repaint resets; `init_high_water_mark` is the
    *          latched deepest effect construction + init().
    */
-  emscripten::val getArenaMetrics() const {
+  ArenaMetricsValue getArenaMetrics() const {
     emscripten::val metrics = collect_engine_arena_metrics();
 
     // Stack region. No running usage: the live depth at this call is outside any
@@ -824,7 +826,7 @@ public:
    * @return JS object mapping each effect name to its sizeof, in bytes, at the current
    *         resolution; empty map if unsupported/uninitialized.
    */
-  emscripten::val getEffectSizes() const {
+  SizesValue getEffectSizes() const {
     emscripten::val sizes = emscripten::val::object();
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height,
@@ -837,7 +839,7 @@ public:
    * @return JS object mapping every effect name to its preset count; empty map
    *         if unsupported or uninitialized.
    */
-  emscripten::val getEffectPresetCounts() const {
+  SizesValue getEffectPresetCounts() const {
     emscripten::val counts = emscripten::val::object();
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
@@ -862,7 +864,7 @@ public:
    * @return JS array of [W, H] pairs from WASM_RESOLUTIONS (generated from
    *         HS_RESOLUTIONS).
    */
-  static emscripten::val getSupportedResolutions() {
+  static ResolutionsValue getSupportedResolutions() {
     emscripten::val out = emscripten::val::array();
     int i = 0;
     for (const hs_wasm::WasmResolution &row : hs_wasm::WASM_RESOLUTIONS) {

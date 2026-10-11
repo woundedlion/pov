@@ -32,6 +32,18 @@ if(EMSCRIPTEN)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
   endif()
 
+  add_executable(segment_geometry targets/wasm/segment_geometry.cpp)
+  target_include_directories(segment_geometry PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_compile_options(segment_geometry PRIVATE -O3)
+  target_link_options(segment_geometry PRIVATE
+    -O3 --no-entry -sWASM=0 -sMODULARIZE=1 -sEXPORT_ES6=1
+    -sMINIMAL_RUNTIME=2 -sEXPORT_KEEPALIVE=1 -sFILESYSTEM=0 -sDYNAMIC_EXECUTION=0
+    "SHELL:--emit-tsd ${CMAKE_CURRENT_BINARY_DIR}/segment_geometry.d.ts"
+    -sINITIAL_MEMORY=65536 -sSTACK_SIZE=1024
+    "-sENVIRONMENT=web,worker,node"
+    "-sEXPORTED_FUNCTIONS=_segment_x0,_segment_x1,_segment_y0,_segment_y1")
+  set_target_properties(segment_geometry PROPERTIES SUFFIX ".js")
+
   # Shipping module sources come from CMAKE_CURRENT_SOURCE_DIR, the root its
   # install provenance records; HS_PULLBACK_CAPTURE_SOURCE_ROOT does not apply.
   set(TARGET_NAME holosphere_wasm)
@@ -65,6 +77,7 @@ if(EMSCRIPTEN)
 
   target_link_options(${TARGET_NAME} PRIVATE
     "-lembind"
+    "SHELL:--emit-tsd ${CMAKE_CURRENT_BINARY_DIR}/holosphere_bindings.d.ts"
     "SHELL:--pre-js ${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/module_halt.js"
     "-sDISABLE_EXCEPTION_THROWING=1"
     "-sALLOW_MEMORY_GROWTH=1"
@@ -180,6 +193,19 @@ if(EMSCRIPTEN)
     install(TARGETS ${TARGET_NAME} DESTINATION "${DAYDREAM_DIR}/generated")
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${TARGET_NAME}.wasm"
             DESTINATION "${DAYDREAM_DIR}/generated")
+    install(TARGETS segment_geometry DESTINATION "${DAYDREAM_DIR}/generated")
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/holosphere_bindings.d.ts"
+            "${CMAKE_CURRENT_SOURCE_DIR}/targets/wasm/engine_types.d.ts"
+            "${CMAKE_CURRENT_BINARY_DIR}/segment_geometry.d.ts"
+            DESTINATION "${DAYDREAM_DIR}/generated")
+    install(CODE "
+      execute_process(COMMAND node
+        \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/export_engine_contract.mjs\"
+        \"${DAYDREAM_DIR}/generated/holosphere_wasm.js\"
+        RESULT_VARIABLE HS_CONTRACT_RC)
+      if(NOT HS_CONTRACT_RC EQUAL 0)
+        message(FATAL_ERROR \"Failed to generate the installed browser contract\")
+      endif()")
     # Firmware golden from hardware/pov_segment_map.h.
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/hardware/pov_segment_map.json"
             DESTINATION "${DAYDREAM_DIR}/generated")

@@ -20,6 +20,8 @@
  *        and the free math exports with Embind.
  */
 EMSCRIPTEN_BINDINGS(holosphere_engine) {
+  bind_ts_types();
+  emscripten::constant("SHOW_FRAMES_PER_SECOND", HS_SHOW_FRAMES_PER_SECOND);
   bind_engine();
   bind_mesh_ops();
   bind_palette_ops();
