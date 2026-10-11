@@ -39,8 +39,9 @@ SCH = os.path.join(OUT, "phantasm.kicad_sch")
 PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
 UNPLACED_FILE = PCB_FILE
-#: Bottom-silkscreen stamp for the default builder.REVISION.
-SILK_REVISION = f"Phantasm Rev {builder.REVISION}"
+def silk_revision(revision):
+    """Bottom-silkscreen stamp for the selected board revision."""
+    return f"Phantasm Rev {revision}"
 UNPLACED_REASON = (
     "Regeneration replaces this revision's board, including any placement\n"
     "  and routing saved in KiCad.")
@@ -1163,7 +1164,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         ("3   GND   GND   B-SOUTH", 15.0, 0.9),
         ("N8 ID2 OPEN=0-3 GND=4-7; M=OPEN; SHLD=M", 17.0, 0.8),
         ("BOARD ID: ____", 23.5, 2.0),
-        (f"Phantasm Rev {selected}", 29.5, 1.0),
+        (silk_revision(selected), 29.5, 1.0),
     ]
     legend_x = PLACE["U_MCU"][0]
     for text, y, size in back_silk:

@@ -1,8 +1,7 @@
-"""Minimal KiCad S-expression parser + symbol-library helpers.
+"""KiCad S-expression parser, serializer and stock symbol-library helpers.
 
-Just enough to: load a .kicad_sym, pull a top-level (symbol "Name" ...) block,
-serialize a node back to text, and enumerate a symbol's pins with their
-*local* connection coordinates (the pin tip you wire to).
+Parsed nodes retain source layout and atom spelling for lossless round trips.
+New or structurally changed nodes use canonical tab-indented serialization.
 """
 import glob
 import os
