@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "reference-transaction"
@@ -25,26 +25,11 @@ ZERO = "0" * 40
 MASTER = "refs/heads/master"
 
 
-def git_env(repo: Path) -> dict[str, str]:
-    """Environment that keeps the developer's git config out of the fixture."""
-    neutral = str(repo / "empty-config")
-    return dict(
-        isolated_env(),
-        GIT_CONFIG_GLOBAL=neutral,
-        GIT_CONFIG_SYSTEM=neutral,
-        GIT_AUTHOR_NAME="hook test",
-        GIT_AUTHOR_EMAIL="hook@test.invalid",
-        GIT_COMMITTER_NAME="hook test",
-        GIT_COMMITTER_EMAIL="hook@test.invalid",
-    )
-
-
 class ReferenceTransactionHook(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)
         self.repo = Path(tmp.name)
-        (self.repo / "empty-config").write_text("", encoding="utf-8")
         self.git("init", "--quiet", "-b", "master")
 
         # base <- one <- two (branch ahead); side branches from base.
@@ -71,9 +56,7 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.log = self.repo / ".git" / "hs-nonff.log"
 
     def git(self, *args, check=True):
-        return subprocess.run(
-            ["git", *args], cwd=self.repo, env=git_env(self.repo),
-            capture_output=True, text=True, check=check)
+        return git_run(self.repo, *args, check=check)
 
     def rev(self, ref: str) -> str:
         return self.git("rev-parse", "--verify", ref).stdout.strip()
@@ -86,7 +69,7 @@ class ReferenceTransactionHook(unittest.TestCase):
         """
         done = subprocess.run(
             ["sh", HOOK.as_posix(), phase], cwd=self.repo,
-            env=git_env(self.repo),
+            env=isolated_env(),
             input="".join(f"{line}\n" for line in lines).encode("utf-8"),
             capture_output=True)
         return subprocess.CompletedProcess(

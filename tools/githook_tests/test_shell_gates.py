@@ -10,7 +10,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -21,14 +21,12 @@ class ShellGateTests(unittest.TestCase):
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         (self.root / "stubs").mkdir()
-        self.env = dict(isolated_env(), GIT_CONFIG_GLOBAL=str(self.root / "no-config"),
-                        GIT_CONFIG_SYSTEM=str(self.root / "no-config"))
+        self.env = isolated_env()
         self.git("init", "--quiet")
         self.git("config", "core.autocrlf", "false")
 
     def git(self, *args):
-        return subprocess.run(["git", "-C", str(self.root), *args], env=self.env,
-                              check=True, capture_output=True)
+        return git_run(self.root, *args, env=self.env, text=False)
 
     def stub(self, name, body):
         path = self.root / "stubs" / name

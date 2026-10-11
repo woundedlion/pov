@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks/post-commit"
@@ -36,13 +36,7 @@ class PostCommitHook(unittest.TestCase):
         self.repo = self.root / "main"
         self.repo.mkdir()
         self.worktree = self.root / "linked"
-        neutral = str(self.root / "empty-config")
-        Path(neutral).write_text("", encoding="utf-8")
-        self.env = dict(isolated_env(), GIT_CONFIG_GLOBAL=neutral,
-                        GIT_CONFIG_SYSTEM=neutral,
-                        GIT_AUTHOR_NAME="hook test", GIT_AUTHOR_EMAIL="hook@test.invalid",
-                        GIT_COMMITTER_NAME="hook test", GIT_COMMITTER_EMAIL="hook@test.invalid",
-                        HS_PYTHON=Path(sys.executable).as_posix())
+        self.env = dict(isolated_env(), HS_PYTHON=Path(sys.executable).as_posix())
         self.git("init", "--quiet", "-b", "master")
         (self.repo / "tools").mkdir()
         (self.repo / "tools/teensy_size_trail.py").write_text(TOOL, encoding="utf-8")
@@ -57,8 +51,7 @@ class PostCommitHook(unittest.TestCase):
         self.main_pending.write_text("main capture", encoding="utf-8")
 
     def git(self, *args, cwd=None):
-        return subprocess.run(["git", "-C", str(cwd or self.repo), *args],
-                              env=self.env, capture_output=True, text=True, check=True)
+        return git_run(cwd or self.repo, *args, env=self.env)
 
     def run_hook(self, **extra):
         return subprocess.run(["sh", HOOK.as_posix()], cwd=self.worktree,

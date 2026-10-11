@@ -1,7 +1,6 @@
 import contextlib
 import io
 import re
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -11,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import docs_check
 import docs_sync
 import engine_source_state
+from git_test_env import git_run
 
 
 class EngineSourceState(unittest.TestCase):
@@ -31,8 +31,7 @@ class EngineSourceState(unittest.TestCase):
         self.git("commit", "-qm", "fixture")
 
     def git(self, *arguments):
-        return subprocess.check_output(
-            ["git", "-C", str(self.root), *arguments], stderr=subprocess.STDOUT)
+        return git_run(self.root, *arguments)
 
     def write(self, name, text):
         (self.root / name).write_text(text, encoding="utf-8", newline="\n")

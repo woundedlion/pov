@@ -12,6 +12,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import docs_check as dc  # noqa: E402
 import docs_sync as ds  # noqa: E402
+from git_test_env import git_run  # noqa: E402
 
 
 def entries(*names):
@@ -103,7 +104,7 @@ class RepositorySync(unittest.TestCase):
         self.git("init", "-q")
 
     def git(self, *args):
-        return subprocess.check_output(["git", "-C", str(self.root), *args], text=True).strip()
+        return git_run(self.root, *args).stdout.strip()
 
     def test_pinned_tree_ignores_live_and_staged_checkout_changes(self):
         (self.root / "pinned.js").write_text("original", encoding="utf-8")

@@ -1,6 +1,5 @@
 import contextlib
 import io
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -11,6 +10,7 @@ TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
 import docs_images as di  # noqa: E402
+from git_test_env import git_run  # noqa: E402
 
 
 class TestDocsImagesStage(unittest.TestCase):
@@ -128,8 +128,7 @@ class TestDocsImagesVerify(unittest.TestCase):
         self.git("init", "-q")
 
     def git(self, *args):
-        subprocess.run(["git", "-C", str(self.repo), *args], check=True,
-                       stdout=subprocess.DEVNULL)
+        git_run(self.repo, *args)
 
     def track(self, relative, data):
         path = self.repo / relative
