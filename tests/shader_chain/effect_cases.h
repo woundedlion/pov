@@ -282,10 +282,8 @@ inline void test_shader_chain_projection_plane_bound() {
       continue;
     const float bound = op.runtime.plane_bound(program.param_block(0), 0.0f);
     for (const math::Vector &view : views) {
-      const PB::SphereSample sphere{view, 0.0f};
-      PB::PlaneSample plane{};
-      op.runtime.run(&sphere, &plane, ctx, program.param_block(0),
-                     program.prepared_block(0));
+      const PB::PlaneSample plane = run_entry<PB::PlaneSample>(
+          program, ctx, 0, PB::SphereSample{view, 0.0f});
       HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im), bound);
     }
   }
@@ -363,17 +361,8 @@ inline void test_shader_chain_plane_growth_admission() {
   auto &program = WB::program(effect);
   const In::FrameContext ctx = WB::frame_context(effect);
   for (const math::Vector &view : sweep_views()) {
-    const PB::SphereSample sphere{view, 0.0f};
-    PB::PlaneSample plane{};
-    for (int index = 0; index <= WARPS; ++index) {
-      PB::PlaneSample next{};
-      program.ops()[index].op->runtime.run(
-          index == 0 ? static_cast<const void *>(&sphere)
-                     : static_cast<const void *>(&plane),
-          &next, ctx, program.param_block(index),
-          program.prepared_block(index));
-      plane = next;
-    }
+    const PB::PlaneSample plane =
+        run_to_plane(program, ctx, PB::SphereSample{view, 0.0f}, WARPS + 1);
     HS_EXPECT_LE(std::hypot(plane.coords.re, plane.coords.im),
                  In::MAX_PLANE_BOUND);
     HS_EXPECT_TRUE(std::isfinite(plane.path_length));

@@ -257,6 +257,31 @@ void arm_chain(In::ChainProgram &program,
     program.advance();
 }
 
+/** @brief Runs the prepared erased entry @p index on @p input.
+    @return The entry's @p OutCarrier output. */
+template <typename OutCarrier, typename InCarrier>
+OutCarrier run_entry(In::ChainProgram &program, const In::FrameContext &ctx,
+                     size_t index, const InCarrier &input) {
+  alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
+  program.ops()[index].op->runtime.run(&input, out, ctx,
+                                       program.param_block(index),
+                                       program.prepared_block(index));
+  return *std::launder(reinterpret_cast<OutCarrier *>(out));
+}
+
+/** @brief Runs the prepared erased entries [0, @p count) over @p sphere; entry
+    0 is the SPHERE->PLANE crossing and the rest are PLANE endomorphisms.
+    @return The plane carrier after entry @p count - 1. */
+inline PB::PlaneSample run_to_plane(In::ChainProgram &program,
+                                    const In::FrameContext &ctx,
+                                    const PB::SphereSample &sphere,
+                                    size_t count) {
+  PB::PlaneSample plane = run_entry<PB::PlaneSample>(program, ctx, 0, sphere);
+  for (size_t index = 1; index < count; ++index)
+    plane = run_entry<PB::PlaneSample>(program, ctx, index, plane);
+  return plane;
+}
+
 /** Erased-vs-bound parity of the prepared entry @p index: on @p input_of
     each swept view, the erased op and @p BoundStage yield identical
     @p OutCarrier values. */
@@ -267,15 +292,11 @@ void expect_op_parity(In::ChainProgram &program, const In::FrameContext &ctx,
                       bool (*identical)(const OutCarrier &,
                                         const OutCarrier &)) {
   const typename BoundStage::Prepared prepared = BoundStage::prepare(mirror);
-  const In::OperatorDescriptor &op = *program.ops()[index].op;
   int view_index = 0;
   for (const math::Vector &view : sweep_views()) {
     HS_CONTEXT("view", view_index++);
     const auto input = input_of(view);
-    alignas(In::SLOT_ALIGN) uint8_t out[In::SLOT_SIZE];
-    op.runtime.run(&input, out, ctx, program.param_block(index),
-                   program.prepared_block(index));
-    const auto &erased = *std::launder(reinterpret_cast<OutCarrier *>(out));
+    const OutCarrier erased = run_entry<OutCarrier>(program, ctx, index, input);
     const OutCarrier reference = BoundStage::run(input, mirror, prepared);
     HS_EXPECT_TRUE(identical(erased, reference));
   }
