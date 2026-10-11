@@ -372,9 +372,10 @@ inline void test_phantasm_seed_identity() {
   do {                                                                         \
     const FactoryEntry *entry = hs_wasm::find_factory_entry<288, 144>(#name);  \
     HS_EXPECT_TRUE(entry != nullptr);                                          \
-    if (entry)                                                                 \
-      HS_EXPECT_EQ((HS_PHANTASM_EFFECT_SEEDS<288, 144>[index]),                \
-                   identity_golden(#name)->seed);                              \
+    const auto *golden = identity_golden(#name);                               \
+    HS_EXPECT_TRUE(golden != nullptr);                                         \
+    if (entry && golden)                                                       \
+      HS_EXPECT_EQ((HS_PHANTASM_EFFECT_SEEDS<288, 144>[index]), golden->seed); \
     ++index;                                                                   \
   } while (false);
   HS_PHANTASM_EFFECT_LIST(HS_VERIFY_PHANTASM_SEED)
@@ -388,6 +389,8 @@ inline void test_effect_stream_restarts() {
     using E = name<96, 20>;                                                    \
     const auto *golden = identity_golden(#name);                               \
     HS_EXPECT_TRUE(golden != nullptr);                                         \
+    if (!golden)                                                               \
+      break;                                                                   \
     hs::Pcg32 expected(golden->seed);                                          \
     const uint32_t first = expected();                                         \
     hs::random()();                                                            \
