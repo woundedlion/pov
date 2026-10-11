@@ -156,37 +156,29 @@ struct Kaleidoscope : ApproximationDefaults {
   }
 };
 
-/** @brief Kaleidoscope folding into the tetrahedral chamber. */
-struct TetrahedralKaleidoscope : ApproximationDefaults {
+/** @brief Kaleidoscope folding using a polyhedral mirror set.
+ *  @tparam MIRRORS Chamber mirror planes. */
+template <const auto &MIRRORS>
+struct PolyhedralKaleidoscope : ApproximationDefaults {
   /**
-   * @brief Applies the lens to a sphere direction.
+   * @brief Folds a sphere direction into the mirror chamber.
    * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
+   * @param input Unit sphere direction.
+   * @return Symmetry-equivalent direction inside the chamber.
    */
   template <typename FrameState>
   __attribute__((always_inline)) static math::Vector
   apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::TETRAHEDRAL_MIRRORS);
+    return lenses::polyhedral_kaleidoscope_lens(input, MIRRORS);
   }
 };
 
-/** @brief Kaleidoscope folding into the octahedral chamber. */
-struct OctahedralKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::OCTAHEDRAL_MIRRORS);
-  }
-};
+/** @brief Tetrahedral chamber folding. */
+using TetrahedralKaleidoscope =
+    PolyhedralKaleidoscope<lenses::TETRAHEDRAL_MIRRORS>;
+/** @brief Octahedral chamber folding. */
+using OctahedralKaleidoscope =
+    PolyhedralKaleidoscope<lenses::OCTAHEDRAL_MIRRORS>;
 
 /** @brief Kaleidoscope folding into the dodecahedral chamber. */
 struct DodecahedralKaleidoscope : ApproximationDefaults {
@@ -203,85 +195,21 @@ struct DodecahedralKaleidoscope : ApproximationDefaults {
   }
 };
 
-/** @brief Kaleidoscope folding into the triangular-prism chamber. */
-struct TriangularPrismKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::TRIANGULAR_PRISM_MIRRORS);
-  }
-};
-
-/** @brief Kaleidoscope folding into the square-prism chamber. */
-struct SquarePrismKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(input,
-                                                lenses::SQUARE_PRISM_MIRRORS);
-  }
-};
-
-/** @brief Kaleidoscope folding into the pentagonal-prism chamber. */
-struct PentagonalPrismKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::PENTAGONAL_PRISM_MIRRORS);
-  }
-};
-
-/** @brief Kaleidoscope folding into the hexagonal-prism chamber. */
-struct HexagonalPrismKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::HEXAGONAL_PRISM_MIRRORS);
-  }
-};
-
-/** @brief Kaleidoscope folding into the octagonal-prism chamber. */
-struct OctagonalPrismKaleidoscope : ApproximationDefaults {
-  /**
-   * @brief Applies the lens to a sphere direction.
-   * @tparam FrameState Frame state type; unused.
-   * @param input Unit direction on the sphere.
-   * @return A symmetry-equivalent direction inside the chamber.
-   */
-  template <typename FrameState>
-  __attribute__((always_inline)) static math::Vector
-  apply(const math::Vector &input, const FrameState &) {
-    return lenses::polyhedral_kaleidoscope_lens(
-        input, lenses::OCTAGONAL_PRISM_MIRRORS);
-  }
-};
+/** @brief Triangular-prism chamber folding. */
+using TriangularPrismKaleidoscope =
+    PolyhedralKaleidoscope<lenses::TRIANGULAR_PRISM_MIRRORS>;
+/** @brief Square-prism chamber folding. */
+using SquarePrismKaleidoscope =
+    PolyhedralKaleidoscope<lenses::SQUARE_PRISM_MIRRORS>;
+/** @brief Pentagonal-prism chamber folding. */
+using PentagonalPrismKaleidoscope =
+    PolyhedralKaleidoscope<lenses::PENTAGONAL_PRISM_MIRRORS>;
+/** @brief Hexagonal-prism chamber folding. */
+using HexagonalPrismKaleidoscope =
+    PolyhedralKaleidoscope<lenses::HEXAGONAL_PRISM_MIRRORS>;
+/** @brief Octagonal-prism chamber folding. */
+using OctagonalPrismKaleidoscope =
+    PolyhedralKaleidoscope<lenses::OCTAGONAL_PRISM_MIRRORS>;
 
 } // namespace Lens
 
