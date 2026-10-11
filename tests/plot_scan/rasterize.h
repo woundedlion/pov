@@ -158,6 +158,7 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   }
   fx.advance_display();
 
+  HS_EXPECT_GT(geo_pipe.plotted.size(), size_t{0});
   HS_EXPECT_SIZE_OR_RETURN(planar_pipe.plotted, geo_pipe.plotted.size());
   for (size_t i = 0; i < planar_pipe.plotted.size(); ++i)
     HS_EXPECT_NEAR((planar_pipe.plotted[i] - geo_pipe.plotted[i]).length(),
