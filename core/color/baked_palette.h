@@ -14,26 +14,31 @@
 #include "core/memory.h"
 #include "core/math/3dmath.h"
 
+/** @brief Domain shape that sets a palette bake's seam copies. */
+struct BakeDomain {
+  bool mirrors = false; ///< Sample the first half and mirror it into the rest.
+  bool loops = false;   ///< Copy entry 0 to the last entry; mirrors wins.
+};
+
 /**
  * @brief Samples a palette domain and copies its exact mirror or loop seam.
  * @tparam Size Table entry count.
  * @tparam Sample Callable `(int index, float t)`.
  * @tparam Copy Callable `(int dst, int src)`.
- * @param mirrors Domain is mirrored: sample the first half, copy the rest.
- * @param loops Domain loops: the last entry copies entry 0.
+ * @param domain Mirror and loop shape of the sampled domain.
  * @param sample Writes the entry at `index` from palette coordinate `t`.
  * @param copy Copies entry `src` into entry `dst`.
  */
 template <int Size, typename Sample, typename Copy>
-inline void bake_palette_schedule(bool mirrors, bool loops, Sample sample,
-                                  Copy copy) {
-  const int count = mirrors ? Size / 2 : (loops ? Size - 1 : Size);
+inline void bake_palette_schedule(BakeDomain domain, Sample sample, Copy copy) {
+  const int count =
+      domain.mirrors ? Size / 2 : (domain.loops ? Size - 1 : Size);
   for (int i = 0; i < count; ++i)
     sample(i, static_cast<float>(i) / (Size - 1));
-  if (mirrors) {
+  if (domain.mirrors) {
     for (int i = 0; i < count; ++i)
       copy(Size - 1 - i, i);
-  } else if (loops) {
+  } else if (domain.loops) {
     copy(Size - 1, 0);
   }
 }
@@ -269,14 +274,13 @@ public:
                   "BakedPalette cannot rebake a wrapping source");
     HS_CHECK(table.colors != nullptr && table.alpha_q16 != nullptr,
              "BakedPaletteStorage::rebake before bake()");
-    bool mirrors = false;
+    BakeDomain domain;
     if constexpr (requires { source.mirrors_domain(); })
-      mirrors = source.mirrors_domain();
-    bool loops = false;
+      domain.mirrors = source.mirrors_domain();
     if constexpr (requires { source.loops_domain(); })
-      loops = source.loops_domain();
+      domain.loops = source.loops_domain();
     bake_palette_schedule<BakedPalette::LUT_SIZE>(
-        mirrors, loops,
+        domain,
         [&](int i, float t) HS_FLASH_MEMBER {
           const Color4 sample = source.get(t);
           table.colors[i] = sample.color;
