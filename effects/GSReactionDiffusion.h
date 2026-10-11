@@ -47,7 +47,6 @@ class GSReactionDiffusion
   using Base = ReactionDiffusionBase<GSReactionDiffusion<W, H>, W, H>;
   friend Base;
 
-  // Bring dependent-base names into scope (template base requires this).
   using Base::for_each_neighbor;
   using Base::from_q16;
   using Base::orient_lattice;

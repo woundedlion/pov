@@ -282,7 +282,6 @@ private:
       the same frame. */
   static constexpr Segue::Preset::Fade DEPARTURE{16};
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  /** Dwell + departure = PRESET_FRAMES. */
   static constexpr uint16_t PRESET_DWELL_FRAMES =
       PRESET_FRAMES - DEPARTURE.frames;
   static constexpr const char *SHAPE_OPTIONS[] = {
