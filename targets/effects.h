@@ -67,7 +67,7 @@
   X(GridSpace)                                                                 \
   X(HyperLattice)                                                              \
   X(AshCloud)                                                                  \
-  X(LatticeMelt)                                                               \
+  X(KaleidoscopeMelt)                                                          \
   X(ChromaticLichen)                                                           \
   X(MermaidSkin)                                                               \
   X(JewelMelt)                                                                 \
@@ -154,7 +154,7 @@ constexpr int hs_preset_window_seconds() {
   X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
   X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
-  X(LatticeMelt, hs_preset_window_seconds<LatticeMelt>())                      \
+  X(KaleidoscopeMelt, hs_preset_window_seconds<KaleidoscopeMelt>())            \
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
   X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \

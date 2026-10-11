@@ -3,7 +3,7 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. ● marks the October 8 JewelMelt capture. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. ● marks the October 11 KaleidoscopeMelt and October 8 JewelMelt captures. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -17,13 +17,13 @@ Rows rank by any spill, then peak render. ● marks the October 8 JewelMelt capt
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
 | [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
 | [JewelMelt](profile_jewelmelt_teensy_2026-10-08.md) ● | `fx_shader_draw` | 🟢 46.39 | 🟢 0/1087 (0.00%) | 2026-10-08 22:56 |
+| [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | 🟢 0/1087 (0.00%) | 2026-10-11 11:38 |
 | [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [AshCloud](profile_ashcloud_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 42.67 | 🟢 0/1087 (0.00%) | 2026-10-06 19:01 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-06.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 0/3647 (0.00%) | 2026-10-06 18:28 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 0/1087 (0.00%) | 2026-10-06 18:59 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 37.08 (2) | 🟢 0/2207 (0.00%) | 2026-10-06 18:47 |
-| [LatticeMelt](profile_latticemelt_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 35.83 (2) | 🟢 0/1727 (0.00%) | 2026-10-06 18:55 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 35.53 | 🟢 0/1087 (0.00%) | 2026-10-06 18:57 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 34.97 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:45 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-10-07.md) § ● | `hk_timeline_step` | 🟢 34.681 (19) | 🟢 0/4447 (0.00%) | 2026-10-07 14:18 |
@@ -70,7 +70,6 @@ Spill fractions include the transition following an entry and are stricter than 
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.71–48.53 ms.
 - **DreamBalls**: 10 parser ownership buckets spanning 14.27–41.44 ms.
 - **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 36.83–37.08 ms.
-- **LatticeMelt**: 2 parser ownership buckets spanning 35.77–35.83 ms.
 - **KaleidoscopeMandala**: 2 parser ownership buckets spanning 34.40–34.97 ms.
 - **HankinSolids**: 19 parser ownership buckets spanning 14.569–34.681 ms (18 named shapes plus startup).
 - **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 27.36–32.02 ms.
@@ -132,7 +131,6 @@ Preserved architecture snapshots, superseded in the ranking by the 2026-10-06 sw
 
 - [MindSplatter 2026-10-01](profile_mindsplatter_architecture_teensy_2026-10-01.md).
 - [HyperLattice 2026-10-01](profile_hyperlattice_architecture_teensy_2026-10-01.md).
-- [LatticeMelt 2026-10-01](profile_latticemelt_architecture_teensy_2026-10-01.md).
 - [ChromaticLichen 2026-10-01](profile_chromaticlichen_architecture_teensy_2026-10-01.md).
 - [KaleidoscopeSmooth 2026-10-01](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md).
 

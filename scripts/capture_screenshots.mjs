@@ -15,7 +15,7 @@ import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { inspectPng } from './png_probe.mjs';
 import { join } from 'node:path';
-import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
+import { loadEffectIdentities, loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 import {
   captureIsBlank,
   captureLitFraction,
@@ -50,6 +50,7 @@ const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined ? null : WAIT_MS;
 const BLANK_FLOOR = await numEnv('BLANK_FLOOR', DEFAULT_BLANK_FLOOR, 1);
 
 const EFFECTS = await loadEffectRoster();
+const EFFECT_IDS = new Map((await loadEffectIdentities()).map(({ name, id }) => [name, id]));
 
 const REQUESTED = process.argv.slice(2);
 const OFF_ROSTER = REQUESTED.filter(name => !EFFECTS.includes(name));
@@ -216,7 +217,7 @@ try {
     try {
       const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
       const { resolution: usedRes, honored } =
-        await descendToHonoredResolution(effect, RESOLUTIONS,
+        await descendToHonoredResolution(EFFECT_IDS.get(effect), RESOLUTIONS,
           (name, resolution) => loadEffectForCapture(page, BASE_URL, name, resolution, offsetMs));
       // Offered at no resolution: the canvas shows the app's fallback effect.
       if (!honored) {

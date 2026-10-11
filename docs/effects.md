@@ -25,7 +25,7 @@ All screenshots below were captured from the [live WebAssembly simulator](https:
   - [KaleidoscopeMandala](#kaleidoscopemandala)
   - [GridSpace](#gridspace)
   - [HyperLattice](#hyperlattice)
-  - [LatticeMelt](#latticemelt)
+  - [KaleidoscopeMelt](#kaleidoscopemelt)
   - [MermaidSkin](#mermaidskin)
   - [JewelMelt](#jewelmelt)
   - [ChromaticLichen](#chromaticlichen)
@@ -292,14 +292,14 @@ A flight through periodic wire lattices and curved shells in 3D perspective or a
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=LatticeMelt" target="_blank"><img src="screenshots/LatticeMelt.png" alt="LatticeMelt" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=KaleidoscopeMelt" target="_blank"><img src="screenshots/KaleidoscopeMelt.png" alt="KaleidoscopeMelt" width="280"></a></td>
 <td valign="top">
 
-### LatticeMelt
+### KaleidoscopeMelt
 
-A folded-sinusoidal sphere projection displaced by curl noise and shaded with a generated triadic palette. Its two presets share one composed pipeline and vary only the surface-noise scale.
+A dodecahedral kaleidoscope lens folds a primitive lattice around the sphere. Curl noise displaces the folded surface before an equirectangular projection, and a generated analogous palette supplies slowly drifting colors. Its single preset comes from the saved shader-workbench document.
 
-**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Brightness Bottom, Brightness Top, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
+**Parameters**: Lattice Cell Scale, Lattice Shape, Lattice Softness, Lattice Radius, Singularity Fade, Projection Spin Speed, Projection Wander, Camera Wander, Central Meridian, Surface Noise Scale, Surface Noise Strength, Surface Noise Speed, Palette Chroma, Palette Mapping, Mapping Frequency, Mapping Phase, Phase Oscillation Depth, Phase Oscillation Speed, Opacity at Value 0, Opacity at Value 1, Hue Shift Amount, Hue Noise Scale, Hue Noise Speed
 
 </td></tr></table>
 
@@ -638,7 +638,7 @@ shading — planar-source path through the shared Scan::Shader loop
 
 The core catalog owns the reusable surface, lens, projection, planar-warp, source, material, and generated-color policies. The `Project` crossing rotates into the projection frame, projects, and embeds the projection's provenance and the sample point into the plane carrier. Each `Warp` stage advances the working coordinate and path accumulator, leaving provenance and sample point immutable. The `Sample` crossing consumes the provenance: it weights the raw signed field, ramps it into [0, 1], and folds projected coverage and domain coverage into the field carrier; `Transfer` and `Coverage` stages then reshape value and coverage. The terminal Colorize crossing samples the selected generated harmony, optionally rotates its hue with sphere-space noise or total path length, and returns straight-alpha `Color4`; the scan sink performs the final premultiplication.
 
-Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. Native tests compare LatticeMelt and KaleidoscopeSmooth presets with their document-built `ShaderChain` through `tests/composed_chain_fixture.h`. Operator parity lives in `tests/test_shader_chain.h`; `tests/test_effects.h` checks AshCloud's value-cutout endpoints (threshold 0 lights pixels; threshold 1 blanks the frame), and versioned chain snapshots have capture fixtures. Approximation capture tests compare the chain renderer with exact projection and color kernels. Teensy preprocessing excludes the interpreter.
+Two stages carry approved approximations. Fast square Peirce projection and the hue-rotation LUT each name a host reference oracle, exact non-floating fields, error domains, limits, and a final-framebuffer metric as part of the stage contract. Native tests compare KaleidoscopeMelt and KaleidoscopeSmooth presets with their document-built `ShaderChain` through `tests/composed_chain_fixture.h`. Operator parity lives in `tests/test_shader_chain.h`; `tests/test_effects.h` checks AshCloud's value-cutout endpoints (threshold 0 lights pixels; threshold 1 blanks the frame), and versioned chain snapshots have capture fixtures. Approximation capture tests compare the chain renderer with exact projection and color kernels. Teensy preprocessing excludes the interpreter.
 
 ### Composed-effect roster
 
@@ -650,7 +650,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `alien-core` | `AlienCore` | 1 |
 | `kaleidoscope-mandala` | `KaleidoscopeMandala` | 2 |
 | `grid-space` | `GridSpace` | 1 |
-| `lattice-melt` | `LatticeMelt` | 2 |
+| `kaleidoscope-melt` | `KaleidoscopeMelt` | 1 |
 | `chromatic-lichen` | `ChromaticLichen` | 1 |
 | `mermaid-skin` | `MermaidSkin` | 1 |
 | `jewel-melt` | `JewelMelt` | 1 |
@@ -664,9 +664,9 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 
-These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Lattice Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
-The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains a canonical shipping selective-O3 capture for each of the 38 Phantasm effects, global-O3 reference captures for 37 effects, and supplemental variant reports. The nineteen composed shipping effects report zero spilled display frames. JewelMelt peaks at 46.39 ms at softness 0.5; its full-width initialization draw is recorded separately and excluded from display cadence statistics. GSReactionDiffusion's shipping capture peaks at 39.43 ms with no spilled frames; its global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. MermaidSkin peaks at 39.18 ms, ChromaticLichen at 35.53 ms, and AshCloud at 42.67 ms. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
+The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains a canonical shipping selective-O3 capture for each of the 38 Phantasm effects, global-O3 reference captures for 36 effects, and supplemental variant reports. The nineteen composed shipping effects report zero spilled display frames. KaleidoscopeMelt peaks at 46.26 ms; its 76.53 ms initialization frame is recorded separately and excluded from display cadence statistics. JewelMelt peaks at 46.39 ms at softness 0.5; its full-width initialization draw is recorded separately and excluded from display cadence statistics. GSReactionDiffusion's shipping capture peaks at 39.43 ms with no spilled frames; its global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. MermaidSkin peaks at 39.18 ms, ChromaticLichen at 35.53 ms, and AshCloud at 42.67 ms. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 
 ### Authoring vocabulary
 

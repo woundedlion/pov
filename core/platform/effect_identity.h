@@ -138,8 +138,8 @@ namespace effect_identities {
   X(KaleidoscopeStainedGlass, "kaleidoscope-stained-glass",                    \
     "KaleidoscopeStainedGlass", "kaleidoscope-stained-glass",                  \
     "kaleidoscope-stained-glass")                                              \
-  X(LatticeMelt, "lattice-melt", "LatticeMelt", "lattice-melt",                \
-    "lattice-melt")                                                            \
+  X(KaleidoscopeMelt, "kaleidoscope-melt", "KaleidoscopeMelt",                 \
+    "kaleidoscope-melt", "kaleidoscope-melt")                                  \
   X(MermaidSkin, "mermaid-skin", "MermaidSkin", "mermaid-skin",                \
     "mermaid-skin")                                                            \
   X(MeshFeedback, "mesh-feedback", "MeshFeedback", "MeshFeedback",             \

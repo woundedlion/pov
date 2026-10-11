@@ -7,7 +7,7 @@
     "alien-core": "alien_core.shader.json",
     "kaleidoscope-mandala": "kaleidoscope_mandala.shader.json",
     "grid-space": "grid_space.shader.json",
-    "lattice-melt": "lattice_melt.shader.json",
+    "kaleidoscope-melt": "kaleidoscope_melt.shader.json",
     "chromatic-lichen": "chromatic_lichen.shader.json",
     "mermaid-skin": "mermaid_skin.shader.json",
     "ash-cloud": "ash_cloud.shader.json",
@@ -50,8 +50,8 @@
         "display_name": "Grid Space"
       },
       {
-        "effect_id": "lattice-melt",
-        "display_name": "Lattice Melt"
+        "effect_id": "kaleidoscope-melt",
+        "display_name": "Kaleidoscope Melt"
       },
       {
         "effect_id": "chromatic-lichen",

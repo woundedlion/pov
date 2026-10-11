@@ -75,7 +75,8 @@ constexpr std::array IDENTITY_GOLDENS{
                    0xDC60947F5EF28B5CULL},
     IdentityGolden{"KaleidoscopeStainedGlass", "kaleidoscope-stained-glass",
                    0x458439924D917BF4ULL},
-    IdentityGolden{"LatticeMelt", "lattice-melt", 0x8A8239B618698E89ULL},
+    IdentityGolden{"KaleidoscopeMelt", "kaleidoscope-melt",
+                   0x1F4DF039F490227BULL},
     IdentityGolden{"MermaidSkin", "mermaid-skin", 0xF49045D62E42DE36ULL},
     IdentityGolden{"MeshFeedback", "MeshFeedback", 0xC445C3A1098582B6ULL},
     IdentityGolden{"MindSplatter", "MindSplatter", 0x206A75CB20AE4025ULL},
@@ -295,15 +296,14 @@ inline void test_bootstrap_rows() {
 
 /** @brief Checks registry-owned stable preset identities without Effect vtable cost. */
 inline void test_fixed_preset_ids() {
-  const FactoryEntry *lattice =
-      hs_wasm::find_factory_entry<96, 20>("lattice-melt");
-  HS_EXPECT_TRUE(lattice != nullptr);
-  HS_EXPECT_TRUE(lattice && lattice->preset_id != nullptr);
-  if (lattice && lattice->preset_id) {
-    HS_EXPECT_EQ(lattice->preset_count, 2u);
-    HS_EXPECT_EQ(lattice->preset_id(0), "open-curl");
-    HS_EXPECT_EQ(lattice->preset_id(1), "dense-curl");
-    HS_EXPECT_TRUE(lattice->preset_id(2).empty());
+  const FactoryEntry *melt =
+      hs_wasm::find_factory_entry<96, 20>("kaleidoscope-melt");
+  HS_EXPECT_TRUE(melt != nullptr);
+  HS_EXPECT_TRUE(melt && melt->preset_id != nullptr);
+  if (melt && melt->preset_id) {
+    HS_EXPECT_EQ(melt->preset_count, 1u);
+    HS_EXPECT_EQ(melt->preset_id(0), "kaleidoscope-melt");
+    HS_EXPECT_TRUE(melt->preset_id(1).empty());
   }
 
   const FactoryEntry *mobius =

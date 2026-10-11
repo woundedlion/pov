@@ -64,6 +64,7 @@ test('capture descent retries a selection that changes during the capture offset
   let settled;
   const page = {
     async goto(url) {
+      assert.equal(new URL(url).searchParams.get('view'), 'simulator');
       resolution = new URL(url).searchParams.get('resolution');
       visits.push(resolution);
       settled = false;

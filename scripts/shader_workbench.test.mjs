@@ -801,13 +801,13 @@ test('groups on a non-staggered path policy is an unknown field', () => {
 test('export classification compares canonical descriptors after the digest', () => {
   const compiled = compile(example());
   const registry = { effects: [{
-    effect_id: 'lattice-melt',
+    effect_id: 'kaleidoscope-melt',
     descriptor_digest: compiled.descriptor_digest,
     descriptor: compiled.descriptor,
     capability_profiles: ['wasm-authoring'],
   }] };
   assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
-    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
+    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'kaleidoscope-melt' });
 
   // A non-canonical spelling of the same program is not a new effect.
   const reordered = structuredClone(compiled.descriptor);
@@ -816,7 +816,7 @@ test('export classification compares canonical descriptors after the digest', ()
   assert.notEqual(stableStringify(reordered), stableStringify(compiled.descriptor));
   registry.effects[0].descriptor = reordered;
   assert.deepEqual(classifyExport(compiled, registry, 'wasm-authoring'),
-    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'lattice-melt' });
+    { kind: 'ADD_PRESET_CANDIDATE', effect_id: 'kaleidoscope-melt' });
 
   registry.effects[0].descriptor = { ...compiled.descriptor, serialization: { schema_version: 2, fields: [] } };
   assert.equal(classifyExport(compiled, registry, 'wasm-authoring').kind, 'CREATE_EFFECT_CANDIDATE');
@@ -825,7 +825,7 @@ test('export classification compares canonical descriptors after the digest', ()
 test('a malformed registry reports a phase, code and path', () => {
   const compiled = compile(example());
   const entry = () => ({
-    effect_id: 'lattice-melt',
+    effect_id: 'kaleidoscope-melt',
     descriptor_digest: compiled.descriptor_digest,
     descriptor: compiled.descriptor,
     capability_profiles: ['wasm-authoring'],
@@ -858,11 +858,11 @@ test('a malformed registry reports a phase, code and path', () => {
 test('known but target-unavailable effects remain distinguishable', () => {
   const compiled = compile(example());
   const result = classifyExport(compiled, { effects: [{
-    effect_id: 'lattice-melt', descriptor_digest: compiled.descriptor_digest,
+    effect_id: 'kaleidoscope-melt', descriptor_digest: compiled.descriptor_digest,
     descriptor: compiled.descriptor, capability_profiles: ['wasm-authoring'],
   }] }, 'teensy-shipping');
   assert.equal(result.kind, 'REJECTED');
-  assert.equal(result.effect_id, 'lattice-melt');
+  assert.equal(result.effect_id, 'kaleidoscope-melt');
   assert.equal(result.diagnostics[0].code, 'KNOWN_UNAVAILABLE');
 });
 
@@ -1148,7 +1148,7 @@ test('CLI validates invocation before reading and reports malformed JSON as diag
 });
 
 test('null preset entries report diagnostics in admission and edge-fade post-passes', async () => {
-  for (const file of ['lattice_melt', 'mermaid_skin', 'mobius_grid']) {
+  for (const file of ['kaleidoscope_melt', 'mermaid_skin', 'mobius_grid']) {
     const document = JSON.parse(await readFile(new URL(`../patterns/${file}.shader.json`, import.meta.url), 'utf8'));
     const index = document.preset_bank.presets.length;
     document.preset_bank.presets.push(null);
