@@ -130,7 +130,7 @@ inline bool is_flat(const Pixel &p, const std::vector<Color4> &palette) {
 struct DiffStats {
   size_t newborn = 0; /**< Differing pixels the second render fills with the
                            newborn sentinel (legitimate zero-area births). */
-  size_t flat = 0;    /**< Differing pixels flat on both sides â€” a face
+  size_t flat = 0;    /**< Differing pixels flat on both sides — a face
                            interior changed color. */
   size_t blend = 0;   /**< Differing pixels involving a boundary AA blend. */
 };
@@ -184,7 +184,7 @@ inline std::vector<Color4> face_palette(int n) {
  * @details Observes the registered "Angle" param after every frame. The pin
  *          frame is the first exact-0 frame whose predecessor is a small
  *          non-zero sweep sample; the following morph leg leaves the angle
- *          untouched, so exact 0 must then hold for the whole sweep â€” which also
+ *          untouched, so exact 0 must then hold for the whole sweep — which also
  *          rules out a mid-sweep zero crossing matching the predicate.
  */
 inline void test_bookend_angle_pin() {
@@ -383,7 +383,7 @@ template <typename Solid> inline void check_bookend_swap_one() {
   HS_EXPECT_EQ(diff, (size_t)0);
   HS_EXPECT_LE(quant_only, QUANT_BAND_BUDGET);
 
-  // Rosette isolation: stars painted background-black, rosettes white â€” any
+  // Rosette isolation: stars painted background-black, rosettes white — any
   // lit pixel is rosette output.
   std::vector<Pixel> rosette_px;
   render_faces(rosette_px, flat_ms, [&](int f) {
@@ -498,7 +498,7 @@ constexpr size_t WRONG_MAPPING_FLAT_FLOOR = 5000;
  * @param seed Seed mesh (drawn as compiled).
  * @param swept Operator output at a boundary parameter; primaries take the
  *        seed's colors, newborn faces the sentinel.
- * @param rotate_primaries When true, primaries take face_color((f+1) % F) â€”
+ * @param rotate_primaries When true, primaries take face_color((f+1) % F) —
  *        the deliberate wrong mapping used to pin the budgets' discrimination.
  * @return Bucketed diff counts.
  */
@@ -572,8 +572,8 @@ inline void test_swap_in_framebuffer() {
 
 /**
  * @brief Verifies the DERIVE_AMBO departure swap: the displayed cuboctahedron
- *        base vs truncate(ambo(cube), T_EPS) â€” the first frame of the
- *        cuboctahedron -> truncatedCuboctahedron leg â€” under the
+ *        base vs truncate(ambo(cube), T_EPS) — the first frame of the
+ *        cuboctahedron -> truncatedCuboctahedron leg — under the
  *        emission-identity mapping on the derived seed.
  */
 inline void test_derive_ambo_departure_swap_framebuffer() {
@@ -597,7 +597,7 @@ inline void test_derive_ambo_departure_swap_framebuffer() {
 /**
  * @brief Verifies the ADOPT bridge arrival swap geometry: the leg's last frame
  *        truncate(tetra, 0.5 - T_EPS_AMBO) and the adopted octahedron base
- *        (ambo(tetra)) cover the same pixels â€” under one shared fill, so the
+ *        (ambo(tetra)) cover the same pixels — under one shared fill, so the
  *        residual is pure T_EPS_AMBO geometry, not emission order (the ambo
  *        short-circuit reorders emission; palettes carry over per class).
  */
@@ -632,7 +632,7 @@ inline void test_adopt_bridge_arrival_geometry() {
  * @brief Verifies the DUAL_SWAP ambo crossover: truncate(cube, 0.5 -
  *        T_EPS_AMBO) and truncate(dual(cube), 0.5 - T_EPS_AMBO) render the same
  *        pixels when faces are colored by their class signature (clean side
- *        count) â€” the mapping the crossover uses, since emission order flips
+ *        count) — the mapping the crossover uses, since emission order flips
  *        at the dual.
  */
 inline void test_dual_swap_crossover_framebuffer() {
@@ -947,7 +947,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 
   hs_test::StubEffect fx(FB_W, FB_H);
 
-  // Frame 1: p = 1/SWEEP < 20%, so w == 0 â€” the mapped from-state, exactly.
+  // Frame 1: p = 1/SWEEP < 20%, so w == 0 — the mapped from-state, exactly.
   step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
   for (size_t f = 0; f < snap.colors.size(); ++f) {
@@ -961,7 +961,7 @@ inline void test_crossfade_exact_at_endpoints_emission() {
                       bank.bank.entries[from].get(RAMP_SAMPLES[s]));
   }
 
-  // Final frame: p = 1, so w == 1 â€” the landed target assignment, exactly.
+  // Final frame: p = 1, so w == 1 — the landed target assignment, exactly.
   for (int f = 1; f < SWEEP; ++f)
     step_and_snapshot(anim, fx, snap);
   HS_EXPECT_SIZE_OR_RETURN(snap.colors, landing.faces);
@@ -976,8 +976,8 @@ inline void test_crossfade_exact_at_endpoints_emission() {
 
 /**
  * @brief Verifies every edge's palette mapping is total: at frame 1 each
- *        face's ramp resolves to a real bank entry â€” the handed-off palette
- *        for surviving primaries, the landed target for newborn faces â€” and
+ *        face's ramp resolves to a real bank entry — the handed-off palette
+ *        for surviving primaries, the landed target for newborn faces — and
  *        the landed assignment is a permutation of the bank slots.
  */
 inline void test_palette_mapping_total_all_edges() {
@@ -1278,7 +1278,7 @@ inline void test_leg_start_seed_frame_continuity() {
     const size_t primary = leg_seed.face_counts.size();
 
     // Geometric pin: every start face overlies a departed face (full legs:
-    // a bijection) â€” the seed-frame continuity contract.
+    // a bijection) — the seed-frame continuity contract.
     int match_of[128];
     bool used[128] = {};
     HS_EXPECT_LE(total, (size_t)128);
@@ -1466,7 +1466,7 @@ struct StrapSweepStats {
  * @brief Drives one HankinSolids walk across sweep arrivals and pins the strap
  *        crossfade: open state continuous with the previous cycle, endpoints
  *        bitwise exact, per-frame steps bounded, star faces on the exact bank
- *        entry at the bookends â€” including slots a star class shares.
+ *        entry at the bookends — including slots a star class shares.
  * @param epoch Epoch seed for hs::random() (the live per-visit reseed).
  * @param target_arrivals Sweep arrivals to validate before returning.
  * @param frame_cap Frame budget for the walk.
@@ -1755,7 +1755,7 @@ inline void test_strap_open_fade() {
   HS_EXPECT_LT(pop_faded, 200);
 }
 
-/** Summed absolute channel change between two captures â€” the visible weight of
+/** Summed absolute channel change between two captures — the visible weight of
  * a transition, which a bare changed-pixel count misses when the same pixels
  * change by less. */
 inline long long frame_delta_energy(const std::vector<Pixel> &a,
