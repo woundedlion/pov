@@ -22,6 +22,14 @@
 
 namespace hs_test {
 
+template <typename Effect>
+inline const ParamDef *required_param(Effect &effect, const char *name) {
+  HS_CONTEXT(name);
+  const auto *parameter = effect.getParameters().find(name);
+  HS_EXPECT_TRUE(parameter != nullptr);
+  return parameter;
+}
+
 /**
  * @brief Default per-effect frame count returned by smoke_frames().
  * @details Overridden by HS_SMOKE_FRAMES; CI requires at least

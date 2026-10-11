@@ -1177,8 +1177,7 @@ inline void test_register_float_and_bool_params() {
   const auto &params = fx.getParameters();
   HS_EXPECT_SIZE_OR_RETURN(params, 2);
 
-  const auto *sp = params.find("Speed");
-  HS_EXPECT_TRUE(sp != nullptr);
+  const auto *sp = required_param(fx, "Speed");
   if (!sp)
     return;
   HS_EXPECT_FALSE(sp->is_bool());
@@ -1186,8 +1185,7 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_NEAR(sp->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(sp->max, 10.0f, 1e-6f);
 
-  const auto *fl = params.find("Flag");
-  HS_EXPECT_TRUE(fl != nullptr);
+  const auto *fl = required_param(fx, "Flag");
   if (!fl)
     return;
   HS_EXPECT_TRUE(fl->is_bool());
@@ -1314,8 +1312,7 @@ inline void test_register_and_update_enum_param() {
   float mode = 1.0f;
   fx.add_enum("Mode", &mode, MODES, 3);
 
-  const auto *def = fx.getParameters().find("Mode");
-  HS_EXPECT_TRUE(def != nullptr);
+  const auto *def = required_param(fx, "Mode");
   if (!def)
     return;
   HS_EXPECT_TRUE(def->is_enum());
@@ -1343,8 +1340,7 @@ inline void test_register_and_update_enum_param() {
 
   // Plain params stay non-enum.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
-  const auto *speed = fx.getParameters().find("Speed");
-  HS_EXPECT_TRUE(speed != nullptr);
+  const auto *speed = required_param(fx, "Speed");
   if (!speed)
     return;
   HS_EXPECT_FALSE(speed->is_enum());
@@ -1366,8 +1362,7 @@ inline void test_typed_enum_and_global_param_metadata() {
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
 
   const auto *mode_def = fx.getParameters().find("Mode");
-  const auto *speed_def = fx.getParameters().find("Speed");
-  HS_EXPECT_TRUE(mode_def != nullptr);
+  const auto *speed_def = required_param(fx, "Speed");
   if (!mode_def)
     return;
   HS_EXPECT_TRUE(speed_def != nullptr);
@@ -1519,8 +1514,7 @@ inline void test_parameter_spec_preserves_requested_float() {
                        .animated = true,
                        .initial_value =
                            ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
-  const auto *def = fx.getParameters().find("Requested");
-  HS_EXPECT_TRUE(def != nullptr);
+  const auto *def = required_param(fx, "Requested");
   if (!def)
     return;
   HS_EXPECT_EQ(requested, 7.0f);
