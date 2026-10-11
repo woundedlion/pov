@@ -73,7 +73,7 @@ inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
 }
 
 /** @brief Coverage above which expect_cull_covers_painted requires a visit. */
-inline constexpr float PAINTED_ALPHA = 0.002f;
+inline constexpr float PAINTED_ALPHA = Scan::MIN_ALPHA;
 
 /**
  * @brief Asserts no pixel the rasterizer would paint is dropped by the cull.
