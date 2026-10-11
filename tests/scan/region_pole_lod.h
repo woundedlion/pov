@@ -72,7 +72,6 @@ inline void test_face_rasterize_matches_scan_region() {
     hs_test::StubEffect fused(W, H);
     draw(fused, true);
 
-    size_t lit = 0;
     for (int y = 0; y < H; ++y) {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
@@ -81,12 +80,10 @@ inline void test_face_rasterize_matches_scan_region() {
         HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
         HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
         HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
-        if (a.r || a.g || a.b)
-          ++lit;
       }
     }
     // Guard against both paths drawing nothing.
-    HS_EXPECT_GT(lit, (size_t)40);
+    HS_EXPECT_GT(count_lit(expected), (size_t)40);
   };
 
   // Mid-latitude hexagon, whose azimuth wedge sits around column 80.
@@ -311,7 +308,6 @@ inline void test_pole_lod_shading_matches_undecimated() {
 
   auto compare = [&](const std::vector<Pixel> &plain,
                      const std::vector<Pixel> &decimated) {
-    size_t lit = 0;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
         const Pixel &a = plain[y * W + x];
@@ -320,10 +316,8 @@ inline void test_pole_lod_shading_matches_undecimated() {
         HS_EXPECT_EQ(static_cast<int>(a.r), static_cast<int>(b.r));
         HS_EXPECT_EQ(static_cast<int>(a.g), static_cast<int>(b.g));
         HS_EXPECT_EQ(static_cast<int>(a.b), static_cast<int>(b.b));
-        if (a.r || a.g || a.b)
-          ++lit;
       }
-    HS_EXPECT_GT(lit, (size_t)40);
+    HS_EXPECT_GT(count_lit(plain), (size_t)40);
   };
 
   // Axis just off the canvas pole: the stroke crosses decimated rows.
@@ -627,10 +621,7 @@ inline void test_pole_lod_concave_face_matches_undecimated() {
       return pixels;
     };
     const auto plain = draw(0.0f);
-    size_t lit = 0;
-    for (const Pixel &pixel : plain)
-      lit += (pixel.r | pixel.g | pixel.b) != 0;
-    HS_EXPECT_GT(lit, size_t(40));
+    HS_EXPECT_GT(count_lit(plain), size_t(40));
     for (float lod : {1.0f, 4.0f}) {
       const auto decimated = draw(lod);
       for (size_t i = 0; i < plain.size(); ++i) {

@@ -216,14 +216,9 @@ inline void test_mindsplatter_replay_snapshot_exact() {
   HS_EXPECT_TRUE(second.restored_exactly);
   HS_EXPECT_TRUE(WB::same_snapshot(first.post_step, second.post_step));
   HS_EXPECT_EQ(first.framebuffer.size(), second.framebuffer.size());
-  size_t lit_pixels = 0;
-  for (size_t i = 0; i < first.framebuffer.size(); ++i) {
+  for (size_t i = 0; i < first.framebuffer.size(); ++i)
     HS_EXPECT_EQ(first.framebuffer[i], second.framebuffer[i]);
-    if (first.framebuffer[i].r | first.framebuffer[i].g |
-        first.framebuffer[i].b)
-      ++lit_pixels;
-  }
-  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+  HS_EXPECT_GT(count_lit(first.framebuffer), static_cast<size_t>(0));
 }
 
 /**
