@@ -25,6 +25,12 @@ inline void expect_sweep_identical(const SweepColors &actual,
   }
 }
 
+/** @brief Expects at least one swept color to be live. */
+inline void expect_sweep_live(const SweepColors &colors) {
+  HS_EXPECT_TRUE(std::any_of(colors.begin(), colors.end(),
+                             [](const Color4 &c) { return carrier_live(c); }));
+}
+
 inline void expect_refusal(In::ChainProgram &program,
                            std::span<const In::ChainEntryRequest> request,
                            In::ChainStatus expected, int16_t expected_index,
@@ -47,6 +53,7 @@ inline void test_shader_chain_refusal_shape() {
   program.prepare(ctx);
   SweepColors baseline;
   snapshot_render(program, ctx, baseline);
+  expect_sweep_live(baseline);
   const auto camera_before = state_as<In::Op::SpatialWalkState>(program, 0);
   const auto source_before = state_as<In::Op::SourceClockState>(program, 2);
   const auto color_before = state_as<In::Op::ColorClockState>(program, 3);
@@ -265,6 +272,7 @@ inline void test_shader_chain_refusal_migrate_failed() {
   program.prepare(ctx);
   SweepColors baseline;
   snapshot_render(program, ctx, baseline);
+  expect_sweep_live(baseline);
 
   CountLifecycle::fail_migrate = true;
   const int destroys_before = CountLifecycle::destroys;
@@ -496,6 +504,7 @@ inline void test_shader_chain_determinism() {
   SweepColors second_colors;
   snapshot_render(first->program, ctx, first_colors);
   snapshot_render(second->program, ctx, second_colors);
+  expect_sweep_live(first_colors);
   expect_sweep_identical(second_colors, first_colors);
   // Instance labels participate in stateful-resource identity.
   auto relabeled = std::make_unique<ProgramFixture>();
