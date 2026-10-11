@@ -20,9 +20,9 @@ namespace hs_test {
 namespace palettes_tests {
 
 /**
- * @brief Pins named ProceduralPalette endpoints against golden 16-bit colors.
+ * @brief Pins named palette endpoints and ORANGE_CRUSH reversal.
  */
-inline void test_named_procedural_palette_endpoints() {
+inline void test_named_procedural_palette_endpoints_and_reversal() {
   // `DARK_RAINBOW` has integer frequencies and matching endpoint colors.
   Color4 dr0 = Palettes::DARK_RAINBOW.get(0.0f);
   Color4 dr1 = Palettes::DARK_RAINBOW.get(1.0f);
@@ -65,9 +65,6 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(cb1.color.b, 7717);
   HS_EXPECT_NEAR(cb0.alpha, 1.0f, 1e-6f);
 
-  constexpr auto mesh_sources = MeshPaletteBank::sources();
-  HS_EXPECT_TRUE(mesh_sources[5] == &Palettes::TIDAL_JADE);
-
   constexpr ProceduralPalette FORWARD_ORANGE(
       {0.575f, 0.168f, 0.464f}, {0.406f, 0.697f, 0.357f},
       {0.000f, 0.10051f, 0.042778f}, {0.141f, 0.155f, 0.537f});
@@ -105,6 +102,13 @@ inline void test_named_palette_hue_short_arc() {
  *          produces a distinct LUT.
  */
 inline void test_mesh_palette_bank_lookup() {
+  constexpr auto SOURCES = MeshPaletteBank::sources();
+  HS_EXPECT_TRUE(SOURCES[0] == &Palettes::EMBERS);
+  HS_EXPECT_TRUE(SOURCES[1] == &Palettes::RICH_SUNSET);
+  HS_EXPECT_TRUE(SOURCES[2] == &Palettes::BRIGHT_SUNRISE);
+  HS_EXPECT_TRUE(SOURCES[3] == &Palettes::BRUISED_MOSS);
+  HS_EXPECT_TRUE(SOURCES[4] == &Palettes::LAVENDER_LAKE);
+  HS_EXPECT_TRUE(SOURCES[5] == &Palettes::TIDAL_JADE);
   alignas(std::max_align_t) static uint8_t
       buf[MeshPaletteBank::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
@@ -223,7 +227,7 @@ inline int run_palettes_tests() {
   hs_test::ModuleFixture fixture("palettes");
 
   test_named_procedural_palette_roster();
-  test_named_procedural_palette_endpoints();
+  test_named_procedural_palette_endpoints_and_reversal();
   test_named_palette_hue_short_arc();
   test_mesh_palette_bank_lookup();
   test_mesh_palette_bank_shuffle_is_permutation();
