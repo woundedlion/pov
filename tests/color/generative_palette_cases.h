@@ -817,8 +817,8 @@ inline void test_generative_palette_lerp_interpolates_loop_seam() {
     morph.morph_palettes(a, b, amount);
     const Pixel seam = morph.get(1.0f).color;
     const Pixel start = morph.get(0.0f).color;
-    HS_EXPECT_TRUE(std::abs(int(seam.r) - int(start.r)) <= 220);
-    HS_EXPECT_TRUE(std::abs(int(seam.g) - int(start.g)) <= 220);
-    HS_EXPECT_TRUE(std::abs(int(seam.b) - int(start.b)) <= 220);
+    HS_EXPECT_EQ(seam.r, start.r);
+    HS_EXPECT_EQ(seam.g, start.g);
+    HS_EXPECT_EQ(seam.b, start.b);
   }
 }
