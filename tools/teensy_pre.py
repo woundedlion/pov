@@ -13,6 +13,7 @@ SKETCH = {
     "holosphere": os.path.join("targets", "Holosphere", "Holosphere.ino"),
     "holosphere_dma": os.path.join("targets", "Holosphere", "Holosphere.ino"),
     "phantasm": os.path.join("targets", "Phantasm", "Phantasm.ino"),
+    "phantasm_rev12": os.path.join("targets", "Phantasm", "Phantasm.ino"),
     "phantasm8": os.path.join("targets", "Phantasm", "Phantasm.ino"),
     "profile": os.path.join("targets", "Profile", "Profile.ino"),
     "profile_o3": os.path.join("targets", "Profile", "Profile.ino"),
