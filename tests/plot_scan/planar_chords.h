@@ -236,6 +236,7 @@ inline void test_planar_band_split_matches_whole_polyline() {
   for (const PlanarShapeCase &flower : flowers) {
     const auto whole =
         render_band_split_flower<W, H>(fx, flower, full, false).pixels;
+    HS_EXPECT_GT(frame_energy(whole), uint64_t{0});
     for (const ClipRegion &clip : quadrants) {
       const auto tile = render_band_split_flower<W, H>(fx, flower, clip, true);
       skipped += tile.skipped_edges;
