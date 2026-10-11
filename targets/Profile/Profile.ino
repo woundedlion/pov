@@ -519,11 +519,11 @@ private:
         (unsigned long)t.hole_early_outs);
     hs::log(
         "plot render counts aa: tap0=%lu tap1=%lu tap2=%lu tap3=%lu tap4=%lu "
-        "interior=%lu boundary=%lu",
+        "interior=%lu boundary=%lu integer=%lu",
         (unsigned long)t.aa_tap_masks[0], (unsigned long)t.aa_tap_masks[1],
         (unsigned long)t.aa_tap_masks[2], (unsigned long)t.aa_tap_masks[3],
         (unsigned long)t.aa_tap_masks[4], (unsigned long)t.interior_splats,
-        (unsigned long)t.clip_boundary_splats);
+        (unsigned long)t.clip_boundary_splats, (unsigned long)t.integer_plots);
     hs::g_plot_render_counts.reset();
   }
 #endif
