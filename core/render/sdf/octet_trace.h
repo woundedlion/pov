@@ -127,72 +127,9 @@ trace_events(const Events &events, Raycast::Interval interval,
   return result;
 }
 
-/**
- * @brief Covered crossings in distance order, composited in trace_events()
- *        groups.
- * @details Uncovered crossings do not join a merge group. Groups are runs of
- * covered crossings within the relative tolerance of their first
- * distance, each one layer at that distance with the run's largest coverage.
- */
-struct CoveredCrossings {
-  /// Maximum crossings held.
-  static constexpr int CAPACITY = CrossingStorage::CAPACITY;
-  float *distances; ///< Sorted crossing distances, in the storage.
-  float *coverages; ///< Coverage of each entry of `distances`.
-  int count = 0;    ///< Number of crossings held.
-
-  /** @brief Views the caller's storage as an empty crossing list.
-   *  @param storage Backing arrays; must outlive this view. */
-  explicit CoveredCrossings(CrossingStorage &storage)
-      : distances(storage.distances.data()),
-        coverages(storage.coverages.data()) {}
-
-  /** @brief Inserts a crossing in distance order; `count` must be below
-   *         CAPACITY.
-   *  @param t Ray distance of the crossing.
-   *  @param coverage Coverage of the crossing; positive. */
-  __attribute__((always_inline)) void insert(float t, float coverage) {
-    int slot = count++;
-    for (; slot > 0 && distances[slot - 1] > t; --slot) {
-      distances[slot] = distances[slot - 1];
-      coverages[slot] = coverages[slot - 1];
-    }
-    distances[slot] = t;
-    coverages[slot] = coverage;
-  }
-
-  /** @brief Composites the merge groups front to back.
-   *  @param limits Layer budget.
-   *  @param appearance Layer shading and compositing.
-   *  @return Premultiplied color and the stop reason. */
-  __attribute__((always_inline)) Sample
-  composite(const Raycast::TraceLimits &limits,
-            const Raycast::Appearance &appearance) const {
-    constexpr float RELATIVE_TOLERANCE = Raycast::MERGE_RELATIVE_TOLERANCE;
-    Sample result;
-    LayerComposite layers;
-    int composited = 0;
-    for (int index = 0; index < count;) {
-      if (composited >= limits.max_layers) {
-        result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
-        break;
-      }
-      ++composited;
-      const float T = distances[index];
-      const float GROUP_END = T + RELATIVE_TOLERANCE * fmaxf(1.0f, T);
-      float coverage = coverages[index];
-      for (++index; index < count && distances[index] <= GROUP_END; ++index)
-        coverage = fmaxf(coverage, coverages[index]);
-      appearance.composite(layers, T, coverage);
-      if (layers.saturated()) {
-        result.status = Raycast::TraceStatus::SATURATED;
-        break;
-      }
-    }
-    result.color = layers.premultiplied();
-    return result;
-  }
-};
+/** @brief Covered crossing view over the octet trace storage. */
+using CoveredCrossings =
+    Raycast::CoveredCrossings<CrossingStorage::CAPACITY, float *>;
 
 /**
  * @brief trace_events() by per-stream walks over CoveredCrossings.
@@ -212,7 +149,7 @@ __attribute__((always_inline)) inline Sample
 trace_sorted(const Events &events, Raycast::Interval interval,
              const Raycast::TraceLimits &limits,
              const Raycast::Appearance &appearance, CrossingStorage &storage) {
-  CoveredCrossings covered(storage);
+  CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
   const int BUDGET =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
@@ -231,7 +168,7 @@ trace_sorted(const Events &events, Raycast::Interval interval,
         covered.insert(t, COVERAGE);
     }
   }
-  return covered.composite(limits, appearance);
+  return covered.composite<true, Sample>(appearance, limits);
 }
 
 /**
@@ -273,7 +210,7 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                              : fabsf(speeds[other]) > fabsf(speeds[family]);
     order[rank] = family;
   }
-  CoveredCrossings covered(storage);
+  CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
   const int BUDGET =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
@@ -343,7 +280,7 @@ trace_3d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                                   NEAR, footprint);
     return trace_events(events, camera.interval, limits, appearance);
   }
-  return covered.composite(limits, appearance);
+  return covered.composite<true, Sample>(appearance, limits);
 }
 
 /**
@@ -438,7 +375,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
   const float SUPPORT_RATE = .5f * footprint.angular_radius * INVERSE_SCALE;
   const float SUPPORT_BASE =
       WIRE_RADIUS * INVERSE_SCALE + SUPPORT_RATE * footprint.radial_start;
-  CoveredCrossings covered(storage);
+  CoveredCrossings covered(storage.distances, storage.coverages);
   int crossings = 0;
   const int BUDGET =
       std::min(limits.max_candidates, CoveredCrossings::CAPACITY);
@@ -618,7 +555,7 @@ trace_4d(const math::Vector &direction, const Raycast::PreparedCamera &camera,
                                    camera.radial_start, NEAR, footprint);
     return trace_events(events, camera.interval, limits, appearance);
   }
-  return covered.composite(limits, appearance);
+  return covered.composite<true, Sample>(appearance, limits);
 }
 
 } // namespace SDF::OctetTrace
