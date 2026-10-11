@@ -1,6 +1,6 @@
 # Global-O3 reference profiles
 
-Ranked captures covering all **38 effects** in the 288×144 Phantasm
+Ranked captures covering all **37 effects** in the 288×144 Phantasm
 image. These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
@@ -46,7 +46,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-08-26.md)§ | `sh_rasterize` | 🟢 11.70 (24) | 🟢 0/3488 (0%) | 2026-08-26 01:57 |
 | [PetalFlow](profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 10.77 | 🟢 0/1088 (0%) | 2026-08-26 01:32 |
 | [Voronoi](profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 7.71 | 🟢 0/1088 (0%) | 2026-08-26 01:39 |
-| [RingShower](profile_ringshower_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
 ● Architecture captures refreshed 2026-10-01: MindSplatter, HyperLattice, LatticeMelt, ChromaticLichen and KaleidoscopeSmooth. Setup frame 1 is excluded. Cycler buckets include every live owner-attributed transition frame; each report lists per-preset peaks, fractions and the worst preset. Captured times are local raw-log mtimes.
 

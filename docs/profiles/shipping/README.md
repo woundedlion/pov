@@ -1,7 +1,7 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-39 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
+38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
 Rows rank by any spill, then peak render. ● marks the October 8 JewelMelt capture. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
 
@@ -45,7 +45,6 @@ Rows rank by any spill, then peak render. ● marks the October 8 JewelMelt capt
 | [PetalFlow](profile_petalflow_teensy_2026-10-06.md) | `pf_draw_rings` | 🟢 13.29 | 🟢 0/1087 (0.00%) | 2026-10-06 18:12 |
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-06.md) § | `sh_rasterize` | 🟢 12.92 (24) | 🟢 0/3487 (0.00%) | 2026-10-06 18:42 |
 | [Voronoi](profile_voronoi_teensy_2026-10-06.md) | `vo_shade` | 🟢 8.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:25 |
-| [RingShower](profile_ringshower_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 
 The full-roster sweep was captured on 2026-10-06 at `e2f5b0a3d` across COM3
 and COM4, except HyperLattice, re-captured after its 4D optimization at
