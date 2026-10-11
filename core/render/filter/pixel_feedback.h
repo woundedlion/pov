@@ -19,6 +19,12 @@
  * composites the previous frame.
  */
 
+#if HS_ENABLE_TEST_HOOKS
+namespace hs_test {
+struct FeedbackWhiteBox;
+}
+#endif
+
 namespace Filter {
 
 namespace Pixel {
@@ -40,6 +46,9 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
   using CapOffset = typename CapPlane::CapOffset;
   using CapPoint = typename CapPlane::CapPoint;
   using CapCell = typename CapPlane::CapCell;
+#if HS_ENABLE_TEST_HOOKS
+  friend struct hs_test::FeedbackWhiteBox;
+#endif
   using WarpCache = FeedbackWarpCache<W, H>;
   using WarpField = typename WarpCache::Buffers;
 
