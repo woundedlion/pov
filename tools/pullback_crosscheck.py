@@ -215,28 +215,41 @@ def _frame_map(capture: dict) -> dict[tuple, tuple[dict, str]]:
     return mapped
 
 
-def _expected_frame_keys(programs: dict) -> set[tuple]:
-    expected = set()
-    resolutions = programs["corpus"]["resolutions"]
+CASE_OPERATIONS = {
+    "default": "CASE_DEFAULT",
+    "endpoint_min": "CASE_ENDPOINT_MIN",
+    "endpoint_max": "CASE_ENDPOINT_MAX",
+    "interior": "CASE_INTERIOR",
+}
+
+
+def corpus_operations(programs: dict):
+    """Yield the canonical preset, parameter-case and probe operations."""
+    mappings = programs["corpus"]["probe_operations"]
     for program in programs["programs"]:
-        program_id = program["id"]
         for preset in program["presets"]:
-            for resolution in resolutions:
-                dimensions = tuple(resolution)
-                for case in program["parameter_cases"]:
-                    expected.add((program_id, preset, case["id"], dimensions, "steady"))
-                for category, probes in program["probes"].items():
-                    for probe in probes:
-                        expected.add(
-                            (
-                                program_id,
-                                preset,
-                                "default",
-                                dimensions,
-                                f"{category}:{probe}",
-                            )
-                        )
-    return expected
+            for case in program["parameter_cases"]:
+                case_id = case["id"]
+                yield {"program": program["id"], "preset": preset, "case": case_id,
+                       "probe": "steady", "name": f"case:{case_id}",
+                       "mapping": CASE_OPERATIONS[case_id]}
+            for category, probes in program["probes"].items():
+                for probe in probes:
+                    name = f"{category}:{probe}"
+                    yield {"program": program["id"], "preset": preset, "case": "default",
+                           "probe": name, "name": name, "mapping": mappings[name]}
+
+
+def framebuffer_metric(oracle: dict) -> dict:
+    """Return the maximum framebuffer metric from an oracle manifest."""
+    return next(metric for metric in oracle["metrics"]
+                if metric["domain"] == "FRAMEBUFFER" and metric["aggregation"] == "MAXIMUM")
+
+
+def _expected_frame_keys(programs: dict) -> set[tuple]:
+    return {(op["program"], op["preset"], op["case"], tuple(resolution), op["probe"])
+            for op in corpus_operations(programs)
+            for resolution in programs["corpus"]["resolutions"]}
 
 
 def _selected_pixel(mapping: str, x: int, y: int, width: int, height: int) -> bool:
@@ -418,12 +431,7 @@ def _oracle_metric_map(capture: dict, oracles: list[dict]) -> dict:
         mapped[key] = metric
     expected = {}
     for oracle in oracles:
-        manifest_metric = next(
-            metric
-            for metric in oracle["metrics"]
-            if metric["domain"] == "FRAMEBUFFER"
-            and metric["aggregation"] == "MAXIMUM"
-        )
+        manifest_metric = framebuffer_metric(oracle)
         key = (oracle["oracle_id"], "FRAMEBUFFER", "MAXIMUM")
         expected[key] = manifest_metric
     if mapped.keys() != expected.keys():
