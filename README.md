@@ -1122,7 +1122,8 @@ Build Phantasm with `pio run -e phantasm` from the repository root. This uses
 `tools/phantasm.ld`, `-Os`, and newlib-nano (`--specs=nano.specs`) through
 `tools/teensy_nano.py`, matching the gated shipping image. An IDE build needs
 these same settings to reproduce that image. The environment defines
-`HS_PHANTASM_BOARD_REV=11`; for rev 1.2, change that flag to `=12`. Rev 1.3 requires separate
+`HS_PHANTASM_BOARD_REV` from `[phantasm_common] board_revision = 11`; for rev 1.2,
+change that single setting to `12` for all Phantasm environments. Rev 1.3 requires separate
 firmware support.
 
 > **Headless size/layout gate — an active CI job, optional locally.** A
