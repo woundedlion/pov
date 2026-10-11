@@ -174,6 +174,7 @@ inline void test_star_continuous_matches_standard_near_side() {
                                                0.37f);
     Plot::Star<Plot::PlanarProjection>::sample_continuous(continuous, basis,
                                                           radius, 7, 0.37f);
+    HS_EXPECT_SIZE_OR_RETURN(standard, size_t{15});
     HS_EXPECT_SIZE_OR_RETURN(standard, continuous.size());
     for (size_t i = 0; i < standard.size(); ++i) {
       HS_EXPECT_NEAR(standard[i].pos.x, continuous[i].pos.x, NEAR_SIDE_TOL);
@@ -199,6 +200,7 @@ inline void test_star_continuous_crosses_equator() {
       seam, basis, 1.0f, 7, 0.37f);
   Plot::Star<Plot::PlanarProjection>::sample_continuous_positions(
       above, basis, 1.0001f, 7, 0.37f);
+  HS_EXPECT_SIZE_OR_RETURN(seam, size_t{15});
   HS_EXPECT_SIZE_OR_RETURN(below, seam.size());
   HS_EXPECT_SIZE_OR_RETURN(above, seam.size());
   for (size_t i = 0; i < seam.size(); ++i) {
