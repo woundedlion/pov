@@ -476,19 +476,13 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
   effect.init();
 
   WB::advance_preset(effect);
-  for (int f = 0; f < 8; ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 8);
 
   HS_EXPECT_TRUE(WB::transition_active(effect));
   HS_EXPECT_TRUE(effect.selectPreset(MANUAL_PRESET));
   HS_EXPECT_TRUE(effect.animations_paused());
   effect.setAnimationsPaused(false);
-  for (int f = 0; f < BLEND_FRAMES + 8; ++f) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, BLEND_FRAMES + 8);
 
   HS_EXPECT_EQ(effect.getPresetIndex(), MANUAL_PRESET);
   const auto &live = WB::live_params(effect);

@@ -602,10 +602,7 @@ inline void test_displacement_field_ball_spans_and_lifecycle() {
   DisplacementField<SMALL_W, SMALL_H> effect;
   effect.init();
   DisplacementFieldWhiteBox::fill_ball_pool(effect);
-  for (int frame = 0; frame < 40; ++frame) {
-    effect.draw_frame();
-    effect.advance_display();
-  }
+  hs_test::run_frames(effect, 40);
   HS_EXPECT_TRUE(DisplacementFieldWhiteBox::in_noise(effect));
 
   const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
