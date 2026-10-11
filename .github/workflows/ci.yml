@@ -667,6 +667,11 @@ jobs:
           fi
           echo "Provenance set produced, artifact hashes verified, toolchain recorded:"
           cat "$dd/generated/holosphere_wasm.toolchain"
+
+      - name: Package verified engine bundle
+        shell: bash
+        run: |
+          dd="${{ runner.temp }}/daydream-install"
           bundle="${{ runner.temp }}/holosphere-engine"
           mkdir -p "$bundle/generated"
           cp "$dd/generated"/holosphere_wasm.{js,wasm,sha,wasm.sha256,toolchain} \
