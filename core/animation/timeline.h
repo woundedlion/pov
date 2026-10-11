@@ -19,8 +19,6 @@
  * @details Stores the animation inline; no arena allocation.
  */
 struct TimelineEvent {
-  // Inline storage budget for a type-erased animation: 112 B for device/WASM,
-  // 256 B for 64-bit host effect harnesses.
   /// Inline animation storage in bytes.
   static constexpr size_t MAX_ANIM_SIZE = HS_TIMELINE_MAX_ANIM_BYTES;
 
