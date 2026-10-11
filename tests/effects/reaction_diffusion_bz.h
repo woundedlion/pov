@@ -450,7 +450,7 @@ inline void test_bz_substep_predator_wiring() {
 inline void test_bz_raster_matches_reference() {
   using WhiteBox = BZWhiteBox;
   constexpr int MAX_ROUNDING_DRIFT = 3;
-  auto drift = [](uint16_t p, uint16_t q) { return p > q ? p - q : q - p; };
+  constexpr int SAMPLES = ((SMALL_H + 1) / 2) * ((SMALL_W + 2) / 3);
   std::vector<math::Vector> nodes(WhiteBox::N);
   std::vector<uint16_t> a(WhiteBox::N), b(WhiteBox::N), c(WhiteBox::N);
   for (int i = 0; i < WhiteBox::N; ++i) {
@@ -469,8 +469,13 @@ inline void test_bz_raster_matches_reference() {
   const Color4 cb(Pixel(2819, 59731, 1207), 1.0f);
   const Color4 cc(Pixel(4513, 7781, 62927), 1.0f);
 
-  auto compare = [&] {
+  struct Sweep {
+    int compared = 0;
+    int lit = 0;
     int mismatches = 0;
+  };
+  auto compare = [&] {
+    Sweep sweep;
     for (int y = 0; y < SMALL_H; y += 2) {
       grid.set_row(y);
       for (int x = 0; x < SMALL_W; x += 3) {
@@ -480,23 +485,27 @@ inline void test_bz_raster_matches_reference() {
             bz, seed, center, nodes.data(), grid, x, ca, cb, cc);
         Pixel actual = WhiteBox::shade(bz, seed, center, nodes.data(), grid, x,
                                        ca, cb, cc);
-        if (drift(actual.r, expected.r) > MAX_ROUNDING_DRIFT ||
-            drift(actual.g, expected.g) > MAX_ROUNDING_DRIFT ||
-            drift(actual.b, expected.b) > MAX_ROUNDING_DRIFT)
-          ++mismatches;
+        ++sweep.compared;
+        sweep.lit += !is_black(expected);
+        sweep.mismatches +=
+            max_channel_gap(actual, expected) > MAX_ROUNDING_DRIFT;
       }
     }
-    return mismatches;
+    return sweep;
   };
 
-  int mismatches = compare();
+  const Sweep full = compare();
   for (int i = 0; i < WhiteBox::N; ++i) {
     a[i] >>= 6;
     b[i] >>= 6;
     c[i] >>= 6;
   }
-  mismatches += compare();
-  HS_EXPECT_EQ(mismatches, 0);
+  const Sweep dim = compare();
+  for (const Sweep &sweep : {full, dim}) {
+    HS_EXPECT_EQ(sweep.compared, SAMPLES);
+    HS_EXPECT_GT(sweep.lit, SAMPLES / 2);
+    HS_EXPECT_EQ(sweep.mismatches, 0);
+  }
 }
 
 /**
