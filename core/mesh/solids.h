@@ -508,12 +508,11 @@ inline constexpr int NUM_ENTRIES =
 
 // simple_registry is [Platonic | Archimedean].
 /// Platonic entries at the head of simple_registry.
-inline constexpr size_t PLATONIC_COUNT = 5;
+inline constexpr size_t PLATONIC_COUNT =
+    static_cast<size_t>(BaseMesh::ICOSAHEDRON) + 1;
 /// Archimedean entries following the Platonic run.
-inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
-static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
-              "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
-              "size; update the counts if the registry layout changes");
+inline constexpr size_t ARCHIMEDEAN_COUNT =
+    std::size(simple_registry) - PLATONIC_COUNT;
 static_assert(std::string_view(simple_registry[PLATONIC_COUNT - 1].name) ==
                   "icosahedron",
               "PLATONIC_COUNT must end the Platonic run");
@@ -521,17 +520,10 @@ static_assert(std::string_view(simple_registry[PLATONIC_COUNT].name) ==
                   "truncatedTetrahedron",
               "PLATONIC_COUNT must start the Archimedean run");
 
-inline constexpr size_t CATALAN_COUNT = 13; ///< Entries in catalan_registry.
-inline constexpr size_t ISLAMIC_COUNT = 24; ///< Entries in islamic_registry.
-static_assert(CATALAN_COUNT == std::size(catalan_registry),
-              "catalan_registry size changed; update CATALAN_COUNT");
-static_assert(ISLAMIC_COUNT == std::size(islamic_registry),
-              "islamic_registry size changed; update ISLAMIC_COUNT");
-static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT +
-                      ISLAMIC_COUNT ==
-                  static_cast<size_t>(NUM_ENTRIES),
-              "NUM_ENTRIES must equal the sum of the per-registry counts");
-
+inline constexpr size_t CATALAN_COUNT =
+    std::size(catalan_registry); ///< Entries in catalan_registry.
+inline constexpr size_t ISLAMIC_COUNT =
+    std::size(islamic_registry); ///< Entries in islamic_registry.
 // BaseMesh ordinals follow get_entry(): simple_registry, then catalan_registry.
 // The enum, labels and registries share Platonic/Catalan slice boundaries.
 static_assert(PLATONIC_BASE_MESH_COUNT == PLATONIC_COUNT,

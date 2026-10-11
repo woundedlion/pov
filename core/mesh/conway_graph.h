@@ -82,11 +82,8 @@ inline constexpr uint8_t SNUB_DODECAHEDRON =
     static_cast<uint8_t>(Solids::BaseMesh::SNUB_DODECAHEDRON);
 
 /// Graph node count; node ids lie in [0, NUM_NODES).
-inline constexpr int NUM_NODES = 18;
-
-static_assert(NUM_NODES == static_cast<int>(std::size(Solids::simple_registry)),
-              "NUM_NODES must equal the simple_registry size; every walk, "
-              "validator and family() lookup scans only [0, NUM_NODES)");
+inline constexpr int NUM_NODES =
+    static_cast<int>(std::size(Solids::simple_registry));
 
 /**
  * @brief Parameterized Conway operator a leg sweeps.
