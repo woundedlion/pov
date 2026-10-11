@@ -1422,7 +1422,11 @@ inline void test_palette_slots_stable_within_cycle() {
       std::printf("    [palette-stability] live palette rewrite mid-cycle at "
                   "frame %d ('%s')\n",
                   frame, Solids::simple_registry[node].name);
-      HS_EXPECT_TRUE(false);
+      HS_CONTEXT("walk frame", frame);
+      for (size_t slot = 0; slot < snapshot.size(); ++slot) {
+        HS_CONTEXT("palette slot", slot);
+        HS_EXPECT_EQ(Probe::palette_idx(fx)[slot], snapshot[slot]);
+      }
       return;
     }
   }

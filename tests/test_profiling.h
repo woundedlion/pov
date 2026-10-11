@@ -69,7 +69,7 @@ struct GuardedDecBuf {
 inline void expect_u64_dec(uint64_t v, const char *expected) {
   GuardedDecBuf g;
   const char *s = hs::u64_dec(v, g.buf);
-  HS_EXPECT(std::strcmp(s, expected) == 0, "u64_dec renders the value");
+  HS_EXPECT_STREQ(s, expected);
   HS_EXPECT_EQ(g.buf[20], '\0');
   // Digits are written backwards from the fixed terminator slot.
   HS_EXPECT_EQ(static_cast<size_t>(s - g.buf), 20u - std::strlen(expected));
