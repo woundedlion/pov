@@ -404,12 +404,8 @@ inline void test_rasterize_default_sampling_policy_parity() {
   HS_EXPECT_GT(implicit_default.plotted.size(), size_t{0});
   const size_t compared = implicit_default.plotted.size();
   for (size_t i = 0; i < compared; ++i) {
-    HS_EXPECT_NEAR(implicit_default.plotted[i].x,
-                   selectable_default.plotted[i].x, POLICY_TOL);
-    HS_EXPECT_NEAR(implicit_default.plotted[i].y,
-                   selectable_default.plotted[i].y, POLICY_TOL);
-    HS_EXPECT_NEAR(implicit_default.plotted[i].z,
-                   selectable_default.plotted[i].z, POLICY_TOL);
+    HS_EXPECT_VEC(implicit_default.plotted[i], selectable_default.plotted[i],
+                  POLICY_TOL);
     HS_EXPECT_NEAR(implicit_default.alphas[i], selectable_default.alphas[i],
                    POLICY_TOL);
   }
@@ -548,9 +544,7 @@ inline void test_rasterize_balanced_pole_guard() {
   HS_EXPECT_GT(standard.plotted.size(), size_t{2});
   HS_EXPECT_SIZE_OR_RETURN(pipeline.plotted, standard.plotted.size());
   for (size_t i = 0; i < standard.plotted.size(); ++i) {
-    HS_EXPECT_NEAR(pipeline.plotted[i].x, standard.plotted[i].x, POLICY_TOL);
-    HS_EXPECT_NEAR(pipeline.plotted[i].y, standard.plotted[i].y, POLICY_TOL);
-    HS_EXPECT_NEAR(pipeline.plotted[i].z, standard.plotted[i].z, POLICY_TOL);
+    HS_EXPECT_VEC(pipeline.plotted[i], standard.plotted[i], POLICY_TOL);
   }
   for (float alpha : pipeline.alphas)
     HS_EXPECT_NEAR(alpha, 0.4f, 1e-6f);
@@ -630,12 +624,7 @@ inline void test_rasterize_balanced_geodesic_density_and_alpha() {
   HS_EXPECT_SIZE_OR_RETURN(always_balanced.alphas, balanced.alphas.size());
   const size_t compared = always_balanced.plotted.size();
   for (size_t i = 0; i < compared; ++i) {
-    HS_EXPECT_NEAR(always_balanced.plotted[i].x, balanced.plotted[i].x,
-                   POLICY_TOL);
-    HS_EXPECT_NEAR(always_balanced.plotted[i].y, balanced.plotted[i].y,
-                   POLICY_TOL);
-    HS_EXPECT_NEAR(always_balanced.plotted[i].z, balanced.plotted[i].z,
-                   POLICY_TOL);
+    HS_EXPECT_VEC(always_balanced.plotted[i], balanced.plotted[i], POLICY_TOL);
     HS_EXPECT_NEAR(always_balanced.alphas[i], balanced.alphas[i], POLICY_TOL);
   }
 }
