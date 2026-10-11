@@ -90,10 +90,8 @@ class Builder:
         if ext:
             base = self._resolve(lib, ext[0])
             base = copy.deepcopy(base)
-            # rename base sub-symbols from base-root to this name
             _rename_subsymbols(base, ext[0], name)
             base[1] = name
-            # overlay this node's properties onto base
             _overlay_props(base, node)
             node = base
         return node
@@ -104,7 +102,6 @@ class Builder:
             node = self._resolve(lib, name)
             node[1] = lib_id  # top name becomes the full lib_id
             self.lib_defs[lib_id] = node
-            # index per-unit pins
             self._unit_pins[lib_id] = _index_unit_pins(node)
         return lib_id
 
@@ -119,7 +116,6 @@ class Builder:
     # ---- placement / drawing ----
     def place(self, sym: Symbol):
         sym._pins = self._unit_pins[sym.lib_id].get(sym.unit, {})
-        # include common (unit 0) pins
         common = self._unit_pins[sym.lib_id].get(0, {})
         merged = dict(common)
         merged.update(sym._pins)
@@ -185,12 +181,10 @@ class Builder:
         out.append(f'\t\t(title {sexp.quote(self.title)})')
         out.append(f'\t\t(rev {sexp.quote(self.revision)})')
         out.append('\t)')
-        # lib_symbols
         out.append('\t(lib_symbols')
         for lib_id in sorted(self.lib_defs):
             out.append(sexp.dumps(self.lib_defs[lib_id], indent=2))
         out.append('\t)')
-        # junctions
         for (p, node_uuid) in self.junctions:
             out.append('\t(junction')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])})')
@@ -201,14 +195,12 @@ class Builder:
         for p, node_uuid in self.no_connects:
             out.append(f'\t(no_connect (at {fmt(p[0])} {fmt(p[1])}) '
                        f'(uuid "{node_uuid}"))')
-        # wires
         for (p1, p2, node_uuid) in self.wires:
             out.append('\t(wire')
             out.append(f'\t\t(pts (xy {fmt(p1[0])} {fmt(p1[1])}) (xy {fmt(p2[0])} {fmt(p2[1])}))')
             out.append('\t\t(stroke (width 0) (type default))')
             out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
-        # labels
         for (p, text, angle, node_uuid) in self.labels:
             just = "left" if angle in (0, 90) else "right"
             out.append(f'\t(label {sexp.quote(text)}')
@@ -216,14 +208,12 @@ class Builder:
             out.append(f'\t\t(effects (font (size 1.27 1.27)) (justify {just} bottom))')
             out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
-        # text notes (block headers)
         for (p, s, size, node_uuid) in self.texts:
             out.append(f'\t(text {sexp.quote(s)}')
             out.append(f'\t\t(at {fmt(p[0])} {fmt(p[1])} 0)')
             out.append(f'\t\t(effects (font (size {size} {size}) (bold yes)) (justify left bottom))')
             out.append(f'\t\t(uuid "{node_uuid}")')
             out.append('\t)')
-        # symbols
         for s in self.symbols:
             out.append(self._dump_symbol(s))
         out.append('\t(sheet_instances')
@@ -247,7 +237,6 @@ class Builder:
         L.append('\t\t(on_board yes)')
         L.append(f'\t\t(dnp {"yes" if s.dnp else "no"})')
         L.append(f'\t\t(uuid "{s.uuid}")')
-        # properties
         refy = s.y - 5.08
         valy = s.y + 5.08
         L += _prop("Reference", s.ref, s.x, refy)
@@ -257,10 +246,8 @@ class Builder:
         for name, value in s.properties.items():
             if name != "Datasheet":
                 L += _prop(name, value, s.x, s.y, hide=True)
-        # pin uuids
         for num, pin_uuid in s.pin_uuids:
             L.append(f'\t\t(pin {sexp.quote(num)} (uuid "{pin_uuid}"))')
-        # instances
         L.append('\t\t(instances')
         L.append('\t\t\t(project "phantasm"')
         L.append(f'\t\t\t\t(path "/{self.uuid}"')
