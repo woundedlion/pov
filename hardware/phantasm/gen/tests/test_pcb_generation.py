@@ -21,7 +21,6 @@ GEN = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(GEN))
 
 import board_metadata   # noqa: E402
-import board            # noqa: E402
 import builder          # noqa: E402
 import check            # noqa: E402
 import fab              # noqa: E402
@@ -29,61 +28,11 @@ import connectivity     # noqa: E402
 import pcb              # noqa: E402
 from rev11_placements import QUILTER_FIXED, QUILTER_FIXED_FOOTPRINTS  # noqa: E402
 import sexp             # noqa: E402
+from kicad_env import GENERATES, GENERATES_REASON, generate, read  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from kicad_common import F, export_netlist, is_copper_pour, kicad_cli, rotate_point  # noqa: E402
 
 COMMITTED_PCB = GEN.parent / "1.1" / pcb.PCB_FILE
-
-STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
-STOCK_FOOTPRINTS = os.path.isdir(pcb.FP_DIR)
-
-
-def pinned_kicad_cli_error():
-    """None when a kicad-cli on the pin resolves, else why kicad_cli() exited."""
-    try:
-        kicad_cli()
-    except SystemExit as error:
-        return str(error)
-    return None
-
-
-def generation_blockers():
-    """Every missing prerequisite for generating, as human-readable causes."""
-    blockers = []
-    if not STOCK_SYMBOLS:
-        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock symbols not found; "
-                        "set KICAD_SYMBOL_DIR")
-    if not STOCK_FOOTPRINTS:
-        blockers.append(f"KiCad {sexp.KICAD_MAJOR} stock footprints not found; "
-                        "set KICAD_FOOTPRINT_DIR")
-    cli_error = pinned_kicad_cli_error()
-    if cli_error:
-        blockers.append(cli_error)
-    return blockers
-
-
-GENERATION_BLOCKERS = generation_blockers()
-GENERATES = not GENERATION_BLOCKERS
-GENERATES_REASON = "; ".join(GENERATION_BLOCKERS)
-
-
-def generate(out, unplaced=False):
-    """Run the generator into `out`; return the board path."""
-    schematic = os.path.join(out, "phantasm.kicad_sch")
-    with mock.patch.object(board, "OUT", out), \
-            mock.patch.object(board, "SCH", schematic), \
-            contextlib.redirect_stdout(io.StringIO()):
-        board.main(force=True)
-    with mock.patch.object(pcb, "OUT", out), \
-            mock.patch.object(pcb, "SCH", schematic), \
-            contextlib.redirect_stdout(io.StringIO()):
-        pcb.main(unplaced=unplaced, force=True, force_teensy_library=True)
-    return os.path.join(out, pcb.UNPLACED_FILE if unplaced else pcb.DRAFT_FILE)
-
-
-def read(path):
-    return sexp.parse(Path(path).read_text(encoding="utf-8"))[0]
-
 
 def assembly_exclusions(root):
     """{ref: sorted attr flags} for every footprint kept off the assembly."""

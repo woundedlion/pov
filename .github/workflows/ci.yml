@@ -1113,7 +1113,7 @@ jobs:
           import shutil
           import sys
           sys.path.insert(0, 'hardware/phantasm/gen/tests')
-          from test_pcb_generation import GENERATES, GENERATES_REASON
+          from kicad_env import GENERATES, GENERATES_REASON
           from kicad_common import KICAD_VERSION, kicad_cli
           if not GENERATES:
               raise SystemExit(GENERATES_REASON)
