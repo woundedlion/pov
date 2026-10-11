@@ -1014,7 +1014,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   auto &norm = *scratch_arena_b.make<NormBuf>();
 
   const float *cos_theta =
-      math::TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+      math::TrigLUT<W, H>::cos_theta_data(); // cos via +W/4
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
   // A full block is offered as one call probed at its first column; a block
