@@ -572,6 +572,8 @@ inline void check_document_values(const char *name) {
 
   JsonParser parser{text};
   const JsonValue document = parser.parse_value();
+  parser.skip_space();
+  HS_EXPECT_EQ(parser.position, text.size());
   HS_EXPECT(!parser.failed, "promoted shader document parses");
   if (parser.failed)
     return;
