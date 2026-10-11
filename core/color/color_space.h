@@ -915,9 +915,7 @@ inline void lms_cbrt_transform_rgb2_lut(const float k[9], float l0, float m0,
  * @return The channel as a 16-bit value in [0, 65535].
  * @details Clamps, then rounds to nearest.
  */
-HS_O3_FN inline uint16_t float_to_pixel16(float v) {
-  return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
-}
+HS_O3_FN inline uint16_t float_to_pixel16(float v) { return frac_to_q16(v); }
 
 /**
  * @brief Normalizes a 16-bit linear Pixel to a linear-RGB [0,1] triple.
