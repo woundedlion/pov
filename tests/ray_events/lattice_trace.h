@@ -21,6 +21,26 @@ struct DepthPalette {
   }
 };
 
+/** @brief Arena-backed DepthPalette bake. */
+struct DepthPaletteFixture {
+  alignas(std::max_align_t) uint8_t storage[4096];
+  Arena arena{storage, sizeof(storage)};
+  BakedPaletteStorage palette;
+
+  DepthPaletteFixture() { palette.bake(arena, DepthPalette{}); }
+};
+
+/** @brief Lattice trace settings bound to a baked DepthPalette. */
+struct TraceFixture : DepthPaletteFixture {
+  SDF::LatticeTrace::CrossingStorage crossings;
+  SDF::LatticeTrace::Settings settings;
+
+  TraceFixture() {
+    settings.palette = &palette.view();
+    settings.crossings = &crossings;
+  }
+};
+
 /**
  * @brief Test view direction: the three axes, then a spiral over the sphere.
  * @param sample Sample index.
@@ -77,10 +97,7 @@ void check_cubic(const SDF::Lattice::PreparedShading &prepared,
  * `HyperLatticeDetail::Renderer` instantiation.
  */
 inline void test_cubic_compositor_matches_event_shading() {
-  alignas(std::max_align_t) uint8_t storage[4096];
-  Arena arena(storage, sizeof(storage));
-  BakedPaletteStorage palette;
-  palette.bake(arena, DepthPalette{});
+  DepthPaletteFixture fixture;
   SDF::Lattice::CrossingList crossings;
   int lit = 0;
   for (const auto domain :
@@ -101,7 +118,7 @@ inline void test_cubic_compositor_matches_event_shading() {
         const SDF::Lattice::PreparedShading prepared{
             SDF::Lattice::prepare(settings, {{.231f, -.437f, .719f, .383f}},
                                   embedding, 7.0f, .018f),
-            {1.0f / 7.0f, 0.0f, 2.0f, &palette.view(), .8f},
+            {1.0f / 7.0f, 0.0f, 2.0f, &fixture.palette.view(), .8f},
             &crossings};
         for (int i = 0; i < 51; ++i) {
           const auto view = direction(i);
@@ -124,14 +141,8 @@ inline void test_cubic_compositor_matches_event_shading() {
 /** @brief Verifies LatticeTrace octet shading matches world-space octet events. */
 inline void test_octet_preparation_matches_world_events() {
   namespace Trace = SDF::LatticeTrace;
-  alignas(std::max_align_t) uint8_t storage[4096];
-  Arena arena(storage, sizeof(storage));
-  BakedPaletteStorage palette;
-  palette.bake(arena, DepthPalette{});
-  Trace::CrossingStorage crossings;
-  Trace::Settings settings;
-  settings.palette = &palette.view();
-  settings.crossings = &crossings;
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.pixel_half_angle = .018f;
   int lit = 0;
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
@@ -187,14 +198,8 @@ inline void test_octet_preparation_matches_world_events() {
 /** @brief Distant octet centres match a metric-aware periodic oracle. */
 inline void test_octet_distant_center_periodicity() {
   namespace Trace = SDF::LatticeTrace;
-  alignas(std::max_align_t) uint8_t storage[4096];
-  Arena arena(storage, sizeof(storage));
-  BakedPaletteStorage palette;
-  palette.bake(arena, DepthPalette{});
-  Trace::CrossingStorage crossings;
-  Trace::Settings settings;
-  settings.palette = &palette.view();
-  settings.crossings = &crossings;
+  TraceFixture fixture;
+  Trace::Settings &settings = fixture.settings;
   settings.domain = Raycast::SamplingDomain::SLICE_4D;
   settings.cell_size = std::nextafter(1.0f / SDF::OctetFramework4::HALF_CUBE,
                                       std::numeric_limits<float>::infinity());
@@ -228,15 +233,9 @@ inline void test_octet_distant_center_periodicity() {
  */
 inline void run_lattice_trace_cases() {
   namespace Trace = SDF::LatticeTrace;
-  alignas(std::max_align_t) uint8_t storage[4096];
-  Arena arena(storage, sizeof(storage));
-  BakedPaletteStorage palette;
-  palette.bake(arena, DepthPalette{});
-  Trace::CrossingStorage crossings;
+  TraceFixture fixture;
   SDF::ShellLayerStorage layers;
-  Trace::Settings settings;
-  settings.palette = &palette.view();
-  settings.crossings = &crossings;
+  Trace::Settings &settings = fixture.settings;
   settings.shell_layers = &layers;
   for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
                             Raycast::SamplingDomain::SLICE_4D}) {
