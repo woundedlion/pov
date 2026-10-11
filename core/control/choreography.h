@@ -192,11 +192,15 @@ protected:
         derived(), std::forward<Args>(args)...);
   }
 
+  /** @brief Whether hook-provided or embedded parameter descriptions exist.
+   * @return True when fields are available. */
   static consteval bool has_parameter_fields() {
     return has_hook<Control::ChoreographyHook::PARAMETER_FIELDS>() ||
            requires { Params::FIELDS; };
   }
 
+  /** @brief Resolves parameter descriptions from the bound hook or Params.
+   * @return The parameter field descriptions. */
   static constexpr auto parameter_fields_of() {
     if constexpr (has_hook<Control::ChoreographyHook::PARAMETER_FIELDS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
@@ -205,6 +209,9 @@ protected:
       return Params::FIELDS;
   }
 
+  /** @brief Validates parameters through the bound hook or field descriptions.
+   * @param value Parameter state to check.
+   * @return True when the state is valid. */
   static constexpr bool valid_params_of(const Params &value) {
     if constexpr (has_hook<Control::ChoreographyHook::VALID_PARAMS>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
@@ -213,6 +220,8 @@ protected:
       return Control::valid_fields(value, parameter_fields_of());
   }
 
+  /** @brief Adopts a target through its hook or default assignment.
+   * @param target Target parameter state. */
   void adopt_target(const Params &target) {
     if constexpr (has_hook<Control::ChoreographyHook::ADOPT_PARAMS>())
       invoke_hook<Control::ChoreographyHook::ADOPT_PARAMS>(target);
@@ -220,6 +229,8 @@ protected:
       adopt_params(target);
   }
 
+  /** @brief Finishes a transition through its hook or target adoption.
+   * @param target Final parameter state. */
   void finish_target(const Params &target) {
     if constexpr (has_hook<Control::ChoreographyHook::FINISH_BLEND>())
       invoke_hook<Control::ChoreographyHook::FINISH_BLEND>(target);
@@ -227,6 +238,9 @@ protected:
       adopt_target(target);
   }
 
+  /** @brief Rejects bindings to inherited choreography defaults.
+   * @tparam Kind Customization point.
+   * @tparam Default Inherited default function pointer. */
   template <Control::ChoreographyHook Kind, auto Default>
   static consteval void reject_default_binding() {
     if constexpr (has_hook<Kind>()) {
@@ -239,6 +253,7 @@ protected:
     }
   }
 
+  /** @brief Checks optional bindings against inherited defaults. */
   static consteval void validate_hook_defaults() {
     reject_default_binding<Control::ChoreographyHook::ADOPT_PARAMS,
                            &ChoreographedEffect::adopt_params>();
