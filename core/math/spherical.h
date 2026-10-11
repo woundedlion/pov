@@ -102,9 +102,9 @@ inline Vector lissajous(float m1, float m2, float a, float t) {
  */
 struct Basis {
   /// First in-plane axis.
-  Vector u, v, w; ///< Second in-plane axis.
-  /** @var v
-   *  Normal axis. */
+  Vector u;
+  Vector v; ///< Normal axis.
+  Vector w; ///< Second in-plane axis.
 };
 
 /**
