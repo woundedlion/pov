@@ -214,8 +214,8 @@ inline void test_fast_reciprocal() {
     for (int mantissa = 0; mantissa < 8; ++mantissa) {
       const float x = std::ldexp(1.0f + 0.125f * mantissa, exponent);
       const float reference = 1.0f / x;
-      HS_EXPECT_TRUE(
-          std::abs(math::fast_reciprocal(x) - reference) / reference <= 7e-6f);
+      HS_EXPECT_LE(std::abs(math::fast_reciprocal(x) - reference) / reference,
+                   7e-6f);
     }
   }
 }
@@ -234,7 +234,7 @@ inline void test_fast_rsqrt() {
   for (int i = 0; i <= 512; ++i) {
     float x = std::pow(10.0f, -6.0f + (12.0f * i) / 512.0f);
     float ref = 1.0f / std::sqrt(x);
-    HS_EXPECT_TRUE(std::abs(math::fast_rsqrt(x) - ref) / ref <= 5e-6f);
+    HS_EXPECT_LE(std::abs(math::fast_rsqrt(x) - ref) / ref, 5e-6f);
   }
 }
 
@@ -295,13 +295,13 @@ inline void test_fast_cbrt() {
   for (int i = 1; i <= 256; ++i) {
     float x = (8.0f * i) / 256.0f;
     float rel = std::abs(math::fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
-    HS_EXPECT_TRUE(rel <= 2.3e-5f);
+    HS_EXPECT_LE(rel, 2.3e-5f);
   }
 
   // Larger samples remain inside the documented positive domain.
   for (float x : {27.0f, 100.0f, 1000.0f}) {
     float rel = std::abs(math::fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
-    HS_EXPECT_TRUE(rel <= 2.3e-5f);
+    HS_EXPECT_LE(rel, 2.3e-5f);
   }
 }
 
@@ -318,9 +318,9 @@ inline void test_fast_cbrt3() {
     math::fast_cbrt3(x[0], x[1], x[2], o[0], o[1], o[2]);
     for (int j = 0; j < 3; ++j) {
       float ref = math::fast_cbrt(x[j]);
-      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-6f);
+      HS_EXPECT_LE(std::abs(o[j] - ref) / ref, 1e-6f);
       float rel = std::abs(o[j] - std::cbrt(x[j])) / std::cbrt(x[j]);
-      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+      HS_EXPECT_LE(rel, 2.3e-5f);
     }
   }
 
@@ -341,8 +341,8 @@ inline void test_fast_cbrt3() {
     float exact = std::cbrt(v);
     for (int j = 0; j < 3; ++j) {
       HS_EXPECT_TRUE(std::isfinite(o[j]));
-      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-5f);
-      HS_EXPECT_TRUE(std::abs(o[j] - exact) / exact <= 2.3e-5f);
+      HS_EXPECT_LE(std::abs(o[j] - ref) / ref, 1e-5f);
+      HS_EXPECT_LE(std::abs(o[j] - exact) / exact, 2.3e-5f);
     }
   }
 }
@@ -363,9 +363,9 @@ inline void test_fast_cbrt6() {
     math::fast_cbrt6(x, o);
     for (int j = 0; j < 6; ++j) {
       float ref = math::fast_cbrt(x[j]);
-      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-6f);
+      HS_EXPECT_LE(std::abs(o[j] - ref) / ref, 1e-6f);
       float rel = std::abs(o[j] - std::cbrt(x[j])) / std::cbrt(x[j]);
-      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+      HS_EXPECT_LE(rel, 2.3e-5f);
     }
   }
 
@@ -391,7 +391,7 @@ inline void test_fast_cbrt6() {
     for (int j = 0; j < 6; ++j) {
       HS_EXPECT_TRUE(std::isfinite(o[j]));
       float rel = std::abs(o[j] - std::cbrt(v)) / std::cbrt(v);
-      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+      HS_EXPECT_LE(rel, 2.3e-5f);
     }
   }
 }
@@ -410,7 +410,7 @@ inline void test_fast_expf() {
     float x = -30.0f + (30.0f * i) / 512.0f;
     float ref = std::exp(x);
     float rel = std::abs(math::fast_expf(x) - ref) / ref;
-    HS_EXPECT_TRUE(rel <= 6e-6f);
+    HS_EXPECT_LE(rel, 6e-6f);
   }
 
   const float BOUNDARY = -std::log(2.0f);
@@ -1399,7 +1399,7 @@ inline void test_complex_arithmetic() {
   static_assert(math::Complex(0.0f, -0.0f) == math::Complex(-0.0f, 0.0f));
   static_assert(math::Complex(1.0f, 0.0f) != math::Complex(1.00001f, 0.0f));
   HS_EXPECT_EQ(VALUE.magnitude(), 5.0f);
-  HS_EXPECT_TRUE(VALUE * VALUE.conjugate() == math::Complex(25.0f, 0.0f));
+  HS_EXPECT_EQ(VALUE * VALUE.conjugate(), math::Complex(25.0f, 0.0f));
   const math::Complex nonfinite(std::numeric_limits<float>::quiet_NaN(), 0);
   HS_EXPECT_FALSE(nonfinite == nonfinite.conjugate());
   for (float numerator : {0.0f, 1.0f, 1e15f}) {
@@ -1615,7 +1615,7 @@ inline void test_gnomonic_roundtrip() {
       projections::gnomonic(math::Vector(1.0f, -1e-12f, 0.0f));
   math::Complex z_pos_zero =
       projections::gnomonic(math::Vector(1.0f, 0.0f, 0.0f));
-  HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) == std::signbit(z_tiny_neg.re));
+  HS_EXPECT_EQ(std::signbit(z_neg_zero.re), std::signbit(z_tiny_neg.re));
   HS_EXPECT_TRUE(std::signbit(z_neg_zero.re) != std::signbit(z_pos_zero.re));
 }
 

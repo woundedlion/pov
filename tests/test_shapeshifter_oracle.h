@@ -636,16 +636,14 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
   HS_EXPECT_TRUE(
       std::strcmp(ShapeShifterWhiteBox::shape_option(3), "Planar Star") == 0);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_option(4),
-                             "Spherical Star") == 0);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(3),
-                             "ShapeType::PLANAR_STAR") == 0);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::shape_export_option(4),
-                             "ShapeType::SPHERICAL_STAR") == 0);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::spacing_option(1),
-                             "Screen Balanced") == 0);
-  HS_EXPECT_TRUE(std::strcmp(ShapeShifterWhiteBox::spacing_export_option(1),
-                             "RadiusSpacing::SCREEN_BALANCED") == 0);
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_option(4), "Spherical Star");
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(3),
+                  "ShapeType::PLANAR_STAR");
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(4),
+                  "ShapeType::SPHERICAL_STAR");
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::spacing_option(1), "Screen Balanced");
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::spacing_export_option(1),
+                  "RadiusSpacing::SCREEN_BALANCED");
   size_t planar_stars = 0;
   for (size_t index = 0; index < ShapeShifterWhiteBox::PRESET_COUNT; ++index) {
     const Shape shape = ShapeShifterWhiteBox::preset_shape(index);

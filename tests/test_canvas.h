@@ -800,8 +800,7 @@ inline void test_clip_clear_exact_rectangle() {
     for (int y = 0; y < 4; ++y) {
       for (int x = 0; x < 8; ++x) {
         const bool inside = y >= 1 && y < 3 && x >= 2 && x < 6;
-        HS_EXPECT_TRUE(inside ? pix_eq(c(x, y), 0, 0, 0)
-                              : pix_eq(c(x, y), 11, 22, 33));
+        HS_EXPECT_EQ(c(x, y), inside ? Pixel(0, 0, 0) : Pixel(11, 22, 33));
       }
     }
   }
@@ -821,8 +820,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
     Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
-        HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
-                             : pix_eq(c(x, y), 10, 0, 0));
+        HS_EXPECT_EQ(c(x, y), x < 4 ? Pixel(0, 0, 0) : Pixel(10, 0, 0));
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 4; ++x)
         c(x, y) = Pixel(0, 0, 30);
@@ -834,8 +832,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
     Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
-        HS_EXPECT_TRUE(x >= 4 ? pix_eq(c(x, y), 0, 0, 0)
-                              : pix_eq(c(x, y), 0, 20, 0));
+        HS_EXPECT_EQ(c(x, y), x >= 4 ? Pixel(0, 0, 0) : Pixel(0, 20, 0));
   }
   fx.advance_display();
 
@@ -844,8 +841,7 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
     Canvas c(fx);
     for (int y = 0; y < 4; ++y)
       for (int x = 0; x < 8; ++x)
-        HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
-                             : pix_eq(c(x, y), 10, 0, 0));
+        HS_EXPECT_EQ(c(x, y), x < 4 ? Pixel(0, 0, 0) : Pixel(10, 0, 0));
   }
 }
 
@@ -868,8 +864,8 @@ inline void test_clip_clear_full_width_band() {
   Canvas c(fx);
   for (int y = 0; y < 4; ++y)
     for (int x = 0; x < 8; ++x)
-      HS_EXPECT_TRUE(y >= 1 && y < 3 ? pix_eq(c(x, y), 0, 0, 0)
-                                     : pix_eq(c(x, y), 10, 20, 30));
+      HS_EXPECT_EQ(c(x, y),
+                   y >= 1 && y < 3 ? Pixel(0, 0, 0) : Pixel(10, 20, 30));
 }
 
 /** @brief Effect construction still fully zeroes both shared buffers. */
@@ -923,8 +919,7 @@ inline void test_clip_clear_full_frame_without_reads_keeps_margin() {
   for (int y = 0; y < 4; ++y)
     for (int x = 0; x < 8; ++x) {
       const bool display_band = y >= 1 && y < 3 && x >= 2 && x < 6;
-      HS_EXPECT_TRUE(display_band ? pix_eq(c(x, y), 0, 0, 0)
-                                  : pix_eq(c(x, y), 1, 2, 3));
+      HS_EXPECT_EQ(c(x, y), display_band ? Pixel(0, 0, 0) : Pixel(1, 2, 3));
     }
 }
 
@@ -1011,7 +1006,7 @@ inline void test_double_buffer_handoff_no_aliasing() {
     // Queued frame is invisible: the displayed pointer is unchanged and still
     // shows the previous frame.
     HS_EXPECT_FALSE(fx.buffer_free());
-    HS_EXPECT_TRUE(fx.display_buffer() == display_before);
+    HS_EXPECT_EQ(fx.display_buffer(), display_before);
     HS_EXPECT_PIXEL(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
                     colors[f - 1].b);
 
@@ -1199,7 +1194,7 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f);
   HS_EXPECT_TRUE(fx.flag);
 
-  HS_EXPECT_TRUE(params.find("Missing") == nullptr);
+  HS_EXPECT_EQ(params.find("Missing"), nullptr);
 }
 
 /**
@@ -1326,7 +1321,7 @@ inline void test_register_and_update_enum_param() {
   HS_EXPECT_TRUE(def->is_enum());
   HS_EXPECT_FALSE(def->is_bool());
   HS_EXPECT_EQ(def->option_count, 3);
-  HS_EXPECT_TRUE(def->options == MODES);
+  HS_EXPECT_EQ(def->options, MODES);
   HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
   HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f);
@@ -1379,7 +1374,7 @@ inline void test_typed_enum_and_global_param_metadata() {
   if (!speed_def)
     return;
   HS_EXPECT_EQ(mode_def->get(), 1.0f);
-  HS_EXPECT_TRUE(mode_def->export_options == EXPORT_MODES);
+  HS_EXPECT_EQ(mode_def->export_options, EXPORT_MODES);
   HS_EXPECT_TRUE(mode_def->preset);
   HS_EXPECT_FALSE(speed_def->preset);
 
@@ -1484,8 +1479,8 @@ inline void test_typed_parameter_specs() {
   HS_EXPECT_TRUE(COUNT_PARAM->readonly);
   HS_EXPECT_TRUE(COUNT_PARAM->animated);
   HS_EXPECT_FALSE(COUNT_PARAM->preset);
-  HS_EXPECT_TRUE(MODE_PARAM->export_options == EXPORT_MODES);
-  HS_EXPECT_TRUE(MODE8_PARAM->options == MODES);
+  HS_EXPECT_EQ(MODE_PARAM->export_options, EXPORT_MODES);
+  HS_EXPECT_EQ(MODE8_PARAM->options, MODES);
   HS_EXPECT_FALSE(MODE8_PARAM->animated);
   HS_EXPECT_FALSE(ENABLED_PARAM->preset);
   HS_EXPECT_EQ(LARGE_COUNT_PARAM->max, 4294967040.0f);
@@ -1508,8 +1503,8 @@ inline void test_typed_parameter_specs() {
   HS_EXPECT_EQ(float_mode, 2.0f);
   HS_EXPECT_TRUE(fx.animations_paused());
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), generation + 7);
-  HS_EXPECT_TRUE(std::strcmp(parameters.begin()[0].name, "Count") == 0);
-  HS_EXPECT_TRUE(std::strcmp(parameters.begin()[6].name, "LargeCount") == 0);
+  HS_EXPECT_STREQ(parameters.begin()[0].name, "Count");
+  HS_EXPECT_STREQ(parameters.begin()[6].name, "LargeCount");
 }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -1755,14 +1750,14 @@ inline void test_parameter_group_registered_companion() {
   float last = 0.5f;
   host.register_param("first", &first, 0.0f, 1.0f);
   host.set_last_parameter_group(&FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
   host.register_param("last", &last, 0.0f, 1.0f);
   host.set_last_parameter_group(&LAST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[1].group == &LAST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[1].group, &LAST_GROUP);
   host.set_last_parameter_group(nullptr);
-  HS_EXPECT_TRUE(host.getParameters().data()[0].group == &FIRST_GROUP);
-  HS_EXPECT_TRUE(host.getParameters().data()[1].group == nullptr);
+  HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
+  HS_EXPECT_EQ(host.getParameters().data()[1].group, nullptr);
 }
 
 /**

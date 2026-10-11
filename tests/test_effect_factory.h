@@ -114,13 +114,13 @@ inline void test_identity_contract() {
         std::is_same_v<decltype(E::EFFECT_ID), const std::string_view>);       \
     constexpr auto identity = E::EFFECT_IDENTITY;                              \
     HS_EXPECT_TRUE(hs::canonical_effect_id(identity.machine_id));              \
-    HS_EXPECT_TRUE(identity.machine_id == E::EFFECT_ID);                       \
+    HS_EXPECT_EQ(identity.machine_id, E::EFFECT_ID);                           \
     const auto *golden = identity_golden(#Name);                               \
     HS_EXPECT_TRUE(golden != nullptr);                                         \
     if (golden) {                                                              \
-      HS_EXPECT_TRUE(identity.display_name == golden->name);                   \
-      HS_EXPECT_TRUE(identity.legacy_id == golden->seed_key);                  \
-      HS_EXPECT_TRUE(identity.rng_seed_key == golden->seed_key);               \
+      HS_EXPECT_EQ(identity.display_name, golden->name);                       \
+      HS_EXPECT_EQ(identity.legacy_id, golden->seed_key);                      \
+      HS_EXPECT_EQ(identity.rng_seed_key, golden->seed_key);                   \
       HS_EXPECT_EQ(hs::stable_effect_seed(identity.rng_seed_key),              \
                    golden->seed);                                              \
     }                                                                          \
@@ -156,7 +156,7 @@ template <int W, int H> inline void verify_factory_table() {
   const std::vector<FactoryEntry> &again = hs_wasm::get_factory<W, H>();
   HS_EXPECT_EQ(table.size(), hs_wasm::EFFECT_REGISTRATIONS.size());
   HS_EXPECT_EQ(table.size(), static_cast<size_t>(HS_EFFECT_COUNT));
-  HS_EXPECT_TRUE(&table == &again);
+  HS_EXPECT_EQ(&table, &again);
 
   for (size_t index = 0; index < table.size(); ++index) {
     const FactoryEntry &entry = table[index];
@@ -186,18 +186,18 @@ template <int W, int H> inline void verify_factory_lookup() {
     const FactoryEntry *entry = lookup(name);
     HS_EXPECT_TRUE(entry != nullptr);
     if (entry)
-      HS_EXPECT_TRUE(entry->identity.display_name == name);
+      HS_EXPECT_EQ(entry->identity.display_name, name);
   }
   for (const FactoryEntry &expected : hs_wasm::get_factory<W, H>()) {
     for (std::string_view key : expected.identity.accepted_ids())
-      HS_EXPECT_TRUE(lookup(key) == &expected);
+      HS_EXPECT_EQ(lookup(key), &expected);
   }
-  HS_EXPECT_TRUE(lookup("") == nullptr);
-  HS_EXPECT_TRUE(lookup("NoSuchEffect") == nullptr);
+  HS_EXPECT_EQ(lookup(""), nullptr);
+  HS_EXPECT_EQ(lookup("NoSuchEffect"), nullptr);
   // A prefix of a registered name must miss: the scan compares whole names.
   const std::string_view first =
       hs_wasm::EFFECT_REGISTRATIONS[0].identity.display_name;
-  HS_EXPECT_TRUE(lookup(first.substr(0, first.size() - 1)) == nullptr);
+  HS_EXPECT_EQ(lookup(first.substr(0, first.size() - 1)), nullptr);
 }
 
 /**
@@ -305,8 +305,8 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(lattice && lattice->preset_id != nullptr);
   if (lattice && lattice->preset_id) {
     HS_EXPECT_EQ(lattice->preset_count, 2u);
-    HS_EXPECT_TRUE(lattice->preset_id(0) == "open-curl");
-    HS_EXPECT_TRUE(lattice->preset_id(1) == "dense-curl");
+    HS_EXPECT_EQ(lattice->preset_id(0), "open-curl");
+    HS_EXPECT_EQ(lattice->preset_id(1), "dense-curl");
     HS_EXPECT_TRUE(lattice->preset_id(2).empty());
   }
 
@@ -316,8 +316,8 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(mobius && mobius->preset_id != nullptr);
   if (mobius && mobius->preset_id) {
     HS_EXPECT_EQ(mobius->preset_count, 2u);
-    HS_EXPECT_TRUE(mobius->preset_id(0) == "mobius-grid");
-    HS_EXPECT_TRUE(mobius->preset_id(1) == "mobius-grid-2");
+    HS_EXPECT_EQ(mobius->preset_id(0), "mobius-grid");
+    HS_EXPECT_EQ(mobius->preset_id(1), "mobius-grid-2");
   }
 
   const FactoryEntry *harmonics =
@@ -335,7 +335,7 @@ inline void test_fixed_preset_ids() {
           SHMath::decode_lm(hs_test::effects_tests::SH_PRESET_MODES[index]);
       char expected[24];
       std::snprintf(expected, sizeof(expected), "sh-l%d-m%d", l, m);
-      HS_EXPECT_TRUE(harmonics->preset_id(index) == expected);
+      HS_EXPECT_EQ(harmonics->preset_id(index), expected);
     }
     HS_EXPECT_TRUE(
         harmonics->preset_id(hs_test::effects_tests::SH_PRESET_MODES.size())
@@ -348,7 +348,7 @@ inline void test_fixed_preset_ids() {
   HS_EXPECT_TRUE(fishbowl && fishbowl->preset_id != nullptr);
   if (fishbowl && fishbowl->preset_id) {
     HS_EXPECT_EQ(fishbowl->preset_count, 1u);
-    HS_EXPECT_TRUE(fishbowl->preset_id(0) == "fire-trail");
+    HS_EXPECT_EQ(fishbowl->preset_id(0), "fire-trail");
     HS_EXPECT_TRUE(fishbowl->preset_id(1).empty());
   }
 }
