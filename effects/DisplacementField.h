@@ -11,6 +11,7 @@
  *        displacement-field stack.
  */
 
+#include "core/platform/effect_identity.h"
 #include <numeric>
 
 #include "core/animation/orientation.h"
@@ -37,8 +38,11 @@ template <int W, int H> class DisplacementField : public Effect {
   friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
 
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "DisplacementField";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::DisplacementField::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Builds the effect with its palette.

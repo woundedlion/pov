@@ -11,6 +11,7 @@
  *        a drifting twin wave reflected through a kaleidoscope.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -61,8 +62,10 @@ public:
   using Params = KaleidoscopeHexSoftParams; ///< Live parameter struct.
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-hex-soft";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeHexSoft::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "376f024ceb9f880d96e96d495f397bef832f75d19768ee5ad0bd0c290f0ac30e";
   /// SHA-256 hex of the shader document's preset bank.

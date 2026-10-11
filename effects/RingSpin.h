@@ -11,6 +11,7 @@
  *        trails.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include <array>
 #include "core/engine/engine.h"
@@ -31,7 +32,11 @@ struct RingSpinWhiteBox;
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
-  static constexpr const char *EFFECT_ID = "RingSpin"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::RingSpin::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Constructs the effect at the W x H canvas resolution.

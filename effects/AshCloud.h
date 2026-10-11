@@ -11,6 +11,7 @@
  *        a softly cut lattice curled across dodecahedral facets.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -65,8 +66,10 @@ public:
   using Params = AshCloudParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "ash-cloud";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::AshCloud::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "0afa6dd8e36bdcf902a3029f5216f95d305d7a1a98a391810eb6e4b5acf9f639";
   /// SHA-256 hex of the shader document's preset bank.

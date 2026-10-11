@@ -191,7 +191,8 @@ public:
     HS_CHECK(bootstrap_resolution_set,
              "the first HS_RESOLUTIONS row must be dispatchable here");
     const bool bootstrap_effect_set =
-        setEffect(hs_wasm::EFFECT_REGISTRATIONS[0].name.data()) ==
+        setEffect(
+            hs_wasm::EFFECT_REGISTRATIONS[0].identity.display_name.data()) ==
         EffectSetResult::INSTALLED;
     HS_CHECK(bootstrap_effect_set,
              "the first HS_EFFECT_LIST entry must be registered and buildable "
@@ -300,7 +301,7 @@ public:
   /**
    * @brief Tears down the current effect and instantiates the named one at the
    *        active resolution.
-   * @param name Effect class name or stable EFFECT_ID to instantiate.
+   * @param name Canonical machine ID, legacy ID or class/browser name to instantiate.
    * @return INSTALLED iff an effect was actually instantiated, else the
    *         rejection reason — UNKNOWN_EFFECT for an unknown/stale effect name
    *         or UNSUPPORTED_RESOLUTION.
@@ -333,9 +334,8 @@ public:
       math::init_geometry_luts<W,
                                H>(); // eager-fill LUTs before the first frame
     });
-    // Per-load RNG stream keyed by the effect's stable id; seeded after
-    // teardown so a teardown draw cannot advance it.
-    hs::seed_effect_stream(entry->stable_id);
+    // Teardown may draw from the shared stream; reseed afterward.
+    hs::seed_effect_stream(entry->identity);
     current_effect = entry->creator();
     current_factory_entry = entry;
     binding_state->effect = current_effect.get();
@@ -822,6 +822,32 @@ public:
   }
 
   /**
+   * @brief Returns canonical identities and accepted legacy lookup aliases.
+   * @return JS array of {id, display_name, legacy_ids}; RNG keys stay internal.
+   */
+  EffectIdentitiesValue getEffectIdentities() const {
+    emscripten::val result = emscripten::val::array();
+    size_t index = 0;
+    for (const auto &registration : hs_wasm::EFFECT_REGISTRATIONS) {
+      const auto &identity = registration.identity;
+      emscripten::val row = emscripten::val::object();
+      row.set("id", std::string(identity.machine_id));
+      row.set("display_name", std::string(identity.display_name));
+      emscripten::val aliases = emscripten::val::array();
+      size_t alias_index = 0;
+      if (!identity.legacy_id.empty() &&
+          identity.legacy_id != identity.machine_id)
+        aliases.set(alias_index++, std::string(identity.legacy_id));
+      if (identity.display_name != identity.machine_id &&
+          identity.display_name != identity.legacy_id)
+        aliases.set(alias_index++, std::string(identity.display_name));
+      row.set("legacy_ids", aliases);
+      result.set(index++, row);
+    }
+    return result;
+  }
+
+  /**
    * @brief Returns the effect-size map for the active resolution.
    * @return JS object mapping each effect name to its sizeof, in bytes, at the current
    *         resolution; empty map if unsupported/uninitialized.
@@ -844,7 +870,8 @@ public:
     hs_wasm::dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
           for (const auto &entry : hs_wasm::get_factory<W, H>())
-            counts.set(std::string(entry.name), entry.preset_count);
+            counts.set(std::string(entry.identity.display_name),
+                       entry.preset_count);
         });
     return counts;
   }
@@ -897,7 +924,7 @@ private:
   }
 
   void rebuild_display_geometry(float north, float south) {
-    const std::string NAME(current_factory_entry->name);
+    const std::string NAME(current_factory_entry->identity.display_name);
     const size_t PRESET = current_effect->getPresetIndex();
     const bool HAS_PRESET = current_effect->getPresetCount() != 0;
     const bool PAUSED = binding_state->paused;
@@ -943,7 +970,8 @@ private:
     emscripten::val s = emscripten::val::object();
     const auto &factory = hs_wasm::get_factory<W, H>();
     for (const auto &entry : factory)
-      s.set(std::string(entry.name), static_cast<int>(entry.size));
+      s.set(std::string(entry.identity.display_name),
+            static_cast<int>(entry.size));
     return s;
   }
 
@@ -1066,6 +1094,7 @@ static void bind_engine() {
       .function("getParamValues", &HolosphereEngine::getParamValues)
       .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
+      .function("getEffectIdentities", &HolosphereEngine::getEffectIdentities)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .function("getEffectPresetCounts",
                 &HolosphereEngine::getEffectPresetCounts)

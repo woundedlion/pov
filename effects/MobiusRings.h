@@ -11,6 +11,7 @@
  *        a Mobius transform.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
@@ -44,7 +45,11 @@ template <int W, int H> class MobiusRings : public Effect {
   };
 
 public:
-  static constexpr const char *EFFECT_ID = "MobiusRings"; ///< Stable effect ID.
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::MobiusRings::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   /**
    * @brief Builds the palettes, Möbius generator, and the render filter

@@ -10,6 +10,7 @@
  * @brief Phase-modulated concentric shapes drawn across the sphere.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
@@ -92,8 +93,11 @@ class ShapeShifter
   friend Choreography;
 
 public:
-  /// Stable effect ID.
-  static constexpr const char *EFFECT_ID = "ShapeShifter";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::ShapeShifter::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   using Params = ShapeShifterParams;           ///< Live parameter struct.
   using ShapeType = Params::ShapeType;         ///< Shape enum.

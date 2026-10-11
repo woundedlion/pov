@@ -11,6 +11,7 @@
  *        in 4D and stereographically projected.
  */
 
+#include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
 #include <span>
@@ -31,8 +32,11 @@ struct HopfWhiteBox;
  */
 template <int W, int H> class HopfFibration : public Effect {
 public:
-  /// Stable persisted effect ID; seeds the effect RNG stream.
-  static constexpr const char *EFFECT_ID = "HopfFibration";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY =
+      hs::effect_identities::HopfFibration::VALUE;
+  /// Canonical machine ID.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
 
   static constexpr int TRAIL_LEN =
       40; /**< Number of points retained per fiber trail. */

@@ -11,6 +11,7 @@
  *        dodecahedral grids mapped around the equator.
  */
 
+#include "core/platform/effect_identity.h"
 #include <array>
 #include <string_view>
 
@@ -63,8 +64,10 @@ public:
   using Params = KaleidoscopeFlowersParams;
   // Generated identity: scripts/generate_composed_presets.mjs
   // clang-format off
-  /// Stable effect ID; equals the shader document's effect_id.
-  static constexpr std::string_view EFFECT_ID = "kaleidoscope-flowers";
+  /// Machine/display identity and compatibility keys.
+  static constexpr hs::EffectIdentity EFFECT_IDENTITY = hs::effect_identities::KaleidoscopeFlowers::VALUE;
+  /// Canonical machine ID; equals the shader document's effect_id.
+  static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /// SHA-256 hex of the shader document's parameter descriptor.
   static constexpr std::string_view DESCRIPTOR_DIGEST = "30721bbdccbe37bc46944c66976d97a25306e9654739848940db2a51d8ee82b3";
   /// SHA-256 hex of the shader document's preset bank.
