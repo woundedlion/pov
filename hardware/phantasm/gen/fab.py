@@ -39,8 +39,8 @@ import zipfile
 import check as netlist_spec
 import sexp
 from connectivity import footprint_reference
-from constraints import (DEFAULT_CLASS_MINIMUMS, EXCLUDE_FP_SUBSTR,
-                         EXCLUDE_VAL_SUBSTR, MIN_SOLDER_MASK_WEB_MM,
+from constraints import (DEFAULT_CLASS_MINIMUMS, is_hand_assembled,
+                         MIN_SOLDER_MASK_WEB_MM,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          MIN_VIA_TO_VIA_COPPER_SPACING_MM, RULE_MINIMUMS,
                          rule_checks)
@@ -889,13 +889,7 @@ def parse_components(net_path):
 
 
 def is_assembled(c):
-    if c["dnp"]:
-        return False
-    if any(s in c["footprint"] for s in EXCLUDE_FP_SUBSTR):
-        return False
-    if any(s in c["value"] for s in EXCLUDE_VAL_SUBSTR):
-        return False
-    return True
+    return not c["dnp"] and not is_hand_assembled(c["footprint"], c["value"])
 
 
 class AssemblyMetadataError(ValueError):

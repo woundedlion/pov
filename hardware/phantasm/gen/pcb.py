@@ -23,7 +23,7 @@ import builder
 import check
 import connectivity
 import sexp
-from constraints import (ZONE_DEFAULTS, EXCLUDE_FP_SUBSTR, EXCLUDE_VAL_SUBSTR, MAX_BOARD_WIDTH_MM,
+from constraints import (ZONE_DEFAULTS, is_hand_assembled, MAX_BOARD_WIDTH_MM,
                          MIN_SOLDER_MASK_WEB_MM, NEW_LAYOUT_RULES)
 from kicad_common import atomic_write_text
 from kicad_common import (uid, reset_uid_sequence, fmt, F, arc_extrema,
@@ -234,13 +234,6 @@ def schematic_components(path=None):
             seen[ref] = (ref, fp, val or "", dnp)
             order.append(ref)
     return [seen[r] for r in order]
-
-
-def is_hand_assembled(footprint, value):
-    """Whether a part is hand-soldered, and so carries the board-level
-    assembly exclusions."""
-    return (any(token in footprint for token in EXCLUDE_FP_SUBSTR)
-            or any(token in value for token in EXCLUDE_VAL_SUBSTR))
 
 
 # ---------------------------------------------------------------- footprints
