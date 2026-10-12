@@ -243,7 +243,8 @@ inline ChainPeaks replay_build_chain(const char *name,
         BakedPalette expected[OpLeg::PALETTES][OpLeg::PALETTES];
         bool baked[OpLeg::PALETTES][OpLeg::PALETTES] = {};
         bool frame_ok = true;
-        for (size_t f = 0; f < sh.faces && lp; ++f) {
+        HS_EXPECT_LE(sh.faces, MAX_FACES);
+        for (size_t f = 0; f < std::min(sh.faces, MAX_FACES) && lp; ++f) {
           const uint8_t from =
               seed_side ? prev_pal_buf[f] : lp->from_palette[f];
           const uint8_t to = seed_side ? from : lp->landed_palette(f);

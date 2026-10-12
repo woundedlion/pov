@@ -752,7 +752,8 @@ inline void test_breakdown_fades_classes_sequentially() {
   bool seen[n] = {};
   for (int c = 0; c < n; ++c) {
     HS_EXPECT_LT(static_cast<int>(bd.rank[c]), n);
-    seen[bd.rank[c]] = true;
+    if (bd.rank[c] < n)
+      seen[bd.rank[c]] = true;
   }
   for (int r = 0; r < n; ++r)
     HS_EXPECT_TRUE(seen[r]); // a permutation: every rank assigned once
