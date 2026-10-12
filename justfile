@@ -31,11 +31,15 @@ default:
 
 # WASM release build of the simulator module (daydream).
 build:
+    {{ python_command }} tools/build_pins.py --check-tool emsdk
+    {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR={{ daydream_dir_arg }}
     cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
 build-debug:
+    {{ python_command }} tools/build_pins.py --check-tool emsdk
+    {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset wasm-debug -DHS_WASM_DEV_BINDINGS=ON
     cmake --build --preset wasm-debug
 
