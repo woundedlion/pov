@@ -918,6 +918,11 @@ inline void test_make_rotation_axis_angle() {
       math::make_rotation(math::Vector(0, 0, 1), math::PI_F);
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qz180),
                 math::Vector(-1, 0, 0), 1e-5f);
+  for (float angle : {0.3f, 1.234f, 2.1f}) {
+    const auto rotation = math::make_rotation(math::Z_AXIS, angle);
+    HS_EXPECT_VEC(math::rotate(math::X_AXIS, rotation),
+                  math::Vector(cosf(angle), sinf(angle), 0.0f), 1e-5f);
+  }
 }
 
 /**
