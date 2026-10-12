@@ -284,6 +284,7 @@ public:
 
     const bool master = (segment_id == 0);
     const bool timing_master = master || standalone;
+    downstream = !timing_master;
     if (timing_master || HS_PHANTASM_BOARD_REV == 12) {
       digitalWriteFast(PIN_SYNC_TX, LOW);
       pinMode(PIN_SYNC_TX, OUTPUT);
@@ -525,7 +526,7 @@ private:
         [&] {
           pov::sync::BurstSnapshot burst;
           const pov::sync::BurstSnapshot *bp = nullptr;
-          if (segment_id != 0 && sync.claim_sync_burst(now, &burst))
+          if (downstream && sync.claim_sync_burst(now, &burst))
             bp = &burst;
           return sync.tick(now, bp);
         },
@@ -645,6 +646,8 @@ private:
    */
   static pov::SyncPulseGate sync_pulse;
 
+  /** Whether this board receives timing from an upstream segment. */
+  static bool downstream;
   static int
       segment_id; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static pov::SegmentMap segment; /**< Precomputed canvas mapping. */
@@ -674,6 +677,9 @@ pov::SubmitGate POVSegmented<S, N, RPM>::submit_gate;
 
 template <int S, int N, int RPM>
 pov::SyncPulseGate POVSegmented<S, N, RPM>::sync_pulse;
+
+template <int S, int N, int RPM>
+bool POVSegmented<S, N, RPM>::downstream = false;
 
 template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id = 0;
 
