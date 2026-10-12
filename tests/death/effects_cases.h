@@ -7,6 +7,14 @@
 
 // Effects death fixtures and guard cases.
 
+/** @brief PetalFlow traps when every ring slot is occupied. */
+inline void case_petalflow_ring_pool_full() {
+  using WB = hs_test::effects_tests::PetalFlowWhiteBox;
+  WB::PF effect;
+  effect.init();
+  WB::fill_and_spawn(effect, true);
+}
+
 /** @brief Death case: a GS stencil must fit the delayed-write history. */
 inline void case_gs_neighbor_exceeds_history() {
   ReactionGraph::NeighborRun run{};

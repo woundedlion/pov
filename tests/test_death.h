@@ -219,6 +219,8 @@ inline const Case *all_cases(int &n) {
                    "effects/DisplacementField.h",
                    "(size() == 0) DisplacementField: ring pool begins a frame with live "
                    "rings"},
+                  {"petalflow_ring_pool_full", case_petalflow_ring_pool_full,
+                   "effects/PetalFlow.h", "(false) PetalFlow: ring pool full"},
                   {"displacement_field_ring_pool_full",
                    case_displacement_field_ring_pool_full,
                    "effects/DisplacementField.h",

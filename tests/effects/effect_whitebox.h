@@ -660,6 +660,13 @@ inline void test_ringspin_trail_hugs_its_great_circles() {
  */
 struct PetalFlowWhiteBox {
   using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
+  /** @brief Exercises the final free slot or the fully occupied pool. */
+  static void fill_and_spawn(PF &pf, bool full) {
+    for (auto &ring : pf.rings)
+      ring.active = true;
+    pf.rings[PF::MAX_RINGS - 1].active = full;
+    pf.spawn_ring_at_pos(PF::START_RHO);
+  }
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float start_rho() { return PF::START_RHO; }
   static float speed_max() { return PF::SPEED_MAX; }
@@ -685,6 +692,18 @@ struct PetalFlowWhiteBox {
     return active;
   }
 };
+
+/** @brief PetalFlow can spawn into the final free ring slot. */
+inline void test_petalflow_last_free_slot() {
+  reset_effect_globals();
+  using WB = PetalFlowWhiteBox;
+  WB::PF effect;
+  effect.init();
+  const int before = WB::spawns(effect);
+  WB::fill_and_spawn(effect, false);
+  HS_EXPECT_EQ(WB::spawns(effect), before + 1);
+  HS_EXPECT_EQ(WB::active_rings(effect), WB::max_rings());
+}
 
 /**
  * @brief Verifies the spawn-gap accumulator drains every frame, the hue cursor
