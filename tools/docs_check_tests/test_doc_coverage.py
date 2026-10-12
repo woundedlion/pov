@@ -10,6 +10,7 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
+from git_test_env import git_run  # noqa: E402
 import doc_coverage as cov  # noqa: E402
 
 ROOT = Path(tempfile.gettempdir()).resolve() / "repo"
@@ -222,14 +223,14 @@ class TestFileBlocks(unittest.TestCase):
     def test_source_files_apply_patterns_and_excludes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "Doxyfile").write_text(
                 "INPUT = src\nFILE_PATTERNS = *.h\nEXCLUDE = src/gen\n",
                 encoding="utf-8")
             (root / "src" / "gen").mkdir(parents=True)
             for name in ("src/a.h", "src/b.md", "src/gen/c.h"):
                 (root / name).write_text("x\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "."], check=True)
+            git_run(root, 'add', '.')
             self.assertEqual(cov.source_files(root, []), ["src/a.h"])
 
 
