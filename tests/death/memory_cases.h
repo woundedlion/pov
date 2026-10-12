@@ -201,7 +201,7 @@ inline void case_circular_buffer_front_empty() {
   StaticCircularBuffer<int, 4> cb;
   if (opaque(false))
     cb.push_back(1);
-  int v = cb.front(); // is_empty() -> HS_CHECK("front() on empty ...")
+  int v = cb.front();
   if (v == 42)
     std::printf("x");
 }

@@ -105,8 +105,7 @@ public:
 
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f) {
-      HS_CHECK(points,
-               "Screen::Trails needs init_storage() from effect init()");
+      HS_CHECK(points, "Screen::Trails::plot: storage missing");
       check_storage_alive();
       if (num_pixels == MAX_PIXELS)
         --num_pixels;
@@ -126,7 +125,7 @@ public:
   template <typename PassFnT>
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFnT &&pass) {
-    HS_CHECK(points, "Screen::Trails needs init_storage() from effect init()");
+    HS_CHECK(points, "Screen::Trails::flush: storage missing");
     check_storage_alive();
     for (int i = 0; i < num_pixels; ++i) {
       float t = hs::clamp(1.0f - (points[i].ttl / lifetime), 0.0f, 1.0f);

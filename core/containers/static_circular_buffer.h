@@ -234,7 +234,7 @@ public:
    * @details Traps via HS_CHECK if the buffer is empty.
    */
   T &front() {
-    HS_CHECK(!is_empty(), "front() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "StaticCircularBuffer::front: empty");
     return buffer[head];
   }
 
@@ -244,7 +244,7 @@ public:
    * @details Traps via HS_CHECK if the buffer is empty.
    */
   const T &front() const {
-    HS_CHECK(!is_empty(), "front() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "StaticCircularBuffer::front const: empty");
     return buffer[head];
   }
 
@@ -254,7 +254,7 @@ public:
    * @details Traps via HS_CHECK if the buffer is empty.
    */
   T &back() {
-    HS_CHECK(!is_empty(), "back() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "StaticCircularBuffer::back: empty");
     return buffer[(head + count - 1) % N];
   }
 
@@ -264,7 +264,7 @@ public:
    * @details Traps via HS_CHECK if the buffer is empty.
    */
   const T &back() const {
-    HS_CHECK(!is_empty(), "back() on empty StaticCircularBuffer");
+    HS_CHECK(!is_empty(), "StaticCircularBuffer::back const: empty");
     return buffer[(head + count - 1) % N];
   }
 
@@ -289,10 +289,10 @@ public:
    * @details Traps via HS_CHECK if index is out of range.
    */
   const T &operator[](size_t index) const {
-    HS_CHECK(index < count,
-             "StaticCircularBuffer::operator[]: index %lu is outside [0, %lu)",
-             static_cast<unsigned long>(index),
-             static_cast<unsigned long>(count));
+    HS_CHECK(
+        index < count,
+        "StaticCircularBuffer::operator[] const: index %lu is outside [0, %lu)",
+        static_cast<unsigned long>(index), static_cast<unsigned long>(count));
     return buffer[(head + index) % N];
   }
 
