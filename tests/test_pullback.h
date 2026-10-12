@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Pullback carrier, stage and policy contracts.
+ */
 #pragma once
 
 #include <array>
@@ -30,6 +33,7 @@ struct TestBinding {
   using Instrumentation = Pullback::NoInstrumentation;
 };
 
+/** @brief Records one pullback stage visit. */
 inline void record(const TestFrame &frame, uint8_t id) {
   HS_CHECK(frame.call_count < frame.calls.size(),
            "pullback call recorder overflow");
@@ -287,6 +291,7 @@ struct RejectBinding {
   };
 };
 
+/** @brief Carrier ranks and stage descriptors satisfy the public contract. */
 inline void test_pullback_carrier_contract() {
   static_assert(std::is_trivially_copyable_v<Pullback::SphereSample>);
   static_assert(std::is_trivially_copyable_v<Pullback::PlaneSample>);
@@ -336,6 +341,7 @@ inline void test_pullback_carrier_contract() {
   HS_EXPECT_EQ(static_cast<uint8_t>(Pullback::ProjectionBoundary::SINGULAR), 2);
 }
 
+/** @brief Projection traits preserve their declared branch and cut semantics. */
 inline void test_pullback_projection_traits() {
   using projections::ProjectionTrait;
   const math::Vector direction(0.6f, 0.8f, 0.0f);
@@ -374,6 +380,7 @@ inline void test_pullback_projection_traits() {
       cut_singular_folded);
 }
 
+/** @brief Pipeline validation accepts valid stages and rejects invalid contracts. */
 inline void test_pullback_validation_predicates() {
   using Valid = typename TestPipeline::Validation;
   HS_EXPECT_TRUE(Valid::NONEMPTY);
@@ -483,6 +490,7 @@ inline void test_pullback_validation_predicates() {
   HS_EXPECT_FALSE(Rejected::EXTRA_VALIDATION);
 }
 
+/** @brief Stages evaluate in pipeline order. */
 inline void test_pullback_evaluation_order() {
   const TestPipeline::Frame frame = TestPipeline::prepare(TestFrame{});
   const Color4 result =
@@ -506,6 +514,7 @@ using GroupedPipeline = Pullback::Pipeline<
     Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY>, FieldStage,
     ColorCrossingStage>;
 
+/** @brief Placement wrappers preserve semantic stages and output. */
 inline void test_pullback_placement_transparency() {
   // Placement wrappers are invisible to the semantic leaf view: identical
   // leaves, validation and output; only the execution-node view differs.
@@ -591,7 +600,7 @@ using PreparedGroupedPipeline = Pullback::Pipeline<
                             PreparedScaleStage>,
     ColorCrossingStage>;
 
-/** prepare_into() + shade_prepared() match prepare() + shade() bit for bit. */
+/** @brief prepare_into() + shade_prepared() match prepare() + shade() bit for bit. */
 inline void test_pullback_type_erased_prepare() {
   using Pipeline = PreparedGroupedPipeline;
   TestFrame source;
@@ -627,6 +636,7 @@ template <typename Stage> struct NoStageMatches {
   static constexpr bool value = false;
 };
 
+/** @brief Pipeline aliases expose the bound frame and descriptor types. */
 inline void test_pullback_public_surface() {
   static_assert(std::is_same_v<TestPipeline::Binding, TestBinding>);
   static_assert(std::is_same_v<TestPipeline::FrameState, TestFrame>);
@@ -653,6 +663,7 @@ inline void test_pullback_public_surface() {
   HS_EXPECT_TRUE(std::is_empty_v<TestPipeline>);
 }
 
+/** @brief Disabled instrumentation has no state or recorded events. */
 inline void test_pullback_no_instrumentation() {
   const Pullback::NoInstrumentation::Token token =
       Pullback::NoInstrumentation::mark();
@@ -870,6 +881,7 @@ using CountingPipeline = Pullback::Pipeline<
         Pullback::ValueCoverage::ValueCutout<CountingValueState>>,
     Pullback::Stage::Colorize<CountingColorPolicy>>;
 
+/** @brief Instrumentation records stage visits in evaluation order. */
 inline void test_pullback_counting_instrumentation() {
   CountingInstrumentation::count = 0;
   static_cast<void>(CountingPipeline::shade(
@@ -898,6 +910,7 @@ inline void test_pullback_counting_instrumentation() {
                Pullback::ProfileEvent::SOURCE);
 }
 
+/** @brief Prepared policies retain their frame-specific values. */
 inline void test_pullback_prepared_stage_policies() {
   CountingInstrumentation::count = 0;
   const TestFrame frame;
@@ -969,6 +982,7 @@ inline void test_pullback_prepared_stage_policies() {
   HS_EXPECT_EQ(BoundColorize::run(field, frame, color_prepared).color.r, 11);
 }
 
+/** @brief Stage combinators preserve carrier fields and coverage. */
 inline void test_pullback_stage_combinators() {
   CountingInstrumentation::count = 0;
   const TestFrame frame;
@@ -1039,6 +1053,7 @@ inline void test_pullback_stage_combinators() {
   HS_EXPECT_EQ(displaced.path_length, 1.0f);
 }
 
+/** @brief Providers bind to their declared descriptors and preserve carriers. */
 inline void test_pullback_provider_contracts() {
   static_assert(Pullback::descriptor_bindable<
                 Pullback::Stage::Rotate<CountingOrientationState>,
@@ -1094,6 +1109,7 @@ inline void test_pullback_provider_contracts() {
   HS_EXPECT_EQ(carried.path_length, 4.0f);
 }
 
+/** @brief Concrete stages evaluate against their independent expected values. */
 inline void test_pullback_concrete_catalog() {
   struct Prepared {
     float primary;
@@ -1223,6 +1239,7 @@ inline void test_pullback_concrete_catalog() {
   }
 }
 
+/** @brief Warp parameters close their configured phase loop. */
 inline void test_pullback_warp_phase_loop() {
   const Pullback::Warp::MirrorParams mirror{0.0f, 0.7f, 1.3f,
                                             0.9f, 0.4f, -0.2f};
@@ -1299,6 +1316,7 @@ inline void test_pullback_warp_phase_loop() {
                  affine_1.transform.affine.shear, 1e-6f);
 }
 
+/** @brief Ripple phase repeats after its configured period. */
 inline void test_pullback_periodic_ripple() {
   Pullback::Surface::PeriodicRippleParams clock;
   clock.period = 12.0f;
@@ -1356,6 +1374,7 @@ struct DirectionColorStage
   }
 };
 
+/** @brief Stacked lens stages apply their transforms in order. */
 inline void test_pullback_lens_stack() {
   using Stacked =
       Pullback::Pipeline<TestBinding, Pullback::Stage::Lens<AddLens>,
@@ -1378,6 +1397,7 @@ struct SkyGradientStage
   }
 };
 
+/** @brief A direct sphere-to-color stage can cross intermediate ranks. */
 inline void test_pullback_rank_skip_crossing() {
   // A SPHERE -> COLOR crossing is admitted by the rules alone: a one-stage
   // chain over a consumer-authored descriptor validates and runs.
@@ -1434,6 +1454,7 @@ inline void test_pullback_field_curves() {
                snap_to.topology);
 }
 
+/** @brief Zero-width edge kernels select the defined hard-step endpoints. */
 inline void test_pullback_hard_edge_kernels() {
   using Pullback::Detail::smooth_ramp_or_step;
   HS_EXPECT_NEAR(smooth_ramp_or_step(0.0f, 1.0f, 0.5f), 0.5f, 1e-6f);
@@ -1463,6 +1484,7 @@ inline void test_pullback_hard_edge_kernels() {
   HS_EXPECT_EQ(value_cutout(0.6f, 0.5f, 0.0f), 1.0f);
 }
 
+/** @brief Hexagonal edge weights agree at corners and shared boundaries. */
 inline void test_pullback_hexagonal_edges() {
   using namespace Pullback::Source;
   const math::Complex vertices[] = {
@@ -1514,6 +1536,7 @@ inline void test_pullback_hexagonal_edges() {
   }
 }
 
+/** @brief Large displacements remain finite with the bounded overflow policy. */
 inline void test_pullback_displacement_overflow() {
   for (const math::Complex delta :
        {math::Complex(3.0f, 4.0f), math::Complex(0.0f, 0.0f),
@@ -1531,6 +1554,7 @@ inline void test_pullback_displacement_overflow() {
   }
 }
 
+/** @brief Runtime seed constants match the public deterministic contract. */
 inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(Pullback::EFFECT_NOISE_SEED, 1337);
   HS_EXPECT_EQ(Pullback::CAMERA_WALK_SEED, 1337);
@@ -1538,6 +1562,7 @@ inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(Pullback::HUE_NOISE_SEED, 6047);
 }
 
+/** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
   test_pullback_runtime_seed_contract();

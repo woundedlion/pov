@@ -71,6 +71,7 @@ inline std::vector<Pixel> render_planar_chord_star(hs_test::StubEffect &fx,
   return frame;
 }
 
+/** @brief Checks reference coverage and energy within the permitted drift. */
 template <int W, int H>
 inline void expect_covered_within_one_pixel(const std::vector<Pixel> &reference,
                                             const std::vector<Pixel> &candidate,

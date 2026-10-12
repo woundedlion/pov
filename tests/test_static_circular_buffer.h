@@ -771,7 +771,7 @@ inline void test_swap_exchanges_contents() {
   HS_EXPECT_EQ(b[0], 7);
 }
 
-/** @brief Nontrivial element swaps expose both array swap and buffer ADL. */
+/** @brief Nontrivial element that counts swaps. */
 struct SwapProbe {
   static inline int swaps = 0;
   int value = 0;
@@ -784,6 +784,7 @@ struct SwapProbe {
   }
 };
 
+/** @brief Nontrivial element swaps expose both array swap and buffer ADL. */
 inline void test_nontrivial_swap_after_wrap_and_adl() {
   static_assert(!std::is_trivially_copyable_v<SwapProbe>);
   StaticCircularBuffer<SwapProbe, 3> wrapped;

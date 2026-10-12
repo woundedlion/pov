@@ -21,6 +21,7 @@ struct MobiusFrameProbe : MobiusGrid<SMALL_W, SMALL_H> {
   using MobiusGrid<SMALL_W, SMALL_H>::transition;
 };
 
+/** @brief Mobius automatic departures retain lens. */
 inline void test_mobius_automatic_departures_retain_lens() {
   for (const bool fade : {false, true}) {
     reset_effect_globals();
@@ -51,6 +52,7 @@ inline void test_mobius_automatic_departures_retain_lens() {
   }
 }
 
+/** @brief Mobius captured parameter restore. */
 inline void test_mobius_captured_parameter_restore() {
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   for (const math::MobiusParams target :
@@ -79,6 +81,7 @@ inline void test_mobius_captured_parameter_restore() {
 #endif
 }
 
+/** @brief Mobius frame admission. */
 inline void test_mobius_frame_admission() {
   reset_effect_globals();
   auto effect = std::make_unique<MobiusFrameProbe>();
@@ -141,6 +144,7 @@ inline void test_composed_preset_choreography() {
 #undef HS_COMPOSED_PRESETS
 }
 
+/** @brief Positive logarithmic parameters interpolate within their declared domain. */
 inline void test_composed_log_positive_curve() {
   using Pullback::FieldCurve;
   using Pullback::Fields::apply_curve;

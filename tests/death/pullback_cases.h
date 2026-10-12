@@ -7,6 +7,7 @@
 
 // Pullback death cases.
 
+/** @brief Traps on pullback mobius degenerate. */
 inline void case_pullback_mobius_degenerate() {
   Pullback::Interp::Op::MobiusChainParams params;
   params.a_re = opaque(0.0f);
@@ -46,30 +47,39 @@ inline void case_chain_table_rank_decreases() {
       std::span<const Pullback::Interp::OperatorDescriptor>(&descriptor, 1));
 }
 
+/** @brief Traps on chain overlapping storage. */
 inline void case_chain_overlapping_storage() {
   Pullback::Interp::ChainProgram program;
   alignas(std::max_align_t) uint8_t block[128];
   program.bind_storage(block, block + alignof(std::max_align_t), 64);
 }
 
+/** @brief Traps on chain identical storage. */
 inline void case_chain_identical_storage() {
   Pullback::Interp::ChainProgram program;
   alignas(std::max_align_t) uint8_t block[64];
   program.bind_storage(block, block, sizeof(block));
 }
 
+/** @brief Traps on chain zero alignment. */
 inline void case_chain_zero_alignment() { chain_invalid_layout(0); }
 
+/** @brief Traps on chain non power alignment. */
 inline void case_chain_non_power_alignment() { chain_invalid_layout(1); }
 
+/** @brief Traps on chain overaligned block. */
 inline void case_chain_overaligned_block() { chain_invalid_layout(2); }
 
+/** @brief Traps on chain zero size. */
 inline void case_chain_zero_size() { chain_invalid_layout(3); }
 
+/** @brief Traps on chain misaligned size. */
 inline void case_chain_misaligned_size() { chain_invalid_layout(4); }
 
+/** @brief Traps on chain capacity overflow. */
 inline void case_chain_capacity_overflow() { chain_invalid_layout(5); }
 
+/** @brief Traps on pullback project nonunit direction. */
 inline void case_pullback_project_nonunit_direction() {
   using namespace hs_test::pullback_tests;
   using Project =
@@ -188,6 +198,7 @@ inline void case_pullback_operator_invalid_gnomonic_hemisphere() {
   Pullback::Interp::Op::ProjectGnomonic::prepare(context, params, state);
 }
 
+/** @brief Traps on pullback operator invalid airocean layout. */
 inline void case_pullback_operator_invalid_airocean_layout() {
   Pullback::Interp::Op::ProjectAiroceanV3::Params params;
   params.layout = opaque<uint8_t>(0xff);
@@ -196,6 +207,7 @@ inline void case_pullback_operator_invalid_airocean_layout() {
   Pullback::Interp::Op::ProjectAiroceanV3::prepare(context, params, state);
 }
 
+/** @brief Traps on pullback operator invalid peirce layout. */
 inline void case_pullback_operator_invalid_peirce_layout() {
   Pullback::Interp::Op::ProjectPeirceV3::Params params;
   params.layout =
@@ -289,6 +301,7 @@ inline void case_field_sample_coverage_outside_range() {
   Pullback::Kernel::sample(Pullback::PlaneSample{}, 0.0f, opaque(1.1f));
 }
 
+/** @brief Traps on projection invalid frame advance. */
 inline void case_projection_invalid_frame_advance() {
   using Op = Pullback::Interp::Op::ProjectStereographic;
   Op::Params params;
@@ -297,6 +310,7 @@ inline void case_projection_invalid_frame_advance() {
   Op::advance(state, params);
 }
 
+/** @brief Traps on projection invalid frame prepare. */
 inline void case_projection_invalid_frame_prepare() {
   using Op = Pullback::Interp::Op::ProjectStereographic;
   Op::Params params;
@@ -305,11 +319,13 @@ inline void case_projection_invalid_frame_prepare() {
   (void)Op::prepare(Pullback::Interp::FrameContext{}, params, state);
 }
 
+/** @brief Traps on sample plane nan. */
 inline void case_sample_plane_nan() {
   const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
   (void)Pullback::Kernel::sample(Pullback::PlaneSample{}, NAN_VALUE, 1.0f);
 }
 
+/** @brief Traps on sample sphere nan. */
 inline void case_sample_sphere_nan() {
   const float NAN_VALUE = opaque(std::numeric_limits<float>::quiet_NaN());
   (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
