@@ -406,9 +406,21 @@ class CheckTool(unittest.TestCase):
             self.assertIn("python tools/build_pins.py --check-tool cmake",
                           install.split("\n      -", 1)[0])
 
+    def test_emsdk_checks_the_active_compiler_version(self):
+        pin = bp.PINS["emsdk"]
+        self.assertEqual(bp.CHECK_TOOLS["emsdk"][0], ["emcc", "-dumpversion"])
+        self.assertEqual(self._check("emsdk", pin + "\n")[0], 0)
+        self.assertEqual(self._check("emsdk", "0.0.0\n")[0], 1)
+        resolved = "C:/emsdk/emcc.bat"
+        with unittest.mock.patch.object(bp.shutil, "which", return_value=resolved):
+            with unittest.mock.patch.object(bp.subprocess, "run") as run:
+                run.return_value = subprocess.CompletedProcess([], 0, pin + "\n", "")
+                self.assertEqual(bp.check_tool("emsdk"), 0)
+                self.assertEqual(run.call_args.args[0], [resolved, "-dumpversion"])
+
     def test_pins_with_no_version_to_report_are_not_targets(self):
         for name in ("daydream", "doxygen-awesome", "doxygen-sha256",
-                     "llvm-key-sha256", "emsdk", "kicad"):
+                     "llvm-key-sha256", "kicad"):
             self.assertIn(name, bp.PINS | bp.INLINE_PINS)
             self.assertNotIn(name, bp.CHECK_TOOLS)
 

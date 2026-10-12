@@ -1058,7 +1058,7 @@ In the daydream checkout, regenerate the tool utility stylesheet with `npm run g
 
 ### 8.2 WASM Build
 
-The build is driven by **CMake presets** ([`CMakePresets.json`](https://github.com/woundedlion/pov/blob/master/CMakePresets.json)) so the same commands work on any platform with the pinned CMake, Ninja and [Emscripten](https://emscripten.org/). Set up the Emscripten environment once (`emsdk_env`, which exports `EMSDK`), then:
+The build is driven by **CMake presets** ([`CMakePresets.json`](https://github.com/woundedlion/pov/blob/master/CMakePresets.json)) so the same commands work on any platform with pinned CMake and [Emscripten](https://emscripten.org/). Install Ninja, then set up the Emscripten environment once (`emsdk_env`, which exports `EMSDK`), then:
 
 ```bash
 cmake --preset wasm-release                     # configure (Emscripten toolchain)
