@@ -39,7 +39,7 @@ inline void expect_refusal(In::ChainProgram &program,
   const In::ChainRefusal refusal = program.compile(request);
   HS_EXPECT_EQ(static_cast<int>(refusal.code), static_cast<int>(expected));
   HS_EXPECT_EQ(refusal.entry_index, expected_index);
-  HS_EXPECT_EQ(program.ops().size(), 4u);
+  HS_EXPECT_SIZE_OR_RETURN(program.ops(), 4);
   SweepColors after;
   snapshot_render(program, ctx, after);
   expect_sweep_identical(after, baseline);
@@ -48,7 +48,8 @@ inline void expect_refusal(In::ChainProgram &program,
 inline void test_shader_chain_refusal_shape() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_default_chain(program, 2, ValueSet::MAXIMUMS);
+  if (!arm_default_chain(program, 2, ValueSet::MAXIMUMS))
+    return;
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
   SweepColors baseline;
@@ -153,7 +154,8 @@ inline void test_shader_chain_refusal_budget_overflows() {
 
   // Exact-fit boundary: capacity == used commits, capacity - 1 refuses.
   auto measured = std::make_unique<ProgramFixture>();
-  arm_default_chain(measured->program, 0, ValueSet::DEFAULTS);
+  if (!arm_default_chain(measured->program, 0, ValueSet::DEFAULTS))
+    return;
   const size_t needed = measured->program.used_bytes();
   measured->program.clear();
 
@@ -329,8 +331,10 @@ inline void test_shader_chain_state_identity_migration() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(program.compile(first).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status1 = program.compile(first).code;
+  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
+  if (compile_status1 != In::ChainStatus::OK)
+    return;
   HS_EXPECT_EQ(CountLifecycle::inits, 2);
   program.advance();
   program.advance();
@@ -346,8 +350,10 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v3"},
   };
   const int destroys_before = CountLifecycle::destroys;
-  HS_EXPECT_EQ(static_cast<int>(program.compile(second).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status2 = program.compile(second).code;
+  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
+  if (compile_status2 != In::ChainStatus::OK)
+    return;
   HS_EXPECT_EQ(CountLifecycle::migrates, 1);
   HS_EXPECT_EQ(CountLifecycle::inits, 3);
   // Commit destroyed the loser arena: old "a" and old "b".
@@ -364,8 +370,10 @@ inline void test_shader_chain_state_identity_migration() {
       {"colorize", "colorize.generated-palette.v3"},
   };
   const int migrates_before = CountLifecycle::migrates;
-  HS_EXPECT_EQ(static_cast<int>(program.compile(third).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status3 = program.compile(third).code;
+  HS_EXPECT_EQ(compile_status3, In::ChainStatus::OK);
+  if (compile_status3 != In::ChainStatus::OK)
+    return;
   HS_EXPECT_EQ(state_as<CountingState>(program, 0).accumulator, 0.0f);
   // "a" re-inits under the new operator; "c" migrates.
   HS_EXPECT_EQ(CountLifecycle::inits, 4);
@@ -379,7 +387,8 @@ inline void test_shader_chain_state_identity_migration() {
 inline void test_shader_chain_state_continuity_slice() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_default_chain(program, 6, ValueSet::MAXIMUMS);
+  if (!arm_default_chain(program, 6, ValueSet::MAXIMUMS))
+    return;
   const auto camera_before = state_as<In::Op::SpatialWalkState>(program, 0);
   const auto source_before = state_as<In::Op::SourceClockState>(program, 2);
   HS_EXPECT_GT(source_before.primary, 0.0f);
@@ -391,8 +400,10 @@ inline void test_shader_chain_state_continuity_slice() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(program.compile(edited).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status4 = program.compile(edited).code;
+  HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
+  if (compile_status4 != In::ChainStatus::OK)
+    return;
   // An unchanged pair keeps its accumulated walk and clocks across an edit
   // elsewhere; the new instance starts fresh.
   const auto &camera_after = state_as<In::Op::SpatialWalkState>(program, 0);
@@ -489,8 +500,10 @@ inline void test_shader_chain_operator_state_migration() {
 inline void test_shader_chain_determinism() {
   auto first = std::make_unique<ProgramFixture>();
   auto second = std::make_unique<ProgramFixture>();
-  arm_default_chain(first->program, 5, ValueSet::MAXIMUMS);
-  arm_default_chain(second->program, 5, ValueSet::MAXIMUMS);
+  if (!arm_default_chain(first->program, 5, ValueSet::MAXIMUMS))
+    return;
+  if (!arm_default_chain(second->program, 5, ValueSet::MAXIMUMS))
+    return;
   const FastNoiseLite authored_walk_noise = make_oracle_noise(
       "camera", "sphere.rotate.v2", In::Op::WALK_OPTIONS.noise_scale);
   const auto &seeded_walk =
@@ -514,8 +527,10 @@ inline void test_shader_chain_determinism() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(relabeled->program.compile(renamed).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status5 = relabeled->program.compile(renamed).code;
+  HS_EXPECT_EQ(compile_status5, In::ChainStatus::OK);
+  if (compile_status5 != In::ChainStatus::OK)
+    return;
   apply_value_set(param_as<In::Op::RotateChainParams>(relabeled->program, 0),
                   ValueSet::MAXIMUMS);
   for (int frame = 0; frame < 5; ++frame)
@@ -536,7 +551,8 @@ inline void test_shader_chain_param_names_and_budget() {
   static_assert(In::operator_schema_ids_fit_names());
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_default_chain(program, 0, ValueSet::DEFAULTS);
+  if (!arm_default_chain(program, 0, ValueSet::DEFAULTS))
+    return;
 
   // The names are exactly "{instance}.{field-id}", per schema entry.
   const auto ops = program.ops();
