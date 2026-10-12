@@ -413,7 +413,7 @@ inline void test_arena_repeated_rewind_to_same_mark() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   a.allocate(32);
   const size_t mark = a.get_offset();
-  for (int i = 0; i < 300; ++i) {
+  for (size_t i = 0; i <= Arena::rewind_history_capacity(); ++i) {
     a.allocate(16);
     a.set_offset(mark);
   }
