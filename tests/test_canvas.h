@@ -167,6 +167,56 @@ private:
   }
 };
 
+// ============================================================================
+// Construction
+// ============================================================================
+
+/**
+ * @brief Verifies a freshly constructed Effect reports its dimensions, starts
+ * fully black with a free display buffer, and has its clip set to the whole
+ * canvas.
+ */
+inline void test_construction_dims_and_clear() {
+  TestEffect fx(96, 20);
+  HS_EXPECT_EQ(fx.width(), 96);
+  HS_EXPECT_EQ(fx.height(), 20);
+  HS_EXPECT_PIXEL(fx.get_pixel(10, 5), 0, 0, 0);
+  HS_EXPECT_TRUE(fx.buffer_free());
+  HS_EXPECT_TRUE(fx.clip().is_full());
+  HS_EXPECT_EQ(fx.clip().y_end, 20);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
+}
+
+/**
+ * @brief Verifies the smallest and largest supported dimensions are accepted.
+ */
+inline void test_construction_dimension_boundaries() {
+  {
+    TestEffect fx(1, 1);
+    HS_EXPECT_EQ(fx.width(), 1);
+    HS_EXPECT_EQ(fx.height(), 1);
+    HS_EXPECT_PIXEL(fx.get_pixel(0, 0), 0, 0, 0);
+  }
+  {
+    TestEffect fx(MAX_W, MAX_H);
+    HS_EXPECT_EQ(fx.width(), MAX_W);
+    HS_EXPECT_EQ(fx.height(), MAX_H);
+    HS_EXPECT_PIXEL(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0);
+  }
+}
+
+inline void test_output_envelope_endpoints() {
+  TestEffect fx(8, 8);
+  const Pixel source{65535, 32768, 1};
+  fx.set_output_envelope(0.0f);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 0, 0, 0);
+  fx.set_output_envelope(1.0f);
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 65535, 32768, 1);
+  fx.set_output_envelope(0.5f);
+  HS_EXPECT_EQ(fx.output_envelope_u16(), uint16_t(32768));
+  HS_EXPECT_PIXEL(fx.apply_output_envelope(source), 32768, 16384, 1);
+}
+
 #include "tests/canvas/effect_transition.h"
 
 inline void test_preset_state_machine() {
