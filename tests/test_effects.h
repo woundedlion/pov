@@ -1073,6 +1073,11 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_ring_pool_capacity_release);
   run_case(test_displacement_field_footprint_covers_init);
   run_case(test_displacement_field_pause_holds_phase_only);
+  run_case(test_displacement_field_presets);
+  run_case(test_displacement_field_edit_cancels_departure);
+  run_case(test_displacement_field_paused_balls_deform_render);
+  run_case(test_displacement_field_paused_balls_keep_moving);
+  run_case(test_displacement_field_knot_walk_unit_near_ball);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
   run_case(test_glitch_lens_unit_norm);

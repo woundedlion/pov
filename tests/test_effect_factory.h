@@ -338,6 +338,16 @@ inline void test_fixed_preset_ids() {
             .empty());
   }
 
+  const FactoryEntry *displacement =
+      hs_wasm::find_factory_entry<96, 20>("DisplacementField");
+  HS_EXPECT_TRUE(displacement && displacement->preset_id != nullptr);
+  if (displacement && displacement->preset_id) {
+    HS_EXPECT_EQ(displacement->preset_count, size_t{2});
+    HS_EXPECT_EQ(displacement->preset_id(0), "noise");
+    HS_EXPECT_EQ(displacement->preset_id(1), "balls");
+    HS_EXPECT_TRUE(displacement->preset_id(2).empty());
+  }
+
   const FactoryEntry *fishbowl =
       hs_wasm::find_factory_entry<96, 20>("Fishbowl");
   HS_EXPECT_TRUE(fishbowl != nullptr);
