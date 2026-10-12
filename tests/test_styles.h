@@ -184,12 +184,7 @@ inline void test_noise_warp_null_is_identity() {
   HS_EXPECT_NEAR(out.z, v.z, 1e-6f);
 }
 
-/**
- * @brief Verifies melt_warp slerps a direction toward the north pole at a rate
- *        set by speed while preserving unit length.
- * @details With noise disabled, an equator point should rise: y increases, x
- *          shrinks, and the result stays unit length.
- */
+/** @brief Melt speed scales northward drift while preserving unit length. */
 inline void test_melt_warp_drifts_toward_north() {
   Feedback::Style s{};
   s.speed = 1.0f;
@@ -201,6 +196,13 @@ inline void test_melt_warp_drifts_toward_north() {
   HS_EXPECT_TRUE(out.y > 0.05f);
   HS_EXPECT_TRUE(out.x < 0.999f);
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
+  s.speed = 0.0f;
+  HS_EXPECT_VEC(Feedback::melt_warp(v, s), v, 1e-6f);
+  s.speed = 2.0f;
+  const auto DOUBLE_SPEED = Feedback::melt_warp(v, s);
+  const float ANGLE = std::atan2(out.y, out.x);
+  const float DOUBLE_ANGLE = std::atan2(DOUBLE_SPEED.y, DOUBLE_SPEED.x);
+  HS_EXPECT_NEAR(DOUBLE_ANGLE / ANGLE, 2.0f, 0.1f);
 }
 
 /**
