@@ -282,7 +282,9 @@ inline void test_face_shader_setup_matches_face_index() {
   {
     hs_test::StubEffect indexed(W, H);
     auto shader = [&](const math::Vector &, Fragment &frag) {
-      frag.color = colors[static_cast<size_t>(frag.v2)];
+      const size_t i = static_cast<size_t>(frag.v2);
+      HS_EXPECT_LT(i, std::size(colors));
+      frag.color = i < std::size(colors) ? colors[i] : Color4{};
     };
     {
       Canvas c(indexed);
@@ -295,9 +297,13 @@ inline void test_face_shader_setup_matches_face_index() {
 
   hs_test::StubEffect selected(W, H);
   const Color4 *face_color = nullptr;
-  auto select_face = [&](size_t face, float) { face_color = &colors[face]; };
+  auto select_face = [&](size_t face, float) {
+    HS_EXPECT_LT(face, std::size(colors));
+    face_color = face < std::size(colors) ? &colors[face] : nullptr;
+  };
   auto shader = [&](const math::Vector &, Fragment &frag) {
-    frag.color = *face_color;
+    HS_EXPECT_TRUE(face_color != nullptr);
+    frag.color = face_color ? *face_color : Color4{};
   };
   {
     Canvas c(selected);
