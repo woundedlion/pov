@@ -8,7 +8,7 @@
  * Each case runs in a re-exec'd child (HS_DEATH_CHILD=harness,
  * HS_DEATH_CASE=<name>). The parent requires the illegal-instruction trap
  * status (SIGILL / STATUS_ILLEGAL_INSTRUCTION) and an HS_CHECK breadcrumb
- * naming the case's guard file and condition text: under
+ * naming the case's exact guard: under
  * -fsanitize-trap=undefined, UB lowers to the same instruction.
  */
 #pragma once
@@ -425,10 +425,10 @@ inline const Case *all_cases(int &n) {
                    case_generate_recursion_too_deep, "core/memory/generate.h",
                    "(depth <= MAX_GENERATE_DEPTH) generate: recursion too deep"},
                   {"normalize_zero", case_normalize_zero, "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
                   {"vector_normalize_in_place_zero",
                    case_vector_normalize_in_place_zero, "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalize: zero"},
                   {"rotate_plane_degenerate", case_rotate_plane_degenerate,
                    "core/math/4dmath.h",
                    "(a >= 0 && a < VEC4_DIMENSIONS && b >= 0 && b < VEC4_DIMENSIONS && a "
@@ -438,7 +438,7 @@ inline const Case *all_cases(int &n) {
                    "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
                    "angle_between: degenerate vector"},
                   {"normalize_nan", case_normalize_nan, "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
                   {"solids_index_oob", case_solids_index_oob,
                    "core/mesh/solids.h",
                    "(index < static_cast<size_t>(NUM_ENTRIES)) Solids::get_entry: index "
@@ -453,15 +453,15 @@ inline const Case *all_cases(int &n) {
                   {"circular_buffer_front_empty",
                    case_circular_buffer_front_empty,
                    "core/containers/static_circular_buffer.h",
-                   "(!is_empty()) front() on empty StaticCircularBuffer"},
+                   "(!is_empty()) StaticCircularBuffer::front: empty"},
                   {"circular_buffer_back_empty",
                    case_circular_buffer_back_empty,
                    "core/containers/static_circular_buffer.h",
-                   "(!is_empty()) back() on empty StaticCircularBuffer"},
+                   "(!is_empty()) StaticCircularBuffer::back: empty"},
                   {"circular_buffer_const_back_empty",
                    case_circular_buffer_const_back_empty,
                    "core/containers/static_circular_buffer.h",
-                   "(!is_empty()) back() on empty StaticCircularBuffer"},
+                   "(!is_empty()) StaticCircularBuffer::back const: empty"},
                   {"arena_vector_append_bulk_overflow",
                    case_arena_vector_append_bulk_overflow,
                    "core/memory/vector.h",
@@ -889,7 +889,7 @@ inline const Case *all_cases(int &n) {
                    "core/mesh/recipe.h",
                    "(step.param > 0.0f) apply_step: BEVEL step has no depth"},
                   {"slerp_nan", case_slerp_nan, "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
                   {"make_rotation_vectors_nan", case_make_rotation_vectors_nan,
                    "core/math/3dmath.h",
                    "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
@@ -897,14 +897,14 @@ inline const Case *all_cases(int &n) {
                    "make_rotation(from, to): inputs must be unit vectors"},
                   {"make_rotation_angle_nan", case_make_rotation_angle_nan,
                    "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Quaternion: zero magnitude"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Quaternion::normalized: zero"},
                   {"make_rotation_nonunit", case_make_rotation_nonunit,
                    "core/math/3dmath.h",
                    "(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ && "
                    "std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ) "
                    "make_rotation(from, to): inputs must be unit vectors"},
                   {"make_basis_nan", case_make_basis_nan, "core/math/3dmath.h",
-                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector: zero length"},
+                   "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
                   {"noise_transform_nan", case_noise_transform_nan,
                    "core/animation/transformer.h",
                    "(std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z)) "
@@ -1227,11 +1227,11 @@ inline const Case *all_cases(int &n) {
                   {"screen_trails_plot_without_storage",
                    case_screen_trails_plot_without_storage,
                    "core/render/filter/screen_trails.h",
-                   "(points) Screen::Trails needs init_storage() from effect init()"},
+                   "(points) Screen::Trails::plot: storage missing"},
                   {"world_trails_plot_without_storage",
                    case_world_trails_plot_without_storage,
                    "core/render/filter/world_trails.h",
-                   "(items) World::Trails needs init_storage() from effect init()"},
+                   "(items) World::Trails::plot: storage missing"},
                   {"plot_open_loop_seam", case_plot_open_loop_seam,
                    "core/render/plot/shapes.h",
                    "(params.loop_seam == nullptr || params.close_loop) a raster seam fragment requires a closed loop"},
@@ -1352,7 +1352,7 @@ inline const Case *all_cases(int &n) {
                   {"orientation_frame_index_oob",
                    case_orientation_frame_index_oob,
                    "core/animation/orientation.h",
-                   "(i >= 0 && i < num_frames) Orientation: frame index out of range"},
+                   "(i >= 0 && i < num_frames) Orientation::get: frame index out of range"},
                   {"make_basis_nonunit_quaternion",
                    case_make_basis_nonunit_quaternion, "core/math/spherical.h",
                    "(std::abs(orientation_norm_sq - 1.0f) < "

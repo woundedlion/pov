@@ -115,7 +115,7 @@ public:
     // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0) {
-      HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
+      HS_CHECK(items, "World::Trails::plot: storage missing");
       check_storage_alive();
       push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
@@ -133,7 +133,7 @@ public:
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
-    HS_CHECK(items, "World::Trails needs init_storage() from effect init()");
+    HS_CHECK(items, "World::Trails::flush: storage missing");
     check_storage_alive();
     for (size_t i = 0; i < count; ++i) {
       const auto &item = items[i];
