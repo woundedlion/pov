@@ -56,6 +56,7 @@ QUILTER_LENGTH = 58.28
 TEENSY_LIBRARY_REASON = (
     "This revision's committed phantasm.kicad_pcb resolves its Teensy pads\n"
     "  against this library file.")
+TEENSY_MODEL_PATH = "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
 TEENSY_LIBID = "phantasm:Teensy4.0"
 MOUNTING_HOLE_FOOTPRINT = "MountingHole:MountingHole_2.7mm_M2.5"
 MOUNTING_KEEPOUT_HALF_SIDE = 2.7
@@ -318,7 +319,7 @@ def refresh_uuids(node):
             refresh_uuids(child)
 
 
-def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
+def teensy_footprint():
     """2x14 THT module, pads named by Teensy pin label; long axis along X.
     Pad map is the top view (component side up) with the USB end at -X:
     top row (-Y) VIN,GND,3V3,23..13 / bottom row (+Y) GND,0..12."""
@@ -354,7 +355,7 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
         ' (xy -18.5 5) (xy -30 5)))\n'
         '\t)\n')
     model = (
-        f'\t(model {sexp.quote(model_path)}\n'
+        f'\t(model {sexp.quote(TEENSY_MODEL_PATH)}\n'
         '\t\t(offset (xyz 0 0 0))\n'
         '\t\t(scale (xyz 1 1 1))\n'
         '\t\t(rotate (xyz 0 0 0))\n'
@@ -371,11 +372,10 @@ def teensy_footprint(model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
     return sexp.parse(text)[0]
 
 
-def embedded_footprint(ref, libid,
-                       teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"):
+def embedded_footprint(ref, libid):
     """A fresh footprint node carrying the land `embed` emits for `ref`,
     including any per-reference land override."""
-    node = teensy_footprint(teensy_model_path) if libid == TEENSY_LIBID else \
+    node = teensy_footprint() if libid == TEENSY_LIBID else \
         copy.deepcopy(load_mod(libid))
     if ref == "D_BUS":
         set_d_bus_land_pattern(node)
@@ -416,9 +416,8 @@ def reference_bbox(node, ref):
 
 def embed(libid, ref, value, x, y, rot, pad_net, netid, path=None, locked=False,
           dnp=False, hand_assembled=False, hide_reference=False,
-          teensy_model_path="${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl",
           consumed=None):
-    node = embedded_footprint(ref, libid, teensy_model_path)
+    node = embedded_footprint(ref, libid)
     refresh_uuids(node)
     set_pad_orientations(node, rot)
     # Embedded zone vertices use board coordinates; library vertices are local.
@@ -973,7 +972,6 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                  + ", ".join(clashes))
 
     HOLES = mounting_holes(L)
-    teensy_model_path = "${KIPRJMOD}/phantasm.pretty/Teensy4.0.wrl"
     foot_nodes = []
     consumed = set()
     for ref, (x, y, rot) in PLACE.items():
@@ -983,7 +981,6 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                                 path=paths.get(ref), locked=lock, dnp=dnp,
                                 hand_assembled=is_hand_assembled(fp, val),
                                 hide_reference=lock,
-                                teensy_model_path=teensy_model_path,
                                 consumed=consumed))
         if unplaced and ref == "J1":
             trim_power_terminal_silkscreen(foot_nodes[-1])
