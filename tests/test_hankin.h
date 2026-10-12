@@ -703,7 +703,10 @@ inline void test_compiled_hankin_clone_deep_copies() {
   MeshOps::compile_hankin(cube, src, src_arena, temp);
 
   CompiledHankin dst;
+  CompiledHankin::clone(src, dst, src_arena);
+  const auto *old_vertices = dst.base_vertices.data();
   CompiledHankin::clone(src, dst, dst_arena);
+  HS_EXPECT_TRUE(dst.base_vertices.data() != old_vertices);
 
   HS_EXPECT_EQ(dst.base_vertices.size(), src.base_vertices.size());
   HS_EXPECT_EQ(dst.static_vertices.size(), src.static_vertices.size());

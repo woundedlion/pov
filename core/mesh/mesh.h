@@ -747,6 +747,7 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
   if constexpr (requires { dst.face_offsets; }) {
     MeshState::clone(src, dst, arena);
   } else {
+    dst = MeshT();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
     copy_vector(dst.face_counts, src.get_face_counts_data(),
                 src.get_face_counts_size(), arena);
