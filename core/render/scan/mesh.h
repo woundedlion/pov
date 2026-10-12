@@ -192,10 +192,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x == next_block) {
             next_block += stride;
-            if (x + stride <= rx2 && (pole_lod_block_settles<SDF::Face>(
-                                          -d, PIXEL_WIDTH, block_slack) ||
-                                      pole_lod_block_settles<SDF::Face>(
-                                          d, PIXEL_WIDTH, block_slack)))
+            if (x + stride <= rx2 && pole_lod_settle_with_slack<true>(
+                                         d, PIXEL_WIDTH, block_slack, shape,
+                                         &p) != BlockSettle::PER_COLUMN)
               span = stride;
           }
         }
