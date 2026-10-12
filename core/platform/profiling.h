@@ -84,6 +84,7 @@ struct PullbackProjectionCounts {
   void reset() { *this = {}; }
 };
 
+/** @brief Current-frame polyhedral projection counters. */
 inline PullbackProjectionCounts g_pullback_projection_counts;
 #endif
 
@@ -112,6 +113,7 @@ struct PlotCounts {
   void reset() { *this = {}; }
 };
 
+/** @brief Current-frame plot rasterizer counters. */
 inline PlotCounts g_plot_counts;
 #endif
 
@@ -148,6 +150,7 @@ struct PlotRenderCounts {
   void reset() { *this = {}; }
 };
 
+/** @brief Current-frame plot rendering counters. */
 inline PlotRenderCounts g_plot_render_counts;
 #endif
 

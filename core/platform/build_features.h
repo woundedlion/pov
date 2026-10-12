@@ -41,6 +41,7 @@
 #define HS_TIMELINE_MAX_ANIM_BYTES 112
 #endif
 
+/** @brief 1 enables the effect registry; defaults to Emscripten builds. */
 #ifndef HS_ENABLE_EFFECT_REGISTRY
 #if defined(__EMSCRIPTEN__)
 #define HS_ENABLE_EFFECT_REGISTRY 1
@@ -49,6 +50,7 @@
 #endif
 #endif
 
+/** @brief 1 enables GUI parameter metadata; defaults to Emscripten builds. */
 #ifndef HS_ENABLE_PARAM_GUI_BRIDGE
 #if defined(__EMSCRIPTEN__)
 #define HS_ENABLE_PARAM_GUI_BRIDGE 1
@@ -99,6 +101,7 @@
 #define HS_ENABLE_TEST_ORACLES 0
 #endif
 
+/** @brief 1 enables the chain interpreter; defaults to Emscripten and test-oracle builds. */
 #ifndef HS_ENABLE_CHAIN_INTERPRETER
 #if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_ORACLES
 #define HS_ENABLE_CHAIN_INTERPRETER 1
@@ -112,6 +115,7 @@
 #define HS_ENABLE_STRUCTURAL_AUDITS 0
 #endif
 
+/** @brief 1 enables effect control APIs; defaults to profiling builds. */
 #ifndef HS_ENABLE_EFFECT_CONTROL_API
 #if defined(HS_PROFILE_ENABLE)
 #define HS_ENABLE_EFFECT_CONTROL_API 1
