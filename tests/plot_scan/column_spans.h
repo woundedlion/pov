@@ -1223,6 +1223,7 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
                               {0, H / 2, 0, W / 2, 0, W, H},
                               {H / 2, H, W / 2, W, 0, W, H}};
   size_t covered = 0;
+  size_t culled_quadrants = 0;
   for (const auto &orientation :
        {math::Quaternion(),
         math::Quaternion(0.81f, 0.32f, -0.29f, 0.39f).normalized()}) {
@@ -1234,6 +1235,8 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
         const uint32_t mask = Plot::visible_chunk_mask<H, CHUNKS>(
             clip, basis, theta, cos_t, sin_t, 0.01f, 0.01f, cosines.data(),
             sines.data());
+        if (!clip.is_full() && mask != 0 && mask != (1u << CHUNKS) - 1)
+          ++culled_quadrants;
         for (int sample = 0; sample < SAMPLES; ++sample) {
           const double angle = sample * 2.0 * std::acos(-1.0) / SAMPLES;
           const math::Vector point =
@@ -1258,4 +1261,5 @@ inline void test_visible_chunk_mask_covers_sampled_ring() {
     }
   }
   HS_EXPECT_GT(covered, size_t{0});
+  HS_EXPECT_GT(culled_quadrants, size_t{0});
 }
