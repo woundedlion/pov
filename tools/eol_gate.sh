@@ -16,9 +16,13 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 
 if [ "${1:-}" = --fix-worktree ]; then
-  python=${HS_PYTHON:-python3}
-  if [ -z "${HS_PYTHON:-}" ] && ! "$python" --version >/dev/null 2>&1; then
-    python=python
+  python=
+  for candidate in "${HS_PYTHON:-}" python3 python; do
+    if "$candidate" --version >/dev/null 2>&1; then python="$candidate"; break; fi
+  done
+  if [ -z "$python" ]; then
+    echo "no working Python found (set HS_PYTHON)" >&2
+    exit 1
   fi
   "$python" - <<'PY'
 from pathlib import Path
