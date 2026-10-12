@@ -161,21 +161,34 @@ struct GSWhiteBox {
         gs.seed_face_lut(frag);
         const int center = gs.refine_render_center(frag.pos, lattice.get(),
                                                    static_cast<int>(frag.v0));
-        float expected[7][4] = {}, actual[7][4] = {};
+        float expected[GS::RD_K + 1][Grid::SAMPLES] = {};
+        float actual[GS::RD_K + 1][Grid::SAMPLES] = {};
         gs.accumulate_stencil_ssaa2x2(
             grid, x, center, lattice.get(), [&](int slot, int) {
               return [&, slot](int sample, float weight) {
-                expected[slot][sample] = weight;
+                HS_EXPECT_GE(slot, 0);
+                HS_EXPECT_LT(slot, GS::RD_K + 1);
+                HS_EXPECT_GE(sample, 0);
+                HS_EXPECT_LT(sample, Grid::SAMPLES);
+                if (slot >= 0 && slot < GS::RD_K + 1 && sample >= 0 &&
+                    sample < Grid::SAMPLES)
+                  expected[slot][sample] = weight;
               };
             });
         gs.accumulate_render_stencil(
             grid, x, center, lattice.get(), [&](int slot, int) {
               return [&, slot](int sample, float weight) {
-                actual[slot][sample] = weight;
+                HS_EXPECT_GE(slot, 0);
+                HS_EXPECT_LT(slot, GS::RD_K + 1);
+                HS_EXPECT_GE(sample, 0);
+                HS_EXPECT_LT(sample, Grid::SAMPLES);
+                if (slot >= 0 && slot < GS::RD_K + 1 && sample >= 0 &&
+                    sample < Grid::SAMPLES)
+                  actual[slot][sample] = weight;
               };
             });
-        for (int slot = 0; slot < 7; ++slot)
-          for (int sample = 0; sample < 4; ++sample) {
+        for (int slot = 0; slot < GS::RD_K + 1; ++slot)
+          for (int sample = 0; sample < Grid::SAMPLES; ++sample) {
             weighted += expected[slot][sample] != 0.0f;
             compare(actual[slot][sample], expected[slot][sample]);
           }
@@ -673,7 +686,7 @@ struct GSWhiteBox {
                                 round_linear_channel(rgb[2] / (mass * 4)));
           }
         if (aggregate_color) {
-          double palette_mass[GS::NUM_SEED_CLUSTERS] = {};
+          double palette_mass[1 << Pigment::ID_BITS] = {};
           double total_mass = 0.0, concentration = 0.0;
           int covered = 0;
           for (int i = 0; i < 4; ++i) {
