@@ -36,7 +36,11 @@ class PreCommitHook(unittest.TestCase):
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
         for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py"]:
-            (tools / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
+            (tools / name).write_text(
+                "import os\n"
+                f"print('GATE {name}')\n"
+                f"raise SystemExit(int(os.environ.get('FAIL_{name.removesuffix('.py').upper()}', '0')))\n",
+                encoding="utf-8")
         requirements = self.repo / "requirements"
         requirements.mkdir()
         shutil.copyfile(REPO / "requirements" / "ruff.txt", requirements / "ruff.txt")
@@ -65,6 +69,18 @@ class PreCommitHook(unittest.TestCase):
             encoding="utf-8")
         formatter.chmod(0o755)
         return formatter
+
+    def test_gate_failures_propagate(self):
+        (self.repo / "README.md").write_bytes(b"valid updated\n")
+        self.git("add", "README.md")
+        for gate in ("docs_images", "license_check", "include_paths"):
+            with self.subTest(gate=gate):
+                clean = self.run_hook()
+                self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+                self.assertIn(f"GATE {gate}.py", clean.stdout + clean.stderr)
+                failed = self.run_hook(**{f"FAIL_{gate.upper()}": "7"})
+                self.assertNotEqual(failed.returncode, 0)
+                self.assertIn(f"GATE {gate}.py", failed.stdout + failed.stderr)
 
     def test_python_uses_staged_lint_configuration(self):
         require_tool(self, "ruff")
