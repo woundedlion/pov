@@ -631,8 +631,7 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
   HS_EXPECT_EQ(ShapeShifterWhiteBox::shape_count(), 5);
-  HS_EXPECT_TRUE(
-      std::strcmp(ShapeShifterWhiteBox::shape_option(3), "Planar Star") == 0);
+  HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_option(3), "Planar Star");
   HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_option(4), "Spherical Star");
   HS_EXPECT_STREQ(ShapeShifterWhiteBox::shape_export_option(3),
                   "ShapeType::PLANAR_STAR");
