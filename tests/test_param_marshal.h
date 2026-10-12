@@ -440,6 +440,23 @@ inline void check_integer_float_endpoints() {
   HS_EXPECT_EQ(value, 0);
 }
 
+struct FloatOptionParams {
+  float mode;
+};
+constexpr const char *FLOAT_OPTION_NAMES[] = {"Off", "On"};
+constexpr Control::Field<FloatOptionParams> FLOAT_OPTION_FIELD{
+    "mode",
+    &FloatOptionParams::mode,
+    "Mode",
+    {.min = 0, .max = 1, .options = FLOAT_OPTION_NAMES}};
+static_assert(FLOAT_OPTION_FIELD.curve == Control::FieldCurve::MIDPOINT);
+static_assert(FLOAT_OPTION_FIELD.curve_supported());
+static_assert([] {
+  auto field = FLOAT_OPTION_FIELD;
+  field.curve = Control::FieldCurve::RAW_LINEAR;
+  return !field.curve_supported();
+}());
+
 struct DefaultFieldsParams {
   float value = 2;
   static constexpr auto FIELDS =
