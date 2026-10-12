@@ -452,6 +452,12 @@ inline void test_face_tied_rows_match_oracle() {
 template <int W, int H> struct FaceOraclePipeline {
   std::vector<bool> covered = std::vector<bool>(W * H);
   void plot_in_bounds(Canvas &, int x, int y, const Pixel &, uint16_t, float) {
+    HS_EXPECT_GE(x, 0);
+    HS_EXPECT_LT(x, W);
+    HS_EXPECT_GE(y, 0);
+    HS_EXPECT_LT(y, H);
+    if (x < 0 || x >= W || y < 0 || y >= H)
+      return;
     covered[y * W + x] = true;
   }
 };

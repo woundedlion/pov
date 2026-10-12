@@ -327,6 +327,10 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   struct CoverageSink {
     std::vector<float> coverage = std::vector<float>(W * H);
     void plot(Canvas &, int x, int y, const Pixel &, float, float alpha) {
+      HS_EXPECT_GE(y, 0);
+      HS_EXPECT_LT(y, H);
+      if (y < 0 || y >= H)
+        return;
       coverage[y * W + (x % W + W) % W] = alpha;
     }
   };
