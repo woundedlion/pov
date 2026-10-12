@@ -114,7 +114,7 @@ class OverwriteProtectionTests(unittest.TestCase):
                 target = Path(directory) / (pcb.UNPLACED_FILE if unplaced else pcb.DRAFT_FILE)
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(b"existing routed board\n")
-                with mock.patch.object(pcb, "OUT", directory), \
+                with mock.patch.object(pcb.schematic_generator, "OUT", directory), \
                         mock.patch.object(pcb, "kicad_cli", side_effect=AssertionError("KiCad called")):
                     with self.assertRaisesRegex(SystemExit, "refusing to overwrite"):
                         pcb.main(unplaced=unplaced)
@@ -217,8 +217,8 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
             library = Path(directory) / "phantasm.pretty" / "Teensy4.0.kicad_mod"
             library.write_bytes(b"hand-maintained footprint\n")
             before = board.read_bytes()
-            with mock.patch.object(pcb, "OUT", directory), \
-                    mock.patch.object(pcb, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
+            with mock.patch.object(pcb.schematic_generator, "OUT", directory), \
+                    mock.patch.object(pcb.schematic_generator, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
                     contextlib.redirect_stdout(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     pcb.main(force=True)
@@ -288,8 +288,8 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
 
     def test_old_schematic_cannot_be_stamped_with_the_new_revision(self):
         with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.object(pcb, "OUT", directory), \
-                mock.patch.object(pcb, "SCH", str(COMMITTED_PCB.with_suffix(".kicad_sch"))):
+                mock.patch.object(pcb.schematic_generator, "OUT", directory), \
+                mock.patch.object(pcb.schematic_generator, "SCH", str(COMMITTED_PCB.with_suffix(".kicad_sch"))):
             with self.assertRaisesRegex(SystemExit, "regenerate the schematic first"):
                 pcb.main()
 

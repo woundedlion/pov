@@ -907,10 +907,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 def main(unplaced=False, force=False, force_teensy_library=False):
     selected, output_dir = _GENERATION.get()
     layout = REVISION_LAYOUTS[selected]
-    out = output_dir or (OUT if selected == builder.REVISION else os.path.join(
-        os.path.dirname(OUT), selected))
-    sch = SCH if output_dir is None and selected == builder.REVISION else os.path.join(
-        out, "phantasm.kicad_sch")
+    out, sch = schematic_generator.revision_paths(selected, output_dir)
     reset_uid_sequence()
     if unplaced:
         require_writable(os.path.join(out, UNPLACED_FILE), force, UNPLACED_REASON)
@@ -1181,7 +1178,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=tuple(REVISION_LAYOUTS), default=builder.REVISION)
+    parser.add_argument("--revision", choices=schematic_generator.GENERATION_REVISIONS, default=builder.REVISION)
     parser.add_argument("--unplaced", action="store_true",
                         help="write the revisioned unplaced project for "
                              "the autoplacer instead")
