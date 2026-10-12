@@ -192,7 +192,7 @@ struct ThrustersWhiteBox {
     effect.init();
 
     effect.on_fire_thruster();
-    HS_EXPECT_EQ(effect.thrusters.size(), size_t{2});
+    HS_EXPECT_SIZE_OR_RETURN(effect.thrusters, 2);
 
     const math::Vector a =
         azimuth_dir(effect.thrusters[0].point, effect.ring_vec);
@@ -214,7 +214,7 @@ struct ThrustersWhiteBox {
 
     effect.params.radius = 1e-7f;
     effect.on_fire_thruster();
-    HS_EXPECT_EQ(effect.thrusters.size(), size_t{2});
+    HS_EXPECT_SIZE_OR_RETURN(effect.thrusters, 2);
     HS_EXPECT_NEAR(math::dot(effect.thrusters[0].point, effect.ring_vec), 1.0f,
                    1e-6f);
     HS_EXPECT_NEAR(math::dot(effect.thrusters[1].point, effect.ring_vec), 1.0f,
@@ -256,7 +256,7 @@ struct ThrustersWhiteBox {
 
     effect.on_fire_thruster();
     effect.on_fire_thruster();
-    HS_EXPECT_EQ(effect.thrusters.size(), size_t{4});
+    HS_EXPECT_SIZE_OR_RETURN(effect.thrusters, 4);
 
     // The first fire's pair is spent; the second's has one frame left.
     effect.thrusters[0].age = Slot::LIFE;
@@ -266,7 +266,7 @@ struct ThrustersWhiteBox {
 
     effect.draw_frame();
     effect.advance_display();
-    HS_EXPECT_EQ(effect.thrusters.size(), size_t{2});
+    HS_EXPECT_SIZE_OR_RETURN(effect.thrusters, 2);
     HS_EXPECT_EQ(effect.thrusters.front().age, Slot::LIFE);
 
     effect.draw_frame();
@@ -324,7 +324,7 @@ struct DynamoWhiteBox {
     HS_EXPECT_EQ(effect.color(math::Z_AXIS * -1.0f, 0.5f).color,
                  effect.baked_palettes[0].get(0.5f).color);
     effect.color_wipe();
-    HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
+    HS_EXPECT_SIZE_OR_RETURN(effect.palette_boundaries, 2);
 
     // The newer band (index 0) overtakes the older (index 1): non-monotonic
     // order. These magnitudes also reach the second boundary and the
@@ -357,7 +357,7 @@ struct DynamoWhiteBox {
     effect.init();
     effect.color_wipe();
     effect.color_wipe();
-    HS_EXPECT_EQ(effect.palette_boundaries.size(), static_cast<size_t>(2));
+    HS_EXPECT_SIZE_OR_RETURN(effect.palette_boundaries, 2);
 
     const auto direction = [](float theta) {
       return math::Vector(std::sin(theta), 0.0f, std::cos(theta));
