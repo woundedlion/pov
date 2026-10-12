@@ -355,6 +355,8 @@ inline void test_distorted_ring_candidates_outside_poles() {
     const SDF::DistortedRing shapes[] = {
         SDF::DistortedRing(basis, 1.0f, 0.01f, knots, KNOTS, 0.0f, nullptr)};
     Scan::DistortedRingStack::CandidateTable<W, H> table;
+    for (auto &cell : table.cells)
+      cell = {17, 23};
     Scan::DistortedRingStack::build_candidate_table<W, H>(1, shapes, slots,
                                                           table);
     for (const auto &cell : table.cells)
