@@ -18,7 +18,7 @@ window frames. A display window is 62.5 ms at 480 RPM.
 
 Preset markers are 1-based except the zero-based Profile marker:
   Profile preset: <i>/<N>    Profile target
-  Preset: <i>/<N>            ChoreographedEffect + DreamBalls
+  Preset: <i>/<N>            ChoreographedEffect + DreamBalls + DisplacementField
   Shape: <i>/<N>             Archived shape markers
   Mode: <i>/<N>              SphericalHarmonics
   Spawning Shape: <name> ... IslamicStars (carries V/E/F/I)

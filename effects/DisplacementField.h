@@ -202,6 +202,15 @@ public:
     }
   }
 
+#ifdef HS_PROFILE_ENABLE
+  /** @brief Logs automatic preset transitions during profiling.
+   * @param change Committed preset transition. */
+  HS_COLD_MEMBER void preset_changed(const PresetChange &change) override {
+    hs::log("Preset: %u/%u", static_cast<unsigned>(change.to + 1),
+            static_cast<unsigned>(authored_preset_count()));
+  }
+#endif
+
 private:
   static int noise_lut_samples(float feature_scale, float sin_theta,
                                bool octave_path) {
