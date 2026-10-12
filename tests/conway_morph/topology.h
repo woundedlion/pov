@@ -39,7 +39,7 @@ struct LegDrawProbe {
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
     if (!prev_v.empty()) {
       HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
-      for (size_t i = 0; i < m.vertices.size(); ++i)
+      for (size_t i = 0; i < std::min(m.vertices.size(), prev_v.size()); ++i)
         worst_step = fold_worst(
             worst_step, math::distance_between(m.vertices[i], prev_v[i]));
     }

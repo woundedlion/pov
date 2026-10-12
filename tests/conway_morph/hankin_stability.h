@@ -425,6 +425,9 @@ inline void test_hankin_sweep_vertex_stability() {
         const float k = mode == 0 ? u : math::ease_in_out_sin(u);
         HankinStepStats row;
         if (mode == 2) {
+          HS_EXPECT_SIZE_OR_RETURN(drawn_frames[s],
+                                   compiled.static_vertices.size() +
+                                       arrival.size());
           const float shipping_k =
               Animation::OpLeg::K_EPS + (1.0f - Animation::OpLeg::K_EPS) * k;
           row.theta = site.theta_star;
