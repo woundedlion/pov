@@ -45,13 +45,6 @@ template <typename Effect> struct ComposedWhiteBox {
     return effect.transition.active;
   }
   static bool advance_preset(FX &effect) { return effect.advance_preset(); }
-  static void tick_choreography(FX &effect) { effect.step_choreography(); }
-  static void saturate_timeline(FX &effect, float &sink) {
-    while (Timeline::remaining() > 0)
-      effect.timeline.add(
-          0, Animation::Transition(sink, 1.0f, 10, math::ease_linear));
-  }
-  static void clear_timeline(FX &effect) { effect.timeline.clear(); }
   static void drive_transition(FX &effect, float progress) {
     effect.run_transition(progress);
   }
