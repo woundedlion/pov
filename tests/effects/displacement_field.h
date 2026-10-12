@@ -12,6 +12,27 @@
  * span bake, and hue-table bake.
  */
 struct DisplacementFieldWhiteBox {
+  /** @brief Denies preset advancement at one phase departure boundary.
+   * @param effect Initialized effect with no live balls.
+   * @param leaving_noise Selects the Noise departure rather than Balls. */
+  template <int W, int H>
+  static void deny_phase_advance(DisplacementField<W, H> &effect,
+                                 bool leaving_noise) {
+    effect.preset_count = 0;
+    effect.preset_index =
+        leaving_noise ? effect.NOISE_PRESET : effect.BALLS_PRESET;
+    effect.noise_hold = 0;
+    effect.master_gain = 0.0f;
+    effect.ball_phase_left = 0;
+  }
+
+  /** @brief Requests preview progress without an active frame canvas.
+   * @param effect Initialized effect with a free ball slot. */
+  template <int W, int H>
+  static void spawn_preview_without_canvas(DisplacementField<W, H> &effect) {
+    effect.spawn_ball(0.5f);
+  }
+
   template <int W, int H>
   static void start_noise_fade(DisplacementField<W, H> &effect, bool fade_out) {
     if (fade_out) {
