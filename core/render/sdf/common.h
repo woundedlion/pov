@@ -853,6 +853,18 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
 }
 
 /**
+ * @brief Builds latitude geometry for an explicit pole-to-pole virtual grid.
+ * @param virtual_height Rows spanning pole to pole.
+ * @param height Physical canvas rows.
+ * @return Latitude mapping of the physical rows onto the virtual grid.
+ */
+inline math::LatitudeGeometry virtual_grid_geometry(int virtual_height,
+                                                    int height) {
+  return math::LatitudeGeometry(
+      height, 0.0f, math::PI_F * (height - 1) / (virtual_height - 1));
+}
+
+/**
  * @brief Maps bounds using an explicit pole-to-pole virtual grid.
  * @param phi_min Lower polar-angle edge of the band (radians).
  * @param phi_max Upper polar-angle edge of the band (radians).
@@ -863,10 +875,7 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max,
                                  int virtual_height, int height) {
   return phi_bounds_to_rows(
-      phi_min, phi_max,
-      math::LatitudeGeometry(height, 0.0f,
-                             math::PI_F * (height - 1) / (virtual_height - 1)),
-      height);
+      phi_min, phi_max, virtual_grid_geometry(virtual_height, height), height);
 }
 
 /**
