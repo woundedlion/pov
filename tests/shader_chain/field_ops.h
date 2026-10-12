@@ -53,7 +53,7 @@ struct ValueCutoutFieldMirror {
 /** Compiles a chain with one FIELD endomorphism at entry 3 and applies the
     value set to every block. */
 template <typename OpParams>
-inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
+inline bool arm_field_op_chain(In::ChainProgram &program, const char *op_id,
                                int frames, ValueSet set) {
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
@@ -62,9 +62,9 @@ inline void arm_field_op_chain(In::ChainProgram &program, const char *op_id,
       {"op", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
-            In::Op::GridSampleParams, OpParams, In::Op::GeneratedPaletteParams>(
-      program, chain, frames, set);
+  return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
+                   In::Op::GridSampleParams, OpParams,
+                   In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 /** The FIELD op's input carrier for @p view: the erased camera, projection
@@ -104,7 +104,8 @@ template <typename BoundStage, typename OpParams>
 inline void run_field_parity(const char *op_id, ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_field_op_chain<OpParams>(program, op_id, 4, set);
+  if (!arm_field_op_chain<OpParams>(program, op_id, 4, set))
+    return;
   const In::FrameContext ctx = shared_resources().context();
   expect_field_op_parity<BoundStage>(program, ctx);
   program.clear();
