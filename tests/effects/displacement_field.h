@@ -43,6 +43,7 @@ struct DisplacementFieldWhiteBox {
 
   template <int W, int H>
   static void enter_balls(DisplacementField<W, H> &effect) {
+    effect.preset_index = effect.BALLS_PRESET;
     effect.enter_balls();
     effect.spawn_ball();
   }
@@ -50,6 +51,7 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static void fill_ball_pool(DisplacementField<W, H> &effect) {
     effect.params.ball_speed_min = effect.params.ball_speed_max = 3.0f;
+    effect.preset_index = effect.BALLS_PRESET;
     effect.enter_balls();
     for (int i = 0; i <= effect.MAX_BALLS; ++i)
       effect.spawn_ball();
@@ -59,8 +61,58 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
+  static int active_balls(const DisplacementField<W, H> &effect) {
+    return effect.balls.active_count();
+  }
+
+  template <int W, int H>
+  static std::vector<math::Vector> knot_positions(float theta, int knots) {
+    const math::Basis basis =
+        math::make_basis(math::Quaternion(), math::X_AXIS);
+    const float delta = 2.0f * math::PI_F / knots;
+    typename DisplacementField<W, H>::RingKnotWalk walk{
+        basis, cosf(theta), sinf(theta), cosf(delta), sinf(delta)};
+    std::vector<math::Vector> points;
+    for (int knot = 0; knot < knots; ++knot) {
+      points.push_back(walk.position());
+      walk.advance();
+    }
+    return points;
+  }
+
+  template <int W, int H>
+  static float first_ball_height(const DisplacementField<W, H> &effect) {
+    return effect.balls.active_params(0).center.y;
+  }
+
+  template <int W, int H>
+  static int ball_window(const DisplacementField<W, H> &effect) {
+    return effect.ball_phase_left;
+  }
+
+  template <int W, int H>
+  static float ball_bound(const DisplacementField<W, H> &effect) {
+    return effect.balls.field_bound();
+  }
+
+  template <int W, int H>
+  static float ball_amplitude(const DisplacementField<W, H> &effect) {
+    return effect.balls.active_params(0).amplitude;
+  }
+
+  template <int W, int H>
+  static void expire_balls(DisplacementField<W, H> &effect) {
+    effect.ball_phase_left = 0;
+  }
+
+  template <int W, int H>
+  static float color_spin(const DisplacementField<W, H> &effect) {
+    return effect.color_spin;
+  }
+
+  template <int W, int H>
   static bool in_noise(const DisplacementField<W, H> &effect) {
-    return effect.phase == DisplacementField<W, H>::Phase::NOISE;
+    return effect.getPresetIndex() == effect.NOISE_PRESET;
   }
 
   template <int W, int H, size_t N>
@@ -721,8 +773,6 @@ inline void test_displacement_field_pause_holds_phase_only() {
       HS_EXPECT_GT(GAIN, 0.0f);
       HS_EXPECT_LT(GAIN, 1.0f);
     }
-    HS_EXPECT_EQ(effect.updateParameter("Noise Amp", 0.6f),
-                 ParamSetResult::APPLIED);
     for (int frame = 0; frame < WB::fade_frames<SMALL_W, SMALL_H>() + 2;
          ++frame) {
       effect.draw_frame();
@@ -731,11 +781,174 @@ inline void test_displacement_field_pause_holds_phase_only() {
     HS_EXPECT_TRUE(WB::in_noise(effect));
     HS_EXPECT_EQ(WB::hold(effect), HOLD);
     HS_EXPECT_NEAR(WB::gain(effect), fade_out ? GAIN : 1.0f, 1e-6f);
-    HS_EXPECT_NEAR(WB::noise_amplitude(effect), 0.6f * WB::gain(effect), 1e-6f);
+
     if (fade_out) {
       effect.setAnimationsPaused(false);
       hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 2);
       HS_EXPECT_FALSE(WB::in_noise(effect));
+    }
+  }
+}
+
+/** @brief Both phases support authored defaults, navigation, pause and tuning. */
+inline void test_displacement_field_presets() {
+  using FX = DisplacementField<SMALL_W, SMALL_H>;
+  using WB = DisplacementFieldWhiteBox;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.getPresetCount(), size_t{2});
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(FX::PRESET_IDS[0], "noise");
+  HS_EXPECT_EQ(FX::PRESET_IDS[1], "balls");
+  HS_EXPECT_FALSE(effect.selectPreset(2));
+  HS_EXPECT_FALSE(effect.animations_paused());
+  HS_EXPECT_TRUE(effect.previousPreset());
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_TRUE(effect.animations_paused());
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_GT(WB::ball_bound(effect), 0.0f);
+  HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
+               ParamSetResult::APPLIED);
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_NEAR(WB::ball_amplitude(effect), 2.4f, 1e-6f);
+  const float SPIN = WB::color_spin(effect);
+  hs_test::run_frames(effect, 10);
+  HS_EXPECT_TRUE(WB::color_spin(effect) != SPIN);
+  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_NEAR(effect.getParameters().find("Ball Amp")->get(),
+                 FX::PRESETS[1].ball_amp, 1e-6f);
+  for (int repeat = 0; repeat < 100; ++repeat) {
+    HS_EXPECT_TRUE(effect.selectPreset(repeat % 2));
+  }
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  HS_EXPECT_TRUE(effect.nextPreset());
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(WB::active_balls(effect), 0);
+  HS_EXPECT_EQ(WB::gain(effect), 1.0f);
+  HS_EXPECT_TRUE(effect.synchronizePreset(1));
+  HS_EXPECT_TRUE(effect.animations_paused());
+  hs_test::run_frames(effect, 2);
+  HS_EXPECT_GE(WB::active_balls(effect), 8);
+  effect.setAnimationsPaused(false);
+  HS_EXPECT_TRUE(effect.synchronizePreset(0));
+  HS_EXPECT_FALSE(effect.animations_paused());
+  hs_test::run_frames(effect, 800);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  WB::expire_balls(effect);
+  hs_test::run_frames(effect, 200);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_TRUE(WB::in_noise(effect));
+}
+
+/** @brief Editing a departing noise preset restores its tuned field and dwell. */
+inline void test_displacement_field_edit_cancels_departure() {
+  using WB = DisplacementFieldWhiteBox;
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 1);
+  WB::start_noise_fade(effect, true);
+  hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() / 2);
+  HS_EXPECT_LT(WB::gain(effect), 1.0f);
+  effect.setAnimationsPaused(true);
+  HS_EXPECT_EQ(effect.updateParameter("Noise Amp", 0.6f),
+               ParamSetResult::APPLIED);
+  hs_test::run_frames(effect, 200);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  HS_EXPECT_EQ(WB::gain(effect), 1.0f);
+  HS_EXPECT_NEAR(WB::noise_amplitude(effect), 0.6f, 1e-6f);
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, 10);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+}
+
+/** @brief A paused Balls preset renders its tuned deformation. */
+inline void test_displacement_field_paused_balls_deform_render() {
+  const auto render = [](float amplitude) {
+    reset_effect_globals();
+    pin_frame_clock(0);
+    DisplacementField<DEFAULT_W, DEFAULT_H> effect;
+    effect.init();
+    HS_EXPECT_TRUE(effect.selectPreset(1));
+    HS_EXPECT_EQ(effect.updateParameter("Ball Amp", amplitude),
+                 ParamSetResult::APPLIED);
+    for (int frame = 0; frame < 32; ++frame) {
+      pin_frame_clock(frame);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    std::vector<Pixel> pixels;
+    capture_frame<DEFAULT_W, DEFAULT_H>(effect, pixels);
+    hs::clear_mock_time();
+    return pixels;
+  };
+  const auto plain = render(0.0f);
+  const auto deformed = render(0.6f);
+  HS_EXPECT_TRUE(plain != deformed);
+}
+
+/** @brief Preset pause holds the Balls window while falls and spawning continue. */
+inline void test_displacement_field_paused_balls_keep_moving() {
+  using WB = DisplacementFieldWhiteBox;
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  hs_test::run_frames(effect, 2);
+  const float HEIGHT = WB::first_ball_height(effect);
+  const int COUNT = WB::active_balls(effect);
+  const int WINDOW = WB::ball_window(effect);
+  hs_test::run_frames(effect, 10);
+  HS_EXPECT_LT(WB::first_ball_height(effect), HEIGHT);
+  HS_EXPECT_GT(WB::active_balls(effect), COUNT);
+  HS_EXPECT_EQ(WB::ball_window(effect), WINDOW);
+  HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
+               ParamSetResult::APPLIED);
+  hs_test::run_frames(effect, 1200);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_EQ(WB::ball_window(effect), WINDOW);
+  HS_EXPECT_GT(WB::active_balls(effect), 0);
+  HS_EXPECT_NEAR(WB::ball_amplitude(effect), 2.4f, 1e-6f);
+  WB::expire_balls(effect);
+  hs_test::run_frames(effect, 200);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
+  HS_EXPECT_GT(WB::active_balls(effect), 0);
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, 200);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+}
+
+/** @brief Knot recurrence preserves unit samples beside near-coincident balls. */
+inline void test_displacement_field_knot_walk_unit_near_ball() {
+  constexpr float THETA = 3.0f;
+  constexpr float OFFSET = 0.0015f;
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  for (int knots : {32, 144, 288}) {
+    const auto points =
+        DisplacementFieldWhiteBox::knot_positions<288, 144>(THETA, knots);
+    for (const auto &point : points) {
+      HS_EXPECT_NEAR(math::dot(point, point), 1.0f, 3e-7f);
+      const math::Vector tangent = (point - basis.v * cosf(THETA)).normalized();
+      Animation::BumpParams ball;
+      ball.axis = basis.v;
+      ball.center =
+          (basis.v * cosf(THETA + OFFSET) + tangent * sinf(THETA + OFFSET))
+              .normalized();
+      ball.radius = 0.1f;
+      ball.amplitude = 2.4f;
+      ball.envelope = 1.0f;
+      ball.sync();
+      const float shift = bump_field_with_y(point, ball, -OFFSET);
+      HS_EXPECT_TRUE(std::isfinite(shift));
+      HS_EXPECT_LE(std::fabs(shift), ball.field_bound());
     }
   }
 }

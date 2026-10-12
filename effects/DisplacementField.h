@@ -43,6 +43,22 @@ public:
       hs::effect_identities::DisplacementField::VALUE;
   /// Canonical machine ID.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
+  /** Stable preset identities, in automatic sequence order. */
+  static constexpr std::array<std::string_view, 2> PRESET_IDS{"noise", "balls"};
+  /** @return Number of authored displacement presets. */
+  static consteval size_t authored_preset_count() { return PRESET_IDS.size(); }
+
+#if HS_ENABLE_EFFECT_CONTROL_API
+  /** @brief Selects one authored preset for profiling.
+   * @param index Authored preset index. */
+  void profile_select_preset(size_t index) {
+    HS_CHECK(index < authored_preset_count(),
+             "profile preset index out of range");
+    HS_CHECK(selectPreset(index), "profile preset selection failed");
+    hs::log("Profile preset: %u/%u", static_cast<unsigned>(index),
+            static_cast<unsigned>(authored_preset_count()));
+  }
+#endif
 
   /**
    * @brief Builds the effect with its palette.
@@ -59,6 +75,7 @@ public:
    * and builds the timeline.
    */
   void init() override {
+    configure_presets(PRESET_IDS.size());
     hue_table.knots = persistent_arena.allocate_n<Pixel>(HueTable::KNOTS);
     ball_colat = persistent_arena.allocate_n<float>(MAX_BALLS);
     ball_reach = persistent_arena.allocate_n<float>(MAX_BALLS);
@@ -132,10 +149,38 @@ public:
   void draw_frame() override {
     color_spin = math::wrap_t(color_spin + COLOR_SPIN_RATE);
 
+    if (!seed_balls_pending) {
+      switch (preset_index) {
+      case BALLS_PRESET:
+        // Slider-paced spawner: the cooldown re-reads Ball Rate on every spawn.
+        if (ball_phase_left > 0 || anims_paused) {
+          if (!anims_paused)
+            --ball_phase_left;
+          spawn_cooldown -= 1.0f;
+          while (spawn_cooldown <= 0.0f) {
+            spawn_ball();
+            spawn_cooldown +=
+                hs::rand_f(0.5f, 1.5f) * BALL_RATE_FPS / params.ball_rate;
+          }
+        } else if (!anims_paused && balls.active_count() == 0) {
+          HS_CHECK(advance_preset(), "DisplacementField: noise advance failed");
+        }
+        break;
+      case NOISE_PRESET:
+        if (anims_paused)
+          break;
+        if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
+          schedule_gain(0.0f, true);
+        if (noise_hold == 0 && master_gain <= 0.0f)
+          HS_CHECK(advance_preset(), "DisplacementField: balls advance failed");
+        break;
+      }
+    }
+
     balls.template_params.amplitude =
         params.ball_amp * BALL_DRAPE_PER_AMPLITUDE;
     noise_field.template_params.amplitude =
-        phase == Phase::NOISE ? params.noise_amp * master_gain : 0.0f;
+        preset_index == NOISE_PRESET ? params.noise_amp * master_gain : 0.0f;
     noise_field.template_params.scale1 = params.scale1;
     noise_field.template_params.scale2 = params.scale2;
     noise_field.template_params.speed = params.flow_speed;
@@ -145,41 +190,15 @@ public:
       noise_field.prepare_frame();
     }
 
-    // Ball events freeze while paused and never retire, so the phase machine
-    // freezes with them.
-    if (!anims_paused) {
-      switch (phase) {
-      case Phase::BALLS:
-        // Slider-paced spawner: the cooldown re-reads Ball Rate on every spawn.
-        if (ball_phase_left > 0) {
-          --ball_phase_left;
-          spawn_cooldown -= 1.0f;
-          while (spawn_cooldown <= 0.0f) {
-            spawn_ball();
-            spawn_cooldown +=
-                hs::rand_f(0.5f, 1.5f) * BALL_RATE_FPS / params.ball_rate;
-          }
-        } else if (balls.active_count() == 0) {
-          enter_noise();
-        }
-        break;
-      case Phase::NOISE:
-        if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
-          timeline.add_pausable(0,
-                                Animation::Transition(master_gain, 0.0f,
-                                                      NOISE_FADE_FRAMES,
-                                                      math::ease_in_out_sin),
-                                &anims_paused);
-        if (noise_hold == 0 && master_gain <= 0.0f)
-          enter_balls();
-        break;
-      }
-    }
-
     Canvas canvas(*this);
     {
       HS_PROFILE(df_timeline_step);
       timeline.step(canvas);
+    }
+    if (seed_balls_pending) {
+      seed_balls_pending = false;
+      for (int i = 0; i < PREVIEW_BALLS; ++i)
+        spawn_ball((i + 1.0f) / (PREVIEW_BALLS + 1.0f), &canvas);
     }
   }
 
@@ -267,7 +286,9 @@ private:
     const float pad = 3.0f * math::PI_F / H;
     const float noise_bound = noise_field.field_bound();
 
-    const int n_balls = balls.active_count();
+    const int n_balls = preset_index == BALLS_PRESET && !seed_balls_pending
+                            ? balls.active_count()
+                            : 0;
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
@@ -477,8 +498,9 @@ private:
 
     /** @brief Unit position of the current knot. */
     __attribute__((always_inline)) math::Vector position() const {
-      return (basis.v * cos_t) +
-             ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+      return ((basis.v * cos_t) +
+              ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t)
+          .normalized();
     }
 
     /** @brief Moves to the next knot. */
@@ -655,9 +677,12 @@ private:
    * @brief Spawns one falling ball with a random meridian, footprint, and
    * speed drawn from the Speed Min/Max sliders; dropped safely if the ball pool
    * or the timeline is full.
+   * @param progress Initial fall progress; zero starts at the north pole.
+   * @param canvas Active frame canvas for nonzero initial progress.
    * @details Only the first pool-full drop of each ball phase is logged.
    */
-  HS_COLD_MEMBER void spawn_ball() {
+  HS_COLD_MEMBER void spawn_ball(float progress = 0.0f,
+                                 Canvas *canvas = nullptr) {
     balls.template_params.radius =
         hs::rand_f(std::min(params.ball_min, params.ball_max),
                    std::max(params.ball_min, params.ball_max));
@@ -669,26 +694,73 @@ private:
       logged_pool_full = true;
       hs::log("DisplacementField: ball pool full, dropping spawn");
     }
-    balls.spawn_pausable(&anims_paused, 0, orientation, STACK_AXIS,
-                         hs::rand_f(0.0f, 2.0f * math::PI_F), fall_frames);
+    auto *fall = balls.spawn(0, orientation, STACK_AXIS,
+                             hs::rand_f(0.0f, 2.0f * math::PI_F), fall_frames);
+    if (fall && progress > 0.0f) {
+      HS_CHECK(canvas != nullptr, "DisplacementField: preview needs a canvas");
+      for (int frame = 0; frame < static_cast<int>(progress * fall_frames);
+           ++frame)
+        fall->step(*canvas);
+    }
+  }
+
+  /** @brief Schedules a cancellable noise gain transition.
+   * @param target Final noise gain.
+   * @param pausable Whether preset pause holds the transition. */
+  void schedule_gain(float target, bool pausable) {
+    timeline.add_get(0,
+                     Animation::Transition(master_gain, target,
+                                           NOISE_FADE_FRAMES,
+                                           math::ease_in_out_sin),
+                     Timeline::Pin::UNPINNED,
+                     pausable ? &anims_paused : nullptr, &phase_events);
+  }
+
+  /** @brief Applies an authored row and starts its displacement mode.
+   * @param change Accepted preset change request.
+   * @return True after installing the target defaults. */
+  HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
+    params = PRESETS[change.to];
+    if (change.origin == PresetChangeOrigin::AUTOMATIC) {
+      if (change.to == NOISE_PRESET)
+        enter_noise();
+      else
+        enter_balls();
+    } else {
+      timeline.cancel_owner(&phase_events);
+      timeline.cancel_owner(&balls);
+      master_gain = change.to == NOISE_PRESET ? 1.0f : 0.0f;
+      noise_hold = NOISE_HOLD_FRAMES;
+      ball_phase_left = BALL_PHASE_FRAMES;
+      spawn_cooldown = 0.0f;
+      logged_pool_full = false;
+      seed_balls_pending = change.to == BALLS_PRESET;
+    }
+    return true;
+  }
+
+  /** @brief Cancels a departure and restarts the tuned preset dwell. */
+  HS_COLD_MEMBER void parameter_written() override {
+    timeline.cancel_owner(&phase_events);
+    noise_hold = NOISE_HOLD_FRAMES;
+    ball_phase_left = BALL_PHASE_FRAMES;
+    if (preset_index == NOISE_PRESET)
+      master_gain = 1.0f;
   }
 
   /**
    * @brief Enters the noise phase and fades it in from zero.
    */
   HS_COLD_MEMBER void enter_noise() {
-    phase = Phase::NOISE;
     master_gain = 0.0f;
     noise_hold = NOISE_HOLD_FRAMES;
-    timeline.add(0, Animation::Transition(master_gain, 1.0f, NOISE_FADE_FRAMES,
-                                          math::ease_in_out_sin));
+    schedule_gain(1.0f, false);
   }
 
   /**
    * @brief Enters the ball phase, opening a fresh spawning window.
    */
   HS_COLD_MEMBER void enter_balls() {
-    phase = Phase::BALLS;
     ball_phase_left = BALL_PHASE_FRAMES;
     spawn_cooldown = 0;
     logged_pool_full = false;
@@ -741,11 +813,15 @@ private:
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   math::Orientation<> orientation;
 
-  /** @brief Displacement-phase state: the noise field or falling balls. */
-  enum class Phase { BALLS, NOISE };
-
-  Phase phase = Phase::
-      NOISE; /**< Current displacement phase; the effect opens on noise. */
+  /** Noise row in PRESETS and PRESET_IDS. */
+  static constexpr size_t NOISE_PRESET = 0;
+  /** Balls row in PRESETS and PRESET_IDS. */
+  static constexpr size_t BALLS_PRESET = 1;
+  /** Visible falls seeded by a manual Balls selection. */
+  static constexpr int PREVIEW_BALLS = 8;
+  bool phase_events = false; ///< Lifetime token for phase gain animations.
+  bool seed_balls_pending =
+      false; ///< Selected balls seed after old events retire.
   int ball_phase_left =
       BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
   float spawn_cooldown = 0.0f; /**< Frames until the next ball spawn. */
@@ -1090,6 +1166,7 @@ private:
    *  everywhere on the ring. */
   static constexpr float BALL_TOUCH_EPS = 1e-3f;
 
+public:
   /** @brief Slider-backed parameters. */
   struct Params {
     float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
@@ -1115,7 +1192,13 @@ private:
         0.45f; /**< Slowest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
     float ball_speed_max =
         0.85f; /**< Fastest fall (pole-to-pole traversals per BALL_RATE_FPS frames). */
-  } params;
+  };
+
+  /** Authored parameter defaults for Noise and Balls. */
+  static constexpr std::array<Params, 2> PRESETS{Params{}, Params{}};
+
+private:
+  Params params = PRESETS[0];
 
   static_assert(Params{}.thickness >= 0.4f * THICKNESS_PX &&
                     Params{}.thickness <= 6.0f * THICKNESS_PX,
