@@ -275,8 +275,11 @@ inline void test_shader_chain_snapshot_refusals() {
   HS_EXPECT_EQ(effect.restore_snapshot(live),
                ChainSnapshotRestoreResult::APPLIED);
   const auto walk_time = [](const ChainSnapshot &snapshot) {
-    return std::get<In::SpatialWalkSnapshot>((*snapshot.runtime)[0].state)
-        .walk_time;
+    if (!snapshot.runtime || snapshot.runtime->empty())
+      return std::numeric_limits<float>::quiet_NaN();
+    const auto *walk =
+        std::get_if<In::SpatialWalkSnapshot>(&(*snapshot.runtime)[0].state);
+    return walk ? walk->walk_time : std::numeric_limits<float>::quiet_NaN();
   };
   HS_EXPECT_FALSE(
       float_identical(saved.parameters[0].value, live.parameters[0].value));
@@ -289,7 +292,7 @@ inline void test_shader_chain_snapshot_refusals() {
     HS_EXPECT_EQ(effect.restore_snapshot(candidate), expected);
     HS_EXPECT_EQ(effect.getParameterSchemaGeneration(), generation);
     const auto after = effect.snapshot();
-    HS_EXPECT_EQ(after.parameters.size(), live.parameters.size());
+    HS_EXPECT_SIZE_OR_RETURN(after.parameters, live.parameters.size());
     for (size_t index = 0; index < live.parameters.size(); ++index) {
       HS_EXPECT_TRUE(after.parameters[index].name ==
                      live.parameters[index].name);
