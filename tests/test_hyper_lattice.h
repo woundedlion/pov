@@ -1332,7 +1332,7 @@ inline void test_octet_trace_sorted_matches_events() {
   size_t compared = 0, lit = 0, candidate_exhausted = 0, layer_exhausted = 0;
   const auto compare = [&](const auto &events, Raycast::Interval interval,
                            const Raycast::TraceLimits &limits,
-                           const Raycast::Appearance &appearance) {
+                           const Raycast::Appearance &appearance, int budget) {
     const auto EXPECTED =
         SDF::OctetTrace::trace_events(events, interval, limits, appearance);
     const auto ACTUAL = SDF::OctetTrace::trace_sorted(events, interval, limits,
@@ -1341,8 +1341,12 @@ inline void test_octet_trace_sorted_matches_events() {
     HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
     ++compared;
     lit += EXPECTED.color != Pixel{};
-    if (EXPECTED.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
-      ++(limits.max_candidates < 16 ? candidate_exhausted : layer_exhausted);
+    if (EXPECTED.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
+      if (budget == 1)
+        ++candidate_exhausted;
+      else if (budget == 2)
+        ++layer_exhausted;
+    }
   };
   for (Domain domain : {Domain::SPATIAL_3D, Domain::SLICE_4D}) {
     HS_CONTEXT(domain == Domain::SLICE_4D ? "4d" : "3d");
@@ -1370,19 +1374,21 @@ inline void test_octet_trace_sorted_matches_events() {
         const math::Vector DIRECTION =
             math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
                 .normalized();
-        for (const Raycast::TraceLimits &limits :
-             {prepared.limits, starved_candidates, starved_layers}) {
+        const Raycast::TraceLimits budgets[] = {
+            prepared.limits, starved_candidates, starved_layers};
+        for (int budget = 0; budget < 3; ++budget) {
+          const auto &limits = budgets[budget];
           if (domain == Domain::SLICE_4D)
             compare(SDF::OctetEvents4(prepared.octet4,
                                       prepared.octet4_projection, DIRECTION,
                                       camera.radial_start, camera.interval.near,
                                       prepared.footprint),
-                    camera.interval, limits, prepared.appearance);
+                    camera.interval, limits, prepared.appearance, budget);
           else
             compare(SDF::OctetEvents(prepared.octet_projection, DIRECTION,
                                      camera.radial_start, camera.interval.near,
                                      prepared.footprint),
-                    camera.interval, limits, prepared.appearance);
+                    camera.interval, limits, prepared.appearance, budget);
         }
       }
     }
