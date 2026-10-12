@@ -101,7 +101,9 @@ template <typename Owner, typename Value = float> struct Field {
         return false;
       if (!(sample >= validation_min && sample <= validation_max))
         return false;
-      if (spec.options && sample != std::round(sample))
+      if (spec.options && sample > static_cast<float>(INT32_MIN) &&
+          sample < static_cast<float>(INT32_MAX) &&
+          sample != static_cast<float>(static_cast<int32_t>(sample)))
         return false;
       if (!spec.option_values.empty()) {
         for (const auto option : spec.option_values)
