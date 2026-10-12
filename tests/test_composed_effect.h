@@ -629,7 +629,10 @@ inline void test_mobius_grid_circular_animation() {
 
   math::MobiusParams previous = resumed;
   const size_t initial_preset = effect.getPresetIndex();
-  for (int frame = 0; frame < 1400; ++frame) {
+  const int frames =
+      FX::PRESET_DWELL_FRAMES +
+      Segue::Preset::frames(FX::preset_departure(initial_preset)) + 1;
+  for (int frame = 0; frame < frames; ++frame) {
     effect.draw_frame();
     effect.advance_display();
     const math::MobiusParams current =
