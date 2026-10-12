@@ -114,5 +114,6 @@ Preserved canonical snapshots; current architecture rankings use the dated varia
 
 For the 2026-08-26 O3 cycler captures, the parser counted the unmarked
 startup run as an extra entry 0. Their parenthesized entry counts are the
-authored preset count plus one; raw logs are no longer available to rederive
-these buckets.
+authored preset count plus one, except SphericalHarmonics, whose mode markers
+start at 1 and whose entry count equals its authored preset count. Raw logs
+are no longer available to rederive these buckets.
