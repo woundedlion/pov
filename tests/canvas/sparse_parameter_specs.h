@@ -85,6 +85,25 @@ inline void test_sparse_parameter_specs() {
   HS_EXPECT_EQ(dense.option_count, 3);
   HS_EXPECT_TRUE(dense.options == LABELS);
 
+  struct FloatParams {
+    float mode;
+  };
+  const ParamSpec<float> float_spec{.min = 0,
+                                    .max = 6,
+                                    .options = LABELS,
+                                    .option_count = 3,
+                                    .option_values = IDS};
+  const Control::Field<FloatParams> float_field{"mode", &FloatParams::mode,
+                                                "Mode", float_spec};
+  for (float id : {0.0f, 1.0f, 6.0f})
+    HS_EXPECT_TRUE(float_field.valid(FloatParams{id}));
+  for (float id : {0.5f, 2.0f, 5.6f, 7.0f})
+    HS_EXPECT_FALSE(float_field.valid(FloatParams{id}));
+  auto dense_float_field = float_field;
+  dense_float_field.spec.option_values = {};
+  HS_EXPECT_TRUE(dense_float_field.valid(FloatParams{2.0f}));
+  HS_EXPECT_FALSE(dense_float_field.valid(FloatParams{0.5f}));
+
   TestEffect fx(4, 4);
   SparseMode mode = SparseMode::SIX;
   float float_mode = 6;
