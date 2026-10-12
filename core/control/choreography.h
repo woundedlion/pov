@@ -369,7 +369,6 @@ protected:
       if (transition.active)
         return false;
       const auto *LERP = std::get_if<Segue::Preset::Lerp>(&DEPARTURE);
-      const bool *paused = !LERP || LERP->pausable ? &anims_paused : nullptr;
       const uint16_t TRANSITION_SERIAL = transition.serial + 1;
       if (timeline.add_get(0,
                            Animation::Progress(
@@ -378,7 +377,7 @@ protected:
                                    run_transition(progress);
                                },
                                FRAMES, LERP ? LERP->easing : math::ease_linear),
-                           Timeline::Pin::UNPINNED, paused) == nullptr) {
+                           Timeline::Pin::UNPINNED, &anims_paused) == nullptr) {
         preset_dwell_remaining = Derived::PRESET_DWELL_FRAMES;
         return false;
       }

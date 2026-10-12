@@ -568,20 +568,18 @@ public:
  * @details Counts transition_armed and blend_params calls and writes the blend
  * itself, so a cancelled crossfade shows up as a blend that stops writing.
  */
-template <int W, int H, bool Pausable = false, bool Animated = true>
+template <int W, int H, bool Animated = true>
 class LerpChoreoProbe
-    : public ChoreographedEffect<LerpChoreoProbe<W, H, Pausable, Animated>,
+    : public ChoreographedEffect<LerpChoreoProbe<W, H, Animated>,
                                  ChoreoProbeParams> {
   using Choreography =
-      ChoreographedEffect<LerpChoreoProbe<W, H, Pausable, Animated>,
-                          ChoreoProbeParams>;
+      ChoreographedEffect<LerpChoreoProbe<W, H, Animated>, ChoreoProbeParams>;
   friend Choreography;
 
 public:
   using Params = ChoreoProbeParams;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
-  static constexpr Segue::Preset::Lerp DEPARTURE{8, math::ease_linear,
-                                                 Pausable};
+  static constexpr Segue::Preset::Lerp DEPARTURE{8, math::ease_linear};
   static constexpr uint16_t PRESET_DWELL_FRAMES = 12;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {
       {{{0.0f}, DEPARTURE}, {{1.0f}, DEPARTURE}}};
@@ -702,7 +700,7 @@ inline void test_choreography_fade_departure() {
  */
 inline void test_choreography_lerp_transition_hooks() {
   const auto check = []<bool Animated>() {
-    using FX = LerpChoreoProbe<SMALL_W, SMALL_H, false, Animated>;
+    using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Animated>;
     reset_effect_globals();
     FX effect;
     effect.init();
@@ -721,8 +719,6 @@ inline void test_choreography_lerp_transition_hooks() {
     HS_EXPECT_GT(effect.level(), 0.0f);
     HS_EXPECT_LT(effect.level(), 1.0f);
 
-    // The manual write cancels the crossfade: the lerp keeps stepping (the policy
-    // is unpausable) but blend_params is never called again.
     const int blends = effect.blend_calls;
     HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f),
                  ParamSetResult::APPLIED);
@@ -737,24 +733,40 @@ inline void test_choreography_lerp_transition_hooks() {
   check.template operator()<false>();
 }
 
-/** @brief Choreography lerp pause policy. */
+/** @brief Pausing holds an in-flight preset blend and permits manual tuning. */
 inline void test_choreography_lerp_pause_policy() {
-  const auto check = []<bool Pausable>() {
-    using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Pausable>;
-    reset_effect_globals();
-    FX effect;
-    effect.init();
-    hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
-    const float held = effect.level();
-    HS_EXPECT_GT(held, 0.0f);
-    HS_EXPECT_LT(held, 1.0f);
-    effect.setAnimationsPaused(true);
-    hs_test::run_frames(effect, FX::DEPARTURE.frames);
-    HS_EXPECT_EQ(effect.level(), Pausable ? held : 1.0f);
-    effect.setAnimationsPaused(false);
-    hs_test::run_frames(effect, FX::DEPARTURE.frames);
-    HS_EXPECT_EQ(effect.level(), 1.0f);
-  };
-  check.template operator()<true>();
-  check.template operator()<false>();
+  using FX = LerpChoreoProbe<SMALL_W, SMALL_H>;
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  effect.setAnimationsPaused(true);
+  hs_test::run_frames(effect, 2 * FX::PRESET_DWELL_FRAMES);
+  HS_EXPECT_EQ(effect.armed_count, 0);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
+  const float held = effect.level();
+  const int blends = effect.blend_calls;
+  const size_t preset = effect.getPresetIndex();
+  HS_EXPECT_GT(held, 0.0f);
+  HS_EXPECT_LT(held, 1.0f);
+  effect.setAnimationsPaused(true);
+  hs_test::run_frames(effect, 2 * FX::PRESET_DWELL_FRAMES);
+  HS_EXPECT_EQ(effect.level(), held);
+  HS_EXPECT_EQ(effect.blend_calls, blends);
+  HS_EXPECT_EQ(effect.getPresetIndex(), preset);
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, FX::DEPARTURE.frames);
+  HS_EXPECT_EQ(effect.level(), 1.0f);
+
+  HS_EXPECT_TRUE(effect.selectPreset(0));
+  effect.setAnimationsPaused(false);
+  hs_test::run_frames(effect, FX::PRESET_DWELL_FRAMES + 3);
+  effect.setAnimationsPaused(true);
+  const int edited_blends = effect.blend_calls;
+  HS_EXPECT_EQ(effect.updateParameter("Level", 0.3f), ParamSetResult::APPLIED);
+  hs_test::run_frames(effect, 2 * FX::PRESET_DWELL_FRAMES);
+  HS_EXPECT_EQ(effect.level(), 0.3f);
+  HS_EXPECT_EQ(effect.blend_calls, edited_blends);
+  HS_EXPECT_EQ(effect.getPresetIndex(), size_t{1});
 }

@@ -77,7 +77,7 @@ Simulates the Belousov-Zhabotinsky reaction — a 3-species cyclic competition (
 
 ### GSReactionDiffusion
 
-Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates. A reaction runs until its field has all but stopped moving, then dissolves off the sphere and reseeds at fresh cluster sites with per-seed generated palettes blended by B diffusion and pigment weight, plus shared noise-driven hue shift and shimmer; editing the constants dissolves the current field too.
+Gray-Scott reaction-diffusion system (U + 2V → 3V, V → P) on a spherical mesh. Produces spots, stripes, and labyrinthine patterns depending on feed/kill rates. A reaction runs until its field has all but stopped moving, then dissolves off the sphere and reseeds at fresh cluster sites with per-seed generated palettes blended by B diffusion and pigment weight, plus shared noise-driven hue shift and shimmer; editing the constants dissolves the current field too. Pause Presets holds automatic stabilization and dissolve advancement; explicit edits still dissolve and reseed while physics and color motion continue.
 
 **Parameters**: Feed, Kill, dA, dB, Speed, Noise Speed, Noise Scale, Hue Shift, Shimmer
 
@@ -605,7 +605,7 @@ The standalone [Shader workbench](https://github.com/woundedlion/daydream/blob/m
 interprets an arbitrary compiled operator chain and registers parameters as
 `{instance}.{field-id}`. `ShaderChainBindings` owns program admission, parameter
 batches and complete versioned snapshots. Its operator clocks and generated
-palette advance while the shared authored-animation pause is set. Current snapshots restore atomically; retired effect identities and snapshot formats are rejected.
+palette advance while the shared authored-preset pause is set. Current snapshots restore atomically; retired effect identities and snapshot formats are rejected.
 
 Shipping composed effects are ordinary concrete `Effect` types. Each names one compile-time `Pullback::Pipeline`, a compact parameter and prepared-frame type, immutable stable preset IDs, and only the resources its graph uses. Its raster loop calls `Derived::shade(view, frame)` directly; there is no per-pixel function-pointer dispatch, topology lookup, family object, or universal Shader parameter block. The shared `Pullback::ComposedEffect` base contains only lifecycle work that is genuinely common: clocks, preset interpolation, parameter registration, palette/LUT ownership, narrow frame preparation, and the typed scan loop; its preset choreography and snapshot machinery come from the engine-level `ChoreographedEffect`. Generated palette evaluation remains in the shared `GenerativePalette` color stage rather than being copied into each effect.
 
@@ -751,7 +751,7 @@ values and warnings. Composed-effect preset choreography interpolates parameters
 within each effect's fixed pipeline. For these composed effects, **Pause
 Animation** stops automatic preset selection while an in-flight transition
 finishes. The chain host's operator and palette clocks keep advancing while its
-authored-animation pause is set.
+authored-preset pause is set.
 
 The simulator interprets admitted chains even when they have no promoted
 firmware match. Firmware exposes the 19 promoted fixed descriptors; a

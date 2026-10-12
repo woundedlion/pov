@@ -32,8 +32,6 @@ struct Lerp {
   uint16_t frames = 0; /**< Frames the parameter crossfade spans. */
   EasingFn easing =
       math::ease_linear; /**< Easing applied to the blend progress. */
-  bool pausable =
-      false; /**< Whether anims_paused freezes an in-flight blend. */
 };
 
 /**

@@ -127,7 +127,7 @@ public:
   /**
    * @brief Refreshes the displacement stack from the sliders, advances the
    * NOISE -> BALLS phase machine, then renders one frame.
-   * @details The phase machine holds while animations are paused.
+   * @details Preset pause holds phase departures; entry fades and ambient motion continue.
    */
   void draw_frame() override {
     color_spin = math::wrap_t(color_spin + COLOR_SPIN_RATE);
@@ -165,9 +165,11 @@ public:
         break;
       case Phase::NOISE:
         if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
-          timeline.add(0, Animation::Transition(master_gain, 0.0f,
-                                                NOISE_FADE_FRAMES,
-                                                math::ease_in_out_sin));
+          timeline.add_pausable(0,
+                                Animation::Transition(master_gain, 0.0f,
+                                                      NOISE_FADE_FRAMES,
+                                                      math::ease_in_out_sin),
+                                &anims_paused);
         if (noise_hold == 0 && master_gain <= 0.0f)
           enter_balls();
         break;
