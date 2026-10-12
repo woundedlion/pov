@@ -183,10 +183,13 @@ class DiscoveryAndCounts(unittest.TestCase):
             for candidate in candidates:
                 candidate.mkdir()
                 git_run(candidate, 'init', '-q')
-            revision = git_run(candidates[0], 'write-tree').stdout.strip()
+            (candidates[1] / "unique.txt").write_text("pinned candidate\n", encoding="utf-8")
+            git_run(candidates[1], 'add', '--', 'unique.txt')
+            git_run(candidates[1], 'commit', '-q', '-m', 'pinned tree')
+            revision = git_run(candidates[1], 'rev-parse', 'HEAD^{tree}').stdout.strip()
             with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": revision}):
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
-                    self.assertEqual(ds.discover_daydream(root), candidates[0].resolve())
+                    self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[1])}):
                     self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
                 with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": "0" * 40}):
