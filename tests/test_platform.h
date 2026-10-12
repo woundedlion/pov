@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Host FastLED/Arduino mocks in core/platform/arduino_mocks.h and RNG in
- * core/platform/rng.h, included through core/platform/platform.h.
+ * Unit tests for the host platform, test harness, debug telemetry and timers.
  */
 #pragma once
 
