@@ -17,7 +17,7 @@ namespace Raycast {
 inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
 
 /**
- * @brief Merges bounded monotone candidate streams in deterministic order.
+ * @brief Merges bounded strictly increasing candidate streams in deterministic order.
  * @details Adapter::GROUP_CAPACITY optionally bounds distinct merge identities
  * in one tolerance window; the default is STREAM_COUNT. Overflow retains the
  * buffered contributions and returns BUDGET_EXHAUSTED unless the consumer
@@ -25,7 +25,8 @@ inline constexpr float MERGE_RELATIVE_TOLERANCE = 1.0e-4f;
  * @tparam Adapter Stream source exposing STREAM_COUNT, active(), distance(),
  * candidate(), and advance().
  * @tparam Consume Callable `bool(const Contribution&)`; false stops the trace.
- * @param adapter Candidate streams, each monotone in distance.
+ * @param adapter Candidate streams whose distance() strictly increases; repeats
+ *        return INVALID_QUERY. Coincident hits must belong to different streams.
  * @param interval Parameter range; candidates before `near` are skipped.
  * @param limits Candidate and layer budgets.
  * @param consume Receives merged contributions in distance order.
