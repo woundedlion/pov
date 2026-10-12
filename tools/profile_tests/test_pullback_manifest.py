@@ -1151,6 +1151,69 @@ class CaptureComparison(unittest.TestCase):
             written, json.dumps(expanded, separators=(",", ":")) + "\n"
         )
 
+    def test_orchestrate_worktree_lifecycle(self):
+        programs, oracles, schema = generator.load_and_validate(MANIFEST_DIR)
+        base = programs["base_sha"]
+        candidate = "f" * 40 if base != "f" * 40 else "e" * 40
+        for failure in (None, "candidate-add", "build"):
+            for strict in (False, True) if failure is None else (False,):
+                with self.subTest(failure=failure, strict=strict), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    actions = []
+                    build_error = RuntimeError("build failed")
+
+                    def run(command, cwd, environment):
+                        action = command[4]
+                        name = Path(command[6] if action == "add" else command[5]).name
+                        actions.append((action, name))
+                        if failure == "candidate-add" and (action, name) == ("add", "candidate"):
+                            raise OSError("candidate add failed")
+                        if failure == "build" and action == "remove":
+                            raise OSError("remove failed")
+
+                    def produce(controller, source, build, manifest, configuration, output, environment):
+                        output.write_text(source.name + configuration, encoding="utf-8")
+
+                    with mock.patch.object(crosscheck, "load_and_validate", return_value=(programs, oracles, schema)), \
+                            mock.patch.object(crosscheck, "_run", side_effect=run), \
+                            mock.patch.object(crosscheck, "_build_capture_backend", side_effect=build_error if failure == "build" else None) as build, \
+                            mock.patch.object(crosscheck, "_produce_capture", side_effect=produce) as capture_mock, \
+                            mock.patch.object(crosscheck, "_compare_capture_paths", return_value=(strict, {"compiler": "observed"})) as compare:
+                        if failure is None:
+                            crosscheck.orchestrate(root, ROOT, base_sha=base, candidate_sha=candidate, output=root / "output")
+                            summary = json.loads((root / "output/summary.json").read_text())
+                            configurations = ["native-debug", "wasm-release"] + (["wasm-strict-fp"] if strict else [])
+                            self.assertEqual(summary["configurations"], sorted(configurations))
+                            self.assertEqual(summary["base_sha"], base)
+                            self.assertEqual(summary["candidate_sha"], candidate)
+                            self.assertEqual(summary["manifest_sha256"], crosscheck.manifest_sha256(programs, oracles, schema))
+                            self.assertEqual(summary["toolchains"], programs["toolchains"])
+                            self.assertEqual(summary["observed_toolchains"], {"compiler": "observed"})
+                            self.assertEqual(summary["capture_sha256"], {
+                                f"{name}-{configuration}.json": hashlib.sha256((name + configuration).encode()).hexdigest()
+                                for name in ("base", "candidate") for configuration in configurations
+                            })
+                            self.assertEqual(build.call_count, 2 * len(configurations))
+                            self.assertEqual(capture_mock.call_count, build.call_count)
+                            self.assertEqual(compare.call_count, 3 if strict else 2)
+                            if strict:
+                                self.assertEqual(compare.call_args.kwargs["strict_base_path"], root / "output/base-wasm-strict-fp.json")
+                                self.assertEqual(compare.call_args.kwargs["strict_candidate_path"], root / "output/candidate-wasm-strict-fp.json")
+                        elif failure == "candidate-add":
+                            with self.assertRaisesRegex(OSError, "candidate add failed"):
+                                crosscheck.orchestrate(root, ROOT, base_sha=base, candidate_sha=candidate, output=root / "output")
+                            build.assert_not_called()
+                        else:
+                            with self.assertRaises(RuntimeError) as raised:
+                                crosscheck.orchestrate(root, ROOT, base_sha=base, candidate_sha=candidate, output=root / "output")
+                            self.assertIs(raised.exception, build_error)
+                            self.assertEqual(build_error.__notes__, ["worktree cleanup also failed: remove failed"] * 2)
+                    expected = [("add", "base"), ("add", "candidate")]
+                    if failure != "candidate-add":
+                        expected.append(("remove", "candidate"))
+                    expected.append(("remove", "base"))
+                    self.assertEqual(actions, expected)
+
     def test_build_directories_are_isolated(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
