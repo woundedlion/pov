@@ -14,7 +14,8 @@
  */
 inline void test_world_trails_int16_quantization_roundtrip() {
   constexpr int Cap = 8;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
@@ -54,7 +55,8 @@ inline void test_world_trails_int16_quantization_roundtrip() {
  */
 inline void test_world_trails_clamps_out_of_range() {
   constexpr int Cap = 4;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
@@ -80,7 +82,8 @@ inline void test_world_trails_clamps_out_of_range() {
 inline void test_world_trails_capacity_evicts_one_slot() {
   constexpr int Cap = 4;
   constexpr int Overflow = 3;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
@@ -126,7 +129,8 @@ inline void test_world_trails_capacity_evicts_one_slot() {
  */
 inline void test_world_trails_ttl_expiry() {
   constexpr int Cap = 4;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/2);
   trails.init_storage(arena);
@@ -152,7 +156,8 @@ inline void test_world_trails_ttl_expiry() {
  */
 inline void test_world_trails_set_lifetime_caps_ttl() {
   constexpr int Cap = 8;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/10);
   trails.init_storage(arena);
@@ -192,7 +197,8 @@ inline void test_world_trails_set_lifetime_caps_ttl() {
  */
 inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   constexpr int Cap = 4;
-  static uint8_t buf[Cap * 16];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<Cap>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::World::Trails<Cap> trails(/*lifetime=*/100);
   trails.init_storage(arena);
@@ -259,7 +265,8 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
  */
 inline void test_screen_trails_store_emit_decay() {
   constexpr int W = 32, MAXP = 16;
-  static uint8_t buf[MAXP * 32];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::Screen::Trails<MAXP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/3);
   trails.init_storage(arena);
@@ -301,7 +308,8 @@ inline void test_screen_trails_store_emit_decay() {
  */
 inline void test_screen_trails_negative_age_clamps_t() {
   constexpr int W = 32, MAXP = 8;
-  static uint8_t buf[MAXP * 32];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::Screen::Trails<MAXP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/10);
   trails.init_storage(arena);
@@ -341,7 +349,8 @@ inline void test_screen_trails_negative_age_clamps_t() {
  */
 inline void test_screen_trails_forwards_aged_emission() {
   constexpr int W = 32, MAXP = 16;
-  static uint8_t buf[MAXP * 32];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::Screen::Trails<MAXP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/5);
   trails.init_storage(arena);
@@ -374,7 +383,8 @@ inline void test_screen_trails_forwards_aged_emission() {
  */
 inline void test_screen_trails_at_capacity_replaces_last_slot() {
   constexpr int W = 32, MAXP = 4;
-  static uint8_t buf[MAXP * 32];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::Screen::Trails<MAXP>::STORAGE_BYTES];
   Arena arena(buf, sizeof(buf));
   Filter::Screen::Trails<MAXP> trails(/*lifetime=*/100);
   trails.init_storage(arena);
@@ -475,7 +485,10 @@ inline void test_trails_alpha_gates() {
 /** @brief Drains a pipeline carrying history in both domains, world first. */
 inline void test_mixed_domain_flush_drains_both_buffers() {
   constexpr int W = 32, H = 16, CAP = 8, MAXP = 64, LIFETIME = 3;
-  static uint8_t buf[CAP * 16 + MAXP * 32];
+  alignas(std::max_align_t) static uint8_t
+      buf[Filter::World::Trails<CAP>::STORAGE_BYTES +
+          Filter::Screen::Trails<MAXP>::STORAGE_BYTES +
+          alignof(std::max_align_t) - 1];
   Arena arena(buf, sizeof(buf));
   using WorldTrails = Filter::World::Trails<CAP>;
   using ScreenTrails = Filter::Screen::Trails<MAXP>;
