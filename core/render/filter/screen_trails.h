@@ -48,8 +48,7 @@ public:
     if (new_lifetime < lifetime && points) {
       check_storage_alive();
       for (int i = 0; i < num_pixels; ++i)
-        points[i].ttl =
-            std::min(points[i].ttl, static_cast<float>(new_lifetime));
+        points[i].ttl = fminf(points[i].ttl, static_cast<float>(new_lifetime));
     }
     lifetime = new_lifetime;
   }
