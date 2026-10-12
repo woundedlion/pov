@@ -269,11 +269,7 @@ if(EMSCRIPTEN)
              CONTENT \"\${HS_ENGINE_SHA}\\n\" @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote engine provenance ${TARGET_NAME}.sha: \${HS_ENGINE_SHA}\")
 
-        # sha256sum -c manifest, one '<hash>  <filename>' line per artifact, checked
-        # from the generated directory. Covers both halves of the module: the binary and the
-        # Emscripten glue that instantiates it — stale or hand-edited glue (embind
-        # signature drift, wrong memory config) white-screens the live page against an
-        # otherwise byte-verified binary. Local provenance tests read .wasm.sha256.
+        # The sha256sum manifest records the binary and LF-normalized glue hashes.
         # Written after .sha when source identity is available.
         # The glue hash is taken over the LF-normalized copy written above.
         file(SHA256 \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.wasm\" HS_WASM_SHA256)
@@ -283,14 +279,8 @@ if(EMSCRIPTEN)
              @ONLY NEWLINE_STYLE LF)
         message(STATUS \"Wrote artifact hashes ${TARGET_NAME}.wasm.sha256: .wasm=\${HS_WASM_SHA256} .js=\${HS_GLUE_SHA256}\")
 
-        # Toolchain identity of the build event, read by local provenance tests.
+        # The .toolchain marker records compiler versions, build type and dev bindings.
         # Written after the source and hash markers above.
-        #
-        # build_type and dev_bindings record the CONFIGURATION as well as the
-        # compiler: the same source and the same emsdk produce a different module
-        # under wasm-debug (-O0, 64 KB stack, assertions) or with
-        # -DHS_WASM_DEV_BINDINGS=ON (extra exports). Without them a module built
-        # from either rides a gate that only re-verifies source and emsdk.
         file(CONFIGURE OUTPUT \"${DAYDREAM_DIR}/generated/${TARGET_NAME}.toolchain\"
              CONTENT \"emsdk ${EMSCRIPTEN_VERSION}\\nclang ${CMAKE_CXX_COMPILER_VERSION}\\nbuild_type ${CMAKE_BUILD_TYPE}\\ndev_bindings ${HS_WASM_DEV_BINDINGS_STATE}\\n\"
              @ONLY NEWLINE_STYLE LF)
