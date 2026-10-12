@@ -22,7 +22,7 @@ struct MobiusGridSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief The ranked stage pipeline.
+   * @brief Stage chain: camera rotation, Mobius lens, stereographic projection, mirror warp, twin-wave source, generated palette.
    * @tparam B The effect's Binding.
    */
   template <typename B>

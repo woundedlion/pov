@@ -22,7 +22,7 @@ struct KaleidoscopePentBrightSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief The ranked stage pipeline.
+   * @brief Stage chain: camera rotation, pentagonal-prism kaleidoscope lens, stereographic projection, polar warp, wave-shear warp, lattice source, generated palette.
    * @tparam B The effect's Binding.
    */
   template <typename B>
