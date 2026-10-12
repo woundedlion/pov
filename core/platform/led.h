@@ -55,7 +55,9 @@ inline void acquire_correction_guard() {
  * @brief Scope guard with no effect on the DMA driver's configured correction.
  */
 struct NoColorCorrection {
+  /** @brief Acquires exclusive correction guard ownership. */
   NoColorCorrection() { acquire_correction_guard(); }
+  /** @brief Releases correction guard ownership. */
   ~NoColorCorrection() { correction_guard_live() = false; }
   NoColorCorrection(const NoColorCorrection &) = delete;
   NoColorCorrection &operator=(const NoColorCorrection &) = delete;
@@ -64,7 +66,9 @@ struct NoColorCorrection {
  * @brief Scope guard with no effect on the DMA driver's configured temperature.
  */
 struct NoTempCorrection {
+  /** @brief Acquires exclusive correction guard ownership. */
   NoTempCorrection() { acquire_correction_guard(); }
+  /** @brief Releases correction guard ownership. */
   ~NoTempCorrection() { correction_guard_live() = false; }
   NoTempCorrection(const NoTempCorrection &) = delete;
   NoTempCorrection &operator=(const NoTempCorrection &) = delete;
