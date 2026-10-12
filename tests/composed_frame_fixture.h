@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Controlled composed-effect frame fixtures.
+ */
 #pragma once
 
 #include "core/render/pullback/composed_effect.h"

@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Document-built chain and composed frame parity fixtures.
+ */
 #pragma once
 
 #include "tests/test_composed_effect.h"
