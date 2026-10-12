@@ -1573,24 +1573,37 @@ inline void test_gs_dissolve_clears_and_reseeds() {
  */
 inline void test_gs_reaction_edit_starts_dissolve() {
   hs_test::reset_globals();
-  GSWhiteBox::GS gs;
-  gs.init();
-  gs.draw_frame();
-  gs.advance_display();
-  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
-
-  for (float speed : {0.1f, 1.0f}) {
-    GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, speed);
+  {
+    GSWhiteBox::GS gs;
+    gs.init();
     gs.draw_frame();
     gs.advance_display();
     HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+
+    for (float speed : {0.1f, 1.0f}) {
+      GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, speed);
+      gs.draw_frame();
+      gs.advance_display();
+      HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+    }
   }
 
-  GSWhiteBox::set_params(gs, 0.03f, 0.06f, 0.02f, 0.01f, 1.0f); // Feed moved
-  gs.draw_frame();
-  gs.advance_display();
-  HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
-            "a Feed edit did not start a dissolve");
+  for (int parameter = 0; parameter < 4; ++parameter) {
+    HS_CONTEXT("reaction parameter", parameter);
+    hs_test::reset_globals();
+    GSWhiteBox::GS edited;
+    edited.init();
+    edited.draw_frame();
+    edited.advance_display();
+    HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(edited), -1);
+    float values[] = {0.04f, 0.06f, 0.02f, 0.01f};
+    values[parameter] *= 0.75f;
+    GSWhiteBox::set_params(edited, values[0], values[1], values[2], values[3],
+                           1.0f);
+    edited.draw_frame();
+    edited.advance_display();
+    HS_EXPECT_GE(GSWhiteBox::dissolve_frame(edited), 0);
+  }
 }
 
 /** @brief Frames of synthetic mean |dB| until a dissolve starts, or -1. */
