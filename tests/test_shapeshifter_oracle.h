@@ -361,10 +361,7 @@ inline auto candidate_renderer() {
 
 /** @brief Frame energy. */
 inline uint64_t frame_energy(const OracleFrame &frame) {
-  uint64_t energy = 0;
-  for (const Pixel &pixel : frame.pixels)
-    energy += static_cast<uint64_t>(pixel.r) + pixel.g + pixel.b;
-  return energy;
+  return hs_test::frame_energy(frame.pixels);
 }
 
 /** @brief Row energy. */
