@@ -851,7 +851,7 @@ struct BoundPlaced<CodeEmission::OUT_OF_LINE_ITCM, Binding, Children...>
    * @param frame Per-frame state.
    * @param prepared Children's prepared states.
    * @return Output carrier. */
-  FASTRUN HS_NOINLINE_NOCLONE static typename Base::Output
+  HS_NOINLINE_NOCLONE static typename Base::Output
   run(const typename Base::Input &input, const typename Base::FrameState &frame,
       const typename Base::Prepared &prepared) {
     return Base::template run_children<0>(input, frame, prepared);
