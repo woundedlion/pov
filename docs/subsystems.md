@@ -4,35 +4,36 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
 
 ## Contents
 
-- [7.0 The Shader Interface](#70-the-shader-interface)
+- [The Shader Interface](#the-shader-interface)
   - [The Fragment](#the-fragment)
   - [Shader Signatures](#shader-signatures)
   - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
+  - [Composed pullback metadata](#composed-pullback-metadata)
   - [Spherical ray rendering](#spherical-ray-rendering)
-- [7.1 SDF Shapes and the Scan Rasterizer](#71-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
+- [SDF Shapes and the Scan Rasterizer](#sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
   - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
   - [Volumetric Shapes](#volumetric-shapes-sdfvolumeh)
   - [CSG Operations](#csg-operations-sdfh)
   - [Scan Rasterization Primitives](#scan-rasterization-primitives-scanh)
   - [Near-Pole Azimuthal LOD](#near-pole-azimuthal-lod)
-- [7.2 The Curve Rasterizer](#72-the-curve-rasterizer-ploth)
+- [The Curve Rasterizer](#the-curve-rasterizer-ploth)
   - [Sampling Policy](#sampling-policy)
   - [Plot Primitives](#plot-primitives)
-- [7.3 The Animation System](#73-the-animation-system-animationh)
+- [The Animation System](#the-animation-system-animationh)
   - [Animation Types](#animation-types)
   - [Orientation and Motion Blur](#orientation-and-motion-blur)
   - [OrientationTrail](#orientationtrail)
   - [VectorTrail and QuantizedVectorTrail](#vectortrail-and-quantizedvectortrail)
   - [`tween` and `deep_tween`](#tween-and-deep_tween)
   - [Animations and Mutable State](#animations-and-mutable-state)
-- [7.4 Geometry Transformers](#74-geometry-transformers-transformerh)
+- [Geometry Transformers](#geometry-transformers-transformerh)
   - [Displacement Fields](#displacement-fields)
   - [Pool Lifecycle](#pool-lifecycle)
   - [Standalone Utilities](#standalone-utilities)
-- [7.5 Memory Architecture](#75-memory-architecture-memoryh-memorycpp)
+- [Memory Architecture](#memory-architecture-memoryh-memorycpp)
   - [Compaction with `Persist<T>`](#compaction-with-persist)
   - [Additional Data Structures](#additional-data-structures)
-- [7.6 The Color System](#76-the-color-system-corecolorcolorh)
+- [The Color System](#the-color-system-corecolorcolorh)
   - [Palette Types](#palette-types)
   - [OKLCH Perceptual Color](#oklch-perceptual-color)
   - [The Gamut Boundary Grid](#the-gamut-boundary-grid)
@@ -40,24 +41,24 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [Additional Palette Types](#additional-palette-types)
   - [Recipe-Compiled Palettes](#recipe-compiled-palettes)
   - [Palette Cycling](#palette-cycling)
-- [7.7 The Mesh System](#77-the-mesh-system-coremesh)
+- [The Mesh System](#the-mesh-system-coremesh)
   - [Core MeshOps](#core-meshops-coremeshmeshh)
   - [Conway Operators](#conway-operators-conwayh)
   - [Hankin Pattern System](#hankin-pattern-system-coremeshhankinh)
   - [Solids Library](#solids-library-solidsh-solid_generatorsh)
-- [7.8 Generators](#78-generators-memoryh)
-- [7.9 The Preset System](#79-the-preset-system-controlchoreographyh)
-- [7.10 Hardware Drivers](#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
+- [Generators](#generators-memoryh)
+- [The Preset System](#the-preset-system-controlchoreographyh)
+- [Hardware Drivers](#hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)
   - [DMA LED Controller](#dma-led-controller-dma_ledh-hd107s_frameh-dma_led_coreh-dma_led_controllerh)
   - [Single-Teensy POV Driver](#single-teensy-pov-driver-pov_singleh)
   - [Multi-Teensy Segmented POV Driver](#multi-teensy-segmented-pov-driver-pov_segmentedh)
   - [Frame Sync Protocol: 1-Wire Signal Datasheet](#frame-sync-protocol-1-wire-signal-datasheet)
-- [7.11 Mathematical Kernels](#711-mathematical-kernels-coremath)
-- [7.12 Spatial Queries](#712-spatial-queries-corespatial)
+- [Mathematical Kernels](#mathematical-kernels-coremath)
+- [Spatial Queries](#spatial-queries-corespatial)
 
 ---
 
-## 7.0 The Shader Interface
+## The Shader Interface
 
 All rasterizers — SDF scanline, curve plotting, mesh, volumetric, and full-screen shader — share a common shading model based on the `Fragment` struct and two function signatures.
 
@@ -154,7 +155,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Spec` supplies a typed `Pipeline<B>` plus palette harmony and projection animation controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
-## Spherical ray rendering
+### Spherical ray rendering
 
 The reusable ray entry is [ray.h](../core/render/ray.h). `Raycast::PreparedCamera`
 embeds unit display directions in 3D or a 4D slice with world-distance near/far
@@ -189,7 +190,7 @@ event traversal, shading, and composition reside in core. Curved periodic fields
 and marched lattice/volume adapters remain explicit experiments pending resource
 admission; merely including their templates emits no registered firmware effect.
 
-## 7.1 SDF Shapes (`sdf.h`) and the Scan Rasterizer (`scan.h`)
+## SDF Shapes (`sdf.h`) and the Scan Rasterizer (`scan.h`)
 
 The rendering pipeline splits shape definitions from rasterization. `sdf.h` defines the SDF shape primitives, each implementing three methods:
 
@@ -280,7 +281,7 @@ A row at colatitude φ has horizontal pixel pitch that scales with `sin(φ)`; it
 
 The knob reaches the walk, not every primitive. `Scan::RingGroup` and `Scan::DistortedRingStack` replace the per-ring walk with one fused scan over the group's union band and shade every column of it, so raising the knob leaves them undecimated. Their equivalence to rasterizing the members one by one is stated at aggressiveness 0 for exactly that reason.
 
-## 7.2 The Curve Rasterizer (`plot.h`)
+## The Curve Rasterizer (`plot.h`)
 
 `plot.h` is an umbrella over `core/render/plot/` (`core/render/plot/cull.h`, `core/render/plot/raster.h` with its sample and planar-arc helpers in `core/render/plot/raster_walk.h`, `core/render/plot/shapes.h`, `core/render/plot/mesh.h`, `core/render/plot/particles.h`, and `core/render/plot/chords.h`). For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/planar rasterizer with adaptive step size. Each sub-step is sized from the curve's full 2-D screen-space speed (`sqrt(vx² + vy²)`, combining longitudinal and latitudinal motion), so samples land roughly one pixel apart everywhere on the curve regardless of latitude. The step is clamped to keep the equator near one sample per column and floored near the poles — where screen speed diverges — so pole oversampling stays bounded.
 
@@ -323,7 +324,7 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 | `Plot::Mesh` | Wireframe mesh rendering with edge deduplication. The dedup bitset holds `DEDUP_CAPACITY = 128` vertices; a larger mesh traps as its faces are walked — at setup for `extract_edges()`, but every frame at render time for `draw()`. Conway operators pass 128 vertices within two or three ops, so a wireframe fed from an `OpLeg` chain must keep its vertex count under the cap |
 | `Plot::ParticleSystem` | Particle trail rendering from `QuantizedVectorTrail` history |
 
-## 7.3 The Animation System (`animation.h`)
+## The Animation System (`animation.h`)
 
 The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
 
@@ -464,7 +465,7 @@ void draw_frame() {
 }
 ```
 
-## 7.4 Geometry Transformers (`transformer.h`)
+## Geometry Transformers (`transformer.h`)
 
 Transformers deform the sphere geometry before rendering. The `Transformer<ParamsT, AnimT, TransformFunc, CAPACITY>` class manages a pool of active transform instances, each with its own animated parameters:
 
@@ -510,7 +511,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 
 `OrientTransformer<CAP>` (`transformer.h`) is a plain adapter struct, not a `TransformerPool`-derived pool: it holds a reference to an `Orientation<CAP>` and applies `orientation.orient()` to each vertex. It has no pool, no params and no lifecycle — effects construct one on the stack at the call site (a deduction guide takes `CAP` from the orientation) and hand it straight to `MeshOps::transform()`.
 
-## 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
+## Memory Architecture (`memory.h`, `memory.cpp`)
 
 A single contiguous memory block (`GLOBAL_ARENA_SIZE`) is partitioned into three arena allocators. It is 298 KiB on Teensy; the WASM module widens it to 512 KiB (`HS_GLOBAL_ARENA_BYTES` in the root [CMakeLists.txt](https://github.com/woundedlion/pov/blob/master/CMakeLists.txt)), because the chain interpreter's two arenas plus `ShaderChain`'s shared color resources outgrow the device-mirrored default. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
@@ -580,7 +581,7 @@ Conway operators take `(Arena& target, Arena& temp)`, generator functions take `
 | `ArenaVector<T>` | Arena-backed vector whose capacity is fixed between `bind()` calls — appending never grows it (`push_back` traps at capacity). A `bind()` that asks for more re-reserves and abandons the old block until the arena is reset. Copy-disabled, move-enabled. Debug builds detect use-after-free via arena generation tracking. |
 | `ArenaSpan<T>` | Non-owning read-only view into an `ArenaVector` (explicit borrow) |
 
-## 7.6 The Color System (`core/color/color.h`)
+## The Color System (`core/color/color.h`)
 
 `Pixel` stores RGB channels in **16-bit linear light** (`uint16_t r, g, b` in range 0–65535). This avoids the precision loss and incorrect blending that occurs with gamma-encoded 8-bit values.
 
@@ -817,7 +818,7 @@ sizes its arena without probing. `advance_without_display()` keeps the timeline
 and the provider moving without rebuilding the LUT; a later `step()` rebuilds it
 at the current phase.
 
-## 7.7 The Mesh System (`core/mesh/`)
+## The Mesh System (`core/mesh/`)
 
 The mesh system uses these headers in `core/mesh/` and `core/render/sdf/`:
 
@@ -915,7 +916,7 @@ SolidBuilder(Platonic::dodecahedron(a, b), a, b)
     .hankin(54.0f * D2R).ambo().hankin(72.0f * D2R).build();
 ```
 
-## 7.8 Generators (`memory.h`)
+## Generators (`memory.h`)
 
 `memory.h` provides (through `core/memory/generate.h`) a generation wrapper that manages arena lifecycle around a supplied callable:
 
@@ -934,7 +935,7 @@ auto mesh = hs::generate(persistent_arena, Solids::get_by_name, std::string_view
 
 `SolidBuilder`'s fluent Conway chain (`solid_builder.h`) owns its own two-arena ping-pong, swapping the scratch arenas between operators, so it manages arena lifecycle directly rather than through `generate()`.
 
-## 7.9 The Preset System (`control/choreography.h`)
+## The Preset System (`control/choreography.h`)
 
 `ChoreographedEffect<Derived, Params>` provides the runtime preset lifecycle: an `Effect` base owning the effect's live parameter set, its preset table, and the choreography that moves between presets. `Derived` declares its presets — a `PRESETS` table (`std::array<PresetEntry<Params>, N>`) or a bound static `preset(index)` returning one entry with `PRESET_IDS` naming its rows; a `PRESETS` table may also supply `PRESET_IDS` — plus a dwell, a parameter schema version, and either `parameter_fields()` (from which the base derives `valid_params()` and `blend_params()`; a `Params::FIELDS` table supplies it) or its own `valid_params()`. Each entry pairs a parameter set with its departure, the `Segue::Preset::Departure` that carries the effect from that preset to the next:
 
@@ -954,7 +955,7 @@ Automatic transitions follow the departing preset's policy — `Segue::Preset::L
 
 Promoted composed effects also have authored shader documents under `patterns/`. `scripts/promoted_digests.test.mjs` checks the header/document/product-group roster; `scripts/generate_composed_presets.test.mjs` pins descriptor and preset-bank digests against effect headers; the runtime uses `ChoreographedEffect` to play the resulting presets.
 
-## 7.10 Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
+## Hardware Drivers (`dma_led.h`, `pov_single.h`, `pov_segmented.h`)
 
 Three hardware drivers form a layered stack. The DMA LED layer handles the SPI wire protocol across four headers: `hd107s_frame.h` (wire format and inline color correction), `dma_led_core.h` (framing, transfer length, stale-transfer predicate), `dma_led_controller.h` (double-buffer orchestration, templated on its transport) and `dma_led.h` (the Teensy SPI/DMA peripheral driver, the only Arduino-only piece). `pov_single.h` and `pov_segmented.h` sit above it and manage the POV column sweep, differing only in how many Teensys share the work; the segmented driver's ISR decisions are split into two further host-tested headers, `pov_handoff.h` and `pov_submit_gate.h`. The host-tested protocol is split across `pov_sync.h`, `pov_sync_protocol.h`, `pov_sync_flywheel.h`, `pov_sync_content.h`, and `pov_sync_emitter.h`; `pov_segment_frame.h` preserves the inactive frame half; `POVSegmented::pack_column` packs columns, and `pov_segment_map.h` owns segment-ID and physical-strip index arithmetic.
 
@@ -1257,7 +1258,7 @@ With absolute synchronized revolution counts, the construction window is identic
 The flywheel ISR maintains telemetry counters (symbols accepted / gate-rejected / discarded, beacons ok / rejected, index corrections, epochs refractory-ignored, lock transitions, flips, emissions censored / aborted, longest coast) that the foreground reports behind `hs::debug` at ≤ 1 Hz — so any degradation the protocol absorbs silently is still visible at a glance.
 
 
-## 7.11 Mathematical Kernels (`core/math/`)
+## Mathematical Kernels (`core/math/`)
 
 The math headers provide coordinate transforms and scalar fields used by the
 plot, scan, and pullback paths. They do not own a canvas or effect lifecycle.
@@ -1280,7 +1281,7 @@ Projection results carry their coordinate and validity contracts in the headers.
 The pullback policies in `core/render/pullback/` bind these kernels to effect
 parameters and frame state.
 
-## 7.12 Spatial Queries (`core/spatial/`)
+## Spatial Queries (`core/spatial/`)
 
 `kd_tree.h` provides arena-backed three-dimensional nearest-neighbor queries.
 `reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
