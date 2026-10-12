@@ -213,8 +213,7 @@ struct MeshState {
   HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst,
                                    Arena &arena) {
     HS_CHECK(&src != &dst, "MeshState::clone src must not alias dst");
-    // Reused dst may carry stale views; clone produces an owned-mode mesh.
-    dst.set_owned();
+    dst = MeshState();
     MeshOps::copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
                          arena);
     MeshOps::copy_vector(dst.face_counts, src.get_face_counts_data(),
