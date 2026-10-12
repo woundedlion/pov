@@ -410,7 +410,6 @@ add_test(NAME unit_mirrored_prune COMMAND ${CMAKE_COMMAND}
     -DTEST_ROOT=${CMAKE_CURRENT_BINARY_DIR}/mirrored_prune_fixture
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mirrored_prune.cmake)
 
-set(HS_PYTHON "${Python3_EXECUTABLE}")
 add_test(NAME unit_chain_capture_fixtures COMMAND "${Python3_EXECUTABLE}"
   "${CMAKE_CURRENT_SOURCE_DIR}/../tools/profile_tests/test_chain_capture_fixtures.py")
 
@@ -421,7 +420,7 @@ file(GLOB PULLBACK_MANIFEST_FILES CONFIGURE_DEPENDS
      ${PULLBACK_MANIFEST_DIR}/*.json)
 add_custom_command(
   OUTPUT ${PULLBACK_MANIFEST_HEADER}
-  COMMAND ${HS_PYTHON} ${HS_ROOT}/tools/generate_pullback_manifest_header.py
+  COMMAND ${Python3_EXECUTABLE} ${HS_ROOT}/tools/generate_pullback_manifest_header.py
           --manifest-dir ${PULLBACK_MANIFEST_DIR}
           --output ${PULLBACK_MANIFEST_HEADER}
   DEPENDS
@@ -462,13 +461,13 @@ add_test(NAME unit_pullback_capture_determinism
   COMMAND ${CMAKE_COMMAND}
     -DPRODUCER=$<TARGET_FILE:pullback_capture_native>
     -DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}
-    -DPYTHON=${HS_PYTHON}
+    -DPYTHON=${Python3_EXECUTABLE}
     -DCAPTURE_SCRIPT=${HS_ROOT}/tools/pullback_capture.py
     -DMANIFEST_DIR=${PULLBACK_MANIFEST_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_pullback_capture.cmake)
 # Pin core/color/color_luts.h against its generator.
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
-    -DPYTHON_EXE=${HS_PYTHON}
+    -DPYTHON_EXE=${Python3_EXECUTABLE}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
     -DCOMMITTED=${HS_ROOT}/core/color/color_luts.h
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/color_luts.generated.h
@@ -479,7 +478,7 @@ set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 # Host self-tests for tools/teensy_size_trail.py: the ELF32 section-header
 # parser and the regression classifier.
 add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
-    -DPYTHON_EXE=${HS_PYTHON}
+    -DPYTHON_EXE=${Python3_EXECUTABLE}
     -DHS_ROOT=${HS_ROOT}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_teensy_size_trail.cmake)
 
@@ -487,7 +486,7 @@ add_test(NAME unit_teensy_size_trail COMMAND ${CMAKE_COMMAND}
 # OKLab matrices and the gamut slack against core/color/color_space.h, and its
 # diamond angle against core/math/3dmath.h.
 add_test(NAME unit_gamut_lut COMMAND ${CMAKE_COMMAND}
-    -DPYTHON_EXE=${HS_PYTHON}
+    -DPYTHON_EXE=${Python3_EXECUTABLE}
     -DGENERATOR=${HS_ROOT}/tools/gen_gamut_lut.py
     -DCACHE_FILE=${CMAKE_CURRENT_BINARY_DIR}/gamut_lut_check.sha256
     -DSKIP_CODE=77 -DREQUIRE_GENERATORS=${HS_REQUIRE_GENERATORS}
@@ -552,7 +551,7 @@ _hs_sanitize(relax_bake_gen)
 
 # Pin the asset's form (banner, chunking) against the emitter.
 add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
-    -DPYTHON_EXE=${HS_PYTHON}
+    -DPYTHON_EXE=${Python3_EXECUTABLE}
     -DSCRIPT=${HS_ROOT}/tools/relax_bakes.py
     -DHARNESS=$<TARGET_FILE:relax_bake_gen>
     -DDUMP=${CMAKE_CURRENT_BINARY_DIR}/relax_bakes.dump
