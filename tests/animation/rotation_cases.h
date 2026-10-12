@@ -47,7 +47,7 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
     rot.step(fake_canvas());
   // A Z rotation sends +X toward +Y.
   math::Vector v = o.orient(math::X_AXIS, o.length() - 1);
-  HS_EXPECT_GT(v.y, 5e-4f);
+  HS_EXPECT_NEAR(v.y, sinf(0.001f), 1.1e-4f);
   HS_EXPECT_NEAR(v.x, 1.0f, 1e-3f);
 }
 
