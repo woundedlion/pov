@@ -1049,8 +1049,8 @@ private:
    *        reaches the threshold.
    * @param count Node count.
    * @param threshold Q16 render floor.
-   * @details A kernel sample is a convex average over a stencil at most one
-   * hop from the seed, so culling on !hot2[seed] is exact.
+   * @details The stencil reaches two hops from the seed via the refined
+   * center, so culling on !hot2[seed] is exact.
    */
   HS_O3_FN static void fill_hot_flags(const uint16_t *b, uint8_t *hot1,
                                       uint8_t *hot2, int count,
