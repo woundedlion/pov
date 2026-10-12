@@ -1271,8 +1271,8 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
  * @param he_mesh Connectivity for @p mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the operator's index scratch.
- * @param t Inset factor of each face toward its centroid, range-checked by the
- *   callers.
+ * @param t Inset factor of each face toward its centroid, in [0, 1);
+ *   checked before allocation.
  * @param twist Per-face rotation about the face normal, in radians.
  * @return Fresh snub PolyMesh allocated in `target`.
  * @details A face with neither a usable Newell normal nor a usable centroid

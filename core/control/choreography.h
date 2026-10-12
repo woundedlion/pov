@@ -33,10 +33,11 @@
  *
  * `Derived` must provide:
  * - `PARAMETER_SCHEMA_VERSION` and `PRESET_DWELL_FRAMES`.
- * - parameter_fields() (defaults to `Params::FIELDS`) or valid_params(params).
- * - Its presets as `PresetEntry` rows, in a `PRESETS` array or a static
- *   `preset(index)` with `PRESET_IDS` naming its rows. `PRESETS` may also
- *   supply `PRESET_IDS`. With none of these the effect has a single preset.
+ * - Parameter descriptions through the `PARAMETER_FIELDS` hook binding or
+ *   `Params::FIELDS`, or validation through the `VALID_PARAMS` hook binding.
+ * - Its presets as `PresetEntry` rows in a `PRESETS` array, or through the
+ *   `PRESET_ROW` hook binding with `PRESET_IDS` naming its rows. `PRESETS` may
+ *   also supply `PRESET_IDS`. With none of these the effect has a single preset.
  *
  * `Derived` calls `begin_choreography()` once from init() and
  * `step_choreography()` every frame.
