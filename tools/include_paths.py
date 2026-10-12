@@ -12,6 +12,12 @@ from git_files import git_nul_list
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
 CONFIG_HEADER = "core/vendor/FastNoiseLite_config.h"
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*"([^"\n]+)"', re.MULTILINE)
+FORBIDDEN_PREFIXES = {
+    "core/": ("effects/", "targets/", "workbench/", "hardware/", "tests/", "tools/"),
+    "hardware/": ("effects/", "targets/", "workbench/", "tests/"),
+    "effects/": ("targets/", "workbench/", "hardware/", "tests/"),
+    "workbench/": ("effects/", "targets/"),
+}
 COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 
 
@@ -42,6 +48,11 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
             if target is None or not target.is_relative_to(root):
                 continue
             canonical = target.relative_to(root).as_posix()
+            line = text.count("\n", 0, match.start()) + 1
+            if not name.startswith("core/vendor/") and name != "core/engine/effects_legacy.h":
+                for prefix, forbidden in FORBIDDEN_PREFIXES.items():
+                    if name.startswith(prefix) and canonical.startswith(forbidden):
+                        diagnostics.append(f'{name}:{line}: forbidden include "{canonical}" from {prefix}')
             if canonical in known and include != canonical:
                 line = text.count("\n", 0, match.start()) + 1
                 diagnostics.append(f'{name}:{line}: include "{canonical}" '
