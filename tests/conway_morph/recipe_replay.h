@@ -449,7 +449,7 @@ inline ChainPeaks replay_build_chain(const char *name,
     const size_t landed_faces = cur.face_counts.size();
     HS_EXPECT_LE(landed_faces, prev_landing->faces);
     HS_EXPECT_LE(landed_faces, MAX_FACES);
-    if (landed_faces > MAX_FACES)
+    if (landed_faces > prev_landing->faces || landed_faces > MAX_FACES)
       return peaks;
     uint8_t sprite_pal[MAX_FACES];
     for (size_t f = 0; f < landed_faces; ++f)

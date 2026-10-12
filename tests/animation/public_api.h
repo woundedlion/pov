@@ -329,15 +329,15 @@ inline void test_progress_pause_and_eased_bounds() {
   HS_EXPECT_TRUE(values.empty());
   paused = false;
   progress.step(fake_canvas());
-  HS_EXPECT_EQ(values.size(), size_t{1});
+  HS_EXPECT_SIZE_OR_RETURN(values, 1);
   HS_EXPECT_EQ(values.back(), 0.5f);
   paused = true;
   progress.step(fake_canvas());
-  HS_EXPECT_EQ(values.size(), size_t{1});
+  HS_EXPECT_SIZE_OR_RETURN(values, 1);
   paused = false;
   for (int i = 0; i < 3; ++i)
     progress.step(fake_canvas());
-  HS_EXPECT_EQ(values.size(), size_t{4});
+  HS_EXPECT_SIZE_OR_RETURN(values, 4);
   HS_EXPECT_EQ(values[1], 1.0f);
   HS_EXPECT_EQ(values[2], 1.0f);
   HS_EXPECT_EQ(values[3], 1.0f);
