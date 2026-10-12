@@ -23,6 +23,7 @@ from parts_rev13 import PARTS as REV13_PARTS
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                    B.REVISION)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
+GENERATION_REVISIONS = ("1.2", "1.3")
 
 SCH_REASON = (
     "Regeneration replaces this revision's schematic, including any KiCad\n"
@@ -31,7 +32,7 @@ SCH_REASON = (
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--revision", choices=("1.2", "1.3"), default=B.REVISION)
+    parser.add_argument("--revision", choices=GENERATION_REVISIONS, default=B.REVISION)
     parser.add_argument("--force", action="store_true",
                         help="overwrite the committed phantasm.kicad_sch")
     return parser.parse_args(argv)
@@ -80,13 +81,19 @@ def write_project(path, root_uuid="", unplaced=None):
     atomic_write_text(path, json.dumps(project, indent=2) + "\n")
 
 
-def main(force=False, revision=B.REVISION, output_dir=None):
-    if revision not in ("1.2", "1.3"):
+def revision_paths(revision, output_dir=None):
+    """Return the output directory and schematic path for a generation revision."""
+    if revision not in GENERATION_REVISIONS:
         raise ValueError(f"unsupported board revision: {revision!r}")
     out = output_dir or (OUT if revision == B.REVISION else os.path.join(
         os.path.dirname(OUT), revision))
     sch = SCH if output_dir is None and revision == B.REVISION else os.path.join(
         out, "phantasm.kicad_sch")
+    return out, sch
+
+
+def main(force=False, revision=B.REVISION, output_dir=None):
+    out, sch = revision_paths(revision, output_dir)
     # uid() keys on calling function + occurrence, so the sequence starts empty or a
     # second call in one process would renumber every generated uuid.
     reset_uid_sequence()
