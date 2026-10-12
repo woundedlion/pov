@@ -128,7 +128,7 @@ struct EffectRestoreToken {
   EffectTransitionOrigin origin = EffectTransitionOrigin::RESTORE;
   EffectRestoreCapability capability =
       EffectRestoreCapability::NONE; /**< The one field the controller reads. */
-  bool animations_paused = false; ///< Outgoing effect's animation pause state.
+  bool animations_paused = false;    ///< Outgoing effect's preset pause state.
 };
 
 /**

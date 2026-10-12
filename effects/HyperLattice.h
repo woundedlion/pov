@@ -339,8 +339,7 @@ public:
    * @return The preset's parameters and departure policy.
    */
   HS_COLD_MEMBER static constexpr PresetEntry<Params> preset(size_t index) {
-    constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin,
-                                        /*pausable=*/true};
+    constexpr Segue::Preset::Lerp MORPH{240, math::ease_in_out_sin};
     constexpr Segue::Preset::Fade FADE{240};
     const bool MORPHS = index == CUBIC_PRESET_INDEX ||
                         index == OCTET_PRESET_INDEX ||

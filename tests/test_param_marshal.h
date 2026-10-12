@@ -475,8 +475,8 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   static constexpr uint16_t PRESET_DWELL_FRAMES = 3;
   static constexpr std::array<PresetEntry<Params>, 2> PRESETS{
-      {{{2}, Segue::Preset::Lerp{2, math::ease_linear, true}},
-       {{6}, Segue::Preset::Lerp{2, math::ease_linear, true}}}};
+      {{{2}, Segue::Preset::Lerp{2, math::ease_linear}},
+       {{6}, Segue::Preset::Lerp{2, math::ease_linear}}}};
   DefaultFieldsEffect() : Base(96, 48) {}
   void init() override {
     begin_choreography();

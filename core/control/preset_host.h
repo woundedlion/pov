@@ -20,7 +20,7 @@
  * @details configure_presets() sets the preset count. Every MANUAL,
  * SYNCHRONIZED and AUTOMATIC change goes through apply_preset(), which may
  * refuse it; a RESTORED change (a cancelled fade) is reported only through
- * preset_changed(). Manual selection pauses the parameter animations;
+ * preset_changed(). Manual selection pauses preset advancement;
  * advance_preset() does not.
  */
 class PresetHost : public ParamHost {
@@ -36,7 +36,7 @@ public:
    */
   size_t getPresetIndex() const { return displayed_preset_index(); }
   /**
-   * @brief Selects a preset and pauses animations; false if refused.
+   * @brief Selects a preset and pauses advancement; false if refused.
    * @param index Preset index.
    * @return False when the change was refused.
    */
@@ -47,7 +47,7 @@ public:
     return true;
   }
   /**
-   * @brief Selects one preset without changing the animation pause state.
+   * @brief Selects one preset without changing the preset pause state.
    * @param index Preset index.
    * @return False when the change was refused.
    */

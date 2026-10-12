@@ -68,8 +68,7 @@ public:
   using Params = MindSplatterParams; ///< Live parameter struct.
 
   /** Crossfades the live parameters; pause freezes an in-flight crossfade. */
-  static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear,
-                                                 /*pausable=*/true};
+  static constexpr Segue::Preset::Lerp DEPARTURE{48, math::ease_linear};
   /// Params layout version; snapshots tagged with another are rejected.
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Frames each preset holds before its departure blend. */
