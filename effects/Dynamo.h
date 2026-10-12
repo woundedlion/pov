@@ -368,15 +368,14 @@ private:
    * @param leader Node the follower chases.
    * @param follower Node moved this step.
    * @details If moving one step would leave the gap too wide, the follower
-   *          adopts the leader's velocity and closes the slack until within
+   *          takes the shortest wrapped path toward the leader until within
    *          `gap`; otherwise it just steps once.
-   * @note The slack loop needs `leader.v != 0`; a node still at v == 0 shares
-   *       its leader's column, so the gap test is false.
    */
   void drag(Node &leader, Node &follower) {
     int dest = math::wrap(follower.x + follower.v, W);
     if (math::shortest_distance(dest, leader.x, W) > (int)params.gap) {
-      follower.v = leader.v;
+      const int D = math::wrap(leader.x - follower.x, W);
+      follower.v = (D <= W / 2) ? 1 : -1;
       while (math::shortest_distance(follower.x, leader.x, W) >
              (int)params.gap) {
         move(follower);

@@ -1050,6 +1050,7 @@ inline int run_effects_tests() {
   ThrustersWhiteBox::check_fifo_evicts_the_oldest_pair();
   ThrustersWhiteBox::check_expired_slots_retire_by_pair();
   RingShowerWhiteBox::check_radius_endpoints();
+  DynamoWhiteBox::check_gap_reduction_uses_shortest_path();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
   DynamoWhiteBox::check_wipe_band_colors();
   run_case(test_dynamo_emitted_points_counts_ring_seeds);
