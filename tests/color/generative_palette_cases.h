@@ -35,33 +35,33 @@ inline void test_generative_palette_deterministic() {
 /** @brief Effect recipe entries resolve to valid generated palettes. */
 inline void test_effect_palette_recipe_roster() {
   namespace R = EffectPaletteRecipes;
-  const float hue = PaletteRecipes::hue_turns(42);
-  const R::Preset expected[] = {
-      {"BZReactionDiffusion", false, R::bz_reaction_diffusion()},
-      {"Comets", true, R::comets(hue)},
-      {"DisplacementField / RingShower", true, R::displacement_field(hue)},
-      {"Dynamo", true, R::dynamo(hue)},
-      {"GSReactionDiffusion", true, R::gs_reaction_diffusion(hue)},
-      {"MobiusRings", true, R::mobius_rings(hue)},
-      {"Raymarch", false, R::raymarch()},
-      {"Standalone Liquid", false, R::standalone_liquid()},
-      {"Standalone Flyby", false, R::standalone_flyby()},
-      {"HyperLattice", true, R::hyper_lattice()},
-      {"MindSplatter", true, R::mind_splatter(hue)}};
+  const struct {
+    const char *name;
+    bool random_hue;
+  } expected[] = {{"BZReactionDiffusion", false},
+                  {"Comets", true},
+                  {"DisplacementField / RingShower", true},
+                  {"Dynamo", true},
+                  {"GSReactionDiffusion", true},
+                  {"MobiusRings", true},
+                  {"Raymarch", false},
+                  {"Standalone Liquid", false},
+                  {"Standalone Flyby", false},
+                  {"HyperLattice", true},
+                  {"MindSplatter", true}};
   const auto presets = R::presets();
   static_assert(std::tuple_size_v<decltype(presets)> == std::size(expected));
   for (size_t i = 0; i < presets.size(); ++i) {
     HS_EXPECT_STREQ(presets[i].name, expected[i].name);
     HS_EXPECT_EQ(presets[i].random_hue, expected[i].random_hue);
-    const GenerativePalette got(presets[i].recipe);
-    const GenerativePalette want(expected[i].recipe);
-    for (int k = 0; k <= 8; ++k) {
-      const Pixel a = got.get(k / 8.0f).color;
-      const Pixel b = want.get(k / 8.0f).color;
-      HS_EXPECT_EQ(a.r, b.r);
-      HS_EXPECT_EQ(a.g, b.g);
-      HS_EXPECT_EQ(a.b, b.b);
-    }
+    GenerativePalette palette;
+    PaletteRecipe canonical;
+    PaletteCompileStatus status;
+    HS_EXPECT_TRUE(GenerativePalette::try_compile(presets[i].recipe, palette,
+                                                  canonical, status));
+    HS_EXPECT_EQ(status.code, PaletteCompileCode::OK);
+    HS_EXPECT_EQ(status.adjustments.clamped_fields, 0u);
+    HS_EXPECT_EQ(status.adjustments.wrapped_fields, 0u);
   }
   HS_EXPECT_NEAR(presets[1].recipe.hue.base_turns,
                  PaletteRecipes::hue_turns(42), 1e-6f);
