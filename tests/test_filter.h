@@ -130,6 +130,7 @@ inline int run_filter_tests() {
   test_world_orient_slice_cull_edge_bounds_all_slices();
   test_world_vertex_replicate_fanout_and_age();
   test_world_vertex_replicate_cull_edge_mirrors_plot();
+  test_replicate_three_planar_basis_copies();
   test_pipeline_could_intersect_clip_forwards_through_stages();
   test_world_mobius_identity_and_transform();
 

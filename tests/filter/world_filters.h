@@ -526,6 +526,39 @@ inline void test_world_vertex_replicate_cull_edge_mirrors_plot() {
   }
 }
 
+/** @brief Three replicated copies rotate every planar basis axis and reach copy two. */
+inline void test_replicate_three_planar_basis_copies() {
+  constexpr int W = 32;
+  Filter::World::Replicate<W> replicate(3);
+  const math::Basis basis{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  int copies = 0;
+  const bool hit = replicate.cull_edge(
+      math::X_AXIS, math::Z_AXIS, &basis,
+      [&](const math::Vector &a, const math::Vector &b,
+          const math::Basis *forwarded) {
+        HS_EXPECT_LT(copies, 3);
+        HS_EXPECT_TRUE(forwarded != nullptr);
+        if (!forwarded || copies >= 3)
+          return false;
+        const auto rotation =
+            math::make_rotation(math::Y_AXIS, math::TWO_PI_F * copies / 3.0f);
+        const auto expected = math::rotate(basis, rotation);
+        HS_EXPECT_VEC(forwarded->u, expected.u, 1e-5f);
+        HS_EXPECT_VEC(forwarded->v, expected.v, 1e-5f);
+        HS_EXPECT_VEC(forwarded->w, expected.w, 1e-5f);
+        HS_EXPECT_VEC(a, expected.u, 1e-5f);
+        HS_EXPECT_VEC(b, expected.w, 1e-5f);
+        ++copies;
+        return math::distance_between(
+                   a, math::rotate(math::X_AXIS,
+                                   math::make_rotation(math::Y_AXIS,
+                                                       2.0f * math::TWO_PI_F /
+                                                           3.0f))) < 1e-5f;
+      });
+  HS_EXPECT_TRUE(hit);
+  HS_EXPECT_EQ(copies, 3);
+}
+
 /**
  * @brief Verifies Pipeline::could_intersect_clip walks the whole stage chain:
  *        each world stage's cull_edge feeds the next, an identity stage without
