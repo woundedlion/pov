@@ -19,6 +19,23 @@
 namespace SDF {
 
 /**
+ * @brief Converts clamped polar band edges to cosine bounds with pole sentinels.
+ * @param ang_lo Inner polar angle in radians.
+ * @param ang_hi Outer polar angle in radians.
+ * @param cos_inner Receives the inner cosine bound, or 2 at the north pole.
+ * @param cos_outer Receives the outer cosine bound, or -2 at the south pole.
+ */
+inline void band_edge_cosines(float ang_lo, float ang_hi, float &cos_inner,
+                              float &cos_outer) {
+  cos_inner = cosf(hs::clamp(ang_lo, 0.0f, math::PI_F));
+  cos_outer = cosf(hs::clamp(ang_hi, 0.0f, math::PI_F));
+  if (cos_inner == 1.0f)
+    cos_inner = 2.0f;
+  if (cos_outer == -1.0f)
+    cos_outer = -2.0f;
+}
+
+/**
  * @brief Calculates signed distance to a ring.
  * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
@@ -70,14 +87,8 @@ struct Ring {
     target_angle = radius * (math::PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
 
-    float ang_min = std::max(0.0f, target_angle - thickness);
-    float ang_max = std::min(math::PI_F, target_angle + thickness);
-    cos_max = cosf(ang_min);
-    cos_min = cosf(ang_max);
-    if (cos_max == 1.0f)
-      cos_max = 2.0f;
-    if (cos_min == -1.0f)
-      cos_min = -2.0f;
+    band_edge_cosines(target_angle - thickness, target_angle + thickness,
+                      cos_max, cos_min);
     cos_target = cosf(target_angle);
 
     bool safe_approx =
@@ -307,14 +318,9 @@ protected:
     r_val = ap.r_val;
     alpha_angle = ap.alpha_angle;
 
-    float ang_min = std::max(0.0f, target_angle - max_thickness);
-    float ang_max = std::min(math::PI_F, target_angle + max_thickness);
-    cos_max_limit = cosf(ang_min);
-    cos_min_limit = cosf(ang_max);
-    if (cos_max_limit == 1.0f)
-      cos_max_limit = 2.0f;
-    if (cos_min_limit == -1.0f)
-      cos_min_limit = -2.0f;
+    band_edge_cosines(target_angle - max_thickness,
+                      target_angle + max_thickness, cos_max_limit,
+                      cos_min_limit);
   }
 
 public:
@@ -377,16 +383,9 @@ public:
 
     max_distortion = std::max(std::abs(min_shift), std::abs(max_shift));
     max_thickness = thickness + max_distortion;
-    float ang_min =
-        hs::clamp(target_angle + min_shift - thickness, 0.0f, math::PI_F);
-    float ang_max =
-        hs::clamp(target_angle + max_shift + thickness, 0.0f, math::PI_F);
-    cos_max_limit = cosf(ang_min);
-    cos_min_limit = cosf(ang_max);
-    if (cos_max_limit == 1.0f)
-      cos_max_limit = 2.0f;
-    if (cos_min_limit == -1.0f)
-      cos_min_limit = -2.0f;
+    band_edge_cosines(target_angle + min_shift - thickness,
+                      target_angle + max_shift + thickness, cos_max_limit,
+                      cos_min_limit);
   }
 
   /**
