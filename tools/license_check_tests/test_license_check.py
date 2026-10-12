@@ -199,6 +199,27 @@ class TestMain(unittest.TestCase):
                     self.assertEqual(lc.main(["--root", "."]), 2)
                 self.assertIn(message, err.getvalue())
 
+    def test_missing_tracked_source_and_license(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True, env=isolated_env())
+            source = root / "sample.h"
+            source.write_text(POLYFORM_HEADER, encoding="utf-8")
+            license_path = root / "LICENSE"
+            license_path.write_text(LICENSE_HEADING, encoding="utf-8")
+            subprocess.run(["git", "-C", str(root), "add", "--", "sample.h"], check=True, env=isolated_env())
+            with mock.patch.object(lc, "EXCEPTIONS", {}), contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 0)
+            source.unlink()
+            with mock.patch.object(lc, "EXCEPTIONS", {}), contextlib.redirect_stdout(io.StringIO()) as out, contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lc.main(["--root", str(root)]), 1)
+            self.assertIn("sample.h:1: tracked source is unreadable", out.getvalue())
+            source.write_text(POLYFORM_HEADER, encoding="utf-8")
+            license_path.unlink()
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(lc.main(["--root", str(root)]), 2)
+            self.assertIn("tooling error: LICENSE is unreadable", err.getvalue())
+
     def test_stale_exception_is_a_failure(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -212,9 +233,10 @@ class TestMain(unittest.TestCase):
                            check=True, env=isolated_env())
             exceptions = {"retired.h": lc.RESERVED}
             with mock.patch.object(lc, "EXCEPTIONS", exceptions), \
-                    contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stdout(io.StringIO()) as out, \
                     contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(lc.main(["--root", str(root)]), 1)
+            self.assertIn("EXCEPTIONS names paths with no tracked C/C++ source: retired.h", out.getvalue())
 
 
 if __name__ == "__main__":
