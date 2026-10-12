@@ -9,15 +9,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from git_test_env import git_run, isolated_env, require_tool  # noqa: E402
+import teensy_size_trail  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks/post-commit"
 TOOL = """import json, os, pathlib, sys
+if len(sys.argv) < 2 or sys.argv[1] != 'commit':
+    raise SystemExit(2)
 pending = pathlib.Path(sys.argv[sys.argv.index('--pending') + 1])
 trail = pathlib.Path(sys.argv[sys.argv.index('--trail') + 1])
 if os.environ.get('FAIL_SIZE_TRAIL'):
     raise SystemExit(7)
-trail.write_text(json.dumps({'pending': str(pending), 'value': pending.read_text()}))
+trail.write_text(json.dumps({'pending': str(pending), 'value': pending.read_text(), 'argv': sys.argv[1:]}))
 pending.unlink()
 """
 
@@ -62,6 +65,15 @@ class PostCommitHook(unittest.TestCase):
         self.assertEqual(Path(stamp["pending"]), self.pending)
         self.assertEqual(stamp["value"], "linked capture")
         self.assertFalse((self.pending.parent / self.trail.name).exists())
+
+    def test_hook_arguments_match_size_trail_parser(self):
+        done = self.run_hook()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        stamp = json.loads(self.trail.read_text(encoding="utf-8"))
+        parsed = teensy_size_trail.build_parser().parse_args(stamp["argv"])
+        self.assertEqual(parsed.command, "commit")
+        self.assertEqual(Path(parsed.pending), self.pending)
+        self.assertEqual(Path(parsed.trail), self.trail)
 
     def test_failed_capture_keeps_pending_and_exits_zero(self):
         done = self.run_hook(FAIL_SIZE_TRAIL="1")
