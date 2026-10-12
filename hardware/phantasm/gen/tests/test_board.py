@@ -94,6 +94,21 @@ class BoardEntryPointTests(unittest.TestCase):
 
         self.assertTrue(callable(board.main))
 
+    def test_revision_paths_share_runtime_overrides_and_revision_roster(self):
+        import pcb
+        self.assertEqual(tuple(pcb.REVISION_LAYOUTS), board.GENERATION_REVISIONS)
+        with unittest.mock.patch.object(board, "OUT", "/scratch/1.2"), \
+                unittest.mock.patch.object(board, "SCH", "/scratch/custom.kicad_sch"):
+            self.assertEqual(board.revision_paths("1.2"),
+                             ("/scratch/1.2", "/scratch/custom.kicad_sch"))
+            self.assertEqual(board.revision_paths("1.3"),
+                             (os.path.join("/scratch", "1.3"),
+                              os.path.join("/scratch", "1.3", "phantasm.kicad_sch")))
+            self.assertEqual(board.revision_paths("1.2", "/explicit"),
+                             ("/explicit", os.path.join("/explicit", "phantasm.kicad_sch")))
+            with self.assertRaisesRegex(ValueError, "unsupported board revision"):
+                board.revision_paths("1.1")
+
     def test_refuses_to_overwrite_an_existing_schematic(self):
         out = self.enterContext(tempfile.TemporaryDirectory())
         sch = Path(out) / "phantasm.kicad_sch"
