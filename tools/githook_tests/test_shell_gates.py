@@ -1,6 +1,5 @@
 """Behavioral fixtures for shell selection, build, and profiling gates."""
 
-import os
 from pathlib import Path
 
 import shutil
@@ -10,7 +9,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import git_run, isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env, require_tool  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -177,10 +176,7 @@ class ShellGateTests(unittest.TestCase):
         self.assertIn("selected.sh", bad.stdout)
 
     def test_composite_steps_are_isolated_and_unsupported_scalars_fail(self):
-        if shutil.which("shellcheck") is None:
-            if os.environ.get("CI"):
-                self.fail("shellcheck is required in CI")
-            self.skipTest("shellcheck is not installed")
+        require_tool(self, "shellcheck")
         (self.root / "selected.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8", newline="\n")
         action = self.root / ".github/actions/fixture/action.yml"
         action.parent.mkdir(parents=True)
