@@ -98,11 +98,9 @@ inline void test_reconcile_bijection_wellposed() {
     float worst_chord = 0.0f;
     bool injective = true;
     for (size_t i = 0; i < V; ++i) {
-      HS_CONTEXT("i", i);
       int best = -1;
       float best_dot = -2.0f;
       for (size_t j = 0; j < V; ++j) {
-        HS_CONTEXT("j", j);
         const float d = math::dot(identity.vertices[i], authored.vertices[j]);
         if (d > best_dot) {
           best_dot = d;
