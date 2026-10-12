@@ -74,6 +74,12 @@ class Arena {
 #endif
 
 public:
+#ifndef NDEBUG
+  /** @return Maximum retained arena rewind history entries. */
+  static constexpr size_t rewind_history_capacity() {
+    return REWIND_HISTORY_CAPACITY;
+  }
+#endif
   /**
    * @brief Constructs an arena whose capacity is the whole backing buffer.
    * @param buf Pointer to the backing buffer.
