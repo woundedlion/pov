@@ -580,6 +580,7 @@ private:
    */
   HS_COLD_MEMBER void start_reaction(bool staged = false) {
     transition.dissolve_frames = -1;
+    transition.manual_dissolve = false;
     transition.grow_frames = 0;
     transition.stable_frames = 0;
     transition.next_seed = staged ? NUM_SEED_CLUSTERS / 2 : NUM_SEED_CLUSTERS;
@@ -588,8 +589,10 @@ private:
 
   /**
    * @brief Starts a dissolve at a fresh node ordering.
+   * @param manual True for a parameter edit, which proceeds while paused.
    */
-  void begin_dissolve() {
+  void begin_dissolve(bool manual = false) {
+    transition.manual_dissolve = manual;
     transition.dissolve_frames = 0;
     transition.dissolve_seed = static_cast<uint32_t>(hs::random()());
   }
@@ -628,24 +631,29 @@ private:
    * @param mean_db Mean per-node |dB| between the frame's start and end states.
    *        Substep motion that cancels over the frame reads as zero.
    * @details Dissolves when the user edits the reaction, or once the field has
-   * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
+   * stalled for STABLE_HOLD_FRAMES. Automatic progression holds while paused.
+   * Edits mid-dissolve are absorbed by the
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {
+    const bool EDITED = reaction_edited();
     if (transition.dissolve_frames >= 0) {
+      transition.manual_dissolve |= EDITED;
+      if (this->anims_paused && !transition.manual_dissolve)
+        return;
       transition.dissolve_frames++;
       convert_below(static_cast<float>(transition.dissolve_frames) /
                     DISSOLVE_FRAMES);
-      // Latch edits made mid-dissolve; this dissolve already covers them.
-      reaction_edited();
       if (transition.dissolve_frames >= DISSOLVE_FRAMES)
         start_reaction(true);
       return;
     }
-    if (reaction_edited()) {
-      begin_dissolve();
+    if (EDITED) {
+      begin_dissolve(true);
       return;
     }
+    if (this->anims_paused)
+      return;
     transition.grow_frames++;
     if (transition.grow_frames < MIN_GROW_FRAMES)
       return;
@@ -1184,10 +1192,11 @@ private:
    */
   struct Transition {
     int next_seed = NUM_SEED_CLUSTERS; /**< First cluster awaiting placement. */
-    int grow_frames = 0;        /**< Frames since this reaction was seeded. */
-    int stable_frames = 0;      /**< Consecutive sub-floor frames. */
-    int dissolve_frames = -1;   /**< Dissolve progress; -1 when inactive. */
-    uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
+    int grow_frames = 0;          /**< Frames since this reaction was seeded. */
+    int stable_frames = 0;        /**< Consecutive sub-floor frames. */
+    int dissolve_frames = -1;     /**< Dissolve progress; -1 when inactive. */
+    bool manual_dissolve = false; /**< Dissolve requested by parameter edits. */
+    uint32_t dissolve_seed = 0;   /**< Per-transition node-order hash seed. */
     /** Reaction constants as of the last frame, latched by
      *  reaction_edited(). */
     float last_feed = 0.0f, last_k = 0.0f, last_d_a = 0.0f, last_d_b = 0.0f;

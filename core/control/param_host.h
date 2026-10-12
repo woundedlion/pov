@@ -7,7 +7,7 @@
 /**
  * @file param_host.h
  * @brief ParamHost: an effect's named, GUI-editable parameters, validated
- *        writes to them, and the animation pause flag.
+ *        writes to them, and the preset pause flag.
  */
 
 #include "core/control/params.h"
@@ -124,15 +124,15 @@ public:
   }
 
   /**
-   * @brief Pause/resume the effect's parameter-driving animations.
-   * @details Animations bound to this flag stop advancing while it is set;
-   * unbound animations and unpausable preset blends keep running.
-   * @param paused True to freeze parameter-driving animations, false to resume.
+   * @brief Pause/resume automatic preset and phase advancement.
+   * @details Preset transitions and bound parameter drivers stop while it is set;
+   * rendering and unbound ambient animations keep running.
+   * @param paused True to hold presets and parameter drivers, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused = paused; }
   /**
-   * @brief Reports whether parameter-driving animations are paused.
-   * @return True if those animations are currently frozen.
+   * @brief Reports whether automatic preset advancement is paused.
+   * @return True while preset advancement is held.
    */
   bool animations_paused() const { return anims_paused; }
 

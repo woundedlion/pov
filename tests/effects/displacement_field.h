@@ -28,6 +28,11 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
+  static float noise_amplitude(const DisplacementField<W, H> &effect) {
+    return effect.noise_field.template_params.amplitude;
+  }
+
+  template <int W, int H>
   static int hold(const DisplacementField<W, H> &effect) {
     return effect.noise_hold;
   }
@@ -697,7 +702,7 @@ inline void test_displacement_field_footprint_covers_init() {
   HS_EXPECT_LE(used, DisplacementFieldWhiteBox::footprint_bytes(effect));
 }
 
-/** @brief Pause holds the noise phase while both gain fades continue. */
+/** @brief Pause holds noise departure while its entry fade remains visible. */
 inline void test_displacement_field_pause_holds_phase_only() {
   using WB = DisplacementFieldWhiteBox;
   for (bool fade_out : {false, true}) {
@@ -705,12 +710,17 @@ inline void test_displacement_field_pause_holds_phase_only() {
     DisplacementField<SMALL_W, SMALL_H> effect;
     effect.init();
     WB::start_noise_fade(effect, fade_out);
-    if (fade_out) {
-      effect.draw_frame();
-      effect.advance_display();
-    }
+    if (fade_out)
+      hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() / 2);
     effect.setAnimationsPaused(true);
     const int HOLD = WB::hold(effect);
+    const float GAIN = WB::gain(effect);
+    if (fade_out) {
+      HS_EXPECT_GT(GAIN, 0.0f);
+      HS_EXPECT_LT(GAIN, 1.0f);
+    }
+    HS_EXPECT_EQ(effect.updateParameter("Noise Amp", 0.6f),
+                 ParamSetResult::APPLIED);
     for (int frame = 0; frame < WB::fade_frames<SMALL_W, SMALL_H>() + 2;
          ++frame) {
       effect.draw_frame();
@@ -718,10 +728,11 @@ inline void test_displacement_field_pause_holds_phase_only() {
     }
     HS_EXPECT_TRUE(WB::in_noise(effect));
     HS_EXPECT_EQ(WB::hold(effect), HOLD);
-    HS_EXPECT_NEAR(WB::gain(effect), fade_out ? 0.0f : 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(WB::gain(effect), fade_out ? GAIN : 1.0f, 1e-6f);
+    HS_EXPECT_NEAR(WB::noise_amplitude(effect), 0.6f * WB::gain(effect), 1e-6f);
     if (fade_out) {
       effect.setAnimationsPaused(false);
-      effect.draw_frame();
+      hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 2);
       HS_EXPECT_FALSE(WB::in_noise(effect));
     }
   }

@@ -307,7 +307,7 @@ public:
    *         or UNSUPPORTED_RESOLUTION.
    * @details A rejected name keeps the prior effect. INSTALLED resets the clip
    *          to the full canvas and parameters to defaults; re-apply setClip()
-   *          and setParameter(). The animation pause state is retained.
+   *          and setParameter(). The preset pause state is retained.
    */
   EffectSetResult setEffect(const std::string &name) {
     const FactoryEntry *entry = nullptr;
@@ -506,8 +506,8 @@ public:
   }
 
   /**
-   * @brief Pauses or resumes the current effect's parameter animations.
-   * @param paused true to pause animations, false to resume.
+   * @brief Pauses or resumes the current effect's preset and phase advancement.
+   * @param paused true to hold presets and parameter drivers, false to resume.
    * @details Retained across effect and resolution changes and applied to the
    *          next effect when no effect is currently loaded.
    */
@@ -518,8 +518,8 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine's parameter animations are paused.
-   * @return true while animations are frozen.
+   * @brief Reports whether the engine's preset advancement is paused.
+   * @return true while preset advancement is held.
    * @details Also engaged by an APPLIED write to an animated param.
    */
   bool getAnimationsPaused() const { return binding_state->paused; }
@@ -568,7 +568,7 @@ public:
    * @param preset_id Persisted preset identity.
    * @return true when the preset was found and applied; false when no effect
    * or ID table is set, the ID is empty or unknown, or selectPreset refuses it.
-   * @details Engages the animation pause as selectPreset does. A rejected call
+   * @details Engages the preset pause as selectPreset does. A rejected call
    * leaves the preset and pause untouched.
    */
   bool selectPresetById(const std::string &preset_id) {
@@ -588,7 +588,7 @@ public:
    * @return true when the preset was applied; false when no effect is set, the
    *         index is malformed or out of range, or the effect refused the
    *         preset.
-   * @details Engages the animation pause as setAnimationsPaused(true) would.
+   * @details Engages the preset pause as setAnimationsPaused(true) would.
    *          Parameter values move with the preset; re-read them via
    *          getParamValues(). The index is a double so wrapped and NaN inputs
    *          are rejected rather than coerced.
@@ -602,7 +602,7 @@ public:
   }
 
   /**
-   * @brief Selects one preset without touching the animation pause state.
+   * @brief Selects one preset without touching the preset pause state.
    * @param index Preset to select, in [0, getPresetCount()). Must be integral;
    *        a fractional, NaN or out-of-range number is rejected.
    * @return true when the preset is the active one already or was applied;
@@ -624,7 +624,7 @@ public:
    *        animations.
    * @return true when the preset was applied; false when no effect is set, the
    *         effect has no presets, or it refused the preset.
-   * @details Same animation pause as selectPreset().
+   * @details Same preset pause as selectPreset().
    */
   bool nextPreset() {
     if (!current_effect || !current_effect->nextPreset())
@@ -638,7 +638,7 @@ public:
    *        animations.
    * @return true when the preset was applied; false when no effect is set, the
    *         effect has no presets, or it refused the preset.
-   * @details Same animation pause as selectPreset().
+   * @details Same preset pause as selectPreset().
    */
   bool previousPreset() {
     if (!current_effect || !current_effect->previousPreset())
