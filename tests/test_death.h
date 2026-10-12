@@ -2270,7 +2270,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"effects/RingShower.h", 1},
     {"effects/common/reaction_diffusion.h", 1},
     {"hardware/dma_led.h", 4},
-    {"hardware/pov_segmented.h", 9},
+    // Arduino-only segment-override boot guard and GPIO, DMA, timer invariants.
+    {"hardware/pov_segmented.h", 10},
     {"hardware/pov_single.h", 10},
     {"targets/Phantasm/phantasm_target.h", 1},
     {"targets/Profile/Profile.ino", 4},
