@@ -263,10 +263,8 @@ struct Face {
        int virtual_height, int height, const ClipRegion *clip,
        const float *azimuth_pads, float bounds_margin)
       : Face(vertices, indices, scratch,
-             math::LatitudeGeometry(height, 0.0f,
-                                    math::PI_F * (height - 1) /
-                                        (virtual_height - 1)),
-             height, clip, azimuth_pads, bounds_margin) {
+             virtual_grid_geometry(virtual_height, height), height, clip,
+             azimuth_pads, bounds_margin) {
     const math::LatitudeGeometry DISPLAY_GEOMETRY(height);
     HS_CHECK(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) &&
                  build_geometry.row_to_phi(height - 1) ==
