@@ -1696,13 +1696,13 @@ for module ownership and local validation commands.
 │       │   └── shader_documents.js Shader document import, validation, preview selection, editing, and export
 │       └── solids/             Solids tool
 │           ├── solid_build.js  WASM MeshOps orchestration: base and op-chain builds, face classes, readback
-│           ├── solid_codegen.js Op dispatch, C++ generation, saved solids, and commit queue
+│           ├── solid_codegen.js Op dispatch, C++ generation, drag-slot math, and saved-solid helpers
 │           ├── solid_geometry.js Face normals, convexity, fan and geodesic tessellation, and unique edges
 │           ├── solid_op_rows.js DOM construction for one op-chain row
 │           ├── solid_registry_codegen.js Generates the solids.h registry entry, OpStep table, and Recipe mirror
 │           ├── solid_render.js Builds face, vertex, edge, normal, and index-label scene objects from a mesh
 │           ├── solids_page.js  Page module for tools/solids.html
-│           └── solid_validation.js WASM solid-chain validation and arena usage checks
+│           └── solid_validation.js Sacrificial-module chain validation, add-op gate, and commit queue
 ├── generated/                  Installed engine outputs
 ├── tools/                      Stable public HTML entry points and tool stylesheets
 ├── styles/                     Simulator CSS and Tailwind source
