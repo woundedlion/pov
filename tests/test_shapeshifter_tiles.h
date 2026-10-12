@@ -26,6 +26,15 @@ namespace shapeshifter_tiles_tests {
 
 using namespace hs_test::shapeshifter_oracle_tests;
 
+/** @brief Restores the planar pole-run splitting flag on scope exit. */
+struct ScopedPoleRunSplit {
+  bool saved = Plot::g_planar_chords_split_pole_runs;
+  explicit ScopedPoleRunSplit(bool enabled) {
+    Plot::g_planar_chords_split_pole_runs = enabled;
+  }
+  ~ScopedPoleRunSplit() { Plot::g_planar_chords_split_pole_runs = saved; }
+};
+
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
                       const OracleClip &clip) {
   for (int y = clip.y0; y < clip.y1; ++y)
@@ -88,6 +97,7 @@ expect_segment_tiles_reconstruct_full_frame(Render render,
 }
 
 inline void test_segment_tiles_reconstruct_full_frame() {
+  ScopedPoleRunSplit scope(false);
   expect_segment_tiles_reconstruct_full_frame(reference_renderer(), false);
   expect_segment_tiles_reconstruct_full_frame(candidate_renderer(), true);
 
@@ -121,6 +131,7 @@ inline void test_segment_tiles_reconstruct_full_frame() {
  * visibility.
  */
 inline void test_star_azimuthal_cull_spans_narrow_columns() {
+  ScopedPoleRunSplit scope(false);
   const OracleClip columns[] = {{0, ORACLE_H, 0, ORACLE_W / 4},
                                 {0, ORACLE_H, ORACLE_W / 4, ORACLE_W / 2},
                                 {0, ORACLE_H, ORACLE_W / 2, 3 * ORACLE_W / 4},
@@ -148,11 +159,7 @@ inline void test_star_azimuthal_cull_spans_narrow_columns() {
 }
 
 inline void test_split_pole_runs_tiles_within_energy_budget() {
-  struct PoleRunScope {
-    bool saved = Plot::g_planar_chords_split_pole_runs;
-    ~PoleRunScope() { Plot::g_planar_chords_split_pole_runs = saved; }
-  } scope;
-  Plot::g_planar_chords_split_pole_runs = true;
+  ScopedPoleRunSplit scope(true);
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
   state.count = 288;
@@ -170,11 +177,6 @@ inline void test_split_pole_runs_tiles_within_energy_budget() {
  */
 inline int run_shapeshifter_tiles_tests() {
   ModuleFixture fixture("shapeshifter_tiles");
-  struct PoleRunScope {
-    bool saved = Plot::g_planar_chords_split_pole_runs;
-    ~PoleRunScope() { Plot::g_planar_chords_split_pole_runs = saved; }
-  } scope;
-  Plot::g_planar_chords_split_pole_runs = false;
   test_segment_tiles_reconstruct_full_frame();
   test_star_azimuthal_cull_spans_narrow_columns();
   test_split_pole_runs_tiles_within_energy_budget();
