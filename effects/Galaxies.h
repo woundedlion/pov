@@ -98,7 +98,7 @@ public:
 
     particle_system.friction = params.friction;
     particle_system.motion_cap =
-        std::max((2.0f * math::PI_F) / W, params.orbit_speed * 3.0f);
+        fmaxf((2.0f * math::PI_F) / W, params.orbit_speed * 3.0f);
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.core_mass;
     {
