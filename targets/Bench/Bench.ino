@@ -22,6 +22,22 @@ void loop();
 namespace {
 using Pattern = BenchPattern<CANVAS_W, CANVAS_H>;
 
+constexpr bool STANDALONE =
+#ifdef HS_BENCH_STANDALONE
+    true;
+#else
+    false;
+#endif
+
+constexpr int SEGMENT_ID =
+#ifdef HS_BENCH_SEGMENT_ID
+    HS_BENCH_SEGMENT_ID;
+#else
+    -1;
+#endif
+static_assert(SEGMENT_ID >= -1 && SEGMENT_ID < NUM_SEGMENTS,
+              "HS_BENCH_SEGMENT_ID must be -1 or a valid segment ID");
+
 // One display window opens per arm half-sweep.
 constexpr uint32_t WINDOWS_PER_REVOLUTION = 2;
 
@@ -49,11 +65,16 @@ FLASHMEM void setup() {
   POV::park_sync_out();
   boot_serial();
   log_reset_cause();
-  POV::begin();
+  POV::begin(SEGMENT_ID);
+  Serial.printf("[Bench] %s | ID %d (%s)\n",
+                STANDALONE ? "Standalone; sync transmitter disabled"
+                           : "Synchronized",
+                POV::segment_index(), SEGMENT_ID >= 0 ? "override" : "straps");
 }
 
 /** @brief Runs the show; never returns. */
 void loop() {
   // Never returns: runs the single-entry playlist forever.
-  POV::run_show(EFFECT_FACTORIES, &BENCH_REVOLUTIONS);
+  POV::run_show<std::size(EFFECT_FACTORIES)>(
+      EFFECT_FACTORIES, &BENCH_REVOLUTIONS, nullptr, STANDALONE);
 }

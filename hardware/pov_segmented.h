@@ -200,16 +200,24 @@ public:
   }
 
   /**
-   * @brief Hardware segment ID decoded from the GPIO straps.
+   * @brief Segment ID selected during initialization.
    * @return Segment index in [0, N); 0 is the master.
-   * @details Valid after begin() samples the straps with read_id().
+   * @details Valid after begin() applies the override or samples the straps.
    */
   static int segment_index() { return segment_id; }
 
   POVSegmented() = delete;
-  /** Initializes the transport after Arduino core startup; call once. */
-  HS_COLD_MEMBER static void begin() {
-    read_id();
+  /**
+   * @brief Initializes the transport after Arduino core startup; call once.
+   * @param segment_override Segment ID, or -1 to sample the hardware straps.
+   */
+  HS_COLD_MEMBER static void begin(int segment_override = -1) {
+    HS_CHECK(segment_override >= -1 && segment_override < N,
+             "segment ID override out of range");
+    if (segment_override < 0)
+      read_id();
+    else
+      segment_id = segment_override;
     configure_segment();
 
     led_controller.begin();
@@ -250,13 +258,15 @@ public:
    * @param stable_effect_seeds Optional RNG identity for each roster entry;
    *                           without it the per-visit stream is seeded from
    *                           the roster index alone.
+   * @param standalone Use local timing with the sync transmitter disabled.
    * @details Both optional tables must span the roster (arrays of R).
    */
   template <int R>
   [[noreturn]] static void
   run_show(const EffectFactory (&factories)[R],
            const uint32_t (*effect_revolutions)[R] = nullptr,
-           const uint64_t (*stable_effect_seeds)[R] = nullptr) {
+           const uint64_t (*stable_effect_seeds)[R] = nullptr,
+           bool standalone = false) {
     effect_factories = factories;
     effect_seed_identities =
         stable_effect_seeds ? &(*stable_effect_seeds)[0] : nullptr;
@@ -278,11 +288,12 @@ public:
     sync.configure(cfg);
 
     const bool master = (segment_id == 0);
-    if (master || HS_PHANTASM_BOARD_REV == 12) {
+    const bool timing_master = master || standalone;
+    if (timing_master || HS_PHANTASM_BOARD_REV == 12) {
       digitalWriteFast(PIN_SYNC_TX, LOW);
       pinMode(PIN_SYNC_TX, OUTPUT);
     }
-    if (!master || HS_PHANTASM_BOARD_REV == 12) {
+    if (!timing_master || HS_PHANTASM_BOARD_REV == 12) {
       pinMode(PIN_SYNC_RX, INPUT);
       // Pad hysteresis gives one interrupt per slow RC-filtered edge. pinMode
       // rewrites the pad-control register, so enable HYS afterward.
@@ -290,11 +301,11 @@ public:
     }
     // Enables the sync-bus driver; PIN_SYNC_TX must already be driven or a pad
     // keeper puts a spurious edge on the wire.
-    digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
+    digitalWriteFast(PIN_MASTER_EN, master && !standalone ? LOW : HIGH);
 
-    sync.seed(ARM_DWT_CYCCNT, master);
+    sync.seed(ARM_DWT_CYCCNT, timing_master);
 
-    if (!master) {
+    if (!timing_master) {
       attachInterrupt(digitalPinToInterrupt(PIN_SYNC_RX), sync_edge_isr,
                       RISING);
       // Above the flywheel's default 128 so the stamp is taken at the edge.
