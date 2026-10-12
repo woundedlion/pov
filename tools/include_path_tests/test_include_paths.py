@@ -28,6 +28,33 @@ class IncludePathsTests(unittest.TestCase):
                                     '#include "Arduino.h"\n'
                                     '#include "generated_fixture.h"\n'), [])
 
+    def test_forbidden_dependency_directions(self):
+        rules = {
+            "core/": ("effects/", "targets/", "workbench/", "hardware/", "tests/", "tools/"),
+            "hardware/": ("effects/", "targets/", "workbench/", "tests/"),
+            "effects/": ("targets/", "workbench/", "hardware/", "tests/"),
+            "workbench/": ("effects/", "targets/"),
+        }
+        for prefix, forbidden in rules.items():
+            for target_prefix in forbidden:
+                with self.subTest(source=prefix, target=target_prefix):
+                    source, target = prefix + "fixture.h", target_prefix + "fixture.h"
+                    for name in (source, target):
+                        (self.root / name).parent.mkdir(parents=True, exist_ok=True)
+                        (self.root / name).write_text("#pragma once\n", encoding="utf-8")
+                    self.assertEqual(include_paths.check_includes(self.root, [source, target]), [])
+                    (self.root / source).write_text(f'#include "{target}"\n', encoding="utf-8")
+                    self.assertEqual(include_paths.check_includes(self.root, [source, target]), [
+                        f'{source}:1: forbidden include "{target}" from {prefix}'])
+
+    def test_legacy_effect_and_vendor_dependency_exemptions(self):
+        target = "effects/sample.h"
+        self.check("#pragma once\n")
+        for source in ("core/engine/effects_legacy.h", include_paths.CONFIG_HEADER):
+            (self.root / source).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / source).write_text(f'#include "{target}"\n', encoding="utf-8")
+            self.assertEqual(include_paths.check_includes(self.root, [source, target]), [])
+
     def test_missing_tracked_source_is_diagnosed(self):
         diagnostics = include_paths.check_includes(self.root, self.files)
         self.assertEqual(len(diagnostics), 1)
