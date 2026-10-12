@@ -1075,6 +1075,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_pause_holds_phase_only);
   run_case(test_displacement_field_presets);
   run_case(test_displacement_field_edit_cancels_departure);
+  run_case(test_displacement_field_startup_writes_preserve_entry);
   run_case(test_displacement_field_paused_balls_deform_render);
   run_case(test_displacement_field_paused_balls_keep_moving);
   run_case(test_displacement_field_knot_walk_unit_near_ball);
