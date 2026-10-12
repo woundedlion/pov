@@ -22,12 +22,6 @@ document's `descriptor` section.
 node scripts/shader_workbench_cli.mjs descriptor patterns/example.shader.json
 ```
 
-Classify it against an effect registry and capability profile:
-
-```text
-node scripts/shader_workbench_cli.mjs classify <document> <registry> <profile>
-```
-
 Version 2 documents encode the descriptor as an ordered chain of
 `{label, operator}` entries validated against the operator catalog. Labels and
 chain order are canonical and digest-bearing, structural variation is an
@@ -64,7 +58,7 @@ Eight documents are authored directly in this directory: `ash_cloud`,
 After editing any document, run `node scripts/generate_composed_presets.mjs`
 to refresh its effect header. Documents use canonical serialization: sorted
 keys, two-space indentation and LF endings.
-`node scripts/generate_promoted_shader_documents.mjs --check` verifies that
+`node scripts/generate_promoted_shader_documents.mjs --check` verifies canonical
 serialization and generated-document freshness.
 
 The engine installs promoted pattern documents (every `source_documents` entry;
