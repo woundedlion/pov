@@ -5,7 +5,6 @@ import io
 import os
 import sys
 from pathlib import Path
-from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
 REPO_ROOT = GEN.parents[2]
@@ -51,17 +50,19 @@ GENERATES = not GENERATION_BLOCKERS
 GENERATES_REASON = "; ".join(GENERATION_BLOCKERS)
 
 
-def generate(out, unplaced=False):
-    """Run the generator into `out`; return the board path."""
-    schematic = os.path.join(out, "phantasm.kicad_sch")
-    with mock.patch.object(board, "OUT", out), \
-            mock.patch.object(board, "SCH", schematic), \
-            contextlib.redirect_stdout(io.StringIO()):
-        board.main(force=True)
-    with mock.patch.object(pcb, "OUT", out), \
-            mock.patch.object(pcb, "SCH", schematic), \
-            contextlib.redirect_stdout(io.StringIO()):
-        pcb.main(unplaced=unplaced, force=True, force_teensy_library=True)
+def generate_schematic(out, revision=board.B.REVISION):
+    """Generate a schematic into `out`; return its path."""
+    with contextlib.redirect_stdout(io.StringIO()):
+        board.main(force=True, revision=revision, output_dir=str(out))
+    return os.path.join(out, "phantasm.kicad_sch")
+
+
+def generate(out, unplaced=False, revision=board.B.REVISION):
+    """Generate a schematic and board into `out`; return the board path."""
+    generate_schematic(out, revision=revision)
+    with contextlib.redirect_stdout(io.StringIO()):
+        pcb.main(unplaced=unplaced, force=True, force_teensy_library=True,
+                 revision=revision, output_dir=str(out))
     return os.path.join(out, pcb.UNPLACED_FILE if unplaced else pcb.DRAFT_FILE)
 
 
