@@ -67,9 +67,10 @@ template <typename Owner, typename Value = float> struct Field {
   Value Owner::*member;  ///< Described member of Owner.
   const char *name;      ///< GUI label; null skips registration.
   ParamSpec<Value> spec; ///< Registration range and options.
-  /// Interpolation curve; non-float fields support MIDPOINT and SNAP only.
-  FieldCurve curve = std::is_same_v<Value, float> ? FieldCurve::RAW_LINEAR
-                                                  : FieldCurve::MIDPOINT;
+  /// Interpolation curve; discrete (non-float or option-bearing) fields support MIDPOINT and SNAP only.
+  FieldCurve curve = std::is_same_v<Value, float> && spec.options == nullptr
+                         ? FieldCurve::RAW_LINEAR
+                         : FieldCurve::MIDPOINT;
   bool interpolated = true; ///< False leaves the member out of interpolate().
   bool validated = true;    ///< False makes valid() always true.
   /// Lowest value valid() accepts.
@@ -80,9 +81,9 @@ template <typename Owner, typename Value = float> struct Field {
   /** @return Whether `curve` is supported for Value. */
   constexpr bool curve_supported() const {
     if constexpr (std::is_same_v<Value, float>)
-      return true;
-    else
-      return curve == FieldCurve::MIDPOINT || curve == FieldCurve::SNAP;
+      if (spec.options == nullptr)
+        return true;
+    return curve == FieldCurve::MIDPOINT || curve == FieldCurve::SNAP;
   }
 
   /**
@@ -230,7 +231,7 @@ template <typename Owner, typename Value, typename Fields>
 FieldGroup(Value Owner::*, Fields) -> FieldGroup<Owner, Value, Fields>;
 
 /**
- * @brief Whether every non-float field uses MIDPOINT or SNAP.
+ * @brief Whether every discrete (non-float or option-bearing) field uses MIDPOINT or SNAP.
  * @param fields Tuple of Field or FieldGroup descriptions.
  * @return True when every field's curve is supported.
  */
