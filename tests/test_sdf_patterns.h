@@ -547,13 +547,11 @@ inline void test_octet4_nearest_edge_matches_line_search() {
         for (int w = -8; w <= 8; ++w)
           VERIFY.template operator()<true>(
               {{x * 0.125f, y * 0.125f, z * 0.125f, w * 0.125f}});
-  uint32_t state = 0x19770425;
+  hs::Pcg32 random{0x19770425};
   for (int sample = 0; sample < 10000; ++sample) {
     math::Vec4 point;
     for (int axis = 0; axis < 4; ++axis) {
-      state = state * 1664525u + 1013904223u;
-      point[axis] =
-          static_cast<float>(state >> 8) * (20.0f / 16777216.0f) - 10.0f;
+      point[axis] = rand_uniform(random, -10, 10);
     }
     VERIFY.template operator()<false>(point);
   }
@@ -618,11 +616,7 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
         u[j] = s * 0.70710678118654752;
         classes[2 * pair + (s > 0)] = {u, 2 * pair + (s > 0)};
       }
-  uint32_t state = 0x2545f491u;
-  const auto uniform = [&state] {
-    state = state * 1664525u + 1013904223u;
-    return static_cast<float>(state >> 8) * (2.0f / 16777216.0f) - 1.0f;
-  };
+  hs::Pcg32 random{0x2545f491u};
   size_t covered = 0;
   size_t odd = 0;
   std::array<size_t, 12> by_class{};
@@ -636,13 +630,14 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
       math::Vec4 direction;
       float length2 = 0.0f;
       for (int k = 0; k < 4; ++k) {
-        direction[k] = uniform();
+        direction[k] = rand_uniform(random, -1, 1);
         length2 += direction[k] * direction[k];
       }
       math::Vec4 origin;
       for (int k = 0; k < 4; ++k) {
         direction[k] /= sqrtf(length2);
-        origin[k] = geometry.origin[k] + 3.0f * cell_size * uniform();
+        const float offset = rand_uniform(random, -1, 1);
+        origin[k] = geometry.origin[k] + 3.0f * cell_size * offset;
       }
       const float NEAR = static_cast<float>(ray % 3) * 0.37f * cell_size;
       const Raycast::Interval INTERVAL{NEAR, NEAR + 6.0f * cell_size};

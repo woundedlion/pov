@@ -579,28 +579,25 @@ struct ShellMarchCase {
   float cell, radius, far, near_fade, angular, radial_start;
 };
 
-struct ShellRandom {
-  uint32_t state;
-  float operator()(float low, float high) {
-    state = state * 1664525u + 1013904223u;
-    return low + (high - low) * static_cast<float>(state >> 8) * 0x1p-24f;
-  }
-};
-
 inline Raycast::PreparedCamera shell_camera(const ShellMarchCase &settings,
-                                            ShellRandom &uniform,
+                                            hs::Pcg32 &random,
                                             Raycast::SamplingDomain domain) {
   Raycast::PreparedCamera camera;
   camera.domain = domain;
-  camera.center = {{uniform(-2, 2), uniform(-2, 2), uniform(-2, 2), 0}};
+  const float x = rand_uniform(random, -2, 2);
+  const float y = rand_uniform(random, -2, 2);
+  const float z = rand_uniform(random, -2, 2);
+  camera.center = {{x, y, z, 0}};
   const int dimensions = domain == Raycast::SamplingDomain::SLICE_4D ? 4 : 3;
   if (dimensions == 4)
-    camera.center[3] = uniform(-2, 2);
+    camera.center[3] = rand_uniform(random, -2, 2);
   camera.radial_start = settings.radial_start;
   camera.interval = {0, settings.far};
   for (int a = 0; a < dimensions; ++a)
-    for (int b = a + 1; b < dimensions; ++b)
-      math::rotate_plane(camera.embedding, a, b, uniform(0, 6.3f));
+    for (int b = a + 1; b < dimensions; ++b) {
+      const float angle = rand_uniform(random, 0, 6.3f);
+      math::rotate_plane(camera.embedding, a, b, angle);
+    }
   return camera;
 }
 
@@ -625,11 +622,11 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
   Arena arena(buffer.data(), buffer.size());
   BakedPaletteStorage palette;
   palette.bake(arena, GradientPalette{});
-  ShellRandom uniform{seed};
+  hs::Pcg32 random{seed};
   int compared = 0, hits = 0, mismatched = 0;
   for (const auto &settings : cases) {
     for (int frame = 0; frame < frames; ++frame) {
-      const auto camera = camera_setup(settings, uniform);
+      const auto camera = camera_setup(settings, random);
       const auto prepared = SDF::prepare_periodic_shells(
           camera, settings.cell, settings.radius,
           {settings.angular, settings.radial_start});
@@ -639,9 +636,10 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
       const Raycast::TraceLimits limits;
       SDF::ShellLayerStorage layers;
       for (int ray = 0; ray < 200; ++ray) {
-        const math::Vector direction =
-            math::Vector{uniform(-1, 1), uniform(-1, 1), uniform(-1, 1)}
-                .normalized();
+        const float x = rand_uniform(random, -1, 1);
+        const float y = rand_uniform(random, -1, 1);
+        const float z = rand_uniform(random, -1, 1);
+        const math::Vector direction = math::Vector{x, y, z}.normalized();
         const auto cells = SDF::shade_periodic_shells(
             prepared, camera, direction, limits, appearance);
         const auto march =
@@ -674,7 +672,7 @@ inline void test_shell_layer_march_matches_cell_traversal() {
                                   {.6f, .2f, 6, 1, .01f, 0}};
   compare_shell_march(
       CASES, 0x5e11u, 24,
-      [](const ShellMarchCase &settings, ShellRandom &random) {
+      [](const ShellMarchCase &settings, hs::Pcg32 &random) {
         return shell_camera(settings, random,
                             Raycast::SamplingDomain::SPATIAL_3D);
       },
@@ -705,7 +703,7 @@ inline void test_shell_neighbor_march_matches_cell_traversal() {
                                   {1, .4f, 6, 1, .01f, 0}};
   compare_shell_march(
       CASES, 0x3d7e11u, 16,
-      [](const ShellMarchCase &settings, ShellRandom &random) {
+      [](const ShellMarchCase &settings, hs::Pcg32 &random) {
         return shell_camera(settings, random,
                             Raycast::SamplingDomain::SPATIAL_3D);
       },
@@ -723,7 +721,7 @@ inline void test_shell_march_uses_footprint_radial_start() {
   const ShellMarchCase OWNER[] = {{1, .1f, 4, .5f, .03f, 7}};
   const ShellMarchCase NEIGHBORS[] = {{1, .1f, 5, .5f, .04f, 12}};
   const auto camera_setup = [](const ShellMarchCase &settings,
-                               ShellRandom &random) {
+                               hs::Pcg32 &random) {
     auto camera =
         shell_camera(settings, random, Raycast::SamplingDomain::SPATIAL_3D);
     camera.radial_start = 0;
@@ -744,7 +742,7 @@ inline void test_shell_march_uses_footprint_radial_start() {
       SDF::trace_periodic_shells_march<3>);
   compare_shell_march(
       NEIGHBORS, 0xf009u, 16,
-      [](const ShellMarchCase &settings, ShellRandom &random) {
+      [](const ShellMarchCase &settings, hs::Pcg32 &random) {
         auto camera =
             shell_camera(settings, random, Raycast::SamplingDomain::SLICE_4D);
         camera.radial_start = 0;
@@ -768,7 +766,7 @@ inline void test_shell_slice_march_matches_cell_traversal() {
                                   {1, .45f, 4, .5f, 0, 0}};
   compare_shell_march(
       CASES, 0x4d511u, 24,
-      [](const ShellMarchCase &settings, ShellRandom &random) {
+      [](const ShellMarchCase &settings, hs::Pcg32 &random) {
         return shell_camera(settings, random,
                             Raycast::SamplingDomain::SLICE_4D);
       },
