@@ -336,14 +336,14 @@ private:
       const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
       const math::Vector position = p.get_position();
       const float cos_distance = math::dot(position, galaxy.core);
-      const float hole =
-          cos_distance < cos_hole
-              ? 1.0f
-              : math::quintic_kernel(
-                    math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-                    HOLE_FADE_RADIUS);
-      const float head_fade =
-          math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
+      float hole = 1.0f;
+      float head_fade = 1.0f;
+      if (cos_distance >= cos_hole) {
+        hole = math::quintic_kernel(
+            math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
+            HOLE_FADE_RADIUS);
+        head_fade = math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
+      }
       const float age = max_life - static_cast<float>(p.life);
       const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
       const float fade_out =
