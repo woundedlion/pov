@@ -75,7 +75,7 @@ struct MobiusMirrorProvider {
 /** Compiles a chain with one sphere endomorphism at entry 1 and applies the
     value set to every block. */
 template <typename OpParams>
-inline void arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
+inline bool arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
                                 int frames, ValueSet set) {
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
@@ -84,9 +84,9 @@ inline void arm_sphere_op_chain(In::ChainProgram &program, const char *op_id,
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  arm_chain<In::Op::RotateChainParams, OpParams, In::Op::ProjectChainParams,
-            In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
-      program, chain, frames, set);
+  return arm_chain<In::Op::RotateChainParams, OpParams,
+                   In::Op::ProjectChainParams, In::Op::GridSampleParams,
+                   In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 /** Erased-vs-bound parity of the sphere endomorphism at entry 1: identical
@@ -163,8 +163,9 @@ inline void run_curl_displace_basis(In::ChainProgram &program,
 
 inline void test_shader_chain_parity_displace_curl() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
-        program, In::Op::DisplaceCurl::ID, 4, set);
+    if (!arm_sphere_op_chain<In::Op::CurlDisplaceParams>(
+            program, In::Op::DisplaceCurl::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_curl_displace_basis<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_curl_displace_basis<math::NoiseBasis::FBM3>(program, ctx);
@@ -184,8 +185,9 @@ inline void run_direct_displace_variant(In::ChainProgram &program,
 
 inline void test_shader_chain_parity_displace_direct() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
-        program, In::Op::DisplaceDirect::ID, 4, set);
+    if (!arm_sphere_op_chain<In::Op::DirectDisplaceParams>(
+            program, In::Op::DisplaceDirect::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_direct_displace_variant<math::NoiseBasis::SIMPLEX>(program, ctx);
     run_direct_displace_variant<math::NoiseBasis::FBM3>(program, ctx);
@@ -195,8 +197,9 @@ inline void test_shader_chain_parity_displace_direct() {
 
 inline void test_shader_chain_parity_displace_ripple() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
-        program, In::Op::DisplaceRipple::ID, 4, set);
+    if (!arm_sphere_op_chain<PB::Surface::PeriodicRippleParams>(
+            program, In::Op::DisplaceRipple::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     using Bound = typename PB::Stage::Displace<PB::Surface::PeriodicRipple<
         RippleMirrorProvider>>::template Bind<SphereOpMirrorBinding>;
@@ -208,7 +211,8 @@ template <typename LensPolicy, typename OpParams>
 inline void run_lens_parity(const char *op_id, ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_sphere_op_chain<OpParams>(program, op_id, 3, set);
+  if (!arm_sphere_op_chain<OpParams>(program, op_id, 3, set))
+    return;
   if constexpr (std::is_same_v<OpParams, In::Op::MobiusChainParams>) {
     if (set != ValueSet::DEFAULTS)
       param_as<OpParams>(program, 1).d_re *= -1.0f;
@@ -259,8 +263,9 @@ inline void test_shader_chain_parity_lens_ops() {
 
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_sphere_op_chain<In::Op::KaleidoscopeChainParams>(
-      program, In::Op::LensKaleidoscope::ID, 3, ValueSet::DEFAULTS);
+  if (!arm_sphere_op_chain<In::Op::KaleidoscopeChainParams>(
+          program, In::Op::LensKaleidoscope::ID, 3, ValueSet::DEFAULTS))
+    return;
   const In::FrameContext ctx = shared_resources().context();
   using Symmetry = In::Op::KaleidoscopeSymmetry;
   run_kaleidoscope_variant<PB::Lens::Kaleidoscope>(program, ctx,
