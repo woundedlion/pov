@@ -83,15 +83,16 @@ inline void test_transition_repeat_retraverses_each_cycle() {
   const int duration = 4;
   tl.add(0, Animation::Transition(v, 10.0f, duration, math::ease_linear,
                                   {.repeat = true}));
-  for (int i = 0; i < duration; ++i)
+  std::array<float, duration> first_cycle{};
+  for (int i = 0; i < duration; ++i) {
     tl.step(fake_canvas());
-  HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
-
-  tl.step(fake_canvas());
-  HS_EXPECT_LT(v, 10.0f);
-  for (int i = 1; i < duration; ++i)
+    first_cycle[i] = v;
+  }
+  HS_EXPECT_NEAR(v, 10.0f, 1e-5f);
+  for (int i = 0; i < duration; ++i) {
     tl.step(fake_canvas());
-  HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
+    HS_EXPECT_NEAR(v, first_cycle[i], 1e-5f);
+  }
 }
 
 /**
