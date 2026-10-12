@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """End-to-end tests for the glob-discovered test-suite non-empty guard."""
 
-import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -10,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import isolated_env  # noqa: E402
+from git_test_env import isolated_env, require_tool  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 CHECK = REPO / "tools" / "require_test_files.sh"
@@ -21,10 +19,7 @@ ENV = {**isolated_env(), "MSYS": "noglob"}
 
 class RequireTestFiles(unittest.TestCase):
     def setUp(self):
-        if shutil.which("bash") is None:
-            if os.environ.get("CI"):
-                self.fail("Bash shell required in CI")
-            self.skipTest("no Bash shell")
+        require_tool(self, "bash")
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)
         self.tree = Path(tmp.name)

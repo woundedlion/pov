@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """End-to-end tests for the staged pre-commit gates."""
 
-import os
 import shutil
 import subprocess
 import sys
@@ -10,7 +9,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from git_test_env import git_run, isolated_env  # noqa: E402
+from git_test_env import git_run, isolated_env, require_tool  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 HOOK = REPO / ".githooks" / "pre-commit"
@@ -18,10 +17,7 @@ HOOK = REPO / ".githooks" / "pre-commit"
 
 class PreCommitHook(unittest.TestCase):
     def setUp(self):
-        if shutil.which("sh") is None:
-            if os.environ.get("CI"):
-                self.fail("POSIX shell required in CI")
-            self.skipTest("no POSIX shell")
+        require_tool(self, "sh")
         tmp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(tmp.cleanup)
         self.repo = Path(tmp.name)
@@ -71,10 +67,7 @@ class PreCommitHook(unittest.TestCase):
         return formatter
 
     def test_python_uses_staged_lint_configuration(self):
-        if shutil.which("ruff") is None:
-            if os.environ.get("CI"):
-                self.fail("ruff is required in CI")
-            self.skipTest("ruff unavailable")
+        require_tool(self, "ruff")
         config = self.repo / "ruff.toml"
         config.write_text('lint.select = ["F401"]\n', encoding="utf-8", newline="\n")
         self.git("add", "ruff.toml")
@@ -107,10 +100,7 @@ class PreCommitHook(unittest.TestCase):
         self.assertIn("SNAPSHOT_FORMAT_GATE", done.stdout + done.stderr)
 
     def test_python_lints_temporary_commit_indexes(self):
-        if shutil.which("ruff") is None:
-            if os.environ.get("CI"):
-                self.fail("ruff is required in CI")
-            self.skipTest("ruff unavailable")
+        require_tool(self, "ruff")
         source = self.repo / "sample.py"
         source.write_bytes(b"value = 1\n")
         self.git("add", "sample.py")
@@ -188,10 +178,7 @@ class PreCommitHook(unittest.TestCase):
         self.assertNotIn("Traceback", done.stdout + done.stderr)
 
     def profile_fixture(self):
-        if shutil.which("node") is None:
-            if os.environ.get("CI"):
-                self.fail("node is required in CI")
-            self.skipTest("node unavailable")
+        require_tool(self, "node")
         scripts = self.repo / "scripts"
         scripts.mkdir()
         for name in ["check_profiles.mjs", "effect_roster.mjs", "exit.mjs"]:
@@ -318,10 +305,7 @@ class PreCommitHook(unittest.TestCase):
         self.assertIn("node_modules is missing", done.stdout + done.stderr)
 
     def test_shell_lint_reads_the_index(self):
-        if shutil.which("shellcheck") is None:
-            if os.environ.get("CI"):
-                self.fail("shellcheck is required in CI")
-            self.skipTest("shellcheck unavailable")
+        require_tool(self, "shellcheck")
         script = self.repo / "sample.sh"
         script.write_text('#!/bin/sh\nprintf "%s" $1\n', encoding="utf-8", newline="\n")
         self.git("add", "sample.sh")
