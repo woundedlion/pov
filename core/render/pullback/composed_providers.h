@@ -77,7 +77,8 @@ template <typename FrameT> struct Binding {
   using Instrumentation = Pullback::NoInstrumentation; ///< Uninstrumented.
 };
 
-/** @brief Supplies the camera orientation to Pullback::Stage::Rotate. */
+/** @brief Supplies the camera orientation to Pullback::Stage::Rotate.
+ * @tparam BindingT Frame binding of the effect. */
 template <typename BindingT> struct OuterCameraProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
@@ -93,6 +94,7 @@ template <typename BindingT> struct OuterCameraProvider {
 /**
  * @brief Supplies the projection frame and its parameters to the
  *        Pullback::Projection policies.
+ * @tparam BindingT Frame binding of the effect.
  */
 template <typename BindingT> struct ProjectionProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
@@ -120,7 +122,9 @@ template <typename BindingT> struct ProjectionProvider {
   }
 };
 
-/** @brief Supplies the Mobius coefficients to Pullback::Lens::Mobius. */
+/** @brief Supplies the Mobius coefficients to Pullback::Lens::Mobius.
+ * @tparam BindingT Frame binding of the effect.
+ * @tparam Key Lens resource key. */
 template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
@@ -133,7 +137,12 @@ template <typename BindingT, ResourceKey Key = "lens"> struct LensProvider {
   }
 };
 
-/** @brief Supplies parameters, clock and noise of one planar warp instance. */
+/** @brief Supplies parameters, clock and noise of one planar warp instance.
+ * @tparam BindingT Frame binding of the effect.
+ * @tparam Key Warp resource key.
+ * @tparam Family Warp parameter family.
+ * @tparam TrackPath Whether the stage accumulates path length.
+ * @tparam SourceKey Source resource supplying affine lattice cell scale. */
 template <typename BindingT, ResourceKey Key, typename Family,
           bool TrackPath = false, ResourceKey SourceKey = "source">
 struct WarpProvider {
@@ -192,6 +201,8 @@ struct WarpProvider {
 /**
  * @brief Supplies the displacement field to the Pullback::Surface policies.
  * @tparam BindingT The effect's Binding.
+ * @tparam Family Displacement parameter family.
+ * @tparam Key Surface resource key.
  * @tparam TrackPath Whether the stage accumulates path length.
  * @pre The resource family is a displacement family.
  */
@@ -265,6 +276,9 @@ struct SurfaceProvider {
  * @details The pattern accessors read the advanced clocks. noise() and
  * noise_time() read runtime resources; noise_scale() and noise_contrast() read
  * the NoiseSourceParams fields.
+ * @tparam BindingT Frame binding of the effect.
+ * @tparam Family Source parameter family.
+ * @tparam Key Source resource key.
  */
 template <typename BindingT, typename Family, ResourceKey Key = "source">
 struct SourceProvider {
@@ -321,6 +335,9 @@ struct SourceProvider {
 /**
  * @brief Supplies the value-family fields to the Pullback::Transfer and
  *        Pullback::ValueCoverage and ProjectionCoverage::EdgeFade policies.
+ * @tparam BindingT Frame binding of the effect.
+ * @tparam Family Value parameter family.
+ * @tparam Key Value resource key.
  */
 template <typename BindingT, typename Family, ResourceKey Key = "value">
 struct ValueProvider {
