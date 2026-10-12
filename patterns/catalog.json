@@ -10,16 +10,16 @@
     "kaleidoscope-melt": "kaleidoscope_melt.shader.json",
     "chromatic-lichen": "chromatic_lichen.shader.json",
     "mermaid-skin": "mermaid_skin.shader.json",
+    "jewel-melt": "jewel_melt.shader.json",
     "ash-cloud": "ash_cloud.shader.json",
     "kaleidoscope-pent-bright": "kaleidoscope_pent_bright.shader.json",
+    "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json",
     "kaleidoscope-stained-glass": "kaleidoscope_stained_glass.shader.json",
     "kaleidoscope-smooth": "kaleidoscope_smooth.shader.json",
     "kaleidoscope-hex-bright": "kaleidoscope_hex_bright.shader.json",
     "kaleidoscope-flowers": "kaleidoscope_flowers.shader.json",
     "cosmic-eyeball": "cosmic_eyeball.shader.json",
-    "mobius-grid": "mobius_grid.shader.json",
-    "kaleidoscope-hex-oil": "kaleidoscope_hex_oil.shader.json",
-    "jewel-melt": "jewel_melt.shader.json"
+    "mobius-grid": "mobius_grid.shader.json"
   },
   "product_group": {
     "id": "shader-collection",
