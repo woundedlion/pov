@@ -703,6 +703,7 @@ inline int run_composed_effect_tests() {
   test_flowers_longitude_seam();
   test_composed_derivation_reach();
   test_composed_keyed_parameters();
+  test_composed_keyed_value_providers();
   test_composed_affine_named_source();
   test_composed_repeated_instances();
   test_composed_projection_walk_storage();

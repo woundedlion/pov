@@ -62,6 +62,57 @@ public:
   }
 };
 
+/** @brief Iso transfer and edge coverage use independent named value resources. */
+struct KeyedValueSpec : Pullback::Spec {
+  static constexpr bool ANIMATED_PROJECTION = false;
+  template <typename B>
+  using Pipeline = Pullback::Pipeline<
+      B,
+      Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
+          Pullback::ProjectionKind::STEREOGRAPHIC, B>::Type>,
+      Pullback::Stage::Sample<typename Pullback::SourcePolicyFor<
+                                  Pullback::GridSourceParams, B>::Type,
+                              Pullback::Weight::Projection,
+                              typename Pullback::CoveragePolicyFor<
+                                  Pullback::ProjectionCoverageMode::EDGE_FADE,
+                                  B, Pullback::EdgeValueParams, "edge">::Type>,
+      Pullback::Stage::Transfer<Pullback::Transfer::IsoContour<
+          Pullback::ValueProvider<B, Pullback::IsoValueParams, "contour">>>,
+      Pullback::Stage::Colorize<Pullback::Color::GeneratedPalette<
+          Pullback::ColorProvider<B, Pullback::HueMode::NONE,
+                                  Pullback::Color::BrightnessEnvelope::NONE>>>>;
+};
+
+struct KeyedValueProbe
+    : Pullback::ComposedEffect<SMALL_W, SMALL_H, KeyedValueProbe,
+                               KeyedValueSpec,
+                               Control::HookOwnership::INHERITED> {
+  static constexpr std::array<std::string_view, 1> PRESET_IDS{"keyed"};
+  static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
+  static constexpr uint16_t PRESET_DWELL_FRAMES = 600;
+};
+
+/** @brief Named contour and edge fields remain independent in one effect. */
+inline void test_composed_keyed_value_providers() {
+  using Frame = KeyedValueProbe::FrameState;
+  using Binding = KeyedValueProbe::Binding;
+  using Params = KeyedValueProbe::Params;
+  static_assert(!Params::template HAS<"value"> &&
+                Params::template HAS<"contour"> &&
+                Params::template HAS<"edge">);
+  Frame frame{};
+  frame.params.template get<"contour">().iso_level = 0.3f;
+  frame.params.template get<"contour">().iso_width = 0.08f;
+  frame.params.template get<"edge">().edge_width = 0.2f;
+  using Contour =
+      Pullback::ValueProvider<Binding, Pullback::IsoValueParams, "contour">;
+  using Edge =
+      Pullback::ValueProvider<Binding, Pullback::EdgeValueParams, "edge">;
+  HS_EXPECT_EQ(Contour::iso_level(frame), 0.3f);
+  HS_EXPECT_EQ(Contour::iso_width(frame), 0.08f);
+  HS_EXPECT_EQ(Edge::edge_width(frame), 0.2f);
+}
+
 inline void test_composed_keyed_parameters() {
   using Params = Pullback::ComposedDetail::ParameterSet<
       Pullback::ComposedDetail::ResourceList<
