@@ -63,6 +63,19 @@ inline void test_kdtree_single_point() {
   HS_EXPECT_EQ(r[0].original_index, (uint16_t)0);
 }
 
+/** @brief Moving a built tree leaves the source empty and preserves queries. */
+inline void test_kdtree_move() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  math::Vector pts[] = {math::Vector(3, 4, 5)};
+  KDTree source(arena, std::span<math::Vector>(pts));
+  KDTree destination(std::move(source));
+  HS_EXPECT_TRUE(source.empty());
+  HS_EXPECT_TRUE(source.nearest(math::Vector(0, 0, 0)).empty());
+  auto result = destination.nearest(math::Vector(0, 0, 0));
+  HS_EXPECT_SIZE_OR_RETURN(result, 1);
+  HS_EXPECT_VEC(result[0].point, pts[0], 1e-6f);
+}
+
 /**
  * @brief Verifies nearest(k=1) returns the correct point and original index for
  *        queries near distinct points.
@@ -686,6 +699,7 @@ inline int run_spatial_tests() {
 
   test_kdtree_empty_input();
   test_kdtree_single_point();
+  test_kdtree_move();
   test_kdtree_nearest_known_set();
   test_kdtree_k_nearest_sorted();
   test_kdtree_ties_prefer_source_index();
