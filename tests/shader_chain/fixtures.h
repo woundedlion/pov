@@ -5,6 +5,29 @@
 
 // --- fixtures -------------------------------------------------------------
 
+/** @brief Requires an operator lookup to succeed before descriptor access. */
+inline const In::OperatorDescriptor *require_operator(std::string_view id) {
+  const auto *op = In::find_operator(id);
+  HS_EXPECT_TRUE(op != nullptr);
+  return op;
+}
+
+/** @brief Requires a registered parameter before reading its value. */
+template <typename FX>
+inline const ParamDef *require_param(const FX &effect, const char *name) {
+  const auto *param = effect.getParameters().find(name);
+  HS_EXPECT_TRUE(param != nullptr);
+  return param;
+}
+
+/** @brief Reads a required requested value, returning NaN on a missing parameter. */
+template <typename FX>
+inline float requested_param(const FX &effect, const char *name) {
+  const auto *param = require_param(effect, name);
+  return param ? param->get_requested()
+               : std::numeric_limits<float>::quiet_NaN();
+}
+
 inline constexpr const char *MISMATCHED_TOPOLOGY_IDS[] = {"first", "second"};
 
 struct MismatchedTopologyDefaults {
@@ -314,19 +337,22 @@ template <typename Fn> void for_each_value_set_program(Fn &&fn) {
   });
 }
 
-/** Compiles @p chain, applies @p set to entry i's block typed as the i-th of
-    @p Params, and steps the program @p frames times. */
+/** @brief Compiles and initializes each typed block, then advances the chain.
+ * @return True when compilation succeeds; false after reporting a refusal. */
 template <typename... Params>
-void arm_chain(In::ChainProgram &program,
+bool arm_chain(In::ChainProgram &program,
                std::span<const In::ChainEntryRequest> chain, int frames,
                ValueSet set) {
   const In::ChainRefusal refusal = program.compile(chain);
   HS_EXPECT_EQ(static_cast<int>(refusal.code),
                static_cast<int>(In::ChainStatus::OK));
+  if (refusal.code != In::ChainStatus::OK)
+    return false;
   size_t index = 0;
   (apply_value_set(param_as<Params>(program, index++), set), ...);
   for (int frame = 0; frame < frames; ++frame)
     program.advance();
+  return true;
 }
 
 /** @brief Runs the prepared erased entry @p index on @p input.

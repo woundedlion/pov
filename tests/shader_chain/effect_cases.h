@@ -33,8 +33,10 @@ inline void test_shader_chain_composed_frame_parity() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(chain.set_chain(topology).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status1 = chain.set_chain(topology).code;
+  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
+  if (compile_status1 != In::ChainStatus::OK)
+    return;
   auto &program = ShaderChainWhiteBox::program(chain);
   param_as<In::Op::RotateChainParams>(program, 0).wander =
       params.template get<"projection">().camera_wander;
@@ -84,8 +86,12 @@ inline void test_shader_chain_effect_registers_params() {
   ShaderChain<96, 20> effect;
   effect.init();
   size_t expected = 0;
-  for (const In::ChainEntryRequest &entry : DEFAULT_CHAIN)
-    expected += In::find_operator(entry.operator_id)->schema_count;
+  for (const In::ChainEntryRequest &entry : DEFAULT_CHAIN) {
+    const auto *op = require_operator(entry.operator_id);
+    if (!op)
+      return;
+    expected += op->schema_count;
+  }
   const ParamList &params = effect.getParameters();
   HS_EXPECT_EQ(params.size(), expected);
   HS_EXPECT_TRUE(params.find("camera.wander") != nullptr);
@@ -122,8 +128,10 @@ inline void test_shader_chain_parameter_admission() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status2 = effect.set_chain(chain).code;
+  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
+  if (compile_status2 != In::ChainStatus::OK)
+    return;
   const ParamDef *strength_param = effect.getParameters().find("warp.strength");
   HS_EXPECT_TRUE(strength_param != nullptr);
   if (!strength_param)
@@ -155,19 +163,18 @@ inline void test_shader_chain_parameter_admission() {
   HS_EXPECT_EQ(effect.accepted_parameter_value(d_re), accepted_d_re);
   HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", 3.0f),
                ParamSetResult::APPLIED);
-  const float saved_a =
-      effect.getParameters().find("lens.mobius-a-re")->get_requested();
+  const float saved_a = requested_param(effect, "lens.mobius-a-re");
   const float saved_d = d_re.get_requested();
-  HS_EXPECT_EQ(static_cast<int>(effect.set_chain(chain).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status3 = effect.set_chain(chain).code;
+  HS_EXPECT_EQ(compile_status3, In::ChainStatus::OK);
+  if (compile_status3 != In::ChainStatus::OK)
+    return;
   HS_EXPECT_EQ(effect.updateParameter("lens.mobius-a-re", saved_a),
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("lens.mobius-d-re", saved_d),
                ParamSetResult::APPLIED);
-  HS_EXPECT_EQ(effect.getParameters().find("lens.mobius-a-re")->get_requested(),
-               saved_a);
-  HS_EXPECT_EQ(effect.getParameters().find("lens.mobius-d-re")->get_requested(),
-               saved_d);
+  HS_EXPECT_EQ(requested_param(effect, "lens.mobius-a-re"), saved_a);
+  HS_EXPECT_EQ(requested_param(effect, "lens.mobius-d-re"), saved_d);
   effect.draw_frame();
   effect.advance_display();
   effect.updateParameter("lens.mobius-d-re", 1.0f);
@@ -178,8 +185,7 @@ inline void test_shader_chain_parameter_admission() {
                                                    {"lens.mobius-d-re", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(valid_batch), ParamSetResult::APPLIED);
   for (const auto &write : valid_batch)
-    HS_EXPECT_EQ(effect.getParameters().find(write.name)->get_requested(),
-                 write.value);
+    HS_EXPECT_EQ(requested_param(effect, write.name), write.value);
   const ShaderChainParameterWrite invalid_batch[] = {
       {"lens.mobius-b-re", 0.0f}, {"lens.mobius-c-re", 0.0f}};
   HS_EXPECT_EQ(effect.update_parameters(invalid_batch),
@@ -195,8 +201,7 @@ inline void test_shader_chain_parameter_admission() {
   HS_EXPECT_EQ(effect.update_parameters(nonfinite_batch),
                ParamSetResult::NON_FINITE);
   for (const auto &write : valid_batch)
-    HS_EXPECT_EQ(effect.getParameters().find(write.name)->get_requested(),
-                 write.value);
+    HS_EXPECT_EQ(requested_param(effect, write.name), write.value);
   effect.draw_frame();
   effect.advance_display();
 }
@@ -224,12 +229,9 @@ inline void test_shader_chain_edge_distance_admission() {
   const float ACCEPTED_ENVELOPE = envelope->get_requested();
   const ShaderChainParameterWrite writes[] = {{"warp.envelope", 2}};
   HS_EXPECT_EQ(effect.update_parameters(writes), ParamSetResult::INADMISSIBLE);
-  HS_EXPECT_EQ(effect.getParameters().find("warp.envelope")->get_requested(),
-               ACCEPTED_ENVELOPE);
+  HS_EXPECT_EQ(requested_param(effect, "warp.envelope"), ACCEPTED_ENVELOPE);
   HS_EXPECT_TRUE(effect.parameter_warning("warp.envelope") != nullptr);
-  HS_EXPECT_EQ(
-      effect.getParameters().find("sample.coverage-mode")->get_requested(),
-      1.0f);
+  HS_EXPECT_EQ(requested_param(effect, "sample.coverage-mode"), 1.0f);
 }
 
 /** @brief Projections stay within their declared plane bound. */
@@ -266,7 +268,10 @@ inline void test_shader_chain_projection_plane_bound() {
         {"sample", In::Op::SampleGridV3::ID},
         {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
     };
-    HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+    const auto compile_status4 = program.compile(chain).code;
+    HS_EXPECT_EQ(compile_status4, In::ChainStatus::OK);
+    if (compile_status4 != In::ChainStatus::OK)
+      return;
     param_as<In::Op::ProjectChainParams>(program, 0).frame =
         static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
     const auto ctx = shared_resources().context();
@@ -316,8 +321,7 @@ inline void test_shader_chain_plane_growth_admission() {
   HS_EXPECT_EQ(effect.update_parameters(all), ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning(scale_x[0].c_str()) ==
                  In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(effect.getParameters().find(scale_x[0].c_str())->get_requested(),
-               1.0f);
+  HS_EXPECT_EQ(requested_param(effect, scale_x[0].c_str()), 1.0f);
 
   int admitted = 0;
   for (; admitted < WARPS; ++admitted) {
@@ -334,8 +338,7 @@ inline void test_shader_chain_plane_growth_admission() {
                ParamSetResult::INADMISSIBLE);
   HS_EXPECT_TRUE(effect.parameter_warning(scale_y[4].c_str()) ==
                  In::PLANE_GROWTH_WARNING);
-  HS_EXPECT_EQ(effect.getParameters().find(scale_y[4].c_str())->get_requested(),
-               1.0f);
+  HS_EXPECT_EQ(requested_param(effect, scale_y[4].c_str()), 1.0f);
   HS_EXPECT_EQ(effect.updateParameter(scale_x[4].c_str(), 1.5f),
                ParamSetResult::APPLIED);
 
@@ -346,8 +349,7 @@ inline void test_shader_chain_plane_growth_admission() {
       parameter.value = MIN_SCALE;
   HS_EXPECT_EQ(effect.restore_snapshot(overflowing),
                ChainSnapshotRestoreResult::INVALID_VALUE);
-  HS_EXPECT_EQ(effect.getParameters().find(scale_y[4].c_str())->get_requested(),
-               1.0f);
+  HS_EXPECT_EQ(requested_param(effect, scale_y[4].c_str()), 1.0f);
   HS_EXPECT_EQ(effect.restore_snapshot(live),
                ChainSnapshotRestoreResult::APPLIED);
   effect.draw_frame();
