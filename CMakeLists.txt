@@ -34,7 +34,7 @@ if(EMSCRIPTEN)
 
   add_executable(segment_geometry targets/wasm/segment_geometry.cpp)
   target_include_directories(segment_geometry PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-  target_compile_options(segment_geometry PRIVATE -O3)
+  target_compile_options(segment_geometry PRIVATE -O3 -Wall -Wextra)
   target_link_options(segment_geometry PRIVATE
     -O3 --no-entry -sWASM=0 -sMODULARIZE=1 -sEXPORT_ES6=1
     -sMINIMAL_RUNTIME=2 -sEXPORT_KEEPALIVE=1 -sFILESYSTEM=0 -sDYNAMIC_EXECUTION=0
