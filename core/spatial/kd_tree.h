@@ -120,14 +120,14 @@ public:
       indices[i] = (int)i;
     }
 
-    root_index = build(points, indices, count, 0);
+    build(points, indices, count, 0);
   }
 
   /**
    * @brief Whether the tree holds no points.
-   * @return True for a default-constructed tree or one built from an empty span.
+   * @return True for a default-constructed, moved-from or empty-span tree.
    */
-  bool empty() const { return root_index == -1; }
+  bool empty() const { return nodes.empty(); }
 
   /**
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
@@ -141,7 +141,7 @@ public:
     Neighbors result;
     HS_CHECK(k <= static_cast<size_t>(MAX_K),
              "KDTree::nearest k exceeds MAX_K");
-    if (root_index == -1 || k == 0)
+    if (nodes.empty() || k == 0)
       return result;
     // A k above the point count would never fill the set or prune.
     k = std::min(k, nodes.size());
@@ -180,7 +180,7 @@ public:
 
     auto get_worst_dist = [&]() -> float { return worst_d_sq; };
 
-    search_k(root_index, target, offer_candidate, get_worst_dist);
+    search_k(0, target, offer_candidate, get_worst_dist);
 
     const auto before = [](const Neighbor &a, const Neighbor &b) {
       return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
@@ -204,8 +204,7 @@ public:
 
 private:
   ArenaVector<KDNode>
-      nodes;           /**< Arena-backed node pool, one entry per point. */
-  int root_index = -1; /**< Index of the root node, or -1 if empty. */
+      nodes; /**< Arena-backed node pool, one entry per point. */
 
   /**
    * @brief Recursively builds a balanced subtree over indices[0..count).
