@@ -1129,7 +1129,7 @@ firmware support.
 > **Headless size/layout gate — an active CI job, optional locally.** A
 > PlatformIO build (`just teensy-size`) builds
 > the two budgeted shipping images plus the `holosphere_dma`, `phantasm8`, `phantasm_rev12`,
-> `bench`, `profile`, and `profile_o3` compile/link profiles
+> `bench`, `bench_standalone`, `bench_master`, `profile`, and `profile_o3` compile/link profiles
 > on a stock machine. It checks shipping-image size and memory-region layout
 > against committed budgets while closing the device-only `#ifdef ARDUINO`
 > compile/size blind spot VMicro alone leaves uncovered. CI runs the same build
