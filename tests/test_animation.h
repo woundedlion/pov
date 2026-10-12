@@ -92,6 +92,7 @@ inline int run_animation_tests() {
   test_rotation_substeps_shared_and_tight();
   test_rotation_accumulates_subthreshold_deltas();
   test_rotation_applies_final_frame_residual();
+  test_rotation_and_motion_local_world_composition();
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_collapse_past_id_cache();
   test_timeline_sequences_events_by_start_frame();
