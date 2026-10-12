@@ -1,6 +1,9 @@
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Emit typed C++ snapshots for the authored pullback capture cases."""
+"""Emit typed C++ snapshots for the frozen, hand-edited pullback capture corpus.
+
+The unit_chain_capture_fixtures test validates the authored corpus.
+"""
 
 import argparse
 import json

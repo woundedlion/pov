@@ -7,9 +7,9 @@
  *
  * Each case runs in a re-exec'd child (HS_DEATH_CHILD=harness,
  * HS_DEATH_CASE=<name>). The parent requires the illegal-instruction trap
- * status (SIGILL / STATUS_ILLEGAL_INSTRUCTION) and the HS_CHECK breadcrumb of
- * the case's exact guard: under -fsanitize-trap=undefined, UB lowers to the
- * same instruction.
+ * status (SIGILL / STATUS_ILLEGAL_INSTRUCTION) and an HS_CHECK breadcrumb
+ * naming the case's guard file and condition text: under
+ * -fsanitize-trap=undefined, UB lowers to the same instruction.
  */
 #pragma once
 

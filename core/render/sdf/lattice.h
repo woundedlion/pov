@@ -398,7 +398,7 @@ trace_plane(const math::Vec4 &ray_origin, const math::Vec4 &direction,
 template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static_assert(FIXED_SHELL_COUNT <= MAX_SHELLS);
   static constexpr size_t STREAM_COUNT = DIMENSIONS; ///< One stream per axis.
-  static constexpr size_t GROUP_CAPACITY = 1; ///< Candidates per stream step.
+  static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
   /** @brief Stream state; float fields are read only while active. */
   struct Cursor {
     /// Ray distance of the current crossing.

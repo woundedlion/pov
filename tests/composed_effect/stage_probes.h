@@ -356,7 +356,7 @@ inline void test_composed_projection_walk_storage() {
                animated_footprint.timeline_events);
 }
 
-/** @brief Composed ripple surface phase repeats at its configured period. */
+/** @brief Ripple Strength reaches the rendered frame through the composed pipeline. */
 inline void test_composed_periodic_ripple_surface() {
   using FX = RippleProbe<SMALL_W, SMALL_H>;
   static_assert(!FX::HAS_SURFACE_NOISE);

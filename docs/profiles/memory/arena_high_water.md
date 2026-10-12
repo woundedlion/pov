@@ -18,7 +18,7 @@ does not capture long-run growth. CI drives a 120-frame window for the arena
 budget gate used for device sizing.
 
 Each snapshot lists the roster of its own commit. Flyby and Liquid2D below
-predate their merge into ShaderWorkbench.
+predate their merge into ShaderChain.
 
 ## Survey snapshot (pre trail-compression, master 2b875b6e)
 
@@ -80,9 +80,8 @@ shipping preset-0 draw scope 96.49 → 97.30 ms (+0.84 %) vs the 2026-07-14
 baseline, and the day-apart global-O3 A/B (pre- vs post-compression)
 reproduces within ~2 % per preset, inside the ±10 % per-preset coverage
 noise. Cadence class unchanged (8 fps steady; worst preset 108.57 ms ship /
-88.92 ms O3). That capture has since been superseded; the current reports are
-[shipping](../shipping/profile_mindsplatter_architecture_teensy_2026-10-01.md) and
-[O3](../O3/profile_mindsplatter_architecture_teensy_2026-10-01.md).
+88.92 ms O3). That capture has since been superseded; see the
+[profile index](../README.md) for the current shipping and O3 reports.
 
 A second bank (budget 272,384 B) would additionally require shrinking both
 reaction-diffusion effects, whose footprints are mutable simulation grids —

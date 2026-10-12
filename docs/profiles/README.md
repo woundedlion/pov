@@ -32,10 +32,11 @@ full-roster image.
 
 ## Shipping/O3 captures
 
-Rows rank by shipping spill fraction, then shipping peak render. KaleidoscopeMelt and JewelMelt have shipping captures only; ● marks their October 11 and October 8 captures. Both peaks
+Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill; 🔴 any spill. KaleidoscopeMelt was captured on October 11; its initialization frame is recorded separately. JewelMelt was captured on October 8 at softness 0.5. Other ship columns come from the 2026-10-06 full-roster sweep at `e2f5b0a3d`, except HyperLattice, re-captured after its 4D optimization at `a13c149d4`, GnomonicStars, re-captured on 2026-10-07 at `17390a7a1` with its original float clock and an added profiling scope, and the ● October 7 IslamicStars/HankinSolids optimized face-distance snapshots documented in their reports. Image
-deltas belong to each O3 capture's own shipping pair, not to the linked
+render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill;
+🔴 any spill. ● marks shipping-only captures and optimized face-distance snapshots.
+Image deltas belong to each O3 capture's own shipping pair, not to the linked
 2026-10-06 shipping report; MeshFeedback and KaleidoscopeStainedGlass use
 adjacent-source pairs (`63268c376` O3 versus `20ca3cb48` shipping), so their
 deltas include source changes. GSReactionDiffusion’s O3 column and image deltas
@@ -87,14 +88,13 @@ KaleidoscopeMelt was captured on October 11; its initialization frame is recorde
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
 Bucket frames include the following transition, so they are stricter than clean holds.
-Captured timestamps are local raw-log mtimes.
 
 ShapeShifter’s O3 column predates entry 1’s increase from 208 to 288 contours
 and the chord walk; its workload differs from the linked shipping capture.
 
 ## Memory captures
 
-[Arena high-water measurements](memory/arena_high_water.md) come from a host
+[Arena high-water snapshots (July 2026, host probe)](memory/arena_high_water.md) come from a host
 probe and are independent of the on-device timing tables.
 
 ## Historical fixed-preset captures

@@ -205,20 +205,20 @@ inline bool field_identical(const PB::FieldSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
-/** @brief Whether @p c is a finite, visible, non-black color. */
+/** @brief Whether @p s is finite with direction squared length greater than 0.25. */
 inline bool carrier_live(const PB::SphereSample &s) {
   return std::isfinite(s.dir.x) && std::isfinite(s.dir.y) &&
          std::isfinite(s.dir.z) && std::isfinite(s.path_length) &&
          math::dot(s.dir, s.dir) > 0.25f;
 }
 
-/** @brief Whether @p c is a finite, visible, non-black color. */
+/** @brief Whether @p s is finite with positive domain coverage. */
 inline bool carrier_live(const PB::PlaneSample &s) {
   return std::isfinite(s.coords.re) && std::isfinite(s.coords.im) &&
          std::isfinite(s.path_length) && s.provenance.domain_coverage > 0.0f;
 }
 
-/** @brief Whether @p c is a finite, visible, non-black color. */
+/** @brief Whether @p s is finite with positive coverage. */
 inline bool carrier_live(const PB::FieldSample &s) {
   return std::isfinite(s.value) && std::isfinite(s.path_length) &&
          s.coverage > 0.0f;

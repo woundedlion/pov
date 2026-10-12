@@ -2,10 +2,12 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Arena survey of registry recipes through individual OpLegs.
+ * @details DUAL/KIS chains approximate production bridges with gated swaps
+ * and are excluded from budgets.
+ */
 #pragma once
-
-// Arena survey of registry recipes through individual OpLegs. DUAL/KIS chains
-// approximate production bridges with gated swaps and are excluded from budgets.
 
 #include <algorithm>
 #include <array>

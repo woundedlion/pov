@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief MindSplatter replay difference metrics and clip geometry.
+ */
 #pragma once
 
 #include "core/render/canvas.h"

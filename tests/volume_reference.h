@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Independent volume-ray reference models.
+ */
 #pragma once
 
 #include <algorithm>
@@ -13,11 +16,13 @@ namespace hs_test::scan_tests {
 
 /** @brief Dense fixed-step oracle, independent of sphere-tracing policy. */
 struct VolumeReference {
+  /** @brief A sampled position and signed distance. */
   struct Sample {
-    math::Vector position;
-    float distance;
+    math::Vector position; ///< Sample position.
+    float distance;        ///< Signed distance at the position.
   };
 
+  /** @brief Visits dense fixed-step samples until the visitor stops. */
   template <typename Shape, typename Visit>
   static void march(const Shape &shape, const math::Vector &origin,
                     const math::Vector &direction, float radius, Visit visit) {
@@ -33,12 +38,14 @@ struct VolumeReference {
     }
   }
 
+  /** @brief Evaluates smooth coverage from signed distance. */
   static float coverage(float distance, float threshold, float width) {
     const double X =
         std::clamp((width - distance) / (width - threshold), 0.0f, 1.0f);
     return static_cast<float>(X * X * X * (10.0 + X * (-15.0 + 6.0 * X)));
   }
 
+  /** @brief Finds the first near-surface distance minimum. */
   template <typename Shape>
   static Sample trace(const Shape &shape, const math::Vector &origin,
                       const math::Vector &direction, float radius, float aa) {
@@ -53,6 +60,7 @@ struct VolumeReference {
     return closest;
   }
 
+  /** @brief Finds a distance minimum after the first rising slope. */
   template <typename Shape>
   static Sample behind(const Shape &shape, const math::Vector &origin,
                        const math::Vector &direction, float radius) {
@@ -72,7 +80,7 @@ struct VolumeReference {
   }
 };
 
-// Vector-accumulating baseline for scalar ray-state regression tests.
+/** @brief Vector-accumulating baseline for scalar ray-state regressions. */
 struct VolumeScalarRegression {
   static constexpr float OVERRELAX_OMEGA = Scan::Volume::OVERRELAX_OMEGA;
   static constexpr int PROBE_STEPS = Scan::Volume::PROBE_STEPS;

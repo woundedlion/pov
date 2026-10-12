@@ -53,17 +53,18 @@ Legend: ✅ reached by a device-value test · ❌ real device-only path with no 
 
 **Four red rows:** row 11 is a bug-path-only accepted risk; row 13 is a
 read-before-write model gap; row 14 is a float-rounding-only evaluation-order fork;
-row 16 is an HSV color-conversion model gap. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
+row 16 is an HSV color-conversion model gap. The default-initialization gap in
+row 13 is also uncovered on device. Row 9 is an accepted divergence. Its empty `Fn` invoke fires only
 when a caller invokes an unbound callable; the cost of closing it is device codegen and ITCM
 footprint on every `Fn` instantiation. Row 11 (`addmod8` zero modulus) fires only on a zero
 modulus, which no shipped call site passes; closing it means guarding inside FastLED's own
-header. Both share the shape that makes them tolerable — the device diverges only where the
+header. Rows 9 and 11 share the shape that makes them tolerable — the device diverges only where the
 caller is already wrong — and the shape that makes them worth recording: the device failure is
 silent (a hang, a zero return) on the device.
 
 Row 1 (`beat88`) is not a breach: the `uint16_t` result extracts bits [16,31] of the phase product,
 which the device's mod-2³² wrap cannot change, so the 64-bit native build and the 32-bit
-device/wasm builds produce bit-identical phases. The default-initialization gap in row 13 is also uncovered on device.
+device/wasm builds produce bit-identical phases.
 Every behavioral fork other than rows 9, 11, 13, 14 and 16 either has device-value coverage (rows 3–4, 12 and 15), host model-level coverage with only a
 device-only ISA-instruction tail (row 8), or is divergent by design / non-behavioral (rows 5–7,
 10). Row 2 is an explicit display profile with coverage for both caps.
