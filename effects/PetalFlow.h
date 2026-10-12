@@ -166,11 +166,6 @@ private:
   float next_hue =
       0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init(). */
 
-  /** @brief Dropped spawns between successive pool-full log lines. */
-  static constexpr uint32_t POOL_FULL_LOG_PERIOD = 240;
-  /** @brief Spawns dropped against a full pool, cumulative. */
-  uint32_t pool_full_drops = 0;
-
 #if HS_ENABLE_TEST_HOOKS
   int spawns = 0; /**< Rings placed into a free slot, cumulative. */
 #endif
@@ -244,8 +239,7 @@ private:
    * @brief Claims the first inactive ring slot and initializes it.
    * @param initial_rho Position along the path at which to place the ring, in
    * rho units.
-   * @details Assigns the next hue and advances the hue cursor. No-op if all
-   * slots are in use; drops are logged once per POOL_FULL_LOG_PERIOD.
+   * @details Assigns the next hue and advances the hue cursor; traps if full.
    */
   HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
@@ -261,9 +255,7 @@ private:
         return;
       }
     }
-    if (pool_full_drops % POOL_FULL_LOG_PERIOD == 0)
-      hs::log("PetalFlow: ring pool full, dropping spawn");
-    ++pool_full_drops;
+    HS_CHECK(false, "PetalFlow: ring pool full");
   }
 
   /**
