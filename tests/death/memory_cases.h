@@ -124,12 +124,14 @@ inline void case_scratch_scope_reset() {
 
 /** @brief Death case: exhausted arena rewind history must trap. */
 inline void case_arena_rewind_history_overflow() {
-  static uint8_t storage[1024];
+#ifndef NDEBUG
+  static uint8_t storage[Arena::rewind_history_capacity() + 2];
   Arena arena(storage, sizeof(storage));
-  for (size_t i = 0; i <= 256; ++i) {
+  for (size_t i = 0; i <= Arena::rewind_history_capacity(); ++i) {
     arena.allocate(2, 1);
     arena.set_offset(i);
   }
+#endif
 }
 
 /** @brief Death case: ArenaVector fixed-capacity push_back overflow must trap. */
