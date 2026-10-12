@@ -709,6 +709,8 @@ inline void test_displacement_field_pause_holds_phase_only() {
     reset_effect_globals();
     DisplacementField<SMALL_W, SMALL_H> effect;
     effect.init();
+    if (fade_out)
+      hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 1);
     WB::start_noise_fade(effect, fade_out);
     if (fade_out)
       hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() / 2);
