@@ -291,6 +291,7 @@ inline void test_face_asymmetric_sector_matches_oracle() {
     }
 }
 
+/** @brief Face randomized sector matches oracle. */
 inline void test_face_randomized_sector_matches_oracle() {
   uint32_t state = 0x4a39b70du;
   auto random = [&]() { return xorshift_unit(state); };
@@ -357,6 +358,7 @@ inline void test_face_randomized_sector_matches_oracle() {
   HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
+/** @brief Face randomized backtracking matches oracle. */
 inline void test_face_randomized_backtracking_matches_oracle() {
   uint32_t state = 0x39be4207u;
   auto random = [&]() { return xorshift_unit(state); };
@@ -410,6 +412,7 @@ inline void test_face_randomized_backtracking_matches_oracle() {
   HS_EXPECT_LT(stats.max_error, 1e-5);
 }
 
+/** @brief Face tied rows match oracle. */
 inline void test_face_tied_rows_match_oracle() {
   constexpr int COUNT = 12;
   const float z = sqrtf(0.75f);
@@ -534,6 +537,7 @@ inline void check_face_shipping_recipes_match_oracle(const PolyMesh &mesh) {
   HS_EXPECT_GT(exterior, 0u);
 }
 
+/** @brief Face shipping recipes match oracle. */
 inline void test_face_shipping_recipes_match_oracle() {
   static uint8_t recipe_a[2 * 1024 * 1024];
   static uint8_t recipe_b[2 * 1024 * 1024];

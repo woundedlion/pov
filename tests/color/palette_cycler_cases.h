@@ -7,6 +7,7 @@
 // PaletteCycler
 // ============================================================================
 
+/** @brief Cycler storage components fit their declared arena allocation. */
 inline void test_palette_cycler_arena_components() {
   HS_EXPECT_EQ(PaletteCycler::display_arena_bytes(),
                BakedPalette::required_arena_bytes());
@@ -16,6 +17,7 @@ inline void test_palette_cycler_arena_components() {
                sizeof(GenerativePalette) + alignof(GenerativePalette));
 }
 
+/** @brief Key palette cycling follows the configured morph sequence. */
 inline void test_palette_cycler_key_morph_cycle() {
   const GenerativePalette first(PaletteRecipes::balanced_analogous(0.05f));
   const GenerativePalette second(PaletteRecipes::balanced_analogous(0.62f));
@@ -70,6 +72,7 @@ inline void test_palette_cycler_key_morph_cycle() {
   expect_baked_equal(cycler.palette(), ref);
 }
 
+/** @brief Different palette families crossfade through the same cycle. */
 inline void test_palette_cycler_heterogeneous_crossfade() {
   Gradient ramp{{0.0f, CPixel(10u, 250u, 60u)}, {1.0f, CPixel(250u, 10u, 60u)}};
   SolidColorPalette solid(Color4(Pixel(9000, 21000, 43000), 1.0f));
@@ -120,6 +123,7 @@ inline void test_palette_cycler_heterogeneous_crossfade() {
   expect_baked_equal(cycler.palette(), ramp_lut);
 }
 
+/** @brief Paused and static palette cycles preserve the current output. */
 inline void test_palette_cycler_pause_and_static() {
   Gradient ramp{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
@@ -152,6 +156,7 @@ inline void test_palette_cycler_pause_and_static() {
   HS_EXPECT_TRUE(cycler.fading());
 }
 
+/** @brief Standalone palette rotations morph compatible. */
 inline void test_standalone_palette_rotations_morph_compatible() {
   constexpr float GOLDEN_STEP = 0.618034f;
   float rotation = 0.0f;
@@ -187,6 +192,7 @@ inline void scripted_tonal_palette(void *context, uint32_t sequence,
       PaletteRecipes::tonal_monochrome(0.1f + 0.2f * sequence));
 }
 
+/** @brief Generated palettes advance through the configured cycle. */
 inline void test_palette_cycler_generated_cycle() {
   alignas(std::max_align_t) static uint8_t
       buf[PaletteCycler::generated_arena_bytes() +
@@ -268,6 +274,7 @@ inline void test_palette_cycler_generated_chroma_keeps_morph() {
   HS_EXPECT_GT(provider_calls, 4);
 }
 
+/** @brief Palette cycler roster hidden advance catches up. */
 inline void test_palette_cycler_roster_hidden_advance_catches_up() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
   const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));
@@ -295,6 +302,7 @@ inline void test_palette_cycler_roster_hidden_advance_catches_up() {
   }
 }
 
+/** @brief Palette cycler hidden advance catches up. */
 inline void test_palette_cycler_hidden_advance_catches_up() {
   alignas(std::max_align_t)
       std::array<uint8_t, PaletteCycler::generated_arena_bytes() + 32>
@@ -323,6 +331,7 @@ inline void test_palette_cycler_hidden_advance_catches_up() {
   HS_EXPECT_EQ(full_provider_calls, hidden_provider_calls);
 }
 
+/** @brief Palette cycler paused hidden advance catches up. */
 inline void test_palette_cycler_paused_hidden_advance_catches_up() {
   const GenerativePalette first(PaletteRecipes::balanced_analogous(0.2f));
   const GenerativePalette second(PaletteRecipes::balanced_analogous(0.7f));
@@ -432,6 +441,7 @@ inline void test_palette_cycler_bake_generation() {
   HS_EXPECT_GT(generated.bake_generation(), hidden_generation);
 }
 
+/** @brief Palette cycler zero dwell chains fades. */
 inline void test_palette_cycler_zero_dwell_chains_fades() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.2f));
   const GenerativePalette b(PaletteRecipes::balanced_analogous(0.7f));

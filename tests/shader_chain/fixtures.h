@@ -99,6 +99,7 @@ struct ColorResources {
   }
 };
 
+/** @brief Returns the shared baked palette and hue lookup resources. */
 inline const ColorResources &shared_resources() {
   static const ColorResources RESOURCES;
   return RESOURCES;
@@ -111,6 +112,7 @@ inline constexpr In::ChainEntryRequest DEFAULT_CHAIN[] = {
     {"colorize", "colorize.generated-palette.v3"},
 };
 
+/** @brief Returns direction samples for operator parity sweeps. */
 inline std::array<math::Vector, 14> sweep_views() {
   std::array<math::Vector, 14> views = {
       math::Vector(0, 1, 0),         math::Vector(0, -1, 0),
@@ -147,17 +149,20 @@ const T &state_as(const In::ChainProgram &program, size_t index) {
   return *static_cast<const T *>(program.state_block(index));
 }
 
+/** @brief Compares color carriers exactly. */
 inline bool color4_identical(const Color4 &a, const Color4 &b) {
   return a.color.r == b.color.r && a.color.g == b.color.g &&
          a.color.b == b.color.b &&
          std::memcmp(&a.alpha, &b.alpha, sizeof(float)) == 0;
 }
 
+/** @brief Compares floating-point representations exactly. */
 inline bool float_identical(float a, float b) {
   return std::memcmp(&a, &b, sizeof(float)) == 0;
 }
 
 // Member-wise: struct padding bytes are not compared.
+/** @brief Compares sphere carriers exactly. */
 inline bool sphere_identical(const PB::SphereSample &a,
                              const PB::SphereSample &b) {
   return float_identical(a.dir.x, b.dir.x) &&
@@ -166,6 +171,7 @@ inline bool sphere_identical(const PB::SphereSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
+/** @brief Compares plane carriers exactly. */
 inline bool plane_identical(const PB::PlaneSample &a,
                             const PB::PlaneSample &b) {
   return float_identical(a.coords.re, b.coords.re) &&
@@ -188,6 +194,7 @@ inline bool plane_identical(const PB::PlaneSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
+/** @brief Compares field carriers exactly. */
 inline bool field_identical(const PB::FieldSample &a,
                             const PB::FieldSample &b) {
   return float_identical(a.value, b.value) &&
@@ -198,20 +205,20 @@ inline bool field_identical(const PB::FieldSample &a,
          float_identical(a.path_length, b.path_length);
 }
 
-/** @brief Whether @p s is a finite, non-degenerate view direction. */
+/** @brief Whether @p c is a finite, visible, non-black color. */
 inline bool carrier_live(const PB::SphereSample &s) {
   return std::isfinite(s.dir.x) && std::isfinite(s.dir.y) &&
          std::isfinite(s.dir.z) && std::isfinite(s.path_length) &&
          math::dot(s.dir, s.dir) > 0.25f;
 }
 
-/** @brief Whether @p s is a finite plane point inside the projection domain. */
+/** @brief Whether @p c is a finite, visible, non-black color. */
 inline bool carrier_live(const PB::PlaneSample &s) {
   return std::isfinite(s.coords.re) && std::isfinite(s.coords.im) &&
          std::isfinite(s.path_length) && s.provenance.domain_coverage > 0.0f;
 }
 
-/** @brief Whether @p s is a finite field value with coverage. */
+/** @brief Whether @p c is a finite, visible, non-black color. */
 inline bool carrier_live(const PB::FieldSample &s) {
   return std::isfinite(s.value) && std::isfinite(s.path_length) &&
          s.coverage > 0.0f;
@@ -282,7 +289,7 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
 /** @brief Selects defaults or a tabled parameter endpoint. */
 enum class ValueSet { DEFAULTS, MINIMUMS, MAXIMUMS };
 
-/** Failure-context label for a value set. */
+/** @brief Failure-context label for a value set. */
 inline const char *value_set_name(ValueSet set) {
   switch (set) {
   case ValueSet::MINIMUMS:

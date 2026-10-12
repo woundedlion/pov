@@ -45,6 +45,7 @@ struct Rgb {
   constexpr Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
 };
 
+/** @brief Compile-time ring and sample counts match the declared field layouts. */
 inline void test_constexpr_layout_counts() {
   constexpr hs::SphericalFieldLayout<288, 144, 0> HOST(4);
   constexpr hs::SphericalFieldLayout<288, 144, 3> DEVICE(4);
@@ -68,6 +69,7 @@ inline void test_constexpr_layout_counts() {
                SPARSE.ring(1).offset);
 }
 
+/** @brief Offsets are contiguous. */
 inline void test_offsets_are_contiguous() {
   constexpr hs::SphericalFieldLayout<96, 49, 0> layout(3);
   int end = 0;
@@ -84,6 +86,7 @@ inline void test_offsets_are_contiguous() {
   HS_EXPECT_EQ(previous_y, 48);
 }
 
+/** @brief Metric spacing is uniform. */
 inline void test_metric_spacing_is_uniform() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
   constexpr float LATITUDE_STEP = 4.0f * math::PI_F / 146.0f;
@@ -98,6 +101,7 @@ inline void test_metric_spacing_is_uniform() {
   }
 }
 
+/** @brief Unequal rings have independent longitude mix. */
 inline void test_unequal_rings_have_independent_longitude_mix() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
   const auto lower = layout.ring(1);
@@ -108,6 +112,7 @@ inline void test_unequal_rings_have_independent_longitude_mix() {
   HS_EXPECT_TRUE(std::abs(a.mix - b.mix) > 0.05f);
 }
 
+/** @brief Longitude stays in ring at negative seam. */
 inline void test_longitude_stays_in_ring_at_negative_seam() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   const auto ring = layout.ring(4);
@@ -119,6 +124,7 @@ inline void test_longitude_stays_in_ring_at_negative_seam() {
   HS_EXPECT_LT(seam.right, ring.offset + ring.samples);
 }
 
+/** @brief Longitude saturates out of domain input. */
 inline void test_longitude_saturates_out_of_domain_input() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   const auto ring = layout.ring(4);
@@ -143,6 +149,7 @@ inline void test_longitude_saturates_out_of_domain_input() {
   }
 }
 
+/** @brief Populate band preserves other samples. */
 inline void test_populate_band_preserves_other_samples() {
   constexpr hs::SphericalFieldLayout<64, 33, 0> layout(4);
   constexpr Pair SENTINEL{-99.0f, -99.0f};
@@ -165,6 +172,7 @@ inline void test_populate_band_preserves_other_samples() {
   }
 }
 
+/** @brief Populate recurrence matches exact trig. */
 inline void test_populate_recurrence_matches_exact_trig() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4);
   static std::array<math::Vector, layout.sample_count()> values;
@@ -184,6 +192,7 @@ inline void test_populate_recurrence_matches_exact_trig() {
   }
 }
 
+/** @brief Longitude filter tracks spherical width. */
 inline void test_longitude_filter_tracks_spherical_width() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> layout(4, 4, 1, 72);
   // Every longitude of the pole row lands on one point, so it saturates at the
@@ -197,6 +206,7 @@ inline void test_longitude_filter_tracks_spherical_width() {
   HS_EXPECT_EQ(layout.longitude_filter_width(143), 17);
 }
 
+/** @brief Longitude filter and sampler wrap poles. */
 inline void test_longitude_filter_and_sampler_wrap_poles() {
   constexpr int W = 64;
   constexpr hs::SphericalFieldLayout<W, 34, 3> layout(4, 4, 1, W / 4);
@@ -232,6 +242,7 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
   HS_EXPECT_EQ(b, 102 + 7 + W / 2);
 }
 
+/** @brief Sampler collapses south pole without virtual rows. */
 inline void test_sampler_collapses_south_pole_without_virtual_rows() {
   constexpr int W = 64;
   constexpr int H = 34;
@@ -261,6 +272,7 @@ inline void test_sampler_collapses_south_pole_without_virtual_rows() {
   HS_EXPECT_EQ(sample, scalar_poles[1]);
 }
 
+/** @brief Sampler wraps south pole with virtual rows. */
 inline void test_sampler_wraps_south_pole_with_virtual_rows() {
   constexpr int W = 64;
   constexpr int H = 34;
@@ -284,6 +296,7 @@ inline void test_sampler_wraps_south_pole_with_virtual_rows() {
 }
 
 // Drives the generic sampler with the RGB sampler's own load and blend.
+/** @brief Samples RGB channels independently with the generic sampler. */
 template <int W, int H, int HOffset>
 inline void generic_sample_rgb(
     const hs::SphericalFieldLayout<W, H, HOffset> &layout, const Rgb *source,
@@ -307,6 +320,7 @@ inline void generic_sample_rgb(
       });
 }
 
+/** @brief Compares packed RGB sampling with independent channel sampling. */
 template <int HOffset, int PoleCount>
 inline void expect_rgb_sampler_matches_generic() {
   constexpr int W = 64;
@@ -336,11 +350,13 @@ inline void expect_rgb_sampler_matches_generic() {
   }
 }
 
+/** @brief Rgb sampler matches generic sampler. */
 inline void test_rgb_sampler_matches_generic_sampler() {
   expect_rgb_sampler_matches_generic<0, 2>();
   expect_rgb_sampler_matches_generic<3, 1>();
 }
 
+/** @brief U16 rgb sampler error bound. */
 inline void test_u16_rgb_sampler_error_bound() {
   struct U16Rgb {
     uint16_t r, g, b;
@@ -369,6 +385,7 @@ inline void test_u16_rgb_sampler_error_bound() {
     }
 }
 
+/** @brief Integer coordinates select the expected longitude and ring brackets. */
 inline void test_integer_longitude_and_ring_bracketing() {
   constexpr hs::SphericalFieldLayout<288, 144, 3> LAYOUT(4, 4, 1, 72);
   for (int index = 0; index < LAYOUT.ring_count(); ++index) {
@@ -399,6 +416,7 @@ inline void test_integer_longitude_and_ring_bracketing() {
   HS_EXPECT_EQ(LAYOUT.ring_index_at_or_after(143), LAYOUT.ring_count() - 1);
 }
 
+/** @brief Runs spherical field tests. */
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
   test_constexpr_layout_counts();

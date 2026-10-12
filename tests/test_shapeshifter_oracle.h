@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Shape rendering comparisons and visual budgets.
+ */
 #pragma once
 
 #include <algorithm>
@@ -342,18 +345,21 @@ inline RenderComparison compare_renders(const OracleState &state,
   return comparison;
 }
 
+/** @brief Renders the reference shape path. */
 inline auto reference_renderer() {
   return [](OracleEffect &effect, Canvas &canvas) {
     ShapeShifterWhiteBox::render_reference(effect, canvas);
   };
 }
 
+/** @brief Renders the candidate shape path. */
 inline auto candidate_renderer() {
   return [](OracleEffect &effect, Canvas &canvas) {
     ShapeShifterWhiteBox::render_candidate(effect, canvas);
   };
 }
 
+/** @brief Frame energy. */
 inline uint64_t frame_energy(const OracleFrame &frame) {
   uint64_t energy = 0;
   for (const Pixel &pixel : frame.pixels)
@@ -361,6 +367,7 @@ inline uint64_t frame_energy(const OracleFrame &frame) {
   return energy;
 }
 
+/** @brief Row energy. */
 inline uint64_t row_energy(const OracleFrame &frame, int y) {
   uint64_t energy = 0;
   for (int x = 0; x < ORACLE_W; ++x) {
@@ -412,6 +419,7 @@ inline std::array<OracleState, 20> shape_function_matrix() {
   return matrix;
 }
 
+/** @brief Image comparison reports the expected error statistics. */
 inline void test_buffer_comparator_statistics() {
   OracleFrame reference;
   reference.pixels.resize(static_cast<size_t>(ORACLE_W) * ORACLE_H);
@@ -476,14 +484,17 @@ inline void test_reference_matrix_is_deterministic_and_nonblack() {
   }
 }
 
+/** @brief Tests whether a pixel exceeds the brightness threshold. */
 inline bool pixel_is_bright(const Pixel &pixel) {
   return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > BRIGHT_ENERGY;
 }
 
+/** @brief Tests whether a pixel has visible coverage. */
 inline bool pixel_has_coverage(const Pixel &pixel) {
   return static_cast<uint32_t>(pixel.r) + pixel.g + pixel.b > COVERAGE_ENERGY;
 }
 
+/** @brief Checks candidate coverage near a reference pixel. */
 inline bool candidate_covers_neighborhood(const OracleFrame &candidate, int x,
                                           int y) {
   for (int dy = -1; dy <= 1; ++dy) {
@@ -517,6 +528,7 @@ inline void report_visual_budget(const OracleState &state,
       high_error_pixels, max_high_error_pixels);
 }
 
+/** @brief Asserts the candidate image stays within the visual budget. */
 inline void expect_candidate_within_visual_budget(const OracleState &state,
                                                   double max_energy_drift,
                                                   size_t max_high_error_pixels,
@@ -561,6 +573,7 @@ inline void expect_candidate_within_visual_budget(const OracleState &state,
   HS_EXPECT_EQ(comparison.candidate.backstop_hits, uint32_t{0});
 }
 
+/** @brief Candidate matrix stays within visual budget. */
 inline void test_candidate_matrix_stays_within_visual_budget() {
   struct Budget {
     double mae;
@@ -587,6 +600,7 @@ inline void test_candidate_matrix_stays_within_visual_budget() {
   }
 }
 
+/** @brief Star projection policies render different edges. */
 inline void test_star_projection_policies_render_different_edges() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -604,6 +618,7 @@ inline void test_star_projection_policies_render_different_edges() {
       size_t{100});
 }
 
+/** @brief Screen balanced spacing is opt in for every shape. */
 inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
   using Shape = OracleEffect::ShapeType;
   constexpr std::array<Shape, 5> SHAPES = {
@@ -627,6 +642,7 @@ inline void test_screen_balanced_spacing_is_opt_in_for_every_shape() {
   }
 }
 
+/** @brief Star options and shipping presets are planar. */
 inline void test_star_options_and_shipping_presets_are_planar() {
   using Falloff = OracleEffect::AlphaFalloff;
   using Shape = OracleEffect::ShapeType;
@@ -653,6 +669,7 @@ inline void test_star_options_and_shipping_presets_are_planar() {
   HS_EXPECT_GT(planar_stars, size_t{0});
 }
 
+/** @brief High count uniform star stays within visual budget. */
 inline void test_high_count_uniform_star_stays_within_visual_budget() {
   using Function = OracleEffect::PhaseFunction;
   using Shape = OracleEffect::ShapeType;
@@ -682,6 +699,7 @@ inline void test_high_count_uniform_star_stays_within_visual_budget() {
   }
 }
 
+/** @brief Screen balanced star preset stays within visual budget. */
 inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -699,6 +717,7 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
+/** @brief High count uniform star covers north pole. */
 inline void test_high_count_uniform_star_covers_north_pole() {
   OracleState state;
   state.shape = OracleEffect::ShapeType::PLANAR_STAR;
@@ -729,6 +748,7 @@ inline void test_high_count_uniform_star_covers_north_pole() {
   HS_EXPECT_EQ(uncovered_pole_pixels, size_t{0});
 }
 
+/** @brief Minimum energy around. */
 inline uint32_t minimum_energy_around(const OracleFrame &frame,
                                       const math::Vector &position,
                                       float radius_px) {
@@ -750,6 +770,7 @@ inline uint32_t minimum_energy_around(const OracleFrame &frame,
   return minimum;
 }
 
+/** @brief High count planar star caps cover chart centers. */
 inline void test_high_count_planar_star_caps_cover_chart_centers() {
   constexpr uint32_t MIN_CAP_ENERGY = 60000;
   const std::array<math::Quaternion, 4> orientations = {{
@@ -780,6 +801,7 @@ inline void test_high_count_planar_star_caps_cover_chart_centers() {
   }
 }
 
+/** @brief Finds the northernmost row with visible coverage. */
 inline int first_covered_north_row(const OracleFrame &frame) {
   for (int y = 0; y < 32; ++y)
     for (int x = 0; x < ORACLE_W; ++x) {
@@ -790,6 +812,7 @@ inline int first_covered_north_row(const OracleFrame &frame) {
   return 32;
 }
 
+/** @brief High count spherical star contours reach display north. */
 inline void test_high_count_spherical_star_contours_reach_display_north() {
   for (float phase : {0.0f, 0.125f, 0.249f, 0.5f, 0.75f, 0.999f}) {
     OracleState state;
@@ -805,6 +828,7 @@ inline void test_high_count_spherical_star_contours_reach_display_north() {
   }
 }
 
+/** @brief Amplitude preserves sweep velocity. */
 inline void test_amplitude_preserves_sweep_velocity() {
   OracleEffect effect;
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.04f, 1.0f),
@@ -813,6 +837,7 @@ inline void test_amplitude_preserves_sweep_velocity() {
                  0.01f, 1e-6f);
 }
 
+/** @brief Phase step stops at the nyquist limit. */
 inline void test_phase_step_stops_at_the_nyquist_limit() {
   OracleEffect effect;
   HS_EXPECT_NEAR(ShapeShifterWhiteBox::advance_phase(effect, 0.049f, 0.1f),
@@ -840,6 +865,7 @@ inline float midpoint_alpha_reference(int index, int count) {
                     static_cast<float>(steps_to_equator);
 }
 
+/** @brief Alpha falloff fades to equator. */
 inline void test_alpha_falloff_fades_to_equator() {
   using Falloff = OracleEffect::AlphaFalloff;
   auto toward_equator = [](int index, int count) {
@@ -872,6 +898,7 @@ inline void test_alpha_falloff_fades_to_equator() {
   }
 }
 
+/** @brief Opposite halves direction. */
 inline void test_opposite_halves_direction() {
   reset_globals();
   {
@@ -910,6 +937,7 @@ inline void test_opposite_halves_direction() {
       static_cast<size_t>(0));
 }
 
+/** @brief Folded shapes draw from equator to both poles. */
 inline void test_folded_shapes_draw_from_equator_to_both_poles() {
   HS_EXPECT_EQ(ShapeShifterWhiteBox::folded_draw_order(6),
                (std::vector<int>{3, 2, 4, 1, 5, 0}));
@@ -917,6 +945,7 @@ inline void test_folded_shapes_draw_from_equator_to_both_poles() {
                (std::vector<int>{2, 3, 1, 4, 0}));
 }
 
+/** @brief Screen balanced spacing follows sampling envelope. */
 inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   constexpr int COUNT = 208;
   constexpr float DENSITY_FLOOR = 0.5f;
@@ -949,6 +978,7 @@ inline void test_screen_balanced_spacing_follows_sampling_envelope() {
   }
 }
 
+/** @brief Preset transition adopts next params. */
 inline void test_preset_transition_adopts_next_params() {
   reset_globals();
   {
@@ -1042,6 +1072,7 @@ inline void test_preset_transition_fades_through_black_in_16_frames() {
   Timeline().clear();
 }
 
+/** @brief Count slider matches draw limit. */
 inline void test_count_slider_matches_draw_limit() {
   reset_globals();
   {
@@ -1060,6 +1091,7 @@ inline void test_count_slider_matches_draw_limit() {
   Timeline().clear();
 }
 
+/** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
   test_count_slider_matches_draw_limit();

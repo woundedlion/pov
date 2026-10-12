@@ -113,6 +113,7 @@ inline void test_composed_keyed_value_providers() {
   HS_EXPECT_EQ(Edge::edge_width(frame), 0.2f);
 }
 
+/** @brief Keyed composed resources preserve independent parameter storage. */
 inline void test_composed_keyed_parameters() {
   using Params = Pullback::ComposedDetail::ParameterSet<
       Pullback::ComposedDetail::ResourceList<
@@ -152,6 +153,7 @@ struct AffineNamedSourceSpec : Pullback::Spec {
                                   Pullback::Color::BrightnessEnvelope::NONE>>>>;
 };
 
+/** @brief Affine warps read their named source resource. */
 inline void test_composed_affine_named_source() {
   using Params = Pullback::ParamsFor<AffineNamedSourceSpec>;
   using Frame = Pullback::FrameState<Params>;
@@ -229,6 +231,7 @@ public:
   }
 };
 
+/** @brief Repeated composed stages retain independent resource instances. */
 inline void test_composed_repeated_instances() {
   using FX = RepeatedStagesProbe<SMALL_W, SMALL_H>;
   static_assert(FX::Params::template HAS<"warp_a"> &&
@@ -338,6 +341,7 @@ ProjectionWalkFootprint measure_projection_walk_footprint() {
   return {persistent_arena.get_offset(), Timeline::event_count()};
 }
 
+/** @brief Projection walk state remains in its declared persistent storage. */
 inline void test_composed_projection_walk_storage() {
   using Static = RippleProbe<SMALL_W, SMALL_H, false>;
   using Animated = RippleProbe<SMALL_W, SMALL_H, true>;
@@ -352,6 +356,7 @@ inline void test_composed_projection_walk_storage() {
                animated_footprint.timeline_events);
 }
 
+/** @brief Composed ripple surface phase repeats at its configured period. */
 inline void test_composed_periodic_ripple_surface() {
   using FX = RippleProbe<SMALL_W, SMALL_H>;
   static_assert(!FX::HAS_SURFACE_NOISE);
@@ -732,6 +737,7 @@ inline void test_choreography_lerp_transition_hooks() {
   check.template operator()<false>();
 }
 
+/** @brief Choreography lerp pause policy. */
 inline void test_choreography_lerp_pause_policy() {
   const auto check = []<bool Pausable>() {
     using FX = LerpChoreoProbe<SMALL_W, SMALL_H, Pausable>;

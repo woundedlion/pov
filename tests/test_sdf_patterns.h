@@ -2,6 +2,9 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file
+ * @brief Pattern geometry, distance and coverage oracles.
+ */
 #pragma once
 
 #include <limits>
@@ -35,6 +38,7 @@ inline void check_distance_normal(const Surface &surface,
   HS_EXPECT_NEAR(actual.z, expected.z, 3e-3f);
 }
 
+/** @brief Lattice distances use the world metric and fourth-axis coordinate. */
 inline void test_lattice_world_metric_and_fourth_axis() {
   SDF::WireLattice<3> cubic;
   HS_EXPECT_TRUE(cubic.valid());
@@ -65,6 +69,7 @@ inline void test_lattice_world_metric_and_fourth_axis() {
   HS_EXPECT_TRUE(hypercubic.capabilities().interior_clearance);
 }
 
+/** @brief Lattice distance matches the reference and its Lipschitz bound. */
 inline void test_lattice_reference_and_lipschitz() {
   SDF::WireLattice<4> lattice;
   for (int sample = 0; sample < 180; ++sample) {
@@ -91,6 +96,7 @@ inline void test_lattice_reference_and_lipschitz() {
   }
 }
 
+/** @brief Framework geometry and plane events match the reference streams. */
 inline void test_framework_geometry_and_plane_streams() {
   SDF::TriangularFramework framework;
   HS_EXPECT_TRUE(framework.valid());
@@ -121,6 +127,7 @@ inline void test_framework_geometry_and_plane_streams() {
   HS_EXPECT_FALSE(framework.valid());
 }
 
+/** @brief Computes an independent octet segment distance. */
 inline float octet_segment_reference(const math::Vector &p) {
   constexpr float HALF_CUBE = 0.7071067811865475f;
   const std::array<math::Vector, 6> DIRECTIONS{
@@ -145,6 +152,7 @@ inline float octet_segment_reference(const math::Vector &p) {
   return best;
 }
 
+/** @brief Octet geometry respects FCC translations and symmetries. */
 inline void test_octet_fcc_geometry_and_symmetry() {
   SDF::OctetFramework octet;
   HS_EXPECT_TRUE(octet.valid());
@@ -206,6 +214,7 @@ inline void test_octet_fcc_geometry_and_symmetry() {
   HS_EXPECT_FALSE(octet.valid());
 }
 
+/** @brief Octet events preserve tie ordering and capacity limits. */
 inline void test_octet_events_ties_and_limits() {
   const SDF::OctetFramework OCTET;
   const Raycast::Ray RAY{{0, 0, 0}, {1, 0, 0}, {0, 1.5f}};
@@ -262,6 +271,7 @@ inline void test_octet_events_ties_and_limits() {
   HS_EXPECT_EQ(SLANTED.status, Raycast::TraceStatus::RANGE_COMPLETE);
 }
 
+/** @brief Octet struts have one angle correct coverage layer. */
 inline void test_octet_struts_have_one_angle_correct_coverage_layer() {
   constexpr float H = 0.7071067811865475f;
   const std::array<math::Vector, 6> EDGES{{
@@ -340,6 +350,7 @@ inline void test_octet_struts_have_one_angle_correct_coverage_layer() {
   }
 }
 
+/** @brief Computes an independent four-dimensional octet segment distance. */
 inline float octet4_segment_reference(const math::Vec4 &p) {
   constexpr float H = SDF::OctetFramework4::HALF_CUBE;
   float best = INFINITY;
@@ -370,6 +381,7 @@ inline float octet4_segment_reference(const math::Vec4 &p) {
   return best;
 }
 
+/** @brief Octet4 offset reference. */
 template <bool Normalized = false>
 inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
                                           const math::Vec4 &p,
@@ -430,6 +442,7 @@ inline math::Vec4 octet4_offset_reference(const SDF::OctetFramework4 &geometry,
   return result;
 }
 
+/** @brief Four-dimensional octet edges preserve parity and symmetry. */
 inline void test_octet4_edges_parity_and_symmetry() {
   SDF::OctetFramework4 octet;
   HS_EXPECT_TRUE(octet.valid());
@@ -508,6 +521,7 @@ inline void test_octet4_edges_parity_and_symmetry() {
   HS_EXPECT_FALSE(octet.valid());
 }
 
+/** @brief Octet4 nearest edge matches line search. */
 inline void test_octet4_nearest_edge_matches_line_search() {
   SDF::OctetFramework4 geometry;
   const auto VERIFY = [&]<bool Normalized>(const math::Vec4 &point) {
@@ -545,6 +559,7 @@ inline void test_octet4_nearest_edge_matches_line_search() {
   }
 }
 
+/** @brief Octet4 scalar distance matches offset. */
 inline void test_octet4_scalar_distance_matches_offset() {
   for (float cell_size : {0.0001f, 0.25f, 1.0f, 17.0f, 10000.0f}) {
     SDF::OctetFramework4 geometry;
@@ -752,6 +767,7 @@ inline void test_octet4_owned_struts_match_ray_line_oracle() {
     HS_EXPECT_GT(count, size_t{0});
 }
 
+/** @brief Ambient octet events remain ordered and within capacity. */
 inline void test_octet4_ambient_events_and_limits() {
   const SDF::OctetFramework4 OCTET;
   const Raycast::Interval INTERVAL{0, 1.5f};
@@ -844,6 +860,7 @@ template <typename Surface> void check_periodic_surface() {
   HS_EXPECT_FALSE(surface.valid());
 }
 
+/** @brief Periodic surface distances and gradients respect their bounds. */
 inline void test_periodic_surface_bounds_and_gradients() {
   check_periodic_surface<SDF::CosineSurface>();
   check_periodic_surface<SDF::GyroidSurface>();
@@ -860,6 +877,7 @@ inline void test_periodic_surface_bounds_and_gradients() {
   HS_EXPECT_TRUE(gyroid.sample({0.0f, 0.0f, 0.0f}).boundary);
 }
 
+/** @brief Runs sdf pattern tests. */
 inline int run_sdf_pattern_tests() {
   hs_test::ModuleFixture fixture("sdf_patterns");
   test_lattice_world_metric_and_fourth_axis();

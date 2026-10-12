@@ -333,18 +333,21 @@ inline void case_spherical_field_infill_over_domain() {
     std::printf("x");
 }
 
+/** @brief Traps on latitude geometry degenerate height. */
 inline void case_latitude_geometry_degenerate_height() {
   math::LatitudeGeometry geometry(opaque(1), 0.1f, 3.0f);
   if (geometry.row_to_phi(0) == 42.0f)
     std::printf("x");
 }
 
+/** @brief Traps on latitude geometry reversed span. */
 inline void case_latitude_geometry_reversed_span() {
   math::LatitudeGeometry geometry(16, opaque(2.0f), 1.0f);
   if (geometry.row_to_phi(0) == 42.0f)
     std::printf("x");
 }
 
+/** @brief Traps on peirce invalid layout. */
 inline void case_peirce_invalid_layout() {
   (void)projections::peirce_projection(
       math::Vector(0, 1, 0), 0,

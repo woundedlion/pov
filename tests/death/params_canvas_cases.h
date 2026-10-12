@@ -99,12 +99,14 @@ inline void case_correction_guard_cross_type() {
     std::printf("x");
 }
 
+/** @brief Traps on float options missing labels. */
 inline void case_float_options_missing_labels() {
   DeathEffect effect;
   float value = 0;
   effect.reg_float_options(&value, nullptr, 2);
 }
 
+/** @brief Traps on float options missing count. */
 inline void case_float_options_missing_count() {
   DeathEffect effect;
   float value = 0;
@@ -112,6 +114,7 @@ inline void case_float_options_missing_count() {
   effect.reg_float_options(&value, options, 0);
 }
 
+/** @brief Traps on float options wrong range. */
 inline void case_float_options_wrong_range() {
   DeathEffect effect;
   float value = 0;
@@ -162,6 +165,7 @@ inline void case_parameter_group_empty_registry() {
   host.set_last_parameter_group(&GROUP);
 }
 
+/** @brief Rejects duplicate parameter registration. */
 inline void case_register_param_duplicate() {
   DeathEffect fx;
   float value = 0.5f;
@@ -169,12 +173,14 @@ inline void case_register_param_duplicate() {
   fx.reg("duplicate", &value);
 }
 
+/** @brief Rejects a parameter default outside its registered range. */
 inline void case_register_param_default_outside_range() {
   DeathEffect fx;
   float value = 2.0f;
   fx.reg("outside", &value);
 }
 
+/** @brief Rejects replay of an unknown parameter name. */
 inline void case_restore_parameters_unknown_name() {
   DeathEffect effect;
   const std::array values{
@@ -182,6 +188,7 @@ inline void case_restore_parameters_unknown_name() {
   effect.replay_parameter_writes(values);
 }
 
+/** @brief Rejects replay of a read-only parameter. */
 inline void case_restore_parameters_readonly_name() {
   DeathEffect effect;
   float value = 0.0f;
@@ -191,6 +198,7 @@ inline void case_restore_parameters_readonly_name() {
   effect.replay_parameter_writes(values);
 }
 
+/** @brief Rejects replay of a singular Mobius transform. */
 inline void case_restore_parameters_singular_mobius() {
   reset_globals();
   MobiusGrid<32, 16> effect;
@@ -219,6 +227,7 @@ inline void case_register_int_param_range() {
   fx.reg_int("count", &slot, 0, opaque(256));
 }
 
+/** @brief Traps on register enum param range. */
 inline void case_register_enum_param_range() {
   enum class Mode : uint8_t { ZERO };
   DeathEffect fx;
@@ -226,6 +235,7 @@ inline void case_register_enum_param_range() {
   fx.reg_enum(&slot, opaque(257));
 }
 
+/** @brief Traps on register enum param bound inexact. */
 inline void case_register_enum_param_bound_inexact() {
   enum class Mode : uint32_t { ZERO };
   DeathEffect fx;
@@ -233,18 +243,21 @@ inline void case_register_enum_param_bound_inexact() {
   fx.reg_enum(&slot, opaque(16777218));
 }
 
+/** @brief Traps on register int param max inexact. */
 inline void case_register_int_param_max_inexact() {
   DeathEffect fx;
   static int32_t slot = 0;
   fx.reg_int("count", &slot, 0, opaque(std::numeric_limits<int32_t>::max()));
 }
 
+/** @brief Traps on register int param min inexact. */
 inline void case_register_int_param_min_inexact() {
   DeathEffect fx;
   static int32_t slot = 0;
   fx.reg_int("count", &slot, opaque(-std::numeric_limits<int32_t>::max()), 0);
 }
 
+/** @brief Traps on param spec invalid option values. */
 inline void case_param_spec_invalid_option_values() {
   DeathEffect fx;
   static constexpr const char *LABELS[] = {"Zero", "One", "Six"};
@@ -260,6 +273,7 @@ inline void case_param_spec_invalid_option_values() {
   fx.register_param("gap", &gap, spec);
 }
 
+/** @brief Traps on param spec uint32 bound outside storage. */
 inline void case_param_spec_uint32_bound_outside_storage() {
   DeathEffect fx;
   uint32_t value = 0;
@@ -267,6 +281,7 @@ inline void case_param_spec_uint32_bound_outside_storage() {
                     ParamSpec<uint32_t>{.min = 0, .max = 4294967296LL});
 }
 
+/** @brief Traps on param spec uint32 bound inexact. */
 inline void case_param_spec_uint32_bound_inexact() {
   DeathEffect fx;
   uint32_t value = 0;
@@ -274,6 +289,7 @@ inline void case_param_spec_uint32_bound_inexact() {
                     ParamSpec<uint32_t>{.min = 0, .max = 4294967295LL});
 }
 
+/** @brief Traps on param spec integer preserve policy. */
 inline void case_param_spec_integer_preserve_policy() {
   DeathEffect fx;
   uint8_t value = 0;
@@ -283,6 +299,7 @@ inline void case_param_spec_integer_preserve_policy() {
                              ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
 }
 
+/** @brief Traps on param spec float bound nonfinite. */
 inline void case_param_spec_float_bound_nonfinite() {
   DeathEffect fx;
   float value = 0.0f;
@@ -298,6 +315,7 @@ inline void case_param_spec_name_null() {
   fx.register_param(nullptr, &value, ParamSpec<float>{});
 }
 
+/** @brief Rejects a nonfinite preserved initial parameter value. */
 inline void case_param_spec_requested_nonfinite() {
   DeathEffect fx;
   float value = std::numeric_limits<float>::quiet_NaN();
@@ -307,6 +325,7 @@ inline void case_param_spec_requested_nonfinite() {
                            ParamInitialValue::PRESERVE_REQUESTED_FLOAT});
 }
 
+/** @brief Traps on param spec option label null. */
 inline void case_param_spec_option_label_null() {
   DeathEffect fx;
   uint8_t value = 0;
@@ -315,6 +334,7 @@ inline void case_param_spec_option_label_null() {
                     ParamSpec<uint8_t>::enumerated(options, 2));
 }
 
+/** @brief Traps on param spec export label null. */
 inline void case_param_spec_export_label_null() {
   DeathEffect fx;
   enum class Mode : uint8_t { ZERO };

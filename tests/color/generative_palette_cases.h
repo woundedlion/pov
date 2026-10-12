@@ -32,6 +32,7 @@ inline void test_generative_palette_deterministic() {
   }
 }
 
+/** @brief Effect recipe entries resolve to valid generated palettes. */
 inline void test_effect_palette_recipe_roster() {
   namespace R = EffectPaletteRecipes;
   const float hue = PaletteRecipes::hue_turns(42);
@@ -72,6 +73,7 @@ inline void test_effect_palette_recipe_roster() {
                  0.5f, 1e-6f);
 }
 
+/** @brief Recipe validation rejects invalid active fields. */
 inline void test_generative_palette_recipe_validation() {
   PaletteRecipe input;
   input.hue.base_turns = 1.25f;
@@ -146,6 +148,7 @@ inline void test_generative_palette_recipe_validation() {
   }
 }
 
+/** @brief Generative palette canonical ignores inactive fields. */
 inline void test_generative_palette_canonical_ignores_inactive_fields() {
   PaletteRecipe first;
   first.hue.mode = HueMode::HARMONY;
@@ -179,6 +182,7 @@ inline void test_generative_palette_canonical_ignores_inactive_fields() {
       0);
 }
 
+/** @brief Palette sampling honors the configured input window. */
 inline void test_generative_palette_input_window() {
   PaletteRecipe recipe =
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
@@ -270,6 +274,7 @@ inline void test_generative_palette_input_window() {
   HS_EXPECT_EQ(loop_color_end.b, window_end.b);
 }
 
+/** @brief Generative palette resolves axes and harmony. */
 inline void test_generative_palette_resolves_axes_and_harmony() {
   PaletteRecipe recipe = PaletteRecipes::profile(PaletteDomain::STRAIGHT,
                                                  PaletteHarmony::COMPLEMENTARY,
@@ -394,6 +399,7 @@ inline void test_generative_palette_hue_torsion() {
   HS_EXPECT_TRUE(GenerativePalette(untwisted).morph_compatible(morph_b));
 }
 
+/** @brief Generative palette blue cusp is continuous. */
 inline void test_generative_palette_blue_cusp_is_continuous() {
   PaletteRecipe recipe;
   recipe.hue.mode = HueMode::SWEEP;
@@ -418,6 +424,7 @@ inline void test_generative_palette_blue_cusp_is_continuous() {
   HS_EXPECT_LT(largest_chroma_step, 0.04f);
 }
 
+/** @brief Generative palette local gamut stays in gamut. */
 inline void test_generative_palette_local_gamut_stays_in_gamut() {
   PaletteRecipe recipe =
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
@@ -432,6 +439,7 @@ inline void test_generative_palette_local_gamut_stays_in_gamut() {
   }
 }
 
+/** @brief Generated samples satisfy the declared palette domain invariants. */
 inline void test_generative_palette_domain_invariants() {
   const GenerativePalette mirror(
       PaletteRecipes::profile(PaletteDomain::MIRROR, PaletteHarmony::ANALOGOUS,
@@ -460,6 +468,7 @@ inline void test_generative_palette_domain_invariants() {
   HS_EXPECT_EQ(first.alpha, last.alpha);
 }
 
+/** @brief Morph policies expose the expected interpolation capabilities. */
 inline void test_generative_palette_morph_policy_contracts() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.3f));
@@ -483,6 +492,7 @@ inline void test_generative_palette_morph_policy_contracts() {
   HS_EXPECT_EQ(keys.palette_headroom(), policy.palette_headroom());
 }
 
+/** @brief Snapshot interpolation reproduces endpoint palettes. */
 inline void test_generative_palette_snapshot_lerp() {
   GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.75f));
@@ -548,6 +558,7 @@ inline void test_generative_palette_snapshot_keeps_faint_chroma_chromatic() {
   HS_EXPECT_LT(chroma, 1e-3f);
 }
 
+/** @brief Generative palette snapshot keeps absolute gray achromatic. */
 inline void test_generative_palette_snapshot_keeps_absolute_gray_achromatic() {
   const GenerativePalette from(PaletteRecipes::from_colors(
       PaletteDomain::STRAIGHT, CPixel(255, 255, 255), CPixel(255, 0, 0),
@@ -587,6 +598,7 @@ inline void test_generative_palette_lerp_gray_key_keeps_neighbor_hue() {
   }
 }
 
+/** @brief Generative palette lerp target aliases this. */
 inline void test_generative_palette_lerp_target_aliases_this() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette to(PaletteRecipes::balanced_analogous(0.25f));
@@ -603,6 +615,7 @@ inline void test_generative_palette_lerp_target_aliases_this() {
   }
 }
 
+/** @brief Generative palette snapshot lerp closes loop. */
 inline void test_generative_palette_snapshot_lerp_closes_loop() {
   GenerativePalette morph(PaletteRecipes::isolight_spectral_loop(0.13f));
   const GenerativePalette target(PaletteRecipes::isolight_spectral_loop(0.37f));
@@ -616,6 +629,7 @@ inline void test_generative_palette_snapshot_lerp_closes_loop() {
   }
 }
 
+/** @brief Generative palette cartesian path neutralizes midpoint. */
 inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
   PaletteRecipe arc_recipe = PaletteRecipes::profile(
       PaletteDomain::STRAIGHT, PaletteHarmony::COMPLEMENTARY,
@@ -633,6 +647,7 @@ inline void test_generative_palette_cartesian_path_neutralizes_midpoint() {
                  cartesian.diagnose(1.0f).C * 0.8f);
 }
 
+/** @brief Generative palette rejects unavailable path minimum. */
 inline void test_generative_palette_rejects_unavailable_path_minimum() {
   PaletteRecipe input;
   input.chroma.basis = ChromaBasis::PATH_MINIMUM;
@@ -645,6 +660,7 @@ inline void test_generative_palette_rejects_unavailable_path_minimum() {
   HS_EXPECT_EQ(status.field, PaletteRecipeField::CHROMA_BASIS);
 }
 
+/** @brief Generative palette absolute basis canonicalizes headroom. */
 inline void test_generative_palette_absolute_basis_canonicalizes_headroom() {
   const PaletteRecipe GRAY_BLUE =
       PaletteRecipes::from_colors(PaletteDomain::STRAIGHT, CPixel(0, 0, 0),
@@ -671,6 +687,7 @@ inline void test_generative_palette_absolute_basis_canonicalizes_headroom() {
   HS_EXPECT_TRUE((status.adjustments.canonicalized_fields & headroom_bit) != 0);
 }
 
+/** @brief Generative palette get clamps out of range. */
 inline void test_generative_palette_get_clamps_out_of_range() {
   const GenerativePalette palette(PaletteRecipes::balanced_analogous(0.2f));
   const Pixel low = palette.get(-1.0f).color;
@@ -685,6 +702,7 @@ inline void test_generative_palette_get_clamps_out_of_range() {
   HS_EXPECT_EQ(high.b, last.b);
 }
 
+/** @brief Generative palette get nan saturates to endpoint. */
 inline void test_generative_palette_get_nan_saturates_to_endpoint() {
   const GenerativePalette palette(
       PaletteRecipes::profile(PaletteDomain::STRAIGHT, PaletteHarmony::TRIADIC,
@@ -696,6 +714,7 @@ inline void test_generative_palette_get_nan_saturates_to_endpoint() {
   HS_EXPECT_EQ(singular.color.b, endpoint.color.b);
 }
 
+/** @brief Compatible palette recipes admit their declared morph path. */
 inline void test_generative_palette_morph_compatible() {
   const GenerativePalette a(PaletteRecipes::balanced_analogous(0.0f));
   const GenerativePalette b(PaletteRecipes::balanced_analogous(0.75f));
@@ -744,6 +763,7 @@ constexpr int LERP_ENDPOINT_TOLERANCE =
 /** Endpoint step for the mixed-curve arms, whose axes are further apart. */
 constexpr float MIXED_CURVE_ENDPOINT_STEP = 0.0001f;
 
+/** @brief Generative palette lerp mixed curves continuous. */
 inline void test_generative_palette_lerp_mixed_curves_continuous() {
   const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
   PaletteRecipe custom_recipe = PaletteRecipes::balanced_analogous(0.1f);
@@ -809,6 +829,7 @@ inline void test_generative_palette_lerp_mixed_curves_continuous() {
       expect_baked_near(morph_lut, endpoint_lut, LERP_ENDPOINT_TOLERANCE));
 }
 
+/** @brief Generative palette lerp interpolates loop seam. */
 inline void test_generative_palette_lerp_interpolates_loop_seam() {
   const GenerativePalette a(PaletteRecipes::isolight_spectral_loop(0.0f));
   const GenerativePalette b(PaletteRecipes::isolight_spectral_loop(0.4f));
