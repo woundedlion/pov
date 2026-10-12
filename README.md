@@ -1229,7 +1229,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── engine.h                Engine API umbrella for handwritten effects; composed wrappers include composed_effect.h
 │   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spiral, etc.)
 │   │   ├── concepts.h              FunctionRef/StoredFunctionRef borrows, Fn-based aliases, PipelineRef, Plottable/Tweenable, DissolveMask
-│   │   └── static_storage.cpp      Definitions of the framebuffer/timeline statics (DMAMEM placement)
+│   │   └── static_storage.cpp      Framebuffer/timeline statics and fail-fast handlers
 │   ├── memory.h / memory.cpp       Arena and container umbrella, storage and reset definitions
 │   ├── memory/                    Arena, vector, span, scratch, persistence, and generation sections
 │   ├── math/                   Vector/quaternion math and scalar curves
