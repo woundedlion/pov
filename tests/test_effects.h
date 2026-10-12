@@ -1104,6 +1104,7 @@ inline int run_effects_tests() {
     run_case(test_dynamo_trail_ceiling_bounds_the_ring);
     run_case(test_raymarch_unit_bounds_contains_twisted_tube);
     run_case(test_petalflow_spawn_gap_bounded);
+    run_case(test_petalflow_last_free_slot);
     run_case(test_displacement_field_hue_table_fidelity);
     run_case(test_displacement_field_hue_table_frame_fidelity);
     run_case(test_displacement_field_clip_tiles_full);
