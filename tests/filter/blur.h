@@ -137,8 +137,14 @@ inline void test_blur_clamps_factor() {
       float weights[3][3] = {};
       blur.plot(15, 16, Pixel(1, 2, 3), 0, 1,
                 [&](float x, float y, const Pixel &, float, float alpha) {
-                  weights[static_cast<int>(y) - 15][static_cast<int>(x) - 14] +=
-                      alpha;
+                  const int row = static_cast<int>(y) - 15;
+                  const int column = static_cast<int>(x) - 14;
+                  HS_EXPECT_GE(row, 0);
+                  HS_EXPECT_LT(row, 3);
+                  HS_EXPECT_GE(column, 0);
+                  HS_EXPECT_LT(column, 3);
+                  if (row >= 0 && row < 3 && column >= 0 && column < 3)
+                    weights[row][column] += alpha;
                 });
       for (int y = 0; y < 3; ++y)
         for (int x = 0; x < 3; ++x) {
