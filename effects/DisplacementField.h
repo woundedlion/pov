@@ -741,11 +741,12 @@ private:
 
   /** @brief Cancels a departure and restarts the tuned preset dwell. */
   HS_COLD_MEMBER void parameter_written() override {
-    timeline.cancel_owner(&phase_events);
+    if (preset_index == NOISE_PRESET && noise_hold == 0) {
+      timeline.cancel_owner(&phase_events);
+      master_gain = 1.0f;
+    }
     noise_hold = NOISE_HOLD_FRAMES;
     ball_phase_left = BALL_PHASE_FRAMES;
-    if (preset_index == NOISE_PRESET)
-      master_gain = 1.0f;
   }
 
   /**

@@ -952,3 +952,27 @@ inline void test_displacement_field_knot_walk_unit_near_ball() {
     }
   }
 }
+
+/** @brief Startup parameter writes preserve the paused preset's noise entry ramp. */
+inline void test_displacement_field_startup_writes_preserve_entry() {
+  using WB = DisplacementFieldWhiteBox;
+  for (float amplitude : {0.2f, 0.6f}) {
+    reset_effect_globals();
+    DisplacementField<SMALL_W, SMALL_H> effect;
+    effect.init();
+    HS_EXPECT_EQ(WB::gain(effect), 0.0f);
+    HS_EXPECT_EQ(effect.updateParameter("Noise Amp", amplitude),
+                 ParamSetResult::APPLIED);
+    effect.setAnimationsPaused(true);
+    HS_EXPECT_EQ(WB::gain(effect), 0.0f);
+    HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+    hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() / 2);
+    HS_EXPECT_GT(WB::gain(effect), 0.0f);
+    HS_EXPECT_LT(WB::gain(effect), 1.0f);
+    HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+    hs_test::run_frames(effect, WB::fade_frames<SMALL_W, SMALL_H>() + 2);
+    HS_EXPECT_EQ(WB::gain(effect), 1.0f);
+    HS_EXPECT_NEAR(WB::noise_amplitude(effect), amplitude, 1e-6f);
+    HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
+  }
+}
