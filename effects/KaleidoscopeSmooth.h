@@ -43,7 +43,7 @@ struct KaleidoscopeSmoothSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
-   * @brief The ranked stage pipeline.
+   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, stereographic projection, mirror warp, grid source, generated palette.
    * @tparam B The effect's Binding.
    */
   template <typename B>

@@ -22,7 +22,7 @@ struct KaleidoscopeStainedGlassSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = false;
   /**
-   * @brief The ranked stage pipeline.
+   * @brief Stage chain: camera rotation, dodecahedral kaleidoscope lens, folded gnomonic projection, vector-noise warp, mirror warp, grid source, generated palette.
    * @tparam B The effect's Binding.
    */
   template <typename B>
