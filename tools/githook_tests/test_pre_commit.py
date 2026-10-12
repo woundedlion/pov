@@ -35,7 +35,7 @@ class PreCommitHook(unittest.TestCase):
             "print('TRACKED', tracked.stdout.split())\n"
             "raise SystemExit('BROKEN' in (root / 'README.md').read_text())\n",
             encoding="utf-8")
-        for name in ["docs_images.py", "build_pins.py", "license_check.py"]:
+        for name in ["docs_images.py", "build_pins.py", "license_check.py", "include_paths.py"]:
             (tools / name).write_text("raise SystemExit(0)\n", encoding="utf-8")
         requirements = self.repo / "requirements"
         requirements.mkdir()
