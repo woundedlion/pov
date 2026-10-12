@@ -155,10 +155,9 @@ HS_O3_BEGIN
  * (min_v, max_v) vertex key.
  */
 struct HalfEdgePairRecord {
-  /// Lower vertex index.
-  uint16_t min_v, max_v, he; /**< Half-edge index. */
-  /** @var max_v
-   *  Upper vertex index. */
+  uint16_t min_v; /**< Lower vertex index. */
+  uint16_t max_v; /**< Upper vertex index. */
+  uint16_t he;    /**< Half-edge index. */
 };
 
 /**
