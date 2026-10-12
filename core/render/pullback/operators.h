@@ -154,19 +154,15 @@ struct ColorClockState {
 /**
  * @brief Resolves a generated-palette param block into the per-frame colour
  *        state; mode fields out of range fail an `HS_CHECK`.
- * @tparam Params Param block with the `GeneratedPaletteParams` fields.
  * @param ctx Frame context supplying the palettes and hue LUTs.
  * @param params Operator parameters.
  * @param state Colour clocks.
- * @param bottom Brightness at the envelope's low end.
- * @param top Brightness at the envelope's high end.
  * @return The prepared colour state for this frame.
  */
-template <typename Params>
-Color::GeneratedPaletteState
-prepare_generated_palette(const FrameContext &ctx, const Params &params,
-                          const ColorClockState &state, float bottom,
-                          float top) {
+inline Color::GeneratedPaletteState
+prepare_generated_palette(const FrameContext &ctx,
+                          const GeneratedPaletteParams &params,
+                          const ColorClockState &state) {
   HS_CHECK(params.hue_mode <= static_cast<uint8_t>(HueShiftMode::PATH_LENGTH),
            "colorize.generated-palette: invalid hue shift mode");
   HS_CHECK(params.palette_mode < ctx.palettes.size(),
@@ -198,8 +194,8 @@ prepare_generated_palette(const FrameContext &ctx, const Params &params,
                                   rotation_active &&
                                   ctx.hue_noise_lut != nullptr},
           static_cast<Color::BrightnessEnvelope>(params.envelope_mode),
-          bottom,
-          top,
+          params.brightness_bottom,
+          params.brightness_top,
           params.opacity_low,
           params.opacity_high};
 }
@@ -226,8 +222,7 @@ struct ColorizeGeneratedPaletteV3 : ValueStateModel<ColorClockState> {
   }
   static Prepared prepare(const FrameContext &ctx, const Params &params,
                           const State &state) {
-    return prepare_generated_palette(
-        ctx, params, state, params.brightness_bottom, params.brightness_top);
+    return prepare_generated_palette(ctx, params, state);
   }
   static Color4 run(const FieldSample &input, const FrameContext &,
                     const Params &, const Prepared &prepared) {
