@@ -332,6 +332,8 @@ test('every promoted shader document matches its compiled effect identity', asyn
     const compiled = compile(parseShaderDocument(documentSource));
     assert.equal(compiled.status, 'VALID', effectId);
     assert.equal(compiled.document.effect_id, effectId);
+    const child = manifest.product_group.children.find((entry) => entry.effect_id === effectId);
+    assert.equal(child.display_name, compiled.document.effect_metadata.display_name, effectId);
 
   }
 });
