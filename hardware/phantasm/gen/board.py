@@ -133,11 +133,11 @@ def main(force=False, revision=B.REVISION, output_dir=None):
 
         topL = (len(LEFT) - 1) / 2 * pitch
         for i, (name, num) in enumerate(LEFT):
-            addpin(name, num, -(bodyx + 5.08), topL - i * pitch, 0, "passive")
+            addpin(name, num, -(bodyx + 5.08), round(topL - i * pitch, 2), 0, "passive")
         topR = (len(RIGHT) - 1) / 2 * pitch
         for i, (name, num) in enumerate(RIGHT):
             et = {"VIN": "power_in", "GND": "power_in", "3V3": "power_out"}[name]
-            addpin(name, num, (bodyx + 5.08), topR - i * pitch, 180, et)
+            addpin(name, num, (bodyx + 5.08), round(topR - i * pitch, 2), 180, et)
 
         unused_y = [30.48 - i * 2.54 for i in range(7)]
         unused_y += [-17.78 - i * 2.54 for i in range(8)]
