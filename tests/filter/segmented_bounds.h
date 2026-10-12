@@ -55,7 +55,7 @@ struct ScreenTrailRig {
     }};
   }
 
-  static inline uint8_t buf[MAXP * 32];
+  alignas(std::max_align_t) static inline uint8_t buf[Trails::STORAGE_BYTES];
   Arena arena{buf, sizeof(buf)};
   Pipeline<W, H, Trails> pipe{Trails(LIFETIME)};
 
