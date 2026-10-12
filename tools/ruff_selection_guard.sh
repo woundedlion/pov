@@ -20,9 +20,13 @@ trap 'rm -f -- "$tmp"' EXIT
 # --show-files reports the selection; emptiness is the gate, not its status.
 ruff check --no-cache --show-files . > "$tmp" || true
 
-ruff_python=${HS_PYTHON:-python3}
-if [ -z "${HS_PYTHON:-}" ] && ! "$ruff_python" --version >/dev/null 2>&1; then
-  ruff_python=python
+ruff_python=
+for candidate in "${HS_PYTHON:-}" python3 python; do
+  if "$candidate" --version >/dev/null 2>&1; then ruff_python="$candidate"; break; fi
+done
+if [ -z "$ruff_python" ]; then
+  echo "no working Python found (set HS_PYTHON)" >&2
+  exit 1
 fi
 "$ruff_python" - "$tmp" <<'PY'
 import pathlib
