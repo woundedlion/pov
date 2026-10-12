@@ -1,6 +1,5 @@
 import contextlib
 import io
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -20,7 +19,7 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_retired_behavior_wording_is_rejected_until_removed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "README.md").write_text(
                 "# Contract\n<!-- docs-check: tree exhaustive -->\n```\n"
                 "└── engine.h  Engine\n```\n"
@@ -29,8 +28,7 @@ class TestDocumentationChecker(unittest.TestCase):
             source = root / "engine.h"
             source.write_text("// Trips the wire-busy trap.\n", encoding="utf-8")
             (root / "ignored.md").write_text("wire-busy trap\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "README.md", "engine.h"],
-                           check=True)
+            git_run(root, 'add', 'README.md', 'engine.h')
             arguments = ["--root", str(root), "--skip-checkout", "daydream",
                          "--retired-term", "WIRE-BUSY TRAP"]
             with contextlib.redirect_stdout(io.StringIO()) as output:
@@ -43,11 +41,10 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_retired_terms_are_literal_repeatable_and_skip_binary_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "contract.js").write_text("// a+b\n// restarts the path\n", encoding="utf-8")
             (root / "data.bin").write_bytes(b"\0a+b\n")
-            subprocess.run(["git", "-C", str(root), "add", "contract.js", "data.bin"],
-                           check=True)
+            git_run(root, 'add', 'contract.js', 'data.bin')
             issues = dc.retired_term_issues(root, ["a+b", "restarts the path"])
             self.assertEqual([(issue.path, issue.line) for issue in issues],
                              [("contract.js", 1), ("contract.js", 2)])
@@ -460,12 +457,11 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_only_git_tracked_markdown_is_checked(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "README.md").write_text("[ok](target.txt)\n", encoding="utf-8")
             (root / "target.txt").write_text("ok\n", encoding="utf-8")
             (root / "untracked.md").write_text("[bad](missing.txt)\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "README.md", "target.txt"],
-                           check=True)
+            git_run(root, 'add', 'README.md', 'target.txt')
             with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
                 markdown, issues, _ = dc.check_repository(root)
         self.assertEqual(markdown, [PurePosixPath("README.md")])
@@ -474,12 +470,11 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_effect_roster_claim_requires_its_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "README.md").write_text(
                 "effects/ 3 headers covering 2 effects\n",
                 encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "README.md"],
-                           check=True)
+            git_run(root, 'add', 'README.md')
             with mock.patch.object(dc, "_REQUIRED_TREES", frozenset()):
                 _, issues, _ = dc.check_repository(root)
         self.assertEqual(len(issues), 1)
@@ -538,15 +533,14 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_detached_required_tree_directive_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "README.md").write_text(
                 "<!-- docs-check: tree exhaustive -->\n"
                 "Tree follows.\n"
                 "```\n"
                 "└── ghost/\n"
                 "```\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "README.md"],
-                           check=True)
+            git_run(root, 'add', 'README.md')
             required = frozenset({(
                 PurePosixPath("README.md"), dc.TreeDirective("", True),
             )})
@@ -593,7 +587,7 @@ class TestDocumentationChecker(unittest.TestCase):
 
     @staticmethod
     def _checkout_fence_repository(root: Path) -> None:
-        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        git_run(root, 'init', '-q')
         (root / "README.md").write_text(
             "<!-- docs-check: tree exhaustive -->\n"
             "```\n"
@@ -602,8 +596,7 @@ class TestDocumentationChecker(unittest.TestCase):
             "```\n"
             "└── ghost.js                    Stale row\n"
             "```\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(root), "add", "README.md"],
-                       check=True)
+        git_run(root, 'add', 'README.md')
 
     def test_unacknowledged_checkout_tree_fails(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -975,21 +968,21 @@ class TestDocumentationChecker(unittest.TestCase):
     def test_repository_without_markdown_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "-q", str(root)], check=True)
+            git_run(root, 'init', '-q')
             (root / "target.txt").write_text("ok\n", encoding="utf-8")
-            subprocess.run(["git", "-C", str(root), "add", "target.txt"],
-                           check=True)
+            git_run(root, 'add', 'target.txt')
             self.assertEqual(dc.main(["--root", str(root)]), 2)
 
 
 def _git_repository(root, files):
     """A git repository at root tracking files, a {path: text} map."""
-    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    root.mkdir(parents=True, exist_ok=True)
+    git_run(root, 'init', '-q')
     for name, text in files.items():
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
-    subprocess.run(["git", "-C", str(root), "add", *files], check=True)
+    git_run(root, 'add', *files)
 
 
 class TestCommentSymbols(unittest.TestCase):
@@ -1123,8 +1116,7 @@ class TestCommentSymbols(unittest.TestCase):
                 "bind.h": "// Exported as `renderFrame`.\nint x;\n"})
             _git_repository(checkout, {
                 "src/engine.js": "export function renderFrame() {}\n"})
-            revision = subprocess.check_output(
-                ["git", "-C", str(checkout), "write-tree"], text=True).strip()
+            revision = git_run(checkout, 'write-tree').stdout.strip()
             (checkout / "src/engine.js").write_text("// renderFrame\n",
                                                     encoding="utf-8")
             _, entries = dc.tracked_entries(engine)

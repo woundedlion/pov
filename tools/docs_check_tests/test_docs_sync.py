@@ -2,7 +2,6 @@
 
 import contextlib
 import io
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -179,12 +178,12 @@ class DiscoveryAndCounts(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "engine"
             root.mkdir()
-            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            git_run(root, 'init', '-q')
             candidates = [root / "daydream", root.parent / "daydream"]
             for candidate in candidates:
                 candidate.mkdir()
-                subprocess.run(["git", "-C", str(candidate), "init", "-q"], check=True)
-            revision = subprocess.check_output(["git", "-C", str(candidates[0]), "write-tree"], text=True).strip()
+                git_run(candidate, 'init', '-q')
+            revision = git_run(candidates[0], 'write-tree').stdout.strip()
             with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": revision}):
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
                     self.assertEqual(ds.discover_daydream(root), candidates[0].resolve())
