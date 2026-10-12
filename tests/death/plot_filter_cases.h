@@ -7,6 +7,7 @@
 
 // Plot filter death cases.
 
+/** @brief Traps on scan ring stack too many slots. */
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
@@ -23,6 +24,7 @@ inline void case_scan_ring_stack_too_many_slots() {
       [](int, const math::Vector &, Fragment &) {});
 }
 
+/** @brief Traps on scan ring stack too many rings. */
 inline void case_scan_ring_stack_too_many_rings() {
   constexpr int W = 32, H = 16;
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
@@ -42,6 +44,7 @@ inline void case_scan_ring_stack_too_many_rings() {
       [](int, const math::Vector &, Fragment &) {}); // 256 > 255 -> trap
 }
 
+/** @brief Traps on scan ring stack callback ring. */
 inline void case_scan_ring_stack_callback_ring() {
   constexpr int W = 32, H = 16;
   const math::Basis b{math::Vector(1, 0, 0), math::Vector(0, 1, 0),
@@ -133,6 +136,7 @@ inline void case_plot_canvas_dim_mismatch() {
                         [](const math::Vector &, Fragment &) {});
 }
 
+/** @brief Traps on raster empty path null shader. */
 inline void case_raster_empty_path_null_shader() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 1);
@@ -142,6 +146,7 @@ inline void case_raster_empty_path_null_shader() {
   Plot::rasterize<32, 16>(pipe, canvas, points, FragmentShaderFn{});
 }
 
+/** @brief Traps on raster single nonfinite point. */
 inline void case_raster_single_nonfinite_point() {
   ArenaVector<Fragment> points;
   points.bind(scratch_arena_a, 1);
@@ -195,6 +200,7 @@ inline void case_feedback_downsample_indivisible() {
   pipe.begin_frame(c, 1.0f);
 }
 
+/** @brief Traps on feedback uncached scratch budget. */
 inline void case_feedback_uncached_scratch_budget() {
   DeathEffect fx;
   {
@@ -243,6 +249,7 @@ inline void case_world_trails_plot_without_storage() {
               [](const math::Vector &, const Pixel &, float, float) {});
 }
 
+/** @brief Traps on plot open loop seam. */
 inline void case_plot_open_loop_seam() {
   constexpr int W = 32, H = 16;
   Fragment seam;
@@ -254,6 +261,7 @@ inline void case_plot_open_loop_seam() {
       {.capacity = 2, .loop_seam = &seam}, [](Fragments &) {});
 }
 
+/** @brief Traps on raster point projection pair mismatch. */
 inline void case_raster_point_projection_pair_mismatch() {
   float rows[3] = {};
   float cols[3] = {};
@@ -261,6 +269,7 @@ inline void case_raster_point_projection_pair_mismatch() {
                                        {cols, opaque<size_t>(2)});
 }
 
+/** @brief Traps on raster nonfinite point. */
 inline void case_raster_nonfinite_point() {
   constexpr int W = 32, H = 16;
   configure_arenas_default();
@@ -279,6 +288,7 @@ inline void case_raster_nonfinite_point() {
                         [](const math::Vector &, Fragment &) {});
 }
 
+/** @brief Traps on raster edge flags short. */
 inline void case_raster_edge_flags_short() {
   constexpr int W = 32, H = 16;
   configure_arenas_default();
@@ -429,6 +439,7 @@ inline void case_planar_chords_unprepared() {
   chords.draw_closed(sink, canvas, points, 2, math::Basis{}, Color4{}, shader);
 }
 
+/** @brief Traps on planar chords stale clip. */
 inline void case_planar_chords_stale_clip() {
   static uint8_t arena_buf[256];
   Arena arena(arena_buf, sizeof(arena_buf));
@@ -740,6 +751,7 @@ inline void case_scan_mesh_class_id_out_of_range() {
       pipe, c, mesh, [](const math::Vector &, Fragment &) {}, scratch, &bake);
 }
 
+/** @brief Traps on star mismatched chart. */
 inline void case_star_mismatched_chart() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -751,6 +763,7 @@ inline void case_star_mismatched_chart() {
                                wrong);
 }
 
+/** @brief Traps on star mismatched radius cache. */
 inline void case_star_mismatched_radius_cache() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -759,6 +772,7 @@ inline void case_star_mismatched_radius_cache() {
                          Star::step_trig(5));
 }
 
+/** @brief Traps on star mismatched step cache. */
 inline void case_star_mismatched_step_cache() {
   using Star = Plot::Star<Plot::PlanarProjection>;
   Fragments points;
@@ -767,6 +781,7 @@ inline void case_star_mismatched_step_cache() {
                          Star::step_trig(6));
 }
 
+/** @brief Traps on screen storage twice. */
 inline void case_screen_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -775,6 +790,7 @@ inline void case_screen_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Traps on world storage twice. */
 inline void case_world_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -783,6 +799,7 @@ inline void case_world_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Traps on feedback storage twice. */
 inline void case_feedback_storage_twice() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -792,6 +809,7 @@ inline void case_feedback_storage_twice() {
   stage.init_storage(arena);
 }
 
+/** @brief Traps on direct sink wrong dimensions. */
 inline void case_direct_sink_wrong_dimensions() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -799,6 +817,7 @@ inline void case_direct_sink_wrong_dimensions() {
   sink.prepare(canvas);
 }
 
+/** @brief Traps on direct sink unprepared plot. */
 inline void case_direct_sink_unprepared_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -806,6 +825,7 @@ inline void case_direct_sink_unprepared_plot() {
   sink.plot(canvas, 2.0f, 2.0f, Pixel(65535, 0, 0), 0, 1);
 }
 
+/** @brief Traps on direct sink unprepared integer plot. */
 inline void case_direct_sink_unprepared_integer_plot() {
   hs_test::StubEffect effect(16, 8);
   Canvas canvas(effect);
@@ -813,6 +833,7 @@ inline void case_direct_sink_unprepared_integer_plot() {
   sink.plot(canvas, 2, 2, Pixel(65535, 0, 0), 0, 1);
 }
 
+/** @brief Traps on vertex replicate short input. */
 inline void case_vertex_replicate_short_input() {
   std::array<math::Vector, 2> vertices{};
   Filter::World::VertexReplicate<3> replicate(vertices);

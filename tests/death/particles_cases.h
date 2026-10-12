@@ -12,6 +12,7 @@ inline void case_particle_lifetime_zero() {
   init_particle_system_with_lifetime(opaque(0.0f));
 }
 
+/** @brief Traps on particle friction nan. */
 inline void case_particle_friction_nan() {
   static uint8_t buf[4096];
   Arena arena(buf, sizeof(buf));
@@ -19,6 +20,7 @@ inline void case_particle_friction_nan() {
   ps.init(arena, opaque(std::numeric_limits<float>::quiet_NaN()));
 }
 
+/** @brief Traps on particle gravity nan. */
 inline void case_particle_gravity_nan() {
   static uint8_t buf[4096];
   Arena arena(buf, sizeof(buf));

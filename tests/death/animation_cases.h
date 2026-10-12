@@ -89,6 +89,7 @@ inline void case_timeline_pinned_after_destroyed_predecessor() {
   tl.step(canvas);
 }
 
+/** @brief Traps on timeline pinned after cancelled perpetual. */
 inline void case_timeline_pinned_after_cancelled_perpetual() {
   Timeline tl;
   auto *predecessor = tl.add_get(
@@ -142,6 +143,7 @@ inline void case_orientation_frame_index_oob() {
     std::printf("x");
 }
 
+/** @brief Traps on opleg rewind refill. */
 inline void case_opleg_rewind_refill() {
   static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
   Arena seed_arena(seed_storage, sizeof(seed_storage));
@@ -622,6 +624,7 @@ inline void case_timeline_double_construct() {
     std::printf("x");
 }
 
+/** @brief Traps on random walk nonfinite options. */
 inline void case_random_walk_nonfinite_options() {
   math::Orientation<> orientation;
   FastNoiseLite noise;
@@ -662,6 +665,7 @@ inline void case_bump_offset_outside_cap_distance() {
   (void)bump_field_with_y(math::Y_AXIS, params, opaque(0.25f));
 }
 
+/** @brief Traps on timeline add into live slot. */
 inline void case_timeline_add_into_live_slot() {
   Timeline timeline;
   float value = 0;

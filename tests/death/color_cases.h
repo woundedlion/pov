@@ -7,16 +7,19 @@
 
 // Color death cases.
 
+/** @brief Traps on gamut lut scratch a. */
 inline void case_gamut_lut_scratch_a() {
   init_gamut_lut(scratch_arena_a, GAMUT_LUT_MIN_ANGLE_STEPS,
                  GAMUT_LUT_MIN_L_STEPS);
 }
 
+/** @brief Traps on gamut lut scratch b. */
 inline void case_gamut_lut_scratch_b() {
   init_gamut_lut(scratch_arena_b, GAMUT_LUT_MIN_ANGLE_STEPS,
                  GAMUT_LUT_MIN_L_STEPS);
 }
 
+/** @brief Traps on noise hue bake invalid scale. */
 inline void case_noise_hue_bake_invalid_scale() {
   static std::array<int8_t, HueNoiseLutView::SIZE> output{};
   FastNoiseLite noise;
@@ -51,6 +54,7 @@ inline void case_alpha_falloff_null() {
   (void)shade;
 }
 
+/** @brief Traps on palette cycler mutated policy. */
 inline void case_palette_cycler_mutated_policy() {
   static uint8_t storage[8192];
   Arena arena(storage, sizeof(storage));
@@ -65,6 +69,7 @@ inline void case_palette_cycler_mutated_policy() {
   cycler.step();
 }
 
+/** @brief Traps on palette cycler restore without generated init. */
 inline void case_palette_cycler_restore_without_generated_init() {
   PaletteCycler cycler;
   GenerativePalette palette;
@@ -90,24 +95,28 @@ inline void case_noise_hue_palette_direct_null_source() {
   palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
 }
 
+/** @brief Traps on noise hue palette direct null noise lut. */
 inline void case_noise_hue_palette_direct_null_noise_lut() {
   SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
   NoiseHuePalette<SolidColorPalette> palette;
   palette.bind(&source, opaque<const int8_t *>(nullptr));
 }
 
+/** @brief Traps on noise shimmer palette null source. */
 inline void case_noise_shimmer_palette_null_source() {
   static int8_t noise_lut[1];
   NoiseShimmerPalette<SolidColorPalette> palette;
   palette.bind(opaque<const SolidColorPalette *>(nullptr), noise_lut);
 }
 
+/** @brief Traps on noise shimmer palette null noise lut. */
 inline void case_noise_shimmer_palette_null_noise_lut() {
   SolidColorPalette source(Color4(Pixel(255, 0, 0), 1.0f));
   NoiseShimmerPalette<SolidColorPalette> palette;
   palette.bind(&source, opaque<const int8_t *>(nullptr));
 }
 
+/** @brief Traps on noise hue palette null source. */
 inline void case_noise_hue_palette_null_source() {
   static Pixel hue_rotation_lut[1];
   static int8_t hue_noise_lut[1];

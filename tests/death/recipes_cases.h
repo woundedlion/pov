@@ -22,15 +22,18 @@ inline void case_solids_unknown_name() {
     std::printf("x");
 }
 
+/** @brief Traps on recipe bake wrong op. */
 inline void case_recipe_bake_wrong_op() {
   const MeshOps::RelaxBake bake{};
   run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, 0.0f, &bake});
 }
 
+/** @brief Traps on recipe twist wrong op. */
 inline void case_recipe_twist_wrong_op() {
   run_invalid_recipe_step({Solids::Op::AMBO, 0.0f, opaque(0.1f)});
 }
 
+/** @brief Traps on recipe bake live iterations. */
 inline void case_recipe_bake_live_iterations() {
   const MeshOps::RelaxBake bake{};
   run_invalid_recipe_step({Solids::Op::RELAX, opaque(1.0f), 0.0f, &bake});

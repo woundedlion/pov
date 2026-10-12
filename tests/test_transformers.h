@@ -791,10 +791,6 @@ inline void test_transformer_live_edit_preserves_instance_phase_and_seed() {
                expected.noise.GetNoise(0.3f, 0.7f, 1.2f));
 }
 
-// ============================================================================
-// Transformer<> spawn_pausable() gates the whole event, start delay included
-// ============================================================================
-
 /** @brief A pinned repeating warp retains its slot across cycles until cancellation. */
 inline void test_transformer_pinned_repeat_retains_slot() {
   Timeline timeline;
@@ -826,6 +822,10 @@ inline void test_transformer_pinned_repeat_retains_slot() {
       transformer.spawn_pinned(
           0, 0.4f, 4, Animation::MobiusWarpOptions{.repeat = true}) != nullptr);
 }
+
+// ============================================================================
+// Transformer<> spawn_pausable() gates the whole event, start delay included
+// ============================================================================
 
 /**
  * @brief Verifies spawn_pausable() freezes the spawned event's pending start
