@@ -13,6 +13,30 @@
  */
 struct DisplacementFieldWhiteBox {
   template <int W, int H>
+  static void start_noise_fade(DisplacementField<W, H> &effect, bool fade_out) {
+    if (fade_out) {
+      effect.master_gain = 1.0f;
+      effect.noise_hold = 1;
+    } else {
+      effect.enter_noise();
+    }
+  }
+
+  template <int W, int H>
+  static float gain(const DisplacementField<W, H> &effect) {
+    return effect.master_gain;
+  }
+
+  template <int W, int H>
+  static int hold(const DisplacementField<W, H> &effect) {
+    return effect.noise_hold;
+  }
+
+  template <int W, int H> static constexpr int fade_frames() {
+    return DisplacementField<W, H>::NOISE_FADE_FRAMES;
+  }
+
+  template <int W, int H>
   static void enter_balls(DisplacementField<W, H> &effect) {
     effect.enter_balls();
     effect.spawn_ball();
@@ -671,4 +695,34 @@ inline void test_displacement_field_footprint_covers_init() {
   const size_t used = persistent_arena.get_offset() - before;
   HS_EXPECT_GT(used, size_t{0});
   HS_EXPECT_LE(used, DisplacementFieldWhiteBox::footprint_bytes(effect));
+}
+
+/** @brief Pause holds the noise phase while both gain fades continue. */
+inline void test_displacement_field_pause_holds_phase_only() {
+  using WB = DisplacementFieldWhiteBox;
+  for (bool fade_out : {false, true}) {
+    reset_effect_globals();
+    DisplacementField<SMALL_W, SMALL_H> effect;
+    effect.init();
+    WB::start_noise_fade(effect, fade_out);
+    if (fade_out) {
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    effect.setAnimationsPaused(true);
+    const int HOLD = WB::hold(effect);
+    for (int frame = 0; frame < WB::fade_frames<SMALL_W, SMALL_H>() + 2;
+         ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    HS_EXPECT_TRUE(WB::in_noise(effect));
+    HS_EXPECT_EQ(WB::hold(effect), HOLD);
+    HS_EXPECT_NEAR(WB::gain(effect), fade_out ? 0.0f : 1.0f, 1e-6f);
+    if (fade_out) {
+      effect.setAnimationsPaused(false);
+      effect.draw_frame();
+      HS_EXPECT_FALSE(WB::in_noise(effect));
+    }
+  }
 }
