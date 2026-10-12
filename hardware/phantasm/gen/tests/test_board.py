@@ -3,8 +3,6 @@
 Generating needs KiCad's stock symbol libraries (sexp.KICAD_SHARE); the checks
 that do not need them also run against the committed rev 1.2 schematic.
 """
-import contextlib
-import io
 import importlib
 import json
 import os
@@ -25,6 +23,7 @@ import shorts   # noqa: E402
 from constraints import (DEFAULT_CLASS_MINIMUMS, NEW_LAYOUT_RULES,  # noqa: E402
                          RULE_MINIMUMS)
 from kicad_common import F  # noqa: E402
+from kicad_env import generate_schematic  # noqa: E402
 from pin_landing import dangling_pins, pin_positions  # noqa: E402
 
 STOCK_SYMBOLS = os.path.isdir(sexp.KICAD_SHARE)
@@ -56,14 +55,6 @@ WIRE_OVER_PIN = DANGLING.replace(
     '\t(wire (pts (xy 95 103.81) (xy 105 103.81)))\n')
 
 
-def generate(out):
-    """Run the generator into `out`; return the schematic path."""
-    sch = os.path.join(out, "phantasm.kicad_sch")
-    with unittest.mock.patch.object(board, "OUT", out), \
-            unittest.mock.patch.object(board, "SCH", sch), \
-            contextlib.redirect_stdout(io.StringIO()):
-        board.main(force=True)
-    return sch
 
 
 class PowerPinAnchorTests(unittest.TestCase):
@@ -221,7 +212,7 @@ class GeneratedSchematicTests(BypassConnectionChecks, unittest.TestCase):
     def setUpClass(cls):
         cls.out = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.out.cleanup)
-        cls.sch = generate(cls.out.name)
+        cls.sch = generate_schematic(cls.out.name)
         cls.root = sexp.parse(Path(cls.sch).read_text(encoding="utf-8"))[0]
 
     def test_writes_every_project_file(self):

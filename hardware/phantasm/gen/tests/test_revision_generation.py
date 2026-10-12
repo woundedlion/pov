@@ -20,7 +20,7 @@ import shorts  # noqa: E402
 from kicad_common import F, export_netlist, kicad_cli  # noqa: E402
 from courtyard_bounds import courtyard_box  # noqa: E402
 from pin_landing import dangling_pins  # noqa: E402
-from kicad_env import committed_board_nets  # noqa: E402
+from kicad_env import committed_board_nets, generate  # noqa: E402
 from kicad_env import GENERATES, GENERATES_REASON  # noqa: E402
 
 PROTOTYPE = GEN.parent / "1.3"
@@ -38,11 +38,6 @@ GENERATED_PROJECT_FILES = (
 )
 
 
-def generate(out, revision):
-    with contextlib.redirect_stdout(io.StringIO()):
-        board.main(force=True, revision=revision, output_dir=str(out))
-        pcb.main(unplaced=True, force=True, force_teensy_library=True,
-                 revision=revision, output_dir=str(out))
 
 
 class PrototypeContractTests(unittest.TestCase):
@@ -163,10 +158,10 @@ class RevisionGenerationTests(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         cls.rev_12 = Path(cls.directory.name) / "1.2"
         cls.prototype = Path(cls.directory.name) / "1.3"
-        generate(cls.rev_12, "1.2")
+        generate(cls.rev_12, unplaced=True, revision="1.2")
         cls.before = {path: (cls.rev_12 / path).read_bytes() for path in GENERATED_PROJECT_FILES}
-        generate(cls.prototype, "1.3")
-        generate(cls.rev_12, "1.2")
+        generate(cls.prototype, unplaced=True, revision="1.3")
+        generate(cls.rev_12, unplaced=True, revision="1.2")
 
     def test_rev_12_output_is_byte_identical_after_revision_switch(self):
         for path in GENERATED_PROJECT_FILES:
