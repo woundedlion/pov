@@ -307,6 +307,23 @@ struct RingShowerWhiteBox {
  *          boundary container's capacity.
  */
 struct DynamoWhiteBox {
+  /** @brief Lowering the gap closes slack toward the nearest leader column. */
+  static void check_gap_reduction_uses_shortest_path() {
+    reset_effect_globals();
+    Dynamo<DEFAULT_W, DEFAULT_H> effect;
+    effect.params.gap = 2;
+    for (int direction : {-1, 1}) {
+      typename Dynamo<DEFAULT_W, DEFAULT_H>::Node leader, follower;
+      leader.x = 0;
+      leader.v = direction;
+      follower.x = math::wrap(direction * 6, DEFAULT_W);
+      follower.v = direction;
+      effect.drag(leader, follower);
+      HS_EXPECT_EQ(follower.x, math::wrap(direction * 2, DEFAULT_W));
+      HS_EXPECT_EQ(follower.v, -direction);
+    }
+  }
+
   /**
    * @brief Verifies color() is memory-safe and in-range under inverted bands.
    */
