@@ -194,7 +194,7 @@
 	(gr_text "LED OUT" (at 46 6.5 90) (layer "B.SilkS") (uuid "0aadac60-6041-5692-9b6a-94d70ac4d835") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
 	(gr_text "SYNC IN" (at 46 16 90) (layer "B.SilkS") (uuid "34996271-4f88-51a1-bf9f-5a4f8a300de2") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
 	(gr_text "SYNC OUT" (at 46 25.5 90) (layer "B.SilkS") (uuid "8ff79ffa-2712-5286-9497-cdb1d289f2eb") (effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))
-	(gr_text "ID  ID0   ID1   ROLE" (at 25.5 7 0) (layer "B.SilkS") (uuid "5450dfc5-d884-5550-874f-e8977549cdc2") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
+	(gr_text "ID  ID0   ID1   ROLE(N4)" (at 25.5 7 0) (layer "B.SilkS") (uuid "5450dfc5-d884-5550-874f-e8977549cdc2") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
 	(gr_text "0   OPEN  OPEN  MASTER" (at 25.5 9 0) (layer "B.SilkS") (uuid "3d535bc9-2913-5380-b2ec-7721043fb2aa") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
 	(gr_text "1   GND   OPEN  A-SOUTH" (at 25.5 11 0) (layer "B.SilkS") (uuid "a38baf25-8020-50a5-89d3-e5474a4f890f") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))
 	(gr_text "2   OPEN  GND   B-NORTH" (at 25.5 13 0) (layer "B.SilkS") (uuid "fa1ccd39-79a0-5144-8836-883698393bfe") (effects (font (size 0.9 0.9) (thickness 0.15)) (justify mirror)))

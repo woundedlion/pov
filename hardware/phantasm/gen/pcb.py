@@ -1109,7 +1109,7 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                          f'(layer "B.SilkS") (uuid "{uid()}") '
                          '(effects (font (size 0.8 0.8) (thickness 0.15)) (justify mirror)))')
     back_silk = [
-        ("ID  ID0   ID1   ROLE", 7.0, 0.9),
+        ("ID  ID0   ID1   ROLE(N4)", 7.0, 0.9),
         ("0   OPEN  OPEN  MASTER", 9.0, 0.9),
         ("1   GND   OPEN  A-SOUTH", 11.0, 0.9),
         ("2   OPEN  GND   B-NORTH", 13.0, 0.9),
