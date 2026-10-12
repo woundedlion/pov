@@ -44,6 +44,7 @@ class DirectoryCoverage(unittest.TestCase):
             ("/w/pov/core/render/scan.h", 100, 90),
             ("/w/pov/core/render/deep/raster.h", 100, 50),
             ("/w/pov/core/mesh/mesh.h", 100, 0),
+            ("/w/pov/core/renderer/x.h", 100, 0),
         ])
         self.assertEqual(
             check_coverage.directory_coverage(document, "core/render"), 70.0)
@@ -139,6 +140,14 @@ class Main(unittest.TestCase):
             self.main_with("101")
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("between 0 and 100", self.stderr.getvalue())
+
+    def test_rejects_directory_floors_outside_the_percentage_range(self):
+        self.stage_percentage(78.25)
+        for floor in ("core=101", "core=-1"):
+            with self.subTest(floor=floor), self.assertRaises(SystemExit) as raised:
+                self.main_with("70", floor)
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("between 0 and 100", self.stderr.getvalue())
 
     def test_a_directory_below_its_floor_fails_a_passing_aggregate(self):
         self.stage(document_with([
