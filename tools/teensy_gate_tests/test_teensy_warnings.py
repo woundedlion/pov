@@ -90,7 +90,8 @@ class TestWarningGate(unittest.TestCase):
             "ld: warning: firmware.elf has a LOAD segment with RWX permissions",
         })
 
-        self.assertIsNone(tw.normalize("cc1.exe: warning: C++ option ignored"))
+        self.assertEqual(tw.normalize("cc1.exe: warning: C++ option ignored"),
+                         "cc1: warning: C++ option ignored")
 
     def test_library_warning_excluded(self):
         self.assertIsNone(tw.normalize(

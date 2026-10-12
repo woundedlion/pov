@@ -275,6 +275,20 @@ class TestSketchSelection(unittest.TestCase):
         env = FakeEnv(PIOENV=pioenv, PROJECT_DIR=str(REPO))
         return load_hook("teensy_pre.py", env=env), env
 
+    def test_cpp_only_flag_is_removed_before_shared_flag_processing(self):
+        for flags in (["-O3 -fno-use-cxa-atexit", "-D FLAG=-fno-use-cxa-atexit"],
+                      "-O3 -fno-use-cxa-atexit -fno-exceptions"):
+            with self.subTest(flags=flags):
+                env = FakeEnv(PIOENV="holosphere", PROJECT_DIR=str(REPO),
+                              BUILD_FLAGS=flags, CXXFLAGS=["-std=gnu++20"])
+                load_hook("teensy_pre.py", env=env)
+                shared = " ".join(env["BUILD_FLAGS"]).split()
+                self.assertNotIn("-fno-use-cxa-atexit", shared)
+                self.assertIn("-O3", shared)
+                self.assertEqual(env["CXXFLAGS"], ["-std=gnu++20", "-fno-use-cxa-atexit"])
+                if isinstance(flags, list):
+                    self.assertIn("FLAG=-fno-use-cxa-atexit", shared)
+
     def test_mapped_sketches_exist(self):
         mod, _ = self._run("phantasm")
         for name, rel in mod.SKETCH.items():
