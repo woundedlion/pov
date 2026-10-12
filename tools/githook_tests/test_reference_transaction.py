@@ -127,6 +127,20 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertNotEqual(self.git("update-ref", "-d", MASTER,
                                      check=False).returncode, 0)
 
+    def test_linked_worktree_consumes_common_directory_token(self):
+        linked = self.repo / "linked"
+        self.git("worktree", "add", "--detach", str(linked), self.two)
+        common = git_run(linked, "rev-parse", "--git-common-dir").stdout.strip()
+        private = git_run(linked, "rev-parse", "--git-dir").stdout.strip()
+        self.assertNotEqual(common, private)
+        token = (linked / common).resolve() / "hs-allow-nonff"
+        token.write_text(self.base + "\n", encoding="utf-8")
+        done = git_run(linked, "update-ref", MASTER, self.base, check=False)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.rev(MASTER), self.base)
+        self.assertFalse(token.exists())
+        self.assertIn(f"OVERRIDE master {self.one} -> {self.base}", self.log_text())
+
     def test_current_commit_token_authorizes_deletion_and_recreation_is_free(self):
         self.token.write_text(f"{self.one}\n", encoding="utf-8")
         self.assertEqual(self.git("update-ref", "-d", MASTER,
