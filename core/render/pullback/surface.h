@@ -165,7 +165,7 @@ prepare_ripple(const PeriodicRippleParams &params, float cycle) {
   ripple.thickness = params.thickness;
   const float progress = math::wrap_t(cycle);
   ripple.phase = progress * math::PI_F;
-  const float attack = std::min(progress * 10.0f, 1.0f);
+  const float attack = fminf(progress * 10.0f, 1.0f);
   ripple.amplitude *= attack * attack * (1.0f - progress);
   ripple.sync();
   return {ripple};

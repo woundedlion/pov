@@ -410,8 +410,7 @@ static inline math::Vector ring_tangent(int i, const math::Vector &u,
 template <int W> static inline int ring_lut_stride(float r_val) {
   constexpr int MIN_RING_SAMPLES = 8;
   constexpr int MAX_STRIDE = std::max(1, W / MIN_RING_SAMPLES);
-  const float inv =
-      1.0f / std::max(r_val, 1.0f / static_cast<float>(MAX_STRIDE));
+  const float inv = 1.0f / fmaxf(r_val, 1.0f / static_cast<float>(MAX_STRIDE));
   return std::max(1, static_cast<int>(inv));
 }
 
@@ -1264,7 +1263,7 @@ struct Flower {
     const math::Vector &w = frame.basis.w;
 
     float apothem = math::PI_F - frame.theta_eq;
-    float safe_apothem = std::min(apothem, math::PI_F - 1e-4f);
+    float safe_apothem = fminf(apothem, math::PI_F - 1e-4f);
     float angle_step = math::PI_F / num_sides;
     const float sin_r = sinf(safe_apothem);
     const float cos_r = cosf(safe_apothem);
