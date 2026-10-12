@@ -6,8 +6,16 @@ exactly the sketch for $PIOENV.
 """
 
 import os
+import re
 
 Import("env")
+
+build_flags = env.get("BUILD_FLAGS", [])
+if isinstance(build_flags, str):
+    build_flags = [build_flags]
+env.Replace(BUILD_FLAGS=[re.sub(r"(?<!\S)-fno-use-cxa-atexit(?!\S)", "", flags)
+                         for flags in build_flags])
+env.Append(CXXFLAGS=["-fno-use-cxa-atexit"])
 
 SKETCH = {
     "holosphere": os.path.join("targets", "Holosphere", "Holosphere.ino"),

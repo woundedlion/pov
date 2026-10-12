@@ -131,6 +131,9 @@ protected branch's `CI green` status is the authoritative correctness gate.
   generator or authored input and regenerate; hand-editing its output fails.
 - **Firmware:** `teensy-size` enforces firmware memory and layout budgets, and
   `teensy-warnings` checks every PlatformIO environment with the pinned toolchain.
+  The warning gate includes source diagnostics and fileless C compiler, C++
+  compiler, linker and command-line diagnostics. C++-only options stay in
+  `CXXFLAGS`; shared build flags must also be valid for C sources.
   The local entry points are `just teensy-size` and `just teensy-warnings`.
 - **Published artifacts:** `wasm` builds and verifies the engine bundle;
   `screenshot-gallery` checks capture membership and images. `docs-doxygen`
