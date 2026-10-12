@@ -99,7 +99,17 @@ template <typename Owner, typename Value = float> struct Field {
       if (!(validation_min >= -LIMIT && validation_max <= LIMIT &&
             validation_min <= validation_max))
         return false;
-      return sample >= validation_min && sample <= validation_max;
+      if (!(sample >= validation_min && sample <= validation_max))
+        return false;
+      if (spec.options && sample != std::round(sample))
+        return false;
+      if (!spec.option_values.empty()) {
+        for (const auto option : spec.option_values)
+          if (sample == static_cast<float>(option))
+            return true;
+        return false;
+      }
+      return true;
     } else {
       using Integer = typename ParamInteger<Value>::Type;
       if (validation_min < std::numeric_limits<Integer>::lowest() ||
