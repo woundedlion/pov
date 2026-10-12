@@ -1149,6 +1149,18 @@ and uploads it under the per-board device lock; set `HS_TEENSY_PORT=COMn` to
 select a board when several are attached. It is a diagnostic image without a
 shipping resource budget.
 
+For a board tested without a master, use `bash tools/upload_one.sh bench_standalone`.
+This runs the same colour cycle from local timing, retains the hardware segment
+ID and LED mapping, and disables the sync transmitter. Flash `bench` again to
+restore synchronized operation.
+
+Use `bash tools/upload_one.sh bench_master` to force ID 0 and transmit sync as
+the master, regardless of the ID straps. Only one board on the sync bus should
+run as master. To select an arbitrary ID in solo mode, set
+`PLATFORMIO_BUILD_FLAGS='-D HS_BENCH_SEGMENT_ID=2'` when running
+`bash tools/upload_one.sh bench_standalone`; IDs 0–3 are valid for the four-board
+rig, and `-1` uses the hardware straps.
+
 Target-specific constants live with their target rather than in a global header: `targets/Holosphere/Holosphere.ino` defines its own `NUM_PIXELS` and `RPM`, and the Phantasm-class targets share `targets/Phantasm/phantasm_target.h` (`TOTAL_PIXELS`, `RPM`). LED pin assignments are in `core/platform/led.h`.
 
 ### 8.5 Documentation
