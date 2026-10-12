@@ -53,22 +53,6 @@ public:
   using Params = ParamsT; ///< Keyed parameter storage derived from `SpecT`.
   using Spec = SpecT;     ///< The effect's ranked stage Spec.
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
-  static_assert(
-      Metadata::TRANSFER != TransferKind::ISO_CONTOUR || requires(Params p) {
-        p.template get<"value">().iso_level;
-        p.template get<"value">().iso_width;
-      }, "iso-contour transfer requires iso-level and iso-width");
-  static_assert(
-      Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
-          requires(Params p) { p.template get<"value">().edge_width; },
-      "edge-fade coverage requires edge-width");
-  static_assert(
-      Metadata::FIELD_COVERAGE != FieldCoverageKind::VALUE_CUTOUT ||
-          requires(Params p) {
-            p.template get<"value">().cutout_threshold;
-            p.template get<"value">().cutout_softness;
-          },
-      "value-cutout coverage requires threshold and softness");
   using FrameState = Pullback::FrameState<ParamsT>; ///< Frame context type.
   using Binding = Pullback::Binding<FrameState>;    ///< Pipeline binding.
   /// Whether the projection orientation follows a random walk and spin.

@@ -200,43 +200,50 @@ struct ProjectionPolicyFor<ProjectionKind::FOLDED_SINUSOIDAL, B> {
  * @tparam CoverageV Coverage mode.
  * @tparam Binding Frame binding of the effect.
  * @tparam Family Value parameter family; void when none is read.
+ * @tparam Key Value resource key.
  */
 template <ProjectionCoverageMode CoverageV, typename Binding,
-          typename Family = void>
+          typename Family = void, ResourceKey Key = "value">
 struct CoveragePolicyFor;
 /**
  * @brief Full coverage.
  * @tparam B Frame binding.
  * @tparam Family Value parameter family.
+ * @tparam Key Value resource key.
  */
-template <typename B, typename Family>
-struct CoveragePolicyFor<ProjectionCoverageMode::NONE, B, Family> {
+template <typename B, typename Family, ResourceKey Key>
+struct CoveragePolicyFor<ProjectionCoverageMode::NONE, B, Family, Key> {
   using Type = Pullback::ProjectionCoverage::None;
 };
 /**
  * @brief Coverage equal to the projection value weight.
  * @tparam B Frame binding.
  * @tparam Family Value parameter family.
+ * @tparam Key Value resource key.
  */
-template <typename B, typename Family>
-struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT, B, Family> {
+template <typename B, typename Family, ResourceKey Key>
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT, B, Family, Key> {
   using Type = Pullback::ProjectionCoverage::Weight;
 };
 /**
  * @brief Coverage equal to the squared value weight.
  * @tparam B Frame binding.
  * @tparam Family Value parameter family.
+ * @tparam Key Value resource key.
  */
-template <typename B, typename Family>
-struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B, Family> {
+template <typename B, typename Family, ResourceKey Key>
+struct CoveragePolicyFor<ProjectionCoverageMode::WEIGHT_SQUARED, B, Family,
+                         Key> {
   using Type = Pullback::ProjectionCoverage::WeightSquared;
 };
 /**
  * @brief Coverage faded across the projection edge.
  * @tparam B Frame binding.
  * @tparam Family Value parameter family.
+ * @tparam Key Value resource key.
  */
-template <typename B, typename Family>
-struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B, Family> {
-  using Type = Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B, Family>>;
+template <typename B, typename Family, ResourceKey Key>
+struct CoveragePolicyFor<ProjectionCoverageMode::EDGE_FADE, B, Family, Key> {
+  using Type =
+      Pullback::ProjectionCoverage::EdgeFade<ValueProvider<B, Family, Key>>;
 };

@@ -331,6 +331,9 @@ struct ValueProvider {
    *  @return The family's `iso_level`. */
   __attribute__((always_inline)) static float
   iso_level(const FrameState &frame) {
+    static_assert(
+        requires { frame.params.template get<Key>().iso_level; },
+        "value provider requires iso_level");
     return frame.params.template get<Key>().iso_level;
   }
   /** @brief Iso-contour width.
@@ -338,6 +341,9 @@ struct ValueProvider {
    *  @return The family's `iso_width`. */
   __attribute__((always_inline)) static float
   iso_width(const FrameState &frame) {
+    static_assert(
+        requires { frame.params.template get<Key>().iso_width; },
+        "value provider requires iso_width");
     return frame.params.template get<Key>().iso_width;
   }
   /** @brief Projection edge-fade width.
@@ -345,6 +351,9 @@ struct ValueProvider {
    *  @return The family's `edge_width`. */
   __attribute__((always_inline)) static float
   edge_width(const FrameState &frame) {
+    static_assert(
+        requires { frame.params.template get<Key>().edge_width; },
+        "value provider requires edge_width");
     return frame.params.template get<Key>().edge_width;
   }
   /** @brief Value-cutout threshold.
@@ -352,6 +361,9 @@ struct ValueProvider {
    *  @return The family's `cutout_threshold`. */
   __attribute__((always_inline)) static float
   cutout_threshold(const FrameState &frame) {
+    static_assert(
+        requires { frame.params.template get<Key>().cutout_threshold; },
+        "value provider requires cutout_threshold");
     return frame.params.template get<Key>().cutout_threshold;
   }
   /** @brief Value-cutout softness.
@@ -359,6 +371,9 @@ struct ValueProvider {
    *  @return The family's `cutout_softness`. */
   __attribute__((always_inline)) static float
   cutout_softness(const FrameState &frame) {
+    static_assert(
+        requires { frame.params.template get<Key>().cutout_softness; },
+        "value provider requires cutout_softness");
     return frame.params.template get<Key>().cutout_softness;
   }
 };
