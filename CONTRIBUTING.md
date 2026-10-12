@@ -85,14 +85,14 @@ select a supported interpreter; CI uses the version pinned in `tools/build_pins.
 The engine CI gates run in `.github/workflows/ci.yml` behind the aggregate
 `CI green` check. Local hooks and the sibling simulator checks below have
 separate entry points. `.githooks/pre-commit` is a fast prefilter over the staged
-tree — format, lint, documentation, build pins and license headers; the
+tree — format, lint, documentation, build pins, license headers and include paths; the
 protected branch's `CI green` status is the authoritative correctness gate.
 
 - **`.githooks/pre-commit`** — rejects staged whitespace errors, checks staged
   first-party C++ with clang-format, and runs ruff/eslint on staged
   Python/JavaScript. It then runs `tools/docs_check.py` (without `--sync`),
   `tools/docs_images.py`, `tools/build_pins.py --check` and
-  `tools/license_check.py` against an isolated checkout of the index, so the
+  `tools/license_check.py` and `tools/include_paths.py` against an isolated checkout of the index, so the
   verdict is on what is being committed rather than on the working tree. A
   required tool missing for an applicable change fails the commit rather than
   skipping the check. Configuring the `tests` preset points `core.hooksPath` at
