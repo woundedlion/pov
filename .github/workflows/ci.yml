@@ -905,7 +905,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
-          node --test scripts/screenshot_resolution.test.mjs
+          node --test scripts/screenshot_resolution.test.mjs scripts/png_probe.test.mjs
 
   screenshot-gallery:
     name: Screenshot gallery, profile archive and effect roster
