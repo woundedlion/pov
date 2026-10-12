@@ -180,7 +180,7 @@ public:
 #endif
     if (VISIBLE) {
       HS_PLOT_STALL_START(blend_start);
-      blend_tap(base + y * W + COLUMN, c, frac_to_q16(alpha * 1.0f));
+      blend_tap(base + y * W + COLUMN, c, frac_to_q16(alpha));
       HS_PLOT_STALL_STOP(framebuffer_blend, blend_start);
     }
   }
