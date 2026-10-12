@@ -788,3 +788,169 @@ inline void test_timeline_remove_clear_hook_unregisters_by_ctx() {
   HS_EXPECT_EQ(first, 1);
   HS_EXPECT_EQ(second, 3);
 }
+
+/**
+ * @brief Verifies a non-repeating RandomTimer fires exactly once, at a frame
+ * within the requested inclusive [min, max] delay window.
+ */
+inline void test_random_timer_fires_within_range() {
+  const auto saved_rng = hs::random();
+  hs::random().seed(1337);
+  Timeline tl;
+  struct {
+    int fires = 0;
+    int fire_frame = -1;
+    int frame = 0;
+  } st;
+  tl.add(0, Animation::RandomTimer({.min = 3, .max = 7}, [&st](Canvas &) {
+           st.fires++;
+           st.fire_frame = st.frame;
+         }));
+  for (st.frame = 1; st.frame <= 12; ++st.frame)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(st.fires, 1);
+  HS_EXPECT_GE(st.fire_frame, 3);
+  HS_EXPECT_LE(st.fire_frame, 7);
+
+  bool saw_minimum = false;
+  bool saw_maximum = false;
+  for (uint32_t seed = 0; seed < 64; ++seed) {
+    hs::random().seed(seed);
+    st.fires = 0;
+    st.fire_frame = -1;
+    tl.add(0, Animation::RandomTimer({.min = 3, .max = 4}, [&st](Canvas &) {
+             ++st.fires;
+             st.fire_frame = st.frame;
+           }));
+    for (st.frame = 1; st.frame <= 6; ++st.frame)
+      tl.step(fake_canvas());
+    HS_EXPECT_EQ(st.fires, 1);
+    HS_EXPECT_GE(st.fire_frame, 3);
+    HS_EXPECT_LE(st.fire_frame, 4);
+    saw_minimum |= st.fire_frame == 3;
+    saw_maximum |= st.fire_frame == 4;
+  }
+  HS_EXPECT_TRUE(saw_minimum);
+  HS_EXPECT_TRUE(saw_maximum);
+  hs::random() = saved_rng;
+}
+
+/**
+ * @brief Verifies a one-shot timer ends by completion, not cancellation.
+ * @details Timeline's pin-completion guard exempts is_canceled() animations.
+ */
+inline void test_one_shot_timer_ends_by_completion_not_cancel() {
+  Animation::PeriodicTimer periodic(2, [](Canvas &) {}, {.repeat = false});
+  periodic.step(fake_canvas());
+  HS_EXPECT_FALSE(periodic.done());
+  periodic.step(fake_canvas()); // t=2: fires and ends itself
+  HS_EXPECT_TRUE(periodic.done());
+  HS_EXPECT_FALSE(periodic.is_canceled());
+  HS_EXPECT_FALSE(periodic.repeats());
+
+  Animation::RandomTimer random({.min = 2, .max = 2}, [](Canvas &) {});
+  random.step(fake_canvas());
+  HS_EXPECT_FALSE(random.done());
+  random.step(fake_canvas());
+  HS_EXPECT_TRUE(random.done());
+  HS_EXPECT_FALSE(random.is_canceled());
+}
+
+/**
+ * @brief A repeating animation that ends itself through the protected finish().
+ */
+class SelfFinishing : public Animation::AnimationBase<SelfFinishing> {
+public:
+  explicit SelfFinishing(uint32_t at) : AnimationBase(100, true), at(at) {}
+
+  void step(Canvas &canvas) override {
+    AnimationBase::step(canvas);
+    if (t >= at)
+      finish();
+  }
+
+private:
+  uint32_t at; /**< Frame at which the animation ends itself. */
+};
+
+/**
+ * @brief Verifies finish() terminates a repeating animation instead of leaving
+ * it done() && repeats().
+ * @details Timeline rewinds and re-fires the .then() of anything reporting both.
+ */
+inline void test_finish_terminates_a_repeating_animation() {
+  SelfFinishing anim(2);
+  anim.step(fake_canvas());
+  HS_EXPECT_FALSE(anim.done());
+  anim.step(fake_canvas());
+  HS_EXPECT_TRUE(anim.done());
+  HS_EXPECT_FALSE(anim.repeats());
+  HS_EXPECT_FALSE(anim.is_canceled());
+
+  Timeline tl;
+  int fires = 0;
+  tl.add(0, SelfFinishing(2).then([&fires]() { fires++; }));
+  for (int i = 0; i < 6; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(fires, 1);
+  HS_EXPECT_EQ(tl.event_count(), 0);
+}
+
+/**
+ * @brief Verifies PeriodicTimer::set_period restarts the active-frame delay.
+ */
+inline void test_periodic_timer_set_period_reschedules_from_now() {
+  struct {
+    int fire_frame = -1;
+    int fires = 0;
+    int frame = 0;
+  } st;
+  Animation::PeriodicTimer timer(5,
+                                 [&st](Canvas &) {
+                                   st.fires++;
+                                   st.fire_frame = st.frame;
+                                 },
+                                 {.repeat = true});
+  st.frame = 1;
+  timer.step(fake_canvas());
+  timer.set_period(3);
+  for (st.frame = 2; st.frame <= 4; ++st.frame)
+    timer.step(fake_canvas());
+  HS_EXPECT_EQ(st.fires, 1);
+  HS_EXPECT_EQ(st.fire_frame, 4);
+}
+
+/**
+ * @brief Verifies PeriodicTimer::set_period called every frame with an
+ * unchanged period still lets the timer fire.
+ * @details Period 4 over 8 frames must fire at t=4 and t=8; non-positive periods
+ * clamp to one frame and keep firing under repeated set_period calls.
+ */
+inline void test_periodic_timer_set_period_unchanged_does_not_defer() {
+  for (int period : {0, -1, std::numeric_limits<int>::min()}) {
+    int calls = 0;
+    Animation::PeriodicTimer clamped(period, [&](Canvas &) { ++calls; },
+                                     {.repeat = true});
+    for (int frame = 0; frame < 3; ++frame) {
+      clamped.step(fake_canvas());
+      HS_EXPECT_EQ(calls, frame + 1);
+    }
+    clamped.set_period(10);
+    clamped.step(fake_canvas());
+    HS_EXPECT_EQ(calls, 3);
+    clamped.set_period(period);
+    clamped.step(fake_canvas());
+    HS_EXPECT_EQ(calls, 4);
+  }
+  struct {
+    int fires = 0;
+  } st;
+  Animation::PeriodicTimer timer(4, [&st](Canvas &) { st.fires++; },
+                                 {.repeat = true});
+  for (int frame = 1; frame <= 8; ++frame) {
+    timer.set_period(4); // live-slider write with no change
+    timer.step(fake_canvas());
+    HS_EXPECT_EQ(st.fires, frame / 4);
+  }
+  HS_EXPECT_EQ(st.fires, 2);
+}
