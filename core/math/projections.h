@@ -39,6 +39,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iterator>
 #include <type_traits>
 
 #include "core/math/stereographic.h"
