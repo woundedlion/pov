@@ -108,7 +108,7 @@ inline void test_walk_policy_coverage_and_balance() {
           pick_destination(node, recent, static_cast<uint32_t>(hs::random()()));
       HS_EXPECT_NE(dest, node);
       HS_EXPECT_FALSE(recently_swept(recent, dest));
-      while (node != dest) {
+      for (int hop = 0; node != dest && hop < NUM_NODES; ++hop) {
         const int e =
             next_edge_toward(node, dest, static_cast<uint32_t>(hs::random()()));
         reconcile_seed(e, node, held);
@@ -118,6 +118,9 @@ inline void test_walk_policy_coverage_and_balance() {
         node = next;
         ++legs;
       }
+      HS_EXPECT_EQ(node, dest);
+      if (node != dest)
+        break;
       ++counts[node];
       record_sweep(recent, node);
       if (!seen[node]) {
