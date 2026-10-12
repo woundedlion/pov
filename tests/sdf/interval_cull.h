@@ -38,6 +38,30 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
       });
 }
 
+/** @brief Checks culled visits for every pixel selected by a distance predicate. */
+template <int W, int H, typename Shape, typename Predicate>
+inline int expect_cull_covers(const Shape &shape, const char *label,
+                              const char *kind, Predicate predicate) {
+  HS_CONTEXT(label);
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  std::vector<uint8_t> visited;
+  cull_visited<W, H>(shape, visited);
+  constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+  int selected = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const auto distance =
+          SDF::distance_of(shape, math::pixel_to_vector<W, H>(x, y));
+      if (predicate(distance, PIXEL_WIDTH)) {
+        ++selected;
+        HS_CONTEXT(kind, x, y);
+        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
+      }
+    }
+  return selected;
+}
+
 /**
  * @brief Asserts no pixel clearly inside the shape is dropped by the cull.
  * @tparam W Canvas width in pixels.
@@ -50,26 +74,11 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape, const char *label) {
-  HS_CONTEXT(label);
-  if (!math::TrigLUT<W, H>::initialized)
-    math::TrigLUT<W, H>::init();
-  std::vector<uint8_t> visited;
-  cull_visited<W, H>(shape, visited);
-
-  const float pixel_width = 2.0f * math::PI_F / W;
-  int interior = 0;
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
-      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-      if (SDF::distance_of(shape, p).dist < -pixel_width) {
-        ++interior;
-        HS_CONTEXT("interior px", x, y);
-        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
-      }
-    }
-  }
-  HS_EXPECT_GT(interior, 0);
-  return interior;
+  const int count = expect_cull_covers<W, H>(
+      shape, label, "interior px",
+      [](const auto &r, float width) { return r.dist < -width; });
+  HS_EXPECT_GT(count, 0);
+  return count;
 }
 
 /** @brief Coverage above which expect_cull_covers_painted requires a visit. */
@@ -88,32 +97,17 @@ inline constexpr float PAINTED_ALPHA = Scan::MIN_ALPHA;
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_painted(const Shape &shape, const char *label) {
-  HS_CONTEXT(label);
-  if (!math::TrigLUT<W, H>::initialized)
-    math::TrigLUT<W, H>::init();
-  std::vector<uint8_t> visited;
-  cull_visited<W, H>(shape, visited);
-
-  constexpr float pixel_width = 2.0f * math::PI_F / W;
-  int painted = 0;
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
-      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-      const SDF::DistanceResult r = SDF::distance_of(shape, p);
-      float alpha = 0.0f;
-      if constexpr (Shape::is_solid)
-        alpha = Scan::solid_coverage(r.dist, pixel_width);
-      else if (r.dist < 0.0f && r.size > 0.0f)
-        alpha = math::quintic_kernel(-r.dist / r.size);
-      if (alpha > PAINTED_ALPHA) {
-        ++painted;
-        HS_CONTEXT("painted px", x, y);
-        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
-      }
-    }
-  }
-  HS_EXPECT_GT(painted, 0);
-  return painted;
+  const int count = expect_cull_covers<W, H>(
+      shape, label, "painted px", [](const auto &r, float width) {
+        float alpha = 0.0f;
+        if constexpr (Shape::is_solid)
+          alpha = Scan::solid_coverage(r.dist, width);
+        else if (r.dist < 0.0f && r.size > 0.0f)
+          alpha = math::quintic_kernel(-r.dist / r.size);
+        return alpha > PAINTED_ALPHA;
+      });
+  HS_EXPECT_GT(count, 0);
+  return count;
 }
 
 /**
@@ -128,26 +122,11 @@ inline int expect_cull_covers_painted(const Shape &shape, const char *label) {
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_fringe(const Shape &shape, const char *label) {
-  HS_CONTEXT(label);
-  if (!math::TrigLUT<W, H>::initialized)
-    math::TrigLUT<W, H>::init();
-  std::vector<uint8_t> visited;
-  cull_visited<W, H>(shape, visited);
-
-  const float pixel_width = 2.0f * math::PI_F / W;
-  int paintable = 0;
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
-      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-      if (SDF::distance_of(shape, p).dist < pixel_width) {
-        ++paintable;
-        HS_CONTEXT("paintable px", x, y);
-        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
-      }
-    }
-  }
-  HS_EXPECT_GT(paintable, 0);
-  return paintable;
+  const int count = expect_cull_covers<W, H>(
+      shape, label, "paintable px",
+      [](const auto &r, float width) { return r.dist < width; });
+  HS_EXPECT_GT(count, 0);
+  return count;
 }
 
 /**
@@ -721,22 +700,9 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
     HS_EXPECT_EQ(emitted, 0);
   }
 
-  std::vector<uint8_t> visited;
-  cull_visited<W, H>(face, visited);
-
-  const float pixel_width = 2.0f * math::PI_F / W;
-  int paintable = 0;
-  for (int y = 0; y < H; ++y) {
-    for (int x = 0; x < W; ++x) {
-      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
-      if (SDF::distance_of(face, p).dist < pixel_width) {
-        HS_CONTEXT("paintable px", x, y);
-        ++paintable;
-        HS_EXPECT_TRUE(visited[static_cast<size_t>(y) * W + x]);
-      }
-    }
-  }
-  return paintable;
+  return expect_cull_covers<W, H>(
+      face, "face fringe", "paintable px",
+      [](const auto &r, float width) { return r.dist < width; });
 }
 
 /** @brief Clipped face construction preserves every paintable render-row pixel. */
