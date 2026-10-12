@@ -199,6 +199,8 @@ class IdStrapSilkscreenTests(unittest.TestCase):
                      and _child(node, "layer")[0] == "B.SilkS"]
             with self.subTest(board=path.name):
                 self.assertIn(expected, texts)
+                if path != ROUTED:
+                    self.assertIn("ID  ID0   ID1   ROLE(N4)", texts)
 
 
 class RotationPolicyTests(unittest.TestCase):
