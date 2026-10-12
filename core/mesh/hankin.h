@@ -98,6 +98,7 @@ struct CompiledHankin {
                  src.corner_src.data() == src.base_vertices.data(),
              "CompiledHankin::clone needs an owned-corner source "
              "(compile_hankin borrow mode has no corners to copy)");
+    dst = CompiledHankin();
     MeshOps::copy_vector(dst.base_vertices, src.base_vertices.data(),
                          src.base_vertices.size(), arena);
     MeshOps::copy_vector(dst.static_vertices, src.static_vertices.data(),
