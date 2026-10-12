@@ -330,3 +330,75 @@ inline void test_mobiuswarp_evolving_long_uptime() {
   }
   hs::random() = saved_rng;
 }
+
+/** @brief Verifies invalid ring and line counts keep MobiusFlow finite with a unit product. */
+inline void test_mobiusflow_degenerate_inputs_remain_finite() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const float INF_VALUE = std::numeric_limits<float>::infinity();
+  for (float rings : {-1.0f, NAN_VALUE, INF_VALUE}) {
+    for (float lines : {0.0f, NAN_VALUE, INF_VALUE}) {
+      math::MobiusParams params;
+      Animation::MobiusFlow flow(params, rings, lines, 8, {.repeat = false});
+      flow.step(fake_canvas());
+      HS_EXPECT_TRUE(std::isfinite(params.a.re));
+      HS_EXPECT_TRUE(std::isfinite(params.a.im));
+      HS_EXPECT_TRUE(std::isfinite(params.d.re));
+      HS_EXPECT_TRUE(std::isfinite(params.d.im));
+      HS_EXPECT_NEAR(params.a.re * params.d.re - params.a.im * params.d.im,
+                     1.0f, 1e-4f);
+      HS_EXPECT_NEAR(params.a.re * params.d.im + params.a.im * params.d.re,
+                     0.0f, 1e-4f);
+    }
+  }
+}
+
+/** @brief Verifies a non-finite live ring or line count holds the last finite value. */
+inline void test_mobiusflow_nonfinite_live_input_holds_last_value() {
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const float INF_VALUE = std::numeric_limits<float>::infinity();
+  math::MobiusParams held_params, ref_params;
+  float rings = 3.0f, lines = 5.0f;
+  const float ref_rings = 3.0f, ref_lines = 5.0f;
+  Animation::MobiusFlow held(held_params, rings, lines, 8, {.repeat = false});
+  Animation::MobiusFlow ref(ref_params, ref_rings, ref_lines, 8,
+                            {.repeat = false});
+  held.step(fake_canvas());
+  ref.step(fake_canvas());
+  for (float bad : {NAN_VALUE, INF_VALUE}) {
+    rings = bad;
+    lines = bad;
+    held.step(fake_canvas());
+    ref.step(fake_canvas());
+    HS_EXPECT_EQ(held_params.a.re, ref_params.a.re);
+    HS_EXPECT_EQ(held_params.a.im, ref_params.a.im);
+    HS_EXPECT_EQ(held_params.d.re, ref_params.d.re);
+    HS_EXPECT_EQ(held_params.d.im, ref_params.d.im);
+  }
+}
+
+/**
+ * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
+ * (a and d are reciprocal: d = 1/a) while actually moving the parameters.
+ */
+inline void test_mobiusflow_step_preserves_unit_product() {
+  math::MobiusParams params;
+  const float rings = 2.0f, lines = 4.0f;
+  const int duration = 8;
+  Animation::MobiusFlow flow(params, rings, lines, duration, {.repeat = false});
+  for (int i = 0; i < duration; ++i) {
+    flow.step(fake_canvas());
+    const double progress = static_cast<double>(i + 1) / duration;
+    const double magnitude = std::exp(progress * 2.5 / (rings + 1.0));
+    const double angle = progress * 2.0 * std::acos(-1.0) / lines;
+    HS_CONTEXT("flow frame", i);
+    HS_EXPECT_NEAR(params.a.re, magnitude * std::cos(angle), 1e-5);
+    HS_EXPECT_NEAR(params.a.im, magnitude * std::sin(angle), 1e-5);
+    HS_EXPECT_NEAR(params.d.re, std::cos(angle) / magnitude, 1e-5);
+    HS_EXPECT_NEAR(params.d.im, -std::sin(angle) / magnitude, 1e-5);
+    const float re = params.a.re * params.d.re - params.a.im * params.d.im;
+    const float im = params.a.re * params.d.im + params.a.im * params.d.re;
+    HS_EXPECT_NEAR(re, 1.0f, 1e-4f);
+    HS_EXPECT_NEAR(im, 0.0f, 1e-4f);
+  }
+  HS_EXPECT_GT(std::abs(params.a.im), 1e-3f); // moved off the identity
+}

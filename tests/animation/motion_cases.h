@@ -132,3 +132,37 @@ inline void test_motion_codriven_survives_repeat_seam() {
   HS_EXPECT_LT(max_step, 0.8f);
   HS_EXPECT_GT(total_travel, 5.0f);
 }
+
+/**
+ * @brief Verifies Motion::set_duration rescales the elapsed frame count instead
+ * of completing the motion when the new duration is below the current position.
+ */
+inline void test_motion_set_duration_below_position_rescales() {
+  using Ori = math::Orientation<16>;
+  ProceduralPath path;
+  path.f = [](float t) {
+    float a = 2.0f * math::PI_F * t;
+    return math::Vector(std::cos(a), std::sin(a), 0.0f);
+  };
+  Ori o;
+  Animation::Motion<288, 16> motion(o, path, 60, {.repeat = true});
+
+  const math::Vector probe = math::X_AXIS;
+  for (int i = 0; i < 40; ++i)
+    motion.step(fake_canvas());
+  HS_EXPECT_FALSE(motion.done());
+  const math::Vector before = o.orient(probe);
+
+  // 40 frames into a 60-frame loop; 20 frames is behind that position.
+  motion.set_duration(20);
+  HS_EXPECT_FALSE(motion.done());
+
+  // Reanchoring keeps the first relative step incremental.
+  motion.step(fake_canvas());
+  HS_EXPECT_LT(math::angle_between(before, o.orient(probe)), 0.5f);
+  for (int i = 1; i < 6; ++i)
+    motion.step(fake_canvas());
+  HS_EXPECT_FALSE(motion.done());
+  motion.step(fake_canvas());
+  HS_EXPECT_TRUE(motion.done());
+}
