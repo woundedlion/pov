@@ -98,7 +98,6 @@ public:
               ConwayGraph::NO_NODE);
     ConwayGraph::record_sweep(recent_sweeps, node);
 
-    params.hankin_angle = 0.0f;
     MeshPaletteBank::shuffle_indices(palette_idx);
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
       compiled_hankin = CompiledHankin();
@@ -812,8 +811,8 @@ private:
    * @brief User-adjustable rendering parameters.
    */
   struct Params {
-    float intensity = 1.2f;                 /**< Edge-distance shading gain. */
-    float hankin_angle = math::PI_F / 4.0f; /**< Interlace angle in radians. */
+    float intensity = 1.2f;    /**< Edge-distance shading gain. */
+    float hankin_angle = 0.0f; /**< Interlace angle in radians. */
   } params;
 
   // orientation, noise, and the angle the sweep Mutation points at are borrowed
