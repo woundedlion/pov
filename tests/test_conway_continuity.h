@@ -449,8 +449,15 @@ inline void test_palette_carry_across_arrivals() {
     int landed[PALETTES] = {};
     int shown[PALETTES] = {};
     for (size_t f = 0; f < nf; ++f) {
-      ++landed[arrived_palette[MeshPaletteBank::slot_of(arrived_topo[f])]];
-      ++shown[Probe::node_face_palette(fx)[f]];
+      const auto landed_palette =
+          arrived_palette[MeshPaletteBank::slot_of(arrived_topo[f])];
+      const auto shown_palette = Probe::node_face_palette(fx)[f];
+      HS_EXPECT_LT(landed_palette, PALETTES);
+      HS_EXPECT_LT(shown_palette, PALETTES);
+      if (landed_palette >= PALETTES || shown_palette >= PALETTES)
+        continue;
+      ++landed[landed_palette];
+      ++shown[shown_palette];
     }
     const int failed_before = hs_test::stats().failed;
     for (int p = 0; p < PALETTES; ++p)
@@ -898,6 +905,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, leg);
   uint8_t pal[16];
+  HS_EXPECT_LE(cube.face_counts.size(), std::size(pal));
+  if (cube.face_counts.size() > std::size(pal))
+    return;
   fill_emission_handoff(cube, pal);
 
   const int edge = find_directed_edge(ConwayGraph::EDGES, ConwayGraph::CUBE,
@@ -934,6 +944,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   const Animation::OpLeg::Landing &landing = anim.landing();
   ramp_count = landing.blend_pairs;
   HS_EXPECT_EQ(landing.primary_faces, cube.face_counts.size());
+  HS_EXPECT_LE(landing.primary_faces, cube.face_counts.size());
+  if (landing.primary_faces > cube.face_counts.size())
+    return;
 
   hs_test::StubEffect fx(FB_W, FB_H);
 
@@ -946,6 +959,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
     const uint8_t from = f < landing.primary_faces
                              ? pal[f]
                              : to; // newborn faces skip the crossfade
+    HS_EXPECT_LT(from, Animation::OpLeg::PALETTES);
+    if (from >= Animation::OpLeg::PALETTES)
+      continue;
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
                       bank.bank.entries[from].get(RAMP_SAMPLES[s]));
@@ -958,6 +974,9 @@ inline void test_crossfade_exact_at_endpoints_emission() {
   for (size_t f = 0; f < snap.colors.size(); ++f) {
     const uint8_t to =
         landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
+    HS_EXPECT_LT(to, Animation::OpLeg::PALETTES);
+    if (to >= Animation::OpLeg::PALETTES)
+      continue;
     for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
       expect_color_eq(snap.colors[f][s],
                       bank.bank.entries[to].get(RAMP_SAMPLES[s]));
@@ -1025,6 +1044,9 @@ inline void test_palette_mapping_total_all_edges() {
         leg, cb, handoff);
     const Animation::OpLeg::Landing &landing = anim.landing();
     ramp_count = landing.blend_pairs;
+    HS_EXPECT_LE(landing.primary_faces, seed.face_counts.size());
+    if (landing.primary_faces > seed.face_counts.size())
+      return;
 
     // The landed assignment is a permutation of the bank slots.
     std::array<uint8_t, Animation::OpLeg::PALETTES> perm = landing.to_palette;
@@ -1040,6 +1062,9 @@ inline void test_palette_mapping_total_all_edges() {
       const uint8_t to =
           landing.to_palette[MeshPaletteBank::slot_of(landing.topology[f])];
       const uint8_t from = f < landing.primary_faces ? pal[f] : to;
+      HS_EXPECT_LT(from, Animation::OpLeg::PALETTES);
+      if (from >= Animation::OpLeg::PALETTES)
+        continue;
       for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
         expect_color_eq(snap.colors[f][s],
                         bank.bank.entries[from].get(RAMP_SAMPLES[s]));
