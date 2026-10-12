@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import re
+import subprocess
+import sys
 
 from git_files import git_nul_list
 
@@ -60,12 +62,20 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
     return diagnostics
 
 
-def main() -> int:
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path,
                         default=Path(__file__).resolve().parents[1])
-    args = parser.parse_args()
-    files = git_nul_list(args.root, "ls-files", "-z", timeout=None)
+    args = parser.parse_args(argv)
+    try:
+        files = git_nul_list(args.root, "ls-files", "-z", timeout=None)
+    except (OSError, subprocess.SubprocessError, UnicodeError) as error:
+        print(f"[include-paths] tooling error: cannot list tracked sources ({error})",
+              file=sys.stderr)
+        return 2
+    if not any(Path(name).suffix in SOURCE_SUFFIXES for name in files):
+        print("[include-paths] tooling error: no tracked C/C++ sources", file=sys.stderr)
+        return 2
     diagnostics = check_includes(args.root, files)
     if diagnostics:
         print("\n".join(diagnostics))

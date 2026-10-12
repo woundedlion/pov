@@ -1,5 +1,9 @@
 """Contract checks for canonical first-party include paths."""
 
+import contextlib
+import io
+import subprocess
+from unittest import mock
 from pathlib import Path
 import sys
 import tempfile
@@ -82,6 +86,52 @@ class IncludePathsTests(unittest.TestCase):
         self.check('#include "core/math/vector.h"\n')
         self.assertEqual(include_paths.check_includes(self.root, files), [
             f'{include_paths.CONFIG_HEADER}:1: include "core/math/vector.h" instead of "math/vector.h"'])
+
+
+class TestMain(unittest.TestCase):
+    def setUp(self):
+        self.scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(self.scratch.cleanup)
+        self.root = Path(self.scratch.name)
+        self.files = ["core/math/vector.h", "effects/sample.h"]
+        for name in self.files:
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("#pragma once\n", encoding="utf-8")
+
+    def run_main(self, files):
+        with mock.patch.object(include_paths, "git_nul_list", return_value=files), \
+                contextlib.redirect_stdout(io.StringIO()) as out, \
+                contextlib.redirect_stderr(io.StringIO()) as err:
+            result = include_paths.main(["--root", str(self.root)])
+        return result, out.getvalue(), err.getvalue()
+
+    def test_clean_and_bad_include_exit_codes(self):
+        source = self.root / "effects/sample.h"
+        source.write_text('#include "core/math/vector.h"\n', encoding="utf-8")
+        self.assertEqual(self.run_main(self.files)[0], 0)
+        source.write_text('#include "math/vector.h"\n', encoding="utf-8")
+        result, out, _ = self.run_main(self.files)
+        self.assertEqual(result, 1)
+        self.assertIn('instead of "math/vector.h"', out)
+
+    def test_empty_or_non_source_listing_is_a_tooling_error(self):
+        for files in ([], ["README.md"]):
+            with self.subTest(files=files):
+                result, out, err = self.run_main(files)
+                self.assertEqual(result, 2)
+                self.assertNotIn("PASS", out)
+                self.assertIn("no tracked C/C++ sources", err)
+
+    def test_failed_or_undecodable_listing_is_a_tooling_error(self):
+        for error in (subprocess.CalledProcessError(128, "git"),
+                      UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid"),
+                      FileNotFoundError("git")):
+            with self.subTest(error=type(error).__name__), \
+                    mock.patch.object(include_paths, "git_nul_list", side_effect=error), \
+                    contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(include_paths.main(["--root", str(self.root)]), 2)
+                self.assertIn("tooling error", err.getvalue())
 
 
 if __name__ == "__main__":
