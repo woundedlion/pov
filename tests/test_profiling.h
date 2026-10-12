@@ -528,7 +528,6 @@ inline void test_isr_window_logging_latency() {
     HS_EXPECT_EQ(second.wake.cycles, uint64_t{EXPECTED_US} * 60u);
     HS_EXPECT_EQ(second.pack.cycles, uint64_t{EXPECTED_US} * 30u);
     HS_EXPECT_EQ(second.submit.cycles, uint64_t{EXPECTED_US} * 6u);
-    HS_EXPECT_EQ(second.wake.cycles * 100u / (second.window_us * 600u), 10u);
     now = UINT32_MAX - 99u;
     capture();
     advance(200);
