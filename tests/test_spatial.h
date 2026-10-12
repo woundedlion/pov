@@ -364,13 +364,13 @@ inline void test_meshstate_clone_deep_copies() {
   MeshState dst;
   MeshState::clone(src, dst, dst_arena);
 
-  HS_EXPECT_EQ(dst.num_vertices(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(dst.vertices, 3);
   HS_EXPECT_VEC(dst.vertices[0], math::Vector(1, 0, 0), 1e-6f);
   HS_EXPECT_VEC(dst.vertices[2], math::Vector(0, 0, 1), 1e-6f);
 
-  HS_EXPECT_EQ(dst.num_faces(), (size_t)1);
+  HS_EXPECT_SIZE_OR_RETURN(dst.face_counts, 1);
   HS_EXPECT_EQ(dst.face_counts[0], (uint8_t)3);
-  HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
+  HS_EXPECT_SIZE_OR_RETURN(dst.faces, 3);
   HS_EXPECT_EQ(dst.faces[0], (uint16_t)0);
   HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
@@ -482,7 +482,7 @@ inline void test_meshstate_move_invalidates_source() {
   MeshState dst(std::move(src));
   HS_EXPECT_FALSE(src.vertices.is_bound());
   HS_EXPECT_EQ(src.num_vertices(), (size_t)0);
-  HS_EXPECT_EQ(dst.num_vertices(), (size_t)2);
+  HS_EXPECT_SIZE_OR_RETURN(dst.vertices, 2);
   HS_EXPECT_VEC(dst.vertices[1], math::Vector(4, 5, 6), 1e-6f);
 }
 
@@ -505,6 +505,8 @@ inline void test_meshstate_view_fallback() {
                  {});
 
   HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
+  if (m.get_face_counts_size() != 2)
+    return;
   HS_EXPECT_EQ(m.get_face_counts_data()[0], (uint8_t)3);
   HS_EXPECT_EQ(m.get_face_counts_data()[1], (uint8_t)4);
   HS_EXPECT_EQ(m.num_faces(), (size_t)2);
@@ -566,9 +568,15 @@ inline void test_meshstate_set_borrowed_drops_owned() {
   HS_EXPECT_TRUE(m.get_face_offsets_data() == view_offsets.data());
   HS_EXPECT_TRUE(m.get_topology_data() == view_topology.data());
   HS_EXPECT_EQ(m.get_face_counts_size(), (size_t)2);
+  if (m.get_face_counts_size() != 2)
+    return;
   HS_EXPECT_EQ(m.get_faces_size(), (size_t)7);
+  if (m.get_faces_size() != 7)
+    return;
   HS_EXPECT_EQ(m.get_face_offsets_size(), (size_t)2);
   HS_EXPECT_EQ(m.get_topology_size(), (size_t)2);
+  if (m.get_topology_size() != 2)
+    return;
   HS_EXPECT_EQ(m.num_faces(), (size_t)2);
   HS_EXPECT_EQ(m.get_faces_data()[6], (uint16_t)16);
   HS_EXPECT_EQ(m.get_topology_data()[1], (uint16_t)6);
