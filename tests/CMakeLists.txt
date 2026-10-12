@@ -256,9 +256,11 @@ add_test(NAME unit_mindsplatter_replay_refresh COMMAND ${CMAKE_COMMAND}
   -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_form.cmake)
 
 add_test(NAME unit_mindsplatter_replay_revision_missing COMMAND ${CMAKE_COMMAND}
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_missing.cmake)
+  -DCASE=missing
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_selftest.cmake)
 add_test(NAME unit_mindsplatter_replay_revision_drift COMMAND ${CMAKE_COMMAND}
-  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_drift.cmake)
+  -DCASE=drift
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/check_mindsplatter_replay_revision_selftest.cmake)
 
 add_executable(mindsplatter_palette_gen
   ${HS_ROOT}/tools/mindsplatter_palette_gen.cpp
