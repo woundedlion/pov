@@ -73,7 +73,7 @@ class PreCommitHook(unittest.TestCase):
     def test_gate_failures_propagate(self):
         (self.repo / "README.md").write_bytes(b"valid updated\n")
         self.git("add", "README.md")
-        for gate in ("docs_images", "license_check", "include_paths"):
+        for gate in ("docs_images", "build_pins", "license_check", "include_paths"):
             with self.subTest(gate=gate):
                 clean = self.run_hook()
                 self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
