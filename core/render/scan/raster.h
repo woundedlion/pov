@@ -662,6 +662,35 @@ template <typename Shape> auto prepare_distance(const Shape &shape) {
 }
 
 /**
+ * @brief Prepares a distance probe's clearance for a pole-LOD row.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam Probe Prepared distance evaluator.
+ * @tparam ShapeT Shape evaluated by the probe.
+ * @param probe Evaluator receiving the row certificate.
+ * @param shape Shape whose geometry bounds the row.
+ * @param y Latitude row index.
+ * @param debug Whether the scan renders debugging bounds.
+ */
+template <int W, int H, typename Probe, typename ShapeT>
+__attribute__((always_inline)) inline void
+prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
+  if constexpr (pole_lod_blocks<ShapeT> &&
+                !std::is_same_v<Probe, SDF::DirectDistance>) {
+    const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
+    if (run > 1 && !debug) {
+      const float block_slack =
+          pole_lod_block_slack<W>(run, math::TrigLUT<W, H>::cos_phi[y], shape);
+      constexpr float threshold =
+          ShapeT::is_solid ? 2.0f * math::PI_F / W : 0.0f;
+      probe.prepare_row(shape, threshold + block_slack,
+                        math::TrigLUT<W, H>::sin_phi[y],
+                        math::TrigLUT<W, H>::cos_phi[y]);
+    }
+  }
+}
+
+/**
  * @brief Processes a single pixel for rasterization: evaluates the shape SDF,
  *        computes anti-aliased coverage, runs the fragment shader, and plots.
  * @tparam W Canvas width in pixels.
@@ -1193,26 +1222,11 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
   auto probe = prepare_distance(shape);
-  float block_slack = 0.0f;
 
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
-        if constexpr (pole_lod_blocks<decltype(shape)> &&
-                      !std::is_same_v<decltype(probe), SDF::DirectDistance>) {
-          const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
-          if (run > 1 && !effective_debug) {
-            block_slack = pole_lod_block_slack<W>(
-                run, math::TrigLUT<W, H>::cos_phi[y], shape);
-            constexpr float threshold =
-                std::remove_cvref_t<decltype(shape)>::is_solid
-                    ? 2.0f * math::PI_F / W
-                    : 0.0f;
-            probe.prepare_row(shape, threshold + block_slack,
-                              math::TrigLUT<W, H>::sin_phi[y],
-                              math::TrigLUT<W, H>::cos_phi[y]);
-          }
-        }
+        prepare_probe_row<W, H>(probe, shape, y, effective_debug);
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const math::Vector &p, int max_run) {
@@ -1270,28 +1284,13 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   SDF::DistanceResult result;
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   auto probe = prepare_distance(shape);
-  float block_slack = 0.0f;
   Pixel plot_color = color.color;
   if (effective_debug)
     plot_color = plot_color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
-        if constexpr (pole_lod_blocks<decltype(shape)> &&
-                      !std::is_same_v<decltype(probe), SDF::DirectDistance>) {
-          const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
-          if (run > 1 && !effective_debug) {
-            block_slack = pole_lod_block_slack<W>(
-                run, math::TrigLUT<W, H>::cos_phi[y], shape);
-            constexpr float threshold =
-                std::remove_cvref_t<decltype(shape)>::is_solid
-                    ? 2.0f * math::PI_F / W
-                    : 0.0f;
-            probe.prepare_row(shape, threshold + block_slack,
-                              math::TrigLUT<W, H>::sin_phi[y],
-                              math::TrigLUT<W, H>::cos_phi[y]);
-          }
-        }
+        prepare_probe_row<W, H>(probe, shape, y, effective_debug);
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int x, int y, const math::Vector &p, int max_run) {
@@ -1326,8 +1325,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                 return pole_lod_settle_block<W, true>(d, PIXEL_WIDTH, max_run,
                                                       p.y, shape, &p);
               else
-                return pole_lod_settle_with_slack<true>(
-                    d, PIXEL_WIDTH, block_slack, shape, &p, probe);
+                return pole_lod_settle_with_slack<true>(d, PIXEL_WIDTH, 0.0f,
+                                                        shape, &p, probe);
             }();
             if (settle == BlockSettle::CLEAR)
               return max_run;
