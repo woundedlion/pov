@@ -106,6 +106,42 @@ inline void case_shapeshifter_count_over_capacity() {
                                       opaque(OracleEffect::MAX_SHAPES + 1));
 }
 
+/** @brief Death case: profiling rejects an out-of-range displacement preset. */
+inline void case_displacement_field_profile_preset_oob() {
+  DisplacementField<96, 20> effect;
+  effect.profile_select_preset(opaque<size_t>(SIZE_MAX));
+}
+
+/** @brief Death case: profiling requires initialized displacement presets. */
+inline void case_displacement_field_profile_preset_uninitialized() {
+  DisplacementField<96, 20> effect;
+  effect.profile_select_preset(opaque<size_t>(0));
+}
+
+/** @brief Death case: Balls departure must commit its Noise preset. */
+inline void case_displacement_field_noise_advance_refused() {
+  DisplacementField<96, 20> effect;
+  effect.init();
+  effects_tests::DisplacementFieldWhiteBox::deny_phase_advance(effect, false);
+  effect.draw_frame();
+}
+
+/** @brief Death case: Noise departure must commit its Balls preset. */
+inline void case_displacement_field_balls_advance_refused() {
+  DisplacementField<96, 20> effect;
+  effect.init();
+  effects_tests::DisplacementFieldWhiteBox::deny_phase_advance(effect, true);
+  effect.draw_frame();
+}
+
+/** @brief Death case: preview warming requires the active frame canvas. */
+inline void case_displacement_field_preview_missing_canvas() {
+  DisplacementField<96, 20> effect;
+  effect.init();
+  effects_tests::DisplacementFieldWhiteBox::spawn_preview_without_canvas(
+      effect);
+}
+
 /** @brief Commits @p n flat rings into a DisplacementField ring pool. */
 template <typename Pool> inline void commit_flat_rings(Pool &pool, int n) {
   const math::Basis basis = math::make_basis(math::Quaternion(), math::X_AXIS);
