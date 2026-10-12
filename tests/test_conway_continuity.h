@@ -1046,7 +1046,7 @@ inline void test_palette_mapping_total_all_edges() {
     ramp_count = landing.blend_pairs;
     HS_EXPECT_LE(landing.primary_faces, seed.face_counts.size());
     if (landing.primary_faces > seed.face_counts.size())
-      return;
+      continue;
 
     // The landed assignment is a permutation of the bank slots.
     std::array<uint8_t, Animation::OpLeg::PALETTES> perm = landing.to_palette;
