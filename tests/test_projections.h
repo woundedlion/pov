@@ -190,6 +190,10 @@ inline void check_peirce_fast_square_matches_exact(const math::Vector &v) {
   HS_EXPECT_EQ(fast.flags, exact.flags);
   HS_EXPECT_EQ(fast.traits, exact.traits);
   constexpr auto &METRICS = Pullback::Projection::PEIRCE_FAST_SQUARE_METRICS;
+  static_assert(METRICS[0].domain ==
+                    Pullback::ApproximationDomain::PROJECTED_COORDINATE &&
+                METRICS[1].domain ==
+                    Pullback::ApproximationDomain::PROJECTED_EDGE_DISTANCE);
   HS_EXPECT_NEAR(fast.coords.re, exact.coords.re, METRICS[0].limit);
   HS_EXPECT_NEAR(fast.coords.im, exact.coords.im, METRICS[0].limit);
   HS_EXPECT_NEAR(fast.fade_edge_distance, exact.fade_edge_distance,
