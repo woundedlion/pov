@@ -76,7 +76,7 @@ public:
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
 
   /**
-   * @brief Constructs the effect, seeding the filters.
+   * @brief Constructs the effect with its strobe pipeline configuration.
    */
   HS_COLD_MEMBER MindSplatter()
       : Choreography(W, H,
