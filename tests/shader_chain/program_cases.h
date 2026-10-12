@@ -19,8 +19,10 @@ inline void test_shader_chain_program_lifetime() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  HS_EXPECT_EQ(static_cast<int>(fixture->program.compile(chain).code),
-               static_cast<int>(In::ChainStatus::OK));
+  const auto compile_status1 = fixture->program.compile(chain).code;
+  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
+  if (compile_status1 != In::ChainStatus::OK)
+    return;
   HS_EXPECT_EQ(CountLifecycle::inits, 1);
   HS_EXPECT_EQ(CountLifecycle::destroys, 0);
 
@@ -168,16 +170,28 @@ inline void test_shader_chain_table_integrity() {
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.curl.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.displace.ripple.v2") != nullptr);
   HS_EXPECT_TRUE(In::find_operator("sphere.lens.kaleidoscope.v2") != nullptr);
-  HS_EXPECT_FALSE(In::find_operator("sphere.rotate.v2")->approximate);
-  HS_EXPECT_FALSE(In::find_operator("project.peirce.v3")->approximate);
-  const In::OperatorDescriptor &colorize =
-      *In::find_operator("colorize.generated-palette.v3");
+  const auto *required_op2 = require_operator("sphere.rotate.v2");
+  if (!required_op2)
+    return;
+  HS_EXPECT_FALSE(required_op2->approximate);
+  const auto *required_op3 = require_operator("project.peirce.v3");
+  if (!required_op3)
+    return;
+  HS_EXPECT_FALSE(required_op3->approximate);
+  const auto *colorize_found =
+      require_operator("colorize.generated-palette.v3");
+  if (!colorize_found)
+    return;
+  const In::OperatorDescriptor &colorize = *colorize_found;
   HS_EXPECT_TRUE(colorize.approximate);
   HS_EXPECT_EQ(
       static_cast<int>(colorize.oracle),
       static_cast<int>(PB::ApproximationOracleId::HUE_ROTATION_AND_NOISE_LUTS));
-  const In::OperatorDescriptor &peirce_fast =
-      *In::find_operator("project.peirce-square-fast.v3");
+  const auto *peirce_fast_found =
+      require_operator("project.peirce-square-fast.v3");
+  if (!peirce_fast_found)
+    return;
+  const In::OperatorDescriptor &peirce_fast = *peirce_fast_found;
   HS_EXPECT_TRUE(peirce_fast.approximate);
   HS_EXPECT_EQ(static_cast<int>(peirce_fast.oracle),
                static_cast<int>(PB::ApproximationOracleId::PEIRCE_FAST_SQUARE));
@@ -227,9 +241,12 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   // Schema order is the family table then the topology enum8s; defaults come
   // from the default-constructed family.
-  const In::OperatorDescriptor &sample = *In::find_operator("sample.grid.v3");
+  const auto *sample_found = require_operator("sample.grid.v3");
+  if (!sample_found)
+    return;
+  const In::OperatorDescriptor &sample = *sample_found;
   constexpr size_t GRID_FIELDS = In::Op::GridSampleParams::FIELDS.size();
-  HS_EXPECT_EQ(sample.schema_count, GRID_FIELDS + 2);
+  HS_EXPECT_SIZE_OR_RETURN(sample.schema_span(), GRID_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(sample.schema[0].id) == "pattern-freq");
   HS_EXPECT_EQ(sample.schema[0].min, 0.01f);
   HS_EXPECT_EQ(sample.schema[0].max, 64.0f);
@@ -247,10 +264,13 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[2]) == "weight-squared");
   HS_EXPECT_TRUE(std::string_view(coverage.enum_ids[3]) == "edge-fade");
 
-  const In::OperatorDescriptor &colorize =
-      *In::find_operator("colorize.generated-palette.v3");
+  const auto *colorize_found =
+      require_operator("colorize.generated-palette.v3");
+  if (!colorize_found)
+    return;
+  const In::OperatorDescriptor &colorize = *colorize_found;
   constexpr size_t COLOR_FIELDS = PB::Color::ColorParams::FIELDS.size();
-  HS_EXPECT_EQ(colorize.schema_count, COLOR_FIELDS + 4);
+  HS_EXPECT_SIZE_OR_RETURN(colorize.schema_span(), COLOR_FIELDS + 4);
   HS_EXPECT_TRUE(std::string_view(colorize.schema[COLOR_FIELDS].id) ==
                  "palette-mode");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS].enum_count, 3);
@@ -268,39 +288,54 @@ inline void test_shader_chain_schema_and_field_ids() {
                  "brightness-envelope");
   HS_EXPECT_EQ(colorize.schema[COLOR_FIELDS + 3].enum_count, 5);
 
-  const In::OperatorDescriptor &rotate = *In::find_operator("sphere.rotate.v2");
-  HS_EXPECT_EQ(rotate.schema_count, 2);
+  const auto *rotate_found = require_operator("sphere.rotate.v2");
+  if (!rotate_found)
+    return;
+  const In::OperatorDescriptor &rotate = *rotate_found;
+  HS_EXPECT_SIZE_OR_RETURN(rotate.schema_span(), 2);
   HS_EXPECT_TRUE(std::string_view(rotate.schema[0].id) == "wander");
   HS_EXPECT_TRUE(std::string_view(rotate.schema[1].id) == "spin-speed");
   HS_EXPECT_EQ(rotate.schema[1].max, 0.05f);
 
-  HS_EXPECT_EQ(In::find_operator("sphere.lens.glitch.v2")->schema_count, 0);
-  const In::OperatorDescriptor &twist =
-      *In::find_operator("sphere.lens.twist.v2");
-  HS_EXPECT_EQ(twist.schema_count, 1);
+  const auto *required_op4 = require_operator("sphere.lens.glitch.v2");
+  if (!required_op4)
+    return;
+  HS_EXPECT_EQ(required_op4->schema_count, 0);
+  const auto *twist_found = require_operator("sphere.lens.twist.v2");
+  if (!twist_found)
+    return;
+  const In::OperatorDescriptor &twist = *twist_found;
+  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 1);
   HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-rate");
   HS_EXPECT_EQ(twist.schema[0].def, lenses::TWIST_RATE);
-  const In::OperatorDescriptor &kaleidoscope =
-      *In::find_operator("sphere.lens.kaleidoscope.v2");
-  HS_EXPECT_EQ(kaleidoscope.schema_count, 1);
+  const auto *kaleidoscope_found =
+      require_operator("sphere.lens.kaleidoscope.v2");
+  if (!kaleidoscope_found)
+    return;
+  const In::OperatorDescriptor &kaleidoscope = *kaleidoscope_found;
+  HS_EXPECT_SIZE_OR_RETURN(kaleidoscope.schema_span(), 1);
   HS_EXPECT_TRUE(kaleidoscope.schema[0].topology);
   HS_EXPECT_EQ(kaleidoscope.schema[0].enum_count, 9);
   HS_EXPECT_TRUE(std::string_view(kaleidoscope.schema[0].enum_ids[0]) ==
                  "azimuthal");
   HS_EXPECT_TRUE(std::string_view(kaleidoscope.schema[0].enum_ids[8]) ==
                  "octagonal-prism");
-  const In::OperatorDescriptor &mobius =
-      *In::find_operator("sphere.lens.mobius.v2");
-  HS_EXPECT_EQ(mobius.schema_count, 8);
+  const auto *mobius_found = require_operator("sphere.lens.mobius.v2");
+  if (!mobius_found)
+    return;
+  const In::OperatorDescriptor &mobius = *mobius_found;
+  HS_EXPECT_SIZE_OR_RETURN(mobius.schema_span(), 8);
   HS_EXPECT_TRUE(std::string_view(mobius.schema[0].id) == "mobius-a-re");
   HS_EXPECT_TRUE(std::string_view(mobius.schema[7].id) == "mobius-d-im");
   HS_EXPECT_EQ(mobius.schema[0].min, -4.0f);
   HS_EXPECT_EQ(mobius.schema[0].max, 4.0f);
   HS_EXPECT_EQ(mobius.schema[0].def, 0.7071067811865475f);
-  const In::OperatorDescriptor &curl =
-      *In::find_operator("sphere.displace.curl.v2");
+  const auto *curl_found = require_operator("sphere.displace.curl.v2");
+  if (!curl_found)
+    return;
+  const In::OperatorDescriptor &curl = *curl_found;
   constexpr size_t CURL_FIELDS = In::Op::CurlDisplaceParams::FIELDS.size();
-  HS_EXPECT_EQ(curl.schema_count, CURL_FIELDS + 3);
+  HS_EXPECT_SIZE_OR_RETURN(curl.schema_span(), CURL_FIELDS + 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS].id) == "basis");
   HS_EXPECT_EQ(curl.schema[CURL_FIELDS].enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 1].id) ==
@@ -312,14 +347,18 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(curl.schema[CURL_FIELDS + 2].enum_count, 2);
   HS_EXPECT_TRUE(std::string_view(curl.schema[CURL_FIELDS + 2].enum_ids[0]) ==
                  "smooth");
-  const In::OperatorDescriptor &direct =
-      *In::find_operator("sphere.displace.direct.v2");
+  const auto *direct_found = require_operator("sphere.displace.direct.v2");
+  if (!direct_found)
+    return;
+  const In::OperatorDescriptor &direct = *direct_found;
   constexpr size_t DIRECT_FIELDS = In::Op::DirectDisplaceParams::FIELDS.size();
-  HS_EXPECT_EQ(direct.schema_count, DIRECT_FIELDS + 1);
+  HS_EXPECT_SIZE_OR_RETURN(direct.schema_span(), DIRECT_FIELDS + 1);
   HS_EXPECT_TRUE(std::string_view(direct.schema[DIRECT_FIELDS].id) == "basis");
   HS_EXPECT_EQ(direct.schema[DIRECT_FIELDS].enum_count, 3);
-  const In::OperatorDescriptor &ripple =
-      *In::find_operator("sphere.displace.ripple.v2");
+  const auto *ripple_found = require_operator("sphere.displace.ripple.v2");
+  if (!ripple_found)
+    return;
+  const In::OperatorDescriptor &ripple = *ripple_found;
   HS_EXPECT_EQ(ripple.schema_count,
                PB::Surface::PeriodicRippleParams::FIELDS.size());
   HS_EXPECT_TRUE(std::string_view(ripple.schema[0].id) == "period");
@@ -348,17 +387,22 @@ inline void test_shader_chain_schema_and_field_ids() {
        {"warp.affine.v3", "warp.vortex.v2", "warp.wave-shear.v2",
         "warp.vector-noise.v2", "warp.mirror-tile.v2", "warp.polar-chart.v2",
         "warp.curl-flow.v2"}) {
-    const In::OperatorDescriptor &warp = *In::find_operator(id);
+    const auto *warp_found = require_operator(id);
+    if (!warp_found)
+      return;
+    const In::OperatorDescriptor &warp = *warp_found;
     HS_EXPECT_EQ(static_cast<int>(warp.input),
                  static_cast<int>(In::CarrierId::PLANE));
     HS_EXPECT_EQ(static_cast<int>(warp.output),
                  static_cast<int>(In::CarrierId::PLANE));
     HS_EXPECT_TRUE(std::string_view(warp.schema[0].id) == "speed");
   }
-  const In::OperatorDescriptor &polar =
-      *In::find_operator("warp.polar-chart.v2");
+  const auto *polar_found = require_operator("warp.polar-chart.v2");
+  if (!polar_found)
+    return;
+  const In::OperatorDescriptor &polar = *polar_found;
   constexpr size_t POLAR_FIELDS = In::Op::PolarChartParams::FIELDS.size();
-  HS_EXPECT_EQ(polar.schema_count, POLAR_FIELDS + 2);
+  HS_EXPECT_SIZE_OR_RETURN(polar.schema_span(), POLAR_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(polar.schema[POLAR_FIELDS].id) == "mode");
   HS_EXPECT_EQ(polar.schema[POLAR_FIELDS].enum_count, 2);
   const In::ParamFieldInfo &harmonic = polar.schema[POLAR_FIELDS + 1];
@@ -366,19 +410,23 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_EQ(harmonic.enum_count, PB::Warp::MAX_POLAR_HARMONIC);
   HS_EXPECT_TRUE(std::string_view(harmonic.enum_ids[0]) == "h1");
   HS_EXPECT_TRUE(std::string_view(harmonic.enum_ids[15]) == "h16");
-  const In::OperatorDescriptor &shear =
-      *In::find_operator("warp.wave-shear.v2");
+  const auto *shear_found = require_operator("warp.wave-shear.v2");
+  if (!shear_found)
+    return;
+  const In::OperatorDescriptor &shear = *shear_found;
   const In::ParamFieldInfo &shear_envelope =
       shear.schema[shear.schema_count - 1];
   HS_EXPECT_TRUE(std::string_view(shear_envelope.id) == "envelope");
   HS_EXPECT_EQ(shear_envelope.enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(shear_envelope.enum_ids[1]) ==
                  "projection-weight");
-  const In::OperatorDescriptor &vector_noise =
-      *In::find_operator("warp.vector-noise.v2");
+  const auto *vector_noise_found = require_operator("warp.vector-noise.v2");
+  if (!vector_noise_found)
+    return;
+  const In::OperatorDescriptor &vector_noise = *vector_noise_found;
   constexpr size_t VECTOR_NOISE_FIELDS =
       In::Op::VectorNoiseWarpParams::FIELDS.size();
-  HS_EXPECT_EQ(vector_noise.schema_count, VECTOR_NOISE_FIELDS + 2);
+  HS_EXPECT_SIZE_OR_RETURN(vector_noise.schema_span(), VECTOR_NOISE_FIELDS + 2);
   HS_EXPECT_TRUE(
       std::string_view(vector_noise.schema[VECTOR_NOISE_FIELDS].id) == "basis");
   HS_EXPECT_EQ(vector_noise.schema[VECTOR_NOISE_FIELDS].enum_count, 3);
@@ -386,10 +434,12 @@ inline void test_shader_chain_schema_and_field_ids() {
       std::string_view(vector_noise.schema[VECTOR_NOISE_FIELDS + 1].id) ==
       "envelope");
   HS_EXPECT_EQ(vector_noise.schema[VECTOR_NOISE_FIELDS + 1].enum_count, 3);
-  const In::OperatorDescriptor &curl_flow =
-      *In::find_operator("warp.curl-flow.v2");
+  const auto *curl_flow_found = require_operator("warp.curl-flow.v2");
+  if (!curl_flow_found)
+    return;
+  const In::OperatorDescriptor &curl_flow = *curl_flow_found;
   constexpr size_t CURL_FLOW_FIELDS = In::Op::CurlFlowWarpParams::FIELDS.size();
-  HS_EXPECT_EQ(curl_flow.schema_count, CURL_FLOW_FIELDS + 2);
+  HS_EXPECT_SIZE_OR_RETURN(curl_flow.schema_span(), CURL_FLOW_FIELDS + 2);
   HS_EXPECT_TRUE(std::string_view(curl_flow.schema[CURL_FLOW_FIELDS].id) ==
                  "basis");
   HS_EXPECT_EQ(curl_flow.schema[CURL_FLOW_FIELDS].enum_count, 3);
@@ -398,8 +448,12 @@ inline void test_shader_chain_schema_and_field_ids() {
   HS_EXPECT_TRUE(std::string_view(curl_integrator.id) == "integrator");
   HS_EXPECT_EQ(curl_integrator.enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(curl_integrator.enum_ids[2]) == "midpoint-4");
-  const In::OperatorDescriptor &vortex = *In::find_operator("warp.vortex.v2");
-  HS_EXPECT_EQ(vortex.schema_count, In::Op::VortexWarpParams::FIELDS.size());
+  const auto *vortex_found = require_operator("warp.vortex.v2");
+  if (!vortex_found)
+    return;
+  const In::OperatorDescriptor &vortex = *vortex_found;
+  HS_EXPECT_SIZE_OR_RETURN(vortex.schema_span(),
+                           In::Op::VortexWarpParams::FIELDS.size());
   HS_EXPECT_TRUE(std::string_view(vortex.schema[1].id) == "center-x");
 
   // Projected sample batch: every crossing carries the union edge-width field
@@ -408,7 +462,10 @@ inline void test_shader_chain_schema_and_field_ids() {
        {"sample.grid.v3", "sample.twin-wave.v3", "sample.rings.v2",
         "sample.spiral.v2", "sample.lattice.v2", "sample.fractal.v2",
         "sample.tessellation.v2", "sample.projected-noise.v2"}) {
-    const In::OperatorDescriptor &crossing = *In::find_operator(id);
+    const auto *crossing_found = require_operator(id);
+    if (!crossing_found)
+      return;
+    const In::OperatorDescriptor &crossing = *crossing_found;
     HS_EXPECT_EQ(static_cast<int>(crossing.input),
                  static_cast<int>(In::CarrierId::PLANE));
     HS_EXPECT_EQ(static_cast<int>(crossing.output),
@@ -441,7 +498,10 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   for (const char *id :
        {"sample.spherical-rings.v3", "sample.spherical-noise.v3"}) {
-    const In::OperatorDescriptor &crossing = *In::find_operator(id);
+    const auto *crossing_found = require_operator(id);
+    if (!crossing_found)
+      return;
+    const In::OperatorDescriptor &crossing = *crossing_found;
     HS_EXPECT_EQ(static_cast<int>(crossing.input),
                  static_cast<int>(In::CarrierId::SPHERE));
     HS_EXPECT_EQ(static_cast<int>(crossing.output),
@@ -461,7 +521,10 @@ inline void test_shader_chain_schema_and_field_ids() {
         "project.equirectangular.v2", "project.gnomonic.v2",
         "project.peirce.v3", "project.peirce-square-fast.v3",
         "project.bonne.v3", "project.airocean.v3"}) {
-    const In::OperatorDescriptor &projection = *In::find_operator(id);
+    const auto *projection_found = require_operator(id);
+    if (!projection_found)
+      return;
+    const In::OperatorDescriptor &projection = *projection_found;
     HS_EXPECT_EQ(static_cast<int>(projection.input),
                  static_cast<int>(In::CarrierId::SPHERE));
     HS_EXPECT_EQ(static_cast<int>(projection.output),
@@ -488,14 +551,19 @@ inline void test_shader_chain_schema_and_field_ids() {
                                    id_view != "project.gnomonic.v2" &&
                                    id_view != "project.peirce-square-fast.v3");
   }
-  const In::OperatorDescriptor &gnomonic =
-      *In::find_operator("project.gnomonic.v2");
+  const auto *gnomonic_found = require_operator("project.gnomonic.v2");
+  if (!gnomonic_found)
+    return;
+  const In::OperatorDescriptor &gnomonic = *gnomonic_found;
   const In::ParamFieldInfo &gnomonic_hemisphere =
       gnomonic.schema[gnomonic.schema_count - 1];
   HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.id) == "hemisphere");
   HS_EXPECT_EQ(gnomonic_hemisphere.enum_count, 3);
   HS_EXPECT_TRUE(std::string_view(gnomonic_hemisphere.enum_ids[0]) == "folded");
-  const In::OperatorDescriptor &bonne = *In::find_operator("project.bonne.v3");
+  const auto *bonne_found = require_operator("project.bonne.v3");
+  if (!bonne_found)
+    return;
+  const In::OperatorDescriptor &bonne = *bonne_found;
   const In::ParamFieldInfo &bonne_hemisphere =
       bonne.schema[bonne.schema_count - 1];
   HS_EXPECT_TRUE(std::string_view(bonne_hemisphere.id) == "hemisphere");
@@ -504,21 +572,30 @@ inline void test_shader_chain_schema_and_field_ids() {
 
   // Field batch: ridge is schema-free; iso-contour, smooth-bands and the value
   // cutout carry their own families.
-  HS_EXPECT_EQ(In::find_operator("field.transfer.ridge.v2")->schema_count, 0);
-  const In::OperatorDescriptor &iso =
-      *In::find_operator("field.transfer.iso-contour.v2");
-  HS_EXPECT_EQ(iso.schema_count, 2);
+  const auto *required_op5 = require_operator("field.transfer.ridge.v2");
+  if (!required_op5)
+    return;
+  HS_EXPECT_EQ(required_op5->schema_count, 0);
+  const auto *iso_found = require_operator("field.transfer.iso-contour.v2");
+  if (!iso_found)
+    return;
+  const In::OperatorDescriptor &iso = *iso_found;
+  HS_EXPECT_SIZE_OR_RETURN(iso.schema_span(), 2);
   HS_EXPECT_TRUE(std::string_view(iso.schema[0].id) == "iso-level");
   HS_EXPECT_TRUE(std::string_view(iso.schema[1].id) == "iso-width");
-  const In::OperatorDescriptor &bands =
-      *In::find_operator("field.transfer.smooth-bands.v2");
-  HS_EXPECT_EQ(bands.schema_count, 2);
+  const auto *bands_found = require_operator("field.transfer.smooth-bands.v2");
+  if (!bands_found)
+    return;
+  const In::OperatorDescriptor &bands = *bands_found;
+  HS_EXPECT_SIZE_OR_RETURN(bands.schema_span(), 2);
   HS_EXPECT_TRUE(std::string_view(bands.schema[0].id) == "band-count");
   HS_EXPECT_EQ(bands.schema[0].def, 4.0f);
   HS_EXPECT_TRUE(std::string_view(bands.schema[1].id) == "band-phase");
-  const In::OperatorDescriptor &cutout =
-      *In::find_operator("field.coverage.value-cutout.v2");
-  HS_EXPECT_EQ(cutout.schema_count, 2);
+  const auto *cutout_found = require_operator("field.coverage.value-cutout.v2");
+  if (!cutout_found)
+    return;
+  const In::OperatorDescriptor &cutout = *cutout_found;
+  HS_EXPECT_SIZE_OR_RETURN(cutout.schema_span(), 2);
   HS_EXPECT_TRUE(std::string_view(cutout.schema[0].id) == "cutout-threshold");
   HS_EXPECT_TRUE(std::string_view(cutout.schema[1].id) == "cutout-softness");
 }
@@ -616,9 +693,10 @@ inline void test_shader_chain_default_chain_renders() {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
   HS_EXPECT_FALSE(program.compiled());
-  arm_default_chain(program, 3, ValueSet::DEFAULTS);
+  if (!arm_default_chain(program, 3, ValueSet::DEFAULTS))
+    return;
   HS_EXPECT_TRUE(program.compiled());
-  HS_EXPECT_EQ(program.ops().size(), 4u);
+  HS_EXPECT_SIZE_OR_RETURN(program.ops(), 4);
   HS_EXPECT_TRUE(std::string_view(program.ops()[0].instance) == "camera");
   HS_EXPECT_TRUE(std::string_view(program.ops()[3].instance) == "colorize");
   HS_EXPECT_EQ(program.ops()[0].stable_hash,
@@ -645,7 +723,10 @@ inline void test_shader_chain_param_address_channel() {
   const auto verify_extended_crossing = []<typename Model>() {
     typename Model::Params params;
     const auto before = params;
-    const auto &descriptor = *In::find_operator(Model::ID);
+    const auto *descriptor_found = require_operator(Model::ID);
+    if (!descriptor_found)
+      return;
+    const auto &descriptor = *descriptor_found;
     constexpr size_t FIELDS = Model::Params::FIELDS.size();
     auto *coverage = static_cast<uint8_t *>(
         descriptor.runtime.param_address(&params, FIELDS + 1));
@@ -666,7 +747,8 @@ inline void test_shader_chain_param_address_channel() {
   verify_extended_crossing.template operator()<In::Op::SampleTwinWaveV3>();
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_default_chain(program, 1, ValueSet::DEFAULTS);
+  if (!arm_default_chain(program, 1, ValueSet::DEFAULTS))
+    return;
   const In::OperatorDescriptor &sample_op = *program.ops()[2].op;
   uint8_t *block = program.param_block(2);
   auto &typed = *reinterpret_cast<In::Op::GridSampleParams *>(block);
@@ -702,7 +784,8 @@ inline void test_shader_chain_param_address_channel() {
 
 inline void test_shader_chain_parity_rotate_project() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_default_chain(program, 5, set);
+    if (!arm_default_chain(program, 5, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     program.prepare(ctx);
     // The erased prepared conjugates equal the same composition recomputed

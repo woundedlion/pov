@@ -142,7 +142,7 @@ struct SampleEdgeMirror {
 /** Compiles a chain with one sample crossing at entry 2 and applies the value
     set to every block. */
 template <typename OpParams>
-inline void arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
+inline bool arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
                                 int frames, ValueSet set) {
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
@@ -150,12 +150,13 @@ inline void arm_sample_op_chain(In::ChainProgram &program, const char *op_id,
       {"source", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams, OpParams,
-            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
+  return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
+                   OpParams, In::Op::GeneratedPaletteParams>(program, chain,
+                                                             frames, set);
 }
 
 template <typename OpParams>
-inline void arm_spherical_sample_op_chain(In::ChainProgram &program,
+inline bool arm_spherical_sample_op_chain(In::ChainProgram &program,
                                           const char *op_id, int frames,
                                           ValueSet set) {
   const In::ChainEntryRequest chain[] = {
@@ -163,8 +164,8 @@ inline void arm_spherical_sample_op_chain(In::ChainProgram &program,
       {"source", op_id},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  arm_chain<In::Op::RotateChainParams, OpParams,
-            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
+  return arm_chain<In::Op::RotateChainParams, OpParams,
+                   In::Op::GeneratedPaletteParams>(program, chain, frames, set);
 }
 
 inline SampleMirrorFrame sample_mirror(In::ChainProgram &program,
@@ -327,8 +328,9 @@ inline void run_sample_op_matrix(In::ChainProgram &program,
 
 inline void test_shader_chain_parity_sample_twin_wave() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
-        program, In::Op::SampleTwinWaveV3::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::TwinWaveSampleParams>(
+            program, In::Op::SampleTwinWaveV3::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::TwinWave<TwinWaveSampleMirror>>(program,
                                                                      ctx);
@@ -337,8 +339,9 @@ inline void test_shader_chain_parity_sample_twin_wave() {
 
 inline void test_shader_chain_parity_sample_rings() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::RingsSampleParams>(
-        program, In::Op::SampleRings::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::RingsSampleParams>(
+            program, In::Op::SampleRings::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Rings<RingsSampleMirror>>(program, ctx);
   });
@@ -346,8 +349,9 @@ inline void test_shader_chain_parity_sample_rings() {
 
 inline void test_shader_chain_parity_sample_spherical_rings() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_spherical_sample_op_chain<In::Op::SphericalRingsSampleParams>(
-        program, In::Op::SampleSphericalRings::ID, 4, set);
+    if (!arm_spherical_sample_op_chain<In::Op::SphericalRingsSampleParams>(
+            program, In::Op::SampleSphericalRings::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     expect_spherical_sample_op_parity<
         PB::Source::SphericalRings<SphericalRingsSampleMirror>>(program, ctx);
@@ -356,8 +360,9 @@ inline void test_shader_chain_parity_sample_spherical_rings() {
 
 inline void test_shader_chain_parity_sample_spiral() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::SpiralSampleParams>(
-        program, In::Op::SampleSpiral::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::SpiralSampleParams>(
+            program, In::Op::SampleSpiral::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::Spiral<SpiralSampleMirror>>(program, ctx);
   });
@@ -365,8 +370,9 @@ inline void test_shader_chain_parity_sample_spiral() {
 
 inline void test_shader_chain_parity_sample_lattice() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::LatticeSampleParams>(
-        program, In::Op::SampleLattice::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::LatticeSampleParams>(
+            program, In::Op::SampleLattice::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::PrimitiveLattice<LatticeSampleMirror>>(
         program, ctx);
@@ -375,8 +381,9 @@ inline void test_shader_chain_parity_sample_lattice() {
 
 inline void test_shader_chain_parity_sample_fractal() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::FractalSampleParams>(
-        program, In::Op::SampleFractal::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::FractalSampleParams>(
+            program, In::Op::SampleFractal::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_sample_op_matrix<PB::Source::EscapeFractal<FractalSampleMirror>>(
         program, ctx);
@@ -477,7 +484,10 @@ inline void test_shader_chain_composed_noise_domain() {
       {"sample", In::Op::SampleProjectedNoise::ID},
       {"color", In::Op::ColorizeGeneratedPaletteV3::ID},
   };
-  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  const auto compile_status1 = program.compile(chain).code;
+  HS_EXPECT_EQ(compile_status1, In::ChainStatus::OK);
+  if (compile_status1 != In::ChainStatus::OK)
+    return;
   auto &projection = param_as<In::Op::ProjectChainParams>(program, 0);
   projection.frame = static_cast<uint8_t>(In::Op::ProjectionFrame::IDENTITY);
   for (int index = 1; index <= 6; ++index) {
@@ -513,7 +523,10 @@ inline void test_shader_chain_large_finite_path_length() {
   }
   chain[12] = {"sample", In::Op::SampleGridV3::ID};
   chain[13] = {"color", In::Op::ColorizeGeneratedPaletteV3::ID};
-  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  const auto compile_status2 = program.compile(chain).code;
+  HS_EXPECT_EQ(compile_status2, In::ChainStatus::OK);
+  if (compile_status2 != In::ChainStatus::OK)
+    return;
   for (int index = 1; index <= 11; ++index) {
     auto &params = param_as<In::Op::AffineWarpParams>(program, index);
     params.scale_x = params.scale_y = 1.0f / 64.0f;
@@ -558,8 +571,9 @@ inline void test_shader_chain_large_finite_path_length() {
 
 inline void test_shader_chain_parity_sample_tessellation() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::TessellationSampleParams>(
-        program, In::Op::SampleTessellation::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::TessellationSampleParams>(
+            program, In::Op::SampleTessellation::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     auto &params = param_as<In::Op::TessellationSampleParams>(program, 2);
     params.kind =
@@ -580,8 +594,9 @@ inline void test_shader_chain_parity_sample_tessellation() {
 
 inline void test_shader_chain_parity_sample_projected_noise() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_sample_op_chain<In::Op::ProjectedNoiseSampleParams>(
-        program, In::Op::SampleProjectedNoise::ID, 4, set);
+    if (!arm_sample_op_chain<In::Op::ProjectedNoiseSampleParams>(
+            program, In::Op::SampleProjectedNoise::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     uint8_t *basis = topology_byte(program, 2, "basis");
     HS_EXPECT_TRUE(basis != nullptr);
@@ -604,8 +619,9 @@ inline void test_shader_chain_parity_sample_projected_noise() {
 
 inline void test_shader_chain_parity_sample_spherical_noise() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_spherical_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
-        program, In::Op::SampleSphericalNoise::ID, 4, set);
+    if (!arm_spherical_sample_op_chain<In::Op::SphericalNoiseSampleParams>(
+            program, In::Op::SampleSphericalNoise::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     expect_spherical_sample_op_parity<PB::Source::SphericalNoise<
         SphericalNoiseSampleMirror, math::NoiseBasis::SIMPLEX>>(program, ctx);
@@ -674,7 +690,8 @@ inline void run_sample_variant(In::ChainProgram &program,
 
 inline void test_shader_chain_parity_sample_variants() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_default_chain(program, 4, set);
+    if (!arm_default_chain(program, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     for (const In::Op::WeightMode weight :
          {In::Op::WeightMode::NONE, In::Op::WeightMode::PROJECTION})
@@ -744,7 +761,8 @@ inline constexpr auto COLORIZE_ENVELOPES = std::make_index_sequence<
 
 inline void test_shader_chain_parity_colorize_variants() {
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_default_chain(program, 4, set);
+    if (!arm_default_chain(program, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_colorize_envelopes<In::Op::HueShiftMode::NONE>(program, ctx,
                                                        COLORIZE_ENVELOPES);

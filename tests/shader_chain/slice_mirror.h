@@ -188,10 +188,10 @@ void expect_parity(In::ChainProgram &program, const In::FrameContext &ctx) {
 }
 
 /** Compiles the default chain and steps it @p frames times. */
-inline void arm_default_chain(In::ChainProgram &program, int frames,
+inline bool arm_default_chain(In::ChainProgram &program, int frames,
                               ValueSet set) {
-  arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
-            In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
+  return arm_chain<In::Op::RotateChainParams, In::Op::ProjectChainParams,
+                   In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
       program, DEFAULT_CHAIN, frames, set);
 }
 
