@@ -39,6 +39,12 @@ component (`scan: clamp the row index before the cast`).
 Quoted first-party includes use repository-root paths, such as
 `#include "core/math/3dmath.h"`. The repository root is the sole first-party
 include directory; generated build headers use their build directory.
+`tools/include_paths.py` also checks dependency direction: `core/` excludes
+`effects/`, `targets/`, `workbench/`, `hardware/`, `tests/` and `tools/`;
+`hardware/` excludes `effects/`, `targets/`, `workbench/` and `tests/`;
+`effects/` excludes `targets/`, `workbench/`, `hardware/` and `tests/`;
+`workbench/` excludes `effects/` and `targets/`. Vendored core code and
+`core/engine/effects_legacy.h` are exempt from direction checks.
 
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --
