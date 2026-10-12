@@ -16,6 +16,7 @@ import fnmatch
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -249,6 +250,8 @@ SHARED_LITERAL_USES = (
 # of the pin that command reports). `{pin}` is filled with the pin value. A
 # None hint means the tool installs from its hash-locked requirements file.
 CHECK_TOOLS = {
+    "emsdk": (["emcc", "-dumpversion"], "emsdk install {pin} && emsdk activate {pin}",
+              lambda v: v),
     "cmake": (["cmake", "--version"], None, lambda v: v),
     "actionlint": (["actionlint", "-version"], None,
                    lambda v: v.rsplit(".", 1)[0]),
@@ -691,6 +694,8 @@ def check_tool(name: str) -> int:
     pin = (PINS | INLINE_PINS)[name]
     command, _, form = CHECK_TOOLS[name]
     command = [part.format(pin=pin) for part in command]
+    if name == "emsdk":
+        command[0] = shutil.which(command[0]) or command[0]
     if name == "clang-format":
         command[0] = os.environ.get("CLANG_FORMAT", command[0])
     want = form(pin).split(".")
