@@ -1,6 +1,7 @@
 """Isolated environments for Git fixture repositories."""
 
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -24,3 +25,13 @@ def git_run(root: Path, *args: str, env: dict[str, str] | None = None,
     return subprocess.run(["git", "-C", str(root), *args],
                           env=isolated_env() if env is None else env,
                           capture_output=True, text=text, check=check)
+
+
+def require_tool(test_case, name: str) -> str:
+    """Locate a tool, failing in CI and skipping locally when unavailable."""
+    path = shutil.which(name)
+    if path is None:
+        if os.environ.get("CI"):
+            test_case.fail(f"{name} is required in CI")
+        test_case.skipTest(f"{name} is not installed")
+    return path
