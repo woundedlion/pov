@@ -1361,7 +1361,7 @@ inline void test_typed_enum_and_global_param_metadata() {
   fx.mark_global("Speed");
   HS_EXPECT_EQ(fx.getParameterSchemaGeneration(), before_global + 1);
 
-  const auto *mode_def = fx.getParameters().find("Mode");
+  const auto *mode_def = required_param(fx, "Mode");
   const auto *speed_def = required_param(fx, "Speed");
   if (!mode_def)
     return;
