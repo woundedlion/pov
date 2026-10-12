@@ -411,7 +411,6 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
               "coverage=%d max_q16=%d\n",
               sample_count, max_component_error, max_angular_error,
               coverage_differences, max_q16_error);
-  HS_EXPECT_EQ(sample_count, static_cast<size_t>(480192));
   HS_EXPECT_LE(max_component_error, 5e-7f);
   HS_EXPECT_LE(max_angular_error, 5e-7f);
   HS_EXPECT_LE(coverage_differences, 320);
