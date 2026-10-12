@@ -511,7 +511,8 @@ using GroupedPipeline = Pullback::Pipeline<
         Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY,
                                 PlaneStage>>,
     void, FieldCrossingStage,
-    Pullback::Stage::Placed<Pullback::CodeEmission::INLINE_ONLY>, FieldStage,
+    Pullback::Stage::Placed<Pullback::CodeEmission::OUT_OF_LINE_ITCM,
+                            FieldStage>,
     ColorCrossingStage>;
 
 /** @brief Placement wrappers preserve semantic stages and output. */
