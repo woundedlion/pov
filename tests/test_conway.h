@@ -458,7 +458,7 @@ template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
 }
 
 /**
- * @brief Verifies relax actually reduces edge-length variance — its purpose.
+ * @brief Relax reduces unequal edges while preserving spherical topology.
  * @details A truncated cube's corner triangles and face octagons have unequal
  *          edges; the post-relax edge-length variance must be strictly below
  *          the input's.
@@ -490,6 +490,11 @@ inline void test_relax_reduces_edge_variance() {
 
   const float var_after = edge_length_variance(relaxed);
   HS_EXPECT_LT(var_after, var_before);
+  HS_EXPECT_EQ(relaxed.vertices.size(), uneven.vertices.size());
+  HS_EXPECT_EQ(relaxed.face_counts.size(), uneven.face_counts.size());
+  HS_EXPECT_EQ(relaxed.faces.size(), uneven.faces.size());
+  check_all_unit_vertices(relaxed, 1e-3f);
+  check_consistent_winding(relaxed);
 }
 
 /**
