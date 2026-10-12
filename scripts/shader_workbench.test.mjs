@@ -322,8 +322,8 @@ test('every promoted shader document matches its compiled effect identity', asyn
     const identity = identities.find(row => row.name === type);
     if (identity) headers.set(identity.id, source);
   }
-  assert.deepEqual(Object.keys(manifest.source_documents).sort(),
-    manifest.product_group.children.map((child) => child.effect_id).sort());
+  assert.deepEqual(Object.keys(manifest.source_documents),
+    manifest.product_group.children.map((child) => child.effect_id));
   for (const [effectId, documentName] of Object.entries(manifest.source_documents)) {
     const documentSource = await readFile(
       new URL(`../patterns/${documentName}`, import.meta.url), 'utf8');
