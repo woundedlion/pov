@@ -597,6 +597,33 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     HS_EXPECT_EQ(block2_viol, 0);
     HS_EXPECT_EQ(from_mismatch, 0);
 
+    {
+      Arena geometric_arena(morph_aux_buf, sizeof(morph_aux_buf));
+      std::vector<uint8_t> geometric_palette(nf);
+      for (size_t f = 0; f < nf; ++f)
+        geometric_palette[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+      OpLeg::PaletteHandoff geometric_handoff{
+          .bank = &bank.bank,
+          .prev_face_palette = geometric_palette.data(),
+          .prev_faces = nf,
+          .prev_face_centroid = cen3.data()};
+      OpLeg geometric_closing(
+          OpLeg::SweepSeed::borrow(D),
+          OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                .t_start = 0.5f,
+                                .t_end = 0.0f,
+                                .sweep_frames = SWEEP,
+                                .bridge_provenance = true},
+          geometric_arena, cb, geometric_handoff, bookend3);
+      const OpLeg::Landing &geometric_landing = geometric_closing.landing();
+      HS_EXPECT_EQ(geometric_landing.faces, nf);
+      HS_EXPECT_TRUE(geometric_landing.from_palette != nullptr);
+      if (geometric_landing.from_palette)
+        for (size_t f = 0; f < nf; ++f)
+          HS_EXPECT_EQ(geometric_landing.from_palette[f],
+                       geometric_palette[perm[f]]);
+    }
+
     // Rendered seam A/B plus a one-step in-leg control.
     drawn = 0;
     rasterize_at = 1;
