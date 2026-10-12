@@ -97,7 +97,7 @@ struct AiroceanProjMirror : ProjMirrorBase {
 /** Compiles a chain with one projection at entry 1 and applies the value set
     to every block. */
 template <typename OpParams>
-inline void arm_project_op_chain(In::ChainProgram &program, const char *op_id,
+inline bool arm_project_op_chain(In::ChainProgram &program, const char *op_id,
                                  int frames, ValueSet set) {
   const In::ChainEntryRequest chain[] = {
       {"camera", "sphere.rotate.v2"},
@@ -105,8 +105,9 @@ inline void arm_project_op_chain(In::ChainProgram &program, const char *op_id,
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  arm_chain<In::Op::RotateChainParams, OpParams, In::Op::GridSampleParams,
-            In::Op::GeneratedPaletteParams>(program, chain, frames, set);
+  return arm_chain<In::Op::RotateChainParams, OpParams,
+                   In::Op::GridSampleParams, In::Op::GeneratedPaletteParams>(
+      program, chain, frames, set);
 }
 
 inline ProjMirrorFrame project_mirror(In::ChainProgram &program,
@@ -139,8 +140,9 @@ template <typename Model> inline void expect_project_frame_policy() {
   HS_CONTEXT(Model::ID);
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_project_op_chain<typename Model::Params>(program, Model::ID, 0,
-                                               ValueSet::DEFAULTS);
+  if (!arm_project_op_chain<typename Model::Params>(program, Model::ID, 0,
+                                                    ValueSet::DEFAULTS))
+    return;
   auto &params = param_as<typename Model::Params>(program, 1);
   const In::FrameContext ctx = shared_resources().context();
   program.prepare(ctx);
@@ -236,7 +238,8 @@ template <typename Policy, typename OpParams>
 inline void run_project_parity(const char *op_id, ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
   In::ChainProgram &program = fixture->program;
-  arm_project_op_chain<OpParams>(program, op_id, 4, set);
+  if (!arm_project_op_chain<OpParams>(program, op_id, 4, set))
+    return;
   const In::FrameContext ctx = shared_resources().context();
   using Bound =
       typename PB::Stage::Project<Policy>::template Bind<ProjMirrorBinding>;
@@ -257,8 +260,9 @@ template <projections::PeirceLayout Layout>
 inline void run_peirce_variant(ValueSet set) {
   auto fixture = std::make_unique<ProgramFixture>();
   auto &program = fixture->program;
-  arm_project_op_chain<In::Op::ProjectPeirceV3::Params>(
-      program, In::Op::ProjectPeirceV3::ID, 4, set);
+  if (!arm_project_op_chain<In::Op::ProjectPeirceV3::Params>(
+          program, In::Op::ProjectPeirceV3::ID, 4, set))
+    return;
   param_as<In::Op::ProjectPeirceV3::Params>(program, 1).layout =
       static_cast<uint8_t>(Layout);
   using Bound = typename PB::Stage::Project<
@@ -352,8 +356,9 @@ inline void test_shader_chain_parity_project_ops() {
         In::Op::ProjectAiroceanV3::Params>(In::Op::ProjectAiroceanV3::ID, set);
     auto fixture = std::make_unique<ProgramFixture>();
     In::ChainProgram &program = fixture->program;
-    arm_project_op_chain<In::Op::ProjectAiroceanV3::Params>(
-        program, In::Op::ProjectAiroceanV3::ID, 4, set);
+    if (!arm_project_op_chain<In::Op::ProjectAiroceanV3::Params>(
+            program, In::Op::ProjectAiroceanV3::ID, 4, set))
+      return;
     param_as<In::Op::ProjectAiroceanV3::Params>(program, 1).layout = 1;
     using Horizontal = typename PB::Stage::Project<PB::Projection::Airocean<
         AiroceanProjMirror, true, true>>::template Bind<ProjMirrorBinding>;
@@ -391,19 +396,22 @@ inline void run_bonne_variant(In::ChainProgram &program,
 inline void test_shader_chain_parity_project_hemispheres() {
   using Hemisphere = PB::Projection::GnomonicHemisphere;
   for_each_value_set_program([&](In::ChainProgram &program, ValueSet set) {
-    arm_project_op_chain<In::Op::GnomonicChainParams>(
-        program, In::Op::ProjectGnomonic::ID, 4, set);
+    if (!arm_project_op_chain<In::Op::GnomonicChainParams>(
+            program, In::Op::ProjectGnomonic::ID, 4, set))
+      return;
     const In::FrameContext ctx = shared_resources().context();
     run_gnomonic_variant<Hemisphere::FOLDED>(program, ctx);
     run_gnomonic_variant<Hemisphere::FRONT>(program, ctx);
     run_gnomonic_variant<Hemisphere::BACK>(program, ctx);
     program.clear();
 
-    arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
-        program, In::Op::ProjectBonneV3::ID, 4, set);
+    if (!arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
+            program, In::Op::ProjectBonneV3::ID, 4, set))
+      return;
     run_bonne_variant<true>(program, ctx);
-    arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
-        program, In::Op::ProjectBonneV3::ID, 4, set);
+    if (!arm_project_op_chain<In::Op::ProjectBonneV3::Params>(
+            program, In::Op::ProjectBonneV3::ID, 4, set))
+      return;
     run_bonne_variant<false>(program, ctx);
   });
 }
