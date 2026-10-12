@@ -18,6 +18,7 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TOOLS))
 
+from git_test_env import git_run  # noqa: E402
 import build_pins as bp  # noqa: E402
 
 
@@ -531,7 +532,7 @@ class InstallSet(unittest.TestCase):
     def test_an_unpinned_file_is_reported(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "init", "--quiet", str(root)], check=True)
+            git_run(root, 'init', '--quiet')
             attributes = root / ".gitattributes"
             attributes.write_text(
                 "* text=auto eol=lf\nunpinned/file.txt !eol !binary\n",
