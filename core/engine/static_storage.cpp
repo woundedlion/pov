@@ -12,7 +12,7 @@
 
 /**
  * @file static_storage.cpp
- * @brief Engine timeline and framebuffer storage.
+ * @brief Engine storage and fail-fast handlers.
  */
 
 /** @brief NOLOAD DMAMEM storage; Timeline clears every slot at runtime. */
