@@ -17,6 +17,9 @@ constexpr int H = 144;
 using Geometry = math::DisplayGeometry<H>;
 
 void test_coordinates() {
+  const math::LatitudeGeometry latitude(H);
+  for (int y = 0; y < H; ++y)
+    HS_EXPECT_EQ(latitude.row_to_phi(y), Geometry::row_to_phi(y));
   static_assert(!Geometry::HAS_NORTH_POLE && !Geometry::HAS_SOUTH_POLE);
   HS_EXPECT_GT(Geometry::NORTH_PHI, 0.0f);
   HS_EXPECT_LT(Geometry::SOUTH_PHI, math::PI_F);
