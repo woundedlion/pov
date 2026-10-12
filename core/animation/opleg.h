@@ -221,9 +221,9 @@ public:
 
   /** @brief Face-order relationship between departed and swept meshes. */
   enum class FaceCorrespondence : uint8_t {
-    GEOMETRIC,
-    IDENTITY,
-    DUAL_CLOSING,
+    GEOMETRIC,    /**< Matches departed faces by centroid geometry. */
+    IDENTITY,     /**< Carries palettes by unchanged face emission order. */
+    DUAL_CLOSING, /**< Maps the dual bridge closing faces to the departed mesh. */
   };
 
   /**

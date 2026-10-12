@@ -22,13 +22,13 @@ namespace Control {
 
 /** @brief Interpolation domain of a described parameter. */
 enum class FieldCurve : uint8_t {
-  LERP,
-  LOG_POSITIVE,
-  SHORTEST_PERIODIC,
-  SHORTEST_TURN,
-  SNAP,
-  MIDPOINT,
-  RAW_LINEAR
+  LERP,              /**< Linear interpolation clamped to the endpoints. */
+  LOG_POSITIVE,      /**< Geometric interpolation of positive values. */
+  SHORTEST_PERIODIC, /**< Shortest arc in radians with a two-pi period. */
+  SHORTEST_TURN,     /**< Shortest arc in turns with a unit period. */
+  SNAP,              /**< Retains the start value until progress reaches one. */
+  MIDPOINT,          /**< Switches to the end value at halfway progress. */
+  RAW_LINEAR         /**< Linear interpolation allowing extrapolation. */
 };
 
 /**

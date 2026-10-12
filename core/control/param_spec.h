@@ -17,8 +17,8 @@
 
 /** @brief Registration policy for a target's initial value. */
 enum class ParamInitialValue {
-  REQUIRE_IN_RANGE,
-  PRESERVE_REQUESTED_FLOAT,
+  REQUIRE_IN_RANGE, /**< Rejects an initial value outside the declared range. */
+  PRESERVE_REQUESTED_FLOAT, /**< Preserves the requested float before runtime normalization. */
 };
 
 /**

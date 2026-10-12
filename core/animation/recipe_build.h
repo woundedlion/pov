@@ -75,15 +75,15 @@ protected:
       RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
   /** @brief Build stage entered when a scheduled leg completes. */
   enum class BuildContinuation : uint8_t {
-    FINISH,
-    DUAL_MEDIAL,
-    DUAL_UNTRUNCATE,
-    DUAL_DONE,
-    DT_AFTER_TRUNCATE,
-    DT_AFTER_BRIDGE,
-    DTD_AFTER_BRIDGE1,
-    DTD_AFTER_TRUNCATE,
-    DTD_AFTER_BRIDGE2,
+    FINISH,            /**< Completes the build and hands off the sprite. */
+    DUAL_MEDIAL,       /**< Starts the dual bridge medial leg. */
+    DUAL_UNTRUNCATE,   /**< Starts the dual bridge untruncate leg. */
+    DUAL_DONE,         /**< Completes the dual bridge. */
+    DT_AFTER_TRUNCATE, /**< Continues dual-truncate after truncation. */
+    DT_AFTER_BRIDGE,   /**< Completes dual-truncate after the bridge. */
+    DTD_AFTER_BRIDGE1, /**< Starts dual-truncate-dual truncation after the first bridge. */
+    DTD_AFTER_TRUNCATE, /**< Starts the second dual-truncate-dual bridge. */
+    DTD_AFTER_BRIDGE2, /**< Completes dual-truncate-dual after the second bridge. */
   };
   /// Stage entered after the current dual bridge's closing leg.
   BuildContinuation dual_bridge_done = BuildContinuation::FINISH;
