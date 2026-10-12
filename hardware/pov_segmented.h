@@ -277,11 +277,6 @@ public:
         pov::sync::phantasm_config(F_CPU_ACTUAL, RPM, CANVAS_W, R);
     if (effect_revolutions)
       cfg.set_effect_revolutions(*effect_revolutions);
-#ifdef HS_PROFILE_EPOCH_REVS
-    // Profiling: fixed epoch length in revolutions, replacing per-entry durations.
-    cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
-    cfg.clear_effect_revolutions();
-#endif
     const char *const bad_invariant = cfg.valid();
     HS_CHECK(bad_invariant == nullptr, "pov::sync::Config invariant: %s",
              bad_invariant);
