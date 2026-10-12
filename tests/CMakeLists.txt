@@ -38,7 +38,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   message(FATAL_ERROR "The native test suite requires Clang; set CMAKE_CXX_COMPILER to clang++.")
 endif()
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18)
   message(FATAL_ERROR
     "Clang ${CMAKE_CXX_COMPILER_VERSION} is below the 18 this suite is built "
     "against. Point CMAKE_CXX_COMPILER at a newer clang++, or let "
