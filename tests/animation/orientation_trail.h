@@ -58,3 +58,19 @@ inline void test_orientation_trail_clear() {
   trail.clear();
   HS_EXPECT_EQ(trail.length(), static_cast<size_t>(0));
 }
+
+/** @brief Verifies recorded trail orientations remain independent of the body's live rotation. */
+inline void test_trail_body_records_independent_orientation_history() {
+  Animation::TrailBody<2, 2> body;
+  HS_EXPECT_VEC(body.v, math::Y_AXIS, 0.0f);
+  HS_EXPECT_EQ(body.trail.length(), size_t{0});
+  body.trail.record(body.orientation);
+  body.orientation.set(math::make_rotation(math::Z_AXIS, math::PI_F * 0.5f));
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), math::Y_AXIS, 1e-6f);
+  body.trail.record(body.orientation);
+  body.orientation.set(math::Quaternion());
+  body.trail.record(body.orientation);
+  HS_EXPECT_EQ(body.trail.length(), size_t{2});
+  HS_EXPECT_VEC(body.trail.get(0).orient(body.v), -math::X_AXIS, 1e-5f);
+  HS_EXPECT_VEC(body.trail.get(1).orient(body.v), math::Y_AXIS, 1e-6f);
+}

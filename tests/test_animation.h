@@ -47,7 +47,6 @@ namespace animation_tests {
 #include "tests/animation/color_wipe.h"
 #include "tests/animation/mobius.h"
 #include "tests/animation/ripple_noise.h"
-#include "tests/animation/public_api.h"
 /**
  * @brief Runs every animation test case in this module.
  * @return The module's failure count.

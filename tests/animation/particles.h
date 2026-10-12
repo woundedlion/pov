@@ -484,3 +484,24 @@ inline void test_point_particle_storage_and_lifetime() {
   ps.step(fake_canvas());
   HS_EXPECT_EQ(ps.active(), 0);
 }
+
+/**
+ * @brief Verifies a registered emitter runs on every ParticleSystem::step and
+ * can spawn into the pool.
+ */
+inline void test_particle_system_emitter_dispatch() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps;
+  ps.init(arena);
+  int calls = 0;
+  ps.add_emitter([&](Animation::ParticleSystem<32, 4> &sys) {
+    calls++;
+    sys.spawn(math::Vector(1, 0, 0), math::Vector(0, 0, 0), 0);
+  });
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(calls, 1);
+  HS_EXPECT_GT(static_cast<int>(ps.active()), 0);
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(calls, 2); // runs every frame
+}

@@ -120,3 +120,47 @@ inline void test_transition_paused_holds_value() {
   HS_EXPECT_TRUE(tr.done());
   HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 }
+
+/**
+ * @brief Verifies a finished finite parameter animation reports full progress
+ * rather than dividing by the zeroed duration.
+ */
+inline void test_finished_param_animation_progress_is_finite() {
+  class SelfFinishingParam
+      : public Animation::FiniteParamAnimationBase<SelfFinishingParam> {
+  public:
+    SelfFinishingParam() : FiniteParamAnimationBase(100, true) {}
+    void end_now() { finish(); }
+    float progress() const { return normalized_progress(); }
+  } anim;
+  anim.end_now();
+  const float progress = anim.progress();
+  HS_EXPECT_TRUE(std::isfinite(progress));
+  HS_EXPECT_NEAR(progress, 1.0f, 1e-6f);
+}
+
+/** @brief Verifies Progress pause behavior and eased output bounds. */
+inline void test_progress_pause_and_eased_bounds() {
+  bool paused = true;
+  std::vector<float> values;
+  Animation::Progress progress([&](float t) { values.push_back(t); }, 4,
+                               [](float t) { return 2.0f * t; },
+                               {.paused = &paused});
+  progress.step(fake_canvas());
+  HS_EXPECT_TRUE(values.empty());
+  paused = false;
+  progress.step(fake_canvas());
+  HS_EXPECT_SIZE_OR_RETURN(values, 1);
+  HS_EXPECT_EQ(values.back(), 0.5f);
+  paused = true;
+  progress.step(fake_canvas());
+  HS_EXPECT_SIZE_OR_RETURN(values, 1);
+  paused = false;
+  for (int i = 0; i < 3; ++i)
+    progress.step(fake_canvas());
+  HS_EXPECT_SIZE_OR_RETURN(values, 4);
+  HS_EXPECT_EQ(values[1], 1.0f);
+  HS_EXPECT_EQ(values[2], 1.0f);
+  HS_EXPECT_EQ(values[3], 1.0f);
+  HS_EXPECT_TRUE(progress.done());
+}
