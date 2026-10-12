@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
 # Licensed under the PolyForm Noncommercial License 1.0.0
-"""Check OpLeg death-pin uniqueness and cross-directory breadcrumb aliases."""
+"""Check literal death-pin uniqueness and cross-directory breadcrumb aliases."""
 
 import ast
 from pathlib import Path
@@ -55,10 +55,41 @@ def guard_texts(text):
                 continue
             field.append(value)
         yield "(" + "".join(condition).strip() + ") " + literals("".join(message))
+    direct = r"(?:hs::)?check_fail\s*\(\s*HS_CHECK_SITE\s*\(\s*(" + STRING + r")\s*\)\s*,\s*((?:" + STRING + r"\s*)+)"
+    for match in re.finditer(direct, text):
+        yield "(" + literals(match[1]) + ") " + literals(match[2])
 
 
 def compact(text):
     return re.sub(r"\s+", "", text)
+
+
+def guard_matches(guard, pin):
+    """Match a literal breadcrumb prefix against a guard's printf message."""
+    guard, pin = compact(guard), compact(pin)
+    depth = 0
+    message_start = 0
+    for index, token in enumerate(guard):
+        if token == "(":
+            depth += 1
+        elif token == ")":
+            depth -= 1
+            if depth == 0:
+                message_start = index + 1
+                break
+    formats = list(re.compile(r"%(?:[-+ #0]*)(?:\d+|\*)?(?:\.(?:\d+|\*))?(?:hh|ll|[hljztL])?[diuoxXfFeEgGaAcsp]").finditer(guard, message_start))
+    if not formats:
+        return guard.startswith(pin)
+    if guard[:formats[0].start()].startswith(pin):
+        return True
+    pieces = []
+    start = 0
+    for field in formats:
+        pieces.append(re.escape(guard[start:field.start()]))
+        pieces.append(".*?")
+        start = field.end()
+    pieces.append(re.escape(guard[start:]))
+    return re.match("".join(pieces), pin) is not None
 
 
 def main():
@@ -76,20 +107,17 @@ def main():
         for other, candidates in sources.items():
             if other == file or Path(other).name != Path(file).name:
                 continue
-            if any(compact(guard).startswith(compact(text)) for guard in candidates):
+            if any(guard_matches(guard, text) for guard in candidates):
                 raise SystemExit(f"{name}: breadcrumb for {file} also matches {other}")
-    guards = list(guard_texts((root / "core/animation/opleg.h").read_text(encoding="utf-8")))
     checked = 0
-    for name, _file, text in case_pins:
-        if not name.startswith("opleg_"):
-            continue
-        matches = sum(compact(guard).startswith(compact(text)) for guard in guards)
+    for name, file, text in case_pins:
+        matches = sum(guard_matches(guard, text) for guard in sources.get(file, []))
         if matches != 1:
-            raise SystemExit(f"{name}: pin identifies {matches} OpLeg guard sites, expected 1")
+            raise SystemExit(f"{name}: pin identifies {matches} guard sites in {file}, expected 1")
         checked += 1
     if checked == 0:
-        raise SystemExit("no OpLeg death pins found")
-    print(f"death pins: {checked} OpLeg cases each identify one guard site")
+        raise SystemExit("no literal death pins found")
+    print(f"death pins: {checked} literal cases each identify one guard site")
 
 
 if __name__ == "__main__":
