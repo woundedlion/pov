@@ -677,13 +677,13 @@ __attribute__((always_inline)) inline void
 prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
   if constexpr (pole_lod_blocks<ShapeT> &&
                 !std::is_same_v<Probe, SDF::DirectDistance>) {
-    const int run = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
-    if (run > 1 && !debug) {
-      const float block_slack =
-          pole_lod_block_slack<W>(run, math::TrigLUT<W, H>::cos_phi[y], shape);
-      constexpr float threshold =
+    const int RUN = pole_lod_run(math::TrigLUT<W, H>::sin_phi[y]);
+    if (RUN > 1 && !debug) {
+      const float BLOCK_SLACK =
+          pole_lod_block_slack<W>(RUN, math::TrigLUT<W, H>::cos_phi[y], shape);
+      constexpr float THRESHOLD =
           ShapeT::is_solid ? 2.0f * math::PI_F / W : 0.0f;
-      probe.prepare_row(shape, threshold + block_slack,
+      probe.prepare_row(shape, THRESHOLD + BLOCK_SLACK,
                         math::TrigLUT<W, H>::sin_phi[y],
                         math::TrigLUT<W, H>::cos_phi[y]);
     }
