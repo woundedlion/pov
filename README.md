@@ -107,7 +107,7 @@ Two physical targets share the same rendering engine.
 
 Each revolution takes about 125 ms. The LED strip is mounted on both sides of a rotating arm: the top half of the strip paints one hemisphere and the bottom half paints the opposite one, and the two arms sit half a turn apart in azimuth. Half a revolution therefore paints a complete sphere, and each revolution delivers two frames — one per side.
 
-A new column is painted every `1,000,000 / (RPM/60) / W` microseconds — about 1302 µs for Holosphere's 96 columns and 434 µs for Phantasm's 288. On Holosphere an IntervalTimer ISR advances one column per fire; on Phantasm each board's flywheel ISR derives the column from the CPU cycle counter ([Hardware Drivers](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#710-hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)).
+A new column is painted every `1,000,000 / (RPM/60) / W` microseconds — about 1302 µs for Holosphere's 96 columns and 434 µs for Phantasm's 288. On Holosphere an IntervalTimer ISR advances one column per fire; on Phantasm each board's flywheel ISR derives the column from the CPU cycle counter ([Hardware Drivers](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#hardware-drivers-dma_ledh-pov_singleh-pov_segmentedh)).
 
 ---
 
@@ -215,7 +215,7 @@ The Teensy heap fragments under heavy mesh subdivision, so the engine avoids it:
 - Geometry functions take explicit arenas — Conway operators take `(Arena& target, Arena& temp)`, generators take `(Arena& a, Arena& b)` — so the memory layout of heavy geometric operations is visible at every call site.
 - Scratch lifetimes are LIFO: a callback allocates only under its own `ScratchScope` and never calls `reset()`, which would invalidate its caller's live buffers.
 
-[Memory Architecture](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#75-memory-architecture-memoryh-memorycpp) lists the global scratch consumers and the compaction machinery.
+[Memory Architecture](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#memory-architecture-memoryh-memorycpp) lists the global scratch consumers and the compaction machinery.
 
 ### 3.4 Why the ISR Double Buffer?
 
@@ -361,9 +361,9 @@ auto shader = [&](const math::Vector &p, Fragment &f) {
 Scan::Ring::draw<W, H>(pipeline, canvas, basis, radius, thickness, shader);
 ```
 
-A `FragmentShaderFn` runs per pixel or per sample; an optional `VertexShaderRef` runs once per control point or pixel center to set up expensive shared state. Both are zero-allocation `FunctionRef` callables, safe on Teensy. Each rasterizer family fills the registers with its own documented convention ([Shader Interface](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#70-the-shader-interface)).
+A `FragmentShaderFn` runs per pixel or per sample; an optional `VertexShaderRef` runs once per control point or pixel center to set up expensive shared state. Both are zero-allocation `FunctionRef` callables, safe on Teensy. Each rasterizer family fills the registers with its own documented convention ([Shader Interface](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#the-shader-interface)).
 
-**Generate and transform.** Forward paths usually start with geometry built in the arenas: meshes from the solids registry (`Solids::get_by_name()`), Hankin patterns (`MeshOps::hankin`), Fibonacci lattices, or particle positions from physics. The `generate()` wrapper manages arena lifetime. Transformers then deform the geometry in world space — ripples, noise displacement, Möbius warps, quaternion rotation — and chain through `MeshOps::transform(input, output, arena, ripple, orient)` ([Geometry Transformers](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#74-geometry-transformers-transformerh)).
+**Generate and transform.** Forward paths usually start with geometry built in the arenas: meshes from the solids registry (`Solids::get_by_name()`), Hankin patterns (`MeshOps::hankin`), Fibonacci lattices, or particle positions from physics. The `generate()` wrapper manages arena lifetime. Transformers then deform the geometry in world space — ripples, noise displacement, Möbius warps, quaternion rotation — and chain through `MeshOps::transform(input, output, arena, ripple, orient)` ([Geometry Transformers](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#geometry-transformers-transformerh)).
 
 ### 5.3 Forward Rendering: Scan
 
@@ -377,7 +377,7 @@ The Scan path rasterizes analytic shapes described by signed distance functions.
 
 The convenience wrappers in `scan.h` pair a shape with the rasterizer in one `draw()` call: rings, discs, points, lines, stars, flowers, distorted rings, planar and spherical polygons, and `Scan::Mesh`, which rasterizes every face of a mesh. Shapes combine with CSG (`SDF::Union`, `SDF::SmoothUnion`, `SDF::Subtract`, `SDF::Intersection`, `SDF::AngularRepeat`). Fused rasterizers (`Scan::RingGroup`, `Scan::DistortedRingStack`) paint a group of rings in a single pass. Near the poles, where columns converge, an optional azimuthal LOD shades runs of columns from a single probe.
 
-Reference: [SDF Shapes and the Scan Rasterizer](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#71-sdf-shapes-sdfh-and-the-scan-rasterizer-scanh).
+Reference: [SDF Shapes and the Scan Rasterizer](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#sdf-shapes-sdfh-and-the-scan-rasterizer-scanh).
 
 ### 5.4 Forward Rendering: Plot
 
@@ -390,7 +390,7 @@ Plot::Multiline::draw<W, H>(pipeline, canvas, vertices, fragment_shader);
 
 Consecutive points are joined either along the great-circle arc (*geodesic*, the default) or along a straight line in a basis's tangent plane (*planar*). Shaders receive path progress, cumulative arc length and the vertex index in the fragment registers. The primitives cover lines and polylines, rings, polygons, stars, flowers, distorted rings, mesh wireframes (`Plot::Mesh`) and particle trails (`Plot::ParticleSystem`). Every sample is plotted at its exact sub-pixel position through the filter pipeline, which is why Plot effects typically include `Screen::AntiAlias` (or its `Screen::DirectAntiAliasSink` terminal) to spread each sample over its neighbouring pixels.
 
-Reference: [The Curve Rasterizer](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#72-the-curve-rasterizer-ploth).
+Reference: [The Curve Rasterizer](https://github.com/woundedlion/pov/blob/master/docs/subsystems.md#the-curve-rasterizer-ploth).
 
 ### 5.5 Full-Screen Shading
 
