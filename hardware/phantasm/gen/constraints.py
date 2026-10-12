@@ -1,5 +1,11 @@
 """Shared PHANTASM fabrication constraints (millimeters) and assembly policy."""
 
+def is_hand_assembled(footprint, value):
+    """Whether a part is excluded from machine assembly."""
+    return (any(token in footprint for token in EXCLUDE_FP_SUBSTR)
+            or any(token in value for token in EXCLUDE_VAL_SUBSTR))
+
+
 ZONE_DEFAULTS = {
     "min_thickness": 0.25,
     "thermal_gap": 0.5,
