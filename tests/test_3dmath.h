@@ -902,22 +902,22 @@ inline void test_dot_quaternion() {
  */
 inline void test_make_rotation_axis_angle() {
   math::Quaternion id = math::make_rotation(math::Vector(0, 1, 0), 0.0f);
-  HS_EXPECT_NEAR(std::abs(id.r), 1.0f, 5e-3f);
-  HS_EXPECT_VEC(id.v, math::Vector(0, 0, 0), 5e-3f);
+  HS_EXPECT_NEAR(std::abs(id.r), 1.0f, 1e-5f);
+  HS_EXPECT_VEC(id.v, math::Vector(0, 0, 0), 1e-5f);
 
   math::Quaternion qy90 =
       math::make_rotation(math::Vector(0, 1, 0), math::PI_F * 0.5f);
-  HS_EXPECT_NEAR(qy90.magnitude(), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(qy90.magnitude(), 1.0f, 2e-6f);
 
   // 90° around +Y rotates (1,0,0) to (0,0,-1) [right-handed]
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qy90),
-                math::Vector(0, 0, -1), 5e-3f);
+                math::Vector(0, 0, -1), 1e-5f);
 
   // 180° around +Z rotates (1,0,0) to (-1,0,0)
   math::Quaternion qz180 =
       math::make_rotation(math::Vector(0, 0, 1), math::PI_F);
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qz180),
-                math::Vector(-1, 0, 0), 5e-3f);
+                math::Vector(-1, 0, 0), 1e-5f);
 }
 
 /**
@@ -975,26 +975,26 @@ inline void test_make_rotation_from_to() {
   // Parallel → identity
   math::Quaternion id =
       math::make_rotation(math::Vector(1, 0, 0), math::Vector(1, 0, 0));
-  HS_EXPECT_QUAT(id, math::Quaternion(1, 0, 0, 0), 1e-4f);
+  HS_EXPECT_QUAT(id, math::Quaternion(1, 0, 0, 0), 1e-5f);
 
   math::Quaternion q =
       math::make_rotation(math::Vector(1, 0, 0), math::Vector(0, 1, 0));
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), q), math::Vector(0, 1, 0),
-                5e-3f);
+                1e-5f);
 
   // Antiparallel (degenerate): x to -x → 180° rotation.
   math::Quaternion qa =
       math::make_rotation(math::Vector(1, 0, 0), math::Vector(-1, 0, 0));
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qa), math::Vector(-1, 0, 0),
-                5e-3f);
+                1e-5f);
 
   math::Vector from(1, 1, 0);
   from.normalize();
   math::Vector to(0, 1, 1);
   to.normalize();
   math::Quaternion qg = math::make_rotation(from, to);
-  HS_EXPECT_VEC(math::rotate(from, qg), to, 5e-3f);
-  HS_EXPECT_NEAR(qg.magnitude(), 1.0f, 1e-3f);
+  HS_EXPECT_VEC(math::rotate(from, qg), to, 1e-5f);
+  HS_EXPECT_NEAR(qg.magnitude(), 1.0f, 2e-6f);
 }
 
 /**
@@ -1016,10 +1016,10 @@ inline void test_quaternion_from_basis() {
   math::Vector cy = math::rotate(math::Vector(0, 1, 0), q0);
   math::Vector cz = math::rotate(math::Vector(0, 0, 1), q0);
   math::Quaternion q = math::quaternion_from_basis(cx, cy, cz);
-  HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), q), cx, 5e-3f);
-  HS_EXPECT_VEC(math::rotate(math::Vector(0, 1, 0), q), cy, 5e-3f);
-  HS_EXPECT_VEC(math::rotate(math::Vector(0, 0, 1), q), cz, 5e-3f);
-  HS_EXPECT_NEAR(q.magnitude(), 1.0f, 1e-3f);
+  HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), q), cx, 1e-5f);
+  HS_EXPECT_VEC(math::rotate(math::Vector(0, 1, 0), q), cy, 1e-5f);
+  HS_EXPECT_VEC(math::rotate(math::Vector(0, 0, 1), q), cz, 1e-5f);
+  HS_EXPECT_NEAR(q.magnitude(), 1.0f, 2e-6f);
 
   for (const math::Vector AXIS :
        {math::Vector(1.0f, 0.2f, 0.3f), math::Vector(0.3f, 1.0f, 0.2f),
@@ -1030,18 +1030,18 @@ inline void test_quaternion_from_basis() {
     const auto Z = math::rotate(math::Z_AXIS, ROTATION);
     HS_EXPECT_LT(X.x + Y.y + Z.z, 0.0f);
     const auto RESTORED = math::quaternion_from_basis(X, Y, Z);
-    HS_EXPECT_VEC(math::rotate(math::X_AXIS, RESTORED), X, 5e-3f);
-    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, RESTORED), Y, 5e-3f);
-    HS_EXPECT_VEC(math::rotate(math::Z_AXIS, RESTORED), Z, 5e-3f);
+    HS_EXPECT_VEC(math::rotate(math::X_AXIS, RESTORED), X, 1e-5f);
+    HS_EXPECT_VEC(math::rotate(math::Y_AXIS, RESTORED), Y, 1e-5f);
+    HS_EXPECT_VEC(math::rotate(math::Z_AXIS, RESTORED), Z, 1e-5f);
   }
 
   // trace <= 0 branch: 180° rotation about Z (diagonal = (-1,-1,1)).
   math::Quaternion qz = math::quaternion_from_basis(
       math::Vector(-1, 0, 0), math::Vector(0, -1, 0), math::Vector(0, 0, 1));
   HS_EXPECT_VEC(math::rotate(math::Vector(1, 0, 0), qz), math::Vector(-1, 0, 0),
-                5e-3f);
+                1e-5f);
   HS_EXPECT_VEC(math::rotate(math::Vector(0, 0, 1), qz), math::Vector(0, 0, 1),
-                5e-3f);
+                1e-5f);
 }
 
 /**
@@ -1055,7 +1055,7 @@ inline void test_rotate() {
   math::Quaternion q =
       math::make_rotation(math::Vector(1, 2, 3).normalized(), 1.234f);
   math::Vector r = math::rotate(v, q);
-  HS_EXPECT_NEAR(r.length(), v.length(), 1e-3f);
+  HS_EXPECT_NEAR(r.length(), v.length(), 1e-5f);
   HS_EXPECT_VEC(math::rotate(v, math::Quaternion(0, 0, 0, 1)),
                 math::Vector(-1, -2, 3), 1e-6f);
 
@@ -1064,7 +1064,7 @@ inline void test_rotate() {
   math::Quaternion q2 = math::make_rotation(math::Vector(1, 0, 0), 0.5f);
   math::Vector via_sequential = math::rotate(math::rotate(v, q1), q2);
   math::Vector via_composed = math::rotate(v, q2 * q1);
-  HS_EXPECT_VEC(via_sequential, via_composed, 5e-3f);
+  HS_EXPECT_VEC(via_sequential, via_composed, 1e-5f);
 }
 
 /**
