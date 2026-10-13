@@ -168,7 +168,7 @@ class FormattingTests(unittest.TestCase):
 
 
 class FindKicadDataDirTests(unittest.TestCase):
-    """Stock data directories must come from the same major as the pinned CLI."""
+    """Stock data directories must come from the same major.minor as the pinned CLI."""
 
     def windows_install(self, version):
         return rf"C:\Program Files\KiCad\{version}\share\kicad\symbols"
@@ -194,11 +194,11 @@ class FindKicadDataDirTests(unittest.TestCase):
 
         self.assertEqual(self.resolve([pinned, newer]), pinned)
 
-    def test_takes_the_newest_minor_of_the_pinned_major(self):
+    def test_prefers_the_pinned_minor_over_a_newer_install(self):
         installs = [self.windows_install(f"{sexp.KICAD_MAJOR}.{minor}")
                     for minor in (0, 3)]
 
-        self.assertEqual(self.resolve(installs), installs[1])
+        self.assertEqual(self.resolve(installs), installs[0])
 
     def test_an_unversioned_prefix_names_no_major_and_is_taken(self):
         self.assertEqual(self.resolve(["/usr/share/kicad/symbols"]),
