@@ -143,23 +143,24 @@ class GeneratedMaskTests(unittest.TestCase):
         cls.directory = tempfile.TemporaryDirectory()
         cls.addClassCleanup(cls.directory.cleanup)
         cls.paths = {}
-        for unplaced in (False, True):
-            target = Path(cls.directory.name) / str(unplaced)
-            target.mkdir()
-            cls.paths[unplaced] = Path(generate(str(target), unplaced=unplaced))
+        for revision, unplaced in (("1.2", False), ("1.2", True), ("1.3", True)):
+            target = Path(cls.directory.name) / revision / str(unplaced)
+            target.mkdir(parents=True)
+            cls.paths[revision, unplaced] = Path(generate(
+                str(target), unplaced=unplaced, revision=revision))
 
     def test_placed_and_unplaced_boards_preserve_mask_policy(self):
-        for unplaced, path in self.paths.items():
-            with self.subTest(unplaced=unplaced):
+        for (revision, unplaced), path in self.paths.items():
+            with self.subTest(revision=revision, unplaced=unplaced):
                 root = read(path)
                 fab.validate_solder_mask("generated.kicad_pcb", board=root)
                 setup = F(root, "setup")[0]
                 self.assertEqual(float(sexp.val(setup, "pad_to_mask_clearance")[0]), 0)
                 self.assertEqual(float(sexp.val(setup, "solder_mask_min_width")[0]), 0.1)
 
-    def test_both_projects_carry_new_layout_rules(self):
-        for unplaced, path in self.paths.items():
-            with self.subTest(unplaced=unplaced):
+    def test_generated_projects_carry_new_layout_rules(self):
+        for (revision, unplaced), path in self.paths.items():
+            with self.subTest(revision=revision, unplaced=unplaced):
                 project = json.loads(path.with_suffix(".kicad_pro").read_text(encoding="utf-8"))
                 self.assertEqual(project["meta"]["filename"], path.with_suffix(".kicad_pro").name)
                 self.assertTrue(project["sheets"][0][0])
@@ -169,8 +170,8 @@ class GeneratedMaskTests(unittest.TestCase):
                 self.assertEqual(rules["min_hole_clearance"], 0.25 if unplaced else 0.1016)
 
     def test_generated_placements_have_no_physical_drc_violations(self):
-        for unplaced, path in self.paths.items():
-            with self.subTest(unplaced=unplaced):
+        for (revision, unplaced), path in self.paths.items():
+            with self.subTest(revision=revision, unplaced=unplaced):
                 report = path.with_suffix(".drc.json")
                 result = subprocess.run(
                     [kicad_cli(), "pcb", "drc", "--refill-zones", "--format", "json",
