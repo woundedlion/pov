@@ -117,6 +117,8 @@ public:
    * @return Scratch byte count.
    */
   static size_t uncached_scratch_bytes(int ds) {
+    HS_CHECK(ds > 0 && W % ds == 0,
+             "feedback downsample %d must be > 0 and divide width %d", ds, W);
     const int COLUMNS = W / ds;
     const SphereField FIELD(ds, ds, ds, COLUMNS);
     const int RINGS = FIELD.ring_count();
