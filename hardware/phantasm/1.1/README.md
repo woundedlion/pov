@@ -282,7 +282,7 @@ every step below is performed by whoever builds the card.
 ## Hand-build BOM (the through-hole half)
 
 `../gen/fab.py` emits `phantasm-BOM.csv` for the **assembled SMD** parts only:
-`fab.EXCLUDE_FP_SUBSTR` / `EXCLUDE_VAL_SUBSTR` drop every hand-soldered part, and
+`constraints.EXCLUDE_FP_SUBSTR` / `EXCLUDE_VAL_SUBSTR` drop every hand-soldered part, and
 `fab.PART_BY_LCSC` carries manufacturer + MPN for the assembled half alone. Nothing
 below reaches either. **The part numbers are not sourced** — the last column records
 what the netlist, the footprint and spec §9 constrain, not a catalogue match; fill it

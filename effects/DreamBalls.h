@@ -304,8 +304,8 @@ private:
 
   /**
    * @brief Two baked LUTs, ping-ponged per spawn.
-   * @details A spawn rebakes the inactive slot, so a rebake never lands on the
-   *          slot a sprite is drawing from.
+   * @details Spawning rebakes the inactive slot; a manual preset change rebakes
+   *          the active sprite's slot.
    */
   BakedPaletteStorage baked_palettes[2];
   static constexpr size_t FOOTPRINT_BYTES =

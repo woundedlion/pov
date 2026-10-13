@@ -542,8 +542,8 @@ private:
       return 1;
   }
 
-  /** @brief The row of the preset at @p index: the static `preset(index)`,
-      else the `PRESETS` table, else a single preset of the startup params. */
+  /** @brief The row of the preset at @p index: the `PRESET_ROW` hook with
+      `PRESET_IDS`, else the `PRESETS` table, else a single startup preset. */
   static auto preset_row(size_t index) {
     if constexpr (has_hook<Control::ChoreographyHook::PRESET_ROW>())
       return decltype(Derived::choreography_hooks())::template invoke_static<
@@ -553,7 +553,7 @@ private:
     else {
       static_assert(preset_count_of() <= 1,
                     "an effect with several presets must define a PRESETS "
-                    "table or preset(index)");
+                    "table or a PRESET_ROW hook with PRESET_IDS");
       return PresetEntry<Params>{initial_params_of(), Segue::Preset::Snap{}};
     }
   }
@@ -577,7 +577,7 @@ private:
     return true;
   }
 
-  /** @brief Startup parameters: `Derived::initial_params()` when declared,
+  /** @brief Startup parameters: the `INITIAL_PARAMS` hook when bound,
       else the first preset row's parameters. */
   static Params initial_params_of() {
     if constexpr (has_hook<Control::ChoreographyHook::INITIAL_PARAMS>())
