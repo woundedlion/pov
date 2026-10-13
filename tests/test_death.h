@@ -953,6 +953,11 @@ inline const Case *all_cases(int &n) {
            "core/color/palette_cycler.h",
            "(from_slot != nullptr && to_slot != nullptr && morph != nullptr) "
            "PaletteCycler restore needs a generated cycle"},
+          {"palette_cycler_restore_incompatible",
+           case_palette_cycler_restore_incompatible,
+           "core/color/palette_cycler.h",
+           "(from.morph_compatible(to)) "
+           "PaletteCycler restored palettes must be morph-compatible"},
           {"baked_palette_clone_from_self", case_baked_palette_clone_from_self,
            "core/color/baked_palette.h",
            "(&src != &table) BakedPaletteStorage::clone_from from itself"},

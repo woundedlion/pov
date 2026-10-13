@@ -76,6 +76,26 @@ inline void case_palette_cycler_restore_without_generated_init() {
   cycler.restore_generated({}, palette, palette);
 }
 
+/** @brief Restoring generated endpoints rejects incompatible policies. */
+inline void case_palette_cycler_restore_incompatible() {
+  static uint8_t storage[PaletteCycler::generated_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  PaletteCycler cycler;
+  cycler.init_generated(
+      arena,
+      [](void *, uint32_t, GenerativePalette &out) {
+        out = GenerativePalette();
+      },
+      nullptr, 0, 4);
+  const GenerativePalette from;
+  cycler.restore_generated({.next_sequence = 2, .fade_active = true}, from,
+                           from);
+  PaletteRecipe recipe;
+  recipe.domain = PaletteDomain::MIRROR;
+  const GenerativePalette to(recipe);
+  cycler.restore_generated({.next_sequence = 2, .fade_active = true}, from, to);
+}
+
 /**
  * @brief Death case: GeneratedPaletteBank::palette rejects a mode outside the
  *        harmony enum.
