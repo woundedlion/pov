@@ -30,6 +30,7 @@ struct TimelineEvent {
    * caller's cached pointer.
    */
   bool pinned = false;
+  bool completed = false; /**< Final orientation history awaits collapse. */
   const bool *paused = nullptr; /**< Optional event-level pause gate. */
   const void *owner = nullptr;  /**< Optional lifetime owner. */
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
@@ -70,6 +71,7 @@ struct TimelineEvent {
     // Clears a stale flag: destroy() leaves pinned set on a canceled pinned
     // event, and this slot may be recycling one.
     dst.pinned = false;
+    dst.completed = completed;
     dst.paused = paused;
     dst.owner = owner;
     dst.manager = manager;
@@ -282,6 +284,7 @@ public:
     HS_CHECK(!e.manager, "add_get would overwrite a live animation");
     e.remaining_delay = delay;
     e.pinned = (pin == Pin::PINNED);
+    e.completed = false;
     e.paused = paused;
     e.owner = owner;
     auto *ptr = new (e.storage) A(std::move(animation));
@@ -339,14 +342,15 @@ public:
    * @return MAX_EVENTS minus the current event count.
    * @details A .then() re-arm issued from a completing event's callback is
    * appended while that event still holds its slot, so a self-re-arming chain
-   * budgets against this count.
+   * budgets against this count. A completed orientation driver holds its slot
+   * until the next frame collapses its final motion history.
    */
   static int remaining() { return MAX_EVENTS - global_timeline_num_events; }
 
   /**
    * @brief Event slots currently held.
-   * @return Number of live events, including one whose post_callback() is
-   * running (see remaining()).
+   * @return Number of live events, including a running completion callback and
+   * completed orientation drivers awaiting next-frame collapse (see remaining()).
    */
   static int event_count() { return global_timeline_num_events; }
 
@@ -401,6 +405,11 @@ public:
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
+      if (e.completed) {
+        e.destroy();
+        continue;
+      }
+
       if (e.remaining_delay > 1 && e.animation()->is_canceled()) {
         e.animation()->post_callback();
         e.destroy();
@@ -422,8 +431,11 @@ public:
             HS_CHECK(!e.pinned || anim->is_canceled(),
                      "pinned animation completed while paused; only cancel() "
                      "may destroy a pinned event");
-            e.destroy();
-            continue;
+            e.completed = !anim->is_canceled() && anim->orientation_id();
+            if (!e.completed) {
+              e.destroy();
+              continue;
+            }
           }
         }
         if (i != write_idx)
@@ -476,7 +488,14 @@ public:
         HS_CHECK(!e.pinned || anim->is_canceled(),
                  "pinned animation completed; only cancel() may destroy a "
                  "pinned event");
-        e.destroy();
+        e.completed = !anim->is_canceled() && anim->orientation_id();
+        if (e.completed) {
+          if (i != write_idx)
+            e.move_into(global_timeline_events[write_idx]);
+          ++write_idx;
+        } else {
+          e.destroy();
+        }
       }
     }
 
@@ -527,9 +546,11 @@ private:
 
   /// Orientation id of an event due to step this frame, nullptr otherwise.
   static const void *event_orientation_id(TimelineEvent &event) {
+    IAnimation *anim = event.animation();
+    if (event.completed)
+      return anim && !anim->is_canceled() ? anim->orientation_id() : nullptr;
     if (event_paused(event) || event.remaining_delay > 1)
       return nullptr;
-    IAnimation *anim = event.animation();
     return anim ? anim->orientation_id() : nullptr;
   }
 
@@ -567,6 +588,7 @@ private:
     for (auto &event : global_timeline_events) {
       event.remaining_delay = 0;
       event.pinned = false;
+      event.completed = false;
       event.paused = nullptr;
       event.owner = nullptr;
       event.manager = nullptr;

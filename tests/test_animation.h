@@ -94,6 +94,9 @@ inline int run_animation_tests() {
   test_rotation_applies_final_frame_residual();
   test_rotation_and_motion_local_world_composition();
   test_timeline_shared_orientation_composes_motion_blur();
+  test_timeline_one_shot_rotation_collapses_final_history();
+  test_timeline_completed_rotation_compaction_and_owner_cancel();
+  test_timeline_repeating_rotation_callback_retires_once();
   test_timeline_collapse_past_id_cache();
   test_timeline_sequences_events_by_start_frame();
   test_timeline_pausable_event_uses_active_time();
