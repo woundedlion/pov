@@ -41,6 +41,9 @@ struct TraceFixture : DepthPaletteFixture {
   }
 };
 
+/** @brief Axis and spiral view sample count. */
+inline constexpr int DIRECTION_SAMPLES = 51;
+
 /**
  * @brief Test view direction: the three axes, then a spiral over the sphere.
  * @param sample Sample index.
@@ -53,10 +56,22 @@ inline math::Vector direction(int sample) {
     return math::Y_AXIS;
   if (sample == 2)
     return math::Z_AXIS;
-  const float z = (sample - 2.5f) / 24.0f - 1.0f;
+  const float z = (sample - 2.5f) / ((DIRECTION_SAMPLES - 3) / 2.0f) - 1.0f;
   const float radius = sqrtf(1.0f - z * z);
   const float phase = sample * 2.39996323f;
   return {radius * cosf(phase), radius * sinf(phase), z};
+}
+
+/** @brief Every lattice view sample is finite and unit length. */
+inline void test_lattice_view_directions_are_unit_length() {
+  for (int i = 0; i < DIRECTION_SAMPLES; ++i) {
+    const math::Vector VIEW = direction(i);
+    HS_EXPECT_TRUE(std::isfinite(VIEW.x));
+    HS_EXPECT_TRUE(std::isfinite(VIEW.y));
+    HS_EXPECT_TRUE(std::isfinite(VIEW.z));
+    HS_EXPECT_NEAR(VIEW.x * VIEW.x + VIEW.y * VIEW.y + VIEW.z * VIEW.z, 1.0f,
+                   2e-6f);
+  }
 }
 
 /**
@@ -120,7 +135,7 @@ inline void test_cubic_compositor_matches_event_shading() {
                                   embedding, 7.0f, .018f),
             {1.0f / 7.0f, 0.0f, 2.0f, &fixture.palette.view(), .8f},
             &crossings};
-        for (int i = 0; i < 51; ++i) {
+        for (int i = 0; i < DIRECTION_SAMPLES; ++i) {
           const auto view = direction(i);
           check_cubic<false, 0>(prepared, view, lit);
           if (domain == SDF::Lattice::Domain::FOUR_D_SLICE &&
@@ -161,7 +176,7 @@ inline void test_octet_preparation_matches_world_events() {
         settings.radial_start = radial;
         const auto prepared = Trace::prepare(settings);
         HS_EXPECT_TRUE(prepared.valid);
-        for (int i = 0; i < 51; ++i) {
+        for (int i = 0; i < DIRECTION_SAMPLES; ++i) {
           const auto view = direction(i);
           const auto ray = prepared.camera.ray(view);
           const auto ambient =
@@ -232,6 +247,7 @@ inline void test_octet_distant_center_periodicity() {
  * NaN wire radius invalidates OCTET but not SHELLS.
  */
 inline void run_lattice_trace_cases() {
+  test_lattice_view_directions_are_unit_length();
   namespace Trace = SDF::LatticeTrace;
   TraceFixture fixture;
   SDF::ShellLayerStorage layers;
