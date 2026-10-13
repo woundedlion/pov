@@ -79,9 +79,9 @@ public:
   }
 
   /**
-   * @brief Checks the derived effect's described parameter ranges.
+   * @brief Validates through the bound `VALID_PARAMS` hook, else the described field ranges.
    * @param value Parameters to check.
-   * @return True when every described field is in range.
+   * @return True when the parameters are valid.
    */
   static constexpr bool valid_params(const Params &value) {
     return valid_params_of(value);
