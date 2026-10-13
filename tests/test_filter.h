@@ -110,6 +110,8 @@ inline int run_filter_tests() {
 
   test_world_hole_masks_cap();
   test_world_hole_setters();
+  test_world_hole_radius_limits();
+  test_world_hole_angular_reference();
   test_world_orient_rotates_and_keeps_static_age();
   test_world_orient_motion_blur_sweep_ages();
   test_world_orient_cull_edge_mirrors_plot();

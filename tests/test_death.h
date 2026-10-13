@@ -431,6 +431,10 @@ inline const Case *all_cases(int &n) {
           {"angle_between_zero", case_angle_between_zero, "core/math/3dmath.h",
            "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
            "angle_between: degenerate vector"},
+          {"world_hole_zero_point", case_world_hole_zero_point,
+           "core/render/filter/world_hole.h",
+           "(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ) "
+           "Hole::plot: degenerate vector"},
           {"normalize_nan", case_normalize_nan, "core/math/3dmath.h",
            "(m2 >= math::EPS_NORMALIZE_SQ) Vector::normalized: zero"},
           {"solids_index_oob", case_solids_index_oob, "core/mesh/solids.h",
