@@ -184,13 +184,30 @@ struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   }
 };
 
-/** @brief SPHERE endomorphism: latitude doubling and azimuth tripling. */
+/** @brief Parameter family of sphere.lens.glitch.v2. */
+struct GlitchChainParams {
+  float polar_multiplier = 2.0f;   /**< Polar angle multiplier. */
+  float azimuth_multiplier = 3.0f; /**< Azimuth angle multiplier. */
+
+  static constexpr auto FIELDS = std::array{
+      Field<GlitchChainParams>{
+          "polar-multiplier", &GlitchChainParams::polar_multiplier,
+          "Polar Multiplier", -12.0f, 12.0f, FieldCurve::LERP},
+      Field<GlitchChainParams>{
+          "azimuth-multiplier", &GlitchChainParams::azimuth_multiplier,
+          "Azimuth Multiplier", -12.0f, 12.0f, FieldCurve::LERP},
+  };
+};
+static_assert(field_ids_unique<GlitchChainParams>());
+static_assert(field_defaults_in_range<GlitchChainParams>());
+
+/** @brief SPHERE endomorphism: polar and azimuth angle multiplication. */
 struct LensGlitch : StatelessModel {
   static constexpr const char *ID = "sphere.lens.glitch.v2";
   static constexpr const char *NAME = "Glitch Lens";
   using Input = SphereSample;
   using Output = SphereSample;
-  using Params = Lens::NoLensParams;
+  using Params = GlitchChainParams;
   struct Prepared {};
 
   static Prepared prepare(const FrameContext &, const Params &,
@@ -198,18 +215,32 @@ struct LensGlitch : StatelessModel {
     return {};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
-                          const Params &, const Prepared &) {
-    return Kernel::lens(input, lenses::glitch_lens(input.dir));
+                          const Params &params, const Prepared &) {
+    if (params.polar_multiplier == 2.0f && params.azimuth_multiplier == 3.0f)
+      return Kernel::lens(input, lenses::glitch_lens(input.dir));
+    const float polar =
+        acosf(hs::clamp(input.dir.y, -1.0f, 1.0f)) * params.polar_multiplier;
+    const float azimuth =
+        atan2f(input.dir.z, input.dir.x) * params.azimuth_multiplier;
+    return Kernel::lens(input, math::Vector::from_spherical(azimuth, polar));
   }
 };
 
 /** @brief Parameter family of sphere.lens.twist.v2. */
 struct TwistChainParams {
   float twist_rate = lenses::TWIST_RATE; /**< Radians per unit height. */
+  float origin_phi = 0.0f;    /**< Polar angle from +Y, in radians. */
+  float origin_lambda = 0.0f; /**< Azimuth from +X toward +Z, in radians. */
 
   static constexpr auto FIELDS = std::array{
       Field<TwistChainParams>{"twist-rate", &TwistChainParams::twist_rate,
                               "Twist Rate", -12.0f, 12.0f, FieldCurve::LERP},
+      Field<TwistChainParams>{"origin-phi", &TwistChainParams::origin_phi,
+                              "Origin Phi (Polar)", 0.0f, math::PI_F,
+                              FieldCurve::LERP},
+      Field<TwistChainParams>{"origin-lambda", &TwistChainParams::origin_lambda,
+                              "Origin Lambda (Azimuth)", 0.0f, math::TWO_PI_F,
+                              FieldCurve::SHORTEST_PERIODIC},
   };
 };
 static_assert(field_ids_unique<TwistChainParams>());
@@ -222,15 +253,27 @@ struct LensTwist : StatelessModel {
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = TwistChainParams;
-  struct Prepared {};
+  struct Prepared {
+    math::Vector axis{0.0f, 1.0f, 0.0f};
+  };
 
-  static Prepared prepare(const FrameContext &, const Params &, const State &) {
-    return {};
+  static Prepared prepare(const FrameContext &, const Params &params,
+                          const State &) {
+    return {
+        math::Vector::from_spherical(params.origin_lambda, params.origin_phi)};
   }
   static SphereSample run(const SphereSample &input, const FrameContext &,
-                          const Params &params, const Prepared &) {
-    return Kernel::lens(input,
-                        lenses::twist_lens(input.dir, params.twist_rate));
+                          const Params &params, const Prepared &prepared) {
+    if (params.origin_phi == 0.0f)
+      return Kernel::lens(input,
+                          lenses::twist_lens(input.dir, params.twist_rate));
+    const float height = math::dot(input.dir, prepared.axis);
+    const float angle = params.twist_rate * height;
+    const float c = math::fast_cosf(angle);
+    const float s = math::fast_sinf(angle);
+    return Kernel::lens(input, input.dir * c +
+                                   math::cross(input.dir, prepared.axis) * s +
+                                   prepared.axis * (height * (1.0f - c)));
   }
 };
 

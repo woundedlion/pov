@@ -299,12 +299,23 @@ inline void test_shader_chain_schema_and_field_ids() {
   const auto *required_op4 = require_operator("sphere.lens.glitch.v2");
   if (!required_op4)
     return;
-  HS_EXPECT_EQ(required_op4->schema_count, 0);
+  HS_EXPECT_SIZE_OR_RETURN(required_op4->schema_span(), 2);
+  HS_EXPECT_TRUE(std::string_view(required_op4->schema[0].id) ==
+                 "polar-multiplier");
+  HS_EXPECT_EQ(required_op4->schema[0].def, 2.0f);
+  HS_EXPECT_TRUE(std::string_view(required_op4->schema[1].id) ==
+                 "azimuth-multiplier");
+  HS_EXPECT_EQ(required_op4->schema[1].def, 3.0f);
   const auto *twist_found = require_operator("sphere.lens.twist.v2");
   if (!twist_found)
     return;
   const In::OperatorDescriptor &twist = *twist_found;
-  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 1);
+  HS_EXPECT_SIZE_OR_RETURN(twist.schema_span(), 3);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[1].id) == "origin-phi");
+  HS_EXPECT_EQ(twist.schema[1].def, 0.0f);
+  HS_EXPECT_EQ(twist.schema[1].max, math::PI_F);
+  HS_EXPECT_TRUE(std::string_view(twist.schema[2].id) == "origin-lambda");
+  HS_EXPECT_EQ(twist.schema[2].curve, PB::FieldCurve::SHORTEST_PERIODIC);
   HS_EXPECT_TRUE(std::string_view(twist.schema[0].id) == "twist-rate");
   HS_EXPECT_EQ(twist.schema[0].def, lenses::TWIST_RATE);
   const auto *kaleidoscope_found =
