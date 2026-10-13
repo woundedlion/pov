@@ -1649,32 +1649,45 @@ inline void test_gs_stall_hold_starts_dissolve() {
                -1);
 }
 
-/** @brief Pause holds automatic reaction phases and permits edit-triggered reseeds. */
-inline void test_gs_pause_holds_automatic_lifecycle() {
+/** @brief The preset pause flag does not hold reaction growth or reseeding. */
+inline void test_gs_preset_pause_does_not_hold_lifecycle() {
   hs_test::reset_globals();
   GSWhiteBox::GS gs;
   gs.init();
   constexpr int TO_DISSOLVE =
       GSWhiteBox::MIN_GROW_FRAMES + GSWhiteBox::STABLE_HOLD_FRAMES - 1;
   gs.setAnimationsPaused(true);
-  for (int frame = 0; frame < TO_DISSOLVE + 2; ++frame)
-    GSWhiteBox::advance_transition(gs, 0.0f);
-  HS_EXPECT_EQ(GSWhiteBox::grow_frames(gs), 0);
-  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
-  gs.setAnimationsPaused(false);
   for (int frame = 0; frame < TO_DISSOLVE; ++frame)
     GSWhiteBox::advance_transition(gs, 0.0f);
   HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), 0);
-  GSWhiteBox::advance_transition(gs, 0.0f);
-  gs.setAnimationsPaused(true);
-  for (int frame = 0; frame < GSWhiteBox::DISSOLVE_FRAMES + 2; ++frame)
-    GSWhiteBox::advance_transition(gs, 0.0f);
-  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), 1);
-  gs.setAnimationsPaused(false);
-  for (int frame = 0; frame < GSWhiteBox::DISSOLVE_FRAMES - 1; ++frame)
+  constexpr uint32_t DISSOLVE_SEED = 12345;
+  GSWhiteBox::convert(gs, 0.0f, DISSOLVE_SEED);
+  for (int i = 0; i < GSWhiteBox::N; ++i)
+    GSWhiteBox::set_node(gs, i, 32768, 16384);
+  for (int frame = 1; frame <= 4; ++frame) {
+    gs.draw_frame();
+    gs.advance_display();
+    HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), frame);
+    const float PHASE = static_cast<float>(frame) / GSWhiteBox::DISSOLVE_FRAMES;
+    int cleared = 0;
+    for (int i = 0; i < GSWhiteBox::N; ++i)
+      if (GSWhiteBox::dissolve_hash(i, DISSOLVE_SEED) < PHASE) {
+        HS_EXPECT_EQ(GSWhiteBox::a_field(gs)[i], 65535);
+        HS_EXPECT_EQ(GSWhiteBox::b_field(gs)[i], 0);
+        ++cleared;
+      }
+    HS_EXPECT_GT(cleared, 0);
+  }
+  for (int frame = 4; frame < GSWhiteBox::DISSOLVE_FRAMES; ++frame)
     GSWhiteBox::advance_transition(gs, 0.0f);
   HS_EXPECT_TRUE(GSWhiteBox::reseed_pending(gs));
-  GSWhiteBox::finish_reseed(gs);
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_FALSE(GSWhiteBox::reseed_pending(gs));
+  HS_EXPECT_EQ(GSWhiteBox::grow_frames(gs), 0);
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_EQ(GSWhiteBox::grow_frames(gs), 1);
 
   gs.setAnimationsPaused(true);
   GSWhiteBox::set_params(gs, 0.035f, 0.06f, 0.02f, 0.01f, 2.5f);
