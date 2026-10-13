@@ -1388,6 +1388,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── pov_segment_map.h       Pure segment index math (host-testable)
 │   ├── pov_segment_frame.h     Retains opposite-half pixels before segmented frame publication
 │   ├── pov_segment_map.json    Segment→canvas golden emitted from that header; read by daydream's cross-check
+│   ├── device_effect.h         Foreground device effect construction
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
 │   ├── pov_single_map.h        Single-board strip mapping and column pack/submit/advance sequence (host-testable)
 │   ├── pov_sync.h              Phantasm per-board sync engine over the layers below (host-testable)
