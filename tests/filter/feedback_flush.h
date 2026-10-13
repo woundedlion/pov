@@ -36,12 +36,9 @@ inline void test_feedback_flush_blends_prev_frame() {
   }
   fx.advance_display();
 
-  // Interior band row carried over and was faded (fade=0.9 -> ~36000), not the
-  // original brightness. A row far from the band stays black (identity warp,
-  // no spill that far).
   const Pixel &band = fx.get_pixel(W / 2, 8);
   HS_EXPECT_FALSE(is_black(band));
-  HS_EXPECT_NEAR(band.r, 36000, 400);
+  HS_EXPECT_NEAR(band.r, 40000.0f * style.fade, 400);
   HS_EXPECT_TRUE(is_black(fx.get_pixel(W / 2, 0)));
 
   // Disabled feedback short-circuits flush: a fresh frame stays black.

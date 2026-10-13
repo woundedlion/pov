@@ -21,7 +21,7 @@ inline void test_feedback_style_binding() {
   const Filter::Pixel::Feedback<W, H> &cfb = fb;
   HS_EXPECT_TRUE(&cfb.style() == &style);
 
-  HS_EXPECT_NEAR(fb.style().fade, 0.9f, 1e-6f);
+  HS_EXPECT_NEAR(fb.style().fade, ::Feedback::Style::Smoke().fade, 1e-6f);
   HS_EXPECT_EQ(fb.style().downsample, 4);
 
   // Mutating through the accessor is visible on the original Style.
