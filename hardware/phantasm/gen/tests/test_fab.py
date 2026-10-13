@@ -1239,7 +1239,7 @@ class PackagePromotionTests(unittest.TestCase):
                     target = Path(args[args.index("-o") + 1])
                     if stage == "netlist":
                         target.write_text('(export (design (sheet (name "/") '
-                                          '(title_block (rev "1.2")))))')
+                                          '(title_block (rev "1.1")))))')
                     elif stage == "centroid":
                         target.write_text("Ref,PosX,PosY,Rot,Side\n")
                     elif stage == "gerber":
