@@ -276,13 +276,15 @@ public:
   }
 
   /**
-   * @brief Morphs this palette between two morph-compatible palettes.
+   * @brief Morphs this palette between two palettes with matching key counts.
    * @param from Source palette (amount = 0).
    * @param to Target palette (amount = 1).
    * @param amount Blend amount; clamped to [0, 1].
    * @details Adopts @p from's evaluation policy, snapshot-lerps the keys, and
    * interpolates the loop-closing hue delta, which snapshots do not carry.
-   * @p from and @p to must be morph_compatible().
+   * @p from and @p to need the same key count; a LOOP pair also needs the same
+   * integer closing travel. Mismatched axis curves morph through CUSTOM (see
+   * morph_snapshots()). PaletteCycler additionally requires morph_compatible().
    */
   HS_COLD_MEMBER void morph_palettes(const GenerativePalette &from,
                                      const GenerativePalette &to,

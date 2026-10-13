@@ -301,10 +301,8 @@ struct RingShowerWhiteBox {
 };
 
 /**
- * @brief White-box accessor for Dynamo's overlapping-wipe band ordering.
- * @details Stages inverted overlapping-wipe boundaries and pins finite alpha
- *          in [0,1] across the angular span. Palette indexing is bounded by the
- *          boundary container's capacity.
+ * @brief White-box accessor for Dynamo's leader drag, palette wipes and trail
+ * ring.
  */
 struct DynamoWhiteBox {
   /** @brief Lowering the gap closes slack toward the nearest leader column. */
@@ -326,6 +324,9 @@ struct DynamoWhiteBox {
 
   /**
    * @brief Verifies color() is memory-safe and in-range under inverted bands.
+   * @details Stages inverted overlapping-wipe boundaries and pins finite alpha
+   * in [0,1] across the angular span. Palette indexing is bounded by the boundary
+   * container's capacity.
    */
   static void check_overlapping_wipes_stay_in_range() {
     // init() bakes from persistent_arena and schedules on the global timeline.
