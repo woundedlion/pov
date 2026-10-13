@@ -13,6 +13,11 @@ struct GalaxiesWhiteBox {
 
   static constexpr int NUM_GALAXIES = FX<1, 1>::NUM_GALAXIES;
   static constexpr float SPEED_JITTER = FX<1, 1>::SPEED_JITTER;
+  static constexpr float CORE_FADE_RADIUS = FX<1, 1>::CORE_FADE_RADIUS;
+
+  static float core_fade(float radius_fraction_sq) {
+    return FX<1, 1>::core_fade(radius_fraction_sq);
+  }
 
   template <int W, int H> static void emit(Galaxies<W, H> &fx, int galaxy) {
     fx.emit(fx.galaxies[galaxy], galaxy);
@@ -66,6 +71,32 @@ struct GalaxiesWhiteBox {
                           1.0f / tanf(fx.params.arm_pitch));
   }
 };
+
+/** @brief Core opacity rises smoothly from zero to full brightness. */
+inline void test_galaxies_core_fade() {
+  using WB = GalaxiesWhiteBox;
+  HS_EXPECT_EQ(WB::core_fade(-1.0f), 0.0f);
+  HS_EXPECT_EQ(WB::core_fade(0.0f), 0.0f);
+  HS_EXPECT_EQ(WB::core_fade(1.0f), 1.0f);
+  HS_EXPECT_EQ(WB::core_fade(2.0f), 1.0f);
+  HS_EXPECT_NEAR(WB::core_fade(0.25f), 0.070556640625f, 1e-7f);
+  HS_EXPECT_NEAR(WB::core_fade(0.5f), 0.5f, 1e-7f);
+  const float INV_SPAN = 1.0f / (1.0f - cosf(WB::CORE_FADE_RADIUS));
+  float previous = 0.0f;
+  for (int i = 0; i <= 1000; ++i) {
+    const float angle = i * (0.035f / 1000.0f);
+    const float cos_distance = cosf(angle);
+    const float actual = WB::core_fade((1.0f - cos_distance) * INV_SPAN);
+    const float reference =
+        math::quintic_kernel(angle / 0.035f) *
+        math::quintic_kernel((1.0f - cos_distance) / (1.0f - cosf(0.03f)));
+    HS_EXPECT_GE(actual, previous);
+    HS_EXPECT_GE(actual, 0.0f);
+    HS_EXPECT_LE(actual, 1.0f);
+    HS_EXPECT_NEAR(actual, reference, 0.02f);
+    previous = actual;
+  }
+}
 
 /** @brief Successive galaxies reverse both stellar orbits and arm rotation. */
 inline void test_galaxies_alternate_orbits_and_arm_spin() {
