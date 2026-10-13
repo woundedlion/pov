@@ -33,15 +33,20 @@ _, ORACLES, _ = generator.load_and_validate(MANIFEST_DIR)
 
 def _backend_stream(programs):
     specs = capture.operation_specs(programs)
-    header = b"HSPB" + struct.pack("<HHHIH", 3, 1, 1, len(specs), len(ORACLES))
+    header = b"HSPB" + struct.pack("<HHHIH", 3, 16, 16, len(specs), len(ORACLES))
     records = []
     for spec in specs:
         name = spec["name"].encode()
+        mapping = spec["mapping"]
+        selected = 256 if (mapping.startswith("CASE_") or mapping.startswith("THROUGH_CLEAR_")
+                           or mapping == "FULL_FRAME") else sum(
+            crosscheck._selected_pixel(mapping, x, y, 16, 16)
+            for y in range(16) for x in range(16))
         records.append(
             struct.pack("<HHH", spec["preset"],
                         generator.protocol_definition()[1][spec["mapping"]], len(name))
-            + name + struct.pack("<HHHHI", 0, 1, 0, 60, 1)
-            + struct.pack("<HHH", spec["preset"], 3, 4)
+            + name + struct.pack("<HHHHI", 0, 1, 0, 60, selected)
+            + struct.pack("<HHH", spec["preset"], 3, 4) * 256
         )
     metrics = []
     for oracle in ORACLES:
@@ -1073,7 +1078,7 @@ class CaptureComparison(unittest.TestCase):
             resolution, loaded_records, loaded_metrics = capture.load_backend(
                 path, programs, ORACLES
             )
-            self.assertEqual(resolution, (1, 1))
+            self.assertEqual(resolution, (16, 16))
             self.assertEqual(len(loaded_records), len(specs))
             self.assertEqual(set(loaded_metrics), {oracle["oracle_id"] for oracle in ORACLES})
             for name, data in cases.items():
@@ -1083,6 +1088,22 @@ class CaptureComparison(unittest.TestCase):
                         capture.CaptureError, expected_errors[name]
                     ):
                         capture.load_backend(path, programs, ORACLES)
+
+    def test_backend_rejects_drifted_spatial_selection(self):
+        programs, _ = _test_manifest()
+        specs = capture.operation_specs(programs)
+        header, records, metrics = _backend_stream(programs)
+        index = next(i for i, spec in enumerate(specs)
+                     if spec["mapping"] == "OCTANT_COLUMNS")
+        count_at = 6 + len(specs[index]["name"].encode()) + 8
+        record = records[index]
+        records[index] = record[:count_at] + struct.pack("<I", 0) + record[count_at + 4:]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "capture.bin"
+            path.write_bytes(header + b"".join(records) + b"".join(metrics))
+            with self.assertRaisesRegex(capture.CaptureError,
+                                        "capture backend selected-pixel mismatch"):
+                capture.load_backend(path, programs, ORACLES)
 
     def test_backend_stream_is_complete(self):
         programs, _ = _test_manifest()
@@ -1095,17 +1116,17 @@ class CaptureComparison(unittest.TestCase):
             resolution, records, metrics = capture.load_backend(
                 path, programs, ORACLES
             )
-        self.assertEqual(resolution, (1, 1))
+        self.assertEqual(resolution, (16, 16))
         self.assertEqual(len(records), len(specs))
         self.assertEqual(len(metrics), len(ORACLES))
         pixels = records[(11, "case:interior")]["pixels"]
-        self.assertEqual(pixels, struct.pack("<HHHH", 11, 3, 4, 65535))
+        self.assertEqual(pixels, struct.pack("<HHHH", 11, 3, 4, 65535) * 256)
         # The record's byte string is what the frame hash is taken over, so it
         # must equal what the crosschecker rebuilds from the published lists.
         self.assertEqual(
             pixels,
             crosscheck._canonical_frame_bytes(
-                {"resolution": [1, 1], "pixels": [[11, 3, 4, 65535]]}
+                {"resolution": [16, 16], "pixels": [[11, 3, 4, 65535]] * 256}
             ),
         )
 

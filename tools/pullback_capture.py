@@ -19,7 +19,9 @@ from generate_pullback_manifest_header import (
     load_and_validate,
     manifest_sha256,
 )
-from pullback_crosscheck import corpus_operations, expected_toolchain, framebuffer_metric
+from pullback_crosscheck import (
+    _selected_pixel, corpus_operations, expected_toolchain, framebuffer_metric,
+)
 from engine_source_state import changed_sources
 
 
@@ -139,6 +141,13 @@ def load_backend(
         expected_code = protocol_definition()[1][specs[key]["mapping"]]
         if operation_code != expected_code:
             raise CaptureError(f"capture backend operation mismatch for {key}")
+        mapping = specs[key]["mapping"]
+        if not (mapping.startswith("CASE_") or mapping.startswith("THROUGH_CLEAR_")
+                or mapping == "FULL_FRAME"):
+            expected_pixels = sum(_selected_pixel(mapping, x, y, width, height)
+                                  for y in range(height) for x in range(width))
+            if selected_pixels != expected_pixels:
+                raise CaptureError(f"capture backend selected-pixel mismatch for {key}")
         end = offset + width * height * 6
         if end > len(data):
             raise CaptureError("capture backend stream is truncated")
