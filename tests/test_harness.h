@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <limits>
+#include <iterator>
 #include <string_view>
 #include <type_traits>
 
@@ -446,6 +447,10 @@ inline void report_near_rel(double a, double b, double rel_tol,
   std::printf("\n");
 }
 
+/** Approved skipped cases under fast-math. */
+inline constexpr const char *FAST_MATH_APPROVED_SKIPS[]{
+    "test_specialized_render_signature", "test_blend_outputs_denormal_alpha"};
+
 /**
  * @brief Records one skipped sub-case and names what retired it.
  * @param case_name Test function that skipped, normally __func__.
@@ -458,8 +463,9 @@ inline void skip_case(const char *case_name, const char *reason) {
   std::printf("  SKIP [%s] %s\n", case_name, reason);
 #if defined(HS_TEST_FAST_MATH)
   const std::string_view CASE(case_name);
-  if (CASE != "test_specialized_render_signature" &&
-      CASE != "test_blend_outputs_denormal_alpha") {
+  if (std::none_of(std::begin(FAST_MATH_APPROVED_SKIPS),
+                   std::end(FAST_MATH_APPROVED_SKIPS),
+                   [&](const char *approved) { return CASE == approved; })) {
     ++stats().failed;
     std::printf("  FAIL: unapproved fast-math skip [%s]\n", case_name);
   }
