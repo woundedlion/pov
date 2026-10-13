@@ -253,8 +253,9 @@ struct LensTwist : StatelessModel {
   using Input = SphereSample;
   using Output = SphereSample;
   using Params = TwistChainParams;
+  /** @brief Per-frame twist orientation. */
   struct Prepared {
-    math::Vector axis{0.0f, 1.0f, 0.0f};
+    math::Vector axis{0.0f, 1.0f, 0.0f}; /**< Unit twist axis. */
   };
 
   static Prepared prepare(const FrameContext &, const Params &params,
