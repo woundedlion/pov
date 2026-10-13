@@ -52,6 +52,21 @@ inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
 inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
 inline uint8_t morph_bank_buf[64 * 1024];    /**< Baked palette LUT arena. */
 
+/**
+ * @brief Builds a site's persistent seed through the auxiliary arena halves.
+ * @tparam Site Site providing a seed builder.
+ * @param site Site whose seed is built.
+ * @param persist Arena owning the returned seed.
+ * @return Seed mesh owned by persist.
+ */
+template <typename Site>
+inline PolyMesh finalize_site_seed(const Site &site, Arena &persist) {
+  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+  Arena a(morph_aux_buf, HALF);
+  Arena b(morph_aux_buf + HALF, HALF);
+  return hs_test::finalize_site_seed(site, persist, a, b);
+}
+
 /** @brief Production recipe timings exposed to replay fixtures. */
 struct RecipeLegLengths : Animation::RecipeBuild<RecipeLegLengths, 1, 1> {
   using Animation::RecipeBuild<RecipeLegLengths, 1, 1>::HANKIN_LEG_FRAMES;

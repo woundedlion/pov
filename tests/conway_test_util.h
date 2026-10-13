@@ -16,6 +16,34 @@
 
 namespace hs_test {
 
+/**
+ * @brief Applies an IslamicStars budget after resetting the global fixture.
+ * @param budget Persistent and scratch partition budget.
+ * @return Guard restoring the previous arena split.
+ */
+[[nodiscard]] inline ScopedArenaSplit islamic_split(const ArenaSplit &budget) {
+  reset_globals();
+  return {budget.persistent(GLOBAL_ARENA_SIZE), budget.scratch_a,
+          budget.scratch_b};
+}
+
+/**
+ * @brief Finalizes a site's seed while restoring both staging arenas.
+ * @tparam Site Site providing a seed builder.
+ * @param site Site whose seed is built.
+ * @param persist Arena owning the returned seed.
+ * @param a First seed staging arena.
+ * @param b Second seed staging arena.
+ * @return Seed mesh owned by persist.
+ */
+template <typename Site>
+inline PolyMesh finalize_site_seed(const Site &site, Arena &persist, Arena &a,
+                                   Arena &b) {
+  ScratchScope ga(a);
+  ScratchScope gb(b);
+  return Solids::finalize_solid(site.seed(a, b), persist);
+}
+
 template <const Solids::Recipe &RECIPE, Solids::Op OP, size_t OCCURRENCE = 0>
 inline PolyMesh recipe_step_seed(Arena &a, Arena &b) {
   constexpr size_t CAPACITY = Solids::lowered_step_count(RECIPE);

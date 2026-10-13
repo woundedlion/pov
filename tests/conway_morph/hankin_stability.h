@@ -304,23 +304,13 @@ hankin_summarize(const std::vector<HankinStepStats> &table) {
  * the production K_EPS opening fraction.
  */
 inline void test_hankin_sweep_vertex_stability() {
-  reset_globals();
-  const ScopedArenaSplit split(
-      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   constexpr int SAMPLES = 32;
   constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
 
   for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    PolyMesh seed;
-    {
-      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
-      Arena ga(morph_aux_buf, HALF);
-      Arena gb(morph_aux_buf + HALF, HALF);
-      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist);
 
     Arena a(morph_target_buf, sizeof(morph_target_buf));
     Arena b(morph_temp_buf, sizeof(morph_temp_buf));
@@ -525,11 +515,7 @@ inline void test_hankin_sweep_vertex_stability() {
  */
 inline void test_opleg_hankin_sweep_smoke() {
   for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
-    reset_globals();
-    const ScopedArenaSplit split(
-        IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-        IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-        IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+    const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
     hs::random().seed(2026u);
 
     Arena leg(morph_target_buf, sizeof(morph_target_buf));
