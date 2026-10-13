@@ -33,8 +33,8 @@ inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
                                   int count, int k) {
   const int prev_k = k == 0 ? count - 1 : k - 1;
   const int next_k = k + 1 == count ? 0 : k + 1;
-  return face_corner_angle_deg(m.vertices[idx[prev_k]], m.vertices[idx[k]],
-                               m.vertices[idx[next_k]]);
+  return MeshOps::face_corner_angle_deg(
+      m.vertices[idx[prev_k]], m.vertices[idx[k]], m.vertices[idx[next_k]]);
 }
 
 /**
