@@ -328,8 +328,8 @@ inline void test_opleg_medial_leg_smoke() {
     std::vector<math::Vector> centroid(prev_faces);
     size_t off = 0;
     for (size_t f = 0; f < prev_faces; ++f) {
-      pal[f] = static_cast<uint8_t>(
-          math::wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
+      pal[f] =
+          static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
       const int n = ambo_p.face_counts[f];
       centroid[f] = face_centroid_unit(ambo_p, off, n);
       off += n;
@@ -427,8 +427,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t nf = ambo_p.face_counts.size();
     std::vector<uint8_t> pal2(nf);
     for (size_t f = 0; f < nf; ++f)
-      pal2[f] = static_cast<uint8_t>(
-          math::wrap(static_cast<int>(ambo_p.topology[f]), OpLeg::PALETTES));
+      pal2[f] =
+          static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
     hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
     int drawn = 0, rasterize_at = -1;
