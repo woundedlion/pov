@@ -619,18 +619,18 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
   // Ascending, all at or above MIN_VISIBLE_ALPHA.
   const float alphas[] = {MIN_VISIBLE_ALPHA, 0.005f, 0.01f, 0.05f, 0.4f, 1.0f};
   for (size_t len = 2; len <= static_cast<size_t>(HF::TRAIL_LEN); ++len) {
-    size_t brighter = len;
+    size_t previous_first = len;
     for (float alpha : alphas) {
       const size_t first = WB::trim_start(len, alpha);
       HS_EXPECT_LT(first + 1, len);
-      HS_EXPECT_LE(first, brighter);
+      HS_EXPECT_LE(first, previous_first);
       // The kept segment meets the cutoff; its predecessor falls below it.
       HS_EXPECT_GE(static_cast<float>(first + 1) / (len - 1) * alpha,
                    MIN_ENCODABLE_ALPHA);
       if (first > 0)
         HS_EXPECT_LT(static_cast<float>(first) / (len - 1) * alpha,
                      MIN_ENCODABLE_ALPHA);
-      brighter = first;
+      previous_first = first;
     }
   }
 }
