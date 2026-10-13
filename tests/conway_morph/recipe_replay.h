@@ -150,7 +150,7 @@ inline ChainPeaks replay_build_chain(const char *name,
       const uint8_t *prev_pal;
       if (k == 0) {
         MeshPaletteBank::assign_by_class(seed_slot.topology.data(), prev_faces,
-                                         order, prev_pal_buf);
+                                         slots, prev_pal_buf);
         prev_pal = prev_pal_buf;
       } else {
         for (size_t f = 0; f < prev_faces; ++f)
