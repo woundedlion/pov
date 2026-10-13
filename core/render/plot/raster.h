@@ -298,6 +298,9 @@ struct RasterOptions {
 #endif
 };
 
+static_assert(sizeof(void *) != 4 || sizeof(RasterOptions) <= 48,
+              "RasterOptions exceeds the 32-bit hot-path size budget");
+
 HS_O3_BEGIN
 /** @brief Arc fraction of a replayed step: exactly 1 at the terminal step,
  * else @p dist over @p total_dist clamped to 1.
