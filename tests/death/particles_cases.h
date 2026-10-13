@@ -7,6 +7,22 @@
 
 // Particles death cases.
 
+/** @brief Enabling signed-axis physics validates registered positions. */
+inline void case_particle_enable_signed_axis_invalid_positions() {
+  static uint8_t storage[4096];
+  Arena arena(storage, sizeof(storage));
+  Animation::ParticleSystem<32, 1, 1, 1, 6, true> ps;
+  ps.init(arena);
+  ps.set_signed_axis_attractors(false);
+  for (const math::Vector &axis : {math::X_AXIS, -math::X_AXIS, math::Y_AXIS,
+                                   -math::Y_AXIS, math::Z_AXIS, -math::Z_AXIS})
+    ps.add_attractor(axis, 1.0f, 0.01f, 0.1f);
+  ps.set_signed_axis_attractors(true);
+  ps.set_signed_axis_attractors(false);
+  ps.attractors[0].position = math::Y_AXIS;
+  ps.set_signed_axis_attractors(true);
+}
+
 /** @brief Death case: a zero particle lifetime must trap. */
 inline void case_particle_lifetime_zero() {
   init_particle_system_with_lifetime(opaque(0.0f));
