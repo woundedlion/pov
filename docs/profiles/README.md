@@ -197,7 +197,7 @@ authored preset count plus one, except SphericalHarmonics, whose mode markers
 start at 1 and whose entry count equals its authored preset count. Raw logs
 are no longer available to rederive these buckets.
 
-Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.
+Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Production adopted bounded channel phases. The ranked 21.84 ms capture at `e7f19b0d1` predates that change and measures the old float clock; the experiment records the cost difference without replacing the historical ranked row.
 
 ## Effects excluded by product curation
 
