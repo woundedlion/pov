@@ -177,9 +177,8 @@ public:
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    hold_departure = departure_due && anims_paused;
-    departure_due = hold_departure;
-    if (hold_departure && ripple_gen.active_count() == 0)
+    plateau_hold.step(anims_paused);
+    if (plateau_hold.held() && ripple_gen.active_count() == 0)
       ripple(canvas);
     {
       HS_PROFILE(is_ripple_prepare);
@@ -255,11 +254,8 @@ private:
   int ripple_dur_eff = 80;
   int ripple_stagger_eff = RIPPLE_STAGGER_FRAMES;
   int burst_size_eff = 4;
-  /** The resident shape reached its plateau's last frame this frame. */
-  bool departure_due = false;
-  /** Pause gate of the resident sprite and the advance: holds the shape at
-   * its plateau's last frame while paused. */
-  bool hold_departure = false;
+  /** Departure gate at the sprite plateau boundary. */
+  Segue::PlateauHold plateau_hold;
   using SegueT = Segue::TerminatorSweep;
 
   MeshCarousel<SegueT> carousel;
@@ -598,10 +594,9 @@ private:
 
     int duration = fade + build_span + still + burst_span + still + fade;
 
-    departure_due = false;
-    hold_departure = false;
+    plateau_hold.reset();
     int next_delay = carousel.schedule_segue(timeline, back, draw_fn, duration,
-                                             fade, &hold_departure);
+                                             fade, plateau_hold.gate());
 
     // Added after the sprite, so the first leg draws the frame after the
     // sprite's last seed draw: no gap, no double draw.
@@ -616,10 +611,7 @@ private:
                  Animation::PeriodicTimer(
                      0, [this](Canvas &canvas) { ripple(canvas); }));
 
-    // Fires on the step that draws the sprite's last full-opacity frame.
-    timeline.add(duration - fade, Animation::PeriodicTimer(0, [this](Canvas &) {
-                   departure_due = true;
-                 }));
+    plateau_hold.arm_plateau_end(timeline, duration - fade);
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
@@ -633,7 +625,7 @@ private:
     timeline.add_pausable(next_delay,
                           Animation::PeriodicTimer(
                               0, [this](Canvas &) { this->advance_shape(); }),
-                          &hold_departure);
+                          plateau_hold.gate());
   }
 
 public:

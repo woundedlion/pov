@@ -62,6 +62,34 @@
  */
 namespace Segue {
 
+/** @brief Holds departure at a sprite's plateau boundary while paused. */
+class PlateauHold {
+public:
+  /** @brief Updates the departure gate before the timeline step.
+   * @param paused Whether automatic preset changes are paused. */
+  void step(bool paused) {
+    hold = due && paused;
+    due = hold;
+  }
+  /** @brief Clears the plateau boundary and departure gate. */
+  void reset() { due = hold = false; }
+  /** @brief Schedules the plateau's last full-opacity frame.
+   * @param timeline Timeline receiving the boundary event.
+   * @param delay Frames until the plateau boundary. */
+  void arm_plateau_end(Timeline &timeline, int delay) {
+    timeline.add(delay,
+                 Animation::PeriodicTimer(0, [this](Canvas &) { due = true; }));
+  }
+  /** @return Stable pause gate for sprite and handoff events. */
+  const bool *gate() const { return &hold; }
+  /** @return Whether departure is held at the plateau boundary. */
+  bool held() const { return hold; }
+
+private:
+  bool due = false;  /**< Plateau boundary has been reached. */
+  bool hold = false; /**< Departure pause gate. */
+};
+
 /**
  * @brief Schedules one sprite with symmetric linear fade-in/fade-out.
  * @param timeline Timeline receiving the sprite.
