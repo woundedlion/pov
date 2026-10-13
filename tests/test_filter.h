@@ -28,22 +28,9 @@ struct FeedbackWhiteBox {
   template <int W, int H>
   static bool holds(const Filter::Pixel::Feedback<W, H> &feedback,
                     const Canvas &canvas) {
-    const auto &style = *feedback.feedback_style;
     const auto grid = feedback.make_coarse_grid(canvas);
     const auto band = feedback.make_render_band(canvas.clip(), grid);
-    const Animation::NoiseParams *noise = style.noise;
-    const typename Filter::Pixel::FeedbackWarpCache<W, H>::Key key{
-        style.space_fn,
-        noise,
-        feedback.noise_config_key(noise),
-        style.amplitude,
-        style.frequency,
-        style.speed,
-        style.scale,
-        noise ? noise->time : 0.0f,
-        band.field_y_begin,
-        band.field_y_end};
-    return feedback.warp_cache.holds(key);
+    return feedback.warp_cache.holds(feedback.warp_cache_key(band));
   }
   template <int W, int H>
   static size_t fills(const Filter::Pixel::Feedback<W, H> &feedback) {
