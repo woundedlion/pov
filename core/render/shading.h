@@ -27,7 +27,9 @@
  * data registers.
  * @details A rasterizer refreshes only the fields its own documentation names;
  * age is an in/out register carried forward unless refreshed. Other
- * unrefreshed input registers are NaN in debug builds and stale in release.
+ * unrefreshed input registers hold their struct defaults when the rasterizer
+ * builds a fresh Fragment, or are NaN in debug builds and stale in release
+ * when it reuses one.
  * A shader must write color unconditionally and may read only registers
  * refreshed by its rasterizer or written by the shader itself, plus age.
  */
