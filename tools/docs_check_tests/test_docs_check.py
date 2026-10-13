@@ -154,11 +154,13 @@ class TestDocumentationChecker(unittest.TestCase):
             PurePosixPath("tools/docs_check.py"),
         }
         issues = dc.check_text(PurePosixPath("docs/readme.md"), text, entries)
-        self.assertEqual(len(issues), 2)
-        self.assertEqual(issues[0].line, 2)
-        self.assertIn("core/platform.h", issues[0].message)
-        self.assertEqual(issues[1].line, 5)
-        self.assertIn("scripts/run-tests.mjs", issues[1].message)
+        self.assertEqual(len(issues), 3)
+        self.assertEqual(issues[0].line, 1)
+        self.assertIn("pins a line number", issues[0].message)
+        self.assertEqual(issues[1].line, 2)
+        self.assertIn("core/platform.h", issues[1].message)
+        self.assertEqual(issues[2].line, 5)
+        self.assertIn("scripts/run-tests.mjs", issues[2].message)
 
     def test_backticked_document_relative_path_resolves(self):
         entries = {
@@ -1012,7 +1014,13 @@ class TestCommentSymbols(unittest.TestCase):
     def test_existing_symbols_and_paths_pass(self):
         self.assertEqual(self.issues(
             "Canvas::draw_ring", "MAX_STOPS", "width()", "renderFrame",
-            "core/render/canvas.h", "render/canvas.h", "canvas.h:12"), [])
+            "core/render/canvas.h", "render/canvas.h", "canvas.h"), [])
+
+    def test_line_pinned_comment_paths_are_reported(self):
+        issues = self.issues("canvas.h:12", "core/render/canvas.h:12-14")
+        self.assertEqual([issue.line for issue in issues], [1, 2])
+        for issue in issues:
+            self.assertIn("pins a line number", issue.message)
 
     def test_missing_symbol_is_reported_with_its_line(self):
         issues = self.issues("Canvas", "Canvas::draw_rings")

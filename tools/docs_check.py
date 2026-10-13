@@ -568,6 +568,11 @@ def _path_span_issue(source: PurePosixPath, line: int, span: str,
     candidate = match.group(1)
     if PurePosixPath(candidate).suffix not in _SOURCE_SUFFIXES:
         return None
+    if span != candidate:
+        return Issue(source.as_posix(), line,
+                     f"backticked path {span!r} pins a line number in "
+                     f"{candidate!r}, which any edit above it moves; "
+                     "name the file and symbol")
     if _untracked_allowance(candidate, used):
         return None
     if "/" not in candidate:
@@ -1319,6 +1324,12 @@ def symbol_reference_issues(spans: list[tuple[PurePosixPath, int, str]],
         path = _PATH_SPAN_RE.match(span)
         if path and (_COMMENT_PATH_RE.match(path.group(1)) or PurePosixPath(
                 path.group(1)).suffix in _SOURCE_SUFFIXES):
+            if span != path.group(1):
+                issues.append(Issue(source.as_posix(), line,
+                                    f"comment path {span!r} pins a line number in "
+                                    f"{path.group(1)!r}, which any edit above it moves; "
+                                    "name the file and symbol"))
+                continue
             exists = _comment_path_exists(source, path.group(1), trees)
             if exists is False:
                 issues.append(Issue(source.as_posix(), line,
