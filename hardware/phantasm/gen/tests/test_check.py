@@ -3,6 +3,7 @@ import io
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
 GEN = Path(__file__).resolve().parent.parent
 REPO_ROOT = GEN.parents[2]
@@ -185,6 +186,28 @@ class GateTests(unittest.TestCase):
         ok, out = run(nets)
         self.assertTrue(ok, out)
         self.assertNotIn("NOTE", out)
+
+
+class CheckCliRevisionTests(unittest.TestCase):
+    def test_valid_revision_succeeds(self):
+        with mock.patch.object(check, "kicad_cli", return_value="cli"), \
+                mock.patch.object(check, "export_netlist", return_value=[]), \
+                mock.patch.object(check, "netlist_revision", return_value="1.2"), \
+                mock.patch.object(check, "check", return_value=True), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(check.main(["board.kicad_sch"]), 0)
+
+    def test_invalid_revision_reports_path_and_returns_two(self):
+        for root, message in (([], "netlist has no root-sheet board revision"),
+                              (sexp.parse('(export (design (sheet (name "/") '
+                                          '(title_block (rev "9.9")))))')[0],
+                               "unsupported board revision: '9.9'")):
+            with self.subTest(message=message), \
+                    mock.patch.object(check, "kicad_cli", return_value="cli"), \
+                    mock.patch.object(check, "export_netlist", return_value=root), \
+                    contextlib.redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(check.main(["board.kicad_sch"]), 2)
+                self.assertEqual(error.getvalue(), f"board.kicad_sch: {message}\n")
 
 
 if __name__ == "__main__":
