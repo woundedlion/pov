@@ -326,8 +326,8 @@ inline void check_step_leg_smoke(
   math::Vector *prev_centroid = leg_arena.allocate_n<math::Vector>(prev_faces);
   size_t off = 0;
   for (size_t f = 0; f < prev_faces; ++f) {
-    prev_pal[f] = static_cast<uint8_t>(
-        slots[math::wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[MeshPaletteBank::slot_of(seed.topology[f])]);
     const int n = seed.face_counts[f];
     prev_centroid[f] = face_centroid_unit(seed, off, n);
     off += n;
@@ -468,8 +468,8 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const size_t prev_faces = seed.face_counts.size();
   uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
   for (size_t f = 0; f < prev_faces; ++f)
-    prev_pal[f] = static_cast<uint8_t>(
-        slots[math::wrap(static_cast<int>(seed.topology[f]), OpLeg::PALETTES)]);
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[MeshPaletteBank::slot_of(seed.topology[f])]);
 
   OpLeg::PaletteHandoff handoff{.bank = &bank.bank,
                                 .prev_face_palette = prev_pal,
@@ -690,8 +690,7 @@ inline void test_opleg_edge_leg_crossfade() {
     bool from_ok = true, to_ok = true;
     for (size_t f = 0; f < sh.faces; ++f) {
       const uint8_t from = lp->from_palette[f];
-      const uint8_t to = lp->to_palette[math::wrap(
-          static_cast<int>(lp->topology[f]), OpLeg::PALETTES)];
+      const uint8_t to = lp->landed_palette(f);
       from_ok = from_ok && matches(sh, f, from);
       to_ok = to_ok && matches(sh, f, to);
     }
@@ -701,9 +700,7 @@ inline void test_opleg_edge_leg_crossfade() {
   auto divergent_faces = [&]() {
     int n = 0;
     for (size_t f = 0; f < lp->faces; ++f)
-      if (lp->from_palette[f] !=
-          lp->to_palette[math::wrap(static_cast<int>(lp->topology[f]),
-                                    OpLeg::PALETTES)])
+      if (lp->from_palette[f] != lp->landed_palette(f))
         ++n;
     return n;
   };
