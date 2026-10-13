@@ -48,3 +48,21 @@ inline void test_parameter_probe_targets() {
   slider.max = 4;
   HS_EXPECT_EQ(parameter_probe_target(slider, 1.0f), -2.0f);
 }
+
+inline void test_float_dropdown_lint() {
+  class DropdownEffect : public Effect {
+  public:
+    DropdownEffect() : Effect(1, 1) {
+      static constexpr const char *OPTIONS[] = {"A", "B", "C", "D"};
+      register_param("Shape", &shape, OPTIONS, 4);
+    }
+    void draw_frame() override { Canvas canvas(*this); }
+    float shape = 0;
+  };
+  DropdownEffect effect;
+  for (float current : {0.0f, 3.0f}) {
+    effect.shape = current;
+    lint_dead_sliders(effect, "DropdownEffect");
+    HS_EXPECT_EQ(effect.shape, current);
+  }
+}
