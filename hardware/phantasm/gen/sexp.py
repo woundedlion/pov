@@ -17,6 +17,7 @@ def kicad_version_key(path):
 # The KiCad major every committed board, schematic and fab output was generated
 # with. Pinned in tools/build_pins.py, which asserts this spelling.
 KICAD_MAJOR = 10
+KICAD_MINOR = 0
 
 # The (generator_version) string stamped into every file the generators emit.
 GENERATOR_VERSION = f"{KICAD_MAJOR}.0"
@@ -47,17 +48,17 @@ def find_kicad_data_dir(kind, env_name):
     """Locate a stock KICAD_MAJOR data directory or return an absolute missing path.
 
     An existing env override takes precedence and is not version-checked.
-    Discovery accepts pinned-major or unversioned paths and selects the newest
-    minor at the first matching pattern. Callers test the result with isdir().
+    Discovery accepts pinned major.minor or unversioned paths and prefers the
+    pinned version at the first matching pattern. Callers test the result with isdir().
     """
     env = os.environ.get(env_name)
     if env and os.path.isdir(env):
         return env
     for pattern in kicad_data_dir_patterns(kind):
         hits = [hit for hit in glob.glob(pattern)
-                if kicad_version_key(hit)[0] in (0, KICAD_MAJOR)]
+                if kicad_version_key(hit) in ((0, 0), (KICAD_MAJOR, KICAD_MINOR))]
         if hits:
-            return max(hits, key=kicad_version_key)   # newest minor
+            return max(hits, key=kicad_version_key)
     return os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         ".missing-kicad-data", kind)
 
