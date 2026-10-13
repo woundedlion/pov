@@ -848,23 +848,28 @@ inline void test_transformer_spawn_pausable_freezes_start_delay() {
   RippleTransformer<1> gated(tl);
   gated.init_storage(persistent_arena);
 
-  bool paused = true;
+  bool paused = false;
   HS_EXPECT_TRUE(control.spawn(DELAY, center, 0.2f, DURATION) != nullptr);
   HS_EXPECT_TRUE(gated.spawn_pausable(&paused, DELAY, center, 0.2f, DURATION) !=
                  nullptr);
   HS_EXPECT_EQ(gated.active_count(), 1);
 
+  constexpr int ELAPSED = 5;
+  for (int i = 0; i < ELAPSED; ++i)
+    tl.step(cv);
+  paused = true;
   for (int i = 0; i < DELAY + DURATION + 4; ++i)
     tl.step(cv);
   HS_EXPECT_EQ(control.active_count(), 0);
   HS_EXPECT_EQ(gated.active_count(), 1);
 
   paused = false;
-  for (int i = 0; i < DELAY; ++i)
+  for (int i = 0; i < DELAY - ELAPSED - 1; ++i)
     tl.step(cv);
-  HS_EXPECT_EQ(gated.active_count(), 1); // delay resumed where it stopped
+  HS_EXPECT_EQ(gated.active_count(), 1);
+  HS_EXPECT_NEAR(gated.active_params(0).amplitude, 0.0f, 1e-6f);
 
-  for (int i = 0; i < DURATION; ++i)
+  for (int i = 0; i < DURATION + 1; ++i)
     tl.step(cv);
   HS_EXPECT_EQ(gated.active_count(), 0);
 }
