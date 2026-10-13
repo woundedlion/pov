@@ -1744,8 +1744,10 @@ This project is split-licensed: the rendering engine and the visual effects carr
 
 **Effects — proprietary.** The visual effects — the Holosphere repository's `effects/` and `core/engine/effects_legacy.h` sources, and their compiled form in any distributed build artifact, including the `holosphere_wasm.wasm` module daydream ships — are Copyright 2025 Gabriel Levy. All rights reserved. They are not covered by the PolyForm license — no rights to use, copy, modify, or distribute them are granted.
 
-**Per-file notices.** C/C++ sources must carry the `Required Notice` banner;
-`tools/license_check.py` gates them. Other files may carry it but are ungated.
+**Per-file notices.** Each C/C++ source carries the header `LICENSE` grants its
+path: the `Required Notice` banner, or the upstream MIT notice for the listed
+exceptions. `tools/license_check.py` gates these headers. Other files may carry
+a notice but are ungated.
 Scope is decided by the terms above and the file's location, banner or not.
 
 **Third-party.** The engine vendors [FastNoiseLite](https://github.com/Auburn/FastNoiseLite) as `core/vendor/FastNoiseLite.h` under the MIT License (Auburn / Jordan Peck), patched in tree as recorded in `core/vendor/FastNoiseLite_config.h` (first-party). `core/math/projections.h` carries map projections derived from [PROJ](https://proj.org) under the MIT License (Frank Warmerdam, Gerald I. Evenden, Kristian Evers, Toby C Wilkinson and the PROJ contributors); it sits outside `core/vendor/` because the engine's own projections are developed alongside them in the same header, and `LICENSE` names it as an exception. The simulator generates `daydream/tools/tailwind.css` locally with its pinned Tailwind dependency, a [Tailwind CSS](https://tailwindcss.com) utility sheet (MIT, Tailwind Labs) served same-origin to the tool pages, carrying its upstream MIT banner; its preflight reset derives from [modern-normalize](https://github.com/sindresorhus/modern-normalize) (MIT, Sindre Sorhus), itself derived from normalize.css (MIT, Nicolas Gallagher and Jonathan Neal). Everything else the simulator uses loads at runtime: [three.js](https://github.com/mrdoob/three.js) (MIT, three.js authors) and [lil-gui](https://github.com/georgealways/lil-gui) (MIT, George Michael Brower) come from the jsdelivr CDN at the versions pinned in `daydream/package.json`. The optional self-hosted fonts under `daydream/vendor/fonts/` (Inter and JetBrains Mono, both SIL OFL 1.1) are gitignored and distributed by neither repo.
