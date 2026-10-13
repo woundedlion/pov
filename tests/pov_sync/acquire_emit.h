@@ -459,9 +459,13 @@ inline void test_beacon_late_coast() {
   HS_EXPECT_GT(last_start, cfg.W / 4);
 
   // On-time at the beacon point: the frame schedules and emits fully.
-  HS_EXPECT_GT(run(cfg.W / 4).beacon, 0u);
+  const PulseCounts on_time = run(cfg.W / 4);
+  HS_EXPECT_EQ(on_time.beacon, static_cast<uint32_t>(digit_sum + 5));
+  HS_EXPECT_EQ(on_time.half, symbol_pulse_count(Symbol::HALF));
   // The last admissible start still emits.
-  HS_EXPECT_GT(run(last_start).beacon, 0u);
+  const PulseCounts last = run(last_start);
+  HS_EXPECT_EQ(last.beacon, static_cast<uint32_t>(digit_sum + 5));
+  HS_EXPECT_EQ(last.half, symbol_pulse_count(Symbol::HALF));
   HS_EXPECT_EQ(late_dropped, 0u);
   // A late start is censored; the HALF boundary still emits.
   const PulseCounts late = run(last_start + 1);
