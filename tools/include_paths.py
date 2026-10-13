@@ -51,7 +51,7 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
                 continue
             canonical = target.relative_to(root).as_posix()
             line = text.count("\n", 0, match.start()) + 1
-            if not name.startswith("core/vendor/") and name != "core/engine/effects_legacy.h":
+            if name != "core/engine/effects_legacy.h":
                 for prefix, forbidden in FORBIDDEN_PREFIXES.items():
                     if name.startswith(prefix) and canonical.startswith(forbidden):
                         diagnostics.append(f'{name}:{line}: forbidden include "{canonical}" from {prefix}')
