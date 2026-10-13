@@ -181,8 +181,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     // An in-range target well clear of the current value, so a revert is
     // visible; a bool has only its flipped value.
     float target = parameter_probe_target(def, cur);
-    // Round the probe to a value an integer target can hold.
-    if (def.is_integer()) {
+    // Dropdowns normalize to integral option indices.
+    if (def.is_enum() || def.is_integer()) {
       target =
           cur < (def.min + def.max) * 0.5f ? ceilf(target) : floorf(target);
       if (target == cur)
@@ -508,6 +508,7 @@ inline int run_effects_tests() {
   };
 
   run_case(test_parameter_probe_targets);
+  run_case(test_float_dropdown_lint);
   run_case(test_ringspin_strobe_configuration_preserves_rendering);
   run_case(test_meshfeedback_base_mesh_selector);
   run_case(test_meshfeedback_preset_export_arity);
