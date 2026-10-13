@@ -197,6 +197,7 @@ inline bool plane_identical(const PB::PlaneSample &a,
 /** @brief Compares field carriers exactly. */
 inline bool field_identical(const PB::FieldSample &a,
                             const PB::FieldSample &b) {
+  static_assert(sizeof(PB::FieldSample) == 6 * sizeof(float));
   return float_identical(a.value, b.value) &&
          float_identical(a.coverage, b.coverage) &&
          float_identical(a.sphere.x, b.sphere.x) &&
@@ -257,25 +258,32 @@ inline std::vector<uint32_t> snapshot_words(const In::RuntimeSnapshot &snap) {
       [&](const auto &v) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, In::SpatialWalkSnapshot>) {
+          static_assert(sizeof(T) == 14 * sizeof(uint32_t));
           put_walk(v);
         } else if constexpr (std::is_same_v<T, In::SourceClockSnapshot>) {
+          static_assert(sizeof(T) == 3 * sizeof(uint32_t));
           put(v.primary);
           put(v.secondary);
           put(v.angle);
         } else if constexpr (std::is_same_v<T, In::NoiseClockSnapshot>) {
+          static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.phase);
           put(v.noise_seed);
         } else if constexpr (std::is_same_v<T, In::PhaseClockSnapshot> ||
                              std::is_same_v<T, In::RippleClockSnapshot>) {
+          static_assert(sizeof(T) == sizeof(uint32_t));
           put(v.phase);
         } else if constexpr (std::is_same_v<T, In::AffineClockSnapshot>) {
+          static_assert(sizeof(T) == 2 * sizeof(uint32_t));
           put(v.phase);
           put(v.rotation);
         } else if constexpr (std::is_same_v<T, In::ColorClockSnapshot>) {
+          static_assert(sizeof(T) == 3 * sizeof(uint32_t));
           put(v.oscillation_phase);
           put(v.hue_noise_phase);
           put(v.hue_noise_seed);
         } else if constexpr (std::is_same_v<T, In::SphericalRingsSnapshot>) {
+          static_assert(sizeof(T) == 15 * sizeof(uint32_t));
           put_walk(v.walk);
           put(v.phase);
         } else {
