@@ -692,7 +692,7 @@ public:
         seed(hs::random()()) {
     HS_CHECK(std::isfinite(scale) && std::isfinite(speed),
              "MobiusWarpEvolving scale and speed must be finite");
-    channel_phases = persistent_arena.make_n<double>(CHANNEL_COUNT);
+    allocate_phases();
   }
 
   /**
@@ -701,14 +701,18 @@ public:
    */
   MobiusWarpEvolving(const MobiusWarpEvolving &other) noexcept
       : AnimationBase(other), params(other.params), speed(other.speed),
-        scale(other.scale), base(other.base), seed(other.seed),
-        channel_phases(persistent_arena.make_n<double>(CHANNEL_COUNT)) {
+        scale(other.scale), base(other.base), seed(other.seed) {
+    if (other.channel_phases)
+      other.check_alive();
+    allocate_phases();
     copy_phases(other.channel_phases, channel_phases);
   }
 
   MobiusWarpEvolving &operator=(const MobiusWarpEvolving &other) noexcept {
     if (this == &other)
       return *this;
+    if (other.channel_phases)
+      other.check_alive();
     AnimationBase::operator=(other);
     params = other.params;
     speed = other.speed;
@@ -716,7 +720,9 @@ public:
     base = other.base;
     seed = other.seed;
     if (!channel_phases)
-      channel_phases = persistent_arena.make_n<double>(CHANNEL_COUNT);
+      allocate_phases();
+    else
+      check_alive();
     copy_phases(other.channel_phases, channel_phases);
     return *this;
   }
@@ -729,7 +735,13 @@ public:
       : AnimationBase(std::move(other)), params(other.params),
         speed(other.speed), scale(other.scale), base(other.base),
         seed(other.seed),
-        channel_phases(std::exchange(other.channel_phases, nullptr)) {}
+        channel_phases(std::exchange(other.channel_phases, nullptr)),
+        phases_end(std::exchange(other.phases_end, 0)) {
+#ifndef NDEBUG
+    phases_stamp = other.phases_stamp;
+    other.phases_stamp.clear();
+#endif
+  }
 
   MobiusWarpEvolving &operator=(MobiusWarpEvolving &&other) noexcept {
     if (this == &other)
@@ -741,6 +753,11 @@ public:
     base = other.base;
     seed = other.seed;
     channel_phases = std::exchange(other.channel_phases, nullptr);
+    phases_end = std::exchange(other.phases_end, 0);
+#ifndef NDEBUG
+    phases_stamp = other.phases_stamp;
+    other.phases_stamp.clear();
+#endif
     return *this;
   }
 
@@ -777,6 +794,7 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
+    check_alive();
     AnimationBase::step(canvas);
     HS_PROFILE(animation_mobius_step);
     constexpr float FREQUENCIES[CHANNEL_COUNT] = {1.0f,  1.13f, 1.27f, 1.39f,
@@ -818,7 +836,31 @@ private:
   float scale; /**< Magnitude of the per-channel modulation. */
   math::MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;           /**< Seed for the per-channel phase offsets. */
-  double *channel_phases;  /**< Arena-owned wrapped channel phases (radians). */
+  double *channel_phases = nullptr; /**< Wrapped channel phases (radians). */
+  size_t phases_end = 0;            /**< Arena offset past the phase block. */
+#ifndef NDEBUG
+  ArenaBlockStamp phases_stamp;
+#endif
+
+  /** @brief Allocates and stamps an independent phase block. */
+  void allocate_phases() {
+    channel_phases = persistent_arena.make_n<double>(CHANNEL_COUNT);
+    phases_end = persistent_arena.get_offset();
+#ifndef NDEBUG
+    phases_stamp.record(persistent_arena);
+#endif
+  }
+
+  /** @brief Traps if the phase block was reclaimed while the warp is live. */
+  void check_alive() const {
+    HS_CHECK(persistent_arena.get_offset() >= phases_end,
+             "MobiusWarpEvolving: phase arena rewound under a live warp");
+#ifndef NDEBUG
+    HS_CHECK(phases_stamp.block_alive(channel_phases,
+                                      CHANNEL_COUNT * sizeof(double)),
+             "MobiusWarpEvolving: phase storage reclaimed under a live warp");
+#endif
+  }
 
   /** @brief Copies src's phases into dst; a moved-from (null) src zero-fills. */
   static void copy_phases(const double *src, double *dst) {
