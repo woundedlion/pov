@@ -28,9 +28,27 @@ set -euo pipefail
   exit 1
 }
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
-if [[ "$EFFECT" == *-* ]]; then
-  EFFECT=$(printf '%s' "$EFFECT" | sed -E 's/(^|-)([a-z])/\U\2/g')
-fi
+# The checkout containing the invoked script, including a linked worktree.
+profile_tree() {
+  git -C "$(dirname "$0")" rev-parse --path-format=absolute --show-toplevel
+}
+TREE=${HS_PROFILE_TREE:-$(profile_tree)} ||
+  { echo "cannot resolve the profile checkout from $(dirname "$0")" >&2; exit 1; }
+
+effect_class() {
+  awk -v wanted="$1" '
+    /^[[:space:]]*X\(/ {
+      name=$0; sub(/^[[:space:]]*X\(/, "", name); sub(/,.*/, "", name)
+      id=$0; sub(/^[^"]*"/, "", id); sub(/".*/, "", id)
+      if (wanted == id || wanted == name) { print name; found=1; exit }
+    }
+    END { if (!found) exit 1 }
+  ' "$TREE/core/platform/effect_identity.h"
+}
+REQUESTED_EFFECT=$EFFECT
+EFFECT=$(effect_class "$REQUESTED_EFFECT") || {
+  echo "unknown profile effect: $REQUESTED_EFFECT" >&2; exit 1;
+}
 for n in "$SECONDS_ARG" "$WINDOW"; do
   case $n in
     ''|*[!0-9]*)
@@ -100,12 +118,6 @@ PHANTASM_MAP=$ATTEST_DIR/phantasm.map
 ARM_READELF=${HS_ARM_READELF:-${PLATFORMIO_CORE_DIR:-$HOME/.platformio}/packages/toolchain-gccarmnoneeabi-teensy/bin/arm-none-eabi-readelf.exe}
 ATTESTED_COMPILER=
 
-# The checkout containing the invoked script, including a linked worktree.
-profile_tree() {
-  git -C "$(dirname "$0")" rev-parse --path-format=absolute --show-toplevel
-}
-TREE=${HS_PROFILE_TREE:-$(profile_tree)} ||
-  { echo "cannot resolve the profile checkout from $(dirname "$0")" >&2; exit 1; }
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"

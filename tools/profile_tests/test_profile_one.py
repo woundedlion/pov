@@ -42,6 +42,31 @@ def shell_function(name):
     return match.group(0)
 
 
+class ProfileEffectIdentity(unittest.TestCase):
+    def resolve(self, effect):
+        script = ("set -euo pipefail\n" + shell_function("effect_class")
+                  + '\nTREE=$1; effect_class "$2"\n')
+        return subprocess.run(
+            ["bash", "-c", script, "effect-test", REPO.as_posix(), effect],
+            capture_output=True, text=True)
+
+    def test_canonical_ids_and_class_names(self):
+        for effect, expected in (("bz-reaction-diffusion", "BZReactionDiffusion"),
+                                 ("gs-reaction-diffusion", "GSReactionDiffusion"),
+                                 ("alien-brain", "AlienBrain"),
+                                 ("comets", "Comets"),
+                                 ("BZReactionDiffusion", "BZReactionDiffusion")):
+            with self.subTest(effect=effect):
+                result = self.resolve(effect)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), expected)
+
+    def test_unknown_id_is_rejected(self):
+        result = self.resolve("unknown-effect")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, "")
+
+
 def verify_log(text, expected="o3", provenance=True, marker="", *,
                preset="", expected_shape="", msp_marker="",
                artifact_present=True, digest_override=None):
