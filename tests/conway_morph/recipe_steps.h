@@ -278,11 +278,7 @@ inline void check_step_leg_smoke(
   using Animation::OpLeg;
   const int failed_before = hs_test::stats().failed;
 
-  reset_globals();
-  const ScopedArenaSplit split(
-      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -432,11 +428,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const int failed_before = hs_test::stats().failed;
   const bool is_kis = op == OpLeg::SwapOp::KIS;
 
-  reset_globals();
-  const ScopedArenaSplit split(
-      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   hs::random().seed(2026u);
 
   Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
@@ -659,11 +651,7 @@ inline void test_opleg_step_leg_overshooting_easing() {
  */
 inline void test_opleg_edge_leg_crossfade() {
   using Animation::OpLeg;
-  reset_globals();
-  const ScopedArenaSplit split(
-      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));

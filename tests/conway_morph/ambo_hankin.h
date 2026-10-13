@@ -77,13 +77,7 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
     const int failed_before = hs_test::stats().failed;
 
     Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-    PolyMesh seed;
-    {
-      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
-      Arena ga(morph_aux_buf, HALF);
-      Arena gb(morph_aux_buf + HALF, HALF);
-      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist);
 
     SweepFingerprint first;
     size_t f0 = 0, compiled0 = 0;

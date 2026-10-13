@@ -162,12 +162,7 @@ inline void test_chamfer_zero_area_birth_limit() {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
-    PolyMesh seed;
-    {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      seed = Solids::finalize_solid(site.seed(a, b), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist, a, b);
     const size_t F = seed.face_counts.size();
     const size_t E = seed.faces.size() / 2;
     std::vector<math::Vector> seed_centroid;
@@ -280,12 +275,7 @@ inline void test_chamfer_sweep_holds_topology() {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
-    PolyMesh seed;
-    {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      seed = Solids::finalize_solid(site.seed(a, b), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
     std::vector<math::Vector> prev_vertices;
@@ -387,12 +377,7 @@ inline void test_truncate001_birth_sweep_holds_topology() {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
-    PolyMesh seed;
-    {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      seed = Solids::finalize_solid(site.seed(a, b), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
     std::vector<math::Vector> prev_normal;
@@ -477,12 +462,7 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
-    PolyMesh seed;
-    {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      seed = Solids::finalize_solid(site.seed(a, b), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist, a, b);
 
     size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
     std::vector<size_t> off;
@@ -545,12 +525,7 @@ inline void test_chamfer_birth_epsilon() {
     Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
     Arena a(probe_a_buf, sizeof(probe_a_buf));
     Arena b(probe_b_buf, sizeof(probe_b_buf));
-    PolyMesh seed;
-    {
-      ScratchScope ga(a);
-      ScratchScope gb(b);
-      seed = Solids::finalize_solid(site.seed(a, b), persist);
-    }
+    const PolyMesh seed = finalize_site_seed(site, persist, a, b);
     const size_t F = seed.face_counts.size();
 
     // Culled newborn count at t; compile's own face count for contrast.
