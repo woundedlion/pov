@@ -193,8 +193,9 @@ and patch hash cannot reconstruct the captured source from a fresh clone.
 
 For the 2026-08-26 O3 cycler captures, the parser counted the unmarked
 startup run as an extra entry 0. Their parenthesized entry counts are the
-authored preset count plus one; raw logs are no longer available to rederive
-these buckets.
+authored preset count plus one, except SphericalHarmonics, whose mode markers
+start at 1 and whose entry count equals its authored preset count. Raw logs
+are no longer available to rederive these buckets.
 
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). The candidate remains outside the shipping implementation; its numbers are not substituted into the ranked row.
 
