@@ -107,12 +107,12 @@ validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
 }
 
 // ---------------------------------------------------------------------------
-// CubemapLUT: O(1) direction → nearest Fibonacci node lookup (no runtime trig)
+// CubemapLUT: direction → nearby lattice node seed (refine within its one-ring)
 // ---------------------------------------------------------------------------
 
 /**
- * @brief 6-face cubemap LUT mapping unit vectors to nearest lattice node
- *        indices, giving O(1) direction → node lookup with no runtime trig.
+ * @brief 6-face cubemap LUT mapping unit vectors to nearby lattice node seeds.
+ *        Refine within the seed's one-ring for the nearest node.
  * @details Memory: 6 × RES² × 2B = 48 KB at RES=64.
  */
 struct CubemapLUT {
