@@ -265,9 +265,10 @@ struct ParameterSet<ResourceList<Resources...>>
 template <typename Family, ResourceKind Kind> struct ClockState {};
 /** @brief Source pattern clocks. */
 template <typename Family> struct ClockState<Family, ResourceKind::SOURCE> {
-  float primary = 0.0f;    ///< Primary phase, radians in [0, 2pi).
-  float secondary = 0.0f;  ///< Secondary phase, radians in [0, 2pi).
-  float angle = 0.0f;      ///< Pattern rotation, radians in [0, 2pi).
+  float primary = 0.0f; ///< Primary phase, radians, wrapped into (-2pi, 2pi).
+  float secondary =
+      0.0f;           ///< Secondary phase, radians, wrapped into (-2pi, 2pi).
+  float angle = 0.0f; ///< Pattern rotation, radians, wrapped into (-2pi, 2pi).
   float noise_time = 0.0f; ///< Noise time coordinate, wrapped to [0, 1).
 };
 /** @brief Extra rotation clock of a warp family; empty by default. */
