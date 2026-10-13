@@ -989,11 +989,8 @@ inline void test_preset_transition_adopts_next_params() {
     HS_EXPECT_EQ(ShapeShifterWhiteBox::preset_index(effect), size_t{1});
 
     auto value = [&](const char *name) {
-      for (const auto &def : effect.getParameters())
-        if (std::strcmp(def.name, name) == 0)
-          return def.get();
-      HS_EXPECT(false, "ShapeShifter parameter is missing");
-      return -1.0f;
+      const auto *def = hs_test::required_param(effect, name);
+      return def ? def->get() : -1.0f;
     };
 
     auto option_index = [](auto field) {
