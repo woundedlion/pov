@@ -38,8 +38,9 @@ struct ShapeWeights {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Sweeps the interlace angle on a solid, picks a uniformly random
- * destination solid, and morphs along a shortest Conway edge-graph path to
- * it, each leg sweeping the arriving solid's operator parameter.
+ * destination among the solids not recently swept, and morphs along a shortest
+ * Conway edge-graph path to it, each leg sweeping the arriving solid's operator
+ * parameter.
  * Faces are colored by topology class.
  */
 template <int W, int H> class HankinSolids : public Effect {

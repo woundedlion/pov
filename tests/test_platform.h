@@ -452,8 +452,8 @@ inline void test_epoch_seed() {
 
 /**
  * @brief Pins stable effect seeds to case-sensitive effect identifiers.
- * @details The literals are FNV-1a 64 of the identifier, xor 1337, through the
- *          splitmix64 finalizer.
+ * @details The literals use the project FNV-1a fold seeded with
+ *          `hs_test::HASH_SEED64`, xor 1337, through the splitmix64 finalizer.
  */
 inline void test_stable_effect_seed() {
   constexpr uint64_t KALEIDOSCOPE_MELT_SEED = 0x1f4df039f490227bULL;

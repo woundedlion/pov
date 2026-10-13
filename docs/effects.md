@@ -749,7 +749,7 @@ keep an incompatible chain
 pending. Ordinary effect parameter APIs separately report requested and accepted
 values and warnings. Composed-effect preset choreography interpolates parameters
 within each effect's fixed pipeline. For these composed effects, **Pause
-Animation** stops automatic preset selection while an in-flight transition
+Presets** stops automatic preset selection while an in-flight transition
 finishes. The chain host's operator and palette clocks keep advancing while its
 authored-preset pause is set.
 

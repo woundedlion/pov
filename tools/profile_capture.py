@@ -1,8 +1,9 @@
 """Capture the profile image's USB-serial readout from an attached Teensy.
 
 After a `profile` env flash, opens the Teensy's serial port (retrying through
-re-enumeration), tees every HS_PROFILE line to stdout and --out, and exits after
---seconds. Needs pyserial (`python -m pip install pyserial`).
+re-enumeration), tees every non-empty serial line (counter dumps, frame rows,
+preset markers) to stdout and --out, and exits after --seconds.
+Needs pyserial (`python -m pip install pyserial`).
 """
 
 import argparse

@@ -695,7 +695,7 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
     HS_EXPECT_EQ(c.width(), 8);
     HS_EXPECT_EQ(c.height(), 8);
     c(1, 1) = Pixel(5, 6, 7);
-    c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index â†’ (x=3, y=2)
+    c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index -> (x=3, y=2)
     // prev() reads the previously displayed (black) buffer.
     HS_EXPECT_PIXEL(c.prev(1, 1), 0, 0, 0);
   }

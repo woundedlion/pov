@@ -73,7 +73,10 @@ inline void test_effect_palette_recipe_roster() {
                  0.5f, 1e-6f);
 }
 
-/** @brief Recipe validation rejects invalid active fields. */
+/**
+ * @brief Compile wraps/clamps out-of-range active fields, rejects non-finite
+ * ones without mutating outputs, and derives harmony key counts.
+ */
 inline void test_generative_palette_recipe_validation() {
   PaletteRecipe input;
   input.hue.base_turns = 1.25f;
