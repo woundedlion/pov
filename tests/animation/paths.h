@@ -16,6 +16,7 @@ inline void test_path_adjacent_segments_fill_exact_capacity() {
                       2.0f, 2, math::ease_linear);
   for (int i = 0; i < 5; ++i)
     HS_EXPECT_NEAR(path.get_point(i * 0.25f).x, static_cast<float>(i), 1e-6f);
+  HS_EXPECT_NEAR(path.get_point(0.0625f).x, 0.25f, 1e-6f);
 }
 
 /**
@@ -69,6 +70,11 @@ inline void test_path_endpoints_and_clamp() {
   HS_EXPECT_NEAR(mid.x, 1.5f, 1e-5f);
   HS_EXPECT_NEAR(mid.y, 3.0f, 1e-5f);
   HS_EXPECT_NEAR(mid.z, -0.5f, 1e-5f);
+
+  math::Vector between = p.get_point(0.3125f);
+  HS_EXPECT_NEAR(between.x, 1.3125f, 1e-5f);
+  HS_EXPECT_NEAR(between.y, 2.625f, 1e-5f);
+  HS_EXPECT_NEAR(between.z, -1.0625f, 1e-5f);
 }
 
 /**
