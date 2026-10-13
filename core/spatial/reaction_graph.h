@@ -107,12 +107,11 @@ validate_neighbors(const int16_t (&table)[RD_N][RD_K]) {
 }
 
 // ---------------------------------------------------------------------------
-// CubemapLUT: direction → nearby lattice node seed (refine within its one-ring)
+// CubemapLUT: direction → nearby lattice node seed
 // ---------------------------------------------------------------------------
 
 /**
  * @brief 6-face cubemap LUT mapping unit vectors to nearby lattice node seeds.
- *        Refine within the seed's one-ring for the nearest node.
  * @details Memory: 6 × RES² × 2B = 48 KB at RES=64.
  */
 struct CubemapLUT {
