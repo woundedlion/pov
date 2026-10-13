@@ -148,7 +148,7 @@ private:
   /** @brief Softening radius that limits the core force (chord). */
   static constexpr float SOFTENING_RADIUS = 0.02f;
   /** @brief Radius of the particle fade into each core (radians). */
-  static constexpr float HOLE_FADE_RADIUS = 0.035f;
+  static constexpr float CORE_FADE_RADIUS = 0.0324f;
   /** @brief Spawn-angle jitter half-width (radians), thickens the arms. */
   static constexpr float ARM_JITTER = 0.22f;
   /** @brief Orbital speed jitter half-width, as a fraction of the speed. */
@@ -159,10 +159,6 @@ private:
   static constexpr float FADE_IN_FRAMES = 2.0f;
   /** @brief Frames over which an expiring particle fades out. */
   static constexpr float FADE_OUT_FRAMES = 20.0f;
-  /** @brief Core distance inside which every particle starts to dim (radians). */
-  static constexpr float HEAD_FADE_RADIUS = 0.03f;
-  static_assert(HEAD_FADE_RADIUS <= HOLE_FADE_RADIUS,
-                "head fade is evaluated only inside the hole-fade cap");
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
    * @details At least 1.5 columns, so it stays visible at low resolution.
@@ -274,6 +270,20 @@ private:
                  0.0f);
   }
 
+  /**
+   * @brief Smooth particle opacity through the core fade cap.
+   * @param radius_fraction_sq Squared chord distance divided by the cap's.
+   * @return Opacity multiplier in [0, 1].
+   */
+  static float core_fade(float radius_fraction_sq) {
+    const float t = hs::clamp(radius_fraction_sq, 0.0f, 1.0f);
+    const float u = fminf(t, 1.0f - t);
+    const float u2 = u * u;
+    const float fade =
+        u2 * u2 * (35.0f + u * (-84.0f + u * (70.0f - 20.0f * u)));
+    return t < 0.5f ? fade : 1.0f - fade;
+  }
+
   /** @brief Young stars light the arms; old stars form a faint stellar disk. */
   static float particle_alpha(uint16_t color_seed, float age, float arm) {
     const float u = static_cast<float>(color_seed >> 8) * (1.0f / 255.0f);
@@ -325,9 +335,8 @@ private:
   void draw_particles(Canvas &canvas) {
     HS_PROFILE(gx_draw_particles);
     const math::RotationMatrix rotation(orientation.get());
-    const float cos_hole = math::fast_cosf(HOLE_FADE_RADIUS);
-    const float inv_head_span =
-        1.0f / (1.0f - math::fast_cosf(HEAD_FADE_RADIUS));
+    const float cos_core = cosf(CORE_FADE_RADIUS);
+    const float inv_core_span = 1.0f / (1.0f - cos_core);
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
     const float winding = 1.0f / tanf(params.arm_pitch);
@@ -338,14 +347,10 @@ private:
       const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
       const math::Vector position = p.get_position();
       const float cos_distance = math::dot(position, galaxy.core);
-      float hole = 1.0f;
-      float head_fade = 1.0f;
-      if (cos_distance >= cos_hole) {
-        hole = math::quintic_kernel(
-            math::fast_acos(hs::clamp(cos_distance, -1.0f, 1.0f)) /
-            HOLE_FADE_RADIUS);
-        head_fade = math::quintic_kernel((1.0f - cos_distance) * inv_head_span);
-      }
+      const float fade_core =
+          cos_distance < cos_core
+              ? 1.0f
+              : core_fade((1.0f - cos_distance) * inv_core_span);
       const float age = max_life - static_cast<float>(p.life);
       const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
       const float fade_out =
@@ -354,7 +359,7 @@ private:
                                                          cos_distance, winding)
                                            : 0.0f;
       Color4 c = star_color(p.color_seed);
-      c.alpha *= hole * head_fade * fade_in * fade_out *
+      c.alpha *= fade_core * fade_in * fade_out *
                  particle_alpha(p.color_seed, age, arm) * alpha;
       filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
     }

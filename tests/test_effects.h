@@ -598,6 +598,7 @@ inline int run_effects_tests() {
   run_case(test_galaxies_arm_contrast_and_age_fade);
   run_case(test_galaxies_arm_sharpness);
   run_case(test_galaxies_star_color_mix);
+  run_case(test_galaxies_core_fade);
   run_case(test_galaxies_white_star_stays_white);
   run_case(test_galaxies_emission_rate_and_capacity);
   run_case(test_galaxies_live_particle_count);
