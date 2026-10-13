@@ -136,10 +136,7 @@ inline void seed_effect_stream(const EffectIdentity &identity) {
  * @tparam EffectType Concrete effect with a declared effect identity.
  */
 template <typename EffectType> inline void seed_effect_stream() {
-  if constexpr (requires { EffectType::EFFECT_IDENTITY; })
-    seed_effect_stream(EffectType::EFFECT_IDENTITY);
-  else
-    seed_effect_stream(std::string_view(EffectType::EFFECT_ID));
+  seed_effect_stream(effect_seed_key<EffectType>(EffectType::EFFECT_ID));
 }
 
 /**
