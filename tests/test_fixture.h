@@ -12,6 +12,7 @@
 #include "core/platform/platform.h"
 #include "core/render/canvas.h"
 #include "core/render/render_policy.h"
+#include "core/render/plot/chords.h"
 #include "hardware/hd107s_frame.h"
 #include "tests/test_harness.h"
 
@@ -21,6 +22,18 @@
 #include <string>
 
 namespace hs_test {
+
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Restores the planar pole-run splitting flag on scope exit. */
+struct ScopedPoleRunSplit {
+  bool saved = Plot::g_planar_chords_split_pole_runs;
+  explicit ScopedPoleRunSplit(bool enabled) {
+    Plot::g_planar_chords_split_pole_runs = enabled;
+  }
+  ~ScopedPoleRunSplit() { Plot::g_planar_chords_split_pole_runs = saved; }
+};
+
+#endif
 
 template <typename Effect>
 inline const ParamDef *required_param(Effect &effect, const char *name) {

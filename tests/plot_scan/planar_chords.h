@@ -267,15 +267,17 @@ inline void test_planar_chords_pole_split_matches_whole_star() {
       {math::Quaternion(0.93f, -0.11f, 0.24f, 0.25f).normalized(), 0.3f, 9,
        0.2f},
   }};
+  ScopedPoleRunSplit split_scope(true);
   size_t split_changed = 0;
   for (const PlanarShapeCase &star : stars) {
     fx.set_clip(0, H, 0, W);
     const auto whole = render_planar_chord_star<W, H>(fx, star, true);
     for (const auto &q : quadrants) {
       fx.set_clip(q[0], q[1], q[2], q[3]);
-      Plot::g_planar_chords_split_pole_runs = false;
-      const auto unsplit = render_planar_chord_star<W, H>(fx, star, true);
-      Plot::g_planar_chords_split_pole_runs = true;
+      const auto unsplit = [&] {
+        ScopedPoleRunSplit scope(false);
+        return render_planar_chord_star<W, H>(fx, star, true);
+      }();
       const auto tile = render_planar_chord_star<W, H>(fx, star, true);
       for (int y = q[0]; y < q[1]; ++y)
         for (int x = q[2]; x < q[3]; ++x) {
