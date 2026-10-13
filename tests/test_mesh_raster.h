@@ -196,7 +196,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
 
   PolyMesh poly = Solids::Platonic::octahedron(seed_a, seed_b);
 
-  // `wire` must be destroyed before `fx`: one live Effect at a time.
+  // Destroy `wire` before `check_solid_fill_tiles` constructs its Effect.
   size_t wire_lit;
   {
     hs_test::StubEffect wire(W, H);
