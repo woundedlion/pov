@@ -359,6 +359,8 @@ public:
                                         const GenerativePalette &to) {
     HS_CHECK(from_slot != nullptr && to_slot != nullptr && morph != nullptr,
              "PaletteCycler restore needs a generated cycle");
+    HS_CHECK(from.morph_compatible(to),
+             "PaletteCycler restored palettes must be morph-compatible");
     *from_slot = from;
     *to_slot = to;
     frame = static_cast<int>(clock.frame);
