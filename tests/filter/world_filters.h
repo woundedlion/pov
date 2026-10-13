@@ -166,6 +166,11 @@ inline void test_world_hole_radius_limits() {
 
 /** @brief Compares Hole alpha with an independent angular quintic oracle. */
 inline void test_world_hole_angular_reference() {
+#ifdef HS_TEST_FAST_MATH
+  constexpr float PARITY_TOLERANCE = 2e-4f;
+#else
+  constexpr float PARITY_TOLERANCE = 1e-5f;
+#endif
   for (const math::Vector &center :
        {math::Y_AXIS, math::Vector(1.0f, 2.0f, -3.0f).normalized()}) {
     const math::Vector TANGENT = math::cross(center, math::X_AXIS).normalized();
@@ -208,7 +213,7 @@ inline void test_world_hole_angular_reference() {
                                  : math::quintic_kernel(DISTANCE / radius);
           HS_EXPECT_NEAR(alpha,
                          PREVIOUS_MASK > 1e-8f ? 0.8f * PREVIOUS_MASK : 0.0f,
-                         1e-5f);
+                         PARITY_TOLERANCE);
           if (MASK > 0.01)
             HS_EXPECT_EQ(count, 1);
           if (i == 360 && radius == math::PI_F)
