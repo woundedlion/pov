@@ -96,14 +96,15 @@ struct AuthoredHookFixture
   static constexpr uint16_t PRESET_DWELL_FRAMES = 8;
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
 #ifdef HS_HOOK_FACTORY_TYPO
-  static consteval auto choregraphy_hooks(){
+#define HS_HOOK_FACTORY_NAME choregraphy_hooks
 #else
-  static consteval auto choreography_hooks() {
+#define HS_HOOK_FACTORY_NAME choreography_hooks
 #endif
-      return Base::choreography_hooks().template extend<AuthoredHookFixture>();
-}
-}
-;
+  static consteval auto HS_HOOK_FACTORY_NAME() {
+    return Base::choreography_hooks().template extend<AuthoredHookFixture>();
+  }
+#undef HS_HOOK_FACTORY_NAME
+};
 struct InheritedHookFixture
     : Pullback::ComposedEffect<8, 8, InheritedHookFixture, DefaultHookSpec,
                                Control::HookOwnership::INHERITED> {
