@@ -695,7 +695,7 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
     HS_EXPECT_EQ(c.width(), 8);
     HS_EXPECT_EQ(c.height(), 8);
     c(1, 1) = Pixel(5, 6, 7);
-    c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index → (x=3, y=2)
+    c(2 * 8 + 3) = Pixel(8, 9, 10); // 1D index â†’ (x=3, y=2)
     // prev() reads the previously displayed (black) buffer.
     HS_EXPECT_PIXEL(c.prev(1, 1), 0, 0, 0);
   }
@@ -1271,10 +1271,6 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
   HS_EXPECT_EQ(s2.integer_hits, 0);
 }
 
-// ============================================================================
-// Runner
-// ============================================================================
-
 /** @brief Assigns and clears metadata only on the last registered parameter. */
 inline void test_parameter_group_registered_companion() {
   struct GroupHost : ParamHost {
@@ -1297,6 +1293,10 @@ inline void test_parameter_group_registered_companion() {
   HS_EXPECT_EQ(host.getParameters().data()[0].group, &FIRST_GROUP);
   HS_EXPECT_EQ(host.getParameters().data()[1].group, nullptr);
 }
+
+// ============================================================================
+// Runner
+// ============================================================================
 
 /**
  * @brief Runs every canvas test in order.
