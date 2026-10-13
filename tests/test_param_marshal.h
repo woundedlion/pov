@@ -53,12 +53,14 @@ enum class RoundTripResult { COVERED, NO_EDITABLE_FLOAT, STREAM_MISMATCH };
  * @param name Effect name for assertion context.
  * @param coverage In/out tally of whether the roster supplies a param that can
  *        distinguish a transposed field pair.
+ * @param max_count In/out roster maximum parameter count.
  * @details Checks equal length, index-aligned name/value/type/range/flags, and
  *          a write-by-name that round-trips to the same index without disturbing
  *          order.
  */
 template <template <int, int> class E>
-inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
+inline RoundTripResult check_one(const char *name, FieldCoverage &coverage,
+                                 size_t &max_count) {
   HS_CONTEXT(name);
   reset_globals();
 
@@ -72,6 +74,8 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
 
   // Count the source params independently of the marshaled streams.
   const size_t n = effect.getParameters().size();
+  if (n > max_count)
+    max_count = n;
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
   if (views.size() != n || values.size() != n)
@@ -157,23 +161,6 @@ inline RoundTripResult check_one(const char *name, FieldCoverage &coverage) {
     HS_EXPECT_EQ(std::string_view(views2[k].name),
                  std::string_view(views[k].name));
   return RoundTripResult::COVERED;
-}
-
-/**
- * @brief Tallies an effect's parameter count, tracking the roster maximum.
- * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
- * @param max_count In/out roster maximum.
- */
-template <template <int, int> class E>
-inline void count_one(size_t &max_count) {
-  reset_globals();
-
-  E<DEFAULT_W, DEFAULT_H> effect;
-  effect.init();
-
-  const size_t n = effect.getParameters().size();
-  if (n > max_count)
-    max_count = n;
 }
 
 /**
@@ -773,10 +760,11 @@ inline int run_param_marshal_tests() {
   // The by-name round-trip skips effects with no editable float param.
   int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;
   FieldCoverage coverage;
+  size_t max_count = 0;
 #define HS_PARAM_ONE(name)                                                     \
   do {                                                                         \
     ++rt_total;                                                                \
-    const auto result = check_one<name>(#name, coverage);                      \
+    const auto result = check_one<name>(#name, coverage, max_count);           \
     if (result == RoundTripResult::COVERED)                                    \
       ++rt_covered;                                                            \
     else if (result == RoundTripResult::NO_EDITABLE_FLOAT)                     \
@@ -804,11 +792,6 @@ inline int run_param_marshal_tests() {
             "drifted to all-non-editable params and the check covers nothing");
 
   // Marshal the roster through the engine's fixed-capacity ParamStreams.
-  size_t max_count = 0;
-#define HS_PARAM_COUNT(name) count_one<name>(max_count);
-  HS_EFFECT_LIST(HS_PARAM_COUNT)
-#undef HS_PARAM_COUNT
-
   hs_wasm::ParamStreams streams;
   auto &views = streams.views;
   auto &values = streams.values;
