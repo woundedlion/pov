@@ -663,6 +663,13 @@ inline const Case *all_cases(int &n) {
            "core/animation/sprites.h",
            "(std::isfinite(softening) && softening >= 0.0f) ParticleSystem "
            "attractor softening must be nonnegative"},
+          {"particle_enable_signed_axis_invalid_positions",
+           case_particle_enable_signed_axis_invalid_positions,
+           "core/animation/sprites.h",
+           "(i < AXES.size() && pos.x == AXES[i].x && "
+           "pos.y == AXES[i].y && pos.z == AXES[i].z) "
+           "ParticleSystem signed-axis attractors must be registered "
+           "+X,-X,+Y,-Y,+Z,-Z"},
           {"particle_lifetime_nan", case_particle_lifetime_nan,
            "core/animation/sprites.h",
            "(std::isfinite(max_life) && max_life >= 1.0f && max_life <= "
