@@ -614,7 +614,7 @@ inline void test_class_bake_borrowed_mode() {
   MeshOps::build_mesh_class_bake(borrowed, seed_a, geom, pixel_width, bake, 0);
 
   HS_EXPECT_EQ(bake.classes.size(), owned.classes.size());
-  HS_EXPECT_EQ(bake.face_recs.size(), owned.face_recs.size());
+  HS_EXPECT_SIZE_OR_RETURN(bake.face_recs, owned.face_recs.size());
   HS_EXPECT_GT(bake.classes.size(), (size_t)0);
   for (size_t f = 0; f < bake.face_recs.size(); ++f) {
     HS_EXPECT_EQ(bake.face_recs[f].class_id, owned.face_recs[f].class_id);
