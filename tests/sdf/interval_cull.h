@@ -38,11 +38,17 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
       });
 }
 
+/** @brief Selected and visited pixel counts for a cull coverage check. */
+struct CullCoverage {
+  int selected;
+  int visited;
+};
+
 /** @brief Checks culled visits for every pixel selected by a distance predicate. */
 template <int W, int H, typename Shape, typename Predicate>
-inline int expect_cull_covers(const Shape &shape, const char *label,
-                              const char *kind, Predicate predicate,
-                              bool require_cull) {
+inline CullCoverage expect_cull_covers(const Shape &shape, const char *label,
+                                       const char *kind, Predicate predicate,
+                                       bool require_cull) {
   HS_CONTEXT(label);
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
@@ -65,7 +71,7 @@ inline int expect_cull_covers(const Shape &shape, const char *label,
       static_cast<int>(std::count(visited.begin(), visited.end(), 1));
   if (require_cull)
     HS_EXPECT_LT(count, W * H);
-  return count;
+  return {selected, count};
 }
 
 /**
@@ -82,9 +88,12 @@ inline int expect_cull_covers(const Shape &shape, const char *label,
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape, const char *label,
                                        bool require_cull = true) {
-  const int count = expect_cull_covers<W, H>(
-      shape, label, "interior px",
-      [](const auto &r, float width) { return r.dist < -width; }, require_cull);
+  const int count =
+      expect_cull_covers<W, H>(
+          shape, label, "interior px",
+          [](const auto &r, float width) { return r.dist < -width; },
+          require_cull)
+          .visited;
   HS_EXPECT_GT(count, 0);
   return count;
 }
@@ -108,16 +117,17 @@ template <int W, int H, typename Shape>
 inline int expect_cull_covers_painted(const Shape &shape, const char *label,
                                       bool require_cull = true) {
   const int count = expect_cull_covers<W, H>(
-      shape, label, "painted px",
-      [](const auto &r, float width) {
-        float alpha = 0.0f;
-        if constexpr (Shape::is_solid)
-          alpha = Scan::solid_coverage(r.dist, width);
-        else if (r.dist < 0.0f && r.size > 0.0f)
-          alpha = math::quintic_kernel(-r.dist / r.size);
-        return alpha > PAINTED_ALPHA;
-      },
-      require_cull);
+                        shape, label, "painted px",
+                        [](const auto &r, float width) {
+                          float alpha = 0.0f;
+                          if constexpr (Shape::is_solid)
+                            alpha = Scan::solid_coverage(r.dist, width);
+                          else if (r.dist < 0.0f && r.size > 0.0f)
+                            alpha = math::quintic_kernel(-r.dist / r.size);
+                          return alpha > PAINTED_ALPHA;
+                        },
+                        require_cull)
+                        .visited;
   HS_EXPECT_GT(count, 0);
   return count;
 }
@@ -136,9 +146,12 @@ inline int expect_cull_covers_painted(const Shape &shape, const char *label,
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_fringe(const Shape &shape, const char *label,
                                      bool require_cull = true) {
-  const int count = expect_cull_covers<W, H>(
-      shape, label, "paintable px",
-      [](const auto &r, float width) { return r.dist < width; }, require_cull);
+  const int count =
+      expect_cull_covers<W, H>(
+          shape, label, "paintable px",
+          [](const auto &r, float width) { return r.dist < width; },
+          require_cull)
+          .visited;
   HS_EXPECT_GT(count, 0);
   return count;
 }
@@ -715,8 +728,9 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   }
 
   return expect_cull_covers<W, H>(
-      face, "face fringe", "paintable px",
-      [](const auto &r, float width) { return r.dist < width; }, false);
+             face, "face fringe", "paintable px",
+             [](const auto &r, float width) { return r.dist < width; }, false)
+      .selected;
 }
 
 /** @brief Clipped face construction preserves every paintable render-row pixel. */
