@@ -149,13 +149,8 @@ inline ChainPeaks replay_build_chain(const char *name,
       }
       const uint8_t *prev_pal;
       if (k == 0) {
-        // Seed keying, as spawn_shape does it: class ids are dense, so class
-        // c is the c-th cohort.
-        for (size_t f = 0; f < prev_faces; ++f) {
-          const int cls = seed_slot.topology[f];
-          prev_pal_buf[f] =
-              static_cast<uint8_t>(order[math::wrap(cls, OpLeg::PALETTES)]);
-        }
+        MeshPaletteBank::assign_by_class(seed_slot.topology.data(), prev_faces,
+                                         order, prev_pal_buf);
         prev_pal = prev_pal_buf;
       } else {
         for (size_t f = 0; f < prev_faces; ++f)
