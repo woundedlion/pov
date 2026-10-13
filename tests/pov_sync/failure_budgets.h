@@ -182,18 +182,10 @@ inline void test_budget_corrupted_timebase() {
 
   // The beacon rev cross-check (§6.4) resyncs any rev_in_effect hiccup before
   // the next epoch, so the commit is lockstep.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 1)
-            return false;
-        return true;
-      },
-      double(cfg.revs_per_effect) + 12));
+  HS_EXPECT_TRUE(
+      sim.run_until(all_boards_on(1), double(cfg.revs_per_effect) + 12));
+  expect_swaps_aligned(sim);
   for (int i = 1; i < 4; ++i) {
-    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
-                       static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
@@ -343,16 +335,9 @@ inline void test_beacon_two_edge_substitution() {
   for (const auto &board : sim.boards)
     HS_EXPECT_EQ(content(board.board).rev_in_effect, 945u);
 
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        return s.boards[0].live_index == 1 && s.boards[1].live_index == 1 &&
-               s.boards[2].live_index == 1;
-      },
-      8.0));
+  HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), 8.0));
+  expect_swaps_aligned(sim, COL);
   for (int i = 1; i < 3; ++i) {
-    const int64_t DELTA = static_cast<int64_t>(sim.boards[i].swap_g) -
-                          static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(std::abs(DELTA), static_cast<int64_t>(COL));
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
 }
