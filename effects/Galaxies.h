@@ -161,6 +161,8 @@ private:
   static constexpr float FADE_OUT_FRAMES = 20.0f;
   /** @brief Core distance inside which every particle starts to dim (radians). */
   static constexpr float HEAD_FADE_RADIUS = 0.03f;
+  static_assert(HEAD_FADE_RADIUS <= HOLE_FADE_RADIUS,
+                "head fade is evaluated only inside the hole-fade cap");
   /**
    * @brief Radius of the glowing bulge drawn over each core (radians).
    * @details At least 1.5 columns, so it stays visible at low resolution.
