@@ -173,14 +173,17 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
   fx.set_clip(30, 30, 0, W);
   fx.set_margin(0);
 
+  size_t shader_calls = 0;
   {
     Canvas c(fx);
     math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
     Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, 0.5f, 0.4f, [](const math::Vector &, Fragment &f) {
+        pipe, c, basis, 0.5f, 0.4f, [&](const math::Vector &, Fragment &f) {
+          ++shader_calls;
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
+  HS_EXPECT_EQ(shader_calls, size_t{0});
   fx.advance_display();
 
   const size_t plotted = count_lit_region<W, H>(fx);
