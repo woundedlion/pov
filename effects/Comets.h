@@ -206,9 +206,10 @@ public:
 
     HS_PROFILE(cm_draw_trail);
     deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+      Color4 color = baked_palette.get(t);
+      color.alpha *= math::quintic_kernel(t) * params.alpha;
       auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-        f.color = baked_palette.get(t);
-        f.color.alpha *= math::quintic_kernel(t) * params.alpha;
+        f.color = color;
       };
 
       math::Vector v_local = math::rotate(node->v, q);
