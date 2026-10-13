@@ -21,8 +21,9 @@ ADJACENT_PATCH = f"{MAJOR}.{MINOR}.{int(PATCH) + 1}"
 
 
 class FindKicadCliTests(unittest.TestCase):
-    def test_version_agrees_with_pinned_major(self):
-        self.assertEqual(int(kicad_common.KICAD_VERSION.split(".")[0]), sexp.KICAD_MAJOR)
+    def test_version_agrees_with_pinned_major_and_minor(self):
+        self.assertEqual(tuple(map(int, kicad_common.KICAD_VERSION.split(".")[:2])),
+                         (sexp.KICAD_MAJOR, sexp.KICAD_MINOR))
 
     def resolve(self, reported, installs=None):
         with mock.patch.dict(os.environ, {}, clear=True), \
