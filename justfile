@@ -58,7 +58,7 @@ screenshots:
     node scripts/capture_screenshots.mjs
 
 # Build and run the native suite over the configured smoke window.
-test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1":
+test $HS_SMOKE_FRAMES="120" $HS_SKIPS_ARE_ERRORS="1" $HS_BUFFER_FREE_WATCHDOG_US="30000000":
     {{ python_command }} tools/build_pins.py --check-tool cmake
     cmake --preset tests
     cmake --build --preset tests
