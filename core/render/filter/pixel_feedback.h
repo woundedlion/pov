@@ -405,6 +405,18 @@ private:
     return runs;
   }
 
+  /** @brief Builds the cache identity for the current warp and render band.
+   * @param band Rows and columns the frame renders.
+   * @return Warp cache identity. */
+  typename WarpCache::Key warp_cache_key(const RenderBand &band) const {
+    const Animation::NoiseParams *noise = feedback_style->noise;
+    return {feedback_style->space_fn,  noise,
+            noise_config_key(noise),   feedback_style->amplitude,
+            feedback_style->frequency, feedback_style->speed,
+            feedback_style->scale,     noise ? noise->time : 0.0f,
+            band.field_y_begin,        band.field_y_end};
+  }
+
   /**
    * @brief The frame's populated warp field: the cache's when the Style and
    * band allow it, otherwise a scratch field.
@@ -435,13 +447,7 @@ private:
                                : nullptr;
     }
 
-    const Animation::NoiseParams *noise = feedback_style->noise;
-    const typename WarpCache::Key key{
-        feedback_style->space_fn,  noise,
-        noise_config_key(noise),   feedback_style->amplitude,
-        feedback_style->frequency, feedback_style->speed,
-        feedback_style->scale,     noise ? noise->time : 0.0f,
-        band.field_y_begin,        band.field_y_end};
+    const auto key = warp_cache_key(band);
 
     HS_PROFILE(feedback_populate);
     return warp_cache.acquire(
