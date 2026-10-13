@@ -9,6 +9,8 @@
 struct DreamBallsWhiteBox {
   using DB = DreamBalls<SMALL_W, SMALL_H>;
   static constexpr int PRESETS = static_cast<int>(DB::PRESETS.size());
+  static constexpr int SPRITE_LIFE = DB::SPRITE_LIFE;
+  static constexpr int FADE_WINDOW = DB::FADE_WINDOW;
   static constexpr size_t SOLID_COUNT = DB::SOLID_COUNT;
   static constexpr size_t MAX_SOLID_EDGES = Solids::MAX_SOLID_EDGES;
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
@@ -447,12 +449,12 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
   db.init();
   const int held_bake = WB::active_bake(db);
   db.setAnimationsPaused(true);
-  hs_test::run_frames(db, 340);
+  hs_test::run_frames(db, WB::DB::PRESET_DWELL_FRAMES + 20);
   HS_EXPECT_EQ(db.getPresetIndex(), 0u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake);
 
   db.setAnimationsPaused(false);
-  hs_test::run_frames(db, 340);
+  hs_test::run_frames(db, WB::DB::PRESET_DWELL_FRAMES + 20);
   HS_EXPECT_EQ(db.getPresetIndex(), 1u);
   HS_EXPECT_EQ(WB::active_bake(db), held_bake ^ 1);
 }
@@ -488,10 +490,12 @@ inline void check_dreamballs_select_mid_fade(int lead_frames, bool respawned) {
 
 /** @brief A select mid fade-in reaches full opacity while paused. */
 inline void test_dreamballs_select_mid_fade_in_finishes_fade() {
-  check_dreamballs_select_mid_fade(8, false);
+  check_dreamballs_select_mid_fade(DreamBallsWhiteBox::FADE_WINDOW / 4, false);
 }
 
 /** @brief A select mid fade-out respawns the selection while paused. */
 inline void test_dreamballs_select_mid_fade_out_respawns() {
-  check_dreamballs_select_mid_fade(310, true);
+  check_dreamballs_select_mid_fade(DreamBallsWhiteBox::SPRITE_LIFE -
+                                       DreamBallsWhiteBox::FADE_WINDOW / 4,
+                                   true);
 }
