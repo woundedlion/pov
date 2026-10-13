@@ -164,7 +164,11 @@ def main(argv=None):
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         args.revision or builder.REVISION, "phantasm.kicad_sch")
     root = export_netlist(kicad_cli(), path)
-    revision = netlist_revision(root)
+    try:
+        revision = netlist_revision(root)
+    except ValueError as error:
+        print(f"{path}: {error}", file=sys.stderr)
+        return 2
     if args.revision and revision != args.revision:
         sys.exit(f"ERROR schematic revision {revision} does not match requested {args.revision}")
     ok = check(netlist_nets(root), revision)
