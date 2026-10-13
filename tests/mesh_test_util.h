@@ -28,21 +28,13 @@ inline constexpr float RECONCILE_TRUNCATE_T = 1.0f / 3.0f;
  * @param count Sides in the face.
  * @param k Corner to measure.
  * @return The value classify_faces_impl rounds to a whole degree.
- * @details Mirrors classify_faces_impl (core/mesh/mesh.h) term for term:
- *          unnormalized edges, the same degenerate-edge cutoff, acosf.
  */
 inline float classifier_angle_deg(const PolyMesh &m, const uint16_t *idx,
                                   int count, int k) {
   const int prev_k = k == 0 ? count - 1 : k - 1;
   const int next_k = k + 1 == count ? 0 : k + 1;
-  const math::Vector e1 = m.vertices[idx[prev_k]] - m.vertices[idx[k]];
-  const math::Vector e2 = m.vertices[idx[next_k]] - m.vertices[idx[k]];
-  const float m1 = math::dot(e1, e1);
-  const float m2 = math::dot(e2, e2);
-  if (!(m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ))
-    return 0.0f;
-  const float d = hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
-  return acosf(d) * 180.0f / math::PI_F;
+  return face_corner_angle_deg(m.vertices[idx[prev_k]], m.vertices[idx[k]],
+                               m.vertices[idx[next_k]]);
 }
 
 /**
