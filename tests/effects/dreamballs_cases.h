@@ -15,7 +15,7 @@ struct DreamBallsWhiteBox {
   static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
   static int active_bake(const DB &db) { return db.active_bake; }
-  static bool holding(const DB &db) { return db.hold_departure; }
+  static bool holding(const DB &db) { return db.plateau_hold.held(); }
   // Advance the choreography, then re-spawn.
   static void advance(DB &db) {
     HS_EXPECT_TRUE(db.advance_preset());

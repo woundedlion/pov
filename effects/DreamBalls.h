@@ -202,8 +202,7 @@ public:
     // Mirror live slider edits into the active sprite's snapshot; the previous
     // sprite's slot stays at the values it was spawned with.
     param_slots[active_bake] = params;
-    hold_departure = departure_due && anims_paused;
-    departure_due = hold_departure;
+    plateau_hold.step(anims_paused);
     {
       HS_PROFILE(db_timeline_step);
       timeline.step(canvas);
@@ -355,11 +354,8 @@ private:
   /** @brief Sprite hand-off crossfade; overlap is CROSSFADE_OVERLAP, set at
    *         init(). */
   Segue::Crossfade crossfade;
-  /** The live sprite reached its plateau's last frame this frame. */
-  bool departure_due = false;
-  /** Pause gate of the live sprite and the advance: holds the sprite at its
-   * plateau's last frame while paused. */
-  bool hold_departure = false;
+  /** Departure gate at the sprite plateau boundary. */
+  Segue::PlateauHold plateau_hold;
 
   ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
   AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
@@ -617,18 +613,14 @@ private:
                        baked_palettes[bake_slot]);
     };
 
-    departure_due = false;
-    hold_departure = false;
+    plateau_hold.reset();
     const int period = crossfade.schedule(timeline, draw_fn, SPRITE_LIFE,
-                                          FADE_WINDOW, &hold_departure);
+                                          FADE_WINDOW, plateau_hold.gate());
 
     HS_CHECK(period == SPRITE_PERIOD,
              "DreamBalls: sprite hand-off drifted off its expected cycle");
 
-    // Fires on the step that draws the sprite's last full-opacity frame.
-    timeline.add(SPRITE_LIFE - FADE_WINDOW,
-                 Animation::PeriodicTimer(
-                     0, [this](Canvas &) { departure_due = true; }));
+    plateau_hold.arm_plateau_end(timeline, SPRITE_LIFE - FADE_WINDOW);
 
     // A sprite paused mid fade-out hands off to a respawn of the same preset.
     timeline.add_pausable(period,
@@ -643,7 +635,7 @@ private:
                                 }
                                 this->spawn_sprite();
                               }),
-                          &hold_departure);
+                          plateau_hold.gate());
   }
 
   /**
