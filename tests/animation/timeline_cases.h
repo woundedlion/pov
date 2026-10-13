@@ -5,6 +5,95 @@
 
 // Timeline scheduling, cancellation and storage lifecycle.
 
+/** @brief A one-shot rotation keeps its final blur for one frame, then collapses it. */
+inline void test_timeline_one_shot_rotation_collapses_final_history() {
+  for (const bool PAUSE_AFTER_COMPLETION : {false, true}) {
+    math::Orientation<16> o;
+    Timeline tl;
+    bool paused = false;
+    int completions = 0;
+    tl.add_pausable(0,
+                    Animation::Rotation<96, 16>(o, math::Z_AXIS, math::PI_F, 10,
+                                                math::ease_linear)
+                        .then([&]() { ++completions; }),
+                    &paused);
+    for (int frame = 1; frame < 10; ++frame) {
+      tl.step(fake_canvas());
+      HS_EXPECT_EQ(completions, 0);
+    }
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_GT(o.length(), 1);
+    HS_EXPECT_EQ(tl.event_count(), 1);
+    paused = PAUSE_AFTER_COMPLETION;
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(o.length(), 1);
+    HS_EXPECT_NEAR(o.orient(math::X_AXIS, 0).x, -1.0f, 1e-5f);
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_EQ(tl.event_count(), 0);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(o.length(), 1);
+    HS_EXPECT_EQ(completions, 1);
+  }
+}
+
+/** @brief A completed rotation shell survives compaction and skips a retired owner's history. */
+inline void test_timeline_completed_rotation_compaction_and_owner_cancel() {
+  math::Orientation<16> o;
+  Timeline tl;
+  float lead = 0.0f;
+  int owner = 0;
+  int completions = 0;
+  tl.add(0, Animation::Transition(lead, 1.0f, 1, math::ease_linear));
+  tl.add_get(0,
+             Animation::Rotation<96, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
+                                         math::ease_linear)
+                 .then([&]() { ++completions; }),
+             Timeline::Pin::UNPINNED, nullptr, &owner);
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(tl.event_count(), 1);
+  HS_EXPECT_EQ(completions, 1);
+  HS_EXPECT_GT(o.length(), 1);
+  tl.cancel_owner(&owner);
+  o.set(math::Quaternion());
+  o.push(math::make_rotation(math::X_AXIS, math::PI_F / 4));
+  tl.step(fake_canvas());
+  HS_EXPECT_EQ(o.length(), 2);
+  HS_EXPECT_EQ(tl.event_count(), 0);
+  HS_EXPECT_EQ(completions, 1);
+}
+
+/** @brief A repeating rotation finished in its callback collapses once; cancellation retires it immediately. */
+inline void test_timeline_repeating_rotation_callback_retires_once() {
+  struct EndingRotation : Animation::Rotation<96, 16> {
+    explicit EndingRotation(math::Orientation<16> &o)
+        : Animation::Rotation<96, 16>(o, math::Z_AXIS, math::PI_F / 2, 1,
+                                      math::ease_linear, {.repeat = true}) {}
+    void finish_now() { finish(); }
+  };
+  for (const bool FINISH : {false, true}) {
+    math::Orientation<16> o;
+    Timeline tl;
+    int completions = 0;
+    auto *rotation = tl.add_get(0, EndingRotation(o), Timeline::Pin::UNPINNED);
+    rotation->then([rotation, &completions, FINISH]() {
+      ++completions;
+      if (FINISH)
+        rotation->finish_now();
+      else
+        rotation->cancel();
+    });
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_EQ(tl.event_count(), FINISH ? 1 : 0);
+    tl.step(fake_canvas());
+    HS_EXPECT_EQ(completions, 1);
+    HS_EXPECT_EQ(tl.event_count(), 0);
+    if (FINISH)
+      HS_EXPECT_EQ(o.length(), 1);
+  }
+}
+
 /**
  * @brief Verifies two animations sharing one Orientation COMPOSE their
  * sub-frame motion-blur history within a frame instead of clobbering it.
