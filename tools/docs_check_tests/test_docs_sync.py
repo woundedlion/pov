@@ -190,8 +190,8 @@ class DiscoveryAndCounts(unittest.TestCase):
             with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": revision}):
                 with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": ""}):
                     self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
-                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[1])}):
-                    self.assertEqual(ds.discover_daydream(root), candidates[1].resolve())
+                with mock.patch.dict(ds.os.environ, {"DAYDREAM_DIR": str(candidates[0])}):
+                    self.assertIsNone(ds.discover_daydream(root))
                 with mock.patch.object(ds, "checkout_revisions", return_value={"daydream": "0" * 40}):
                     self.assertIsNone(ds.discover_daydream(root))
 
