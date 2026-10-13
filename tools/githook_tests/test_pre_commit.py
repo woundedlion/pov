@@ -287,6 +287,7 @@ class PreCommitHook(unittest.TestCase):
         done = self.run_hook()
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("staged whitespace errors", done.stdout + done.stderr)
+        self.assertNotIn("TRACKED", done.stdout)
 
     def test_clang_format_reads_the_index(self):
         formatter = self.formatter()
