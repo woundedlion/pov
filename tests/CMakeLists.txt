@@ -431,7 +431,6 @@ add_custom_command(
     ${PULLBACK_MANIFEST_FILES}
   VERBATIM)
 add_custom_target(pullback_manifest_header DEPENDS ${PULLBACK_MANIFEST_HEADER})
-add_dependencies(run_tests pullback_manifest_header)
 
 add_executable(pullback_manifest_check
   ${CMAKE_CURRENT_SOURCE_DIR}/pullback_manifest_check.cpp
