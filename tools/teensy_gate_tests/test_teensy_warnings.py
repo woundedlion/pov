@@ -406,8 +406,11 @@ class TestRealColdVersusWarmCapture(unittest.TestCase):
     They pin PlatformIO's banner text and SCons's `Retrieved … from cache` line.
     """
 
-    COLD = (REAL_DIR / "cold_env_section.txt").read_text(encoding="utf-8")
-    WARM = (REAL_DIR / "warm_env_section.txt").read_text(encoding="utf-8")
+    @classmethod
+    def setUpClass(cls):
+        cls.COLD = (REAL_DIR / "cold_env_section.txt").read_text(encoding="utf-8")
+        cls.WARM = (REAL_DIR / "warm_env_section.txt").read_text(encoding="utf-8")
+
     TUS = {"core/engine/memory.cpp", "core/spatial/reaction_graph.cpp",
            "targets/Holosphere/Holosphere.ino.cpp"}
 
@@ -456,10 +459,12 @@ class TestRealVerboseCapture(unittest.TestCase):
     third-party Windows lines, then one of each from the Linux CI runner.
     """
 
-    LINES = (REAL_DIR / "verbose_build_log.txt").read_text(
-        encoding="utf-8").splitlines()
-    FIRST_PARTY = LINES[:3] + LINES[5:6]
-    THIRD_PARTY = LINES[3:5] + LINES[6:]
+    @classmethod
+    def setUpClass(cls):
+        cls.LINES = (REAL_DIR / "verbose_build_log.txt").read_text(
+            encoding="utf-8").splitlines()
+        cls.FIRST_PARTY = cls.LINES[:3] + cls.LINES[5:6]
+        cls.THIRD_PARTY = cls.LINES[3:5] + cls.LINES[6:]
 
     def test_every_line_yields_exactly_one_source(self):
         for line in self.LINES:
