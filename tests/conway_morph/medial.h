@@ -128,7 +128,8 @@ inline int medial_inverted_faces(const PolyMesh &m) {
       const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
       nrm = nrm + math::cross(a, b);
     }
-    if (math::dot(nrm, c) < 0.0f)
+    const float outward = math::dot(nrm, c);
+    if (!std::isfinite(outward) || outward < 0.0f)
       ++inv;
     off += n;
   }
