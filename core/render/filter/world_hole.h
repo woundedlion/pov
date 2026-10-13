@@ -33,7 +33,8 @@ public:
    * @param radius Angular radius of the hole in radians.
    */
   Hole(const math::Vector &origin, float radius)
-      : origin(origin.normalized()), radius(radius) {}
+      : origin(origin.normalized()), radius(radius),
+        cos_radius(radius < math::PI_F ? cosf(radius) : -1.0f) {}
 
   /**
    * @brief Moves the hole center, renormalizing to enforce the unit-length
@@ -49,10 +50,13 @@ public:
    * @brief Changes the hole's angular radius in radians.
    * @param new_radius Angular radius; values <= 0 disable the hole.
    */
-  void set_radius(float new_radius) { radius = new_radius; }
+  void set_radius(float new_radius) {
+    radius = new_radius;
+    cos_radius = radius < math::PI_F ? cosf(radius) : -1.0f;
+  }
   /**
    * @brief Attenuates points near the hole center, leaving others unchanged.
-   * @param v World-space point to test.
+   * @param v Unit world-space point to test.
    * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled by a quintic falloff inside the
@@ -63,14 +67,27 @@ public:
   template <typename PassFnT>
   void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    float d = math::angle_between(v, origin);
-    if (d >= radius)
+    if (radius <= 0.0f) {
       pass(v, color, age, alpha);
-    else {
-      float mask = math::quintic_kernel(d / radius);
-      if (mask > MASK_CUTOFF)
-        pass(v, color, age, alpha * mask);
+      return;
     }
+    float c = math::dot(v, origin);
+    float m1 = math::dot(v, v);
+    float m2 = math::dot(origin, origin);
+    HS_CHECK(m1 >= math::EPS_LEN_SQ && m2 >= math::EPS_LEN_SQ,
+             "Hole::plot: degenerate vector");
+    float norm_sq = m1 * m2;
+    float threshold_sq = cos_radius * cos_radius * norm_sq;
+    bool outside = cos_radius >= 0.0f ? c <= 0.0f || c * c <= threshold_sq
+                                      : c < 0.0f && c * c >= threshold_sq;
+    if (radius <= math::PI_F && outside) {
+      pass(v, color, age, alpha);
+      return;
+    }
+    float d = math::fast_acos(hs::clamp(c / sqrtf(norm_sq), -1.0f, 1.0f));
+    float mask = math::quintic_kernel(d / radius);
+    if (mask > MASK_CUTOFF)
+      pass(v, color, age, alpha * mask);
   }
 
 private:
@@ -79,6 +96,7 @@ private:
 
   math::Vector origin; /**< Center of the hole (unit vector). */
   float radius;        /**< Angular radius of the hole in radians. */
+  float cos_radius;    /**< Cosine threshold, saturated at a half turn. */
 };
 
 } // namespace World

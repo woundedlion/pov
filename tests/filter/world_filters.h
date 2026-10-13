@@ -132,6 +132,95 @@ inline void test_world_hole_setters() {
   HS_EXPECT_NEAR(got.alpha, 0.5f, 0.005f);
 }
 
+/** @brief Verifies disabled radii pass every point and setters refresh the cap. */
+inline void test_world_hole_radius_limits() {
+  Filter::World::Hole hole(math::Y_AXIS, 0.1f);
+  const math::Vector PROBE(sinf(0.25f), cosf(0.25f), 0.0f);
+  for (float radius : {0.0f, -0.5f, 0.1f, 0.5f, 0.0f, 0.5f}) {
+    hole.set_radius(radius);
+    int count = 0;
+    float alpha = -1.0f;
+    hole.plot(PROBE, Pixel(1, 2, 3), 2.0f, 0.8f,
+              [&](const math::Vector &v, const Pixel &c, float age, float a) {
+                ++count;
+                alpha = a;
+                HS_EXPECT_EQ(v.x, PROBE.x);
+                HS_EXPECT_EQ(v.y, PROBE.y);
+                HS_EXPECT_EQ(c.r, 1);
+                HS_EXPECT_EQ(age, 2.0f);
+              });
+    HS_EXPECT_EQ(count, 1);
+    HS_EXPECT_NEAR(alpha, radius == 0.5f ? 0.4f : 0.8f, 0.004f);
+  }
+  for (float radius : {0.0f, -0.5f}) {
+    Filter::World::Hole disabled(math::Y_AXIS, radius);
+    int count = 0;
+    disabled.plot(math::Y_AXIS, Pixel(1, 2, 3), 0.0f, 0.7f,
+                  [&](const math::Vector &, const Pixel &, float, float a) {
+                    ++count;
+                    HS_EXPECT_EQ(a, 0.7f);
+                  });
+    HS_EXPECT_EQ(count, 1);
+  }
+}
+
+/** @brief Compares Hole alpha with an independent angular quintic oracle. */
+inline void test_world_hole_angular_reference() {
+  for (const math::Vector &center :
+       {math::Y_AXIS, math::Vector(1.0f, 2.0f, -3.0f).normalized()}) {
+    const math::Vector TANGENT = math::cross(center, math::X_AXIS).normalized();
+    const math::Vector NORMALIZED_ORIGIN = (center * 3.0f).normalized();
+    for (float radius : {0.05f, 0.5f, 1.2f, math::PI_F, 1.5f * math::PI_F,
+                         2.0f * math::PI_F}) {
+      Filter::World::Hole hole(center * 3.0f, radius);
+      for (int i = 0; i <= 360; ++i) {
+        const double ANGLE = 3.14159265358979323846 * i / 360.0;
+        for (float scale : {0.998f, 1.0f - 2e-7f, 1.0f, 1.0f + 2e-7f, 1.002f}) {
+          const math::Vector POINT =
+              (center * math::fast_cosf(static_cast<float>(ANGLE)) +
+               TANGENT * math::fast_sinf(static_cast<float>(ANGLE))) *
+              scale;
+          const double DOT = static_cast<double>(POINT.x) * center.x +
+                             static_cast<double>(POINT.y) * center.y +
+                             static_cast<double>(POINT.z) * center.z;
+          const double NORM =
+              std::sqrt((static_cast<double>(POINT.x) * POINT.x +
+                         static_cast<double>(POINT.y) * POINT.y +
+                         static_cast<double>(POINT.z) * POINT.z) *
+                        (static_cast<double>(center.x) * center.x +
+                         static_cast<double>(center.y) * center.y +
+                         static_cast<double>(center.z) * center.z));
+          const double T = std::min(
+              std::acos(std::clamp(DOT / NORM, -1.0, 1.0)) / radius, 1.0);
+          const double MASK = T * T * T * (10.0 + T * (-15.0 + 6.0 * T));
+          int count = 0;
+          float alpha = 0.0f;
+          hole.plot(POINT, Pixel(1, 2, 3), 0.0f, 0.8f,
+                    [&](const math::Vector &, const Pixel &, float, float a) {
+                      ++count;
+                      alpha = a;
+                    });
+          HS_EXPECT_LE(count, 1);
+          HS_EXPECT_NEAR(alpha, 0.8 * MASK, 0.003f);
+          const float DISTANCE = math::angle_between(POINT, NORMALIZED_ORIGIN);
+          const float PREVIOUS_MASK =
+              DISTANCE >= radius ? 1.0f
+                                 : math::quintic_kernel(DISTANCE / radius);
+          HS_EXPECT_NEAR(alpha,
+                         PREVIOUS_MASK > 1e-8f ? 0.8f * PREVIOUS_MASK : 0.0f,
+                         1e-5f);
+          if (MASK > 0.01)
+            HS_EXPECT_EQ(count, 1);
+          if (i == 360 && radius == math::PI_F)
+            HS_EXPECT_NEAR(alpha, 0.8f, 1e-6f);
+          if (i == 360 && radius > math::PI_F)
+            HS_EXPECT_LT(alpha, 0.79f);
+        }
+      }
+    }
+  }
+}
+
 /**
  * @brief Verifies Orient rotates by the bound Orientation, and a single-frame
  *        (stationary) orientation emits one tap with age left untouched.

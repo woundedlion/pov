@@ -7,6 +7,20 @@
 
 // Plot filter death cases.
 
+/** @brief Traps when an enabled Hole receives a degenerate world point. */
+inline void case_world_hole_zero_point() {
+  Filter::World::Hole hole(math::Y_AXIS, 0.5f);
+  int count = 0;
+  auto capture = [&](const math::Vector &, const Pixel &, float, float alpha) {
+    HS_CHECK(alpha == 0.7f, "Hole companion alpha");
+    ++count;
+  };
+  hole.plot(-math::Y_AXIS, Pixel(1, 2, 3), 0.0f, 0.7f, capture);
+  HS_CHECK(count == 1, "Hole companion missing");
+  const math::Vector ZERO(opaque(0.0f), opaque(0.0f), opaque(0.0f));
+  hole.plot(ZERO, Pixel(1, 2, 3), 0.0f, 0.7f, capture);
+}
+
 /** @brief Traps on scan ring stack too many slots. */
 inline void case_scan_ring_stack_too_many_slots() {
   constexpr int W = 32, H = 16;
