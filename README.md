@@ -1085,6 +1085,7 @@ The unit suite is a native (non-WASM) Clang build with asserts enabled, also dri
 ```bash
 cmake --preset tests          # configure (cmake/toolchain-native-clang.cmake)
 cmake --build --preset tests  # build the run_tests executable
+cmake --build --preset tests --target excluded_targets
 ctest --preset tests          # run the suite at the short default window
 just test                     # the same suite at CI's deeper window
 ```

@@ -235,7 +235,8 @@ public:
    * @param pin Pin::PINNED: the caller retains the pointer across frames, so
    * the event must never move: the animation must be infinite or repeating and
    * no finite, non-repeating or cancelled event may precede it (both trap).
-   * No predecessor may be cancelled while a later pinned event lives.
+   * cancel_owner() rejects retiring predecessors of later owned pinned events;
+   * ownerless pinned events are exempt, but still cannot move during step().
    * Pin::UNPINNED: the pointer is valid only at the call site.
    * @param paused Optional event-level pause gate.
    * @param owner Optional lifetime owner used by cancel_owner().
@@ -299,6 +300,8 @@ public:
 
   /**
    * @brief Cancels every event bound to the retiring lifetime owner.
+   * @details Later ownerless pinned events are exempt from the predecessor
+   * check for teardown ordering; moving one during step() still traps.
    * @param owner Lifetime token shared by the events to cancel.
    */
   HS_COLD_MEMBER void cancel_owner(const void *owner) {

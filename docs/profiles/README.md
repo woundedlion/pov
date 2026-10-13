@@ -34,8 +34,8 @@ full-roster image.
 
 Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
-render exceeded one 62.5 ms window. Colours are strict per config: 🟢 zero spill;
-🔴 any spill. ● marks shipping-only captures and optimized face-distance snapshots.
+render exceeded one 62.5 ms window. Colours are per config: 🟢 zero spill;
+🟡 under 25% spill; 🔴 at least 25% spill. ● marks shipping-only captures and optimized face-distance snapshots.
 Image deltas belong to each O3 capture's own shipping pair, not to the linked
 2026-10-06 shipping report; MeshFeedback and KaleidoscopeStainedGlass use
 adjacent-source pairs (`63268c376` O3 versus `20ca3cb48` shipping), so their
@@ -184,6 +184,8 @@ Capture `d25dd85dee17` maps to landed `43858e5fb`; only test headers differ,
 with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
 landed `3fc710350`. Capture `7baf3cc4307` maps to landed `daf63d812` on a
 different base (319 differing files); it cannot be treated as the same tree.
+Capture `17390a7a1` is unpublished: it is `e7f19b0d1` plus one profiling scope.
+Capture `d5ca81403` landed as `c40c1def8`.
 Capture `0df961b818ae` is unrecoverable. These historical orphan hashes are
 not reachable from the published branch. The KaleidoscopeSmooth shipping
 capture additionally used an unretained source patch, so its recorded base

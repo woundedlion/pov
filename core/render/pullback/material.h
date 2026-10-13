@@ -108,7 +108,7 @@ struct Ridge : ApproximationDefaults, TransferRole {
     around @p level, falling to zero across a second half-width.
     @param value Field value.
     @param level Contour level.
-    @param width Band half-width; 0 gives a hard band edge.
+    @param width Band half-width; must be positive (0 yields an empty band).
     @return Band weight in [0, 1]. */
 __attribute__((always_inline)) inline float
 iso_contour(float value, float level, float width) {
