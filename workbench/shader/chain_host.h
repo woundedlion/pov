@@ -31,6 +31,15 @@ struct ShaderChainWhiteBox;
 } // namespace shader_chain_tests
 } // namespace hs_test
 
+/** @brief Initial program for the ShaderChain preview effect. */
+inline constexpr Pullback::Interp::ChainEntryRequest
+    SHADER_CHAIN_DEFAULT_CHAIN[] = {
+        {"camera", "sphere.rotate.v2"},
+        {"project", "project.stereographic.v2"},
+        {"sample", "sample.grid.v3"},
+        {"colorize", "colorize.generated-palette.v3"},
+};
+
 /** @brief One named value in an atomic chain parameter update. */
 struct ShaderChainParameterWrite {
   const char *name; ///< Registered "{instance}.{field-id}" parameter name.
@@ -86,14 +95,8 @@ public:
     generated_palettes.init(persistent_arena, DEFAULT_CHROMA,
                             math::ease_in_out_sin);
 
-    static constexpr ChainEntryRequest DEFAULT_CHAIN[] = {
-        {"camera", "sphere.rotate.v2"},
-        {"project", "project.stereographic.v2"},
-        {"sample", "sample.grid.v3"},
-        {"colorize", "colorize.generated-palette.v3"},
-    };
-    const ChainRefusal refusal =
-        set_chain(std::span<const ChainEntryRequest>(DEFAULT_CHAIN));
+    const ChainRefusal refusal = set_chain(
+        std::span<const ChainEntryRequest>(SHADER_CHAIN_DEFAULT_CHAIN));
     HS_CHECK(refusal.code == ChainStatus::OK,
              "ShaderChain: the default chain must compile");
   }

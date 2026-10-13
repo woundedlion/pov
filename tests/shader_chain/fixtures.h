@@ -105,12 +105,9 @@ inline const ColorResources &shared_resources() {
   return RESOURCES;
 }
 
-inline constexpr In::ChainEntryRequest DEFAULT_CHAIN[] = {
-    {"camera", "sphere.rotate.v2"},
-    {"project", "project.stereographic.v2"},
-    {"sample", "sample.grid.v3"},
-    {"colorize", "colorize.generated-palette.v3"},
-};
+inline constexpr auto &DEFAULT_CHAIN = SHADER_CHAIN_DEFAULT_CHAIN;
+static_assert(DEFAULT_CHAIN[0].operator_id == "sphere.rotate.v2");
+static_assert(DEFAULT_CHAIN[2].operator_id == "sample.grid.v3");
 
 /** @brief Returns direction samples for operator parity sweeps. */
 inline std::array<math::Vector, 14> sweep_views() {
