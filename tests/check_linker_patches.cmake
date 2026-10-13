@@ -20,6 +20,8 @@ else()
     "platformio.ini pins no framework-arduinoteensy release to fork from")
 endif()
 
+string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _script "${_script}")
+
 string(FIND "${_script}" ".text.code :" _code_at)
 string(FIND "${_script}" ".text.progmem :" _progmem_at)
 string(FIND "${_script}" ".text.itcm :" _itcm_at)
