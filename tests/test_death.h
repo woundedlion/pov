@@ -1147,6 +1147,10 @@ inline const Case *all_cases(int &n) {
            case_plot_extract_edges_vertex_over_capacity,
            "core/render/plot/mesh.h",
            "(large < DEDUP_CAPACITY) Mesh edge dedup: vertex index "},
+          {"feedback_scratch_zero", case_feedback_scratch_zero,
+           "core/render/filter/pixel_feedback.h",
+           "(ds > 0 && W % ds == 0) feedback downsample 0 must "
+           "be > 0 and divide width 32"},
           {"feedback_downsample_indivisible",
            case_feedback_downsample_indivisible,
            "core/render/filter/pixel_feedback.h",
