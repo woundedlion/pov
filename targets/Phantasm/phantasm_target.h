@@ -29,6 +29,7 @@
 #include "core/math/geometry.h"
 #include "core/memory.h"
 #include "hardware/pov_segmented.h"
+#include "hardware/device_effect.h"
 #include "targets/effects.h"
 
 inline constexpr int TOTAL_PIXELS = 288; ///< Physical LEDs across both arms.
@@ -91,12 +92,6 @@ template <typename E, size_t MAX_BYTES = HS_PHANTASM_EFFECT_HEAP_BYTES>
 Effect *construct_effect() {
   static_assert(sizeof(E) <= MAX_BYTES,
                 "effect exceeds the heap-object budget");
-  // The per-pixel lazy-init guards are non-atomic and rely on this eager fill.
-  math::GeometryResolution<E>::init();
-  configure_arenas_default(); // Reset before init so effects can override
-  E *e = new (std::nothrow) E();
-  HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-  e->init();
-  return e;
+  return construct_device_effect<E>();
 }
 } // namespace

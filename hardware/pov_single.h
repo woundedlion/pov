@@ -15,6 +15,7 @@
 #include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
 #include "core/platform/rng.h"
 #include "hardware/pov_single_map.h"
+#include "hardware/device_effect.h"
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -64,12 +65,8 @@ public:
    */
   template <typename E, typename... Args>
   static void show(unsigned long duration, Args &&...args) {
-    math::GeometryResolution<E>::init();
-    configure_arenas_default(); // Reset before init so effects can override
     hs::seed_effect_stream<E>();
-    E *e = new (std::nothrow) E(std::forward<Args>(args)...);
-    HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
-    e->init();
+    E *e = construct_device_effect<E>(std::forward<Args>(args)...);
     run(e, duration);
     delete e;
   }
