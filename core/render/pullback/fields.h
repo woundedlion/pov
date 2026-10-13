@@ -143,10 +143,12 @@ concat_fields(const std::array<Field<BaseOwner>, N> &base,
 }
 
 /**
- * @brief The shared `edge-width` field: range [0, 1], linear, always shown.
+ * @brief The shared `edge-width` field: range [0, 1], linear.
+ * @details Uses `FieldGate::ALWAYS`; @p topology_gate limits applicable
+ * topology values, and a null @p name leaves the field unregistered.
  * @tparam Owner The family struct the field belongs to.
  * @param member The float member it drives.
- * @param name Slider display name.
+ * @param name Slider display name; null leaves the field unregistered.
  * @param topology_gate Topology value(s) that read it.
  * @return The field descriptor.
  */
