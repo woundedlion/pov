@@ -844,6 +844,28 @@ static inline uint32_t fold_face_topology_hash(uint32_t face_hash,
 }
 
 /**
+ * @brief Returns a face corner's interior angle in degrees before rounding.
+ * @param prev Previous vertex.
+ * @param curr Corner vertex.
+ * @param next Next vertex.
+ * @return Interior angle, or zero for a degenerate edge.
+ */
+__attribute__((always_inline)) inline float
+face_corner_angle_deg(const math::Vector &prev, const math::Vector &curr,
+                      const math::Vector &next) {
+  const math::Vector e1 = prev - curr;
+  const math::Vector e2 = next - curr;
+  const float m1 = math::dot(e1, e1);
+  const float m2 = math::dot(e2, e2);
+  float ang = 0.0f;
+  if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ) {
+    const float d = hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
+    ang = acosf(d);
+  }
+  return ang * 180.0f / math::PI_F;
+}
+
+/**
  * @brief Colors faces based on their vertex count and neighbor topology.
  * @tparam MeshT Mesh type exposing the unified accessors and a topology array.
  * @param mesh Mesh to classify; its topology array is filled with class ids.
@@ -921,17 +943,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         const math::Vector &prev = mesh.vertices[faces[offset + prev_k]];
         const math::Vector &curr = mesh.vertices[faces[offset + k]];
         const math::Vector &next = mesh.vertices[faces[offset + next_k]];
-        const math::Vector e1 = prev - curr;
-        const math::Vector e2 = next - curr;
-        const float m1 = math::dot(e1, e1);
-        const float m2 = math::dot(e2, e2);
-        float ang = 0.0f;
-        if (m1 > math::EPS_LEN_SQ && m2 > math::EPS_LEN_SQ) {
-          const float d =
-              hs::clamp(math::dot(e1, e2) / sqrtf(m1 * m2), -1.0f, 1.0f);
-          ang = acosf(d);
-        }
-        angles[k] = static_cast<int>(std::round(ang * 180.0f / math::PI_F));
+        angles[k] = static_cast<int>(
+            std::round(face_corner_angle_deg(prev, curr, next)));
       }
       for (int k = 1; k < count; ++k) {
         const int x = angles[k];
