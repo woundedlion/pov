@@ -184,6 +184,11 @@ inline void case_plot_window_multi_segment() {
       {.plot_t_start = opaque(0.25f), .plot_t_end = opaque(0.75f)});
 }
 
+/** @brief Scratch sizing rejects zero downsample before dividing. */
+inline void case_feedback_scratch_zero() {
+  (void)Filter::Pixel::Feedback<32, 16>::uncached_scratch_bytes(opaque(0));
+}
+
 /**
  * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
  * @details The trap fires before any scratch allocation, so no buffers are
