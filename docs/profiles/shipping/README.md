@@ -3,7 +3,7 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. ● marks the October 11 KaleidoscopeMelt, October 8 JewelMelt, October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by spill fraction, then peak render. ● marks the October 11 KaleidoscopeMelt, October 8 JewelMelt, October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
