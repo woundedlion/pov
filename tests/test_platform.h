@@ -337,7 +337,10 @@ inline void test_harness_counts_failures() {
     };
     nest(nest, CONTEXT_CAP + 2);
     HS_EXPECT_EQ(context_depth(), depth);
-    skip_case("test_specialized_render_signature", "harness self-test");
+    skip_case(FAST_MATH_APPROVED_SKIPS[0], "harness self-test");
+#if defined(HS_TEST_FAST_MATH)
+    skip_case("unapproved_harness_skip", "harness self-test");
+#endif
     skipped_delta = stats().skipped - before.skipped;
     for (int i = 0; i < FAIL_PRINT_CAP + EXTRA; ++i)
       HS_EXPECT_TRUE(false);
@@ -350,11 +353,17 @@ inline void test_harness_counts_failures() {
   fail_print_budget() = saved_budget;
 
   HS_EXPECT_TRUE(text.has_value());
-  HS_EXPECT_EQ(failed_delta, 7 + FAIL_PRINT_CAP + EXTRA);
+  constexpr int UNAPPROVED_SKIP =
+#if defined(HS_TEST_FAST_MATH)
+      1;
+#else
+      0;
+#endif
+  HS_EXPECT_EQ(failed_delta, 7 + FAIL_PRINT_CAP + EXTRA + UNAPPROVED_SKIP);
   HS_EXPECT_EQ(passed_delta, 4);
   HS_EXPECT_EQ(suppressed, 7 + EXTRA);
   HS_EXPECT_EQ(empty_module, 1);
-  HS_EXPECT_EQ(skipped_delta, 1);
+  HS_EXPECT_EQ(skipped_delta, 1 + UNAPPROVED_SKIP);
   HS_EXPECT_FALSE(size_returned);
   if (text)
     HS_EXPECT_NE(text->find("rel_error="), std::string::npos);
