@@ -233,6 +233,39 @@ inline void test_chamfer_zero_area_birth_limit() {
   }
 }
 
+/** @brief Accumulates outward winding and inter-sample normal continuity. */
+inline void update_orientation_sample(const PolyMesh &mesh,
+                                      const std::vector<size_t> &off,
+                                      std::vector<math::Vector> &prev_normal,
+                                      float &min_outward, float &min_normal_dot,
+                                      float *min_area = nullptr) {
+  std::vector<math::Vector> normal(mesh.face_counts.size());
+  for (size_t f = 0; f < mesh.face_counts.size(); ++f) {
+    normal[f] = face_area_vector(mesh, off[f], mesh.face_counts[f]);
+    if (min_area)
+      *min_area =
+          std::min(*min_area, std::sqrt(math::dot(normal[f], normal[f])));
+    math::Vector c(0, 0, 0);
+    const int n = mesh.face_counts[f];
+    for (int k = 0; k < n; ++k)
+      c = c + mesh.vertices[mesh.faces[off[f] + k]];
+    const float len =
+        std::sqrt(math::dot(normal[f], normal[f])) * std::sqrt(math::dot(c, c));
+    if (len > 0.0f)
+      min_outward = std::min(min_outward, math::dot(normal[f], c) / len);
+  }
+  if (!prev_normal.empty()) {
+    for (size_t f = 0; f < normal.size(); ++f) {
+      const float la = std::sqrt(math::dot(prev_normal[f], prev_normal[f]));
+      const float lb = std::sqrt(math::dot(normal[f], normal[f]));
+      if (la > 0.0f && lb > 0.0f)
+        min_normal_dot = std::min(
+            min_normal_dot, math::dot(prev_normal[f], normal[f]) / (la * lb));
+    }
+  }
+  prev_normal = normal;
+}
+
 /**
  * @brief Steps a chamfer sweep from T_EPS to the shipping arrival on every
  *        chamfer seed, asserting topology and outward orientation hold.
@@ -272,35 +305,16 @@ inline void test_chamfer_sweep_holds_topology() {
         break;
 
       face_offsets(swept, off);
-      std::vector<math::Vector> normal(swept.face_counts.size());
-      for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-        normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
-        math::Vector c(0, 0, 0);
-        const int n = swept.face_counts[f];
-        for (int k = 0; k < n; ++k)
-          c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len = std::sqrt(math::dot(normal[f], normal[f])) *
-                          std::sqrt(math::dot(c, c));
-        if (len > 0.0f)
-          min_outward = std::min(min_outward, math::dot(normal[f], c) / len);
-      }
+      update_orientation_sample(swept, off, prev_normal, min_outward,
+                                min_normal_dot);
       if (s > 0) {
         for (size_t v = 0; v < swept.vertices.size(); ++v) {
           const math::Vector d = swept.vertices[v] - prev_vertices[v];
           max_step = std::max(max_step, std::sqrt(math::dot(d, d)));
         }
-        for (size_t f = 0; f < normal.size(); ++f) {
-          const float la = std::sqrt(math::dot(prev_normal[f], prev_normal[f]));
-          const float lb = std::sqrt(math::dot(normal[f], normal[f]));
-          if (la > 0.0f && lb > 0.0f)
-            min_normal_dot =
-                std::min(min_normal_dot,
-                         math::dot(prev_normal[f], normal[f]) / (la * lb));
-        }
       }
       prev_vertices.assign(swept.vertices.data(),
                            swept.vertices.data() + swept.vertices.size());
-      prev_normal = normal;
     }
 
     // No face turns inside out and no vertex teleports between steps.
@@ -396,31 +410,8 @@ inline void test_truncate001_birth_sweep_holds_topology() {
         break;
 
       face_offsets(swept, off);
-      std::vector<math::Vector> normal(swept.face_counts.size());
-      for (size_t f = 0; f < swept.face_counts.size(); ++f) {
-        normal[f] = face_area_vector(swept, off[f], swept.face_counts[f]);
-        min_area =
-            std::min(min_area, std::sqrt(math::dot(normal[f], normal[f])));
-        math::Vector c(0, 0, 0);
-        const int n = swept.face_counts[f];
-        for (int k = 0; k < n; ++k)
-          c = c + swept.vertices[swept.faces[off[f] + k]];
-        const float len = std::sqrt(math::dot(normal[f], normal[f])) *
-                          std::sqrt(math::dot(c, c));
-        if (len > 0.0f)
-          min_outward = std::min(min_outward, math::dot(normal[f], c) / len);
-      }
-      if (s > 0) {
-        for (size_t f = 0; f < normal.size(); ++f) {
-          const float la = std::sqrt(math::dot(prev_normal[f], prev_normal[f]));
-          const float lb = std::sqrt(math::dot(normal[f], normal[f]));
-          if (la > 0.0f && lb > 0.0f)
-            min_normal_dot =
-                std::min(min_normal_dot,
-                         math::dot(prev_normal[f], normal[f]) / (la * lb));
-        }
-      }
-      prev_normal = normal;
+      update_orientation_sample(swept, off, prev_normal, min_outward,
+                                min_normal_dot, &min_area);
     }
 
     HS_EXPECT_TRUE(min_area > 0.0f);
