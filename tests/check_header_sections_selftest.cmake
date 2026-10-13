@@ -54,4 +54,40 @@ check_gate("${INCLUDE_GATE}" FALSE "section header shadows an engine include")
 check_gate("${CALL_GATE}" FALSE "section header shadows an engine include")
 file(REMOVE "${WORK}/core/alpha/guards.h")
 check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+
+hs_gate_workspace("${CALL_GATE}")
+set(_local_helpers [=[inline void capture_frame() {
+}
+inline void test_guard() {
+  capture_frame();
+}
+inline int run_alpha_tests() {
+  test_guard();
+  return 0;
+}
+]=])
+set(_asserting_helpers [=[inline void capture_frame() {
+  HS_EXPECT_TRUE(true);
+}
+]=])
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_local_helpers}")
+file(WRITE "${WORK}/tests/pixel_helpers.h" "\n${_asserting_helpers}")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion: test_alpha.h:test_guard")
+string(REPLACE "inline void capture_frame() {\n}" "inline void capture_frame() {\n  HS_EXPECT_TRUE(true);\n}" _asserting_local "${_local_helpers}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_asserting_local}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+
+string(REPLACE "inline void capture_frame() {\n}\n" "" _cross_header "${_local_helpers}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_cross_header}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+file(WRITE "${WORK}/tests/replay_helpers.h" "\ninline void capture_frame() {\n}\n")
+check_gate("${CALL_GATE}" FALSE "test cases reach no assertion: test_alpha.h:test_guard")
+file(REMOVE "${WORK}/tests/replay_helpers.h")
+
+set(_overload [=[inline void capture_frame(int value) {
+  HS_EXPECT_TRUE(value);
+}
+]=])
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_local_helpers}${_overload}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
 message(STATUS "test section controls passed")
