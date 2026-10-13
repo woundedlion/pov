@@ -2,7 +2,8 @@
 
 pioino.FindInoNodes globs only `$PROJECT_SRC_DIR/*.ino` and ignores
 build_src_filter, so it finds nothing under targets/<X>/. This override returns
-exactly the sketch for $PIOENV.
+exactly the sketch for $PIOENV. The hook moves -fno-use-cxa-atexit from
+BUILD_FLAGS to CXXFLAGS so C translation units do not receive it.
 """
 
 import os
