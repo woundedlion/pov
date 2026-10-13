@@ -236,9 +236,9 @@ inline void run_kaleidoscope_variant(In::ChainProgram &program,
 }
 
 inline void test_shader_chain_parity_lens_ops() {
+  run_lens_parity<PB::Lens::Glitch, In::Op::GlitchChainParams>(
+      In::Op::LensGlitch::ID, ValueSet::DEFAULTS);
   for_each_value_set([&](ValueSet set) {
-    run_lens_parity<PB::Lens::Glitch, PB::Lens::NoLensParams>(
-        In::Op::LensGlitch::ID, set);
     run_lens_parity<PB::Lens::Mobius<MobiusMirrorProvider>,
                     In::Op::MobiusChainParams>(In::Op::LensMobius::ID, set);
   });
@@ -287,4 +287,60 @@ inline void test_shader_chain_parity_lens_ops() {
   run_kaleidoscope_variant<PB::Lens::OctagonalPrismKaleidoscope>(
       program, ctx, Symmetry::OCTAGONAL_PRISM);
   program.clear();
+}
+
+/** @brief Lens controls alter direction while preserving path length. */
+inline void test_shader_chain_lens_controls() {
+  const auto *twist = require_operator(In::Op::LensTwist::ID);
+  const auto *glitch = require_operator(In::Op::LensGlitch::ID);
+  if (!twist || !glitch)
+    return;
+  const auto ctx = shared_resources().context();
+  const PB::SphereSample input{math::Vector(0.6f, 0.5f, sqrtf(0.39f)), 0.25f};
+  for (const float phi : {0.4f, math::PI_F * 0.5f, 2.2f}) {
+    for (const float lambda : {0.0f, 0.7f, math::PI_F * 0.5f}) {
+      In::Op::TwistChainParams params;
+      *static_cast<float *>(twist->runtime.param_address(&params, 1)) = phi;
+      *static_cast<float *>(twist->runtime.param_address(&params, 2)) = lambda;
+      const auto prepared = In::Op::LensTwist::prepare(ctx, params, {});
+      const auto result = In::Op::LensTwist::run(input, ctx, params, prepared);
+      const double ax = sin(phi) * cos(lambda);
+      const double ay = cos(phi);
+      const double az = sin(phi) * sin(lambda);
+      const double h = input.dir.x * ax + input.dir.y * ay + input.dir.z * az;
+      const double c = cos(params.twist_rate * h);
+      const double s = sin(params.twist_rate * h);
+      HS_EXPECT_NEAR(result.dir.x,
+                     input.dir.x * c +
+                         (input.dir.y * az - input.dir.z * ay) * s +
+                         ax * h * (1 - c),
+                     2e-3);
+      HS_EXPECT_NEAR(result.dir.y,
+                     input.dir.y * c +
+                         (input.dir.z * ax - input.dir.x * az) * s +
+                         ay * h * (1 - c),
+                     2e-3);
+      HS_EXPECT_NEAR(result.dir.z,
+                     input.dir.z * c +
+                         (input.dir.x * ay - input.dir.y * ax) * s +
+                         az * h * (1 - c),
+                     2e-3);
+      HS_EXPECT_EQ(result.path_length, input.path_length);
+    }
+  }
+  for (const float polar : {-12.0f, 0.0f, 1.0f, 2.0f, 12.0f}) {
+    for (const float azimuth : {-12.0f, 0.0f, 1.0f, 3.0f, 12.0f}) {
+      In::Op::GlitchChainParams params;
+      *static_cast<float *>(glitch->runtime.param_address(&params, 0)) = polar;
+      *static_cast<float *>(glitch->runtime.param_address(&params, 1)) =
+          azimuth;
+      const auto result = In::Op::LensGlitch::run(input, ctx, params, {});
+      const double p = acos(input.dir.y) * polar;
+      const double a = atan2(input.dir.z, input.dir.x) * azimuth;
+      HS_EXPECT_NEAR(result.dir.x, sin(p) * cos(a), 3e-6);
+      HS_EXPECT_NEAR(result.dir.y, cos(p), 3e-6);
+      HS_EXPECT_NEAR(result.dir.z, sin(p) * sin(a), 3e-6);
+      HS_EXPECT_EQ(result.path_length, input.path_length);
+    }
+  }
 }
