@@ -72,9 +72,11 @@ struct GalaxiesWhiteBox {
   }
 };
 
-/** @brief Core opacity rises smoothly from zero to full brightness. */
+/** @brief Core opacity rises monotonically and stays within 0.02 of the two-cap reference. */
 inline void test_galaxies_core_fade() {
   using WB = GalaxiesWhiteBox;
+  constexpr float REFERENCE_ANGULAR_CAP = 0.035f;
+  constexpr float REFERENCE_CHORD_CAP = 0.03f;
   HS_EXPECT_EQ(WB::core_fade(-1.0f), 0.0f);
   HS_EXPECT_EQ(WB::core_fade(0.0f), 0.0f);
   HS_EXPECT_EQ(WB::core_fade(1.0f), 1.0f);
@@ -84,12 +86,13 @@ inline void test_galaxies_core_fade() {
   const float INV_SPAN = 1.0f / (1.0f - cosf(WB::CORE_FADE_RADIUS));
   float previous = 0.0f;
   for (int i = 0; i <= 1000; ++i) {
-    const float angle = i * (0.035f / 1000.0f);
+    const float angle = i * (REFERENCE_ANGULAR_CAP / 1000.0f);
     const float cos_distance = cosf(angle);
     const float actual = WB::core_fade((1.0f - cos_distance) * INV_SPAN);
     const float reference =
-        math::quintic_kernel(angle / 0.035f) *
-        math::quintic_kernel((1.0f - cos_distance) / (1.0f - cosf(0.03f)));
+        math::quintic_kernel(angle / REFERENCE_ANGULAR_CAP) *
+        math::quintic_kernel((1.0f - cos_distance) /
+                             (1.0f - cosf(REFERENCE_CHORD_CAP)));
     HS_EXPECT_GE(actual, previous);
     HS_EXPECT_GE(actual, 0.0f);
     HS_EXPECT_LE(actual, 1.0f);
