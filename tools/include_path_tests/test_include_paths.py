@@ -54,10 +54,22 @@ class IncludePathsTests(unittest.TestCase):
     def test_legacy_effect_and_vendor_dependency_exemptions(self):
         target = "effects/sample.h"
         self.check("#pragma once\n")
-        for source in ("core/engine/effects_legacy.h", include_paths.CONFIG_HEADER):
+        for source in ("core/engine/effects_legacy.h", "core/vendor/upstream.h"):
             (self.root / source).parent.mkdir(parents=True, exist_ok=True)
             (self.root / source).write_text(f'#include "{target}"\n', encoding="utf-8")
             self.assertEqual(include_paths.check_includes(self.root, [source, target]), [])
+
+    def test_project_config_obeys_core_dependency_direction(self):
+        source = include_paths.CONFIG_HEADER
+        target = "effects/sample.h"
+        self.check("#pragma once\n")
+        (self.root / source).parent.mkdir(parents=True, exist_ok=True)
+        (self.root / source).write_text('#include "core/math/vector.h"\n', encoding="utf-8")
+        files = [*self.files, source]
+        self.assertEqual(include_paths.check_includes(self.root, files), [])
+        (self.root / source).write_text(f'#include "{target}"\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [
+            f'{source}:1: forbidden include "{target}" from core/'])
 
     def test_missing_tracked_source_is_diagnosed(self):
         diagnostics = include_paths.check_includes(self.root, self.files)

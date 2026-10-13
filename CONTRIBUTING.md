@@ -44,7 +44,8 @@ include directory; generated build headers use their build directory.
 `hardware/` excludes `effects/`, `targets/`, `workbench/` and `tests/`;
 `effects/` excludes `targets/`, `workbench/`, `hardware/` and `tests/`;
 `workbench/` excludes `effects/` and `targets/`. Vendored core code and
-`core/engine/effects_legacy.h` are exempt from direction checks.
+`core/engine/effects_legacy.h` are exempt from direction checks. The first-party
+`core/vendor/FastNoiseLite_config.h` follows the `core/` direction rules.
 
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --
