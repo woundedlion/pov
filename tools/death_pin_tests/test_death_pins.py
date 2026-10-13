@@ -32,7 +32,7 @@ class DeathPinUniqueness(unittest.TestCase):
                 checker.main()
             return out.getvalue()
 
-    def test_non_opleg_duplicate_guard_is_rejected(self):
+    def test_duplicate_guard_is_rejected(self):
         source = 'void first() { HS_CHECK(value > 0, "probe: positive"); }'
         pin = "(value > 0) probe: positive"
         self.assertIn("1 literal cases", self.check_fixture(source, pin))
