@@ -90,4 +90,30 @@ set(_overload [=[inline void capture_frame(int value) {
 ]=])
 file(WRITE "${WORK}/tests/test_alpha.h" "\n${_local_helpers}${_overload}")
 check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+
+hs_gate_workspace("${CALL_GATE}")
+set(_helper_calls [=[inline void test_guard() {
+  HS_EXPECT_TRUE(true);
+}
+inline void unused_helper() {
+  test_guard();
+}
+inline int run_alpha_tests() {
+  return 0;
+}
+]=])
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_helper_calls}")
+check_gate("${CALL_GATE}" FALSE "test case defined but never reached: test_alpha.h:test_guard")
+string(REPLACE "  return 0;" "  unused_helper();\n  return 0;" _called_helper "${_helper_calls}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_called_helper}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+
+string(REPLACE "inline void unused_helper()" "inline StrapSweepStats unused_helper()" _typed_helper "${_helper_calls}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_typed_helper}")
+check_gate("${CALL_GATE}" FALSE "test case defined but never reached: test_alpha.h:test_guard")
+string(REPLACE "  return 0;" "  unused_helper();\n  return 0;" _called_typed_helper "${_typed_helper}")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_called_typed_helper}")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
+file(WRITE "${WORK}/tests/test_alpha.h" "\n${_helper_calls}\ninline void declared_helper();\n#define CASE_DISPATCH unused_helper\n")
+check_gate("${CALL_GATE}" TRUE "all 1 case definitions")
 message(STATUS "test section controls passed")
