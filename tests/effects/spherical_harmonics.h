@@ -2,8 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Per-effect sweep primitives (smoke_one, determinism_one,
- * clip_clear_parity_one) and the effects white-box suite.
+ * SphericalHarmonics white-box tests.
  */
 
 inline constexpr std::array<int, 24> SH_PRESET_MODES{
