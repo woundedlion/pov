@@ -292,11 +292,7 @@ inline void test_medial_dual_bridge_wellformed() {
  */
 inline void test_opleg_medial_leg_smoke() {
   using Animation::OpLeg;
-  reset_globals();
-  const ScopedArenaSplit split(
-      IslamicStars<288, 144>::GENERATED_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_a,
-      IslamicStars<288, 144>::GENERATED_BUDGET.scratch_b);
+  const auto split = islamic_split(IslamicStars<288, 144>::GENERATED_BUDGET);
   hs::random().seed(2026u);
 
   Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
@@ -394,11 +390,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
   for (const StepLegSite &site : DUAL_LEG_SITES) {
     HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
-    reset_globals();
-    const ScopedArenaSplit split(
-        IslamicStars<288, 144>::BRIDGE_BUDGET.persistent(GLOBAL_ARENA_SIZE),
-        IslamicStars<288, 144>::BRIDGE_BUDGET.scratch_a,
-        IslamicStars<288, 144>::BRIDGE_BUDGET.scratch_b);
+    const auto split = islamic_split(IslamicStars<288, 144>::BRIDGE_BUDGET);
     hs::random().seed(2026u);
 
     Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
