@@ -199,7 +199,9 @@ are no longer available to rederive these buckets.
 
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Production adopted bounded channel phases. The ranked 21.84 ms capture at `e7f19b0d1` predates that change and measures the old float clock; the experiment records the cost difference without replacing the historical ranked row.
 
-## Effects excluded by product curation
+Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
+
+## Effects excluded from the Phantasm image
 
 RingShower remains in the Holosphere roster. Its archived captures precede removal from the Phantasm image.
 
@@ -208,7 +210,7 @@ RingShower remains in the Holosphere roster. Its archived captures precede remov
 | [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
-Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
+Low-resolution-only (96×20) effects:
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
