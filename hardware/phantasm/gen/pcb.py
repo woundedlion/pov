@@ -1072,11 +1072,11 @@ def main(unplaced=False, force=False, force_teensy_library=False):
         lines.append(f'\t(gr_text {sexp.quote("USB PLUG KEEP-OUT")} (at 5.3 11.5 90)'
                      f' (layer "Dwgs.User") (uuid "{uid()}") '
                      '(effects (font (size 0.8 0.8) (thickness 0.15))))')
-        front_silk = [
-            ("ID0", 54.3, 8.9, 90),
-            ("ID1", 54.3, 11.9, 90),
-            ("ID2", 54.3, 15.3, 90),
-            ("SHLD", 54.3, 19.0, 90),
+        silk_marks = [
+            ("ID0", 54.3, 8.9, 90, "F.SilkS"),
+            ("ID1", 54.3, 11.9, 90, "F.SilkS"),
+            ("ID2", 54.3, 15.3, 90, "F.SilkS"),
+            ("SHLD", 54.3, 19.0, 90, "F.SilkS"),
         ]
         edge_placements = layout["edge_placements"]
         sync_marks = layout["sync_marks"]
@@ -1086,14 +1086,17 @@ def main(unplaced=False, force=False, force_teensy_library=False):
                 for pin, mark in enumerate(pin_marks):
                     label_y = y + pin * 2.54
                     label_x = x + 4.5
+                    layer = "F.SilkS"
                     if any(x0 <= label_x <= x1 and y0 <= label_y <= y1
                            for x0, y0, x1, y1 in mounting_reserve_rects(L).values()):
                         label_x = x + 2.5
-                    front_silk.append((mark, label_x, label_y, 0))
-        for text, x, y, angle in front_silk:
+                        layer = "B.SilkS"
+                    silk_marks.append((mark, label_x, label_y, 0, layer))
+        for text, x, y, angle, layer in silk_marks:
+            justify = " (justify mirror)" if layer == "B.SilkS" else ""
             lines.append(f'\t(gr_text {sexp.quote(text)} (at {fmt(x)} {fmt(y)} {angle})'
-                         f' (layer "F.SilkS") (uuid "{uid()}") '
-                         '(effects (font (size 0.8 0.8) (thickness 0.15))))')
+                         f' (layer "{layer}") (uuid "{uid()}") '
+                         f'(effects (font (size 0.8 0.8) (thickness 0.15)){justify}))')
         for ref, label in (("J1", "PWR"), ("J2", "LED OUT"),
                            ("J3A", "SYNC IN"), ("J3B", "SYNC OUT")):
             if fixed.get(ref) != edge_placements[ref]:
