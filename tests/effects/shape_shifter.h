@@ -20,11 +20,8 @@ inline void test_shapeshifter_preset_defaults() {
   ss.init();
 
   auto value = [&](const char *name) {
-    for (const auto &def : ss.getParameters())
-      if (std::strcmp(def.name, name) == 0)
-        return def.get();
-    HS_EXPECT(false, "ShapeShifter parameter is missing");
-    return -1.0f;
+    const auto *def = hs_test::required_param(ss, name);
+    return def ? def->get() : -1.0f;
   };
 
   hs_test::expect_params_in_range(ss, "boot state");
