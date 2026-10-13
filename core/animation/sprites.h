@@ -404,6 +404,15 @@ public:
   void set_signed_axis_attractors(bool enabled) {
     HS_CHECK(!enabled || SIGNED_AXIS_ATTRACTORS,
              "signed-axis attractors were not enabled for this system");
+    if (enabled) {
+      for (size_t i = 0; i < attractors.size(); ++i) {
+        const math::Vector &pos = attractors[i].position;
+        HS_CHECK(i < AXES.size() && pos.x == AXES[i].x && pos.y == AXES[i].y &&
+                     pos.z == AXES[i].z,
+                 "ParticleSystem signed-axis attractors must be registered "
+                 "+X,-X,+Y,-Y,+Z,-Z");
+      }
+    }
     signed_axis_attractors = enabled;
   }
 
@@ -465,9 +474,6 @@ public:
     HS_CHECK(std::isfinite(softening) && softening >= 0.0f,
              "ParticleSystem attractor softening must be nonnegative");
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
-      static constexpr std::array<math::Vector, 6> AXES = {
-          math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
-          -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
       const size_t index = attractors.size();
       HS_CHECK(!signed_axis_attractors ||
                    (index < AXES.size() && pos.x == AXES[index].x &&
@@ -539,6 +545,10 @@ public:
   }
 
 private:
+  static constexpr std::array<math::Vector, 6> AXES = {
+      math::X_AXIS,  -math::X_AXIS, math::Y_AXIS,
+      -math::Y_AXIS, math::Z_AXIS,  -math::Z_AXIS};
+
   static constexpr float MOTION_MIN_SPEED = 0.000001f;
 
   uint16_t active_count =
