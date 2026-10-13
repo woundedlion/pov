@@ -123,8 +123,9 @@ template <int S, int N, int RPM> class POVSegmented {
 
   /**
    * @brief Master-enable strap for the external sync-out level shifter.
-   *        OUTPUT, driven LOW on the master (segment 0) and HIGH elsewhere, so
-   *        only the master drives the shared sync bus.
+   *        OUTPUT, driven LOW on the master (segment 0) unless `run_show()` is
+   *        standalone, HIGH otherwise, so only a non-standalone master drives
+   *        the shared sync bus.
    */
   static constexpr int PIN_MASTER_EN = 5;
 
