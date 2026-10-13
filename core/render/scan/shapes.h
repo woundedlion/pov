@@ -443,7 +443,7 @@ struct PlanarPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon plane.
-   * @param radius Polygon circumradius as a fraction of the hemisphere.
+   * @param radius Polygon circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -469,7 +469,7 @@ struct PlanarPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon plane.
-   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param color Fill color and alpha.
    * @param phase Angular phase offset in radians.
@@ -816,7 +816,7 @@ struct Star {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the star plane.
-   * @param radius Star circumradius as a fraction of the hemisphere.
+   * @param radius Star circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of star points.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -841,7 +841,7 @@ struct Star {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the star plane.
-   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of star points.
    * @param color Fill color and alpha.
    * @param phase Angular phase offset in radians.
@@ -870,7 +870,7 @@ struct Flower {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the flower plane.
-   * @param radius Flower circumradius as a fraction of the hemisphere.
+   * @param radius Flower circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of flower petals.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -895,7 +895,7 @@ struct Flower {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the flower plane.
-   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of flower petals.
    * @param color Fill color and alpha.
    * @param phase Angular phase offset in radians.
@@ -926,7 +926,7 @@ struct SphericalPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon.
-   * @param radius Polygon circumradius as a fraction of the hemisphere.
+   * @param radius Polygon circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -955,7 +955,7 @@ struct SphericalPolygon {
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param basis Orientation basis of the polygon.
-   * @param radius Circumradius as a fraction of the hemisphere.
+   * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param color Fill color and alpha.
    * @param phase Angular phase offset in radians.
