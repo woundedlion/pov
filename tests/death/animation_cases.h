@@ -143,6 +143,52 @@ inline void case_orientation_frame_index_oob() {
     std::printf("x");
 }
 
+/** @brief Reclaiming a live phase block traps before its next write. */
+inline void case_mobiuswarp_evolving_rewind() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  math::MobiusParams params;
+  const size_t START = persistent_arena.get_offset();
+  Animation::MobiusWarpEvolving warp(params);
+  warp.step(canvas);
+  persistent_arena.set_offset(START);
+  warp.step(canvas);
+}
+
+/** @brief A moved phase block retains its reclaim stamp after refill. */
+inline void case_mobiuswarp_evolving_move_rewind_refill() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  math::MobiusParams params;
+  const size_t START = persistent_arena.get_offset();
+  Animation::MobiusWarpEvolving source(params);
+  Animation::MobiusWarpEvolving moved(std::move(source));
+  Animation::MobiusWarpEvolving assigned(params);
+  assigned = std::move(moved);
+  assigned.step(canvas);
+  const size_t END = persistent_arena.get_offset();
+  persistent_arena.set_offset(START);
+  persistent_arena.allocate(END - START);
+  assigned.step(canvas);
+}
+
+/** @brief A copied phase block retains its reclaim stamp after refill. */
+inline void case_mobiuswarp_evolving_copy_rewind_refill() {
+  static hs_test::StubEffect fx(8, 8);
+  static Canvas canvas(fx);
+  math::MobiusParams params;
+  Animation::MobiusWarpEvolving source(params);
+  const size_t START = persistent_arena.get_offset();
+  Animation::MobiusWarpEvolving copied(source);
+  Animation::MobiusWarpEvolving assigned(params);
+  assigned = copied;
+  assigned.step(canvas);
+  const size_t END = persistent_arena.get_offset();
+  persistent_arena.set_offset(START);
+  persistent_arena.allocate(END - START);
+  assigned.step(canvas);
+}
+
 /** @brief Traps on opleg rewind refill. */
 inline void case_opleg_rewind_refill() {
   static uint8_t seed_storage[64 * 1024], leg_storage[128 * 1024];
