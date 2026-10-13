@@ -145,7 +145,7 @@ inline void test_effect_transition_fenced_commit() {
   controller.tick();
   controller.tick();
   controller.tick();
-  HS_EXPECT_EQ(adapter.envelopes.size(), SECOND_START + 4);
+  HS_EXPECT_SIZE_OR_RETURN(adapter.envelopes, SECOND_START + 4);
   HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 1], 1.0f);
   HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 2], 0.5f);
   HS_EXPECT_EQ(adapter.envelopes[SECOND_START + 3], 0.0f);
