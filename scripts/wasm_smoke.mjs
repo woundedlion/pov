@@ -1649,6 +1649,16 @@ async function main(probe) {
         },
         hueTorsion: 0, falloffStart: 0.9,
       };
+      for (const schemaVersion of [3, undefined, '4']) {
+        const rejected = po.compileAndBakeV4({ schemaVersion });
+        if (rejected.status.code !== Module.PaletteCompileCode.INVALID_SCHEMA ||
+            rejected.status.field !== Module.PaletteRecipeField.SCHEMA_VERSION)
+          fail(`palette schema version ${schemaVersion} was not rejected at SCHEMA_VERSION`);
+      }
+      const missingInput = po.compileAndBakeV4({ schemaVersion: 4 });
+      if (missingInput.status.code !== Module.PaletteCompileCode.INVALID_SCHEMA ||
+          missingInput.status.field !== Module.PaletteRecipeField.INPUT_OFFSET)
+        fail('valid palette schema with missing input was not rejected at INPUT_OFFSET');
       for (const [path, value, field] of [
         ['domain', 0.99, Module.PaletteRecipeField.PALETTE_DOMAIN], ['easing', 1.9, Module.PaletteRecipeField.EASING], ['colorPath', 0.5, Module.PaletteRecipeField.COLOR_PATH],
         ['hue.mode', 2.7, Module.PaletteRecipeField.HUE_MODE], ['hue.harmony', 1.5, Module.PaletteRecipeField.HARMONY], ['hue.direction', 0.5, Module.PaletteRecipeField.HUE_DIRECTION],

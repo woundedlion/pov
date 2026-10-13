@@ -189,8 +189,7 @@ private:
    * @param status Status written on rejection.
    * @return True when every block and enum decoded.
    * @details A schemaVersion that is missing, non-numeric or other than
-   *          PaletteRecipe::SCHEMA_VERSION is passed through as 0 for
-   *          try_compile() to reject. Leaf scalars are not bounds-checked here:
+   *          PaletteRecipe::SCHEMA_VERSION is rejected before decoding blocks or enums. Leaf scalars are not bounds-checked here:
    *          a missing or non-numeric one decodes to NaN and try_compile()'s
    *          finite validation names active fields after canonicalizing inactive ones.
    */
@@ -204,6 +203,11 @@ private:
                 schema_version.as<double>() == PaletteRecipe::SCHEMA_VERSION
             ? PaletteRecipe::SCHEMA_VERSION
             : 0;
+    if (recipe.schema_version != PaletteRecipe::SCHEMA_VERSION) {
+      status.code = PaletteCompileCode::INVALID_SCHEMA;
+      status.field = PaletteRecipeField::SCHEMA_VERSION;
+      return false;
+    }
     const emscripten::val recipe_input = input["input"];
     if (!block_present(recipe_input, PaletteRecipeField::INPUT_OFFSET, status))
       return false;
