@@ -61,6 +61,9 @@ if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetNoiseGradientSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its analytic gradient path")
 endif()
 
+string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _config "${_config}")
+string(REGEX REPLACE "//[^\n]*" "" _config "${_config}")
+
 if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
   list(APPEND _missing
     "FastNoiseLite_config.h no longer defines FASTNOISELITE_ONLY_OPENSIMPLEX2")
