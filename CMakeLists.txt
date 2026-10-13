@@ -91,6 +91,7 @@ if(EMSCRIPTEN)
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message(STATUS "WASM Debug build (-O0 -g -sASSERTIONS, 64 KB stack)")
+    target_compile_definitions(${TARGET_NAME} PRIVATE HS_TIMELINE_MAX_ANIM_BYTES=128)
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
