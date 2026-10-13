@@ -26,15 +26,6 @@ namespace shapeshifter_tiles_tests {
 
 using namespace hs_test::shapeshifter_oracle_tests;
 
-/** @brief Restores the planar pole-run splitting flag on scope exit. */
-struct ScopedPoleRunSplit {
-  bool saved = Plot::g_planar_chords_split_pole_runs;
-  explicit ScopedPoleRunSplit(bool enabled) {
-    Plot::g_planar_chords_split_pole_runs = enabled;
-  }
-  ~ScopedPoleRunSplit() { Plot::g_planar_chords_split_pole_runs = saved; }
-};
-
 inline void copy_clip(OracleFrame &destination, const OracleFrame &source,
                       const OracleClip &clip) {
   for (int y = clip.y0; y < clip.y1; ++y)
