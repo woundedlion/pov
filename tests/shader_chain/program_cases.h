@@ -752,7 +752,7 @@ inline void test_shader_chain_param_address_channel() {
   const In::OperatorDescriptor &sample_op = *program.ops()[2].op;
   uint8_t *block = program.param_block(2);
   auto &typed = *reinterpret_cast<In::Op::GridSampleParams *>(block);
-  // Every schema index resolves inside the block, floats first.
+  // Every schema index resolves inside the block.
   for (uint16_t index = 0; index < sample_op.schema_count; ++index) {
     const uint8_t *address = static_cast<const uint8_t *>(
         sample_op.runtime.param_address(block, index));

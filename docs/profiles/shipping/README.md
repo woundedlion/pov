@@ -3,7 +3,7 @@
 Ranked on-device results for the shipping `profile` image, covering the
 38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by any spill, then peak render. ● marks the October 11 KaleidoscopeMelt and October 8 JewelMelt captures. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by any spill, then peak render. ● marks the October 11 KaleidoscopeMelt, October 8 JewelMelt, October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 is zero spill; 🔴 is any spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -50,8 +50,8 @@ The full-roster sweep was captured on 2026-10-06 at `e2f5b0a3d` across COM3
 and COM4, except HyperLattice, re-captured after its 4D optimization at
 `a13c149d4`; its linked report records the 51.774 ms peak. GnomonicStars was
 re-captured on October 7; its report records the source and clock variant.
-● marks the October 7 IslamicStars and HankinSolids optimized face-distance
-measurements. Each report names its board and source snapshot. Setup frame 1
+The October 7 IslamicStars and HankinSolids captures measure optimized
+face distance. Each report names its board and source snapshot. Setup frame 1
 is excluded from display peak and spill figures. JewelMelt's October 8 capture
 at softness 0.5 records its full-width initialization draw separately.
 

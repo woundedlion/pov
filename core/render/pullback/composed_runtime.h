@@ -16,9 +16,10 @@
  * providers. Required `Derived` members: `EFFECT_ID`, `PRESET_IDS` (preset
  * identities by preset number), `PARAMETER_SCHEMA_VERSION` (changes with the
  * Params layout) and `PRESET_DWELL_FRAMES`. Presets resolve through
- * `preset(index)`, then `PRESETS`; only single-preset effects may fall back to
- * startup params. Optional members: `initial_params`, `ANIMATED_MOBIUS`,
- * `CAMERA_SPIN_RATE`, `after_composed_init()`, and `WARP_NOISE_SEED` /
+ * the `PRESET_ROW` hook with `PRESET_IDS`, then `PRESETS`; only single-preset
+ * effects may fall back to startup params. Optional hook bindings:
+ * `INITIAL_PARAMS` and `AFTER_COMPOSED_INIT`. Optional members:
+ * `ANIMATED_MOBIUS`, `CAMERA_SPIN_RATE`, and `WARP_NOISE_SEED` /
  * `SOURCE_NOISE_SEED` / `SURFACE_NOISE_SEED` shadows. A shade() shadow changes
  * the emitted body only by calling
  * RenderPipeline::evaluate(view, frame.ctx, frame.prepared).
@@ -101,9 +102,8 @@ public:
   /**
    * @brief Claims the runtime's persistent storage and registers the effect.
    * @details Every allocation this makes comes from `persistent_arena`, so the
-   * effect heap-allocates nothing after init. `Derived::after_composed_init()`
-   * runs last, once the parameters, palette cycler and camera walks are all
-   * live.
+   * effect heap-allocates nothing after init. The `AFTER_COMPOSED_INIT` hook
+   * runs last, once the parameters, palette cycler and camera walks are live.
    */
   HS_COLD_MEMBER void init() override {
     this->begin_choreography();

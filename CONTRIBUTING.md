@@ -116,7 +116,8 @@ protected branch's `CI green` status is the authoritative correctness gate.
   the behavior being tested. Exercise that mutation when practical, restore the
   production code, and record the mutation and observed result in the change's
   validation notes. A test that stays green needs a stronger assertion.
-- **Native suite:** `cmake --preset tests && cmake --build --preset tests` then
+- **Native suite:** `cmake --preset tests && cmake --build --preset tests`,
+  `cmake --build --preset tests --target excluded_targets`, then
   `ctest --preset tests --output-on-failure --no-tests=error`. Every CI leg
   drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
   arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution leg (also run on pull requests)
