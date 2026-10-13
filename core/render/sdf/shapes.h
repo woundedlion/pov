@@ -42,7 +42,9 @@ struct PlanarPolygon {
    *          read by every distance() call, so it must outlive the shape.
    * @param radius Circumradius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be >= 3).
-   * @param ph Azimuth phase offset (radians).
+   * @param ph Azimuth phase offset (radians), added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
@@ -162,7 +164,9 @@ struct SphericalPolygon {
    *          read by every distance() call, so it must outlive the shape.
    * @param radius Polygon radius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be >= 3).
-   * @param ph Azimuth phase offset (radians).
+   * @param ph Azimuth phase offset (radians), added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
@@ -334,7 +338,9 @@ struct Star {
    *          by every distance() call, so it must outlive the shape.
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of star points (must be >= 3).
-   * @param ph Azimuth phase offset (radians).
+   * @param ph Azimuth phase offset (radians), added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
@@ -466,7 +472,9 @@ struct Flower {
    *          read by every distance() call, so it must outlive the shape.
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of petals (must be >= 3).
-   * @param ph Azimuth phase offset (radians).
+   * @param ph Azimuth phase offset (radians), added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param invert When true, fill the complement (a shape spanning more than a
    *        hemisphere, rendered via its antipodal fold).
    */
