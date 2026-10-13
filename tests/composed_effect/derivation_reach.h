@@ -60,13 +60,12 @@ static_assert(std::is_same_v<
                   math::NoiseBasis::SIMPLEX, Pullback::Warp::FlatEnvelope>>);
 
 /**
- * @brief How much of one catalog operator's vocabulary a ComposedEffect
- *        specialization can emit.
+ * @brief Catalog vocabulary emitted by shipped ComposedEffect specializations.
  * @details A null `topology_id` marks an operator no Spec or parameter family
  * selects, so none of its topology values are reachable either. Otherwise
- * `reachable` lists exactly the values the derivation layer emits for that
- * enum8 and the rest are workbench-only, so a value the catalog gains counts
- * as unreachable until the row is revisited.
+ * `reachable` lists values emitted by a shipped specialization through a
+ * policy pin or Spec choice. A Spec selecting another value extends its row
+ * and updates the unreachable-count pin.
  */
 struct DerivationReach {
   const char *operator_id;
@@ -190,10 +189,9 @@ inline bool derivation_value_reachable(std::string_view operator_id,
 
 /**
  * @brief Pins the catalog vocabulary no ComposedEffect specialization emits.
- * @details DERIVATION_REACH records how far the derivation layer falls short of
- * the chain interpreter's OPERATOR_TABLE and is resolved against the live
- * table, so a renamed or removed operator, topology enum8 or value reds, as
- * does a catalog addition the table has not classified.
+ * @details DERIVATION_REACH classifies shipped policy pins and Spec choices
+ * against the live catalog. A Spec selecting another value extends its row
+ * and updates the unreachable-count pin.
  */
 inline void test_composed_derivation_reach() {
   static_assert(Pullback::MetadataFor<AshCloudSpec>::FIELD_COVERAGE ==
