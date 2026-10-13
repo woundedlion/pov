@@ -1368,7 +1368,7 @@ def main():
         fabricate()
 
 
-def fabricate():
+def fabricate(revision="1.1", validate_only=False, refill_zones=True):
     print(f"kicad-cli: {kicad_cli()}")
     if not os.path.exists(PCB):
         sys.exit(f"board not found: {PCB}")
@@ -1377,8 +1377,8 @@ def fabricate():
     except BoardReadError as exc:
         sys.exit(str(exc))
     titles = F(board, "title_block")
-    if len(titles) != 1 or sexp.val(titles[0], "rev") != ["1.1"]:
-        sys.exit("the exporter supports rev 1.1 only")
+    if len(titles) != 1 or sexp.val(titles[0], "rev") != [revision]:
+        sys.exit(f"board revision does not match requested {revision}")
     print("[1/9] Plot origin + solder mask")
     try:
         validate_plot_origin(PCB, board=board)
@@ -1393,7 +1393,8 @@ def fabricate():
     print(f"  solder mask: {MIN_SOLDER_MASK_WEB_MM:g} mm minimum web; vias tented on both sides")
     print("[2/9] Via geometry")
     try:
-        num_vias = validate_via_geometry(PCB, board=board)
+        num_vias = validate_via_geometry(
+            PCB, min_vias=MIN_BOARD_VIAS if revision == "1.1" else 1, board=board)
     except ViaGeometryError as exc:
         sys.exit(str(exc))
     print(
@@ -1413,7 +1414,7 @@ def fabricate():
         f"{MIN_THERMAL_SPOKE_MM:g} mm spoke / {MIN_ZONE_WIDTH_MM:g} mm fill minimums")
     print("[4/9] DRC + ERC reports and schematic parity")
     try:
-        num_floors = validate_project_rules()
+        num_floors = validate_project_rules(PRO)
     except ProjectRulesError as exc:
         sys.exit(str(exc))
     print(f"  project rules: {num_floors} DRC floors meet the fabrication "
@@ -1464,7 +1465,9 @@ def fabricate():
     try:
         validate_assembly_exclusions(comps, assembled, board)
         with open(net, encoding="utf-8") as fh:
-            revision = netlist_spec.netlist_revision(sexp.parse_one(fh.read()))
+            schematic_revision = netlist_spec.netlist_revision(sexp.parse_one(fh.read()))
+        if schematic_revision != revision:
+            raise AssemblyMetadataError(["schematic revision does not match requested revision"])
         validate_assembled_refs(assembled, revision)
         validate_rotation_refs(assembled)
         assembly_metadata = validate_assembly_metadata(posrows, assembled)
@@ -1474,6 +1477,9 @@ def fabricate():
         validate_part_catalog(assembly_metadata)
     except PartCatalogError as exc:
         sys.exit(str(exc))
+
+    if validate_only:
+        return
 
     if os.path.lexists(JLC + ".previous"):
         sys.exit(f"recover previous package before promotion: {JLC}.previous")
@@ -1488,7 +1494,7 @@ def fabricate():
     with tempfile.TemporaryDirectory(prefix=STAGE_PREFIX, dir=OUT) as staged:
         print("[6/9] Gerbers")
         run_export("gerber", [kicad_cli(), "pcb", "export", "gerbers",
-                              "--check-zones", "--layers", GERBER_LAYERS,
+                              *(["--check-zones"] if refill_zones else []), "--layers", GERBER_LAYERS,
                               "-o", staged + os.sep, PCB])
         print("[7/9] Drill")
         # Absolute origin, matching the gerbers and the centroid.
@@ -1571,8 +1577,9 @@ def fabricate():
     print(f"  fab package: {zpath}")
     print(f"  package sha256: {sha256_file(zpath)}")
     print(f"  digest manifest: {manifest_path}")
-    print(f"  commit it to {SHIPPED_SUMS} to record what was ordered, then "
-          "re-check the package with fab.py --verify")
+    if refill_zones:
+        print(f"  commit it to {SHIPPED_SUMS} to record what was ordered, then "
+              "re-check the package with fab.py --verify")
 
 
 if __name__ == "__main__":

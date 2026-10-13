@@ -1,0 +1,19 @@
+{
+  "ordered": false,
+  "producer": "Quilter",
+  "provenance": "User-identified Quilter output; original job ID and export date are unavailable. Not ordered.",
+  "revision": "1.2",
+  "source_sha256": {
+    "fp-lib-table": "fadeef1477fd022f6d1f2cef7a2f6a4e0133f193d770ca68fb6ed8eb2c46f7c9",
+    "phantasm.kicad_pcb": "69aedc01c712c2740b8b8573862d7063ed33cb69740b54c509f2b701b0dbfe30",
+    "phantasm.kicad_pro": "45a303948bd20339340cb79a96be0bf1445f163afdcc4a06057c353bd4faf78f",
+    "phantasm.kicad_sch": "c1ee258c1767aa53e900880f429d7f30eb9b7222b695aa783df32e7430fa601c",
+    "phantasm.kicad_sym": "225312bff8e7626bba6c2ba271aac410cf397eacbca540304a6323146590135f",
+    "phantasm.pretty/Teensy4.0.kicad_mod": "5f9f953b323356b7f498b73df4a8bd371c3759b7ebb4c2a65685175f9c3c5c95",
+    "phantasm.pretty/Teensy4.0.wrl": "f120ec83682c6d9ab152f7671a7b713dc5044dbcb37e8b23f3393c5dc9b477a5",
+    "phantasm.pretty/TerminalBlock_GCT_TBC05-02-1-G-G.kicad_mod": "de30f2ca5859eed9402b2cc86f64d889fefe2c808cdafae25f68cc173ed11c74",
+    "phantasm.pretty/TerminalBlock_GCT_TBC05-03-1-G-G.kicad_mod": "526b838ef8340373cfc319b7f11f9fe393202d974492d1ce78636609b2550360",
+    "sym-lib-table": "d3f2a4c416f8e75b72735784e2679123d55312be551e8b1d92884e98d7b83baf"
+  },
+  "status": "unvalidated"
+}
