@@ -446,7 +446,9 @@ struct PlanarPolygon {
    * @param radius Polygon circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
@@ -472,7 +474,9 @@ struct PlanarPolygon {
    * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param color Fill color and alpha.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, typename PipelineT>
@@ -819,7 +823,9 @@ struct Star {
    * @param radius Star circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of star points.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
@@ -844,7 +850,9 @@ struct Star {
    * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of star points.
    * @param color Fill color and alpha.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, typename PipelineT>
@@ -873,7 +881,9 @@ struct Flower {
    * @param radius Flower circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of flower petals.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
@@ -898,7 +908,9 @@ struct Flower {
    * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of flower petals.
    * @param color Fill color and alpha.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, typename PipelineT>
@@ -929,7 +941,9 @@ struct SphericalPolygon {
    * @param radius Polygon circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param fragment_shader Shader invoked per covered pixel.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
@@ -958,7 +972,9 @@ struct SphericalPolygon {
    * @param radius Circumradius as a fraction of the hemisphere, in (0, 2).
    * @param sides Number of polygon sides.
    * @param color Fill color and alpha.
-   * @param phase Angular phase offset in radians.
+   * @param phase Angular phase offset in radians. Added to the query azimuth,
+   *        so the shape turns in the opposite sense to Plot's phase for the
+   *        same basis and radius.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool SineDistance = false, typename PipelineT>
