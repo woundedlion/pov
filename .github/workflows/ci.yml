@@ -1142,6 +1142,8 @@ jobs:
         run: pip install --require-hashes -r requirements/numpy.txt -r requirements/ruff.txt -r requirements/shellcheck.txt
       - name: Run all Python suites
         run: python tools/run_python_tests.py
+      - name: Check routed candidate status and provenance
+        run: python hardware/phantasm/gen/release.py check-candidates
       - name: Check routed PCB metadata
         run: python hardware/phantasm/gen/board_metadata.py --check
 

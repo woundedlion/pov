@@ -1403,7 +1403,7 @@ files define line-ending policy and working-artifact exclusions.
 │   └── phantasm/               KiCad 10 project for the per-segment carrier board
 │       ├── README.md               Project entry point and Quilter upload guide
 │       ├── 1.1/                    Routed rev 1.1 board, schematic, project libraries, and validation matrix
-│       ├── 1.2/                    Matching rev 1.2 schematic and unplaced Quilter input
+│       ├── 1.2/                    Rev 1.2 Quilter input and unvalidated routed candidate
 │       ├── 1.3/                    Experimental differential-sync schematic and unplaced PCB
 │       └── gen/                    Python design/fabrication tools (`just pcb` runs `fab.py` only)
 │

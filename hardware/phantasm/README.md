@@ -43,6 +43,7 @@ Existing routed candidates do not acquire these constraints retroactively.
 | Directory | Contents |
 |---|---|
 | `1.2/` | Current complete rev 1.2 project for Quilter |
+| [1.2/routed/](1.2/routed/README.md) | Unvalidated Quilter output; not ordered |
 | [1.3/](1.3/README.md) | Experimental differential-sync project; requires placement, routing, and firmware support |
 | [1.1/](1.1/README.md) | Routed rev 1.1 project, libraries, and detailed technical reference |
 | `gen/` | Generators and validation tools |
@@ -131,3 +132,73 @@ The TBC05-02 and TBC05-03 terminal-block footprints in `1.2/phantasm.pretty/`
 and TBC05-04 in `1.3/phantasm.pretty/` are hand-maintained source files.
 The PCB generator reads and copies them; the 1.3 TBC05-02 and TBC05-03
 footprints are generated copies of the 1.2 sources.
+
+## Validation and release
+
+The [routed rev 1.2 candidate](1.2/routed/README.md) is unvalidated Quilter
+output and has **not been ordered**. A routed filename or successful CI run
+is not approval for fabrication. CI checks its explicit status and source
+hashes; release creation runs the fabrication gates. Generated inputs and
+routing candidates can remain in Git while those gates fail.
+
+Use the explicit project and revision together:
+
+```sh
+python hardware/phantasm/gen/release.py validate --revision 1.2 --project hardware/phantasm/1.2/routed
+python hardware/phantasm/gen/release.py check-candidates
+```
+
+Validation snapshots the selected KiCad project, rules, library tables and
+local library/model inputs. It checks manufacturing rules, zone/via geometry, mask/origin,
+ENIG and copper stackup, copper connectivity, ERC, DRC, schematic parity,
+netlist membership, and assembly assignments/metadata. Rev 1.2 does not inherit
+rev 1.1's historical footprint-warning allowances. The first static pass lists
+independent failures together; later gates stop on failure. Neither validation
+nor release repairs source files. Rev 1.3 release is not supported.
+
+Repair a **separate copy of the whole project**, retaining its library tables.
+Use the existing zone and clearance repair tools on that copy, review the diff,
+restore ENIG and inspect the stackup in KiCad. Update the PCB from its schematic
+and resolve placement/library differences as needed. Refill and save zones in
+KiCad, then run validation against that saved project. Validation and release
+refill zones in a disposable copy before all copper gates, retaining both
+original and evaluated source hashes. They never change zone settings. Export
+uses that evaluated copper without another refill. Check the harness, ferrules,
+connector access and Teensy height physically; these are not automated gates.
+
+Once validation passes, choose a new output directory outside the source tree:
+
+```sh
+python hardware/phantasm/gen/release.py release --revision 1.2 --project path/to/reviewed-project --output path/to/releases/rev1.2-candidate1
+python hardware/phantasm/gen/release.py verify path/to/releases/rev1.2-candidate1
+```
+
+Release creation repeats every gate and exports Gerbers, drills, BOM and CPL.
+It refuses an existing destination and publishes only after export-content and
+digest checks pass. The package contains the exact source snapshot, reports,
+file hashes, generator hashes, KiCad/Python versions and fabrication options in
+its release manifest. Archive the entire package and retain the printed
+**release SHA256** outside it. Verification checks bytes against the manifest;
+the independently retained SHA256 identifies the manifest you reviewed.
+Source edits require a new release. The older `fab.py` command remains the
+legacy rev 1.1 exporter; it does not create this release record.
+
+Before ordering, verify that SHA256, select the recorded ENIG/stackup options
+at the fabricator, and review the exact package's assembly preview, rotations,
+part substitutions and physical access. Upload only the Gerber archive and
+assembly CSVs under the package's output/jlc directory. No command places an
+order or marks a candidate ordered automatically.
+
+After an actual order, create a JSON details file containing vendor, order_id,
+ordered_at (ISO date/time), fabrication_options copied from the manifest and
+checked against the order, assembly_preview_reviewed=true, and
+mechanical_access_reviewed=true. Record it with the reviewed digest:
+
+```sh
+python hardware/phantasm/gen/release.py record-order --package path/to/releases/rev1.2-candidate1 --release-sha256 REVIEWED_SHA256 --details path/to/order-details.json --output path/to/order-record.json
+```
+
+The recorder verifies the package and options and refuses to overwrite an
+existing record. Commit the resulting order record beside the reviewed project
+and archive the exact package with it; retain the vendor receipt separately.
+The record documents an order already placed, not an authorization to order.

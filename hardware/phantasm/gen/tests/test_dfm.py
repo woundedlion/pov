@@ -91,7 +91,7 @@ class SolderMaskTests(unittest.TestCase):
                         mock.patch.object(fab, "read_board", return_value=root), \
                         mock.patch.object(fab, "run_export") as export, \
                         contextlib.redirect_stdout(io.StringIO()):
-                    with self.assertRaisesRegex(SystemExit, "rev 1.1 only"):
+                    with self.assertRaisesRegex(SystemExit, "board revision does not match requested 1.1"):
                         fab.main()
                 export.assert_not_called()
 
