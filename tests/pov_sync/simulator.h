@@ -384,6 +384,33 @@ inline bool all_boards_live(Sim &s) {
 }
 
 /**
+ * @brief Builds a predicate requiring every board to display an effect.
+ * @param index Required live effect index.
+ * @return Predicate inspecting the simulation's live indices.
+ */
+inline auto all_boards_on(int index) {
+  return [index](const Sim &sim) {
+    for (const auto &board : sim.boards)
+      if (board.live_index != index)
+        return false;
+    return true;
+  };
+}
+
+/**
+ * @brief Checks that downstream swaps align with the master.
+ * @param sim The simulation to inspect.
+ * @param tol Maximum separation in global cycles.
+ */
+inline void expect_swaps_aligned(const Sim &sim, uint64_t tol = 3 * COL) {
+  for (size_t i = 1; i < sim.boards.size(); ++i) {
+    const int64_t DELTA = static_cast<int64_t>(sim.boards[i].swap_g) -
+                          static_cast<int64_t>(sim.boards[0].swap_g);
+    HS_EXPECT_LE(std::abs(DELTA), static_cast<int64_t>(tol));
+  }
+}
+
+/**
  * @brief Runs the sim until every board has gone live (boot join complete).
  * @param sim The simulation to advance.
  * @param cfg The active config (supplies the join budget).
@@ -443,13 +470,9 @@ inline void test_sim_boot_and_phase() {
   // Boot join: every board goes live at the SAME join-grid boundary with
   // identical effect and frame counter (no master head start).
   HS_EXPECT_TRUE(boot_join(sim, cfg));
+  expect_swaps_aligned(sim);
   for (int i = 0; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
-    // Swaps happen at each board's own crossing of the same boundary —
-    // within a couple of columns of global time of each other.
-    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
-                       static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
   }
 
   // Run through the cycle-counter wrap and beyond; check phase + flip
@@ -575,18 +598,9 @@ inline void test_sim_epoch_commit() {
 
   // Commit: all four swap to effect 1 at the same boundary, frame counters
   // reset together; the EPOCH redundancy repeats were refractory-ignored.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 1)
-            return false;
-        return true;
-      },
-      4.0));
+  HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), 4.0));
+  expect_swaps_aligned(sim);
   for (int i = 1; i < 4; ++i) {
-    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
-                       static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
     HS_EXPECT_EQ(
         sim.boards[i].board.telemetry_snapshot().epochs_refractory_ignored,
@@ -605,14 +619,8 @@ inline void test_sim_epoch_commit() {
   }
 
   // Second epoch keeps the cadence (roster wraps mod effect_count).
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 0)
-            return false;
-        return true;
-      },
-      double(cfg.revs_per_effect) + 6));
+  HS_EXPECT_TRUE(
+      sim.run_until(all_boards_on(0), double(cfg.revs_per_effect) + 6));
 }
 
 /** @brief Verifies the master schedules each epoch from its roster duration. */
@@ -624,26 +632,15 @@ inline void test_sim_variable_effect_durations() {
   Sim sim(cfg, 4, ppm);
 
   HS_EXPECT_TRUE(boot_join(sim, cfg));
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 1)
-            return false;
-        return true;
-      },
-      double(effect_revolutions[0]) + 6));
+  HS_EXPECT_TRUE(
+      sim.run_until(all_boards_on(1), double(effect_revolutions[0]) + 6));
 
   sim.run_revs(45.0);
   for (auto &b : sim.boards)
     HS_EXPECT_EQ(b.live_index, 1);
 
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 2)
-            return false;
-        return true;
-      },
+      all_boards_on(2),
       double(effect_revolutions[1] + cfg.epoch_repeats + cfg.commit_revs) -
           45.0 + 1.0));
 }
@@ -1046,29 +1043,12 @@ inline void test_sim_epoch_repeat_lockstep() {
   const uint64_t rev = 2ull * PERIOD;
 
   /**
-   * @brief Predicate: all boards have committed to effect 1.
-   * @param s The simulation to inspect.
-   * @return True iff every board's live_index is 1.
-   */
-  auto all_on_effect_1 = [](Sim &s) {
-    for (auto &b : s.boards)
-      if (b.live_index != 1)
-        return false;
-    return true;
-  };
-  /**
-   * @brief Asserts every downstream board committed at the same boundary as the
-   *        master (≤3 columns apart, no trap) and holds an equal frame counter
-   *        afterward.
+   * @brief Checks aligned commits without traps and equal frame counters.
    * @param sim The simulation to inspect (advanced two revs while checking).
    */
   auto expect_lockstep = [&](Sim &sim) {
+    expect_swaps_aligned(sim);
     for (int i = 1; i < 4; ++i) {
-      // Commits land at each board's own crossing of the same boundary —
-      // within a couple of columns of global time, never a revolution apart.
-      const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
-                         static_cast<int64_t>(sim.boards[0].swap_g);
-      HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
       HS_EXPECT_FALSE(sim.boards[i].trapped);
     }
     sim.run_revs(2.0);
@@ -1088,7 +1068,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
     sim.boards[2].drop_from = sim.g + rev - 4 * COL;
     sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
-    HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
+    HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), commit_revs_max));
     expect_refractory_ignored(sim, 2);
     expect_lockstep(sim);
   }
@@ -1103,7 +1083,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
     const uint64_t b0 = sim.g + rev;
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
-    HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
+    HS_EXPECT_TRUE(sim.run_until(all_boards_on(1), commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry_snapshot();
     HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted +
                      tm0.beacons_overrun_dropped + tm0.boundary_bursts_dropped,
@@ -1156,18 +1136,11 @@ inline void test_sim_rev_resync() {
   sim.boards[3].drop_from = sim.g + rev - 4 * COL;
   sim.boards[3].drop_to = sim.g + rev + rev / 4;
   HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 1)
-            return false;
-        return true;
-      },
+      all_boards_on(1),
       double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8));
   expect_refractory_ignored(sim, 3);
+  expect_swaps_aligned(sim);
   for (int i = 1; i < 4; ++i) {
-    const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
-                       static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
@@ -1230,14 +1203,8 @@ inline void test_sim_rev_wrap_within_effect() {
   HS_EXPECT_TRUE(reached_end);
   // The epoch still commits in lockstep at the post-seam effect boundary:
   // on_epoch_symbol infers j from a rev whose 6-bit residue has wrapped.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (b.live_index != 1)
-            return false;
-        return true;
-      },
-      double(cfg.revs_per_effect) + 8));
+  HS_EXPECT_TRUE(
+      sim.run_until(all_boards_on(1), double(cfg.revs_per_effect) + 8));
   HS_EXPECT_TRUE(
       sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1));
   for (int i = 1; i < 4; ++i) {
