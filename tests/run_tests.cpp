@@ -375,7 +375,7 @@ int main(int argc, char **argv) {
   // Unbuffered stdout so progress survives a trap/abort in a death-case child.
   std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-  hs_test::death_tests::self_exe() = (argc > 0) ? argv[0] : nullptr;
+  hs_test::death_tests::set_self_exe((argc > 0) ? argv[0] : nullptr);
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
