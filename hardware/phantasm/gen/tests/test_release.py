@@ -80,7 +80,7 @@ class ReleaseTests(unittest.TestCase):
                              {("lib_footprint_mismatch", "D_BUS"): 1})
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
 
-    def pipeline(self, stack, fail=None):
+    def pipeline(self, stack, fail=None, revision="1.2"):
         events = []
         def preflight(project, revision, check_copper=True):
             events.append("copper" if check_copper else "settings")
@@ -93,9 +93,10 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn("--refill-zones", args)
             self.assertIn("--save-board", args)
             Path(args[-1]).write_text("refilled", encoding="utf-8")
+        expected_revision = revision
         def fabricate(revision, validate_only, refill_zones):
             events.append("fabricate")
-            self.assertEqual(revision, "1.2")
+            self.assertEqual(revision, expected_revision)
             self.assertFalse(refill_zones)
             self.assertEqual(Path(fab.PCB).read_text(), "refilled")
             if fail == "gate":
@@ -135,6 +136,15 @@ class ReleaseTests(unittest.TestCase):
         (self.destination / "output" / "jlc" / "phantasm-BOM.csv").write_text("tampered")
         with self.assertRaisesRegex(ValueError, "contents do not match"):
             release.verify(self.destination)
+
+    def test_manifest_records_finish_stackup_only_when_checked(self):
+        for revision in ("1.1", "1.2"):
+            with self.subTest(revision=revision), contextlib.ExitStack() as stack:
+                self.pipeline(stack, revision=revision)
+                destination = self.root / ("package-" + revision)
+                release.build(self.project, revision, destination)
+                record = json.loads((destination / "release.json").read_text())
+                self.assertEqual("finish_stackup" in record["validation"], revision == "1.2")
 
     def test_failures_never_publish(self):
         for failure in ("copper", "gate", "source_change"):
