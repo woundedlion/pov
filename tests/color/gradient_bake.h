@@ -306,6 +306,8 @@ inline void test_baked_palette_rebake_samples_closed_interval() {
 
   using Wrapped = StaticPalette<Gradient>;
   using Unwrapped = StaticPalette<Gradient, Coords<>, Colors<>, /*Wrap=*/false>;
+  using NestedWrapped = StaticPalette<Wrapped, Coords<>, Colors<>, false>;
+  static_assert(NestedWrapped::WRAPS_COORDINATE);
   static_assert(Wrapped::WRAPS_COORDINATE);
   static_assert(!Unwrapped::WRAPS_COORDINATE);
   static_assert(!palette_wraps_coordinate<PaletteFacade<Unwrapped>>());
