@@ -1013,7 +1013,9 @@ class StaticPalette<Source, Coords<CMods...>, Colors<XMods...>, Wrap, Shade> {
                 "WrapModifier ahead of the bounded tail.");
 
 public:
-  static constexpr bool WRAPS_COORDINATE = Wrap; ///< Mirrors @p Wrap.
+  /** Whether this composition or its source wraps the coordinate. */
+  static constexpr bool WRAPS_COORDINATE =
+      Wrap || palette_wraps_coordinate<Source>();
 
   /**
    * @brief Default-constructs an unbound composition (bind() before use).
