@@ -33,7 +33,7 @@ struct HueRotationLutView {
   bool active; ///< Whether `data` holds a baked table to sample.
 };
 
-/** @brief View over a cube-map noise field used to select hue rotation. */
+/** @brief View over a baked cube-map sphere noise field (values in [-1, 1]). */
 struct HueNoiseLutView {
   static constexpr int FACE_COUNT = 6;  ///< Cube faces.
   static constexpr int FACE_STEPS = 24; ///< Samples per face edge.
