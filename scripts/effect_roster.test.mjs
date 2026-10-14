@@ -117,6 +117,12 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
   assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
 });
 
+test('Galaxies opens the Phantasm playlist and occurs once', async () => {
+  const phantasm = await loadPhantasmEffectRoster();
+  assert.equal(phantasm[0], 'Galaxies');
+  assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
+});
+
 test('roster parsers ignore block-comment openers inside line comments', () => {
   const prefix = '// helpers live in effects/*.h\n';
   assert.deepEqual(parseEffectRoster(prefix + rosterOf('X(Alpha)') + '\n/** doc */'), ['Alpha', 'Last']);
