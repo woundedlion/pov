@@ -50,7 +50,7 @@ public:
 
   /**
    * @brief Linear pixel-channel scale, in percent.
-   * @details Applied before the driver's sRGB encoding. Override with
+   * @details Applied before the driver's linear 8-bit quantization. Override with
    * -D HS_BENCH_BRIGHTNESS_PERCENT.
    */
   static constexpr uint32_t BRIGHTNESS_PERCENT =

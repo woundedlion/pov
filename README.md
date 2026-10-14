@@ -201,7 +201,7 @@ These decisions shape much of the engine, and the rest of this document assumes 
 
 ### 3.1 Why 16-bit Linear Color?
 
-Most LED art codebases use gamma-corrected 8-bit values throughout and blend in sRGB space. That produces muddy mixes: red + blue gives dark purple instead of magenta. Holosphere blends in linear light at 16-bit precision and gamma-encodes only at the hardware output. The improvement is most visible in soft gradients and multi-layer alpha compositing. Palette interpolation goes a step further, into the OKLCH perceptual color space, with shortest-arc hue interpolation that avoids the red→green→blue detour.
+Most LED art codebases use gamma-corrected 8-bit values throughout and blend in sRGB space. That produces muddy mixes: red + blue gives dark purple instead of magenta. Holosphere blends in linear light at 16-bit precision and rounds to linear 8-bit PWM at the hardware output. The improvement is most visible in soft gradients and multi-layer alpha compositing. Palette interpolation goes a step further, into the OKLCH perceptual color space, with shortest-arc hue interpolation that avoids the red→green→blue detour.
 
 ### 3.2 Why Compile-Time Resolution?
 

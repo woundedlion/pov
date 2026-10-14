@@ -178,7 +178,9 @@ private:
 #if defined(USE_DMA_LEDS)
           frame.pack_pixel(led, pixel);
 #else
-          leds[led] = static_cast<CRGB>(pixel);
+          leds[led] =
+              CRGB(linear16_to_linear8(pixel.r), linear16_to_linear8(pixel.g),
+                   linear16_to_linear8(pixel.b));
 #endif
         },
         [&] {

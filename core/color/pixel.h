@@ -79,6 +79,15 @@ inline Pixel pixel_blend_add_packed(const Pixel &c1, const Pixel &c2);
 inline uint16_t srgb_to_linear(uint8_t srgb);
 
 /**
+ * @brief Rounds a linear 16-bit channel to a linear 8-bit channel.
+ * @param value Linear channel in [0, 65535].
+ * @return Nearest linear channel in [0, 255].
+ */
+constexpr uint8_t linear16_to_linear8(uint16_t value) {
+  return static_cast<uint8_t>((static_cast<uint32_t>(value) + 128u) / 257u);
+}
+
+/**
  * @brief Represents a 16-bit per channel RGB color (Linear space).
  * @details Supports high-precision linear-light mixing before sRGB encoding
  * to 8-bit output.
