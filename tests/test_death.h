@@ -90,12 +90,40 @@ namespace hs_test {
 namespace death_tests {
 
 /**
- * @brief Accessor for argv[0] of the running test binary, used to re-exec self.
+ * @brief Accessor for the running test binary path, used to re-exec self.
  * @return Reference to the static char-pointer slot; captured in main().
  */
 inline const char *&self_exe() {
   static const char *s = nullptr;
   return s;
+}
+
+/**
+ * @brief Captures the executable path for child processes.
+ * @param argv0 Invocation path, used on POSIX.
+ */
+inline void set_self_exe(const char *argv0) {
+#if defined(_WIN32)
+  (void)argv0;
+  static std::string path;
+  path.resize(MAX_PATH);
+  for (;;) {
+    const DWORD length = GetModuleFileNameA(nullptr, path.data(),
+                                            static_cast<DWORD>(path.size()));
+    if (length == 0) {
+      self_exe() = nullptr;
+      return;
+    }
+    if (length < path.size()) {
+      path.resize(length);
+      self_exe() = path.c_str();
+      return;
+    }
+    path.resize(path.size() * 2);
+  }
+#else
+  self_exe() = argv0;
+#endif
 }
 
 /**
