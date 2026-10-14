@@ -18,6 +18,12 @@
 #include "core/memory.h"
 #include "tests/test_fixture.h"
 
+#if HS_ENABLE_TEST_HOOKS || HS_ENABLE_TEST_ORACLES ||                          \
+    HS_ENABLE_STRUCTURAL_AUDITS || HS_ENABLE_PARAM_GUI_BRIDGE ||               \
+    HS_ENABLE_EFFECT_REGISTRY || HS_ENABLE_EFFECT_CONTROL_API
+#error "stack_measure must measure production render capabilities"
+#endif
+
 namespace {
 
 constexpr int W = CANVAS_W; // Phantasm device canvas
