@@ -55,10 +55,9 @@ public:
 
   /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
-    /// Pixel column.
-    float x, y, ttl; /**< Remaining lifetime in frames. */
-    /** @var y
-     *  Pixel row. */
+    float x;   /**< Pixel column. */
+    float y;   /**< Pixel row. */
+    float ttl; /**< Remaining lifetime in frames. */
   };
 
   /** @brief Persistent bytes init_storage() reserves. */
