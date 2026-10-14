@@ -76,6 +76,7 @@ check)
   exit 0
   ;;
 g1_ship)
+  run Galaxies profile 140 16
   run BZReactionDiffusion profile 130 32
   run Fishbowl profile 70 32
   run DisplacementField profile 150 32

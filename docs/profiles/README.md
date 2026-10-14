@@ -1,10 +1,13 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **38 effects in the Phantasm image**, captured on
+On-device timing for the **39 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
+
+Canonical shipping captures cover 38 effects. Galaxies opens the shipping
+playlist; its first on-device timing capture is pending.
 
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
