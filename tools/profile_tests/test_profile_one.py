@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -504,8 +505,10 @@ def multi_preset_effects():
     found = set()
     for header in EFFECTS.glob("*.h"):
         text = header.read_text(encoding="utf-8")
+        matched = False
         for count in re.findall(
                 r"std::array<PresetEntry<[^>]*>,\s*(\w+)>\s+PRESETS\b", text):
+            matched = True
             if not count.isdecimal():
                 value = re.search(r"\b" + re.escape(count) + r"\s*=\s*(\d+)\s*;", text)
                 if value is None:
@@ -515,15 +518,18 @@ def multi_preset_effects():
                 found.add(header.stem)
         for count in re.findall(
                 r"std::array<std::string_view,\s*(\d+)>\s+PRESET_IDS\b", text):
+            matched = True
             if int(count) > 1:
                 found.add(header.stem)
         for entries in re.findall(
                 r"PRESET_IDS\s*=\s*std::to_array<std::string_view>\s*\(\s*\{(.*?)\}\s*\)",
                 text, re.DOTALL):
+            matched = True
             if len(re.findall(r'"[^"\n]*"', entries)) > 1:
                 found.add(header.stem)
         for body in re.findall(
                 r"\bPRESETS\s*=\s*\[\]\s*\{(.*?)\}\s*\(\s*\)", text, re.DOTALL):
+            matched = True
             registry = re.search(
                 r"std::array<PresetEntry<.*?>,\s*std::size\(Solids::(\w+)\)\s*>",
                 body, re.DOTALL)
@@ -537,6 +543,8 @@ def multi_preset_effects():
                 raise AssertionError(f"{header.name}: unresolved preset registry {registry.group(1)}")
             if len(re.findall(r'\{\s*"', entries.group(1))) > 1:
                 found.add(header.stem)
+        if not matched and re.search(r"\b(?:PRESETS|PRESET_IDS)\b", text):
+            raise AssertionError(f"{header.name}: unrecognised preset declaration")
     return found
 
 
@@ -550,6 +558,24 @@ def cyclers():
 
 class CyclerRoster(unittest.TestCase):
     """Every multi-preset effect is in CYCLERS, so its marker is verified."""
+
+    def test_unrecognised_preset_declarations_fail(self):
+        declarations = (
+            "std::to_array<PresetEntry<Spec>> PRESETS;",
+            "std::array<PresetEntry<Spec<T>>, 2> PRESETS;",
+            "std::array<std::string_view, COUNT> PRESET_IDS;",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            header = Path(directory) / "Fixture.h"
+            with mock.patch.dict(multi_preset_effects.__globals__, EFFECTS=Path(directory)):
+                header.write_text("std::array<PresetEntry<Spec>, 2> PRESETS;")
+                self.assertEqual(multi_preset_effects(), {"Fixture"})
+                for declaration in declarations:
+                    with self.subTest(declaration=declaration):
+                        header.write_text(declaration)
+                        with self.assertRaisesRegex(
+                                AssertionError, "Fixture.h: unrecognised preset declaration"):
+                            multi_preset_effects()
 
     def test_every_multi_preset_effect_is_a_cycler(self):
         presets = multi_preset_effects()
