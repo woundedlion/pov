@@ -164,7 +164,10 @@ inline void test_world_hole_radius_limits() {
   }
 }
 
-/** @brief Compares Hole alpha with an independent angular quintic oracle. */
+/**
+ * @brief Compares Hole alpha with an independent angular quintic oracle and
+ * the float angle_between + quintic_kernel mask within PARITY_TOLERANCE.
+ */
 inline void test_world_hole_angular_reference() {
 #ifdef HS_TEST_FAST_MATH
   constexpr float PARITY_TOLERANCE = 2e-4f;
@@ -208,11 +211,12 @@ inline void test_world_hole_angular_reference() {
           HS_EXPECT_LE(count, 1);
           HS_EXPECT_NEAR(alpha, 0.8 * MASK, 0.003f);
           const float DISTANCE = math::angle_between(POINT, NORMALIZED_ORIGIN);
-          const float PREVIOUS_MASK =
+          const float ANGLE_BETWEEN_MASK =
               DISTANCE >= radius ? 1.0f
                                  : math::quintic_kernel(DISTANCE / radius);
           HS_EXPECT_NEAR(alpha,
-                         PREVIOUS_MASK > 1e-8f ? 0.8f * PREVIOUS_MASK : 0.0f,
+                         ANGLE_BETWEEN_MASK > 1e-8f ? 0.8f * ANGLE_BETWEEN_MASK
+                                                    : 0.0f,
                          PARITY_TOLERANCE);
           if (MASK > 0.01)
             HS_EXPECT_EQ(count, 1);
