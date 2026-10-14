@@ -13,6 +13,7 @@ import tempfile
 import board_metadata
 import connectivity
 import fab
+import pcb
 import sexp
 from kicad_common import F, is_copper_pour, net_name
 
@@ -55,7 +56,7 @@ def project_context(project, output, revision):
               "SCH": str(project / f"{PROJECT}.kicad_sch"),
               "PRO": str(project / f"{PROJECT}.kicad_pro")}
     if revision == "1.2":
-        values["KNOWN_PARITY_WARNING_COUNTS"] = {}
+        values["KNOWN_PARITY_WARNING_COUNTS"] = pcb.GENERATED_LAND_DEVIATIONS.copy()
     previous = {key: getattr(fab, key) for key in values}
     try:
         for key, value in values.items():
