@@ -672,8 +672,9 @@ public:
    *         animated, readonly, preset} object per param in declaration order,
    *         with {warning} when present, {min, max} on every non-boolean param,
    *         {step} on every whole-number param, and {options} (plus
-   *         {exportOptions} for C++ enum literals) on every enum param; empty
-   *         when no effect is set.
+   *         {exportOptions} for C++ enum literals) on every enum param, and
+   *         {group: {name, title, order}} when the parameter belongs to a
+   *         registered group; empty when no effect is set.
    * @details `value` is the rendered state for display; `requestedValue` is the
    *          writable target used to seed another renderer; `acceptedValue` is
    *          the accepted target and `warning` describes any adjustment or
