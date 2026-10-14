@@ -684,7 +684,8 @@ enum class SeedFix : uint8_t {
   KEEP,        /**< Held seed already matches the edge's seed_solid. */
   DUAL_SWAP,   /**< seed := dual(seed) at the ambo crossover (t = 0.5). */
   DERIVE_AMBO, /**< Leg seed := ambo(held seed); held seed unchanged. */
-  REGEN_TETRA, /**< seed := registry tetrahedron (reverse family bridge). */
+  REGEN_TETRA, /**< seed := registry tetrahedron (tetrahedron-seeded leg
+               * departing a held octahedron or icosahedron). */
   INVALID,     /**< No legal reconciliation; the caller must trap. */
 };
 
