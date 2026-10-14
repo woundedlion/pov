@@ -10,6 +10,10 @@ compression, and the post-landing state. Regenerate with:
 cmake --build build/tests --target arena_measure && build/tests/tests/arena_measure.exe
 ```
 
+The current probe's `charged=` and WORST totals charge fixed partitions at full
+capacity; only its per-partition persist/scratchA/scratchB figures compare with
+these lifetime-high-water columns.
+
 Host figures are a conservative **upper bound** on the device: the host is
 64-bit, so pointer-bearing pooled headers inflate vs the 32-bit device (see
 the arena_measure.cpp header). Two further caveats: the probe samples one
