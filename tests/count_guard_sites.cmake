@@ -1,3 +1,5 @@
+include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
+
 # Counts the engine's fail-fast sites (HS_CHECK, HS_AUDIT_CHECK and direct
 # check_fail calls) per repository-relative source path, so the death harness
 # can print what fraction of them a death case pins.
@@ -22,11 +24,7 @@ set(_guard_counts "")
 set(HS_GUARD_SITE_TOTAL 0)
 foreach(_file IN LISTS _guard_files)
   file(READ "${_file}" _text)
-  # Strings first, so a `//` or `/*` inside a literal cannot open a comment span
-  # and swallow the guards that follow it.
-  string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "" _text "${_text}")
-  string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+  hs_strip_cxx_noise(_text)
   string(REGEX REPLACE "#[ \t]*define[^\n]*" "" _text "${_text}")
   file(RELATIVE_PATH _name "${HS_ROOT}" "${_file}")
   string(REGEX MATCHALL "HS_(AUDIT_)?CHECK\\(" _hits "${_text}")

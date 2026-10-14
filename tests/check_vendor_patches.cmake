@@ -1,3 +1,5 @@
+include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
+
 # Pin FastNoiseLite.h patches, upstream version and body digest against
 # core/vendor/FastNoiseLite_config.h.
 # -D args: HEADER (FastNoiseLite.h), CONFIG (FastNoiseLite_config.h).
@@ -61,8 +63,7 @@ if(NOT _header MATCHES "HS_HOT_FLASH_MEMBER void GetNoiseGradientSingle\\(" OR
   list(APPEND _missing "FastNoiseLite has lost its analytic gradient path")
 endif()
 
-string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _config "${_config}")
-string(REGEX REPLACE "//[^\n]*" "" _config "${_config}")
+hs_strip_cxx_noise(_config KEEP_STRINGS)
 
 if(NOT _config MATCHES "#define FASTNOISELITE_ONLY_OPENSIMPLEX2")
   list(APPEND _missing

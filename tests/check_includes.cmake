@@ -12,8 +12,7 @@ include("${TESTS_DIR}/header_sections.cmake")
 hs_check_test_sections()
 
 file(READ "${SRC}" _text)
-string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
-string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+hs_strip_cxx_noise(_text KEEP_STRINGS)
 
 string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
 
@@ -56,8 +55,7 @@ set(_defined_entries "")
 foreach(_inc IN LISTS _includes)
   string(REGEX REPLACE "#include \"tests/(.*)\"" "\\1" _hdr "${_inc}")
   file(READ "${TESTS_DIR}/${_hdr}" _header_text)
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _header_text "${_header_text}")
-  string(REGEX REPLACE "//[^\n]*" "" _header_text "${_header_text}")
+  hs_strip_cxx_noise(_header_text KEEP_STRINGS)
   string(REGEX MATCHALL "int[ \t\r\n]+run_[A-Za-z0-9_]+_tests[ \t\r\n]*\\("
     _entry_defs "${_header_text}")
   foreach(_def IN LISTS _entry_defs)
@@ -108,8 +106,7 @@ file(GLOB_RECURSE _sources
 set(_included_headers "")
 foreach(_src IN LISTS _sources)
   file(READ "${_src}" _src_text)
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _src_text "${_src_text}")
-  string(REGEX REPLACE "//[^\n]*" "" _src_text "${_src_text}")
+  hs_strip_cxx_noise(_src_text KEEP_STRINGS)
   string(REGEX MATCHALL "#include \"tests/[A-Za-z0-9_/]+\\.h(pp)?\""
     _src_includes "${_src_text}")
   foreach(_inc IN LISTS _src_includes)
