@@ -74,7 +74,7 @@ static_assert(field_defaults_in_range<NoValueParams>());
  *        (Pullback::Transfer::IsoContour).
  */
 struct IsoValueParams {
-  float iso_level = 0.5f;  /**< Source value the band is centered on. */
+  float iso_level = 0.5f;  /**< Field value the band is centered on. */
   float iso_width = 0.05f; /**< Half-width of the band's plateau. */
 
   /// Parameter registry: id, member, label, range and curve per field.
