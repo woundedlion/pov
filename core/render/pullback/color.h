@@ -84,8 +84,10 @@ struct ColorControls {
   float phase_oscillation_speed = 0.0f;
   float brightness_bottom = 0.0f; /**< Gain at the envelope's low point. */
   float brightness_top = 1.0f;    /**< Gain at the envelope's high point. */
-  float opacity_low = 1.0f;       /**< Alpha gain at source value 0. */
-  float opacity_high = 1.0f;      /**< Alpha gain at source value 1. */
+  float opacity_low =
+      1.0f; /**< Alpha gain at field value 0 (after any transfer). */
+  float opacity_high =
+      1.0f; /**< Alpha gain at field value 1 (after any transfer). */
 
   /// Parameter registry: id, member, label, range and curve per field.
   static constexpr auto FIELDS = std::array{
