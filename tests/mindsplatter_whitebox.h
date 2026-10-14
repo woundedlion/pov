@@ -426,10 +426,6 @@ struct MindSplatterWhiteBox {
     ms.particle_system.reference_signed_axis_physics = enabled;
   }
   template <int W, int H>
-  static void use_clip_clear(MindSplatter<W, H> &ms, bool enabled) {
-    ms.force_full_buffer_clear = !enabled;
-  }
-  template <int W, int H>
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
     return ms.particle_system.active();
   }
