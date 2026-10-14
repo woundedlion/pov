@@ -54,8 +54,10 @@ python hardware/phantasm/gen/pcb.py --revision 1.3 --unplaced --force --force-te
 Open or upload this directory's matching
 [schematic](phantasm.kicad_sch), [board](phantasm.kicad_pcb), and
 [project](phantasm.kicad_pro), with the accompanying libraries. These are
-placement inputs, not routed fabrication artifacts. Keep downloaded candidates
-and final routed files inside this revision's directory.
+placement inputs, not routed fabrication artifacts. Keep downloads in the
+gitignored candidates/ directory. Commit routed projects in <rev>/routed/
+with a candidate.json recording Quilter provenance and source hashes; never
+use a final/ directory.
 
 To regenerate rev 1.2, pass `--revision 1.2` to both commands, or omit the
 selector. Generating one revision does not replace the other revision's files.
