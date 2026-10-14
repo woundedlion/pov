@@ -151,3 +151,13 @@ inline void test_sprite_paused_before_first_step_holds_first_opacity() {
   timeline.step(fake_canvas());
   HS_EXPECT_NEAR(opacity.back(), 0.125f, 1e-6f);
 }
+
+/** @brief A rounded-away fade-in still dims the first frame. */
+inline void test_sprite_scaled_fade_in_dims_first_frame() {
+  float opacity = -1.0f;
+  Animation::Sprite s([&](Canvas &, float value) { opacity = value; }, 8,
+                      {.fade_in = {2}, .fade_out = {20}});
+  s.step(fake_canvas());
+  HS_EXPECT_NEAR(opacity, 0.5f, 1e-6f);
+  HS_EXPECT_LT(opacity, 1.0f);
+}

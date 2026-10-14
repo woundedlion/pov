@@ -75,10 +75,10 @@ public:
       const int requested_fade_in = this->fade_in_duration;
       this->fade_in_duration = static_cast<long long>(this->duration) *
                                this->fade_in_duration / fade_total;
-      // Keep a requested fade-in visible when the integer scale floors it to 0.
+      // Frame 1 is the first drawn frame; a visible ramp needs two frames.
       if (this->fade_in_duration == 0 && requested_fade_in > 0 &&
-          this->duration >= 2)
-        this->fade_in_duration = 1;
+          this->duration >= 3)
+        this->fade_in_duration = 2;
       this->fade_out_duration = this->duration - this->fade_in_duration;
     }
     // A duration-1 sprite's sole frame is t==duration, where the fade-out ramp

@@ -141,6 +141,7 @@ inline int run_animation_tests() {
   test_sprite_fade_in_plateau_fade_out_envelope();
   test_sprite_clamps_overshooting_fade_in();
   test_sprite_overlapping_fades_stay_continuous();
+  test_sprite_scaled_fade_in_dims_first_frame();
   test_sprite_paused_holds_frame();
   test_timeline_pause_redraws_held_sprite();
   test_sprite_paused_before_first_step_holds_first_opacity();
