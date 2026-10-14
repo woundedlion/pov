@@ -76,7 +76,8 @@ class ReleaseTests(unittest.TestCase):
         original = fab.KNOWN_PARITY_WARNING_COUNTS
         with release.project_context(self.project, self.root, "1.2"):
             self.assertEqual(fab.PRO, str(self.project / "phantasm.kicad_pro"))
-            self.assertEqual(fab.KNOWN_PARITY_WARNING_COUNTS, {})
+            self.assertEqual(fab.KNOWN_PARITY_WARNING_COUNTS,
+                             {("lib_footprint_mismatch", "D_BUS"): 1})
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
 
     def pipeline(self, stack, fail=None):
