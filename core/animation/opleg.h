@@ -242,7 +242,8 @@ public:
         nullptr; /**< Unit centroid per departed base face; enables the
                     geometric provenance mapping. */
     FaceCorrespondence correspondence =
-        FaceCorrespondence::GEOMETRIC; /**< Palette provenance mapping. */
+        FaceCorrespondence::GEOMETRIC;    /**< Palette provenance mapping. */
+    bool preserve_without_births = false; /**< Hold colors without births. */
   };
 
   /**
@@ -250,7 +251,7 @@ public:
    * @details topology[f] is the class the effect displays arrival face f
    * with at the closing bookend. Color targets key on it, so faces it merges
    * converge to one color by w = 1. A null topology keys targets on the swept
-   * classification instead.
+   * classification instead. Palette-preserving legs retain departed colors.
    */
   struct BookendClasses {
     const uint16_t *topology = nullptr; /**< Bookend class per arrival face. */
@@ -270,20 +271,23 @@ public:
     std::array<uint8_t, PALETTES>
         to_palette{}; /**< Slot -> landed palette index. */
     const uint8_t *from_palette =
-        nullptr;         /**< Per-swept-face FROM palette id (arena-backed). */
+        nullptr; /**< Per-swept-face FROM palette id (arena-backed). */
+    bool preserve_palette = false; /**< Retain each face's departed palette. */
     int blend_pairs = 0; /**< Distinct (from, to) ramp pairs the leg carries. */
 
     /**
      * @brief Palette id face f displays once the leg arrives (w = 1).
      * @param f Swept face index.
      * @return Landed palette index.
-     * @details Every face — newborn or carried — lands on its target-class
-     * palette.
+     * @details Palette-preserving legs retain departed colors; other legs
+     * land on their target-class palette.
      */
     uint8_t landed_palette(size_t f) const {
       HS_CHECK(topology && f < faces,
                "OpLeg::Landing: landed_palette face out of range");
-      return to_palette[MeshPaletteBank::slot_of(topology[f])];
+      return preserve_palette
+                 ? from_palette[f]
+                 : to_palette[MeshPaletteBank::slot_of(topology[f])];
     }
     const PolyMesh *arrival_topology =
         nullptr; /**< Fixed connectivity of a packed arrival endpoint. */
@@ -1916,8 +1920,12 @@ private:
                         const uint8_t *forced_from = nullptr) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed_faces;
+    const bool preserve_palette = handoff.preserve_without_births &&
+                                  tr.kind != LegKind::GATED_SWAP &&
+                                  handoff.prev_faces == total;
     tr.landing.faces = total;
     tr.landing.primary_faces = primary;
+    tr.landing.preserve_palette = preserve_palette;
 
     // Surviving faces keep bookend classes; collapsed slivers take their
     // arrival host's class.
@@ -1927,7 +1935,8 @@ private:
 
     for (int i = 0; i < PALETTES; ++i)
       tr.landing.to_palette[i] = static_cast<uint8_t>(i);
-    hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
+    if (!preserve_palette)
+      hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
 
     // The whole face list corresponds, or an emission prefix (survivors or
     // seed primaries) does and the remaining faces are births.
@@ -1957,9 +1966,11 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      const uint8_t to =
+      uint8_t to =
           tr.landing.to_palette[MeshPaletteBank::slot_of(target_topo[f])];
       const uint8_t from = departed.for_face(f, to);
+      if (preserve_palette)
+        to = from;
       HS_CHECK(from < PALETTES && to < PALETTES,
                "OpLeg: crossfade ramp endpoint outside the palette bank");
       from_palette[f] = from;

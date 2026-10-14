@@ -463,7 +463,8 @@ protected:
             .prev_face_palette = prev_pal,
             .prev_faces = prev_faces,
             .prev_face_centroid = prev_centroid,
-            .correspondence = correspondence};
+            .correspondence = correspondence,
+            .preserve_without_births = true};
   }
 
   /**
@@ -494,7 +495,8 @@ protected:
             .prev_face_palette = pal,
             .prev_faces = nf,
             .prev_face_centroid = cen,
-            .correspondence = correspondence};
+            .correspondence = correspondence,
+            .preserve_without_births = true};
   }
 
   /**
@@ -566,7 +568,8 @@ protected:
         .prev_face_palette = pal,
         .prev_faces = medial_faces,
         .prev_face_centroid = nullptr,
-        .correspondence = Animation::OpLeg::FaceCorrespondence::IDENTITY};
+        .correspondence = Animation::OpLeg::FaceCorrespondence::IDENTITY,
+        .preserve_without_births = true};
     uint16_t *medial_topology =
         scratch_arena_a.allocate_n<uint16_t>(medial_faces);
     std::copy_n(build_landing->topology, medial_faces, medial_topology);
@@ -631,7 +634,8 @@ protected:
         .bank = &host().palette_bank.bank,
         .prev_face_palette = pal,
         .prev_faces = nf,
-        .correspondence = Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING};
+        .correspondence = Animation::OpLeg::FaceCorrespondence::DUAL_CLOSING,
+        .preserve_without_births = true};
     const int frames = dual_sub_frames(2);
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(
