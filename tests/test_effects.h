@@ -25,8 +25,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 #include <span>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -418,16 +420,23 @@ inline void determinism_one(const char *name) {
  * @tparam W Render width in pixels.
  * @tparam H Render height in pixels.
  * @param name Effect name used in the diagnostic output.
+ * @param frames Frames rendered for each segment and clear scope.
+ * @param probe Optional observer called after each displayed frame with the effect,
+ *              segment, frame index, and full-clear flag.
+ * @param require_lit_per_segment Require a nonblack reference in every segment.
  * @details The clip clear leaves the region outside the display band holding
  *          pixels from the frame that last wrote this buffer. Anything an effect
  *          reads back or carries forward from there shows up here as a mismatch
  *          against the whole-buffer clear.
  */
 template <template <int, int> class E, int W = SMALL_W, int H = SMALL_H>
-inline void clip_clear_parity_one(const char *name) {
+inline void clip_clear_parity_one(
+    const char *name, int frames = PARITY_FRAMES,
+    std::type_identity_t<std::function<void(const E<W, H> &, int, int, bool)>>
+        probe = {},
+    bool require_lit_per_segment = false) {
   HS_CONTEXT(name);
   constexpr int S = H * 2;
-  const int frames = PARITY_FRAMES;
 
   auto render = [&](int segment_id, bool full_clear) {
     reset_effect_globals();
@@ -445,6 +454,8 @@ inline void clip_clear_parity_one(const char *name) {
       pin_frame_clock(f);
       effect.draw_frame();
       effect.advance_display();
+      if (probe)
+        probe(effect, segment_id, f, full_clear);
       for (int y = clip.y0; y < clip.y1; ++y)
         for (int x = clip.x0; x < clip.x1; ++x)
           displayed.push_back(effect.get_pixel(x, y));
@@ -457,13 +468,16 @@ inline void clip_clear_parity_one(const char *name) {
     const std::vector<Pixel> full = render(segment_id, true);
     const std::vector<Pixel> clipped = render(segment_id, false);
 
-    size_t different = 0;
+    size_t different = 0, segment_lit = 0;
     for (size_t i = 0; i < full.size(); ++i) {
       if (full[i] != clipped[i])
         ++different;
       if (full[i].r | full[i].g | full[i].b)
-        ++lit;
+        ++segment_lit;
     }
+    lit += segment_lit;
+    if (require_lit_per_segment)
+      HS_EXPECT_GT(segment_lit, static_cast<size_t>(0));
     displayed_pixels += full.size();
     if (different)
       std::printf("  CLIP-CLEAR DRIFT %-20s segment %d: %zu of %zu displayed "
