@@ -56,7 +56,6 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
                     if name.startswith(prefix) and canonical.startswith(forbidden):
                         diagnostics.append(f'{name}:{line}: forbidden include "{canonical}" from {prefix}')
             if canonical in known and include != canonical:
-                line = text.count("\n", 0, match.start()) + 1
                 diagnostics.append(f'{name}:{line}: include "{canonical}" '
                                    f'instead of "{include}"')
     return diagnostics
