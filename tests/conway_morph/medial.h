@@ -378,7 +378,7 @@ inline void test_opleg_medial_leg_smoke() {
  * closing leg's from-palettes must follow the permutation, and the rendered
  * seam must stay near one in-leg step.
  */
-inline void test_opleg_dual_bridge_seam_correspondence() {
+inline void check_opleg_dual_bridge_seam(bool preserve_palettes) {
   using Animation::OpLeg;
   constexpr int SWEEP = 24;
   constexpr int RW = 288, RH = 144;
@@ -423,9 +423,20 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
           static_cast<uint8_t>(MeshPaletteBank::slot_of(ambo_p.topology[f]));
     hs_test::StubEffect fx(RW, RH);
     std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
+    const uint8_t *expected_palettes = pal2.data();
     int drawn = 0, rasterize_at = -1;
     auto cb = [&](Canvas &c, const MeshState &m, const OpLeg::Shading &sh) {
       ++drawn;
+      for (size_t f = 0; preserve_palettes && f < sh.faces; ++f) {
+        for (float t : {0.0f, 0.5f, 1.0f}) {
+          const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
+          const Color4 expected =
+              bank.bank.entries[expected_palettes[f]].get(t);
+          HS_EXPECT_EQ(got.color.r, expected.color.r);
+          HS_EXPECT_EQ(got.color.g, expected.color.g);
+          HS_EXPECT_EQ(got.color.b, expected.color.b);
+        }
+      }
       if (drawn != rasterize_at)
         return;
       auto shader = [&](const math::Vector &, Fragment &frag) {
@@ -442,13 +453,13 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
       capture_frame<RW, RH>(fx, out);
     };
 
-    // Leg 2: the medial slerp, departed from ambo(P), with crossfading
-    // handoffs; the seeded RNG keeps the target shuffles deterministic.
-    OpLeg::PaletteHandoff handoff2{.bank = &bank.bank,
-                                   .prev_face_palette = pal2.data(),
-                                   .prev_faces = nf,
-                                   .correspondence =
-                                       OpLeg::FaceCorrespondence::IDENTITY};
+    // Leg 2: the medial slerp, departed from ambo(P).
+    OpLeg::PaletteHandoff handoff2{
+        .bank = &bank.bank,
+        .prev_face_palette = pal2.data(),
+        .prev_faces = nf,
+        .correspondence = OpLeg::FaceCorrespondence::IDENTITY,
+        .preserve_without_births = preserve_palettes};
     OpLeg leg2(P, OpLeg::MedialSpec{.sweep_frames = SWEEP}, leg, cb, handoff2);
     const OpLeg::Landing &landing2 = leg2.landing();
     HS_EXPECT_EQ(landing2.faces, nf);
@@ -461,8 +472,11 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     HS_EXPECT_EQ(landing2.arrival_topology->face_counts.size(), nf);
     if (landing2.arrival_topology->face_counts.size() != nf)
       continue;
-    for (size_t f = 0; f < nf; ++f)
+    for (size_t f = 0; f < nf; ++f) {
       HS_EXPECT_EQ(landing2.from_palette[f], pal2[f]);
+      if (preserve_palettes)
+        HS_EXPECT_EQ(landing2.landed_palette(f), pal2[f]);
+    }
     rasterize_at = SWEEP;
     for (int f = 0; f < SWEEP; ++f) {
       {
@@ -506,11 +520,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const size_t DF = D.face_counts.size();
     HS_EXPECT_EQ(DF, nf - PF);
 
-    OpLeg::PaletteHandoff handoff3{.bank = &bank.bank,
-                                   .prev_face_palette = pal3.data(),
-                                   .prev_faces = nf,
-                                   .correspondence =
-                                       OpLeg::FaceCorrespondence::DUAL_CLOSING};
+    OpLeg::PaletteHandoff handoff3{
+        .bank = &bank.bank,
+        .prev_face_palette = pal3.data(),
+        .prev_faces = nf,
+        .correspondence = OpLeg::FaceCorrespondence::DUAL_CLOSING,
+        .preserve_without_births = preserve_palettes};
     OpLeg::BookendClasses bookend3{.topology = D.topology.data(), .faces = DF};
     OpLeg leg3(OpLeg::SweepSeed::borrow(D),
                OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
@@ -563,8 +578,12 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
 
     // Block structure: D-faces are the medial's P-vertex orbits in emission
     // order; D-vertex orbit faces land in the medial's P-face block.
+    std::vector<uint8_t> closing_palettes(nf);
     int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
     for (size_t l = 0; l < nf; ++l) {
+      closing_palettes[l] = pal3[perm[l]];
+      if (preserve_palettes)
+        HS_EXPECT_EQ(landing3.landed_palette(l), closing_palettes[l]);
       if (l < DF && perm[l] != static_cast<int>(PF + l))
         ++block1_viol;
       if (l >= DF && perm[l] >= static_cast<int>(PF))
@@ -603,6 +622,7 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
                        geometric_palette[perm[f]]);
     }
 
+    expected_palettes = closing_palettes.data();
     // Rendered seam A/B plus a one-step in-leg control.
     drawn = 0;
     rasterize_at = 1;
@@ -650,8 +670,20 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
     const float quiet_ratio =
         static_cast<float>(seam_quiet) / static_cast<float>(ctrl_quiet);
     HS_EXPECT_GT(quiet_ratio, site.seam_quiet_ratio);
-    HS_EXPECT_LT(seam_sum, SEAM_SUMABS_MAX);
+    if (!preserve_palettes)
+      HS_EXPECT_LT(seam_sum, SEAM_SUMABS_MAX);
 
+    if (preserve_palettes) {
+      rasterize_at = -1;
+      for (int f = 2; f < SWEEP; ++f) {
+        {
+          Canvas c(fx);
+          leg3.step(c);
+        }
+        fx.advance_display();
+      }
+      HS_EXPECT_EQ(drawn, SWEEP);
+    }
     std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
                 "sumabs=%lld px=%d (control %lld/%d) quiet=%.3f/%.3f%s\n",
                 site.name, nf, DF, nf - DF, seam_sum, seam_px, ctrl_sum,
@@ -659,4 +691,10 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
                 static_cast<double>(site.seam_quiet_ratio),
                 hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
+}
+
+/** @brief Dual bridge seams retain face correspondence and optional face colors. */
+inline void test_opleg_dual_bridge_seam_correspondence() {
+  check_opleg_dual_bridge_seam(false);
+  check_opleg_dual_bridge_seam(true);
 }

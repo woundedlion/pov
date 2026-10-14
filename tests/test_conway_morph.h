@@ -106,6 +106,7 @@ inline int run_conway_morph_tests() {
   test_edge_morph_frames_fit_scratch_budget();
 
   test_relax_is_vertex_order_identity();
+  test_position_legs_preserve_face_palettes();
 
   test_snub_bridge_icosahedron_classifies_like_registry();
   test_ambo_tetrahedron_is_regular_octahedron();
