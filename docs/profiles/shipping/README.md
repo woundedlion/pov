@@ -1,7 +1,8 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-38 effects in `HS_PHANTASM_EFFECT_LIST`. Peak is worst-frame render
+39 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 38 effects;
+Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
 Rows rank by spill fraction, then peak render. ● marks the October 11 KaleidoscopeMelt, October 8 JewelMelt, October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 

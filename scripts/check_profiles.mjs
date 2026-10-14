@@ -17,6 +17,7 @@ const REQUIRED_SECTIONS = [
   '## Summary ranking',
   '## Harness',
 ];
+const PENDING_SHIPPING_PROFILES = new Set(['galaxies']);
 
 export async function profileDirectories(profilesDir, errors) {
   const entries = await readdir(profilesDir, { withFileTypes: true });
@@ -263,9 +264,15 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   const excluded = reportSets.get('excluded');
   if (!shipping) errors.push('shipping profile directory is missing');
   else {
-    compareSets('shipping profiles',
-      new Set(shipping.filter(report => !report.variant).map(report => report.key)),
-      phantasmKeys, errors);
+    const captured = new Set(shipping.filter(report => !report.variant)
+      .map(report => report.key));
+    for (const key of PENDING_SHIPPING_PROFILES) {
+      if (!phantasmKeys.has(key) || captured.has(key))
+        errors.push(`stale pending shipping profile allowance: ${key}`);
+    }
+    compareSets('shipping profiles', captured,
+      new Set([...phantasmKeys].filter(key => !PENDING_SHIPPING_PROFILES.has(key))),
+      errors);
     for (const { key, variant } of shipping) {
       if (variant && !phantasmKeys.has(key))
         errors.push(`shipping profile names a non-Phantasm effect: ${key}`);
@@ -334,7 +341,8 @@ async function main() {
     process.exitCode = 1;
   } else {
     console.log(
-      `Profile archive structure covers all ${result.phantasmCount} Phantasm effects; `
+      `Profile archive structure checks all ${result.phantasmCount} Phantasm effects; `
+      + (PENDING_SHIPPING_PROFILES.size ? 'Galaxies shipping capture is pending; ' : '')
       + `${result.o3Count} O3 and ${result.retiredCount} retired reports are indexed. Capture freshness is not checked.`,
     );
   }

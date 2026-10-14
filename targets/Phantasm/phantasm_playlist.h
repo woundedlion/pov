@@ -23,18 +23,27 @@
  *   HS_EFFECT_LIST.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
-  X(BZReactionDiffusion, 120)                                                  \
-  X(Fishbowl, 120)                                                             \
-  X(Comets, 120)                                                               \
+  X(Galaxies, 120)                                                             \
+  X(HopfFibration, 120)                                                        \
+  X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
+  X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
+  X(ShapeShifter, 135)                                                         \
+  X(MindSplatter, 120)                                                         \
+  X(Raymarch, 120)                                                             \
+  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
+  X(KaleidoscopeStainedGlass,                                                  \
+    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
+  X(IslamicStars, 120)                                                         \
+  X(BZReactionDiffusion, 120)                                                  \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
   X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
   X(KaleidoscopeMelt, hs_preset_window_seconds<KaleidoscopeMelt>())            \
+  X(Fishbowl, 120)                                                             \
+  X(Comets, 120)                                                               \
   X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
   X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
-  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \
   X(DisplacementField, 120)                                                    \
-  X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
@@ -42,27 +51,19 @@
   X(GSReactionDiffusion, 120)                                                  \
   X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
   X(HankinSolids, 120)                                                         \
-  X(HopfFibration, 120)                                                        \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
-  X(IslamicStars, 120)                                                         \
   X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
   X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
-  X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
-  X(MindSplatter, 120)                                                         \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 120)                                                            \
   X(KaleidoscopePentBright,                                                    \
     hs_preset_window_seconds<KaleidoscopePentBright>())                        \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(Raymarch, 120)                                                             \
   X(RingSpin, 120)                                                             \
-  X(ShapeShifter, 135)                                                         \
-  X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(SphericalHarmonics, 120)                                                   \
   X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
-  X(KaleidoscopeStainedGlass,                                                  \
-    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
-  X(Voronoi, 120)
+  X(Voronoi, 120)                                                              \
+  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())
 
 /**
  * @brief Expands to +1 so HS_PHANTASM_EFFECT_LIST sums into an entry count.
@@ -153,11 +154,9 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
  *          RingShower is omitted by product curation.
- *          Galaxies waits on its first on-device shipping profile.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
   X(Dynamo)                                                                    \
-  X(Galaxies)                                                                  \
   X(MobiusRings)                                                               \
   X(RingShower)                                                                \
   X(Thrusters)

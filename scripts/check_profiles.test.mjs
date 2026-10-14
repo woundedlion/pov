@@ -239,6 +239,16 @@ test('profileDirectories reports an unindexed set of reports', async t => {
     ['orphan has profile reports but no README.md index']);
 });
 
+test('Galaxies alone is pending its canonical shipping capture', async () => {
+  const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
+  const canonical = reports.filter(report => !report.variant);
+  assert.equal(canonical.length, 38);
+  assert.ok(!canonical.some(report => report.key === 'galaxies'));
+  const result = await checkProfiles();
+  assert.equal(result.phantasmCount, 39);
+  assert.deepEqual(result.errors, []);
+});
+
 test('checkProfiles accepts current reports without retired archives', async t => {
   const root = await mkdtemp(join(tmpdir(), 'holosphere-profile-gate-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -267,6 +277,13 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
     ['missing shipping report', async root => {
       await rm(join(root, 'shipping', first.file));
     }, 'shipping profiles is missing: ' + first.key],
+    ['pending allowance expires when Galaxies has a report', async root => {
+      const file = 'profile_galaxies_teensy_2026-10-13.md';
+      const report = (await readFile(join(root, 'shipping', first.file), 'utf8'))
+        .replace(/^# [A-Za-z0-9]+ on-device profile/m, '# Galaxies on-device profile')
+        .replaceAll(first.date, '2026-10-13');
+      await writeFile(join(root, 'shipping', file), report);
+    }, 'stale pending shipping profile allowance: galaxies'],
     ['supplement cannot replace canonical shipping report', async root => {
       await rm(join(root, 'shipping', canonical.file));
     }, 'shipping profiles is missing: ' + canonical.key],
