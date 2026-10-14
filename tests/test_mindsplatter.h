@@ -579,65 +579,21 @@ inline void test_mindsplatter_hole_kernel_framebuffer_parity() {
 
 /** @brief Clip clearing preserves every pixel displayed by the POV driver. */
 inline void test_mindsplatter_clip_clear_display_parity() {
-  constexpr int W = SMALL_W;
-  constexpr int H = SMALL_H;
-  constexpr int S = H * 2;
-  constexpr int N = 4;
-  constexpr int FRAMES = 160;
-  using MS = MindSplatter<W, H>;
-  using WB = MindSplatterWhiteBox;
-  struct Render {
-    std::vector<Pixel> displayed;
-    std::vector<uint16_t> active;
-  };
-
-  auto render = [&](int segment_id, bool clip_clear) {
-    reset_effect_globals();
-    hs::set_mock_time(0, 0);
-    Render result;
-    result.displayed.reserve(static_cast<size_t>(W / 2) * (S / N) * FRAMES);
-    result.active.reserve(FRAMES);
-    MS effect;
-    effect.init();
-    WB::use_clip_clear(effect, clip_clear);
-    const pov::SegmentMap map = pov::segment_map(segment_id, S, N);
-    for (int f = 0; f < FRAMES; ++f) {
-      const pov::SegmentClip clip =
-          pov::segment_clip(map, (f & 1) == 0, S, N, W);
-      effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
-      hs_test::pin_frame_clock(f);
-      effect.draw_frame();
-      effect.advance_display();
-      result.active.push_back(WB::active_particles(effect));
-      for (int y = clip.y0; y < clip.y1; ++y)
-        for (int x = clip.x0; x < clip.x1; ++x)
-          result.displayed.push_back(effect.get_pixel(x, y));
-    }
-    return result;
-  };
-
-  for (int segment_id = 0; segment_id < N; ++segment_id) {
-    const Render full_clear = render(segment_id, false);
-    const Render clip_clear = render(segment_id, true);
-    HS_EXPECT_EQ(full_clear.active.size(), clip_clear.active.size());
-    for (size_t i = 0; i < full_clear.active.size(); ++i)
-      HS_EXPECT_EQ(full_clear.active[i], clip_clear.active[i]);
-    HS_EXPECT_EQ(full_clear.displayed.size(), clip_clear.displayed.size());
-
-    const FrameErrorStats diff =
-        compare_buffers(full_clear.displayed, clip_clear.displayed);
-    std::printf("clip clear segment=%d samples=%zu lit=%zu different=%zu "
-                "coverage=%zu\n",
-                segment_id, full_clear.displayed.size(),
-                diff.lit_reference_pixels, diff.different_pixels,
-                diff.coverage_mismatches);
-    HS_EXPECT_EQ(full_clear.displayed.size(),
-                 static_cast<size_t>(W / 2) * (S / N) * FRAMES);
-    HS_EXPECT_GT(diff.lit_reference_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(diff.different_pixels, static_cast<size_t>(0));
-    HS_EXPECT_EQ(diff.coverage_mismatches, static_cast<size_t>(0));
-  }
-  hs::clear_mock_time();
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  std::vector<uint16_t> active;
+  effects_tests::clip_clear_parity_one<MindSplatter>(
+      "MindSplatter saturated pool", 160,
+      [&](const MS &effect, int, int frame, bool full_clear) {
+        const auto count = MindSplatterWhiteBox::active_particles(effect);
+        if (full_clear) {
+          if (frame == 0)
+            active.clear();
+          active.push_back(count);
+        } else {
+          HS_EXPECT_EQ(count, active[static_cast<size_t>(frame)]);
+        }
+      },
+      true);
 }
 
 /**
