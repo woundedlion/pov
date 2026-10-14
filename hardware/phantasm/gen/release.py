@@ -199,7 +199,8 @@ def build(project, revision, destination=None):
                       "generator_sha256": {path.name: fab.sha256_file(path)
                                            for path in sorted(Path(__file__).parent.glob("*.py"))}},
             "validation": ["project_rules", "zones", "vias", "solder_mask", "plot_origin",
-                           "finish_stackup", "connectivity", "ERC", "DRC", "parity",
+                           *(["finish_stackup"] if revision == "1.2" else []),
+                           "connectivity", "ERC", "DRC", "parity",
                            "netlist", "assembly", "export_content"],
             "files": inventory(stage),
         })
