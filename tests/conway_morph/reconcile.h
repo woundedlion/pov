@@ -36,7 +36,7 @@ inline const ReconcileSite RECONCILE_SITES[] = {
  */
 inline void test_reconcile_bijection_wellposed() {
   // Bound the gap closed by the reconcile slerp.
-  constexpr float MAX_RESIDUAL_CHORD = 0.12f;
+  constexpr float MAX_RESIDUAL_CHORD = 0.10f;
   for (const ReconcileSite &site : RECONCILE_SITES) {
     HS_CONTEXT(site.name);
     const int failed_before = hs_test::stats().failed;
@@ -118,9 +118,9 @@ inline void test_reconcile_bijection_wellposed() {
                                                 authored.vertices[best]));
     }
     HS_EXPECT_TRUE(injective);
-    HS_EXPECT_LT(worst_chord, MAX_RESIDUAL_CHORD);
+    HS_EXPECT_LE(worst_chord, MAX_RESIDUAL_CHORD);
 
-    if (injective) {
+    if (injective && worst_chord <= MAX_RESIDUAL_CHORD) {
       PolyMesh reconciled;
       MeshOps::reconcile_vertices(identity, authored, reconciled, b, aux);
       if (!expect_same_mesh_sizes(reconciled, identity))
