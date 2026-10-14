@@ -201,8 +201,7 @@ inline void test_packpixel_wire_order() {
   const Pixel green(CRGB(0, 255, 0));
   const Pixel blue(CRGB(0, 0, 255));
 
-  // Wire record is [0xFF][B][G][R]. Under unity correction the lit channel
-  // round-trips the sRGB<->linear LUTs back to 255; the rest stay 0.
+  // Wire record is [0xFF][B][G][R].
   f.pack_pixel(0, red);
   HS_EXPECT_EQ(pixel(f, 0)[0], 0xFF);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);   // B
@@ -240,7 +239,7 @@ inline void test_packpixel_wire_order() {
  * non-unity brightness.
  * @details Full-scale white through correction 255,176,240, temperature
  * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
- * linear_to_srgb8 encodes as R=188, G=124, B=79.
+ * linear16_to_linear8 rounds to R=128, G=51, B=20.
  */
 inline void test_packpixel_shipped_gains_half_brightness() {
   Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
@@ -254,18 +253,33 @@ inline void test_packpixel_shipped_gains_half_brightness() {
   const Pixel white(CRGB(255, 255, 255));
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 79);  // B
-  HS_EXPECT_EQ(pixel(f, 3)[2], 124); // G
-  HS_EXPECT_EQ(pixel(f, 3)[3], 188); // R
+  HS_EXPECT_EQ(pixel(f, 3)[1], 20);  // B
+  HS_EXPECT_EQ(pixel(f, 3)[2], 51);  // G
+  HS_EXPECT_EQ(pixel(f, 3)[3], 128); // R
 
   Frame::set_brightness(255);
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 110);
-  HS_EXPECT_EQ(pixel(f, 3)[2], 170);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 39);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 102);
   HS_EXPECT_EQ(pixel(f, 3)[3], 255);
 
   reset_correction<N>();
+}
+
+/** @brief Verifies nearest linear PWM quantization over the full input range. */
+inline void test_packpixel_linear_quantization() {
+  reset_correction<N>();
+  Frame f;
+  for (uint32_t value = 0; value <= 65535u; ++value) {
+    const auto channel = static_cast<uint16_t>(value);
+    const auto expected = static_cast<uint8_t>(value * 255.0 / 65535.0 + 0.5);
+    HS_EXPECT_EQ(linear16_to_linear8(channel), expected);
+    f.pack_pixel(0, Pixel(channel, 0, static_cast<uint16_t>(65535u - value)));
+    HS_EXPECT_EQ(pixel(f, 0)[3], expected);
+    HS_EXPECT_EQ(pixel(f, 0)[2], 0);
+    HS_EXPECT_EQ(pixel(f, 0)[1], 255 - expected);
+  }
 }
 
 /**
@@ -274,6 +288,7 @@ inline void test_packpixel_shipped_gains_half_brightness() {
  */
 inline int run_hd107s_tests() {
   hs_test::ModuleFixture fixture("hd107s");
+  test_packpixel_linear_quantization();
   test_layout_constants();
   test_layout_constants_phantasm();
   test_fresh_frame_skeleton();

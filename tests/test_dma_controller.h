@@ -116,7 +116,9 @@ inline constexpr CRGB WIRE_COLORS[N] = {
 
 inline void pack_wire_pattern(Frame &frame) {
   for (int i = 0; i < N; ++i)
-    frame.pack_pixel(i, Pixel(WIRE_COLORS[i]));
+    frame.pack_pixel(i, Pixel(static_cast<uint16_t>(WIRE_COLORS[i].r * 257u),
+                              static_cast<uint16_t>(WIRE_COLORS[i].g * 257u),
+                              static_cast<uint16_t>(WIRE_COLORS[i].b * 257u)));
 }
 
 inline void expect_captured_frame(const Frame &expected) {
@@ -307,9 +309,9 @@ inline void test_end_to_end_wire_bytes() {
   DMALEDController<N, MockStrip>::set_brightness(127);
   ctl.back_frame().pack_pixel(0, Pixel(65535, 65535, 65535));
   HS_EXPECT_TRUE(ctl.submit_frame(false));
-  HS_EXPECT_EQ(capture[5], 188);
-  HS_EXPECT_EQ(capture[6], 137);
-  HS_EXPECT_EQ(capture[7], 137);
+  HS_EXPECT_EQ(capture[5], 127);
+  HS_EXPECT_EQ(capture[6], 64);
+  HS_EXPECT_EQ(capture[7], 64);
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);

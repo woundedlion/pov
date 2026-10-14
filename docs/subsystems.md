@@ -589,8 +589,8 @@ The conversion pipelines:
 ```
 Input (sRGB 8-bit) → sRGB→linear LUT → Pixel (linear 16-bit) → blend ops
                                                                       ↓
-FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel
-DMA HD107S output <- BGR protocol pack <- linear_to_srgb8
+FastLED output ← CRGB(linear PWM) ← linear16_to_linear8 ← Pixel
+DMA HD107S output <- BGR protocol pack <- linear16_to_linear8
                   <- brightness, temperature and color gains <- Pixel
 ```
 
@@ -965,13 +965,13 @@ Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 
 
 | Class | Header | Role |
 |---|---|---|
-| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `pack_pixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness, then `linear_to_srgb8` to 8-bit sRGB), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
+| `HD107SFrame<N>` | `hd107s_frame.h` | Pre-formatted DMA buffer for the HD107S protocol. `pack_pixel()` writes `Pixel` values directly into the frame buffer with inline color correction (color correction → temperature → brightness, then `linear16_to_linear8` to 8-bit linear PWM), bypassing the CRGB intermediate. The buffer is 32-byte-aligned (`__attribute__((aligned(32)))`) and cleaned with `arm_dcache_flush()` (clean, no invalidate — the buffer is TX-only) for cache coherency. |
 | `TeensySPIDMA` | `dma_led.h` | Low-level DMA+SPI driver wired to LPSPI4. Configures a `DMAChannel` with completion interrupt for fully async byte-stream transmission. |
 | `DMALEDController<N, Transport>` | `dma_led_controller.h` | Double-buffered high-level controller. The ISR packs pixels into `back_frame()`, then `submit_frame()` flushes it and triggers async DMA, returning immediately. If the previous transfer is still in flight, `submit_frame()` **drops** the new frame (bumping `get_overrun_count()`) and returns false rather than spinning; a transfer that never completes is surfaced as a wedged-channel fault. The drop returns before the buffers swap, so `back_frame()` still holds the dropped pixels and a caller can re-submit them without repacking. |
 | `next_buffer()`, `transfer_len()`, `transfer_us()`, `transfer_stale()` | `dma_led_core.h` | Free `constexpr` framing and watchdog math the controller's decisions derive from, host-tested without the peripherals. |
 
 The canvas and color-correction pipeline use 16-bit linear values. `pack_pixel()`
-converts them with `linear_to_srgb8` to the 8-bit sRGB channels sent on the SPI wire:
+converts them with `linear16_to_linear8` to the 8-bit linear PWM channels sent on the SPI wire:
 
 ```cpp
 // ISR path (per column): fetch the display buffer once, index it directly

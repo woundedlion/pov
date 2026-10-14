@@ -9,8 +9,8 @@
  * @brief Pre-formatted HD107S (APA102-compatible) protocol buffer + color
  *        correction, free of Teensy peripherals.
  *
- * All corrections are applied in linear 16-bit space before the linear → sRGB
- * conversion.
+ * All corrections are applied in linear 16-bit space before the linear 8-bit
+ * quantization.
  */
 
 #include <cassert>
@@ -20,7 +20,6 @@
 
 #include "core/platform/platform.h" // HS_O3_FN
 #include "core/color/color.h"       // Pixel
-#include "core/color/srgb_decode.h" // linear_to_srgb8: bit-exact DTCM split-decode
 
 namespace hd107s {
 
@@ -88,7 +87,7 @@ inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
  * pack_pixel() applies color gains, temperature gains and brightness scaling
- * to linear Pixel input, then converts linear 16-bit channels to sRGB 8-bit.
+ * to linear Pixel input, then converts linear 16-bit channels to linear 8-bit.
  */
 template <int N> class HD107SFrame {
 public:
@@ -133,7 +132,7 @@ public:
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
    * @details factor() caps every multiplier at 256 (×1.0), so each (v*f)>>8
-   *          with v ≤ 65535 stays inside linear_to_srgb8's 16-bit input domain.
+   *          with v ≤ 65535 stays inside the 16-bit channel domain.
    */
   HS_O3_FN inline void correct(uint32_t &r, uint32_t &g, uint32_t &b) const {
     r = (r * corr_r) >> 8;
@@ -155,7 +154,7 @@ public:
    *              out-of-range index is UB); asserted on host builds only.
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
-   *          space then converts to sRGB 8-bit in a single pass (no intermediate
+   *          space then converts to linear 8-bit in a single pass (no intermediate
    *          CRGB).
    */
   HS_O3_FN inline void pack_pixel(int index, const Pixel &p) {
@@ -168,9 +167,9 @@ public:
 
     correct(r, g, b);
 
-    dest[1] = linear_to_srgb8(b);
-    dest[2] = linear_to_srgb8(g);
-    dest[3] = linear_to_srgb8(r);
+    dest[1] = linear16_to_linear8(b);
+    dest[2] = linear16_to_linear8(g);
+    dest[3] = linear16_to_linear8(r);
   }
 
   /**
@@ -252,7 +251,7 @@ private:
   static_assert(
       factor(255) <= 256u,
       "factor() must cap at unity (256) so correct()'s (v*f)>>8 stages "
-      "cannot grow v past 16 bits and overflow linear_to_srgb8's input");
+      "cannot grow v past 16 bits and overflow the 16-bit channel input");
 
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
   static uint16_t temp_r, temp_g, temp_b;
