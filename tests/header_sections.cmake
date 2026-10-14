@@ -1,3 +1,14 @@
+# Remove C++ literals and comments before structural scans.
+function(hs_strip_cxx_noise variable)
+  set(_text "${${variable}}")
+  if(NOT "${ARGV1}" STREQUAL "KEEP_STRINGS")
+    string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
+  endif()
+  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
+  string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+  set(${variable} "${_text}" PARENT_SCOPE)
+endfunction()
+
 # Expand module-owned section headers into their owning test header.
 
 function(hs_read_test_header path output)
@@ -32,8 +43,7 @@ function(hs_check_test_sections)
       message(FATAL_ERROR "${_part}: section header shadows an engine include")
     endif()
     file(READ "${_owner}" _text)
-    string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
-    string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+    hs_strip_cxx_noise(_text KEEP_STRINGS)
     string(REGEX MATCHALL "#include \"tests/${_part}\"" _includes "${_text}")
     list(LENGTH _includes _count)
     if(NOT _count EQUAL 1)

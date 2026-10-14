@@ -1,3 +1,5 @@
+include("${CMAKE_CURRENT_LIST_DIR}/header_sections.cmake")
+
 # Audit concrete animation declarations against LARGEST_CONCRETE_ANIM_SIZE.
 #
 # Animations are CRTP: `class X : public Base<X>`, rooted at AnimationBase.
@@ -57,10 +59,7 @@ file(GLOB_RECURSE _headers "${CORE_DIR}/*.h")
 set(_decls "")
 foreach(_hdr IN LISTS _headers)
   file(READ "${_hdr}" _text)
-  # Strings first, so a `//` or `/*` inside a message cannot open a comment span.
-  string(REGEX REPLACE "\"([^\"\\\\\n]|\\\\.)*\"" "\"\"" _text "${_text}")
-  string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _text "${_text}")
-  string(REGEX REPLACE "//[^\n]*" "" _text "${_text}")
+  hs_strip_cxx_noise(_text)
   string(REGEX MATCHALL
     "(class|struct)[ \t\r\n]+[A-Za-z0-9_]+([ \t\r\n]+final)?[ \t\r\n]*:[^;{]*"
     _matches "${_text}")
@@ -108,8 +107,7 @@ endwhile()
 # The pack: the argument list of largest_sizeof<...>() feeding
 # LARGEST_CONCRETE_ANIM_SIZE.
 file(READ "${ANIM_HEADER}" _anim)
-string(REGEX REPLACE "/\\*[^*]*\\*+([^/*][^*]*\\*+)*/" "\n" _anim "${_anim}")
-string(REGEX REPLACE "//[^\n]*" "" _anim "${_anim}")
+hs_strip_cxx_noise(_anim KEEP_STRINGS)
 if(NOT _anim MATCHES "LARGEST_CONCRETE_ANIM_SIZE[ \t\r\n]*=[ \t\r\n]*largest_sizeof<([^>]*)>")
   message(FATAL_ERROR
     "cannot find `LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<...>` in "

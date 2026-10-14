@@ -146,7 +146,7 @@ add_custom_command(OUTPUT "${_guard_output}"
           "-DHS_GUARD_OUTPUT=${_guard_output}"
           "-DHS_GUARD_DIRS=${HS_GUARD_DIRS}"
           -P "${CMAKE_CURRENT_SOURCE_DIR}/count_guard_sites.cmake"
-  DEPENDS ${_guard_sources} guard_directories.txt count_guard_sites.cmake death_guard_sites.h.in
+  DEPENDS ${_guard_sources} guard_directories.txt count_guard_sites.cmake header_sections.cmake death_guard_sites.h.in
   VERBATIM)
 add_custom_target(death_guard_census DEPENDS "${_guard_output}")
 add_dependencies(run_tests death_guard_census)
