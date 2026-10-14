@@ -479,8 +479,9 @@ private:
   /**
    * @brief Re-splits the arenas for the shape about to be generated.
    * @param has_recipe Whether the shape builds through a swept recipe chain.
-   * @details Valid only with persistent at its baseline and both scratch
-   * arenas idle.
+   * @details Valid only after the caller's carousel compaction: both scratch
+   * arenas empty and the live persistent offset within the chosen split's
+   * persistent capacity.
    */
   HS_COLD_MEMBER void resplit_for_spawn(bool has_recipe) {
     const bool bridge_split = has_recipe && build_uses_smooth_bridge();
