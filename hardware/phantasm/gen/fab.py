@@ -807,7 +807,7 @@ def require_schematic_parity(report_path):
         messages = []
         if diagnostics:
             messages.append(
-                f"{PCB} no longer matches {SCH}; update the routed rev 1.1 board "
+                f"{PCB} no longer matches {SCH}; update {PCB} "
                 "from its schematic in Pcbnew (Update PCB from Schematic), "
                 "re-route the affected nets and re-run DRC before shipping "
                 "these gerbers:\n  " +
