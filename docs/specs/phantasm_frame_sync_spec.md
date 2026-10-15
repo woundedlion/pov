@@ -435,13 +435,18 @@ both in one half-rev glitches, self-healing next half-rev.
 **Multi-boundary folds (bound, not a mode).** `tick()` folds *every* locally
 crossed boundary and runs `try_flip` per crossing, so the flip counter and the
 epoch/join schedule stay exact — but `TickActions::flip` is one bool, so the
-driver calls `advance_display` once and N windows consume a single queued frame
-(the board's content `t` then trails its peers by N−1 until the next epoch).
-`TickActions::zero_crossing` names the **final** crossing, so the published
-window half always describes the window actually open; what an even N breaks is
-the *clip*, since the frame taken live was drawn one window ahead for the
-opposite half — that window shows the previous frame over half the segment, and
-it self-corrects at the next boundary. Reaching N > 1 requires the flywheel ISR
+driver attempts one queued-frame publication. `TickActions::zero_crossing`
+names the **final** crossing, so the published window half describes the window
+actually open. A completed segment-clipped frame publishes only when its clip
+matches that window; otherwise it stays queued until the matching half returns.
+The clip is inspected after acquiring the queued-frame publication, while the
+foreground is blocked from reusing that buffer. Full-frame and persistent
+effects, and the initial full-width priming frame, publish at either boundary.
+The same rule applies when rendering itself misses one or more boundaries:
+both halves continue receiving updates instead of repeatedly refreshing one
+half and retaining the startup image in the other. Frame-time progress can
+still trail other boards until the next epoch.
+Reaching N > 1 requires the flywheel ISR
 to miss a wake by more than a half-revolution (62.5 ms); on the shipped DMA path
 (M ≈ 0, §9.1) that is out of reach, and a board coasting on dropped *symbols*
 still wakes on schedule and folds one boundary per wake.
@@ -1033,7 +1038,7 @@ short entry is a worse case for rejoin visibility than a long one.
 | EMI on the sync wire | binding case: an edge within G of the matching predicted boundary → ≤G col (≈5°) seam on one board for ≤½ rev; all other cases rejected with no artifact | ≤144 col (next real symbol re-snaps) | accepted-case ≈ λ·2G/288 ≈ **1.7/hr**, and that is an upper bound — an edge that close to a boundary normally lands within the gap timeout of the *real* burst and merges into an invalid count (discarded), so acceptance also needs the real symbol absent; rejected ≈ λ ≈ 1/min (telemetry only); boundary misclassification (2 coincident errors) ≈ 1/2 yrs *and* gate-rejected — except the ZERO→ZERO_EPOCH case, budgeted in the spurious-EPOCH row |
 | Spurious EPOCH (two spurious edges inside one ZERO burst → a valid ZERO_EPOCH on the same boundary; gate-accepted) | one board commits to the next roster entry alone — a wrong effect, not a dark one — until the §6.3.4 two-beacon index correction rebuilds it | ≤9,216 col (~4 s, two beacon gaps) plus one rebuild-dark window; a no-op inside the 16-rev epoch refractory | ≈ 1/2 yrs (two coincident edge errors in one burst), the only gate-accepted two-error case |
 | Mis-snap despite the gate / corrupted timebase (incl. forged burst during ACQUIRE) | one board off by up to W/2 | ≤ ~750 col ≈ 325 ms (`reject_fallback` rejections at ½-rev pace, each registered after the 24-col suspect window since a far-landing real symbol is held as possible beacon data first → ACQUIRE → re-snap ≤144) | possible during ordinary mid-show acquisition: beacon digit 0 is a clean one-pulse burst and can satisfy the quiet-before gate without an edge error. Frequency depends on reboot phase and beacon contents; the rejection fallback bounds recovery |
-| Dropped render (effect misses the 62.5 ms budget) | stale frame for 1 period; 1-frame `t` seam vs neighbors | next epoch reset (remainder of effect, up to 300 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
+| Dropped render (effect misses the 62.5 ms budget) | stale half until a completed frame reaches its matching window; `t` seam vs neighbors | next epoch reset (remainder of effect, up to 300 s); same-index beacon does not advance frame time | ≈0 within budget; watched by the overrun/`ft` telemetry |
 | Missed epoch (all R+1 copies) or corrupted beacon frame | one segment on the old effect ≤4 s; a dropped beacon alone is consequence-free redundancy | 576 col (~250 ms): the post-commit beacons ride consecutive revolutions, so the §6.3.4 confirming frame costs one extra revolution; ≤9,216 col (~4 s, two beacon gaps) if the post-commit train is lost too | ≈0 — requires 4 independent symbol losses; beacon bounds it regardless |
 | Board reboot mid-show | one segment dark (fail-dark, never wrong) | ≤7,200 col (~3.1 s, the enforced 25-rev bound): phase ≤144 col, index at the next beacon — up to a 21-rev gap across a commit window — then the §6.5 grid adds ≤4 revs before it goes live on the correct effect | per external reboot event |
 | Firmware invariant violation (init > K, flywheel wake-ups stop) | trap (`HS_CHECK` / `buffer_free()` watchdog) | none — fail-fast by design | 0 in correct firmware; a caught bug class, not a runtime mode |
