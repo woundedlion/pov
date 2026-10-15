@@ -38,6 +38,25 @@ constexpr bool upcoming_window_arm_a_left(bool window_left) {
 }
 
 /**
+ * @brief Publishes a queued segment frame only in the half it rendered.
+ * @param effect Live effect with a completed or in-progress frame.
+ * @param segment Physical arm and row mapping.
+ * @param window_left True when the open window sweeps arm A's left half.
+ */
+inline void advance_segment_display(Effect &effect, const SegmentMap &segment,
+                                    bool window_left) {
+  effect.advance_display_if([&] {
+    if (!segment_clip_applies(effect))
+      return true;
+    const ClipRegion &clip = effect.clip();
+    if (clip.x_start == 0 && clip.x_end == effect.width())
+      return true;
+    const bool LEFT = segment.arm_b ? !window_left : window_left;
+    return clip.x_start == (LEFT ? 0 : effect.width() / 2);
+  });
+}
+
+/**
  * @brief Retains the previous image outside this frame's segment half.
  * @pre The display clip is one non-wrapping horizontal half, [0, width/2) or
  * [width/2, width), as returned by segment_clip() for an even canvas width.

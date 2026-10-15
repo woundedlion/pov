@@ -553,6 +553,9 @@ private:
             break;
           }
           return false;
+        },
+        [](Effect *e) {
+          pov::advance_segment_display(*e, segment, handoff.window_left());
         });
   }
 
