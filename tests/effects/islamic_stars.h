@@ -57,6 +57,24 @@ struct IslamicBuildProbe {
   static constexpr size_t bridge_scratch_b() {
     return IS::BRIDGE_BUDGET.scratch_b;
   }
+  /** @return One default registry cycle using the runtime build planner. */
+  static size_t runtime_cycle_frames() {
+    IS effect;
+    size_t frames = 0;
+    for (const auto &entry : Solids::islamic_registry) {
+      effect.build_step_count =
+          entry.recipe ? Solids::expand_to_primitives(*entry.recipe,
+                                                      effect.build_step_chain,
+                                                      IS::MAX_BUILD_STEPS)
+                       : 0;
+      bool morphable = true;
+      for (size_t k = 0; k < effect.build_step_count; ++k)
+        morphable &= Solids::is_morphable_step(effect.build_step_chain[k]);
+      frames += IS::PRESET_DWELL_FRAMES +
+                (morphable ? effect.plan_build_legs(1.0f) : 0);
+    }
+    return frames;
+  }
   static constexpr int sprite_fade_frames() { return IS::SPRITE_FADE_FRAMES; }
   /**
    * @brief Spawns @p entry out of band, whatever the registry cycle is on.
@@ -225,6 +243,14 @@ inline size_t first_recipe_entry() {
       return i;
   HS_CHECK(false, "no Islamic solid has a recipe");
   return 0;
+}
+
+/** @brief The shipping cycle budget includes every shape's planned build. */
+inline void test_islamicstars_default_cycle_frames() {
+  reset_effect_globals();
+  using IS = IslamicBuildProbe::IS;
+  HS_EXPECT_EQ(IS::cycle_frames(), 7424u);
+  HS_EXPECT_EQ(IslamicBuildProbe::runtime_cycle_frames(), IS::cycle_frames());
 }
 
 /** @brief IslamicStars preset registration excludes its global controls. */

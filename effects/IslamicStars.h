@@ -630,6 +630,19 @@ private:
   }
 
 public:
+  /** @return Frames in one automatic registry cycle at shipping defaults. */
+  static consteval size_t cycle_frames() {
+    constexpr Params DEFAULTS{};
+    const int BASE = 2 * SPRITE_FADE_FRAMES + 2 * STILL_FRAMES +
+                     (DEFAULTS.burst_size - 1) * RIPPLE_STAGGER_FRAMES +
+                     static_cast<int>(DEFAULTS.ripple_duration);
+    size_t frames = 0;
+    for (const auto &entry : Solids::islamic_registry)
+      frames += BASE + Builder::recipe_frame_budget(entry.recipe,
+                                                    DEFAULTS.trans_speed);
+    return frames;
+  }
+
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {

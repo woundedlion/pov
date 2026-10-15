@@ -26,6 +26,15 @@ struct DisplacementFieldWhiteBox {
     effect.ball_phase_left = 0;
   }
 
+  /** @brief Forces the slowest default fall and a spawn on the window's last frame.
+   * @param effect Initialized effect. */
+  template <int W, int H>
+  static void force_last_slow_ball(DisplacementField<W, H> &effect) {
+    effect.params.ball_speed_max = effect.params.ball_speed_min;
+    if (effect.ball_phase_left == 1)
+      effect.spawn_cooldown = 0.0f;
+  }
+
   /** @brief Requests preview progress without an active frame canvas.
    * @param effect Initialized effect with a free ball slot. */
   template <int W, int H>
@@ -996,4 +1005,33 @@ inline void test_displacement_field_startup_writes_preserve_entry() {
     HS_EXPECT_NEAR(WB::noise_amplitude(effect), amplitude, 1e-6f);
     HS_EXPECT_EQ(effect.getPresetIndex(), size_t{0});
   }
+}
+
+/** @brief The default cycle budget covers the last ball draining before Noise returns. */
+inline void test_displacement_field_default_cycle_frames() {
+  reset_effect_globals();
+  using DF = DisplacementField<SMALL_W, SMALL_H>;
+  DF effect;
+  effect.init();
+  bool saw_balls = false;
+  bool saw_drain = false;
+  bool returned = false;
+  for (size_t frame = 0; frame < DF::cycle_frames(); ++frame) {
+    DisplacementFieldWhiteBox::force_last_slow_ball(effect);
+    effect.draw_frame();
+    effect.advance_display();
+    if (!DisplacementFieldWhiteBox::in_noise(effect)) {
+      saw_balls = true;
+      if (DisplacementFieldWhiteBox::ball_window(effect) == 0) {
+        saw_drain |= DisplacementFieldWhiteBox::active_balls(effect) > 0;
+      }
+    } else if (saw_balls) {
+      HS_EXPECT_EQ(DisplacementFieldWhiteBox::active_balls(effect), 0);
+      returned = true;
+      break;
+    }
+  }
+  HS_EXPECT_TRUE(saw_balls);
+  HS_EXPECT_TRUE(saw_drain);
+  HS_EXPECT_TRUE(returned);
 }

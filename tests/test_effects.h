@@ -625,6 +625,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_ring_pool_capacity_release);
   run_case(test_displacement_field_footprint_covers_init);
   run_case(test_displacement_field_pause_holds_phase_only);
+  run_case(test_displacement_field_default_cycle_frames);
   run_case(test_displacement_field_presets);
   run_case(test_displacement_field_edit_cancels_departure);
   run_case(test_displacement_field_startup_writes_preserve_entry);
@@ -638,6 +639,7 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
   run_case(test_islamicstars_smooth_recipe_completion);
+  run_case(test_islamicstars_default_cycle_frames);
   run_case(test_islamicstars_presets_cover_registry);
   run_case(test_islamicstars_manual_select_cuts_build);
   run_case(test_islamicstars_pause_holds_shape);

@@ -45,6 +45,14 @@ public:
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
   /** Stable preset identities, in automatic sequence order. */
   static constexpr std::array<std::string_view, 2> PRESET_IDS{"noise", "balls"};
+  /** @return Safe full-cycle frame budget at shipping defaults, including ball drain. */
+  static consteval size_t cycle_frames() {
+    constexpr auto DEFAULTS = PRESETS[BALLS_PRESET];
+    return 2 * NOISE_FADE_FRAMES + NOISE_HOLD_FRAMES + BALL_PHASE_FRAMES +
+           static_cast<int>(BALL_RATE_FPS / DEFAULTS.ball_speed_min) +
+           PHASE_HANDOFF_FRAMES;
+  }
+
   /** @return Number of authored displacement presets. */
   static consteval size_t authored_preset_count() { return PRESET_IDS.size(); }
 
@@ -805,6 +813,8 @@ private:
       60.0f; /**< Frames per Ball Rate / Speed slider unit. */
   static constexpr float BALL_DRAPE_PER_AMPLITUDE =
       4.0f; /**< Drape gain per Ball Amp unit. */
+  // Phase departures run before their timeline completion is observed.
+  static constexpr int PHASE_HANDOFF_FRAMES = 3;
   static constexpr int NOISE_FADE_FRAMES =
       150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES =

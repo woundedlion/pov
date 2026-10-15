@@ -104,7 +104,7 @@ protected:
    * @param op Lowered primitive op.
    * @return Frames the leg runs for.
    */
-  static int leg_frames(Solids::Op op) {
+  static constexpr int leg_frames(Solids::Op op) {
     switch (op) {
     case Solids::Op::HANKIN:
       return HANKIN_LEG_FRAMES;
@@ -181,6 +181,62 @@ protected:
     }
   }
 
+  /** @brief Lowered-chain frame allocation. */
+  struct BuildTiming {
+    std::array<int, MAX_BUILD_STEPS>
+        legs{};        /**< Per-step bridge or sweep budget. */
+    int sweep = 0;     /**< Smooth macro truncate frames. */
+    int reconcile = 0; /**< Smooth macro reconcile frames. */
+    int total = 0;     /**< Complete build frame count. */
+  };
+
+  /** @brief Plans the frame budgets of a lowered recipe chain.
+   * @param chain Lowered primitive steps.
+   * @param sp Transition speed divisor.
+   * @return Per-step and total build timing. */
+  static constexpr BuildTiming
+  build_timing(std::span<const Solids::OpStep> chain, float sp) {
+    BuildTiming timing;
+    timing.sweep = std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
+    timing.reconcile = std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
+    const int BRIDGE =
+        std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
+    for (size_t k = 0; k < chain.size(); ++k) {
+      const auto op = chain[k].op;
+      if (op == Solids::Op::DUAL && k + 1 < chain.size() &&
+          chain[k + 1].op == Solids::Op::KIS) {
+        timing.legs[k] = BRIDGE;
+        timing.total += timing.sweep + BRIDGE + timing.reconcile;
+        ++k;
+      } else if (op == Solids::Op::KIS &&
+                 !(k > 0 && chain[k - 1].op == Solids::Op::DUAL)) {
+        timing.legs[k] = BRIDGE;
+        timing.total += BRIDGE + timing.sweep + BRIDGE + timing.reconcile;
+      } else {
+        timing.legs[k] = std::max(1, static_cast<int>(leg_frames(op) / sp));
+        timing.total += timing.legs[k];
+      }
+    }
+    return timing;
+  }
+
+  /** @brief Build frames for a recipe, or zero for whole-shape fallback.
+   * @param recipe Authored recipe, or null for a generated shape.
+   * @param sp Transition speed divisor.
+   * @return Swept build frame budget. */
+  static constexpr int recipe_frame_budget(const Solids::Recipe *recipe,
+                                           float sp) {
+    if (!recipe)
+      return 0;
+    std::array<Solids::OpStep, MAX_BUILD_STEPS> chain{};
+    const size_t count =
+        Solids::expand_to_primitives(*recipe, chain.data(), chain.size());
+    for (size_t k = 0; k < count; ++k)
+      if (!Solids::is_morphable_step(chain[k]))
+        return 0;
+    return build_timing({chain.data(), count}, sp).total;
+  }
+
   /**
    * @brief Lays out the build chain's per-leg frame budgets and resets the
    *        build cursor to the chain's first leg.
@@ -194,36 +250,11 @@ protected:
     build_step = 0;
     build_from_pal = nullptr;
     build_from_faces = 0;
-    build_total_frames = 0;
-    build_macro_sweep_frames =
-        std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
-    build_reconcile_frames =
-        std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
-    const int bridge_frames =
-        std::max(1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
-    // A step this plan skips (a dt pair's trailing kis) must read 0, not the
-    // previous build's budget, so a cursor that lands there is caught.
-    for (int &frames : build_leg_frames)
-      frames = 0;
-    for (size_t k = 0; k < build_step_count; ++k) {
-      const Solids::Op op = build_step_chain[k].op;
-      if (dt_pair_at(k)) {
-        build_leg_frames[k] = bridge_frames; // dual bridge (DUAL step)
-        build_total_frames +=
-            build_macro_sweep_frames + bridge_frames + build_reconcile_frames;
-        ++k; // the trailing kis is consumed by the dt macro
-        continue;
-      }
-      if (standalone_kis_at(k)) {
-        build_leg_frames[k] = bridge_frames; // both dtd bridges split this
-        build_total_frames += bridge_frames + build_macro_sweep_frames +
-                              bridge_frames + build_reconcile_frames;
-        continue;
-      }
-      const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
-      build_leg_frames[k] = frames;
-      build_total_frames += frames;
-    }
+    const auto timing = build_timing({build_step_chain, build_step_count}, sp);
+    std::copy(timing.legs.begin(), timing.legs.end(), build_leg_frames);
+    build_macro_sweep_frames = timing.sweep;
+    build_reconcile_frames = timing.reconcile;
+    build_total_frames = timing.total;
     return build_total_frames;
   }
 
