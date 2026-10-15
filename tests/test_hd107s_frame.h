@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 
 namespace hs_test {
@@ -30,7 +31,7 @@ using PhantasmFrame = HD107SFrame<PHANTASM_PPS>;
  * @brief Returns a pointer to pixel i's 4-byte wire record in the image frame.
  * @param f Frame whose image buffer is inspected.
  * @param i Pixel index in [0, N); offset is 4-byte start frame plus i records.
- * @return Pointer to the [0xFF][B][G][R] record for pixel i.
+ * @return Pointer to the [brightness][B][G][R] record for pixel i.
  */
 inline const uint8_t *pixel(const Frame &f, int i) {
   return f.data() + 4 + i * 4;
@@ -239,7 +240,7 @@ inline void test_packpixel_wire_order() {
  * non-unity brightness.
  * @details Full-scale white through correction 255,176,240, temperature
  * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
- * linear16_to_linear8 rounds to R=128, G=51, B=20.
+ * packs at brightness 16 to R=249, G=100, B=38.
  */
 inline void test_packpixel_shipped_gains_half_brightness() {
   Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
@@ -252,10 +253,10 @@ inline void test_packpixel_shipped_gains_half_brightness() {
 
   const Pixel white(CRGB(255, 255, 255));
   f.pack_pixel(3, white);
-  HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 20);  // B
-  HS_EXPECT_EQ(pixel(f, 3)[2], 51);  // G
-  HS_EXPECT_EQ(pixel(f, 3)[3], 128); // R
+  HS_EXPECT_EQ(pixel(f, 3)[0], 0xF0);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 38);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 100);
+  HS_EXPECT_EQ(pixel(f, 3)[3], 249);
 
   Frame::set_brightness(255);
   f.pack_pixel(3, white);
@@ -267,19 +268,80 @@ inline void test_packpixel_shipped_gains_half_brightness() {
   reset_correction<N>();
 }
 
-/** @brief Verifies nearest linear PWM quantization over the full input range. */
-inline void test_packpixel_linear_quantization() {
+/** @brief Verifies nearest 8-bit quantization for the non-DMA output path. */
+inline void test_linear_quantization() {
+  for (uint32_t value = 0; value <= 65535u; ++value) {
+    const auto EXPECTED = static_cast<uint8_t>(value * 255.0 / 65535.0 + 0.5);
+    HS_EXPECT_EQ(linear16_to_linear8(static_cast<uint16_t>(value)), EXPECTED);
+  }
+}
+
+/** @brief Verifies adaptive packing against independently decoded light levels. */
+inline void test_packpixel_adaptive_quantization() {
   reset_correction<N>();
   Frame f;
+  int previous_light = 0;
   for (uint32_t value = 0; value <= 65535u; ++value) {
-    const auto channel = static_cast<uint16_t>(value);
-    const auto expected = static_cast<uint8_t>(value * 255.0 / 65535.0 + 0.5);
-    HS_EXPECT_EQ(linear16_to_linear8(channel), expected);
-    f.pack_pixel(0, Pixel(channel, 0, static_cast<uint16_t>(65535u - value)));
-    HS_EXPECT_EQ(pixel(f, 0)[3], expected);
-    HS_EXPECT_EQ(pixel(f, 0)[2], 0);
-    HS_EXPECT_EQ(pixel(f, 0)[1], 255 - expected);
+    const uint16_t CHANNEL = static_cast<uint16_t>(value);
+    const Pixel INPUTS[] = {
+        Pixel(CHANNEL, CHANNEL, CHANNEL),
+        Pixel(CHANNEL, static_cast<uint16_t>(value / 3), 0),
+        Pixel(0, CHANNEL, static_cast<uint16_t>(65535u - value)),
+        Pixel(static_cast<uint16_t>(value / 7), 0, CHANNEL)};
+    for (const Pixel &input : INPUTS) {
+      f.pack_pixel(0, input);
+      const uint8_t *WIRE = pixel(f, 0);
+      const int BRIGHTNESS = WIRE[0] & 31;
+      HS_EXPECT_EQ(WIRE[0] & 0xE0, 0xE0);
+      HS_EXPECT_TRUE(BRIGHTNESS >= 1 && BRIGHTNESS <= 31);
+      const double PEAK = std::max({input.r, input.g, input.b}) / 65535.0;
+      HS_EXPECT_TRUE(PEAK <= BRIGHTNESS / 31.0 * (255.5 / 255));
+      if (PEAK > 0)
+        HS_EXPECT_TRUE(PEAK >= (BRIGHTNESS - 1) / 31.0 * (255.5 / 255));
+      const uint16_t CHANNELS[] = {input.b, input.g, input.r};
+      for (int i = 0; i < 3; ++i) {
+        const double LIGHT = WIRE[i + 1] / 255.0 * BRIGHTNESS / 31.0;
+        const double ERROR = std::abs(LIGHT - CHANNELS[i] / 65535.0);
+        HS_EXPECT_TRUE(ERROR <= BRIGHTNESS / (31.0 * 255.0 * 2) + 1e-12);
+      }
+      if (input.r == input.g && input.g == input.b) {
+        const int LIGHT = WIRE[3] * BRIGHTNESS;
+        HS_EXPECT_GE(LIGHT, previous_light);
+        previous_light = LIGHT;
+      }
+    }
   }
+}
+
+/** @brief Verifies dim channel survival and brightness rewrites in a reused slot. */
+inline void test_packpixel_dim_repacking() {
+  reset_correction<N>();
+  Frame f;
+  const std::array<std::array<uint16_t, 3>, 5> INPUTS = {{{65535, 65535, 65535},
+                                                          {128, 64, 32},
+                                                          {0, 0, 0},
+                                                          {65535, 0, 0},
+                                                          {5, 0, 0}}};
+  const uint8_t EXPECTED[][4] = {{0xFF, 255, 255, 255},
+                                 {0xE1, 4, 8, 15},
+                                 {0xFF, 0, 0, 0},
+                                 {0xFF, 0, 0, 255},
+                                 {0xE1, 0, 0, 1}};
+  std::array<uint8_t, Frame::COMPOSITE_SIZE> before;
+  std::copy_n(f.data(), before.size(), before.begin());
+  for (size_t i = 0; i < INPUTS.size(); ++i) {
+    f.pack_pixel(N - 1, Pixel(INPUTS[i][0], INPUTS[i][1], INPUTS[i][2]));
+    for (int byte = 0; byte < 4; ++byte)
+      HS_EXPECT_EQ(pixel(f, N - 1)[byte], EXPECTED[i][byte]);
+    for (int byte = 0; byte < Frame::COMPOSITE_SIZE; ++byte)
+      if (byte < 4 + (N - 1) * 4 || byte >= 4 + N * 4)
+        HS_EXPECT_EQ(f.data()[byte], before[byte]);
+  }
+  Frame::set_brightness(0);
+  f.pack_pixel(N - 1, Pixel(65535, 65535, 65535));
+  for (int byte = 0; byte < 4; ++byte)
+    HS_EXPECT_EQ(pixel(f, N - 1)[byte], EXPECTED[2][byte]);
+  reset_correction<N>();
 }
 
 /**
@@ -288,7 +350,9 @@ inline void test_packpixel_linear_quantization() {
  */
 inline int run_hd107s_tests() {
   hs_test::ModuleFixture fixture("hd107s");
-  test_packpixel_linear_quantization();
+  test_linear_quantization();
+  test_packpixel_adaptive_quantization();
+  test_packpixel_dim_repacking();
   test_layout_constants();
   test_layout_constants_phantasm();
   test_fresh_frame_skeleton();

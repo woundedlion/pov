@@ -9,10 +9,11 @@
  * @brief Pre-formatted HD107S (APA102-compatible) protocol buffer + color
  *        correction, free of Teensy peripherals.
  *
- * All corrections are applied in linear 16-bit space before the linear 8-bit
- * quantization.
+ * All corrections are applied in linear 16-bit space before adaptive packing
+ * into 5-bit pixel brightness and 8-bit channel PWM.
  */
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -80,14 +81,15 @@ inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
  *
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00
- *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
+ *   Per pixel   : [0xE0 | brightness] [B] [G] [R]   (brightness 1..31)
  *   End frame   : ceil(N/16) bytes of 0x00, padded to a 32-bit word boundary.
  *                 Each LED re-clocks one half-cycle later, so the last pixel
  *                 needs ceil(N/2) extra clocks; at 8 clocks/byte that is
  *                 ceil(N/16) bytes. Padding adds harmless extra zero clocks.
  *
  * pack_pixel() applies color gains, temperature gains and brightness scaling
- * to linear Pixel input, then converts linear 16-bit channels to linear 8-bit.
+ * to linear Pixel input, then selects pixel brightness at the brightest
+ * channel's rounding boundary and rounds the rescaled channels to 8-bit.
  */
 template <int N> class HD107SFrame {
 public:
@@ -109,14 +111,11 @@ public:
    * @brief Constructs the frame: zeroes the composite buffer, then primes every
    *        pixel's brightness byte to 0xFF (max).
    * @details Primes brightness bytes in both the image frame and the trailing
-   *          black frame. Only the B/G/R color bytes change at runtime;
+   *          black frame. Image brightness and B/G/R bytes change at runtime;
    *          start/end frames stay zero.
    */
   HD107SFrame() {
     memset(buffer, 0, COMPOSITE_SIZE);
-    // Prime the 0xFF brightness byte of every pixel slot in the image frame
-    // (base 4) and the trailing black frame (base BUFFER_SIZE+4). pack_pixel()
-    // never rewrites it, so this is its sole writer.
     const int bases[2] = {4, BUFFER_SIZE + 4};
     for (int base : bases) {
       for (int i = 0; i < N; ++i) {
@@ -154,8 +153,8 @@ public:
    *              out-of-range index is UB); asserted on host builds only.
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
-   *          space then converts to linear 8-bit in a single pass (no intermediate
-   *          CRGB).
+   *          space, then packs shared 5-bit brightness and linear 8-bit PWM.
+   *          Black uses brightness 31 with all channels zero.
    */
   HS_O3_FN inline void pack_pixel(int index, const Pixel &p) {
     assert(index >= 0 && index < N);
@@ -167,9 +166,20 @@ public:
 
     correct(r, g, b);
 
-    dest[1] = linear16_to_linear8(b);
-    dest[2] = linear16_to_linear8(g);
-    dest[3] = linear16_to_linear8(r);
+    const uint32_t MAX_CHANNEL = std::max(r, std::max(g, b));
+    // Switch fields at PWM 255.5 to keep the brightest channel monotonic.
+    const uint32_t BRIGHTNESS =
+        MAX_CHANNEL == 0
+            ? 31
+            : std::min<uint32_t>(31u, MAX_CHANNEL * 62 / (257 * 511) + 1);
+    const uint32_t DENOMINATOR = 257 * BRIGHTNESS;
+    dest[0] = static_cast<uint8_t>(0xE0 | BRIGHTNESS);
+    dest[1] = static_cast<uint8_t>(
+        std::min<uint32_t>(255u, (b * 31 + DENOMINATOR / 2) / DENOMINATOR));
+    dest[2] = static_cast<uint8_t>(
+        std::min<uint32_t>(255u, (g * 31 + DENOMINATOR / 2) / DENOMINATOR));
+    dest[3] = static_cast<uint8_t>(
+        std::min<uint32_t>(255u, (r * 31 + DENOMINATOR / 2) / DENOMINATOR));
   }
 
   /**
