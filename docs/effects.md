@@ -113,7 +113,7 @@ Procedurally generates Islamic geometric patterns using Hankin's polygons-in-con
 
 ### HankinSolids
 
-Hankin interlace patterns over the Platonic and Archimedean solids. The interlace angle sweeps over the held solid, then the effect picks a uniformly random destination solid (excluding the last few swept) and morphs along a shortest path of the Conway edge graph to it: each leg sweeps the arriving solid's own operator parameter, so faces visibly truncate, expand, and twist through the solids in between. Exactly one mesh is on screen at all times; faces are colored by topology class from shuffled mesh palettes that crossfade per leg.
+Hankin interlace patterns over the Platonic and Archimedean solids. The interlace angle sweeps over the held solid, then the effect advances to the next solid in registry order along a deterministic shortest path of the Conway edge graph: each leg sweeps the arriving solid's own operator parameter, so faces visibly truncate, expand, and twist through the solids in between. Exactly one mesh is on screen at all times; faces are colored by topology class from shuffled mesh palettes that crossfade per leg.
 
 **Parameters**: Intensity, Angle
 

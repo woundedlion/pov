@@ -37,10 +37,8 @@ struct ShapeWeights {
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Sweeps the interlace angle on a solid, picks a uniformly random
- * destination among the solids not recently swept, and morphs along a shortest
- * Conway edge-graph path to it, each leg sweeping the arriving solid's operator
- * parameter.
+ * @details Sweeps every solid once in registry order, morphing along deterministic
+ * shortest Conway edge-graph paths between sweeps.
  * Faces are colored by topology class.
  */
 template <int W, int H> class HankinSolids : public Effect {
@@ -50,6 +48,23 @@ public:
       hs::effect_identities::HankinSolids::VALUE;
   /// Canonical machine ID.
   static constexpr std::string_view EFFECT_ID = EFFECT_IDENTITY.machine_id;
+
+  /** Frames in one interlace-angle sweep. */
+  static constexpr int HANKIN_SWEEP_FRAMES = 80;
+  /** Frames between successive starts of the tetrahedron sweep. */
+  static constexpr int FULL_CYCLE_FRAMES = []() constexpr {
+    using namespace ConwayGraph;
+    int frames = NUM_NODES * (HANKIN_SWEEP_FRAMES + 1);
+    for (int from = 0; from < NUM_NODES; ++from) {
+      const int DEST = (from + 1) % NUM_NODES;
+      for (int node = from; node != DEST;) {
+        const int EDGE = next_edge_toward(node, DEST, 0);
+        frames += SWEEP_FRAMES + (EDGES[EDGE].settle ? SETTLE_FRAMES : 0);
+        node = edge_other_end(EDGE, node);
+      }
+    }
+    return frames;
+  }();
 
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
@@ -95,9 +110,6 @@ public:
     node = ConwayGraph::TETRAHEDRON;
     seed_identity = ConwayGraph::TETRAHEDRON;
     dest = node;
-    std::fill(std::begin(recent_sweeps), std::end(recent_sweeps),
-              ConwayGraph::NO_NODE);
-    ConwayGraph::record_sweep(recent_sweeps, node);
 
     MeshPaletteBank::shuffle_indices(palette_idx);
     hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
@@ -138,8 +150,6 @@ private:
   /** Largest hankin mesh face count (star faces plus the rosette/strap faces
    * born inside them). */
   static constexpr size_t MAX_HANKIN_FACES = 256;
-  /** Frames in one interlace-angle sweep. */
-  static constexpr int HANKIN_SWEEP_FRAMES = 80;
   /** Frames over which the terminal rosette sliver fades out. */
   static constexpr int STRAP_TERMINAL_FRAMES = 3;
   /** Frames shaping a face into or out of its neighbor at strap birth/close
@@ -570,10 +580,8 @@ private:
     dest = static_cast<uint8_t>(edge_other_end(cur_edge, node));
 #else
     if (node == dest)
-      dest = static_cast<uint8_t>(pick_destination(
-          node, recent_sweeps, static_cast<uint32_t>(hs::random()())));
-    cur_edge =
-        next_edge_toward(node, dest, static_cast<uint32_t>(hs::random()()));
+      dest = static_cast<uint8_t>((dest + 1) % NUM_NODES);
+    cur_edge = next_edge_toward(node, dest, 0);
 #endif
     const EdgeSpec &e = EDGES[cur_edge];
     HS_CHECK(edge_touches(cur_edge, node),
@@ -744,7 +752,6 @@ private:
       start_morph_cycle();
       return;
     }
-    record_sweep(recent_sweeps, node);
     start_hankin_cycle();
   }
 
@@ -785,8 +792,6 @@ private:
   int cur_edge = -1;         /**< Edge of the last (or in-flight) leg. */
   bool reverse = false;      /**< In-flight leg runs to_node -> from_node. */
   uint8_t dest = 0; /**< Node the walk is routing to for its next sweep. */
-  uint8_t recent_sweeps[ConwayGraph::RECENT_SWEEPS] =
-      {}; /**< Last swept nodes, most recent first. */
 #ifdef HS_PROFILE_ORDERED_CYCLE
   uint32_t leg_counter = 0; /**< Leg count (ordered-cycle picks). */
 #endif
