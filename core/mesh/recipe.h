@@ -147,8 +147,8 @@ inline constexpr size_t max_lowered_step_count(const Entry (&entries)[N]) {
  * emits ambo, ambo instead, matching truncate's ambo short-circuit. Primitive
  * steps pass through unchanged.
  */
-HS_COLD_MEMBER inline size_t expand_to_primitives(const Recipe &recipe,
-                                                  OpStep *out, size_t cap) {
+HS_COLD_MEMBER inline constexpr size_t
+expand_to_primitives(const Recipe &recipe, OpStep *out, size_t cap) {
   size_t n = 0;
   auto emit = [&](OpStep step) HS_COLD_MEMBER {
     HS_CHECK(n < cap, "expand_to_primitives: output capacity exceeded");
