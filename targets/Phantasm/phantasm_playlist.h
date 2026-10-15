@@ -23,47 +23,45 @@
  *   HS_EFFECT_LIST.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
-  X(Galaxies, 120)                                                             \
-  X(HopfFibration, 120)                                                        \
+  X(Galaxies, 30)                                                              \
+  X(HopfFibration, 30)                                                         \
   X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
   X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
-  X(ShapeShifter, 135)                                                         \
-  X(MindSplatter, 120)                                                         \
-  X(Raymarch, 120)                                                             \
+  X(ShapeShifter, hs_preset_window_seconds<ShapeShifter>())                    \
+  X(MindSplatter, hs_preset_window_seconds<MindSplatter>())                    \
+  X(Raymarch, 30)                                                              \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
-  X(KaleidoscopeStainedGlass,                                                  \
-    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
-  X(IslamicStars, 120)                                                         \
-  X(BZReactionDiffusion, 120)                                                  \
+  X(GridSpace, 30)                                                             \
+  X(KaleidoscopeStainedGlass, 30)                                              \
+  X(IslamicStars, hs_preset_window_seconds<IslamicStars>())                    \
+  X(BZReactionDiffusion, 30)                                                   \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
-  X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
-  X(KaleidoscopeMelt, hs_preset_window_seconds<KaleidoscopeMelt>())            \
-  X(Fishbowl, 120)                                                             \
-  X(Comets, 120)                                                               \
-  X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
-  X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
-  X(DisplacementField, 120)                                                    \
+  X(AshCloud, 30)                                                              \
+  X(KaleidoscopeMelt, 30)                                                      \
+  X(Fishbowl, 30)                                                              \
+  X(JewelMelt, 30)                                                             \
+  X(Comets, hs_preset_window_seconds<Comets>())                                \
+  X(ChromaticLichen, 30)                                                       \
+  X(MermaidSkin, 30)                                                           \
+  X(DisplacementField, hs_preset_window_seconds<DisplacementField>())          \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
-  X(GnomonicStars, 120)                                                        \
-  X(GSReactionDiffusion, 120)                                                  \
-  X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
-  X(HankinSolids, 120)                                                         \
+  X(GnomonicStars, 30)                                                         \
+  X(GSReactionDiffusion, 30)                                                   \
+  X(AlienCore, 30)                                                             \
+  X(HankinSolids, 170)                                                         \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
-  X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
-  X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
+  X(AlienOcean, 30)                                                            \
+  X(KaleidoscopeHexSoft, 30)                                                   \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
-  X(PetalFlow, 120)                                                            \
-  X(KaleidoscopePentBright,                                                    \
-    hs_preset_window_seconds<KaleidoscopePentBright>())                        \
+  X(PetalFlow, 30)                                                             \
+  X(KaleidoscopePentBright, 30)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(RingSpin, 120)                                                             \
-  X(SphericalHarmonics, 120)                                                   \
-  X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
-  X(Voronoi, 120)                                                              \
-  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())
+  X(RingSpin, 30)                                                              \
+  X(SphericalHarmonics, hs_preset_window_seconds<SphericalHarmonics>())        \
+  X(CosmicEyeball, 30)                                                         \
+  X(Voronoi, 30)
 
 /**
  * @brief Expands to +1 so HS_PHANTASM_EFFECT_LIST sums into an entry count.
@@ -228,3 +226,9 @@ static_assert(!hs_in_phantasm_effect_list("ShaderChain") &&
                 "HS_PHANTASM_EFFECT_LIST");
 HS_SHADER_PRODUCT_GROUP(HS_SHADER_GROUP_DURATION_MATCHES)
 #undef HS_SHADER_GROUP_DURATION_MATCHES
+
+static_assert(
+    static_cast<size_t>(hs_phantasm_duration_seconds("HankinSolids")) ==
+    (HankinSolids<HS_PRESET_WINDOW_W, HS_PRESET_WINDOW_H>::FULL_CYCLE_FRAMES +
+     HS_SHOW_FRAMES_PER_SECOND - 1) /
+        HS_SHOW_FRAMES_PER_SECOND);

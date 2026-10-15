@@ -149,25 +149,23 @@ constexpr int hs_preset_window_seconds() {
  * HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(KaleidoscopeHexSoft, hs_preset_window_seconds<KaleidoscopeHexSoft>())      \
-  X(AlienOcean, hs_preset_window_seconds<AlienOcean>())                        \
-  X(AlienCore, hs_preset_window_seconds<AlienCore>())                          \
+  X(KaleidoscopeHexSoft, 30)                                                   \
+  X(AlienOcean, 30)                                                            \
+  X(AlienCore, 30)                                                             \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
-  X(GridSpace, hs_preset_window_seconds<GridSpace>())                          \
-  X(KaleidoscopeMelt, hs_preset_window_seconds<KaleidoscopeMelt>())            \
-  X(ChromaticLichen, hs_preset_window_seconds<ChromaticLichen>())              \
-  X(MermaidSkin, hs_preset_window_seconds<MermaidSkin>())                      \
-  X(JewelMelt, hs_preset_window_seconds<JewelMelt>())                          \
-  X(AshCloud, hs_preset_window_seconds<AshCloud>())                            \
-  X(KaleidoscopePentBright,                                                    \
-    hs_preset_window_seconds<KaleidoscopePentBright>())                        \
+  X(GridSpace, 30)                                                             \
+  X(KaleidoscopeMelt, 30)                                                      \
+  X(ChromaticLichen, 30)                                                       \
+  X(MermaidSkin, 30)                                                           \
+  X(JewelMelt, 30)                                                             \
+  X(AshCloud, 30)                                                              \
+  X(KaleidoscopePentBright, 30)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(KaleidoscopeStainedGlass,                                                  \
-    hs_preset_window_seconds<KaleidoscopeStainedGlass>())                      \
+  X(KaleidoscopeStainedGlass, 30)                                              \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
-  X(CosmicEyeball, hs_preset_window_seconds<CosmicEyeball>())                  \
+  X(CosmicEyeball, 30)                                                         \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())
 
 /**
