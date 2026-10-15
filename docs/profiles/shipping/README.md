@@ -1,10 +1,10 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-39 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 38 effects;
+36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
 Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by spill fraction, then peak render. ● marks the October 11 KaleidoscopeMelt, October 8 JewelMelt, October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by spill fraction, then peak render. ● marks the October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -17,9 +17,6 @@ Rows rank by spill fraction, then peak render. ● marks the October 11 Kaleidos
 | [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 15:16 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
 | [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
-| [JewelMelt](profile_jewelmelt_teensy_2026-10-08.md) ● | `fx_shader_draw` | 🟢 46.39 | 🟢 0/1087 (0.00%) | 2026-10-08 22:56 |
-| [KaleidoscopeMelt](profile_kaleidoscopemelt_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | 🟢 0/1087 (0.00%) | 2026-10-11 11:38 |
-| [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
 | [AshCloud](profile_ashcloud_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 42.67 | 🟢 0/1087 (0.00%) | 2026-10-06 19:01 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-06.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 0/3647 (0.00%) | 2026-10-06 18:28 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
@@ -53,8 +50,7 @@ and COM4, except HyperLattice, re-captured after its 4D optimization at
 re-captured on October 7; its report records the source and clock variant.
 The October 7 IslamicStars and HankinSolids captures measure optimized
 face distance. Each report names its board and source snapshot. Setup frame 1
-is excluded from display peak and spill figures. JewelMelt's October 8 capture
-at softness 0.5 records its full-width initialization draw separately.
+is excluded from display peak and spill figures.
 
 HankinSolids, HyperLattice and DisplacementField were re-captured with longer
 budgets than `tools/profile_sweep.sh` assigns them, so that each capture covers its

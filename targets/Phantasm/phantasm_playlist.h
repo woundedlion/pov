@@ -32,14 +32,11 @@
   X(Raymarch, 30)                                                              \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
   X(GridSpace, 30)                                                             \
-  X(KaleidoscopeStainedGlass, 30)                                              \
   X(IslamicStars, hs_preset_window_seconds<IslamicStars>())                    \
   X(BZReactionDiffusion, 30)                                                   \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
   X(AshCloud, 30)                                                              \
-  X(KaleidoscopeMelt, 30)                                                      \
   X(Fishbowl, 30)                                                              \
-  X(JewelMelt, 30)                                                             \
   X(Comets, hs_preset_window_seconds<Comets>())                                \
   X(ChromaticLichen, 30)                                                       \
   X(MermaidSkin, 30)                                                           \
@@ -151,9 +148,12 @@ constexpr bool hs_phantasm_effect_list_is_subset() {
  * @brief Roster effects the Phantasm playlist omits.
  * @param X Function-like macro applied to each excluded effect class name.
  * @details Dynamo, MobiusRings and Thrusters are low-resolution only.
- *          RingShower is omitted by product curation.
+ *          Other exclusions are product curation.
  */
 #define HS_PHANTASM_EXCLUDED_EFFECTS(X)                                        \
+  X(JewelMelt)                                                                 \
+  X(KaleidoscopeStainedGlass)                                                  \
+  X(KaleidoscopeMelt)                                                          \
   X(Dynamo)                                                                    \
   X(MobiusRings)                                                               \
   X(RingShower)                                                                \

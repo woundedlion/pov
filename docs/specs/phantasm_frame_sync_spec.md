@@ -79,7 +79,7 @@ every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
 table in the sync `Config`, and the master counts down that entry's own budget.
 Preset-cycle frame budgets convert at the nominal 16 fps; slower rendering
 can leave a cycle unfinished when its revolution budget expires.
-Across the 39-entry roster the durations run 30 s
+Across the 36-entry roster the durations run 30 s
 (240 revolutions for single-look effects) to 464 s (3,712
 revolutions, `IslamicStars`); 30 s / 240 revolutions is
 the most common value but carries no special status in the protocol. Every
