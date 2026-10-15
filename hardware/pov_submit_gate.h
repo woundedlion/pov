@@ -217,17 +217,22 @@ concept WakeSubmit =
  * @param commit_failure Handles a missed epoch commit deadline.
  * @param set_envelope Applies the current column's output envelope.
  * @param submit Performs the selected LED transport action.
+ * @param advance Publishes a queued frame at the current display boundary.
  */
 template <WakeHandoff Handoff, WakeTick Tick, WakeWireGen WireGen,
           WakeDriveSync DriveSync, WakeCommitFailure CommitFailure,
-          typename SetEnvelope, typename Submit>
+          typename SetEnvelope, typename Submit,
+          typename Advance = decltype([](auto *effect) {
+            effect->advance_display();
+          })>
   requires WakeSetEnvelope<SetEnvelope, WakeEffectPtr<Handoff>> &&
            WakeSubmit<Submit, WakeEffectPtr<Handoff>>
 __attribute__((always_inline)) inline void
 run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
                   Handoff &handoff, Tick tick, WireGen wire_gen,
                   DriveSync drive_sync, CommitFailure commit_failure,
-                  SetEnvelope set_envelope, Submit submit) {
+                  SetEnvelope set_envelope, Submit submit,
+                  Advance advance = {}) {
   if (sync_pulse.take_deferred_low())
     drive_sync(false);
 
@@ -252,7 +257,7 @@ run_wake_sequence(SyncPulseGate &sync_pulse, SubmitGate &submit_gate,
   auto *effect = wake.live;
   if (effect != nullptr) {
     if (wake.advance)
-      effect->advance_display();
+      advance(effect);
     if (actions.render_column >= 0)
       set_envelope(effect, actions.render_column);
   }

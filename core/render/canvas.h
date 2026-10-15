@@ -307,8 +307,18 @@ public:
    * to `buffer_free()`.
    */
   inline void advance_display() {
-    int n = next.load(std::memory_order_acquire);
-    prev.store(n, std::memory_order_release);
+    advance_display_if([] { return true; });
+  }
+  /**
+   * @brief Publishes a queued frame when its acquired metadata is accepted.
+   * @param ready Predicate called only while a completed frame is pending.
+   * @details A rejected frame remains queued; its metadata stays writer-owned
+   * until queue_frame() and stable until the release store to prev.
+   */
+  template <typename Ready> inline void advance_display_if(Ready ready) {
+    const int N = next.load(std::memory_order_acquire);
+    if (N != prev.load(std::memory_order_relaxed) && ready())
+      prev.store(N, std::memory_order_release);
   }
 
 protected:
