@@ -70,21 +70,23 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
 | Boards (N)          | 4        | seg 0 = phase reference / conductor   |
-| Effect duration     | 38–300 s | per-effect; 304–2,400 revolutions  |
+| Effect duration     | 30–464 s | per-effect; 240–3,712 revolutions  |
 
 **Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
 (`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
 every roster name; `targets/Phantasm/Phantasm.ino` turns that column into
 `EFFECT_REVOLUTIONS[]` as `seconds · RPM / 60`, `run_show()` installs that
 table in the sync `Config`, and the master counts down that entry's own budget.
-Across the 39-entry roster the durations run 38 s
-(304 revolutions, the shortest shader-group entries) to 300 s (2,400
-revolutions, `HyperLattice`); 120 s / 960 revolutions is
+Preset-cycle frame budgets convert at the nominal 16 fps; slower rendering
+can leave a cycle unfinished when its revolution budget expires.
+Across the 39-entry roster the durations run 30 s
+(240 revolutions for single-look effects) to 464 s (3,712
+revolutions, `IslamicStars`); 30 s / 240 revolutions is
 the most common value but carries no special status in the protocol. Every
 fixed revolution budget below — the R = 3 announce repeats, the K = 2
 construction window, the ~16-rev epoch refractory, the 16-rev beacon cadence,
 the 25-rev rejoin bound — is absolute, so each consumes a much larger share of
-a 304-revolution effect than of a 960-revolution one.
+a 240-revolution effect than of a 960-revolution one.
 
 **Rotor model — open-loop (load-bearing).** There is no hall/index/encoder
 input anywhere; both drivers synthesize column timing at a *fixed* frequency
@@ -730,7 +732,7 @@ together."
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
-Epoch is rare (once per roster entry, 38–300 s) but a *missed* epoch is very
+Epoch is rare (once per roster entry, 30–464 s) but a *missed* epoch is very
 visible (one segment
 stuck on the previous effect). Four mechanisms stack, each catching what the
 previous one cannot:
@@ -1011,8 +1013,8 @@ Constants: gate G = 4 col, `reject_fallback` = 4 rejections, EPOCH repeats R = 3
 construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 16 revs, EPOCH ×(1+3). EMI rate anchor: λ ≈ 1 induced event/min —
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
-4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 304 revs
-= 38 s at the shortest roster entry and 2,400 revs = 300 s at the longest.
+4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 240 revs
+= 30 s at the shortest roster entry and 3,712 revs = 464 s at the longest.
 The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the gap across a commit is an
 entry's revolutions after its last beacon + 3 (EPOCH announce revs) + K + 1
@@ -1020,8 +1022,8 @@ entry's revolutions after its last beacon + 3 (EPOCH announce revs) + K + 1
 of 8 revs, so that gap is at most 15 + 3 + 2 + 1 = 21 revs; an entry ≡ 1 mod 16
 would stretch it to 22. A joiner then waits up to the 4-rev join grid.
 `Config::valid()` computes the bound from the roster and enforces it. The 25 revs are
-absolute, not a fraction of the effect: against the shortest 304-revolution
-roster entry a rejoining board can be dark for about 8% of its airtime, so a
+absolute, not a fraction of the effect: against the shortest 240-revolution
+roster entry a rejoining board can be dark for about 10% of its airtime, so a
 short entry is a worse case for rejoin visibility than a long one.
 
 | Failure mode | Worst-case artifact | Worst-case recovery | Expected frequency |

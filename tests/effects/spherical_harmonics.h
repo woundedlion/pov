@@ -28,6 +28,10 @@ struct SphericalHarmonicsWhiteBox {
   static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
   static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
+  static void step_timeline(SH &fx) {
+    Canvas canvas(fx);
+    fx.timeline.step(canvas);
+  }
 
   static PipelineFrame prepare_pipeline(const SH &fx, int l1, int m1, int l2,
                                         int m2, float blend,
@@ -398,6 +402,34 @@ inline void test_sh_morph_chain_rearms() {
   HS_EXPECT_EQ(alpha_out_of_range, 0);
   HS_EXPECT_EQ(self_blend, 0); // blending a mode into itself would freeze it
   HS_EXPECT_GT(alpha_peak, 0.9f);
+}
+
+/** @brief A mode cycle visits every preset once before returning to its seed. */
+inline void test_sh_cycle_covers_every_mode() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+  const int SEED = WB::current_idx(fx);
+  std::vector<int> visits(WB::max_mode_idx() + 1);
+  int previous = SEED;
+  int commits = 0;
+  for (size_t frame = 0; frame < WB::SH::FULL_CYCLE_FRAMES; ++frame) {
+    pin_frame_clock(static_cast<int>(frame));
+    WB::step_timeline(fx);
+    fx.advance_display();
+    const int CURRENT = WB::current_idx(fx);
+    if (CURRENT != previous) {
+      HS_EXPECT_EQ(CURRENT, previous % WB::max_mode_idx() + 1);
+      ++visits[CURRENT];
+      ++commits;
+      previous = CURRENT;
+    }
+  }
+  HS_EXPECT_EQ(commits, WB::max_mode_idx());
+  HS_EXPECT_EQ(previous, SEED);
+  for (int mode = 1; mode <= WB::max_mode_idx(); ++mode)
+    HS_EXPECT_EQ(visits[mode], 1);
 }
 
 /** @brief Maps every runtime preset to its stable harmonic mode. */

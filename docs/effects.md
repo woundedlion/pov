@@ -127,7 +127,7 @@ Hankin interlace patterns over the Platonic and Archimedean solids. The interlac
 
 ### SphericalHarmonics
 
-Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field over the sphere: the harmonic value drives a positive/negative palette split — negative lobes recolor the positive palette by swapping its red and blue channels and dimming its green — with ambient-occlusion shading. Continuously morphs between (l, m) modes.
+Visualizes the real spherical harmonics Yˡₘ(θ, φ) as a colored scalar field over the sphere: the harmonic value drives a positive/negative palette split — negative lobes recolor the positive palette by swapping its red and blue channels and dimming its green — with ambient-occlusion shading. Continuously morphs through every (l, m) mode once in registry order before repeating.
 
 **Parameters**: Amplitude
 
@@ -664,7 +664,7 @@ Two stages carry approved approximations. Fast square Peirce projection and the 
 | `cosmic-eyeball` | `CosmicEyeball` | 1 |
 | `mobius-grid` | `MobiusGrid` | 2 |
 
-These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Each effect's show window is derived from its preset count, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
+These 19 effects form the product-only `shader-collection` group; family metadata is not part of runtime identity. Single-look effects have a 30-second show window. Multi-preset effects derive their window from the full preset cycle, giving every preset the shared 600-frame dwell and every transition the shared 480-frame segue. Frame budgets convert to show seconds at the nominal 16 fps; slower rendering can leave a cycle unfinished when its show window ends. Kaleidoscope Melt and Kaleidoscope Smooth run document-built chain comparisons in dedicated white-box equivalence suites.
 
 The [device profile archive](https://github.com/woundedlion/pov/blob/master/docs/profiles/README.md) contains canonical shipping selective-O3 captures for 38 of the 39 Phantasm effects (Galaxies is pending its first capture), global-O3 reference captures for 36 effects, and supplemental variant reports. The nineteen composed shipping effects report zero spilled display frames. KaleidoscopeMelt peaks at 46.26 ms; its 76.53 ms initialization frame is recorded separately and excluded from display cadence statistics. JewelMelt peaks at 46.39 ms at softness 0.5; its full-width initialization draw is recorded separately and excluded from display cadence statistics. GSReactionDiffusion's shipping capture peaks at 39.43 ms with no spilled frames; its global-O3 reference, which predates the October 5 optimization, peaks at 279.686 ms with every frame spilled. MermaidSkin peaks at 39.18 ms, ChromaticLichen at 35.53 ms, and AshCloud at 42.67 ms. AshCloud's global-O3 reference peaks at 79.81 ms with 100% spills. These measurements apply to the revisions and configurations recorded in those reports. The composed effects let the compiler inline the exact typed pipeline and discard every unused stage. The shared runtime and `GenerativePalette` color stage keep common lifecycle and palette machinery from being duplicated without introducing type erasure in the per-pixel call. No paired capture isolates specialization from the other structural differences, so the archive does not claim a dispatch-only speedup.
 

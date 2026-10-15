@@ -73,6 +73,16 @@ public:
   static constexpr uint32_t PARAMETER_SCHEMA_VERSION = 1;
   /** Frames each preset holds before its departure blend. */
   static constexpr uint16_t PRESET_DWELL_FRAMES = 112;
+  /** Frames the initial preset holds before its departure blend. */
+  static constexpr uint16_t INITIAL_DWELL_FRAMES =
+      PRESET_DWELL_FRAMES + DEPARTURE.frames;
+
+  /** @brief Show budget including the extended initial dwell.
+   * @return Conservative frames through the final preset dwell. */
+  static consteval size_t cycle_frames() {
+    return Choreography::cycle_frames() + INITIAL_DWELL_FRAMES -
+           PRESET_DWELL_FRAMES;
+  }
 
   /**
    * @brief Constructs the effect with its strobe pipeline configuration.
@@ -115,7 +125,7 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::Y_AXIS, noise));
 
     // First dwell spans a full cadence period (dwell + blend).
-    hold_initial_preset(PRESET_DWELL_FRAMES + DEPARTURE.frames);
+    hold_initial_preset(INITIAL_DWELL_FRAMES);
 
     build_particle_system();
     schedule_warp();

@@ -33,7 +33,7 @@ struct SphericalHarmonicsWhiteBox;
  * @brief Visualizer that paints real spherical harmonics on the unit sphere.
  * @tparam W Display width in pixels.
  * @tparam H Display height in pixels.
- * @details Continuously morphs between randomly chosen modes.
+ * @details Continuously morphs through every nonconstant mode in order.
  */
 template <int W, int H> class SphericalHarmonics : public Effect {
 public:
@@ -50,6 +50,16 @@ public:
       "sh-l3-m-1", "sh-l3-m0",  "sh-l3-m1",  "sh-l3-m2",  "sh-l3-m3",
       "sh-l4-m-4", "sh-l4-m-3", "sh-l4-m-2", "sh-l4-m-1", "sh-l4-m0",
       "sh-l4-m1",  "sh-l4-m2",  "sh-l4-m3",  "sh-l4-m4"};
+  /** Frames for each harmonic morph. */
+  static constexpr int MORPH_FRAMES = 64;
+  /** Frames covering every mode and returning to the starting mode. */
+  static constexpr size_t FULL_CYCLE_FRAMES = PRESET_IDS.size() * MORPH_FRAMES;
+  /** @brief Number of selectable harmonic modes.
+   * @return Authored preset count. */
+  static consteval size_t authored_preset_count() { return PRESET_IDS.size(); }
+  /** @brief Frames covering the complete harmonic mode cycle.
+   * @return Full cycle frame budget. */
+  static consteval size_t cycle_frames() { return FULL_CYCLE_FRAMES; }
 
   /**
    * @brief Field sampler that evaluates the (blended) harmonic at a world point.
@@ -269,29 +279,22 @@ private:
                          Pullback::Stage::Colorize<HarmonicColorPolicy>>;
 
   /**
-   * @brief Choose the next harmonic and animate the morph toward it.
+   * @brief Advances to the next harmonic and animates the morph toward it.
    * @details On completion commits it as current and recurses, yielding an
    * endless morph chain. Pausable: the chain is this effect's preset
    * choreography, so "Pause Presets" holds the current blend.
    */
   HS_COLD_MEMBER void start_morph() {
     const uint32_t generation = morph_generation;
-#ifdef HS_PROFILE_ORDERED_CYCLE
     next_idx = (current_idx % MAX_MODE_IDX) + 1;
-#else
-    // Re-roll on a match with current_idx: blending a basis function into
-    // itself would freeze the sphere for the whole transition.
-    do {
-      next_idx = hs::rand_int(1, MAX_MODE_IDX + 1);
-    } while (next_idx == current_idx);
-#endif
 #if defined(HS_PROFILE_ENABLE)
     hs::log("Mode: %d/%d", next_idx, MAX_MODE_IDX);
 #endif
 
     timeline.add_pausable(
         0,
-        Animation::Transition(morph_alpha, 1.0f, 64, math::ease_linear)
+        Animation::Transition(morph_alpha, 1.0f, MORPH_FRAMES,
+                              math::ease_linear)
             .then([this, generation]() {
               if (generation != morph_generation) {
                 morph_alpha = 0.0f;
