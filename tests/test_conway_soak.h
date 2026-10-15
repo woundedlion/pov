@@ -199,6 +199,37 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
       static_cast<unsigned long long>(render_energy));
 }
 
+/** @brief Every solid receives one complete sweep per deterministic cycle. */
+inline void test_ordered_sweep_cycle() {
+  reset_globals();
+  using Fx = HankinSolids<16, 8>;
+  Fx fx;
+  fx.init();
+  int swept[ConwayGraph::NUM_NODES] = {};
+  int completed = 0;
+  for (int cycle = 0; cycle < 2; ++cycle) {
+    for (int frame = 0; frame < Fx::FULL_CYCLE_FRAMES; ++frame) {
+      const int BEFORE = HankinWalkProbe::hankin_cycle_frame(fx);
+      fx.draw_frame();
+      fx.advance_display();
+      const int AFTER = HankinWalkProbe::hankin_cycle_frame(fx);
+      if (BEFORE == Fx::HANKIN_SWEEP_FRAMES && AFTER == BEFORE + 1) {
+        const int NODE = HankinWalkProbe::node(fx);
+        HS_EXPECT_EQ(NODE, completed % ConwayGraph::NUM_NODES);
+        ++completed;
+        ++swept[NODE];
+      }
+    }
+    for (int node = 0; node < ConwayGraph::NUM_NODES; ++node)
+      HS_EXPECT_EQ(swept[node], cycle + 1);
+    HS_EXPECT_EQ(HankinWalkProbe::node(fx), ConwayGraph::TETRAHEDRON);
+    HS_EXPECT_EQ(HankinWalkProbe::hankin_cycle_frame(fx), 0);
+    HS_EXPECT_TRUE(HankinWalkProbe::pending_landing(fx) == nullptr);
+  }
+  std::printf("  [cycle] Hankin full cycle: %d frames\n",
+              Fx::FULL_CYCLE_FRAMES);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -209,6 +240,7 @@ inline void test_full_graph_walk_soak(uint32_t seed) {
  */
 inline int run_conway_soak_tests() {
   hs_test::ModuleFixture fixture("conway_soak");
+  test_ordered_sweep_cycle();
   for (uint32_t seed : {1337u, 42u})
     test_full_graph_walk_soak(seed);
   return fixture.result();
