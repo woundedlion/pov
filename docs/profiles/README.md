@@ -1,12 +1,12 @@
 # On-device effect profiles — Teensy 4.0, segmented mode
 
-On-device timing for the **39 effects in the Phantasm image**, captured on
+On-device timing for the **36 effects in the Phantasm image**, captured on
 bench-attached Teensy 4.0 boards with the real segmented POV driver
 (`POVSegmented<288, 4, 480>`), DMA LEDs, and live flywheel/DMA ISRs. Each
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Canonical shipping captures cover 38 effects. Galaxies opens the shipping
+Canonical shipping captures cover 35 effects. Galaxies opens the shipping
 playlist; its first on-device timing capture is pending.
 
 The current Profile harness captures ISR counters and their timestamp together
@@ -56,9 +56,6 @@ predate the October 5 shipping optimization.
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-07.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-07 15:16<br>O3 2026-09-28 16:50 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-06.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.34 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-06 19:05<br>O3 2026-08-26 01:16 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-10-06.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 50.750 | 🟢 0/1087 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-06 18:22<br>O3 2026-09-24 20:18 |
-| [JewelMelt](shipping/profile_jewelmelt_teensy_2026-10-08.md) ● | `fx_shader_draw` | 🟢 46.39 | — | 🟢 0/1087 (0.00%) | — | — | — | ship 2026-10-08 22:56 |
-| [KaleidoscopeMelt](shipping/profile_kaleidoscopemelt_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | — | 🟢 0/1087 (0.00%) | — | — | — | ship 2026-10-11 11:38 |
-| [KaleidoscopeStainedGlass](shipping/profile_kaleidoscopestainedglass_teensy_2026-10-06.md) / [O3](O3/profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 46.99 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +13,784 B | +11,632 B | ship 2026-10-06 18:50<br>O3 2026-08-26 02:51 |
 | [AshCloud](shipping/profile_ashcloud_teensy_2026-10-06.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.67 | 🔴 79.81 | 🟢 0/1087 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-06 19:01<br>O3 2026-08-26 02:45 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-06.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-06 18:28<br>O3 2026-08-26 02:19 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-06.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_shader_draw` | 🟢 39.43 | 🔴 279.686 | 🟢 0/2047 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-06 19:15<br>O3 2026-09-30 19:15 |
@@ -86,7 +83,7 @@ predate the October 5 shipping optimization.
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-06.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 12.92 (24) | 🟢 11.70 (24) | 🟢 0/3487 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-06 18:42<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
 
-KaleidoscopeMelt was captured on October 11; its initialization frame is recorded separately. JewelMelt was captured on October 8 at softness 0.5. Other shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures; JewelMelt's report records its full-width initialization draw separately. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
+KaleidoscopeMelt was captured on October 11; its initialization frame is recorded separately. JewelMelt was captured on October 14 at softness 0.5. Other shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures; JewelMelt's report records its full-width initialization draw separately. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
@@ -206,10 +203,14 @@ Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_sha
 
 ## Effects excluded from the Phantasm image
 
-RingShower remains in the Holosphere roster. Its archived captures precede removal from the Phantasm image.
+JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain in the full roster. Their archived captures precede removal from the Phantasm image.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
+| [JewelMelt selective o3](excluded/profile_jewelmelt_selective_o3_teensy_2026-10-14.md) ● | `fx_shader_draw` | 🟢 46.35 | 🟢 0/1087 (0.00%) | 2026-10-14 20:16 |
+| [KaleidoscopeMelt selective o3](excluded/profile_kaleidoscopemelt_selective_o3_teensy_2026-10-11.md) ● | `fx_shader_draw` | 🟢 46.26 | 🟢 0/1087 (0.00%) | 2026-10-11 11:38 |
+| [KaleidoscopeStainedGlass selective o3](excluded/profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 43.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:50 |
+| [KaleidoscopeStainedGlass global o3](excluded/profile_kaleidoscopestainedglass_global_o3_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [RingShower selective o3](excluded/profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](excluded/profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 

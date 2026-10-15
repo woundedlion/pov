@@ -1,7 +1,7 @@
 # Global-O3 reference profiles
 
-Ranked captures covering **36 effects** from the Phantasm image.
-KaleidoscopeMelt and JewelMelt have no global-O3 reference capture. These are single-effect `profile_o3` compiler-reference images built
+Ranked captures covering **35 effects** from the Phantasm image.
+These are single-effect `profile_o3` compiler-reference images built
 with global `-O3 -ffast-math`; they are not a shippable full-roster image.
 
 Peak is worst-frame render time (never wall). Spilled is the fraction of frames
@@ -20,7 +20,6 @@ whose render exceeded one 62.5 ms display interval. Rows rank by spill fraction,
 | [RingSpin](profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 50.750 | 🟢 0/1087 (0.0%) | 2026-09-24 20:18 |
 | [IslamicStars](profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 49.112 (23) | 🟢 0/3336 (0.00%) | 2026-09-28 16:50 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.65 | 🟢 0/2048 (0%) | 2026-08-26 01:16 |
-| [KaleidoscopeStainedGlass](profile_kaleidoscopestainedglass_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.99 | 🟢 0/1088 (0%) | 2026-08-26 02:51 |
 | [HopfFibration](profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 46.52 | 🟢 0/1088 (0%) | 2026-08-26 01:27 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-08-26.md)§ | `fx_shader_draw` | 🟢 38.94 (3) | 🟢 0/2208 (0%) | 2026-08-26 02:49 |
 | [HyperLattice](profile_hyperlattice_architecture_teensy_2026-10-01.md) § ● | `hl_shader_draw` | 🟢 36.975 (3) | 🟢 0/2696 (0.00%) | 2026-10-01 09:26 |
