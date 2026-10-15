@@ -494,6 +494,27 @@ inline void test_mindsplatter_manual_preset_survives_unpause() {
   HS_EXPECT_NEAR(live.warp_scale, chosen.warp_scale, 1e-6f);
 }
 
+/** @brief The show budget completes the final dwell after the extended startup hold. */
+inline void test_mindsplatter_show_window_covers_final_dwell() {
+  using MS = MindSplatter<SMALL_W, SMALL_H>;
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+  MS effect;
+  effect.init();
+  bool visited_last = false;
+  bool final_departure_armed = false;
+  for (size_t frame = 0; frame < MS::cycle_frames(); ++frame) {
+    pin_frame_clock(static_cast<int>(frame));
+    WB::step_state_without_render(effect);
+    effect.advance_display();
+    const size_t INDEX = effect.getPresetIndex();
+    visited_last |= INDEX + 1 == effect.getPresetCount();
+    final_departure_armed |= visited_last && INDEX == 0;
+  }
+  HS_EXPECT_TRUE(visited_last);
+  HS_EXPECT_TRUE(final_departure_armed);
+}
+
 inline void test_mindsplatter_full_timeline_retries_transition() {
   using MS = MindSplatter<SMALL_W, SMALL_H>;
   using WB = MindSplatterWhiteBox;
@@ -775,6 +796,7 @@ inline int run_mindsplatter_tests() {
   test_mindsplatter_signed_axis_framebuffer_error();
   test_mindsplatter_manual_preset_survives_unpause();
   test_mindsplatter_full_timeline_retries_transition();
+  test_mindsplatter_show_window_covers_final_dwell();
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite())
