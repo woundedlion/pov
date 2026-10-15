@@ -294,12 +294,14 @@ inline void test_end_to_end_wire_bytes() {
                static_cast<size_t>(Frame::BUFFER_SIZE));
   for (int byte = 0; byte < 4; ++byte)
     HS_EXPECT_EQ(capture[byte], 0);
+  const uint8_t EXPECTED[][4] = {{0xFF, 0, 0, 255},    {0xFF, 0, 255, 0},
+                                 {0xFF, 255, 0, 0},    {0xFF, 255, 255, 255},
+                                 {0xF9, 62, 124, 248}, {0xFF, 0, 0, 0},
+                                 {0xFE, 62, 248, 12},  {0xFA, 250, 36, 107}};
   for (int pixel = 0; pixel < N; ++pixel) {
     const int base = 4 + pixel * 4;
-    HS_EXPECT_EQ(capture[base], 255);
-    HS_EXPECT_EQ(capture[base + 1], WIRE_COLORS[pixel].b);
-    HS_EXPECT_EQ(capture[base + 2], WIRE_COLORS[pixel].g);
-    HS_EXPECT_EQ(capture[base + 3], WIRE_COLORS[pixel].r);
+    for (int byte = 0; byte < 4; ++byte)
+      HS_EXPECT_EQ(capture[base + byte], EXPECTED[pixel][byte]);
   }
   for (int byte = 4 + N * 4; byte < Frame::BUFFER_SIZE; ++byte)
     HS_EXPECT_EQ(capture[byte], 0);
@@ -309,9 +311,10 @@ inline void test_end_to_end_wire_bytes() {
   DMALEDController<N, MockStrip>::set_brightness(127);
   ctl.back_frame().pack_pixel(0, Pixel(65535, 65535, 65535));
   HS_EXPECT_TRUE(ctl.submit_frame(false));
-  HS_EXPECT_EQ(capture[5], 127);
-  HS_EXPECT_EQ(capture[6], 64);
-  HS_EXPECT_EQ(capture[7], 64);
+  HS_EXPECT_EQ(capture[4], 0xF0);
+  HS_EXPECT_EQ(capture[5], 247);
+  HS_EXPECT_EQ(capture[6], 124);
+  HS_EXPECT_EQ(capture[7], 124);
   DMALEDController<N, MockStrip>::apply_default_calibration();
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
