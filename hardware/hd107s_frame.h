@@ -66,8 +66,8 @@ struct ChannelScale {
 
 /// Strip colour-correction factors for `HD107SFrame::set_correction`.
 inline constexpr ChannelScale LINEAR_STRIP_GAIN{255, 176, 240};
-/// Warm white-balance factors for `HD107SFrame::set_temperature`.
-inline constexpr ChannelScale LINEAR_WARM_GAIN{255, 147, 41};
+/// Neutral white-balance factors for `HD107SFrame::set_temperature`.
+inline constexpr ChannelScale LINEAR_TEMPERATURE_GAIN{255, 255, 255};
 
 } // namespace hd107s
 
