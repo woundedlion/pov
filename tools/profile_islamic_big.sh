@@ -19,14 +19,14 @@ export HS_PROFILE_OUT="build/prof/islamicstars_big_ship${SUFFIX}.log"
 export HS_PROFILE_EXPECT_SHAPE=truncatedIcosidodecahedron_truncate50d_ambo_dual
 TREE=${HS_PROFILE_TREE:-$(git -C "$(dirname "$0")" rev-parse --show-toplevel)}
 SHAPE=$(awk -v wanted="$HS_PROFILE_EXPECT_SHAPE" '
-  /inline constexpr Entry islamic_registry\[\]/ { active=1; next }
-  active && /^};/ { exit }
-  active && /^[[:space:]]*\{"/ {
+  /inline constexpr std::string_view SHAPE_NAMES\[\]/ { active=1; next }
+  active && /^[[:space:]]*"/ {
     name=$0; sub(/^[^"]*"/, "", name); sub(/".*/, "", name)
     if (name == wanted) print ordinal + 0
     ordinal++
+    if ($0 ~ /};/) exit
   }
-' "$TREE/core/mesh/solids.h")
+' "$TREE/effects/IslamicStars.h")
 [ -n "$SHAPE" ] || { echo "profile shape is absent: $HS_PROFILE_EXPECT_SHAPE" >&2; exit 1; }
 bash "$(dirname "$0")/profile_one.sh" IslamicStars profile "$SECONDS_ARG" "$WINDOW" \
   "-D HS_ISLAMICSTARS_PROFILE_SHAPE=$SHAPE" \
