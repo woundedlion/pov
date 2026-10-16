@@ -13,6 +13,10 @@
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
+  static constexpr const auto &presets() { return IS::PRESETS; }
+  static const Solids::Entry *selected_entry(const IS &e) {
+    return e.build_entry;
+  }
   static_assert(IS::MACRO_TRUNCATE_T == RECONCILE_TRUNCATE_T);
   static void check_build_budget(IS &e, size_t budget) {
     e.device_persistent_budget = budget;
@@ -61,7 +65,8 @@ struct IslamicBuildProbe {
   static size_t runtime_cycle_frames() {
     IS effect;
     size_t frames = 0;
-    for (const auto &entry : Solids::islamic_registry) {
+    for (const auto &preset : presets()) {
+      const auto &entry = *preset.params;
       effect.build_step_count =
           entry.recipe ? Solids::expand_to_primitives(*entry.recipe,
                                                       effect.build_step_chain,
@@ -236,10 +241,11 @@ inline void test_islamicstars_smooth_recipe_completion() {
   }
 }
 
-/** @brief Index of the first Islamic solid with a recipe. */
+/** @brief Index of the first playback preset with a recipe. */
 inline size_t first_recipe_entry() {
-  for (size_t i = 0; i < std::size(Solids::islamic_registry); ++i)
-    if (Solids::islamic_registry[i].recipe)
+  const auto &presets = IslamicBuildProbe::presets();
+  for (size_t i = 0; i < presets.size(); ++i)
+    if (presets[i].params->recipe)
       return i;
   HS_CHECK(false, "no Islamic solid has a recipe");
   return 0;
@@ -249,17 +255,41 @@ inline size_t first_recipe_entry() {
 inline void test_islamicstars_default_cycle_frames() {
   reset_effect_globals();
   using IS = IslamicBuildProbe::IS;
-  HS_EXPECT_EQ(IS::cycle_frames(), 7424u);
+  HS_EXPECT_EQ(IS::cycle_frames(), 4896u);
   HS_EXPECT_EQ(IslamicBuildProbe::runtime_cycle_frames(), IS::cycle_frames());
 }
 
 /** @brief IslamicStars preset registration excludes its global controls. */
-inline void test_islamicstars_presets_cover_registry() {
+inline void test_islamicstars_presets_cover_roster() {
   reset_effect_globals();
   IslamicBuildProbe::IS effect;
   effect.init();
-  HS_EXPECT_EQ(effect.getPresetCount(), std::size(Solids::islamic_registry));
+  constexpr std::string_view EXPECTED_NAMES[] = {
+      "dodecahedron_hk62_ambo_hk62",
+      "truncatedIcosahedron_hk58_chamfer63",
+      "dodecahedron_bevel2_relax_gyro",
+      "truncatedCube_hk90_meta",
+      "truncatedIcosahedron_ambo_relax_truncate001_hankin59",
+      "icosahedron_ambo_truncate033_hankin59",
+      "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+      "octahedron_hk17_ambo_hk73",
+      "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+      "icosidodecahedron_truncate5d_ambo_dual",
+      "snubDodecahedron_truncate5d_ambo_dual",
+      "rhombicuboctahedron_hk63_ambo_hk63",
+      "dodecahedron_hk54_ambo_hk72",
+      "dodecahedron_hk72_ambo_dual_hk20",
+      "icosahedron_snub_relax_truncate033_hankin62",
+      "icosahedron_truncate25_hk60_ambo_relax100_hk60"};
+  HS_EXPECT_EQ(effect.getPresetCount(), std::size(EXPECTED_NAMES));
   HS_EXPECT_EQ(effect.getPresetIndex(), first_recipe_entry());
+  for (size_t i = 0; i < std::size(EXPECTED_NAMES); ++i) {
+    HS_EXPECT_TRUE(effect.selectPreset(i));
+    HS_EXPECT_EQ(
+        std::string_view(IslamicBuildProbe::selected_entry(effect)->name),
+        EXPECTED_NAMES[i]);
+  }
+  HS_EXPECT_FALSE(effect.selectPreset(std::size(EXPECTED_NAMES)));
   for (const char *name :
        {"Face Fade Lo", "Face Fade Hi", "Ripp Amp", "Ripp Decay"}) {
     const auto *def = effect.getParameters().find(name);
@@ -288,8 +318,9 @@ inline void test_islamicstars_manual_select_cuts_build() {
   HS_EXPECT_TRUE(IslamicBuildProbe::build_active(effect));
 
   const size_t selected =
-      (effect.getPresetIndex() + 1) % std::size(Solids::islamic_registry);
-  HS_EXPECT_TRUE(Solids::islamic_registry[selected].recipe != nullptr);
+      (effect.getPresetIndex() + 1) % effect.getPresetCount();
+  HS_EXPECT_TRUE(IslamicBuildProbe::presets()[selected].params->recipe !=
+                 nullptr);
   HS_EXPECT_TRUE(effect.selectPreset(selected));
   HS_EXPECT_FALSE(IslamicBuildProbe::build_active(effect));
   HS_EXPECT_EQ(effect.getPresetIndex(), selected);
@@ -356,8 +387,7 @@ inline void test_islamicstars_pause_holds_shape() {
     effect.draw_frame();
     effect.advance_display();
   }
-  HS_EXPECT_EQ(effect.getPresetIndex(),
-               (held + 1) % std::size(Solids::islamic_registry));
+  HS_EXPECT_EQ(effect.getPresetIndex(), (held + 1) % effect.getPresetCount());
 }
 
 /**
@@ -437,7 +467,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     IslamicBuildProbe::set_trans_speed(effect, 8.0f);
     effect.init();
 
-    auto solids = Solids::Collections::get_islamic_solids();
+    const auto &solids = IslamicBuildProbe::presets();
     const int entries = static_cast<int>(solids.size());
     constexpr int MAX_FRAMES = 20000;
     size_t a_peak = 0, b_peak = 0, persist_peak = 0;
@@ -466,7 +496,8 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
             ++distinct;
           }
         std::printf("  [built] %s: %d/%d palettes on %zu faces\n",
-                    (cur >= 0 && cur < entries) ? solids[cur].name : "?",
+                    (cur >= 0 && cur < entries) ? solids[cur].params->name
+                                                : "?",
                     distinct, MeshPaletteBank::N, nf);
       }
       was_building = building;
@@ -492,7 +523,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     }
 
     const char *worst_name = (worst_p_idx >= 0 && worst_p_idx < entries)
-                                 ? solids[worst_p_idx].name
+                                 ? solids[worst_p_idx].params->name
                                  : "?";
     std::printf(
         "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
