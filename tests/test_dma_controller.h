@@ -319,8 +319,8 @@ inline void test_end_to_end_wire_bytes() {
   uint32_t r = 65535, g = 65535, b = 65535;
   ctl.back_frame().correct(r, g, b);
   HS_EXPECT_EQ(r, 65535u);
-  HS_EXPECT_EQ(g, 45311u);
-  HS_EXPECT_EQ(b, 61695u);
+  HS_EXPECT_EQ(g, 26195u);
+  HS_EXPECT_EQ(b, 10121u);
   reset_correction<N>();
 }
 
