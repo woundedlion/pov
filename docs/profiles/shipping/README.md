@@ -8,7 +8,7 @@ Rows rank by spill fraction, then peak render. ● marks the October 7 optimized
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MindSplatter](profile_mindsplatter_teensy_2026-10-06.md) § | `msp_draw_particles` | 🟢 56.60 (8) | 🟢 0/1727 (0.00%) | 2026-10-06 18:32 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-10-16.md) § ● | `msp_draw_particles` | 🟢 55.71 (8) | 🟢 0/1727 (0.00%) | 2026-10-16 08:55 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-06.md) § | `ss_draw_all` | 🟢 54.27 (9) | 🟢 0/2447 (0.00%) | 2026-10-06 18:29 |
 | [Raymarch](profile_raymarch_teensy_2026-10-06.md) | `rm_shader_draw` | 🟢 51.95 | 🟢 0/1087 (0.00%) | 2026-10-06 18:17 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-06.md) § | `hl_shader_draw` | 🟢 51.77 (9) | 🟢 0/5487 (0.00%) | 2026-10-06 20:43 |
@@ -125,3 +125,5 @@ Preserved architecture snapshots, superseded in the ranking by the 2026-10-06 sw
 Experimental clock characterization: [GnomonicStars bounded-channel comparison](profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Production adopted bounded channel phases. The ranked 21.84 ms capture at `e7f19b0d1` predates that change and measures the old float clock; the experiment records the cost difference without replacing the historical ranked row.
 
 Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
+
+● MindSplatter: October 16 HD107S packing comparison; baseline timer caveat is recorded in its report.

@@ -47,7 +47,7 @@ predate the October 5 shipping optimization.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-06.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 56.60 (8) | 🟢 54.539 (8) | 🟢 0/1727 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-06 18:32<br>O3 2026-10-01 09:22 |
+| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-16.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § ● | `msp_draw_particles` | 🟢 55.71 (8) | 🟢 54.539 (8) | 🟢 0/1727 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-16 08:55<br>O3 2026-10-01 09:22 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-06.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 54.27 (9) | 🟢 60.05 (9) | 🟢 0/2447 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-06 18:29<br>O3 2026-09-25 07:29 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-10-06.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 51.95 | 🟢 56.04 | 🟢 0/1087 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-06 18:17<br>O3 2026-09-20 23:07 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-10-06.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § | `hl_shader_draw` | 🟢 51.77 (9) | 🟢 36.975 (3) | 🟢 0/5487 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-06 20:43<br>O3 2026-10-01 09:26 |
@@ -219,3 +219,5 @@ Low-resolution-only (96×20) effects:
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
 | [MobiusRings Hole A/B](excluded/profile_mobiusrings_teensy_2026-10-13.md) | `mr_draw_grid` | 🟢 12.30 | 🟢 0/1088 (0.00%) | 2026-10-13 |
+
+● MindSplatter: October 16 HD107S packing comparison; baseline timer caveat is recorded in its report.
