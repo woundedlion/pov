@@ -150,17 +150,16 @@ inline void test_correct_pipeline() {
 }
 
 /**
- * @brief Exercises color and temperature gain compounding.
+ * @brief Exercises the shipped multi-factor compounding.
  * @details Applies correction 255,176,240 and temperature 255,147,41, and checks
  * that they compound and the exact per-channel result.
  */
 inline void test_correct_multifactor() {
-  static_assert(hd107s::LINEAR_STRIP_GAIN.r == 255 &&
-                hd107s::LINEAR_STRIP_GAIN.g == 176 &&
-                hd107s::LINEAR_STRIP_GAIN.b == 240 &&
-                hd107s::LINEAR_TEMPERATURE_GAIN.r == 255 &&
-                hd107s::LINEAR_TEMPERATURE_GAIN.g == 255 &&
-                hd107s::LINEAR_TEMPERATURE_GAIN.b == 255);
+  static_assert(
+      hd107s::LINEAR_STRIP_GAIN.r == 255 &&
+      hd107s::LINEAR_STRIP_GAIN.g == 176 &&
+      hd107s::LINEAR_STRIP_GAIN.b == 240 && hd107s::LINEAR_WARM_GAIN.r == 255 &&
+      hd107s::LINEAR_WARM_GAIN.g == 147 && hd107s::LINEAR_WARM_GAIN.b == 41);
   Frame f;
 
   // Temperature compounds on top of correction, not instead of it.
@@ -173,12 +172,13 @@ inline void test_correct_multifactor() {
   f.correct(gr, gg, gb);
   const uint32_t g_corr_only = gg;
 
-  Frame::set_temperature(255, 147, 41);
+  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                         hd107s::LINEAR_WARM_GAIN.b);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_LT(g, g_corr_only); // factors compound
 
-  // Exact scaling. factor(f) stores f+1, so each stage is (v*(f+1))>>8:
+  // Exact shipped scaling. factor(f) stores f+1, so each stage is (v*(f+1))>>8:
   //   R: 65535                                                     = 65535
   //   G: ((65535*177>>8)=45311 *148>>8)=26195  *256>>8             = 26195
   //   B: ((65535*241>>8)=61695 * 42>>8)=10121  *256>>8             = 10121
@@ -239,31 +239,30 @@ inline void test_packpixel_wire_order() {
  * @brief Verifies pack_pixel()'s wire bytes under the shipped factor set at
  * non-unity brightness.
  * @details Full-scale white through correction 255,176,240, temperature
- * 255,255,255 and brightness 128 leaves linear (33023, 22832, 31088), which
- * packs at brightness 16 to R=249, G=172, B=234.
+ * 255,147,41 and brightness 128 leaves linear (33023, 13199, 5100), which
+ * packs at brightness 16 to R=249, G=100, B=38.
  */
 inline void test_packpixel_shipped_gains_half_brightness() {
   Frame::set_correction(hd107s::LINEAR_STRIP_GAIN.r,
                         hd107s::LINEAR_STRIP_GAIN.g,
                         hd107s::LINEAR_STRIP_GAIN.b);
-  Frame::set_temperature(hd107s::LINEAR_TEMPERATURE_GAIN.r,
-                         hd107s::LINEAR_TEMPERATURE_GAIN.g,
-                         hd107s::LINEAR_TEMPERATURE_GAIN.b);
+  Frame::set_temperature(hd107s::LINEAR_WARM_GAIN.r, hd107s::LINEAR_WARM_GAIN.g,
+                         hd107s::LINEAR_WARM_GAIN.b);
   Frame::set_brightness(128);
   Frame f;
 
   const Pixel white(CRGB(255, 255, 255));
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xF0);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 234);
-  HS_EXPECT_EQ(pixel(f, 3)[2], 172);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 38);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 100);
   HS_EXPECT_EQ(pixel(f, 3)[3], 249);
 
   Frame::set_brightness(255);
   f.pack_pixel(3, white);
   HS_EXPECT_EQ(pixel(f, 3)[0], 0xFF);
-  HS_EXPECT_EQ(pixel(f, 3)[1], 240);
-  HS_EXPECT_EQ(pixel(f, 3)[2], 176);
+  HS_EXPECT_EQ(pixel(f, 3)[1], 39);
+  HS_EXPECT_EQ(pixel(f, 3)[2], 102);
   HS_EXPECT_EQ(pixel(f, 3)[3], 255);
 
   reset_correction<N>();
