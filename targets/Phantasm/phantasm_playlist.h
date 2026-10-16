@@ -23,26 +23,25 @@
  *   HS_EFFECT_LIST.
  */
 #define HS_PHANTASM_EFFECT_LIST(X)                                             \
-  X(Galaxies, 30)                                                              \
-  X(HopfFibration, 30)                                                         \
+  X(HopfFibration, 60)                                                         \
+  X(Galaxies, 60)                                                              \
   X(DreamBalls, hs_preset_window_seconds<DreamBalls>())                        \
+  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
   X(MeshFeedback, hs_preset_window_seconds<MeshFeedback>())                    \
   X(ShapeShifter, hs_preset_window_seconds<ShapeShifter>())                    \
   X(MindSplatter, hs_preset_window_seconds<MindSplatter>())                    \
   X(Raymarch, 30)                                                              \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(GridSpace, 30)                                                             \
+  X(GridSpace, 60)                                                             \
   X(IslamicStars, hs_preset_window_seconds<IslamicStars>())                    \
-  X(BZReactionDiffusion, 30)                                                   \
+  X(BZReactionDiffusion, 60)                                                   \
   X(HyperLattice, hs_preset_window_seconds<HyperLattice>())                    \
-  X(AshCloud, 30)                                                              \
-  X(Fishbowl, 30)                                                              \
+  X(AshCloud, 60)                                                              \
+  X(Fishbowl, 60)                                                              \
   X(Comets, hs_preset_window_seconds<Comets>())                                \
   X(ChromaticLichen, 30)                                                       \
   X(MermaidSkin, 30)                                                           \
   X(DisplacementField, hs_preset_window_seconds<DisplacementField>())          \
-  X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
-  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
   X(GnomonicStars, 30)                                                         \
   X(GSReactionDiffusion, 30)                                                   \
@@ -50,14 +49,15 @@
   X(HankinSolids, 170)                                                         \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(AlienOcean, 30)                                                            \
-  X(KaleidoscopeHexSoft, 30)                                                   \
+  X(KaleidoscopeHexSoft, 60)                                                   \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())                        \
   X(PetalFlow, 30)                                                             \
-  X(KaleidoscopePentBright, 30)                                                \
+  X(KaleidoscopePentBright, 60)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
-  X(RingSpin, 30)                                                              \
+  X(RingSpin, 60)                                                              \
   X(SphericalHarmonics, hs_preset_window_seconds<SphericalHarmonics>())        \
-  X(CosmicEyeball, 30)                                                         \
+  X(CosmicEyeball, 60)                                                         \
+  X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(Voronoi, 30)
 
 /**

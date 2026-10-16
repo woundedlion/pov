@@ -149,23 +149,23 @@ constexpr int hs_preset_window_seconds() {
  * HS_PHANTASM_EFFECT_LIST's. */
 #define HS_SHADER_PRODUCT_GROUP(X)                                             \
   X(AlienBrain, hs_preset_window_seconds<AlienBrain>())                        \
-  X(KaleidoscopeHexSoft, 30)                                                   \
+  X(KaleidoscopeHexSoft, 60)                                                   \
   X(AlienOcean, 30)                                                            \
   X(AlienCore, 30)                                                             \
   X(KaleidoscopeMandala, hs_preset_window_seconds<KaleidoscopeMandala>())      \
-  X(GridSpace, 30)                                                             \
+  X(GridSpace, 60)                                                             \
   X(KaleidoscopeMelt, 30)                                                      \
   X(ChromaticLichen, 30)                                                       \
   X(MermaidSkin, 30)                                                           \
   X(JewelMelt, 30)                                                             \
-  X(AshCloud, 30)                                                              \
-  X(KaleidoscopePentBright, 30)                                                \
+  X(AshCloud, 60)                                                              \
+  X(KaleidoscopePentBright, 60)                                                \
   X(KaleidoscopeHexOil, hs_preset_window_seconds<KaleidoscopeHexOil>())        \
   X(KaleidoscopeStainedGlass, 30)                                              \
   X(KaleidoscopeSmooth, hs_preset_window_seconds<KaleidoscopeSmooth>())        \
   X(KaleidoscopeHexBright, hs_preset_window_seconds<KaleidoscopeHexBright>())  \
   X(KaleidoscopeFlowers, hs_preset_window_seconds<KaleidoscopeFlowers>())      \
-  X(CosmicEyeball, 30)                                                         \
+  X(CosmicEyeball, 60)                                                         \
   X(MobiusGrid, hs_preset_window_seconds<MobiusGrid>())
 
 /**

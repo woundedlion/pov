@@ -281,7 +281,7 @@ private:
   static constexpr float AMPLITUDE_MAX = 10.0f;
   static constexpr float SPEED_MIN = 0.0f;
   static constexpr float SPEED_MAX = 0.16f;
-  static constexpr int PRESET_FRAMES = 240;
+  static constexpr int PRESET_FRAMES = 480;
   /** Departure fades through black, so the two parameter sets never render on
       the same frame. */
   static constexpr Segue::Preset::Fade DEPARTURE{16};
