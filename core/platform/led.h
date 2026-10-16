@@ -76,17 +76,17 @@ struct NoTempCorrection {
 #else
 /**
  * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
- * Candle temperature) and clears the guard liveness flag.
+ * neutral temperature) and clears the guard liveness flag.
  */
 inline void restore_correction_baseline() {
   FastLED.setCorrection(TypicalLEDStrip);
-  FastLED.setTemperature(Candle);
+  FastLED.setTemperature(UncorrectedTemperature);
   correction_guard_live() = false;
 }
 
 /**
  * @brief RAII guard to disable both color and temperature correction for its
- * scope, restoring the TypicalLEDStrip/Candle baseline on destruction.
+ * scope, restoring the TypicalLEDStrip/neutral-temperature baseline on destruction.
  */
 struct NoColorCorrection {
   /**
@@ -98,7 +98,7 @@ struct NoColorCorrection {
     FastLED.setTemperature(UncorrectedTemperature);
   }
   /**
-   * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
+   * @brief Restores the TypicalLEDStrip/neutral-temperature baseline (restore-to-baseline,
    * not the correction active at construction).
    */
   ~NoColorCorrection() { restore_correction_baseline(); }
@@ -108,7 +108,7 @@ struct NoColorCorrection {
 
 /**
  * @brief RAII guard to disable temperature correction (keeping TypicalLEDStrip
- * color correction) for its scope, restoring the Candle baseline on
+ * color correction) for its scope, restoring the neutral-temperature baseline on
  * destruction.
  */
 struct NoTempCorrection {
@@ -122,7 +122,7 @@ struct NoTempCorrection {
     FastLED.setTemperature(UncorrectedTemperature);
   }
   /**
-   * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
+   * @brief Restores the TypicalLEDStrip/neutral-temperature baseline (restore-to-baseline,
    * not the correction active at construction).
    */
   ~NoTempCorrection() { restore_correction_baseline(); }
