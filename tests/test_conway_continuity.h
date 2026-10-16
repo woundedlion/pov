@@ -1775,12 +1775,7 @@ inline long long frame_delta_energy(const std::vector<Pixel> &a,
 }
 
 /**
- * @brief Pins the cycle-close shaping: the last strap frame dissolves into the
- *        host face's rim instead of winking out as a bright line.
- * @details Renders the last strap frame and the closing bookend at a fixed
- *          camera, unshaped and shaped, and compares the transition's energy.
- *          Shaped, the strap is already the rim color and its terminal sliver
- *          is faded.
+ * @brief Closing straps approach the host palette and fade at fixed geometry.
  */
 inline void test_strap_close_dissolve() {
   reset_globals();
@@ -1789,11 +1784,13 @@ inline void test_strap_close_dissolve() {
   HankinSolids<W, H> fx;
   fx.init();
 
-  if (!Probe::advance_to_arrival(fx))
-    return;
+  for (int arrivals = 0; Probe::node(fx) != ConwayGraph::CUBOCTAHEDRON &&
+                         arrivals < ConwayGraph::NUM_NODES;
+       ++arrivals)
+    if (!Probe::advance_to_arrival(fx))
+      return;
+  HS_EXPECT_EQ(Probe::node(fx), ConwayGraph::CUBOCTAHEDRON);
 
-  // Frame adjacent to the closing bookend: the sweep is a full sine period, so
-  // it samples the same angle as the opening's first strap frame.
   const int duration = Probe::sweep_frames(fx), cf = duration - 1;
   const auto weights = Probe::shape_weights(fx, cf);
   const float close_blend = weights.strap_close;
@@ -1802,19 +1799,25 @@ inline void test_strap_close_dissolve() {
   HS_EXPECT_LT(term, 1.0f);
 
   const float close_angle = sweep_angle(fx, cf);
-  std::vector<Pixel> bookend, last_plain, last_shaped;
-  capture_opening(fx, 0.0f, 1.0f, bookend, 1.0f, 1.0f, cf);
+  std::vector<Pixel> last_plain, rim, blended, transparent, faded;
   capture_opening(fx, close_angle, 1.0f, last_plain, 1.0f, 1.0f, cf);
-  capture_opening(fx, close_angle, 1.0f, last_shaped, close_blend, term, cf);
+  capture_opening(fx, close_angle, 1.0f, rim, 0.0f, 1.0f, cf);
+  capture_opening(fx, close_angle, 1.0f, blended, close_blend, 1.0f, cf);
+  capture_opening(fx, close_angle, 1.0f, transparent, 1.0f, 0.0f, cf);
+  capture_opening(fx, close_angle, 1.0f, faded, 1.0f, term, cf);
 
-  const long long e_plain = frame_delta_energy(last_plain, bookend);
-  const long long e_shaped = frame_delta_energy(last_shaped, bookend);
-  std::printf("  [strap-close] wink energy unshaped=%lld shaped=%lld\n",
-              e_plain, e_shaped);
+  const long long blend_plain = frame_delta_energy(last_plain, rim);
+  const long long blend_shaped = frame_delta_energy(blended, rim);
+  const long long alpha_plain = frame_delta_energy(last_plain, transparent);
+  const long long alpha_shaped = frame_delta_energy(faded, transparent);
+  std::printf(
+      "  [strap-close] palette error %lld -> %lld; alpha energy %lld -> %lld\n",
+      blend_plain, blend_shaped, alpha_plain, alpha_shaped);
 
-  // The wink must be real, and the shaping must materially cut it.
-  HS_EXPECT_GT(e_plain, 1000000);
-  HS_EXPECT_LT(e_shaped, e_plain * 3 / 4);
+  HS_EXPECT_GT(blend_plain, 1000000);
+  HS_EXPECT_LT(blend_shaped, blend_plain / 4);
+  HS_EXPECT_GT(alpha_plain, 1000000);
+  HS_EXPECT_LT(alpha_shaped, alpha_plain * 3 / 4);
 }
 
 /**
