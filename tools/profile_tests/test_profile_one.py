@@ -531,17 +531,18 @@ def multi_preset_effects():
                 r"\bPRESETS\s*=\s*\[\]\s*\{(.*?)\}\s*\(\s*\)", text, re.DOTALL):
             matched = True
             registry = re.search(
-                r"std::array<PresetEntry<.*?>,\s*std::size\(Solids::(\w+)\)\s*>",
+                r"std::array<PresetEntry<.*?>,\s*std::size\((Solids|IslamicStarsDetail)::(\w+)\)\s*>",
                 body, re.DOTALL)
             if registry is None:
                 raise AssertionError(f"{header.name}: unresolved lambda preset count")
-            declarations = (REPO / "core/mesh/solids.h").read_text(encoding="utf-8")
+            declarations = ((REPO / "core/mesh/solids.h").read_text(encoding="utf-8")
+                            if registry.group(1) == "Solids" else text)
             entries = re.search(
-                r"\b" + re.escape(registry.group(1)) + r"\s*\[\s*\]\s*=\s*\{(.*?)\};",
+                r"\b" + re.escape(registry.group(2)) + r"\s*\[\s*\]\s*=\s*\{(.*?)\};",
                 declarations, re.DOTALL)
             if entries is None:
-                raise AssertionError(f"{header.name}: unresolved preset registry {registry.group(1)}")
-            if len(re.findall(r'\{\s*"', entries.group(1))) > 1:
+                raise AssertionError(f"{header.name}: unresolved preset registry {registry.group(2)}")
+            if len(re.findall(r'"[^"\n]*"', entries.group(1))) > 1:
                 found.add(header.stem)
         if not matched and re.search(r"\b(?:PRESETS|PRESET_IDS)\b", text):
             raise AssertionError(f"{header.name}: unrecognised preset declaration")

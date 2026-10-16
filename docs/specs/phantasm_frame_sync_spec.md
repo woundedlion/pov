@@ -70,7 +70,7 @@ Hardware constants (`targets/Phantasm/phantasm_target.h`, `hardware/pov_segmente
 | Half-revolution     | 62.5 ms  | one full image (two arms, 180°)    |
 | Frame rate          | 16 fps   | 2 flips/rev                        |
 | Boards (N)          | 4        | seg 0 = phase reference / conductor   |
-| Effect duration     | 30–464 s | per-effect; 240–3,712 revolutions  |
+| Effect duration     | 30–306 s | per-effect; 240–2,448 revolutions  |
 
 **Effect duration is per-entry, not uniform.** `HS_PHANTASM_EFFECT_LIST`
 (`targets/Phantasm/phantasm_playlist.h`) carries a duration in seconds beside
@@ -80,7 +80,7 @@ table in the sync `Config`, and the master counts down that entry's own budget.
 Preset-cycle frame budgets convert at the nominal 16 fps; slower rendering
 can leave a cycle unfinished when its revolution budget expires.
 Across the 36-entry roster the durations run 30 s
-(240 revolutions for single-look effects) to 464 s (3,712
+(240 revolutions for single-look effects) to 306 s (2,448
 revolutions, `IslamicStars`); 30 s / 240 revolutions is
 the most common value but carries no special status in the protocol. Every
 fixed revolution budget below — the R = 3 announce repeats, the K = 2
@@ -737,7 +737,7 @@ together."
 
 ### 6.3 Epoch reliability (resolved — four stacked mechanisms)
 
-Epoch is rare (once per roster entry, 30–464 s) but a *missed* epoch is very
+Epoch is rare (once per roster entry, 30–306 s) but a *missed* epoch is very
 visible (one segment
 stuck on the previous effect). Four mechanisms stack, each catching what the
 previous one cannot:
@@ -1019,7 +1019,7 @@ construction window K = 2 revs (commit at B + repeats + K, §6.1), beacon every 
 the §10 old-design glitch estimate, deliberately pessimistic for a terminated
 hard line. Time anchors: 1 col = 434 µs; 144 col = ½ rev = 62.5 ms;
 4,608 col = 16 revs = 2 s; 7,200 col = 25 revs = 3.1 s; one effect = 240 revs
-= 30 s at the shortest roster entry and 3,712 revs = 464 s at the longest.
+= 30 s at the shortest roster entry and 2,448 revs = 306 s at the longest.
 The rejoin budget is 25 revs, not the 16-rev beacon cadence: beacons
 are suppressed for the whole commit window, so the gap across a commit is an
 entry's revolutions after its last beacon + 3 (EPOCH announce revs) + K + 1

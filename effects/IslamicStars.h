@@ -19,6 +19,24 @@
 #include "core/animation/recipe_build.h"
 
 namespace IslamicStarsDetail {
+/// Playback roster in preset order.
+inline constexpr std::string_view SHAPE_NAMES[] = {
+    "dodecahedron_hk62_ambo_hk62",
+    "truncatedIcosahedron_hk58_chamfer63",
+    "dodecahedron_bevel2_relax_gyro",
+    "truncatedCube_hk90_meta",
+    "truncatedIcosahedron_ambo_relax_truncate001_hankin59",
+    "icosahedron_ambo_truncate033_hankin59",
+    "dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+    "octahedron_hk17_ambo_hk73",
+    "truncatedIcosidodecahedron_truncate50d_ambo_dual",
+    "icosidodecahedron_truncate5d_ambo_dual",
+    "snubDodecahedron_truncate5d_ambo_dual",
+    "rhombicuboctahedron_hk63_ambo_hk63",
+    "dodecahedron_hk54_ambo_hk72",
+    "dodecahedron_hk72_ambo_dual_hk20",
+    "icosahedron_snub_relax_truncate033_hankin62",
+    "icosahedron_truncate25_hk60_ambo_relax100_hk60"};
 /// Lowered primitive capacity of an on-screen recipe build.
 inline constexpr size_t MAX_BUILD_OPS = 8;
 /// Mesh face capacity of an on-screen recipe build.
@@ -43,7 +61,7 @@ struct IslamicStarsParams {
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
  *        transitioning one shape into the next while ripples distort the mesh.
- * @details Each Islamic solid is one preset. Entries with a non-null recipe
+ * @details Each roster shape is one preset. Entries with a non-null recipe
  *          are built op by op on screen: the seed solid sweeps in, then OpLegs
  *          morph the lowered chain into the finished pattern. Each shape's
  *          segue schedules the next automatic advance; a manual or synchronized
@@ -91,8 +109,8 @@ public:
   static_assert(
       HS_ISLAMICSTARS_PROFILE_SHAPE >= 0 &&
           HS_ISLAMICSTARS_PROFILE_SHAPE <
-              static_cast<int>(std::size(Solids::islamic_registry)),
-      "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
+              static_cast<int>(std::size(IslamicStarsDetail::SHAPE_NAMES)),
+      "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the IslamicStars roster");
 #endif
 
   /// Scratch split, in bytes, for a shape without a recipe.
@@ -421,15 +439,25 @@ private:
     }
   }
 
-  /** @brief One preset per Islamic solid, in registry order; each snaps. */
+  /** @brief One snapping preset per playback roster shape. */
   static constexpr auto PRESETS = [] {
     std::array<PresetEntry<const Solids::Entry *>,
-               std::size(Solids::islamic_registry)>
+               std::size(IslamicStarsDetail::SHAPE_NAMES)>
         rows{};
     for (size_t i = 0; i < rows.size(); ++i)
-      rows[i] = {&Solids::islamic_registry[i], Segue::Preset::Snap{}};
+      for (const auto &entry : Solids::islamic_registry)
+        if (IslamicStarsDetail::SHAPE_NAMES[i] == entry.name)
+          rows[i] = {&entry, Segue::Preset::Snap{}};
     return rows;
   }();
+  static_assert(
+      [] {
+        for (const auto &preset : PRESETS)
+          if (!preset.params)
+            return false;
+        return true;
+      }(),
+      "IslamicStars roster names must identify registered solids");
 
   /** @brief Startup parameters: the slider defaults. */
   static Params initial_params() { return {}; }
@@ -630,15 +658,15 @@ private:
   }
 
 public:
-  /** @return Frames in one automatic registry cycle at shipping defaults. */
+  /** @return Frames in one automatic roster cycle at shipping defaults. */
   static consteval size_t cycle_frames() {
     constexpr Params DEFAULTS{};
     const int BASE = 2 * SPRITE_FADE_FRAMES + 2 * STILL_FRAMES +
                      (DEFAULTS.burst_size - 1) * RIPPLE_STAGGER_FRAMES +
                      static_cast<int>(DEFAULTS.ripple_duration);
     size_t frames = 0;
-    for (const auto &entry : Solids::islamic_registry)
-      frames += BASE + Builder::recipe_frame_budget(entry.recipe,
+    for (const auto &preset : PRESETS)
+      frames += BASE + Builder::recipe_frame_budget(preset.params->recipe,
                                                     DEFAULTS.trans_speed);
     return frames;
   }
