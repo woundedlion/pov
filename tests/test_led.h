@@ -63,7 +63,7 @@ inline void test_sequential_guards_balance() {
 
 /**
  * @brief Verifies NoColorCorrection disables both corrections for its scope and
- *        reinstates the TypicalLEDStrip/Candle baseline on scope exit.
+ *        reinstates the TypicalLEDStrip/neutral-temperature baseline on scope exit.
  */
 inline void test_color_guard_sets_selectors() {
   FastLED.setCorrection(TypicalLEDStrip);
@@ -74,7 +74,7 @@ inline void test_color_guard_sets_selectors() {
     HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
   }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
-  HS_EXPECT_EQ(FastLED.last_temperature, Candle);
+  HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
 }
 
 /**
@@ -90,7 +90,7 @@ inline void test_temp_guard_sets_selectors() {
     HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
   }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
-  HS_EXPECT_EQ(FastLED.last_temperature, Candle);
+  HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
 }
 
 /**
@@ -99,20 +99,20 @@ inline void test_temp_guard_sets_selectors() {
  */
 inline void test_guards_restore_baseline_not_prior_state() {
   FastLED.setCorrection(UncorrectedColor);
-  FastLED.setTemperature(UncorrectedTemperature);
+  FastLED.setTemperature(Candle);
   {
     NoColorCorrection guard;
   }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
-  HS_EXPECT_EQ(FastLED.last_temperature, Candle);
+  HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
 
   FastLED.setCorrection(UncorrectedColor);
-  FastLED.setTemperature(UncorrectedTemperature);
+  FastLED.setTemperature(Candle);
   {
     NoTempCorrection guard;
   }
   HS_EXPECT_EQ(FastLED.last_correction, TypicalLEDStrip);
-  HS_EXPECT_EQ(FastLED.last_temperature, Candle);
+  HS_EXPECT_EQ(FastLED.last_temperature, UncorrectedTemperature);
 }
 
 /**
