@@ -117,9 +117,9 @@ test('RingShower remains in the full roster and is excluded from Phantasm', asyn
   assert.ok(!(await loadPhantasmEffectRoster()).includes('RingShower'));
 });
 
-test('Galaxies opens the Phantasm playlist and occurs once', async () => {
+test('HopfFibration opens Phantasm followed by one Galaxies entry', async () => {
   const phantasm = await loadPhantasmEffectRoster();
-  assert.equal(phantasm[0], 'Galaxies');
+  assert.deepEqual(phantasm.slice(0, 2), ['HopfFibration', 'Galaxies']);
   assert.equal(phantasm.filter(name => name === 'Galaxies').length, 1);
 });
 

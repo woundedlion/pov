@@ -111,16 +111,13 @@ g5_ship)
   run KaleidoscopeMandala profile 150 32
   run GridSpace profile 70 32
   run HyperLattice profile 320 16 "-D HS_PROFILE_EPOCH_REVS=2720"
-  run KaleidoscopeMelt profile 70 32
   run ChromaticLichen profile 70 32
   run MermaidSkin profile 70 32
-  run JewelMelt profile 70 32
   run AshCloud profile 70 32
   ;;
 g6_ship)
   run KaleidoscopePentBright profile 70 32
   run KaleidoscopeHexOil profile 140 16 "-D HS_PROFILE_EPOCH_REVS=1600"
-  run KaleidoscopeStainedGlass profile 70 32
   run KaleidoscopeSmooth profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
   run KaleidoscopeHexBright profile 150 32
   run KaleidoscopeFlowers profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"

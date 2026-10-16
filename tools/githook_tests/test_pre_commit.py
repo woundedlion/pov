@@ -202,9 +202,10 @@ class PreCommitHook(unittest.TestCase):
         targets = self.repo / "targets"
         (targets / "Phantasm").mkdir(parents=True)
         (targets / "effects.h").write_text(
-            "#define HS_EFFECT_LIST(X) X(Example)\n", encoding="utf-8", newline="\n")
+            "#define HS_EFFECT_LIST(X) X(Example) X(Galaxies)\n",
+            encoding="utf-8", newline="\n")
         (targets / "Phantasm" / "phantasm_playlist.h").write_text(
-            "#define HS_PHANTASM_EFFECT_LIST(X) X(Example, 1)\n",
+            "#define HS_PHANTASM_EFFECT_LIST(X) X(Example, 1) X(Galaxies, 1)\n",
             encoding="utf-8", newline="\n")
         profiles = self.repo / "docs" / "profiles"
         filename = "profile_example_teensy_2026-09-28.md"
@@ -217,10 +218,10 @@ class PreCommitHook(unittest.TestCase):
                 "## Summary ranking\n\nRanking.\n\n## Harness\n\nHarness.\n",
                 encoding="utf-8", newline="\n")
             (directory / "README.md").write_text(
-                f"Reports covering the 1 effects.\n\n[Example]({filename})\n",
+                f"Reports covering the 2 effects.\n\n[Example]({filename})\n",
                 encoding="utf-8", newline="\n")
         (profiles / "README.md").write_text(
-            "On-device timing for the **1 effects in the Phantasm image**\n\n"
+            "On-device timing for the **2 effects in the Phantasm image**\n\n"
             f"[Shipping](shipping/{filename})\n[O3](O3/{filename})\n",
             encoding="utf-8", newline="\n")
         self.git("add", "scripts", "targets", "docs/profiles")
@@ -244,7 +245,7 @@ class PreCommitHook(unittest.TestCase):
         index.write_bytes(broken)
         done = self.run_hook()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("Profile archive structure covers all 1", done.stdout)
+        self.assertIn("Profile archive structure checks all 2", done.stdout)
 
     def test_profile_inputs_trigger_validation_when_deleted(self):
         self.profile_fixture()
