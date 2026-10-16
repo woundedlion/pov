@@ -242,10 +242,10 @@ test('profileDirectories reports an unindexed set of reports', async t => {
 test('Galaxies alone is pending its canonical shipping capture', async () => {
   const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
   const canonical = reports.filter(report => !report.variant);
-  assert.equal(canonical.length, 38);
+  assert.equal(canonical.length, 35);
   assert.ok(!canonical.some(report => report.key === 'galaxies'));
   const result = await checkProfiles();
-  assert.equal(result.phantasmCount, 39);
+  assert.equal(result.phantasmCount, 36);
   assert.deepEqual(result.errors, []);
 });
 
