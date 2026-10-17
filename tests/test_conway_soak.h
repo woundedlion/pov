@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Native soak of the OpLeg graph walk through the real HankinSolids frame
- * loop.
+ * Native soak of the ordered OpLeg sweep cycle through the real HankinSolids
+ * frame loop.
  */
 #pragma once
 
@@ -31,7 +31,8 @@ static_assert(!ConwayGraph::is_platonic(-1));
 static_assert(!ConwayGraph::is_platonic(
     ConwayGraph::dual_platonic(ConwayGraph::TRUNCATED_TETRAHEDRON)));
 
-/** Leg budget within which the seeded walk must have visited every node. */
+/** Leg budget within which the ordered sweep cycle must have visited every
+ * node. */
 constexpr int SOAK_LEG_BOUND = 192;
 
 /** Extra legs run past full coverage so late-arriving leaf states also get
@@ -54,8 +55,8 @@ constexpr uint64_t SOAK_MIN_FRAME_ENERGY = 4000000ull;
 inline void test_full_graph_walk_soak(uint32_t seed) {
   reset_globals();
   hs::random().seed(seed);
-  HS_CONTEXT("walk seed", seed);
-  std::printf("  [soak] walk seed=%u\n", seed);
+  HS_CONTEXT("rng seed (visual variation)", seed);
+  std::printf("  [soak] rng seed=%u (visual variation)\n", seed);
 
   HankinSolids<SOAK_W, SOAK_H> fx;
   fx.init();
@@ -235,7 +236,7 @@ inline void test_ordered_sweep_cycle() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Runs the OpLeg graph-walk soak.
+ * @brief Runs the OpLeg sweep-cycle soak.
  * @return The module's failure count.
  */
 inline int run_conway_soak_tests() {
