@@ -5,8 +5,8 @@
 
 /**
  * @file pov_segment_frame.h
- * @brief Copies the inactive arm half from the displayed buffer after drawing,
- *        before the frame is queued (buffer-complete hook).
+ * @brief Segment-frame lifecycle: initial full-width prime, opposite-half
+ *        retention, and half-matched display publication.
  */
 #pragma once
 

@@ -119,6 +119,10 @@ export interface SolidRegistryEntry {
 
 export interface SolidRecipeStep {
   op: string;
+  /**
+   * t, contact angle in radians, or relax iteration count; 0 on a relax step
+   * that replays a bake.
+   */
   param: number;
   twist: number;
 }

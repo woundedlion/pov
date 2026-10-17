@@ -701,7 +701,9 @@ public:
    *         UNKNOWN_NAME) or for a known entry without a recipe (OK).
    * @details Pure table read: no arenas, no wrapper. Params cross in
    *          engine-native units (radians for hankin, raw t, relax iteration
-   *          count). A recipe-less known entry returns null without logging.
+   *          count). A relax step that replays a bake reports param 0; its
+   *          iteration count is not part of the recipe. A recipe-less known
+   *          entry returns null without logging.
    */
   static SolidRecipeValue getRecipe(const std::string &name) {
     begin_mesh_op();
