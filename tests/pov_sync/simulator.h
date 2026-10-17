@@ -1229,7 +1229,8 @@ inline void test_epoch_same_tick_burst_fold() {
   const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
   const uint32_t K = cfg.commit_revs;
 
-  for (uint32_t j = 1; j <= R; ++j) {
+  for (uint32_t j = 0; j <= R; ++j) {
+    HS_CONTEXT("copy j", j);
     SyncBoard board(cfg);
     constexpr uint32_t START = 1000u;
     board.seed(START, false);
@@ -1242,6 +1243,7 @@ inline void test_epoch_same_tick_burst_fold() {
     board.tick(ZERO + 4u * COL + cfg.gap_timeout_cycles(), &burst);
     HS_EXPECT_TRUE(content(board).commit_pending);
     HS_EXPECT_EQ(content(board).commit_in_revs, K + R - j);
+    HS_EXPECT_EQ(content(board).refractory_revs_left, cfg.refractory_revs);
   }
 
   // Returns the absolute rev at which a tracker hearing copy j commits
