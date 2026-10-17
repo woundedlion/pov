@@ -1,7 +1,7 @@
 # Require every test case defined in a tests/*.h or tests/*.hpp header to be
 # reachable from its header's run_*_tests() entry point, and to reach an
 # HS_EXPECT assertion or static_assert directly or through helpers (helper
-# traversal also recognizes ChainPeaks returns). Death case_* definitions in
+# traversal accepts definitions of any return type). Death case_* definitions in
 # test_death.h remain subject to reachability but are exempt from assertion
 # reach; the death harness verifies their traps at runtime. run_*_cases are
 # case drivers; run_*_tests are module entry points.

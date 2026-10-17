@@ -1169,9 +1169,9 @@ inline void test_gs_render_certificates_bound_lattice() {
 /**
  * @brief Bounds the shared stencil against independent SSAA refinement.
  * @details Compares production-resolution pixels after 4, 16, and 40 rendered
- * frames. Near-tie Voronoi samples may change, but coverage and high-amplitude
- * errors remain confined to under 3% of lit pixels. The spatial-change count
- * excludes differences of at most two RGB16 quantization units.
+ * frames. Coverage changes stay within 2% of lit pixels, errors past 6.25%
+ * within 3%, and changes beyond two RGB16 quantization units within half.
+ * Max channel error stays within 23000 and mean within 3/512 full scale.
  */
 inline void test_gs_shared_stencil_error_is_bounded() {
   hs_test::reset_globals();

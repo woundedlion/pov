@@ -259,7 +259,10 @@ inline void test_islamicstars_default_cycle_frames() {
   HS_EXPECT_EQ(IslamicBuildProbe::runtime_cycle_frames(), IS::cycle_frames());
 }
 
-/** @brief IslamicStars preset registration excludes its global controls. */
+/**
+ * @brief Pins the playback roster order, the boot preset and selection
+ *        mapping, and which controls are preset-scoped versus global.
+ */
 inline void test_islamicstars_presets_cover_roster() {
   reset_effect_globals();
   IslamicBuildProbe::IS effect;
