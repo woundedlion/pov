@@ -57,6 +57,7 @@ def project_context(project, output, revision):
               "PRO": str(project / f"{PROJECT}.kicad_pro")}
     if revision == "1.2":
         values["KNOWN_PARITY_WARNING_COUNTS"] = pcb.GENERATED_LAND_DEVIATIONS.copy()
+        values["OPTIONAL_PARITY_WARNING_MAX"] = pcb.GENERATED_OPTIONAL_DEVIATIONS.copy()
     previous = {key: getattr(fab, key) for key in values}
     try:
         for key, value in values.items():

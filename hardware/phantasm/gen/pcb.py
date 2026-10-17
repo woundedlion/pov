@@ -40,6 +40,8 @@ PCB_FILE = "phantasm.kicad_pcb"
 DRAFT_FILE = "phantasm-draft.kicad_pcb"
 UNPLACED_FILE = PCB_FILE
 GENERATED_LAND_DEVIATIONS = {("lib_footprint_mismatch", "D_BUS"): 1}
+#: Deviations an unplaced board emits that older routed boards may lack.
+GENERATED_OPTIONAL_DEVIATIONS = {("lib_footprint_mismatch", "J1"): 1}
 def silk_revision(revision):
     """Bottom-silkscreen stamp for the selected board revision."""
     return f"Phantasm Rev {revision}"
