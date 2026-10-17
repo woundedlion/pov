@@ -714,6 +714,19 @@ class SchematicParityTests(unittest.TestCase):
         self.assertIn("Land edits", str(caught.exception))
         self.assertNotIn("re-route", str(caught.exception))
 
+    def test_optional_warning_accepts_up_to_its_maximum(self):
+        extra = {"type": "lib_footprint_mismatch", "description": "Optional",
+                 "items": [{"description": "Footprint J1"}]}
+        with mock.patch.object(fab, "OPTIONAL_PARITY_WARNING_MAX",
+                               {("lib_footprint_mismatch", "J1"): 1}):
+            for count in (0, 1):
+                self.assertEqual(
+                    self.require(self.KNOWN, self.KNOWN_WARNINGS + [extra] * count),
+                    len(fab.KNOWN_PARITY_ITEMS))
+            with self.assertRaisesRegex(fab.SchematicParityError,
+                                        r"J1 reported 2 times .* expected at most 1"):
+                self.require(self.KNOWN, self.KNOWN_WARNINGS + [extra] * 2)
+
     def test_rejects_replacement_warning_with_same_total(self):
         violations = self.KNOWN_WARNINGS[:-1] + [{
             "type": "lib_footprint_mismatch", "description": "New warning",

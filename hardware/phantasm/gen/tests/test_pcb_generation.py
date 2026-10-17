@@ -203,10 +203,12 @@ class GeneratedBoardTests(TerminalBodyChecks, unittest.TestCase):
                 [kicad_cli(), "pcb", "drc", "--refill-zones", "--save-board",
                  "-o", str(Path(directory) / "refill.rpt"), board_path],
                 capture_output=True, text=True, check=True)
-            warnings = {**pcb.GENERATED_LAND_DEVIATIONS, ("lib_footprint_mismatch", "J1"): 1}
             with mock.patch.object(fab, "PCB", board_path), \
                     mock.patch.object(fab, "SCH", str(Path(directory) / "phantasm.kicad_sch")), \
-                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS", warnings):
+                    mock.patch.object(fab, "KNOWN_PARITY_WARNING_COUNTS",
+                                      pcb.GENERATED_LAND_DEVIATIONS), \
+                    mock.patch.object(fab, "OPTIONAL_PARITY_WARNING_MAX",
+                                      pcb.GENERATED_OPTIONAL_DEVIATIONS):
                 self.assertEqual(fab.run_parity(str(Path(directory) / "parity.json")),
                                  len(fab.KNOWN_PARITY_ITEMS))
 

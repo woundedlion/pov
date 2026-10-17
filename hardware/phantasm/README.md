@@ -153,7 +153,7 @@ local library/model inputs. It checks manufacturing rules, zone/via geometry, ma
 ENIG and copper stackup, copper connectivity, ERC, DRC, schematic parity,
 netlist membership, and assembly assignments/metadata. Rev 1.2 does not inherit
 rev 1.1's historical footprint-warning allowances; the generator's D_BUS land
-is expected. The first static pass lists
+is expected, and J1's edge-trimmed silkscreen may report at most once. The first static pass lists
 independent failures together; later gates stop on failure. Neither validation
 nor release repairs source files. Rev 1.3 release is not supported.
 

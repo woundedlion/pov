@@ -485,6 +485,8 @@ KNOWN_PARITY_WARNING_COUNTS = {
     for ref in ("R_D1", "R2", "R_D2", "U1", "R_PD", "U_MCU", "C_DEC2",
                 "D_BUS", "R_S", "J4", "R1")
 }
+#: Parity warnings that may appear up to the given count.
+OPTIONAL_PARITY_WARNING_MAX = {}
 
 # JLCPCB part assignments (LCSC #) keyed by reference. R_D1/R_D2 use an 0805
 # 33R (C17634) to match their 0805 land pattern.
@@ -774,13 +776,20 @@ def require_schematic_parity(report_path):
     for kind, ref in sorted(set(warning_counts) |
                             set(KNOWN_PARITY_WARNING_COUNTS)):
         actual = warning_counts.get((kind, ref), 0)
-        expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
-        if actual != expected:
-            target = (land_diagnostics if kind == "lib_footprint_mismatch"
-                      else drc_diagnostics)
-            target.append(
-                f"{kind}: {ref} reported {actual} times in {report_path}, "
-                f"expected {expected}")
+        optional = OPTIONAL_PARITY_WARNING_MAX.get((kind, ref))
+        if optional is not None:
+            if actual <= optional:
+                continue
+            expected = f"at most {optional}"
+        else:
+            expected = KNOWN_PARITY_WARNING_COUNTS.get((kind, ref), 0)
+            if actual == expected:
+                continue
+        target = (land_diagnostics if kind == "lib_footprint_mismatch"
+                  else drc_diagnostics)
+        target.append(
+            f"{kind}: {ref} reported {actual} times in {report_path}, "
+            f"expected {expected}")
 
     seen = {}
     for entry in entries:

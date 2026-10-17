@@ -74,11 +74,15 @@ class ReleaseTests(unittest.TestCase):
 
     def test_revision_context_does_not_leak_historical_allowances(self):
         original = fab.KNOWN_PARITY_WARNING_COUNTS
+        original_optional = fab.OPTIONAL_PARITY_WARNING_MAX
         with release.project_context(self.project, self.root, "1.2"):
             self.assertEqual(fab.PRO, str(self.project / "phantasm.kicad_pro"))
             self.assertEqual(fab.KNOWN_PARITY_WARNING_COUNTS,
                              {("lib_footprint_mismatch", "D_BUS"): 1})
+            self.assertEqual(fab.OPTIONAL_PARITY_WARNING_MAX,
+                             {("lib_footprint_mismatch", "J1"): 1})
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
+        self.assertIs(fab.OPTIONAL_PARITY_WARNING_MAX, original_optional)
 
     def pipeline(self, stack, fail=None, revision="1.2"):
         events = []
