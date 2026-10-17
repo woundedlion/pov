@@ -88,6 +88,8 @@ def main():
                 if not line:
                     continue
                 text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+                if not text:
+                    continue
                 tail.append(text)
                 print(text, flush=True)
                 f.write(text + "\n")

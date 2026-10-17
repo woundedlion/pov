@@ -311,6 +311,20 @@ class TestMain(unittest.TestCase):
         self.assertFalse(os.path.exists(self.out))
         self.assertTrue(opened.closed)
 
+    def test_blank_lines_are_neither_written_nor_counted(self):
+        opened = FakeSerial("COM3", [b"\r\n", b"phase 1\r\n", b"\n"], self.clock)
+        printed = self._run(opened)
+        with open(self.out, encoding="utf-8", newline="") as handle:
+            self.assertEqual(handle.read(), "phase 1\n")
+        self.assertIn("1 lines", printed)
+
+    def test_a_blank_only_stream_leaves_no_log_behind(self):
+        opened = FakeSerial("COM3", [b"\r\n", b"\n"], self.clock)
+        with self.assertRaises(SystemExit) as caught:
+            self._run(opened)
+        self.assertIn("streamed nothing", str(caught.exception))
+        self.assertFalse(os.path.exists(self.out))
+
     def test_a_silent_board_leaves_no_remnant_of_a_prior_capture(self):
         # Opening for write already truncated the previous run's log, so the
         # removal has to happen or a zero-byte file survives as a "capture".
