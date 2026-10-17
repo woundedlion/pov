@@ -4,7 +4,7 @@ Ranked on-device results for the shipping `profile` image, covering the
 36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
 Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace, October 7 optimized face-distance, and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace, October 7 optimized face-distance, September 28 Octet supplement, and October 16 MindSplatter packing captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -61,7 +61,7 @@ For cyclers, each row summarizes the parser-owned preset, shape, or mode entries
 Spill fractions include the transition following an entry and are stricter than clean holds.
 
 - **HyperLattice**: 9 parser ownership buckets spanning 26.22–51.77 ms.
-- **MindSplatter**: 8 parser ownership buckets spanning 22.99–56.60 ms.
+- **MindSplatter**: 8 parser ownership buckets spanning 22.83–55.71 ms.
 - **ShapeShifter**: 9 parser ownership buckets spanning 6.28–54.27 ms.
 - **IslamicStars**: 23 parser ownership buckets spanning 20.32–48.51 ms.
 - **MeshFeedback**: 12 parser ownership buckets spanning 40.71–48.53 ms.
