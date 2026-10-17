@@ -7,16 +7,6 @@
 // PaletteCycler
 // ============================================================================
 
-/** @brief Cycler storage components fit their declared arena allocation. */
-inline void test_palette_cycler_arena_components() {
-  HS_EXPECT_EQ(PaletteCycler::display_arena_bytes(),
-               BakedPalette::required_arena_bytes());
-  HS_EXPECT_EQ(PaletteCycler::crossfade_arena_bytes(),
-               2 * BakedPalette::required_arena_bytes());
-  HS_EXPECT_EQ(PaletteCycler::morph_arena_bytes(),
-               sizeof(GenerativePalette) + alignof(GenerativePalette));
-}
-
 /** @brief Key palette cycling follows the configured morph sequence. */
 inline void test_palette_cycler_key_morph_cycle() {
   const GenerativePalette first(PaletteRecipes::balanced_analogous(0.05f));
@@ -190,6 +180,83 @@ inline void scripted_tonal_palette(void *context, uint32_t sequence,
   ++*static_cast<int *>(context);
   out = GenerativePalette(
       PaletteRecipes::tonal_monochrome(0.1f + 0.2f * sequence));
+}
+
+/** @brief Backing buffer for palette_cycler_worst_case_arena_bytes(). */
+alignas(std::max_align_t) inline uint8_t
+    palette_cycler_budget_buf[PaletteCycler::required_arena_bytes() +
+                              PaletteCycler::generated_arena_bytes() +
+                              alignof(std::max_align_t)];
+
+/**
+ * @brief Largest arena offset @p init_fn reaches over every base misalignment.
+ * @param init_fn Callable that initializes a fresh PaletteCycler in an Arena.
+ * @return Peak bytes consumed, alignment padding included.
+ */
+template <typename InitFn>
+size_t palette_cycler_worst_case_arena_bytes(InitFn &&init_fn) {
+  size_t worst = 0;
+  for (size_t shift = 0; shift < alignof(std::max_align_t); ++shift) {
+    Arena arena(palette_cycler_budget_buf + shift,
+                sizeof(palette_cycler_budget_buf) - shift);
+    PaletteCycler cycler;
+    init_fn(cycler, arena);
+    worst = std::max(worst, arena.get_offset());
+  }
+  return worst;
+}
+
+/**
+ * @brief Each init mode's worst-case arena use fits its declared byte budget.
+ */
+inline void test_palette_cycler_arena_components() {
+  constexpr size_t DISPLAY = PaletteCycler::display_arena_bytes();
+  constexpr size_t CROSSFADE = PaletteCycler::crossfade_arena_bytes();
+  constexpr size_t MORPH = PaletteCycler::morph_arena_bytes();
+
+  const GenerativePalette first(PaletteRecipes::balanced_analogous(0.05f));
+  const GenerativePalette second(PaletteRecipes::balanced_analogous(0.62f));
+  Gradient ramp{{0.0f, CPixel(10u, 250u, 60u)}, {1.0f, CPixel(250u, 10u, 60u)}};
+  SolidColorPalette solid(Color4(Pixel(9000, 21000, 43000), 1.0f));
+
+  const std::array<PaletteCycler::Entry, 1> single = {{first}};
+  const std::array<PaletteCycler::Entry, 2> key_morph = {{first, second}};
+  const std::array<PaletteCycler::Entry, 2> crossfade = {{ramp, solid}};
+  const std::array<PaletteCycler::Entry, 3> mixed = {{first, second, ramp}};
+
+  const size_t single_bytes =
+      palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
+        c.init(a, single.data(), single.size(), 1, 2);
+      });
+  HS_EXPECT_LE(single_bytes, DISPLAY);
+
+  const size_t key_morph_bytes =
+      palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
+        c.init(a, key_morph.data(), key_morph.size(), 1, 2);
+      });
+  HS_EXPECT_GT(key_morph_bytes, DISPLAY);
+  HS_EXPECT_LE(key_morph_bytes, DISPLAY + MORPH);
+
+  const size_t crossfade_bytes =
+      palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
+        c.init(a, crossfade.data(), crossfade.size(), 1, 2);
+      });
+  HS_EXPECT_GT(crossfade_bytes, 2 * DISPLAY);
+  HS_EXPECT_LE(crossfade_bytes, DISPLAY + CROSSFADE);
+
+  const size_t mixed_bytes =
+      palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
+        c.init(a, mixed.data(), mixed.size(), 1, 2);
+      });
+  HS_EXPECT_GT(mixed_bytes, DISPLAY + CROSSFADE);
+  HS_EXPECT_LE(mixed_bytes, PaletteCycler::required_arena_bytes());
+
+  int provider_calls = 0;
+  const size_t generated_bytes =
+      palette_cycler_worst_case_arena_bytes([&](PaletteCycler &c, Arena &a) {
+        c.init_generated(a, scripted_next_palette, &provider_calls, 0, 2);
+      });
+  HS_EXPECT_LE(generated_bytes, PaletteCycler::generated_arena_bytes());
 }
 
 /** @brief Generated palettes advance through the configured cycle. */
