@@ -6,8 +6,8 @@ bench-attached Teensy 4.0 boards with the real segmented POV driver
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Canonical shipping captures cover 35 effects. Galaxies opens the shipping
-playlist; its first on-device timing capture is pending.
+Canonical shipping captures cover 35 effects. Galaxies is pending its first
+on-device timing capture.
 
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
@@ -40,9 +40,9 @@ are worst-frame render, never wall time; spilled is the number of frames whose
 render exceeded one 62.5 ms window. Colours are per config: 🟢 zero spill;
 🟡 under 25% spill; 🔴 at least 25% spill. ● marks shipping-only captures and optimized face-distance snapshots, including GridSpace on October 17.
 Image deltas belong to each O3 capture's own shipping pair, not to the linked
-2026-10-06 shipping report; MeshFeedback and KaleidoscopeStainedGlass use
-adjacent-source pairs (`63268c376` O3 versus `20ca3cb48` shipping), so their
-deltas include source changes. GSReactionDiffusion’s O3 column and image deltas
+2026-10-06 shipping report; MeshFeedback uses an adjacent-source pair
+(`63268c376` O3 versus `20ca3cb48` shipping), so its deltas include source
+changes. GSReactionDiffusion’s O3 column and image deltas
 predate the October 5 shipping optimization.
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
@@ -83,7 +83,7 @@ predate the October 5 shipping optimization.
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-06.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 12.92 (24) | 🟢 11.70 (24) | 🟢 0/3487 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-06 18:42<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-06.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 8.00 | 🟢 7.71 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-06 18:25<br>O3 2026-08-26 01:39 |
 
-KaleidoscopeMelt was captured on October 11; its initialization frame is recorded separately. JewelMelt was captured on October 14 at softness 0.5. Apart from the October 17 GridSpace capture, other shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures; JewelMelt's report records its full-width initialization draw separately. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
+Apart from the October 17 GridSpace capture, shipping columns were re-captured 2026-10-06 at `e2f5b0a3d` (full roster, COM3 and COM4), except HyperLattice at `a13c149d4`, GnomonicStars at `17390a7a1` on 2026-10-07, and the ● October 7 IslamicStars/HankinSolids optimized snapshots documented in their reports. Setup frame 1 is excluded from display peak and spill figures. The O3 columns, code-size deltas, image deltas and O3 timestamps are unchanged and belong to each O3 capture's own source pair, not to the 2026-10-06 shipping capture. Captured times are local raw-log mtimes.
 
 § Cyclers carry one aligned line per parser-owned colour bucket, worst first;
 (N) counts parser-owned preset, shape, or mode entries in that colour bucket.
