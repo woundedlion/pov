@@ -13,6 +13,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -42,5 +43,6 @@ namespace Pullback {
 #include "core/render/pullback/composed_parameters.h"
 #include "core/render/pullback/composed_policies.h"
 #include "core/render/pullback/composed_descriptors.h"
+#include "core/render/pullback/composed_temporal.h"
 #include "core/render/pullback/composed_runtime.h"
 } // namespace Pullback

@@ -183,6 +183,35 @@ private:
   }
 
 public:
+  /** @brief Shades columns with one prepared callable per column.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @tparam Prepare Callable taking an absolute column and returning its shader.
+   * @param canvas Destination canvas.
+   * @param prepare Prepares a shader accepting a unit sphere direction. */
+  template <int W, int H, typename Prepare>
+  HS_HOT_FLASH_MEMBER static void draw_columns(Canvas &canvas,
+                                               Prepare &&prepare) {
+    check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const auto &clip = canvas.clip();
+    check_lut_domain<W, H>(clip);
+    walk_clip_columns<W>(clip.x_clip(), [&](int x) {
+      auto shader = prepare(x);
+      const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
+      const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
+      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+        const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+        const math::Vector VIEW(SIN_PHI * COS_THETA,
+                                math::TrigLUT<W, H>::cos_phi[y],
+                                SIN_PHI * SIN_THETA);
+        const Color4 COLOR = shader(VIEW);
+        canvas(x, y) = COLOR.color * COLOR.alpha;
+      }
+    });
+  }
+
   /**
    * @brief Full-screen per-pixel shader with SAMPLES× SSAA from a single
    *        callable.

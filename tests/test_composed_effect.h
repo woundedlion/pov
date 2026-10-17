@@ -681,9 +681,14 @@ inline void test_palette_mapping_crossfade() {
   HS_EXPECT_TRUE(unchanged.values == CUP.values);
 }
 
+#include "tests/composed_effect/temporal_sampling.h"
+
 /** @brief Module entry point for the composed-effect base contract. */
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
+  test_temporal_clock_sampling();
+  test_temporal_owned_resources();
+  test_gridspace_temporal_pixels();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
   test_catalog_semantic_export();

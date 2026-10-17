@@ -66,6 +66,11 @@ template <typename ParamsT> struct FrameState {
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
 };
 
+/** @brief Column-sampled context with retained color resources. */
+template <typename ParamsT> struct TemporalFrameState : FrameState<ParamsT> {
+  Color::TemporalPaletteResources temporal; ///< Previous color resources.
+};
+
 /**
  * @brief Ties a pullback pipeline to one effect's frame state.
  * @details Composed effects render uninstrumented, so the binding pins
@@ -420,6 +425,15 @@ template <typename BindingT, HueMode HueV,
 struct ColorProvider {
   using Binding = BindingT;                        ///< The effect's Binding.
   using FrameState = typename Binding::FrameState; ///< The effect's frame.
+  /** @brief Previous color resources and the column's interpolation fraction.
+   *  @param frame Current column context.
+   *  @return The retained resources. */
+  static Color::TemporalPaletteResources
+  temporal_resources(const FrameState &frame)
+    requires requires { frame.temporal; }
+  {
+    return frame.temporal;
+  }
   /** @brief Palette mapping weights.
    *  @param frame Current frame.
    *  @return `frame.palette_mapping`. */

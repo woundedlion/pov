@@ -1310,6 +1310,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
+│   │   │   ├── composed_temporal.h     Retained endpoints and column-time sampling
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
 │   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
