@@ -1180,6 +1180,14 @@ inline void test_persist_compaction_relocates_survivor() {
   HS_EXPECT_EQ(live.data[2], 300);
   HS_EXPECT_EQ(live.summary, 42);
   HS_EXPECT_TRUE(&live.data[0] != base_before);
+  HS_EXPECT_TRUE(live.data.data() >=
+                 compacted_other.data() + compacted_other.size());
+  const auto *survivor_begin =
+      reinterpret_cast<const uint8_t *>(live.data.data());
+  const auto *survivor_end =
+      reinterpret_cast<const uint8_t *>(live.data.data() + live.data.size());
+  HS_EXPECT_TRUE(survivor_begin >= test_buf_a);
+  HS_EXPECT_TRUE(survivor_end <= test_buf_a + sizeof(test_buf_a));
   HS_EXPECT_EQ(compacted_other.size(), (size_t)2);
   HS_EXPECT_EQ(compacted_other[0], 7);
   HS_EXPECT_EQ(compacted_other[1], 8);
