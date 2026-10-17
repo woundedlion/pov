@@ -532,37 +532,47 @@ static_assert(PLATONIC_BASE_MESH_COUNT == PLATONIC_COUNT,
 static_assert(BASE_MESH_COUNT ==
                   PLATONIC_COUNT + ARCHIMEDEAN_COUNT + CATALAN_COUNT,
               "BaseMesh must enumerate simple_registry then catalan_registry");
-static_assert(
-    std::string_view(simple_registry[static_cast<size_t>(BaseMesh::TETRAHEDRON)]
-                         .name) == "tetrahedron",
-    "BaseMesh::TETRAHEDRON must open simple_registry");
-static_assert(
-    std::string_view(simple_registry[static_cast<size_t>(BaseMesh::ICOSAHEDRON)]
-                         .name) == "icosahedron",
-    "BaseMesh::ICOSAHEDRON must end the Platonic run");
-static_assert(
-    std::string_view(
-        simple_registry[static_cast<size_t>(BaseMesh::TRUNCATED_TETRAHEDRON)]
-            .name) == "truncatedTetrahedron",
-    "BaseMesh::TRUNCATED_TETRAHEDRON must start the Archimedean run");
-static_assert(
-    std::string_view(
-        simple_registry[static_cast<size_t>(BaseMesh::SNUB_DODECAHEDRON)]
-            .name) == "snubDodecahedron",
-    "BaseMesh::SNUB_DODECAHEDRON must end simple_registry");
-static_assert(
-    std::string_view(
-        catalan_registry[static_cast<size_t>(BaseMesh::TRIAKIS_TETRAHEDRON) -
-                         std::size(simple_registry)]
-            .name) == "triakisTetrahedron",
-    "BaseMesh::TRIAKIS_TETRAHEDRON must open catalan_registry");
-static_assert(
-    std::string_view(
-        catalan_registry[static_cast<size_t>(
-                             BaseMesh::PENTAGONAL_HEXECONTAHEDRON) -
-                         std::size(simple_registry)]
-            .name) == "pentagonalHexecontahedron",
-    "BaseMesh::PENTAGONAL_HEXECONTAHEDRON must close catalan_registry");
+
+/**
+ * @brief Whether @p label, spaces removed and first letter lowercased, spells
+ *        @p name.
+ * @param label BaseMesh display label.
+ * @param name Registry name.
+ * @return True on an exact match.
+ */
+constexpr bool label_spells_name(const char *label, const char *name) {
+  size_t n = 0;
+  for (size_t l = 0; label[l] != '\0'; ++l) {
+    char c = label[l];
+    if (c == ' ')
+      continue;
+    if (n == 0 && c >= 'A' && c <= 'Z')
+      c = static_cast<char>(c - 'A' + 'a');
+    if (name[n] != c)
+      return false;
+    ++n;
+  }
+  return name[n] == '\0';
+}
+
+/**
+ * @brief Whether every BASE_MESH_OPTIONS label spells the name of the solid
+ *        its ordinal selects.
+ * @return True when all labels match.
+ */
+constexpr bool base_mesh_labels_match_registries() {
+  for (size_t i = 0; i < BASE_MESH_COUNT; ++i) {
+    const Entry &entry = i < std::size(simple_registry)
+                             ? simple_registry[i]
+                             : catalan_registry[i - std::size(simple_registry)];
+    if (!label_spells_name(BASE_MESH_OPTIONS[i], entry.name))
+      return false;
+  }
+  return true;
+}
+static_assert(base_mesh_labels_match_registries(),
+              "BASE_MESH_OPTIONS must follow simple_registry then "
+              "catalan_registry row for row");
 
 namespace Collections {
 /**
