@@ -188,7 +188,8 @@ public:
    * @tparam H Canvas height.
    * @tparam Prepare Callable taking an absolute column and returning its shader.
    * @param canvas Destination canvas.
-   * @param prepare Prepares a shader accepting a unit sphere direction. */
+   * @param prepare Prepares a shader accepting a unit sphere direction or
+   * sine and cosine of the row polar angle. */
   template <int W, int H, typename Prepare>
   HS_HOT_FLASH_MEMBER static void draw_columns(Canvas &canvas,
                                                Prepare &&prepare) {
@@ -203,10 +204,16 @@ public:
       const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
       for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
         const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-        const math::Vector VIEW(SIN_PHI * COS_THETA,
-                                math::TrigLUT<W, H>::cos_phi[y],
-                                SIN_PHI * SIN_THETA);
-        const Color4 COLOR = shader(VIEW);
+        const Color4 COLOR = [&]() {
+          if constexpr (std::is_invocable_v<decltype(shader) &, float, float>)
+            return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
+          else {
+            const math::Vector VIEW(SIN_PHI * COS_THETA,
+                                    math::TrigLUT<W, H>::cos_phi[y],
+                                    SIN_PHI * SIN_THETA);
+            return shader(VIEW);
+          }
+        }();
         canvas(x, y) = COLOR.color * COLOR.alpha;
       }
     });

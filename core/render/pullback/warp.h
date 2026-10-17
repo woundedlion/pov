@@ -425,11 +425,15 @@ HS_FLASH_INLINE inline PreparedAffineSlot prepare(const AffineParams &warp,
                                                   float frame_rotation,
                                                   float lattice_period) {
   PreparedAffineSlot prepared{cosf(frame_rotation), sinf(frame_rotation), {}};
-  const float cycle_cos = cosf(math::TWO_PI_F * math::wrap_t(phase));
+  const float cycle_cos =
+      warp.scale_x == 1.0f && warp.scale_y == 1.0f && warp.shear == 0.0f
+          ? 1.0f
+          : cosf(math::TWO_PI_F * math::wrap_t(phase));
   prepared.transform.affine = {
       math::wrap_t(phase) * warp.translation_x * lattice_period,
       math::wrap_t(phase) * warp.translation_y * lattice_period,
-      powf(warp.scale_x, cycle_cos), powf(warp.scale_y, cycle_cos),
+      warp.scale_x == 1.0f ? 1.0f : powf(warp.scale_x, cycle_cos),
+      warp.scale_y == 1.0f ? 1.0f : powf(warp.scale_y, cycle_cos),
       warp.shear * cycle_cos};
   return prepared;
 }

@@ -31,6 +31,7 @@ struct HueRotationLutView {
   /// Borrowed table, indexed `value_index * HUE_STEPS + hue_index`.
   const Pixel *data;
   bool active; ///< Whether `data` holds a baked table to sample.
+  const math::Vector *linear_data = nullptr; ///< Optional float copy of RGB16.
 };
 
 /** @brief View over a baked cube-map sphere noise field (values in [-1, 1]). */
@@ -43,6 +44,8 @@ struct HueNoiseLutView {
   /// Borrowed face-major, row-major table of noise in [-1, 1] times 127.
   const int8_t *data;
   bool active; ///< Whether `data` holds a baked table to sample.
+  const float *linear_data =
+      nullptr; ///< Exact float copies of quantized noise.
 };
 
 /**
@@ -213,38 +216,153 @@ struct HueNoiseBakeCache {
   }
 };
 
-/**
- * @brief Samples a hue-rotation LUT with interpolation over both axes.
+/** @brief Palette-axis coordinates shared by hue-rotation LUT samples. */
+struct HueRotationValueSample {
+  int low;         ///< Lower palette row.
+  int high;        ///< Upper palette row.
+  uint16_t weight; ///< Upper row weight in Q16.
+
+  /** @brief Prepares a palette-axis sample.
+   * @param value Palette coordinate in [0, 1]. */
+  explicit HueRotationValueSample(float value) {
+    const float position =
+        hs::clamp(value * (HueRotationLutView::VALUE_STEPS - 1), 0.0f,
+                  static_cast<float>(HueRotationLutView::VALUE_STEPS - 1));
+    low = lut_index_lo(position);
+    high = std::min(low + 1, HueRotationLutView::VALUE_STEPS - 1);
+    weight = lut_index_weight(position, low);
+  }
+};
+
+/** @brief Hue-axis coordinates shared by palette endpoint samples. */
+struct HueRotationHueSample {
+  int low;             ///< Lower hue column, wrapped into the table.
+  int high;            ///< Next hue column, wrapped into the table.
+  uint16_t weight;     ///< Upper hue column weight in Q16.
+  float linear_weight; ///< Q16 weight converted to a float fraction.
+
+  /** @brief Prepares a periodic hue-axis sample.
+   * @param amount Hue rotation in turns. */
+  explicit HueRotationHueSample(float amount) {
+    const float POSITION =
+        hs::clamp((amount - floorf(amount)) * HueRotationLutView::HUE_STEPS,
+                  0.0f, static_cast<float>(HueRotationLutView::HUE_STEPS));
+    const int STEP = lut_index_lo(POSITION);
+    low = STEP & (HueRotationLutView::HUE_STEPS - 1);
+    high = (low + 1) & (HueRotationLutView::HUE_STEPS - 1);
+    weight = lut_index_weight(POSITION, STEP);
+    linear_weight = weight * Q16_TO_UNIT;
+  }
+};
+
+/** @brief Samples hue rotation at prepared palette-axis coordinates.
+ * @param view Prepared hue-rotation LUT.
+ * @param value Palette-axis coordinates.
+ * @param hue Prepared hue-axis coordinates.
+ * @return Hue-rotated linear RGB color. */
+__attribute__((always_inline)) inline Pixel
+sample_hue_rotation_lut(const HueRotationLutView &view,
+                        const HueRotationValueSample &value,
+                        const HueRotationHueSample &hue) {
+  const auto sample_row = [&](int row) {
+    const int offset = row * HueRotationLutView::HUE_STEPS;
+    return view.data[offset + hue.low].lerp16(view.data[offset + hue.high],
+                                              hue.weight);
+  };
+  return sample_row(value.low).lerp16(sample_row(value.high), value.weight);
+}
+
+/** @brief Samples hue rotation at a prepared palette coordinate.
+ * @param view Prepared hue-rotation LUT.
+ * @param value Palette-axis coordinates.
+ * @param amount Hue rotation in turns.
+ * @return Hue-rotated linear RGB color. */
+__attribute__((always_inline)) inline Pixel
+sample_hue_rotation_lut(const HueRotationLutView &view,
+                        const HueRotationValueSample &value, float amount) {
+  return sample_hue_rotation_lut(view, value, HueRotationHueSample(amount));
+}
+
+/** @brief Samples a hue-rotation LUT with interpolation over both axes.
  * @param view Prepared hue-rotation LUT.
  * @param value Palette coordinate in [0, 1].
  * @param amount Hue rotation in turns.
- * @return Hue-rotated linear RGB color.
- */
+ * @return Hue-rotated linear RGB color. */
 __attribute__((always_inline)) inline Pixel
 sample_hue_rotation_lut(const HueRotationLutView &view, float value,
                         float amount) {
-  const float value_position =
-      hs::clamp(value * (HueRotationLutView::VALUE_STEPS - 1), 0.0f,
-                static_cast<float>(HueRotationLutView::VALUE_STEPS - 1));
-  const int value_low = lut_index_lo(value_position);
-  const int value_high =
-      std::min(value_low + 1, HueRotationLutView::VALUE_STEPS - 1);
-  const uint16_t value_weight = lut_index_weight(value_position, value_low);
+  return sample_hue_rotation_lut(view, HueRotationValueSample(value), amount);
+}
 
-  const float hue_position =
+/** @brief Samples hue rotation without rounding intermediate RGB blends.
+ * @param view Prepared hue-rotation LUT.
+ * @param value Palette-axis coordinates.
+ * @param hue Prepared hue-axis coordinates.
+ * @return Linear RGB channel values before quantization. */
+__attribute__((always_inline)) inline math::Vector
+sample_hue_rotation_linear(const HueRotationLutView &view,
+                           const HueRotationValueSample &value,
+                           const HueRotationHueSample &hue) {
+  const auto row = [&](int index) {
+    if (view.linear_data) {
+      const math::Vector &a =
+          view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.low];
+      const math::Vector &b =
+          view.linear_data[index * HueRotationLutView::HUE_STEPS + hue.high];
+      return math::Vector(hs::lerp(a.x, b.x, hue.linear_weight),
+                          hs::lerp(a.y, b.y, hue.linear_weight),
+                          hs::lerp(a.z, b.z, hue.linear_weight));
+    }
+    const Pixel &a = view.data[index * HueRotationLutView::HUE_STEPS + hue.low];
+    const Pixel &b =
+        view.data[index * HueRotationLutView::HUE_STEPS + hue.high];
+    return math::Vector(hs::lerp(float(a.r), float(b.r), hue.linear_weight),
+                        hs::lerp(float(a.g), float(b.g), hue.linear_weight),
+                        hs::lerp(float(a.b), float(b.b), hue.linear_weight));
+  };
+  const math::Vector a = row(value.low);
+  if (value.weight == 0)
+    return a;
+  const math::Vector b = row(value.high);
+  return a + (value.weight * Q16_TO_UNIT) * (b - a);
+}
+
+/** @brief Samples hue rotation without intermediate RGB quantization.
+ * @param view Prepared hue-rotation LUT.
+ * @param value Palette-axis coordinates.
+ * @param amount Hue rotation in turns.
+ * @return Linear RGB channel values before quantization. */
+__attribute__((always_inline)) inline math::Vector
+sample_hue_rotation_linear(const HueRotationLutView &view,
+                           const HueRotationValueSample &value, float amount) {
+  const float position =
       hs::clamp((amount - floorf(amount)) * HueRotationLutView::HUE_STEPS, 0.0f,
                 static_cast<float>(HueRotationLutView::HUE_STEPS));
-  const int hue_step = lut_index_lo(hue_position);
-  const uint16_t hue_weight = lut_index_weight(hue_position, hue_step);
-  const int hue_index_low = hue_step & (HueRotationLutView::HUE_STEPS - 1);
-  const int hue_index_high =
-      (hue_index_low + 1) & (HueRotationLutView::HUE_STEPS - 1);
-  const auto sample_row = [&](int row) {
-    const int offset = row * HueRotationLutView::HUE_STEPS;
-    return view.data[offset + hue_index_low].lerp16(
-        view.data[offset + hue_index_high], hue_weight);
+  const int step = lut_index_lo(position);
+  const float hue_weight = lut_index_weight(position, step) * Q16_TO_UNIT;
+  const int low = step & (HueRotationLutView::HUE_STEPS - 1);
+  const int high = (low + 1) & (HueRotationLutView::HUE_STEPS - 1);
+  const auto row = [&](int index) {
+    if (view.linear_data) {
+      const math::Vector &a =
+          view.linear_data[index * HueRotationLutView::HUE_STEPS + low];
+      const math::Vector &b =
+          view.linear_data[index * HueRotationLutView::HUE_STEPS + high];
+      return math::Vector(hs::lerp(a.x, b.x, hue_weight),
+                          hs::lerp(a.y, b.y, hue_weight),
+                          hs::lerp(a.z, b.z, hue_weight));
+    }
+    const Pixel &a = view.data[index * HueRotationLutView::HUE_STEPS + low];
+    const Pixel &b = view.data[index * HueRotationLutView::HUE_STEPS + high];
+    return math::Vector(hs::lerp(float(a.r), float(b.r), hue_weight),
+                        hs::lerp(float(a.g), float(b.g), hue_weight),
+                        hs::lerp(float(a.b), float(b.b), hue_weight));
   };
-  return sample_row(value_low).lerp16(sample_row(value_high), value_weight);
+  const math::Vector a = row(value.low);
+  if (value.weight == 0)
+    return a;
+  const math::Vector b = row(value.high);
+  return a + (value.weight * Q16_TO_UNIT) * (b - a);
 }
 
 /**
@@ -279,15 +397,47 @@ sample_hue_noise_face(const HueNoiseLutView &view, int face, float u, float v) {
   return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
 }
 
+/** @brief Bilinear coordinates shared by cube-map noise samples. */
+struct HueNoiseSample {
+  int offset;       ///< Lower-left tap's offset within the table.
+  float x_fraction; ///< Horizontal interpolation fraction.
+  float y_fraction; ///< Vertical interpolation fraction.
+
+  /** @brief Samples a table using these cube-map coordinates.
+   * @param view Prepared hue-noise LUT.
+   * @return Noise value in [-1, 1]. */
+  __attribute__((always_inline)) float
+  sample(const HueNoiseLutView &view) const {
+    float a;
+    float b;
+    float c;
+    float d;
+    if (view.linear_data) {
+      a = view.linear_data[offset];
+      b = view.linear_data[offset + 1];
+      c = view.linear_data[offset + HueNoiseLutView::FACE_STEPS];
+      d = view.linear_data[offset + HueNoiseLutView::FACE_STEPS + 1];
+    } else {
+      a = static_cast<float>(view.data[offset]);
+      b = static_cast<float>(view.data[offset + 1]);
+      c = static_cast<float>(view.data[offset + HueNoiseLutView::FACE_STEPS]);
+      d = static_cast<float>(
+          view.data[offset + HueNoiseLutView::FACE_STEPS + 1]);
+    }
+    const float row_low = hs::lerp(a, b, x_fraction);
+    const float row_high = hs::lerp(c, d, x_fraction);
+    return hs::lerp(row_low, row_high, y_fraction) * (1.0f / 127.0f);
+  }
+};
+
 /**
- * @brief Samples the cube-map noise field along a nonzero direction.
- * @param view Prepared hue-noise LUT.
+ * @brief Prepares cube-map noise coordinates along a nonzero direction.
  * @param direction Finite direction with positive float squared length;
  *          normalization is not required.
- * @return Noise value in [-1, 1].
+ * @return Cube-map coordinates for a bilinear sample.
  */
-HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
-                                           const math::Vector &direction) {
+HS_O3_FN inline HueNoiseSample
+prepare_hue_noise_sample(const math::Vector &direction) {
   assert(math::dot(direction, direction) > 0.0f &&
          "sample_hue_noise_lut needs a non-zero direction!");
   const float ax = fabsf(direction.x);
@@ -313,7 +463,26 @@ HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
     v = direction.y * inverse;
   }
 
-  return sample_hue_noise_face(view, face, u, v);
+  constexpr float SCALE =
+      0.5f * static_cast<float>(HueNoiseLutView::FACE_STEPS - 1);
+  const float X = (u + 1.0f) * SCALE;
+  const float Y = (v + 1.0f) * SCALE;
+  const int X_LOW =
+      std::min(static_cast<int>(X), HueNoiseLutView::FACE_STEPS - 2);
+  const int Y_LOW =
+      std::min(static_cast<int>(Y), HueNoiseLutView::FACE_STEPS - 2);
+  return {face * HueNoiseLutView::FACE_SIZE +
+              Y_LOW * HueNoiseLutView::FACE_STEPS + X_LOW,
+          X - X_LOW, Y - Y_LOW};
+}
+
+/** @brief Samples the cube-map noise field along a nonzero direction.
+ * @param view Prepared hue-noise LUT.
+ * @param direction Finite nonzero direction; normalization is not required.
+ * @return Noise value in [-1, 1]. */
+HS_O3_FN inline float sample_hue_noise_lut(const HueNoiseLutView &view,
+                                           const math::Vector &direction) {
+  return prepare_hue_noise_sample(direction).sample(view);
 }
 
 /**

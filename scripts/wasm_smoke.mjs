@@ -163,6 +163,37 @@ async function main(probe) {
   });
 
   {
+    const renderSamplingProbe = async (enabled, replace = false) => {
+      const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
+      let probe = new isolated.HolosphereEngine();
+      if (replace) {
+        probe.setTemporalSampling(false);
+        probe.delete();
+        probe = new isolated.HolosphereEngine();
+      }
+      try {
+        if (enabled !== undefined) probe.setTemporalSampling(enabled);
+        probe.setResolution(96, 20);
+        probe.setEffect('GridSpace');
+        for (let frame = 0; frame < 8; frame++) probe.drawFrame();
+        return probe.getPixels().slice();
+      } finally {
+        probe.delete();
+      }
+    };
+    const [flat, temporal, defaults, replacement] = await Promise.all([
+      renderSamplingProbe(false), renderSamplingProbe(true),
+      renderSamplingProbe(undefined), renderSamplingProbe(undefined, true),
+    ]);
+    if (!flat.some((value, index) => value !== temporal[index]))
+      fail('temporal sampling: disabling column timing did not change GridSpace');
+    if (temporal.some((value, index) => value !== defaults[index]))
+      fail('temporal sampling: default engine did not use column timing');
+    if (temporal.some((value, index) => value !== replacement[index]))
+      fail('temporal sampling: replacement engine inherited disabled sampling');
+  }
+
+  {
     const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
     const victim = new isolated.HolosphereEngine();
     if (victim.setEffect('ShaderChain') !== isolated.EffectSetResult.INSTALLED) {

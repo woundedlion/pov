@@ -1624,6 +1624,12 @@ inline const Case *all_cases(int &n) {
            "(fabsf(input.dir.x * input.dir.x + input.dir.y * input.dir.y + "
            "input.dir.z * input.dir.z - 1.0f) <= DIRECTION_NORM_SQUARED_TOLERANCE) "
            "Project requires a unit direction within lens approximation error"},
+          {"pullback_column_nonunit_direction",
+           case_pullback_column_nonunit_direction,
+           "core/render/pullback/contract.h",
+           "(fabsf(math::dot(LOCAL, LOCAL) - 1.0f) <= "
+           "DIRECTION_NORM_SQUARED_TOLERANCE) "
+           "column projection requires a unit direction"},
           {"pullback_operator_invalid_coverage_mode",
            case_pullback_operator_invalid_coverage_mode,
            "core/render/pullback/operators/sample.h",

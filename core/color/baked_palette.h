@@ -9,6 +9,7 @@
  */
 
 #include <cstring>
+#include <optional>
 #include <utility>
 #include "core/color/palette.h"
 #include "core/memory.h"
@@ -104,6 +105,18 @@ public:
     return lerp_q16(alpha_q16[lo], alpha_q16[lo + 1],
                     lut_index_weight(idx, lo)) *
            Q16_TO_UNIT;
+  }
+
+  /** @brief Checks whether every baked entry has the same alpha.
+   * @return The shared alpha, or no value when the table varies. */
+  std::optional<float> constant_alpha() const {
+    assert(alpha_q16 != nullptr &&
+           "BakedPalette::constant_alpha before bake()");
+    const uint16_t ALPHA = alpha_q16[0];
+    for (int index = 1; index < LUT_SIZE; ++index)
+      if (alpha_q16[index] != ALPHA)
+        return std::nullopt;
+    return ALPHA * Q16_TO_UNIT;
   }
 
   /**

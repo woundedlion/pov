@@ -294,9 +294,10 @@ struct GeneratedPaletteState {
   HueNoiseLutView hue_noise;       ///< Hue noise LUT read in HueMode::NOISE.
   BrightnessEnvelope brightness_envelope; ///< Value-driven brightness shape.
   float brightness_bottom;                ///< Gain at the envelope's low point.
-  float brightness_top; ///< Gain at the envelope's high point.
-  float opacity_low;    ///< Alpha gain at value 0.
-  float opacity_high;   ///< Alpha gain at value 1.
+  float brightness_top;        ///< Gain at the envelope's high point.
+  float opacity_low;           ///< Alpha gain at value 0.
+  float opacity_high;          ///< Alpha gain at value 1.
+  float palette_alpha = -1.0f; ///< Constant palette alpha, or -1 when varying.
 };
 
 /** @brief Previous palette resources and progress toward the current frame. */
@@ -305,6 +306,11 @@ struct TemporalPaletteResources {
   const Pixel *hue_rotation = nullptr;   ///< Previous hue-rotation table.
   const int8_t *hue_noise = nullptr;     ///< Previous hue-noise table.
   float fraction = 1.0f;                 ///< Current frame weight in [0, 1].
+  const math::Vector *hue_rotation_linear =
+      nullptr;                 ///< Previous float RGB copy.
+  float palette_alpha = -1.0f; ///< Previous constant alpha, or -1 when varying.
+  const float *hue_noise_linear = nullptr; ///< Previous float noise copy.
+  bool same_noise = false; ///< Both endpoint noise tables have equal entries.
 };
 
 /** @brief Colorizer endpoints sharing the column's interpolated controls. */
@@ -312,7 +318,24 @@ struct TemporalGeneratedPaletteState {
   GeneratedPaletteState current;  ///< Current frame resources.
   GeneratedPaletteState previous; ///< Previous frame resources.
   float fraction;                 ///< Current frame weight in [0, 1].
+  uint16_t weight;                ///< Current frame weight in Q16.
+  float linear_weight = 0.0f;     ///< Q16 weight converted to a float fraction.
+  float common_alpha = -1.0f;     ///< Equal endpoint alpha, or -1 when varying.
+  bool linear_noise = false;      ///< Column uses the unit-gain noise kernel.
+  bool same_noise = false; ///< Both endpoints share noise and hue coordinates.
+  bool bounded_noise =
+      false; ///< Noise kernel with brightness bounded to [0, 1].
 };
+
+/** @brief Samples alpha, using a prepared constant when available.
+ * @param state Prepared palette state.
+ * @param value Palette lookup coordinate.
+ * @return Palette alpha at the coordinate. */
+__attribute__((always_inline)) inline float
+generated_palette_alpha(const GeneratedPaletteState &state, float value) {
+  return state.palette_alpha >= 0.0f ? state.palette_alpha
+                                     : state.palette->get_alpha(value);
+}
 
 /**
  * @brief Colours a field sample: palette lookup, hue rotation, brightness
@@ -327,15 +350,26 @@ apply_generated_palette(const FieldSample &sample,
   const float palette_value =
       palette_mapping_coordinate(sample.value, state.mapping,
                                  state.mapping_frequency, state.mapping_offset);
+  const float gain =
+      brightness_envelope_gain(sample.value, state.brightness_envelope,
+                               state.brightness_bottom, state.brightness_top);
   Color4 color;
   if (state.hue_rotation.active && state.hue_noise.active &&
       state.hue_mode == HueMode::NOISE) {
-    color =
-        Color4(sample_hue_rotation_lut(
-                   state.hue_rotation, palette_value,
-                   state.hue_shift_amount *
-                       sample_hue_noise_lut(state.hue_noise, sample.sphere)),
-               state.palette->get_alpha(palette_value));
+    const float amount = state.hue_shift_amount *
+                         sample_hue_noise_lut(state.hue_noise, sample.sphere);
+    if (gain == 1.0f && state.hue_rotation.linear_data) {
+      const math::Vector RGB = sample_hue_rotation_linear(
+          state.hue_rotation, HueRotationValueSample(palette_value), amount);
+      color =
+          Color4(Pixel(round_linear_channel(RGB.x), round_linear_channel(RGB.y),
+                       round_linear_channel(RGB.z)),
+                 generated_palette_alpha(state, palette_value));
+    } else {
+      color = Color4(
+          sample_hue_rotation_lut(state.hue_rotation, palette_value, amount),
+          generated_palette_alpha(state, palette_value));
+    }
   } else {
     color = state.palette->get(palette_value);
     if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
@@ -346,13 +380,193 @@ apply_generated_palette(const FieldSample &sample,
             sample_hue_rotation_lut(state.hue_rotation, palette_value, amount);
     }
   }
-  color.color =
-      color.color *
-      brightness_envelope_gain(sample.value, state.brightness_envelope,
-                               state.brightness_bottom, state.brightness_top);
+  if (gain != 1.0f)
+    color.color = color.color * gain;
   color.alpha *= sample.coverage *
                  hs::lerp(state.opacity_low, state.opacity_high, sample.value);
   return color;
+}
+
+/** @brief Colors an interior temporal noise sample with unit brightness gain.
+ * @param sample Field sample to color.
+ * @param prepared Column state selected for linear noise interpolation.
+ * @return Interpolated color and alpha. */
+HS_HOT_FLASH_MEMBER inline Color4
+apply_temporal_noise_palette(const FieldSample &sample,
+                             const TemporalGeneratedPaletteState &prepared) {
+  const auto &state = prepared.current;
+  const float value =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
+  const float opacity =
+      sample.coverage *
+      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const HueRotationValueSample value_sample(value);
+  const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
+  const math::Vector previous = sample_hue_rotation_linear(
+      prepared.previous.hue_rotation, value_sample,
+      state.hue_shift_amount *
+          noise_sample.sample(prepared.previous.hue_noise));
+  const math::Vector current = sample_hue_rotation_linear(
+      state.hue_rotation, value_sample,
+      state.hue_shift_amount * noise_sample.sample(state.hue_noise));
+  const math::Vector color =
+      previous + prepared.linear_weight * (current - previous);
+  return Color4(
+      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
+            round_linear_channel(color.z)),
+      prepared.common_alpha >= 0.0f
+          ? prepared.common_alpha * opacity
+          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
+                         opacity,
+                     generated_palette_alpha(state, value) * opacity,
+                     prepared.fraction));
+}
+
+/** @brief Colors unit-gain endpoints sharing one noise table.
+ * @param sample Field sample to color.
+ * @param prepared Column state with equal endpoint noise entries.
+ * @return Interpolated color and alpha. */
+HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
+    const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
+  const auto &state = prepared.current;
+  const float value =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
+  const float opacity =
+      sample.coverage *
+      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const HueRotationValueSample value_sample(value);
+  const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
+  const HueRotationHueSample PREVIOUS_HUE(
+      state.hue_shift_amount *
+      noise_sample.sample(prepared.previous.hue_noise));
+  const math::Vector previous = sample_hue_rotation_linear(
+      prepared.previous.hue_rotation, value_sample, PREVIOUS_HUE);
+  const math::Vector current = sample_hue_rotation_linear(
+      state.hue_rotation, value_sample, PREVIOUS_HUE);
+  const math::Vector color =
+      previous + prepared.linear_weight * (current - previous);
+  return Color4(
+      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
+            round_linear_channel(color.z)),
+      prepared.common_alpha >= 0.0f
+          ? prepared.common_alpha * opacity
+          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
+                         opacity,
+                     generated_palette_alpha(state, value) * opacity,
+                     prepared.fraction));
+}
+
+/** @brief Colors noise-driven endpoints with brightness bounded to [0, 1].
+ * @param sample Field sample to color.
+ * @param prepared Column state selecting the bounded-gain kernel.
+ * @return Interpolated color and alpha. */
+HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_bounded_noise_palette(
+    const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
+  const auto &state = prepared.current;
+  const float value =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
+  const float opacity =
+      sample.coverage *
+      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const HueRotationValueSample value_sample(value);
+  const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
+  const HueRotationHueSample PREVIOUS_HUE(
+      state.hue_shift_amount *
+      noise_sample.sample(prepared.previous.hue_noise));
+  const HueRotationHueSample CURRENT_HUE =
+      prepared.same_noise
+          ? PREVIOUS_HUE
+          : HueRotationHueSample(state.hue_shift_amount *
+                                 noise_sample.sample(state.hue_noise));
+  const math::Vector previous = sample_hue_rotation_linear(
+      prepared.previous.hue_rotation, value_sample, PREVIOUS_HUE);
+  const math::Vector current =
+      sample_hue_rotation_linear(state.hue_rotation, value_sample, CURRENT_HUE);
+  const float GAIN =
+      brightness_envelope_gain(sample.value, state.brightness_envelope,
+                               state.brightness_bottom, state.brightness_top);
+  const math::Vector color =
+      GAIN * (previous + prepared.linear_weight * (current - previous));
+  return Color4(
+      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
+            round_linear_channel(color.z)),
+      prepared.common_alpha >= 0.0f
+          ? prepared.common_alpha * opacity
+          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
+                         opacity,
+                     generated_palette_alpha(state, value) * opacity,
+                     prepared.fraction));
+}
+
+/** @brief Colors a sample from consecutive palette resources.
+ * @param sample Field sample to color.
+ * @param prepared Column interpolation state.
+ * @return Interpolated color and alpha. */
+HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
+    const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
+  if (prepared.linear_noise)
+    return prepared.same_noise
+               ? apply_temporal_stationary_noise_palette(sample, prepared)
+               : apply_temporal_noise_palette(sample, prepared);
+  if (prepared.bounded_noise)
+    return apply_temporal_bounded_noise_palette(sample, prepared);
+  if (prepared.fraction <= 0.0f)
+    return apply_generated_palette(sample, prepared.previous);
+  if (prepared.fraction >= 1.0f)
+    return apply_generated_palette(sample, prepared.current);
+  const auto &state = prepared.current;
+  const float value =
+      palette_mapping_coordinate(sample.value, state.mapping,
+                                 state.mapping_frequency, state.mapping_offset);
+  const float gain =
+      brightness_envelope_gain(sample.value, state.brightness_envelope,
+                               state.brightness_bottom, state.brightness_top);
+  const float opacity =
+      sample.coverage *
+      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const HueRotationValueSample value_sample(value);
+  HueRotationHueSample previous_hue(0.0f);
+  HueRotationHueSample current_hue(0.0f);
+  if (state.hue_rotation.active && state.hue_noise.active &&
+      state.hue_mode == HueMode::NOISE) {
+    const HueNoiseSample NOISE = prepare_hue_noise_sample(sample.sphere);
+    previous_hue = HueRotationHueSample(
+        state.hue_shift_amount * NOISE.sample(prepared.previous.hue_noise));
+    current_hue = prepared.same_noise
+                      ? previous_hue
+                      : HueRotationHueSample(state.hue_shift_amount *
+                                             NOISE.sample(state.hue_noise));
+  }
+  const auto endpoint = [&](const GeneratedPaletteState &endpoint,
+                            const HueRotationHueSample &hue) {
+    Color4 color;
+    if (state.hue_rotation.active && state.hue_noise.active &&
+        state.hue_mode == HueMode::NOISE) {
+      color = Color4(
+          sample_hue_rotation_lut(endpoint.hue_rotation, value_sample, hue),
+          generated_palette_alpha(endpoint, value));
+    } else {
+      color = endpoint.palette->get(value);
+      if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
+        const float amount =
+            math::wrap_t(state.hue_shift_amount * sample.path_length);
+        if (amount != 0.0f)
+          color.color = sample_hue_rotation_lut(endpoint.hue_rotation,
+                                                value_sample, amount);
+      }
+    }
+    if (gain != 1.0f)
+      color.color = color.color * gain;
+    color.alpha *= opacity;
+    return color;
+  };
+  const Color4 previous = endpoint(prepared.previous, previous_hue);
+  const Color4 current = endpoint(prepared.current, current_hue);
+  return Color4(previous.color.lerp16(current.color, prepared.weight),
+                hs::lerp(previous.alpha, current.alpha, prepared.fraction));
 }
 
 /** @brief Approximation bounds of the generated-palette colorizer. */
@@ -447,15 +661,50 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         State::brightness_bottom(frame),
         State::brightness_top(frame),
         State::opacity_low(frame),
-        State::opacity_high(frame)};
+        State::opacity_high(frame),
+        [&]() {
+          if constexpr (requires { State::palette_alpha(frame); })
+            return State::palette_alpha(frame);
+          else
+            return -1.0f;
+        }()};
     if constexpr (TEMPORAL) {
       const TemporalPaletteResources resources =
           State::temporal_resources(frame);
       GeneratedPaletteState previous = current;
       previous.palette = resources.palette;
       previous.hue_rotation.data = resources.hue_rotation;
+      previous.hue_rotation.linear_data = resources.hue_rotation_linear;
+      previous.palette_alpha = resources.palette_alpha;
       previous.hue_noise.data = resources.hue_noise;
-      return {current, previous, resources.fraction};
+      previous.hue_noise.linear_data = resources.hue_noise_linear;
+      const uint16_t WEIGHT = frac_to_q16(resources.fraction);
+      const bool NOISE_INTERIOR =
+          resources.fraction > 0.0f && resources.fraction < 1.0f &&
+          current.hue_rotation.active && current.hue_noise.active &&
+          current.hue_mode == HueMode::NOISE;
+      const bool LINEAR_NOISE =
+          NOISE_INTERIOR &&
+          (current.brightness_envelope == BrightnessEnvelope::NONE ||
+           (current.brightness_bottom == 1.0f &&
+            current.brightness_top == 1.0f));
+      const bool BOUNDED_NOISE = NOISE_INTERIOR && !LINEAR_NOISE &&
+                                 current.brightness_bottom >= 0.0f &&
+                                 current.brightness_bottom <= 1.0f &&
+                                 current.brightness_top >= 0.0f &&
+                                 current.brightness_top <= 1.0f;
+      const float COMMON_ALPHA = current.palette_alpha == previous.palette_alpha
+                                     ? current.palette_alpha
+                                     : -1.0f;
+      return {current,
+              previous,
+              resources.fraction,
+              WEIGHT,
+              WEIGHT * Q16_TO_UNIT,
+              COMMON_ALPHA,
+              LINEAR_NOISE,
+              resources.same_noise,
+              BOUNDED_NOISE};
     } else {
       return current;
     }
@@ -472,14 +721,13 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
   HS_O3_FN static Color4 apply(const FieldSample &sample, const FrameState &,
                                const Prepared &prepared) {
     if constexpr (TEMPORAL) {
-      if (prepared.fraction <= 0.0f)
-        return apply_generated_palette(sample, prepared.previous);
-      if (prepared.fraction >= 1.0f)
-        return apply_generated_palette(sample, prepared.current);
-      const Color4 previous =
-          apply_generated_palette(sample, prepared.previous);
-      const Color4 current = apply_generated_palette(sample, prepared.current);
-      return previous.lerp(current, prepared.fraction);
+      if (prepared.linear_noise)
+        return prepared.same_noise
+                   ? apply_temporal_stationary_noise_palette(sample, prepared)
+                   : apply_temporal_noise_palette(sample, prepared);
+      if (prepared.bounded_noise)
+        return apply_temporal_bounded_noise_palette(sample, prepared);
+      return apply_temporal_generated_palette(sample, prepared);
     } else {
       return apply_generated_palette(sample, prepared);
     }

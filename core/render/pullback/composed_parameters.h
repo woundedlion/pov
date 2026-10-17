@@ -126,6 +126,16 @@ template <> struct OptionalHueRotationLut<true> {
   uint32_t hue_rotation_lut_bake = 0;
 };
 
+/** @brief Optional float copy of the hue-rotation table. */
+template <bool Enabled> struct OptionalLinearHueRotationLut {};
+/** @brief Enabled float hue-table storage. */
+template <> struct OptionalLinearHueRotationLut<true> {
+  /// Exact float copies of the RGB16 entries.
+  std::array<math::Vector, Color::HueRotationLutView::SIZE> hue_rotation_linear;
+  /// Exact float copies of the quantized noise entries.
+  std::array<float, Color::HueNoiseLutView::SIZE> hue_noise_linear;
+};
+
 /** @brief Hue-noise LUT and the inputs it was baked from; empty unless the
     hue source is the noise field. */
 template <bool Enabled> struct OptionalHueNoiseLut {};

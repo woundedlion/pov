@@ -92,6 +92,21 @@ inline void case_pullback_project_nonunit_direction() {
     std::printf("x");
 }
 
+/** @brief Traps when a factored column basis produces a nonunit direction. */
+inline void case_pullback_column_nonunit_direction() {
+  using FX = GridSpace<96, 20>;
+  using Pipeline = FX::RenderPipeline;
+  reset_globals();
+  FX effect;
+  effect.init();
+  const auto frame = Pipeline::prepare(effect.frame_for_test());
+  const Pipeline::ColumnBasis basis{math::Vector(opaque(2.0f), 0, 0),
+                                    math::Vector(0, 1, 0)};
+  const auto result = Pipeline::shade_column(1.0f, 0.0f, frame, basis);
+  if (result.alpha != 0.0f)
+    std::printf("x");
+}
+
 /** @brief Death case: a Sample operator rejects an unknown coverage mode. */
 inline void case_pullback_operator_invalid_coverage_mode() {
   Pullback::Interp::Op::GridSampleParams params;

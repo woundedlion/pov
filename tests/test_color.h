@@ -139,6 +139,7 @@ inline int run_color_tests() {
   test_pixel_quarter_accumulation_rounds_per_sample();
   test_lms_transform_pair_matches_scalar();
   test_baked_palette_storage_and_views();
+  test_baked_palette_constant_alpha();
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();
