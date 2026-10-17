@@ -1563,6 +1563,139 @@ inline void test_pullback_runtime_seed_contract() {
   HS_EXPECT_EQ(Pullback::HUE_NOISE_SEED, 6047);
 }
 
+/** @brief Palette resources for colorizer contract tests. */
+struct PaletteFrame {
+  const BakedPalette *palette = nullptr;
+  const Pixel *hue_rotation = nullptr;
+  const int8_t *hue_noise = nullptr;
+  Pullback::Color::HueMode hue_mode = Pullback::Color::HueMode::NONE;
+  Pullback::Color::TemporalPaletteResources temporal{};
+};
+
+struct PaletteBinding {
+  using FrameState = PaletteFrame;
+  using Instrumentation = Pullback::NoInstrumentation;
+};
+
+struct PaletteProvider {
+  using Binding = PaletteBinding;
+  using FrameState = PaletteFrame;
+  static Pullback::Color::PaletteMappingWeights
+  mapping_weights(const PaletteFrame &) {
+    return Pullback::Color::PaletteMappingWeights::single(
+        Pullback::Color::PaletteMapping::LINEAR);
+  }
+  static float mapping_frequency(const PaletteFrame &) { return 1.0f; }
+  static float mapping_phase(const PaletteFrame &) { return 0.0f; }
+  static float oscillation_depth(const PaletteFrame &) { return 0.0f; }
+  static float oscillation_phase(const PaletteFrame &) { return 0.0f; }
+  static const BakedPalette &palette(const PaletteFrame &frame) {
+    return *frame.palette;
+  }
+  static Pullback::Color::HueMode hue_mode(const PaletteFrame &frame) {
+    return frame.hue_mode;
+  }
+  static float hue_shift_amount(const PaletteFrame &) { return 0.25f; }
+  static Pullback::Color::HueRotationLutView
+  hue_rotation(const PaletteFrame &frame) {
+    return {frame.hue_rotation,
+            frame.hue_mode != Pullback::Color::HueMode::NONE};
+  }
+  static Pullback::Color::HueNoiseLutView hue_noise(const PaletteFrame &frame) {
+    return {frame.hue_noise, frame.hue_mode == Pullback::Color::HueMode::NOISE};
+  }
+  static Pullback::Color::BrightnessEnvelope
+  brightness_envelope(const PaletteFrame &) {
+    return Pullback::Color::BrightnessEnvelope::NONE;
+  }
+  static float brightness_bottom(const PaletteFrame &) { return 1.0f; }
+  static float brightness_top(const PaletteFrame &) { return 1.0f; }
+  static float opacity_low(const PaletteFrame &) { return 0.2f; }
+  static float opacity_high(const PaletteFrame &) { return 0.6f; }
+};
+
+struct TemporalPaletteProvider : PaletteProvider {
+  static Pullback::Color::TemporalPaletteResources
+  temporal_resources(const PaletteFrame &frame) {
+    return frame.temporal;
+  }
+};
+
+struct ConstantPalette {
+  Color4 color;
+  Color4 get(float) const { return color; }
+};
+
+/** @brief Temporal colorizers interpolate palette resources and preserve endpoints. */
+inline void test_pullback_temporal_palette() {
+  using namespace Pullback::Color;
+  using Regular = GeneratedPalette<PaletteProvider>;
+  using Temporal = GeneratedPalette<TemporalPaletteProvider>;
+  static_assert(std::is_same_v<Regular::Prepared, GeneratedPaletteState>);
+  static_assert(!Regular::TEMPORAL && Temporal::TEMPORAL);
+  static_assert(Regular::PROVIDER_VALID<PaletteBinding>);
+  static_assert(Temporal::PROVIDER_VALID<PaletteBinding>);
+  alignas(std::max_align_t)
+      std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()>
+          buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage old_palette;
+  BakedPaletteStorage new_palette;
+  old_palette.bake(arena,
+                   ConstantPalette{Color4(Pixel(1000, 2000, 3000), 0.2f)});
+  new_palette.bake(arena,
+                   ConstantPalette{Color4(Pixel(9000, 6000, 1000), 0.6f)});
+  PaletteFrame frame;
+  frame.palette = &new_palette.view();
+  frame.temporal.palette = &old_palette.view();
+  Pullback::FieldSample sample{};
+  sample.value = 0.5f;
+  sample.coverage = 0.5f;
+  sample.sphere = math::Vector(1.0f, 0.0f, 0.0f);
+  const Color4 regular = Regular::apply(sample, frame, Regular::prepare(frame));
+  HS_EXPECT_EQ(regular.color, Pixel(9000, 6000, 1000));
+  HS_EXPECT_NEAR(regular.alpha, 0.12f, 1e-6f);
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const Color4 color =
+        Temporal::apply(sample, frame, Temporal::prepare(frame));
+    HS_EXPECT_NEAR(color.color.r, 1000.0f + 8000.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+    if (fraction == 0.0f)
+      HS_EXPECT_EQ(color.color, Pixel(1000, 2000, 3000));
+    if (fraction == 1.0f)
+      HS_EXPECT_EQ(color.color, regular.color);
+  }
+
+  std::array<Pixel, HueRotationLutView::SIZE> old_rotation;
+  std::array<Pixel, HueRotationLutView::SIZE> new_rotation;
+  for (size_t i = 0; i < old_rotation.size(); ++i) {
+    const uint16_t HUE =
+        static_cast<uint16_t>(i % HueRotationLutView::HUE_STEPS);
+    old_rotation[i] = Pixel(1000 + HUE * 100, 2000, 3000);
+    new_rotation[i] = Pixel(9000 + HUE * 100, 6000, 1000);
+  }
+  std::array<int8_t, HueNoiseLutView::SIZE> old_noise{};
+  std::array<int8_t, HueNoiseLutView::SIZE> new_noise;
+  new_noise.fill(127);
+  frame.hue_mode = Pullback::Color::HueMode::NOISE;
+  frame.hue_rotation = new_rotation.data();
+  frame.hue_noise = new_noise.data();
+  frame.temporal.hue_rotation = old_rotation.data();
+  frame.temporal.hue_noise = old_noise.data();
+  for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
+    frame.temporal.fraction = fraction;
+    const Color4 color =
+        Temporal::apply(sample, frame, Temporal::prepare(frame));
+    HS_EXPECT_NEAR(color.color.r, 1000.0f + 8400.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
+    HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
+  }
+}
+
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
@@ -1588,6 +1721,7 @@ inline int run_pullback_tests() {
   test_pullback_rank_skip_crossing();
   test_pullback_field_curves();
   test_pullback_hard_edge_kernels();
+  test_pullback_temporal_palette();
   return fixture.result();
 }
 

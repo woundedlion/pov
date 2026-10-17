@@ -54,8 +54,15 @@ public:
   using Params = ParamsT; ///< Keyed parameter storage derived from `SpecT`.
   using Spec = SpecT;     ///< The effect's ranked stage Spec.
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
-  using FrameState = Pullback::FrameState<ParamsT>; ///< Frame context type.
-  using Binding = Pullback::Binding<FrameState>;    ///< Pipeline binding.
+  /// Whether the effect samples time across each two-arm half-turn.
+  static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
+  static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
+                "Temporal sampling requires an even two-arm canvas width");
+  /// Frame context, including retained color resources when sampling time.
+  using FrameState =
+      std::conditional_t<TEMPORAL_SAMPLING, TemporalFrameState<ParamsT>,
+                         Pullback::FrameState<ParamsT>>;
+  using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
   /// Whether the projection orientation follows a random walk and spin.
   static constexpr bool ANIMATED_PROJECTION = SpecT::ANIMATED_PROJECTION;
   /**
@@ -158,7 +165,7 @@ public:
   /**
    * @brief Advances the frame clocks, resolves the frame state and shades.
    * @details Clocks, camera walks, palette and the preset lerp all step before
-   * prepare_frame() snapshots them, so the scan shades one consistent frame.
+   * prepare_frame() snapshots them before shading or column-time interpolation.
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
@@ -174,9 +181,26 @@ public:
       update_palette_chroma();
       palette_cycler.step();
     }
-    const typename Derived::RenderPipeline::Frame frame =
-        Derived::RenderPipeline::prepare(prepare_frame());
-    {
+    const FrameState current = prepare_frame();
+    if constexpr (TEMPORAL_SAMPLING) {
+      auto &history = static_cast<
+          TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING> &>(
+          *state);
+      if (!history.initialized)
+        history.capture(current, persistent_arena);
+      {
+        HS_PROFILE(fx_shader_draw);
+        Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+          return [frame = RenderPipeline::prepare(sample_frame(
+                      history.previous, current, sweep_fraction(x, W)))](
+                     const math::Vector &view) {
+            return Derived::shade(view, frame);
+          };
+        });
+      }
+      history.capture(current, persistent_arena);
+    } else {
+      const Frame frame = RenderPipeline::prepare(current);
       HS_PROFILE(fx_shader_draw);
       Scan::Shader::draw_cached<W, H, 1>(canvas,
                                          [&frame](const math::Vector &view) {
@@ -498,7 +522,8 @@ public:
 private:
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
                  OptionalHueRotationLut<Metadata::HUE != HueMode::NONE>,
-                 OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE> {
+                 OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE>,
+                 TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -510,6 +535,7 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       PaletteCycler::generated_arena_bytes() +
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(State) + alignof(State) +
+      (TEMPORAL_SAMPLING ? BakedPalette::required_arena_bytes() : 0) +
       alignof(ParamDef) +
       ComposedDetail::parameter_name_bytes<SpecT>(
           typename Params::ResourceTypes{});
@@ -712,23 +738,25 @@ private:
 
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
-   * @details Both LUT builds are gated on hue_rotation_active(), the flag the
-   * returned frame hands the color stage; under it the hue-noise LUT is rebuilt
-   * only when its scale or phase moved, and the hue-rotation LUT only when the
-   * palette cycler rebaked its display LUT.
+   * @details Temporal sampling retains valid hue tables even while hue rotation
+   * is inactive. Other effects gate their builds on hue_rotation_active().
+   * Hue noise is rebuilt when its scale or phase moves; hue rotation is rebuilt
+   * when the palette cycler rebakes its display LUT.
    * @return The frame state for this draw, valid until the next draw_frame().
    */
   HS_COLD_MEMBER FrameState prepare_frame() {
     HS_PROFILE(fx_prepare_frame);
     if constexpr (Metadata::HUE == HueMode::NOISE) {
-      if (hue_rotation_active<Metadata::HUE>(params.template get<"color">())) {
+      if (TEMPORAL_SAMPLING ||
+          hue_rotation_active<Metadata::HUE>(params.template get<"color">())) {
         state->hue_noise_bake.refresh(
             state->hue_noise_lut, state->color_noise,
             params.template get<"color">().hue_noise_scale, hue_noise_phase);
       }
     }
     if constexpr (Metadata::HUE != HueMode::NONE)
-      if (hue_rotation_active<Metadata::HUE>(params.template get<"color">()) &&
+      if ((TEMPORAL_SAMPLING || hue_rotation_active<Metadata::HUE>(
+                                    params.template get<"color">())) &&
           state->hue_rotation_lut_bake != palette_cycler.bake_generation()) {
         Pullback::Color::prepare_hue_rotation_lut(
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
@@ -736,15 +764,16 @@ private:
             palette_cycler.palette());
         state->hue_rotation_lut_bake = palette_cycler.bake_generation();
       }
-    FrameState frame{.projection_conjugate = this->frame_conjugate(),
-                     .outer_conjugate = outer_conjugate,
-                     .palette = &palette_cycler.palette(),
-                     .hue_rotation_lut = hue_rotation_lut_data(),
-                     .hue_noise_lut = hue_noise_lut_data(),
-                     .params = params,
-                     .palette_mapping = palette_mapping,
-                     .resources = {},
-                     .palette_oscillation_phase = palette_oscillation_phase};
+    Pullback::FrameState<ParamsT> frame{
+        .projection_conjugate = this->frame_conjugate(),
+        .outer_conjugate = outer_conjugate,
+        .palette = &palette_cycler.palette(),
+        .hue_rotation_lut = hue_rotation_lut_data(),
+        .hue_noise_lut = hue_noise_lut_data(),
+        .params = params,
+        .palette_mapping = palette_mapping,
+        .resources = {},
+        .palette_oscillation_phase = palette_oscillation_phase};
     params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
@@ -755,7 +784,12 @@ private:
         if (!Pullback::valid(frame.params.template get<Resource::KEY>()))
           frame.params.template get<Resource::KEY>().mobius = {};
     });
-    return frame;
+    if constexpr (TEMPORAL_SAMPLING)
+      return FrameState{
+          frame,
+          {frame.palette, frame.hue_rotation_lut, frame.hue_noise_lut, 1.0f}};
+    else
+      return frame;
   }
 
   HS_COLD_MEMBER void update_palette_chroma() {

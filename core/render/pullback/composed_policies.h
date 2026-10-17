@@ -18,6 +18,8 @@ struct Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   /// Whether the projection frame random-walks and spins.
   static constexpr bool ANIMATED_PROJECTION = true;
+  /// Whether columns sample consecutive frame states across a half-turn.
+  static constexpr bool TEMPORAL_SAMPLING = false;
 };
 
 /**

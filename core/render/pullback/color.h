@@ -299,6 +299,21 @@ struct GeneratedPaletteState {
   float opacity_high;   ///< Alpha gain at value 1.
 };
 
+/** @brief Previous palette resources and progress toward the current frame. */
+struct TemporalPaletteResources {
+  const BakedPalette *palette = nullptr; ///< Previous palette bake.
+  const Pixel *hue_rotation = nullptr;   ///< Previous hue-rotation table.
+  const int8_t *hue_noise = nullptr;     ///< Previous hue-noise table.
+  float fraction = 1.0f;                 ///< Current frame weight in [0, 1].
+};
+
+/** @brief Colorizer endpoints sharing the column's interpolated controls. */
+struct TemporalGeneratedPaletteState {
+  GeneratedPaletteState current;  ///< Current frame resources.
+  GeneratedPaletteState previous; ///< Previous frame resources.
+  float fraction;                 ///< Current frame weight in [0, 1].
+};
+
 /**
  * @brief Colours a field sample: palette lookup, hue rotation, brightness
  * envelope and value opacity.
@@ -398,7 +413,16 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
         { State::opacity_high(frame) } -> std::same_as<float>;
       };
 
-  using Prepared = GeneratedPaletteState; ///< Per-frame colorizer state.
+  /// Whether the provider supplies resources for temporal interpolation.
+  static constexpr bool TEMPORAL =
+      requires(const typename State::Binding::FrameState &frame) {
+        {
+          State::temporal_resources(frame)
+        } -> std::same_as<TemporalPaletteResources>;
+      };
+  /// Per-frame colorizer state, with temporal endpoints when supplied.
+  using Prepared = std::conditional_t<TEMPORAL, TemporalGeneratedPaletteState,
+                                      GeneratedPaletteState>;
 
   /**
    * @brief Reads every accessor once and folds the phase oscillation in.
@@ -408,21 +432,33 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    */
   template <typename FrameState>
   HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
-    return {State::mapping_weights(frame),
-            State::mapping_frequency(frame),
-            oscillated_mapping_offset(State::mapping_phase(frame),
-                                      State::oscillation_depth(frame),
-                                      State::oscillation_phase(frame)),
-            &State::palette(frame),
-            State::hue_mode(frame),
-            State::hue_shift_amount(frame),
-            State::hue_rotation(frame),
-            State::hue_noise(frame),
-            State::brightness_envelope(frame),
-            State::brightness_bottom(frame),
-            State::brightness_top(frame),
-            State::opacity_low(frame),
-            State::opacity_high(frame)};
+    const GeneratedPaletteState current{
+        State::mapping_weights(frame),
+        State::mapping_frequency(frame),
+        oscillated_mapping_offset(State::mapping_phase(frame),
+                                  State::oscillation_depth(frame),
+                                  State::oscillation_phase(frame)),
+        &State::palette(frame),
+        State::hue_mode(frame),
+        State::hue_shift_amount(frame),
+        State::hue_rotation(frame),
+        State::hue_noise(frame),
+        State::brightness_envelope(frame),
+        State::brightness_bottom(frame),
+        State::brightness_top(frame),
+        State::opacity_low(frame),
+        State::opacity_high(frame)};
+    if constexpr (TEMPORAL) {
+      const TemporalPaletteResources resources =
+          State::temporal_resources(frame);
+      GeneratedPaletteState previous = current;
+      previous.palette = resources.palette;
+      previous.hue_rotation.data = resources.hue_rotation;
+      previous.hue_noise.data = resources.hue_noise;
+      return {current, previous, resources.fraction};
+    } else {
+      return current;
+    }
   }
 
   /**
@@ -430,12 +466,23 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
    * @tparam FrameState Frame state of the provider's binding.
    * @param sample Field sample to colour.
    * @param prepared This frame's colorizer state.
-   * @return apply_generated_palette(sample, prepared).
+   * @return Colour with temporally interpolated resources when supplied.
    */
   template <typename FrameState>
   HS_O3_FN static Color4 apply(const FieldSample &sample, const FrameState &,
                                const Prepared &prepared) {
-    return apply_generated_palette(sample, prepared);
+    if constexpr (TEMPORAL) {
+      if (prepared.fraction <= 0.0f)
+        return apply_generated_palette(sample, prepared.previous);
+      if (prepared.fraction >= 1.0f)
+        return apply_generated_palette(sample, prepared.current);
+      const Color4 previous =
+          apply_generated_palette(sample, prepared.previous);
+      const Color4 current = apply_generated_palette(sample, prepared.current);
+      return previous.lerp(current, prepared.fraction);
+    } else {
+      return apply_generated_palette(sample, prepared);
+    }
   }
 };
 

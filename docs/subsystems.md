@@ -155,6 +155,28 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Spec` supplies a typed `Pipeline<B>` plus palette harmony and projection animation controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
+### Column-time sampling
+
+Composed effects can opt into `Pullback::Spec::TEMPORAL_SAMPLING`; GridSpace
+enables it. Each column samples between the previous and current animation
+states at `(x % (W / 2)) / float(W / 2)`. Both opposing arms use the same
+half-turn phase, independent of the rendering clip. This introduces up to one
+frame of animation delay while making the endpoint of one sweep meet the start
+of the next. The first draw uses one state for both endpoints.
+
+`Scan::Shader::draw_columns` prepares the pipeline once per column and reuses it
+across rows. Orientations use spherical interpolation; parameters use their
+declared interpolation curves; clocks follow their shortest periodic arc.
+Retained palette and hue tables supply two colorizer samples at the same
+interpolated geometry, with their results blended in time. Noise tables are
+baked once per frame. Effects without this opt-in retain the frame-wide path
+and allocate no temporal history.
+
+Further opt-ins need continuous parameter curves, clock advances below half
+their period, and spatially periodic phase wraps. Discrete preset changes and
+the held Mobius coefficient interpolation do not become continuous through
+this option. GridSpace's whole-cell affine winding satisfies the wrap condition.
+
 ### Spherical ray rendering
 
 The reusable ray entry is [ray.h](../core/render/ray.h). `Raycast::PreparedCamera`

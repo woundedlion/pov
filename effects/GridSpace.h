@@ -21,6 +21,8 @@
 struct GridSpaceSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
+  /// Samples animation continuously across each two-arm half-turn.
+  static constexpr bool TEMPORAL_SAMPLING = true;
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, lattice
    *  source, iso-contour transfer, generated palette.
