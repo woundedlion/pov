@@ -56,6 +56,9 @@ public:
   using Metadata = MetadataFor<SpecT>; ///< Topology derived from typed stages.
   /// Whether the effect samples time across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = SpecT::TEMPORAL_SAMPLING;
+  /// Whether hue tables retain exact float copies for interpolation.
+  static constexpr bool FLOAT_HUE_TABLES =
+      TEMPORAL_SAMPLING && Metadata::HUE == HueMode::NOISE;
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
                 "Temporal sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
@@ -88,6 +91,8 @@ public:
   static constexpr bool HAS_SOURCE_NOISE = has_noise<ResourceKind::SOURCE>();
   /// The Spec's pipeline bound to this effect's frame.
   using RenderPipeline = typename SpecT::template Pipeline<Binding>;
+  static_assert(!SpecT::FACTORED_COLUMNS || RenderPipeline::LINEAR_COLUMNS,
+                "factored columns require a rotation/projection prefix");
   static_assert(Metadata::COVERAGE != ProjectionCoverageMode::EDGE_FADE ||
                     Metadata::ProjectStage::EDGE_DISTANCE_AVAILABLE,
                 "edge-fade coverage requires projection edge distance");
@@ -183,29 +188,45 @@ public:
     }
     const FrameState current = prepare_frame();
     if constexpr (TEMPORAL_SAMPLING) {
-      auto &history = static_cast<
-          TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING> &>(
-          *state);
+      auto &history =
+          static_cast<TemporalHistory<FrameState, Metadata::HUE,
+                                      TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> &>(
+              *state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
-      {
+      if (temporal_sampling_enabled()) {
+        const TemporalFrameSampler sampler(history.previous, current);
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-          return [frame = RenderPipeline::prepare(sample_frame(
-                      history.previous, current, sweep_fraction(x, W)))](
-                     const math::Vector &view) {
-            return Derived::shade(view, frame);
-          };
+          HS_PROFILE(fx_prepare_column);
+          if constexpr (SpecT::FACTORED_COLUMNS &&
+                        RenderPipeline::LINEAR_COLUMNS &&
+                        &Derived::shade == &ComposedEffect::shade) {
+            return [column = RenderPipeline::prepare_column(
+                        sampler.sample(sweep_fraction(x, W)),
+                        math::TrigLUT<W, H>::cos_theta(x),
+                        math::TrigLUT<W, H>::sin_theta[x])](float sine,
+                                                            float cosine) {
+              return RenderPipeline::shade_column(sine, cosine, column.frame,
+                                                  column.basis);
+            };
+          } else {
+            return [frame = RenderPipeline::prepare(sampler.sample(
+                        sweep_fraction(x, W)))](const math::Vector &view) {
+              return Derived::shade(view, frame);
+            };
+          }
         });
+      } else {
+        const Frame frame = RenderPipeline::prepare(current);
+        HS_PROFILE(fx_shader_draw);
+        draw_static_columns(canvas, frame);
       }
       history.capture(current, persistent_arena);
     } else {
       const Frame frame = RenderPipeline::prepare(current);
       HS_PROFILE(fx_shader_draw);
-      Scan::Shader::draw_cached<W, H, 1>(canvas,
-                                         [&frame](const math::Vector &view) {
-                                           return Derived::shade(view, frame);
-                                         });
+      draw_static_columns(canvas, frame);
     }
   }
 
@@ -217,6 +238,28 @@ public:
    */
   static HS_O3_FN Color4 shade(const math::Vector &view, const Frame &frame) {
     return RenderPipeline::shade(view, frame);
+  }
+
+  /** @brief Draws a fixed frame using a factored prefix when available.
+   * @param canvas Destination canvas.
+   * @param frame Prepared frame to shade. */
+  static void draw_static_columns(Canvas &canvas, const Frame &frame) {
+    if constexpr (SpecT::FACTORED_COLUMNS && RenderPipeline::LINEAR_COLUMNS &&
+                  &Derived::shade == &ComposedEffect::shade) {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        return [basis = RenderPipeline::column_basis(
+                    frame, math::TrigLUT<W, H>::cos_theta(x),
+                    math::TrigLUT<W, H>::sin_theta[x]),
+                &frame](float sine, float cosine) {
+          return RenderPipeline::shade_column(sine, cosine, frame, basis);
+        };
+      });
+    } else {
+      Scan::Shader::draw_cached<W, H, 1>(canvas,
+                                         [&frame](const math::Vector &view) {
+                                           return Derived::shade(view, frame);
+                                         });
+    }
   }
 
   /** @brief Whether a parameter set is admissible, family by family.
@@ -522,8 +565,10 @@ public:
 private:
   struct State : ProjectionWalkNoise<ANIMATED_PROJECTION>,
                  OptionalHueRotationLut<Metadata::HUE != HueMode::NONE>,
+                 OptionalLinearHueRotationLut<FLOAT_HUE_TABLES>,
                  OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE>,
-                 TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING> {
+                 TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING,
+                                 FLOAT_HUE_TABLES> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -728,6 +773,26 @@ private:
       return nullptr;
   }
 
+  /** @brief Optional preconverted hue table.
+   * @return Float RGB entries, or null when disabled. */
+  const math::Vector *hue_rotation_linear_data() const {
+    if constexpr (FLOAT_HUE_TABLES)
+      return static_cast<const OptionalLinearHueRotationLut<true> &>(*state)
+          .hue_rotation_linear.data();
+    else
+      return nullptr;
+  }
+
+  /** @brief Optional preconverted noise table.
+   * @return Quantized noise as floats, or null when disabled. */
+  const float *hue_noise_linear_data() const {
+    if constexpr (FLOAT_HUE_TABLES)
+      return static_cast<const OptionalLinearHueRotationLut<true> &>(*state)
+          .hue_noise_linear.data();
+    else
+      return nullptr;
+  }
+
   /** @brief The hue-noise LUT base, or null outside HueMode::NOISE. */
   const int8_t *hue_noise_lut_data() const {
     if constexpr (Metadata::HUE == HueMode::NOISE)
@@ -749,9 +814,18 @@ private:
     if constexpr (Metadata::HUE == HueMode::NOISE) {
       if (TEMPORAL_SAMPLING ||
           hue_rotation_active<Metadata::HUE>(params.template get<"color">())) {
-        state->hue_noise_bake.refresh(
+        [[maybe_unused]] const bool REBUILT = state->hue_noise_bake.refresh(
             state->hue_noise_lut, state->color_noise,
             params.template get<"color">().hue_noise_scale, hue_noise_phase);
+        if constexpr (FLOAT_HUE_TABLES) {
+          if (REBUILT) {
+            auto &linear =
+                static_cast<OptionalLinearHueRotationLut<true> &>(*state)
+                    .hue_noise_linear;
+            for (size_t index = 0; index < linear.size(); ++index)
+              linear[index] = state->hue_noise_lut[index];
+          }
+        }
       }
     }
     if constexpr (Metadata::HUE != HueMode::NONE)
@@ -762,6 +836,15 @@ private:
             std::span<Pixel, Pullback::Color::HueRotationLutView::SIZE>(
                 state->hue_rotation_lut),
             palette_cycler.palette());
+        if constexpr (FLOAT_HUE_TABLES) {
+          auto &linear =
+              static_cast<OptionalLinearHueRotationLut<true> &>(*state)
+                  .hue_rotation_linear;
+          for (size_t index = 0; index < linear.size(); ++index) {
+            const Pixel &RGB = state->hue_rotation_lut[index];
+            linear[index] = math::Vector(RGB.r, RGB.g, RGB.b);
+          }
+        }
         state->hue_rotation_lut_bake = palette_cycler.bake_generation();
       }
     Pullback::FrameState<ParamsT> frame{
@@ -773,7 +856,11 @@ private:
         .params = params,
         .palette_mapping = palette_mapping,
         .resources = {},
-        .palette_oscillation_phase = palette_oscillation_phase};
+        .palette_oscillation_phase = palette_oscillation_phase,
+        .hue_rotation_linear = hue_rotation_linear_data(),
+        .palette_alpha =
+            palette_cycler.palette().constant_alpha().value_or(-1.0f),
+        .hue_noise_linear = hue_noise_linear_data()};
     params.visit([&]<typename Resource>(const auto &) {
       auto &resource = frame.resources.template get<Resource::KEY>();
       static_cast<ComposedDetail::ResourceClock<Resource> &>(resource) =
@@ -785,9 +872,10 @@ private:
           frame.params.template get<Resource::KEY>().mobius = {};
     });
     if constexpr (TEMPORAL_SAMPLING)
-      return FrameState{
-          frame,
-          {frame.palette, frame.hue_rotation_lut, frame.hue_noise_lut, 1.0f}};
+      return FrameState{frame,
+                        {frame.palette, frame.hue_rotation_lut,
+                         frame.hue_noise_lut, 1.0f, frame.hue_rotation_linear,
+                         frame.palette_alpha, frame.hue_noise_linear}};
     else
       return frame;
   }

@@ -64,6 +64,10 @@ template <typename ParamsT> struct FrameState {
                                   typename ParamsT::ResourceTypes>
       resources; ///< Per-resource clocks and noise views, keyed by resource.
   float palette_oscillation_phase; /**< Phase of the mapping wobble. */
+  const math::Vector *hue_rotation_linear =
+      nullptr;                 ///< Optional float hue table.
+  float palette_alpha = -1.0f; ///< Constant alpha, or -1 when varying.
+  const float *hue_noise_linear = nullptr; ///< Optional float noise table.
 };
 
 /** @brief Column-sampled context with retained color resources. */
@@ -476,6 +480,13 @@ struct ColorProvider {
   palette(const FrameState &frame) {
     return *frame.palette;
   }
+  /** @brief Constant palette alpha, or -1 for a varying table.
+   * @param frame Prepared frame context.
+   * @return Cached palette alpha or the varying-table sentinel. */
+  __attribute__((always_inline)) static float
+  palette_alpha(const FrameState &frame) {
+    return frame.palette_alpha;
+  }
   /** @brief Hue-rotation source.
    *  @return `HueV`. */
   __attribute__((always_inline)) static Pullback::Color::HueMode
@@ -495,7 +506,8 @@ struct ColorProvider {
   __attribute__((always_inline)) static Pullback::Color::HueRotationLutView
   hue_rotation(const FrameState &frame) {
     return {frame.hue_rotation_lut,
-            hue_rotation_active<HueV>(frame.params.template get<"color">())};
+            hue_rotation_active<HueV>(frame.params.template get<"color">()),
+            frame.hue_rotation_linear};
   }
   /** @brief Hue-noise LUT view.
    *  @param frame Current frame.
@@ -503,9 +515,10 @@ struct ColorProvider {
    *  with an active rotation. */
   __attribute__((always_inline)) static Pullback::Color::HueNoiseLutView
   hue_noise(const FrameState &frame) {
-    return {frame.hue_noise_lut, HueV == HueMode::NOISE &&
-                                     hue_rotation_active<HueV>(
-                                         frame.params.template get<"color">())};
+    return {frame.hue_noise_lut,
+            HueV == HueMode::NOISE &&
+                hue_rotation_active<HueV>(frame.params.template get<"color">()),
+            frame.hue_noise_linear};
   }
   /** @brief Brightness envelope.
    *  @return `BrightnessV`. */

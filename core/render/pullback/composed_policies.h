@@ -20,6 +20,8 @@ struct Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Whether columns sample consecutive frame states across a half-turn.
   static constexpr bool TEMPORAL_SAMPLING = false;
+  /// Factors a supported rotation prefix into column bases.
+  static constexpr bool FACTORED_COLUMNS = false;
 };
 
 /**

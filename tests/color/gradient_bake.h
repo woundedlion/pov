@@ -226,6 +226,38 @@ inline void test_baked_palette_storage_and_views() {
   HS_EXPECT_EQ(moved.get_color(0.3f).b, 65535);
 }
 
+/** @brief Constant alpha detection observes every entry and later rebakes. */
+inline void test_baked_palette_constant_alpha() {
+  struct Source {
+    float alpha;
+    int changed = -1;
+    Color4 get(float t) const {
+      const int INDEX = static_cast<int>(t * 255.0f + 0.5f);
+      return Color4(Pixel(INDEX * 200, 1234, 5678),
+                    INDEX == changed ? 0.25f : alpha);
+    }
+  };
+  alignas(std::max_align_t)
+      uint8_t buffer[BakedPalette::required_arena_bytes()];
+  Arena arena(buffer, sizeof(buffer));
+  BakedPaletteStorage storage;
+  storage.bake(arena, Source{1.0f});
+  const BakedPalette VIEW = storage.view();
+  for (const float ALPHA : {0.0f, 0.5f, 1.0f}) {
+    storage.rebake(Source{ALPHA});
+    const auto CONSTANT = VIEW.constant_alpha();
+    HS_EXPECT_TRUE(CONSTANT.has_value());
+    HS_EXPECT_NEAR(CONSTANT.value_or(-1.0f),
+                   ALPHA == 0.5f ? 32768.0f / 65535.0f : ALPHA, 1e-7f);
+    for (const int INDEX : {0, 127, 255}) {
+      storage.rebake(Source{ALPHA, INDEX});
+      HS_EXPECT_TRUE(!VIEW.constant_alpha().has_value());
+    }
+  }
+  storage.rebake(Source{1.0f});
+  HS_EXPECT_NEAR(VIEW.constant_alpha().value_or(-1.0f), 1.0f, 0.0f);
+}
+
 /**
  * @brief Verifies baked endpoint samples match a solid-color source.
  */

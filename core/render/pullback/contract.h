@@ -576,6 +576,9 @@ using DescriptorPrepared = typename DescriptorPreparedImpl<
 
 namespace Stage {
 
+template <typename Provider> struct Rotate;
+template <typename Policy> struct Project;
+
 /**
  * @brief Helper base every stage descriptor derives from.
  * @details Derives the carrier pair and forwards Bind into the descriptor's
@@ -640,6 +643,58 @@ template <CodeEmission EmissionV, typename... Stages> struct Placed {
 } // namespace Stage
 
 namespace Detail {
+
+/** @brief A single semantic stage inside optional placement wrappers. */
+template <typename Node> struct ColumnLeaf {
+  using Type = Node; ///< Unwrapped stage.
+  /** @brief Borrows the unwrapped stage state.
+   * @param value Prepared stage state.
+   * @return The unwrapped stage state. */
+  template <typename Prepared>
+  static const Prepared &prepared(const Prepared &value) {
+    return value;
+  }
+};
+
+/** @brief Unwraps a placement containing one semantic stage. */
+template <CodeEmission Emission, typename Child>
+struct ColumnLeaf<Stage::Placed<Emission, Child>> {
+  using Type = typename ColumnLeaf<Child>::Type;
+  /** @brief Borrows the nested semantic stage state.
+   * @param value Prepared placement state.
+   * @return The unwrapped stage state. */
+  template <typename Prepared>
+  static const auto &prepared(const Prepared &value) {
+    return ColumnLeaf<Child>::prepared(std::get<0>(value));
+  }
+};
+
+/** @brief Whether two stages form a linear sphere-to-plane prefix. */
+template <typename Rotation, typename Projection>
+inline constexpr bool LINEAR_COLUMN_PREFIX = false;
+/** @brief Rotation followed by projection supports a column basis. */
+template <typename Provider, typename Policy>
+inline constexpr bool
+    LINEAR_COLUMN_PREFIX<Stage::Rotate<Provider>, Stage::Project<Policy>> =
+        true;
+
+/** @brief Column-basis support for a pipeline execution sequence. */
+template <typename Nodes> struct ColumnPrefix {
+  static constexpr bool SUPPORTED = false; ///< No eligible prefix.
+};
+/** @brief Classifies the leading rotation and projection stages. */
+template <typename Rotation, typename Projection, typename... Rest>
+struct ColumnPrefix<TypeList<Rotation, Projection, Rest...>> {
+  using ProjectionLeaf =
+      ColumnLeaf<Projection>; ///< Projection wrapper adapter.
+  using RotationNode = typename ColumnLeaf<Rotation>::Type; ///< Rotation stage.
+  using ProjectionNode = typename ProjectionLeaf::Type; ///< Projection stage.
+  /// Whether the prefix can be replaced by a column basis.
+  static constexpr bool SUPPORTED = [] {
+    return sizeof...(Rest) > 0 &&
+           LINEAR_COLUMN_PREFIX<RotationNode, ProjectionNode>;
+  }();
+};
 
 /** @brief `TypeList` of the non-void types.
  * @tparam Ts Types to filter. */
@@ -1356,6 +1411,9 @@ public:
 
   /** Per-node prepared state, nested per placement group. */
   using PreparedTuple = typename Core::PreparedTuple;
+  /// Whether the entry rotations can be factored into a meridian basis.
+  static constexpr bool LINEAR_COLUMNS =
+      Detail::ColumnPrefix<NodeList>::SUPPORTED;
   static_assert(std::is_trivially_destructible_v<PreparedTuple>,
                 "pullback pipeline: prepared state must be trivially "
                 "destructible");
@@ -1375,6 +1433,90 @@ public:
     Frame(const Frame &) = delete;
     Frame(Frame &&) = delete;
   };
+
+  /** @brief Projection-local basis of one meridian. */
+  struct ColumnBasis {
+    math::Vector equator; ///< Transformed equatorial direction.
+    math::Vector up;      ///< Transformed positive polar axis.
+  };
+
+  /** @brief Prepares a meridian's linear rotation prefix.
+   * @param frame Prepared pipeline state.
+   * @param cosine Cosine of longitude.
+   * @param sine Sine of longitude.
+   * @return Projection-local meridian basis. */
+  HS_FLASH_INLINE static ColumnBasis column_basis(const Frame &frame,
+                                                  float cosine, float sine)
+    requires(LINEAR_COLUMNS)
+  {
+    using Projection =
+        typename Detail::ColumnPrefix<NodeList>::ProjectionLeaf::Type;
+    using Policy = typename Projection::ProjectionPolicy;
+    const auto transform = [&](const math::Vector &view) {
+      const auto rotated = NodeAt<0>::run(SphereSample{view, 0.0f}, frame.ctx,
+                                          std::get<0>(frame.prepared));
+      return math::rotate(rotated.dir, Policy::frame_conjugate(frame.ctx));
+    };
+    return {transform(math::Vector(cosine, 0.0f, sine)),
+            transform(math::Vector(0.0f, 1.0f, 0.0f))};
+  }
+
+  /** @brief A column's complete shading state and local meridian basis. */
+  struct ColumnFrame {
+    Frame frame;       ///< Per-column prepared pipeline.
+    ColumnBasis basis; ///< Factored rotation prefix.
+    /** @brief Prepares one column context and its meridian basis.
+     * @param ctx Sampled frame context.
+     * @param cosine Cosine of longitude.
+     * @param sine Sine of longitude. */
+    ColumnFrame(const FrameState &ctx, float cosine, float sine)
+      requires(LINEAR_COLUMNS)
+        : frame(ctx), basis(column_basis(frame, cosine, sine)) {}
+  };
+
+  /** @brief Prepares a pipeline at one column's sampling time.
+   * @param ctx Sampled frame context.
+   * @param cosine Cosine of longitude.
+   * @param sine Sine of longitude.
+   * @return Prepared column state. */
+  HS_FLASH_MEMBER static ColumnFrame prepare_column(const FrameState &ctx,
+                                                    float cosine, float sine)
+    requires(LINEAR_COLUMNS)
+  {
+    return ColumnFrame(ctx, cosine, sine);
+  }
+
+  /** @brief Shades a latitude using the factored rotation prefix.
+   * @param sine Sine of the polar angle.
+   * @param cosine Cosine of the polar angle.
+   * @param frame Prepared pipeline state.
+   * @param basis Projection-local meridian basis.
+   * @return Pixel color at the sampled latitude. */
+  HS_HOT_FLASH_MEMBER static Color4 shade_column(float sine, float cosine,
+                                                 const Frame &frame,
+                                                 const ColumnBasis &basis)
+    requires(LINEAR_COLUMNS)
+  {
+    using Prefix = Detail::ColumnPrefix<NodeList>;
+    using Projection = typename Prefix::ProjectionLeaf::Type;
+    using Policy = typename Projection::ProjectionPolicy;
+    using Instrumentation = typename Binding::Instrumentation;
+    const auto start = Instrumentation::mark();
+    const math::Vector LOCAL = sine * basis.equator + cosine * basis.up;
+    HS_AUDIT_CHECK(fabsf(math::dot(LOCAL, LOCAL) - 1.0f) <=
+                       DIRECTION_NORM_SQUARED_TOLERANCE,
+                   "column projection requires a unit direction");
+    ProjectionResult result;
+    const auto &prepared =
+        Prefix::ProjectionLeaf::prepared(std::get<1>(frame.prepared));
+    if constexpr (requires { Policy::project(LOCAL, frame.ctx, prepared); })
+      result = Policy::project(LOCAL, frame.ctx, prepared);
+    else
+      result = Policy::project(LOCAL, frame.ctx);
+    const PlaneSample PLANE{result.coords, result.provenance, LOCAL, 0.0f};
+    Instrumentation::template span<ProfileEvent::PROJECTION>(start);
+    return Core::template run_stage<2>(PLANE, frame.ctx, frame.prepared);
+  }
 
   /** @brief Resolves every stage's prepared state from @p ctx.
    *  @param ctx Frame context.

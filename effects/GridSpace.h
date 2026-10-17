@@ -23,6 +23,8 @@ struct GridSpaceSpec : Pullback::Spec {
   static constexpr bool ANIMATED_PROJECTION = true;
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  /// Reuses the projection-frame meridian basis across each column.
+  static constexpr bool FACTORED_COLUMNS = true;
   /**
    * @brief Stage chain: camera rotation, projection, affine warp, lattice
    *  source, iso-contour transfer, generated palette.

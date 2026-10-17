@@ -1694,6 +1694,48 @@ inline void test_pullback_temporal_palette() {
     HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
     HS_EXPECT_NEAR(color.alpha, 0.04f + 0.08f * fraction, 1e-6f);
   }
+
+  uint32_t seed = 0x517cc1b7;
+  const auto random = [&]() {
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return seed;
+  };
+  for (size_t i = 0; i < old_rotation.size(); ++i) {
+    old_rotation[i] = Pixel(random(), random(), random());
+    new_rotation[i] = Pixel(random(), random(), random());
+  }
+  for (size_t i = 0; i < old_noise.size(); ++i) {
+    old_noise[i] = static_cast<int>(random() % 255) - 127;
+    new_noise[i] = static_cast<int>(random() % 255) - 127;
+  }
+  const auto unit = [&]() { return (random() >> 8) * 0x1p-24f; };
+  for (int i = 0; i < 4096; ++i) {
+    frame.temporal.fraction = unit();
+    auto prepared = Temporal::prepare(frame);
+    prepared.current.hue_shift_amount = unit() * 8.0f - 4.0f;
+    prepared.previous.hue_shift_amount = prepared.current.hue_shift_amount;
+    sample.value = i % 5 == 0 ? 0.0f : i % 5 == 1 ? 1.0f : unit();
+    sample.coverage = unit();
+    sample.sphere = i % 7 == 0 ? math::Vector(1, 1, 1)
+                               : math::Vector(unit() * 2 - 1, unit() * 2 - 1,
+                                              unit() * 2 - 1);
+    const Color4 EXPECTED =
+        apply_generated_palette(sample, prepared.previous)
+            .lerp(apply_generated_palette(sample, prepared.current),
+                  prepared.fraction);
+    const Color4 ACTUAL = Temporal::apply(sample, frame, prepared);
+    HS_EXPECT_NEAR(ACTUAL.color.r, EXPECTED.color.r, 2.0f);
+    HS_EXPECT_NEAR(ACTUAL.color.g, EXPECTED.color.g, 2.0f);
+    HS_EXPECT_NEAR(ACTUAL.color.b, EXPECTED.color.b, 2.0f);
+    HS_EXPECT_NEAR(ACTUAL.alpha, EXPECTED.alpha, 2e-7f);
+    const Pixel EXPECTED_PIXEL = EXPECTED.color * EXPECTED.alpha;
+    const Pixel ACTUAL_PIXEL = ACTUAL.color * ACTUAL.alpha;
+    HS_EXPECT_NEAR(ACTUAL_PIXEL.r, EXPECTED_PIXEL.r, 2.0f);
+    HS_EXPECT_NEAR(ACTUAL_PIXEL.g, EXPECTED_PIXEL.g, 2.0f);
+    HS_EXPECT_NEAR(ACTUAL_PIXEL.b, EXPECTED_PIXEL.b, 2.0f);
+  }
 }
 
 /** @brief Runs pullback tests. */

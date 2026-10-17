@@ -176,6 +176,7 @@ public:
              "module-global storage)");
     // Module global: reset so a fresh engine never inherits a predecessor's.
     Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
+    Pullback::set_temporal_sampling_enabled(true);
     apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
@@ -224,6 +225,15 @@ public:
    *          Construction over a live instance traps.
    */
   static bool isLive() { return engine_alive; }
+
+  /**
+   * @brief Selects column-time sampling for effects that support it.
+   * @param enabled True for POV emission timing; false for one frame timestamp.
+   * @details Applies on the next draw and survives effect or resolution changes.
+   */
+  void setTemporalSampling(bool enabled) {
+    Pullback::set_temporal_sampling_enabled(enabled);
+  }
 
   /**
    * @brief Sets the missing arc at each pole as a percentage in [0, 25].
@@ -1070,6 +1080,7 @@ static void bind_engine() {
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
       .function("setDisplayCaps", &HolosphereEngine::setDisplayCaps)
+      .function("setTemporalSampling", &HolosphereEngine::setTemporalSampling)
       .function("getDisplayNorthPhi", &HolosphereEngine::getDisplayNorthPhi)
       .function("getDisplaySouthPhi", &HolosphereEngine::getDisplaySouthPhi)
       .function("setEffect", &HolosphereEngine::setEffect)
