@@ -4,7 +4,7 @@ Ranked on-device results for the shipping `profile` image, covering the
 36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
 Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by spill fraction, then peak render. ● marks the October 7 optimized face-distance and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace, October 7 optimized face-distance, and September 28 Octet supplement captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -22,6 +22,7 @@ Rows rank by spill fraction, then peak render. ● marks the October 7 optimized
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 0/1087 (0.00%) | 2026-10-06 18:59 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 37.08 (2) | 🟢 0/2207 (0.00%) | 2026-10-06 18:47 |
+| [GridSpace](profile_gridspace_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 36.62 | 🟢 0/1087 (0.00%) | 2026-10-17 14:47 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 35.53 | 🟢 0/1087 (0.00%) | 2026-10-06 18:57 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 34.97 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:45 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-10-07.md) § ● | `hk_timeline_step` | 🟢 34.681 (19) | 🟢 0/4447 (0.00%) | 2026-10-07 14:18 |
@@ -32,7 +33,6 @@ Rows rank by spill fraction, then peak render. ● marks the October 7 optimized
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 30.03 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:58 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 27.04 | 🟢 0/1087 (0.00%) | 2026-10-06 18:44 |
 | [AlienBrain](profile_alienbrain_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 25.11 (4) | 🟢 0/4767 (0.00%) | 2026-10-06 18:35 |
-| [GridSpace](profile_gridspace_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 24.57 | 🟢 0/1087 (0.00%) | 2026-10-06 18:48 |
 | [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.88 | 🟢 0/1087 (0.00%) | 2026-10-06 18:37 |
 | [Fishbowl](profile_fishbowl_teensy_2026-10-06.md) | `fish_build_vertices` | 🟢 23.78 | 🟢 0/1087 (0.00%) | 2026-10-06 19:07 |
 | [CosmicEyeball](profile_cosmiceyeball_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.63 | 🟢 0/1087 (0.00%) | 2026-10-06 19:06 |
