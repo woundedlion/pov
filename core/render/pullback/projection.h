@@ -308,7 +308,7 @@ bonne(const math::Vector &input, float central_meridian,
  * @param layout A `projections::PeirceLayout` value.
  * @param layout_scroll Fraction of a period to translate a strip layout by.
  * @param edge_distance_required Measure `fade_edge_distance`; when false it
- *        is `projections::NO_EDGE_DISTANCE`.
+ *        is `projections::NO_EDGE_DISTANCE` times |@p coordinate_scale|.
  * @param coordinate_scale Factor applied to the plane coordinates.
  * @param singularity_fade Attenuation sharpness, as in
  *        `singularity_attenuation`.
@@ -340,7 +340,7 @@ peirce(const math::Vector &input, float central_meridian, uint8_t layout,
  * @param layout A `projections::PeirceLayout` value.
  * @param layout_scroll Fraction of a period to translate a strip layout by.
  * @param edge_distance_required Measure `fade_edge_distance`; when false it
- *        is `projections::NO_EDGE_DISTANCE`.
+ *        is `projections::NO_EDGE_DISTANCE` times |@p coordinate_scale|.
  * @param coordinate_scale Factor applied to the plane coordinates.
  * @param singularity_fade Attenuation sharpness, as in
  *        `singularity_attenuation`.

@@ -1388,7 +1388,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── dma_led_core.h          Pure double-buffer / transfer-length / stale-transfer math (host-testable)
 │   ├── hd107s_frame.h          HD107S protocol buffer + inline color correction (host-testable)
 │   ├── pov_segment_map.h       Pure segment index math (host-testable)
-│   ├── pov_segment_frame.h     Retains opposite-half pixels before segmented frame publication
+│   ├── pov_segment_frame.h     Segment-frame lifecycle: initial full-width prime, opposite-half retention, half-matched display publication
 │   ├── pov_segment_map.json    Segment→canvas golden emitted from that header; read by daydream's cross-check
 │   ├── device_effect.h         Foreground device effect construction
 │   ├── pov_single.h            Single-Teensy POV driver (Holosphere)
