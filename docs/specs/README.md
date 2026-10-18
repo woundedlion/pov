@@ -25,3 +25,4 @@ ledgers under [`docs/ledgers/`](../ledgers).
 | [effect_identity.md](effect_identity.md) | IMPLEMENTED; canonical machine IDs, display/browser aliases and immutable RNG keys. |
 | [pullback_temporal_sampling.md](pullback_temporal_sampling.md) | IMPLEMENTED; column-time sampling for compatible composed pullback effects. |
 | [remaining_temporal_seams.md](remaining_temporal_seams.md) | PROPOSED; remaining effect coverage, shared temporal adapters and renderer-specific follow-up work. |
+| [effect_temporal_coverage_inventory.md](effect_temporal_coverage_inventory.md) | AUDITED; all 43 authored effects plus optional ShaderChain, including forward, particle, simulation and feedback coverage gaps. |
