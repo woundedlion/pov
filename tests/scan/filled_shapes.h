@@ -35,7 +35,7 @@ template <int W> inline bool row_has_lit(const hs_test::StubEffect &fx, int y) {
  *        shape's smallest boundary radius, radians).
  * @param r_max Angular radius of the cap circumscribing the shape (radians).
  * @details Rows are uniform in polar angle, so a pole cap of angular radius r
- *          lights W*H*r/PI pixels and the shape's own count falls between its
+ *          lights W*r*ROWS_PER_RADIAN<H> pixels and the shape's own count falls between its
  *          inscribed and circumscribed caps, with 3 rows of slack either way.
  */
 template <int W, int H>
@@ -46,7 +46,7 @@ inline void expect_filled_cap(const hs_test::StubEffect &fx, bool cap_north,
   HS_EXPECT_TRUE((row_has_lit<W>(fx, near_row)));
   HS_EXPECT_FALSE((row_has_lit<W>(fx, far_row)));
 
-  const float rows_per_radian = static_cast<float>(H) / math::PI_F;
+  const float rows_per_radian = math::ROWS_PER_RADIAN<H>;
   const float slack_rows = 3.0f;
   const int lit = static_cast<int>(count_lit_region<W, H>(fx));
   HS_EXPECT_GE(lit,
