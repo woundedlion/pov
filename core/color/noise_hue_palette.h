@@ -335,34 +335,7 @@ sample_hue_rotation_linear(const HueRotationLutView &view,
 __attribute__((always_inline)) inline math::Vector
 sample_hue_rotation_linear(const HueRotationLutView &view,
                            const HueRotationValueSample &value, float amount) {
-  const float position =
-      hs::clamp((amount - floorf(amount)) * HueRotationLutView::HUE_STEPS, 0.0f,
-                static_cast<float>(HueRotationLutView::HUE_STEPS));
-  const int step = lut_index_lo(position);
-  const float hue_weight = lut_index_weight(position, step) * Q16_TO_UNIT;
-  const int low = step & (HueRotationLutView::HUE_STEPS - 1);
-  const int high = (low + 1) & (HueRotationLutView::HUE_STEPS - 1);
-  const auto row = [&](int index) {
-    if (view.linear_data) {
-      const math::Vector &a =
-          view.linear_data[index * HueRotationLutView::HUE_STEPS + low];
-      const math::Vector &b =
-          view.linear_data[index * HueRotationLutView::HUE_STEPS + high];
-      return math::Vector(hs::lerp(a.x, b.x, hue_weight),
-                          hs::lerp(a.y, b.y, hue_weight),
-                          hs::lerp(a.z, b.z, hue_weight));
-    }
-    const Pixel &a = view.data[index * HueRotationLutView::HUE_STEPS + low];
-    const Pixel &b = view.data[index * HueRotationLutView::HUE_STEPS + high];
-    return math::Vector(hs::lerp(float(a.r), float(b.r), hue_weight),
-                        hs::lerp(float(a.g), float(b.g), hue_weight),
-                        hs::lerp(float(a.b), float(b.b), hue_weight));
-  };
-  const math::Vector a = row(value.low);
-  if (value.weight == 0)
-    return a;
-  const math::Vector b = row(value.high);
-  return a + (value.weight * Q16_TO_UNIT) * (b - a);
+  return sample_hue_rotation_linear(view, value, HueRotationHueSample(amount));
 }
 
 /**
