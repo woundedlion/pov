@@ -4,7 +4,7 @@ Ranked on-device results for the shipping `profile` image, covering the
 36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
 Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
 time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace, October 7 optimized face-distance, September 28 Octet supplement, and October 16 MindSplatter packing captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace and AshCloud, October 7 optimized face-distance, September 28 Octet supplement, and October 16 MindSplatter packing captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
@@ -17,7 +17,7 @@ Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpac
 | [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 15:16 |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
 | [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
-| [AshCloud](profile_ashcloud_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 42.67 | 🟢 0/1087 (0.00%) | 2026-10-06 19:01 |
+| [AshCloud](profile_ashcloud_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 46.27 | 🟢 0/1087 (0.00%) | 2026-10-17 17:12 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-06.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 0/3647 (0.00%) | 2026-10-06 18:28 |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 0/1087 (0.00%) | 2026-10-06 18:59 |

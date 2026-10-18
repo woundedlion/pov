@@ -38,7 +38,7 @@ full-roster image.
 Rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled is the number of frames whose
 render exceeded one 62.5 ms window. Colours are per config: 🟢 zero spill;
-🟡 under 25% spill; 🔴 at least 25% spill. ● marks shipping captures taken outside the 2026-10-06 full-roster re-capture: the October 7 optimized face-distance snapshots, the October 16 MindSplatter packing comparison, and the October 17 GridSpace capture.
+🟡 under 25% spill; 🔴 at least 25% spill. ● marks shipping captures taken outside the 2026-10-06 full-roster re-capture: the October 7 optimized face-distance snapshots, the October 16 MindSplatter packing comparison, and the October 17 GridSpace and AshCloud captures.
 Image deltas belong to each O3 capture's own shipping pair, not to the linked
 2026-10-06 shipping report; MeshFeedback uses an adjacent-source pair
 (`63268c376` O3 versus `20ca3cb48` shipping), so its deltas include source
@@ -56,7 +56,7 @@ predate the October 5 shipping optimization.
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-07.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-07 15:16<br>O3 2026-09-28 16:50 |
 | [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-06.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.34 | 🟢 48.65 | 🟢 0/2047 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-06 19:05<br>O3 2026-08-26 01:16 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-10-06.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 50.750 | 🟢 0/1087 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-06 18:22<br>O3 2026-09-24 20:18 |
-| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-06.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.67 | 🔴 79.81 | 🟢 0/1087 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-06 19:01<br>O3 2026-08-26 02:45 |
+| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-17.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) ● | `fx_shader_draw` | 🟢 46.27 | 🔴 79.81 | 🟢 0/1087 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-17 17:12<br>O3 2026-08-26 02:45 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-06.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 34.32 (11) | 🟢 0/3647 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-06 18:28<br>O3 2026-08-26 02:19 |
 | [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-06.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_shader_draw` | 🟢 39.43 | 🔴 279.686 | 🟢 0/2047 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-06 19:15<br>O3 2026-09-30 19:15 |
 | [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-10-06.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 54.55 | 🟢 0/1087 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-10-06 18:59<br>O3 2026-08-26 02:43 |
