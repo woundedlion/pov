@@ -457,7 +457,7 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   carousel.segue().fade_frames_max = 8.0f;
   int next_delay = carousel.schedule_segue(
       tl, carousel.front_index(), [](Canvas &, float) {}, dur, window);
-  HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh per frame
+  HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh at a time, no overlap
   const Segue::TerminatorSweep &term = carousel.segue();
   const float f = 8.0f / window;
   HS_EXPECT_NEAR(term.face_fade_frac(0), f, 1e-6f);
