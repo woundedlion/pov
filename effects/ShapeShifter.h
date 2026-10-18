@@ -665,8 +665,8 @@ private:
                             planar_basis, color, fragment_shader);
   }
 
-  /** @brief Chart pieces a flower's edges share for the band split; each edge
-   *  takes FLOWER_PIECE_BUDGET / sides of them. */
+  /** @brief Each of the 2 * sides flower edges takes FLOWER_PIECE_BUDGET / sides
+   *  pieces, for at most 2 * FLOWER_PIECE_BUDGET pieces per flower. */
   static constexpr int FLOWER_PIECE_BUDGET = 24;
   static constexpr int FLOWER_MAX_POINTS =
       Plot::PlanarBandSplit<W, H>::max_points(2, FLOWER_PIECE_BUDGET);
