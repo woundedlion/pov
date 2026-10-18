@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `KaleidoscopeHexSoft`. */
 struct KaleidoscopeHexSoftSpec : Pullback::Spec {
+  static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::TRIADIC;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

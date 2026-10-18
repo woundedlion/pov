@@ -163,6 +163,13 @@ async function main(probe) {
   });
 
   {
+    const temporalEffects = [
+      'AlienOcean', 'ChromaticLichen', 'AlienCore', 'AlienBrain', 'AshCloud',
+      'GridSpace', 'CosmicEyeball', 'JewelMelt', 'KaleidoscopeFlowers',
+      'KaleidoscopeMandala', 'KaleidoscopeHexBright', 'KaleidoscopePentBright',
+      'KaleidoscopeMelt', 'KaleidoscopeHexOil', 'KaleidoscopeHexSoft',
+      'KaleidoscopeStainedGlass', 'KaleidoscopeSmooth', 'MermaidSkin',
+    ];
     const renderSamplingProbe = async (enabled, replace = false) => {
       const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
       let probe = new isolated.HolosphereEngine();
@@ -174,9 +181,14 @@ async function main(probe) {
       try {
         if (enabled !== undefined) probe.setTemporalSampling(enabled);
         probe.setResolution(96, 20);
-        probe.setEffect('GridSpace');
-        for (let frame = 0; frame < 8; frame++) probe.drawFrame();
-        return probe.getPixels().slice();
+        const pixels = new Map();
+        for (const effect of [...temporalEffects, 'MobiusGrid']) {
+          if (probe.setEffect(effect) !== isolated.EffectSetResult.INSTALLED)
+            fail(`temporal sampling: could not install ${effect}`);
+          for (let frame = 0; frame < 8; frame++) probe.drawFrame();
+          pixels.set(effect, probe.getPixels().slice());
+        }
+        return pixels;
       } finally {
         probe.delete();
       }
@@ -185,12 +197,17 @@ async function main(probe) {
       renderSamplingProbe(false), renderSamplingProbe(true),
       renderSamplingProbe(undefined), renderSamplingProbe(undefined, true),
     ]);
-    if (!flat.some((value, index) => value !== temporal[index]))
-      fail('temporal sampling: disabling column timing did not change GridSpace');
-    if (temporal.some((value, index) => value !== defaults[index]))
-      fail('temporal sampling: default engine did not use column timing');
-    if (temporal.some((value, index) => value !== replacement[index]))
-      fail('temporal sampling: replacement engine inherited disabled sampling');
+    for (const effect of temporalEffects) {
+      const samples = temporal.get(effect);
+      if (!flat.get(effect).some((value, index) => value !== samples[index]))
+        fail(`temporal sampling: disabling column timing did not change ${effect}`);
+      if (samples.some((value, index) => value !== defaults.get(effect)[index]))
+        fail(`temporal sampling: default engine did not use column timing for ${effect}`);
+      if (samples.some((value, index) => value !== replacement.get(effect)[index]))
+        fail(`temporal sampling: replacement engine inherited disabled sampling for ${effect}`);
+    }
+    if (flat.get('MobiusGrid').some((value, index) => value !== temporal.get('MobiusGrid')[index]))
+      fail('temporal sampling: unsupported MobiusGrid changed with column timing');
   }
 
   {

@@ -23,4 +23,4 @@ ledgers under [`docs/ledgers/`](../ledgers).
 | Document | Status and scope |
 |---|---|
 | [effect_identity.md](effect_identity.md) | IMPLEMENTED; canonical machine IDs, display/browser aliases and immutable RNG keys. |
-| [pullback_temporal_sampling.md](pullback_temporal_sampling.md) | IMPLEMENTED for GridSpace; opt-in column-time sampling for composed pullback effects. |
+| [pullback_temporal_sampling.md](pullback_temporal_sampling.md) | IMPLEMENTED; column-time sampling for compatible composed pullback effects. |
