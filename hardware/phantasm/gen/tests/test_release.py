@@ -104,6 +104,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertFalse(refill_zones)
             self.assertEqual(Path(fab.PCB).read_text(), "refilled")
             if fail == "gate":
+                (Path(fab.OUT) / "phantasm-drc.json").write_text("failed DRC")
                 raise SystemExit("injected gate failure")
             if fail == "source_change":
                 (self.project / "phantasm.kicad_pro").write_text("edit", encoding="utf-8")
@@ -158,10 +159,29 @@ class ReleaseTests(unittest.TestCase):
                     release.build(self.project, "1.2", self.destination)
                 self.assertFalse(self.destination.exists())
 
+    def test_failed_validation_retains_reports_and_evaluated_board(self):
+        for publish in (False, True):
+            with self.subTest(publish=publish), contextlib.ExitStack() as stack:
+                self.pipeline(stack, fail="gate")
+                stage = self.root / ("publish-stage" if publish else "validate-stage")
+                stage.mkdir()
+                stack.enter_context(mock.patch.object(release.tempfile, "mkdtemp", return_value=str(stage)))
+                stderr = stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+                with self.assertRaisesRegex(SystemExit, "injected gate failure"):
+                    release.build(self.project, "1.2", self.destination if publish else None)
+                self.assertEqual((stage / "output" / "phantasm-drc.json").read_text(), "failed DRC")
+                self.assertEqual((stage / "evaluated" / "phantasm.kicad_pcb").read_text(), "refilled")
+                self.assertIn(f"Reports kept in {stage}", stderr.getvalue())
+                self.assertFalse(self.destination.exists())
+
     def test_validation_creates_no_release(self):
         with contextlib.ExitStack() as stack:
             self.pipeline(stack)
+            stage = self.root / "validate-stage"
+            stage.mkdir()
+            stack.enter_context(mock.patch.object(release.tempfile, "mkdtemp", return_value=str(stage)))
             release.build(self.project, "1.2")
+        self.assertFalse(stage.exists())
         self.assertFalse(self.destination.exists())
 
     def test_release_refuses_existing_or_nested_destination(self):
