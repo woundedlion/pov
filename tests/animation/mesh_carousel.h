@@ -265,7 +265,7 @@ inline void test_segue_visible_gate_culls_only_dark_phases() {
       if (seg.visible(phase))
         HS_EXPECT_GT(segue_peak_weight(seg, phase), 0.0f);
       else
-        HS_EXPECT_LT(segue_peak_weight(seg, phase), 0.02f);
+        HS_EXPECT_LE(segue_peak_weight(seg, phase), 0.005f);
     }
   };
   Segue::AllPolicies::for_each(check);
