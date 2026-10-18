@@ -687,6 +687,9 @@ inline void test_palette_mapping_crossfade() {
 inline int run_composed_effect_tests() {
   ModuleFixture fixture("composed_effect");
   test_temporal_clock_sampling();
+  test_temporal_affine_cycle();
+  test_temporal_custom_shade_is_authoritative();
+  test_gridspace_factored_columns();
   test_temporal_owned_resources();
   test_gridspace_temporal_pixels();
   test_composed_temporal_roster();

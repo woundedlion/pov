@@ -143,7 +143,11 @@ inline void test_temporal_clock_sampling() {
                      expected.resources.template get<"surface">().phase, 0.0f);
     }
   }
+}
 
+/** @brief Affine scale follows the periodic warp cycle. */
+inline void test_temporal_affine_cycle() {
+  HS_CONTEXT("temporal affine cycle");
   for (float phase : {0.0f, 0.25f, 0.5f, 0.99f, 1.01f}) {
     Pullback::AffineParams warp;
     warp.translation_x = 2.0f;
@@ -157,6 +161,11 @@ inline void test_temporal_clock_sampling() {
       HS_EXPECT_NEAR(actual.transform.affine.shear, warp.shear * CYCLE, 0.0f);
     }
   }
+}
+
+/** @brief Custom shading is authoritative with temporal sampling enabled. */
+inline void test_temporal_custom_shade_is_authoritative() {
+  HS_CONTEXT("temporal custom shade is authoritative");
   reset_globals();
   TemporalShadeProbe custom;
   custom.init();
@@ -316,6 +325,7 @@ inline void test_temporal_owned_resources() {
 
 /** @brief Factored projection stays within the RGB16 rounding budget. */
 inline void test_gridspace_factored_columns() {
+  HS_CONTEXT("GridSpace factored columns");
   reset_globals();
   using FX = GridSpace<288, 144>;
   using Pipeline = FX::RenderPipeline;
@@ -373,7 +383,6 @@ inline void test_gridspace_factored_columns() {
 
 /** @brief GridSpace shades each clipped column at its own sweep time. */
 inline void test_gridspace_temporal_pixels() {
-  test_gridspace_factored_columns();
   HS_CONTEXT("GridSpace column-time pixels");
   reset_globals();
   constexpr int W = 96;
