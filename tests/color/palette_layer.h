@@ -1043,3 +1043,22 @@ inline void test_hue_rotation_lut_clamps_out_of_range_value() {
     HS_EXPECT_EQ(sample_hue_rotation_lut(view, 0.0f, amount),
                  Pixel(65535, 0, 0));
 }
+
+/** @brief Face-coordinate noise taps use the float table when supplied. */
+inline void test_hue_noise_face_linear_table() {
+  static std::array<int8_t, HueNoiseLutView::SIZE> bytes{};
+  static std::array<float, HueNoiseLutView::SIZE> linear;
+  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face)
+    for (int y = 0; y < HueNoiseLutView::FACE_STEPS; ++y)
+      for (int x = 0; x < HueNoiseLutView::FACE_STEPS; ++x)
+        linear[face * HueNoiseLutView::FACE_SIZE +
+               y * HueNoiseLutView::FACE_STEPS + x] = float(face * 10 + x + y);
+  const HueNoiseLutView VIEW{bytes.data(), true, linear.data()};
+  for (int face = 0; face < HueNoiseLutView::FACE_COUNT; ++face)
+    for (float u : {-1.0f, -0.25f, 1.0f})
+      for (float v : {-1.0f, 0.25f, 1.0f}) {
+        const float EXPECTED = (face * 10 + (u + v + 2) * 11.5f) / 127.0f;
+        HS_EXPECT_NEAR(sample_hue_noise_face(VIEW, face, u, v), EXPECTED,
+                       2e-7f);
+      }
+}

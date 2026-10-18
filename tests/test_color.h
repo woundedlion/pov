@@ -266,6 +266,7 @@ inline int run_color_tests() {
   test_noise_hue_palette_direct();
   test_noise_shimmer_palette();
   test_hue_noise_lut_seamless_across_faces();
+  test_hue_noise_face_linear_table();
   test_hue_noise_bake_cache();
   test_hue_noise_paired_bakes_match_reference();
 
