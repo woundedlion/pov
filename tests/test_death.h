@@ -1540,7 +1540,7 @@ inline const Case *all_cases(int &n) {
            "(base.r <= base.R * 0.5f) WarpedVolume Torus minor radius must not exceed half its major radius"},
           {"next_edge_toward_unknown_node", case_next_edge_toward_unknown_node,
            "core/mesh/conway_graph.h",
-           "(node >= 0 && node < NUM_NODES && dest >= 0 && dest < NUM_NODES && node != dest) next_edge_toward: no route between the nodes"},
+           "(node >= 0 && node < NUM_NODES && dest >= 0 && dest < NUM_NODES && node != dest) next_edge_toward: node/dest out of range or equal"},
           {"opleg_edge_sweep_no_edge", case_opleg_edge_sweep_no_edge,
            "core/animation/opleg.h",
            "(spec.edge) OpLeg: edge sweep carries no graph edge"},
