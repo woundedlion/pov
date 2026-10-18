@@ -1,5 +1,7 @@
 # Effects excluded from the Phantasm image
 
+Composed-effect rows captured before 2026-10-17 predate per-column temporal sampling; [GridSpace's matched A/B](../shipping/profile_gridspace_teensy_2026-10-17.md) measures about +11% mean live-render time for that path.
+
 JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain available in the full roster and are omitted from Phantasm by product curation. These captures preserve their earlier segmented-device measurements.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
