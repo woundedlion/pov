@@ -3,6 +3,7 @@
 Writes a separate board. When a zone is repaired, cached fills are removed:
 refill all zones in KiCad, save, and rerun DRC and the fabrication gates before
 using the output. A board needing no repair is copied unchanged.
+Output is refused in candidate.json or SHA256SUMS.txt directories and release.json trees.
 """
 import argparse
 import math
@@ -12,7 +13,7 @@ import sys
 import fab
 import sexp
 from constraints import ZONE_DEFAULTS
-from kicad_common import F, atomic_write_text, is_copper_pour
+from kicad_common import F, atomic_write_text, is_copper_pour, is_manifested
 
 
 FILL_CACHE = {"filled_polygon", "fill_segments"}
@@ -82,7 +83,7 @@ def main(argv=None):
         if source_path == output_path or (
                 output_path.exists() and source_path.samefile(output_path)):
             raise ValueError("output must be separate from the source board")
-        if (output_path.parent / "SHA256SUMS.txt").exists():
+        if is_manifested(output_path):
             raise ValueError("output directory is hash-manifested")
         if output_path.exists() and not args.force:
             raise ValueError("output exists; use --force to replace it")

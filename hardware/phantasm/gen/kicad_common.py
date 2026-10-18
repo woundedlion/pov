@@ -2,6 +2,7 @@
 import glob
 import math
 import os
+from pathlib import Path
 import re
 import shutil
 import stat
@@ -22,6 +23,13 @@ KICAD_CLI_PATTERNS = (
 
 
 KICAD_VERSION = "10.0.4"
+
+
+def is_manifested(path):
+    """Whether a file belongs to a candidate, release, or checksummed directory."""
+    directory = Path(path).resolve().parent
+    return (any((directory / name).exists() for name in ("candidate.json", "SHA256SUMS.txt"))
+            or any((parent / "release.json").exists() for parent in (directory, *directory.parents)))
 
 
 def kicad_cli_version(path):
