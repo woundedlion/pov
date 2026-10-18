@@ -148,6 +148,21 @@ public:
   }
 
   /**
+   * @brief Samples the sub-frame path at a fraction of the frame.
+   * @param t Frame fraction in [0, 1]: 0 is the oldest frame (the previous
+   *        frame's end pose), 1 the current one.
+   * @return Slerp between the two history frames bracketing @p t.
+   */
+  Quaternion get(float t) const {
+    const int last = num_frames - 1;
+    if (last == 0)
+      return orientations[0];
+    const float s = hs::clamp(t, 0.0f, 1.0f) * last;
+    const int i = std::min(static_cast<int>(s), last - 1);
+    return slerp(orientations[i], orientations[i + 1], s - i);
+  }
+
+  /**
    * @brief Sets the orientation, clearing all history.
    * @param q The new orientation quaternion; must be unit length (traps).
    * @return Reference to the Orientation object.

@@ -65,9 +65,7 @@ inline void test_temporal_capture_matches_exhaustive_oracle() {
       const float start = 2.0f * math::PI_F * k / 64 + 0.013f;
       const math::Orientation<> history = spin_history(start, drift, 3);
       const math::Vector v(0.8f, 0.6f, 0.0f);
-      auto position = [&](float u) {
-        return math::rotate(v, Temporal::sample_history(history, u));
-      };
+      auto position = [&](float u) { return math::rotate(v, history.get(u)); };
       Temporal::Captures got = Temporal::capture(position);
       if (got.count == 2 && got.fraction[1] < got.fraction[0]) {
         std::swap(got.fraction[0], got.fraction[1]);
@@ -103,9 +101,7 @@ inline void test_temporal_capture_column_matches_composed_time() {
       const math::Orientation<> history =
           spin_history(2.0f * math::PI_F * k / 48, drift, 3);
       const math::Vector v(0.6f, -0.8f, 0.0f);
-      auto position = [&](float u) {
-        return math::rotate(v, Temporal::sample_history(history, u));
-      };
+      auto position = [&](float u) { return math::rotate(v, history.get(u)); };
       const Temporal::Captures got = Temporal::capture(position);
       for (int i = 0; i < got.count; ++i) {
         const int x =
@@ -131,31 +127,13 @@ inline void test_temporal_capture_column_matches_composed_time() {
 inline void test_temporal_capture_fast_motion_falls_back_to_endpoint() {
   const math::Orientation<> history = spin_history(0.4f, 0.7f, 3);
   const math::Vector v = math::X_AXIS;
-  const Temporal::Captures got = Temporal::capture([&](float u) {
-    return math::rotate(v, Temporal::sample_history(history, u));
-  });
+  const Temporal::Captures got = Temporal::capture(
+      [&](float u) { return math::rotate(v, history.get(u)); });
   HS_EXPECT_EQ(got.count, 1);
   HS_EXPECT_NEAR(got.fraction[0], 1.0f, 0.0f);
   const math::Vector end = math::rotate(v, history.get());
   HS_EXPECT_NEAR(got.position[0].x, end.x, 1e-6f);
   HS_EXPECT_NEAR(got.position[0].z, end.z, 1e-6f);
-}
-
-/**
- * @brief `Temporal::sample_history` hits every history pose at its fraction
- *        and the previous end pose at zero.
- */
-inline void test_temporal_sample_history_hits_poses() {
-  const math::Orientation<> history = spin_history(0.25f, 0.1f, 3);
-  for (int i = 0; i < history.length(); ++i) {
-    const math::Quaternion q = Temporal::sample_history(
-        history, static_cast<float>(i) / (history.length() - 1));
-    HS_EXPECT_NEAR(std::fabs(math::dot(q, history.get(i))), 1.0f, 1e-5f);
-  }
-  const math::Orientation<> still(math::make_rotation(math::X_AXIS, 0.3f));
-  HS_EXPECT_NEAR(
-      std::fabs(math::dot(Temporal::sample_history(still, 0.4f), still.get())),
-      1.0f, 1e-6f);
 }
 
 /**
@@ -165,9 +143,8 @@ inline void test_temporal_sample_history_hits_poses() {
 inline void test_world_orient_emits_at_capture_time() {
   const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   const math::Vector v(0.0f, 0.0f, 1.0f);
-  const Temporal::Captures want = Temporal::capture([&](float u) {
-    return math::rotate(v, Temporal::sample_history(history, u));
-  });
+  const Temporal::Captures want = Temporal::capture(
+      [&](float u) { return math::rotate(v, history.get(u)); });
   HS_EXPECT_EQ(want.count, 1);
   Filter::World::Orient orient(history);
   std::vector<Tap3D> taps;

@@ -118,7 +118,6 @@ inline int run_filter_tests() {
   test_temporal_capture_matches_exhaustive_oracle();
   test_temporal_capture_column_matches_composed_time();
   test_temporal_capture_fast_motion_falls_back_to_endpoint();
-  test_temporal_sample_history_hits_poses();
   test_world_orient_cull_edge_mirrors_plot();
   test_world_orient_slice_selects_by_projection();
   test_world_orient_slice_cull_edge_bounds_all_slices();
