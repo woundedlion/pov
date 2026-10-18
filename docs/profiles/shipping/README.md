@@ -22,7 +22,6 @@ Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpac
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
 | [MermaidSkin](profile_mermaidskin_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 0/1087 (0.00%) | 2026-10-06 18:59 |
 | [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 37.08 (2) | 🟢 0/2207 (0.00%) | 2026-10-06 18:47 |
-| [GridSpace](profile_gridspace_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 36.62 | 🟢 0/1087 (0.00%) | 2026-10-17 14:47 |
 | [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 35.53 | 🟢 0/1087 (0.00%) | 2026-10-06 18:57 |
 | [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 34.97 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:45 |
 | [HankinSolids](profile_hankinsolids_teensy_2026-10-07.md) § ● | `hk_timeline_step` | 🟢 34.681 (19) | 🟢 0/4447 (0.00%) | 2026-10-07 14:18 |
@@ -32,6 +31,7 @@ Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpac
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 31.42 (3) | 🟢 0/4127 (0.00%) | 2026-10-06 19:04 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 30.03 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:58 |
 | [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 27.04 | 🟢 0/1087 (0.00%) | 2026-10-06 18:44 |
+| [GridSpace](profile_gridspace_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 25.41 | 🟢 0/1087 (0.00%) | 2026-10-17 16:58 |
 | [AlienBrain](profile_alienbrain_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 25.11 (4) | 🟢 0/4767 (0.00%) | 2026-10-06 18:35 |
 | [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.88 | 🟢 0/1087 (0.00%) | 2026-10-06 18:37 |
 | [Fishbowl](profile_fishbowl_teensy_2026-10-06.md) | `fish_build_vertices` | 🟢 23.78 | 🟢 0/1087 (0.00%) | 2026-10-06 19:07 |
