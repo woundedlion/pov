@@ -558,7 +558,7 @@ HS_FLASH_MEMBER constexpr int next_edge_toward(int node, int dest,
                                                uint32_t rnd) {
   HS_CHECK(node >= 0 && node < NUM_NODES && dest >= 0 && dest < NUM_NODES &&
                node != dest,
-           "next_edge_toward: no route between the nodes");
+           "next_edge_toward: node/dest out of range or equal");
   const int d = hops(node, dest);
   int closer = 0;
   for (int e = 0; e < NUM_EDGES; ++e)
