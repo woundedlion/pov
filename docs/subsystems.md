@@ -157,8 +157,10 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 ### Column-time sampling
 
-Composed effects can opt into `Pullback::Spec::TEMPORAL_SAMPLING`; GridSpace
-enables it. Each column samples between the previous and current animation
+Composed effects opt into `Pullback::Spec::TEMPORAL_SAMPLING` when their state
+supports continuous interpolation. The roster enables it except for MobiusGrid,
+whose animated lens coefficients currently use held interpolation. Each column
+samples between the previous and current animation
 states at `(x % (W / 2)) / float(W / 2)`. Both opposing arms use the same
 half-turn phase, independent of the rendering clip. This introduces up to one
 frame of animation delay while making the endpoint of one sweep meet the start

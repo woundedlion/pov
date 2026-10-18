@@ -1,11 +1,11 @@
 # Pullback temporal sampling
 
-Status: IMPLEMENTED for GridSpace.
+Status: IMPLEMENTED for compatible composed pullback effects.
 
 ## Timing contract
 
 `Pullback::Spec::TEMPORAL_SAMPLING` selects column-time rendering. The default
-is false. GridSpace enables it.
+is false. The composed effect roster enables it except for MobiusGrid.
 
 For an even canvas width `W`, absolute column `x` samples the interval from the
 previous animation endpoint to the current endpoint at
@@ -78,8 +78,14 @@ cases. Equal constant endpoint alpha is also shared by the column colorizer.
 Clock advances must remain below half their period, and wrapping a phase must
 preserve the spatial field. GridSpace's whole-cell affine winding meets this
 condition. Continuous parameter curves are needed for continuous changes;
-discrete controls and held Mobius coefficients remain discontinuous. A changing
-periodic-ripple period needs a separate wrap-continuity review before opt-in.
+discrete controls remain discontinuous. A changing periodic-ripple period
+needs a separate wrap-continuity review before opt-in.
+
+MobiusGrid remains excluded: its lens coefficients animate each frame, but
+parameter interpolation holds the previous coefficients until the endpoint.
+Enabling column sampling would therefore retain a lens jump at the sweep
+boundary. It needs a continuous temporal lens interpolation policy separate
+from the existing preset interpolation policy.
 
 ## Verification
 
@@ -87,6 +93,8 @@ The composed-effect tests check opposing-arm timing, forward and reverse clock
 rollover, quaternion interpolation, retained resource ownership, and actual
 GridSpace pixels under a clip crossing an opposing-arm boundary. They also check
 instantaneous rendering and resuming temporal sampling after disabling it.
+The compatible roster also checks first-frame endpoints, clipped column times,
+retained history across the runtime toggle, and direct custom shader dispatch.
 Color-policy tests check both endpoints
 and intermediate palette, hue, and alpha interpolation. Firmware size/layout
 and native arena/stack gates cover the added storage and prepared state.

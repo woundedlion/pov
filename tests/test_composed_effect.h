@@ -689,6 +689,7 @@ inline int run_composed_effect_tests() {
   test_temporal_clock_sampling();
   test_temporal_owned_resources();
   test_gridspace_temporal_pixels();
+  test_composed_temporal_roster();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
   test_catalog_semantic_export();

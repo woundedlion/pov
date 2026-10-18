@@ -444,3 +444,100 @@ inline void test_gridspace_temporal_pixels() {
     }
   }
 }
+
+/**
+ * @brief Authored effects retain endpoints across clipped draws and runtime toggles.
+ * @tparam FX Composed effect specialization.
+ * @param name Effect name for failure context.
+ */
+template <typename FX>
+inline void check_temporal_roster_pixels(const char *name) {
+  HS_CONTEXT(name);
+  if constexpr (std::is_same_v<FX, MobiusGrid<96, 20>>) {
+    HS_EXPECT_FALSE(FX::TEMPORAL_SAMPLING);
+  } else {
+    HS_EXPECT_TRUE(FX::TEMPORAL_SAMPLING);
+    reset_globals();
+    constexpr int W = 96;
+    constexpr int H = 20;
+    constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
+    FX effect;
+    effect.init();
+    Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
+                              FX::FLOAT_HUE_TABLES>
+        history;
+    const auto view = [](int x, int y) {
+      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+      return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
+                          math::TrigLUT<W, H>::cos_phi[y],
+                          SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+    };
+    const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
+      const Pixel PIXEL = expected.color * expected.alpha;
+      HS_EXPECT_NEAR(actual.r, PIXEL.r, TOLERANCE);
+      HS_EXPECT_NEAR(actual.g, PIXEL.g, TOLERANCE);
+      HS_EXPECT_NEAR(actual.b, PIXEL.b, TOLERANCE);
+    };
+
+    effect.draw_frame();
+    effect.advance_display();
+    const auto initial = effect.frame_for_test();
+    const auto first = FX::RenderPipeline::prepare(initial);
+    for (int x : {0, 1, 47, 48, 49, 95})
+      for (int y : {1, 7, 18})
+        expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
+    history.capture(initial, persistent_arena);
+    HS_EXPECT_TRUE(history.previous.palette != initial.palette);
+    if constexpr (FX::Metadata::HUE == Pullback::HueMode::NOISE) {
+      HS_EXPECT_TRUE(history.previous.hue_noise_lut != initial.hue_noise_lut);
+      HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
+                     initial.hue_rotation_lut);
+    }
+
+    effect.set_clip(3, 17, 39, 83);
+    for (bool enabled : {true, false, false, true}) {
+      Pullback::set_temporal_sampling_enabled(enabled);
+      effect.draw_frame();
+      effect.advance_display();
+      const auto current = effect.frame_for_test();
+      const auto instantaneous = FX::RenderPipeline::prepare(current);
+      const auto previous = FX::RenderPipeline::prepare(history.previous);
+      const auto start = FX::RenderPipeline::prepare(
+          Pullback::sample_frame(history.previous, current, 0.0f));
+      const auto end = FX::RenderPipeline::prepare(
+          Pullback::sample_frame(history.previous, current, 1.0f));
+      for (int x : {0, 47, 48, 95}) {
+        const auto direction = view(x, 7);
+        const Color4 BEFORE = FX::shade(direction, previous);
+        const Color4 AFTER = FX::shade(direction, instantaneous);
+        expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
+        expect_pixel(AFTER.color * AFTER.alpha, FX::shade(direction, end));
+      }
+      int changed = 0;
+      for (int x = 39; x < 83; ++x) {
+        const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
+        const auto frame = FX::RenderPipeline::prepare(
+            Pullback::sample_frame(history.previous, current, FRACTION));
+        for (int y = 3; y < 17; ++y) {
+          const auto direction = view(x, y);
+          const Color4 TEMPORAL = FX::shade(direction, frame);
+          const Color4 CURRENT = FX::shade(direction, instantaneous);
+          expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);
+          if (TEMPORAL.color * TEMPORAL.alpha != CURRENT.color * CURRENT.alpha)
+            ++changed;
+        }
+      }
+      HS_EXPECT_TRUE(changed > 0);
+      history.capture(current, persistent_arena);
+    }
+    Pullback::set_temporal_sampling_enabled(true);
+  }
+}
+
+/** @brief The compatible composed roster uses column-time rendering. */
+inline void test_composed_temporal_roster() {
+#define HS_COMPOSED_TEMPORAL(name, seconds)                                    \
+  check_temporal_roster_pixels<name<96, 20>>(#name);
+  HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_TEMPORAL)
+#undef HS_COMPOSED_TEMPORAL
+}

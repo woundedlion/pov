@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `MermaidSkin`. */
 struct MermaidSkinSpec : Pullback::Spec {
+  static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**
