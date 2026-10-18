@@ -125,6 +125,18 @@ class HealZoneCliTests(unittest.TestCase):
         self.assertEqual(self.run_cli("-o", self.output, "--force"), 1)
         self.assertFalse(self.output.exists())
 
+    def test_candidate_and_release_outputs_are_refused(self):
+        for manifest, nested in (("candidate.json", False), ("release.json", False), ("release.json", True)):
+            with self.subTest(manifest=manifest, nested=nested), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                output = root / "evaluated" / "board.kicad_pcb" if nested else root / "board.kicad_pcb"
+                output.parent.mkdir(exist_ok=True)
+                self.assertEqual(self.run_cli("-o", output), 0)
+                original = output.read_bytes()
+                (root / manifest).touch()
+                self.assertEqual(self.run_cli("-o", output, "--force"), 1)
+                self.assertEqual(output.read_bytes(), original)
+
     def test_bad_source_does_not_replace_existing_output(self):
         self.output.write_text("previous output", encoding="utf-8")
         self.source.write_text("(kicad_pcb)", encoding="utf-8")

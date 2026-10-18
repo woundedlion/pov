@@ -156,6 +156,23 @@ class MainTests(unittest.TestCase):
             self.assertIn("would heal", stdout.getvalue())
 
 
+    def test_candidate_and_release_projects_are_unchanged(self):
+        for manifest, nested in (("candidate.json", False), ("release.json", False), ("release.json", True)):
+            with self.subTest(manifest=manifest, nested=nested), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                project = root / "source" / "phantasm.kicad_pro" if nested else root / "phantasm.kicad_pro"
+                project.parent.mkdir(exist_ok=True)
+                project.write_text(self.ZEROED, encoding="utf-8")
+                with contextlib.redirect_stdout(io.StringIO()):
+                    self.assertEqual(heal_clearance.main([str(project)]), 0)
+                project.write_text(self.ZEROED, encoding="utf-8")
+                original = project.read_bytes()
+                (root / manifest).touch()
+                with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    self.assertEqual(heal_clearance.main([str(project)]), 1)
+                self.assertIn("hash-manifested", stderr.getvalue())
+                self.assertEqual(project.read_bytes(), original)
+
     def test_named_manifested_project_is_reported_by_path(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             snapshot = Path(temp_dir) / "quilter_incremental"

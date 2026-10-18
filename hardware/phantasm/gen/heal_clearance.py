@@ -9,8 +9,8 @@ The unplaced board is restored to the wider constraints its candidate boards wer
 produced under (constraints.UNPLACED_RULES / UNPLACED_DEFAULT_CLASS); every other
 project gets the routed board's fabrication floors.
 
-Hash-manifested snapshot directories -- those carrying SHA256SUMS.txt -- are skipped;
-rewriting one breaks its manifest.
+Directories carrying candidate.json or SHA256SUMS.txt, and release.json trees,
+are hash-manifested and skipped.
 
     python hardware/phantasm/gen/heal_clearance.py
 """
@@ -19,7 +19,7 @@ import glob
 import json
 import os
 from pathlib import Path
-from kicad_common import atomic_write_text
+from kicad_common import atomic_write_text, is_manifested
 import sys
 
 from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
@@ -27,11 +27,6 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, RULE_MINIMUMS,
                          apply_project_floors, rule_shortfalls)
 
 OUT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def is_manifested(path):
-    """True when path sits in a directory whose contents are hash-manifested."""
-    return os.path.exists(os.path.join(os.path.dirname(path), "SHA256SUMS.txt"))
-
 
 def project_files(paths=()):
     if paths:
