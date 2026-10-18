@@ -26,6 +26,7 @@
 #include "core/control/registry.h"
 #include "core/memory.h"
 #include "core/render/scan.h"
+#include "core/render/temporal.h"
 #include "core/math/noise_field.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"

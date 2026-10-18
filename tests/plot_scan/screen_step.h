@@ -296,7 +296,7 @@ inline void test_screen_step_axes_match_stage_walk() {
     }
     HS_EXPECT_LT(worst, 1e-4f);
   };
-  check(single, tweened.length() - 1);
-  check(composed, tweened.length() - 1);
+  check(single, tweened.length());
+  check(composed, tweened.length());
   check(replicated, 3);
 }

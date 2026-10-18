@@ -35,8 +35,8 @@ public:
 inline void test_temporal_clock_sampling() {
   HS_CONTEXT("temporal clock sampling");
   for (int x = 0; x < 144; ++x) {
-    HS_EXPECT_NEAR(Pullback::sweep_fraction(x, 288), x / 144.0f, 0.0f);
-    HS_EXPECT_NEAR(Pullback::sweep_fraction(x + 144, 288), x / 144.0f, 0.0f);
+    HS_EXPECT_NEAR(Temporal::sweep_fraction(x, 288), x / 144.0f, 0.0f);
+    HS_EXPECT_NEAR(Temporal::sweep_fraction(x + 144, 288), x / 144.0f, 0.0f);
   }
   HS_EXPECT_NEAR(Pullback::sample_clock(0.99f, 0.01f, 0.5f, 1.0f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(Pullback::sample_clock(0.01f, 0.99f, 0.5f, 1.0f), 0.0f, 1e-6f);
@@ -204,7 +204,7 @@ inline void test_temporal_custom_shade_is_authoritative() {
   TemporalShadeProbe custom;
   custom.init();
   for (bool enabled : {true, false, true}) {
-    Pullback::set_temporal_sampling_enabled(enabled);
+    Temporal::set_temporal_sampling_enabled(enabled);
     custom.draw_frame();
     custom.advance_display();
     HS_EXPECT_TRUE(custom.get_pixel(0, 0) == Pixel(500, 1000, 1500));
@@ -459,7 +459,7 @@ inline void test_gridspace_temporal_pixels() {
   }
   HS_EXPECT_TRUE(changed > 0);
 
-  Pullback::set_temporal_sampling_enabled(false);
+  Temporal::set_temporal_sampling_enabled(false);
   effect.draw_frame();
   effect.advance_display();
   const auto instantaneous =
@@ -476,13 +476,13 @@ inline void test_gridspace_temporal_pixels() {
   }
 
   history.capture(effect.frame_for_test(), persistent_arena);
-  Pullback::set_temporal_sampling_enabled(true);
+  Temporal::set_temporal_sampling_enabled(true);
   effect.draw_frame();
   effect.advance_display();
   const auto resumed = effect.frame_for_test();
   for (int x = 39; x < 83; ++x) {
     const auto frame = FX::RenderPipeline::prepare(Pullback::sample_frame(
-        history.previous, resumed, Pullback::sweep_fraction(x, W)));
+        history.previous, resumed, Temporal::sweep_fraction(x, W)));
     for (int y = 3; y < 17; ++y) {
       const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
       const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
@@ -545,7 +545,7 @@ inline void check_temporal_roster_pixels(const char *name) {
 
     effect.set_clip(3, 17, 39, 83);
     for (bool enabled : {true, false, false, true}) {
-      Pullback::set_temporal_sampling_enabled(enabled);
+      Temporal::set_temporal_sampling_enabled(enabled);
       effect.draw_frame();
       effect.advance_display();
       const auto current = effect.frame_for_test();
@@ -579,7 +579,7 @@ inline void check_temporal_roster_pixels(const char *name) {
       HS_EXPECT_TRUE(changed > 0);
       history.capture(current, persistent_arena);
     }
-    Pullback::set_temporal_sampling_enabled(true);
+    Temporal::set_temporal_sampling_enabled(true);
   }
 }
 

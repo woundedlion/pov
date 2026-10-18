@@ -66,6 +66,7 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
 #include "tests/filter/chromatic_shift.h"
 #include "tests/filter/feedback.h"
 #include "tests/filter/world_filters.h"
+#include "tests/filter/temporal_capture.h"
 #include "tests/filter/canvas_routing.h"
 #include "tests/filter/feedback_flush.h"
 #include "tests/filter/trails.h"
@@ -113,7 +114,11 @@ inline int run_filter_tests() {
   test_world_hole_radius_limits();
   test_world_hole_angular_reference();
   test_world_orient_rotates_and_keeps_static_age();
-  test_world_orient_motion_blur_sweep_ages();
+  test_world_orient_emits_at_capture_time();
+  test_temporal_capture_matches_exhaustive_oracle();
+  test_temporal_capture_column_matches_composed_time();
+  test_temporal_capture_fast_motion_falls_back_to_endpoint();
+  test_temporal_sample_history_hits_poses();
   test_world_orient_cull_edge_mirrors_plot();
   test_world_orient_slice_selects_by_projection();
   test_world_orient_slice_cull_edge_bounds_all_slices();
