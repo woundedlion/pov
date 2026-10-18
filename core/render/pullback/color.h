@@ -501,18 +501,12 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_bounded_noise_palette(
                      prepared.fraction));
 }
 
-/** @brief Colors a sample from consecutive palette resources.
+/** @brief Colors a sample with generic temporal palette interpolation.
  * @param sample Field sample to color.
  * @param prepared Column interpolation state.
  * @return Interpolated color and alpha. */
 HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
     const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
-  if (prepared.linear_noise)
-    return prepared.same_noise
-               ? apply_temporal_stationary_noise_palette(sample, prepared)
-               : apply_temporal_noise_palette(sample, prepared);
-  if (prepared.bounded_noise)
-    return apply_temporal_bounded_noise_palette(sample, prepared);
   if (prepared.fraction <= 0.0f)
     return apply_generated_palette(sample, prepared.previous);
   if (prepared.fraction >= 1.0f)
