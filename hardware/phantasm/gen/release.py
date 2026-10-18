@@ -170,8 +170,8 @@ def build(project, revision, destination=None):
     parent = destination.parent if destination else None
     if parent:
         parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix="phantasm-release-", dir=parent) as temporary:
-        stage = Path(temporary)
+    stage = Path(tempfile.mkdtemp(prefix="phantasm-release-", dir=parent))
+    try:
         source = stage / "source"
         hashes = snapshot(project, source)
         preflight(source, revision, check_copper=False)
@@ -189,6 +189,7 @@ def build(project, revision, destination=None):
         if sources(evaluated) != evaluated_hashes or sources(source) != hashes or sources(project) != hashes:
             raise ValueError("sources changed during validation/export; release refused")
         if destination is None:
+            shutil.rmtree(stage)
             print("Validation passed; no release created.")
             return
         version = subprocess.check_output([fab.kicad_cli(), "--version"], text=True).strip()
@@ -207,6 +208,9 @@ def build(project, revision, destination=None):
         })
         verify(stage)
         stage.rename(destination)
+    except BaseException:
+        print(f"Reports kept in {stage}", file=sys.stderr)
+        raise
     print(f"Release: {destination}\nRelease SHA256: {verify(destination)}")
 
 
