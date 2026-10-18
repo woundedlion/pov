@@ -2,6 +2,9 @@
 
 Status: IMPLEMENTED for compatible composed pullback effects.
 
+Remaining coverage and proposed adapters are tracked in
+[Remaining temporal seams](remaining_temporal_seams.md).
+
 ## Timing contract
 
 `Pullback::Spec::TEMPORAL_SAMPLING` selects column-time rendering. The default
