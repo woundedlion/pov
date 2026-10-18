@@ -23,6 +23,7 @@ template <typename FX> struct ComposedWhiteBox;
 
 /** @brief Pullback stage spec for `KaleidoscopeMelt`. */
 struct KaleidoscopeMeltSpec : Pullback::Spec {
+  /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
