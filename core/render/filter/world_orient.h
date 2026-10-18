@@ -75,9 +75,8 @@ public:
       pass(math::rotate(v, orientation.get()), color, age, alpha);
       return;
     }
-    const Temporal::Captures captures = Temporal::capture([&](float u) {
-      return math::rotate(v, Temporal::sample_history(orientation, u));
-    });
+    const Temporal::Captures captures = Temporal::capture(
+        [&](float u) { return math::rotate(v, orientation.get(u)); });
     for (int i = 0; i < captures.count; ++i)
       pass(captures.position[i], color, age + (1.0f - captures.fraction[i]),
            alpha);

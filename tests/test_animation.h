@@ -122,6 +122,7 @@ inline int run_animation_tests() {
   test_timeline_full_guard_rejects_overflow();
   test_timeline_remove_clear_hook_unregisters_by_ctx();
   test_orientation_upsample_then_collapse();
+  test_orientation_get_fraction_follows_history();
   test_motion_repeating_does_not_drift();
   test_motion_reanchor_after_path_swap();
   test_motion_codriven_survives_repeat_seam();

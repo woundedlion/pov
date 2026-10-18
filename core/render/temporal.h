@@ -10,7 +10,6 @@
  * for plotted points.
  */
 
-#include "core/animation/orientation.h"
 #include "core/engine/concepts.h"
 #include "core/math/3dmath.h"
 #include "core/platform/attributes.h"
@@ -119,25 +118,6 @@ capture(FunctionRef<math::Vector(float)> position) {
     }
   }
   return out;
-}
-
-/**
- * @brief Orientation along a frame's history at a frame fraction.
- * @tparam CAP Orientation capacity.
- * @param orientation History whose first entry is the previous frame's end
- *        pose and whose last entry is the current pose.
- * @param fraction Frame fraction in [0, 1].
- * @return Piecewise slerp between the neighbouring history entries.
- */
-template <int CAP>
-math::Quaternion sample_history(const math::Orientation<CAP> &orientation,
-                                float fraction) {
-  const int last = orientation.length() - 1;
-  if (last == 0)
-    return orientation.get();
-  const float s = fraction * last;
-  const int i = std::min(static_cast<int>(s), last - 1);
-  return math::slerp(orientation.get(i), orientation.get(i + 1), s - i);
 }
 
 } // namespace Temporal
