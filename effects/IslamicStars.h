@@ -465,7 +465,7 @@ private:
   /** @brief Every preset keeps the live slider values. */
   Params preset_params(size_t) const { return params; }
 
-  /** @brief Restarts the shape sequence on a manual or synchronized change.
+  /** @brief Restarts the shape sequence on a manual, synchronized, or restored change.
    *  @param change The committed preset change. */
   HS_COLD_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {

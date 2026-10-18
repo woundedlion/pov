@@ -129,7 +129,10 @@ protected:
    *          this function already did.
    */
   virtual bool apply_preset(const PresetChange &) { return false; }
-  /** @brief Runs after a successful preset change has been committed. */
+  /** @brief Runs after a successful preset change has been committed.
+   * @details A RESTORED change may be delivered from inside `Timeline::clear()`;
+   * it must not add or remove timeline events.
+   */
   virtual void preset_changed(const PresetChange &) {}
 
   /**
