@@ -3,6 +3,10 @@
 Status: PROPOSED; inventory audited on 2026-10-17 against source
 537f6606f. No additional effects are enabled by this spec.
 
+The exhaustive [effect temporal coverage inventory](effect_temporal_coverage_inventory.md)
+supersedes the partial inventory below. The solution sketches and rollout order
+in this draft are provisional pending discussion of the complete roster.
+
 ## Scope and evidence
 
 The implemented [pullback temporal sampling contract](pullback_temporal_sampling.md)
