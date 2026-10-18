@@ -281,6 +281,12 @@ inline void test_temporal_owned_resources() {
                                                    LINEAR.data()};
   const HueNoiseLutView NOISE_UNCACHED{NOISE.data(), true};
   const HueNoiseLutView NOISE_CACHED{NOISE.data(), true, LINEAR_NOISE.data()};
+#if defined(HS_TEST_FAST_MATH)
+  // Fast-math reassociates each inlined bilinear lerp independently.
+  constexpr float NOISE_TOLERANCE = 4.0f * FLT_EPSILON;
+#else
+  constexpr float NOISE_TOLERANCE = 0.0f;
+#endif
   for (int index = 0; index < 4096; ++index) {
     const HueRotationValueSample VALUE(static_cast<float>(index % 257) / 256);
     const float HUE = static_cast<float>(index - 2048) / 511;
@@ -293,7 +299,7 @@ inline void test_temporal_owned_resources() {
                                  sinf(index * 0.927f));
     const auto ADDRESS = prepare_hue_noise_sample(DIRECTION);
     HS_EXPECT_NEAR(ADDRESS.sample(NOISE_UNCACHED), ADDRESS.sample(NOISE_CACHED),
-                   0.0f);
+                   NOISE_TOLERANCE);
   }
   for (int frame = 0; frame < 4; ++frame) {
     effect.draw_frame();
