@@ -194,7 +194,7 @@ public:
               *state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
-      if (temporal_sampling_enabled()) {
+      if (Temporal::temporal_sampling_enabled()) {
         const TemporalFrameSampler sampler(history.previous, current);
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
@@ -203,7 +203,7 @@ public:
                         RenderPipeline::LINEAR_COLUMNS &&
                         &Derived::shade == &ComposedEffect::shade) {
             return [column = RenderPipeline::prepare_column(
-                        sampler.sample(sweep_fraction(x, W)),
+                        sampler.sample(Temporal::sweep_fraction(x, W)),
                         math::TrigLUT<W, H>::cos_theta(x),
                         math::TrigLUT<W, H>::sin_theta[x])](float sine,
                                                             float cosine) {
@@ -211,8 +211,9 @@ public:
                                                   column.basis);
             };
           } else {
-            return [frame = RenderPipeline::prepare(sampler.sample(
-                        sweep_fraction(x, W)))](const math::Vector &view) {
+            return [frame = RenderPipeline::prepare(
+                        sampler.sample(Temporal::sweep_fraction(x, W)))](
+                       const math::Vector &view) {
               return Derived::shade(view, frame);
             };
           }

@@ -176,7 +176,7 @@ public:
              "module-global storage)");
     // Module global: reset so a fresh engine never inherits a predecessor's.
     Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
-    Pullback::set_temporal_sampling_enabled(true);
+    Temporal::set_temporal_sampling_enabled(true);
     apply_display_geometry(0.0f, math::PI_F);
     stack_paint_canary();
 
@@ -232,7 +232,7 @@ public:
    * @details Applies on the next draw and survives effect or resolution changes.
    */
   void setTemporalSampling(bool enabled) {
-    Pullback::set_temporal_sampling_enabled(enabled);
+    Temporal::set_temporal_sampling_enabled(enabled);
   }
 
   /**

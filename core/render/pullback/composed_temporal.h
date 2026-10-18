@@ -9,34 +9,6 @@
  * @brief Retained frame endpoints and column-time sampling for composed effects.
  */
 
-#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
-namespace TemporalDetail {
-inline bool enabled = true; ///< Simulator sweep-time sampling selection.
-}
-
-/** @brief Selects sweep-time sampling for simulator presentation.
- * @param enabled Whether columns use their individual emission times. */
-inline void set_temporal_sampling_enabled(bool enabled) {
-  TemporalDetail::enabled = enabled;
-}
-
-/** @brief Whether columns use their individual emission times.
- * @return The simulator's temporal sampling mode. */
-inline bool temporal_sampling_enabled() { return TemporalDetail::enabled; }
-#else
-/** @brief Whether columns use their individual emission times.
- * @return True for physical display rendering. */
-constexpr bool temporal_sampling_enabled() { return true; }
-#endif
-
-/** @brief Column time within a two-arm half-turn.
- * @param column Absolute canvas column.
- * @param width Even canvas width.
- * @return Fraction of one effect frame, in [0, 1). */
-constexpr float sweep_fraction(int column, int width) {
-  return static_cast<float>(column % (width / 2)) / (width / 2);
-}
-
 /** @brief Interpolates the shortest arc of a periodic clock.
  * @param from Previous clock value.
  * @param to Current clock value.

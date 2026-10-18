@@ -443,7 +443,7 @@ Forward paths — Scan, Plot and `Scan::Volume` — deliver every covered pixel 
 ```cpp
 Pipeline<W, H,
     Filter::World::Trails<MAX_ITEMS>,   // 3D world-space trail decay
-    Filter::World::Orient,              // quaternion rotation + motion blur
+    Filter::World::Orient,              // capture-time quaternion rotation
     Filter::Screen::AntiAlias<W, H>     // quintic-eased 2×2 splat AA
 > filters;
 ```
@@ -451,7 +451,7 @@ Pipeline<W, H,
 ```
 filters.plot(canvas, world_position, color, age, alpha)
     → World::Trails: store for later decay, pass through
-    → World::Orient: rotate by current quaternion, adjust age
+    → World::Orient: rotate by the pose at each arm pass, adjust age
     → first screen stage: vector_to_pixel
     → Screen::AntiAlias: distribute to 4 nearest pixels
     → Pipeline<W,H> (base): canvas(x,y) = blend(color, alpha)
@@ -489,7 +489,7 @@ The tables below list the library surface, which is deliberately wider than the 
 
 | Filter | Effect |
 |---|---|
-| `World::Orient` | Rotates every incoming 3D point by the current `Orientation` quaternion. Uses the orientation history to distribute motion-blur age values across a SLERP-interpolated sweep. |
+| `World::Orient` | Rotates every incoming 3D point by its `Orientation`. With temporal sampling enabled, each point is emitted at the pose of the frame fraction in which a display arm passes it, with its age offset to that time; otherwise at the current pose. |
 | `World::Trails<Capacity>` | Stores world-space points in an arena-allocated flat buffer with a TTL countdown. On `flush()`, re-draws aged points through a `WorldTrailFn` color function. Trail items are quantized (int16 xyz + uint8 TTL); at capacity, the last occupied slot is replaced. Decay compacts slots without preserving age order. |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
 | `World::VertexReplicate<N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
@@ -1346,6 +1346,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
+│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction and capture-time solving
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly

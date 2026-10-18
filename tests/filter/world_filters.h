@@ -258,35 +258,10 @@ inline void test_world_orient_rotates_and_keeps_static_age() {
 }
 
 /**
- * @brief Verifies that with a 3-frame history the tween sweeps the trailing
- *        sub-positions (i = 1..n-1) and spreads age across one frame.
- * @details Age offsets are (1 - t) for t in {0.5, 1.0}.
- */
-inline void test_world_orient_motion_blur_sweep_ages() {
-  math::Orientation<> ori; // identity, 1 frame
-  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 4));
-  ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2)); // now 3 frames
-  Filter::World::Orient orient(ori);
-
-  int n = 0;
-  float ages[4] = {0};
-  orient.plot(math::X_AXIS, Pixel(1, 1, 1), 10.0f, 1.0f,
-              [&](const math::Vector &, const Pixel &, float age, float) {
-                if (n < 4)
-                  ages[n] = age;
-                ++n;
-              });
-  // tween emits len-1 = 2 taps (i=1,2), t in {0.5, 1.0} -> age + {0.5, 0.0}.
-  HS_EXPECT_EQ(n, 2);
-  HS_EXPECT_NEAR(ages[0], 10.5f, 1e-4f);
-  HS_EXPECT_NEAR(ages[1], 10.0f, 1e-4f);
-}
-
-/**
- * @brief Verifies Orient's clip-cull re-emits the edge under the same tween
- *        rotations plot() applies, short-circuits on the first hit, rotates a
- *        planar basis alongside the endpoints, and keeps an edge the bound
- *        orientation carries into the band.
+ * @brief Verifies Orient's clip-cull re-emits the edge under every history
+ *        pose plot() can capture between, short-circuits on the first hit,
+ *        rotates a planar basis alongside the endpoints, and keeps an edge the
+ *        bound orientation carries into the band.
  */
 inline void test_world_orient_cull_edge_mirrors_plot() {
   static_assert(Filter::has_cull_edge<Filter::World::Orient>);
@@ -295,22 +270,20 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
   ori.push(math::make_rotation(math::Y_AXIS, math::PI_F / 2)); // now 3 frames
   const Filter::World::Orient orient(ori);
 
-  math::Vector seen[2];
+  math::Vector seen[3];
   int n = 0;
   bool hit = orient.cull_edge(
       math::X_AXIS, math::X_AXIS, nullptr,
       [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
-        if (n < 2)
+        if (n < 3)
           seen[n] = a;
         ++n;
         return false;
       });
   HS_EXPECT_FALSE(hit);
-  // tween skips index 0, so the sweep is frames 1 and 2 — the same copies plot()
-  // draws.
-  HS_EXPECT_EQ(n, 2);
-  for (int i = 0; i < 2; ++i) {
-    math::Vector expected = math::rotate(math::X_AXIS, ori.get(i + 1));
+  HS_EXPECT_EQ(n, 3);
+  for (int i = 0; i < 3; ++i) {
+    math::Vector expected = math::rotate(math::X_AXIS, ori.get(i));
     HS_EXPECT_NEAR(seen[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(seen[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(seen[i].z, expected.z, 1e-4f);
@@ -328,19 +301,19 @@ inline void test_world_orient_cull_edge_mirrors_plot() {
 
   // A planar edge rotates its basis alongside the endpoints.
   const math::Basis pb{math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
-  math::Vector normals[2];
+  math::Vector normals[3];
   n = 0;
   orient.cull_edge(
       math::X_AXIS, math::X_AXIS, &pb,
       [&](const math::Vector &, const math::Vector &, const math::Basis *bp) {
-        if (bp && n < 2)
+        if (bp && n < 3)
           normals[n] = bp->v;
         ++n;
         return false;
       });
-  HS_EXPECT_EQ(n, 2);
-  for (int i = 0; i < 2; ++i) {
-    math::Vector expected = math::rotate(math::Y_AXIS, ori.get(i + 1));
+  HS_EXPECT_EQ(n, 3);
+  for (int i = 0; i < 3; ++i) {
+    math::Vector expected = math::rotate(math::Y_AXIS, ori.get(i));
     HS_EXPECT_NEAR(normals[i].x, expected.x, 1e-4f);
     HS_EXPECT_NEAR(normals[i].y, expected.y, 1e-4f);
     HS_EXPECT_NEAR(normals[i].z, expected.z, 1e-4f);

@@ -22,7 +22,7 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [Plot Primitives](#plot-primitives)
 - [The Animation System](#the-animation-system-animationh)
   - [Animation Types](#animation-types)
-  - [Orientation and Motion Blur](#orientation-and-motion-blur)
+  - [Orientation history](#orientation-history)
   - [OrientationTrail](#orientationtrail)
   - [VectorTrail and QuantizedVectorTrail](#vectortrail-and-quantizedvectortrail)
   - [`tween` and `deep_tween`](#tween-and-deep_tween)
@@ -415,14 +415,14 @@ transfer the block without allocating and leave the source empty. These
 blocks remain reserved until the arena is reset and must outlive their
 animations. GnomonicStars spawns one pinned warp per effect initialization.
 
-### Orientation and Motion Blur
+### Orientation history
 
-`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. The `Filter::World::Orient` filter iterates over this history to distribute motion blur: each point is plotted once per orientation step, with the `age` field increasing backward in time. This means fast-rotating effects naturally show streak-like motion blur with no extra code.
+`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose. The `Filter::World::Orient` filter samples this history at the frame fraction in which a display arm passes each point (`Temporal::capture`), so a rotating effect is drawn as the arms see it rather than jumping at the sweep boundary; the `age` field increases backward in time by the remaining fraction.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
 // orientation.length() upsamples to min(substeps + 1, CAP) when larger
-// Filter::World::Orient distributes all steps → motion blur
+// Filter::World::Orient samples the steps at each point's capture time
 ```
 
 `Orientation::upsample(count)` resamples the orientation history to a higher resolution via SLERP. This is used to rewrite the history when combining multiple animations for accurate parallel sub-frame path tracing — ensuring that concurrent rotations, motions, and walks all contribute to a single coherent set of intermediate orientations.
@@ -443,7 +443,7 @@ Two traversal helpers linearize multi-level orientation history into a single ca
 
 | Function | Input | Description |
 |---|---|---|
-| `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ (0, 1]`. Sub-frame 0 is the pose carried over from the previous frame's end and is skipped unless it is the only snapshot (which reads `t = 1`, age-neutral). Used by `Filter::World::Orient` to distribute motion blur. |
+| `tween(orientation, callback)` | `Orientation<CAP>` | Iterates over the sub-frame quaternion history of a single orientation, calling `callback(quaternion, t)` for each step with `t ∈ (0, 1]`. Sub-frame 0 is the pose carried over from the previous frame's end and is skipped unless it is the only snapshot (which reads `t = 1`, age-neutral). |
 | `deep_tween(trail, callback)` | `OrientationTrail` (any `Tweenable`) | Flattens a trail of orientations into a single continuous traversal, calling `callback(quaternion, t)` with a global `t` spanning all frames and sub-frames. Used by the orientation-trail effects (Comets, Fishbowl) for rendering trails with full sub-frame accuracy. A bare `Orientation` has no per-frame structure to flatten and is rejected by the `Tweenable` concept — use `tween` for that. |
 | `deep_tween_frames(trail, callback)` | `OrientationTrail` (any `Tweenable`) | One callback per contributing trail frame, `callback(qs, ts, count)`; concatenated `(qs, ts)` follows `deep_tween` emission order. `qs` points into frame storage and `ts` into a buffer reused across callbacks; neither pointer outlives the call. RingSpin preserves frame boundaries with this traversal. |
 
@@ -453,7 +453,7 @@ Parameter and motion animations mutate external state that the rendering pipelin
 
 | Animation | Target State | What It Mutates |
 |---|---|---|
-| `Rotation`, `RandomWalk`, `Motion` | `Orientation<CAP>` | Quaternion orientation — upsamples the history to the frame's sub-step count (capped at CAP) and writes each sub-step's rotation, which `Filter::World::Orient` reads for motion blur |
+| `Rotation`, `RandomWalk`, `Motion` | `Orientation<CAP>` | Quaternion orientation — upsamples the history to the frame's sub-step count (capped at CAP) and writes each sub-step's rotation, which `Filter::World::Orient` samples at capture time |
 | `Transition` | `float*` | Smoothly interpolates any float parameter (e.g. `speed`, `alpha`, `twist`) from current value to target with easing |
 | `Mutation` | `float*` | Applies an arbitrary scalar function `f(t)` to a float over time (more general than `Transition`) |
 | `Progress` | `void(float)` callback | Hands the caller eased progress each frame and writes nothing itself; every composed preset transition uses it to blend the authored parameter states |
