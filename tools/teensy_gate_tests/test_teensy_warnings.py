@@ -197,10 +197,10 @@ class TestWarningGateCaptureEvidence(unittest.TestCase):
     def test_log_with_no_compiles_fails_even_with_zero_warnings(self):
         self.assertEqual(self._run("Environment    Status    Duration\nphantasm  SUCCESS\n"), 1)
 
-    def test_log_with_first_party_compiles_and_no_new_warnings_passes(self):
+    def test_log_with_first_party_compiles_and_no_warnings_passes(self):
         self.assertEqual(self._run(self.PIO_BANNER + "\n" + self.PIO_LINE + "\n"), 0)
 
-    def test_capture_evidence_does_not_mask_a_new_warning(self):
+    def test_capture_evidence_does_not_mask_a_warning(self):
         log = (self.PIO_BANNER + "\n" + self.PIO_LINE
                + "\ncore/render/sdf.h:9:1: warning: novel [-Wnovel]\n")
         self.assertEqual(self._run(log), 1)
