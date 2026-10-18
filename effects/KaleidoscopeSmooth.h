@@ -23,6 +23,7 @@ template <typename FX> struct ComposedWhiteBox;
 
 /** @brief Stage spec for `KaleidoscopeSmooth`. */
 struct KaleidoscopeSmoothSpec : Pullback::Spec {
+  /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   /** @brief Folder title for a pipeline group.
    *  @param group Stable group name.

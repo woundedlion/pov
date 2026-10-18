@@ -19,6 +19,7 @@
 
 /** @brief Stage spec for `KaleidoscopeHexBright`. */
 struct KaleidoscopeHexBrightSpec : Pullback::Spec {
+  /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
