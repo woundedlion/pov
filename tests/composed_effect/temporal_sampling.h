@@ -49,10 +49,14 @@ inline void test_temporal_clock_sampling() {
   to.params = from.params;
   from.resources.template get<"outer_warp">().phase = 0.99f;
   to.resources.template get<"outer_warp">().phase = 0.01f;
+  from.resources.template get<"outer_warp">().rotation = 6.25f;
+  to.resources.template get<"outer_warp">().rotation = 0.03f;
   to.outer_conjugate = math::make_rotation(math::Y_AXIS, 0.4f);
   const auto middle = Pullback::sample_frame(from, to, 0.5f);
   HS_EXPECT_NEAR(middle.resources.template get<"outer_warp">().phase, 1.0f,
                  1e-6f);
+  HS_EXPECT_NEAR(middle.resources.template get<"outer_warp">().rotation,
+                 6.281592653589793f, 1e-6f);
   const math::Quaternion EXPECTED = math::make_rotation(math::Y_AXIS, 0.2f);
   HS_EXPECT_NEAR(math::dot(middle.outer_conjugate, EXPECTED), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(Pullback::sample_frame(from, to, 0.0f)
@@ -110,6 +114,12 @@ inline void test_temporal_clock_sampling() {
             HS_EXPECT_NEAR(family.*field.member, expected_family.*field.member,
                            0.0f);
         });
+        HS_EXPECT_NEAR(actual.resources.template get<"outer_warp">().rotation,
+                       expected.resources.template get<"outer_warp">().rotation,
+                       0.0f);
+        if (column == 72)
+          HS_EXPECT_NEAR(actual.resources.template get<"outer_warp">().rotation,
+                         6.281592653589793f, 1e-6f);
         const auto &a = actual.resources.template get<"source">();
         const auto &b = expected.resources.template get<"source">();
         HS_EXPECT_NEAR(a.primary, b.primary, 0.0f);
@@ -120,6 +130,30 @@ inline void test_temporal_clock_sampling() {
                        expected.resources.template get<"outer_warp">().phase,
                        0.0f);
       }
+    }
+  }
+
+  using SurfaceParams = Pullback::ComposedDetail::ParameterSet<
+      Pullback::ComposedDetail::ResourceList<
+          Pullback::ParameterResource<"surface", Pullback::SurfaceNoiseParams,
+                                      Pullback::ResourceKind::SURFACE>>>;
+  Pullback::TemporalFrameState<SurfaceParams> surface_from{}, surface_to{};
+  surface_from.resources.template get<"surface">().phase = 0.99f;
+  surface_to.resources.template get<"surface">().phase = 0.01f;
+  const Pullback::TemporalFrameSampler surface_sampler(surface_from,
+                                                       surface_to);
+  for (int column = 0; column <= 144; ++column) {
+    const float FRACTION = column / 144.0f;
+    const auto actual = surface_sampler.sample(FRACTION);
+    const auto expected =
+        Pullback::sample_frame(surface_from, surface_to, FRACTION);
+    HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
+                   expected.resources.template get<"surface">().phase, 0.0f);
+    if (column == 72) {
+      HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase, 1.0f,
+                     1e-6f);
+      HS_EXPECT_NEAR(expected.resources.template get<"surface">().phase, 1.0f,
+                     1e-6f);
     }
   }
 
