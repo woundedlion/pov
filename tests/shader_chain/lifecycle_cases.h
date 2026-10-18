@@ -182,15 +182,18 @@ inline void test_shader_chain_refusal_budget_overflows() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
+  const In::FrameContext ctx = shared_resources().context();
+  exact->program.prepare(ctx);
+  SweepColors baseline;
+  snapshot_render(exact->program, ctx, baseline);
+  expect_sweep_live(baseline);
   const In::ChainRefusal rejected = exact->program.compile(longer);
   HS_EXPECT_EQ(static_cast<int>(rejected.code),
                static_cast<int>(In::ChainStatus::ARENA_OVERFLOW));
   HS_EXPECT_EQ(exact->program.ops().size(), 4u);
-  const In::FrameContext ctx = shared_resources().context();
-  exact->program.prepare(ctx);
-  const Color4 color =
-      exact->program.evaluate(math::Vector(1, 1, 1).normalized(), ctx);
-  HS_EXPECT_TRUE(std::isfinite(color.alpha));
+  SweepColors after;
+  snapshot_render(exact->program, ctx, after);
+  expect_sweep_identical(after, baseline);
   exact->program.clear();
 
   // Schema-field budget: one fat operator overflows MAX_CHAIN_PARAMS.
