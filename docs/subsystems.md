@@ -9,6 +9,7 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [Shader Signatures](#shader-signatures)
   - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
   - [Composed pullback metadata](#composed-pullback-metadata)
+  - [Column-time sampling](#column-time-sampling)
   - [Spherical ray rendering](#spherical-ray-rendering)
 - [SDF Shapes and the Scan Rasterizer](#sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
   - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
