@@ -1,5 +1,7 @@
 # Shipping selective-O3 profiles
 
+Composed-effect rows captured before 2026-10-17 predate per-column temporal sampling; [GridSpace's matched A/B](profile_gridspace_teensy_2026-10-17.md) measures about +11% mean live-render time for that path.
+
 Ranked on-device results for the shipping `profile` image, covering the
 36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
 Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
