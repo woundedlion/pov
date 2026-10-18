@@ -29,8 +29,7 @@ if(NOT _compare_rc EQUAL 0)
     "hardware/pov_segment_map.json is out of sync with "
     "hardware/pov_segment_map.h.\n"
     "Diff it against the regenerated golden: ${GENERATED}\n"
-    "Regenerate with: cmake --build --preset tests --target pov_segment_map_gen "
-    "&& build/tests/tests/pov_segment_map_gen > hardware/pov_segment_map.json\n"
+    "Regenerate with: cmake -E copy \"${GENERATED}\" \"${COMMITTED}\"\n"
     "Then re-run the WASM install so the daydream checkout's copy travels with "
     "the module, and commit both.")
 endif()

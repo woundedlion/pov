@@ -5,7 +5,7 @@
  * Emits hardware/pov_segment_map.h's segment->canvas mapping as JSON on stdout:
  * per (S, N) config, each segment's arm side, LED-0 row, strip direction and
  * row traversal, plus arm-A/arm-B sampled columns and segment_clip bands per
- * canvas width. Writes hardware/pov_segment_map.json; regenerate with:
+ * canvas width. Regenerate hardware/pov_segment_map.json in a POSIX shell:
  *   cmake --build --preset tests --target pov_segment_map_gen
  *   build/tests/tests/pov_segment_map_gen > hardware/pov_segment_map.json
  */
