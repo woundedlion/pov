@@ -33,7 +33,15 @@ static_assert(!ConwayGraph::is_platonic(
 
 /** Leg budget within which the ordered sweep cycle must have visited every
  * node. */
-constexpr int SOAK_LEG_BOUND = 192;
+constexpr int SOAK_LEG_BOUND = [] {
+  int legs = 0;
+  for (int offset = 0; offset < ConwayGraph::NUM_NODES; ++offset) {
+    const int NODE =
+        (ConwayGraph::TETRAHEDRON + offset) % ConwayGraph::NUM_NODES;
+    legs += ConwayGraph::hops(NODE, (NODE + 1) % ConwayGraph::NUM_NODES);
+  }
+  return legs;
+}();
 
 /** Extra legs run past full coverage so late-arriving leaf states also get
  * revisit (steady-state) checks. */
