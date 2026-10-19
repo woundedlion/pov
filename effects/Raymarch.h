@@ -550,8 +550,8 @@ private:
         scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
     auto *cameras = scratch_arena_a.allocate_n<math::Quaternion>(W / 2);
     const Temporal::TemporalRotation path(camera.get(0), camera.get());
-    for (int c = 0; c < W / 2; ++c)
-      cameras[c] = path.sample(Temporal::sweep_fraction(c, W));
+    path.for_each_sweep_sample(
+        W, [&](int c, const math::Quaternion &at) { cameras[c] = at; });
     return cameras;
   }
 
@@ -569,9 +569,9 @@ private:
                                             const math::Quaternion &previous,
                                             const math::Quaternion &current) {
     const Temporal::TemporalRotation path(previous, current);
-    for (int c = 0; c < W / 2; ++c)
-      columns.set(c, math::rotate(point, cameras[c]),
-                  path.sample(Temporal::sweep_fraction(c, W)));
+    path.for_each_sweep_sample(W, [&](int c, const math::Quaternion &at) {
+      columns.set(c, math::rotate(point, cameras[c]), at);
+    });
   }
 
   struct VolumeSpin {
