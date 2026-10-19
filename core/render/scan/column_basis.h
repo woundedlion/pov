@@ -189,15 +189,15 @@ struct LitCap {
  * @param radius Angular radius of that cap (radians).
  * @param time Column-time state with a rotated basis.
  * @param lit Receives the re-centred cap.
- * @return False when the swept cap holds a pole or spans an arm boundary,
- *         where the seeing columns' times wrap; the caller then sweeps the
- *         whole frame.
+ * @return False when the re-centred cap would pass a hemisphere; the caller
+ *         then sweeps the cap through the whole frame.
  * @details Column `x` sees the shape turned by the inverse of the rotation
- * that maps its fixed-meridian frame to its table entry. The swept cap bounds
- * the columns that can see the shape; between two of them that turn changes
- * by at most `time.sweep` times their fraction difference, so the cap turned
- * to the middle column's time and widened by that arc covers every column's
- * view.
+ * that maps its fixed-meridian frame to its table entry; between two columns
+ * that turn changes by at most `time.sweep` times their fraction difference.
+ * The swept cap bounds the columns that can see the shape. When they stay on
+ * one arm, clear of the poles, the cap turned to their middle column's time
+ * and widened by that arc covers every column's view; otherwise the cap turned
+ * to mid-frame and widened by half the frame's turn does.
  */
 template <int W, int H>
 inline bool lit_cap(const math::Vector &axis, float radius,
@@ -209,22 +209,28 @@ inline bool lit_cap(const math::Vector &axis, float radius,
   const float reach =
       radius + time.sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
   const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
+  int first = 0, last = HALF - 1;
   // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)
   // bounds the cap's azimuth half-width asin(sin(reach) / r_val).
-  if (!(reach < r_val))
-    return false;
-  const float half =
-      (0.5f * math::PI_F - math::fast_acos(reach / r_val)) / COLUMN;
-  const float center = math::fast_atan2(axis.z, axis.x) / COLUMN;
-  const int lo = static_cast<int>(floorf(center - half));
-  const int hi = static_cast<int>(ceilf(center + half));
-  const int arm_start =
-      (lo >= 0 ? lo / HALF : -((HALF - 1 - lo) / HALF)) * HALF;
-  if (hi >= arm_start + HALF)
-    return false;
-  const int first = lo - arm_start;
-  const int last = hi - arm_start;
+  if (reach < r_val) {
+    const float half =
+        (0.5f * math::PI_F - math::fast_acos(reach / r_val)) / COLUMN;
+    const float center = math::fast_atan2(axis.z, axis.x) / COLUMN;
+    const int lo = static_cast<int>(floorf(center - half));
+    const int hi = static_cast<int>(ceilf(center + half));
+    const int arm_start =
+        (lo >= 0 ? lo / HALF : -((HALF - 1 - lo) / HALF)) * HALF;
+    if (hi < arm_start + HALF) {
+      first = lo - arm_start;
+      last = hi - arm_start;
+    }
+  }
   const int m = (first + last) / 2;
+  const float arc =
+      time.sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
+      ColumnBasis<W, H>::SWEEP_PAD;
+  if (!(radius + arc < 0.5f * math::PI_F))
+    return false;
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   const math::Vector &e = time.azimuth[m];
@@ -236,9 +242,7 @@ inline bool lit_cap(const math::Vector &axis, float radius,
   const float ct = math::TrigLUT<W, H>::cos_theta_data()[m];
   const float st = math::TrigLUT<W, H>::sin_theta[m];
   lit.axis = math::Vector(a * ct - c * st, b, a * st + c * ct);
-  lit.arc =
-      time.sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
-      ColumnBasis<W, H>::SWEEP_PAD;
+  lit.arc = arc;
   return true;
 }
 
