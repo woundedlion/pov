@@ -158,13 +158,12 @@ struct Ring {
    *         widened by @p arc; its distance() is not the turned ring's.
    */
   Ring moved(const math::Vector &axis, float arc) const {
-    Ring out = swept(arc);
-    const AxisProjection ap = project_axis(axis);
+    Ring out = swept(arc + MOVED_AXIS_SLACK);
     out.normal = axis;
-    out.ny = ap.ny;
-    out.center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
-    out.r_val = ap.r_val;
-    out.alpha_angle = ap.alpha_angle;
+    out.ny = axis.y;
+    out.center_phi = math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
+    out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
+    out.alpha_angle = math::fast_atan2(axis.z, axis.x);
     return out;
   }
 

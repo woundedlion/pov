@@ -768,6 +768,40 @@ inline CapBounds swept_cap(const CapBounds &cap, float arc) {
   return out;
 }
 
+/// Angle a cap or band grows by when re-centred on an axis located with
+/// fast_atan2 and fast_acos, covering their peak errors (~3.8e-3, 5e-5 rad).
+inline constexpr float MOVED_AXIS_SLACK = 4e-3f;
+
+/**
+ * @brief Re-centres a bounding cap on another axis and grows it by an arc.
+ * @param cap Cap covering the shape about its own axis.
+ * @param radius The cap's angular radius (radians), at most PI / 2 less @p
+ *        arc.
+ * @param axis New cap axis (unit).
+ * @param arc Growth (radians), including MOVED_AXIS_SLACK.
+ * @return A cap about @p axis whose radius cosine and sine bound
+ *         cos(radius + arc) from below and sin(radius + arc) from above, with
+ *         the latitude band widened to match.
+ * @details sin(a) <= a and cos(a) >= 1 - a * a / 2 give the bounds without a
+ * transcendental call.
+ */
+inline CapBounds moved_cap(const CapBounds &cap, float radius,
+                           const math::Vector &axis, float arc) {
+  CapBounds out;
+  out.ny = axis.y;
+  out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
+  out.alpha_angle = math::fast_atan2(axis.z, axis.x);
+  const float center_phi =
+      math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
+  const float margin = radius + BOUNDS_MARGIN_WIDE + arc;
+  out.phi_min = std::max(0.0f, center_phi - margin);
+  out.phi_max = std::min(math::PI_F, center_phi + margin);
+  out.cos_radius =
+      cap.cos_radius * (1.0f - 0.5f * arc * arc) - cap.sin_radius * arc;
+  out.sin_radius = cap.sin_radius + cap.cos_radius * arc;
+  return out;
+}
+
 /**
  * @brief Emit the single horizontal interval where a row crosses a spherical
  * cap of angular radius `acos(cos_cap)` centred on an axis whose projection
