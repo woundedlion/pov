@@ -1489,13 +1489,14 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   const auto xc = cr.x_clip();
   // A drifting shape scans its own basis table, filled for the columns its
   // bounds reach.
-  ScratchScope drift_scratch(scratch_arena_b);
+  std::optional<ScratchScope> drift_scratch;
   const bool drifting =
       time.azimuth && math::dot(time.drift, time.drift) > 0.0f;
   Temporal::ColumnTime drifted;
   const Temporal::ColumnTime *view = &time;
   bool drift_filled = !drifting;
   if (drifting) {
+    drift_scratch.emplace(scratch_arena_b);
     drifted = begin_drift_columns<W>(scratch_arena_b, time);
     view = &drifted;
   }
