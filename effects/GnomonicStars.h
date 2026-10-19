@@ -134,6 +134,13 @@ private:
     Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation, drifting);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
+    // A star that cannot reach the clip over the frame, drifting included,
+    // draws nothing.
+    const bool culls = radius <= 1.0f && !params.debug_bb && !canvas.debug();
+    const float reach = radius * (math::PI_F / 2.0f);
+    const float sweep =
+        (column_time.azimuth ? column_time.sweep : 0.0f) + MAX_DRIFT;
+    const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     for (int i = 0; i < points; i++) {
       math::Vector v = transformer.transform(spiral_cache[i]);
       const math::Vector drawn = drawn_centres[i];
@@ -141,6 +148,8 @@ private:
 
       // make_basis() applies the orientation; pass the unrotated point.
       math::Basis basis = math::make_basis(orientation.get(), v);
+      if (culls && !Scan::cap_meets_clip<W, H>(basis.v, reach, sweep, clip))
+        continue;
       if (drifting) {
         const math::Vector drift = star_drift(drawn, v);
         column_time.drift =
