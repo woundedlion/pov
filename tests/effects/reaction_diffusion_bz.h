@@ -44,6 +44,26 @@ struct BZWhiteBox {
     std::vector<float> fA(N), fB(N), fC(N);
     bz.step_physics(sA, sB, sC, fA.data(), fB.data(), fC.data());
   }
+  static constexpr int STEPS = BZ::STEPS_PER_FRAME;
+  using Species = std::array<std::vector<uint16_t>, 3>;
+  static Species species(const BZ &bz) {
+    return {std::vector<uint16_t>(bz.state.A, bz.state.A + N),
+            std::vector<uint16_t>(bz.state.B, bz.state.B + N),
+            std::vector<uint16_t>(bz.state.C, bz.state.C + N)};
+  }
+  static void set_species(BZ &bz, const Species &species) {
+    std::copy(species[0].begin(), species[0].end(), bz.state.A);
+    std::copy(species[1].begin(), species[1].end(), bz.state.B);
+    std::copy(species[2].begin(), species[2].end(), bz.state.C);
+  }
+  static void advance(BZ &bz, int substeps) { bz.advance(substeps); }
+  static void shade_frame(BZ &bz) {
+    {
+      Canvas canvas(bz);
+      bz.shade(canvas);
+    }
+    bz.advance_display();
+  }
   static void set_state(BZ &bz, uint16_t *a, uint16_t *b, uint16_t *c) {
     bz.state.A = a;
     bz.state.B = b;
@@ -551,4 +571,109 @@ inline void test_bz_untimed_frames_are_pinned() {
   HS_EXPECT_EQ(CLIPPED, 1714733901857061968ull);
   HS_EXPECT_EQ(SHIPPED, 17694119961486000274ull);
 #endif
+}
+
+/**
+ * @brief Each sweep slab shows the field after the substep that ends its share
+ *        of the frame, on both arms, from the first frame on; with temporal
+ *        sampling disabled every column shows the frame's final field, and
+ *        toggling it leaves the simulation unchanged.
+ */
+inline void test_bz_slabs_shade_the_field_after_their_substep() {
+  using WhiteBox = BZWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H, STEPS = WhiteBox::STEPS;
+  constexpr bool TOGGLED[] = {true, true, false, false, true};
+  int earlier = 0;
+  auto run = [&](bool check) {
+    reset_effect_globals();
+    WhiteBox::BZ bz;
+    bz.init();
+    for (int f = 0; f < static_cast<int>(std::size(TOGGLED)); ++f) {
+      const bool enabled = check ? TOGGLED[f] : false;
+      HS_CONTEXT("frame, temporal sampling", f, enabled);
+      Temporal::set_temporal_sampling_enabled(enabled);
+      const WhiteBox::Species before = WhiteBox::species(bz);
+      const hs::Pcg32 rng = hs::random();
+      bz.draw_frame();
+      bz.advance_display();
+      if (!check)
+        continue;
+      std::vector<Pixel> frame;
+      capture_frame<W, H>(bz, frame);
+      const WhiteBox::Species after = WhiteBox::species(bz);
+      WhiteBox::set_species(bz, before);
+      hs::random() = rng;
+      std::vector<std::vector<Pixel>> fields(STEPS);
+      for (int k = 0; k < STEPS; ++k) {
+        WhiteBox::advance(bz, 1);
+        WhiteBox::shade_frame(bz);
+        capture_frame<W, H>(bz, fields[k]);
+      }
+      HS_EXPECT(WhiteBox::species(bz) == after,
+                "replayed substeps must reach the frame's field");
+      for (int x = 0; x < W; ++x) {
+        const int slab =
+            enabled ? static_cast<int>(Temporal::sweep_fraction(x, W) * STEPS)
+                    : STEPS - 1;
+        for (int y = 0; y < H; ++y) {
+          HS_CONTEXT("px", x, y);
+          const size_t i = static_cast<size_t>(y) * W + x;
+          HS_EXPECT_TRUE(frame[i] == fields[slab][i]);
+          earlier += enabled && fields[slab][i] != fields[STEPS - 1][i];
+        }
+      }
+    }
+    Temporal::set_temporal_sampling_enabled(true);
+    return WhiteBox::species(bz);
+  };
+  const WhiteBox::Species toggled = run(true);
+  HS_EXPECT_GT(earlier, 0);
+  HS_EXPECT(run(false) == toggled,
+            "temporal sampling must not change the simulation");
+}
+
+/**
+ * @brief Slab-wise BZ frames rendered in display bands, including bands across
+ *        arm and slab boundaries, match the full-canvas frames.
+ */
+inline void test_bz_segmented_slabs_match_full_frame() {
+  using BZ = BZWhiteBox::BZ;
+  constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 3;
+  auto render = [](int x0, int x1) {
+    reset_effect_globals();
+    pin_frame_clock(0);
+    BZ bz;
+    bz.init();
+    bz.set_clip(0, H, x0, x1);
+    std::vector<Pixel> out;
+    for (int f = 0; f < FRAMES; ++f) {
+      pin_frame_clock(f);
+      bz.draw_frame();
+      bz.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = x0; x < x1; ++x)
+          out.push_back(bz.get_pixel(x, y));
+    }
+    hs::clear_mock_time();
+    return out;
+  };
+  const std::vector<Pixel> full = render(0, W);
+  size_t lit = 0;
+  for (const Pixel &p : full)
+    lit += !is_black(p);
+  HS_EXPECT_GT(lit, static_cast<size_t>(0));
+  const std::array<std::array<int, 2>, 4> bands{
+      {{0, 30}, {20, 60}, {44, 52}, {70, W}}};
+  for (const auto &[x0, x1] : bands) {
+    HS_CONTEXT("band", x0, x1);
+    const std::vector<Pixel> band = render(x0, x1);
+    size_t next = 0;
+    int mismatches = 0;
+    for (int f = 0; f < FRAMES; ++f)
+      for (int y = 0; y < H; ++y)
+        for (int x = x0; x < x1; ++x)
+          mismatches +=
+              band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
+    HS_EXPECT_EQ(mismatches, 0);
+  }
 }

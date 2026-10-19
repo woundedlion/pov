@@ -1367,6 +1367,11 @@ through `init_lattice<true>()`. Its arena-budget check takes the matching `FLASH
 per-frame scratch allocation. GS uses flash positions, releasing 92,160 bytes of
 persistent storage for its palette cache. BZ retains the arena-backed default.
 
+BZ advances and shades through `Temporal::simulate_in_slabs`, one sweep slab
+per substep. Its species are Q16 between substeps, so each slab orients the
+lattice into the scratch the physics mirrors released; the orientation is held
+for the whole frame. GS keeps the frame-wide order.
+
 GS reuses the lattice cubemap projection for noise sampling, reversing the
 horizontal coordinate on the X faces and the vertical coordinate on the Y faces
 to match the noise cubemap orientation.

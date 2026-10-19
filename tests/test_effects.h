@@ -629,6 +629,8 @@ inline int run_effects_tests() {
   run_case(test_bz_raster_matches_reference);
   run_case(test_bz_render_center_matches_reference);
   run_case(test_bz_untimed_frames_are_pinned);
+  run_case(test_bz_slabs_shade_the_field_after_their_substep);
+  run_case(test_bz_segmented_slabs_match_full_frame);
   run_case(test_gs_untimed_frames_are_pinned);
   run_case(test_dreamballs_preset_cycle_bookkeeping);
   CometsWhiteBox::check_paths_close();
