@@ -149,4 +149,5 @@ inline void test_column_time_scans_engage_with_fidelity_on() {
   check_column_time_scans_engage<HankinSolids>("HankinSolids");
   check_column_time_scans_engage<IslamicStars>("IslamicStars");
   check_column_time_scans_engage<GnomonicStars>("GnomonicStars");
+  check_column_time_scans_engage<ShapeShifter>("ShapeShifter");
 }
