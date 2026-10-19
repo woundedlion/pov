@@ -30,6 +30,11 @@ struct ShaderChainWhiteBox {
     return *static_cast<const In::Op::ColorClockState *>(
         effect.program.state_block(static_cast<size_t>(effect.colorize.index)));
   }
+  /** The retained previous frame context, its palettes and hue tables owned
+      by the effect. */
+  static const In::FrameContext &previous_context(const FX &effect) {
+    return effect.resources->context.previous;
+  }
   /** The frame snapshot draw_frame() hands the program, hue bakes included. */
   static In::FrameContext frame_context(FX &effect) {
     return effect.make_frame_context(effect.colorize);

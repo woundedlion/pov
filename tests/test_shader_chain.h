@@ -472,6 +472,13 @@ inline int run_shader_chain_tests() {
   test_shader_chain_param_names_and_budget();
   test_shader_chain_composed_frame_parity();
   test_shader_chain_instantaneous_pixel_golden();
+  test_shader_chain_columns_follow_sweep_time();
+  test_shader_chain_segmented_matches_single_engine();
+  test_shader_chain_discrete_changes_reset_history();
+  test_shader_chain_fidelity_toggle_keeps_history();
+  test_shader_chain_palettes_blend_across_the_frame();
+  test_shader_chain_column_params_interpolate();
+  test_shader_chain_operator_states_sample_clocks();
   test_shader_chain_effect_registers_params();
   test_shader_chain_parameter_admission();
   test_shader_chain_edge_distance_admission();

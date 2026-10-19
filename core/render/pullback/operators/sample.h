@@ -31,6 +31,25 @@ struct SourceClockState {
   float angle = 0.0f;     ///< Rotation angle, radians wrapped at 2π.
 };
 
+/**
+ * @brief Samples the source phase clocks between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(SourceClockState &out, const SourceClockState &from,
+                            const SourceClockState &to, const Params &,
+                            float fraction) {
+  out.primary =
+      sample_clock(from.primary, to.primary, fraction, math::TWO_PI_F);
+  out.secondary =
+      sample_clock(from.secondary, to.secondary, fraction, math::TWO_PI_F);
+  out.angle = sample_clock(from.angle, to.angle, fraction, math::TWO_PI_F);
+}
+
 /** @brief Sample crossing weighting of the raw field. */
 enum class WeightMode : uint8_t {
   NONE = 0,      ///< Raw field unweighted.
@@ -315,6 +334,24 @@ struct SphericalRingsState {
   SpatialWalkState walk; ///< Band-axis spin and wander walk.
   float phase = 0.0f;    ///< Band phase, radians wrapped at 2π.
 };
+
+/**
+ * @brief Samples the band-axis walk and band phase between consecutive frames.
+ * @tparam Params Operator param block.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param params Column param block, forwarded to the walk sampler.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(SphericalRingsState &out,
+                            const SphericalRingsState &from,
+                            const SphericalRingsState &to, const Params &params,
+                            float fraction) {
+  temporal_sample(out.walk, from.walk, to.walk, params, fraction);
+  out.phase = sample_clock(from.phase, to.phase, fraction, math::TWO_PI_F);
+}
 
 /** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */
 struct SampleSphericalRings : ValueStateModel<SphericalRingsState> {

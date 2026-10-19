@@ -220,6 +220,14 @@ struct OperatorRuntime {
   /** Bound on the output plane magnitude over every phase, given a bound on
       the input's; null unless the output carrier is PLANE. */
   float (*plane_bound)(const void *params, float input_bound) = nullptr;
+  /** Writes the param block at a frame fraction between two endpoints. */
+  void (*sample_params)(uint8_t *out, const uint8_t *from, const uint8_t *to,
+                        float fraction) = nullptr;
+  /** Constructs `out` as the state at a frame fraction between two endpoints,
+      given the column's param block; null for a state without clocks, which
+      the column reads at its current endpoint. */
+  void (*sample_state)(void *out, const void *from, const void *to,
+                       const uint8_t *params, float fraction) = nullptr;
 };
 
 /**
@@ -413,6 +421,15 @@ template <typename Model> consteval bool admissibility_curves_valid() {
 
 namespace Detail {
 
+/** @brief Whether a state type declares a `temporal_sample` overload.
+ * @tparam State Operator instance state.
+ * @tparam Params Operator param block. */
+template <typename State, typename Params>
+concept TemporalState =
+    requires(State &out, const State &state, const Params &params) {
+      temporal_sample(out, state, state, params, 0.0f);
+    };
+
 /** Typed-to-erased trampolines over one operator model. */
 template <typename Model> struct ErasedAdapter {
   using Params = typename Model::Params;     ///< The model's param block.
@@ -525,6 +542,39 @@ template <typename Model> struct ErasedAdapter {
   }
 
   /**
+   * @brief Writes the param block between two endpoints along each field's
+   *        transition curve.
+   * @param out Raw param storage.
+   * @param from Param block at fraction 0.
+   * @param to Param block at fraction 1.
+   * @param fraction Frame fraction in [0, 1].
+   */
+  static void sample_params(uint8_t *out, const uint8_t *from,
+                            const uint8_t *to, float fraction) {
+    ::new (static_cast<void *>(out)) Params{Pullback::Fields::interpolate(
+        *std::launder(reinterpret_cast<const Params *>(from)),
+        *std::launder(reinterpret_cast<const Params *>(to)), fraction)};
+  }
+
+  /**
+   * @brief Constructs a copy of @p to whose clocks are sampled between the
+   *        endpoints by the state's `temporal_sample` overload.
+   * @param out Raw state storage.
+   * @param from Constructed state at fraction 0.
+   * @param to Constructed state at fraction 1.
+   * @param params The column's param block.
+   * @param fraction Frame fraction in [0, 1].
+   */
+  static void sample_state(void *out, const void *from, const void *to,
+                           const uint8_t *params, float fraction) {
+    const State &end = *std::launder(static_cast<const State *>(to));
+    State &column = *::new (out) State(end);
+    temporal_sample(
+        column, *std::launder(static_cast<const State *>(from)), end,
+        *std::launder(reinterpret_cast<const Params *>(params)), fraction);
+  }
+
+  /**
    * @brief Forwards to `Model::plane_bound`.
    * @param params Param block.
    * @param input_bound Bound on the input plane magnitude.
@@ -565,6 +615,25 @@ template <typename Model> constexpr auto model_plane_bound() {
     return static_cast<PlaneBound>(&ErasedAdapter<Model>::plane_bound);
   else
     return static_cast<PlaneBound>(nullptr);
+}
+
+/**
+ * @brief The erased sample_state of @p Model, or null when its state declares
+ *        no `temporal_sample` overload.
+ * @tparam Model The operator model.
+ * @return The callback pointer.
+ */
+template <typename Model> constexpr auto model_sample_state() {
+  using SampleState =
+      void (*)(void *, const void *, const void *, const uint8_t *, float);
+  using State = typename Model::State;
+  if constexpr (TemporalState<State, typename Model::Params>) {
+    static_assert(std::is_copy_constructible_v<State>,
+                  "operator model: a sampled state must be copyable");
+    return static_cast<SampleState>(&ErasedAdapter<Model>::sample_state);
+  } else {
+    return static_cast<SampleState>(nullptr);
+  }
 }
 
 /**
@@ -760,6 +829,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           &Adapter::capture_state,
           &Adapter::restore_state,
           Detail::model_plane_bound<Model>(),
+          &Adapter::sample_params,
+          Detail::model_sample_state<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

@@ -1470,6 +1470,38 @@ inline const Case *all_cases(int &n) {
           {"chain_ready_before_prepare", case_chain_ready_before_prepare,
            "core/render/pullback/interpreter.h",
            "(!needs_prepare) ChainProgram::evaluate before prepare()"},
+          {"chain_temporal_before_storage", case_chain_temporal_before_storage,
+           "core/render/pullback/interpreter.h",
+           "(blocks[0] != nullptr) ChainProgram::bind_temporal_storage before "
+           "bind_storage"},
+          {"chain_temporal_null_block", case_chain_temporal_null_block,
+           "core/render/pullback/interpreter.h",
+           "(history_block != nullptr && column_block != nullptr) "
+           "ChainProgram::bind_temporal_storage: null block"},
+          {"chain_temporal_misaligned_block",
+           case_chain_temporal_misaligned_block,
+           "core/render/pullback/interpreter.h",
+           "(reinterpret_cast<uintptr_t>(history_block) % "
+           "alignof(std::max_align_t) == 0 && "
+           "reinterpret_cast<uintptr_t>(column_block) % "
+           "alignof(std::max_align_t) == 0) "
+           "ChainProgram::bind_temporal_storage: misaligned block"},
+          {"chain_temporal_rebinding", case_chain_temporal_rebinding,
+           "core/render/pullback/interpreter.h",
+           "(history == nullptr) ChainProgram::bind_temporal_storage: "
+           "rebinding"},
+          {"chain_capture_without_temporal_storage",
+           case_chain_capture_without_temporal_storage,
+           "core/render/pullback/interpreter.h",
+           "(history != nullptr) ChainProgram::capture_history without "
+           "temporal storage"},
+          {"chain_capture_without_program", case_chain_capture_without_program,
+           "core/render/pullback/interpreter.h",
+           "(has_program) ChainProgram::capture_history without a program"},
+          {"chain_column_without_history", case_chain_column_without_history,
+           "core/render/pullback/interpreter.h",
+           "(history_continuous()) ChainProgram::prepare_column without "
+           "continuous history"},
           {"chain_table_rank_decreases", case_chain_table_rank_decreases,
            "core/render/pullback/interpreter.h",
            "(entry.input <= entry.output) ChainProgram::bind_storage: operator "
@@ -2227,7 +2259,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/plot/mesh.h", 4},
     {"core/render/plot/raster.h", 3},
     {"core/render/plot/shapes.h", 13},
-    {"core/render/pullback/interpreter.h", 11},
+    {"core/render/pullback/interpreter.h", 12},
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},
     {"core/render/scan/mesh.h", 4},

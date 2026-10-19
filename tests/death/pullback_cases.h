@@ -346,6 +346,95 @@ inline void case_sample_sphere_nan() {
   (void)Pullback::Kernel::sample(Pullback::SphereSample{}, NAN_VALUE);
 }
 
+/** @brief Arena-sized blocks for column-time chain death cases. */
+struct ChainTemporalBlocks {
+  alignas(std::max_align_t)
+      uint8_t a[Pullback::Interp::CHAIN_ARENA_BYTES]; ///< First program arena.
+  alignas(std::max_align_t)
+      uint8_t b[Pullback::Interp::CHAIN_ARENA_BYTES]; ///< Second program arena.
+  alignas(std::max_align_t) uint8_t
+      history[Pullback::Interp::CHAIN_ARENA_BYTES]; ///< Retained endpoint.
+  alignas(std::max_align_t)
+      uint8_t column[Pullback::Interp::CHAIN_ARENA_BYTES]; ///< Column image.
+};
+
+/** @brief Compiles a three-operator chain into static storage.
+ * @param program Program to compile.
+ * @param blocks Storage to bind; the temporal blocks are bound when
+ *        @p temporal is true.
+ * @param temporal Whether to bind column-time storage. */
+inline void compile_temporal_chain(Pullback::Interp::ChainProgram &program,
+                                   ChainTemporalBlocks &blocks, bool temporal) {
+  namespace In = Pullback::Interp;
+  program.bind_storage(blocks.a, blocks.b);
+  if (temporal)
+    program.bind_temporal_storage(blocks.history, blocks.column);
+  const In::ChainEntryRequest request[] = {
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"color", "colorize.generated-palette.v3"}};
+  if (program.compile(request).code != In::ChainStatus::OK)
+    std::exit(0);
+}
+
+/** @brief Column-time storage requires bound program storage. */
+inline void case_chain_temporal_before_storage() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_temporal_storage(blocks.history, blocks.column);
+}
+
+/** @brief Column-time storage rejects a null block. */
+inline void case_chain_temporal_null_block() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history, opaque<uint8_t *>(nullptr));
+}
+
+/** @brief Column-time storage rejects a misaligned block. */
+inline void case_chain_temporal_misaligned_block() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history + 1, blocks.column);
+}
+
+/** @brief Column-time storage binds once. */
+inline void case_chain_temporal_rebinding() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history, blocks.column);
+  program.bind_temporal_storage(blocks.history, blocks.column);
+}
+
+/** @brief Retaining an endpoint requires column-time storage. */
+inline void case_chain_capture_without_temporal_storage() {
+  static ChainTemporalBlocks blocks;
+  static Pullback::Interp::ChainProgram program;
+  compile_temporal_chain(program, blocks, false);
+  program.capture_history();
+}
+
+/** @brief Retaining an endpoint requires a committed program. */
+inline void case_chain_capture_without_program() {
+  static ChainTemporalBlocks blocks;
+  Pullback::Interp::ChainProgram program;
+  program.bind_storage(blocks.a, blocks.b);
+  program.bind_temporal_storage(blocks.history, blocks.column);
+  program.capture_history();
+}
+
+/** @brief A column requires a retained endpoint of the committed program. */
+inline void case_chain_column_without_history() {
+  static ChainTemporalBlocks blocks;
+  static Pullback::Interp::ChainProgram program;
+  compile_temporal_chain(program, blocks, true);
+  const Pullback::Interp::FrameContext ctx{};
+  program.prepare_column(ctx, ctx, 0.5f);
+}
+
 /** @brief Readiness requires a committed chain. */
 inline void case_chain_ready_without_program() {
   Pullback::Interp::ChainProgram program;

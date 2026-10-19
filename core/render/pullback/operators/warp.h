@@ -55,6 +55,21 @@ struct WarpPhaseState {
   float phase = 0.0f; ///< Normalized loop phase in [0, 1).
 };
 
+/**
+ * @brief Samples the warp loop phase between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(WarpPhaseState &out, const WarpPhaseState &from,
+                            const WarpPhaseState &to, const Params &,
+                            float fraction) {
+  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
+}
+
 /** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
 struct AffineWarpParams : Warp::AffineParams {
   float lattice_period = 1.0f; /**< Lattice cell size, [1/64, 100]. */
@@ -75,6 +90,23 @@ struct AffineClockState {
   float phase = 0.0f;    ///< Normalized oscillation phase in [0, 1).
   float rotation = 0.0f; ///< Frame rotation, radians in [0, 2π).
 };
+
+/**
+ * @brief Samples the affine oscillation phase and frame rotation between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(AffineClockState &out, const AffineClockState &from,
+                            const AffineClockState &to, const Params &,
+                            float fraction) {
+  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
+  out.rotation =
+      sample_clock(from.rotation, to.rotation, fraction, math::TWO_PI_F);
+}
 
 /** @brief PLANE endomorphism: the oscillating affine frame change. */
 struct WarpAffineV3 : ValueStateModel<AffineClockState> {

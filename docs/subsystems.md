@@ -237,6 +237,18 @@ arc of that phase over the current a, c and d. A lens whose b was replaced by a
 snap or write, or whose a, c or d changed, takes the current lens in every
 column. A column lens that fails `Pullback::valid` takes the current lens.
 
+The chain interpreter retains the previous endpoint as a mirror of the
+committed program's param and state blocks. Each column samples every
+operator's params along their transition curves and its state through the
+state's `temporal_sample` overload, which follows clocks and quaternion arcs
+with `sample_clock` and `TemporalRotation`; states without clocks are read at
+the current endpoint. `ShaderChain` keeps the previous `FrameContext` in a
+`TemporalHistory` whose palettes and hue tables point at owned copies, and
+blends the colorize operator's colours from both endpoints' resources at the
+column's interpolated controls. The first frame, a recompile or snapshot
+restore, and a change of any topology or snapping field draw the current
+endpoint in every column.
+
 Manual shaders reuse the same facility, from
 [temporal_history.h](../core/render/pullback/temporal_history.h), over their
 own frame struct.
@@ -619,7 +631,7 @@ Both classes derive from `TransformerPool`, which fixes the call order:
 
 ## Memory Architecture (`memory.h`, `memory.cpp`)
 
-A single contiguous memory block (`GLOBAL_ARENA_SIZE`) is partitioned into three arena allocators. It is 298 KiB on Teensy; the WASM module widens it to 512 KiB (`HS_GLOBAL_ARENA_BYTES` in the root [CMakeLists.txt](https://github.com/woundedlion/pov/blob/master/CMakeLists.txt)), because the chain interpreter's two arenas plus `ShaderChain`'s shared color resources outgrow the device-mirrored default. Individual effects can call `configure_arenas()` to repartition the block at runtime.
+A single contiguous memory block (`GLOBAL_ARENA_SIZE`) is partitioned into three arena allocators. It is 298 KiB on Teensy; the WASM module widens it to 512 KiB (`HS_GLOBAL_ARENA_BYTES` in the root [CMakeLists.txt](https://github.com/woundedlion/pov/blob/master/CMakeLists.txt)), because the chain interpreter's two arenas, `ShaderChain`'s two column-time blocks of the same size and its shared color resources outgrow the device-mirrored default. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
 | Arena | Default Size (Teensy) | Purpose |
 |---|---|---|

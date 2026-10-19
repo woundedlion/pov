@@ -258,6 +258,181 @@ public:
   }
 
   /**
+   * @brief Binds the two blocks column-time sampling uses.
+   * @param history_block Previous endpoint's param and state blocks, at the
+   *        committed program's offsets.
+   * @param column_block One column's param, state and colour blocks, at the
+   *        same offsets.
+   * @details Both blocks are max_align-aligned, at least one arena's capacity,
+   * and bound once after bind_storage().
+   */
+  void bind_temporal_storage(uint8_t *history_block, uint8_t *column_block) {
+    HS_CHECK(blocks[0] != nullptr,
+             "ChainProgram::bind_temporal_storage before bind_storage");
+    HS_CHECK(history_block != nullptr && column_block != nullptr,
+             "ChainProgram::bind_temporal_storage: null block");
+    HS_CHECK(reinterpret_cast<uintptr_t>(history_block) %
+                         alignof(std::max_align_t) ==
+                     0 &&
+                 reinterpret_cast<uintptr_t>(column_block) %
+                         alignof(std::max_align_t) ==
+                     0,
+             "ChainProgram::bind_temporal_storage: misaligned block");
+    HS_CHECK(history == nullptr,
+             "ChainProgram::bind_temporal_storage: rebinding");
+    history = history_block;
+    column = column_block;
+  }
+
+  /**
+   * @brief Retains the committed program's params and state as the previous
+   *        endpoint; once per frame, after rendering.
+   */
+  void capture_history() {
+    HS_CHECK(history != nullptr,
+             "ChainProgram::capture_history without temporal storage");
+    HS_CHECK(has_program, "ChainProgram::capture_history without a program");
+    clear_history();
+    const Side &side = sides[active];
+    for (size_t index = 0; index < side.count; ++index) {
+      const ChainOp &op = side.ops[index];
+      std::memcpy(history + op.param_offset,
+                  const_block_ptr(active, op.param_offset),
+                  op.op->runtime.param.size);
+      const Status migrated = op.op->runtime.migrate(
+          history + op.state_offset, const_block_ptr(active, op.state_offset),
+          InstanceId{op.instance, op.op->operator_id, op.stable_hash});
+      HS_CHECK(migrated == Status::OK,
+               "ChainProgram::capture_history: state clone failed");
+      history_ops.ops[index] = op;
+      history_ops.count = index + 1;
+    }
+  }
+
+  /**
+   * @brief Whether every column can sample between the retained endpoint and
+   *        the committed program.
+   * @return False without a retained endpoint for this program, or when a
+   *         topology or snapping field differs between the endpoints.
+   */
+  bool history_continuous() const {
+    if (history == nullptr || history_ops.count == 0)
+      return false;
+    const Side &side = sides[active];
+    if (history_ops.count != side.count)
+      return false;
+    for (size_t index = 0; index < side.count; ++index) {
+      const ChainOp &op = side.ops[index];
+      const ChainOp &previous = history_ops.ops[index];
+      if (previous.op != op.op || previous.param_offset != op.param_offset ||
+          previous.state_offset != op.state_offset)
+        return false;
+      uint8_t *const current_params =
+          const_cast<uint8_t *>(const_block_ptr(active, op.param_offset));
+      uint8_t *const previous_params = history + op.param_offset;
+      for (uint16_t field = 0; field < op.op->schema_count; ++field) {
+        const ParamFieldInfo &info = op.op->schema[field];
+        if (info.enum_count == 0 && info.curve != FieldCurve::SNAP)
+          continue;
+        const size_t bytes = info.enum_count > 0 ? 1 : sizeof(float);
+        if (std::memcmp(op.op->runtime.param_address(current_params, field),
+                        op.op->runtime.param_address(previous_params, field),
+                        bytes) != 0)
+          return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * @brief Prepares one column from params and state sampled between the
+   *        retained and current endpoints.
+   * @param ctx Current frame context.
+   * @param previous_ctx Retained frame context; prepares the final operator's
+   *        second colour.
+   * @param fraction Column's frame fraction in [0, 1].
+   * @details Requires history_continuous(). Overwrites the prepared blocks;
+   * prepare() restores the current endpoint.
+   */
+  void prepare_column(const FrameContext &ctx, const FrameContext &previous_ctx,
+                      float fraction) {
+    HS_CHECK(history_continuous(),
+             "ChainProgram::prepare_column without continuous history");
+    const Side &side = sides[active];
+    for (size_t index = 0; index < side.count; ++index) {
+      const ChainOp &op = side.ops[index];
+      const OperatorRuntime &runtime = op.op->runtime;
+      uint8_t *params = column + op.param_offset;
+      runtime.sample_params(params, history + op.param_offset,
+                            const_block_ptr(active, op.param_offset), fraction);
+      const void *state = const_block_ptr(active, op.state_offset);
+      if (runtime.sample_state != nullptr) {
+        runtime.sample_state(column + op.state_offset,
+                             history + op.state_offset, state, params,
+                             fraction);
+        state = column + op.state_offset;
+      }
+      runtime.prepare(
+          ctx, params, state,
+          static_cast<uint8_t *>(block_ptr(active, op.prepared_offset)));
+      if (index + 1 == side.count)
+        runtime.prepare(previous_ctx, params, state,
+                        column + op.prepared_offset);
+      if (runtime.sample_state != nullptr)
+        runtime.destroy(column + op.state_offset);
+    }
+    needs_prepare = false;
+  }
+
+  /**
+   * @brief Runs the chain over @p view with the column prepared by
+   *        prepare_column().
+   * @param view Unit view direction.
+   * @param ctx Current frame context.
+   * @param previous_ctx Retained frame context.
+   * @param fraction Column's frame fraction in [0, 1].
+   * @return The final operator's colours from both endpoints' resources,
+   *         blended at @p fraction.
+   */
+  Color4 evaluate_column(const math::Vector &view, const FrameContext &ctx,
+                         const FrameContext &previous_ctx,
+                         float fraction) const {
+    alignas(SLOT_ALIGN) uint8_t slot_a[SLOT_SIZE];
+    alignas(SLOT_ALIGN) uint8_t slot_b[SLOT_SIZE];
+    alignas(SLOT_ALIGN) uint8_t slot_c[SLOT_SIZE];
+    void *in = slot_a;
+    void *out = slot_b;
+    ::new (in) SphereSample{view, 0.0f};
+    const Side &side = sides[active];
+    const size_t last = side.count - 1;
+    for (size_t index = 0; index < last; ++index) {
+      const ChainOp &op = side.ops[index];
+      op.op->runtime.run(in, out, ctx, column + op.param_offset,
+                         const_block_ptr(active, op.prepared_offset));
+      std::swap(in, out);
+    }
+    const ChainOp &op = side.ops[last];
+    op.op->runtime.run(in, out, ctx, column + op.param_offset,
+                       const_block_ptr(active, op.prepared_offset));
+    op.op->runtime.run(in, slot_c, previous_ctx, column + op.param_offset,
+                       column + op.prepared_offset);
+    const Color4 &current =
+        *std::launder(reinterpret_cast<const Color4 *>(out));
+    const Color4 &previous =
+        *std::launder(reinterpret_cast<const Color4 *>(slot_c));
+    return previous.lerp(current, fraction);
+  }
+
+  /** @brief Drops the retained endpoint; the next capture_history() primes
+      it. */
+  void clear_history() {
+    for (size_t index = 0; index < history_ops.count; ++index)
+      history_ops.ops[index].op->runtime.destroy(
+          history + history_ops.ops[index].state_offset);
+    history_ops.count = 0;
+  }
+
+  /**
    * @brief Compiles a program shape transactionally.
    * @param request Ordered {instance_id, operator_id} entries.
    * @return {OK, -1} on commit; otherwise the refusal, with the previous
@@ -367,6 +542,7 @@ public:
       return {ChainStatus::MALFORMED_PAYLOAD, -1};
     }
 
+    clear_history();
     Side &loser = sides[active];
     if (has_program)
       for (size_t index = 0; index < loser.count; ++index)
@@ -499,6 +675,7 @@ public:
   /** @brief Destroys the committed program's instance state and empties the
       program; storage stays bound. */
   void clear() {
+    clear_history();
     if (!has_program)
       return;
     Side &side = sides[active];
@@ -593,7 +770,10 @@ private:
   }
 
   Side sides[2];
+  Side history_ops;
   uint8_t *blocks[2] = {nullptr, nullptr};
+  uint8_t *history = nullptr;
+  uint8_t *column = nullptr;
   size_t capacity = 0;
   std::span<const OperatorDescriptor> table;
   uint8_t active = 0;
