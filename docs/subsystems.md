@@ -217,7 +217,8 @@ temporal sampling is on and shade at `u = 1` when it is off. The
 column-time rasterize carries either form in one `Scan::ColumnShader`, so each
 shape keeps a single column-time instantiation.
 `FacePaletteShader` moves a face's alpha, palette crossfade and counterpart
-weight this way. An effect whose per-column state moves while its orientation
+weight this way, and the face scan runs it per column only while one of them
+moves (`FacePaletteShader::moves`). An effect whose per-column state moves while its orientation
 does not still prepares a table, with `state_moves`, so its scans take their
 column-time variants. A drift in the same state rotates `Scan::rasterize`'s
 pixel direction by a shape's own motion still to come, for shapes that move

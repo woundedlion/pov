@@ -300,6 +300,18 @@ struct FacePaletteShader {
   }
 
   /**
+   * @brief Whether the column-time form changes across the frame.
+   * @return True when the alpha, the counterpart weight or a crossfade set by
+   *         set_blend() moves between the endpoints; otherwise every column
+   *         shades as the plain form does.
+   */
+  bool moves() const {
+    return alpha_change != 0.0f ||
+           (counterpart != nullptr && counterpart_change != 0.0f) ||
+           (blend_to != nullptr && blend_change != 0.0f);
+  }
+
+  /**
    * @brief Shades one fragment at a sweep fraction of the frame.
    * @param frag Fragment whose `v1` is read and whose colour is written.
    * @param u Sweep fraction of the shaded column, in [0, 1].
