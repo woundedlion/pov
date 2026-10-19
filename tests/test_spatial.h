@@ -315,6 +315,62 @@ inline void test_kdtree_k_nearest_brute_force_random() {
   }
 }
 
+/**
+ * @brief Verifies nearest_moved() matches brute force over displaced points.
+ */
+inline void test_kdtree_nearest_moved_matches_brute_force() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  constexpr int N = 100;
+  constexpr int K = KDTree::MAX_K;
+  math::Vector built[N];
+  math::Vector offsets[N];
+  hs::Pcg32 rng(20261018u);
+  for (int i = 0; i < N; ++i) {
+    const float x = rand_uniform(rng, -10.0f, 10.0f);
+    const float y = rand_uniform(rng, -10.0f, 10.0f);
+    const float z = rand_uniform(rng, -10.0f, 10.0f);
+    built[i] = math::Vector(x, y, z);
+    const float ox = rand_uniform(rng, -1.0f, 1.0f);
+    const float oy = rand_uniform(rng, -1.0f, 1.0f);
+    const float oz = rand_uniform(rng, -1.0f, 1.0f);
+    offsets[i] = math::Vector(ox, oy, oz).normalized();
+  }
+  KDTree tree(arena, std::span<math::Vector>(built, N));
+  static constexpr float DRIFTS[] = {0.0f, 0.5f, 4.0f};
+  for (size_t scale = 0; scale < std::size(DRIFTS); ++scale) {
+    const float DRIFT = DRIFTS[scale];
+    math::Vector moved[N];
+    for (int i = 0; i < N; ++i)
+      moved[i] = built[i] + offsets[i] * (DRIFT * (i % 3) / 2.0f);
+    for (int query = 0; query < 200; ++query) {
+      const float x = rand_uniform(rng, -11.0f, 11.0f);
+      const float y = rand_uniform(rng, -11.0f, 11.0f);
+      const float z = rand_uniform(rng, -11.0f, 11.0f);
+      const math::Vector target(x, y, z);
+      const auto result = tree.nearest_moved(target, K, DRIFT, [&](uint16_t i) {
+        return math::distance_squared(moved[i], target);
+      });
+      HS_EXPECT_SIZE_OR_RETURN(result, K);
+      int order[N];
+      for (int i = 0; i < N; ++i)
+        order[i] = i;
+      std::sort(order, order + N, [&](int a, int b) {
+        const float DA = math::distance_squared(moved[a], target);
+        const float DB = math::distance_squared(moved[b], target);
+        return DA != DB ? DA < DB : a < b;
+      });
+      HS_CONTEXT("drift", static_cast<long long>(scale), query);
+      for (int rank = 0; rank < K; ++rank) {
+        HS_EXPECT_EQ(static_cast<int>(result[rank].original_index),
+                     order[rank]);
+        HS_EXPECT_EQ(result[rank].d_sq,
+                     math::distance_squared(moved[order[rank]], target));
+        HS_EXPECT_VEC(result[rank].point, built[order[rank]], 0.0f);
+      }
+    }
+  }
+}
+
 // ============================================================================
 // MeshState
 // ============================================================================
@@ -716,6 +772,7 @@ inline int run_spatial_tests() {
   test_kdtree_matches_brute_force();
   test_kdtree_duplicates_and_max_k();
   test_kdtree_k_nearest_brute_force_random();
+  test_kdtree_nearest_moved_matches_brute_force();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();
