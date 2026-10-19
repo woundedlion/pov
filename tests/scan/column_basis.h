@@ -542,6 +542,70 @@ inline void test_lit_caps_keep_swept_frames() {
 }
 
 /**
+ * @brief A cap that cap_meets_clip() rules out of a clip lights no pixel of
+ *        it under the frame's rotation.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ */
+template <int W, int H> inline void check_cap_meets_clip() {
+  HS_CONTEXT(W == 96 ? "cap clip 96" : "cap clip 288");
+  const ScopedPoleLod lod(0.0f);
+  const BasisMotion motion = tilted_motion(0.2f);
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  const Temporal::ColumnTime time =
+      basis->prepare(motion.previous, motion.current);
+  struct Band {
+    int y0, y1, x0, x1;
+  };
+  const Band BANDS[] = {{0, H / 2, 0, W / 2},
+                        {0, H / 2, W / 2, W},
+                        {H / 2, H, 0, W / 2},
+                        {H / 2, H, W / 2, W},
+                        {H / 3, H / 3 + 2, W / 3, W / 3 + 3}};
+  constexpr int SHAPES = 48;
+  int ruled_out = 0;
+  for (int i = 0; i < SHAPES; ++i) {
+    HS_CONTEXT("shape", i);
+    const math::Basis b =
+        math::make_basis(math::Quaternion(), math::fib_spiral(SHAPES, 0.5f, i));
+    const auto star_basis = math::get_antipode(b, 0.06f);
+    const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
+    math::Vector axis;
+    float radius = 0.0f;
+    HS_EXPECT_TRUE(star.bounding_cap(axis, radius));
+    const std::vector<Pixel> lit = render_column_basis<W, H>(
+        motion, [&](Pipeline<W, H> &pipeline, Canvas &canvas,
+                    const math::Quaternion &) {
+          Scan::rasterize<W, H, false>(pipeline, canvas, star,
+                                       basis_flat_shader);
+        });
+    for (const Band &band : BANDS) {
+      hs_test::StubEffect fx(W, H);
+      fx.set_clip(band.y0, band.y1, band.x0, band.x1);
+      const ClipRegion &cr = fx.clip();
+      const auto xc = cr.x_clip();
+      bool reaches = false;
+      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y)
+        for (int x = 0; x < W; ++x)
+          reaches |=
+              !xc.clipped(x) && !is_black(lit[static_cast<size_t>(y) * W + x]);
+      const bool meets =
+          Scan::cap_meets_clip<W, H>(axis, radius, time.sweep, cr);
+      if (reaches)
+        HS_EXPECT_TRUE(meets);
+      ruled_out += !meets;
+    }
+  }
+  HS_EXPECT_GT(ruled_out, SHAPES);
+}
+
+/** @brief cap_meets_clip() keeps every clip a swept star lights. */
+inline void test_cap_meets_clip_keeps_lit_clips() {
+  check_cap_meets_clip<96, 48>();
+  check_cap_meets_clip<288, 144>();
+}
+
+/**
  * @brief A disc with a birth fraction lights only the columns swept at or
  *        after it, on both arms.
  */
