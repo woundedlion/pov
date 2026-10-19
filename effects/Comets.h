@@ -229,7 +229,7 @@ private:
    * sub-pose recorded this frame lights only the columns swept after it was
    * reached.
    */
-  HS_HOT_FLASH_MEMBER void draw_trail(Canvas &canvas, bool palette_moves) {
+  void draw_trail(Canvas &canvas, bool palette_moves) {
     HS_PROFILE(cm_draw_trail);
     ScratchScope column_guard(scratch_arena_a);
     Temporal::ColumnTime column_time =
@@ -240,8 +240,7 @@ private:
     const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
     const int newest_last =
         Temporal::temporal_sampling_enabled() ? newest.length() - 1 : 0;
-    deep_tween(node->trail, [&](const math::Quaternion &q,
-                                float t) HS_HOT_FLASH_MEMBER {
+    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
       const float fade = math::quintic_kernel(t) * params.alpha;
       Color4 color = baked_palette.get(t);
       color.alpha *= fade;
