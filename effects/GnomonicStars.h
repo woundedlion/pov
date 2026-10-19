@@ -73,7 +73,8 @@ public:
   /**
    * @brief Advances the timeline and renders the warped star field.
    * @details Draws each spiral point as a star whose color is a Y-based gradient
-   *          and whose basis carries the current orientation and warp.
+   *          and whose basis carries the current orientation and warp; each
+   *          column sees the orientation at its sweep time.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -108,6 +109,10 @@ public:
 
     {
       HS_PROFILE(gn_draw_stars);
+      ScratchScope column_guard(scratch_arena_a);
+      const Temporal::ColumnTime column_time =
+          Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+      Scan::ColumnTimeScope column_scope(canvas, column_time);
       for (int i = 0; i < points; i++) {
         math::Vector v = transformer.transform(spiral_cache[i]);
 
