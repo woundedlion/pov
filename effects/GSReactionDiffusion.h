@@ -89,7 +89,7 @@ public:
     // render_slabs(): the lattice basis, cull flags and float field live
     // across the slabs, beside the pigment step or the frame-start B.
     constexpr size_t SLAB_SCRATCH_BYTES =
-        sizeof(LatticeBasis) + 2u * RD_N * sizeof(uint8_t) +
+        sizeof(LatticeBasis) + 3u * HOT_WORDS * sizeof(uint32_t) +
         2u * RD_N * sizeof(float) +
         std::max(RD_N * sizeof(uint16_t),
                  2u * PHYSICS_HISTORY_SIZE * sizeof(float) +
@@ -860,6 +860,27 @@ private:
     }
   }
 
+  /// Zero words either side of a node bit set; they cover the widest
+  /// neighbour offset, 144 nodes, plus the word a shifted read spills into.
+  static constexpr int HOT_GUARD_WORDS = 6;
+  /// Words in a node bit set, guards included.
+  static constexpr int HOT_WORDS = (RD_N + 31) / 32 + 2 * HOT_GUARD_WORDS;
+
+  /** @brief Per-node flags packed 32 to a word, read like a flag array. */
+  struct HotBits {
+    const uint32_t *words; ///< Word holding nodes 0 to 31.
+
+    /** @brief Whether node @p i is flagged. */
+    HS_HOT_INLINE bool operator[](int i) const {
+      return (words[i >> 5] >> (i & 31)) & 1u;
+    }
+  };
+
+  /** @brief The flags of a guarded bit set. */
+  static HotBits hot_bits(const uint32_t *bits) {
+    return {bits + HOT_GUARD_WORDS};
+  }
+
   /** @brief Stencil terms of a world-space node seen from a fixed-meridian
    *         column. */
   struct MeridianColumn {
@@ -1011,10 +1032,10 @@ private:
     return shade_pigment(pigment, t, scale, noise_value);
   }
 
-  template <typename Grid, typename Column>
+  template <typename Grid, typename Column, typename Flags>
   HS_HOT_FLASH_MEMBER Pixel shade_column_full(
       int seed, const math::Vector &center_rv, const math::Vector *nodes,
-      const Grid &grid, const Column &column, const uint8_t *hot_flags,
+      const Grid &grid, const Column &column, const Flags &hot_flags,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
@@ -1026,7 +1047,7 @@ private:
       HS_PROFILE_DEEP(grd_shader_stencil);
       int center =
           Base::template refine_render_center<true>(center_rv, nodes, seed);
-      if (hot_flags && !hot_flags[center])
+      if (culled(hot_flags, center))
         return Pixel(0, 0, 0);
       pigment = state.pigment[center];
       accumulate_column_stencil(
@@ -1088,13 +1109,15 @@ private:
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
    * @tparam Column MeridianColumn or LatticeColumn.
+   * @tparam Flags `const uint8_t *` or HotBits.
    * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
    * @param center_rv Direction at the pixel center, in the frame of @p nodes.
    * @param nodes Lattice node positions in the frame of @p column.
    * @param grid Row's SSAA sub-pixel grid.
    * @param column The pixel column's stencil terms.
-   * @param hot_flags Per-node flags; a pixel whose center node is unflagged
-   *        shades black. Null shades every pixel.
+   * @param hot_flags Per-node flags, a byte array or HotBits; a pixel whose
+   *        center node is unflagged shades black. A null array shades every
+   *        pixel.
    * @param projection Pixel's precomputed cubemap projection for color noise,
    *        or null to project `center_rv`.
    * @return The finished alpha-premultiplied pixel.
@@ -1102,10 +1125,10 @@ private:
    * boundary pixels check the neighbors. Sub-samples share the center
    * stencil, which can reach past one node spacing at low vertical resolution.
    */
-  template <typename Grid, typename Column>
+  template <typename Grid, typename Column, typename Flags>
   HS_HOT_INLINE Pixel shade_column_pixel(
       int seed, const math::Vector &center_rv, const math::Vector *nodes,
-      const Grid &grid, const Column &column, const uint8_t *hot_flags,
+      const Grid &grid, const Column &column, const Flags &hot_flags,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
@@ -1119,7 +1142,7 @@ private:
       HS_PROFILE_DEEP(grd_shader_stencil);
       int center =
           Base::template refine_render_center<true>(center_rv, nodes, seed);
-      if (hot_flags && !hot_flags[center])
+      if (culled(hot_flags, center))
         return Pixel(0, 0, 0);
       const float LIMIT = render_support_limit<Grid>();
       if (LIMIT <= 0.0f ||
@@ -1218,7 +1241,7 @@ private:
    * @param center Lattice-space direction at the pixel center.
    * @param grid Row's SSAA sub-pixel grid.
    * @param frame The pixel column's lattice-space frame.
-   * @param hot_flags Per-node flags; a pixel whose center node is unflagged
+   * @param hot_flags One-ring flags; a pixel whose center node is unflagged
    *        shades black.
    * @param projection Pixel's cubemap projection for color noise.
    * @return The finished alpha-premultiplied pixel.
@@ -1226,7 +1249,7 @@ private:
   template <typename Grid>
   HS_HOT_FLASH_MEMBER Pixel shade_lattice_pixel(
       int seed, const math::Vector &center, const Grid &grid,
-      const Scan::ObjectColumn &frame, const uint8_t *hot_flags,
+      const Scan::ObjectColumn &frame, const HotBits &hot_flags,
       const ReactionGraph::CubemapLUT::Projection *projection) const {
     return shade_column_pixel(seed, center, Base::nodes, grid,
                               LatticeColumn{frame}, hot_flags, projection);
@@ -1273,6 +1296,80 @@ private:
     }
   }
 
+  /** @brief Whether a flag array culls a node; a null byte array culls none.
+   */
+  static HS_HOT_INLINE bool culled(const uint8_t *flags, int node) {
+    return flags && !flags[node];
+  }
+  /** @brief Whether a bit set culls a node. */
+  static HS_HOT_INLINE bool culled(const HotBits &flags, int node) {
+    return !flags[node];
+  }
+
+  /**
+   * @brief Sets the bit of each node whose B reaches a threshold.
+   * @param b Per-node B concentrations, Q16.
+   * @param bits HOT_WORDS words receiving the set, guards zeroed.
+   * @param threshold Q16 render floor.
+   */
+  HS_O3_FN HS_NOINLINE_NOCLONE static void
+  mark_hot_bits(const uint16_t *b, uint32_t *bits, uint16_t threshold) {
+    std::fill_n(bits, HOT_WORDS, 0u);
+    uint32_t *words = bits + HOT_GUARD_WORDS;
+    for (int w = 0; w < RD_N / 32; ++w) {
+      uint32_t word = 0;
+      for (int j = 0; j < 32; ++j)
+        word |= static_cast<uint32_t>(b[32 * w + j] >= threshold) << j;
+      words[w] = word;
+    }
+    for (int i = RD_N / 32 * 32; i < RD_N; ++i)
+      words[i >> 5] |= static_cast<uint32_t>(b[i] >= threshold) << (i & 31);
+  }
+
+  /**
+   * @brief The 32 bits of a guarded bit set starting at a node index.
+   * @param words Word of node 0.
+   * @param bit First node, at least -32 * (HOT_GUARD_WORDS - 1).
+   * @return Bits [bit, bit + 32).
+   */
+  static HS_HOT_INLINE uint32_t bits_from(const uint32_t *words, int bit) {
+    const int word = bit >> 5;
+    const int shift = bit & 31;
+    const uint32_t low = words[word] >> shift;
+    return shift ? low | (words[word + 1] << (32 - shift)) : low;
+  }
+
+  /**
+   * @brief Sets the bit of each node that is set, or has a set neighbour, in
+   *        another bit set.
+   * @param in Input set, HOT_WORDS words, guards zeroed.
+   * @param out HOT_WORDS words receiving the output set, guards zeroed.
+   * @details Each neighbour run shares its offsets, so a run's nodes take
+   * their neighbours 32 at a time as shifted words of @p in.
+   */
+  HS_O3_FN HS_NOINLINE_NOCLONE static void dilate_hot_bits(const uint32_t *in,
+                                                           uint32_t *out) {
+    std::fill_n(out, HOT_WORDS, 0u);
+    const uint32_t *source = in + HOT_GUARD_WORDS;
+    uint32_t *target = out + HOT_GUARD_WORDS;
+    int start = 0;
+    for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r) {
+      const auto &run = ReactionGraph::neighbor_runs[r];
+      const int end = run.end;
+      for (int w = start >> 5; w <= (end - 1) >> 5; ++w) {
+        const int base = w << 5;
+        uint32_t hot = source[w];
+        for (int k = 0; k < RD_K; ++k)
+          hot |= bits_from(source, base + run.delta[k]);
+        const int lo = std::max(start - base, 0);
+        const int hi = std::min(end - base, 32);
+        const uint32_t below_hi = hi == 32 ? ~0u : (1u << hi) - 1u;
+        target[w] |= hot & below_hi & ~((1u << lo) - 1u);
+      }
+      start = end;
+    }
+  }
+
   HS_O3_FN void draw_lattice(Canvas &canvas, const math::Vector *world_nodes,
                              const uint8_t *hot1, const uint8_t *hot2) const {
     Scan::Shader::walk_grid<W, H>(
@@ -1298,8 +1395,8 @@ private:
    */
   HS_HOT_FLASH_MEMBER void draw_lattice_columns(Canvas &canvas,
                                                 const LatticeBasis &basis,
-                                                const uint8_t *hot1,
-                                                const uint8_t *hot2) const {
+                                                const HotBits &hot1,
+                                                const HotBits &hot2) const {
     Scan::Shader::walk_object_grid<W, H>(
         canvas, basis,
         [&](const math::Vector &center, const Scan::ObjectColumn &frame,
@@ -1341,15 +1438,18 @@ private:
    */
   HS_HOT_FLASH_MEMBER void render_slabs(Canvas &canvas) {
     const LatticeBasis &basis = *prepare_lattice_basis();
-    uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
-    uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+    uint32_t *marked = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
+    uint32_t *hot1 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
+    uint32_t *hot2 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
     auto shade = [&]() HS_HOT_INLINE {
       {
         HS_PROFILE(grd_cull_flags);
-        fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+        mark_hot_bits(state.B, marked, to_q16(B_CULL_THRESHOLD));
+        dilate_hot_bits(marked, hot1);
+        dilate_hot_bits(hot1, hot2);
       }
       HS_PROFILE(grd_shader_draw);
-      draw_lattice_columns(canvas, basis, hot1, hot2);
+      draw_lattice_columns(canvas, basis, hot_bits(hot1), hot_bits(hot2));
     };
     if (transition.reseed_pending()) {
       finish_reseed();

@@ -243,8 +243,15 @@ struct GSWhiteBox {
       gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
                         GS::to_q16(GS::B_CULL_THRESHOLD));
       if (columns) {
+        std::vector<uint32_t> marked(GS::HOT_WORDS), bits1(GS::HOT_WORDS),
+            bits2(GS::HOT_WORDS);
+        GS::mark_hot_bits(gs.state.B, marked.data(),
+                          GS::to_q16(GS::B_CULL_THRESHOLD));
+        GS::dilate_hot_bits(marked.data(), bits1.data());
+        GS::dilate_hot_bits(bits1.data(), bits2.data());
         gs.draw_lattice_columns(canvas, *gs.prepare_lattice_basis(),
-                                hot1.data(), hot2.data());
+                                GS::hot_bits(bits1.data()),
+                                GS::hot_bits(bits2.data()));
       } else {
         auto lattice = gs.orient_lattice();
         gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
@@ -255,6 +262,25 @@ struct GSWhiteBox {
   static void fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2,
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
+  }
+  static constexpr int HOT_WORDS = GS::HOT_WORDS;
+  static constexpr int HOT_GUARD_WORDS = GS::HOT_GUARD_WORDS;
+  /**
+   * @brief Builds the one- and two-ring bit sets the slab shader reads.
+   * @param b Per-node B, Q16.
+   * @param threshold Q16 render floor.
+   * @param hot1 Receives the one-ring set, HOT_WORDS words.
+   * @param hot2 Receives the two-ring set, HOT_WORDS words.
+   */
+  static void fill_hot_bits(const uint16_t *b, uint16_t threshold,
+                            uint32_t *hot1, uint32_t *hot2) {
+    std::vector<uint32_t> marked(HOT_WORDS);
+    GS::mark_hot_bits(b, marked.data(), threshold);
+    GS::dilate_hot_bits(marked.data(), hot1);
+    GS::dilate_hot_bits(hot1, hot2);
+  }
+  static bool hot_bit(const uint32_t *bits, int node) {
+    return GS::hot_bits(bits)[node];
   }
   /**
    * @brief Compares the render stencil against the SSAA reference stencil.
@@ -1154,12 +1180,15 @@ inline void test_gs_pigment_codec_layout() {
   HS_EXPECT_EQ(Pigment::quantize_mass(0.0f, 2.0f), 0);
 }
 
-/** @brief Compares both cull rings to the original directed adjacency table. */
+/** @brief Compares both cull rings, as byte flags and as the slab shader's
+ *         bit sets, to the original directed adjacency table. */
 inline void test_gs_hot_flags_match_directed_graph() {
   constexpr int N = GSWhiteBox::N;
   constexpr uint8_t GUARD = 0xa5;
   std::vector<uint16_t> b(N);
   std::vector<uint8_t> hot1(N + 2), hot2(N + 2), ref1(N), ref2(N);
+  std::vector<uint32_t> bits1(GSWhiteBox::HOT_WORDS),
+      bits2(GSWhiteBox::HOT_WORDS);
   const uint16_t THRESHOLDS[] = {0, 1, GSWhiteBox::to_q16(0.1f), 65535};
   for (uint16_t threshold : THRESHOLDS) {
     const uint16_t BELOW = threshold == 0 ? 0 : threshold - 1;
@@ -1219,8 +1248,29 @@ inline void test_gs_hot_flags_match_directed_graph() {
       HS_EXPECT_EQ(hot1.back(), GUARD);
       HS_EXPECT_EQ(hot2.front(), GUARD);
       HS_EXPECT_EQ(hot2.back(), GUARD);
+
+      std::fill(bits1.begin(), bits1.end(), 0xa5a5a5a5u);
+      std::fill(bits2.begin(), bits2.end(), 0xa5a5a5a5u);
+      GSWhiteBox::fill_hot_bits(b.data(), threshold, bits1.data(),
+                                bits2.data());
+      int mismatched = 0;
+      for (int i = 0; i < N; ++i)
+        mismatched += GSWhiteBox::hot_bit(bits1.data(), i) != (ref1[i] != 0) ||
+                      GSWhiteBox::hot_bit(bits2.data(), i) != (ref2[i] != 0);
+      HS_EXPECT_EQ(mismatched, 0);
+      for (int w = 0; w < GSWhiteBox::HOT_GUARD_WORDS; ++w)
+        for (const auto *bits : {&bits1, &bits2}) {
+          HS_EXPECT_EQ((*bits)[w], 0u);
+          HS_EXPECT_EQ((*bits)[bits->size() - 1 - w], 0u);
+        }
     }
   }
+  int reach = 0;
+  for (unsigned r = 0; r < ReactionGraph::NEIGHBOR_RUN_COUNT; ++r)
+    for (int k = 0; k < ReactionGraph::RD_K; ++k)
+      reach = std::max(reach, std::abs(static_cast<int>(
+                                  ReactionGraph::neighbor_runs[r].delta[k])));
+  HS_EXPECT_LE(reach + 32, 32 * GSWhiteBox::HOT_GUARD_WORDS);
 }
 
 /**
