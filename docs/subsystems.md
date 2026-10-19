@@ -336,7 +336,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
-| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
+| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. Under temporal sampling BZReactionDiffusion uses `walk_object_grid(canvas, basis, pixel_shader)`, which hands over the object-space centre and column frame instead. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
@@ -1375,10 +1375,14 @@ through `init_lattice<true>()`. Its arena-budget check takes the matching `FLASH
 per-frame scratch allocation. GS uses flash positions, releasing 92,160 bytes of
 persistent storage for its palette cache. BZ retains the arena-backed default.
 
-BZ advances and shades through `Temporal::simulate_in_slabs`, one sweep slab
-per substep. Its species are Q16 between substeps, so each slab orients the
-lattice into the scratch the physics mirrors released; the orientation is held
-for the whole frame. GS keeps the frame-wide order.
+With temporal sampling enabled, BZ prepares the frame's lattice basis, a
+`Scan::ObjectColumnBasis` of its view orientation, and shades from the
+unrotated lattice through `Scan::Shader::walk_object_grid`, so each column sees
+the lattice at its sweep time without an oriented copy. It advances and shades
+through `Temporal::simulate_in_slabs`, one sweep slab per substep, and the
+basis serves every slab. With temporal sampling disabled it runs both substeps
+and shades the lattice oriented at the current endpoint once. GS keeps the
+frame-wide order.
 
 GS reuses the lattice cubemap projection for noise sampling, reversing the
 horizontal coordinate on the X faces and the vertical coordinate on the Y faces

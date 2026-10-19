@@ -57,12 +57,37 @@ struct BZWhiteBox {
     std::copy(species[2].begin(), species[2].end(), bz.state.C);
   }
   static void advance(BZ &bz, int substeps) { bz.advance(substeps); }
+  /** @brief Shades the whole frame as draw_frame() shades a slab. */
   static void shade_frame(BZ &bz) {
+    if (Temporal::temporal_sampling_enabled())
+      shade_columns_frame(bz);
+    else
+      shade_oriented_frame(bz);
+  }
+  /** @brief Shades the whole frame through the frame's lattice basis. */
+  static void shade_columns_frame(BZ &bz) {
     {
+      ScratchScope guard(scratch_arena_a);
+      Canvas canvas(bz);
+      bz.shade_columns(canvas, *bz.prepare_lattice_basis());
+    }
+    bz.advance_display();
+  }
+  /** @brief Shades the whole frame against the lattice oriented at the
+   *         current endpoint. */
+  static void shade_oriented_frame(BZ &bz) {
+    {
+      ScratchScope guard(scratch_arena_a);
       Canvas canvas(bz);
       bz.shade(canvas);
     }
     bz.advance_display();
+  }
+  /** @brief Replaces the view orientation's frame endpoints. */
+  static void set_orientation(BZ &bz, const math::Quaternion &previous,
+                              const math::Quaternion &current) {
+    bz.orientation.set(previous);
+    bz.orientation.push(current);
   }
   static void set_state(BZ &bz, uint16_t *a, uint16_t *b, uint16_t *c) {
     bz.state.A = a;
@@ -676,4 +701,55 @@ inline void test_bz_segmented_slabs_match_full_frame() {
               band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
     HS_EXPECT_EQ(mismatches, 0);
   }
+}
+
+/**
+ * @brief Each column of a BZ frame shaded through the lattice basis matches the
+ *        lattice oriented at that column's sweep time and shaded at the fixed
+ *        meridian, within the factored-column tolerance.
+ */
+inline void test_bz_lattice_basis_matches_rotated_lattice() {
+  using WhiteBox = BZWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  WhiteBox::BZ bz;
+  bz.init();
+  for (int f = 0; f < 12; ++f) {
+    bz.draw_frame();
+    bz.advance_display();
+  }
+  const math::Quaternion previous =
+      math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 0.7f);
+  const math::Quaternion current =
+      (math::make_rotation(math::Vector(-0.6f, 0.2f, 0.7f).normalized(),
+                           0.35f) *
+       previous)
+          .normalized();
+  WhiteBox::set_orientation(bz, previous, current);
+  WhiteBox::shade_columns_frame(bz);
+  std::vector<Pixel> actual;
+  capture_frame<W, H>(bz, actual);
+
+  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
+  std::vector<Pixel> frame;
+  for (int column = 0; column < W / 2; ++column) {
+    const math::Quaternion at =
+        math::slerp(previous, current, Temporal::sweep_fraction(column, W))
+            .normalized();
+    WhiteBox::set_orientation(bz, at, at);
+    WhiteBox::shade_oriented_frame(bz);
+    capture_frame<W, H>(bz, frame);
+    for (int y = 0; y < H; ++y)
+      for (int x : {column, column + W / 2})
+        expected[static_cast<size_t>(y) * W + x] =
+            frame[static_cast<size_t>(y) * W + x];
+  }
+  const FrameErrorStats stats = compare_buffers(expected, actual);
+  std::printf(
+      "  [info] BZ lattice basis: lit=%zu differ=%zu max=%u mean=%.5f\n",
+      stats.lit_reference_pixels, stats.different_pixels,
+      stats.max_absolute_error, stats.mean_absolute_error());
+  HS_EXPECT_GT(stats.lit_reference_pixels, static_cast<size_t>(W * H / 4));
+  HS_EXPECT_LE(stats.max_absolute_error, 16u);
+  HS_EXPECT_LT(stats.mean_absolute_error(), 0.05);
 }

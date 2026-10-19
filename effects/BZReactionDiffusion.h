@@ -49,6 +49,7 @@ class BZReactionDiffusion
   using Base::gather_stencil;
   using Base::init_lattice;
   using Base::orient_lattice;
+  using Base::prepare_lattice_basis;
   using Base::Q16_SCALE;
   using Base::RD_K;
   using Base::RD_N;
@@ -57,6 +58,7 @@ class BZReactionDiffusion
   using Base::seed_blobs;
   using Base::rasterize_lattice;
   using Base::to_q16;
+  using typename Base::LatticeBasis;
 
 public:
   /// Machine/display identity and compatibility keys.
@@ -76,14 +78,16 @@ public:
    */
   void init() override {
     constexpr size_t PERSISTENT_BYTES = 184 * 1024;
-    // The physics and raster phases run under disjoint scratch scopes.
-    constexpr size_t PHYSICS_SCRATCH_BYTES = 3u * RD_N * sizeof(float);
+    // With temporal sampling the lattice basis outlives every substep's
+    // mirrors; without it the oriented lattice follows the popped mirrors.
+    constexpr size_t PHYSICS_SCRATCH_BYTES =
+        sizeof(LatticeBasis) + 3u * RD_N * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(math::Vector);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
-    // Peak-phase blocks: the generation mirrors.
-    constexpr size_t SCRATCH_TENANTS = 3;
+    // Peak-phase blocks: the lattice basis and the generation mirrors.
+    constexpr size_t SCRATCH_TENANTS = 4;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES, 0,
                                        SCRATCH_BYTES, SCRATCH_TENANTS>();
 
@@ -254,13 +258,14 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Hoisted 4× SSAA body for one pixel: refine once, re-weight per sample.
-   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
-   * @param seed Cubemap-LUT seed node id for this pixel (from the vertex shader).
-   * @param center_rv World-space direction at the pixel center.
-   * @param world_nodes Oriented lattice node positions.
-   * @param grid Row's SSAA sub-pixel grid.
-   * @param x Pixel column.
+   * @brief Hoisted SSAA body for one pixel: refine once, re-weight per sample.
+   * @tparam SAMPLES Sub-samples per pixel.
+   * @tparam SampleFn Callable (int) -> Vector giving sub-sample directions.
+   * @param seed Cubemap-LUT seed node id for this pixel.
+   * @param center_rv Direction at the pixel center, in the frame of
+   *        @p lattice.
+   * @param lattice Node positions in the frame of @p center_rv.
+   * @param sample Sub-sample directions, in the same frame.
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
@@ -268,24 +273,25 @@ private:
    * @details Sub-samples re-weight one stencil gathered at the pixel center,
    * which can reach past one node spacing at low vertical resolution.
    */
-  template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
-                             const math::Vector *world_nodes, const Grid &grid,
-                             int x, const FloatRgb &ca, const FloatRgb &cb,
-                             const FloatRgb &cc) const {
-    int center = refine_render_center(center_rv, world_nodes, seed);
+  template <int SAMPLES, typename SampleFn>
+  HS_HOT_INLINE Pixel shade_stencil(int seed, const math::Vector &center_rv,
+                                    const math::Vector *lattice,
+                                    SampleFn &&sample, const FloatRgb &ca,
+                                    const FloatRgb &cb,
+                                    const FloatRgb &cc) const {
+    int center = refine_render_center(center_rv, lattice, seed);
     math::Vector spos[RD_K + 1];
     uint16_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
-    gather_stencil(world_nodes, center, spos, [&](int slot, int ni) {
+    gather_stencil(lattice, center, spos, [&](int slot, int ni) {
       sa[slot] = state.A[ni];
       sb[slot] = state.B[ni];
       sc[slot] = state.C[ni];
     });
 
-    constexpr float INV_SAMPLES = 1.0f / Grid::SAMPLES;
+    constexpr float INV_SAMPLES = 1.0f / SAMPLES;
     float mix_a = 0, mix_b = 0, mix_c = 0;
-    for (int i = 0; i < Grid::SAMPLES; ++i) {
-      math::Vector v = grid.at(x, i);
+    for (int i = 0; i < SAMPLES; ++i) {
+      math::Vector v = sample(i);
       float tw = 0, wa = 0, wb = 0, wc = 0;
       accumulate_stencil(v, spos, [&](int j, float w) {
         wa += sa[j] * w;
@@ -312,6 +318,29 @@ private:
   }
 
   /**
+   * @brief Shades one pixel against the oriented lattice.
+   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @param seed Cubemap-LUT seed node id for this pixel (from the vertex shader).
+   * @param center_rv World-space direction at the pixel center.
+   * @param world_nodes Oriented lattice node positions.
+   * @param grid Row's SSAA sub-pixel grid.
+   * @param x Pixel column.
+   * @param ca Palette color for species A.
+   * @param cb Palette color for species B.
+   * @param cc Palette color for species C.
+   * @return The finished, alpha-premultiplied pixel.
+   */
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel(int seed, const math::Vector &center_rv,
+                             const math::Vector *world_nodes, const Grid &grid,
+                             int x, const FloatRgb &ca, const FloatRgb &cb,
+                             const FloatRgb &cc) const {
+    return shade_stencil<Grid::SAMPLES>(
+        seed, center_rv, world_nodes,
+        [&](int i) HS_HOT_INLINE { return grid.at(x, i); }, ca, cb, cc);
+  }
+
+  /**
    * @brief Advances the species in place.
    * @param substeps Physics substeps to run.
    */
@@ -326,7 +355,8 @@ private:
   }
 
   /**
-   * @brief Rasterizes the current species with SSAA.
+   * @brief Rasterizes the current species with SSAA against the lattice
+   *        oriented at the current endpoint.
    * @param canvas Destination canvas; an open RenderXWindow limits the columns.
    */
   void shade(Canvas &canvas) {
@@ -352,18 +382,46 @@ private:
   }
 
   /**
+   * @brief Rasterizes the current species with SSAA, each column against the
+   *        lattice at its sweep time.
+   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   * @param basis The frame's per-column lattice frames.
+   */
+  HS_HOT_FLASH_MEMBER void shade_columns(Canvas &canvas,
+                                         const LatticeBasis &basis) const {
+    HS_PROFILE(bz_raster);
+    Scan::Shader::walk_object_grid<W, H>(
+        canvas, basis,
+        [&](const math::Vector &center, const Scan::ObjectColumn &column,
+            const auto &grid, int) HS_HOT_INLINE {
+          using Grid = std::remove_cvref_t<decltype(grid)>;
+          return shade_stencil<Grid::SAMPLES>(
+              Base::cube_lut.lookup(center), center, Base::nodes,
+              [&](int i) HS_HOT_INLINE { return grid.at(column, i); }, color_a,
+              color_b, color_c);
+        });
+  }
+
+  /**
    * @brief Advances the simulation and rasterizes it in sweep slabs.
    * @param canvas Destination canvas to draw into.
-   * @details Each substep is followed by the slab of columns that ends its
-   * share of the frame; the oriented lattice is rebuilt per slab, in the
-   * scratch the physics mirrors released.
+   * @details With temporal sampling enabled, each substep is followed by the
+   * slab of columns that ends its share of the frame, shaded through the
+   * frame's per-column lattice frames. Disabled, every substep runs and the
+   * oriented lattice is shaded once.
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
     HS_PROFILE(bz_render);
-    Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
-        canvas, [this](int substeps) { advance(substeps); },
-        [&] { shade(canvas); });
+    if (Temporal::temporal_sampling_enabled()) {
+      const LatticeBasis &basis = *prepare_lattice_basis();
+      Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
+          canvas, [this](int substeps) { advance(substeps); },
+          [&] { shade_columns(canvas, basis); });
+    } else {
+      advance(STEPS_PER_FRAME);
+      shade(canvas);
+    }
   }
 
   // ---------------------------------------------------------------------------
