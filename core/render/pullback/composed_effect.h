@@ -31,6 +31,7 @@
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/composed_resources.h"
+#include "core/render/pullback/temporal_history.h"
 
 #if HS_ENABLE_TEST_HOOKS
 namespace hs_test {

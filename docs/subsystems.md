@@ -237,7 +237,9 @@ arc of that phase over the current a, c and d. A lens whose b was replaced by a
 snap or write, or whose a, c or d changed, takes the current lens in every
 column. A column lens that fails `Pullback::valid` takes the current lens.
 
-Manual shaders reuse the same facility over their own frame struct.
+Manual shaders reuse the same facility, from
+[temporal_history.h](../core/render/pullback/temporal_history.h), over their
+own frame struct.
 `Pullback::TemporalHistory<Frame>` retains the previous endpoint of a frame
 that owns or shares immutable resources, and `Pullback::sample_frame` calls the
 frame's static `sample(from, to, fraction)` for every column before the current

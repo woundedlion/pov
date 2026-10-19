@@ -9,16 +9,6 @@
  * @brief Retained frame endpoints and column-time sampling for composed effects.
  */
 
-/** @brief Interpolates the shortest arc of a periodic clock.
- * @param from Previous clock value.
- * @param to Current clock value.
- * @param fraction Fraction of one frame, in [0, 1].
- * @param period Clock period; the frame advance must be less than half of it.
- * @return Interpolated clock, equivalent modulo the period. */
-inline float sample_clock(float from, float to, float fraction, float period) {
-  return from + std::remainder(to - from, period) * fraction;
-}
-
 /** @brief Gives a frame the current lens wherever a Mobius lens cannot
  *  follow its generator phase between the endpoints.
  * @tparam Frame Composed temporal frame context.
@@ -113,26 +103,6 @@ sample_frame(const Frame &from, const Frame &to, float fraction,
                     from.palette_alpha,
                     from.hue_noise_linear};
   return frame;
-}
-
-/** @brief Samples an effect frame that interpolates itself.
- * @details The frame's sampler sees fraction zero, where a reset part of the
- * history takes the current endpoint rather than @p from.
- * @tparam Frame Frame with `static Frame sample(from, to, fraction)` for
- * fractions in [0, 1).
- * @param from Previous frame.
- * @param to Current frame.
- * @param fraction Fraction of one frame, in [0, 1].
- * @return @p to at 1 or above, else the frame's sample. */
-template <typename Frame>
-  requires requires(const Frame &frame, float fraction) {
-    { Frame::sample(frame, frame, fraction) } -> std::same_as<Frame>;
-  }
-HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
-                                   float fraction) {
-  if (fraction >= 1.0f)
-    return to;
-  return Frame::sample(from, to, fraction);
 }
 
 /** @brief Shared preparation for column samples of one frame interval. */
@@ -258,36 +228,6 @@ public:
                       from.hue_noise_linear,
                       same_noise};
     return frame;
-  }
-};
-
-/** @brief Whether a frame borrows palette and hue tables its history must own.
- * @tparam Frame Frame context type. */
-template <typename Frame>
-concept BorrowsColorResources = requires(const Frame &frame) {
-  frame.palette;
-  frame.temporal;
-};
-
-/** @brief Optional retained endpoint storage. */
-template <typename Frame, HueMode Hue = HueMode::NONE, bool Enabled = true,
-          bool FloatHue = false>
-struct TemporalHistory {};
-
-/** @brief Retained previous endpoint of a frame that owns or shares
- *  immutable resources. */
-template <typename Frame>
-  requires(!BorrowsColorResources<Frame>)
-struct TemporalHistory<Frame, HueMode::NONE, true, false> {
-  static_assert(std::is_trivially_copyable_v<Frame>);
-  Frame previous{};         ///< Previous endpoint.
-  bool initialized = false; ///< Whether a previous endpoint exists.
-
-  /** @brief Retains the current endpoint before the next animation step.
-   * @param frame Current frame. */
-  void capture(const Frame &frame) {
-    previous = frame;
-    initialized = true;
   }
 };
 
