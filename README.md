@@ -402,6 +402,7 @@ The entry points trade generality for speed:
 - `draw(canvas, fragment_shader, vertex_shader)` — a vertex shader runs once at the pixel center and the fragment shader once per subsample, so per-pixel work is not repeated.
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
 - `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
+- `draw_columns` and `draw_block_columns` — prepare a shader once per column, the second also once per block of the column, for column-time sampling (composed effects, HyperLattice and Voronoi).
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectColumnBasis` frame at its sweep time.
 
@@ -1273,7 +1274,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── relax_bakes_generated.h Baked relaxed-mesh vertices (from tools/relax_bakes.py)
 │   │   └── relax_bake_specs.h      Authored relax-bake names and iteration budgets
 │   ├── spatial/                Spatial indexing and spherical graph structures
-│   │   ├── kd_tree.h               KDTree k-nearest-neighbor search
+│   │   ├── kd_tree.h               KDTree k-nearest-neighbor search, also over moved points
 │   │   └── reaction_graph.h / reaction_graph.cpp  Precomputed Fibonacci-lattice K-NN graph: neighbors, node_positions, neighbor-run encoding and the 48 KiB CubemapLUT
 │   ├── color/                  Color math and palettes
 │   │   ├── color.h                 Color and palette umbrella
