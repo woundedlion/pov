@@ -508,6 +508,7 @@ inline void clip_clear_parity_one(
 #include "tests/effects/shape_shifter.h"
 #include "tests/effects/voronoi_cases.h"
 #include "tests/effects/islamic_stars.h"
+#include "tests/effects/column_time_parity.h"
 /**
  * @brief Module entry point for the effects white-box suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -618,6 +619,9 @@ inline int run_effects_tests() {
   run_case(test_galaxies_white_star_stays_white);
   run_case(test_galaxies_emission_rate_and_capacity);
   run_case(test_galaxies_live_particle_count);
+#if defined(_WIN32)
+  run_case(test_column_time_scans_keep_fidelity_off_frames);
+#endif
   run_case(test_galaxies_black_hole_core_toggle);
   run_case(test_galaxies_packed_orbits_match_float);
   run_case(test_displacement_field_lazy_hue_table_matches_eager);
