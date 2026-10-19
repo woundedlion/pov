@@ -36,6 +36,8 @@ HS_O3_BEGIN
  * @tparam PipelineT Plotting pipeline type.
  * @tparam MinimalFragment See rasterize_face.
  * @tparam COLUMN_TIME Whether pixels follow @p time's rotated basis.
+ * @tparam INLINE_RUNS Whether the run builder inlines into the body, so a
+ *         FLASH variant takes it along.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
@@ -47,7 +49,7 @@ HS_O3_BEGIN
  * boundary is walked per column.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment,
-          bool COLUMN_TIME, typename FragmentShaderT>
+          bool COLUMN_TIME, bool INLINE_RUNS, typename FragmentShaderT>
 HS_HOT_INLINE inline void
 rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                     FragmentShaderT &fragment_shader,
@@ -56,7 +58,8 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const auto xc = cr.x_clip();
 
   int y_lo, y_hi;
-  static constexpr size_t MAX_RUNS = 8;
+  // A column-time run is split at the arm boundary, which one run can cross.
+  static constexpr size_t MAX_RUNS = COLUMN_TIME ? 9 : 8;
   std::pair<int, int> runs[MAX_RUNS];
   size_t num_runs = 0;
 
@@ -79,16 +82,26 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     static_assert(decltype(intervals)::CAPACITY >=
                       SDF::sdf_max_spans<SDF::Face>::value,
                   "intervals must hold a Face's per-row emission");
-    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value,
+    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value +
+                                  (COLUMN_TIME ? 1 : 0),
                   "runs must hold every span seam-split and clip-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
+    auto append = [&](int a, int b) {
+      HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
+      runs[num_runs++] = {a, b};
+    };
     auto push = [&](int a, int b) {
       if (a >= b)
         return;
-      HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
-      runs[num_runs++] = {a, b};
+      if constexpr (COLUMN_TIME) {
+        if (a < W / 2 && b > W / 2) {
+          append(a, W / 2);
+          a = W / 2;
+        }
+      }
+      append(a, b);
     };
     StaticCircularBuffer<SDF::Interval, 8> norm;
     static_assert(decltype(norm)::CAPACITY == 2 * decltype(intervals)::CAPACITY,
@@ -96,9 +109,8 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     emit_row_runs<W>(handled, intervals, norm, xc, push);
   };
   [[maybe_unused]] auto build_runs = [&](int y) { build_runs_body(y); };
-  // The column-time variant inlines its run builder so it leaves ITCM whole.
   const auto rebuild_runs = [&](int y) HS_HOT_INLINE {
-    if constexpr (COLUMN_TIME)
+    if constexpr (INLINE_RUNS)
       build_runs_body(y);
     else
       build_runs(y);
@@ -199,15 +211,30 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       if constexpr (pole_lod_blocks<SDF::Face>)
         if (stride > 1)
           next_block = pole_lod_block_anchor(next_block, stride);
+      // A column-time run lies on one arm: the far arm reads the near arm's
+      // entry with sin(phi) negated.
+      [[maybe_unused]] int arm_offset = 0;
+      [[maybe_unused]] float arm_sp = sp;
+      if constexpr (COLUMN_TIME) {
+        if (runs[r].first >= W / 2) {
+          arm_offset = W / 2;
+          arm_sp = -sp;
+        }
+      }
       for (int x = runs[r].first; x < rx2;) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        if constexpr (COLUMN_TIME)
-          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+        math::Vector p;
+        if constexpr (COLUMN_TIME) {
+          const math::Vector &e = azimuth[x - arm_offset];
+          const math::Vector &v = up[x - arm_offset];
+          p = math::Vector(arm_sp * e.x + cp * v.x, arm_sp * e.y + cp * v.y,
+                           arm_sp * e.z + cp * v.z);
+        } else {
+          p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        }
         float probe_min_cos = min_cos;
         [[maybe_unused]] bool block_fits = false;
         if constexpr (pole_lod_blocks<SDF::Face>) {
-          block_fits = x + stride <= rx2 &&
-                       (!COLUMN_TIME || x >= W / 2 || x + stride <= W / 2);
+          block_fits = x + stride <= rx2;
           if (stride > 1 && x == next_block && block_fits &&
               probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
@@ -280,8 +307,8 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 }
 
 /**
- * @brief Face-specialized scan loop for the mesh path, compiled at -O3 on the
- *        -Os device image.
+ * @brief Face-specialized scan loop for the mesh path at the fixed meridian,
+ *        compiled at -O3 on the -Os device image and placed in FLASH.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam PipelineT Plotting pipeline type.
@@ -300,10 +327,10 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
-HS_NOINLINE_NOCLONE inline void
-rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-               FragmentShaderT &fragment_shader) {
-  rasterize_face_body<W, H, PipelineT, MinimalFragment, false>(
+HS_HOT_FLASH_MEMBER void rasterize_face(PipelineT &pipeline, Canvas &canvas,
+                                        const SDF::Face &shape,
+                                        FragmentShaderT &fragment_shader) {
+  rasterize_face_body<W, H, PipelineT, MinimalFragment, false, true>(
       pipeline, canvas, shape, fragment_shader, nullptr);
 }
 
@@ -321,10 +348,10 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
-HS_HOT_FLASH_MEMBER void rasterize_face_column_time(
+HS_NOINLINE_NOCLONE inline void rasterize_face_column_time(
     PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     FragmentShaderT &fragment_shader, const Temporal::ColumnTime &time) {
-  rasterize_face_body<W, H, PipelineT, MinimalFragment, true>(
+  rasterize_face_body<W, H, PipelineT, MinimalFragment, true, false>(
       pipeline, canvas, shape, fragment_shader, &time);
 }
 HS_O3_END

@@ -194,8 +194,8 @@ grown to cover every column's centre. `Scan::RingGroup` also takes each
 slot's axis at the previous endpoint and evaluates the slot about the axis
 interpolated to each column's sweep time, for groups whose members move
 independently. On the device the column-time variants of the rasterize, mesh,
-ring-group, ring-stack and volume scans run from FLASH, leaving the
-fixed-meridian loops in ITCM.
+ring-group, ring-stack and volume scans run from ITCM, and their
+fixed-meridian loops from FLASH.
 
 A shader that evaluates a turning object in the object's own space takes a
 `Scan::ObjectColumnBasis` instead: per sweep fraction, the column's azimuth,
