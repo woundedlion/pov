@@ -309,7 +309,122 @@ struct GnomonicStarsWhiteBox {
                            const math::Vector &v) {
     fx.spiral_cache[i] = v;
   }
+
+  template <int W, int H>
+  static bool warp_drawn(const GnomonicStars<W, H> &fx) {
+    return fx.warp_drawn;
+  }
+  template <int W, int H>
+  static const math::MobiusParams &drawn_warp(const GnomonicStars<W, H> &fx) {
+    return fx.drawn_warp;
+  }
+  template <int W, int H>
+  static const math::MobiusParams &warp(const GnomonicStars<W, H> &fx) {
+    return fx.transformer.active_params(0);
+  }
+  template <int W, int H>
+  static const math::Vector &spiral(const GnomonicStars<W, H> &fx, int i) {
+    return fx.spiral_cache[i];
+  }
+  template <int W, int H>
+  static math::Vector warped(const GnomonicStars<W, H> &fx, int i) {
+    return fx.transformer.transform(fx.spiral_cache[i]);
+  }
+  template <int W, int H>
+  static math::Vector star_drift(const GnomonicStars<W, H> &fx,
+                                 const math::Vector &point,
+                                 const math::Vector &warped) {
+    return fx.star_drift(point, warped);
+  }
+  template <int W, int H>
+  static const math::Quaternion &orientation(const GnomonicStars<W, H> &fx) {
+    return fx.orientation.get();
+  }
+  template <int W, int H> static void refresh_spiral(GnomonicStars<W, H> &fx) {
+    fx.refresh_spiral();
+  }
+  template <int W, int H> static constexpr float max_drift() {
+    return GnomonicStars<W, H>::MAX_DRIFT;
+  }
+  template <int W, int H>
+  static void set_drawn_warp(GnomonicStars<W, H> &fx,
+                             const math::MobiusParams &warp) {
+    fx.drawn_warp = warp;
+  }
 };
+
+/**
+ * @brief Whether two Mobius parameter sets hold the same coefficients.
+ * @param a First set.
+ * @param b Second set.
+ * @return True when every coefficient matches bit for bit.
+ */
+inline bool same_mobius(const math::MobiusParams &a,
+                        const math::MobiusParams &b) {
+  return std::memcmp(&a, &b, sizeof(math::MobiusParams)) == 0;
+}
+
+/**
+ * @brief Each star drifts from where the last frame drew it to its current
+ *        warped centre, at the current orientation; a jump or a rebuilt
+ *        spiral holds it.
+ */
+inline void test_gnomonicstars_stars_drift_from_last_draw() {
+  using WB = GnomonicStarsWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  GnomonicStars<W, H> fx;
+  fx.init();
+  HS_EXPECT_FALSE(WB::warp_drawn(fx));
+  fx.draw_frame();
+  fx.advance_display();
+  HS_EXPECT_TRUE(WB::warp_drawn(fx));
+  HS_EXPECT_TRUE(same_mobius(WB::drawn_warp(fx), WB::warp(fx)));
+
+  const float max_drift = WB::max_drift<W, H>();
+  int moving = 0;
+  for (int f = 0; f < 6; ++f) {
+    const math::MobiusParams previous = WB::drawn_warp(fx);
+    fx.draw_frame();
+    fx.advance_display();
+    HS_EXPECT_TRUE(same_mobius(WB::drawn_warp(fx), WB::warp(fx)));
+    HS_EXPECT_FALSE(same_mobius(previous, WB::warp(fx)));
+    WB::set_drawn_warp(fx, previous);
+    const math::Quaternion &q = WB::orientation(fx);
+    for (int i = 0; i < 600; i += 37) {
+      const math::Vector point = WB::spiral(fx, i);
+      const math::Vector before =
+          math::rotate(math::gnomonic_mobius_transform(point, previous), q);
+      const math::Vector now = math::rotate(WB::warped(fx, i), q);
+      const math::Vector drift = WB::star_drift(fx, point, WB::warped(fx, i));
+      if (math::dot(drift, drift) == 0.0f) {
+        HS_EXPECT_GT(acosf(hs::clamp(math::dot(before, now), -1.0f, 1.0f)),
+                     max_drift);
+        continue;
+      }
+      ++moving;
+      HS_EXPECT_LE(sqrtf(math::dot(drift, drift)), max_drift + 1e-6f);
+      HS_EXPECT_NEAR(math::dot(Temporal::rotate_short(before, drift), now),
+                     1.0f, 1e-6f);
+    }
+    WB::set_drawn_warp(fx, WB::warp(fx));
+  }
+  HS_EXPECT_GT(moving, 50);
+
+  const math::Vector point = WB::spiral(fx, 5);
+  const math::Vector drawn =
+      math::gnomonic_mobius_transform(point, WB::drawn_warp(fx));
+  const math::Vector jump = math::rotate(
+      drawn, math::make_rotation(math::cross(drawn, math::Y_AXIS).normalized(),
+                                 1.5f * max_drift));
+  const math::Vector held = WB::star_drift(fx, point, jump);
+  HS_EXPECT_EQ(math::dot(held, held), 0.0f);
+
+  HS_EXPECT_TRUE(fx.updateParameter("Points", 300.0f) ==
+                 ParamSetResult::APPLIED);
+  WB::refresh_spiral(fx);
+  HS_EXPECT_FALSE(WB::warp_drawn(fx));
+}
 
 /**
  * @brief Pins GnomonicStars' spiral-cache invalidation: the trig-heavy base
