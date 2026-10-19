@@ -620,6 +620,7 @@ inline int run_effects_tests() {
   run_case(test_sh_field_stays_inside_unit_range);
   run_case(test_sh_polarity_split_and_ao_shaping);
   run_case(test_sh_cycle_covers_every_mode);
+  run_case(test_sh_instantaneous_pixel_golden);
   run_case(test_gs_reaction_edit_starts_dissolve);
   run_case(test_gs_stall_hold_starts_dissolve);
   run_case(test_gs_preset_pause_does_not_hold_lifecycle);

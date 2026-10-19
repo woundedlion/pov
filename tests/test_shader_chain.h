@@ -471,6 +471,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_determinism();
   test_shader_chain_param_names_and_budget();
   test_shader_chain_composed_frame_parity();
+  test_shader_chain_instantaneous_pixel_golden();
   test_shader_chain_effect_registers_params();
   test_shader_chain_parameter_admission();
   test_shader_chain_edge_distance_admission();

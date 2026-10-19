@@ -460,3 +460,46 @@ inline void test_shader_chain_pause_semantics() {
   HS_EXPECT_TRUE(color_after != color_before);
   HS_EXPECT_GT((frame_energy<96, 20>(effect)), 0u);
 }
+
+/** @brief ShaderChain with temporal sampling disabled matches its committed
+ *  render over two programs, clips and a hue-noise colorize. */
+inline void test_shader_chain_instantaneous_pixel_golden() {
+  using WB = ShaderChainWhiteBox;
+  constexpr int W = 96;
+  constexpr int H = 20;
+  const ScopedTemporalSampling instantaneous(false);
+  reset_globals();
+  WB::FX chain;
+  chain.init();
+  const In::ChainEntryRequest topology[] = {
+      {"camera", "sphere.rotate.v2"},
+      {"lens", "sphere.lens.glitch.v2"},
+      {"project", "project.gnomonic.v2"},
+      {"warp", "warp.mirror-tile.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  uint64_t hash = HASH_SEED64;
+  for (int frame = 0; frame < 100; ++frame) {
+    pin_frame_clock(frame);
+    if (frame == 20)
+      chain.set_clip(2, H - 2, 40, 60);
+    if (frame == 30) {
+      chain.set_clip(0, H, 0, 8);
+      chain.set_margin(4);
+    }
+    if (frame == 40) {
+      chain.set_margin(0);
+      chain.set_clip(0, H, 0, W);
+    }
+    if (frame == 60) {
+      HS_EXPECT_EQ(chain.set_chain(topology).code, In::ChainStatus::OK);
+      WB::color_params(chain).hue_shift_amount = 0.3f;
+    }
+    chain.draw_frame();
+    chain.advance_display();
+    hash = frame_hash<W, H>(chain, hash);
+  }
+  hs::clear_mock_time();
+  expect_pixel_golden("ShaderChain 96x20", hash, 0xbfbf4393aff25990ull);
+}
