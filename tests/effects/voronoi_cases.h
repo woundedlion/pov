@@ -79,14 +79,12 @@ struct VoronoiWhiteBox {
       current[i] = v.sites_buffer[i].pos;
     ScratchScope scope(scratch_arena_a);
     const KDTree now(scratch_arena_a, std::span<const math::Vector>(current));
-    const KDTree before(scratch_arena_a, std::span<const math::Vector>(
-                                             v.previous_positions.data(), n));
     auto near = v.first_nearby();
     std::vector<std::array<uint16_t, 4>> out;
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
-        out.push_back(v.endpoint_pairs(
-            now, before, math::pixel_to_vector<W, H>(x, y), near));
+        out.push_back(
+            v.endpoint_pairs(now, math::pixel_to_vector<W, H>(x, y), near));
     return out;
   }
 
