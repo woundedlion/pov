@@ -28,6 +28,7 @@
 #include "core/render/pullback/operators/table.h"
 #include "tests/test_fixture.h"
 #include "tests/composed_frame_fixture.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_harness.h"
 #include "tests/vec_test_util.h"
 
@@ -693,6 +694,7 @@ inline int run_composed_effect_tests() {
   test_temporal_owned_resources();
   test_gridspace_temporal_pixels();
   test_composed_temporal_roster();
+  test_mobius_grid_instantaneous_pixel_golden();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
   test_catalog_semantic_export();

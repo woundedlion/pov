@@ -8,12 +8,14 @@
 
 #include "core/color/color.h"
 #include "core/render/canvas.h"
+#include "core/render/temporal.h"
 #include "tests/test_fixture.h"
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <span>
 #include <vector>
 
@@ -155,6 +157,46 @@ inline uint64_t frame_hash(const Fx &fx, uint64_t hash = HASH_SEED64) {
     }
   return hash;
 }
+
+/**
+ * @brief Whether committed pixel goldens apply to this build.
+ * @details Goldens are captured by the native Windows Clang Debug build. Other
+ * C libraries and floating-point modes round transcendental results
+ * differently.
+ */
+#if defined(_WIN32) && !defined(__OPTIMIZE__) && !HS_TEST_FAST_MATH
+inline constexpr bool PIXEL_GOLDENS = true;
+#else
+inline constexpr bool PIXEL_GOLDENS = false;
+#endif
+
+/**
+ * @brief Compares a render hash with its committed golden where goldens apply.
+ * @param name Scenario name printed beside the hash.
+ * @param hash Hash of the rendered frames.
+ * @param golden Committed hash of the same frames.
+ */
+inline void expect_pixel_golden(const char *name, uint64_t hash,
+                                uint64_t golden) {
+  std::printf("  %s: pixel hash 0x%016llx\n", name,
+              static_cast<unsigned long long>(hash));
+  if constexpr (PIXEL_GOLDENS)
+    HS_EXPECT_EQ(hash, golden);
+}
+
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
+/** @brief Selects column-time sampling for a scope, then restores it. */
+struct ScopedTemporalSampling {
+  /** @brief Applies the mode.
+   * @param enabled Whether columns use their emission times. */
+  explicit ScopedTemporalSampling(bool enabled) {
+    Temporal::set_temporal_sampling_enabled(enabled);
+  }
+  ~ScopedTemporalSampling() { Temporal::set_temporal_sampling_enabled(true); }
+  ScopedTemporalSampling(const ScopedTemporalSampling &) = delete;
+  ScopedTemporalSampling &operator=(const ScopedTemporalSampling &) = delete;
+};
+#endif
 
 /**
  * @brief Sums every RGB channel across a fixed W by H framebuffer window.

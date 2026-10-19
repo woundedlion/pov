@@ -590,3 +590,38 @@ inline void test_composed_temporal_roster() {
   HS_SHADER_PRODUCT_GROUP(HS_COMPOSED_TEMPORAL)
 #undef HS_COMPOSED_TEMPORAL
 }
+
+/** @brief MobiusGrid with temporal sampling disabled matches its committed
+ *  render through a Lerp departure, clips and a manual preset. */
+inline void test_mobius_grid_instantaneous_pixel_golden() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  const ScopedTemporalSampling instantaneous(false);
+  reset_effect_globals();
+  FX effect;
+  effect.init();
+  const int departure = FX::PRESET_DWELL_FRAMES +
+                        Segue::Preset::frames(FX::preset_departure(0)) + 20;
+  uint64_t hash = HASH_SEED64;
+  for (int frame = 0; frame < departure + 40; ++frame) {
+    pin_frame_clock(frame);
+    if (frame == 30)
+      effect.set_clip(2, SMALL_H - 2, 40, 60);
+    if (frame == 40) {
+      effect.set_clip(0, SMALL_H, 0, 8);
+      effect.set_margin(4);
+    }
+    if (frame == 50) {
+      effect.set_margin(0);
+      effect.set_clip(0, SMALL_H, 0, SMALL_W);
+    }
+    if (frame == departure)
+      HS_EXPECT_TRUE(effect.selectPreset(0));
+    if (frame == departure + 20)
+      effect.setAnimationsPaused(false);
+    effect.draw_frame();
+    effect.advance_display();
+    hash = frame_hash<SMALL_W, SMALL_H>(effect, hash);
+  }
+  hs::clear_mock_time();
+  expect_pixel_golden("MobiusGrid 96x20", hash, 0x7aba7e31fa280f26ull);
+}

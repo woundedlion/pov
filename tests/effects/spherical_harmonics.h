@@ -502,3 +502,56 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
   HS_EXPECT_EQ(fx.getPresetIndex(), selected_preset);
   HS_EXPECT_TRUE(WB::next_idx(fx) != selected_mode);
 }
+
+/**
+ * @brief Renders a SphericalHarmonics schedule with temporal sampling
+ *        disabled and hashes every displayed frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param frames Frames to render.
+ * @param schedule Called with the effect and frame index before each draw.
+ * @return Hash of every displayed frame.
+ */
+template <int W, int H, typename Schedule>
+inline uint64_t sh_instantaneous_hash(int frames, Schedule &&schedule) {
+  const ScopedTemporalSampling instantaneous(false);
+  reset_effect_globals();
+  SphericalHarmonics<W, H> fx;
+  fx.init();
+  uint64_t hash = HASH_SEED64;
+  for (int frame = 0; frame < frames; ++frame) {
+    pin_frame_clock(frame);
+    schedule(fx, frame);
+    fx.draw_frame();
+    fx.advance_display();
+    hash = frame_hash<W, H>(fx, hash);
+  }
+  hs::clear_mock_time();
+  return hash;
+}
+
+/** @brief SphericalHarmonics with temporal sampling disabled matches its
+ *  committed render through morph rollovers, clips and a manual preset. */
+inline void test_sh_instantaneous_pixel_golden() {
+  using WB = SphericalHarmonicsWhiteBox;
+  const uint64_t small =
+      sh_instantaneous_hash<SMALL_W, SMALL_H>(140, [](WB::SH &fx, int frame) {
+        if (frame == 90)
+          fx.set_clip(2, SMALL_H - 2, 40, 60);
+        if (frame == 100) {
+          fx.set_clip(0, SMALL_H, 0, 8);
+          fx.set_margin(4);
+        }
+        if (frame == 110) {
+          fx.set_margin(0);
+          fx.set_clip(0, SMALL_H, 0, SMALL_W);
+          HS_EXPECT_TRUE(fx.selectPreset(9));
+        }
+        if (frame == 120)
+          fx.setAnimationsPaused(false);
+      });
+  expect_pixel_golden("SphericalHarmonics 96x20", small, 0x17cfe272f7a45109ull);
+  const uint64_t full = sh_instantaneous_hash<288, 144>(3, [](auto &, int) {});
+  expect_pixel_golden("SphericalHarmonics 288x144", full,
+                      0x2d87b2caff082939ull);
+}
