@@ -345,6 +345,67 @@ inline void test_shader_clip_arc_matches_predicate() {
       }
       break;
     }
+    case 10:
+      Scan::Shader::draw_columns<W, H>(c, [&](int) {
+        return [&](const math::Vector &v) {
+          const Color4 COLOR = positional(v);
+          return COLOR.color * COLOR.alpha;
+        };
+      });
+      break;
+    case 11: {
+      constexpr int BLOCK = 5;
+      std::vector<math::Vector> corners;
+      std::array<int, W> prepared{};
+      ScratchScope scope(scratch_arena_a);
+      Scan::Shader::draw_block_columns<W, H, 1>(
+          c, BLOCK, scratch_arena_a,
+          [&](const math::Vector &v) {
+            corners.push_back(v);
+            return Scan::Shader::BlockCell<1>{
+                static_cast<uint16_t>(corners.size() - 1)};
+          },
+          [&](int x) {
+            ++prepared[x];
+            struct Column {
+              int x;
+              int row;
+              const std::vector<math::Vector> &corners;
+              decltype(positional) &paint;
+              auto block(const Scan::Shader::BlockSites<1> &sites) {
+                std::array<uint16_t, 4> cell{};
+                for (size_t i = 0; i < cell.size(); ++i) {
+                  cell[i] = (*sites.corners[i])[0];
+                  HS_EXPECT_EQ(sites.idx[i], cell[i]);
+                }
+                HS_EXPECT_EQ(static_cast<int>(sites.n), 4);
+                return [this, cell](const math::Vector &v) {
+                  const int Y = row++;
+                  const auto EXPECTED = math::pixel_to_vector<W, H>(x, Y);
+                  HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+                  HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+                  HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+                  const int X0 = x / BLOCK * BLOCK;
+                  const int Y0 = Y / BLOCK * BLOCK;
+                  const int X1 = std::min(X0 + BLOCK, W - 1);
+                  const int Y1 = std::min(Y0 + BLOCK, H - 1);
+                  const std::array<std::array<int, 2>, 4> AT = {
+                      {{X0, Y0}, {X1, Y0}, {X0, Y1}, {X1, Y1}}};
+                  for (size_t i = 0; i < AT.size(); ++i) {
+                    const math::Vector CORNER =
+                        math::pixel_to_vector<W, H>(AT[i][0], AT[i][1]);
+                    HS_EXPECT_TRUE(corners[cell[i]] == CORNER);
+                  }
+                  return paint(v);
+                };
+              }
+            };
+            return Column{x, 0, corners, positional};
+          });
+      for (int x = 0; x < W; ++x)
+        HS_EXPECT_EQ(prepared[x], c.clip().x_clip().clipped(x) ? 0 : 1);
+      break;
+    }
     default:
       HS_EXPECT(false, "unknown shader clip-arc variant");
       break;
@@ -370,7 +431,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
 
-  for (int variant = 0; variant < 10; ++variant) {
+  for (int variant = 0; variant < 12; ++variant) {
     HS_CONTEXT("variant", variant);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
