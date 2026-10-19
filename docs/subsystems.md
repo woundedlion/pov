@@ -184,8 +184,10 @@ to that endpoint, from two vectors per sweep fraction shared by both arms, so a
 pixel costs six multiply-adds instead of two.
 `Scan::rasterize`, `Scan::Mesh`, `Scan::RingGroup` and
 `Scan::DistortedRingStack` honour the basis; their row and column bounds grow
-by the frame's rotation arc, and a mesh face's pole-LOD block slack grows by
-the rotation across the block. A birth fraction in the same state skips the
+by the frame's rotation arc, except that `Scan::rasterize` bounds a star, disc
+or ring by its cap turned to the time of the columns that can see it and
+widened by the rotation across them (`Scan::lit_cap`). A pole-LOD block's
+slack grows by the rotation across the block. A birth fraction in the same state skips the
 columns `Scan::rasterize` would light before it. The fidelity-off mode and a
 motionless frame install no basis and keep the fixed meridian, bit for bit.
 `Scan::Volume` instead takes an object's `Scan::VolumeColumns`: a centre and
@@ -1386,7 +1388,8 @@ and shades the lattice oriented at the current endpoint once.
 With temporal sampling enabled, GS shades from its flash lattice through the
 same basis in six slabs, one per substep. Its float field stays in scratch
 across the slabs; each slab quantizes B into the persistent Q16 field through
-the frame's dissolve mask, rebuilds its cull flags, and blends the colour
+the frame's dissolve mask, marking the nodes at the render floor as it goes,
+dilates the marks into its two-ring cull bits, and blends the colour
 noise between the previous and current frame's tables at the slab's end,
 keeping the previous table in a second persistent noise buffer. The pigment
 step and the lifecycle outcome are settled before the first substep: a frame
