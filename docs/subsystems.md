@@ -1381,8 +1381,18 @@ unrotated lattice through `Scan::Shader::walk_object_grid`, so each column sees
 the lattice at its sweep time without an oriented copy. It advances and shades
 through `Temporal::simulate_in_slabs`, one sweep slab per substep, and the
 basis serves every slab. With temporal sampling disabled it runs both substeps
-and shades the lattice oriented at the current endpoint once. GS shades from
-its flash lattice through the same basis, after all of its substeps.
+and shades the lattice oriented at the current endpoint once.
+
+With temporal sampling enabled, GS shades from its flash lattice through the
+same basis in six slabs, one per substep. Its float field stays in scratch
+across the slabs; each slab quantizes B into the persistent Q16 field through
+the frame's dissolve mask, rebuilds its cull flags, and blends the colour
+noise between the previous and current frame's tables at the slab's end,
+keeping the previous table in a second persistent noise buffer. The pigment
+step and the lifecycle outcome are settled before the first substep: a frame
+that ends a dissolve stays black, and a reseed frame shades the seeded field
+whole. The Q16 state ends every frame as the frame-wide order, used with
+temporal sampling disabled, leaves it.
 
 GS reuses the lattice cubemap projection for noise sampling, reversing the
 horizontal coordinate on the X faces and the vertical coordinate on the Y faces

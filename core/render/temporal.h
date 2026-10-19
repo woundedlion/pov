@@ -156,7 +156,8 @@ constexpr SweepSlab sweep_slab(int slab, int count, int width) {
  * frame-wide shade.
  */
 template <int SUBSTEPS, int SLABS, typename Advance, typename Shade>
-void simulate_in_slabs(Canvas &canvas, Advance &&advance, Shade &&shade) {
+HS_HOT_INLINE void simulate_in_slabs(Canvas &canvas, Advance &&advance,
+                                     Shade &&shade) {
   static_assert(SLABS > 0 && SUBSTEPS % SLABS == 0);
   if (!temporal_sampling_enabled()) {
     advance(SUBSTEPS);

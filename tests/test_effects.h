@@ -634,6 +634,9 @@ inline int run_effects_tests() {
   run_case(test_bz_lattice_basis_matches_rotated_lattice);
   run_case(test_gs_untimed_frames_are_pinned);
   run_case(test_gs_lattice_basis_matches_rotated_lattice);
+  run_case(test_gs_slabs_shade_the_field_after_their_substep);
+  run_case(test_gs_slab_noise_keeps_the_previous_bake);
+  run_case(test_gs_segmented_slabs_match_full_frame);
   run_case(test_dreamballs_preset_cycle_bookkeeping);
   CometsWhiteBox::check_paths_close();
   CometsWhiteBox::check_births_skip_earlier_columns();

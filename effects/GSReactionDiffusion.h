@@ -79,18 +79,27 @@ public:
         NUM_SEED_CLUSTERS *
             (PALETTE_SIZE * sizeof(Pixel) +
              COLOR_VALUE_STEPS * COLOR_NOISE_STEPS * sizeof(FloatColor)) +
-        2 * alignof(Pixel) + HueNoiseLutView::SIZE * sizeof(int8_t);
+        2 * alignof(Pixel) + 2 * HueNoiseLutView::SIZE * sizeof(int8_t);
     constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
-        std::max(RD_N * sizeof(math::Vector), sizeof(LatticeBasis)) +
-        2u * RD_N * sizeof(uint8_t);
-    constexpr size_t SCRATCH_BYTES =
-        std::max(PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES);
+        RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
+    // render_slabs(): the lattice basis, cull flags and float field live
+    // across the slabs, beside the pigment step or the frame-start B.
+    constexpr size_t SLAB_SCRATCH_BYTES =
+        sizeof(LatticeBasis) + 2u * RD_N * sizeof(uint8_t) +
+        2u * RD_N * sizeof(float) +
+        std::max(RD_N * sizeof(uint16_t),
+                 2u * PHYSICS_HISTORY_SIZE * sizeof(float) +
+                     RD_N * sizeof(uint16_t));
+    constexpr size_t SCRATCH_BYTES = std::max(
+        {PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES, SLAB_SCRATCH_BYTES});
+    constexpr size_t SCRATCH_TENANTS = 8;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES,
-                                       PALETTE_BYTES, SCRATCH_BYTES, 3, true>();
+                                       PALETTE_BYTES, SCRATCH_BYTES,
+                                       SCRATCH_TENANTS, true>();
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
     register_param("Kill", &params.k, 0.0f, 0.1f);
@@ -112,6 +121,8 @@ public:
     shimmer_cache.attach(persistent_arena.allocate_n<FloatColor>(
         NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS));
     color_noise_lut =
+        persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
+    previous_noise_lut =
         persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
     color_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     color_noise.SetSeed(6047);
@@ -534,9 +545,26 @@ private:
   }
 
   void advance_color_noise() {
+    const float PREVIOUS_PHASE = color_noise_phase;
     color_noise_phase = math::wrap_t(color_noise_phase + params.noise_speed);
-    if (params.hue_shift != 0.0f || params.shimmer != 0.0f)
+    if (params.hue_shift != 0.0f || params.shimmer != 0.0f) {
+      if (Temporal::temporal_sampling_enabled())
+        retain_color_noise(PREVIOUS_PHASE);
       refresh_color_noise();
+    }
+  }
+
+  /**
+   * @brief Keeps the previous frame's noise table before the next bake.
+   * @param previous_phase Noise phase of the previous frame.
+   * @details The table is history only when it was baked at that phase and
+   * the current scale; otherwise slabs shade the current table alone.
+   */
+  void retain_color_noise(float previous_phase) {
+    noise_history = color_noise_cache.phase == previous_phase &&
+                    color_noise_cache.scale == params.noise_scale;
+    if (noise_history)
+      std::copy_n(color_noise_lut, HueNoiseLutView::SIZE, previous_noise_lut);
   }
 
   float sample_color_noise(const math::Vector &direction) const {
@@ -548,7 +576,12 @@ private:
     const int FACE = projection.face;
     const float U = FACE < 2 ? -projection.u : projection.u;
     const float V = FACE >= 2 && FACE < 4 ? -projection.v : projection.v;
-    return sample_hue_noise_face({color_noise_lut, true}, FACE, U, V);
+    const HueNoiseSample SAMPLE = prepare_hue_noise_face(FACE, U, V);
+    const float NOW = SAMPLE.sample({color_noise_lut, true});
+    if (!slab_noise.previous)
+      return NOW;
+    const float BEFORE = SAMPLE.sample({slab_noise.previous, true});
+    return BEFORE + slab_noise.weight * (NOW - BEFORE);
   }
 
   /**
@@ -574,6 +607,26 @@ private:
             static_cast<uint16_t>(static_cast<float>(state.B[i]) * keep + 0.5f);
       }
     }
+  }
+
+  /**
+   * @brief A node's Q16 B as convert_below() leaves it.
+   * @param i Node id.
+   * @param phase Dissolve progress in [0, 1].
+   * @param b The node's Q16 B before the conversion.
+   * @return The converted B.
+   */
+  __attribute__((always_inline)) uint16_t dissolved_b(int i, float phase,
+                                                      uint16_t b) const {
+    const float h =
+        math::hash01(static_cast<uint32_t>(i), transition.dissolve_seed);
+    if (h < phase)
+      return 0;
+    if (h < phase + DISSOLVE_FADE_FRACTION) {
+      const float keep = (h - phase) * (1.0f / DISSOLVE_FADE_FRACTION);
+      return static_cast<uint16_t>(static_cast<float>(b) * keep + 0.5f);
+    }
+    return b;
   }
 
   /**
@@ -636,16 +689,47 @@ private:
    * in-flight one, which reseeds into whatever the constants read at its end.
    */
   void advance_transition(float mean_db) {
+    const TransitionPlan PLAN = plan_transition();
+    if (PLAN.dissolve >= 0.0f)
+      convert_below(PLAN.dissolve);
+    finish_transition(PLAN, mean_db);
+  }
+
+  /** @brief The parts of a frame's lifecycle step settled before its
+   *         substeps. */
+  struct TransitionPlan {
+    bool edited;    ///< The reaction constants moved since the last frame.
+    float dissolve; ///< Dissolve phase converted this frame, or -1.
+    bool reseed; ///< The dissolve ends: the field reseeds, the frame is black.
+  };
+
+  /**
+   * @brief Latches this frame's edits and advances an in-flight dissolve.
+   * @return The frame's lifecycle outcome, but for stabilization.
+   */
+  TransitionPlan plan_transition() {
     const bool EDITED = reaction_edited();
-    if (transition.dissolve_frames >= 0) {
-      transition.dissolve_frames++;
-      convert_below(static_cast<float>(transition.dissolve_frames) /
-                    DISSOLVE_FRAMES);
-      if (transition.dissolve_frames >= DISSOLVE_FRAMES)
+    if (transition.dissolve_frames < 0)
+      return {EDITED, -1.0f, false};
+    transition.dissolve_frames++;
+    return {EDITED,
+            static_cast<float>(transition.dissolve_frames) / DISSOLVE_FRAMES,
+            transition.dissolve_frames >= DISSOLVE_FRAMES};
+  }
+
+  /**
+   * @brief Completes a frame's lifecycle step after its substeps.
+   * @param plan The frame's plan_transition() outcome; a dissolve's
+   *        conversion is already applied.
+   * @param mean_db Mean per-node |dB| between the frame's start and end states.
+   */
+  void finish_transition(const TransitionPlan &plan, float mean_db) {
+    if (plan.dissolve >= 0.0f) {
+      if (plan.reseed)
         start_reaction(true);
       return;
     }
-    if (EDITED) {
+    if (plan.edited) {
       begin_dissolve();
       return;
     }
@@ -1229,10 +1313,104 @@ private:
   }
 
   /**
+   * @brief Quantizes the float B field into the Q16 field the shader reads.
+   * @param b Float B per node.
+   * @param dissolve The frame's dissolve phase, or negative for none.
+   */
+  HS_O3_FN void publish_b(const float *b, float dissolve) {
+    HS_PROFILE(grd_publish);
+    if (dissolve < 0.0f) {
+      for (int i = 0; i < RD_N; i++)
+        state.B[i] = to_q16(b[i]);
+      return;
+    }
+    for (int i = 0; i < RD_N; i++)
+      state.B[i] = dissolved_b(i, dissolve, to_q16(b[i]));
+  }
+
+  /**
+   * @brief Advances the sim and shades it in sweep slabs, one per substep.
+   * @param canvas Destination canvas to draw the sphere into.
+   * @details The frame's pigment and lifecycle outcome are settled before the
+   * first substep. Each slab shades the field after its substep through the
+   * frame's dissolve mask, with its own cull flags, and colour noise blended
+   * between the frame's two noise tables at the slab's end. A frame that ends
+   * a dissolve stays black; a reseed frame shades the seeded field whole. The
+   * Q16 state ends the frame as render() leaves it with temporal sampling
+   * disabled.
+   */
+  HS_HOT_FLASH_MEMBER void render_slabs(Canvas &canvas) {
+    const LatticeBasis &basis = *prepare_lattice_basis();
+    uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+    uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+    auto shade = [&]() HS_HOT_INLINE {
+      {
+        HS_PROFILE(grd_cull_flags);
+        fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+      }
+      HS_PROFILE(grd_shader_draw);
+      draw_lattice_columns(canvas, basis, hot1, hot2);
+    };
+    if (transition.reseed_pending()) {
+      finish_reseed();
+      refresh_color_palettes();
+      shade();
+      return;
+    }
+    const TransitionPlan PLAN = plan_transition();
+    if (!PLAN.reseed)
+      refresh_color_palettes();
+    float *cur_a = scratch_arena_a.allocate_n<float>(RD_N);
+    float *cur_b = scratch_arena_a.allocate_n<float>(RD_N);
+    for (int i = 0; i < RD_N; i++) {
+      cur_a[i] = from_q16(state.A[i]);
+      cur_b[i] = from_q16(state.B[i]);
+    }
+    {
+      ScratchScope pigment_guard(scratch_arena_a);
+      uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
+      step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
+    }
+    float *pending_a = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
+    float *pending_b = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
+    uint16_t *start_b = scratch_arena_a.allocate_n<uint16_t>(RD_N);
+    std::copy_n(state.B, RD_N, start_b);
+    int slab = 0;
+    Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
+        canvas,
+        [&](int substeps) HS_HOT_INLINE {
+          for (int step = 0; step < substeps; ++step)
+            step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
+        },
+        [&]() HS_HOT_INLINE {
+          const int ENDS = ++slab;
+          if (PLAN.reseed)
+            return;
+          publish_b(cur_b, PLAN.dissolve);
+          slab_noise = {noise_history ? previous_noise_lut : nullptr,
+                        static_cast<float>(ENDS) / STEPS_PER_FRAME};
+          shade();
+        });
+    slab_noise = {};
+    uint32_t db_sum_q16 = 0;
+    for (int i = 0; i < RD_N; i++) {
+      state.A[i] = to_q16(cur_a[i]);
+      uint16_t next_b = to_q16(cur_b[i]);
+      int db = static_cast<int>(next_b) - start_b[i];
+      db_sum_q16 += static_cast<uint32_t>(db < 0 ? -db : db);
+      state.B[i] = next_b;
+    }
+    if (PLAN.dissolve >= 0.0f)
+      convert_below(PLAN.dissolve);
+    finish_transition(PLAN, static_cast<float>(db_sum_q16) * (Q16_INV / RD_N));
+  }
+
+  /**
    * @brief Advances the sim STEPS_PER_FRAME substeps and rasterizes the B field.
    * @param canvas Destination canvas to draw the sphere into.
-   * @details Reseeding uses one black frame followed by a complete seed frame,
-   * both without partial-state chemistry or rendering.
+   * @details With temporal sampling enabled, render_slabs() advances and
+   * shades the frame. Reseeding uses one black frame followed by a complete
+   * seed frame, both without partial-state chemistry or rendering.
    */
   void render(Canvas &canvas) {
     HS_PROFILE(grd_render);
@@ -1241,6 +1419,10 @@ private:
       advance_color_noise();
     }
     ScratchScope frame_guard(scratch_arena_a);
+    if (Temporal::temporal_sampling_enabled()) {
+      render_slabs(canvas);
+      return;
+    }
     float mean_db = 0.0f;
     if (transition.reseed_pending()) {
       finish_reseed();
@@ -1281,20 +1463,8 @@ private:
     }
     refresh_color_palettes();
 
-    // Physics scratch is popped; the lattice frames and cull flags reuse it.
+    // Physics scratch is popped; the oriented lattice and cull flags reuse it.
     HS_PROFILE(grd_rasterize);
-    if (Temporal::temporal_sampling_enabled()) {
-      const LatticeBasis &basis = *prepare_lattice_basis();
-      uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
-      uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
-      {
-        HS_PROFILE(grd_cull_flags);
-        fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
-      }
-      HS_PROFILE(grd_shader_draw);
-      draw_lattice_columns(canvas, basis, hot1, hot2);
-      return;
-    }
     auto lattice = [this] {
       HS_PROFILE(grd_orient);
       return orient_lattice();
@@ -1344,6 +1514,16 @@ private:
   Pixel *palettes = nullptr;
   ShimmerCache shimmer_cache;
   int8_t *color_noise_lut = nullptr;
+  /** @brief The previous frame's noise table, under temporal sampling. */
+  int8_t *previous_noise_lut = nullptr;
+  /** @brief `previous_noise_lut` holds the previous frame's bake. */
+  bool noise_history = false;
+  /** @brief Noise blend of the slab being shaded. */
+  struct SlabNoise {
+    /// Table the blend starts from, or null for the current table alone.
+    const int8_t *previous = nullptr;
+    float weight = 1.0f; ///< Weight of the current table.
+  } slab_noise;
   FastNoiseLite color_noise;
   HueNoiseBakeCache color_noise_cache;
   float color_noise_phase = 0.0f;
