@@ -149,7 +149,7 @@ struct HyperLatticeWhiteBox {
   };
   /** @brief The latest drawn frame of an effect. */
   template <int W, int H> static Drawn drawn(const HyperLattice<W, H> &effect) {
-    return {effect.previous, effect.previous_center};
+    return {effect.history.previous.state, effect.history.previous.center};
   }
   /** @brief Live parameters of an effect at any resolution. */
   template <int W, int H> static HL::Params &live(HyperLattice<W, H> &effect) {
