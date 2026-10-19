@@ -443,7 +443,8 @@ struct Star {
    */
   Star moved(const math::Vector &axis, float arc) const {
     Star out = *this;
-    out.cap = moved_cap(cap, circumradius, axis, arc + MOVED_AXIS_SLACK);
+    out.cap =
+        moved_cap(cap, circumradius, basis.v, axis, arc + MOVED_AXIS_SLACK);
     return out;
   }
 

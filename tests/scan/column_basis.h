@@ -472,8 +472,8 @@ struct SweptOnlyRing : SDF::Ring {
  *        sweep time draw the frame their whole-frame swept bounds draw.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
- * @param angle Frame rotation (radians); below 0.1 most caps must re-centre
- *        and move by a small share of it.
+ * @param angle Frame rotation (radians); every cap re-centres within half of
+ *        it, and below 0.1 two in three within a quarter.
  */
 template <int W, int H> inline void check_lit_caps(float angle) {
   HS_CONTEXT(W == 96 ? "lit caps 96" : "lit caps 288");
@@ -519,20 +519,15 @@ template <int W, int H> inline void check_lit_caps(float angle) {
   auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
   const Temporal::ColumnTime time =
       basis->prepare(motion.previous, motion.current);
-  int recentred = 0;
-  float arc_sum = 0.0f;
+  int tight = 0;
   for (const math::Basis &b : bases) {
     Scan::LitCap cap;
-    if (!Scan::lit_cap<W, H>(b.v, 0.03f, time, cap))
-      continue;
-    ++recentred;
-    arc_sum += cap.arc;
-    HS_EXPECT_LT(cap.arc, time.sweep);
+    HS_EXPECT_TRUE((Scan::lit_cap<W, H>(b.v, 0.03f, time, cap)));
+    HS_EXPECT_LE(cap.arc, 0.5f * time.sweep + 0.01f);
+    tight += cap.arc < 0.25f * time.sweep;
   }
-  if (angle < 0.1f) {
-    HS_EXPECT_TRUE(recentred > SHAPES * 3 / 4);
-    HS_EXPECT_LT(arc_sum / recentred, 0.15f * time.sweep);
-  }
+  if (angle < 0.1f)
+    HS_EXPECT_GT(tight, SHAPES * 2 / 3);
 }
 
 /**

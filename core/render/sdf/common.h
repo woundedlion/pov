@@ -768,15 +768,35 @@ inline CapBounds swept_cap(const CapBounds &cap, float arc) {
   return out;
 }
 
-/// Angle a cap or band grows by when re-centred on an axis located with
-/// fast_atan2 and fast_acos, covering their peak errors (~3.8e-3, 5e-5 rad).
-inline constexpr float MOVED_AXIS_SLACK = 4e-3f;
+/// Angle a cap or band grows by when re-centred on another axis, covering
+/// fast_acos's peak colatitude error (5e-5 rad).
+inline constexpr float MOVED_AXIS_SLACK = 1e-4f;
+
+/**
+ * @brief Azimuth an axis turns through about the canvas pole.
+ * @param from Starting axis.
+ * @param to Turned axis.
+ * @return Signed change of atan2(z, x) from @p from to @p to, in [-pi, pi].
+ * @details A small turn takes atan's odd series through t^7, within 1e-9
+ * rad, so a re-centred cap keeps its azimuth without a libm call.
+ */
+inline float turned_azimuth(const math::Vector &from, const math::Vector &to) {
+  const float s = from.x * to.z - from.z * to.x;
+  const float c = from.x * to.x + from.z * to.z;
+  if (c > 0.0f && fabsf(s) < 0.125f * c) {
+    const float t = s / c;
+    const float t2 = t * t;
+    return t * (1.0f - t2 * (1.0f / 3.0f - t2 * (0.2f - t2 * (1.0f / 7.0f))));
+  }
+  return atan2f(s, c);
+}
 
 /**
  * @brief Re-centres a bounding cap on another axis and grows it by an arc.
- * @param cap Cap covering the shape about its own axis.
+ * @param cap Cap covering the shape about @p from.
  * @param radius The cap's angular radius (radians), at most PI / 2 less @p
  *        arc.
+ * @param from The cap's own axis (unit).
  * @param axis New cap axis (unit).
  * @param arc Growth (radians), including MOVED_AXIS_SLACK.
  * @return A cap about @p axis whose radius cosine and sine bound
@@ -786,11 +806,12 @@ inline constexpr float MOVED_AXIS_SLACK = 4e-3f;
  * transcendental call.
  */
 inline CapBounds moved_cap(const CapBounds &cap, float radius,
-                           const math::Vector &axis, float arc) {
+                           const math::Vector &from, const math::Vector &axis,
+                           float arc) {
   CapBounds out;
   out.ny = axis.y;
   out.r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
-  out.alpha_angle = math::fast_atan2(axis.z, axis.x);
+  out.alpha_angle = cap.alpha_angle + turned_azimuth(from, axis);
   const float center_phi =
       math::fast_acos(std::max(-1.0f, std::min(1.0f, axis.y)));
   const float margin = radius + BOUNDS_MARGIN_WIDE + arc;
