@@ -713,6 +713,10 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @param frag_scratch Reused Fragment scratch (avoids per-pixel alloc).
  * @param max_run Columns [x, x+max_run) offered by the scan; see scan_region.
  * @param probe Optional prepared distance evaluator and row certificate.
+ * @param block_y Cosine of the row's colatitude, sizing a block's slack; above
+ *        1, @p p's y stands in, which is that cosine at the fixed meridian.
+ * @param block_turn Arc the evaluated directions turn across the block, beyond
+ *        the row's own arc, as under a per-column rotated basis.
  * @return Columns consumed: max_run when the probe at x decided the whole
  *         offer (all clear, or a solid interior shaded once and splatted),
  *         else 1.
@@ -726,7 +730,8 @@ inline int process_pixel(int x, int y, const math::Vector &p,
                          FragmentShaderFn fragment_shader, bool debug_bb,
                          SDF::DistanceResult &result_scratch,
                          Fragment &frag_scratch, int max_run = 1,
-                         const Probe &probe = {}) {
+                         const Probe &probe = {}, float block_y = 2.0f,
+                         float block_turn = 0.0f) {
   probe.template distance<ComputeUVs>(shape, p, result_scratch);
 
   float d = result_scratch.dist;
@@ -743,7 +748,11 @@ inline int process_pixel(int x, int y, const math::Vector &p,
         if constexpr (requires { probe.threshold; })
           return 0.0f;
         else
-          return pole_lod_block_slack<W>(max_run, p.y, shape);
+          return pole_lod_block_slack<W>(
+                     max_run, block_y > 1.0f ? p.y : block_y, shape) +
+                 block_turn *
+                     SDF::arc_stretch<std::remove_cvref_t<decltype(shape)>> *
+                     report_stretch(shape);
       }();
       const BlockSettle settle = pole_lod_settle_with_slack<SOLID>(
           d, threshold, block_slack, shape, &p, probe);
@@ -1073,8 +1082,9 @@ inline constexpr bool fits_top_span_cap =
  * @param pixel_fn See scan_region.
  * @param xc Column-arc clip.
  * @param time Column-time state, read only with COLUMN_TIME: a rotated basis
- *        supplies p and disables pole-LOD blocks, and a birth fraction skips
- *        the columns lit before it.
+ *        supplies p, and a birth fraction skips the columns lit before it.
+ *        Each arm is walked separately, so no pole-LOD block spans an arm
+ *        boundary.
  */
 template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK, typename IntervalFn,
           typename PixelFn>
@@ -1153,7 +1163,7 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
   for (int y = y_min; y <= y_max; ++y) {
     float sp = math::TrigLUT<W, H>::sin_phi[y];
     float cp = math::TrigLUT<W, H>::cos_phi[y];
-    const int stride = COLUMN_TIME && azimuth ? 1 : pole_lod_run(sp);
+    const int stride = pole_lod_run(sp);
 
     // Clear before the producer runs: a producer that emits and then returns
     // false must not leak spans into the next row.
@@ -1164,12 +1174,12 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
     emit_row_runs<W>(
         handled, intervals, norm, xc, [&](int x1, int x2) HS_HOT_INLINE {
           if constexpr (COLUMN_TIME) {
-            if (birth_column > 0) {
-              run(std::max(x1, birth_column), std::min(x2, W / 2), y, sp, cp,
-                  stride);
-              run(std::max(x1, W / 2 + birth_column), x2, y, sp, cp, stride);
-              return;
-            }
+            // Each arm walks alone, so no block spans the jump in sweep
+            // fraction at the arm boundary.
+            run(std::max(x1, birth_column), std::min(x2, W / 2), y, sp, cp,
+                stride);
+            run(std::max(x1, W / 2 + birth_column), x2, y, sp, cp, stride);
+            return;
           }
           run(x1, x2, y, sp, cp, stride);
         });
@@ -1220,8 +1230,11 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  * @param get_intervals See scan_region.
  * @param pixel_fn See scan_region.
  * @param xc Column-arc clip.
- * @param time Column-time state: a rotated basis supplies p and disables
- *        pole-LOD blocks, and a birth fraction skips the columns lit before it.
+ * @param time Column-time state: a rotated basis supplies p, and a birth
+ *        fraction skips the columns lit before it. Each arm is walked
+ *        separately, so no pole-LOD block spans an arm boundary; a pixel
+ *        function settling a block must add the basis's turn across it to
+ *        its slack.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region_column_time(int y_min, int y_max,
@@ -1438,6 +1451,8 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
   auto probe = prepare_distance(shape);
+  // A block of n columns spans n - 1 columns of sweep time.
+  const float turn_per_column = sweep / (W / 2);
 
   scan_region_column_time<W, H>(
       y_lo, y_hi,
@@ -1448,14 +1463,18 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
         return bounds_shape->template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const math::Vector &p, int max_run) {
+        // A prepared probe sizes its row's block slack without the turn, so
+        // it walks every column.
         if constexpr (std::is_same_v<decltype(probe), SDF::DirectDistance>)
           return process_pixel<W, H, ComputeUVs>(
               wx, y, p, pipeline, canvas, shape, fragment_shader, debug,
-              result_scratch, frag_scratch, max_run);
+              result_scratch, frag_scratch, max_run, probe,
+              math::TrigLUT<W, H>::cos_phi[y],
+              turn_per_column * static_cast<float>(max_run - 1));
         else
           return process_pixel<W, H, ComputeUVs>(
               wx, y, p, pipeline, canvas, shape, fragment_shader, debug,
-              result_scratch, frag_scratch, max_run, probe);
+              result_scratch, frag_scratch, 1, probe);
       },
       xc, time);
 }
