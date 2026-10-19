@@ -51,6 +51,7 @@ public:
     transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
+    drawn_centres = persistent_arena.allocate_n<math::Vector>(MAX_POINTS);
 
     register_int_param("Points", &params.points, 100, MAX_POINTS);
     register_param("Radius", &params.star_radius, 0.7f * radius_px(),
@@ -126,7 +127,6 @@ private:
     const int points = params.points;
     const float radius = params.star_radius;
     const int sides = params.star_sides;
-    const math::MobiusParams &warp_now = transformer.active_params(0);
     const bool drifting = warp_drawn && Temporal::temporal_sampling_enabled();
 
     HS_PROFILE(gn_draw_stars);
@@ -136,11 +136,13 @@ private:
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     for (int i = 0; i < points; i++) {
       math::Vector v = transformer.transform(spiral_cache[i]);
+      const math::Vector drawn = drawn_centres[i];
+      drawn_centres[i] = v;
 
       // make_basis() applies the orientation; pass the unrotated point.
       math::Basis basis = math::make_basis(orientation.get(), v);
       if (drifting) {
-        const math::Vector drift = star_drift(spiral_cache[i], v);
+        const math::Vector drift = star_drift(drawn, v);
         column_time.drift =
             Scan::settle_drift<W, H>(column_time, drift, radius, basis)
                 ? math::Vector(0.0f, 0.0f, 0.0f)
@@ -153,21 +155,18 @@ private:
                                fragment_shader, 0.0f, params.debug_bb);
       }
     }
-    drawn_warp = warp_now;
     warp_drawn = true;
   }
 
   /**
    * @brief A star's displacement over the frame at the current orientation.
-   * @param point The star's spiral point.
-   * @param warped The point under the current warp.
-   * @return Rotation vector carrying the previous warped centre to @p warped,
-   *         at the current orientation; zero for a jump past MAX_DRIFT.
+   * @param previous The star's warped centre where the last frame drew it.
+   * @param warped The star's warped centre under the current warp.
+   * @return Rotation vector carrying @p previous to @p warped, at the current
+   *         orientation; zero for a jump past MAX_DRIFT.
    */
-  HS_FLASH_MEMBER math::Vector star_drift(const math::Vector &point,
+  HS_FLASH_MEMBER math::Vector star_drift(const math::Vector &previous,
                                           const math::Vector &warped) const {
-    const math::Vector previous =
-        math::gnomonic_mobius_transform(point, drawn_warp);
     const math::Vector axis = math::cross(previous, warped);
     const float sine_sq = math::dot(axis, axis);
     if (!(math::dot(previous, warped) > 0.0f && sine_sq <= MAX_DRIFT_SINE_SQ))
@@ -202,11 +201,13 @@ private:
     return math::coarse_pixel_pitch<W, H>() * 2.0f / math::PI_F;
   }
 
-  // Persistent allocations: warp pool and phases, spiral lattice, palette LUT.
+  // Persistent allocations: warp pool and phases, spiral lattice, drawn
+  // centres, palette LUT.
   using MobiusEntity = typename MobiusWarpGnomonicTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
-      alignof(int) + MAX_POINTS * sizeof(math::Vector) + alignof(math::Vector) +
+      alignof(int) +
+      2 * (MAX_POINTS * sizeof(math::Vector) + alignof(math::Vector)) +
       BakedPalette::required_arena_bytes() +
       Animation::MobiusWarpEvolving::CHANNEL_COUNT * sizeof(double) +
       alignof(double) - 1;
@@ -226,9 +227,10 @@ private:
       baked_palette; /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1>
-      transformer;               /**< Evolving Möbius warp applied per point. */
-  math::MobiusParams drawn_warp; /**< Warp the last star draw used. */
-  bool warp_drawn = false; /**< Whether drawn_warp holds this spiral's last
+      transformer; /**< Evolving Möbius warp applied per point. */
+  /// Persistent warped centres of the last star draw, MAX_POINTS slots.
+  math::Vector *drawn_centres = nullptr;
+  bool warp_drawn = false; /**< Whether drawn_centres holds this spiral's last
                               draw. */
   Animation::MobiusWarpEvolving *warp =
       nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
