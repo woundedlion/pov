@@ -152,4 +152,5 @@ inline void test_column_time_scans_engage_with_fidelity_on() {
   check_column_time_scans_engage<ShapeShifter>("ShapeShifter");
   check_column_time_scans_engage<Comets>("Comets");
   check_column_time_scans_engage<Galaxies>("Galaxies");
+  check_column_time_scans_engage<DisplacementField>("DisplacementField");
 }

@@ -155,6 +155,26 @@ template <int W, int H> struct ColumnBasis {
 };
 
 /**
+ * @brief Prepares a frame's column basis from its orientation endpoints.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param arena Arena holding the table when the frame moves; the table lives
+ *        until the caller's scope on it closes.
+ * @param previous Orientation at the previous endpoint.
+ * @param current Orientation at the current endpoint.
+ * @return Column-time state for the frame's scans.
+ */
+template <int W, int H>
+inline Temporal::ColumnTime
+prepare_column_basis(Arena &arena, const math::Quaternion &previous,
+                     const math::Quaternion &current) {
+  if (!ColumnBasis<W, H>::moving(previous, current))
+    return {};
+  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(previous,
+                                                                      current);
+}
+
+/**
  * @brief Prepares an orientation's column basis for this frame.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
@@ -168,12 +188,8 @@ template <int W, int H> struct ColumnBasis {
 template <int W, int H, int CAP>
 inline Temporal::ColumnTime
 prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation) {
-  const math::Quaternion &previous = orientation.get(0);
-  const math::Quaternion &current = orientation.get();
-  if (!ColumnBasis<W, H>::moving(previous, current))
-    return {};
-  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(previous,
-                                                                      current);
+  return prepare_column_basis<W, H>(arena, orientation.get(0),
+                                    orientation.get());
 }
 
 /**

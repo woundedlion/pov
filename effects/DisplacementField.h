@@ -289,7 +289,8 @@ private:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
    * @details Under a partial clip, rings that cannot touch the clip and
-   * invisible azimuth chunks skip the bake.
+   * invisible azimuth chunks skip the bake. Each column sees the stack
+   * orientation at its sweep time.
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
@@ -297,10 +298,21 @@ private:
     HS_CHECK(n_rings <= RING_SLOTS,
              "DisplacementField: Rings slider exceeds the baked-ring pool");
     math::Basis basis = math::make_basis(orientation.get(), STACK_AXIS);
+    // The walk steps after this sprite draws, so the previous endpoint is the
+    // orientation the last draw used.
+    const math::Quaternion &current = orientation.get();
+    const math::Quaternion previous =
+        orientation_drawn ? drawn_orientation : current;
+    drawn_orientation = current;
+    orientation_drawn = true;
+    ScratchScope column_guard(scratch_arena_a);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, previous, current);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the rasterizer's soft stroke cross-section past
-    // the clip's margin.
-    const float pad = 3.0f * math::PI_F / H;
+    // the clip's margin and the stack's rotation over the frame.
+    const float pad = 3.0f * math::PI_F / H + column_time.sweep;
     const float noise_bound = noise_field.field_bound();
 
     const int n_balls = preset_index == BALLS_PRESET && !seed_balls_pending
@@ -832,6 +844,8 @@ private:
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   math::Orientation<> orientation;
+  math::Quaternion drawn_orientation; ///< Orientation of the last ring draw.
+  bool orientation_drawn = false;     ///< Whether a ring draw has happened.
 
   /** Noise row in PRESETS and PRESET_IDS. */
   static constexpr size_t NOISE_PRESET = 0;
