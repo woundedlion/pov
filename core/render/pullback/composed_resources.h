@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "core/math/noise_field.h"
+#include "core/render/pullback/lens.h"
 #include "core/render/pullback/source.h"
 #include "core/render/pullback/stage.h"
 #include "core/render/pullback/warp.h"
@@ -286,6 +287,12 @@ struct ClockState<Family, ResourceKind::WARP> : RotationClock<Family> {
 template <typename Family> struct ClockState<Family, ResourceKind::SURFACE> {
   float phase = 0.0f; ///< Phase in [0, 1); ripple frame count in
                       ///< [0, period).
+};
+/** @brief Phase of the animation generating a Mobius lens's b. */
+template <> struct ClockState<Lens::MobiusLensParams, ResourceKind::LENS> {
+  float angle = 0.0f;     ///< Generator angle, radians.
+  float magnitude = 0.0f; ///< Generator magnitude; zero when unanimated.
+  bool generated = false; ///< Whether the frame's b is the generator's.
 };
 /** @brief The clocks of `Resource`. */
 template <typename Resource>

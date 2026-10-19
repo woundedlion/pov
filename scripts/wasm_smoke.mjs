@@ -169,6 +169,7 @@ async function main(probe) {
       'KaleidoscopeMandala', 'KaleidoscopeHexBright', 'KaleidoscopePentBright',
       'KaleidoscopeMelt', 'KaleidoscopeHexOil', 'KaleidoscopeHexSoft',
       'KaleidoscopeStainedGlass', 'KaleidoscopeSmooth', 'MermaidSkin',
+      'MobiusGrid', 'SphericalHarmonics',
     ];
     const renderSamplingProbe = async (enabled, replace = false) => {
       const isolated = await createHolosphereModule({ print: () => {}, printErr: () => {} });
@@ -182,7 +183,7 @@ async function main(probe) {
         if (enabled !== undefined) probe.setTemporalSampling(enabled);
         probe.setResolution(96, 20);
         const pixels = new Map();
-        for (const effect of [...temporalEffects, 'MobiusGrid']) {
+        for (const effect of temporalEffects) {
           if (probe.setEffect(effect) !== isolated.EffectSetResult.INSTALLED)
             fail(`temporal sampling: could not install ${effect}`);
           for (let frame = 0; frame < 8; frame++) probe.drawFrame();
@@ -206,8 +207,6 @@ async function main(probe) {
       if (samples.some((value, index) => value !== replacement.get(effect)[index]))
         fail(`temporal sampling: replacement engine inherited disabled sampling for ${effect}`);
     }
-    if (flat.get('MobiusGrid').some((value, index) => value !== temporal.get('MobiusGrid')[index]))
-      fail('temporal sampling: unsupported MobiusGrid changed with column timing');
   }
 
   {

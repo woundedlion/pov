@@ -529,12 +529,13 @@ protected:
    */
   template <ResourceKey Key = "lens">
   HS_COLD_MEMBER void start_mobius_animation(float scale, int duration) {
-    if constexpr (Params::template HAS<Key>)
-      timeline.add_pausable(
-          0,
-          Animation::MobiusWarpCircular(params.template get<Key>().mobius,
-                                        scale, duration),
-          &anims_paused);
+    if constexpr (Params::template HAS<Key>) {
+      Animation::MobiusWarpCircular warp(params.template get<Key>().mobius,
+                                         scale, duration);
+      auto &phase = clocks.template get<Key>();
+      warp.bind_phase(phase.angle, phase.magnitude);
+      timeline.add_pausable(0, std::move(warp), &anims_paused);
+    }
   }
 
 public:
@@ -871,6 +872,9 @@ private:
       if constexpr (Resource::KIND == ResourceKind::LENS)
         if (!Pullback::valid(frame.params.template get<Resource::KEY>()))
           frame.params.template get<Resource::KEY>().mobius = {};
+      if constexpr (std::is_same_v<typename Resource::Family, MobiusLensParams>)
+        resource.generated = lens_generated(
+            frame.params.template get<Resource::KEY>(), resource);
     });
     if constexpr (TEMPORAL_SAMPLING)
       return FrameState{frame,

@@ -502,85 +502,81 @@ inline void test_gridspace_temporal_pixels() {
 template <typename FX>
 inline void check_temporal_roster_pixels(const char *name) {
   HS_CONTEXT(name);
-  if constexpr (std::is_same_v<FX, MobiusGrid<96, 20>>) {
-    HS_EXPECT_FALSE(FX::TEMPORAL_SAMPLING);
-  } else {
-    HS_EXPECT_TRUE(FX::TEMPORAL_SAMPLING);
-    reset_globals();
-    constexpr int W = 96;
-    constexpr int H = 20;
-    constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
-    FX effect;
-    effect.init();
-    Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
-                              FX::FLOAT_HUE_TABLES>
-        history;
-    const auto view = [](int x, int y) {
-      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-      return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
-                          math::TrigLUT<W, H>::cos_phi[y],
-                          SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
-    };
-    const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
-      const Pixel PIXEL = expected.color * expected.alpha;
-      HS_EXPECT_NEAR(actual.r, PIXEL.r, TOLERANCE);
-      HS_EXPECT_NEAR(actual.g, PIXEL.g, TOLERANCE);
-      HS_EXPECT_NEAR(actual.b, PIXEL.b, TOLERANCE);
-    };
+  HS_EXPECT_TRUE(FX::TEMPORAL_SAMPLING);
+  reset_globals();
+  constexpr int W = 96;
+  constexpr int H = 20;
+  constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
+  FX effect;
+  effect.init();
+  Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
+                            FX::FLOAT_HUE_TABLES>
+      history;
+  const auto view = [](int x, int y) {
+    const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+    return math::Vector(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
+                        math::TrigLUT<W, H>::cos_phi[y],
+                        SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+  };
+  const auto expect_pixel = [](const Pixel &actual, const Color4 &expected) {
+    const Pixel PIXEL = expected.color * expected.alpha;
+    HS_EXPECT_NEAR(actual.r, PIXEL.r, TOLERANCE);
+    HS_EXPECT_NEAR(actual.g, PIXEL.g, TOLERANCE);
+    HS_EXPECT_NEAR(actual.b, PIXEL.b, TOLERANCE);
+  };
 
+  effect.draw_frame();
+  effect.advance_display();
+  const auto initial = effect.frame_for_test();
+  const auto first = FX::RenderPipeline::prepare(initial);
+  for (int x : {0, 1, 47, 48, 49, 95})
+    for (int y : {1, 7, 18})
+      expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
+  history.capture(initial, persistent_arena);
+  HS_EXPECT_TRUE(history.previous.palette != initial.palette);
+  if constexpr (FX::Metadata::HUE == Pullback::HueMode::NOISE) {
+    HS_EXPECT_TRUE(history.previous.hue_noise_lut != initial.hue_noise_lut);
+    HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
+                   initial.hue_rotation_lut);
+  }
+
+  effect.set_clip(3, 17, 39, 83);
+  for (bool enabled : {true, false, false, true}) {
+    Temporal::set_temporal_sampling_enabled(enabled);
     effect.draw_frame();
     effect.advance_display();
-    const auto initial = effect.frame_for_test();
-    const auto first = FX::RenderPipeline::prepare(initial);
-    for (int x : {0, 1, 47, 48, 49, 95})
-      for (int y : {1, 7, 18})
-        expect_pixel(effect.get_pixel(x, y), FX::shade(view(x, y), first));
-    history.capture(initial, persistent_arena);
-    HS_EXPECT_TRUE(history.previous.palette != initial.palette);
-    if constexpr (FX::Metadata::HUE == Pullback::HueMode::NOISE) {
-      HS_EXPECT_TRUE(history.previous.hue_noise_lut != initial.hue_noise_lut);
-      HS_EXPECT_TRUE(history.previous.hue_rotation_lut !=
-                     initial.hue_rotation_lut);
+    const auto current = effect.frame_for_test();
+    const auto instantaneous = FX::RenderPipeline::prepare(current);
+    const auto previous = FX::RenderPipeline::prepare(history.previous);
+    const auto start = FX::RenderPipeline::prepare(
+        Pullback::sample_frame(history.previous, current, 0.0f));
+    const auto end = FX::RenderPipeline::prepare(
+        Pullback::sample_frame(history.previous, current, 1.0f));
+    for (int x : {0, 47, 48, 95}) {
+      const auto direction = view(x, 7);
+      const Color4 BEFORE = FX::shade(direction, previous);
+      const Color4 AFTER = FX::shade(direction, instantaneous);
+      expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
+      expect_pixel(AFTER.color * AFTER.alpha, FX::shade(direction, end));
     }
-
-    effect.set_clip(3, 17, 39, 83);
-    for (bool enabled : {true, false, false, true}) {
-      Temporal::set_temporal_sampling_enabled(enabled);
-      effect.draw_frame();
-      effect.advance_display();
-      const auto current = effect.frame_for_test();
-      const auto instantaneous = FX::RenderPipeline::prepare(current);
-      const auto previous = FX::RenderPipeline::prepare(history.previous);
-      const auto start = FX::RenderPipeline::prepare(
-          Pullback::sample_frame(history.previous, current, 0.0f));
-      const auto end = FX::RenderPipeline::prepare(
-          Pullback::sample_frame(history.previous, current, 1.0f));
-      for (int x : {0, 47, 48, 95}) {
-        const auto direction = view(x, 7);
-        const Color4 BEFORE = FX::shade(direction, previous);
-        const Color4 AFTER = FX::shade(direction, instantaneous);
-        expect_pixel(BEFORE.color * BEFORE.alpha, FX::shade(direction, start));
-        expect_pixel(AFTER.color * AFTER.alpha, FX::shade(direction, end));
+    int changed = 0;
+    for (int x = 39; x < 83; ++x) {
+      const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
+      const auto frame = FX::RenderPipeline::prepare(
+          Pullback::sample_frame(history.previous, current, FRACTION));
+      for (int y = 3; y < 17; ++y) {
+        const auto direction = view(x, y);
+        const Color4 TEMPORAL = FX::shade(direction, frame);
+        const Color4 CURRENT = FX::shade(direction, instantaneous);
+        expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);
+        if (TEMPORAL.color * TEMPORAL.alpha != CURRENT.color * CURRENT.alpha)
+          ++changed;
       }
-      int changed = 0;
-      for (int x = 39; x < 83; ++x) {
-        const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
-        const auto frame = FX::RenderPipeline::prepare(
-            Pullback::sample_frame(history.previous, current, FRACTION));
-        for (int y = 3; y < 17; ++y) {
-          const auto direction = view(x, y);
-          const Color4 TEMPORAL = FX::shade(direction, frame);
-          const Color4 CURRENT = FX::shade(direction, instantaneous);
-          expect_pixel(effect.get_pixel(x, y), enabled ? TEMPORAL : CURRENT);
-          if (TEMPORAL.color * TEMPORAL.alpha != CURRENT.color * CURRENT.alpha)
-            ++changed;
-        }
-      }
-      HS_EXPECT_TRUE(changed > 0);
-      history.capture(current, persistent_arena);
     }
-    Temporal::set_temporal_sampling_enabled(true);
+    HS_EXPECT_TRUE(changed > 0);
+    history.capture(current, persistent_arena);
   }
+  Temporal::set_temporal_sampling_enabled(true);
 }
 
 /** @brief The compatible composed roster uses column-time rendering. */
@@ -624,4 +620,204 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
   }
   hs::clear_mock_time();
   expect_pixel_golden("MobiusGrid 96x20", hash, 0x7aba7e31fa280f26ull);
+}
+
+/** @brief Composed history type of an effect.
+ * @tparam FX Composed effect specialization. */
+template <typename FX>
+using ComposedHistory =
+    Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
+                              FX::FLOAT_HUE_TABLES>;
+
+/** @brief MobiusGrid's lens b at a continuous frame time.
+ * @param time Frames since init; draw k spans [k, k + 1].
+ * @return The circular warp's b at the eased phase of @p time. */
+inline math::Complex mobius_grid_b_at(double time) {
+  constexpr double PERIOD = 160.0;
+  const double cycle = std::fmod(time, PERIOD) / PERIOD;
+  const float angle =
+      static_cast<float>(2.0 * 3.14159265358979323846 *
+                         math::ease_in_out_sin(static_cast<float>(cycle)));
+  return {std::cos(angle), -std::sin(angle)};
+}
+
+/** @brief MobiusGrid's lens follows its eased animation phase at every
+ *  column, across the frame seam and the phase cycle wrap. */
+inline void test_mobius_grid_lens_follows_phase() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  ComposedHistory<FX> history;
+  double worst = 0.0;
+  double worst_endpoint = 0.0;
+  double held = 0.0;
+  for (int draw = 0; draw < 165; ++draw) {
+    pin_frame_clock(draw);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto current = effect.frame_for_test();
+    const math::Complex endpoint =
+        current.params.template get<"lens">().mobius.b;
+    const math::Complex expected_endpoint = mobius_grid_b_at(draw + 1.0);
+    worst_endpoint = std::max<double>(
+        worst_endpoint, std::hypot(endpoint.re - expected_endpoint.re,
+                                   endpoint.im - expected_endpoint.im));
+    if (history.initialized &&
+        (draw < 4 || (draw > 77 && draw < 82) || draw > 155)) {
+      const Pullback::TemporalFrameSampler sampler(history.previous, current);
+      for (int x = 0; x < SMALL_W; ++x) {
+        const float fraction = Temporal::sweep_fraction(x, SMALL_W);
+        const auto sampled = sampler.sample(fraction);
+        const auto reference =
+            Pullback::sample_frame(history.previous, current, fraction);
+        const math::MobiusParams &lens =
+            sampled.params.template get<"lens">().mobius;
+        verify_mobius_equal(lens,
+                            reference.params.template get<"lens">().mobius);
+        const math::Complex expected = mobius_grid_b_at(draw + fraction);
+        worst = std::max<double>(worst, std::hypot(lens.b.re - expected.re,
+                                                   lens.b.im - expected.im));
+        held = std::max<double>(held, std::hypot(endpoint.re - expected.re,
+                                                 endpoint.im - expected.im));
+        HS_EXPECT_EQ(lens.a.re,
+                     current.params.template get<"lens">().mobius.a.re);
+        HS_EXPECT_EQ(lens.d.re,
+                     current.params.template get<"lens">().mobius.d.re);
+      }
+    }
+    history.capture(current, persistent_arena);
+  }
+  hs::clear_mock_time();
+  std::printf(
+      "  MobiusGrid lens phase: worst %.3g, endpoints %.3g, held %.3g\n", worst,
+      worst_endpoint, held);
+  HS_EXPECT_LT(worst_endpoint, 1e-5);
+  HS_EXPECT_LT(worst, 5e-4);
+  HS_EXPECT_GT(held, 0.02);
+}
+
+/** @brief Unsupported lens transitions take the current lens in every
+ *  column: a snapped b, changed a, c or d, and a degenerate path sample. */
+inline void test_mobius_grid_lens_unsupported_transitions() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  reset_globals();
+  FX effect;
+  effect.init();
+  for (int draw = 0; draw < 10; ++draw) {
+    pin_frame_clock(draw);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const auto before = effect.frame_for_test();
+  HS_EXPECT_TRUE(before.resources.template get<"lens">().generated);
+  const auto lens_at = [](const auto &from, const auto &to, float fraction) {
+    return Pullback::TemporalFrameSampler(from, to)
+        .sample(fraction)
+        .params.template get<"lens">()
+        .mobius;
+  };
+
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  const auto snapped = effect.frame_for_test();
+  HS_EXPECT_FALSE(snapped.resources.template get<"lens">().generated);
+  for (const float fraction : {0.0f, 0.5f}) {
+    verify_mobius_equal(lens_at(before, snapped, fraction),
+                        snapped.params.template get<"lens">().mobius);
+    verify_mobius_equal(Pullback::sample_frame(before, snapped, fraction)
+                            .params.template get<"lens">()
+                            .mobius,
+                        snapped.params.template get<"lens">().mobius);
+  }
+
+  auto moved = before;
+  auto &moved_phase = moved.resources.template get<"lens">();
+  moved_phase.angle += 0.2f;
+  Animation::MobiusWarpCircular::write_b(
+      moved.params.template get<"lens">().mobius, moved_phase.magnitude,
+      moved_phase.angle);
+  HS_EXPECT_TRUE(Pullback::lens_generated(moved.params.template get<"lens">(),
+                                          moved_phase));
+  const math::MobiusParams halfway = lens_at(before, moved, 0.5f);
+  HS_EXPECT_NEAR(
+      std::atan2(-halfway.b.im, halfway.b.re),
+      std::remainder(before.resources.template get<"lens">().angle + 0.1f,
+                     math::TWO_PI_F),
+      1e-5f);
+  for (auto field : {&math::MobiusParams::a, &math::MobiusParams::c,
+                     &math::MobiusParams::d}) {
+    auto edited = moved;
+    (edited.params.template get<"lens">().mobius.*field).im += 0.01f;
+    verify_mobius_equal(lens_at(before, edited, 0.5f),
+                        edited.params.template get<"lens">().mobius);
+  }
+
+  auto degenerate_from = before;
+  auto degenerate_to = before;
+  for (auto *frame : {&degenerate_from, &degenerate_to}) {
+    math::MobiusParams &mobius = frame->params.template get<"lens">().mobius;
+    mobius.a = {1.0f, 0.0f};
+    mobius.c = {1.0f, 0.0f};
+    mobius.d = {1.0f, 0.0f};
+  }
+  degenerate_from.resources.template get<"lens">().angle = -0.1f;
+  degenerate_to.resources.template get<"lens">().angle = 0.1f;
+  for (auto *frame : {&degenerate_from, &degenerate_to}) {
+    auto &phase = frame->resources.template get<"lens">();
+    phase.magnitude = 1.0f;
+    Animation::MobiusWarpCircular::write_b(
+        frame->params.template get<"lens">().mobius, 1.0f, phase.angle);
+    HS_EXPECT_TRUE(Pullback::valid(frame->params.template get<"lens">()));
+  }
+  verify_mobius_equal(lens_at(degenerate_from, degenerate_to, 0.5f),
+                      degenerate_to.params.template get<"lens">().mobius);
+  const math::MobiusParams quarter =
+      lens_at(degenerate_from, degenerate_to, 0.25f);
+  HS_EXPECT_NEAR(quarter.b.re, std::cos(-0.05f), 1e-5f);
+  HS_EXPECT_NEAR(quarter.b.im, -std::sin(-0.05f), 1e-5f);
+}
+
+/** @brief Segmented MobiusGrid engines, including clips crossing both arm
+ *  boundaries, draw the same pixels as one full-frame engine. */
+inline void test_mobius_grid_segmented_matches_single_engine() {
+  using FX = MobiusGrid<SMALL_W, SMALL_H>;
+  struct Segment {
+    int x0, x1, margin;
+  };
+  constexpr std::array<Segment, 4> SEGMENTS{
+      {{0, 40, 0}, {40, 60, 0}, {60, SMALL_W, 0}, {0, 8, 4}}};
+  constexpr int DRAWS = 24;
+  const auto render = [](const Segment &segment, auto &&inspect) {
+    reset_globals();
+    FX engine;
+    engine.init();
+    engine.set_clip(0, SMALL_H, segment.x0, segment.x1);
+    engine.set_margin(segment.margin);
+    for (int draw = 0; draw < DRAWS; ++draw) {
+      pin_frame_clock(draw);
+      engine.draw_frame();
+      engine.advance_display();
+      inspect(engine, draw);
+    }
+    hs::clear_mock_time();
+  };
+  std::vector<std::vector<Pixel>> single(DRAWS);
+  render({0, SMALL_W, 0}, [&](const FX &engine, int draw) {
+    capture_frame<SMALL_W, SMALL_H>(engine, single[draw]);
+  });
+  int mismatches = 0;
+  int compared = 0;
+  for (const Segment &segment : SEGMENTS)
+    render(segment, [&](const FX &engine, int draw) {
+      for (int column = segment.x0 - segment.margin;
+           column < segment.x1 + segment.margin; ++column) {
+        const int x = (column + SMALL_W) % SMALL_W;
+        for (int y = 0; y < SMALL_H; ++y) {
+          ++compared;
+          mismatches += engine.get_pixel(x, y) != single[draw][y * SMALL_W + x];
+        }
+      }
+    });
+  HS_EXPECT_EQ(compared, DRAWS * (SMALL_W + 16) * SMALL_H);
+  HS_EXPECT_EQ(mismatches, 0);
 }

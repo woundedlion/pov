@@ -21,6 +21,8 @@
 struct MobiusGridSpec : Pullback::Spec {
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::COMPLEMENTARY;
   static constexpr bool ANIMATED_PROJECTION = true;
+  /// Samples animation continuously across each two-arm half-turn.
+  static constexpr bool TEMPORAL_SAMPLING = true;
   /**
    * @brief Stage chain: camera rotation, Mobius lens, stereographic projection, mirror warp, twin-wave source, generated palette.
    * @tparam B The effect's Binding.
@@ -55,7 +57,7 @@ using MobiusGridParams = Pullback::ParamsFor<MobiusGridSpec>;
  * the circular animation drives b on the unit circle; authored b is not a
  * rendered-frame promise. Automatic Lerp and Fade departures retain all live
  * lens coefficients; manual and synchronized preset snaps adopt the authored
- * lens.
+ * lens. Columns sample the warp's phase, never the coefficients.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
