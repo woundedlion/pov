@@ -72,9 +72,6 @@ public:
 
   /**
    * @brief Advances the timeline and renders the warped star field.
-   * @details Draws each spiral point as a star whose color is a Y-based gradient
-   *          and whose basis carries the current orientation and warp; each
-   *          column sees the orientation at its sweep time.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -87,6 +84,37 @@ public:
       timeline.step(canvas);
     }
 
+    refresh_spiral();
+    draw_stars(canvas);
+  }
+
+private:
+  /**
+   * @brief Rebuilds the base spiral after a Points change, which starts the
+   *        stars' drift history over.
+   */
+  HS_FLASH_MEMBER void refresh_spiral() {
+    const int points = params.points;
+    // The base spiral depends only on (points, i).
+    if (points == cached_points)
+      return;
+    HS_PROFILE(gn_spiral_build);
+    // eps 0.5 puts both endpoints half a step off their pole.
+    for (int i = 0; i < points; i++)
+      spiral_cache[i] = math::fib_spiral(points, /*eps=*/0.5f, i);
+    cached_points = points;
+    warp_drawn = false;
+  }
+
+  /**
+   * @brief Scans every star.
+   * @param canvas Target canvas.
+   * @details Draws each spiral point as a star whose color is a Y-based
+   * gradient and whose basis carries the current orientation and warp. Each
+   * column sees the orientation at its sweep time and each star's warped
+   * centre moved linearly from where the last frame drew it.
+   */
+  HS_HOT_FLASH_MEMBER void draw_stars(Canvas &canvas) {
     auto fragment_shader = [this](const math::Vector &p, Fragment &frag) {
       float t = (p.y + 1.0f) * 0.5f; // Y in [-1, 1] -> gradient t in [0, 1]
       Color4 c = baked_palette.get(t);
@@ -96,39 +124,58 @@ public:
     const int points = params.points;
     const float radius = params.star_radius;
     const int sides = params.star_sides;
+    const math::MobiusParams &warp_now = transformer.active_params(0);
+    const bool drifting = warp_drawn && Temporal::temporal_sampling_enabled();
 
-    // The base spiral depends only on (points, i).
-    if (points != cached_points) {
-      HS_PROFILE(gn_spiral_build);
-      // eps 0.5 puts both endpoints half a step off their pole.
-      for (int i = 0; i < points; i++) {
-        spiral_cache[i] = math::fib_spiral(points, /*eps=*/0.5f, i);
-      }
-      cached_points = points;
-    }
+    HS_PROFILE(gn_draw_stars);
+    ScratchScope column_guard(scratch_arena_a);
+    Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_a, orientation, drifting);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    for (int i = 0; i < points; i++) {
+      math::Vector v = transformer.transform(spiral_cache[i]);
+      if (drifting)
+        column_time.drift = star_drift(spiral_cache[i], v);
 
-    {
-      HS_PROFILE(gn_draw_stars);
-      ScratchScope column_guard(scratch_arena_a);
-      const Temporal::ColumnTime column_time =
-          Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-      Scan::ColumnTimeScope column_scope(canvas, column_time);
-      for (int i = 0; i < points; i++) {
-        math::Vector v = transformer.transform(spiral_cache[i]);
+      // make_basis() applies the orientation; pass the unrotated point.
+      math::Basis basis = math::make_basis(orientation.get(), v);
 
-        // make_basis() applies the orientation; pass the unrotated point.
-        math::Basis basis = math::make_basis(orientation.get(), v);
-
-        {
-          HS_PROFILE(gn_star_scan);
-          Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
-                                 fragment_shader, 0.0f, params.debug_bb);
-        }
+      {
+        HS_PROFILE(gn_star_scan);
+        Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
+                               fragment_shader, 0.0f, params.debug_bb);
       }
     }
+    drawn_warp = warp_now;
+    warp_drawn = true;
   }
 
-private:
+  /**
+   * @brief A star's displacement over the frame at the current orientation.
+   * @param point The star's spiral point.
+   * @param warped The point under the current warp.
+   * @return Rotation vector carrying the previous warped centre to @p warped,
+   *         at the current orientation; zero for a jump past MAX_DRIFT.
+   */
+  HS_FLASH_MEMBER math::Vector star_drift(const math::Vector &point,
+                                          const math::Vector &warped) const {
+    const math::Vector previous =
+        math::gnomonic_mobius_transform(point, drawn_warp);
+    const math::Vector axis = math::cross(previous, warped);
+    const float sine = sqrtf(math::dot(axis, axis));
+    const float angle = atan2f(sine, math::dot(previous, warped));
+    if (!(angle <= MAX_DRIFT))
+      return math::Vector(0.0f, 0.0f, 0.0f);
+    const math::Vector rotation =
+        sine > math::TOLERANCE ? axis * (angle / sine) : axis;
+    return math::rotate(rotation, orientation.get());
+  }
+
+  /** @brief Longest move a star interpolates within a frame, eight columns
+   *  or the scans' drift limit; a longer one is a jump. */
+  static constexpr float MAX_DRIFT =
+      std::min(8.0f * math::RADIANS_PER_COLUMN<W>, Temporal::MAX_DRIFT_ANGLE);
+
   friend struct ::hs_test::effects_tests::GnomonicStarsWhiteBox;
 
   /** @brief Spiral-cache capacity; equals the "Points" slider's upper bound. */
@@ -167,7 +214,10 @@ private:
       baked_palette; /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1>
-      transformer; /**< Evolving Möbius warp applied per point. */
+      transformer;               /**< Evolving Möbius warp applied per point. */
+  math::MobiusParams drawn_warp; /**< Warp the last star draw used. */
+  bool warp_drawn = false; /**< Whether drawn_warp holds this spiral's last
+                              draw. */
   Animation::MobiusWarpEvolving *warp =
       nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
 
