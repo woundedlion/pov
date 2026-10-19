@@ -285,11 +285,12 @@ struct Face {
    * @param bounds_margin Angular padding around the vertical bounds. Callers
    *        rendering antialiasing fringes must pass at least `2π / width`.
    */
-  HS_O3_FN Face(std::span<const math::Vector> vertices,
-                std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-                const math::LatitudeGeometry &geometry, int height,
-                const ClipRegion *clip, const float *azimuth_pads,
-                float bounds_margin)
+  HS_O3_FN HS_HOT_INLINE Face(std::span<const math::Vector> vertices,
+                              std::span<const uint16_t> indices,
+                              FaceScratchBuffer &scratch,
+                              const math::LatitudeGeometry &geometry,
+                              int height, const ClipRegion *clip,
+                              const float *azimuth_pads, float bounds_margin)
       : build_height(height), build_geometry(geometry),
         build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
         full_width(true) {

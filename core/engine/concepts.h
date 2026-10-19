@@ -223,6 +223,10 @@ using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const math::Vector &, float)>;
 /// Fragment shader: shades the fragment at a sphere position.
 using FragmentShaderFn = FunctionRef<void(const math::Vector &, Fragment &)>;
+/// Time-aware fragment shader: (position, fragment, sweep fraction of the
+/// shaded column in [0, 1]).
+using TimedShaderFn =
+    FunctionRef<void(const math::Vector &, Fragment &, float)>;
 /// Vertex shader: rewrites a fragment before projection.
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
 // Deferred per-control-point shader: receives the (position-shaded) fragment's

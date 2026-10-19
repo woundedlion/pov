@@ -376,10 +376,38 @@ struct Volume {
   }
 
   /**
+   * @brief Volume::draw from per-column placements, with a shader that reads
+   *        its column's sweep time.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Shape Volume shape.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere centre at the current endpoint.
+   * @param bounds_radius Bounding sphere radius.
+   * @param shape Volume shape at the current endpoint.
+   * @param frag_fn Fragment shader invoked once per hit with the hit's local
+   *        position and its column's sweep fraction.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width.
+   * @param columns Per-column placement.
+   */
+  template <int W, int H, typename Shape>
+  static void draw(PipelineRef pipeline, Canvas &canvas,
+                   const math::Vector &bounds_center, float bounds_radius,
+                   const Shape &shape, TimedShaderFn frag_fn, int max_steps,
+                   float aa_width, const VolumeColumns<W> &columns) {
+    draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                       frag_fn, max_steps, aa_width, columns);
+  }
+
+  /**
    * @brief Volume::draw from per-column placements.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam Shape Volume shape.
+   * @tparam ShaderFn FragmentShaderFn, or TimedShaderFn, which also
+   *         receives the hit's column sweep fraction.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere centre at the current endpoint.
@@ -390,11 +418,11 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width.
    * @param columns Per-column placement.
    */
-  template <int W, int H, typename Shape>
+  template <int W, int H, typename Shape, typename ShaderFn>
   HS_NOINLINE_NOCLONE static void
   draw_columns(PipelineRef pipeline, Canvas &canvas,
                const math::Vector &bounds_center, float bounds_radius,
-               const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+               const Shape &shape, ShaderFn frag_fn, int max_steps,
                float aa_width, const VolumeColumns<W> &columns) {
     march<W, H, true>(pipeline, canvas, bounds_center, bounds_radius, shape,
                       frag_fn, max_steps, aa_width, &columns);
@@ -406,6 +434,8 @@ struct Volume {
    * @tparam H Canvas height in pixels.
    * @tparam COLUMNS Whether @p columns places each column.
    * @tparam Shape Volume shape.
+   * @tparam ShaderFn Erased shader form; a TimedShaderFn runs only with
+   *         COLUMNS.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param bounds_center Bounding sphere centre.
@@ -416,10 +446,11 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width.
    * @param columns Per-column placement; read only with COLUMNS.
    */
-  template <int W, int H, bool COLUMNS, typename Shape>
+  template <int W, int H, bool COLUMNS, typename Shape,
+            typename ShaderFn = FragmentShaderFn>
   HS_HOT_INLINE static void
   march(PipelineRef pipeline, Canvas &canvas, const math::Vector &bounds_center,
-        float bounds_radius, const Shape &shape, FragmentShaderFn frag_fn,
+        float bounds_radius, const Shape &shape, ShaderFn frag_fn,
         int max_steps, float aa_width, const VolumeColumns<W> *columns) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
@@ -470,6 +501,14 @@ struct Volume {
     if (!clamp_rows_to_clip(bounds, cr, vol_y_lo, vol_y_hi))
       return;
 
+    const auto shade = [&](int px, const math::Vector &local,
+                           Fragment &frag) HS_HOT_INLINE {
+      HS_PROFILE_DEEP(vol_shade);
+      if constexpr (COLUMNS)
+        Temporal::shade_at_column<W>(frag_fn, px, local, frag);
+      else
+        frag_fn(local, frag);
+    };
     auto march_pixel = [&](int px, int py,
                            const math::Vector &p) HS_HOT_INLINE {
       [[maybe_unused]] const typename VolumeColumns<W>::Column *column =
@@ -518,10 +557,7 @@ struct Volume {
       Fragment frag;
       frag.pos = closest_local;
       frag.size = closest_d;
-      {
-        HS_PROFILE_DEEP(vol_shade);
-        frag_fn(closest_local, frag);
-      }
+      shade(px, closest_local, frag);
 
       // One-sided AA with quintic kernel
       float hit_threshold = aa_width * 0.1f;
@@ -544,10 +580,7 @@ struct Volume {
           Fragment bg;
           bg.pos = occ.behind;
           bg.size = occ.distance;
-          {
-            HS_PROFILE_DEEP(vol_shade);
-            frag_fn(occ.behind, bg);
-          }
+          shade(px, occ.behind, bg);
           if (bg.color.alpha > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, bg.color.color, 0.0f, bg.color.alpha);
@@ -566,10 +599,7 @@ struct Volume {
           Fragment bg;
           bg.pos = occ.behind;
           bg.size = occ.distance;
-          {
-            HS_PROFILE_DEEP(vol_shade);
-            frag_fn(occ.behind, bg);
-          }
+          shade(px, occ.behind, bg);
           if (bg.color.alpha * occ.soft > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, bg.color.color, 0.0f,

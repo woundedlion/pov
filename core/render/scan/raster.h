@@ -462,6 +462,16 @@ check_fragment_shader(FragmentShaderFn fragment_shader) {
 }
 
 /**
+ * @brief Validates that a type-erased time-aware shader refers to a callable.
+ * @param fragment_shader Shader the draw invokes per pixel.
+ */
+HS_FLASH_MEMBER inline void
+check_fragment_shader(TimedShaderFn fragment_shader) {
+  HS_CHECK(fragment_shader,
+           "Scan: time-aware fragment_shader must be non-null");
+}
+
+/**
  * @brief Anti-aliased coverage of a solid shape at a signed distance.
  * @param d Signed distance to the surface, negative inside.
  * @param pixel_width Angular width of one column, the AA half-reach.
@@ -701,6 +711,8 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
  * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
  * @tparam Probe Prepared distance evaluator.
+ * @tparam ShaderFn Erased shader form: FragmentShaderFn, or TimedShaderFn,
+ *         which runs once per offered column at that column's sweep time.
  * @param x Column index in [0, W).
  * @param y Row index in [0, H).
  * @param p World-space unit vector for the pixel center.
@@ -720,18 +732,18 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @return Columns consumed: max_run when the probe at x decided the whole
  *         offer (all clear, or a solid interior shaded once and splatted),
  *         else 1.
- * @details The shader is type-erased (FragmentShaderFn); the pipeline type
+ * @details The shader is type-erased; the pipeline type
  * is deduced from the caller and specializes the pixel body.
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT,
-          typename Probe = SDF::DirectDistance>
-inline int process_pixel(int x, int y, const math::Vector &p,
-                         PipelineT &pipeline, Canvas &canvas, const auto &shape,
-                         FragmentShaderFn fragment_shader, bool debug_bb,
-                         SDF::DistanceResult &result_scratch,
-                         Fragment &frag_scratch, int max_run = 1,
-                         const Probe &probe = {}, float block_y = 2.0f,
-                         float block_turn = 0.0f) {
+          typename Probe = SDF::DirectDistance,
+          typename ShaderFn = FragmentShaderFn>
+inline int
+process_pixel(int x, int y, const math::Vector &p, PipelineT &pipeline,
+              Canvas &canvas, const auto &shape, ShaderFn fragment_shader,
+              bool debug_bb, SDF::DistanceResult &result_scratch,
+              Fragment &frag_scratch, int max_run = 1, const Probe &probe = {},
+              float block_y = 2.0f, float block_turn = 0.0f) {
   probe.template distance<ComputeUVs>(shape, p, result_scratch);
 
   float d = result_scratch.dist;
@@ -782,31 +794,44 @@ inline int process_pixel(int x, int y, const math::Vector &p,
     if (!debug_bb && alpha <= MIN_ALPHA)
       return span;
 
-    // Scratch Fragment is reused across pixels; reset color each call so a
-    // conditionally-writing shader starts from a clean color/alpha.
-    frag_scratch.color = Color4(0, 0, 0, 0);
-    frag_scratch.pos = p;
-    frag_scratch.v0 = result_scratch.t;
-    frag_scratch.v1 = result_scratch.raw_dist;
-    frag_scratch.v2 = SOLID ? 0.0f : alpha;
-    frag_scratch.v3 = result_scratch.aux;
-    frag_scratch.size = result_scratch.size;
-    frag_scratch.age = 0;
+    const auto shade = [&](int column) HS_HOT_INLINE {
+      // Scratch Fragment is reused across pixels; reset color each call so a
+      // conditionally-writing shader starts from a clean color/alpha.
+      frag_scratch.color = Color4(0, 0, 0, 0);
+      frag_scratch.pos = p;
+      frag_scratch.v0 = result_scratch.t;
+      frag_scratch.v1 = result_scratch.raw_dist;
+      frag_scratch.v2 = SOLID ? 0.0f : alpha;
+      frag_scratch.v3 = result_scratch.aux;
+      frag_scratch.size = result_scratch.size;
+      frag_scratch.age = 0;
 
-    fragment_shader(p, frag_scratch);
+      Temporal::shade_at_column<W>(fragment_shader, column, p, frag_scratch);
 
-    if (debug_bb) {
-      frag_scratch.color.color = frag_scratch.color.color.lerp16(
-          Pixel(65535, 65535, 65535), 65535 / 2);
-      frag_scratch.color.alpha = 1.0f;
-      alpha = 1.0f;
-    }
+      if (debug_bb) {
+        frag_scratch.color.color = frag_scratch.color.color.lerp16(
+            Pixel(65535, 65535, 65535), 65535 / 2);
+        frag_scratch.color.alpha = 1.0f;
+        alpha = 1.0f;
+      }
+    };
 
-    if (frag_scratch.color.alpha > MIN_ALPHA) {
-      const float a = frag_scratch.color.alpha * alpha;
-      for (int i = 0; i < span; ++i)
-        pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
-                      frag_scratch.age, a);
+    if constexpr (Temporal::reads_column_time<ShaderFn, const math::Vector &,
+                                              Fragment &>) {
+      for (int i = 0; i < span; ++i) {
+        shade(x + i);
+        if (frag_scratch.color.alpha > MIN_ALPHA)
+          pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
+                        frag_scratch.age, frag_scratch.color.alpha * alpha);
+      }
+    } else {
+      shade(x);
+      if (frag_scratch.color.alpha > MIN_ALPHA) {
+        const float a = frag_scratch.color.alpha * alpha;
+        for (int i = 0; i < span; ++i)
+          pipeline.plot(canvas, x + i, y, frag_scratch.color.color,
+                        frag_scratch.age, a);
+      }
     }
   }
   return span;
@@ -1402,21 +1427,25 @@ column_time_active(const Temporal::ColumnTime *time) {
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
  * @tparam PipelineT Plotting pipeline type.
  * @tparam ShapeT Shape type.
+ * @tparam ShaderFn FragmentShaderFn or TimedShaderFn.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape SDF shape built at the current endpoint.
  * @param fragment_shader Shader invoked per covered pixel; receives the
- *        rotated direction.
+ *        rotated direction, and a TimedShaderFn also its column's sweep
+ *        fraction.
  * @param debug Whether to render the bounding box.
- * @param time Active column-time state.
+ * @param time Column-time state; one without a basis or birth fraction scans
+ *        the fixed meridian.
  * @details Bounds come from the shape's cap turned to the time of the columns
  * that see it, else from its swept() proxy, else from whole rows of the swept
  * band.
  */
-template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
+template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT,
+          typename ShaderFn>
 inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
-                                  const ShapeT &shape,
-                                  FragmentShaderFn fragment_shader, bool debug,
+                                  const ShapeT &shape, ShaderFn fragment_shader,
+                                  bool debug,
                                   const Temporal::ColumnTime &time) {
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
@@ -1570,6 +1599,49 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   }
   rasterize_fixed<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                     effective_debug);
+}
+
+/**
+ * @brief Scan::rasterize with a shader that reads its column's sweep time.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+ * @tparam PipelineT Plotting pipeline type.
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape SDF shape.
+ * @param fragment_shader Shader invoked per covered pixel with the sweep
+ *        fraction of its column.
+ * @param debug_bb When true, renders the bounding box for debugging.
+ * @details With temporal sampling on, the scan takes the column-time path
+ * under the canvas's column-time state, or along the fixed meridian without
+ * one. With it off, the shader runs at the current endpoint, `u = 1`.
+ */
+template <int W, int H, bool ComputeUVs = true, typename PipelineT>
+inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
+                      TimedShaderFn fragment_shader, bool debug_bb = false) {
+  if (!Temporal::temporal_sampling_enabled()) {
+    const auto at_endpoint = [&](const math::Vector &p, Fragment &f) {
+      fragment_shader(p, f, 1.0f);
+    };
+    rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, at_endpoint, debug_bb);
+    return;
+  }
+  static_assert(SDF::ScanShape<std::remove_cvref_t<decltype(shape)>, W, H>,
+                "Scan::rasterize shape must expose is_solid, "
+                "get_vertical_bounds<H>(), get_horizontal_intervals<W, H>() "
+                "and distance<ComputeUVs>()");
+  static_assert(fits_top_span_cap<decltype(shape)>,
+                "top-level shape can emit more spans per row than "
+                "scan_region's buffer holds");
+  check_canvas_dims<W, H>(canvas);
+  check_pipeline_prepared(pipeline, canvas);
+  check_fragment_shader(fragment_shader);
+  const Temporal::ColumnTime meridian;
+  const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+  rasterize_column_time<W, H, ComputeUVs>(
+      pipeline, canvas, shape, fragment_shader, debug_bb || canvas.debug(),
+      time ? *time : meridian);
 }
 
 /**

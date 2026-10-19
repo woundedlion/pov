@@ -207,6 +207,19 @@ object-space centre and column frame, from which `SsaaGrid::at(column, i)`
 builds the object-space sub-samples, so no oriented copy of the object is
 built.
 
+State other than the frame's rotation reaches the column-time scans through
+their shaders. A shader that takes a trailing sweep fraction `u`
+(`Temporal::reads_column_time`) runs once per column at that column's time,
+pole-LOD blocks included, and evaluates its state between the endpoints its
+effect retains; the fixed-meridian loops run its plain form.
+`TimedShaderFn` is that form for `Scan::rasterize`, `Scan::Point` and
+`Scan::Volume`, whose time-aware scans take the column-time path whenever
+temporal sampling is on and shade at `u = 1` when it is off.
+`FacePaletteShader` moves a face's alpha, palette crossfade and counterpart
+weight this way. An effect whose per-column state moves while its orientation
+does not still prepares a table, with `state_moves`, so its scans take their
+column-time variants.
+
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
 the held Mobius coefficient interpolation do not become continuous through

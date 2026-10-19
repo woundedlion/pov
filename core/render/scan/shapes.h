@@ -1139,6 +1139,27 @@ struct Point {
     Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
                      0.0f, debug_bb);
   }
+
+  /**
+   * @brief Draws a dot whose shader reads its column's sweep time.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param p Point center as a world-space unit vector.
+   * @param thickness Point radius as a stroke half-width (radians).
+   * @param fragment_shader Shader invoked per covered pixel with its column's
+   *        sweep fraction.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
+  template <int W, int H>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &p,
+                   float thickness, TimedShaderFn fragment_shader,
+                   bool debug_bb = false) {
+    const SDF::Ring shape(math::make_basis(math::Quaternion(), p), 0.0f,
+                          thickness, 0.0f);
+    Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
+  }
 };
 
 /**

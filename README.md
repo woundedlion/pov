@@ -1348,7 +1348,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
-│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction, rotation arc, scan column-time state and capture-time solving
+│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction, rotation arc, scan column-time state, time-aware scan shaders and capture-time solving
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly

@@ -773,3 +773,268 @@ inline void test_object_column_basis_matches_rotated_meridian() {
       }
   }
 }
+
+// ============================================================================
+// Column-time state: shaders, drift and forced tables at each column's time
+// ============================================================================
+
+/**
+ * @brief Renders a draw into a fresh stub frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
+ * @return Displayed frame.
+ */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(fx);
+    draw(pipeline, canvas);
+  }
+  fx.advance_display();
+  std::vector<Pixel> out;
+  capture_frame<W, H>(fx, out);
+  return out;
+}
+
+/**
+ * @brief Renders each column pair from a fixed-meridian draw of the state at
+ *        the pair's sweep time.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &, float u)`.
+ * @return Frame whose columns x and x + W / 2 come from @p draw at
+ *         `u = (x % (W / 2)) / (W / 2)`.
+ */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_state_oracle(DrawFn &&draw) {
+  return column_time_oracle<W, H>([&](float u) {
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          draw(pipeline, canvas, u);
+        });
+  });
+}
+
+/**
+ * @brief Colour of the oracle shaders at a frame fraction.
+ * @param u Frame fraction.
+ * @return Red rising with @p u, alpha from 0.4 to 1.
+ */
+inline Color4 column_tint(float u) {
+  return Color4(
+      Pixel(static_cast<uint16_t>(2000.0f + 60000.0f * u), 18000, 9000),
+      0.4f + 0.6f * u);
+}
+
+/**
+ * @brief Checks that Scan::rasterize runs a time-aware shader at each
+ *        column's sweep time.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param lod Pole-LOD aggressiveness held for the check.
+ */
+template <int W, int H> inline void check_timed_shader(float lod) {
+  HS_CONTEXT("width", static_cast<long long>(W));
+  const ScopedPoleLod scoped(lod);
+  const math::Vector discs[] = {math::Vector(1.0f, 0.1f, 0.05f).normalized(),
+                                math::Vector(-1.0f, -0.2f, 0.05f).normalized(),
+                                math::Vector(0.1f, 1.0f, 0.1f).normalized()};
+  const auto antipode = math::get_antipode(
+      math::make_basis(math::Quaternion(), math::Vector(0.05f, -1.0f, 0.1f)),
+      0.2f);
+  const SDF::Star star(antipode.first, antipode.second, 5, 0.0f, false);
+  const auto timed = [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+    const auto shader = [](const math::Vector &, Fragment &f, float u) {
+      f.color = column_tint(u);
+    };
+    for (const math::Vector &centre : discs)
+      Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
+    Scan::rasterize<W, H>(pipeline, canvas, star, TimedShaderFn(shader));
+  };
+  const auto held = [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
+    const auto shader = [u](const math::Vector &, Fragment &f) {
+      f.color = column_tint(u);
+    };
+    for (const math::Vector &centre : discs)
+      Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.3f, shader);
+    Scan::rasterize<W, H>(pipeline, canvas, star, FragmentShaderFn(shader));
+  };
+  const std::vector<Pixel> drawn = render_stub_frame<W, H>(timed);
+  const std::vector<Pixel> expected = render_state_oracle<W, H>(held);
+  int lit = 0, mismatched = 0;
+  for (size_t i = 0; i < expected.size(); ++i) {
+    lit += !is_black(expected[i]);
+    mismatched += !(drawn[i] == expected[i]);
+  }
+  HS_EXPECT_EQ(mismatched, 0);
+  HS_EXPECT_TRUE(lit > 300);
+  const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
+  HS_EXPECT_TRUE(drawn[seam - 1].r > drawn[seam].r);
+
+  Temporal::set_temporal_sampling_enabled(false);
+  const std::vector<Pixel> off = render_stub_frame<W, H>(timed);
+  Temporal::set_temporal_sampling_enabled(true);
+  const std::vector<Pixel> endpoint =
+      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        held(pipeline, canvas, 1.0f);
+      });
+  HS_EXPECT_TRUE(off == endpoint);
+}
+
+/**
+ * @brief Scan::rasterize runs a time-aware shader at each column's sweep
+ *        time, per column through pole-LOD blocks and across both arm
+ *        boundaries, and at the current endpoint with temporal sampling off.
+ */
+inline void test_timed_shader_reads_column_sweep_time() {
+  check_timed_shader<96, 48>(0.0f);
+  check_timed_shader<288, 144>(0.6f);
+}
+
+/**
+ * @brief Checks a face palette shader's column-time motion against the
+ *        shader held at each column's sweep time.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param lod Pole-LOD aggressiveness held for the check.
+ */
+template <int W, int H> inline void check_face_palette_motion(float lod) {
+  HS_CONTEXT("width", static_cast<long long>(W));
+  const ScopedPoleLod scoped(lod);
+  constexpr float BLEND_FROM = 0.15f, BLEND_TO = 0.85f;
+  constexpr float RIM_FROM = 0.35f, RIM_TO = 0.9f;
+  constexpr float ALPHA_FROM = 0.25f, ALPHA_TO = 1.0f;
+  ScratchScope scope(scratch_arena_a);
+  BakedPaletteStorage from, to, rim;
+  from.bake(scratch_arena_a, Palettes::UNDERSEA);
+  to.bake(scratch_arena_a, Palettes::MANGO_PEEL);
+  rim.bake(scratch_arena_a, Palettes::RICH_SUNSET);
+  MeshState mesh;
+  build_basis_octahedron(mesh, scratch_arena_a);
+  const auto lerp = [](float a, float b, float u) { return a + (b - a) * u; };
+  const auto draw = [&](Pipeline<W, H> &pipeline, Canvas &canvas, float blend,
+                        float previous_blend, float rim_weight,
+                        float previous_rim, float alpha, float previous_alpha) {
+    ScratchScope blends(scratch_arena_b);
+    const BakedPalette ramp =
+        bake_palette_blend(scratch_arena_b, from, to, blend);
+    FacePaletteShader shader;
+    auto setup = [&](size_t, float size) {
+      shader.set_palette(&ramp);
+      if (blend != previous_blend)
+        shader.set_blend(&from.view(), &to.view(), blend, previous_blend);
+      shader.set_counterpart(&rim.view(), rim_weight, previous_rim);
+      shader.set_alpha(alpha, previous_alpha);
+      shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
+    };
+    Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                       scratch_arena_b, nullptr, setup);
+  };
+  const std::vector<Pixel> moving =
+      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+        const Temporal::ColumnTime time =
+            basis->prepare(math::Quaternion(), math::Quaternion(), true);
+        Scan::ColumnTimeScope column_scope(canvas, time);
+        draw(pipeline, canvas, BLEND_TO, BLEND_FROM, RIM_TO, RIM_FROM, ALPHA_TO,
+             ALPHA_FROM);
+      });
+  const std::vector<Pixel> expected = render_state_oracle<W, H>(
+      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
+        const float blend = lerp(BLEND_FROM, BLEND_TO, u);
+        const float rim_weight = lerp(RIM_FROM, RIM_TO, u);
+        const float alpha = lerp(ALPHA_FROM, ALPHA_TO, u);
+        draw(pipeline, canvas, blend, blend, rim_weight, rim_weight, alpha,
+             alpha);
+      });
+  HS_EXPECT_TRUE(
+      expect_frames_within("face palette shader", moving, expected, 2) > 1000);
+}
+
+/**
+ * @brief A face palette shader under column time moves its alpha, crossfade
+ *        and counterpart weight from their previous endpoints to the current
+ *        ones across each arm, per column through pole-LOD blocks.
+ */
+inline void test_face_palette_shader_moves_at_column_time() {
+  check_face_palette_motion<96, 48>(0.0f);
+  check_face_palette_motion<288, 144>(0.6f);
+}
+
+/**
+ * @brief A volume's time-aware shader receives each hit's column sweep time.
+ */
+inline void test_volume_timed_shader_reads_column_sweep_time() {
+  constexpr int W = 96, H = 48;
+  const SDF::Torus torus{0.3f, 0.1f};
+  const math::Vector centre = math::Vector(-1.0f, 0.2f, 0.1f).normalized();
+  const math::Quaternion q =
+      math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.8f);
+  constexpr float BOUNDS = 0.42f;
+  auto columns = std::make_unique<Scan::VolumeColumns<W>>();
+  for (int c = 0; c < W / 2; ++c)
+    columns->set(c, centre, q);
+  const std::vector<Pixel> drawn =
+      render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::Volume::draw<W, H>(
+            pipeline, canvas, centre, BOUNDS, volume,
+            [](const math::Vector &, Fragment &f, float u) {
+              f.color = Color4(column_tint(u).color, 1.0f);
+            },
+            24, 0.02f, *columns);
+      });
+  const std::vector<Pixel> expected = render_state_oracle<W, H>(
+      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
+        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::Volume::draw<W, H>(
+            pipeline, canvas, centre, BOUNDS, volume,
+            [u](const math::Vector &, Fragment &f) {
+              f.color = Color4(column_tint(u).color, 1.0f);
+            },
+            24, 0.02f, columns.get());
+      });
+  HS_EXPECT_TRUE(expect_factored_tolerance("timed volume", drawn, expected) >
+                 50);
+}
+
+/**
+ * @brief sweep_column inverts sweep_fraction on both arms.
+ */
+inline void test_sweep_column_inverts_sweep_fraction() {
+  for (int width = 4; width <= 512; width += 2) {
+    HS_CONTEXT("width", static_cast<long long>(width));
+    for (int x = 0; x < width; ++x)
+      HS_EXPECT_EQ(
+          Temporal::sweep_column(Temporal::sweep_fraction(x, width), width),
+          x % (width / 2));
+  }
+}
+
+/**
+ * @brief Moving per-column state prepares a table without rotation, and only
+ *        with temporal sampling on.
+ */
+inline void test_column_basis_prepares_for_moving_state() {
+  constexpr int W = 96, H = 48;
+  const math::Quaternion q =
+      math::make_rotation(math::Vector(0.2f, 0.9f, 0.4f).normalized(), 0.6f);
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  HS_EXPECT_TRUE(basis->prepare(q, q).azimuth == nullptr);
+  const Temporal::ColumnTime forced = basis->prepare(q, q, true);
+  HS_EXPECT_TRUE(forced.azimuth != nullptr);
+  HS_EXPECT_TRUE(forced.sweep > 0.0f && forced.sweep < 1e-3f);
+  Temporal::set_temporal_sampling_enabled(false);
+  HS_EXPECT_TRUE(basis->prepare(q, q, true).azimuth == nullptr);
+  Temporal::set_temporal_sampling_enabled(true);
+  ScratchScope scope(scratch_arena_a);
+  const Temporal::ColumnTime still =
+      Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q);
+  const Temporal::ColumnTime moving =
+      Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q, true);
+  HS_EXPECT_TRUE(still.azimuth == nullptr);
+  HS_EXPECT_TRUE(moving.azimuth != nullptr);
+}

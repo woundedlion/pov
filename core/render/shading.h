@@ -208,7 +208,10 @@ inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
  * face. `scale` multiplies the inward edge depth `-v1`, so a caller working
  * from a face size passes the reciprocal. Writes frag.color unconditionally.
  * set_palette() must run before the first fragment; operator() debug-asserts
- * it.
+ * it. A column-time scan runs the form taking a sweep fraction `u`, which
+ * moves the face's alpha, palette crossfade and counterpart weight linearly
+ * from their previous-endpoint values at `u = 0` to the current ones at
+ * `u = 1`. Values never given a previous endpoint are held.
  */
 struct FacePaletteShader {
   float scale = 1.0f; ///< Multiplier mapping edge depth `-v1` to palette t.
@@ -217,10 +220,12 @@ struct FacePaletteShader {
   /**
    * @brief Sets the face's palette; the only way to populate it.
    * @param value Baked palette, which must be non-null.
+   * @details Clears any crossfade set_blend() gave the previous face.
    */
   void set_palette(const BakedPalette *value) {
     HS_CHECK(value != nullptr, "FacePaletteShader requires a palette");
     palette = value;
+    blend_to = nullptr;
   }
 
   /**
@@ -231,8 +236,53 @@ struct FacePaletteShader {
    * counterpart.
    */
   void set_counterpart(const BakedPalette *value, float weight) {
-    counterpart = weight < 1.0f ? value : nullptr;
-    counterpart_weight = frac_to_q16(hs::clamp(weight, 0.0f, 1.0f));
+    set_counterpart(value, weight, weight);
+  }
+
+  /**
+   * @brief Sets the counterpart blend at both frame endpoints.
+   * @param value Counterpart palette, sampled at the same edge depth; null
+   * clears it.
+   * @param weight Weight of the face's own palette at the current endpoint.
+   * @param previous_weight That weight at the previous endpoint.
+   * @details The counterpart is cleared when neither weight is below 1.
+   */
+  void set_counterpart(const BakedPalette *value, float weight,
+                       float previous_weight) {
+    const float current = hs::clamp(weight, 0.0f, 1.0f);
+    counterpart = weight < 1.0f || previous_weight < 1.0f ? value : nullptr;
+    counterpart_weight = frac_to_q16(current);
+    counterpart_current = current;
+    counterpart_change = current - hs::clamp(previous_weight, 0.0f, 1.0f);
+  }
+
+  /**
+   * @brief Sets the alpha at both frame endpoints.
+   * @param current Alpha at the current endpoint.
+   * @param previous Alpha at the previous endpoint.
+   */
+  void set_alpha(float current, float previous) {
+    alpha = current;
+    alpha_change = current - previous;
+  }
+
+  /**
+   * @brief Shades the column-time form from a crossfade between two palettes.
+   * @param from Palette at weight 0.
+   * @param to Palette at weight 1.
+   * @param weight Crossfade weight at the current endpoint, in [0, 1].
+   * @param previous_weight Crossfade weight at the previous endpoint.
+   * @details set_palette() supplies the plain form's palette, normally the
+   * crossfade pre-blended at @p weight; it must run first.
+   */
+  void set_blend(const BakedPalette *from, const BakedPalette *to, float weight,
+                 float previous_weight) {
+    HS_CHECK(from != nullptr && to != nullptr,
+             "FacePaletteShader crossfade requires both palettes");
+    blend_from = from;
+    blend_to = to;
+    blend_current = weight;
+    blend_change = weight - previous_weight;
   }
 
   /**
@@ -249,9 +299,37 @@ struct FacePaletteShader {
     frag.color.alpha = alpha;
   }
 
+  /**
+   * @brief Shades one fragment at a sweep fraction of the frame.
+   * @param frag Fragment whose `v1` is read and whose colour is written.
+   * @param u Sweep fraction of the shaded column, in [0, 1].
+   */
+  void operator()(const math::Vector &, Fragment &frag, float u) const {
+    assert(palette != nullptr);
+    const float back = 1.0f - u;
+    const float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
+    Pixel c = blend_to == nullptr
+                  ? palette->get_color_unit(t)
+                  : blend_from->get_color_unit(t).lerp16(
+                        blend_to->get_color_unit(t),
+                        frac_to_q16(blend_current - blend_change * back));
+    if (counterpart != nullptr)
+      c = counterpart->get_color_unit(t).lerp16(
+          c, frac_to_q16(counterpart_current - counterpart_change * back));
+    frag.color.color = c;
+    frag.color.alpha = alpha - alpha_change * back;
+  }
+
 private:
   const BakedPalette *palette = nullptr;
   const BakedPalette *counterpart = nullptr;
+  const BakedPalette *blend_from = nullptr;
+  const BakedPalette *blend_to = nullptr;
+  float blend_current = 0.0f;
+  float blend_change = 0.0f;
+  float counterpart_current = 1.0f;
+  float counterpart_change = 0.0f;
+  float alpha_change = 0.0f;
   uint16_t counterpart_weight = 0;
 };
 

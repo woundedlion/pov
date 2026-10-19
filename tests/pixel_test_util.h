@@ -253,4 +253,54 @@ inline FrameErrorStats compare_buffers(std::span<const Pixel> reference,
   return stats;
 }
 
+/**
+ * @brief Checks two frames channel by channel within a bound.
+ * @param label Draw named in failure context.
+ * @param actual Rendered frame.
+ * @param expected Oracle frame.
+ * @param bound Largest channel difference allowed.
+ * @return Number of lit oracle pixels, so a vacuous comparison is visible.
+ */
+inline int expect_frames_within(const char *label,
+                                const std::vector<Pixel> &actual,
+                                const std::vector<Pixel> &expected, int bound) {
+  HS_CONTEXT(label);
+  int maximum_error = 0;
+  int lit = 0;
+  for (size_t i = 0; i < expected.size(); ++i) {
+    lit += !is_black(expected[i]);
+    const Pixel &a = actual[i];
+    const Pixel &b = expected[i];
+    for (int error : {std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
+                      std::abs(int(a.b) - b.b)})
+      maximum_error = std::max(maximum_error, error);
+  }
+  HS_EXPECT_LE(maximum_error, bound);
+  return lit;
+}
+
+/**
+ * @brief Assembles a frame whose column pairs come from renders of the state
+ *        at each pair's sweep time.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @param render Callable `std::vector<Pixel>(float u)` rendering the whole
+ *        frame with every column at frame fraction `u`.
+ * @return Frame whose columns x and x + W / 2 come from @p render at
+ *         `u = (x % (W / 2)) / (W / 2)`.
+ */
+template <int W, int H, typename RenderFn>
+inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
+  std::vector<Pixel> out(static_cast<size_t>(W) * H);
+  for (int column = 0; column < W / 2; ++column) {
+    const std::vector<Pixel> frame =
+        render(static_cast<float>(column) / (W / 2));
+    for (int y = 0; y < H; ++y)
+      for (int x : {column, column + W / 2})
+        out[static_cast<size_t>(y) * W + x] =
+            frame[static_cast<size_t>(y) * W + x];
+  }
+  return out;
+}
+
 } // namespace hs_test

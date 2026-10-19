@@ -285,19 +285,31 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
           frag.size = res.size;
           frag.age = 0;
         }
-        fragment_shader(p, frag);
-        if (frag.color.alpha > MIN_ALPHA) {
-          const float a = frag.color.alpha * alpha;
+        const auto plot_column = [&](int px, float a) HS_HOT_INLINE {
+          if constexpr (requires {
+                          pipeline.plot_in_bounds(
+                              canvas, px, y, frag.color.color, frag.age, a);
+                        }) {
+            pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
+                                    a);
+          } else {
+            pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
+          }
+        };
+        if constexpr (COLUMN_TIME &&
+                      Temporal::reads_column_time<
+                          FragmentShaderT, const math::Vector &, Fragment &>) {
           for (int px = x; px < x + span; ++px) {
-            if constexpr (requires {
-                            pipeline.plot_in_bounds(
-                                canvas, px, y, frag.color.color, frag.age, a);
-                          }) {
-              pipeline.plot_in_bounds(canvas, px, y, frag.color.color, frag.age,
-                                      a);
-            } else {
-              pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
-            }
+            fragment_shader(p, frag, Temporal::sweep_fraction(px, W));
+            if (frag.color.alpha > MIN_ALPHA)
+              plot_column(px, frag.color.alpha * alpha);
+          }
+        } else {
+          fragment_shader(p, frag);
+          if (frag.color.alpha > MIN_ALPHA) {
+            const float a = frag.color.alpha * alpha;
+            for (int px = x; px < x + span; ++px)
+              plot_column(px, a);
           }
         }
         x += span;
@@ -494,7 +506,7 @@ struct Mesh {
       std::span<const uint16_t> indices(fi + fo[i], count);
 
       // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
-      SDF::Face shape = [&] {
+      SDF::Face shape = [&]() HS_HOT_INLINE {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
                          &cr, azimuth_pads, bounds_margin);
