@@ -110,7 +110,116 @@ struct CometsWhiteBox {
     }
     HS_EXPECT_TRUE(checked > 0);
   }
+
+  /**
+   * @brief Scans the trail at a camera held still.
+   * @param c Effect whose trail is drawn.
+   * @param palette_moves Whether the LUT moved since the last frame.
+   * @return Displayed frame.
+   */
+  static std::vector<Pixel> draw_trail(C &c, bool palette_moves) {
+    {
+      Canvas canvas(c);
+      c.draw_trail(canvas, palette_moves);
+    }
+    c.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<SMALL_W, SMALL_H>(c, out);
+    return out;
+  }
+  static void hold_camera(C &c) { c.orientation.collapse(); }
+  static const BakedPalette &baked_palette(const C &c) {
+    return c.baked_palette.view();
+  }
+  static const BakedPalette &drawn_palette(const C &c) {
+    return c.drawn_palette.view();
+  }
+  static void rebake_crossfade(C &c, const BakedPalette &from,
+                               const BakedPalette &to, float w) {
+    c.baked_palette.rebake_crossfade(from, to, w);
+  }
+  static void restore_palette(C &c, const BakedPalette &saved) {
+    c.baked_palette.rebake_copy(saved);
+  }
+  static bool wipe_pending(const C &c) { return c.wipe.pending; }
 };
+
+/** @brief Channel bound of a Comets column against its crossfaded-LUT
+ *  oracle. */
+inline constexpr int COMETS_WIPE_BOUND = 2;
+
+/**
+ * @brief Whether two baked palettes hold the same entries.
+ * @param a First palette.
+ * @param b Second palette.
+ * @return True when every entry's colour and alpha match.
+ */
+inline bool same_palette_entries(const BakedPalette &a, const BakedPalette &b) {
+  for (int i = 0; i < BakedPalette::LUT_SIZE; ++i) {
+    const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
+    const Color4 x = a.get(t);
+    const Color4 y = b.get(t);
+    if (!(x.color == y.color) || x.alpha != y.alpha)
+      return false;
+  }
+  return true;
+}
+
+/**
+ * @brief Each column of a trail drawn during a palette wipe shades its discs
+ *        from the LUT crossfaded to its sweep time, on both arms.
+ */
+inline void test_comets_wipe_shades_at_column_time() {
+  using WB = CometsWhiteBox;
+  reset_effect_globals();
+  WB::C effect;
+  effect.init();
+  hs_test::run_frames(effect, 24);
+  WB::roll_palette_over(effect);
+  hs_test::run_frames(effect, 12);
+  WB::hold_camera(effect);
+  HS_EXPECT_FALSE(same_palette_entries(WB::drawn_palette(effect),
+                                       WB::baked_palette(effect)));
+
+  ScratchScope scope(scratch_arena_b);
+  BakedPaletteStorage saved;
+  saved.clone_from(WB::baked_palette(effect), scratch_arena_b);
+  const std::vector<Pixel> drawn = WB::draw_trail(effect, true);
+  const std::vector<Pixel> expected =
+      column_time_oracle<SMALL_W, SMALL_H>([&](float u) {
+        WB::rebake_crossfade(effect, WB::drawn_palette(effect), saved, u);
+        const std::vector<Pixel> frame = WB::draw_trail(effect, false);
+        WB::restore_palette(effect, saved);
+        return frame;
+      });
+  HS_EXPECT_TRUE(expect_frames_within("comets wipe", drawn, expected,
+                                      COMETS_WIPE_BOUND) > 30);
+}
+
+/**
+ * @brief During a wipe the drawn LUT is the one the previous frame scanned;
+ *        the arming frame and frames without a wipe hold the palette.
+ */
+inline void test_comets_wipe_history() {
+  using WB = CometsWhiteBox;
+  reset_effect_globals();
+  WB::C effect;
+  effect.init();
+  hs_test::run_frames(effect, 4);
+  WB::roll_palette_over(effect);
+  HS_EXPECT_TRUE(WB::wipe_pending(effect));
+  ScratchScope scope(scratch_arena_b);
+  BakedPaletteStorage before;
+  before.clone_from(WB::baked_palette(effect), scratch_arena_b);
+  hs_test::run_frames(effect, 1);
+  HS_EXPECT_TRUE(same_palette_entries(WB::baked_palette(effect), before));
+  for (int f = 0; f < 3; ++f) {
+    before.rebake_copy(WB::baked_palette(effect));
+    hs_test::run_frames(effect, 1);
+    HS_EXPECT_TRUE(same_palette_entries(WB::drawn_palette(effect), before));
+    HS_EXPECT_FALSE(same_palette_entries(WB::baked_palette(effect), before));
+  }
+}
 
 /**
  * @brief Field-wise equality for two generative-palette snapshots.

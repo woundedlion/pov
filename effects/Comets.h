@@ -162,6 +162,7 @@ public:
     node = persistent_arena.make<Node>();
 
     baked_palette.bake(persistent_arena, palette);
+    drawn_palette.bake(persistent_arena, palette);
 
     this->register_described_params();
 
@@ -179,9 +180,6 @@ public:
 
   /**
    * @brief Advances and renders one frame of the comet.
-   * @details Each column sees the world orientation at its sweep time, and a
-   * sub-pose recorded this frame lights only the columns swept after it was
-   * reached.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -196,8 +194,13 @@ public:
         motion->set_duration(cd);
     });
 
+    // A wipe rebakes the LUT once per frame after its arming frame.
+    const bool palette_moves = Temporal::temporal_sampling_enabled() &&
+                               wipe.in_flight() && !wipe.pending;
     {
       HS_PROFILE(cm_wipe_rebake);
+      if (palette_moves)
+        drawn_palette.rebake_copy(baked_palette);
       wipe.step(baked_palette, palette);
     }
 
@@ -207,6 +210,26 @@ public:
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
 
+    draw_trail(canvas, palette_moves);
+  }
+
+private:
+  using Choreography::begin_choreography;
+  using Choreography::params;
+  using Choreography::step_choreography;
+  using Choreography::timeline;
+
+  /**
+   * @brief Scans the trail's discs.
+   * @param canvas Target canvas.
+   * @param palette_moves Whether the palette LUT changed since the last
+   *        frame; each column then shades at its sweep time between
+   *        `drawn_palette` and the current LUT.
+   * @details Each column sees the world orientation at its sweep time, and a
+   * sub-pose recorded this frame lights only the columns swept after it was
+   * reached.
+   */
+  HS_HOT_FLASH_MEMBER void draw_trail(Canvas &canvas, bool palette_moves) {
     HS_PROFILE(cm_draw_trail);
     ScratchScope column_guard(scratch_arena_a);
     Temporal::ColumnTime column_time =
@@ -217,9 +240,11 @@ public:
     const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
     const int newest_last =
         Temporal::temporal_sampling_enabled() ? newest.length() - 1 : 0;
-    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+    deep_tween(node->trail, [&](const math::Quaternion &q,
+                                float t) HS_HOT_FLASH_MEMBER {
+      const float fade = math::quintic_kernel(t) * params.alpha;
       Color4 color = baked_palette.get(t);
-      color.alpha *= math::quintic_kernel(t) * params.alpha;
+      color.alpha *= fade;
       auto fragment_shader = [&](const math::Vector &, Fragment &f) {
         f.color = color;
       };
@@ -233,16 +258,20 @@ public:
       math::Vector v_local = math::rotate(node->v, q);
       math::Vector v_final = orientation.orient(v_local);
       HS_PROFILE_DEEP(cm_point_scan);
-      Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
-                              fragment_shader, params.debug_bb);
+      if (palette_moves) {
+        Color4 drawn = drawn_palette.get(t);
+        drawn.alpha *= fade;
+        auto timed_shader = [&](const math::Vector &, Fragment &f, float u) {
+          f.color = drawn.lerp(color, u);
+        };
+        Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
+                                timed_shader, params.debug_bb);
+      } else {
+        Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
+                                fragment_shader, params.debug_bb);
+      }
     });
   }
-
-private:
-  using Choreography::begin_choreography;
-  using Choreography::params;
-  using Choreography::step_choreography;
-  using Choreography::timeline;
 
   /** @brief Params for preset @p index: the live slider values with the
    *  table's function patched in, so a rollover swaps only the path. */
@@ -312,7 +341,7 @@ private:
    *          closes exactly, keeping the trace continuous across loops and
    *          function switches.
    */
-  void update_path() {
+  HS_COLD_MEMBER void update_path() {
     math::LissajousParams config = params.function;
     float closed_domain = closing_domain(config);
     // Four scalars fill PlotFn's inline capacity.
@@ -330,7 +359,7 @@ private:
    * @details Arms the rebake gate for the wipe's duration and skips the
    *          rollover while a previous wipe is still in flight.
    */
-  void update_palette() {
+  HS_COLD_MEMBER void update_palette() {
     // A second wipe would clobber the snapshots the live one references.
     if (wipe.in_flight())
       return;
@@ -346,9 +375,9 @@ private:
   static constexpr int WIPE_FRAMES =
       48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
-  // Persistent allocations: the comet Node and the baked palette LUT.
+  // Persistent allocations: the comet Node and the two palette LUTs.
   static constexpr size_t FOOTPRINT_BYTES =
-      BakedPalette::required_arena_bytes() + sizeof(Node);
+      2 * BakedPalette::required_arena_bytes() + sizeof(Node);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Comets persistent footprint exceeds the default partition; "
                 "retune TRAIL_LENGTH or carve arenas");
@@ -363,6 +392,8 @@ private:
       palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPaletteStorage
       baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
+  BakedPaletteStorage drawn_palette; /**< The LUT the previous frame drew,
+                                        while a wipe rebakes `baked_palette`. */
   /** @brief Authored Lissajous preset table; preset_params() patches each
    *  entry into the live parameter set.
    *  @details Each row is a LissajousParams {m1, m2, a, domain}: m1 axial (X/Z)

@@ -644,6 +644,8 @@ inline int run_effects_tests() {
   CometsWhiteBox::check_paths_close();
   CometsWhiteBox::check_births_skip_earlier_columns();
   run_case(test_comets_rollover_skipped_mid_wipe);
+  run_case(test_comets_wipe_shades_at_column_time);
+  run_case(test_comets_wipe_history);
   ThrustersWhiteBox::check_warp_endpoints();
   ThrustersWhiteBox::check_fire_spawns_opposed_pair();
   ThrustersWhiteBox::check_collapsed_ring_falls_back_to_a_spin_axis();
