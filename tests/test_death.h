@@ -1162,6 +1162,15 @@ inline const Case *all_cases(int &n) {
           {"planar_chords_sink_unprepared", case_planar_chords_sink_unprepared,
            "core/render/plot/chords.h",
            "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared for this canvas"},
+          {"scan_timed_shader_empty", case_scan_timed_shader_empty,
+           "core/render/scan/raster.h",
+           "(fragment_shader) Scan: time-aware fragment_shader must be "
+           "non-null"},
+          {"face_palette_shader_blend_without_palette",
+           case_face_palette_shader_blend_without_palette,
+           "core/render/shading.h",
+           "(from != nullptr && to != nullptr) FacePaletteShader crossfade "
+           "requires both palettes"},
           {"scan_pipeline_not_prepared", case_scan_pipeline_not_prepared,
            "core/render/scan/raster.h",
            "(pipeline.prepared_for(canvas)) direct raster pipeline not prepared "

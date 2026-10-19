@@ -126,15 +126,18 @@ template <int W, int H> struct ColumnBasis {
    * @brief Prepares the frame's basis from its orientation endpoints.
    * @param previous Orientation at the previous endpoint, unit length.
    * @param current Orientation at the current endpoint, unit length.
+   * @param state_moves Whether other per-column state of the frame moves, so
+   *        its scans take their column-time variants without rotation.
    * @return Column-time state viewing this table, or the fixed meridian with
    *         temporal sampling disabled or without motion.
    * @details An orientation's history supplies both endpoints; one without
    * history, as after construction or a snap, has no motion.
    */
-  HS_FLASH_MEMBER Temporal::ColumnTime
-  prepare(const math::Quaternion &previous, const math::Quaternion &current) {
+  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion &previous,
+                                               const math::Quaternion &current,
+                                               bool state_moves = false) {
     Temporal::ColumnTime time;
-    if (!moving(previous, current))
+    if (!needed(previous, current, state_moves))
       return time;
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -170,6 +173,19 @@ template <int W, int H> struct ColumnBasis {
     return Temporal::temporal_sampling_enabled() &&
            !(previous.r == current.r && previous.v.x == current.v.x &&
              previous.v.y == current.v.y && previous.v.z == current.v.z);
+  }
+
+  /**
+   * @brief Whether a frame calls for a basis table.
+   * @param previous Orientation at the previous endpoint.
+   * @param current Orientation at the current endpoint.
+   * @param state_moves Whether other per-column state of the frame moves.
+   * @return True with temporal sampling enabled and either motion.
+   */
+  static bool needed(const math::Quaternion &previous,
+                     const math::Quaternion &current, bool state_moves) {
+    return moving(previous, current) ||
+           (state_moves && Temporal::temporal_sampling_enabled());
   }
 };
 
@@ -335,16 +351,19 @@ template <int W, int H> struct ObjectColumnBasis {
  *        until the caller's scope on it closes.
  * @param previous Orientation at the previous endpoint.
  * @param current Orientation at the current endpoint.
+ * @param state_moves Whether other per-column state of the frame moves; the
+ *        table is then prepared without rotation too.
  * @return Column-time state for the frame's scans.
  */
 template <int W, int H>
 inline Temporal::ColumnTime
 prepare_column_basis(Arena &arena, const math::Quaternion &previous,
-                     const math::Quaternion &current) {
-  if (!ColumnBasis<W, H>::moving(previous, current))
+                     const math::Quaternion &current,
+                     bool state_moves = false) {
+  if (!ColumnBasis<W, H>::needed(previous, current, state_moves))
     return {};
-  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(previous,
-                                                                      current);
+  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(
+      previous, current, state_moves);
 }
 
 /**
@@ -356,13 +375,15 @@ prepare_column_basis(Arena &arena, const math::Quaternion &previous,
  *        until the caller's scope on it closes.
  * @param orientation Orientation whose history spans the frame: index 0 is
  *        the previous endpoint and the last index the current one.
+ * @param state_moves Whether other per-column state of the frame moves.
  * @return Column-time state for the frame's scans.
  */
 template <int W, int H, int CAP>
 inline Temporal::ColumnTime
-prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation) {
+prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation,
+                     bool state_moves = false) {
   return prepare_column_basis<W, H>(arena, orientation.get(0),
-                                    orientation.get());
+                                    orientation.get(), state_moves);
 }
 
 /**

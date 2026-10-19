@@ -135,6 +135,11 @@ inline int run_scan_tests() {
   test_volume_columns_match_rotated_placements();
   test_ring_group_previous_axes_match_column_rings();
   test_object_column_basis_matches_rotated_meridian();
+  test_timed_shader_reads_column_sweep_time();
+  test_face_palette_shader_moves_at_column_time();
+  test_volume_timed_shader_reads_column_sweep_time();
+  test_sweep_column_inverts_sweep_fraction();
+  test_column_basis_prepares_for_moving_state();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();

@@ -695,6 +695,22 @@ inline void case_scan_canvas_dim_mismatch() {
 }
 
 /**
+ * @brief Death case: a scan rejects an empty time-aware shader.
+ */
+inline void case_scan_timed_shader_empty() {
+  Scan::check_fragment_shader(TimedShaderFn(nullptr));
+}
+
+/**
+ * @brief Death case: a face palette shader crossfade without a palette.
+ */
+inline void case_face_palette_shader_blend_without_palette() {
+  static BakedPalette to;
+  FacePaletteShader shader;
+  shader.set_blend(opaque<const BakedPalette *>(nullptr), &to, 0.5f, 0.25f);
+}
+
+/**
  * @brief Death case: a scan rejects a direct-raster sink prepared for no
  *        canvas.
  * @details The sink writes through its cached framebuffer base, which the

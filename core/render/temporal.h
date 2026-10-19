@@ -8,7 +8,8 @@
  * @brief Column-time sampling contract shared by every renderer family: the
  * fidelity toggle, the sweep fraction of a column, slab-wise simulation, the
  * shortest rotation arc between frame endpoints, the column-time state scans
- * read, and capture-time solving for plotted points.
+ * read, shaders that read a column's sweep time, and capture-time solving for
+ * plotted points.
  */
 
 #include "core/animation/orientation.h"
@@ -20,6 +21,8 @@
 #include <cassert>
 #include <cmath>
 #include <span>
+#include <type_traits>
+#include <utility>
 
 namespace Temporal {
 
@@ -145,6 +148,45 @@ struct ColumnTime {
   /// Earliest frame fraction drawn; columns lit before it are left untouched.
   float birth = 0.0f;
 };
+
+/** @brief First-arm column lit at a sweep fraction.
+ * @param fraction A column's sweep fraction, as sweep_fraction() returns it.
+ * @param width Even canvas width.
+ * @return The column in [0, width / 2) lit at @p fraction. */
+constexpr int sweep_column(float fraction, int width) {
+  return static_cast<int>(fraction * static_cast<float>(width / 2) + 0.5f);
+}
+
+/**
+ * @brief Whether a scan shader reads the sweep time of the pixel it shades.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The scan's shader arguments.
+ * @details A shader declares it by its signature: one invocable with a
+ * trailing `float u` after the scan's arguments receives, in a column-time
+ * scan, the sweep fraction of the shaded column, in [0, 1), and evaluates its
+ * time-varying state there. The fixed-meridian scans call the plain form.
+ */
+template <typename ShaderT, typename... Args>
+inline constexpr bool reads_column_time =
+    std::is_invocable_v<ShaderT &, Args..., float>;
+
+/**
+ * @brief Runs a scan shader at a column's sweep time when it reads one.
+ * @tparam W Canvas width in columns.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The scan's shader arguments.
+ * @param shader Shader to run.
+ * @param x Shaded canvas column.
+ * @param args The scan's shader arguments.
+ */
+template <int W, typename ShaderT, typename... Args>
+__attribute__((always_inline)) inline void
+shade_at_column(ShaderT &shader, int x, Args &&...args) {
+  if constexpr (reads_column_time<ShaderT, Args...>)
+    shader(std::forward<Args>(args)..., sweep_fraction(x, W));
+  else
+    shader(std::forward<Args>(args)...);
+}
 
 /**
  * @brief First half-turn column at or after a frame fraction.
