@@ -764,12 +764,13 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
 template <int W, int H, bool ComputeUVs = true, typename PipelineT,
           typename Probe = SDF::DirectDistance,
           typename ShaderFn = FragmentShaderFn>
-inline int
-process_pixel(int x, int y, const math::Vector &p, PipelineT &pipeline,
-              Canvas &canvas, const auto &shape, ShaderFn fragment_shader,
-              bool debug_bb, SDF::DistanceResult &result_scratch,
-              Fragment &frag_scratch, int max_run = 1, const Probe &probe = {},
-              float block_y = 2.0f, float block_turn = 0.0f) {
+inline int process_pixel(int x, int y, const math::Vector &p,
+                         PipelineT &pipeline, Canvas &canvas, const auto &shape,
+                         const ShaderFn &fragment_shader, bool debug_bb,
+                         SDF::DistanceResult &result_scratch,
+                         Fragment &frag_scratch, int max_run = 1,
+                         const Probe &probe = {}, float block_y = 2.0f,
+                         float block_turn = 0.0f) {
   probe.template distance<ComputeUVs>(shape, p, result_scratch);
 
   float d = result_scratch.dist;
