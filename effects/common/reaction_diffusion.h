@@ -485,6 +485,21 @@ protected:
     math::Vector *world; /**< Oriented positions carved from `scope`. */
   };
 
+  /** @brief Per-column lattice-space pixel frames of one effect frame. */
+  using LatticeBasis = Scan::ObjectColumnBasis<W, H>;
+
+  /**
+   * @brief Prepares the frame's per-column lattice frames in scratch.
+   * @return Frames of the view orientation between its frame endpoints, live
+   *         until the caller's scratch scope closes.
+   */
+  [[nodiscard]] const LatticeBasis *prepare_lattice_basis() {
+    HS_PROFILE(rd_lattice_basis);
+    auto *basis = scratch_arena_a.make_default_initialized<LatticeBasis>();
+    basis->prepare(orientation.get(0), orientation.get());
+    return basis;
+  }
+
   /**
    * @brief Carves the per-frame oriented lattice out of scratch and fills it.
    * @return Handle owning both the scratch scope and the world-space nodes.
