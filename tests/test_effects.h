@@ -691,6 +691,8 @@ inline int run_effects_tests() {
   run_case(test_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_case(test_islamicstars_seed_sprite_fade_in);
+  run_case(test_islamicstars_opacity_shades_at_column_time);
+  run_case(test_islamicstars_opacity_history);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
   run_case(test_islamicstars_smooth_recipe_completion);
   run_case(test_islamicstars_default_cycle_frames);

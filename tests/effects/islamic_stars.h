@@ -127,7 +127,41 @@ struct IslamicBuildProbe {
                                  Arena &b) {
     return e.clean_endpoint(step, a, b);
   }
+
+  template <int W, int H>
+  static float record_phase(IslamicStars<W, H> &e, int slot, float phase) {
+    return e.record_phase(slot, phase);
+  }
+  template <int W, int H>
+  static bool phase_drawn(const IslamicStars<W, H> &e, int slot) {
+    return e.phase_drawn[slot];
+  }
+  /**
+   * @brief Draws the front slot's shape at a camera held still.
+   * @param e Effect whose front shape is drawn.
+   * @param phase Segue phase now.
+   * @param previous_phase Segue phase a frame ago.
+   * @return Displayed frame.
+   */
+  template <int W, int H>
+  static std::vector<Pixel> draw_front(IslamicStars<W, H> &e, float phase,
+                                       float previous_phase) {
+    const int front = e.carousel.front_index();
+    {
+      Canvas canvas(e);
+      e.draw_shape(canvas, phase, previous_phase, e.carousel.slot(front),
+                   e.slot_face_palette[front]);
+    }
+    e.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(e, out);
+    return out;
+  }
 };
+
+/** @brief Channel bound of an IslamicStars column against its lerped
+ *  oracle, where two faces share an edge pixel. */
+inline constexpr int ISLAMIC_OPACITY_BOUND = 32;
 
 /** Whole-solid generator of the needle-ending recipe. */
 inline PolyMesh generate_needle_recipe_solid(Arena &a, Arena &b) {
@@ -617,4 +651,67 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
       IslamicBuildProbe::dual_bridges(effect), frames, a_peak, b_peak,
       persist_peak);
   HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
+}
+
+/**
+ * @brief Each column of a segue draw shades every face's opacity at its sweep
+ *        time: the frame lerped between the two endpoint frames, on both
+ *        arms.
+ * @details Faces keep their colours, so a lone face's pixel is linear in its
+ * opacity; a pixel two faces share blends their products, within the bound.
+ */
+inline void test_islamicstars_opacity_shades_at_column_time() {
+  using P = IslamicBuildProbe;
+  reset_effect_globals();
+  P::IS effect;
+  effect.init();
+  constexpr float PREVIOUS = 0.35f, PHASE = 0.55f;
+  const std::vector<Pixel> drawn = P::draw_front(effect, PHASE, PREVIOUS);
+  const std::vector<Pixel> from = P::draw_front(effect, PREVIOUS, PREVIOUS);
+  const std::vector<Pixel> to = P::draw_front(effect, PHASE, PHASE);
+  const std::vector<Pixel> expected =
+      column_time_oracle<SMALL_W, SMALL_H>([&](float u) {
+        std::vector<Pixel> frame(from.size());
+        for (size_t i = 0; i < frame.size(); ++i) {
+          const auto lerp = [u](uint16_t a, uint16_t b) {
+            return static_cast<uint16_t>(lroundf(a + (b - a) * u));
+          };
+          frame[i] = Pixel(lerp(from[i].r, to[i].r), lerp(from[i].g, to[i].g),
+                           lerp(from[i].b, to[i].b));
+        }
+        return frame;
+      });
+  HS_EXPECT_TRUE(from != to);
+  HS_EXPECT_TRUE(expect_frames_within("islamic opacity", drawn, expected,
+                                      ISLAMIC_OPACITY_BOUND) > 200);
+}
+
+/**
+ * @brief A slot's previous segue phase is the one it drew last, held across
+ *        a repeat draw, reset by a spawn into the slot and replaced by the
+ *        current phase with temporal sampling off.
+ */
+inline void test_islamicstars_opacity_history() {
+  using P = IslamicBuildProbe;
+  reset_effect_globals();
+  P::IS effect;
+  effect.init();
+  const int front = P::front_slot(effect);
+  HS_EXPECT_FALSE(P::phase_drawn(effect, front));
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_TRUE(P::phase_drawn(effect, front));
+
+  HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.2f), 0.2f);
+  HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.3f), 0.2f);
+  HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.3f), 0.3f);
+  Temporal::set_temporal_sampling_enabled(false);
+  HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.5f), 0.5f);
+  Temporal::set_temporal_sampling_enabled(true);
+  HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.6f), 0.5f);
+
+  const size_t selected =
+      (effect.getPresetIndex() + 1) % effect.getPresetCount();
+  HS_EXPECT_TRUE(effect.selectPreset(selected));
+  HS_EXPECT_FALSE(P::phase_drawn(effect, P::front_slot(effect)));
 }
