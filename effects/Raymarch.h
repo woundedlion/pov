@@ -470,18 +470,11 @@ private:
     spin_drawn = true;
     const math::Quaternion previous_spin_q =
         math::make_rotation(math::X_AXIS, previous_spin * math::TWO_PI_F);
-    constexpr int HALF = W / 2;
     ScratchScope column_guard(scratch_arena_a);
     Scan::VolumeColumns<W> *columns = nullptr;
     math::Quaternion *cameras = nullptr;
-    if (Temporal::temporal_sampling_enabled()) {
-      columns =
-          scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
-      cameras = scratch_arena_a.allocate_n<math::Quaternion>(HALF);
-      const Temporal::TemporalRotation camera_path(camera.get(0), camera.get());
-      for (int c = 0; c < HALF; ++c)
-        cameras[c] = camera_path.sample(Temporal::sweep_fraction(c, W));
-    }
+    if (Temporal::temporal_sampling_enabled())
+      cameras = prepare_column_cameras(columns);
 
     for (int i = 0; i < active_count; ++i) {
       // Fit the ring's outer edge to `fill` of this vertex's half
@@ -529,21 +522,56 @@ private:
       };
 
       const Scan::VolumeColumns<W> *placed = nullptr;
-      const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
-                                          volume_spins[i].orientation.get(0) *
-                                          previous_spin_q;
-      if (columns && Scan::ColumnBasis<W, H>::moving(previous_q, world_q)) {
-        const Temporal::TemporalRotation path(previous_q, world_q);
-        for (int c = 0; c < HALF; ++c)
-          columns->set(c, math::rotate(points[i], cameras[c]),
-                       path.sample(Temporal::sweep_fraction(c, W)));
-        placed = columns;
+      if (columns) {
+        const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
+                                            volume_spins[i].orientation.get(0) *
+                                            previous_spin_q;
+        if (Scan::ColumnBasis<W, H>::moving(previous_q, world_q)) {
+          place_columns(*columns, cameras, points[i], previous_q, world_q);
+          placed = columns;
+        }
       }
 
       Scan::TransformedVolume vol(torus, center, world_q);
       Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
                                frag_fn, max_steps, aa_width, placed);
     }
+  }
+
+  /**
+   * @brief Allocates the frame's volume placements and samples the camera
+   *        per sweep fraction, in scratch_arena_a.
+   * @param columns Receives the placement table.
+   * @return The camera orientation per sweep fraction.
+   */
+  HS_FLASH_MEMBER math::Quaternion *
+  prepare_column_cameras(Scan::VolumeColumns<W> *&columns) {
+    columns =
+        scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
+    auto *cameras = scratch_arena_a.allocate_n<math::Quaternion>(W / 2);
+    const Temporal::TemporalRotation path(camera.get(0), camera.get());
+    for (int c = 0; c < W / 2; ++c)
+      cameras[c] = path.sample(Temporal::sweep_fraction(c, W));
+    return cameras;
+  }
+
+  /**
+   * @brief Places one torus per sweep fraction.
+   * @param columns Table receiving the placements.
+   * @param cameras Camera orientation per sweep fraction.
+   * @param point Unrotated torus centre.
+   * @param previous Placement rotation at the previous endpoint.
+   * @param current Placement rotation at the current endpoint.
+   */
+  HS_FLASH_MEMBER static void place_columns(Scan::VolumeColumns<W> &columns,
+                                            const math::Quaternion *cameras,
+                                            const math::Vector &point,
+                                            const math::Quaternion &previous,
+                                            const math::Quaternion &current) {
+    const Temporal::TemporalRotation path(previous, current);
+    for (int c = 0; c < W / 2; ++c)
+      columns.set(c, math::rotate(point, cameras[c]),
+                  path.sample(Temporal::sweep_fraction(c, W)));
   }
 
   struct VolumeSpin {
