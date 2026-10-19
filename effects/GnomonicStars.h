@@ -112,7 +112,9 @@ private:
    * @details Draws each spiral point as a star whose color is a Y-based
    * gradient and whose basis carries the current orientation and warp. Each
    * column sees the orientation at its sweep time and each star's warped
-   * centre moved linearly from where the last frame drew it.
+   * centre moved linearly from where the last frame drew it; a star whose
+   * motion barely changes across the columns that see it is drawn where
+   * their middle column saw it.
    */
   HS_HOT_FLASH_MEMBER void draw_stars(Canvas &canvas) {
     auto fragment_shader = [this](const math::Vector &p, Fragment &frag) {
@@ -134,11 +136,16 @@ private:
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     for (int i = 0; i < points; i++) {
       math::Vector v = transformer.transform(spiral_cache[i]);
-      if (drifting)
-        column_time.drift = star_drift(spiral_cache[i], v);
 
       // make_basis() applies the orientation; pass the unrotated point.
       math::Basis basis = math::make_basis(orientation.get(), v);
+      if (drifting) {
+        const math::Vector drift = star_drift(spiral_cache[i], v);
+        column_time.drift =
+            Scan::settle_drift<W>(column_time, drift, radius, basis)
+                ? math::Vector(0.0f, 0.0f, 0.0f)
+                : drift;
+      }
 
       {
         HS_PROFILE(gn_star_scan);
