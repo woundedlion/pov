@@ -1095,3 +1095,64 @@ inline void test_drift_matches_shape_at_column_centre() {
                 math::rotate(centres[1], math::make_rotation(axis, angle))),
       1.0f, 1e-6f);
 }
+
+/**
+ * @brief A star whose drift barely changes across the columns that see it
+ *        settles to one turn that matches its per-column drift scan; one
+ *        seen across an arm boundary does not settle.
+ */
+inline void test_settled_drift_matches_column_drift() {
+  constexpr int W = 96, H = 48;
+  const ScopedPoleLod lod(0.0f);
+  const BasisMotion motion = tilted_motion(0.05f);
+  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+  const math::Vector drift = axis * (0.3f * math::RADIANS_PER_COLUMN<W>);
+  const math::Vector centre = math::Vector(0.3f, -0.4f, 0.85f).normalized();
+  const float radius = 0.15f;
+  const auto star = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
+                        const math::Basis &basis) {
+    Scan::Star::draw<W, H, false>(pipeline, canvas, basis, radius, 5,
+                                  basis_flat_shader);
+  };
+  const auto render = [&](bool settle) {
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+          Temporal::ColumnTime time =
+              basis->prepare(motion.previous, motion.current, true);
+          Scan::ColumnTimeScope column_scope(canvas, time);
+          math::Basis shape = math::make_basis(math::Quaternion(), centre);
+          if (settle)
+            HS_EXPECT_TRUE(Scan::settle_drift<W>(time, drift, radius, shape));
+          else
+            time.drift = drift;
+          star(pipeline, canvas, shape);
+        });
+  };
+  // Within DRIFT_SETTLE_ARC a star's edge moves under a tenth of a pixel, so
+  // its coverage, and each channel, by under a tenth of full scale.
+  const std::vector<Pixel> settled = render(true);
+  const std::vector<Pixel> drifting = render(false);
+  int lit = 0, worst = 0;
+  for (size_t i = 0; i < settled.size(); ++i) {
+    lit += !is_black(drifting[i]);
+    for (int error : {std::abs(int(settled[i].r) - drifting[i].r),
+                      std::abs(int(settled[i].g) - drifting[i].g),
+                      std::abs(int(settled[i].b) - drifting[i].b)})
+      worst = std::max(worst, error);
+  }
+  std::printf("  [settled drift] lit=%d worst channel error=%d\n", lit, worst);
+  HS_EXPECT_GT(lit, 20);
+  HS_EXPECT_LE(worst, 52000 / 10);
+
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  const Temporal::ColumnTime time =
+      basis->prepare(motion.previous, motion.current, true);
+  math::Basis seam = math::make_basis(
+      math::Quaternion(), math::Vector(-1.0f, 0.1f, 0.02f).normalized());
+  const math::Basis held = seam;
+  HS_EXPECT_FALSE(Scan::settle_drift<W>(time, drift, radius, seam));
+  HS_EXPECT_EQ(math::dot(seam.v, held.v), math::dot(held.v, held.v));
+  math::Basis fast = math::make_basis(math::Quaternion(), centre);
+  HS_EXPECT_FALSE(Scan::settle_drift<W>(time, drift * 20.0f, radius, fast));
+}

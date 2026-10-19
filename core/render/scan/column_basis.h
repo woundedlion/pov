@@ -361,6 +361,47 @@ HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
   return true;
 }
 
+/// Largest change of a drift across a compact shape's seeing columns that
+/// settle_drift() stands for with one turn: a tenth of a column of arc.
+template <int W>
+inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
+
+/**
+ * @brief Turns a compact drifting shape back to where the columns that see it
+ *        saw it, when its drift barely changes across them.
+ * @tparam W Canvas width in columns.
+ * @param time Column-time state with a rotated basis.
+ * @param drift The shape's drift, as `Temporal::ColumnTime::drift` takes it.
+ * @param radius Angular radius of the cap bounding the shape about `basis.v`.
+ * @param basis The shape's basis at the current endpoint; receives it turned
+ *        back by the drift still to come at the seeing columns' middle time.
+ * @return True when that one turn stands for the drift at every seeing column
+ *         within DRIFT_SETTLE_ARC; otherwise @p basis is unchanged and the
+ *         shape needs its drift scanned per column.
+ * @details The seeing columns are lit_columns()'s for the cap moved by the
+ * frame's turn and the drift. A shape seen by every column, as one holding a
+ * pole or crossing an arm boundary, does not settle.
+ */
+template <int W>
+inline bool settle_drift(const Temporal::ColumnTime &time,
+                         const math::Vector &drift, float radius,
+                         math::Basis &basis) {
+  const float angle = sqrtf(math::dot(drift, drift));
+  int first, last;
+  lit_columns<W>(basis.v, radius, time.sweep + angle, first, last);
+  if (first == 0 && last == W / 2 - 1)
+    return false;
+  // The middle column's fraction is at most (last - first) / W from any.
+  if (angle * static_cast<float>(last - first) / W > DRIFT_SETTLE_ARC<W>)
+    return false;
+  const math::Vector back =
+      drift * (Temporal::sweep_fraction((first + last) / 2, W) - 1.0f);
+  basis = {Temporal::rotate_short(basis.u, back),
+           Temporal::rotate_short(basis.v, back),
+           Temporal::rotate_short(basis.w, back)};
+  return true;
+}
+
 /**
  * @brief Object-space pixel frame of one column at its sweep time.
  * @details The column's pixel at colatitude phi looks along

@@ -224,7 +224,9 @@ column-time variants. A drift in the same state rotates `Scan::rasterize`'s
 pixel direction by a shape's own motion still to come, for shapes that move
 independently of the frame's rotation: the scan reads a basis table of the
 shape's own, filled once per draw for the columns its re-centred bounds reach,
-which grow by the drift's angle.
+which grow by the drift's angle. A compact shape whose drift changes by less
+than a tenth of a column across the columns that see it is instead turned once
+to their middle column's time (`Scan::settle_drift`) and scanned without one.
 `Animation::OpLeg::Shading` carries the crossfade weight its leg drew a frame
 ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
 
