@@ -1158,6 +1158,21 @@ private:
           2.0f * grid.sin_phi[0] * grid.sin_dtheta * Base::INV_R2;
       const float CROSS1 =
           2.0f * grid.sin_phi[1] * grid.sin_dtheta * Base::INV_R2;
+      // An object-frame column folds its frame into one direction per term,
+      // so each node costs a dot product per term.
+      constexpr bool OBJECT_FRAME = std::is_same_v<Column, LatticeColumn>;
+      [[maybe_unused]] math::Vector base_dir0, base_dir1, side0, side1;
+      if constexpr (OBJECT_FRAME) {
+        const Scan::ObjectColumn &frame = column.frame;
+        const float SCALE = 2.0f * Base::INV_R2;
+        base_dir0 =
+            (frame.radial * RADIAL0 + frame.up * grid.cos_phi[0]) * SCALE;
+        base_dir1 =
+            (frame.radial * RADIAL1 + frame.up * grid.cos_phi[1]) * SCALE;
+        side0 = frame.tangent * -CROSS0;
+        side1 = frame.tangent * -CROSS1;
+      }
+      constexpr float BASE_OFFSET = 1.0f - 2.0f * Base::INV_R2;
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC unroll 2
 #endif
@@ -1165,14 +1180,23 @@ private:
         const int NODE = slot == 0 ? center : center + run.delta[slot - 1];
         const math::Vector &p = nodes[NODE];
         const float B = state.B[NODE] - B_CULL_THRESHOLD / Q16_INV;
-        const float RADIAL = column.radial(p);
-        const float TANGENT = column.tangent(p);
-        const float UP = column.up(p);
-        const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * UP;
-        const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * UP;
-        const float BASE0 = 1.0f - (2.0f - 2.0f * DOT0) * Base::INV_R2;
-        const float BASE1 = 1.0f - (2.0f - 2.0f * DOT1) * Base::INV_R2;
-        const float D0 = CROSS0 * TANGENT, D1 = CROSS1 * TANGENT;
+        float BASE0, BASE1, D0, D1;
+        if constexpr (OBJECT_FRAME) {
+          BASE0 = BASE_OFFSET + math::dot(base_dir0, p);
+          BASE1 = BASE_OFFSET + math::dot(base_dir1, p);
+          D0 = math::dot(side0, p);
+          D1 = math::dot(side1, p);
+        } else {
+          const float RADIAL = column.radial(p);
+          const float TANGENT = column.tangent(p);
+          const float UP = column.up(p);
+          const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * UP;
+          const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * UP;
+          BASE0 = 1.0f - (2.0f - 2.0f * DOT0) * Base::INV_R2;
+          BASE1 = 1.0f - (2.0f - 2.0f * DOT1) * Base::INV_R2;
+          D0 = CROSS0 * TANGENT;
+          D1 = CROSS1 * TANGENT;
+        }
         float left = fmaxf(0.0f, BASE0 - D0), right = fmaxf(0.0f, BASE0 + D0);
         left *= left;
         right *= right;
