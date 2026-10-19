@@ -1359,6 +1359,20 @@ inline constexpr bool has_swept_bounds = requires(const ShapeT &shape) {
 };
 
 /**
+ * @brief Whether a shape bounds itself by a cap it can re-centre.
+ * @tparam ShapeT Shape type.
+ * @details `bounding_cap(axis, radius)` reports the cap, or false when none
+ * bounds the shape; `moved(axis, arc)` returns a bounds proxy turned onto
+ * `axis` and swept by `arc`.
+ */
+template <typename ShapeT>
+inline constexpr bool has_moved_bounds =
+    requires(const ShapeT &shape, math::Vector &axis, float &radius) {
+      { shape.bounding_cap(axis, radius) } -> std::same_as<bool>;
+      { shape.moved(axis, 0.0f) } -> std::same_as<ShapeT>;
+    };
+
+/**
  * @brief Whether column-time state changes how a scan draws.
  * @param time Installed state, or null.
  * @return True for a rotated basis or a birth fraction.
@@ -1382,8 +1396,9 @@ column_time_active(const Temporal::ColumnTime *time) {
  *        rotated direction.
  * @param debug Whether to render the bounding box.
  * @param time Active column-time state.
- * @details Bounds come from the shape's swept() proxy, or from whole rows of
- * the swept band for a shape without one.
+ * @details Bounds come from the shape's cap turned to the time of the columns
+ * that see it, else from its swept() proxy, else from whole rows of the swept
+ * band.
  */
 template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
 inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
@@ -1400,7 +1415,16 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   auto bounds = shape.template get_vertical_bounds<H>();
   if (sweep > 0.0f) {
     if constexpr (has_swept_bounds<ShapeT>) {
-      swept.emplace(shape.swept(sweep));
+      if constexpr (has_moved_bounds<ShapeT>) {
+        LitCap lit;
+        math::Vector cap_axis;
+        float cap_radius;
+        if (shape.bounding_cap(cap_axis, cap_radius) &&
+            lit_cap<W, H>(cap_axis, cap_radius, time, lit))
+          swept.emplace(shape.moved(lit.axis, lit.arc));
+      }
+      if (!swept)
+        swept.emplace(shape.swept(sweep));
       bounds_shape = &*swept;
       bounds = swept->template get_vertical_bounds<H>();
     } else {

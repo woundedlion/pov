@@ -137,6 +137,38 @@ struct Ring {
   }
 
   /**
+   * @brief Cap bounding the ring's band, for bounds re-centred on another
+   *        axis.
+   * @param axis Receives the cap axis.
+   * @param radius Receives the cap's angular radius (radians).
+   * @return True; every ring's band lies in its outer cap.
+   */
+  bool bounding_cap(math::Vector &axis, float &radius) const {
+    axis = normal;
+    radius = target_angle + thickness;
+    return true;
+  }
+
+  /**
+   * @brief Bounds proxy covering the ring turned onto another axis and swept
+   *        by an arc.
+   * @param axis Axis the ring is turned onto (unit).
+   * @param arc Largest arc any point of the turned ring moves (radians).
+   * @return Copy whose vertical bounds and intervals cover the turned band
+   *         widened by @p arc; its distance() is not the turned ring's.
+   */
+  Ring moved(const math::Vector &axis, float arc) const {
+    Ring out = swept(arc);
+    const AxisProjection ap = project_axis(axis);
+    out.normal = axis;
+    out.ny = ap.ny;
+    out.center_phi = acosf(std::max(-1.0f, std::min(1.0f, ap.ny)));
+    out.r_val = ap.r_val;
+    out.alpha_angle = ap.alpha_angle;
+    return out;
+  }
+
+  /**
    * @brief Computes the horizontal scanline intervals for this shape at a given
    * y-coordinate.
    * @tparam W Canvas width in columns.
