@@ -327,15 +327,82 @@ struct DistortedRingStack {
     HS_CHECK(n_rings <= Table::MAX_RINGS,
              "ring stack exceeds the candidate table's ring index range");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    if (time && time->azimuth) {
+      draw_column_time<W, H>(pipeline, canvas, n_rings, shapes, slot_by_ring,
+                             n_slots, table, shader, *time);
+      return;
+    }
+    draw_body<W, H, false>(pipeline, canvas, n_rings, shapes, slot_by_ring,
+                           n_slots, table, shader, nullptr);
+  }
+
+  /**
+   * @brief DistortedRingStack::draw along a rotated basis.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @tparam ShapeRange Indexable ring shapes.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param n_rings Stack size.
+   * @param shapes Ring shapes indexed by slot.
+   * @param slot_by_ring Ring index to slot map.
+   * @param n_slots Number of shapes.
+   * @param table Candidate map storage.
+   * @param shader Per-ring fragment shader.
+   * @param time Column-time state with a rotated basis.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT,
+            typename ShapeRange>
+  HS_HOT_FLASH_MEMBER static void
+  draw_column_time(PipelineT &pipeline, Canvas &canvas, int n_rings,
+                   ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
+                   CandidateTable<W, H> &table, RingShaderT &shader,
+                   const Temporal::ColumnTime &time) {
+    draw_body<W, H, true>(pipeline, canvas, n_rings, shapes, slot_by_ring,
+                          n_slots, table, shader, &time);
+  }
+
+  /**
+   * @brief Fused stack scan shared by the fixed and rotated-basis draws.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam COLUMN_TIME Whether pixels follow @p time's rotated basis.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @tparam ShapeRange Indexable ring shapes.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param n_rings Stack size.
+   * @param shapes Ring shapes indexed by slot.
+   * @param slot_by_ring Ring index to slot map.
+   * @param n_slots Number of shapes.
+   * @param table Candidate map storage.
+   * @param shader Per-ring fragment shader.
+   * @param time Column-time state; read only with COLUMN_TIME.
+   */
+  template <int W, int H, bool COLUMN_TIME, typename PipelineT,
+            typename RingShaderT, typename ShapeRange>
+  HS_HOT_INLINE static void
+  draw_body(PipelineT &pipeline, Canvas &canvas, int n_rings, ShapeRange shapes,
+            const int8_t *slot_by_ring, int n_slots,
+            CandidateTable<W, H> &table, RingShaderT &shader,
+            const Temporal::ColumnTime *time) {
+    using Table = CandidateTable<W, H>;
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
-
-    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
-    const math::Vector *azimuth = time ? time->azimuth : nullptr;
-    const math::Vector *up = time ? time->up : nullptr;
-    const float sweep = azimuth ? time->sweep : 0.0f;
+    [[maybe_unused]] const math::Vector *azimuth = nullptr;
+    [[maybe_unused]] const math::Vector *up = nullptr;
+    float sweep = 0.0f;
+    if constexpr (COLUMN_TIME) {
+      azimuth = time->azimuth;
+      up = time->up;
+      sweep = time->sweep;
+    }
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n_slots; ++s) {
       auto b =
@@ -371,8 +438,9 @@ struct DistortedRingStack {
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
       walk_clip_columns_once<W>(xc, [&](int x) __attribute__((always_inline)) {
-        const math::Vector p =
-            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        if constexpr (COLUMN_TIME)
+          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
         const float d = math::dot(p, axis_v);
         const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
         const float dot_u = math::dot(p, axis_u);
@@ -642,33 +710,98 @@ struct RingGroup {
       return;
     }
 
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const bool rotated = time && time->azimuth;
+    const bool moving_slots =
+        previous_normals && Temporal::temporal_sampling_enabled();
+    if (rotated || moving_slots) {
+      draw_column_time<W, H>(pipeline, canvas, shapes, n, shader,
+                             rotated ? time : nullptr,
+                             moving_slots ? previous_normals : nullptr);
+      return;
+    }
+    draw_body<W, H, false>(pipeline, canvas, shapes, n, shader, nullptr,
+                           nullptr);
+  }
+
+  /**
+   * @brief RingGroup::draw under a rotated basis or moving slot axes.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes.
+   * @param shader Per-ring fragment shader.
+   * @param time Column-time state with a rotated basis, or null.
+   * @param previous_normals Per-slot axes at the previous endpoint, or null.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_column_time(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
+                   int n, RingShaderT &shader, const Temporal::ColumnTime *time,
+                   const math::Vector *previous_normals) {
+    draw_body<W, H, true>(pipeline, canvas, shapes, n, shader, time,
+                          previous_normals);
+  }
+
+  /**
+   * @brief Fused scan body shared by the fixed and column-time draws.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam COLUMN_TIME Whether @p time and @p previous_normals are read.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes.
+   * @param shader Per-ring fragment shader.
+   * @param time Column-time state with a rotated basis, or null.
+   * @param previous_normals Per-slot axes at the previous endpoint, or null.
+   */
+  template <int W, int H, bool COLUMN_TIME, typename PipelineT,
+            typename RingShaderT>
+  HS_HOT_INLINE static void
+  draw_body(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes, int n,
+            RingShaderT &shader, const Temporal::ColumnTime *time,
+            const math::Vector *previous_normals) {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
 
-    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
-    const math::Vector *azimuth = time ? time->azimuth : nullptr;
-    const math::Vector *up = time ? time->up : nullptr;
-    const float sweep = azimuth ? time->sweep : 0.0f;
-    const bool moving_slots =
-        previous_normals && Temporal::temporal_sampling_enabled();
-    math::Vector motion[MAX_RINGS];
-    float slot_sweep[MAX_RINGS] = {};
-    float max_slot_sweep = 0.0f;
-    if (moving_slots) {
-      for (int s = 0; s < n; ++s) {
-        motion[s] = shapes[s].normal - previous_normals[s];
-        slot_sweep[s] = math::fast_acos(hs::clamp(
-                            math::dot(shapes[s].normal, previous_normals[s]),
-                            -1.0f, 1.0f)) +
-                        1e-3f;
-        max_slot_sweep = std::max(max_slot_sweep, slot_sweep[s]);
+    [[maybe_unused]] const math::Vector *azimuth = nullptr;
+    [[maybe_unused]] const math::Vector *up = nullptr;
+    [[maybe_unused]] float sweep = 0.0f;
+    [[maybe_unused]] bool moving_slots = false;
+    [[maybe_unused]] math::Vector motion[MAX_RINGS];
+    [[maybe_unused]] float slot_sweep[MAX_RINGS] = {};
+    [[maybe_unused]] float max_slot_sweep = 0.0f;
+    if constexpr (COLUMN_TIME) {
+      if (time) {
+        azimuth = time->azimuth;
+        up = time->up;
+        sweep = time->sweep;
+      }
+      moving_slots = previous_normals != nullptr;
+      if (moving_slots) {
+        for (int s = 0; s < n; ++s) {
+          motion[s] = shapes[s].normal - previous_normals[s];
+          slot_sweep[s] = math::fast_acos(hs::clamp(
+                              math::dot(shapes[s].normal, previous_normals[s]),
+                              -1.0f, 1.0f)) +
+                          1e-3f;
+          max_slot_sweep = std::max(max_slot_sweep, slot_sweep[s]);
+        }
       }
     }
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n; ++s) {
-      auto b = swept_rows<H>(shapes[s].template get_vertical_bounds<H>(),
-                             sweep + slot_sweep[s]);
+      auto b = shapes[s].template get_vertical_bounds<H>();
+      if constexpr (COLUMN_TIME)
+        b = swept_rows<H>(b, sweep + slot_sweep[s]);
       sy_min[s] = b.y_min;
       sy_max[s] = b.y_max;
       y_lo = std::min(y_lo, b.y_min);
@@ -696,8 +829,10 @@ struct RingGroup {
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
         shapes[mid].radius, pad_th);
-    if (sweep + max_slot_sweep > 0.0f)
-      cover = cover.swept(sweep + max_slot_sweep);
+    if constexpr (COLUMN_TIME) {
+      if (sweep + max_slot_sweep > 0.0f)
+        cover = cover.swept(sweep + max_slot_sweep);
+    }
 
     Fragment frag;
 
@@ -715,15 +850,19 @@ struct RingGroup {
     int active[MAX_RINGS];
     int n_active = 0;
 
-    auto pixel_run = [&](int x1, int x2, int y, float sp, float cp) {
+    auto pixel_run_body = [&](int x1, int x2, int y, float sp,
+                              float cp) HS_HOT_INLINE {
       for (int x = x1; x < x2; ++x) {
-        const math::Vector p =
-            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
-        const float u = moving_slots ? Temporal::sweep_fraction(x, W) : 0.0f;
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        if constexpr (COLUMN_TIME)
+          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+        [[maybe_unused]] float u = 0.0f;
+        if constexpr (COLUMN_TIME)
+          u = moving_slots ? Temporal::sweep_fraction(x, W) : 0.0f;
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
           float d = math::dot(p, shapes[s].normal);
-          if (moving_slots) {
+          if (COLUMN_TIME && moving_slots) {
             const math::Vector axis = previous_normals[s] + motion[s] * u;
             const float length_sq = math::dot(axis, axis);
             float inverse = math::fast_rsqrt(length_sq);
@@ -749,6 +888,11 @@ struct RingGroup {
         }
       }
     };
+    // The column-time variant inlines its row walk so it leaves ITCM whole.
+    [[maybe_unused]] auto pixel_run = [&](int x1, int x2, int y, float sp,
+                                          float cp) {
+      pixel_run_body(x1, x2, y, sp, cp);
+    };
     for (int y = y_lo; y <= y_hi; ++y) {
       // Per-slot domains match solo rasterization; slot order preserves blending.
       n_active = 0;
@@ -759,18 +903,27 @@ struct RingGroup {
         continue;
       float sp = math::TrigLUT<W, H>::sin_phi[y];
       float cp = math::TrigLUT<W, H>::cos_phi[y];
-      auto emit = [&](int x1, int x2) { pixel_run(x1, x2, y, sp, cp); };
-
-      if (cover.needs_full_row_scan(sp)) {
-        clip_run(0, W, xc, emit);
-        continue;
+      auto walk_row = [&](auto &emit) HS_HOT_INLINE {
+        if (cover.needs_full_row_scan(sp)) {
+          clip_run(0, W, xc, emit);
+          return;
+        }
+        intervals.clear();
+        cover.template get_horizontal_intervals<W, H>(
+            y,
+            [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+        // The full-row case is taken above, so the covering ring always
+        // answers.
+        emit_row_runs<W>(true, intervals, norm, xc, emit);
+      };
+      if constexpr (COLUMN_TIME) {
+        auto emit = [&](int x1, int x2)
+                        HS_HOT_INLINE { pixel_run_body(x1, x2, y, sp, cp); };
+        walk_row(emit);
+      } else {
+        auto emit = [&](int x1, int x2) { pixel_run(x1, x2, y, sp, cp); };
+        walk_row(emit);
       }
-      intervals.clear();
-      cover.template get_horizontal_intervals<W, H>(y, [&](float t1, float t2) {
-        SDF::push_interval(intervals, t1, t2);
-      });
-      // The full-row case is taken above, so the covering ring always answers.
-      emit_row_runs<W>(true, intervals, norm, xc, emit);
     }
   }
 };

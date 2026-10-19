@@ -29,34 +29,29 @@ namespace Scan {
 
 HS_O3_BEGIN
 /**
- * @brief Face-specialized scan loop for the mesh path, compiled at -O3 on the
- *        -Os device image.
+ * @brief Body of the face scan loop, for the fixed meridian or a rotated
+ *        basis.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @tparam PipelineT Plotting pipeline type.
- * @tparam MinimalFragment When true, only v1 (raw distance) is refreshed per
- *         pixel. Other input registers are NaN in debug builds and retain
- *         defaults or previous values in release builds. The shader must not
- *         read inputs it did not set. It must write color on every call; age
- *         retains its default or the value left by the shader.
+ * @tparam MinimalFragment See rasterize_face.
+ * @tparam COLUMN_TIME Whether pixels follow @p time's rotated basis.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
  * @param fragment_shader Shader invoked per covered pixel.
- * @param time Optional column-time state; its rotated basis supplies each
- *        pixel's direction and its birth fraction is ignored.
- * @details Faces whose column intervals are row-independent build their runs
- * once. The per-pixel body mirrors process_pixel's solid path. Does not read
- * canvas.debug(). Under a rotated basis a pole-LOD block's slack grows by the
+ * @param time Column-time state with a rotated basis; read only with
+ *        COLUMN_TIME.
+ * @details Under a rotated basis a pole-LOD block's slack grows by the
  * rotation between its first and last columns, and a block straddling an arm
  * boundary is walked per column.
  */
-template <int W, int H, typename PipelineT, bool MinimalFragment = false,
-          typename FragmentShaderT>
-HS_NOINLINE_NOCLONE inline void
-rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-               FragmentShaderT &fragment_shader,
-               const Temporal::ColumnTime *time = nullptr) {
+template <int W, int H, typename PipelineT, bool MinimalFragment,
+          bool COLUMN_TIME, typename FragmentShaderT>
+HS_HOT_INLINE inline void
+rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+                    FragmentShaderT &fragment_shader,
+                    const Temporal::ColumnTime *time) {
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
 
@@ -75,7 +70,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       math::TrigLUT<W, H>::init();
   }
 
-  auto build_runs = [&](int y) {
+  auto build_runs_body = [&](int y) HS_HOT_INLINE {
     HS_PROFILE_DEEP(raster_setup);
     num_runs = 0;
 
@@ -100,23 +95,35 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                   "norm must hold 2 spans per input interval (seam split)");
     emit_row_runs<W>(handled, intervals, norm, xc, push);
   };
+  [[maybe_unused]] auto build_runs = [&](int y) { build_runs_body(y); };
+  // The column-time variant inlines its run builder so it leaves ITCM whole.
+  const auto rebuild_runs = [&](int y) HS_HOT_INLINE {
+    if constexpr (COLUMN_TIME)
+      build_runs_body(y);
+    else
+      build_runs(y);
+  };
 
   const bool per_row =
       shape.template horizontal_intervals_vary_by_row<W, H>(y_lo, y_hi);
   int runs_y = y_lo;
   if (!per_row) {
-    build_runs(y_lo);
+    rebuild_runs(y_lo);
     if (num_runs == 0)
       return;
   }
 
   const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
-  const math::Vector *azimuth = time ? time->azimuth : nullptr;
-  const math::Vector *up = time ? time->up : nullptr;
+  [[maybe_unused]] const math::Vector *azimuth = nullptr;
+  [[maybe_unused]] const math::Vector *up = nullptr;
   // Arc the basis rotates per column of sweep time.
-  [[maybe_unused]] const float column_rotation =
-      azimuth ? time->sweep / (W / 2) : 0.0f;
+  [[maybe_unused]] float column_rotation = 0.0f;
+  if constexpr (COLUMN_TIME) {
+    azimuth = time->azimuth;
+    up = time->up;
+    column_rotation = time->sweep / (W / 2);
+  }
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
 
@@ -141,10 +148,11 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   if constexpr (pole_lod_blocks<SDF::Face>) {
     if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
         Render::pole_lod_aggressiveness > 0.0f) {
+      float lod_reach = Render::pole_lod_aggressiveness * PIXEL_WIDTH;
+      if constexpr (COLUMN_TIME)
+        lod_reach += column_rotation * (Render::POLE_LOD_MAX_RUN - 1);
       const float block_reach = std::min(
-          PIXEL_WIDTH + (Render::pole_lod_aggressiveness * PIXEL_WIDTH +
-                         column_rotation * (Render::POLE_LOD_MAX_RUN - 1)) *
-                            SDF::arc_stretch<SDF::Face> * plane_stretch,
+          PIXEL_WIDTH + lod_reach * SDF::arc_stretch<SDF::Face> * plane_stretch,
           SDF::reject_margin<SDF::Face>);
       float block_radius =
           shape.radius + ((probe_flags & SDF::Face::PROBE_LINEAR)
@@ -161,7 +169,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     if (per_row) {
       if (y == y_lo ||
           !shape.template horizontal_intervals_equal_rows<W, H>(runs_y, y)) {
-        build_runs(y);
+        rebuild_runs(y);
         runs_y = y;
       }
       if (num_runs == 0)
@@ -173,9 +181,12 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
     if constexpr (pole_lod_blocks<SDF::Face>) {
-      block_slack = (pole_lod_slack<W, SDF::Face>(stride, sp) +
-                     column_rotation * static_cast<float>(stride - 1) *
-                         SDF::arc_stretch<SDF::Face>)*plane_stretch;
+      if constexpr (COLUMN_TIME)
+        block_slack = (pole_lod_slack<W, SDF::Face>(stride, sp) +
+                       column_rotation * static_cast<float>(stride - 1) *
+                           SDF::arc_stretch<SDF::Face>)*plane_stretch;
+      else
+        block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
       // the block test reads d, so the cull must not sentinel a probe inside
       // its threshold
       const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;
@@ -189,13 +200,14 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (stride > 1)
           next_block = pole_lod_block_anchor(next_block, stride);
       for (int x = runs[r].first; x < rx2;) {
-        const math::Vector p =
-            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        if constexpr (COLUMN_TIME)
+          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
         float probe_min_cos = min_cos;
         [[maybe_unused]] bool block_fits = false;
         if constexpr (pole_lod_blocks<SDF::Face>) {
           block_fits = x + stride <= rx2 &&
-                       (!azimuth || x >= W / 2 || x + stride <= W / 2);
+                       (!COLUMN_TIME || x >= W / 2 || x + stride <= W / 2);
           if (stride > 1 && x == next_block && block_fits &&
               probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
@@ -266,7 +278,74 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     }
   }
 }
+
+/**
+ * @brief Face-specialized scan loop for the mesh path, compiled at -O3 on the
+ *        -Os device image.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam PipelineT Plotting pipeline type.
+ * @tparam MinimalFragment When true, only v1 (raw distance) is refreshed per
+ *         pixel. Other input registers are NaN in debug builds and retain
+ *         defaults or previous values in release builds. The shader must not
+ *         read inputs it did not set. It must write color on every call; age
+ *         retains its default or the value left by the shader.
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape Face to rasterize.
+ * @param fragment_shader Shader invoked per covered pixel.
+ * @details Faces whose column intervals are row-independent build their runs
+ * once. The per-pixel body mirrors process_pixel's solid path. Does not read
+ * canvas.debug().
+ */
+template <int W, int H, typename PipelineT, bool MinimalFragment = false,
+          typename FragmentShaderT>
+HS_NOINLINE_NOCLONE inline void
+rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+               FragmentShaderT &fragment_shader) {
+  rasterize_face_body<W, H, PipelineT, MinimalFragment, false>(
+      pipeline, canvas, shape, fragment_shader, nullptr);
+}
+
+/**
+ * @brief rasterize_face along a rotated basis.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam PipelineT Plotting pipeline type.
+ * @tparam MinimalFragment See rasterize_face.
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape Face built at the current endpoint, with swept bounds.
+ * @param fragment_shader Shader invoked per covered pixel.
+ * @param time Column-time state with a rotated basis.
+ */
+template <int W, int H, typename PipelineT, bool MinimalFragment = false,
+          typename FragmentShaderT>
+HS_HOT_FLASH_MEMBER void rasterize_face_column_time(
+    PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+    FragmentShaderT &fragment_shader, const Temporal::ColumnTime &time) {
+  rasterize_face_body<W, H, PipelineT, MinimalFragment, true>(
+      pipeline, canvas, shape, fragment_shader, &time);
+}
 HS_O3_END
+
+/**
+ * @brief Fills the per-row face azimuth pads for faces swept by an arc.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param pads H entries receiving the pads (radians).
+ * @param sweep Largest arc any face point moves over the frame (radians).
+ * @details The AA reach and the sweep add as arcs; a row closer to a pole
+ * than their sum spans the whole row.
+ */
+template <int W, int H>
+HS_FLASH_MEMBER void fill_swept_face_pads(float *pads, float sweep) {
+  const float reach = SDF::face_azimuth_pad(W) + sweep;
+  for (int y = 0; y < H; ++y) {
+    const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
+    pads[y] = sin_phi <= reach ? math::PI_F : asinf(reach / sin_phi);
+  }
+}
 
 /**
  * @brief Arena-hosts one per-mesh Face scratch buffer.
@@ -350,12 +429,7 @@ struct Mesh {
     const float sweep = time && time->azimuth ? time->sweep : 0.0f;
     float *azimuth_pads = scratch_arena.allocate_n<float>(H);
     if (sweep > 0.0f) {
-      const float reach = SDF::face_azimuth_pad(W) + sweep;
-      for (int y = 0; y < H; ++y) {
-        const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
-        azimuth_pads[y] =
-            sin_phi <= reach ? math::PI_F : asinf(reach / sin_phi);
-      }
+      fill_swept_face_pads<W, H>(azimuth_pads, sweep);
     } else {
       for (int y = 0; y < H; ++y)
         azimuth_pads[y] =
@@ -422,15 +496,23 @@ struct Mesh {
         FragmentShaderFn raster_shader = wrapper;
         {
           HS_PROFILE(scan_mesh_raster);
-          rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
-                                                 raster_shader, time);
+          if (sweep > 0.0f)
+            rasterize_face_column_time<W, H, PipelineT, false>(
+                pipeline, canvas, shape, raster_shader, *time);
+          else
+            rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
+                                                   raster_shader);
         }
       } else {
         face_shader_setup(i, shape.size);
         {
           HS_PROFILE(scan_mesh_raster);
-          rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
-                                                fragment_shader, time);
+          if (sweep > 0.0f)
+            rasterize_face_column_time<W, H, PipelineT, true>(
+                pipeline, canvas, shape, fragment_shader, *time);
+          else
+            rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
+                                                  fragment_shader);
         }
       }
     }
