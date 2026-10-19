@@ -173,6 +173,73 @@ template <int W, int H> struct ColumnBasis {
   }
 };
 
+/** @brief A compact shape's bounding cap where the columns that see it lit it.
+ */
+struct LitCap {
+  math::Vector axis; ///< Cap axis turned to the middle seeing column's time.
+  float arc; ///< Largest arc the cap moves over the seeing columns' times.
+};
+
+/**
+ * @brief Re-centres a compact shape's bounding cap at the sweep time of the
+ *        columns that can see it.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param axis Axis of the cap bounding the shape at the current endpoint.
+ * @param radius Angular radius of that cap (radians).
+ * @param time Column-time state with a rotated basis.
+ * @param lit Receives the re-centred cap.
+ * @return False when the swept cap holds a pole or spans an arm boundary,
+ *         where the seeing columns' times wrap; the caller then sweeps the
+ *         whole frame.
+ * @details Column `x` sees the shape turned by the inverse of the rotation
+ * that maps its fixed-meridian frame to its table entry. The swept cap bounds
+ * the columns that can see the shape; between two of them that turn changes
+ * by at most `time.sweep` times their fraction difference, so the cap turned
+ * to the middle column's time and widened by that arc covers every column's
+ * view.
+ */
+template <int W, int H>
+inline bool lit_cap(const math::Vector &axis, float radius,
+                    const Temporal::ColumnTime &time, LitCap &lit) {
+  constexpr float COLUMN = math::TWO_PI_F / W;
+  constexpr int HALF = W / 2;
+  // Two columns of reach cover the AA fringe and the column rounding.
+  const float reach = radius + time.sweep + 2.0f * COLUMN;
+  const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
+  if (!(reach < 0.5f * math::PI_F))
+    return false;
+  const float sin_reach = sinf(reach);
+  if (!(sin_reach < r_val))
+    return false;
+  const float half = asinf(sin_reach / r_val) / COLUMN;
+  const float center = atan2f(axis.z, axis.x) / COLUMN;
+  const int lo = static_cast<int>(floorf(center - half));
+  const int hi = static_cast<int>(ceilf(center + half));
+  const int arm_start =
+      (lo >= 0 ? lo / HALF : -((HALF - 1 - lo) / HALF)) * HALF;
+  if (hi >= arm_start + HALF)
+    return false;
+  const int first = lo - arm_start;
+  const int last = hi - arm_start;
+  const int m = (first + last) / 2;
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  const math::Vector &e = time.azimuth[m];
+  const math::Vector &v = time.up[m];
+  const math::Vector t = math::cross(e, v);
+  const float a = math::dot(axis, e);
+  const float b = math::dot(axis, v);
+  const float c = math::dot(axis, t);
+  const float ct = math::TrigLUT<W, H>::cos_theta_data()[m];
+  const float st = math::TrigLUT<W, H>::sin_theta[m];
+  lit.axis = math::Vector(a * ct - c * st, b, a * st + c * ct);
+  lit.arc =
+      time.sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
+      ColumnBasis<W, H>::SWEEP_PAD;
+  return true;
+}
+
 /**
  * @brief Object-space pixel frame of one column at its sweep time.
  * @details The column's pixel at colatitude phi looks along

@@ -423,6 +423,31 @@ struct Star {
   }
 
   /**
+   * @brief Cap bounding the star, for bounds re-centred on another axis.
+   * @param axis Receives the cap axis.
+   * @param radius Receives the cap's angular radius (radians).
+   * @return False for a complement star, which no cap bounds.
+   */
+  bool bounding_cap(math::Vector &axis, float &radius) const {
+    axis = basis.v;
+    radius = circumradius;
+    return sign > 0.0f;
+  }
+
+  /**
+   * @brief Bounds proxy covering the star turned onto another axis and swept
+   *        by an arc.
+   * @param axis Axis the star's centre is turned onto (unit).
+   * @param arc Largest arc any point of the turned star moves (radians).
+   * @return Copy whose bounds and intervals cover the turned, swept star.
+   */
+  Star moved(const math::Vector &axis, float arc) const {
+    Star out = *this;
+    out.cap = swept_cap(cap_bounds(axis, circumradius, false), arc);
+    return out;
+  }
+
+  /**
    * @brief Emits the bounding-circle interval for one scanline row.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.

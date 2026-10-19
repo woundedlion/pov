@@ -410,6 +410,123 @@ inline void test_column_basis_blocks_cover_their_rotation() {
   check_column_basis_blocks<288, 144>();
 }
 
+/** @brief SDF::Star bounded only by its swept() proxy. */
+struct SweptOnlyStar : SDF::Star {
+  /**
+   * @brief Wraps a star.
+   * @param star Star whose basis outlives the wrapper.
+   */
+  explicit SweptOnlyStar(const SDF::Star &star) : SDF::Star(star) {}
+  /**
+   * @brief The star's swept proxy, kept in the wrapper type.
+   * @param arc Sweep arc (radians).
+   * @return Wrapped swept proxy.
+   */
+  SweptOnlyStar swept(float arc) const {
+    return SweptOnlyStar(SDF::Star::swept(arc));
+  }
+  /** @brief Hides SDF::Star::moved, so scans fall back to swept(). */
+  void moved() const = delete;
+};
+
+/** @brief SDF::Ring bounded only by its swept() proxy. */
+struct SweptOnlyRing : SDF::Ring {
+  /**
+   * @brief Wraps a ring.
+   * @param ring Ring to wrap.
+   */
+  explicit SweptOnlyRing(const SDF::Ring &ring) : SDF::Ring(ring) {}
+  /**
+   * @brief The ring's swept proxy, kept in the wrapper type.
+   * @param arc Sweep arc (radians).
+   * @return Wrapped swept proxy.
+   */
+  SweptOnlyRing swept(float arc) const {
+    return SweptOnlyRing(SDF::Ring::swept(arc));
+  }
+  /** @brief Hides SDF::Ring::moved, so scans fall back to swept(). */
+  void moved() const = delete;
+};
+
+/**
+ * @brief Small stars and discs bounded by caps re-centred at their columns'
+ *        sweep time draw the frame their whole-frame swept bounds draw.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param angle Frame rotation (radians); below 0.1 most caps must re-centre
+ *        and move by a small share of it.
+ */
+template <int W, int H> inline void check_lit_caps(float angle) {
+  HS_CONTEXT(W == 96 ? "lit caps 96" : "lit caps 288");
+  const ScopedPoleLod lod(0.0f);
+  const BasisMotion motion = tilted_motion(angle);
+  constexpr int SHAPES = 160;
+  std::vector<math::Basis> bases;
+  for (int i = 0; i < SHAPES; ++i)
+    bases.push_back(math::make_basis(math::Quaternion(),
+                                     math::fib_spiral(SHAPES, 0.5f, i)));
+  const auto draw = [&](bool moved) {
+    return render_column_basis<W, H>(motion, [&](Pipeline<W, H> &pipeline,
+                                                 Canvas &canvas,
+                                                 const math::Quaternion &) {
+      for (int i = 0; i < SHAPES; ++i) {
+        const auto star_basis = math::get_antipode(bases[i], 0.04f);
+        const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
+        const SDF::Ring disc(bases[(i * 7) % SHAPES], 0.0f, 0.03f);
+        if (moved) {
+          Scan::rasterize<W, H, false>(pipeline, canvas, star,
+                                       basis_flat_shader);
+          Scan::rasterize<W, H, false>(pipeline, canvas, disc,
+                                       basis_flat_shader);
+        } else {
+          Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
+                                       basis_flat_shader);
+          Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
+                                       basis_flat_shader);
+        }
+      }
+    });
+  };
+  const std::vector<Pixel> lit = draw(true);
+  const std::vector<Pixel> swept = draw(false);
+  int differing = 0, drawn = 0;
+  for (size_t i = 0; i < lit.size(); ++i) {
+    differing += !(lit[i] == swept[i]);
+    drawn += !is_black(swept[i]);
+  }
+  HS_EXPECT_EQ(differing, 0);
+  HS_EXPECT_TRUE(drawn > 4 * SHAPES);
+
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  const Temporal::ColumnTime time =
+      basis->prepare(motion.previous, motion.current);
+  int recentred = 0;
+  float arc_sum = 0.0f;
+  for (const math::Basis &b : bases) {
+    Scan::LitCap cap;
+    if (!Scan::lit_cap<W, H>(b.v, 0.03f, time, cap))
+      continue;
+    ++recentred;
+    arc_sum += cap.arc;
+    HS_EXPECT_LT(cap.arc, time.sweep);
+  }
+  if (angle < 0.1f) {
+    HS_EXPECT_TRUE(recentred > SHAPES * 3 / 4);
+    HS_EXPECT_LT(arc_sum / recentred, 0.15f * time.sweep);
+  }
+}
+
+/**
+ * @brief Re-centred caps keep every pixel the swept bounds draw, at both test
+ *        widths.
+ */
+inline void test_lit_caps_keep_swept_frames() {
+  for (const float angle : {0.35f, 0.05f}) {
+    check_lit_caps<96, 48>(angle);
+    check_lit_caps<288, 144>(angle);
+  }
+}
+
 /**
  * @brief A disc with a birth fraction lights only the columns swept at or
  *        after it, on both arms.
