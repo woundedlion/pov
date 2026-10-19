@@ -14,6 +14,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <string_view>
 #include <tuple>
 
@@ -26,6 +27,7 @@
 #include "core/math/4dmath.h"
 #include "core/render/pullback.h"
 #include "core/render/sdf/lattice_trace.h"
+#include "core/render/temporal.h"
 
 namespace hs_test {
 namespace hyper_lattice_tests {
@@ -216,6 +218,82 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
            1.0f / (p.near_fade * near_scale), frame.depth_palette, frame.gain},
           frame.crossings};
 }
+
+/**
+ * @brief Render state between two frames, sampled at column times.
+ * @details Rotation phases follow their shortest arc, the camera its unwrapped
+ * flight step, and continuous parameters their field curves. Discrete fields
+ * must match at both endpoints. The palette and trace scratch are the current
+ * frame's.
+ */
+class FrameInterval {
+public:
+  /**
+   * @brief Prepares the interval from the previous frame to the current one.
+   * @param from Previous frame.
+   * @param to Current frame.
+   * @param from_center Previous traced camera position in world units.
+   * @param step Camera displacement over the frame, before wrapping.
+   */
+  HS_FLASH_INLINE FrameInterval(const FrameState &from, const FrameState &to,
+                                const math::Vec4 &from_center,
+                                const math::Vec4 &step)
+      : start(from), end(to), start_center(from_center), flight(step),
+        constant_params(std::memcmp(&from.params, &to.params, sizeof(Params)) ==
+                        0) {
+    for (size_t plane = 0; plane < turn.size(); ++plane)
+      turn[plane] =
+          std::remainder(to.rotation_phase[plane] - from.rotation_phase[plane],
+                         math::TWO_PI_F);
+  }
+
+  /**
+   * @brief Frame state at a fraction of the interval.
+   * @param fraction Fraction of the frame in [0, 1).
+   * @return The interpolated state.
+   */
+  HS_FLASH_INLINE FrameState sample(float fraction) const {
+    FrameState frame = end;
+    if (!constant_params)
+      frame.params.lerp(start.params, end.params, fraction);
+    if (end.params.pattern == Pattern::CUBIC_WIRE)
+      for (int axis = 0; axis < DIMENSIONS; ++axis)
+        frame.origin[axis] = start.origin[axis] + flight[axis] * fraction;
+    for (size_t plane = 0; plane < turn.size(); ++plane)
+      frame.rotation_phase[plane] =
+          start.rotation_phase[plane] + turn[plane] * fraction;
+    frame.gain = start.gain + (end.gain - start.gain) * fraction;
+    return frame;
+  }
+
+  /**
+   * @brief Traced camera position at a fraction of the interval.
+   * @param fraction Fraction of the frame in [0, 1).
+   * @return Camera position in world units.
+   */
+  HS_FLASH_INLINE math::Vec4 center(float fraction) const {
+    math::Vec4 position;
+    for (int axis = 0; axis < DIMENSIONS; ++axis)
+      position[axis] = start_center[axis] + flight[axis] * fraction;
+    return position;
+  }
+
+  /** @brief Whether both endpoints share their parameters.
+   *  @return True when the parameters are bitwise equal. */
+  bool params_constant() const { return constant_params; }
+
+  /** @brief Current endpoint.
+   *  @return The current frame. */
+  const FrameState &current() const { return end; }
+
+private:
+  const FrameState &start;
+  const FrameState &end;
+  math::Vec4 start_center;
+  math::Vec4 flight;
+  std::array<float, 6> turn{};
+  bool constant_params;
+};
 
 /**
  * @brief Cubic wire ray stage.
@@ -697,7 +775,11 @@ public:
     shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
   }
 
-  /** @brief Advances the camera and palettes, then ray-traces the frame. */
+  /**
+   * @brief Advances the camera and palettes, then ray-traces the frame.
+   * @details With column-time sampling, each column traces the state at its
+   * sweep fraction between the previous frame and this one.
+   */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
@@ -725,11 +807,42 @@ public:
         frame_palette,  preset_gain,
         crossing_list};
     unfinished_rays = 0;
-    if (params.pattern != Pattern::CUBIC_WIRE) {
+    if (!history_primed ||
+        configuration_id(previous.params) != selected_configuration ||
+        previous.params.shells != params.shells) {
+      history_primed = true;
+      previous = context;
+      previous_center = trace_center;
+    }
+    const bool MOVING =
+        std::memcmp(&previous, &context, sizeof(context)) != 0 ||
+        std::memcmp(&previous_center, &trace_center, sizeof(trace_center)) != 0;
+    if (Temporal::temporal_sampling_enabled() && MOVING) {
+      HS_PROFILE(hl_shader_draw);
+      const HyperLatticeDetail::FrameInterval interval(
+          previous, context, previous_center, flight_step);
+      if (params.pattern != Pattern::CUBIC_WIRE)
+        draw_traced_columns(canvas, interval);
+      else
+        draw_cubic_columns(canvas, interval);
+    } else if (params.pattern != Pattern::CUBIC_WIRE) {
       HS_PROFILE(hl_shader_draw);
       draw_traced(canvas, context);
-      return;
-    }
+    } else
+      draw_cubic(canvas, context);
+    previous = context;
+    previous_center = trace_center;
+  }
+
+private:
+  using Choreography::begin_choreography;
+  using Choreography::params;
+  using Choreography::step_choreography;
+  using Choreography::timeline;
+  using Choreography::transition;
+
+  HS_FLASH_MEMBER void
+  draw_cubic(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     const auto prepared = HyperLatticeDetail::prepare_trace(context);
     {
       HS_PROFILE(hl_shader_draw);
@@ -764,12 +877,33 @@ public:
     }
   }
 
-private:
-  using Choreography::begin_choreography;
-  using Choreography::params;
-  using Choreography::step_choreography;
-  using Choreography::timeline;
-  using Choreography::transition;
+  /**
+   * @brief Traces each cubic column from the state at its sweep time.
+   * @param canvas Destination canvas.
+   * @param interval Render state between the frame's endpoints.
+   */
+  HS_FLASH_MEMBER void
+  draw_cubic_columns(Canvas &canvas,
+                     const HyperLatticeDetail::FrameInterval &interval) {
+    const auto draw = [&]<bool SLICE_4D, uint8_t SHELLS>() {
+      Scan::Shader::draw_columns<W, H>(canvas, [&interval](int x) {
+        return [prepared = HyperLatticeDetail::prepare_trace(interval.sample(
+                    Temporal::sweep_fraction(x, W)))](const math::Vector &view)
+                   HS_HOT_FLASH_MEMBER {
+                     return HyperLatticeDetail::Renderer<
+                         SLICE_4D, SHELLS>::shade_premultiplied(view, prepared);
+                   };
+      });
+    };
+    if (uses_specialized_slice(params) && params.shells == ShellCount::TWO)
+      draw.template operator()<true, 2>();
+    else if (uses_specialized_slice(params))
+      draw.template operator()<true, 0>();
+    else if (params.shells == ShellCount::TWO)
+      draw.template operator()<false, 2>();
+    else
+      draw.template operator()<false, 0>();
+  }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
   HS_COLD_MEMBER bool parameter_write_admitted(const ParamDef &parameter,
@@ -787,6 +921,7 @@ private:
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
+    history_primed = false;
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float NEAR_FADE = params.near_fade;
@@ -802,6 +937,8 @@ private:
     }
   }
   void adopt_params(const Params &target) {
+    if (!transition.active)
+      history_primed = false;
     params = target;
     sync_configuration();
   }
@@ -834,6 +971,8 @@ private:
         0.4815434f, 0.2993373f, 0.4034555f, 0.7223151f};
     static constexpr float RATE[6] = {1.0f, 0.731f, 0.517f,
                                       1.0f, 0.707f, 0.419f};
+    for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
+      flight_step[axis] = params.speed * VELOCITY[axis];
     if (params.pattern != Pattern::CUBIC_WIRE) {
       for (int axis = 0; axis < HyperLatticeDetail::DIMENSIONS; ++axis)
         trace_center[axis] += params.speed * VELOCITY[axis];
@@ -857,16 +996,149 @@ private:
           rotation_phase[plane] + SPIN_4D_STEP * RATE[plane], math::TWO_PI_F);
   }
 
+  /** @brief Trace a prepared traced frame selects. */
+  enum class TracePath : uint8_t {
+    SINGLE_SHELLS,  ///< 3D shells, one candidate sphere per layer.
+    MARCHED_SHELLS, ///< Shells by a layer march.
+    OCTET,          ///< Octet truss events.
+    GENERIC         ///< Per-ray dispatch on the prepared frame.
+  };
+
+  /**
+   * @brief Prepares a traced frame over the effect's trace scratch.
+   * @param context Frame state.
+   * @param center Camera position in world units.
+   * @return Trace state with the configuration's limits.
+   */
+  HS_FLASH_INLINE HyperLatticeDetail::Trace::Prepared
+  prepare_traced(const HyperLatticeDetail::FrameState &context,
+                 const math::Vec4 &center) const {
+    auto settings = HyperLatticeDetail::trace_settings(context, center);
+    settings.crossings = crossing_storage;
+    settings.shell_layers = shell_layers;
+    auto prepared = HyperLatticeDetail::Trace::prepare(settings);
+    const auto &configuration =
+        CONFIGURATIONS[configuration_index(context.params)];
+    prepared.limits.max_candidates = configuration.max_candidates;
+    prepared.limits.max_layers = configuration.max_layers;
+    return prepared;
+  }
+
+  /**
+   * @brief Trace a prepared frame selects.
+   * @param prepared Trace state.
+   * @return The specialized trace, or GENERIC.
+   */
+  static TracePath
+  trace_path(const HyperLatticeDetail::Trace::Prepared &prepared) {
+    using HyperLatticeDetail::Trace::Geometry;
+    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+        prepared.periodic_shells.single_owner)
+      return TracePath::SINGLE_SHELLS;
+    if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
+        prepared.periodic_shells.march)
+      return TracePath::MARCHED_SHELLS;
+    if (prepared.valid && prepared.geometry == Geometry::OCTET)
+      return TracePath::OCTET;
+    return TracePath::GENERIC;
+  }
+
+  /**
+   * @brief Traces each column of an octet or shell frame from the state at
+   *        its sweep time.
+   * @param canvas Destination canvas.
+   * @param interval Render state between the frame's endpoints.
+   * @details A specialized trace serves the frame only when every column
+   * time selects it.
+   */
+  HS_FLASH_MEMBER void
+  draw_traced_columns(Canvas &canvas,
+                      const HyperLatticeDetail::FrameInterval &interval) {
+    using namespace HyperLatticeDetail::Trace;
+    const auto column = [&interval, this](int x) {
+      const float FRACTION = Temporal::sweep_fraction(x, W);
+      return prepare_traced(interval.sample(FRACTION),
+                            interval.center(FRACTION));
+    };
+    TracePath path =
+        trace_path(prepare_traced(interval.current(), trace_center));
+    if (!interval.params_constant())
+      for (int x = 0; x < W / 2 && path != TracePath::GENERIC; ++x)
+        if (trace_path(column(x)) != path)
+          path = TracePath::GENERIC;
+    const bool SLICE = params.mode == LatticeMode::FOUR_D_SLICE;
+    if (path == TracePath::SINGLE_SHELLS) {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        return [prepared = column(x),
+                this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+          const auto result = SDF::trace_periodic_shells_3d(
+              prepared.periodic_shells, prepared.camera, view, prepared.limits,
+              prepared.appearance);
+          if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
+            unfinished_rays += 1;
+          return result.color;
+        };
+      });
+      return;
+    }
+    const auto draw_march = [&]<int DIMENSIONS>() {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        return [prepared = column(x),
+                this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+          const auto result = SDF::trace_periodic_shells_march<DIMENSIONS>(
+              prepared.periodic_shells, prepared.camera, view, prepared.limits,
+              prepared.appearance, *prepared.shell_layers);
+          if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
+            unfinished_rays += 1;
+          return result.color;
+        };
+      });
+    };
+    if (path == TracePath::MARCHED_SHELLS) {
+      if (SLICE)
+        draw_march.template operator()<4>();
+      else
+        draw_march.template operator()<3>();
+      return;
+    }
+    const auto draw_octet = [&]<bool SLICE_4D>() {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        return [prepared = column(x),
+                this](const math::Vector &view) HS_HOT_FLASH_MEMBER {
+          const auto result = shade_octet<SLICE_4D>(view, prepared);
+          if (result.status == Raycast::TraceStatus::BUDGET_EXHAUSTED)
+            unfinished_rays += 1;
+          return result.color;
+        };
+      });
+    };
+    if (path == TracePath::OCTET) {
+      if (SLICE)
+        draw_octet.template operator()<true>();
+      else
+        draw_octet.template operator()<false>();
+      return;
+    }
+    using Shade = Sample (*)(const math::Vector &, const Prepared &);
+    const Shade shade_ray = SLICE ? &shade<true> : &shade<false>;
+    Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+      return [prepared = column(x), shade_ray, this](const math::Vector &view)
+                 HS_HOT_FLASH_MEMBER {
+                   const auto result = shade_ray(view, prepared);
+                   const auto STATUS = result.status;
+                   if (STATUS != Raycast::TraceStatus::SURFACE &&
+                       STATUS != Raycast::TraceStatus::RANGE_COMPLETE &&
+                       STATUS != Raycast::TraceStatus::SATURATED)
+                     unfinished_rays += 1;
+                   return result.color;
+                 };
+    });
+  }
+
   HS_FLASH_MEMBER void
   draw_traced(Canvas &canvas, const HyperLatticeDetail::FrameState &context) {
     using namespace HyperLatticeDetail::Trace;
-    auto settings = HyperLatticeDetail::trace_settings(context, trace_center);
-    settings.crossings = crossing_storage;
-    settings.shell_layers = shell_layers;
-    auto prepared = prepare(settings);
-    const auto &configuration = CONFIGURATIONS[configuration_index(params)];
-    prepared.limits.max_candidates = configuration.max_candidates;
-    prepared.limits.max_layers = configuration.max_layers;
+    const auto prepared = prepare_traced(context, trace_center);
     if (prepared.valid && prepared.geometry == Geometry::SHELLS &&
         prepared.periodic_shells.single_owner) {
       Scan::Shader::draw_cached<W, H, 1>(
@@ -997,6 +1269,14 @@ private:
   void set_preset_opacity(float value) { preset_gain = value; }
   math::Vec4 origin{{0.17f, 0.31f, 0.43f, 0.59f}};
   std::array<float, 6> rotation_phase{};
+  /// Camera displacement of the latest step, before wrapping.
+  math::Vec4 flight_step{};
+  /// Render state of the previous frame.
+  HyperLatticeDetail::FrameState previous{};
+  /// Traced camera position of the previous frame.
+  math::Vec4 previous_center{};
+  /// Whether `previous` holds a drawn frame with this configuration.
+  bool history_primed = false;
   PaletteCycler depth_palette;
   BakedPaletteStorage iridescent_palette;
   float iridescent_phase = 0.0f;
