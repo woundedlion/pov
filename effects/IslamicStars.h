@@ -284,6 +284,10 @@ private:
    * each); compaction re-claims the same addresses, so the contents survive
    * the reset. */
   uint8_t *slot_face_palette[2] = {};
+  /** Per-slot segue phase of the sprite's last draw. */
+  float drawn_phase[2] = {};
+  /** Per-slot whether the slot's sprite has drawn since it spawned. */
+  bool phase_drawn[2] = {};
 
   /**
    * @brief Claims the two per-slot face-palette arrays from the arena.
@@ -352,10 +356,49 @@ private:
    * @details Draws nothing during the build window.
    */
   HS_COLD_MEMBER void draw_sprite(Canvas &canvas, float phase, int back) {
+    const float previous_phase = record_phase(back, phase);
     if (build_active)
       return;
     const MeshState &mesh = carousel.slot(back);
-    draw_shape(canvas, phase, mesh, slot_face_palette[back]);
+    draw_shape(canvas, phase, previous_phase, mesh, slot_face_palette[back]);
+  }
+
+  /**
+   * @brief Records a slot's sprite phase for this frame.
+   * @param slot Carousel slot whose sprite draws.
+   * @param phase Envelope phase now.
+   * @return The phase the slot's sprite drew last, or @p phase for its first
+   * draw since spawning and with temporal sampling off.
+   */
+  HS_FLASH_MEMBER float record_phase(int slot, float phase) {
+    const float previous =
+        phase_drawn[slot] && Temporal::temporal_sampling_enabled()
+            ? drawn_phase[slot]
+            : phase;
+    drawn_phase[slot] = phase;
+    phase_drawn[slot] = true;
+    return previous;
+  }
+
+  /**
+   * @brief Per-face segue opacities at the previous frame endpoint.
+   * @param base_state Undistorted mesh the sweep orders faces on.
+   * @param transformed_state Displayed mesh carrying the face classes.
+   * @param previous_phase Sprite envelope phase a frame ago.
+   * @return One opacity per face, backed by scratch_arena_a for the caller's
+   * scope on it.
+   */
+  HS_FLASH_MEMBER const float *
+  previous_opacities(const MeshState &base_state,
+                     const MeshState &transformed_state, float previous_phase) {
+    ArenaVector<float> phases;
+    phases.bind(scratch_arena_a, transformed_state.num_faces());
+    carousel.fill_face_phases(base_state, transformed_state, previous_phase,
+                              phases);
+    const SegueT &seg = carousel.segue();
+    for (float &value : phases)
+      value = seg.opacity(value);
+    return phases.data();
   }
 
   /**
@@ -365,23 +408,26 @@ private:
    * @param canvas Render target receiving the rasterized mesh.
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
+   * @param previous_phase Segue phase a frame ago; each column shades each
+   *        face's opacity at its sweep time between the two.
    * @param base_state Undistorted source mesh to transform and draw; carries
    *        the per-face topology classes.
    * @param face_palette Per-face palette ids.
    */
   HS_O3_FN HS_NOINLINE_NOCLONE void draw_shape(Canvas &canvas, float phase,
+                                               float previous_phase,
                                                const MeshState &base_state,
                                                const uint8_t *face_palette) {
     HS_CHECK(base_state.get_topology_size() == base_state.num_faces(),
              "IslamicStars: sprite shading face count mismatch");
     const SegueT &seg = carousel.segue();
-    if (!seg.visible(phase))
+    if (!seg.visible(phase) && !seg.visible(previous_phase))
       return;
 
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time =
-        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_a, orientation, previous_phase != phase);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState transformed_state = transform_shape(base_state);
     ArenaVector<float> face_phases;
@@ -396,6 +442,10 @@ private:
       for (size_t face = 0; face < faces; ++face)
         face_palettes.push_back(&palette_bank[face_palette[face]].view());
     }
+    const float *previous_opacity =
+        previous_phase == phase
+            ? nullptr
+            : previous_opacities(base_state, transformed_state, previous_phase);
 
     {
       HS_PROFILE(is_mesh_scan);
@@ -404,7 +454,9 @@ private:
         HS_CHECK(fi < face_phases.size(),
                  "IslamicStars: sprite shading face mismatch");
         fragment_shader.set_palette(face_palettes[fi]);
-        fragment_shader.alpha = seg.opacity(face_phases[fi]);
+        const float opacity = seg.opacity(face_phases[fi]);
+        fragment_shader.set_alpha(
+            opacity, previous_opacity ? previous_opacity[fi] : opacity);
         fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
       };
       Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
@@ -428,8 +480,8 @@ private:
     HS_PROFILE(is_build_draw);
     // Opened after the OpLeg's blended ramps, which the shader reads.
     ScratchScope b_guard(scratch_arena_b);
-    const Temporal::ColumnTime column_time =
-        Scan::prepare_column_basis<W, H>(scratch_arena_b, orientation);
+    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_b, orientation, sh.previous_weight != sh.weight);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
@@ -609,6 +661,7 @@ private:
 
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
+    phase_drawn[back] = false;
 
     // Segues with a spatial anchor get a fresh random one per transition.
     if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })
