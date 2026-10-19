@@ -117,6 +117,7 @@ template <typename Frame> class TemporalFrameSampler {
   bool constant_params;
   float oscillation_delta;
   bool same_noise;
+  bool same_palette;
 
 public:
   /** @brief Prepares parameter identity and periodic clock deltas.
@@ -131,7 +132,14 @@ public:
             b.palette_oscillation_phase - a.palette_oscillation_phase, 1.0f)),
         same_noise(a.hue_noise_lut && b.hue_noise_lut &&
                    std::memcmp(a.hue_noise_lut, b.hue_noise_lut,
-                               Color::HueNoiseLutView::SIZE) == 0) {
+                               Color::HueNoiseLutView::SIZE) == 0),
+        same_palette(a.palette && b.palette &&
+                     a.palette->same_entries(*b.palette) &&
+                     (a.hue_rotation_lut == b.hue_rotation_lut ||
+                      (a.hue_rotation_lut && b.hue_rotation_lut &&
+                       std::memcmp(a.hue_rotation_lut, b.hue_rotation_lut,
+                                   Color::HueRotationLutView::SIZE *
+                                       sizeof(Pixel)) == 0))) {
     static_assert(std::is_trivially_copyable_v<Params>);
     if (constant_params)
       interior_params = interpolate(a.params, b.params, 0.5f);
@@ -226,7 +234,8 @@ public:
                       from.hue_rotation_linear,
                       from.palette_alpha,
                       from.hue_noise_linear,
-                      same_noise};
+                      same_noise,
+                      same_palette};
     return frame;
   }
 };

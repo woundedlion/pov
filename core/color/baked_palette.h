@@ -156,6 +156,20 @@ public:
   }
 
   /**
+   * @brief Whether two tables hold equal entries.
+   * @param other Baked table to compare.
+   * @return True when every color and alpha entry matches.
+   */
+  __attribute__((always_inline)) bool
+  same_entries(const BakedPalette &other) const {
+    assert(colors != nullptr && other.colors != nullptr &&
+           "BakedPalette::same_entries before bake()");
+    return std::memcmp(colors, other.colors, LUT_SIZE * sizeof(Pixel)) == 0 &&
+           std::memcmp(alpha_q16, other.alpha_q16,
+                       LUT_SIZE * sizeof(uint16_t)) == 0;
+  }
+
+  /**
    * @brief Returns a read-only handle to this arena-backed table.
    * @return Copy of this view; shares the table storage.
    */

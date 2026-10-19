@@ -212,6 +212,61 @@ inline void test_temporal_custom_shade_is_authoritative() {
   }
 }
 
+/** @brief Endpoints with equal palette tables colour as the current one, and
+ *  any differing entry interpolates. */
+inline void test_temporal_equal_palettes_color_as_current() {
+  HS_CONTEXT("temporal equal palettes");
+  reset_globals();
+  using FX = GridSpace<96, 20>;
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  const auto current = effect.frame_for_test();
+  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true,
+                            true>
+      history;
+  history.capture(current, persistent_arena);
+  using PathPalette = Pullback::Color::GeneratedPalette<
+      Pullback::ColorProvider<FX::Binding, Pullback::HueMode::PATH_LENGTH,
+                              Pullback::Color::BrightnessEnvelope::CUP>>;
+  const Pullback::TemporalFrameSampler EQUAL(history.previous, current);
+  auto sample = EQUAL.sample(0.5f);
+  HS_EXPECT_TRUE(sample.temporal.same_palette);
+  sample.params.template get<"color">().hue_shift_amount = 0.3f;
+  const auto prepared = PathPalette::prepare(sample);
+  HS_EXPECT_NEAR(prepared.fraction, 1.0f, 0.0f);
+  auto interpolated = sample;
+  interpolated.temporal.same_palette = false;
+  const auto blended = PathPalette::prepare(interpolated);
+  HS_EXPECT_NEAR(blended.fraction, 0.5f, 0.0f);
+  for (int index = 0; index < 257; ++index) {
+    Pullback::FieldSample field{};
+    field.value = static_cast<float>(index) / 256;
+    field.coverage = 0.75f;
+    field.path_length = static_cast<float>(index) * 0.37f;
+    const Color4 A = PathPalette::apply(field, sample, prepared);
+    const Color4 B = PathPalette::apply(field, interpolated, blended);
+    HS_EXPECT_TRUE(A.color == B.color);
+    HS_EXPECT_NEAR(A.alpha, B.alpha, 0.0f);
+  }
+
+  auto rotation = history.hue_rotation;
+  rotation[7].r ^= 1;
+  auto rotated = current;
+  rotated.hue_rotation_lut = rotation.data();
+  HS_EXPECT_TRUE(!Pullback::TemporalFrameSampler(history.previous, rotated)
+                      .sample(0.5f)
+                      .temporal.same_palette);
+  BakedPaletteStorage other;
+  other.bake(persistent_arena, Palettes::RICH_SUNSET);
+  auto repainted = current;
+  repainted.palette = &other.view();
+  HS_EXPECT_TRUE(!Pullback::TemporalFrameSampler(history.previous, repainted)
+                      .sample(0.5f)
+                      .temporal.same_palette);
+}
+
 /** @brief Retained color tables survive subsequent bakes. */
 inline void test_temporal_owned_resources() {
   HS_CONTEXT("temporal owned color resources");

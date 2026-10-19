@@ -311,6 +311,8 @@ struct TemporalPaletteResources {
   float palette_alpha = -1.0f; ///< Previous constant alpha, or -1 when varying.
   const float *hue_noise_linear = nullptr; ///< Previous float noise copy.
   bool same_noise = false; ///< Both endpoint noise tables have equal entries.
+  /// Both endpoint palette and hue-rotation tables have equal entries.
+  bool same_palette = false;
 };
 
 /** @brief Colorizer endpoints sharing the column's interpolated controls. */
@@ -665,6 +667,12 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
     if constexpr (TEMPORAL) {
       const TemporalPaletteResources resources =
           State::temporal_resources(frame);
+      // Endpoints with equal tables and no hue noise colour as the current one.
+      const bool SAME_ENDPOINTS =
+          resources.same_palette &&
+          (!current.hue_rotation.active || !current.hue_noise.active ||
+           current.hue_mode != HueMode::NOISE);
+      const float FRACTION = SAME_ENDPOINTS ? 1.0f : resources.fraction;
       GeneratedPaletteState previous = current;
       previous.palette = resources.palette;
       previous.hue_rotation.data = resources.hue_rotation;
@@ -672,7 +680,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
       previous.palette_alpha = resources.palette_alpha;
       previous.hue_noise.data = resources.hue_noise;
       previous.hue_noise.linear_data = resources.hue_noise_linear;
-      const uint16_t WEIGHT = frac_to_q16(resources.fraction);
+      const uint16_t WEIGHT = frac_to_q16(FRACTION);
       const bool NOISE_INTERIOR =
           resources.fraction > 0.0f && resources.fraction < 1.0f &&
           current.hue_rotation.active && current.hue_noise.active &&
@@ -692,7 +700,7 @@ template <typename State> struct GeneratedPalette : ApproximationDefaults {
                                      : -1.0f;
       return {current,
               previous,
-              resources.fraction,
+              FRACTION,
               WEIGHT,
               WEIGHT * Q16_TO_UNIT,
               COMMON_ALPHA,
