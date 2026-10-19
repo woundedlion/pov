@@ -107,7 +107,8 @@ template <int W> struct VolumeColumns {
    * @param center Bounds centre, unit length.
    * @param q Local-to-world rotation, unit length.
    */
-  void set(int column, const math::Vector &center, const math::Quaternion &q) {
+  HS_FLASH_MEMBER void set(int column, const math::Vector &center,
+                           const math::Quaternion &q) {
     Column &c = columns[column];
     c.center = center;
     c.q_inv = q.inverse();
@@ -341,6 +342,61 @@ struct Volume {
                    const Shape &shape, FragmentShaderFn frag_fn,
                    int max_steps = 15, float aa_width = 0.01f,
                    const VolumeColumns<W> *columns = nullptr) {
+    if (columns) {
+      draw_columns<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                         frag_fn, max_steps, aa_width, *columns);
+      return;
+    }
+    march<W, H, false>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                       frag_fn, max_steps, aa_width, nullptr);
+  }
+
+  /**
+   * @brief Volume::draw from per-column placements.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Shape Volume shape.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere centre at the current endpoint.
+   * @param bounds_radius Bounding sphere radius.
+   * @param shape Volume shape at the current endpoint.
+   * @param frag_fn Fragment shader invoked once per hit.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width.
+   * @param columns Per-column placement.
+   */
+  template <int W, int H, typename Shape>
+  HS_HOT_FLASH_MEMBER static void
+  draw_columns(PipelineRef pipeline, Canvas &canvas,
+               const math::Vector &bounds_center, float bounds_radius,
+               const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+               float aa_width, const VolumeColumns<W> &columns) {
+    march<W, H, true>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                      frag_fn, max_steps, aa_width, &columns);
+  }
+
+  /**
+   * @brief Marching body shared by the fixed and per-column draws.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam COLUMNS Whether @p columns places each column.
+   * @tparam Shape Volume shape.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere centre.
+   * @param bounds_radius Bounding sphere radius.
+   * @param shape Volume shape.
+   * @param frag_fn Fragment shader invoked once per hit.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width.
+   * @param columns Per-column placement; read only with COLUMNS.
+   */
+  template <int W, int H, bool COLUMNS, typename Shape>
+  HS_HOT_INLINE static void
+  march(PipelineRef pipeline, Canvas &canvas, const math::Vector &bounds_center,
+        float bounds_radius, const Shape &shape, FragmentShaderFn frag_fn,
+        int max_steps, float aa_width, const VolumeColumns<W> *columns) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
     if constexpr (requires { shape.check_trace_preconditions(); })
@@ -373,7 +429,7 @@ struct Volume {
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
     float cap_radius = bounds_radius;
-    if (columns) {
+    if constexpr (COLUMNS) {
       float min_cos = 1.0f;
       for (const auto &c : columns->columns)
         min_cos = fminf(min_cos, math::dot(c.center, bounds_center));
@@ -390,120 +446,137 @@ struct Volume {
     if (!clamp_rows_to_clip(bounds, cr, vol_y_lo, vol_y_hi))
       return;
 
-    scan_region<W, H>(
-        vol_y_lo, vol_y_hi,
-        [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int px, int py, const math::Vector &p, int) {
-          const auto *column = columns ? &columns->at(px) : nullptr;
-          const math::Vector vd = column ? -column->center : ray;
-          const math::Vector &local_vd = column ? column->local_vd : ray_local;
-          // Back-face cull
-          float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
-          if (facing >= 0.0f)
-            return 1;
+    auto march_pixel = [&](int px, int py,
+                           const math::Vector &p) HS_HOT_INLINE {
+      [[maybe_unused]] const typename VolumeColumns<W>::Column *column =
+          nullptr;
+      math::Vector vd = ray;
+      math::Vector local_vd = ray_local;
+      if constexpr (COLUMNS) {
+        column = &columns->at(px);
+        vd = -column->center;
+        local_vd = column->local_vd;
+      }
+      // Back-face cull
+      float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
+      if (facing >= 0.0f)
+        return 1;
 
-          // Orthographic ray-sphere cull
-          float pp_x = p.x - facing * vd.x;
-          float pp_y = p.y - facing * vd.y;
-          float pp_z = p.z - facing * vd.z;
-          if (pp_x * pp_x + pp_y * pp_y + pp_z * pp_z > bounds_r2)
-            return 1;
+      // Orthographic ray-sphere cull
+      float pp_x = p.x - facing * vd.x;
+      float pp_y = p.y - facing * vd.y;
+      float pp_z = p.z - facing * vd.z;
+      if (pp_x * pp_x + pp_y * pp_y + pp_z * pp_z > bounds_r2)
+        return 1;
 
-          // Orthographic ray origin: outside the unit sphere
-          math::Vector ro(pp_x - vd.x * start_offset,
-                          pp_y - vd.y * start_offset,
-                          pp_z - vd.z * start_offset);
+      // Orthographic ray origin: outside the unit sphere
+      math::Vector ro(pp_x - vd.x * start_offset, pp_y - vd.y * start_offset,
+                      pp_z - vd.z * start_offset);
 
-          // Only the origin is transformed per pixel; local_vd is shared.
-          math::Vector local_ro =
-              column ? math::rotate(ro - column->center, column->q_inv)
-                     : shape.origin_to_local(ro);
-          math::Vector closest_local;
+      // Only the origin is transformed per pixel; local_vd is shared.
+      math::Vector local_ro;
+      if constexpr (COLUMNS)
+        local_ro = math::rotate(ro - column->center, column->q_inv);
+      else
+        local_ro = shape.origin_to_local(ro);
+      math::Vector closest_local;
 
-          // --- Sphere tracing in local space ---
-          float closest_d =
-              trace_closest(shape, local_ro, local_vd, bounds_radius, max_steps,
-                            aa_width, closest_local);
+      // --- Sphere tracing in local space ---
+      float closest_d = trace_closest(shape, local_ro, local_vd, bounds_radius,
+                                      max_steps, aa_width, closest_local);
 
-          // trace_closest's report upper-bounds the ray's clearance, so it
-          // cannot vouch for a pole-LOD block.
-          if (closest_d >= aa_width)
-            return 1;
+      // trace_closest's report upper-bounds the ray's clearance, so it
+      // cannot vouch for a pole-LOD block.
+      if (closest_d >= aa_width)
+        return 1;
 
-          // --- Fragment shading ---
-          Fragment frag;
-          frag.pos = closest_local;
-          frag.size = closest_d;
+      // --- Fragment shading ---
+      Fragment frag;
+      frag.pos = closest_local;
+      frag.size = closest_d;
+      {
+        HS_PROFILE_DEEP(vol_shade);
+        frag_fn(closest_local, frag);
+      }
+
+      // One-sided AA with quintic kernel
+      float hit_threshold = aa_width * 0.1f;
+      float edge_alpha;
+
+      if (closest_d <= hit_threshold) {
+        // FAST PATH: Solid hit. No probe needed.
+        edge_alpha = 1.0f;
+      } else {
+        // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
+        edge_alpha = volume_edge_coverage(closest_d, hit_threshold, aa_width);
+
+        // ...then probe behind the halo for a surface this edge occludes.
+        Occluder occ =
+            probe_occluder(shape, closest_local, local_vd, bounds_radius,
+                           hit_threshold, aa_width, closest_d);
+        if (occ.solid) {
+          // Self-occlusion edge: lay the shaded background down, then blend
+          // the foreground over it by the edge coverage.
+          Fragment bg;
+          bg.pos = occ.behind;
+          bg.size = occ.distance;
           {
             HS_PROFILE_DEEP(vol_shade);
-            frag_fn(closest_local, frag);
+            frag_fn(occ.behind, bg);
           }
-
-          // One-sided AA with quintic kernel
-          float hit_threshold = aa_width * 0.1f;
-          float edge_alpha;
-
-          if (closest_d <= hit_threshold) {
-            // FAST PATH: Solid hit. No probe needed.
-            edge_alpha = 1.0f;
-          } else {
-            // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
-            edge_alpha =
-                volume_edge_coverage(closest_d, hit_threshold, aa_width);
-
-            // ...then probe behind the halo for a surface this edge occludes.
-            Occluder occ =
-                probe_occluder(shape, closest_local, local_vd, bounds_radius,
-                               hit_threshold, aa_width, closest_d);
-            if (occ.solid) {
-              // Self-occlusion edge: lay the shaded background down, then blend
-              // the foreground over it by the edge coverage.
-              Fragment bg;
-              bg.pos = occ.behind;
-              bg.size = occ.distance;
-              {
-                HS_PROFILE_DEEP(vol_shade);
-                frag_fn(occ.behind, bg);
-              }
-              if (bg.color.alpha > MIN_ALPHA) {
-                HS_PROFILE_DEEP(vol_plot);
-                pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                              bg.color.alpha);
-              }
-              if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
-                HS_PROFILE_DEEP(vol_plot);
-                pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
-                              frag.color.alpha * edge_alpha);
-              }
-              return 1;
-            }
-            // No solid behind; a grazed background edge fills the corner,
-            // shaded at its own point so the fill carries the background's
-            // color, then the foreground blends over it.
-            if (occ.soft > MIN_ALPHA) {
-              Fragment bg;
-              bg.pos = occ.behind;
-              bg.size = occ.distance;
-              {
-                HS_PROFILE_DEEP(vol_shade);
-                frag_fn(occ.behind, bg);
-              }
-              if (bg.color.alpha * occ.soft > MIN_ALPHA) {
-                HS_PROFILE_DEEP(vol_plot);
-                pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
-                              bg.color.alpha * occ.soft);
-              }
-            }
+          if (bg.color.alpha > MIN_ALPHA) {
+            HS_PROFILE_DEEP(vol_plot);
+            pipeline.plot(canvas, px, py, bg.color.color, 0.0f, bg.color.alpha);
           }
-
           if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
             HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                           frag.color.alpha * edge_alpha);
           }
           return 1;
-        },
-        vol_xc);
+        }
+        // No solid behind; a grazed background edge fills the corner,
+        // shaded at its own point so the fill carries the background's
+        // color, then the foreground blends over it.
+        if (occ.soft > MIN_ALPHA) {
+          Fragment bg;
+          bg.pos = occ.behind;
+          bg.size = occ.distance;
+          {
+            HS_PROFILE_DEEP(vol_shade);
+            frag_fn(occ.behind, bg);
+          }
+          if (bg.color.alpha * occ.soft > MIN_ALPHA) {
+            HS_PROFILE_DEEP(vol_plot);
+            pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                          bg.color.alpha * occ.soft);
+          }
+        }
+      }
+
+      if (frag.color.alpha * edge_alpha > MIN_ALPHA) {
+        HS_PROFILE_DEEP(vol_plot);
+        pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
+                      frag.color.alpha * edge_alpha);
+      }
+      return 1;
+    };
+    if constexpr (COLUMNS)
+      scan_region_flash<W, H, false>(
+          vol_y_lo, vol_y_hi,
+          [&](int y, auto &&out)
+              HS_HOT_INLINE { return bounds.get_intervals(y, out); },
+          [&](int px, int py, const math::Vector &p, int)
+              HS_HOT_INLINE { return march_pixel(px, py, p); },
+          vol_xc, nullptr);
+    else
+      scan_region<W, H>(
+          vol_y_lo, vol_y_hi,
+          [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
+          [&](int px, int py, const math::Vector &p, int) {
+            return march_pixel(px, py, p);
+          },
+          vol_xc);
   }
 };
 HS_O3_END

@@ -115,7 +115,7 @@ struct ColumnTime {
  * @return Smallest column `c` in [0, width / 2] with
  *         `sweep_fraction(c, width) >= fraction`, or width / 2 when none is.
  */
-inline int first_column_at(float fraction, int width) {
+HS_FLASH_MEMBER inline int first_column_at(float fraction, int width) {
   const int half = width / 2;
   int column = static_cast<int>(
       std::ceil(hs::clamp(fraction, 0.0f, 1.0f) * static_cast<float>(half)));

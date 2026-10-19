@@ -193,7 +193,9 @@ rotation per sweep fraction, from which each column marches, inside a cap
 grown to cover every column's centre. `Scan::RingGroup` also takes each
 slot's axis at the previous endpoint and evaluates the slot about the axis
 interpolated to each column's sweep time, for groups whose members move
-independently.
+independently. On the device the column-time variants of the rasterize, mesh,
+ring-group, ring-stack and volume scans run from FLASH, leaving the
+fixed-meridian loops in ITCM.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
