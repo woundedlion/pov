@@ -88,7 +88,9 @@ public:
   /**
    * @brief Advances the timeline and draws each ring's trail.
    * @details Steps the timeline, then draws each ring's trail back-to-front,
-   * fading color and alpha along the trail.
+   * fading color and alpha along the trail. Each column sees every trail
+   * slot's axis at its sweep time, between the slot's position a frame ago
+   * and now.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -98,6 +100,7 @@ public:
     }
 
     HS_PROFILE(rs_draw_rings);
+    const bool temporal = Temporal::temporal_sampling_enabled();
     for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
@@ -109,7 +112,22 @@ public:
         static_assert(SUB_CAP <= Scan::RingGroup::MAX_RINGS);
         Color4 colors[SUB_CAP];
         SDF::Ring shapes[SUB_CAP];
+        math::Vector previous[SUB_CAP];
         int slots = 0;
+        // A slot's previous endpoint is the same sub-position one record
+        // older, which held its age a frame ago.
+        size_t record = 0;
+        int first = 0;
+        if (temporal) {
+          for (size_t k = 0; k < ring.trail.length(); ++k) {
+            const math::Quaternion *base = &ring.trail.get(k).get(0);
+            if (qs >= base && qs < base + SUB_CAP) {
+              record = k;
+              first = static_cast<int>(qs - base);
+              break;
+            }
+          }
+        }
         const float pixel_w = math::coarse_pixel_pitch<W, H>();
         // Whole-slot rasterization cut, deliberately above the per-sample
         // MIN_ENCODABLE_ALPHA floor to skip faint ring raster passes.
@@ -130,6 +148,17 @@ public:
           shapes[slots] =
               SDF::Ring(math::make_basis(qs[j], math::Y_AXIS), 1.0f, th);
           colors[slots] = c;
+          if (temporal) {
+            const int last = ring.trail.get(record).length() - 1;
+            previous[slots] =
+                record > 0 && last > 0
+                    ? math::make_basis(
+                          ring.trail.get(record - 1)
+                              .get(static_cast<float>(first + j) / last),
+                          math::Y_AXIS)
+                          .v
+                    : shapes[slots].normal;
+          }
           ++slots;
         }
         if (slots == 0)
@@ -141,7 +170,7 @@ public:
             [&](int s, const math::Vector &, Fragment &f) {
               f.color = colors[s];
             },
-            params.debug_bb);
+            params.debug_bb, temporal ? previous : nullptr);
       });
     }
   }

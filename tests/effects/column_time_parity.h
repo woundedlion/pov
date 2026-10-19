@@ -154,4 +154,5 @@ inline void test_column_time_scans_engage_with_fidelity_on() {
   check_column_time_scans_engage<Galaxies>("Galaxies");
   check_column_time_scans_engage<DisplacementField>("DisplacementField");
   check_column_time_scans_engage<Raymarch>("Raymarch");
+  check_column_time_scans_engage<RingSpin>("RingSpin");
 }
