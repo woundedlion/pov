@@ -178,6 +178,9 @@ private:
   friend struct ::hs_test::effects_tests::VoronoiWhiteBox;
 
   static constexpr int SITES_PER_CORNER = 2;
+  /** @brief Relative margin on a search bound taken from known sites, for
+   *  rounding between the bound's distances and the search's. */
+  static constexpr float BOUND_SLACK = 1.0f + 1e-4f;
   /// Corner sites classified at both endpoints, previous first.
   static constexpr int TEMPORAL_SITES_PER_CORNER = 2 * SITES_PER_CORNER;
   /// Margin on the drift bound for rounding in the spin and renormalization.
@@ -251,22 +254,28 @@ private:
   /**
    * @brief Shades a pixel from the exact nearest pair at a column's time.
    * @param p Pixel direction.
-   * @param motion The column's site motion, with its positions filled.
+   * @param motion The column's site motion; sites move on demand when its
+   *        positions are not filled.
+   * @param bound_sq Squared distance within which two sites lie at that time,
+   *        or FLT_MAX.
    * @return The cell color.
    */
   __attribute__((always_inline)) Color4
-  shade_exact(const math::Vector &p, const ColumnMotion &motion) const {
-    const math::Vector *at = motion.at;
-    const auto nearest =
-        motion.tree->nearest_moved(p, 2, motion.drift, [&](uint16_t i) {
-          return math::distance_squared(at[i], p);
-        });
+  shade_exact(const math::Vector &p, const ColumnMotion &motion,
+              float bound_sq = FLT_MAX) const {
+    const auto at = [&](uint16_t i) __attribute__((always_inline)) {
+      return motion.at ? motion.at[i]
+                       : position_at(i, motion.cosine, motion.sine);
+    };
+    const auto nearest = motion.tree->nearest_moved(
+        p, 2, motion.drift,
+        [&](uint16_t i) { return math::distance_squared(at(i), p); }, bound_sq);
     const uint16_t i0 = nearest[0].original_index;
-    const float d0 = math::dot(p, at[i0]);
+    const float d0 = math::dot(p, at(i0));
     if (nearest.size() < 2)
       return shade(i0, d0, i0, NO_DOT);
     const uint16_t i1 = nearest[1].original_index;
-    return shade(i0, d0, i1, math::dot(p, at[i1]));
+    return shade(i0, d0, i1, math::dot(p, at(i1)));
   }
 
   /**
@@ -322,7 +331,12 @@ private:
         }
       }
       if (check && winner(p, before) != winner(p, after))
-        return column->shade_exact(p);
+        return column->effect->shade_exact(
+            p, column->motion,
+            n > 1 ? fmaxf(math::distance_squared(positions[b0], p),
+                          math::distance_squared(positions[b1], p)) *
+                        BOUND_SLACK
+                  : FLT_MAX);
       return column->effect->shade(idx[b0], d0, idx[b1], d1);
     }
 
@@ -351,12 +365,11 @@ private:
     ColumnMotion motion;     ///< The column's site motion.
     math::Vector *positions; ///< Scratch for one block's candidates, three
                              ///< times its size.
-    math::Vector *every;     ///< Scratch for every site's position.
 
     /**
      * @brief Prepares a block's candidates at the column's time.
      * @param sites The block's corner cells and their union.
-     * @return The block's shader, which queries every site where a pixel's
+     * @return The block's shader, which searches every site where a pixel's
      * nearest candidate differs between the endpoints.
      */
     __attribute__((always_inline)) TemporalBlock
@@ -367,26 +380,13 @@ private:
       math::Vector *after = before + SLOTS;
       for (uint8_t i = 0; i < sites.n; ++i) {
         const uint16_t SITE = sites.idx[i];
-        positions[i] =
-            motion.at ? motion.at[SITE]
-                      : effect->position_at(SITE, motion.cosine, motion.sine);
+        positions[i] = effect->position_at(SITE, motion.cosine, motion.sine);
         if (CHECK) {
           before[i] = effect->previous_positions[SITE];
           after[i] = effect->sites_buffer[SITE].pos;
         }
       }
       return {this, positions, before, after, sites.idx, sites.n, CHECK};
-    }
-
-    /** @brief Shades a pixel from the exact nearest pair at the column's time.
-     *  @param p Pixel direction.
-     *  @return The cell color. */
-    HS_HOT_FLASH_MEMBER Color4 shade_exact(const math::Vector &p) {
-      if (!motion.at) {
-        effect->fill_positions(motion, every);
-        motion.at = every;
-      }
-      return effect->shade_exact(p, motion);
     }
   };
 
@@ -406,9 +406,9 @@ private:
     }
     HS_PROFILE(vo_shade);
     const int BLOCK = coherence_block();
-    math::Vector *every =
-        scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
     if (BLOCK == 1) {
+      math::Vector *every =
+          scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
       Scan::Shader::draw_columns<W, H>(
           canvas, [&](int x) __attribute__((always_inline)) {
             ColumnMotion motion = column_motion(x, tree, previous);
@@ -433,7 +433,7 @@ private:
         },
         [&](int x) __attribute__((always_inline)) {
           return TemporalColumn{this, column_motion(x, tree, previous),
-                                positions, every};
+                                positions};
         });
   }
 
