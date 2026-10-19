@@ -528,7 +528,12 @@ private:
     float bound = 0.0f;
     for (uint16_t site : near)
       bound = fmaxf(bound, math::distance_squared(sites_buffer[site].pos, p));
-    const auto knn = current.nearest(p, NEARBY_SITES, bound * BOUND_SLACK);
+    const auto knn = current.nearest_moved(
+        p, NEARBY_SITES, 0.0f,
+        [&](uint16_t i) {
+          return math::distance_squared(sites_buffer[i].pos, p);
+        },
+        bound * BOUND_SLACK);
     for (size_t i = 0; i < near.size(); ++i)
       near[i] = knn[std::min(i, knn.size() - 1)].original_index;
     const uint16_t a = near[0];
@@ -539,7 +544,12 @@ private:
       const float reach = sqrtf(knn[2].d_sq) - fabsf(frame_spin) - DRIFT_SLACK;
       const float from = fmaxf(from_a, from_b) * BOUND_SLACK;
       if (!(reach > 0.0f && from < reach * reach)) {
-        const auto pair = previous.nearest(p, SITES_PER_CORNER, from);
+        const auto pair = previous.nearest_moved(
+            p, SITES_PER_CORNER, 0.0f,
+            [&](uint16_t i) {
+              return math::distance_squared(previous_positions[i], p);
+            },
+            from);
         return {pair[0].original_index, pair[1].original_index, a, b};
       }
     }
