@@ -16,6 +16,8 @@
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/render/pullback.h"
+#include "core/render/pullback/composed_effect.h"
+#include "core/render/temporal.h"
 #include <array>
 #include <cmath>
 #include <string_view>
@@ -147,18 +149,20 @@ public:
       timeline.step(canvas);
     }
 
-    auto [l1, m1] = SHMath::decode_lm(current_idx);
-    auto [l2, m2] = SHMath::decode_lm(next_idx);
-    const typename RenderPipeline::Frame frame = RenderPipeline::prepare(
-        {{l1, m1, l2, m2, morph_alpha, orientation.get()},
-         {&baked_palette.view(), params.amplitude}});
-
-    {
+    const HarmonicFrameState current = frame_state();
+    if (!history.initialized)
+      history.capture(current);
+    if (Temporal::temporal_sampling_enabled()) {
+      draw_columns(canvas, history.previous, current);
+    } else {
+      const typename RenderPipeline::Frame frame =
+          RenderPipeline::prepare(current);
       HS_PROFILE(sh_rasterize);
       Scan::Shader::draw<W, H>(canvas, [&frame](const math::Vector &view) {
         return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
       });
     }
+    history.capture(current);
   }
 
 private:
@@ -182,6 +186,8 @@ private:
    */
   HS_COLD_MEMBER bool apply_preset(const PresetChange &change) override {
     ++morph_generation;
+    if (change.origin != PresetChangeOrigin::SYNCHRONIZED)
+      ++morph_epoch;
     current_idx = mode_index_for_preset(change.to);
     next_idx = current_idx;
     morph_alpha = 0.0f;
@@ -208,6 +214,15 @@ private:
     int m2;
     float blend;
     math::Quaternion orientation;
+    uint32_t morph_epoch; ///< Changes when a preset snap breaks the morph.
+
+    /** @brief Whether both morph endpoints are one mode.
+     * @return True for a pure harmonic. */
+    bool pure() const { return l1 == l2 && m1 == m2; }
+
+    /** @brief Morph fraction as the field sees it.
+     * @return Zero for a pure harmonic, else the blend. */
+    float effective_blend() const { return pure() ? 0.0f : blend; }
   };
 
   struct HarmonicMaterialState {
@@ -218,6 +233,51 @@ private:
   struct HarmonicFrameState {
     HarmonicSourceState source;
     HarmonicMaterialState material;
+
+    /**
+     * @brief Samples the spin, morph chain and amplitude between two frames.
+     * @details The morph is re-expressed on the current leg. A leg rollover
+     * continues the outgoing leg at full blend into the incoming leg at zero;
+     * harmonic indices are never interpolated. Unrelated legs and a changed
+     * morph epoch take the current morph.
+     * @param from Previous frame.
+     * @param to Current frame.
+     * @param fraction Frame fraction in [0, 1).
+     * @return The frame at @p fraction.
+     */
+    HS_FLASH_INLINE static HarmonicFrameState
+    sample(const HarmonicFrameState &from, const HarmonicFrameState &to,
+           float fraction) {
+      HarmonicFrameState frame = to;
+      frame.source.orientation =
+          Temporal::TemporalRotation(from.source.orientation,
+                                     to.source.orientation)
+              .sample(fraction);
+      frame.material.amplitude =
+          from.material.amplitude +
+          (to.material.amplitude - from.material.amplitude) * fraction;
+      const HarmonicSourceState &a = from.source;
+      const HarmonicSourceState &b = to.source;
+      if (a.morph_epoch != b.morph_epoch)
+        return frame;
+      const bool same_leg = a.l1 == b.l1 && a.m1 == b.m1 &&
+                            (a.pure() || (a.l2 == b.l2 && a.m2 == b.m2));
+      const bool rollover = !a.pure() && a.l2 == b.l1 && a.m2 == b.m1;
+      if (!same_leg && !rollover)
+        return frame;
+      const float start = same_leg ? a.effective_blend() : a.blend - 1.0f;
+      const float position = start + (b.effective_blend() - start) * fraction;
+      if (position >= 0.0f) {
+        frame.source.blend = position;
+      } else {
+        frame.source.l1 = a.l1;
+        frame.source.m1 = a.m1;
+        frame.source.l2 = a.l2;
+        frame.source.m2 = a.m2;
+        frame.source.blend = position + 1.0f;
+      }
+      return frame;
+    }
   };
 
   struct HarmonicBinding {
@@ -277,6 +337,34 @@ private:
       Pullback::Pipeline<HarmonicBinding,
                          Pullback::Stage::SampleSphere<HarmonicSourcePolicy>,
                          Pullback::Stage::Colorize<HarmonicColorPolicy>>;
+
+  /** @brief The frame the timeline has just advanced to.
+   * @return Current harmonic pair, spin, palette and amplitude. */
+  HarmonicFrameState frame_state() const {
+    auto [l1, m1] = SHMath::decode_lm(current_idx);
+    auto [l2, m2] = SHMath::decode_lm(next_idx);
+    return {{l1, m1, l2, m2, morph_alpha, orientation.get(), morph_epoch},
+            {&baked_palette.view(), params.amplitude}};
+  }
+
+  /**
+   * @brief Shades each column at its sweep time between two frames.
+   * @param canvas Destination canvas.
+   * @param from Previous frame.
+   * @param to Current frame.
+   */
+  HS_FLASH_MEMBER static void draw_columns(Canvas &canvas,
+                                           const HarmonicFrameState &from,
+                                           const HarmonicFrameState &to) {
+    HS_PROFILE(sh_rasterize);
+    Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+      return [frame = RenderPipeline::prepare(Pullback::sample_frame(
+                  from, to, Temporal::sweep_fraction(x, W)))](
+                 const math::Vector &view) {
+        return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
+      };
+    });
+  }
 
   /**
    * @brief Advances to the next harmonic and animates the morph toward it.
@@ -344,6 +432,9 @@ private:
   float morph_alpha =
       0.0f; /**< Morph progress in [0, 1] from current to next. */
   uint32_t morph_generation = 0;
+  uint32_t morph_epoch = 0; /**< Bumped by preset snaps outside the chain. */
+  /** Previous frame for column-time sampling. */
+  Pullback::TemporalHistory<HarmonicFrameState> history;
 
   /**
    * @brief User-tunable parameters for the visualizer.

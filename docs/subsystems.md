@@ -231,6 +231,16 @@ their period, and spatially periodic phase wraps. Discrete preset changes and
 the held Mobius coefficient interpolation do not become continuous through
 this option. GridSpace's whole-cell affine winding satisfies the wrap condition.
 
+Manual shaders reuse the same facility over their own frame struct.
+`Pullback::TemporalHistory<Frame>` retains the previous endpoint of a frame
+that owns or shares immutable resources, and `Pullback::sample_frame` calls the
+frame's static `sample(from, to, fraction)` for every column before the current
+endpoint. SphericalHarmonics samples its spin through `TemporalRotation` and its
+amplitude linearly. A morph rollover continues the outgoing harmonic pair at
+full blend into the incoming pair at zero blend; harmonic indices are never
+interpolated. A manual preset changes the morph epoch, so that frame takes the
+current morph in every column while the spin keeps its sweep time.
+
 A `RenderXWindow` ([canvas.h](../core/render/canvas.h)) restricts a frame's
 windowed column loops to the half-turn columns `[begin, end)` on both arms,
 inside the driver clip, which cannot change while a frame is active. Windows do
