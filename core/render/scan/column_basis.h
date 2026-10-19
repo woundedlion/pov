@@ -339,9 +339,9 @@ HS_FLASH_MEMBER void fill_drift_columns(const Temporal::ColumnTime &view,
  * @param time Column-time state with a rotated basis and a drift.
  * @param lit Receives the re-centred cap.
  * @return lit_cap()'s result under @p view; on false every entry is filled.
- * @details The entries of the columns that can see the shape are filled
- * first, which holds the one lit_cap() reads, then those of the columns that
- * can see the re-centred cap.
+ * @details The middle seeing column's entry, the one lit_cap() reads, is
+ * filled first, then those of the columns that can see the re-centred cap,
+ * which bound every column its bounds proxy offers.
  */
 template <int W, int H>
 HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
@@ -350,17 +350,14 @@ HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
                                    LitCap &lit) {
   int first, last;
   lit_columns<W>(axis, radius, view.sweep, first, last);
-  fill_drift_columns<W>(view, time, first, last);
+  const int middle = (first + last) / 2;
+  fill_drift_columns<W>(view, time, middle, middle);
   if (!lit_cap<W, H>(axis, radius, view, lit)) {
     fill_drift_columns<W>(view, time, 0, W / 2 - 1);
     return false;
   }
-  int lit_first, lit_last;
-  lit_columns<W>(lit.axis, radius + lit.arc, 0.0f, lit_first, lit_last);
-  if (lit_first < first)
-    fill_drift_columns<W>(view, time, lit_first, first - 1);
-  if (lit_last > last)
-    fill_drift_columns<W>(view, time, last + 1, lit_last);
+  lit_columns<W>(lit.axis, radius + lit.arc, 0.0f, first, last);
+  fill_drift_columns<W>(view, time, first, last);
   return true;
 }
 
