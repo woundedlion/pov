@@ -450,7 +450,8 @@ private:
 
   /**
    * @brief Ray-marches and shades the twisted torus at every vertex for the
-   *        current frame.
+   *        current frame, each column marching the placements of its sweep
+   *        time.
    * @param canvas Render target for this frame's fragments.
    */
   void draw_fn(Canvas &canvas) {
@@ -462,6 +463,25 @@ private:
     // spin_phase rides in [0,1); scale to radians for make_rotation.
     float spin_angle = spin_phase * math::TWO_PI_F;
     math::Quaternion spin_q = math::make_rotation(math::X_AXIS, spin_angle);
+
+    // Each object's placement at the previous draw, slerped per column.
+    const float previous_spin = spin_drawn ? drawn_spin_phase : spin_phase;
+    drawn_spin_phase = spin_phase;
+    spin_drawn = true;
+    const math::Quaternion previous_spin_q =
+        math::make_rotation(math::X_AXIS, previous_spin * math::TWO_PI_F);
+    constexpr int HALF = W / 2;
+    ScratchScope column_guard(scratch_arena_a);
+    Scan::VolumeColumns<W> *columns = nullptr;
+    math::Quaternion *cameras = nullptr;
+    if (Temporal::temporal_sampling_enabled()) {
+      columns =
+          scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
+      cameras = scratch_arena_a.allocate_n<math::Quaternion>(HALF);
+      const Temporal::TemporalRotation camera_path(camera.get(0), camera.get());
+      for (int c = 0; c < HALF; ++c)
+        cameras[c] = camera_path.sample(Temporal::sweep_fraction(c, W));
+    }
 
     for (int i = 0; i < active_count; ++i) {
       // Fit the ring's outer edge to `fill` of this vertex's half
@@ -508,9 +528,21 @@ private:
         frag.color = Color4(color * shade, 1.0f);
       };
 
+      const Scan::VolumeColumns<W> *placed = nullptr;
+      const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
+                                          volume_spins[i].orientation.get(0) *
+                                          previous_spin_q;
+      if (columns && Scan::ColumnBasis<W, H>::moving(previous_q, world_q)) {
+        const Temporal::TemporalRotation path(previous_q, world_q);
+        for (int c = 0; c < HALF; ++c)
+          columns->set(c, math::rotate(points[i], cameras[c]),
+                       path.sample(Temporal::sweep_fraction(c, W)));
+        placed = columns;
+      }
+
       Scan::TransformedVolume vol(torus, center, world_q);
       Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
-                               frag_fn, max_steps, aa_width);
+                               frag_fn, max_steps, aa_width, placed);
     }
   }
 
@@ -530,8 +562,10 @@ private:
   math::Orientation<> camera;
   VolumeSpin *volume_spins = nullptr;
   PaletteState *palette_state = nullptr;
-  float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
-  float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
+  float spin_phase = 0.0f;       // torus tumble phase, [0,1) -> [0,2pi) radians
+  float drawn_spin_phase = 0.0f; // spin_phase of the last draw
+  bool spin_drawn = false;       // whether a draw has happened
+  float palette_phase = 0.0f;    // baked-palette scroll offset, [0,1) cycles
   float hue_noise_phase = 0.0f;
   int active_count = 0;
   PlacementSolid active_base_solid = PlacementSolid::COUNT;
