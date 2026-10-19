@@ -409,27 +409,29 @@ private:
     math::Vector *every =
         scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
     if (BLOCK == 1) {
-      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-        ColumnMotion motion = column_motion(x, tree, previous);
-        fill_positions(motion, every);
-        motion.at = every;
-        return [this, motion](const math::Vector &p) {
-          return shade_exact(p, motion);
-        };
-      });
+      Scan::Shader::draw_columns<W, H>(
+          canvas, [&](int x) __attribute__((always_inline)) {
+            ColumnMotion motion = column_motion(x, tree, previous);
+            fill_positions(motion, every);
+            motion.at = every;
+            return [this, motion](const math::Vector &p)
+                       __attribute__((always_inline)) {
+                         return shade_exact(p, motion);
+                       };
+          });
       return;
     }
     math::Vector *positions = scratch_arena_a.allocate_n<math::Vector>(
         3 * 4 * TEMPORAL_SITES_PER_CORNER);
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
-        [&](const math::Vector &p) {
+        [&](const math::Vector &p) __attribute__((always_inline)) {
           const auto BEFORE = nearest_pair(previous, p);
           const auto AFTER = nearest_pair(tree, p);
           return Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>{
               BEFORE[0], BEFORE[1], AFTER[0], AFTER[1]};
         },
-        [&](int x) {
+        [&](int x) __attribute__((always_inline)) {
           return TemporalColumn{this, column_motion(x, tree, previous),
                                 positions, every};
         });
