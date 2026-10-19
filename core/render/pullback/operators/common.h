@@ -13,6 +13,8 @@
 #include "core/render/pullback/operators/model.h"
 #include "core/render/pullback/stage.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/temporal_history.h"
+#include "core/render/temporal.h"
 
 /**
  * @file common.h
@@ -110,6 +112,24 @@ inline void advance_walk(SpatialWalkState &state, float wander,
   state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
 }
 
+/**
+ * @brief Samples the wander arc and spin clock of a walk between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(SpatialWalkState &out, const SpatialWalkState &from,
+                            const SpatialWalkState &to, const Params &,
+                            float fraction) {
+  out.wander =
+      Temporal::TemporalRotation(from.wander, to.wander).sample(fraction);
+  out.spin_phase =
+      sample_clock(from.spin_phase, to.spin_phase, fraction, math::TWO_PI_F);
+}
+
 /** @brief Instance state of the noise-driven operators: the owned field plus
     the loop phase PhaseClockModel advances. */
 struct NoisePhaseState {
@@ -117,6 +137,21 @@ struct NoisePhaseState {
   float phase = 0.0f;     ///< Normalized loop phase in [0, 1).
   int32_t noise_seed = 0; ///< Seed of `noise`.
 };
+
+/**
+ * @brief Samples the noise loop phase between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(NoisePhaseState &out, const NoisePhaseState &from,
+                            const NoisePhaseState &to, const Params &,
+                            float fraction) {
+  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
+}
 
 /** @brief Value-state operator with one normalized loop clock. */
 template <typename StateT> struct PhaseClockModel : ValueStateModel<StateT> {

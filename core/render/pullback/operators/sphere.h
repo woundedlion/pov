@@ -160,6 +160,22 @@ struct RipplePhaseState {
   float phase = 0.0f; ///< Frames into the current period.
 };
 
+/**
+ * @brief Samples the ripple clock over its period between consecutive frames.
+ * @tparam Params Operator param block with a `period` in frames.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param params Column param block supplying the period.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(RipplePhaseState &out, const RipplePhaseState &from,
+                            const RipplePhaseState &to, const Params &params,
+                            float fraction) {
+  out.phase = sample_clock(from.phase, to.phase, fraction, params.period);
+}
+
 /** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */
 struct DisplaceRipple : ValueStateModel<RipplePhaseState> {
   static constexpr const char *ID = "sphere.displace.ripple.v2";

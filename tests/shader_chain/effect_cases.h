@@ -503,3 +503,358 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden("ShaderChain 96x20", hash, 0xbfbf4393aff25990ull);
 }
+
+/** @brief View direction the scan shades for a 96x20 pixel.
+ * @param x Column.
+ * @param y Row.
+ * @return Unit view direction. */
+inline math::Vector chain_scan_view(int x, int y) {
+  const float sin_phi = math::TrigLUT<96, 20>::sin_phi[y];
+  return math::Vector(sin_phi * math::TrigLUT<96, 20>::cos_theta(x),
+                      math::TrigLUT<96, 20>::cos_phi[y],
+                      sin_phi * math::TrigLUT<96, 20>::sin_theta[x]);
+}
+
+/** Camera spin of the column-time ShaderChain fixtures, radians per frame. */
+inline constexpr float CHAIN_SPIN = 0.05f;
+
+/** @brief Spins the default chain's camera over a fine grid.
+ * @param chain Initialised effect. */
+inline void spin_default_chain(ShaderChainWhiteBox::FX &chain) {
+  In::ChainProgram &program = ShaderChainWhiteBox::program(chain);
+  param_as<In::Op::RotateChainParams>(program, 0).spin_rate = CHAIN_SPIN;
+  param_as<In::Op::GridSampleParams>(program, 2).pattern_freq = 8.0f;
+}
+
+/** @brief Pixel the drawn chain shades with its camera at one spin angle and
+ *  the current colour resources.
+ * @param chain Effect after a draw.
+ * @param view Unit view direction.
+ * @param angle Camera spin, radians.
+ * @return Premultiplied pixel. */
+inline Pixel chain_pixel_at_spin(ShaderChainWhiteBox::FX &chain,
+                                 const math::Vector &view, float angle) {
+  using WB = ShaderChainWhiteBox;
+  In::ChainProgram &program = WB::program(chain);
+  const In::FrameContext ctx = WB::frame_context(chain);
+  auto *camera = const_cast<In::Op::Rotate::Prepared *>(
+      reinterpret_cast<const In::Op::Rotate::Prepared *>(
+          program.prepared_block(0)));
+  const In::Op::Rotate::Prepared saved = *camera;
+  camera->conjugate = math::make_rotation(math::Y_AXIS, angle).conjugate();
+  const Color4 color = program.evaluate(view, ctx);
+  *camera = saved;
+  return color.color * color.alpha;
+}
+
+/** @brief Largest channel gap between a drawn column and the chain shaded at
+ *  one camera spin.
+ * @param chain Effect after a draw.
+ * @param x Column.
+ * @param angle Camera spin, radians.
+ * @return Largest RGB channel gap over the column. */
+inline int chain_column_gap(ShaderChainWhiteBox::FX &chain, int x,
+                            float angle) {
+  int worst = 0;
+  for (int y = 0; y < 20; ++y)
+    worst = std::max<int>(
+        worst, max_channel_gap(
+                   chain.get_pixel(x, y),
+                   chain_pixel_at_spin(chain, chain_scan_view(x, y), angle)));
+  return worst;
+}
+
+/** Channel gap allowed between a drawn column and the spin evaluator; covers
+ *  the generated palettes' per-frame fade. */
+inline constexpr int CHAIN_TIME_TOLERANCE = 128;
+
+/** @brief ShaderChain columns follow their sweep time through the camera spin
+ *  wrap, matching an independent spin evaluator across the frame seam. */
+inline void test_shader_chain_columns_follow_sweep_time() {
+  reset_globals();
+  ShaderChainWhiteBox::FX chain;
+  chain.init();
+  spin_default_chain(chain);
+  int worst = 0;
+  int held = 0;
+  for (int draw = 0; draw < 130; ++draw) {
+    pin_frame_clock(draw);
+    chain.draw_frame();
+    chain.advance_display();
+    if (draw > 2 && draw < 123)
+      continue;
+    HS_CONTEXT("draw", draw);
+    for (int x = 0; x < 96; ++x) {
+      const float time =
+          draw == 0 ? 1.0f : draw + Temporal::sweep_fraction(x, 96);
+      worst = std::max(worst, chain_column_gap(chain, x, CHAIN_SPIN * time));
+      held =
+          std::max(held, chain_column_gap(chain, x, CHAIN_SPIN * (draw + 1)));
+    }
+  }
+  hs::clear_mock_time();
+  std::printf("  ShaderChain sweep time: worst gap %d, held-endpoint gap %d\n",
+              worst, held);
+  HS_EXPECT_LE(worst, CHAIN_TIME_TOLERANCE);
+  HS_EXPECT_GT(held, 16 * CHAIN_TIME_TOLERANCE);
+}
+
+/** @brief Segmented ShaderChain engines, including clips crossing both arm
+ *  boundaries, draw the same pixels as one full-frame engine. */
+inline void test_shader_chain_segmented_matches_single_engine() {
+  using WB = ShaderChainWhiteBox;
+  struct Segment {
+    int x0, x1, margin;
+  };
+  constexpr std::array<Segment, 4> SEGMENTS{
+      {{0, 40, 0}, {40, 60, 0}, {60, 96, 0}, {0, 8, 4}}};
+  constexpr int DRAWS = 12;
+  const auto render = [](const Segment &segment, auto &&inspect) {
+    reset_globals();
+    WB::FX engine;
+    engine.init();
+    spin_default_chain(engine);
+    engine.set_clip(0, 20, segment.x0, segment.x1);
+    engine.set_margin(segment.margin);
+    for (int draw = 0; draw < DRAWS; ++draw) {
+      pin_frame_clock(draw);
+      engine.draw_frame();
+      engine.advance_display();
+      inspect(engine, draw);
+    }
+    hs::clear_mock_time();
+  };
+  std::vector<std::vector<Pixel>> single(DRAWS);
+  render({0, 96, 0}, [&](const WB::FX &engine, int draw) {
+    capture_frame<96, 20>(engine, single[draw]);
+  });
+  int mismatches = 0;
+  int compared = 0;
+  for (const Segment &segment : SEGMENTS)
+    render(segment, [&](const WB::FX &engine, int draw) {
+      for (int column = segment.x0 - segment.margin;
+           column < segment.x1 + segment.margin; ++column) {
+        const int x = (column + 96) % 96;
+        for (int y = 0; y < 20; ++y) {
+          ++compared;
+          mismatches += engine.get_pixel(x, y) != single[draw][y * 96 + x];
+        }
+      }
+    });
+  HS_EXPECT_EQ(compared, DRAWS * (96 + 16) * 20);
+  HS_EXPECT_EQ(mismatches, 0);
+}
+
+/** @brief A topology change, a snapshot restore and the first frame draw the
+ *  current endpoint in every column; an unchanged frame does not. */
+inline void test_shader_chain_discrete_changes_reset_history() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX chain;
+  chain.init();
+  spin_default_chain(chain);
+  const auto current_gap = [&] {
+    const In::FrameContext ctx = WB::frame_context(chain);
+    int worst = 0;
+    for (int x = 0; x < 96; ++x)
+      for (int y = 0; y < 20; ++y) {
+        const Color4 color =
+            WB::program(chain).evaluate(chain_scan_view(x, y), ctx);
+        worst =
+            std::max<int>(worst, max_channel_gap(chain.get_pixel(x, y),
+                                                 color.color * color.alpha));
+      }
+    return worst;
+  };
+  int frame = 0;
+  const auto draw = [&] {
+    pin_frame_clock(frame++);
+    chain.draw_frame();
+    chain.advance_display();
+  };
+  draw();
+  HS_EXPECT_EQ(current_gap(), 0);
+  draw();
+  HS_EXPECT_GT(current_gap(), 0);
+  WB::color_params(chain).mapping_mode =
+      static_cast<uint8_t>(PB::Color::PaletteMapping::CUP);
+  draw();
+  HS_EXPECT_EQ(current_gap(), 0);
+  draw();
+  const ChainSnapshot snapshot = chain.snapshot();
+  draw();
+  draw();
+  HS_EXPECT_GT(current_gap(), 0);
+  HS_EXPECT_EQ(chain.restore_snapshot(snapshot),
+               ChainSnapshotRestoreResult::APPLIED);
+  draw();
+  HS_EXPECT_EQ(current_gap(), 0);
+  hs::clear_mock_time();
+}
+
+/** @brief Disabling temporal sampling draws the current endpoint while the
+ *  history advances, so re-enabling samples from the last drawn frame. */
+inline void test_shader_chain_fidelity_toggle_keeps_history() {
+  reset_globals();
+  ShaderChainWhiteBox::FX chain;
+  chain.init();
+  spin_default_chain(chain);
+  int worst = 0;
+  int draw = 0;
+  for (const bool enabled : {true, true, false, false, true}) {
+    HS_CONTEXT("draw", draw);
+    Temporal::set_temporal_sampling_enabled(enabled);
+    pin_frame_clock(draw);
+    chain.draw_frame();
+    chain.advance_display();
+    for (int x = 0; x < 96; ++x) {
+      const float time = draw == 0 || !enabled
+                             ? draw + 1.0f
+                             : draw + Temporal::sweep_fraction(x, 96);
+      worst = std::max(worst, chain_column_gap(chain, x, CHAIN_SPIN * time));
+    }
+    ++draw;
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  hs::clear_mock_time();
+  HS_EXPECT_LE(worst, CHAIN_TIME_TOLERANCE);
+}
+
+/** @brief Columns blend the colours of the retained and current palettes at
+ *  their sweep time, and the retained palettes are owned copies. */
+inline void test_shader_chain_palettes_blend_across_the_frame() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX chain;
+  chain.init();
+  for (int draw = 0; draw < 2; ++draw) {
+    pin_frame_clock(draw);
+    chain.draw_frame();
+    chain.advance_display();
+  }
+  const In::FrameContext before = WB::frame_context(chain);
+  std::vector<Pixel> previous(96 * 20);
+  for (int x = 0; x < 96; ++x)
+    for (int y = 0; y < 20; ++y) {
+      const Color4 color =
+          WB::program(chain).evaluate(chain_scan_view(x, y), before);
+      previous[y * 96 + x] = color.color * color.alpha;
+    }
+  const In::FrameContext &retained = WB::previous_context(chain);
+  for (size_t index = 0; index < before.palettes.size(); ++index) {
+    HS_EXPECT_TRUE(retained.palettes[index] != before.palettes[index]);
+    HS_EXPECT_EQ(retained.palettes[index]->get(0.37f).color,
+                 before.palettes[index]->get(0.37f).color);
+  }
+  WB::color_params(chain).palette_chroma = 0.05f;
+  pin_frame_clock(2);
+  chain.draw_frame();
+  chain.advance_display();
+  const In::FrameContext after = WB::frame_context(chain);
+  int worst = 0;
+  int changed = 0;
+  for (int x = 0; x < 96; ++x) {
+    const float fraction = Temporal::sweep_fraction(x, 96);
+    for (int y = 0; y < 20; ++y) {
+      const Color4 color =
+          WB::program(chain).evaluate(chain_scan_view(x, y), after);
+      const Pixel current = color.color * color.alpha;
+      const Pixel &old = previous[y * 96 + x];
+      changed += max_channel_gap(old, current) > 1024;
+      const auto blend = [&](uint16_t a, uint16_t b) {
+        return static_cast<uint16_t>(a + (b - a) * fraction + 0.5f);
+      };
+      const Pixel expected(blend(old.r, current.r), blend(old.g, current.g),
+                           blend(old.b, current.b));
+      worst = std::max<int>(worst,
+                            max_channel_gap(chain.get_pixel(x, y), expected));
+    }
+  }
+  hs::clear_mock_time();
+  std::printf("  ShaderChain palette blend: worst gap %d, changed %d\n", worst,
+              changed);
+  HS_EXPECT_GT(changed, 0);
+  HS_EXPECT_LE(worst, CHAIN_TIME_TOLERANCE);
+}
+
+/** @brief Column params follow their transition curves between the retained
+ *  and current param blocks. */
+inline void test_shader_chain_column_params_interpolate() {
+  using WB = ShaderChainWhiteBox;
+  reset_globals();
+  WB::FX chain;
+  chain.init();
+  pin_frame_clock(0);
+  chain.draw_frame();
+  chain.advance_display();
+  WB::color_params(chain).mapping_phase = 0.4f;
+  pin_frame_clock(1);
+  chain.draw_frame();
+  chain.advance_display();
+  In::ChainProgram &program = WB::program(chain);
+  const In::FrameContext ctx = WB::frame_context(chain);
+  HS_EXPECT_TRUE(program.history_continuous());
+  program.capture_history();
+  WB::color_params(chain).mapping_phase = 0.8f;
+  program.prepare_column(ctx, ctx, 0.25f);
+  const auto &prepared =
+      *reinterpret_cast<const PB::Color::GeneratedPaletteState *>(
+          program.prepared_block(3));
+  HS_EXPECT_NEAR(prepared.mapping_offset, 0.5f, 1e-6f);
+  program.prepare(ctx);
+}
+
+/** @brief Every shipped operator with instance state samples its clocks, each
+ *  along the shortest arc of its period. */
+inline void test_shader_chain_operator_states_sample_clocks() {
+  for (const In::OperatorDescriptor &op : In::OPERATOR_TABLE) {
+    HS_CONTEXT(op.operator_id);
+    HS_EXPECT_TRUE(op.runtime.sample_params != nullptr);
+    HS_EXPECT_TRUE(op.runtime.state.size == sizeof(In::EmptyState) ||
+                   op.runtime.sample_state != nullptr);
+  }
+  const float TWO_PI = math::TWO_PI_F;
+  In::Op::SpatialWalkState walk_from, walk_to, walk;
+  walk_from.spin_phase = TWO_PI - 0.1f;
+  walk_to.spin_phase = 0.1f;
+  walk_from.wander = math::make_rotation(math::X_AXIS, 0.2f);
+  walk_to.wander = -math::make_rotation(math::X_AXIS, 0.4f);
+  walk = walk_to;
+  In::Op::temporal_sample(walk, walk_from, walk_to, In::Op::RotateChainParams{},
+                          0.25f);
+  HS_EXPECT_NEAR(std::remainder(walk.spin_phase, TWO_PI), -0.05f, 1e-5f);
+  HS_EXPECT_NEAR(std::fabs(math::dot(walk.wander,
+                                     math::make_rotation(math::X_AXIS, 0.25f))),
+                 1.0f, 1e-6f);
+  In::Op::SourceClockState source_from{TWO_PI - 0.2f, 0.2f, 3.0f};
+  In::Op::SourceClockState source_to{0.2f, TWO_PI - 0.2f, 3.4f};
+  In::Op::SourceClockState source = source_to;
+  In::Op::temporal_sample(source, source_from, source_to, 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(source.primary, TWO_PI), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(std::remainder(source.secondary, TWO_PI), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(source.angle, 3.2f, 1e-5f);
+  In::Op::WarpPhaseState warp_from{0.9f}, warp_to{0.1f}, warp = warp_to;
+  In::Op::temporal_sample(warp, warp_from, warp_to, 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(warp.phase, 1.0f), 0.0f, 1e-6f);
+  In::Op::AffineClockState affine_from{0.95f, TWO_PI - 0.1f};
+  In::Op::AffineClockState affine_to{0.05f, 0.1f};
+  In::Op::AffineClockState affine = affine_to;
+  In::Op::temporal_sample(affine, affine_from, affine_to, 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(affine.phase, 1.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(std::remainder(affine.rotation, TWO_PI), 0.0f, 1e-5f);
+  In::Op::RipplePhaseState ripple_from{29.0f}, ripple_to{0.0f},
+      ripple = ripple_to;
+  PB::Surface::PeriodicRippleParams ripple_params;
+  ripple_params.period = 30.0f;
+  In::Op::temporal_sample(ripple, ripple_from, ripple_to, ripple_params, 0.5f);
+  HS_EXPECT_NEAR(ripple.phase, 29.5f, 1e-5f);
+  In::Op::ColorClockState color_from, color_to;
+  color_from.oscillation_phase = 0.8f;
+  color_to.oscillation_phase = 0.2f;
+  color_from.hue_noise_phase = 0.3f;
+  color_to.hue_noise_phase = 0.4f;
+  In::Op::ColorClockState color = color_to;
+  In::Op::temporal_sample(color, color_from, color_to, 0, 0.5f);
+  HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
+  HS_EXPECT_EQ(color.hue_noise_phase, 0.4f);
+}

@@ -152,6 +152,22 @@ struct ColorClockState {
 };
 
 /**
+ * @brief Samples the mapping oscillation clock; the hue-noise bake input stays current between consecutive frames.
+ * @tparam Params Operator param block; unused.
+ * @param out Copy of the current state; receives the samples.
+ * @param from Previous state.
+ * @param to Current state.
+ * @param fraction Frame fraction in [0, 1].
+ */
+template <typename Params>
+inline void temporal_sample(ColorClockState &out, const ColorClockState &from,
+                            const ColorClockState &to, const Params &,
+                            float fraction) {
+  out.oscillation_phase = sample_clock(from.oscillation_phase,
+                                       to.oscillation_phase, fraction, 1.0f);
+}
+
+/**
  * @brief Resolves a generated-palette param block into the per-frame colour
  *        state; mode fields out of range fail an `HS_CHECK`.
  * @param ctx Frame context supplying the palettes and hue LUTs.

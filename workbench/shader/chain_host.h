@@ -23,6 +23,8 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/pullback/runtime_seeds.h"
+#include "core/render/pullback/temporal_history.h"
+#include "core/render/temporal.h"
 #include "workbench/shader/chain_snapshot.h"
 
 namespace hs_test {
@@ -81,13 +83,11 @@ public:
     Pullback::init_effect_noise(resources->hue_noise, Pullback::HUE_NOISE_SEED);
     static_assert(
         Pullback::Interp::CHAIN_ARENA_BYTES % sizeof(std::max_align_t) == 0);
-    auto *block_a = reinterpret_cast<uint8_t *>(
-        persistent_arena.allocate_n<std::max_align_t>(
-            Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
-    auto *block_b = reinterpret_cast<uint8_t *>(
-        persistent_arena.allocate_n<std::max_align_t>(
-            Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
+    uint8_t *block_a = allocate_chain_block();
+    uint8_t *block_b = allocate_chain_block();
     program.bind_storage(block_a, block_b);
+    program.bind_temporal_storage(allocate_chain_block(),
+                                  allocate_chain_block());
 #if HS_ENABLE_PARAM_GUI_BRIDGE
     candidates = persistent_arena.allocate_n<ParameterCandidates>(1)->blocks;
 #endif
@@ -277,8 +277,14 @@ public:
     return Result::APPLIED;
   }
 
-  /** @brief Advances clocks and palettes, prepares the program, and renders
-      one frame. */
+  /**
+   * @brief Advances clocks and palettes, prepares the program, and renders
+   *        one frame.
+   * @details With temporal sampling, each column samples params, operator
+   * state and colour resources between the retained and current endpoints.
+   * The first frame, a recompile, and a change of any topology or snapping
+   * field draw the current endpoint in every column.
+   */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     advance_clocks();
@@ -286,8 +292,15 @@ public:
     const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
     program.prepare(ctx);
     program.check_ready();
-    const ChainShader shader{&program, &ctx};
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
+    if (Temporal::temporal_sampling_enabled() &&
+        resources->context.initialized && program.history_continuous()) {
+      draw_columns(canvas, ctx);
+      program.prepare(ctx);
+    } else {
+      const ChainShader shader{&program, &ctx};
+      Scan::Shader::draw<W, H, 1>(canvas, shader);
+    }
+    capture_history(ctx);
   }
 
 #if HS_ENABLE_PARAM_GUI_BRIDGE
@@ -357,6 +370,61 @@ public:
 #endif
 
 private:
+  HS_COLD_MEMBER uint8_t *allocate_chain_block() {
+    return reinterpret_cast<uint8_t *>(
+        persistent_arena.allocate_n<std::max_align_t>(
+            Pullback::Interp::CHAIN_ARENA_BYTES / sizeof(std::max_align_t)));
+  }
+
+  /**
+   * @brief Shades each column at its sweep time between the retained and
+   *        current endpoints.
+   * @param canvas Destination canvas.
+   * @param ctx Current frame context.
+   */
+  HS_FLASH_MEMBER void draw_columns(Canvas &canvas,
+                                    const Pullback::Interp::FrameContext &ctx) {
+    const Pullback::Interp::FrameContext &previous =
+        resources->context.previous;
+    Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+      const float fraction = Temporal::sweep_fraction(x, W);
+      program.prepare_column(ctx, previous, fraction);
+      return [this, &ctx, &previous, fraction](const math::Vector &view) {
+        return program.evaluate_column(view, ctx, previous, fraction);
+      };
+    });
+  }
+
+  /**
+   * @brief Retains this frame's params, operator state, palettes and hue
+   *        tables as the previous endpoint.
+   * @param ctx Frame context the frame was drawn with.
+   */
+  HS_FLASH_MEMBER void
+  capture_history(const Pullback::Interp::FrameContext &ctx) {
+    program.capture_history();
+    Pullback::Interp::FrameContext previous = ctx;
+    for (size_t index = 0; index < ctx.palettes.size(); ++index) {
+      BakedPaletteStorage &copy = resources->previous_palettes[index];
+      if (resources->context.initialized)
+        copy.rebake_copy(*ctx.palettes[index]);
+      else
+        copy.clone_from(*ctx.palettes[index], persistent_arena);
+      previous.palettes[index] = &copy.view();
+    }
+    if (ctx.hue_rotation_lut != nullptr) {
+      std::copy_n(ctx.hue_rotation_lut, resources->previous_hue_rotation.size(),
+                  resources->previous_hue_rotation.data());
+      previous.hue_rotation_lut = resources->previous_hue_rotation.data();
+    }
+    if (ctx.hue_noise_lut != nullptr) {
+      std::copy_n(ctx.hue_noise_lut, resources->previous_hue_noise.size(),
+                  resources->previous_hue_noise.data());
+      previous.hue_noise_lut = resources->previous_hue_noise.data();
+    }
+    resources->context.capture(previous);
+  }
+
   void advance_clocks() {
     program.advance();
     const ColorizeTap &tap = colorize;
@@ -386,6 +454,14 @@ private:
     std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE> hue_noise_lut{};
     FastNoiseLite hue_noise;
     Pullback::Color::HueNoiseBakeCache hue_noise_bake;
+    /** Previous frame context, its colour resources pointing at the copies
+        below. */
+    Pullback::TemporalHistory<Pullback::Interp::FrameContext> context;
+    std::array<BakedPaletteStorage, 3> previous_palettes;
+    std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
+        previous_hue_rotation{};
+    std::array<int8_t, Pullback::Color::HueNoiseLutView::SIZE>
+        previous_hue_noise{};
   };
 
   /** @brief The committed program's colorize entry, when present. */
@@ -649,7 +725,8 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       PARAM_CAPACITY * sizeof(ParamDef) + sizeof(Resources) +
       alignof(Resources) +
-      2 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
+      4 * (Pullback::Interp::CHAIN_ARENA_BYTES + alignof(std::max_align_t)) +
+      3 * BakedPalette::required_arena_bytes() +
 #if HS_ENABLE_PARAM_GUI_BRIDGE
       sizeof(ParameterCandidates) + alignof(ParameterCandidates) +
 #endif
