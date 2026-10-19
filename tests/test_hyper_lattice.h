@@ -141,6 +141,20 @@ struct HyperLatticeWhiteBox {
   static const BakedPalette *depth_palette(const Effect &effect) {
     return &effect.depth_palette.palette();
   }
+
+  /** @brief Render state and traced camera of the latest drawn frame. */
+  struct Drawn {
+    HL::FrameState frame; ///< Render inputs.
+    math::Vec4 center;    ///< Traced camera position.
+  };
+  /** @brief The latest drawn frame of an effect. */
+  template <int W, int H> static Drawn drawn(const HyperLattice<W, H> &effect) {
+    return {effect.previous, effect.previous_center};
+  }
+  /** @brief Live parameters of an effect at any resolution. */
+  template <int W, int H> static HL::Params &live(HyperLattice<W, H> &effect) {
+    return effect.params;
+  }
 };
 
 inline void test_periodic_distance() {
@@ -882,6 +896,353 @@ inline void test_instantaneous_render_pins() {
     expect_render_pin(small, SMALL[preset]);
     expect_render_pin(full, FULL[preset]);
   }
+}
+
+/** @brief Unwrapped displacement between two periodic coordinates.
+ *  @param from Earlier coordinate.
+ *  @param to Later coordinate.
+ *  @param period Coordinate period.
+ *  @return The shortest signed displacement. */
+inline float unwrapped(float from, float to, float period) {
+  const float DELTA = to - from;
+  return DELTA - period * std::round(DELTA / period);
+}
+
+/**
+ * @brief Render state part way between two drawn frames, evaluated
+ *        independently of the effect's sampler.
+ * @param from Previous drawn frame.
+ * @param to Current drawn frame.
+ * @param fraction Fraction of the frame.
+ * @return State and traced camera at that time.
+ */
+inline HyperLatticeWhiteBox::Drawn
+state_between(const HyperLatticeWhiteBox::Drawn &from,
+              const HyperLatticeWhiteBox::Drawn &to, float fraction) {
+  HyperLatticeWhiteBox::Drawn out = to;
+  out.frame.params.lerp(from.frame.params, to.frame.params, fraction);
+  const auto &p = to.frame.params;
+  const float PERIOD =
+      p.cell_size * (p.pattern == HyperLatticeDetail::Pattern::OCTET
+                         ? std::sqrt(2.0f)
+                         : 1.0f);
+  for (int axis = 0; axis < HL::DIMENSIONS; ++axis) {
+    out.frame.origin[axis] =
+        from.frame.origin[axis] +
+        unwrapped(from.frame.origin[axis], to.frame.origin[axis], 1.0f) *
+            fraction;
+    out.center[axis] =
+        from.center[axis] +
+        unwrapped(from.center[axis], to.center[axis], PERIOD) * fraction;
+  }
+  for (size_t plane = 0; plane < out.frame.rotation_phase.size(); ++plane)
+    out.frame.rotation_phase[plane] =
+        from.frame.rotation_phase[plane] +
+        unwrapped(from.frame.rotation_phase[plane],
+                  to.frame.rotation_phase[plane], math::TWO_PI_F) *
+            fraction;
+  out.frame.gain = hs::lerp(from.frame.gain, to.frame.gain, fraction);
+  return out;
+}
+
+/**
+ * @brief One pixel of a state, traced by the generic renderers.
+ * @tparam W,H Canvas size.
+ * @param state Render state and traced camera.
+ * @param x,y Pixel.
+ * @return Premultiplied colour.
+ */
+template <int W, int H>
+inline Pixel traced_pixel(const HyperLatticeWhiteBox::Drawn &state, int x,
+                          int y) {
+  const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+  const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
+                          math::TrigLUT<W, H>::cos_phi[y],
+                          SIN_PHI * math::TrigLUT<W, H>::sin_theta[x]);
+  const auto &params = state.frame.params;
+  const bool SLICE = params.mode == HL::LatticeMode::FOUR_D_SLICE;
+  if (params.pattern == HyperLatticeDetail::Pattern::CUBIC_WIRE) {
+    const auto prepared = HyperLatticeDetail::prepare_trace(state.frame);
+    return SLICE ? HyperLatticeDetail::Renderer<true>::shade_premultiplied(
+                       VIEW, prepared)
+                 : HyperLatticeDetail::Renderer<>::shade_premultiplied(
+                       VIEW, prepared);
+  }
+  static SDF::ShellLayerStorage layers;
+  auto settings = HyperLatticeDetail::trace_settings(state.frame, state.center);
+  settings.shell_layers = &layers;
+  const auto prepared = prepare_traced(settings);
+  return (SLICE ? Trace::shade<true>(VIEW, prepared)
+                : Trace::shade<false>(VIEW, prepared))
+      .color;
+}
+
+/** @brief Agreement of rendered columns with a time evaluator. */
+struct ColumnAgreement {
+  int worst = 0;   ///< Largest channel gap, 16-bit codes.
+  int changed = 0; ///< Pixels whose column-time state differs from the end.
+};
+
+/**
+ * @brief Compares a rendered window with each column's state between two
+ *        drawn frames.
+ * @tparam W,H Canvas size.
+ * @param effect Effect after draw_frame() and advance_display().
+ * @param from Previous drawn frame.
+ * @param to Current drawn frame.
+ * @param x0,x1,y0,y1 Window.
+ * @return Worst gap and the count of pixels the motion changed.
+ */
+template <int W, int H>
+inline ColumnAgreement column_agreement(const HyperLattice<W, H> &effect,
+                                        const HyperLatticeWhiteBox::Drawn &from,
+                                        const HyperLatticeWhiteBox::Drawn &to,
+                                        int x0, int x1, int y0, int y1) {
+  ColumnAgreement out;
+  for (int x = x0; x < x1; ++x) {
+    const auto STATE =
+        state_between(from, to, static_cast<float>(x % (W / 2)) / (W / 2));
+    for (int y = y0; y < y1; ++y) {
+      const Pixel EXPECTED = traced_pixel<W, H>(STATE, x, y);
+      out.worst = std::max<int>(
+          out.worst, max_channel_gap(effect.get_pixel(x, y), EXPECTED));
+      out.changed += EXPECTED != traced_pixel<W, H>(to, x, y);
+    }
+  }
+  return out;
+}
+
+/** @brief Largest per-channel gap between a column-time render and its time
+ *  evaluator, in 16-bit codes. */
+constexpr int COLUMN_TOLERANCE = 16;
+
+/**
+ * @brief Checks a preset's columns against the time evaluator across two
+ *        frame seams.
+ * @tparam W,H Canvas size.
+ * @param preset Preset index.
+ * @param x0,x1 Clipped columns; the render margin is zero.
+ */
+template <int W, int H>
+inline void check_column_time(size_t preset, int x0, int x1) {
+  using WB = HyperLatticeWhiteBox;
+  HS_CONTEXT("preset", static_cast<long long>(preset), x0);
+  reset_globals();
+  HyperLattice<W, H> effect;
+  effect.init();
+  effect.set_margin(0);
+  effect.set_clip(0, H, x0, x1);
+  if (preset)
+    HS_EXPECT_TRUE(effect.selectPreset(preset));
+  effect.draw_frame();
+  effect.advance_display();
+  const auto first = WB::drawn(effect);
+  const auto primed = column_agreement(effect, first, first, x0, x1, 0, H);
+  HS_EXPECT_LE(primed.worst, COLUMN_TOLERANCE);
+  run_frames(effect, 40);
+  auto from = WB::drawn(effect);
+  for (int frame = 0; frame < 2; ++frame) {
+    HS_CONTEXT("frame", frame);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto to = WB::drawn(effect);
+    const auto agreement = column_agreement(effect, from, to, x0, x1, 0, H);
+    HS_EXPECT_LE(agreement.worst, COLUMN_TOLERANCE);
+    HS_EXPECT_GT(agreement.changed, 0);
+    for (int x : {0, W / 2})
+      if (x >= x0 && x < x1)
+        for (int y = 0; y < H; ++y)
+          HS_EXPECT_LE(max_channel_gap(effect.get_pixel(x, y),
+                                       traced_pixel<W, H>(from, x, y)),
+                       COLUMN_TOLERANCE);
+    from = to;
+  }
+}
+
+/** @brief Each column traces the state at its sweep time, through the seam
+ *  into the next frame, on every trace path. */
+inline void test_column_time_matches_time_evaluator() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  for (size_t preset :
+       {Effect::CUBIC_PRESET_INDEX, Effect::HYPERCUBE_PRESET_INDEX,
+        Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX,
+        Effect::SHELL_PRESET_INDEX, Effect::SHELL_4D_PRESET_INDEX})
+    check_column_time<96, 20>(preset, 0, 96);
+  for (size_t preset :
+       {Effect::SHELL_PRESET_INDEX, Effect::SHELL_4D_PRESET_INDEX})
+    check_column_time<288, 144>(preset, 140, 150);
+}
+
+/**
+ * @brief Renders three column-time frames of a preset into a clip band.
+ * @param preset Preset index.
+ * @param x0,x1,y0,y1 Band.
+ * @return The band's pixels.
+ */
+inline std::vector<Pixel> column_time_band(size_t preset, int x0, int x1,
+                                           int y0, int y1) {
+  reset_globals();
+  HyperLatticeWhiteBox::Effect effect;
+  effect.init();
+  effect.set_margin(3);
+  effect.set_clip(y0, y1, x0, x1);
+  if (preset)
+    HS_EXPECT_TRUE(effect.selectPreset(preset));
+  for (int frame = 0; frame < 3; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  std::vector<Pixel> band;
+  for (int y = y0; y < y1; ++y)
+    for (int x = x0; x < x1; ++x)
+      band.push_back(effect.get_pixel(x, y));
+  return band;
+}
+
+/** @brief Segment bands crossing both arm boundaries match the single-engine
+ *  render. */
+inline void test_column_time_segments_match_full_frame() {
+  using Effect = HyperLatticeWhiteBox::Effect;
+  struct Band {
+    int x0, x1, y0, y1;
+  };
+  const Band bands[] = {{0, 30, 0, 20}, {40, 96, 0, 20}, {45, 51, 3, 17}};
+  for (size_t preset :
+       {Effect::CUBIC_PRESET_INDEX, Effect::OCTET_PRESET_INDEX}) {
+    const auto full = column_time_band(preset, 0, 96, 0, 20);
+    for (const Band &b : bands) {
+      HS_CONTEXT("band", b.x0, static_cast<long long>(preset));
+      const auto band = column_time_band(preset, b.x0, b.x1, b.y0, b.y1);
+      size_t i = 0, different = 0;
+      for (int y = b.y0; y < b.y1; ++y)
+        for (int x = b.x0; x < b.x1; ++x, ++i)
+          different += band[i] != full[static_cast<size_t>(y) * 96 + x];
+      HS_EXPECT_EQ(different, size_t{0});
+    }
+  }
+}
+
+/**
+ * @brief Draws the frame after a change and checks it shows the current
+ *        state in every column.
+ * @param change Applies the change to the effect.
+ */
+template <typename Change> inline void check_history_reset(Change &&change) {
+  using WB = HyperLatticeWhiteBox;
+  reset_globals();
+  WB::Effect effect;
+  effect.init();
+  for (int frame = 0; frame < 2; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const auto before = WB::drawn(effect);
+  change(effect);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto after = WB::drawn(effect);
+  const auto held = column_agreement(effect, after, after, 0, 96, 0, 20);
+  HS_EXPECT_LE(held.worst, COLUMN_TOLERANCE);
+  int moved = 0;
+  for (int x = 0; x < 96; ++x)
+    for (int y = 0; y < 20; ++y)
+      moved += max_channel_gap(effect.get_pixel(x, y),
+                               traced_pixel<96, 20>(before, x, y)) >
+               COLUMN_TOLERANCE;
+  HS_EXPECT_GT(moved, 0);
+}
+
+/** @brief Discrete changes, manual edits and manual presets draw their first
+ *  frame without motion. */
+inline void test_column_time_resets() {
+  using WB = HyperLatticeWhiteBox;
+  check_history_reset([](WB::Effect &effect) {
+    HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
+  });
+  check_history_reset([](WB::Effect &effect) {
+    WB::live(effect).shells = HL::ShellCount::THREE;
+  });
+  check_history_reset([](WB::Effect &effect) {
+    HS_EXPECT_TRUE(effect.selectPreset(WB::Effect::WIDE_PRESET_INDEX));
+  });
+  check_history_reset([](WB::Effect &effect) {
+    HS_EXPECT_EQ(effect.updateParameter("Cell Size", 1.5f),
+                 ParamSetResult::APPLIED);
+  });
+}
+
+/** @brief Disabled sampling draws the current state while history advances,
+ *  and resumed sampling starts from the disabled frame. */
+inline void test_column_time_toggle() {
+  using WB = HyperLatticeWhiteBox;
+  reset_globals();
+  WB::Effect effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  Temporal::set_temporal_sampling_enabled(false);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto held = WB::drawn(effect);
+  for (int x = 0; x < 96; ++x)
+    for (int y = 0; y < 20; ++y)
+      HS_EXPECT_LE(max_channel_gap(effect.get_pixel(x, y),
+                                   traced_pixel<96, 20>(held, x, y)),
+                   COLUMN_TOLERANCE);
+  Temporal::set_temporal_sampling_enabled(true);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto resumed =
+      column_agreement(effect, held, WB::drawn(effect), 0, 96, 0, 20);
+  HS_EXPECT_LE(resumed.worst, COLUMN_TOLERANCE);
+  HS_EXPECT_GT(resumed.changed, 0);
+}
+
+/** @brief Columns interpolate continuous parameters, and a shell frame whose
+ *  columns straddle a trace threshold traces every column validly. */
+inline void test_column_time_parameter_motion() {
+  using WB = HyperLatticeWhiteBox;
+  {
+    reset_globals();
+    WB::Effect effect;
+    effect.init();
+    effect.draw_frame();
+    effect.advance_display();
+    const auto from = WB::drawn(effect);
+    WB::live(effect).cell_size *= 1.05f;
+    effect.draw_frame();
+    effect.advance_display();
+    const auto agreement =
+        column_agreement(effect, from, WB::drawn(effect), 0, 96, 0, 20);
+    HS_EXPECT_LE(agreement.worst, COLUMN_TOLERANCE);
+    HS_EXPECT_GT(agreement.changed, 0);
+  }
+  constexpr int W = 288, H = 144;
+  reset_globals();
+  HyperLattice<W, H> effect;
+  effect.init();
+  effect.set_margin(0);
+  effect.set_clip(0, H, 1, 21);
+  HS_EXPECT_TRUE(effect.selectPreset(WB::Effect::SHELL_PRESET_INDEX));
+  const HL::Params SHELLS = WB::live(effect);
+  WB::live(effect).shell_radius = .32f;
+  WB::live(effect).far_distance = 16.0f;
+  effect.draw_frame();
+  effect.advance_display();
+  const auto from = WB::drawn(effect);
+  WB::live(effect) = SHELLS;
+  effect.draw_frame();
+  effect.advance_display();
+  const auto to = WB::drawn(effect);
+  const auto start = prepare_traced(
+      HyperLatticeDetail::trace_settings(from.frame, from.center));
+  HS_EXPECT_FALSE(start.periodic_shells.single_owner);
+  HS_EXPECT_FALSE(start.periodic_shells.march);
+  HS_EXPECT_TRUE(
+      prepare_traced(HyperLatticeDetail::trace_settings(to.frame, to.center))
+          .periodic_shells.single_owner);
+  const auto agreement = column_agreement(effect, from, to, 1, 21, 0, H);
+  HS_EXPECT_LE(agreement.worst, COLUMN_TOLERANCE);
 }
 
 inline void test_presets_and_pipeline() {
@@ -1900,6 +2261,11 @@ inline int run_hyper_lattice_tests() {
   test_specialized_slice_transition();
   test_specialized_render_signature();
   test_instantaneous_render_pins();
+  test_column_time_matches_time_evaluator();
+  test_column_time_segments_match_full_frame();
+  test_column_time_resets();
+  test_column_time_toggle();
+  test_column_time_parameter_motion();
   test_presets_and_pipeline();
   test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
