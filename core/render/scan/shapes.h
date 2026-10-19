@@ -333,6 +333,32 @@ struct DistortedRingStack {
                              n_slots, table, shader, *time);
       return;
     }
+    draw_fixed<W, H>(pipeline, canvas, n_rings, shapes, slot_by_ring, n_slots,
+                     table, shader);
+  }
+
+  /**
+   * @brief DistortedRingStack::draw at the fixed meridian, placed in FLASH.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @tparam ShapeRange Indexable ring shapes.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param n_rings Stack size.
+   * @param shapes Ring shapes indexed by slot.
+   * @param slot_by_ring Ring index to slot map.
+   * @param n_slots Number of shapes.
+   * @param table Candidate map storage.
+   * @param shader Per-ring fragment shader.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT,
+            typename ShapeRange>
+  HS_HOT_FLASH_MEMBER static void
+  draw_fixed(PipelineT &pipeline, Canvas &canvas, int n_rings,
+             ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
+             CandidateTable<W, H> &table, RingShaderT &shader) {
     draw_body<W, H, false>(pipeline, canvas, n_rings, shapes, slot_by_ring,
                            n_slots, table, shader, nullptr);
   }
@@ -356,7 +382,7 @@ struct DistortedRingStack {
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>
-  HS_HOT_FLASH_MEMBER static void
+  HS_NOINLINE_NOCLONE static void
   draw_column_time(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
                    CandidateTable<W, H> &table, RingShaderT &shader,
@@ -438,9 +464,11 @@ struct DistortedRingStack {
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
       walk_clip_columns_once<W>(xc, [&](int x) __attribute__((always_inline)) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        math::Vector p;
         if constexpr (COLUMN_TIME)
-          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+          p = rotated_direction<W>(azimuth, up, x, sp, cp);
+        else
+          p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = math::dot(p, axis_v);
         const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
         const float dot_u = math::dot(p, axis_u);
@@ -720,8 +748,28 @@ struct RingGroup {
                              moving_slots ? previous_normals : nullptr);
       return;
     }
-    draw_body<W, H, false>(pipeline, canvas, shapes, n, shader, nullptr,
-                           nullptr);
+    draw_fixed<W, H>(pipeline, canvas, shapes, n, shader);
+  }
+
+  /**
+   * @brief RingGroup::draw at the fixed meridian with still slots, placed in
+   *        FLASH.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes.
+   * @param shader Per-ring fragment shader.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_fixed(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
+             int n, RingShaderT &shader) {
+    draw_body<W, H, false, true>(pipeline, canvas, shapes, n, shader, nullptr,
+                                 nullptr);
   }
 
   /**
@@ -739,12 +787,12 @@ struct RingGroup {
    * @param previous_normals Per-slot axes at the previous endpoint, or null.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
-  HS_HOT_FLASH_MEMBER static void
+  HS_NOINLINE_NOCLONE static void
   draw_column_time(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
                    int n, RingShaderT &shader, const Temporal::ColumnTime *time,
                    const math::Vector *previous_normals) {
-    draw_body<W, H, true>(pipeline, canvas, shapes, n, shader, time,
-                          previous_normals);
+    draw_body<W, H, true, false>(pipeline, canvas, shapes, n, shader, time,
+                                 previous_normals);
   }
 
   /**
@@ -752,6 +800,8 @@ struct RingGroup {
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam COLUMN_TIME Whether @p time and @p previous_normals are read.
+   * @tparam INLINE_WALK Whether the row walk inlines into the body, so a
+   *         FLASH variant takes it along.
    * @tparam PipelineT Plotting pipeline type.
    * @tparam RingShaderT Per-ring shader.
    * @param pipeline Plotting pipeline receiving the final colors.
@@ -762,8 +812,8 @@ struct RingGroup {
    * @param time Column-time state with a rotated basis, or null.
    * @param previous_normals Per-slot axes at the previous endpoint, or null.
    */
-  template <int W, int H, bool COLUMN_TIME, typename PipelineT,
-            typename RingShaderT>
+  template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK,
+            typename PipelineT, typename RingShaderT>
   HS_HOT_INLINE static void
   draw_body(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes, int n,
             RingShaderT &shader, const Temporal::ColumnTime *time,
@@ -888,7 +938,6 @@ struct RingGroup {
         }
       }
     };
-    // The column-time variant inlines its row walk so it leaves ITCM whole.
     [[maybe_unused]] auto pixel_run = [&](int x1, int x2, int y, float sp,
                                           float cp) {
       pixel_run_body(x1, x2, y, sp, cp);
@@ -916,7 +965,7 @@ struct RingGroup {
         // answers.
         emit_row_runs<W>(true, intervals, norm, xc, emit);
       };
-      if constexpr (COLUMN_TIME) {
+      if constexpr (INLINE_WALK) {
         auto emit = [&](int x1, int x2)
                         HS_HOT_INLINE { pixel_run_body(x1, x2, y, sp, cp); };
         walk_row(emit);

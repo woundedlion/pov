@@ -347,6 +347,30 @@ struct Volume {
                          frag_fn, max_steps, aa_width, *columns);
       return;
     }
+    draw_fixed<W, H>(pipeline, canvas, bounds_center, bounds_radius, shape,
+                     frag_fn, max_steps, aa_width);
+  }
+
+  /**
+   * @brief Volume::draw from the shape's own placement, placed in FLASH.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam Shape Volume shape.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param bounds_center Bounding sphere centre.
+   * @param bounds_radius Bounding sphere radius.
+   * @param shape Volume shape.
+   * @param frag_fn Fragment shader invoked once per hit.
+   * @param max_steps Maximum sphere-tracing steps per ray.
+   * @param aa_width Anti-aliasing band half-width.
+   */
+  template <int W, int H, typename Shape>
+  HS_HOT_FLASH_MEMBER static void
+  draw_fixed(PipelineRef pipeline, Canvas &canvas,
+             const math::Vector &bounds_center, float bounds_radius,
+             const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
+             float aa_width) {
     march<W, H, false>(pipeline, canvas, bounds_center, bounds_radius, shape,
                        frag_fn, max_steps, aa_width, nullptr);
   }
@@ -367,7 +391,7 @@ struct Volume {
    * @param columns Per-column placement.
    */
   template <int W, int H, typename Shape>
-  HS_HOT_FLASH_MEMBER static void
+  HS_NOINLINE_NOCLONE static void
   draw_columns(PipelineRef pipeline, Canvas &canvas,
                const math::Vector &bounds_center, float bounds_radius,
                const Shape &shape, FragmentShaderFn frag_fn, int max_steps,
@@ -562,14 +586,6 @@ struct Volume {
       return 1;
     };
     if constexpr (COLUMNS)
-      scan_region_flash<W, H, false>(
-          vol_y_lo, vol_y_hi,
-          [&](int y, auto &&out)
-              HS_HOT_INLINE { return bounds.get_intervals(y, out); },
-          [&](int px, int py, const math::Vector &p, int)
-              HS_HOT_INLINE { return march_pixel(px, py, p); },
-          vol_xc, nullptr);
-    else
       scan_region<W, H>(
           vol_y_lo, vol_y_hi,
           [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
@@ -577,6 +593,14 @@ struct Volume {
             return march_pixel(px, py, p);
           },
           vol_xc);
+    else
+      scan_region_flash<W, H, false>(
+          vol_y_lo, vol_y_hi,
+          [&](int y, auto &&out)
+              HS_HOT_INLINE { return bounds.get_intervals(y, out); },
+          [&](int px, int py, const math::Vector &p, int)
+              HS_HOT_INLINE { return march_pixel(px, py, p); },
+          vol_xc, nullptr);
   }
 };
 HS_O3_END

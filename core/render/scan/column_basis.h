@@ -39,6 +39,30 @@ column_time(const PipelineT &pipeline, const Canvas &canvas) {
 }
 
 /**
+ * @brief Direction a column's rotated basis gives a pixel.
+ * @tparam W Canvas width in columns.
+ * @param azimuth Rotated azimuth directions of the first arm's W / 2 columns.
+ * @param up Rotated up directions, W / 2 entries.
+ * @param x Column.
+ * @param sin_phi Sine of the row's colatitude.
+ * @param cos_phi Cosine of the row's colatitude.
+ * @return The fixed-meridian direction rotated from the column's sweep time to
+ *         the current endpoint.
+ */
+template <int W>
+__attribute__((always_inline)) inline math::Vector
+rotated_direction(const math::Vector *azimuth, const math::Vector *up, int x,
+                  float sin_phi, float cos_phi) {
+  const bool far_arm = x >= W / 2;
+  const int column = far_arm ? x - W / 2 : x;
+  const float s = far_arm ? -sin_phi : sin_phi;
+  const math::Vector &e = azimuth[column];
+  const math::Vector &v = up[column];
+  return math::Vector(s * e.x + cos_phi * v.x, s * e.y + cos_phi * v.y,
+                      s * e.z + cos_phi * v.z);
+}
+
+/**
  * @brief Unit direction a scan evaluates at a pixel.
  * @tparam W Canvas width in columns.
  * @param azimuth Rotated azimuth directions of the first arm's W / 2 columns,
@@ -60,13 +84,7 @@ column_direction(const math::Vector *azimuth, const math::Vector *up, int x,
   if (!azimuth)
     return math::Vector(sin_phi * cos_theta[x], cos_phi,
                         sin_phi * sin_theta[x]);
-  const bool far_arm = x >= W / 2;
-  const int column = far_arm ? x - W / 2 : x;
-  const float s = far_arm ? -sin_phi : sin_phi;
-  const math::Vector &e = azimuth[column];
-  const math::Vector &v = up[column];
-  return math::Vector(s * e.x + cos_phi * v.x, s * e.y + cos_phi * v.y,
-                      s * e.z + cos_phi * v.z);
+  return rotated_direction<W>(azimuth, up, x, sin_phi, cos_phi);
 }
 
 /**
