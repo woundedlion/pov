@@ -142,7 +142,7 @@ private:
       if (drifting) {
         const math::Vector drift = star_drift(spiral_cache[i], v);
         column_time.drift =
-            Scan::settle_drift<W>(column_time, drift, radius, basis)
+            Scan::settle_drift<W, H>(column_time, drift, radius, basis)
                 ? math::Vector(0.0f, 0.0f, 0.0f)
                 : drift;
       }
@@ -169,19 +169,24 @@ private:
     const math::Vector previous =
         math::gnomonic_mobius_transform(point, drawn_warp);
     const math::Vector axis = math::cross(previous, warped);
-    const float sine = sqrtf(math::dot(axis, axis));
-    const float angle = atan2f(sine, math::dot(previous, warped));
-    if (!(angle <= MAX_DRIFT))
+    const float sine_sq = math::dot(axis, axis);
+    if (!(math::dot(previous, warped) > 0.0f && sine_sq <= MAX_DRIFT_SINE_SQ))
       return math::Vector(0.0f, 0.0f, 0.0f);
-    const math::Vector rotation =
-        sine > math::TOLERANCE ? axis * (angle / sine) : axis;
-    return math::rotate(rotation, orientation.get());
+    // asin(s) / s by its series.
+    const float scale =
+        1.0f + sine_sq * (1.0f / 6.0f +
+                          sine_sq * (3.0f / 40.0f + sine_sq * (5.0f / 112.0f)));
+    return math::rotate(axis * scale, orientation.get());
   }
 
   /** @brief Longest move a star interpolates within a frame, eight columns
    *  or the scans' drift limit; a longer one is a jump. */
   static constexpr float MAX_DRIFT =
       std::min(8.0f * math::RADIANS_PER_COLUMN<W>, Temporal::MAX_DRIFT_ANGLE);
+  /** @brief Squared sine of MAX_DRIFT, by its series. */
+  static constexpr float MAX_DRIFT_SINE_SQ =
+      (MAX_DRIFT * (1.0f - MAX_DRIFT * MAX_DRIFT / 6.0f)) *
+      (MAX_DRIFT * (1.0f - MAX_DRIFT * MAX_DRIFT / 6.0f));
 
   friend struct ::hs_test::effects_tests::GnomonicStarsWhiteBox;
 

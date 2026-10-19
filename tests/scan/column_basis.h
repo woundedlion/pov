@@ -1103,6 +1103,7 @@ inline void test_drift_matches_shape_at_column_centre() {
  */
 inline void test_settled_drift_matches_column_drift() {
   constexpr int W = 96, H = 48;
+  const auto settle_shape = &Scan::settle_drift<W, H>;
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(0.05f);
   const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
@@ -1123,7 +1124,7 @@ inline void test_settled_drift_matches_column_drift() {
           Scan::ColumnTimeScope column_scope(canvas, time);
           math::Basis shape = math::make_basis(math::Quaternion(), centre);
           if (settle)
-            HS_EXPECT_TRUE(Scan::settle_drift<W>(time, drift, radius, shape));
+            HS_EXPECT_TRUE(settle_shape(time, drift, radius, shape));
           else
             time.drift = drift;
           star(pipeline, canvas, shape);
@@ -1151,8 +1152,8 @@ inline void test_settled_drift_matches_column_drift() {
   math::Basis seam = math::make_basis(
       math::Quaternion(), math::Vector(-1.0f, 0.1f, 0.02f).normalized());
   const math::Basis held = seam;
-  HS_EXPECT_FALSE(Scan::settle_drift<W>(time, drift, radius, seam));
+  HS_EXPECT_FALSE(settle_shape(time, drift, radius, seam));
   HS_EXPECT_EQ(math::dot(seam.v, held.v), math::dot(held.v, held.v));
   math::Basis fast = math::make_basis(math::Quaternion(), centre);
-  HS_EXPECT_FALSE(Scan::settle_drift<W>(time, drift * 20.0f, radius, fast));
+  HS_EXPECT_FALSE(settle_shape(time, drift * 20.0f, radius, fast));
 }
