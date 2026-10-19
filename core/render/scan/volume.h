@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <utility>
 #include "core/render/sdf.h"
 #include "core/render/ray/march.h"
@@ -81,6 +82,44 @@ template <typename Shape> struct TransformedVolume {
   float distance(const math::Vector &local_p) const {
     return sdf.distance(local_p);
   }
+};
+
+/**
+ * @brief Per-column placement of one volume over an effect frame.
+ * @tparam W Canvas width in columns.
+ * @details Column `x` reads the entry of its sweep fraction `x % (W / 2)`, so
+ * opposing arms share a placement.
+ */
+template <int W> struct VolumeColumns {
+  static constexpr int HALF = W / 2; ///< Distinct sweep fractions.
+
+  /** @brief A volume's placement at one sweep fraction. */
+  struct Column {
+    math::Vector center;    ///< Bounds centre in LED space, unit length.
+    math::Quaternion q_inv; ///< World-to-local rotation.
+    math::Vector local_vd;  ///< Ray direction `-center` in local space.
+  };
+  std::array<Column, HALF> columns; ///< Placement per sweep fraction.
+
+  /**
+   * @brief Places one sweep fraction.
+   * @param column Sweep fraction index in [0, W / 2).
+   * @param center Bounds centre, unit length.
+   * @param q Local-to-world rotation, unit length.
+   */
+  void set(int column, const math::Vector &center, const math::Quaternion &q) {
+    Column &c = columns[column];
+    c.center = center;
+    c.q_inv = q.inverse();
+    c.local_vd = math::rotate(-center, c.q_inv);
+  }
+
+  /**
+   * @brief Placement a canvas column reads.
+   * @param x Canvas column.
+   * @return The entry of the column's sweep fraction.
+   */
+  const Column &at(int x) const { return columns[x < HALF ? x : x - HALF]; }
 };
 
 /**
@@ -284,6 +323,10 @@ struct Volume {
    * @param frag_fn Fragment shader invoked once per hit.
    * @param max_steps Maximum sphere-tracing steps per ray.
    * @param aa_width Anti-aliasing band half-width in world units.
+   * @param columns Optional per-column placement; each column then marches
+   *        the shape from its own centre and rotation, the scanned cap grows
+   *        to cover every column's centre, and the shape's own transform
+   *        supplies only distances.
    * @details Shape concept:
    *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
    *   &vd) const; Vector origin_to_local(const Vector &ro) const; float
@@ -296,7 +339,8 @@ struct Volume {
   static void draw(PipelineRef pipeline, Canvas &canvas,
                    const math::Vector &bounds_center, float bounds_radius,
                    const Shape &shape, FragmentShaderFn frag_fn,
-                   int max_steps = 15, float aa_width = 0.01f) {
+                   int max_steps = 15, float aa_width = 0.01f,
+                   const VolumeColumns<W> *columns = nullptr) {
     check_canvas_dims<W, H>(canvas);
     check_fragment_shader(frag_fn);
     if constexpr (requires { shape.check_trace_preconditions(); })
@@ -304,7 +348,7 @@ struct Volume {
 
     // The scanned band is a cap around bounds_center, which is the
     // orthographic footprint only under a radial view.
-    const math::Vector vd = -bounds_center;
+    const math::Vector ray = -bounds_center;
 
     // Ray must start behind the farthest extent of the shape.
     float start_offset = 1.0f + bounds_radius;
@@ -313,9 +357,9 @@ struct Volume {
 
     // Scalar ray progress requires a unit local direction and origin-centered
     // bounds. The local direction is shared across all pixels.
-    auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
-    HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
-                   local_vd.z * local_vd.z - 1.0f) < math::TOLERANCE,
+    auto [local_bc, ray_local] = shape.ray_to_local(bounds_center, ray);
+    HS_CHECK(fabsf(ray_local.x * ray_local.x + ray_local.y * ray_local.y +
+                   ray_local.z * ray_local.z - 1.0f) < math::TOLERANCE,
              "Scan::Volume: ray_to_local must preserve length");
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
                      local_bc.z * local_bc.z <
@@ -328,7 +372,16 @@ struct Volume {
     // volume_edge_coverage divides by 0.9 * aa_width.
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
-    BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
+    float cap_radius = bounds_radius;
+    if (columns) {
+      float min_cos = 1.0f;
+      for (const auto &c : columns->columns)
+        min_cos = fminf(min_cos, math::dot(c.center, bounds_center));
+      const float angle = asinf(fminf(bounds_radius, 1.0f)) +
+                          acosf(hs::clamp(min_cos, -1.0f, 1.0f));
+      cap_radius = angle < math::PI_F / 2.0f ? sinf(angle) : 1.0f;
+    }
+    BoundingSphere<W, H> bounds(bounds_center, cap_radius);
 
     // Clamp volume bounds to clip region
     const auto &cr = source_clip<W, H>(pipeline, canvas);
@@ -341,6 +394,9 @@ struct Volume {
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
         [&](int px, int py, const math::Vector &p, int) {
+          const auto *column = columns ? &columns->at(px) : nullptr;
+          const math::Vector vd = column ? -column->center : ray;
+          const math::Vector &local_vd = column ? column->local_vd : ray_local;
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
@@ -359,7 +415,9 @@ struct Volume {
                           pp_z - vd.z * start_offset);
 
           // Only the origin is transformed per pixel; local_vd is shared.
-          math::Vector local_ro = shape.origin_to_local(ro);
+          math::Vector local_ro =
+              column ? math::rotate(ro - column->center, column->q_inv)
+                     : shape.origin_to_local(ro);
           math::Vector closest_local;
 
           // --- Sphere tracing in local space ---

@@ -456,3 +456,68 @@ inline void test_point_birth_skips_earlier_columns() {
   HS_EXPECT_EQ(Temporal::first_column_at(0.0f, W), 0);
   HS_EXPECT_EQ(Temporal::first_column_at(1.0f, W), W / 2);
 }
+
+/**
+ * @brief A volume marched through per-column placements matches the volume
+ *        placed at each column's sweep time.
+ */
+inline void test_volume_columns_match_rotated_placements() {
+  constexpr int W = 96, H = 48;
+  const SDF::Torus torus{0.25f, 0.08f};
+  const math::Vector anchor = math::Vector(0.3f, 0.4f, 0.85f).normalized();
+  const BasisMotion camera{math::Quaternion(),
+                           math::make_rotation(math::Y_AXIS, 0.6f)};
+  const auto spin = [](float u) {
+    return math::make_rotation(math::Vector(1.0f, 0.2f, 0.1f).normalized(),
+                               1.2f * u);
+  };
+  constexpr float BOUNDS = 0.36f;
+  const auto shade = [](const math::Vector &, Fragment &f) {
+    f.color = Color4(Pixel(41000, 23000, 7000), 1.0f);
+  };
+  const auto render = [&](auto &&draw) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      draw(pipeline, canvas);
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  };
+  const auto place = [&](float u) {
+    const math::Quaternion q =
+        math::slerp(camera.previous, camera.current, u).normalized();
+    return std::pair{math::rotate(anchor, q), q * spin(u)};
+  };
+
+  auto columns = std::make_unique<Scan::VolumeColumns<W>>();
+  for (int c = 0; c < W / 2; ++c) {
+    const auto [centre, q] = place(Temporal::sweep_fraction(c, W));
+    columns->set(c, centre, q);
+  }
+  const auto [centre, q] = place(1.0f);
+  const std::vector<Pixel> swept = render([&](auto &pipeline, Canvas &canvas) {
+    Scan::TransformedVolume volume(torus, centre, q);
+    Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume, shade,
+                             24, 0.02f, columns.get());
+  });
+
+  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
+  for (int c = 0; c < W / 2; ++c) {
+    const auto [at, rotation] = place(Temporal::sweep_fraction(c, W));
+    const std::vector<Pixel> frame =
+        render([&](auto &pipeline, Canvas &canvas) {
+          Scan::TransformedVolume volume(torus, at, rotation);
+          Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
+                                   24, 0.02f);
+        });
+    for (int y = 0; y < H; ++y)
+      for (int x : {c, c + W / 2})
+        expected[static_cast<size_t>(y) * W + x] =
+            frame[static_cast<size_t>(y) * W + x];
+  }
+  HS_EXPECT_TRUE(expect_factored_tolerance("volume", swept, expected) > 30);
+}
