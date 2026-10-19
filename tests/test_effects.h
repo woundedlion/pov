@@ -595,6 +595,7 @@ inline int run_effects_tests() {
   run_case(test_bz_render_center_matches_reference);
   run_case(test_dreamballs_preset_cycle_bookkeeping);
   CometsWhiteBox::check_paths_close();
+  CometsWhiteBox::check_births_skip_earlier_columns();
   run_case(test_comets_rollover_skipped_mid_wipe);
   ThrustersWhiteBox::check_warp_endpoints();
   ThrustersWhiteBox::check_fire_spawns_opposed_pair();

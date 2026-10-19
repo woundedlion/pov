@@ -54,6 +54,62 @@ struct CometsWhiteBox {
   }
   static size_t trail_length(const C &c) { return c.node->trail.length(); }
   static int dwell_frames() { return C::PRESET_DWELL_FRAMES; }
+
+  /**
+   * @brief A disc recorded this frame leaves dark the columns swept before
+   *        its sub-pose was reached.
+   */
+  static void check_births_skip_earlier_columns() {
+    constexpr int W = 288, H = 144;
+    using F = Comets<W, H>;
+    reset_effect_globals();
+    hs::random().seed(1337u);
+    pin_frame_clock(0);
+    F fx;
+    fx.init();
+    fx.params.cycle_duration = F::CYCLE_DURATION_MIN;
+    constexpr float PIXEL = math::TWO_PI_F / W;
+    int checked = 0;
+    for (int f = 0; f < 48; ++f) {
+      pin_frame_clock(f);
+      fx.draw_frame();
+      fx.advance_display();
+      const auto &trail = fx.node->trail;
+      const auto &newest = trail.get(trail.length() - 1);
+      const int last = newest.length() - 1;
+      const float reach = fx.params.thickness + 3.0f * PIXEL;
+      const auto centre = [&](const math::Quaternion &q) {
+        return fx.orientation.orient(math::rotate(fx.node->v, q));
+      };
+      for (int j = 1; j < last; ++j) {
+        const math::Vector c = centre(newest.get(j));
+        const math::PixelCoords px = math::vector_to_pixel<W, H>(c);
+        const int x = static_cast<int>(lroundf(px.x)) % W;
+        const int y = static_cast<int>(lroundf(px.y));
+        const float fraction = Temporal::sweep_fraction(x, W);
+        if (y < 0 || y >= H ||
+            fraction >= static_cast<float>(j) / last - 2.0f / (W / 2))
+          continue;
+        bool clear = true;
+        for (size_t i = 0; i < trail.length() && clear; ++i) {
+          const auto &record = trail.get(i);
+          for (int k = 0; k < record.length() && clear; ++k) {
+            const bool same_record = i + 1 == trail.length();
+            if (same_record && static_cast<float>(k) / last > fraction)
+              continue;
+            const float angle = math::fast_acos(
+                hs::clamp(math::dot(centre(record.get(k)), c), -1.0f, 1.0f));
+            clear = angle > reach;
+          }
+        }
+        if (!clear)
+          continue;
+        ++checked;
+        HS_EXPECT_TRUE(is_black(fx.get_pixel(x, y)));
+      }
+    }
+    HS_EXPECT_TRUE(checked > 0);
+  }
 };
 
 /**
