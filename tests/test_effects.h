@@ -617,6 +617,9 @@ inline int run_effects_tests() {
   run_case(test_voronoi_axes_use_uniform_sampler);
   run_case(test_voronoi_segment_render_matches_full_frame);
   run_case(test_voronoi_instantaneous_render_pins);
+  run_case(test_voronoi_exact_where_endpoint_winners_differ);
+  run_case(test_voronoi_temporal_toggle);
+  run_case(test_voronoi_reseed_resets_history);
   run_case(test_sh_field_blend_endpoints_and_frame);
   run_case(test_sh_field_stays_inside_unit_range);
   run_case(test_sh_polarity_split_and_ao_shaping);
@@ -714,6 +717,7 @@ inline int run_effects_tests() {
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
     run_case(test_voronoi_union_candidates_cover_nearest);
+    run_case(test_voronoi_column_time_matches_brute_force);
     run_case(test_sh_pullback_matches_direct_colorize);
     run_case(test_sh_morph_chain_rearms);
     run_case(test_gs_evolution_stays_bounded);

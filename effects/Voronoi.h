@@ -13,6 +13,7 @@
 
 #include "core/platform/effect_identity.h"
 #include "core/engine/engine.h"
+#include "core/render/temporal.h"
 #include "core/spatial/kd_tree.h"
 
 #include <cmath>
@@ -63,6 +64,7 @@ public:
     register_param("Border Thick", &params.border_thickness, 0.0f, 0.1f);
 
     sites_buffer.bind(persistent_arena, MAX_SITES);
+    previous_positions.bind(persistent_arena, MAX_SITES);
     seed_sites();
   }
 
@@ -70,13 +72,16 @@ public:
    * @brief Animates the sites, builds a per-frame KD-tree, and shades each
    *        pixel by its nearest site (with edge sharpening and optional
    *        borders).
+   * @details With column-time sampling, each column shades the sites at its
+   * sweep fraction of the frame's spin from their previous positions.
    */
   void draw_frame() override {
     Canvas canvas(*this);
 
     {
       HS_PROFILE(vo_animate);
-      if (active_site_count() != current_num_sites)
+      const bool RESEEDED = active_site_count() != current_num_sites;
+      if (RESEEDED)
         seed_sites();
 
       float s = logf(params.speed + 1.0f) * SITE_SPIN_RADIANS;
@@ -85,12 +90,21 @@ public:
       const float half_cos = cosf(s / 2);
       const float half_sin = sinf(s / 2);
 
+      previous_positions.clear();
       for (size_t i = 0; i < sites_buffer.size(); ++i) {
         auto &site = sites_buffer[i];
+        previous_positions.push_back(site.pos);
         // Renormalize: rotate() drifts |pos| off the unit sphere, and the
         // max-dot nearest search and border acosf(dot) need unit sites.
         const math::Quaternion q(half_cos, half_sin * site.axis);
         site.pos = math::rotate(site.pos, q).normalized();
+      }
+      frame_spin = s;
+      if (RESEEDED || !history_primed) {
+        for (size_t i = 0; i < sites_buffer.size(); ++i)
+          previous_positions[i] = sites_buffer[i].pos;
+        frame_spin = 0.0f;
+        history_primed = true;
       }
     }
 
@@ -109,18 +123,19 @@ public:
                                          positions, sites_buffer.size()));
     }();
 
+    if (Temporal::temporal_sampling_enabled() && frame_spin != 0.0f) {
+      draw_temporal(canvas, tree);
+      return;
+    }
+
     // One node for all per-pixel work (corner pre-pass + shading loop); never
     // scope inside the per-pixel loop.
     HS_PROFILE(vo_shade);
 
     // Coarse-grid coherence: classify the nearest pair once per block corner,
     // then shade the block's pixels from its corners' candidate sites by an
-    // exact top-2 dot scan. A cell missed by all four corners is dropped. The
-    // block shrinks with the site count, as cell size falls ~1/sqrt(n).
-    const float cell_px = (2.0f * H / math::PI_F) /
-                          sqrtf(static_cast<float>(sites_buffer.size()));
-    const int BLOCK = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
-                                COHERENCE_BLOCK);
+    // exact top-2 dot scan. A cell missed by all four corners is dropped.
+    const int BLOCK = coherence_block();
     if (BLOCK == 1) {
       Scan::Shader::draw<W, H>(canvas, [&](const math::Vector &p) {
         const auto nearest = tree.nearest(p, 2);
@@ -162,6 +177,264 @@ private:
   // Test seam: reaches the seeded sites and the coarse-grid tuning constants.
   friend struct ::hs_test::effects_tests::VoronoiWhiteBox;
 
+  static constexpr int SITES_PER_CORNER = 2;
+  /// Corner sites classified at both endpoints, previous first.
+  static constexpr int TEMPORAL_SITES_PER_CORNER = 2 * SITES_PER_CORNER;
+  /// Margin on the drift bound for rounding in the spin and renormalization.
+  static constexpr float DRIFT_SLACK = 1e-5f;
+
+  /**
+   * @brief Coarse-coherence block edge for the active site count.
+   * @return Block edge in pixels; it shrinks as cell size falls ~1/sqrt(n).
+   */
+  int coherence_block() const {
+    const float cell_px = (2.0f * H / math::PI_F) /
+                          sqrtf(static_cast<float>(sites_buffer.size()));
+    return hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
+                     COHERENCE_BLOCK);
+  }
+
+  /** @brief Site motion at one column's sweep fraction of the frame. */
+  struct ColumnMotion {
+    float cosine;       ///< Cosine of the spin so far.
+    float sine;         ///< Sine of the spin so far.
+    const KDTree *tree; ///< Tree over the endpoint nearer in time.
+    float drift;        ///< Bound on a site's distance from its tree position.
+    const math::Vector *at; ///< Every site at that time, once filled.
+  };
+
+  /**
+   * @brief Site motion at a column's sweep time.
+   * @param x Absolute canvas column.
+   * @param current Tree over the current positions.
+   * @param previous Tree over the previous positions.
+   * @return The column's motion.
+   */
+  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &current,
+                                             const KDTree &previous) const {
+    const float FRACTION = Temporal::sweep_fraction(x, W);
+    const float ANGLE = FRACTION * frame_spin;
+    const bool EARLY = FRACTION < 0.5f;
+    return {cosf(ANGLE), sinf(ANGLE), EARLY ? &previous : &current,
+            (EARLY ? FRACTION : 1.0f - FRACTION) * fabsf(frame_spin) +
+                DRIFT_SLACK,
+            nullptr};
+  }
+
+  /**
+   * @brief Fills every site's position at a column's time.
+   * @param motion The column's site motion.
+   * @param out One position per site.
+   */
+  __attribute__((always_inline)) void fill_positions(const ColumnMotion &motion,
+                                                     math::Vector *out) const {
+    for (size_t i = 0; i < sites_buffer.size(); ++i)
+      out[i] =
+          position_at(static_cast<uint16_t>(i), motion.cosine, motion.sine);
+  }
+
+  /**
+   * @brief Position of a site part way through the frame's spin.
+   * @param i Site index.
+   * @param cosine Cosine of the spin so far.
+   * @param sine Sine of the spin so far.
+   * @return The previous position rotated about the site's axis.
+   */
+  __attribute__((always_inline)) math::Vector
+  position_at(uint16_t i, float cosine, float sine) const {
+    const math::Vector &from = previous_positions[i];
+    const math::Vector &axis = sites_buffer[i].axis;
+    return from * cosine + math::cross(axis, from) * sine +
+           axis * (math::dot(axis, from) * (1.0f - cosine));
+  }
+
+  /**
+   * @brief Shades a pixel from the exact nearest pair at a column's time.
+   * @param p Pixel direction.
+   * @param motion The column's site motion, with its positions filled.
+   * @return The cell color.
+   */
+  __attribute__((always_inline)) Color4
+  shade_exact(const math::Vector &p, const ColumnMotion &motion) const {
+    const math::Vector *at = motion.at;
+    const auto nearest =
+        motion.tree->nearest_moved(p, 2, motion.drift, [&](uint16_t i) {
+          return math::distance_squared(at[i], p);
+        });
+    const uint16_t i0 = nearest[0].original_index;
+    const float d0 = math::dot(p, at[i0]);
+    if (nearest.size() < 2)
+      return shade(i0, d0, i0, NO_DOT);
+    const uint16_t i1 = nearest[1].original_index;
+    return shade(i0, d0, i1, math::dot(p, at[i1]));
+  }
+
+  /**
+   * @brief Whether a block's corners have the same set of nearest sites at
+   *        both endpoints.
+   * @param corners The block's corner cells, previous endpoint first.
+   * @return False when a site enters or leaves the corners' nearest sites.
+   */
+  __attribute__((always_inline)) static bool
+  same_winners(const std::array<
+               const Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER> *, 4>
+                   &corners) {
+    for (const auto *a : corners) {
+      bool before = false, after = false;
+      for (const auto *b : corners) {
+        before |= (*a)[0] == (*b)[SITES_PER_CORNER];
+        after |= (*a)[SITES_PER_CORNER] == (*b)[0];
+      }
+      if (!before || !after)
+        return false;
+    }
+    return true;
+  }
+
+  struct TemporalColumn;
+
+  /** @brief One block's shader at a column's time. */
+  struct TemporalBlock {
+    TemporalColumn *column;        ///< The column being shaded.
+    const math::Vector *positions; ///< Candidate positions at that time.
+    const math::Vector *before;    ///< Candidate positions at the frame start.
+    const math::Vector *after;     ///< Candidate positions at the frame end.
+    const uint16_t *idx;           ///< Candidate site indices.
+    uint8_t n;                     ///< Candidate count.
+    bool check;                    ///< Whether endpoint winners may differ.
+
+    /** @brief Shades one pixel of the block.
+     *  @param p Pixel direction.
+     *  @return The cell color. */
+    __attribute__((always_inline)) Color4 operator()(const math::Vector &p) {
+      float d0 = NO_DOT, d1 = NO_DOT;
+      uint8_t b0 = 0, b1 = 0;
+      for (uint8_t i = 0; i < n; ++i) {
+        const float d = math::dot(p, positions[i]);
+        if (d > d0) {
+          d1 = d0;
+          b1 = b0;
+          d0 = d;
+          b0 = i;
+        } else if (d > d1) {
+          d1 = d;
+          b1 = i;
+        }
+      }
+      if (check && winner(p, before) != winner(p, after))
+        return column->shade_exact(p);
+      return column->effect->shade(idx[b0], d0, idx[b1], d1);
+    }
+
+    /** @brief Nearest candidate at one endpoint.
+     *  @param p Pixel direction.
+     *  @param at Candidate positions at that endpoint.
+     *  @return Candidate slot. */
+    __attribute__((always_inline)) uint8_t
+    winner(const math::Vector &p, const math::Vector *at) const {
+      float best = NO_DOT;
+      uint8_t slot = 0;
+      for (uint8_t i = 0; i < n; ++i) {
+        const float d = math::dot(p, at[i]);
+        if (d > best) {
+          best = d;
+          slot = i;
+        }
+      }
+      return slot;
+    }
+  };
+
+  /** @brief One column's block preparation. */
+  struct TemporalColumn {
+    const Voronoi *effect;   ///< Sites and shading.
+    ColumnMotion motion;     ///< The column's site motion.
+    math::Vector *positions; ///< Scratch for one block's candidates, three
+                             ///< times its size.
+    math::Vector *every;     ///< Scratch for every site's position.
+
+    /**
+     * @brief Prepares a block's candidates at the column's time.
+     * @param sites The block's corner cells and their union.
+     * @return The block's shader, which queries every site where a pixel's
+     * nearest candidate differs between the endpoints.
+     */
+    __attribute__((always_inline)) TemporalBlock
+    block(const Scan::Shader::BlockSites<TEMPORAL_SITES_PER_CORNER> &sites) {
+      constexpr int SLOTS = 4 * TEMPORAL_SITES_PER_CORNER;
+      const bool CHECK = !same_winners(sites.corners);
+      math::Vector *before = positions + SLOTS;
+      math::Vector *after = before + SLOTS;
+      for (uint8_t i = 0; i < sites.n; ++i) {
+        const uint16_t SITE = sites.idx[i];
+        positions[i] =
+            motion.at ? motion.at[SITE]
+                      : effect->position_at(SITE, motion.cosine, motion.sine);
+        if (CHECK) {
+          before[i] = effect->previous_positions[SITE];
+          after[i] = effect->sites_buffer[SITE].pos;
+        }
+      }
+      return {this, positions, before, after, sites.idx, sites.n, CHECK};
+    }
+
+    /** @brief Shades a pixel from the exact nearest pair at the column's time.
+     *  @param p Pixel direction.
+     *  @return The cell color. */
+    HS_HOT_FLASH_MEMBER Color4 shade_exact(const math::Vector &p) {
+      if (!motion.at) {
+        effect->fill_positions(motion, every);
+        motion.at = every;
+      }
+      return effect->shade_exact(p, motion);
+    }
+  };
+
+  /**
+   * @brief Shades each column at its sweep time between the endpoints.
+   * @param canvas Destination canvas.
+   * @param tree Tree over the current positions.
+   */
+  HS_HOT_FLASH_MEMBER void draw_temporal(Canvas &canvas, const KDTree &tree) {
+    KDTree previous;
+    {
+      HS_PROFILE(vo_kdtree);
+      previous =
+          KDTree(scratch_arena_a,
+                 std::span<const math::Vector>(previous_positions.data(),
+                                               previous_positions.size()));
+    }
+    HS_PROFILE(vo_shade);
+    const int BLOCK = coherence_block();
+    math::Vector *every =
+        scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
+    if (BLOCK == 1) {
+      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
+        ColumnMotion motion = column_motion(x, tree, previous);
+        fill_positions(motion, every);
+        motion.at = every;
+        return [this, motion](const math::Vector &p) {
+          return shade_exact(p, motion);
+        };
+      });
+      return;
+    }
+    math::Vector *positions = scratch_arena_a.allocate_n<math::Vector>(
+        3 * 4 * TEMPORAL_SITES_PER_CORNER);
+    Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
+        canvas, BLOCK, scratch_arena_a,
+        [&](const math::Vector &p) {
+          const auto BEFORE = nearest_pair(previous, p);
+          const auto AFTER = nearest_pair(tree, p);
+          return Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>{
+              BEFORE[0], BEFORE[1], AFTER[0], AFTER[1]};
+        },
+        [&](int x) {
+          return TemporalColumn{this, column_motion(x, tree, previous),
+                                positions, every};
+        });
+  }
+
   /**
    * @brief One Voronoi seed: position on the unit sphere, the rotation axis it
    *        spins about, and the cell fill color.
@@ -199,6 +472,19 @@ private:
   /** @brief Below any unit-vector dot product, so it doubles as the "no
       candidate" marker the top-2 scan hands to shade(). */
   static constexpr float NO_DOT = -2.0f;
+
+  /**
+   * @brief Nearest and second-nearest sites at a sample point.
+   * @param tree KD-tree over one endpoint's site positions.
+   * @param p Sample point on the unit sphere.
+   * @return Nearest site first; both name it when only one site exists.
+   */
+  __attribute__((always_inline)) static std::array<uint16_t, SITES_PER_CORNER>
+  nearest_pair(const KDTree &tree, const math::Vector &p) {
+    auto knn = tree.nearest(p, 2);
+    const uint16_t a = knn[0].original_index;
+    return {a, knn.size() > 1 ? knn[1].original_index : a};
+  }
 
   /**
    * @brief Canonical (order-independent) nearest-pair identity at a sample
@@ -260,7 +546,6 @@ private:
     return c;
   }
 
-  static constexpr int SITES_PER_CORNER = 2;
   using CandSet = Scan::Shader::BlockCandidates<SITES_PER_CORNER>;
 
   // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
@@ -276,19 +561,25 @@ private:
   static constexpr size_t WALKER_BYTES =
       Scan::Shader::block_coherent_scratch_bytes<W, H, SITES_PER_CORNER,
                                                  COHERENCE_BLOCK_MIN>();
+  static constexpr size_t TEMPORAL_WALKER_BYTES =
+      Scan::Shader::block_columns_scratch_bytes<
+          W, H, TEMPORAL_SITES_PER_CORNER, std::max(2, COHERENCE_BLOCK_MIN)>() +
+      (3 * 4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector);
   static constexpr size_t SCRATCH_HIGH_WATER =
-      POSITIONS_BYTES + KD_NODES_BYTES +
-      (KD_BUILD_SCRATCH_BYTES > WALKER_BYTES ? KD_BUILD_SCRATCH_BYTES
-                                             : WALKER_BYTES);
+      std::max(POSITIONS_BYTES + KD_NODES_BYTES +
+                   std::max(KD_BUILD_SCRATCH_BYTES, WALKER_BYTES),
+               POSITIONS_BYTES + 2 * KD_NODES_BYTES +
+                   std::max(KD_BUILD_SCRATCH_BYTES, TEMPORAL_WALKER_BYTES));
   static_assert(
       SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
       "Voronoi scratch_arena_a budget too small for MAX_SITES positions + "
       "KD-tree + coarse-grid cells; raise SCRATCH_A_BYTES or lower MAX_SITES / "
       "coarsen COHERENCE_BLOCK");
 
-  // The MAX_SITES sites buffer lives in the persistent arena.
+  // The sites and their previous positions live in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
-      size_t(MAX_SITES) * sizeof(Site) + alignof(Site);
+      size_t(MAX_SITES) * sizeof(Site) + alignof(Site) +
+      size_t(MAX_SITES) * sizeof(math::Vector) + alignof(math::Vector);
   static_assert(FOOTPRINT_BYTES <=
                     ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
                 "Voronoi persistent footprint exceeds its device partition; "
@@ -297,6 +588,10 @@ private:
   int current_num_sites = 0;      /**< Count currently seeded; re-seeds (clear +
                                    refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
+  /// Site positions at the previous frame's end, parallel to `sites_buffer`.
+  ArenaVector<math::Vector> previous_positions;
+  float frame_spin = 0.0f;     ///< Spin from the previous positions, radians.
+  bool history_primed = false; ///< Whether a previous endpoint was drawn.
 
   /**
    * @brief Returns the active site count from the "Num Sites" slider.

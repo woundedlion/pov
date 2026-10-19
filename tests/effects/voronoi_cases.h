@@ -50,6 +50,29 @@ struct VoronoiWhiteBox {
     v.params.sharpness = 0.0f;
     v.params.border_thickness = 0.0f;
   }
+
+  /** @brief Installs sites spinning about their own axes, index-coded. */
+  template <int W, int H>
+  static void
+  set_moving_sites(Voronoi<W, H> &v, std::span<const math::Vector> sites,
+                   std::span<const math::Vector> axes, float speed) {
+    set_sites(v, sites);
+    for (size_t i = 0; i < sites.size(); ++i)
+      v.sites_buffer[i].axis = axes[i];
+    v.params.speed = speed;
+  }
+
+  /** @brief Sets the spin rate slider without reseeding. */
+  template <int W, int H> static void set_speed(Voronoi<W, H> &v, float speed) {
+    v.params.speed = speed;
+  }
+
+  /** @brief Spin of one frame at a speed, by the effect's mapping.
+   *  @param speed Speed slider value.
+   *  @return Radians per frame. */
+  static float spin(float speed) {
+    return logf(speed + 1.0f) * VO::SITE_SPIN_RADIANS;
+  }
 };
 
 /**
@@ -165,10 +188,11 @@ inline void test_voronoi_union_candidates_cover_nearest() {
 
 /**
  * @brief Requires a Voronoi segment band to shade every pixel exactly as the
- *        full-canvas render does.
+ *        full-canvas render does, on column-time frames.
  * @details The coarse-coherence grid decides per block which sites reach a
  *          pixel's candidate union, so its phase must not follow the clip
- *          origin. The clipped edges cut through blocks.
+ *          origin. The clipped edges cut through blocks, and bands cross both
+ *          arm boundaries.
  */
 inline void test_voronoi_segment_render_matches_full_frame() {
   constexpr int W = DEFAULT_W;
@@ -180,8 +204,10 @@ inline void test_voronoi_segment_render_matches_full_frame() {
     effect.init();
     effect.set_margin(3);
     effect.set_clip(y0, y1, x0, x1);
-    effect.draw_frame();
-    effect.advance_display();
+    for (int frame = 0; frame < 3; ++frame) {
+      effect.draw_frame();
+      effect.advance_display();
+    }
     std::vector<Pixel> band;
     band.reserve(static_cast<size_t>(x1 - x0) * (y1 - y0));
     for (int y = y0; y < y1; ++y)
@@ -195,8 +221,9 @@ inline void test_voronoi_segment_render_matches_full_frame() {
   struct Band {
     int x0, x1, y0, y1;
   };
-  const Band bands[] = {
-      {0, 100, 0, H}, {100, W, 0, H}, {0, W, 50, H}, {37, 205, 11, 93}};
+  const Band bands[] = {{0, 100, 0, H},   {100, W, 0, H},
+                        {0, W, 50, H},    {37, 205, 11, 93},
+                        {140, 150, 0, H}, {W / 2 - 1, W / 2 + 1, 20, 30}};
 
   for (const Band &b : bands) {
     HS_CONTEXT("band", b.x0, b.y0);
@@ -267,4 +294,264 @@ inline void test_voronoi_instantaneous_render_pins() {
     HS_CONTEXT("scenario", static_cast<long long>(i));
     expect_render_pin(pins[i], RECORDED[i]);
   }
+}
+
+/** @brief Brute-force agreement of a render with the sites at column time. */
+struct VoronoiTimeMatch {
+  long matched = 0;         ///< Pixels drawn with a nearest site.
+  long total = 0;           ///< Pixels compared.
+  long moved = 0;           ///< Pixels whose nearest site at column time
+                            ///< differs from that at the frame's end.
+  float max_deficit = 0.0f; ///< Worst dot shortfall of a mismatched pixel.
+};
+
+/**
+ * @brief Compares rendered sites with an exhaustive search at each pixel's
+ *        column time.
+ * @tparam W,H Render resolution.
+ * @param effect Effect after draw_frame() and advance_display().
+ * @param from Site positions at the frame's start.
+ * @param axes Site spin axes.
+ * @param spin The frame's spin, radians.
+ * @param x0,x1,y0,y1 Compared pixel window.
+ * @return Match statistics; a pixel matches within 1e-5 of the best dot.
+ */
+template <int W, int H>
+inline VoronoiTimeMatch voronoi_time_match(const Voronoi<W, H> &effect,
+                                           std::span<const math::Vector> from,
+                                           std::span<const math::Vector> axes,
+                                           float spin, int x0, int x1, int y0,
+                                           int y1) {
+  VoronoiTimeMatch out;
+  std::vector<math::Vector> at(from.size()), end(from.size());
+  for (size_t i = 0; i < from.size(); ++i)
+    end[i] = math::rotate(from[i], math::make_rotation(axes[i], spin));
+  for (int x = x0; x < x1; ++x) {
+    const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
+    for (size_t i = 0; i < from.size(); ++i)
+      at[i] =
+          math::rotate(from[i], math::make_rotation(axes[i], FRACTION * spin));
+    for (int y = y0; y < y1; ++y) {
+      const math::Vector p = math::pixel_to_vector<W, H>(x, y);
+      size_t best = 0;
+      size_t best_end = 0;
+      for (size_t i = 1; i < from.size(); ++i) {
+        if (math::dot(p, at[i]) > math::dot(p, at[best]))
+          best = i;
+        if (math::dot(p, end[i]) > math::dot(p, end[best_end]))
+          best_end = i;
+      }
+      const Pixel rendered = effect.get_pixel(x, y);
+      const size_t site = rendered.r - 1u;
+      const bool ENCODED = rendered.r > 0 && rendered.g == 0 &&
+                           rendered.b == 0 && site < from.size();
+      const float DEFICIT =
+          ENCODED ? math::dot(p, at[best]) - math::dot(p, at[site]) : 4.0f;
+      ++out.total;
+      out.moved += best != best_end;
+      if (DEFICIT <= 1e-5f)
+        ++out.matched;
+      else
+        out.max_deficit = std::max(out.max_deficit, DEFICIT);
+    }
+  }
+  return out;
+}
+
+/** @brief Site positions of an effect. */
+template <int W, int H>
+inline std::vector<math::Vector> voronoi_positions(const Voronoi<W, H> &v) {
+  std::vector<math::Vector> out(VoronoiWhiteBox::site_count(v));
+  for (size_t i = 0; i < out.size(); ++i)
+    out[i] = VoronoiWhiteBox::site_position(v, i);
+  return out;
+}
+
+/** @brief Unit spin axes drawn from a fixed generator. */
+inline std::vector<math::Vector> voronoi_test_axes(size_t count) {
+  hs::Pcg32 rng(20261018u);
+  std::vector<math::Vector> axes(count);
+  for (auto &axis : axes) {
+    const float x = rand_uniform(rng, -1.0f, 1.0f);
+    const float y = rand_uniform(rng, -1.0f, 1.0f);
+    const float z = rand_uniform(rng, -1.0f, 1.0f);
+    axis = math::Vector(x, y, z).normalized();
+  }
+  return axes;
+}
+
+/**
+ * @brief Renders moving sites and checks each column against an exhaustive
+ *        search at its time, across the seam into the next frame.
+ * @tparam W,H Render resolution.
+ * @param sites Initial site positions.
+ * @param minimum Least fraction of pixels that must match.
+ * @param max_deficit Largest dot shortfall allowed on a mismatch.
+ */
+template <int W, int H>
+inline void check_voronoi_column_time(std::span<const math::Vector> sites,
+                                      double minimum, float max_deficit) {
+  using WB = VoronoiWhiteBox;
+  constexpr float SPEED = 100.0f;
+  reset_effect_globals();
+  Voronoi<W, H> effect;
+  effect.init();
+  const auto axes = voronoi_test_axes(sites.size());
+  WB::set_moving_sites(effect, sites, axes, SPEED);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto first = voronoi_positions(effect);
+  const auto primed =
+      voronoi_time_match<W, H>(effect, first, axes, 0.0f, 0, W, 0, H);
+  HS_EXPECT_GE(static_cast<double>(primed.matched) / primed.total, minimum);
+
+  auto from = first;
+  for (int frame = 0; frame < 2; ++frame) {
+    HS_CONTEXT("frame", frame);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto match = voronoi_time_match<W, H>(effect, from, axes,
+                                                WB::spin(SPEED), 0, W, 0, H);
+    HS_EXPECT_GT(match.moved, 0);
+    HS_EXPECT_GE(static_cast<double>(match.matched) / match.total, minimum);
+    HS_EXPECT_LE(match.max_deficit, max_deficit);
+    const auto end = voronoi_positions(effect);
+    for (size_t i = 0; i < from.size(); ++i)
+      HS_EXPECT_VEC(
+          math::rotate(from[i], math::make_rotation(axes[i], WB::spin(SPEED))),
+          end[i], 2e-6f);
+    from = end;
+  }
+}
+
+/** @brief Voronoi shades each column from its sites at the column's time. */
+inline void test_voronoi_column_time_matches_brute_force() {
+  const math::Vector octahedral[] = {
+      math::Vector(1, 0, 0),  math::Vector(-1, 0, 0), math::Vector(0, 1, 0),
+      math::Vector(0, -1, 0), math::Vector(0, 0, 1),  math::Vector(0, 0, -1),
+  };
+  check_voronoi_column_time<DEFAULT_W, DEFAULT_H>(octahedral, 1.0, 0.0f);
+  check_voronoi_column_time<SMALL_W, SMALL_H>(octahedral, 1.0, 0.0f);
+  constexpr int N = VoronoiWhiteBox::MAX_SITES;
+  static math::Vector fib[N];
+  for (int i = 0; i < N; ++i)
+    fib[i] = math::fib_spiral(N, /*eps=*/0.5f, i);
+  check_voronoi_column_time<DEFAULT_W, DEFAULT_H>(fib, 0.999, 0.005f);
+  check_voronoi_column_time<SMALL_W, SMALL_H>(fib, 1.0, 0.0f);
+}
+
+/**
+ * @brief A pixel whose nearest block candidate changes during the frame is
+ *        drawn from the exact nearest site at its time, even one no corner
+ *        names.
+ */
+inline void test_voronoi_exact_where_endpoint_winners_differ() {
+  using WB = VoronoiWhiteBox;
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
+  constexpr float SPEED = 100.0f;
+  constexpr int X0 = 80, Y0 = 64, BLOCK = 8;
+  const auto at = [](float x, float y) {
+    return math::pixel_to_vector<W, H>(x, y);
+  };
+  // Two sites hug each corner; the pair at (X0, Y0) swaps its nearest as the
+  // spin carries every site west. The last site is no corner's candidate.
+  const math::Vector sites[] = {
+      at(X0 - 0.2f, Y0),
+      at(X0 + 0.4f, Y0),
+      at(X0 + BLOCK, Y0 - 0.3f),
+      at(X0 + BLOCK, Y0 + 0.3f),
+      at(X0 - 0.3f, Y0 + BLOCK),
+      at(X0 + 0.3f, Y0 + BLOCK),
+      at(X0 + BLOCK - 0.3f, Y0 + BLOCK),
+      at(X0 + BLOCK + 0.3f, Y0 + BLOCK),
+      at(X0 + 1.5f, Y0 + 1.5f),
+  };
+  const std::vector<math::Vector> axes(std::size(sites), math::Y_AXIS);
+  reset_effect_globals();
+  Voronoi<W, H> effect;
+  effect.init();
+  WB::set_moving_sites(effect, std::span<const math::Vector>(sites), axes,
+                       0.0f);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto from = voronoi_positions(effect);
+  WB::set_speed(effect, SPEED);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto match = voronoi_time_match<W, H>(
+      effect, from, axes, WB::spin(SPEED), X0, X0 + 1, Y0, Y0 + BLOCK);
+  HS_EXPECT_EQ(match.matched, match.total);
+  long hidden = 0;
+  for (int y = Y0; y < Y0 + BLOCK; ++y)
+    hidden += effect.get_pixel(X0, y).r == std::size(sites);
+  HS_EXPECT_GT(hidden, 0);
+}
+
+/** @brief Disabled sampling draws the current sites while history advances. */
+inline void test_voronoi_temporal_toggle() {
+  using WB = VoronoiWhiteBox;
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
+  constexpr float SPEED = 100.0f;
+  const math::Vector octahedral[] = {
+      math::Vector(1, 0, 0),  math::Vector(-1, 0, 0), math::Vector(0, 1, 0),
+      math::Vector(0, -1, 0), math::Vector(0, 0, 1),  math::Vector(0, 0, -1),
+  };
+  const auto axes = voronoi_test_axes(std::size(octahedral));
+  reset_effect_globals();
+  Voronoi<W, H> effect;
+  effect.init();
+  WB::set_moving_sites(effect, std::span<const math::Vector>(octahedral), axes,
+                       SPEED);
+  effect.draw_frame();
+  effect.advance_display();
+
+  Temporal::set_temporal_sampling_enabled(false);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto held = voronoi_positions(effect);
+  const auto instantaneous =
+      voronoi_time_match<W, H>(effect, held, axes, 0.0f, 0, W, 0, H);
+  HS_EXPECT_EQ(instantaneous.matched, instantaneous.total);
+
+  Temporal::set_temporal_sampling_enabled(true);
+  effect.draw_frame();
+  effect.advance_display();
+  const auto resumed =
+      voronoi_time_match<W, H>(effect, held, axes, WB::spin(SPEED), 0, W, 0, H);
+  HS_EXPECT_EQ(resumed.matched, resumed.total);
+  HS_EXPECT_GT(resumed.moved, 0);
+}
+
+/**
+ * @brief Renders the frame that reseeds Voronoi.
+ * @param enabled Column-time sampling during that frame.
+ * @return The displayed frame.
+ */
+inline std::vector<Pixel> voronoi_reseed_frame(bool enabled) {
+  reset_effect_globals();
+  Voronoi<DEFAULT_W, DEFAULT_H> effect;
+  effect.init();
+  for (int frame = 0; frame < 2; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  HS_EXPECT_EQ(effect.updateParameter("Num Sites", 12.0f),
+               ParamSetResult::APPLIED);
+  Temporal::set_temporal_sampling_enabled(enabled);
+  effect.draw_frame();
+  effect.advance_display();
+  Temporal::set_temporal_sampling_enabled(true);
+  std::vector<Pixel> out;
+  capture_frame<DEFAULT_W, DEFAULT_H>(effect, out);
+  return out;
+}
+
+/** @brief A reseed draws its first frame at the new sites without motion. */
+inline void test_voronoi_reseed_resets_history() {
+  const auto temporal = voronoi_reseed_frame(true);
+  const auto instantaneous = voronoi_reseed_frame(false);
+  HS_EXPECT_TRUE(compare_buffers(instantaneous, temporal).exact());
+  HS_EXPECT_GT(count_lit(temporal), size_t{0});
 }
