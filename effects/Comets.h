@@ -179,6 +179,9 @@ public:
 
   /**
    * @brief Advances and renders one frame of the comet.
+   * @details Each column sees the world orientation at its sweep time, and a
+   * sub-pose recorded this frame lights only the columns swept after it was
+   * reached.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -205,18 +208,35 @@ public:
       return;
 
     HS_PROFILE(cm_draw_trail);
-    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
-      Color4 color = baked_palette.get(t);
-      color.alpha *= math::quintic_kernel(t) * params.alpha;
-      auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-        f.color = color;
-      };
-
-      math::Vector v_local = math::rotate(node->v, q);
-      math::Vector v_final = orientation.orient(v_local);
-      HS_PROFILE_DEEP(cm_point_scan);
-      Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
-                              fragment_shader, params.debug_bb);
+    ScratchScope column_guard(scratch_arena_a);
+    Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    // The newest record's sub-poses are reached over this frame.
+    const auto &newest = node->trail.get(node->trail.length() - 1);
+    const math::Quaternion *newest_begin = &newest.get(0);
+    const int newest_last = newest.length() - 1;
+    const bool births = Temporal::temporal_sampling_enabled();
+    deep_tween_frames(node->trail, [&](const math::Quaternion *qs,
+                                       const float *ts, int count) {
+      const bool born = births && newest_last > 0 && qs >= newest_begin &&
+                        qs <= newest_begin + newest_last;
+      for (int k = 0; k < count; ++k) {
+        const float t = ts[k];
+        Color4 color = baked_palette.get(t);
+        color.alpha *= math::quintic_kernel(t) * params.alpha;
+        auto fragment_shader = [&](const math::Vector &, Fragment &f) {
+          f.color = color;
+        };
+        column_time.birth =
+            born ? static_cast<float>(qs - newest_begin + k) / newest_last
+                 : 0.0f;
+        math::Vector v_local = math::rotate(node->v, qs[k]);
+        math::Vector v_final = orientation.orient(v_local);
+        HS_PROFILE_DEEP(cm_point_scan);
+        Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
+                                fragment_shader, params.debug_bb);
+      }
     });
   }
 
