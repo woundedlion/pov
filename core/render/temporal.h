@@ -147,7 +147,31 @@ struct ColumnTime {
   float sweep = 0.0f;
   /// Earliest frame fraction drawn; columns lit before it are left untouched.
   float birth = 0.0f;
+  /// Rotation vector, axis times angle, carrying the scanned shape from where
+  /// it stood at the previous endpoint to the current one. A Scan::rasterize
+  /// column lit at fraction `u` evaluates the shape along its direction
+  /// rotated by `drift * (1 - u)`; at most MAX_DRIFT_ANGLE long.
+  math::Vector drift = math::Vector(0.0f, 0.0f, 0.0f);
 };
+
+/// Longest drift a scan evaluates, radians.
+inline constexpr float MAX_DRIFT_ANGLE = 0.25f;
+
+/**
+ * @brief Rotates a direction by a short rotation vector.
+ * @param p Direction to rotate.
+ * @param rotation Axis times angle, at most MAX_DRIFT_ANGLE long.
+ * @return @p p rotated, by Rodrigues' formula with series coefficients.
+ */
+__attribute__((always_inline)) inline math::Vector
+rotate_short(const math::Vector &p, const math::Vector &rotation) {
+  const float angle_sq = math::dot(rotation, rotation);
+  // Series for sin(a) / a and (1 - cos(a)) / a^2.
+  const float sine = 1.0f - angle_sq * (1.0f / 6.0f - angle_sq / 120.0f);
+  const float versine = 0.5f - angle_sq * (1.0f / 24.0f - angle_sq / 720.0f);
+  const math::Vector across = math::cross(rotation, p);
+  return p + across * sine + math::cross(rotation, across) * versine;
+}
 
 /** @brief First-arm column lit at a sweep fraction.
  * @param fraction A column's sweep fraction, as sweep_fraction() returns it.
