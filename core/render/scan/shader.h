@@ -207,7 +207,8 @@ public:
    * @tparam Prepare Callable taking an absolute column and returning its shader.
    * @param canvas Destination canvas.
    * @param prepare Prepares a shader accepting a unit sphere direction or
-   * sine and cosine of the row polar angle. */
+   * sine and cosine of the row polar angle, and returning Color4 or a Pixel
+   * already premultiplied by its alpha. */
   template <int W, int H, typename Prepare>
   HS_HOT_FLASH_MEMBER static void draw_columns(Canvas &canvas,
                                                Prepare &&prepare) {
@@ -222,7 +223,7 @@ public:
       const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
       for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
         const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-        const Color4 COLOR = [&]() {
+        const auto COLOR = [&]() {
           if constexpr (std::is_invocable_v<decltype(shader) &, float, float>)
             return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
           else {
@@ -232,7 +233,10 @@ public:
             return shader(VIEW);
           }
         }();
-        canvas(x, y) = COLOR.color * COLOR.alpha;
+        if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
+          canvas(x, y) = COLOR;
+        else
+          canvas(x, y) = COLOR.color * COLOR.alpha;
       }
     });
   }
@@ -425,6 +429,86 @@ public:
     uint8_t n;               ///< Number of valid entries.
   };
 
+  /** @brief A block's four corner cells and their deduped site union. */
+  template <size_t K> struct BlockSites {
+    static_assert(K > 0 && 4 * K <= UINT8_MAX,
+                  "block sites require 1..63 sites per corner");
+    /// Corners in (x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1) order.
+    std::array<const BlockCell<K> *, 4> corners;
+    uint16_t idx[4 * K]; ///< Distinct site indices; first `n` valid.
+    uint8_t n;           ///< Number of valid entries.
+  };
+
+private:
+  /** @brief Canvas-anchored block corners classified over the render clip. */
+  template <size_t K> struct BlockGrid {
+    int block;           ///< Block edge in pixels.
+    int gx0;             ///< Column of corner 0.
+    int gy0;             ///< Row of corner 0.
+    int nbx;             ///< Corner columns.
+    int nby;             ///< Corner rows.
+    int gap_begin;       ///< First block column a wrapped clip skips.
+    int gap_end;         ///< Block column after the wrapped clip's gap.
+    BlockCell<K> *cells; ///< Corner cells, row-major; null when empty.
+
+    /** @brief Whether block column @p jx lies in the wrapped clip's gap.
+     *  @param jx Block column.
+     *  @return True when the clip skips the block. */
+    bool skips(int jx) const { return jx >= gap_begin && jx < gap_end; }
+  };
+
+  /**
+   * @brief Classifies the block corners covering the render clip.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam K Sites classified per corner.
+   * @param cr Render clip.
+   * @param block Positive block edge in pixels.
+   * @param scratch Arena for the corner cells.
+   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @return The classified grid; `cells` is null when the clip is empty.
+   */
+  template <int W, int H, size_t K, typename ClassifyFn>
+  __attribute__((always_inline)) static BlockGrid<K>
+  classify_block_grid(const ClipRegion &cr, int block, Arena &scratch,
+                      ClassifyFn &classify_corner) {
+    HS_CHECK(block > 0, "block-coherent shader requires a positive block size");
+    const auto columns = cr.x_clip();
+    const int x0 = columns.active && !columns.wrap ? columns.rs : 0;
+    const int x1 = columns.active && !columns.wrap ? columns.re : W;
+    const int y0 = cr.render_y_start();
+    const int y1 = cr.render_y_end();
+    BlockGrid<K> grid{};
+    if (x1 <= x0 || y1 <= y0)
+      return grid;
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const int B = block;
+    grid.block = B;
+    // Canvas-anchored corners give each pixel the same candidates in every band.
+    grid.gx0 = (x0 / B) * B;
+    grid.gy0 = (y0 / B) * B;
+    grid.nbx = (x1 - 1 - grid.gx0) / B + 2; // corner columns spanning [x0, x1)
+    grid.nby = (y1 - 1 - grid.gy0) / B + 2; // corner rows spanning    [y0, y1)
+    grid.gap_begin =
+        columns.active && columns.wrap ? (columns.re + B - 1) / B : grid.nbx;
+    grid.gap_end = columns.active && columns.wrap ? columns.rs / B : grid.nbx;
+    grid.cells = scratch.allocate_n<BlockCell<K>>(grid.nbx * grid.nby);
+    // End corners clamp to the last canvas pixel, independent of the clip.
+    auto corner_x = [&](int j) { return std::min(grid.gx0 + j * B, W - 1); };
+    auto corner_y = [&](int k) { return std::min(grid.gy0 + k * B, H - 1); };
+
+    for (int k = 0; k < grid.nby; ++k)
+      for (int j = 0; j < grid.nbx; ++j) {
+        if (j > grid.gap_begin && j < grid.gap_end)
+          continue;
+        grid.cells[k * grid.nbx + j] = classify_corner(
+            math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+      }
+    return grid;
+  }
+
+public:
   /** @brief Maximum corner-grid and candidate-row bytes at a minimum block size.
    * @details Excludes caller-owned site positions and any arena alignment pad.
    * @tparam W Canvas width in pixels.
@@ -440,6 +524,23 @@ public:
     constexpr size_t ROWS = (H - 1) / MIN_BLOCK + 2;
     return COLS * ROWS * sizeof(BlockCell<K>) +
            (COLS - 1) * sizeof(BlockCandidates<K>);
+  }
+
+  /** @brief Maximum draw_block_columns() scratch at a minimum block size.
+   * @details Excludes any arena alignment pad.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam K Sites classified per corner.
+   * @tparam MIN_BLOCK Minimum block edge, in pixels.
+   * @return Scratch byte count.
+   */
+  template <int W, int H, size_t K, int MIN_BLOCK>
+  static constexpr size_t block_columns_scratch_bytes() {
+    static_assert(W > 0 && H > 0 && MIN_BLOCK > 0);
+    constexpr size_t COLS = (W - 1) / MIN_BLOCK + 2;
+    constexpr size_t ROWS = (H - 1) / MIN_BLOCK + 2;
+    return COLS * ROWS * sizeof(BlockCell<K>) +
+           (ROWS - 1) * sizeof(BlockSites<K>);
   }
 
   /**
@@ -460,47 +561,25 @@ public:
   draw_block_coherent(Canvas &canvas, int block, const math::Vector *positions,
                       Arena &scratch, ClassifyFn &&classify_corner,
                       ShadeFn &&shade_candidates) {
-    HS_CHECK(block > 0, "block-coherent shader requires a positive block size");
     check_canvas_dims<W, H>(canvas);
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
-    const auto columns = cr.x_clip();
-    const int x0 = columns.active && !columns.wrap ? columns.rs : 0;
-    const int x1 = columns.active && !columns.wrap ? columns.re : W;
-    const int y0 = cr.render_y_start();
-    const int y1 = cr.render_y_end();
-    if (x1 <= x0 || y1 <= y0)
+    const BlockGrid<K> grid =
+        classify_block_grid<W, H, K>(cr, block, scratch, classify_corner);
+    if (!grid.cells)
       return;
-    if (!math::TrigLUT<W, H>::initialized)
-      math::TrigLUT<W, H>::init();
-    const int B = block;
-    // Canvas-anchored corners give each pixel the same candidates in every band.
-    const int gx0 = (x0 / B) * B;
-    const int gy0 = (y0 / B) * B;
-    const int nbx = (x1 - 1 - gx0) / B + 2; // corner columns spanning [x0, x1)
-    const int nby = (y1 - 1 - gy0) / B + 2; // corner rows spanning    [y0, y1)
-    const int GAP_BEGIN =
-        columns.active && columns.wrap ? (columns.re + B - 1) / B : nbx;
-    const int GAP_END = columns.active && columns.wrap ? columns.rs / B : nbx;
-    BlockCell<K> *cells = scratch.allocate_n<BlockCell<K>>(nbx * nby);
-    // End corners clamp to the last canvas pixel, independent of the clip.
-    auto corner_x = [&](int j) { return std::min(gx0 + j * B, W - 1); };
-    auto corner_y = [&](int k) { return std::min(gy0 + k * B, H - 1); };
-
-    for (int k = 0; k < nby; ++k)
-      for (int j = 0; j < nbx; ++j) {
-        if (j > GAP_BEGIN && j < GAP_END)
-          continue;
-        cells[k * nbx + j] = classify_corner(
-            math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
-      }
+    const int B = grid.block;
+    const int gx0 = grid.gx0;
+    const int gy0 = grid.gy0;
+    const int nbx = grid.nbx;
+    const BlockCell<K> *cells = grid.cells;
 
     // One candidate set per block column, rebuilt on each block-row change.
     const int nblk = nbx - 1;
     BlockCandidates<K> *cands = scratch.allocate_n<BlockCandidates<K>>(nblk);
     auto build_candidate_row = [&](int ky) {
       for (int jx = 0; jx < nblk; ++jx) {
-        if (jx >= GAP_BEGIN && jx < GAP_END)
+        if (grid.skips(jx))
           continue;
         BlockCandidates<K> &cs = cands[jx];
         cs.n = 0;
@@ -535,6 +614,84 @@ public:
             last_ky = ky;
           }
         });
+  }
+
+  /**
+   * @brief Shades block-coherent candidates column by column.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam K Sites classified per corner.
+   * @param canvas Destination canvas.
+   * @param block Positive block edge in pixels; corners anchor to the canvas.
+   * @param scratch Arena for the corner grid and one block column's site
+   * unions. The caller owns its scope.
+   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @param prepare_column Callable (int x) returning a column object whose
+   * `block(const BlockSites<K>&)` returns the block's shader, a callable
+   * (const Vector&) returning Color4 or a premultiplied Pixel.
+   * @details Corners and unions are those of draw_block_coherent(). Each
+   * clipped column is prepared once, then its blocks are prepared and shaded
+   * top to bottom.
+   */
+  template <int W, int H, size_t K, typename ClassifyFn, typename PrepareFn>
+  HS_O3_FN __attribute__((always_inline)) static void
+  draw_block_columns(Canvas &canvas, int block, Arena &scratch,
+                     ClassifyFn &&classify_corner, PrepareFn &&prepare_column) {
+    check_canvas_dims<W, H>(canvas);
+    const auto &cr = canvas.clip();
+    check_lut_domain<W, H>(cr);
+    const BlockGrid<K> grid =
+        classify_block_grid<W, H, K>(cr, block, scratch, classify_corner);
+    if (!grid.cells)
+      return;
+    const int B = grid.block;
+    const int y0 = cr.render_y_start();
+    const int y1 = cr.render_y_end();
+    const int nblk = grid.nby - 1;
+    BlockSites<K> *sites = scratch.allocate_n<BlockSites<K>>(nblk);
+    auto build_block_column = [&](int jx) {
+      for (int ky = 0; ky < nblk; ++ky) {
+        BlockSites<K> &set = sites[ky];
+        const BlockCell<K> *row = grid.cells + ky * grid.nbx + jx;
+        set.corners = {row, row + 1, row + grid.nbx, row + grid.nbx + 1};
+        set.n = 0;
+        for (const BlockCell<K> *corner : set.corners)
+          for (uint16_t site : *corner) {
+            bool seen = false;
+            for (uint8_t i = 0; i < set.n; ++i)
+              seen |= set.idx[i] == site;
+            if (!seen)
+              set.idx[set.n++] = site;
+          }
+      }
+    };
+
+    int built = -1;
+    walk_clip_columns<W>(cr.x_clip(), [&](int x) {
+      const int jx = (x - grid.gx0) / B;
+      if (jx != built) {
+        build_block_column(jx);
+        built = jx;
+      }
+      auto column = prepare_column(x);
+      const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
+      const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
+      for (int ky = 0; ky < nblk; ++ky) {
+        const int ROW_BEGIN = std::max(y0, grid.gy0 + ky * B);
+        const int ROW_END = std::min(y1, grid.gy0 + (ky + 1) * B);
+        auto shade = column.block(sites[ky]);
+        for (int y = ROW_BEGIN; y < ROW_END; ++y) {
+          const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+          const auto COLOR = shade(math::Vector(SIN_PHI * COS_THETA,
+                                                math::TrigLUT<W, H>::cos_phi[y],
+                                                SIN_PHI * SIN_THETA));
+          if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
+            canvas(x, y) = COLOR;
+          else
+            canvas(x, y) = COLOR.color * COLOR.alpha;
+        }
+      }
+    });
   }
 };
 
