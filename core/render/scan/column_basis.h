@@ -141,13 +141,13 @@ template <int W, int H> struct ColumnBasis {
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const Temporal::TemporalRotation path(previous, current);
-    for (int i = 0; i < HALF; ++i) {
-      const math::Quaternion delta =
-          current * path.sample(Temporal::sweep_fraction(i, W)).conjugate();
-      up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), delta);
-      azimuth[i] =
-          math::rotate(math::Vector(cos_theta[i], 0.0f, sin_theta[i]), delta);
-    }
+    path.for_each_sweep_sample(
+        W, [&](int i, const math::Quaternion &at) HS_HOT_INLINE {
+          const math::Quaternion delta = current * at.conjugate();
+          up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), delta);
+          azimuth[i] = math::rotate(
+              math::Vector(cos_theta[i], 0.0f, sin_theta[i]), delta);
+        });
     const math::Quaternion step = current * path.from.conjugate();
     const float half_sine = sqrtf(math::dot(step.v, step.v));
     time.azimuth = azimuth.data();
@@ -303,15 +303,15 @@ template <int W, int H> struct ObjectColumnBasis {
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const Temporal::TemporalRotation path(previous, current);
-    for (int i = 0; i < HALF; ++i) {
-      const math::Quaternion inverse =
-          path.sample(Temporal::sweep_fraction(i, W)).conjugate();
-      radial[i] =
-          math::rotate(math::Vector(cos_theta[i], 0.0f, sin_theta[i]), inverse);
-      tangent[i] = math::rotate(math::Vector(-sin_theta[i], 0.0f, cos_theta[i]),
-                                inverse);
-      up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), inverse);
-    }
+    path.for_each_sweep_sample(
+        W, [&](int i, const math::Quaternion &at) HS_HOT_INLINE {
+          const math::Quaternion inverse = at.conjugate();
+          radial[i] = math::rotate(
+              math::Vector(cos_theta[i], 0.0f, sin_theta[i]), inverse);
+          tangent[i] = math::rotate(
+              math::Vector(-sin_theta[i], 0.0f, cos_theta[i]), inverse);
+          up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), inverse);
+        });
   }
 
   /**
