@@ -63,7 +63,8 @@ struct RaymarchWhiteBox {
   }
 
   /**
-   * @brief Draws a frame through draw_fn from given previous endpoints.
+   * @brief Draws a frame through draw_fn from given previous endpoints, with
+   *        the hue noise at its current bake.
    * @param fx Effect drawn.
    * @param previous_spin Spin phase the last draw used.
    * @param previous_palette Palette scroll the last draw used.
@@ -75,6 +76,7 @@ struct RaymarchWhiteBox {
     fx.drawn_spin_phase = previous_spin;
     fx.drawn_palette_phase = previous_palette;
     fx.spin_drawn = true;
+    fx.hue_noise_moved = false;
     {
       Canvas canvas(fx);
       fx.draw_fn(canvas);
@@ -156,6 +158,21 @@ struct RaymarchWhiteBox {
   template <int W, int H> static float spin_phase(const Raymarch<W, H> &fx) {
     return fx.spin_phase;
   }
+  template <int W, int H>
+  static float hue_noise_phase(const Raymarch<W, H> &fx) {
+    return fx.hue_noise_phase;
+  }
+
+  /**
+   * @brief Rebakes the current hue-noise table at a phase.
+   * @param fx Effect rebaked.
+   * @param phase Hue-noise phase in turns.
+   */
+  template <int W, int H>
+  static void bake_hue_noise(Raymarch<W, H> &fx, float phase) {
+    fx.hue_noise_phase = phase;
+    fx.refresh_hue_noise();
+  }
 };
 
 /** @brief Channel bound of a Raymarch column against its oracle frame. */
@@ -187,6 +204,66 @@ inline void test_raymarch_lighting_and_palette_at_column_time() {
       [&](float u) { return WB::draw_at(fx, u, previous_spin, PALETTE_STEP); });
   HS_EXPECT_TRUE(expect_frames_within("raymarch columns", drawn, expected,
                                       RAYMARCH_COLUMN_BOUND) > 100);
+}
+
+/** @brief Largest sRGB8 channel gap a Raymarch arm-boundary column may show
+ *  against its hue-noise oracle. */
+inline constexpr int RAYMARCH_NOISE_ARM_BOUND = 2;
+/** @brief Mean per-pixel sRGB8 gap a Raymarch frame may show against its
+ *  hue-noise oracle. */
+inline constexpr float RAYMARCH_NOISE_MEAN_BOUND = 2.0f;
+
+/**
+ * @brief Each column of a Raymarch frame samples the hue noise at its sweep
+ *        time, starting from the bake the previous frame drew.
+ */
+inline void test_raymarch_hue_noise_at_column_time() {
+  using WB = RaymarchWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  Raymarch<W, H> fx;
+  fx.init();
+  hs_test::run_frames(fx, 6);
+  const float previous_spin = WB::spin_phase(fx);
+  const float previous_palette = WB::palette_phase(fx);
+  const float previous_noise = WB::hue_noise_phase(fx);
+  fx.draw_frame();
+  fx.advance_display();
+  std::vector<Pixel> drawn;
+  capture_frame<W, H>(fx, drawn);
+
+  const float noise = WB::hue_noise_phase(fx);
+  const float noise_step = std::remainder(noise - previous_noise, 1.0f);
+  HS_EXPECT_GT(noise_step, 0.0f);
+  const float palette_step =
+      std::remainder(WB::palette_phase(fx) - previous_palette, 1.0f);
+  const std::vector<Pixel> expected = column_time_oracle<W, H>([&](float u) {
+    WB::bake_hue_noise(fx, math::wrap_t(previous_noise + noise_step * u));
+    return WB::draw_at(fx, u, previous_spin, palette_step);
+  });
+  WB::bake_hue_noise(fx, noise);
+
+  int arm_gap = 0;
+  int lit = 0;
+  double gap_sum = 0.0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &a = drawn[static_cast<size_t>(y) * W + x];
+      const Pixel &b = expected[static_cast<size_t>(y) * W + x];
+      if (is_black(a) && is_black(b))
+        continue;
+      int gap = 0;
+      for (const auto channel : {&Pixel::r, &Pixel::g, &Pixel::b})
+        gap = std::max(gap, std::abs(int(linear_to_srgb8(a.*channel)) -
+                                     linear_to_srgb8(b.*channel)));
+      ++lit;
+      gap_sum += gap;
+      if (x % (W / 2) == 0)
+        arm_gap = std::max(arm_gap, gap);
+    }
+  HS_EXPECT_GT(lit, 100);
+  HS_EXPECT_LE(arm_gap, RAYMARCH_NOISE_ARM_BOUND);
+  HS_EXPECT_LE(gap_sum / std::max(lit, 1), RAYMARCH_NOISE_MEAN_BOUND);
 }
 
 /**

@@ -188,6 +188,17 @@ struct HueNoiseBakeCache {
   float phase = 0.0f; ///< Baked loop phase, turns.
 
   /**
+   * @brief Whether the resident table was baked at @p bake_scale and
+   *        @p bake_phase.
+   * @param bake_scale Spatial frequency over the sphere.
+   * @param bake_phase Loop phase in turns.
+   * @return True when refresh() at these arguments would not rebake.
+   */
+  HS_HOT_INLINE bool holds(float bake_scale, float bake_phase) const {
+    return scale == bake_scale && phase == bake_phase;
+  }
+
+  /**
    * @brief Rebakes @p output when its scale or phase changed.
    * @tparam OPENSIMPLEX2_UNIT Use the unit-frequency OpenSimplex2 transform.
    * @param output Destination LUT.
@@ -206,7 +217,7 @@ struct HueNoiseBakeCache {
           const FastNoiseLite &noise, float bake_scale, float bake_phase) {
     HS_CHECK(std::isfinite(bake_scale) && bake_scale > 0.0f,
              "HueNoiseBakeCache: scale must be finite and positive");
-    if (scale == bake_scale && phase == bake_phase)
+    if (holds(bake_scale, bake_phase))
       return false;
     prepare_hue_noise_lut<OPENSIMPLEX2_UNIT>(output, noise, bake_scale,
                                              bake_phase);
@@ -545,6 +556,29 @@ public:
     const float u_field = noise(math::Vector(cos_u, sin_u, cos_v));
     const float v_field = noise(math::Vector(cos_v, sin_v, sin_u));
     return 0.5f * (u_field + v_field);
+  }
+
+  /**
+   * @brief noise_uv between an earlier bake of the field and the bound one.
+   * @param cos_u Cosine of the first periodic coordinate.
+   * @param sin_u Sine of the first periodic coordinate.
+   * @param cos_v Cosine of the second periodic coordinate.
+   * @param sin_v Sine of the second periodic coordinate.
+   * @param before Earlier bake in the bound hue-noise LUT's layout.
+   * @param weight Weight of the bound bake; 0 samples @p before alone.
+   * @return Noise value in [-1, 1].
+   */
+  float noise_uv(float cos_u, float sin_u, float cos_v, float sin_v,
+                 const int8_t *before, float weight) const {
+    assert(source != nullptr && "NoiseHuePalette used before bind()!");
+    const HueNoiseSample u_sample =
+        prepare_hue_noise_sample(math::Vector(cos_u, sin_u, cos_v));
+    const HueNoiseSample v_sample =
+        prepare_hue_noise_sample(math::Vector(cos_v, sin_v, sin_u));
+    const HueNoiseLutView earlier{before, true};
+    const float now = u_sample.sample(hue_noise) + v_sample.sample(hue_noise);
+    const float then = u_sample.sample(earlier) + v_sample.sample(earlier);
+    return 0.5f * (then + weight * (now - then));
   }
 
   /**
