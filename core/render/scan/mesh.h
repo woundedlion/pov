@@ -300,7 +300,8 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                       Temporal::reads_column_time<
                           FragmentShaderT, const math::Vector &, Fragment &>) {
           for (int px = x; px < x + span; ++px) {
-            fragment_shader(p, frag, Temporal::sweep_fraction(px, W));
+            fragment_shader(p, frag,
+                            static_cast<float>(px - arm_offset) / (W / 2));
             if (frag.color.alpha > MIN_ALPHA)
               plot_column(px, frag.color.alpha * alpha);
           }
@@ -506,7 +507,7 @@ struct Mesh {
       std::span<const uint16_t> indices(fi + fo[i], count);
 
       // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
-      SDF::Face shape = [&]() HS_HOT_INLINE {
+      SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
                          &cr, azimuth_pads, bounds_margin);
