@@ -649,7 +649,7 @@ public:
     const int y1 = cr.render_y_end();
     const int nblk = grid.nby - 1;
     BlockSites<K> *sites = scratch.allocate_n<BlockSites<K>>(nblk);
-    auto build_block_column = [&](int jx) {
+    auto build_block_column = [&](int jx) __attribute__((always_inline)) {
       for (int ky = 0; ky < nblk; ++ky) {
         BlockSites<K> &set = sites[ky];
         const BlockCell<K> *row = grid.cells + ky * grid.nbx + jx;
@@ -667,7 +667,7 @@ public:
     };
 
     int built = -1;
-    walk_clip_columns<W>(cr.x_clip(), [&](int x) {
+    const auto shade_column = [&](int x) __attribute__((always_inline)) {
       const int jx = (x - grid.gx0) / B;
       if (jx != built) {
         build_block_column(jx);
@@ -691,7 +691,8 @@ public:
             canvas(x, y) = COLOR.color * COLOR.alpha;
         }
       }
-    });
+    };
+    walk_clip_columns_once<W>(cr.x_clip(), shade_column);
   }
 };
 
