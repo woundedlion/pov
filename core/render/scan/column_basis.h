@@ -5,7 +5,9 @@
 #pragma once
 
 #include <array>
+#include "core/animation/orientation.h"
 #include "core/math/3dmath.h"
+#include "core/memory.h"
 #include "core/render/canvas.h"
 #include "core/render/sdf.h"
 #include "core/render/temporal.h"
@@ -113,9 +115,7 @@ template <int W, int H> struct ColumnBasis {
   HS_FLASH_MEMBER Temporal::ColumnTime
   prepare(const math::Quaternion &previous, const math::Quaternion &current) {
     Temporal::ColumnTime time;
-    if (!Temporal::temporal_sampling_enabled() ||
-        (previous.r == current.r && previous.v.x == current.v.x &&
-         previous.v.y == current.v.y && previous.v.z == current.v.z))
+    if (!moving(previous, current))
       return time;
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -139,7 +139,42 @@ template <int W, int H> struct ColumnBasis {
 
   /// Arc added to the sweep bound for the slerp's rounding.
   static constexpr float SWEEP_PAD = 1e-4f;
+
+  /**
+   * @brief Whether a frame's endpoints call for a rotated basis.
+   * @param previous Orientation at the previous endpoint.
+   * @param current Orientation at the current endpoint.
+   * @return True with temporal sampling enabled and distinct endpoints.
+   */
+  static bool moving(const math::Quaternion &previous,
+                     const math::Quaternion &current) {
+    return Temporal::temporal_sampling_enabled() &&
+           !(previous.r == current.r && previous.v.x == current.v.x &&
+             previous.v.y == current.v.y && previous.v.z == current.v.z);
+  }
 };
+
+/**
+ * @brief Prepares an orientation's column basis for this frame.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @tparam CAP Orientation history capacity.
+ * @param arena Arena holding the table when the frame moves; the table lives
+ *        until the caller's scope on it closes.
+ * @param orientation Orientation whose history spans the frame: index 0 is
+ *        the previous endpoint and the last index the current one.
+ * @return Column-time state for the frame's scans.
+ */
+template <int W, int H, int CAP>
+inline Temporal::ColumnTime
+prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation) {
+  const math::Quaternion &previous = orientation.get(0);
+  const math::Quaternion &current = orientation.get();
+  if (!ColumnBasis<W, H>::moving(previous, current))
+    return {};
+  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(previous,
+                                                                      current);
+}
 
 /**
  * @brief Installs column-time state on a canvas for a scope.

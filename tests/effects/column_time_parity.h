@@ -8,19 +8,21 @@
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Folds an effect's fidelity-off frames into one hash.
+ * @brief Folds an effect's frames into one hash.
  * @tparam E Effect class template.
  * @tparam W Render width.
  * @tparam H Render height.
  * @tparam FRAMES Frames drawn and folded.
+ * @tparam ENABLED Temporal sampling mode the frames are drawn in.
  * @return Running frame hash over every displayed frame.
  */
-template <template <int, int> class E, int W, int H, int FRAMES>
+template <template <int, int> class E, int W, int H, int FRAMES,
+          bool ENABLED = false>
 inline uint64_t column_time_parity_hash() {
   reset_effect_globals();
   hs::random().seed(1337u);
   pin_frame_clock(0);
-  Temporal::set_temporal_sampling_enabled(false);
+  Temporal::set_temporal_sampling_enabled(ENABLED);
   uint64_t hash = HASH_SEED64;
   {
     E<W, H> effect;
@@ -123,4 +125,26 @@ inline void test_column_time_scans_keep_fidelity_off_frames() {
                   static_cast<unsigned long long>(hash));
     HS_EXPECT_EQ(hash, c.expected);
   }
+}
+
+/**
+ * @brief Checks that an effect's column-time scans change its frames when
+ *        temporal sampling is on.
+ * @tparam E Effect class template.
+ * @param name Effect name for failure context.
+ */
+template <template <int, int> class E>
+inline void check_column_time_scans_engage(const char *name) {
+  HS_CONTEXT(name);
+  constexpr int FRAMES = 12;
+  HS_EXPECT_TRUE((column_time_parity_hash<E, 96, 20, FRAMES, true>()) !=
+                 (column_time_parity_hash<E, 96, 20, FRAMES, false>()));
+}
+
+/**
+ * @brief Effects migrated to column-time scans draw differently with temporal
+ *        sampling on.
+ */
+inline void test_column_time_scans_engage_with_fidelity_on() {
+  check_column_time_scans_engage<HankinSolids>("HankinSolids");
 }
