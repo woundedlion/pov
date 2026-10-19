@@ -214,29 +214,27 @@ public:
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     // The newest record's sub-poses are reached over this frame.
     const auto &newest = node->trail.get(node->trail.length() - 1);
-    const math::Quaternion *newest_begin = &newest.get(0);
-    const int newest_last = newest.length() - 1;
-    const bool births = Temporal::temporal_sampling_enabled();
-    deep_tween_frames(node->trail, [&](const math::Quaternion *qs,
-                                       const float *ts, int count) {
-      const bool born = births && newest_last > 0 && qs >= newest_begin &&
-                        qs <= newest_begin + newest_last;
-      for (int k = 0; k < count; ++k) {
-        const float t = ts[k];
-        Color4 color = baked_palette.get(t);
-        color.alpha *= math::quintic_kernel(t) * params.alpha;
-        auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-          f.color = color;
-        };
-        column_time.birth =
-            born ? static_cast<float>(qs - newest_begin + k) / newest_last
-                 : 0.0f;
-        math::Vector v_local = math::rotate(node->v, qs[k]);
-        math::Vector v_final = orientation.orient(v_local);
-        HS_PROFILE_DEEP(cm_point_scan);
-        Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
-                                fragment_shader, params.debug_bb);
-      }
+    const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
+    const int newest_last =
+        Temporal::temporal_sampling_enabled() ? newest.length() - 1 : 0;
+    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+      Color4 color = baked_palette.get(t);
+      color.alpha *= math::quintic_kernel(t) * params.alpha;
+      auto fragment_shader = [&](const math::Vector &, Fragment &f) {
+        f.color = color;
+      };
+      const uintptr_t at = reinterpret_cast<uintptr_t>(&q);
+      const uintptr_t index = (at - newest_begin) / sizeof(math::Quaternion);
+      column_time.birth = newest_last > 0 && at >= newest_begin &&
+                                  index <= static_cast<uintptr_t>(newest_last)
+                              ? static_cast<float>(index) / newest_last
+                              : 0.0f;
+
+      math::Vector v_local = math::rotate(node->v, q);
+      math::Vector v_final = orientation.orient(v_local);
+      HS_PROFILE_DEEP(cm_point_scan);
+      Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
+                              fragment_shader, params.debug_bb);
     });
   }
 
