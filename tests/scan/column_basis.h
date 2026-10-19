@@ -399,6 +399,25 @@ template <int W, int H> inline void check_column_basis_blocks() {
   }
   HS_EXPECT_TRUE(expect_factored_tolerance("pole-LOD mesh", decimated, exact) >
                  100);
+
+  const math::Vector centre = math::Vector(0.05f, 1.0f, 0.08f).normalized();
+  const math::Vector dot = math::Vector(-0.2f, 1.0f, 0.1f).normalized();
+  const auto polar = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
+                         const math::Quaternion &q) {
+    Scan::Star::draw<W, H, false>(pipeline, canvas, math::make_basis(q, centre),
+                                  0.1f, 5, basis_flat_shader);
+    Scan::Point::draw<W, H>(pipeline, canvas, math::rotate(dot, q), 0.05f,
+                            basis_flat_shader);
+  };
+  const std::vector<Pixel> decimated_shapes =
+      render_column_basis<W, H>(motion, polar);
+  std::vector<Pixel> exact_shapes;
+  {
+    const ScopedPoleLod off(0.0f);
+    exact_shapes = render_column_oracle<W, H>(motion, polar);
+  }
+  HS_EXPECT_TRUE(expect_factored_tolerance("pole-LOD shapes", decimated_shapes,
+                                           exact_shapes) > 100);
 }
 
 /**
