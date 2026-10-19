@@ -16,6 +16,7 @@
 #include <cstring>
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
+#include "core/render/temporal.h"
 #include "effects/common/reaction_diffusion.h"
 
 namespace hs_test {
@@ -311,25 +312,24 @@ private:
   }
 
   /**
-   * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
-   * @param canvas Destination canvas to draw into.
-   * @details Runs STEPS_PER_FRAME substeps in place, then rasterizes with SSAA.
+   * @brief Advances the species in place.
+   * @param substeps Physics substeps to run.
    */
-  void render(Canvas &canvas) {
-    ScratchScope frame_guard(scratch_arena_a);
-    HS_PROFILE(bz_render);
-    {
-      ScratchScope physics_guard(scratch_arena_a);
-      HS_PROFILE(bz_physics);
-      float *f_a = scratch_arena_a.allocate_n<float>(RD_N);
-      float *f_b = scratch_arena_a.allocate_n<float>(RD_N);
-      float *f_c = scratch_arena_a.allocate_n<float>(RD_N);
+  void advance(int substeps) {
+    ScratchScope physics_guard(scratch_arena_a);
+    HS_PROFILE(bz_physics);
+    float *f_a = scratch_arena_a.allocate_n<float>(RD_N);
+    float *f_b = scratch_arena_a.allocate_n<float>(RD_N);
+    float *f_c = scratch_arena_a.allocate_n<float>(RD_N);
+    for (int k = 0; k < substeps; ++k)
+      step_physics(state.A, state.B, state.C, f_a, f_b, f_c);
+  }
 
-      for (int k = 0; k < STEPS_PER_FRAME; ++k)
-        step_physics(state.A, state.B, state.C, f_a, f_b, f_c);
-    }
-
-    // Physics scratch is popped; the oriented lattice reuses it.
+  /**
+   * @brief Rasterizes the current species with SSAA.
+   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   */
+  void shade(Canvas &canvas) {
     auto lattice = [this] {
       HS_PROFILE(bz_orient);
       return orient_lattice();
@@ -347,10 +347,23 @@ private:
                          x, ca, cb, cc);
     };
 
-    {
-      HS_PROFILE(bz_raster);
-      rasterize_lattice(canvas, vertex_shader, pixel_shader);
-    }
+    HS_PROFILE(bz_raster);
+    rasterize_lattice(canvas, vertex_shader, pixel_shader);
+  }
+
+  /**
+   * @brief Advances the simulation and rasterizes it in sweep slabs.
+   * @param canvas Destination canvas to draw into.
+   * @details Each substep is followed by the slab of columns that ends its
+   * share of the frame; the oriented lattice is rebuilt per slab, in the
+   * scratch the physics mirrors released.
+   */
+  void render(Canvas &canvas) {
+    ScratchScope frame_guard(scratch_arena_a);
+    HS_PROFILE(bz_render);
+    Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
+        canvas, [this](int substeps) { advance(substeps); },
+        [&] { shade(canvas); });
   }
 
   // ---------------------------------------------------------------------------
