@@ -73,7 +73,8 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters() {}
 
-  /** Render-path peak: the transformed mesh, the scan's face scratch and,
+  /** Render-path peak: the column basis, the transformed mesh, the scan's
+   * face scratch and,
    * on morph frames, the swept mesh and compile output. */
   static constexpr size_t SCRATCH_A_BYTES = 24 * 1024;
   /** Largest of the generation intermediates, the morph-cycle Persist set, and
@@ -353,7 +354,8 @@ private:
 
   /**
    * @brief Camera-rotates and rasterizes one mesh, coloring each face by its
-   * topology class and shading edges by distance.
+   * topology class and shading edges by distance; each column sees the camera
+   * at its sweep time.
    * @param canvas Target canvas to draw into.
    * @param mesh Source mesh in model space, carrying its per-face topology
    * classes.
@@ -373,6 +375,9 @@ private:
     HS_PROFILE(hk_draw_mesh);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState rotated_mesh;
     OrientTransformer camera(orientation);
     {
@@ -427,7 +432,8 @@ private:
 
   /**
    * @brief Camera-rotates and rasterizes a morph frame's swept mesh, shading
-   * each face from its pre-blended palette ramp.
+   * each face from its pre-blended palette ramp; each column sees the camera
+   * at its sweep time.
    * @param canvas Target canvas to draw into.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param shading Per-face blended-ramp table from the OpLeg.
@@ -439,6 +445,9 @@ private:
     HS_PROFILE(hk_draw_mesh);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState rotated_mesh;
     OrientTransformer camera(orientation);
     {
