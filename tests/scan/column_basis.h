@@ -578,3 +578,67 @@ inline void test_ring_group_previous_axes_match_column_rings() {
   HS_EXPECT_TRUE(expect_factored_tolerance("previous axes", swept, expected) >
                  100);
 }
+
+/**
+ * @brief An object-frame walk hands each pixel its center and sub-samples
+ *        rotated into the object frame at its column's sweep time, on both
+ *        arms, and visits only the columns the render-x window admits.
+ */
+inline void test_object_column_basis_matches_rotated_meridian() {
+  constexpr int W = 32, H = 12, HALF = W / 2;
+  const BasisMotion motion = tilted_motion();
+  auto basis = std::make_unique<Scan::ObjectColumnBasis<W, H>>();
+  basis->prepare(motion.previous, motion.current);
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  for (const ColumnWindow window : {ColumnWindow{}, ColumnWindow{3, 9, true}}) {
+    HS_CONTEXT("window", window.begin, window.end);
+    hs_test::StubEffect fx(W, H);
+    std::vector<int> visits(static_cast<size_t>(W) * H, 0);
+    float worst = 0.0f;
+    {
+      Canvas canvas(fx);
+      std::optional<RenderXWindow> scope;
+      if (window.active)
+        scope.emplace(canvas, window.begin, window.end);
+      int y = -1, last = W;
+      Scan::Shader::walk_object_grid<W, H>(
+          canvas, *basis,
+          [&](const math::Vector &center, const Scan::ObjectColumn &column,
+              const auto &grid, int x) {
+            y += x <= last;
+            last = x;
+            ++visits[static_cast<size_t>(y) * W + x];
+            const math::Quaternion inverse =
+                math::slerp(motion.previous, motion.current,
+                            Temporal::sweep_fraction(x, W))
+                    .normalized()
+                    .conjugate();
+            const float sp = math::TrigLUT<W, H>::sin_phi[y];
+            const float cp = math::TrigLUT<W, H>::cos_phi[y];
+            const math::Vector meridian(sp * math::TrigLUT<W, H>::cos_theta(x),
+                                        cp,
+                                        sp * math::TrigLUT<W, H>::sin_theta[x]);
+            const auto gap = [](const math::Vector &a, const math::Vector &b) {
+              return std::max({std::fabs(a.x - b.x), std::fabs(a.y - b.y),
+                               std::fabs(a.z - b.z)});
+            };
+            worst =
+                std::max(worst, gap(center, math::rotate(meridian, inverse)));
+            for (int i = 0; i < 4; ++i)
+              worst =
+                  std::max(worst, gap(grid.at(column, i),
+                                      math::rotate(grid.at(x, i), inverse)));
+            return Pixel(0, 0, 0);
+          });
+    }
+    HS_EXPECT_LT(worst, 2e-6f);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        HS_CONTEXT("px", x, y);
+        const bool admitted = !window.active || (x % HALF >= window.begin &&
+                                                 x % HALF < window.end);
+        HS_EXPECT_EQ(visits[static_cast<size_t>(y) * W + x], admitted ? 1 : 0);
+      }
+  }
+}

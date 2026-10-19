@@ -15,7 +15,8 @@
 /**
  * @file column_basis.h
  * @brief Column-time rigid rotation for the scan loops: the per-column pixel
- * basis, its frame installation, and swept row bounds.
+ * basis, its object-space counterpart, its frame installation, and swept row
+ * bounds.
  */
 
 namespace Scan {
@@ -151,6 +152,87 @@ template <int W, int H> struct ColumnBasis {
     return Temporal::temporal_sampling_enabled() &&
            !(previous.r == current.r && previous.v.x == current.v.x &&
              previous.v.y == current.v.y && previous.v.z == current.v.z);
+  }
+};
+
+/**
+ * @brief Object-space pixel frame of one column at its sweep time.
+ * @details The column's pixel at colatitude phi looks along
+ * `sin(phi) * radial + cos(phi) * up`; turning the azimuth by d replaces
+ * `radial` with `cos(d) * radial + sin(d) * tangent`.
+ */
+struct ObjectColumn {
+  math::Vector radial;  ///< Object-space direction of the column's azimuth.
+  math::Vector tangent; ///< Object-space direction of increasing azimuth.
+  math::Vector up;      ///< Object-space north.
+
+  /**
+   * @brief Object-space direction of the column's pixel at a colatitude.
+   * @param sin_phi Sine of the colatitude.
+   * @param cos_phi Cosine of the colatitude.
+   * @return Unit direction.
+   */
+  HS_HOT_INLINE math::Vector direction(float sin_phi, float cos_phi) const {
+    return math::Vector(sin_phi * radial.x + cos_phi * up.x,
+                        sin_phi * radial.y + cos_phi * up.y,
+                        sin_phi * radial.z + cos_phi * up.z);
+  }
+};
+
+/**
+ * @brief Per-column object-space pixel frames of an orientation over one
+ *        effect frame.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @details An object placed in the world by `R(u)`, slerped between the
+ * frame's endpoints, is seen by column `x`, lit at `u = sweep_fraction(x, W)`,
+ * along its fixed-meridian frame rotated by `conj(R(u))`. A shader that
+ * evaluates the object in its own space reads the pixel directions from this
+ * table and needs no oriented copy of the object. Opposing columns share a
+ * fraction, so one entry serves both arms. The table is frame-scoped.
+ */
+template <int W, int H> struct ObjectColumnBasis {
+  static_assert(W % 4 == 0, "column basis reads the quarter-turn trig table");
+  static constexpr int HALF = W / 2; ///< Distinct sweep fractions.
+
+  std::array<math::Vector, HALF> radial;  ///< First-arm object azimuths.
+  std::array<math::Vector, HALF> tangent; ///< First-arm azimuth tangents.
+  std::array<math::Vector, HALF> up;      ///< Object north per fraction.
+
+  /**
+   * @brief Prepares the frame's object frames from its orientation endpoints.
+   * @param previous Object-to-world orientation at the previous endpoint.
+   * @param current Object-to-world orientation at the current endpoint.
+   * @details Equal endpoints give every column the current frame.
+   */
+  HS_FLASH_MEMBER void prepare(const math::Quaternion &previous,
+                               const math::Quaternion &current) {
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
+    const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+    const Temporal::TemporalRotation path(previous, current);
+    for (int i = 0; i < HALF; ++i) {
+      const math::Quaternion inverse =
+          path.sample(Temporal::sweep_fraction(i, W)).conjugate();
+      radial[i] =
+          math::rotate(math::Vector(cos_theta[i], 0.0f, sin_theta[i]), inverse);
+      tangent[i] = math::rotate(math::Vector(-sin_theta[i], 0.0f, cos_theta[i]),
+                                inverse);
+      up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), inverse);
+    }
+  }
+
+  /**
+   * @brief Object-space frame of a column.
+   * @param x Column in [0, W).
+   * @return The column's frame; the far arm's azimuth and tangent are the
+   *         near arm's, negated.
+   */
+  HS_HOT_INLINE ObjectColumn column(int x) const {
+    if (x < HALF)
+      return {radial[x], tangent[x], up[x]};
+    return {-radial[x - HALF], -tangent[x - HALF], up[x - HALF]};
   }
 };
 

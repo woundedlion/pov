@@ -133,6 +133,7 @@ inline int run_scan_tests() {
   test_point_birth_skips_earlier_columns();
   test_volume_columns_match_rotated_placements();
   test_ring_group_previous_axes_match_column_rings();
+  test_object_column_basis_matches_rotated_meridian();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
