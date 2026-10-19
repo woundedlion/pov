@@ -197,6 +197,36 @@ struct LitCap {
 };
 
 /**
+ * @brief Canvas columns that can see a compact shape over one frame.
+ * @tparam W Canvas width in columns.
+ * @param axis Axis of the cap bounding the shape at the current endpoint.
+ * @param radius Angular radius of that cap (radians).
+ * @param sweep Largest arc the cap moves over the frame (radians).
+ * @param lo Receives the first seeing column, unwrapped; may be negative.
+ * @param hi Receives the last seeing column, unwrapped, at least @p lo.
+ * @return False when the cap holds a pole, so that every column sees it.
+ */
+template <int W>
+HS_HOT_INLINE bool lit_span(const math::Vector &axis, float radius, float sweep,
+                            int &lo, int &hi) {
+  constexpr float COLUMN = math::TWO_PI_F / W;
+  // Two columns of reach cover the AA fringe and the column rounding; the
+  // slack covers fast_atan2's and fast_acos's errors.
+  const float reach = radius + sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
+  const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
+  // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)
+  // bounds the cap's azimuth half-width asin(sin(reach) / r_val).
+  if (!(reach < r_val))
+    return false;
+  const float half =
+      (0.5f * math::PI_F - math::fast_acos(reach / r_val)) / COLUMN;
+  const float center = math::fast_atan2(axis.z, axis.x) / COLUMN;
+  lo = static_cast<int>(floorf(center - half));
+  hi = static_cast<int>(ceilf(center + half));
+  return true;
+}
+
+/**
  * @brief First-arm columns that can see a compact shape over one frame.
  * @tparam W Canvas width in columns.
  * @param axis Axis of the cap bounding the shape at the current endpoint.
@@ -210,22 +240,11 @@ struct LitCap {
 template <int W>
 inline void lit_columns(const math::Vector &axis, float radius, float sweep,
                         int &first, int &last) {
-  constexpr float COLUMN = math::TWO_PI_F / W;
   constexpr int HALF = W / 2;
-  // Two columns of reach cover the AA fringe and the column rounding; the
-  // slack covers fast_atan2's and fast_acos's errors.
-  const float reach = radius + sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
-  const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
   first = 0;
   last = HALF - 1;
-  // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)
-  // bounds the cap's azimuth half-width asin(sin(reach) / r_val).
-  if (reach < r_val) {
-    const float half =
-        (0.5f * math::PI_F - math::fast_acos(reach / r_val)) / COLUMN;
-    const float center = math::fast_atan2(axis.z, axis.x) / COLUMN;
-    const int lo = static_cast<int>(floorf(center - half));
-    const int hi = static_cast<int>(ceilf(center + half));
+  int lo, hi;
+  if (lit_span<W>(axis, radius, sweep, lo, hi)) {
     const int arm_start =
         (lo >= 0 ? lo / HALF : -((HALF - 1 - lo) / HALF)) * HALF;
     if (hi < arm_start + HALF) {
@@ -341,7 +360,8 @@ HS_FLASH_MEMBER void fill_drift_columns(const Temporal::ColumnTime &view,
  * @return lit_cap()'s result under @p view; on false every entry is filled.
  * @details The middle seeing column's entry, the one lit_cap() reads, is
  * filled first, then those of the columns that can see the re-centred cap,
- * which bound every column its bounds proxy offers.
+ * which bound every column its bounds proxy offers, wrapping across an arm
+ * boundary.
  */
 template <int W, int H>
 HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
@@ -356,8 +376,20 @@ HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
     fill_drift_columns<W>(view, time, 0, W / 2 - 1);
     return false;
   }
-  lit_columns<W>(lit.axis, radius + lit.arc, 0.0f, first, last);
-  fill_drift_columns<W>(view, time, first, last);
+  int lo, hi;
+  if (!lit_span<W>(lit.axis, radius + lit.arc, 0.0f, lo, hi) ||
+      hi - lo >= W / 2 - 1) {
+    fill_drift_columns<W>(view, time, 0, W / 2 - 1);
+    return true;
+  }
+  // A span across an arm boundary fills the end of one arm's entries and the
+  // start of the next's.
+  const int start =
+      lo - (lo >= 0 ? lo / (W / 2) : (lo + 1) / (W / 2) - 1) * (W / 2);
+  const int end = start + hi - lo;
+  fill_drift_columns<W>(view, time, start, std::min(end, W / 2 - 1));
+  if (end >= W / 2)
+    fill_drift_columns<W>(view, time, 0, end - W / 2);
   return true;
 }
 
