@@ -31,6 +31,15 @@ struct ShapeWeights {
   float strap_terminal = 1.0f; ///< Terminal strap alpha.
   float star_close = 1.0f;     ///< Midpoint star rim blend.
 };
+
+/** @brief A hankin-cycle frame's colour handoffs at both frame endpoints. */
+struct FrameHandoff {
+  ShapeWeights current;              ///< Shape weights at this draw.
+  ShapeWeights previous;             ///< Shape weights a frame ago.
+  float strap_blend = 1.0f;          ///< Strap crossfade weight at this draw.
+  float previous_strap_blend = 1.0f; ///< Strap crossfade weight a frame ago.
+  bool moves = false; ///< Whether the two endpoints draw different frames.
+};
 } // namespace HankinSolidsDetail
 
 /**
@@ -227,14 +236,44 @@ private:
   }
 
   using ShapeWeights = HankinSolidsDetail::ShapeWeights;
+  using FrameHandoff = HankinSolidsDetail::FrameHandoff;
 
-  static ShapeWeights shape_weights(int cycle_frame) {
+  HS_FLASH_MEMBER static ShapeWeights shape_weights(int cycle_frame) {
     const int to_close = HANKIN_SWEEP_FRAMES - cycle_frame;
     const int from_mid = cycle_frame - HANKIN_SWEEP_FRAMES / 2;
     return {shape_weight(cycle_frame), shape_weight(to_close),
             hs::clamp(static_cast<float>(to_close) / STRAP_TERMINAL_FRAMES,
                       0.0f, 1.0f),
             shape_weight(from_mid < 0 ? -from_mid : from_mid)};
+  }
+
+  /**
+   * @brief Colour handoff weights of a hankin-cycle draw at both endpoints.
+   * @param cycle_frame Cycle frame drawn now.
+   * @param previous_frame Cycle frame drawn a frame ago; equal to
+   * @p cycle_frame when the draw has no previous endpoint.
+   * @return Shape and strap crossfade weights at both endpoints.
+   */
+  HS_FLASH_MEMBER static FrameHandoff frame_handoff(int cycle_frame,
+                                                    int previous_frame) {
+    return {shape_weights(cycle_frame), shape_weights(previous_frame),
+            strap_blend_weight(cycle_frame), strap_blend_weight(previous_frame),
+            cycle_frame != previous_frame};
+  }
+
+  /**
+   * @brief Records a hankin-cycle draw.
+   * @param cycle_frame Cycle frame drawn now.
+   * @return The cycle frame the cycle drew last, or @p cycle_frame for the
+   * cycle's first draw and with temporal sampling off.
+   */
+  HS_FLASH_MEMBER int record_cycle_draw(int cycle_frame) {
+    const int previous =
+        drawn_cycle_frame >= 0 && Temporal::temporal_sampling_enabled()
+            ? drawn_cycle_frame
+            : cycle_frame;
+    drawn_cycle_frame = cycle_frame;
+    return previous;
   }
 
   static auto sweep_wave() {
@@ -362,21 +401,23 @@ private:
    * @param star_by_slot Resolved palette LUT per class slot for star faces
    * (emission index < node_faces); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
-   * @param weights Opening/closing alpha and host-rim blend weights.
+   * @param handoff Opening/closing alpha, host-rim blend and strap crossfade
+   * weights at both frame endpoints; each column shades at its sweep time
+   * between them.
    * @details At either angle-0 bookend the straps are zero-area, so the
    * star-face bookend stays bitwise exact.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 const ShapeWeights &weights = {}) {
+                 const FrameHandoff &handoff = {}) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time =
-        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_a, orientation, handoff.moves);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState rotated_mesh;
     OrientTransformer camera(orientation);
@@ -392,10 +433,16 @@ private:
              "Hankin topology must cover every face");
 
     const size_t star_faces = node_faces;
-    const float strap_blend = weights.strap_open < weights.strap_close
-                                  ? weights.strap_open
-                                  : weights.strap_close;
+    const ShapeWeights &weights = handoff.current;
+    const ShapeWeights &previous = handoff.previous;
+    const float strap_blend = fminf(weights.strap_open, weights.strap_close);
+    const float previous_strap_blend =
+        fminf(previous.strap_open, previous.strap_close);
     const float strap_alpha = weights.strap_open * weights.strap_terminal;
+    const float previous_strap_alpha =
+        previous.strap_open * previous.strap_terminal;
+    const bool crossfading =
+        handoff.strap_blend < 1.0f || handoff.previous_strap_blend < 1.0f;
 
     // Face-hoisted: the class palette, its counterpart and the
     // intensity/inradius gradient scale resolve once per face.
@@ -408,15 +455,24 @@ private:
       const bool is_strap = fi >= star_faces;
       fragment_shader.set_palette(is_strap ? strap_by_slot[slot]
                                            : star_by_slot[slot]);
-      fragment_shader.alpha = is_strap ? strap_alpha : 1.0f;
+      if (is_strap && crossfading && (strap_blend_mask & (1u << slot)))
+        fragment_shader.set_blend(
+            &palette_bank.bank.entries[strap_from[slot]].view(),
+            &palette_bank.bank.entries[palette_idx[slot]].view(),
+            handoff.strap_blend, handoff.previous_strap_blend);
+      fragment_shader.set_alpha(is_strap ? strap_alpha : 1.0f,
+                                is_strap ? previous_strap_alpha : 1.0f);
       // Cross-fade this face's ramp onto the ramp of the face taking its
       // place, sampled at the same edge distance.
       const float blend = is_strap ? strap_blend : weights.star_close;
-      if (blend < 1.0f) {
+      const float previous_blend =
+          is_strap ? previous_strap_blend : previous.star_close;
+      if (blend < 1.0f || previous_blend < 1.0f) {
         const uint8_t counterpart =
             is_strap ? host_face_palette[fi] : star_rim_palette[fi];
         fragment_shader.set_counterpart(
-            &palette_bank.bank.entries[counterpart].view(), blend);
+            &palette_bank.bank.entries[counterpart].view(), blend,
+            previous_blend);
       } else {
         fragment_shader.set_counterpart(nullptr, 1.0f);
       }
@@ -433,7 +489,7 @@ private:
   /**
    * @brief Camera-rotates and rasterizes a morph frame's swept mesh, shading
    * each face from its pre-blended palette ramp; each column sees the camera
-   * at its sweep time.
+   * and the leg's palette crossfade at its sweep time.
    * @param canvas Target canvas to draw into.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param shading Per-face blended-ramp table from the OpLeg.
@@ -445,8 +501,9 @@ private:
     HS_PROFILE(hk_draw_mesh);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time =
-        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_a, orientation,
+        shading.previous_weight != shading.weight);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState rotated_mesh;
     OrientTransformer camera(orientation);
@@ -523,6 +580,7 @@ private:
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
+    drawn_cycle_frame = -1;
     swept_idx = palette_idx;
     std::fill(std::begin(swept_used), std::end(swept_used), false);
     for (const auto topology : hankin_mesh.topology)
@@ -561,6 +619,7 @@ private:
               const int cycle_frame = hankin_cycle_frame;
               if (!anims_paused)
                 ++hankin_cycle_frame;
+              const int previous_frame = record_cycle_draw(cycle_frame);
               // Blended strap LUTs live in scratch_b for this frame only.
               ScratchScope blend_guard(scratch_arena_b);
               BakedPalette blended[NUM_PALETTES];
@@ -570,8 +629,8 @@ private:
                                        strap_by_slot, scratch_arena_b);
               // Collapse points: strap birth at the opening bookend, strap
               // close at the closing one, star close at the midpoint.
-              const ShapeWeights weights = shape_weights(cycle_frame);
-              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot, weights);
+              draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot,
+                        frame_handoff(cycle_frame, previous_frame));
             },
             HANKIN_SWEEP_FRAMES + 1),
         &anims_paused);
@@ -782,6 +841,8 @@ private:
                 "before growing the palette bank past 8");
   int hankin_cycle_frame = 0; /**< Sprite draws since the opening bookend
                                     of the active hankin cycle. */
+  int drawn_cycle_frame = -1; /**< Cycle frame the active hankin cycle drew
+                                   last, or -1 before its first draw. */
 
   uint8_t node_face_palette[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */

@@ -22,7 +22,85 @@ struct HankinSolidsWhiteBox {
     Canvas canvas(effect);
     effect.draw_mesh(canvas, effect.hankin_mesh, palettes, palettes);
   }
+
+  using FrameHandoff = HankinSolidsDetail::FrameHandoff;
+  using ShapeWeights = HankinSolidsDetail::ShapeWeights;
+  static constexpr int PALETTES = EffectT::NUM_PALETTES;
+
+  static int cycle_frame(const EffectT &effect) {
+    return effect.hankin_cycle_frame;
+  }
+  static int drawn_cycle_frame(const EffectT &effect) {
+    return effect.drawn_cycle_frame;
+  }
+  static int record_cycle_draw(EffectT &effect, int frame) {
+    return effect.record_cycle_draw(frame);
+  }
+  static FrameHandoff handoff(int frame, int previous) {
+    return EffectT::frame_handoff(frame, previous);
+  }
+  static void set_angle(EffectT &effect, float angle) {
+    MeshOps::update_hankin(effect.compiled_hankin, effect.hankin_mesh,
+                           persistent_arena, angle);
+  }
+  /** @brief Arms every slot's strap crossfade from the next bank palette. */
+  static void arm_strap_crossfade(EffectT &effect) {
+    for (int s = 0; s < PALETTES; ++s)
+      effect.strap_from[s] = (effect.palette_idx[s] + 1) % PALETTES;
+    effect.strap_blend_mask = static_cast<uint8_t>((1u << PALETTES) - 1);
+  }
+  /**
+   * @brief Draws the hankin mesh at the current camera.
+   * @param effect Effect whose mesh and palettes are drawn.
+   * @param handoff Handoff weights at both endpoints.
+   * @param strap_weight Crossfade weight the strap LUTs are pre-blended at.
+   * @return Displayed frame.
+   */
+  static std::vector<Pixel> draw(EffectT &effect, const FrameHandoff &handoff,
+                                 float strap_weight) {
+    ScratchScope blends(scratch_arena_b);
+    const auto &bank = effect.palette_bank.bank.entries;
+    BakedPalette blended[PALETTES];
+    const BakedPalette *star[PALETTES];
+    const BakedPalette *strap[PALETTES];
+    for (int s = 0; s < PALETTES; ++s) {
+      star[s] = &bank[effect.palette_idx[s]].view();
+      blended[s] =
+          bake_palette_blend(scratch_arena_b, bank[effect.strap_from[s]],
+                             bank[effect.palette_idx[s]], strap_weight);
+      strap[s] = &blended[s];
+    }
+    {
+      Canvas canvas(effect);
+      effect.draw_mesh(canvas, effect.hankin_mesh, star, strap, handoff);
+    }
+    effect.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<SMALL_W, SMALL_H>(effect, out);
+    return out;
+  }
+
+  static size_t faces(const EffectT &effect) {
+    return effect.hankin_mesh.num_faces();
+  }
+  static const BakedPaletteBank &palette_bank(const EffectT &effect) {
+    return effect.palette_bank.bank;
+  }
+  static std::vector<Pixel> draw_conway(EffectT &effect,
+                                        const Animation::OpLeg::Shading &sh) {
+    {
+      Canvas canvas(effect);
+      effect.draw_conway_mesh(canvas, effect.hankin_mesh, sh);
+    }
+    effect.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<SMALL_W, SMALL_H>(effect, out);
+    return out;
+  }
 };
+
+/** @brief Channel bound of a hankin column against its held oracle. */
+inline constexpr int HANKIN_HANDOFF_BOUND = 2;
 
 /** @brief Verifies a manual Angle edit freezes an in-flight Conway morph. */
 inline void test_hankinsolids_manual_pause_holds_morph() {
@@ -136,4 +214,126 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     HS_EXPECT_TRUE(b_peak <= SCRATCH_B);
   }
   configure_arenas_default();
+}
+
+/**
+ * @brief Lerps every shape weight between two endpoints.
+ * @param from Weights at the previous endpoint.
+ * @param to Weights at the current endpoint.
+ * @param u Frame fraction.
+ * @return The weights at @p u.
+ */
+inline HankinSolidsDetail::ShapeWeights
+lerp_shape_weights(const HankinSolidsDetail::ShapeWeights &from,
+                   const HankinSolidsDetail::ShapeWeights &to, float u) {
+  const auto lerp = [u](float a, float b) { return a + (b - a) * u; };
+  return {lerp(from.strap_open, to.strap_open),
+          lerp(from.strap_close, to.strap_close),
+          lerp(from.strap_terminal, to.strap_terminal),
+          lerp(from.star_close, to.star_close)};
+}
+
+/**
+ * @brief Each column of a hankin draw shades the strap opening, closing and
+ *        crossfade and the star rim blend at its sweep time, on both arms.
+ */
+inline void test_hankinsolids_handoffs_shade_at_column_time() {
+  using WB = HankinSolidsWhiteBox;
+  reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  WB::set_angle(effect, 0.6f);
+  WB::arm_strap_crossfade(effect);
+  for (const int frame : {3, 40, 78}) {
+    HS_CONTEXT("cycle frame", frame);
+    const WB::FrameHandoff handoff = WB::handoff(frame, frame - 1);
+    HS_EXPECT_TRUE(handoff.moves);
+    const std::vector<Pixel> drawn =
+        WB::draw(effect, handoff, handoff.strap_blend);
+    const std::vector<Pixel> expected =
+        column_time_oracle<SMALL_W, SMALL_H>([&](float u) {
+          const auto weights =
+              lerp_shape_weights(handoff.previous, handoff.current, u);
+          const float strap =
+              handoff.previous_strap_blend +
+              (handoff.strap_blend - handoff.previous_strap_blend) * u;
+          return WB::draw(effect, {weights, weights, strap, strap, false},
+                          strap);
+        });
+    HS_EXPECT_TRUE(expect_frames_within("hankin handoff", drawn, expected,
+                                        HANKIN_HANDOFF_BOUND) > 100);
+  }
+}
+
+/**
+ * @brief A hankin draw's previous endpoint is the cycle frame drawn last,
+ *        held while paused and reset at a cycle start and with temporal
+ *        sampling off, whose frames keep the history.
+ */
+inline void test_hankinsolids_handoff_history() {
+  using WB = HankinSolidsWhiteBox;
+  reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), -1);
+  for (int f = 0; f < 4; ++f) {
+    const int frame = WB::cycle_frame(effect);
+    effect.draw_frame();
+    effect.advance_display();
+    HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), frame);
+    HS_EXPECT_EQ(WB::cycle_frame(effect), frame + 1);
+  }
+  HS_EXPECT_EQ(WB::record_cycle_draw(effect, 4), 3);
+  HS_EXPECT_EQ(WB::record_cycle_draw(effect, 4), 4);
+  Temporal::set_temporal_sampling_enabled(false);
+  HS_EXPECT_EQ(WB::record_cycle_draw(effect, 5), 5);
+  Temporal::set_temporal_sampling_enabled(true);
+  HS_EXPECT_EQ(WB::record_cycle_draw(effect, 6), 5);
+  HS_EXPECT_FALSE(WB::handoff(6, 6).moves);
+}
+
+/**
+ * @brief Each column of a Conway-leg draw shades the leg's palette crossfade
+ *        at its sweep time.
+ */
+inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
+  using WB = HankinSolidsWhiteBox;
+  using Shading = Animation::OpLeg::Shading;
+  reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  WB::set_angle(effect, 0.6f);
+  constexpr int RAMPS = 3;
+  constexpr float FROM_WEIGHT = 0.3f, TO_WEIGHT = 0.6f;
+  const uint8_t ramp_from[RAMPS] = {0, 1, 2};
+  const uint8_t ramp_to[RAMPS] = {3, 4, 2};
+  const size_t faces = WB::faces(effect);
+  std::vector<uint8_t> face_ramp(faces);
+  for (size_t f = 0; f < faces; ++f)
+    face_ramp[f] = static_cast<uint8_t>(f % RAMPS);
+  const auto draw = [&](float weight, float previous_weight, bool moving) {
+    ScratchScope blends(scratch_arena_b);
+    BakedPalette ramps[RAMPS];
+    for (int r = 0; r < RAMPS; ++r)
+      ramps[r] = bake_palette_blend(
+          scratch_arena_b, WB::palette_bank(effect).entries[ramp_from[r]],
+          WB::palette_bank(effect).entries[ramp_to[r]], weight);
+    Shading shading{ramps, face_ramp.data(), faces};
+    if (moving) {
+      shading.bank = &WB::palette_bank(effect);
+      shading.ramp_from = ramp_from;
+      shading.ramp_to = ramp_to;
+    }
+    shading.weight = weight;
+    shading.previous_weight = previous_weight;
+    return WB::draw_conway(effect, shading);
+  };
+  const std::vector<Pixel> drawn = draw(TO_WEIGHT, FROM_WEIGHT, true);
+  const std::vector<Pixel> expected =
+      column_time_oracle<SMALL_W, SMALL_H>([&](float u) {
+        const float weight = FROM_WEIGHT + (TO_WEIGHT - FROM_WEIGHT) * u;
+        return draw(weight, weight, false);
+      });
+  HS_EXPECT_TRUE(expect_frames_within("conway crossfade", drawn, expected,
+                                      HANKIN_HANDOFF_BOUND) > 100);
 }
