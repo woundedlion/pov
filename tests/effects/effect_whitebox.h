@@ -61,7 +61,133 @@ struct RaymarchWhiteBox {
     return {frame.normal.x, frame.normal.y, frame.normal.z, frame.cos_u,
             frame.sin_u,    frame.cos_v,    frame.sin_v};
   }
+
+  /**
+   * @brief Draws a frame through draw_fn from given previous endpoints.
+   * @param fx Effect drawn.
+   * @param previous_spin Spin phase the last draw used.
+   * @param previous_palette Palette scroll the last draw used.
+   * @return Displayed frame.
+   */
+  template <int W, int H>
+  static std::vector<Pixel> draw_from(Raymarch<W, H> &fx, float previous_spin,
+                                      float previous_palette) {
+    fx.drawn_spin_phase = previous_spin;
+    fx.drawn_palette_phase = previous_palette;
+    fx.spin_drawn = true;
+    {
+      Canvas canvas(fx);
+      fx.draw_fn(canvas);
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  }
+
+  /**
+   * @brief Draws every torus placed, lit and scrolled as at one frame
+   *        fraction, through the fixed-meridian scan.
+   * @param fx Effect drawn.
+   * @param u Frame fraction.
+   * @param previous_spin Spin phase at the previous endpoint.
+   * @param palette_step Palette scroll over the frame.
+   * @return Displayed frame.
+   */
+  template <int W, int H>
+  static std::vector<Pixel> draw_at(Raymarch<W, H> &fx, float u,
+                                    float previous_spin, float palette_step) {
+    using RM = Raymarch<W, H>;
+    {
+      Canvas canvas(fx);
+      const auto sample = [u](const math::Quaternion &from,
+                              const math::Quaternion &to) {
+        return Temporal::TemporalRotation(from, to).sample(u);
+      };
+      const math::Quaternion camera = sample(fx.camera.get(0), fx.camera.get());
+      const math::Quaternion spin =
+          math::make_rotation(math::X_AXIS, fx.spin_phase * math::TWO_PI_F);
+      const math::Quaternion previous_spin_q =
+          math::make_rotation(math::X_AXIS, previous_spin * math::TWO_PI_F);
+      for (int i = 0; i < fx.active_count; ++i) {
+        const float outer = sinf(0.5f * fx.nn_angle[i] * fx.params.fill);
+        const float scale = outer / RM::VIS_K;
+        const float minor = scale * RM::MINOR_K;
+        const float aa_width = minor * fx.params.aa_mult;
+        const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
+            {scale * RM::MAJOR_K, minor},
+            {static_cast<int>(fx.params.twist + 0.5f), scale * RM::TWIST_K,
+             scale * RM::MAJOR_K},
+            2.0f * aa_width};
+        const math::Quaternion q =
+            sample(fx.camera.get(0) * fx.raw_quats[i] *
+                       fx.volume_spins[i].orientation.get(0) * previous_spin_q,
+                   fx.camera.get() * fx.raw_quats[i] *
+                       fx.volume_spins[i].orientation.get() * spin);
+        const math::Vector centre = math::rotate(fx.points[i], camera);
+        const math::Vector half =
+            blinn_phong_half(centre, math::rotate(math::X_AXIS, q));
+        const float offset = fx.palette_phase +
+                             static_cast<float>(i) / fx.active_count -
+                             palette_step * (1.0f - u);
+        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::Volume::draw<W, H>(
+            fx.pipeline, canvas, centre, scale * RM::UNIT_BOUNDS + aa_width,
+            volume,
+            [&](const math::Vector &loc, Fragment &frag) {
+              frag.color = fx.shade_hit(torus, loc, q, centre, half, offset);
+            },
+            fx.params.max_steps, aa_width);
+      }
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  }
+
+  template <int W, int H> static float palette_phase(const Raymarch<W, H> &fx) {
+    return fx.palette_phase;
+  }
+  template <int W, int H>
+  static float drawn_palette_phase(const Raymarch<W, H> &fx) {
+    return fx.drawn_palette_phase;
+  }
+  template <int W, int H> static float spin_phase(const Raymarch<W, H> &fx) {
+    return fx.spin_phase;
+  }
 };
+
+/** @brief Channel bound of a Raymarch column against its oracle frame. */
+inline constexpr int RAYMARCH_COLUMN_BOUND = 2;
+
+/**
+ * @brief Each column of a Raymarch frame marches, lights and scrolls the
+ *        palette of every torus as at its sweep time, on both arms and across
+ *        the palette scroll's wrap; the last draw's palette scroll is the
+ *        next frame's previous endpoint.
+ */
+inline void test_raymarch_lighting_and_palette_at_column_time() {
+  using WB = RaymarchWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  Raymarch<W, H> fx;
+  fx.init();
+  hs_test::run_frames(fx, 6);
+  HS_EXPECT_EQ(WB::drawn_palette_phase(fx), WB::palette_phase(fx));
+
+  constexpr float PALETTE_STEP = 0.04f;
+  const float previous_spin = WB::spin_phase(fx) - 0.03f;
+  const float previous_palette =
+      math::wrap_t(WB::palette_phase(fx) - PALETTE_STEP);
+  HS_EXPECT_GT(previous_palette, WB::palette_phase(fx));
+  const std::vector<Pixel> drawn =
+      WB::draw_from(fx, previous_spin, previous_palette);
+  const std::vector<Pixel> expected = column_time_oracle<W, H>(
+      [&](float u) { return WB::draw_at(fx, u, previous_spin, PALETTE_STEP); });
+  HS_EXPECT_TRUE(expect_frames_within("raymarch columns", drawn, expected,
+                                      RAYMARCH_COLUMN_BOUND) > 100);
+}
 
 /**
  * @brief Verifies every Raymarch volume receives its own live RandomWalk.

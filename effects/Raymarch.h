@@ -449,9 +449,43 @@ private:
   }
 
   /**
+   * @brief Shades one torus hit with the metallic headlight model and the
+   *        noise-hue palette.
+   * @param torus The torus shape.
+   * @param loc Hit position in the torus frame.
+   * @param world_q The torus frame's local-to-world rotation.
+   * @param center The torus centre, the view direction.
+   * @param half_w Blinn-Phong half-vector for @p center.
+   * @param palette_offset Palette scroll of this torus.
+   * @return The shaded colour.
+   */
+  HS_HOT_INLINE Color4
+  shade_hit(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
+            const math::Vector &loc, const math::Quaternion &world_q,
+            const math::Vector &center, const math::Vector &half_w,
+            float palette_offset) const {
+    SurfaceFrame surface = surface_frame(torus, loc);
+    math::Vector n_world = math::rotate(surface.normal, world_q);
+    float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
+                                    params.specular, params.fresnel);
+
+    float surface_noise = noise_palette.noise_uv(surface.cos_u, surface.sin_u,
+                                                 surface.cos_v, surface.sin_v);
+    float palette_t =
+        math::wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
+    float hue_shift = params.hue_shift * surface_noise;
+    Pixel color = params.hue_shift == 0.0f
+                      ? baked_palette.get_color(palette_t)
+                      : sample_hue_rotation_lut(
+                            {palette_state->hue_rotation_lut.data(), true},
+                            palette_t, hue_shift);
+    return Color4(color * shade, 1.0f);
+  }
+
+  /**
    * @brief Ray-marches and shades the twisted torus at every vertex for the
-   *        current frame, each column marching the placements of its sweep
-   *        time.
+   *        current frame; with temporal sampling on, each column marches the
+   *        placements, lighting and palette scroll of its sweep time.
    * @param canvas Render target for this frame's fragments.
    */
   void draw_fn(Canvas &canvas) {
@@ -464,17 +498,23 @@ private:
     float spin_angle = spin_phase * math::TWO_PI_F;
     math::Quaternion spin_q = math::make_rotation(math::X_AXIS, spin_angle);
 
-    // Each object's placement at the previous draw, slerped per column.
+    // Each object's placement and palette scroll at the previous draw,
+    // interpolated per column.
     const float previous_spin = spin_drawn ? drawn_spin_phase : spin_phase;
+    const float palette_step =
+        spin_drawn ? std::remainder(palette_phase - drawn_palette_phase, 1.0f)
+                   : 0.0f;
     drawn_spin_phase = spin_phase;
+    drawn_palette_phase = palette_phase;
     spin_drawn = true;
     const math::Quaternion previous_spin_q =
         math::make_rotation(math::X_AXIS, previous_spin * math::TWO_PI_F);
     ScratchScope column_guard(scratch_arena_a);
     Scan::VolumeColumns<W> *columns = nullptr;
+    ColumnShading *shading = nullptr;
     math::Quaternion *cameras = nullptr;
     if (Temporal::temporal_sampling_enabled())
-      cameras = prepare_column_cameras(columns);
+      cameras = prepare_column_cameras(columns, shading, palette_step);
 
     for (int i = 0; i < active_count; ++i) {
       // Fit the ring's outer edge to `fill` of this vertex's half
@@ -502,76 +542,90 @@ private:
       float palette_offset =
           palette_phase + static_cast<float>(i) / active_count;
 
-      auto frag_fn = [&](const math::Vector &loc, Fragment &frag) HS_O3_FN {
-        SurfaceFrame surface = surface_frame(torus, loc);
-        math::Vector n_world = math::rotate(surface.normal, world_q);
-        float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
-                                        params.specular, params.fresnel);
-
-        float surface_noise = noise_palette.noise_uv(
-            surface.cos_u, surface.sin_u, surface.cos_v, surface.sin_v);
-        float palette_t =
-            math::wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
-        float hue_shift = params.hue_shift * surface_noise;
-        Pixel color = params.hue_shift == 0.0f
-                          ? baked_palette.get_color(palette_t)
-                          : sample_hue_rotation_lut(
-                                {palette_state->hue_rotation_lut.data(), true},
-                                palette_t, hue_shift);
-        frag.color = Color4(color * shade, 1.0f);
-      };
-
-      const Scan::VolumeColumns<W> *placed = nullptr;
-      if (columns) {
+      Scan::TransformedVolume vol(torus, center, world_q);
+      if (Temporal::temporal_sampling_enabled()) {
         const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
                                             volume_spins[i].orientation.get(0) *
                                             previous_spin_q;
-        if (Scan::ColumnBasis<W, H>::moving(previous_q, world_q)) {
-          place_columns(*columns, cameras, points[i], previous_q, world_q);
-          placed = columns;
-        }
+        place_columns(*columns, shading, cameras, points[i], previous_q,
+                      world_q);
+        auto column_fn = [&](const math::Vector &loc, Fragment &frag,
+                             float u) HS_O3_FN {
+          const int c = Temporal::sweep_column(u, W);
+          const ColumnShading &at = shading[c];
+          frag.color =
+              shade_hit(torus, loc, at.rotation, columns->columns[c].center,
+                        at.half_w, palette_offset + at.scroll);
+        };
+        Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
+                                 column_fn, max_steps, aa_width, *columns);
+        continue;
       }
-
-      Scan::TransformedVolume vol(torus, center, world_q);
+      auto frag_fn = [&](const math::Vector &loc, Fragment &frag) HS_O3_FN {
+        frag.color =
+            shade_hit(torus, loc, world_q, center, half_w, palette_offset);
+      };
       Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
-                               frag_fn, max_steps, aa_width, placed);
+                               frag_fn, max_steps, aa_width);
     }
   }
 
+  /** @brief A torus's shading inputs at one sweep fraction. */
+  struct ColumnShading {
+    math::Quaternion rotation; ///< Local-to-world rotation.
+    math::Vector half_w;       ///< Blinn-Phong half-vector.
+    float scroll;              ///< Palette scroll still to come, negated.
+  };
+
   /**
-   * @brief Allocates the frame's volume placements and samples the camera
-   *        per sweep fraction, in scratch_arena_a.
+   * @brief Allocates the frame's volume placements and shading tables and
+   *        samples the camera per sweep fraction, in scratch_arena_a.
    * @param columns Receives the placement table.
+   * @param shading Receives the shading table, its scroll filled.
+   * @param palette_step Palette scroll over the frame.
    * @return The camera orientation per sweep fraction.
    */
   HS_FLASH_MEMBER math::Quaternion *
-  prepare_column_cameras(Scan::VolumeColumns<W> *&columns) {
+  prepare_column_cameras(Scan::VolumeColumns<W> *&columns,
+                         ColumnShading *&shading, float palette_step) {
     columns =
         scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
+    shading = scratch_arena_a.allocate_n<ColumnShading>(W / 2);
     auto *cameras = scratch_arena_a.allocate_n<math::Quaternion>(W / 2);
     const Temporal::TemporalRotation path(camera.get(0), camera.get());
     path.for_each_sweep_sample(
-        W, [&](int c, const math::Quaternion &at) { cameras[c] = at; });
+        W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
+          cameras[c] = at;
+          shading[c].scroll =
+              -palette_step * (1.0f - Temporal::sweep_fraction(c, W));
+        });
     return cameras;
   }
 
   /**
-   * @brief Places one torus per sweep fraction.
+   * @brief Places and lights one torus per sweep fraction.
    * @param columns Table receiving the placements.
+   * @param shading Table receiving each fraction's rotation and half-vector.
    * @param cameras Camera orientation per sweep fraction.
    * @param point Unrotated torus centre.
    * @param previous Placement rotation at the previous endpoint.
    * @param current Placement rotation at the current endpoint.
    */
   HS_FLASH_MEMBER static void place_columns(Scan::VolumeColumns<W> &columns,
+                                            ColumnShading *shading,
                                             const math::Quaternion *cameras,
                                             const math::Vector &point,
                                             const math::Quaternion &previous,
                                             const math::Quaternion &current) {
     const Temporal::TemporalRotation path(previous, current);
-    path.for_each_sweep_sample(W, [&](int c, const math::Quaternion &at) {
-      columns.set(c, math::rotate(point, cameras[c]), at);
-    });
+    path.for_each_sweep_sample(
+        W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
+          const math::Vector centre = math::rotate(point, cameras[c]);
+          columns.set(c, centre, at);
+          shading[c].rotation = at;
+          shading[c].half_w =
+              blinn_phong_half(centre, math::rotate(math::X_AXIS, at));
+        });
   }
 
   struct VolumeSpin {
@@ -594,6 +648,7 @@ private:
   float drawn_spin_phase = 0.0f; // spin_phase of the last draw
   bool spin_drawn = false;       // whether a draw has happened
   float palette_phase = 0.0f;    // baked-palette scroll offset, [0,1) cycles
+  float drawn_palette_phase = 0.0f; // palette_phase of the last draw
   float hue_noise_phase = 0.0f;
   int active_count = 0;
   PlacementSolid active_base_solid = PlacementSolid::COUNT;
