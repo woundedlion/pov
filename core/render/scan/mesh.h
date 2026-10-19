@@ -138,6 +138,16 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   }
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
+  constexpr bool TIMED_SHADER =
+      COLUMN_TIME &&
+      Temporal::reads_column_time<FragmentShaderT, const math::Vector &,
+                                  Fragment &>;
+  // A time-aware shader runs per column only while its state moves.
+  [[maybe_unused]] bool per_column = TIMED_SHADER;
+  if constexpr (TIMED_SHADER) {
+    if constexpr (requires { fragment_shader.moves(); })
+      per_column = fragment_shader.moves();
+  }
 
   SDF::DistanceResult res;
   Fragment frag;
@@ -296,22 +306,27 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
             pipeline.plot(canvas, px, y, frag.color.color, frag.age, a);
           }
         };
-        if constexpr (COLUMN_TIME &&
-                      Temporal::reads_column_time<
-                          FragmentShaderT, const math::Vector &, Fragment &>) {
-          for (int px = x; px < x + span; ++px) {
-            fragment_shader(p, frag,
-                            static_cast<float>(px - arm_offset) / (W / 2));
-            if (frag.color.alpha > MIN_ALPHA)
-              plot_column(px, frag.color.alpha * alpha);
-          }
-        } else {
+        const auto shade_once = [&]() HS_HOT_INLINE {
           fragment_shader(p, frag);
           if (frag.color.alpha > MIN_ALPHA) {
             const float a = frag.color.alpha * alpha;
             for (int px = x; px < x + span; ++px)
               plot_column(px, a);
           }
+        };
+        if constexpr (TIMED_SHADER) {
+          if (per_column) {
+            for (int px = x; px < x + span; ++px) {
+              fragment_shader(p, frag,
+                              static_cast<float>(px - arm_offset) / (W / 2));
+              if (frag.color.alpha > MIN_ALPHA)
+                plot_column(px, frag.color.alpha * alpha);
+            }
+          } else {
+            shade_once();
+          }
+        } else {
+          shade_once();
         }
         x += span;
       }
