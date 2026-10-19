@@ -222,3 +222,49 @@ inline void test_voronoi_segment_render_matches_full_frame() {
     HS_EXPECT_GT(lit, size_t{0});
   }
 }
+
+/**
+ * @brief Renders three Voronoi frames with column-time sampling disabled.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param sites Site count.
+ * @param border Border thickness.
+ * @return Pin folded over the frames.
+ */
+template <int W, int H>
+inline RenderPin voronoi_instantaneous_render(int sites, float border) {
+  reset_effect_globals();
+  Voronoi<W, H> effect;
+  effect.init();
+  HS_EXPECT_EQ(effect.updateParameter("Num Sites", static_cast<float>(sites)),
+               ParamSetResult::APPLIED);
+  HS_EXPECT_EQ(effect.updateParameter("Border Thick", border),
+               ParamSetResult::APPLIED);
+  Temporal::set_temporal_sampling_enabled(false);
+  RenderPin pin;
+  for (int frame = 0; frame < 3; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    fold_render_pin<W, H>(pin, effect);
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  return pin;
+}
+
+/** @brief Voronoi renders as recorded with column-time sampling off. */
+inline void test_voronoi_instantaneous_render_pins() {
+  const RenderPin pins[] = {
+      voronoi_instantaneous_render<DEFAULT_W, DEFAULT_H>(200, 0.0f),
+      voronoi_instantaneous_render<DEFAULT_W, DEFAULT_H>(400, 0.02f),
+      voronoi_instantaneous_render<SMALL_W, SMALL_H>(200, 0.02f),
+  };
+  static constexpr RenderPin RECORDED[] = {
+      {5243363699516185634ull, 4393261419ull},
+      {3848841366341219969ull, 3400893185ull},
+      {16342571190465927066ull, 178646082ull},
+  };
+  for (size_t i = 0; i < std::size(RECORDED); ++i) {
+    HS_CONTEXT("scenario", static_cast<long long>(i));
+    expect_render_pin(pins[i], RECORDED[i]);
+  }
+}
