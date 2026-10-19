@@ -933,6 +933,31 @@ struct RingGroup {
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
         shapes[mid].radius, pad_th);
+    // A column's lit pixels lie in the middle member's band, about its axis at
+    // the column's time, widened by every member's deviation from it at
+    // either endpoint; the lerped axes' deviations stay within the larger,
+    // up to their normalisation.
+    [[maybe_unused]] float cover_cos_min = -2.0f, cover_cos_max = 2.0f;
+    if constexpr (COLUMN_TIME) {
+      float pad = pad_th;
+      if (previous_normals) {
+        for (int s = 0; s < n; ++s) {
+          if (s == mid)
+            continue;
+          const float dev =
+              math::fast_acos(hs::clamp(
+                  math::dot(previous_normals[mid], previous_normals[s]), -1.0f,
+                  1.0f)) +
+              std::abs(shapes[s].target_angle - shapes[mid].target_angle) +
+              1e-3f;
+          pad = std::max(pad, shapes[s].thickness + dev);
+        }
+        pad = pad * (1.0f + max_slot_sweep * max_slot_sweep) + 1e-3f;
+      }
+      SDF::band_edge_cosines(shapes[mid].target_angle - pad,
+                             shapes[mid].target_angle + pad, cover_cos_max,
+                             cover_cos_min);
+    }
     if constexpr (COLUMN_TIME) {
       if (sweep + max_slot_sweep > 0.0f)
         cover = cover.swept(sweep + max_slot_sweep);
@@ -964,6 +989,9 @@ struct RingGroup {
           const bool far_arm = x >= W / 2;
           s_phi = far_arm ? -sp : sp;
           terms = axis_terms + 2 * n * (far_arm ? x - W / 2 : x);
+          const float d_mid = s_phi * terms[2 * mid] + cp * terms[2 * mid + 1];
+          if (d_mid < cover_cos_min || d_mid > cover_cos_max)
+            continue;
         } else {
           p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
         }
@@ -995,10 +1023,10 @@ struct RingGroup {
         }
       }
     };
-    [[maybe_unused]] auto pixel_run = [&](int x1, int x2, int y, float sp,
-                                          float cp) {
-      pixel_run_body(x1, x2, y, sp, cp);
-    };
+    // One out-of-line copy of the run body serves every emit site.
+    [[maybe_unused]] auto pixel_run =
+        [&](int x1, int x2, int y, float sp, float cp)
+            HS_NOINLINE_NOCLONE { pixel_run_body(x1, x2, y, sp, cp); };
     for (int y = y_lo; y <= y_hi; ++y) {
       // Per-slot domains match solo rasterization; slot order preserves blending.
       n_active = 0;
