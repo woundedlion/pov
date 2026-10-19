@@ -1631,6 +1631,9 @@ inline const Case *all_cases(int &n) {
            case_opleg_gated_swap_incomplete_handoff, "core/animation/opleg.h",
            "(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0) "
            "OpLeg: incomplete palette handoff"},
+          {"opleg_shading_blend_face_out_of_range",
+           case_opleg_shading_blend_face_out_of_range, "core/animation/opleg.h",
+           "(face < faces) OpLeg::Shading: blend face out of range"},
           {"opleg_shading_face_out_of_range",
            case_opleg_shading_face_out_of_range, "core/animation/opleg.h",
            "(face < faces) OpLeg::Shading: ramp face out of range"},

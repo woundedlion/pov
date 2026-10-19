@@ -620,7 +620,9 @@ struct Mesh {
    * @param gain Edge-distance shading gain, divided by the face size.
    * @param alpha Coverage applied to every fragment.
    * @param scratch_arena Arena backing the scan's per-face buffers.
-   * @details The ramp and gradient scale resolve once per face.
+   * @details The ramp and gradient scale resolve once per face. A table
+   * carrying its crossfade endpoints (`bank` and `blend_face`) moves each
+   * column-time column along the crossfade from the weight drawn a frame ago.
    */
   template <int W, int H, typename PipelineT, typename ShadingT>
   static void draw_opleg_shading(PipelineT &pipeline, Canvas &canvas,
@@ -631,6 +633,10 @@ struct Mesh {
     fragment_shader.alpha = alpha;
     auto select_face = [&](size_t fi, float size) {
       fragment_shader.set_palette(&shading.ramp_for(fi));
+      if constexpr (requires { shading.blend_face(fragment_shader, fi); }) {
+        if (shading.bank)
+          shading.blend_face(fragment_shader, fi);
+      }
       fragment_shader.scale = size > math::TOLERANCE ? gain / size : 0.0f;
     };
     draw_specialized<W, H>(pipeline, canvas, mesh, fragment_shader,

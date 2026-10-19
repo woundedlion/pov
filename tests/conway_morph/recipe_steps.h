@@ -481,11 +481,16 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   }
   const int SEED_RAMPS = static_cast<int>(
       std::count(seed_palettes.begin(), seed_palettes.end(), true));
+  float last_weight = 0.0f;
   auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
     for (size_t f = 0; f < sh.faces; ++f)
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
                    drawn < gate ? SEED_RAMPS : target_ramps);
+    HS_EXPECT_EQ(sh.bank == nullptr, drawn < gate);
+    const float previous = drawn == 0 ? sh.weight : last_weight;
+    HS_EXPECT_EQ(sh.previous_weight, previous);
+    last_weight = sh.weight;
 
     if (drawn == 0) {
       side_faces = sh.faces;
