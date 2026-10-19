@@ -88,6 +88,11 @@ public:
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
+  /** @brief Most levels a tree of MAX_POINTS median splits descends. */
+  static constexpr int MAX_DEPTH = 16;
+  static_assert((size_t{1} << MAX_DEPTH) > MAX_POINTS,
+                "KDTree traversal stack is shallower than the deepest tree");
+
   /**
    * @brief Constructs an empty tree with no nodes.
    */
@@ -168,6 +173,16 @@ public:
   }
 
 private:
+  /**
+   * @brief k-nearest search shared by the fixed and moved-point queries.
+   * @tparam MOVING Whether points lie within @p drift of their nodes.
+   * @param target Query point, in world units.
+   * @param k Number of neighbors to return; at most MAX_K.
+   * @param drift Bound on a point's distance from its node; MOVING only.
+   * @param distance_sq Callable (const KDNode &) returning the squared
+   *        distance from @p target to the node's point.
+   * @return Neighbors ranked by that distance, ties by source index.
+   */
   template <bool MOVING, typename DistanceFn>
   __attribute__((always_inline)) Neighbors
   search(const math::Vector &target, size_t k, float drift,
@@ -186,7 +201,7 @@ private:
     // Cached pruning bound; FLT_MAX until the set fills to k.
     float worst_d_sq = FLT_MAX;
     size_t worst_i = 0;
-    auto recompute_worst = [&]() {
+    auto recompute_worst = [&]() __attribute__((always_inline)) {
       worst_d_sq = -1.0f;
       worst_i = 0;
       for (size_t i = 0; i < count; ++i) {
@@ -199,7 +214,8 @@ private:
       }
     };
 
-    auto offer_candidate = [&](float d_sq, int idx) {
+    auto offer_candidate = [&](float d_sq,
+                               int idx) __attribute__((always_inline)) {
       if (count < k) {
         best[count++] = {nodes[idx].point, nodes[idx].original_index, d_sq};
         if (count == k)
@@ -212,10 +228,44 @@ private:
       }
     };
 
-    auto get_worst_dist = [&]() -> float { return worst_d_sq; };
-
-    search_k<MOVING>(0, target, drift, distance_sq, offer_candidate,
-                     get_worst_dist);
+    // Depth-first, near child first; a far child waits with its distance
+    // from the splitting plane until the near subtree has tightened the bound.
+    struct Pending {
+      int node;        ///< Far child node index.
+      float axis_dist; ///< Signed query distance from the splitting plane.
+    };
+    std::array<Pending, MAX_DEPTH> pending;
+    int waiting = 0;
+    int node_idx = 0;
+    for (;;) {
+      while (node_idx != -1) {
+        const KDNode &node = nodes[node_idx];
+        const float d_sq = distance_sq(node);
+        if (d_sq <= worst_d_sq)
+          offer_candidate(d_sq, node_idx);
+        const float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
+                                : (node.axis == 1) ? (target.y - node.point.y)
+                                                   : (target.z - node.point.z);
+        const int far = axis_dist < 0 ? node.right : node.left;
+        if (far != -1) {
+          assert(waiting < MAX_DEPTH);
+          pending[waiting++] = {far, axis_dist};
+        }
+        node_idx = axis_dist < 0 ? node.left : node.right;
+      }
+      while (node_idx == -1 && waiting > 0) {
+        const Pending NEXT = pending[--waiting];
+        if constexpr (MOVING) {
+          const float REACH = fabsf(NEXT.axis_dist) - drift;
+          if (REACH <= 0.0f || REACH * REACH <= worst_d_sq)
+            node_idx = NEXT.node;
+        } else if (NEXT.axis_dist * NEXT.axis_dist <= worst_d_sq) {
+          node_idx = NEXT.node;
+        }
+      }
+      if (node_idx == -1)
+        break;
+    }
 
     const auto before = [](const Neighbor &a, const Neighbor &b) {
       return a.d_sq != b.d_sq ? a.d_sq < b.d_sq
@@ -284,55 +334,5 @@ private:
         (int16_t)build(points, start + mid + 1, count - mid - 1, depth + 1);
 
     return new_node_idx;
-  }
-
-  /**
-   * @brief Recursive k-NN traversal of the subtree rooted at node_idx.
-   * @tparam MOVING Whether points lie within @p drift of their nodes.
-   * @tparam DistanceFn Callable (const KDNode &) returning a squared distance.
-   * @tparam PushFn Callable offering a (d_sq, idx) candidate to the k-best set.
-   * @tparam MaxDistFn Callable returning the current worst squared distance bound.
-   * @param node_idx Subtree root node index, or -1 to terminate.
-   * @param target Query point, in world units.
-   * @param drift Bound on a moved point's distance from its node; MOVING only.
-   * @param distance_sq Squared distance from @p target to a node's point.
-   * @param offer_candidate Callback that records a candidate in the k-best set.
-   * @param get_worst_dist Callback returning the current pruning bound (squared distance).
-   */
-  template <bool MOVING, typename DistanceFn, typename PushFn,
-            typename MaxDistFn>
-  void search_k(int node_idx, const math::Vector &target, float drift,
-                DistanceFn &distance_sq, PushFn &&offer_candidate,
-                MaxDistFn &&get_worst_dist) const {
-    if (node_idx == -1)
-      return;
-
-    const KDNode &node = nodes[node_idx];
-    float d_sq = distance_sq(node);
-
-    if (d_sq <= get_worst_dist())
-      offer_candidate(d_sq, node_idx);
-
-    float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
-                      : (node.axis == 1) ? (target.y - node.point.y)
-                                         : (target.z - node.point.z);
-
-    int near = axis_dist < 0 ? node.left : node.right;
-    int far = axis_dist < 0 ? node.right : node.left;
-
-    search_k<MOVING>(near, target, drift, distance_sq, offer_candidate,
-                     get_worst_dist);
-
-    // Re-query the worst bound: the near subtree may have filled the k-best set
-    // and tightened it, so the far side can be pruned.
-    if constexpr (MOVING) {
-      const float REACH = fabsf(axis_dist) - drift;
-      if (REACH <= 0.0f || REACH * REACH <= get_worst_dist())
-        search_k<MOVING>(far, target, drift, distance_sq, offer_candidate,
-                         get_worst_dist);
-    } else if ((axis_dist * axis_dist) <= get_worst_dist()) {
-      search_k<MOVING>(far, target, drift, distance_sq, offer_candidate,
-                       get_worst_dist);
-    }
   }
 };
