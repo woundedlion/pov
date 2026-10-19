@@ -22,6 +22,7 @@
 #include "core/render/sdf/lattice.h"
 #include "core/render/ray/shade.h"
 #include "core/render/pullback/ray.h"
+#include "core/render/pullback/temporal_history.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/math/4dmath.h"
@@ -117,6 +118,12 @@ struct FrameState {
   float gain = 1.0f; /**< Brightness scale of the whole frame. */
   CrossingList *crossings =
       nullptr; /**< Persistent-arena buffer the cubic trace sorts. */
+};
+
+/** @brief A drawn frame's render state and traced camera position. */
+struct FrameEndpoint {
+  FrameState state;  ///< Render state.
+  math::Vec4 center; ///< Traced camera position in world units.
 };
 
 /** @brief Pullback binding of the cubic render pipeline. */
@@ -807,20 +814,20 @@ public:
         frame_palette,  preset_gain,
         crossing_list};
     unfinished_rays = 0;
-    if (!history_primed ||
-        configuration_id(previous.params) != selected_configuration ||
-        previous.params.shells != params.shells) {
-      history_primed = true;
-      previous = context;
-      previous_center = trace_center;
-    }
+    const HyperLatticeDetail::FrameEndpoint endpoint{context, trace_center};
+    if (!history.initialized ||
+        configuration_id(history.previous.state.params) !=
+            selected_configuration ||
+        history.previous.state.params.shells != params.shells)
+      history.capture(endpoint);
+    const HyperLatticeDetail::FrameEndpoint &previous = history.previous;
     const bool MOVING =
-        std::memcmp(&previous, &context, sizeof(context)) != 0 ||
-        std::memcmp(&previous_center, &trace_center, sizeof(trace_center)) != 0;
+        std::memcmp(&previous.state, &context, sizeof(context)) != 0 ||
+        std::memcmp(&previous.center, &trace_center, sizeof(trace_center)) != 0;
     if (Temporal::temporal_sampling_enabled() && MOVING) {
       HS_PROFILE(hl_shader_draw);
       const HyperLatticeDetail::FrameInterval interval(
-          previous, context, previous_center, flight_step);
+          previous.state, context, previous.center, flight_step);
       if (params.pattern != Pattern::CUBIC_WIRE)
         draw_traced_columns(canvas, interval);
       else
@@ -830,8 +837,7 @@ public:
       draw_traced(canvas, context);
     } else
       draw_cubic(canvas, context);
-    previous = context;
-    previous_center = trace_center;
+    history.capture(endpoint);
   }
 
 private:
@@ -939,7 +945,7 @@ private:
 
   HS_COLD_MEMBER void parameter_written() override {
     Choreography::parameter_written();
-    history_primed = false;
+    history.initialized = false;
     const auto configuration = configuration_id(params);
     if (selected_configuration != configuration) {
       const float NEAR_FADE = params.near_fade;
@@ -956,7 +962,7 @@ private:
   }
   void adopt_params(const Params &target) {
     if (!transition.active)
-      history_primed = false;
+      history.initialized = false;
     params = target;
     sync_configuration();
   }
@@ -1265,12 +1271,9 @@ private:
   std::array<float, 6> rotation_phase{};
   /// Camera displacement of the latest step, before wrapping.
   math::Vec4 flight_step{};
-  /// Render state of the previous frame.
-  HyperLatticeDetail::FrameState previous{};
-  /// Traced camera position of the previous frame.
-  math::Vec4 previous_center{};
-  /// Whether `previous` holds a drawn frame with this configuration.
-  bool history_primed = false;
+  /// The previous drawn frame; initialized while it holds this
+  /// configuration's last draw.
+  Pullback::TemporalHistory<HyperLatticeDetail::FrameEndpoint> history;
   PaletteCycler depth_palette;
   BakedPaletteStorage iridescent_palette;
   float iridescent_phase = 0.0f;
