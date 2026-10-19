@@ -509,3 +509,46 @@ inline void test_shader_render_x_window_matches_predicate() {
     }
   }
 }
+
+/**
+ * @brief simulate_in_slabs shades each slab's columns, on both arms, after
+ *        the substeps that end its share of the frame, and shades once after
+ *        every substep with temporal sampling disabled.
+ */
+inline void test_simulate_in_slabs_orders_substeps_and_columns() {
+  constexpr int W = 48, H = 4, SUBSTEPS = 6, SLABS = 3;
+  for (bool enabled : {true, false}) {
+    HS_CONTEXT("temporal sampling", enabled);
+    Temporal::set_temporal_sampling_enabled(enabled);
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(0, H, 5, 43);
+    const ClipRegion::XClip xc = fx.clip().x_clip();
+    int substeps = 0, shades = 0;
+    {
+      Canvas canvas(fx);
+      Temporal::simulate_in_slabs<SUBSTEPS, SLABS>(
+          canvas, [&](int n) { substeps += n; },
+          [&] {
+            ++shades;
+            Scan::Shader::walk_grid<W, H>(
+                canvas, [&](const math::Vector &, const auto &, int) {
+                  return Pixel(static_cast<uint16_t>(substeps), 0, 1);
+                });
+          });
+      HS_EXPECT_FALSE(canvas.render_x_window().active);
+    }
+    fx.advance_display();
+    HS_EXPECT_EQ(substeps, SUBSTEPS);
+    HS_EXPECT_EQ(shades, enabled ? SLABS : 1);
+    for (int x = 0; x < W; ++x) {
+      HS_CONTEXT("column", x);
+      const int slab = static_cast<int>(Temporal::sweep_fraction(x, W) * SLABS);
+      const int expected = xc.clipped(x) ? 0
+                           : enabled     ? (slab + 1) * SUBSTEPS / SLABS
+                                         : SUBSTEPS;
+      for (int y = 0; y < H; ++y)
+        HS_EXPECT_EQ(static_cast<int>(fx.get_pixel(x, y).r), expected);
+    }
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+}

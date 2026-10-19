@@ -12,6 +12,7 @@
 #include "core/render/plot.h"
 #include "core/render/filter.h"
 #include "core/render/canvas.h"
+#include "core/render/temporal.h"
 #include "core/math/geometry.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
@@ -87,6 +88,7 @@ inline int run_scan_tests() {
   test_ssaa_grid_sample_positions();
   test_shader_clip_arc_matches_predicate();
   test_shader_render_x_window_matches_predicate();
+  test_simulate_in_slabs_orders_substeps_and_columns();
   test_ring_rasterize_produces_bounded_output();
   test_ring_long_radius_azimuth_unflipped();
   test_ring_rasterize_lights_expected_row();
