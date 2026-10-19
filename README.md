@@ -403,7 +403,7 @@ The entry points trade generality for speed:
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
 - `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
 
-`walk_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does.
+`walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectColumnBasis` frame at its sweep time.
 
 ### 5.6 Pullback Shading
 

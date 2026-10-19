@@ -93,6 +93,24 @@ struct Shader {
       return math::Vector(sp * cos_theta, cos_phi[(i >> 1) & 1],
                           sp * sin_theta);
     }
+
+    /**
+     * @brief Object-space unit vector for sample i of a pixel in the current
+     *        row, in its column's object frame.
+     * @param column The pixel's column frame.
+     * @param i Sample index, as for at(int, int).
+     * @return Unit sample direction.
+     */
+    HS_HOT_INLINE math::Vector at(const ObjectColumn &column, int i) const {
+      const float sp = sin_phi[(i >> 1) & 1];
+      const float cp = cos_phi[(i >> 1) & 1];
+      const float a = sp * cos_dtheta;
+      const float t = (i & 1) ? -sp * sin_dtheta : sp * sin_dtheta;
+      return math::Vector(
+          a * column.radial.x + t * column.tangent.x + cp * column.up.x,
+          a * column.radial.y + t * column.tangent.y + cp * column.up.y,
+          a * column.radial.z + t * column.tangent.z + cp * column.up.z);
+    }
   };
 
   /**
@@ -355,6 +373,43 @@ public:
         const math::Vector center(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
                                   sp * math::TrigLUT<W, H>::sin_theta[x]);
         canvas(x, y) = pixel_shader(center, grid, x);
+      });
+    }
+  }
+
+  /**
+   * @brief walk_grid() in the object frame of a turning object: each column's
+   *        pixels look along its frame at the column's sweep time.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PixelFn Callable (const Vector &, const ObjectColumn &,
+   *         const SsaaGrid<W,H> &, int) -> Pixel.
+   * @param canvas Destination canvas.
+   * @param basis Per-column object frames of the frame's orientation.
+   * @param pixel_shader Computes the premultiplied pixel from its object-space
+   *        center, its column frame (`grid.at(column, i)` gives the object-space
+   *        samples), the current row's subpixel grid, and the column.
+   * @details Writes only the columns the canvas's RenderXWindow admits.
+   */
+  template <int W, int H, typename PixelFn>
+  HS_O3_FN HS_HOT_INLINE static void
+  walk_object_grid(Canvas &canvas, const ObjectColumnBasis<W, H> &basis,
+                   PixelFn &&pixel_shader) {
+    check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const auto &cr = canvas.clip();
+    check_lut_domain<W, H>(cr);
+    const ColumnWindow window = canvas.render_x_window();
+    const auto xc = cr.x_clip();
+    SsaaGrid<W, H> grid;
+    for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+      const float sp = math::TrigLUT<W, H>::sin_phi[y];
+      const float cp = math::TrigLUT<W, H>::cos_phi[y];
+      grid.set_row(y);
+      walk_window_columns<W>(xc, window, [&](int x) HS_HOT_INLINE {
+        const ObjectColumn column = basis.column(x);
+        canvas(x, y) = pixel_shader(column.direction(sp, cp), column, grid, x);
       });
     }
   }

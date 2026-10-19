@@ -197,6 +197,14 @@ independently. On the device the column-time variants of the rasterize, mesh,
 ring-group, ring-stack and volume scans run from FLASH, leaving the
 fixed-meridian loops in ITCM.
 
+A shader that evaluates a turning object in the object's own space takes a
+`Scan::ObjectColumnBasis` instead: per sweep fraction, the column's azimuth,
+azimuth tangent and north rotated into the object frame as it stood when the
+column was lit. `Scan::Shader::walk_object_grid` hands each pixel its
+object-space centre and column frame, from which `SsaaGrid::at(column, i)`
+builds the object-space sub-samples, so no oriented copy of the object is
+built.
+
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
 the held Mobius coefficient interpolation do not become continuous through
