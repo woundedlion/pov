@@ -370,6 +370,7 @@ inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
  * @brief Turns a compact drifting shape back to where the columns that see it
  *        saw it, when its drift barely changes across them.
  * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
  * @param time Column-time state with a rotated basis.
  * @param drift The shape's drift, as `Temporal::ColumnTime::drift` takes it.
  * @param radius Angular radius of the cap bounding the shape about `basis.v`.
@@ -378,17 +379,23 @@ inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
  * @return True when that one turn stands for the drift at every seeing column
  *         within DRIFT_SETTLE_ARC; otherwise @p basis is unchanged and the
  *         shape needs its drift scanned per column.
- * @details The seeing columns are lit_columns()'s for the cap moved by the
- * frame's turn and the drift. A shape seen by every column, as one holding a
- * pole or crossing an arm boundary, does not settle.
+ * @details The seeing columns are those that can see the cap lit_cap()
+ * re-centres under the frame's turn and the drift, widened by the drift. A
+ * shape seen by every column, as one holding a pole or crossing an arm
+ * boundary, does not settle.
  */
-template <int W>
+template <int W, int H>
 inline bool settle_drift(const Temporal::ColumnTime &time,
                          const math::Vector &drift, float radius,
                          math::Basis &basis) {
   const float angle = sqrtf(math::dot(drift, drift));
+  Temporal::ColumnTime moving = time;
+  moving.sweep = time.sweep + angle;
+  LitCap lit;
+  if (!lit_cap<W, H>(basis.v, radius, moving, lit))
+    return false;
   int first, last;
-  lit_columns<W>(basis.v, radius, time.sweep + angle, first, last);
+  lit_columns<W>(lit.axis, radius + lit.arc + angle, 0.0f, first, last);
   if (first == 0 && last == W / 2 - 1)
     return false;
   // The middle column's fraction is at most (last - first) / W from any.
