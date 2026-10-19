@@ -565,8 +565,13 @@ private:
       dispatch_plot(canvas, basis, shape, radius, sides, shader, contour_phase,
                     shaded_color, i, dense_contours);
     }
-    if (planar_star)
+    if (planar_star) {
+      ScratchScope column_guard(scratch_arena_a);
+      const Temporal::ColumnTime column_time =
+          Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+      Scan::ColumnTimeScope column_scope(canvas, column_time);
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
+    }
   }
 
   /** @brief Most vertices a star contour has. */
