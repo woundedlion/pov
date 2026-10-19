@@ -204,27 +204,22 @@ private:
   struct ColumnMotion {
     float cosine;       ///< Cosine of the spin so far.
     float sine;         ///< Sine of the spin so far.
-    const KDTree *tree; ///< Tree over the endpoint nearer in time.
-    float drift;        ///< Bound on a site's distance from its tree position.
+    const KDTree *tree; ///< Tree over the current positions.
+    float drift; ///< Bound on a site's distance from its current position.
     const math::Vector *at; ///< Every site at that time, once filled.
   };
 
   /**
    * @brief Site motion at a column's sweep time.
    * @param x Absolute canvas column.
-   * @param current Tree over the current positions.
-   * @param previous Tree over the previous positions.
+   * @param tree Tree over the current positions.
    * @return The column's motion.
    */
-  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &current,
-                                             const KDTree &previous) const {
+  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &tree) const {
     const float FRACTION = Temporal::sweep_fraction(x, W);
     const float ANGLE = FRACTION * frame_spin;
-    const bool EARLY = FRACTION < 0.5f;
-    return {cosf(ANGLE), sinf(ANGLE), EARLY ? &previous : &current,
-            (EARLY ? FRACTION : 1.0f - FRACTION) * fabsf(frame_spin) +
-                DRIFT_SLACK,
-            nullptr};
+    return {cosf(ANGLE), sinf(ANGLE), &tree,
+            (1.0f - FRACTION) * fabsf(frame_spin) + DRIFT_SLACK, nullptr};
   }
 
   /**
@@ -399,14 +394,6 @@ private:
    * @param tree Tree over the current positions.
    */
   HS_HOT_FLASH_MEMBER void draw_temporal(Canvas &canvas, const KDTree &tree) {
-    KDTree previous;
-    {
-      HS_PROFILE(vo_kdtree);
-      previous =
-          KDTree(scratch_arena_a,
-                 std::span<const math::Vector>(previous_positions.data(),
-                                               previous_positions.size()));
-    }
     HS_PROFILE(vo_shade);
     const int BLOCK = coherence_block();
     if (BLOCK == 1) {
@@ -414,7 +401,7 @@ private:
           scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
       Scan::Shader::draw_columns<W, H>(
           canvas, [&](int x) __attribute__((always_inline)) {
-            ColumnMotion motion = column_motion(x, tree, previous);
+            ColumnMotion motion = column_motion(x, tree);
             fill_positions(motion, every);
             motion.at = every;
             return [this, motion](const math::Vector &p)
@@ -430,11 +417,10 @@ private:
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
         [&](const math::Vector &p) __attribute__((always_inline)) {
-          return endpoint_pairs(tree, previous, p, near);
+          return endpoint_pairs(tree, p, near);
         },
         [&](int x) __attribute__((always_inline)) {
-          return TemporalColumn{this, column_motion(x, tree, previous),
-                                positions};
+          return TemporalColumn{this, column_motion(x, tree), positions};
         });
   }
 
@@ -511,20 +497,19 @@ private:
    * @brief Nearest pairs of a sample point at both endpoints of the frame's
    *        spin.
    * @param current Tree over the current positions.
-   * @param previous Tree over the previous positions.
    * @param p Sample point on the unit sphere.
    * @param near Sites nearest a recent sample point, which bound the search;
    *        receives this point's nearest current sites.
    * @return The previous endpoint's nearest pair, then the current's, each
-   *         nearest first, as for a two-nearest search of each tree.
+   *         nearest first, as an exhaustive search ranks them.
    * @details The current pair is the previous pair too, reordered, when no
    * other site can come within its previous distances after moving the
-   * frame's spin; otherwise the previous tree is searched.
+   * frame's spin; otherwise the tree is searched for the previous positions.
    */
   __attribute__((always_inline))
   Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>
-  endpoint_pairs(const KDTree &current, const KDTree &previous,
-                 const math::Vector &p, Nearby &near) const {
+  endpoint_pairs(const KDTree &current, const math::Vector &p,
+                 Nearby &near) const {
     float bound = 0.0f;
     for (uint16_t site : near)
       bound = fmaxf(bound, math::distance_squared(sites_buffer[site].pos, p));
@@ -541,11 +526,12 @@ private:
     const float from_a = math::distance_squared(previous_positions[a], p);
     const float from_b = math::distance_squared(previous_positions[b], p);
     if (knn.size() > 2) {
-      const float reach = sqrtf(knn[2].d_sq) - fabsf(frame_spin) - DRIFT_SLACK;
+      const float spin = fabsf(frame_spin) + DRIFT_SLACK;
+      const float reach = sqrtf(knn[2].d_sq) - spin;
       const float from = fmaxf(from_a, from_b) * BOUND_SLACK;
       if (!(reach > 0.0f && from < reach * reach)) {
-        const auto pair = previous.nearest_moved(
-            p, SITES_PER_CORNER, 0.0f,
+        const auto pair = current.nearest_moved(
+            p, SITES_PER_CORNER, spin,
             [&](uint16_t i) {
               return math::distance_squared(previous_positions[i], p);
             },
@@ -608,7 +594,7 @@ private:
   // transient peaks share that arena, with positions + KD nodes live across all:
   //   build:    positions + KD nodes + KD build-index scratch
   //   shading:  positions + KD nodes + corner cells + candidate-row sets
-  //   temporal: positions + both trees' nodes + corner cells + block-column
+  //   temporal: positions + KD nodes + corner cells + block-column
   //             site unions + candidate and per-site positions
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
   static constexpr size_t POSITIONS_BYTES =
@@ -626,7 +612,7 @@ private:
   static constexpr size_t SCRATCH_HIGH_WATER =
       std::max(POSITIONS_BYTES + KD_NODES_BYTES +
                    std::max(KD_BUILD_SCRATCH_BYTES, WALKER_BYTES),
-               POSITIONS_BYTES + 2 * KD_NODES_BYTES +
+               POSITIONS_BYTES + KD_NODES_BYTES +
                    std::max(KD_BUILD_SCRATCH_BYTES, TEMPORAL_WALKER_BYTES));
   static_assert(
       SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
