@@ -1038,3 +1038,60 @@ inline void test_column_basis_prepares_for_moving_state() {
   HS_EXPECT_TRUE(still.azimuth == nullptr);
   HS_EXPECT_TRUE(moving.azimuth != nullptr);
 }
+
+/**
+ * @brief Drifting discs and stars match the shapes rotated to where they
+ *        stood at each column's sweep time, across the arm boundary.
+ */
+inline void test_drift_matches_shape_at_column_centre() {
+  constexpr int W = 96, H = 48;
+  const ScopedPoleLod lod(0.0f);
+  const math::Vector centres[] = {
+      math::Vector(-1.0f, 0.15f, 0.1f).normalized(),
+      math::Vector(0.3f, -0.4f, 0.85f).normalized()};
+  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+  const float angle = 3.0f * math::RADIANS_PER_COLUMN<W>;
+  const auto drifting = [&](auto &&shape) {
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+          Temporal::ColumnTime time =
+              basis->prepare(math::Quaternion(), math::Quaternion(), true);
+          Scan::ColumnTimeScope column_scope(canvas, time);
+          time.drift = axis * angle;
+          for (const math::Vector &c : centres)
+            shape(pipeline, canvas, math::make_basis(math::Quaternion(), c));
+        });
+  };
+  const auto oracle = [&](auto &&shape) {
+    return render_state_oracle<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
+          const math::Quaternion back =
+              math::make_rotation(axis, -angle * (1.0f - u));
+          for (const math::Vector &c : centres) {
+            const math::Basis basis = math::make_basis(math::Quaternion(), c);
+            shape(pipeline, canvas,
+                  math::Basis{math::rotate(basis.u, back),
+                              math::rotate(basis.v, back),
+                              math::rotate(basis.w, back)});
+          }
+        });
+  };
+  const auto disc = [](Pipeline<W, H> &pipeline, Canvas &canvas,
+                       const math::Basis &basis) {
+    Scan::Point::draw<W, H>(pipeline, canvas, basis.v, 0.2f, basis_flat_shader);
+  };
+  const auto star = [](Pipeline<W, H> &pipeline, Canvas &canvas,
+                       const math::Basis &basis) {
+    Scan::Star::draw<W, H, false>(pipeline, canvas, basis, 0.15f, 5,
+                                  basis_flat_shader);
+  };
+  HS_EXPECT_TRUE(expect_factored_tolerance("drifting disc", drifting(disc),
+                                           oracle(disc)) > 40);
+  HS_EXPECT_TRUE(expect_factored_tolerance("drifting star", drifting(star),
+                                           oracle(star)) > 40);
+  HS_EXPECT_NEAR(
+      math::dot(Temporal::rotate_short(centres[1], axis * angle),
+                math::rotate(centres[1], math::make_rotation(axis, angle))),
+      1.0f, 1e-6f);
+}

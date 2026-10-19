@@ -1439,7 +1439,9 @@ column_time_active(const Temporal::ColumnTime *time) {
  *        the fixed meridian.
  * @details Bounds come from the shape's cap turned to the time of the columns
  * that see it, else from its swept() proxy, else from whole rows of the swept
- * band.
+ * band. A drift is scanned through a basis table of the shape's own, the
+ * frame's rotated by the drift still to come at each column, filled for the
+ * columns the bounds reach.
  */
 template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT,
           typename ShaderFn>
@@ -1450,7 +1452,19 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
-  const float sweep = time.azimuth ? time.sweep : 0.0f;
+  // A drifting shape scans its own basis table, filled for the columns its
+  // bounds reach.
+  ScratchScope drift_scratch(scratch_arena_b);
+  const bool drifting =
+      time.azimuth && math::dot(time.drift, time.drift) > 0.0f;
+  Temporal::ColumnTime drifted;
+  const Temporal::ColumnTime *view = &time;
+  bool drift_filled = !drifting;
+  if (drifting) {
+    drifted = begin_drift_columns<W>(scratch_arena_b, time);
+    view = &drifted;
+  }
+  const float sweep = view->azimuth ? view->sweep : 0.0f;
   const ShapeT *bounds_shape = &shape;
   std::optional<ShapeT> swept;
   bool full_rows = false;
@@ -1461,9 +1475,13 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
         LitCap lit;
         math::Vector cap_axis;
         float cap_radius;
-        if (shape.bounding_cap(cap_axis, cap_radius) &&
-            lit_cap<W, H>(cap_axis, cap_radius, time, lit))
-          swept.emplace(shape.moved(lit.axis, lit.arc));
+        if (shape.bounding_cap(cap_axis, cap_radius)) {
+          drift_filled = true;
+          if (drifting ? drift_lit_cap<W, H>(cap_axis, cap_radius, drifted,
+                                             time, lit)
+                       : lit_cap<W, H>(cap_axis, cap_radius, time, lit))
+            swept.emplace(shape.moved(lit.axis, lit.arc));
+        }
       }
       if (!swept)
         swept.emplace(shape.swept(sweep));
@@ -1476,6 +1494,8 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   }
   if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
     return;
+  if (!drift_filled)
+    fill_drift_columns<W>(drifted, time, 0, W / 2 - 1);
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
@@ -1505,7 +1525,7 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
               wx, y, p, pipeline, canvas, shape, fragment_shader, debug,
               result_scratch, frag_scratch, 1, probe);
       },
-      xc, time);
+      xc, *view);
 }
 
 /**

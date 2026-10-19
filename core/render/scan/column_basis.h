@@ -197,35 +197,27 @@ struct LitCap {
 };
 
 /**
- * @brief Re-centres a compact shape's bounding cap at the sweep time of the
- *        columns that can see it.
+ * @brief First-arm columns that can see a compact shape over one frame.
  * @tparam W Canvas width in columns.
- * @tparam H Canvas height in rows.
  * @param axis Axis of the cap bounding the shape at the current endpoint.
  * @param radius Angular radius of that cap (radians).
- * @param time Column-time state with a rotated basis.
- * @param lit Receives the re-centred cap.
- * @return False when the re-centred cap would pass a hemisphere; the caller
- *         then sweeps the cap through the whole frame.
- * @details Column `x` sees the shape turned by the inverse of the rotation
- * that maps its fixed-meridian frame to its table entry; between two columns
- * that turn changes by at most `time.sweep` times their fraction difference.
- * The swept cap bounds the columns that can see the shape. When they stay on
- * one arm, clear of the poles, the cap turned to their middle column's time
- * and widened by that arc covers every column's view; otherwise the cap turned
- * to mid-frame and widened by half the frame's turn does.
+ * @param sweep Largest arc the cap moves over the frame (radians).
+ * @param first Receives the first seeing column, in [0, W / 2).
+ * @param last Receives the last seeing column, in [@p first, W / 2).
+ * @details Columns outside the range cannot see the shape on either arm. A
+ * cap that holds a pole or crosses an arm boundary is seen by every column.
  */
-template <int W, int H>
-inline bool lit_cap(const math::Vector &axis, float radius,
-                    const Temporal::ColumnTime &time, LitCap &lit) {
+template <int W>
+inline void lit_columns(const math::Vector &axis, float radius, float sweep,
+                        int &first, int &last) {
   constexpr float COLUMN = math::TWO_PI_F / W;
   constexpr int HALF = W / 2;
   // Two columns of reach cover the AA fringe and the column rounding; the
   // slack covers fast_atan2's and fast_acos's errors.
-  const float reach =
-      radius + time.sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
+  const float reach = radius + sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
   const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
-  int first = 0, last = HALF - 1;
+  first = 0;
+  last = HALF - 1;
   // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)
   // bounds the cap's azimuth half-width asin(sin(reach) / r_val).
   if (reach < r_val) {
@@ -241,6 +233,34 @@ inline bool lit_cap(const math::Vector &axis, float radius,
       last = hi - arm_start;
     }
   }
+}
+
+/**
+ * @brief Re-centres a compact shape's bounding cap at the sweep time of the
+ *        columns that can see it.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param axis Axis of the cap bounding the shape at the current endpoint.
+ * @param radius Angular radius of that cap (radians).
+ * @param time Column-time state with a rotated basis.
+ * @param lit Receives the re-centred cap.
+ * @return False when the re-centred cap would pass a hemisphere; the caller
+ *         then sweeps the cap through the whole frame.
+ * @details Column `x` sees the shape turned by the inverse of the rotation
+ * that maps its fixed-meridian frame to its table entry; between two columns
+ * that turn changes by at most `time.sweep` times their fraction difference.
+ * The swept cap bounds the columns that can see the shape, which
+ * lit_columns() finds. When they stay on one arm, clear of the poles, the cap
+ * turned to their middle column's time and widened by that arc covers every
+ * column's view; otherwise the cap turned to mid-frame and widened by half the
+ * frame's turn does. Only the middle column's table entry is read.
+ */
+template <int W, int H>
+inline bool lit_cap(const math::Vector &axis, float radius,
+                    const Temporal::ColumnTime &time, LitCap &lit) {
+  constexpr int HALF = W / 2;
+  int first, last;
+  lit_columns<W>(axis, radius, time.sweep, first, last);
   const int m = (first + last) / 2;
   const float arc =
       time.sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
@@ -259,6 +279,88 @@ inline bool lit_cap(const math::Vector &axis, float radius,
   const float st = math::TrigLUT<W, H>::sin_theta[m];
   lit.axis = math::Vector(a * ct - c * st, b, a * st + c * ct);
   lit.arc = arc;
+  return true;
+}
+
+/**
+ * @brief Column-time state viewing a drifting shape's own basis table.
+ * @tparam W Canvas width in columns.
+ * @param arena Arena receiving the table; it lives until the caller's scope
+ *        on the arena closes.
+ * @param time Column-time state with a rotated basis and a drift.
+ * @return State without a drift whose basis entries fill_drift_columns()
+ *         supplies and whose sweep bounds the drifted basis's turn.
+ */
+template <int W>
+HS_FLASH_MEMBER Temporal::ColumnTime
+begin_drift_columns(Arena &arena, const Temporal::ColumnTime &time) {
+  math::Vector *table = arena.allocate_n<math::Vector>(W);
+  Temporal::ColumnTime view;
+  view.azimuth = table;
+  view.up = table + W / 2;
+  view.sweep = time.sweep + sqrtf(math::dot(time.drift, time.drift));
+  view.birth = time.birth;
+  return view;
+}
+
+/**
+ * @brief Fills a drifting shape's basis entries for a range of columns.
+ * @tparam W Canvas width in columns.
+ * @param view State begin_drift_columns() returned for @p time.
+ * @param time Column-time state with a rotated basis and a drift.
+ * @param first First first-arm column to fill.
+ * @param last Last first-arm column to fill, inclusive.
+ * @details Column `c`, lit at `u`, takes its basis entry rotated by
+ * `drift * (1 - u)`, which rotates its pixel directions by the shape's motion
+ * still to come.
+ */
+template <int W>
+HS_FLASH_MEMBER void fill_drift_columns(const Temporal::ColumnTime &view,
+                                        const Temporal::ColumnTime &time,
+                                        int first, int last) {
+  auto *azimuth = const_cast<math::Vector *>(view.azimuth);
+  auto *up = const_cast<math::Vector *>(view.up);
+  for (int c = first; c <= last; ++c) {
+    const math::Vector rotation =
+        time.drift * (1.0f - Temporal::sweep_fraction(c, W));
+    azimuth[c] = Temporal::rotate_short(time.azimuth[c], rotation);
+    up[c] = Temporal::rotate_short(time.up[c], rotation);
+  }
+}
+
+/**
+ * @brief lit_cap() for a drifting shape, filling the basis entries of every
+ *        column its bounds reach.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param axis Axis of the cap bounding the shape at the current endpoint.
+ * @param radius Angular radius of that cap (radians).
+ * @param view State begin_drift_columns() returned for @p time.
+ * @param time Column-time state with a rotated basis and a drift.
+ * @param lit Receives the re-centred cap.
+ * @return lit_cap()'s result under @p view; on false every entry is filled.
+ * @details The entries of the columns that can see the shape are filled
+ * first, which holds the one lit_cap() reads, then those of the columns that
+ * can see the re-centred cap.
+ */
+template <int W, int H>
+HS_FLASH_MEMBER bool drift_lit_cap(const math::Vector &axis, float radius,
+                                   const Temporal::ColumnTime &view,
+                                   const Temporal::ColumnTime &time,
+                                   LitCap &lit) {
+  int first, last;
+  lit_columns<W>(axis, radius, view.sweep, first, last);
+  fill_drift_columns<W>(view, time, first, last);
+  if (!lit_cap<W, H>(axis, radius, view, lit)) {
+    fill_drift_columns<W>(view, time, 0, W / 2 - 1);
+    return false;
+  }
+  int lit_first, lit_last;
+  lit_columns<W>(lit.axis, radius + lit.arc, 0.0f, lit_first, lit_last);
+  if (lit_first < first)
+    fill_drift_columns<W>(view, time, lit_first, first - 1);
+  if (lit_last > last)
+    fill_drift_columns<W>(view, time, last + 1, lit_last);
   return true;
 }
 

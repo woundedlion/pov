@@ -218,7 +218,11 @@ temporal sampling is on and shade at `u = 1` when it is off.
 `FacePaletteShader` moves a face's alpha, palette crossfade and counterpart
 weight this way. An effect whose per-column state moves while its orientation
 does not still prepares a table, with `state_moves`, so its scans take their
-column-time variants.
+column-time variants. A drift in the same state rotates `Scan::rasterize`'s
+pixel direction by a shape's own motion still to come, for shapes that move
+independently of the frame's rotation: the scan reads a basis table of the
+shape's own, filled once per draw for the columns its re-centred bounds reach,
+which grow by the drift's angle.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
