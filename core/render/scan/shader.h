@@ -654,15 +654,16 @@ public:
         BlockSites<K> &set = sites[ky];
         const BlockCell<K> *row = grid.cells + ky * grid.nbx + jx;
         set.corners = {row, row + 1, row + grid.nbx, row + grid.nbx + 1};
-        set.n = 0;
+        int count = 0;
         for (const BlockCell<K> *corner : set.corners)
           for (uint16_t site : *corner) {
             bool seen = false;
-            for (uint8_t i = 0; i < set.n; ++i)
+            for (int i = 0; i < count; ++i)
               seen |= set.idx[i] == site;
             if (!seen)
-              set.idx[set.n++] = site;
+              set.idx[count++] = site;
           }
+        set.n = static_cast<uint8_t>(count);
       }
     };
 
