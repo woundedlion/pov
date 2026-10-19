@@ -190,7 +190,10 @@ columns `Scan::rasterize` would light before it. The fidelity-off mode and a
 motionless frame install no basis and keep the fixed meridian, bit for bit.
 `Scan::Volume` instead takes an object's `Scan::VolumeColumns`: a centre and
 rotation per sweep fraction, from which each column marches, inside a cap
-grown to cover every column's centre.
+grown to cover every column's centre. `Scan::RingGroup` also takes each
+slot's axis at the previous endpoint and evaluates the slot about the axis
+interpolated to each column's sweep time, for groups whose members move
+independently.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and

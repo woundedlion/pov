@@ -605,6 +605,11 @@ struct RingGroup {
    * @param debug_bb When true, or under canvas.debug(), falls back to per-ring
    *        rasterizes, which scan each ring's own row intervals and fill
    *        v0/v1/v3 per pixel.
+   * @param previous_normals Optional per-slot axes at the previous frame
+   *        endpoint. With temporal sampling on, column `x` evaluates each
+   *        slot about the axis interpolated linearly from its previous axis
+   *        to its current one at `sweep_fraction(x, W)` and normalised, and
+   *        each slot's bounds grow by the angle between the two.
    * @details Row intervals come from one covering ring: the middle member (n/2)
    * inflated by the group's maximum plane/radius deviation plus thickness.
    * Members evaluate per pixel in ascending slot order. The canvas's
@@ -615,7 +620,8 @@ struct RingGroup {
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
-                   int n, RingShaderT &&shader, bool debug_bb = false) {
+                   int n, RingShaderT &&shader, bool debug_bb = false,
+                   const math::Vector *previous_normals = nullptr) {
     check_canvas_dims<W, H>(canvas);
     check_pipeline_prepared(pipeline, canvas);
     HS_CHECK(n >= 1 && n <= MAX_RINGS,
@@ -643,11 +649,26 @@ struct RingGroup {
     const math::Vector *azimuth = time ? time->azimuth : nullptr;
     const math::Vector *up = time ? time->up : nullptr;
     const float sweep = azimuth ? time->sweep : 0.0f;
+    const bool moving_slots =
+        previous_normals && Temporal::temporal_sampling_enabled();
+    math::Vector motion[MAX_RINGS];
+    float slot_sweep[MAX_RINGS] = {};
+    float max_slot_sweep = 0.0f;
+    if (moving_slots) {
+      for (int s = 0; s < n; ++s) {
+        motion[s] = shapes[s].normal - previous_normals[s];
+        slot_sweep[s] = math::fast_acos(hs::clamp(
+                            math::dot(shapes[s].normal, previous_normals[s]),
+                            -1.0f, 1.0f)) +
+                        1e-3f;
+        max_slot_sweep = std::max(max_slot_sweep, slot_sweep[s]);
+      }
+    }
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n; ++s) {
-      auto b =
-          swept_rows<H>(shapes[s].template get_vertical_bounds<H>(), sweep);
+      auto b = swept_rows<H>(shapes[s].template get_vertical_bounds<H>(),
+                             sweep + slot_sweep[s]);
       sy_min[s] = b.y_min;
       sy_max[s] = b.y_max;
       y_lo = std::min(y_lo, b.y_min);
@@ -675,8 +696,8 @@ struct RingGroup {
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
         shapes[mid].radius, pad_th);
-    if (sweep > 0.0f)
-      cover = cover.swept(sweep);
+    if (sweep + max_slot_sweep > 0.0f)
+      cover = cover.swept(sweep + max_slot_sweep);
 
     Fragment frag;
 
@@ -698,10 +719,19 @@ struct RingGroup {
       for (int x = x1; x < x2; ++x) {
         const math::Vector p =
             column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
+        const float u = moving_slots ? Temporal::sweep_fraction(x, W) : 0.0f;
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
-          const float alpha =
-              shapes[s].stroke_alpha(math::dot(p, shapes[s].normal));
+          float d = math::dot(p, shapes[s].normal);
+          if (moving_slots) {
+            const math::Vector axis = previous_normals[s] + motion[s] * u;
+            const float length_sq = math::dot(axis, axis);
+            float inverse = math::fast_rsqrt(length_sq);
+            // a third Newton step: the ring's cosine band needs full precision
+            inverse *= 1.5f - 0.5f * length_sq * inverse * inverse;
+            d = math::dot(p, axis) * inverse;
+          }
+          const float alpha = shapes[s].stroke_alpha(d);
           if (alpha <= MIN_ALPHA)
             continue;
 #ifndef NDEBUG
