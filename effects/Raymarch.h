@@ -363,8 +363,7 @@ public:
       HS_PROFILE(rm_timeline_step);
       timeline.step(canvas);
     }
-    hue_noise_phase = math::wrap_t(hue_noise_phase + params.hue_noise_speed);
-    refresh_hue_noise();
+    advance_hue_noise();
     draw_fn(canvas);
   }
 
@@ -421,6 +420,22 @@ private:
         palette_state->noise, params.hue_noise_scale, hue_noise_phase);
   }
 
+  /**
+   * @brief Steps the hue-noise phase and rebakes its table; with temporal
+   *        sampling on, a rebake first keeps the drawn table as the frame's
+   *        starting bake.
+   */
+  HS_FLASH_MEMBER void advance_hue_noise() {
+    hue_noise_phase = math::wrap_t(hue_noise_phase + params.hue_noise_speed);
+    PaletteState &state = *palette_state;
+    hue_noise_moved =
+        Temporal::temporal_sampling_enabled() &&
+        !state.hue_noise_bake.holds(params.hue_noise_scale, hue_noise_phase);
+    if (hue_noise_moved)
+      state.drawn_hue_noise_lut = state.hue_noise_lut;
+    refresh_hue_noise();
+  }
+
   struct SurfaceFrame {
     math::Vector normal;
     float cos_u;
@@ -451,26 +466,39 @@ private:
   /**
    * @brief Shades one torus hit with the metallic headlight model and the
    *        noise-hue palette.
+   * @tparam BLEND_NOISE Whether the hue noise blends from @p noise_before to
+   *         the current bake.
    * @param torus The torus shape.
    * @param loc Hit position in the torus frame.
    * @param world_q The torus frame's local-to-world rotation.
    * @param center The torus centre, the view direction.
    * @param half_w Blinn-Phong half-vector for @p center.
    * @param palette_offset Palette scroll of this torus.
+   * @param noise_before Hue-noise bake the frame starts from; read only with
+   *        BLEND_NOISE.
+   * @param noise_weight Weight of the current bake against @p noise_before.
    * @return The shaded colour.
    */
+  template <bool BLEND_NOISE = false>
   HS_HOT_INLINE Color4
   shade_hit(const SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> &torus,
             const math::Vector &loc, const math::Quaternion &world_q,
             const math::Vector &center, const math::Vector &half_w,
-            float palette_offset) const {
+            float palette_offset, const int8_t *noise_before = nullptr,
+            float noise_weight = 1.0f) const {
     SurfaceFrame surface = surface_frame(torus, loc);
     math::Vector n_world = math::rotate(surface.normal, world_q);
     float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
                                     params.specular, params.fresnel);
 
-    float surface_noise = noise_palette.noise_uv(surface.cos_u, surface.sin_u,
-                                                 surface.cos_v, surface.sin_v);
+    float surface_noise;
+    if constexpr (BLEND_NOISE)
+      surface_noise =
+          noise_palette.noise_uv(surface.cos_u, surface.sin_u, surface.cos_v,
+                                 surface.sin_v, noise_before, noise_weight);
+    else
+      surface_noise = noise_palette.noise_uv(surface.cos_u, surface.sin_u,
+                                             surface.cos_v, surface.sin_v);
     float palette_t =
         math::wrap_t(0.5f * (surface_noise + 1.0f) + palette_offset);
     float hue_shift = params.hue_shift * surface_noise;
@@ -485,10 +513,11 @@ private:
   /**
    * @brief Ray-marches and shades the twisted torus at every vertex for the
    *        current frame; with temporal sampling on, each column marches the
-   *        placements, lighting and palette scroll of its sweep time.
+   *        placements, lighting, palette scroll and hue noise of its sweep
+   *        time.
    * @param canvas Render target for this frame's fragments.
    */
-  void draw_fn(Canvas &canvas) {
+  HS_HOT_FLASH_MEMBER void draw_fn(Canvas &canvas) {
     HS_PROFILE(rm_shader_draw);
 
     int twist_n = static_cast<int>(params.twist + 0.5f);
@@ -515,6 +544,9 @@ private:
     math::Quaternion *cameras = nullptr;
     if (Temporal::temporal_sampling_enabled())
       cameras = prepare_column_cameras(columns, shading, palette_step);
+    const int8_t *noise_before = hue_noise_moved
+                                     ? palette_state->drawn_hue_noise_lut.data()
+                                     : palette_state->hue_noise_lut.data();
 
     for (int i = 0; i < active_count; ++i) {
       // Fit the ring's outer edge to `fill` of this vertex's half
@@ -553,9 +585,9 @@ private:
                              float u) HS_O3_FN {
           const int c = Temporal::sweep_column(u, W);
           const ColumnShading &at = shading[c];
-          frag.color =
-              shade_hit(torus, loc, at.rotation, columns->columns[c].center,
-                        at.half_w, palette_offset + at.scroll);
+          frag.color = shade_hit<true>(
+              torus, loc, at.rotation, columns->columns[c].center, at.half_w,
+              palette_offset + at.scroll, noise_before, u);
         };
         Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, vol,
                                  column_fn, max_steps, aa_width, *columns);
@@ -654,6 +686,8 @@ private:
   struct PaletteState {
     std::array<Pixel, HueRotationLutView::SIZE> hue_rotation_lut;
     std::array<int8_t, HueNoiseLutView::SIZE> hue_noise_lut;
+    /// The hue-noise table drawn before the latest rebake.
+    std::array<int8_t, HueNoiseLutView::SIZE> drawn_hue_noise_lut;
     FastNoiseLite noise;
     HueNoiseBakeCache hue_noise_bake;
   };
@@ -668,6 +702,7 @@ private:
   float palette_phase = 0.0f;    // baked-palette scroll offset, [0,1) cycles
   float drawn_palette_phase = 0.0f; // palette_phase of the last draw
   float hue_noise_phase = 0.0f;
+  bool hue_noise_moved = false; // the latest rebake replaced a drawn table
   int active_count = 0;
   PlacementSolid active_base_solid = PlacementSolid::COUNT;
   std::array<math::Vector, MAX_POINTS> points;

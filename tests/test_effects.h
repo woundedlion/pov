@@ -602,6 +602,7 @@ inline int run_effects_tests() {
   run_case(test_raymarch_preset_and_placement_solids);
   run_case(test_raymarch_surface_frame_uv);
   run_case(test_raymarch_lighting_and_palette_at_column_time);
+  run_case(test_raymarch_hue_noise_at_column_time);
   // Resolution-independent white-box math.
   run_case(test_gs_hot_flags_match_directed_graph);
   run_case(test_gs_pigment_codec_layout);
