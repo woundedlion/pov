@@ -710,6 +710,48 @@ inline void test_ring_group_previous_axes_match_column_rings() {
                  100);
 }
 
+/** @brief Column row spans contain every sample inside the cosine band. */
+inline void test_ring_group_column_rows_cover_band() {
+  constexpr int W = 288, H = 144;
+  math::TrigLUT<W, H>::init();
+  hs::Pcg32 rng(8291u);
+  for (int i = 0; i < 2000; ++i) {
+    const float a = i == 0 ? 0.0f : hs_test::rand_uniform(rng, -1.0f, 1.0f);
+    const float b = i == 0 ? 0.0f : hs_test::rand_uniform(rng, -1.0f, 1.0f);
+    const float low = hs_test::rand_uniform(rng, -1.1f, 0.9f);
+    const float high = low + hs_test::rand_uniform(rng, 0.001f, 1.0f);
+    const auto band = Scan::RingGroup::column_band(a, b, low, high);
+    const bool far_arm = (i & 1) != 0;
+    const float signed_a = far_arm ? -a : a;
+    const auto rows =
+        Scan::RingGroup::column_rows<W, H>(a, b, low, high, band, far_arm);
+    HS_EXPECT_LE(rows.count, 2);
+    for (int span = 0; span < rows.count; ++span) {
+      HS_EXPECT_GE(rows.lo[span], 0);
+      HS_EXPECT_LT(rows.hi[span], H);
+      HS_EXPECT_LE(rows.lo[span], rows.hi[span]);
+      for (int y : {rows.lo[span], rows.hi[span]}) {
+        const float d = signed_a * math::TrigLUT<W, H>::sin_phi[y] +
+                        b * math::TrigLUT<W, H>::cos_phi[y];
+        HS_EXPECT_GE(d, low);
+        HS_EXPECT_LE(d, high);
+      }
+      if (span)
+        HS_EXPECT_GT(rows.lo[span], rows.hi[span - 1] + 1);
+    }
+    for (int y = 0; y < H; ++y) {
+      const float d = signed_a * math::TrigLUT<W, H>::sin_phi[y] +
+                      b * math::TrigLUT<W, H>::cos_phi[y];
+      if (d < low || d > high)
+        continue;
+      bool covered = false;
+      for (int span = 0; span < rows.count; ++span)
+        covered |= y >= rows.lo[span] && y <= rows.hi[span];
+      HS_EXPECT_TRUE(covered);
+    }
+  }
+}
+
 /**
  * @brief An object-frame walk hands each pixel its center and sub-samples
  *        rotated into the object frame at its column's sweep time, on both

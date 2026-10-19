@@ -682,6 +682,128 @@ struct RingGroup {
   /** Maximum number of rings in one group. */
   static constexpr int MAX_RINGS = 8;
 
+  /** Inclusive row spans where one column meets the covering band. */
+  struct ColumnRows {
+    int16_t lo[2]{}; /**< First rows. */
+    int16_t hi[2]{}; /**< Last rows. */
+    int count = 0;   /**< Number of disjoint spans. */
+  };
+
+  /** Angular solutions shared by the two arms at one sweep fraction. */
+  struct ColumnBand {
+    float center; /**< First-arm sinusoid phase. */
+    float inner;  /**< Inner angular offset; greater than outer when empty. */
+    float outer;  /**< Outer angular offset. */
+  };
+
+  /**
+   * @brief Prepares a column's angular band intersections.
+   * @param a First-arm coefficient of sin(phi).
+   * @param b Coefficient of cos(phi).
+   * @param low Lower cosine bound.
+   * @param high Upper cosine bound.
+   * @return Angular solutions about the first-arm phase.
+   */
+  HS_FLASH_INLINE static ColumnBand column_band(float a, float b, float low,
+                                                float high) {
+    const float radius = sqrtf(a * a + b * b);
+    if (low > radius || high < -radius)
+      return {0.0f, 1.0f, 0.0f};
+    if (radius < 1e-7f)
+      return {0.0f, 0.0f, math::PI_F};
+    const float inverse = 1.0f / radius;
+    return {math::fast_atan2(a * inverse, b * inverse),
+            math::fast_acos(hs::clamp(high * inverse, -1.0f, 1.0f)),
+            math::fast_acos(hs::clamp(low * inverse, -1.0f, 1.0f))};
+  }
+
+  /**
+   * @brief Fills the covering band's shared angular solutions once per draw.
+   * @param bands Half-width table receiving angular solutions.
+   * @param terms Per-column, per-slot axis terms.
+   * @param half Number of distinct sweep fractions.
+   * @param n Number of slots.
+   * @param mid Covering slot index.
+   * @param low Lower cosine bound.
+   * @param high Upper cosine bound.
+   */
+  HS_HOT_FLASH_MEMBER static void fill_column_bands(ColumnBand *bands,
+                                                    const float *terms,
+                                                    int half, int n, int mid,
+                                                    float low, float high) {
+    for (int c = 0; c < half; ++c) {
+      const float *axis = terms + 2 * (n * c + mid);
+      bands[c] = column_band(axis[0], axis[1], low, high);
+    }
+  }
+
+  /**
+   * @brief Solves a column's sinusoidal axis dot against a cosine band.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @param a First-arm coefficient of sin(phi).
+   * @param b Coefficient of cos(phi).
+   * @param low Lower cosine bound.
+   * @param high Upper cosine bound.
+   * @param band Shared angular solutions for this sweep fraction.
+   * @param far_arm Whether to reflect the first-arm phase.
+   * @return Up to two disjoint row spans with in-band endpoints.
+   * @pre The canvas trigonometric table is initialized.
+   */
+  template <int W, int H>
+  HS_HOT_FLASH_MEMBER static ColumnRows
+  column_rows(float a, float b, float low, float high, const ColumnBand &band,
+              bool far_arm) {
+    ColumnRows out;
+    if (band.inner > band.outer)
+      return out;
+    const float center = far_arm ? -band.center : band.center;
+    const float inner = band.inner, outer = band.outer;
+    a = far_arm ? -a : a;
+    constexpr float ANGLE_PAD = 4e-3f;
+    const auto inside = [&](int y) HS_HOT_INLINE {
+      const float d = a * math::TrigLUT<W, H>::sin_phi[y] +
+                      b * math::TrigLUT<W, H>::cos_phi[y];
+      return d >= low && d <= high;
+    };
+    SDF::Bounds candidates[6];
+    int count = 0;
+    for (int turn = -1; turn <= 1; ++turn) {
+      const float origin = center + turn * math::TWO_PI_F;
+      for (int side : {-1, 1}) {
+        const float start = origin + (side < 0 ? -outer : inner) - ANGLE_PAD;
+        const float end = origin + (side < 0 ? -inner : outer) + ANGLE_PAD;
+        if (end < 0.0f || start > math::PI_F)
+          continue;
+        auto rows = SDF::phi_bounds_to_rows<H>(
+            std::max(0.0f, start - 1e-5f), std::min(math::PI_F, end + 1e-5f));
+        while (rows.y_min <= rows.y_max && !inside(rows.y_min))
+          ++rows.y_min;
+        while (rows.y_min <= rows.y_max && !inside(rows.y_max))
+          --rows.y_max;
+        if (rows.y_min > rows.y_max)
+          continue;
+        int at = count++;
+        while (at > 0 && candidates[at - 1].y_min > rows.y_min) {
+          candidates[at] = candidates[at - 1];
+          --at;
+        }
+        candidates[at] = rows;
+      }
+    }
+    for (int i = 0; i < count; ++i) {
+      const auto rows = candidates[i];
+      if (out.count && rows.y_min <= out.hi[out.count - 1] + 1) {
+        out.hi[out.count - 1] =
+            std::max<int>(out.hi[out.count - 1], rows.y_max);
+      } else {
+        out.lo[out.count] = rows.y_min;
+        out.hi[out.count++] = rows.y_max;
+      }
+    }
+    return out;
+  }
+
   /**
    * @brief Rasterizes every ring of a group in one scan over the union band.
    * @tparam W Canvas width in pixels.
@@ -881,6 +1003,7 @@ struct RingGroup {
     [[maybe_unused]] float max_slot_sweep = 0.0f;
     ScratchScope scratch(scratch_arena_b);
     [[maybe_unused]] float *axis_terms = nullptr;
+    [[maybe_unused]] ColumnBand *column_bands = nullptr;
     if constexpr (COLUMN_TIME) {
       if (time) {
         azimuth = time->azimuth;
@@ -959,8 +1082,9 @@ struct RingGroup {
                              cover_cos_min);
     }
     if constexpr (COLUMN_TIME) {
-      if (sweep + max_slot_sweep > 0.0f)
-        cover = cover.swept(sweep + max_slot_sweep);
+      column_bands = scratch_arena_b.allocate_n<ColumnBand>(W / 2);
+      fill_column_bands(column_bands, axis_terms, W / 2, n, mid, cover_cos_min,
+                        cover_cos_max);
     }
 
     Fragment frag;
@@ -995,8 +1119,11 @@ struct RingGroup {
         } else {
           p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
         }
-        for (int i = 0; i < n_active; ++i) {
-          const int s = active[i];
+        for (int i = 0; i < (COLUMN_TIME ? n : n_active); ++i) {
+          const int s = COLUMN_TIME ? i : active[i];
+          if constexpr (COLUMN_TIME)
+            if (y < sy_min[s] || y > sy_max[s])
+              continue;
           float d;
           if constexpr (COLUMN_TIME)
             d = s_phi * terms[2 * s] + cp * terms[2 * s + 1];
@@ -1027,6 +1154,23 @@ struct RingGroup {
     [[maybe_unused]] auto pixel_run =
         [&](int x1, int x2, int y, float sp, float cp)
             HS_NOINLINE_NOCLONE { pixel_run_body(x1, x2, y, sp, cp); };
+    if constexpr (COLUMN_TIME) {
+      walk_clip_columns<W>(xc, [&](int x) HS_HOT_INLINE {
+        const bool far_arm = x >= W / 2;
+        const int c = far_arm ? x - W / 2 : x;
+        const float *terms = axis_terms + 2 * n * c;
+        const auto rows =
+            column_rows<W, H>(terms[2 * mid], terms[2 * mid + 1], cover_cos_min,
+                              cover_cos_max, column_bands[c], far_arm);
+        for (int span = 0; span < rows.count; ++span) {
+          const int end = std::min<int>(y_hi, rows.hi[span]);
+          for (int y = std::max<int>(y_lo, rows.lo[span]); y <= end; ++y)
+            pixel_run_body(x, x + 1, y, math::TrigLUT<W, H>::sin_phi[y],
+                           math::TrigLUT<W, H>::cos_phi[y]);
+        }
+      });
+      return;
+    }
     for (int y = y_lo; y <= y_hi; ++y) {
       // Per-slot domains match solo rasterization; slot order preserves blending.
       n_active = 0;
