@@ -16,7 +16,7 @@
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/render/pullback.h"
-#include "core/render/pullback/composed_effect.h"
+#include "core/render/pullback/temporal_history.h"
 #include "core/render/temporal.h"
 #include <array>
 #include <cmath>
