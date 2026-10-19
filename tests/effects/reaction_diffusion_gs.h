@@ -154,6 +154,76 @@ struct GSWhiteBox {
     }
     gs.advance_display();
   }
+  static constexpr int STEPS = GS::STEPS_PER_FRAME;
+  /** @brief Persistent per-node state and lifecycle of a GS instance. */
+  struct Snapshot {
+    std::vector<uint16_t> a, b, pigment;
+    GS::Transition transition;
+
+    bool operator==(const Snapshot &other) const {
+      return a == other.a && b == other.b && pigment == other.pigment &&
+             transition.next_seed == other.transition.next_seed &&
+             transition.grow_frames == other.transition.grow_frames &&
+             transition.stable_frames == other.transition.stable_frames &&
+             transition.dissolve_frames == other.transition.dissolve_frames &&
+             transition.dissolve_seed == other.transition.dissolve_seed;
+    }
+  };
+  static Snapshot snapshot(const GS &gs) {
+    return {std::vector<uint16_t>(gs.state.A, gs.state.A + N),
+            std::vector<uint16_t>(gs.state.B, gs.state.B + N),
+            std::vector<uint16_t>(gs.state.pigment, gs.state.pigment + N),
+            gs.transition};
+  }
+  /** @brief Starts a dissolve that ends `frames` frames from now. */
+  static void dissolve_within(GS &gs, int frames) {
+    gs.transition.dissolve_frames = GS::DISSOLVE_FRAMES - frames;
+    gs.transition.dissolve_seed = 0x5eed1234u;
+  }
+  /**
+   * @brief Shades a Q16 B field over the whole frame through the lattice
+   *        basis, converted by a dissolve at `phase` (when non-negative), with
+   *        colour noise blended at `noise_weight` from the previous frame's
+   *        table, then restores the state.
+   */
+  static std::vector<Pixel> shade_slab_field(GS &gs,
+                                             const std::vector<uint16_t> &b,
+                                             float phase, float noise_weight) {
+    const Snapshot saved = snapshot(gs);
+    std::copy(b.begin(), b.end(), gs.state.B);
+    if (phase >= 0.0f)
+      gs.convert_below(phase);
+    gs.slab_noise = {gs.noise_history ? gs.previous_noise_lut : nullptr,
+                     noise_weight};
+    shade_field(gs, true);
+    gs.slab_noise = {};
+    std::copy(saved.a.begin(), saved.a.end(), gs.state.A);
+    std::copy(saved.b.begin(), saved.b.end(), gs.state.B);
+    std::vector<Pixel> frame;
+    capture_frame<SMALL_W, SMALL_H>(gs, frame);
+    return frame;
+  }
+  static bool noise_history(const GS &gs) { return gs.noise_history; }
+  static float noise_phase(const GS &gs) { return gs.color_noise_phase; }
+  static void set_noise_scale(GS &gs, float scale) {
+    gs.params.noise_scale = scale;
+  }
+  static std::vector<int8_t> previous_noise(const GS &gs) {
+    return {gs.previous_noise_lut,
+            gs.previous_noise_lut + HueNoiseLutView::SIZE};
+  }
+  static std::vector<int8_t> current_noise(const GS &gs) {
+    return {gs.color_noise_lut, gs.color_noise_lut + HueNoiseLutView::SIZE};
+  }
+  /** @brief The table the noise bake gives at `phase`, from the effect's
+   *         noise source and scale. */
+  static std::vector<int8_t> bake_noise(const GS &gs, float phase) {
+    std::vector<int8_t> table(HueNoiseLutView::SIZE);
+    prepare_hue_noise_lut<true>(std::span<int8_t, HueNoiseLutView::SIZE>(
+                                    table.data(), HueNoiseLutView::SIZE),
+                                gs.color_noise, gs.params.noise_scale, phase);
+    return table;
+  }
   /** @brief Replaces the view orientation's frame endpoints. */
   static void set_orientation(GS &gs, const math::Quaternion &previous,
                               const math::Quaternion &current) {
@@ -410,7 +480,6 @@ struct GSWhiteBox {
                                      const math::Vector &direction) {
     return gs.sample_color_noise(ReactionGraph::CubemapLUT::project(direction));
   }
-  static float noise_phase(const GS &gs) { return gs.color_noise_phase; }
   static void set_noise_phase(GS &gs, float phase) {
     gs.color_noise_phase = phase;
   }
@@ -2023,5 +2092,176 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
     HS_EXPECT_LE(stats->max_absolute_error, 16u);
     HS_EXPECT_LE(stats->mean_absolute_error(),
                  1.5 * rounding.mean_absolute_error());
+  }
+}
+
+/**
+ * @brief Each sweep slab shows the field after the substep that ends its share
+ *        of the frame, through the frame's dissolve mask and with the slab's
+ *        colour-noise blend, on both arms; a frame that ends a dissolve stays
+ *        black, a reseed frame shows the seeded field whole, and toggling
+ *        temporal sampling leaves the simulation unchanged.
+ */
+inline void test_gs_slabs_shade_the_field_after_their_substep() {
+  using WhiteBox = GSWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H, STEPS = WhiteBox::STEPS;
+  constexpr int N = WhiteBox::N, GROW = 40;
+  constexpr bool TOGGLED[] = {true, false, true, true, true, true, true, true};
+  // Frame 2 starts the last three frames of a dissolve: two converting frames,
+  // the black frame that ends it, and the reseed frame.
+  constexpr int DISSOLVE_AT = 2;
+  int earlier = 0, masked = 0, black = 0, reseeded = 0;
+  auto run = [&](bool check) {
+    reset_effect_globals();
+    WhiteBox::GS gs;
+    gs.init();
+    Temporal::set_temporal_sampling_enabled(check);
+    for (int f = 0; f < GROW; ++f) {
+      gs.draw_frame();
+      gs.advance_display();
+    }
+    for (int f = 0; f < static_cast<int>(std::size(TOGGLED)); ++f) {
+      const bool enabled = check && TOGGLED[f];
+      HS_CONTEXT("frame, temporal sampling", f, enabled);
+      Temporal::set_temporal_sampling_enabled(enabled);
+      if (f == DISSOLVE_AT)
+        WhiteBox::dissolve_within(gs, 3);
+      const WhiteBox::Snapshot before = WhiteBox::snapshot(gs);
+      gs.draw_frame();
+      gs.advance_display();
+      if (!enabled)
+        continue;
+      std::vector<Pixel> frame;
+      capture_frame<W, H>(gs, frame);
+      std::vector<std::vector<Pixel>> fields(STEPS);
+      const int dissolve = before.transition.dissolve_frames;
+      if (before.transition.reseed_pending()) {
+        ++reseeded;
+        const WhiteBox::Snapshot after = WhiteBox::snapshot(gs);
+        for (auto &field : fields)
+          field = WhiteBox::shade_slab_field(gs, after.b, -1.0f, 1.0f);
+      } else if (dissolve >= 0 && dissolve + 1 >= WhiteBox::DISSOLVE_FRAMES) {
+        ++black;
+        for (auto &field : fields)
+          field.assign(static_cast<size_t>(W) * H, Pixel(0, 0, 0));
+      } else {
+        const float phase = dissolve >= 0 ? static_cast<float>(dissolve + 1) /
+                                                WhiteBox::DISSOLVE_FRAMES
+                                          : -1.0f;
+        masked += phase >= 0.0f;
+        std::vector<float> a(N), b(N), next_a(N), next_b(N);
+        for (int i = 0; i < N; ++i) {
+          a[i] = WhiteBox::from_q16(before.a[i]);
+          b[i] = WhiteBox::from_q16(before.b[i]);
+        }
+        std::vector<uint16_t> q(N);
+        for (int k = 0; k < STEPS; ++k) {
+          WhiteBox::step_float(gs, a.data(), b.data(), next_a.data(),
+                               next_b.data());
+          a.swap(next_a);
+          b.swap(next_b);
+          for (int i = 0; i < N; ++i)
+            q[i] = WhiteBox::to_q16(b[i]);
+          fields[k] = WhiteBox::shade_slab_field(
+              gs, q, phase, static_cast<float>(k + 1) / STEPS);
+        }
+      }
+      for (int x = 0; x < W; ++x) {
+        const int slab =
+            static_cast<int>(Temporal::sweep_fraction(x, W) * STEPS);
+        for (int y = 0; y < H; ++y) {
+          HS_CONTEXT("px", x, y);
+          const size_t i = static_cast<size_t>(y) * W + x;
+          HS_EXPECT_TRUE(frame[i] == fields[slab][i]);
+          earlier += fields[slab][i] != fields[STEPS - 1][i];
+        }
+      }
+    }
+    Temporal::set_temporal_sampling_enabled(true);
+    return WhiteBox::snapshot(gs);
+  };
+  const WhiteBox::Snapshot toggled = run(true);
+  HS_EXPECT_GT(earlier, 0);
+  HS_EXPECT_EQ(masked, 2);
+  HS_EXPECT_EQ(black, 1);
+  HS_EXPECT_EQ(reseeded, 1);
+  HS_EXPECT(run(false) == toggled,
+            "temporal sampling must not change the simulation");
+}
+
+/**
+ * @brief Under temporal sampling the previous frame's colour-noise table is
+ *        the bake at the previous phase, and a noise scale change drops it.
+ */
+inline void test_gs_slab_noise_keeps_the_previous_bake() {
+  using WhiteBox = GSWhiteBox;
+  reset_effect_globals();
+  WhiteBox::GS gs;
+  gs.init();
+  for (int f = 0; f < 3; ++f) {
+    const float previous = WhiteBox::noise_phase(gs);
+    gs.draw_frame();
+    gs.advance_display();
+    HS_CONTEXT("frame", f);
+    HS_EXPECT_TRUE(WhiteBox::noise_history(gs));
+    HS_EXPECT_TRUE(previous != WhiteBox::noise_phase(gs));
+    HS_EXPECT(WhiteBox::previous_noise(gs) ==
+                  WhiteBox::bake_noise(gs, previous),
+              "the retained table must be the previous phase's bake");
+    HS_EXPECT(WhiteBox::current_noise(gs) ==
+                  WhiteBox::bake_noise(gs, WhiteBox::noise_phase(gs)),
+              "the current table must be the current phase's bake");
+  }
+  WhiteBox::set_noise_scale(gs, 2.0f);
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_FALSE(WhiteBox::noise_history(gs));
+}
+
+/**
+ * @brief Slab-wise GS frames rendered in display bands, including bands
+ *        across arm and slab boundaries, match the full-canvas frames.
+ */
+inline void test_gs_segmented_slabs_match_full_frame() {
+  using GS = GSWhiteBox::GS;
+  constexpr int W = SMALL_W, H = SMALL_H, GROW = 40, FRAMES = 3;
+  auto render = [](int x0, int x1) {
+    reset_effect_globals();
+    pin_frame_clock(0);
+    GS gs;
+    gs.init();
+    gs.set_clip(0, H, x0, x1);
+    std::vector<Pixel> out;
+    for (int f = 0; f < GROW + FRAMES; ++f) {
+      pin_frame_clock(f);
+      gs.draw_frame();
+      gs.advance_display();
+      if (f < GROW)
+        continue;
+      for (int y = 0; y < H; ++y)
+        for (int x = x0; x < x1; ++x)
+          out.push_back(gs.get_pixel(x, y));
+    }
+    hs::clear_mock_time();
+    return out;
+  };
+  const std::vector<Pixel> full = render(0, W);
+  size_t lit = 0;
+  for (const Pixel &p : full)
+    lit += !is_black(p);
+  HS_EXPECT_GT(lit, static_cast<size_t>(0));
+  const std::array<std::array<int, 2>, 4> bands{
+      {{0, 30}, {20, 60}, {44, 52}, {70, W}}};
+  for (const auto &[x0, x1] : bands) {
+    HS_CONTEXT("band", x0, x1);
+    const std::vector<Pixel> band = render(x0, x1);
+    size_t next = 0;
+    int mismatches = 0;
+    for (int f = 0; f < FRAMES; ++f)
+      for (int y = 0; y < H; ++y)
+        for (int x = x0; x < x1; ++x)
+          mismatches +=
+              band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
+    HS_EXPECT_EQ(mismatches, 0);
   }
 }
