@@ -472,6 +472,31 @@ check_fragment_shader(TimedShaderFn fragment_shader) {
 }
 
 /**
+ * @brief Erased shader of a column-time scan: a plain shader, or one that
+ *        reads its column's sweep time.
+ * @details Both forms share one column-time instantiation per shape. A plain
+ * shader runs once per settled pole-LOD block; a time-aware one runs once per
+ * column at that column's sweep fraction.
+ */
+struct ColumnShader {
+  FragmentShaderFn plain;  ///< Shader run when `timed` is unset.
+  TimedShaderFn timed;     ///< Shader taking its column's sweep fraction.
+  bool reads_time = false; ///< Whether `timed` is the shader.
+
+  /**
+   * @brief Wraps a plain shader.
+   * @param shader Shader invoked per covered pixel.
+   */
+  ColumnShader(FragmentShaderFn shader) : plain(shader) {}
+
+  /**
+   * @brief Wraps a shader that reads its column's sweep time.
+   * @param shader Shader invoked per covered column.
+   */
+  ColumnShader(TimedShaderFn shader) : timed(shader), reads_time(true) {}
+};
+
+/**
  * @brief Anti-aliased coverage of a solid shape at a signed distance.
  * @param d Signed distance to the surface, negative inside.
  * @param pixel_width Angular width of one column, the AA half-reach.
@@ -711,8 +736,9 @@ prepare_probe_row(Probe &probe, const ShapeT &shape, int y, bool debug) {
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
  * @tparam PipelineT Plotting pipeline type (deduced; pass PipelineRef to erase the sink).
  * @tparam Probe Prepared distance evaluator.
- * @tparam ShaderFn Erased shader form: FragmentShaderFn, or TimedShaderFn,
- *         which runs once per offered column at that column's sweep time.
+ * @tparam ShaderFn Erased shader form: FragmentShaderFn, or ColumnShader,
+ *         whose time-aware form runs once per offered column at that
+ *         column's sweep time.
  * @param x Column index in [0, W).
  * @param y Row index in [0, H).
  * @param p World-space unit vector for the pixel center.
@@ -794,6 +820,10 @@ process_pixel(int x, int y, const math::Vector &p, PipelineT &pipeline,
     if (!debug_bb && alpha <= MIN_ALPHA)
       return span;
 
+    constexpr bool COLUMN_SHADER = std::is_same_v<ShaderFn, ColumnShader>;
+    bool per_column = false;
+    if constexpr (COLUMN_SHADER)
+      per_column = fragment_shader.reads_time;
     const auto shade = [&](int column) HS_HOT_INLINE {
       // Scratch Fragment is reused across pixels; reset color each call so a
       // conditionally-writing shader starts from a clean color/alpha.
@@ -806,7 +836,15 @@ process_pixel(int x, int y, const math::Vector &p, PipelineT &pipeline,
       frag_scratch.size = result_scratch.size;
       frag_scratch.age = 0;
 
-      Temporal::shade_at_column<W>(fragment_shader, column, p, frag_scratch);
+      if constexpr (COLUMN_SHADER) {
+        if (per_column)
+          fragment_shader.timed(p, frag_scratch,
+                                Temporal::sweep_fraction(column, W));
+        else
+          fragment_shader.plain(p, frag_scratch);
+      } else {
+        fragment_shader(p, frag_scratch);
+      }
 
       if (debug_bb) {
         frag_scratch.color.color = frag_scratch.color.color.lerp16(
@@ -816,8 +854,7 @@ process_pixel(int x, int y, const math::Vector &p, PipelineT &pipeline,
       }
     };
 
-    if constexpr (Temporal::reads_column_time<ShaderFn, const math::Vector &,
-                                              Fragment &>) {
+    if (per_column) {
       for (int i = 0; i < span; ++i) {
         shade(x + i);
         if (frag_scratch.color.alpha > MIN_ALPHA)
@@ -1427,12 +1464,11 @@ column_time_active(const Temporal::ColumnTime *time) {
  * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
  * @tparam PipelineT Plotting pipeline type.
  * @tparam ShapeT Shape type.
- * @tparam ShaderFn FragmentShaderFn or TimedShaderFn.
  * @param pipeline Plotting pipeline receiving the final colors.
  * @param canvas Destination canvas.
  * @param shape SDF shape built at the current endpoint.
  * @param fragment_shader Shader invoked per covered pixel; receives the
- *        rotated direction, and a TimedShaderFn also its column's sweep
+ *        rotated direction, and a time-aware one also its column's sweep
  *        fraction.
  * @param debug Whether to render the bounding box.
  * @param time Column-time state; one without a basis or birth fraction scans
@@ -1443,11 +1479,10 @@ column_time_active(const Temporal::ColumnTime *time) {
  * frame's rotated by the drift still to come at each column, filled for the
  * columns the bounds reach.
  */
-template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT,
-          typename ShaderFn>
+template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
 inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
-                                  const ShapeT &shape, ShaderFn fragment_shader,
-                                  bool debug,
+                                  const ShapeT &shape,
+                                  ColumnShader fragment_shader, bool debug,
                                   const Temporal::ColumnTime &time) {
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
