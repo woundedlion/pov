@@ -63,6 +63,8 @@ struct Ring {
                          check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
+  /// Fraction of the stroke the exact-distance row bounds keep.
+  static constexpr float ROW_BOUND_TRIM = 0.95f;
 
   Ring() = default;
 
@@ -111,11 +113,27 @@ struct Ring {
 
     // Exact distance trims the outer 5% (negligible quintic alpha); the
     // linearized metric retains the full stroke band.
-    float eff_th = inv_sin_target != 0.0f ? thickness : 0.95f * thickness;
+    float eff_th =
+        inv_sin_target != 0.0f ? thickness : ROW_BOUND_TRIM * thickness;
     float f_phi_min = std::max(0.0f, band.phi_min - eff_th);
     float f_phi_max = std::min(math::PI_F, band.phi_max + eff_th);
 
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
+  }
+
+  /**
+   * @brief Bounds proxy covering the ring swept by an arc.
+   * @param arc Largest arc any point of the ring moves (radians).
+   * @return Copy whose vertical bounds and intervals cover the band widened by
+   *         @p arc; its distance() is not the swept ring's.
+   */
+  Ring swept(float arc) const {
+    Ring out = *this;
+    out.thickness =
+        thickness + (inv_sin_target != 0.0f ? arc : arc / ROW_BOUND_TRIM);
+    band_edge_cosines(target_angle - out.thickness,
+                      target_angle + out.thickness, out.cos_max, out.cos_min);
+    return out;
   }
 
   /**

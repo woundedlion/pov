@@ -28,6 +28,9 @@
  */
 
 class Canvas;
+namespace Temporal {
+struct ColumnTime;
+}
 
 /**
  * @brief Construction-time flags for an Effect (see the accessors of the same
@@ -580,6 +583,22 @@ public:
    */
   inline bool debug() const { return effect.debug_visuals; }
 
+  /**
+   * @brief Column-time state the frame's scans read.
+   * @return The installed state, or null for fixed-meridian scans.
+   */
+  [[nodiscard]] const Temporal::ColumnTime *column_time() const {
+    return column_time_state;
+  }
+
+  /**
+   * @brief Installs the column-time state later scans of this frame read.
+   * @param state State to install, or null; must outlive its installation.
+   */
+  void set_column_time(const Temporal::ColumnTime *state) {
+    column_time_state = state;
+  }
+
 #if HS_ENABLE_TEST_HOOKS
   /**
    * @brief Test-only count of buffer_free() spin iterations across all Canvas
@@ -685,6 +704,8 @@ private:
 #endif
 
   Effect &effect; /**< Reference to the owning Effect instance. */
+  /// Column-time state installed for this frame's scans; null for none.
+  const Temporal::ColumnTime *column_time_state = nullptr;
 #if HS_ENABLE_TEST_HOOKS
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif

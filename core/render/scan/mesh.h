@@ -43,15 +43,20 @@ HS_O3_BEGIN
  * @param canvas Destination canvas.
  * @param shape Face to rasterize.
  * @param fragment_shader Shader invoked per covered pixel.
+ * @param time Optional column-time state; its rotated basis supplies each
+ *        pixel's direction and its birth fraction is ignored.
  * @details Faces whose column intervals are row-independent build their runs
  * once. The per-pixel body mirrors process_pixel's solid path. Does not read
- * canvas.debug().
+ * canvas.debug(). Under a rotated basis a pole-LOD block's slack grows by the
+ * rotation between its first and last columns, and a block straddling an arm
+ * boundary is walked per column.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
 HS_NOINLINE_NOCLONE inline void
 rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-               FragmentShaderT &fragment_shader) {
+               FragmentShaderT &fragment_shader,
+               const Temporal::ColumnTime *time = nullptr) {
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
 
@@ -107,6 +112,11 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 
   const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+  const math::Vector *azimuth = time ? time->azimuth : nullptr;
+  const math::Vector *up = time ? time->up : nullptr;
+  // Arc the basis rotates per column of sweep time.
+  [[maybe_unused]] const float column_rotation =
+      azimuth ? time->sweep / (W / 2) : 0.0f;
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
 
@@ -132,7 +142,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
         Render::pole_lod_aggressiveness > 0.0f) {
       const float block_reach = std::min(
-          PIXEL_WIDTH + Render::pole_lod_aggressiveness * PIXEL_WIDTH *
+          PIXEL_WIDTH + (Render::pole_lod_aggressiveness * PIXEL_WIDTH +
+                         column_rotation * (Render::POLE_LOD_MAX_RUN - 1)) *
                             SDF::arc_stretch<SDF::Face> * plane_stretch,
           SDF::reject_margin<SDF::Face>);
       float block_radius =
@@ -162,7 +173,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
     if constexpr (pole_lod_blocks<SDF::Face>) {
-      block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
+      block_slack = (pole_lod_slack<W, SDF::Face>(stride, sp) +
+                     column_rotation * static_cast<float>(stride - 1) *
+                         SDF::arc_stretch<SDF::Face>)*plane_stretch;
       // the block test reads d, so the cull must not sentinel a probe inside
       // its threshold
       const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;
@@ -176,12 +189,17 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (stride > 1)
           next_block = pole_lod_block_anchor(next_block, stride);
       for (int x = runs[r].first; x < rx2;) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const math::Vector p =
+            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
         float probe_min_cos = min_cos;
-        if constexpr (pole_lod_blocks<SDF::Face>)
-          if (stride > 1 && x == next_block && x + stride <= rx2 &&
+        [[maybe_unused]] bool block_fits = false;
+        if constexpr (pole_lod_blocks<SDF::Face>) {
+          block_fits = x + stride <= rx2 &&
+                       (!azimuth || x >= W / 2 || x + stride <= W / 2);
+          if (stride > 1 && x == next_block && block_fits &&
               probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
+        }
         shape.template distance_with_flags<true>(p, res, reject_dsq,
                                                  probe_flags, probe_min_cos);
         const float d = res.dist;
@@ -192,9 +210,9 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if constexpr (pole_lod_blocks<SDF::Face>) {
           if (stride > 1 && x == next_block) {
             next_block += stride;
-            if (x + stride <= rx2 && pole_lod_settle_with_slack<true>(
-                                         d, PIXEL_WIDTH, block_slack, shape,
-                                         &p) != BlockSettle::PER_COLUMN)
+            if (block_fits && pole_lod_settle_with_slack<true>(
+                                  d, PIXEL_WIDTH, block_slack, shape, &p) !=
+                                  BlockSettle::PER_COLUMN)
               span = stride;
           }
         }
@@ -267,7 +285,9 @@ HS_O3_BEGIN
  * @details Without a face-shader setup callback the face index reaches the
  * shader in register v2; with one, it reaches the shader only through what
  * the callback hoists.
- * canvas.debug() does not tint a mesh.
+ * canvas.debug() does not tint a mesh. Under the canvas's column-time basis
+ * each face's bounds are swept by its arc and every pixel is evaluated along
+ * its column's rotated direction.
  */
 struct Mesh {
   /**
@@ -326,10 +346,23 @@ struct Mesh {
     auto *scratch = new_face_scratch(scratch_arena);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const float sweep = time && time->azimuth ? time->sweep : 0.0f;
     float *azimuth_pads = scratch_arena.allocate_n<float>(H);
-    for (int y = 0; y < H; ++y)
-      azimuth_pads[y] =
-          SDF::face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
+    if (sweep > 0.0f) {
+      const float reach = SDF::face_azimuth_pad(W) + sweep;
+      for (int y = 0; y < H; ++y) {
+        const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
+        azimuth_pads[y] =
+            sin_phi <= reach ? math::PI_F : asinf(reach / sin_phi);
+      }
+    } else {
+      for (int y = 0; y < H; ++y)
+        azimuth_pads[y] =
+            SDF::face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
+    }
+    const float bounds_margin =
+        std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -363,8 +396,7 @@ struct Mesh {
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
-                         &cr, azimuth_pads,
-                         std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
+                         &cr, azimuth_pads, bounds_margin);
       }();
 
       // Bind the face's congruence-class LUT; culled faces (y_min > y_max) skip
@@ -391,14 +423,14 @@ struct Mesh {
         {
           HS_PROFILE(scan_mesh_raster);
           rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
-                                                 raster_shader);
+                                                 raster_shader, time);
         }
       } else {
         face_shader_setup(i, shape.size);
         {
           HS_PROFILE(scan_mesh_raster);
           rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
-                                                fragment_shader);
+                                                fragment_shader, time);
         }
       }
     }

@@ -82,6 +82,17 @@ struct PlanarPolygon {
   }
 
   /**
+   * @brief Bounds proxy covering the polygon swept by an arc.
+   * @param arc Largest arc any point of the polygon moves (radians).
+   * @return Copy whose bounds and intervals cover the swept polygon.
+   */
+  PlanarPolygon swept(float arc) const {
+    PlanarPolygon out = *this;
+    out.cap = swept_cap(cap, arc);
+    return out;
+  }
+
+  /**
    * @brief Emits the bounding-cap interval for one scanline row.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
@@ -231,6 +242,17 @@ struct SphericalPolygon {
    */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
+  }
+
+  /**
+   * @brief Bounds proxy covering the polygon swept by an arc.
+   * @param arc Largest arc any point of the polygon moves (radians).
+   * @return Copy whose bounds and intervals cover the swept polygon.
+   */
+  SphericalPolygon swept(float arc) const {
+    SphericalPolygon out = *this;
+    out.cap = swept_cap(cap, arc);
+    return out;
   }
 
   /**
@@ -390,6 +412,17 @@ struct Star {
   }
 
   /**
+   * @brief Bounds proxy covering the star swept by an arc.
+   * @param arc Largest arc any point of the star moves (radians).
+   * @return Copy whose bounds and intervals cover the swept star.
+   */
+  Star swept(float arc) const {
+    Star out = *this;
+    out.cap = swept_cap(cap, arc);
+    return out;
+  }
+
+  /**
    * @brief Emits the bounding-circle interval for one scanline row.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
@@ -511,6 +544,17 @@ struct Flower {
    */
   template <int H> Bounds get_vertical_bounds() const {
     return phi_bounds_to_rows<H>(cap.phi_min, cap.phi_max);
+  }
+
+  /**
+   * @brief Bounds proxy covering the flower swept by an arc.
+   * @param arc Largest arc any point of the flower moves (radians).
+   * @return Copy whose bounds and intervals cover the swept flower.
+   */
+  Flower swept(float arc) const {
+    Flower out = *this;
+    out.cap = swept_cap(cap, arc);
+    return out;
   }
 
   /**

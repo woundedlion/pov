@@ -1316,7 +1316,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
-│   │   │                            shader, volume)
+│   │   │                            shader, volume, column_basis)
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
@@ -1346,7 +1346,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
-│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction and capture-time solving
+│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction, rotation arc, scan column-time state and capture-time solving
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly

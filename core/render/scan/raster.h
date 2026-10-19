@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <optional>
 #include <type_traits>
 #include "core/render/sdf.h"
 #include "core/render/shading.h"
@@ -14,6 +15,8 @@
 #include "core/containers/static_circular_buffer.h"
 #include "core/render/canvas.h"
 #include "core/platform/platform.h"
+#include "core/render/scan/column_basis.h"
+#include "core/render/temporal.h"
 
 /**
  * @file raster.h
@@ -1017,6 +1020,9 @@ inline constexpr bool fits_top_span_cap =
  *                 the whole offer, else 1 (never 0).
  * @param xc Column-arc clip; pixel runs are intersected with the arc before
  *           walking, so pixel_fn is never called for a clipped column.
+ * @param time Optional column-time state: a rotated basis supplies p and
+ *             disables pole-LOD blocks, and a birth fraction skips the
+ *             columns lit before it.
  * @details Near-pole rows offer only full canvas-aligned blocks of
  * pole_lod_run(sin(phi)) columns; a block a clip or span edge truncates is
  * walked per column.
@@ -1026,7 +1032,8 @@ inline constexpr bool fits_top_span_cap =
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
-                        PixelFn &&pixel_fn, ClipRegion::XClip xc = {}) {
+                        PixelFn &&pixel_fn, ClipRegion::XClip xc = {},
+                        const Temporal::ColumnTime *time = nullptr) {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
@@ -1045,6 +1052,11 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   const float *cos_theta =
       math::TrigLUT<W, H>::cos_theta_data(); // cos via +W/4
   const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+  const math::Vector *azimuth = time ? time->azimuth : nullptr;
+  const math::Vector *up = time ? time->up : nullptr;
+  const int birth_column = time && time->birth > 0.0f
+                               ? Temporal::first_column_at(time->birth, W)
+                               : 0;
 
   // A full block is offered as one call probed at its first column; a block
   // the run truncates is walked per column.
@@ -1058,16 +1070,18 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         if (stride > 1 && x == next_block) {
           next_block += stride;
           if (x + stride <= x2) {
-            x +=
-                pixel_fn(x, y,
-                         math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]),
-                         stride) -
-                1;
+            x += pixel_fn(x, y,
+                          column_direction<W>(azimuth, up, x, sp, cp, cos_theta,
+                                              sin_theta),
+                          stride) -
+                 1;
             continue;
           }
         }
       }
-      pixel_fn(x, y, math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]), 1);
+      pixel_fn(
+          x, y,
+          column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta), 1);
     }
   };
 
@@ -1075,7 +1089,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   for (int y = y_min; y <= y_max; ++y) {
     float sp = math::TrigLUT<W, H>::sin_phi[y];
     float cp = math::TrigLUT<W, H>::cos_phi[y];
-    const int stride = pole_lod_run(sp);
+    const int stride = azimuth ? 1 : pole_lod_run(sp);
 
     // Clear before the producer runs: a producer that emits and then returns
     // false must not leak spans into the next row.
@@ -1083,8 +1097,14 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
     bool handled = get_intervals(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
-    emit_row_runs<W>(handled, intervals, norm, xc,
-                     [&](int x1, int x2) { walk(x1, x2, y, sp, cp, stride); });
+    emit_row_runs<W>(handled, intervals, norm, xc, [&](int x1, int x2) {
+      if (birth_column == 0) {
+        walk(x1, x2, y, sp, cp, stride);
+        return;
+      }
+      walk(std::max(x1, birth_column), std::min(x2, W / 2), y, sp, cp, stride);
+      walk(std::max(x1, W / 2 + birth_column), x2, y, sp, cp, stride);
+    });
   }
 }
 
@@ -1180,6 +1200,17 @@ clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
 }
 
 /**
+ * @brief Whether a shape builds a bounds proxy covering it swept by an arc.
+ * @tparam ShapeT Shape type.
+ * @details `swept(arc)` returns a copy whose vertical bounds and horizontal
+ * intervals cover every point within `arc` of the shape; only those are read.
+ */
+template <typename ShapeT>
+inline constexpr bool has_swept_bounds = requires(const ShapeT &shape) {
+  { shape.swept(0.0f) } -> std::same_as<ShapeT>;
+};
+
+/**
  * @brief Main rasterization routine for SDF shapes.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
@@ -1192,7 +1223,10 @@ clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
  * @param fragment_shader Shader invoked per covered pixel.
  * @param debug_bb When true, renders the bounding box for debugging.
  * @details Scans the bounding box, computes intervals, and executes the shader
- * for valid pixels.
+ * for valid pixels. Under the canvas's column-time state the shape is
+ * evaluated at each column's rotated basis and the shader receives that
+ * direction; bounds come from the shape's swept() proxy, or from whole rows
+ * of the swept band for a shape without one.
  */
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
@@ -1212,10 +1246,26 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   check_fragment_shader(fragment_shader);
   bool effective_debug = debug_bb || canvas.debug();
 
+  using ShapeT = std::remove_cvref_t<decltype(shape)>;
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
+  const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+  const float sweep = time && time->azimuth ? time->sweep : 0.0f;
+  const ShapeT *bounds_shape = &shape;
+  std::optional<ShapeT> swept;
+  bool full_rows = false;
   auto bounds = shape.template get_vertical_bounds<H>();
+  if (sweep > 0.0f) {
+    if constexpr (has_swept_bounds<ShapeT>) {
+      swept.emplace(shape.swept(sweep));
+      bounds_shape = &*swept;
+      bounds = swept->template get_vertical_bounds<H>();
+    } else {
+      full_rows = true;
+      bounds = swept_rows<H>(bounds, sweep);
+    }
+  }
   if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
     return;
 
@@ -1227,7 +1277,9 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       y_lo, y_hi,
       [&](int y, auto &&out) {
         prepare_probe_row<W, H>(probe, shape, y, effective_debug);
-        return shape.template get_horizontal_intervals<W, H>(y, out);
+        if (full_rows)
+          return false;
+        return bounds_shape->template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const math::Vector &p, int max_run) {
         if constexpr (std::is_same_v<decltype(probe), SDF::DirectDistance>)
@@ -1239,7 +1291,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
               wx, y, p, pipeline, canvas, shape, fragment_shader,
               effective_debug, result_scratch, frag_scratch, max_run, probe);
       },
-      xc);
+      xc, time);
 }
 
 /**

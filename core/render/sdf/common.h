@@ -752,6 +752,23 @@ inline CapBounds cap_bounds(const math::Vector &axis, float radius,
 }
 
 /**
+ * @brief Widens a bounding cap to cover its shape swept by an arc.
+ * @param cap Cap covering the shape.
+ * @param arc Largest arc any point of the shape moves (radians).
+ * @return The cap with its radius and row band grown by @p arc.
+ */
+inline CapBounds swept_cap(const CapBounds &cap, float arc) {
+  CapBounds out = cap;
+  const float radius =
+      fminf(atan2f(cap.sin_radius, cap.cos_radius) + arc, math::PI_F);
+  out.phi_min = std::max(0.0f, cap.phi_min - arc);
+  out.phi_max = std::min(math::PI_F, cap.phi_max + arc);
+  out.cos_radius = cosf(radius);
+  out.sin_radius = sinf(radius);
+  return out;
+}
+
+/**
  * @brief Emit the single horizontal interval where a row crosses a spherical
  * cap of angular radius `acos(cos_cap)` centred on an axis whose projection
  * onto the scan plane is (ny, r_val, alpha_angle).
