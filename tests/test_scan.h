@@ -86,6 +86,7 @@ inline int run_scan_tests() {
   test_shader_respects_clip_band();
   test_ssaa_grid_sample_positions();
   test_shader_clip_arc_matches_predicate();
+  test_shader_render_x_window_matches_predicate();
   test_ring_rasterize_produces_bounded_output();
   test_ring_long_radius_azimuth_unflipped();
   test_ring_rasterize_lights_expected_row();

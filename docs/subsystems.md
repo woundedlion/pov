@@ -202,6 +202,15 @@ their period, and spatially periodic phase wraps. Discrete preset changes and
 the held Mobius coefficient interpolation do not become continuous through
 this option. GridSpace's whole-cell affine winding satisfies the wrap condition.
 
+A `RenderXWindow` ([canvas.h](../core/render/canvas.h)) restricts a frame's
+windowed column loops to the half-turn columns `[begin, end)` on both arms,
+inside the driver clip, which cannot change while a frame is active. Windows do
+not nest, and closing one admits every column again. `Scan::Shader::walk_grid`
+and `draw_grid` honour it through `Scan::walk_window_columns`; other loops
+write their whole clip. `Temporal::sweep_slab` divides the half-turn into
+slabs in sweep order, so a renderer can shade each slab from the state at the
+end of its share of the frame.
+
 ### Spherical ray rendering
 
 The reusable ray entry is [ray.h](../core/render/ray.h). `Raycast::PreparedCamera`

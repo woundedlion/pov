@@ -409,3 +409,103 @@ inline void test_shader_clip_arc_matches_predicate() {
     }
   }
 }
+
+/**
+ * @brief walk_grid and draw_grid write exactly the columns that the clip arc
+ *        and the render-x window both admit, on both arms, in ascending order.
+ */
+inline void test_shader_render_x_window_matches_predicate() {
+  constexpr int W = 32, H = 16, HALF = W / 2;
+  auto positional = [](const math::Vector &v) {
+    return Pixel(static_cast<uint16_t>((v.x * 0.5f + 0.5f) * 60000.0f),
+                 static_cast<uint16_t>((v.z * 0.5f + 0.5f) * 60000.0f), 30000);
+  };
+  auto render = [&](bool fragments, const ClipRegion &cr,
+                    const ColumnWindow &window, std::vector<Pixel> &out) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(0, H, cr.x_start, cr.x_end);
+    fx.set_margin(cr.margin);
+    {
+      Canvas c(fx);
+      auto draw = [&] {
+        if (fragments)
+          Scan::Shader::draw_grid<W, H>(
+              c, [](Fragment &) {},
+              [&](Fragment &, const Scan::Shader::SsaaGrid<W, H> &grid, int x) {
+                return positional(grid.at(x, 0));
+              });
+        else
+          Scan::Shader::walk_grid<W, H>(
+              c, [&](const math::Vector &, const auto &grid, int x) {
+                return positional(grid.at(x, 0));
+              });
+      };
+      if (window.active) {
+        RenderXWindow scope(c, window.begin, window.end);
+        HS_EXPECT_EQ(c.render_x_window().begin, window.begin);
+        HS_EXPECT_EQ(c.render_x_window().end, window.end);
+        draw();
+      } else {
+        draw();
+      }
+      HS_EXPECT_FALSE(c.render_x_window().active);
+    }
+    fx.advance_display();
+    capture_frame<W, H>(fx, out);
+  };
+
+  struct Band {
+    int x0, x1, margin;
+  };
+  const Band bands[] = {{0, W, 0}, {8, 20, 2}, {0, 10, 3}, {W - 3, W, 0}};
+  const ColumnWindow windows[] = {{0, HALF, true}, {0, 5, true},
+                                  {5, 11, true},   {11, HALF, true},
+                                  {7, 7, true},    {0, 0, false}};
+
+  for (bool fragments : {false, true}) {
+    HS_CONTEXT("draw_grid", fragments);
+    std::vector<Pixel> reference;
+    ClipRegion full;
+    full.w = W;
+    full.h = H;
+    full.y_end = H;
+    full.x_end = W;
+    full.margin = 0;
+    render(fragments, full, {}, reference);
+    for (const Band &b : bands) {
+      ClipRegion cr = full;
+      cr.x_start = b.x0;
+      cr.x_end = b.x1;
+      cr.margin = b.margin;
+      const ClipRegion::XClip xc = cr.x_clip();
+      for (const ColumnWindow &window : windows) {
+        HS_CONTEXT("band", b.x0, b.margin);
+        HS_CONTEXT("window", window.begin, window.end);
+        auto admitted = [&](int x) {
+          return !xc.clipped(x) &&
+                 (!window.active ||
+                  (x % HALF >= window.begin && x % HALF < window.end));
+        };
+        std::vector<int> walked;
+        Scan::walk_window_columns<W>(xc, window,
+                                     [&](int x) { walked.push_back(x); });
+        std::vector<int> expected_walk;
+        for (int x = 0; x < W; ++x)
+          if (admitted(x))
+            expected_walk.push_back(x);
+        HS_EXPECT(walked == expected_walk,
+                  "a windowed walk visits each admitted column once, in order");
+
+        std::vector<Pixel> got;
+        render(fragments, cr, window, got);
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            HS_CONTEXT("px", x, y);
+            const Pixel expected =
+                admitted(x) ? reference[y * W + x] : Pixel(0, 0, 0);
+            HS_EXPECT_TRUE(got[y * W + x] == expected);
+          }
+      }
+    }
+  }
+}

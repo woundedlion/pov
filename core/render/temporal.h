@@ -6,9 +6,9 @@
 
 /** @file temporal.h
  * @brief Column-time sampling contract shared by every renderer family: the
- * fidelity toggle, the sweep fraction of a column, the shortest rotation arc
- * between frame endpoints, the column-time state scans read, and capture-time
- * solving for plotted points.
+ * fidelity toggle, the sweep fraction of a column, sweep slabs, the shortest
+ * rotation arc between frame endpoints, the column-time state scans read, and
+ * capture-time solving for plotted points.
  */
 
 #include "core/animation/orientation.h"
@@ -124,6 +124,23 @@ HS_FLASH_MEMBER inline int first_column_at(float fraction, int width) {
   while (column < half && sweep_fraction(column, width) < fraction)
     ++column;
   return column;
+}
+
+/** @brief Half-turn columns of one sweep slab. */
+struct SweepSlab {
+  int begin; ///< First half-turn column.
+  int end;   ///< One past the last half-turn column.
+};
+
+/** @brief Columns of one of `count` slabs that tile the half-turn in sweep
+ * order, for a render-x window.
+ * @param slab Slab index, in [0, count).
+ * @param count Slab count, in [1, width / 2].
+ * @param width Even canvas width.
+ * @return Slab `slab`, whose columns' sweep fractions lie in
+ * `[slab / count, (slab + 1) / count)` up to column rounding. */
+constexpr SweepSlab sweep_slab(int slab, int count, int width) {
+  return {slab * (width / 2) / count, (slab + 1) * (width / 2) / count};
 }
 
 /** @brief Most history nodes capture() accepts. */

@@ -119,6 +119,7 @@ inline int run_filter_tests() {
   test_temporal_capture_column_matches_composed_time();
   test_temporal_capture_tilted_axis_within_half_column();
   test_temporal_capture_unsolvable_motion_falls_back_to_endpoint();
+  test_sweep_slabs_tile_the_half_turn();
   test_world_orient_cull_edge_mirrors_plot();
   test_world_orient_slice_selects_by_projection();
   test_world_orient_slice_cull_edge_bounds_all_slices();
