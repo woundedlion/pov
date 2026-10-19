@@ -526,6 +526,8 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
   const HueRotationValueSample value_sample(value);
   HueRotationHueSample previous_hue(0.0f);
   HueRotationHueSample current_hue(0.0f);
+  // Both endpoints read their hue-rotation tables at shared coordinates.
+  bool rotated = false;
   if (state.hue_rotation.active && state.hue_noise.active &&
       state.hue_mode == HueMode::NOISE) {
     const HueNoiseSample NOISE = prepare_hue_noise_sample(sample.sphere);
@@ -535,25 +537,24 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
                       ? previous_hue
                       : HueRotationHueSample(state.hue_shift_amount *
                                              NOISE.sample(state.hue_noise));
+    rotated = true;
+  } else if (state.hue_rotation.active &&
+             state.hue_mode == HueMode::PATH_LENGTH) {
+    const float amount =
+        math::wrap_t(state.hue_shift_amount * sample.path_length);
+    if (amount != 0.0f) {
+      previous_hue = HueRotationHueSample(amount);
+      current_hue = previous_hue;
+      rotated = true;
+    }
   }
   const auto endpoint = [&](const GeneratedPaletteState &endpoint,
                             const HueRotationHueSample &hue) {
-    Color4 color;
-    if (state.hue_rotation.active && state.hue_noise.active &&
-        state.hue_mode == HueMode::NOISE) {
-      color = Color4(
-          sample_hue_rotation_lut(endpoint.hue_rotation, value_sample, hue),
-          generated_palette_alpha(endpoint, value));
-    } else {
-      color = endpoint.palette->get(value);
-      if (state.hue_rotation.active && state.hue_mode == HueMode::PATH_LENGTH) {
-        const float amount =
-            math::wrap_t(state.hue_shift_amount * sample.path_length);
-        if (amount != 0.0f)
-          color.color = sample_hue_rotation_lut(endpoint.hue_rotation,
-                                                value_sample, amount);
-      }
-    }
+    Color4 color = rotated
+                       ? Color4(sample_hue_rotation_lut(endpoint.hue_rotation,
+                                                        value_sample, hue),
+                                generated_palette_alpha(endpoint, value))
+                       : endpoint.palette->get(value);
     if (gain != 1.0f)
       color.color = color.color * gain;
     color.alpha *= opacity;
