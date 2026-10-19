@@ -617,6 +617,7 @@ inline int run_effects_tests() {
   run_case(test_voronoi_axes_use_uniform_sampler);
   run_case(test_voronoi_segment_render_matches_full_frame);
   run_case(test_voronoi_instantaneous_render_pins);
+  run_case(test_voronoi_endpoint_pairs_match_brute_force);
   run_case(test_voronoi_exact_where_endpoint_winners_differ);
   run_case(test_voronoi_temporal_toggle);
   run_case(test_voronoi_reseed_resets_history);

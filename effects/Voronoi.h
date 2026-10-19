@@ -178,6 +178,9 @@ private:
   friend struct ::hs_test::effects_tests::VoronoiWhiteBox;
 
   static constexpr int SITES_PER_CORNER = 2;
+  /** @brief Current sites endpoint_pairs() finds: the pair and the site that
+   *  bounds the others' approach. */
+  static constexpr int NEARBY_SITES = SITES_PER_CORNER + 1;
   /** @brief Relative margin on a search bound taken from known sites, for
    *  rounding between the bound's distances and the search's. */
   static constexpr float BOUND_SLACK = 1.0f + 1e-4f;
@@ -423,13 +426,11 @@ private:
     }
     math::Vector *positions = scratch_arena_a.allocate_n<math::Vector>(
         3 * 4 * TEMPORAL_SITES_PER_CORNER);
+    Nearby near = first_nearby();
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
         [&](const math::Vector &p) __attribute__((always_inline)) {
-          const auto BEFORE = nearest_pair(previous, p);
-          const auto AFTER = nearest_pair(tree, p);
-          return Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>{
-              BEFORE[0], BEFORE[1], AFTER[0], AFTER[1]};
+          return endpoint_pairs(tree, previous, p, near);
         },
         [&](int x) __attribute__((always_inline)) {
           return TemporalColumn{this, column_motion(x, tree, previous),
@@ -476,19 +477,6 @@ private:
   static constexpr float NO_DOT = -2.0f;
 
   /**
-   * @brief Nearest and second-nearest sites at a sample point.
-   * @param tree KD-tree over one endpoint's site positions.
-   * @param p Sample point on the unit sphere.
-   * @return Nearest site first; both name it when only one site exists.
-   */
-  __attribute__((always_inline)) static std::array<uint16_t, SITES_PER_CORNER>
-  nearest_pair(const KDTree &tree, const math::Vector &p) {
-    auto knn = tree.nearest(p, 2);
-    const uint16_t a = knn[0].original_index;
-    return {a, knn.size() > 1 ? knn[1].original_index : a};
-  }
-
-  /**
    * @brief Canonical (order-independent) nearest-pair identity at a sample
    *        point.
    * @param tree KD-tree over the current frame's site positions.
@@ -501,6 +489,62 @@ private:
     uint16_t a = knn[0].original_index;
     uint16_t b = knn.size() > 1 ? knn[1].original_index : a;
     return {std::min(a, b), std::max(a, b)};
+  }
+
+  /** @brief Sites nearest a recent sample point, which bound the next
+   *  endpoint_pairs() search. */
+  using Nearby = std::array<uint16_t, NEARBY_SITES>;
+
+  /**
+   * @brief Distinct sites to bound the first endpoint_pairs() search.
+   * @return The first NEARBY_SITES sites, repeating the last when fewer exist.
+   */
+  Nearby first_nearby() const {
+    Nearby near{};
+    for (int i = 0; i < NEARBY_SITES; ++i)
+      near[i] = static_cast<uint16_t>(
+          std::min(i, static_cast<int>(sites_buffer.size()) - 1));
+    return near;
+  }
+
+  /**
+   * @brief Nearest pairs of a sample point at both endpoints of the frame's
+   *        spin.
+   * @param current Tree over the current positions.
+   * @param previous Tree over the previous positions.
+   * @param p Sample point on the unit sphere.
+   * @param near Sites nearest a recent sample point, which bound the search;
+   *        receives this point's nearest current sites.
+   * @return The previous endpoint's nearest pair, then the current's, each
+   *         nearest first, as for a two-nearest search of each tree.
+   * @details The current pair is the previous pair too, reordered, when no
+   * other site can come within its previous distances after moving the
+   * frame's spin; otherwise the previous tree is searched.
+   */
+  __attribute__((always_inline))
+  Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>
+  endpoint_pairs(const KDTree &current, const KDTree &previous,
+                 const math::Vector &p, Nearby &near) const {
+    float bound = 0.0f;
+    for (uint16_t site : near)
+      bound = fmaxf(bound, math::distance_squared(sites_buffer[site].pos, p));
+    const auto knn = current.nearest(p, NEARBY_SITES, bound * BOUND_SLACK);
+    for (size_t i = 0; i < near.size(); ++i)
+      near[i] = knn[std::min(i, knn.size() - 1)].original_index;
+    const uint16_t a = near[0];
+    const uint16_t b = near[1];
+    const float from_a = math::distance_squared(previous_positions[a], p);
+    const float from_b = math::distance_squared(previous_positions[b], p);
+    if (knn.size() > 2) {
+      const float reach = sqrtf(knn[2].d_sq) - fabsf(frame_spin) - DRIFT_SLACK;
+      const float from = fmaxf(from_a, from_b) * BOUND_SLACK;
+      if (!(reach > 0.0f && from < reach * reach)) {
+        const auto pair = previous.nearest(p, SITES_PER_CORNER, from);
+        return {pair[0].original_index, pair[1].original_index, a, b};
+      }
+    }
+    const bool b_first = from_b < from_a || (from_b == from_a && b < a);
+    return {b_first ? b : a, b_first ? a : b, a, b};
   }
 
   /**

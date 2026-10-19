@@ -67,6 +67,29 @@ struct VoronoiWhiteBox {
     v.params.speed = speed;
   }
 
+  /** @brief Nearest pairs at both endpoints of every pixel, in scan order,
+   *  as the column-time draw classifies its block corners.
+   *  @return Per pixel: previous pair, then current pair. */
+  template <int W, int H>
+  static std::vector<std::array<uint16_t, 4>>
+  endpoint_pairs(const Voronoi<W, H> &v) {
+    const size_t n = v.sites_buffer.size();
+    std::vector<math::Vector> current(n);
+    for (size_t i = 0; i < n; ++i)
+      current[i] = v.sites_buffer[i].pos;
+    ScratchScope scope(scratch_arena_a);
+    const KDTree now(scratch_arena_a, std::span<const math::Vector>(current));
+    const KDTree before(scratch_arena_a, std::span<const math::Vector>(
+                                             v.previous_positions.data(), n));
+    auto near = v.first_nearby();
+    std::vector<std::array<uint16_t, 4>> out;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        out.push_back(v.endpoint_pairs(
+            now, before, math::pixel_to_vector<W, H>(x, y), near));
+    return out;
+  }
+
   /** @brief Spin of one frame at a speed, by the effect's mapping.
    *  @param speed Speed slider value.
    *  @return Radians per frame. */
@@ -438,6 +461,63 @@ inline void test_voronoi_column_time_matches_brute_force() {
     fib[i] = math::fib_spiral(N, /*eps=*/0.5f, i);
   check_voronoi_column_time<DEFAULT_W, DEFAULT_H>(fib, 0.999, 0.005f);
   check_voronoi_column_time<SMALL_W, SMALL_H>(fib, 1.0, 0.0f);
+}
+
+/**
+ * @brief Corner classification finds each endpoint's nearest pair, as an
+ *        exhaustive search ranks them.
+ */
+inline void test_voronoi_endpoint_pairs_match_brute_force() {
+  using WB = VoronoiWhiteBox;
+  constexpr int W = SMALL_W;
+  constexpr int H = SMALL_H;
+  for (const int count : {1, 2, 3, 400}) {
+    HS_CONTEXT("sites", count);
+    std::vector<math::Vector> sites(count);
+    for (int i = 0; i < count; ++i)
+      sites[i] = math::fib_spiral(count, /*eps=*/0.5f, i);
+    const auto axes = voronoi_test_axes(sites.size());
+    reset_effect_globals();
+    Voronoi<W, H> effect;
+    effect.init();
+    WB::set_moving_sites(effect, std::span<const math::Vector>(sites), axes,
+                         100.0f);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto from = voronoi_positions(effect);
+    effect.draw_frame();
+    effect.advance_display();
+    const auto to = voronoi_positions(effect);
+    const auto pairs = WB::endpoint_pairs(effect);
+    const auto ranked = [&](const std::vector<math::Vector> &at,
+                            const math::Vector &p) {
+      std::vector<uint16_t> order(at.size());
+      for (size_t i = 0; i < order.size(); ++i)
+        order[i] = static_cast<uint16_t>(i);
+      std::sort(order.begin(), order.end(), [&](uint16_t a, uint16_t b) {
+        const float DA = math::distance_squared(at[a], p);
+        const float DB = math::distance_squared(at[b], p);
+        return DA != DB ? DA < DB : a < b;
+      });
+      order.resize(2, order[0]);
+      return order;
+    };
+    long changed = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        const math::Vector p = math::pixel_to_vector<W, H>(x, y);
+        const auto before = ranked(from, p);
+        const auto after = ranked(to, p);
+        const auto &got = pairs[y * W + x];
+        changed += before != after;
+        HS_EXPECT_EQ(got[0], before[0]);
+        HS_EXPECT_EQ(got[1], before[1]);
+        HS_EXPECT_EQ(got[2], after[0]);
+        HS_EXPECT_EQ(got[3], after[1]);
+      }
+    if (count > 2)
+      HS_EXPECT_GT(changed, 0);
+  }
 }
 
 /**
