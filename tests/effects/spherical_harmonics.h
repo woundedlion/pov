@@ -28,6 +28,9 @@ struct SphericalHarmonicsWhiteBox {
   static const BakedPalette &palette(const SH &fx) { return fx.baked_palette; }
   static float amplitude(const SH &fx) { return fx.params.amplitude; }
   static constexpr int max_mode_idx() { return SH::MAX_MODE_IDX; }
+  static constexpr float spin_turns() { return SH::SPIN_TURNS; }
+  static constexpr int spin_frames() { return SH::SPIN_FRAMES; }
+  using FrameState = SH::HarmonicFrameState;
   static void step_timeline(SH &fx) {
     Canvas canvas(fx);
     fx.timeline.step(canvas);
@@ -37,7 +40,7 @@ struct SphericalHarmonicsWhiteBox {
                                         int m2, float blend,
                                         const math::Quaternion &orientation,
                                         float amplitude) {
-    return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation},
+    return Pipeline::prepare({{l1, m1, l2, m2, blend, orientation, 0},
                               {&fx.baked_palette.view(), amplitude}});
   }
 
@@ -554,4 +557,294 @@ inline void test_sh_instantaneous_pixel_golden() {
   const uint64_t full = sh_instantaneous_hash<288, 144>(3, [](auto &, int) {});
   expect_pixel_golden("SphericalHarmonics 288x144", full,
                       0x2d87b2caff082939ull);
+}
+
+/** @brief Spin and morph chain of SphericalHarmonics as functions of
+ *  continuous frame time, independent of the effect's sampler. */
+struct ShTimeEvaluator {
+  int seed_mode = 6; ///< Mode the chain starts from at time zero.
+
+  /** @brief Spin at a frame time.
+   * @param time Frames since init; draw k spans [k, k + 1].
+   * @return Shape orientation. */
+  static math::Quaternion spin(double time) {
+    using WB = SphericalHarmonicsWhiteBox;
+    // mirror of the spin axis SphericalHarmonics::init passes the timeline
+    const math::Vector AXIS = math::Vector(0.5f, 1.0f, 0.2f).normalized();
+    const double rate =
+        2.0 * 3.14159265358979323846 * WB::spin_turns() / WB::spin_frames();
+    return math::make_rotation(AXIS, static_cast<float>(rate * time));
+  }
+
+  /** @brief Shades one view direction on the morph chain at a frame time.
+   * @param fx Effect supplying the baked palette.
+   * @param view Unit view direction.
+   * @param time Frames since init.
+   * @param amplitude Amplitude at that time.
+   * @return Expected premultiplied pixel. */
+  Pixel shade(const SphericalHarmonicsWhiteBox::SH &fx,
+              const math::Vector &view, double time,
+              float amplitude = 3.2f) const {
+    using WB = SphericalHarmonicsWhiteBox;
+    const double chain = time / WB::SH::MORPH_FRAMES;
+    const int leg = static_cast<int>(std::floor(chain));
+    int from = seed_mode;
+    for (int step = 0; step < leg; ++step)
+      from = from % WB::max_mode_idx() + 1;
+    const int to = from % WB::max_mode_idx() + 1;
+    return shade_modes(fx, view, time, from, to,
+                       static_cast<float>(chain - leg), amplitude);
+  }
+
+  /** @brief Shades one view direction for an explicit morph at a frame time.
+   * @param fx Effect supplying the baked palette.
+   * @param view Unit view direction.
+   * @param time Frames since init, selecting the spin.
+   * @param from First flat mode index.
+   * @param to Second flat mode index.
+   * @param blend Morph fraction toward @p to.
+   * @param amplitude Amplitude.
+   * @return Expected premultiplied pixel. */
+  static Pixel shade_modes(const SphericalHarmonicsWhiteBox::SH &fx,
+                           const math::Vector &view, double time, int from,
+                           int to, float blend, float amplitude) {
+    using WB = SphericalHarmonicsWhiteBox;
+    auto [l1, m1] = SHMath::decode_lm(from);
+    auto [l2, m2] = SHMath::decode_lm(to);
+    const auto frame =
+        WB::prepare_pipeline(fx, l1, m1, l2, m2, blend, spin(time), amplitude);
+    const Color4 color = WB::shade_pipeline(view, frame);
+    return color.color * color.alpha;
+  }
+};
+
+/** @brief View direction the scan shades for a pixel.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param x Column.
+ * @param y Row.
+ * @return Unit view direction. */
+template <int W, int H> inline math::Vector scan_view(int x, int y) {
+  const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
+  return math::Vector(sin_phi * math::TrigLUT<W, H>::cos_theta(x),
+                      math::TrigLUT<W, H>::cos_phi[y],
+                      sin_phi * math::TrigLUT<W, H>::sin_theta[x]);
+}
+
+/** @brief Largest channel gap between a drawn column and a reference.
+ * @param fx Effect after a draw.
+ * @param x Column.
+ * @param expected Expected pixel of a view direction.
+ * @return Largest RGB channel gap over the column. */
+template <typename Expected>
+inline int sh_column_gap(const SphericalHarmonicsWhiteBox::SH &fx, int x,
+                         Expected &&expected) {
+  int worst = 0;
+  for (int y = 0; y < SMALL_H; ++y)
+    worst = std::max<int>(
+        worst, max_channel_gap(fx.get_pixel(x, y),
+                               expected(scan_view<SMALL_W, SMALL_H>(x, y))));
+  return worst;
+}
+
+/** Channel gap allowed between a drawn column and the time evaluator. */
+inline constexpr int SH_TIME_TOLERANCE = 4;
+
+/** @brief Columns follow their sweep time through a morph rollover and the
+ *  mode-chain wrap, matching an independent time evaluator across the seam. */
+inline void test_sh_columns_follow_sweep_time() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+  WB::pin_mode(fx, WB::max_mode_idx());
+  WB::set_next_idx(fx, 1);
+  const ShTimeEvaluator evaluator{WB::max_mode_idx()};
+  int worst = 0;
+  int held_gap = 0;
+  for (int draw = 0; draw <= 66; ++draw) {
+    pin_frame_clock(draw);
+    fx.draw_frame();
+    fx.advance_display();
+    if (draw > 2 && draw < 61)
+      continue;
+    HS_CONTEXT("draw", draw);
+    for (int x = 0; x < SMALL_W; ++x) {
+      const double time =
+          draw == 0 ? 1.0 : draw + Temporal::sweep_fraction(x, SMALL_W);
+      worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
+                         return evaluator.shade(fx, view, time);
+                       }));
+      held_gap = std::max(held_gap, sh_column_gap(fx, x, [&](const auto &view) {
+                            return evaluator.shade(fx, view, draw + 1.0);
+                          }));
+    }
+  }
+  hs::clear_mock_time();
+  std::printf("  SH sweep time: worst gap %d, held-endpoint gap %d\n", worst,
+              held_gap);
+  HS_EXPECT_EQ(WB::current_idx(fx), 1);
+  HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
+  HS_EXPECT_GT(held_gap, 16 * SH_TIME_TOLERANCE);
+}
+
+/** @brief Segmented engines, including clips crossing both arm boundaries,
+ *  draw the same pixels as one full-frame engine. */
+inline void test_sh_segmented_columns_match_single_engine() {
+  using WB = SphericalHarmonicsWhiteBox;
+  struct Segment {
+    int x0, x1, margin;
+  };
+  constexpr std::array<Segment, 4> SEGMENTS{
+      {{0, 40, 0}, {40, 60, 0}, {60, SMALL_W, 0}, {0, 8, 4}}};
+  constexpr int DRAWS = 70;
+  const auto render = [](const Segment &segment, auto &&inspect) {
+    reset_effect_globals();
+    WB::SH engine;
+    engine.init();
+    engine.set_clip(0, SMALL_H, segment.x0, segment.x1);
+    engine.set_margin(segment.margin);
+    for (int draw = 0; draw < DRAWS; ++draw) {
+      pin_frame_clock(draw);
+      engine.draw_frame();
+      engine.advance_display();
+      inspect(engine, draw);
+    }
+    hs::clear_mock_time();
+  };
+  std::vector<std::vector<Pixel>> single(DRAWS);
+  render({0, SMALL_W, 0}, [&](const WB::SH &engine, int draw) {
+    capture_frame<SMALL_W, SMALL_H>(engine, single[draw]);
+  });
+  int mismatches = 0;
+  int compared = 0;
+  for (const Segment &segment : SEGMENTS)
+    render(segment, [&](const WB::SH &engine, int draw) {
+      for (int column = segment.x0 - segment.margin;
+           column < segment.x1 + segment.margin; ++column) {
+        const int x = (column + SMALL_W) % SMALL_W;
+        for (int y = 0; y < SMALL_H; ++y) {
+          ++compared;
+          mismatches += engine.get_pixel(x, y) != single[draw][y * SMALL_W + x];
+        }
+      }
+    });
+  HS_EXPECT_EQ(compared, DRAWS * (SMALL_W + 16) * SMALL_H);
+  HS_EXPECT_EQ(mismatches, 0);
+}
+
+/** @brief A manual preset of the next mode resets the morph to the current
+ *  endpoint while the spin keeps its sweep time, and amplitude writes
+ *  interpolate. */
+inline void test_sh_manual_preset_resets_morph_history() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+  for (int draw = 0; draw < 20; ++draw) {
+    pin_frame_clock(draw);
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  constexpr size_t PRESET = 6;
+  const int mode = SH_PRESET_MODES[PRESET];
+  HS_EXPECT_EQ(WB::next_idx(fx), mode);
+  HS_EXPECT_TRUE(fx.selectPreset(PRESET));
+  pin_frame_clock(20);
+  fx.draw_frame();
+  fx.advance_display();
+  int worst = 0;
+  for (int x = 0; x < SMALL_W; ++x) {
+    const double time = 20 + Temporal::sweep_fraction(x, SMALL_W);
+    worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
+                       return ShTimeEvaluator::shade_modes(fx, view, time, mode,
+                                                           mode, 0.0f, 3.2f);
+                     }));
+  }
+  HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
+
+  HS_EXPECT_EQ(fx.updateParameter("Amplitude", 7.0f), ParamSetResult::APPLIED);
+  pin_frame_clock(21);
+  fx.draw_frame();
+  fx.advance_display();
+  worst = 0;
+  for (int x = 0; x < SMALL_W; ++x) {
+    const float fraction = Temporal::sweep_fraction(x, SMALL_W);
+    worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
+                       return ShTimeEvaluator::shade_modes(
+                           fx, view, 21 + fraction, mode, mode, 0.0f,
+                           3.2f + (7.0f - 3.2f) * fraction);
+                     }));
+  }
+  hs::clear_mock_time();
+  HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
+}
+
+/** @brief Disabling temporal sampling draws the current endpoint while the
+ *  history advances, so re-enabling samples from the last drawn frame. */
+inline void test_sh_fidelity_toggle_keeps_history() {
+  using WB = SphericalHarmonicsWhiteBox;
+  reset_effect_globals();
+  WB::SH fx;
+  fx.init();
+  const ShTimeEvaluator evaluator;
+  int worst = 0;
+  int draw = 0;
+  for (const bool enabled : {true, false, false, true, true}) {
+    HS_CONTEXT("draw", draw);
+    Temporal::set_temporal_sampling_enabled(enabled);
+    pin_frame_clock(draw);
+    fx.draw_frame();
+    fx.advance_display();
+    for (int x = 0; x < SMALL_W; ++x) {
+      const double time = draw == 0 || !enabled
+                              ? draw + 1.0
+                              : draw + Temporal::sweep_fraction(x, SMALL_W);
+      worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
+                         return evaluator.shade(fx, view, time);
+                       }));
+    }
+    ++draw;
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  hs::clear_mock_time();
+  HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
+}
+
+/** @brief The frame sampler continues a leg rollover across the mode-chain
+ *  wrap and follows the spin's shortest arc through a quaternion sign flip. */
+inline void test_sh_frame_sampler_rollover_and_sign() {
+  using WB = SphericalHarmonicsWhiteBox;
+  using Frame = WB::FrameState;
+  const math::Quaternion start =
+      math::make_rotation(math::Vector(0.0f, 1.0f, 0.0f), 0.2f);
+  const math::Quaternion end =
+      math::make_rotation(math::Vector(0.0f, 1.0f, 0.0f), 0.3f);
+  auto [la, ma] = SHMath::decode_lm(WB::max_mode_idx());
+  auto [lb, mb] = SHMath::decode_lm(1);
+  auto [lc, mc] = SHMath::decode_lm(2);
+  const Frame from{{la, ma, lb, mb, 63.0f / 64, start, 0}, {nullptr, 3.2f}};
+  const Frame to{{lb, mb, lc, mc, 1.0f / 64, -end, 0}, {nullptr, 3.2f}};
+  for (const float fraction : {0.25f, 0.5f, 0.75f}) {
+    const Frame sample = Pullback::sample_frame(from, to, fraction);
+    const float chain = 63.0f / 64 + fraction * 2.0f / 64;
+    const bool outgoing = chain < 1.0f;
+    HS_EXPECT_EQ(sample.source.l1, outgoing ? la : lb);
+    HS_EXPECT_EQ(sample.source.m1, outgoing ? ma : mb);
+    HS_EXPECT_EQ(sample.source.l2, outgoing ? lb : lc);
+    HS_EXPECT_EQ(sample.source.m2, outgoing ? mb : mc);
+    HS_EXPECT_NEAR(sample.source.blend, outgoing ? chain : chain - 1.0f, 1e-6f);
+    const math::Quaternion expected = math::make_rotation(
+        math::Vector(0.0f, 1.0f, 0.0f), 0.2f + 0.1f * fraction);
+    HS_EXPECT_NEAR(std::fabs(math::dot(sample.source.orientation, expected)),
+                   1.0f, 1e-6f);
+  }
+  Frame unrelated = to;
+  unrelated.source.l1 = lc;
+  unrelated.source.m1 = mc;
+  HS_EXPECT_EQ(Pullback::sample_frame(from, unrelated, 0.5f).source.blend,
+               unrelated.source.blend);
+  Frame snapped = to;
+  snapped.source.morph_epoch = 1;
+  HS_EXPECT_EQ(Pullback::sample_frame(from, snapped, 0.5f).source.l1, lb);
 }

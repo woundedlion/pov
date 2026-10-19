@@ -621,6 +621,11 @@ inline int run_effects_tests() {
   run_case(test_sh_polarity_split_and_ao_shaping);
   run_case(test_sh_cycle_covers_every_mode);
   run_case(test_sh_instantaneous_pixel_golden);
+  run_case(test_sh_columns_follow_sweep_time);
+  run_case(test_sh_segmented_columns_match_single_engine);
+  run_case(test_sh_manual_preset_resets_morph_history);
+  run_case(test_sh_fidelity_toggle_keeps_history);
+  run_case(test_sh_frame_sampler_rollover_and_sign);
   run_case(test_gs_reaction_edit_starts_dissolve);
   run_case(test_gs_stall_hold_starts_dissolve);
   run_case(test_gs_preset_pause_does_not_hold_lifecycle);
