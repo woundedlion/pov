@@ -1887,3 +1887,23 @@ inline void test_gs_reaction_corner_stays_bounded() {
       ++escaped;
   HS_EXPECT_EQ(escaped, 0);
 }
+
+/**
+ * @brief With temporal sampling disabled, GS renders the frames pinned from
+ *        the frame-wide renderer.
+ * @details Pinned for the Windows native Clang build.
+ */
+inline void test_gs_untimed_frames_are_pinned() {
+#if defined(_WIN32)
+  constexpr std::array<int, 4> BAND{3, 17, 39, 83};
+  const uint64_t FULL =
+      untimed_frame_fold<GSReactionDiffusion, SMALL_W, SMALL_H>(16);
+  const uint64_t CLIPPED =
+      untimed_frame_fold<GSReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
+  const uint64_t SHIPPED =
+      untimed_frame_fold<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
+  HS_EXPECT_EQ(FULL, 11130325229091669286ull);
+  HS_EXPECT_EQ(CLIPPED, 7618938426178532068ull);
+  HS_EXPECT_EQ(SHIPPED, 10595748453067431402ull);
+#endif
+}

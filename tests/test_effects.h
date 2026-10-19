@@ -335,6 +335,41 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
 }
 
 /**
+ * @brief Folds every displayed frame of an effect rendered with temporal
+ *        sampling disabled.
+ * @tparam E Effect class template, instantiated as E<W, H>.
+ * @tparam W Render width in pixels.
+ * @tparam H Render height in pixels.
+ * @param frames Frames to render.
+ * @param clip Display band {y0, y1, x0, x1} set before the first frame, or
+ *        null for the full canvas.
+ * @return FNV-1a fold over every channel of every displayed frame.
+ */
+template <template <int, int> class E, int W, int H>
+inline uint64_t untimed_frame_fold(int frames,
+                                   const std::array<int, 4> *clip = nullptr) {
+  reset_effect_globals();
+  pin_frame_clock(0);
+  Temporal::set_temporal_sampling_enabled(false);
+  uint64_t fold = hs_test::HASH_SEED64;
+  {
+    E<W, H> effect;
+    effect.init();
+    if (clip)
+      effect.set_clip((*clip)[0], (*clip)[1], (*clip)[2], (*clip)[3]);
+    for (int f = 0; f < frames; ++f) {
+      pin_frame_clock(f);
+      effect.draw_frame();
+      effect.advance_display();
+      fold = frame_hash<W, H>(effect, fold);
+    }
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  hs::clear_mock_time();
+  return fold;
+}
+
+/**
  * @brief Scrambles every output-affecting global that render_capture() resets.
  * @details Runs between captures to exercise recovery from dirty process state.
  */
@@ -593,6 +628,8 @@ inline int run_effects_tests() {
   run_case(test_bz_substep_predator_wiring);
   run_case(test_bz_raster_matches_reference);
   run_case(test_bz_render_center_matches_reference);
+  run_case(test_bz_untimed_frames_are_pinned);
+  run_case(test_gs_untimed_frames_are_pinned);
   run_case(test_dreamballs_preset_cycle_bookkeeping);
   CometsWhiteBox::check_paths_close();
   CometsWhiteBox::check_births_skip_earlier_columns();

@@ -532,3 +532,23 @@ inline void test_bz_render_center_matches_reference() {
   }
   reset_effect_globals();
 }
+
+/**
+ * @brief With temporal sampling disabled, BZ renders the frames pinned from
+ *        the frame-wide renderer.
+ * @details Pinned for the Windows native Clang build.
+ */
+inline void test_bz_untimed_frames_are_pinned() {
+#if defined(_WIN32)
+  constexpr std::array<int, 4> BAND{3, 17, 39, 83};
+  const uint64_t FULL =
+      untimed_frame_fold<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
+  const uint64_t CLIPPED =
+      untimed_frame_fold<BZReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
+  const uint64_t SHIPPED =
+      untimed_frame_fold<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
+  HS_EXPECT_EQ(FULL, 8303065562613601861ull);
+  HS_EXPECT_EQ(CLIPPED, 1714733901857061968ull);
+  HS_EXPECT_EQ(SHIPPED, 17694119961486000274ull);
+#endif
+}
