@@ -204,16 +204,18 @@ inline bool lit_cap(const math::Vector &axis, float radius,
                     const Temporal::ColumnTime &time, LitCap &lit) {
   constexpr float COLUMN = math::TWO_PI_F / W;
   constexpr int HALF = W / 2;
-  // Two columns of reach cover the AA fringe and the column rounding.
-  const float reach = radius + time.sweep + 2.0f * COLUMN;
+  // Two columns of reach cover the AA fringe and the column rounding; the
+  // slack covers fast_atan2's and fast_acos's errors.
+  const float reach =
+      radius + time.sweep + 2.0f * COLUMN + SDF::MOVED_AXIS_SLACK;
   const float r_val = sqrtf(axis.x * axis.x + axis.z * axis.z);
-  if (!(reach < 0.5f * math::PI_F))
+  // reach < r_val <= 1 keeps the cap clear of both poles; asin(reach / r_val)
+  // bounds the cap's azimuth half-width asin(sin(reach) / r_val).
+  if (!(reach < r_val))
     return false;
-  const float sin_reach = sinf(reach);
-  if (!(sin_reach < r_val))
-    return false;
-  const float half = asinf(sin_reach / r_val) / COLUMN;
-  const float center = atan2f(axis.z, axis.x) / COLUMN;
+  const float half =
+      (0.5f * math::PI_F - math::fast_acos(reach / r_val)) / COLUMN;
+  const float center = math::fast_atan2(axis.z, axis.x) / COLUMN;
   const int lo = static_cast<int>(floorf(center - half));
   const int hi = static_cast<int>(ceilf(center + half));
   const int arm_start =
