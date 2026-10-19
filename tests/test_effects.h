@@ -590,6 +590,9 @@ inline int run_effects_tests() {
   run_case(test_shapeshifter_slider_selections_render);
   run_case(test_manual_preset_navigation);
   run_case(test_hankinsolids_manual_pause_holds_morph);
+  run_case(test_hankinsolids_handoffs_shade_at_column_time);
+  run_case(test_hankinsolids_handoff_history);
+  run_case(test_hankinsolids_conway_crossfade_shades_at_column_time);
   // Both tiers: arena budgets.
   run_case(test_fishbowl_scratch_estimate_covers_peak);
   run_case(test_hankinsolids_arena_budget_covers_every_solid);
