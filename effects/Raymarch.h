@@ -547,8 +547,8 @@ private:
         const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
                                             volume_spins[i].orientation.get(0) *
                                             previous_spin_q;
-        place_columns(*columns, shading, cameras, points[i], previous_q,
-                      world_q);
+        place_columns(*columns, shading, cameras, points[i], center,
+                      bounds_radius, previous_q, world_q);
         auto column_fn = [&](const math::Vector &loc, Fragment &frag,
                              float u) HS_O3_FN {
           const int c = Temporal::sweep_column(u, W);
@@ -608,19 +608,37 @@ private:
    * @param shading Table receiving each fraction's rotation and half-vector.
    * @param cameras Camera orientation per sweep fraction.
    * @param point Unrotated torus centre.
+   * @param center Torus centre at the current endpoint.
+   * @param bounds_radius Bounding sphere radius the torus is marched with.
    * @param previous Placement rotation at the previous endpoint.
    * @param current Placement rotation at the current endpoint.
+   * @details Every fraction gets its centre. Only the columns that can see
+   * the cap Scan::Volume marches, which covers every centre, are placed and
+   * lit, as only they are read.
    */
-  HS_FLASH_MEMBER static void place_columns(Scan::VolumeColumns<W> &columns,
-                                            ColumnShading *shading,
-                                            const math::Quaternion *cameras,
-                                            const math::Vector &point,
-                                            const math::Quaternion &previous,
-                                            const math::Quaternion &current) {
+  HS_FLASH_MEMBER static void
+  place_columns(Scan::VolumeColumns<W> &columns, ColumnShading *shading,
+                const math::Quaternion *cameras, const math::Vector &point,
+                const math::Vector &center, float bounds_radius,
+                const math::Quaternion &previous,
+                const math::Quaternion &current) {
+    float min_cos = 1.0f;
+    for (int c = 0; c < W / 2; ++c) {
+      columns.columns[c].center = math::rotate(point, cameras[c]);
+      min_cos = fminf(min_cos, math::dot(columns.columns[c].center, center));
+    }
+    // A column of reach covers the march's interval rounding.
+    const float cap = asinf(fminf(bounds_radius, 1.0f)) +
+                      acosf(hs::clamp(min_cos, -1.0f, 1.0f)) +
+                      math::RADIANS_PER_COLUMN<W>;
+    int first, last;
+    Scan::lit_columns<W>(center, cap, 0.0f, first, last);
     const Temporal::TemporalRotation path(previous, current);
     path.for_each_sweep_sample(
         W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
-          const math::Vector centre = math::rotate(point, cameras[c]);
+          if (c < first || c > last)
+            return;
+          const math::Vector &centre = columns.columns[c].center;
           columns.set(c, centre, at);
           shading[c].rotation = at;
           shading[c].half_w =
