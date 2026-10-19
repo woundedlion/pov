@@ -213,7 +213,9 @@ pole-LOD blocks included, and evaluates its state between the endpoints its
 effect retains; the fixed-meridian loops run its plain form.
 `TimedShaderFn` is that form for `Scan::rasterize`, `Scan::Point` and
 `Scan::Volume`, whose time-aware scans take the column-time path whenever
-temporal sampling is on and shade at `u = 1` when it is off.
+temporal sampling is on and shade at `u = 1` when it is off. The
+column-time rasterize carries either form in one `Scan::ColumnShader`, so each
+shape keeps a single column-time instantiation.
 `FacePaletteShader` moves a face's alpha, palette crossfade and counterpart
 weight this way. An effect whose per-column state moves while its orientation
 does not still prepares a table, with `state_moves`, so its scans take their
@@ -224,6 +226,20 @@ shape's own, filled once per draw for the columns its re-centred bounds reach,
 which grow by the drift's angle.
 `Animation::OpLeg::Shading` carries the crossfade weight its leg drew a frame
 ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
+
+HyperLattice and Voronoi sample column time without the composed runtime.
+HyperLattice keeps its previous render state and prepares one trace context per
+column through `draw_columns`: rotation phases follow their shortest arc, the
+camera its unwrapped flight step and continuous parameters their field curves,
+while every column's context binds the effect's crossing scratch. A specialized
+octet or shell trace serves a frame only when every column time selects it.
+Voronoi keeps its sites' previous positions and spins each column's sites to
+its sweep fraction. `draw_block_columns` classifies block corners at both
+endpoints and shades from the union of their candidates; where a block's corner
+winners change and a pixel's nearest candidate differs between the endpoints,
+the pixel takes the exact nearest pair from `KDTree::nearest_moved`. Both
+effects draw the first frame, resets and discrete changes without motion and
+retain their instantaneous paths with sampling disabled.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes do
@@ -387,7 +403,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
-| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. Under temporal sampling both use `walk_object_grid(canvas, basis, pixel_shader)`, which hands over the object-space centre and column frame instead. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
+| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. Under temporal sampling both use `walk_object_grid(canvas, basis, pixel_shader)`, which hands over the object-space centre and column frame instead. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path, and `draw_block_columns(canvas, block, scratch, classify, prepare_column)` the same classification column by column, preparing each block of a column from its corner cells and their site union. `draw_columns(canvas, prepare)` prepares one shader per column and accepts Color4 or premultiplied Pixel results. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
@@ -1406,6 +1422,8 @@ parameters and frame state.
 ## Spatial Queries (`core/spatial/`)
 
 `kd_tree.h` provides arena-backed three-dimensional nearest-neighbor queries.
+`KDTree::nearest_moved` answers the same query for points that have moved by a
+bounded distance since the build, ranking them by a caller-supplied distance.
 `reaction_graph.h` defines the Fibonacci reaction lattice and node lookup;
 `reaction_graph.cpp` stores the generated neighbor table, its run-length
 encoding (`neighbor_runs`/`neighbor_run_index`) and immutable float node positions.
