@@ -403,6 +403,8 @@ The entry points trade generality for speed:
 - `draw_cached(canvas, shader)` — the same typed draw with its traversal placed in cached flash. Composed effects use it.
 - `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
 
+`walk_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does.
+
 ### 5.6 Pullback Shading
 
 A pullback shader computes a pixel's color by pulling its view direction back through a chain of mappings — rotate the sphere, bend it through a lens, project it onto a plane, warp the plane, sample a pattern, map the value through a palette. Because every step maps the *input* coordinate, stages compose freely, and the whole chain runs once per pixel sample.
