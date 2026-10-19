@@ -521,3 +521,60 @@ inline void test_volume_columns_match_rotated_placements() {
   }
   HS_EXPECT_TRUE(expect_factored_tolerance("volume", swept, expected) > 30);
 }
+
+/**
+ * @brief A ring group with previous axes matches its rings rebuilt about the
+ *        axes interpolated to each column's sweep time.
+ */
+inline void test_ring_group_previous_axes_match_column_rings() {
+  constexpr int W = 96, H = 48;
+  constexpr int N = 3;
+  const ScopedPoleLod lod(0.0f);
+  math::Vector previous[N], current[N];
+  for (int s = 0; s < N; ++s) {
+    current[s] = math::rotate(math::Vector(0.77f, 0.0f, -0.6f).normalized(),
+                              math::make_rotation(math::X_AXIS, 0.3f * s));
+    previous[s] = math::rotate(
+        current[s],
+        math::make_rotation(math::Vector(0.6f, -0.2f, 0.77f).normalized(),
+                            0.25f + 0.1f * s));
+  }
+  const auto draw = [&](const math::Vector *axes, const math::Vector *before) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      SDF::Ring shapes[N];
+      for (int s = 0; s < N; ++s)
+        shapes[s] = SDF::Ring(math::make_basis(math::Quaternion(), axes[s]),
+                              0.4f, 0.05f);
+      Scan::RingGroup::draw<W, H>(
+          pipeline, canvas, shapes, N,
+          [](int s, const math::Vector &, Fragment &f) {
+            f.color = Color4(
+                Pixel(static_cast<uint16_t>(20000 + 15000 * s), 9000, 40000),
+                0.8f);
+          },
+          false, before);
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  };
+  const std::vector<Pixel> swept = draw(current, previous);
+  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
+  for (int c = 0; c < W / 2; ++c) {
+    const float u = static_cast<float>(c) / (W / 2);
+    math::Vector axes[N];
+    for (int s = 0; s < N; ++s)
+      axes[s] = (previous[s] + (current[s] - previous[s]) * u).normalized();
+    const std::vector<Pixel> frame = draw(axes, nullptr);
+    for (int y = 0; y < H; ++y)
+      for (int x : {c, c + W / 2})
+        expected[static_cast<size_t>(y) * W + x] =
+            frame[static_cast<size_t>(y) * W + x];
+  }
+  HS_EXPECT_TRUE(expect_factored_tolerance("previous axes", swept, expected) >
+                 100);
+}
