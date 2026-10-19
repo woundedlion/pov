@@ -692,6 +692,7 @@ inline int run_composed_effect_tests() {
   test_temporal_custom_shade_is_authoritative();
   test_gridspace_factored_columns();
   test_temporal_equal_palettes_color_as_current();
+  test_temporal_moving_families_interpolate();
   test_temporal_owned_resources();
   test_gridspace_temporal_pixels();
   test_composed_temporal_roster();
