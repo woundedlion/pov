@@ -951,6 +951,61 @@ walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
   }
 }
 
+/** @brief Up to four non-empty column runs admitted by a clip arc and a
+ *         render-x window. */
+struct WindowPieces {
+  int lo[4]{};   /**< First columns. */
+  int hi[4]{};   /**< Exclusive end columns. */
+  int count = 0; /**< Number of non-empty runs. */
+};
+
+/**
+ * @brief Collects the columns a clip arc and a render-x window both admit.
+ * @tparam W Even canvas width in pixels.
+ * @param xc Column-arc clip.
+ * @param window Render-x window; an inactive one admits the whole clip arc.
+ * @return Non-empty runs in ascending column order.
+ */
+template <int W>
+__attribute__((always_inline)) inline WindowPieces
+window_pieces(ClipRegion::XClip xc, const ColumnWindow &window) {
+  const ClipPieces clip = clip_pieces<W>(xc);
+  WindowPieces pieces;
+  for (int i = 0; i < clip.count; ++i)
+    for (int arm = 0; arm < (window.active ? 2 : 1); ++arm) {
+      const int lo = window.active
+                         ? std::max(clip.lo[i], window.begin + arm * (W / 2))
+                         : clip.lo[i];
+      const int hi = window.active
+                         ? std::min(clip.hi[i], window.end + arm * (W / 2))
+                         : clip.hi[i];
+      if (lo >= hi)
+        continue;
+      pieces.lo[pieces.count] = lo;
+      pieces.hi[pieces.count] = hi;
+      ++pieces.count;
+    }
+  return pieces;
+}
+
+/**
+ * @brief walk_clip_columns() restricted to a render-x window.
+ * @tparam W Even canvas width in pixels.
+ * @tparam BodyFn Callable (int x).
+ * @param xc Column-arc clip.
+ * @param window Render-x window.
+ * @param body Sink receiving each admitted column in ascending order.
+ */
+template <int W, typename BodyFn>
+__attribute__((always_inline)) inline void
+walk_window_columns(ClipRegion::XClip xc, const ColumnWindow &window,
+                    BodyFn &&body) {
+  const WindowPieces pieces = window_pieces<W>(xc, window);
+  for (int i = 0; i < pieces.count; ++i)
+    for (int x = pieces.lo[i]; x < pieces.hi[i]; ++x)
+      body(x);
+}
+
 /**
  * @brief Turns one row's emitted spans into clipped integer column runs.
  * @tparam W Canvas width in pixels.

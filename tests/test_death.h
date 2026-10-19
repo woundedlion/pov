@@ -1108,6 +1108,13 @@ inline const Case *all_cases(int &n) {
            "core/render/canvas.h",
            "(x0 >= 0 && x0 <= x1 && x1 <= clip_region.w) set_clip_x band must be "
            "non-inverted and within canvas width"},
+          {"render_x_window_nested", case_render_x_window_nested,
+           "core/render/canvas.h",
+           "(!effect.render_x_window.active) render-x windows do not nest"},
+          {"render_x_window_past_half_turn",
+           case_render_x_window_past_half_turn, "core/render/canvas.h",
+           "(begin >= 0 && begin <= end && 2 * end <= effect.frame_width) "
+           "render-x window must lie within the half-turn"},
           {"arcs_overlap_start_out_of_range",
            case_arcs_overlap_start_out_of_range, "core/render/clip.h",
            "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},

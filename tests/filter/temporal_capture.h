@@ -246,3 +246,35 @@ inline void test_world_orient_emits_at_capture_time() {
   HS_EXPECT_NEAR(taps[0].v.x, end.x, 1e-6f);
   HS_EXPECT_NEAR(taps[0].v.z, end.z, 1e-6f);
 }
+
+/**
+ * @brief Sweep slabs tile the half-turn in sweep order, and a slab of an even
+ *        division holds exactly the columns whose sweep fractions fall in its
+ *        share of the frame.
+ */
+inline void test_sweep_slabs_tile_the_half_turn() {
+  for (int width : {20, 96, 288}) {
+    const int half = width / 2;
+    for (int count : {1, 2, 3, 5, 6, 7, half}) {
+      HS_CONTEXT("width, slabs", width, count);
+      int next = 0;
+      for (int slab = 0; slab < count; ++slab) {
+        const Temporal::SweepSlab columns =
+            Temporal::sweep_slab(slab, count, width);
+        HS_EXPECT_EQ(columns.begin, next);
+        HS_EXPECT_LT(columns.begin, columns.end);
+        next = columns.end;
+        if (half % count != 0)
+          continue;
+        for (int x = 0; x < width; ++x) {
+          const float u = Temporal::sweep_fraction(x, width);
+          const bool inside =
+              x % half >= columns.begin && x % half < columns.end;
+          HS_EXPECT_EQ(inside, u >= static_cast<float>(slab) / count &&
+                                   u < static_cast<float>(slab + 1) / count);
+        }
+      }
+      HS_EXPECT_EQ(next, half);
+    }
+  }
+}

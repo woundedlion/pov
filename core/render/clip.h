@@ -14,6 +14,18 @@
  */
 
 /**
+ * @brief A run of half-turn columns admitted on both display arms.
+ * @details Admits columns `[begin, end)` and `[begin + w / 2, end + w / 2)` of
+ *          a canvas of even width `w`, the columns emitted over one span of
+ *          frame time.
+ */
+struct ColumnWindow {
+  int begin = 0; /**< First half-turn column, in [0, end]. */
+  int end = 0;   /**< One past the last half-turn column, at most w / 2. */
+  bool active = false; /**< False admits every column. */
+};
+
+/**
  * @brief Clip region for segment-based rendering.
  * @details Display bounds define the ISR's pixel range (exact segment).
  *          Render bounds expand by `margin` for filters that spread taps.

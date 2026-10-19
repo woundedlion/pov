@@ -312,6 +312,7 @@ public:
    * @param pixel_shader Owns the pixel: receives the seeded fragment, the
    *        sub-pixel SSAA grid for the current row, and the pixel column, and
    *        returns the final (premultiplied) pixel.
+   * @details Writes only the columns the canvas's RenderXWindow admits.
    */
   template <int W, int H, typename VertexFn, typename PixelFn>
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
@@ -333,6 +334,7 @@ public:
    * @param canvas Destination canvas.
    * @param pixel_shader Computes the premultiplied pixel from its center,
    *        current row's subpixel grid, and column.
+   * @details Writes only the columns the canvas's RenderXWindow admits.
    */
   template <int W, int H, typename PixelFn>
   HS_O3_FN __attribute__((always_inline)) static void
@@ -342,13 +344,14 @@ public:
       math::TrigLUT<W, H>::init();
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
+    const ColumnWindow window = canvas.render_x_window();
     const auto xc = cr.x_clip();
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
       const float sp = math::TrigLUT<W, H>::sin_phi[y];
       const float cp = math::TrigLUT<W, H>::cos_phi[y];
       grid.set_row(y);
-      walk_clip_columns<W>(xc, [&](int x) {
+      walk_window_columns<W>(xc, window, [&](int x) {
         const math::Vector center(sp * math::TrigLUT<W, H>::cos_theta(x), cp,
                                   sp * math::TrigLUT<W, H>::sin_theta[x]);
         canvas(x, y) = pixel_shader(center, grid, x);

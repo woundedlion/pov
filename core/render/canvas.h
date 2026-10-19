@@ -59,6 +59,7 @@ struct EffectConfig {
  */
 class Effect : public PresetHost {
   friend class Canvas;
+  friend class RenderXWindow;
 
 public:
   /// Per-frame callback run as a Canvas opens, before the stale-pixel clear.
@@ -402,7 +403,8 @@ private:
   ClipRegion::XClip render_x_clip{};
   int render_y_start = 0;
   int render_y_end = 0;
-  bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
+  ColumnWindow render_x_window{}; /**< Open RenderXWindow, if any. */
+  bool canvas_active = false;     /**< A Canvas is currently drawing a frame. */
 
   void update_render_clip() {
     render_x_clip = clip_region.x_clip();
@@ -560,6 +562,14 @@ public:
   }
 
   /**
+   * @brief Gets the window of the open RenderXWindow.
+   * @return The open window, or an inactive one admitting every column.
+   */
+  [[nodiscard]] inline const ColumnWindow &render_x_window() const {
+    return effect.render_x_window;
+  }
+
+  /**
    * @brief Tests a column against the frame's cached render clip.
    * @param x Column, in pixels.
    * @return True when @p x is inside the clip.
@@ -703,10 +713,43 @@ private:
   }
 #endif
 
+  friend class RenderXWindow;
+
   Effect &effect; /**< Reference to the owning Effect instance. */
   /// Column-time state installed for this frame's scans; null for none.
   const Temporal::ColumnTime *column_time_state = nullptr;
 #if HS_ENABLE_TEST_HOOKS
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif
+};
+
+/**
+ * @brief Scoped render-x window: restricts the column loops that honour it to
+ *        one run of half-turn columns on both arms, inside the driver clip.
+ * @details Leaves the clip and its culls untouched; only windowed walks such as
+ * `Scan::Shader::walk_grid` skip the columns outside it. Windows do not nest.
+ */
+class RenderXWindow {
+public:
+  /**
+   * @brief Opens the window on a drawing canvas.
+   * @param canvas Canvas whose frame is being drawn.
+   * @param begin First half-turn column.
+   * @param end One past the last half-turn column, at most half the width.
+   */
+  RenderXWindow(Canvas &canvas, int begin, int end) : effect(canvas.effect) {
+    HS_CHECK(!effect.render_x_window.active, "render-x windows do not nest");
+    HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
+             "render-x window must lie within the half-turn");
+    effect.render_x_window = {begin, end, true};
+  }
+
+  /** @brief Closes the window, admitting every column again. */
+  ~RenderXWindow() { effect.render_x_window = {}; }
+
+  RenderXWindow(const RenderXWindow &) = delete;
+  RenderXWindow &operator=(const RenderXWindow &) = delete;
+
+private:
+  Effect &effect; /**< Effect whose frame the window restricts. */
 };
