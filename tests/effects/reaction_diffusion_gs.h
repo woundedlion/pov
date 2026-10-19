@@ -136,6 +136,52 @@ struct GSWhiteBox {
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
   static float from_q16(uint16_t v) { return GS::from_q16(v); }
+  /** @brief shade_field() against the lattice rotated by the current
+   *         orientation's matrix instead of its quaternion. */
+  static void shade_matrix_oriented_field(GS &gs) {
+    {
+      ScratchScope guard(scratch_arena_a);
+      Canvas canvas(gs);
+      std::vector<uint8_t> hot1(N), hot2(N);
+      gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
+                        GS::to_q16(GS::B_CULL_THRESHOLD));
+      auto lattice = gs.orient_lattice(); // latches the seed lookup rotation
+      const math::RotationMatrix m(gs.orientation.get());
+      std::vector<math::Vector> world(N);
+      for (int i = 0; i < N; ++i)
+        world[i] = m.apply(gs.nodes[i]);
+      gs.draw_lattice(canvas, world.data(), hot1.data(), hot2.data());
+    }
+    gs.advance_display();
+  }
+  /** @brief Replaces the view orientation's frame endpoints. */
+  static void set_orientation(GS &gs, const math::Quaternion &previous,
+                              const math::Quaternion &current) {
+    gs.orientation.set(previous);
+    gs.orientation.push(current);
+  }
+  /**
+   * @brief Shades the current field over the whole frame, through the frame's
+   *        lattice basis or against the lattice oriented at the current
+   *        endpoint.
+   */
+  static void shade_field(GS &gs, bool columns) {
+    {
+      ScratchScope guard(scratch_arena_a);
+      Canvas canvas(gs);
+      std::vector<uint8_t> hot1(N), hot2(N);
+      gs.fill_hot_flags(gs.state.B, hot1.data(), hot2.data(), N,
+                        GS::to_q16(GS::B_CULL_THRESHOLD));
+      if (columns) {
+        gs.draw_lattice_columns(canvas, *gs.prepare_lattice_basis(),
+                                hot1.data(), hot2.data());
+      } else {
+        auto lattice = gs.orient_lattice();
+        gs.draw_lattice(canvas, lattice.get(), hot1.data(), hot2.data());
+      }
+    }
+    gs.advance_display();
+  }
   static void fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2,
                              int count, uint16_t threshold) {
     GS::fill_hot_flags(b, hot1, hot2, count, threshold);
@@ -1906,4 +1952,76 @@ inline void test_gs_untimed_frames_are_pinned() {
   HS_EXPECT_EQ(CLIPPED, 7618938426178532068ull);
   HS_EXPECT_EQ(SHIPPED, 10595748453067431402ull);
 #endif
+}
+
+/**
+ * @brief Each column of a GS frame shaded through the lattice basis matches the
+ *        lattice oriented at that column's sweep time and shaded at the fixed
+ *        meridian, within the oriented shader's own rounding.
+ * @details The bound on the mean channel error is the difference between two
+ * oriented renders whose lattices are rotated by the same orientation as a
+ * quaternion and as a matrix.
+ */
+inline void test_gs_lattice_basis_matches_rotated_lattice() {
+  using WhiteBox = GSWhiteBox;
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  WhiteBox::GS gs;
+  gs.init();
+  for (int f = 0; f < 120; ++f) {
+    gs.draw_frame();
+    gs.advance_display();
+  }
+  const math::Quaternion previous =
+      math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 0.7f);
+  const math::Quaternion current =
+      (math::make_rotation(math::Vector(-0.6f, 0.2f, 0.7f).normalized(),
+                           0.35f) *
+       previous)
+          .normalized();
+  auto capture = [&](auto &&shade) {
+    shade();
+    std::vector<Pixel> frame;
+    capture_frame<W, H>(gs, frame);
+    return frame;
+  };
+
+  WhiteBox::set_orientation(gs, current, current);
+  const std::vector<Pixel> oriented =
+      capture([&] { WhiteBox::shade_field(gs, false); });
+  const FrameErrorStats rounding = compare_buffers(
+      oriented, capture([&] { WhiteBox::shade_matrix_oriented_field(gs); }));
+  const FrameErrorStats still = compare_buffers(
+      oriented, capture([&] { WhiteBox::shade_field(gs, true); }));
+
+  WhiteBox::set_orientation(gs, previous, current);
+  const std::vector<Pixel> actual =
+      capture([&] { WhiteBox::shade_field(gs, true); });
+  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
+  for (int column = 0; column < W / 2; ++column) {
+    const math::Quaternion at =
+        math::slerp(previous, current, Temporal::sweep_fraction(column, W))
+            .normalized();
+    WhiteBox::set_orientation(gs, at, at);
+    const std::vector<Pixel> frame =
+        capture([&] { WhiteBox::shade_field(gs, false); });
+    for (int y = 0; y < H; ++y)
+      for (int x : {column, column + W / 2})
+        expected[static_cast<size_t>(y) * W + x] =
+            frame[static_cast<size_t>(y) * W + x];
+  }
+  const FrameErrorStats moving = compare_buffers(expected, actual);
+  std::printf("  [info] GS lattice basis: rounding mean=%.5f max=%u; still "
+              "mean=%.5f max=%u; moving lit=%zu mean=%.5f max=%u\n",
+              rounding.mean_absolute_error(), rounding.max_absolute_error,
+              still.mean_absolute_error(), still.max_absolute_error,
+              moving.lit_reference_pixels, moving.mean_absolute_error(),
+              moving.max_absolute_error);
+  HS_EXPECT_GT(rounding.mean_absolute_error(), 0.0);
+  HS_EXPECT_GT(moving.lit_reference_pixels, static_cast<size_t>(W * H / 8));
+  for (const FrameErrorStats *stats : {&still, &moving}) {
+    HS_EXPECT_LE(stats->max_absolute_error, 16u);
+    HS_EXPECT_LE(stats->mean_absolute_error(),
+                 1.5 * rounding.mean_absolute_error());
+  }
 }

@@ -51,11 +51,13 @@ class GSReactionDiffusion
   using Base::for_each_neighbor;
   using Base::from_q16;
   using Base::orient_lattice;
+  using Base::prepare_lattice_basis;
   using Base::Q16_INV;
   using Base::RD_K;
   using Base::RD_N;
   using Base::register_param;
   using Base::to_q16;
+  using typename Base::LatticeBasis;
 
 public:
   /// Machine/display identity and compatibility keys.
@@ -83,7 +85,8 @@ public:
         2u * RD_N * sizeof(float) + RD_N * sizeof(uint16_t) +
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
-        RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
+        std::max(RD_N * sizeof(math::Vector), sizeof(LatticeBasis)) +
+        2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
         std::max(PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES);
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES,
@@ -773,12 +776,54 @@ private:
     }
   }
 
-  template <typename Grid, typename OnNode>
-  static __attribute__((always_inline)) void
-  accumulate_render_stencil(const Grid &grid, int x, int center,
+  /** @brief Stencil terms of a world-space node seen from a fixed-meridian
+   *         column. */
+  struct MeridianColumn {
+    float cos_theta; ///< Cosine of the column's azimuth.
+    float sin_theta; ///< Sine of the column's azimuth.
+
+    /** @brief The node's component along the column's azimuth. */
+    HS_HOT_INLINE float radial(const math::Vector &p) const {
+      return cos_theta * p.x + sin_theta * p.z;
+    }
+    /** @brief The node's component against increasing azimuth. */
+    HS_HOT_INLINE float tangent(const math::Vector &p) const {
+      return sin_theta * p.x - cos_theta * p.z;
+    }
+    /** @brief The node's component along the north axis. */
+    HS_HOT_INLINE float up(const math::Vector &p) const { return p.y; }
+  };
+
+  /** @brief Stencil terms of a lattice-space node seen from a column at its
+   *         sweep time. */
+  struct LatticeColumn {
+    const Scan::ObjectColumn &frame; ///< The column's lattice-space frame.
+
+    /** @brief The node's component along the column's azimuth. */
+    HS_HOT_INLINE float radial(const math::Vector &p) const {
+      return math::dot(frame.radial, p);
+    }
+    /** @brief The node's component against increasing azimuth. */
+    HS_HOT_INLINE float tangent(const math::Vector &p) const {
+      return -math::dot(frame.tangent, p);
+    }
+    /** @brief The node's component along the column's north. */
+    HS_HOT_INLINE float up(const math::Vector &p) const {
+      return math::dot(frame.up, p);
+    }
+  };
+
+  /** @brief The fixed-meridian stencil terms of column `x`. */
+  template <typename Grid>
+  static HS_HOT_INLINE MeridianColumn meridian_column(int x) {
+    return {math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x),
+            math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x]};
+  }
+
+  template <typename Grid, typename Column, typename OnNode>
+  static HS_HOT_INLINE void
+  accumulate_column_stencil(const Grid &grid, const Column &column, int center,
                             const math::Vector *nodes, OnNode &&on_node) {
-    const float st = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
-    const float ct = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
     const auto &run =
         ReactionGraph::neighbor_runs[ReactionGraph::neighbor_run_index[center]];
     float radial_scale[2], cross_scale[2];
@@ -791,10 +836,11 @@ private:
       const int node = slot == 0 ? center : center + run.delta[slot - 1];
       const math::Vector &p = nodes[node];
       auto on_weight = on_node(slot, node);
-      const float radial = ct * p.x + st * p.z;
-      const float tangent = st * p.x - ct * p.z;
+      const float radial = column.radial(p);
+      const float tangent = column.tangent(p);
+      const float up = column.up(p);
       for (int row = 0; row < 2; ++row) {
-        const float dot = radial_scale[row] * radial + grid.cos_phi[row] * p.y;
+        const float dot = radial_scale[row] * radial + grid.cos_phi[row] * up;
         const float base_u = 1.0f - (2.0f - 2.0f * dot) * Base::INV_R2;
         const float cross = cross_scale[row] * tangent;
         const float LEFT = fmaxf(0.0f, base_u - cross);
@@ -803,6 +849,14 @@ private:
         on_weight(2 * row + 1, RIGHT * RIGHT);
       }
     }
+  }
+
+  template <typename Grid, typename OnNode>
+  static __attribute__((always_inline)) void
+  accumulate_render_stencil(const Grid &grid, int x, int center,
+                            const math::Vector *nodes, OnNode &&on_node) {
+    accumulate_column_stencil(grid, meridian_column<Grid>(x), center, nodes,
+                              on_node);
   }
 
   HS_O3_FN __attribute__((always_inline)) Pixel shade_pigment(
@@ -873,11 +927,11 @@ private:
     return shade_pigment(pigment, t, scale, noise_value);
   }
 
-  template <typename Grid>
-  HS_HOT_FLASH_MEMBER Pixel shade_pixel_full(
-      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
-      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
-      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+  template <typename Grid, typename Column>
+  HS_HOT_FLASH_MEMBER Pixel shade_column_full(
+      int seed, const math::Vector &center_rv, const math::Vector *nodes,
+      const Grid &grid, const Column &column, const uint8_t *hot_flags,
+      const ReactionGraph::CubemapLUT::Projection *projection) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
 
@@ -886,13 +940,13 @@ private:
     uint16_t pigment;
     {
       HS_PROFILE_DEEP(grd_shader_stencil);
-      int center = Base::template refine_render_center<true>(center_rv,
-                                                             world_nodes, seed);
+      int center =
+          Base::template refine_render_center<true>(center_rv, nodes, seed);
       if (hot_flags && !hot_flags[center])
         return Pixel(0, 0, 0);
       pigment = state.pigment[center];
-      accumulate_render_stencil(
-          grid, x, center, world_nodes,
+      accumulate_column_stencil(
+          grid, column, center, nodes,
           [&](int, int node) __attribute__((always_inline)) {
             float b = state.B[node];
             return [&, b](int sample, float weight)
@@ -931,6 +985,15 @@ private:
   }
 
   template <typename Grid>
+  Pixel shade_pixel_full(
+      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
+      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
+      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+    return shade_column_full(seed, center_rv, world_nodes, grid,
+                             meridian_column<Grid>(x), hot_flags, projection);
+  }
+
+  template <typename Grid>
   static __attribute__((always_inline)) float render_support_limit() {
     return Base::KERNEL_R * 0.99f -
            0.25f * (math::RADIANS_PER_COLUMN<Grid::WIDTH> +
@@ -940,11 +1003,12 @@ private:
   /**
    * @brief Shades one pixel's four sub-samples through an inlinable typed path.
    * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @tparam Column MeridianColumn or LatticeColumn.
    * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
-   * @param center_rv World-space direction at the pixel center.
-   * @param world_nodes Oriented lattice node positions.
+   * @param center_rv Direction at the pixel center, in the frame of @p nodes.
+   * @param nodes Lattice node positions in the frame of @p column.
    * @param grid Row's SSAA sub-pixel grid.
-   * @param x Pixel column.
+   * @param column The pixel column's stencil terms.
    * @param hot_flags Per-node flags; a pixel whose center node is unflagged
    *        shades black. Null shades every pixel.
    * @param projection Pixel's precomputed cubemap projection for color noise,
@@ -954,11 +1018,11 @@ private:
    * boundary pixels check the neighbors. Sub-samples share the center
    * stencil, which can reach past one node spacing at low vertical resolution.
    */
-  template <typename Grid>
-  HS_O3_FN Pixel shade_pixel(
-      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
-      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
-      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+  template <typename Grid, typename Column>
+  HS_HOT_INLINE Pixel shade_column_pixel(
+      int seed, const math::Vector &center_rv, const math::Vector *nodes,
+      const Grid &grid, const Column &column, const uint8_t *hot_flags,
+      const ReactionGraph::CubemapLUT::Projection *projection) const {
     if (seed < 0)
       return Pixel(0, 0, 0);
 
@@ -969,18 +1033,16 @@ private:
     uint16_t pigment;
     {
       HS_PROFILE_DEEP(grd_shader_stencil);
-      int center = Base::template refine_render_center<true>(center_rv,
-                                                             world_nodes, seed);
+      int center =
+          Base::template refine_render_center<true>(center_rv, nodes, seed);
       if (hot_flags && !hot_flags[center])
         return Pixel(0, 0, 0);
       const float LIMIT = render_support_limit<Grid>();
       if (LIMIT <= 0.0f ||
-          Base::dist2(center_rv, world_nodes[center]) > LIMIT * LIMIT)
-        return shade_pixel_full(seed, center_rv, world_nodes, grid, x,
-                                hot_flags, projection);
+          Base::dist2(center_rv, nodes[center]) > LIMIT * LIMIT)
+        return shade_column_full(seed, center_rv, nodes, grid, column,
+                                 hot_flags, projection);
       pigment = state.pigment[center];
-      const float ST = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::sin_theta[x];
-      const float CT = math::TrigLUT<Grid::WIDTH, Grid::HEIGHT>::cos_theta(x);
       const auto &run = ReactionGraph::neighbor_runs
           [ReactionGraph::neighbor_run_index[center]];
       const float RADIAL0 = grid.sin_phi[0] * grid.cos_dtheta;
@@ -994,12 +1056,13 @@ private:
 #endif
       for (int slot = 0; slot < RD_K + 1; ++slot) {
         const int NODE = slot == 0 ? center : center + run.delta[slot - 1];
-        const math::Vector &p = world_nodes[NODE];
+        const math::Vector &p = nodes[NODE];
         const float B = state.B[NODE] - B_CULL_THRESHOLD / Q16_INV;
-        const float RADIAL = CT * p.x + ST * p.z;
-        const float TANGENT = ST * p.x - CT * p.z;
-        const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * p.y;
-        const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * p.y;
+        const float RADIAL = column.radial(p);
+        const float TANGENT = column.tangent(p);
+        const float UP = column.up(p);
+        const float DOT0 = RADIAL0 * RADIAL + grid.cos_phi[0] * UP;
+        const float DOT1 = RADIAL1 * RADIAL + grid.cos_phi[1] * UP;
         const float BASE0 = 1.0f - (2.0f - 2.0f * DOT0) * Base::INV_R2;
         const float BASE1 = 1.0f - (2.0f - 2.0f * DOT1) * Base::INV_R2;
         const float D0 = CROSS0 * TANGENT, D1 = CROSS1 * TANGENT;
@@ -1024,8 +1087,8 @@ private:
         fabsf(b01) < COVERAGE_ROUNDING_GUARD ||
         fabsf(b10) < COVERAGE_ROUNDING_GUARD ||
         fabsf(b11) < COVERAGE_ROUNDING_GUARD)
-      return shade_pixel_full(seed, center_rv, world_nodes, grid, x, hot_flags,
-                              projection);
+      return shade_column_full(seed, center_rv, nodes, grid, column, hot_flags,
+                               projection);
     int covered = (b00 >= 0.0f) + (b01 >= 0.0f) + (b10 >= 0.0f) + (b11 >= 0.0f);
     if (!covered)
       return Pixel(0, 0, 0);
@@ -1038,6 +1101,51 @@ private:
                   hs::clamp(b10 * INVERSE_CROSS, 0.0f, 1.0f);
     return shade_render(pigment, t_sum / covered, covered * (1.0f / SAMPLES),
                         center_rv, projection);
+  }
+
+  /**
+   * @brief Shades one pixel against the oriented lattice at the fixed meridian.
+   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param center_rv World-space direction at the pixel center.
+   * @param world_nodes Oriented lattice node positions.
+   * @param grid Row's SSAA sub-pixel grid.
+   * @param x Pixel column.
+   * @param hot_flags Per-node flags; a pixel whose center node is unflagged
+   *        shades black. Null shades every pixel.
+   * @param projection Pixel's precomputed cubemap projection for color noise,
+   *        or null to project `center_rv`.
+   * @return The finished alpha-premultiplied pixel.
+   */
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel(
+      int seed, const math::Vector &center_rv, const math::Vector *world_nodes,
+      const Grid &grid, int x, const uint8_t *hot_flags = nullptr,
+      const ReactionGraph::CubemapLUT::Projection *projection = nullptr) const {
+    return shade_column_pixel(seed, center_rv, world_nodes, grid,
+                              meridian_column<Grid>(x), hot_flags, projection);
+  }
+
+  /**
+   * @brief Shades one pixel against the unrotated lattice from its column's
+   *        frame at its sweep time.
+   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @param seed Cubemap-LUT seed node id, or -1 for a culled pixel.
+   * @param center Lattice-space direction at the pixel center.
+   * @param grid Row's SSAA sub-pixel grid.
+   * @param frame The pixel column's lattice-space frame.
+   * @param hot_flags Per-node flags; a pixel whose center node is unflagged
+   *        shades black.
+   * @param projection Pixel's cubemap projection for color noise.
+   * @return The finished alpha-premultiplied pixel.
+   */
+  template <typename Grid>
+  HS_HOT_FLASH_MEMBER Pixel shade_lattice_pixel(
+      int seed, const math::Vector &center, const Grid &grid,
+      const Scan::ObjectColumn &frame, const uint8_t *hot_flags,
+      const ReactionGraph::CubemapLUT::Projection *projection) const {
+    return shade_column_pixel(seed, center, Base::nodes, grid,
+                              LatticeColumn{frame}, hot_flags, projection);
   }
 
   /**
@@ -1097,6 +1205,30 @@ private:
   }
 
   /**
+   * @brief Shades the B field, each column against the unrotated lattice from
+   *        its frame at its sweep time.
+   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   * @param basis The frame's per-column lattice frames.
+   * @param hot1 One-ring renderable flags.
+   * @param hot2 Two-ring renderable flags.
+   */
+  HS_HOT_FLASH_MEMBER void draw_lattice_columns(Canvas &canvas,
+                                                const LatticeBasis &basis,
+                                                const uint8_t *hot1,
+                                                const uint8_t *hot2) const {
+    Scan::Shader::walk_object_grid<W, H>(
+        canvas, basis,
+        [&](const math::Vector &center, const Scan::ObjectColumn &frame,
+            const auto &grid, int) HS_HOT_INLINE {
+          const auto PROJECTION = ReactionGraph::CubemapLUT::project(center);
+          const int seed = Base::cube_lut.lookup(PROJECTION);
+          return hot2[seed] ? shade_lattice_pixel(seed, center, grid, frame,
+                                                  hot1, &PROJECTION)
+                            : Pixel(0, 0, 0);
+        });
+  }
+
+  /**
    * @brief Advances the sim STEPS_PER_FRAME substeps and rasterizes the B field.
    * @param canvas Destination canvas to draw the sphere into.
    * @details Reseeding uses one black frame followed by a complete seed frame,
@@ -1149,8 +1281,20 @@ private:
     }
     refresh_color_palettes();
 
-    // Physics scratch is popped; the oriented lattice and cull flags reuse it.
+    // Physics scratch is popped; the lattice frames and cull flags reuse it.
     HS_PROFILE(grd_rasterize);
+    if (Temporal::temporal_sampling_enabled()) {
+      const LatticeBasis &basis = *prepare_lattice_basis();
+      uint8_t *hot1 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+      uint8_t *hot2 = scratch_arena_a.allocate_n<uint8_t>(RD_N);
+      {
+        HS_PROFILE(grd_cull_flags);
+        fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
+      }
+      HS_PROFILE(grd_shader_draw);
+      draw_lattice_columns(canvas, basis, hot1, hot2);
+      return;
+    }
     auto lattice = [this] {
       HS_PROFILE(grd_orient);
       return orient_lattice();
