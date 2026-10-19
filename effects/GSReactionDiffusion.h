@@ -1434,19 +1434,39 @@ private:
   }
 
   /**
-   * @brief Quantizes the float B field into the Q16 field the shader reads.
+   * @brief Quantizes the float B field into the Q16 field the shader reads,
+   *        marking the nodes that reach the render floor.
    * @param b Float B per node.
    * @param dissolve The frame's dissolve phase, or negative for none.
+   * @param marked HOT_WORDS words whose node bits receive the marks, as
+   *        mark_hot_bits() sets them; the guard words are left alone.
+   * @details Quantizes as to_q16(), with the clamp branch-free.
    */
-  HS_O3_FN void publish_b(const float *b, float dissolve) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void publish_b(const float *b, float dissolve,
+                                              uint32_t *marked) {
     HS_PROFILE(grd_publish);
-    if (dissolve < 0.0f) {
-      for (int i = 0; i < RD_N; i++)
-        state.B[i] = to_q16(b[i]);
-      return;
-    }
-    for (int i = 0; i < RD_N; i++)
-      state.B[i] = dissolved_b(i, dissolve, to_q16(b[i]));
+    static_assert(RD_N % 32 == 0, "publish_b marks whole words");
+    const uint16_t THRESHOLD = to_q16(B_CULL_THRESHOLD);
+    uint32_t *words = marked + HOT_GUARD_WORDS;
+    const auto publish = [&](auto &&adjust) HS_HOT_INLINE {
+      for (int w = 0; w < RD_N / 32; ++w) {
+        uint32_t word = 0;
+        for (int j = 0; j < 32; ++j) {
+          const int i = 32 * w + j;
+          const uint16_t q =
+              adjust(i, static_cast<uint16_t>(
+                            fminf(fmaxf(b[i], 0.0f), 1.0f) * 65535.0f + 0.5f));
+          state.B[i] = q;
+          word |= static_cast<uint32_t>(q >= THRESHOLD) << j;
+        }
+        words[w] = word;
+      }
+    };
+    if (dissolve < 0.0f)
+      publish([](int, uint16_t q) HS_HOT_INLINE { return q; });
+    else
+      publish([&](int i, uint16_t q)
+                  HS_HOT_INLINE { return dissolved_b(i, dissolve, q); });
   }
 
   /**
@@ -1465,10 +1485,10 @@ private:
     uint32_t *marked = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
     uint32_t *hot1 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
     uint32_t *hot2 = scratch_arena_a.allocate_n<uint32_t>(HOT_WORDS);
+    std::fill_n(marked, HOT_WORDS, 0u);
     auto shade = [&]() HS_HOT_INLINE {
       {
         HS_PROFILE(grd_cull_flags);
-        mark_hot_bits(state.B, marked, to_q16(B_CULL_THRESHOLD));
         dilate_hot_bits(marked, hot1);
         dilate_hot_bits(hot1, hot2);
       }
@@ -1478,6 +1498,7 @@ private:
     if (transition.reseed_pending()) {
       finish_reseed();
       refresh_color_palettes();
+      mark_hot_bits(state.B, marked, to_q16(B_CULL_THRESHOLD));
       shade();
       return;
     }
@@ -1510,7 +1531,7 @@ private:
           const int ENDS = ++slab;
           if (PLAN.reseed)
             return;
-          publish_b(cur_b, PLAN.dissolve);
+          publish_b(cur_b, PLAN.dissolve, marked);
           slab_noise = {noise_history ? previous_noise_lut : nullptr,
                         static_cast<float>(ENDS) / STEPS_PER_FRAME};
           shade();
