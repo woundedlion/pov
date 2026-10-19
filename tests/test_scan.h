@@ -13,6 +13,7 @@
 #include "core/render/filter.h"
 #include "core/render/canvas.h"
 #include "core/math/geometry.h"
+#include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"
 #include "tests/volume_reference.h"
 #include "tests/test_fixture.h"
@@ -20,6 +21,7 @@
 
 #include <cfloat>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 namespace hs_test {
@@ -60,6 +62,7 @@ struct ScopedPoleLod {
 #include "tests/scan/filled_shapes.h"
 #include "tests/scan/volume_march.h"
 #include "tests/scan/circle_point.h"
+#include "tests/scan/column_basis.h"
 
 // ============================================================================
 // Runner
@@ -120,6 +123,11 @@ inline int run_scan_tests() {
   test_circle_and_point_keep_exact_pixel_centers();
   test_circle_and_point_match_their_rings();
   test_circle_extent_follows_its_radius();
+
+  test_column_basis_matches_rotated_shapes();
+  test_column_basis_segments_and_endpoints();
+  test_column_basis_blocks_cover_their_rotation();
+  test_point_birth_skips_earlier_columns();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();

@@ -310,7 +310,8 @@ struct DistortedRingStack {
    * SDF::DistortedRing::distance_from_frame. At pole_lod_aggressiveness 0 the
    * output matches rasterizing the rings one by one under suppress_pole_fill,
    * to float rounding, when each plot writes one destination pixel.
-   * Does not read canvas.debug().
+   * Does not read canvas.debug(). Honours the canvas's column-time basis and
+   * ignores its birth fraction.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>
@@ -331,9 +332,14 @@ struct DistortedRingStack {
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
 
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const math::Vector *azimuth = time ? time->azimuth : nullptr;
+    const math::Vector *up = time ? time->up : nullptr;
+    const float sweep = azimuth ? time->sweep : 0.0f;
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n_slots; ++s) {
-      auto b = shapes[s].template get_vertical_bounds<H>();
+      auto b =
+          swept_rows<H>(shapes[s].template get_vertical_bounds<H>(), sweep);
       y_lo = std::min(y_lo, b.y_min);
       y_hi = std::max(y_hi, b.y_max);
     }
@@ -365,7 +371,8 @@ struct DistortedRingStack {
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
       walk_clip_columns_once<W>(xc, [&](int x) __attribute__((always_inline)) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const math::Vector p =
+            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
         const float d = math::dot(p, axis_v);
         const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
         const float dot_u = math::dot(p, axis_u);
@@ -600,7 +607,8 @@ struct RingGroup {
    *        v0/v1/v3 per pixel.
    * @details Row intervals come from one covering ring: the middle member (n/2)
    * inflated by the group's maximum plane/radius deviation plus thickness.
-   * Members evaluate per pixel in ascending slot order. At
+   * Members evaluate per pixel in ascending slot order. The canvas's
+   * column-time basis is honoured and its birth fraction ignored. At
    * pole_lod_aggressiveness 0 and one destination pixel per plot, the only
    * divergence from rasterizing the rings one by one is AA-tail pixels a
    * member's own interval clip would drop.
@@ -631,10 +639,15 @@ struct RingGroup {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
 
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const math::Vector *azimuth = time ? time->azimuth : nullptr;
+    const math::Vector *up = time ? time->up : nullptr;
+    const float sweep = azimuth ? time->sweep : 0.0f;
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n; ++s) {
-      auto b = shapes[s].template get_vertical_bounds<H>();
+      auto b =
+          swept_rows<H>(shapes[s].template get_vertical_bounds<H>(), sweep);
       sy_min[s] = b.y_min;
       sy_max[s] = b.y_max;
       y_lo = std::min(y_lo, b.y_min);
@@ -662,6 +675,8 @@ struct RingGroup {
     SDF::Ring cover(
         math::Basis{shapes[mid].u, shapes[mid].normal, shapes[mid].w},
         shapes[mid].radius, pad_th);
+    if (sweep > 0.0f)
+      cover = cover.swept(sweep);
 
     Fragment frag;
 
@@ -681,7 +696,8 @@ struct RingGroup {
 
     auto pixel_run = [&](int x1, int x2, int y, float sp, float cp) {
       for (int x = x1; x < x2; ++x) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const math::Vector p =
+            column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
           const float alpha =

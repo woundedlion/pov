@@ -6,8 +6,9 @@
 
 /** @file temporal.h
  * @brief Column-time sampling contract shared by every renderer family: the
- * fidelity toggle, the sweep fraction of a column, and capture-time solving
- * for plotted points.
+ * fidelity toggle, the sweep fraction of a column, the shortest rotation arc
+ * between frame endpoints, the column-time state scans read, and capture-time
+ * solving for plotted points.
  */
 
 #include "core/animation/orientation.h"
@@ -47,6 +48,82 @@ constexpr bool temporal_sampling_enabled() { return true; }
  * @return Fraction of one effect frame, in [0, 1). */
 constexpr float sweep_fraction(int column, int width) {
   return static_cast<float>(column % (width / 2)) / (width / 2);
+}
+
+/** @brief Shortest quaternion arc with frame-invariant trigonometry. */
+struct TemporalRotation {
+  math::Quaternion from; ///< Sign-adjusted start orientation.
+  math::Quaternion to;   ///< End orientation.
+  float theta = 0.0f;    ///< Arc angle, or zero for normalized linear sampling.
+  float sine = 1.0f;     ///< Sine of the arc angle.
+
+  /** @brief Prepares the shortest arc between unit orientations.
+   * @param a Previous unit orientation.
+   * @param b Current unit orientation. */
+  HS_FLASH_INLINE TemporalRotation(const math::Quaternion &a,
+                                   const math::Quaternion &b)
+      : from(a), to(b) {
+    assert(!(std::fabs(math::dot(a, a) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    assert(!(std::fabs(math::dot(b, b) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    float d = math::dot(a, b);
+    if (d < 0.0f) {
+      from = -from;
+      d = -d;
+    }
+    if (d <= 1.0f - math::TOLERANCE) {
+      theta = acosf(hs::clamp(d, -1.0f, 1.0f));
+      sine = sinf(theta);
+    }
+  }
+
+  /** @brief Samples an interior fraction of the prepared arc.
+   * @param fraction Interior progress in (0, 1).
+   * @return Unit orientation along the shortest arc. */
+  __attribute__((always_inline)) math::Quaternion sample(float fraction) const {
+    if (theta == 0.0f)
+      return (from + fraction * (to - from)).normalized();
+    const float A = sinf((1.0f - fraction) * theta) / sine;
+    const float B = sinf(fraction * theta) / sine;
+    return (A * from + B * to).normalized();
+  }
+};
+
+/**
+ * @brief Column-time state shared by the scans of one effect frame.
+ * @details A scan with a basis builds a pixel's direction from its column
+ * `c = x % (W / 2)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * the far arm: the fixed-meridian direction rotated from the column's sweep
+ * time to the current endpoint, so shapes built at the current endpoint are
+ * evaluated as they stood when the column was lit.
+ */
+struct ColumnTime {
+  /// Rotated azimuth directions of the first arm, W / 2 entries; null for the
+  /// fixed meridian.
+  const math::Vector *azimuth = nullptr;
+  /// Per-fraction rotated up directions, W / 2 entries.
+  const math::Vector *up = nullptr;
+  /// Bound on the arc any direction moves over the frame (radians).
+  float sweep = 0.0f;
+  /// Earliest frame fraction drawn; columns lit before it are left untouched.
+  float birth = 0.0f;
+};
+
+/**
+ * @brief First half-turn column at or after a frame fraction.
+ * @param fraction Frame fraction in [0, 1].
+ * @param width Even canvas width.
+ * @return Smallest column `c` in [0, width / 2] with
+ *         `sweep_fraction(c, width) >= fraction`, or width / 2 when none is.
+ */
+inline int first_column_at(float fraction, int width) {
+  const int half = width / 2;
+  int column = static_cast<int>(
+      std::ceil(hs::clamp(fraction, 0.0f, 1.0f) * static_cast<float>(half)));
+  while (column > 0 && sweep_fraction(column - 1, width) >= fraction)
+    --column;
+  while (column < half && sweep_fraction(column, width) < fraction)
+    ++column;
+  return column;
 }
 
 /** @brief Most history nodes capture() accepts. */

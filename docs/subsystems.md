@@ -175,6 +175,20 @@ interpolated geometry, with their results blended in time. Noise tables are
 baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
+Forward scans take column time from a rotated pixel basis. An effect prepares
+a frame-scoped `Scan::ColumnBasis` once per frame from its orientation
+endpoints and installs the resulting `Temporal::ColumnTime` on the canvas with
+`Scan::ColumnTimeScope`. Shapes stay built at the current endpoint; each column
+evaluates them along its fixed-meridian direction rotated from its sweep time
+to that endpoint, from two vectors per sweep fraction shared by both arms, so a
+pixel costs six multiply-adds instead of two.
+`Scan::rasterize`, `Scan::Mesh`, `Scan::RingGroup` and
+`Scan::DistortedRingStack` honour the basis; their row and column bounds grow
+by the frame's rotation arc, and a mesh face's pole-LOD block slack grows by
+the rotation across the block. A birth fraction in the same state skips the
+columns `Scan::rasterize` would light before it. The fidelity-off mode and a
+motionless frame install no basis and keep the fixed meridian, bit for bit.
+
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
 the held Mobius coefficient interpolation do not become continuous through
