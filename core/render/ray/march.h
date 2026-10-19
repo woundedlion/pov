@@ -85,7 +85,7 @@ closest_approach(const Shape &shape, const math::Vector &origin,
   float omega = overrelaxation;
   float prev_r = 0.0f;
   float step_len = 0.0f;
-  march_steps(max_steps, [&]() {
+  march_steps(max_steps, [&]() HS_HOT_INLINE {
     if (t > end_t)
       return false;
     float d = shape.distance(local_p);
