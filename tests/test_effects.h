@@ -616,6 +616,7 @@ inline int run_effects_tests() {
   run_case(test_needs_full_frame_gate);
   run_case(test_voronoi_axes_use_uniform_sampler);
   run_case(test_voronoi_segment_render_matches_full_frame);
+  run_case(test_voronoi_instantaneous_render_pins);
   run_case(test_sh_field_blend_endpoints_and_frame);
   run_case(test_sh_field_stays_inside_unit_range);
   run_case(test_sh_polarity_split_and_ao_shaping);

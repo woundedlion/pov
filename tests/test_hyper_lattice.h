@@ -824,6 +824,66 @@ inline void test_specialized_render_signature() {
 #endif
 }
 
+/**
+ * @brief Renders forty frames of a preset with column-time sampling disabled.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param preset Preset index.
+ * @return Pin folded over the first two frames and the last.
+ */
+template <int W, int H> RenderPin instantaneous_render(size_t preset) {
+  reset_globals();
+  HyperLattice<W, H> effect;
+  effect.init();
+  if (preset)
+    HS_EXPECT_TRUE(effect.selectPreset(preset));
+  Temporal::set_temporal_sampling_enabled(false);
+  RenderPin pin;
+  for (int frame = 0; frame < 40; ++frame) {
+    effect.draw_frame();
+    effect.advance_display();
+    if (frame < 2 || frame == 39)
+      fold_render_pin<W, H>(pin, effect);
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  return pin;
+}
+
+/** @brief Every preset renders as recorded with column-time sampling off. */
+inline void test_instantaneous_render_pins() {
+  static constexpr RenderPin SMALL[] = {
+      {12199285387450431248ull, 99587122ull},
+      {5249734158304076682ull, 82725609ull},
+      {16493503535113904059ull, 81142885ull},
+      {16252231688842148634ull, 47605113ull},
+      {7215106029378424594ull, 94384933ull},
+      {2362761463688315540ull, 94116648ull},
+      {16253285783414917367ull, 170183312ull},
+      {13462818903361763426ull, 224454766ull},
+      {1124593359430090823ull, 54316415ull},
+  };
+  static constexpr RenderPin FULL[] = {
+      {7997437155647645822ull, 1770875562ull},
+      {11127425279538897246ull, 1387312085ull},
+      {14976033508803036149ull, 320510986ull},
+      {3680139823341122512ull, 654254713ull},
+      {17614081994318711728ull, 1185851774ull},
+      {573010076876340580ull, 529117665ull},
+      {18337387981243444738ull, 1546000354ull},
+      {9809515885948585356ull, 3407424867ull},
+      {6798296368914257278ull, 327345037ull},
+  };
+  static_assert(std::size(SMALL) == HyperLattice<96, 20>::PRESET_IDS.size());
+  static_assert(std::size(FULL) == HyperLattice<96, 20>::PRESET_IDS.size());
+  for (size_t preset = 0; preset < std::size(SMALL); ++preset) {
+    HS_CONTEXT("preset", static_cast<long long>(preset));
+    const RenderPin small = instantaneous_render<96, 20>(preset);
+    const RenderPin full = instantaneous_render<288, 144>(preset);
+    expect_render_pin(small, SMALL[preset]);
+    expect_render_pin(full, FULL[preset]);
+  }
+}
+
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
   static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
@@ -1839,6 +1899,7 @@ inline int run_hyper_lattice_tests() {
   test_render_signature();
   test_specialized_slice_transition();
   test_specialized_render_signature();
+  test_instantaneous_render_pins();
   test_presets_and_pipeline();
   test_configuration_adoption_and_snapshots();
   test_dimension_dropdown_and_mode_lerp();
