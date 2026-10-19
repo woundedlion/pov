@@ -796,6 +796,59 @@ struct RingGroup {
   }
 
   /**
+   * @brief Fills each column's ring-axis terms for the column-time scan.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param terms 2 * n * W / 2 entries receiving, per first-arm column and
+   *        slot, the slot's axis at the column's sweep time dotted with the
+   *        column's azimuth and with its up direction.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes.
+   * @param azimuth Rotated first-arm azimuths, or null for the fixed meridian.
+   * @param up Rotated up directions; read only with @p azimuth.
+   * @param previous_normals Per-slot axes at the previous endpoint, or null.
+   * @details A pixel at colatitude phi in column x has axis dot
+   * `+-sin(phi) * a + cos(phi) * b`, negated on the far arm.
+   */
+  template <int W, int H>
+  HS_NOINLINE_NOCLONE static void
+  fill_column_axes(float *terms, const SDF::Ring *shapes, int n,
+                   const math::Vector *azimuth, const math::Vector *up,
+                   const math::Vector *previous_normals) {
+    const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
+    const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+    // Slot s at fraction u has axis (start + u * motion) / |start + u * motion|.
+    math::Vector start[MAX_RINGS], motion[MAX_RINGS];
+    float length_terms[MAX_RINGS][3];
+    for (int s = 0; s < n; ++s) {
+      start[s] = previous_normals ? previous_normals[s] : shapes[s].normal;
+      motion[s] = shapes[s].normal - start[s];
+      length_terms[s][0] = math::dot(start[s], start[s]);
+      length_terms[s][1] = 2.0f * math::dot(start[s], motion[s]);
+      length_terms[s][2] = math::dot(motion[s], motion[s]);
+    }
+    for (int c = 0; c < W / 2; ++c) {
+      const math::Vector e =
+          azimuth ? azimuth[c] : math::Vector(cos_theta[c], 0.0f, sin_theta[c]);
+      const math::Vector v = azimuth ? up[c] : math::Vector(0.0f, 1.0f, 0.0f);
+      const float u = Temporal::sweep_fraction(c, W);
+      float *out = terms + 2 * n * c;
+      for (int s = 0; s < n; ++s) {
+        const float length_sq =
+            length_terms[s][0] +
+            u * (length_terms[s][1] + u * length_terms[s][2]);
+        float inverse = math::fast_rsqrt(length_sq);
+        // a third Newton step: the ring's cosine band needs full precision
+        inverse *= 1.5f - 0.5f * length_sq * inverse * inverse;
+        out[2 * s] =
+            (math::dot(e, start[s]) + u * math::dot(e, motion[s])) * inverse;
+        out[2 * s + 1] =
+            (math::dot(v, start[s]) + u * math::dot(v, motion[s])) * inverse;
+      }
+    }
+  }
+
+  /**
    * @brief Fused scan body shared by the fixed and column-time draws.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
@@ -824,20 +877,18 @@ struct RingGroup {
     [[maybe_unused]] const math::Vector *azimuth = nullptr;
     [[maybe_unused]] const math::Vector *up = nullptr;
     [[maybe_unused]] float sweep = 0.0f;
-    [[maybe_unused]] bool moving_slots = false;
-    [[maybe_unused]] math::Vector motion[MAX_RINGS];
     [[maybe_unused]] float slot_sweep[MAX_RINGS] = {};
     [[maybe_unused]] float max_slot_sweep = 0.0f;
+    ScratchScope scratch(scratch_arena_b);
+    [[maybe_unused]] float *axis_terms = nullptr;
     if constexpr (COLUMN_TIME) {
       if (time) {
         azimuth = time->azimuth;
         up = time->up;
         sweep = time->sweep;
       }
-      moving_slots = previous_normals != nullptr;
-      if (moving_slots) {
+      if (previous_normals) {
         for (int s = 0; s < n; ++s) {
-          motion[s] = shapes[s].normal - previous_normals[s];
           slot_sweep[s] = math::fast_acos(hs::clamp(
                               math::dot(shapes[s].normal, previous_normals[s]),
                               -1.0f, 1.0f)) +
@@ -845,6 +896,9 @@ struct RingGroup {
           max_slot_sweep = std::max(max_slot_sweep, slot_sweep[s]);
         }
       }
+      axis_terms = scratch_arena_b.allocate_n<float>(2 * n * (W / 2));
+      fill_column_axes<W, H>(axis_terms, shapes, n, azimuth, up,
+                             previous_normals);
     }
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
@@ -903,26 +957,29 @@ struct RingGroup {
     auto pixel_run_body = [&](int x1, int x2, int y, float sp,
                               float cp) HS_HOT_INLINE {
       for (int x = x1; x < x2; ++x) {
-        math::Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        if constexpr (COLUMN_TIME)
-          p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
-        [[maybe_unused]] float u = 0.0f;
-        if constexpr (COLUMN_TIME)
-          u = moving_slots ? Temporal::sweep_fraction(x, W) : 0.0f;
+        [[maybe_unused]] float s_phi = sp;
+        [[maybe_unused]] const float *terms = nullptr;
+        math::Vector p;
+        if constexpr (COLUMN_TIME) {
+          const bool far_arm = x >= W / 2;
+          s_phi = far_arm ? -sp : sp;
+          terms = axis_terms + 2 * n * (far_arm ? x - W / 2 : x);
+        } else {
+          p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        }
         for (int i = 0; i < n_active; ++i) {
           const int s = active[i];
-          float d = math::dot(p, shapes[s].normal);
-          if (COLUMN_TIME && moving_slots) {
-            const math::Vector axis = previous_normals[s] + motion[s] * u;
-            const float length_sq = math::dot(axis, axis);
-            float inverse = math::fast_rsqrt(length_sq);
-            // a third Newton step: the ring's cosine band needs full precision
-            inverse *= 1.5f - 0.5f * length_sq * inverse * inverse;
-            d = math::dot(p, axis) * inverse;
-          }
+          float d;
+          if constexpr (COLUMN_TIME)
+            d = s_phi * terms[2 * s] + cp * terms[2 * s + 1];
+          else
+            d = math::dot(p, shapes[s].normal);
           const float alpha = shapes[s].stroke_alpha(d);
           if (alpha <= MIN_ALPHA)
             continue;
+          if constexpr (COLUMN_TIME)
+            p = column_direction<W>(azimuth, up, x, sp, cp, cos_theta,
+                                    sin_theta);
 #ifndef NDEBUG
           frag.poison_inputs();
 #endif
