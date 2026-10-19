@@ -223,6 +223,8 @@ pixel direction by a shape's own motion still to come, for shapes that move
 independently of the frame's rotation: the scan reads a basis table of the
 shape's own, filled once per draw for the columns its re-centred bounds reach,
 which grow by the drift's angle.
+`Animation::OpLeg::Shading` carries the crossfade weight its leg drew a frame
+ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and

@@ -18,10 +18,11 @@ constexpr int SWEEP_SAMPLES = 16;
  *        its count and order frame to frame.
  */
 struct LegDrawProbe {
-  int ramp_count = 0;      /**< LUT array length for this leg. */
-  size_t drawn = 0;        /**< Frames handed to the callback. */
-  size_t faces = 0;        /**< Face count latched on the first frame. */
-  float worst_step = 0.0f; /**< Largest per-vertex motion between frames. */
+  int ramp_count = 0;       /**< LUT array length for this leg. */
+  size_t drawn = 0;         /**< Frames handed to the callback. */
+  size_t faces = 0;         /**< Face count latched on the first frame. */
+  float worst_step = 0.0f;  /**< Largest per-vertex motion between frames. */
+  float last_weight = 0.0f; /**< Crossfade weight of the previous frame. */
   std::vector<math::Vector> prev_v; /**< Previous frame's vertices. */
 
   /**
@@ -37,6 +38,11 @@ struct LegDrawProbe {
       HS_EXPECT_EQ(sh.faces, faces);
     for (size_t f = 0; f < sh.faces; ++f)
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), ramp_count);
+    HS_EXPECT_TRUE(sh.bank != nullptr && sh.ramp_from != nullptr &&
+                   sh.ramp_to != nullptr);
+    const float previous = drawn == 0 ? sh.weight : last_weight;
+    HS_EXPECT_EQ(sh.previous_weight, previous);
+    last_weight = sh.weight;
     if (!prev_v.empty()) {
       HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
       for (size_t i = 0; i < std::min(m.vertices.size(), prev_v.size()); ++i)

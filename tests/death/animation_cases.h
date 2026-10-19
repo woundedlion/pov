@@ -509,6 +509,18 @@ inline void case_opleg_gated_swap_incomplete_handoff() {
 }
 
 /**
+ * @brief Death case: a crossfade lookup past the leg's face table must trap.
+ */
+inline void case_opleg_shading_blend_face_out_of_range() {
+  static BakedPalette ramps[1];
+  static const uint8_t face_ramp[1] = {0};
+  const Animation::OpLeg::Shading shading{
+      .ramps = ramps, .face_ramp = face_ramp, .faces = opaque<size_t>(1)};
+  FacePaletteShader shader;
+  shading.blend_face(shader, opaque<size_t>(3));
+}
+
+/**
  * @brief Death case: a shading lookup past the leg's face table must trap.
  */
 inline void case_opleg_shading_face_out_of_range() {

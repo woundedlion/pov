@@ -193,6 +193,14 @@ public:
     const BakedPalette *ramps; /**< One blended LUT per (from, to) pair. */
     const uint8_t *face_ramp;  /**< Face index -> ramp index. */
     size_t faces;              /**< Face count (bounds face_ramp). */
+    /** Source LUTs of each pair's endpoints; null when the frame's ramps
+     * are not crossfades. */
+    const BakedPaletteBank *bank = nullptr;
+    const uint8_t *ramp_from = nullptr; /**< Per-pair from palette. */
+    const uint8_t *ramp_to = nullptr;   /**< Per-pair to palette. */
+    float weight = 0.0f;                /**< Crossfade weight `ramps` carry. */
+    float previous_weight = 0.0f; /**< Crossfade weight the leg drew a frame
+                                     ago, or `weight` after a reset. */
 
     /**
      * @brief The face's pre-blended ramp.
@@ -202,6 +210,25 @@ public:
     const BakedPalette &ramp_for(size_t face) const {
       HS_CHECK(face < faces, "OpLeg::Shading: ramp face out of range");
       return ramps[face_ramp[face]];
+    }
+
+    /**
+     * @brief Gives a face shader the face's crossfade at both frame endpoints.
+     * @tparam ShaderT Shader with FacePaletteShader's `set_blend`.
+     * @param shader Shader whose palette is already the face's ramp.
+     * @param face Face index.
+     * @details A face whose pair holds one palette, or a frame without
+     * crossfades, keeps the ramp alone.
+     */
+    template <typename ShaderT>
+    HS_FLASH_MEMBER void blend_face(ShaderT &shader, size_t face) const {
+      HS_CHECK(face < faces, "OpLeg::Shading: blend face out of range");
+      const uint8_t ramp = face_ramp[face];
+      if (bank == nullptr || ramp_from[ramp] == ramp_to[ramp])
+        return;
+      shader.set_blend(&bank->entries[ramp_from[ramp]].view(),
+                       &bank->entries[ramp_to[ramp]].view(), weight,
+                       previous_weight);
     }
   };
 
@@ -948,7 +975,9 @@ private:
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
     BlendWeightFn blend_fn = classic_blend;  /**< Swept crossfade curve. */
-    Landing landing; /**< Arrival data exposed to the effect. */
+    Landing landing;           /**< Arrival data exposed to the effect. */
+    float drawn_weight = 0.0f; /**< Crossfade weight of the last draw. */
+    bool drawn = false;        /**< Whether the leg has drawn a frame. */
   };
 
   /** @brief Split of a swept leg's eased progress into its two stages. */
@@ -1530,8 +1559,18 @@ private:
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
 
+    const float previous_w = tr.drawn ? tr.drawn_weight : w;
+    tr.drawn = true;
+    tr.drawn_weight = w;
     Shading sh{blend_ramps(tr, w, seed_side), face_ramp.data(),
                face_ramp.size()};
+    if (!seed_side) {
+      sh.bank = tr.bank;
+      sh.ramp_from = tr.ramp_from;
+      sh.ramp_to = tr.ramp_to;
+    }
+    sh.weight = w;
+    sh.previous_weight = previous_w;
     draw_fn(canvas, compiled, sh);
   }
 
