@@ -550,10 +550,12 @@ private:
 
   using CandSet = Scan::Shader::BlockCandidates<SITES_PER_CORNER>;
 
-  // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
-  // transient peaks share that arena, with positions + KD nodes live across both:
-  //   build:   positions + KD nodes + KD build-index scratch
-  //   shading: positions + KD nodes + corner cells + candidate-row sets
+  // Compile-time high-water check for the 64 KB scratch_arena_a reserve. The
+  // transient peaks share that arena, with positions + KD nodes live across all:
+  //   build:    positions + KD nodes + KD build-index scratch
+  //   shading:  positions + KD nodes + corner cells + candidate-row sets
+  //   temporal: positions + both trees' nodes + corner cells + block-column
+  //             site unions + candidate and per-site positions
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
   static constexpr size_t POSITIONS_BYTES =
       size_t(MAX_SITES) * sizeof(math::Vector);
