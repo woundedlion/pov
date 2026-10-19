@@ -208,8 +208,11 @@ inside the driver clip, which cannot change while a frame is active. Windows do
 not nest, and closing one admits every column again. `Scan::Shader::walk_grid`
 and `draw_grid` honour it through `Scan::walk_window_columns`; other loops
 write their whole clip. `Temporal::sweep_slab` divides the half-turn into
-slabs in sweep order, so a renderer can shade each slab from the state at the
-end of its share of the frame.
+slabs in sweep order. `Temporal::simulate_in_slabs` drives a simulation that
+advances several substeps per frame: it shades each slab under its window
+after the substeps that end the slab's share of the frame, so neighbouring
+slabs differ by one share of substeps rather than one frame. With temporal
+sampling disabled it runs every substep and then one frame-wide shade.
 
 ### Spherical ray rendering
 

@@ -6,14 +6,15 @@
 
 /** @file temporal.h
  * @brief Column-time sampling contract shared by every renderer family: the
- * fidelity toggle, the sweep fraction of a column, sweep slabs, the shortest
- * rotation arc between frame endpoints, the column-time state scans read, and
- * capture-time solving for plotted points.
+ * fidelity toggle, the sweep fraction of a column, slab-wise simulation, the
+ * shortest rotation arc between frame endpoints, the column-time state scans
+ * read, and capture-time solving for plotted points.
  */
 
 #include "core/animation/orientation.h"
 #include "core/math/3dmath.h"
 #include "core/platform/attributes.h"
+#include "core/render/canvas.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -141,6 +142,33 @@ struct SweepSlab {
  * `[slab / count, (slab + 1) / count)` up to column rounding. */
 constexpr SweepSlab sweep_slab(int slab, int count, int width) {
   return {slab * (width / 2) / count, (slab + 1) * (width / 2) / count};
+}
+
+/**
+ * @brief Advances a simulation and shades it in sweep slabs, each slab after
+ *        the substeps that end its share of the frame.
+ * @tparam SUBSTEPS Substeps per frame.
+ * @tparam SLABS Slab count, a divisor of `SUBSTEPS`.
+ * @param canvas Target canvas; each slab shades under a RenderXWindow.
+ * @param advance Callable (int substeps) advancing the simulation.
+ * @param shade Callable () shading the current state into the open window.
+ * @details With temporal sampling disabled, runs every substep and then one
+ * frame-wide shade.
+ */
+template <int SUBSTEPS, int SLABS, typename Advance, typename Shade>
+void simulate_in_slabs(Canvas &canvas, Advance &&advance, Shade &&shade) {
+  static_assert(SLABS > 0 && SUBSTEPS % SLABS == 0);
+  if (!temporal_sampling_enabled()) {
+    advance(SUBSTEPS);
+    shade();
+    return;
+  }
+  for (int slab = 0; slab < SLABS; ++slab) {
+    advance(SUBSTEPS / SLABS);
+    const SweepSlab columns = sweep_slab(slab, SLABS, canvas.width());
+    RenderXWindow window(canvas, columns.begin, columns.end);
+    shade();
+  }
 }
 
 /** @brief Most history nodes capture() accepts. */
