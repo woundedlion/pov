@@ -267,6 +267,35 @@ inline void test_temporal_equal_palettes_color_as_current() {
                       .temporal.same_palette);
 }
 
+/** @brief Column samples interpolate parameters as the whole set does when
+ *  only some families move. */
+inline void test_temporal_moving_families_interpolate() {
+  HS_CONTEXT("temporal moving families");
+  reset_globals();
+  using FX = GridSpace<96, 20>;
+  FX effect;
+  effect.init();
+  effect.draw_frame();
+  effect.advance_display();
+  const auto current = effect.frame_for_test();
+  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true,
+                            true>
+      history;
+  history.capture(current, persistent_arena);
+  auto moved = current;
+  moved.params.template get<"color">().hue_shift_amount += 0.25f;
+  const Pullback::TemporalFrameSampler SAMPLER(history.previous, moved);
+  for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
+    HS_CONTEXT("fraction", static_cast<double>(fraction));
+    const auto sampled = SAMPLER.sample(fraction).params;
+    const auto expected =
+        Pullback::interpolate(history.previous.params, moved.params, fraction);
+    HS_EXPECT_NEAR(sampled.template get<"color">().hue_shift_amount,
+                   expected.template get<"color">().hue_shift_amount, 0.0f);
+    HS_EXPECT_TRUE(std::memcmp(&sampled, &expected, sizeof(sampled)) == 0);
+  }
+}
+
 /** @brief Retained color tables survive subsequent bakes. */
 inline void test_temporal_owned_resources() {
   HS_CONTEXT("temporal owned color resources");

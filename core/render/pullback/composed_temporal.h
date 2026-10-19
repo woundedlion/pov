@@ -115,6 +115,7 @@ template <typename Frame> class TemporalFrameSampler {
   decltype(Frame::resources) deltas{};
   Params interior_params;
   bool constant_params;
+  uint32_t constant_families = 0;
   float oscillation_delta;
   bool same_noise;
   bool same_palette;
@@ -141,8 +142,28 @@ public:
                                    Color::HueRotationLutView::SIZE *
                                        sizeof(Pixel)) == 0))) {
     static_assert(std::is_trivially_copyable_v<Params>);
-    if (constant_params)
+    static_assert(
+        []<typename... Resources>(
+            ComposedDetail::ResourceList<Resources...> *) {
+          return sizeof...(Resources);
+        }(static_cast<typename Params::ResourceTypes *>(nullptr)) <= 32,
+        "constant_families holds one bit per parameter family");
+    if (constant_params) {
       interior_params = interpolate(a.params, b.params, 0.5f);
+    } else {
+      // A family equal at both endpoints takes its interior value throughout.
+      int family = 0;
+      interior_params.visit(
+          [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
+            const auto &start = a.params.template get<Resource::KEY>();
+            const auto &end = b.params.template get<Resource::KEY>();
+            if (std::memcmp(&start, &end, sizeof(end)) == 0) {
+              value = interpolate(start, end, 0.5f);
+              constant_families |= 1u << family;
+            }
+            ++family;
+          });
+    }
     b.params.visit([&]<typename Resource>(const auto &) {
       auto &delta = deltas.template get<Resource::KEY>();
       const auto &start = a.resources.template get<Resource::KEY>();
@@ -189,9 +210,20 @@ public:
     Frame frame = to;
     frame.projection_conjugate = projection.sample(fraction);
     frame.outer_conjugate = outer.sample(fraction);
-    frame.params = constant_params
-                       ? interior_params
-                       : interpolate(from.params, to.params, fraction);
+    if (constant_params) {
+      frame.params = interior_params;
+    } else {
+      int family = 0;
+      frame.params.visit(
+          [&]<typename Resource>(auto &value) __attribute__((always_inline)) {
+            value = constant_families & (1u << family)
+                        ? interior_params.template get<Resource::KEY>()
+                        : interpolate(from.params.template get<Resource::KEY>(),
+                                      to.params.template get<Resource::KEY>(),
+                                      fraction);
+            ++family;
+          });
+    }
     frame.palette_mapping = Color::PaletteMappingWeights::lerp(
         from.palette_mapping, to.palette_mapping, fraction);
     frame.palette_oscillation_phase =
