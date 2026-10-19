@@ -19,6 +19,25 @@ inline float sample_clock(float from, float to, float fraction, float period) {
   return from + std::remainder(to - from, period) * fraction;
 }
 
+/** @brief Gives a frame the current lens wherever a Mobius lens cannot
+ *  follow its generator phase between the endpoints.
+ * @tparam Frame Composed temporal frame context.
+ * @param frame Frame to correct.
+ * @param from Previous frame.
+ * @param to Current frame. */
+template <typename Frame>
+HS_FLASH_INLINE void hold_discrete_lenses(Frame &frame, const Frame &from,
+                                          const Frame &to) {
+  to.params.visit([&]<typename Resource>(const auto &lens) {
+    if constexpr (std::is_same_v<typename Resource::Family, MobiusLensParams>)
+      if (!lens_phase_continuous(from.params.template get<Resource::KEY>(),
+                                 lens,
+                                 from.resources.template get<Resource::KEY>(),
+                                 to.resources.template get<Resource::KEY>()))
+        frame.params.template get<Resource::KEY>() = lens;
+  });
+}
+
 /** @brief Samples spatial state and clocks between consecutive frame endpoints.
  * @tparam Frame Composed temporal frame context.
  * @param from Previous frame, with retained palette and hue tables.
@@ -30,8 +49,11 @@ template <typename Frame>
 HS_FLASH_INLINE Frame
 sample_frame(const Frame &from, const Frame &to, float fraction,
              const decltype(Frame::params) *constant_params = nullptr) {
-  if (fraction <= 0.0f)
-    return from;
+  if (fraction <= 0.0f) {
+    Frame frame = from;
+    hold_discrete_lenses(frame, from, to);
+    return frame;
+  }
   if (fraction >= 1.0f)
     return to;
   Frame frame = to;
@@ -70,6 +92,17 @@ sample_frame(const Frame &from, const Frame &to, float fraction,
         clock.phase = sample_clock(a.phase, b.phase, fraction, family.period);
       else
         clock.phase = sample_clock(a.phase, b.phase, fraction, 1.0f);
+    } else if constexpr (std::is_same_v<typename Resource::Family,
+                                        MobiusLensParams>) {
+      const auto &start = from.params.template get<Resource::KEY>();
+      const auto &end = to.params.template get<Resource::KEY>();
+      frame.params.template get<Resource::KEY>() =
+          lens_phase_continuous(start, end, a, b)
+              ? sample_lens_phase(
+                    end,
+                    sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F),
+                    a.magnitude + (b.magnitude - a.magnitude) * fraction)
+              : end;
     }
   });
   frame.temporal = {from.palette,
@@ -153,6 +186,13 @@ public:
                            !std::is_same_v<typename Resource::Family,
                                            PeriodicRippleParams>) {
         delta.phase = std::remainder(end.phase - start.phase, 1.0f);
+      } else if constexpr (std::is_same_v<typename Resource::Family,
+                                          MobiusLensParams>) {
+        delta.angle = std::remainder(end.angle - start.angle, math::TWO_PI_F);
+        delta.magnitude = end.magnitude - start.magnitude;
+        delta.generated = lens_phase_continuous(
+            a.params.template get<Resource::KEY>(),
+            b.params.template get<Resource::KEY>(), start, end);
       }
     });
   }
@@ -161,8 +201,11 @@ public:
    * @param fraction Frame progress in [0, 1].
    * @return Interpolated context borrowing the endpoint resources. */
   HS_FLASH_INLINE Frame sample(float fraction) const {
-    if (fraction <= 0.0f)
-      return from;
+    if (fraction <= 0.0f) {
+      Frame frame = from;
+      hold_discrete_lenses(frame, from, to);
+      return frame;
+    }
     if (fraction >= 1.0f)
       return to;
     Frame frame = to;
@@ -196,6 +239,14 @@ public:
               fraction, family.period);
         else
           clock.phase = start.phase + delta.phase * fraction;
+      } else if constexpr (std::is_same_v<typename Resource::Family,
+                                          MobiusLensParams>) {
+        const auto &end = to.params.template get<Resource::KEY>();
+        frame.params.template get<Resource::KEY>() =
+            delta.generated ? sample_lens_phase(
+                                  end, start.angle + delta.angle * fraction,
+                                  start.magnitude + delta.magnitude * fraction)
+                            : end;
       }
     });
     frame.temporal = {from.palette,

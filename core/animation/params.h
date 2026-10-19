@@ -607,6 +607,17 @@ public:
   void bind_scale(const float &&) = delete;
 
   /**
+   * @brief Publishes each step's angle and magnitude.
+   * @param angle Receives the angle written into b, radians.
+   * @param magnitude Receives the magnitude written into b.
+   * @details Both referents must outlive the animation.
+   */
+  void bind_phase(float &angle, float &magnitude) {
+    angle_out = &angle;
+    magnitude_out = &magnitude;
+  }
+
+  /**
    * @brief Steps the animation, updating param b.
    * @param canvas The canvas buffer (forwarded to the base step).
    */
@@ -621,6 +632,10 @@ public:
         scale = s = s2;
     }
     Derived::write_b(params.get(), s, angle);
+    if (angle_out != nullptr) {
+      *angle_out = angle;
+      *magnitude_out = s;
+    }
   }
 
 private:
@@ -629,6 +644,8 @@ private:
   float scale;                      /**< Warp magnitude. */
   EasingFn easing;                  /**< Easing curve. */
   const float *scale_ref = nullptr; /**< Optional live magnitude source. */
+  float *angle_out = nullptr;       /**< Optional published angle. */
+  float *magnitude_out = nullptr;   /**< Optional published magnitude. */
 };
 
 /**
@@ -655,9 +672,12 @@ class MobiusWarpCircular : public MobiusWarpBase<MobiusWarpCircular> {
 public:
   using MobiusWarpBase::MobiusWarpBase;
 
-private:
-  friend class MobiusWarpBase<MobiusWarpCircular>;
-
+  /**
+   * @brief Writes the b this warp produces at one phase.
+   * @param params Coefficients whose b is replaced.
+   * @param scale Magnitude of b.
+   * @param angle Phase angle, radians.
+   */
   static void write_b(math::MobiusParams &params, float scale, float angle) {
     params.b.re = scale * cosf(angle);
     params.b.im = -scale * sinf(angle);

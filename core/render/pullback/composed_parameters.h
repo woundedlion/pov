@@ -88,6 +88,63 @@ inline bool valid(const MobiusLensParams &p) {
   return MobiusLensParams::nondegenerate(p.mobius);
 }
 
+/// Generator phase of an animated Mobius lens.
+using MobiusLensPhase =
+    ComposedDetail::ClockState<MobiusLensParams, ResourceKind::LENS>;
+
+/**
+ * @brief Whether a lens's b is the one its animation phase generates.
+ * @param lens Lens coefficients after every write of the frame.
+ * @param phase Generator phase the animation last published.
+ * @return False for an unanimated lens or one a snap or write replaced.
+ */
+HS_FLASH_MEMBER inline bool lens_generated(const MobiusLensParams &lens,
+                                           const MobiusLensPhase &phase) {
+  if (!(phase.magnitude > 0.0f))
+    return false;
+  math::MobiusParams expected = lens.mobius;
+  Animation::MobiusWarpCircular::write_b(expected, phase.magnitude,
+                                         phase.angle);
+  return expected.b.re == lens.mobius.b.re && expected.b.im == lens.mobius.b.im;
+}
+
+/**
+ * @brief Whether column-time sampling can follow a lens's animation phase.
+ * @details Column-time lens interpolation, separate from preset
+ * interpolation: only b moves along the generator, so both endpoints must be
+ * generated and share a, c and d.
+ * @param from Previous lens.
+ * @param to Current lens.
+ * @param from_phase Previous generator phase.
+ * @param to_phase Current generator phase.
+ * @return True when intermediate lenses follow the generator.
+ */
+HS_FLASH_MEMBER inline bool
+lens_phase_continuous(const MobiusLensParams &from, const MobiusLensParams &to,
+                      const MobiusLensPhase &from_phase,
+                      const MobiusLensPhase &to_phase) {
+  const auto same = [](const math::Complex &a, const math::Complex &b) {
+    return a.re == b.re && a.im == b.im;
+  };
+  return from_phase.generated && to_phase.generated &&
+         same(from.mobius.a, to.mobius.a) && same(from.mobius.c, to.mobius.c) &&
+         same(from.mobius.d, to.mobius.d);
+}
+
+/**
+ * @brief The lens its generator produces at one phase.
+ * @param lens Current lens; supplies a, c and d.
+ * @param angle Generator angle, radians.
+ * @param magnitude Generator magnitude.
+ * @return The generated lens, or @p lens when that one is not valid().
+ */
+HS_FLASH_MEMBER inline MobiusLensParams
+sample_lens_phase(const MobiusLensParams &lens, float angle, float magnitude) {
+  MobiusLensParams sample = lens;
+  Animation::MobiusWarpCircular::write_b(sample.mobius, magnitude, angle);
+  return valid(sample) ? sample : lens;
+}
+
 /**
  * @brief Whether a colour family's fields and palette mapping are in range.
  * @param p Colour family to check.

@@ -695,6 +695,9 @@ inline int run_composed_effect_tests() {
   test_gridspace_temporal_pixels();
   test_composed_temporal_roster();
   test_mobius_grid_instantaneous_pixel_golden();
+  test_mobius_grid_lens_follows_phase();
+  test_mobius_grid_lens_unsupported_transitions();
+  test_mobius_grid_segmented_matches_single_engine();
   test_alien_brain_preset_dwell();
   test_mobius_grid_circular_animation();
   test_catalog_semantic_export();

@@ -159,8 +159,7 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 ### Column-time sampling
 
 Composed effects opt into `Pullback::Spec::TEMPORAL_SAMPLING` when their state
-supports continuous interpolation. The roster enables it except for MobiusGrid,
-whose animated lens coefficients currently use held interpolation. Each column
+supports continuous interpolation; the whole roster enables it. Each column
 samples between the previous and current animation
 states at `(x % (W / 2)) / float(W / 2)`. Both opposing arms use the same
 half-turn phase, independent of the rendering clip. This introduces up to one
@@ -227,9 +226,16 @@ which grow by the drift's angle.
 ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
 
 Further opt-ins need continuous parameter curves, clock advances below half
-their period, and spatially periodic phase wraps. Discrete preset changes and
-the held Mobius coefficient interpolation do not become continuous through
-this option. GridSpace's whole-cell affine winding satisfies the wrap condition.
+their period, and spatially periodic phase wraps. Discrete preset changes do
+not become continuous through this option. GridSpace's whole-cell affine
+winding satisfies the wrap condition.
+
+A Mobius lens is sampled separately from its preset interpolation, which holds
+the previous coefficients. `Animation::MobiusWarpCircular` publishes the angle
+and magnitude it writes into b, and each column regenerates b from the shortest
+arc of that phase over the current a, c and d. A lens whose b was replaced by a
+snap or write, or whose a, c or d changed, takes the current lens in every
+column. A column lens that fails `Pullback::valid` takes the current lens.
 
 Manual shaders reuse the same facility over their own frame struct.
 `Pullback::TemporalHistory<Frame>` retains the previous endpoint of a frame
