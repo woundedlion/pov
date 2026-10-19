@@ -360,7 +360,8 @@ private:
 
   /**
    * @brief Orients, ripple-distorts, and segue-shapes base_state, then
-   *        rasterizes it with a per-face palette lookup.
+   *        rasterizes it with a per-face palette lookup, each column seeing
+   *        the orientation at its sweep time.
    * @param canvas Render target receiving the rasterized mesh.
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
@@ -379,6 +380,9 @@ private:
 
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     MeshState transformed_state = transform_shape(base_state);
     ArenaVector<float> face_phases;
     ArenaVector<const BakedPalette *> face_palettes;
@@ -411,7 +415,8 @@ private:
 
   /**
    * @brief Draws one build-leg frame: the compiled swept mesh, shaded from its
-   *        per-face palettes on the segue's phase-1 identity plateau.
+   *        per-face palettes on the segue's phase-1 identity plateau, each
+   *        column seeing the orientation at its sweep time.
    * @param canvas Render target receiving the rasterized mesh.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param sh Per-face palette table from the OpLeg.
@@ -423,6 +428,9 @@ private:
     HS_PROFILE(is_build_draw);
     // Opened after the OpLeg's blended ramps, which the shader reads.
     ScratchScope b_guard(scratch_arena_b);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_b, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
     {
