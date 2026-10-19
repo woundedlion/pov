@@ -329,7 +329,8 @@ private:
   }
 
   /**
-   * @brief Renders particles, then glowing or black-hole cores.
+   * @brief Renders particles, then glowing or black-hole cores, each core
+   *        column at its sweep-time orientation.
    * @param canvas Target canvas.
    */
   void draw_particles(Canvas &canvas) {
@@ -374,6 +375,10 @@ private:
     auto hole_shader = [&](const math::Vector &, Fragment &f) {
       f.color = Color4(0, 0, 0, alpha);
     };
+    ScratchScope column_guard(scratch_arena_a);
+    const Temporal::ColumnTime column_time =
+        Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
     for (const Galaxy &g : galaxies) {
       const math::Vector core = rotation.apply(g.core);
       if (params.black_hole) {
