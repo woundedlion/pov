@@ -128,6 +128,7 @@ inline int run_scan_tests() {
   test_column_basis_segments_and_endpoints();
   test_column_basis_blocks_cover_their_rotation();
   test_point_birth_skips_earlier_columns();
+  test_volume_columns_match_rotated_placements();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();

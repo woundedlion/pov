@@ -188,6 +188,9 @@ by the frame's rotation arc, and a mesh face's pole-LOD block slack grows by
 the rotation across the block. A birth fraction in the same state skips the
 columns `Scan::rasterize` would light before it. The fidelity-off mode and a
 motionless frame install no basis and keep the fixed meridian, bit for bit.
+`Scan::Volume` instead takes an object's `Scan::VolumeColumns`: a centre and
+rotation per sweep fraction, from which each column marches, inside a cap
+grown to cover every column's centre.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes and
