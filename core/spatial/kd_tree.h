@@ -147,9 +147,25 @@ public:
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
   Neighbors nearest(const math::Vector &target, size_t k = 1) const {
-    return search<false>(target, k, 0.0f, [&](const KDNode &node) {
-      return math::distance_squared(node.point, target);
-    });
+    return nearest(target, k, FLT_MAX);
+  }
+
+  /**
+   * @brief nearest() among points within a squared distance of target.
+   * @param target Finite query point, in world units.
+   * @param k Number of neighbors to return; at most MAX_K.
+   * @param bound_sq Squared distance within which at least k points lie,
+   *        as the distance to known points; prunes the search from the start.
+   * @return The k nearest neighbors, closest first.
+   */
+  Neighbors nearest(const math::Vector &target, size_t k,
+                    float bound_sq) const {
+    return search<false>(
+        target, k, 0.0f,
+        [&](const KDNode &node) {
+          return math::distance_squared(node.point, target);
+        },
+        bound_sq);
   }
 
   /**
@@ -160,16 +176,20 @@ public:
    * @param drift Upper bound on any point's distance from its built position.
    * @param distance_sq Callable (uint16_t original index) returning the
    *        squared distance from @p target to that point's moved position.
+   * @param bound_sq Moved squared distance within which at least k points
+   *        lie; FLT_MAX when unknown.
    * @return Neighbors ranked by moved distance; `point` is the built position
    * and `d_sq` the moved squared distance.
    */
   template <typename DistanceFn>
   HS_HOT_FLASH_MEMBER Neighbors nearest_moved(const math::Vector &target,
                                               size_t k, float drift,
-                                              DistanceFn &&distance_sq) const {
-    return search<true>(target, k, drift, [&](const KDNode &node) {
-      return distance_sq(node.original_index);
-    });
+                                              DistanceFn &&distance_sq,
+                                              float bound_sq = FLT_MAX) const {
+    return search<true>(
+        target, k, drift,
+        [&](const KDNode &node) { return distance_sq(node.original_index); },
+        bound_sq);
   }
 
 private:
@@ -181,12 +201,14 @@ private:
    * @param drift Bound on a point's distance from its node; MOVING only.
    * @param distance_sq Callable (const KDNode &) returning the squared
    *        distance from @p target to the node's point.
+   * @param bound_sq Squared distance within which at least k points lie.
    * @return Neighbors ranked by that distance, ties by source index.
    */
   template <bool MOVING, typename DistanceFn>
-  __attribute__((always_inline)) Neighbors
-  search(const math::Vector &target, size_t k, float drift,
-         DistanceFn &&distance_sq) const {
+  __attribute__((always_inline)) Neighbors search(const math::Vector &target,
+                                                  size_t k, float drift,
+                                                  DistanceFn &&distance_sq,
+                                                  float bound_sq) const {
     Neighbors result;
     HS_CHECK(k <= static_cast<size_t>(MAX_K),
              "KDTree::nearest k exceeds MAX_K");
@@ -198,8 +220,8 @@ private:
     auto *best = result.values.data();
     size_t &count = result.count;
 
-    // Cached pruning bound; FLT_MAX until the set fills to k.
-    float worst_d_sq = FLT_MAX;
+    // Cached pruning bound; the caller's bound until the set fills to k.
+    float worst_d_sq = bound_sq;
     size_t worst_i = 0;
     auto recompute_worst = [&]() __attribute__((always_inline)) {
       worst_d_sq = -1.0f;

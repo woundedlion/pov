@@ -371,6 +371,69 @@ inline void test_kdtree_nearest_moved_matches_brute_force() {
   }
 }
 
+/**
+ * @brief Verifies bounded searches return the unbounded result when the bound
+ *        is the distance of k known points.
+ */
+inline void test_kdtree_bounded_search_matches_unbounded() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  constexpr int N = 100;
+  constexpr int K = 2;
+  constexpr float DRIFT = 0.5f;
+  math::Vector built[N];
+  math::Vector moved[N];
+  hs::Pcg32 rng(20261019u);
+  for (int i = 0; i < N; ++i) {
+    const float x = rand_uniform(rng, -10.0f, 10.0f);
+    const float y = rand_uniform(rng, -10.0f, 10.0f);
+    const float z = rand_uniform(rng, -10.0f, 10.0f);
+    built[i] = math::Vector(x, y, z);
+    const float ox = rand_uniform(rng, -1.0f, 1.0f);
+    const float oy = rand_uniform(rng, -1.0f, 1.0f);
+    const float oz = rand_uniform(rng, -1.0f, 1.0f);
+    moved[i] = built[i] + math::Vector(ox, oy, oz).normalized() * DRIFT;
+  }
+  KDTree tree(arena, std::span<math::Vector>(built, N));
+  const auto same = [](const KDTree::Neighbors &a, const KDTree::Neighbors &b) {
+    HS_EXPECT_SIZE_OR_RETURN(a, b.size());
+    for (size_t rank = 0; rank < a.size(); ++rank) {
+      HS_EXPECT_EQ(a[rank].original_index, b[rank].original_index);
+      HS_EXPECT_EQ(a[rank].d_sq, b[rank].d_sq);
+    }
+  };
+  for (int query = 0; query < 200; ++query) {
+    HS_CONTEXT("query", query);
+    const float x = rand_uniform(rng, -11.0f, 11.0f);
+    const float y = rand_uniform(rng, -11.0f, 11.0f);
+    const float z = rand_uniform(rng, -11.0f, 11.0f);
+    const math::Vector target(x, y, z);
+    // Two arbitrary points bound the search; the nearest pair bounds it
+    // exactly.
+    const int a = query % N;
+    const int b = (query * 7 + 1) % N;
+    const auto unbounded = tree.nearest(target, K);
+    HS_EXPECT_SIZE_OR_RETURN(unbounded, K);
+    same(tree.nearest(target, K,
+                      std::max(math::distance_squared(built[a], target),
+                               math::distance_squared(built[b], target))),
+         unbounded);
+    same(tree.nearest(target, K, unbounded[K - 1].d_sq), unbounded);
+
+    const auto moved_distance = [&](uint16_t i) {
+      return math::distance_squared(moved[i], target);
+    };
+    const auto moved_unbounded =
+        tree.nearest_moved(target, K, DRIFT, moved_distance);
+    HS_EXPECT_SIZE_OR_RETURN(moved_unbounded, K);
+    same(tree.nearest_moved(target, K, DRIFT, moved_distance,
+                            std::max(moved_distance(a), moved_distance(b))),
+         moved_unbounded);
+    same(tree.nearest_moved(target, K, DRIFT, moved_distance,
+                            moved_unbounded[K - 1].d_sq),
+         moved_unbounded);
+  }
+}
+
 // ============================================================================
 // MeshState
 // ============================================================================
@@ -773,6 +836,7 @@ inline int run_spatial_tests() {
   test_kdtree_duplicates_and_max_k();
   test_kdtree_k_nearest_brute_force_random();
   test_kdtree_nearest_moved_matches_brute_force();
+  test_kdtree_bounded_search_matches_unbounded();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();
