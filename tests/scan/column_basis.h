@@ -570,36 +570,41 @@ template <int W, int H> inline void check_cap_meets_clip() {
         math::make_basis(math::Quaternion(), math::fib_spiral(SHAPES, 0.5f, i));
     const auto star_basis = math::get_antipode(b, 0.06f);
     const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
-    math::Vector axis;
-    float radius = 0.0f;
-    HS_EXPECT_TRUE(star.bounding_cap(axis, radius));
-    const std::vector<Pixel> lit = render_column_basis<W, H>(
-        motion, [&](Pipeline<W, H> &pipeline, Canvas &canvas,
-                    const math::Quaternion &) {
-          Scan::rasterize<W, H, false>(pipeline, canvas, star,
-                                       basis_flat_shader);
-        });
-    for (const Band &band : BANDS) {
-      hs_test::StubEffect fx(W, H);
-      fx.set_clip(band.y0, band.y1, band.x0, band.x1);
-      const ClipRegion &cr = fx.clip();
-      const auto xc = cr.x_clip();
-      bool reaches = false;
-      for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y)
-        for (int x = 0; x < W; ++x)
-          reaches |=
-              !xc.clipped(x) && !is_black(lit[static_cast<size_t>(y) * W + x]);
-      const bool meets =
-          Scan::cap_meets_clip<W, H>(axis, radius, time.sweep, cr);
-      if (reaches)
-        HS_EXPECT_TRUE(meets);
-      ruled_out += !meets;
-    }
+    const SDF::Ring disc(b, 0.0f, 0.05f);
+    const auto check = [&](const auto &shape) {
+      math::Vector axis;
+      float radius = 0.0f;
+      HS_EXPECT_TRUE(shape.bounding_cap(axis, radius));
+      const std::vector<Pixel> lit = render_column_basis<W, H>(
+          motion, [&](Pipeline<W, H> &pipeline, Canvas &canvas,
+                      const math::Quaternion &) {
+            Scan::rasterize<W, H, false>(pipeline, canvas, shape,
+                                         basis_flat_shader);
+          });
+      for (const Band &band : BANDS) {
+        hs_test::StubEffect fx(W, H);
+        fx.set_clip(band.y0, band.y1, band.x0, band.x1);
+        const ClipRegion &cr = fx.clip();
+        const auto xc = cr.x_clip();
+        bool reaches = false;
+        for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y)
+          for (int x = 0; x < W; ++x)
+            reaches |= !xc.clipped(x) &&
+                       !is_black(lit[static_cast<size_t>(y) * W + x]);
+        const bool meets =
+            Scan::cap_meets_clip<W, H>(axis, radius, time.sweep, cr);
+        if (reaches)
+          HS_EXPECT_TRUE(meets);
+        ruled_out += !meets;
+      }
+    };
+    check(star);
+    check(disc);
   }
   HS_EXPECT_GT(ruled_out, SHAPES);
 }
 
-/** @brief cap_meets_clip() keeps every clip a swept star lights. */
+/** @brief cap_meets_clip() keeps every clip a swept star or disc lights. */
 inline void test_cap_meets_clip_keeps_lit_clips() {
   check_cap_meets_clip<96, 48>();
   check_cap_meets_clip<288, 144>();
