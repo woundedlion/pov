@@ -527,6 +527,50 @@ new_face_scratch(Arena &arena) {
 /// Slab face-column entry of a face that holds over the frame.
 inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
 
+/// Cap radius of a face that no cap about its vertex mean bounds.
+inline constexpr float UNBOUNDED_FACE_CAP = -1.0f;
+
+/**
+ * @brief Axis of the cap about a face's vertex mean.
+ * @param vertices Mesh vertex pool.
+ * @param indices The face's vertex indices.
+ * @param count Number of face vertices.
+ * @param axis Receives the unit vertex mean.
+ * @return False when the vertex mean is too short to give a direction.
+ */
+HS_HOT_INLINE bool face_cap_axis(const math::Vector *vertices,
+                                 const uint16_t *indices, size_t count,
+                                 math::Vector &axis) {
+  math::Vector sum(0.0f, 0.0f, 0.0f);
+  for (size_t k = 0; k < count; ++k)
+    sum = sum + vertices[indices[k]];
+  const float length = sqrtf(math::dot(sum, sum));
+  if (!(length > math::TOLERANCE))
+    return false;
+  axis = sum * (1.0f / length);
+  return true;
+}
+
+/**
+ * @brief Canvas columns that can see a cap over one frame.
+ * @tparam W Canvas width in pixels.
+ * @param axis Cap axis.
+ * @param radius Cap radius (radians), or UNBOUNDED_FACE_CAP.
+ * @param reach Largest arc the cap or a column's basis moves over the frame
+ *        (radians).
+ * @param columns Receives the columns as face_lit_columns() gives them.
+ */
+template <int W>
+HS_HOT_INLINE void cap_lit_columns(const math::Vector &axis, float radius,
+                                   float reach, uint16_t *columns) {
+  int lo, hi;
+  if (radius == UNBOUNDED_FACE_CAP ||
+      !lit_span<W>(axis, radius, reach, lo, hi) || hi - lo >= W - 1)
+    return;
+  columns[0] = static_cast<uint16_t>(((lo % W) + W) % W);
+  columns[1] = static_cast<uint16_t>(hi - lo);
+}
+
 /**
  * @brief Canvas columns that can see a face over one frame.
  * @tparam W Canvas width in pixels.
@@ -537,6 +581,8 @@ inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
  *        (radians).
  * @param columns Receives the first seeing column, in [0, W), and how many
  *        more follow it, wrapping past the last column.
+ * @param radius Receives the face's cap radius for face_cap_columns(), when
+ *        not null.
  * @details Judged by the cap about the face's vertex mean that holds every
  * vertex, widened by @p reach; a cap past a hemisphere or holding a pole is
  * seen by every column.
@@ -544,29 +590,47 @@ inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
 template <int W>
 HS_FLASH_MEMBER void face_lit_columns(const math::Vector *vertices,
                                       const uint16_t *indices, size_t count,
-                                      float reach, uint16_t *columns) {
+                                      float reach, uint16_t *columns,
+                                      float *radius = nullptr) {
   columns[0] = 0;
   columns[1] = W - 1;
-  math::Vector sum(0.0f, 0.0f, 0.0f);
-  for (size_t k = 0; k < count; ++k)
-    sum = sum + vertices[indices[k]];
-  const float length = sqrtf(math::dot(sum, sum));
-  if (!(length > math::TOLERANCE))
-    return;
-  const math::Vector axis = sum * (1.0f / length);
-  float min_cos = 1.0f;
-  for (size_t k = 0; k < count; ++k) {
-    const math::Vector &v = vertices[indices[k]];
-    min_cos = fminf(min_cos, math::dot(axis, v) / sqrtf(math::dot(v, v)));
+  math::Vector axis;
+  float cap = UNBOUNDED_FACE_CAP;
+  if (face_cap_axis(vertices, indices, count, axis)) {
+    float min_cos = 1.0f;
+    for (size_t k = 0; k < count; ++k) {
+      const math::Vector &v = vertices[indices[k]];
+      min_cos = fminf(min_cos, math::dot(axis, v) / sqrtf(math::dot(v, v)));
+    }
+    // A cap past a hemisphere does not bound its polygon.
+    if (min_cos > 0.0f)
+      cap = acosf(min_cos);
   }
-  // A cap past a hemisphere does not bound its polygon.
-  if (!(min_cos > 0.0f))
-    return;
-  int lo, hi;
-  if (!lit_span<W>(axis, acosf(min_cos), reach, lo, hi) || hi - lo >= W - 1)
-    return;
-  columns[0] = static_cast<uint16_t>(((lo % W) + W) % W);
-  columns[1] = static_cast<uint16_t>(hi - lo);
+  if (radius)
+    *radius = cap;
+  cap_lit_columns<W>(axis, cap, reach, columns);
+}
+
+/**
+ * @brief face_lit_columns() of a face whose cap radius it recorded.
+ * @tparam W Canvas width in pixels.
+ * @param vertices Mesh vertex pool, as when the radius was recorded.
+ * @param indices The face's vertex indices.
+ * @param count Number of face vertices.
+ * @param radius The recorded cap radius.
+ * @param reach Largest arc the face or a column's basis moves over the frame
+ *        (radians).
+ * @param columns Receives the columns as face_lit_columns() gives them.
+ */
+template <int W>
+HS_FLASH_MEMBER void
+face_cap_columns(const math::Vector *vertices, const uint16_t *indices,
+                 size_t count, float radius, float reach, uint16_t *columns) {
+  columns[0] = 0;
+  columns[1] = W - 1;
+  math::Vector axis;
+  if (face_cap_axis(vertices, indices, count, axis))
+    cap_lit_columns<W>(axis, radius, reach, columns);
 }
 
 /**
@@ -687,19 +751,27 @@ template <int W> HS_FLASH_MEMBER bool mesh_motion_active(float arc) {
  * @param columns Per face two entries, HELD_FACE_COLUMN first for a face
  *        that holds; the others receive the columns that can see the face,
  *        as face_lit_columns() gives them.
+ * @param radii Per-face cap radii pick_moving_faces() recorded from the same
+ *        vertices, or null to measure the caps.
  */
 template <int W>
-HS_FLASH_MEMBER void moving_face_columns(const Canvas &canvas,
-                                         const MeshState &mesh, float reach,
-                                         uint16_t *columns) {
+HS_FLASH_MEMBER void
+moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
+                    uint16_t *columns, const float *radii = nullptr) {
   const float sweep = canvas.column_time() ? canvas.column_time()->sweep : 0.0f;
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
-  for (size_t f = 0; f < mesh.num_faces(); ++f)
-    if (columns[2 * f] != HELD_FACE_COLUMN)
+  for (size_t f = 0; f < mesh.num_faces(); ++f) {
+    if (columns[2 * f] == HELD_FACE_COLUMN)
+      continue;
+    if (radii)
+      face_cap_columns<W>(mesh.vertices.data(), indices + offsets[f], counts[f],
+                          radii[f], sweep + reach, columns + 2 * f);
+    else
       face_lit_columns<W>(mesh.vertices.data(), indices + offsets[f], counts[f],
                           sweep + reach, columns + 2 * f);
+  }
 }
 
 /**
@@ -714,6 +786,8 @@ HS_FLASH_MEMBER void moving_face_columns(const Canvas &canvas,
  * @param columns Receives per face two entries: the columns that can see a
  *        picked face, as face_lit_columns() gives them, or HELD_FACE_COLUMN
  *        and 0 for the others.
+ * @param radii When not null, receives the cap radius of each face holding a
+ *        moving vertex, for moving_face_columns().
  * @return The number of picked faces.
  * @details A face is picked when it holds a moving vertex and a column the
  * render clip admits can see it; the others draw once at the current
@@ -723,19 +797,24 @@ template <int W>
 HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
                                          const MeshState &mesh,
                                          uint8_t *moving_vertices, float reach,
-                                         uint16_t *columns) {
+                                         uint16_t *columns,
+                                         float *radii = nullptr) {
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
   const size_t faces = mesh.num_faces();
+  const float sweep = canvas.column_time() ? canvas.column_time()->sweep : 0.0f;
   for (size_t f = 0; f < faces; ++f) {
     uint8_t moves = 0;
     for (size_t k = 0; k < counts[f]; ++k)
       moves |= moving_vertices[indices[offsets[f] + k]];
     columns[2 * f] = moves ? 0 : HELD_FACE_COLUMN;
     columns[2 * f + 1] = 0;
+    if (moves)
+      face_lit_columns<W>(mesh.vertices.data(), indices + offsets[f], counts[f],
+                          sweep + reach, columns + 2 * f,
+                          radii ? radii + f : nullptr);
   }
-  moving_face_columns<W>(canvas, mesh, reach, columns);
   std::fill_n(moving_vertices, mesh.vertices.size(), uint8_t(0));
   size_t picked = 0;
   for (size_t f = 0; f < faces; ++f) {

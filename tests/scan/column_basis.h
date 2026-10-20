@@ -1633,6 +1633,45 @@ inline void test_mesh_deformation_shared_edges() {
     check_deformed_shared_edges(rotation);
 }
 
+/** @brief Columns from recorded cap radii match columns measured afresh. */
+inline void test_recorded_face_caps_match_measured_columns() {
+  constexpr int W = 288, H = 144;
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  mesh.vertices.bind(scratch_arena_a, 5);
+  for (const auto &v : {math::Vector(1, .3f, -.2f), math::Vector(1, -.2f, -.1f),
+                        math::Vector(1, .2f, .1f), math::Vector(1, -.3f, .2f),
+                        math::Vector(1, .5f, .3f)})
+    mesh.vertices.push_back(v.normalized());
+  mesh.face_counts.bind(scratch_arena_a, 3);
+  mesh.face_offsets.bind(scratch_arena_a, 3);
+  mesh.faces.bind(scratch_arena_a, 9);
+  for (int f = 0; f < 3; ++f) {
+    mesh.face_counts.push_back(3);
+    mesh.face_offsets.push_back(3 * f);
+  }
+  for (uint16_t i : {0, 1, 2, 2, 1, 3, 0, 2, 4})
+    mesh.faces.push_back(i);
+  render_slab_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+    uint8_t moving[5] = {1, 1, 1, 1, 1};
+    uint16_t recorded[6]{}, measured[6]{}, picked[6]{};
+    float radii[3]{};
+    HS_EXPECT_EQ(
+        Scan::pick_moving_faces<W>(canvas, mesh, moving, .13f, picked, radii),
+        size_t(3));
+    std::copy_n(picked, 6, recorded);
+    std::copy_n(picked, 6, measured);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, recorded, radii);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, measured);
+    for (int k = 0; k < 6; ++k)
+      HS_EXPECT_EQ(recorded[k], measured[k]);
+    for (int f = 0; f < 3; ++f) {
+      HS_EXPECT_LT(measured[2 * f + 1], picked[2 * f + 1]);
+      HS_EXPECT_GT(radii[f], 0.0f);
+    }
+  });
+}
+
 /** @brief Temporal sampling deforms ordinary motion and holds tiny steps and jumps. */
 inline void test_mesh_motion_activation() {
   constexpr int W = 288;

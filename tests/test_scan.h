@@ -154,6 +154,7 @@ inline int run_scan_tests() {
   test_mesh_deformation_shared_edges();
   test_mesh_deformation_window_pixels();
   test_mesh_motion_activation();
+  test_recorded_face_caps_match_measured_columns();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
