@@ -370,13 +370,14 @@ private:
 
     /** @brief One fraction of the frame, with the leg's parameter there. */
     struct Moment {
-      float u = 0.0f; ///< Frame fraction in [0, 1].
+      float u = 0.0f; ///< Frame fraction; 0 and 1 are the endpoints.
       float k = 0.0f; ///< The leg's sweep parameter at `u`; 0 without a leg.
     };
 
     /**
      * @brief A fraction of the frame, resolved for at().
-     * @param u Frame fraction in [0, 1].
+     * @param u Frame fraction; past either endpoint the model continues
+     *        along its path, holding at a leg's own ends.
      * @return The moment.
      */
     Moment moment(float u) const {
