@@ -347,7 +347,7 @@ private:
 
   /**
    * @brief Builds the clean node mesh at one end of an edge from the held
-   * seed — the registry chain, decomposed.
+   * seed â€” the registry chain, decomposed.
    * @param e Edge whose endpoint mesh is built.
    * @param to_end True for the t_to end, false for the t_from end.
    * @param seed_base Held seed mesh.
@@ -444,7 +444,7 @@ private:
       }
     }
     HS_PROFILE(hk_mesh_scan);
-    Scan::deform_mesh<W>(
+    Scan::deform_mesh<W, H>(
         canvas, rotated_mesh, active, columns, moving, scratch_arena_b, arc,
         [&](size_t i, float u) HS_HOT_INLINE {
           return (previous[i] + (current[i] - previous[i]) * u).normalized();
@@ -564,7 +564,7 @@ private:
 
   /**
    * @brief Resolves, per hankin-added face, the palette of the base face it
-   * lives inside — the rim it opens from and collapses back onto.
+   * lives inside â€” the rim it opens from and collapses back onto.
    * @details The host is the base face whose centroid is nearest the
    * rosette's unit centroid at the sweep peak (angle PI_F / 2).
    * record_node_palettes must precede it.
@@ -902,11 +902,11 @@ private:
   uint8_t node_face_palette[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */
   uint8_t star_rim_palette[MAX_NODE_FACES] =
-      {}; /**< Per star face, the palette of the rosettes hosted inside it —
+      {}; /**< Per star face, the palette of the rosettes hosted inside it â€”
              the rim color it dissolves into at the sweep's midpoint. */
   uint8_t host_face_palette[MAX_HANKIN_FACES] =
       {}; /**< Per hankin-added face, the palette of the base face it lives
-             inside — the rim color it collapses onto. */
+             inside â€” the rim color it collapses onto. */
   math::Vector node_face_centroid[MAX_NODE_FACES] =
       {};                /**< Unit centroid per node base face (geometric
                              palette provenance). */

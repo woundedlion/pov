@@ -132,7 +132,7 @@ struct TemporalRotation {
 /**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
- * `c = x % (W / 2)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * `c = x % (W / 2)` as `Â±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
  * the far arm: the fixed-meridian direction rotated from the column's sweep
  * time to the current endpoint, so shapes built at the current endpoint are
  * evaluated as they stood when the column was lit.
@@ -156,6 +156,8 @@ struct ColumnTime {
   /// draws the face: MESH_FACE_HELD for the pass without a render-x window,
   /// MESH_FACE_WINDOW for the open window's; null outside such a scan.
   const uint8_t *selected_faces = nullptr;
+  /// Per-row azimuth pads shared by the mesh's capture-window passes.
+  const float *face_pads = nullptr;
 };
 
 /// ColumnTime::selected_faces entry of a face drawn once over the frame.
