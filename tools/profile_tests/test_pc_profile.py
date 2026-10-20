@@ -137,6 +137,30 @@ class Attribution(unittest.TestCase):
         self.assertEqual(named["thumb_bit_symbol"].samples, 100)
         self.assertEqual(sum(row.samples for row in rows), 430)
 
+    def test_report_marks_rows_fed_only_by_shared_bins(self):
+        dump, rows = self.rows()
+        text = pc.report(dump, rows, top=8, ranges=0, range_rows=0,
+                         name_width=30)
+        self.assertIn("  4.0%       20 ITCM       16  folded_alias() [+1 folded]"
+                      " [shared bins only]", text)
+        self.assertIn(" 16.0%       80 ITCM       32  fast_fn()", text)
+        self.assertIn(" 20.0%      100 flash      16  thumb_bit_symbol", text)
+
+    def test_one_unshared_bin_clears_the_shared_mark(self):
+        counters = ("pc profile: ticks=100 idle=74 deferred=0 missed=0 "
+                    "handler=0 recorded=26 dropped=0 bins=2 service_avg=110 "
+                    "service_max=300")
+        dump = pc.parse_dump(dump_lines(bins={0x1000: 10, 0x1010: 16},
+                                        counters=counters))
+        functions = pc.build_functions(pc.parse_nm(
+            "00001000 00000018 T whole()\n00001018 00000008 T tail()\n"))
+        rows = pc.attribute(dump, pc.Symbolizer(functions))
+        text = pc.report(dump, rows, top=2, ranges=0, range_rows=0,
+                         name_width=30)
+        self.assertIn(" 69.2%       18 ITCM       24  whole()", text)
+        self.assertIn(" 30.8%        8 ITCM        8  tail() [shared bins only]",
+                      text)
+
     def test_rows_rank_by_samples_with_regions(self):
         _, rows = self.rows()
         self.assertEqual([(r.name[:22], r.region, r.samples) for r in rows[:3]], [
