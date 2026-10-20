@@ -97,6 +97,15 @@ inline int run_plot_scan_tests() {
   test_timed_projected_entry_bypasses_world();
   test_interior_taps_use_column_time();
   test_owned_tap_kernel_matches_ordinary_splat();
+  test_timed_dense_selection_and_gap_coverage();
+  test_timed_dense_boundary_matches_frozen_taps();
+  test_timed_dense_mixed_run_junctions();
+  test_timed_dense_cache_falls_back_to_edges();
+  test_timed_dense_crossing_gap_keeps_boundary_coverage();
+  test_timed_dense_preserves_balanced_policy();
+  test_timed_dense_wraps_multiple_windings();
+  test_timed_wider_dense_edges_reject_curvature();
+  test_timed_wider_dense_edges_preserve_sample_count();
   test_timed_prediction_correction_preserves_coverage();
   test_timed_prediction_reuses_landed_columns();
   test_timed_cut_preserves_sampling_phase();

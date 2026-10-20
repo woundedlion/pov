@@ -361,7 +361,8 @@ class PipelineRef {
     float (*projected_plot)(void *, Canvas &, math::PixelCoords, const Pixel &,
                             float, float, float,
                             const Temporal::ColumnPrediction *);
-    bool rigid; ///< World stages can run at controls.
+    bool rigid;             ///< World stages can run at controls.
+    bool dense_screen_safe; ///< Screen stages retain a one-pixel footprint.
     /** @brief Returns the angular world-stage motion bound. */
     float (*bound)(void *);
     /** @brief Returns the spatial copy count. */
@@ -556,6 +557,17 @@ class PipelineRef {
           else
             return false;
         }(),
+        []() HS_HOT_INLINE {
+          if constexpr (requires {
+                          T::total_segment_margin;
+                          T::any_2d_history;
+                          T::any_reads_outside_band;
+                        })
+            return T::total_segment_margin <= 1 && !T::any_2d_history &&
+                   !T::any_reads_outside_band;
+          else
+            return false;
+        }(),
         [](void *pipeline) HS_HOT_INLINE {
           if constexpr (requires(T &p) { p.cull_bound(); })
             return static_cast<T *>(pipeline)->cull_bound();
@@ -596,6 +608,12 @@ public:
    * @return True for a fully rigid, history-free world chain. */
   bool rigid_world_stages() const {
     return timed_entries && timed_entries->rigid;
+  }
+
+  /** @brief Whether screen stages permit a one-pixel dense-run cull pad.
+   * @return True for bounded, history-free screen chains. */
+  bool dense_screen_safe() const {
+    return timed_entries && timed_entries->dense_screen_safe;
   }
 
   /** @brief Plots after already-evaluated world transformations.

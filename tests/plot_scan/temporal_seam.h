@@ -894,3 +894,314 @@ inline void test_owned_tap_kernel_matches_ordinary_splat() {
   }
   Temporal::set_temporal_sampling_enabled(enabled);
 }
+
+/** @brief Dense selection rejects sparse controls and fills visible sample gaps. */
+inline void test_timed_dense_selection_and_gap_coverage() {
+  constexpr int W = 288, H = 144;
+  for (float spacing : {0.7f, 1.8f, 5.0f}) {
+    auto geometry = [spacing](size_t index, float t) {
+      return math::pixel_to_vector<W, H>(40.2f + spacing * index + 0.1f * t,
+                                         60.2f);
+    };
+    Temporal::geometry_counters = {};
+    const auto pixels =
+        seam_render<W, H>(geometry, 5, 0.1f * math::RADIANS_PER_COLUMN<W>, true,
+                          1.0f, 0.0f, false);
+    const auto counts = Temporal::geometry_counters;
+    HS_EXPECT_EQ(counts.dense_runs, spacing < 2.0f ? 1u : 0u);
+    if (spacing < 2.0f) {
+      HS_EXPECT_EQ(counts.dense_controls, 5u);
+      HS_EXPECT_EQ(counts.parts, 0u);
+      HS_EXPECT_EQ(counts.solve_probes, 0u);
+      HS_EXPECT_EQ(counts.dense_culls, 1u);
+    }
+    if (spacing > 1.0f && spacing < 2.0f) {
+      HS_EXPECT_GT(counts.dense_gap_samples, 0u);
+      for (int x = 41; x <= 47; ++x) {
+        float brightness = 0;
+        for (int y = 58; y <= 63; ++y)
+          brightness += pixels[y * W + x];
+        HS_EXPECT_GT(brightness, 0.16f);
+      }
+    }
+  }
+}
+
+/** @brief Dense boundary taps evaluate births and shading at their owning column time. */
+inline void test_timed_dense_boundary_matches_frozen_taps() {
+  constexpr int W = 288, H = 144;
+  for (float boundary : {0.0f, 144.0f}) {
+    auto geometry = [boundary](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(boundary - 0.6f + 0.2f * t,
+                                         50.2f + 0.3f * i + 5.0f * t);
+    };
+    auto render = [&](bool reference) {
+      StubEffect effect(W, H);
+      {
+        Canvas canvas(effect);
+        Filter::Screen::DirectAntiAliasSink<W, H> sink;
+        sink.prepare(canvas);
+        ScratchScope scratch(plot_arena());
+        Fragments points;
+        points.bind(plot_arena(), 3);
+        for (size_t i = 0; i < 3; ++i) {
+          Fragment f;
+          f.pos = geometry(i, 1.0f);
+          points.push_back(f);
+        }
+        auto shader = [](const math::Vector &, Fragment &f, float t) {
+          f.color = Color4(static_cast<uint8_t>(50 + 120 * t), 100, 30,
+                           0.2f + 0.3f * t);
+        };
+        if (!reference) {
+          const std::array<float, 3> births{0.5f, 0.5f, 0.5f};
+          auto callback = Plot::GeometryCallback::interpolating(geometry);
+          callback.births = births;
+          Plot::rasterize<W, H, {.timed = true}>(sink, canvas, points, shader,
+                                                 {}, callback, 0.12f);
+        } else {
+          Filter::Screen::AntiAlias<W, H> aa;
+          for (size_t i = 0; i < 3; ++i) {
+            auto a = math::vector_to_pixel<W, H>(geometry(i, 0.0f));
+            auto b = math::vector_to_pixel<W, H>(geometry(i, 1.0f));
+            b.x = a.x + std::remainder(b.x - a.x, float(W));
+            for (int branch = -1; branch <= 2; ++branch) {
+              const float raw =
+                  (a.x - branch * (W / 2.0f)) / (W / 2.0f - (b.x - a.x));
+              if (raw < 0 && a.x < branch * (W / 2.0f) - 1)
+                continue;
+              if (raw > 1 && b.x > (branch + 1) * (W / 2.0f) + 1)
+                continue;
+              const float capture = hs::clamp(raw, 0.0f, 1.0f);
+              const int center =
+                  static_cast<int>(floorf(a.x + (b.x - a.x) * capture));
+              for (int offset = 0; offset < 2; ++offset) {
+                const int column = (center + offset + W) % W;
+                const float t = float(column % (W / 2)) / (W / 2);
+                if (fabsf(t - capture) > 0.5f || t < 0.5f)
+                  continue;
+                Fragment f;
+                shader({}, f, t);
+                aa.plot(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t,
+                        f.color.color, 0.0f, f.color.alpha,
+                        [&](float x, float y, const Pixel &color, float age,
+                            float alpha) {
+                          if (static_cast<int>(x) == column)
+                            sink.plot(canvas, static_cast<int>(x),
+                                      static_cast<int>(y), color, age, alpha);
+                        });
+              }
+            }
+          }
+        }
+      }
+      effect.advance_display();
+      std::vector<Pixel> pixels(W * H);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          pixels[y * W + x] = effect.get_pixel(x, y);
+      return pixels;
+    };
+    Temporal::geometry_counters = {};
+    const auto actual = render(false);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, 1u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_gap_samples, 0u);
+    const auto expected = render(true);
+    int different = 0, lit = 0;
+    for (size_t i = 0; i < actual.size(); ++i) {
+      different += actual[i].r != expected[i].r ||
+                   actual[i].g != expected[i].g || actual[i].b != expected[i].b;
+      lit += expected[i].r > 0;
+    }
+    HS_EXPECT_GT(lit, 0);
+    HS_EXPECT_EQ(different, 0);
+  }
+}
+
+/** @brief Mixed dense and sparse runs own each open or closed junction once. */
+inline void test_timed_dense_mixed_run_junctions() {
+  constexpr int W = 288, H = 144;
+  constexpr std::array<float, 6> COLUMNS{40.2f, 41.2f, 42.2f,
+                                         52.2f, 53.2f, 54.2f};
+  for (bool closed : {false, true}) {
+    StubEffect effect(W, H);
+    Canvas canvas(effect);
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    sink.prepare(canvas);
+    ScratchScope scratch(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), COLUMNS.size());
+    auto geometry = [&](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(COLUMNS[i] + 0.1f * t, 60.2f);
+    };
+    for (size_t i = 0; i < COLUMNS.size(); ++i) {
+      Fragment f;
+      f.pos = geometry(i, 1);
+      f.v0 = float(i);
+      points.push_back(f);
+    }
+    std::array<int, 6> endpoints{};
+    auto shader = [&](const math::Vector &, Fragment &f, float time) {
+      int i = int(roundf(f.v0));
+      if (i >= 0 && i < 6 && fabsf(f.v0 - i) < 0.000001f &&
+          fabsf(time * (W / 2) - roundf(time * (W / 2))) > 0.00001f)
+        ++endpoints[i];
+      f.color = Color4(255, 255, 255, 0.4f);
+    };
+    Temporal::geometry_counters = {};
+    Plot::rasterize<W, H, {.timed = true}>(
+        sink, canvas, points, shader,
+        {.loop = closed ? Plot::RasterLoop::closed() : Plot::RasterLoop{}},
+        Plot::GeometryCallback::interpolating(geometry),
+        0.1f * math::RADIANS_PER_COLUMN<W>);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, 2u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_run_edges, 4u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_sparse_edges,
+                 closed ? 2u : 1u);
+    for (int count : endpoints)
+      HS_EXPECT_EQ(count, 1);
+  }
+}
+
+/** @brief Insufficient dense cache space falls back to identical edge rendering. */
+inline void test_timed_dense_cache_falls_back_to_edges() {
+  constexpr int W = 288, H = 144;
+  auto geometry = [](size_t i, float t) {
+    return math::pixel_to_vector<W, H>(40.2f + 1.5f * i + 0.1f * t, 60.2f);
+  };
+  Plot::g_force_timed_edge_walk = true;
+  const auto expected = seam_render<W, H>(
+      geometry, 5, 0.1f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+  Plot::g_force_timed_edge_walk = false;
+  std::vector<float> actual;
+  {
+    ScratchScope scratch(scratch_arena_b);
+    const size_t available =
+        scratch_arena_b.get_capacity() - scratch_arena_b.get_offset();
+    scratch_arena_b.allocate_n<uint8_t>(available - 64);
+    Temporal::geometry_counters = {};
+    actual = seam_render<W, H>(geometry, 5, 0.1f * math::RADIANS_PER_COLUMN<W>,
+                               true, 1, 0, false);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_reject_scratch, 1u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, 0u);
+  }
+  HS_EXPECT(actual == expected,
+            "dense cache fallback preserves the edge frame");
+}
+
+/** @brief Dense gaps crossing an arm boundary retain the first column's coverage. */
+inline void test_timed_dense_crossing_gap_keeps_boundary_coverage() {
+  constexpr int W = 288, H = 144;
+  for (float boundary : {0.0f, 144.0f}) {
+    auto geometry = [boundary](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(boundary - 1.2f + 1.8f * i + 0.01f * t,
+                                         60.2f);
+    };
+    const auto actual = seam_render<W, H>(
+        geometry, 3, 0.01f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+    const auto frozen = seam_render<W, H>(
+        geometry, 3, 0.01f * math::RADIANS_PER_COLUMN<W>, false, 0, 0, false);
+    float observed = 0, reference = 0;
+    const int column = int(boundary);
+    for (int y = 58; y < 64; ++y) {
+      observed += actual[y * W + column];
+      reference += frozen[y * W + column];
+    }
+    HS_EXPECT_GT(reference, 0.25f);
+    HS_EXPECT_GE(observed, reference * 0.8f);
+  }
+}
+
+/** @brief Balanced density policies retain their edge sampler for dense controls. */
+inline void test_timed_dense_preserves_balanced_policy() {
+  constexpr int W = 288, H = 144;
+  auto check = []<Plot::RasterSamplingPolicy Policy>() {
+    StubEffect effect(W, H);
+    Canvas canvas(effect);
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    sink.prepare(canvas);
+    ScratchScope scratch(plot_arena());
+    Fragments points;
+    points.bind(plot_arena(), 3);
+    auto geometry = [](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(40.2f + i + 0.1f * t, 60.2f);
+    };
+    for (size_t i = 0; i < 3; ++i) {
+      Fragment f;
+      f.pos = geometry(i, 1);
+      points.push_back(f);
+    }
+    Temporal::geometry_counters = {};
+    Plot::rasterize<
+        W, H, {.single_pass = true, .sampling_policy = Policy, .timed = true}>(
+        sink, canvas, points, white_shader(.4f), {.balanced_sampling = true},
+        Plot::GeometryCallback::interpolating(geometry),
+        0.1f * math::RADIANS_PER_COLUMN<W>);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, 0u);
+    HS_EXPECT_GT(Temporal::geometry_counters.rigid_samples, 0u);
+  };
+  check.template operator()<Plot::RasterSamplingPolicy::BALANCED>();
+  check.template operator()<Plot::RasterSamplingPolicy::SELECTABLE>();
+}
+
+/** @brief Dense multi-turn paths wrap emitted centers and boundary taps. */
+inline void test_timed_dense_wraps_multiple_windings() {
+  constexpr int W = 96, H = 20;
+  for (float direction : {-1.0f, 1.0f}) {
+    auto geometry = [direction](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(
+          40.2f + direction * 0.9f * i + 0.01f * t, 10.2f);
+    };
+    Temporal::geometry_counters = {};
+    const auto pixels = seam_render<W, H>(
+        geometry, 300, 0.01f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_controls, 300u);
+    HS_EXPECT_GT(Temporal::geometry_counters.boundary_evaluations, 0u);
+    float energy = 0;
+    for (float value : pixels)
+      energy += value;
+    HS_EXPECT_GT(energy, 1.0f);
+  }
+}
+
+/** @brief Wider dense edges require a flat projected midpoint at both frame endpoints. */
+inline void test_timed_wider_dense_edges_reject_curvature() {
+  constexpr int W = 288, H = 144;
+  for (bool curved : {false, true}) {
+    auto geometry = [curved](size_t i, float t) {
+      return math::pixel_to_vector<W, H>(40.2f + (curved ? 2.1f : 2.3f) * i +
+                                             0.01f * t,
+                                         curved ? .3f + 1.0f * i : 60.2f);
+    };
+    Temporal::geometry_counters = {};
+    const auto pixels = seam_render<W, H>(
+        geometry, 3, 0.01f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+    (void)pixels;
+    HS_EXPECT_GT(Temporal::geometry_counters.dense_midpoint_probes, 0u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, curved ? 0u : 1u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_wide_edges,
+                 curved ? 0u : 2u);
+    HS_EXPECT_EQ(Temporal::geometry_counters.dense_curved_edges,
+                 curved ? 2u : 0u);
+  }
+}
+
+/** @brief Wider edges retain the edge route when endpoint sample counts differ. */
+inline void test_timed_wider_dense_edges_preserve_sample_count() {
+  constexpr int W = 288, H = 144;
+  auto geometry = [](size_t i, float t) {
+    return math::pixel_to_vector<W, H>(40.2f + (1.7f + .6f * t) * i, 60.2f);
+  };
+  Plot::g_force_timed_edge_walk = true;
+  const auto expected = seam_render<W, H>(
+      geometry, 3, 1.2f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+  Plot::g_force_timed_edge_walk = false;
+  Temporal::geometry_counters = {};
+  const auto pixels = seam_render<W, H>(
+      geometry, 3, 1.2f * math::RADIANS_PER_COLUMN<W>, true, 1, 0, false);
+  HS_EXPECT(pixels == expected,
+            "changing endpoint sample counts preserves the edge frame");
+  HS_EXPECT_EQ(Temporal::geometry_counters.dense_runs, 0u);
+  HS_EXPECT_EQ(Temporal::geometry_counters.dense_wide_edges, 0u);
+  HS_EXPECT_GT(Temporal::geometry_counters.rigid_samples, 0u);
+}
