@@ -136,6 +136,7 @@ inline int run_scan_tests() {
   test_volume_columns_match_rotated_placements();
   test_ring_group_previous_axes_match_column_rings();
   test_ring_group_column_rows_cover_band();
+  test_ring_group_column_rows_window_matches_full();
   test_object_column_basis_matches_rotated_meridian();
   test_ring_stack_honours_render_window();
   test_cap_may_touch_window_covers_window_pixels();
