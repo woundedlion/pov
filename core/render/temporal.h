@@ -212,6 +212,23 @@ inline constexpr bool reads_column_time =
     std::is_invocable_v<ShaderT &, Args..., float>;
 
 /**
+ * @brief Runs a shader at a frame fraction when it reads one.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The shader's arguments.
+ * @param shader Shader to run.
+ * @param t Frame fraction in [0, 1].
+ * @param args The shader's arguments.
+ */
+template <typename ShaderT, typename... Args>
+__attribute__((always_inline)) inline void
+shade_at_time(ShaderT &shader, float t, Args &&...args) {
+  if constexpr (reads_column_time<ShaderT, Args...>)
+    shader(std::forward<Args>(args)..., t);
+  else
+    shader(std::forward<Args>(args)...);
+}
+
+/**
  * @brief Runs a scan shader at a column's sweep time when it reads one.
  * @tparam W Canvas width in columns.
  * @tparam ShaderT Shader type.
@@ -223,10 +240,7 @@ inline constexpr bool reads_column_time =
 template <int W, typename ShaderT, typename... Args>
 __attribute__((always_inline)) inline void
 shade_at_column(ShaderT &shader, int x, Args &&...args) {
-  if constexpr (reads_column_time<ShaderT, Args...>)
-    shader(std::forward<Args>(args)..., sweep_fraction(x, W));
-  else
-    shader(std::forward<Args>(args)...);
+  shade_at_time(shader, sweep_fraction(x, W), std::forward<Args>(args)...);
 }
 
 /**
@@ -499,11 +513,13 @@ template <int W> HS_HOT_INLINE inline float column_fraction(float column) {
  * @param columns Maximum column displacement.
  * @param linear_pair Whether geometry interpolates two positions.
  * @param branch Unwrapped arm branch.
+ * @param start Optional projection at zero.
  * @return Capture fraction in [0, 1]. */
 template <int W, typename Probe>
-HS_HOT_INLINE float solve_capture_branch(Probe &&probe, math::PixelCoords end,
-                                         float columns, bool linear_pair,
-                                         int branch) {
+HS_HOT_INLINE float
+solve_capture_branch(Probe &&probe, math::PixelCoords end, float columns,
+                     bool linear_pair, int branch,
+                     const math::PixelCoords *start = nullptr) {
   const float fraction = column_fraction<W>(end.x);
   const float half = W / 2.0f;
   const float boundary = fminf(fraction, 1.0f - fraction) * half;
@@ -511,8 +527,13 @@ HS_HOT_INLINE float solve_capture_branch(Probe &&probe, math::PixelCoords end,
       (columns < 3.8f && boundary > columns + 1.0f &&
        branch == static_cast<int>(floorf(end.x / half))))
     return fraction;
-  count_geometry<&GeometryCounters::solve_probes>();
-  const math::PixelCoords first = probe(0.0f);
+  math::PixelCoords first;
+  if (start) {
+    first = *start;
+  } else {
+    count_geometry<&GeometryCounters::solve_probes>();
+    first = probe(0.0f);
+  }
   const float x0 =
       end.x + std::remainder(first.x - end.x, static_cast<float>(W));
   float lo = 0.0f, hi = 1.0f;
@@ -570,38 +591,15 @@ HS_HOT_INLINE Captures solve_capture(Probe &&probe, math::PixelCoords end,
     return out;
   }
   count_geometry<&GeometryCounters::solve_probes>();
+  const math::PixelCoords first = probe(0.0f);
   const float start =
-      end.x + std::remainder(probe(0.0f).x - end.x, static_cast<float>(W));
+      end.x + std::remainder(first.x - end.x, static_cast<float>(W));
   const float r0 = start / (W / 2.0f);
   const float r1 = end.x / (W / 2.0f) - 1.0f;
   for (float n = floorf(r0); n > r1 && out.count < Captures::CAPACITY;
-       n -= 1.0f) {
-    float lo = 0.0f, hi = 1.0f, flo = r0 - n, fhi = r1 - n;
-    float t = flo / (flo - fhi);
-    if (!(linear_pair && columns <= 4.0f)) {
-      for (int iteration = 0; iteration < 4; ++iteration) {
-        count_geometry<&GeometryCounters::solve_probes>();
-        const float x =
-            end.x + std::remainder(probe(t).x - end.x, static_cast<float>(W));
-        const float residual = x / (W / 2.0f) - t - n;
-        if (fabsf(residual) * (W / 2.0f) <= 0.5f)
-          break;
-        if (iteration == 3) {
-          count_geometry<&GeometryCounters::unsettled_passes>();
-          break;
-        }
-        if (residual > 0.0f) {
-          lo = t;
-          flo = residual;
-        } else {
-          hi = t;
-          fhi = residual;
-        }
-        t = lo + (hi - lo) * flo / (flo - fhi);
-      }
-    }
-    out.fraction[out.count++] = t;
-  }
+       n -= 1.0f)
+    out.fraction[out.count++] = solve_capture_branch<W>(
+        probe, end, columns, linear_pair, static_cast<int>(n), &first);
   return out;
 }
 

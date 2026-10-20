@@ -461,22 +461,17 @@ struct Mesh {
   draw_timed(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
              const ArenaVector<Edge> &edges, ShaderT shader) {
     const bool still = [&]() HS_HOT_INLINE {
-      if constexpr (std::is_invocable_v<ShaderT &, const math::Vector &,
-                                        Fragment &, float>)
+      if constexpr (Temporal::reads_column_time<ShaderT, const math::Vector &,
+                                                Fragment &>)
         return false;
       if constexpr (requires { pipeline.has_temporal_motion; })
         return !pipeline.has_temporal_motion;
       return false;
     }();
     if (!Temporal::temporal_sampling_enabled() || still) {
-      auto still_shader = [&](const math::Vector &p,
-                              Fragment &f) HS_HOT_INLINE {
-        if constexpr (std::is_invocable_v<ShaderT &, const math::Vector &,
-                                          Fragment &, float>)
-          shader(p, f, 1.0f);
-        else
-          shader(p, f);
-      };
+      auto still_shader =
+          [&](const math::Vector &p, Fragment &f)
+              HS_HOT_INLINE { Temporal::shade_at_time(shader, 1.0f, p, f); };
       draw<W, H>(pipeline, canvas, mesh, edges, FragmentShaderFn(still_shader));
       return;
     }
