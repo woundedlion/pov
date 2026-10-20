@@ -1553,6 +1553,51 @@ inline void test_mesh_capture_vertex() {
   HS_EXPECT_EQ(calls, 0);
 }
 
+/** @brief Window captures share interior arm passes and separate boundary passes. */
+inline void test_mesh_capture_reuse() {
+  constexpr int W = 288, H = 144;
+  for (float fraction : {0.1f, 0.5f, 0.9f}) {
+    ScratchScope guard(scratch_arena_a);
+    MeshState mesh;
+    mesh.vertices.bind(scratch_arena_a, 3);
+    mesh.face_counts.bind(scratch_arena_a, 1);
+    mesh.face_offsets.bind(scratch_arena_a, 1);
+    mesh.faces.bind(scratch_arena_a, 3);
+    const auto position = [&](size_t i, float u) {
+      const float angle = fraction * math::PI_F + 0.01f * i + 0.02f * (u - 1);
+      return math::Vector(cosf(angle), 0, sinf(angle));
+    };
+    for (uint16_t i = 0; i < 3; ++i) {
+      mesh.vertices.push_back(position(i, 1));
+      mesh.faces.push_back(i);
+    }
+    mesh.face_counts.push_back(3);
+    mesh.face_offsets.push_back(0);
+    const uint8_t moving[3] = {1, 1, 1};
+    const uint16_t columns[2] = {0, W - 1};
+    int calls = 0, scans = 0;
+    render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+      Scan::deform_mesh<W, H>(
+          canvas, mesh, true, columns, moving, scratch_arena_b, 0.02f,
+          [&](size_t i, float u) {
+            ++calls;
+            return position(i, u);
+          },
+          [&] {
+            const float centre = scans++ == 0 ? 0.25f : 0.75f;
+            for (size_t i = 0; i < 3; ++i) {
+              const auto expected = Scan::capture_vertex<W>(
+                  position(i, 1), *canvas.column_time(), 0.02f, centre,
+                  [&](float u) { return position(i, u); });
+              HS_EXPECT_TRUE(mesh.vertices[i] == expected);
+            }
+          });
+    });
+    HS_EXPECT_EQ(scans, 2);
+    HS_EXPECT_EQ(calls, fraction == 0.5f ? 6 : 15);
+  }
+}
+
 /**
  * @brief Adjacent moving and held faces use coincident shared-edge endpoints.
  * @param rotation Longitude rotating the fixture across arm and window boundaries.
