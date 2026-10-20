@@ -705,8 +705,8 @@ struct RingGroup {
    * @param high Upper cosine bound.
    * @return Angular solutions about the first-arm phase.
    */
-  HS_FLASH_INLINE static ColumnBand column_band(float a, float b, float low,
-                                                float high) {
+  HS_HOT_INLINE static ColumnBand column_band(float a, float b, float low,
+                                              float high) {
     const float radius = sqrtf(a * a + b * b);
     if (low > radius || high < -radius)
       return {0.0f, 1.0f, 0.0f};
