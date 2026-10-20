@@ -1237,17 +1237,12 @@ HS_HOT_FLASH_MEMBER static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, RasterOptions opts = {},
           GeometryCallback geometry = {}, float callback_bound = 0.0f) {
-  auto timed_shader = [&](const math::Vector &p, Fragment &f,
-                          float t) HS_HOT_INLINE {
-    if constexpr (std::is_invocable_v<FragmentShaderT &, const math::Vector &,
-                                      Fragment &, float>)
-      fragment_shader(p, f, t);
-    else
-      fragment_shader(p, f);
-  };
+  auto timed_shader =
+      [&](const math::Vector &p, Fragment &f, float t)
+          HS_HOT_INLINE { Temporal::shade_at_time(fragment_shader, t, p, f); };
   const bool still = [&]() HS_HOT_INLINE {
-    if constexpr (std::is_invocable_v<FragmentShaderT &, const math::Vector &,
-                                      Fragment &, float>)
+    if constexpr (Temporal::reads_column_time<FragmentShaderT,
+                                              const math::Vector &, Fragment &>)
       return false;
     if constexpr (requires { source_pipeline.has_temporal_motion; })
       return !geometry.evaluate && geometry.births.empty() &&
@@ -1267,8 +1262,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
   }
   if constexpr (std::same_as<std::decay_t<PipelineT>, PipelineRef>) {
     rasterize_timed<W, H, Cfg>(source_pipeline, canvas, points,
-                               TimedFragmentShaderFn(timed_shader), opts,
-                               geometry, callback_bound);
+                               TimedShaderFn(timed_shader), opts, geometry,
+                               callback_bound);
   } else {
     PipelineRef erased = [&]() HS_HOT_INLINE {
       if constexpr (pipeline_direct_raster_path<PipelineT>())
@@ -1277,8 +1272,8 @@ rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
         return PipelineRef(source_pipeline, Temporal::Timed{});
     }();
     rasterize_timed<W, H, Cfg>(erased, canvas, points,
-                               TimedFragmentShaderFn(timed_shader), opts,
-                               geometry, callback_bound);
+                               TimedShaderFn(timed_shader), opts, geometry,
+                               callback_bound);
   }
 }
 

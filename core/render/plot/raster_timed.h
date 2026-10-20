@@ -7,10 +7,6 @@
  * @brief Geometry callbacks and coherent column-time prediction.
  */
 
-/** @brief Shader receiving the sample's frame fraction. */
-using TimedFragmentShaderFn =
-    FunctionRef<void(const math::Vector &, Fragment &, float)>;
-
 /** @brief Borrowed geometric control-point evaluator and birth registers. */
 struct GeometryCallback {
   /** Evaluates one original control point at a frame fraction. */
@@ -199,9 +195,8 @@ struct TimedVertex {
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void
 timed_walk_edge(PipelineRef &pipeline, Canvas &canvas, const TimedVertex &a,
-                const TimedVertex &b, TimedFragmentShaderFn shader,
-                bool terminal, bool balanced,
-                const int *screen_branch = nullptr) {
+                const TimedVertex &b, TimedShaderFn shader, bool terminal,
+                bool balanced, const int *screen_branch = nullptr) {
   const auto span = make_geodesic_edge_span(a.fragment.pos, b.fragment.pos);
   const GeodesicEdgeSampler sample{
       a.fragment.pos,
@@ -588,7 +583,7 @@ template <int W, int H, RasterConfig Cfg>
 HS_O3_FN HS_NOINLINE_NOCLONE void walk_rigid_samples(
     PipelineRef &pipeline, Canvas &canvas, const TimedGeometry &geometry,
     const TimedControl &original, std::span<const TimedRigidNode> nodes,
-    const GeodesicEdgeSampler &spacing_sample, TimedFragmentShaderFn shader,
+    const GeodesicEdgeSampler &spacing_sample, TimedShaderFn shader,
     TimedPredictionState &state, bool terminal, bool balanced, bool bounded) {
   constexpr float BASE = 2.0f * math::PI_F / W;
   constexpr float HALF = W / 2.0f;
@@ -718,7 +713,7 @@ HS_HOT_FLASH_MEMBER bool
 walk_rigid_edge(PipelineRef &pipeline, Canvas &canvas,
                 const TimedGeometry &geometry, const TimedControl &a,
                 const TimedControl &b, const math::Vector &reference_a,
-                const math::Vector &reference_b, TimedFragmentShaderFn shader,
+                const math::Vector &reference_b, TimedShaderFn shader,
                 TimedPredictionState &state, TimedRigidCarry &carry,
                 float radians, float sine_bound, bool terminal, bool balanced,
                 float initial_time, bool bounded) {
@@ -840,7 +835,7 @@ template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void
 timed_predict_edge(PipelineRef &pipeline, Canvas &canvas,
                    const TimedGeometry &geometry, const TimedControl &a,
-                   const TimedControl &b, TimedFragmentShaderFn shader,
+                   const TimedControl &b, TimedShaderFn shader,
                    TimedPredictionState &state, float radians, bool terminal,
                    bool balanced, float initial_time, bool bounded) {
   constexpr float HALF = W / 2.0f;
@@ -1018,7 +1013,7 @@ timed_predict_edge(PipelineRef &pipeline, Canvas &canvas,
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void rasterize_predicted_copy(
     PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-    TimedFragmentShaderFn shader, RasterOptions opts, GeometryCallback callback,
+    TimedShaderFn shader, RasterOptions opts, GeometryCallback callback,
     float radians, size_t first_edge = 0, size_t edge_count = 0) {
   constexpr float HALF = W / 2.0f;
   const float sine_bound = sinf(radians);
@@ -1241,7 +1236,7 @@ HS_O3_FN HS_NOINLINE_NOCLONE void
 emit_dense_point(PipelineRef &pipeline, Canvas &canvas, const Fragment &a,
                  const Fragment &b, const DenseControl &da,
                  const DenseControl &db, float fraction, float birth_a,
-                 float birth_b, TimedFragmentShaderFn shader,
+                 float birth_b, TimedShaderFn shader,
                  const DenseCapture *interpolated = nullptr) {
   const auto mix = [fraction](float x, float y)
                        HS_HOT_INLINE { return x + (y - x) * fraction; };
@@ -1328,7 +1323,7 @@ template <int W, int H, RasterConfig Cfg>
 HS_HOT_INLINE void
 emit_dense_edge(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
                 const DenseControl *controls, size_t i, float birth_a,
-                float birth_b, TimedFragmentShaderFn shader, bool emit_end) {
+                float birth_b, TimedShaderFn shader, bool emit_end) {
   Temporal::count_geometry<&Temporal::GeometryCounters::dense_controls>();
   Temporal::count_geometry<&Temporal::GeometryCounters::dense_run_edges>();
   emit_dense_point<W, H, Cfg>(pipeline, canvas, points[i], points[i],
@@ -1403,7 +1398,7 @@ emit_dense_edge(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
 template <int W, int H, RasterConfig Cfg>
 HS_O3_FN HS_NOINLINE_NOCLONE void
 walk_dense_runs(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-                const DenseControl *controls, TimedFragmentShaderFn shader,
+                const DenseControl *controls, TimedShaderFn shader,
                 const RasterOptions &opts, const GeometryCallback &callback,
                 float radians, bool visible) {
   const size_t edges =
@@ -1620,7 +1615,7 @@ HS_HOT_FLASH_MEMBER DensePreparation prepare_dense_controls(
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER bool
 rasterize_dense(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-                TimedFragmentShaderFn shader, RasterOptions opts,
+                TimedShaderFn shader, RasterOptions opts,
                 GeometryCallback callback, float radians) {
 #if HS_ENABLE_TEST_HOOKS
   if (g_force_timed_edge_walk)
@@ -1675,10 +1670,11 @@ rasterize_dense(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
  * @param opts Polyline sampling options.
  * @param callback Original birth registers. */
 template <int W, int H, RasterConfig Cfg>
-HS_HOT_INLINE void rasterize_stationary_timed(
-    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-    TimedFragmentShaderFn shader, const RasterOptions &opts,
-    const GeometryCallback &callback) {
+HS_HOT_INLINE void
+rasterize_stationary_timed(PipelineRef &pipeline, Canvas &canvas,
+                           const Fragments &points, TimedShaderFn shader,
+                           const RasterOptions &opts,
+                           const GeometryCallback &callback) {
   ScratchScope guard(scratch_arena_a);
   const size_t edges =
       opts.loop.is_closed() ? points.size() : points.size() - 1;
@@ -1747,7 +1743,7 @@ HS_HOT_INLINE void rasterize_stationary_timed(
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void
 rasterize_timed_copy(PipelineRef &pipeline, Canvas &canvas,
-                     const Fragments &points, TimedFragmentShaderFn shader,
+                     const Fragments &points, TimedShaderFn shader,
                      RasterOptions opts, GeometryCallback callback,
                      float callback_bound) {
   if (points.size() < 2)
@@ -1778,7 +1774,7 @@ rasterize_timed_copy(PipelineRef &pipeline, Canvas &canvas,
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void
 rasterize_timed(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-                TimedFragmentShaderFn shader, RasterOptions opts,
+                TimedShaderFn shader, RasterOptions opts,
                 GeometryCallback callback, float callback_bound) {
   const int copies = pipeline.copy_count();
   for (int copy = 0; copy < copies; ++copy) {
