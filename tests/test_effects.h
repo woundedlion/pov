@@ -704,6 +704,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_knot_walk_unit_near_ball);
   run_case(test_displacement_field_zero_hue_scale_is_exact);
   run_case(test_displacement_field_octave_bake_tracks_noise);
+  run_case(test_displacement_field_arm_boundaries_meet_endpoints);
   run_case(test_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_case(test_islamicstars_seed_sprite_fade_in);
