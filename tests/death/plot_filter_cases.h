@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-// --- Individual death cases — each MUST trap (HS_CHECK / __builtin_trap) ------
+// --- Individual death cases â€” each MUST trap (HS_CHECK / __builtin_trap) ------
 
 // Plot filter death cases.
 
@@ -749,7 +749,7 @@ inline void case_scan_deformation_without_column_time() {
   Canvas c(fx);
   MeshState mesh;
   const uint16_t columns[2] = {0, 0};
-  Scan::deform_mesh<W>(
+  Scan::deform_mesh<W, H>(
       c, mesh, true, columns, nullptr, scratch_arena_a, 0.1f,
       [](size_t, float) { return math::Vector(1, 0, 0); }, [] {});
 }

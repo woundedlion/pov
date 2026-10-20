@@ -469,6 +469,25 @@ HS_FLASH_MEMBER void fill_swept_face_pads(float *pads, float sweep) {
 }
 
 /**
+ * @brief Fills the per-row face azimuth pads of a mesh scan.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param pads H entries receiving the pads (radians).
+ * @param sweep Largest arc any face point moves over the frame (radians); 0
+ *        for the fixed meridian.
+ */
+template <int W, int H> HS_O3_FN void fill_face_pads(float *pads, float sweep) {
+  if (sweep > 0.0f) {
+    fill_swept_face_pads<W, H>(pads, sweep);
+  } else {
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    for (int y = 0; y < H; ++y)
+      pads[y] = SDF::face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
+  }
+}
+
+/**
  * @brief Arena-hosts one per-mesh Face scratch buffer.
  * @param arena Scratch arena supplying the storage.
  * @return The constructed buffer, valid until the caller's ScratchScope closes.
@@ -799,6 +818,7 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
 /**
  * @brief Scans shared capture-time vertices through two disjoint arm windows.
  * @tparam W Display width.
+ * @tparam H Display height.
  * @tparam VertexFn Callable (size_t i, float u) evaluating an endpoint-space vertex.
  * @tparam ScanFn Callable () scanning the mesh into the canvas's open window.
  * @param canvas Canvas with column-time state when deformation is active.
@@ -813,7 +833,7 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
  * @details Held faces draw once. Each window uses a common vertex pool for
  * all its moving faces; faces outside that window's seeing columns are skipped.
  */
-template <int W, typename VertexFn, typename ScanFn>
+template <int W, int H, typename VertexFn, typename ScanFn>
 HS_HOT_FLASH_MEMBER void
 deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
             const uint16_t *columns, const uint8_t *moving, Arena &scratch,
@@ -830,6 +850,9 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   uint8_t *placed = scratch.allocate_n<uint8_t>(vertices);
   Temporal::ColumnTime time = *canvas.column_time();
   time.selected_faces = selected;
+  float *face_pads = scratch.allocate_n<float>(H);
+  fill_face_pads<W, H>(face_pads, time.azimuth ? time.sweep : 0.0f);
+  time.face_pads = face_pads;
   ColumnTimeScope scope(canvas, time);
   const auto *counts = mesh.get_face_counts_data();
   const auto *indices = mesh.get_faces_data();
@@ -947,13 +970,11 @@ struct Mesh {
       math::TrigLUT<W, H>::init();
     const Temporal::ColumnTime *time = column_time(pipeline, canvas);
     const float sweep = time && time->azimuth ? time->sweep : 0.0f;
-    float *azimuth_pads = scratch_arena.allocate_n<float>(H);
-    if (sweep > 0.0f) {
-      fill_swept_face_pads<W, H>(azimuth_pads, sweep);
-    } else {
-      for (int y = 0; y < H; ++y)
-        azimuth_pads[y] =
-            SDF::face_azimuth_pad(W, math::TrigLUT<W, H>::sin_phi[y]);
+    const float *azimuth_pads = time ? time->face_pads : nullptr;
+    if (!azimuth_pads) {
+      float *pads = scratch_arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(pads, sweep);
+      azimuth_pads = pads;
     }
     const float bounds_margin =
         std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;

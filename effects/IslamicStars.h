@@ -690,7 +690,7 @@ private:
             opacity, previous_opacity ? previous_opacity[fi] : opacity);
         fragment_shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
       };
-      Scan::deform_mesh<W>(
+      Scan::deform_mesh<W, H>(
           canvas, transformed_state, plan.active, plan.columns, plan.moving,
           scratch_arena_a, bound,
           [&](size_t i, float u)
@@ -767,7 +767,7 @@ private:
              : MotionPlan{};
     const SegueT &seg = carousel.segue();
     // Per-face scan scratch must remain disjoint from the mesh in scratch_a.
-    Scan::deform_mesh<W>(
+    Scan::deform_mesh<W, H>(
         canvas, mesh, plan.active, plan.columns, plan.moving, scratch_arena_b,
         bound,
         [&](size_t i, float u)
@@ -927,7 +927,7 @@ private:
                                         scratch_arena_b, persistent_arena);
 
     // Colours of the spawned mesh (a build's seed, or the whole solid): the
-    // shuffled palette order consumed by class ordinal — class ids are dense,
+    // shuffled palette order consumed by class ordinal â€” class ids are dense,
     // so class c is the c-th cohort.
     {
       const MeshState &spawned_mesh = carousel.slot(back);
@@ -983,7 +983,7 @@ private:
 
     plateau_hold.arm_plateau_end(timeline, duration - fade);
 
-    // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
+    // On a closed 2-manifold faces.size() (Î£ face degrees) is exactly 2Â·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
     const MeshState &spawned = carousel.current();
     hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)%s", entry.name,

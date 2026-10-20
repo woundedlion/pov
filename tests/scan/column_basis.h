@@ -1519,7 +1519,7 @@ inline void check_deformed_shared_edges(float rotation) {
     HS_EXPECT_EQ(
         Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
         size_t(2));
-    Scan::deform_mesh<W>(
+    Scan::deform_mesh<W, H>(
         canvas, mesh, true, columns, moving, scratch_arena_b, .12f, vertex,
         [&] {
           ++scans;
@@ -1611,11 +1611,12 @@ inline void check_deformed_window_pixels(int clip_begin, int clip_end) {
       clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
         Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), .08f,
                                    columns.data());
-        Scan::deform_mesh<W>(canvas, mesh, true, columns.data(), moving.data(),
-                             scratch_arena_b, .08f, vertex, [&] {
-                               Scan::Mesh::draw<W, H>(pipeline, canvas, mesh,
-                                                      shader, scratch_arena_b);
-                             });
+        Scan::deform_mesh<W, H>(
+            canvas, mesh, true, columns.data(), moving.data(), scratch_arena_b,
+            .08f, vertex, [&] {
+              Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, shader,
+                                     scratch_arena_b);
+            });
       });
   std::vector<Pixel> expected(W * H);
   for (int pass = 0; pass < 2; ++pass) {
