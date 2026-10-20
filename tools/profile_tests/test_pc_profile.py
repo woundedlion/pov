@@ -146,10 +146,15 @@ class Attribution(unittest.TestCase):
         self.assertEqual(pc.region_totals(rows),
                          {"ITCM": 120, "flash": 300, "other": 10})
 
-    def test_hot_ranges_merge_contiguous_bins(self):
+    def test_hot_ranges_rank_bins_clipped_to_the_function(self):
         _, rows = self.rows()
-        fast = rows_by_name(rows)["fast_fn()"]
-        self.assertEqual(pc.hot_ranges(fast, 16, 4), [(0x1000, 0x1020, 80)])
+        named = rows_by_name(rows)
+        self.assertEqual(pc.hot_ranges(named["fast_fn()"], 16, 4),
+                         [(0x1000, 0x1010, 50), (0x1010, 0x1020, 30)])
+        self.assertEqual(pc.hot_ranges(named["fast_fn()"], 16, 1),
+                         [(0x1000, 0x1010, 50)])
+        self.assertEqual(pc.hot_ranges(named["folded_alias()"], 16, 4),
+                         [(0x1028, 0x1030, 20)])
 
     def test_report_states_shares_regions_and_ranges(self):
         dump, rows = self.rows()
@@ -189,7 +194,7 @@ class CommandLine(unittest.TestCase):
     def test_symbolizes_a_capture_from_an_nm_listing(self):
         code, out, err = self.run_main(dump_lines(), "--top", "2")
         self.assertEqual(code, 0, err)
-        table = out.split("hot ranges")[0]
+        table = out.split("hot bins")[0]
         self.assertIn("thumb_bit_symbol", table)
         self.assertNotIn("fast_fn()", table)
 
