@@ -549,7 +549,7 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
     }
   }
   const auto endpoint = [&](const GeneratedPaletteState &endpoint,
-                            const HueRotationHueSample &hue) {
+                            const HueRotationHueSample &hue) HS_HOT_INLINE {
     Color4 color = rotated
                        ? Color4(sample_hue_rotation_lut(endpoint.hue_rotation,
                                                         value_sample, hue),
