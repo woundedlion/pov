@@ -324,7 +324,7 @@ public:
    * @param fragment_shader Per-fragment shader for the pole runs.
    */
   template <typename PipelineT, typename F>
-  HS_HOT_FLASH_MEMBER void
+  HS_O3_FN HS_NOINLINE_NOCLONE void
   draw_closed(PipelineT &pipeline, Canvas &canvas, const Fragments &points,
               int vertices, const math::Basis &planar_basis,
               const Color4 &color, const F &fragment_shader) {
