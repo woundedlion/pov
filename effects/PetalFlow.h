@@ -65,6 +65,7 @@ public:
       rings[i].active = false;
     }
     next_hue = 0.0f;
+    history_ready = false;
 
     build_shift_table();
     init_timeline();
@@ -74,11 +75,13 @@ public:
    * @brief Steps the timeline (rotation + spawner), then advances and renders
    * all rings.
    */
-  void draw_frame() override {
+  HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
       HS_PROFILE(pf_timeline_step);
       timeline.step(canvas);
+      if (!history_ready)
+        orientation.collapse();
     }
     {
       HS_PROFILE(pf_draw_rings);
@@ -147,6 +150,19 @@ private:
                 "PetalFlow ring staging exceeds the default scratch_a budget; "
                 "retune NUM_SAMPLES or carve a larger scratch arena");
 
+  /** @brief Ring staging, temporal controls and replay steps. */
+  static constexpr size_t TIMED_SCRATCH_A_BYTES =
+      NUM_SAMPLES * sizeof(Fragment) +
+      std::max(NUM_SAMPLES * sizeof(math::PixelCoords),
+               2 * sizeof(math::Vector) +
+                   Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode)) +
+      Plot::rasterize_step_budget<W>() * sizeof(float);
+  static_assert(TIMED_SCRATCH_A_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+                "PetalFlow temporal lattice exceeds scratch_a");
+  static_assert(NUM_SAMPLES * sizeof(Plot::DenseControl) <=
+                    DEFAULT_SCRATCH_B_SIZE,
+                "PetalFlow dense controls exceed scratch_b");
+
   /**
    * @brief One ring on the flow.
    * @details Inactive slots are free for reuse.
@@ -155,6 +171,7 @@ private:
     float rho;   /**< Position along the log-radial path, in rho units. */
     float hue;   /**< Palette hue selector in [0, 1). */
     bool active; /**< Whether this slot holds a live ring. */
+    bool born;   /**< Whether this slot has not yet been drawn. */
   };
 
   Ring rings[MAX_RINGS]{}; /**< Fixed pool of ring slots, active or free. */
@@ -245,6 +262,7 @@ private:
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active) {
         rings[i].active = true;
+        rings[i].born = true;
         rings[i].rho = initial_rho;
         rings[i].hue = next_hue;
         constexpr float HUE_STEP = 0.13f;
@@ -264,83 +282,121 @@ private:
    * @details Retires rings that pass END_RHO; otherwise draws them. Below one
    * slider LSB of master alpha, rings advance and retire without rasterizing.
    */
-  void update_and_draw_rings(Canvas &canvas) {
+  HS_HOT_FLASH_MEMBER void update_and_draw_rings(Canvas &canvas) {
+    const bool continuous =
+        history_ready && history_params.twist_factor == params.twist_factor &&
+        history_params.speed == params.speed &&
+        history_params.alpha == params.alpha &&
+        history_params.density == params.density;
     const float move = move_dist();
     const bool visible = params.alpha >= MIN_VISIBLE_ALPHA;
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active)
         continue;
+      const float previous_rho = rings[i].rho;
       rings[i].rho += move;
       if (rings[i].rho > END_RHO) {
         rings[i].active = false;
         continue;
       }
       if (visible)
-        draw_ring(canvas, rings[i]);
+        draw_ring(canvas, rings[i],
+                  continuous && !rings[i].born ? previous_rho : rings[i].rho);
+      rings[i].born = false;
     }
+    history_params = params;
+    history_ready = true;
   }
 
-  /**
-   * @brief Builds and rasterizes one ring.
-   * @param canvas Target canvas to render into.
-   * @param ring Ring to draw, supplying its rho position and hue.
-   * @details Fades the ring by distance from the equator (rho=0); skipped once
-   * the pole fade reaches MIN_FADE_OPACITY.
-   */
-  void draw_ring(Canvas &canvas, const Ring &ring) {
-    float dist = std::abs(ring.rho);
-    float opacity = 1.0f;
-    if (dist > FADE_START_RHO) {
-      opacity = fmaxf(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
-    }
+  /** @brief Pole-fade envelope at a log-radial position.
+   * @param rho Log-radial position.
+   * @return Opacity before the master alpha. */
+  HS_HOT_INLINE static float pole_opacity(float rho) {
+    const float dist = std::abs(rho);
+    if (dist > FADE_START_RHO)
+      return fmaxf(0.0f, 1.0f - (dist - FADE_START_RHO) / FADE_WIDTH);
+    return 1.0f;
+  }
 
-    if (opacity <= MIN_FADE_OPACITY)
+  /** @brief Evaluates a ring's prepared stereographic geometry.
+   * @param index Angular control point.
+   * @param exp_rho Exponential of the log-radial position.
+   * @param twist_angle Ring twist in radians.
+   * @return Unit-sphere control point. */
+  HS_HOT_FLASH_MEMBER math::Vector ring_vertex(size_t index, float exp_rho,
+                                               float twist_angle) const {
+    constexpr float STEP = 2.0f * math::PI_F / NUM_SAMPLES;
+    const float theta = index * STEP;
+    const float final_theta = theta + twist_angle;
+    const float radius = exp_rho * exp_shift[index];
+    const float r2 = radius * radius;
+    const float denom = 1.0f + r2;
+    const float x = 2.0f * radius * math::fast_cosf(final_theta) / denom;
+    const float y = 2.0f * radius * math::fast_sinf(final_theta) / denom;
+    const float z = (r2 - 1.0f) / denom;
+    return math::Vector(x, y, z);
+  }
+
+  /** @brief Builds and rasterizes a ring's two temporal endpoints.
+   * @param canvas Target canvas.
+   * @param ring Current ring position and hue.
+   * @param previous_rho Position drawn in the preceding frame. */
+  HS_HOT_FLASH_MEMBER void draw_ring(Canvas &canvas, const Ring &ring,
+                                     float previous_rho) {
+    const bool timed = Temporal::temporal_sampling_enabled();
+    if (!timed)
+      previous_rho = ring.rho;
+    const float opacity = pole_opacity(ring.rho);
+    if (opacity <= MIN_FADE_OPACITY &&
+        (!timed || pole_opacity(previous_rho) <= MIN_FADE_OPACITY))
       return;
-    float effective_opacity = opacity * params.alpha;
-
-    constexpr int num_samples = NUM_SAMPLES;
-    const float step = 2.0f * math::PI_F / num_samples;
-
     Color4 base_col = palette.get(ring.hue).color;
-    base_col.alpha = effective_opacity;
-
-    float twist_angle = (ring.rho / spacing()) * params.twist_factor;
+    base_col.alpha = opacity * params.alpha;
+    // One spacing() division per branch keeps the still twist's rounding.
+    float twist_angle;
+    float previous_twist;
+    if (timed) {
+      twist_angle = (ring.rho / spacing()) * params.twist_factor;
+      previous_twist = (previous_rho / spacing()) * params.twist_factor;
+    } else {
+      twist_angle = (ring.rho / spacing()) * params.twist_factor;
+      previous_twist = twist_angle;
+    }
     const float exp_rho = expf(ring.rho);
+    const float previous_exp =
+        previous_rho == ring.rho ? exp_rho : expf(previous_rho);
+    const float callback_bound =
+        fabsf(ring.rho - previous_rho) + fabsf(twist_angle - previous_twist);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
     Fragments fragments;
-    fragments.bind(scratch_arena_a, num_samples);
+    fragments.bind(scratch_arena_a, NUM_SAMPLES);
     {
       HS_PROFILE(pf_ring_build);
-      for (int i = 0; i < num_samples; ++i) {
-        float theta = i * step;
-
-        float final_theta = theta + twist_angle;
-
-        // Inverse stereographic projection of (radius exp(rho + wobble), angle
-        // final_theta) onto the unit sphere, poles on +/-Z.
-        float radius = exp_rho * exp_shift[i];
-
-        float r2 = radius * radius;
-        float denom = 1.0f + r2;
-        float x = 2.0f * radius * math::fast_cosf(final_theta) / denom;
-        float y = 2.0f * radius * math::fast_sinf(final_theta) / denom;
-        float z = (r2 - 1.0f) / denom;
-
+      for (int i = 0; i < NUM_SAMPLES; ++i) {
         Fragment f;
-        f.pos = math::Vector(x, y, z);
+        f.pos = ring_vertex(i, exp_rho, twist_angle);
         fragments.push_back(f);
       }
     }
-
-    auto fragment_shader = [&](const math::Vector &, Fragment &f) {
-      f.color = base_col;
+    auto geometry = [&](size_t index, float t) HS_HOT_INLINE {
+      return t == 1.0f ? fragments[index].pos
+                       : ring_vertex(index, previous_exp, previous_twist);
     };
-
+    auto fragment_shader = [&](const math::Vector &, Fragment &f,
+                               float t) HS_HOT_INLINE {
+      f.color = base_col;
+      if (t != 1.0f)
+        f.color.alpha =
+            pole_opacity(previous_rho + (ring.rho - previous_rho) * t) *
+            params.alpha;
+    };
     {
       HS_PROFILE(pf_ring_scan);
-      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader,
-                            {.loop = Plot::RasterLoop::closed()});
+      Plot::rasterize<W, H, {.timed = true}>(
+          filters, canvas, fragments, fragment_shader,
+          {.loop = Plot::RasterLoop::closed()},
+          Plot::GeometryCallback::interpolating(geometry), callback_bound);
     }
   }
 
@@ -356,4 +412,7 @@ private:
     float density =
         1.0f; /**< Ring packing; live spacing is SPACING / density. */
   } params;
+
+  Params history_params;      /**< Controls at the preceding frame endpoint. */
+  bool history_ready = false; /**< Whether a preceding endpoint is available. */
 };

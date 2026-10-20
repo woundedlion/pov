@@ -18,6 +18,7 @@
 #include "tests/vec_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/temporal_oracle.h"
 
 #include <algorithm>
 #include <array>
@@ -908,6 +909,7 @@ inline int run_effects_tests() {
     test();
   };
 
+  run_case(test_petalflow_temporal_source_oracle);
   run_case(test_parameter_probe_targets);
   run_case(test_float_dropdown_lint);
   run_case(test_ringspin_strobe_configuration_preserves_rendering);

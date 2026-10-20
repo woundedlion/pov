@@ -977,6 +977,76 @@ struct PetalFlowWhiteBox {
     pf.rings[PF::MAX_RINGS - 1].active = full;
     pf.spawn_ring_at_pos(PF::START_RHO);
   }
+  /** @brief Renders one production ring or its independently frozen geometry.
+   * @param timed Uses the production temporal draw.
+   * @param fraction Frozen frame fraction.
+   * @param displacement Vertical frozen-reference offset in pixels.
+   * @param rho Current ring travel.
+   * @return Row-major linear luminance. */
+  static std::vector<float> render_temporal_ring(bool timed, float fraction,
+                                                 float displacement,
+                                                 float rho) {
+    reset_effect_globals();
+    PF fx;
+    fx.build_shift_table();
+    const float previous_rho = rho - fx.move_dist();
+    const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+    const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
+    fx.orientation.set(start_pose);
+    fx.orientation.push(math::make_rotation(axis, 0.012f) * start_pose);
+    typename PF::Ring ring{rho, 0.25f, true, false};
+    {
+      Canvas canvas(fx);
+      if (timed) {
+        fx.draw_ring(canvas, ring, previous_rho);
+      } else {
+        ScratchScope guard(scratch_arena_a);
+        Fragments points;
+        points.bind(scratch_arena_a, PF::NUM_SAMPLES);
+        const float first_exp = expf(previous_rho), last_exp = expf(rho);
+        const float first_twist =
+            previous_rho / fx.spacing() * fx.params.twist_factor;
+        const float last_twist = rho / fx.spacing() * fx.params.twist_factor;
+        const auto pose = fx.orientation.get(fraction);
+        fx.orientation.set(pose);
+        for (int i = 0; i < PF::NUM_SAMPLES; ++i) {
+          const auto a = fx.ring_vertex(i, first_exp, first_twist);
+          const auto b = fx.ring_vertex(i, last_exp, last_twist);
+          Fragment point;
+          point.pos = fraction == 1.0f
+                          ? b
+                          : (a * (1.0f - fraction) + b * fraction).normalized();
+          if (displacement != 0.0f) {
+            const auto world = math::rotate(point.pos, pose);
+            point.pos =
+                math::rotate(hs_test::displace_reference_rows<DEFAULT_H>(
+                                 world, displacement),
+                             pose.conjugate());
+          }
+          points.push_back(point);
+        }
+        Color4 shade = fx.palette.get(ring.hue).color;
+        shade.alpha =
+            PF::pole_opacity(previous_rho + (rho - previous_rho) * fraction) *
+            fx.params.alpha;
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          f.color = shade;
+        };
+        Plot::rasterize<DEFAULT_W, DEFAULT_H>(
+            fx.filters, canvas, points, shader,
+            {.loop = Plot::RasterLoop::closed()});
+      }
+    }
+    fx.advance_display();
+    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const Pixel pixel = fx.get_pixel(x, y);
+        luminance[y * DEFAULT_W + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+    return luminance;
+  }
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float start_rho() { return PF::START_RHO; }
   static float speed_max() { return PF::SPEED_MAX; }
@@ -1215,4 +1285,21 @@ inline void test_manual_preset_navigation() {
   check_manual_preset_navigation<Comets<SMALL_W, SMALL_H>>();
   check_manual_preset_navigation<MeshFeedback<SMALL_W, SMALL_H>>();
   check_manual_preset_navigation<ShapeShifter<SMALL_W, SMALL_H>>();
+}
+
+/** @brief Production PetalFlow travel, twist, orientation and fade match frozen columns. */
+inline void test_petalflow_temporal_source_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  for (float rho : {0.0f, 1.25f, 2.75f}) {
+    auto render = [rho](bool timed, float fraction, float displacement) {
+      return PetalFlowWhiteBox::render_temporal_ring(timed, fraction,
+                                                     displacement, rho);
+    };
+    hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(
+        render, rho == 0.0f
+                    ? "PetalFlow equator"
+                    : (rho == 1.25f ? "PetalFlow dense" : "PetalFlow fade"));
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
 }
