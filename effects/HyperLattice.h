@@ -226,6 +226,12 @@ inline PreparedTrace prepare_trace(const FrameState &frame) {
           frame.crossings};
 }
 
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Whether HyperLattice traces each column at its sweep time; it draws
+ *  whole frames otherwise. */
+inline bool g_column_time = false;
+#endif
+
 /**
  * @brief Render state between two frames, sampled at column times.
  * @details Rotation phases follow their shortest arc, the camera its unwrapped
@@ -784,8 +790,9 @@ public:
 
   /**
    * @brief Advances the camera and palettes, then ray-traces the frame.
-   * @details With column-time sampling, each column traces the state at its
-   * sweep fraction between the previous frame and this one.
+   * @details With `HyperLatticeDetail::g_column_time` and column-time
+   * sampling, each column traces the state at its sweep fraction between the
+   * previous frame and this one.
    */
   HS_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
@@ -814,6 +821,7 @@ public:
         frame_palette,  preset_gain,
         crossing_list};
     unfinished_rays = 0;
+#if HS_ENABLE_TEST_HOOKS
     const HyperLatticeDetail::FrameEndpoint endpoint{context, trace_center};
     if (!history.initialized ||
         configuration_id(history.previous.state.params) !=
@@ -824,7 +832,8 @@ public:
     const bool MOVING =
         std::memcmp(&previous.state, &context, sizeof(context)) != 0 ||
         std::memcmp(&previous.center, &trace_center, sizeof(trace_center)) != 0;
-    if (Temporal::temporal_sampling_enabled() && MOVING) {
+    if (HyperLatticeDetail::g_column_time &&
+        Temporal::temporal_sampling_enabled() && MOVING) {
       HS_PROFILE(hl_shader_draw);
       const HyperLatticeDetail::FrameInterval interval(
           previous.state, context, previous.center, flight_step);
@@ -832,12 +841,16 @@ public:
         draw_traced_columns(canvas, interval);
       else
         draw_cubic_columns(canvas, interval);
-    } else if (params.pattern != Pattern::CUBIC_WIRE) {
+      history.capture(endpoint);
+      return;
+    }
+    history.capture(endpoint);
+#endif
+    if (params.pattern != Pattern::CUBIC_WIRE) {
       HS_PROFILE(hl_shader_draw);
       draw_traced(canvas, context);
     } else
       draw_cubic(canvas, context);
-    history.capture(endpoint);
   }
 
 private:
