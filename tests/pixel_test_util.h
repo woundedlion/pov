@@ -395,6 +395,12 @@ inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
  *  keeps. */
 inline constexpr double MOTION_SEAM_RATIO = 0.4;
 
+/** @brief MOTION_SEAM_RATIO for a mesh whose faces span a large share of a
+ *  half-turn: a seam face's far vertices are captured past the frame's
+ *  endpoints so its two copies are one polygon, which moves each copy off the
+ *  per-column frozen reference by up to a quarter frame of motion. */
+inline constexpr double WIDE_FACE_SEAM_RATIO = 0.45;
+
 /** @brief Smallest channel error a held frame must show at its seam columns
  *  for a seam comparison to bite. */
 inline constexpr int MOTION_SEAM_FLOOR = 8192;
@@ -421,16 +427,18 @@ inline constexpr std::array<int, 12> SEAM_COLUMNS = {
  * @param held The same frame drawn with its state held at the current
  *        endpoint.
  * @param render The independent time evaluator.
+ * @param limit Largest drawn-to-held error ratio accepted.
  * @return The drawn frame's summed seam error over the held frame's.
  * @details Sums channel errors against the evaluator over SEAM_COLUMNS and
  * their opposing columns. The held frame's error grows to a whole frame of
  * motion at the first columns of each arm; the drawn frame must keep at most
- * MOTION_SEAM_RATIO of it.
+ * @p limit of it.
  */
 template <int W, int H, typename RenderFn>
 inline double
 expect_seam_resolved(const char *label, const std::vector<Pixel> &drawn,
-                     const std::vector<Pixel> &held, RenderFn &&render) {
+                     const std::vector<Pixel> &held, RenderFn &&render,
+                     double limit = MOTION_SEAM_RATIO) {
   HS_CONTEXT(label);
   double drawn_error = 0.0, held_error = 0.0;
   int held_peak = 0;
@@ -454,7 +462,7 @@ expect_seam_resolved(const char *label, const std::vector<Pixel> &drawn,
   std::printf("  [%s] seam error %.0f vs held %.0f (ratio %.3f)\n", label,
               drawn_error, held_error, ratio);
   HS_EXPECT_GT(held_peak, MOTION_SEAM_FLOOR);
-  HS_EXPECT_LE(ratio, MOTION_SEAM_RATIO);
+  HS_EXPECT_LE(ratio, limit);
   return ratio;
 }
 
