@@ -562,6 +562,18 @@ public:
   HS_O3_FN math::Vector operator()(const math::Vector &v) const {
     return transform(v);
   }
+
+  /**
+   * @brief Applies the active transformations with substitute params.
+   * @param v Vector to transform.
+   * @param params One params per active entity, in spawn order.
+   * @return The vector after every substitute has been composed onto it.
+   */
+  HS_O3_FN math::Vector transform(math::Vector v, const ParamsT *params) const {
+    for (int k = 0; k < this->active_slot_count; ++k)
+      v = TransformFunc(v, params[k]);
+    return v;
+  }
 };
 
 /** @brief Denominator floor below which DominantFieldAccumulator::value()
@@ -727,7 +739,7 @@ constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
  */
 HS_O3_FN inline math::Vector
 ripple_transform_at_distance(const math::Vector &v,
-                             const Animation::RippleParams &params,
+                             const Animation::RippleWave &params,
                              float distance, float phase) {
   float dist_from_peak = distance - phase;
   float half_width = params.half_width();
@@ -760,7 +772,7 @@ ripple_transform_at_distance(const math::Vector &v,
  * @return The displaced vector.
  */
 HS_O3_FN inline math::Vector
-ripple_transform(const math::Vector &v, const Animation::RippleParams &params) {
+ripple_transform(const math::Vector &v, const Animation::RippleWave &params) {
   // Between ripples the envelope drives amplitude to 0.
   if (params.amplitude <= 0.001f)
     return v;
@@ -934,13 +946,25 @@ inline float noise_product_field(const math::Vector &v,
 }
 
 /**
+ * @brief ripple_transform() over a pool entity's params.
+ * @param v The vector to transform.
+ * @param params The ripple parameters.
+ * @return The displaced vector.
+ */
+HS_O3_FN inline math::Vector
+ripple_params_transform(const math::Vector &v,
+                        const Animation::RippleParams &params) {
+  return ripple_transform(v, params);
+}
+
+/**
  * @brief Generates ripples that warp the sphere.
  * @tparam CAPACITY Maximum number of concurrent ripple transformations.
  */
 template <int CAPACITY>
 using RippleTransformer =
-    Transformer<Animation::RippleParams, Animation::Ripple, ripple_transform,
-                CAPACITY>;
+    Transformer<Animation::RippleParams, Animation::Ripple,
+                ripple_params_transform, CAPACITY>;
 
 /**
  * @brief Bump displacement fields that fall pole-to-pole through a frame.

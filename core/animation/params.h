@@ -892,9 +892,9 @@ private:
 };
 
 /**
- * @brief Parameters for a ripple wave effect.
+ * @brief A ripple wavelet at one instant: what ripple_transform() reads.
  */
-struct RippleParams {
+struct RippleWave {
   math::Vector center;    /**< Center point of the ripple source. */
   float amplitude = 0.0f; /**< Current height of the wave. */
   float phase = 0.0f;     /**< Current phase offset (time). */
@@ -905,11 +905,6 @@ struct RippleParams {
   float cos_threshold_min = 1.0f;
   /** @brief Cached cos(d_max): the fast-reject band's lower cutoff. */
   float cos_threshold_max = -1.0f;
-
-  /** @brief Carries prepare_frame()'s refresh_from() hook. */
-  static constexpr bool NEEDS_REFRESH_FROM = true;
-  /** @brief Carries prepare_frame()'s sync() hook. */
-  static constexpr bool NEEDS_SYNC = true;
 
   /**
    * @brief Ricker wavelet half-width, floored so the distance normalization
@@ -934,6 +929,20 @@ struct RippleParams {
     cos_threshold_min = cosf(d_min);
     cos_threshold_max = cosf(d_max);
   }
+};
+
+/**
+ * @brief Parameters for a ripple wave effect: its wave and where the wave
+ * stood before its last step.
+ */
+struct RippleParams : RippleWave {
+  float previous_amplitude = 0.0f; /**< Amplitude before the last step. */
+  float previous_phase = 0.0f;     /**< Phase before the last step. */
+
+  /** @brief Carries prepare_frame()'s refresh_from() hook. */
+  static constexpr bool NEEDS_REFRESH_FROM = true;
+  /** @brief Carries prepare_frame()'s sync() hook. */
+  static constexpr bool NEEDS_SYNC = true;
 
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
@@ -944,6 +953,36 @@ struct RippleParams {
   void refresh_from(const RippleParams &t) {
     decay = t.decay;
     thickness = t.thickness;
+  }
+
+  /**
+   * @brief The ripple at a fraction of its last step.
+   * @param u 0 before the step, 1 after it.
+   * @return A copy with amplitude and phase lerped to @p u and the
+   * fast-reject bounds of that phase.
+   */
+  HS_FLASH_MEMBER RippleParams during_step(float u) const {
+    RippleParams at = *this;
+    at.amplitude = previous_amplitude + (amplitude - previous_amplitude) * u;
+    at.phase = previous_phase + (phase - previous_phase) * u;
+    at.sync();
+    return at;
+  }
+
+  /** @brief Largest slope of the wavelet `(1 - t^2) exp(-t^2 / 2)`. */
+  static constexpr float WAVELET_MAX_SLOPE = 1.3802f;
+
+  /**
+   * @brief Bound on how far the ripple's rotation of any point changes over
+   * its last step.
+   * @return Radians; the rotation's change in amplitude plus its change in
+   * phase across the wavelet's steepest slope.
+   */
+  HS_FLASH_MEMBER float step_arc() const {
+    const float peak = fmaxf(fabsf(amplitude), fabsf(previous_amplitude));
+    return fabsf(amplitude - previous_amplitude) +
+           peak * WAVELET_MAX_SLOPE * 2.0f / half_width() *
+               fabsf(phase - previous_phase);
   }
 };
 
@@ -972,6 +1011,8 @@ public:
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
     this->params.get().amplitude = 0.0f;
+    this->params.get().previous_phase = 0.0f;
+    this->params.get().previous_amplitude = 0.0f;
     this->params.get().sync();
   }
 
@@ -981,6 +1022,8 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
+    params.get().previous_phase = params.get().phase;
+    params.get().previous_amplitude = params.get().amplitude;
 
     float progress = static_cast<float>(t) / duration;
     float envelope = 0.0f;

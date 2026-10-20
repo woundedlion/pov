@@ -910,6 +910,76 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   HS_EXPECT_TRUE(reclaimed != nullptr);
 }
 
+/**
+ * @brief A ripple's step keeps its previous amplitude and phase, and the
+ *        ripple between them moves no point farther than its step bound.
+ */
+inline void test_ripple_step_keeps_its_previous_endpoint() {
+  hs_test::StubEffect fx(8, 8);
+  Canvas cv(fx);
+  Animation::RippleParams params;
+  params.amplitude = 0.15f;
+  params.thickness = 0.7f;
+  params.decay = 0.1f;
+  Animation::Ripple ripple(params, math::Vector(0.2f, 1.0f, 0.1f), 0.04f, 40);
+  HS_EXPECT_EQ(params.previous_phase, params.phase);
+  HS_EXPECT_EQ(params.previous_amplitude, params.amplitude);
+  for (int step = 0; step < 12; ++step) {
+    HS_CONTEXT("step", step);
+    const Animation::RippleParams before = params;
+    ripple.step(cv);
+    HS_EXPECT_EQ(params.previous_phase, before.phase);
+    HS_EXPECT_EQ(params.previous_amplitude, before.amplitude);
+    const Animation::RippleParams start = params.during_step(0.0f);
+    HS_EXPECT_EQ(start.phase, before.phase);
+    HS_EXPECT_EQ(start.amplitude, before.amplitude);
+    HS_EXPECT_EQ(start.cos_threshold_min, before.cos_threshold_min);
+    HS_EXPECT_EQ(start.cos_threshold_max, before.cos_threshold_max);
+    const Animation::RippleParams end = params.during_step(1.0f);
+    HS_EXPECT_EQ(end.phase, params.phase);
+    HS_EXPECT_EQ(end.amplitude, params.amplitude);
+    float moved = 0.0f;
+    for (int i = 0; i < 400; ++i) {
+      const math::Vector v = math::fib_spiral(400, 0.5f, i);
+      for (const float u : {0.5f, 1.0f}) {
+        const float c = math::dot(ripple_transform(v, start),
+                                  ripple_transform(v, params.during_step(u)));
+        moved = std::max(moved, acosf(hs::clamp(c, -1.0f, 1.0f)));
+      }
+    }
+    HS_EXPECT_LE(moved, params.step_arc() + 1e-4f);
+  }
+}
+
+/**
+ * @brief A transformer applied with substitute params composes them in spawn
+ *        order, as the live params compose.
+ */
+inline void test_transformer_substitute_params_compose_in_spawn_order() {
+  Timeline tl;
+  global_timeline_t = 0;
+  hs_test::StubEffect fx(8, 8);
+  Canvas cv(fx);
+  RippleTransformer<4> rt(tl);
+  rt.init_storage(persistent_arena);
+  rt.template_params.amplitude = 0.15f;
+  rt.template_params.thickness = 0.7f;
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(0, 1, 0), 0.05f, 30) != nullptr);
+  HS_EXPECT_TRUE(rt.spawn(0, math::Vector(1, 0, 0.3f), 0.07f, 30) != nullptr);
+  for (int i = 0; i < 6; ++i)
+    tl.step(cv);
+  rt.prepare_frame();
+  Animation::RippleParams live[2] = {rt.active_params(0), rt.active_params(1)};
+  for (int i = 0; i < 50; ++i) {
+    const math::Vector v = math::fib_spiral(50, 0.5f, i);
+    const math::Vector a = rt.transform(v);
+    const math::Vector b = rt.transform(v, live);
+    HS_EXPECT_EQ(a.x, b.x);
+    HS_EXPECT_EQ(a.y, b.y);
+    HS_EXPECT_EQ(a.z, b.z);
+  }
+}
+
 // ============================================================================
 // Transformer<> completion callbacks outliving their pool
 // ============================================================================
@@ -1720,6 +1790,8 @@ inline int run_transformers_tests() {
   test_transformer_spawn_pausable_freezes_start_delay();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_callback_after_pool_destroyed();
+  test_ripple_step_keeps_its_previous_endpoint();
+  test_transformer_substitute_params_compose_in_spawn_order();
   test_transformer_slots_released_by_timeline_clear();
   test_transformer_recycled_slot_composes_in_spawn_order();
   test_field_transformer_no_entities_is_zero();
