@@ -477,6 +477,11 @@ private:
     }
   }
 
+  // plan_motion()'s cap radii are freed before the scan's face scratch and
+  // face selection take their place.
+  static_assert(MAX_BUILD_FACES * sizeof(float) <=
+                MAX_BUILD_FACES + sizeof(SDF::FaceScratchBuffer));
+
   /**
    * @brief Whether scratch_arena_b holds a build draw's vertex deformation beside
    *        the rest of its draw.
@@ -544,11 +549,13 @@ private:
     plan.moving = arena.allocate_n<uint8_t>(count);
     flag_moving(path, count, bound - ripple_arc(), plan.moving, arena);
     plan.columns = arena.allocate_n<uint16_t>(2 * mesh.num_faces());
-    if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
-                                   plan.columns) == 0)
-      return plan;
     plan.during = arena.allocate_n<Animation::RippleParams>(
         ripple_gen.active_count() + 1);
+    ScratchScope radii_scope(arena);
+    float *radii = arena.allocate_n<float>(mesh.num_faces());
+    if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
+                                   plan.columns, radii) == 0)
+      return plan;
     ripples_at(plan.during, 0.0f);
     OrientTransformer camera(orientation);
     const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
@@ -569,7 +576,7 @@ private:
     plan.active = Scan::mesh_motion_active<W>(arc);
     if (plan.active)
       Scan::moving_face_columns<W>(canvas, mesh, arc + math::TWO_PI_F / W,
-                                   plan.columns);
+                                   plan.columns, radii);
     for (int k = 0; k < ripple_gen.active_count(); ++k) {
       plan.during[k].cos_threshold_min =
           fmaxf(plan.during[k].cos_threshold_min,
