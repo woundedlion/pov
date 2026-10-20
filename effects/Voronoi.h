@@ -333,8 +333,6 @@ private:
   struct TemporalBlock {
     TemporalColumn *column;        ///< The column being shaded.
     const math::Vector *positions; ///< Candidate positions at that time.
-    const math::Vector *before;    ///< Candidate positions at the frame start.
-    const math::Vector *after;     ///< Candidate positions at the frame end.
     const uint16_t *idx;           ///< Candidate site indices.
     uint8_t n;                     ///< Candidate count.
     bool check;                    ///< Whether endpoint winners may differ.
@@ -357,7 +355,7 @@ private:
           b1 = i;
         }
       }
-      if (check && winner(p, before) != winner(p, after))
+      if (check && winner(p, true) != winner(p, false))
         return column->effect->shade_exact(
             p, column->motion,
             n > 1 ? fmaxf(math::distance_squared(positions[b0], p),
@@ -369,14 +367,18 @@ private:
 
     /** @brief Nearest candidate at one endpoint.
      *  @param p Pixel direction.
-     *  @param at Candidate positions at that endpoint.
+     *  @param before Whether to sample the previous endpoint.
      *  @return Candidate slot. */
-    __attribute__((always_inline)) uint8_t
-    winner(const math::Vector &p, const math::Vector *at) const {
+    __attribute__((always_inline)) uint8_t winner(const math::Vector &p,
+                                                  bool before) const {
       float best = NO_DOT;
       uint8_t slot = 0;
       for (uint8_t i = 0; i < n; ++i) {
-        const float d = math::dot(p, at[i]);
+        const uint16_t SITE = idx[i];
+        const math::Vector &at = before
+                                     ? column->effect->previous_positions[SITE]
+                                     : column->effect->sites_buffer[SITE].pos;
+        const float d = math::dot(p, at);
         if (d > best) {
           best = d;
           slot = i;
@@ -390,8 +392,13 @@ private:
   struct TemporalColumn {
     const Voronoi *effect;   ///< Sites and shading.
     ColumnMotion motion;     ///< The column's site motion.
-    math::Vector *positions; ///< Scratch for one block's candidates, three
-                             ///< times its size.
+    math::Vector *positions; ///< Scratch for one block's moving candidates.
+    math::Vector *moved;     ///< Site positions cached for the column.
+    uint16_t *stamps;        ///< Last column that moved each site.
+    uint16_t stamp;          ///< Current column plus one.
+    bool *checks;            ///< Endpoint-winner checks by block row.
+    bool rebuild;            ///< Whether this column starts a new block column.
+    int row = 0;             ///< Next block row to prepare.
 
     /**
      * @brief Prepares a block's candidates at the column's time.
@@ -401,19 +408,18 @@ private:
      */
     __attribute__((always_inline)) TemporalBlock
     block(const Scan::Shader::BlockSites<TEMPORAL_SITES_PER_CORNER> &sites) {
-      constexpr int SLOTS = 4 * TEMPORAL_SITES_PER_CORNER;
-      const bool CHECK = !same_winners(sites.corners);
-      math::Vector *before = positions + SLOTS;
-      math::Vector *after = before + SLOTS;
+      if (rebuild)
+        checks[row] = !same_winners(sites.corners);
+      const bool CHECK = checks[row++];
       for (uint8_t i = 0; i < sites.n; ++i) {
         const uint16_t SITE = sites.idx[i];
-        positions[i] = position_at(motion, SITE);
-        if (CHECK) {
-          before[i] = effect->previous_positions[SITE];
-          after[i] = effect->sites_buffer[SITE].pos;
+        if (stamps[SITE] != stamp) {
+          moved[SITE] = position_at(motion, SITE);
+          stamps[SITE] = stamp;
         }
+        positions[i] = moved[SITE];
       }
-      return {this, positions, before, after, sites.idx, sites.n, CHECK};
+      return {this, positions, sites.idx, sites.n, CHECK};
     }
   };
 
@@ -443,8 +449,15 @@ private:
           });
       return;
     }
-    math::Vector *positions = scratch_arena_a.allocate_n<math::Vector>(
-        3 * 4 * TEMPORAL_SITES_PER_CORNER);
+    math::Vector *positions =
+        scratch_arena_a.allocate_n<math::Vector>(4 * TEMPORAL_SITES_PER_CORNER);
+    bool *checks = scratch_arena_a.allocate_n<bool>((H - 1) / BLOCK + 1);
+    int prepared = -1;
+    math::Vector *moved =
+        scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
+    uint16_t *stamps =
+        scratch_arena_a.allocate_n<uint16_t>(sites_buffer.size());
+    std::fill_n(stamps, sites_buffer.size(), uint16_t{0});
     Nearby near = first_nearby();
     const bool REUSE =
         corners_valid && corner_clip == canvas.clip() && corner_block == BLOCK;
@@ -455,7 +468,12 @@ private:
           return cached_endpoint_pairs(tree, p, near, corner++, REUSE);
         },
         [&](int x) __attribute__((always_inline)) {
-          return TemporalColumn{this, column_motion(x, tree, spins), positions};
+          const int BLOCK_COLUMN = x / BLOCK;
+          const bool REBUILD = prepared != BLOCK_COLUMN;
+          prepared = BLOCK_COLUMN;
+          return TemporalColumn{
+              this,   column_motion(x, tree, spins), positions, moved,
+              stamps, static_cast<uint16_t>(x + 1),  checks,    REBUILD};
         });
     corner_clip = canvas.clip();
     corner_block = BLOCK;
@@ -682,8 +700,9 @@ private:
   static constexpr size_t TEMPORAL_WALKER_BYTES =
       Scan::Shader::block_columns_scratch_bytes<
           W, H, TEMPORAL_SITES_PER_CORNER, std::max(2, COHERENCE_BLOCK_MIN)>() +
-      (3 * 4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector) +
-      MAX_SITES * sizeof(SiteSpin);
+      (4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector) +
+      size_t((H - 1) / std::max(2, COHERENCE_BLOCK_MIN) + 1) * sizeof(bool) +
+      MAX_SITES * (sizeof(SiteSpin) + sizeof(uint16_t));
   static constexpr size_t SCRATCH_HIGH_WATER =
       std::max(POSITIONS_BYTES + KD_NODES_BYTES +
                    std::max(KD_BUILD_SCRATCH_BYTES, WALKER_BYTES),
