@@ -65,7 +65,8 @@ public:
 
     sites_buffer.bind(persistent_arena, MAX_SITES);
     previous_positions.bind(persistent_arena, MAX_SITES);
-    corner_pairs = persistent_arena.allocate_n<CornerPair>(CORNER_CAPACITY);
+    corner_history =
+        persistent_arena.allocate_n<CornerHistory>(CORNER_CAPACITY);
     seed_sites();
   }
 
@@ -100,8 +101,6 @@ public:
       draw_temporal(canvas, tree);
       return;
     }
-
-    corners_valid = false;
 
     // One node for all per-pixel work (corner pre-pass + shading loop); never
     // scope inside the per-pixel loop.
@@ -192,6 +191,11 @@ private:
         previous_positions[i] = sites_buffer[i].pos;
       frame_spin = 0.0f;
       history_primed = true;
+    }
+    corner_drift = fmaxf(corner_drift, fabsf(frame_spin) + DRIFT_SLACK);
+    if (++corner_frame == 0) {
+      clear_corner_history();
+      corner_frame = 1;
     }
   }
 
@@ -434,7 +438,6 @@ private:
     fill_spins(spins);
     const int BLOCK = coherence_block();
     if (BLOCK == 1) {
-      corners_valid = false;
       math::Vector *every =
           scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
       Scan::Shader::draw_columns<W, H>(
@@ -459,13 +462,15 @@ private:
         scratch_arena_a.allocate_n<uint16_t>(sites_buffer.size());
     std::fill_n(stamps, sites_buffer.size(), uint16_t{0});
     Nearby near = first_nearby();
-    const bool REUSE =
-        corners_valid && corner_clip == canvas.clip() && corner_block == BLOCK;
-    size_t corner = 0;
+    if (corner_block != BLOCK) {
+      clear_corner_history();
+      corner_block = BLOCK;
+    }
+    CornerCursor cursor(canvas.clip(), BLOCK);
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
         [&](const math::Vector &p) __attribute__((always_inline)) {
-          return cached_endpoint_pairs(tree, p, near, corner++, REUSE);
+          return cached_endpoint_pairs(tree, p, near, cursor.next());
         },
         [&](int x) __attribute__((always_inline)) {
           const int BLOCK_COLUMN = x / BLOCK;
@@ -475,9 +480,6 @@ private:
               this,   column_motion(x, tree, spins), positions, moved,
               stamps, static_cast<uint16_t>(x + 1),  checks,    REBUILD};
         });
-    corner_clip = canvas.clip();
-    corner_block = BLOCK;
-    corners_valid = true;
   }
 
   /**
@@ -556,6 +558,8 @@ private:
    * @param p Sample point on the unit sphere.
    * @param near Sites nearest a recent sample point, which bound the search;
    *        receives this point's nearest current sites.
+   * @param outside_distance Receives the current third-neighbor distance when
+   *        non-null; FLT_MAX when at most two sites exist.
    * @return The previous endpoint's nearest pair, then the current's, each
    *         nearest first, as an exhaustive search ranks them.
    * @details The current pair is the previous pair too, reordered, when no
@@ -564,8 +568,8 @@ private:
    */
   __attribute__((always_inline))
   Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>
-  endpoint_pairs(const KDTree &current, const math::Vector &p,
-                 Nearby &near) const {
+  endpoint_pairs(const KDTree &current, const math::Vector &p, Nearby &near,
+                 float *outside_distance = nullptr) const {
     float bound = 0.0f;
     for (uint16_t site : near)
       bound = fmaxf(bound, math::distance_squared(sites_buffer[site].pos, p));
@@ -575,6 +579,8 @@ private:
           return math::distance_squared(sites_buffer[i].pos, p);
         },
         bound * BOUND_SLACK);
+    if (outside_distance)
+      *outside_distance = knn.size() > 2 ? sqrtf(knn[2].d_sq) : FLT_MAX;
     for (size_t i = 0; i < near.size(); ++i)
       near[i] = knn[std::min(i, knn.size() - 1)].original_index;
     const uint16_t a = near[0];
@@ -602,37 +608,98 @@ private:
   /** @brief Endpoint pair retained in corner traversal order. */
   using CornerPair = std::array<uint16_t, SITES_PER_CORNER>;
 
+  /** @brief A corner's nearest pair and exclusion radius at a retained frame. */
+  struct CornerHistory {
+    CornerPair pair; ///< Nearest pair at the retained frame.
+    float outside;   ///< Lower distance bound for every other site.
+    uint32_t frame;  ///< Retained frame number; zero marks an empty entry.
+  };
+
+  /// Maximum frame age of a retained corner certificate.
+  static constexpr uint32_t MAX_CORNER_AGE = 8;
+
+  /** @brief Canvas-grid indices in the clipped corner traversal order. */
+  struct CornerCursor {
+    int origin;     ///< First canvas-grid column in this clip.
+    int row;        ///< Current canvas-grid row.
+    int stride;     ///< Columns in the full canvas grid.
+    int last;       ///< Last local column classified in each row.
+    int gap_begin;  ///< Last local column before a wrapped clip's gap.
+    int gap_end;    ///< First local column after the gap.
+    int column = 0; ///< Current local column.
+
+    /** @brief Initializes the cursor for a canvas-anchored block grid.
+     *  @param clip Render clip.
+     *  @param block Block edge in pixels. */
+    HS_HOT_INLINE CornerCursor(const ClipRegion &clip, int block) {
+      const auto columns = clip.x_clip();
+      const int X0 = columns.active && !columns.wrap ? columns.rs : 0;
+      const int X1 = columns.active && !columns.wrap ? columns.re : W;
+      origin = X0 / block;
+      row = clip.render_y_start() / block;
+      stride = (W - 1) / block + 2;
+      last = (X1 - 1 - origin * block) / block + 1;
+      gap_begin = columns.active && columns.wrap
+                      ? (columns.re + block - 1) / block
+                      : last + 1;
+      gap_end = columns.active && columns.wrap ? columns.rs / block : last + 1;
+    }
+
+    /** @brief Advances through the visited corners, skipping wrapped gaps.
+     *  @return The current corner's index in the full canvas grid. */
+    HS_HOT_INLINE size_t next() {
+      const size_t INDEX = size_t(row) * stride + origin + column;
+      ++column;
+      if (column > gap_begin && column < gap_end)
+        column = gap_end;
+      if (column > last) {
+        column = 0;
+        ++row;
+      }
+      return INDEX;
+    }
+  };
+
+  /** @brief Invalidates every retained corner certificate. */
+  HS_HOT_FLASH_MEMBER void clear_corner_history() {
+    for (size_t i = 0; i < CORNER_CAPACITY; ++i)
+      corner_history[i].frame = 0;
+  }
+
   /**
-   * @brief Classifies a corner with its retained previous endpoint pair.
+   * @brief Classifies endpoints using motion-bounded retained corner pairs.
    * @param current Tree over current site positions.
    * @param p Corner direction.
-   * @param near Search bounds for an uncached traversal.
-   * @param corner Corner ordinal in the unchanged clip and grid.
-   * @param reuse Whether the preceding frame classified the same grid.
+   * @param near Search bounds for a refreshed corner.
+   * @param corner Corner index in the full canvas grid.
    * @return Previous and current nearest pairs, nearest first.
    */
   HS_HOT_INLINE Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>
   cached_endpoint_pairs(const KDTree &current, const math::Vector &p,
-                        Nearby &near, size_t corner, bool reuse) {
-    auto &saved = corner_pairs[corner];
-    if (!reuse) {
-      const auto pairs = endpoint_pairs(current, p, near);
-      saved = {pairs[2], pairs[3]};
-      return pairs;
+                        Nearby &near, size_t corner) {
+    auto &saved = corner_history[corner];
+    const uint32_t AGE = corner_frame - saved.frame;
+    if (saved.frame != 0 && AGE > 0 && AGE <= MAX_CORNER_AGE) {
+      const uint16_t A = saved.pair[0], B = saved.pair[1];
+      const float FROM_A = math::distance_squared(previous_positions[A], p);
+      const float FROM_B = math::distance_squared(previous_positions[B], p);
+      const float TO_A = math::distance_squared(sites_buffer[A].pos, p);
+      const float TO_B = math::distance_squared(sites_buffer[B].pos, p);
+      const float REACH = saved.outside - AGE * corner_drift;
+      const float BEFORE_REACH = saved.outside - (AGE - 1) * corner_drift;
+      if (REACH > 0.0f && fmaxf(TO_A, TO_B) * BOUND_SLACK < REACH * REACH &&
+          fmaxf(FROM_A, FROM_B) * BOUND_SLACK < BEFORE_REACH * BEFORE_REACH) {
+        const bool FROM_B_FIRST =
+            FROM_B < FROM_A || (FROM_B == FROM_A && B < A);
+        const bool TO_B_FIRST = TO_B < TO_A || (TO_B == TO_A && B < A);
+        return {FROM_B_FIRST ? B : A, FROM_B_FIRST ? A : B, TO_B_FIRST ? B : A,
+                TO_B_FIRST ? A : B};
+      }
     }
-    const CornerPair before = saved;
-    const float BOUND =
-        fmaxf(math::distance_squared(sites_buffer[before[0]].pos, p),
-              math::distance_squared(sites_buffer[before[1]].pos, p));
-    const auto pair = current.nearest_moved(
-        p, SITES_PER_CORNER, 0.0f,
-        [&](uint16_t i) HS_HOT_INLINE {
-          return math::distance_squared(sites_buffer[i].pos, p);
-        },
-        BOUND * BOUND_SLACK);
-    saved = {pair[0].original_index,
-             pair[pair.size() > 1 ? 1 : 0].original_index};
-    return {before[0], before[1], saved[0], saved[1]};
+    const auto pairs = endpoint_pairs(current, p, near, &saved.outside);
+    saved.pair = {pairs[2], pairs[3]};
+    saved.frame = corner_frame;
+    return pairs;
   }
 
   /**
@@ -723,7 +790,7 @@ private:
   static constexpr size_t FOOTPRINT_BYTES =
       size_t(MAX_SITES) * sizeof(Site) + alignof(Site) +
       size_t(MAX_SITES) * sizeof(math::Vector) + alignof(math::Vector) +
-      CORNER_CAPACITY * sizeof(CornerPair) + alignof(CornerPair);
+      CORNER_CAPACITY * sizeof(CornerHistory) + alignof(CornerHistory);
   static_assert(FOOTPRINT_BYTES <=
                     ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
                 "Voronoi persistent footprint exceeds its device partition; "
@@ -752,6 +819,7 @@ private:
    *          spread, each with a random spin axis and a palette color.
    */
   HS_COLD_MEMBER void seed_sites() {
+    clear_corner_history();
     const int n = active_site_count();
     sites_buffer.clear();
 
@@ -779,8 +847,9 @@ private:
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 
-  CornerPair *corner_pairs = nullptr; ///< Current endpoint pairs by corner.
-  ClipRegion corner_clip;     ///< Clip that produced the retained pairs.
-  int corner_block = 0;       ///< Retained grid's block edge.
-  bool corners_valid = false; ///< Pairs belong to the preceding draw.
+  CornerHistory *corner_history =
+      nullptr;               ///< Certificates by canvas-grid corner.
+  int corner_block = 0;      ///< Retained grid's block edge.
+  uint32_t corner_frame = 0; ///< Animation frame number.
+  float corner_drift = 0.0f; ///< Largest per-frame site displacement bound.
 };
