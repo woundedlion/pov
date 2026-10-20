@@ -91,6 +91,11 @@
 #endif
 #endif
 
+/** @brief 1 enables the host benchmark's runtime temporal selection. */
+#ifndef HS_ENABLE_TEMPORAL_SWITCH
+#define HS_ENABLE_TEMPORAL_SWITCH 0
+#endif
+
 /** @brief 1 compiles test-only hooks and state; 0 by default. */
 #ifndef HS_ENABLE_TEST_HOOKS
 #define HS_ENABLE_TEST_HOOKS 0

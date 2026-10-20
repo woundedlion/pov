@@ -674,6 +674,7 @@ foreach(_opt Os O3)
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
     ${HS_ENGINE_SOURCES})
   target_link_libraries(perf_bench_${_opt} PRIVATE hs_host_effect_runtime)
+  target_compile_definitions(perf_bench_${_opt} PRIVATE HS_ENABLE_TEMPORAL_SWITCH=1)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ENGINE_INCLUDES})
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
   _hs_warnings(perf_bench_${_opt})

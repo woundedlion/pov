@@ -30,7 +30,7 @@ struct Pixel;
 
 namespace Temporal {
 
-#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS || HS_ENABLE_TEMPORAL_SWITCH
 namespace Detail {
 inline bool enabled = true; ///< Simulator sweep-time sampling selection.
 }
