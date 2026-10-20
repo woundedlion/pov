@@ -1115,6 +1115,35 @@ walk_window_columns(ClipRegion::XClip xc, const ColumnWindow &window,
 }
 
 /**
+ * @brief walk_window_columns() over runs collected once, for a large
+ *        always-inline body.
+ * @tparam BodyFn Callable (int x).
+ * @param pieces Runs from window_pieces().
+ * @param body Sink receiving each admitted column, in the same order
+ *        walk_window_columns() visits them.
+ * @details Walks every run in one loop, so the body is emitted once.
+ */
+template <typename BodyFn>
+__attribute__((always_inline)) inline void
+walk_pieces_once(const WindowPieces &pieces, BodyFn &&body) {
+  if (pieces.count == 0)
+    return;
+  int piece = 0;
+  int x = pieces.lo[0];
+  int end = pieces.hi[0];
+  for (;;) {
+    if (x == end) {
+      if (++piece == pieces.count)
+        return;
+      x = pieces.lo[piece];
+      end = pieces.hi[piece];
+    }
+    body(x);
+    ++x;
+  }
+}
+
+/**
  * @brief Turns one row's emitted spans into clipped integer column runs.
  * @tparam W Canvas width in pixels.
  * @tparam IntervalBufT Source span buffer type.

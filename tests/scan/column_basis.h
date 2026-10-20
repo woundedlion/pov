@@ -885,6 +885,119 @@ inline void test_object_column_basis_matches_rotated_meridian() {
   }
 }
 
+/**
+ * @brief A fused ring stack scanned under a render-x window draws exactly the
+ *        whole frame's pixels in the window's columns on both arms and none
+ *        elsewhere, at the fixed meridian and through the rotated basis.
+ */
+inline void test_ring_stack_honours_render_window() {
+  constexpr int W = 96, H = 48, HALF = W / 2;
+  constexpr int RINGS = 3, LUT_N = 32;
+  static float knots[RINGS][LUT_N + 1];
+  build_ring_knots<RINGS, LUT_N>(knots);
+  const BasisMotion motion = tilted_motion();
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  const Temporal::ColumnTime swept =
+      basis->prepare(motion.previous, motion.current);
+  const auto render = [&](bool rotated, const ColumnWindow &window) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      const Temporal::ColumnTime fixed;
+      Scan::ColumnTimeScope time(canvas, rotated ? swept : fixed);
+      std::optional<RenderXWindow> scope;
+      if (window.active)
+        scope.emplace(canvas, window.begin, window.end);
+      const math::Basis frame =
+          math::make_basis(motion.current, math::Vector(0.3f, 0.2f, 1.0f));
+      alignas(SDF::DistortedRing) unsigned char
+          storage[RINGS * sizeof(SDF::DistortedRing)];
+      auto *shapes = reinterpret_cast<SDF::DistortedRing *>(storage);
+      int8_t slots[RINGS];
+      for (int i = 0; i < RINGS; ++i) {
+        new (&shapes[i]) SDF::DistortedRing(frame, 0.4f + 0.3f * i, 0.06f,
+                                            knots[i], LUT_N, 0.0f, nullptr);
+        slots[i] = static_cast<int8_t>(i);
+      }
+      static Scan::DistortedRingStack::CandidateTable<W, H> table;
+      Scan::DistortedRingStack::draw<W, H>(
+          pipeline, canvas, RINGS, shapes, slots, RINGS, table,
+          [](int s, const math::Vector &, Fragment &f) {
+            f.color = Color4(Pixel(static_cast<uint16_t>(15000 * (s + 1)),
+                                   static_cast<uint16_t>(f.v0 * 8000.0f), 7000),
+                             f.v2);
+          });
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  };
+  for (const bool rotated : {false, true}) {
+    HS_CONTEXT("rotated", rotated);
+    const std::vector<Pixel> whole = render(rotated, ColumnWindow{});
+    for (const ColumnWindow window :
+         {ColumnWindow{0, HALF / 2, true}, ColumnWindow{HALF / 2, HALF, true},
+          ColumnWindow{5, 17, true}}) {
+      HS_CONTEXT("window", window.begin, window.end);
+      const std::vector<Pixel> part = render(rotated, window);
+      int lit = 0;
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const size_t i = static_cast<size_t>(y) * W + x;
+          const bool admitted =
+              x % HALF >= window.begin && x % HALF < window.end;
+          HS_EXPECT_TRUE(part[i] == (admitted ? whole[i] : Pixel(0, 0, 0)));
+          lit += admitted && !is_black(whole[i]);
+        }
+      HS_EXPECT_GT(lit, 0);
+    }
+  }
+}
+
+/**
+ * @brief Plot::cap_may_touch_window() admits every cap holding a pixel of the
+ *        window's columns on either arm, and rejects some that hold none.
+ */
+inline void test_cap_may_touch_window_covers_window_pixels() {
+  constexpr int W = 96, H = 48, HALF = W / 2;
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  int rejected = 0;
+  for (const ColumnWindow window :
+       {ColumnWindow{0, HALF / 2, true}, ColumnWindow{HALF / 2, HALF, true},
+        ColumnWindow{7, 9, true}}) {
+    HS_CONTEXT("window", window.begin, window.end);
+    for (int trial = 0; trial < 13 * 17 * 3; ++trial) {
+      const float colatitude = math::PI_F * (trial % 13 + 0.5f) / 13.0f;
+      const float longitude = math::TWO_PI_F * (trial / 13 % 17 + 0.3f) / 17.0f;
+      const math::Vector dir(sinf(colatitude) * cosf(longitude),
+                             cosf(colatitude),
+                             sinf(colatitude) * sinf(longitude));
+      const float reach = 0.05f + 0.2f * (trial / (13 * 17));
+      bool holds = false;
+      for (int y = 0; y < H && !holds; ++y)
+        for (int x = 0; x < W && !holds; ++x) {
+          if (x % HALF < window.begin || x % HALF >= window.end)
+            continue;
+          const float sp = math::TrigLUT<W, H>::sin_phi[y];
+          const math::Vector pixel(sp * math::TrigLUT<W, H>::cos_theta(x),
+                                   math::TrigLUT<W, H>::cos_phi[y],
+                                   sp * math::TrigLUT<W, H>::sin_theta[x]);
+          holds = math::dot(pixel, dir) > cosf(reach);
+        }
+      const bool admitted =
+          Plot::cap_may_touch_window<W>(window, dir, reach, sinf(reach));
+      HS_CONTEXT("trial", trial);
+      if (holds)
+        HS_EXPECT_TRUE(admitted);
+      rejected += !admitted;
+    }
+  }
+  HS_EXPECT_GT(rejected, 100);
+}
+
 // ============================================================================
 // Column-time state: shaders, drift and forced tables at each column's time
 // ============================================================================
