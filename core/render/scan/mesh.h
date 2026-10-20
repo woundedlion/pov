@@ -34,6 +34,32 @@ struct ColumnRun {
 };
 
 /**
+ * @brief Whether a face's clipped row band can reach either arm of a window.
+ * @param shape Constructed face.
+ * @param window Render-x window.
+ * @param clip Source clip defining the row band and display dimensions.
+ * @return True when either arm can receive a pixel, or the window is inactive.
+ */
+HS_HOT_FLASH_MEMBER inline bool face_meets_window(const SDF::Face &shape,
+                                                  const ColumnWindow &window,
+                                                  const ClipRegion &clip) {
+  if (!window.active)
+    return true;
+  ClipRegion side{clip.render_y_start(),
+                  clip.render_y_end(),
+                  window.begin,
+                  window.end,
+                  0,
+                  clip.w,
+                  clip.h};
+  if (!shape.clip_rejects(side))
+    return true;
+  side.x_start += clip.w / 2;
+  side.x_end += clip.w / 2;
+  return !shape.clip_rejects(side);
+}
+
+/**
  * @brief Clips a row's column runs to a render-x window on both arms.
  * @tparam W Canvas width in pixels.
  * @tparam CAPACITY Run buffer capacity.
@@ -1020,6 +1046,10 @@ struct Mesh {
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
                          &cr, azimuth_pads, bounds_margin);
       }();
+
+      if (window.active &&
+          (shape.y_min > shape.y_max || !face_meets_window(shape, window, cr)))
+        continue;
 
       // Bind the face's congruence-class LUT; culled faces (y_min > y_max) skip
       // it.
