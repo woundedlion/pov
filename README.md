@@ -1467,6 +1467,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── death/             Sections included by test_death.h
 │   ├── effects/           Sections included by test_effects.h
 │   ├── filter/            Sections included by test_filter.h
+│   │   └── temporal_copies.h Selected-copy timed transform parity
 │   ├── test_plot_parity.h Temporal, frame-end and segment render hashes
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   ├── pov_sync/          Sections included by test_pov_sync.h

@@ -67,6 +67,7 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
 #include "tests/filter/feedback.h"
 #include "tests/filter/world_filters.h"
 #include "tests/filter/temporal_capture.h"
+#include "tests/filter/temporal_copies.h"
 #include "tests/filter/canvas_routing.h"
 #include "tests/filter/feedback_flush.h"
 #include "tests/filter/trails.h"
@@ -115,6 +116,18 @@ inline int run_filter_tests() {
   test_world_hole_angular_reference();
   test_world_orient_rotates_and_keeps_static_age();
   test_world_orient_emits_at_capture_time();
+  test_world_orient_explicit_time();
+  test_world_orient_sample_cache();
+  test_geometry_capture_branches();
+  test_geometry_capture_shortcuts_and_poles();
+  test_timed_probe_bypasses_history();
+  test_timed_point_entries();
+  test_temporal_column_arithmetic_matches_remainder();
+  test_temporal_orientation_bound_is_conservative();
+  test_timed_predicted_landing();
+  test_timed_boundary_tap_ownership();
+  test_timed_replicate_selected_copy();
+  test_timed_vertex_replicate_selected_copy();
   test_temporal_capture_matches_exhaustive_oracle();
   test_temporal_capture_column_matches_composed_time();
   test_temporal_capture_tilted_axis_within_half_column();

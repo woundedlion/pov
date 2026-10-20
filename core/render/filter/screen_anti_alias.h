@@ -24,6 +24,146 @@ HS_O3_BEGIN
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
+  static constexpr bool has_boundary_splat =
+      true; ///< Provides a separate boundary splat.
+  /** @brief Splats a timed sample with arm-boundary tap ownership.
+   * @param x Column coordinate.
+   * @param y Row coordinate.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param time Frame fraction.
+   * @param pass Downstream tap continuation.
+   * @param evaluator Optional pure tap-time geometry and shading. */
+  template <typename PassFnT>
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  plot_at(float x, float y, const ::Pixel &c, float age, float alpha,
+          float time, PassFnT &&pass,
+          const Temporal::BoundaryEvaluator *evaluator = nullptr) {
+    const bool boundary =
+        Temporal::temporal_sampling_enabled() &&
+        ((evaluator && evaluator->force_timing) ||
+         fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f);
+    if (boundary) {
+      plot_boundary(x, y, c, age, alpha, time, pass, evaluator);
+      return;
+    }
+    if (evaluator && !evaluator->sample_exists)
+      return;
+    plot(x, y, c, age, alpha, pass);
+  }
+
+  /** @brief Emits a sample with own-time tap evaluation.
+   * @tparam PassFnT Downstream tap continuation type.
+   * @param x,y Projected sample coordinates.
+   * @param c,age,alpha Shading registers.
+   * @param time Owning arm fraction.
+   * @param pass Downstream tap continuation.
+   * @param evaluator Optional pure tap-time geometry and shading. */
+  template <typename PassFnT>
+  HS_HOT_INLINE void
+  plot_boundary_at(float x, float y, const ::Pixel &c, float age, float alpha,
+                   float time, PassFnT &pass,
+                   const Temporal::BoundaryEvaluator *evaluator) {
+    plot_boundary(x, y, c, age, alpha, time, pass, evaluator);
+  }
+
+private:
+  /** @brief Emits the taps belonging to one column of a projected splat.
+   * @tparam PassFnT Downstream tap continuation type.
+   * @param x,y Projected coordinates at the column time.
+   * @param c,age,alpha Shading registers.
+   * @param column Wrapped destination column.
+   * @param pass Downstream tap continuation. */
+  template <typename PassFnT>
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  plot_owned_column(float x, float y, const ::Pixel &c, float age, float alpha,
+                    int column, PassFnT &pass) {
+    assert(age >= 0.0f && alpha >= 0.0f);
+    const SplatTaps t = splat_taps<W, H>(x, y);
+    if constexpr (W > 1) {
+      if (column != t.x0 && column != t.x1)
+        return;
+      const float TOP = column == t.x0 ? t.v00 : t.v10;
+      const float BOTTOM = column == t.x0 ? t.v01 : t.v11;
+      if (t.y0_physical && TOP > SPLAT_TAP_CUTOFF)
+        pass(static_cast<float>(column), static_cast<float>(t.y0), c, age,
+             alpha * TOP);
+      if (t.y1_physical && BOTTOM > SPLAT_TAP_CUTOFF)
+        pass(static_cast<float>(column), static_cast<float>(t.y1), c, age,
+             alpha * BOTTOM);
+      return;
+    }
+    if (t.y0_physical && t.x0 == column && t.v00 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x0), static_cast<float>(t.y0), c, age,
+           alpha * t.v00);
+    if (t.y0_physical && t.x1 == column && t.v10 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x1), static_cast<float>(t.y0), c, age,
+           alpha * t.v10);
+    if (t.y1_physical && t.x0 == column && t.v01 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x0), static_cast<float>(t.y1), c, age,
+           alpha * t.v01);
+    if (t.y1_physical && t.x1 == column && t.v11 > SPLAT_TAP_CUTOFF)
+      pass(static_cast<float>(t.x1), static_cast<float>(t.y1), c, age,
+           alpha * t.v11);
+  }
+
+  /** @brief Splats kept columns at their owned times.
+   * @tparam PassFnT Downstream tap continuation type.
+   * @param x,y Projected sample coordinates.
+   * @param c Source color.
+   * @param age,alpha Source age and opacity.
+   * @param time Owning arm fraction.
+   * @param pass Downstream tap continuation.
+   * @param evaluator Optional pure tap-time geometry and shading. */
+  template <typename PassFnT>
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  plot_boundary(float x, float y, const ::Pixel &c, float age, float alpha,
+                float time, PassFnT &pass,
+                const Temporal::BoundaryEvaluator *evaluator) {
+    if (evaluator) {
+      const auto original = splat_taps<W, H>(x, y);
+      const int columns[] = {original.x0, original.x1};
+      for (int column : columns) {
+        const float at =
+            Temporal::column_fraction<W>(static_cast<float>(column));
+        if (fabsf(at - time) > 0.5f)
+          continue;
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::boundary_evaluations>();
+        math::PixelCoords position;
+        ::Pixel color;
+        float tap_age = age, opacity = alpha;
+        if (!evaluator->evaluate(evaluator->context, at, position, color,
+                                 tap_age, opacity))
+          continue;
+        plot_owned_column(position.x, position.y, color, tap_age, opacity,
+                          column, pass);
+      }
+      return;
+    }
+    plot_boundary_static(x, y, c, age, alpha, time, pass);
+  }
+
+  /** @brief Filters a stationary splat by arm-pass ownership.
+   * @tparam PassFnT Downstream tap continuation type.
+   * @param x,y Projected sample coordinates.
+   * @param c,age,alpha Shading registers.
+   * @param time Owning arm fraction.
+   * @param pass Downstream tap continuation. */
+  template <typename PassFnT>
+  HS_HOT_FLASH_MEMBER void
+  plot_boundary_static(float x, float y, const ::Pixel &c, float age,
+                       float alpha, float time, PassFnT &pass) {
+    plot(x, y, c, age, alpha,
+         [&](float nx, float ny, const ::Pixel &nc, float nage, float nalpha)
+             HS_HOT_INLINE {
+               if (fabsf(Temporal::column_fraction<W>(nx) - time) <= 0.5f)
+                 pass(nx, ny, nc, nage, nalpha);
+             });
+  }
+
+public:
   /// Splat taps land up to one pixel away.
   static constexpr int segment_margin = 1;
   /// Taps land on integer pixel coordinates.

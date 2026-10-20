@@ -18,6 +18,7 @@
 #include "core/math/3dmath.h"
 #include "core/color/pixel.h"       // Pixel
 #include "core/platform/platform.h" // Fn
+#include "core/render/temporal.h"
 
 namespace math {
 struct Basis;
@@ -334,7 +335,7 @@ inline bool pipeline_could_intersect_clip(PipelineT &pipeline,
  */
 class PipelineRef {
   /** @brief Tag selecting the type-erasing constructor. */
-  struct Erase {};
+  template <bool Timed> struct Erase {};
 
   void *ctx;
   void (*plot2d)(void *, Canvas &, float, float, const Pixel &, float, float);
@@ -343,12 +344,46 @@ class PipelineRef {
                  float);
   bool (*cull)(void *, const math::Vector &, const math::Vector &,
                const math::Basis *, CullEdgePredRef);
+  /** @brief Shared entries used only by geometry-callback draws. */
+  struct TimedEntries {
+    /** @brief Evaluates world stages without projection. */
+    math::Vector (*world)(void *, Canvas &, const math::Vector &, float);
+    /** @brief Projects an explicitly timed point. */
+    math::PixelCoords (*probe)(void *, Canvas &, const math::Vector &, float);
+    /** @brief Plots an explicitly timed point. */
+    float (*plot)(void *, Canvas &, const math::Vector &, const Pixel &, float,
+                  float, float, const Temporal::ColumnPrediction *);
+    /** @brief Plots a sample after the world stages. */
+    float (*transformed_plot)(void *, Canvas &, const math::Vector &,
+                              const Pixel &, float, float, float,
+                              const Temporal::ColumnPrediction *);
+    /** @brief Plots an already-projected timed sample. */
+    float (*projected_plot)(void *, Canvas &, math::PixelCoords, const Pixel &,
+                            float, float, float,
+                            const Temporal::ColumnPrediction *);
+    bool rigid; ///< World stages can run at controls.
+    /** @brief Returns the angular world-stage motion bound. */
+    float (*bound)(void *);
+    /** @brief Returns the spatial copy count. */
+    int (*copies)(void *);
+    /** @brief Selects one spatial copy. */
+    void (*select)(void *, int);
+  };
+  /** @brief Shared timed entries, absent on ordinary refs. */
+  const TimedEntries *timed_entries = nullptr;
 
+  /** @brief Binds ordinary plot and cull entries. */
   template <typename T>
-  PipelineRef(T &t, Erase)
+  PipelineRef(T &t, Erase<false>)
       : ctx(std::addressof(t)), world_transform_is_identity([] {
           if constexpr (requires { T::world_transform_is_identity; })
             return T::world_transform_is_identity;
+          else
+            return true;
+        }()),
+        has_temporal_motion([] {
+          if constexpr (requires { T::has_temporal_motion; })
+            return T::has_temporal_motion;
           else
             return true;
         }()) {
@@ -371,9 +406,232 @@ class PipelineRef {
     };
   }
 
+  /** @brief Evaluates an erased pipeline's world stages.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Target canvas.
+   * @param v Source point.
+   * @param time Frame fraction.
+   * @return World-space point. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static math::Vector
+  timed_world_entry(void *pipeline, Canvas &cv, const math::Vector &v,
+                    float time) {
+    if constexpr (requires(T &p) { p.world_at(cv, v, time); })
+      return static_cast<T *>(pipeline)->world_at(cv, v, time);
+    else
+      return v;
+  }
+
+  /** @brief Projects an erased pipeline without writing.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Target canvas.
+   * @param v Source point.
+   * @param time Frame fraction.
+   * @return Projected column and row. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static math::PixelCoords
+  timed_probe_entry(void *pipeline, Canvas &cv, const math::Vector &v,
+                    float time) {
+    return static_cast<T *>(pipeline)->probe(cv, v, time);
+  }
+
+  /** @brief Emits an erased timed point through its acceptance gate.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Target canvas.
+   * @param v Source point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Opacity.
+   * @param time Frame fraction.
+   * @param prediction Optional column acceptance window.
+   * @return Unwrapped landed column. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static float
+  timed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
+                   const Pixel &c, float age, float alpha, float time,
+                   const Temporal::ColumnPrediction *prediction) {
+    auto &sink = *static_cast<T *>(pipeline);
+    if constexpr (requires {
+                    sink.plot_at(cv, v, c, age, alpha, time, prediction);
+                  }) {
+      return sink.plot_at(cv, v, c, age, alpha, time, prediction);
+    } else {
+      const auto p = sink.probe(cv, v, time);
+      const auto unwrap = [&](auto &frame) HS_HOT_INLINE {
+        return prediction ? prediction->unwrap(p.x, frame.width()) : p.x;
+      };
+      const float landed = unwrap(cv);
+      if (!prediction ||
+          (prediction->record_sample && prediction->accepts(landed)))
+        sink.plot_at(cv, v, c, age, alpha, time);
+      return landed;
+    }
+  }
+
+  /** @brief Dispatches an already-transformed sample.
+   * @tparam T Concrete pipeline.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  template <typename T>
+  HS_HOT_INLINE static float
+  transformed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
+                         const Pixel &c, float age, float alpha, float t,
+                         const Temporal::ColumnPrediction *prediction) {
+    if constexpr (requires(T &p) {
+                    p.plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+                  })
+      return static_cast<T *>(pipeline)->plot_transformed_at(
+          cv, v, c, age, alpha, t, prediction);
+    else
+      return timed_plot_entry<T>(pipeline, cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Dispatches an already-projected timed sample.
+   * @tparam T Concrete pipeline.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  template <typename T>
+  HS_HOT_INLINE static float
+  projected_plot_entry(void *pipeline, Canvas &cv, math::PixelCoords p,
+                       const Pixel &c, float age, float alpha, float t,
+                       const Temporal::ColumnPrediction *prediction) {
+    if constexpr (requires(T &v) {
+                    v.plot_projected_at(cv, p, c, age, alpha, t, prediction);
+                  })
+      return static_cast<T *>(pipeline)->plot_projected_at(cv, p, c, age, alpha,
+                                                           t, prediction);
+    else {
+      static_cast<T *>(pipeline)->plot(cv, p.x, p.y, c, age, alpha);
+      return p.x;
+    }
+  }
+
+  /** @brief Applies an erased pipeline's timed cull chain.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param a,b Source edge endpoints.
+   * @param pb Optional planar basis.
+   * @param pred Downstream visibility predicate.
+   * @return Whether the edge can intersect the clip. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static bool
+  timed_cull_entry(void *pipeline, const math::Vector &a, const math::Vector &b,
+                   const math::Basis *pb, CullEdgePredRef pred) {
+    if constexpr (requires(T &p) {
+                    p.could_intersect_timed_clip(a, b, pb, pred);
+                  })
+      return static_cast<T *>(pipeline)->could_intersect_timed_clip(a, b, pb,
+                                                                    pred);
+    return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b, pb,
+                                         pred);
+  }
+
+  /** @brief Adds timed entries to the ordinary plot interface. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER PipelineRef(T &t, Erase<true>)
+      : PipelineRef(t, Erase<false>{}) {
+    cull = timed_cull_entry<T>;
+    static constexpr TimedEntries entries{
+        timed_world_entry<T>,
+        timed_probe_entry<T>,
+        timed_plot_entry<T>,
+        transformed_plot_entry<T>,
+        projected_plot_entry<T>,
+        []() HS_HOT_INLINE {
+          if constexpr (requires { T::rigid_world_stages; })
+            return T::rigid_world_stages;
+          else
+            return false;
+        }(),
+        [](void *pipeline) HS_HOT_INLINE {
+          if constexpr (requires(T &p) { p.cull_bound(); })
+            return static_cast<T *>(pipeline)->cull_bound();
+          else
+            return 0.0f;
+        },
+        [](void *pipeline) HS_HOT_INLINE {
+          if constexpr (requires(T &p) { p.copy_count(); })
+            return static_cast<T *>(pipeline)->copy_count();
+          else
+            return 1;
+        },
+        [](void *pipeline, int copy) HS_HOT_INLINE {
+          if constexpr (requires(T &p) { p.select_copy(copy); })
+            static_cast<T *>(pipeline)->select_copy(copy);
+        }};
+    timed_entries = &entries;
+  }
+
 public:
+  /** @brief Moving-stage angular bound of a timed pipeline.
+   * @return Bound in radians, or zero for an untimed ref. */
+  float cull_bound() const {
+    return timed_entries ? timed_entries->bound(ctx) : 0.0f;
+  }
+  /** @brief Number of independently walked spatial copies.
+   * @return Copy count, or one for an untimed ref. */
+  int copy_count() const {
+    return timed_entries ? timed_entries->copies(ctx) : 1;
+  }
+  /** @brief Selects one fixed spatial copy.
+   * @param copy Flattened copy index. */
+  void select_copy(int copy) const {
+    if (timed_entries)
+      timed_entries->select(ctx, copy);
+  }
+  /** @brief Whether world transformations can run at controls.
+   * @return True for a fully rigid, history-free world chain. */
+  bool rigid_world_stages() const {
+    return timed_entries && timed_entries->rigid;
+  }
+
+  /** @brief Plots after already-evaluated world transformations.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_transformed_at(Canvas &cv, const math::Vector &v, const Pixel &c,
+                      float age, float alpha, float t,
+                      const Temporal::ColumnPrediction *prediction) const {
+    return timed_entries->transformed_plot(ctx, cv, v, c, age, alpha, t,
+                                           prediction);
+  }
+
+  /** @brief Emits a projected sample through screen stages.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_projected_at(Canvas &cv, math::PixelCoords p, const Pixel &c, float age,
+                    float alpha, float t,
+                    const Temporal::ColumnPrediction *prediction) const {
+    return timed_entries->projected_plot(ctx, cv, p, c, age, alpha, t,
+                                         prediction);
+  }
+
   /** @brief Whether the erased pipeline leaves world positions unchanged. */
   bool world_transform_is_identity;
+  /** @brief Whether a stage evaluates world motion over a frame. */
+  bool has_temporal_motion;
 
   /**
    * @brief Wraps any object exposing 2D and 3D plot() methods.
@@ -384,7 +642,14 @@ public:
   template <typename T>
     requires(Plottable<T> && !std::same_as<std::decay_t<T>, PipelineRef> &&
              !pipeline_direct_raster_path<std::decay_t<T>>())
-  PipelineRef(T &t) : PipelineRef(t, Erase{}) {}
+  PipelineRef(T &t) : PipelineRef(t, Erase<false>{}) {}
+
+  /** @brief Borrows a pipeline with explicit-time projection and plotting.
+   * @param t Pipeline exposing probe and plot_at.
+   * @details The pipeline must outlive this ref. */
+  template <typename T>
+    requires(!pipeline_direct_raster_path<std::decay_t<T>>())
+  PipelineRef(T &t, Temporal::Timed) : PipelineRef(t, Erase<true>{}) {}
 
   /**
    * @brief Erases a direct-raster sink for a draw into @p cv.
@@ -395,9 +660,102 @@ public:
    */
   template <typename T>
     requires(Plottable<T> && pipeline_direct_raster_path<std::decay_t<T>>())
-  PipelineRef(T &t, Canvas &cv) : PipelineRef(t, Erase{}) {
+  PipelineRef(T &t, Canvas &cv) : PipelineRef(t, Erase<false>{}) {
     HS_CHECK(t.prepared_for(cv),
              "direct raster pipeline not prepared for this canvas");
+  }
+
+  /** @brief Borrows a prepared direct sink with explicit-time entry points.
+   * @param t Direct sink.
+   * @param cv Prepared canvas. */
+  template <typename T>
+    requires(pipeline_direct_raster_path<std::decay_t<T>>())
+  PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Temporal::Timed)
+      : PipelineRef(t, Erase<true>{}) {
+    assert(t.prepared_for(cv));
+  }
+
+  /** @brief Evaluates world stages without projection or history recording.
+   * @param cv Frame context.
+   * @param v Source point.
+   * @param t Frame fraction.
+   * @return Transformed world point. */
+  math::Vector world_at(Canvas &cv, const math::Vector &v, float t) const {
+    assert(timed_entries);
+    return timed_entries->world(ctx, cv, v, t);
+  }
+
+  /** @brief Projects without plotting or recording.
+   * @param cv Frame context.
+   * @param v World point.
+   * @param t Frame fraction.
+   * @return Column and row through the world stages. */
+  math::PixelCoords probe(Canvas &cv, const math::Vector &v, float t) const {
+    assert(timed_entries);
+    return timed_entries->probe(ctx, cv, v, t);
+  }
+
+  /** @brief Plots a world point at its supplied frame fraction.
+   * @param cv Frame context.
+   * @param v World point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param prediction Optional pre-write landing window.
+   * @return Landed column, unwrapped near the prediction. */
+  float plot_at(Canvas &cv, const math::Vector &v, const Pixel &c, float age,
+                float alpha, float t,
+                const Temporal::ColumnPrediction *prediction = nullptr) const {
+    assert(timed_entries);
+    return timed_entries->plot(ctx, cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Solves and plots one geometry callback at each arm pass.
+   * @tparam W,H Canvas dimensions.
+   * @param cv Frame context.
+   * @param geometry Pure position callback.
+   * @param bound Combined geometry and world-stage motion bound.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param linear_pair The callback interpolates two lattice positions. */
+  template <int W, int H, typename Geometry>
+  void plot_timed(Canvas &cv, Geometry &&geometry, Temporal::MotionBound bound,
+                  const Pixel &c, float age, float alpha,
+                  bool linear_pair = false) const {
+    auto position = [&](float t) HS_HOT_INLINE {
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::callback_evaluations>();
+      return geometry(t);
+    };
+    if (!Temporal::temporal_sampling_enabled()) {
+      plot_at(cv, position(1.0f), c, age, alpha, 1.0f);
+      return;
+    }
+    auto project = [&](float t)
+                       HS_HOT_INLINE { return probe(cv, position(t), t); };
+    Temporal::count_geometry<&Temporal::GeometryCounters::end_probes>();
+    const auto end = project(1.0f);
+    const auto passes = Temporal::solve_capture<W>(
+        project, end, bound.columns<W, H>(end.y), linear_pair);
+    auto evaluate_boundary = [&](float t, math::PixelCoords &p, Pixel &color,
+                                 float &sample_age, float &opacity)
+                                 HS_HOT_INLINE {
+                                   p = project(t);
+                                   color = c;
+                                   sample_age = age;
+                                   opacity = alpha;
+                                   return true;
+                                 };
+    Temporal::BoundaryEvaluator boundary(evaluate_boundary);
+    for (int i = 0; i < passes.count; ++i) {
+      const float t = passes.fraction[i];
+      Temporal::ColumnPrediction prediction{
+          end.x, std::numeric_limits<float>::infinity()};
+      prediction.boundary = &boundary;
+      plot_at(cv, position(t), c, age, alpha, t, &prediction);
+    }
   }
 
   /**

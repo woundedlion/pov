@@ -24,6 +24,7 @@ namespace World {
  */
 template <int W> class Replicate : public Is3D {
 public:
+  static constexpr bool rigid_world_transform = true; ///< Preserves geodesics.
   /**
    * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
    * @param count Desired copy count; clamped to [1, W].
@@ -36,8 +37,61 @@ public:
    */
   void set_count(int new_count) {
     count = hs::clamp(new_count, 1, W);
+    selected_copy = std::min(selected_copy, count - 1);
     step = math::make_rotation(math::Y_AXIS, 2 * math::PI_F / count);
   }
+  /** @brief Number of independently walked spatial copies.
+   * @return Available spatial copy count. */
+  int copy_count() const { return count; }
+
+  /** @brief Selects the spatial copy used by timed operations.
+   * @param index Copy index, clamped to the available copies. */
+  void select_copy(int index) {
+    selected_copy = hs::clamp(index, 0, count - 1);
+  }
+
+  /** @brief Evaluates the selected spatial copy.
+   * @param cv Canvas identifying the frame.
+   * @param v Source point.
+   * @param t Frame fraction, unchanged by spatial replication.
+   * @return Point transformed for the selected copy. */
+  HS_HOT_INLINE math::Vector at_time(const Canvas &cv, const math::Vector &v,
+                                     float t) const {
+    (void)cv;
+    (void)t;
+    return selected_point(v);
+  }
+
+  /** @brief Emits only the selected copy for a timed walk.
+   * @param cv Canvas identifying the frame.
+   * @param v Source point.
+   * @param color Source color.
+   * @param age Source age.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param pass Downstream world continuation. */
+  template <typename PassFnT>
+  HS_HOT_INLINE void plot_at(Canvas &cv, const math::Vector &v,
+                             const ::Pixel &color, float age, float alpha,
+                             float t, PassFnT &&pass) const {
+    pass(at_time(cv, v, t), color, age, alpha);
+  }
+
+  /** @brief Culls only the selected spatial copy.
+   * @param a,b Source edge endpoints.
+   * @param pb Optional source planar basis.
+   * @param forward Downstream cull continuation.
+   * @return The selected copy's visibility verdict. */
+  template <typename FwdFn>
+  bool cull_edge_timed(const math::Vector &a, const math::Vector &b,
+                       const math::Basis *pb, FwdFn &&forward) const {
+    if (!pb)
+      return forward(selected_point(a), selected_point(b), nullptr);
+    const math::Basis transformed{selected_point(pb->u), selected_point(pb->v),
+                                  selected_point(pb->w)};
+    return forward(selected_point(a), selected_point(b), &transformed);
+  }
+
   /**
    * @brief Emits the point plus count-1 rotated copies around the Y axis.
    * @param v World-space point to replicate; must be near unit length.
@@ -96,6 +150,20 @@ public:
   }
 
 private:
+  /** @brief Transforms a point into the selected copy.
+   * @param v Source point.
+   * @return Selected copy position. */
+  HS_HOT_INLINE math::Vector selected_point(const math::Vector &v) const {
+    math::Vector r = v;
+    for (int i = 0; i < selected_copy; ++i) {
+      r = math::rotate(r, step);
+      r = r * (1.5f - 0.5f * math::dot(r, r));
+    }
+    return r;
+  }
+
+  int selected_copy = 0; /**< Copy fixed for the current timed walk. */
+
   /**
    * @brief Renormalizes a chained-rotation basis.
    * @param b Basis to restore to unit axes in place.
