@@ -311,7 +311,7 @@ struct DistortedRingStack {
    * output matches rasterizing the rings one by one under suppress_pole_fill,
    * to float rounding, when each plot writes one destination pixel.
    * Does not read canvas.debug(). Honours the canvas's column-time basis and
-   * ignores its birth fraction.
+   * render-x window and ignores its birth fraction.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT,
             typename ShapeRange>
@@ -438,6 +438,7 @@ struct DistortedRingStack {
     }
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const auto xc = cr.x_clip();
+    const WindowPieces pieces = window_pieces<W>(xc, canvas.render_x_window());
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
     if (y_lo > y_hi)
@@ -463,7 +464,7 @@ struct DistortedRingStack {
       const float cp = math::TrigLUT<W, H>::cos_phi[y];
       if (skip_pole_rows && std::abs(ap.r_val * sp) < SDF::INTERVAL_DENOM_EPS)
         continue;
-      walk_clip_columns_once<W>(xc, [&](int x) __attribute__((always_inline)) {
+      walk_pieces_once(pieces, [&](int x) __attribute__((always_inline)) {
         math::Vector p;
         if constexpr (COLUMN_TIME)
           p = rotated_direction<W>(azimuth, up, x, sp, cp);

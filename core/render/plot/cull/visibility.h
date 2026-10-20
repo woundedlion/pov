@@ -414,10 +414,13 @@ for_each_chunk_span(int lut_n, uint32_t mask, OnVisible &&on_visible,
 }
 
 /**
- * @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding.
- * @tparam H Canvas height.
+ * @brief Ring azimuth chunks whose caps pass a reach test, padded for stroke
+ * and column rounding.
  * @tparam CHUNKS Number of azimuth chunks, in [1, 31].
- * @param clip Render region.
+ * @tparam CapTest Callable `bool(const math::Vector &mid, float reach,
+ *         float sin_reach)`, false only when a cap about `mid` of radius
+ *         `reach` cannot light the region.
+ * @param reaches The region's cap test.
  * @param basis Ring basis; midpoint azimuths are in its u-w plane.
  * @param theta Ring colatitude about basis.v, radians.
  * @param cos_t cosf(theta).
@@ -426,17 +429,16 @@ for_each_chunk_span(int lut_n, uint32_t mask, OnVisible &&on_visible,
  * @param thickness Stroke angular width used to widen chunk ownership.
  * @param chunk_cos CHUNKS midpoint azimuth cosines.
  * @param chunk_sin CHUNKS midpoint azimuth sines, paired with chunk_cos.
- * @return Bit c marks visible chunk c; zero when the ring misses the clip,
+ * @return Bit c marks visible chunk c; zero when the ring misses the region,
  * and all CHUNKS bits when the pad spans the ring.
  * @details Chunk c owns [ceil(c*n/CHUNKS), ceil((c+1)*n/CHUNKS)) bake columns.
  * The minimum one-chunk pad covers the rounded column overhang.
  */
-template <int H, int CHUNKS>
+template <int CHUNKS, typename CapTest>
 __attribute__((always_inline)) inline uint32_t
-visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
-                   float theta, float cos_t, float sin_t, float band_r,
-                   float thickness, const float *chunk_cos,
-                   const float *chunk_sin) {
+chunk_mask_where(CapTest &&reaches, const math::Basis &basis, float theta,
+                 float cos_t, float sin_t, float band_r, float thickness,
+                 const float *chunk_cos, const float *chunk_sin) {
   static_assert(CHUNKS > 0 && CHUNKS < 32);
   constexpr uint32_t MASK = (1u << CHUNKS) - 1;
   const float chunk_reach = (math::PI_F / CHUNKS) * sin_t + band_r;
@@ -446,7 +448,7 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
     math::Vector mid =
         (basis.v * cos_t) +
         ((basis.u * chunk_cos[c]) + (basis.w * chunk_sin[c])) * sin_t;
-    if (cap_may_touch_clip<H>(clip, mid, chunk_reach, sin_reach))
+    if (reaches(mid, chunk_reach, sin_reach))
       raw |= 1u << c;
   }
   if (!raw)
@@ -469,6 +471,75 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
     visible |=
         (raw << k) | (raw >> (CHUNKS - k)) | (raw >> k) | (raw << (CHUNKS - k));
   return visible & MASK;
+}
+
+/**
+ * @brief Ring azimuth chunks reaching a clip, padded for stroke and column rounding.
+ * @tparam H Canvas height.
+ * @tparam CHUNKS Number of azimuth chunks, in [1, 31].
+ * @param clip Render region.
+ * @param basis Ring basis; midpoint azimuths are in its u-w plane.
+ * @param theta Ring colatitude about basis.v, radians.
+ * @param cos_t cosf(theta).
+ * @param sin_t sinf(theta).
+ * @param band_r Angular displacement bound including stroke/AA pad.
+ * @param thickness Stroke angular width used to widen chunk ownership.
+ * @param chunk_cos CHUNKS midpoint azimuth cosines.
+ * @param chunk_sin CHUNKS midpoint azimuth sines, paired with chunk_cos.
+ * @return chunk_mask_where() with cap_may_touch_clip() as the test.
+ */
+template <int H, int CHUNKS>
+__attribute__((always_inline)) inline uint32_t
+visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
+                   float theta, float cos_t, float sin_t, float band_r,
+                   float thickness, const float *chunk_cos,
+                   const float *chunk_sin) {
+  return chunk_mask_where<CHUNKS>(
+      [&](const math::Vector &mid, float reach, float sin_reach)
+          __attribute__((always_inline)) {
+            return cap_may_touch_clip<H>(clip, mid, reach, sin_reach);
+          },
+      basis, theta, cos_t, sin_t, band_r, thickness, chunk_cos, chunk_sin);
+}
+
+/**
+ * @brief Conservative test: can a spherical cap reach a render-x window's
+ *        columns?
+ * @tparam W Even canvas width.
+ * @param window Render-x window; an inactive one admits every cap.
+ * @param dir Cap center direction (unit vector).
+ * @param half_angle Cap angular radius including stroke/AA pad (radians).
+ * @param sin_half_angle sinf(min(half_angle, PI)).
+ * @return False only when no fragment inside the cap can land in a column of
+ * either arm's run of the window.
+ * @details The window's two runs lie half a turn apart, so the cap's
+ * longitude wedge is compared with them modulo half a turn, with one column
+ * of slack as cap_may_touch_clip() takes. Rows are not tested.
+ */
+template <int W>
+__attribute__((always_inline)) inline bool
+cap_may_touch_window(const ColumnWindow &window, const math::Vector &dir,
+                     float half_angle, float sin_half_angle) {
+  if (!window.active)
+    return true;
+  const float t2 = fminf(half_angle, math::PI_F);
+  const float y = hs::clamp(dir.y, -1.0f, 1.0f);
+  const float beta = math::fast_acos(y);
+  if (beta <= t2 + CAP_ACOS_PAD || math::PI_F - beta <= t2 + CAP_ACOS_PAD)
+    return true;
+  const float dlam = math::PI_F / 2.0f -
+                     math::fast_acos(hs::clamp(
+                         sin_half_angle / sqrtf(1.0f - y * y), 0.0f, 1.0f));
+  constexpr float COLUMN = math::TWO_PI_F / W;
+  const float half_width =
+      (static_cast<float>(window.end - window.begin) * 0.5f + 1.0f) * COLUMN;
+  const float middle =
+      static_cast<float>(window.begin + window.end) * 0.5f * COLUMN;
+  const float longitude = math::fast_atan2(dir.z, dir.x);
+  const float distance =
+      fabsf(math::wrap_t((longitude - middle) / math::PI_F + 0.5f) - 0.5f) *
+      math::PI_F;
+  return distance <= dlam + half_width + CAP_ACOS_PAD + CAP_ATAN2_PAD;
 }
 
 /**

@@ -137,6 +137,8 @@ inline int run_scan_tests() {
   test_ring_group_previous_axes_match_column_rings();
   test_ring_group_column_rows_cover_band();
   test_object_column_basis_matches_rotated_meridian();
+  test_ring_stack_honours_render_window();
+  test_cap_may_touch_window_covers_window_pixels();
   test_timed_shader_reads_column_sweep_time();
   test_face_palette_shader_moves_at_column_time();
   test_volume_timed_shader_reads_column_sweep_time();
