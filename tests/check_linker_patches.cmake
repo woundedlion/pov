@@ -41,6 +41,15 @@ else()
     endif()
   endforeach()
 
+  foreach(_hot_route IN ITEMS
+      "*(.text._ZN4Plot18walk_rigid_samplesI*)"
+      "*(.text._ZN4Plot15walk_dense_runsI*)")
+    string(FIND "${_script}" "${_hot_route}" _hot_at)
+    if(_hot_at LESS _itcm_at)
+      list(APPEND _missing "timed hot route missing from ITCM: ${_hot_route}")
+    endif()
+  endforeach()
+
   # Cold library code and the per-effect factories leave ITCM.
   set(_flash_text
     "*libm.a:*(.text .text.*)"
@@ -50,7 +59,34 @@ else()
     "*libgcc.a:*(.text .text.*)"
     "*libFrameworkArduino.a:usb.c.o(.text .text.*)"
     "*libFrameworkArduino.a:usb_serial.c.o(.text .text.*)"
-    "*(.text.*construct_effect*)")
+    "*(.text.*construct_effect*)"
+    "*(.text.*construct_profiled*)"
+    "*(.text._ZN8SPIClass16beginTransactionE*)"
+    "*(.text._ZN2hs12CycleCounter8log_nodeE*)"
+    "*(.text._ZN4math6detail15upsample_framesE*)"
+    "*(.text._ZZN12POVSegmentedI*8run_showI*)"
+    "*(.text.*ProfiledEffect*10draw_frameEv*)"
+    "*(.text._ZN6Effect18update_render_clipEv*)"
+    "*(.text._ZN6Effect8set_clipE*)"
+    "*(.text._ZN9Animation6MotionI*4stepER6Canvas)"
+    "*(.text._ZNK9Animation6MotionI*10path_frameEf)"
+    "*(.text._ZN9Animation8RotationI*4stepER6Canvas)"
+    "*(.text._ZN9Animation10RandomWalkI*4stepER6Canvas)"
+    "*(.text._ZN9Animation26PausableParamAnimationBaseI*4stepER6Canvas)"
+    "*(.text._ZN9Animation14MobiusWarpBaseI*4stepER6Canvas)"
+    "*(.text._ZN9Animation18MobiusWarpEvolving4stepER6Canvas)"
+    "*(.text._ZN9Animation6Ripple4stepER6Canvas)"
+    "*(.text._ZN9Animation5Noise4stepER6Canvas)"
+    "*(.text._ZN9Animation12NoiseProduct4stepER6Canvas)"
+    "*(.text._ZN9Animation8BallDropI*4stepER6Canvas)"
+    "*(.text._ZN3SDF4FaceC1E*)"
+    "*(.text._ZN3SDF4FaceC2E*)"
+    "*(.text._ZN3SDF4Face19compute_full_boundsE*)"
+    "*(.text._ZN5Arena4makeIN8Pullback14ComposedEffectI*5StateE*)"
+    "*(.text._ZN8Pullback14ComposedEffectI*5StateC1Ev)"
+    "*(.text._ZN8Pullback14ComposedEffectI*5StateC2Ev)"
+    "*(.text._ZN8Pullback15TemporalHistoryI*C1Ev)"
+    "*(.text._ZN8Pullback15TemporalHistoryI*C2Ev)")
   foreach(_spec IN LISTS _flash_text)
     string(FIND "${_script}" "${_spec}" _spec_at)
     if(_spec_at LESS _code_at OR NOT _spec_at LESS _progmem_at)

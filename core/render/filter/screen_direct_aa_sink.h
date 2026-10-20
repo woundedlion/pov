@@ -157,7 +157,7 @@ public:
    * @brief Caches the current frame's framebuffer and clip bounds.
    * @param cv Canvas about to be drawn; must be W x H.
    */
-  void prepare(Canvas &cv) {
+  HS_HOT_FLASH_MEMBER void prepare(Canvas &cv) {
     HS_CHECK(cv.width() == W && cv.height() == H,
              "DirectAntiAliasSink: framebuffer dimensions do not match");
     base = cv.data();
@@ -179,7 +179,7 @@ public:
    * double-buffers, so the clip bounds are stamped alongside it.
    * @return True when no re-prepare is needed.
    */
-  bool prepared_for(Canvas &cv) const {
+  HS_HOT_FLASH_MEMBER bool prepared_for(Canvas &cv) const {
     return base == cv.data() && clip_stamp == cv.clip();
   }
 
@@ -323,9 +323,9 @@ public:
    * @return pred(a, b, planar_basis).
    */
   template <typename Pred>
-  bool could_intersect_clip(const math::Vector &a, const math::Vector &b,
-                            const math::Basis *planar_basis,
-                            Pred &&pred) const {
+  HS_HOT_FLASH_MEMBER bool
+  could_intersect_clip(const math::Vector &a, const math::Vector &b,
+                       const math::Basis *planar_basis, Pred &&pred) const {
     return pred(a, b, planar_basis);
   }
 
