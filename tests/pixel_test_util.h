@@ -391,7 +391,7 @@ inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
   return out;
 }
 
-/** @brief Largest share of a held frame's seam error a motion-slab frame
+/** @brief Largest share of a held frame's seam error a deformed-mesh frame
  *  keeps. */
 inline constexpr double MOTION_SEAM_RATIO = 0.4;
 
