@@ -28,6 +28,8 @@ namespace Screen {
 HS_O3_BEGIN
 template <int W, int H> class DirectAntiAliasSink : public IsPipelineSink {
 public:
+  static constexpr bool rigid_world_stages =
+      true; ///< No world transformations.
   /// Output stays in its segment band.
   static constexpr bool any_crosses_segments = false;
   /// Never samples outside the band.
@@ -47,6 +49,91 @@ public:
 
   /** @brief This sink owns no arena storage. */
   void init_storage(Arena &) {}
+
+  /** @brief Returns a world point without projection.
+   * @param v Source point.
+   * @return Unchanged world point. */
+  math::Vector world_at(Canvas &, const math::Vector &v, float) const {
+    return v;
+  }
+
+  /** @brief Projects a world point without writing framebuffer taps.
+   * @param v World point.
+   * @return Column and row. */
+  math::PixelCoords probe(Canvas &, const math::Vector &v, float) const {
+    return math::vector_to_pixel<W, H>(v);
+  }
+
+  /** @brief Plots a world point carrying an explicit frame fraction.
+   * @param cv Target canvas.
+   * @param v World point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param prediction Optional pre-write landing window.
+   * @return Landed column, unwrapped near the prediction. */
+  float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
+                float alpha, float t,
+                const Temporal::ColumnPrediction *prediction = nullptr) {
+    return plot_projected_at(cv, math::vector_to_pixel<W, H>(v), c, age, alpha,
+                             t, prediction);
+  }
+
+  /** @brief Emits a projected sample through screen stages.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
+                    float age, float alpha, float t,
+                    const Temporal::ColumnPrediction *prediction) {
+    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
+    if (prediction && !prediction->accepts(landed))
+      return landed;
+    AntiAlias<W, H> aa;
+    aa.plot_at(
+        p.x, p.y, c, age, alpha, t,
+        [&](float x, float y, const ::Pixel &nc, float nage,
+            float nalpha) HS_HOT_INLINE {
+          plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage, nalpha);
+        },
+        prediction ? prediction->boundary : nullptr);
+    return landed;
+  }
+
+  /** @brief Plots an already-transformed sample.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
+                            float age, float alpha, float t,
+                            const Temporal::ColumnPrediction *prediction) {
+    return plot_at(cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Solves a pure geometry callback before splatting its arm passes.
+   * @param cv Prepared canvas.
+   * @param geometry Position callback.
+   * @param bound Motion bound.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param linear_pair The callback interpolates two lattice positions. */
+  template <typename Geometry>
+  void plot_timed(Canvas &cv, Geometry &&geometry, Temporal::MotionBound bound,
+                  const ::Pixel &c, float age, float alpha,
+                  bool linear_pair = false) {
+    PipelineRef ref(*this, cv, Temporal::Timed{});
+    ref.plot_timed<W, H>(cv, std::forward<Geometry>(geometry), bound, c, age,
+                         alpha, linear_pair);
+  }
 
   /**
    * @brief Direct sinks contain no independently accessible filter stages.

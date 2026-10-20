@@ -110,6 +110,9 @@ template <bool Is2d, bool HasHistory> struct FilterTraits {
       has_history; /**< Samples other bands. */
   static constexpr bool world_transform_is_identity =
       is_2d; /**< Preserves world points. */
+  static constexpr bool rigid_world_transform = is_2d; ///< Safe at controls.
+  static constexpr bool has_temporal_motion =
+      false; /**< Evaluates world motion over a frame. */
   static constexpr int segment_margin =
       0; /**< Maximum screen-space displacement. */
 };
@@ -241,6 +244,10 @@ public:
   /// No stage moves world points.
   static constexpr bool world_transform_is_identity =
       PipelineT::world_transform_is_identity;
+  /// World stages can be evaluated at geometric controls.
+  static constexpr bool rigid_world_stages = PipelineT::rigid_world_stages;
+  /// Some stage evaluates world motion over a frame.
+  static constexpr bool has_temporal_motion = PipelineT::has_temporal_motion;
   /// Writes the framebuffer through a cached base.
   static constexpr bool direct_raster_path = PipelineT::direct_raster_path;
   /// Some stage moves output across bands.
@@ -302,6 +309,88 @@ public:
     pipeline().plot_prepared(cv, v, c, age, alpha);
   }
 
+  /** @brief Plots a world sample at an explicit frame fraction.
+   * @param cv Target canvas.
+   * @param v World point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param prediction Optional pre-write landing window.
+   * @return Landed column, unwrapped near the prediction. */
+  float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
+                float alpha, float t,
+                const Temporal::ColumnPrediction *prediction = nullptr) {
+    return pipeline().plot_at(cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Plots geometry whose world stages have already been evaluated.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
+                            float age, float alpha, float t,
+                            const Temporal::ColumnPrediction *prediction) {
+    return pipeline().plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Emits a projected sample through screen stages.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  float plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
+                          float age, float alpha, float t,
+                          const Temporal::ColumnPrediction *prediction) {
+    return pipeline().plot_projected_at(cv, p, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Evaluates world stages without projection or history recording.
+   * @param cv Frame context.
+   * @param v Source point.
+   * @param t Frame fraction.
+   * @return Transformed world point. */
+  math::Vector world_at(Canvas &cv, const math::Vector &v, float t) {
+    return pipeline().world_at(cv, v, t);
+  }
+
+  /** @brief Projects a timed world point without plotting or recording.
+   * @param cv Frame context.
+   * @param v World point.
+   * @param t Frame fraction.
+   * @return Column and row after the world stages. */
+  math::PixelCoords probe(Canvas &cv, const math::Vector &v, float t) {
+    return pipeline().probe(cv, v, t);
+  }
+
+  /** @brief Sum of world-stage frame motion bounds.
+   * @return Angular bound in radians. */
+  float cull_bound() const { return pipeline().cull_bound(); }
+
+  /** @brief Number of spatial copies in the prepared pipeline.
+   * @return Product of world-stage copy counts. */
+  int copy_count() const { return pipeline().copy_count(); }
+  /** @brief Selects one spatial copy for timed evaluation.
+   * @param copy Flattened copy index. */
+  void select_copy(int copy) { pipeline().select_copy(copy); }
+
+  /** @brief Culls endpoint geometry against a motion-padded predicate.
+   * @param a,b Edge endpoints.
+   * @param pb Optional planar basis.
+   * @param pred Motion-padded visibility predicate.
+   * @return Whether the transformed edge can reach the cull region. */
+  template <typename Pred>
+  HS_HOT_FLASH_MEMBER bool
+  could_intersect_timed_clip(const math::Vector &a, const math::Vector &b,
+                             const math::Basis *pb, Pred &&pred) const {
+    return pipeline().could_intersect_timed_clip(a, b, pb, pred);
+  }
+
   /**
    * @brief Clip-cull test through the pipeline's world stages.
    * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
@@ -353,6 +442,10 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool reads_outside_band = false;
   /// World points pass unmoved.
   static constexpr bool world_transform_is_identity = true;
+  static constexpr bool rigid_world_stages =
+      true; ///< No world transformations.
+  /// No world motion over a frame.
+  static constexpr bool has_temporal_motion = false;
   static constexpr int segment_margin = 0; ///< No tap displacement.
   /// No stage crosses bands.
   static constexpr bool any_crosses_segments = false;
@@ -460,6 +553,101 @@ template <int W, int H> struct Pipeline<W, H> {
             float alpha) {
     auto p = math::vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha);
+  }
+
+  /** @brief Plots an explicitly timed world point at the terminal.
+   * @param cv Target canvas.
+   * @param v World point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param prediction Optional pre-write landing window.
+   * @return Landed column, unwrapped near the prediction. */
+  float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
+                float alpha, float,
+                const Temporal::ColumnPrediction *prediction = nullptr) {
+    const auto p = math::vector_to_pixel<W, H>(v);
+    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
+    if (!prediction || prediction->accepts(landed))
+      plot(cv, p.x, p.y, c, age, alpha);
+    return landed;
+  }
+
+  /** @brief Plots geometry whose world stages have already been evaluated.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
+                            float age, float alpha, float t,
+                            const Temporal::ColumnPrediction *prediction) {
+    return plot_at(cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Emits a projected sample through screen stages.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
+                    float age, float alpha, float,
+                    const Temporal::ColumnPrediction *prediction) {
+    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
+    if (!prediction || prediction->accepts(landed))
+      plot(cv, p.x, p.y, c, age, alpha);
+    return landed;
+  }
+
+  /** @brief Returns the terminal world point without projection.
+   * @param v Source point.
+   * @return Unchanged world point. */
+  math::Vector world_at(Canvas &, const math::Vector &v, float) { return v; }
+
+  /** @brief Projects a world point without plotting.
+   * @param v World point.
+   * @return Column and row. */
+  math::PixelCoords probe(Canvas &, const math::Vector &v, float) {
+    return math::vector_to_pixel<W, H>(v);
+  }
+
+  /** @brief Angular bound of the identity transform.
+   * @return Zero radians. */
+  float cull_bound() const { return 0.0f; }
+
+  /** @brief Number of terminal spatial copies.
+   * @return One. */
+  int copy_count() const { return 1; }
+  /** @brief Selects the terminal identity copy.
+   * @param copy Unused identity index. */
+  void select_copy(int copy) { (void)copy; }
+
+  /** @brief Evaluates a motion-padded predicate on the terminal edge.
+   * @param a,b Edge endpoints.
+   * @param pb Optional planar basis.
+   * @param pred Motion-padded visibility predicate.
+   * @return The predicate's result. */
+  template <typename Pred>
+  HS_HOT_FLASH_MEMBER bool
+  could_intersect_timed_clip(const math::Vector &a, const math::Vector &b,
+                             const math::Basis *pb, Pred &&pred) const {
+    return pred(a, b, pb);
+  }
+
+  /** @brief Writes a timed screen sample at the terminal.
+   * @param cv Target canvas.
+   * @param x Column coordinate.
+   * @param y Row coordinate.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity. */
+  void plot_screen_at(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+                      float alpha, float,
+                      const Temporal::BoundaryEvaluator * = nullptr) {
+    plot(cv, x, y, c, age, alpha);
   }
 
 private:
@@ -593,6 +781,12 @@ struct Pipeline<W, H, Head, Tail...>
   /// Every stage leaves world points unmoved.
   static constexpr bool world_transform_is_identity =
       Head::world_transform_is_identity && Next::world_transform_is_identity;
+  /// Every world stage preserves geodesics without recording history.
+  static constexpr bool rigid_world_stages =
+      Head::rigid_world_transform && Next::rigid_world_stages;
+  /// Some stage evaluates world motion over a frame.
+  static constexpr bool has_temporal_motion =
+      Head::has_temporal_motion || Next::has_temporal_motion;
 
   /**
    * @brief True when any stage overrides cull_edge or moves world points, so
@@ -727,6 +921,234 @@ struct Pipeline<W, H, Head, Tail...>
     requires(!terminal_replaces)
   {
     plot_prepared(cv, v, c, age, alpha);
+  }
+
+  /** @brief Carries an explicit fraction through world stages.
+   * @param cv Target canvas.
+   * @param v World point.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param prediction Optional pre-write landing window.
+   * @return Landed column, unwrapped near the prediction. */
+  HS_HOT_INLINE float
+  plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
+          float alpha, float t,
+          const Temporal::ColumnPrediction *prediction = nullptr) {
+    if constexpr (any_3d_history) {
+      if (prediction) {
+        const auto p = probe(cv, v, t);
+        const float landed = prediction->unwrap(p.x, W);
+        if (!prediction->accepts(landed))
+          return landed;
+      }
+    }
+    if constexpr (Head::is_2d) {
+      const auto p = math::vector_to_pixel<W, H>(v);
+      const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
+      if (!prediction || prediction->accepts(landed))
+        plot_screen_at(cv, p.x, p.y, c, age, alpha, t,
+                       prediction ? prediction->boundary : nullptr);
+      return landed;
+    } else {
+      float landed = std::numeric_limits<float>::quiet_NaN();
+      auto pass = [&](const math::Vector &nv, const ::Pixel &nc, float nage,
+                      float nalpha) HS_HOT_INLINE {
+        landed = next.plot_at(cv, nv, nc, nage, nalpha, t, prediction);
+      };
+      if constexpr (Head::has_history) {
+        if (prediction && !prediction->record_sample) {
+          pass(v, c, age, alpha);
+          return landed;
+        }
+      }
+      if constexpr (requires { Head::plot_at(cv, v, c, age, alpha, t, pass); })
+        Head::plot_at(cv, v, c, age, alpha, t, pass);
+      else
+        Head::plot(v, c, age, alpha, pass);
+      return landed;
+    }
+  }
+
+  /** @brief Plots geometry whose world stages have already been evaluated.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional part acceptance and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
+                      float age, float alpha, float t,
+                      const Temporal::ColumnPrediction *prediction) {
+    if constexpr (Head::is_2d)
+      return plot_at(cv, v, c, age, alpha, t, prediction);
+    else
+      return next.plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Emits a projected sample through screen stages.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @param prediction Optional landing window and boundary evaluator.
+   * @return Actual unwrapped column. */
+  HS_HOT_INLINE float
+  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
+                    float age, float alpha, float t,
+                    const Temporal::ColumnPrediction *prediction) {
+    if constexpr (Head::is_2d) {
+      const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
+      if (!prediction || prediction->accepts(landed))
+        plot_screen_at(cv, p.x, p.y, c, age, alpha, t,
+                       prediction ? prediction->boundary : nullptr);
+      return landed;
+    } else {
+      return next.plot_projected_at(cv, p, c, age, alpha, t, prediction);
+    }
+  }
+
+  /** @brief Emits a timed sample's terminal splat out of line.
+   * @param cv Frame context.
+   * @param x,y Projected sample coordinates.
+   * @param c,age,alpha Shading registers. */
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  plot_terminal_splat(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+                      float alpha) {
+    Head::plot(x, y, c, age, alpha,
+               [&](float nx, float ny, const ::Pixel &nc, float nage,
+                   float nalpha) HS_HOT_INLINE {
+                 next.plot_prepared(cv, nx, ny, nc, nage, nalpha);
+               });
+  }
+
+  /** @brief Carries a fraction through screen stages to the splat taps.
+   * @param cv Target canvas.
+   * @param x Column coordinate.
+   * @param y Row coordinate.
+   * @param c Source color.
+   * @param age Age register.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param evaluator Optional pure boundary tap evaluator. */
+  HS_HOT_INLINE void
+  plot_screen_at(Canvas &cv, float x, float y, const ::Pixel &c, float age,
+                 float alpha, float t,
+                 const Temporal::BoundaryEvaluator *evaluator = nullptr) {
+    static_assert(Head::is_2d);
+    auto pass = [&](float nx, float ny, const ::Pixel &nc, float nage,
+                    float nalpha) HS_HOT_INLINE {
+      next.plot_screen_at(cv, nx, ny, nc, nage, nalpha, t, evaluator);
+    };
+    if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
+                  requires { requires Head::has_boundary_splat; }) {
+      if (Temporal::temporal_sampling_enabled() &&
+          ((evaluator && evaluator->force_timing) ||
+           fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f))
+        Head::plot_boundary_at(x, y, c, age, alpha, t, pass, evaluator);
+      else if (!evaluator || evaluator->sample_exists)
+        plot_terminal_splat(cv, x, y, c, age, alpha);
+    } else if constexpr (requires {
+                           Head::plot_at(x, y, c, age, alpha, t, pass,
+                                         evaluator);
+                         })
+      Head::plot_at(x, y, c, age, alpha, t, pass, evaluator);
+    else if constexpr (requires {
+                         Head::plot_at(x, y, c, age, alpha, t, pass);
+                       })
+      Head::plot_at(x, y, c, age, alpha, t, pass);
+    else
+      Head::plot(x, y, c, age, alpha, pass);
+  }
+
+  /** @brief Evaluates world stages without projection or history recording.
+   * @param cv Frame context.
+   * @param v Source point.
+   * @param t Frame fraction.
+   * @return Transformed world point. */
+  HS_HOT_INLINE math::Vector world_at(Canvas &cv, const math::Vector &v,
+                                      float t) {
+    if constexpr (Head::is_2d)
+      return v;
+    else if constexpr (requires { Head::at_time(cv, v, t); })
+      return next.world_at(cv, Head::at_time(cv, v, t), t);
+    else {
+      static_assert(Head::world_transform_is_identity || Head::has_history,
+                    "timed world transforms must supply at_time");
+      return next.world_at(cv, v, t);
+    }
+  }
+
+  /** @brief Projects through world transforms without recording history.
+   * @param cv Frame context.
+   * @param v World point.
+   * @param t Frame fraction.
+   * @return Column and row after the world stages. */
+  HS_HOT_INLINE math::PixelCoords probe(Canvas &cv, const math::Vector &v,
+                                        float t) {
+    if constexpr (Head::is_2d)
+      return math::vector_to_pixel<W, H>(v);
+    else if constexpr (requires { Head::at_time(cv, v, t); })
+      return next.probe(cv, Head::at_time(cv, v, t), t);
+    else {
+      static_assert(Head::world_transform_is_identity || Head::has_history,
+                    "timed world transforms must supply at_time");
+      return next.probe(cv, v, t);
+    }
+  }
+
+  /** @brief Sum of world-stage frame motion bounds.
+   * @return Angular bound in radians. */
+  HS_HOT_FLASH_MEMBER float cull_bound() const {
+    float bound = next.cull_bound();
+    if constexpr (requires { Head::cull_bound(); })
+      bound += Head::cull_bound();
+    return bound;
+  }
+
+  /** @brief Number of spatial copies in the remaining stages.
+   * @return Product of stage copy counts. */
+  int copy_count() const {
+    if constexpr (requires { Head::copy_count(); })
+      return Head::copy_count() * next.copy_count();
+    else
+      return next.copy_count();
+  }
+
+  /** @brief Selects a fixed copy in each world replication stage.
+   * @param copy Flattened copy index. */
+  void select_copy(int copy) {
+    if constexpr (requires { Head::select_copy(copy); }) {
+      const int count = Head::copy_count();
+      Head::select_copy(copy % count);
+      next.select_copy(copy / count);
+    } else
+      next.select_copy(copy);
+  }
+
+  /** @brief Culls endpoint geometry against a motion-padded predicate.
+   * @param a,b Edge endpoints.
+   * @param pb Optional planar basis.
+   * @param pred Motion-padded visibility predicate.
+   * @return Whether the transformed edge can reach the cull region. */
+  template <typename Pred>
+  HS_HOT_FLASH_MEMBER bool
+  could_intersect_timed_clip(const math::Vector &a, const math::Vector &b,
+                             const math::Basis *pb, Pred &&pred) const {
+    auto forward = [&](const math::Vector &ea, const math::Vector &eb,
+                       const math::Basis *basis) HS_HOT_INLINE {
+      return next.could_intersect_timed_clip(ea, eb, basis, pred);
+    };
+    if constexpr (requires { Head::cull_edge_timed(a, b, pb, forward); })
+      return Head::cull_edge_timed(a, b, pb, forward);
+    else if constexpr (Filter::has_cull_edge<Head>)
+      return Head::cull_edge(a, b, pb, forward);
+    else if constexpr (Head::world_transform_is_identity)
+      return forward(a, b, pb);
+    else
+      return true;
   }
 
 private:

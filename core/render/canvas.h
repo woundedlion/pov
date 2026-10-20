@@ -425,6 +425,7 @@ private:
   static bool s_alive;
   BufferReadyHook buffer_ready_hook = nullptr;
   BufferCompleteHook buffer_complete_hook = nullptr;
+  uint32_t frame_number = 0; /**< Number of canvases opened for this effect. */
 };
 
 /**
@@ -451,6 +452,7 @@ public:
       clear_stale_pixels();
     }
     effect.canvas_active = true;
+    ++effect.frame_number;
   }
 
   /**
@@ -467,6 +469,10 @@ public:
   Canvas(Canvas &&) = delete;
   Canvas &operator=(const Canvas &) = delete;
   Canvas &operator=(Canvas &&) = delete;
+
+  /** @brief Identifier of this effect's current frame.
+   * @return Number of canvases opened, wrapping at the uint32_t limit. */
+  uint32_t frame_number() const { return effect.frame_number; }
 
   /**
    * @brief Accesses a pixel in the current drawing buffer by 2D coordinates.

@@ -25,6 +25,7 @@ namespace World {
  */
 template <int N> class VertexReplicate : public Is3D {
 public:
+  static constexpr bool rigid_world_transform = true; ///< Preserves geodesics.
   /**
    * @brief Builds from a vertex array, precomputing rotations vertices[0] → each.
    * @tparam VertexArray Indexable container of N unit vectors.
@@ -45,6 +46,56 @@ public:
              "VertexReplicate: vertex array is smaller than replica count");
     for (int i = 0; i < N; ++i)
       rotations[i] = math::make_rotation(vertices[0], vertices[i]);
+  }
+
+  /** @brief Number of independently walked spatial copies.
+   * @return Available spatial copy count. */
+  int copy_count() const { return N; }
+
+  /** @brief Selects the spatial copy used by timed operations.
+   * @param index Copy index, clamped to the available copies. */
+  void select_copy(int index) { selected_copy = hs::clamp(index, 0, N - 1); }
+
+  /** @brief Evaluates the selected spatial copy.
+   * @param cv Canvas identifying the frame.
+   * @param v Source point.
+   * @param t Frame fraction, unchanged by spatial replication.
+   * @return Point transformed for the selected copy. */
+  HS_HOT_INLINE math::Vector at_time(const Canvas &cv, const math::Vector &v,
+                                     float t) const {
+    (void)cv;
+    (void)t;
+    return selected_point(v);
+  }
+
+  /** @brief Emits only the selected copy for a timed walk.
+   * @param cv Canvas identifying the frame.
+   * @param v Source point.
+   * @param color Source color.
+   * @param age Source age.
+   * @param alpha Source opacity.
+   * @param t Frame fraction.
+   * @param pass Downstream world continuation. */
+  template <typename PassFnT>
+  HS_HOT_INLINE void plot_at(Canvas &cv, const math::Vector &v,
+                             const ::Pixel &color, float age, float alpha,
+                             float t, PassFnT &&pass) const {
+    pass(at_time(cv, v, t), color, age, alpha);
+  }
+
+  /** @brief Culls only the selected spatial copy.
+   * @param a,b Source edge endpoints.
+   * @param pb Optional source planar basis.
+   * @param forward Downstream cull continuation.
+   * @return The selected copy's visibility verdict. */
+  template <typename FwdFn>
+  bool cull_edge_timed(const math::Vector &a, const math::Vector &b,
+                       const math::Basis *pb, FwdFn &&forward) const {
+    if (!pb)
+      return forward(selected_point(a), selected_point(b), nullptr);
+    const math::Basis transformed{selected_point(pb->u), selected_point(pb->v),
+                                  selected_point(pb->w)};
+    return forward(selected_point(a), selected_point(b), &transformed);
   }
 
   /**
@@ -85,6 +136,15 @@ public:
   }
 
 private:
+  /** @brief Transforms a point into the selected copy.
+   * @param v Source point.
+   * @return Selected copy position. */
+  HS_HOT_INLINE math::Vector selected_point(const math::Vector &v) const {
+    return math::rotate(v, rotations[selected_copy]);
+  }
+
+  int selected_copy = 0; /**< Copy fixed for the current timed walk. */
+
   std::array<math::Quaternion, N>
       rotations; /**< Rotation from vertices[0] to each vertex. */
 };

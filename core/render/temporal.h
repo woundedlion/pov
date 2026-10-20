@@ -14,15 +14,19 @@
 
 #include "core/animation/orientation.h"
 #include "core/math/3dmath.h"
+#include "core/math/pixel_mapping.h"
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <cmath>
+#include <limits>
 #include <span>
 #include <type_traits>
 #include <utility>
+
+struct Pixel;
 
 namespace Temporal {
 
@@ -297,6 +301,262 @@ struct Captures {
   std::array<float, CAPACITY> fraction{}; ///< Frame fraction per pass.
   int count = 0;                          ///< Live passes.
 };
+
+/** @brief Tagged construction of a pipeline with explicit-time entry points. */
+struct Timed {};
+
+/** @brief Reduces a bounded displacement with nearest-even period ties.
+ * @param value Displacement with an integer-representable period quotient.
+ * @param period Positive period.
+ * @return Remainder in [-period/2, period/2]. */
+HS_HOT_INLINE inline float centered_remainder(float value, float period) {
+  const int quotient = static_cast<int>(value / period);
+  float result = value - static_cast<float>(quotient) * period;
+  const float half = period * 0.5f;
+  if (result > half || (result == half && (quotient & 1)))
+    result -= period;
+  else if (result < -half || (result == -half && (quotient & 1)))
+    result += period;
+  return result;
+}
+
+/** @brief Pure boundary-column geometry and shading evaluator. */
+struct BoundaryEvaluator {
+  void *context;             ///< Borrowed evaluator state.
+  bool sample_exists = true; ///< Material exists at the original splat time.
+  bool force_timing = false; ///< Evaluate interior taps at their own times.
+  /** Evaluates projected position, color, age and opacity; false before birth. */
+  bool (*evaluate)(void *, float, math::PixelCoords &, Pixel &, float &,
+                   float &);
+
+  /** @brief Borrows a pure evaluator for one synchronous plot call.
+   * @param fn Callable receiving time and output registers. */
+  template <typename Fn>
+  explicit BoundaryEvaluator(Fn &fn) : context(&fn), evaluate(invoke<Fn>) {}
+
+private:
+  /** @brief Calls the borrowed evaluator from flash.
+   * @tparam Fn Pure callable type.
+   * @param ctx Borrowed callable.
+   * @param t Frame fraction.
+   * @param p,c,age,alpha Output registers.
+   * @return Whether the material is born. */
+  template <typename Fn>
+  HS_HOT_FLASH_MEMBER static bool invoke(void *ctx, float t,
+                                         math::PixelCoords &p, Pixel &c,
+                                         float &age, float &alpha) {
+    return (*static_cast<Fn *>(ctx))(t, p, c, age, alpha);
+  }
+};
+
+/** @brief Predicted unwrapped landing and pre-write acceptance window. */
+struct ColumnPrediction {
+  float column;    /**< Predicted unwrapped column. */
+  float tolerance; /**< Largest accepted prediction error in columns. */
+  float min_column =
+      -std::numeric_limits<float>::infinity();               /**< Part start. */
+  float max_column = std::numeric_limits<float>::infinity(); /**< Part end. */
+
+  const BoundaryEvaluator *boundary = nullptr; ///< Optional tap-time evaluator.
+  bool record_sample = true; ///< Whether this sample exists at its own time.
+
+  /** @brief Unwraps a projected column near the prediction.
+   * @param landed Wrapped projected column.
+   * @param width Canvas width.
+   * @return Nearest unwrapped column. */
+  HS_HOT_INLINE float unwrap(float landed, float width) const {
+    const float turns = (column - landed) / width;
+    const int nearest = static_cast<int>(turns + (turns < 0.0f ? -0.5f : 0.5f));
+    return landed + static_cast<float>(nearest) * width;
+  }
+
+  /** @brief Tests the time-prediction error bound.
+   * @param landed Unwrapped projected column.
+   * @return Whether the point needs its single correction. */
+  HS_HOT_INLINE bool needs_correction(float landed) const {
+    return fabsf(landed - column) > tolerance;
+  }
+
+  /** @brief Tests prediction and part membership before emission.
+   * @param landed Unwrapped projected column.
+   * @return Whether the point may write framebuffer taps. */
+  HS_HOT_INLINE bool accepts(float landed) const {
+    return !needs_correction(landed) && landed >= min_column &&
+           landed <= max_column;
+  }
+};
+
+/** @brief Work performed by geometry-callback capture and rasterization. */
+struct GeometryCounters {
+  uint32_t end_probes = 0;   /**< Probes at the current endpoint. */
+  uint32_t solve_probes = 0; /**< Additional probes during capture solving. */
+  uint32_t boundary_evaluations = 0; /**< Kept boundary columns re-evaluated. */
+  uint32_t anchors = 0;              /**< Points solved for their arm passes. */
+  uint32_t callback_evaluations = 0; /**< Geometry callback invocations. */
+  uint32_t held_anchors = 0; /**< Capture solves held at the column limit. */
+  uint32_t unsettled_passes = 0; /**< Passes exhausting their probe budget. */
+};
+
+/** @brief Host instrumentation for the geometry-callback route. */
+inline GeometryCounters geometry_counters;
+
+/** @brief Increments a geometry counter in instrumented builds.
+ * @tparam field Counter to increment.
+ * @param amount Work items performed. */
+template <uint32_t GeometryCounters::*field>
+HS_HOT_INLINE inline void count_geometry(uint32_t amount = 1) {
+#if HS_ENABLE_TEST_HOOKS
+  geometry_counters.*field += amount;
+#else
+  (void)amount;
+#endif
+}
+
+/** @brief Maximum solved motion in columns, one eighth of the canvas width. */
+template <int W> inline constexpr float MAX_CAPTURE_COLUMNS = W / 8.0f;
+
+/** @brief Motion bound supplied by geometry or a world stage. */
+struct MotionBound {
+  float radians = 0.0f; /**< Angular distance from the endpoint. */
+  bool azimuth = false; /**< The bound is directly on azimuth. */
+
+  /** @brief Converts the bound to columns at an endpoint row.
+   * @tparam W,H Canvas dimensions.
+   * @param row Projected endpoint row.
+   * @return Maximum column displacement. */
+  template <int W, int H> HS_HOT_INLINE float columns(float row) const {
+    if (azimuth || radians == 0.0f)
+      return radians * (W / (2.0f * math::PI_F));
+    const float sine = fabsf(sinf(math::y_to_phi<H>(row)));
+    if (radians >= math::PI_F / 2.0f || sine <= sinf(radians))
+      return W / 4.0f;
+    return asinf(sinf(radians) / sine) * (W / (2.0f * math::PI_F));
+  }
+};
+
+/** @brief Continuous sweep fraction of an unwrapped column.
+ * @tparam W Canvas width.
+ * @param column Column coordinate.
+ * @return Fraction in [0, 1). */
+template <int W> HS_HOT_INLINE inline float column_fraction(float column) {
+  const float half_turn = column / (W / 2.0f);
+  const int whole = static_cast<int>(half_turn);
+  const float fraction = half_turn - static_cast<float>(whole);
+  return fraction < 0.0f ? fraction + 1.0f : fraction;
+}
+
+/** @brief Solves one arm branch, clamping extensions to frame endpoints.
+ * @tparam W Canvas width.
+ * @param probe Projected position at a frame fraction.
+ * @param end Endpoint projection.
+ * @param columns Maximum column displacement.
+ * @param linear_pair Whether geometry interpolates two positions.
+ * @param branch Unwrapped arm branch.
+ * @return Capture fraction in [0, 1]. */
+template <int W, typename Probe>
+HS_HOT_INLINE float solve_capture_branch(Probe &&probe, math::PixelCoords end,
+                                         float columns, bool linear_pair,
+                                         int branch) {
+  const float fraction = column_fraction<W>(end.x);
+  const float half = W / 2.0f;
+  const float boundary = fminf(fraction, 1.0f - fraction) * half;
+  if (columns >= MAX_CAPTURE_COLUMNS<W> ||
+      (columns < 3.8f && boundary > columns + 1.0f &&
+       branch == static_cast<int>(floorf(end.x / half))))
+    return fraction;
+  count_geometry<&GeometryCounters::solve_probes>();
+  const math::PixelCoords first = probe(0.0f);
+  const float x0 =
+      end.x + std::remainder(first.x - end.x, static_cast<float>(W));
+  float lo = 0.0f, hi = 1.0f;
+  float flo = x0 / half - branch, fhi = end.x / half - 1.0f - branch;
+  if (flo <= 0.0f)
+    return 0.0f;
+  if (fhi >= 0.0f)
+    return 1.0f;
+  float t = flo / (flo - fhi);
+  if (!(linear_pair && columns <= 4.0f)) {
+    for (int iteration = 0; iteration < 4; ++iteration) {
+      count_geometry<&GeometryCounters::solve_probes>();
+      const float x =
+          end.x + std::remainder(probe(t).x - end.x, static_cast<float>(W));
+      const float residual = x / half - t - branch;
+      if (fabsf(residual) * half <= 0.5f)
+        break;
+      if (iteration == 3) {
+        count_geometry<&GeometryCounters::unsettled_passes>();
+        break;
+      }
+      if (residual > 0.0f) {
+        lo = t;
+        flo = residual;
+      } else {
+        hi = t;
+        fhi = residual;
+      }
+      t = lo + (hi - lo) * flo / (flo - fhi);
+    }
+  }
+  return t;
+}
+
+/** @brief Solves each arm branch from a previously projected endpoint.
+ * @tparam W Canvas width.
+ * @param probe Projected position at a frame fraction.
+ * @param end Endpoint projection at t = 1.
+ * @param columns Maximum azimuth displacement in columns.
+ * @param linear_pair Geometry uses a two-position interpolating callback.
+ * @return Zero, one or two capture fractions. */
+template <int W, typename Probe>
+HS_HOT_INLINE Captures solve_capture(Probe &&probe, math::PixelCoords end,
+                                     float columns, bool linear_pair) {
+  count_geometry<&GeometryCounters::anchors>();
+  Captures out;
+  const float fraction = column_fraction<W>(end.x);
+  const float boundary = fminf(fraction, 1.0f - fraction) * (W / 2.0f);
+  if (columns >= MAX_CAPTURE_COLUMNS<W> ||
+      (columns < 3.8f && boundary > columns + 1.0f)) {
+    if (columns >= MAX_CAPTURE_COLUMNS<W>)
+      count_geometry<&GeometryCounters::held_anchors>();
+    out.count = 1;
+    out.fraction[0] = fraction;
+    return out;
+  }
+  count_geometry<&GeometryCounters::solve_probes>();
+  const float start =
+      end.x + std::remainder(probe(0.0f).x - end.x, static_cast<float>(W));
+  const float r0 = start / (W / 2.0f);
+  const float r1 = end.x / (W / 2.0f) - 1.0f;
+  for (float n = floorf(r0); n > r1 && out.count < Captures::CAPACITY;
+       n -= 1.0f) {
+    float lo = 0.0f, hi = 1.0f, flo = r0 - n, fhi = r1 - n;
+    float t = flo / (flo - fhi);
+    if (!(linear_pair && columns <= 4.0f)) {
+      for (int iteration = 0; iteration < 4; ++iteration) {
+        count_geometry<&GeometryCounters::solve_probes>();
+        const float x =
+            end.x + std::remainder(probe(t).x - end.x, static_cast<float>(W));
+        const float residual = x / (W / 2.0f) - t - n;
+        if (fabsf(residual) * (W / 2.0f) <= 0.5f)
+          break;
+        if (iteration == 3) {
+          count_geometry<&GeometryCounters::unsettled_passes>();
+          break;
+        }
+        if (residual > 0.0f) {
+          lo = t;
+          flo = residual;
+        } else {
+          hi = t;
+          fhi = residual;
+        }
+        t = lo + (hi - lo) * flo / (flo - fhi);
+      }
+    }
+    out.fraction[out.count++] = t;
+  }
+  return out;
+}
 
 /** @brief Azimuth of a point in half-turns, so that a column's sweep
  * fraction is this value modulo one.
