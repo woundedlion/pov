@@ -880,7 +880,8 @@ HS_HOT_INLINE inline float unwrap_capture(float u, float centre) {
  * @param p Vertex in endpoint camera space.
  * @param time Frame's column basis.
  * @param u Fraction selecting the local column basis.
- * @return Periodic arm fraction of the projected vertex.
+ * @return Periodic arm fraction of the projected vertex, to math::fast_atan2's
+ *         accuracy.
  */
 template <int W>
 HS_HOT_INLINE float capture_fraction(const math::Vector &p,
@@ -890,7 +891,8 @@ HS_HOT_INLINE float capture_fraction(const math::Vector &p,
   const math::Vector tangent = math::cross(time.azimuth[x], time.up[x]);
   const float fraction =
       static_cast<float>(x) / (W / 2) +
-      atan2f(math::dot(p, tangent), math::dot(p, time.azimuth[x])) / math::PI_F;
+      math::fast_atan2(math::dot(p, tangent), math::dot(p, time.azimuth[x])) /
+          math::PI_F;
   return fraction - floorf(fraction);
 }
 
@@ -921,6 +923,8 @@ struct CaptureHold {
  * @param centre Window centre in arm fractions.
  * @param vertex Pure evaluation of the vertex path.
  * @return Captured vertex, or its endpoint inside the polar hold band.
+ * @details Column estimates use math::fast_atan2, so the capture time can
+ * miss the solved one by a fraction of a column.
  */
 template <int W, typename VertexFn>
 HS_HOT_INLINE math::Vector
@@ -930,7 +934,7 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
   if (horizontal <= hold.sin_bound ||
       hold.bound / horizontal >= math::PI_F / 4.0f)
     return end;
-  const float angle = atan2f(end.z, end.x) / math::PI_F;
+  const float angle = math::fast_atan2(end.z, end.x) / math::PI_F;
   float u = unwrap_capture(angle - floorf(angle), centre);
   const math::Vector first = vertex(u);
   u = unwrap_capture(capture_fraction<W>(first, time, u), u);
