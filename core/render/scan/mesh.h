@@ -524,7 +524,7 @@ new_face_scratch(Arena &arena) {
   return arena.make_default_initialized<SDF::FaceScratchBuffer>();
 }
 
-/// Slab face-column entry of a face that holds over the frame.
+/// Seeing-column entry of a face that holds over the frame.
 inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
 
 /// Cap radius of a face that no cap about its vertex mean bounds.
@@ -634,14 +634,14 @@ face_cap_columns(const math::Vector *vertices, const uint16_t *indices,
 }
 
 /**
- * @brief Whether a face's seeing columns meet a sweep slab's columns inside
- *        the render clip.
+ * @brief Whether a face's seeing columns meet a capture window's columns
+ *        inside the render clip.
  * @tparam W Canvas width in pixels.
  * @param face The face's seeing columns, as face_lit_columns() gives them.
- * @param begin The slab's first half-turn column.
- * @param end One past the slab's last half-turn column.
+ * @param begin The window's first half-turn column.
+ * @param end One past the window's last half-turn column.
  * @param xc Render clip.
- * @return True when a column of the slab, on either arm, sees the face and
+ * @return True when a column of the window, on either arm, sees the face and
  *         the clip admits it.
  */
 template <int W>

@@ -1427,8 +1427,8 @@ inline void test_settled_drift_matches_column_drift() {
  * @return Displayed frame.
  */
 template <int W, int H, typename DrawFn>
-inline std::vector<Pixel> render_slab_frame(int clip_begin, int clip_end,
-                                            DrawFn &&draw) {
+inline std::vector<Pixel> render_window_frame(int clip_begin, int clip_end,
+                                              DrawFn &&draw) {
   hs_test::StubEffect fx(W, H);
   fx.set_clip_x(clip_begin, clip_end);
   Pipeline<W, H> pipeline;
@@ -1577,7 +1577,7 @@ inline void check_deformed_shared_edges(float rotation) {
                                         (u - 1) * (moving[i] ? .12f : .001f)));
   };
   int scans = 0, held = 0, shared = 0;
-  render_slab_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+  render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
     HS_EXPECT_EQ(
         Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
         size_t(2));
@@ -1652,7 +1652,7 @@ inline void test_recorded_face_caps_match_measured_columns() {
   }
   for (uint16_t i : {0, 1, 2, 2, 1, 3, 0, 2, 4})
     mesh.faces.push_back(i);
-  render_slab_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+  render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
     uint8_t moving[5] = {1, 1, 1, 1, 1};
     uint16_t recorded[6]{}, measured[6]{}, picked[6]{};
     float radii[3]{};
@@ -1708,7 +1708,7 @@ inline void check_deformed_window_pixels(int clip_begin, int clip_end) {
   const auto shader = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(uint16_t(6000 + 7000 * f.v2), 30000, 12000), 1);
   };
-  const auto drawn = render_slab_frame<W, H>(
+  const auto drawn = render_window_frame<W, H>(
       clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
         Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), .08f,
                                    columns.data());
@@ -1721,7 +1721,7 @@ inline void check_deformed_window_pixels(int clip_begin, int clip_end) {
       });
   std::vector<Pixel> expected(W * H);
   for (int pass = 0; pass < 2; ++pass) {
-    const auto frame = render_slab_frame<W, H>(
+    const auto frame = render_window_frame<W, H>(
         clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
           for (size_t i = 0; i < end.size(); ++i)
             mesh.vertices[i] = Scan::capture_vertex<W>(
