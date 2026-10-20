@@ -10,7 +10,9 @@ the hottest functions. Ticks serviced late (behind a higher-priority interrupt
 or a masked section) are not binned and report as one deferred row.
 
 A bin that straddles a function boundary is split between the functions by
-the bytes each covers. Folded functions sharing one address are reported once,
+the bytes each covers; a row whose every sample comes from such shared bins is
+marked `[shared bins only]`, since its share may belong to a neighbour. Folded
+functions sharing one address are reported once,
 with their alias count.
 
   python tools/pc_profile.py build/prof/shapeshifter_ship_pc.log
@@ -238,6 +240,7 @@ class Row:
     aliases: int
     address: int
     samples: float = 0.0
+    shared: float = 0.0
     bins: dict = field(default_factory=dict)
 
 
@@ -246,7 +249,8 @@ def attribute(dump, symbolizer):
     width = dump.header["bin_bytes"]
     rows = {}
     for start, count in dump.bins.items():
-        for f, covered in symbolizer.overlaps(start, start + width):
+        pieces = list(symbolizer.overlaps(start, start + width))
+        for f, covered in pieces:
             share = count * covered / width
             if f is None:
                 region = region_of(start)
@@ -259,6 +263,8 @@ def attribute(dump, symbolizer):
                     key, Row(f.name, region_of(f.address), f.size, f.aliases,
                              f.address))
             row.samples += share
+            if len(pieces) > 1:
+                row.shared += share
             row.bins[start] = row.bins.get(start, 0.0) + share
     return sorted(rows.values(), key=lambda r: (-r.samples, r.name))
 
@@ -340,6 +346,8 @@ def report(dump, rows, *, top, ranges, range_rows, name_width, lines=None):
     out.append(f"{'pct':>6} {'samples':>8} {'region':<6} {'size':>6}  function")
     for row in table[:top]:
         alias = f" [+{row.aliases} folded]" if row.aliases else ""
+        if row.samples and row.shared >= row.samples:
+            alias += " [shared bins only]"
         out.append(f"{pct(row.samples, render):5.1f}% {row.samples:8.0f} "
                    f"{row.region:<6} {row.size:6d}  "
                    f"{short(row.name, name_width)}{alias}")
