@@ -229,9 +229,14 @@ struct DistortedRingStack {
         const int k_next = ((c + 1) * n + C - 1) / C;
         float lo = kn[k_next == n ? 0 : k_next];
         float hi = lo;
+        if constexpr (requires { shapes.knot_range(s, 0, lo, hi); })
+          shapes.knot_range(s, k_next == n ? 0 : k_next, lo, hi);
         for (int k = k_begin; k < k_next; ++k) {
-          lo = __builtin_fminf(lo, kn[k]);
-          hi = __builtin_fmaxf(hi, kn[k]);
+          float knot_lo = kn[k], knot_hi = kn[k];
+          if constexpr (requires { shapes.knot_range(s, k, knot_lo, knot_hi); })
+            shapes.knot_range(s, k, knot_lo, knot_hi);
+          lo = __builtin_fminf(lo, knot_lo);
+          hi = __builtin_fmaxf(hi, knot_hi);
         }
         clo[c] = lo;
         chi[c] = hi;
@@ -446,7 +451,14 @@ struct DistortedRingStack {
 
     {
       HS_PROFILE(ring_stack_table);
-      build_candidate_table<W, H>(n_rings, shapes, slot_by_ring, table);
+      bool ready = false;
+      if constexpr (requires { shapes.table_ready(); })
+        ready = shapes.table_ready();
+      if (!ready) {
+        build_candidate_table<W, H>(n_rings, shapes, slot_by_ring, table);
+        if constexpr (requires { shapes.table_built(); })
+          shapes.table_built();
+      }
     }
     constexpr float BIN_SCALE = Table::BINS / math::PI_F;
 
