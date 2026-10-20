@@ -11,12 +11,16 @@
  */
 
 #include "core/platform/effect_identity.h"
+#include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <string_view>
 #include <tuple>
+#include <type_traits>
 
 #include "effects/common/palette_recipes.h"
 #include "core/render/sdf/lattice.h"
@@ -786,6 +790,8 @@ public:
     crossing_storage =
         persistent_arena.allocate_n<SDF::OctetTrace::CrossingStorage>(1);
     shell_layers = persistent_arena.allocate_n<SDF::ShellLayerStorage>(1);
+    column_states = static_cast<std::byte *>(
+        persistent_arena.allocate(COLUMN_STATE_BYTES, COLUMN_STATE_ALIGN));
   }
 
   /**
@@ -877,21 +883,6 @@ private:
     }
   };
 
-  /** @brief A cubic column's shader, holding the column's trace state.
-   *  @tparam SLICE_4D Specializes the trace for FOUR_D_SLICE.
-   *  @tparam SHELLS Fixed shell count, or 0 for the runtime count. */
-  template <bool SLICE_4D, uint8_t SHELLS> struct CubicColumn {
-    HyperLatticeDetail::PreparedTrace prepared; ///< The column's trace state.
-
-    /** @brief Traces one ray of the column.
-     *  @param view Unit view direction.
-     *  @return Premultiplied colour. */
-    __attribute__((always_inline)) Pixel
-    operator()(const math::Vector &view) const {
-      return CubicRay<SLICE_4D, SHELLS>{&prepared}(view);
-    }
-  };
-
   /**
    * @brief Calls a draw with the cubic trace specialization of the
    *        parameters.
@@ -927,17 +918,26 @@ private:
    * @brief Traces each cubic column from the state at its sweep time.
    * @param canvas Destination canvas.
    * @param interval Render state between the frame's endpoints.
+   * @details Every column time's trace state is prepared before any column
+   * is traced.
    */
   HS_FLASH_MEMBER void
   draw_cubic_columns(Canvas &canvas,
                      const HyperLatticeDetail::FrameInterval &interval) {
+    auto *const states =
+        reinterpret_cast<HyperLatticeDetail::PreparedTrace *>(column_states);
+    {
+      HS_PROFILE_DEEP(hl_column_states);
+      for (int x = 0; x < COLUMN_TIMES; ++x)
+        std::construct_at(states + x,
+                          HyperLatticeDetail::prepare_trace(
+                              interval.sample(Temporal::sweep_fraction(x, W))));
+    }
     dispatch_cubic(
         [&]<bool SLICE_4D, uint8_t SHELLS>() __attribute__((always_inline)) {
           Scan::Shader::draw_columns<W, H>(
-              canvas, [&interval](int x) __attribute__((always_inline)) {
-                return CubicColumn<SLICE_4D, SHELLS>{
-                    HyperLatticeDetail::prepare_trace(
-                        interval.sample(Temporal::sweep_fraction(x, W)))};
+              canvas, [states](int x) __attribute__((always_inline)) {
+                return CubicRay<SLICE_4D, SHELLS>{states + x % COLUMN_TIMES};
               });
         });
   }
@@ -1124,22 +1124,6 @@ private:
     }
   };
 
-  /** @brief A traced column's shader, holding the column's trace state.
-   *  @tparam PATH Trace the frame selects.
-   *  @tparam SLICE_4D Whether the camera samples a 4D slice. */
-  template <TracePath PATH, bool SLICE_4D> struct TracedColumn {
-    HyperLatticeDetail::Trace::Prepared prepared; ///< The column's state.
-    HyperLattice *effect; ///< Counts the rays left unfinished.
-
-    /** @brief Traces one ray of the column.
-     *  @param view Unit view direction.
-     *  @return Premultiplied colour. */
-    __attribute__((always_inline)) Pixel
-    operator()(const math::Vector &view) const {
-      return TracedRay<PATH, SLICE_4D>{&prepared, effect}(view);
-    }
-  };
-
   /**
    * @brief Calls a draw with a trace path and view as template arguments.
    * @param path Trace the frame selects.
@@ -1180,30 +1164,37 @@ private:
    *        its sweep time.
    * @param canvas Destination canvas.
    * @param interval Render state between the frame's endpoints.
-   * @details A specialized trace serves the frame only when every column
+   * @details Every column time's trace state is prepared before any column
+   * is traced. A specialized trace serves the frame only when every column
    * time selects it.
    */
   HS_FLASH_MEMBER void
   draw_traced_columns(Canvas &canvas,
                       const HyperLatticeDetail::FrameInterval &interval) {
-    const auto column = [&interval,
-                         this](int x) __attribute__((always_inline)) {
-      const float FRACTION = Temporal::sweep_fraction(x, W);
-      return prepare_traced(interval.sample(FRACTION),
-                            interval.center(FRACTION));
-    };
+    auto *const states =
+        reinterpret_cast<HyperLatticeDetail::Trace::Prepared *>(column_states);
+    {
+      HS_PROFILE_DEEP(hl_column_states);
+      for (int x = 0; x < COLUMN_TIMES; ++x) {
+        const float FRACTION = Temporal::sweep_fraction(x, W);
+        std::construct_at(states + x,
+                          prepare_traced(interval.sample(FRACTION),
+                                         interval.center(FRACTION)));
+      }
+    }
     TracePath path =
         trace_path(prepare_traced(interval.current(), trace_center));
     if (!interval.params_constant())
-      for (int x = 0; x < W / 2 && path != TracePath::GENERIC; ++x)
-        if (trace_path(column(x)) != path)
+      for (int x = 0; x < COLUMN_TIMES && path != TracePath::GENERIC; ++x)
+        if (trace_path(states[x]) != path)
           path = TracePath::GENERIC;
     dispatch_traced(
         path, params.mode == LatticeMode::FOUR_D_SLICE,
         [&]<TracePath PATH, bool SLICE_4D>() __attribute__((always_inline)) {
           Scan::Shader::draw_columns<W, H>(
-              canvas, [&](int x) __attribute__((always_inline)) {
-                return TracedColumn<PATH, SLICE_4D>{column(x), this};
+              canvas, [states, this](int x) __attribute__((always_inline)) {
+                return TracedRay<PATH, SLICE_4D>{states + x % COLUMN_TIMES,
+                                                 this};
               });
         });
   }
@@ -1294,6 +1285,23 @@ private:
   SDF::OctetTrace::CrossingStorage *crossing_storage = nullptr;
   SDF::ShellLayerStorage *shell_layers = nullptr;
 
+  /// Distinct column times of a frame; columns half a turn apart share one.
+  static constexpr int COLUMN_TIMES = W / 2;
+  /// Bytes of the frame's column trace states, cubic or traced.
+  static constexpr size_t COLUMN_STATE_BYTES =
+      COLUMN_TIMES * std::max(sizeof(HyperLatticeDetail::Trace::Prepared),
+                              sizeof(HyperLatticeDetail::PreparedTrace));
+  /// Alignment of the frame's column trace states.
+  static constexpr size_t COLUMN_STATE_ALIGN =
+      std::max(alignof(HyperLatticeDetail::Trace::Prepared),
+               alignof(HyperLatticeDetail::PreparedTrace));
+  static_assert(
+      std::is_trivially_destructible_v<HyperLatticeDetail::Trace::Prepared> &&
+          std::is_trivially_destructible_v<HyperLatticeDetail::PreparedTrace>,
+      "column trace states are overwritten without destruction");
+  /// The trace state of each column time of the frame being drawn.
+  std::byte *column_states = nullptr;
+
   friend struct hs_test::hyper_lattice_tests::HyperLatticeWhiteBox;
 
   static constexpr size_t FOOTPRINT_BYTES =
@@ -1306,7 +1314,8 @@ private:
       alignof(HyperLatticeDetail::CrossingList) +
       sizeof(SDF::OctetTrace::CrossingStorage) +
       alignof(SDF::OctetTrace::CrossingStorage) +
-      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage);
+      sizeof(SDF::ShellLayerStorage) + alignof(SDF::ShellLayerStorage) +
+      COLUMN_STATE_BYTES + COLUMN_STATE_ALIGN;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HyperLattice persistent footprint exceeds the default "
                 "partition");
