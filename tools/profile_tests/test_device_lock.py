@@ -699,5 +699,120 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
 
 
+class PinnedPortReenumeration(unittest.TestCase):
+    """A queued waiter's pinned board dropping off the port list."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.base = self.root / "lock"
+        self.tools = self.root / "tool-teensy"
+        self.tools.mkdir()
+        self.peer = Path(f"{self.base}-COM4.d")
+
+    def enumerate_com4_except(self, absent_calls):
+        """teensy_ports.exe omits COM4 on the 1-based calls in absent_calls."""
+        calls = (self.root / "calls").as_posix()
+        absent = " ".join(map(str, absent_calls)) if absent_calls != "all" else "*"
+        loader = self.tools / "teensy_ports.exe"
+        loader.write_text(
+            "#!/bin/bash\n"
+            f'n=$(( $(cat "{calls}" 2>/dev/null || echo 0) + 1 )); echo "$n" > "{calls}"\n'
+            "echo 'usb-a COM3 (Teensy 4.0)'\n"
+            + ('' if absent == "*" else
+               f'case " {absent} " in *" $n "*) ;; *) echo "usb-b COM4 (Teensy 4.0)";; esac\n'),
+            encoding="utf-8", newline="\n")
+        loader.chmod(0o755)
+
+    def hold_com4(self):
+        self.peer.mkdir()
+        now = int(time.time())
+        (self.peer / "info").write_text(
+            f"token=peer\nsession=peer\npid={_live_pid(self)}\nport=COM4\n"
+            f"effect=Peer\nenv=profile\nstarted={now}\ndeadline={now + 600}\n")
+
+    def acquire(self, release_after=None, **env):
+        """Acquire pinned to COM4; the peer releases on sleep #release_after."""
+        release = (f'[ "$s" -lt {release_after} ] || rm -rf "{self.peer.as_posix()}"; '
+                   if release_after else "")
+        script = (f's=0; sleep() {{ s=$((s + 1)); {release}}}; '
+                  'hs_device_acquire E profile 60; rc=$?; '
+                  'echo "RC=$rc SLEEPS=$s PORT=$HS_DEVICE_PORT"; hs_device_release; exit "$rc"')
+        return run_lock(script, self.base, ports=None,
+                        env={"HS_TEENSY_TOOLS": str(self.tools),
+                             "HS_TEENSY_PORT": "COM4", **env})
+
+    def test_waiter_outlasts_a_board_reenumerating_mid_wait(self):
+        self.hold_com4()
+        self.enumerate_com4_except((3, 4, 5))
+        r = self.acquire(release_after=4, HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=4 PORT=COM4", r.stdout)
+        self.assertIn("dropped off the port list", r.stderr)
+        self.assertNotIn("not attached", r.stderr)
+
+    def test_waiter_queued_while_a_claimed_board_is_off_the_list(self):
+        self.hold_com4()
+        self.enumerate_com4_except((1, 2))
+        r = self.acquire(release_after=3, HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=3 PORT=COM4", r.stdout)
+
+    def test_board_seen_by_the_waiter_may_drop_after_its_claim_is_released(self):
+        self.hold_com4()
+        self.enumerate_com4_except((3, 4))
+        r = self.acquire(release_after=1, HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=3 PORT=COM4", r.stdout)
+
+    def test_grace_counts_one_continuous_absence(self):
+        self.hold_com4()
+        self.enumerate_com4_except((1, 2, 4, 5))
+        r = self.acquire(release_after=5, HS_DEVICE_WAIT="3600",
+                         HS_DEVICE_ABSENT_GRACE="10")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=5 PORT=COM4", r.stdout)
+
+    def test_known_board_that_never_returns_fails_after_the_grace(self):
+        self.hold_com4()
+        self.enumerate_com4_except("all")
+        r = self.acquire(HS_DEVICE_WAIT="3600", HS_DEVICE_ABSENT_GRACE="15")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=3 ", r.stdout)
+        self.assertIn("stayed off the port list for 15s", r.stderr)
+        self.assertIn("token=peer", (self.peer / "info").read_text())
+
+    def test_absent_board_fails_when_the_wait_runs_out_first(self):
+        self.hold_com4()
+        self.enumerate_com4_except("all")
+        r = self.acquire(HS_DEVICE_WAIT="10")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=2 ", r.stdout)
+
+    def test_never_seen_port_fails_fast_despite_a_wait(self):
+        self.enumerate_com4_except("all")
+        r = self.acquire(HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=0 ", r.stdout)
+        self.assertIn("COM4 is not attached", r.stderr)
+        self.assertEqual(list(self.root.glob("lock-*.d")), [])
+
+    def test_claimed_absent_board_fails_fast_without_a_wait(self):
+        self.hold_com4()
+        self.enumerate_com4_except("all")
+        r = self.acquire()
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=0 ", r.stdout)
+        self.assertIn("COM4 is not attached", r.stderr)
+
+    def test_absent_budget_is_zero_without_a_wait_and_capped_by_the_grace(self):
+        for env, expected in (({}, "0"), ({"HS_DEVICE_WAIT": "10"}, "10"),
+                              ({"HS_DEVICE_WAIT": "3600"}, "120"),
+                              ({"HS_DEVICE_WAIT": "3600", "HS_DEVICE_ABSENT_GRACE": "45"}, "45")):
+            with self.subTest(env=env):
+                r = run_lock("hs_device_absent_budget", self.base, ports=None, env=env)
+                self.assertEqual(r.stdout.strip(), expected, r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

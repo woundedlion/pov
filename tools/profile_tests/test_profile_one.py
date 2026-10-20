@@ -324,6 +324,45 @@ class ArtifactPaths(unittest.TestCase):
                 self.assertNotEqual(paths[name], default[name])
 
 
+def capture_connect_timeout(**lock_env):
+    """The --connect-timeout capture() hands profile_capture.py."""
+    constant = re.search(r"(?m)^CAPTURE_CONNECT_S=\d+$",
+                         PROFILE_ONE.read_text(encoding="utf-8")).group(0)
+    script = (
+        "set -euo pipefail\n"
+        f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
+        f"{constant}\n"
+        f"{shell_function('capture')}\n"
+        "build_and_attest() { :; }; hs_teensy_flash() { :; }\n"
+        'capture_py() { shift; printf "%s\\n" "$@" >&2; }\n'
+        "_HS_LOCK_PYTHON=capture_py; EFFECT=Fx; ENV=profile; WINDOW=1\n"
+        "SECONDS_ARG=20; DEEP=; EXTRA=; OUT=/dev/null; PROVENANCE_OUT=/dev/null\n"
+        "capture >/dev/null\n"
+    )
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(("HS_DEVICE_", "HS_TEENSY_"))}
+    env.update(lock_env)
+    result = subprocess.run(["bash", "-c", script], capture_output=True,
+                            text=True, encoding="utf-8", env=env)
+    if result.returncode != 0:
+        raise AssertionError(result.stdout + result.stderr)
+    args = result.stderr.split("\n")
+    return args[args.index("--connect-timeout") + 1]
+
+
+class CaptureConnectWindow(unittest.TestCase):
+    def test_no_wait_keeps_the_default_connect_window(self):
+        self.assertEqual(capture_connect_timeout(), "30")
+
+    def test_a_wait_lets_the_port_reappear_for_the_absent_grace(self):
+        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="3600"), "120")
+        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="3600",
+                                                 HS_DEVICE_ABSENT_GRACE="90"), "90")
+
+    def test_a_short_wait_never_shortens_the_connect_window(self):
+        self.assertEqual(capture_connect_timeout(HS_DEVICE_WAIT="10"), "30")
+
+
 class ProfileConfigVerification(unittest.TestCase):
     def test_retry_uses_an_isolated_cache(self):
         with tempfile.TemporaryDirectory() as directory:

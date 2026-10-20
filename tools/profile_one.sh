@@ -7,7 +7,9 @@
 # supplies the ELF for compiler/ABI attestation. Host: Windows + Git Bash.
 #
 # Env knobs:
-#   HS_DEVICE_WAIT=<s>      queue for a free board (tools/device_lock.sh)
+#   HS_DEVICE_WAIT=<s>      queue for a free board, and let the pinned board drop
+#                           off the port list for up to HS_DEVICE_ABSENT_GRACE
+#                           (tools/device_lock.sh)
 #   HS_TEENSY_PORT=<COMn>   pin one board
 #   HS_ARM_READELF          readelf for ELF attestation
 #   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
@@ -62,6 +64,8 @@ done
 EXTRA="$*"
 # Seconds the PC dump leaves between itself and the end of the capture.
 PC_DUMP_MARGIN_S=8
+# Least seconds the capture waits for the flashed board's serial port.
+CAPTURE_CONNECT_S=30
 PC_FLAGS=""
 PC_SUFFIX=""
 PC_MARKER=""
@@ -283,8 +287,12 @@ capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
   hs_teensy_flash "$ENV"
+  local connect
+  connect=$(hs_device_absent_budget)
+  [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S
   # stderr passes through: a device trap and a peer-held port share an exit code.
-  if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" --out "$OUT" >/dev/null; then
+  if ! "$_HS_LOCK_PYTHON" tools/profile_capture.py --seconds "$SECONDS_ARG" \
+      --connect-timeout "$connect" --out "$OUT" >/dev/null; then
     echo "CAPTURE FAILED (device trap, or port held by a peer?): $OUT" >&2
     return 1
   fi
