@@ -107,6 +107,61 @@ struct IslamicBuildProbe {
   static int active_ripples(const IslamicStars<W, H> &e) {
     return e.ripple_gen.active_count();
   }
+  /** @brief One build-leg draw as the draw callback received it. */
+  struct BuildDraw {
+    std::vector<math::Vector> vertices; ///< The drawn mesh's vertices.
+    std::vector<math::Vector> start;    ///< Its leg path at u = 0.
+    std::vector<math::Vector> end;      ///< Its leg path at u = 1.
+    bool on_leg_path = false;           ///< Whether the leg handed its path.
+  };
+  /** @brief Build-leg draws recorded by record_build_draws(). */
+  struct BuildRecorder {
+    IS *effect = nullptr;         ///< Effect whose draws are forwarded.
+    std::vector<BuildDraw> draws; ///< Recorded draws, oldest first.
+  };
+  /**
+   * @brief Routes an effect's build-leg draws through a recorder.
+   * @param e Effect whose draw callback is replaced.
+   * @param recorder Receives every draw; must outlive the effect's legs.
+   */
+  static void record_build_draws(IS &e, BuildRecorder &recorder) {
+    recorder.effect = &e;
+    e.draw_build_fn = decltype(e.draw_build_fn)(
+        [r = &recorder](Canvas &c, MeshState &m,
+                        const Animation::OpLeg::Shading &sh) {
+          BuildDraw draw;
+          draw.vertices.assign(m.vertices.begin(), m.vertices.end());
+          draw.on_leg_path = sh.leg != nullptr;
+          if (draw.on_leg_path)
+            for (size_t i = 0; i < m.vertices.size(); ++i) {
+              draw.start.push_back(sh.vertex_at(i, 0.0f));
+              draw.end.push_back(sh.vertex_at(i, 1.0f));
+            }
+          r->draws.push_back(std::move(draw));
+          r->effect->draw_build_mesh(c, m, sh);
+        });
+  }
+
+  /**
+   * @brief An active ripple's params, writable.
+   * @param e Effect whose ripple pool is read.
+   * @param k Active index.
+   * @return The ripple's live params.
+   */
+  template <int W, int H>
+  static Animation::RippleParams &ripple(IslamicStars<W, H> &e, int k) {
+    return const_cast<Animation::RippleParams &>(e.ripple_gen.active_params(k));
+  }
+  /**
+   * @brief Vertices of the front slot's mesh.
+   * @param e Effect whose front mesh is read.
+   * @return The mesh's model-space vertices.
+   */
+  template <int W, int H>
+  static const ArenaVector<math::Vector> &
+  front_vertices(IslamicStars<W, H> &e) {
+    return e.carousel.slot(e.carousel.front_index()).vertices;
+  }
   template <int W, int H>
   static float first_ripple_phase(const IslamicStars<W, H> &e) {
     return e.ripple_gen.active_params(0).phase;
@@ -714,4 +769,74 @@ inline void test_islamicstars_opacity_history() {
       (effect.getPresetIndex() + 1) % effect.getPresetCount();
   HS_EXPECT_TRUE(effect.selectPreset(selected));
   HS_EXPECT_FALSE(P::phase_drawn(effect, P::front_slot(effect)));
+}
+
+/**
+ * @brief The columns of a held shape show its ripple at their sweep time,
+ *        across both arm boundaries.
+ * @details One ripple steps once at the shipping speed and amplitude, its
+ * wavefront at the steepest slope of the wavelet on the shape's vertices, so
+ * they move about two pixels of arc over the frame.
+ */
+inline void test_islamicstars_ripple_motion_is_seam_free() {
+  using P = IslamicBuildProbe;
+  constexpr int W = 288, H = 144;
+  reset_effect_globals();
+  IslamicStars<W, H> effect;
+  effect.init();
+  HS_EXPECT_GT(P::fire_ripple(effect), 0);
+  Animation::RippleParams &ripple = P::ripple(effect, 0);
+  const auto &vertices = P::front_vertices(effect);
+  // The wavelet is steepest 0.37 of its half-width ahead of a vertex.
+  const float reach = 0.37f * ripple.half_width();
+  const float distance = math::fast_acos(hs::clamp(
+      math::dot(vertices[0].normalized(), ripple.center), -1.0f, 1.0f));
+  ripple.amplitude = RIPPLE_SMALL_ANGLE_MAX;
+  ripple.previous_amplitude = RIPPLE_SMALL_ANGLE_MAX;
+  ripple.phase = distance - reach;
+  ripple.previous_phase = ripple.phase - math::PI_F / 80.0f;
+  ripple.sync();
+  const std::vector<Pixel> drawn = P::draw_front(effect, 1.0f, 1.0f);
+  const Animation::RippleParams moving = ripple;
+  const auto at = [&](float u) {
+    ripple = moving.during_step(u);
+    ripple.previous_phase = ripple.phase;
+    ripple.previous_amplitude = ripple.amplitude;
+    return P::draw_front(effect, 1.0f, 1.0f);
+  };
+  const std::vector<Pixel> held = at(1.0f);
+  expect_seam_resolved<W, H>("islamic ripple", drawn, held, at);
+}
+
+/**
+ * @brief A hankin, relax or medial build leg hands each draw its own vertex
+ *        path: the frame drawn last at u = 0, the drawn mesh at u = 1.
+ */
+inline void test_islamicstars_build_legs_hand_their_path() {
+  using P = IslamicBuildProbe;
+  reset_effect_globals();
+  P::IS effect;
+  effect.init();
+  P::BuildRecorder recorder;
+  P::record_build_draws(effect, recorder);
+  size_t on_path = 0;
+  for (int f = 0; f < 600 && on_path < 12; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+    on_path = 0;
+    for (const P::BuildDraw &draw : recorder.draws)
+      on_path += draw.on_leg_path;
+  }
+  HS_EXPECT_GE(on_path, size_t{12});
+  bool moved = false;
+  for (size_t d = 1; d < recorder.draws.size(); ++d) {
+    const P::BuildDraw &draw = recorder.draws[d];
+    if (!draw.on_leg_path)
+      continue;
+    HS_CONTEXT("draw", static_cast<long long>(d));
+    HS_EXPECT_TRUE(draw.end == draw.vertices);
+    HS_EXPECT_TRUE(draw.start == recorder.draws[d - 1].vertices);
+    moved |= draw.start != draw.end;
+  }
+  HS_EXPECT_TRUE(moved);
 }

@@ -738,7 +738,8 @@ public:
    * @param begin First half-turn column.
    * @param end One past the last half-turn column, at most half the width.
    */
-  RenderXWindow(Canvas &canvas, int begin, int end) : effect(canvas.effect) {
+  HS_FLASH_MEMBER RenderXWindow(Canvas &canvas, int begin, int end)
+      : effect(canvas.effect) {
     HS_CHECK(!effect.render_x_window.active, "render-x windows do not nest");
     HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
              "render-x window must lie within the half-turn");

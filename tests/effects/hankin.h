@@ -80,12 +80,89 @@ struct HankinSolidsWhiteBox {
     return out;
   }
 
+  static const ArenaVector<math::Vector> &mesh_vertices(const EffectT &effect) {
+    return effect.hankin_mesh.vertices;
+  }
   static size_t faces(const EffectT &effect) {
     return effect.hankin_mesh.num_faces();
   }
   static const BakedPaletteBank &palette_bank(const EffectT &effect) {
     return effect.palette_bank.bank;
   }
+  /**
+   * @brief Interlace angle of an effect's hankin mesh.
+   * @param effect Effect at any size.
+   * @return The angle the last hankin draw used.
+   */
+  template <typename E> static float angle(const E &effect) {
+    return effect.params.hankin_angle;
+  }
+  /**
+   * @brief Rebuilds an effect's hankin mesh at an interlace angle.
+   * @param effect Effect at any size.
+   * @param angle Interlace angle (radians).
+   */
+  template <typename E> static void rebuild(E &effect, float angle) {
+    MeshOps::update_hankin(effect.compiled_hankin, effect.hankin_mesh,
+                           persistent_arena, angle);
+  }
+  /**
+   * @brief Draws an effect's hankin mesh with every handoff settled, the mesh
+   *        held over the frame.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @param effect Effect whose mesh, palettes and camera are drawn.
+   * @return Displayed frame.
+   */
+  template <int W, int H>
+  static std::vector<Pixel> draw_held(HankinSolids<W, H> &effect) {
+    using E = HankinSolids<W, H>;
+    const auto &bank = effect.palette_bank.bank.entries;
+    const BakedPalette *star[E::NUM_PALETTES];
+    for (int s = 0; s < E::NUM_PALETTES; ++s)
+      star[s] = &bank[effect.palette_idx[s]].view();
+    {
+      Canvas canvas(effect);
+      effect.draw_mesh(canvas, effect.hankin_mesh, star, star);
+    }
+    effect.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(effect, out);
+    return out;
+  }
+
+  /** @brief One morph draw as the draw callback received it. */
+  struct ConwayDraw {
+    std::vector<math::Vector> vertices; ///< The drawn mesh's vertices.
+    std::vector<math::Vector> previous; ///< Its previous vertices, if any.
+    bool has_previous = false;          ///< Whether the leg supplied them.
+  };
+  /** @brief Morph draws recorded by record_conway_draws(). */
+  struct ConwayRecorder {
+    EffectT *effect = nullptr;     ///< Effect whose draws are forwarded.
+    std::vector<ConwayDraw> draws; ///< Recorded draws, oldest first.
+  };
+  /**
+   * @brief Routes an effect's morph draws through a recorder.
+   * @param effect Effect whose draw callback is replaced.
+   * @param recorder Receives every draw; must outlive the effect's legs.
+   */
+  static void record_conway_draws(EffectT &effect, ConwayRecorder &recorder) {
+    recorder.effect = &effect;
+    effect.draw_conway_fn = decltype(effect.draw_conway_fn)(
+        [r = &recorder](Canvas &c, MeshState &m,
+                        const Animation::OpLeg::Shading &sh) {
+          ConwayDraw draw;
+          draw.vertices.assign(m.vertices.begin(), m.vertices.end());
+          draw.has_previous = sh.previous_vertices != nullptr;
+          if (draw.has_previous)
+            draw.previous.assign(sh.previous_vertices,
+                                 sh.previous_vertices + m.vertices.size());
+          r->draws.push_back(std::move(draw));
+          r->effect->draw_conway_mesh(c, m, sh);
+        });
+  }
+
   static std::vector<Pixel> draw_conway(EffectT &effect,
                                         const Animation::OpLeg::Shading &sh) {
     {
@@ -336,4 +413,115 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
       });
   HS_EXPECT_TRUE(expect_frames_within("conway crossfade", drawn, expected,
                                       HANKIN_HANDOFF_BOUND) > 100);
+}
+
+/** @brief Hankin sweep frame the seam test draws: handoffs settled at both
+ *  endpoints, the interlace angle near its fastest. */
+inline constexpr int HANKIN_SEAM_FRAME = 25;
+
+/**
+ * @brief The columns of a hankin sweep frame show the interlace angle at
+ *        their sweep time, across both arm boundaries.
+ * @details The mesh moves about two pixels of arc over this frame. Drawn at
+ * the current endpoint, the first columns of each arm show it where it
+ * stands a frame after they were lit.
+ */
+inline void test_hankinsolids_interlace_motion_is_seam_free() {
+  using WB = HankinSolidsWhiteBox;
+  constexpr int W = 288, H = 144;
+  reset_effect_globals();
+  pin_frame_clock(0);
+  HankinSolids<W, H> effect;
+  effect.init();
+  float previous = 0.0f;
+  for (int f = 0; f <= HANKIN_SEAM_FRAME; ++f) {
+    previous = WB::angle(effect);
+    pin_frame_clock(f);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const float current = WB::angle(effect);
+  HS_EXPECT_GT(fabsf(current - previous), 0.05f);
+  std::vector<Pixel> drawn;
+  capture_frame<W, H>(effect, drawn);
+  const std::vector<Pixel> held = WB::draw_held(effect);
+  expect_seam_resolved<W, H>("hankin interlace", drawn, held, [&](float u) {
+    WB::rebuild(effect, previous + (current - previous) * u);
+    return WB::draw_held(effect);
+  });
+  hs::clear_mock_time();
+}
+
+/**
+ * @brief A morph leg hands each draw the vertices of the frame it drew last,
+ *        none on its first draw or on a redraw of the same frame.
+ */
+inline void test_hankinsolids_morph_draws_carry_previous_vertices() {
+  using WB = HankinSolidsWhiteBox;
+  reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  WB::ConwayRecorder recorder;
+  WB::record_conway_draws(effect, recorder);
+  int frames = 0;
+  while (recorder.draws.size() < 8 && frames < 400) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+  }
+  HS_EXPECT_GE(recorder.draws.size(), size_t{8});
+  if (recorder.draws.size() < 8)
+    return;
+  HS_EXPECT_FALSE(recorder.draws[0].has_previous);
+  bool moved = false;
+  for (size_t d = 1; d < recorder.draws.size(); ++d) {
+    HS_CONTEXT("draw", static_cast<long long>(d));
+    const WB::ConwayDraw &draw = recorder.draws[d];
+    HS_EXPECT_TRUE(draw.has_previous);
+    HS_EXPECT_TRUE(draw.previous == recorder.draws[d - 1].vertices);
+    moved |= draw.previous != draw.vertices;
+  }
+  HS_EXPECT_TRUE(moved);
+  HS_EXPECT_EQ(effect.updateParameter("Angle", 0.3f), ParamSetResult::APPLIED);
+  effect.draw_frame();
+  effect.advance_display();
+  effect.draw_frame();
+  effect.advance_display();
+  HS_EXPECT_FALSE(recorder.draws.back().has_previous);
+}
+
+/**
+ * @brief A morph draw moves its mesh from the previous vertices the leg
+ *        hands it to the current ones across each arm, free of the seam the
+ *        held mesh shows.
+ */
+inline void test_hankinsolids_morph_motion_is_seam_free() {
+  using WB = HankinSolidsWhiteBox;
+  using Shading = Animation::OpLeg::Shading;
+  reset_effect_globals();
+  WB::EffectT effect;
+  effect.init();
+  constexpr float FROM = 0.5f, TO = 0.7f;
+  WB::rebuild(effect, FROM);
+  const size_t count = WB::mesh_vertices(effect).size();
+  std::vector<math::Vector> from(WB::mesh_vertices(effect).begin(),
+                                 WB::mesh_vertices(effect).end());
+  WB::rebuild(effect, TO);
+  const size_t faces = WB::faces(effect);
+  const BakedPalette ramp = WB::palette_bank(effect).entries[0];
+  std::vector<uint8_t> face_ramp(faces, 0);
+  const auto draw = [&](math::Vector *previous) {
+    Shading shading{&ramp, face_ramp.data(), faces};
+    shading.previous_vertices = previous;
+    return WB::draw_conway(effect, shading);
+  };
+  std::vector<math::Vector> previous = from;
+  const std::vector<Pixel> drawn = draw(previous.data());
+  const std::vector<Pixel> held = draw(nullptr);
+  HS_EXPECT_EQ(count, from.size());
+  expect_seam_resolved<SMALL_W, SMALL_H>(
+      "hankin morph", drawn, held, [&](float u) {
+        WB::rebuild(effect, FROM + (TO - FROM) * u);
+        return draw(nullptr);
+      });
 }

@@ -152,7 +152,18 @@ struct ColumnTime {
   /// column lit at fraction `u` evaluates the shape along its direction
   /// rotated by `drift * (1 - u)`; at most MAX_DRIFT_ANGLE long.
   math::Vector drift = math::Vector(0.0f, 0.0f, 0.0f);
+  /// Per face of the mesh a deformation scan draws, which of its passes
+  /// draws the face: MESH_FACE_HELD for the pass without a render-x window,
+  /// MESH_FACE_WINDOW for the open window's; null outside such a scan.
+  const uint8_t *selected_faces = nullptr;
 };
+
+/// ColumnTime::selected_faces entry of a face drawn once over the frame.
+inline constexpr uint8_t MESH_FACE_HELD = 0;
+/// ColumnTime::selected_faces entry of a moving face the open window draws.
+inline constexpr uint8_t MESH_FACE_WINDOW = 1;
+/// ColumnTime::selected_faces entry of a moving face the open window skips.
+inline constexpr uint8_t MESH_FACE_SKIPPED = 2;
 
 /// Longest drift a scan evaluates, radians.
 inline constexpr float MAX_DRIFT_ANGLE = 0.25f;

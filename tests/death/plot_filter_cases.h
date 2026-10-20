@@ -739,6 +739,21 @@ inline void case_pipeline_ref_erase_not_prepared() {
   (void)erased;
 }
 
+/**
+ * @brief Death case: vertex deformation without the frame's column-time
+ *        state.
+ */
+inline void case_scan_deformation_without_column_time() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas c(fx);
+  MeshState mesh;
+  const uint16_t columns[2] = {0, 0};
+  Scan::deform_mesh<W>(
+      c, mesh, true, columns, nullptr, scratch_arena_a, 0.1f,
+      [](size_t, float) { return math::Vector(1, 0, 0); }, [] {});
+}
+
 /** @brief Death case: absent face offsets must trap. */
 inline void case_scan_mesh_missing_offsets() {
   scan_mesh_invalid_fixture(true);

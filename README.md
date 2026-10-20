@@ -406,6 +406,8 @@ The entry points trade generality for speed:
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectColumnBasis` frame at its sweep time.
 
+`Scan::Mesh` honours the window too. `Scan::scan_in_motion_slabs` scans a mesh whose vertices move non-rigidly over the frame (a Hankin interlace sweep, a Conway morph leg, a ripple) in sweep slabs, each with the moving faces' vertices placed at the slab's middle column time; HankinSolids and IslamicStars use it, picking enough slabs that a vertex steps at most half a pixel between them.
+
 ### 5.6 Pullback Shading
 
 A pullback shader computes a pixel's color by pulling its view direction back through a chain of mappings — rotate the sphere, bend it through a lens, project it onto a plane, warp the plane, sample a pattern, map the value through a palette. Because every step maps the *input* coordinate, stages compose freely, and the whole chain runs once per pixel sample.
