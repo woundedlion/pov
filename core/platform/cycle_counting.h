@@ -309,7 +309,53 @@ struct IsrCycleScope {
   IsrCycleScope &operator=(const IsrCycleScope &) = delete;
 };
 
+/**
+ * @brief The PC sampler's render gate: nonzero while its ticks count as
+ *        render time.
+ * @return The gate byte; the main loop writes it, the sampler interrupt reads
+ *         it.
+ */
+inline volatile uint8_t &pc_sample_gate() {
+  static volatile uint8_t open = 0;
+  return open;
+}
+
+/**
+ * @brief RAII guard that sets the PC sampler's render gate for its scope and
+ *        restores the enclosing state on exit.
+ */
+class PcSampleGate {
+public:
+  /**
+   * @brief Sets the gate.
+   * @param open True to count ticks as render, false to count them as idle.
+   */
+  explicit PcSampleGate(bool open) : saved(pc_sample_gate()) {
+    pc_sample_gate() = open ? 1 : 0;
+  }
+  ~PcSampleGate() { pc_sample_gate() = saved; }
+  PcSampleGate(const PcSampleGate &) = delete;
+  PcSampleGate &operator=(const PcSampleGate &) = delete;
+
+private:
+  uint8_t saved;
+};
+
 } // namespace hs
+
+#if defined(HS_PROFILE_PC) && !defined(HS_PROFILE_ENABLE)
+#error "HS_PROFILE_PC needs HS_PROFILE_ENABLE (the Profile harness)"
+#endif
+
+/**
+ * @brief Shuts the PC sampler's render gate for the enclosing scope.
+ * @details Compiled in only under HS_PROFILE_PC. One use per block.
+ */
+#ifdef HS_PROFILE_PC
+#define HS_PC_SAMPLE_PAUSE() hs::PcSampleGate hs_pc_sample_pause(false)
+#else
+#define HS_PC_SAMPLE_PAUSE() ((void)0)
+#endif
 
 /**
  * @brief Times the enclosing scope into an IsrCycleStats instance.

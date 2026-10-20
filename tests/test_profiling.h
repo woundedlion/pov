@@ -2,7 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  *
- * Unit tests for core/platform/cycle_counting.h and tools/profile_isr_window.h.
+ * Unit tests for core/platform/cycle_counting.h, tools/profile_isr_window.h
+ * and tools/pc_sampler.h.
  */
 #pragma once
 
@@ -10,12 +11,16 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/fd_capture_util.h"
+#include "tools/pc_sampler.h"
 #include "tools/profile_isr_window.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
+#include <string>
+#include <vector>
 
 namespace hs_test {
 namespace profiling_tests {
@@ -537,6 +542,175 @@ inline void test_isr_window_logging_latency() {
   }
 }
 
+// --- PC sampler -------------------------------------------------------------
+
+/** @brief EXC_RETURN for Thread mode on MSP with a basic frame. */
+inline constexpr uint32_t PC_EXC_THREAD_MSP = 0xFFFFFFF9u;
+/** @brief EXC_RETURN for Handler mode on MSP with a basic frame. */
+inline constexpr uint32_t PC_EXC_HANDLER = 0xFFFFFFF1u;
+
+/**
+ * @brief Verifies the stacked return address is word 6 of the stack EXC_RETURN
+ *        selects, for basic and FP-extended frames alike.
+ */
+inline void test_pc_interrupted_pc_selects_stack() {
+  uint32_t msp[26], psp[26];
+  for (size_t i = 0; i < 26; ++i) {
+    msp[i] = 0xAA000000u + (uint32_t)i;
+    psp[i] = 0xBB000000u + (uint32_t)i;
+  }
+  msp[6] = 0x00001234u;
+  psp[6] = 0x60005678u;
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFF9u), 0x00001234u);
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFE9u), 0x00001234u);
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFF1u), 0x00001234u);
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFE1u), 0x00001234u);
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFFDu), 0x60005678u);
+  HS_EXPECT_EQ(hs::interrupted_pc(msp, psp, 0xFFFFFFEDu), 0x60005678u);
+}
+
+/**
+ * @brief Verifies lost periods round the elapsed time to whole periods and
+ *        exclude the period that fired.
+ */
+inline void test_pc_lost_ticks_rounds_to_periods() {
+  HS_EXPECT_EQ(hs::pc_lost_ticks(0, 60000), 0u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(60000, 60000), 0u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(89999, 60000), 0u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(90000, 60000), 1u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(149999, 60000), 1u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(150000, 60000), 2u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(7, 5), 0u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(8, 5), 1u);
+  HS_EXPECT_EQ(hs::pc_lost_ticks(UINT32_MAX, 60000), 71582u);
+}
+
+/** @brief Verifies latency buckets are log2 widths capped at the last one. */
+inline void test_pc_latency_buckets() {
+  HS_EXPECT_EQ(hs::pc_latency_bucket(0), 0u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(1), 1u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(2), 2u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(3), 2u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(4), 3u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(1023), 10u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(1024), 11u);
+  HS_EXPECT_EQ(hs::pc_latency_bucket(UINT32_MAX), hs::PC_LATENCY_BUCKETS - 1);
+}
+
+/**
+ * @brief Collects a histogram's bins as start address to count.
+ * @param h Histogram to read.
+ * @return The occupied bins.
+ */
+template <typename H> std::map<uint32_t, uint32_t> pc_bins_of(const H &h) {
+  std::map<uint32_t, uint32_t> bins;
+  h.for_each([&](uint32_t address, uint32_t count) {
+    HS_EXPECT_TRUE(bins.emplace(address, count).second);
+  });
+  return bins;
+}
+
+/**
+ * @brief Verifies PCs aggregate per aligned bin, including the bin at address
+ *        zero, and that a full table rejects only new bins.
+ */
+inline void test_pc_histogram_bins_and_capacity() {
+  hs::PcHistogram<8, 4> h;
+  HS_EXPECT_TRUE(h.add(0x00001000u));
+  HS_EXPECT_TRUE(h.add(0x0000100Eu));
+  HS_EXPECT_TRUE(h.add(0x00001010u));
+  HS_EXPECT_TRUE(h.add(0x60008766u));
+  HS_EXPECT_TRUE(h.add(0x00000002u));
+  HS_EXPECT_EQ(h.size(), 4u);
+  const std::map<uint32_t, uint32_t> expected{{0x00000000u, 1u},
+                                              {0x00001000u, 2u},
+                                              {0x00001010u, 1u},
+                                              {0x60008760u, 1u}};
+  HS_EXPECT_TRUE(pc_bins_of(h) == expected);
+
+  hs::PcHistogram<2, 5> full;
+  HS_EXPECT_TRUE(full.add(0x100u));
+  HS_EXPECT_TRUE(full.add(0x200u));
+  HS_EXPECT_FALSE(full.add(0x300u));
+  HS_EXPECT_TRUE(full.add(0x11Fu));
+  HS_EXPECT_EQ(full.size(), 2u);
+  const std::map<uint32_t, uint32_t> kept{{0x100u, 2u}, {0x200u, 1u}};
+  HS_EXPECT_TRUE(pc_bins_of(full) == kept);
+}
+
+/**
+ * @brief Verifies each tick lands in exactly one of idle, deferred, dropped or
+ *        recorded, with lost periods charged to the gate's state.
+ */
+inline void test_pc_sampler_classifies_ticks() {
+  hs::PcSampler<2, 4> s;
+  s.configure({10000, 48, 24});
+  s.tick(false, 3, 2, PC_EXC_THREAD_MSP, 0x100u);
+  s.tick(true, 48, 0, PC_EXC_THREAD_MSP, 0x200u);
+  s.tick(true, 49, 0, PC_EXC_THREAD_MSP, 0x300u);
+  s.tick(true, 0, 3, PC_EXC_THREAD_MSP, 0x300u);
+  s.tick(true, 0, 0, PC_EXC_HANDLER, 0x400u);
+  s.tick(true, 1, 0, PC_EXC_THREAD_MSP, 0x500u);
+  const hs::PcSampleCounters &c = s.totals();
+  HS_EXPECT_EQ(c.ticks, 6u);
+  HS_EXPECT_EQ(c.idle, 3u);
+  HS_EXPECT_EQ(c.deferred, 2u);
+  HS_EXPECT_EQ(c.missed, 3u);
+  HS_EXPECT_EQ(c.recorded, 2u);
+  HS_EXPECT_EQ(c.handler, 1u);
+  HS_EXPECT_EQ(c.dropped, 1u);
+  HS_EXPECT_EQ(c.latency[0], 2u);
+  HS_EXPECT_EQ(c.latency[1], 1u);
+  HS_EXPECT_EQ(c.latency[2], 1u);
+  HS_EXPECT_EQ(c.latency[6], 2u);
+  const std::map<uint32_t, uint32_t> expected{{0x200u, 1u}, {0x400u, 1u}};
+  HS_EXPECT_TRUE(pc_bins_of(s.bins()) == expected);
+}
+
+/** @brief Verifies the dump's exact line format, which pc_profile.py parses. */
+inline void test_pc_sampler_dump_format() {
+  hs::PcSampler<4, 4> s;
+  s.configure({10000, 48, 24});
+  s.tick(true, 0, 0, PC_EXC_THREAD_MSP, 0x00001234u);
+  s.tick(true, 2, 0, PC_EXC_THREAD_MSP, 0x00001238u);
+  s.tick(true, 5, 0, PC_EXC_THREAD_MSP, 0x6000ABCDu);
+  s.tick(false, 1, 0, PC_EXC_THREAD_MSP, 0x00001234u);
+  s.note_service(100);
+  s.note_service(260);
+  s.note_service(90);
+  std::vector<std::string> lines;
+  s.dump([&](const char *line) { lines.emplace_back(line); }, 1234);
+  HS_EXPECT_SIZE_OR_RETURN(lines, 6u);
+  HS_EXPECT_STREQ(lines[0].c_str(),
+                  "pc profile: version=1 hz=10000 bin_bytes=16 capacity=4 "
+                  "defer_counts=48 counts_per_us=24 elapsed_ms=1234");
+  HS_EXPECT_STREQ(lines[1].c_str(),
+                  "pc profile: ticks=4 idle=1 deferred=0 missed=0 handler=0 "
+                  "recorded=3 dropped=0 bins=2 service_avg=112 "
+                  "service_max=260");
+  HS_EXPECT_STREQ(lines[2].c_str(),
+                  "pc profile latency: 1 1 1 1 0 0 0 0 0 0 0 0");
+  const bool ordered = lines[3] < lines[4];
+  HS_EXPECT_STREQ((ordered ? lines[3] : lines[4]).c_str(), "pc 00001230 2");
+  HS_EXPECT_STREQ((ordered ? lines[4] : lines[3]).c_str(), "pc 6000abc0 1");
+  HS_EXPECT_STREQ(lines[5].c_str(), "pc profile end");
+}
+
+/** @brief Verifies PcSampleGate sets the gate and restores it on nesting. */
+inline void test_pc_sample_gate_nests() {
+  HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 0u);
+  {
+    hs::PcSampleGate render(true);
+    HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 1u);
+    {
+      hs::PcSampleGate wait(false);
+      HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 0u);
+    }
+    HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 1u);
+  }
+  HS_EXPECT_EQ(static_cast<unsigned>(hs::pc_sample_gate()), 0u);
+}
+
 /**
  * @brief Runs the profiling test cases.
  * @return The module's failure count.
@@ -559,6 +733,13 @@ inline int run_profiling_tests() {
   test_reset_does_not_orphan_subtree();
   test_isr_cycle_stats();
   test_isr_window_logging_latency();
+  test_pc_interrupted_pc_selects_stack();
+  test_pc_lost_ticks_rounds_to_periods();
+  test_pc_latency_buckets();
+  test_pc_histogram_bins_and_capacity();
+  test_pc_sampler_classifies_ticks();
+  test_pc_sampler_dump_format();
+  test_pc_sample_gate_nests();
 
   return fixture.result();
 }

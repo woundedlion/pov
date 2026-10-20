@@ -73,6 +73,9 @@
 //                            adds short-batch DWT cycle/stall attribution.
 //   HS_PROFILE_PULLBACK_PROJECTION
 //                            adds polyhedral reflection counts.
+//   HS_PROFILE_PC            samples the program counter during render and
+//                            dumps the histogram once, HS_PROFILE_PC_MS after
+//                            setup; tools/pc_profile.py symbolizes it.
 
 #if defined(HS_PROFILE_PLOT_RENDER_COUNTS) && defined(HS_PROFILE_PLOT_STALLS)
 #error "Plot count and stall captures require separate images"
@@ -94,6 +97,10 @@
 
 #ifdef HS_PROFILE_SPHERICAL_EXPERIMENT
 #include "tools/profile_spherical_experiment.h"
+#endif
+
+#ifdef HS_PROFILE_PC
+#include "tools/pc_sampler.h"
 #endif
 
 #ifdef HS_MINDSPLATTER_REPLAY
@@ -214,6 +221,9 @@ public:
           });
 #endif
 #else
+#ifdef HS_PROFILE_PC
+      hs::PcSampleGate render_gate(true);
+#endif
       HS_PROFILE_TARGET<W, H>::draw_frame();
 #endif
     }
@@ -256,6 +266,9 @@ public:
     ++total_frames;
     if (++window_frames == WINDOW_FRAMES)
       dump();
+#ifdef HS_PROFILE_PC
+    hs::pc_sampler_dump_when_due(HS_PROFILE_PC_MS);
+#endif
   }
 
 private:
@@ -735,6 +748,9 @@ FLASHMEM void setup() {
   hs::enable_plot_stall_counters();
 #endif
   POV::begin();
+#ifdef HS_PROFILE_PC
+  hs::pc_sampler_begin();
+#endif
   // A strapped-nonzero board comes up downstream: dark in ACQUIRE, waiting on a
   // sync wire nothing drives, so the whole capture runs black and counter-empty.
   HS_CHECK(POV::segment_index() == 0,

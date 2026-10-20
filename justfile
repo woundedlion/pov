@@ -180,6 +180,10 @@ python-ci: python-test
 profile effect="DisplacementField" seconds="150" $HS_PROFILE_DEEP="0":
     bash tools/profile_one.sh {{ effect }} profile {{ seconds }} 32
 
+# Windows only: PC-sampling capture of one effect plus its symbolized report.
+profile-pc effect="DisplacementField" seconds="40" $HS_PROFILE_PC="1":
+    bash tools/profile_one.sh {{ effect }} profile {{ seconds }} 32
+
 # Windows only: repeated render of the frozen production-resolution corpus.
 profile-mindsplatter-replay env="profile" seconds="150":
     bash tools/profile_one.sh MindSplatter {{ env }} {{ seconds }} 32 -D HS_MINDSPLATTER_REPLAY
