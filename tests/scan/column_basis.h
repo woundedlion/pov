@@ -1454,6 +1454,68 @@ inline void test_mesh_capture_unwrap() {
   HS_EXPECT_EQ(Scan::unwrap_capture(0.01f, 0.75f), 1.0f);
 }
 
+/** @brief Window interval rejection and run clipping match column membership. */
+inline void test_capture_window_runs() {
+  constexpr int W = 16;
+  for (int begin = 0; begin < W / 2; ++begin)
+    for (int end = begin + 1; end <= W / 2; ++end) {
+      const ColumnWindow window{begin, end, true};
+      for (int a = -W; a < 2 * W; ++a)
+        for (int length = 0; length <= W; ++length) {
+          const std::array<SDF::Interval, 1> intervals{
+              SDF::Interval{float(a), float(a + length)}};
+          bool expected = false;
+          for (int k = 0; k < std::max(length, 1); ++k) {
+            const int x = ((a + k) % W + W) % W;
+            expected |= x % (W / 2) >= begin && x % (W / 2) < end;
+          }
+          HS_EXPECT_EQ(Scan::intervals_meet_window<W>(intervals, window),
+                       expected);
+        }
+      for (int a = 0; a < W; ++a)
+        for (int b = a + 1; b <= W; ++b) {
+          Scan::ColumnRun runs[3];
+          runs[0] = {a, b};
+          const size_t count = Scan::window_runs<W, 3>(runs, 1, window);
+          for (int x = 0; x < W; ++x) {
+            int visits = 0;
+            for (size_t i = 0; i < count; ++i)
+              visits += x >= runs[i].first && x < runs[i].second;
+            HS_EXPECT_EQ(visits, int(x >= a && x < b && x % (W / 2) >= begin &&
+                                     x % (W / 2) < end));
+          }
+        }
+    }
+}
+
+/** @brief Whole-face window rejection retains both arms and inactive windows. */
+inline void test_capture_window_faces() {
+  constexpr int W = 96, H = 48;
+  const ClipRegion clip{0, H, 0, W, 0, W, H};
+  const uint16_t indices[] = {0, 1, 2};
+  ScratchScope guard(scratch_arena_a);
+  auto *scratch = Scan::new_face_scratch(scratch_arena_a);
+  for (float arm : {0.0f, math::PI_F}) {
+    math::Vector vertices[3];
+    for (int i = 0; i < 3; ++i) {
+      const float theta = arm + 2.2f + 0.1f * i;
+      const float phi = i == 1 ? 1.3f : 1.0f;
+      vertices[i] = {sinf(phi) * cosf(theta), cosf(phi),
+                     sinf(phi) * sinf(theta)};
+    }
+    const SDF::Face shape(vertices, indices, *scratch,
+                          math::LatitudeGeometry(H), H, &clip, nullptr,
+                          math::TWO_PI_F / W);
+    HS_EXPECT_LE(shape.y_min, shape.y_max);
+    HS_EXPECT_FALSE(
+        Scan::face_meets_window(shape, ColumnWindow{0, W / 4, true}, clip));
+    HS_EXPECT_TRUE(
+        Scan::face_meets_window(shape, ColumnWindow{W / 4, W / 2, true}, clip));
+    HS_EXPECT_TRUE(
+        Scan::face_meets_window(shape, ColumnWindow{0, W / 4, false}, clip));
+  }
+}
+
 /** @brief A captured equatorial vertex follows its path; polar vertices hold. */
 inline void test_mesh_capture_vertex() {
   constexpr int W = 288, H = 144;

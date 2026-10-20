@@ -148,6 +148,8 @@ inline int run_scan_tests() {
   test_drift_matches_shape_at_column_centre();
   test_settled_drift_matches_column_drift();
   test_mesh_capture_unwrap();
+  test_capture_window_runs();
+  test_capture_window_faces();
   test_mesh_capture_vertex();
   test_mesh_deformation_shared_edges();
   test_mesh_deformation_window_pixels();
