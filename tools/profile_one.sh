@@ -17,6 +17,9 @@
 #                           (used by profile_islamic_big.sh for IslamicStars)
 #   HS_PROFILE_MINDSPLATTER=counts|stalls  MindSplatter instrumentation image with
 #                           a suffixed log; not valid for timing comparisons
+#   HS_PROFILE_PC=1         PC-sampler image (-D HS_PROFILE_PC) with a _pc log;
+#                           dumps PC_DUMP_MARGIN_S before the capture ends and
+#                           writes tools/pc_profile.py's report to <stem>_report.txt
 set -euo pipefail
 # shellcheck source-path=SCRIPTDIR source=device_lock.sh
 . "$(dirname "$0")/device_lock.sh"
@@ -57,6 +60,20 @@ for n in "$SECONDS_ARG" "$WINDOW"; do
   esac
 done
 EXTRA="$*"
+# Seconds the PC dump leaves between itself and the end of the capture.
+PC_DUMP_MARGIN_S=8
+PC_FLAGS=""
+PC_SUFFIX=""
+PC_MARKER=""
+if [ -n "${HS_PROFILE_PC:-}" ] && [ "${HS_PROFILE_PC:-}" != "0" ]; then
+  [ "$SECONDS_ARG" -gt $((PC_DUMP_MARGIN_S + 2)) ] || {
+    echo "HS_PROFILE_PC needs more than $((PC_DUMP_MARGIN_S + 2)) seconds" >&2
+    exit 1
+  }
+  PC_FLAGS="-D HS_PROFILE_PC -D HS_PROFILE_PC_MS=$(((SECONDS_ARG - PC_DUMP_MARGIN_S) * 1000))"
+  PC_SUFFIX="_pc"
+  PC_MARKER="pc profile end"
+fi
 PROFILE_PRESET=$(printf '%s\n' "$EXTRA" |
   sed -nE 's/.*-D[[:space:]]*HS_PROFILE_PRESET=([0-9]+).*/\1/p')
 case "$ENV" in
@@ -100,7 +117,7 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     exit 1
     ;;
 esac
-MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}"
+MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}${PC_SUFFIX}"
 OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
 # Every per-run artifact shares the log's stem.
 STEM=${OUT%.log}
@@ -120,7 +137,7 @@ ATTESTED_COMPILER=
 
 cd "$TREE" || { echo "no such tree: $TREE" >&2; exit 1; }
 mkdir -p "$(dirname "$OUT")"
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $EXTRA"
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $MSP_FLAGS $PC_FLAGS $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
 CYCLERS="AlienBrain KaleidoscopeSmooth KaleidoscopeFlowers KaleidoscopeMandala KaleidoscopeHexOil KaleidoscopeHexBright HyperLattice MobiusGrid ShapeShifter MindSplatter DreamBalls Comets MeshFeedback HankinSolids SphericalHarmonics IslamicStars DisplacementField"
@@ -329,6 +346,11 @@ verify() {
       echo "NO '$MSP_MARKER' INSTRUMENTATION; stale build?"; return 1;
     }
   fi
+  if [ -n "${PC_MARKER:-}" ]; then
+    grep -qx "$PC_MARKER" "$OUT" || {
+      echo "NO '$PC_MARKER' LINE; PC dump missing or cut short"; return 1;
+    }
+  fi
   # A flash that did not take leaves the previous image running; a freshly
   # flashed board starts at frame 1.
   local first
@@ -361,3 +383,10 @@ if [ -n "$MARKER" ]; then
   NMARK=$(grep -c "$MARKER" "$OUT" || true)
 fi
 echo "OK $OUT: $NWIN windows, markers($MARKER)=$NMARK"
+if [ -n "$PC_SUFFIX" ]; then
+  PC_REPORT=${STEM}_report.txt
+  "$_HS_LOCK_PYTHON" tools/pc_profile.py "$OUT" >"$PC_REPORT" ||
+    { echo "PC REPORT FAILED: $PC_REPORT"; exit 1; }
+  echo "PC report: $PC_REPORT"
+  sed -n '3,30p' "$PC_REPORT"
+fi

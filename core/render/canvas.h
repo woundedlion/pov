@@ -629,6 +629,7 @@ private:
    */
   void wait_for_free_buffer() {
     HS_PROFILE(canvas_buffer_wait);
+    HS_PC_SAMPLE_PAUSE();
     if (effect.buffer_free())
       return;
 #if HS_ENABLE_TEST_HOOKS

@@ -69,7 +69,7 @@ class ProfileEffectIdentity(unittest.TestCase):
 
 
 def verify_log(text, expected="o3", provenance=True, marker="", *,
-               preset="", expected_shape="", msp_marker="",
+               preset="", expected_shape="", msp_marker="", pc_marker="",
                artifact_present=True, digest_override=None):
     with tempfile.TemporaryDirectory() as directory:
         artifact = Path(directory) / "firmware.elf"
@@ -92,11 +92,12 @@ def verify_log(text, expected="o3", provenance=True, marker="", *,
             f"{shell_function('file_sha256')}\n"
             'OUT=$1; EFFECT=Fx; TAG=$2; MARKER=$3\n'
             'PROFILE_PRESET=$4; MSP_MARKER=$5; HS_PROFILE_EXPECT_SHAPE=$6\n'
+            'PC_MARKER=$7\n'
             "verify\n"
         )
         return subprocess.run(
             ["bash", "-c", script, "profile-test", str(log), expected, marker,
-             preset, msp_marker, expected_shape],
+             preset, msp_marker, expected_shape, pc_marker],
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -267,6 +268,42 @@ class ReplayFlags(unittest.TestCase):
                         self.assertEqual(result.stdout, "_replay" + suffix.lower())
 
 
+def pc_flags(seconds, pc=None):
+    """Evaluate profile_one.sh's HS_PROFILE_PC block for one capture length."""
+    source = PROFILE_ONE.read_text(encoding="utf-8")
+    block = re.search(r"(?ms)^PC_DUMP_MARGIN_S=.*?^fi\n", source)
+    if not block:
+        raise AssertionError("missing HS_PROFILE_PC block")
+    env = {"PATH": os.environ["PATH"]}
+    if pc is not None:
+        env["HS_PROFILE_PC"] = pc
+    return subprocess.run(
+        ["bash", "-c", "set -euo pipefail\nSECONDS_ARG=$1\n" + block.group(0)
+         + 'printf "%s|%s|%s" "$PC_FLAGS" "$PC_SUFFIX" "$PC_MARKER"',
+         "pc-test", str(seconds)],
+        capture_output=True, text=True, encoding="utf-8", env=env)
+
+
+class PcSamplerFlags(unittest.TestCase):
+    def test_enabled_capture_dumps_before_the_capture_ends(self):
+        result = pc_flags(40, "1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "-D HS_PROFILE_PC -D HS_PROFILE_PC_MS=32000"
+                         "|_pc|pc profile end")
+
+    def test_unset_or_zero_leaves_the_image_alone(self):
+        for pc in (None, "0"):
+            with self.subTest(pc=pc):
+                result = pc_flags(40, pc)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout, "||")
+
+    def test_a_capture_too_short_for_the_dump_margin_is_rejected(self):
+        result = pc_flags(10, "1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("HS_PROFILE_PC needs more than 10 seconds", result.stderr)
+
+
 class ArtifactPaths(unittest.TestCase):
     """HS_PROFILE_OUT selects paths for the complete capture artifact set."""
 
@@ -369,6 +406,16 @@ class ProfileConfigVerification(unittest.TestCase):
                 result = verify_log(capture_log("o3"), msp_marker=marker)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(f"NO '{marker}' INSTRUMENTATION", result.stdout)
+
+    def test_pc_capture_requires_the_complete_dump(self):
+        marker = "pc profile end"
+        result = verify_log(capture_log("o3") + marker + "\n", pc_marker=marker)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        for tail in ("", "pc profile en\n", "pc profile end trailing\n"):
+            with self.subTest(tail=tail):
+                result = verify_log(capture_log("o3") + tail, pc_marker=marker)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(f"NO '{marker}' LINE", result.stdout)
 
     def test_missing_artifact_is_rejected_with_valid_provenance(self):
         result = verify_log(capture_log("o3"))
