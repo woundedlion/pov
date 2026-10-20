@@ -388,11 +388,25 @@ struct ColumnPrediction {
 
 /** @brief Work performed by geometry-callback capture and rasterization. */
 struct GeometryCounters {
+  uint32_t common_time_edges =
+      0; /**< Edges using a common-time spacing metric. */
+  uint32_t interior_timed_samples =
+      0;                     /**< Samples requesting own-time tap evaluation. */
   uint32_t end_probes = 0;   /**< Probes at the current endpoint. */
   uint32_t solve_probes = 0; /**< Additional probes during capture solving. */
+  uint32_t rigid_fallback_edges =
+      0; /**< Edges exceeding adaptive capacity or precision. */
+  uint32_t control_evaluations = 0; /**< Rigid world/control evaluations. */
+  uint32_t control_corrections =
+      0; /**< Corrected control capture predictions. */
+  uint32_t rigid_samples =
+      0; /**< Samples interpolated from transformed controls. */
   uint32_t boundary_evaluations = 0; /**< Kept boundary columns re-evaluated. */
-  uint32_t anchors = 0;              /**< Points solved for their arm passes. */
+  uint32_t corrections = 0; /**< Re-evaluations after a missed prediction. */
+  uint32_t anchors = 0;     /**< Points solved for their arm passes. */
+  uint32_t refined_controls = 0;     /**< Rigid controls added by refinement. */
   uint32_t callback_evaluations = 0; /**< Geometry callback invocations. */
+  uint32_t parts = 0;                /**< Walks between arm-boundary cuts. */
   uint32_t held_anchors = 0; /**< Capture solves held at the column limit. */
   uint32_t unsettled_passes = 0; /**< Passes exhausting their probe budget. */
 };

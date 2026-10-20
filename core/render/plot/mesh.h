@@ -446,6 +446,53 @@ struct Mesh {
                       static_cast<int>(ei), cb, fragment_shader, vertex_shader);
     }
   }
+  /** @brief Draws a precomputed wireframe through the column-time walk.
+   * @tparam W,H Canvas dimensions.
+   * @tparam MeshT Mesh storage type.
+   * @tparam PipelineT Rendering pipeline type.
+   * @tparam ShaderT Fragment shader type.
+   * @param pipeline Timed world pipeline.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh endpoint positions.
+   * @param edges Precomputed unique edges.
+   * @param shader Fragment shader. */
+  template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_timed(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+             const ArenaVector<Edge> &edges, ShaderT shader) {
+    const bool still = [&]() HS_HOT_INLINE {
+      if constexpr (std::is_invocable_v<ShaderT &, const math::Vector &,
+                                        Fragment &, float>)
+        return false;
+      if constexpr (requires { pipeline.has_temporal_motion; })
+        return !pipeline.has_temporal_motion;
+      return false;
+    }();
+    if (!Temporal::temporal_sampling_enabled() || still) {
+      auto still_shader = [&](const math::Vector &p,
+                              Fragment &f) HS_HOT_INLINE {
+        if constexpr (std::is_invocable_v<ShaderT &, const math::Vector &,
+                                          Fragment &, float>)
+          shader(p, f, 1.0f);
+        else
+          shader(p, f);
+      };
+      draw<W, H>(pipeline, canvas, mesh, edges, FragmentShaderFn(still_shader));
+      return;
+    }
+    for (size_t ei = 0; ei < edges.size(); ++ei) {
+      ScratchScope guard(scratch_arena_a);
+      Fragments points;
+      points.bind(scratch_arena_a, 2);
+      Fragment a, b;
+      a.pos = mesh.vertices[edges[ei].u];
+      b.pos = mesh.vertices[edges[ei].v];
+      Line::sample(points, a, b, make_geodesic_edge_span(a.pos, b.pos));
+      for (auto &p : points)
+        p.v2 = static_cast<float>(ei);
+      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader);
+    }
+  }
 };
 
 } // namespace Plot

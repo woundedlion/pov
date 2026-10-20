@@ -521,6 +521,45 @@ inline void test_timed_predicted_landing() {
   HS_EXPECT_EQ(records, 1);
 }
 
+/** @brief Unborn predicted samples never enter world history. */
+inline void test_timed_unborn_samples_skip_history() {
+  constexpr int W = 288, H = 144;
+  StubEffect effect(W, H);
+  Canvas canvas(effect);
+  using Trails = Filter::World::Trails<16>;
+  Pipeline<W, H, Trails, Filter::Screen::AntiAlias<W, H>> pipeline{
+      Trails(10), Filter::Screen::AntiAlias<W, H>()};
+  pipeline.init_storage(persistent_arena);
+  ScratchScope scratch(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 2);
+  auto geometry = [](size_t index, float time) {
+    return math::pixel_to_vector<W, H>(40.0f + 30.0f * index + 3.0f * time,
+                                       65.0f);
+  };
+  for (size_t index = 0; index < 2; ++index) {
+    Fragment point;
+    point.pos = geometry(index, 1.0f);
+    points.push_back(point);
+  }
+  const float births[] = {1.0f, 1.0f};
+  auto callback = Plot::GeometryCallback::exact(geometry);
+  callback.births = births;
+  auto shade = [](const math::Vector &, Fragment &fragment) {
+    fragment.color = Color4(1, 1, 1, 0.4f);
+  };
+  Plot::rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shade, {},
+                                         callback,
+                                         3.0f * math::RADIANS_PER_COLUMN<W>);
+  int records = 0;
+  auto history_shader = [&](const math::Vector &, float) {
+    ++records;
+    return Color4(1, 1, 1, 1);
+  };
+  pipeline.flush(canvas, WorldTrailFn(history_shader), 1.0f);
+  HS_EXPECT_EQ(records, 0);
+}
+
 /** @brief Both timed entries emit no-pass points zero times and two-pass twice. */
 inline void test_timed_point_entries() {
   for (bool direct : {false, true}) {
@@ -587,6 +626,42 @@ inline void test_timed_boundary_tap_ownership() {
         HS_EXPECT_EQ(canvas.data()[i], expected[i]);
     }
   }
+}
+
+/** @brief Motion padding admits an entering edge while preserving the clip. */
+inline void test_timed_cull_region() {
+  const auto history = spin_history(0.0f, 0.10f, 3);
+  Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
+      pipeline{Filter::World::Orient(history),
+               Filter::Screen::AntiAlias<288, 144>()};
+  PipelineRef ref(pipeline, Temporal::Timed{});
+  constexpr float ANGLE = 0.10f * math::PI_F;
+  HS_EXPECT_GE(ref.cull_bound(), ANGLE);
+  HS_EXPECT_LE(ref.cull_bound(), ANGLE + (history.length() - 1) * 0.000203f);
+  StubEffect effect(288, 144);
+  effect.set_margin(0);
+  effect.set_clip(36, 72, 0, 144);
+  Canvas canvas(effect);
+  const auto exact = canvas.clip();
+  const Plot::CullRegion still(canvas.clip());
+  const Plot::CullRegion swept(canvas.clip(), ref.cull_bound());
+  const auto a = math::pixel_to_vector<288, 144>(5.0f, 52.0f);
+  const auto b = math::pixel_to_vector<288, 144>(6.0f, 54.0f);
+  HS_EXPECT_FALSE((Plot::edge_visible_in_region<288, 144>(ref, still, a, b)));
+  HS_EXPECT_TRUE((Plot::edge_visible_in_region<288, 144>(ref, swept, a, b)));
+  const auto below_a = math::pixel_to_vector<288, 144>(60.0f, 75.0f);
+  const auto below_b = math::pixel_to_vector<288, 144>(62.0f, 76.0f);
+  HS_EXPECT_FALSE(
+      (Plot::edge_visible_in_region<288, 144>(ref, still, below_a, below_b)));
+  HS_EXPECT_TRUE(
+      (Plot::edge_visible_in_region<288, 144>(ref, swept, below_a, below_b)));
+  HS_EXPECT_TRUE(canvas.clip() == exact);
+  HS_EXPECT_FALSE(still.could_intersect_rows<144>(74.0f, 75.0f));
+  HS_EXPECT_TRUE(swept.could_intersect_rows<144>(74.0f, 75.0f));
+  HS_EXPECT_LT(swept.column_pad<288>(0.05f), 0.0f);
+  const float expected = ref.cull_bound() * (288.0f / (2.0f * math::PI_F)) /
+                         (1.0f - ref.cull_bound());
+  HS_EXPECT_NEAR(swept.column_pad<288>(1.0f), expected, 1e-6f);
 }
 
 /** @brief Cached explicit poses invalidate on fraction, input, frame and collapse. */

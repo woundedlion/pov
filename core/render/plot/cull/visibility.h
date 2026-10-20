@@ -5,6 +5,47 @@
 
 // Included by core/render/plot/cull.h.
 
+/** @brief Tests a transformed geodesic against a motion-padded region.
+ * @tparam W,H Canvas dimensions.
+ * @param region Exact clip and angular motion bound.
+ * @param a,b Transformed endpoint geometry.
+ * @return Whether the edge reaches the region. */
+template <int W, int H>
+HS_HOT_FLASH_MEMBER bool geodesic_reaches_region(const CullRegion &region,
+                                                 const math::Vector &a,
+                                                 const math::Vector &b) {
+  const auto span = make_geodesic_edge_span(a, b);
+  float lo, hi;
+  geodesic_row_span_rows<H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y), a,
+                            b, span, lo, hi);
+  if (!region.could_intersect_rows<H>(lo, hi + GEODESIC_ROW_AA_PAD))
+    return false;
+  if (!region.x_clip().active)
+    return true;
+  int start, length;
+  if (!geodesic_col_span<W>(a, b, span, start, length))
+    return true;
+  return region.arc_reaches_columns<W>(start, length,
+                                       region.column_pad_rows<W, H>(lo, hi));
+}
+
+/** @brief Culls an endpoint geodesic against its motion-padded region.
+ * @tparam W,H Canvas dimensions.
+ * @param pipeline Pipeline forwarding endpoint geometry.
+ * @param region Exact clip and angular motion bound.
+ * @param a,b Endpoint geometry at t = 1.
+ * @return Whether the swept edge can reach the clip. */
+template <int W, int H, typename PipelineT>
+HS_HOT_INLINE inline bool
+edge_visible_in_region(PipelineT &pipeline, const CullRegion &region,
+                       const math::Vector &a, const math::Vector &b) {
+  auto pred = [&](const math::Vector &ea, const math::Vector &eb,
+                  const math::Basis *) HS_HOT_INLINE {
+    return geodesic_reaches_region<W, H>(region, ea, eb);
+  };
+  return pipeline.could_intersect_clip(a, b, nullptr, pred);
+}
+
 /** @file visibility.h
  * @brief Clip-visibility gates for dots, caps, rings and trails, and the
  * pipeline-aware screen step.

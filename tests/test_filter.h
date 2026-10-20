@@ -125,7 +125,9 @@ inline int run_filter_tests() {
   test_temporal_column_arithmetic_matches_remainder();
   test_temporal_orientation_bound_is_conservative();
   test_timed_predicted_landing();
+  test_timed_unborn_samples_skip_history();
   test_timed_boundary_tap_ownership();
+  test_timed_cull_region();
   test_timed_replicate_selected_copy();
   test_timed_vertex_replicate_selected_copy();
   test_temporal_capture_matches_exhaustive_oracle();
