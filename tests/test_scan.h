@@ -151,6 +151,7 @@ inline int run_scan_tests() {
   test_capture_window_runs();
   test_capture_window_faces();
   test_mesh_capture_vertex();
+  test_mesh_capture_reuse();
   test_mesh_deformation_shared_edges();
   test_mesh_deformation_window_pixels();
   test_mesh_motion_activation();

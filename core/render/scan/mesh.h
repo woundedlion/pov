@@ -1106,6 +1106,7 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   ScratchScope guard(scratch);
   const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
   uint8_t *selected = scratch.allocate_n<uint8_t>(faces);
+  // Bit 0 selects this window; bit 1 retains a capture shared by both windows.
   uint8_t *placed = scratch.allocate_n<uint8_t>(vertices);
   Temporal::ColumnTime time = *canvas.column_time();
   time.selected_faces = selected;
@@ -1126,9 +1127,11 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   }
   if (held)
     scan();
+  std::fill_n(placed, vertices, uint8_t(0));
   for (int pass = 0; pass < 2; ++pass) {
     const int begin = pass * (W / 4), end = (pass + 1) * (W / 4);
-    std::fill_n(placed, vertices, uint8_t(0));
+    for (size_t i = 0; i < vertices; ++i)
+      placed[i] &= 2;
     bool any = false;
     for (size_t f = 0; f < faces; ++f) {
       const bool draw = columns[2 * f] != HELD_FACE_COLUMN &&
@@ -1140,16 +1143,28 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
         continue;
       any = true;
       for (size_t k = 0; k < counts[f]; ++k)
-        placed[indices[offsets[f] + k]] = 1;
+        placed[indices[offsets[f] + k]] |= 1;
     }
     if (!any)
       continue;
     const float centre = pass == 0 ? 0.25f : 0.75f;
     for (size_t i = 0; i < vertices; ++i) {
-      if (!placed[i] || !moving[i])
+      if (!(placed[i] & 1) || !moving[i] || (placed[i] & 2))
         continue;
       const math::Vector endpoint =
           pass == 0 ? mesh.vertices[i] : vertex(i, 1.0f);
+      if (pass == 0) {
+        const float angle =
+            math::fast_atan2(endpoint.z, endpoint.x) / math::PI_F;
+        const float fraction = angle - floorf(angle);
+        const float horizontal =
+            sqrtf(endpoint.x * endpoint.x + endpoint.z * endpoint.z);
+        placed[i] = fraction > 0.25f && fraction < 0.75f &&
+                            horizontal > hold.sin_bound &&
+                            hold.bound / horizontal < math::PI_F / 4.0f
+                        ? 2
+                        : 0;
+      }
       mesh.vertices[i] = capture_vertex<W>(
           endpoint, time, hold, centre,
           [&](float u) HS_HOT_INLINE { return vertex(i, u); });
