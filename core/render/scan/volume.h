@@ -107,8 +107,8 @@ template <int W> struct VolumeColumns {
    * @param center Bounds centre, unit length.
    * @param q Local-to-world rotation, unit length.
    */
-  HS_FLASH_MEMBER void set(int column, const math::Vector &center,
-                           const math::Quaternion &q) {
+  HS_HOT_INLINE void set(int column, const math::Vector &center,
+                         const math::Quaternion &q) {
     Column &c = columns[column];
     c.center = center;
     c.q_inv = q.inverse();
