@@ -583,6 +583,17 @@ _hs_warnings(h_offset_full_resolution_check)
 _hs_sanitize(h_offset_full_resolution_check)
 add_test(NAME unit_h_offset_full_resolution COMMAND h_offset_full_resolution_check)
 
+# Global operator new replacement conflicts with the sanitizer runtimes'.
+if(NOT HS_SANITIZE AND NOT HS_TSAN)
+  add_executable(frame_heap_check
+    ${CMAKE_CURRENT_SOURCE_DIR}/frame_heap_check.cpp
+    ${HS_ENGINE_SOURCES})
+  target_link_libraries(frame_heap_check PRIVATE hs_host_effect_runtime)
+  target_include_directories(frame_heap_check PRIVATE ${HS_ENGINE_INCLUDES})
+  _hs_warnings(frame_heap_check)
+  add_test(NAME unit_frame_heap COMMAND frame_heap_check)
+endif()
+
 
 add_executable(display_geometry_check
   ${CMAKE_CURRENT_SOURCE_DIR}/display_geometry_check.cpp
