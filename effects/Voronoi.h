@@ -65,6 +65,7 @@ public:
 
     sites_buffer.bind(persistent_arena, MAX_SITES);
     previous_positions.bind(persistent_arena, MAX_SITES);
+    corner_pairs = persistent_arena.allocate_n<CornerPair>(CORNER_CAPACITY);
     seed_sites();
   }
 
@@ -78,35 +79,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    {
-      HS_PROFILE(vo_animate);
-      const bool RESEEDED = active_site_count() != current_num_sites;
-      if (RESEEDED)
-        seed_sites();
-
-      float s = logf(params.speed + 1.0f) * SITE_SPIN_RADIANS;
-      // Every site turns by the same angle, so the half-angle trig is shared;
-      // only the axis differs. Expands make_rotation(site.axis, s) exactly.
-      const float half_cos = cosf(s / 2);
-      const float half_sin = sinf(s / 2);
-
-      previous_positions.clear();
-      for (size_t i = 0; i < sites_buffer.size(); ++i) {
-        auto &site = sites_buffer[i];
-        previous_positions.push_back(site.pos);
-        // Renormalize: rotate() drifts |pos| off the unit sphere, and the
-        // max-dot nearest search and border acosf(dot) need unit sites.
-        const math::Quaternion q(half_cos, half_sin * site.axis);
-        site.pos = math::rotate(site.pos, q).normalized();
-      }
-      frame_spin = s;
-      if (RESEEDED || !history_primed) {
-        for (size_t i = 0; i < sites_buffer.size(); ++i)
-          previous_positions[i] = sites_buffer[i].pos;
-        frame_spin = 0.0f;
-        history_primed = true;
-      }
-    }
+    advance_sites();
 
     // Build a KD-tree over the moving site positions once per frame. On the unit
     // sphere nearest-by-Euclidean == nearest-by-max-dot (|p-s|^2 = 2 - 2*p*s),
@@ -127,6 +100,8 @@ public:
       draw_temporal(canvas, tree);
       return;
     }
+
+    corners_valid = false;
 
     // One node for all per-pixel work (corner pre-pass + shading loop); never
     // scope inside the per-pixel loop.
@@ -188,6 +163,37 @@ private:
   static constexpr int TEMPORAL_SITES_PER_CORNER = 2 * SITES_PER_CORNER;
   /// Margin on the drift bound for rounding in the spin and renormalization.
   static constexpr float DRIFT_SLACK = 1e-5f;
+
+  /** @brief Advances site positions and retains the drawn frame endpoints. */
+  HS_HOT_FLASH_MEMBER void advance_sites() {
+    HS_PROFILE(vo_animate);
+    const bool RESEEDED = active_site_count() != current_num_sites;
+    if (RESEEDED)
+      seed_sites();
+
+    float s = logf(params.speed + 1.0f) * SITE_SPIN_RADIANS;
+    // Every site turns by the same angle, so the half-angle trig is shared;
+    // only the axis differs. Expands make_rotation(site.axis, s) exactly.
+    const float half_cos = cosf(s / 2);
+    const float half_sin = sinf(s / 2);
+
+    previous_positions.clear();
+    for (size_t i = 0; i < sites_buffer.size(); ++i) {
+      auto &site = sites_buffer[i];
+      previous_positions.push_back(site.pos);
+      // Renormalize: rotate() drifts |pos| off the unit sphere, and the
+      // max-dot nearest search and border acosf(dot) need unit sites.
+      const math::Quaternion q(half_cos, half_sin * site.axis);
+      site.pos = math::rotate(site.pos, q).normalized();
+    }
+    frame_spin = s;
+    if (RESEEDED || !history_primed) {
+      for (size_t i = 0; i < sites_buffer.size(); ++i)
+        previous_positions[i] = sites_buffer[i].pos;
+      frame_spin = 0.0f;
+      history_primed = true;
+    }
+  }
 
   /**
    * @brief Coarse-coherence block edge for the active site count.
@@ -422,6 +428,7 @@ private:
     fill_spins(spins);
     const int BLOCK = coherence_block();
     if (BLOCK == 1) {
+      corners_valid = false;
       math::Vector *every =
           scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
       Scan::Shader::draw_columns<W, H>(
@@ -439,14 +446,20 @@ private:
     math::Vector *positions = scratch_arena_a.allocate_n<math::Vector>(
         3 * 4 * TEMPORAL_SITES_PER_CORNER);
     Nearby near = first_nearby();
+    const bool REUSE =
+        corners_valid && corner_clip == canvas.clip() && corner_block == BLOCK;
+    size_t corner = 0;
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
         [&](const math::Vector &p) __attribute__((always_inline)) {
-          return endpoint_pairs(tree, p, near);
+          return cached_endpoint_pairs(tree, p, near, corner++, REUSE);
         },
         [&](int x) __attribute__((always_inline)) {
           return TemporalColumn{this, column_motion(x, tree, spins), positions};
         });
+    corner_clip = canvas.clip();
+    corner_block = BLOCK;
+    corners_valid = true;
   }
 
   /**
@@ -568,6 +581,42 @@ private:
     return {b_first ? b : a, b_first ? a : b, a, b};
   }
 
+  /** @brief Endpoint pair retained in corner traversal order. */
+  using CornerPair = std::array<uint16_t, SITES_PER_CORNER>;
+
+  /**
+   * @brief Classifies a corner with its retained previous endpoint pair.
+   * @param current Tree over current site positions.
+   * @param p Corner direction.
+   * @param near Search bounds for an uncached traversal.
+   * @param corner Corner ordinal in the unchanged clip and grid.
+   * @param reuse Whether the preceding frame classified the same grid.
+   * @return Previous and current nearest pairs, nearest first.
+   */
+  HS_HOT_INLINE Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER>
+  cached_endpoint_pairs(const KDTree &current, const math::Vector &p,
+                        Nearby &near, size_t corner, bool reuse) {
+    auto &saved = corner_pairs[corner];
+    if (!reuse) {
+      const auto pairs = endpoint_pairs(current, p, near);
+      saved = {pairs[2], pairs[3]};
+      return pairs;
+    }
+    const CornerPair before = saved;
+    const float BOUND =
+        fmaxf(math::distance_squared(sites_buffer[before[0]].pos, p),
+              math::distance_squared(sites_buffer[before[1]].pos, p));
+    const auto pair = current.nearest_moved(
+        p, SITES_PER_CORNER, 0.0f,
+        [&](uint16_t i) HS_HOT_INLINE {
+          return math::distance_squared(sites_buffer[i].pos, p);
+        },
+        BOUND * BOUND_SLACK);
+    saved = {pair[0].original_index,
+             pair[pair.size() > 1 ? 1 : 0].original_index};
+    return {before[0], before[1], saved[0], saved[1]};
+  }
+
   /**
    * @brief Resolves one pixel's color from its already-identified nearest
    *        pair.
@@ -646,10 +695,16 @@ private:
       "KD-tree + coarse-grid cells; raise SCRATCH_A_BYTES or lower MAX_SITES / "
       "coarsen COHERENCE_BLOCK");
 
+  /// Maximum corners in a block grid that uses temporal coherence.
+  static constexpr size_t CORNER_CAPACITY =
+      size_t((W - 1) / std::max(2, COHERENCE_BLOCK_MIN) + 2) *
+      size_t((H - 1) / std::max(2, COHERENCE_BLOCK_MIN) + 2);
+
   // The sites and their previous positions live in the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
       size_t(MAX_SITES) * sizeof(Site) + alignof(Site) +
-      size_t(MAX_SITES) * sizeof(math::Vector) + alignof(math::Vector);
+      size_t(MAX_SITES) * sizeof(math::Vector) + alignof(math::Vector) +
+      CORNER_CAPACITY * sizeof(CornerPair) + alignof(CornerPair);
   static_assert(FOOTPRINT_BYTES <=
                     ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
                 "Voronoi persistent footprint exceeds its device partition; "
@@ -704,4 +759,9 @@ private:
                                   blend band; 0 gives hard edges, like infinite sharpness. */
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
+
+  CornerPair *corner_pairs = nullptr; ///< Current endpoint pairs by corner.
+  ClipRegion corner_clip;     ///< Clip that produced the retained pairs.
+  int corner_block = 0;       ///< Retained grid's block edge.
+  bool corners_valid = false; ///< Pairs belong to the preceding draw.
 };

@@ -622,6 +622,7 @@ inline int run_effects_tests() {
   run_case(test_voronoi_exact_where_endpoint_winners_differ);
   run_case(test_voronoi_temporal_toggle);
   run_case(test_voronoi_reseed_resets_history);
+  run_case(test_voronoi_retained_corners_match_search);
   run_case(test_sh_field_blend_endpoints_and_frame);
   run_case(test_sh_field_stays_inside_unit_range);
   run_case(test_sh_polarity_split_and_ao_shaping);

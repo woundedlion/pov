@@ -67,6 +67,11 @@ struct VoronoiWhiteBox {
     v.params.speed = speed;
   }
 
+  /** @brief Forces both endpoint pairs to be searched on the next draw. */
+  template <int W, int H> static void forget_corners(Voronoi<W, H> &v) {
+    v.corners_valid = false;
+  }
+
   /** @brief Nearest pairs at both endpoints of every pixel, in scan order,
    *  as the column-time draw classifies its block corners.
    *  @return Per pixel: previous pair, then current pair. */
@@ -632,4 +637,37 @@ inline void test_voronoi_reseed_resets_history() {
   const auto instantaneous = voronoi_reseed_frame(false);
   HS_EXPECT_TRUE(compare_buffers(instantaneous, temporal).exact());
   HS_EXPECT_GT(count_lit(temporal), size_t{0});
+}
+
+/** @brief Retained corner pairs preserve pixels across clip and history changes. */
+inline void test_voronoi_retained_corners_match_search() {
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
+  const auto render = [](bool retain) {
+    reset_effect_globals();
+    Voronoi<W, H> effect;
+    effect.init();
+    std::vector<Pixel> frames;
+    for (int frame = 0; frame < 12; ++frame) {
+      if (frame == 4)
+        effect.set_clip(17, 103, 40, 151);
+      if (frame == 6)
+        Temporal::set_temporal_sampling_enabled(false);
+      if (frame == 7)
+        Temporal::set_temporal_sampling_enabled(true);
+      if (frame == 9)
+        HS_EXPECT_EQ(effect.updateParameter("Num Sites", 83.0f),
+                     ParamSetResult::APPLIED);
+      if (!retain)
+        VoronoiWhiteBox::forget_corners(effect);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.push_back(effect.get_pixel(x, y));
+    }
+    return frames;
+  };
+  const auto searched = render(false);
+  const auto retained = render(true);
+  HS_EXPECT_TRUE(compare_buffers(searched, retained).exact());
 }
