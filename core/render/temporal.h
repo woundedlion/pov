@@ -320,6 +320,9 @@ HS_HOT_INLINE inline float centered_remainder(float value, float period) {
   return result;
 }
 
+/** @brief Maximum dense tap-position error retained by a single-time splat. */
+inline constexpr float MAX_SINGLE_TIME_TAP_ERROR = 0.003f;
+
 /** @brief Pure boundary-column geometry and shading evaluator. */
 struct BoundaryEvaluator {
   void *context;             ///< Borrowed evaluator state.
@@ -391,7 +394,37 @@ struct GeometryCounters {
   uint32_t common_time_edges =
       0; /**< Edges using a common-time spacing metric. */
   uint32_t interior_timed_samples =
-      0;                     /**< Samples requesting own-time tap evaluation. */
+      0; /**< Samples requesting own-time tap evaluation. */
+  uint32_t interior_single_time_samples =
+      0; /**< Dense samples below the tap-motion limit. */
+  uint32_t dense_cadence_edges =
+      0; /**< Wider edges whose endpoint sample counts differ. */
+  uint32_t dense_wide_edges =
+      0; /**< Wider edges passing both curvature tests. */
+  uint32_t dense_curved_edges = 0; /**< Wider edges rejected by curvature. */
+  uint32_t dense_midpoint_probes =
+      0;                            /**< Projected curvature-test midpoints. */
+  uint32_t dense_spacing_edges = 0; /**< Edges beyond dense spacing. */
+  uint32_t dense_polar_edges = 0; /**< Close edges rejected by polar bounds. */
+  uint32_t dense_balanced_candidates =
+      0; /**< Draws retaining the balanced edge sampler. */
+  uint32_t dense_reject_scratch =
+      0; /**< Candidates exceeding available scratch B. */
+  uint32_t dense_sparse_edges =
+      0; /**< Sparse edges inside partially dense polylines. */
+  uint32_t dense_run_edges = 0;  /**< Edges emitted as dense runs. */
+  uint32_t dense_candidates = 0; /**< Interpolating rigid density candidates. */
+  uint32_t dense_candidate_controls = 0; /**< Controls examined for density. */
+  uint32_t dense_reject_spacing =
+      0; /**< Candidates rejected by control spacing. */
+  uint32_t dense_reject_polar =
+      0;                   /**< Candidates rejected by polar motion bounds. */
+  uint32_t dense_runs = 0; /**< Polylines dispatched to dense sampling. */
+  uint32_t dense_controls = 0;    /**< Dense original controls processed. */
+  uint32_t dense_gap_samples = 0; /**< Interpolated dense material samples. */
+  uint32_t dense_culls = 0; /**< Whole-polyline dense visibility decisions. */
+  uint32_t dense_endpoint_probes = 0; /**< Dense endpoint projections. */
+
   uint32_t end_probes = 0;   /**< Probes at the current endpoint. */
   uint32_t solve_probes = 0; /**< Additional probes during capture solving. */
   uint32_t rigid_fallback_edges =

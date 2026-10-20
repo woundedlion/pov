@@ -1012,25 +1012,27 @@ timed_predict_edge(PipelineRef &pipeline, Canvas &canvas,
  * @param shader Pure time-aware shader.
  * @param opts Polyline options.
  * @param callback Source geometry descriptor.
- * @param radians Combined callback and world angular bound. */
+ * @param radians Combined callback and world angular bound.
+ * @param first_edge First original edge of a restricted run.
+ * @param edge_count Restricted edge count, or zero for the whole polyline. */
 template <int W, int H, RasterConfig Cfg>
-HS_HOT_FLASH_MEMBER void
-rasterize_predicted_copy(PipelineRef &pipeline, Canvas &canvas,
-                         const Fragments &points, TimedFragmentShaderFn shader,
-                         RasterOptions opts, GeometryCallback callback,
-                         float radians) {
+HS_HOT_FLASH_MEMBER void rasterize_predicted_copy(
+    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+    TimedFragmentShaderFn shader, RasterOptions opts, GeometryCallback callback,
+    float radians, size_t first_edge = 0, size_t edge_count = 0) {
   constexpr float HALF = W / 2.0f;
   const float sine_bound = sinf(radians);
   const size_t edges =
-      opts.loop.is_closed() ? points.size() : points.size() - 1;
+      edge_count ? edge_count
+                 : (opts.loop.is_closed() ? points.size() : points.size() - 1);
   const float padding = radians + math::RADIANS_PER_COLUMN<W>;
   const CullRegion region(canvas.clip(), canvas.render_x_clip(), radians);
   const bool balanced =
       Cfg.sampling_policy == RasterSamplingPolicy::BALANCED ||
       (Cfg.sampling_policy == RasterSamplingPolicy::SELECTABLE &&
        opts.balanced_sampling);
-  size_t origin = 0;
-  if (opts.loop.is_closed()) {
+  size_t origin = first_edge;
+  if (!edge_count && opts.loop.is_closed()) {
     auto previous = pipeline.world_at(canvas, points[0].pos, 1.0f);
     for (size_t i = 0; i < edges; ++i) {
       const auto next =
@@ -1180,6 +1182,489 @@ rasterize_predicted_copy(PipelineRef &pipeline, Canvas &canvas,
   }
 }
 
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Forces eligible dense geometry through the ordinary timed edge route. */
+inline bool g_force_timed_edge_walk = false;
+#endif
+
+/** @brief Cached local and projected endpoints of one dense control. */
+struct DenseControl {
+  math::Vector previous;   /**< Source position at the previous endpoint. */
+  math::PixelCoords start; /**< Previous projected endpoint. */
+  math::PixelCoords end;   /**< Current projected endpoint. */
+  bool safe = true;        /**< Endpoint stays within the affine motion band. */
+  bool dense = false;      /**< Outgoing edge qualifies for dense sampling. */
+  bool wide = false;       /**< Outgoing edge requires a curvature check. */
+};
+
+/** @brief One affine dense point at an arm pass. */
+struct DenseCapture {
+  math::PixelCoords position; /**< Captured screen point. */
+  float time;                 /**< Owning sweep fraction. */
+};
+
+/** @brief Solves the affine screen trajectory including splat extensions.
+ * @tparam W Canvas width.
+ * @param a,b Previous and current projected positions.
+ * @param emit Receives each zero, one or two arm passes. */
+template <int W, typename Emit>
+HS_HOT_INLINE void dense_captures(const math::PixelCoords &a,
+                                  const math::PixelCoords &b, Emit &&emit) {
+  constexpr float HALF = W / 2.0f;
+  const float dx = b.x - a.x;
+  const int first = static_cast<int>(floorf((fminf(a.x, b.x) - 1.0f) / HALF));
+  const int last = static_cast<int>(floorf((fmaxf(a.x, b.x) + 1.0f) / HALF));
+  for (int branch = first; branch <= last; ++branch) {
+    const float raw = (a.x - branch * HALF) / (HALF - dx);
+    if (raw < 0.0f && a.x < branch * HALF - 1.0f)
+      continue;
+    if (raw > 1.0f && b.x > (branch + 1) * HALF + 1.0f)
+      continue;
+    const float t = hs::clamp(raw, 0.0f, 1.0f);
+    emit(DenseCapture{{a.x + dx * t, a.y + (b.y - a.y) * t}, t});
+  }
+}
+
+/** @brief Emits one dense material point and its independent arm passes.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Raster configuration.
+ * @param pipeline Prepared screen-entry pipeline.
+ * @param canvas Destination frame.
+ * @param a,b Original source shading controls.
+ * @param da,db Cached endpoint trajectories.
+ * @param fraction Material interpolation fraction.
+ * @param birth_a,birth_b Endpoint appearance fractions.
+ * @param shader Pure time-aware source shader.
+ * @param interpolated Optional gap sample between captured controls. */
+template <int W, int H, RasterConfig Cfg>
+HS_O3_FN HS_NOINLINE_NOCLONE void
+emit_dense_point(PipelineRef &pipeline, Canvas &canvas, const Fragment &a,
+                 const Fragment &b, const DenseControl &da,
+                 const DenseControl &db, float fraction, float birth_a,
+                 float birth_b, TimedFragmentShaderFn shader,
+                 const DenseCapture *interpolated = nullptr) {
+  const auto mix = [fraction](float x, float y)
+                       HS_HOT_INLINE { return x + (y - x) * fraction; };
+  const math::PixelCoords start{mix(da.start.x, db.start.x),
+                                mix(da.start.y, db.start.y)};
+  const math::PixelCoords end{mix(da.end.x, db.end.x), mix(da.end.y, db.end.y)};
+  const math::Vector previous =
+      da.previous + (db.previous - da.previous) * fraction;
+  const math::Vector current = a.pos + (b.pos - a.pos) * fraction;
+  const float birth = mix(birth_a, birth_b);
+  Fragment registers;
+  if constexpr (Cfg.interpolate_registers)
+    registers = Fragment::lerp_registers(a, b, fraction);
+  const auto shade = [&](float t, Fragment &f) HS_HOT_INLINE {
+    f = registers;
+    f.pos = (previous + (current - previous) * t).normalized();
+    shader(f.pos, f, t);
+  };
+  const auto emit_capture = [&](const DenseCapture &capture) HS_HOT_INLINE {
+    auto boundary_at = [&](float t, math::PixelCoords &position, Pixel &color,
+                           float &age, float &alpha) HS_HOT_INLINE {
+      if (birth > t)
+        return false;
+      Fragment f;
+      shade(t, f);
+      position = {start.x + (end.x - start.x) * t,
+                  start.y + (end.y - start.y) * t};
+      if (position.x < -float(W) || position.x >= 2.0f * W)
+        position.x = Temporal::centered_remainder(position.x, float(W));
+      color = f.color.color;
+      age = f.age;
+      alpha = f.color.alpha;
+      return true;
+    };
+    Temporal::BoundaryEvaluator boundary(boundary_at);
+    const float dx = end.x - start.x, dy = end.y - start.y;
+    const float fraction = capture.position.x - floorf(capture.position.x);
+    const float time_span = fmaxf(fraction, 1.0f - fraction) / (W / 2.0f);
+    const float residual =
+        fabsf(capture.position.x - (start.x + dx * capture.time)) +
+        fabsf(capture.position.y - (start.y + dy * capture.time));
+    boundary.force_timing = residual + (fabsf(dx) + fabsf(dy)) * time_span >
+                            Temporal::MAX_SINGLE_TIME_TAP_ERROR;
+    if (boundary.force_timing)
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::interior_timed_samples>();
+    else
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::interior_single_time_samples>();
+    Temporal::ColumnPrediction prediction{
+        capture.position.x, std::numeric_limits<float>::infinity()};
+    prediction.boundary = &boundary;
+    prediction.record_sample = birth <= capture.time;
+    boundary.sample_exists = prediction.record_sample;
+    Fragment f = registers;
+    if (prediction.record_sample)
+      shade(capture.time, f);
+    else
+      f.color.alpha = 0.0f;
+    auto position = capture.position;
+    if (position.x < -float(W) || position.x >= 2.0f * W)
+      position.x = Temporal::centered_remainder(position.x, float(W));
+    pipeline.plot_projected_at(canvas, position, f.color.color, f.age,
+                               f.color.alpha, capture.time, &prediction);
+  };
+  if (interpolated)
+    emit_capture(*interpolated);
+  else
+    dense_captures<W>(start, end, emit_capture);
+}
+
+/** @brief Emits one dense edge using cached endpoint trajectories.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Raster configuration.
+ * @param pipeline Prepared screen-entry pipeline.
+ * @param canvas Destination frame.
+ * @param points Original source shading controls.
+ * @param controls Cached local and projected endpoints.
+ * @param i Original edge index.
+ * @param birth_a,birth_b Endpoint appearance fractions.
+ * @param shader Pure time-aware source shader.
+ * @param emit_end Whether to include the final open endpoint. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_INLINE void
+emit_dense_edge(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+                const DenseControl *controls, size_t i, float birth_a,
+                float birth_b, TimedFragmentShaderFn shader, bool emit_end) {
+  Temporal::count_geometry<&Temporal::GeometryCounters::dense_controls>();
+  Temporal::count_geometry<&Temporal::GeometryCounters::dense_run_edges>();
+  emit_dense_point<W, H, Cfg>(pipeline, canvas, points[i], points[i],
+                              controls[i], controls[i], 0.0f, birth_a, birth_a,
+                              shader);
+  const size_t next = (i + 1) % points.size();
+  auto following = controls[next];
+  const float shift = controls[i].end.x +
+                      Temporal::centered_remainder(
+                          following.end.x - controls[i].end.x, float(W)) -
+                      following.end.x;
+  following.end.x += shift;
+  following.start.x += shift;
+  constexpr float HALF = W / 2.0f;
+  const float low_column = fminf(fminf(controls[i].start.x, controls[i].end.x),
+                                 fminf(following.start.x, following.end.x));
+  const float high_column = fmaxf(fmaxf(controls[i].start.x, controls[i].end.x),
+                                  fmaxf(following.start.x, following.end.x));
+  const int first_branch = static_cast<int>(floorf((low_column - 1.0f) / HALF));
+  const int last_branch = static_cast<int>(floorf((high_column + 1.0f) / HALF));
+  for (int branch = first_branch; branch <= last_branch; ++branch) {
+    const auto capture_endpoint = [branch](
+                                      const DenseControl &point) HS_HOT_INLINE {
+      const float dx = point.end.x - point.start.x;
+      const float t =
+          hs::clamp((point.start.x - branch * HALF) / (HALF - dx), 0.0f, 1.0f);
+      return DenseCapture{{point.start.x + dx * t,
+                           point.start.y + (point.end.y - point.start.y) * t},
+                          t};
+    };
+    const auto a = capture_endpoint(controls[i]);
+    const auto b = capture_endpoint(following);
+    const float dx = b.position.x - a.position.x;
+    const float dy = b.position.y - a.position.y;
+    const int steps =
+        static_cast<int>(ceilf(sqrtf(dx * dx + dy * dy) / SCREEN_STEP_PX));
+    for (int step = 1; step < steps; ++step) {
+      const float amount = float(step) / steps;
+      const DenseCapture capture{
+          {a.position.x + dx * amount, a.position.y + dy * amount},
+          a.time + (b.time - a.time) * amount};
+      if (capture.position.x < branch * HALF - 1.0f ||
+          capture.position.x > (branch + 1) * HALF + 1.0f)
+        continue;
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::dense_gap_samples>();
+      emit_dense_point<W, H, Cfg>(pipeline, canvas, points[i], points[next],
+                                  controls[i], following, amount, birth_a,
+                                  birth_b, shader, &capture);
+    }
+  }
+  if (emit_end) {
+    Temporal::count_geometry<&Temporal::GeometryCounters::dense_controls>();
+    emit_dense_point<W, H, Cfg>(pipeline, canvas, points[next], points[next],
+                                following, following, 0.0f, birth_b, birth_b,
+                                shader);
+  }
+}
+
+/** @brief Walks cached dense runs and dispatches sparse edge intervals.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Raster configuration.
+ * @param pipeline Prepared timed pipeline.
+ * @param canvas Destination frame.
+ * @param points Original source shading controls.
+ * @param controls Cached local and projected endpoints.
+ * @param shader Pure time-aware source shader.
+ * @param opts Polyline sampling options.
+ * @param callback Original geometry callback and birth registers.
+ * @param radians Combined angular motion bound.
+ * @param visible Whether the motion-padded dense region intersects the clip. */
+template <int W, int H, RasterConfig Cfg>
+HS_O3_FN HS_NOINLINE_NOCLONE void
+walk_dense_runs(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+                const DenseControl *controls, TimedFragmentShaderFn shader,
+                const RasterOptions &opts, const GeometryCallback &callback,
+                float radians, bool visible) {
+  const size_t edges =
+      opts.loop.is_closed() ? points.size() : points.size() - 1;
+  const auto birth = [&](size_t i) HS_HOT_INLINE {
+    return callback.births.empty() ? 0.0f : callback.births[i];
+  };
+  for (size_t i = 0; i < edges;) {
+    if (!controls[i].dense) {
+      const size_t first = i;
+      while (i < edges && !controls[i].dense)
+        ++i;
+      Temporal::count_geometry<&Temporal::GeometryCounters::dense_sparse_edges>(
+          i - first);
+      auto sparse_opts = opts;
+      sparse_opts.loop = RasterLoop{};
+      sparse_opts.omit_end =
+          opts.loop.is_closed() || opts.omit_end || i < edges;
+      rasterize_predicted_copy<W, H, Cfg>(pipeline, canvas, points, shader,
+                                          sparse_opts, callback, radians, first,
+                                          i - first);
+      continue;
+    }
+    if (i == 0 || !controls[i - 1].dense)
+      Temporal::count_geometry<&Temporal::GeometryCounters::dense_runs>();
+    if (!visible) {
+      ++i;
+      continue;
+    }
+    emit_dense_edge<W, H, Cfg>(pipeline, canvas, points, controls, i, birth(i),
+                               birth((i + 1) % points.size()), shader,
+                               i + 1 == edges && !opts.loop.is_closed() &&
+                                   !opts.omit_end);
+    ++i;
+  }
+}
+
+/** @brief Result of preparing cached dense controls. */
+enum class DensePreparation {
+  REJECTED,    /**< The ordinary timed route is required. */
+  COMPLETE,    /**< The whole draw was culled. */
+  VISIBLE,     /**< Dense and sparse runs may be visible. */
+  SPARSE_ONLY, /**< Only sparse runs require visibility checks. */
+};
+
+/** @brief Prepares projected controls and tests dense-run eligibility.
+ * @tparam W,H Canvas dimensions.
+ * @param pipeline Prepared timed pipeline.
+ * @param canvas Destination frame.
+ * @param points Current source controls.
+ * @param controls Storage for cached trajectories and run flags.
+ * @param opts Polyline sampling options.
+ * @param callback Original geometry callback.
+ * @param radians Combined angular motion bound.
+ * @return Visibility and dispatch state for the cached controls. */
+template <int W, int H>
+HS_HOT_FLASH_MEMBER DensePreparation prepare_dense_controls(
+    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+    DenseControl *controls, const RasterOptions &opts,
+    const GeometryCallback &callback, float radians) {
+  const size_t edges =
+      opts.loop.is_closed() ? points.size() : points.size() - 1;
+  const float sine = sinf(radians), polar_limit = 2.0f * sine * sine;
+  float min_x = std::numeric_limits<float>::infinity();
+  float max_x = -min_x, min_y = min_x, max_y = max_x;
+  const auto adjacent = [](const math::PixelCoords &a,
+                           const math::PixelCoords &b) HS_HOT_INLINE {
+    const float dx = Temporal::centered_remainder(b.x - a.x, float(W));
+    const float dy = b.y - a.y;
+    return dx * dx + dy * dy;
+  };
+  bool polar = false, sparse = false;
+  for (size_t i = 0; i < points.size(); ++i) {
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_candidate_controls>();
+    const auto world = pipeline.world_at(canvas, points[i].pos, 1.0f);
+    controls[i].safe = 1.0f - world.y * world.y > polar_limit;
+    polar |= !controls[i].safe;
+    controls[i].dense = false;
+    auto projected = math::vector_to_pixel<W, H>(world);
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_endpoint_probes>();
+    Temporal::count_geometry<&Temporal::GeometryCounters::end_probes>();
+    if (i)
+      projected.x = controls[i - 1].end.x +
+                    Temporal::centered_remainder(
+                        projected.x - controls[i - 1].end.x, float(W));
+    controls[i].end = projected;
+    min_x = fminf(min_x, projected.x);
+    max_x = fmaxf(max_x, projected.x);
+    min_y = fminf(min_y, projected.y);
+    max_y = fmaxf(max_y, projected.y);
+  }
+  bool candidate = false;
+  for (size_t i = 0; i < edges; ++i) {
+    const size_t next = (i + 1) % points.size();
+    const float separation = adjacent(controls[i].end, controls[next].end);
+    const bool close = separation <= 6.25f;
+    controls[i].wide = separation > 4.0f;
+    sparse |= !close;
+    if (!close)
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::dense_spacing_edges>();
+    else if (!controls[i].safe || !controls[next].safe)
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::dense_polar_edges>();
+    controls[i].dense = close && controls[i].safe && controls[next].safe;
+    candidate |= controls[i].dense;
+  }
+  if (sparse)
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_reject_spacing>();
+  if (polar)
+    Temporal::count_geometry<&Temporal::GeometryCounters::dense_reject_polar>();
+  if (!candidate)
+    return DensePreparation::REJECTED;
+  Temporal::count_geometry<&Temporal::GeometryCounters::dense_culls>();
+  const CullRegion region(canvas.clip(), canvas.render_x_clip(), radians);
+  const float pad = region.column_pad_rows<W, H>(min_y - 1.0f, max_y + 1.0f);
+  const bool visible =
+      region.could_intersect_rows<H>(min_y - 1.0f, max_y + 1.0f) &&
+      region.arc_reaches_columns<W>(
+          static_cast<int>(floorf(min_x - 1.0f)),
+          static_cast<int>(ceilf(max_x - min_x + 3.0f)), pad);
+  if (!visible && !sparse && !polar) {
+    Temporal::count_geometry<&Temporal::GeometryCounters::dense_runs>();
+    return DensePreparation::COMPLETE;
+  }
+  bool stationary = pipeline.cull_bound() == 0.0f;
+  for (size_t i = 0; i < points.size(); ++i) {
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::callback_evaluations>();
+    controls[i].previous = callback.evaluate(i, 0.0f);
+    const auto &a = controls[i].previous;
+    const auto &b = points[i].pos;
+    stationary = stationary && a.x == b.x && a.y == b.y && a.z == b.z;
+    const auto world = pipeline.world_at(canvas, a, 0.0f);
+    controls[i].safe &= 1.0f - world.y * world.y > polar_limit;
+    auto projected = math::vector_to_pixel<W, H>(world);
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_endpoint_probes>();
+    projected.x =
+        controls[i].end.x +
+        Temporal::centered_remainder(projected.x - controls[i].end.x, float(W));
+    controls[i].safe &= fabsf(projected.x - controls[i].end.x) <
+                        Temporal::MAX_CAPTURE_COLUMNS<W>;
+    controls[i].start = projected;
+  }
+  if (stationary)
+    return DensePreparation::REJECTED;
+  candidate = false;
+  for (size_t i = 0; i < edges; ++i) {
+    const size_t next = (i + 1) % points.size();
+    controls[i].dense &= controls[i].safe && controls[next].safe;
+    if (controls[i].dense && controls[i].wide) {
+      const auto sample_count = [](const math::PixelCoords &a,
+                                   const math::PixelCoords &b) HS_HOT_INLINE {
+        const float dx = Temporal::centered_remainder(b.x - a.x, float(W));
+        const float dy = b.y - a.y;
+        return ceilf(sqrtf(dx * dx + dy * dy) / SCREEN_STEP_PX);
+      };
+      if (sample_count(controls[i].start, controls[next].start) !=
+          sample_count(controls[i].end, controls[next].end)) {
+        controls[i].dense = false;
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::dense_cadence_edges>();
+        continue;
+      }
+      const auto flat = [&](const math::Vector &a, const math::Vector &b,
+                            const math::PixelCoords &pa,
+                            const math::PixelCoords &pb,
+                            float time) HS_HOT_INLINE {
+        const auto middle = (a + b).normalized();
+        const auto world = pipeline.world_at(canvas, middle, time);
+        auto projected = math::vector_to_pixel<W, H>(world);
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::dense_midpoint_probes>();
+        const float x =
+            pa.x + 0.5f * Temporal::centered_remainder(pb.x - pa.x, float(W));
+        const float dx =
+            Temporal::centered_remainder(projected.x - x, float(W));
+        const float dy = projected.y - 0.5f * (pa.y + pb.y);
+        return dx * dx + dy * dy <= 0.000025f;
+      };
+      controls[i].dense = flat(points[i].pos, points[next].pos, controls[i].end,
+                               controls[next].end, 1.0f) &&
+                          flat(controls[i].previous, controls[next].previous,
+                               controls[i].start, controls[next].start, 0.0f);
+      if (controls[i].dense)
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::dense_wide_edges>();
+      else
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::dense_curved_edges>();
+    }
+    candidate |= controls[i].dense;
+  }
+  if (!candidate)
+    return DensePreparation::REJECTED;
+  return visible ? DensePreparation::VISIBLE : DensePreparation::SPARSE_ONLY;
+}
+
+/** @brief Selects and emits a dense, interpolating rigid polyline.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Raster configuration.
+ * @param pipeline Prepared timed pipeline.
+ * @param canvas Destination frame.
+ * @param points Current source controls.
+ * @param shader Pure time-aware shader.
+ * @param opts Polyline options.
+ * @param callback Interpolating source trajectory.
+ * @param radians Combined angular motion bound.
+ * @return True when this draw was handled as a dense run. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_FLASH_MEMBER bool
+rasterize_dense(PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+                TimedFragmentShaderFn shader, RasterOptions opts,
+                GeometryCallback callback, float radians) {
+#if HS_ENABLE_TEST_HOOKS
+  if (g_force_timed_edge_walk)
+    return false;
+#endif
+  if (Cfg.sampling_policy == RasterSamplingPolicy::BALANCED ||
+      (Cfg.sampling_policy == RasterSamplingPolicy::SELECTABLE &&
+       opts.balanced_sampling)) {
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_balanced_candidates>();
+    return false;
+  }
+  if (!callback.evaluate || !callback.linear_pair ||
+      !pipeline.rigid_world_stages() || !pipeline.dense_screen_safe() ||
+      points.size() < 3)
+    return false;
+  Temporal::count_geometry<&Temporal::GeometryCounters::dense_candidates>();
+  if (radians >= math::PI_F / 2.0f) {
+    Temporal::count_geometry<&Temporal::GeometryCounters::dense_reject_polar>();
+    return false;
+  }
+  const size_t available =
+      scratch_arena_b.get_capacity() - scratch_arena_b.get_offset();
+  if (available < alignof(DenseControl) ||
+      points.size() >
+          (available - alignof(DenseControl)) / sizeof(DenseControl)) {
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::dense_reject_scratch>();
+    return false;
+  }
+  ScratchScope guard(scratch_arena_b);
+  auto *controls = scratch_arena_b.allocate_n<DenseControl>(points.size());
+  const auto preparation = prepare_dense_controls<W, H>(
+      pipeline, canvas, points, controls, opts, callback, radians);
+  if (preparation == DensePreparation::REJECTED)
+    return false;
+  if (preparation == DensePreparation::COMPLETE)
+    return true;
+  walk_dense_runs<W, H, Cfg>(pipeline, canvas, points, controls, shader, opts,
+                             callback, radians,
+                             preparation == DensePreparation::VISIBLE);
+  return true;
+}
+
 /** @brief Samples zero-motion geometry with time-aware registers.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Raster configuration.
@@ -1269,6 +1754,9 @@ rasterize_timed_copy(PipelineRef &pipeline, Canvas &canvas,
     return;
   const float bound = callback_bound + pipeline.cull_bound();
   if (bound > 0.0f) {
+    if (rasterize_dense<W, H, Cfg>(pipeline, canvas, points, shader, opts,
+                                   callback, bound))
+      return;
     rasterize_predicted_copy<W, H, Cfg>(pipeline, canvas, points, shader, opts,
                                         callback, bound);
     return;
