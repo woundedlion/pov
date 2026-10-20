@@ -43,8 +43,8 @@ struct ColumnRun {
  * @return Number of clipped runs.
  */
 template <int W, size_t CAPACITY>
-HS_FLASH_MEMBER size_t window_runs(ColumnRun *runs, size_t count,
-                                   const ColumnWindow &window) {
+HS_HOT_INLINE inline size_t window_runs(ColumnRun *runs, size_t count,
+                                        const ColumnWindow &window) {
   ColumnRun kept[CAPACITY + 1];
   size_t kept_count = 0;
   for (size_t r = 0; r < count; ++r)
@@ -57,6 +57,32 @@ HS_FLASH_MEMBER size_t window_runs(ColumnRun *runs, size_t count,
   HS_CHECK(kept_count <= CAPACITY, "rasterize_face: run buffer overflow");
   std::copy_n(kept, kept_count, runs);
   return kept_count;
+}
+
+/**
+ * @brief Whether a row's column intervals can leave a run inside a render-x
+ *        window.
+ * @tparam W Canvas width in pixels.
+ * @tparam IntervalBufT Buffer of the row's column intervals.
+ * @param intervals The row's intervals, in whole columns, unwrapped.
+ * @param window Open render-x window.
+ * @return False when every interval misses the window's columns on both arms,
+ *         so that the row's clipped runs are empty.
+ */
+template <int W, typename IntervalBufT>
+HS_HOT_INLINE inline bool intervals_meet_window(const IntervalBufT &intervals,
+                                                const ColumnWindow &window) {
+  const int length = window.end - window.begin;
+  for (const auto &iv : intervals) {
+    const int a = static_cast<int>(iv.start);
+    // A zero-width interval still owns its column.
+    const int len = std::max(static_cast<int>(iv.end) - a, 1);
+    const int s = ((a % W) + W) % W;
+    if (ClipRegion::arcs_overlap(window.begin, length, s, len, W) ||
+        ClipRegion::arcs_overlap(window.begin + W / 2, length, s, len, W))
+      return true;
+  }
+  return false;
 }
 
 HS_O3_BEGIN
@@ -122,6 +148,9 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                   "arm-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+    if (window.active && handled &&
+        !intervals_meet_window<W>(intervals, window))
+      return;
 
     auto append = [&](int a, int b) {
       HS_CHECK(num_runs < MAX_RUNS, "rasterize_face: run buffer overflow");
