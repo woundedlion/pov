@@ -186,7 +186,8 @@ public:
   static constexpr int TRAILING_BLEND_FRAMES = 4;
 
   /**
-   * @brief Per-frame shading handed to the draw callback.
+   * @brief Per-frame shading and previous geometry handed to the draw
+   * callback.
    * @details Scratch-backed; valid for the current frame only.
    */
   struct Shading {
@@ -201,6 +202,25 @@ public:
     float weight = 0.0f;                /**< Crossfade weight `ramps` carry. */
     float previous_weight = 0.0f; /**< Crossfade weight the leg drew a frame
                                      ago, or `weight` after a reset. */
+    /** The drawn mesh's vertices at the leg frame drawn last, index for
+     * index, or null when the leg drew no other frame before this one or
+     * moves through `leg`; the draw may overwrite them. */
+    math::Vector *previous_vertices = nullptr;
+    /** Leg whose drawn mesh moves vertex by vertex from the frame drawn last,
+     * as vertex_at() evaluates it; null otherwise. */
+    const OpLeg *leg = nullptr;
+    float drawn_frame = 0.0f; /**< Leg frame drawn last, read with `leg`. */
+    float frame = 0.0f;       /**< Leg frame drawn now, read with `leg`. */
+
+    /**
+     * @brief A vertex of the drawn mesh at a fraction of the frame.
+     * @param i Vertex index.
+     * @param u Frame fraction: 0 at the frame drawn last, 1 now.
+     * @return The vertex on the leg's own path; requires `leg`.
+     */
+    HS_FLASH_MEMBER math::Vector vertex_at(size_t i, float u) const {
+      return leg->swept_vertex(i, drawn_frame + (frame - drawn_frame) * u);
+    }
 
     /**
      * @brief The face's pre-blended ramp.
@@ -813,32 +833,100 @@ private:
       return;
     }
 
-    // Clamp easing to the compiled topology-constant interval.
-    const float progress = hs::clamp(
-        easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
-        0.0f, 1.0f);
-    const SweepPhase phase = sweep_phase(tr, progress);
-    float tp = tr.t_start + (tr.t_end - tr.t_start) * phase.k;
-    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * phase.k;
-
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
 
     PolyMesh swept;
+    const size_t a_before = scratch_arena_a.get_offset();
+    const size_t b_before = scratch_arena_b.get_offset();
     {
       HS_PROFILE(hk_conway_sweep);
-      if (tr.kind == LegKind::HANKIN_SWEEP)
-        hankin_at(tr, swept, scratch_arena_a, tp);
-      else if (tr.kind == LegKind::RELAX_SLERP)
-        relax_at(tr, swept, scratch_arena_a, tp);
-      else if (tr.kind == LegKind::MEDIAL_SLERP)
-        medial_at(tr, swept, scratch_arena_a, tp);
-      else
-        conway_at(tr, swept, scratch_arena_a, scratch_arena_b, tp, tw,
-                  phase.settle_alpha);
+      swept_at(tr, frame, swept);
     }
+    // The swept vertices of the frame drawn last, for the draw to move from;
+    // a leg that sweeps vertex by vertex hands its path instead.
+    const bool moved = tr.drawn && tr.drawn_frame != frame;
+    const bool per_vertex = tr.kind != LegKind::CONWAY_SWEEP;
+    math::Vector *drawn = nullptr;
+    if (moved && !per_vertex && swept.vertices.size() == tr.drawn_vertices &&
+        previous_fits(swept.vertices.size(),
+                      scratch_arena_a.get_offset() - a_before,
+                      scratch_arena_b.get_offset() - b_before)) {
+      HS_PROFILE(hk_conway_previous);
+      drawn = scratch_arena_a.allocate_n<math::Vector>(tr.drawn_vertices);
+      ScratchScope prior_a(scratch_arena_a);
+      ScratchScope prior_b(scratch_arena_b);
+      PolyMesh prior;
+      swept_at(tr, tr.drawn_frame, prior);
+      if (prior.vertices.size() == tr.drawn_vertices)
+        std::copy_n(prior.vertices.data(), tr.drawn_vertices, drawn);
+      else
+        drawn = nullptr;
+    }
+    const int drawn_frame = tr.drawn_frame;
+    tr.drawn_frame = frame;
+    tr.drawn_vertices = swept.vertices.size();
 
-    finish_frame(canvas, swept, tr.blend_fn(frame, duration));
+    finish_frame(canvas, swept, tr.blend_fn(frame, duration), false, drawn,
+                 moved && per_vertex ? drawn_frame : -1);
+  }
+
+  /// Bytes an arena keeps free beyond a sweep's own share for alignment.
+  static constexpr size_t PREVIOUS_SLACK = 256;
+
+  /**
+   * @brief Whether the scratch arenas hold the frame drawn last beside this
+   *        frame's sweep.
+   * @param vertices Swept vertex count.
+   * @param sweep_a scratch_arena_a bytes this frame's sweep holds.
+   * @param sweep_b scratch_arena_b bytes this frame's sweep holds.
+   * @return True when scratch_arena_a has room for the previous vertices, a
+   * second sweep and the compiled mesh, which a sweep's share bounds, and
+   * scratch_arena_b for a second sweep's scratch; a leg whose frames do not
+   * fit draws without its previous vertices.
+   */
+  HS_FLASH_MEMBER static bool previous_fits(size_t vertices, size_t sweep_a,
+                                            size_t sweep_b) {
+    const size_t need_a =
+        vertices * sizeof(math::Vector) + 2 * sweep_a + PREVIOUS_SLACK;
+    const size_t need_b = sweep_b + PREVIOUS_SLACK;
+    return scratch_arena_a.get_capacity() - scratch_arena_a.get_offset() >=
+               need_a &&
+           scratch_arena_b.get_capacity() - scratch_arena_b.get_offset() >=
+               need_b;
+  }
+
+  /**
+   * @brief One vertex of a per-vertex leg's swept mesh at a fractional leg
+   * frame, as swept_at() places it.
+   * @param i Vertex index.
+   * @param frame Leg frame in [0, duration].
+   * @return The vertex; a hankin, relax or medial leg's only.
+   */
+  HS_FLASH_MEMBER math::Vector swept_vertex(size_t i, float frame) const {
+    const Transients &tr = *buf;
+    const float progress =
+        hs::clamp(easing_fn(frame / static_cast<float>(duration)), 0.0f, 1.0f);
+    const float k =
+        tr.t_start + (tr.t_end - tr.t_start) * sweep_phase(tr, progress).k;
+    if (tr.kind == LegKind::HANKIN_SWEEP) {
+      const CompiledHankin &hk = tr.hankin;
+      const size_t statics = hk.static_vertices.size();
+      if (i < statics)
+        return hk.static_vertices[i];
+      const size_t d = i - statics;
+      if (k >= 1.0f)
+        return tr.hk_final[d].decode().normalized();
+      return math::slerp(
+          hk.corner(hk.dynamic_instructions[d].v_corner).normalized(),
+          tr.hk_final[d].decode(), k);
+    }
+    if (tr.kind == LegKind::RELAX_SLERP)
+      return k >= 1.0f ? tr.relaxed[i]
+                       : math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
+    return k >= 1.0f ? tr.medial_b[i].decode().normalized()
+                     : math::slerp(tr.medial_a[i].decode(),
+                                   tr.medial_b[i].decode(), k);
   }
 
 public:
@@ -977,6 +1065,8 @@ private:
     BlendWeightFn blend_fn = classic_blend;  /**< Swept crossfade curve. */
     Landing landing;           /**< Arrival data exposed to the effect. */
     float drawn_weight = 0.0f; /**< Crossfade weight of the last draw. */
+    int drawn_frame = 0;       /**< Leg frame of the last draw. */
+    size_t drawn_vertices = 0; /**< Swept vertex count of the last draw. */
     bool drawn = false;        /**< Whether the leg has drawn a frame. */
   };
 
@@ -1020,6 +1110,32 @@ private:
     out = run_op(tr.op, *tr.seed_ref, target, temp, t, twist);
     if (settle_alpha > 0.0f)
       settle_toward_relaxed(tr, out, settle_alpha);
+  }
+
+  /**
+   * @brief Builds a swept leg's mesh at one leg frame.
+   * @param tr Leg transients.
+   * @param frame Leg frame in [0, duration].
+   * @param out Output mesh, allocated from scratch_arena_a.
+   */
+  HS_COLD_MEMBER void swept_at(const Transients &tr, int frame,
+                               PolyMesh &out) const {
+    // Clamp easing to the compiled topology-constant interval.
+    const float progress = hs::clamp(
+        easing_fn(static_cast<float>(frame) / static_cast<float>(duration)),
+        0.0f, 1.0f);
+    const SweepPhase phase = sweep_phase(tr, progress);
+    float tp = tr.t_start + (tr.t_end - tr.t_start) * phase.k;
+    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * phase.k;
+    if (tr.kind == LegKind::HANKIN_SWEEP)
+      hankin_at(tr, out, scratch_arena_a, tp);
+    else if (tr.kind == LegKind::RELAX_SLERP)
+      relax_at(tr, out, scratch_arena_a, tp);
+    else if (tr.kind == LegKind::MEDIAL_SLERP)
+      medial_at(tr, out, scratch_arena_a, tp);
+    else
+      conway_at(tr, out, scratch_arena_a, scratch_arena_b, tp, tw,
+                phase.settle_alpha);
   }
 
   /** @brief Slerps a swept mesh's vertices toward the relaxed endpoint. */
@@ -1543,9 +1659,17 @@ private:
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
    * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
+   * @param drawn @p swept's vertices at the leg frame drawn last, index for
+   * index, or null when the draw does not move; they reach the draw as
+   * `Shading::previous_vertices` when compiling keeps every vertex in place.
+   * @param drawn_frame The leg frame drawn last when the leg moves vertex by
+   * vertex from it, or -1; it reaches the draw through `Shading::leg` when
+   * compiling keeps every vertex in place.
    */
   HS_COLD_MEMBER void finish_frame(Canvas &canvas, const PolyMesh &swept,
-                                   float w, bool seed_side = false) {
+                                   float w, bool seed_side = false,
+                                   math::Vector *drawn = nullptr,
+                                   int drawn_frame = -1) {
     Transients &tr = *buf;
     const ArenaVector<uint16_t> &topo = seed_side ? tr.seed_topo : tr.topo;
     const ArenaVector<uint8_t> &face_ramp =
@@ -1571,6 +1695,14 @@ private:
     }
     sh.weight = w;
     sh.previous_weight = previous_w;
+    if (compiled.vertices.size() == swept.vertices.size()) {
+      sh.previous_vertices = drawn;
+      if (drawn_frame >= 0) {
+        sh.leg = this;
+        sh.drawn_frame = static_cast<float>(drawn_frame);
+        sh.frame = static_cast<float>(tr.drawn_frame);
+      }
+    }
     draw_fn(canvas, compiled, sh);
   }
 
