@@ -499,8 +499,8 @@ HS_O3_FN __attribute__((noinline)) inline float gamut_max_chroma(float L,
  * @details The direction is only binned, so it need not be exactly unit
  * length.
  */
-HS_FLASH_MEMBER inline float gamut_continuous_chroma_sample(float L, float a,
-                                                            float b) {
+HS_HOT_FLASH_MEMBER inline float
+gamut_continuous_chroma_sample(float L, float a, float b) {
   // Not g_gamut_lut: this path consumes the stored minima directly, so a
   // coarse grid's width is never narrowed back.
   const GamutLut &lut = GAMUT_LUT_MASTER;
