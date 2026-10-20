@@ -282,17 +282,16 @@ def short(name, width):
 
 
 def hot_ranges(row, bin_bytes, limit):
-    """The row's hottest bins as (start, end, samples), contiguous bins merged."""
-    merged = []
-    for start in sorted(row.bins):
-        samples = row.bins[start]
-        if merged and merged[-1][1] == start:
-            s, _, total = merged[-1]
-            merged[-1] = (s, start + bin_bytes, total + samples)
-        else:
-            merged.append((start, start + bin_bytes, samples))
-    merged.sort(key=lambda r: -r[2])
-    return merged[:limit]
+    """The row's hottest bins as (start, end, samples), clipped to the row."""
+    end_of_row = row.address + row.size
+    ranges = []
+    for start, samples in row.bins.items():
+        end = start + bin_bytes
+        if row.size:
+            start, end = max(start, row.address), min(end, end_of_row)
+        ranges.append((start, end, samples))
+    ranges.sort(key=lambda r: (-r[2], r[0]))
+    return ranges[:limit]
 
 
 def report(dump, rows, *, top, ranges, range_rows, name_width, lines=None):
@@ -346,7 +345,7 @@ def report(dump, rows, *, top, ranges, range_rows, name_width, lines=None):
                    f"{short(row.name, name_width)}{alias}")
     if ranges:
         out.append("")
-        out.append("hot ranges (function offset, samples, % of render):")
+        out.append("hot bins (function offset range, samples, % of render):")
         for row in rows[:ranges]:
             if row.name.startswith("<no symbol"):
                 continue
@@ -388,7 +387,7 @@ def run_addr2line(addr2line, elf, addresses):
     except (OSError, subprocess.CalledProcessError):
         return {}
     return {a: loc for a, loc in zip(addresses, result)
-            if loc and not loc.startswith("??")}
+            if loc and not loc.startswith("??") and not loc.endswith(":?")}
 
 
 def main(argv=None):
