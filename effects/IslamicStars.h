@@ -368,19 +368,44 @@ private:
     /** @return Whether the model moves over the frame. */
     bool moves() const { return leg || previous; }
 
+    /** @brief One fraction of the frame, with the leg's parameter there. */
+    struct Moment {
+      float u = 0.0f; ///< Frame fraction in [0, 1].
+      float k = 0.0f; ///< The leg's sweep parameter at `u`; 0 without a leg.
+    };
+
     /**
-     * @brief A model vertex at a fraction of the frame.
-     * @param i Vertex index.
+     * @brief A fraction of the frame, resolved for at().
      * @param u Frame fraction in [0, 1].
+     * @return The moment.
+     */
+    Moment moment(float u) const {
+      return {u, leg ? leg->parameter_at(u) : 0.0f};
+    }
+
+    /**
+     * @brief A model vertex at a moment of the frame.
+     * @param i Vertex index.
+     * @param m The moment, as moment() gives it.
      * @return The vertex on its leg's path, normalized-lerped from
      * `previous`, or `current` when the model holds.
      */
-    HS_HOT_INLINE math::Vector at(size_t i, float u) const {
+    HS_HOT_INLINE math::Vector at(size_t i, const Moment &m) const {
       if (leg)
-        return leg->vertex_at(i, u);
+        return leg->vertex_at_parameter(i, m.k);
       if (previous)
-        return (previous[i] + (current[i] - previous[i]) * u).normalized();
+        return (previous[i] + (current[i] - previous[i]) * m.u).normalized();
       return current[i];
+    }
+
+    /**
+     * @brief A model vertex at its capture fraction.
+     * @param i Vertex index.
+     * @param u Frame fraction.
+     * @return Vertex on the model path.
+     */
+    HS_HOT_INLINE math::Vector at(size_t i, float u) const {
+      return at(i, moment(u));
     }
   };
 
@@ -393,9 +418,12 @@ private:
   HS_FLASH_MEMBER float motion_bound(const ModelPath &path,
                                      size_t count) const {
     float min_cos = 1.0f;
-    if (path.moves())
+    if (path.moves()) {
+      const auto start = path.moment(0.0f);
+      const auto end = path.moment(1.0f);
       for (size_t i = 0; i < count; ++i)
-        min_cos = fminf(min_cos, math::dot(path.at(i, 0.0f), path.at(i, 1.0f)));
+        min_cos = fminf(min_cos, math::dot(path.at(i, start), path.at(i, end)));
+    }
     return ripple_arc() + acosf(hs::clamp(min_cos, -1.0f, 1.0f));
   }
 
@@ -435,10 +463,12 @@ private:
       }
     }
     const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
+    const auto start = path.moment(0.0f);
+    const auto end = path.moment(1.0f);
     for (size_t i = 0; i < count; ++i) {
-      const math::Vector model = path.at(i, 1.0f);
+      const math::Vector model = path.at(i, end);
       bool moves =
-          path.moves() && math::dot(path.at(i, 0.0f), model) < held_cos;
+          path.moves() && math::dot(path.at(i, start), model) < held_cos;
       for (int b = 0; b < band_count && !moves; ++b) {
         const float c = math::dot(model, bands[b].center);
         moves = c <= bands[b].cos_near && c >= bands[b].cos_far;
@@ -522,13 +552,14 @@ private:
     ripples_at(plan.during, 0.0f);
     OrientTransformer camera(orientation);
     const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
+    const auto start = path.moment(0.0f);
     float min_cos = 1.0f;
     for (size_t i = 0; i < count; ++i) {
       if (!plan.moving[i])
         continue;
-      const float c =
-          math::dot(camera(ripple_gen.transform(path.at(i, 0.0f), plan.during)),
-                    mesh.vertices[i]);
+      const float c = math::dot(
+          camera(ripple_gen.transform(path.at(i, start), plan.during)),
+          mesh.vertices[i]);
       plan.moving[i] = c < held_cos;
       min_cos = fminf(min_cos, c);
     }
@@ -927,7 +958,7 @@ private:
                                         scratch_arena_b, persistent_arena);
 
     // Colours of the spawned mesh (a build's seed, or the whole solid): the
-    // shuffled palette order consumed by class ordinal â€” class ids are dense,
+    // shuffled palette order consumed by class ordinal — class ids are dense,
     // so class c is the c-th cohort.
     {
       const MeshState &spawned_mesh = carousel.slot(back);
@@ -983,7 +1014,7 @@ private:
 
     plateau_hold.arm_plateau_end(timeline, duration - fade);
 
-    // On a closed 2-manifold faces.size() (Î£ face degrees) is exactly 2Â·E.
+    // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     // A recipe shape spawns holding its seed, so these are the seed's counts.
     const MeshState &spawned = carousel.current();
     hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)%s", entry.name,

@@ -223,6 +223,25 @@ public:
     }
 
     /**
+     * @brief The leg's sweep parameter at a fraction of the frame.
+     * @param u Frame fraction: 0 at the frame drawn last, 1 now.
+     * @return The parameter vertex_at_parameter() reads; requires `leg`.
+     */
+    HS_FLASH_MEMBER float parameter_at(float u) const {
+      return leg->sweep_parameter(drawn_frame + (frame - drawn_frame) * u);
+    }
+
+    /**
+     * @brief A vertex of the drawn mesh at a sweep parameter.
+     * @param i Vertex index.
+     * @param k Sweep parameter, as parameter_at() gives it.
+     * @return The vertex on the leg's own path; requires `leg`.
+     */
+    math::Vector vertex_at_parameter(size_t i, float k) const {
+      return leg->swept_vertex_at(i, k);
+    }
+
+    /**
      * @brief The face's pre-blended ramp.
      * @param face Face index.
      * @return The blended LUT to sample.
@@ -904,11 +923,30 @@ private:
    * @return The vertex; a hankin, relax or medial leg's only.
    */
   HS_FLASH_MEMBER math::Vector swept_vertex(size_t i, float frame) const {
+    return swept_vertex_at(i, sweep_parameter(frame));
+  }
+
+  /**
+   * @brief Sweep parameter of a per-vertex leg's swept mesh at a fractional
+   * leg frame.
+   * @param frame Leg frame in [0, duration].
+   * @return The parameter swept_vertex_at() reads.
+   */
+  HS_FLASH_MEMBER float sweep_parameter(float frame) const {
     const Transients &tr = *buf;
     const float progress =
         hs::clamp(easing_fn(frame / static_cast<float>(duration)), 0.0f, 1.0f);
-    const float k =
-        tr.t_start + (tr.t_end - tr.t_start) * sweep_phase(tr, progress).k;
+    return tr.t_start + (tr.t_end - tr.t_start) * sweep_phase(tr, progress).k;
+  }
+
+  /**
+   * @brief One vertex of a per-vertex leg's swept mesh at a sweep parameter.
+   * @param i Vertex index.
+   * @param k Sweep parameter, as sweep_parameter() gives it.
+   * @return The vertex; a hankin, relax or medial leg's only.
+   */
+  HS_FLASH_MEMBER math::Vector swept_vertex_at(size_t i, float k) const {
+    const Transients &tr = *buf;
     if (tr.kind == LegKind::HANKIN_SWEEP) {
       const CompiledHankin &hk = tr.hankin;
       const size_t statics = hk.static_vertices.size();
