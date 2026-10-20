@@ -50,6 +50,7 @@
 #include "tests/test_shader_chain.h"
 #include "tests/test_filter.h"
 #include "tests/test_plot_scan.h"
+#include "tests/test_plot_parity.h"
 #include "tests/test_canvas.h"
 #include "tests/test_scan.h"
 #include "tests/test_ray.h"
@@ -154,6 +155,7 @@ struct TestModule {
   X("shader_chain", hs_test::shader_chain_tests::run_shader_chain_tests,       \
     false)                                                                     \
   X("filter", hs_test::filter_tests::run_filter_tests, false)                  \
+  X("plot_parity", hs_test::plot_parity_tests::run_plot_parity_tests, false)   \
   X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests, false)         \
   X("canvas", hs_test::canvas_tests::run_canvas_tests, false)                  \
   X("scan", hs_test::scan_tests::run_scan_tests, false)                        \

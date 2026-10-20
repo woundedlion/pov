@@ -323,7 +323,7 @@ set(_hs_test_modules
     mesh solids
     reaction_graph color palettes easing_waves interpolate platform profiling
     pullback shader_chain filter
-    plot_scan canvas
+    plot_scan plot_parity canvas
     scan mesh_raster transformers noise noise_field projections
     animation effects mindsplatter
     effects_smoke effect_factory kaleidoscope_melt kaleidoscope_smooth
