@@ -240,7 +240,16 @@ private:
     const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
     const int newest_last =
         Temporal::temporal_sampling_enabled() ? newest.length() - 1 : 0;
+    // A disc that cannot reach the clip over the frame draws nothing.
+    const bool culls = !params.debug_bb && !canvas.debug();
+    const float sweep = column_time.azimuth ? column_time.sweep : 0.0f;
+    const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+      math::Vector v_local = math::rotate(node->v, q);
+      math::Vector v_final = orientation.orient(v_local);
+      if (culls &&
+          !Scan::cap_meets_clip<W, H>(v_final, params.thickness, sweep, clip))
+        return;
       const float fade = math::quintic_kernel(t) * params.alpha;
       Color4 color = baked_palette.get(t);
       color.alpha *= fade;
@@ -254,8 +263,6 @@ private:
                               ? static_cast<float>(index) / newest_last
                               : 0.0f;
 
-      math::Vector v_local = math::rotate(node->v, q);
-      math::Vector v_final = orientation.orient(v_local);
       HS_PROFILE_DEEP(cm_point_scan);
       if (palette_moves) {
         Color4 drawn = drawn_palette.get(t);
