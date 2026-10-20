@@ -231,13 +231,12 @@ to their middle column's time (`Scan::settle_drift`) and scanned without one.
 ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
 
 HyperLattice and Voronoi sample column time without the composed runtime.
-HyperLattice draws whole frames unless a test build sets
-`HyperLatticeDetail::g_column_time`; it then keeps its previous render state
-and prepares the trace context of every column time before tracing any column
-through `draw_columns`: rotation phases follow their shortest arc, the camera
-its unwrapped flight step and continuous parameters their field curves, while
-every column's context binds the effect's crossing scratch. A specialized octet
-or shell trace serves a frame only when every column time selects it.
+HyperLattice keeps its previous render state and prepares the trace context of
+every column time before tracing any column through `draw_columns`: rotation
+phases follow their shortest arc, the camera its unwrapped flight step and
+continuous parameters their field curves, while every column's context binds
+the effect's crossing scratch. A specialized octet or shell trace serves a frame
+only when every column time selects it.
 Voronoi keeps its sites' previous positions and spins each column's sites to
 its sweep fraction. `draw_block_columns` classifies block corners at both
 endpoints and shades from the union of their candidates; where a block's corner

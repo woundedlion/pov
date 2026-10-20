@@ -1016,13 +1016,6 @@ inline ColumnAgreement column_agreement(const HyperLattice<W, H> &effect,
  *  evaluator, in 16-bit codes. */
 constexpr int COLUMN_TOLERANCE = 16;
 
-/** @brief Enables HyperLattice's column-time draws for a scope. */
-struct ScopedColumnTime {
-  bool saved = HyperLatticeDetail::g_column_time;
-  ScopedColumnTime() { HyperLatticeDetail::g_column_time = true; }
-  ~ScopedColumnTime() { HyperLatticeDetail::g_column_time = saved; }
-};
-
 /**
  * @brief Checks a preset's columns against the time evaluator across two
  *        frame seams.
@@ -1070,7 +1063,6 @@ inline void check_column_time(size_t preset, int x0, int x1) {
  *  into the next frame, on every trace path. */
 inline void test_column_time_matches_time_evaluator() {
   using Effect = HyperLatticeWhiteBox::Effect;
-  const ScopedColumnTime column_time;
   for (size_t preset :
        {Effect::CUBIC_PRESET_INDEX, Effect::HYPERCUBE_PRESET_INDEX,
         Effect::OCTET_PRESET_INDEX, Effect::OCTET_4D_PRESET_INDEX,
@@ -1111,7 +1103,6 @@ inline std::vector<Pixel> column_time_band(size_t preset, int x0, int x1,
  *  render. */
 inline void test_column_time_segments_match_full_frame() {
   using Effect = HyperLatticeWhiteBox::Effect;
-  const ScopedColumnTime column_time;
   struct Band {
     int x0, x1, y0, y1;
   };
@@ -1165,7 +1156,6 @@ template <typename Change> inline void check_history_reset(Change &&change) {
  *  frame without motion. */
 inline void test_column_time_resets() {
   using WB = HyperLatticeWhiteBox;
-  const ScopedColumnTime column_time;
   check_history_reset([](WB::Effect &effect) {
     HS_EXPECT_EQ(effect.updateParameter("Pattern", 1), ParamSetResult::APPLIED);
   });
@@ -1185,7 +1175,6 @@ inline void test_column_time_resets() {
  *  and resumed sampling starts from the disabled frame. */
 inline void test_column_time_toggle() {
   using WB = HyperLatticeWhiteBox;
-  const ScopedColumnTime column_time;
   reset_globals();
   WB::Effect effect;
   effect.init();
@@ -1213,7 +1202,6 @@ inline void test_column_time_toggle() {
  *  columns straddle a trace threshold traces every column validly. */
 inline void test_column_time_parameter_motion() {
   using WB = HyperLatticeWhiteBox;
-  const ScopedColumnTime column_time;
   {
     reset_globals();
     WB::Effect effect;
