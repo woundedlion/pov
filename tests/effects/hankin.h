@@ -80,7 +80,9 @@ struct HankinSolidsWhiteBox {
     return out;
   }
 
-  static const ArenaVector<math::Vector> &mesh_vertices(const EffectT &effect) {
+  /** @brief Returns the current Hankin mesh's model-space vertices. */
+  template <typename E>
+  static const ArenaVector<math::Vector> &mesh_vertices(const E &effect) {
     return effect.hankin_mesh.vertices;
   }
   static size_t faces(const EffectT &effect) {
@@ -88,6 +90,90 @@ struct HankinSolidsWhiteBox {
   }
   static const BakedPaletteBank &palette_bank(const EffectT &effect) {
     return effect.palette_bank.bank;
+  }
+  /**
+   * @brief Replaces an effect's hankin mesh with one built on a graph node.
+   * @param effect Effect at any size.
+   * @param node Simple-registry index of the base solid.
+   */
+  template <typename E> static void load_node(E &effect, uint8_t node) {
+    hs::generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh base = Solids::simple_registry[node].generate(a, b);
+      effect.compiled_hankin = CompiledHankin();
+      MeshOps::compile_hankin(base, effect.compiled_hankin, target, a);
+      effect.hankin_mesh.clear();
+      MeshOps::update_hankin(effect.compiled_hankin, effect.hankin_mesh, target,
+                             0.0f);
+    });
+    effect.classify_mesh_topology(effect.hankin_mesh);
+  }
+  /**
+   * @brief Camera of an effect at its current endpoint.
+   * @param effect Effect at any size.
+   * @return The orientation's latest quaternion.
+   */
+  template <typename E> static math::Quaternion camera(const E &effect) {
+    return effect.orientation.get();
+  }
+  /**
+   * @brief Shades a hankin face from its class's star palette as draw_mesh()
+   *        does with every handoff settled.
+   * @param effect Effect whose palettes and intensity shade the face.
+   * @param face Face index.
+   * @param size The face's inradius.
+   * @param shader Receives the face's palette and gradient scale.
+   */
+  template <int W, int H>
+  static void shade_face(const HankinSolids<W, H> &effect, size_t face,
+                         float size, FacePaletteShader &shader) {
+    const int slot =
+        MeshPaletteBank::slot_of(effect.hankin_mesh.topology[face]);
+    shader.set_palette(
+        &effect.palette_bank.bank.entries[effect.palette_idx[slot]].view());
+    shader.scale =
+        size > math::TOLERANCE ? effect.params.intensity / size : 0.0f;
+  }
+  /**
+   * @brief Draws the moving hankin mesh through a moving camera, recording the
+   *        faces each capture window scans.
+   * @param effect Effect whose current mesh is drawn; its camera is replaced.
+   * @param previous The mesh's model vertices at the previous endpoint.
+   * @param from Camera at the previous endpoint.
+   * @param to Camera at the current endpoint.
+   * @param copies Receives the window copies.
+   */
+  template <int W, int H>
+  static void draw_copies(HankinSolids<W, H> &effect,
+                          const std::vector<math::Vector> &previous,
+                          const math::Quaternion &from,
+                          const math::Quaternion &to, FaceCopies &copies) {
+    effect.orientation.set(from).push(to);
+    const auto &mesh = effect.hankin_mesh;
+    std::vector<math::Vector> before = previous;
+    const float arc = Scan::max_vertex_arc(
+        previous.data(), mesh.vertices.data(), previous.size());
+    std::vector<math::Vector> endpoint;
+    for (const math::Vector &v : mesh.vertices)
+      endpoint.push_back(effect.orientation.orient(v));
+    {
+      Canvas canvas(effect);
+      FacePaletteShader fragment;
+      int window = -1;
+      effect.scan_mesh(
+          canvas, mesh, before.data(), false, [&](const MeshState &rotated) {
+            window = record_face_copies(canvas, rotated, endpoint, arc,
+                                        effect.orientation, copies);
+            auto setup = [&](size_t f, float size) {
+              shade_face(effect, f, size, fragment);
+              if (window >= 0)
+                copies[window][f].size = size;
+            };
+            Scan::Mesh::draw_specialized<W, H>(effect.filters, canvas, rotated,
+                                               fragment, scratch_arena_a,
+                                               nullptr, setup);
+          });
+    }
+    effect.advance_display();
   }
   /**
    * @brief Interlace angle of an effect's hankin mesh.
@@ -450,6 +536,66 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
     return WB::draw_held(effect);
   });
   hs::clear_mock_time();
+}
+
+/**
+ * @brief A hankin face across the arm boundary scans as one polygon, shaded
+ *        alike, in one sweep frame's late window and the next frame's early
+ *        window.
+ * @details The interlace angles and cameras are the effect's own over three
+ * sweep frames, on a truncated icosahedron's hankin.
+ */
+inline void test_hankinsolids_seam_copies_are_one_polygon() {
+  using WB = HankinSolidsWhiteBox;
+  constexpr int W = 288, H = 144;
+  reset_effect_globals();
+  pin_frame_clock(0);
+  HankinSolids<W, H> effect;
+  effect.init();
+  std::array<float, 3> angles{};
+  std::array<math::Quaternion, 3> cameras{};
+  for (int f = 0; f <= HANKIN_SEAM_FRAME + 1; ++f) {
+    pin_frame_clock(f);
+    effect.draw_frame();
+    effect.advance_display();
+    if (f >= HANKIN_SEAM_FRAME - 1) {
+      angles[f - HANKIN_SEAM_FRAME + 1] = WB::angle(effect);
+      cameras[f - HANKIN_SEAM_FRAME + 1] = WB::camera(effect);
+    }
+  }
+  hs::clear_mock_time();
+  WB::load_node(effect, ConwayGraph::TRUNCATED_ICOSAHEDRON);
+  std::array<std::vector<math::Vector>, 3> model;
+  for (int j = 0; j < 3; ++j) {
+    WB::rebuild(effect, angles[j]);
+    model[j].assign(WB::mesh_vertices(effect).begin(),
+                    WB::mesh_vertices(effect).end());
+  }
+  std::array<FaceCopies, 2> frames;
+  float arc = 0.0f, turn = 0.0f;
+  for (int j = 0; j < 2; ++j) {
+    WB::rebuild(effect, angles[j + 1]);
+    WB::draw_copies(effect, model[j], cameras[j], cameras[j + 1], frames[j]);
+    arc = fmaxf(arc, Scan::max_vertex_arc(model[j].data(), model[j + 1].data(),
+                                          model[j].size()));
+    turn = fmaxf(turn, quaternion_angle(cameras[j], cameras[j + 1]));
+  }
+  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(arc));
+  const auto path = [&](int frame, uint16_t i, float u) {
+    return (model[frame][i] + (model[frame + 1][i] - model[frame][i]) * u)
+        .normalized();
+  };
+  const size_t faces = expect_seam_copies_match<W, H>(
+      effect, "hankin seam copies", frames[0][1], frames[1][0], cameras[1],
+      [&](uint16_t i) {
+        return seam_vertex_tolerance<W>([&](float u) { return path(0, i, u); },
+                                        [&](float u) { return path(1, i, u); },
+                                        cameras[1], turn);
+      },
+      [&](size_t f, float size, FacePaletteShader &shader) {
+        WB::shade_face(effect, f, size, shader);
+      });
+  HS_EXPECT_GE(faces, size_t{4});
 }
 
 /**

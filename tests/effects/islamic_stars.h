@@ -212,6 +212,113 @@ struct IslamicBuildProbe {
     capture_frame<W, H>(e, out);
     return out;
   }
+
+  /**
+   * @brief Camera of an effect at its current endpoint.
+   * @param e Effect whose orientation is read.
+   * @return The orientation's latest quaternion.
+   */
+  template <int W, int H>
+  static math::Quaternion camera(const IslamicStars<W, H> &e) {
+    return e.orientation.get();
+  }
+  /**
+   * @brief The active ripples' params.
+   * @param e Effect whose ripple pool is read.
+   * @return One params per active ripple, in spawn order.
+   */
+  template <int W, int H>
+  static std::vector<Animation::RippleParams>
+  ripples(const IslamicStars<W, H> &e) {
+    std::vector<Animation::RippleParams> out;
+    for (int k = 0; k < e.ripple_gen.active_count(); ++k)
+      out.push_back(e.ripple_gen.active_params(k));
+    return out;
+  }
+  /**
+   * @brief A front-shape vertex on a frame's ripple path, model space.
+   * @param e Effect whose front shape is read.
+   * @param frame The frame's ripples, as ripples() gives them.
+   * @param i Vertex index.
+   * @param u Frame fraction.
+   * @return The rippled vertex.
+   */
+  template <int W, int H>
+  static math::Vector
+  ripple_path(const IslamicStars<W, H> &e,
+              const std::vector<Animation::RippleParams> &frame, size_t i,
+              float u) {
+    std::vector<Animation::RippleParams> during;
+    for (const Animation::RippleParams &p : frame)
+      during.push_back(p.during_step(u));
+    return e.ripple_gen.transform(
+        e.carousel.slot(e.carousel.front_index()).vertices[i], during.data());
+  }
+  /**
+   * @brief Shades a front-shape face from its palette as draw_shape() does on
+   *        the segue plateau.
+   * @param e Effect whose palettes shade the face.
+   * @param face Face index.
+   * @param size The face's inradius.
+   * @param shader Receives the face's palette and gradient scale.
+   */
+  template <int W, int H>
+  static void shade_face(IslamicStars<W, H> &e, size_t face, float size,
+                         FacePaletteShader &shader) {
+    const int slot = e.carousel.front_index();
+    shader.set_palette(&e.palette_bank[e.slot_face_palette[slot][face]].view());
+    shader.scale = size > math::TOLERANCE ? 1.0f / size : 0.0f;
+  }
+  /**
+   * @brief Draws the front shape's rippling frame through a moving camera,
+   *        recording the faces each capture window scans.
+   * @param e Effect whose front shape is drawn; its camera is replaced.
+   * @param from Camera at the previous endpoint.
+   * @param to Camera at the current endpoint.
+   * @param copies Receives the window copies.
+   */
+  template <int W, int H>
+  static void draw_copies(IslamicStars<W, H> &e, const math::Quaternion &from,
+                          const math::Quaternion &to, FaceCopies &copies) {
+    e.orientation.set(from).push(to);
+    {
+      Canvas canvas(e);
+      ScratchScope scope(scratch_arena_a);
+      const MeshState &source = e.carousel.slot(e.carousel.front_index());
+      const typename IslamicStars<W, H>::ModelPath path{source.vertices.data()};
+      const float bound = e.motion_bound(path, source.vertices.size());
+      const auto time = Scan::prepare_column_basis<W, H>(scratch_arena_a,
+                                                         e.orientation, true);
+      Scan::ColumnTimeScope columns(canvas, time);
+      MeshState mesh = e.transform_shape(source);
+      const auto plan =
+          e.plan_motion(canvas, mesh, path, bound, scratch_arena_a);
+      HS_EXPECT_TRUE(plan.active);
+      const std::vector<math::Vector> endpoint(mesh.vertices.begin(),
+                                               mesh.vertices.end());
+      FacePaletteShader fragment;
+      int window = -1;
+      Scan::deform_mesh<W, H>(
+          canvas, mesh, plan.active, plan.columns, plan.moving, scratch_arena_a,
+          bound,
+          [&](size_t i, float u) {
+            return e.capture_position(plan, path, i, u);
+          },
+          [&]() {
+            window = record_face_copies(canvas, mesh, endpoint, bound,
+                                        e.orientation, copies);
+            auto setup = [&](size_t f, float size) {
+              shade_face(e, f, size, fragment);
+              if (window >= 0)
+                copies[window][f].size = size;
+            };
+            Scan::Mesh::draw_specialized<W, H>(e.filters, canvas, mesh,
+                                               fragment, scratch_arena_a,
+                                               nullptr, setup);
+          });
+    }
+    e.advance_display();
+  }
 };
 
 /** @brief Channel bound of an IslamicStars column against its lerped
@@ -806,6 +913,79 @@ inline void test_islamicstars_ripple_motion_is_seam_free() {
   };
   const std::vector<Pixel> held = at(1.0f);
   expect_seam_resolved<W, H>("islamic ripple", drawn, held, at);
+}
+
+/**
+ * @brief An IslamicStars face across the arm boundary scans as one polygon,
+ *        shaded alike, in one ripple frame's late window and the next frame's
+ *        early window.
+ * @details The roster's truncatedCube_hk90_meta, generated whole, under a
+ * ripple centred on the arm boundary's pole so that its wavefront runs along
+ * the boundary; the ripple steps as a decaying ripple does while the camera
+ * turns.
+ */
+inline void test_islamicstars_seam_copies_are_one_polygon() {
+  using P = IslamicBuildProbe;
+  constexpr int W = 288, H = 144;
+  reset_effect_globals();
+  IslamicStars<W, H> effect;
+  effect.init();
+  Solids::Entry entry{};
+  for (const auto &preset : P::presets())
+    if (std::string_view(preset.params->name) == "truncatedCube_hk90_meta")
+      entry = *preset.params;
+  HS_EXPECT_TRUE(entry.name != nullptr);
+  entry.recipe = nullptr;
+  P::spawn_entry(effect, entry);
+  HS_EXPECT_GT(P::fire_ripple(effect), 0);
+  Animation::RippleParams &ripple = P::ripple(effect, 0);
+  const math::Quaternion step =
+      math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.01f);
+  std::array<math::Quaternion, 3> cameras{P::camera(effect)};
+  for (int j = 1; j < 3; ++j)
+    cameras[j] = (step * cameras[j - 1]).normalized();
+  ripple.center =
+      math::rotate(math::Vector(0.0f, 0.0f, 1.0f), cameras[1].conjugate());
+  constexpr float STEP = math::PI_F / 40.0f;
+  const float steepest = math::PI_F / 2.0f - 0.37f * ripple.half_width();
+  const float phases[3] = {steepest - STEP, steepest, steepest + STEP};
+  const float amplitudes[3] = {RIPPLE_SMALL_ANGLE_MAX,
+                               0.97f * RIPPLE_SMALL_ANGLE_MAX,
+                               0.94f * RIPPLE_SMALL_ANGLE_MAX};
+  std::array<FaceCopies, 2> frames;
+  std::array<std::vector<Animation::RippleParams>, 2> ripples;
+  for (int j = 0; j < 2; ++j) {
+    ripple.previous_phase = phases[j];
+    ripple.phase = phases[j + 1];
+    ripple.previous_amplitude = amplitudes[j];
+    ripple.amplitude = amplitudes[j + 1];
+    ripple.sync();
+    ripples[j] = P::ripples(effect);
+    P::draw_copies(effect, cameras[j], cameras[j + 1], frames[j]);
+  }
+  const size_t count = P::front_vertices(effect).size();
+  float arc = 0.0f;
+  for (int j = 0; j < 2; ++j)
+    for (size_t i = 0; i < count; ++i)
+      arc = fmaxf(
+          arc,
+          acosf(fminf(1.0f,
+                      math::dot(P::ripple_path(effect, ripples[j], i, 0.0f),
+                                P::ripple_path(effect, ripples[j], i, 1.0f)))));
+  HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(arc));
+  const float turn = quaternion_angle(cameras[0], cameras[1]);
+  const size_t faces = expect_seam_copies_match<W, H>(
+      effect, "islamic seam copies", frames[0][1], frames[1][0], cameras[1],
+      [&](uint16_t i) {
+        return seam_vertex_tolerance<W>(
+            [&](float u) { return P::ripple_path(effect, ripples[0], i, u); },
+            [&](float u) { return P::ripple_path(effect, ripples[1], i, u); },
+            cameras[1], turn);
+      },
+      [&](size_t f, float size, FacePaletteShader &shader) {
+        P::shade_face(effect, f, size, shader);
+      });
+  HS_EXPECT_GE(faces, size_t{4});
 }
 
 /**

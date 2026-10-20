@@ -26,6 +26,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <limits>
+#include <map>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -530,6 +532,355 @@ inline void clip_clear_parity_one(
   hs::clear_mock_time();
 }
 
+/** @brief One capture window's copy of a face in a mesh deformation scan. */
+struct FaceCopy {
+  std::vector<uint16_t> indices;     ///< The face's vertex indices.
+  std::vector<math::Vector> polygon; ///< Its scanned vertices, model space.
+  float size = 0.0f;                 ///< Inradius the scan shaded it with.
+  bool seam = true; ///< Whether every vertex stands near the arm boundary,
+                    ///< clear of the polar hold band.
+};
+
+/** @brief A deformation scan's face copies: early window, then late, by face. */
+using FaceCopies = std::array<std::map<size_t, FaceCopy>, 2>;
+
+/// Arm fraction from the arm boundary within which a seam face's vertices
+/// stand at the current endpoint.
+inline constexpr float SEAM_COPY_SPAN = 0.15f;
+
+/// Frame fraction past either endpoint within which a seam face's vertices
+/// are captured.
+inline constexpr float SEAM_EXTRAPOLATION = 0.25f;
+static_assert(SEAM_COPY_SPAN +
+                      Scan::MAX_VERTEX_MOTION_PIXELS / (DEFAULT_W / 2) <
+                  SEAM_EXTRAPOLATION,
+              "a seam vertex's capture must stay within SEAM_EXTRAPOLATION");
+
+/**
+ * @brief Records the faces a deformation scan's open capture window draws.
+ * @tparam CAP Orientation history capacity.
+ * @param canvas Canvas inside the scan.
+ * @param mesh The scanned mesh, at the window's captured vertices.
+ * @param endpoint The mesh's vertices at the current endpoint, camera space.
+ * @param reach Vertex motion bound the scan holds polar vertices by.
+ * @param orientation Camera at the current endpoint.
+ * @param copies Receives the window's copies.
+ * @return The window's index in @p copies, or -1 outside a capture window.
+ */
+template <int CAP>
+inline int record_face_copies(const Canvas &canvas, const MeshState &mesh,
+                              const std::vector<math::Vector> &endpoint,
+                              float reach,
+                              const math::Orientation<CAP> &orientation,
+                              FaceCopies &copies) {
+  const ColumnWindow &window = canvas.render_x_window();
+  const Temporal::ColumnTime *time = canvas.column_time();
+  if (!window.active || !time || !time->selected_faces)
+    return -1;
+  const int w = window.begin == 0 ? 0 : 1;
+  const Scan::CaptureHold hold = Scan::CaptureHold::of(*time, reach);
+  for (size_t f = 0; f < mesh.num_faces(); ++f) {
+    if (time->selected_faces[f] != Temporal::MESH_FACE_WINDOW)
+      continue;
+    FaceCopy &copy = copies[w][f];
+    const uint16_t *face =
+        mesh.get_faces_data() + mesh.get_face_offsets_data()[f];
+    for (size_t k = 0; k < mesh.get_face_counts_data()[f]; ++k) {
+      const math::Vector &end = endpoint[face[k]];
+      const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
+      const float turns = atan2f(end.z, end.x) / math::PI_F;
+      const float fraction = turns - floorf(turns);
+      copy.seam &= horizontal > 2.0f * hold.bound &&
+                   fminf(fraction, 1.0f - fraction) < SEAM_COPY_SPAN;
+      copy.indices.push_back(face[k]);
+      copy.polygon.push_back(orientation.unorient(mesh.vertices[face[k]]));
+    }
+  }
+  return w;
+}
+
+/**
+ * @brief Renders face copies as a still mesh through a camera.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam EffectT Effect owning the display.
+ * @tparam SetupFn Callable (size_t face, float size, FacePaletteShader &)
+ *         shading a face as its effect does.
+ * @param effect Effect whose display receives the render.
+ * @param copies Face copies, by face.
+ * @param faces The faces to draw.
+ * @param camera Camera the copies are drawn through.
+ * @param setup Shades each drawn face.
+ * @param ids Whether to draw each face flat in its position in @p faces plus
+ *        one, in the red channel, instead of shading it.
+ * @return Displayed frame.
+ */
+template <int W, int H, typename EffectT, typename SetupFn>
+inline std::vector<Pixel>
+render_face_copies(EffectT &effect, const std::map<size_t, FaceCopy> &copies,
+                   const std::vector<size_t> &faces,
+                   const math::Quaternion &camera, SetupFn &&setup, bool ids) {
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(effect);
+    ScratchScope guard(scratch_arena_a);
+    size_t count = 0;
+    for (size_t f : faces)
+      count += copies.at(f).polygon.size();
+    MeshState mesh;
+    mesh.vertices.bind(scratch_arena_a, count);
+    mesh.faces.bind(scratch_arena_a, count);
+    mesh.face_counts.bind(scratch_arena_a, faces.size());
+    mesh.face_offsets.bind(scratch_arena_a, faces.size());
+    for (size_t f : faces) {
+      const FaceCopy &copy = copies.at(f);
+      mesh.face_offsets.push_back(static_cast<uint16_t>(mesh.faces.size()));
+      mesh.face_counts.push_back(static_cast<uint8_t>(copy.polygon.size()));
+      for (const math::Vector &v : copy.polygon) {
+        mesh.faces.push_back(static_cast<uint16_t>(mesh.vertices.size()));
+        mesh.vertices.push_back(math::rotate(v, camera));
+      }
+    }
+    if (ids) {
+      const auto id = [](const math::Vector &, Fragment &f) {
+        f.color = Color4(Pixel(static_cast<uint16_t>(f.v2 + 1.5f), 0, 0), 1);
+      };
+      Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, id, scratch_arena_b);
+    } else {
+      FacePaletteShader shader;
+      auto shade = [&](size_t j, float size) { setup(faces[j], size, shader); };
+      Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                         scratch_arena_b, nullptr, shade);
+    }
+  }
+  effect.advance_display();
+  std::vector<Pixel> out;
+  capture_frame<W, H>(effect, out);
+  return out;
+}
+
+/**
+ * @brief Largest colour change a face's shading allows between two copies.
+ * @tparam SetupFn As render_face_copies() takes it.
+ * @param face Face index.
+ * @param size The face's inradius in one copy.
+ * @param shift Bound on how far the copies' inradius, and their edge depth
+ *        at a pixel, differ.
+ * @param setup Shades the face as its effect does.
+ * @return 16-bit channel units: the shading at each edge depth against the
+ *         shading within @p shift of that depth and of @p size.
+ */
+template <typename SetupFn>
+inline int face_colour_bound(size_t face, float size, float shift,
+                             SetupFn &&setup) {
+  constexpr int DEPTHS = 64;
+  constexpr float STEPS[] = {-1.0f, -0.5f, 0.0f, 0.5f, 1.0f};
+  FacePaletteShader one;
+  setup(face, size, one);
+  int bound = 0;
+  for (float r : STEPS) {
+    FacePaletteShader other;
+    setup(face, fmaxf(size + r * shift, 0.0f), other);
+    for (int k = 0; k <= DEPTHS; ++k) {
+      Fragment a;
+      a.v1 = -2.0f * size * k / DEPTHS;
+      one(a.pos, a);
+      for (float s : STEPS) {
+        Fragment b;
+        b.v1 = a.v1 + s * shift;
+        other(b.pos, b);
+        const Pixel &p = a.color.color, &q = b.color.color;
+        bound = std::max({bound, std::abs(int(p.r) - q.r),
+                          std::abs(int(p.g) - q.g), std::abs(int(p.b) - q.b)});
+      }
+    }
+  }
+  return bound;
+}
+
+/// Columns either side of each arm boundary whose colours a seam check reads.
+inline constexpr int SEAM_CHECK_COLUMNS = 3;
+
+/**
+ * @brief Checks that one frame's late copies and the next frame's early
+ *        copies of the faces across the arm boundary are one polygon that
+ *        shades alike.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam EffectT Effect owning the display.
+ * @tparam ToleranceFn Callable (uint16_t vertex) returning the bound on that
+ *         vertex's gap between the copies (radians of chord), or infinity for
+ *         a vertex no bound covers.
+ * @tparam SetupFn As render_face_copies() takes it.
+ * @param effect Effect whose display renders the copies.
+ * @param label Draw named in failure context.
+ * @param late Frame N's copies.
+ * @param early Frame N+1's copies.
+ * @param camera Camera the copies' colours are compared through.
+ * @param tolerance Per-vertex gap bound.
+ * @param setup Shades each face as its effect does.
+ * @return The number of faces compared.
+ * @details Compares the seam faces whose every vertex has a bound. A face's
+ * edge depth and inradius move by at most twice its largest vertex gap, the
+ * gnomonic stretch of a face within a quarter turn of its centre; colours
+ * are compared on the boundary columns' pixels a pixel clear of every edge.
+ */
+template <int W, int H, typename EffectT, typename ToleranceFn,
+          typename SetupFn>
+inline size_t expect_seam_copies_match(EffectT &effect, const char *label,
+                                       const std::map<size_t, FaceCopy> &late,
+                                       const std::map<size_t, FaceCopy> &early,
+                                       const math::Quaternion &camera,
+                                       ToleranceFn &&tolerance,
+                                       SetupFn &&setup) {
+  HS_CONTEXT(label);
+  constexpr float PIXEL = math::TWO_PI_F / W;
+  std::vector<size_t> faces;
+  std::vector<int> colour_bounds;
+  float worst_gap = 0.0f, worst_ratio = 0.0f, worst_size = 0.0f;
+  for (const auto &[f, before] : late) {
+    const auto after = early.find(f);
+    if (after == early.end() || !before.seam || !after->second.seam ||
+        before.size <= 0.0f || after->second.size <= 0.0f)
+      continue;
+    HS_EXPECT_TRUE(before.indices == after->second.indices);
+    if (before.indices != after->second.indices)
+      continue;
+    float face_tolerance = 0.0f;
+    for (uint16_t i : before.indices)
+      face_tolerance = fmaxf(face_tolerance, tolerance(i));
+    if (std::isinf(face_tolerance))
+      continue;
+    for (size_t k = 0; k < before.polygon.size(); ++k) {
+      const float gap = sqrtf(
+          math::distance_squared(before.polygon[k], after->second.polygon[k]));
+      const float bound = tolerance(before.indices[k]);
+      HS_EXPECT_LE(gap, bound);
+      worst_gap = fmaxf(worst_gap, gap);
+      worst_ratio = fmaxf(worst_ratio, gap / bound);
+    }
+    const float size_gap = fabsf(before.size - after->second.size);
+    HS_EXPECT_LE(size_gap, 2.0f * face_tolerance);
+    worst_size = fmaxf(worst_size, size_gap / before.size);
+    faces.push_back(f);
+    colour_bounds.push_back(
+        face_colour_bound(f, before.size, 2.0f * face_tolerance, setup));
+  }
+  const auto render = [&](const std::map<size_t, FaceCopy> &copies, bool ids) {
+    return render_face_copies<W, H>(effect, copies, faces, camera, setup, ids);
+  };
+  const std::vector<Pixel> left = render(late, false);
+  const std::vector<Pixel> right = render(early, false);
+  const std::vector<Pixel> left_id = render(late, true);
+  const std::vector<Pixel> right_id = render(early, true);
+  const auto face_at = [&](int x, int y) {
+    const int id = left_id[static_cast<size_t>(y) * W + x].r;
+    for (int dy = -1; dy <= 1; ++dy)
+      for (int dx = -1; dx <= 1; ++dx) {
+        const int row = y + dy;
+        if (row < 0 || row >= H)
+          return 0;
+        const size_t j = static_cast<size_t>(row) * W + (x + dx + W) % W;
+        if (left_id[j].r != id || right_id[j].r != id)
+          return 0;
+      }
+    return id;
+  };
+  int colour = 0, excess = 0, interior = 0;
+  for (int y = 0; y < H; ++y)
+    for (int seam : {0, W / 2})
+      for (int c = -SEAM_CHECK_COLUMNS; c < SEAM_CHECK_COLUMNS; ++c) {
+        const int x = (seam + c + W) % W;
+        const int id = face_at(x, y);
+        if (id == 0)
+          continue;
+        ++interior;
+        const size_t i = static_cast<size_t>(y) * W + x;
+        const int difference =
+            std::max({std::abs(int(left[i].r) - right[i].r),
+                      std::abs(int(left[i].g) - right[i].g),
+                      std::abs(int(left[i].b) - right[i].b)});
+        colour = std::max(colour, difference);
+        excess = std::max(excess, difference - colour_bounds[id - 1]);
+      }
+  std::printf("  [%s] %zu seam faces: vertex gap %.4f px (%.3f of bound), "
+              "inradius %.5f, colour %.3f steps over %d interior pixels\n",
+              label, faces.size(), worst_gap / PIXEL, worst_ratio, worst_size,
+              colour / 257.0, interior);
+  HS_EXPECT_GT(interior, 0);
+  HS_EXPECT_LE(excess, 0);
+  return faces.size();
+}
+
+/**
+ * @brief Rotation angle between two unit quaternions.
+ * @param a First rotation.
+ * @param b Second rotation.
+ * @return Radians in [0, PI].
+ */
+inline float quaternion_angle(const math::Quaternion &a,
+                              const math::Quaternion &b) {
+  const float cosine = fabsf(a.r * b.r + math::dot(a.v, b.v));
+  return 2.0f * acosf(fminf(1.0f, cosine));
+}
+
+/**
+ * @brief Bound on how far two copies' capture times of one vertex differ.
+ * @param motion The vertex's motion over either frame (radians).
+ * @param turn Largest camera rotation over either frame (radians).
+ * @param horizontal The vertex's distance from the polar axis.
+ * @return Frame fraction: math::fast_atan2's peak error and one correction
+ *         step's residual in each copy, and the column basis the
+ *         extrapolating copy holds at its arm's end column.
+ */
+inline float seam_capture_slack(float motion, float turn, float horizontal) {
+  constexpr float FAST_ATAN2_ERROR = 0.0038f;
+  const float ratio = (motion + turn) / (math::PI_F * horizontal);
+  return 2.0f * FAST_ATAN2_ERROR / math::PI_F +
+         2.0f * (1.0f + SEAM_EXTRAPOLATION) * ratio * ratio +
+         SEAM_EXTRAPOLATION * turn / (math::PI_F * horizontal);
+}
+
+/**
+ * @brief Bound on a vertex's gap between frame N's late copy and frame N+1's
+ *        early copy.
+ * @tparam W Canvas width.
+ * @tparam LateFn Callable (float u) giving the vertex on frame N's path.
+ * @tparam EarlyFn Callable (float u) giving the vertex on frame N+1's path.
+ * @param late Frame N's path, model space.
+ * @param early Frame N+1's path, model space.
+ * @param camera Camera at the frames' shared endpoint.
+ * @param turn Largest camera rotation over either frame (radians).
+ * @return The paths' largest gap within SEAM_EXTRAPOLATION of the shared
+ *         endpoint, which is second order in the motion, plus the vertex's
+ *         motion over seam_capture_slack(); infinity for a vertex that moves
+ *         yet either frame holds at its endpoint.
+ */
+template <int W, typename LateFn, typename EarlyFn>
+inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
+                                   const math::Quaternion &camera, float turn) {
+  constexpr int SAMPLES = 8;
+  constexpr float FLOAT_ROUNDING = 1e-6f;
+  const auto gap = [](const math::Vector &a, const math::Vector &b) {
+    return sqrtf(math::distance_squared(a, b));
+  };
+  float paths = 0.0f;
+  for (int s = -SAMPLES; s <= SAMPLES; ++s) {
+    const float d = SEAM_EXTRAPOLATION * s / SAMPLES;
+    paths = fmaxf(paths, gap(late(1.0f + d), early(d)));
+  }
+  const float before = gap(late(0.0f), late(1.0f));
+  const float after = gap(early(0.0f), early(1.0f));
+  const float motion = fmaxf(before, after);
+  const bool held = fminf(before, after) <= Scan::HELD_VERTEX_ARC<W>;
+  if (held && motion > FLOAT_ROUNDING)
+    return std::numeric_limits<float>::infinity();
+  const math::Vector seen = math::rotate(late(1.0f), camera);
+  const float horizontal = sqrtf(seen.x * seen.x + seen.z * seen.z);
+  return paths + seam_capture_slack(motion, turn, horizontal) * motion +
+         FLOAT_ROUNDING;
+}
+
 #include "tests/effects/spherical_harmonics.h"
 #include "tests/effects/reaction_diffusion_gs.h"
 #include "tests/effects/reaction_diffusion_bz.h"
@@ -594,6 +945,7 @@ inline int run_effects_tests() {
   run_case(test_hankinsolids_handoff_history);
   run_case(test_hankinsolids_conway_crossfade_shades_at_column_time);
   run_case(test_hankinsolids_interlace_motion_is_seam_free);
+  run_case(test_hankinsolids_seam_copies_are_one_polygon);
   run_case(test_hankinsolids_morph_draws_carry_previous_vertices);
   run_case(test_hankinsolids_morph_motion_is_seam_free);
   // Both tiers: arena budgets.
@@ -716,6 +1068,7 @@ inline int run_effects_tests() {
   run_case(test_islamicstars_seed_sprite_fade_in);
   run_case(test_islamicstars_opacity_shades_at_column_time);
   run_case(test_islamicstars_ripple_motion_is_seam_free);
+  run_case(test_islamicstars_seam_copies_are_one_polygon);
   run_case(test_islamicstars_build_legs_hand_their_path);
   run_case(test_islamicstars_opacity_history);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
