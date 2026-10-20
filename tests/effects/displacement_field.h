@@ -12,6 +12,38 @@
  * span bake, and hue-table bake.
  */
 struct DisplacementFieldWhiteBox {
+  /** @brief Holds the stack still with narrow, rapidly flowing noise.
+   * @param effect Effect before its frame draw. */
+  template <int W, int H>
+  static void boundary_stencil_pose(DisplacementField<W, H> &effect) {
+    effect.orientation.set(math::Quaternion());
+    effect.params.noise_amp = 0.01f;
+    effect.params.flow_speed = 0.15f;
+    effect.params.thickness = 0.4f * math::RADIANS_PER_COLUMN<W>;
+  }
+
+  /** @brief Selects the single pass, window oracle, or per-column reference.
+   * @param effect Initialized effect.
+   * @param mode Zero for single pass, one for window bakes, two for columns. */
+  template <int W, int H>
+  static void sweep_mode(DisplacementField<W, H> &effect, int mode) {
+    effect.force_window_bakes = mode != 0;
+    effect.force_column_reference = mode == 2;
+  }
+
+  /** @brief Checks one setup per non-flat ring and reports the last frame's work.
+   * @param effect Effect after a default swept frame. */
+  template <int W, int H>
+  static void check_single_pass(const DisplacementField<W, H> &effect) {
+    HS_EXPECT_EQ(effect.fallback_bakes, 0);
+    HS_EXPECT_LE(effect.primary_bakes, effect.params.num_rings);
+    HS_EXPECT_GT(effect.duplicate_knots, 0);
+    std::printf(
+        "  [single pass] primary=%d alternate=%d octave-extra=%d rings=%d\n",
+        effect.primary_knots, effect.duplicate_knots,
+        effect.alternate_noise_samples, effect.primary_bakes);
+  }
+
   /** @brief Denies preset advancement at one phase departure boundary.
    * @param effect Initialized effect with no live balls.
    * @param leaving_noise Selects the Noise departure rather than Balls. */
@@ -1153,4 +1185,101 @@ inline void test_displacement_field_arm_boundaries_meet_endpoints() {
         HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
                      ParamSetResult::APPLIED);
       }));
+}
+
+/** @brief Single-pass residuals do not exceed the two-window residuals. */
+inline void test_displacement_field_single_pass_reference() {
+  constexpr int W = 288, H = 144;
+  for (bool balls : {false, true}) {
+    HS_CONTEXT(balls ? "balls" : "noise");
+    std::vector<Pixel> images[3];
+    const int frames = balls ? 40 : 200;
+    for (int mode = 0; mode < 3; ++mode) {
+      reset_effect_globals();
+      hs::random().seed(1337u);
+      pin_frame_clock(0);
+      Temporal::set_temporal_sampling_enabled(true);
+      DisplacementField<W, H> effect;
+      effect.init();
+      if (balls)
+        HS_EXPECT_TRUE(effect.selectPreset(1));
+      for (int f = 0; f < frames; ++f) {
+        DisplacementFieldWhiteBox::sweep_mode(
+            effect, mode == 2 && f != frames - 1 ? 1 : mode);
+        pin_frame_clock(f);
+        effect.draw_frame();
+        effect.advance_display();
+      }
+      if (mode == 0)
+        DisplacementFieldWhiteBox::check_single_pass(effect);
+      capture_frame<W, H>(effect, images[mode]);
+    }
+    std::array<int, 4> worst[2]{};
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const size_t index = static_cast<size_t>(y) * W + x;
+        auto difference = [&](int a, int b) {
+          const Pixel &p = images[a][index], &q = images[b][index];
+          return std::max({std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
+                           std::abs(int(p.b) - q.b)});
+        };
+        HS_EXPECT_LE(difference(0, 1), 1);
+        for (int mode = 0; mode < 2; ++mode) {
+          const int error = difference(mode, 2);
+          worst[mode][0] = std::max(worst[mode][0], error);
+          if ((y >= 1 && y <= 12) || (y >= 125 && y <= 142))
+            worst[mode][1] = std::max(worst[mode][1], error);
+          if (y >= 13 && y <= 124)
+            worst[mode][2] = std::max(worst[mode][2], error);
+          if (x == 0 || x == W / 2 - 1 || x == W / 2 || x == W - 1)
+            worst[mode][3] = std::max(worst[mode][3], error);
+        }
+      }
+    }
+    for (int region = 0; region < 4; ++region) {
+      HS_EXPECT_LE(worst[0][region], worst[1][region]);
+      std::printf("  [reference region %d] window=%.5f single=%.5f steps\n",
+                  region, worst[1][region] / 257.0, worst[0][region] / 257.0);
+    }
+  }
+  hs::clear_mock_time();
+}
+
+/** @brief Boundary copies cover neighboring spline and segment reads. */
+inline void test_displacement_field_boundary_stencil() {
+  constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 80;
+  std::vector<Pixel> primary;
+  primary.reserve(FRAMES * W * H);
+  int worst = 0;
+  for (int mode = 0; mode < 2; ++mode) {
+    reset_effect_globals();
+    hs::random().seed(1337u);
+    pin_frame_clock(0);
+    Temporal::set_temporal_sampling_enabled(true);
+    DisplacementField<W, H> effect;
+    effect.init();
+    DisplacementFieldWhiteBox::sweep_mode(effect, mode);
+    size_t index = 0;
+    for (int f = 0; f < FRAMES; ++f) {
+      DisplacementFieldWhiteBox::boundary_stencil_pose(effect);
+      pin_frame_clock(f);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const Pixel pixel = effect.get_pixel(x, y);
+          if (mode == 0)
+            primary.push_back(pixel);
+          else {
+            const Pixel &other = primary[index++];
+            worst = std::max({worst, std::abs(int(pixel.r) - other.r),
+                              std::abs(int(pixel.g) - other.g),
+                              std::abs(int(pixel.b) - other.b)});
+          }
+        }
+    }
+  }
+  HS_EXPECT_LE(worst, 1);
+  std::printf("  [boundary stencil] worst=%d channel units\n", worst);
+  hs::clear_mock_time();
 }
