@@ -531,10 +531,14 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
   std::vector<Pixel> drawn;
   capture_frame<W, H>(effect, drawn);
   const std::vector<Pixel> held = WB::draw_held(effect);
-  expect_seam_resolved<W, H>("hankin interlace", drawn, held, [&](float u) {
-    WB::rebuild(effect, previous + (current - previous) * u);
-    return WB::draw_held(effect);
-  });
+  // The starting tetrahedron's faces span more than a quarter turn.
+  expect_seam_resolved<W, H>(
+      "hankin interlace", drawn, held,
+      [&](float u) {
+        WB::rebuild(effect, previous + (current - previous) * u);
+        return WB::draw_held(effect);
+      },
+      WIDE_FACE_SEAM_RATIO);
   hs::clear_mock_time();
 }
 
