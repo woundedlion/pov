@@ -148,7 +148,7 @@ struct PreparedDirect {
 
 /** @brief Prepared parameters for one frame of a periodic ripple. */
 struct PreparedRipple {
-  Animation::RippleParams ripple; ///< Synced ripple with the cycle envelope.
+  Animation::RippleWave ripple; ///< Synced ripple with the cycle envelope.
 };
 
 /** @brief Resolves a seamless ripple cycle for ripple_transform().
@@ -157,7 +157,7 @@ struct PreparedRipple {
  *  @return The synced ripple, its amplitude enveloped over the cycle. */
 HS_FLASH_INLINE inline PreparedRipple
 prepare_ripple(const PeriodicRippleParams &params, float cycle) {
-  Animation::RippleParams ripple;
+  Animation::RippleWave ripple;
   ripple.center =
       math::Vector::from_spherical(params.center_azimuth, params.center_polar);
   ripple.amplitude = params.strength;
