@@ -27,6 +27,32 @@
 
 namespace Scan {
 
+/**
+ * @brief Clips a row's column runs to a render-x window on both arms.
+ * @tparam W Canvas width in pixels.
+ * @tparam CAPACITY Run buffer capacity.
+ * @param runs The row's runs; receives the clipped runs, each on one arm.
+ * @param count Number of runs.
+ * @param window Open render-x window.
+ * @return Number of clipped runs.
+ */
+template <int W, size_t CAPACITY>
+HS_FLASH_MEMBER size_t window_runs(std::pair<int, int> *runs, size_t count,
+                                   const ColumnWindow &window) {
+  std::pair<int, int> kept[CAPACITY + 1];
+  size_t kept_count = 0;
+  for (size_t r = 0; r < count; ++r)
+    for (const int arm : {0, W / 2}) {
+      const int a = std::max(runs[r].first, window.begin + arm);
+      const int b = std::min(runs[r].second, window.end + arm);
+      if (a < b)
+        kept[kept_count++] = {a, b};
+    }
+  HS_CHECK(kept_count <= CAPACITY, "rasterize_face: run buffer overflow");
+  std::copy_n(kept, kept_count, runs);
+  return kept_count;
+}
+
 HS_O3_BEGIN
 /**
  * @brief Body of the face scan loop, for the fixed meridian or a rotated
@@ -46,7 +72,8 @@ HS_O3_BEGIN
  *        COLUMN_TIME.
  * @details Under a rotated basis a pole-LOD block's slack grows by the
  * rotation between its first and last columns, and a block straddling an arm
- * boundary is walked per column.
+ * boundary is walked per column. Only the columns an open RenderXWindow
+ * admits are written.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment,
           bool COLUMN_TIME, bool INLINE_RUNS, typename FragmentShaderT>
@@ -58,10 +85,12 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const auto xc = cr.x_clip();
 
   int y_lo, y_hi;
-  // A column-time run is split at the arm boundary, which one run can cross.
-  static constexpr size_t MAX_RUNS = COLUMN_TIME ? 9 : 8;
+  // A column-time or windowed run is split at the arm boundary, which one run
+  // can cross.
+  static constexpr size_t MAX_RUNS = 9;
   std::pair<int, int> runs[MAX_RUNS];
   size_t num_runs = 0;
+  const ColumnWindow &window = canvas.render_x_window();
 
   {
     HS_PROFILE_DEEP(raster_setup);
@@ -82,9 +111,9 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     static_assert(decltype(intervals)::CAPACITY >=
                       SDF::sdf_max_spans<SDF::Face>::value,
                   "intervals must hold a Face's per-row emission");
-    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value +
-                                  (COLUMN_TIME ? 1 : 0),
-                  "runs must hold every span seam-split and clip-split");
+    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value + 1,
+                  "runs must hold every span seam-split, clip-split and "
+                  "arm-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
@@ -107,6 +136,8 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     static_assert(decltype(norm)::CAPACITY == 2 * decltype(intervals)::CAPACITY,
                   "norm must hold 2 spans per input interval (seam split)");
     emit_row_runs<W>(handled, intervals, norm, xc, push);
+    if (window.active)
+      num_runs = window_runs<W, MAX_RUNS>(runs, num_runs, window);
   };
   [[maybe_unused]] auto build_runs = [&](int y) { build_runs_body(y); };
   const auto rebuild_runs = [&](int y) HS_HOT_INLINE {
@@ -413,6 +444,403 @@ new_face_scratch(Arena &arena) {
   return arena.make_default_initialized<SDF::FaceScratchBuffer>();
 }
 
+/// Slab face-column entry of a face that holds over the frame.
+inline constexpr uint16_t HELD_FACE_COLUMN = 0xFFFF;
+
+/**
+ * @brief Canvas columns that can see a face over one frame.
+ * @tparam W Canvas width in pixels.
+ * @param vertices Mesh vertex pool, at the current endpoint.
+ * @param indices The face's vertex indices.
+ * @param count Number of face vertices.
+ * @param reach Largest arc the face or a column's basis moves over the frame
+ *        (radians).
+ * @param columns Receives the first seeing column, in [0, W), and how many
+ *        more follow it, wrapping past the last column.
+ * @details Judged by the cap about the face's vertex mean that holds every
+ * vertex, widened by @p reach; a cap past a hemisphere or holding a pole is
+ * seen by every column.
+ */
+template <int W>
+HS_FLASH_MEMBER void face_lit_columns(const math::Vector *vertices,
+                                      const uint16_t *indices, size_t count,
+                                      float reach, uint16_t *columns) {
+  columns[0] = 0;
+  columns[1] = W - 1;
+  math::Vector sum(0.0f, 0.0f, 0.0f);
+  for (size_t k = 0; k < count; ++k)
+    sum = sum + vertices[indices[k]];
+  const float length = sqrtf(math::dot(sum, sum));
+  if (!(length > math::TOLERANCE))
+    return;
+  const math::Vector axis = sum * (1.0f / length);
+  float min_cos = 1.0f;
+  for (size_t k = 0; k < count; ++k) {
+    const math::Vector &v = vertices[indices[k]];
+    min_cos = fminf(min_cos, math::dot(axis, v) / sqrtf(math::dot(v, v)));
+  }
+  // A cap past a hemisphere does not bound its polygon.
+  if (!(min_cos > 0.0f))
+    return;
+  int lo, hi;
+  if (!lit_span<W>(axis, acosf(min_cos), reach, lo, hi) || hi - lo >= W - 1)
+    return;
+  columns[0] = static_cast<uint16_t>(((lo % W) + W) % W);
+  columns[1] = static_cast<uint16_t>(hi - lo);
+}
+
+/**
+ * @brief Whether a face's seeing columns meet a sweep slab's columns inside
+ *        the render clip.
+ * @tparam W Canvas width in pixels.
+ * @param face The face's seeing columns, as face_lit_columns() gives them.
+ * @param begin The slab's first half-turn column.
+ * @param end One past the slab's last half-turn column.
+ * @param xc Render clip.
+ * @return True when a column of the slab, on either arm, sees the face and
+ *         the clip admits it.
+ */
+template <int W>
+HS_FLASH_MEMBER bool face_columns_meet(const uint16_t *face, int begin, int end,
+                                       ClipRegion::XClip xc) {
+  constexpr int HALF = W / 2;
+  const ClipPieces clip = clip_pieces<W>(xc);
+  const int start = face[0];
+  const int stop = start + face[1] + 1;
+  // The face's columns past the last one wrap to the first.
+  for (const int shift : {0, W})
+    for (const int arm : {0, HALF}) {
+      const int lo = std::max(start - shift, begin + arm);
+      const int hi = std::min(stop - shift, end + arm);
+      for (int i = 0; i < clip.count; ++i)
+        if (std::max(lo, clip.lo[i]) < std::min(hi, clip.hi[i]))
+          return true;
+    }
+  return false;
+}
+
+/// Largest held vertex motion over a frame, in pixels of arc.
+inline constexpr float HELD_VERTEX_PIXELS = 0.5f;
+
+/// Arc a vertex moves over a frame, radians, up to which a deformation scan
+/// holds it at the current endpoint.
+template <int W>
+inline constexpr float HELD_VERTEX_ARC =
+    HELD_VERTEX_PIXELS * math::TWO_PI_F / W;
+
+/**
+ * @brief Flags the vertices that move between two endpoints.
+ * @tparam W Canvas width in pixels.
+ * @param previous Vertices at the previous endpoint.
+ * @param current The same vertices at the current endpoint.
+ * @param count Number of vertices.
+ * @param moving Receives 1 for a vertex that moves more than
+ *        HELD_VERTEX_ARC, else 0.
+ */
+template <int W>
+HS_FLASH_MEMBER void flag_moving_vertices(const math::Vector *previous,
+                                          const math::Vector *current,
+                                          size_t count, uint8_t *moving) {
+  const float held_cos = cosf(HELD_VERTEX_ARC<W>);
+  for (size_t i = 0; i < count; ++i) {
+    const float norms =
+        math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
+    moving[i] = math::dot(previous[i], current[i]) < held_cos * sqrtf(norms);
+  }
+}
+
+/**
+ * @brief Scratch bytes a deformation scan's vertex and face tables take.
+ * @param vertices Mesh vertex count.
+ * @param faces Mesh face count.
+ * @return The bytes of a per-vertex moving flag, pick_moving_faces() columns
+ *         and deform_mesh() tables, with alignment slack.
+ */
+constexpr size_t mesh_motion_bytes(size_t vertices, size_t faces) {
+  return 2 * vertices + 5 * faces + 64;
+}
+
+/// Vertex motion over one frame, in pixels of arc, past which the frame is a
+/// jump and draws at its current endpoint.
+inline constexpr float MAX_VERTEX_MOTION_PIXELS = 8.0f;
+
+/**
+ * @brief Largest arc any vertex moves between two endpoints.
+ * @param previous Vertices at the previous endpoint.
+ * @param current The same vertices at the current endpoint.
+ * @param count Number of vertices.
+ * @return The largest angle between a vertex's two positions (radians).
+ */
+HS_FLASH_MEMBER inline float max_vertex_arc(const math::Vector *previous,
+                                            const math::Vector *current,
+                                            size_t count) {
+  float min_cos = 1.0f;
+  for (size_t i = 0; i < count; ++i) {
+    const float norms =
+        math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
+    if (norms > 0.0f)
+      min_cos =
+          fminf(min_cos, math::dot(previous[i], current[i]) / sqrtf(norms));
+  }
+  return acosf(hs::clamp(min_cos, -1.0f, 1.0f));
+}
+
+/**
+ * @brief Whether a frame's mesh motion uses capture-time deformation.
+ * @tparam W Display width.
+ * @param arc Largest vertex step over the frame, in radians.
+ * @return True with temporal sampling enabled for a non-held, non-jump step.
+ */
+template <int W> HS_FLASH_MEMBER bool mesh_motion_active(float arc) {
+  const float pixels = arc * (W / math::TWO_PI_F);
+  return Temporal::temporal_sampling_enabled() && pixels > HELD_VERTEX_PIXELS &&
+         pixels <= MAX_VERTEX_MOTION_PIXELS;
+}
+
+/**
+ * @brief Recomputes the seeing columns of a deformation scan's moving faces.
+ * @tparam W Canvas width in pixels.
+ * @param canvas Canvas with the frame's column-time state installed.
+ * @param mesh The scanned mesh, at the current endpoint.
+ * @param reach Bound on how far a placed vertex strays from the current
+ *        endpoint over the frame (radians).
+ * @param columns Per face two entries, HELD_FACE_COLUMN first for a face
+ *        that holds; the others receive the columns that can see the face,
+ *        as face_lit_columns() gives them.
+ */
+template <int W>
+HS_FLASH_MEMBER void moving_face_columns(const Canvas &canvas,
+                                         const MeshState &mesh, float reach,
+                                         uint16_t *columns) {
+  const float sweep = canvas.column_time() ? canvas.column_time()->sweep : 0.0f;
+  const uint8_t *counts = mesh.get_face_counts_data();
+  const uint16_t *indices = mesh.get_faces_data();
+  const uint16_t *offsets = mesh.get_face_offsets_data();
+  for (size_t f = 0; f < mesh.num_faces(); ++f)
+    if (columns[2 * f] != HELD_FACE_COLUMN)
+      face_lit_columns<W>(mesh.vertices.data(), indices + offsets[f], counts[f],
+                          sweep + reach, columns + 2 * f);
+}
+
+/**
+ * @brief Picks the faces whose vertices move during a scan.
+ * @tparam W Canvas width in pixels.
+ * @param canvas Canvas with the frame's column-time state installed.
+ * @param mesh The scanned mesh, at the current endpoint.
+ * @param moving_vertices Nonzero per moving vertex; left nonzero only on the
+ *        vertices of the picked faces.
+ * @param reach Bound on how far a placed vertex strays from the current
+ *        endpoint over the frame (radians).
+ * @param columns Receives per face two entries: the columns that can see a
+ *        picked face, as face_lit_columns() gives them, or HELD_FACE_COLUMN
+ *        and 0 for the others.
+ * @return The number of picked faces.
+ * @details A face is picked when it holds a moving vertex and a column the
+ * render clip admits can see it; the others draw once at the current
+ * endpoint.
+ */
+template <int W>
+HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
+                                         const MeshState &mesh,
+                                         uint8_t *moving_vertices, float reach,
+                                         uint16_t *columns) {
+  const uint8_t *counts = mesh.get_face_counts_data();
+  const uint16_t *indices = mesh.get_faces_data();
+  const uint16_t *offsets = mesh.get_face_offsets_data();
+  const size_t faces = mesh.num_faces();
+  for (size_t f = 0; f < faces; ++f) {
+    uint8_t moves = 0;
+    for (size_t k = 0; k < counts[f]; ++k)
+      moves |= moving_vertices[indices[offsets[f] + k]];
+    columns[2 * f] = moves ? 0 : HELD_FACE_COLUMN;
+    columns[2 * f + 1] = 0;
+  }
+  moving_face_columns<W>(canvas, mesh, reach, columns);
+  std::fill_n(moving_vertices, mesh.vertices.size(), uint8_t(0));
+  size_t picked = 0;
+  for (size_t f = 0; f < faces; ++f) {
+    uint16_t *face = columns + 2 * f;
+    if (face[0] == HELD_FACE_COLUMN)
+      continue;
+    if (!face_columns_meet<W>(face, 0, W / 2, canvas.render_x_clip())) {
+      face[0] = HELD_FACE_COLUMN;
+      face[1] = 0;
+      continue;
+    }
+    ++picked;
+    for (size_t k = 0; k < counts[f]; ++k)
+      moving_vertices[indices[offsets[f] + k]] = 1;
+  }
+  return picked;
+}
+
+/**
+ * @brief Returns to holding the picked faces none of whose vertices moves.
+ * @param mesh The scanned mesh.
+ * @param moving Nonzero per vertex that moves.
+ * @param columns The faces' seeing columns, as pick_moving_faces() gives them;
+ *        a dropped face's become HELD_FACE_COLUMN and 0.
+ * @return The number of faces still picked.
+ */
+HS_FLASH_MEMBER inline size_t drop_held_faces(const MeshState &mesh,
+                                              const uint8_t *moving,
+                                              uint16_t *columns) {
+  const uint8_t *counts = mesh.get_face_counts_data();
+  const uint16_t *indices = mesh.get_faces_data();
+  const uint16_t *offsets = mesh.get_face_offsets_data();
+  size_t picked = 0;
+  for (size_t f = 0; f < mesh.num_faces(); ++f) {
+    if (columns[2 * f] == HELD_FACE_COLUMN)
+      continue;
+    uint8_t moves = 0;
+    for (size_t k = 0; k < counts[f]; ++k)
+      moves |= moving[indices[offsets[f] + k]];
+    if (moves) {
+      ++picked;
+    } else {
+      columns[2 * f] = HELD_FACE_COLUMN;
+      columns[2 * f + 1] = 0;
+    }
+  }
+  return picked;
+}
+
+/**
+ * @brief Unwraps a capture fraction around a window's centre, then clamps it.
+ * @param u Periodic arm fraction.
+ * @param centre Window centre in arm fractions.
+ * @return Capture fraction in [0, 1].
+ */
+HS_HOT_INLINE inline float unwrap_capture(float u, float centre) {
+  return hs::clamp(u + roundf(centre - u), 0.0f, 1.0f);
+}
+
+/**
+ * @brief Projects a vertex into the frame's moving column basis.
+ * @tparam W Display width.
+ * @param p Vertex in endpoint camera space.
+ * @param time Frame's column basis.
+ * @param u Fraction selecting the local column basis.
+ * @return Periodic arm fraction of the projected vertex.
+ */
+template <int W>
+HS_HOT_INLINE float capture_fraction(const math::Vector &p,
+                                     const Temporal::ColumnTime &time,
+                                     float u) {
+  const int x = hs::clamp(static_cast<int>(u * (W / 2)), 0, W / 2 - 1);
+  const math::Vector tangent = math::cross(time.azimuth[x], time.up[x]);
+  const float fraction =
+      static_cast<float>(x) / (W / 2) +
+      atan2f(math::dot(p, tangent), math::dot(p, time.azimuth[x])) / math::PI_F;
+  return fraction - floorf(fraction);
+}
+
+/**
+ * @brief Evaluates one moving vertex at its capture time with one correction.
+ * @tparam W Display width.
+ * @tparam VertexFn Callable (float u) returning the vertex at that fraction.
+ * @param end Vertex at the current endpoint.
+ * @param time Frame's column basis.
+ * @param reach Bound on vertex motion in radians.
+ * @param centre Window centre in arm fractions.
+ * @param vertex Pure evaluation of the vertex path.
+ * @return Captured vertex, or its endpoint inside the polar hold band.
+ */
+template <int W, typename VertexFn>
+HS_HOT_INLINE math::Vector
+capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
+               float reach, float centre, VertexFn &&vertex) {
+  const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
+  const float bound = reach + time.sweep;
+  if (horizontal <= sinf(bound) || bound / horizontal >= math::PI_F / 4.0f)
+    return end;
+  const float angle = atan2f(end.z, end.x) / math::PI_F;
+  float u = unwrap_capture(angle - floorf(angle), centre);
+  const math::Vector first = vertex(u);
+  u = unwrap_capture(capture_fraction<W>(first, time, u), u);
+  return vertex(u);
+}
+
+/**
+ * @brief Scans shared capture-time vertices through two disjoint arm windows.
+ * @tparam W Display width.
+ * @tparam VertexFn Callable (size_t i, float u) evaluating an endpoint-space vertex.
+ * @tparam ScanFn Callable () scanning the mesh into the canvas's open window.
+ * @param canvas Canvas with column-time state when deformation is active.
+ * @param mesh Endpoint mesh, overwritten by the captured vertices.
+ * @param active Whether the mesh deforms during this frame.
+ * @param columns Per-face seeing columns; HELD_FACE_COLUMN marks held faces.
+ * @param moving Nonzero for vertices whose paths are captured; others hold.
+ * @param scratch Arena for face selection and vertex placement flags.
+ * @param reach Bound on vertex motion in radians.
+ * @param vertex Pure evaluation of a vertex at a frame fraction.
+ * @param scan Scans the mesh with its current vertices and selected faces.
+ * @details Held faces draw once. Each window uses a common vertex pool for
+ * all its moving faces; faces outside that window's seeing columns are skipped.
+ */
+template <int W, typename VertexFn, typename ScanFn>
+HS_HOT_FLASH_MEMBER void
+deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
+            const uint16_t *columns, const uint8_t *moving, Arena &scratch,
+            float reach, VertexFn &&vertex, ScanFn &&scan) {
+  if (!active) {
+    scan();
+    return;
+  }
+  HS_CHECK(canvas.column_time(),
+           "mesh deformation needs the frame's column-time state installed");
+  ScratchScope guard(scratch);
+  const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
+  uint8_t *selected = scratch.allocate_n<uint8_t>(faces);
+  uint8_t *placed = scratch.allocate_n<uint8_t>(vertices);
+  Temporal::ColumnTime time = *canvas.column_time();
+  time.selected_faces = selected;
+  ColumnTimeScope scope(canvas, time);
+  const auto *counts = mesh.get_face_counts_data();
+  const auto *indices = mesh.get_faces_data();
+  const auto *offsets = mesh.get_face_offsets_data();
+  bool held = false;
+  for (size_t f = 0; f < faces; ++f) {
+    const bool holds = columns[2 * f] == HELD_FACE_COLUMN;
+    selected[f] =
+        holds ? Temporal::MESH_FACE_HELD : Temporal::MESH_FACE_SKIPPED;
+    held |= holds;
+  }
+  if (held)
+    scan();
+  for (int pass = 0; pass < 2; ++pass) {
+    const int begin = pass * (W / 4), end = (pass + 1) * (W / 4);
+    std::fill_n(placed, vertices, uint8_t(0));
+    bool any = false;
+    for (size_t f = 0; f < faces; ++f) {
+      const bool draw = columns[2 * f] != HELD_FACE_COLUMN &&
+                        face_columns_meet<W>(columns + 2 * f, begin, end,
+                                             canvas.render_x_clip());
+      selected[f] =
+          draw ? Temporal::MESH_FACE_WINDOW : Temporal::MESH_FACE_SKIPPED;
+      if (!draw)
+        continue;
+      any = true;
+      for (size_t k = 0; k < counts[f]; ++k)
+        placed[indices[offsets[f] + k]] = 1;
+    }
+    if (!any)
+      continue;
+    const float centre = pass == 0 ? 0.25f : 0.75f;
+    for (size_t i = 0; i < vertices; ++i) {
+      if (!placed[i] || !moving[i])
+        continue;
+      const math::Vector endpoint =
+          pass == 0 ? mesh.vertices[i] : vertex(i, 1.0f);
+      mesh.vertices[i] = capture_vertex<W>(
+          endpoint, time, reach, centre,
+          [&](float u) HS_HOT_INLINE { return vertex(i, u); });
+    }
+    RenderXWindow window(canvas, begin, end);
+    scan();
+  }
+}
+
 HS_O3_BEGIN
 /**
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face.
@@ -421,7 +849,9 @@ HS_O3_BEGIN
  * the callback hoists.
  * canvas.debug() does not tint a mesh. Under the canvas's column-time basis
  * each face's bounds are swept by its arc and every pixel is evaluated along
- * its column's rotated direction.
+ * its column's rotated direction. An open RenderXWindow limits the scan to its
+ * columns; in a deformation scan, Temporal::ColumnTime::selected_faces selects
+ * the faces each pass draws.
  */
 struct Mesh {
   /**
@@ -511,11 +941,18 @@ struct Mesh {
              "mesh class bake face count disagrees with the mesh");
 
     const auto &cr = source_clip<W, H>(pipeline, canvas);
+    const ColumnWindow &window = canvas.render_x_window();
+    const uint8_t *selected_faces =
+        canvas.column_time() ? canvas.column_time()->selected_faces : nullptr;
+    const uint8_t drawn_face =
+        window.active ? Temporal::MESH_FACE_WINDOW : Temporal::MESH_FACE_HELD;
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
 
       HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
                "mesh face span exceeds face index array");
+      if (selected_faces && selected_faces[i] != drawn_face)
+        continue;
 
       std::span<const math::Vector> verts(mesh.vertices.data(),
                                           mesh.vertices.size());

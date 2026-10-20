@@ -1183,6 +1183,10 @@ inline const Case *all_cases(int &n) {
            case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
            "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
            "the vertex pool"},
+          {"scan_deformation_without_column_time",
+           case_scan_deformation_without_column_time, "core/render/scan/mesh.h",
+           "(canvas.column_time()) mesh deformation needs the frame's "
+           "column-time state installed"},
           {"scan_mesh_missing_offsets", case_scan_mesh_missing_offsets,
            "core/render/scan/mesh.h",
            "(mesh.get_face_offsets_size() == num_f) solid mesh scan requires one "
@@ -1525,7 +1529,7 @@ inline const Case *all_cases(int &n) {
            "(synchronized) SphericalHarmonics preset synchronization failed"},
           {"hankinsolids_missing_topology", case_hankinsolids_missing_topology,
            "effects/HankinSolids.h",
-           "(topology_faces == rotated_mesh.num_faces()) Hankin topology must cover every face"},
+           "(topology_faces == mesh.num_faces()) Hankin topology must cover every face"},
           {"islamicstars_build_budget", case_islamicstars_build_budget,
            "core/animation/recipe_build.h",
            "(persistent_arena.get_offset() <= device_persistent_budget) "
@@ -2262,7 +2266,7 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/render/pullback/interpreter.h", 12},
     {"core/render/pullback/operators/model.h", 1},
     {"core/render/pullback/operators.h", 1},
-    {"core/render/scan/mesh.h", 4},
+    {"core/render/scan/mesh.h", 5},
     {"core/render/scan/raster.h", 1},
     {"core/render/scan/shader.h", 2},
     {"core/render/scan/shapes.h", 7},

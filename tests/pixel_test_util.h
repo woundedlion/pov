@@ -13,6 +13,7 @@
 #include "tests/test_harness.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -388,6 +389,73 @@ inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
             frame[static_cast<size_t>(y) * W + x];
   }
   return out;
+}
+
+/** @brief Largest share of a held frame's seam error a motion-slab frame
+ *  keeps. */
+inline constexpr double MOTION_SEAM_RATIO = 0.4;
+
+/** @brief Smallest channel error a held frame must show at its seam columns
+ *  for a seam comparison to bite. */
+inline constexpr int MOTION_SEAM_FLOOR = 8192;
+
+/**
+ * @brief First-arm columns a seam check compares: the first and last columns
+ *        of the arm, where held state is a whole frame off, and the middle.
+ * @tparam W Frame width.
+ */
+template <int W>
+inline constexpr std::array<int, 12> SEAM_COLUMNS = {
+    0,     1,         2,         3,         W / 4 - 2, W / 4 - 1,
+    W / 4, W / 4 + 1, W / 2 - 4, W / 2 - 3, W / 2 - 2, W / 2 - 1};
+
+/**
+ * @brief Checks that a frame whose state moves over the frame shows each
+ *        seam column's state at the column's sweep time.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @tparam RenderFn Callable `std::vector<Pixel>(float u)` rendering the whole
+ *         frame with the state frozen at frame fraction `u`.
+ * @param label Draw named in failure context.
+ * @param drawn The frame under test.
+ * @param held The same frame drawn with its state held at the current
+ *        endpoint.
+ * @param render The independent time evaluator.
+ * @return The drawn frame's summed seam error over the held frame's.
+ * @details Sums channel errors against the evaluator over SEAM_COLUMNS and
+ * their opposing columns. The held frame's error grows to a whole frame of
+ * motion at the first columns of each arm; the drawn frame must keep at most
+ * MOTION_SEAM_RATIO of it.
+ */
+template <int W, int H, typename RenderFn>
+inline double
+expect_seam_resolved(const char *label, const std::vector<Pixel> &drawn,
+                     const std::vector<Pixel> &held, RenderFn &&render) {
+  HS_CONTEXT(label);
+  double drawn_error = 0.0, held_error = 0.0;
+  int held_peak = 0;
+  for (const int column : SEAM_COLUMNS<W>) {
+    const std::vector<Pixel> expected =
+        render(static_cast<float>(column) / (W / 2));
+    for (int y = 0; y < H; ++y)
+      for (int x : {column, column + W / 2}) {
+        const size_t i = static_cast<size_t>(y) * W + x;
+        const auto error = [&](const Pixel &a) {
+          return std::abs(int(a.r) - expected[i].r) +
+                 std::abs(int(a.g) - expected[i].g) +
+                 std::abs(int(a.b) - expected[i].b);
+        };
+        drawn_error += error(drawn[i]);
+        held_error += error(held[i]);
+        held_peak = std::max(held_peak, error(held[i]));
+      }
+  }
+  const double ratio = held_error > 0.0 ? drawn_error / held_error : 1.0;
+  std::printf("  [%s] seam error %.0f vs held %.0f (ratio %.3f)\n", label,
+              drawn_error, held_error, ratio);
+  HS_EXPECT_GT(held_peak, MOTION_SEAM_FLOOR);
+  HS_EXPECT_LE(ratio, MOTION_SEAM_RATIO);
+  return ratio;
 }
 
 } // namespace hs_test

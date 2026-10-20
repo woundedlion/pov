@@ -392,9 +392,70 @@ private:
   }
 
   /**
+   * @brief Camera-rotates and scans one mesh, each column seeing the camera
+   * at its sweep time and, while the mesh's vertices move, the vertices at
+   * their capture times.
+   * @tparam ScanFn Callable (const MeshState &) scanning the rotated mesh.
+   * @param canvas Target canvas to draw into.
+   * @param mesh Source mesh in model space at the current endpoint.
+   * @param previous The mesh's vertices at the previous endpoint, index for
+   * index, or null when they hold; rotated in place.
+   * @param state_moves Whether the scan's per-column shading state moves.
+   * @param scan Scans the rotated mesh into the canvas.
+   */
+  template <typename ScanFn>
+  HS_FLASH_MEMBER void scan_mesh(Canvas &canvas, const MeshState &mesh,
+                                 math::Vector *previous, bool state_moves,
+                                 ScanFn &&scan) {
+    const size_t count = mesh.vertices.size();
+    const float arc =
+        previous ? Scan::max_vertex_arc(previous, mesh.vertices.data(), count)
+                 : 0.0f;
+    bool active = Scan::mesh_motion_active<W>(arc);
+    ScratchScope scratch_a_guard(scratch_arena_a);
+    ScratchScope scratch_b_guard(scratch_arena_b);
+    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+        scratch_arena_a, orientation, state_moves || active);
+    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    MeshState rotated_mesh;
+    OrientTransformer camera(orientation);
+    uint8_t *moving = nullptr;
+    uint16_t *columns = nullptr;
+    math::Vector *current = nullptr;
+    {
+      HS_PROFILE(hk_mesh_transform);
+      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
+      if (active) {
+        moving = scratch_arena_b.allocate_n<uint8_t>(count);
+        Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
+                                      moving);
+        columns = scratch_arena_b.allocate_n<uint16_t>(2 * mesh.num_faces());
+        if (Scan::pick_moving_faces<W>(canvas, rotated_mesh, moving,
+                                       arc + math::TWO_PI_F / W, columns) == 0)
+          active = false;
+      }
+      if (active) {
+        Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
+                                      moving);
+        current = scratch_arena_b.allocate_n<math::Vector>(count);
+        std::copy_n(rotated_mesh.vertices.data(), count, current);
+        for (size_t i = 0; i < count; ++i)
+          previous[i] = camera(previous[i]);
+      }
+    }
+    HS_PROFILE(hk_mesh_scan);
+    Scan::deform_mesh<W>(
+        canvas, rotated_mesh, active, columns, moving, scratch_arena_b, arc,
+        [&](size_t i, float u) HS_HOT_INLINE {
+          return (previous[i] + (current[i] - previous[i]) * u).normalized();
+        },
+        [&]() HS_HOT_INLINE { scan(rotated_mesh); });
+  }
+
+  /**
    * @brief Camera-rotates and rasterizes one mesh, coloring each face by its
    * topology class and shading edges by distance; each column sees the camera
-   * at its sweep time.
+   * and the mesh at its sweep time.
    * @param canvas Target canvas to draw into.
    * @param mesh Source mesh in model space, carrying its per-face topology
    * classes.
@@ -404,32 +465,24 @@ private:
    * @param handoff Opening/closing alpha, host-rim blend and strap crossfade
    * weights at both frame endpoints; each column shades at its sweep time
    * between them.
+   * @param previous_vertices The mesh's vertices at the previous endpoint, or
+   * null when they hold; overwritten.
    * @details At either angle-0 bookend the straps are zero-area, so the
    * star-face bookend stays bitwise exact.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 const FrameHandoff &handoff = {}) {
+                 const FrameHandoff &handoff = {},
+                 math::Vector *previous_vertices = nullptr) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
 
-    ScratchScope scratch_a_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
-        scratch_arena_a, orientation, handoff.moves);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
-    MeshState rotated_mesh;
-    OrientTransformer camera(orientation);
-    {
-      HS_PROFILE(hk_mesh_transform);
-      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
-    }
-
-    // transform borrows the source's per-face classes into the rotated mesh.
-    const uint16_t *topology = rotated_mesh.get_topology_data();
-    const size_t topology_faces = rotated_mesh.get_topology_size();
-    HS_CHECK(topology_faces == rotated_mesh.num_faces(),
+    // The scanned mesh borrows the source's per-face classes.
+    const uint16_t *topology = mesh.get_topology_data();
+    const size_t topology_faces = mesh.get_topology_size();
+    HS_CHECK(topology_faces == mesh.num_faces(),
              "Hankin topology must cover every face");
 
     const size_t star_faces = node_faces;
@@ -447,7 +500,7 @@ private:
     // Face-hoisted: the class palette, its counterpart and the
     // intensity/inradius gradient scale resolve once per face.
     FacePaletteShader fragment_shader;
-    auto select_face = [&](size_t fi, float size) {
+    auto select_face = [&](size_t fi, float size) HS_COLD_MEMBER {
       const int cls = static_cast<int>(topology[fi]);
       const int slot = MeshPaletteBank::slot_of(cls);
       fragment_shader.scale =
@@ -478,46 +531,35 @@ private:
       }
     };
 
-    {
-      HS_PROFILE(hk_mesh_scan);
-      Scan::Mesh::draw_specialized<W, H>(filters, canvas, rotated_mesh,
-                                         fragment_shader, scratch_arena_a,
-                                         nullptr, select_face);
-    }
+    scan_mesh(canvas, mesh, previous_vertices, handoff.moves,
+              [&](const MeshState &rotated) HS_HOT_INLINE {
+                Scan::Mesh::draw_specialized<W, H>(
+                    filters, canvas, rotated, fragment_shader, scratch_arena_a,
+                    nullptr, select_face);
+              });
   }
 
   /**
    * @brief Camera-rotates and rasterizes a morph frame's swept mesh, shading
-   * each face from its pre-blended palette ramp; each column sees the camera
-   * and the leg's palette crossfade at its sweep time.
+   * each face from its pre-blended palette ramp; each column sees the camera,
+   * the leg's palette crossfade and the swept mesh at its sweep time.
    * @param canvas Target canvas to draw into.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
-   * @param shading Per-face blended-ramp table from the OpLeg.
+   * @param shading Per-face blended-ramp table and previous vertices from the
+   * OpLeg.
    */
   void draw_conway_mesh(Canvas &canvas, const MeshState &mesh,
                         const Animation::OpLeg::Shading &shading) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
-
-    ScratchScope scratch_a_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
-        scratch_arena_a, orientation,
-        shading.previous_weight != shading.weight);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
-    MeshState rotated_mesh;
-    OrientTransformer camera(orientation);
-    {
-      HS_PROFILE(hk_mesh_transform);
-      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
-    }
-
-    {
-      HS_PROFILE(hk_mesh_scan);
-      Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, rotated_mesh,
-                                           shading, params.intensity, 1.0f,
-                                           scratch_arena_a);
-    }
+    scan_mesh(canvas, mesh, shading.previous_vertices,
+              shading.previous_weight != shading.weight,
+              [&](const MeshState &rotated) HS_HOT_INLINE {
+                Scan::Mesh::draw_opleg_shading<W, H>(filters, canvas, rotated,
+                                                     shading, params.intensity,
+                                                     1.0f, scratch_arena_a);
+              });
   }
 
   /**
@@ -620,17 +662,29 @@ private:
               if (!anims_paused)
                 ++hankin_cycle_frame;
               const int previous_frame = record_cycle_draw(cycle_frame);
-              // Blended strap LUTs live in scratch_b for this frame only.
+              const float previous_angle = drawn_angle;
+              drawn_angle = params.hankin_angle;
+              // Blended strap LUTs and the previous endpoint's mesh live in
+              // scratch_b for this frame only.
               ScratchScope blend_guard(scratch_arena_b);
               BakedPalette blended[NUM_PALETTES];
               const BakedPalette *star_by_slot[NUM_PALETTES];
               const BakedPalette *strap_by_slot[NUM_PALETTES];
               resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                        strap_by_slot, scratch_arena_b);
+              PolyMesh drawn;
+              if (previous_frame != cycle_frame &&
+                  previous_angle != params.hankin_angle) {
+                HS_PROFILE(hk_update_hankin);
+                MeshOps::update_hankin(compiled_hankin, drawn, scratch_arena_b,
+                                       previous_angle);
+              }
               // Collapse points: strap birth at the opening bookend, strap
               // close at the closing one, star close at the midpoint.
               draw_mesh(c, hankin_mesh, star_by_slot, strap_by_slot,
-                        frame_handoff(cycle_frame, previous_frame));
+                        frame_handoff(cycle_frame, previous_frame),
+                        drawn.vertices.is_empty() ? nullptr
+                                                  : drawn.vertices.data());
             },
             HANKIN_SWEEP_FRAMES + 1),
         &anims_paused);
@@ -843,6 +897,7 @@ private:
                                     of the active hankin cycle. */
   int drawn_cycle_frame = -1; /**< Cycle frame the active hankin cycle drew
                                    last, or -1 before its first draw. */
+  float drawn_angle = 0.0f;   /**< Interlace angle of the last hankin draw. */
 
   uint8_t node_face_palette[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */

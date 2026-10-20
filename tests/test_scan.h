@@ -147,6 +147,10 @@ inline int run_scan_tests() {
   test_column_basis_prepares_for_moving_state();
   test_drift_matches_shape_at_column_centre();
   test_settled_drift_matches_column_drift();
+  test_mesh_capture_unwrap();
+  test_mesh_capture_vertex();
+  test_mesh_deformation_shared_edges();
+  test_mesh_motion_activation();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
