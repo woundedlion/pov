@@ -235,7 +235,7 @@ public:
    * preset's style; the flush precedes the mesh draw so it does not decay this
    * frame's wireframe.
    */
-  void draw_frame() override {
+  HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     step_choreography();
 
@@ -247,6 +247,11 @@ public:
     {
       HS_PROFILE(mf_timeline_step);
       timeline.step(canvas);
+      if (!source_history_ready) {
+        if (Temporal::temporal_sampling_enabled())
+          orientation.collapse();
+        source_history_ready = true;
+      }
     }
 
     auto &frame_filters = [&]() -> decltype(auto) {
@@ -257,7 +262,7 @@ public:
     {
       HS_PROFILE(mf_mesh_draw);
       const Color4 shade = mesh_shade;
-      Plot::Mesh::draw<W, H>(
+      Plot::Mesh::draw_timed<W, H>(
           frame_filters, canvas, mesh, edges,
           [&](const math::Vector &, Fragment &f) { f.color = shade; });
     }
@@ -336,6 +341,7 @@ private:
   FastNoiseLite walk_noise;
 
   math::Orientation<> orientation;
+  bool source_history_ready = false; /**< Whether the source has been drawn. */
 
   Color4 mesh_shade; /**< Wireframe shade; sampled once in init(). */
 
@@ -356,6 +362,14 @@ private:
   static_assert(
       SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
       "MeshFeedback wireframe draw exceeds the default scratch_a budget");
+  static_assert(2 * sizeof(Fragment) +
+                        std::max(2 * sizeof(math::PixelCoords),
+                                 2 * sizeof(math::Vector) +
+                                     Plot::MAX_RIGID_CONTROLS *
+                                         sizeof(Plot::TimedRigidNode)) +
+                        Plot::rasterize_step_budget<W>() * sizeof(float) <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "MeshFeedback temporal schedules exceed scratch_a");
   static_assert(
       sizeof(TriangularBitset<Plot::Mesh::DEDUP_CAPACITY>) <=
           DEFAULT_SCRATCH_B_SIZE,

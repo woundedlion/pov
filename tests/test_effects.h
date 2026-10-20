@@ -910,6 +910,8 @@ inline int run_effects_tests() {
   };
 
   run_case(test_petalflow_temporal_source_oracle);
+  run_case(test_meshfeedback_temporal_source_oracle);
+  run_case(test_meshfeedback_stationary_timed_source);
   run_case(test_parameter_probe_targets);
   run_case(test_float_dropdown_lint);
   run_case(test_ringspin_strobe_configuration_preserves_rendering);

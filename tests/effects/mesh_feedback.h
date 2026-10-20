@@ -11,6 +11,70 @@
 struct MeshFeedbackWhiteBox {
   using MF = MeshFeedback<SMALL_W, SMALL_H>;
 
+  /** @brief Renders the production source mesh or a frozen orientation.
+   * @param timed Uses the production temporal mesh draw.
+   * @param fraction Frozen frame fraction.
+   * @param displacement Vertical frozen-reference offset in pixels.
+   * @param motion Frame rotation angle in radians.
+   * @param pixels Optional exact RGB framebuffer output.
+   * @return Row-major linear luminance. */
+  static std::vector<float>
+  render_temporal_source(bool timed, float fraction, float displacement,
+                         float motion = 0.012f,
+                         std::vector<Pixel> *pixels = nullptr) {
+    reset_effect_globals();
+    MeshFeedback<DEFAULT_W, DEFAULT_H> fx;
+    fx.init();
+    const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+    const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
+    fx.orientation.set(start_pose);
+    fx.orientation.push(math::make_rotation(axis, motion) * start_pose);
+    {
+      Canvas canvas(fx);
+      auto shader = [&](const math::Vector &, Fragment &f) {
+        f.color = fx.mesh_shade;
+      };
+      if (timed) {
+        Pipeline<DEFAULT_W, DEFAULT_H, Filter::World::Orient,
+                 Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
+            pipeline(Filter::World::Orient(fx.orientation),
+                     Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
+        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(pipeline, canvas, fx.mesh,
+                                                     fx.edges, shader);
+      } else {
+        const auto pose = fx.orientation.get(fraction);
+        fx.orientation.set(pose);
+        if (displacement != 0.0f) {
+          for (auto &v : fx.mesh.vertices) {
+            const auto world = math::rotate(v, pose);
+            v = math::rotate(hs_test::displace_reference_rows<DEFAULT_H>(
+                                 world, displacement),
+                             pose.conjugate());
+          }
+        }
+        Pipeline<DEFAULT_W, DEFAULT_H, Filter::World::Orient,
+                 Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
+            pipeline(Filter::World::Orient(fx.orientation),
+                     Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
+        Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
+            pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
+      }
+    }
+    fx.advance_display();
+    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
+    if (pixels)
+      pixels->clear();
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const Pixel pixel = fx.get_pixel(x, y);
+        if (pixels)
+          pixels->push_back(pixel);
+        luminance[y * DEFAULT_W + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+    return luminance;
+  }
+
   static const Feedback::Style &style(const MF &fx) { return fx.params.style; }
   static MF::BaseMesh base_mesh(const MF &fx) { return fx.params.base_mesh; }
   static MF::BaseMesh active_base_mesh(const MF &fx) {
@@ -237,4 +301,34 @@ inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
     WB::rebuild_mesh(effect, static_cast<MF::BaseMesh>(i));
     HS_EXPECT_EQ(persistent_arena.get_offset(), first_cycle_offsets[i]);
   }
+}
+
+/** @brief Production MeshFeedback source matches the per-column frozen mesh. */
+inline void test_meshfeedback_temporal_source_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  auto render = [](bool timed, float fraction, float displacement) {
+    return MeshFeedbackWhiteBox::render_temporal_source(timed, fraction,
+                                                        displacement);
+  };
+  hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
+                                                     "MeshFeedback source");
+  Temporal::set_temporal_sampling_enabled(enabled);
+}
+
+/** @brief Stationary timed source edges preserve every ordinary mesh tap. */
+inline void test_meshfeedback_stationary_timed_source() {
+  std::vector<Pixel> timed, ordinary;
+  Temporal::geometry_counters = {};
+  MeshFeedbackWhiteBox::render_temporal_source(true, 1.0f, 0.0f, 0.0f, &timed);
+  HS_EXPECT_GT(Temporal::geometry_counters.end_probes, 0u);
+  HS_EXPECT_GT(Temporal::geometry_counters.parts, 0u);
+  MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f,
+                                               &ordinary);
+  size_t differences = 0;
+  for (size_t i = 0; i < timed.size(); ++i)
+    if (timed[i].r != ordinary[i].r || timed[i].g != ordinary[i].g ||
+        timed[i].b != ordinary[i].b)
+      ++differences;
+  HS_EXPECT_EQ(differences, size_t{0});
 }
