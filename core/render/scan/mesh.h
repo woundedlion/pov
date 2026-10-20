@@ -894,8 +894,51 @@ HS_HOT_INLINE float capture_fraction(const math::Vector &p,
   return fraction - floorf(fraction);
 }
 
+/** @brief Polar band inside which a capture holds a vertex at its endpoint. */
+struct CaptureHold {
+  float bound;     ///< Vertex motion bound plus the basis sweep (radians).
+  float sin_bound; ///< sin(bound).
+
+  /**
+   * @brief The hold band of a frame's captures.
+   * @param time Frame's column basis.
+   * @param reach Bound on vertex motion in radians.
+   * @return The band.
+   */
+  static CaptureHold of(const Temporal::ColumnTime &time, float reach) {
+    const float bound = reach + time.sweep;
+    return {bound, sinf(bound)};
+  }
+};
+
 /**
  * @brief Evaluates one moving vertex at its capture time with one correction.
+ * @tparam W Display width.
+ * @tparam VertexFn Callable (float u) returning the vertex at that fraction.
+ * @param end Vertex at the current endpoint.
+ * @param time Frame's column basis.
+ * @param hold The frame's hold band, as CaptureHold::of() gives it.
+ * @param centre Window centre in arm fractions.
+ * @param vertex Pure evaluation of the vertex path.
+ * @return Captured vertex, or its endpoint inside the polar hold band.
+ */
+template <int W, typename VertexFn>
+HS_HOT_INLINE math::Vector
+capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
+               const CaptureHold &hold, float centre, VertexFn &&vertex) {
+  const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
+  if (horizontal <= hold.sin_bound ||
+      hold.bound / horizontal >= math::PI_F / 4.0f)
+    return end;
+  const float angle = atan2f(end.z, end.x) / math::PI_F;
+  float u = unwrap_capture(angle - floorf(angle), centre);
+  const math::Vector first = vertex(u);
+  u = unwrap_capture(capture_fraction<W>(first, time, u), u);
+  return vertex(u);
+}
+
+/**
+ * @brief capture_vertex() under the hold band of @p reach.
  * @tparam W Display width.
  * @tparam VertexFn Callable (float u) returning the vertex at that fraction.
  * @param end Vertex at the current endpoint.
@@ -909,15 +952,8 @@ template <int W, typename VertexFn>
 HS_HOT_INLINE math::Vector
 capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
                float reach, float centre, VertexFn &&vertex) {
-  const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
-  const float bound = reach + time.sweep;
-  if (horizontal <= sinf(bound) || bound / horizontal >= math::PI_F / 4.0f)
-    return end;
-  const float angle = atan2f(end.z, end.x) / math::PI_F;
-  float u = unwrap_capture(angle - floorf(angle), centre);
-  const math::Vector first = vertex(u);
-  u = unwrap_capture(capture_fraction<W>(first, time, u), u);
-  return vertex(u);
+  return capture_vertex<W>(end, time, CaptureHold::of(time, reach), centre,
+                           vertex);
 }
 
 /**
@@ -962,6 +998,7 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   const auto *counts = mesh.get_face_counts_data();
   const auto *indices = mesh.get_faces_data();
   const auto *offsets = mesh.get_face_offsets_data();
+  const CaptureHold hold = CaptureHold::of(time, reach);
   bool held = false;
   for (size_t f = 0; f < faces; ++f) {
     const bool holds = columns[2 * f] == HELD_FACE_COLUMN;
@@ -996,7 +1033,7 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
       const math::Vector endpoint =
           pass == 0 ? mesh.vertices[i] : vertex(i, 1.0f);
       mesh.vertices[i] = capture_vertex<W>(
-          endpoint, time, reach, centre,
+          endpoint, time, hold, centre,
           [&](float u) HS_HOT_INLINE { return vertex(i, u); });
     }
     RenderXWindow window(canvas, begin, end);
