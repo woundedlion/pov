@@ -1446,12 +1446,13 @@ inline std::vector<Pixel> render_window_frame(int clip_begin, int clip_end,
   return out;
 }
 
-/** @brief Capture fractions keep the branch nearest each window centre. */
+/** @brief Capture fractions keep the branch nearest each window centre, across
+ *  the arm boundary too. */
 inline void test_mesh_capture_unwrap() {
   HS_EXPECT_NEAR(Scan::unwrap_capture(0.51f, 0.25f), 0.51f, 1e-6f);
   HS_EXPECT_NEAR(Scan::unwrap_capture(0.49f, 0.75f), 0.49f, 1e-6f);
-  HS_EXPECT_EQ(Scan::unwrap_capture(0.99f, 0.25f), 0.0f);
-  HS_EXPECT_EQ(Scan::unwrap_capture(0.01f, 0.75f), 1.0f);
+  HS_EXPECT_NEAR(Scan::unwrap_capture(0.99f, 0.25f), -0.01f, 1e-6f);
+  HS_EXPECT_NEAR(Scan::unwrap_capture(0.01f, 0.75f), 1.01f, 1e-6f);
 }
 
 /** @brief Window interval rejection and run clipping match column membership. */

@@ -865,13 +865,14 @@ HS_FLASH_MEMBER inline size_t drop_held_faces(const MeshState &mesh,
 }
 
 /**
- * @brief Unwraps a capture fraction around a window's centre, then clamps it.
+ * @brief Unwraps a capture fraction around a window's centre.
  * @param u Periodic arm fraction.
  * @param centre Window centre in arm fractions.
- * @return Capture fraction in [0, 1].
+ * @return Capture fraction within half a frame of @p centre; past 1 or before
+ *         0 for a vertex the next or previous arm's columns see.
  */
 HS_HOT_INLINE inline float unwrap_capture(float u, float centre) {
-  return hs::clamp(u + roundf(centre - u), 0.0f, 1.0f);
+  return u + roundf(centre - u);
 }
 
 /**
@@ -921,10 +922,12 @@ struct CaptureHold {
  * @param time Frame's column basis.
  * @param hold The frame's hold band, as CaptureHold::of() gives it.
  * @param centre Window centre in arm fractions.
- * @param vertex Pure evaluation of the vertex path.
+ * @param vertex Pure evaluation of the vertex path, continuing the frame's
+ *        motion past either endpoint.
  * @return Captured vertex, or its endpoint inside the polar hold band.
- * @details Column estimates use math::fast_atan2, so the capture time can
- * miss the solved one by a fraction of a column.
+ * @details A vertex the neighbouring arm's columns see is captured at that
+ * column's time, past 1 or before 0. Column estimates use math::fast_atan2,
+ * so the capture time can miss the solved one by a fraction of a column.
  */
 template <int W, typename VertexFn>
 HS_HOT_INLINE math::Vector
@@ -949,7 +952,8 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
  * @param time Frame's column basis.
  * @param reach Bound on vertex motion in radians.
  * @param centre Window centre in arm fractions.
- * @param vertex Pure evaluation of the vertex path.
+ * @param vertex Pure evaluation of the vertex path, continuing the frame's
+ *        motion past either endpoint.
  * @return Captured vertex, or its endpoint inside the polar hold band.
  */
 template <int W, typename VertexFn>
@@ -973,10 +977,15 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
  * @param moving Nonzero for vertices whose paths are captured; others hold.
  * @param scratch Arena for face selection and vertex placement flags.
  * @param reach Bound on vertex motion in radians.
- * @param vertex Pure evaluation of a vertex at a frame fraction.
+ * @param vertex Pure evaluation of a vertex at a frame fraction, continuing
+ *        the frame's motion linearly past either endpoint.
  * @param scan Scans the mesh with its current vertices and selected faces.
  * @details Held faces draw once. Each window uses a common vertex pool for
  * all its moving faces; faces outside that window's seeing columns are skipped.
+ * A face across the arm boundary is drawn by this frame's late window and the
+ * next frame's early window; when its vertices stand within a quarter frame
+ * of the boundary, each is at the time of the column that sees it, so the two
+ * copies are the same polygon up to second-order motion.
  */
 template <int W, int H, typename VertexFn, typename ScanFn>
 HS_HOT_FLASH_MEMBER void
