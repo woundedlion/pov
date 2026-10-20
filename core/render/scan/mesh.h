@@ -27,6 +27,12 @@
 
 namespace Scan {
 
+/** @brief Half-open column run [first, second); left uninitialized. */
+struct ColumnRun {
+  int first;  ///< First column.
+  int second; ///< One past the last column.
+};
+
 /**
  * @brief Clips a row's column runs to a render-x window on both arms.
  * @tparam W Canvas width in pixels.
@@ -37,9 +43,9 @@ namespace Scan {
  * @return Number of clipped runs.
  */
 template <int W, size_t CAPACITY>
-HS_FLASH_MEMBER size_t window_runs(std::pair<int, int> *runs, size_t count,
+HS_FLASH_MEMBER size_t window_runs(ColumnRun *runs, size_t count,
                                    const ColumnWindow &window) {
-  std::pair<int, int> kept[CAPACITY + 1];
+  ColumnRun kept[CAPACITY + 1];
   size_t kept_count = 0;
   for (size_t r = 0; r < count; ++r)
     for (const int arm : {0, W / 2}) {
@@ -88,7 +94,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   // A column-time or windowed run is split at the arm boundary, which one run
   // can cross.
   static constexpr size_t MAX_RUNS = 9;
-  std::pair<int, int> runs[MAX_RUNS];
+  ColumnRun runs[MAX_RUNS];
   size_t num_runs = 0;
   const ColumnWindow &window = canvas.render_x_window();
 
