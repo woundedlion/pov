@@ -132,7 +132,7 @@ struct TemporalRotation {
 /**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
- * `c = x % (W / 2)` as `Â±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * `c = x % (W / 2)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
  * the far arm: the fixed-meridian direction rotated from the column's sweep
  * time to the current endpoint, so shapes built at the current endpoint are
  * evaluated as they stood when the column was lit.
