@@ -200,11 +200,20 @@ private:
                      COHERENCE_BLOCK);
   }
 
+  /** @brief A site's spin from its previous position, as the terms the
+   *  spin's cosine and sine scale. */
+  struct SiteSpin {
+    math::Vector centre; ///< Previous position projected on the spin axis.
+    math::Vector cosine; ///< Previous position less its centre.
+    math::Vector sine;   ///< Spin axis crossed with the previous position.
+  };
+
   /** @brief Site motion at one column's sweep fraction of the frame. */
   struct ColumnMotion {
-    float cosine;       ///< Cosine of the spin so far.
-    float sine;         ///< Sine of the spin so far.
-    const KDTree *tree; ///< Tree over the current positions.
+    float cosine;          ///< Cosine of the spin so far.
+    float sine;            ///< Sine of the spin so far.
+    const SiteSpin *spins; ///< Every site's spin terms.
+    const KDTree *tree;    ///< Tree over the current positions.
     float drift; ///< Bound on a site's distance from its current position.
     const math::Vector *at; ///< Every site at that time, once filled.
   };
@@ -213,13 +222,32 @@ private:
    * @brief Site motion at a column's sweep time.
    * @param x Absolute canvas column.
    * @param tree Tree over the current positions.
+   * @param spins Every site's spin terms.
    * @return The column's motion.
    */
-  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &tree) const {
+  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &tree,
+                                             const SiteSpin *spins) const {
     const float FRACTION = Temporal::sweep_fraction(x, W);
     const float ANGLE = FRACTION * frame_spin;
-    return {cosf(ANGLE), sinf(ANGLE), &tree,
-            (1.0f - FRACTION) * fabsf(frame_spin) + DRIFT_SLACK, nullptr};
+    return {cosf(ANGLE),
+            sinf(ANGLE),
+            spins,
+            &tree,
+            (1.0f - FRACTION) * fabsf(frame_spin) + DRIFT_SLACK,
+            nullptr};
+  }
+
+  /**
+   * @brief Every site's spin terms for the frame.
+   * @param out One entry per site.
+   */
+  HS_FLASH_INLINE void fill_spins(SiteSpin *out) const {
+    for (size_t i = 0; i < sites_buffer.size(); ++i) {
+      const math::Vector &from = previous_positions[i];
+      const math::Vector &axis = sites_buffer[i].axis;
+      const math::Vector centre = axis * math::dot(axis, from);
+      out[i] = {centre, from - centre, math::cross(axis, from)};
+    }
   }
 
   /**
@@ -230,23 +258,19 @@ private:
   __attribute__((always_inline)) void fill_positions(const ColumnMotion &motion,
                                                      math::Vector *out) const {
     for (size_t i = 0; i < sites_buffer.size(); ++i)
-      out[i] =
-          position_at(static_cast<uint16_t>(i), motion.cosine, motion.sine);
+      out[i] = position_at(motion, static_cast<uint16_t>(i));
   }
 
   /**
    * @brief Position of a site part way through the frame's spin.
+   * @param motion The column's site motion.
    * @param i Site index.
-   * @param cosine Cosine of the spin so far.
-   * @param sine Sine of the spin so far.
    * @return The previous position rotated about the site's axis.
    */
-  __attribute__((always_inline)) math::Vector
-  position_at(uint16_t i, float cosine, float sine) const {
-    const math::Vector &from = previous_positions[i];
-    const math::Vector &axis = sites_buffer[i].axis;
-    return from * cosine + math::cross(axis, from) * sine +
-           axis * (math::dot(axis, from) * (1.0f - cosine));
+  __attribute__((always_inline)) static math::Vector
+  position_at(const ColumnMotion &motion, uint16_t i) {
+    const SiteSpin &spin = motion.spins[i];
+    return spin.centre + spin.cosine * motion.cosine + spin.sine * motion.sine;
   }
 
   /**
@@ -262,8 +286,7 @@ private:
   shade_exact(const math::Vector &p, const ColumnMotion &motion,
               float bound_sq = FLT_MAX) const {
     const auto at = [&](uint16_t i) __attribute__((always_inline)) {
-      return motion.at ? motion.at[i]
-                       : position_at(i, motion.cosine, motion.sine);
+      return motion.at ? motion.at[i] : position_at(motion, i);
     };
     const auto nearest = motion.tree->nearest_moved(
         p, 2, motion.drift,
@@ -378,7 +401,7 @@ private:
       math::Vector *after = before + SLOTS;
       for (uint8_t i = 0; i < sites.n; ++i) {
         const uint16_t SITE = sites.idx[i];
-        positions[i] = effect->position_at(SITE, motion.cosine, motion.sine);
+        positions[i] = position_at(motion, SITE);
         if (CHECK) {
           before[i] = effect->previous_positions[SITE];
           after[i] = effect->sites_buffer[SITE].pos;
@@ -395,13 +418,15 @@ private:
    */
   HS_HOT_FLASH_MEMBER void draw_temporal(Canvas &canvas, const KDTree &tree) {
     HS_PROFILE(vo_shade);
+    SiteSpin *spins = scratch_arena_a.allocate_n<SiteSpin>(sites_buffer.size());
+    fill_spins(spins);
     const int BLOCK = coherence_block();
     if (BLOCK == 1) {
       math::Vector *every =
           scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
       Scan::Shader::draw_columns<W, H>(
           canvas, [&](int x) __attribute__((always_inline)) {
-            ColumnMotion motion = column_motion(x, tree);
+            ColumnMotion motion = column_motion(x, tree, spins);
             fill_positions(motion, every);
             motion.at = every;
             return [this, motion](const math::Vector &p)
@@ -420,7 +445,7 @@ private:
           return endpoint_pairs(tree, p, near);
         },
         [&](int x) __attribute__((always_inline)) {
-          return TemporalColumn{this, column_motion(x, tree), positions};
+          return TemporalColumn{this, column_motion(x, tree, spins), positions};
         });
   }
 
@@ -595,7 +620,7 @@ private:
   //   build:    positions + KD nodes + KD build-index scratch
   //   shading:  positions + KD nodes + corner cells + candidate-row sets
   //   temporal: positions + KD nodes + corner cells + block-column
-  //             site unions + candidate and per-site positions
+  //             site unions + candidate and per-site positions + spin terms
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
   static constexpr size_t POSITIONS_BYTES =
       size_t(MAX_SITES) * sizeof(math::Vector);
@@ -608,7 +633,8 @@ private:
   static constexpr size_t TEMPORAL_WALKER_BYTES =
       Scan::Shader::block_columns_scratch_bytes<
           W, H, TEMPORAL_SITES_PER_CORNER, std::max(2, COHERENCE_BLOCK_MIN)>() +
-      (3 * 4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector);
+      (3 * 4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector) +
+      MAX_SITES * sizeof(SiteSpin);
   static constexpr size_t SCRATCH_HIGH_WATER =
       std::max(POSITIONS_BYTES + KD_NODES_BYTES +
                    std::max(KD_BUILD_SCRATCH_BYTES, WALKER_BYTES),
