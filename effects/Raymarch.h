@@ -648,7 +648,7 @@ private:
    * the cap Scan::Volume marches, which covers every centre, are placed and
    * lit, as only they are read.
    */
-  HS_FLASH_MEMBER static void
+  HS_HOT_FLASH_MEMBER static void
   place_columns(Scan::VolumeColumns<W> &columns, ColumnShading *shading,
                 const math::Quaternion *cameras, const math::Vector &point,
                 const math::Vector &center, float bounds_radius,
