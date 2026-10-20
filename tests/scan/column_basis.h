@@ -1584,3 +1584,62 @@ inline void test_mesh_motion_activation() {
   HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(3.4f * PIXEL));
   Temporal::set_temporal_sampling_enabled(true);
 }
+
+/**
+ * @brief Windowed mesh scanning matches separately captured whole meshes.
+ * @param clip_begin First displayed column.
+ * @param clip_end One past the last displayed column.
+ */
+inline void check_deformed_window_pixels(int clip_begin, int clip_end) {
+  constexpr int W = 96, H = 48;
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  build_basis_octahedron(mesh, scratch_arena_a);
+  const std::vector<math::Vector> end(mesh.vertices.begin(),
+                                      mesh.vertices.end());
+  std::vector<uint8_t> moving(end.size(), 1);
+  std::vector<uint16_t> columns(mesh.num_faces() * 2);
+  const auto vertex = [&](size_t i, float u) {
+    return math::rotate(
+        end[i], math::make_rotation(math::Vector(.3f, 1, .1f * i).normalized(),
+                                    .08f * (u - 1)));
+  };
+  const auto shader = [](const math::Vector &, Fragment &f) {
+    f.color = Color4(Pixel(uint16_t(6000 + 7000 * f.v2), 30000, 12000), 1);
+  };
+  const auto drawn = render_slab_frame<W, H>(
+      clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), .08f,
+                                   columns.data());
+        Scan::deform_mesh<W>(canvas, mesh, true, columns.data(), moving.data(),
+                             scratch_arena_b, .08f, vertex, [&] {
+                               Scan::Mesh::draw<W, H>(pipeline, canvas, mesh,
+                                                      shader, scratch_arena_b);
+                             });
+      });
+  std::vector<Pixel> expected(W * H);
+  for (int pass = 0; pass < 2; ++pass) {
+    const auto frame = render_slab_frame<W, H>(
+        clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          for (size_t i = 0; i < end.size(); ++i)
+            mesh.vertices[i] = Scan::capture_vertex<W>(
+                end[i], *canvas.column_time(), .08f, pass == 0 ? .25f : .75f,
+                [&](float u) { return vertex(i, u); });
+          Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, shader,
+                                 scratch_arena_b);
+        });
+    for (int y = 0; y < H; ++y)
+      for (int x = pass * (W / 4); x < (pass + 1) * (W / 4); ++x)
+        for (int arm : {0, W / 2})
+          expected[y * W + x + arm] = frame[y * W + x + arm];
+  }
+  HS_EXPECT_GT(expect_frames_within("deformed windows", drawn, expected, 0),
+               100);
+}
+
+/** @brief Capture windows partition both arms under full and segment clips. */
+inline void test_mesh_deformation_window_pixels() {
+  check_deformed_window_pixels(0, 96);
+  check_deformed_window_pixels(0, 48);
+  check_deformed_window_pixels(48, 96);
+}
