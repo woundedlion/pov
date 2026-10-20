@@ -101,6 +101,8 @@ public:
     knot_visible = persistent_arena.allocate_n<uint8_t>(W + 1);
     knot_pos = persistent_arena.allocate_n<math::Vector>(W + 1);
     knot_near = persistent_arena.allocate_n<uint8_t>(W + 1);
+    drawn_colors = persistent_arena.allocate_n<Color4>(RING_SLOTS);
+    drawn_color_ready = persistent_arena.make_n<uint8_t>(RING_SLOTS);
     chunk_cos = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     chunk_sin = persistent_arena.allocate_n<float>(BAKE_CHUNKS);
     for (int c = 0; c < BAKE_CHUNKS; ++c) {
@@ -284,13 +286,110 @@ private:
   }
 
   /**
+   * @brief A frame's endpoints for a draw that evaluates the displacement
+   * fields at each knot's sweep time.
+   */
+  struct Sweep {
+    /// Rotation vector carrying a point from where the stack held it at the
+    /// previous endpoint to where it holds it at the current one.
+    math::Vector turn;
+    float noise_time[2]; ///< Noise time at the previous and current endpoint.
+    float noise_amplitude[2]; ///< Noise amplitude at both endpoints.
+    float opacity[2];         ///< Sprite opacity at both endpoints.
+    float middle = 0.5f;      ///< Middle sweep fraction of the drawn window.
+  };
+
+  /**
+   * @brief A ball's path over the frame, in the frame the stack holds at the
+   * current endpoint.
+   */
+  struct BallPath {
+    math::Vector from; ///< Center at the previous endpoint.
+    math::Vector to;   ///< Center at the current endpoint.
+    float axis_from;   ///< `from` along the stack axis.
+    float axis_to;     ///< `to` along the stack axis.
+    float reach_from;  ///< Footprint radius at the previous endpoint.
+    float reach_to;    ///< Footprint radius at the current endpoint.
+    float cos_reach;   ///< Cosine of the larger footprint radius.
+    float cos_cover;   ///< Cosine of the cap covering the whole path.
+  };
+
+  /** @brief Sweep windows a swept draw splits the half-turn into. */
+  static constexpr int SWEEP_WINDOWS = 2;
+  static_assert(W % (2 * SWEEP_WINDOWS) == 0,
+                "DisplacementField: sweep windows must tile the half-turn");
+
+  /**
+   * @brief Frame fraction at which a swept draw evaluates a ring point.
+   * @param p The point where the stack holds it at the current endpoint.
+   * @param middle Middle sweep fraction of the drawn window.
+   * @return The sweep fraction of the column showing @p p, taken within half
+   *         a frame of @p middle and clamped to the frame.
+   * @details The window's columns read only points near them, so points
+   * shown across an arm boundary from the window take the boundary's time.
+   */
+  HS_HOT_INLINE static float knot_fraction(const math::Vector &p,
+                                           float middle) {
+    float u = math::fast_atan2(p.z, p.x) * (1.0f / math::PI_F);
+    u -= floorf(u);
+    if (u - middle >= 0.5f)
+      u -= 1.0f;
+    else if (middle - u > 0.5f)
+      u += 1.0f;
+    return hs::clamp(u, 0.0f, 1.0f);
+  }
+
+  /**
+   * @brief One ball's displacement of a ring point at a frame fraction.
+   * @param p The point where the stack holds it at the current endpoint.
+   * @param bp The ball's params.
+   * @param path The ball's path over the frame.
+   * @param theta Ring colatitude.
+   * @param t Frame fraction.
+   * @return The ball's field at @p p, with its center and footprint
+   *         interpolated to @p t.
+   */
+  HS_HOT_INLINE static float ball_at(const math::Vector &p,
+                                     const Animation::BumpParams &bp,
+                                     const BallPath &path, float theta,
+                                     float t) {
+    const float reach = path.reach_from + (path.reach_to - path.reach_from) * t;
+    if (reach <= 1e-3f || bp.amplitude <= 0.001f)
+      return 0.0f;
+    const math::Vector c = path.from + (path.to - path.from) * t;
+    const float inverse = 1.0f / sqrtf(math::dot(c, c));
+    const float cos_d = math::dot(p, c) * inverse;
+    if (cos_d <= path.cos_reach)
+      return 0.0f;
+    const float d = math::fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+    if (!(d < reach))
+      return 0.0f;
+    const float colat = math::fast_acos(hs::clamp(
+        (path.axis_from + (path.axis_to - path.axis_from) * t) * inverse, -1.0f,
+        1.0f));
+    return bump_field_profile(bp, reach, d, hs::clamp(theta - colat, -d, d));
+  }
+
+  /** @brief ball_field() with each ball at a frame fraction. */
+  HS_O3_FN float ball_field_at(const math::Vector &p, const int *ks, int n,
+                               float theta, float t) const {
+    DominantFieldAccumulator accumulator;
+    for (int j = 0; j < n; ++j) {
+      const int k = ks[j];
+      accumulator.add(ball_at(p, *ball_params[k], ball_paths[k], theta, t));
+    }
+    return accumulator.value();
+  }
+
+  /**
    * @brief Bakes every ring over the active ball pool, then rasterizes the
    * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
    * @details Under a partial clip, rings that cannot touch the clip and
    * invisible azimuth chunks skip the bake. Each column sees the stack
-   * orientation at its sweep time.
+   * orientation at its sweep time; while a displacement field is present,
+   * the fields, ring colors and opacity move with it (draw_swept()).
    */
   HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
@@ -304,20 +403,23 @@ private:
     const math::Quaternion previous =
         orientation_drawn ? drawn_orientation : current;
     drawn_orientation = current;
-    orientation_drawn = true;
     ScratchScope column_guard(scratch_arena_a);
     const Temporal::ColumnTime column_time =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, previous, current);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
-    const bool try_cull = !clip().is_full();
-    // World-angle pad absorbing the rasterizer's soft stroke cross-section past
-    // the clip's margin and the stack's rotation over the frame.
-    const float pad = 3.0f * math::PI_F / H + column_time.sweep;
-    const float noise_bound = noise_field.field_bound();
 
     const int n_balls = preset_index == BALLS_PRESET && !seed_balls_pending
                             ? balls.active_count()
                             : 0;
+    Sweep sweep;
+    const bool swept =
+        prepare_sweep(previous, current, opacity, n_balls, sweep);
+    orientation_drawn = true;
+    if (swept) {
+      draw_swept(canvas, basis, column_time, n_balls, sweep);
+      return;
+    }
+    drawn_colors_valid = false;
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
@@ -332,6 +434,183 @@ private:
       const float a0 = atan2f(cw, cu);
       ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
     }
+    draw_pass<false>(canvas, basis, column_time, opacity, n_balls, nullptr);
+  }
+
+  /**
+   * @brief Reads the frame's endpoints and retains the current ones for the
+   * next draw.
+   * @param previous Stack orientation at the previous endpoint.
+   * @param current Stack orientation at the current endpoint.
+   * @param opacity Sprite opacity this frame.
+   * @param n_balls Active balls drawn this frame.
+   * @param sweep Receives the endpoints.
+   * @return Whether the frame draws swept: temporal sampling is on, a
+   *         previous draw supplies the first endpoint and a displacement field
+   *         is present.
+   */
+  HS_FLASH_MEMBER bool prepare_sweep(const math::Quaternion &previous,
+                                     const math::Quaternion &current,
+                                     float opacity, int n_balls, Sweep &sweep) {
+    const bool noise_live = noise_field.active_count() == 1;
+    const float time = noise_live ? noise_field.active_params(0).time : 0.0f;
+    const float amplitude =
+        noise_live ? noise_field.active_params(0).amplitude : 0.0f;
+    const bool primed = orientation_drawn;
+    sweep.noise_time[0] = primed ? drawn_noise_time : time;
+    sweep.noise_time[1] = time;
+    sweep.noise_amplitude[0] = primed ? drawn_noise_amplitude : amplitude;
+    sweep.noise_amplitude[1] = amplitude;
+    sweep.opacity[0] = primed ? drawn_opacity : opacity;
+    sweep.opacity[1] = opacity;
+    drawn_noise_time = time;
+    drawn_noise_amplitude = amplitude;
+    drawn_opacity = opacity;
+    if (!Temporal::temporal_sampling_enabled() || !primed)
+      return false;
+    const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
+                                           std::fabs(amplitude)) > 0.001f;
+    if (!noise && n_balls == 0)
+      return false;
+    math::Quaternion step = current * previous.conjugate();
+    if (step.r < 0.0f)
+      step = -step;
+    const float half_sine = sqrtf(math::dot(step.v, step.v));
+    const float angle = 2.0f * asinf(fminf(half_sine, 1.0f));
+    if (angle > Temporal::MAX_DRIFT_ANGLE)
+      sweep.turn = math::Vector(0.0f, 0.0f, 0.0f);
+    else if (half_sine > 1e-6f)
+      sweep.turn = step.v * (angle / half_sine);
+    else
+      sweep.turn = step.v * 2.0f;
+    return true;
+  }
+
+  /**
+   * @brief Draws the stack in sweep windows, each baking every knot at the
+   * time of the column showing it.
+   * @param canvas Render target.
+   * @param basis Stack frame at the current endpoint.
+   * @param column_time The frame's column basis.
+   * @param n_balls Active balls drawn this frame.
+   * @param sweep The frame's endpoints.
+   * @details Rings sample the noise and balls where the stack held them at
+   * each knot's time, with the noise time and amplitude and each ball's
+   * center and footprint interpolated between the endpoints. Window `k`
+   * covers sweep fractions [k, k + 1) / SWEEP_WINDOWS; its knots take times
+   * within half a frame of its middle, so the columns on either side of an
+   * arm boundary read knots baked at their own side's time. Ring colors and
+   * opacity take the window's middle time.
+   */
+  HS_HOT_FLASH_MEMBER void draw_swept(Canvas &canvas, const math::Basis &basis,
+                                      const Temporal::ColumnTime &column_time,
+                                      int n_balls, Sweep &sweep) {
+    ScratchScope sweep_guard(scratch_arena_a);
+    ball_paths = scratch_arena_a.allocate_n<BallPath>(MAX_BALLS);
+    knot_times = scratch_arena_a.allocate_n<float>(W + 1);
+    ring_colors = scratch_arena_a.allocate_n<Color4>(RING_SLOTS);
+    ring_color_ready = scratch_arena_a.allocate_n<uint8_t>(RING_SLOTS);
+    for (int i = 0; i < RING_SLOTS; ++i)
+      ring_color_ready[i] = 0;
+    if (drawn_ring_count != params.num_rings)
+      drawn_colors_valid = false;
+    for (int b = 0; b < n_balls; ++b) {
+      const auto &sp = balls.active_params(b);
+      ball_params[b] = &sp;
+      BallPath &path = ball_paths[b];
+      path.from = Temporal::rotate_short(sp.previous_center, sweep.turn);
+      path.to = sp.center;
+      path.axis_from = math::dot(basis.v, path.from);
+      path.axis_to = math::dot(basis.v, path.to);
+      path.reach_from = sp.radius * sp.previous_envelope;
+      path.reach_to = sp.radius * sp.envelope;
+      const float reach = fmaxf(path.reach_from, path.reach_to);
+      if (reach <= 1e-3f) {
+        // No field at either endpoint, as before the fall's first step.
+        ball_colat[b] = 0.0f;
+        ball_reach[b] = -1.0f;
+        continue;
+      }
+      path.cos_reach = cosf(fminf(reach, math::PI_F));
+      // Every center on the path lies within half its chord, padded for the
+      // arc, of the chord's midpoint.
+      const math::Vector chord = path.to - path.from;
+      const float cover = reach + 0.5f * sqrtf(math::dot(chord, chord)) + 1e-4f;
+      path.cos_cover = cosf(fminf(cover, math::PI_F));
+      const math::Vector mid = (path.from + path.to).normalized();
+      const float cv = math::dot(basis.v, mid);
+      ball_colat[b] = math::fast_acos(hs::clamp(cv, -1.0f, 1.0f));
+      ball_reach[b] = cover;
+      ball_scale[b] = 2.0f / sp.radius;
+      const float cu = math::dot(basis.u, mid);
+      const float cw = math::dot(basis.w, mid);
+      ball_cv[b] = cv;
+      ball_rho[b] = sqrtf(cu * cu + cw * cw);
+      const float a0 = atan2f(cw, cu);
+      ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
+    }
+    for (int k = 0; k < SWEEP_WINDOWS; ++k) {
+      sweep.middle = (k + 0.5f) / SWEEP_WINDOWS;
+      RenderXWindow window(canvas, k * (W / 2) / SWEEP_WINDOWS,
+                           (k + 1) * (W / 2) / SWEEP_WINDOWS);
+      draw_pass<true>(canvas, basis, column_time, sweep.opacity[1], n_balls,
+                      &sweep);
+    }
+    for (int i = 0; i < RING_SLOTS; ++i) {
+      if (ring_color_ready[i])
+        drawn_colors[i] = ring_colors[i];
+      drawn_color_ready[i] = ring_color_ready[i];
+    }
+    drawn_colors_valid = true;
+    drawn_ring_count = params.num_rings;
+    ball_paths = nullptr;
+    knot_times = nullptr;
+    ring_colors = nullptr;
+    ring_color_ready = nullptr;
+  }
+
+  /**
+   * @brief A ring's color at the current endpoint, from the palette once per
+   * frame.
+   * @param i Ring index.
+   * @param n_rings Stack size.
+   * @return The ring's color.
+   */
+  HS_FLASH_MEMBER Color4 current_ring_color(int i, int n_rings) {
+    if (!ring_color_ready[i]) {
+      ring_colors[i] =
+          palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
+      ring_color_ready[i] = 1;
+    }
+    return ring_colors[i];
+  }
+
+  /**
+   * @brief Bakes and scans the rings of one pass over the stack.
+   * @tparam SWEPT Whether knots are baked at their sweep times, inside the
+   *         open render-x window.
+   * @param canvas Render target.
+   * @param basis Stack frame at the current endpoint.
+   * @param column_time The frame's column basis.
+   * @param opacity Sprite opacity; a swept pass takes the window's own.
+   * @param n_balls Active balls drawn this frame, with their caches filled.
+   * @param sweep The frame's endpoints; null unless SWEPT.
+   */
+  template <bool SWEPT>
+  HS_HOT_INLINE void draw_pass(Canvas &canvas, const math::Basis &basis,
+                               const Temporal::ColumnTime &column_time,
+                               float opacity, int n_balls, const Sweep *sweep) {
+    const int n_rings = params.num_rings;
+    const bool try_cull = !clip().is_full();
+    // World-angle pad absorbing the rasterizer's soft stroke cross-section past
+    // the clip's margin and the stack's rotation over the frame.
+    const float pad = 3.0f * math::PI_F / H + column_time.sweep;
+    float noise_bound;
+    if constexpr (SWEPT)
+      noise_bound = fmaxf(std::fabs(sweep->noise_amplitude[0]),
+                          std::fabs(sweep->noise_amplitude[1]));
+    else
+      noise_bound = noise_field.field_bound();
 
     const float noise_feature =
         noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
@@ -358,8 +637,19 @@ private:
                                                        params.thickness + pad))
         continue;
 
-      Color4 ring_color =
-          palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
+      Color4 ring_color;
+      float ring_opacity = opacity;
+      if constexpr (SWEPT) {
+        const Color4 now = current_ring_color(i, n_rings);
+        const Color4 before =
+            drawn_colors_valid && drawn_color_ready[i] ? drawn_colors[i] : now;
+        ring_color = before.lerp(now, sweep->middle);
+        ring_opacity = sweep->opacity[0] +
+                       (sweep->opacity[1] - sweep->opacity[0]) * sweep->middle;
+      } else {
+        ring_color =
+            palette.get(math::wrap_t((i + 0.5f) / n_rings + color_spin));
+      }
       HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
       const typename RingPool::Pending rows = rings.next();
@@ -381,15 +671,40 @@ private:
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
+        float octave_amplitude;
+        if constexpr (SWEPT)
+          octave_amplitude = noise_bound;
+        else
+          octave_amplitude = noise_field.active_count() == 1
+                                 ? noise_field.active_params(0).amplitude
+                                 : 0.0f;
         const Animation::NoiseProductParams *octaves =
             noise_field.active_count() == 1 &&
-                    std::fabs(noise_field.active_params(0).amplitude) > 0.001f
+                    std::fabs(octave_amplitude) > 0.001f
                 ? &noise_field.active_params(0)
                 : nullptr;
         lut_n = noise_lut_samples(feature_scale, sin_t, octaves != nullptr);
 
         uint32_t visible = CHUNK_MASK;
-        if (try_cull) {
+        if constexpr (SWEPT) {
+          const float band_r = band + noise_bound + params.thickness + pad;
+          const ColumnWindow &window = canvas.render_x_window();
+          {
+            HS_PROFILE(df_chunk_cull);
+            visible = Plot::chunk_mask_where<BAKE_CHUNKS>(
+                [&](const math::Vector &mid, float reach, float sin_reach)
+                    HS_HOT_INLINE {
+                      return Plot::cap_may_touch_window<W>(window, mid, reach,
+                                                           sin_reach) &&
+                             (!try_cull || Plot::cap_may_touch_clip<H>(
+                                               clip(), mid, reach, sin_reach));
+                    },
+                basis, theta, cos_t, sin_t, band_r, params.thickness, chunk_cos,
+                chunk_sin);
+          }
+          if (!visible)
+            continue;
+        } else if (try_cull) {
           const float band_r = band + noise_bound + params.thickness + pad;
           {
             HS_PROFILE(df_chunk_cull);
@@ -408,11 +723,12 @@ private:
         const float sin_d = sinf(dphi);
 
         if (octaves) {
-          bake_noise_octaves(*octaves, basis, {cos_t, sin_t, cos_d, sin_d},
-                             theta, lut_n, visible, n_local, slut);
+          bake_noise_octaves<SWEPT>(*octaves, basis,
+                                    {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
+                                    visible, n_local, slut, sweep);
         } else {
-          bake_ball_spans(basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
-                          visible, n_local, slut);
+          bake_ball_spans<SWEPT>(basis, {cos_t, sin_t, cos_d, sin_d}, theta,
+                                 lut_n, visible, n_local, slut, sweep);
         }
 
         // Culled chunks keep hlut stale; the padded `visible` mask keeps
@@ -464,23 +780,14 @@ private:
         hlut[lut_n] = hlut[0];
       }
 
-      rings.commit(i, ring_color.alpha * opacity * params.alpha, lut_n, basis,
-                   radius, params.thickness, slut, lut_n, 0.0f, nullptr);
+      rings.commit(i, ring_color.alpha * ring_opacity * params.alpha, lut_n,
+                   basis, radius, params.thickness, slut, lut_n, 0.0f, nullptr);
     }
 
     if (rings.size() == 0)
       return;
 
-    // v2 is the stroke coverage the scan applies again on plot, so the ring
-    // edge ramps as coverage squared. The stack hands v0 over in [0, 1).
-    auto ring_shader = [this](int s, const math::Vector &, Fragment &f) {
-      const Pixel *hue = rings.hue_row(s);
-      float x = f.v0 * rings.lut_columns(s);
-      int j = static_cast<int>(x);
-      f.color = Color4(
-          hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
-          rings.frag_alpha(s) * f.v2);
-    };
+    RingShader ring_shader{&rings};
     HS_PROFILE(df_fused_scan);
     Scan::DistortedRingStack::draw<W, H>(
         filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
@@ -555,11 +862,17 @@ private:
    * and fill between samples with a Catmull-Rom spline over four grid knots, so a
    * grid knot is evaluated when any visible knot lies within two strides of it.
    * Knot positions come from the same azimuth recurrence as the exact bake.
+   * A swept bake samples each knot where the stack held it at the knot's
+   * time, at the noise time and amplitude of that time.
+   * @tparam SWEPT Whether knots take their sweep times.
+   * @param sweep The frame's endpoints; read only when SWEPT.
    */
+  template <bool SWEPT = false>
   HS_HOT_FLASH_MEMBER void
   bake_noise_octaves(const Animation::NoiseProductParams &np,
                      const math::Basis &basis, KnotStep step, float theta,
-                     int lut_n, uint32_t visible, int n_local, float *slut) {
+                     int lut_n, uint32_t visible, int n_local, float *slut,
+                     const Sweep *sweep = nullptr) {
     constexpr int D1 = OCTAVE1_STRIDE;
     constexpr int D2 = OCTAVE2_STRIDE;
     mark_visible_knots(lut_n, visible);
@@ -586,15 +899,33 @@ private:
       const bool g2 = D2 == 1 ? vis : near && x % D2 == 0;
       if (vis || g1 || g2) {
         math::Vector p = knots.position();
-        if (g1)
-          octave1[x] = np.noise.GetNoise(p.x * np.scale1, p.y * np.scale1,
-                                         p.z * np.scale1 + np.time);
-        if (g2)
-          octave2[x] = np.noise.GetNoise(
-              p.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
-              p.y * np.scale2, p.z * np.scale2 + np.time);
-        if (vis)
-          slut[x] = ball_field(p, ball_local, n_local, theta);
+        if constexpr (SWEPT) {
+          const float t = knot_fraction(p, sweep->middle);
+          knot_times[x] = t;
+          const math::Vector q =
+              Temporal::rotate_short(p, sweep->turn * (t - 1.0f));
+          const float time = sweep->noise_time[0] +
+                             (sweep->noise_time[1] - sweep->noise_time[0]) * t;
+          if (g1)
+            octave1[x] = np.noise.GetNoise(q.x * np.scale1, q.y * np.scale1,
+                                           q.z * np.scale1 + time);
+          if (g2)
+            octave2[x] = np.noise.GetNoise(
+                q.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
+                q.y * np.scale2, q.z * np.scale2 + time);
+          if (vis)
+            slut[x] = ball_field_at(p, ball_local, n_local, theta, t);
+        } else {
+          if (g1)
+            octave1[x] = np.noise.GetNoise(p.x * np.scale1, p.y * np.scale1,
+                                           p.z * np.scale1 + np.time);
+          if (g2)
+            octave2[x] = np.noise.GetNoise(
+                p.x * np.scale2 + Animation::NoiseProductParams::OCTAVE2_OFFSET,
+                p.y * np.scale2, p.z * np.scale2 + np.time);
+          if (vis)
+            slut[x] = ball_field(p, ball_local, n_local, theta);
+        }
       }
     }
 
@@ -611,10 +942,17 @@ private:
                        t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 +
                             t * (3.0f * (p1 - p2) + p3 - p0)));
     };
-    for (int x = 0; x < lut_n; ++x)
-      if (knot_visible[x])
-        slut[x] = slut[x] + np.amplitude * sample(octave1, D1, x) *
-                                sample(octave2, D2, x);
+    for (int x = 0; x < lut_n; ++x) {
+      if (!knot_visible[x])
+        continue;
+      float amplitude = np.amplitude;
+      if constexpr (SWEPT)
+        amplitude = sweep->noise_amplitude[0] +
+                    (sweep->noise_amplitude[1] - sweep->noise_amplitude[0]) *
+                        knot_times[x];
+      slut[x] =
+          slut[x] + amplitude * sample(octave1, D1, x) * sample(octave2, D2, x);
+    }
   }
 
   /**
@@ -631,12 +969,17 @@ private:
    * cos_t * cv + sin_t * rho * cos(a - a0) > cos_radius, which holds on one
    * azimuth arc around a0. Knots off every padded arc get exactly the zero a
    * rejected ball adds, and each knot folds its balls in ball_local order, so
-   * the shifts match evaluating every ball at every knot.
+   * the shifts match evaluating every ball at every knot. A swept bake moves
+   * each ball along its path to the knot's time, inside the arc of the cap
+   * covering the path.
+   * @tparam SWEPT Whether knots take their sweep times.
+   * @param sweep The frame's endpoints; read only when SWEPT.
    */
-  HS_HOT_FLASH_MEMBER void bake_ball_spans(const math::Basis &basis,
-                                           KnotStep step, float theta,
-                                           int lut_n, uint32_t visible,
-                                           int n_local, float *slut) {
+  template <bool SWEPT = false>
+  HS_HOT_FLASH_MEMBER void
+  bake_ball_spans(const math::Basis &basis, KnotStep step, float theta,
+                  int lut_n, uint32_t visible, int n_local, float *slut,
+                  const Sweep *sweep = nullptr) {
     // Covers the recurrence's drift from the analytic knot azimuth and the
     // float slop in the cap dot product.
     constexpr float COS_MARGIN = 2e-4f;
@@ -647,6 +990,8 @@ private:
     for (int x = 0; x < lut_n; ++x, knots.advance()) {
       if (knot_visible[x]) {
         knot_pos[x] = knots.position();
+        if constexpr (SWEPT)
+          knot_times[x] = knot_fraction(knot_pos[x], sweep->middle);
         num[x] = 0.0f;
         den[x] = 0.0f;
       }
@@ -660,8 +1005,11 @@ private:
       const float b_term = step.sin_t * ball_rho[k];
       int first = 0;
       int count = lut_n;
+      float cos_radius = bp.cos_radius;
+      if constexpr (SWEPT)
+        cos_radius = ball_paths[k].cos_cover;
       if (b_term > COS_MARGIN) {
-        const float q = (bp.cos_radius - COS_MARGIN - a_term) / b_term;
+        const float q = (cos_radius - COS_MARGIN - a_term) / b_term;
         if (q >= 1.0f)
           continue;
         if (q > -1.0f) {
@@ -679,7 +1027,11 @@ private:
       const float y = theta - ball_colat[k];
       for (int i = 0, xi = first; i < count; ++i) {
         if (knot_visible[xi]) {
-          const float f = bump_field_with_y(knot_pos[xi], bp, y);
+          float f;
+          if constexpr (SWEPT)
+            f = ball_at(knot_pos[xi], bp, ball_paths[k], theta, knot_times[xi]);
+          else
+            f = bump_field_with_y(knot_pos[xi], bp, y);
           DominantFieldAccumulator::accumulate(num[xi], den[xi], f);
         }
         if (++xi == lut_n)
@@ -730,6 +1082,7 @@ private:
       for (int frame = 0; frame < static_cast<int>(progress * fall_frames);
            ++frame)
         fall->step(*canvas);
+      fall->settle();
     }
   }
 
@@ -758,6 +1111,7 @@ private:
     } else {
       timeline.cancel_owner(&phase_events);
       timeline.cancel_owner(&balls);
+      orientation_drawn = false;
       master_gain = change.to == NOISE_PRESET ? 1.0f : 0.0f;
       noise_hold = NOISE_HOLD_FRAMES;
       ball_phase_left = BALL_PHASE_FRAMES;
@@ -845,7 +1199,24 @@ private:
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   math::Orientation<> orientation;
   math::Quaternion drawn_orientation; ///< Orientation of the last ring draw.
-  bool orientation_drawn = false;     ///< Whether a ring draw has happened.
+  /// Whether a ring draw since the last history reset supplies the previous
+  /// endpoint.
+  bool orientation_drawn = false;
+  float drawn_noise_time = 0.0f;      ///< Noise time of the last ring draw.
+  float drawn_noise_amplitude = 0.0f; ///< Noise amplitude of the last draw.
+  float drawn_opacity = 0.0f;         ///< Sprite opacity of the last draw.
+  Color4 *drawn_colors =
+      nullptr; ///< RING_SLOTS ring colors of the last swept draw.
+  uint8_t *drawn_color_ready =
+      nullptr; ///< RING_SLOTS flags: the last swept draw colored the ring.
+  bool drawn_colors_valid = false; ///< The last draw was swept.
+  int drawn_ring_count = 0;        ///< Stack size of the last swept draw.
+  // Frame scratch of a swept draw, null outside it.
+  BallPath *ball_paths = nullptr; ///< MAX_BALLS active-ball paths.
+  float *knot_times = nullptr;    ///< W + 1 frame fractions of baked knots.
+  Color4 *ring_colors = nullptr;  ///< RING_SLOTS current ring colors.
+  uint8_t *ring_color_ready =
+      nullptr; ///< RING_SLOTS flags: ring_colors holds the ring's color.
 
   /** Noise row in PRESETS and PRESET_IDS. */
   static constexpr size_t NOISE_PRESET = 0;
@@ -993,8 +1364,8 @@ private:
      * @param ring_args DistortedRing constructor arguments.
      */
     template <typename... RingArgs>
-    __attribute__((always_inline)) void
-    commit(int ring, float frag_alpha, int lut_n, RingArgs &&...ring_args) {
+    HS_HOT_FLASH_MEMBER void commit(int ring, float frag_alpha, int lut_n,
+                                    RingArgs &&...ring_args) {
       assert(count < SLOTS && "DisplacementField: ring pool is full");
       const int s = count;
       ::new (static_cast<void *>(&(*storage)[s].ring))
@@ -1054,6 +1425,30 @@ private:
 #endif
   };
   RingPool rings; /**< Rings drawn this frame. */
+
+  /**
+   * @brief Shades a stack fragment from its slot's hue row.
+   * @details v2 is the stroke coverage the scan applies again on plot, so the
+   * ring edge ramps as coverage squared. The stack hands v0 over in [0, 1).
+   */
+  struct RingShader {
+    const RingPool *pool; ///< The frame's drawn rings.
+
+    /**
+     * @brief Shades one fragment.
+     * @param s Slot of the ring lighting the fragment.
+     * @param f Fragment to shade; v0 is the ring azimuth in [0, 1).
+     */
+    __attribute__((always_inline)) void operator()(int s, const math::Vector &,
+                                                   Fragment &f) const {
+      const Pixel *hue = pool->hue_row(s);
+      float x = f.v0 * pool->lut_columns(s);
+      int j = static_cast<int>(x);
+      f.color = Color4(
+          hue[j].lerp16(hue[j + 1], frac_to_q16(math::quintic_kernel(x - j))),
+          pool->frag_alpha(s) * f.v2);
+    }
+  };
   using CandidateTable = Scan::DistortedRingStack::CandidateTable<W, H>;
   CandidateTable *candidates =
       nullptr; /**< Fused scan's per-frame ring candidate map. */
@@ -1250,6 +1645,10 @@ private:
                    sizeof(const Animation::BumpParams *)) +
       6 * alignof(float) + alignof(int) +
       alignof(const Animation::BumpParams *);
+  /** @brief Persistent bytes of the last swept draw's ring colors. */
+  static constexpr size_t COLOR_HISTORY_BYTES =
+      RING_SLOTS * (sizeof(Color4) + sizeof(uint8_t)) + alignof(Color4) +
+      alignof(uint8_t);
   /** @brief Persistent bytes of the chunk mid-azimuth trig tables. */
   static constexpr size_t CHUNK_TRIG_BYTES =
       2 * BAKE_CHUNKS * sizeof(float) + 2 * alignof(float);
@@ -1265,7 +1664,8 @@ private:
   /** @brief Every persistent allocation init() makes. */
   static constexpr size_t FOOTPRINT_BYTES =
       RingPool::BYTES + HueTable::BYTES + KNOT_SCRATCH_BYTES +
-      BALL_CACHE_BYTES + CHUNK_TRIG_BYTES + CANDIDATE_BYTES + FIELD_BYTES;
+      BALL_CACHE_BYTES + COLOR_HISTORY_BYTES + CHUNK_TRIG_BYTES +
+      CANDIDATE_BYTES + FIELD_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DisplacementField persistent footprint exceeds the default "
                 "partition; retune RING_SLOTS/MAX_BALLS or carve arenas");

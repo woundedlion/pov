@@ -1035,3 +1035,122 @@ inline void test_displacement_field_default_cycle_frames() {
   HS_EXPECT_TRUE(saw_drain);
   HS_EXPECT_TRUE(returned);
 }
+
+/** @brief A frame's displayed endpoints and its column-time draw. */
+struct DisplacementFieldEndpoints {
+  std::vector<Pixel> previous; ///< Previous frame without temporal sampling.
+  std::vector<Pixel> current;  ///< This frame without temporal sampling.
+  std::vector<Pixel> swept;    ///< This frame with temporal sampling.
+};
+
+/**
+ * @brief Draws one frame of DisplacementField with and without temporal
+ *        sampling, from the same start.
+ * @tparam W Render width.
+ * @tparam H Render height.
+ * @param frames Frames drawn; the last is the one compared.
+ * @param setup Called on the initialized effect before the first frame.
+ * @return The frame's endpoints and its column-time draw.
+ */
+template <int W, int H, typename Setup>
+inline DisplacementFieldEndpoints displacement_field_endpoints(int frames,
+                                                               Setup &&setup) {
+  DisplacementFieldEndpoints out;
+  for (bool enabled : {false, true}) {
+    reset_effect_globals();
+    hs::random().seed(1337u);
+    pin_frame_clock(0);
+    Temporal::set_temporal_sampling_enabled(enabled);
+    DisplacementField<W, H> effect;
+    effect.init();
+    setup(effect);
+    for (int f = 0; f < frames; ++f) {
+      pin_frame_clock(f);
+      effect.draw_frame();
+      effect.advance_display();
+      if (!enabled && f == frames - 2)
+        capture_frame<W, H>(effect, out.previous);
+      if (f == frames - 1)
+        capture_frame<W, H>(effect, enabled ? out.swept : out.current);
+    }
+  }
+  Temporal::set_temporal_sampling_enabled(true);
+  hs::clear_mock_time();
+  return out;
+}
+
+/**
+ * @brief Largest channel difference of two frames over some columns.
+ * @tparam W Frame width.
+ * @tparam H Frame height.
+ * @param a First frame.
+ * @param b Second frame.
+ * @param columns Columns compared.
+ * @return The largest difference, in 16-bit channel units.
+ */
+template <int W, int H>
+inline int column_difference(const std::vector<Pixel> &a,
+                             const std::vector<Pixel> &b,
+                             std::initializer_list<int> columns) {
+  int worst = 0;
+  for (int x : columns)
+    for (int y = 0; y < H; ++y) {
+      const Pixel &p = a[static_cast<size_t>(y) * W + x];
+      const Pixel &q = b[static_cast<size_t>(y) * W + x];
+      for (int e : {std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
+                    std::abs(int(p.b) - q.b)})
+        worst = std::max(worst, e);
+    }
+  return worst;
+}
+
+/** @brief Largest difference, in 8-bit steps, between a column-time draw's
+ *  arm-boundary columns and the frame endpoint they are lit at. */
+inline constexpr int DF_ENDPOINT_STEPS = 2;
+/** @brief Smallest endpoint jump a case must show at its first columns, in
+ *  8-bit steps, so a held field fails it. */
+inline constexpr int DF_ENDPOINT_JUMP_STEPS = 8;
+
+/**
+ * @brief Checks one case's arm-boundary columns against its endpoints.
+ * @param label Case name.
+ * @param frames The case's endpoints and column-time draw.
+ */
+template <int W, int H>
+inline void
+check_displacement_field_endpoints(const char *label,
+                                   const DisplacementFieldEndpoints &frames) {
+  HS_CONTEXT(label);
+  constexpr int STEP = 257;
+  const int jump =
+      column_difference<W, H>(frames.previous, frames.current, {0, W / 2});
+  const int head =
+      column_difference<W, H>(frames.swept, frames.previous, {0, W / 2});
+  const int tail =
+      column_difference<W, H>(frames.swept, frames.current, {W / 2 - 1, W - 1});
+  std::printf("  [%s] jump %.2f head %.2f tail %.2f steps\n", label,
+              static_cast<double>(jump) / STEP,
+              static_cast<double>(head) / STEP,
+              static_cast<double>(tail) / STEP);
+  HS_EXPECT_GE(jump, DF_ENDPOINT_JUMP_STEPS * STEP);
+  HS_EXPECT_LE(head, DF_ENDPOINT_STEPS * STEP);
+  HS_EXPECT_LE(tail, DF_ENDPOINT_STEPS * STEP);
+}
+
+/**
+ * @brief A column-time frame's arm-boundary columns meet the frame endpoints
+ *        they are lit at: the first columns show the previous frame and the
+ *        last the current one, while the noise flows, balls fall and the
+ *        stack turns through both fields.
+ */
+inline void test_displacement_field_arm_boundaries_meet_endpoints() {
+  constexpr int W = SMALL_W, H = SMALL_H;
+  check_displacement_field_endpoints<W, H>(
+      "noise", displacement_field_endpoints<W, H>(200, [](auto &) {}));
+  check_displacement_field_endpoints<W, H>(
+      "balls", displacement_field_endpoints<W, H>(40, [](auto &effect) {
+        HS_EXPECT_TRUE(effect.selectPreset(1));
+        HS_EXPECT_EQ(effect.updateParameter("Ball Amp", 0.6f),
+                     ParamSetResult::APPLIED);
+      }));
+}
