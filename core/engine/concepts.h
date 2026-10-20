@@ -376,35 +376,46 @@ class PipelineRef {
   /** @brief Binds ordinary plot and cull entries. */
   template <typename T>
   PipelineRef(T &t, Erase<false>)
-      : ctx(std::addressof(t)), world_transform_is_identity([] {
+      : ctx(std::addressof(t)), world_transform_is_identity([]() HS_HOT_INLINE {
           if constexpr (requires { T::world_transform_is_identity; })
             return T::world_transform_is_identity;
           else
             return true;
         }()),
-        has_temporal_motion([] {
+        has_temporal_motion([]() HS_HOT_INLINE {
           if constexpr (requires { T::has_temporal_motion; })
             return T::has_temporal_motion;
           else
             return true;
         }()) {
     plot2d = [](void *pipeline, Canvas &cv, float x, float y, const Pixel &c,
-                float age, float alpha) {
+                float age, float alpha) HS_HOT_INLINE {
       static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
     };
     plot2d_int = [](void *pipeline, Canvas &cv, int x, int y, const Pixel &c,
-                    float age, float alpha) {
+                    float age, float alpha) HS_HOT_INLINE {
       static_cast<T *>(pipeline)->plot(cv, x, y, c, age, alpha);
     };
     plot3d = [](void *pipeline, Canvas &cv, const math::Vector &v,
-                const Pixel &c, float age, float alpha) {
+                const Pixel &c, float age, float alpha) HS_HOT_INLINE {
       static_cast<T *>(pipeline)->plot(cv, v, c, age, alpha);
     };
-    cull = [](void *pipeline, const math::Vector &a, const math::Vector &b,
-              const math::Basis *pb, CullEdgePredRef pred) -> bool {
-      return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b,
-                                           pb, pred);
-    };
+    cull = still_cull_entry<T>;
+  }
+
+  /** @brief Applies an erased pipeline's ordinary edge cull.
+   * @tparam T Concrete pipeline type.
+   * @param pipeline Borrowed pipeline.
+   * @param a,b Edge endpoints.
+   * @param pb Optional planar basis.
+   * @param pred Downstream visibility predicate.
+   * @return Whether the edge may intersect the clip. */
+  template <typename T>
+  HS_O3_FN HS_NOINLINE_NOCLONE static bool
+  still_cull_entry(void *pipeline, const math::Vector &a, const math::Vector &b,
+                   const math::Basis *pb, CullEdgePredRef pred) {
+    return pipeline_could_intersect_clip(*static_cast<T *>(pipeline), a, b, pb,
+                                         pred);
   }
 
   /** @brief Evaluates an erased pipeline's world stages.

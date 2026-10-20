@@ -441,7 +441,7 @@ public:
    * whatever of it can still hold stale pixels.
    * @param owner The effect instance owning the buffer.
    */
-  explicit Canvas(Effect &owner) : effect(owner) {
+  HS_HOT_FLASH_MEMBER explicit Canvas(Effect &owner) : effect(owner) {
     HS_CHECK(!effect.canvas_active, "Canvas already active for this Effect");
     wait_for_free_buffer();
     // Hook runs post-wait, pre-clear: the clip it sets governs the clear.
@@ -458,7 +458,7 @@ public:
   /**
    * @brief Destructor. Queues the finished frame to be displayed.
    */
-  ~Canvas() {
+  HS_HOT_FLASH_MEMBER ~Canvas() {
     if (effect.buffer_complete_hook)
       effect.buffer_complete_hook(*this);
     effect.queue_frame();
