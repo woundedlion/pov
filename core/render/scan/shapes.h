@@ -748,13 +748,17 @@ struct RingGroup {
    * @param high Upper cosine bound.
    * @param band Shared angular solutions for this sweep fraction.
    * @param far_arm Whether to reflect the first-arm phase.
-   * @return Up to two disjoint row spans with in-band endpoints.
+   * @param y_lo First row the caller reads.
+   * @param y_hi Last row the caller reads.
+   * @return Up to two disjoint row spans with in-band endpoints. Within
+   *         [@p y_lo, @p y_hi] their union is the band's whole-canvas spans';
+   *         spans that cannot reach that window are dropped.
    * @pre The canvas trigonometric table is initialized.
    */
   template <int W, int H>
   HS_HOT_FLASH_MEMBER static ColumnRows
   column_rows(float a, float b, float low, float high, const ColumnBand &band,
-              bool far_arm) {
+              bool far_arm, int y_lo = 0, int y_hi = H - 1) {
     ColumnRows out;
     if (band.inner > band.outer)
       return out;
@@ -778,6 +782,8 @@ struct RingGroup {
           continue;
         auto rows = SDF::phi_bounds_to_rows<H>(
             std::max(0.0f, start - 1e-5f), std::min(math::PI_F, end + 1e-5f));
+        if (rows.y_max < y_lo || rows.y_min > y_hi)
+          continue;
         while (rows.y_min <= rows.y_max && !inside(rows.y_min))
           ++rows.y_min;
         while (rows.y_min <= rows.y_max && !inside(rows.y_max))
@@ -1020,9 +1026,6 @@ struct RingGroup {
           max_slot_sweep = std::max(max_slot_sweep, slot_sweep[s]);
         }
       }
-      axis_terms = scratch_arena_b.allocate_n<float>(2 * n * (W / 2));
-      fill_column_axes<W, H>(axis_terms, shapes, n, azimuth, up,
-                             previous_normals);
     }
     int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
     int y_lo = H, y_hi = -1;
@@ -1083,6 +1086,9 @@ struct RingGroup {
                              cover_cos_min);
     }
     if constexpr (COLUMN_TIME) {
+      axis_terms = scratch_arena_b.allocate_n<float>(2 * n * (W / 2));
+      fill_column_axes<W, H>(axis_terms, shapes, n, azimuth, up,
+                             previous_normals);
       column_bands = scratch_arena_b.allocate_n<ColumnBand>(W / 2);
       fill_column_bands(column_bands, axis_terms, W / 2, n, mid, cover_cos_min,
                         cover_cos_max);
@@ -1160,9 +1166,9 @@ struct RingGroup {
         const bool far_arm = x >= W / 2;
         const int c = far_arm ? x - W / 2 : x;
         const float *terms = axis_terms + 2 * n * c;
-        const auto rows =
-            column_rows<W, H>(terms[2 * mid], terms[2 * mid + 1], cover_cos_min,
-                              cover_cos_max, column_bands[c], far_arm);
+        const auto rows = column_rows<W, H>(
+            terms[2 * mid], terms[2 * mid + 1], cover_cos_min, cover_cos_max,
+            column_bands[c], far_arm, y_lo, y_hi);
         for (int span = 0; span < rows.count; ++span) {
           const int end = std::min<int>(y_hi, rows.hi[span]);
           for (int y = std::max<int>(y_lo, rows.lo[span]); y <= end; ++y)

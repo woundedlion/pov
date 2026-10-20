@@ -821,6 +821,40 @@ inline void test_ring_group_column_rows_cover_band() {
   }
 }
 
+/** @brief Windowed column row spans cover the window as the full spans do. */
+inline void test_ring_group_column_rows_window_matches_full() {
+  constexpr int W = 288, H = 144;
+  math::TrigLUT<W, H>::init();
+  hs::Pcg32 rng(5113u);
+  int dropped = 0;
+  for (int i = 0; i < 2000; ++i) {
+    const float a = hs_test::rand_uniform(rng, -1.0f, 1.0f);
+    const float b = hs_test::rand_uniform(rng, -1.0f, 1.0f);
+    const float low = hs_test::rand_uniform(rng, -1.1f, 0.9f);
+    const float high = low + hs_test::rand_uniform(rng, 0.001f, 0.2f);
+    const auto band = Scan::RingGroup::column_band(a, b, low, high);
+    const bool far_arm = (i & 1) != 0;
+    const int y_lo = static_cast<int>(rng() % H);
+    const int y_hi =
+        y_lo + static_cast<int>(rng() % static_cast<uint32_t>(H - y_lo));
+    const auto full =
+        Scan::RingGroup::column_rows<W, H>(a, b, low, high, band, far_arm);
+    const auto window = Scan::RingGroup::column_rows<W, H>(
+        a, b, low, high, band, far_arm, y_lo, y_hi);
+    HS_EXPECT_LE(window.count, full.count);
+    dropped += full.count - window.count;
+    const auto covers = [](const Scan::RingGroup::ColumnRows &rows, int y) {
+      bool covered = false;
+      for (int span = 0; span < rows.count; ++span)
+        covered |= y >= rows.lo[span] && y <= rows.hi[span];
+      return covered;
+    };
+    for (int y = y_lo; y <= y_hi; ++y)
+      HS_EXPECT_EQ(covers(window, y), covers(full, y));
+  }
+  HS_EXPECT_GT(dropped, 0);
+}
+
 /**
  * @brief An object-frame walk hands each pixel its center and sub-samples
  *        rotated into the object frame at its column's sweep time, on both
