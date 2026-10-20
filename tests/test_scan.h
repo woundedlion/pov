@@ -150,6 +150,7 @@ inline int run_scan_tests() {
   test_mesh_capture_unwrap();
   test_mesh_capture_vertex();
   test_mesh_deformation_shared_edges();
+  test_mesh_deformation_window_pixels();
   test_mesh_motion_activation();
 
   test_transformed_volume_world_local_roundtrip();
