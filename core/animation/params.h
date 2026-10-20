@@ -1151,6 +1151,8 @@ struct BumpParams {
   float envelope = 0.0f; /**< Footprint scale in [0, 1]. */
   float cos_radius =
       1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
+  math::Vector previous_center;   /**< Center before the latest fall step. */
+  float previous_envelope = 0.0f; /**< Envelope before the latest fall step. */
 
   /** @brief Carries prepare_frame()'s refresh_from() hook. */
   static constexpr bool NEEDS_REFRESH_FROM = true;
@@ -1217,6 +1219,8 @@ public:
    * orientation, and ramps the pole-edge envelope so the bump emerges from
    * and vanishes into the poles smoothly.
    * @param canvas Frame canvas, forwarded to the base step.
+   * @details The center and envelope the step replaces become the previous
+   * ones; the first step has none and starts both at the new values.
    */
   void step(Canvas &canvas) override {
     AnimationBase<BallDrop<CAP>>::step(canvas);
@@ -1224,12 +1228,24 @@ public:
         std::min(static_cast<float>(this->t) / this->duration, 1.0f);
     float phi = progress * math::PI_F;
     BumpParams &p = params.get();
+    p.previous_center = p.center;
+    p.previous_envelope = p.envelope;
     p.center = math::Vector(sinf(phi) * cosf(azimuth), cosf(phi),
                             sinf(phi) * sinf(azimuth));
     p.axis = math::make_basis(orientation->get(), normal).v;
     p.envelope = math::quintic_kernel(progress / EDGE_FRACTION) *
                  math::quintic_kernel((1.0f - progress) / EDGE_FRACTION);
+    if (this->t == 1)
+      settle();
     p.sync();
+  }
+
+  /** @brief Drops the fall's previous state, so the current one stands for
+   *  both. */
+  void settle() {
+    BumpParams &p = params.get();
+    p.previous_center = p.center;
+    p.previous_envelope = p.envelope;
   }
 
 private:
