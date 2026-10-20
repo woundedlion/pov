@@ -7,6 +7,7 @@
  */
 #pragma once
 #include "tests/pixel_test_util.h"
+#include "tests/temporal_oracle.h"
 
 #include "core/animation/orientation.h"
 #include "core/render/plot.h"
@@ -74,6 +75,8 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/planar_metric.h"
 #include "tests/plot_scan/single_pass.h"
 #include "tests/plot_scan/planar_chords.h"
+#include "tests/plot_scan/temporal_seam.h"
+#include "tests/plot_scan/timed_mesh.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
@@ -81,6 +84,30 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 inline int run_plot_scan_tests() {
   hs_test::ModuleFixture fixture("plot_scan");
 
+  hs_test::test_reference_row_displacement_is_analytic();
+  hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget();
+  test_timed_ring_matches_column_time_reference();
+  test_timed_still_straddler_preserves_coverage();
+  test_boundary_taps_use_column_time();
+  test_timed_registers_preserve_birth_and_time();
+  test_timed_rigid_work_scales_with_controls();
+  test_timed_rigid_replicate_keeps_copies();
+  test_timed_rigid_shader_reads_source_position();
+  test_timed_rigid_refinement_bounds_capture_time();
+  test_timed_projected_entry_bypasses_world();
+  test_interior_taps_use_column_time();
+  test_owned_tap_kernel_matches_ordinary_splat();
+  test_timed_prediction_correction_preserves_coverage();
+  test_timed_prediction_reuses_landed_columns();
+  test_timed_cut_preserves_sampling_phase();
+  test_timed_lattice_vertices_evaluated_once();
+  test_timed_closed_ring_starts_at_cut();
+  test_timed_cut_uses_separate_endpoint_crossings();
+  test_timed_held_anchor_keeps_boundary_parts();
+  test_timed_mesh_preserves_edge_register_and_time();
+  test_timed_static_route_matches_ordinary();
+  test_timed_polar_mesh_branch_coverage();
+  test_timed_stationary_callback_pixel_parity();
   test_four_regular_and_medial_edge_extraction();
 
   test_geodesic_sincos_bit_parity();

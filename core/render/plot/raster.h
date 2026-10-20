@@ -145,6 +145,8 @@ struct RasterConfig {
   bool interpolate_registers = true;
   /** Adaptive screen-space sample density. */
   RasterSamplingPolicy sampling_policy = RasterSamplingPolicy::DEFAULT;
+  /** Compile the column-time geometry walk. */
+  bool timed = false;
 };
 
 /** @brief Open or closed polyline, with seam registers only on a closed loop. */
@@ -801,6 +803,7 @@ HS_HOT_INLINE inline bool edge_spans_one_dot(const uint8_t *edge_flags,
  */
 template <int W, int H, RasterConfig Cfg = {}, typename PipelineT = PipelineRef,
           typename FragmentShaderT = FragmentShaderFn>
+  requires(!Cfg.timed)
 static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderT fragment_shader,
                       RasterOptions opts = {}) {
@@ -1212,6 +1215,73 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     }
   }
 }
+
+#include "core/render/plot/raster_timed.h"
+
+/** @brief Rasterizes a callback-driven polyline at column capture fractions.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Timed raster configuration.
+ * @tparam PipelineT Source pipeline type.
+ * @tparam FragmentShaderT Fragment shader type.
+ * @param source_pipeline Timed rendering pipeline.
+ * @param canvas Destination canvas.
+ * @param points Endpoint controls and shading registers.
+ * @param fragment_shader Ordinary or time-aware shader.
+ * @param opts Polyline options.
+ * @param geometry Optional timed control-point evaluator.
+ * @param callback_bound Maximum callback displacement in radians. */
+template <int W, int H, RasterConfig Cfg, typename PipelineT = PipelineRef,
+          typename FragmentShaderT = FragmentShaderFn>
+  requires(Cfg.timed)
+HS_HOT_FLASH_MEMBER static void
+rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
+          FragmentShaderT fragment_shader, RasterOptions opts = {},
+          GeometryCallback geometry = {}, float callback_bound = 0.0f) {
+  auto timed_shader = [&](const math::Vector &p, Fragment &f,
+                          float t) HS_HOT_INLINE {
+    if constexpr (std::is_invocable_v<FragmentShaderT &, const math::Vector &,
+                                      Fragment &, float>)
+      fragment_shader(p, f, t);
+    else
+      fragment_shader(p, f);
+  };
+  const bool still = [&]() HS_HOT_INLINE {
+    if constexpr (std::is_invocable_v<FragmentShaderT &, const math::Vector &,
+                                      Fragment &, float>)
+      return false;
+    if constexpr (requires { source_pipeline.has_temporal_motion; })
+      return !geometry.evaluate && geometry.births.empty() &&
+             callback_bound == 0.0f && !source_pipeline.has_temporal_motion;
+    return false;
+  }();
+  if (!Temporal::temporal_sampling_enabled() || still) {
+    constexpr RasterConfig STILL = [] {
+      auto c = Cfg;
+      c.timed = false;
+      return c;
+    }();
+    auto still_shader = [&](const math::Vector &p, Fragment &f)
+                            HS_HOT_INLINE { timed_shader(p, f, 1.0f); };
+    rasterize<W, H, STILL>(source_pipeline, canvas, points, still_shader, opts);
+    return;
+  }
+  if constexpr (std::same_as<std::decay_t<PipelineT>, PipelineRef>) {
+    rasterize_timed<W, H, Cfg>(source_pipeline, canvas, points,
+                               TimedFragmentShaderFn(timed_shader), opts,
+                               geometry, callback_bound);
+  } else {
+    PipelineRef erased = [&]() HS_HOT_INLINE {
+      if constexpr (pipeline_direct_raster_path<PipelineT>())
+        return PipelineRef(source_pipeline, canvas, Temporal::Timed{});
+      else
+        return PipelineRef(source_pipeline, Temporal::Timed{});
+    }();
+    rasterize_timed<W, H, Cfg>(erased, canvas, points,
+                               TimedFragmentShaderFn(timed_shader), opts,
+                               geometry, callback_bound);
+  }
+}
+
 HS_O3_END
 
 } // namespace Plot
