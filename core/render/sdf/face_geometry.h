@@ -491,9 +491,12 @@ compute_azimuth_intervals(FaceScratchBuffer &scratch) {
   int interval_count = 0;
   if (max_gap > math::PI_F) {
     full_width = false;
-    float start_t = fmodf(gap_start + max_gap, math::TWO_PI_F);
-    // fmodf can leave start_t at ~2*PI instead of ~0, producing a degenerate
-    // [~2*PI, 2*PI] sliver; snap to 0.
+    // The sum lies in [0, 4*PI], so one subtraction wraps it exactly.
+    float start_t = gap_start + max_gap;
+    if (start_t >= math::TWO_PI_F)
+      start_t -= math::TWO_PI_F;
+    // The wrap can leave start_t at ~2*PI instead of ~0, producing a
+    // degenerate [~2*PI, 2*PI] sliver; snap to 0.
     if (start_t > math::TWO_PI_F - 1e-4f)
       start_t = 0.0f;
     float end_t = gap_start;
