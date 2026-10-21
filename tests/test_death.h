@@ -2605,12 +2605,14 @@ inline void merge_shard_records(const ShardSpec &shard, const Case *cs, int n,
  * @brief Compares per-effect frame folds from two fresh child processes.
  * @details Each child folds every effect cold and then warm; both folds must
  *          match within a child and across the two children. Their complete
- *          records must fit in CHILD_OUTPUT_CAP.
+ *          records must fit in CHILD_OUTPUT_CAP. Each child renders the whole
+ *          effect roster, so it gets a longer timeout than a trap case.
  */
 inline void compare_determinism_folds() {
-  const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
+  constexpr unsigned TIMEOUT_MS = 60000;
+  const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE, TIMEOUT_MS);
   const std::string fold_a = child_output();
-  const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE);
+  const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE, TIMEOUT_MS);
   const std::string fold_b = child_output();
   HS_EXPECT_TRUE(child_exited_clean(determinism_a));
   HS_EXPECT_TRUE(child_exited_clean(determinism_b));
