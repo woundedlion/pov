@@ -2423,16 +2423,255 @@ inline void report_guard_coverage(const Case *cs, int n, const int *lines) {
   HS_EXPECT_EQ(stale_allowances, 0);
 }
 
+/** @brief The slice of the death module one process runs. */
+struct ShardSpec {
+  /** @brief What the process does with the case table. */
+  enum class Role {
+    WHOLE,  /**< Every case, then the coverage gate. */
+    SHARD,  /**< Cases with table index % count == index, then a record. */
+    CENSUS, /**< No cases; merges the count records, then the coverage gate. */
+  };
+  Role role = Role::WHOLE;   /**< This process's role. */
+  int index = 0;             /**< This shard's index, in [0, count). */
+  int count = 1;             /**< Number of shards the table is split across. */
+  const char *dir = nullptr; /**< Directory holding the shard records. */
+};
+
+/**
+ * @brief Reads the shard selection from HS_DEATH_SHARD and HS_DEATH_SHARD_DIR.
+ * @param out Set to the parsed selection.
+ * @return False when HS_DEATH_SHARD is malformed or HS_DEATH_SHARD_DIR is
+ *         missing for a sharded role.
+ * @details An unset or empty HS_DEATH_SHARD selects Role::WHOLE; "k/N" selects
+ *          shard k of N and "census/N" the merge of N shard records.
+ */
+inline bool shard_spec_from_env(ShardSpec &out) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *spec = std::getenv("HS_DEATH_SHARD");
+  const char *dir = std::getenv("HS_DEATH_SHARD_DIR");
+#pragma clang diagnostic pop
+  out = ShardSpec{};
+  if (!spec || spec[0] == '\0')
+    return true;
+  const char *slash = std::strchr(spec, '/');
+  if (!slash || !dir || dir[0] == '\0')
+    return false;
+  char *end = nullptr;
+  const long count = std::strtol(slash + 1, &end, 10);
+  if (end == slash + 1 || *end != '\0' || count < 1 || count > 1024)
+    return false;
+  out.count = static_cast<int>(count);
+  out.dir = dir;
+  if (std::strncmp(spec, "census/", 7) == 0) {
+    out.role = ShardSpec::Role::CENSUS;
+    return true;
+  }
+  const long index = std::strtol(spec, &end, 10);
+  if (end == spec || end != slash || index < 0 || index >= count)
+    return false;
+  out.role = ShardSpec::Role::SHARD;
+  out.index = static_cast<int>(index);
+  return true;
+}
+
+/**
+ * @brief Path of one shard's record file.
+ * @param dir Directory holding the shard records.
+ * @param index Shard index.
+ * @return The path.
+ */
+inline std::string shard_record_path(const char *dir, int index) {
+  return std::string(dir) + "/death_shard_" + std::to_string(index) + ".txt";
+}
+
+/**
+ * @brief Writes one shard's results for the census to merge.
+ * @param shard The shard that ran.
+ * @param n Number of cases in the table.
+ * @param ran Whether this shard ran each case.
+ * @param lines Matched source line for each trapped case, or zero.
+ * @details The header line is "hs-death-shard <index> <count> <n>"; each
+ *          following line is "<case index> <line>" for one case this shard ran.
+ */
+inline void write_shard_record(const ShardSpec &shard, int n,
+                               const std::vector<bool> &ran,
+                               const std::vector<int> &lines) {
+  const std::string path = shard_record_path(shard.dir, shard.index);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  std::FILE *f = std::fopen(path.c_str(), "w");
+#pragma clang diagnostic pop
+  HS_EXPECT_TRUE(f != nullptr);
+  if (!f)
+    return;
+  std::fprintf(f, "hs-death-shard %d %d %d\n", shard.index, shard.count, n);
+  for (int i = 0; i < n; ++i)
+    if (ran[static_cast<size_t>(i)])
+      std::fprintf(f, "%d %d\n", i, lines[static_cast<size_t>(i)]);
+  HS_EXPECT_EQ(std::fclose(f), 0);
+}
+
+/**
+ * @brief Parses whitespace-separated decimal integers filling a record row.
+ * @param row NUL-terminated row text.
+ * @param out Receives the parsed values.
+ * @param count Number of integers the row must hold.
+ * @return True iff the row holds exactly @p count integers.
+ */
+inline bool parse_record_row(const char *row, int *out, int count) {
+  for (int k = 0; k < count; ++k) {
+    char *end = nullptr;
+    const long value = std::strtol(row, &end, 10);
+    if (end == row)
+      return false;
+    out[k] = static_cast<int>(value);
+    row = end;
+  }
+  while (*row == ' ' || *row == '\r' || *row == '\n')
+    ++row;
+  return *row == '\0';
+}
+
+/**
+ * @brief Merges every shard's record into one per-case line table.
+ * @param shard The census selection; its count names the records to read.
+ * @param cs The case table.
+ * @param n Number of cases in it.
+ * @param lines Set to the matched source line for each case, or zero.
+ * @details Fails unless every shard's record is present and well formed and
+ *          the shards together ran each enabled case exactly once. The records
+ *          are deleted after reading, so a stale record never feeds a later
+ *          census.
+ */
+inline void merge_shard_records(const ShardSpec &shard, const Case *cs, int n,
+                                int *lines) {
+  std::vector<int> runs(static_cast<size_t>(n), 0);
+  int problems = 0;
+  for (int k = 0; k < shard.count; ++k) {
+    const std::string path = shard_record_path(shard.dir, k);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    std::FILE *f = std::fopen(path.c_str(), "r");
+#pragma clang diagnostic pop
+    if (!f) {
+      std::printf("  [FAIL] shard %d/%d left no record at %s\n", k, shard.count,
+                  path.c_str());
+      ++problems;
+      continue;
+    }
+    constexpr char HEADER[] = "hs-death-shard ";
+    char row[128] = "";
+    int header[3] = {-1, -1, -1};
+    if (!std::fgets(row, sizeof(row), f) ||
+        std::strncmp(row, HEADER, sizeof(HEADER) - 1) != 0 ||
+        !parse_record_row(row + sizeof(HEADER) - 1, header, 3) ||
+        header[0] != k || header[1] != shard.count || header[2] != n) {
+      std::printf("  [FAIL] shard record %s has a bad header: %s\n",
+                  path.c_str(), row);
+      ++problems;
+    } else {
+      while (std::fgets(row, sizeof(row), f)) {
+        int fields[2] = {-1, 0};
+        const bool parsed = parse_record_row(row, fields, 2);
+        const int i = fields[0];
+        const int line = fields[1];
+        if (!parsed || i < 0 || i >= n || i % shard.count != k) {
+          std::printf("  [FAIL] shard record %s has a bad row: %s\n",
+                      path.c_str(), row);
+          ++problems;
+          continue;
+        }
+        ++runs[static_cast<size_t>(i)];
+        lines[i] = line;
+      }
+    }
+    std::fclose(f);
+    std::remove(path.c_str());
+  }
+  for (int i = 0; i < n; ++i) {
+    const int expected = case_enabled(cs[i]) ? 1 : 0;
+    if (runs[static_cast<size_t>(i)] != expected) {
+      std::printf("  [FAIL] case %s ran in %d shard(s), expected %d\n",
+                  cs[i].name, runs[static_cast<size_t>(i)], expected);
+      ++problems;
+    }
+  }
+  std::printf("  shard census: %d record(s) merged\n", shard.count);
+  HS_EXPECT_EQ(problems, 0);
+}
+
+/**
+ * @brief Compares per-effect frame folds from two fresh child processes.
+ * @details Each child folds every effect cold and then warm; both folds must
+ *          match within a child and across the two children. Their complete
+ *          records must fit in CHILD_OUTPUT_CAP.
+ */
+inline void compare_determinism_folds() {
+  const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
+  const std::string fold_a = child_output();
+  const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE);
+  const std::string fold_b = child_output();
+  HS_EXPECT_TRUE(child_exited_clean(determinism_a));
+  HS_EXPECT_TRUE(child_exited_clean(determinism_b));
+  constexpr size_t EFFECT_COUNT = static_cast<size_t>(HS_EFFECT_COUNT);
+  constexpr size_t PREFIX_BYTES = sizeof("capture ") - 1;
+  constexpr size_t PAYLOAD_BYTES = 33;
+  size_t record_count = 0;
+  size_t offset = 0;
+  while ((offset = fold_a.find("capture ", offset)) != std::string::npos) {
+    HS_CONTEXT("effect", record_count);
+    offset += PREFIX_BYTES;
+    if (offset + PAYLOAD_BYTES >= fold_a.size()) {
+      HS_EXPECT_TRUE(false);
+      break;
+    }
+    const std::string COLD = fold_a.substr(offset, 16);
+    const std::string WARM = fold_a.substr(offset + 17, 16);
+    HS_EXPECT_EQ(COLD.find_first_not_of("0123456789abcdef"), std::string::npos);
+    HS_EXPECT_EQ(WARM.find_first_not_of("0123456789abcdef"), std::string::npos);
+    HS_EXPECT_EQ(fold_a[offset + 16], ' ');
+    HS_EXPECT_TRUE(fold_a[offset + PAYLOAD_BYTES] == '\r' ||
+                   fold_a[offset + PAYLOAD_BYTES] == '\n');
+    HS_EXPECT_EQ(COLD, WARM);
+    ++record_count;
+    offset += PAYLOAD_BYTES;
+  }
+  HS_EXPECT_EQ(record_count, EFFECT_COUNT);
+  HS_EXPECT_EQ(fold_a, fold_b);
+}
+
 /**
  * @brief Parent entry point for the death module.
  * @return The module's failure count.
- * @details Spawn-checks the harness, then runs every case in a child and asserts
- *          each died by the exact trap status. Two fresh processes also compare
- *          per-effect frame folds across cold/warm runs and process boundaries;
- *          their complete records must fit in CHILD_OUTPUT_CAP.
+ * @details Spawn-checks the harness, then runs each case of its slice in a
+ *          child and asserts each died by the exact trap status. The whole
+ *          module and shard 0 also run compare_determinism_folds(). A shard
+ *          writes a record instead of gating coverage; the census merges the
+ *          records and gates coverage without spawning children.
  */
 inline int run_death_tests() {
   hs_test::ModuleFixture fixture("death");
+
+  ShardSpec shard;
+  if (!shard_spec_from_env(shard)) {
+    report_unrunnable("HS_DEATH_SHARD is malformed or HS_DEATH_SHARD_DIR is "
+                      "unset",
+                      0);
+    return fixture.result();
+  }
+
+  int n;
+  const Case *cs = all_cases(n);
+  std::vector<int> lines(static_cast<size_t>(n));
+
+  if (shard.role == ShardSpec::Role::CENSUS) {
+    merge_shard_records(shard, cs, n, lines.data());
+    report_guard_coverage(cs, n, lines.data());
+    return fixture.result();
+  }
+  if (shard.role == ShardSpec::Role::SHARD)
+    std::remove(shard_record_path(shard.dir, shard.index).c_str());
 
   if (!self_exe() || self_exe()[0] == '\0') {
     report_unrunnable("no argv[0] to re-exec", 0);
@@ -2448,9 +2687,6 @@ inline int run_death_tests() {
     set_case_env("");
     return fixture.result();
   }
-
-  int n;
-  const Case *cs = all_cases(n);
 
   // The sentinel proves the trap is observable independently of real cases.
   const int probe = spawn_child(SHAPE_PROBE_CASE);
@@ -2489,47 +2725,19 @@ inline int run_death_tests() {
   HS_EXPECT_FALSE(child_trapped(literal_exit));
 #endif
 
-  const int determinism_a = spawn_child(DETERMINISM_PROBE_CASE);
-  const std::string fold_a = child_output();
-  const int determinism_b = spawn_child(DETERMINISM_PROBE_CASE);
-  const std::string fold_b = child_output();
-  HS_EXPECT_TRUE(child_exited_clean(determinism_a));
-  HS_EXPECT_TRUE(child_exited_clean(determinism_b));
-  constexpr size_t EFFECT_COUNT = static_cast<size_t>(HS_EFFECT_COUNT);
-  constexpr size_t PREFIX_BYTES = sizeof("capture ") - 1;
-  constexpr size_t PAYLOAD_BYTES = 33;
-  size_t record_count = 0;
-  size_t offset = 0;
-  while ((offset = fold_a.find("capture ", offset)) != std::string::npos) {
-    HS_CONTEXT("effect", record_count);
-    offset += PREFIX_BYTES;
-    if (offset + PAYLOAD_BYTES >= fold_a.size()) {
-      HS_EXPECT_TRUE(false);
-      break;
-    }
-    const std::string COLD = fold_a.substr(offset, 16);
-    const std::string WARM = fold_a.substr(offset + 17, 16);
-    HS_EXPECT_EQ(COLD.find_first_not_of("0123456789abcdef"), std::string::npos);
-    HS_EXPECT_EQ(WARM.find_first_not_of("0123456789abcdef"), std::string::npos);
-    HS_EXPECT_EQ(fold_a[offset + 16], ' ');
-    HS_EXPECT_TRUE(fold_a[offset + PAYLOAD_BYTES] == '\r' ||
-                   fold_a[offset + PAYLOAD_BYTES] == '\n');
-    HS_EXPECT_EQ(COLD, WARM);
-    ++record_count;
-    offset += PAYLOAD_BYTES;
-  }
-  HS_EXPECT_EQ(record_count, EFFECT_COUNT);
-  HS_EXPECT_EQ(fold_a, fold_b);
+  if (shard.role == ShardSpec::Role::WHOLE || shard.index == 0)
+    compare_determinism_folds();
 
 #if defined(_WIN32)
   DWORD handles_before = 0;
   HS_EXPECT_TRUE(GetProcessHandleCount(GetCurrentProcess(), &handles_before));
 #endif
 
-  std::vector<int> lines(static_cast<size_t>(n));
+  std::vector<bool> ran(static_cast<size_t>(n), false);
   for (int i = 0; i < n; ++i) {
-    if (!case_enabled(cs[i]))
+    if (!case_enabled(cs[i]) || i % shard.count != shard.index)
       continue;
+    ran[static_cast<size_t>(i)] = true;
     int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc);
     // The child must die at this case's guard, not at another trap.
@@ -2556,7 +2764,10 @@ inline int run_death_tests() {
 
   std::remove(child_capture_path());
   set_case_env(""); // leave the env clean for anything that runs after us
-  report_guard_coverage(cs, n, lines.data());
+  if (shard.role == ShardSpec::Role::SHARD)
+    write_shard_record(shard, n, ran, lines);
+  else
+    report_guard_coverage(cs, n, lines.data());
   return fixture.result();
 }
 

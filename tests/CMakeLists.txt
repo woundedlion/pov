@@ -338,9 +338,32 @@ if(HS_SANITIZE OR HS_TSAN)
   set(_hs_test_timeout 1800)
 endif()
 foreach(_mod IN LISTS _hs_test_modules)
+    if(_mod STREQUAL "death")
+        continue()
+    endif()
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
     set_tests_properties(unit_${_mod} PROPERTIES TIMEOUT ${_hs_test_timeout})
 endforeach()
+
+# The death module runs as unit_death_<k> shards, each spawning the cases whose
+# table index % _hs_death_shards is k and writing a record, plus
+# unit_death_census, which merges the records, requires every enabled case to
+# have run exactly once, and gates guard coverage. `run_tests death` with no
+# HS_DEATH_SHARD runs the whole module in one process.
+set(_hs_death_shards 8)
+math(EXPR _hs_death_last_shard "${_hs_death_shards} - 1")
+foreach(_shard RANGE ${_hs_death_last_shard})
+    add_test(NAME unit_death_${_shard} COMMAND run_tests death)
+    set_tests_properties(unit_death_${_shard} PROPERTIES
+        TIMEOUT ${_hs_test_timeout}
+        FIXTURES_SETUP death_shards
+        ENVIRONMENT "HS_DEATH_SHARD=${_shard}/${_hs_death_shards};HS_DEATH_SHARD_DIR=${CMAKE_CURRENT_BINARY_DIR}")
+endforeach()
+add_test(NAME unit_death_census COMMAND run_tests death)
+set_tests_properties(unit_death_census PROPERTIES
+    TIMEOUT ${_hs_test_timeout}
+    FIXTURES_REQUIRED death_shards
+    ENVIRONMENT "HS_DEATH_SHARD=census/${_hs_death_shards};HS_DEATH_SHARD_DIR=${CMAKE_CURRENT_BINARY_DIR}")
 if(NOT HS_SANITIZE AND NOT HS_TSAN)
     set_tests_properties(unit_effects_smoke PROPERTIES TIMEOUT 1200)
 endif()

@@ -263,7 +263,7 @@ jobs:
             optimization: -O2 -g -DNDEBUG
             float_flags: ""
             test_exclude: *generated_exclude
-            test_include: "^unit_death$"
+            test_include: "^unit_death_([0-9]+|census)$"
             skips_are_errors: 1
     runs-on: ubuntu-24.04
     timeout-minutes: 45
