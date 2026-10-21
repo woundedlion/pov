@@ -1022,43 +1022,6 @@ walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
   }
 }
 
-/**
- * @brief Whether a compact shape can light a pixel of a clip region over one
- *        frame.
- * @tparam W Canvas width in columns.
- * @tparam H Canvas height in rows.
- * @param axis Axis of the cap bounding the shape at the current endpoint.
- * @param radius Angular radius of that cap (radians).
- * @param sweep Largest arc any point of the cap moves over the frame
- *        (radians).
- * @param cr Render clip.
- * @return False only when the swept cap and its antialiasing fringe miss the
- *         clip's rows or columns.
- */
-template <int W, int H>
-HS_NOINLINE_NOCLONE bool cap_meets_clip(const math::Vector &axis, float radius,
-                                        float sweep, const ClipRegion &cr) {
-  // Two rows of reach cover the AA fringe and the row rounding.
-  const float reach =
-      radius + sweep + 2.0f * math::PI_F / (H - 1) + SDF::MOVED_AXIS_SLACK;
-  const float phi = acosf(hs::clamp(axis.y, -1.0f, 1.0f));
-  const SDF::Bounds rows = SDF::phi_bounds_to_rows<H>(phi - reach, phi + reach);
-  if (rows.y_max < cr.render_y_start() || rows.y_min >= cr.render_y_end())
-    return false;
-  const auto xc = cr.x_clip();
-  int lo, hi;
-  if (!xc.active || !lit_span<W>(axis, radius, sweep, lo, hi) ||
-      hi - lo + 1 >= W)
-    return true;
-  const int start = math::wrap(lo, W);
-  const int end = start + (hi - lo);
-  const auto [band_lo, band_hi, pieces] = clip_pieces<W>(xc);
-  for (int i = 0; i < pieces; ++i)
-    if ((start < band_hi[i] && end >= band_lo[i]) || end >= band_lo[i] + W)
-      return true;
-  return false;
-}
-
 /** @brief Up to four non-empty column runs admitted by a clip arc and a
  *         render-x window. */
 struct WindowPieces {

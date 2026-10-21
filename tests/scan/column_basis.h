@@ -542,12 +542,12 @@ inline void test_lit_caps_keep_swept_frames() {
 }
 
 /**
- * @brief A cap that cap_meets_clip() rules out of a clip lights no pixel of
+ * @brief A cap that the swept clip test rules out lights no pixel of
  *        it under the frame's rotation.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  */
-template <int W, int H> inline void check_cap_meets_clip() {
+template <int W, int H> inline void check_swept_cap_clip() {
   HS_CONTEXT(W == 96 ? "cap clip 96" : "cap clip 288");
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(0.2f);
@@ -592,7 +592,13 @@ template <int W, int H> inline void check_cap_meets_clip() {
             reaches |= !xc.clipped(x) &&
                        !is_black(lit[static_cast<size_t>(y) * W + x]);
         const bool meets =
-            Scan::cap_meets_clip<W, H>(axis, radius, time.sweep, cr);
+            Plot::cap_may_touch_clip<W, H>(cr, axis, radius, time.sweep);
+        const auto cap =
+            Plot::make_swept_cap_clip<W, H>(cr, radius, time.sweep);
+        HS_EXPECT_EQ(meets, Plot::cap_may_touch_clip<H>(cap, axis));
+        const auto center = Plot::make_cap_center(cr, axis);
+        HS_EXPECT_EQ(meets, (Plot::cap_may_touch_clip<W, H>(cr, center, radius,
+                                                            time.sweep)));
         if (reaches)
           HS_EXPECT_TRUE(meets);
         ruled_out += !meets;
@@ -604,10 +610,11 @@ template <int W, int H> inline void check_cap_meets_clip() {
   HS_EXPECT_GT(ruled_out, SHAPES);
 }
 
-/** @brief cap_meets_clip() keeps every clip a swept star or disc lights. */
-inline void test_cap_meets_clip_keeps_lit_clips() {
-  check_cap_meets_clip<96, 48>();
-  check_cap_meets_clip<288, 144>();
+/** @brief Swept cap culling keeps every clip a swept star or disc lights. */
+inline void test_swept_cap_clip_keeps_lit_clips() {
+  check_swept_cap_clip<96, 20>();
+  check_swept_cap_clip<96, 48>();
+  check_swept_cap_clip<288, 144>();
 }
 
 /**

@@ -141,14 +141,17 @@ private:
     const float sweep =
         (column_time.azimuth ? column_time.sweep : 0.0f) + MAX_DRIFT;
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
+    const auto cap = Plot::make_swept_cap_clip<W, H>(clip, reach, sweep);
+    const auto warp = [this](const math::Vector &point) HS_O3_FN HS_HOT_INLINE
+        __attribute__((flatten)) { return transformer.transform(point); };
     for (int i = 0; i < points; i++) {
-      math::Vector v = transformer.transform(spiral_cache[i]);
+      math::Vector v = warp(spiral_cache[i]);
       const math::Vector drawn = drawn_centres[i];
       drawn_centres[i] = v;
 
       // make_basis() applies the orientation; pass the unrotated point.
       math::Basis basis = math::make_basis(orientation.get(), v);
-      if (culls && !Scan::cap_meets_clip<W, H>(basis.v, reach, sweep, clip))
+      if (culls && !Plot::cap_may_touch_clip<H>(cap, basis.v))
         continue;
       if (drifting) {
         const math::Vector drift = star_drift(drawn, v);

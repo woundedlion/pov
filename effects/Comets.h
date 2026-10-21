@@ -244,11 +244,12 @@ private:
     const bool culls = !params.debug_bb && !canvas.debug();
     const float sweep = column_time.azimuth ? column_time.sweep : 0.0f;
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
+    const auto cap =
+        Plot::make_swept_cap_clip<W, H>(clip, params.thickness, sweep);
     deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
       math::Vector v_local = math::rotate(node->v, q);
       math::Vector v_final = orientation.orient(v_local);
-      if (culls &&
-          !Scan::cap_meets_clip<W, H>(v_final, params.thickness, sweep, clip))
+      if (culls && !Plot::cap_may_touch_clip<H>(cap, v_final))
         return;
       const float fade = math::quintic_kernel(t) * params.alpha;
       Color4 color = baked_palette.get(t);
