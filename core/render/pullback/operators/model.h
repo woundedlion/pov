@@ -226,8 +226,12 @@ struct OperatorRuntime {
   /** Constructs `out` as the state at a frame fraction between two endpoints,
       given the column's param block; null for a state without clocks, which
       the column reads at its current endpoint. */
-  void (*sample_state)(void *out, const void *from, const void *to,
-                       const uint8_t *params, float fraction) = nullptr;
+  void (*sample_state)(void *out, const void *to, const uint8_t *params,
+                       float fraction, const void *interval) = nullptr;
+  /** Constructs a clock interval in history prepared storage. */
+  void (*prepare_interval)(void *out, const void *from,
+                           const void *to) = nullptr;
+  BlockLayout interval{1, 1}; ///< Retained column clock interval layout.
 };
 
 /**
@@ -427,7 +431,7 @@ namespace Detail {
 template <typename State, typename Params>
 concept TemporalState =
     requires(State &out, const State &state, const Params &params) {
-      temporal_sample(out, state, state, params, 0.0f);
+      temporal_sample(out, temporal_interval(state, state), params, 0.0f);
     };
 
 /** Typed-to-erased trampolines over one operator model. */
@@ -560,18 +564,32 @@ template <typename Model> struct ErasedAdapter {
    * @brief Constructs a copy of @p to whose clocks are sampled between the
    *        endpoints by the state's `temporal_sample` overload.
    * @param out Raw state storage.
-   * @param from Constructed state at fraction 0.
    * @param to Constructed state at fraction 1.
    * @param params The column's param block.
    * @param fraction Frame fraction in [0, 1].
+   * @param interval Prepared frame clocks.
    */
-  static void sample_state(void *out, const void *from, const void *to,
-                           const uint8_t *params, float fraction) {
+  static void sample_state(void *out, const void *to, const uint8_t *params,
+                           float fraction, const void *interval) {
+    using Interval = decltype(temporal_interval(std::declval<const State &>(),
+                                                std::declval<const State &>()));
     const State &end = *std::launder(static_cast<const State *>(to));
     State &column = *::new (out) State(end);
     temporal_sample(
-        column, *std::launder(static_cast<const State *>(from)), end,
+        column, *std::launder(static_cast<const Interval *>(interval)),
         *std::launder(reinterpret_cast<const Params *>(params)), fraction);
+  }
+
+  /** @brief Constructs a prepared clock interval.
+   * @param out Raw interval storage.
+   * @param from Previous state.
+   * @param to Current state. */
+  static void prepare_interval(void *out, const void *from, const void *to) {
+    const State &a = *std::launder(static_cast<const State *>(from));
+    const State &b = *std::launder(static_cast<const State *>(to));
+    using Interval = decltype(temporal_interval(a, b));
+    static_assert(std::is_trivially_destructible_v<Interval>);
+    ::new (out) Interval(temporal_interval(a, b));
   }
 
   /**
@@ -625,7 +643,7 @@ template <typename Model> constexpr auto model_plane_bound() {
  */
 template <typename Model> constexpr auto model_sample_state() {
   using SampleState =
-      void (*)(void *, const void *, const void *, const uint8_t *, float);
+      void (*)(void *, const void *, const uint8_t *, float, const void *);
   using State = typename Model::State;
   if constexpr (TemporalState<State, typename Model::Params>) {
     static_assert(std::is_copy_constructible_v<State>,
@@ -633,6 +651,31 @@ template <typename Model> constexpr auto model_sample_state() {
     return static_cast<SampleState>(&ErasedAdapter<Model>::sample_state);
   } else {
     return static_cast<SampleState>(nullptr);
+  }
+}
+
+/** @brief Interval preparation callback for a temporal operator.
+ * @tparam Model Operator model.
+ * @return Callback, or null for a state without clocks. */
+template <typename Model> constexpr auto model_prepare_interval() {
+  using Prepare = void (*)(void *, const void *, const void *);
+  if constexpr (TemporalState<typename Model::State, typename Model::Params>)
+    return static_cast<Prepare>(&ErasedAdapter<Model>::prepare_interval);
+  else
+    return static_cast<Prepare>(nullptr);
+}
+
+/** @brief Storage for column clock intervals.
+ * @tparam Model Operator model.
+ * @return Interval layout, or an empty byte. */
+template <typename Model> constexpr BlockLayout model_interval_layout() {
+  using State = typename Model::State;
+  if constexpr (TemporalState<State, typename Model::Params>) {
+    using Interval = decltype(temporal_interval(std::declval<const State &>(),
+                                                std::declval<const State &>()));
+    return {sizeof(Interval), alignof(Interval)};
+  } else {
+    return {1, 1};
   }
 }
 
@@ -831,6 +874,8 @@ constexpr OperatorDescriptor make_operator_descriptor() {
           Detail::model_plane_bound<Model>(),
           &Adapter::sample_params,
           Detail::model_sample_state<Model>(),
+          Detail::model_prepare_interval<Model>(),
+          Detail::model_interval_layout<Model>(),
       },
       Detail::model_approximate<Model>(),
       Detail::model_oracle<Model>(),

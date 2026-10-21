@@ -39,6 +39,15 @@ parameters use their declared curves, and periodic clocks take the shortest arc.
 Quaternion arc setup and periodic clock deltas are prepared once per frame.
 Unchanged parameter blocks share an interior sample of their declared curves.
 
+`sample_frame` delegates composed intervals to `TemporalFrameSampler`.
+`ClockInterval` supplies periodic delta preparation and application for both
+composed resources and interpreter operators. The interpreter prepares typed
+clock intervals on the first column after frame preparation, advancement or
+history replacement; they occupy the retained block's prepared storage.
+Ripple clocks retain endpoints because their period comes from each column's
+interpolated parameters. SphericalHarmonics prepares its orientation arc before
+the column loop.
+
 `Spec::FACTORED_COLUMNS` separately enables a prepared meridian basis for
 pipelines beginning with rotation and projection. GridSpace enables it for both
 temporal and instantaneous rendering. Two transformed basis vectors replace

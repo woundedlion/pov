@@ -28,83 +28,6 @@ HS_FLASH_INLINE void hold_discrete_lenses(Frame &frame, const Frame &from,
   });
 }
 
-/** @brief Samples spatial state and clocks between consecutive frame endpoints.
- * @tparam Frame Composed temporal frame context.
- * @param from Previous frame, with retained palette and hue tables.
- * @param to Current frame.
- * @param fraction Fraction of one frame, in [0, 1].
- * @param constant_params Interior parameter sample when both endpoints agree.
- * @return Column context with resources borrowed from the endpoints. */
-template <typename Frame>
-HS_FLASH_INLINE Frame
-sample_frame(const Frame &from, const Frame &to, float fraction,
-             const decltype(Frame::params) *constant_params = nullptr) {
-  if (fraction <= 0.0f) {
-    Frame frame = from;
-    hold_discrete_lenses(frame, from, to);
-    return frame;
-  }
-  if (fraction >= 1.0f)
-    return to;
-  Frame frame = to;
-  frame.projection_conjugate =
-      math::slerp(from.projection_conjugate, to.projection_conjugate, fraction);
-  frame.outer_conjugate =
-      math::slerp(from.outer_conjugate, to.outer_conjugate, fraction);
-  frame.params = constant_params
-                     ? *constant_params
-                     : interpolate(from.params, to.params, fraction);
-  frame.palette_mapping = Color::PaletteMappingWeights::lerp(
-      from.palette_mapping, to.palette_mapping, fraction);
-  frame.palette_oscillation_phase =
-      sample_clock(from.palette_oscillation_phase, to.palette_oscillation_phase,
-                   fraction, 1.0f);
-  frame.params.visit([&]<typename Resource>(const auto &family) {
-    auto &clock = frame.resources.template get<Resource::KEY>();
-    const auto &a = from.resources.template get<Resource::KEY>();
-    const auto &b = to.resources.template get<Resource::KEY>();
-    if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-      clock.primary =
-          sample_clock(a.primary, b.primary, fraction, math::TWO_PI_F);
-      clock.secondary =
-          sample_clock(a.secondary, b.secondary, fraction, math::TWO_PI_F);
-      clock.angle = sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F);
-      clock.noise_time =
-          sample_clock(a.noise_time, b.noise_time, fraction, 1.0f);
-    } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-      clock.phase = sample_clock(a.phase, b.phase, fraction, 1.0f);
-      if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-        clock.rotation =
-            sample_clock(a.rotation, b.rotation, fraction, math::TWO_PI_F);
-    } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
-      if constexpr (std::is_same_v<typename Resource::Family,
-                                   PeriodicRippleParams>)
-        clock.phase = sample_clock(a.phase, b.phase, fraction, family.period);
-      else
-        clock.phase = sample_clock(a.phase, b.phase, fraction, 1.0f);
-    } else if constexpr (std::is_same_v<typename Resource::Family,
-                                        MobiusLensParams>) {
-      const auto &start = from.params.template get<Resource::KEY>();
-      const auto &end = to.params.template get<Resource::KEY>();
-      frame.params.template get<Resource::KEY>() =
-          lens_phase_continuous(start, end, a, b)
-              ? sample_lens_phase(
-                    end,
-                    sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F),
-                    a.magnitude + (b.magnitude - a.magnitude) * fraction)
-              : end;
-    }
-  });
-  frame.temporal = {from.palette,
-                    from.hue_rotation_lut,
-                    from.hue_noise_lut,
-                    fraction,
-                    from.hue_rotation_linear,
-                    from.palette_alpha,
-                    from.hue_noise_linear};
-  return frame;
-}
-
 /** @brief Shared preparation for column samples of one frame interval. */
 template <typename Frame> class TemporalFrameSampler {
   using Params = decltype(Frame::params);
@@ -129,8 +52,8 @@ public:
         projection(a.projection_conjugate, b.projection_conjugate),
         outer(a.outer_conjugate, b.outer_conjugate), interior_params(b.params),
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
-        oscillation_delta(std::remainder(
-            b.palette_oscillation_phase - a.palette_oscillation_phase, 1.0f)),
+        oscillation_delta(ClockInterval::prepare_delta(
+            a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
         same_noise(a.hue_noise_lut && b.hue_noise_lut &&
                    std::memcmp(a.hue_noise_lut, b.hue_noise_lut,
                                Color::HueNoiseLutView::SIZE) == 0),
@@ -169,25 +92,29 @@ public:
       const auto &start = a.resources.template get<Resource::KEY>();
       const auto &end = b.resources.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        delta.primary =
-            std::remainder(end.primary - start.primary, math::TWO_PI_F);
-        delta.secondary =
-            std::remainder(end.secondary - start.secondary, math::TWO_PI_F);
-        delta.angle = std::remainder(end.angle - start.angle, math::TWO_PI_F);
-        delta.noise_time =
-            std::remainder(end.noise_time - start.noise_time, 1.0f);
+        delta.primary = ClockInterval::prepare_delta(start.primary, end.primary,
+                                                     math::TWO_PI_F);
+        delta.secondary = ClockInterval::prepare_delta(
+            start.secondary, end.secondary, math::TWO_PI_F);
+        delta.angle = ClockInterval::prepare_delta(start.angle, end.angle,
+                                                   math::TWO_PI_F);
+        delta.noise_time = ClockInterval::prepare_delta(start.noise_time,
+                                                        end.noise_time, 1.0f);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        delta.phase = std::remainder(end.phase - start.phase, 1.0f);
+        delta.phase =
+            ClockInterval::prepare_delta(start.phase, end.phase, 1.0f);
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-          delta.rotation =
-              std::remainder(end.rotation - start.rotation, math::TWO_PI_F);
+          delta.rotation = ClockInterval::prepare_delta(
+              start.rotation, end.rotation, math::TWO_PI_F);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE &&
                            !std::is_same_v<typename Resource::Family,
                                            PeriodicRippleParams>) {
-        delta.phase = std::remainder(end.phase - start.phase, 1.0f);
+        delta.phase =
+            ClockInterval::prepare_delta(start.phase, end.phase, 1.0f);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
-        delta.angle = std::remainder(end.angle - start.angle, math::TWO_PI_F);
+        delta.angle = ClockInterval::prepare_delta(start.angle, end.angle,
+                                                   math::TWO_PI_F);
         delta.magnitude = end.magnitude - start.magnitude;
         delta.generated = lens_phase_continuous(
             a.params.template get<Resource::KEY>(),
@@ -226,21 +153,25 @@ public:
     }
     frame.palette_mapping = Color::PaletteMappingWeights::lerp(
         from.palette_mapping, to.palette_mapping, fraction);
-    frame.palette_oscillation_phase =
-        from.palette_oscillation_phase + oscillation_delta * fraction;
+    frame.palette_oscillation_phase = ClockInterval::apply(
+        from.palette_oscillation_phase, oscillation_delta, fraction);
     frame.params.visit([&]<typename Resource>(const auto &family) {
       auto &clock = frame.resources.template get<Resource::KEY>();
       const auto &start = from.resources.template get<Resource::KEY>();
       const auto &delta = deltas.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        clock.primary = start.primary + delta.primary * fraction;
-        clock.secondary = start.secondary + delta.secondary * fraction;
-        clock.angle = start.angle + delta.angle * fraction;
-        clock.noise_time = start.noise_time + delta.noise_time * fraction;
+        clock.primary =
+            ClockInterval::apply(start.primary, delta.primary, fraction);
+        clock.secondary =
+            ClockInterval::apply(start.secondary, delta.secondary, fraction);
+        clock.angle = ClockInterval::apply(start.angle, delta.angle, fraction);
+        clock.noise_time =
+            ClockInterval::apply(start.noise_time, delta.noise_time, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        clock.phase = start.phase + delta.phase * fraction;
+        clock.phase = ClockInterval::apply(start.phase, delta.phase, fraction);
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-          clock.rotation = start.rotation + delta.rotation * fraction;
+          clock.rotation =
+              ClockInterval::apply(start.rotation, delta.rotation, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
                                      PeriodicRippleParams>)
@@ -248,15 +179,19 @@ public:
               start.phase, to.resources.template get<Resource::KEY>().phase,
               fraction, family.period);
         else
-          clock.phase = start.phase + delta.phase * fraction;
+          clock.phase =
+              ClockInterval::apply(start.phase, delta.phase, fraction);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
         const auto &end = to.params.template get<Resource::KEY>();
         frame.params.template get<Resource::KEY>() =
-            delta.generated ? sample_lens_phase(
-                                  end, start.angle + delta.angle * fraction,
-                                  start.magnitude + delta.magnitude * fraction)
-                            : end;
+            delta.generated
+                ? sample_lens_phase(
+                      end,
+                      ClockInterval::apply(start.angle, delta.angle, fraction),
+                      ClockInterval::apply(start.magnitude, delta.magnitude,
+                                           fraction))
+                : end;
       }
     });
     frame.temporal = {from.palette,
@@ -271,6 +206,18 @@ public:
     return frame;
   }
 };
+
+/** @brief Samples spatial state and clocks from a prepared frame interval.
+ * @tparam Frame Composed temporal frame context.
+ * @param from Previous frame with retained resources.
+ * @param to Current frame.
+ * @param fraction Frame fraction in [0, 1].
+ * @return Context borrowing the endpoint resources. */
+template <typename Frame>
+HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
+                                   float fraction) {
+  return TemporalFrameSampler(from, to).sample(fraction);
+}
 
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
 template <typename Frame, HueMode Hue, bool FloatHue>

@@ -236,8 +236,8 @@ public:
     for (const OperatorDescriptor &entry : operator_table) {
       HS_CHECK(entry.input <= entry.output,
                "ChainProgram::bind_storage: operator family rank decreases");
-      for (BlockLayout layout :
-           {entry.runtime.param, entry.runtime.prepared, entry.runtime.state}) {
+      for (BlockLayout layout : {entry.runtime.param, entry.runtime.prepared,
+                                 entry.runtime.state, entry.runtime.interval}) {
         HS_CHECK(layout.align != 0 &&
                      (layout.align & (layout.align - 1)) == 0 &&
                      layout.align <= alignof(std::max_align_t),
@@ -367,9 +367,11 @@ public:
                             const_block_ptr(active, op.param_offset), fraction);
       const void *state = const_block_ptr(active, op.state_offset);
       if (runtime.sample_state != nullptr) {
-        runtime.sample_state(column + op.state_offset,
-                             history + op.state_offset, state, params,
-                             fraction);
+        if (!intervals_prepared)
+          runtime.prepare_interval(history + op.prepared_offset,
+                                   history + op.state_offset, state);
+        runtime.sample_state(column + op.state_offset, state, params, fraction,
+                             history + op.prepared_offset);
         state = column + op.state_offset;
       }
       runtime.prepare(
@@ -381,6 +383,7 @@ public:
       if (runtime.sample_state != nullptr)
         runtime.destroy(column + op.state_offset);
     }
+    intervals_prepared = true;
     needs_prepare = false;
   }
 
@@ -426,6 +429,7 @@ public:
   /** @brief Drops the retained endpoint; the next capture_history() primes
       it. */
   void clear_history() {
+    intervals_prepared = false;
     for (size_t index = 0; index < history_ops.count; ++index)
       history_ops.ops[index].op->runtime.destroy(
           history + history_ops.ops[index].state_offset);
@@ -558,6 +562,7 @@ public:
 
   /** @brief Steps every op's per-frame clocks; once per frame. */
   void advance() {
+    intervals_prepared = false;
     Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       ChainOp &op = side.ops[index];
@@ -569,6 +574,7 @@ public:
   /** @brief Resolves every op's prepared block from @p ctx.
    *  @param ctx Frame context. */
   void prepare(const FrameContext &ctx) {
+    intervals_prepared = false;
     Side &side = sides[active];
     for (size_t index = 0; index < side.count; ++index) {
       ChainOp &op = side.ops[index];
@@ -729,7 +735,8 @@ private:
       size_t param_offset, prepared_offset, state_offset, id_offset,
           name_offset;
       if (!reserve(runtime.param.size, runtime.param.align, param_offset) ||
-          !reserve(runtime.prepared.size, runtime.prepared.align,
+          !reserve(std::max(runtime.prepared.size, runtime.interval.size),
+                   std::max(runtime.prepared.align, runtime.interval.align),
                    prepared_offset) ||
           !reserve(runtime.state.size, runtime.state.align, state_offset) ||
           !reserve(PER_OP_OVERHEAD_BYTES, 1, id_offset) ||
@@ -779,6 +786,7 @@ private:
   uint8_t active = 0;
   bool has_program = false;
   bool needs_prepare = false;
+  bool intervals_prepared = false; ///< Column clock intervals match this frame.
 };
 
 /** Largest admitted plane-carrier magnitude bound: its square, scaled by any

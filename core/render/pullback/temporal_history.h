@@ -18,6 +18,44 @@
 
 namespace Pullback {
 
+/** @brief Prepared shortest arc of a periodic clock. */
+struct ClockInterval {
+  float from;  ///< Previous clock value.
+  float delta; ///< Shortest signed advance.
+
+  /** @brief Prepares a periodic advance.
+   * @param a Previous clock value.
+   * @param b Current clock value.
+   * @param period Clock period. */
+  HS_FLASH_INLINE ClockInterval(float a, float b, float period)
+      : from(a), delta(prepare_delta(a, b, period)) {}
+
+  /** @brief Prepares a shortest periodic advance for external storage.
+   * @param a Previous clock value.
+   * @param b Current clock value.
+   * @param period Clock period.
+   * @return Signed clock advance. */
+  HS_FLASH_INLINE static float prepare_delta(float a, float b, float period) {
+    return std::remainder(b - a, period);
+  }
+
+  /** @brief Applies a prepared advance.
+   * @param from Previous clock value.
+   * @param delta Signed clock advance.
+   * @param fraction Frame fraction in [0, 1].
+   * @return Interpolated clock value. */
+  HS_HOT_INLINE static float apply(float from, float delta, float fraction) {
+    return from + delta * fraction;
+  }
+
+  /** @brief Evaluates the prepared clock.
+   * @param fraction Frame fraction in [0, 1].
+   * @return Clock value, equivalent modulo its period. */
+  HS_HOT_INLINE float sample(float fraction) const {
+    return apply(from, delta, fraction);
+  }
+};
+
 /** @brief Interpolates the shortest arc of a periodic clock.
  * @param from Previous clock value.
  * @param to Current clock value.
@@ -25,7 +63,7 @@ namespace Pullback {
  * @param period Clock period; the frame advance must be less than half of it.
  * @return Interpolated clock, equivalent modulo the period. */
 inline float sample_clock(float from, float to, float fraction, float period) {
-  return from + std::remainder(to - from, period) * fraction;
+  return ClockInterval(from, to, period).sample(fraction);
 }
 
 /** @brief Samples an effect frame that interpolates itself.

@@ -7,6 +7,87 @@
  * @brief Column-time interpolation and retained-resource tests.
  */
 
+/** @brief Samples spatial state and clocks between consecutive frame endpoints.
+ * @tparam Frame Composed temporal frame context.
+ * @param from Previous frame, with retained palette and hue tables.
+ * @param to Current frame.
+ * @param fraction Fraction of one frame, in [0, 1].
+ * @param constant_params Interior parameter sample when both endpoints agree.
+ * @return Column context with resources borrowed from the endpoints. */
+template <typename Frame>
+HS_FLASH_INLINE Frame sample_frame_reference(
+    const Frame &from, const Frame &to, float fraction,
+    const decltype(Frame::params) *constant_params = nullptr) {
+  if (fraction <= 0.0f) {
+    Frame frame = from;
+    Pullback::hold_discrete_lenses(frame, from, to);
+    return frame;
+  }
+  if (fraction >= 1.0f)
+    return to;
+  Frame frame = to;
+  frame.projection_conjugate =
+      math::slerp(from.projection_conjugate, to.projection_conjugate, fraction);
+  frame.outer_conjugate =
+      math::slerp(from.outer_conjugate, to.outer_conjugate, fraction);
+  frame.params = constant_params
+                     ? *constant_params
+                     : Pullback::interpolate(from.params, to.params, fraction);
+  frame.palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
+      from.palette_mapping, to.palette_mapping, fraction);
+  frame.palette_oscillation_phase =
+      Pullback::sample_clock(from.palette_oscillation_phase,
+                             to.palette_oscillation_phase, fraction, 1.0f);
+  frame.params.visit([&]<typename Resource>(const auto &family) {
+    auto &clock = frame.resources.template get<Resource::KEY>();
+    const auto &a = from.resources.template get<Resource::KEY>();
+    const auto &b = to.resources.template get<Resource::KEY>();
+    if constexpr (Resource::KIND == Pullback::ResourceKind::SOURCE) {
+      clock.primary = Pullback::sample_clock(a.primary, b.primary, fraction,
+                                             math::TWO_PI_F);
+      clock.secondary = Pullback::sample_clock(a.secondary, b.secondary,
+                                               fraction, math::TWO_PI_F);
+      clock.angle =
+          Pullback::sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F);
+      clock.noise_time =
+          Pullback::sample_clock(a.noise_time, b.noise_time, fraction, 1.0f);
+    } else if constexpr (Resource::KIND == Pullback::ResourceKind::WARP) {
+      clock.phase = Pullback::sample_clock(a.phase, b.phase, fraction, 1.0f);
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   Pullback::AffineParams>)
+        clock.rotation = Pullback::sample_clock(a.rotation, b.rotation,
+                                                fraction, math::TWO_PI_F);
+    } else if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE) {
+      if constexpr (std::is_same_v<typename Resource::Family,
+                                   Pullback::PeriodicRippleParams>)
+        clock.phase =
+            Pullback::sample_clock(a.phase, b.phase, fraction, family.period);
+      else
+        clock.phase = Pullback::sample_clock(a.phase, b.phase, fraction, 1.0f);
+    } else if constexpr (std::is_same_v<typename Resource::Family,
+                                        Pullback::MobiusLensParams>) {
+      const auto &start = from.params.template get<Resource::KEY>();
+      const auto &end = to.params.template get<Resource::KEY>();
+      frame.params.template get<Resource::KEY>() =
+          Pullback::lens_phase_continuous(start, end, a, b)
+              ? Pullback::sample_lens_phase(
+                    end,
+                    Pullback::sample_clock(a.angle, b.angle, fraction,
+                                           math::TWO_PI_F),
+                    a.magnitude + (b.magnitude - a.magnitude) * fraction)
+              : end;
+    }
+  });
+  frame.temporal = {from.palette,
+                    from.hue_rotation_lut,
+                    from.hue_noise_lut,
+                    fraction,
+                    from.hue_rotation_linear,
+                    from.palette_alpha,
+                    from.hue_noise_linear};
+  return frame;
+}
+
 /** @brief Custom shading remains authoritative with column factoring enabled. */
 class TemporalShadeProbe
     : public Pullback::ComposedEffect<96, 20, TemporalShadeProbe,
@@ -94,7 +175,7 @@ inline void test_temporal_clock_sampling() {
       for (int column = 0; column <= 144; ++column) {
         const float FRACTION = column / 144.0f;
         const auto actual = sampler.sample(FRACTION);
-        const auto expected = Pullback::sample_frame(from, to, FRACTION);
+        const auto expected = sample_frame_reference(from, to, FRACTION);
         const auto check_rotation = [](const math::Quaternion &a,
                                        const math::Quaternion &b) {
           HS_EXPECT_NEAR(a.r, b.r, 1e-7f);
@@ -232,6 +313,8 @@ inline void test_temporal_equal_palettes_color_as_current() {
                               Pullback::Color::BrightnessEnvelope::CUP>>;
   const Pullback::TemporalFrameSampler EQUAL(history.previous, current);
   auto sample = EQUAL.sample(0.5f);
+  HS_EXPECT_TRUE(Pullback::sample_frame(history.previous, current, 0.5f)
+                     .temporal.same_palette);
   HS_EXPECT_TRUE(sample.temporal.same_palette);
   sample.params.template get<"color">().hue_shift_amount = 0.3f;
   const auto prepared = PathPalette::prepare(sample);

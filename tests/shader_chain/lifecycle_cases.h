@@ -572,7 +572,7 @@ inline void test_shader_chain_param_names_and_budget() {
   HS_EXPECT_TRUE(std::string_view(program.param_name(3, 0)) ==
                  "colorize.hue-shift-amount");
 
-  // The committed footprint equals the accounted layout: cataloged blocks,
+  // The committed footprint equals the accounted layout: operator blocks,
   // the per-op overhead, and the fixed per-field name reservation.
   size_t expected_bytes = 0;
   const auto align_to = [](size_t offset, size_t alignment) {
@@ -582,8 +582,9 @@ inline void test_shader_chain_param_names_and_budget() {
     const In::OperatorRuntime &runtime = op.op->runtime;
     expected_bytes = align_to(expected_bytes, runtime.param.align);
     expected_bytes += runtime.param.size;
-    expected_bytes = align_to(expected_bytes, runtime.prepared.align);
-    expected_bytes += runtime.prepared.size;
+    expected_bytes = align_to(expected_bytes, std::max(runtime.prepared.align,
+                                                       runtime.interval.align));
+    expected_bytes += std::max(runtime.prepared.size, runtime.interval.size);
     expected_bytes = align_to(expected_bytes, runtime.state.align);
     expected_bytes += runtime.state.size;
     expected_bytes += In::PER_OP_OVERHEAD_BYTES;
