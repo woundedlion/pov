@@ -917,6 +917,7 @@ inline void run_islamicstars_cases() {
   run_case(test_islamicstars_pause_holds_shape);
 
   run_case(test_islamicstars_prepared_build);
+  run_case(test_islamicstars_prepared_ripples);
 }
 
 /**

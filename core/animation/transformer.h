@@ -737,7 +737,7 @@ constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
  * @param phase Angular position of the wavelet peak.
  * @return The displaced vector.
  */
-HS_O3_FN inline math::Vector
+HS_O3_FN HS_HOT_INLINE inline math::Vector
 ripple_transform_at_distance(const math::Vector &v,
                              const Animation::RippleWave &params,
                              float distance, float phase) {
@@ -771,7 +771,7 @@ ripple_transform_at_distance(const math::Vector &v,
  * @param params The ripple parameters.
  * @return The displaced vector.
  */
-HS_O3_FN inline math::Vector
+HS_O3_FN HS_HOT_INLINE inline math::Vector
 ripple_transform(const math::Vector &v, const Animation::RippleWave &params) {
   // Between ripples the envelope drives amplitude to 0.
   if (params.amplitude <= 0.001f)
@@ -951,7 +951,7 @@ inline float noise_product_field(const math::Vector &v,
  * @param params The ripple parameters.
  * @return The displaced vector.
  */
-HS_O3_FN inline math::Vector
+HS_O3_FN HS_HOT_INLINE inline math::Vector
 ripple_params_transform(const math::Vector &v,
                         const Animation::RippleParams &params) {
   return ripple_transform(v, params);
