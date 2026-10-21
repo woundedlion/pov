@@ -103,7 +103,7 @@ HS_HOT_INLINE inline bool intervals_meet_window(const IntervalBufT &intervals,
     const int a = static_cast<int>(iv.start);
     // A zero-width interval still owns its column.
     const int len = std::max(static_cast<int>(iv.end) - a, 1);
-    const int s = ((a % W) + W) % W;
+    const int s = math::wrap(a, W);
     if (ClipRegion::arcs_overlap(window.begin, length, s, len, W) ||
         ClipRegion::arcs_overlap(window.begin + W / 2, length, s, len, W))
       return true;
@@ -567,7 +567,7 @@ HS_HOT_INLINE void cap_lit_columns(const math::Vector &axis, float radius,
   if (radius == UNBOUNDED_FACE_CAP ||
       !lit_span<W>(axis, radius, reach, lo, hi) || hi - lo >= W - 1)
     return;
-  columns[0] = static_cast<uint16_t>(((lo % W) + W) % W);
+  columns[0] = static_cast<uint16_t>(math::wrap(lo, W));
   columns[1] = static_cast<uint16_t>(hi - lo);
 }
 
@@ -891,10 +891,10 @@ HS_HOT_INLINE float capture_fraction(const math::Vector &p,
   const int x = hs::clamp(static_cast<int>(u * (W / 2)), 0, W / 2 - 1);
   const math::Vector tangent = math::cross(time.azimuth[x], time.up[x]);
   const float fraction =
-      static_cast<float>(x) / (W / 2) +
+      Temporal::sweep_fraction(x, W) +
       math::fast_atan2(math::dot(p, tangent), math::dot(p, time.azimuth[x])) /
           math::PI_F;
-  return fraction - floorf(fraction);
+  return math::wrap_t(fraction);
 }
 
 /** @brief Polar band inside which a capture holds a vertex at its endpoint. */
@@ -937,7 +937,7 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
   if (horizontal <= hold.sin_bound ||
       hold.bound / horizontal >= math::PI_F / 4.0f)
     return end;
-  const float angle = math::fast_atan2(end.z, end.x) / math::PI_F;
+  const float angle = math::half_turns(end);
   float u = unwrap_capture(angle - floorf(angle), centre);
   const math::Vector first = vertex(u);
   u = unwrap_capture(capture_fraction<W>(first, time, u), u);

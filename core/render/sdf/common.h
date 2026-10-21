@@ -770,7 +770,8 @@ inline CapBounds swept_cap(const CapBounds &cap, float arc) {
 
 /// Angle a cap or band grows by when re-centred on another axis, covering
 /// fast_acos's peak colatitude error (5e-5 rad).
-inline constexpr float MOVED_AXIS_SLACK = 1e-4f;
+inline constexpr float MOVED_AXIS_SLACK =
+    static_cast<float>(math::FAST_ACOS_MAX_ERROR);
 
 /**
  * @brief Azimuth an axis turns through about the canvas pole.

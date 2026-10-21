@@ -603,14 +603,6 @@ HS_HOT_INLINE Captures solve_capture(Probe &&probe, math::PixelCoords end,
   return out;
 }
 
-/** @brief Azimuth of a point in half-turns, so that a column's sweep
- * fraction is this value modulo one.
- * @param p Point on the sphere.
- * @return Azimuth divided by pi, in [-1, 1]. */
-__attribute__((always_inline)) inline float half_turns(const math::Vector &p) {
-  return math::fast_atan2(p.z, p.x) / math::PI_F;
-}
-
 /**
  * @brief Solves `u = (theta(u) / pi) mod 1` for a point sampled at evenly
  *        spaced frame fractions.
@@ -627,12 +619,12 @@ HS_FLASH_MEMBER inline Captures capture(std::span<const math::Vector> nodes) {
   assert(nodes.size() >= 2 && nodes.size() <= MAX_CAPTURE_NODES);
   const int last = static_cast<int>(nodes.size()) - 1;
   std::array<float, MAX_CAPTURE_NODES> relative;
-  float azimuth = half_turns(nodes[0]);
+  float azimuth = math::half_turns(nodes[0]);
   float unwrapped = azimuth;
   relative[0] = unwrapped;
   Captures out;
   for (int i = 1; i <= last; ++i) {
-    const float next = half_turns(nodes[i]);
+    const float next = math::half_turns(nodes[i]);
     unwrapped += std::remainder(next - azimuth, 2.0f);
     azimuth = next;
     relative[i] = unwrapped - static_cast<float>(i) / last;

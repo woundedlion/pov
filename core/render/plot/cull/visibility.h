@@ -284,9 +284,11 @@ struct CapCenter {
 };
 
 /** @brief Angular slack for fast_acos, radians. */
-inline constexpr float CAP_ACOS_PAD = 1e-3f;
+inline constexpr float CAP_ACOS_PAD =
+    static_cast<float>(10.0 * math::FAST_ACOS_MAX_ERROR);
 /** @brief Angular slack for fast_atan2, radians. */
-inline constexpr float CAP_ATAN2_PAD = 5e-3f;
+inline constexpr float CAP_ATAN2_PAD =
+    static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
 
 /**
  * @brief Precomputes the longitude wedge for a cap and clip.
@@ -606,7 +608,8 @@ enum class CartesianTrailGateResult : uint8_t {
 };
 
 /// Unit-y slack covering the renderer's fast_acos row-map error.
-inline constexpr float CARTESIAN_LATITUDE_SLACK = 1e-4f;
+inline constexpr float CARTESIAN_LATITUDE_SLACK =
+    static_cast<float>(math::FAST_ACOS_MAX_ERROR);
 
 /// Halfspace superset of a segmented quadrant clip.
 struct CartesianQuadrantClip {

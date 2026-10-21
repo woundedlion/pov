@@ -484,11 +484,7 @@ struct DistortedRingStack {
           p = math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
         const float d = math::dot(p, axis_v);
         const float polar = math::fast_acos(hs::clamp(d, -1.0f, 1.0f));
-        const float dot_u = math::dot(p, axis_u);
-        const float dot_w = math::dot(p, axis_w);
-        float azimuth = math::fast_atan2(dot_w, dot_u);
-        if (azimuth < 0)
-          azimuth += 2 * math::PI_F;
+        const float azimuth = SDF::basis_azimuth(p, axis_u, axis_w, 0.0f);
         // azimuth is in [0, 2 PI], so wrap_t reduces to folding 1 onto 0.
         float t_norm = azimuth / (2 * math::PI_F);
         t_norm = t_norm >= 1.0f ? 0.0f : t_norm;

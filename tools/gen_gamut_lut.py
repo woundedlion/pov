@@ -358,20 +358,22 @@ def _compile_cpp_expr(expr, names):
         raise ValueError("invalid expression %r: %s" % (expr, exc.msg)) from exc
 
 
-def _cpp_float_fn(body, params, outputs=()):
+def _cpp_float_fn(body, params, outputs=(), constants=None):
     """Compiles a straight-line C++ float function body into a callable.
 
     Accepts float locals, named output assignments, brace-less single-statement
-    ifs and returns. Anything else raises ValueError.
+    ifs (including constexpr) and returns. Constants bind template defaults.
+    Anything else raises ValueError.
     """
     text = re.sub(r"//[^\n]*", " ", body).strip().lstrip("{")
     text = " ".join(text.split())
-    names = set(params) | {"abs"}
+    constants = constants or {}
+    names = set(params) | set(constants) | {"abs"}
     program = []
     assigned = set()
     while text:
         conds = []
-        while re.match(r"if\s*\(", text):
+        while re.match(r"if\s*(?:constexpr\s*)?\(", text):
             cond, text = _split_paren(text[text.index("("):])
             conds.append(_compile_cpp_expr(cond, names))
             text = text.lstrip()
@@ -408,6 +410,7 @@ def _cpp_float_fn(body, params, outputs=()):
 
     def call(*args):
         env = {"abs": abs}
+        env.update(constants)
         env.update(zip(params, args))
         for conds, target, code in program:
             if not all(eval(c, env) for c in conds):
@@ -447,8 +450,13 @@ def check_diamond_angle_mirror(math_h_path):
         params = tuple(p.split()[-1] for p in sig.group(1).split(","))
         if params != ("y", "x"):
             raise ValueError("parameters are %s, not ('y', 'x')" % (params,))
+        template = re.search(
+            r"template\s*<\s*bool\s+(\w+)\s*=\s*(true|false)\s*>"
+            r"\s*[^{};]*?inline float diamond_angle\(", text)
+        constants = ({template.group(1): template.group(2) == "true"}
+                     if template else {})
         cpp = _cpp_float_fn(_function_body(text, "inline float diamond_angle("),
-                            params)
+                            params, constants=constants)
     except ValueError as exc:
         sys.stderr.write("could not parse 3dmath.h diamond_angle(): %s\n"
                          "  re-derive the mirror above from that definition\n"
