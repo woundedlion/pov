@@ -1186,6 +1186,12 @@ of another length needs another image. Each flag set builds in its own
 directory under `.pio/flags/`, so alternating flag sets rebuild incrementally;
 `HS_PIO_JOBS` sets `pio run -j`.
 
+When `ccache` is on `PATH`, `tools/pio_ccache.py` runs every firmware compile
+through it, so a new worktree or flag-set directory reuses the objects any
+checkout compiled from the same sources and flags. Cross-checkout hits need
+ccache's `base_dir` set to a directory that contains the worktrees.
+`CCACHE_DISABLE=1` bypasses the cache for one build.
+
 Target-specific constants live with their target rather than in a global header: `targets/Holosphere/Holosphere.ino` defines its own `NUM_PIXELS` and `RPM`, and the Phantasm-class targets share `targets/Phantasm/phantasm_target.h` (`TOTAL_PIXELS`, `RPM`). LED pin assignments are in `core/platform/led.h`.
 
 ### 8.5 Documentation
@@ -1566,6 +1572,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── teensy_warnings.py      Cold-build first-party warning gate
 │   ├── include_paths.py        Canonical first-party include-path gate
 │   ├── teensy_pre.py / teensy_isystem.py / teensy_map.py / teensy_nano.py  PlatformIO build hooks
+│   ├── pio_ccache.py           PlatformIO hook that compiles firmware through ccache when it is on PATH
 │   ├── phantasm.ld             Phantasm linker script (memory-region layout)
 │   ├── profile_one.sh / profile_sweep.sh  On-device HS_PROFILE flash + capture runs
 │   ├── profile_islamic_big.sh  Focused profiling loop for IslamicStars' largest mesh

@@ -45,6 +45,7 @@ FRAMEWORK = _abs("home", "runner", ".platformio", "packages",
 RELOCATED = _abs("opt", "pio-core", "packages", "framework-arduinoteensy",
                  "libraries", "SPI")
 FIRST_PARTY = [".", "core", "effects", "hardware"]
+COMPILE_COMMANDS = {"CCCOM": "$CC -c", "CXXCOM": "$CXX -c", "ASPPCOM": "$CC -x"}
 
 
 class FakeEnv(dict):
@@ -250,7 +251,8 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
 
 
 class TestHooksRegisterNoBuildActions(unittest.TestCase):
-    """The non-gate hooks only mutate build flags and sketch handling."""
+    """The non-gate hooks only mutate build flags, compile commands and sketch
+    handling."""
 
     def test_firmware_hooks_register_no_build_actions(self):
         cfg = _pio_config()
@@ -262,14 +264,16 @@ class TestHooksRegisterNoBuildActions(unittest.TestCase):
                     BUILD_DIR=os.path.join(".pio", "build", name),
                     CPPPATH=FIRST_PARTY + [FRAMEWORK],
                     PROJECT_PACKAGES_DIR=_abs("home", "runner", ".platformio", "packages"),
-                    PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"))
+                    PROJECT_LIBDEPS_DIR=_abs("work", "Holosphere", ".pio", "libdeps"),
+                    ENV={"PATH": ""}, **COMPILE_COMMANDS)
                 hooks = [s.split(":", 1)[1]
                          for s in _option_lines(cfg, f"env:{name}", "extra_scripts")
                          if s != GATE_SCRIPT]
                 self.assertTrue(hooks)
                 for rel in hooks:
                     self.assertEqual(Path(rel).parent, Path("tools"), rel)
-                    load_hook(Path(rel).name, env=env, projenv=projenv)
+                    load_hook(Path(rel).name, env=env, projenv=projenv,
+                              COMMAND_LINE_TARGETS=[])
                 for build_env in (env, projenv):
                     self.assertEqual(build_env.pre_actions, [])
                     self.assertEqual(build_env.post_actions, [])
@@ -365,6 +369,41 @@ class TestSketchConversion(unittest.TestCase):
             "void loop();\r\n"
             '#line 30 "targets/Phantasm/Phantasm.ino"\r\n'
             "void loop() {}\r\n"))
+
+
+class TestCcacheLauncher(unittest.TestCase):
+    """pio_ccache.py: compiles run through ccache only when it is on PATH."""
+
+    def _run(self, path, targets=()):
+        env = FakeEnv(ENV={"PATH": path}, LINKCOM="$LINK", ASCOM="$AS",
+                      **COMPILE_COMMANDS)
+        load_hook("pio_ccache.py", env=env, COMMAND_LINE_TARGETS=list(targets))
+        return env
+
+    def _with_ccache(self, targets=()):
+        with tempfile.TemporaryDirectory() as bin_dir:
+            for name in ("ccache", "ccache.exe"):
+                tool = Path(bin_dir) / name
+                tool.write_bytes(b"")
+                tool.chmod(0o755)
+            return self._run(bin_dir, targets)
+
+    def test_compiles_are_prefixed_outside_the_signature(self):
+        env = self._with_ccache()
+        for com, command in COMPILE_COMMANDS.items():
+            self.assertEqual(env[com], "$( ccache $) " + command)
+        self.assertEqual((env["LINKCOM"], env["ASCOM"]), ("$LINK", "$AS"))
+
+    def test_commands_are_unchanged_without_ccache(self):
+        with tempfile.TemporaryDirectory() as empty:
+            env = self._run(empty)
+        for com, command in COMPILE_COMMANDS.items():
+            self.assertEqual(env[com], command)
+
+    def test_compile_database_keeps_plain_commands(self):
+        env = self._with_ccache(targets=["compiledb"])
+        for com, command in COMPILE_COMMANDS.items():
+            self.assertEqual(env[com], command)
 
 
 class TestLinkerMap(unittest.TestCase):
