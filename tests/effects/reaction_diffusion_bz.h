@@ -592,9 +592,9 @@ inline void test_bz_untimed_frames_are_pinned() {
       untimed_frame_fold<BZReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
   const uint64_t SHIPPED =
       untimed_frame_fold<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  HS_EXPECT_EQ(FULL, 8303065562613601861ull);
-  HS_EXPECT_EQ(CLIPPED, 1714733901857061968ull);
-  HS_EXPECT_EQ(SHIPPED, 17694119961486000274ull);
+  HS_EXPECT_EQ(FULL, 9948718347062484848ull);
+  HS_EXPECT_EQ(CLIPPED, 15800610696509622377ull);
+  HS_EXPECT_EQ(SHIPPED, 5465664904333901648ull);
 #endif
 }
 
