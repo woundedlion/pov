@@ -11,7 +11,7 @@
 #        fw_cache.sh get <env>        print the entry; 1 = miss, 3 = uncommitted
 #        fw_cache.sh tree             print the clean checkout's tree hash
 #        fw_cache.sh put <env> <tree> <build-log>
-#                                     store .pio/build/<env> from a build of
+#                                     store <env> from a build of
 #                                     clean tree <tree> that just finished
 #        fw_cache.sh prune            keep the HS_FW_CACHE_KEEP newest entries
 #
@@ -19,6 +19,8 @@
 #   HS_FW_CACHE_DIR   cache root (default <git-common-dir>/fw-cache)
 #   HS_FW_CACHE_KEEP  entries kept after a store (default 50)
 #   HS_FW_CACHE=0     never reuse or store
+#   HS_PIO_JOBS       `pio run -j` for builds
+#   HS_FW_BUILD_DIRS_KEEP  flag-set build directories kept (default 8)
 
 # Environment variables PlatformIO folds into a build.
 HS_FW_CACHE_VARS="PLATFORMIO_BUILD_FLAGS PLATFORMIO_BUILD_UNFLAGS PLATFORMIO_BUILD_SRC_FLAGS PLATFORMIO_SRC_BUILD_FLAGS PLATFORMIO_BUILD_SRC_FILTER PLATFORMIO_EXTRA_SCRIPTS"
@@ -58,9 +60,18 @@ hs_fw_cache_toolchain() {
   done
 }
 
+# One VAR=value line per build-flag variable, whitespace-normalized.
+hs_fw_cache_flags() {
+  local var value
+  for var in $HS_FW_CACHE_VARS; do
+    value=$(printf '%s' "${!var:-}" | tr -s ' \t\r\n' ' ' | sed 's/^ //; s/ $//')
+    printf '%s=%s\n' "$var" "$value"
+  done
+}
+
 # Sets HS_FW_KEY and HS_FW_MATERIAL for <env> under the current environment.
 hs_fw_cache_key() {
-  local env=$1 tree var value
+  local env=$1 tree
   tree=$(hs_fw_cache_tree) || return
   if [ -z "$HS_FW_TOOLCHAIN" ]; then
     HS_FW_TOOLCHAIN=$(hs_fw_cache_toolchain) ||
@@ -68,13 +79,45 @@ hs_fw_cache_key() {
   fi
   HS_FW_MATERIAL=$(
     printf 'fw-cache 1\ntree %s\nenv %s\n' "$tree" "$env"
-    for var in $HS_FW_CACHE_VARS; do
-      value=$(printf '%s' "${!var:-}" | tr -s ' \t\r\n' ' ' | sed 's/^ //; s/ $//')
-      printf '%s=%s\n' "$var" "$value"
-    done
+    hs_fw_cache_flags
     printf '%s\n' "$HS_FW_TOOLCHAIN"
   )
   HS_FW_KEY=$(printf '%s\n' "$HS_FW_MATERIAL" | sha256sum | cut -c1-32)
+}
+
+# PlatformIO wipes an environment's build directory when its flags change, so
+# each flag set builds under its own directory: .pio/build without flags,
+# .pio/flags/<hash> otherwise. PLATFORMIO_BUILD_DIR overrides.
+hs_fw_build_dir() {
+  local flags
+  if [ -n "${PLATFORMIO_BUILD_DIR:-}" ]; then
+    echo "$PLATFORMIO_BUILD_DIR"
+    return
+  fi
+  flags=$(hs_fw_cache_flags)
+  if ! grep -q '=.' <<<"$flags"; then
+    echo .pio/build
+  else
+    echo ".pio/flags/$(printf '%s\n' "$flags" | sha256sum | cut -c1-12)"
+  fi
+}
+
+# hs_fw_pio <env> [pio run args...]: `pio run` in the flag set's build
+# directory, with -j $HS_PIO_JOBS when set. Keeps the HS_FW_BUILD_DIRS_KEEP
+# (default 8) most recently used flag-set directories.
+hs_fw_pio() {
+  local env=$1 dir stale
+  shift
+  dir=$(hs_fw_build_dir)
+  case $dir in
+    .pio/flags/*)
+      mkdir -p "$dir" && touch "$dir"
+      # shellcheck disable=SC2012
+      ls -1t .pio/flags | tail -n +$((${HS_FW_BUILD_DIRS_KEEP:-8} + 1)) |
+        while IFS= read -r stale; do rm -rf ".pio/flags/$stale"; done
+      ;;
+  esac
+  PLATFORMIO_BUILD_DIR=$dir pio run -e "$env" ${HS_PIO_JOBS:+-j "$HS_PIO_JOBS"} "$@"
 }
 
 # rc 0 when <entry> is an intact image stored under <key>.
@@ -164,11 +207,11 @@ hs_fw_cache_build() {
   fi
   [ "$rc" != 2 ] || return 2
   log=$(mktemp "${TMPDIR:-/tmp}/hs-fw-build.XXXXXX") || return 2
-  if ! (set -o pipefail; pio run -e "$env" 2>&1 | tee "$log"); then
+  if ! (set -o pipefail; hs_fw_pio "$env" 2>&1 | tee "$log"); then
     rm -f "$log"
     return 1
   fi
-  HS_FW_IMAGE=.pio/build/$env
+  HS_FW_IMAGE=$(hs_fw_build_dir)/$env
   if [ "$rc" = 1 ] && hs_fw_cache_store "$env" "$HS_FW_IMAGE" "$log"; then
     HS_FW_IMAGE=$HS_FW_ENTRY
     echo "fw_cache: $env stored $HS_FW_ENTRY"
@@ -217,7 +260,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
       hs_fw_cache_key "$2" || exit
       [ "$(sed -n 's/^tree //p' <<<"$HS_FW_MATERIAL")" = "$3" ] ||
         { echo "fw_cache: the checkout is no longer at tree $3; not cached" >&2; exit 1; }
-      hs_fw_cache_store "$2" ".pio/build/$2" "$4" || exit
+      hs_fw_cache_store "$2" "$(hs_fw_build_dir)/$2" "$4" || exit
       echo "$HS_FW_ENTRY"
       ;;
     prune)

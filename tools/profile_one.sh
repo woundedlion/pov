@@ -23,6 +23,7 @@
 #   HS_TEENSY_PORT=<COMn>   pin one board
 #   HS_ARM_READELF          readelf for ELF attestation
 #   HS_PROFILE_DEEP=1       enable the HS_PROFILE_DEEP sub-scopes; writes _deep.log
+#   HS_PIO_JOBS=<n>         `pio run -j` for the builds (tools/fw_cache.sh)
 #   HS_PROFILE_TREE=<path>  checkout to build (default: the one holding this script)
 #   HS_PROFILE_OUT=<path>   capture log path; all per-run artifacts share its stem
 #   HS_PROFILE_EXPECT_SHAPE=<name> require "Spawning Shape: <name>" in the capture
@@ -192,7 +193,7 @@ fi
 
 build_image() {
   local env=$1 log=$2
-  if ! pio run -e "$env" >"$log" 2>&1; then
+  if ! hs_fw_pio "$env" >"$log" 2>&1; then
     tail -30 "$log"
     return 1
   fi
@@ -264,7 +265,7 @@ assert_matching_toolchains() {
 }
 
 envdump() {
-  pio run -e "$1" -t envdump | "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$2"
+  hs_fw_pio "$1" -t envdump | "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$2"
 }
 
 # obtain_image <env> <envdump> <build-log>: reuses the cached image, or builds
@@ -290,7 +291,7 @@ obtain_image() {
   [ "$rc" != 2 ] || return 1
   envdump "$env" "$dump"
   build_image "$env" "$log"
-  IMAGE_DIR=.pio/build/$env
+  IMAGE_DIR=$(hs_fw_build_dir)/$env
   IMAGE_SOURCE=built
   if [ "$rc" != 3 ] && hs_fw_cache_store "$env" "$IMAGE_DIR" "$log" "$dump" "$FW_REBUILD"; then
     IMAGE_DIR=$HS_FW_ENTRY
@@ -395,7 +396,7 @@ FW_REBUILD=""
 # clean and replaces its cache entry.
 prepare_retry() {
   [ -z "$PREBUILT" ] || return 0
-  rm -rf ".pio/build/$ENV"
+  rm -rf "$(hs_fw_build_dir)/${ENV:?}"
   RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
   export PLATFORMIO_BUILD_CACHE_DIR="$RETRY_CACHE"
   FW_REBUILD=1
@@ -513,7 +514,7 @@ hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 
 capture
 if ! verify; then
-  echo ">>> verify failed; wiping .pio/build/$ENV and retrying with an isolated cache"
+  echo ">>> verify failed; wiping the $ENV build and retrying with an isolated cache"
   prepare_retry
   capture
   verify || { echo "FAILED after clean rebuild: $OUT"; exit 1; }

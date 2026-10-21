@@ -21,15 +21,16 @@ FAKE_PIO = r"""#!/bin/bash
 if [ "$1" = --version ]; then echo "PlatformIO Core, version ${FAKE_PIO_VERSION:-6.1.19}"; exit 0; fi
 echo "$*" >> "$FAKE_PIO_CALLS"
 env=$3
-if [ "${4:-}" = -t ]; then
+case " $* " in *" -t envdump "*)
   printf "{\n  'ENV': {'PATH': 'host'},\n  'PIOENV': '%s',\n}\n" "$env"
-  exit 0
-fi
+  exit 0;;
+esac
 [ -z "${FAKE_PIO_FAIL:-}" ] || exit 1
-mkdir -p ".pio/build/$env"
-printf 'elf %s %s %s\n' "$env" "$PLATFORMIO_BUILD_FLAGS" "$(cat source.txt)" > ".pio/build/$env/firmware.elf"
-printf 'hex %s\n' "$env" > ".pio/build/$env/firmware.hex"
-printf 'map %s\n' "$env" > ".pio/build/$env/firmware.map"
+out=${PLATFORMIO_BUILD_DIR:-.pio/build}/$env
+mkdir -p "$out"
+printf 'elf %s %s %s\n' "$env" "$PLATFORMIO_BUILD_FLAGS" "$(cat source.txt)" > "$out/firmware.elf"
+printf 'hex %s\n' "$env" > "$out/firmware.hex"
+printf 'map %s\n' "$env" > "$out/firmware.map"
 echo "PLATFORM: Teensy (5.2.0)"
 echo " - framework-arduinoteensy @ 1.162.0"
 echo " - toolchain-gccarmnoneeabi-teensy @ 1.150201.0"
@@ -234,6 +235,27 @@ class CacheStore(FirmwareCacheFixture):
         self.assertIn("IMAGE=.pio/build/phantasm", result.stdout)
         self.assertEqual(self.entries(), [])
 
+    def test_each_flag_set_builds_in_its_own_directory(self):
+        script = 'hs_fw_cache_build profile >/dev/null && echo "$HS_FW_IMAGE"'
+        images = {}
+        for flags in ("", "-D A", "-D B", " -D  A "):
+            result = self.fw(script, PLATFORMIO_BUILD_FLAGS=flags, HS_FW_CACHE="0",
+                             HS_PIO_JOBS="4")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            images[flags] = result.stdout.strip()
+        self.assertEqual(images[""], ".pio/build/profile")
+        self.assertRegex(images["-D A"], r"^\.pio/flags/[0-9a-f]{12}/profile$")
+        self.assertNotEqual(images["-D A"], images["-D B"])
+        self.assertEqual(images[" -D  A "], images["-D A"])
+        for image in images.values():
+            self.assertTrue((self.repo / image / "firmware.elf").is_file(), image)
+        self.assertTrue(all(" -j 4" in call for call in self.pio_builds()))
+        self.assertEqual(self.fw(script, PLATFORMIO_BUILD_FLAGS="-D C", HS_FW_CACHE="0",
+                                 HS_FW_BUILD_DIRS_KEEP="1").returncode, 0)
+        self.assertEqual(len(list((self.repo / ".pio" / "flags").iterdir())), 1)
+        explicit = self.fw(script, PLATFORMIO_BUILD_DIR="out", HS_FW_CACHE="0")
+        self.assertEqual(explicit.stdout.strip(), "out/profile")
+
     def test_a_failed_build_is_not_stored(self):
         result = self.fw("hs_fw_cache_build phantasm", FAKE_PIO_FAIL="1")
         self.assertNotEqual(result.returncode, 0)
@@ -343,7 +365,7 @@ class ProfileOneCache(FirmwareCacheFixture):
         self.assertNotEqual(refused.returncode, 0)
         self.assertIn("PROFILE PROVENANCE FAIL", refused.stdout)
 
-        build_elf = self.repo / ".pio" / "build" / "profile" / "firmware.elf"
+        build_elf = next((self.repo / ".pio" / "flags").glob("*/profile/firmware.elf"))
         self.assertNotEqual(self.profile("--dry-run", "--elf", build_elf.as_posix()).returncode, 0)
 
         self.commit_source("two")

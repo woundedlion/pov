@@ -377,6 +377,7 @@ class ProfileConfigVerification(unittest.TestCase):
             script = (
                 "set -e\n"
                 f"{shell_function('prepare_retry')}\n"
+                "hs_fw_build_dir() { echo .pio/build; }\n"
                 "ENV=profile\n"
                 f"TMPDIR={root.as_posix()}\n"
                 f"cd {root.as_posix()}\n"
@@ -497,7 +498,7 @@ class ProfileConfigVerification(unittest.TestCase):
     def test_platformio_status_propagates_from_build(self):
         for status, expected in ((0, 0), (23, 1)):
             script = (
-                f"pio() {{ echo pio-called; return {status}; }}\n"
+                f"hs_fw_pio() {{ echo pio-called; return {status}; }}\n"
                 f"{shell_function('build_image')}\n"
                 "build_image profile $1\n"
             )
@@ -524,6 +525,8 @@ def build_and_attest_calls():
             f"{shell_function('obtain_image')}\n"
             f"{shell_function('envdump')}\n"
             "hs_fw_cache_lookup() { return 1; }; hs_fw_cache_store() { return 1; }\n"
+            'hs_fw_pio() { local env=$1; shift; pio run -e "$env" "$@"; }\n'
+            "hs_fw_build_dir() { echo .pio/build; }\n"
             "FW_REBUILD=; PREBUILT=\n"
             f'pio() {{ echo "pio $*" >> {shlex.quote(calls.as_posix())}; }}\n'
             f'build_image() {{ echo "build $1" >> {shlex.quote(calls.as_posix())}; }}\n'
