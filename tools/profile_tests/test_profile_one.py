@@ -337,6 +337,7 @@ def capture_connect_timeout(**lock_env):
         'capture_py() { shift; printf "%s\\n" "$@" >&2; }\n'
         "_HS_LOCK_PYTHON=capture_py; EFFECT=Fx; ENV=profile; WINDOW=1\n"
         "SECONDS_ARG=20; DEEP=; EXTRA=; OUT=/dev/null; PROVENANCE_OUT=/dev/null\n"
+        "PROFILE_DIR=.pio/build/profile\n"
         "capture >/dev/null\n"
     )
     env = {key: value for key, value in os.environ.items()
@@ -520,6 +521,10 @@ def build_and_attest_calls():
         script = (
             "set -e\n"
             f"{shell_function('build_and_attest')}\n"
+            f"{shell_function('obtain_image')}\n"
+            f"{shell_function('envdump')}\n"
+            "hs_fw_cache_lookup() { return 1; }; hs_fw_cache_store() { return 1; }\n"
+            "FW_REBUILD=; PREBUILT=\n"
             f'pio() {{ echo "pio $*" >> {shlex.quote(calls.as_posix())}; }}\n'
             f'build_image() {{ echo "build $1" >> {shlex.quote(calls.as_posix())}; }}\n'
             "assert_matching_toolchains() { :; }\n"

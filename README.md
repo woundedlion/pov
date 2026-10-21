@@ -1175,8 +1175,12 @@ them and `HS_FW_CACHE=0` disables reuse. A checkout with uncommitted or
 untracked changes is rebuilt every time and never cached.
 `bash tools/fw_cache.sh build phantasm` replaces `pio run -e phantasm`: it
 builds and stores the image, or reuses the one any worktree built from the same
-tree and prints the tail of its stored build log. `tools/upload_one.sh` flashes
-from the same cache.
+tree and prints the tail of its stored build log. `tools/upload_one.sh` and
+`tools/profile_one.sh` flash from the same cache. `profile_one.sh --build-only`
+builds, attests and caches a capture's images without the board; `--dry-run`
+prints their keys and cache state; `--elf <entry>/firmware.elf` flashes a cached
+profile image after checking that its key matches the checkout, environment and
+flags.
 
 Target-specific constants live with their target rather than in a global header: `targets/Holosphere/Holosphere.ino` defines its own `NUM_PIXELS` and `RPM`, and the Phantasm-class targets share `targets/Phantasm/phantasm_target.h` (`TOTAL_PIXELS`, `RPM`). LED pin assignments are in `core/platform/led.h`.
 

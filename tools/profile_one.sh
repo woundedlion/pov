@@ -1,10 +1,20 @@
 #!/bin/bash
-# profile_one.sh <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
+# profile_one.sh [--dry-run|--build-only] [--elf <entry>/firmware.elf]
+#                <Effect-or-ID> <env:profile|profile_o3> <seconds> <window> [extra flags...]
 # Builds+flashes the profile image for one effect and captures its serial dump
 # to a log under build/prof/ by default, then verifies the capture header and, for a
-# cycling effect, a preset marker; on a mismatch it wipes the env build dir and
-# retries once. The shipping phantasm image must pass its size/layout gates and
-# supplies the ELF for compiler/ABI attestation. Host: Windows + Git Bash.
+# cycling effect, a preset marker; on a mismatch it rebuilds the profile image
+# clean and retries once. The shipping phantasm image must pass its size/layout
+# gates and supplies the ELF for compiler/ABI attestation. Each image is reused
+# from tools/fw_cache.sh when a committed checkout already built it with the
+# same flags and toolchain, and is stored there after a build. Host: Windows +
+# Git Bash.
+#
+# Options:
+#   --dry-run     print each image's cache key and hit or miss; no lock, build or board
+#   --build-only  build, attest and cache both images under the checkout lock; no board
+#   --elf <path>  flash this cached profile image; refused unless its entry's key
+#                 matches this checkout, environment and flags
 #
 # Env knobs:
 #   HS_DEVICE_WAIT=<s>      queue for a free board, and let the pinned board drop
@@ -27,11 +37,28 @@ set -euo pipefail
 . "$(dirname "$0")/device_lock.sh"
 # shellcheck source-path=SCRIPTDIR source=teensy_flash.sh
 . "$(dirname "$0")/teensy_flash.sh"
-# Under set -e, `shift 4` on a short list would abort with no message.
-[ $# -ge 4 ] || {
-  echo "usage: profile_one.sh <Effect-or-ID> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
+# shellcheck source-path=SCRIPTDIR source=fw_cache.sh
+. "$(dirname "$0")/fw_cache.sh"
+usage() {
+  echo "usage: profile_one.sh [--dry-run|--build-only] [--elf <path>] <Effect-or-ID> <profile|profile_o3> <seconds> <window> [extra flags...]" >&2
   exit 1
 }
+MODE=capture
+PREBUILT=""
+while [ $# -gt 0 ]; do
+  case $1 in
+    --dry-run) MODE=dry-run; shift;;
+    --build-only) MODE=build-only; shift;;
+    --elf)
+      [ $# -ge 2 ] || usage
+      [ -f "$2" ] || { echo "no such ELF: $2" >&2; exit 1; }
+      PREBUILT=$(cd "$(dirname "$2")" && pwd)/$(basename "$2")
+      shift 2;;
+    *) break;;
+  esac
+done
+# Under set -e, `shift 4` on a short list would abort with no message.
+[ $# -ge 4 ] || usage
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 # The checkout containing the invoked script, including a linked worktree.
 profile_tree() {
@@ -130,8 +157,9 @@ PROFILE_BUILD_LOG=${STEM}_build.log
 PHANTASM_BUILD_LOG=${STEM}_phantasm_build.log
 PROFILE_ENVDUMP=${STEM}_envdump.txt
 PHANTASM_ENVDUMP=${STEM}_phantasm_envdump.txt
-PROFILE_ELF=.pio/build/$ENV/firmware.elf
-PROFILE_MAP=.pio/build/$ENV/firmware.map
+PROFILE_DIR=.pio/build/$ENV
+PROFILE_ELF=$PROFILE_DIR/firmware.elf
+PROFILE_MAP=$PROFILE_DIR/firmware.map
 ARTIFACT_BASE=$(dirname "$STEM")/artifacts/$(basename "$STEM")
 ATTEST_DIR=$(dirname "$STEM")/attest/$(basename "$STEM")
 PHANTASM_ELF=$ATTEST_DIR/phantasm.elf
@@ -235,17 +263,76 @@ assert_matching_toolchains() {
   ATTESTED_COMPILER=$profile_compiler
 }
 
+envdump() {
+  pio run -e "$1" -t envdump | "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$2"
+}
+
+# obtain_image <env> <envdump> <build-log>: reuses the cached image, or builds
+# and caches it; sets IMAGE_DIR and IMAGE_SOURCE.
+obtain_image() {
+  local env=$1 dump=$2 log=$3 rc=0
+  if [ "$env" = "$ENV" ] && [ -n "$FW_REBUILD" ]; then
+    hs_fw_cache_key "$env" || rc=$?
+  elif hs_fw_cache_lookup "$env"; then
+    cp "$HS_FW_ENTRY/build.log" "$log"
+    if [ -f "$HS_FW_ENTRY/envdump.txt" ]; then
+      cp "$HS_FW_ENTRY/envdump.txt" "$dump"
+    else
+      envdump "$env" "$dump"
+    fi
+    IMAGE_DIR=$HS_FW_ENTRY
+    IMAGE_SOURCE=cache:$HS_FW_KEY
+    echo "fw_cache: $env reused $HS_FW_ENTRY"
+    return 0
+  else
+    rc=$?
+  fi
+  [ "$rc" != 2 ] || return 1
+  envdump "$env" "$dump"
+  build_image "$env" "$log"
+  IMAGE_DIR=.pio/build/$env
+  IMAGE_SOURCE=built
+  if [ "$rc" != 3 ] && hs_fw_cache_store "$env" "$IMAGE_DIR" "$log" "$dump" "$FW_REBUILD"; then
+    IMAGE_DIR=$HS_FW_ENTRY
+    IMAGE_SOURCE=built:$HS_FW_KEY
+  fi
+}
+
+# Adopts the --elf cache entry; sets IMAGE_DIR and IMAGE_SOURCE.
+prebuilt_image() {
+  local entry
+  entry=$(dirname "$PREBUILT")
+  if [ "$(basename "$PREBUILT")" != firmware.elf ] || ! hs_fw_cache_key "$ENV" ||
+     ! hs_fw_cache_check_entry "$entry" "$HS_FW_KEY"; then
+    echo "PROFILE PROVENANCE FAIL: $PREBUILT is not a cached $ENV image of this committed checkout with flags '$PLATFORMIO_BUILD_FLAGS'"
+    return 1
+  fi
+  cp "$entry/build.log" "$PROFILE_BUILD_LOG"
+  if [ -f "$entry/envdump.txt" ]; then
+    cp "$entry/envdump.txt" "$PROFILE_ENVDUMP"
+  else
+    envdump "$ENV" "$PROFILE_ENVDUMP"
+  fi
+  IMAGE_DIR=$entry
+  IMAGE_SOURCE=prebuilt:$HS_FW_KEY
+}
+
 build_and_attest() {
+  local phantasm_source
   mkdir -p "$ATTEST_DIR"
   _hs_resolve_python
-  PLATFORMIO_BUILD_FLAGS='' pio run -e phantasm -t envdump |
-    "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$PHANTASM_ENVDUMP"
-  PLATFORMIO_BUILD_FLAGS='' build_image phantasm "$PHANTASM_BUILD_LOG"
-  cp .pio/build/phantasm/firmware.elf "$PHANTASM_ELF"
-  cp .pio/build/phantasm/firmware.map "$PHANTASM_MAP"
-  pio run -e "$ENV" -t envdump |
-    "$_HS_LOCK_PYTHON" tools/profile_envdump.py >"$PROFILE_ENVDUMP"
-  build_image "$ENV" "$PROFILE_BUILD_LOG"
+  PLATFORMIO_BUILD_FLAGS='' obtain_image phantasm "$PHANTASM_ENVDUMP" "$PHANTASM_BUILD_LOG"
+  phantasm_source=$IMAGE_SOURCE
+  cp "$IMAGE_DIR/firmware.elf" "$PHANTASM_ELF"
+  cp "$IMAGE_DIR/firmware.map" "$PHANTASM_MAP"
+  if [ -n "$PREBUILT" ]; then
+    prebuilt_image
+  else
+    obtain_image "$ENV" "$PROFILE_ENVDUMP" "$PROFILE_BUILD_LOG"
+  fi
+  PROFILE_DIR=$IMAGE_DIR
+  PROFILE_ELF=$PROFILE_DIR/firmware.elf
+  PROFILE_MAP=$PROFILE_DIR/firmware.map
   assert_matching_toolchains
 
   local source_sha profile_sha phantasm_sha artifact_dir
@@ -279,6 +366,8 @@ build_and_attest() {
     echo "profile provenance: artifact_profile_elf=$artifact_dir/profile.elf"
     echo "profile provenance: artifact_phantasm_elf=$artifact_dir/phantasm.elf"
     echo "profile provenance: artifact_dir=$artifact_dir"
+    echo "profile provenance: profile_image=$IMAGE_SOURCE"
+    echo "profile provenance: phantasm_image=$phantasm_source"
   } >"$PROVENANCE_OUT"
 }
 
@@ -286,7 +375,7 @@ build_and_attest() {
 capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
-  hs_teensy_flash ".pio/build/$ENV"
+  hs_teensy_flash "$PROFILE_DIR"
   local connect
   connect=$(hs_device_absent_budget)
   [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S
@@ -300,11 +389,16 @@ capture() {
 }
 
 RETRY_CACHE=""
+FW_REBUILD=""
 
+# A --elf image is reflashed as is; otherwise the profile image is rebuilt
+# clean and replaces its cache entry.
 prepare_retry() {
+  [ -z "$PREBUILT" ] || return 0
   rm -rf ".pio/build/$ENV"
   RETRY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/hs-profile-cache.XXXXXX")
   export PLATFORMIO_BUILD_CACHE_DIR="$RETRY_CACHE"
+  FW_REBUILD=1
 }
 
 cleanup() {
@@ -368,12 +462,52 @@ verify() {
   return 0
 }
 
+# Each image's key and cache state; touches no lock, build or board.
+dry_run() {
+  local env state
+  for env in phantasm "$ENV"; do
+    state=0
+    if [ "$env" = phantasm ]; then
+      PLATFORMIO_BUILD_FLAGS='' hs_fw_cache_lookup "$env" || state=$?
+    else
+      hs_fw_cache_lookup "$env" || state=$?
+    fi
+    case $state in
+      0) echo "dry-run: $env hit $HS_FW_KEY $HS_FW_ENTRY";;
+      1) echo "dry-run: $env miss $HS_FW_KEY";;
+      3) echo "dry-run: $env uncached (uncommitted changes)";;
+      *) return 1;;
+    esac
+  done
+  if [ -n "$PREBUILT" ]; then
+    if [ "$(basename "$PREBUILT")" = firmware.elf ] && hs_fw_cache_key "$ENV" &&
+       hs_fw_cache_check_entry "$(dirname "$PREBUILT")" "$HS_FW_KEY"; then
+      echo "dry-run: --elf accepted $PREBUILT"
+    else
+      echo "dry-run: --elf refused $PREBUILT"
+      return 1
+    fi
+  fi
+  echo "dry-run: flags=$PLATFORMIO_BUILD_FLAGS"
+}
+
+if [ "$MODE" = dry-run ]; then
+  dry_run
+  exit
+fi
+
 # Armed before the claim (release is a no-op without a token); INT/TERM exit
 # and leave the release to the EXIT trap.
 hs_exit_traps cleanup
 
 # ETA covers a clean rebuild, capture, and one retry.
 acquire_tree_lock "$((SECONDS_ARG * 2 + 900))" || exit $?
+
+if [ "$MODE" = build-only ]; then
+  build_and_attest
+  sed -n 's/^profile provenance: \(artifact_profile_elf\|profile_image\)=/\1 /p' "$PROVENANCE_OUT"
+  exit 0
+fi
 
 hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit $?
 

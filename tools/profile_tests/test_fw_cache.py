@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for the firmware image cache."""
+"""Host tests for the firmware image cache and profile_one.sh's use of it."""
 
 import hashlib
 import os
@@ -15,6 +15,7 @@ from git_test_env import git_run, isolated_env  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 FW_CACHE = REPO / "tools" / "fw_cache.sh"
+PROFILE_ONE = REPO / "tools" / "profile_one.sh"
 
 FAKE_PIO = r"""#!/bin/bash
 if [ "$1" = --version ]; then echo "PlatformIO Core, version ${FAKE_PIO_VERSION:-6.1.19}"; exit 0; fi
@@ -258,6 +259,95 @@ class CacheStore(FirmwareCacheFixture):
         self.assertEqual(refused.returncode, 1, refused.stderr)
         self.assertIn(f"no longer at tree {tree}", refused.stderr)
         self.assertEqual(len(self.entries()), 1)
+
+
+class ProfileOneCache(FirmwareCacheFixture):
+    def profile(self, *options, window="16"):
+        return subprocess.run(
+            ["bash", PROFILE_ONE.as_posix(), *options, "fx", "profile", "20", window],
+            cwd=self.repo, env=dict(self.env, HS_PROFILE_TREE=self.repo.as_posix()),
+            capture_output=True, text=True, encoding="utf-8")
+
+    def provenance(self):
+        text = (self.repo / "build" / "prof" / "fx_ship.provenance").read_text(encoding="utf-8")
+        return dict(line.removeprefix("profile provenance: ").split("=", 1)
+                    for line in text.splitlines())
+
+    def test_a_second_build_reuses_both_images_with_the_same_provenance(self):
+        first = self.profile("--build-only")
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        built = self.provenance()
+        self.assertEqual(len(self.pio_builds()), 2)
+        self.assertRegex(built["profile_image"], r"^built:[0-9a-f]{32}$")
+        self.assertRegex(built["phantasm_image"], r"^built:[0-9a-f]{32}$")
+
+        second = self.profile("--build-only")
+        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
+        reused = self.provenance()
+        self.assertEqual(len(self.pio_builds()), 2)
+        self.assertEqual(reused["profile_image"], "cache:" + built["profile_image"][6:])
+        self.assertEqual(reused["phantasm_image"], "cache:" + built["phantasm_image"][6:])
+        for field in ("version", "source_sha", "compiler", "profile_elf_sha256",
+                      "phantasm_elf_sha256", "profile_envdump_sha256",
+                      "phantasm_envdump_sha256", "artifact_dir"):
+            with self.subTest(field=field):
+                self.assertEqual(reused[field], built[field])
+        self.assertEqual(reused["source_sha"], self.git("rev-parse", "HEAD").stdout.strip())
+        artifact = Path(self.repo / reused["artifact_profile_elf"])
+        self.assertEqual(hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                         reused["profile_elf_sha256"])
+        self.assertIn("-D HS_PROFILE_TARGET=Fx -D HS_PROFILE_WINDOW=16",
+                      artifact.read_text(encoding="utf-8"))
+
+    def test_dry_run_reports_misses_then_hits_and_builds_nothing(self):
+        before = self.profile("--dry-run")
+        self.assertEqual(before.returncode, 0, before.stderr)
+        self.assertIn("dry-run: phantasm miss", before.stdout)
+        self.assertIn("dry-run: profile miss", before.stdout)
+        self.assertEqual(self.pio_builds(), [])
+        self.assertFalse((self.repo / ".profile-lock").exists())
+        self.assertEqual(self.profile("--build-only").returncode, 0)
+        after = self.profile("--dry-run")
+        self.assertIn("dry-run: phantasm hit", after.stdout)
+        self.assertIn("dry-run: profile hit", after.stdout)
+        self.assertIn("dry-run: profile miss", self.profile("--dry-run", window="32").stdout)
+
+    def test_an_uncommitted_checkout_builds_without_caching(self):
+        (self.repo / "source.txt").write_text("dirty\n", encoding="utf-8")
+        self.assertIn("dry-run: profile uncached (uncommitted changes)",
+                      self.profile("--dry-run").stdout)
+        result = self.profile("--build-only")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.provenance()["profile_image"], "built")
+        self.assertEqual(self.entries(), [])
+        self.assertEqual(self.profile("--build-only").returncode, 0)
+        self.assertEqual(len(self.pio_builds()), 4)
+
+    def test_elf_accepts_only_its_own_checkout_env_and_flags(self):
+        self.assertEqual(self.profile("--build-only").returncode, 0)
+        elf = self.cache / self.provenance()["profile_image"].split(":", 1)[1] / "firmware.elf"
+        accepted = self.profile("--dry-run", "--elf", elf.as_posix())
+        self.assertEqual(accepted.returncode, 0, accepted.stdout + accepted.stderr)
+        self.assertIn("--elf accepted", accepted.stdout)
+
+        used = self.profile("--build-only", "--elf", elf.as_posix())
+        self.assertEqual(used.returncode, 0, used.stdout + used.stderr)
+        self.assertEqual(self.provenance()["profile_image"],
+                         "prebuilt:" + elf.parent.name)
+        self.assertEqual(len(self.pio_builds()), 2)
+
+        refused = self.profile("--dry-run", "--elf", elf.as_posix(), window="32")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("--elf refused", refused.stdout)
+        refused = self.profile("--build-only", "--elf", elf.as_posix(), window="32")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("PROFILE PROVENANCE FAIL", refused.stdout)
+
+        build_elf = self.repo / ".pio" / "build" / "profile" / "firmware.elf"
+        self.assertNotEqual(self.profile("--dry-run", "--elf", build_elf.as_posix()).returncode, 0)
+
+        self.commit_source("two")
+        self.assertNotEqual(self.profile("--dry-run", "--elf", elf.as_posix()).returncode, 0)
 
 
 if __name__ == "__main__":
