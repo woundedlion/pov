@@ -55,19 +55,25 @@ struct WarpPhaseState {
   float phase = 0.0f; ///< Normalized loop phase in [0, 1).
 };
 
-/**
- * @brief Samples the warp loop phase between consecutive frames.
- * @tparam Params Operator param block; unused.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE ClockInterval temporal_interval(const WarpPhaseState &from,
+                                                const WarpPhaseState &to) {
+  return {from.phase, to.phase, 1.0f};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(WarpPhaseState &out, const WarpPhaseState &from,
-                            const WarpPhaseState &to, const Params &,
-                            float fraction) {
-  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
+HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
+                                     const ClockInterval &interval,
+                                     const Params &, float fraction) {
+  out.phase = interval.sample(fraction);
 }
 
 /** @brief Parameter family of warp.affine.v3; translations are lattice cells. */
@@ -91,21 +97,33 @@ struct AffineClockState {
   float rotation = 0.0f; ///< Frame rotation, radians in [0, 2π).
 };
 
-/**
- * @brief Samples the affine oscillation phase and frame rotation between consecutive frames.
- * @tparam Params Operator param block; unused.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepared frame clocks of AffineClockState. */
+struct AffineClockInterval {
+  ClockInterval phase;    ///< Prepared phase interval.
+  ClockInterval rotation; ///< Prepared rotation interval.
+};
+
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE AffineClockInterval
+temporal_interval(const AffineClockState &from, const AffineClockState &to) {
+  return {{from.phase, to.phase, 1.0f},
+          {from.rotation, to.rotation, math::TWO_PI_F}};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(AffineClockState &out, const AffineClockState &from,
-                            const AffineClockState &to, const Params &,
-                            float fraction) {
-  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
-  out.rotation =
-      sample_clock(from.rotation, to.rotation, fraction, math::TWO_PI_F);
+HS_FLASH_INLINE void temporal_sample(AffineClockState &out,
+                                     const AffineClockInterval &interval,
+                                     const Params &, float fraction) {
+  out.phase = interval.phase.sample(fraction);
+  out.rotation = interval.rotation.sample(fraction);
 }
 
 /** @brief PLANE endomorphism: the oscillating affine frame change. */

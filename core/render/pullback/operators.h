@@ -151,20 +151,26 @@ struct ColorClockState {
                                      LUT; not read by run(). */
 };
 
+/** @brief Prepares the palette mapping clock.
+ * @param from Previous state.
+ * @param to Current state.
+ * @return Prepared oscillation interval. */
+inline ClockInterval temporal_interval(const ColorClockState &from,
+                                       const ColorClockState &to) {
+  return {from.oscillation_phase, to.oscillation_phase, 1.0f};
+}
+
 /**
  * @brief Samples the mapping oscillation clock; the hue-noise bake input stays current between consecutive frames.
  * @tparam Params Operator param block; unused.
  * @param out Copy of the current state; receives the samples.
- * @param from Previous state.
- * @param to Current state.
+ * @param interval Prepared mapping clock.
  * @param fraction Frame fraction in [0, 1].
  */
 template <typename Params>
-inline void temporal_sample(ColorClockState &out, const ColorClockState &from,
-                            const ColorClockState &to, const Params &,
-                            float fraction) {
-  out.oscillation_phase = sample_clock(from.oscillation_phase,
-                                       to.oscillation_phase, fraction, 1.0f);
+inline void temporal_sample(ColorClockState &out, const ClockInterval &interval,
+                            const Params &, float fraction) {
+  out.oscillation_phase = interval.sample(fraction);
 }
 
 /**

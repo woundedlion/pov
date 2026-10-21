@@ -31,23 +31,36 @@ struct SourceClockState {
   float angle = 0.0f;     ///< Rotation angle, radians wrapped at 2π.
 };
 
-/**
- * @brief Samples the source phase clocks between consecutive frames.
- * @tparam Params Operator param block; unused.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepared frame clocks of SourceClockState. */
+struct SourceClockInterval {
+  ClockInterval primary;   ///< Prepared primary interval.
+  ClockInterval secondary; ///< Prepared secondary interval.
+  ClockInterval angle;     ///< Prepared angle interval.
+};
+
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE SourceClockInterval
+temporal_interval(const SourceClockState &from, const SourceClockState &to) {
+  return {{from.primary, to.primary, math::TWO_PI_F},
+          {from.secondary, to.secondary, math::TWO_PI_F},
+          {from.angle, to.angle, math::TWO_PI_F}};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(SourceClockState &out, const SourceClockState &from,
-                            const SourceClockState &to, const Params &,
-                            float fraction) {
-  out.primary =
-      sample_clock(from.primary, to.primary, fraction, math::TWO_PI_F);
-  out.secondary =
-      sample_clock(from.secondary, to.secondary, fraction, math::TWO_PI_F);
-  out.angle = sample_clock(from.angle, to.angle, fraction, math::TWO_PI_F);
+HS_FLASH_INLINE void temporal_sample(SourceClockState &out,
+                                     const SourceClockInterval &interval,
+                                     const Params &, float fraction) {
+  out.primary = interval.primary.sample(fraction);
+  out.secondary = interval.secondary.sample(fraction);
+  out.angle = interval.angle.sample(fraction);
 }
 
 /** @brief Sample crossing weighting of the raw field. */
@@ -335,22 +348,34 @@ struct SphericalRingsState {
   float phase = 0.0f;    ///< Band phase, radians wrapped at 2π.
 };
 
-/**
- * @brief Samples the band-axis walk and band phase between consecutive frames.
- * @tparam Params Operator param block.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepared frame clocks of SphericalRingsState. */
+struct SphericalRingsInterval {
+  SpatialWalkInterval walk; ///< Prepared walk interval.
+  ClockInterval phase;      ///< Prepared phase interval.
+};
+
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param params Column param block, forwarded to the walk sampler.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE SphericalRingsInterval temporal_interval(
+    const SphericalRingsState &from, const SphericalRingsState &to) {
+  return {temporal_interval(from.walk, to.walk),
+          {from.phase, to.phase, math::TWO_PI_F}};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param params Column parameter block.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(SphericalRingsState &out,
-                            const SphericalRingsState &from,
-                            const SphericalRingsState &to, const Params &params,
-                            float fraction) {
-  temporal_sample(out.walk, from.walk, to.walk, params, fraction);
-  out.phase = sample_clock(from.phase, to.phase, fraction, math::TWO_PI_F);
+HS_FLASH_INLINE void temporal_sample(SphericalRingsState &out,
+                                     const SphericalRingsInterval &interval,
+                                     const Params &params, float fraction) {
+  temporal_sample(out.walk, interval.walk, params, fraction);
+  out.phase = interval.phase.sample(fraction);
 }
 
 /** @brief SPHERE→FIELD crossing: latitude bands on a wandering, spinning axis. */

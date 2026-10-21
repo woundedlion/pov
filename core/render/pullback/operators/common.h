@@ -112,22 +112,33 @@ inline void advance_walk(SpatialWalkState &state, float wander,
   state.spin_phase = fmodf(state.spin_phase + spin_rate, math::TWO_PI_F);
 }
 
-/**
- * @brief Samples the wander arc and spin clock of a walk between consecutive frames.
- * @tparam Params Operator param block; unused.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepared frame clocks of SpatialWalkState. */
+struct SpatialWalkInterval {
+  Temporal::TemporalRotation wander; ///< Prepared wander interval.
+  ClockInterval spin;                ///< Prepared spin interval.
+};
+
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE SpatialWalkInterval
+temporal_interval(const SpatialWalkState &from, const SpatialWalkState &to) {
+  return {{from.wander, to.wander},
+          {from.spin_phase, to.spin_phase, math::TWO_PI_F}};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(SpatialWalkState &out, const SpatialWalkState &from,
-                            const SpatialWalkState &to, const Params &,
-                            float fraction) {
-  out.wander =
-      Temporal::TemporalRotation(from.wander, to.wander).sample(fraction);
-  out.spin_phase =
-      sample_clock(from.spin_phase, to.spin_phase, fraction, math::TWO_PI_F);
+HS_FLASH_INLINE void temporal_sample(SpatialWalkState &out,
+                                     const SpatialWalkInterval &interval,
+                                     const Params &, float fraction) {
+  out.wander = interval.wander.sample(fraction);
+  out.spin_phase = interval.spin.sample(fraction);
 }
 
 /** @brief Instance state of the noise-driven operators: the owned field plus
@@ -138,19 +149,25 @@ struct NoisePhaseState {
   int32_t noise_seed = 0; ///< Seed of `noise`.
 };
 
-/**
- * @brief Samples the noise loop phase between consecutive frames.
- * @tparam Params Operator param block; unused.
- * @param out Copy of the current state; receives the samples.
+/** @brief Prepares the clocks between consecutive endpoints.
  * @param from Previous state.
  * @param to Current state.
- * @param fraction Frame fraction in [0, 1].
- */
+ * @return Prepared interval. */
+HS_FLASH_INLINE ClockInterval temporal_interval(const NoisePhaseState &from,
+                                                const NoisePhaseState &to) {
+  return {from.phase, to.phase, 1.0f};
+}
+
+/** @brief Applies the prepared clocks to a column state.
+ * @tparam Params Operator parameter block.
+ * @param out Copy of the current state.
+ * @param interval Prepared frame interval.
+ * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
-inline void temporal_sample(NoisePhaseState &out, const NoisePhaseState &from,
-                            const NoisePhaseState &to, const Params &,
-                            float fraction) {
-  out.phase = sample_clock(from.phase, to.phase, fraction, 1.0f);
+HS_FLASH_INLINE void temporal_sample(NoisePhaseState &out,
+                                     const ClockInterval &interval,
+                                     const Params &, float fraction) {
+  out.phase = interval.sample(fraction);
 }
 
 /** @brief Value-state operator with one normalized loop clock. */

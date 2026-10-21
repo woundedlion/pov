@@ -243,16 +243,14 @@ private:
      * @param from Previous frame.
      * @param to Current frame.
      * @param fraction Frame fraction in [0, 1).
+     * @param rotation Prepared orientation interval.
      * @return The frame at @p fraction.
      */
     HS_FLASH_INLINE static HarmonicFrameState
     sample(const HarmonicFrameState &from, const HarmonicFrameState &to,
-           float fraction) {
+           float fraction, const Temporal::TemporalRotation &rotation) {
       HarmonicFrameState frame = to;
-      frame.source.orientation =
-          Temporal::TemporalRotation(from.source.orientation,
-                                     to.source.orientation)
-              .sample(fraction);
+      frame.source.orientation = rotation.sample(fraction);
       frame.material.amplitude =
           from.material.amplitude +
           (to.material.amplitude - from.material.amplitude) * fraction;
@@ -277,6 +275,18 @@ private:
         frame.source.blend = position + 1.0f;
       }
       return frame;
+    }
+    /** @brief Samples one frame fraction from endpoint orientations.
+     * @param from Previous frame.
+     * @param to Current frame.
+     * @param fraction Frame fraction in [0, 1).
+     * @return Interpolated frame. */
+    HS_FLASH_INLINE static HarmonicFrameState
+    sample(const HarmonicFrameState &from, const HarmonicFrameState &to,
+           float fraction) {
+      return sample(from, to, fraction,
+                    Temporal::TemporalRotation(from.source.orientation,
+                                               to.source.orientation));
     }
   };
 
@@ -357,9 +367,11 @@ private:
                                            const HarmonicFrameState &from,
                                            const HarmonicFrameState &to) {
     HS_PROFILE(sh_rasterize);
+    const Temporal::TemporalRotation rotation(from.source.orientation,
+                                              to.source.orientation);
     Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-      return [frame = RenderPipeline::prepare(Pullback::sample_frame(
-                  from, to, Temporal::sweep_fraction(x, W)))](
+      return [frame = RenderPipeline::prepare(HarmonicFrameState::sample(
+                  from, to, Temporal::sweep_fraction(x, W), rotation))](
                  const math::Vector &view) {
         return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
       };

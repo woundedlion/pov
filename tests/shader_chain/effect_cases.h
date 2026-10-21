@@ -820,8 +820,8 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   walk_from.wander = math::make_rotation(math::X_AXIS, 0.2f);
   walk_to.wander = -math::make_rotation(math::X_AXIS, 0.4f);
   walk = walk_to;
-  In::Op::temporal_sample(walk, walk_from, walk_to, In::Op::RotateChainParams{},
-                          0.25f);
+  In::Op::temporal_sample(walk, In::Op::temporal_interval(walk_from, walk_to),
+                          In::Op::RotateChainParams{}, 0.25f);
   HS_EXPECT_NEAR(std::remainder(walk.spin_phase, TWO_PI), -0.05f, 1e-5f);
   HS_EXPECT_NEAR(std::fabs(math::dot(walk.wander,
                                      math::make_rotation(math::X_AXIS, 0.25f))),
@@ -829,24 +829,29 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   In::Op::SourceClockState source_from{TWO_PI - 0.2f, 0.2f, 3.0f};
   In::Op::SourceClockState source_to{0.2f, TWO_PI - 0.2f, 3.4f};
   In::Op::SourceClockState source = source_to;
-  In::Op::temporal_sample(source, source_from, source_to, 0, 0.5f);
+  In::Op::temporal_sample(
+      source, In::Op::temporal_interval(source_from, source_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(source.primary, TWO_PI), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(std::remainder(source.secondary, TWO_PI), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(source.angle, 3.2f, 1e-5f);
   In::Op::WarpPhaseState warp_from{0.9f}, warp_to{0.1f}, warp = warp_to;
-  In::Op::temporal_sample(warp, warp_from, warp_to, 0, 0.5f);
+  In::Op::temporal_sample(warp, In::Op::temporal_interval(warp_from, warp_to),
+                          0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(warp.phase, 1.0f), 0.0f, 1e-6f);
   In::Op::AffineClockState affine_from{0.95f, TWO_PI - 0.1f};
   In::Op::AffineClockState affine_to{0.05f, 0.1f};
   In::Op::AffineClockState affine = affine_to;
-  In::Op::temporal_sample(affine, affine_from, affine_to, 0, 0.5f);
+  In::Op::temporal_sample(
+      affine, In::Op::temporal_interval(affine_from, affine_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(affine.phase, 1.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(std::remainder(affine.rotation, TWO_PI), 0.0f, 1e-5f);
   In::Op::RipplePhaseState ripple_from{29.0f}, ripple_to{0.0f},
       ripple = ripple_to;
   PB::Surface::PeriodicRippleParams ripple_params;
   ripple_params.period = 30.0f;
-  In::Op::temporal_sample(ripple, ripple_from, ripple_to, ripple_params, 0.5f);
+  In::Op::temporal_sample(ripple,
+                          In::Op::temporal_interval(ripple_from, ripple_to),
+                          ripple_params, 0.5f);
   HS_EXPECT_NEAR(ripple.phase, 29.5f, 1e-5f);
   In::Op::ColorClockState color_from, color_to;
   color_from.oscillation_phase = 0.8f;
@@ -854,7 +859,8 @@ inline void test_shader_chain_operator_states_sample_clocks() {
   color_from.hue_noise_phase = 0.3f;
   color_to.hue_noise_phase = 0.4f;
   In::Op::ColorClockState color = color_to;
-  In::Op::temporal_sample(color, color_from, color_to, 0, 0.5f);
+  In::Op::temporal_sample(
+      color, In::Op::temporal_interval(color_from, color_to), 0, 0.5f);
   HS_EXPECT_NEAR(std::remainder(color.oscillation_phase, 1.0f), 0.0f, 1e-6f);
   HS_EXPECT_EQ(color.hue_noise_phase, 0.4f);
 }
