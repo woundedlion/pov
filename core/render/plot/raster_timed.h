@@ -440,7 +440,7 @@ struct TimedRigidCarry {
  * @param radians,sine_bound Frame motion bound and its sine.
  * @return Evaluated control and actual column. */
 template <int W, int H>
-HS_HOT_FLASH_MEMBER TimedRigidCarry resolve_rigid_control(
+HS_O3_FN HS_NOINLINE_NOCLONE TimedRigidCarry resolve_rigid_control(
     PipelineRef &pipeline, Canvas &canvas, const TimedGeometry &geometry,
     const TimedControl &point, float expected, int branch, float radians,
     float sine_bound) {
@@ -548,7 +548,7 @@ private:
   GeodesicEdgeSampler source{}; /**< Source edge sampler. */
   /** @brief Rebuilds samplers only when crossing a geometric control.
    * @param next New control-span index. */
-  HS_HOT_FLASH_MEMBER void prepare(size_t next) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void prepare(size_t next) {
     index = next;
     const auto &a = first().control;
     const auto &b = last().control;
@@ -1455,7 +1455,7 @@ enum class DensePreparation {
  * @param radians Combined angular motion bound.
  * @return Visibility and dispatch state for the cached controls. */
 template <int W, int H>
-HS_HOT_FLASH_MEMBER DensePreparation prepare_dense_controls(
+HS_O3_FN HS_NOINLINE_NOCLONE DensePreparation prepare_dense_controls(
     PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
     DenseControl *controls, const RasterOptions &opts,
     const GeometryCallback &callback, float radians) {
