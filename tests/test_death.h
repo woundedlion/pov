@@ -2225,7 +2225,7 @@ struct GuardGapAllowance {
 inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/animation.h", 2},
     {"core/animation/carousel.h", 4},
-    {"core/animation/motion.h", 6},
+    {"core/animation/motion.h", 5},
     {"core/animation/opleg.h", 41},
     {"core/animation/orientation.h", 12},
     {"core/animation/params.h", 9},

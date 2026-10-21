@@ -821,7 +821,7 @@ inline size_t expect_seam_copies_match(EffectT &effect, const char *label,
  */
 inline float quaternion_angle(const math::Quaternion &a,
                               const math::Quaternion &b) {
-  const float cosine = fabsf(a.r * b.r + math::dot(a.v, b.v));
+  const float cosine = fabsf(math::dot(a, b));
   return 2.0f * acosf(fminf(1.0f, cosine));
 }
 

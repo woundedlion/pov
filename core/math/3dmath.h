@@ -856,13 +856,17 @@ struct Quaternion {
    * @brief Calculates the conjugate of the quaternion.
    * @return The conjugate quaternion (r, -v).
    */
-  [[nodiscard]] Quaternion conjugate() const { return Quaternion(r, -v); }
+  [[nodiscard]] Quaternion conjugate() const {
+    return Quaternion(r, -v.x, -v.y, -v.z);
+  }
 
   /**
    * @brief Unary negation operator.
    * @return A new quaternion with negated components.
    */
-  constexpr Quaternion operator-() const { return Quaternion(-r, -v); }
+  constexpr Quaternion operator-() const {
+    return Quaternion(-r, -v.x, -v.y, -v.z);
+  }
 
   /**
    * @brief Calculates the magnitude (length) of the quaternion.
@@ -993,17 +997,19 @@ struct Complex {
 
 /**
  * @brief Rotates a vector by a unit quaternion.
- * @details Expanded q*v*conj(q) formula, no division.
+ * @details Expanded q*v*conj(q): t = 2 (q.v x v), v + q.r t + q.v x t. The
+ * doubling is applied to q.v, which is exact.
  * @param v The vector to rotate.
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
 __attribute__((always_inline)) inline Vector rotate(const Vector &v,
                                                     const Quaternion &q) {
-  float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
-  float tx = 2.0f * (qy * v.z - qz * v.y);
-  float ty = 2.0f * (qz * v.x - qx * v.z);
-  float tz = 2.0f * (qx * v.y - qy * v.x);
+  const float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
+  const float x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+  const float tx = y2 * v.z - z2 * v.y;
+  const float ty = z2 * v.x - x2 * v.z;
+  const float tz = x2 * v.y - y2 * v.x;
   return Vector(v.x + qr * tx + (qy * tz - qz * ty),
                 v.y + qr * ty + (qz * tx - qx * tz),
                 v.z + qr * tz + (qx * ty - qy * tx));
@@ -1098,16 +1104,14 @@ struct RotationMatrix {
    */
   explicit RotationMatrix(const Quaternion &q) {
     assert(!(std::fabs(q.squared_magnitude() - 1.0f) > math::EPS_UNIT_QUAT_SQ));
-    const float qr = q.r;
-    const float qx = q.v.x;
-    const float qy = q.v.y;
-    const float qz = q.v.z;
-    r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz), 2.0f * (qx * qy - qr * qz),
-                2.0f * (qx * qz + qr * qy));
-    r1 = Vector(2.0f * (qx * qy + qr * qz), 1.0f - 2.0f * (qx * qx + qz * qz),
-                2.0f * (qy * qz - qr * qx));
-    r2 = Vector(2.0f * (qx * qz - qr * qy), 2.0f * (qy * qz + qr * qx),
-                1.0f - 2.0f * (qx * qx + qy * qy));
+    const float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
+    const float x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+    const float xx = qx * x2, yy = qy * y2, zz = qz * z2;
+    const float xy = qx * y2, xz = qx * z2, yz = qy * z2;
+    const float rx = qr * x2, ry = qr * y2, rz = qr * z2;
+    r0 = Vector(1.0f - (yy + zz), xy - rz, xz + ry);
+    r1 = Vector(xy + rz, 1.0f - (xx + zz), yz - rx);
+    r2 = Vector(xz - ry, yz + rx, 1.0f - (xx + yy));
   }
 
   /**
@@ -1525,6 +1529,70 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
 }
 
 /**
+ * @brief A slerp arc between two unit quaternions, prepared once and sampled
+ * at any number of fractions.
+ */
+struct SlerpArc {
+  Quaternion from;    ///< Start orientation, sign-adjusted onto the arc.
+  Quaternion to;      ///< End orientation.
+  float theta = 0.0f; ///< Arc angle, or zero for normalized linear sampling.
+  float sine = 1.0f;  ///< Sine of the arc angle.
+
+  /**
+   * @brief Prepares the shortest arc between unit orientations.
+   * @param a Start unit orientation.
+   * @param b End unit orientation.
+   */
+  __attribute__((always_inline)) SlerpArc(const Quaternion &a,
+                                          const Quaternion &b)
+      : from(a), to(b) {
+    assert(!(std::fabs(dot(a, a) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    assert(!(std::fabs(dot(b, b) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
+    float d = dot(a, b);
+    if (d < 0.0f) {
+      from = -from;
+      d = -d;
+    }
+    prepare(d);
+  }
+
+  /**
+   * @brief Prepares the arc from @p a to @p b, with @p a already on it.
+   * @param a Start unit orientation.
+   * @param b End unit orientation.
+   * @param d `dot(a, b)`.
+   */
+  SlerpArc(const Quaternion &a, const Quaternion &b, float d) : from(a), to(b) {
+    prepare(d);
+  }
+
+  /**
+   * @brief Samples the arc.
+   * @param t Fraction of the arc, 0 at `from` and 1 at `to`.
+   * @return The unit orientation at @p t.
+   */
+  __attribute__((always_inline)) Quaternion sample(float t) const {
+    if (theta == 0.0f)
+      return (from + t * (to - from)).normalized();
+    const float s1 = sinf((1.0f - t) * theta) / sine;
+    const float s2 = sinf(t * theta) / sine;
+    return ((s1 * from) + (s2 * to)).normalized();
+  }
+
+private:
+  /**
+   * @brief Sets the arc trigonometry unless the endpoints are near-parallel.
+   * @param d `dot(from, to)`.
+   */
+  __attribute__((always_inline)) void prepare(float d) {
+    if (d <= 1.0f - math::TOLERANCE) {
+      theta = acosf(hs::clamp(d, -1.0f, 1.0f));
+      sine = sinf(theta);
+    }
+  }
+};
+
+/**
  * @brief Spherical Linear Interpolation (SLERP) between two quaternions.
  * @param q1 Starting quaternion.
  * @param q2 Ending quaternion.
@@ -1540,7 +1608,6 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   assert(!(std::fabs(dot(q2, q2) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
   float d = dot(q1, q2);
   Quaternion p(q1);
-  Quaternion q(q2);
 
   // At d == 0 both arcs are 90° on S³; long_way reverses the 180° rotation.
   if ((long_way && d >= 0) || (!long_way && d < 0)) {
@@ -1548,21 +1615,12 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     d = -d;
   }
 
-  if (d > 1.0f - math::TOLERANCE) {
-    Quaternion r = p + t * (q - p);
-    return r.normalized();
-  }
-
   if (d < -1.0f + math::TOLERANCE &&
-      (d <= -1.0f || (p + q).squared_magnitude() < math::EPS_BLEND_LEN_SQ)) {
+      (d <= -1.0f || (p + q2).squared_magnitude() < math::EPS_BLEND_LEN_SQ)) {
     Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
     return (cosf(t * PI_F) * p + sinf(t * PI_F) * n).normalized();
   }
-  float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
-  float sin_theta = sinf(theta);
-  float s1 = sinf((1 - t) * theta) / sin_theta;
-  float s2 = sinf(t * theta) / sin_theta;
-  return ((s1 * p) + (s2 * q)).normalized();
+  return SlerpArc(p, q2, d).sample(t);
 }
 
 /**
