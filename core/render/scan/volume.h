@@ -28,12 +28,12 @@ HS_O3_BEGIN
  *        and a rotation quaternion. Satisfies the Volume::draw shape concept.
  * @tparam Shape Underlying signed-distance shape type.
  * @details The quaternion q maps local→world: world_p = center +
- * rotate(local_p, q). ray_to_local uses q.inverse() to map world→local.
+ * rotate(local_p, q). ray_to_local applies its conjugate as a matrix.
  */
 template <typename Shape> struct TransformedVolume {
-  const Shape &sdf;       /**< Underlying SDF evaluated in local space. */
-  math::Vector center;    /**< World-space origin of the local frame. */
-  math::Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
+  const Shape &sdf;    /**< Underlying SDF evaluated in local space. */
+  math::Vector center; /**< World-space origin of the local frame. */
+  math::RotationMatrix to_local; /**< World→local rotation. */
 
   /**
    * @brief Constructs the transform from a center and a local→world rotation.
@@ -43,7 +43,7 @@ template <typename Shape> struct TransformedVolume {
    */
   TransformedVolume(const Shape &sdf, const math::Vector &center,
                     const math::Quaternion &q)
-      : sdf(sdf), center(center), q_inv(q.inverse()) {}
+      : sdf(sdf), center(center), to_local(q.conjugate()) {}
 
   TransformedVolume(const Shape &&, const math::Vector &,
                     const math::Quaternion &) = delete;
@@ -62,7 +62,7 @@ template <typename Shape> struct TransformedVolume {
    */
   std::pair<math::Vector, math::Vector>
   ray_to_local(const math::Vector &ro, const math::Vector &vd) const {
-    return {math::rotate(ro - center, q_inv), math::rotate(vd, q_inv)};
+    return {to_local.apply(ro - center), to_local.apply(vd)};
   }
 
   /**
@@ -71,7 +71,7 @@ template <typename Shape> struct TransformedVolume {
    * @return Local-space origin.
    */
   math::Vector origin_to_local(const math::Vector &ro) const {
-    return math::rotate(ro - center, q_inv);
+    return to_local.apply(ro - center);
   }
 
   /**
@@ -95,9 +95,9 @@ template <int W> struct VolumeColumns {
 
   /** @brief A volume's placement at one sweep fraction. */
   struct Column {
-    math::Vector center;    ///< Bounds centre in LED space, unit length.
-    math::Quaternion q_inv; ///< World-to-local rotation.
-    math::Vector local_vd;  ///< Ray direction `-center` in local space.
+    math::Vector center;           ///< Bounds centre in LED space, unit length.
+    math::RotationMatrix to_local; ///< World-to-local rotation.
+    math::Vector local_vd;         ///< Ray direction `-center` in local space.
   };
   std::array<Column, HALF> columns; ///< Placement per sweep fraction.
 
@@ -111,8 +111,8 @@ template <int W> struct VolumeColumns {
                          const math::Quaternion &q) {
     Column &c = columns[column];
     c.center = center;
-    c.q_inv = q.inverse();
-    c.local_vd = math::rotate(-center, c.q_inv);
+    c.to_local = math::RotationMatrix(q.conjugate());
+    c.local_vd = c.to_local.apply(-center);
   }
 
   /**
@@ -539,7 +539,7 @@ struct Volume {
       // Only the origin is transformed per pixel; local_vd is shared.
       math::Vector local_ro;
       if constexpr (COLUMNS)
-        local_ro = math::rotate(ro - column->center, column->q_inv);
+        local_ro = column->to_local.apply(ro - column->center);
       else
         local_ro = shape.origin_to_local(ro);
       math::Vector closest_local;

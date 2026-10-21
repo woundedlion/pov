@@ -2067,19 +2067,18 @@ inline void test_gs_untimed_frames_are_pinned() {
       untimed_frame_fold<GSReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
   const uint64_t SHIPPED =
       untimed_frame_fold<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  HS_EXPECT_EQ(FULL, 11130325229091669286ull);
-  HS_EXPECT_EQ(CLIPPED, 7618938426178532068ull);
-  HS_EXPECT_EQ(SHIPPED, 10595748453067431402ull);
+  HS_EXPECT_EQ(FULL, 13517808851407958498ull);
+  HS_EXPECT_EQ(CLIPPED, 8233160997077370553ull);
+  HS_EXPECT_EQ(SHIPPED, 2157533373239983504ull);
 #endif
 }
 
 /**
  * @brief Each column of a GS frame shaded through the lattice basis matches the
  *        lattice oriented at that column's sweep time and shaded at the fixed
- *        meridian, within the oriented shader's own rounding.
- * @details The bound on the mean channel error is the difference between two
- * oriented renders whose lattices are rotated by the same orientation as a
- * quaternion and as a matrix.
+ *        meridian, within a fixed mean channel error.
+ * @details The oriented render and the render whose lattice is rotated by an
+ * explicit matrix take the same rotation path and agree exactly.
  */
 inline void test_gs_lattice_basis_matches_rotated_lattice() {
   using WhiteBox = GSWhiteBox;
@@ -2136,12 +2135,11 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
               still.mean_absolute_error(), still.max_absolute_error,
               moving.lit_reference_pixels, moving.mean_absolute_error(),
               moving.max_absolute_error);
-  HS_EXPECT_GT(rounding.mean_absolute_error(), 0.0);
+  HS_EXPECT_EQ(rounding.max_absolute_error, 0u);
   HS_EXPECT_GT(moving.lit_reference_pixels, static_cast<size_t>(W * H / 8));
   for (const FrameErrorStats *stats : {&still, &moving}) {
     HS_EXPECT_LE(stats->max_absolute_error, 16u);
-    HS_EXPECT_LE(stats->mean_absolute_error(),
-                 1.5 * rounding.mean_absolute_error());
+    HS_EXPECT_LE(stats->mean_absolute_error(), 0.15);
   }
 }
 

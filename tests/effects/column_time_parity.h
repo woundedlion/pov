@@ -108,10 +108,10 @@ inline void test_column_time_scans_keep_fidelity_off_frames() {
        0x2f7ad3256dd907ffull},
       {"Raymarch 96x20",
        column_time_parity_hash<Raymarch, 96, 20, PARITY_SMALL_FRAMES>,
-       0x7ebbc1b3d5002f2aull},
+       0x3e80b2c7e91bd6f5ull},
       {"Raymarch 288x144",
        column_time_parity_hash<Raymarch, 288, 144, PARITY_FULL_FRAMES>,
-       0xf81ca7667a16394eull},
+       0x87e2793afac1a37full},
   };
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"

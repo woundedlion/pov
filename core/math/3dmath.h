@@ -1096,6 +1096,10 @@ struct RotationMatrix {
   Vector r1; ///< Second matrix row.
   Vector r2; ///< Third matrix row.
 
+  /** @brief The identity rotation. */
+  RotationMatrix()
+      : r0(1.0f, 0.0f, 0.0f), r1(0.0f, 1.0f, 0.0f), r2(0.0f, 0.0f, 1.0f) {}
+
   /**
    * @brief Expands a unit quaternion into its rows.
    * @param q The unit rotation quaternion.

@@ -411,8 +411,9 @@ private:
   HS_O3_FN static void orient_nodes(const math::Vector *nodes,
                                     math::Vector *world, int count,
                                     const math::Quaternion &q) {
+    const math::RotationMatrix rotation(q);
     for (int i = 0; i < count; ++i)
-      world[i] = math::rotate(nodes[i], q);
+      world[i] = rotation.apply(nodes[i]);
   }
 
 protected:
