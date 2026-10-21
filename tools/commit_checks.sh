@@ -1,26 +1,81 @@
 #!/bin/sh
-# Staged-only checks that predict the fast, deterministic CI gates; the
-# pre-commit hook runs them.
+# Format, lint and documentation checks that predict the fast, deterministic CI
+# gates, run on the index (the pre-commit hook) or on a commit range.
+#
+# usage: commit_checks.sh                 the index against HEAD
+#        commit_checks.sh <base>..<tip>   <tip>'s tree against its merge base
+#                                         with <base>: the range's net change
 set -eu
 
-CHANGED="$(git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter=ACMRD)"
-PRESENT="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR)"
-[ -n "$CHANGED" ] || exit 0
+LABEL=pre-commit
+SUBJECT=staged
+DIFF_BASE=
+RANGE_DIR=
+STAGED_BLOB=
+SNAPSHOT_ROOT=
+cleanup() {
+  rm -rf "$RANGE_DIR" "$SNAPSHOT_ROOT" "$STAGED_BLOB"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+usage() {
+  echo "usage: commit_checks.sh [<base>..<tip>]" >&2
+  exit 2
+}
+
+case $# in
+  0) ;;
+  1)
+    case $1 in
+      *...*) usage ;;
+      ?*..?*) ;;
+      *) usage ;;
+    esac
+    LABEL=commit-checks
+    SUBJECT="range $1"
+    cd "$(git rev-parse --show-toplevel)"
+    if ! base="$(git rev-parse --verify --quiet "${1%%..*}^{commit}")" ||
+       ! tip="$(git rev-parse --verify --quiet "${1#*..}^{commit}")"; then
+      echo "[$LABEL] cannot resolve $1 to two commits."
+      exit 2
+    fi
+    if ! DIFF_BASE="$(git merge-base "$base" "$tip")"; then
+      echo "[$LABEL] $1 has no merge base."
+      exit 2
+    fi
+    RANGE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hs-commit-checks.XXXXXX")"
+    GIT_INDEX_FILE="$RANGE_DIR/index"
+    export GIT_INDEX_FILE
+    if ! git read-tree "$tip"; then
+      echo "[$LABEL] cannot read the tree of $tip."
+      exit 1
+    fi
+    ;;
+  *) usage ;;
+esac
+
+CHANGED="$(git -c core.quotePath=false diff --cached --name-only --no-renames --diff-filter=ACMRD ${DIFF_BASE:+"$DIFF_BASE"})"
+PRESENT="$(git -c core.quotePath=false diff --cached --name-only --diff-filter=ACMR ${DIFF_BASE:+"$DIFF_BASE"})"
+if [ -z "$CHANGED" ]; then
+  [ -z "$DIFF_BASE" ] || echo "[$LABEL] $SUBJECT changes no files."
+  exit 0
+fi
 
 STAGED_BLOB="$(mktemp "${TMPDIR:-/tmp}/hs-staged.XXXXXX")"
-trap 'rm -f "$STAGED_BLOB"' EXIT INT TERM
 
 # Lints read the staged blob; a failed read must fail the hook, not lint as
 # empty input.
 extract_staged() {
   if ! GIT_INDEX_FILE="$INDEX_PATH" git show ":$1" >"$STAGED_BLOB"; then
-    echo "[pre-commit] cannot read staged $1 from the index."
+    echo "[$LABEL] cannot read staged $1 from the index."
     exit 1
   fi
 }
 
-if ! git -c core.whitespace=blank-at-eol,blank-at-eof diff --cached --check; then
-  echo "[pre-commit] staged whitespace errors must be fixed."
+if ! git -c core.whitespace=blank-at-eol,blank-at-eof diff --cached --check ${DIFF_BASE:+"$DIFF_BASE"}; then
+  echo "[$LABEL] $SUBJECT whitespace errors must be fixed."
   exit 1
 fi
 
@@ -31,20 +86,19 @@ for candidate in "${HS_PYTHON:-}" python3 python; do
   if "$candidate" --version >/dev/null 2>&1; then PYTHON_BIN="$candidate"; break; fi
 done
 if [ -z "$PYTHON_BIN" ]; then
-  echo "[pre-commit] no working Python found; documentation checks need one (set HS_PYTHON)."
+  echo "[$LABEL] no working Python found; documentation checks need one (set HS_PYTHON)."
   exit 1
 fi
 if ! "$PYTHON_BIN" -c 'import sys; sys.exit(sys.version_info < (3, 11))'; then
-  echo "[pre-commit] Python 3.11 or newer is required; set HS_PYTHON to a supported interpreter."
+  echo "[$LABEL] Python 3.11 or newer is required; set HS_PYTHON to a supported interpreter."
   exit 1
 fi
 
 SNAPSHOT_ROOT="$(mktemp -d "$PWD/.hs-pre-commit.XXXXXX")"
 SNAPSHOT="$SNAPSHOT_ROOT/repo"
-trap 'rm -rf "$SNAPSHOT_ROOT" "$STAGED_BLOB"' EXIT INT TERM
 mkdir "$SNAPSHOT"
 if ! git checkout-index --all --force --prefix="$SNAPSHOT/"; then
-  echo "[pre-commit] cannot materialize staged snapshot."
+  echo "[$LABEL] cannot materialize staged snapshot."
   exit 1
 fi
 LOCAL_GIT_ENV="$(git rev-parse --local-env-vars)"
@@ -53,7 +107,7 @@ INDEX_PATH="$(git rev-parse --path-format=absolute --git-path index)"
 SNAPSHOT_INDEX="$SNAPSHOT_ROOT/index"
 cp "$INDEX_PATH" "$SNAPSHOT_INDEX"
 if ! GIT_INDEX_FILE="$SNAPSHOT_INDEX" git -c core.splitIndex=false update-index --no-split-index; then
-  echo "[pre-commit] cannot build a standalone snapshot index."
+  echo "[$LABEL] cannot build a standalone snapshot index."
   exit 1
 fi
 
@@ -65,7 +119,7 @@ fi
   require_clang_format() {
     CF="${CLANG_FORMAT:-clang-format}"
     if ! command -v "$CF" >/dev/null 2>&1; then
-      echo "[pre-commit] $CF not found; install the pinned formatter."
+      echo "[$LABEL] $CF not found; install the pinned formatter."
       exit 1
     fi
     # Install clang-format 22 through the pinned requirements.
@@ -74,7 +128,7 @@ fi
 
   require_ruff() {
     if ! command -v ruff >/dev/null 2>&1; then
-      echo "[pre-commit] ruff not found; pip install -r requirements/ruff.txt"
+      echo "[$LABEL] ruff not found; pip install -r requirements/ruff.txt"
       exit 1
     fi
     "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool ruff
@@ -82,7 +136,7 @@ fi
 
   require_eslint() {
     if [ ! -x node_modules/.bin/eslint ]; then
-      echo "[pre-commit] node_modules is missing; run npm ci."
+      echo "[$LABEL] node_modules is missing; run npm ci."
       exit 1
     fi
   }
@@ -105,7 +159,7 @@ fi
 $FORMAT
 EOF
     if [ -n "$failed" ]; then
-      echo "[pre-commit] clang-format failed:$failed"
+      echo "[$LABEL] clang-format failed:$failed"
       exit 1
     fi
   fi
@@ -149,7 +203,7 @@ EOF
   SHELL_FILES="$(printf '%s\n' "$PRESENT" | grep -E '\.sh$|^\.githooks/' || true)"
   if [ -n "$SHELL_FILES" ]; then
     if ! command -v shellcheck >/dev/null 2>&1; then
-      echo "[pre-commit] shellcheck not found; pip install -r requirements/shellcheck.txt"
+      echo "[$LABEL] shellcheck not found; pip install -r requirements/shellcheck.txt"
       exit 1
     fi
     "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool shellcheck
@@ -169,7 +223,7 @@ EOF
 
   if printf '%s\n' "$CHANGED" | grep -Eq '^docs/profiles/|^scripts/(check_profiles|effect_roster|exit)\.mjs$|^targets/(effects\.h|Phantasm/phantasm_playlist\.h)$|^\.githooks/pre-commit$|^tools/commit_checks\.sh$'; then
     if ! command -v node >/dev/null 2>&1; then
-      echo "[pre-commit] node not found; profile archive checks need the pinned Node version."
+      echo "[$LABEL] node not found; profile archive checks need the pinned Node version."
       exit 1
     fi
     "$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check-tool node
@@ -177,4 +231,4 @@ EOF
   fi
 )
 
-echo "[pre-commit] staged formatting, lint, and documentation checks passed."
+echo "[$LABEL] $SUBJECT formatting, lint, and documentation checks passed."
