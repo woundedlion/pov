@@ -2,7 +2,9 @@
 
 After a `profile` env flash, opens the Teensy's serial port (retrying through
 re-enumeration), tees every non-empty serial line (counter dumps, frame rows,
-preset markers) to stdout and --out, and exits after --seconds.
+preset markers) to stdout and --out, and exits after --seconds. The port is
+drained in bulk: the Teensy discards output the host leaves unread past its
+transmit timeout.
 Needs pyserial (`python -m pip install pyserial`).
 """
 
@@ -17,6 +19,8 @@ import serial
 from serial.tools import list_ports
 
 TEENSY_VID = 0x16C0
+# Host receive queue requested where the driver supports it (Windows).
+RX_BUFFER_BYTES = 1 << 20
 
 
 def find_port(want=None):
@@ -51,6 +55,39 @@ def open_port(timeout_s, want=None):
                      f"({last_err})")
 
 
+class LineReader:
+    """Splits bulk reads from a serial port into lines."""
+
+    def __init__(self, ser):
+        self.ser = ser
+        self.pending = b""
+
+    def read(self):
+        """Returns the lines one bulk read completes; [] on a read timeout."""
+        chunk = self.ser.read(max(1, self.ser.in_waiting))
+        if not chunk:
+            return []
+        lines = (self.pending + chunk).split(b"\n")
+        self.pending = lines.pop()
+        return lines
+
+    def rest(self):
+        """Returns the unterminated tail left when the capture ends."""
+        tail, self.pending = self.pending, b""
+        return [tail] if tail else []
+
+
+def record(line, out, tail):
+    """Tees one line to stdout and `out`; returns 1 if it was not blank."""
+    text = line.decode("utf-8", errors="replace").rstrip("\r\n")
+    if not text:
+        return 0
+    tail.append(text)
+    print(text, flush=True)
+    out.write(text + "\n")
+    return 1
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seconds", type=float, default=150.0,
@@ -74,6 +111,9 @@ def main():
 
     ser = open_port(args.connect_timeout, args.port)
     port = ser.port
+    if hasattr(ser, "set_buffer_size"):
+        ser.set_buffer_size(rx_size=RX_BUFFER_BYTES)
+    reader = LineReader(ser)
     print(f"profile_capture: reading {port} for {args.seconds:.0f} s",
           flush=True)
     end = time.monotonic() + args.seconds
@@ -84,16 +124,11 @@ def main():
         with contextlib.closing(ser), \
                 open(args.out, "w", encoding="utf-8", newline="\n") as f:
             while time.monotonic() < end:
-                line = ser.readline()  # 1 s timeout keeps the deadline responsive
-                if not line:
-                    continue
-                text = line.decode("utf-8", errors="replace").rstrip("\r\n")
-                if not text:
-                    continue
-                tail.append(text)
-                print(text, flush=True)
-                f.write(text + "\n")
-                captured += 1
+                # The 1 s read timeout keeps the deadline responsive.
+                for line in reader.read():
+                    captured += record(line, f, tail)
+            for line in reader.rest():
+                captured += record(line, f, tail)
     except serial.SerialException as exc:
         os.remove(args.out)
         for line in tail:
