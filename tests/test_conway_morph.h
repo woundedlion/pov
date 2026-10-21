@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -100,6 +101,9 @@ using ConwayGraph::T_EPS;
  */
 inline int run_conway_morph_tests() {
   hs_test::ModuleFixture fixture("conway_morph");
+
+  test_partial_bookend_classification();
+  test_prepared_bridge();
 
   test_edge_endpoints_match_registry();
   test_edge_sweeps_hold_topology();

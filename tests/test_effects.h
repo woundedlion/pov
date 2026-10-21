@@ -22,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -896,6 +897,28 @@ inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
 #include "tests/effects/voronoi_cases.h"
 #include "tests/effects/islamic_stars.h"
 #include "tests/effects/column_time_parity.h"
+/** @brief Runs the focused IslamicStars white-box cases. */
+inline void run_islamicstars_cases() {
+  const auto run_case = [](auto test) {
+    hs::random().seed(1337u);
+    test();
+  };
+  run_case(test_islamicstars_seed_sprite_fade_in);
+  run_case(test_islamicstars_opacity_shades_at_column_time);
+  run_case(test_islamicstars_ripple_motion_is_seam_free);
+  run_case(test_islamicstars_seam_copies_are_one_polygon);
+  run_case(test_islamicstars_build_legs_hand_their_path);
+  run_case(test_islamicstars_opacity_history);
+  run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
+  run_case(test_islamicstars_smooth_recipe_completion);
+  run_case(test_islamicstars_default_cycle_frames);
+  run_case(test_islamicstars_presets_cover_roster);
+  run_case(test_islamicstars_manual_select_cuts_build);
+  run_case(test_islamicstars_pause_holds_shape);
+
+  run_case(test_islamicstars_prepared_build);
+}
+
 /**
  * @brief Module entry point for the effects white-box suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -908,6 +931,15 @@ inline int run_effects_tests() {
     hs::random().seed(1337u);
     test();
   };
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *islamic_only = std::getenv("HS_ISLAMICSTARS_ONLY");
+#pragma clang diagnostic pop
+  if (islamic_only && std::atoi(islamic_only) != 0) {
+    run_islamicstars_cases();
+    return fixture.result();
+  }
 
   run_case(test_petalflow_temporal_source_oracle);
   run_case(test_meshfeedback_temporal_source_oracle);
@@ -1069,18 +1101,7 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_boundary_stencil);
   run_case(test_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
-  run_case(test_islamicstars_seed_sprite_fade_in);
-  run_case(test_islamicstars_opacity_shades_at_column_time);
-  run_case(test_islamicstars_ripple_motion_is_seam_free);
-  run_case(test_islamicstars_seam_copies_are_one_polygon);
-  run_case(test_islamicstars_build_legs_hand_their_path);
-  run_case(test_islamicstars_opacity_history);
-  run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);
-  run_case(test_islamicstars_smooth_recipe_completion);
-  run_case(test_islamicstars_default_cycle_frames);
-  run_case(test_islamicstars_presets_cover_roster);
-  run_case(test_islamicstars_manual_select_cuts_build);
-  run_case(test_islamicstars_pause_holds_shape);
+  run_islamicstars_cases();
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite()) {
