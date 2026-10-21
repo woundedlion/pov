@@ -21,6 +21,18 @@ struct IslamicBuildProbe {
   static std::array<int, 3> preparations(const IS &e) {
     return {e.prepared_openings, e.prepared_duals, e.prepared_bookends};
   }
+  /** @brief Selects the reference ripple capture loop and clears its counters. */
+  static void reference_ripples(bool enabled) {
+    IS::test_reference_ripples = enabled;
+    IS::test_vertex_passes = 0;
+    IS::test_ripple_candidates = 0;
+    IS::test_ripple_interpolations = 0;
+  }
+  /** @return Vertex passes, visited bands and interpolated ripples. */
+  static std::array<size_t, 3> ripple_counts() {
+    return {IS::test_vertex_passes, IS::test_ripple_candidates,
+            IS::test_ripple_interpolations};
+  }
   static constexpr const auto &presets() { return IS::PRESETS; }
   static const Solids::Entry *selected_entry(const IS &e) {
     return e.build_entry;
@@ -800,6 +812,7 @@ inline void test_islamicstars_prepared_build() {
       P::preparation(effect, mode != 0);
       P::spawn_entry(effect, *P::presets()[8].params);
       double maximum = 0.0;
+      bool saw_build = false, completed = false;
       for (int frame = 0; frame < 120; ++frame) {
         pin_frame_clock(frame);
         const auto start = std::chrono::steady_clock::now();
@@ -807,7 +820,10 @@ inline void test_islamicstars_prepared_build() {
         const double elapsed = std::chrono::duration<double, std::micro>(
                                    std::chrono::steady_clock::now() - start)
                                    .count();
-        maximum = std::max(maximum, elapsed);
+        if (!completed)
+          maximum = std::max(maximum, elapsed);
+        saw_build = saw_build || P::build_active(effect);
+        completed = completed || (saw_build && !P::build_active(effect));
         effect.advance_display();
         HS_EXPECT_LE(persistent_arena.get_offset(),
                      P::persistent_budget(effect));
@@ -827,9 +843,60 @@ inline void test_islamicstars_prepared_build() {
   for (auto &samples : peak)
     std::sort(samples.begin(), samples.end());
   std::printf(
-      "  [shape 8 prepared build] opening/dual/bookend early %d/%d/%d; 120-frame peak us min/median %.1f/%.1f -> %.1f/%.1f\n",
+      "  [shape 8 prepared build] opening/dual/bookend early %d/%d/%d; first-build peak us min/median %.1f/%.1f -> %.1f/%.1f\n",
       counts[0], counts[1], counts[2], peak[0][0], peak[0][2], peak[1][0],
       peak[1][2]);
+}
+
+/** @brief Prepared shape-6 ripples preserve frames while rejecting interpolation work. */
+inline void test_islamicstars_prepared_ripples() {
+  using P = IslamicBuildProbe;
+  std::vector<uint64_t> reference;
+  std::array<double, 5> peak[2];
+  std::array<size_t, 3> counts[2];
+  for (int repeat = 0; repeat < 5; ++repeat) {
+    for (int mode = 0; mode < 2; ++mode) {
+      reset_effect_globals();
+      pin_frame_clock(0);
+      P::IS effect;
+      P::set_trans_speed(effect, 4.0f);
+      effect.init();
+      P::set_burst_size(effect, 8);
+      P::reference_ripples(mode == 0);
+      P::spawn_entry(effect, *P::presets()[6].params);
+      double maximum = 0.0;
+      for (int frame = 0; frame < 120; ++frame) {
+        pin_frame_clock(frame);
+        const auto start = std::chrono::steady_clock::now();
+        effect.draw_frame();
+        const double elapsed = std::chrono::duration<double, std::micro>(
+                                   std::chrono::steady_clock::now() - start)
+                                   .count();
+        if (frame >= 80 && P::selected_entry(effect) == P::presets()[6].params)
+          maximum = std::max(maximum, elapsed);
+        effect.advance_display();
+        const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
+        if (repeat == 0 && mode == 0)
+          reference.push_back(hash);
+        else
+          HS_EXPECT_EQ(hash, reference[frame]);
+      }
+      counts[mode] = P::ripple_counts();
+      peak[mode][repeat] = maximum;
+    }
+    HS_EXPECT_GT(counts[0][0], size_t{0});
+    HS_EXPECT_EQ(counts[0][0], counts[1][0]);
+    HS_EXPECT_EQ(counts[0][1], counts[1][1]);
+    HS_EXPECT_LT(counts[1][2], counts[0][2]);
+  }
+  P::reference_ripples(false);
+  hs::clear_mock_time();
+  for (auto &samples : peak)
+    std::sort(samples.begin(), samples.end());
+  std::printf(
+      "  [shape 6 prepared ripples] vertex passes %zu/%zu, bands %zu/%zu, interpolations %zu/%zu; frames 80-119 peak us min/median %.1f/%.1f -> %.1f/%.1f\n",
+      counts[0][0], counts[1][0], counts[0][1], counts[1][1], counts[0][2],
+      counts[1][2], peak[0][0], peak[0][2], peak[1][0], peak[1][2]);
 }
 
 /**

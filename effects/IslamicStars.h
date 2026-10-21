@@ -499,30 +499,83 @@ private:
         (copies_model ? vertices * sizeof(math::Vector) : 0) +
         Scan::mesh_motion_bytes(vertices, faces) +
         (2 * static_cast<size_t>(ripple_gen.active_count()) + 2) *
-            sizeof(Animation::RippleParams) +
+            (sizeof(Animation::RippleParams) + 2 * sizeof(float)) +
         sizeof(Scan::ColumnBasis<W, H>) + sizeof(SDF::FaceScratchBuffer) +
         H * sizeof(float);
     return scratch_arena_b.get_capacity() - scratch_arena_b.get_offset() >=
            need;
   }
 
+  /** @brief One ripple's frame constants and mutable capture sample. */
+  struct MotionRipple {
+    Animation::RippleParams
+        params;                   ///< Sample parameters and previous endpoint.
+    float phase_delta = 0.0f;     ///< Phase change over the frame.
+    float amplitude_delta = 0.0f; ///< Amplitude change over the frame.
+
+    /** @brief Captures the frame's initial wave and interpolation constants. */
+    HS_FLASH_INLINE void prepare(const Animation::RippleParams &p) {
+      params = p.during_step(0.0f);
+      phase_delta = p.phase - p.previous_phase;
+      amplitude_delta = p.amplitude - p.previous_amplitude;
+    }
+
+    /** @brief Includes the final endpoint in the capture rejection band. */
+    HS_HOT_INLINE void widen(const Animation::RippleParams &p) {
+      params.cos_threshold_min =
+          fmaxf(params.cos_threshold_min, p.cos_threshold_min);
+      params.cos_threshold_max =
+          fminf(params.cos_threshold_max, p.cos_threshold_max);
+    }
+
+    /** @brief Applies the wave at a frame fraction after its band test.
+     * @param v Vertex after preceding ripples.
+     * @param u Capture fraction.
+     * @return Displaced vertex. */
+    HS_HOT_INLINE math::Vector transform(const math::Vector &v, float u) {
+#if HS_ENABLE_TEST_HOOKS
+      ++test_ripple_candidates;
+#endif
+      const float cosine = math::dot(v, params.center);
+      if (cosine > params.cos_threshold_min ||
+          cosine < params.cos_threshold_max)
+        return v;
+#if HS_ENABLE_TEST_HOOKS
+      ++test_ripple_interpolations;
+#endif
+      params.phase = params.previous_phase + phase_delta * u;
+      params.amplitude = params.previous_amplitude + amplitude_delta * u;
+      if (params.amplitude <= 0.001f)
+        return v;
+      return ripple_transform_at_distance(
+          v, params, math::fast_acos(hs::clamp(cosine, -1.0f, 1.0f)),
+          params.phase);
+    }
+  };
+#if HS_ENABLE_TEST_HOOKS
+  inline static bool test_reference_ripples =
+      false; ///< Uses the uncached capture loop.
+  inline static size_t test_vertex_passes = 0; ///< Temporal vertex captures.
+  inline static size_t test_ripple_candidates = 0; ///< Ripple bands visited.
+  inline static size_t test_ripple_interpolations =
+      0; ///< Ripple samples interpolated.
+#endif
+
   /** @brief Vertex deformation state of one mesh draw. */
   struct MotionPlan {
-    bool active = false;                       ///< Whether vertices deform.
-    uint8_t *moving = nullptr;                 ///< Nonzero per moving vertex.
-    uint16_t *columns = nullptr;               ///< Per-face seeing columns.
-    Animation::RippleParams *during = nullptr; ///< One per active ripple.
+    bool active = false;            ///< Whether vertices deform.
+    uint8_t *moving = nullptr;      ///< Nonzero per moving vertex.
+    uint16_t *columns = nullptr;    ///< Per-face seeing columns.
+    MotionRipple *during = nullptr; ///< One per active ripple.
   };
 
   /**
-   * @brief Fills one params per active ripple at a fraction of its last step.
+   * @brief Caches each active ripple at the start of its frame.
    * @param during Receives the params.
-   * @param u Frame fraction in [0, 1].
    */
-  HS_FLASH_MEMBER void ripples_at(Animation::RippleParams *during,
-                                  float u) const {
+  HS_FLASH_MEMBER void ripples_at(MotionRipple *during) const {
     for (int k = 0; k < ripple_gen.active_count(); ++k)
-      during[k] = ripple_gen.active_params(k).during_step(u);
+      during[k].prepare(ripple_gen.active_params(k));
   }
 
   /**
@@ -551,14 +604,13 @@ private:
     plan.moving = arena.allocate_n<uint8_t>(count);
     flag_moving(path, count, bound - ripple_arc(), plan.moving, arena);
     plan.columns = arena.allocate_n<uint16_t>(2 * mesh.num_faces());
-    plan.during = arena.allocate_n<Animation::RippleParams>(
-        ripple_gen.active_count() + 1);
+    plan.during = arena.allocate_n<MotionRipple>(ripple_gen.active_count() + 1);
     ScratchScope radii_scope(arena);
     float *radii = arena.allocate_n<float>(mesh.num_faces());
     if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
                                    plan.columns, radii) == 0)
       return plan;
-    ripples_at(plan.during, 0.0f);
+    ripples_at(plan.during);
     OrientTransformer camera(orientation);
     const float held_cos = cosf(Scan::HELD_VERTEX_ARC<W>);
     const auto start = path.moment(0.0f);
@@ -566,9 +618,10 @@ private:
     for (size_t i = 0; i < count; ++i) {
       if (!plan.moving[i])
         continue;
-      const float c = math::dot(
-          camera(ripple_gen.transform(path.at(i, start), plan.during)),
-          mesh.vertices[i]);
+      math::Vector vertex = path.at(i, start);
+      for (int k = 0; k < ripple_gen.active_count(); ++k)
+        vertex = ripple_params_transform(vertex, plan.during[k].params);
+      const float c = math::dot(camera(vertex), mesh.vertices[i]);
       plan.moving[i] = c < held_cos;
       min_cos = fminf(min_cos, c);
     }
@@ -579,14 +632,8 @@ private:
     if (plan.active)
       Scan::moving_face_columns<W>(canvas, mesh, arc + math::TWO_PI_F / W,
                                    plan.columns, radii);
-    for (int k = 0; k < ripple_gen.active_count(); ++k) {
-      plan.during[k].cos_threshold_min =
-          fmaxf(plan.during[k].cos_threshold_min,
-                ripple_gen.active_params(k).cos_threshold_min);
-      plan.during[k].cos_threshold_max =
-          fminf(plan.during[k].cos_threshold_max,
-                ripple_gen.active_params(k).cos_threshold_max);
-    }
+    for (int k = 0; k < ripple_gen.active_count(); ++k)
+      plan.during[k].widen(ripple_gen.active_params(k));
     return plan;
   }
 
@@ -601,15 +648,27 @@ private:
   HS_HOT_INLINE math::Vector capture_position(const MotionPlan &plan,
                                               const ModelPath &path, size_t i,
                                               float u) const {
-    for (int k = 0; k < ripple_gen.active_count(); ++k) {
-      const auto &p = ripple_gen.active_params(k);
-      plan.during[k].phase =
-          p.previous_phase + (p.phase - p.previous_phase) * u;
-      plan.during[k].amplitude =
-          p.previous_amplitude + (p.amplitude - p.previous_amplitude) * u;
+#if HS_ENABLE_TEST_HOOKS
+    ++test_vertex_passes;
+    if (test_reference_ripples) {
+      math::Vector vertex = path.at(i, u);
+      for (int k = 0; k < ripple_gen.active_count(); ++k) {
+        const auto &p = ripple_gen.active_params(k);
+        auto &during = plan.during[k].params;
+        during.phase = p.previous_phase + (p.phase - p.previous_phase) * u;
+        during.amplitude =
+            p.previous_amplitude + (p.amplitude - p.previous_amplitude) * u;
+        ++test_ripple_candidates;
+        ++test_ripple_interpolations;
+        vertex = ripple_params_transform(vertex, during);
+      }
+      return OrientTransformer(orientation)(vertex);
     }
-    return OrientTransformer(orientation)(
-        ripple_gen.transform(path.at(i, u), plan.during));
+#endif
+    math::Vector vertex = path.at(i, u);
+    for (int k = 0; k < ripple_gen.active_count(); ++k)
+      vertex = plan.during[k].transform(vertex, u);
+    return OrientTransformer(orientation)(vertex);
   }
 
   /**
