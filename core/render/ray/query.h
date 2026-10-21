@@ -74,9 +74,7 @@ template <typename Query> struct PlacedQuery {
         return false;
     return finite(center) && finite(scale) && scale > 0.0f &&
            finite(inverse_rotation.r) && finite(inverse_rotation.v) &&
-           fabsf(inverse_rotation.r * inverse_rotation.r +
-                 math::dot(inverse_rotation.v, inverse_rotation.v) - 1.0f) <
-               1e-4f;
+           fabsf(inverse_rotation.squared_magnitude() - 1.0f) < 1e-4f;
   }
   /** @brief Forwards the inner query's trace precondition check, if any. */
   void check_trace_preconditions() const {

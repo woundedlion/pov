@@ -104,7 +104,7 @@ struct RaymarchWhiteBox {
       Canvas canvas(fx);
       const auto sample = [u](const math::Quaternion &from,
                               const math::Quaternion &to) {
-        return Temporal::TemporalRotation(from, to).sample(u);
+        return math::slerp(from, to, u);
       };
       const math::Quaternion camera = sample(fx.camera.get(0), fx.camera.get());
       const math::Quaternion spin =

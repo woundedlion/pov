@@ -59,41 +59,13 @@ constexpr float sweep_fraction(int column, int width) {
 }
 
 /** @brief Shortest quaternion arc with frame-invariant trigonometry. */
-struct TemporalRotation {
-  math::Quaternion from; ///< Sign-adjusted start orientation.
-  math::Quaternion to;   ///< End orientation.
-  float theta = 0.0f;    ///< Arc angle, or zero for normalized linear sampling.
-  float sine = 1.0f;     ///< Sine of the arc angle.
-
+struct TemporalRotation : math::SlerpArc {
   /** @brief Prepares the shortest arc between unit orientations.
    * @param a Previous unit orientation.
    * @param b Current unit orientation. */
   HS_FLASH_INLINE TemporalRotation(const math::Quaternion &a,
                                    const math::Quaternion &b)
-      : from(a), to(b) {
-    assert(!(std::fabs(math::dot(a, a) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
-    assert(!(std::fabs(math::dot(b, b) - 1.0f) > math::EPS_UNIT_QUAT_SQ));
-    float d = math::dot(a, b);
-    if (d < 0.0f) {
-      from = -from;
-      d = -d;
-    }
-    if (d <= 1.0f - math::TOLERANCE) {
-      theta = acosf(hs::clamp(d, -1.0f, 1.0f));
-      sine = sinf(theta);
-    }
-  }
-
-  /** @brief Samples an interior fraction of the prepared arc.
-   * @param fraction Interior progress in (0, 1).
-   * @return Unit orientation along the shortest arc. */
-  __attribute__((always_inline)) math::Quaternion sample(float fraction) const {
-    if (theta == 0.0f)
-      return (from + fraction * (to - from)).normalized();
-    const float A = sinf((1.0f - fraction) * theta) / sine;
-    const float B = sinf(fraction * theta) / sine;
-    return (A * from + B * to).normalized();
-  }
+      : math::SlerpArc(a, b) {}
 
   /** @brief Visits the arc at each first-arm column's sweep fraction.
    * @tparam Fn Callable `(int column, const math::Quaternion &q)`.
