@@ -286,7 +286,7 @@ build_and_attest() {
 capture() {
   echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   build_and_attest
-  hs_teensy_flash "$ENV"
+  hs_teensy_flash ".pio/build/$ENV"
   local connect
   connect=$(hs_device_absent_budget)
   [ "$connect" -ge "$CAPTURE_CONNECT_S" ] || connect=$CAPTURE_CONNECT_S

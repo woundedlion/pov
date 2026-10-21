@@ -37,7 +37,7 @@ class TeensyFlashTests(unittest.TestCase):
                 ["bash", "-c",
                  'set -u; . "$3"; . "$1"; _HS_TOKEN=$2; cygpath() { echo "$2"; }; '
                  's=0; sleep() { s=$((s + 1)); }; '
-                 'hs_teensy_flash bench; rc=$?; echo "SLEEPS=$s" >&2; exit "$rc"',
+                 'hs_teensy_flash cache/entry; rc=$?; echo "SLEEPS=$s" >&2; exit "$rc"',
                  "test", FLASH.as_posix(), token, LOCK_SH.as_posix()],
                 env=env, capture_output=True, text=True, encoding="utf-8",
             )
@@ -48,7 +48,7 @@ class TeensyFlashTests(unittest.TestCase):
         self.assertIn("-port=usb-b\n", result.stdout)
         self.assertIn("-portlabel=COM4 (Teensy 4.0)\n", result.stdout)
         self.assertNotIn("-port=usb-a", result.stdout)
-        self.assertIn(".pio/build/bench", result.stdout)
+        self.assertIn("-path=cache/entry\n", result.stdout)
 
     def test_portless_lock_reports_missing_pin(self):
         result = self.flash(port=None)
