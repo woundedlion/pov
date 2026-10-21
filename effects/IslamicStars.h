@@ -206,6 +206,7 @@ public:
       HS_PROFILE(is_timeline_step);
       timeline.step(canvas);
     }
+    this->prepare_build();
   }
 
 private:

@@ -13,6 +13,14 @@
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<SMALL_W, SMALL_H>;
+  /** @brief Enables or bypasses early immutable bridge preparation. */
+  static void preparation(IS &e, bool enabled) {
+    e.test_prepare_build = enabled;
+  }
+  /** @return Opening, endpoint and bookend preparation counts. */
+  static std::array<int, 3> preparations(const IS &e) {
+    return {e.prepared_openings, e.prepared_duals, e.prepared_bookends};
+  }
   static constexpr const auto &presets() { return IS::PRESETS; }
   static const Solids::Entry *selected_entry(const IS &e) {
     return e.build_entry;
@@ -774,6 +782,54 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   HS_EXPECT_TRUE(needle_built);
   // The needle reached its scratch_a-heavy split.
   HS_EXPECT_GT(na_peak, 120u * 1024u);
+}
+
+/** @brief Early shape-8 preparation preserves every build frame and fits its arena. */
+inline void test_islamicstars_prepared_build() {
+  using P = IslamicBuildProbe;
+  std::vector<uint64_t> reference;
+  std::array<double, 5> peak[2];
+  std::array<int, 3> counts{};
+  for (int repeat = 0; repeat < 5; ++repeat) {
+    for (int mode = 0; mode < 2; ++mode) {
+      reset_effect_globals();
+      pin_frame_clock(0);
+      P::IS effect;
+      P::set_trans_speed(effect, 4.0f);
+      effect.init();
+      P::preparation(effect, mode != 0);
+      P::spawn_entry(effect, *P::presets()[8].params);
+      double maximum = 0.0;
+      for (int frame = 0; frame < 120; ++frame) {
+        pin_frame_clock(frame);
+        const auto start = std::chrono::steady_clock::now();
+        effect.draw_frame();
+        const double elapsed = std::chrono::duration<double, std::micro>(
+                                   std::chrono::steady_clock::now() - start)
+                                   .count();
+        maximum = std::max(maximum, elapsed);
+        effect.advance_display();
+        HS_EXPECT_LE(persistent_arena.get_offset(),
+                     P::persistent_budget(effect));
+        const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
+        if (repeat == 0 && mode == 0)
+          reference.push_back(hash);
+        else
+          HS_EXPECT_EQ(hash, reference[frame]);
+      }
+      counts = P::preparations(effect);
+      for (const int count : counts)
+        HS_EXPECT_EQ(count, mode);
+      peak[mode][repeat] = maximum;
+    }
+  }
+  hs::clear_mock_time();
+  for (auto &samples : peak)
+    std::sort(samples.begin(), samples.end());
+  std::printf(
+      "  [shape 8 prepared build] opening/dual/bookend early %d/%d/%d; 120-frame peak us min/median %.1f/%.1f -> %.1f/%.1f\n",
+      counts[0], counts[1], counts[2], peak[0][0], peak[0][2], peak[1][0],
+      peak[1][2]);
 }
 
 /**

@@ -54,6 +54,9 @@ protected:
   PolyMesh build_next_seed; /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
+  Animation::OpLeg::BridgePreparation
+      bridge_preparation;    /**< Next opening bridge classes and hosts. */
+  int preparation_delay = 0; /**< Frames until immutable bridge preparation. */
   size_t dual_bridge_ambo_faces =
       0; /**< ambo(P) face count for leg 3's palette handoff. */
   /** Device persistent budget of the current shape's split; the host arena is
@@ -67,6 +70,11 @@ protected:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces = 0; /**< Length of build_from_pal. */
 #if HS_ENABLE_TEST_HOOKS
+  bool test_prepare_build =
+      true;                  /**< Enables immutable preparation in tests. */
+  int prepared_openings = 0; /**< Opening bridges prepared before completion. */
+  int prepared_duals = 0; /**< Closing endpoints prepared before completion. */
+  int prepared_bookends = 0; /**< Closing classes prepared before completion. */
   int dual_bridges_built = 0; /**< DUAL bridges scheduled. */
 #endif
   int build_macro_sweep_frames = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
@@ -87,6 +95,8 @@ protected:
   };
   /// Stage entered after the current dual bridge's closing leg.
   BuildContinuation dual_bridge_done = BuildContinuation::FINISH;
+  /// Completion stage of the currently scheduled leg.
+  BuildContinuation build_continuation = BuildContinuation::FINISH;
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -379,10 +389,67 @@ protected:
   schedule_build_leg(Animation::OpLeg &&leg,
                      BuildContinuation next = BuildContinuation::FINISH) {
     check_build_budget();
+    preparation_delay = 2;
+    build_continuation = next;
     build_landing = &leg.landing();
     Animation::OpLeg::require_event_slot();
     host().timeline.add(
         0, std::move(leg).then([this, next] { continue_build(next); }));
+  }
+
+  /** @brief Prepares immutable dual-bridge data between frame draws. */
+  HS_COLD_MEMBER void prepare_build() {
+#if HS_ENABLE_TEST_HOOKS
+    if (!test_prepare_build)
+      return;
+#endif
+    if (!build_active || preparation_delay == 0)
+      return;
+    if (--preparation_delay != 0)
+      return;
+    if (build_continuation == BuildContinuation::DUAL_UNTRUNCATE) {
+      if (build_next_seed.face_counts.empty()) {
+        const size_t bytes =
+            build_seed.face_counts.size() * sizeof(math::Vector) +
+            build_seed.vertices.size() * 3 +
+            build_seed.faces.size() * sizeof(uint16_t) + 32;
+        if (persistent_arena.get_offset() + bytes > device_persistent_budget)
+          return;
+        ScratchScope a(scratch_arena_a);
+        ScratchScope b(scratch_arena_b);
+        build_next_seed = Solids::finalize_solid(
+            MeshOps::dual(build_seed, scratch_arena_a, scratch_arena_b),
+            persistent_arena);
+#if HS_ENABLE_TEST_HOOKS
+        ++prepared_duals;
+#endif
+        preparation_delay = 1;
+      } else {
+        next_seed_bookend();
+#if HS_ENABLE_TEST_HOOKS
+        ++prepared_bookends;
+#endif
+      }
+      return;
+    }
+    const size_t next = build_step + 1;
+    if (next >= build_step_count ||
+        build_step_chain[next].op != Solids::Op::DUAL || dt_pair_at(next) ||
+        build_step_chain[build_step].op == Solids::Op::DUAL ||
+        build_step_chain[build_step].op == Solids::Op::HANKIN ||
+        build_next_seed.face_counts.empty() ||
+        !bridge_preparation.topology.empty())
+      return;
+    const size_t faces =
+        build_next_seed.face_counts.size() + build_next_seed.vertices.size();
+    if (persistent_arena.get_offset() + faces * sizeof(uint16_t) + 16 >
+        device_persistent_budget)
+      return;
+    bridge_preparation =
+        Animation::OpLeg::prepare_bridge(build_next_seed, persistent_arena);
+#if HS_ENABLE_TEST_HOOKS
+    ++prepared_openings;
+#endif
   }
 
   /**
@@ -393,6 +460,8 @@ protected:
    */
   HS_COLD_MEMBER void abandon_build() {
     build_active = false;
+    bridge_preparation = {};
+    preparation_delay = 0;
     build_landing = nullptr;
     build_from_pal = nullptr;
     build_from_faces = 0;
@@ -547,8 +616,8 @@ protected:
   /**
    * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
    * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
-   * @details dual(P) is deferred to leg 3 so it never co-resides with the
-   * medial leg's peak. The caller compacts the arena before leg 1.
+   * @details The caller compacts the arena before leg 1. Closing endpoints
+   * are prepared during the medial leg when the persistent budget permits.
    * @param done Build stage entered after the closing leg.
    */
   HS_COLD_MEMBER void schedule_dual_bridge(BuildContinuation done) {
@@ -565,14 +634,18 @@ protected:
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
-    Animation::OpLeg leg(
-        Animation::OpLeg::SweepSeed::borrow(build_seed),
-        Animation::OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                         .t_start = 0.0f,
-                                         .t_end = 0.5f,
-                                         .sweep_frames = frames,
-                                         .bridge_provenance = true},
-        persistent_arena, draw_build_fn, handoff);
+    Animation::OpLeg leg(Animation::OpLeg::SweepSeed::borrow(build_seed),
+                         Animation::OpLeg::ParamSweepSpec{
+                             .op = ConwayGraph::MorphOp::TRUNCATE,
+                             .t_start = 0.0f,
+                             .t_end = 0.5f,
+                             .sweep_frames = frames,
+                             .bridge_provenance = true,
+                             .prepared = bridge_preparation.topology.empty()
+                                             ? nullptr
+                                             : &bridge_preparation},
+                         persistent_arena, draw_build_fn, handoff);
+    bridge_preparation = {};
     schedule_build_leg(std::move(leg), BuildContinuation::DUAL_MEDIAL);
   }
 
@@ -643,7 +716,12 @@ protected:
     build_landing = nullptr;
 
     // Compact: keep the seed P for leg 3, drop leg 2.
-    {
+    if (build_next_seed.face_counts.empty()) {
+      Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
+      host().carousel.compact_drop_all(
+          [this](Arena &arena) { host().reclaim_persistent(arena); });
+    } else {
+      Persist<PolyMesh> pn(build_next_seed, scratch_arena_b, persistent_arena);
       Persist<PolyMesh> ps(build_seed, scratch_arena_b, persistent_arena);
       host().carousel.compact_drop_all(
           [this](Arena &arena) { host().reclaim_persistent(arena); });
@@ -652,14 +730,19 @@ protected:
     // Build the deferred leg-3 seed dual(P) into the compacted arena. Not
     // generate(): its depth-0 scratch_a reset would drop the palette snapshot
     // above, so scope the pipeline off the live frame instead.
-    {
+    if (build_next_seed.face_counts.empty()) {
       ScratchScope da(scratch_arena_a);
       ScratchScope db(scratch_arena_b);
       build_next_seed = Solids::finalize_solid(
           MeshOps::dual(build_seed, scratch_arena_a, scratch_arena_b),
           persistent_arena);
     }
-    Animation::OpLeg::BookendClasses bookend = next_seed_bookend();
+    Animation::OpLeg::BookendClasses bookend =
+        build_next_seed.topology.empty()
+            ? next_seed_bookend()
+            : Animation::OpLeg::BookendClasses{
+                  .topology = build_next_seed.topology.data(),
+                  .faces = build_next_seed.face_counts.size()};
 
     Animation::OpLeg::PaletteHandoff handoff{
         .bank = &host().palette_bank.bank,
@@ -700,6 +783,8 @@ protected:
     build_landing = nullptr;
 
     {
+      Persist<Animation::OpLeg::BridgePreparation> prep(
+          bridge_preparation, scratch_arena_b, persistent_arena);
       Persist<PolyMesh> pn(build_next_seed, scratch_arena_b, persistent_arena);
       build_seed = PolyMesh();
       host().carousel.compact_drop_all(

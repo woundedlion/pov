@@ -28,6 +28,14 @@ namespace Animation {
  */
 class OpLeg : public AnimationBase<OpLeg> {
 public:
+#if HS_ENABLE_TEST_HOOKS
+  /** @brief Force classification before resolving a partial bookend. */
+  inline static bool test_classify_partial_bookend = false;
+  /** @brief Faces classified while constructing legs. */
+  inline static size_t test_classified_faces = 0;
+  /** @brief Corners visited by construction-time face classification. */
+  inline static size_t test_classified_corners = 0;
+#endif
   /** @brief Traps when scheduling a leg would silently drop its continuation. */
   static void require_event_slot() {
     HS_CHECK(Timeline::remaining() > 0, "OpLeg requires a free timeline event");
@@ -68,6 +76,53 @@ public:
                               edge, 0 otherwise. */
   };
 
+  /** @brief Immutable classification and newborn hosts of an opening dual bridge. */
+  struct BridgePreparation {
+    ArenaVector<uint16_t> topology; /**< Arrival classes in sweep order. */
+    std::array<uint16_t, PALETTES>
+        hosts{}; /**< Departed face per newborn slot. */
+
+    /** @brief Copies prepared bridge data between arenas.
+     * @param src Prepared source.
+     * @param dst Destination.
+     * @param arena Destination storage. */
+    HS_COLD_MEMBER static void clone(const BridgePreparation &src,
+                                     BridgePreparation &dst, Arena &arena) {
+      dst.hosts = src.hosts;
+      if (!src.topology.empty()) {
+        dst.topology.bind(arena, src.topology.size());
+        dst.topology.append_bulk(src.topology.data(), src.topology.size());
+      }
+    }
+  };
+
+  /** @brief Precomputes an opening dual bridge without consuming random state.
+   * @param seed Immutable bridge seed.
+   * @param arena Storage for the prepared classes.
+   * @return Arrival classes and departed hosts for newborn palette slots. */
+  HS_COLD_MEMBER static BridgePreparation prepare_bridge(const PolyMesh &seed,
+                                                         Arena &arena) {
+    ScratchScope a(scratch_arena_a);
+    ScratchScope b(scratch_arena_b);
+    PolyMesh arrival = MeshOps::truncate(seed, scratch_arena_a, scratch_arena_b,
+                                         0.5f - ConwayGraph::T_EPS_AMBO);
+    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                        scratch_arena_b, arena);
+    BridgePreparation prepared;
+    prepared.topology = std::move(arrival.topology);
+    prepared.hosts.fill(UINT16_MAX);
+    const auto *previous = face_centroids(seed, scratch_arena_a);
+    const auto *centroids = face_centroids(arrival, scratch_arena_a);
+    for (size_t f = seed.face_counts.size(); f < prepared.topology.size();
+         ++f) {
+      const int slot = MeshPaletteBank::slot_of(prepared.topology[f]);
+      if (prepared.hosts[slot] == UINT16_MAX)
+        prepared.hosts[slot] = static_cast<uint16_t>(
+            nearest_point(centroids[f], previous, seed.face_counts.size()));
+    }
+    return prepared;
+  }
+
   /**
    * @brief Recipe-step Conway sweep: one primitive op swept t_start -> t_end
    * on a fixed seed, no graph edge.
@@ -88,6 +143,7 @@ public:
                   centroids from the leg's own start (closing) or arrival
                   (opening) mesh, since the departed face blocks are
                   transposed against the handoff. */
+    const BridgePreparation *prepared = nullptr; /**< Opening bridge cache. */
   };
 
   /** @brief Conway sweep source; cloned unless explicitly borrowed. */
@@ -465,8 +521,26 @@ public:
     tr.twist_start = spec.twist_start;
     tr.twist_end = spec.twist_end;
 
-    init_conway(handoff, bookend, arena,
-                {.bridge_provenance = spec.bridge_provenance});
+    if (spec.prepared && spec.bridge_provenance && truncate &&
+        spec.t_start == 0.0f && spec.t_end == 0.5f && !bookend.topology &&
+        handoff.prev_faces == source.mesh.face_counts.size()) {
+      tr.topo.bind(arena, spec.prepared->topology.size());
+      tr.topo.append_bulk(spec.prepared->topology.data(),
+                          spec.prepared->topology.size());
+      ScratchScope a(scratch_arena_a);
+      auto *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
+      for (size_t f = 0; f < tr.topo.size(); ++f)
+        from[f] = handoff.prev_face_palette
+                      [f < handoff.prev_faces
+                           ? f
+                           : spec.prepared
+                                 ->hosts[MeshPaletteBank::slot_of(tr.topo[f])]];
+      build_palette_mapping(tr, source.mesh, handoff, bookend, arena, nullptr,
+                            tr.seed_faces, from);
+    } else {
+      init_conway(handoff, bookend, arena,
+                  {.bridge_provenance = spec.bridge_provenance});
+    }
     seal_transients();
   }
 
@@ -1081,7 +1155,7 @@ private:
                      ambo(dual(P)) on the medial bridge, the authored positions
                      on a reconcile leg). */
     ArenaVector<uint16_t>
-        topo; /**< Hoisted arrival classification (drawn grouping). */
+        topo; /**< Arrival classes, or placeholders for a partial bookend. */
     bool topo_is_bookend = false; /**< topo holds the bookend classification
                                      verbatim, so target_topo is not built. */
     ArenaVector<uint16_t>
@@ -1305,6 +1379,21 @@ private:
     const uint8_t *forced_from = nullptr;
     if (handoff.correspondence == FaceCorrespondence::DUAL_CLOSING)
       forced_from = dual_closing_palettes(seed, handoff, scratch_arena_a);
+
+    if (
+#if HS_ENABLE_TEST_HOOKS
+        !test_classify_partial_bookend &&
+#endif
+        forced_from && bookend.topology &&
+        bookend.faces == seed.face_counts.size() && !settle) {
+      tr.topo.bind(arena, seed.face_counts.size() + seed.vertices.size());
+      for (size_t f = 0; f < seed.face_counts.size() + seed.vertices.size();
+           ++f)
+        tr.topo.push_back(0);
+      build_palette_mapping(tr, seed, handoff, bookend, arena, nullptr,
+                            tr.seed_faces, forced_from);
+      return;
+    }
 
     // Closing-bridge face blocks transpose the handoff order; use the start
     // mesh's own centroids, built before arrival to avoid co-resident scratch.
@@ -1666,18 +1755,32 @@ private:
   }
 
   /**
-   * @brief Hoists arrival classes, reusing an exact bookend classification.
+   * @brief Hoists arrival classes or reserves a partial bookend's face slots.
    * @return Whether the bookend classification was reused verbatim.
    */
   HS_COLD_MEMBER static bool
   hoist_arrival_topology(PolyMesh &arrival, const BookendClasses &bookend,
                          Arena &arena, ArenaVector<uint16_t> &topology) {
     const size_t faces = arrival.face_counts.size();
-    if (bookend.topology && bookend.faces == faces) {
+    bool reuse = bookend.topology != nullptr;
+#if HS_ENABLE_TEST_HOOKS
+    reuse = reuse && (!test_classify_partial_bookend || bookend.faces == faces);
+#endif
+    if (reuse) {
       topology.bind(arena, faces);
-      topology.append_bulk(bookend.topology, faces);
-      return true;
+      if (bookend.faces == faces) {
+        topology.append_bulk(bookend.topology, faces);
+        return true;
+      }
+      // resolve_target_topology replaces every partial-bookend face slot.
+      for (size_t f = 0; f < faces; ++f)
+        topology.push_back(0);
+      return false;
     }
+#if HS_ENABLE_TEST_HOOKS
+    test_classified_faces += faces;
+    test_classified_corners += arrival.faces.size();
+#endif
     MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                         scratch_arena_b, arena);
     topology = std::move(arrival.topology);
