@@ -1190,13 +1190,19 @@ constexpr Quaternion operator-(const Quaternion &q1, const Quaternion &q2) {
 
 /**
  * @brief Quaternion multiplication (Hamilton product).
+ * @details Per component, (r1 r2 - v1.v2, r1 v2 + r2 v1 + v1 x v2), with
+ * no helper calls between the multiply-adds.
  * @param q1 First quaternion.
  * @param q2 Second quaternion.
  * @return The resulting quaternion.
  */
 constexpr Quaternion operator*(const Quaternion &q1, const Quaternion &q2) {
-  return Quaternion(q1.r * q2.r - dot(q1.v, q2.v),
-                    q1.r * q2.v + q2.r * q1.v + cross(q1.v, q2.v));
+  const float r1 = q1.r, x1 = q1.v.x, y1 = q1.v.y, z1 = q1.v.z;
+  const float r2 = q2.r, x2 = q2.v.x, y2 = q2.v.y, z2 = q2.v.z;
+  return Quaternion(r1 * r2 - ((x1 * x2 + y1 * y2) + z1 * z2),
+                    (r1 * x2 + r2 * x1) + (y1 * z2 - z1 * y2),
+                    (r1 * y2 + r2 * y1) + (z1 * x2 - x1 * z2),
+                    (r1 * z2 + r2 * z1) + (x1 * y2 - y1 * x2));
 }
 
 /**

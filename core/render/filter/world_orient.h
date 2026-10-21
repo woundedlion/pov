@@ -74,7 +74,7 @@ public:
     for (int i = 1; i < orientation.length(); ++i) {
       const auto &a = orientation.get(i - 1);
       const auto &b = orientation.get(i);
-      const float cosine = fabsf(a.r * b.r + math::dot(a.v, b.v));
+      const float cosine = fabsf(math::dot(a, b));
       if (cosine < 1.0f)
         bound += 2.0f * math::fast_acos(cosine) + ARC_ERROR_PAD;
     }
@@ -112,11 +112,7 @@ public:
       const float s = hs::clamp(t, 0.0f, 1.0f) * (POSE_COUNT - 1);
       const int i = std::min(static_cast<int>(s), POSE_COUNT - 2);
       const float f = s - i;
-      sample_pose =
-          math::Quaternion(poses[i][0] + (poses[i + 1][0] - poses[i][0]) * f,
-                           poses[i][1] + (poses[i + 1][1] - poses[i][1]) * f,
-                           poses[i][2] + (poses[i + 1][2] - poses[i][2]) * f,
-                           poses[i][3] + (poses[i + 1][3] - poses[i][3]) * f);
+      sample_pose = poses[i] + (poses[i + 1] - poses[i]) * f;
       sample_pose *= 1.0f / sqrtf(sample_pose.squared_magnitude());
       sample_time = t;
       sample_ready = true;
@@ -202,9 +198,9 @@ private:
       &orientation; /**< Live orientation source driving the rotation. */
   /** @brief Uniform pose lattice size. */
   static constexpr int POSE_COUNT = 16;
-  float poses[POSE_COUNT][4]; /**< Sign-aligned quaternion components. */
-  uint32_t pose_frame = 0;    /**< Frame whose sub-frame history is cached. */
-  bool poses_ready = false;   /**< The pose lattice has been populated. */
+  math::Quaternion poses[POSE_COUNT]; /**< Sign-aligned poses. */
+  uint32_t pose_frame = 0;  /**< Frame whose sub-frame history is cached. */
+  bool poses_ready = false; /**< The pose lattice has been populated. */
 
   math::Quaternion sample_pose; /**< Normalized pose at the cached fraction. */
   math::Vector sample_input;   /**< Last point rotated under the cached pose. */
@@ -219,14 +215,9 @@ private:
     for (int i = 0; i < POSE_COUNT; ++i) {
       math::Quaternion q =
           orientation.get(static_cast<float>(i) / (POSE_COUNT - 1));
-      if (i > 0 && poses[i - 1][0] * q.r + poses[i - 1][1] * q.v.x +
-                           poses[i - 1][2] * q.v.y + poses[i - 1][3] * q.v.z <
-                       0.0f)
+      if (i > 0 && math::dot(poses[i - 1], q) < 0.0f)
         q *= -1.0f;
-      poses[i][0] = q.r;
-      poses[i][1] = q.v.x;
-      poses[i][2] = q.v.y;
-      poses[i][3] = q.v.z;
+      poses[i] = q;
     }
     pose_frame = frame;
     poses_ready = true;
