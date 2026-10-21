@@ -11,6 +11,7 @@ import configparser
 import os
 import re
 import sys
+import tempfile
 import types
 import unittest
 from pathlib import Path
@@ -78,6 +79,13 @@ class FakeEnv(dict):
 
     def File(self, path):
         return path
+
+    def ConvertInoToCpp(self):
+        """PlatformIO's converter: writes CONVERTED_SKETCH beside the sketch."""
+        if "CONVERTED_SKETCH" in self:
+            sketch = self.methods["FindInoNodes"](self)[0]
+            with open(sketch + ".cpp", "w", encoding="utf-8", newline="") as cpp:
+                cpp.write(self["CONVERTED_SKETCH"])
 
     def GetLibBuilders(self):
         return self.lib_builders
@@ -242,7 +250,7 @@ class TestRequiredHooksReachEveryEnv(unittest.TestCase):
 
 
 class TestHooksRegisterNoBuildActions(unittest.TestCase):
-    """The non-gate hooks only mutate build flags and sketch discovery."""
+    """The non-gate hooks only mutate build flags and sketch handling."""
 
     def test_firmware_hooks_register_no_build_actions(self):
         cfg = _pio_config()
@@ -265,7 +273,7 @@ class TestHooksRegisterNoBuildActions(unittest.TestCase):
                 for build_env in (env, projenv):
                     self.assertEqual(build_env.pre_actions, [])
                     self.assertEqual(build_env.post_actions, [])
-                self.assertEqual(set(env.methods), {"FindInoNodes"})
+                self.assertEqual(set(env.methods), {"FindInoNodes", "ConvertInoToCpp"})
 
 
 class TestSketchSelection(unittest.TestCase):
@@ -323,6 +331,40 @@ class TestSketchSelection(unittest.TestCase):
     def test_unknown_env_fails_loud(self):
         with self.assertRaises(SystemExit):
             self._run("not_an_env")
+
+
+class TestSketchConversion(unittest.TestCase):
+    """teensy_pre.py: the converted sketch is identical across checkouts."""
+
+    @staticmethod
+    def _convert(project, temp_name):
+        sketch = f"{Path(project).as_posix()}/targets/Phantasm/Phantasm.ino"
+        os.makedirs(os.path.join(project, "targets", "Phantasm"))
+        env = FakeEnv(PIOENV="phantasm", PROJECT_DIR=project, CONVERTED_SKETCH=(
+            f'# 1 "C:\\\\Temp\\\\{temp_name}"\r\n'
+            "#include <Arduino.h>\r\n"
+            f'# 1 "{sketch}"\r\n'
+            f'# 23 "{sketch}"\r\n'
+            "void loop();\r\n"
+            f'#line 30 "{sketch}"\r\n'
+            "void loop() {}\r\n"))
+        load_hook("teensy_pre.py", env=env)
+        env.methods["ConvertInoToCpp"](env)
+        with open(sketch + ".cpp", encoding="utf-8", newline="") as cpp:
+            return cpp.read()
+
+    def test_markers_name_the_sketch_by_relative_path_without_the_temp_file(self):
+        with tempfile.TemporaryDirectory() as first, \
+                tempfile.TemporaryDirectory() as second:
+            converted = self._convert(first, "tmpa1b2")
+            self.assertEqual(converted, self._convert(second, "tmpz9y8"))
+        self.assertEqual(converted, (
+            "#include <Arduino.h>\r\n"
+            '# 1 "targets/Phantasm/Phantasm.ino"\r\n'
+            '# 23 "targets/Phantasm/Phantasm.ino"\r\n'
+            "void loop();\r\n"
+            '#line 30 "targets/Phantasm/Phantasm.ino"\r\n'
+            "void loop() {}\r\n"))
 
 
 class TestLinkerMap(unittest.TestCase):
