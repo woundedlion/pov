@@ -1682,6 +1682,53 @@ inline void test_recorded_face_caps_match_measured_columns() {
   });
 }
 
+/** @brief Moving faces that no placement brings into the clip's rows hold. */
+inline void test_moving_faces_outside_clip_rows_hold() {
+  constexpr int W = 288, H = 144;
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  mesh.vertices.bind(scratch_arena_a, 9);
+  // North of the clip's last row, just south of it, and far south.
+  for (const float y : {.8f, -.02f, -.8f})
+    for (const auto &v :
+         {math::Vector(1, y, -.1f), math::Vector(1, y - .05f, 0),
+          math::Vector(1, y, .1f)})
+      mesh.vertices.push_back(v.normalized());
+  mesh.face_counts.bind(scratch_arena_a, 3);
+  mesh.face_offsets.bind(scratch_arena_a, 3);
+  mesh.faces.bind(scratch_arena_a, 9);
+  for (uint16_t f = 0; f < 3; ++f) {
+    mesh.face_counts.push_back(3);
+    mesh.face_offsets.push_back(static_cast<uint16_t>(3 * f));
+    for (uint16_t k = 0; k < 3; ++k)
+      mesh.faces.push_back(static_cast<uint16_t>(3 * f + k));
+  }
+  auto pick = [&](int rows, uint8_t *moving, uint16_t *columns) {
+    hs_test::StubEffect fx(W, H);
+    fx.set_clip(0, rows, 0, W);
+    Canvas canvas(fx);
+    auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+    const Temporal::ColumnTime time =
+        basis->prepare(math::Quaternion(), math::Quaternion(), true);
+    Scan::ColumnTimeScope column_scope(canvas, time);
+    const size_t picked =
+        Scan::pick_moving_faces<W>(canvas, mesh, moving, .02f, columns);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, columns);
+    return picked;
+  };
+  uint8_t moving[9];
+  uint16_t columns[6];
+  std::fill_n(moving, 9, uint8_t(1));
+  HS_EXPECT_EQ(pick(H, moving, columns), size_t(3));
+  std::fill_n(moving, 9, uint8_t(1));
+  HS_EXPECT_EQ(pick(H / 2, moving, columns), size_t(2));
+  HS_EXPECT_NE(columns[0], Scan::HELD_FACE_COLUMN);
+  HS_EXPECT_NE(columns[2], Scan::HELD_FACE_COLUMN);
+  HS_EXPECT_EQ(columns[4], Scan::HELD_FACE_COLUMN);
+  for (int i = 6; i < 9; ++i)
+    HS_EXPECT_EQ(moving[i], 0);
+}
+
 /** @brief Temporal sampling deforms ordinary motion and holds tiny steps and jumps. */
 inline void test_mesh_motion_activation() {
   constexpr int W = 288;
