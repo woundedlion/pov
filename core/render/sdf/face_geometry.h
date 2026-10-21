@@ -696,11 +696,11 @@ snap_phi_for_pole_planes(const FaceScratchBuffer &scratch, int planes_count,
    * @param y_max_out Output: last covered row.
    * @param bounds_margin Angular padding around the vertical bounds.
    */
-HS_O3_FN static void compute_full_bounds(FaceScratchBuffer &scratch, int count,
-                                         const math::Vector &center,
-                                         const math::LatitudeGeometry &geometry,
-                                         int height, int &y_min_out,
-                                         int &y_max_out, float bounds_margin) {
+HS_HOT_FLASH_MEMBER static void
+compute_full_bounds(FaceScratchBuffer &scratch, int count,
+                    const math::Vector &center,
+                    const math::LatitudeGeometry &geometry, int height,
+                    int &y_min_out, int &y_max_out, float bounds_margin) {
   float min_phi = 100.0f;
   float max_phi = -100.0f;
   float min_y = 2.0f;
