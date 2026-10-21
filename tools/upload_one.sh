@@ -16,4 +16,4 @@ hs_exit_traps cleanup
 acquire_tree_lock
 hs_device_acquire upload "$ENV" 900
 pio run -e "$ENV"
-hs_teensy_flash "$ENV"
+hs_teensy_flash ".pio/build/$ENV"
