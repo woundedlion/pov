@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # clang-format --dry-run --Werror over the whole tracked first-party C++ set.
 #
-# The pathspec and exclusion regex are pinned to the .githooks/pre-commit copy
+# The pathspec and exclusion regex are pinned to the tools/commit_checks.sh copy
 # by tools/build_pins.py --check. xargs on an empty list exits 0, so the
 # selection is asserted non-empty.
 #

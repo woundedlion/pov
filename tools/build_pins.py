@@ -122,7 +122,7 @@ CONSUMERS = {
         "build_pins.py --check-tool shellcheck",
         '{{ python_command }} tools/build_pins.py --check',
     ),
-    ROOT / ".githooks/pre-commit": (
+    ROOT / "tools/commit_checks.sh": (
         '"$PYTHON_BIN" "$SNAPSHOT/tools/build_pins.py" --check',
     ),
 }
@@ -138,7 +138,7 @@ INLINE_SCAN = (
     ROOT / "platformio.ini",
     ROOT / "CMakeLists.txt",
     ROOT / "scripts/generate_luts.py",
-    ROOT / ".githooks/pre-commit",
+    ROOT / "tools/commit_checks.sh",
     ROOT / "hardware/phantasm/gen/sexp.py",
     # Prose that contributors install from.
     ROOT / "README.md",
@@ -330,7 +330,7 @@ INLINE_AUTHORITIES = {
         'README.md',
     ),
     'clang-format': (
-        '.githooks/pre-commit',
+        'tools/commit_checks.sh',
         'CONTRIBUTING.md',
         'README.md',
         'requirements/clang-format.in',
@@ -381,7 +381,7 @@ INLINE_AUTHORITIES = {
 
 LITERAL_AUTHORITIES = {
     'whitespace-rules': (
-        '.githooks/pre-commit',
+        'tools/commit_checks.sh',
         'tools/whitespace_gate.sh',
     ),
     'smoke-stack-ceiling-debug': (
@@ -389,18 +389,18 @@ LITERAL_AUTHORITIES = {
         'justfile',
     ),
     'shell-selection': (
-        '.githooks/pre-commit',
+        'tools/commit_checks.sh',
         'tools/shellcheck_gate.sh',
     ),
     'float-flags-cmake': (
         'CMakeLists.txt',
     ),
     'format-exclude': (
-        '.githooks/pre-commit',
+        'tools/commit_checks.sh',
         'tools/clang_format_gate.sh',
     ),
     'format-extensions': (
-        '.githooks/pre-commit',
+        'tools/commit_checks.sh',
     ),
     'format-globs': (
         'tools/clang_format_gate.sh',
