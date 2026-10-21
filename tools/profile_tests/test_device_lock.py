@@ -6,6 +6,7 @@ Run:  python -m unittest discover -s tools/profile_tests
 """
 
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -320,16 +321,18 @@ with guard(sys.argv[2]):
         self.assertTrue(break_lock(self.d))
 
 
-def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None):
+def run_lock(script, lock_base, ports=("COM3", "COM4"), env=None, pnp=()):
     """Run a snippet against device_lock.sh with a stubbed board list.
 
     hs_device_ports is stubbed after sourcing; the real enumerator needs
-    attached boards.
+    attached boards. Get-PnpDevice always is: pnp holds the live
+    "<InstanceId>|<FriendlyName>" rows it reports.
     """
-    stub = ""
+    stub = "_hs_pnp_teensys() { printf '%%s\\n' %s; };" % (
+        " ".join(shlex.quote(row) for row in pnp) or "''")
     if ports is not None:
         body = "; ".join(f"echo {p}" for p in ports) or ":"
-        stub = "hs_device_ports() { %s; };" % body
+        stub += " hs_device_ports() { %s; };" % body
     full = f'. "{LOCK_SH}"; {stub} {script}'
     e = dict(clean_device_env(), HS_DEVICE_LOCK=str(lock_base))
     e.update(env or {})
@@ -699,6 +702,14 @@ class PinnedPortEnumeration(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
 
 
+# Get-PnpDevice rows for a live Teensy in HalfKay and for a running one.
+HALFKAY = r"USB\VID_16C0&PID_0478\0009B551|USB Input Device"
+
+
+def serial_row(port):
+    return rf"USB\VID_16C0&PID_0483&MI_00\6&15795FF9&0&0000|USB Serial Device ({port})"
+
+
 class PinnedPortReenumeration(unittest.TestCase):
     """A queued waiter's pinned board dropping off the port list."""
 
@@ -731,14 +742,14 @@ class PinnedPortReenumeration(unittest.TestCase):
             f"token=peer\nsession=peer\npid={_live_pid(self)}\nport=COM4\n"
             f"effect=Peer\nenv=profile\nstarted={now}\ndeadline={now + 600}\n")
 
-    def acquire(self, release_after=None, **env):
+    def acquire(self, release_after=None, pnp=(), **env):
         """Acquire pinned to COM4; the peer releases on sleep #release_after."""
         release = (f'[ "$s" -lt {release_after} ] || rm -rf "{self.peer.as_posix()}"; '
                    if release_after else "")
         script = (f's=0; sleep() {{ s=$((s + 1)); {release}}}; '
                   'hs_device_acquire E profile 60; rc=$?; '
                   'echo "RC=$rc SLEEPS=$s PORT=$HS_DEVICE_PORT"; hs_device_release; exit "$rc"')
-        return run_lock(script, self.base, ports=None,
+        return run_lock(script, self.base, ports=None, pnp=pnp,
                         env={"HS_TEENSY_TOOLS": str(self.tools),
                              "HS_TEENSY_PORT": "COM4", **env})
 
@@ -796,6 +807,51 @@ class PinnedPortReenumeration(unittest.TestCase):
         self.assertIn("RC=1 SLEEPS=0 ", r.stdout)
         self.assertIn("COM4 is not attached", r.stderr)
         self.assertEqual(list(self.root.glob("lock-*.d")), [])
+
+    def test_unseen_pin_is_waited_for_while_a_teensy_is_in_halfkay(self):
+        self.enumerate_com4_except((1, 2, 3))
+        r = self.acquire(pnp=(HALFKAY,), HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=3 PORT=COM4", r.stdout)
+        self.assertIn("shows a Teensy in HalfKay", r.stderr)
+        self.assertNotIn("not attached", r.stderr)
+
+    def test_unseen_pin_is_waited_for_while_windows_shows_its_port_live(self):
+        self.enumerate_com4_except((1,))
+        r = self.acquire(pnp=(serial_row("COM4"),), HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("RC=0 SLEEPS=1 PORT=COM4", r.stdout)
+        self.assertIn("shows it live", r.stderr)
+
+    def test_board_stuck_in_halfkay_fails_after_the_grace(self):
+        self.enumerate_com4_except("all")
+        r = self.acquire(pnp=(HALFKAY,), HS_DEVICE_WAIT="3600",
+                         HS_DEVICE_ABSENT_GRACE="15")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=3 ", r.stdout)
+        self.assertIn("stayed off the port list for 15s", r.stderr)
+        self.assertEqual(list(self.root.glob("lock-*.d")), [])
+
+    def test_halfkay_wait_is_bounded_by_a_shorter_device_wait(self):
+        self.enumerate_com4_except("all")
+        r = self.acquire(pnp=(HALFKAY,), HS_DEVICE_WAIT="10")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=2 ", r.stdout)
+
+    def test_other_live_ports_are_no_reason_to_wait(self):
+        self.enumerate_com4_except("all")
+        r = self.acquire(pnp=(serial_row("COM3"), serial_row("COM44")),
+                         HS_DEVICE_WAIT="3600")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=0 ", r.stdout)
+        self.assertIn("COM4 is not attached", r.stderr)
+
+    def test_halfkay_is_not_consulted_without_a_wait(self):
+        self.enumerate_com4_except("all")
+        r = self.acquire(pnp=(HALFKAY,))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("RC=1 SLEEPS=0 ", r.stdout)
+        self.assertIn("COM4 is not attached", r.stderr)
 
     def test_claimed_absent_board_fails_fast_without_a_wait(self):
         self.hold_com4()
