@@ -150,8 +150,9 @@ case "${HS_PROFILE_MINDSPLATTER:-}" in
     ;;
 esac
 MODE_SUFFIX="${REPLAY_SUFFIX}${MSP_SUFFIX}${PC_SUFFIX}"
-OUT=${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}
-# Every per-run artifact shares the log's stem.
+OUT=$(hs_native_path "${HS_PROFILE_OUT:-build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}${MODE_SUFFIX}.log}")
+# Every per-run artifact shares the log's stem, and the provenance lines name
+# them in a form the Windows Python report tools open.
 STEM=${OUT%.log}
 PROVENANCE_OUT=$STEM.provenance
 PROFILE_BUILD_LOG=${STEM}_build.log

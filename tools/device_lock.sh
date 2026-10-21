@@ -148,6 +148,18 @@ _hs_resolve_python() {
   return 2
 }
 
+# hs_native_path <path>: <path> in the C:/... form native Windows programs
+# open; unchanged where there is no cygpath. MSYS converts paths in argv only,
+# not paths written into a file.
+hs_native_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m -- "$1"
+  else
+    printf '%s
+' "$1"
+  fi
+}
+
 # _hs_break_lock <dir> <token> — evicts only the claim identified by token.
 _hs_break_lock() {
   _hs_resolve_python || return 2

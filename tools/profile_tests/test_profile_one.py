@@ -4,6 +4,7 @@
 import hashlib
 import os
 import shlex
+import shutil
 import re
 import subprocess
 import sys
@@ -229,14 +230,21 @@ ARTIFACT_VARS = ("OUT", "PROVENANCE_OUT", "PROFILE_BUILD_LOG",
                  "ATTEST_DIR", "ARTIFACT_BASE")
 
 
-def derived_paths(profile_out=None):
+# An MSYS cygpath -m: /c/... becomes C:/..., anything else is unchanged.
+MSYS_CYGPATH = ('cygpath() { [ "$1" = -m ] && [ "$2" = -- ] || return 9; '
+                'case $3 in /c/*) echo "C:${3#/c}";; *) echo "$3";; esac; }\n')
+
+
+def derived_paths(profile_out=None, prelude=""):
     """Evaluate profile_one.sh's artifact-path block for one HS_PROFILE_OUT."""
     source = PROFILE_ONE.read_text(encoding="utf-8")
     block = re.search(r"(?ms)^OUT=.*?^ATTEST_DIR=.*?$", source)
     if not block:
         raise AssertionError("missing artifact-path block")
     script = (
-        "LOWER=islamicstars; TAG=ship; ENV=profile\n"
+        f'. "{(REPO / "tools" / "device_lock.sh").as_posix()}"\n'
+        + prelude
+        + "LOWER=islamicstars; TAG=ship; ENV=profile\n"
         "DEEP_SUFFIX=; MODE_SUFFIX=; MSP_SUFFIX=\n"
         + block.group(0) + "\n"
         + "".join(f'echo "{name}=${name}"\n' for name in ARTIFACT_VARS)
@@ -322,6 +330,42 @@ class ArtifactPaths(unittest.TestCase):
             with self.subTest(var=name):
                 self.assertIn("islamicstars_big_ship", paths[name])
                 self.assertNotEqual(paths[name], default[name])
+
+    def test_an_msys_absolute_override_names_native_windows_paths(self):
+        paths = derived_paths("/c/work/prof/fx_pc.log", prelude=MSYS_CYGPATH)
+        self.assertEqual(paths["OUT"], "C:/work/prof/fx_pc.log")
+        for name in ARTIFACT_VARS:
+            with self.subTest(var=name):
+                self.assertTrue(paths[name].startswith("C:/work/prof/"), paths[name])
+
+    def test_a_relative_override_stays_relative(self):
+        override = "build/prof/islamicstars_big_ship.log"
+        self.assertEqual(derived_paths(override, prelude=MSYS_CYGPATH)["OUT"], override)
+
+
+def native_path(path, *, path_env):
+    """device_lock.sh's hs_native_path, run with PATH=path_env."""
+    source = (REPO / "tools" / "device_lock.sh").read_text(encoding="utf-8")
+    function = re.search(r"(?ms)^hs_native_path\(\) \{\n.*?^\}\n", source).group(0)
+    return subprocess.run(
+        [shutil.which("bash"), "-c", function + 'hs_native_path "$1"', "native-test", path],
+        capture_output=True, text=True, encoding="utf-8", env={"PATH": path_env})
+
+
+class NativePath(unittest.TestCase):
+    """Paths written into files that the Windows Python tools read."""
+
+    @unittest.skipUnless(shutil.which("cygpath"), "needs MSYS cygpath")
+    def test_msys_absolute_path_becomes_a_drive_path(self):
+        result = native_path("/c/work/prof/fx.log", path_env=os.environ["PATH"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "C:/work/prof/fx.log")
+
+    def test_without_cygpath_the_path_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as empty:
+            result = native_path("/c/work/prof/fx.log", path_env=empty)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "/c/work/prof/fx.log\n")
 
 
 def capture_connect_timeout(**lock_env):
