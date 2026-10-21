@@ -33,6 +33,16 @@ struct IslamicBuildProbe {
     return {IS::test_vertex_passes, IS::test_ripple_candidates,
             IS::test_ripple_interpolations};
   }
+  /** @brief Selects the ungrouped endpoint chain and resets its counters. */
+  static void reference_endpoints(bool enabled) {
+    IS::test_reference_endpoints = enabled;
+    IS::test_endpoint_groups = 0;
+    IS::test_endpoint_bands = 0;
+  }
+  /** @return Group and individual endpoint band checks. */
+  static std::array<size_t, 2> endpoint_counts() {
+    return {IS::test_endpoint_groups, IS::test_endpoint_bands};
+  }
   static constexpr const auto &presets() { return IS::PRESETS; }
   static const Solids::Entry *selected_entry(const IS &e) {
     return e.build_entry;
@@ -897,6 +907,43 @@ inline void test_islamicstars_prepared_ripples() {
       "  [shape 6 prepared ripples] vertex passes %zu/%zu, bands %zu/%zu, interpolations %zu/%zu; frames 80-119 peak us min/median %.1f/%.1f -> %.1f/%.1f\n",
       counts[0][0], counts[1][0], counts[0][1], counts[1][1], counts[0][2],
       counts[1][2], peak[0][0], peak[0][2], peak[1][0], peak[1][2]);
+}
+
+/** @brief Group rejection preserves shape-6 and shape-8 frames. */
+inline void test_islamicstars_endpoint_groups() {
+  using P = IslamicBuildProbe;
+  for (const int shape : {6, 8}) {
+    std::vector<uint64_t> reference;
+    std::array<size_t, 2> counts[2];
+    for (int mode = 0; mode < 2; ++mode) {
+      reset_effect_globals();
+      pin_frame_clock(0);
+      P::IS effect;
+      P::set_trans_speed(effect, 4.0f);
+      effect.init();
+      P::set_burst_size(effect, 8);
+      P::reference_endpoints(mode == 0);
+      P::spawn_entry(effect, *P::presets()[shape].params);
+      for (int frame = 0; frame < 120; ++frame) {
+        pin_frame_clock(frame);
+        effect.draw_frame();
+        effect.advance_display();
+        const uint64_t hash = frame_hash<SMALL_W, SMALL_H>(effect);
+        if (mode == 0)
+          reference.push_back(hash);
+        else
+          HS_EXPECT_EQ(hash, reference[frame]);
+      }
+      counts[mode] = P::endpoint_counts();
+    }
+    HS_EXPECT_GT(counts[1][0], size_t{0});
+    HS_EXPECT_LT(counts[1][1], counts[0][1]);
+    std::printf(
+        "  [shape %d endpoint groups] individual bands %zu -> %zu, group checks %zu\n",
+        shape, counts[0][1], counts[1][1], counts[1][0]);
+  }
+  P::reference_endpoints(false);
+  hs::clear_mock_time();
 }
 
 /**
