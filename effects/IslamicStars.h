@@ -331,6 +331,82 @@ private:
     }
   }
 
+  /** @brief Consecutive endpoint ripples sharing one rejection band. */
+  struct RippleGroup {
+    const Animation::RippleParams *params = nullptr; ///< Wave in spawn order.
+    float near = 0.0f; ///< Upper cosine bound of the group.
+    float far = 0.0f;  ///< Lower cosine bound of the group.
+    int end = 0;       ///< Exclusive end of the group.
+  };
+
+  /** @brief Endpoint ripple chain with shared-center group rejection. */
+  struct EndpointRipples {
+    RippleGroup *waves = nullptr; ///< Arena-backed waves and group bounds.
+    int count = 0;                ///< Number of nonzero waves.
+
+    /** @brief Applies the endpoint chain in spawn order. */
+    HS_O3_FN math::Vector operator()(math::Vector v) const {
+      for (int first = 0; first < count;) {
+        const auto &group = waves[first];
+        const float cosine = math::dot(v, group.params->center);
+#if HS_ENABLE_TEST_HOOKS
+        ++test_endpoint_groups;
+#endif
+        if (cosine <= group.near && cosine >= group.far) {
+          for (int k = first; k < group.end; ++k) {
+            const auto &p = *waves[k].params;
+            const float c = k == first ? cosine : math::dot(v, p.center);
+#if HS_ENABLE_TEST_HOOKS
+            ++test_endpoint_bands;
+#endif
+            if (c > p.cos_threshold_min || c < p.cos_threshold_max)
+              continue;
+            v = ripple_transform_at_distance(
+                v, p, math::fast_acos(hs::clamp(c, -1.0f, 1.0f)), p.phase);
+          }
+        }
+        first = group.end;
+      }
+      return v;
+    }
+  };
+
+  /** @brief Prepares endpoint rejection groups in the draw's scratch scope. */
+  HS_HOT_FLASH_MEMBER EndpointRipples endpoint_ripples(Arena &arena) const {
+    EndpointRipples result;
+    if (ripple_gen.active_count() == 0)
+      return result;
+    result.waves = arena.allocate_n<RippleGroup>(ripple_gen.active_count());
+    int first = 0;
+    for (int k = 0; k < ripple_gen.active_count(); ++k) {
+      const auto &p = ripple_gen.active_params(k);
+      if (p.amplitude <= 0.001f)
+        continue;
+      auto &wave = result.waves[result.count];
+      wave.params = &p;
+      if (result.count == 0 ||
+          p.center.x != result.waves[first].params->center.x ||
+          p.center.y != result.waves[first].params->center.y ||
+          p.center.z != result.waves[first].params->center.z) {
+        first = result.count;
+        wave.near = p.cos_threshold_min;
+        wave.far = p.cos_threshold_max;
+      } else {
+        result.waves[first].near =
+            fmaxf(result.waves[first].near, p.cos_threshold_min);
+        result.waves[first].far =
+            fminf(result.waves[first].far, p.cos_threshold_max);
+      }
+      result.waves[first].end = ++result.count;
+    }
+    return result;
+  }
+#if HS_ENABLE_TEST_HOOKS
+  inline static bool test_reference_endpoints = false; ///< Ungrouped chain.
+  inline static size_t test_endpoint_groups = 0; ///< Group rejection tests.
+  inline static size_t test_endpoint_bands = 0;  ///< Individual band tests.
+#endif
+
   /**
    * @brief Orients and ripple-distorts a mesh into scratch_arena_a.
    * @param base_state Undistorted source mesh.
@@ -342,8 +418,20 @@ private:
     OrientTransformer camera(orientation);
     {
       HS_PROFILE(is_mesh_transform);
-      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                         ripple_gen, camera);
+#if HS_ENABLE_TEST_HOOKS
+      if (test_reference_endpoints) {
+        MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                           ripple_gen, camera);
+        for (int k = 0; k < ripple_gen.active_count(); ++k)
+          if (ripple_gen.active_params(k).amplitude > 0.001f)
+            test_endpoint_bands += base_state.vertices.size();
+      } else
+#endif
+      {
+        const auto ripples = endpoint_ripples(scratch_arena_a);
+        MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                           ripples, camera);
+      }
     }
     return transformed_state;
   }
@@ -842,7 +930,19 @@ private:
     OrientTransformer camera(orientation);
     {
       HS_PROFILE(is_mesh_transform);
-      MeshOps::transform_in_place(mesh, ripple_gen, camera);
+#if HS_ENABLE_TEST_HOOKS
+      if (test_reference_endpoints) {
+        MeshOps::transform_in_place(mesh, ripple_gen, camera);
+        for (int k = 0; k < ripple_gen.active_count(); ++k)
+          if (ripple_gen.active_params(k).amplitude > 0.001f)
+            test_endpoint_bands += mesh.vertices.size();
+      } else
+#endif
+      {
+        ScratchScope ripple_scope(scratch_arena_a);
+        const auto ripples = endpoint_ripples(scratch_arena_a);
+        MeshOps::transform_in_place(mesh, ripples, camera);
+      }
     }
     HS_PROFILE(is_build_scan);
     scan_build_mesh(canvas, mesh, sh, active ? &path : nullptr, bound);
