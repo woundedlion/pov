@@ -964,9 +964,10 @@ inline constexpr uint8_t EDGE_VISIBLE = 1u << 0;
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT>
-static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
-                             const ClipRegion::XClip &xc,
-                             const Fragments &trail, uint8_t *bits) {
+HS_NOINLINE_NOCLONE static bool
+gate_trail_edges(const PipelineT &, const ClipRegion &cr,
+                 const ClipRegion::XClip &xc, const Fragments &trail,
+                 uint8_t *bits) {
   static_assert(pipeline_hoistable_cull<PipelineT>(),
                 "gate_trail_edges requires a pipeline with no world cull "
                 "stage; route others through edge_visible_in_clip");

@@ -493,7 +493,7 @@ class PipelineRef {
    * @param prediction Optional part acceptance and boundary evaluator.
    * @return Actual unwrapped column. */
   template <typename T>
-  HS_HOT_INLINE static float
+  HS_NOINLINE_NOCLONE static float
   transformed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
                          const Pixel &c, float age, float alpha, float t,
                          const Temporal::ColumnPrediction *prediction) {
@@ -516,7 +516,7 @@ class PipelineRef {
    * @param prediction Optional landing window and boundary evaluator.
    * @return Actual unwrapped column. */
   template <typename T>
-  HS_HOT_INLINE static float
+  HS_NOINLINE_NOCLONE static float
   projected_plot_entry(void *pipeline, Canvas &cv, math::PixelCoords p,
                        const Pixel &c, float age, float alpha, float t,
                        const Temporal::ColumnPrediction *prediction) {

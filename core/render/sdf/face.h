@@ -241,10 +241,11 @@ struct Face {
    * @param azimuth_pads Optional latitude-adjusted padding table.
    * @param bounds_margin Angular padding around the vertical bounds.
    */
-  Face(std::span<const math::Vector> vertices,
-       std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-       int virtual_height, int height, const ClipRegion *clip,
-       const float *azimuth_pads, float bounds_margin)
+  HS_HOT_FLASH_MEMBER Face(std::span<const math::Vector> vertices,
+                           std::span<const uint16_t> indices,
+                           FaceScratchBuffer &scratch, int virtual_height,
+                           int height, const ClipRegion *clip,
+                           const float *azimuth_pads, float bounds_margin)
       : Face(vertices, indices, scratch,
              virtual_grid_geometry(virtual_height, height), height, clip,
              azimuth_pads, bounds_margin) {
@@ -268,11 +269,11 @@ struct Face {
    * @param bounds_margin Angular padding around the vertical bounds. Callers
    *        rendering antialiasing fringes must pass at least `2π / width`.
    */
-  HS_O3_FN Face(std::span<const math::Vector> vertices,
-                std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-                const math::LatitudeGeometry &geometry, int height,
-                const ClipRegion *clip, const float *azimuth_pads,
-                float bounds_margin)
+  HS_HOT_FLASH_MEMBER
+  Face(std::span<const math::Vector> vertices,
+       std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
+       const math::LatitudeGeometry &geometry, int height,
+       const ClipRegion *clip, const float *azimuth_pads, float bounds_margin)
       : build_height(height), build_geometry(geometry),
         build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
         full_width(true) {
