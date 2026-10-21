@@ -97,7 +97,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   verdict is on what is being committed rather than on the working tree. A
   required tool missing for an applicable change fails the commit rather than
   skipping the check. Configuring the `tests` preset points `core.hooksPath` at
-  `.githooks` for you.
+  `.githooks` for you. The checks live in `tools/commit_checks.sh`.
   Changes to the profile archive, its validator, or its effect roster inputs
   also run the archive structure and coverage gate on that staged snapshot,
   using the pinned Node version.

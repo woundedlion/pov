@@ -25,9 +25,9 @@ import build_pins as bp  # noqa: E402
 class AuthorityPresence(unittest.TestCase):
     def test_missing_spelling_in_one_authority_is_rejected(self):
         for check, relative, original, replacement in (
-                (bp.check_shared_literals, '.githooks/pre-commit',
+                (bp.check_shared_literals, 'tools/commit_checks.sh',
                  "grep -vE '", "grep -v -E '"),
-                (bp.check_shared_literals, '.githooks/pre-commit',
+                (bp.check_shared_literals, 'tools/commit_checks.sh',
                  'core.whitespace=', 'core.whitespace '),
                 (bp.check_inline_pins, 'requirements/ruff.in',
                  'ruff==', 'ruff >= ')):
@@ -248,7 +248,7 @@ class SharedLiterals(unittest.TestCase):
         carriers = [path.name for path in bp.INLINE_SCAN
                     if want in path.read_text(encoding="utf-8")]
         self.assertEqual(sorted(carriers),
-                         ["clang_format_gate.sh", "pre-commit"])
+                         ["clang_format_gate.sh", "commit_checks.sh"])
 
     def test_fast_math_axis_marks_its_test_contract(self):
         self.assertEqual(
@@ -292,7 +292,7 @@ class InlinePins(unittest.TestCase):
                 self.assertEqual(re.findall(pattern, line), ["3.13"])
 
     def test_the_hook_delegates_format_and_ruff_versions_to_build_pins(self):
-        source = (bp.ROOT / ".githooks/pre-commit").read_text(encoding="utf-8")
+        source = (bp.ROOT / "tools/commit_checks.sh").read_text(encoding="utf-8")
         for tool in ("clang-format", "ruff"):
             self.assertIn(f'"$SNAPSHOT/tools/build_pins.py" --check-tool {tool}', source)
         self.assertNotIn("HS_CLANG_FORMAT_MAJOR", source)
@@ -349,7 +349,7 @@ class ConsumerCallSites(unittest.TestCase):
     def test_every_build_pin_gate_entry_point_is_required(self):
         paths = (bp.ROOT / ".github/workflows/ci.yml",
                  bp.ROOT / "justfile",
-                 bp.ROOT / ".githooks/pre-commit")
+                 bp.ROOT / "tools/commit_checks.sh")
         for path in paths:
             calls = [line.strip()
                      for line in path.read_text(encoding="utf-8").splitlines()
