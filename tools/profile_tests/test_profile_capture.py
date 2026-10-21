@@ -72,21 +72,34 @@ class FakeClock:
 
 
 class FakeSerial:
-    """An opened port that replays a fixed sequence of readline() results.
+    """An opened port that replays a fixed sequence of arriving chunks.
 
-    An empty read costs the port's 1 s timeout on `clock`; a line costs 10 ms.
+    An empty read costs the port's 1 s timeout on `clock`; a chunk costs 10 ms.
     """
 
-    def __init__(self, port, lines=(), clock=None):
+    def __init__(self, port, chunks=(), clock=None):
         self.port = port
-        self.lines = list(lines)
+        self.chunks = list(chunks)
         self.clock = clock
         self.closed = False
+        self.reads = []
+        self.buffer_sizes = []
 
-    def readline(self):
-        line = self.lines.pop(0) if self.lines else b""
-        self.clock.now += 0.01 if line else 1.0
-        return line
+    @property
+    def in_waiting(self):
+        return len(self.chunks[0]) if self.chunks else 0
+
+    def read(self, size):
+        chunk = self.chunks.pop(0) if self.chunks else b""
+        if size < len(chunk):
+            self.chunks.insert(0, chunk[size:])
+            chunk = chunk[:size]
+        self.reads.append(len(chunk))
+        self.clock.now += 0.01 if chunk else 1.0
+        return chunk
+
+    def set_buffer_size(self, rx_size):
+        self.buffer_sizes.append(rx_size)
 
     def close(self):
         self.closed = True
@@ -281,6 +294,26 @@ class TestMain(unittest.TestCase):
         self.assertIn("phase 2", printed)
         self.assertIn("2 lines", printed)
 
+    def test_lines_split_across_reads_are_reassembled(self):
+        opened = FakeSerial("COM3", [b"pha", b"se 1\r\nphase", b" 2\nfi", b"nal"], self.clock)
+        printed = self._run(opened)
+        with open(self.out, encoding="utf-8", newline="") as handle:
+            self.assertEqual(handle.read(), "phase 1\nphase 2\nfinal\n")
+        self.assertIn("3 lines", printed)
+
+    def test_one_read_drains_everything_waiting(self):
+        burst = b"".join(b"pc %d 1\n" % n for n in range(500))
+        opened = FakeSerial("COM3", [burst], self.clock)
+        self._run(opened)
+        self.assertEqual(opened.reads[0], len(burst))
+        with open(self.out, encoding="utf-8") as handle:
+            self.assertEqual(len(handle.read().splitlines()), 500)
+
+    def test_the_receive_queue_is_enlarged_where_supported(self):
+        opened = FakeSerial("COM3", [b"line\n"], self.clock)
+        self._run(opened)
+        self.assertEqual(opened.buffer_sizes, [pc.RX_BUFFER_BYTES])
+
     def test_undecodable_bytes_do_not_abort_the_capture(self):
         opened = FakeSerial("COM3", [b"\xff\xfe ok\n"], self.clock)
         self._run(opened)
@@ -290,7 +323,7 @@ class TestMain(unittest.TestCase):
     def test_a_serial_drop_removes_the_partial_capture(self):
         opened = FakeSerial("COM3")
         stderr = io.StringIO()
-        with mock.patch.object(opened, "readline", side_effect=[
+        with mock.patch.object(opened, "read", side_effect=[
                 b"HS_CHECK failed: breadcrumb\n", _SerialException("USB disconnected")]), \
                 contextlib.redirect_stderr(stderr):
             with self.assertRaises(SystemExit) as caught:
