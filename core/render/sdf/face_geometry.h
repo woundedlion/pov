@@ -261,11 +261,11 @@ __attribute__((always_inline)) void build_sectors(FaceScratchBuffer &scratch) {
   sector_ok = false;
   if (convex || count < SECTOR_MIN_COUNT)
     return;
-  float prev = pseudo_angle(poly_2d[0].y, poly_2d[0].x);
+  float prev = math::diamond_angle<false>(poly_2d[0].y, poly_2d[0].x);
   float acc = prev, total = 0.0f;
   scratch.pseudo_angles[0] = prev;
   for (int i = 1; i <= count; ++i) {
-    float a = pseudo_angle(poly_2d[i].y, poly_2d[i].x);
+    float a = math::diamond_angle<false>(poly_2d[i].y, poly_2d[i].x);
     float d = a - prev;
     if (d > 2.0f)
       d -= 4.0f;
@@ -1005,7 +1005,7 @@ HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
    */
 HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out,
                                 float reject_dsq = FLT_MAX) const {
-  float p = pseudo_angle(py, px) * sector_sgn;
+  float p = math::diamond_angle<false>(py, px) * sector_sgn;
   if (p < sector_base)
     p += 4.0f;
   uint32_t qk = angle_key(p);

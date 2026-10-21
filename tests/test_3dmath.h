@@ -159,6 +159,18 @@ inline void test_fast_atan2() {
   }
 }
 
+/** @brief Shared azimuth units and conservative angular error bounds. */
+inline void test_shared_angle_helpers() {
+  HS_EXPECT_EQ(math::half_turns(math::Vector(1, 0, 1)), 0.25f);
+  HS_EXPECT_EQ(math::half_turns(math::Vector(-1, 0, 0)), 1.0f);
+  HS_EXPECT_EQ(math::half_turns(math::Vector(0, 0, -1)), -0.5f);
+  HS_EXPECT_TRUE(std::abs(math::fast_acos(0.0807f) - std::acos(0.0807f)) <=
+                 math::FAST_ACOS_MAX_ERROR);
+  const float ANGLE = -2.5702f;
+  HS_EXPECT_TRUE(std::abs(math::fast_atan2(std::sin(ANGLE), std::cos(ANGLE)) -
+                          ANGLE) <= math::FAST_ATAN2_MAX_ERROR);
+}
+
 /**
  * @brief Verifies diamond_angle's [0,4) range, cardinal anchors, scale
  *        invariance, and strict monotonicity with std::atan2.
@@ -193,6 +205,8 @@ inline void test_diamond_angle() {
     HS_EXPECT_TRUE(d > prev);
     prev = d;
   }
+
+  HS_EXPECT_EQ(math::diamond_angle<false>(-1e-9f, 1.0f), 4.0f);
 
   // Fourth-quadrant seam: y -> 0- with x > 0 must stay inside [0, 4).
   for (float y : {-1e-3f, -1e-6f, -1e-9f, -1e-12f, -1e-20f, -1e-30f}) {
@@ -2091,6 +2105,7 @@ inline int run_3dmath_tests() {
   test_dodecahedral_kaleidoscope_specialization();
 
   test_fast_atan2();
+  test_shared_angle_helpers();
   test_diamond_angle();
   test_fast_reciprocal();
   test_fast_rsqrt();

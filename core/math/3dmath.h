@@ -478,6 +478,9 @@ private:
   }
 };
 
+/** @brief Absolute angular error bound in radians for unit-length inputs. */
+inline constexpr double FAST_ATAN2_MAX_ERROR = 5e-3;
+
 /**
  * @brief Fast atan2 using the 0.273-Hastings polynomial.
  * @param y Y (numerator) coordinate.
@@ -510,6 +513,13 @@ __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
     angle = -angle;
 
   return angle;
+}
+
+/** @brief Azimuth in half-turns.
+ * @param p Point on the sphere.
+ * @return Signed azimuth divided by pi. */
+HS_HOT_INLINE inline float half_turns(const Vector &p) {
+  return fast_atan2(p.z, p.x) / PI_F;
 }
 
 /**
@@ -550,15 +560,18 @@ __attribute__((always_inline)) inline float precise_atan2(float y, float x) {
 }
 
 /**
- * @brief Diamond pseudo-angle of (x, y) in [0, 4), monotonic with atan2.
+ * @brief Diamond pseudo-angle of (x, y), monotonic with atan2.
+ * @tparam FoldSeam Fold a rounded 4.0 endpoint onto zero when true.
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
- * @return The diamond angle in [0, 4); 0 when |x| + |y| < 1e-20.
+ * @return The diamond angle in [0, 4), or [0, 4] when FoldSeam is false;
+ *         0 when |x| + |y| < 1e-20.
  * @details Arc position along the diamond |x| + |y| = 1, walked
  * counter-clockwise from +x. Strictly monotonic with atan2, so it bins a
  * direction without a trig call. The near-origin fallback is not scale invariant.
  */
-__attribute__((always_inline)) inline float diamond_angle(float y, float x) {
+template <bool FoldSeam = true>
+HS_HOT_INLINE inline float diamond_angle(float y, float x) {
   float d = std::fabs(x) + std::fabs(y);
   if (d < 1e-20f)
     return 0.0f;
@@ -567,10 +580,11 @@ __attribute__((always_inline)) inline float diamond_angle(float y, float x) {
     return (x >= 0.0f) ? r : (2.0f - r);
   if (x < 0.0f)
     return 2.0f - r;
-  // A tiny negative r rounds 4 + r back up to exactly 4; fold to the
-  // topologically identical 0 so the range stays half-open.
+  // A tiny negative r can round 4 + r to exactly 4.
   const float a = 4.0f + r;
-  return a >= 4.0f ? 0.0f : a;
+  if constexpr (FoldSeam)
+    return a >= 4.0f ? 0.0f : a;
+  return a;
 }
 
 /**
@@ -1336,6 +1350,9 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
   }
   return q.normalized();
 }
+
+/** @brief Absolute angular error bound in radians on [-1, 1]. */
+inline constexpr double FAST_ACOS_MAX_ERROR = 1e-4;
 
 /**
  * @brief Fast acos using the Abramowitz & Stegun polynomial approximation.

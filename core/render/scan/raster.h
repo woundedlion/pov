@@ -1050,7 +1050,7 @@ HS_NOINLINE_NOCLONE bool cap_meets_clip(const math::Vector &axis, float radius,
   if (!xc.active || !lit_span<W>(axis, radius, sweep, lo, hi) ||
       hi - lo + 1 >= W)
     return true;
-  const int start = ((lo % W) + W) % W;
+  const int start = math::wrap(lo, W);
   const int end = start + (hi - lo);
   const auto [band_lo, band_hi, pieces] = clip_pieces<W>(xc);
   for (int i = 0; i < pieces; ++i)

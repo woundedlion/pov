@@ -792,9 +792,7 @@ template <typename Shape> struct AngularRepeat {
     float local_v = p.x * axis.x + p.y * axis.y + p.z * axis.z;
     float local_w = p.x * w.x + p.y * w.y + p.z * w.z;
 
-    float theta = math::fast_atan2(local_w, local_u);
-    if (theta < 0)
-      theta += math::TWO_PI_F;
+    const float theta = basis_azimuth(p, u, w, 0.0f);
 
     float folded_theta =
         centered_sector_angle(theta, sector, reciprocal_sector);

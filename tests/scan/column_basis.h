@@ -1517,12 +1517,14 @@ inline void test_capture_window_faces() {
   }
 }
 
-/** @brief A captured equatorial vertex follows its path; polar vertices hold. */
+/** @brief Captures wrap at the arm seam, follow the equator, and hold poles. */
 inline void test_mesh_capture_vertex() {
   constexpr int W = 288, H = 144;
   auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
   const auto time =
       basis->prepare(math::Quaternion(), math::Quaternion(), true);
+  HS_EXPECT_EQ(
+      Scan::capture_fraction<W>(math::Vector(1, 0, -1e-9f), time, 0.0f), 0.0f);
   const float start = 0.4f * math::PI_F, step = 0.04f;
   int calls = 0;
   const auto vertex = [&](float u) {

@@ -126,23 +126,6 @@ __attribute__((always_inline)) inline uint32_t angle_key(float x) {
 }
 
 /**
- * @brief Diamond pseudo-angle of (x, y) in [0, 4), strictly monotonic with
- *        atan2 but trig-free.
- * @param y Ordinate.
- * @param x Abscissa.
- * @return Pseudo-angle in [0, 4); 0 at the origin.
- */
-__attribute__((always_inline)) inline float pseudo_angle(float y, float x) {
-  float d = fabsf(x) + fabsf(y);
-  if (d < 1e-20f)
-    return 0.0f;
-  float r = y / d;
-  if (y >= 0.0f)
-    return (x >= 0.0f) ? r : (2.0f - r);
-  return (x < 0.0f) ? (2.0f - r) : (4.0f + r);
-}
-
-/**
  * @brief Represents a planar face for SDF rendering.
  * @details The span members view the FaceScratchBuffer handed to the
  * constructor and own none of it: the buffer must outlive the Face and back no

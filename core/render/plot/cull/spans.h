@@ -135,7 +135,7 @@ static __attribute__((always_inline)) inline void
 finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
   int lo;
   pad_col_span<W>(s_f, len_f, lo, col_len);
-  col_s = ((lo % W) + W) % W;
+  col_s = math::wrap(lo, W);
 }
 
 /**
@@ -291,7 +291,7 @@ static inline ClipCutBounds make_clip_cut_bounds(const ClipRegion &cr,
   if (cb.cols) {
     const int cols[2] = {xc.rs - CLIP_CUT_COL_PAD, xc.re + CLIP_CUT_COL_PAD};
     for (int i = 0; i < 2; ++i) {
-      const int c = ((cols[i] % W) + W) % W;
+      const int c = math::wrap(cols[i], W);
       cb.col_x[i] = math::TrigLUT<W, H>::cos_theta(c);
       cb.col_z[i] = math::TrigLUT<W, H>::sin_theta[c];
     }
