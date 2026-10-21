@@ -1167,6 +1167,17 @@ run as master. To select an arbitrary ID in solo mode, set
 `bash tools/upload_one.sh bench_standalone`; IDs 0–3 are valid for the four-board
 rig, and `-1` uses the hardware straps.
 
+`tools/fw_cache.sh` keeps each image built from a committed checkout, keyed by
+the tree hash, the PlatformIO environment, the `PLATFORMIO_BUILD_*` flag
+variables and the installed PlatformIO toolchain. Entries live in
+`<git-common-dir>/fw-cache`, shared by every worktree; `HS_FW_CACHE_DIR` moves
+them and `HS_FW_CACHE=0` disables reuse. A checkout with uncommitted or
+untracked changes is rebuilt every time and never cached.
+`bash tools/fw_cache.sh build phantasm` replaces `pio run -e phantasm`: it
+builds and stores the image, or reuses the one any worktree built from the same
+tree and prints the tail of its stored build log. `tools/upload_one.sh` flashes
+from the same cache.
+
 Target-specific constants live with their target rather than in a global header: `targets/Holosphere/Holosphere.ino` defines its own `NUM_PIXELS` and `RPM`, and the Phantasm-class targets share `targets/Phantasm/phantasm_target.h` (`TOTAL_PIXELS`, `RPM`). LED pin assignments are in `core/platform/led.h`.
 
 ### 8.5 Documentation
@@ -1578,6 +1589,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── *_tests/                Host unit tests for size and coverage gates, build + git hooks, profile and pullback tools, bakes, build pins, docs, license and include-path checks, gamut LUTs, device locks, and flash/serial tools
 │   ├── docs_sync.py          Refreshes repository maps and source-derived documentation counts
 │   ├── engine_source_state.py Reports tracked edits and untracked non-ignored files
+│   ├── fw_cache.sh           Built-image cache shared by worktrees, keyed by tree, environment, flags and toolchain
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
 ├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (Phantasm hardware, effect identity, pullback temporal sampling and browser contract in docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
