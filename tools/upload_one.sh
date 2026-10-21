@@ -4,6 +4,8 @@ set -euo pipefail
 . "$(dirname "$0")/device_lock.sh"
 # shellcheck source-path=SCRIPTDIR source=teensy_flash.sh
 . "$(dirname "$0")/teensy_flash.sh"
+# shellcheck source-path=SCRIPTDIR source=fw_cache.sh
+. "$(dirname "$0")/fw_cache.sh"
 [ "$#" = 1 ] || { echo "usage: $0 <PlatformIO environment>" >&2; exit 2; }
 ENV=$1
 TREE=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
@@ -15,5 +17,5 @@ cleanup() {
 hs_exit_traps cleanup
 acquire_tree_lock
 hs_device_acquire upload "$ENV" 900
-pio run -e "$ENV"
-hs_teensy_flash ".pio/build/$ENV"
+hs_fw_cache_build "$ENV"
+hs_teensy_flash "$HS_FW_IMAGE"
