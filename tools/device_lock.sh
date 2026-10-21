@@ -14,9 +14,9 @@
 #   HS_DEVICE_FORCE  1 = break someone else's live lock
 #   HS_DEVICE_STALE_GRACE  seconds an incomplete claim survives past its
 #                    creation or deadline before it is stale (default 120)
-#   HS_DEVICE_ABSENT_GRACE  seconds a known pinned board may drop off the port
-#                    list (flash, re-enumeration) while HS_DEVICE_WAIT is set
-#                    before it counts as unplugged (default 120)
+#   HS_DEVICE_ABSENT_GRACE  seconds a pinned board may stay off the port list
+#                    (flash, re-enumeration, HalfKay) while HS_DEVICE_WAIT is
+#                    set before it counts as unplugged (default 120)
 #   HS_SESSION      owner label recorded in the claim
 #   HS_PYTHON       Python interpreter for host lock operations
 #   HS_TEENSY_PORT   pin to one board (COMn) instead of searching for a free one
@@ -72,6 +72,31 @@ hs_device_ports() {
   fi
   [ -n "$attached" ] && printf '%s\n' "$attached"
   return 0
+}
+
+# Live (Status OK) Teensy devices per Get-PnpDevice, one
+# "<InstanceId>|<FriendlyName>" per line. teensy_ports.exe can list a stale
+# Bootloader entry for a running board; Windows' device state does not.
+_hs_pnp_teensys() {
+  powershell.exe -NoProfile -NonInteractive -Command \
+    "Get-PnpDevice -ErrorAction SilentlyContinue |
+     Where-Object { \$_.InstanceId -like '*VID_16C0*' -and \$_.Status -eq 'OK' } |
+     ForEach-Object { \$_.InstanceId + '|' + \$_.FriendlyName }" 2>/dev/null
+}
+
+# hs_device_pin_transit <port>: why a pin missing from the port list is worth
+# waiting for: Get-PnpDevice shows <port> live, or a Teensy in its HalfKay
+# bootloader (PID 0478), which has no port. rc 1 when it shows neither.
+hs_device_pin_transit() {
+  local live
+  live=$(_hs_pnp_teensys | tr -d '\r')
+  if printf '%s\n' "$live" | grep -qF "($1)"; then
+    echo "Get-PnpDevice shows it live"
+  elif printf '%s\n' "$live" | grep -qi 'VID_16C0&PID_0478'; then
+    echo "Get-PnpDevice shows a Teensy in HalfKay"
+  else
+    return 1
+  fi
 }
 
 # Seconds a held board may stay off the port list before a flash or capture
@@ -221,12 +246,13 @@ _hs_try_claim() {
 # hs_device_acquire <effect> <env> <eta_seconds>
 # Claims the first free attached board and exports HS_TEENSY_PORT for it.
 # Blocks per HS_DEVICE_WAIT, else fails fast (rc 1) naming every board's holder.
-# While waiting, a pinned board that was enumerated earlier or carries a claim
-# counts as busy when it drops off the port list, for up to HS_DEVICE_ABSENT_GRACE.
+# While waiting, a pinned board off the port list counts as busy for up to
+# HS_DEVICE_ABSENT_GRACE when it was enumerated earlier, carries a claim, or
+# hs_device_pin_transit vouches for it; any other unattached pin fails fast.
 hs_device_acquire() {
   local effect=$1 env=$2 eta=$3
   local waited=0 wait_for=${HS_DEVICE_WAIT:-0} forced=0 p port d
-  local pin=${HS_TEENSY_PORT:-} pin_seen="" absent=0
+  local pin=${HS_TEENSY_PORT:-} pin_seen="" transit="" absent=0
   _hs_resolve_python || return 2
   local root; root=$(dirname "$(_hs_lock_base)")
   if [ ! -d "$root" ]; then
@@ -237,20 +263,36 @@ hs_device_acquire() {
   while :; do
     # Re-enumerated every round (a board can be replugged while we wait); rc 2
     # (enumeration broke) must stay distinct from 1 (pin not attached).
-    local ports rc=0 tolerate=""
-    if [ -n "$pin" ] && [ "$wait_for" -gt 0 ] &&
-       { [ -n "$pin_seen" ] || [ -d "$(_hs_lock_dir "$pin")" ]; }; then
+    local ports rc=0 quiet="" tolerate=""
+    if [ -n "$pin" ] && [ "$wait_for" -gt 0 ]; then
+      quiet=1
+      if [ -n "$pin_seen" ] || [ -n "$transit" ] || [ -d "$(_hs_lock_dir "$pin")" ]; then
+        tolerate=1
+      fi
+    fi
+    ports=$(_HS_PIN_QUIET=$quiet hs_device_ports) || rc=$?
+    if [ "$rc" -eq 1 ] && [ -n "$quiet" ] && [ -z "$tolerate" ]; then
+      if ! transit=$(hs_device_pin_transit "$pin"); then
+        echo "device: HS_TEENSY_PORT=$pin is not attached, and Get-PnpDevice shows" >&2
+        echo "neither it nor a Teensy in HalfKay." >&2
+        echo "Replug that board, or unset HS_TEENSY_PORT to claim a free one." >&2
+        return 1
+      fi
       tolerate=1
     fi
-    ports=$(_HS_PIN_QUIET=$tolerate hs_device_ports) || rc=$?
     if [ "$rc" -eq 1 ] && [ -n "$tolerate" ]; then
       if [ "$absent" -ge "$HS_DEVICE_ABSENT_GRACE" ] || [ "$waited" -ge "$wait_for" ]; then
         echo "device: HS_TEENSY_PORT=$pin stayed off the port list for ${absent}s." >&2
         echo "Replug that board, or unset HS_TEENSY_PORT to claim a free one." >&2
         return 1
       fi
-      [ "$absent" -ne 0 ] ||
-        echo "device: $pin dropped off the port list; waiting for it to return" >&2
+      if [ "$absent" -eq 0 ]; then
+        if [ -n "$transit" ]; then
+          echo "device: $pin is off the port list, but $transit; waiting for it" >&2
+        else
+          echo "device: $pin dropped off the port list; waiting for it to return" >&2
+        fi
+      fi
       sleep 5; waited=$((waited + 5)); absent=$((absent + 5)); continue
     fi
     [ "$rc" -eq 0 ] || return "$rc"
