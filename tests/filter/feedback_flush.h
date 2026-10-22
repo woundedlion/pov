@@ -400,9 +400,11 @@ expected_feedback_source_row(int y, int downsample,
 
 /**
  * @brief Verifies north-cap rows use warp values evaluated at their latitude.
+ * @details Compares the one-frame warp; column time is off.
  */
 inline void test_feedback_north_cap_uses_exact_control_rows() {
   constexpr int W = 64, H = 64;
+  const ScopedTemporalSampling one_frame(false);
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
@@ -450,9 +452,11 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 
 /**
  * @brief Verifies animated polar controls use the compositor's longitudes.
+ * @details Compares the one-frame warp; column time is off.
  */
 inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
   constexpr int W = 64, H = 34;
+  const ScopedTemporalSampling one_frame(false);
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
@@ -641,7 +645,7 @@ inline void test_feedback_init_storage_matches_storage_bytes() {
   style.space_fn = &metric_row_test_warp;
   style.downsample = 4;
 
-  // init_storage makes four allocations, each padded by less than alignof.
+  // init_storage makes six allocations, each padded by less than alignof.
   constexpr size_t STORAGE = Filter::Pixel::Feedback<W, H>::STORAGE_BYTES;
   ScratchScope persistent_scope(persistent_arena);
   Filter::Pixel::Feedback<W, H> storage_probe(style);
@@ -649,7 +653,7 @@ inline void test_feedback_init_storage_matches_storage_bytes() {
   storage_probe.init_storage(persistent_arena);
   const size_t allocated = persistent_arena.get_offset() - before;
   HS_EXPECT_GE(allocated, STORAGE);
-  HS_EXPECT_LT(allocated, STORAGE + 4 * alignof(std::max_align_t));
+  HS_EXPECT_LT(allocated, STORAGE + 6 * alignof(std::max_align_t));
 }
 
 /**
@@ -848,6 +852,7 @@ inline math::Vector opposed_seam_warp(const math::Vector &v,
  */
 inline void test_feedback_seam_warp_keeps_its_latitude_row() {
   constexpr int W = 288, H = 32;
+  const ScopedTemporalSampling one_frame(false);
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
@@ -891,9 +896,11 @@ inline void test_feedback_seam_warp_keeps_its_latitude_row() {
 
 /**
  * @brief Verifies cached top-band clips share fully populated cap controls.
+ * @details Compares the one-frame warp; column time is off.
  */
 inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   constexpr int W = 64, H = 64;
+  const ScopedTemporalSampling one_frame(false);
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
   hs_test::StubEffect fx(W, H);
@@ -962,10 +969,11 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
  * once through the identity colour path, and decodes where each output pixel
  * sampled from. A strong static twist near the poles moves targets far in
  * longitude between lattice rings; the 3D target reconstruction must stay
- * within a fraction of the row pitch.
+ * within a fraction of the row pitch. Column time is off.
  */
 inline void test_feedback_polar_rows_hit_their_targets() {
   constexpr int W = 288, H = 144;
+  const ScopedTemporalSampling one_frame(false);
   hs_test::StubEffect fx(W, H);
   ScratchScope persistent_scope(persistent_arena);
   Animation::NoiseParams noise;
@@ -1134,10 +1142,12 @@ inline math::Vector antipodal_ripple_warp(const math::Vector &v,
  *        coarse taps straddle the ±W/2 cut.
  * @details The antipodal ripple makes the seam wrap flip sign between adjacent
  *          coarse columns while the true field is smooth; the tap re-centering
- *          must unify the four taps onto one branch.
+ *          must unify the four taps onto one branch. Compares the one-frame
+ *          warp; column time is off.
  */
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   constexpr int W = 32, H = 16; // both divisible by the downsample (4)
+  const ScopedTemporalSampling one_frame(false);
   constexpr float TWO_PI = 2.0f * math::PI_F;
   hs_test::StubEffect fx(W, H);
 

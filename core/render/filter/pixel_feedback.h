@@ -9,9 +9,11 @@
 #include "core/math/spherical_field.h"
 #include "core/memory.h"
 #include "core/render/filter/feedback_cap_plane.h"
+#include "core/render/filter/feedback_column_time.h"
 #include "core/render/filter/feedback_style.h"
 #include "core/render/filter/feedback_warp_cache.h"
 #include "core/render/filter/pipeline.h"
+#include "core/render/temporal.h"
 
 /**
  * @file pixel_feedback.h
@@ -39,6 +41,10 @@ namespace Pixel {
  * plot() calls; flushing last blanks the frame at alpha >= 1.
  * Rows under POLAR_TARGET_SINE interpolate offsets in their pole's cap plane,
  * where equirect longitude offsets blow up as 1/sin(phi).
+ * With temporal sampling on, each pixel reads its source at the time elapsed
+ * between their lit columns (FeedbackColumnTime): lattice offsets carry the
+ * elapsed scale of their displacement, cells whose sources stay within their
+ * arm fade by the cell's elapsed time, and the rest resolve per pixel.
  */
 template <int W, int H> class Feedback : public Is2DWithHistory {
   using SphereField = hs::SphericalFieldLayout<W, H>;
@@ -51,6 +57,9 @@ template <int W, int H> class Feedback : public Is2DWithHistory {
 #endif
   using WarpCache = FeedbackWarpCache<W, H>;
   using WarpField = typename WarpCache::Buffers;
+  using ColumnTime = FeedbackColumnTime<W>;
+  using ColumnSource = typename ColumnTime::Source;
+  using FadeTable = FeedbackFadeTable;
 
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's). Other values render uncached. */
@@ -132,11 +141,13 @@ public:
   }
 
   /**
-   * @brief Allocates the warp-field cache from the persistent arena.
+   * @brief Allocates the warp-field cache and fade table from the persistent
+   * arena.
    * @param arena Persistent arena supplying STORAGE_BYTES bytes.
    * @details Call from effect init(), not the constructor, and again after
    * any arena reset. Without storage every flush needs
-   * uncached_scratch_bytes(downsample) scratch bytes.
+   * uncached_scratch_bytes(downsample) scratch bytes, and with temporal
+   * sampling on FeedbackFadeTable::BYTES more.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
     // Projected from the same incremental-rotation positions populate() hands
@@ -149,6 +160,7 @@ public:
            const typename SphereField::Coordinates &point) {
           return lattice_origin(CACHE_FIELD, position, point);
         });
+    fade_table.init_storage(arena);
   }
 
   /**
@@ -186,15 +198,17 @@ private:
     HS_PROFILE(feedback_composite);
     switch (ctx.mode) {
     case FlushMode::HUE: {
-      const auto &k = ctx.hue_k;
+      const float *k = ctx.column_time ? ctx.fades.hue_k : ctx.hue_k;
       composite_pixels<true>(
           ctx,
-          [&](float r, float g, float b) {
-            return ::Feedback::hue_fade_apply(k, r, g, b);
+          [&](float r, float g, float b, int level) {
+            return ::Feedback::hue_fade_apply(k + level * FadeTable::MATRIX, r,
+                                              g, b);
           },
           [&](float r0, float g0, float b0, float r1, float g1, float b1,
-              ::Pixel &p0, ::Pixel &p1) {
-            ::Feedback::hue_fade_apply2(k, r0, g0, b0, r1, g1, b1, p0, p1);
+              int level, ::Pixel &p0, ::Pixel &p1) {
+            ::Feedback::hue_fade_apply2(k + level * FadeTable::MATRIX, r0, g0,
+                                        b0, r1, g1, b1, p0, p1);
           });
       break;
     }
@@ -311,8 +325,12 @@ private:
     float fade = 0.0f;
     float pole_half_res = 0.0f;
     bool black_skips_color = false;
+    /// Whether pixels read their sources at their elapsed column time.
+    bool column_time = false;
     FlushMode mode = FlushMode::SKIP;
     float hue_k[9] = {};
+    /// Per-elapsed-time transforms; read only with column_time.
+    FadeTable::View fades{};
   };
 
   __attribute__((always_inline)) CoarseGrid
@@ -410,11 +428,17 @@ private:
    * @return Warp cache identity. */
   typename WarpCache::Key warp_cache_key(const RenderBand &band) const {
     const Animation::NoiseParams *noise = feedback_style->noise;
-    return {feedback_style->space_fn,  noise,
-            noise_config_key(noise),   feedback_style->amplitude,
-            feedback_style->frequency, feedback_style->speed,
-            feedback_style->scale,     noise ? noise->time : 0.0f,
-            band.field_y_begin,        band.field_y_end};
+    return {feedback_style->space_fn,
+            noise,
+            noise_config_key(noise),
+            feedback_style->amplitude,
+            feedback_style->frequency,
+            feedback_style->speed,
+            feedback_style->scale,
+            noise ? noise->time : 0.0f,
+            band.field_y_begin,
+            band.field_y_end,
+            Temporal::temporal_sampling_enabled()};
   }
 
   /**
@@ -516,6 +540,8 @@ private:
 
     {
       HS_PROFILE_DEEP(fb_pop_expand);
+      constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
+      const bool column_time = Temporal::temporal_sampling_enabled();
       auto ring = grid.field.ring(band.field_y_begin);
       for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
            ++field_y, ring = grid.field.next_ring(ring)) {
@@ -532,17 +558,27 @@ private:
           // interpolant a full period out, past both the int16_t range and the
           // single-step wrap sample_bilinear contracts for.
           const float offset_x =
-              hs::lerp(static_cast<float>(a.x), bx, longitude.mix);
-          warp.x_offsets[index] =
-              static_cast<int16_t>(unwrap_near(offset_x, 0.0f, WRAP_PERIOD));
-          warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
-              static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
+              unwrap_near(hs::lerp(static_cast<float>(a.x), bx, longitude.mix),
+                          0.0f, WRAP_PERIOD);
+          const float offset_y = hs::lerp(
+              static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix);
+          const float scale =
+              column_time
+                  ? ColumnTime::elapsed_scale(offset_x * INVERSE_WARP_SCALE)
+                  : 1.0f;
+          warp.x_offsets[index] = static_cast<int16_t>(hs::clamp(
+              offset_x * scale, -WRAP_PERIOD * 0.5f, WRAP_PERIOD * 0.5f));
+          warp.y_offsets[index] = static_cast<int16_t>(
+              hs::clamp(offset_y * scale, -32767.0f, 32767.0f));
           if (field_y < grid.polar.north_rings ||
               field_y >= grid.polar.south_ring) {
             const CapOffset da = sample_caps[grid.polar.slot(longitude.left)];
             const CapOffset db = sample_caps[grid.polar.slot(longitude.right)];
+            CapOffset cap = CapPlane::lerp_offset(da, db, longitude.mix);
+            if (column_time)
+              cap = CapPlane::scale_offset(cap, scale);
             warp.cell_caps[grid.polar.row(field_y) * grid.columns + coarse_x] =
-                CapPlane::lerp_offset(da, db, longitude.mix);
+                cap;
           }
         }
       }
@@ -592,6 +628,9 @@ private:
     ctx.fade = fade;
     ctx.alpha = alpha;
     feedback_style->sync_hue();
+    ctx.column_time = Temporal::temporal_sampling_enabled();
+    if (ctx.column_time)
+      ctx.fades = fade_table.acquire(*feedback_style, scratch);
     const bool hue_fade = feedback_style->color_fn == &::Feedback::hue_fade;
     ctx.black_skips_color = hue_fade;
     ctx.pole_half_res = feedback_style->pole_half_res;
@@ -631,8 +670,10 @@ private:
    * @tparam PAIR_PIXELS Whether to interleave two pixels per step through
    * @p transform_pair.
    * @param ctx Frame context from prepare_flush().
-   * @param transform_pixel Maps one sampled RGB triple to the output pixel.
-   * @param transform_pair Maps two sampled RGB triples to two output pixels.
+   * @param transform_pixel Maps one sampled RGB triple and its fade-table
+   *        level to the output pixel.
+   * @param transform_pair Maps two sampled RGB triples sharing one level to
+   *        two output pixels.
    */
   template <bool PAIR_PIXELS, typename TransformPixelT, typename TransformPairT>
   void composite_pixels(const FlushContext &ctx,
@@ -657,6 +698,12 @@ private:
     ::Pixel *filtered_row = ctx.filtered_row;
     const auto &poles = ctx.poles;
     const ColumnRuns runs = ctx.runs;
+    const bool column_time = ctx.column_time;
+    const int unit_level = column_time ? FadeTable::UNIT_LEVEL : 0;
+    // Cells crossing an arm cut resolve per pixel.
+    const bool straddled_cells = ColumnTime::HALF % downsample != 0;
+    constexpr float LEVELS_PER_COLUMN =
+        FadeTable::STEPS_PER_FRAME * ColumnTime::INVERSE_HALF;
     int field_y0 = ctx.field_y0;
     int field_y1 = ctx.field_y1;
     auto control_ring1 = ctx.control_ring1;
@@ -718,6 +765,9 @@ private:
           int cx0 = xs / downsample;
           int sub = xs - cx0 * downsample;
           bool cell_stale = true;
+          // Whether a pixel of the cell may read past its arm's columns.
+          bool cell_resolved = false;
+          int cell_level = unit_level;
           float leftx = 0.0f, slopex = 0.0f;
           float lefty = 0.0f, slopey = 0.0f;
           auto cell = [&]() {
@@ -726,12 +776,12 @@ private:
             const int i00 = row0 + cx0, i10 = row0 + cx1;
             const int i01 = row1 + cx0, i11 = row1 + cx1;
             const int d00 = x_offsets[i00];
-            const float d10 =
-                static_cast<float>(unwrap_near(x_offsets[i10], d00));
-            const float d01 =
-                static_cast<float>(unwrap_near(x_offsets[i01], d00));
-            const float d11 =
-                static_cast<float>(unwrap_near(x_offsets[i11], d00));
+            const int u10 = unwrap_near(x_offsets[i10], d00);
+            const int u01 = unwrap_near(x_offsets[i01], d00);
+            const int u11 = unwrap_near(x_offsets[i11], d00);
+            const float d10 = static_cast<float>(u10);
+            const float d01 = static_cast<float>(u01);
+            const float d11 = static_cast<float>(u11);
             leftx = (static_cast<float>(d00) * wy0 + d01 * wy1) *
                     INVERSE_WARP_SCALE;
             slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
@@ -740,11 +790,50 @@ private:
             slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
                          INVERSE_WARP_SCALE -
                      lefty;
+            if (column_time) {
+              int column = cx0 * downsample;
+              column -= column >= ColumnTime::HALF ? ColumnTime::HALF : 0;
+              // No pixel's offset exceeds its cell's largest node offset, so
+              // a cell at least that far inside its arm reads within it.
+              const int reach =
+                  std::max(std::max(std::abs(d00), std::abs(u10)),
+                           std::max(std::abs(u01), std::abs(u11)));
+              const int room =
+                  std::min(column, ColumnTime::HALF - 1 - downsample - column);
+              cell_resolved = straddled_cells;
+              if (reach > room * static_cast<int>(WARP_SCALE)) {
+                // Otherwise the first pixel's source and the last's, past
+                // the cell's far edge, bound the cell's.
+                const float first = column + fminf(leftx, leftx + slopex);
+                const float last =
+                    column + downsample + fmaxf(leftx, leftx + slopex);
+                cell_resolved |=
+                    !(first >= 0.0f && last <= ColumnTime::HALF - 0.5f);
+              }
+              cell_level =
+                  static_cast<int>(FadeTable::UNIT_LEVEL + 0.5f -
+                                   (leftx + 0.5f * slopex) * LEVELS_PER_COLUMN);
+            }
           };
           for (int x = xs; x < xe;) {
             if (cell_stale) {
               cell();
               cell_stale = false;
+            }
+
+            if (cell_resolved) {
+              const int cell_end = std::min(xe, x + downsample - sub);
+              x = composite_resolved_cell<PAIR_PIXELS>(
+                  ctx, transform_pixel, output, x, cell_end, y, sub, stride,
+                  lane_offset, {leftx, slopex, lefty, slopey},
+                  opaque || defer_filter);
+              sub = x - cx0 * downsample;
+              while (sub >= downsample) {
+                sub -= downsample;
+                ++cx0;
+                cell_stale = true;
+              }
+              continue;
             }
 
             if constexpr (PAIR_PIXELS) {
@@ -774,7 +863,7 @@ private:
                 if (!(black0 && black1)) {
                   HS_PROFILE_DEEP(fb_comp_color);
                   transform_pair_call(transform_pair, s0.r, s0.g, s0.b, s1.r,
-                                      s1.g, s1.b, p0, p1);
+                                      s1.g, s1.b, cell_level, p0, p1);
                   p0 = black0 ? ::Pixel(0, 0, 0) : p0;
                   p1 = black1 ? ::Pixel(0, 0, 0) : p1;
                 }
@@ -810,7 +899,11 @@ private:
             if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
                   s.b < NEAR_BLACK)) {
               HS_PROFILE_DEEP(fb_comp_color);
-              p = transform_pixel(s.r, s.g, s.b);
+              if constexpr (PAIR_PIXELS)
+                p = transform_pixel_call(transform_pixel, s.r, s.g, s.b,
+                                         cell_level);
+              else
+                p = transform_pixel(s.r, s.g, s.b, cell_level);
             }
 
             // Black must overwrite the stale double-buffer frame.
@@ -830,21 +923,45 @@ private:
       }
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        for (int r = 0; r < runs.count; ++r)
-          reconstruct_half_res_run(output, runs.items[r].begin,
-                                   runs.items[r].end);
+        // Arms are lit a frame apart at their cuts, so with column time each
+        // reconstructs on its own.
+        constexpr int HALF = ColumnTime::HALF;
+        for (int r = 0; r < runs.count; ++r) {
+          const int end = runs.items[r].end;
+          for (int begin = runs.items[r].begin; begin < end;) {
+            const int stop =
+                column_time && begin < HALF && end > HALF ? HALF : end;
+            reconstruct_half_res_run(output, begin, stop);
+            begin = stop;
+          }
+        }
       }
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
-        if (!defer_filter)
-          std::copy_n(current + row, W, filtered_row);
-        grid.field.template reconstruct_longitude_row<PixelAccumulator>(
-            filtered_row, y, [&](int x, const ::Pixel &pixel) {
-              ::Pixel &dst = current[row + x];
-              dst = opaque ? pixel : blend(dst, pixel);
-            });
+        filter_infill_row(ctx, y, defer_filter);
       }
     }
+  }
+
+  /**
+   * @brief Reconstructs a dense infill row at its spherical footprint.
+   * @param ctx Frame context from prepare_flush().
+   * @param y Row, composited into the current frame or, when @p deferred,
+   *        into the filter row.
+   * @param deferred Whether the row was composited into the filter row.
+   */
+  HS_HOT_FLASH_MEMBER void filter_infill_row(const FlushContext &ctx, int y,
+                                             bool deferred) {
+    ::Pixel *current = ctx.current + y * W;
+    if (!deferred)
+      std::copy_n(current, W, ctx.filtered_row);
+    const bool opaque = ctx.alpha >= 1.0f;
+    const uint16_t alpha = frac_to_q16(ctx.alpha);
+    ctx.grid.field.template reconstruct_longitude_row<PixelAccumulator>(
+        ctx.filtered_row, y, [&](int x, const ::Pixel &pixel) HS_HOT_INLINE {
+          ::Pixel &dst = current[x];
+          dst = opaque ? pixel : dst.lerp16(pixel, alpha);
+        });
   }
 
   /**
@@ -888,15 +1005,27 @@ private:
           cell_stale = false;
         }
 
+        const float fx = (sub + lane_offset) * inverse_downsample;
         const auto at =
-            CapPlane::polar_lane(cell, x, cap_angle, north, half_res,
-                                 (sub + lane_offset) * inverse_downsample);
+            CapPlane::polar_lane(cell, x, cap_angle, north, half_res, fx);
+        typename ColumnTime::Read read{at.x, at.y, 1.0f};
+        int level = 0;
+        if (ctx.column_time) {
+          const float target = x + lane_offset;
+          const int arm = ColumnTime::arm_start(x);
+          const float column = ColumnTime::arm_column(at.x, arm);
+          read = column < ColumnTime::HALF - 0.5f
+                     ? ColumnTime::read_within(target, arm, column, at.y)
+                     : polar_read_past_cut(cell, x, cap_angle, north, half_res,
+                                           fx, target, y, at);
+          level = FadeTable::level(read.elapsed);
+        }
         const Sample s = sample_bilinear_prev(grid.field, ctx.previous,
-                                              ctx.poles, at.x, at.y);
+                                              ctx.poles, read.x, read.y);
         ::Pixel p(0, 0, 0);
         if (!(black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
               s.b < NEAR_BLACK))
-          p = transform_pixel(s.r, s.g, s.b);
+          p = transform_pixel(s.r, s.g, s.b, level);
         ::Pixel &dst = output[x];
         dst = plain_store ? p : blend(dst, p);
 
@@ -911,11 +1040,127 @@ private:
     }
   }
 
+  /**
+   * @brief A polar lane's read for a source past one of its arm's cuts.
+   * @param cell The lane's decoded cell.
+   * @param x The lane's column.
+   * @param cap_angle The row's angle from its pole, in radians.
+   * @param north Whether the row's pole is the north pole.
+   * @param half_res Whether the lane stands for its column pair.
+   * @param fx The lane's fraction across @p cell.
+   * @param target The lane's column with its half-resolution offset.
+   * @param y The lane's row.
+   * @param at The lane's source, past its arm.
+   * @return The resolved read.
+   */
+  static HS_FLASH_MEMBER typename ColumnTime::Read
+  polar_read_past_cut(const CapCell &cell, int x, float cap_angle, bool north,
+                      bool half_res, float fx, float target, int y,
+                      const typename SphereField::Coordinates &at) {
+    return ColumnTime::read_past_cut(
+        target, static_cast<float>(y), ColumnTime::arm_start(x),
+        {target + unwrap_near(at.x - target, 0.0f, static_cast<float>(W)),
+         at.y},
+        [&]() HS_HOT_INLINE {
+          const CapCell twice{{cell.left.u * 2.0f, cell.left.v * 2.0f},
+                              {cell.slope.u * 2.0f, cell.slope.v * 2.0f}};
+          const auto far =
+              CapPlane::polar_lane(twice, x, cap_angle, north, half_res, fx);
+          return ColumnSource{
+              target + unwrap_near(far.x - target, 0.0f, static_cast<float>(W)),
+              far.y};
+        });
+  }
+
+  /** @brief A cell's offsets: at its left edge and their change across it,
+   *  in pixels. */
+  struct CellOffsets {
+    float left_x;  ///< Column offset at the left edge.
+    float slope_x; ///< Column offset change across the cell.
+    float left_y;  ///< Row offset at the left edge.
+    float slope_y; ///< Row offset change across the cell.
+  };
+
+  /**
+   * @brief Composites a cell's pixels whose sources may lie past their arm's
+   * columns, each resolved by FeedbackColumnTime.
+   * @tparam PAIR_PIXELS Whether the composite pairs pixels, and so keeps its
+   * single-pixel transform out of line.
+   * @param ctx Frame context from prepare_flush().
+   * @param transform_pixel Maps one sampled RGB triple and its fade-table
+   *        level to the output pixel.
+   * @param output Row being written.
+   * @param x First column.
+   * @param end One past the last column, within the cell.
+   * @param y Row.
+   * @param sub @p x's column within the cell.
+   * @param stride Column step.
+   * @param lane_offset Half-resolution lane offset of each column.
+   * @param cell The cell's elapsed-scaled offsets.
+   * @param plain_store Whether pixels overwrite rather than blend.
+   * @return The first column past the cell's pixels.
+   * @details The colour transforms stay out of line, in the composite's own
+   * placement.
+   */
+  template <bool PAIR_PIXELS, typename TransformPixelT>
+  HS_HOT_FLASH_MEMBER int composite_resolved_cell(
+      const FlushContext &ctx, TransformPixelT &transform_pixel,
+      ::Pixel *output, int x, int end, int y, int sub, int stride,
+      float lane_offset, const CellOffsets &cell, bool plain_store) {
+    const float inverse_downsample = 1.0f / ctx.grid.downsample;
+    const float row = static_cast<float>(y);
+    const uint16_t alpha = frac_to_q16(ctx.alpha);
+    auto resolve = [&](int column_x, int column_sub) HS_HOT_INLINE {
+      const float fx = (column_sub + lane_offset) * inverse_downsample;
+      const float ddx = cell.left_x + cell.slope_x * fx;
+      const float ddy = cell.left_y + cell.slope_y * fx;
+      const float target = column_x + lane_offset;
+      const int arm = ColumnTime::arm_start(column_x);
+      const float column = ColumnTime::arm_column(target + ddx, arm);
+      return column < ColumnTime::HALF - 0.5f
+                 ? ColumnTime::read_within(target, arm, column, row + ddy)
+                 : ColumnTime::read_past_cut(
+                       target, row, arm, {target + ddx, row + ddy},
+                       [&]() {
+                         return ColumnSource{target + 2.0f * ddx,
+                                             row + 2.0f * ddy};
+                       });
+    };
+    auto black = [&](const Sample &s) HS_HOT_INLINE {
+      return ctx.black_skips_color && s.r < NEAR_BLACK && s.g < NEAR_BLACK &&
+             s.b < NEAR_BLACK;
+    };
+    auto transform = [&](const Sample &s, int level) HS_HOT_INLINE {
+      if constexpr (PAIR_PIXELS)
+        return transform_pixel_call(transform_pixel, s.r, s.g, s.b, level);
+      else
+        return transform_pixel(s.r, s.g, s.b, level);
+    };
+    auto store = [&](int column_x, const ::Pixel &p) HS_HOT_INLINE {
+      ::Pixel &dst = output[column_x];
+      dst = plain_store ? p : dst.lerp16(p, alpha);
+    };
+    while (x < end) {
+      const auto read0 = resolve(x, sub);
+      const int level0 = FadeTable::level(read0.elapsed);
+      const Sample s0 = sample_bilinear_prev(ctx.grid.field, ctx.previous,
+                                             ctx.poles, read0.x, read0.y);
+      ::Pixel p(0, 0, 0);
+      if (!black(s0))
+        p = transform(s0, level0);
+      store(x, p);
+      x += stride;
+      sub += stride;
+    }
+    return x;
+  }
+
   /** @brief Composites through the unrotated hue fade: a per-channel scale. */
   HS_FLASH_MEMBER __attribute__((flatten)) void
   composite_plain(const FlushContext &ctx) {
-    const float fade = ctx.fade;
-    auto plain = [&](float r, float g, float b) {
+    const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
+    auto plain = [&](float r, float g, float b, int level) {
+      const float fade = fades[level];
       return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                      quantize16(b * fade));
     };
@@ -925,10 +1170,10 @@ private:
   /** @brief Composites through the Style's type-erased color transform. */
   HS_FLASH_MEMBER __attribute__((flatten)) void
   composite_general(const FlushContext &ctx) {
-    const float fade = ctx.fade;
-    auto general = [&](float r, float g, float b) {
+    const float *fades = ctx.column_time ? ctx.fades.fades : &ctx.fade;
+    auto general = [&](float r, float g, float b, int level) {
       return feedback_style->color_fn(
-          ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
+          ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fades[level],
           *feedback_style);
     };
     composite_pixels<false>(ctx, general, general);
@@ -949,9 +1194,11 @@ private:
    * @param end One past the run's last column.
    * @details Each column takes three quarters of its own pair's sample and a
    * quarter of the neighbouring pair's on its side. A full row wraps across
-   * the seam; a clipped run repeats its end pairs.
+   * the seam; a clipped run, or an arm's run under column time, repeats its
+   * end pairs.
    */
-  static void reconstruct_half_res_run(::Pixel *output, int begin, int end) {
+  HS_HOT_FLASH_MEMBER static void reconstruct_half_res_run(::Pixel *output,
+                                                           int begin, int end) {
     const bool full_row = begin == 0 && end == W;
     auto blend = [](const ::Pixel &own, const ::Pixel &other) {
       return ::Pixel(static_cast<uint16_t>((3u * own.r + other.r + 2u) >> 2),
@@ -1102,12 +1349,29 @@ private:
     return out;
   }
 
+  /**
+   * @brief Calls @p transform out of line.
+   * @param transform Single-pixel colour transform.
+   * @param r Sampled red.
+   * @param g Sampled green.
+   * @param b Sampled blue.
+   * @param level Fade-table level.
+   * @return The transformed pixel.
+   */
+  template <typename TransformPixelT>
+  __attribute__((noinline)) static ::Pixel
+  transform_pixel_call(TransformPixelT &transform, float r, float g, float b,
+                       int level) {
+    return transform(r, g, b, level);
+  }
+
   /** @brief Calls @p transform out of line. */
   template <typename TransformPairT>
   __attribute__((noinline)) static void
   transform_pair_call(TransformPairT &transform, float r0, float g0, float b0,
-                      float r1, float g1, float b1, ::Pixel &p0, ::Pixel &p1) {
-    transform(r0, g0, b0, r1, g1, b1, p0, p1);
+                      float r1, float g1, float b1, int level, ::Pixel &p0,
+                      ::Pixel &p1) {
+    transform(r0, g0, b0, r1, g1, b1, level, p0, p1);
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a ::Pixel
@@ -1129,6 +1393,7 @@ private:
   ::Feedback::Style *feedback_style; /**< Bound feedback Style (non-owning). */
   bool enabled = true;               /**< When false, flush() is skipped. */
   WarpCache warp_cache; /**< Persistent warp field and lattice origins. */
+  FadeTable fade_table; /**< Persistent per-elapsed-time transforms. */
 
 public:
   /** @brief Cap-cell budget; runtime geometry reserves a full-ring upper bound. */
@@ -1140,12 +1405,12 @@ public:
 #endif
 
   /** @brief Persistent bytes init_storage() reserves over CACHE_CELLS: two
-   *  int16 warp fields, the lattice's projected origins, and the polar cells'
-   *  int16 cap-plane offsets. */
+   *  int16 warp fields, the lattice's projected origins, the polar cells'
+   *  int16 cap-plane offsets, and the fade table. */
   static constexpr size_t STORAGE_BYTES =
       CACHE_CELLS *
           (2 * sizeof(int16_t) + sizeof(typename SphereField::Coordinates)) +
-      CACHE_CAP_CELLS * 2 * sizeof(int16_t);
+      CACHE_CAP_CELLS * 2 * sizeof(int16_t) + FadeTable::BYTES;
 };
 
 } // namespace Pixel

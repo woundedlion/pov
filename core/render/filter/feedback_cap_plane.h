@@ -101,6 +101,18 @@ template <int W, int H> struct FeedbackCapPlane {
   }
 
   /**
+   * @brief Encoded offset @p o scaled by @p scale, saturating at the int16_t
+   * range.
+   * @param o Offset to scale.
+   * @param scale Factor.
+   * @return Scaled offset.
+   */
+  static CapOffset scale_offset(const CapOffset &o, float scale) {
+    return {static_cast<int16_t>(hs::clamp(o.u * scale, -32767.0f, 32767.0f)),
+            static_cast<int16_t>(hs::clamp(o.v * scale, -32767.0f, 32767.0f))};
+  }
+
+  /**
    * @brief Decodes the cell between columns @p cx0 and @p cx1 of two ring
    * rows of encoded offsets, blended by the row weights.
    * @param caps0 Encoded offsets of the upper ring.
