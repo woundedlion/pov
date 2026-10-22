@@ -1461,31 +1461,6 @@ public:
             transform(math::Vector(0.0f, 1.0f, 0.0f))};
   }
 
-  /** @brief A column's complete shading state and local meridian basis. */
-  struct ColumnFrame {
-    Frame frame;       ///< Per-column prepared pipeline.
-    ColumnBasis basis; ///< Factored rotation prefix.
-    /** @brief Prepares one column context and its meridian basis.
-     * @param ctx Sampled frame context.
-     * @param cosine Cosine of longitude.
-     * @param sine Sine of longitude. */
-    ColumnFrame(const FrameState &ctx, float cosine, float sine)
-      requires(LINEAR_COLUMNS)
-        : frame(ctx), basis(column_basis(frame, cosine, sine)) {}
-  };
-
-  /** @brief Prepares a pipeline at one column's sampling time.
-   * @param ctx Sampled frame context.
-   * @param cosine Cosine of longitude.
-   * @param sine Sine of longitude.
-   * @return Prepared column state. */
-  HS_FLASH_MEMBER static ColumnFrame prepare_column(const FrameState &ctx,
-                                                    float cosine, float sine)
-    requires(LINEAR_COLUMNS)
-  {
-    return ColumnFrame(ctx, cosine, sine);
-  }
-
   /** @brief Shades a latitude using the factored rotation prefix.
    * @param sine Sine of the polar angle.
    * @param cosine Cosine of the polar angle.
