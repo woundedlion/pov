@@ -88,6 +88,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/temporal_motion.h"
 #include "tests/plot_scan/temporal_crossings.h"
 #include "tests/plot_scan/temporal_swept.h"
+#include "tests/plot_scan/point_route.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
@@ -129,6 +130,8 @@ inline int run_plot_scan_tests() {
   test_timed_polar_mesh_branch_coverage();
   test_timed_stationary_callback_pixel_parity();
   test_four_regular_and_medial_edge_extraction();
+  test_point_route_matches_column_oracle();
+  test_point_route_gate_keeps_visible_taps();
 
   test_pose_table_follows_history_path();
   test_pose_table_holds_a_still_history();

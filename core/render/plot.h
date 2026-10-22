@@ -15,3 +15,4 @@
 #include "core/render/plot/mesh.h"
 #include "core/render/plot/particles.h"
 #include "core/render/plot/chords.h"
+#include "core/render/plot/point_route.h"
