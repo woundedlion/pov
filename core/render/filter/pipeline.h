@@ -15,6 +15,7 @@
 #include "core/render/canvas.h"
 #include "core/engine/concepts.h"
 #include "core/memory.h"
+#include "core/render/temporal/pose_table.h"
 
 /**
  * @file pipeline.h
@@ -444,6 +445,8 @@ template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool world_transform_is_identity = true;
   static constexpr bool rigid_world_stages =
       true; ///< No world transformations.
+  /// No world transformations, so no pose table.
+  static constexpr bool table_world_stages = true;
   /// No world motion over a frame.
   static constexpr bool has_temporal_motion = false;
   static constexpr int segment_margin = 0; ///< No tap displacement.
@@ -517,6 +520,35 @@ template <int W, int H> struct Pipeline<W, H> {
       return;
     }
     dst = blend_alpha(alpha)(dst, c);
+  }
+
+  /**
+   * @brief Writes a splat's taps, clip-testing each row and column once.
+   * @tparam TapsT Splat taps (Filter::SplatTaps).
+   * @param cv Target canvas.
+   * @param t Taps.
+   * @param c Source color.
+   * @param alpha Source opacity.
+   * @param cutoff Coverage at or below which a tap is skipped.
+   * @details Writes what plotting each tap in row-major order writes.
+   */
+  template <typename TapsT>
+  HS_HOT_INLINE void plot_taps(Canvas &cv, const TapsT &t, const ::Pixel &c,
+                               float alpha, float cutoff) {
+    const bool left = cv.clip_contains_x(t.x0);
+    const bool right = cv.clip_contains_x(t.x1);
+    if (t.y0_physical && cv.clip_contains_y(t.y0)) {
+      if (left && t.v00 > cutoff)
+        plot_in_bounds(cv, t.x0, t.y0, c, 0.0f, alpha * t.v00);
+      if (right && t.v10 > cutoff)
+        plot_in_bounds(cv, t.x1, t.y0, c, 0.0f, alpha * t.v10);
+    }
+    if (t.y1_physical && cv.clip_contains_y(t.y1)) {
+      if (left && t.v01 > cutoff)
+        plot_in_bounds(cv, t.x0, t.y1, c, 0.0f, alpha * t.v01);
+      if (right && t.v11 > cutoff)
+        plot_in_bounds(cv, t.x1, t.y1, c, 0.0f, alpha * t.v11);
+    }
   }
 
   /**
@@ -617,6 +649,10 @@ template <int W, int H> struct Pipeline<W, H> {
   /** @brief Angular bound of the identity transform.
    * @return Zero radians. */
   float cull_bound() const { return 0.0f; }
+
+  /** @brief The terminal's pose table.
+   * @return Null: the identity has no poses. */
+  const Temporal::PoseTable *pose_table(const Canvas &) { return nullptr; }
 
   /** @brief Number of terminal spatial copies.
    * @return One. */
@@ -784,6 +820,13 @@ struct Pipeline<W, H, Head, Tail...>
   /// Every world stage preserves geodesics without recording history.
   static constexpr bool rigid_world_stages =
       Head::rigid_world_transform && Next::rigid_world_stages;
+  /// The world stages move nothing, or are one rotation a per-frame pose
+  /// table holds followed by stages that move nothing.
+  static constexpr bool table_world_stages =
+      Head::world_transform_is_identity
+          ? Next::table_world_stages
+          : requires(Head &head, const Canvas &cv) { head.pose_table(cv); } &&
+                Next::world_transform_is_identity;
   /// Some stage evaluates world motion over a frame.
   static constexpr bool has_temporal_motion =
       Head::has_temporal_motion || Next::has_temporal_motion;
@@ -1017,11 +1060,14 @@ struct Pipeline<W, H, Head, Tail...>
   HS_O3_FN HS_NOINLINE_NOCLONE void
   plot_terminal_splat(Canvas &cv, float x, float y, const ::Pixel &c, float age,
                       float alpha) {
-    Head::plot(x, y, c, age, alpha,
-               [&](float nx, float ny, const ::Pixel &nc, float nage,
-                   float nalpha) HS_HOT_INLINE {
-                 next.plot_prepared(cv, nx, ny, nc, nage, nalpha);
-               });
+    if constexpr (requires { Head::splat(next, cv, x, y, c, age, alpha); })
+      Head::splat(next, cv, x, y, c, age, alpha);
+    else
+      Head::plot(x, y, c, age, alpha,
+                 [&](float nx, float ny, const ::Pixel &nc, float nage,
+                     float nalpha) HS_HOT_INLINE {
+                   next.plot_prepared(cv, nx, ny, nc, nage, nalpha);
+                 });
   }
 
   /** @brief Carries a fraction through screen stages to the splat taps.
@@ -1097,6 +1143,16 @@ struct Pipeline<W, H, Head, Tail...>
                     "timed world transforms must supply at_time");
       return next.probe(cv, v, t);
     }
+  }
+
+  /** @brief The world stages' poses by column time.
+   * @param cv Frame context.
+   * @return The table of the stage that keeps one, or null. */
+  HS_HOT_INLINE const Temporal::PoseTable *pose_table(const Canvas &cv) {
+    if constexpr (requires { Head::pose_table(cv); })
+      return Head::pose_table(cv);
+    else
+      return next.pose_table(cv);
   }
 
   /** @brief Sum of world-stage frame motion bounds.

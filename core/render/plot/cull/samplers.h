@@ -385,6 +385,15 @@ struct GeodesicEdgeSampler {
     math::fast_sincosf_0_pi(total_dist * t, s, c);
     return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
   }
+
+  /** @brief Position and tangent from divide-free polynomial trigonometry.
+   *  @param t Arc fraction in [0,1].
+   *  @return Position and tangent within 3e-7 of the exact arc. */
+  SamplePT accurate(float t) const {
+    float s, c;
+    math::poly_sincosf_0_pi(total_dist * t, s, c);
+    return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
+  }
 };
 
 /**

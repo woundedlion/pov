@@ -192,7 +192,10 @@ public:
   float column_pad_rows(float row_lo, float row_hi) const {
     auto sin_at = [](float row) HS_HOT_INLINE {
       const float phi = math::DisplayGeometry<H>::row_to_phi(row);
-      return sinf(fminf(math::PI_F, fmaxf(0.0f, phi)));
+      float sine, cosine;
+      math::poly_sincosf_0_pi(fminf(math::PI_F, fmaxf(0.0f, phi)), sine,
+                              cosine);
+      return sine;
     };
     return column_pad<W>(fminf(sin_at(row_lo), sin_at(row_hi)));
   }

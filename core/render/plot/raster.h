@@ -19,6 +19,9 @@
 #include "core/memory.h"
 #include "core/render/plot/cull.h"
 #include "core/render/temporal/arm_crossing.h"
+#include "core/render/temporal/pose_table.h"
+#include "core/render/temporal/swept_bound.h"
+#include "core/render/temporal/vertex_motion.h"
 
 /**
  * @file raster.h
@@ -1237,7 +1240,7 @@ template <int W, int H, RasterConfig Cfg, typename PipelineT = PipelineRef,
 HS_HOT_FLASH_MEMBER static void
 rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
           FragmentShaderT fragment_shader, RasterOptions opts = {},
-          GeometryCallback geometry = {}, float callback_bound = 0.0f) {
+          const GeometryCallback &geometry = {}, float callback_bound = 0.0f) {
   auto timed_shader =
       [&](const math::Vector &p, Fragment &f, float t)
           HS_HOT_INLINE { Temporal::shade_at_time(fragment_shader, t, p, f); };

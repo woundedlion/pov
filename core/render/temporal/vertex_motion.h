@@ -215,6 +215,22 @@ struct VertexPath {
   }
 
   /**
+   * @brief The path under a fixed rotation.
+   * @param m Rotation.
+   * @return The same path with every point rotated by @p m.
+   */
+  HS_HOT_INLINE VertexPath rotated(const math::RotationMatrix &m) const {
+    VertexPath path = *this;
+    path.start = m.apply(start);
+    path.end = m.apply(end);
+    path.middle = m.apply(middle);
+    path.axis = m.apply(axis);
+    path.radial = m.apply(radial);
+    path.across = m.apply(across);
+    return path;
+  }
+
+  /**
    * @brief Bound on the path's distance from its chord.
    * @return A bound on `|at(t) - chord(t)|` over t in [0, 1], `chord(t)` the
    *         point at t on the straight path between the captures: zero for

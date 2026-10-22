@@ -287,9 +287,11 @@ HS_HOT_INLINE inline float tap_motion_error(float x, float dx, float dy) {
 
 /** @brief Pure boundary-column geometry and shading evaluator. */
 struct BoundaryEvaluator {
-  void *context;             ///< Borrowed evaluator state.
-  bool sample_exists = true; ///< Material exists at the original splat time.
-  bool force_timing = false; ///< Evaluate interior taps at their own times.
+  void *context;              ///< Borrowed evaluator state.
+  bool sample_exists = true;  ///< Material exists at the original splat time.
+  bool force_timing = false;  ///< Evaluate interior taps at their own times.
+  bool all_passes = false;    ///< One emission supplies both arm passes.
+  bool exact_at_time = false; ///< The splat is the evaluation at its time.
   /** Evaluates projected position, color, age and opacity; false before birth. */
   bool (*evaluate)(void *, float, math::PixelCoords &, Pixel &, float &,
                    float &);
@@ -353,6 +355,38 @@ struct ColumnPrediction {
 
 /** @brief Work performed by geometry-callback capture and rasterization. */
 struct GeometryCounters {
+  uint32_t column_path_evaluations =
+      0; /**< Columns evaluating their edge's endpoint paths. */
+  uint32_t column_shader_calls =
+      0; /**< Source shaders for emitted column samples. */
+  uint32_t column_boundary_samples =
+      0; /**< Additional arm-boundary evaluations. */
+  uint32_t column_single_samples = 0; /**< Samples emitted through full AA. */
+  uint32_t column_tap_samples = 0; /**< Fast-motion samples emitted per tap. */
+  uint32_t column_draw_setups =
+      0; /**< Shared column-render contexts prepared. */
+  uint32_t column_mesh_culls = 0; /**< Mesh bounding-cap decisions. */
+  uint32_t column_mesh_rejected =
+      0; /**< Meshes rejected before vertex caching. */
+  uint32_t column_edges_prepared =
+      0; /**< Visible edges with prepared coverage. */
+  uint32_t column_edges_culled =
+      0; /**< Source edges rejected before per-edge setup. */
+  uint32_t column_projections = 0; /**< Column-loop screen projections. */
+  uint32_t column_generated_samples =
+      0;                          /**< Samples advanced before clipping. */
+  uint32_t legacy_edge_walks = 0; /**< Legacy timed edge traversals. */
+  uint32_t column_samples =
+      0; /**< Coverage samples emitted in owned columns. */
+  uint32_t columns_visited = 0;  /**< Destination columns examined. */
+  uint32_t column_crossings = 0; /**< Meridian intersections found. */
+  uint32_t column_span_fills =
+      0; /**< Columns receiving multiple coverage samples. */
+  uint32_t midpoint_evaluations =
+      0; /**< Source vertices evaluated at half-frame. */
+  uint32_t endpoint_evaluations =
+      0; /**< Source vertices evaluated at the frame's start. */
+  uint32_t capture_solves = 0; /**< Iterative arm-capture solves. */
   uint32_t common_time_edges =
       0; /**< Edges using a common-time spacing metric. */
   uint32_t interior_timed_samples =
@@ -467,6 +501,7 @@ HS_HOT_INLINE float
 solve_capture_branch(Probe &&probe, math::PixelCoords end, float columns,
                      bool linear_pair, int branch,
                      const math::PixelCoords *start = nullptr) {
+  count_geometry<&GeometryCounters::capture_solves>();
   const float fraction = column_fraction<W>(end.x);
   const float half = W / 2.0f;
   const float boundary = fminf(fraction, 1.0f - fraction) * half;

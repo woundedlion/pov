@@ -473,7 +473,7 @@ struct Snorm3 {
   }
 
 private:
-  static int16_t quantize(float c) {
+  __attribute__((always_inline)) static int16_t quantize(float c) {
     return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
   }
 };
@@ -1485,6 +1485,32 @@ __attribute__((always_inline)) inline void fast_sincosf_0_pi(float x, float &s,
   assert(x >= 0.0f && x <= PI_F);
   s = bhaskara_sinf(x, 1.0f);
   c = sinf_0_2pi(x + PI_F * 0.5f);
+}
+
+/**
+ * @brief Divide-free sine and cosine for an angle in [0, π].
+ * @param x Angle in radians.
+ * @param s Output sine.
+ * @param c Output cosine.
+ * @details Evaluates minimax polynomials of r = x - π/2: degree 8 in r for
+ * the sine and degree 9 for the cosine. Absolute error is below 3e-7 across
+ * the domain.
+ * @warning For x outside [0, π] the error grows with the polynomial tail;
+ * callers must bound x.
+ */
+__attribute__((always_inline)) inline void poly_sincosf_0_pi(float x, float &s,
+                                                             float &c) {
+  assert(x >= 0.0f && x <= PI_F);
+  const float r = x - PI_F * 0.5f;
+  const float r2 = r * r;
+  s = 0.99999995329f +
+      r2 * (-0.49999905115f +
+            r2 * (0.041663579924f +
+                  r2 * (-0.0013853672957f + r2 * 2.3153287771e-05f)));
+  c = -r * (0.99999997653f +
+            r2 * (-0.16666647600f +
+                  r2 * (0.0083328993172f +
+                        r2 * (-0.00019800870025f + r2 * 2.5904378421e-06f))));
 }
 
 /**
