@@ -83,7 +83,7 @@ inline void test_feedback_warp_cache_valid_only_after_fill() {
 
   const Cache::Key first{
       &::Feedback::noise_warp, nullptr, 0u, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0,
-      field.ring_count() - 1};
+      field.ring_count() - 1,  true};
   Cache::Key second = first;
   second.time = 1.0f;
   HS_EXPECT_FALSE(cache.holds(first));

@@ -48,6 +48,7 @@ public:
     float time;            ///< Noise sampling time; 0 when unbound.
     int field_y_begin;     ///< First field ring of the band.
     int field_y_end;       ///< Last field ring of the band, inclusive.
+    bool column_time;      ///< Whether offsets carry their elapsed scale.
     bool operator==(const Key &) const = default;
   };
 
