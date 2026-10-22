@@ -663,9 +663,14 @@ struct HopfWhiteBox {
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
 
   /** @brief Renders a growing production trail or its frozen column reference.
+   * @details The reference holds the pose of @p fraction, turned
+   * @p displacement columns about the vertical and @p displacement rows along
+   * the meridian of @p fraction's columns, and draws through the same timed
+   * route with no motion: its trail nodes are steady single samples, at the
+   * point route's tolerance.
    * @param timed Selects the production temporal draw.
    * @param fraction Frozen frame fraction.
-   * @param displacement Reference row displacement.
+   * @param displacement Reference displacement in rows and columns.
    * @param start_column Start of the retained trail.
    * @return Linear framebuffer luminance. */
   static std::vector<float> render_temporal_trail(bool timed, float fraction,
@@ -685,40 +690,32 @@ struct HopfWhiteBox {
     fx.retired[0] = source(-1);
     fx.trail_was_full = true;
     fx.history_ready = true;
-    fx.orientation.set(math::Quaternion());
     const auto end_pose =
         math::make_rotation(math::Y_AXIS, 2 * math::PI_F / 600);
-    fx.orientation.push(end_pose);
+    if (timed) {
+      fx.orientation.set(math::Quaternion());
+      fx.orientation.push(end_pose);
+    } else {
+      int column = 0;
+      for (int c = 1; c < DEFAULT_W / 2; ++c)
+        if (fabsf(Temporal::sweep_fraction(c, DEFAULT_W) - fraction) <
+            fabsf(Temporal::sweep_fraction(column, DEFAULT_W) - fraction))
+          column = c;
+      const math::Vector meridian = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
+          static_cast<float>(column), DEFAULT_H / 2.0f);
+      const math::Vector across =
+          math::cross(math::Y_AXIS, meridian).normalized();
+      fx.orientation.set(
+          math::make_rotation(across,
+                              displacement * math::RADIANS_PER_ROW<DEFAULT_H>) *
+          math::make_rotation(math::Y_AXIS,
+                              displacement *
+                                  math::RADIANS_PER_COLUMN<DEFAULT_W>) *
+          math::slerp(math::Quaternion(), end_pose, fraction));
+    }
     {
       Canvas canvas(fx);
-      if (timed) {
-        fx.render_trails(canvas);
-      } else {
-        ScratchScope guard(scratch_arena_a);
-        Fragments points;
-        points.bind(scratch_arena_a, HF::TRAIL_LEN + 1);
-        const auto pose = math::slerp(math::Quaternion(), end_pose, fraction);
-        for (int i = -1; i < HF::TRAIL_LEN; ++i) {
-          Fragment f;
-          f.pos = hs_test::displace_reference_rows<DEFAULT_H>(
-              math::rotate(source(i), pose), displacement);
-          f.v0 = static_cast<float>(i) / (HF::TRAIL_LEN - 1);
-          points.push_back(f);
-        }
-        auto shader = [&](const math::Vector &, Fragment &f) {
-          const float previous = fminf(1.0f, f.v0 + 1.0f / (HF::TRAIL_LEN - 1));
-          const float age =
-              fmaxf(0.0f, previous + (f.v0 - previous) * fraction);
-          f.color = fx.baked_sunset.get(1.0f - age);
-          f.color.alpha *= age * fx.params.alpha;
-          const float birth =
-              fmaxf(0.0f, f.v0 * (HF::TRAIL_LEN - 1) - (HF::TRAIL_LEN - 2));
-          if (birth > fraction)
-            f.color.alpha = 0.0f;
-        };
-        Plot::rasterize<DEFAULT_W, DEFAULT_H>(fx.trail_pipeline, canvas, points,
-                                              shader);
-      }
+      fx.render_trails(canvas);
     }
     fx.advance_display();
     std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
