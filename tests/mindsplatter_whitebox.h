@@ -10,6 +10,8 @@
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include "effects/MindSplatter.h"
+#include "tests/temporal_oracle.h"
+#include "tests/test_fixture.h"
 
 #include <array>
 #include <cstdint>
@@ -25,6 +27,133 @@ namespace effects_tests {
 /** @brief White-box accessor for MindSplatter internals. */
 struct MindSplatterWhiteBox {
   using MS = MindSplatter<288, 144>;
+
+  /** @brief Renders production column trails or their frozen geometry.
+   * @param timed Uses the production temporal draw.
+   * @param fraction Frozen frame fraction.
+   * @param displacement Vertical frozen-reference offset in pixels.
+   * @param turn Each head's turn over the frame, radians.
+   * @param shift Warp translation change over the frame.
+   * @param spacing Columns between a trail's anchors.
+   * @param setups Receives the production draw's column setups, when given.
+   * @return Row-major linear luminance.
+   * @details Four particles on the equator carry full trails under a moving
+   * warp and orientation. The frozen reference draws each trail through the
+   * column walk without motion: anchors under the warp at @p fraction, the
+   * head turned back by the rest of its step, under the pose at @p fraction.
+   * Anchors a column apart are steady single samples, which the point route
+   * plots to its own tolerance, so their displaced reference also moves a
+   * column's @p displacement along the rows.
+   */
+  static std::vector<float> render_temporal_trails(bool timed, float fraction,
+                                                   float displacement,
+                                                   float turn, float shift,
+                                                   float spacing,
+                                                   uint32_t *setups = nullptr) {
+    reset_effect_globals();
+    MS fx;
+    fx.init();
+    fx.history_ready = true;
+    fx.particle_system.attractors.clear();
+    fx.active_base_mesh = MS::BaseMesh::TETRAHEDRON;
+    const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+    const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
+    fx.orientation.set(start_pose);
+    fx.orientation.push(math::make_rotation(axis, 0.012f) * start_pose);
+    fx.previous_warp = math::Complex(0.15f, 0.06f);
+    fx.mobius.b = math::Complex(0.15f + shift, 0.06f + 0.4f * shift);
+    constexpr uint16_t LIFE = 148;
+    for (float x : {1.0f, 60.0f, 143.0f, 222.0f}) {
+      const math::Vector head = math::pixel_to_vector<288, 144>(x, 70.0f);
+      const math::Vector east = math::cross(math::Y_AXIS, head).normalized();
+      const math::Vector north = math::cross(head, east);
+      fx.particle_system.spawn(head, (east + north * 0.4f).normalized() * turn,
+                               0);
+      auto &p = fx.particle_system.pool[fx.particle_system.active() - 1];
+      p.life = LIFE;
+      for (int j = 0; j < 8; ++j)
+        p.history.record(math::pixel_to_vector<288, 144>(
+            x - spacing * float(8 - j), 70.0f + 0.3f * spacing * j));
+    }
+    {
+      Canvas canvas(fx);
+      if (timed) {
+        Temporal::geometry_counters = {};
+        fx.draw_particles(canvas);
+        if (setups)
+          *setups = Temporal::geometry_counters.column_draw_setups;
+      } else {
+        const math::Complex warp_step(fx.mobius.b.re - fx.previous_warp.re,
+                                      fx.mobius.b.im - fx.previous_warp.im);
+        math::MobiusParams warp = fx.mobius;
+        warp.b = math::Complex(fx.previous_warp.re + warp_step.re * fraction,
+                               fx.previous_warp.im + warp_step.im * fraction);
+        const auto pose = fx.orientation.get(fraction);
+        fx.orientation.set(pose);
+        ScratchScope guard(scratch_arena_a);
+        constexpr size_t POINTS = 9;
+        const size_t count = POINTS * fx.particle_system.active();
+        auto *vertices = scratch_arena_a.make_n<math::Vector>(count);
+        auto *progress = scratch_arena_a.make_n<float>(count);
+        ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, count);
+        for (int i = 0; i < fx.particle_system.active(); ++i) {
+          const auto &p = fx.particle_system.pool[i];
+          for (size_t j = 0; j < POINTS; ++j) {
+            math::Vector source =
+                j + 1 < POINTS ? p.history.get(j) : p.position;
+            if (j + 1 == POINTS && turn != 0.0f) {
+              const float speed = p.velocity.magnitude();
+              const float back = fminf(speed, fx.particle_system.motion_cap) *
+                                 (1.0f - fraction);
+              source = source * cosf(back) - p.velocity * (sinf(back) / speed);
+            }
+            math::Vector warped = math::mobius_transform(source, warp);
+            if (displacement != 0.0f) {
+              math::Vector world = hs_test::displace_reference_rows<144>(
+                  math::rotate(warped, pose), displacement);
+              if (spacing <= 1.0f)
+                world = math::rotate(
+                    world, math::make_rotation(
+                               math::Y_AXIS,
+                               displacement * math::RADIANS_PER_COLUMN<288>));
+              warped = math::rotate(world, pose.conjugate());
+            }
+            vertices[i * POINTS + j] = warped;
+            progress[i * POINTS + j] = static_cast<float>(j) / (POINTS - 1);
+          }
+          for (size_t j = POINTS - 1; j > 0; --j)
+            edges.push_back({static_cast<uint16_t>(i * POINTS + j),
+                             static_cast<uint16_t>(i * POINTS + j - 1)});
+        }
+        const float fade =
+            static_cast<float>(LIFE) / fx.particle_system.max_life;
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          const auto &edge = edges[static_cast<size_t>(f.v2)];
+          const float t =
+              progress[edge.u] + (progress[edge.v] - progress[edge.u]) * f.v0;
+          f.color = Color4(
+              MS::sample_trail_palette(MINDSPLATTER_PALETTES[0], 1.0f - t),
+              fmaxf(0.0f, fminf(fmaxf(0.0f, t), fade)));
+        };
+        Plot::GeometryCallback geometry;
+        geometry.column_edges = true;
+        geometry.source_positions = false;
+        geometry.chained = true;
+        Plot::Mesh::draw_column_edges<288, 144>(
+            fx.timed_filters, canvas, typename MS::TrailMesh{{vertices, count}},
+            edges, shader, geometry, 0.0f);
+      }
+    }
+    fx.advance_display();
+    std::vector<float> luminance(288 * 144);
+    for (int y = 0; y < 144; ++y)
+      for (int x = 0; x < 288; ++x) {
+        const Pixel pixel = fx.get_pixel(x, y);
+        luminance[y * 288 + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+    return luminance;
+  }
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;
   static constexpr uint16_t REPLAY_VERSION = 3;

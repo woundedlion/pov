@@ -773,6 +773,38 @@ inline void test_mindsplatter_emit_phase_wrapped() {
   HS_EXPECT_GT(laps, 0);
 }
 
+/** @brief Timed trails under a moving warp, orientation and head turn match
+ *         frozen columns: steady short edges as points, longer ones through
+ *         the column walk. */
+inline void test_mindsplatter_temporal_trail_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  using WB = hs_test::effects_tests::MindSplatterWhiteBox;
+  for (const float spacing : {1.0f, 6.0f}) {
+    HS_CONTEXT("spacing", static_cast<int>(spacing));
+    uint32_t setups = 0;
+    WB::render_temporal_trails(true, 1.0f, 0.0f, 0.012f, 0.03f, spacing,
+                               &setups);
+    if (spacing == 1.0f)
+      HS_EXPECT_EQ(setups, 0u);
+    else
+      HS_EXPECT_GT(setups, 0u);
+    for (const float turn : {0.0f, 0.012f, -0.012f})
+      for (const float shift : {0.0f, 0.03f}) {
+        if (turn == 0.0f && shift == 0.0f)
+          continue;
+        hs_test::seam_compare_render<288, 144>(
+            [turn, shift, spacing](bool timed, float fraction,
+                                   float displacement) {
+              return WB::render_temporal_trails(timed, fraction, displacement,
+                                                turn, shift, spacing);
+            },
+            "MindSplatter trails");
+      }
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
+}
+
 /**
  * @brief Module entry point for the MindSplatter white-box block.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -797,6 +829,7 @@ inline int run_mindsplatter_tests() {
   test_mindsplatter_manual_preset_survives_unpause();
   test_mindsplatter_full_timeline_retries_transition();
   test_mindsplatter_show_window_covers_final_dwell();
+  test_mindsplatter_temporal_trail_oracle();
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite())
