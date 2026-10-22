@@ -1478,6 +1478,8 @@ inline int run_effects_tests() {
   run_case(test_displacement_field_arm_boundaries_meet_endpoints);
   run_case(test_displacement_field_single_pass_reference);
   run_case(test_displacement_field_boundary_stencil);
+  run_case(test_displacement_field_turn_follows_large_steps);
+  run_case(test_displacement_field_alternate_groups_match_windows);
   run_case(test_glitch_lens_unit_norm);
   run_case(test_mobius_rings_conformal_and_counter_rotation);
   run_islamicstars_cases();

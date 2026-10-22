@@ -343,8 +343,8 @@ inline void lit_columns(const math::Vector &axis, float radius, float sweep,
 template <int W>
 HS_HOT_FLASH_MEMBER math::Vector
 drifted_direction(const math::Vector &p, const math::Vector &drift, int x) {
-  return Temporal::rotate_short(p, drift *
-                                       (1.0f - Temporal::sweep_fraction(x, W)));
+  return Temporal::rotate_by(p,
+                             drift * (1.0f - Temporal::sweep_fraction(x, W)));
 }
 
 /**
@@ -447,8 +447,10 @@ private:
   HS_FLASH_MEMBER void fill(int c) {
     const math::Vector rotation =
         time.drift * (1.0f - Temporal::sweep_fraction(c, W));
-    table[c] = Temporal::rotate_short(time.azimuth[c], rotation);
-    table[HALF + c] = Temporal::rotate_short(time.up[c], rotation);
+    const Temporal::TurnCoefficients k =
+        Temporal::turn_coefficients(math::dot(rotation, rotation));
+    table[c] = Temporal::rotate_by(time.azimuth[c], rotation, k);
+    table[HALF + c] = Temporal::rotate_by(time.up[c], rotation, k);
     filled[c] = true;
   }
 
@@ -500,9 +502,11 @@ HS_FLASH_MEMBER inline bool settle_drift(const Temporal::ColumnTime &time,
     return false;
   const math::Vector back =
       drift * (Temporal::sweep_fraction((first + last) / 2, W) - 1.0f);
-  basis = {Temporal::rotate_short(basis.u, back),
-           Temporal::rotate_short(basis.v, back),
-           Temporal::rotate_short(basis.w, back)};
+  const Temporal::TurnCoefficients k =
+      Temporal::turn_coefficients(math::dot(back, back));
+  basis = {Temporal::rotate_by(basis.u, back, k),
+           Temporal::rotate_by(basis.v, back, k),
+           Temporal::rotate_by(basis.w, back, k)};
   return true;
 }
 

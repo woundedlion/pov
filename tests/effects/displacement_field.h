@@ -35,13 +35,49 @@ struct DisplacementFieldWhiteBox {
    * @param effect Effect after a default swept frame. */
   template <int W, int H>
   static void check_single_pass(const DisplacementField<W, H> &effect) {
-    HS_EXPECT_EQ(effect.fallback_bakes, 0);
+    HS_EXPECT_EQ(effect.stack_flushes, 1);
     HS_EXPECT_LE(effect.primary_bakes, effect.params.num_rings);
     HS_EXPECT_GT(effect.duplicate_knots, 0);
     std::printf(
         "  [single pass] primary=%d alternate=%d octave-extra=%d rings=%d\n",
         effect.primary_knots, effect.duplicate_knots,
         effect.alternate_noise_samples, effect.primary_bakes);
+  }
+
+  /** @brief Turns the stack so its rings circle the arm-boundary plane's
+   *  normal, rocking it slightly each frame, with every ring drawn.
+   * @param effect Effect before its frame draw.
+   * @param frame Frame number. */
+  template <int W, int H>
+  static void arm_plane_pose(DisplacementField<W, H> &effect, int frame) {
+    effect.orientation.set(math::make_rotation(
+        math::Y_AXIS, -0.5f * math::PI_F + 0.004f * static_cast<float>(frame)));
+    effect.params.num_rings = DisplacementField<W, H>::RING_SLOTS;
+    effect.params.noise_amp = 0.6f;
+  }
+
+  /** @brief Stack scans of the last swept frame.
+   * @param effect Effect after a swept frame.
+   * @return The frame's stack scans. */
+  template <int W, int H>
+  static int stack_flushes(const DisplacementField<W, H> &effect) {
+    return effect.stack_flushes;
+  }
+
+  /** @brief The frame turn a swept draw derives from two endpoints.
+   * @param effect Effect whose noise field is live.
+   * @param previous Stack orientation at the previous endpoint.
+   * @param current Stack orientation at the current endpoint.
+   * @return The turn carrying the previous endpoint's points to the current
+   *         one's. */
+  template <int W, int H>
+  static math::Vector sweep_turn(DisplacementField<W, H> &effect,
+                                 const math::Quaternion &previous,
+                                 const math::Quaternion &current) {
+    effect.orientation_drawn = true;
+    typename DisplacementField<W, H>::Sweep sweep;
+    HS_EXPECT_TRUE(effect.prepare_sweep(previous, current, 1.0f, 0, sweep));
+    return sweep.turn;
   }
 
   /** @brief Denies preset advancement at one phase departure boundary.
@@ -1242,6 +1278,83 @@ inline void test_displacement_field_single_pass_reference() {
                   region, worst[1][region] / 257.0, worst[0][region] / 257.0);
     }
   }
+  hs::clear_mock_time();
+}
+
+/**
+ * @brief A swept draw's frame turn carries the previous endpoint's points to
+ *        the current one's however far the stack turns.
+ */
+inline void test_displacement_field_turn_follows_large_steps() {
+  constexpr int W = SMALL_W, H = SMALL_H;
+  reset_effect_globals();
+  hs::random().seed(1337u);
+  Temporal::set_temporal_sampling_enabled(true);
+  DisplacementField<W, H> effect;
+  effect.init();
+  for (int f = 0; f < 60; ++f) {
+    pin_frame_clock(f);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  const math::Quaternion previous =
+      math::make_rotation(math::Vector(0.3f, 0.8f, -0.5f).normalized(), 0.4f);
+  for (const float angle : {0.1f, 0.6f, 2.0f, 3.0f}) {
+    HS_CONTEXT("angle", angle);
+    const math::Quaternion current =
+        math::make_rotation(math::Vector(0.6f, -0.2f, 0.77f).normalized(),
+                            angle) *
+        previous;
+    const math::Vector turn =
+        DisplacementFieldWhiteBox::sweep_turn(effect, previous, current);
+    HS_EXPECT_NEAR(sqrtf(math::dot(turn, turn)), angle, 1e-4f);
+    for (const math::Vector &local :
+         {math::X_AXIS, math::Y_AXIS, math::Vector(0.5f, -0.4f, 0.77f)}) {
+      HS_EXPECT_VEC(Temporal::rotate_by(math::rotate(local, previous), turn),
+                    math::rotate(local, current), 2e-5f);
+    }
+  }
+  hs::clear_mock_time();
+}
+
+/**
+ * @brief A frame whose boundary knots overfill the alternate buffer scans
+ *        its stack in successive groups, matching the two-window bakes.
+ */
+inline void test_displacement_field_alternate_groups_match_windows() {
+  constexpr int W = 288, H = 144, FRAMES = 6;
+  std::vector<Pixel> images[2];
+  int flushes = 0;
+  for (int mode = 0; mode < 2; ++mode) {
+    reset_effect_globals();
+    hs::random().seed(1337u);
+    pin_frame_clock(0);
+    Temporal::set_temporal_sampling_enabled(true);
+    DisplacementField<W, H> effect;
+    effect.init();
+    for (int f = 0; f < 200 + FRAMES; ++f) {
+      DisplacementFieldWhiteBox::sweep_mode(effect, f < 200 ? 0 : mode);
+      if (f >= 200)
+        DisplacementFieldWhiteBox::arm_plane_pose(effect, f);
+      pin_frame_clock(f);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    if (mode == 0)
+      flushes = DisplacementFieldWhiteBox::stack_flushes(effect);
+    capture_frame<W, H>(effect, images[mode]);
+  }
+  std::printf("  [alternate groups] scans=%d\n", flushes);
+  HS_EXPECT_GT(flushes, 1);
+  int worst = 0, lit = 0;
+  for (size_t i = 0; i < images[0].size(); ++i) {
+    const Pixel &p = images[0][i], &q = images[1][i];
+    lit += !is_black(q);
+    worst = std::max({worst, std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
+                      std::abs(int(p.b) - q.b)});
+  }
+  HS_EXPECT_LE(worst, 1);
+  HS_EXPECT_GT(lit, 1000);
   hs::clear_mock_time();
 }
 

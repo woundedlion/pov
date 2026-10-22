@@ -134,6 +134,7 @@ inline int run_scan_tests() {
   test_point_birth_skips_earlier_columns();
   test_lit_caps_keep_swept_frames();
   test_swept_proxies_keep_lit_pixels();
+  test_rotate_by_matches_exact_rotation();
   test_swept_cap_clip_keeps_lit_clips();
   test_volume_columns_match_rotated_placements();
   test_ring_group_previous_axes_match_column_rings();

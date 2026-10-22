@@ -301,9 +301,11 @@ private:
     uint8_t *boundary;        ///< Current ring's conservative boundary set.
     int ring = 0;             ///< Current ring index.
     int count = 0;            ///< Retained alternates.
-    bool overflow = false;    ///< Alternate capacity exhausted.
     bool table_ready = false; ///< Candidate table includes both windows.
   };
+  static_assert(SweepCache::CAPACITY >= W,
+                "DisplacementField: one ring's knots must fit the alternate "
+                "buffer");
 
   /**
    * @brief A frame's endpoints for a draw that evaluates the displacement
@@ -510,9 +512,7 @@ private:
       step = -step;
     const float half_sine = sqrtf(math::dot(step.v, step.v));
     const float angle = 2.0f * asinf(fminf(half_sine, 1.0f));
-    if (angle > Temporal::MAX_DRIFT_ANGLE)
-      sweep.turn = math::Vector(0.0f, 0.0f, 0.0f);
-    else if (half_sine > 1e-6f)
+    if (half_sine > 1e-6f)
       sweep.turn = step.v * (angle / half_sine);
     else
       sweep.turn = step.v * 2.0f;
@@ -527,15 +527,16 @@ private:
    * @param n_balls Active balls drawn this frame.
    * @param sweep The frame's endpoints.
    * @details Boundary knots retain an alternate for the other arm pass.
-   * Colors and opacity take each window's middle time. Exhausting alternate
-   * storage falls back to separate window bakes.
+   * Colors and opacity take each window's middle time. A ring whose boundary
+   * knots would overfill the alternate buffer first scans the rings before
+   * it, which keeps every pixel's blend order.
    */
   HS_HOT_FLASH_MEMBER void draw_swept(Canvas &canvas, const math::Basis &basis,
                                       const Temporal::ColumnTime &column_time,
                                       int n_balls, Sweep &sweep) {
 #if HS_ENABLE_TEST_HOOKS
     primary_knots = duplicate_knots = alternate_noise_samples = primary_bakes =
-        fallback_bakes = 0;
+        stack_flushes = 0;
 #endif
     ScratchScope sweep_guard(scratch_arena_a);
     ball_paths = scratch_arena_a.allocate_n<BallPath>(MAX_BALLS);
@@ -550,7 +551,7 @@ private:
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
       BallPath &path = ball_paths[b];
-      path.from = Temporal::rotate_short(sp.previous_center, sweep.turn);
+      path.from = Temporal::rotate_by(sp.previous_center, sweep.turn);
       path.to = sp.center;
       path.axis_from = math::dot(basis.v, path.from);
       path.axis_to = math::dot(basis.v, path.to);
@@ -599,29 +600,19 @@ private:
     if (sweep.cache)
       draw_pass<true>(canvas, basis, column_time, sweep.opacity[1], n_balls,
                       &sweep);
-#if HS_ENABLE_TEST_HOOKS
-    duplicate_knots = cache.count;
-    fallback_bakes = cache.overflow;
-#endif
-    if (!sweep.cache || cache.overflow) {
-      sweep.cache = active_cache = nullptr;
-      int windows = SWEEP_WINDOWS;
 #if HS_ENABLE_TEST_ORACLES
-      if (force_column_reference)
-        windows = W / 2;
-#endif
+    if (!sweep.cache) {
+      const int windows = force_column_reference ? W / 2 : SWEEP_WINDOWS;
       for (int k = 0; k < windows; ++k) {
-        sweep.middle = (k + 0.5f) / windows;
-#if HS_ENABLE_TEST_ORACLES
-        if (force_column_reference)
-          sweep.middle = static_cast<float>(k) / windows;
-#endif
+        sweep.middle = force_column_reference ? static_cast<float>(k) / windows
+                                              : (k + 0.5f) / windows;
         RenderXWindow window(canvas, k * (W / 2) / windows,
                              (k + 1) * (W / 2) / windows);
         draw_pass<true>(canvas, basis, column_time, sweep.opacity[1], n_balls,
                         &sweep);
       }
     }
+#endif
     active_cache = nullptr;
     sweep.cache = nullptr;
     for (int i = 0; i < RING_SLOTS; ++i) {
@@ -803,10 +794,22 @@ private:
         const float dphi = 2.0f * math::PI_F / lut_n;
         const float cos_d = cosf(dphi);
         const float sin_d = sinf(dphi);
-        if constexpr (SWEPT)
-          if (sweep->cache)
+        if constexpr (SWEPT) {
+          if (sweep->cache) {
+            SweepCache &cache = *sweep->cache;
+            // A ring retains at most one alternate per knot.
+            if (cache.count + lut_n > SweepCache::CAPACITY) {
+              scan_swept_stack(canvas, cache);
+              rings.begin_frame(&cache);
+              cache.starts[i * SweepCache::WORDS] = 0;
+              const typename RingPool::Pending fresh = rings.next();
+              slut = fresh.shift_row;
+              hlut = fresh.hue_row;
+            }
             mark_boundary(basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
-                          band + noise_bound, column_time.sweep, *sweep->cache);
+                          band + noise_bound, column_time.sweep, cache);
+          }
+        }
 
         if (octaves) {
           bake_noise_octaves<SWEPT>(*octaves, basis,
@@ -870,12 +873,6 @@ private:
       }
 
       if constexpr (SWEPT) {
-        if (sweep->cache && sweep->cache->overflow) {
-          rings.release();
-          return;
-        }
-      }
-      if constexpr (SWEPT) {
         if (sweep->cache) {
           SweepCache &cache = *sweep->cache;
           int index = cache.starts[i * SweepCache::WORDS];
@@ -893,26 +890,46 @@ private:
     if (rings.size() == 0)
       return;
 
-    RingShader ring_shader{&rings};
-    HS_PROFILE(df_fused_scan);
     if constexpr (SWEPT) {
       if (sweep->cache) {
-        for (int k = 0; k < SWEEP_WINDOWS; ++k) {
-          if (k)
-            apply_second_window(*sweep->cache);
-          RenderXWindow window(canvas, k * W / 4, (k + 1) * W / 4);
-          Scan::DistortedRingStack::draw<W, H>(
-              filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
-              rings.size(), *candidates, ring_shader);
-        }
-        rings.release();
+        scan_swept_stack(canvas, *sweep->cache);
         return;
       }
     }
+    RingShader ring_shader{&rings};
+    HS_PROFILE(df_fused_scan);
     Scan::DistortedRingStack::draw<W, H>(
         filters, canvas, n_rings, rings.shapes(), rings.slot_map(),
         rings.size(), *candidates, ring_shader);
     rings.release();
+  }
+
+  /**
+   * @brief Scans the committed rings in both sweep windows and empties the
+   * pool and the alternate buffer.
+   * @param canvas Render target.
+   * @param cache The frame's alternate shifts, holding the committed rings'.
+   */
+  HS_HOT_FLASH_MEMBER void scan_swept_stack(Canvas &canvas, SweepCache &cache) {
+    if (rings.size() > 0) {
+      RingShader ring_shader{&rings};
+      HS_PROFILE(df_fused_scan);
+      for (int k = 0; k < SWEEP_WINDOWS; ++k) {
+        if (k)
+          apply_second_window(cache);
+        RenderXWindow window(canvas, k * W / 4, (k + 1) * W / 4);
+        Scan::DistortedRingStack::draw<W, H>(
+            filters, canvas, params.num_rings, rings.shapes(), rings.slot_map(),
+            rings.size(), *candidates, ring_shader);
+      }
+    }
+    rings.release();
+#if HS_ENABLE_TEST_HOOKS
+    duplicate_knots += cache.count;
+    ++stack_flushes;
+#endif
+    cache.count = 0;
+    cache.table_ready = false;
   }
 
   /**
@@ -1013,10 +1030,6 @@ private:
     row[k] = primary;
     if (primary == alternate)
       return;
-    if (cache.count == SweepCache::CAPACITY) {
-      cache.overflow = true;
-      return;
-    }
     cache.masks[cache.ring * SweepCache::WORDS + k / 32] |= uint32_t{1}
                                                             << (k % 32);
     row[k] = time < 0.5f ? primary : alternate;
@@ -1147,7 +1160,7 @@ private:
           const float t = sample_fraction(p, *sweep);
           knot_times[x] = t;
           const math::Vector q =
-              Temporal::rotate_short(p, sweep->turn * (t - 1.0f));
+              Temporal::rotate_by(p, sweep->turn * (t - 1.0f));
           const float time = sweep->noise_time[0] +
                              (sweep->noise_time[1] - sweep->noise_time[0]) * t;
           if (g1)
@@ -1167,7 +1180,7 @@ private:
 #endif
               const float other = t < 0.5f ? 1.0f : 0.0f;
               const math::Vector aq =
-                  Temporal::rotate_short(p, sweep->turn * (other - 1.0f));
+                  Temporal::rotate_by(p, sweep->turn * (other - 1.0f));
               const float at =
                   sweep->noise_time[0] +
                   (sweep->noise_time[1] - sweep->noise_time[0]) * other;
@@ -1983,8 +1996,8 @@ private:
       0; ///< Primary visible field knots in the last swept frame.
   int duplicate_knots = 0;         ///< Distinct retained alternate shifts.
   int alternate_noise_samples = 0; ///< Additional scalar octave evaluations.
-  int primary_bakes = 0;  ///< Non-flat rings baked in the last swept frame.
-  int fallback_bakes = 0; ///< Frames exceeding the alternate buffer.
+  int primary_bakes = 0; ///< Non-flat rings baked in the last swept frame.
+  int stack_flushes = 0; ///< Stack scans in the last swept frame.
   int hue_table_uses = 0;
 #endif
 

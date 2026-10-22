@@ -138,10 +138,10 @@ private:
     // draws nothing.
     const bool culls = radius <= 1.0f && !params.debug_bb && !canvas.debug();
     const float reach = radius * (math::PI_F / 2.0f);
-    const float sweep =
-        (column_time.azimuth ? column_time.sweep : 0.0f) + MAX_DRIFT;
+    const float sweep = column_time.azimuth ? column_time.sweep : 0.0f;
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
-    const auto cap = Plot::make_swept_cap_clip<W, H>(clip, reach, sweep);
+    const auto cap =
+        Plot::make_swept_cap_clip<W, H>(clip, reach, sweep + CULL_DRIFT);
     const auto warp = [this](const math::Vector &point) HS_O3_FN HS_HOT_INLINE
         __attribute__((flatten)) { return transformer.transform(point); };
     for (int i = 0; i < points; i++) {
@@ -151,8 +151,19 @@ private:
 
       // make_basis() applies the orientation; pass the unrotated point.
       math::Basis basis = math::make_basis(orientation.get(), v);
-      if (culls && !Plot::cap_may_touch_clip<H>(cap, basis.v))
-        continue;
+      if (culls) {
+        // A chord c subtends at most pi / 2 * c of arc.
+        const math::Vector chord = v - drawn;
+        const float chord_sq = drifting ? math::dot(chord, chord) : 0.0f;
+        if (!Plot::cap_may_touch_clip<H>(
+                chord_sq <= CULL_CHORD_SQ
+                    ? cap
+                    : Plot::make_swept_cap_clip<W, H>(
+                          clip, reach,
+                          sweep + 0.5f * math::PI_F * sqrtf(chord_sq)),
+                basis.v))
+          continue;
+      }
       if (drifting) {
         const math::Vector drift = star_drift(drawn, v);
         column_time.drift =
@@ -174,30 +185,37 @@ private:
    * @brief A star's displacement over the frame at the current orientation.
    * @param previous The star's warped centre where the last frame drew it.
    * @param warped The star's warped centre under the current warp.
-   * @return Rotation vector carrying @p previous to @p warped, at the current
-   *         orientation; zero for a jump past MAX_DRIFT.
+   * @return Rotation vector carrying @p previous to @p warped along their
+   *         great circle, at the current orientation; zero without motion or
+   *         for antipodal centres, which name no circle.
    */
   HS_FLASH_MEMBER math::Vector star_drift(const math::Vector &previous,
                                           const math::Vector &warped) const {
     const math::Vector axis = math::cross(previous, warped);
     const float sine_sq = math::dot(axis, axis);
-    if (!(math::dot(previous, warped) > 0.0f && sine_sq <= MAX_DRIFT_SINE_SQ))
+    if (!(sine_sq > 0.0f))
       return math::Vector(0.0f, 0.0f, 0.0f);
-    // asin(s) / s by its series.
+    const float cosine = math::dot(previous, warped);
+    // asin(s) / s by its series below CULL_DRIFT; the angle over s past it.
     const float scale =
-        1.0f + sine_sq * (1.0f / 6.0f +
-                          sine_sq * (3.0f / 40.0f + sine_sq * (5.0f / 112.0f)));
+        cosine > 0.0f && sine_sq <= CULL_SINE_SQ
+            ? 1.0f + sine_sq *
+                         (1.0f / 6.0f +
+                          sine_sq * (3.0f / 40.0f + sine_sq * (5.0f / 112.0f)))
+            : atan2f(sqrtf(sine_sq), cosine) / sqrtf(sine_sq);
     return math::rotate(axis * scale, orientation.get());
   }
 
-  /** @brief Longest move a star interpolates within a frame, eight columns
-   *  or the scans' drift limit; a longer one is a jump. */
-  static constexpr float MAX_DRIFT =
-      std::min(8.0f * math::RADIANS_PER_COLUMN<W>, Temporal::MAX_DRIFT_ANGLE);
-  /** @brief Squared sine of MAX_DRIFT, by its series. */
-  static constexpr float MAX_DRIFT_SINE_SQ =
-      (MAX_DRIFT * (1.0f - MAX_DRIFT * MAX_DRIFT / 6.0f)) *
-      (MAX_DRIFT * (1.0f - MAX_DRIFT * MAX_DRIFT / 6.0f));
+  /** @brief Drift the draw's shared cull pad covers: eight columns. A star
+   *  moving further is culled against its own swept cap. */
+  static constexpr float CULL_DRIFT = 8.0f * math::RADIANS_PER_COLUMN<W>;
+  /** @brief Squared sine of CULL_DRIFT, by its series. */
+  static constexpr float CULL_SINE_SQ =
+      (CULL_DRIFT * (1.0f - CULL_DRIFT * CULL_DRIFT / 6.0f)) *
+      (CULL_DRIFT * (1.0f - CULL_DRIFT * CULL_DRIFT / 6.0f));
+  /** @brief Squared chord whose arc the shared cull pad covers. */
+  static constexpr float CULL_CHORD_SQ =
+      (2.0f * CULL_DRIFT / math::PI_F) * (2.0f * CULL_DRIFT / math::PI_F);
 
   friend struct ::hs_test::effects_tests::GnomonicStarsWhiteBox;
 
