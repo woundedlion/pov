@@ -155,6 +155,62 @@ inline void test_interpolants_bound_curved_path() {
   }
 }
 
+/** @brief A path linear in Mercator ordinate and longitude stays within its
+ *         loxodrome bounds, which it meets crossing the equator. */
+inline void test_interpolants_bound_loxodrome() {
+  struct Motion {
+    double ordinate, longitude, start;
+  };
+  const auto position = [](const Motion &motion, double t, int axis) {
+    const double u = motion.start + motion.ordinate * t;
+    const double theta = 0.4 + motion.longitude * t;
+    const double horizontal = 1.0 / cosh(u);
+    return axis == 0   ? horizontal * cos(theta)
+           : axis == 1 ? horizontal * sin(theta)
+                       : tanh(u);
+  };
+  for (const Motion motion :
+       {Motion{0.3, 0.0, -0.15}, Motion{0.0, 0.5, 0.0}, Motion{0.2, -0.3, -0.1},
+        Motion{0.6, 0.4, 1.1}, Motion{-0.25, 0.9, -1.7}}) {
+    HS_CONTEXT("ordinate, longitude x100", std::llround(motion.ordinate * 100),
+               std::llround(motion.longitude * 100));
+    const auto bound =
+        Temporal::PathBound::loxodrome(static_cast<float>(motion.ordinate),
+                                       static_cast<float>(motion.longitude));
+    const auto exact = [&](float t) {
+      return math::Vector(static_cast<float>(position(motion, t, 0)),
+                          static_cast<float>(position(motion, t, 1)),
+                          static_cast<float>(position(motion, t, 2)));
+    };
+    check_interpolants(exact, bound, nullptr, false);
+    constexpr double STEP = 1e-3;
+    double second = 0.0, third = 0.0;
+    for (int i = 0; i <= 100; ++i) {
+      const double t = i / 100.0;
+      double d2 = 0.0, d3 = 0.0;
+      for (int axis = 0; axis < 3; ++axis) {
+        const auto at = [&](int k) {
+          return position(motion, t + k * STEP, axis);
+        };
+        const double c2 = (at(1) - 2.0 * at(0) + at(-1)) / (STEP * STEP);
+        const double c3 = (at(2) - 2.0 * at(1) + 2.0 * at(-1) - at(-2)) /
+                          (2.0 * STEP * STEP * STEP);
+        d2 += c2 * c2;
+        d3 += c3 * c3;
+      }
+      second = std::max(second, sqrt(d2));
+      third = std::max(third, sqrt(d3));
+    }
+    HS_EXPECT_LE(second, bound.second * 1.0001 + 1e-6);
+    HS_EXPECT_LE(third, bound.third * 1.0001 + 1e-6);
+    if (motion.start + 0.5 * motion.ordinate == 0.0) {
+      HS_EXPECT_GE(second, 0.999 * bound.second);
+      if (motion.longitude == 0.0)
+        HS_EXPECT_GE(third, 0.999 * bound.third);
+    }
+  }
+}
+
 /** @brief Frame-end captures carry into the next frame's start, so each
  *         vertex costs one new evaluation, plus one at the middle for a
  *         QUADRATIC path. */

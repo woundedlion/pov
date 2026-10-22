@@ -140,6 +140,7 @@ inline int run_plot_scan_tests() {
   test_column_basis_normalization();
   test_timed_cadence_resolved_phase();
   test_stationary_column_mesh_skips_geometry_cache();
+  test_column_walk_chained_ring_plots_vertices_once();
   test_timed_mesh_cadence_transition();
   test_stationary_timed_mesh_shader_time();
   test_timed_axial_callback_bound();
@@ -159,6 +160,7 @@ inline int run_plot_scan_tests() {
   test_interpolants_bound_meridian();
   test_interpolants_bound_orbit();
   test_interpolants_bound_curved_path();
+  test_interpolants_bound_loxodrome();
   test_vertex_motion_carries_frame_ends();
   test_rotation_chord_bound_covers_unit_vectors();
   test_arm_passes_match_brute_force();

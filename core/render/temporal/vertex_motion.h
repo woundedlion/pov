@@ -44,6 +44,21 @@ struct PathBound {
   }
 
   /**
+   * @brief Bounds of a unit-sphere path moving linearly in Mercator
+   *        coordinates.
+   * @param ordinate Change of the Mercator ordinate `u` over the frame, the
+   *        point sitting at height `tanh u` on its axis.
+   * @param longitude Change of longitude about that axis, radians.
+   * @return `{m^2, 2 m^3}` with `m = hypot(ordinate, longitude)`.
+   * @details Along such a path, a loxodrome, `|p''| = m^2 sech u` exactly;
+   * `|p'''|` peaks at `2 m^3`, on the equator under purely meridional motion.
+   */
+  static PathBound loxodrome(float ordinate, float longitude) {
+    const float m2 = ordinate * ordinate + longitude * longitude;
+    return {m2, 2.0f * m2 * sqrtf(m2)};
+  }
+
+  /**
    * @brief Bound on the chord's distance from the path.
    * @return An eighth of the second-derivative bound.
    */
