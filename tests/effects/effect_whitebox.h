@@ -1108,8 +1108,7 @@ struct PetalFlowWhiteBox {
                                                  float rho) {
     reset_effect_globals();
     PF fx;
-    fx.build_shift_table();
-    fx.filters.init_storage(persistent_arena);
+    fx.init();
     const float previous_rho = rho - fx.move_dist();
     const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
     const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
@@ -1119,43 +1118,39 @@ struct PetalFlowWhiteBox {
     {
       Canvas canvas(fx);
       if (timed) {
+        Temporal::geometry_counters = {};
         fx.draw_ring(canvas, ring, previous_rho);
+        HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups, 1u);
+        HS_EXPECT_EQ(Temporal::geometry_counters.legacy_edge_walks, 0u);
       } else {
         ScratchScope guard(scratch_arena_a);
-        Fragments points;
-        points.bind(scratch_arena_a, PF::NUM_SAMPLES);
-        const float first_exp = expf(previous_rho), last_exp = expf(rho);
+        const float travel = previous_rho + (rho - previous_rho) * fraction;
         const float first_twist =
             previous_rho / fx.spacing() * fx.params.twist_factor;
         const float last_twist = rho / fx.spacing() * fx.params.twist_factor;
+        const float twist = first_twist + (last_twist - first_twist) * fraction;
         const auto pose = fx.orientation.get(fraction);
         fx.orientation.set(pose);
+        auto *vertices = scratch_arena_a.make_n<math::Vector>(PF::NUM_SAMPLES);
         for (int i = 0; i < PF::NUM_SAMPLES; ++i) {
-          const auto a = fx.ring_vertex(i, first_exp, first_twist);
-          const auto b = fx.ring_vertex(i, last_exp, last_twist);
-          Fragment point;
-          point.pos = fraction == 1.0f
-                          ? b
-                          : (a * (1.0f - fraction) + b * fraction).normalized();
+          vertices[i] = fx.ring_vertex(i, expf(travel), twist);
           if (displacement != 0.0f) {
-            const auto world = math::rotate(point.pos, pose);
-            point.pos =
+            const auto world = math::rotate(vertices[i], pose);
+            vertices[i] =
                 math::rotate(hs_test::displace_reference_rows<DEFAULT_H>(
                                  world, displacement),
                              pose.conjugate());
           }
-          points.push_back(point);
         }
         Color4 shade = fx.palette.get(ring.hue).color;
-        shade.alpha =
-            PF::pole_opacity(previous_rho + (rho - previous_rho) * fraction) *
-            fx.params.alpha;
+        shade.alpha = PF::pole_opacity(travel) * fx.params.alpha;
         auto shader = [&](const math::Vector &, Fragment &f) {
           f.color = shade;
         };
-        Plot::rasterize<DEFAULT_W, DEFAULT_H>(
-            fx.filters, canvas, points, shader,
-            {.loop = Plot::RasterLoop::closed()});
+        Plot::Mesh::draw_columns<DEFAULT_W, DEFAULT_H>(
+            fx.filters, canvas,
+            typename PF::RingMesh{{vertices, size_t(PF::NUM_SAMPLES)}},
+            fx.ring_edges, shader, PF::RING_GEOMETRY, 0.0f);
       }
     }
     fx.advance_display();
