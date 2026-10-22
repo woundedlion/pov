@@ -464,7 +464,7 @@ struct Mesh {
    * @param motion Vertex captures bound for at least the mesh's vertices.
    * @param carry Whether each vertex's previous end capture is its start.
    * @param mesh Frame-end source vertices.
-   * @param geometry Vertex evaluator and path bound.
+   * @param geometry Vertex evaluator and path bounds.
    * @param poses World poses by column time, or null without world stages.
    * @param callback_bound Source displacement bound, radians; zero holds the
    *        vertices still.
@@ -483,6 +483,7 @@ struct Mesh {
     constexpr float MAX_VERTEX_ERROR_PX = 0.025f;
     const size_t count = mesh.vertices.size();
     const bool moving = geometry.evaluate && callback_bound > 0.0f;
+    const bool per_vertex = static_cast<bool>(geometry.vertex_path);
     if (moving && !carry) {
       motion.begin_frame(count, false);
       for (size_t i = 0; i < count; ++i) {
@@ -507,8 +508,8 @@ struct Mesh {
       const float tolerance =
           rho > 0.0f ? MAX_VERTEX_ERROR_PX * math::RADIANS_PER_COLUMN<W> * rho
                      : 0.0f;
-      if (motion.choose(i, geometry.path, tolerance, false) ==
-          Temporal::Interpolant::QUADRATIC) {
+      if (motion.choose(i, per_vertex ? geometry.vertex_path(i) : geometry.path,
+                        tolerance, false) == Temporal::Interpolant::QUADRATIC) {
         Temporal::count_geometry<
             &Temporal::GeometryCounters::midpoint_evaluations>();
         motion.capture_middle(i, geometry.evaluate(i, 0.5f));

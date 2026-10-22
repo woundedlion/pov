@@ -211,6 +211,104 @@ inline void test_interpolants_bound_loxodrome() {
   }
 }
 
+/** @brief A point turning along a great circle under a moving plane
+ *         translation stays within its warped bounds, which a fixed
+ *         translation of a turning point and a moving translation of a still
+ *         point meet. */
+inline void test_interpolants_bound_warped_great_circle() {
+  struct Motion {
+    double x, y, z;  ///< Frame-end source position.
+    double hx, hz;   ///< Turn direction, completed to a tangent.
+    double turn;     ///< Turn over the frame, radians.
+    double b0x, b0z; ///< Translation at the frame's start.
+    double b1x, b1z; ///< Translation at the frame's end.
+  };
+  const auto position = [](const Motion &m, double t, double out[3]) {
+    double p[3] = {m.x, m.y, m.z};
+    const double n = sqrt(p[0] * p[0] + p[1] * p[1] + p[2] * p[2]);
+    for (double &c : p)
+      c /= n;
+    double h[3] = {m.hx, 0.37, m.hz};
+    const double along = h[0] * p[0] + h[1] * p[1] + h[2] * p[2];
+    for (int i = 0; i < 3; ++i)
+      h[i] -= along * p[i];
+    const double hn = sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
+    const double back = m.turn * (1.0 - t);
+    double q[3];
+    for (int i = 0; i < 3; ++i)
+      q[i] = p[i] * cos(back) - h[i] / hn * sin(back);
+    // Stereographic from +y, 1 - y kept exact near the pole.
+    const double s =
+        q[1] > 0.0 ? (q[0] * q[0] + q[2] * q[2]) / (1.0 + q[1]) : 1.0 - q[1];
+    const double bx = m.b0x + (m.b1x - m.b0x) * t;
+    const double bz = m.b0z + (m.b1z - m.b0z) * t;
+    const double nx = q[0] + bx * s, nz = q[2] + bz * s;
+    const double n2 = nx * nx + nz * nz, s2 = s * s, den = n2 + s2;
+    out[0] = 2.0 * nx * s / den;
+    out[1] = (n2 - s2) / den;
+    out[2] = 2.0 * nz * s / den;
+  };
+  uint32_t state = 29u;
+  auto uniform = [&](double lo, double hi) {
+    state = state * 1664525u + 1013904223u;
+    return lo + (hi - lo) * double(state >> 8) * (1.0 / 16777216.0);
+  };
+  double tight_second = 0.0, tight_third = 0.0;
+  for (int trial = 0; trial < 3000; ++trial) {
+    Motion m;
+    const double polar =
+        trial % 3 == 0 ? uniform(1e-3, 0.05) : uniform(0.0, 3.1);
+    const double azimuth = uniform(0.0, 6.283);
+    m.x = sin(polar) * cos(azimuth);
+    m.y = cos(polar);
+    m.z = sin(polar) * sin(azimuth);
+    m.hx = uniform(-1.0, 1.0);
+    m.hz = uniform(-1.0, 1.0);
+    const int kind = trial % 4;
+    m.turn = kind == 1 ? 0.0 : uniform(0.001, 0.0218);
+    const double scale = uniform(0.0, 5.0);
+    const double start = uniform(0.0, 6.283);
+    const double sweep = kind == 0 ? 0.0 : uniform(0.0, 0.08);
+    m.b0x = scale * (cos(start) - 1.0);
+    m.b0z = scale * sin(start);
+    m.b1x = scale * (cos(start + sweep) - 1.0);
+    m.b1z = scale * sin(start + sweep);
+    const double shift = hypot(m.b1x - m.b0x, m.b1z - m.b0z);
+    const double reach = std::max(hypot(m.b0x, m.b0z), hypot(m.b1x, m.b1z));
+    const auto bound = Temporal::PathBound::warped_great_circle(
+        float(m.turn), float(shift), float(reach));
+    constexpr double STEP = 1e-2;
+    double second = 0.0, third = 0.0;
+    for (int i = 0; i <= 20; ++i) {
+      const double t = i / 20.0;
+      double at[5][3];
+      for (int k = -2; k <= 2; ++k)
+        position(m, t + k * STEP, at[k + 2]);
+      double d2 = 0.0, d3 = 0.0;
+      for (int c = 0; c < 3; ++c) {
+        const double c2 =
+            (at[3][c] - 2.0 * at[2][c] + at[1][c]) / (STEP * STEP);
+        const double c3 =
+            (at[4][c] - 2.0 * at[3][c] + 2.0 * at[1][c] - at[0][c]) /
+            (2.0 * STEP * STEP * STEP);
+        d2 += c2 * c2;
+        d3 += c3 * c3;
+      }
+      second = std::max(second, sqrt(d2));
+      third = std::max(third, sqrt(d3));
+    }
+    HS_CONTEXT("trial", trial);
+    HS_EXPECT_LE(second, double(bound.second) * 1.001 + 1e-9);
+    HS_EXPECT_LE(third, double(bound.third) * 1.001 + 1e-9);
+    if (bound.second > 0.0f)
+      tight_second = std::max(tight_second, second / double(bound.second));
+    if (bound.third > 0.0f)
+      tight_third = std::max(tight_third, third / double(bound.third));
+  }
+  HS_EXPECT_GE(tight_second, 0.9);
+  HS_EXPECT_GE(tight_third, 0.5);
+}
+
 /** @brief Frame-end captures carry into the next frame's start, so each
  *         vertex costs one new evaluation, plus one at the middle for a
  *         QUADRATIC path. */
