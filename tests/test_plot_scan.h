@@ -17,6 +17,7 @@
 #include "core/math/geometry.h"
 #include "core/render/canvas.h"
 #include "core/render/temporal/arm_crossing.h"
+#include "core/render/temporal/pose_table.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/mesh_test_util.h"
@@ -24,7 +25,9 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstring>
 #include <functional>
+#include <memory>
 #include <limits>
 #include <vector>
 
@@ -79,6 +82,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/planar_chords.h"
 #include "tests/plot_scan/temporal_seam.h"
 #include "tests/plot_scan/timed_mesh.h"
+#include "tests/plot_scan/temporal_poses.h"
 #include "tests/plot_scan/temporal_crossings.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
@@ -122,6 +126,10 @@ inline int run_plot_scan_tests() {
   test_timed_stationary_callback_pixel_parity();
   test_four_regular_and_medial_edge_extraction();
 
+  test_pose_table_follows_history_path();
+  test_pose_table_holds_a_still_history();
+  test_pose_table_rotates_between_column_times();
+  test_column_poses_match_endpoint_slerp();
   test_arm_passes_match_brute_force();
   test_arm_passes_extend_to_frame_ends();
   test_piecewise_arm_passes_match_brute_force();

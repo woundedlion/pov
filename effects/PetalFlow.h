@@ -61,6 +61,7 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Density", &params.density, 0.5f, DENSITY_MAX);
 
+    filters.init_storage(persistent_arena);
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;
     }

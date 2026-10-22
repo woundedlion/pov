@@ -66,43 +66,6 @@ struct TemporalRotation : math::SlerpArc {
   HS_FLASH_INLINE TemporalRotation(const math::Quaternion &a,
                                    const math::Quaternion &b)
       : math::SlerpArc(a, b) {}
-
-  /** @brief Visits the arc at each first-arm column's sweep fraction.
-   * @tparam Fn Callable `(int column, const math::Quaternion &q)`.
-   * @param width Even canvas width.
-   * @param fn Receives each column `c` in [0, width / 2) with the arc at
-   *        `sweep_fraction(c, width)`, as sample() gives it up to rounding.
-   * @details Sines of evenly spaced angles obey
-   * `sin((k + 1) d) = 2 cos(d) sin(k d) - sin((k - 1) d)`, so the sweep costs
-   * three transcendental calls rather than two per column; the recurrence
-   * runs in double, as its rounding grows with the column count. */
-  template <typename Fn>
-  HS_HOT_INLINE void for_each_sweep_sample(int width, Fn &&fn) const {
-    const int half = width / 2;
-    if (theta == 0.0f) {
-      for (int c = 0; c < half; ++c)
-        fn(c, (from + sweep_fraction(c, width) * (to - from)).normalized());
-      return;
-    }
-    const double step = static_cast<double>(theta) / half;
-    const double twice_cos = 2.0 * cos(step);
-    const double inverse_sine = 1.0 / static_cast<double>(sine);
-    // rising = sin(c * step) and falling = sin((half - c) * step), scaled.
-    double rising = 0.0, rising_next = sin(step) * inverse_sine;
-    double falling = 1.0;
-    double falling_next = sin(static_cast<double>(theta) - step) * inverse_sine;
-    for (int c = 0; c < half; ++c) {
-      fn(c,
-         (static_cast<float>(falling) * from + static_cast<float>(rising) * to)
-             .normalized());
-      const double up = twice_cos * rising_next - rising;
-      rising = rising_next;
-      rising_next = up;
-      const double down = twice_cos * falling_next - falling;
-      falling = falling_next;
-      falling_next = down;
-    }
-  }
 };
 
 /**

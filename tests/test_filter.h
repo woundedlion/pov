@@ -117,6 +117,7 @@ inline int run_filter_tests() {
   test_world_orient_rotates_and_keeps_static_age();
   test_world_orient_emits_at_capture_time();
   test_world_orient_explicit_time();
+  test_world_orient_follows_history_at_column_times();
   test_world_orient_sample_cache();
   test_geometry_capture_branches();
   test_geometry_capture_shortcuts_and_poles();

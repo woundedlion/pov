@@ -599,6 +599,7 @@ inline void test_timed_rigid_shader_reads_source_position() {
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       pipeline(Filter::World::Orient(orientation),
                Filter::Screen::AntiAlias<W, H>{});
+  pipeline.init_storage(persistent_arena);
   ScratchScope scratch(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);

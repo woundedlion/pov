@@ -39,6 +39,7 @@ struct MeshFeedbackWhiteBox {
                  Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
             pipeline(Filter::World::Orient(fx.orientation),
                      Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
+        pipeline.init_storage(persistent_arena);
         Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(pipeline, canvas, fx.mesh,
                                                      fx.edges, shader);
       } else {
@@ -56,6 +57,7 @@ struct MeshFeedbackWhiteBox {
                  Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>>
             pipeline(Filter::World::Orient(fx.orientation),
                      Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
+        pipeline.init_storage(persistent_arena);
         Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
             pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
       }

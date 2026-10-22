@@ -863,6 +863,54 @@ inline void test_ring_group_column_rows_window_matches_full() {
 }
 
 /**
+ * @brief A column basis prepared from an orientation follows its sub-frame
+ *        history: each column's entries turn the fixed meridian by the
+ *        current pose times the inverse of the history's pose at the
+ *        column's sweep time, within the sweep bound.
+ */
+inline void test_column_basis_follows_history_path() {
+  constexpr int W = 288, H = 144, HALF = W / 2;
+  math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.3f));
+  orientation.push(math::make_rotation(math::Y_AXIS, 0.15f) *
+                   orientation.get());
+  orientation.push(math::make_rotation(math::Z_AXIS, 0.15f) *
+                   orientation.get());
+  orientation.push(math::make_rotation(math::X_AXIS, -0.15f) *
+                   orientation.get());
+  ScratchScope scope(scratch_arena_a);
+  const Temporal::ColumnTime time =
+      Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+  HS_EXPECT_TRUE(time.azimuth != nullptr);
+  if (!time.azimuth)
+    return;
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  float worst = 0.0f, endpoint = 0.0f, farthest = 0.0f;
+  for (int c = 0; c < HALF; ++c) {
+    const float u = Temporal::sweep_fraction(c, W);
+    const math::Vector meridian(math::TrigLUT<W, H>::cos_theta(c), 0.0f,
+                                math::TrigLUT<W, H>::sin_theta[c]);
+    const math::Quaternion delta =
+        orientation.get() * orientation.get(u).conjugate();
+    const math::Vector up = math::rotate(math::Y_AXIS, delta);
+    worst = fmaxf(worst, (time.up[c] - up).magnitude());
+    worst = fmaxf(
+        worst, (time.azimuth[c] - math::rotate(meridian, delta)).magnitude());
+    const math::Quaternion slerped =
+        orientation.get() *
+        math::slerp(orientation.get(0), orientation.get(), u).conjugate();
+    endpoint =
+        fmaxf(endpoint, (math::rotate(math::Y_AXIS, slerped) - up).magnitude());
+    farthest =
+        fmaxf(farthest,
+              2.0f * asinf(fminf(sqrtf(math::dot(delta.v, delta.v)), 1.0f)));
+  }
+  HS_EXPECT_LT(worst, 2e-6f);
+  HS_EXPECT_GT(endpoint, 100.0f * 2e-6f);
+  HS_EXPECT_LE(farthest, time.sweep);
+}
+
+/**
  * @brief An object-frame walk hands each pixel its center and sub-samples
  *        rotated into the object frame at its column's sweep time, on both
  *        arms, and visits only the columns the render-x window admits.

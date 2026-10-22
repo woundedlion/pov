@@ -276,6 +276,8 @@ inline void test_screen_step_axes_match_stage_walk() {
   Pipeline<W, H, Filter::World::Orient> single{Filter::World::Orient(tweened)};
   Pipeline<W, H, Filter::World::Orient, Filter::World::Orient> composed{
       Filter::World::Orient(half), Filter::World::Orient(tweened)};
+  single.init_storage(persistent_arena);
+  composed.init_storage(persistent_arena);
   Pipeline<W, H, Filter::World::Replicate<W>> replicated{
       Filter::World::Replicate<W>(3)};
   auto check = [](auto &pipeline, int expected_copies) {
