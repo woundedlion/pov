@@ -631,6 +631,9 @@ struct Mesh {
   draw_column_edges(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                     const ArenaVector<Edge> &edges, ShaderT shader,
                     const GeometryCallback &geometry, float callback_bound) {
+    static_assert(PipelineT::column_taps_ready,
+                  "the column walk splats end columns through an "
+                  "anti-aliasing first screen stage");
     ScratchScope motion_scope(scratch_arena_b);
     Temporal::VertexMotion<> motion;
     motion.bind(scratch_arena_b, mesh.vertices.size());

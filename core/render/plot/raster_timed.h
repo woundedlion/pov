@@ -609,6 +609,97 @@ template <int W> struct ColumnWalk {
   float half_cosine; /**< Cosine of half a column. */
 };
 
+/** @brief A walked sample whose tap columns splat at their own times. */
+struct ColumnTapSample {
+  math::PixelCoords p; /**< Projected position at its column's time. */
+  float t;             /**< Its column's sweep fraction. */
+  float s;             /**< Arc fraction along the edge. */
+};
+
+/** @brief Plots a sample's taps in one column, moved to that column's time.
+ * @tparam W Canvas width.
+ * @param state The edge's walk.
+ * @param sample The sample's position, time and motion.
+ * @param column Wrapped tap column.
+ * @param at The column's sweep fraction.
+ * @param color,age,alpha Registers at @p at. */
+template <int W>
+HS_HOT_INLINE void plot_column_tap(const ColumnWalk<W> &state,
+                                   const ColumnTapSample &sample, int column,
+                                   float at, const Pixel &color, float age,
+                                   float alpha) {
+  if (at != sample.t)
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::column_boundary_samples>();
+  const float *velocity = state.velocity;
+  const float shift = at - sample.t;
+  const float x =
+      sample.p.x +
+      (velocity[0] + (velocity[2] - velocity[0]) * sample.s) * shift;
+  state.pipeline.plot_column_at(
+      state.canvas,
+      {x < 0.0f ? x + W
+       : x >= W ? x - W
+                : x,
+       sample.p.y +
+           (velocity[1] + (velocity[3] - velocity[1]) * sample.s) * shift},
+      column, color, age, alpha, sample.t);
+}
+
+/** @brief Splats a still sample's taps astride an arm seam.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param state The edge's walk.
+ * @param sample The sample's position and time.
+ * @param f The sample's registers, shaded at its time.
+ * @details The taps are lit a frame apart: their registers interpolate in
+ * time between the sample and one shade at the farthest tap's time. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_FLASH_MEMBER void splat_seam_taps(const ColumnWalk<W> &state,
+                                         const ColumnTapSample &sample,
+                                         const Fragment &f) {
+  using Splat = Filter::Screen::AntiAlias<W, H>;
+  const float t = sample.t;
+  float far = t;
+  Splat::for_each_seam_column(sample.p.x, [&](int, float at) HS_HOT_INLINE {
+    if (fabsf(at - t) > fabsf(far - t))
+      far = at;
+  });
+  Fragment other;
+  if constexpr (Cfg.interpolate_registers)
+    other =
+        Fragment::lerp_registers(state.points[0], state.points[1], sample.s);
+  if (far != t)
+    state.shader(f.pos, other, far);
+  else
+    other = f;
+  const float span = far != t ? 1.0f / (far - t) : 0.0f;
+  Splat::for_each_seam_column(
+      sample.p.x, [&](int column, float at) HS_HOT_INLINE {
+        const float w = (at - t) * span;
+        const Color4 color = f.color.lerp(other.color, w);
+        plot_column_tap(state, sample, column, at, color.color,
+                        f.age + (other.age - f.age) * w, color.alpha);
+      });
+}
+
+/** @brief Splats each of a moving sample's tap columns within half a frame
+ *         of it at that column's time.
+ * @tparam W,H Canvas dimensions.
+ * @param state The edge's walk.
+ * @param sample The sample's position, time and motion.
+ * @param f The sample's registers. */
+template <int W, int H>
+HS_HOT_FLASH_MEMBER void splat_owned_taps(const ColumnWalk<W> &state,
+                                          const ColumnTapSample &sample,
+                                          const Fragment &f) {
+  Filter::Screen::AntiAlias<W, H>::for_each_owned_column(
+      sample.p.x, sample.t, [&](int column, float at) HS_HOT_INLINE {
+        plot_column_tap(state, sample, column, at, f.color.color, f.age,
+                        f.color.alpha);
+      });
+}
+
 /** @brief Walks one edge's planned columns and plots their lattice samples.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
@@ -830,44 +921,11 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
                                        f.color.alpha, t, nullptr);
             continue;
           }
-          auto boundary_at = [&, s](float at, math::PixelCoords &projected,
-                                    Pixel &color, float &age,
-                                    float &alpha) HS_HOT_INLINE {
-            Temporal::count_geometry<
-                &Temporal::GeometryCounters::column_boundary_samples>();
-            const float shift = at - t;
-            const float x =
-                p.x + (velocity[0] + (velocity[2] - velocity[0]) * s) * shift;
-            projected = {x < 0.0f ? x + W
-                         : x >= W ? x - W
-                                  : x,
-                         p.y + (velocity[1] + (velocity[3] - velocity[1]) * s) *
-                                   shift};
-            if (!arm_boundary) {
-              color = f.color.color;
-              age = f.age;
-              alpha = f.color.alpha;
-              return true;
-            }
-            Fragment fragment;
-            if constexpr (Cfg.interpolate_registers)
-              fragment = Fragment::lerp_registers(points[0], points[1], s);
-            shader(f.pos, fragment, at);
-            color = fragment.color.color;
-            age = fragment.age;
-            alpha = fragment.color.alpha;
-            return true;
-          };
-          Temporal::BoundaryEvaluator boundary(boundary_at);
-          boundary.force_timing = true;
-          boundary.all_passes = arm_boundary;
-          boundary.exact_at_time = true;
-          Temporal::ColumnPrediction prediction{
-              radians == 0.0f ? p.x : float(owner),
-              std::numeric_limits<float>::infinity()};
-          prediction.boundary = &boundary;
-          pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
-                                     f.color.alpha, t, &prediction);
+          const ColumnTapSample sample{p, t, s};
+          if (arm_boundary)
+            splat_seam_taps<W, H, Cfg>(state, sample, f);
+          else
+            splat_owned_taps<W, H>(state, sample, f);
         }
         finished = finished || (end_column && to == 1.0f);
       }
@@ -921,8 +979,9 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
  * start vertex is lattice point zero; each edge also plots its end vertex
  * unless the batch is chained.
  * Columns strictly inside an edge splat at their own time; the end columns of
- * an edge moving faster than COLUMN_SINGLE_TAP_ERROR evaluate each neighbor
- * tap at that column's time. A stationary draw walks the lattice once. An
+ * an edge moving faster than COLUMN_SINGLE_TAP_ERROR move each neighbor tap
+ * to that column's time, and taps astride an arm seam interpolate their
+ * registers toward the sample shaded at the far side's time. A stationary draw walks the lattice once. An
  * edge whose plan cannot bound it, such as one that can pass near a pole, is
  * walked as the two sides of its closest approach to the pole, out of line. */
 template <int W, int H, RasterConfig Cfg>

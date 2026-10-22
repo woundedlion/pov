@@ -86,6 +86,26 @@ public:
     }
   }
 
+  /** @brief Visits the tap columns of a splat beside an arm seam, each with
+   *         the sweep fraction it is lit at.
+   * @tparam VisitFnT Callable `(int column, float fraction)`.
+   * @param x Projected column, within a pixel of a seam.
+   * @param visit Receives each distinct wrapped column and its fraction.
+   * @details The splat's own two columns are joined by the two columns
+   * astride the nearest seam, lit a frame apart, so both arm passes hold the
+   * taps they own. */
+  template <typename VisitFnT>
+  HS_HOT_INLINE static void for_each_seam_column(float x, VisitFnT &&visit) {
+    const int x0 = math::fast_wrap(static_cast<int>(floorf(x)), W);
+    const int arm = (int(floorf(x / (W / 2.0f) + 0.5f)) & 1) * (W / 2);
+    const int columns[] = {x0, math::fast_wrap(x0 + 1, W),
+                           math::fast_wrap(arm - 1, W), arm};
+    for (int i = 0; i < 4; ++i)
+      if (i < 2 || (columns[i] != columns[0] && columns[i] != columns[1]))
+        visit(columns[i],
+              Temporal::column_fraction<W>(static_cast<float>(columns[i])));
+  }
+
   /** @brief Emits the taps of a splat at (x, y) that fall in one column.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected coordinates at the column time.
@@ -125,7 +145,6 @@ public:
            alpha * t.v11);
   }
 
-private:
   /** @brief column_taps() out of line.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected coordinates at the column time.
@@ -139,6 +158,7 @@ private:
     column_taps(x, y, c, age, alpha, column, pass);
   }
 
+private:
   /** @brief Splats kept columns at their owned times.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected sample coordinates.
@@ -173,14 +193,7 @@ private:
         for_each_owned_column(x, time, emit);
         return;
       }
-      const int x0 = math::fast_wrap(static_cast<int>(floorf(x)), W);
-      const int arm = (int(floorf(x / (W / 2.0f) + 0.5f)) & 1) * (W / 2);
-      const int columns[] = {x0, math::fast_wrap(x0 + 1, W),
-                             math::fast_wrap(arm - 1, W), arm};
-      for (int i = 0; i < 4; ++i)
-        if (i < 2 || (columns[i] != columns[0] && columns[i] != columns[1]))
-          emit(columns[i],
-               Temporal::column_fraction<W>(static_cast<float>(columns[i])));
+      for_each_seam_column(x, emit);
       return;
     }
     plot_boundary_static(x, y, c, age, alpha, time, pass);

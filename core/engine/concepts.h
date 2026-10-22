@@ -361,6 +361,10 @@ class PipelineRef {
     float (*projected_plot)(void *, Canvas &, math::PixelCoords, const Pixel &,
                             float, float, float,
                             const Temporal::ColumnPrediction *);
+    /** @brief Plots a projected sample's anti-alias taps in one column; null
+     *  unless the first screen stage anti-aliases. */
+    void (*column_plot)(void *, Canvas &, math::PixelCoords, int, const Pixel &,
+                        float, float, float);
     bool rigid;             ///< World stages can run at controls.
     bool dense_screen_safe; ///< Screen stages retain a one-pixel footprint.
     /** @brief Returns the angular world-stage motion bound. */
@@ -531,6 +535,21 @@ class PipelineRef {
     }
   }
 
+  /** @brief Dispatches a projected sample's taps in one column.
+   * @tparam T Concrete pipeline.
+   * @param pipeline Borrowed pipeline.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param column Wrapped destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction. */
+  template <typename T>
+  HS_HOT_FLASH_MEMBER static void
+  column_plot_entry(void *pipeline, Canvas &cv, math::PixelCoords p, int column,
+                    const Pixel &c, float age, float alpha, float t) {
+    static_cast<T *>(pipeline)->plot_column_at(cv, p, column, c, age, alpha, t);
+  }
+
   /** @brief Applies an erased pipeline's timed cull chain.
    * @tparam T Concrete pipeline type.
    * @param pipeline Borrowed pipeline.
@@ -562,6 +581,12 @@ class PipelineRef {
         timed_plot_entry<T>,
         transformed_plot_entry<T>,
         projected_plot_entry<T>,
+        []() HS_HOT_INLINE {
+          if constexpr (requires { requires T::column_taps_ready; })
+            return column_plot_entry<T>;
+          else
+            return static_cast<decltype(&column_plot_entry<T>)>(nullptr);
+        }(),
         []() HS_HOT_INLINE {
           if constexpr (requires { T::rigid_world_stages; })
             return T::rigid_world_stages;
@@ -655,6 +680,19 @@ public:
                     const Temporal::ColumnPrediction *prediction) const {
     return timed_entries->projected_plot(ctx, cv, p, c, age, alpha, t,
                                          prediction);
+  }
+
+  /** @brief Emits a projected sample's anti-alias taps in one column.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param column Wrapped destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @details The erased pipeline's first screen stage anti-aliases. */
+  HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
+                                    const Pixel &c, float age, float alpha,
+                                    float t) const {
+    timed_entries->column_plot(ctx, cv, p, column, c, age, alpha, t);
   }
 
   /** @brief Whether the erased pipeline leaves world positions unchanged. */

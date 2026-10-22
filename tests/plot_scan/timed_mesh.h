@@ -355,6 +355,52 @@ inline void test_column_walk_chained_ring_plots_vertices_once() {
   }
 }
 
+/** @brief A still edge across an arm seam splats each tap column in the
+ *         color shaded at that column's time, on both sides of the seam. */
+inline void test_column_walk_seam_taps_shade_at_their_times() {
+  constexpr int W = 288, H = 144;
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  const auto shade = [](float time) { return 10000.0f + 20000.0f * time; };
+  for (float seam : {0.0f, W / 2.0f}) {
+    HS_CONTEXT("seam", static_cast<int>(seam));
+    hs_test::StubEffect effect(W, H);
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+    {
+      Canvas canvas(effect);
+      ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+      ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
+      edges.push_back({0, 1});
+      const TimedMeshFixture mesh{
+          {math::pixel_to_vector<W, H>(seam - 9.3f, 60.0f),
+           math::pixel_to_vector<W, H>(seam + 8.6f, 71.0f), math::X_AXIS}};
+      const auto shader = [&](const math::Vector &, Fragment &f, float time) {
+        f.color = Color4(
+            Pixel(static_cast<uint16_t>(shade(time) + 0.5f), 2000, 3000), 1.0f);
+      };
+      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader);
+    }
+    effect.advance_display();
+    int checked = 0;
+    for (int dx = -2; dx <= 1; ++dx) {
+      const int x = math::fast_wrap(static_cast<int>(seam) + dx, W);
+      const float expected =
+          shade(Temporal::column_fraction<W>(static_cast<float>(x))) / 2000.0f;
+      for (int y = 0; y < H; ++y) {
+        const Pixel pixel = effect.get_pixel(x, y);
+        if (pixel.g < 400)
+          continue;
+        HS_CONTEXT("column", x);
+        HS_EXPECT_NEAR(float(pixel.r) / float(pixel.g), expected,
+                       0.01f * expected);
+        ++checked;
+      }
+    }
+    HS_EXPECT_GE(checked, 4);
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
+}
+
 /** @brief Refined basis normalization stays unit across its input range. */
 inline void test_column_basis_normalization() {
   for (int i = 0; i <= 1024; ++i) {

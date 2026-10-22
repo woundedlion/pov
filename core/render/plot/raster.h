@@ -15,6 +15,7 @@
 #include "core/render/shading.h"
 #include "core/render/clip.h"
 #include "core/render/canvas.h"
+#include "core/render/filter/screen_anti_alias.h"
 #include "core/engine/concepts.h"
 #include "core/memory.h"
 #include "core/render/plot/cull.h"
