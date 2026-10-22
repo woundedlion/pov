@@ -202,20 +202,35 @@ public:
                       {1.00f, CPixel{0x000000}}}),
         cycle_phase(0.0f), noise_xform(timeline) {}
 
-  // Scratch A holds the vertices, the Multiline fragment buffer and
-  // rasterize's sub-step cache live at once.
-  /// Scratch arena A size, in bytes.
-  static constexpr size_t SCRATCH_A_BYTES = 246 * 1024;
-  /// Peak scratch A demand, in bytes.
-  static constexpr size_t SCRATCH_A_ESTIMATE =
+  /** @brief Trail vertices one column walk draws. */
+  static constexpr size_t COLUMN_CHUNK_VERTICES = 256;
+  /** @brief Most lattice points of a steady trail edge the point route plots
+   *  in place of the column walk. */
+  static constexpr int STEADY_POINTS = 4;
+  /** @brief Screen steps, at least, between the trail vertices drawn. */
+  static constexpr float DRAWN_SPACING = 1.0f;
+
+  /// Peak scratch A demand of the still trail, in bytes: the vertices, the
+  /// Multiline fragment buffer and rasterize's sub-step cache, live at once.
+  static constexpr size_t STILL_SCRATCH_A =
       MAX_FRAGMENTS * (sizeof(TrailVertex) + sizeof(uint16_t)) +
       (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
-      Plot::rasterize_scratch_a_bytes<W>() +
-      Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode);
-  static_assert(SCRATCH_A_BYTES >= SCRATCH_A_ESTIMATE,
-                "scratch arena A must fit the vertices buffer, the "
-                "Multiline-draw fragment buffer and rasterize's sub-step cache "
-                "at once");
+      Plot::rasterize_scratch_a_bytes<W>() + 3 * alignof(Fragment);
+  /// Peak scratch A demand of the timed trail, in bytes: the vertices, their
+  /// frame-end positions, the drawn vertices and one walk chunk.
+  static constexpr size_t TIMED_SCRATCH_A =
+      MAX_FRAGMENTS *
+          (sizeof(TrailVertex) + 2 * sizeof(uint16_t) + sizeof(math::Vector)) +
+      COLUMN_CHUNK_VERTICES *
+          (sizeof(math::Vector) + sizeof(uint16_t) + sizeof(Plot::Mesh::Edge)) +
+      Plot::Mesh::column_scratch_a_bytes() + 8 * alignof(math::Vector);
+  /// Scratch arena A size, in bytes.
+  static constexpr size_t SCRATCH_A_BYTES =
+      (std::max(STILL_SCRATCH_A, TIMED_SCRATCH_A) + 15) / 16 * 16;
+  /// Scratch arena B size, in bytes: the timed walk chunk's vertex paths.
+  static constexpr size_t SCRATCH_B_BYTES =
+      (Plot::Mesh::column_scratch_b_bytes(COLUMN_CHUNK_VERTICES) + 15) / 16 *
+      16;
 
   // Persistent allocations: the noise transformer pool and the Node.
   /// Pool entry of the trail noise transformer.
@@ -226,7 +241,8 @@ public:
       alignof(int) + MAX_FRAGMENTS * sizeof(math::Snorm3) +
       alignof(math::Snorm3);
   static_assert(
-      FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
+      FOOTPRINT_BYTES <=
+          ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.device_persistent(),
       "Fishbowl persistent footprint exceeds its partition; "
       "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
 
@@ -236,7 +252,7 @@ public:
    */
   HS_COLD_MEMBER void init() override {
     begin_choreography();
-    ArenaSplit{SCRATCH_A_BYTES, 0}.configure();
+    ArenaSplit{SCRATCH_A_BYTES, SCRATCH_B_BYTES}.configure();
 
     noise_xform.init_storage(persistent_arena);
     node = persistent_arena.make<Node>();
@@ -390,9 +406,17 @@ private:
       });
     }
 
+    const bool timed = Temporal::temporal_sampling_enabled();
     Fragments points;
-    points.bind(scratch_arena_a, vertices.size() + 1);
-    Plot::Multiline::sample(points, vertices);
+    math::Vector *ends = nullptr;
+    if (timed) {
+      ends = scratch_arena_a.allocate_n<math::Vector>(vertices.size());
+      for (size_t i = 0; i < vertices.size(); ++i)
+        ends[i] = vertices[i].pos;
+    } else {
+      points.bind(scratch_arena_a, vertices.size() + 1);
+      Plot::Multiline::sample(points, vertices);
+    }
     float bound = 0.0f;
     for (size_t i = 0; i < vertices.size(); ++i) {
       const auto current = vertices[i].pos;
@@ -405,27 +429,147 @@ private:
         cycle_phase != previous_phase ? palette_speed : 0.0f;
     const float palette_shift = phase_delta / params.scale_factor -
                                 (was_full ? 1.0f / TRAIL_LENGTH : 0.0f);
-    auto fragment_shader = [&](const math::Vector &, Fragment &frag,
-                               float time) HS_HOT_INLINE {
-      const float age_t = frag.v3 / fill_scale;
-      frag.color = shade_trail(frag.v3 - (1.0f - time) * palette_shift, age_t);
+    auto shade = [&](float palette_t, float time) HS_HOT_INLINE {
+      const float age_t = palette_t / fill_scale;
+      Color4 color =
+          shade_trail(palette_t - (1.0f - time) * palette_shift, age_t);
       const float birth =
           growing ? fmaxf(0.0f, age_t * active - (active - 1)) : 0.0f;
       if (time < birth)
-        frag.color.alpha = 0.0f;
-    };
-    auto at = [&](size_t index, float time) HS_HOT_INLINE {
-      return time == 0.0f ? vertices[index].pos : points[index].pos;
+        color.alpha = 0.0f;
+      return color;
     };
     {
       HS_PROFILE(fish_multiline_draw);
-      Plot::rasterize<W, H, {.timed = true}>(
-          filters, canvas, points, fragment_shader, {},
-          Plot::GeometryCallback::interpolating(at), bound);
+      if (timed) {
+        draw_timed_trail(canvas, vertices, ends, bound, shade);
+      } else {
+        auto still_shader =
+            [&](const math::Vector &, Fragment &frag)
+                HS_HOT_INLINE { frag.color = shade(frag.v3, 1.0f); };
+        Plot::rasterize<W, H>(filters, canvas, points, still_shader);
+      }
     }
     previous_pose = orientation;
     previous_noise = noise_xform.active_params(0);
     history_ready = true;
+  }
+
+  /** @brief A chunk of trail vertices, as Plot::Mesh reads them. */
+  struct TrailMesh {
+    std::span<const math::Vector> vertices; /**< Frame-end positions. */
+  };
+
+  /**
+   * @brief Draws the trail at its columns' times.
+   * @tparam Shade Callable `(float palette_t, float t) -> Color4`.
+   * @param canvas Target canvas.
+   * @param starts Trail vertices at the frame's start, palette coordinates
+   * included.
+   * @param ends The same vertices' positions at the frame's end.
+   * @param bound Bound on a vertex's motion over the frame, radians.
+   * @param shade Sample color.
+   * @details Each vertex moves along the chord between its warped positions
+   * at the frame's ends. Vertices closer than DRAWN_SPACING screen steps to
+   * the last one drawn are dropped, so no edge is shorter than the lattice it
+   * draws. The trail is a chain from its head to its fully faded tail; edges
+   * are culled by the walk's swept bounds, steady short edges are plotted as
+   * points and the column walk draws the rest in chunks.
+   */
+  template <typename Shade>
+  HS_HOT_FLASH_MEMBER void
+  draw_timed_trail(Canvas &canvas, const ArenaVector<TrailVertex> &starts,
+                   const math::Vector *ends, float bound, const Shade &shade) {
+    const size_t count_vertices = starts.size();
+    if (count_vertices < 2)
+      return;
+    const auto cull = Plot::ColumnEdgeCull<W>::template of<H>(canvas);
+    Plot::PointRoute<W, H> route;
+    route.prepare(canvas, bound + 2.0f * math::PI_F / W);
+
+    ScratchScope kept_scope(scratch_arena_a);
+    auto *kept = scratch_arena_a.allocate_n<uint16_t>(count_vertices);
+    size_t kept_count = 0;
+    kept[kept_count++] = 0;
+    math::PixelCoords last = math::vector_to_pixel<W, H>(ends[0]);
+    for (size_t j = 1; j < count_vertices; ++j) {
+      const math::PixelCoords at = math::vector_to_pixel<W, H>(ends[j]);
+      const float dx = Temporal::centered_remainder(at.x - last.x, float(W));
+      const float dy = at.y - last.y;
+      if (j + 1 == count_vertices ||
+          dx * dx + dy * dy >= DRAWN_SPACING * DRAWN_SPACING) {
+        kept[kept_count++] = static_cast<uint16_t>(j);
+        last = at;
+      }
+    }
+
+    auto *vertices =
+        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
+    auto *sources = scratch_arena_a.allocate_n<uint16_t>(COLUMN_CHUNK_VERTICES);
+    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
+    size_t count = 0;
+    int slot_head = -1, slot_tail = -1;
+
+    auto path = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
+      const math::Vector &from = starts[sources[i]].pos;
+      return t == 1.0f ? vertices[i] : (from + (vertices[i] - from) * t);
+    };
+    auto shader = [&](const math::Vector &, Fragment &f,
+                      float time) HS_HOT_FLASH_MEMBER {
+      const Plot::Mesh::Edge &edge = edges[static_cast<size_t>(f.v2)];
+      const float head = starts[sources[edge.u]].palette_t;
+      const float tail = starts[sources[edge.v]].palette_t;
+      f.color = shade(head + (tail - head) * f.v0, time);
+    };
+    Plot::GeometryCallback geometry;
+    geometry.evaluate = path;
+    geometry.column_edges = true;
+    geometry.source_positions = false;
+    geometry.chained = true;
+    auto flush = [&]() HS_HOT_INLINE {
+      if (count == 0)
+        return;
+      Plot::Mesh::draw_column_edges<W, H>(filters, canvas,
+                                          TrailMesh{{vertices, count}}, edges,
+                                          shader, geometry, bound);
+      count = 0;
+      slot_head = slot_tail = -1;
+      edges.clear();
+    };
+
+    for (size_t k = kept_count - 1; k > 0; --k) {
+      const size_t head = kept[k], tail = kept[k - 1];
+      const math::Vector end_pair[2] = {ends[head], ends[tail]};
+      if (cull.rejects(end_pair, 2, bound))
+        continue;
+      const math::Vector start_pair[2] = {
+          Plot::ColumnEdgeFrame::normalize(starts[head].pos),
+          Plot::ColumnEdgeFrame::normalize(starts[tail].pos)};
+      const float head_t = starts[head].palette_t;
+      const float tail_t = starts[tail].palette_t;
+      if (Plot::Mesh::plot_steady_edge<W, H>(
+              route, filters, canvas, start_pair, end_pair, STEADY_POINTS,
+              [&](float s, float time) HS_HOT_INLINE {
+                return shade(head_t + (tail_t - head_t) * s, time);
+              }))
+        continue;
+      if (count + 2 > COLUMN_CHUNK_VERTICES)
+        flush();
+      // Consecutive walked edges share their vertex.
+      if (slot_tail < 0 || sources[slot_tail] != head) {
+        slot_head = static_cast<int>(count++);
+        vertices[slot_head] = ends[head];
+        sources[slot_head] = static_cast<uint16_t>(head);
+      } else {
+        slot_head = slot_tail;
+      }
+      slot_tail = static_cast<int>(count++);
+      vertices[slot_tail] = ends[tail];
+      sources[slot_tail] = static_cast<uint16_t>(tail);
+      edges.push_back(
+          {static_cast<uint16_t>(slot_head), static_cast<uint16_t>(slot_tail)});
+    }
+    flush();
   }
 
   /**
@@ -512,7 +656,7 @@ private:
    * @details The gradient's black stops read as transparent, not as black
    * over the background.
    */
-  Color4 shade_trail(float palette_t, float age_t) const {
+  HS_HOT_INLINE Color4 shade_trail(float palette_t, float age_t) const {
     Color4 color = static_palette.get(palette_t);
     if (color.color == Pixel())
       color.alpha = 0.0f;

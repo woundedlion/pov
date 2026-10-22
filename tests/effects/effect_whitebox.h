@@ -784,10 +784,21 @@ struct FishbowlWhiteBox {
         fx.render_trail(canvas, full, 0.0f);
       } else {
         ScratchScope guard(scratch_arena_a);
-        Fragments points;
-        points.bind(scratch_arena_a, FX::MAX_FRAGMENTS);
+        ArenaVector<typename FX::TrailVertex> points(scratch_arena_a,
+                                                     FX::MAX_FRAGMENTS);
         const float active = full ? FX::TRAIL_LENGTH : 3.0f;
         const float fill = active / FX::TRAIL_LENGTH;
+        const int column = Temporal::sweep_column(fraction, DEFAULT_W);
+        const math::Vector meridian =
+            math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
+                static_cast<float>(column), DEFAULT_H / 2.0f);
+        const math::Quaternion displaced =
+            math::make_rotation(
+                math::cross(math::Y_AXIS, meridian).normalized(),
+                displacement * math::RADIANS_PER_ROW<DEFAULT_H>) *
+            math::make_rotation(math::Y_AXIS,
+                                displacement *
+                                    math::RADIANS_PER_COLUMN<DEFAULT_W>);
         math::Quaternion previous_q;
         math::Vector previous_pos;
         float previous_t = 0;
@@ -802,11 +813,10 @@ struct FishbowlWhiteBox {
               math::Snorm3::encode(
                   noise_transform(math::rotate(fx.node->v, q), old_noise))
                   .decode();
-          Fragment f;
-          f.pos = hs_test::displace_reference_rows<DEFAULT_H>(
-              (old + (end - old) * fraction).normalized(), displacement);
-          f.v3 = t * fill;
-          points.push_back(f);
+          points.push_back(
+              {math::rotate((old + (end - old) * fraction).normalized(),
+                            displaced),
+               t * fill});
         };
         deep_tween(fx.node->trail, [&](const math::Quaternion &q, float t) {
           const auto pos = current(q);
@@ -823,18 +833,23 @@ struct FishbowlWhiteBox {
           previous_t = t;
           have_previous = true;
         });
-        auto shader = [&](const math::Vector &, Fragment &f) {
-          const float age = f.v3 / fill;
-          f.color = fx.shade_trail(
-              f.v3 -
+        auto *ends = scratch_arena_a.allocate_n<math::Vector>(points.size());
+        for (size_t i = 0; i < points.size(); ++i)
+          ends[i] = points[i].pos;
+        // The frozen trail is drawn through the timed route without motion,
+        // shaded at the fraction throughout.
+        auto shade = [&](float palette_t, float) {
+          const float age = palette_t / fill;
+          Color4 color = fx.shade_trail(
+              palette_t -
                   (1.0f - fraction) * (.1f / fx.params.scale_factor -
                                        (full ? 1.0f / FX::TRAIL_LENGTH : 0.0f)),
               age);
           if (age > (active - 1.0f + fraction) / active)
-            f.color.alpha = 0.0f;
+            color.alpha = 0.0f;
+          return color;
         };
-        Plot::rasterize<DEFAULT_W, DEFAULT_H>(fx.filters, canvas, points,
-                                              shader);
+        fx.draw_timed_trail(canvas, points, ends, 0.0f, shade);
       }
     }
     fx.advance_display();
@@ -957,33 +972,40 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
 }
 
 /**
- * @brief Verifies the scratch-A split's predicted worst case really covers a
- *        saturated Fishbowl frame.
- * @details SCRATCH_A_BYTES is sized against a closed-form worst case: the
- *          MAX_FRAGMENTS vertex buffer, the Multiline fragment buffer it binds,
- *          and rasterize's sub-step cache, all live at once.
+ * @brief Verifies the scratch-A split's predicted worst cases really cover a
+ *        saturated Fishbowl frame, still and timed.
+ * @details STILL_SCRATCH_A covers the vertex buffer, the Multiline fragment
+ *          buffer it binds and rasterize's sub-step cache; TIMED_SCRATCH_A
+ *          covers the vertices, their frame-end positions, the drawn vertices
+ *          and one column-walk chunk.
  */
 inline void test_fishbowl_scratch_estimate_covers_peak() {
-  reset_effect_globals();
   using WB = FishbowlWhiteBox;
   using EffectType = WB::EffectType;
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  for (const bool timed : {false, true}) {
+    reset_effect_globals();
+    Temporal::set_temporal_sampling_enabled(timed);
+    EffectType fx;
+    fx.init();
+    scratch_arena_a.reset_high_water_mark();
 
-  EffectType fx;
-  fx.init();
-  scratch_arena_a.reset_high_water_mark();
+    size_t worst_vertices = 0;
+    for (int i = 0; i < EffectType::TRAIL_LENGTH + 4; ++i) {
+      fx.draw_frame();
+      fx.advance_display();
+      worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
+    }
 
-  size_t worst_vertices = 0;
-  for (int i = 0; i < EffectType::TRAIL_LENGTH + 4; ++i) {
-    fx.draw_frame();
-    fx.advance_display();
-    worst_vertices = std::max(worst_vertices, WB::tween_vertices(fx));
+    HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(),
+                 timed ? EffectType::TIMED_SCRATCH_A
+                       : EffectType::STILL_SCRATCH_A);
+    // The trail fills, so the peak above is a saturated frame and not a
+    // warm-up.
+    HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
+    HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
   }
-
-  constexpr size_t PREDICTED = EffectType::SCRATCH_A_ESTIMATE;
-  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), PREDICTED);
-  // The trail fills, so the peak above is a saturated frame and not a warm-up.
-  HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
-  HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
+  Temporal::set_temporal_sampling_enabled(enabled);
 }
 
 /** @brief White-box accessor for RingSpin's ring pool. */
