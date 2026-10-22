@@ -60,7 +60,7 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
-    temporal_pose.init_storage(persistent_arena, W);
+    timed_pipeline.init_storage(persistent_arena);
 
     fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
@@ -142,13 +142,6 @@ private:
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
 
-  static_assert((TRAIL_LEN + 1) * (sizeof(Fragment) + sizeof(float)) +
-                        Plot::MAX_RIGID_CONTROLS *
-                            sizeof(Plot::TimedRigidNode) +
-                        Plot::rasterize_step_budget<W>() * sizeof(float) <=
-                    DEFAULT_SCRATCH_A_SIZE,
-                "HopfFibration temporal controls exceed scratch_a");
-
   // Keeps the projection denominator (1 + eps) - q3 positive at q3 == 1.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
@@ -190,7 +183,10 @@ private:
   // Borrowed by timeline-resident animations, with the phase accumulators and
   // params; declared before the Timeline to outlive it.
   math::Orientation<> orientation;
-  Filter::World::Orient temporal_pose{orientation}; /**< Cached frame poses. */
+  /** @brief Timed trails: orientation at column times, then anti-aliasing. */
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+      timed_pipeline{Filter::World::Orient(orientation),
+                     Filter::Screen::AntiAlias<W, H>()};
   math::Vector *retired = nullptr; /**< Outgoing zero-opacity tail nodes. */
   bool trail_was_full = false; /**< Whether this frame evicted a tail node. */
   bool history_ready =
@@ -311,12 +307,14 @@ private:
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(hf_render_trails);
+    if (Temporal::temporal_sampling_enabled()) {
+      render_timed_trails(canvas);
+      return;
+    }
 
     const ClipRegion &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
     const ClipRegion::XClip xc = cr.x_clip();
-    const bool timed = Temporal::temporal_sampling_enabled();
-    const float bound = temporal_pose.cull_bound();
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
@@ -330,15 +328,7 @@ private:
 
       ScratchScope sc_guard(scratch_arena_a);
       Fragments points;
-      const bool keep_tail = timed && trail_was_full && first == 0;
-      points.bind(scratch_arena_a, len - first + (keep_tail ? 1 : 0));
-      if (keep_tail) {
-        Fragment f;
-        f.pos = orientation.orient(retired[i]);
-        f.v0 = -1.0f / (len - 1);
-        points.push_back(f);
-      }
-
+      points.bind(scratch_arena_a, len - first);
       for (size_t j = first; j < len; ++j) {
         Fragment f;
         f.pos = orientation.orient(trail.get(j));
@@ -352,48 +342,192 @@ private:
       if (clip_active) {
         HS_PROFILE(hf_trail_gate);
         if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits,
-                                          bound))
+                                          0.0f))
           continue;
         edge_flags = {bits, points.size() - 1};
       }
 
-      auto shader = [&](const math::Vector &, Fragment &f,
-                        float time) HS_HOT_INLINE {
-        float t = f.v0;
-        if (time != 1.0f) {
-          const float previous =
-              trail_was_full
-                  ? fminf(1.0f, t + 1.0f / (len - 1))
-                  : (len > 2 ? fminf(1.0f, t * (len - 1) / (len - 2)) : t);
-          t = fmaxf(0.0f, previous + (t - previous) * time);
-        }
-        t = fmaxf(0.0f, t);
+      auto shader = [&](const math::Vector &, Fragment &f) HS_HOT_INLINE {
+        const float t = fmaxf(0.0f, f.v0);
         Color4 c = baked_sunset.get(1.0f - t);
         c.alpha *= t * params.alpha; // fade out tail
         f.color = c;
       };
-
-      auto at = [&](size_t index, float time) HS_HOT_INLINE {
-        const auto source =
-            keep_tail && index == 0
-                ? retired[i]
-                : trail.get(first + index - (keep_tail ? 1 : 0));
-        return temporal_pose.at_time(canvas, source, time);
-      };
-      auto geometry = Plot::GeometryCallback::exact(at);
-      geometry.azimuth_bound = true;
-      float *births = scratch_arena_a.allocate_n<float>(points.size());
-      std::fill_n(births, points.size(), 0.0f);
-      births[points.size() - 1] = 1.0f;
-      geometry.births = {births, points.size()};
-
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H, {.timed = true}>(
+        Plot::rasterize<W, H>(
             trail_pipeline, canvas, points, shader,
-            {.projection = Plot::RasterProjection::geodesic(edge_flags)},
-            geometry, bound);
+            {.projection = Plot::RasterProjection::geodesic(edge_flags)});
       }
     }
+  }
+
+  /** @brief Trail nodes one column walk draws. */
+  static constexpr size_t COLUMN_CHUNK_VERTICES = 384;
+  /** @brief Most lattice points of a steady trail edge the point route plots
+   *  in place of the column walk. */
+  static constexpr int STEADY_POINTS = 4;
+
+  static_assert(COLUMN_CHUNK_VERTICES *
+                            (sizeof(math::Vector) + sizeof(float) +
+                             sizeof(uint8_t) + sizeof(Plot::Mesh::Edge)) +
+                        (TRAIL_LEN + 1) *
+                            (3 * sizeof(math::Vector) + sizeof(int)) +
+                        8 * alignof(math::Vector) +
+                        Plot::Mesh::column_scratch_a_bytes() <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "HopfFibration column chunk exceeds scratch_a");
+  static_assert(Plot::Mesh::column_scratch_b_bytes(COLUMN_CHUNK_VERTICES) <=
+                    DEFAULT_SCRATCH_B_SIZE,
+                "HopfFibration node paths exceed scratch_b");
+
+  /** @brief A chunk of trail nodes, as Plot::Mesh reads them. */
+  struct NodeMesh {
+    std::span<const math::Vector> vertices; /**< Unoriented trail nodes. */
+  };
+
+  /**
+   * @brief Trail color at a progress and frame fraction.
+   * @param progress Node progress, 0 at the full trail's tail and 1 at its
+   * head.
+   * @param time Frame fraction.
+   * @param len Recorded trail length.
+   * @return The faded palette color.
+   * @details Over the frame every node slides one slot toward the tail, or
+   * stretches while the trail fills, and the newest segment grows from the
+   * previous head to the new one.
+   */
+  HS_HOT_INLINE Color4 trail_color(float progress, float time,
+                                   size_t len) const {
+    float t = progress;
+    if (time != 1.0f) {
+      const float previous =
+          trail_was_full
+              ? fminf(1.0f, t + 1.0f / (len - 1))
+              : (len > 2 ? fminf(1.0f, t * (len - 1) / (len - 2)) : t);
+      t = fmaxf(0.0f, previous + (t - previous) * time);
+    }
+    t = fmaxf(0.0f, t);
+    Color4 c = baked_sunset.get(1.0f - t);
+    c.alpha *= t * params.alpha;
+    const float birth = fmaxf(0.0f, progress * static_cast<float>(len - 1) -
+                                        static_cast<float>(len - 2));
+    if (birth > time)
+      c.alpha = 0.0f;
+    return c;
+  }
+
+  /**
+   * @brief Renders all fiber trails at their columns' times.
+   * @param canvas Target canvas.
+   * @details Trail nodes hold still in the source; the world stage turns them
+   * by the orientation at each column's time. Each trail is a chain from its
+   * head to its retired tail, whose fully faded last node is not plotted. The
+   * walk's swept bounds cull each trail whole, then edge by edge; edges that
+   * keep a short lattice over the frame are their lattice points, single
+   * samples the point route plots, and the column walk draws the rest in
+   * chunks.
+   */
+  HS_HOT_FLASH_MEMBER void render_timed_trails(Canvas &canvas) {
+    const auto cull = Plot::ColumnEdgeCull<W>::template of<H>(canvas);
+    const float spin = timed_pipeline.cull_bound();
+    const Temporal::PoseTable &poses = *timed_pipeline.pose_table(canvas);
+    const math::RotationMatrix start_pose = poses.at(0);
+    const math::RotationMatrix end_pose = poses.at(poses.times());
+    Plot::PointRoute<W, H> route;
+    route.prepare(canvas, spin + 2.0f * math::PI_F / W);
+
+    ScratchScope chunk_scope(scratch_arena_a);
+    auto *vertices =
+        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
+    auto *progress = scratch_arena_a.allocate_n<float>(COLUMN_CHUNK_VERTICES);
+    auto *lengths = scratch_arena_a.allocate_n<uint8_t>(COLUMN_CHUNK_VERTICES);
+    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
+    constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
+    auto *sources = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
+    auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
+    auto *world = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
+    auto *slots = scratch_arena_a.allocate_n<int>(TRAIL_POINTS);
+    size_t count = 0;
+
+    auto shader = [&](const math::Vector &, Fragment &f,
+                      float time) HS_HOT_FLASH_MEMBER {
+      const Plot::Mesh::Edge &edge = edges[static_cast<size_t>(f.v2)];
+      f.color = trail_color(progress[edge.u] +
+                                (progress[edge.v] - progress[edge.u]) * f.v0,
+                            time, lengths[edge.u]);
+    };
+    Plot::GeometryCallback geometry;
+    geometry.column_edges = true;
+    geometry.source_positions = false;
+    geometry.chained = true;
+    auto flush = [&]() HS_HOT_INLINE {
+      if (count == 0)
+        return;
+      Plot::Mesh::draw_column_edges<W, H>(timed_pipeline, canvas,
+                                          NodeMesh{{vertices, count}}, edges,
+                                          shader, geometry, 0.0f);
+      count = 0;
+      edges.clear();
+    };
+
+    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+      const auto &trail = trails[i];
+      const size_t len = trail.length();
+      if (len < 2)
+        continue;
+      const size_t first = trail_trim_start(len, params.alpha);
+      const bool keep_tail = trail_was_full && first == 0;
+      const int points = static_cast<int>(len - first) + (keep_tail ? 1 : 0);
+      for (int j = 0; j < points; ++j) {
+        sources[j] = keep_tail && j == 0
+                         ? retired[i]
+                         : trail.get(first + static_cast<size_t>(j) -
+                                     (keep_tail ? 1 : 0));
+        world[j] = Plot::ColumnEdgeFrame::normalize(end_pose.apply(sources[j]));
+      }
+      float reach_cosine = 1.0f;
+      const math::Vector &centre = world[points / 2];
+      for (int j = 0; j < points; ++j)
+        reach_cosine = fminf(reach_cosine, math::dot(centre, world[j]));
+      if (cull.rejects(&centre, 1,
+                       spin + sqrtf(fmaxf(0.0f, 2.0f - 2.0f * reach_cosine))))
+        continue;
+      auto node_progress = [&](int j) HS_HOT_INLINE {
+        return static_cast<float>(static_cast<int>(first) + j -
+                                  (keep_tail ? 1 : 0)) /
+               static_cast<float>(len - 1);
+      };
+      for (int j = 0; j < points; ++j) {
+        starts[j] =
+            Plot::ColumnEdgeFrame::normalize(start_pose.apply(sources[j]));
+        slots[j] = -1;
+      }
+      if (count + static_cast<size_t>(points) > COLUMN_CHUNK_VERTICES)
+        flush();
+      for (int j = points - 1; j > 0; --j) {
+        const math::Vector pair[2] = {world[j], world[j - 1]};
+        if (cull.rejects(pair, 2, spin))
+          continue;
+        const float head = node_progress(j), tail = node_progress(j - 1);
+        if (Plot::Mesh::plot_steady_edge<W, H>(
+                route, trail_pipeline, canvas, {starts[j], starts[j - 1]},
+                {world[j], world[j - 1]}, STEADY_POINTS,
+                [&](float s, float time) HS_HOT_INLINE {
+                  return trail_color(head + (tail - head) * s, time, len);
+                }))
+          continue;
+        for (const int k : {j, j - 1})
+          if (slots[k] < 0) {
+            slots[k] = static_cast<int>(count++);
+            vertices[slots[k]] = sources[k];
+            progress[slots[k]] = node_progress(k);
+            lengths[slots[k]] = static_cast<uint8_t>(len);
+          }
+        edges.push_back({static_cast<uint16_t>(slots[j]),
+                         static_cast<uint16_t>(slots[j - 1])});
+      }
+    }
+    flush();
   }
 };
