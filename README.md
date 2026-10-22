@@ -1353,6 +1353,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │                            mesh, particles, chords)
 │   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
 │   │   │   ├── raster_timed.h           Geometry callbacks and column-time prediction walk included by raster.h
+│   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   └── cull/                   Cull strategy sections included by cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
 │   │   │                            umbrella over filter/

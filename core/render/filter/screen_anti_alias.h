@@ -68,17 +68,34 @@ public:
     plot_boundary(x, y, c, age, alpha, time, pass, evaluator);
   }
 
-private:
-  /** @brief Emits the taps belonging to one column of a projected splat.
+  /** @brief Visits a splat's tap columns lit within half a frame of its
+   *         own time.
+   * @tparam VisitFnT Callable `(int column, float fraction)`.
+   * @param x Projected column.
+   * @param time Owning arm fraction.
+   * @param visit Receives each kept wrapped column and its sweep fraction. */
+  template <typename VisitFnT>
+  HS_HOT_INLINE static void for_each_owned_column(float x, float time,
+                                                  VisitFnT &&visit) {
+    const int x0 = math::fast_wrap(static_cast<int>(floorf(x)), W);
+    const int columns[] = {x0, math::fast_wrap(x0 + 1, W)};
+    for (int column : columns) {
+      const float at = Temporal::column_fraction<W>(static_cast<float>(column));
+      if (fabsf(at - time) <= 0.5f)
+        visit(column, at);
+    }
+  }
+
+  /** @brief Emits the taps of a splat at (x, y) that fall in one column.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected coordinates at the column time.
    * @param c,age,alpha Shading registers.
    * @param column Wrapped destination column.
    * @param pass Downstream tap continuation. */
   template <typename PassFnT>
-  HS_O3_FN HS_NOINLINE_NOCLONE void
-  plot_owned_column(float x, float y, const ::Pixel &c, float age, float alpha,
-                    int column, PassFnT &pass) {
+  HS_HOT_INLINE static void column_taps(float x, float y, const ::Pixel &c,
+                                        float age, float alpha, int column,
+                                        PassFnT &pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
     if constexpr (W > 1) {
@@ -108,6 +125,20 @@ private:
            alpha * t.v11);
   }
 
+private:
+  /** @brief column_taps() out of line.
+   * @tparam PassFnT Downstream tap continuation type.
+   * @param x,y Projected coordinates at the column time.
+   * @param c,age,alpha Shading registers.
+   * @param column Wrapped destination column.
+   * @param pass Downstream tap continuation. */
+  template <typename PassFnT>
+  HS_O3_FN HS_NOINLINE_NOCLONE void
+  plot_owned_column(float x, float y, const ::Pixel &c, float age, float alpha,
+                    int column, PassFnT &pass) {
+    column_taps(x, y, c, age, alpha, column, pass);
+  }
+
   /** @brief Splats kept columns at their owned times.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected sample coordinates.
@@ -122,24 +153,17 @@ private:
                 float time, PassFnT &pass,
                 const Temporal::BoundaryEvaluator *evaluator) {
     if (evaluator) {
-      const auto original = splat_taps<W, H>(x, y);
-      const int columns[] = {original.x0, original.x1};
-      for (int column : columns) {
-        const float at =
-            Temporal::column_fraction<W>(static_cast<float>(column));
-        if (fabsf(at - time) > 0.5f)
-          continue;
+      for_each_owned_column(x, time, [&](int column, float at) HS_HOT_INLINE {
         Temporal::count_geometry<
             &Temporal::GeometryCounters::boundary_evaluations>();
         math::PixelCoords position;
         ::Pixel color;
         float tap_age = age, opacity = alpha;
-        if (!evaluator->evaluate(evaluator->context, at, position, color,
-                                 tap_age, opacity))
-          continue;
-        plot_owned_column(position.x, position.y, color, tap_age, opacity,
-                          column, pass);
-      }
+        if (evaluator->evaluate(evaluator->context, at, position, color,
+                                tap_age, opacity))
+          plot_owned_column(position.x, position.y, color, tap_age, opacity,
+                            column, pass);
+      });
       return;
     }
     plot_boundary_static(x, y, c, age, alpha, time, pass);
