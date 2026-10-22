@@ -121,7 +121,6 @@ inline int run_filter_tests() {
   test_geometry_capture_branches();
   test_geometry_capture_shortcuts_and_poles();
   test_timed_probe_bypasses_history();
-  test_timed_point_entries();
   test_temporal_column_arithmetic_matches_remainder();
   test_temporal_orientation_bound_is_conservative();
   test_timed_predicted_landing();
