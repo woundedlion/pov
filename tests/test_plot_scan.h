@@ -118,6 +118,7 @@ inline int run_plot_scan_tests() {
   test_column_basis_normalization();
   test_stationary_column_mesh_skips_geometry_cache();
   test_column_walk_chained_ring_plots_vertices_once();
+  test_column_walk_seam_taps_shade_at_their_times();
   test_trail_gate_uses_motion_region();
   test_four_regular_and_medial_edge_extraction();
   test_point_route_matches_column_oracle();

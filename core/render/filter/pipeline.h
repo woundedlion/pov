@@ -249,6 +249,8 @@ public:
   static constexpr bool rigid_world_stages = PipelineT::rigid_world_stages;
   /// The world stages move nothing or are one pose-table rotation.
   static constexpr bool table_world_stages = PipelineT::table_world_stages;
+  /// The first screen stage anti-aliases.
+  static constexpr bool column_taps_ready = PipelineT::column_taps_ready;
   /// Some stage evaluates world motion over a frame.
   static constexpr bool has_temporal_motion = PipelineT::has_temporal_motion;
   /// Writes the framebuffer through a cached base.
@@ -351,6 +353,19 @@ public:
                           float age, float alpha, float t,
                           const Temporal::ColumnPrediction *prediction) {
     return pipeline().plot_projected_at(cv, p, c, age, alpha, t, prediction);
+  }
+
+  /** @brief Emits the anti-alias taps a projected sample lands in one column.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param column Wrapped destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction carried to later screen stages. */
+  void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
+                      const ::Pixel &c, float age, float alpha, float t)
+    requires column_taps_ready
+  {
+    pipeline().plot_column_at(cv, p, column, c, age, alpha, t);
   }
 
   /** @brief Evaluates world stages without projection or history recording.
@@ -826,6 +841,14 @@ struct Pipeline<W, H, Head, Tail...>
   /// Every stage leaves world points unmoved.
   static constexpr bool world_transform_is_identity =
       Head::world_transform_is_identity && Next::world_transform_is_identity;
+  /// The first screen stage anti-aliases, so a projected sample can emit
+  /// the taps it lands in one column.
+  static constexpr bool column_taps_ready = [] {
+    if constexpr (Head::is_2d)
+      return requires { requires Head::has_boundary_splat; };
+    else
+      return requires { requires Next::column_taps_ready; };
+  }();
   /// Every world stage preserves geodesics without recording history.
   static constexpr bool rigid_world_stages =
       Head::rigid_world_transform && Next::rigid_world_stages;
@@ -1081,6 +1104,22 @@ struct Pipeline<W, H, Head, Tail...>
                  });
   }
 
+  /** @brief Continues a timed screen tap into the stages after Head. */
+  struct ScreenPass {
+    Next &next; /**< Stages after Head. */
+    Canvas &cv; /**< Target canvas. */
+    float t;    /**< Frame fraction. */
+    const Temporal::BoundaryEvaluator
+        *evaluator; /**< Optional tap evaluator. */
+    /** @brief Forwards one tap.
+     * @param x,y Tap coordinates.
+     * @param c,age,alpha Shading registers. */
+    HS_HOT_INLINE void operator()(float x, float y, const ::Pixel &c, float age,
+                                  float alpha) const {
+      next.plot_screen_at(cv, x, y, c, age, alpha, t, evaluator);
+    }
+  };
+
   /** @brief Carries a fraction through screen stages to the splat taps.
    * @param cv Target canvas.
    * @param x Column coordinate.
@@ -1095,10 +1134,7 @@ struct Pipeline<W, H, Head, Tail...>
                  float alpha, float t,
                  const Temporal::BoundaryEvaluator *evaluator = nullptr) {
     static_assert(Head::is_2d);
-    auto pass = [&](float nx, float ny, const ::Pixel &nc, float nage,
-                    float nalpha) HS_HOT_INLINE {
-      next.plot_screen_at(cv, nx, ny, nc, nage, nalpha, t, evaluator);
-    };
+    ScreenPass pass{next, cv, t, evaluator};
     if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
                   requires { requires Head::has_boundary_splat; }) {
       if (Temporal::temporal_sampling_enabled() &&
@@ -1118,6 +1154,25 @@ struct Pipeline<W, H, Head, Tail...>
       Head::plot_at(x, y, c, age, alpha, t, pass);
     else
       Head::plot(x, y, c, age, alpha, pass);
+  }
+
+  /** @brief Emits the anti-alias taps a projected sample lands in one column.
+   * @param cv Frame context.
+   * @param p Projected column and row.
+   * @param column Wrapped destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction carried to later screen stages. */
+  HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
+                                    const ::Pixel &c, float age, float alpha,
+                                    float t)
+    requires column_taps_ready
+  {
+    if constexpr (Head::is_2d) {
+      ScreenPass pass{next, cv, t, nullptr};
+      Head::plot_owned_column(p.x, p.y, c, age, alpha, column, pass);
+    } else {
+      next.plot_column_at(cv, p, column, c, age, alpha, t);
+    }
   }
 
   /** @brief Evaluates world stages without projection or history recording.
