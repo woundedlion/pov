@@ -12,6 +12,7 @@
 #include "core/render/canvas.h"
 #include "core/render/sdf.h"
 #include "core/render/temporal.h"
+#include "core/render/temporal/pose_table.h"
 
 /**
  * @file column_basis.h
@@ -111,10 +112,11 @@ inline SDF::Bounds swept_rows(const SDF::Bounds &bounds, float sweep) {
  * @tparam H Canvas height in rows.
  * @details Shapes are built at the current endpoint. Column `x`, lit at
  * fraction `u = sweep_fraction(x, W)`, evaluates them along
- * `current * conj(slerp(previous, current, u))` applied to its fixed-meridian
- * direction, which is where the shape stood when the column was lit. Opposing
- * columns share a fraction, so one entry serves both arms. The table is
- * frame-scoped: an effect allocates it in a scratch arena for its draw.
+ * `R(1) * R(u)^-1` applied to its fixed-meridian direction, `R(u)` the pose
+ * Temporal::for_each_column_pose() samples from the orientation's history,
+ * which is where the shape stood when the column was lit. Opposing columns
+ * share a fraction, so one entry serves both arms. The table is frame-scoped:
+ * an effect allocates it in a scratch arena for its draw.
  */
 template <int W, int H> struct ColumnBasis {
   static_assert(W % 4 == 0, "column basis reads the quarter-turn trig table");
@@ -124,68 +126,91 @@ template <int W, int H> struct ColumnBasis {
   std::array<math::Vector, HALF> up;      ///< Rotated up per sweep fraction.
 
   /**
-   * @brief Prepares the frame's basis from its orientation endpoints.
-   * @param previous Orientation at the previous endpoint, unit length.
-   * @param current Orientation at the current endpoint, unit length.
+   * @brief Prepares the frame's basis from its orientation's pose history.
+   * @param history Unit poses evenly spaced over the frame, oldest first:
+   *        index 0 is the previous endpoint and `count - 1` the current one.
+   * @param count History length, at least 1.
    * @param state_moves Whether other per-column state of the frame moves, so
    *        its scans take their column-time variants without rotation.
    * @return Column-time state viewing this table, or the fixed meridian with
    *         temporal sampling disabled or without motion.
-   * @details An orientation's history supplies both endpoints; one without
-   * history, as after construction or a snap, has no motion.
+   * @details A history of one pose, as after construction or a snap, has no
+   * motion.
    */
-  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion &previous,
-                                               const math::Quaternion &current,
+  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion *history,
+                                               int count,
                                                bool state_moves = false) {
     Temporal::ColumnTime time;
-    if (!needed(previous, current, state_moves))
+    if (!needed(history, count, state_moves))
       return time;
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
-    const Temporal::TemporalRotation path(previous, current);
-    path.for_each_sweep_sample(
-        W, [&](int i, const math::Quaternion &at) HS_HOT_INLINE {
-          const math::Quaternion delta = current * at.conjugate();
+    const math::Quaternion &current = history[count - 1];
+    Temporal::for_each_column_pose(
+        history, count, W,
+        [&](int i, const math::Quaternion &pose) HS_HOT_INLINE {
+          const math::Quaternion delta = current * pose.conjugate();
           up[i] = math::rotate(math::Vector(0.0f, 1.0f, 0.0f), delta);
           azimuth[i] = math::rotate(
               math::Vector(cos_theta[i], 0.0f, sin_theta[i]), delta);
         });
-    const math::Quaternion step = current * path.from.conjugate();
-    const float half_sine = sqrtf(math::dot(step.v, step.v));
     time.azimuth = azimuth.data();
     time.up = up.data();
-    time.sweep = 2.0f * asinf(fminf(half_sine, 1.0f)) + SWEEP_PAD;
+    time.sweep = Temporal::history_arc(history, count) + SWEEP_PAD;
     return time;
   }
 
-  /// Arc added to the sweep bound for the slerp's rounding.
+  /**
+   * @brief Prepares the frame's basis from its orientation endpoints.
+   * @param previous Orientation at the previous endpoint, unit length.
+   * @param current Orientation at the current endpoint, unit length.
+   * @param state_moves Whether other per-column state of the frame moves.
+   * @return Column-time state, as the history form gives it for the two-pose
+   *         history.
+   */
+  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion &previous,
+                                               const math::Quaternion &current,
+                                               bool state_moves = false) {
+    const math::Quaternion history[] = {previous, current};
+    return prepare(history, 2, state_moves);
+  }
+
+  /// Arc added to the sweep bound for the pose sampling's rounding.
   static constexpr float SWEEP_PAD = 1e-4f;
 
   /**
-   * @brief Whether a frame's endpoints call for a rotated basis.
-   * @param previous Orientation at the previous endpoint.
-   * @param current Orientation at the current endpoint.
-   * @return True with temporal sampling enabled and distinct endpoints.
+   * @brief Whether a frame's pose history calls for a rotated basis.
+   * @param history Unit poses, oldest first.
+   * @param count History length, at least 1.
+   * @return True with temporal sampling enabled and a pose differing from the
+   *         current one.
    */
-  static bool moving(const math::Quaternion &previous,
-                     const math::Quaternion &current) {
-    return Temporal::temporal_sampling_enabled() &&
-           !(previous.r == current.r && previous.v.x == current.v.x &&
-             previous.v.y == current.v.y && previous.v.z == current.v.z);
+  HS_HOT_FLASH_MEMBER static bool moving(const math::Quaternion *history,
+                                         int count) {
+    if (!Temporal::temporal_sampling_enabled())
+      return false;
+    const math::Quaternion &current = history[count - 1];
+    for (int i = 0; i + 1 < count; ++i) {
+      const math::Quaternion &q = history[i];
+      if (!(q.r == current.r && q.v.x == current.v.x && q.v.y == current.v.y &&
+            q.v.z == current.v.z))
+        return true;
+    }
+    return false;
   }
 
   /**
    * @brief Whether a frame calls for a basis table.
-   * @param previous Orientation at the previous endpoint.
-   * @param current Orientation at the current endpoint.
+   * @param history Unit poses, oldest first.
+   * @param count History length, at least 1.
    * @param state_moves Whether other per-column state of the frame moves.
    * @return True with temporal sampling enabled and either motion.
    */
-  static bool needed(const math::Quaternion &previous,
-                     const math::Quaternion &current, bool state_moves) {
-    return moving(previous, current) ||
+  static bool needed(const math::Quaternion *history, int count,
+                     bool state_moves) {
+    return moving(history, count) ||
            (state_moves && Temporal::temporal_sampling_enabled());
   }
 };
@@ -485,10 +510,10 @@ template <int W, int H> struct ObjectColumnBasis {
       math::TrigLUT<W, H>::init();
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
-    const Temporal::TemporalRotation path(previous, current);
-    path.for_each_sweep_sample(
-        W, [&](int i, const math::Quaternion &at) HS_HOT_INLINE {
-          const math::Quaternion inverse = at.conjugate();
+    const math::Quaternion history[] = {previous, current};
+    Temporal::for_each_column_pose(
+        history, 2, W, [&](int i, const math::Quaternion &pose) HS_HOT_INLINE {
+          const math::Quaternion inverse = pose.conjugate();
           radial[i] = math::rotate(
               math::Vector(cos_theta[i], 0.0f, sin_theta[i]), inverse);
           tangent[i] = math::rotate(
@@ -511,15 +536,35 @@ template <int W, int H> struct ObjectColumnBasis {
 };
 
 /**
- * @brief Prepares a frame's column basis from its orientation endpoints.
+ * @brief Prepares a frame's column basis from its orientation's pose history.
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
  * @param arena Arena holding the table when the frame moves; the table lives
  *        until the caller's scope on it closes.
- * @param previous Orientation at the previous endpoint.
- * @param current Orientation at the current endpoint.
+ * @param history Unit poses evenly spaced over the frame, oldest first.
+ * @param count History length, at least 1.
  * @param state_moves Whether other per-column state of the frame moves; the
  *        table is then prepared without rotation too.
+ * @return Column-time state for the frame's scans.
+ */
+template <int W, int H>
+HS_HOT_FLASH_MEMBER Temporal::ColumnTime
+prepare_column_basis(Arena &arena, const math::Quaternion *history, int count,
+                     bool state_moves = false) {
+  if (!ColumnBasis<W, H>::needed(history, count, state_moves))
+    return {};
+  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(
+      history, count, state_moves);
+}
+
+/**
+ * @brief Prepares a frame's column basis from its orientation endpoints.
+ * @tparam W Canvas width in columns.
+ * @tparam H Canvas height in rows.
+ * @param arena Arena holding the table when the frame moves.
+ * @param previous Orientation at the previous endpoint.
+ * @param current Orientation at the current endpoint.
+ * @param state_moves Whether other per-column state of the frame moves.
  * @return Column-time state for the frame's scans.
  */
 template <int W, int H>
@@ -527,10 +572,8 @@ inline Temporal::ColumnTime
 prepare_column_basis(Arena &arena, const math::Quaternion &previous,
                      const math::Quaternion &current,
                      bool state_moves = false) {
-  if (!ColumnBasis<W, H>::needed(previous, current, state_moves))
-    return {};
-  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(
-      previous, current, state_moves);
+  const math::Quaternion history[] = {previous, current};
+  return prepare_column_basis<W, H>(arena, history, 2, state_moves);
 }
 
 /**
@@ -543,14 +586,17 @@ prepare_column_basis(Arena &arena, const math::Quaternion &previous,
  * @param orientation Orientation whose history spans the frame: index 0 is
  *        the previous endpoint and the last index the current one.
  * @param state_moves Whether other per-column state of the frame moves.
- * @return Column-time state for the frame's scans.
+ * @return Column-time state for the frame's scans, following the history's
+ *         sub-frame path.
  */
 template <int W, int H, int CAP>
-inline Temporal::ColumnTime
+HS_HOT_FLASH_MEMBER Temporal::ColumnTime
 prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation,
                      bool state_moves = false) {
-  return prepare_column_basis<W, H>(arena, orientation.get(0),
-                                    orientation.get(), state_moves);
+  std::array<math::Quaternion, CAP> history;
+  return prepare_column_basis<W, H>(
+      arena, history.data(),
+      Temporal::copy_history(orientation, history.data()), state_moves);
 }
 
 /**

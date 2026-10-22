@@ -4,14 +4,14 @@
  */
 #pragma once
 
-#include <bit>
-
 #include "core/animation/orientation.h"
 #include "core/render/filter/pipeline.h"
 #include "core/animation/animation.h"
 #include "core/math/geometry.h"
 #include "core/color/color.h"
+#include "core/memory.h"
 #include "core/render/temporal.h"
+#include "core/render/temporal/pose_table.h"
 
 /**
  * @file world_orient.h
@@ -93,11 +93,27 @@ public:
     return forward_rotated_edge(a, b, pb, orientation.get(), forward);
   }
 
+  /// Persistent bytes init_storage() reserves.
+  static constexpr size_t STORAGE_BYTES = sizeof(Temporal::PoseTable);
+
+  /**
+   * @brief Allocates the pose table explicit-time rotation reads.
+   * @param arena Persistent arena.
+   * @details Call from effect init(), before any draw through at_time().
+   */
+  HS_COLD_MEMBER void init_storage(Arena &arena) {
+    poses = arena.make<Temporal::PoseTable>();
+    poses_ready = false;
+  }
+
   /** @brief Rotates a point at an explicit frame fraction.
    * @param cv Canvas identifying the frame.
    * @param v Unrotated point.
    * @param t Frame fraction in [0, 1].
-   * @return The point under the sampled pose. */
+   * @return The point under the frame's pose table at @p t, built once per
+   *         frame from the orientation's sub-frame history; at @p t = 1,
+   *         without rotation over the frame, or with temporal sampling
+   *         disabled, under the current pose. */
   HS_O3_FN HS_NOINLINE_NOCLONE math::Vector
   at_time(const Canvas &cv, const math::Vector &v, float t) {
     if (t == 1.0f || !Temporal::temporal_sampling_enabled() ||
@@ -106,30 +122,14 @@ public:
         poses_ready = false;
       return math::rotate(v, orientation.get());
     }
-    if (!poses_ready || pose_frame != cv.frame_number())
-      prepare_poses(cv.frame_number());
-    if (!sample_ready || sample_time != t) {
-      const float s = hs::clamp(t, 0.0f, 1.0f) * (POSE_COUNT - 1);
-      const int i = std::min(static_cast<int>(s), POSE_COUNT - 2);
-      const float f = s - i;
-      sample_pose = poses[i] + (poses[i + 1] - poses[i]) * f;
-      sample_pose *= 1.0f / sqrtf(sample_pose.squared_magnitude());
-      sample_time = t;
-      sample_ready = true;
-      rotation_ready = false;
+    if (!poses_ready || pose_frame != cv.frame_number()) {
+      poses->build(orientation, cv.width());
+      pose_frame = cv.frame_number();
+      poses_ready = true;
     }
-    if (!rotation_ready ||
-        std::bit_cast<uint32_t>(sample_input.x) !=
-            std::bit_cast<uint32_t>(v.x) ||
-        std::bit_cast<uint32_t>(sample_input.y) !=
-            std::bit_cast<uint32_t>(v.y) ||
-        std::bit_cast<uint32_t>(sample_input.z) !=
-            std::bit_cast<uint32_t>(v.z)) {
-      sample_input = v;
-      sample_output = math::rotate(v, sample_pose);
-      rotation_ready = true;
-    }
-    return sample_output;
+    if (poses->stationary())
+      return math::rotate(v, orientation.get());
+    return poses->rotate(v, t);
   }
 
   /** @brief Plots under the explicit pose, preserving the age register.
@@ -196,33 +196,9 @@ private:
   static constexpr float ARC_ERROR_PAD = 1.02e-4f;
   const math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
-  /** @brief Uniform pose lattice size. */
-  static constexpr int POSE_COUNT = 16;
-  math::Quaternion poses[POSE_COUNT]; /**< Sign-aligned poses. */
-  uint32_t pose_frame = 0;  /**< Frame whose sub-frame history is cached. */
-  bool poses_ready = false; /**< The pose lattice has been populated. */
-
-  math::Quaternion sample_pose; /**< Normalized pose at the cached fraction. */
-  math::Vector sample_input;   /**< Last point rotated under the cached pose. */
-  math::Vector sample_output;  /**< Rotation of the cached input point. */
-  float sample_time = 0.0f;    /**< Fraction of the cached normalized pose. */
-  bool sample_ready = false;   /**< The fraction cache is populated. */
-  bool rotation_ready = false; /**< The point cache is populated. */
-
-  /** @brief Builds the pose lattice from the orientation history.
-   * @param frame Frame identifier to cache. */
-  HS_HOT_FLASH_MEMBER void prepare_poses(uint32_t frame) {
-    for (int i = 0; i < POSE_COUNT; ++i) {
-      math::Quaternion q =
-          orientation.get(static_cast<float>(i) / (POSE_COUNT - 1));
-      if (i > 0 && math::dot(poses[i - 1], q) < 0.0f)
-        q *= -1.0f;
-      poses[i] = q;
-    }
-    pose_frame = frame;
-    poses_ready = true;
-    sample_ready = false;
-  }
+  Temporal::PoseTable *poses = nullptr; ///< Arena-owned per-frame poses.
+  uint32_t pose_frame = 0;              ///< Frame the pose table was built for.
+  bool poses_ready = false; ///< The pose table holds pose_frame's poses.
 };
 
 } // namespace World

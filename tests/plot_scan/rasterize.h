@@ -686,6 +686,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
   math::Orientation<> orientation(TURN);
   Pipeline<W, H, Filter::World::Orient, WorldSampleCapture> rotated{
       Filter::World::Orient(orientation), WorldSampleCapture(rendered)};
+  rotated.init_storage(persistent_arena);
   rendered.clear();
   const int ROTATED = draw(rotated);
   HS_EXPECT_GT(ROTATED, 300);
@@ -719,6 +720,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
            WorldSampleCapture>
       composed{Filter::World::Orient(half), Filter::World::Orient(half),
                WorldSampleCapture(rendered)};
+  composed.init_storage(persistent_arena);
   HS_EXPECT_NEAR(draw(composed), POLE, 4);
   math::MobiusParams params;
   Pipeline<W, H, Filter::World::Mobius, WorldSampleCapture> nonrigid{
@@ -752,6 +754,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
     fx.set_clip(cy0, cy1, 0, W);
     Pipeline<W, H, Filter::World::Orient> filters{
         Filter::World::Orient(orientation)};
+    filters.init_storage(persistent_arena);
     {
       ScratchScope sc(plot_arena());
       Fragments pts;

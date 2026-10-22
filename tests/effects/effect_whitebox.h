@@ -989,6 +989,7 @@ struct PetalFlowWhiteBox {
     reset_effect_globals();
     PF fx;
     fx.build_shift_table();
+    fx.filters.init_storage(persistent_arena);
     const float previous_rho = rho - fx.move_dist();
     const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
     const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);

@@ -128,6 +128,7 @@ inline int run_scan_tests() {
   test_circle_extent_follows_its_radius();
 
   test_column_basis_matches_rotated_shapes();
+  test_column_basis_follows_history_path();
   test_column_basis_segments_and_endpoints();
   test_column_basis_blocks_cover_their_rotation();
   test_point_birth_skips_earlier_columns();

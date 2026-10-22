@@ -452,12 +452,14 @@ private:
    */
   std::array<BakedPaletteStorage, MAX_PALETTES> baked_palettes;
 
-  // Persistent allocations: nodes, the Trails ring and the baked palette LUTs.
+  // Persistent allocations: nodes, the Trails ring, the baked palette LUTs
+  // and the Orient pose table.
   static constexpr size_t FOOTPRINT_BYTES =
       NODE_CAPACITY * sizeof(Node) +
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
-      MAX_PALETTES * BakedPalette::required_arena_bytes();
+      MAX_PALETTES * BakedPalette::required_arena_bytes() +
+      Filter::World::Orient::STORAGE_BYTES;
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Dynamo persistent footprint exceeds the default partition; "
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");

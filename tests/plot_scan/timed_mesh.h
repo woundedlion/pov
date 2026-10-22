@@ -125,6 +125,7 @@ inline void test_timed_polar_mesh_branch_coverage() {
     Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
         pipeline{Filter::World::Orient(orientation),
                  Filter::Screen::AntiAlias<W, H>{}};
+    pipeline.init_storage(persistent_arena);
     {
       Canvas canvas(effect);
       ScratchScope scratch(scratch_arena_b);
@@ -161,6 +162,7 @@ inline void test_timed_stationary_callback_pixel_parity() {
       Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
           pipeline{Filter::World::Orient(orientation),
                    Filter::Screen::AntiAlias<W, H>{}};
+      pipeline.init_storage(persistent_arena);
       {
         Canvas canvas(effect);
         ScratchScope scratch(scratch_arena_a);

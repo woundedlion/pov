@@ -279,15 +279,62 @@ inline void test_sweep_slabs_tile_the_half_turn() {
   }
 }
 
-/** @brief Explicit fractions follow the pose lattice and refresh next frame. */
+/**
+ * @brief Pushes three sub-steps about changing axes onto a collapsed
+ *        orientation, so its frame path leaves its endpoint slerp.
+ * @param history Orientation to advance.
+ * @param frame Frame number, varying the axes.
+ */
+inline void push_turning_steps(math::Orientation<> &history, int frame) {
+  history.collapse();
+  for (int step = 1; step <= 3; ++step) {
+    const float phase = 1.3f * static_cast<float>(frame) + 2.1f * step;
+    const math::Vector axis =
+        math::Vector(cosf(phase), 0.5f, sinf(phase)).normalized();
+    history.push(math::make_rotation(axis, 0.1f) * history.get());
+  }
+}
+
+/** @brief Explicit-time rotation follows the sub-frame history at every
+ *         column time, frame after frame. */
+inline void test_world_orient_follows_history_at_column_times() {
+  math::Orientation<> history(math::make_rotation(math::X_AXIS, 0.3f));
+  Filter::World::Orient orient(history);
+  orient.init_storage(persistent_arena);
+  StubEffect effect(288, 144);
+  const math::Vector v = math::Vector(0.4f, -0.3f, 0.86f).normalized();
+  float worst = 0.0f, endpoint = 0.0f;
+  for (int frame = 0; frame < 4; ++frame) {
+    push_turning_steps(history, frame);
+    {
+      Canvas canvas(effect);
+      for (int c = 0; c < 144; ++c) {
+        const float t = Temporal::sweep_fraction(c, 288);
+        const math::Vector want = math::rotate(v, history.get(t));
+        worst = fmaxf(worst, (orient.at_time(canvas, v, t) - want).magnitude());
+        const math::Quaternion slerped =
+            math::slerp(history.get(0), history.get(), t);
+        endpoint =
+            fmaxf(endpoint, (math::rotate(v, slerped) - want).magnitude());
+      }
+    }
+    effect.advance_display();
+  }
+  HS_EXPECT_LT(worst, 2e-6f);
+  HS_EXPECT_GT(endpoint, 100.0f * 2e-6f);
+}
+
+/** @brief Explicit fractions follow the pose table and refresh next frame. */
 inline void test_world_orient_explicit_time() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient orient(history);
+  orient.init_storage(persistent_arena);
   const math::Vector v(0.6f, -0.8f, 0.0f);
   StubEffect effect(288, 144);
   Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
       timed{Filter::World::Orient(history),
             Filter::Screen::AntiAlias<288, 144>()};
+  timed.init_storage(persistent_arena);
   Pipeline<288, 144, Filter::Screen::AntiAlias<288, 144>> plain;
   for (int frame = 0; frame < 2; ++frame) {
     {
@@ -575,6 +622,7 @@ inline void test_timed_cull_region() {
   Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
       pipeline{Filter::World::Orient(history),
                Filter::Screen::AntiAlias<288, 144>()};
+  pipeline.init_storage(persistent_arena);
   PipelineRef ref(pipeline, Temporal::Timed{});
   constexpr float ANGLE = 0.10f * math::PI_F;
   HS_EXPECT_GE(ref.cull_bound(), ANGLE);
@@ -609,6 +657,7 @@ inline void test_timed_cull_region() {
 inline void test_world_orient_sample_cache() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient cached(history);
+  cached.init_storage(persistent_arena);
   StubEffect effect(288, 144);
   const math::Vector a(0.6f, -0.8f, 0.0f);
   const math::Vector b(-0.2f, 0.3f, 0.7f);
@@ -617,6 +666,7 @@ inline void test_world_orient_sample_cache() {
       Canvas canvas(effect);
       auto compare = [&](const math::Vector &v, float t) {
         Filter::World::Orient fresh(history);
+        fresh.init_storage(persistent_arena);
         const auto expected = fresh.at_time(canvas, v, t);
         const auto actual = cached.at_time(canvas, v, t);
         HS_EXPECT_EQ(actual.x, expected.x);

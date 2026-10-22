@@ -175,8 +175,10 @@ baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
 Forward scans take column time from a rotated pixel basis. An effect prepares
-a frame-scoped `Scan::ColumnBasis` once per frame from its orientation
-endpoints and installs the resulting `Temporal::ColumnTime` on the canvas with
+a frame-scoped `Scan::ColumnBasis` once per frame from its orientation's
+sub-frame history, sampled at each sweep fraction by
+`Temporal::for_each_column_pose` as `Orientation::get(float)` samples it, and
+installs the resulting `Temporal::ColumnTime` on the canvas with
 `Scan::ColumnTimeScope`. Shapes stay built at the current endpoint; each column
 evaluates them along its fixed-meridian direction rotated from its sweep time
 to that endpoint, from two vectors per sweep fraction shared by both arms, so a
@@ -529,7 +531,7 @@ animations. GnomonicStars spawns one pinned warp per effect initialization.
 
 ### Orientation history
 
-`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose; `get(float t)` samples that sub-frame path at frame fraction `t` by slerping between the bracketing entries. The `Filter::World::Orient` filter samples it at the frame fraction in which a display arm passes each point (`Temporal::capture`), so a rotating effect is drawn as the arms see it rather than jumping at the sweep boundary; the `age` field increases backward in time by the remaining fraction.
+`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose; `get(float t)` samples that sub-frame path at frame fraction `t` by slerping between the bracketing entries. The `Filter::World::Orient` filter samples it at the frame fraction in which a display arm passes each point (`Temporal::capture`), so a rotating effect is drawn as the arms see it rather than jumping at the sweep boundary; the `age` field increases backward in time by the remaining fraction. Its explicit-time rotation reads a `Temporal::PoseTable`, the path's rotation matrices at every column time and the frame end, built once per frame in storage `init_storage()` takes from the persistent arena.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));

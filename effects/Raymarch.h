@@ -18,6 +18,7 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/sdf/volume.h"
+#include "core/render/temporal/pose_table.h"
 
 // Unit-test accessor reaching the private torus proportions, so a test can pin
 // the cull sphere against the warped SDF it has to contain.
@@ -624,9 +625,9 @@ private:
         scratch_arena_a.make_default_initialized<Scan::VolumeColumns<W>>();
     shading = scratch_arena_a.allocate_n<ColumnShading>(W / 2);
     auto *cameras = scratch_arena_a.allocate_n<math::Quaternion>(W / 2);
-    const Temporal::TemporalRotation path(camera.get(0), camera.get());
-    path.for_each_sweep_sample(
-        W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
+    const math::Quaternion ends[] = {camera.get(0), camera.get()};
+    Temporal::for_each_column_pose(
+        ends, 2, W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
           cameras[c] = at;
           shading[c].scroll =
               -palette_step * (1.0f - Temporal::sweep_fraction(c, W));
@@ -665,9 +666,9 @@ private:
                       math::RADIANS_PER_COLUMN<W>;
     int first, last;
     Scan::lit_columns<W>(center, cap, 0.0f, first, last);
-    const Temporal::TemporalRotation path(previous, current);
-    path.for_each_sweep_sample(
-        W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
+    const math::Quaternion ends[] = {previous, current};
+    Temporal::for_each_column_pose(
+        ends, 2, W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
           if (c < first || c > last)
             return;
           const math::Vector &centre = columns.columns[c].center;
