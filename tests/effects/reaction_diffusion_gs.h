@@ -184,13 +184,14 @@ struct GSWhiteBox {
    * @brief Shades a Q16 B field over the whole frame through the lattice
    *        basis, converted by a dissolve at `phase` (when non-negative), with
    *        colour noise blended at `noise_weight` from the previous frame's
-   *        table, then restores the state.
+   *        table and the given pigment, then restores the state.
    */
-  static std::vector<Pixel> shade_slab_field(GS &gs,
-                                             const std::vector<uint16_t> &b,
-                                             float phase, float noise_weight) {
+  static std::vector<Pixel>
+  shade_slab_field(GS &gs, const std::vector<uint16_t> &b, float phase,
+                   float noise_weight, const std::vector<uint16_t> &pigment) {
     const Snapshot saved = snapshot(gs);
     std::copy(b.begin(), b.end(), gs.state.B);
+    std::copy(pigment.begin(), pigment.end(), gs.state.pigment);
     if (phase >= 0.0f)
       gs.convert_below(phase);
     gs.slab_noise = {gs.noise_history ? gs.previous_noise_lut : nullptr,
@@ -199,6 +200,7 @@ struct GSWhiteBox {
     gs.slab_noise = {};
     std::copy(saved.a.begin(), saved.a.end(), gs.state.A);
     std::copy(saved.b.begin(), saved.b.end(), gs.state.B);
+    std::copy(saved.pigment.begin(), saved.pigment.end(), gs.state.pigment);
     std::vector<Pixel> frame;
     capture_frame<SMALL_W, SMALL_H>(gs, frame);
     return frame;
@@ -536,6 +538,7 @@ struct GSWhiteBox {
   static void step_pigment(GS &gs, const float *a, const float *b) {
     std::vector<uint16_t> next(N);
     gs.template step_pigment<STEPS>(a, b, next.data());
+    std::copy(next.begin(), next.end(), gs.state.pigment);
   }
   static uint16_t *pigments(GS &gs) { return gs.state.pigment; }
   template <int STEPS = 1>
@@ -2145,20 +2148,23 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
 
 /**
  * @brief Each sweep slab shows the field after the substep that ends its share
- *        of the frame, through the frame's dissolve mask and with the slab's
- *        colour-noise blend, on both arms; a frame that ends a dissolve stays
- *        black, a reseed frame shows the seeded field whole, and toggling
- *        temporal sampling leaves the simulation unchanged.
+ *        of the frame, through the dissolve mask at that substep, with the
+ *        slab's colour-noise blend and the pigment of the nearer frame
+ *        endpoint, on both arms; a frame that ends a dissolve stays black, a
+ *        reseed frame shows the seeded field whole, and toggling temporal
+ *        sampling leaves the simulation unchanged.
  */
 inline void test_gs_slabs_shade_the_field_after_their_substep() {
   using WhiteBox = GSWhiteBox;
   constexpr int W = SMALL_W, H = SMALL_H, STEPS = WhiteBox::STEPS;
   constexpr int N = WhiteBox::N, GROW = 40;
   constexpr bool TOGGLED[] = {true, false, true, true, true, true, true, true};
-  // Frame 2 starts the last three frames of a dissolve: two converting frames,
-  // the black frame that ends it, and the reseed frame.
+  // Frames 0 and 1 convert halfway through a dissolve; frame 2 starts the last
+  // three frames of one: two converting frames, the black frame that ends it,
+  // and the reseed frame.
   constexpr int DISSOLVE_AT = 2;
-  int earlier = 0, masked = 0, black = 0, reseeded = 0;
+  int earlier = 0, earlier_pigment = 0, earlier_dissolve = 0, masked = 0,
+      black = 0, reseeded = 0;
   auto run = [&](bool check) {
     reset_effect_globals();
     WhiteBox::GS gs;
@@ -2172,6 +2178,8 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
       const bool enabled = check && TOGGLED[f];
       HS_CONTEXT("frame, temporal sampling", f, enabled);
       Temporal::set_temporal_sampling_enabled(enabled);
+      if (f == 0)
+        WhiteBox::dissolve_within(gs, WhiteBox::DISSOLVE_FRAMES / 2);
       if (f == DISSOLVE_AT)
         WhiteBox::dissolve_within(gs, 3);
       const WhiteBox::Snapshot before = WhiteBox::snapshot(gs);
@@ -2187,16 +2195,15 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
         ++reseeded;
         const WhiteBox::Snapshot after = WhiteBox::snapshot(gs);
         for (auto &field : fields)
-          field = WhiteBox::shade_slab_field(gs, after.b, -1.0f, 1.0f);
+          field = WhiteBox::shade_slab_field(gs, after.b, -1.0f, 1.0f,
+                                             after.pigment);
       } else if (dissolve >= 0 && dissolve + 1 >= WhiteBox::DISSOLVE_FRAMES) {
         ++black;
         for (auto &field : fields)
           field.assign(static_cast<size_t>(W) * H, Pixel(0, 0, 0));
       } else {
-        const float phase = dissolve >= 0 ? static_cast<float>(dissolve + 1) /
-                                                WhiteBox::DISSOLVE_FRAMES
-                                          : -1.0f;
-        masked += phase >= 0.0f;
+        masked += dissolve >= 0;
+        const WhiteBox::Snapshot after = WhiteBox::snapshot(gs);
         std::vector<float> a(N), b(N), next_a(N), next_b(N);
         for (int i = 0; i < N; ++i) {
           a[i] = WhiteBox::from_q16(before.a[i]);
@@ -2210,8 +2217,24 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
           b.swap(next_b);
           for (int i = 0; i < N; ++i)
             q[i] = WhiteBox::to_q16(b[i]);
+          const float ends = static_cast<float>(k + 1) / STEPS;
+          const float phase = dissolve >= 0
+                                  ? (static_cast<float>(dissolve) + ends) /
+                                        WhiteBox::DISSOLVE_FRAMES
+                                  : -1.0f;
           fields[k] = WhiteBox::shade_slab_field(
-              gs, q, phase, static_cast<float>(k + 1) / STEPS);
+              gs, q, phase, ends,
+              2 * (k + 1) <= STEPS ? before.pigment : after.pigment);
+          if (2 * (k + 1) <= STEPS)
+            earlier_pigment +=
+                WhiteBox::shade_slab_field(gs, q, phase, ends, after.pigment) !=
+                fields[k];
+          if (k == 0 && dissolve >= 0)
+            earlier_dissolve +=
+                WhiteBox::shade_slab_field(gs, q,
+                                           static_cast<float>(dissolve + 1) /
+                                               WhiteBox::DISSOLVE_FRAMES,
+                                           ends, before.pigment) != fields[k];
         }
       }
       for (int x = 0; x < W; ++x) {
@@ -2230,7 +2253,9 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
   };
   const WhiteBox::Snapshot toggled = run(true);
   HS_EXPECT_GT(earlier, 0);
-  HS_EXPECT_EQ(masked, 2);
+  HS_EXPECT_GT(earlier_pigment, 0);
+  HS_EXPECT_GT(earlier_dissolve, 0);
+  HS_EXPECT_EQ(masked, 3);
   HS_EXPECT_EQ(black, 1);
   HS_EXPECT_EQ(reseeded, 1);
   HS_EXPECT(run(false) == toggled,

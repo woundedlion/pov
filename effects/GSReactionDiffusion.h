@@ -86,14 +86,12 @@ public:
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
-    // render_slabs(): the lattice basis, cull flags and float field live
-    // across the slabs, beside the pigment step or the frame-start B.
+    // render_slabs(): the lattice basis, cull flags, float field and
+    // frame-end pigment live across the slabs, beside the frame-start B.
     constexpr size_t SLAB_SCRATCH_BYTES =
         sizeof(LatticeBasis) + 3u * HOT_WORDS * sizeof(uint32_t) +
-        2u * RD_N * sizeof(float) +
-        std::max(RD_N * sizeof(uint16_t),
-                 2u * PHYSICS_HISTORY_SIZE * sizeof(float) +
-                     RD_N * sizeof(uint16_t));
+        2u * RD_N * sizeof(float) + 2u * RD_N * sizeof(uint16_t) +
+        2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t SCRATCH_BYTES = std::max(
         {PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES, SLAB_SCRATCH_BYTES});
     constexpr size_t SCRATCH_TENANTS = 8;
@@ -408,7 +406,6 @@ private:
         next[i] = Pigment::pack(first, second, mix);
       }
     }
-    std::copy_n(next, RD_N, state.pigment);
   }
 
   Pixel palette_color(int seed, float t) const {
@@ -1474,11 +1471,12 @@ private:
    * @param canvas Destination canvas to draw the sphere into.
    * @details The frame's pigment and lifecycle outcome are settled before the
    * first substep. Each slab shades the field after its substep through the
-   * frame's dissolve mask, with its own cull flags, and colour noise blended
-   * between the frame's two noise tables at the slab's end. A frame that ends
-   * a dissolve stays black; a reseed frame shades the seeded field whole. The
-   * Q16 state ends the frame as render() leaves it with temporal sampling
-   * disabled.
+   * dissolve mask at the slab's end, with its own cull flags, and colour noise
+   * blended between the frame's two noise tables at the slab's end; slabs
+   * ending in the first half of the frame shade the frame-start pigment and
+   * the rest the frame-end pigment. A frame that ends a dissolve stays black;
+   * a reseed frame shades the seeded field whole. The Q16 state ends the
+   * frame as render() leaves it with temporal sampling disabled.
    */
   HS_HOT_FLASH_MEMBER void render_slabs(Canvas &canvas) {
     const LatticeBasis &basis = *prepare_lattice_basis();
@@ -1511,11 +1509,8 @@ private:
       cur_a[i] = from_q16(state.A[i]);
       cur_b[i] = from_q16(state.B[i]);
     }
-    {
-      ScratchScope pigment_guard(scratch_arena_a);
-      uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
-      step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
-    }
+    uint16_t *next_pigment = scratch_arena_a.allocate_n<uint16_t>(RD_N);
+    step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
     float *pending_a = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
     float *pending_b = scratch_arena_a.allocate_n<float>(PHYSICS_HISTORY_SIZE);
     uint16_t *start_b = scratch_arena_a.allocate_n<uint16_t>(RD_N);
@@ -1529,9 +1524,17 @@ private:
         },
         [&]() HS_HOT_INLINE {
           const int ENDS = ++slab;
+          if (ENDS == STEPS_PER_FRAME / 2 + 1)
+            std::copy_n(next_pigment, RD_N, state.pigment);
           if (PLAN.reseed)
             return;
-          publish_b(cur_b, PLAN.dissolve, marked);
+          const float dissolve =
+              PLAN.dissolve < 0.0f
+                  ? PLAN.dissolve
+                  : (static_cast<float>(transition.dissolve_frames - 1) +
+                     static_cast<float>(ENDS) / STEPS_PER_FRAME) /
+                        DISSOLVE_FRAMES;
+          publish_b(cur_b, dissolve, marked);
           slab_noise = {noise_history ? previous_noise_lut : nullptr,
                         static_cast<float>(ENDS) / STEPS_PER_FRAME};
           shade();
@@ -1589,6 +1592,7 @@ private:
           cur_b[i] = from_q16(state.B[i]);
         }
         step_pigment<STEPS_PER_FRAME>(cur_a, cur_b, next_pigment);
+        std::copy_n(next_pigment, RD_N, state.pigment);
         for (int step = 0; step < STEPS_PER_FRAME; ++step) {
           step_physics_inplace(cur_a, cur_b, pending_a, pending_b);
         }
