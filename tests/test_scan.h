@@ -160,6 +160,7 @@ inline int run_scan_tests() {
   test_mesh_seam_face_copies();
   test_mesh_wide_face_copies();
   test_mesh_deformation_shared_edges();
+  test_mesh_polar_face_sweep();
   test_mesh_polar_face_windows();
   test_mesh_motion_activation();
   test_recorded_face_caps_match_measured_columns();

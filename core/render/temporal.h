@@ -17,6 +17,7 @@
 #include "core/math/pixel_mapping.h"
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
+#include "core/render/temporal/vertex_motion.h"
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -78,6 +79,19 @@ struct MeshFaceCopy {
 };
 
 /**
+ * @brief A mesh face a deformation scan draws one column pair at a time, each
+ *        pair from the face's vertices at the pair's sweep time
+ *        (Scan::SweptFace).
+ */
+struct MeshFaceSweep {
+  size_t face; ///< The face's index in the mesh.
+  /// Its vertices' paths over the frame, in winding order.
+  const VertexPath *paths;
+  size_t count; ///< Number of vertices.
+  bool north;   ///< Whether it lies around the north pole.
+};
+
+/**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
  * `c = x % (W / 2)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
@@ -109,6 +123,9 @@ struct ColumnTime {
   /// One face a deformation scan draws alone, from its own vertex list;
   /// null to scan the selection table.
   const MeshFaceCopy *face_copy = nullptr;
+  /// One face a deformation scan draws column pair by column pair; null
+  /// otherwise.
+  const MeshFaceSweep *face_sweep = nullptr;
 };
 
 /// ColumnTime::selected_faces entry of a face the pass without a window

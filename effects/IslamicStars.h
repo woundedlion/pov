@@ -872,10 +872,10 @@ private:
    *        the per-face topology classes.
    * @param face_palette Per-face palette ids.
    */
-  HS_O3_FN HS_NOINLINE_NOCLONE void draw_shape(Canvas &canvas, float phase,
-                                               float previous_phase,
-                                               const MeshState &base_state,
-                                               const uint8_t *face_palette) {
+  HS_HOT_FLASH_MEMBER void draw_shape(Canvas &canvas, float phase,
+                                      float previous_phase,
+                                      const MeshState &base_state,
+                                      const uint8_t *face_palette) {
     HS_CHECK(base_state.get_topology_size() == base_state.num_faces(),
              "IslamicStars: sprite shading face count mismatch");
     const SegueT &seg = carousel.segue();

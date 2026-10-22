@@ -2311,23 +2311,153 @@ inline void test_mesh_motion_activation() {
   Temporal::set_temporal_sampling_enabled(true);
 }
 
+/// Largest channel difference between a swept pole face and its per-column
+/// oracle: under a tenth of an antialiased edge pixel, from the oracle's
+/// faces projecting about their own centroids and the sweep's quadratic
+/// vertex paths.
+inline constexpr int POLAR_SWEEP_BOUND = 6144;
+
 /**
- * @brief A face reaching a pole draws in each half-arm window's scan, its
- *        vertices captured near the window's time.
+ * @brief A face around a pole draws each column pair as the face stood at
+ *        the pair's sweep time.
+ * @param points Star points; the face alternates tip and notch vertices.
+ * @param notch The notch vertices' polar angle; the tips' is 0.4 radians.
+ * @param north Whether the face winds around the north pole.
+ * @param turn Camera turn over the frame (radians).
+ * @param grow Whether the face grows from a point over the frame, so that
+ *        its first build culls and every column pair builds it afresh.
+ * @param tilt Arc the face tips off the pole by, about the z axis; a tilted
+ *        face reaches the pole (Scan::face_capture_interval()) without
+ *        winding around it, so that only the column pairs near it scan.
+ * @details Compares the deformed scan with frames of the face held at each
+ * column pair's time, every column pair taken from its own time's frame.
+ */
+inline void check_polar_face_sweep(size_t points, float notch, bool north,
+                                   float turn, bool grow = false,
+                                   float tilt = 0.0f) {
+  constexpr int W = 288, H = 144;
+  constexpr float SPIN = 0.2f, TIP = 0.4f, WOBBLE = 3.0f * math::PI_F / 180.0f;
+  HS_CONTEXT("star points", static_cast<long long>(points));
+  HS_CONTEXT("north", north ? 1 : 0);
+  const size_t count = 2 * points;
+  const auto position = [&](size_t i, float u) {
+    const float azimuth =
+        math::TWO_PI_F * static_cast<float>(i) / count + SPIN * (u - 1.0f);
+    const float polar =
+        grow ? (i % 2 ? notch : TIP) * u
+             : (i % 2 ? notch : TIP) +
+                   WOBBLE * (u - 1.0f) * (i % 4 < 2 ? 1.0f : -1.0f);
+    const float y = cosf(polar);
+    return math::rotate(math::Vector(sinf(polar) * cosf(azimuth),
+                                     north ? y : -y,
+                                     sinf(polar) * sinf(azimuth)),
+                        math::make_rotation(math::Vector(0, 0, 1), tilt));
+  };
+  const math::Quaternion from;
+  const math::Quaternion to =
+      math::make_rotation(math::Vector(0.3f, 0.2f, 0.9f).normalized(), turn);
+  float scale = 0.0f;
+  auto setup = [&](size_t, float size) { scale = 1.0f / size; };
+  auto shader = [&](const math::Vector &, Fragment &f) {
+    const float depth = hs::clamp(-f.v1 * scale, 0.0f, 1.0f);
+    f.color = Color4(
+        Pixel(static_cast<uint16_t>(2000 + 60000 * depth), 20000, 30000), 1);
+  };
+  const auto render = [&](auto &&draw) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+      const Temporal::ColumnTime time = basis->prepare(from, to, true);
+      Scan::ColumnTimeScope column_scope(canvas, time);
+      draw(pipeline, canvas);
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  };
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  build_single_face(mesh, count, [&](size_t i) { return position(i, 1); });
+  std::vector<uint8_t> moving(count, 1);
+  std::vector<uint16_t> starts(count);
+  std::vector<uint16_t> columns(2);
+  const float reach = SPIN * sinf(TIP) + WOBBLE;
+  Scan::mesh_capture_counters = {};
+  const std::vector<Pixel> drawn = render([&](Pipeline<W, H> &pipeline,
+                                              Canvas &canvas) {
+    for (size_t i = 0; i < count; ++i)
+      starts[i] =
+          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
+    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                               columns.data());
+    for (size_t i = 0; i < count; ++i)
+      if (moving[i])
+        moving[i] = Scan::vertex_flags(reach);
+    Scan::deform_mesh<W, H>(
+        canvas, mesh, true, columns.data(), moving.data(), starts.data(),
+        scratch_arena_b, reach, position, [&] {
+          HS_EXPECT_TRUE(canvas.column_time()->face_sweep != nullptr);
+          Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                             scratch_arena_b, nullptr, setup);
+        });
+  });
+  const Scan::MeshCaptureCounters work = Scan::mesh_capture_counters;
+  HS_EXPECT_EQ(work.polar_faces, size_t(1));
+  HS_EXPECT_EQ(work.swept_faces, size_t(1));
+  if (tilt != 0.0f) {
+    HS_EXPECT_LT(work.sweep_columns, size_t(W / 2));
+    HS_EXPECT_GT(work.sweep_columns, size_t(0));
+  } else {
+    // A face grown from a point culls at the first column.
+    HS_EXPECT_EQ(work.sweep_columns, size_t(grow ? W / 2 - 1 : W / 2));
+  }
+  // Classification measures each moving vertex's motion at the frame's start
+  // and middle, and the sweep's paths evaluate it there again.
+  HS_EXPECT_EQ(work.evaluations, 4 * count);
+  const std::vector<Pixel> expected = column_time_oracle<W, H>([&](float u) {
+    for (size_t i = 0; i < count; ++i)
+      mesh.vertices[i] = position(i, u);
+    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+      Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                         scratch_arena_b, nullptr, setup);
+    });
+  });
+  HS_EXPECT_GT(
+      expect_frames_within("polar sweep", drawn, expected, POLAR_SWEEP_BOUND),
+      tilt != 0.0f ? W : W * 4);
+}
+
+/** @brief Faces around or reaching either pole draw each column pair at its
+ *  own time: convex, starred, turning convex during the frame, growing from a
+ *  point or tipped off the pole, under a still or a turning camera. */
+inline void test_mesh_polar_face_sweep() {
+  check_polar_face_sweep(6, 0.12f, true, 0.0f);
+  check_polar_face_sweep(6, 0.12f, false, 0.02f);
+  check_polar_face_sweep(3, 0.05f, true, 0.02f);
+  check_polar_face_sweep(4, 0.2f, false, 0.0f);
+  check_polar_face_sweep(3, 0.12f, true, 0.0f);
+  check_polar_face_sweep(4, 0.2f, true, 0.02f, true);
+  check_polar_face_sweep(6, 0.12f, true, 0.02f, false, 0.485f);
+}
+
+/**
+ * @brief A face reaching a pole, too slow for its single placement to
+ *        stray a pixel, draws in each half-arm window's scan, its vertices
+ *        captured near the window's time.
  * @param points Star points; the face alternates tip and notch vertices.
  * @param notch The notch vertices' polar angle; the tips' is 0.2 radians.
  * @param north Whether the face winds around the north pole.
  * @param turn Camera turn over the frame (radians).
- * @param tilt Arc the face tips off the pole by, about the z axis; a tilted
- *        face reaches the pole (Scan::face_capture_interval()) without
- *        winding around it.
  * @details Compares the deformed scan and the face held at the endpoint with
  * frames of the face at each column pair's time.
  */
 inline void check_polar_face_windows(size_t points, float notch, bool north,
-                                     float turn, float tilt = 0.0f) {
+                                     float turn) {
   constexpr int W = 288, H = 144;
-  constexpr float SPIN = 0.1f, TIP = 0.2f, WOBBLE = 2.0f * math::PI_F / 180.0f;
+  constexpr float SPIN = 0.05f, TIP = 0.2f, WOBBLE = 0.5f * math::PI_F / 180.0f;
   HS_CONTEXT("star points", static_cast<long long>(points));
   HS_CONTEXT("north", north ? 1 : 0);
   const size_t count = 2 * points;
@@ -2337,10 +2467,8 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
     const float polar = (i % 2 ? notch : TIP) +
                         WOBBLE * (u - 1.0f) * (i % 4 < 2 ? 1.0f : -1.0f);
     const float y = cosf(polar);
-    return math::rotate(math::Vector(sinf(polar) * cosf(azimuth),
-                                     north ? y : -y,
-                                     sinf(polar) * sinf(azimuth)),
-                        math::make_rotation(math::Vector(0, 0, 1), tilt));
+    return math::Vector(sinf(polar) * cosf(azimuth), north ? y : -y,
+                        sinf(polar) * sinf(azimuth));
   };
   const math::Quaternion from;
   const math::Quaternion to =
@@ -2394,10 +2522,13 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
   });
   const Scan::MeshCaptureCounters work = Scan::mesh_capture_counters;
   HS_EXPECT_EQ(work.polar_faces, size_t(1));
+  HS_EXPECT_EQ(work.swept_faces, size_t(0));
   HS_EXPECT_EQ(work.face_copies, size_t(0));
   HS_EXPECT_GE(work.scans, size_t(1));
   HS_EXPECT_LE(work.scans, size_t(2));
-  HS_EXPECT_EQ(work.evaluations, work.captures);
+  // Classification measures each moving vertex's motion at the frame's start
+  // and middle.
+  HS_EXPECT_EQ(work.evaluations, work.captures + 2 * count);
   HS_EXPECT_LE(work.captures, work.scans * count);
   for (size_t i = 0; i < count; ++i)
     mesh.vertices[i] = position(i, 1.0f);
@@ -2437,5 +2568,4 @@ inline void test_mesh_polar_face_windows() {
   check_polar_face_windows(6, 0.12f, false, 0.02f);
   check_polar_face_windows(3, 0.05f, true, 0.02f);
   check_polar_face_windows(4, 0.2f, false, 0.0f);
-  check_polar_face_windows(6, 0.12f, true, 0.02f, 0.285f);
 }

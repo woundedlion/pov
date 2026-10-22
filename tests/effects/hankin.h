@@ -501,11 +501,9 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
 inline constexpr int HANKIN_SEAM_FRAME = 25;
 
 /**
- * @brief The starting tetrahedron's colour steps at capture seams stay at
- *        master's level.
- * @details Nearly every face of the tetrahedron's hankin reaches a pole and
- * draws once per half-arm window, as every moving face did on master, so its
- * seam and mid-arm steps are bounded by master's: 1.315, 1.537 and 1.139.
+ * @brief The starting tetrahedron has no excess colour step at capture seams.
+ * @details Nearly every face of the tetrahedron's hankin reaches a pole, and
+ * its large faces sweep column pair by column pair.
  */
 inline void test_hankinsolids_interlace_motion_is_seam_free() {
   constexpr int W = 288, H = 144;
@@ -524,7 +522,7 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
       steps.add(previous, current, W, H);
     previous.swap(current);
   }
-  steps.expect_continuous("hankin interlace", 1.32, 1.54, 1.14);
+  steps.expect_continuous("hankin interlace");
   hs::clear_mock_time();
 }
 
