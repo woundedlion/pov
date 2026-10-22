@@ -915,7 +915,9 @@ struct Pipeline<W, H, Head, Tail...>
    * arena and its allocations must outlive every subsequent pipeline use.
    */
   void init_storage(Arena &arena) {
-    if constexpr (requires { Head::init_storage(arena); })
+    if constexpr (requires { Head::init_storage(arena, W); })
+      Head::init_storage(arena, W);
+    else if constexpr (requires { Head::init_storage(arena); })
       Head::init_storage(arena);
     next.init_storage(arena);
   }

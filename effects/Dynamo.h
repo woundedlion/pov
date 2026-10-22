@@ -459,7 +459,7 @@ private:
       TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::required_arena_bytes() +
-      Filter::World::Orient::STORAGE_BYTES;
+      Filter::World::Orient::storage_bytes(W);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Dynamo persistent footprint exceeds the default partition; "
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");

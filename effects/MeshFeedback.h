@@ -381,7 +381,7 @@ private:
       Solids::MAX_SOLID_FACE_SLOTS * sizeof(uint16_t) +
       Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge);
   static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES +
-                        Filter::World::Orient::STORAGE_BYTES +
+                        Filter::World::Orient::storage_bytes(W) +
                         gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) +
                         MESH_STORAGE_BYTES <=
                     DEVICE_PERSISTENT_BUDGET,

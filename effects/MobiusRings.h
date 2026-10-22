@@ -162,8 +162,8 @@ private:
   using MobiusEntity = typename MobiusWarpCircularTransformer<1>::Entity;
   static constexpr size_t FOOTPRINT_BYTES =
       sizeof(MobiusEntity) + alignof(MobiusEntity) + sizeof(int) +
-      alignof(int) + Filter::World::Orient::STORAGE_BYTES +
-      alignof(Temporal::PoseTable) + BakedPalette::required_arena_bytes();
+      alignof(int) + Filter::World::Orient::storage_bytes(W) +
+      BakedPalette::required_arena_bytes();
   static_assert(
       FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
       "MobiusRings persistent footprint exceeds its device partition");

@@ -93,16 +93,23 @@ public:
     return forward_rotated_edge(a, b, pb, orientation.get(), forward);
   }
 
-  /// Persistent bytes init_storage() reserves.
-  static constexpr size_t STORAGE_BYTES = sizeof(Temporal::PoseTable);
+  /**
+   * @brief Persistent bytes init_storage() reserves.
+   * @param width Canvas width the poses serve.
+   * @return The pose table's entries.
+   */
+  static constexpr size_t storage_bytes(int width) {
+    return Temporal::PoseTable::storage_bytes(width);
+  }
 
   /**
    * @brief Allocates the pose table explicit-time rotation reads.
    * @param arena Persistent arena.
+   * @param width Canvas width the poses serve.
    * @details Call from effect init(), before any draw through at_time().
    */
-  HS_COLD_MEMBER void init_storage(Arena &arena) {
-    poses = arena.make<Temporal::PoseTable>();
+  HS_COLD_MEMBER void init_storage(Arena &arena, int width) {
+    poses.bind(arena, width);
     poses_ready = false;
   }
 
@@ -123,9 +130,9 @@ public:
       return math::rotate(v, orientation.get());
     }
     pose_table(cv);
-    if (poses->stationary())
+    if (poses.stationary())
       return math::rotate(v, orientation.get());
-    return poses->rotate(v, t);
+    return poses.rotate(v, t);
   }
 
   /** @brief The frame's poses by column time.
@@ -135,11 +142,11 @@ public:
    *         call, as its pose can change within the frame. */
   HS_HOT_FLASH_MEMBER const Temporal::PoseTable *pose_table(const Canvas &cv) {
     if (!poses_ready || pose_frame != cv.frame_number()) {
-      poses->build(orientation, cv.width());
+      poses.build(orientation);
       pose_frame = cv.frame_number();
       poses_ready = orientation.length() != 1;
     }
-    return poses;
+    return &poses;
   }
 
   /** @brief Plots under the explicit pose, preserving the age register.
@@ -206,9 +213,9 @@ private:
   static constexpr float ARC_ERROR_PAD = 1.02e-4f;
   const math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
-  Temporal::PoseTable *poses = nullptr; ///< Arena-owned per-frame poses.
-  uint32_t pose_frame = 0;              ///< Frame the pose table was built for.
-  bool poses_ready = false; ///< The pose table holds pose_frame's poses.
+  Temporal::PoseTable poses; ///< Per-frame poses over arena entries.
+  uint32_t pose_frame = 0;   ///< Frame the pose table was built for.
+  bool poses_ready = false;  ///< The pose table holds pose_frame's poses.
 };
 
 } // namespace World
