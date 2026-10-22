@@ -68,6 +68,15 @@ struct TemporalRotation : math::SlerpArc {
       : math::SlerpArc(a, b) {}
 };
 
+/// A mesh face scanned alone from vertices of its own.
+struct MeshFaceCopy {
+  size_t face;                  ///< The face's index in the mesh.
+  const math::Vector *vertices; ///< The copy's vertices, in winding order.
+  const uint16_t *indices;      ///< Indices 0 to count - 1 into vertices.
+  const uint16_t *sources;      ///< The mesh vertex each vertex stands for.
+  size_t count;                 ///< Number of vertices.
+};
+
 /**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
@@ -95,15 +104,19 @@ struct ColumnTime {
   /// draws the face: MESH_FACE_HELD for the pass without a render-x window,
   /// MESH_FACE_WINDOW for the open window's; null outside such a scan.
   const uint8_t *selected_faces = nullptr;
-  /// Per-row azimuth pads shared by the mesh's capture-window passes.
+  /// Per-row azimuth pads shared by a deformation scan's passes.
   const float *face_pads = nullptr;
+  /// One face a deformation scan draws alone, from its own vertex list;
+  /// null to scan the selection table.
+  const MeshFaceCopy *face_copy = nullptr;
 };
 
-/// ColumnTime::selected_faces entry of a face drawn once over the frame.
+/// ColumnTime::selected_faces entry of a face the pass without a window
+/// draws.
 inline constexpr uint8_t MESH_FACE_HELD = 0;
-/// ColumnTime::selected_faces entry of a moving face the open window draws.
+/// ColumnTime::selected_faces entry of a face the open window draws.
 inline constexpr uint8_t MESH_FACE_WINDOW = 1;
-/// ColumnTime::selected_faces entry of a moving face the open window skips.
+/// ColumnTime::selected_faces entry of a face the current pass skips.
 inline constexpr uint8_t MESH_FACE_SKIPPED = 2;
 
 /// Longest drift a scan evaluates, radians.

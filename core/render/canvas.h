@@ -732,7 +732,8 @@ private:
 
 /**
  * @brief Scoped render-x window: restricts the column loops that honour it to
- *        one run of half-turn columns on both arms, inside the driver clip.
+ *        one run of half-turn columns on both arms, or on one, inside the
+ *        driver clip.
  * @details Leaves the clip and its culls untouched; only windowed walks such as
  * `Scan::Shader::walk_grid` skip the columns outside it. Windows do not nest.
  */
@@ -743,13 +744,16 @@ public:
    * @param canvas Canvas whose frame is being drawn.
    * @param begin First half-turn column.
    * @param end One past the last half-turn column, at most half the width.
+   * @param arm The one arm admitted, 0 or 1, or -1 for both.
    */
-  HS_FLASH_MEMBER RenderXWindow(Canvas &canvas, int begin, int end)
+  HS_FLASH_MEMBER RenderXWindow(Canvas &canvas, int begin, int end,
+                                int arm = -1)
       : effect(canvas.effect) {
     HS_CHECK(!effect.render_x_window.active, "render-x windows do not nest");
     HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
              "render-x window must lie within the half-turn");
-    effect.render_x_window = {begin, end, true};
+    const int shift = arm < 0 ? 0 : (2 * arm - 1) * (effect.frame_width / 2);
+    effect.render_x_window = {begin + shift, end + shift, true};
   }
 
   /** @brief Closes the window, admitting every column again. */

@@ -27,6 +27,44 @@ struct ArmPass {
 };
 
 /**
+ * @brief Arm passes of a column track linear over part of the frame, on a
+ *        canvas of a width known at run time.
+ * @tparam Emit Callable `(const ArmPass &)`.
+ * @param width Canvas width.
+ * @param x0,x1 Unwrapped columns at fractions @p t0 and @p t1.
+ * @param t0,t1 Frame fractions the track spans, `t0 < t1`.
+ * @param frame_start As arm_passes().
+ * @param frame_end As arm_passes().
+ * @param emit As arm_passes().
+ * @param reach As arm_passes().
+ */
+template <typename Emit>
+HS_HOT_INLINE void arm_passes(int width, float x0, float x1, float t0, float t1,
+                              bool frame_start, bool frame_end, Emit &&emit,
+                              float reach = 1.0f) {
+  const float HALF = width / 2.0f;
+  const float dx = x1 - x0;
+  const float span = t1 - t0;
+  const float approach = span * HALF - dx;
+  if (approach == 0.0f)
+    return;
+  const int first =
+      static_cast<int>(floorf((fminf(x0, x1) - reach) / HALF + (1.0f - t1)));
+  const int last =
+      static_cast<int>(floorf((fmaxf(x0, x1) + reach) / HALF - t0));
+  for (int branch = first; branch <= last; ++branch) {
+    const float raw = (x0 - (branch + t0) * HALF) / approach;
+    if (raw < 0.0f && (!frame_start || x0 < (branch + t0) * HALF - reach))
+      continue;
+    if ((raw >= 1.0f && !frame_end) ||
+        (raw > 1.0f && x1 > (branch + t1) * HALF + reach))
+      continue;
+    const float s = hs::clamp(raw, 0.0f, 1.0f);
+    emit(ArmPass{t0 + span * s, s, branch});
+  }
+}
+
+/**
  * @brief Arm passes of a column track linear over part of the frame.
  * @tparam W Canvas width.
  * @tparam Emit Callable `(const ArmPass &)`.
@@ -51,26 +89,8 @@ template <int W, typename Emit>
 HS_HOT_INLINE void arm_passes(float x0, float x1, float t0, float t1,
                               bool frame_start, bool frame_end, Emit &&emit,
                               float reach = 1.0f) {
-  constexpr float HALF = W / 2.0f;
-  const float dx = x1 - x0;
-  const float span = t1 - t0;
-  const float approach = span * HALF - dx;
-  if (approach == 0.0f)
-    return;
-  const int first =
-      static_cast<int>(floorf((fminf(x0, x1) - reach) / HALF + (1.0f - t1)));
-  const int last =
-      static_cast<int>(floorf((fmaxf(x0, x1) + reach) / HALF - t0));
-  for (int branch = first; branch <= last; ++branch) {
-    const float raw = (x0 - (branch + t0) * HALF) / approach;
-    if (raw < 0.0f && (!frame_start || x0 < (branch + t0) * HALF - reach))
-      continue;
-    if ((raw >= 1.0f && !frame_end) ||
-        (raw > 1.0f && x1 > (branch + t1) * HALF + reach))
-      continue;
-    const float s = hs::clamp(raw, 0.0f, 1.0f);
-    emit(ArmPass{t0 + span * s, s, branch});
-  }
+  arm_passes(W, x0, x1, t0, t1, frame_start, frame_end,
+             std::forward<Emit>(emit), reach);
 }
 
 /**

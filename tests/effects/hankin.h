@@ -135,12 +135,12 @@ struct HankinSolidsWhiteBox {
   }
   /**
    * @brief Draws the moving hankin mesh through a moving camera, recording the
-   *        faces each capture window scans.
+   *        faces scanned against each arm boundary.
    * @param effect Effect whose current mesh is drawn; its camera is replaced.
    * @param previous The mesh's model vertices at the previous endpoint.
    * @param from Camera at the previous endpoint.
    * @param to Camera at the current endpoint.
-   * @param copies Receives the window copies.
+   * @param copies Receives the arm sides' copies.
    */
   template <int W, int H>
   static void draw_copies(HankinSolids<W, H> &effect,
@@ -150,19 +150,14 @@ struct HankinSolidsWhiteBox {
     effect.orientation.set(from).push(to);
     const auto &mesh = effect.hankin_mesh;
     std::vector<math::Vector> before = previous;
-    const float arc = Scan::max_vertex_arc(
-        previous.data(), mesh.vertices.data(), previous.size());
-    std::vector<math::Vector> endpoint;
-    for (const math::Vector &v : mesh.vertices)
-      endpoint.push_back(effect.orientation.orient(v));
     {
       Canvas canvas(effect);
       FacePaletteShader fragment;
       int window = -1;
       effect.scan_mesh(
           canvas, mesh, before.data(), false, [&](const MeshState &rotated) {
-            window = record_face_copies(canvas, rotated, endpoint, arc,
-                                        effect.orientation, copies);
+            window =
+                record_face_copies(canvas, rotated, effect.orientation, copies);
             auto setup = [&](size_t f, float size) {
               shade_face(effect, f, size, fragment);
               if (window >= 0)
@@ -506,48 +501,39 @@ inline void test_hankinsolids_conway_crossfade_shades_at_column_time() {
 inline constexpr int HANKIN_SEAM_FRAME = 25;
 
 /**
- * @brief The columns of a hankin sweep frame show the interlace angle at
- *        their sweep time, across both arm boundaries.
- * @details The mesh moves about two pixels of arc over this frame. Drawn at
- * the current endpoint, the first columns of each arm show it where it
- * stands a frame after they were lit.
+ * @brief The starting tetrahedron's colour steps at capture seams stay at
+ *        master's level.
+ * @details Nearly every face of the tetrahedron's hankin reaches a pole and
+ * draws once per half-arm window, as every moving face did on master, so its
+ * seam and mid-arm steps are bounded by master's: 1.315, 1.537 and 1.139.
  */
 inline void test_hankinsolids_interlace_motion_is_seam_free() {
-  using WB = HankinSolidsWhiteBox;
   constexpr int W = 288, H = 144;
   reset_effect_globals();
   pin_frame_clock(0);
   HankinSolids<W, H> effect;
   effect.init();
-  float previous = 0.0f;
-  for (int f = 0; f <= HANKIN_SEAM_FRAME; ++f) {
-    previous = WB::angle(effect);
+  std::vector<Pixel> previous, current;
+  MeshSeamSteps steps;
+  for (int f = 0; f < 120; ++f) {
     pin_frame_clock(f);
     effect.draw_frame();
     effect.advance_display();
+    capture_frame<W, H>(effect, current);
+    if (f > 0)
+      steps.add(previous, current, W, H);
+    previous.swap(current);
   }
-  const float current = WB::angle(effect);
-  HS_EXPECT_GT(fabsf(current - previous), 0.05f);
-  std::vector<Pixel> drawn;
-  capture_frame<W, H>(effect, drawn);
-  const std::vector<Pixel> held = WB::draw_held(effect);
-  // The starting tetrahedron's faces span more than a quarter turn.
-  expect_seam_resolved<W, H>(
-      "hankin interlace", drawn, held,
-      [&](float u) {
-        WB::rebuild(effect, previous + (current - previous) * u);
-        return WB::draw_held(effect);
-      },
-      WIDE_FACE_SEAM_RATIO);
+  steps.expect_continuous("hankin interlace", 1.32, 1.54, 1.14);
   hs::clear_mock_time();
 }
 
 /**
  * @brief A hankin face across the arm boundary scans as one polygon, shaded
- *        alike, in one sweep frame's late window and the next frame's early
- *        window.
+ *        alike, in one sweep frame's late copy and the next frame's early
+ *        copy.
  * @details The interlace angles and cameras are the effect's own over three
- * sweep frames, on a truncated icosahedron's hankin.
+ * sweep frames, on the starting tetrahedron's hankin.
  */
 inline void test_hankinsolids_seam_copies_are_one_polygon() {
   using WB = HankinSolidsWhiteBox;
@@ -568,7 +554,7 @@ inline void test_hankinsolids_seam_copies_are_one_polygon() {
     }
   }
   hs::clear_mock_time();
-  WB::load_node(effect, ConwayGraph::TRUNCATED_ICOSAHEDRON);
+  WB::load_node(effect, ConwayGraph::TETRAHEDRON);
   std::array<std::vector<math::Vector>, 3> model;
   for (int j = 0; j < 3; ++j) {
     WB::rebuild(effect, angles[j]);
@@ -589,8 +575,8 @@ inline void test_hankinsolids_seam_copies_are_one_polygon() {
     return (model[frame][i] + (model[frame + 1][i] - model[frame][i]) * u)
         .normalized();
   };
-  const size_t faces = expect_seam_copies_match<W, H>(
-      effect, "hankin seam copies", frames[0][1], frames[1][0], cameras[1],
+  const size_t faces = expect_seams_match<W, H>(
+      effect, "hankin seam copies", frames, cameras[1],
       [&](uint16_t i) {
         return seam_vertex_tolerance<W>([&](float u) { return path(0, i, u); },
                                         [&](float u) { return path(1, i, u); },

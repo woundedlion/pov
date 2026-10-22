@@ -406,7 +406,7 @@ The entry points trade generality for speed:
 
 `walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectColumnBasis` frame at its sweep time.
 
-`Scan::Mesh` honours the window too. A mesh whose vertices move non-rigidly over the frame (a Hankin interlace sweep, a Conway morph leg, a ripple) is deformed by `Scan::deform_mesh`: each moving vertex is placed at the sweep time of the column it lands on, and faces that straddle an arm boundary are drawn once per side through half-sweep windows. HankinSolids and IslamicStars use it.
+`Scan::Mesh` honours the window too. A mesh whose vertices move non-rigidly over the frame (a Hankin interlace sweep, a Conway morph leg, a ripple) is deformed by `Scan::deform_mesh`: each moving vertex is placed at the sweep time of the column it lands on, on its own arm or across the arm boundary nearer it, and every face is scanned once. A face that straddles an arm boundary is scanned once per arm, each copy clipped to that arm's columns. A face every column pair's meridian can reach (around a pole, spanning half a turn, or reaching a pole by its vertices' motion) draws in one scan per half of the arms, each of its vertices at its time nearest the half's middle. HankinSolids and IslamicStars use it.
 
 ### 5.6 Pullback Shading
 
@@ -1074,7 +1074,7 @@ cmake --build  --preset wasm-release-install    # build + install into ../daydre
 Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (smoke + install into `../daydream`). `just smoke` rebuilds and then drives the shipped module through [`scripts/wasm_smoke.mjs`](https://github.com/woundedlion/pov/blob/master/scripts/wasm_smoke.mjs) under Node — the release runtime gate in CI's `wasm` job; `just smoke-debug` runs its debug/dev-bindings gate with the shared stack ceiling. The `just` recipe graph is `install → smoke → build`, so `just install` writes the module and provenance markers for the build the runtime gate exercised.
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
-- Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/engine/static_storage.cpp`, `core/spatial/reaction_graph.cpp`
+- Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/engine/static_storage.cpp`, `core/spatial/reaction_graph.cpp`, `core/render/scan/mesh_capture.cpp`
 - Include paths: repository root only (root-qualified includes)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output
@@ -1348,6 +1348,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── scan.h                  Scanline rasterizer: umbrella over scan/
 │   │   ├── scan/                   Per-family scan headers (raster, shapes, mesh,
 │   │   │                            shader, volume, column_basis)
+│   │   ├── scan/mesh_capture.cpp    Per-face column-time capture of deforming meshes
 │   │   ├── plot.h                  Curve rasterizer: umbrella over plot/
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)

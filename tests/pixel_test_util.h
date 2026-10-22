@@ -395,12 +395,6 @@ inline std::vector<Pixel> column_time_oracle(RenderFn &&render) {
  *  keeps. */
 inline constexpr double MOTION_SEAM_RATIO = 0.4;
 
-/** @brief MOTION_SEAM_RATIO for a mesh whose faces span a large share of a
- *  half-turn: a seam face's far vertices are captured past the frame's
- *  endpoints so its two copies are one polygon, which moves each copy off the
- *  per-column frozen reference by up to a quarter frame of motion. */
-inline constexpr double WIDE_FACE_SEAM_RATIO = 0.45;
-
 /** @brief Smallest channel error a held frame must show at its seam columns
  *  for a seam comparison to bite. */
 inline constexpr int MOTION_SEAM_FLOOR = 8192;

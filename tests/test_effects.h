@@ -534,71 +534,134 @@ inline void clip_clear_parity_one(
   hs::clear_mock_time();
 }
 
-/** @brief One capture window's copy of a face in a mesh deformation scan. */
+/** @brief Adjacent-column colour steps at the arm boundaries and mid-arm. */
+struct MeshSeamSteps {
+  double mean_arm_ratios = 0.0; ///< Sum of mean arm-boundary ratios.
+  double arm_ratios = 0.0; ///< Sum of the larger arm-boundary ratio per frame.
+  double interior_ratios = 0.0; ///< Sum of the mid-arm ratios.
+  int frames = 0;               ///< Consecutive frame pairs measured.
+
+  /**
+   * @brief Accumulates one pair of consecutive frames.
+   * @param previous Previous displayed frame.
+   * @param current Current displayed frame.
+   * @param width Frame width.
+   * @param height Frame height.
+   */
+  void add(const std::vector<Pixel> &previous,
+           const std::vector<Pixel> &current, int width, int height) {
+    const auto column_difference = [&](const auto &a, int x, const auto &b,
+                                       int z) {
+      double sum = 0.0;
+      for (int y = 0; y < height; ++y) {
+        const Pixel &p = a[size_t(y) * width + (x + width) % width];
+        const Pixel &q = b[size_t(y) * width + (z + width) % width];
+        sum += std::abs(int(p.r) - q.r) + std::abs(int(p.g) - q.g) +
+               std::abs(int(p.b) - q.b);
+      }
+      return sum;
+    };
+    double arm = 0.0, interior = 0.0, interior_neighbors = 0.0;
+    for (int boundary : {0, width / 2}) {
+      double neighbors = 0.0;
+      for (int j = 1; j <= 4; ++j) {
+        neighbors += column_difference(previous, boundary - j - 1, previous,
+                                       boundary - j);
+        neighbors +=
+            column_difference(current, boundary + j - 1, current, boundary + j);
+      }
+      const double seam =
+          column_difference(previous, boundary - 1, current, boundary);
+      if (neighbors > 0.0) {
+        const double ratio = seam / (neighbors / 8.0);
+        arm = std::max(arm, ratio);
+        mean_arm_ratios += ratio * 0.5;
+      }
+      const int middle = boundary + width / 4;
+      interior += column_difference(current, middle - 1, current, middle);
+      for (int j : {-3, -2, 1, 2})
+        interior_neighbors +=
+            column_difference(current, middle - 1 + j, current, middle + j);
+    }
+    arm_ratios += arm;
+    if (interior_neighbors > 0.0)
+      interior_ratios += interior / (interior_neighbors / 4.0);
+    ++frames;
+  }
+
+  /**
+   * @brief Checks boundary steps against their neighboring steps.
+   * @param label Effect name for the result.
+   * @param mean_bound Bound on the mean arm-boundary ratio.
+   * @param arm_bound Bound on the mean of each frame's larger arm ratio.
+   * @param interior_bound Bound on the mean mid-arm ratio.
+   */
+  void expect_continuous(const char *label, double mean_bound = 1.06,
+                         double arm_bound = 1.15,
+                         double interior_bound = 1.06) const {
+    HS_CONTEXT(label);
+    std::printf("  [%s] mean seam step %.3f x neighbors; mid-arm %.3f\n", label,
+                arm_ratios / frames, interior_ratios / frames);
+    std::printf("  mean across arms %.3f\n", mean_arm_ratios / frames);
+    HS_EXPECT_GT(frames, 0);
+    HS_EXPECT_LE(mean_arm_ratios / frames, mean_bound);
+    HS_EXPECT_LE(arm_ratios / frames, arm_bound);
+    HS_EXPECT_LE(interior_ratios / frames, interior_bound);
+  }
+};
+
+/** @brief One arm side's copy of a face in a mesh deformation scan. */
 struct FaceCopy {
   std::vector<uint16_t> indices;     ///< The face's vertex indices.
   std::vector<math::Vector> polygon; ///< Its scanned vertices, model space.
   float size = 0.0f;                 ///< Inradius the scan shaded it with.
-  bool seam = true; ///< Whether every vertex stands near the arm boundary,
-                    ///< clear of the polar hold band.
 };
 
-/** @brief A deformation scan's face copies: early window, then late, by face. */
+/** @brief A deformation scan's face copies: first arm, then second, by face. */
 using FaceCopies = std::array<std::map<size_t, FaceCopy>, 2>;
 
-/// Arm fraction from the arm boundary within which a seam face's vertices
-/// stand at the current endpoint.
-inline constexpr float SEAM_COPY_SPAN = 0.15f;
-
-/// Frame fraction past either endpoint within which a seam face's vertices
-/// are captured.
-inline constexpr float SEAM_EXTRAPOLATION = 0.25f;
-static_assert(SEAM_COPY_SPAN +
-                      Scan::MAX_VERTEX_MOTION_PIXELS / (DEFAULT_W / 2) <
-                  SEAM_EXTRAPOLATION,
-              "a seam vertex's capture must stay within SEAM_EXTRAPOLATION");
+/// Largest extrapolation of a nonpolar face's contiguous capture branch.
+inline constexpr float SEAM_EXTRAPOLATION = 1.0f;
 
 /**
- * @brief Records the faces a deformation scan's open capture window draws.
+ * @brief Records the faces a deformation scan draws on one arm.
  * @tparam CAP Orientation history capacity.
  * @param canvas Canvas inside the scan.
- * @param mesh The scanned mesh, at the window's captured vertices.
- * @param endpoint The mesh's vertices at the current endpoint, camera space.
- * @param reach Vertex motion bound the scan holds polar vertices by.
+ * @param mesh The scanned mesh, at the scan's captured vertices.
  * @param orientation Camera at the current endpoint.
- * @param copies Receives the window's copies.
- * @return The window's index in @p copies, or -1 outside a capture window.
+ * @param copies Receives the arm's copies.
+ * @return The arm, or -1 for a scan its render-x window does not hold to
+ *         one arm.
  */
 template <int CAP>
 inline int record_face_copies(const Canvas &canvas, const MeshState &mesh,
-                              const std::vector<math::Vector> &endpoint,
-                              float reach,
                               const math::Orientation<CAP> &orientation,
                               FaceCopies &copies) {
   const ColumnWindow &window = canvas.render_x_window();
   const Temporal::ColumnTime *time = canvas.column_time();
-  if (!window.active || !time || !time->selected_faces)
+  const int arm = window.arm(canvas.width());
+  if (!window.active || arm < 0 || !time || !time->selected_faces)
     return -1;
-  const int w = window.begin == 0 ? 0 : 1;
-  const Scan::CaptureHold hold = Scan::CaptureHold::of(*time, reach);
   for (size_t f = 0; f < mesh.num_faces(); ++f) {
     if (time->selected_faces[f] != Temporal::MESH_FACE_WINDOW)
       continue;
-    FaceCopy &copy = copies[w][f];
+    FaceCopy &copy = copies[arm][f];
+    copy = FaceCopy{};
+    if (const Temporal::MeshFaceCopy *own = time->face_copy) {
+      for (size_t k = 0; k < own->count; ++k) {
+        copy.indices.push_back(own->sources[k]);
+        copy.polygon.push_back(orientation.unorient(own->vertices[k]));
+      }
+      continue;
+    }
     const uint16_t *face =
         mesh.get_faces_data() + mesh.get_face_offsets_data()[f];
     for (size_t k = 0; k < mesh.get_face_counts_data()[f]; ++k) {
-      const math::Vector &end = endpoint[face[k]];
-      const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
-      const float turns = atan2f(end.z, end.x) / math::PI_F;
-      const float fraction = turns - floorf(turns);
-      copy.seam &= horizontal > 2.0f * hold.bound &&
-                   fminf(fraction, 1.0f - fraction) < SEAM_COPY_SPAN;
       copy.indices.push_back(face[k]);
       copy.polygon.push_back(orientation.unorient(mesh.vertices[face[k]]));
     }
   }
-  return w;
+  return arm;
 }
 
 /**
@@ -704,62 +767,99 @@ inline int face_colour_bound(size_t face, float size, float shift,
 inline constexpr int SEAM_CHECK_COLUMNS = 3;
 
 /**
- * @brief Checks that one frame's late copies and the next frame's early
- *        copies of the faces across the arm boundary are one polygon that
- *        shades alike.
+ * @brief Checks that one frame's copies before an arm boundary and the next
+ *        frame's copies after it are one polygon there that shades alike.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
  * @tparam EffectT Effect owning the display.
  * @tparam ToleranceFn Callable (uint16_t vertex) returning the bound on that
- *         vertex's gap between the copies (radians of chord), or infinity for
- *         a vertex no bound covers.
+ *         vertex's gap between the copies (radians of chord).
  * @tparam SetupFn As render_face_copies() takes it.
  * @param effect Effect whose display renders the copies.
  * @param label Draw named in failure context.
- * @param late Frame N's copies.
- * @param early Frame N+1's copies.
+ * @param seam The boundary's first column after it: 0 or W / 2.
+ * @param late Frame N's copies on the arm the boundary ends.
+ * @param early Frame N+1's copies on the arm the boundary starts.
  * @param camera Camera the copies' colours are compared through.
  * @param tolerance Per-vertex gap bound.
  * @param setup Shades each face as its effect does.
  * @return The number of faces compared.
- * @details Compares the seam faces whose every vertex has a bound. A face's
- * edge depth and inradius move by at most twice its largest vertex gap, the
- * gnomonic stretch of a face within a quarter turn of its centre; colours
+ * @details Compares the faces the boundary's columns reach. A face's edge
+ * depth and inradius move by at most twice its largest vertex gap, the
+ * gnomonic stretch of a face within a quarter turn of its centre. Colours
  * are compared on the boundary columns' pixels a pixel clear of every edge.
+ * Faces around a pole draw once and leave no copies.
  */
 template <int W, int H, typename EffectT, typename ToleranceFn,
           typename SetupFn>
-inline size_t expect_seam_copies_match(EffectT &effect, const char *label,
-                                       const std::map<size_t, FaceCopy> &late,
-                                       const std::map<size_t, FaceCopy> &early,
-                                       const math::Quaternion &camera,
-                                       ToleranceFn &&tolerance,
-                                       SetupFn &&setup) {
+inline size_t
+expect_seam_copies_match(EffectT &effect, const char *label, int seam,
+                         const std::map<size_t, FaceCopy> &late,
+                         const std::map<size_t, FaceCopy> &early,
+                         const math::Quaternion &camera,
+                         ToleranceFn &&tolerance, SetupFn &&setup) {
   HS_CONTEXT(label);
+  HS_CONTEXT("seam column", seam);
   constexpr float PIXEL = math::TWO_PI_F / W;
+  // Sign of x along the boundary's meridian.
+  const float side = seam == 0 ? 1.0f : -1.0f;
   std::vector<size_t> faces;
   std::vector<int> colour_bounds;
   float worst_gap = 0.0f, worst_ratio = 0.0f, worst_size = 0.0f;
   for (const auto &[f, before] : late) {
     const auto after = early.find(f);
-    if (after == early.end() || !before.seam || !after->second.seam ||
-        before.size <= 0.0f || after->second.size <= 0.0f)
+    if (after == early.end() || before.size <= 0.0f ||
+        after->second.size <= 0.0f)
       continue;
-    HS_EXPECT_TRUE(before.indices == after->second.indices);
-    if (before.indices != after->second.indices)
+    const auto seen = [&](const FaceCopy &copy) {
+      std::vector<math::Vector> out;
+      for (const auto &v : copy.polygon)
+        out.push_back(math::rotate(v, camera));
+      return out;
+    };
+    const std::vector<math::Vector> a = seen(before), b = seen(after->second);
+    // A face meets the boundary when an edge crosses its meridian, or when
+    // it lies within the checked columns on the boundary's side.
+    const auto touches_seam = [&](const std::vector<math::Vector> &polygon) {
+      float lo = 2.0f, hi = -2.0f, middle = 0.0f;
+      for (size_t k = 0; k < polygon.size(); ++k) {
+        const math::Vector &p = polygon[k];
+        const math::Vector &q = polygon[(k + 1) % polygon.size()];
+        lo = fminf(lo, p.z);
+        hi = fmaxf(hi, p.z);
+        middle += p.x;
+        if (p.z * q.z <= 0.0f && p.z != q.z &&
+            (p.x + (q.x - p.x) * p.z / (p.z - q.z)) * side > 0.0f)
+          return true;
+      }
+      const float fringe = sinf(SEAM_CHECK_COLUMNS * PIXEL);
+      return lo <= fringe && hi >= -fringe && middle * side > 0.0f;
+    };
+    if (!touches_seam(a) && !touches_seam(b))
+      continue;
+    // A face copy starts at its first vertex on its arm.
+    const size_t n = before.indices.size();
+    size_t offset = n;
+    for (size_t o = 0; o < n && offset == n; ++o) {
+      bool same = after->second.indices.size() == n;
+      for (size_t k = 0; k < n && same; ++k)
+        same = before.indices[k] == after->second.indices[(k + o) % n];
+      if (same)
+        offset = o;
+    }
+    HS_EXPECT_LT(offset, n);
+    if (offset == n)
       continue;
     float face_tolerance = 0.0f;
-    for (uint16_t i : before.indices)
-      face_tolerance = fmaxf(face_tolerance, tolerance(i));
-    if (std::isinf(face_tolerance))
-      continue;
-    for (size_t k = 0; k < before.polygon.size(); ++k) {
+    for (size_t k = 0; k < n; ++k) {
+      const size_t j = (k + offset) % n;
       const float gap = sqrtf(
-          math::distance_squared(before.polygon[k], after->second.polygon[k]));
+          math::distance_squared(before.polygon[k], after->second.polygon[j]));
       const float bound = tolerance(before.indices[k]);
       HS_EXPECT_LE(gap, bound);
       worst_gap = fmaxf(worst_gap, gap);
       worst_ratio = fmaxf(worst_ratio, gap / bound);
+      face_tolerance = fmaxf(face_tolerance, bound);
     }
     const float size_gap = fabsf(before.size - after->second.size);
     HS_EXPECT_LE(size_gap, 2.0f * face_tolerance);
@@ -790,28 +890,54 @@ inline size_t expect_seam_copies_match(EffectT &effect, const char *label,
   };
   int colour = 0, excess = 0, interior = 0;
   for (int y = 0; y < H; ++y)
-    for (int seam : {0, W / 2})
-      for (int c = -SEAM_CHECK_COLUMNS; c < SEAM_CHECK_COLUMNS; ++c) {
-        const int x = (seam + c + W) % W;
-        const int id = face_at(x, y);
-        if (id == 0)
-          continue;
-        ++interior;
-        const size_t i = static_cast<size_t>(y) * W + x;
-        const int difference =
-            std::max({std::abs(int(left[i].r) - right[i].r),
-                      std::abs(int(left[i].g) - right[i].g),
-                      std::abs(int(left[i].b) - right[i].b)});
-        colour = std::max(colour, difference);
-        excess = std::max(excess, difference - colour_bounds[id - 1]);
-      }
-  std::printf("  [%s] %zu seam faces: vertex gap %.4f px (%.3f of bound), "
-              "inradius %.5f, colour %.3f steps over %d interior pixels\n",
-              label, faces.size(), worst_gap / PIXEL, worst_ratio, worst_size,
-              colour / 257.0, interior);
-  HS_EXPECT_GT(interior, 0);
+    for (int c = -SEAM_CHECK_COLUMNS; c < SEAM_CHECK_COLUMNS; ++c) {
+      const int x = (seam + c + W) % W;
+      const int id = face_at(x, y);
+      if (id == 0)
+        continue;
+      ++interior;
+      const size_t i = static_cast<size_t>(y) * W + x;
+      const int difference = std::max({std::abs(int(left[i].r) - right[i].r),
+                                       std::abs(int(left[i].g) - right[i].g),
+                                       std::abs(int(left[i].b) - right[i].b)});
+      colour = std::max(colour, difference);
+      excess = std::max(excess, difference - colour_bounds[id - 1]);
+    }
+  std::printf("  [%s, seam %d] %zu faces: vertex gap %.4f px "
+              "(%.3f of bound), inradius %.5f, colour %.3f steps over %d "
+              "interior pixels\n",
+              label, seam, faces.size(), worst_gap / PIXEL, worst_ratio,
+              worst_size, colour / 257.0, interior);
   HS_EXPECT_LE(excess, 0);
-  return faces.size();
+  return interior > 0 ? faces.size() : 0;
+}
+
+/**
+ * @brief expect_seam_copies_match() at both arm boundaries.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam EffectT Effect owning the display.
+ * @tparam ToleranceFn As expect_seam_copies_match() takes it.
+ * @tparam SetupFn As render_face_copies() takes it.
+ * @param effect Effect whose display renders the copies.
+ * @param label Draw named in failure context.
+ * @param frames Frame N's and frame N+1's copies.
+ * @param camera Camera at the frames' shared endpoint.
+ * @param tolerance Per-vertex gap bound.
+ * @param setup Shades each face as its effect does.
+ * @return The number of faces compared, over both boundaries.
+ */
+template <int W, int H, typename EffectT, typename ToleranceFn,
+          typename SetupFn>
+inline size_t expect_seams_match(EffectT &effect, const char *label,
+                                 const std::array<FaceCopies, 2> &frames,
+                                 const math::Quaternion &camera,
+                                 ToleranceFn &&tolerance, SetupFn &&setup) {
+  return expect_seam_copies_match<W, H>(effect, label, W / 2, frames[0][0],
+                                        frames[1][1], camera, tolerance,
+                                        setup) +
+         expect_seam_copies_match<W, H>(effect, label, 0, frames[0][1],
+                                        frames[1][0], camera, tolerance, setup);
 }
 
 /**
@@ -855,8 +981,8 @@ inline float seam_capture_slack(float motion, float turn, float horizontal) {
  * @param turn Largest camera rotation over either frame (radians).
  * @return The paths' largest gap within SEAM_EXTRAPOLATION of the shared
  *         endpoint, which is second order in the motion, plus the vertex's
- *         motion over seam_capture_slack(); infinity for a vertex that moves
- *         yet either frame holds at its endpoint.
+ *         motion over seam_capture_slack(), one column interval, and any
+ *         endpoint-held motion.
  */
 template <int W, typename LateFn, typename EarlyFn>
 inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
@@ -875,11 +1001,11 @@ inline float seam_vertex_tolerance(LateFn &&late, EarlyFn &&early,
   const float after = gap(early(0.0f), early(1.0f));
   const float motion = fmaxf(before, after);
   const bool held = fminf(before, after) <= Scan::HELD_VERTEX_ARC<W>;
-  if (held && motion > FLOAT_ROUNDING)
-    return std::numeric_limits<float>::infinity();
+  const float held_slack = held ? motion : 0.0f;
   const math::Vector seen = math::rotate(late(1.0f), camera);
   const float horizontal = sqrtf(seen.x * seen.x + seen.z * seen.z);
-  return paths + seam_capture_slack(motion, turn, horizontal) * motion +
+  return held_slack + paths +
+         (seam_capture_slack(motion, turn, horizontal) + 2.0f / W) * motion +
          FLOAT_ROUNDING;
 }
 
@@ -907,6 +1033,7 @@ inline void run_islamicstars_cases() {
   run_case(test_islamicstars_opacity_shades_at_column_time);
   run_case(test_islamicstars_ripple_motion_is_seam_free);
   run_case(test_islamicstars_seam_copies_are_one_polygon);
+  run_case(test_islamicstars_playback_motion_is_seam_free);
   run_case(test_islamicstars_build_legs_hand_their_path);
   run_case(test_islamicstars_opacity_history);
   run_case(test_islamicstars_burst_size_is_snapshotted_per_spawn);

@@ -152,9 +152,12 @@ inline int run_scan_tests() {
   test_capture_window_runs();
   test_capture_window_faces();
   test_mesh_capture_vertex();
+  test_vertex_arc_and_reach_flags();
   test_mesh_capture_reuse();
+  test_mesh_seam_face_copies();
+  test_mesh_wide_face_copies();
   test_mesh_deformation_shared_edges();
-  test_mesh_deformation_window_pixels();
+  test_mesh_polar_face_windows();
   test_mesh_motion_activation();
   test_recorded_face_caps_match_measured_columns();
   test_moving_faces_outside_clip_rows_hold();
