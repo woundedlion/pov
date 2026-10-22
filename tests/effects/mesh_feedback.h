@@ -18,10 +18,9 @@ struct MeshFeedbackWhiteBox {
    * @param motion Frame rotation angle in radians.
    * @param pixels Optional exact RGB framebuffer output.
    * @return Row-major linear luminance. */
-  static std::vector<float>
-  render_temporal_source(bool timed, float fraction, float displacement,
-                         float motion = 0.012f,
-                         std::vector<Pixel> *pixels = nullptr) {
+  static std::vector<float> render_temporal_source(
+      bool timed, float fraction, float displacement, float motion = 0.012f,
+      std::vector<Pixel> *pixels = nullptr, bool still_route = false) {
     reset_effect_globals();
     MeshFeedback<DEFAULT_W, DEFAULT_H> fx;
     fx.init();
@@ -40,8 +39,8 @@ struct MeshFeedbackWhiteBox {
             pipeline(Filter::World::Orient(fx.orientation),
                      Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
         pipeline.init_storage(persistent_arena);
-        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(pipeline, canvas, fx.mesh,
-                                                     fx.edges, shader);
+        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
+            pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
       } else {
         const auto pose = fx.orientation.get(fraction);
         fx.orientation.set(pose);
@@ -58,8 +57,12 @@ struct MeshFeedbackWhiteBox {
             pipeline(Filter::World::Orient(fx.orientation),
                      Filter::Screen::AntiAlias<DEFAULT_W, DEFAULT_H>{});
         pipeline.init_storage(persistent_arena);
-        Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
-            pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
+        if (still_route)
+          Plot::Mesh::draw<DEFAULT_W, DEFAULT_H>(
+              pipeline, canvas, fx.mesh, fx.edges, FragmentShaderFn(shader));
+        else
+          Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
+              pipeline, canvas, fx.mesh, fx.edges, shader, MF::MESH_GEOMETRY);
       }
     }
     fx.advance_display();
@@ -318,19 +321,26 @@ inline void test_meshfeedback_temporal_source_oracle() {
   Temporal::set_temporal_sampling_enabled(enabled);
 }
 
-/** @brief Stationary timed source edges preserve every ordinary mesh tap. */
+/** @brief A still orientation draws the source through the column walk as
+ * its frozen frame does, lighting the still route's footprint. */
 inline void test_meshfeedback_stationary_timed_source() {
-  std::vector<Pixel> timed, ordinary;
+  std::vector<Pixel> timed, frozen, still;
   Temporal::geometry_counters = {};
   MeshFeedbackWhiteBox::render_temporal_source(true, 1.0f, 0.0f, 0.0f, &timed);
-  HS_EXPECT_GT(Temporal::geometry_counters.end_probes, 0u);
-  HS_EXPECT_GT(Temporal::geometry_counters.parts, 0u);
+  HS_EXPECT_GT(Temporal::geometry_counters.column_draw_setups, 0u);
+  HS_EXPECT_EQ(Temporal::geometry_counters.legacy_edge_walks, 0u);
   MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f,
-                                               &ordinary);
-  size_t differences = 0;
-  for (size_t i = 0; i < timed.size(); ++i)
-    if (timed[i].r != ordinary[i].r || timed[i].g != ordinary[i].g ||
-        timed[i].b != ordinary[i].b)
-      ++differences;
+                                               &frozen);
+  MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f, &still,
+                                               true);
+  size_t differences = 0, lit = 0, still_lit = 0;
+  for (size_t i = 0; i < timed.size(); ++i) {
+    differences += timed[i].r != frozen[i].r || timed[i].g != frozen[i].g ||
+                   timed[i].b != frozen[i].b;
+    lit += timed[i].r > 0;
+    still_lit += still[i].r > 0;
+  }
   HS_EXPECT_EQ(differences, size_t{0});
+  HS_EXPECT_GT(lit * 100, still_lit * 97);
+  HS_EXPECT_LT(lit * 100, still_lit * 103);
 }

@@ -264,11 +264,21 @@ public:
       const Color4 shade = mesh_shade;
       Plot::Mesh::draw_timed<W, H>(
           frame_filters, canvas, mesh, edges,
-          [&](const math::Vector &, Fragment &f) { f.color = shade; });
+          [&](const math::Vector &, Fragment &f) { f.color = shade; },
+          MESH_GEOMETRY);
     }
   }
 
 private:
+  /** @brief The mesh's geometry: rigid under the orientation, drawn by
+   *  column, its shader reading no position. */
+  static constexpr Plot::GeometryCallback MESH_GEOMETRY = [] {
+    Plot::GeometryCallback geometry;
+    geometry.column_edges = true;
+    geometry.source_positions = false;
+    return geometry;
+  }();
+
   friend Choreography;
   friend struct ::hs_test::effects_tests::MeshFeedbackWhiteBox;
 
