@@ -994,35 +994,6 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
 }
 
 /**
- * @brief walk_clip_columns() for a large always-inline body.
- * @tparam W Canvas width in pixels.
- * @tparam BodyFn Callable (int x).
- * @param xc Column-arc clip.
- * @param body Sink receiving each surviving column, in the same order
- *        walk_clip_columns() visits them.
- * @details Walks both arc pieces in one loop, so the body is emitted once.
- */
-template <int W, typename BodyFn>
-__attribute__((always_inline)) inline void
-walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
-  auto [lo, hi, pieces] = clip_pieces<W>(xc);
-  if (pieces == 0)
-    return;
-  int x = lo[0];
-  int end = hi[0];
-  for (;;) {
-    if (x == end) {
-      if (--pieces == 0)
-        return;
-      x = lo[1];
-      end = hi[1];
-    }
-    body(x);
-    ++x;
-  }
-}
-
-/**
  * @brief Walks the sweep times whose columns a clip arc admits.
  * @tparam W Even canvas width in pixels.
  * @tparam BodyFn Callable (int c, bool near, bool far).
