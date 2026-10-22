@@ -266,6 +266,38 @@ static_assert(sizeof(PointParticle) == 24);
 inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
 
 /**
+ * @brief Direction a point particle's last step started from.
+ * @param position Current unit direction.
+ * @param velocity Velocity after the step, tangent to @p position.
+ * @param motion_cap The step's angle cap, radians; at most 0.5.
+ * @return @p position turned back along @p velocity by the step's angle
+ *         `s = min(|velocity|, motion_cap)`.
+ * @details A step turns the particle and its velocity together along one
+ * great circle, so the start is `position * cos(s) - velocity * sin(s) /
+ * |velocity|`, evaluated by series in `s^2` that are exact in float for
+ * `s <= 0.5`.
+ */
+HS_HOT_INLINE inline math::Vector
+particle_step_start(const math::Vector &position, const math::Vector &velocity,
+                    float motion_cap) {
+  const float speed_sq = math::dot(velocity, velocity);
+  float step_sq = speed_sq;
+  float along = 1.0f;
+  if (speed_sq > motion_cap * motion_cap) {
+    step_sq = motion_cap * motion_cap;
+    along = motion_cap / sqrtf(speed_sq);
+  }
+  const float cosine =
+      1.0f -
+      step_sq * (0.5f - step_sq * (1.0f / 24.0f - step_sq * (1.0f / 720.0f)));
+  const float sine_per_speed =
+      along *
+      (1.0f - step_sq * (1.0f / 6.0f - step_sq * (1.0f / 120.0f -
+                                                  step_sq * (1.0f / 5040.0f))));
+  return position * cosine - velocity * sine_per_speed;
+}
+
+/**
  * @brief A point attractor influencing nearby particles.
  */
 struct Attractor {

@@ -485,6 +485,62 @@ inline void test_point_particle_storage_and_lifetime() {
   HS_EXPECT_EQ(ps.active(), 0);
 }
 
+/** @brief A point particle's last step turns back to where it started, with
+ *         and without its angle capped. */
+inline void test_point_particle_step_start_recovers_previous_position() {
+  constexpr int COUNT = 64;
+  static uint8_t storage[64 * 1024];
+  Arena arena(storage, sizeof(storage));
+  Animation::ParticleSystem<288, COUNT, 0, 1, 6, true, 1,
+                            Animation::PointParticle>
+      ps;
+  ps.init(arena, 0.99965f, 0.001f, 800.0f);
+  add_signed_axis_attractors(ps, 0.1f, 0.008f, 0.0f);
+  uint32_t state = 3u;
+  auto uniform = [&](float lo, float hi) {
+    state = state * 1664525u + 1013904223u;
+    return lo + (hi - lo) * float(state >> 8) * (1.0f / 16777216.0f);
+  };
+  for (int i = 0; i < COUNT; ++i) {
+    const math::Vector p =
+        math::Vector(uniform(-1.0f, 1.0f), uniform(-1.0f, 1.0f),
+                     uniform(-1.0f, 1.0f))
+            .normalized();
+    const math::Vector v =
+        math::Vector(uniform(-1.0f, 1.0f), uniform(-1.0f, 1.0f),
+                     uniform(-1.0f, 1.0f)) *
+        uniform(0.005f, 0.05f);
+    ps.spawn(p, v, uint16_t(i));
+  }
+  std::array<math::Vector, COUNT> before{};
+  std::array<uint16_t, COUNT> seed{};
+  int checked = 0, capped = 0;
+  float worst = 0.0f;
+  for (float cap : {0.04f, 0.01f}) {
+    ps.motion_cap = cap;
+    for (int frame = 0; frame < 4; ++frame) {
+      for (int i = 0; i < ps.active(); ++i) {
+        before[i] = ps.pool[i].get_position();
+        seed[i] = ps.pool[i].color_seed;
+      }
+      ps.step(fake_canvas());
+      for (int i = 0; i < ps.active(); ++i) {
+        const auto &p = ps.pool[i];
+        if (p.color_seed != seed[i])
+          continue;
+        const math::Vector start =
+            Animation::particle_step_start(p.get_position(), p.velocity, cap);
+        worst = fmaxf(worst, (start - before[i]).magnitude());
+        capped += p.velocity.magnitude() > cap;
+        ++checked;
+      }
+    }
+  }
+  HS_EXPECT_GT(checked, 400);
+  HS_EXPECT_GT(capped, 50);
+  HS_EXPECT_LE(worst, 2e-6f);
+}
+
 /**
  * @brief Verifies a registered emitter runs on every ParticleSystem::step and
  * can spawn into the pool.

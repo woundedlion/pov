@@ -14,6 +14,7 @@
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
+#include "core/render/temporal/vertex_motion.h"
 
 namespace hs_test {
 namespace effects_tests {
@@ -329,40 +330,57 @@ private:
   }
 
   /**
-   * @brief Renders particles, then glowing or black-hole cores, each core
-   *        column at its sweep-time orientation.
+   * @brief Renders particles, each at the time its column is lit, then
+   *        glowing or black-hole cores, each core column at its sweep-time
+   *        orientation.
    * @param canvas Target canvas.
    */
-  void draw_particles(Canvas &canvas) {
+  HS_HOT_FLASH_MEMBER void draw_particles(Canvas &canvas) {
     HS_PROFILE(gx_draw_particles);
     const math::RotationMatrix rotation(orientation.get());
+    const math::RotationMatrix previous_rotation(orientation.get(0));
     const float cos_core = cosf(CORE_FADE_RADIUS);
     const float inv_core_span = 1.0f / (1.0f - cos_core);
     const float max_life = static_cast<float>(particle_system.max_life);
     const float alpha = params.alpha;
     const float winding = 1.0f / tanf(params.arm_pitch);
+    const float motion_cap = particle_system.motion_cap;
 
     filters.prepare(canvas);
+    stars.prepare(canvas, motion_cap + Temporal::rotation_chord_bound(
+                                           previous_rotation, rotation));
     for (int i = 0; i < particle_system.active(); ++i) {
       const auto &p = particle_system.pool[i];
-      const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
       const math::Vector position = p.get_position();
-      const float cos_distance = math::dot(position, galaxy.core);
-      const float fade_core =
-          cos_distance < cos_core
-              ? 1.0f
-              : core_fade((1.0f - cos_distance) * inv_core_span);
+      const math::Vector end = rotation.apply(position);
       const float age = max_life - static_cast<float>(p.life);
-      const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
-      const float fade_out =
-          hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
-      const float arm = age < ARM_FADE_END ? arm_density(position, galaxy,
-                                                         cos_distance, winding)
-                                           : 0.0f;
-      Color4 c = star_color(p.color_seed);
-      c.alpha *= fade_core * fade_in * fade_out *
-                 particle_alpha(p.color_seed, age, arm) * alpha;
-      filters.plot(canvas, rotation.apply(position), c.color, 0.0f, c.alpha);
+      // A particle spawned this frame has no earlier position.
+      auto start = [&]() HS_HOT_INLINE {
+        return age < 2.0f
+                   ? end
+                   : previous_rotation.apply(Animation::particle_step_start(
+                         position, p.velocity, motion_cap));
+      };
+      auto shade = [&]() HS_HOT_INLINE {
+        const Galaxy &galaxy = galaxies[p.color_seed & 0xff];
+        const float cos_distance = math::dot(position, galaxy.core);
+        const float fade_core =
+            cos_distance < cos_core
+                ? 1.0f
+                : core_fade((1.0f - cos_distance) * inv_core_span);
+        const float fade_in = hs::clamp(age / FADE_IN_FRAMES, 0.0f, 1.0f);
+        const float fade_out =
+            hs::clamp(static_cast<float>(p.life) / FADE_OUT_FRAMES, 0.0f, 1.0f);
+        const float arm =
+            age < ARM_FADE_END
+                ? arm_density(position, galaxy, cos_distance, winding)
+                : 0.0f;
+        Color4 c = star_color(p.color_seed);
+        c.alpha *= fade_core * fade_in * fade_out *
+                   particle_alpha(p.color_seed, age, arm) * alpha;
+        return c;
+      };
+      stars.plot(filters, canvas, end, start, shade);
     }
 
     // Scan::Point leaves its quintic coverage in v2.
@@ -394,6 +412,7 @@ private:
   math::Orientation<> orientation;
   FastNoiseLite noise;
   Filter::Screen::DirectAntiAliasSink<W, H> filters;
+  Plot::PointRoute<W, H> stars; ///< Star clip gate and column-time splat.
   ParticleSystem particle_system;
   std::array<Galaxy, NUM_GALAXIES> galaxies;
   /**
