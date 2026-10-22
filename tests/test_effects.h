@@ -1056,6 +1056,7 @@ inline void measure_mesh_capture_work() {
       add(total.seam_faces, peak.seam_faces, work.seam_faces);
       add(total.cross_faces, peak.cross_faces, work.cross_faces);
       add(total.polar_faces, peak.polar_faces, work.polar_faces);
+      add(total.swept_faces, peak.swept_faces, work.swept_faces);
       add(total.face_copies, peak.face_copies, work.face_copies);
       add(total.split_vertices, peak.split_vertices, work.split_vertices);
       add(total.scans, peak.scans, work.scans);
@@ -1067,16 +1068,18 @@ inline void measure_mesh_capture_work() {
         "  [capture work %s] frames=%d, total/peak per frame:\n"
         "    moving vertices %zu/%zu evaluations %zu/%zu captures %zu/%zu\n"
         "    shared faces %zu/%zu seam copies %zu/%zu cross %zu/%zu polar "
-        "%zu/%zu face copies %zu/%zu split vertices %zu/%zu\n"
+        "%zu/%zu (swept %zu/%zu) face copies %zu/%zu split vertices "
+        "%zu/%zu\n"
         "    scans %zu/%zu face setups %zu/%zu pixels tested %zu/%zu "
         "shaded %zu\n",
         name, measured, total.vertices, peak.vertices, total.evaluations,
         peak.evaluations, total.captures, peak.captures, total.shared_faces,
         peak.shared_faces, total.seam_faces, peak.seam_faces, total.cross_faces,
         peak.cross_faces, total.polar_faces, peak.polar_faces,
-        total.face_copies, peak.face_copies, total.split_vertices,
-        peak.split_vertices, total.scans, peak.scans, total.face_setups,
-        peak.face_setups, pixels, pixel_peak, shaded);
+        total.swept_faces, peak.swept_faces, total.face_copies,
+        peak.face_copies, total.split_vertices, peak.split_vertices,
+        total.scans, peak.scans, total.face_setups, peak.face_setups, pixels,
+        pixel_peak, shaded);
   };
   for (const uint8_t node :
        {ConwayGraph::TRUNCATED_ICOSIDODECAHEDRON,
@@ -1172,21 +1175,22 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
     if (report && w.deformations)
       std::printf(
           "  f %d deform %zu moving %zu path evaluations %zu (scan %zu) "
-          "captures %zu polar %zu copies %zu\n",
+          "captures %zu polar %zu swept %zu copies %zu\n",
           frame, w.deformations, w.vertices,
           IslamicBuildProbe::vertex_passes<W, H>() - passes, w.evaluations,
-          w.captures, w.polar_faces, w.face_copies);
+          w.captures, w.polar_faces, w.swept_faces, w.face_copies);
     window.deformations += w.deformations;
     window.vertices += w.vertices;
     window.evaluations += w.evaluations;
     window.polar_faces += w.polar_faces;
+    window.swept_faces += w.swept_faces;
     window.face_copies += w.face_copies;
     if (report && frame % WINDOW == 0)
-      std::printf("  window %d-%d: deform %zu polar %zu copies %zu moving %zu "
-                  "evaluations %zu probes %zu\n",
+      std::printf("  window %d-%d: deform %zu polar %zu swept %zu copies %zu "
+                  "moving %zu evaluations %zu probes %zu\n",
                   frame - WINDOW + 1, frame, window.deformations,
-                  window.polar_faces, window.face_copies, window.vertices,
-                  window.evaluations, probes);
+                  window.polar_faces, window.swept_faces, window.face_copies,
+                  window.vertices, window.evaluations, probes);
     if (frame % WINDOW == 0) {
       window = {};
       probes = 0;

@@ -1144,7 +1144,13 @@ struct MeshCaptureCounters {
   size_t shared_faces = 0;   ///< Moving faces scanned once in the shared pass.
   size_t seam_faces = 0;     ///< Seam-face copies in the arms' shared passes.
   size_t cross_faces = 0;    ///< Faces drawn in copies of their own per arm.
-  size_t polar_faces = 0;    ///< Faces reaching a pole, drawn per half arm.
+  size_t polar_faces = 0;    ///< Faces reaching a pole.
+  size_t swept_faces = 0;    ///< Polar faces swept column pair by column pair.
+  size_t sweep_columns = 0;  ///< Column pairs those sweeps scanned.
+  size_t sweep_rows = 0;     ///< Rows those column pairs scanned, per arm.
+  size_t sweep_tests = 0;    ///< Column pairs the sweeps tested.
+  size_t sweep_pixels = 0;   ///< Probes of those rows within a pixel of a face.
+  size_t sweep_probes = 0;   ///< Probes those sweeps made.
   size_t face_copies = 0;    ///< Faces scanned alone.
   size_t split_vertices = 0; ///< Vertices a face copy draws twice.
   size_t scans = 0;          ///< Mesh scan invocations.
@@ -1197,10 +1203,11 @@ HS_HOT_INLINE math::Vector capture_vertex(uint16_t start, uint16_t end,
   return vertex(u);
 }
 
-/** @brief Contiguous arm-time interval of a nonpolar face. */
+/** @brief Contiguous arm-time interval of a face. */
 struct FaceCaptureInterval {
   float lo; ///< First vertex fraction; negative for polar faces.
-  float hi; ///< Last unwrapped vertex fraction.
+  float hi; ///< Last unwrapped vertex fraction; a polar face's azimuth span
+            ///< in half turns, 2 for one winding about the pole.
 };
 
 /**
@@ -1215,6 +1222,7 @@ struct FaceCaptureInterval {
  *         winds about a pole, spans a half turn or reaches the pole: its
  *         fastest vertex's reach, with the basis's sweep, reaches a quarter
  *         of a right angle about the polar axis from one of its vertices.
+ *         A polar face's upper bound is its azimuth span in half turns.
  */
 HS_HOT_FLASH_MEMBER FaceCaptureInterval face_capture_interval(
     const float *angles, size_t count, float reach, float nearest, float sweep);
@@ -1316,8 +1324,11 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &deformation);
  * there. A face every column pair's meridian can reach (one around a pole,
  * spanning half a turn, or reaching the pole by its vertices' motion) draws
  * in one scan per half of the arms, each of its vertices at its time nearest
- * the half's middle. A vertex whose motion can carry it a quarter of a right
- * angle about the polar axis holds at its endpoint.
+ * the half's middle; a vertex whose motion can carry it a quarter of a right
+ * angle about the polar axis holds at its endpoint. A polar face whose single
+ * placement would show a visible step draws one column pair at a time
+ * instead, each pair's face standing as at the pair's sweep time
+ * (Mesh::draw_face_sweep()).
  */
 template <int W, int H, typename VertexFn, typename ScanFn>
 HS_HOT_FLASH_MEMBER void
@@ -1345,6 +1356,479 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
                 scan_row_pad<W>(sweep) + reach,
                 clip_pieces<W>(canvas.render_x_clip()), callbacks});
 }
+
+/// Angle past a swept face's edges within which its column pairs shade: a
+/// column of antialiasing with slack.
+template <int W>
+inline constexpr float SWEEP_ROW_REACH = 1.25f * math::TWO_PI_F / W;
+
+/**
+ * @brief A face a deformation scan sweeps, standing at one column pair's
+ *        sweep time at a time.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @details Per frame it projects the face's vertices, as SDF::Face projects
+ * them, about the vertex centroid at the frame's middle, at the frame's
+ * start, middle and end, and fits each projected vertex, a convex face's
+ * half-planes and the face's size as quadratics in time through those
+ * three. Per column pair it evaluates the fits by Horner's rule and finds
+ * where the pair's meridian, a line in the projection, crosses the edges. A pixel is inside
+ * where the meridian, walked from the pole away from the face, has crossed
+ * an odd number of edges on the way to it; its distance is SDF::Face's: the
+ * worst half-plane's on a convex face, else the nearest projected edge's, in
+ * radians for a face whose size is. Its rows are those within
+ * SWEEP_ROW_REACH of the crossings and of the vertices near the meridian, on
+ * either arm and past either pole, and from the pole on when the face holds
+ * it.
+ */
+template <int W, int H> class SweptFace {
+public:
+  /**
+   * @brief Fits a sweep's face over the frame.
+   * @param sweep The face and its vertex paths.
+   * @param arena Arena holding the face's fits and per-column state for its
+   *        scope.
+   */
+  HS_HOT_FLASH_MEMBER SweptFace(const Temporal::MeshFaceSweep &sweep,
+                                Arena &arena)
+      : count(static_cast<int>(sweep.count)), north(sweep.north) {
+    edges = arena.allocate_n<Edge>(sweep.count);
+    planes = arena.allocate_n<Plane>(sweep.count);
+    motion = arena.allocate_n<Motion>(sweep.count);
+    line2 = arena.allocate_n<float>(sweep.count);
+    span = arena.allocate_n<Span>(sweep.count);
+    order = arena.allocate_n<uint8_t>(sweep.count);
+    for (int k = 0; k < count; ++k)
+      order[k] = static_cast<uint8_t>(k);
+    crossings[0] = arena.allocate_n<float>(sweep.count);
+    crossings[1] = arena.allocate_n<float>(sweep.count);
+    math::Vector middle(0.0f, 0.0f, 0.0f);
+    for (int k = 0; k < count; ++k)
+      middle = middle + sweep.paths[k].middle;
+    axis = unit(middle);
+    basis_u = math::perpendicular_axis(axis);
+    basis_w = unit(math::cross(axis, basis_u));
+    // The fitted quantities at the frame's start, middle and end.
+    float sizes[3];
+    bool convex_at[3];
+    for (int j = 0; j < 3; ++j) {
+      const float t = 0.5f * static_cast<float>(j);
+      math::Vector sum(0.0f, 0.0f, 0.0f);
+      for (int k = 0; k < count; ++k) {
+        const math::Vector v = sweep.paths[k].at(t);
+        sum = sum + v;
+        float px, py;
+        project(v, px, py);
+        edges[k].x = px;
+        edges[k].y = py;
+        motion[k].x.sample(j, px);
+        motion[k].y.sample(j, py);
+      }
+      float area2 = 0.0f, radius2 = 0.0f;
+      stand_edges(area2, radius2);
+      convex_at[j] = half_planes(area2);
+      for (int k = 0; k < count; ++k) {
+        motion[k].nx.sample(j, planes[k].nx);
+        motion[k].ny.sample(j, planes[k].ny);
+        motion[k].off.sample(j, planes[k].off);
+      }
+      float cx, cy;
+      project(sum, cx, cy);
+      sizes[j] = fmaxf(sqrtf(nearest_squared(cx, cy)),
+                       sqrtf(radius2) * SDF::MIN_SIZE_RADIUS_RATIO);
+    }
+    convex = convex_at[0] && convex_at[1] && convex_at[2];
+    linear = sizes[1] < LINEAR_SIZE;
+    for (int j = 0; j < 3; ++j)
+      if (!linear)
+        sizes[j] = math::fast_atan2(sizes[j], 1.0f);
+    for (int k = 0; k < count; ++k) {
+      Motion &m = motion[k];
+      m.x.fit();
+      m.y.fit();
+      m.nx.fit();
+      m.ny.fit();
+      m.off.fit();
+    }
+    for (int j = 0; j < 3; ++j)
+      size_fit.sample(j, sizes[j]);
+    size_fit.fit();
+  }
+
+  /** @brief The size shading normalizes by at the column pair column()
+   *  stood the face at, as SDF::Face::size.
+   *  @return Plane units or, for a large face, radians. */
+  float size() const { return face_size; }
+
+  /**
+   * @brief Stands the face at a column pair's sweep time.
+   * @param time Frame's column basis.
+   * @param x The pair's first column, in [0, W / 2).
+   * @param arms Arms to bound: bit 0 the first, bit 1 the second.
+   * @param rows Receives each bounded arm's rows, culled where it misses the
+   *        face.
+   * @return Whether a bounded arm has rows; false where the face collapses,
+   *         as a build culls.
+   */
+  HS_HOT_FLASH_MEMBER bool column(const Temporal::ColumnTime &time, int x,
+                                  int arms, SDF::Bounds rows[2]) {
+    rows[0] = rows[1] = SDF::BOUNDS_CULLED;
+    const float t = Temporal::sweep_fraction(x, W);
+    for (int k = 0; k < count; ++k) {
+      edges[k].x = motion[k].x.at(t);
+      edges[k].y = motion[k].y.at(t);
+    }
+    float area2 = 0.0f, radius2 = 0.0f;
+    for (int k = 0; k < count; ++k) {
+      Edge &e = edges[k];
+      const Edge &next = edges[k + 1 == count ? 0 : k + 1];
+      e.ex = next.x - e.x;
+      e.ey = next.y - e.y;
+      const float length2 = e.ex * e.ex + e.ey * e.ey;
+      e.inv_length2 = length2 > 0.0f ? 1.0f / length2 : 0.0f;
+      area2 += e.x * next.y - next.x * e.y;
+      radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
+      if (convex) {
+        planes[k].nx = motion[k].nx.at(t);
+        planes[k].ny = motion[k].ny.at(t);
+        planes[k].off = motion[k].off.at(t);
+      }
+    }
+    if (fabsf(area2) <= SDF::COLLAPSED_AREA_RATIO * radius2)
+      return false;
+    face_size = size_fit.at(t);
+    azimuth = time.azimuth[x];
+    up = time.up[x];
+    // The meridian's line in the projection, by its unit normal and offset.
+    const math::Vector meridian = math::cross(azimuth, up);
+    float la = math::dot(basis_u, meridian), lb = math::dot(basis_w, meridian);
+    const float inv_norm = 1.0f / sqrtf(la * la + lb * lb);
+    la *= inv_norm;
+    lb *= inv_norm;
+    const float le = math::dot(axis, meridian) * inv_norm;
+    constexpr float REACH = SWEEP_ROW_REACH<W>;
+    float lo[2] = {2.0f, 2.0f}, hi[2] = {-2.0f, -2.0f};
+    // A projected point's arm and polar cosine along the meridian.
+    const auto include = [&](float px, float py) HS_HOT_INLINE {
+      const math::Vector q = axis + basis_u * px + basis_w * py;
+      const int arm = math::dot(q, azimuth) >= 0.0f ? 0 : 1;
+      const float c = math::dot(q, up) / sqrtf(math::dot(q, q));
+      lo[arm] = fminf(lo[arm], c);
+      hi[arm] = fmaxf(hi[arm], c);
+      return std::pair<int, float>{arm, c};
+    };
+    crossed[0] = crossed[1] = 0;
+    // Each edge's extent along the line, by the projection on its direction.
+    along_x = -lb;
+    along_y = la;
+    float from_line = la * edges[0].x + lb * edges[0].y + le;
+    float from_along = along_x * edges[0].x + along_y * edges[0].y;
+    for (int k = 0; k < count; ++k) {
+      Edge &e = edges[k];
+      const Edge &next = edges[k + 1 == count ? 0 : k + 1];
+      const float to_line = la * next.x + lb * next.y + le;
+      const float to_along = along_x * next.x + along_y * next.y;
+      span[k] = {fminf(from_along, to_along), fmaxf(from_along, to_along)};
+      from_along = to_along;
+      if (fabsf(from_line) <= REACH)
+        include(e.x, e.y);
+      // No pixel of the pair, on the meridian's line, comes nearer the edge
+      // than its nearer end, unless the edge crosses the line.
+      if ((from_line > 0.0f) == (to_line > 0.0f)) {
+        const float apart = fminf(fabsf(from_line), fabsf(to_line));
+        line2[k] = apart * apart;
+      } else {
+        line2[k] = 0.0f;
+        const float s = from_line / (from_line - to_line);
+        const auto [arm, c] = include(e.x + e.ex * s, e.y + e.ey * s);
+        crossings[arm][crossed[arm]++] = c;
+      }
+      from_line = to_line;
+    }
+    // The edges nearest the line first; the order holds from the last pair,
+    // so the insertion sort runs over nearly sorted keys.
+    for (int i = 1; i < count; ++i) {
+      const uint8_t k = order[i];
+      const float key = line2[k];
+      int j = i;
+      for (; j > 0 && line2[order[j - 1]] > key; --j)
+        order[j] = order[j - 1];
+      order[j] = k;
+    }
+    // The pole nearer the face lies inside it when the walk from the other
+    // crosses the first arm's edges an odd number of times.
+    if (crossed[0] & 1) {
+      for (int arm = 0; arm < 2; ++arm) {
+        if (north)
+          hi[arm] = 1.0f;
+        else
+          lo[arm] = -1.0f;
+      }
+    }
+    // Each arm's polar angles, widened by the reach and math::fast_acos's
+    // error, and past either pole onto the other arm.
+    const float pad = REACH + static_cast<float>(math::FAST_ACOS_MAX_ERROR);
+    float first[2], last[2];
+    for (int arm = 0; arm < 2; ++arm) {
+      const bool empty = lo[arm] > hi[arm];
+      first[arm] = empty ? math::PI_F + pad : math::fast_acos(hi[arm]) - pad;
+      last[arm] = empty ? -pad : math::fast_acos(lo[arm]) + pad;
+    }
+    bool any = false;
+    for (int arm = 0; arm < 2; ++arm) {
+      const int other = 1 - arm;
+      float from = first[arm], to = last[arm];
+      if (first[other] < 0.0f) {
+        from = fminf(from, 0.0f);
+        to = fmaxf(to, -first[other]);
+      }
+      if (last[other] > math::PI_F) {
+        from = fminf(from, 2.0f * math::PI_F - last[other]);
+        to = fmaxf(to, math::PI_F);
+      }
+      if (!(arms & (1 << arm)) || from > to)
+        continue;
+      rows[arm] =
+          SDF::phi_bounds_to_rows<H>(fmaxf(from, 0.0f), fminf(to, math::PI_F));
+      any = true;
+    }
+    return any;
+  }
+
+  /**
+   * @brief The face's signed distance at a pixel of the column pair column()
+   *        stood it at.
+   * @param p Unit pixel direction.
+   * @param res Receives the distance, negative inside, in the distance and
+   *        raw-distance registers, and size().
+   */
+  HS_HOT_INLINE void probe(const math::Vector &p,
+                           SDF::DistanceResult &res) const {
+    const float depth = math::dot(p, axis);
+    if (depth < math::TOLERANCE) {
+      res = SDF::DistanceResult(SDF::FAR_SENTINEL, 0.0f, SDF::FAR_SENTINEL,
+                                0.0f, face_size);
+      return;
+    }
+    const float inv = 1.0f / depth;
+    const float px = math::dot(p, basis_u) * inv,
+                py = math::dot(p, basis_w) * inv;
+    float signed_d;
+    if (convex) {
+      signed_d = -FLT_MAX;
+      for (int k = 0; k < count; ++k) {
+        const Plane &h = planes[k];
+        signed_d = fmaxf(signed_d, h.nx * px + h.ny * py + h.off);
+      }
+    } else {
+      const float c = math::dot(p, up);
+      int passed;
+      if (math::dot(p, azimuth) >= 0.0f) {
+        passed = 0;
+        for (int i = 0; i < crossed[0]; ++i)
+          passed += north ? crossings[0][i] < c : crossings[0][i] > c;
+      } else {
+        passed = crossed[0];
+        for (int i = 0; i < crossed[1]; ++i)
+          passed += north ? crossings[1][i] > c : crossings[1][i] < c;
+      }
+      // From the edge nearest the last pixel, then the edges by their
+      // distance from the meridian's line until that distance passes the
+      // nearest found; an edge whose extent along the line keeps it farther
+      // is passed over.
+      float best = edge_squared(edges[nearest], px, py);
+      const float along = along_x * px + along_y * py;
+      for (int i = 0; i < count; ++i) {
+        const int k = order[i];
+        const float across = line2[k];
+        if (across >= best)
+          break;
+        const float gap =
+            fmaxf(fmaxf(span[k].lo - along, along - span[k].hi), 0.0f);
+        if (across + gap * gap >= best)
+          continue;
+        const float d = edge_squared(edges[k], px, py);
+        if (d < best) {
+          best = d;
+          nearest = k;
+        }
+      }
+      const float d = sqrtf(best);
+      signed_d = passed & 1 ? -d : d;
+    }
+    if (!linear)
+      signed_d = math::fast_atan2(signed_d, 1.0f);
+    res = SDF::DistanceResult(signed_d, 0.0f, signed_d, 0.0f, face_size);
+  }
+
+private:
+  /// Size, in plane units, below which a face reports plane distances, as
+  /// SDF::Face does.
+  static constexpr float LINEAR_SIZE = 0.2f;
+
+  /** @brief A quadratic in time through values at t = 0, 1/2 and 1. */
+  struct Quadratic {
+    float c0 = 0.0f, c1 = 0.0f, c2 = 0.0f; ///< Coefficients, or samples.
+
+    /// Records the sample at t = j / 2.
+    HS_FLASH_INLINE void sample(int j, float value) {
+      (j == 0 ? c0 : j == 1 ? c1 : c2) = value;
+    }
+
+    /// Turns the three samples into the quadratic through them.
+    HS_FLASH_INLINE void fit() {
+      const float s0 = c0, s1 = c1, s2 = c2;
+      c1 = -3.0f * s0 + 4.0f * s1 - s2;
+      c2 = 2.0f * s0 - 4.0f * s1 + 2.0f * s2;
+    }
+
+    /// The value at a frame fraction.
+    HS_HOT_INLINE float at(float t) const { return c0 + t * (c1 + t * c2); }
+  };
+
+  /** @brief One projected vertex and the edge from it to the next. */
+  struct Edge {
+    float x, y;        ///< The vertex.
+    float ex, ey;      ///< To the next.
+    float inv_length2; ///< The edge's inverse squared length; 0 collapsed.
+  };
+
+  /** @brief An edge's extent along the meridian's line. */
+  struct Span {
+    float lo, hi; ///< Least and greatest projection on the line's direction.
+  };
+
+  /** @brief A convex face's outward half-plane along an edge. */
+  struct Plane {
+    float nx, ny, off; ///< Unit normal and offset.
+  };
+
+  /** @brief A vertex's and its edge's half-plane's fits over the frame. */
+  struct Motion {
+    Quadratic x, y;        ///< The projected vertex.
+    Quadratic nx, ny, off; ///< The half-plane, on a convex face.
+  };
+
+  /// A direction scaled to unit length, or zero left zero.
+  HS_HOT_INLINE static math::Vector unit(const math::Vector &v) {
+    const float length2 = math::dot(v, v);
+    return length2 > 0.0f ? v * (1.0f / sqrtf(length2)) : v;
+  }
+
+  /// Projects a direction, any length, about the axis as SDF::Face does.
+  HS_FLASH_INLINE void project(const math::Vector &v, float &px,
+                               float &py) const {
+    float depth = math::dot(v, axis);
+    if (fabsf(depth) < math::TOLERANCE)
+      depth = copysignf(math::TOLERANCE, depth);
+    const float inv = 1.0f / depth;
+    px = math::dot(v, basis_u) * inv;
+    py = math::dot(v, basis_w) * inv;
+  }
+
+  /// Fills the edges from the projected vertices, with twice the polygon's
+  /// signed area and its squared circumradius about the axis.
+  HS_FLASH_INLINE void stand_edges(float &area2, float &radius2) {
+    for (int k = 0; k < count; ++k) {
+      Edge &e = edges[k];
+      const Edge &next = edges[k + 1 == count ? 0 : k + 1];
+      e.ex = next.x - e.x;
+      e.ey = next.y - e.y;
+      const float length2 = e.ex * e.ex + e.ey * e.ey;
+      e.inv_length2 = length2 > 0.0f ? 1.0f / length2 : 0.0f;
+      area2 += e.x * next.y - next.x * e.y;
+      radius2 = fmaxf(radius2, e.x * e.x + e.y * e.y);
+      planes[k] = {0.0f, 0.0f, 0.0f};
+    }
+  }
+
+  /**
+   * @brief Finds whether the standing polygon is convex, as SDF::Face finds
+   *        it, and its half-planes if so.
+   * @param area2 Twice its signed area.
+   * @return Whether it is.
+   */
+  HS_FLASH_INLINE bool half_planes(float area2) {
+    bool pos = false, neg = false;
+    int flips = 0;
+    float dir = 0.0f;
+    const Edge *previous = &edges[count - 1];
+    for (int k = 0; k < count; ++k) {
+      const Edge &e = edges[k];
+      const float turn = previous->ex * e.ey - previous->ey * e.ex;
+      const float scale =
+          (previous->ex * previous->ex + previous->ey * previous->ey) *
+          (e.ex * e.ex + e.ey * e.ey);
+      previous = &e;
+      if (turn * turn > SDF::TURN_EPS_SQ * scale) {
+        pos |= turn > 0.0f;
+        neg |= turn < 0.0f;
+      }
+      if (e.ey != 0.0f) {
+        flips += dir * e.ey < 0.0f;
+        dir = e.ey;
+      }
+    }
+    if ((pos && neg) || flips < 1 || flips > 2)
+      return false;
+    const float sign = area2 >= 0.0f ? 1.0f : -1.0f;
+    float centre_side = -FLT_MAX;
+    for (int k = 0; k < count; ++k) {
+      const Edge &e = edges[k];
+      Plane &h = planes[k];
+      const float length2 = e.ex * e.ex + e.ey * e.ey;
+      if (length2 < 1e-12f)
+        return false;
+      const float inv = sign / sqrtf(length2);
+      h.nx = e.ey * inv;
+      h.ny = -e.ex * inv;
+      h.off = -(h.nx * e.x + h.ny * e.y);
+      centre_side = fmaxf(centre_side, h.off);
+    }
+    return centre_side < 0.0f;
+  }
+
+  /// Squared distance in the projection plane to an edge.
+  HS_HOT_INLINE static float edge_squared(const Edge &e, float px, float py) {
+    const float wx = px - e.x, wy = py - e.y;
+    const float s =
+        hs::clamp((wx * e.ex + wy * e.ey) * e.inv_length2, 0.0f, 1.0f);
+    const float bx = wx - e.ex * s, by = wy - e.ey * s;
+    return bx * bx + by * by;
+  }
+
+  /// Squared distance in the projection plane to the nearest edge.
+  HS_FLASH_INLINE float nearest_squared(float px, float py) const {
+    float best = FLT_MAX;
+    for (int k = 0; k < count; ++k)
+      best = fminf(best, edge_squared(edges[k], px, py));
+    return best;
+  }
+
+  int count;               ///< Number of vertices.
+  bool north;              ///< Whether it lies around the north pole.
+  bool convex = false;     ///< Whether it probes by its half-planes.
+  bool linear = true;      ///< Whether distances stay in plane units.
+  Edge *edges;             ///< The vertices and edges.
+  Plane *planes;           ///< A convex face's half-planes.
+  Motion *motion;          ///< The fits.
+  float *line2;            ///< Squared bound on each edge's distance from
+                           ///< the column pair's pixels.
+  uint8_t *order;          ///< The edges by line2, ascending.
+  Span *span;              ///< Each edge's extent along the meridian's line.
+  float along_x = 0.0f;    ///< The meridian's line's unit direction, x.
+  float along_y = 0.0f;    ///< The meridian's line's unit direction, y.
+  float *crossings[2];     ///< Cosines of the meridian's crossings, per arm.
+  int crossed[2] = {0, 0}; ///< Crossings per arm.
+  math::Vector axis;       ///< Projection axis.
+  math::Vector basis_u;    ///< Projection x axis.
+  math::Vector basis_w;    ///< Projection y axis.
+  math::Vector azimuth;    ///< The pair's azimuth.
+  math::Vector up;         ///< The pair's up.
+  Quadratic size_fit;      ///< size()'s fit.
+  float face_size = 0.0f;  ///< size().
+  mutable int nearest = 0; ///< The edge nearest the last pixel probed.
+};
 
 HS_O3_BEGIN
 /**
@@ -1486,7 +1970,7 @@ struct Mesh {
 
   /**
    * @brief Rasterizes a mesh, or the one face a deformation scan draws
-   *        alone.
+   *        alone or sweeps.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam PipelineT Plotting pipeline type.
@@ -1508,12 +1992,327 @@ struct Mesh {
            const MeshOps::MeshClassBake *bake,
            FaceShaderSetupT &face_shader_setup) {
     const Temporal::ColumnTime *own = canvas.column_time();
-    if (own && own->face_copy)
+    if (own && own->face_sweep)
+      draw_face_sweep<W, H>(pipeline, canvas, *own->face_sweep, fragment_shader,
+                            scratch_arena, face_shader_setup);
+    else if (own && own->face_copy)
       draw_face_copy<W, H>(pipeline, canvas, *own->face_copy, fragment_shader,
                            scratch_arena, face_shader_setup);
     else
       draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
                       bake, face_shader_setup);
+  }
+
+  /**
+   * @brief The azimuths whose meridian halves can come near a swept face.
+   * @details A face clear of a pole lies within the azimuths of its vertices
+   * at the frame's start, middle and end, widened by the reach its paths
+   * bulge past their knots; a meridian half within a reach of it lies
+   * within the asin of the reach over the sine of the face's least polar
+   * angle over the frame. A face winding around the pole, reaching within the
+   * reach of it or of its equator, spanning half a turn, or holding an edge
+   * or a vertex path across nearly half a turn of azimuth, which an arc clear
+   * of the pole turns through monotonically, is near every meridian half.
+   */
+  struct SweepWedge {
+    float cx = 0.0f;        ///< Unit azimuth of the range's middle, x.
+    float cz = 0.0f;        ///< Unit azimuth of the range's middle, z.
+    float cos_half = -2.0f; ///< Cosine of its half-width; below -1 for all.
+
+    /**
+     * @brief The wedge of a sweep's face.
+     * @param sweep The face and its vertex paths.
+     * @param reach Arc within which a meridian half counts as near.
+     * @return The wedge.
+     */
+    HS_HOT_FLASH_MEMBER static SweepWedge
+    of(const Temporal::MeshFaceSweep &sweep, float reach) {
+      SweepWedge wedge;
+      const size_t n = sweep.count;
+      const math::Vector pole(0.0f, sweep.north ? 1.0f : -1.0f, 0.0f);
+      const Temporal::VertexPath *paths = sweep.paths;
+      const float reference = atan2f(paths[0].start.z, paths[0].start.x);
+      float lo = 0.0f, hi = 0.0f, closest = math::PI_F;
+      const auto knot = [&](size_t j, size_t k) HS_HOT_INLINE {
+        return j == 0   ? paths[k].start
+               : j == 1 ? paths[k].middle
+                        : paths[k].end;
+      };
+      for (size_t j = 0; j < 3; ++j) {
+        float winding = 0.0f;
+        for (size_t k = 0; k < n; ++k) {
+          const math::Vector a = knot(j, k);
+          const math::Vector b = knot(j, k + 1 == n ? 0 : k + 1);
+          const float turn = std::remainder(atan2f(b.z, b.x) - atan2f(a.z, a.x),
+                                            math::TWO_PI_F);
+          if (fabsf(turn) >= 0.9f * math::PI_F)
+            return wedge;
+          winding += turn;
+          const float offset =
+              std::remainder(atan2f(a.z, a.x) - reference, math::TWO_PI_F);
+          lo = fminf(lo, offset);
+          hi = fmaxf(hi, offset);
+          closest = fminf(closest, arc_distance(pole, a, b));
+        }
+        if (fabsf(winding) > math::PI_F)
+          return wedge;
+      }
+      // Each vertex keeps within its path's deviation of its chord.
+      float bulge = 0.0f;
+      for (size_t k = 0; k < n; ++k)
+        bulge = fmaxf(bulge, paths[k].deviation());
+      reach += bulge;
+      for (size_t k = 0; k < n; ++k) {
+        const math::Vector &a = paths[k].start, &b = paths[k].end;
+        if (math::dot(a, pole) < sinf(reach) ||
+            math::dot(b, pole) < sinf(reach))
+          return wedge;
+        if (fabsf(std::remainder(atan2f(b.z, b.x) - atan2f(a.z, a.x),
+                                 math::TWO_PI_F)) >= 0.9f * math::PI_F)
+          return wedge;
+        closest = fminf(closest, arc_distance(pole, a, b));
+      }
+      if (closest <= reach || hi - lo >= math::PI_F)
+        return wedge;
+      const float spread = asinf(fminf(1.0f, sinf(reach) / sinf(closest)));
+      const float half = 0.5f * (hi - lo) + spread;
+      if (half >= math::PI_F)
+        return wedge;
+      const float middle = reference + 0.5f * (hi + lo);
+      wedge.cx = cosf(middle);
+      wedge.cz = sinf(middle);
+      wedge.cos_half = cosf(half);
+      return wedge;
+    }
+
+    /**
+     * @brief Angle from a direction to the nearest point of an arc.
+     * @param p Unit direction.
+     * @param a The arc's start.
+     * @param b The arc's end.
+     * @return The angle, radians.
+     */
+    HS_HOT_FLASH_MEMBER static float arc_distance(const math::Vector &p,
+                                                  const math::Vector &a,
+                                                  const math::Vector &b) {
+      const math::Vector ua = a.normalized(), ub = b.normalized();
+      const math::Vector normal = math::cross(ua, ub);
+      const float length = sqrtf(math::dot(normal, normal));
+      const float to_a = acosf(hs::clamp(math::dot(p, ua), -1.0f, 1.0f));
+      const float to_b = acosf(hs::clamp(math::dot(p, ub), -1.0f, 1.0f));
+      if (length > 1e-6f) {
+        const math::Vector unit = normal * (1.0f / length);
+        const float height = math::dot(p, unit);
+        const math::Vector foot = p - unit * height;
+        if (math::dot(math::cross(ua, foot), unit) >= 0.0f &&
+            math::dot(math::cross(foot, ub), unit) >= 0.0f)
+          return asinf(hs::clamp(fabsf(height), 0.0f, 1.0f));
+      }
+      return fminf(to_a, to_b);
+    }
+
+    /**
+     * @brief The arms of a column pair to scan.
+     * @param azimuth The pair's first-arm meridian direction.
+     * @param first Whether the clip admits the first arm's column.
+     * @param second Whether the clip admits the second arm's column.
+     * @return Bit 0 for the first arm, bit 1 for the second.
+     */
+    HS_HOT_INLINE int arms(const math::Vector &azimuth, bool first,
+                           bool second) const {
+      if (cos_half < -1.0f)
+        return (first ? 1 : 0) | (second ? 2 : 0);
+      const float along = (azimuth.x * cx + azimuth.z * cz) /
+                          sqrtf(azimuth.x * azimuth.x + azimuth.z * azimuth.z);
+      return (first && along >= cos_half ? 1 : 0) |
+             (second && -along >= cos_half ? 2 : 0);
+    }
+  };
+
+  /**
+   * @brief Rasterizes a face a deformation scan sweeps, one column pair at a
+   *        time, each pair's face standing as at its sweep time.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT As draw_impl() takes it.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param sweep The face and its vertex paths.
+   * @param fragment_shader Shader, as draw_impl() takes it.
+   * @param arena Arena for the face's fits and per-column state.
+   * @param face_shader_setup As draw_impl() takes it, run per column pair
+   *        with the face's size there.
+   */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_face_sweep(PipelineT &pipeline, Canvas &canvas,
+                  const Temporal::MeshFaceSweep &sweep,
+                  FragmentShaderT &fragment_shader, Arena &arena,
+                  FaceShaderSetupT &face_shader_setup) {
+    HS_PROFILE(scan_face_sweep);
+    check_canvas_dims<W, H>(canvas);
+    check_pipeline_prepared(pipeline, canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    ScratchScope scope(arena);
+    SweptFace<W, H> face(sweep, arena);
+#if HS_ENABLE_TEST_HOOKS && defined(HS_SCAN_METRICS)
+    const size_t near = hs::g_scan_metrics.shade_candidates;
+#endif
+    if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
+      auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
+        // v2 carries the face index (decoded by mesh_face_index()).
+        f_in.v2 = static_cast<float>(sweep.face);
+        fragment_shader(p, f_in);
+      };
+      FragmentShaderFn raster_shader = wrapper;
+      scan_swept_face<W, H>(pipeline, canvas, sweep, face, raster_shader,
+                            face_shader_setup);
+    } else {
+      scan_swept_face<W, H>(pipeline, canvas, sweep, face, fragment_shader,
+                            face_shader_setup);
+    }
+#if HS_ENABLE_TEST_HOOKS && defined(HS_SCAN_METRICS)
+    mesh_capture_counters.sweep_pixels +=
+        hs::g_scan_metrics.shade_candidates - near;
+#endif
+  }
+
+  /**
+   * @brief Scans a swept face column pair by column pair.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT As draw_impl() takes it.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param sweep The face and its vertex paths.
+   * @param face The face, fitted over the frame.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param face_shader_setup As draw_impl() takes it, run per column pair
+   *        with the face's size there.
+   * @details Each column pair the clip admits on an arm the face can reach
+   * (SweepWedge) stands the face at its sweep time (SweptFace::column()),
+   * which bounds the pair's rows; each admitted arm's rows probe the
+   * standing face along the pair's rotated basis and shade as the face
+   * rasterizer shades, a time-aware shader at the pair's sweep time.
+   */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  HS_HOT_FLASH_MEMBER static void
+  scan_swept_face(PipelineT &pipeline, Canvas &canvas,
+                  const Temporal::MeshFaceSweep &sweep, SweptFace<W, H> &face,
+                  FragmentShaderT &fragment_shader,
+                  FaceShaderSetupT &face_shader_setup) {
+    const Temporal::ColumnTime &time = *column_time(pipeline, canvas);
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
+    const ClipPieces clip = clip_pieces<W>(cr.x_clip());
+    const auto admits = [&](int column) HS_HOT_INLINE {
+      for (int r = 0; r < clip.count; ++r)
+        if (column >= clip.lo[r] && column < clip.hi[r])
+          return true;
+      return false;
+    };
+    const SweepWedge wedge =
+        SweepWedge::of(sweep, SWEEP_ROW_REACH<W> + time.sweep);
+    constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
+    constexpr bool TIMED_SHADER =
+        Temporal::reads_column_time<FragmentShaderT, const math::Vector &,
+                                    Fragment &>;
+    SDF::DistanceResult res;
+    Fragment frag;
+    for (int x = 0; x < W / 2; ++x) {
+      const int arms =
+          wedge.arms(time.azimuth[x], admits(x), admits(x + W / 2));
+      if (!arms)
+        continue;
+#if HS_ENABLE_TEST_HOOKS
+      ++mesh_capture_counters.sweep_tests;
+#endif
+      SDF::Bounds rows[2];
+      bool stands;
+      {
+        HS_PROFILE(scan_sweep_column);
+        stands = face.column(time, x, arms, rows);
+      }
+      if (!stands)
+        continue;
+      if constexpr (!std::is_same_v<FaceShaderSetupT, std::nullptr_t>)
+        face_shader_setup(sweep.face, face.size());
+      // A time-aware shader shades at the pair's time while its state moves.
+      [[maybe_unused]] bool per_column = TIMED_SHADER;
+      if constexpr (TIMED_SHADER) {
+        if constexpr (requires { fragment_shader.moves(); })
+          per_column = fragment_shader.moves();
+      }
+      const math::Vector &e = time.azimuth[x];
+      const math::Vector &v = time.up[x];
+      [[maybe_unused]] bool counted = false;
+      for (int arm = 0; arm < 2; ++arm) {
+        int y_lo, y_hi;
+        if (rows[arm].y_min > rows[arm].y_max ||
+            !clamp_rows_to_clip(rows[arm], cr, y_lo, y_hi))
+          continue;
+#if HS_ENABLE_TEST_HOOKS
+        mesh_capture_counters.sweep_columns += !counted;
+        counted = true;
+        mesh_capture_counters.sweep_rows +=
+            static_cast<size_t>(y_hi - y_lo + 1);
+#endif
+        const int column = x + arm * (W / 2);
+        const float side = arm == 0 ? 1.0f : -1.0f;
+        for (int y = y_lo; y <= y_hi; ++y) {
+          const float sp = side * math::TrigLUT<W, H>::sin_phi[y];
+          const float cp = math::TrigLUT<W, H>::cos_phi[y];
+          const math::Vector p(sp * e.x + cp * v.x, sp * e.y + cp * v.y,
+                               sp * e.z + cp * v.z);
+#if HS_ENABLE_TEST_HOOKS
+          ++mesh_capture_counters.sweep_probes;
+#endif
+          face.probe(p, res);
+          const float d = res.dist;
+          if (d >= PIXEL_WIDTH)
+            continue;
+          HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
+          const float alpha = solid_coverage(d, PIXEL_WIDTH);
+          if (alpha <= MIN_ALPHA)
+            continue;
+          frag.color = Color4(0, 0, 0, 0);
+          frag.pos = p;
+          frag.v0 = res.t;
+          frag.v1 = res.raw_dist;
+          frag.v2 = 0.0f;
+          frag.v3 = res.aux;
+          frag.size = res.size;
+          frag.age = 0;
+          bool shaded = false;
+          if constexpr (TIMED_SHADER) {
+            if (per_column) {
+              fragment_shader(p, frag, static_cast<float>(x) / (W / 2));
+              shaded = true;
+            }
+          }
+          if (!shaded)
+            fragment_shader(p, frag);
+          if (frag.color.alpha <= MIN_ALPHA)
+            continue;
+          const float a = frag.color.alpha * alpha;
+          if constexpr (requires {
+                          pipeline.plot_in_bounds(
+                              canvas, column, y, frag.color.color, frag.age, a);
+                        }) {
+            pipeline.plot_in_bounds(canvas, column, y, frag.color.color,
+                                    frag.age, a);
+          } else {
+            pipeline.plot(canvas, column, y, frag.color.color, frag.age, a);
+          }
+        }
+      }
+    }
   }
 
   /**

@@ -13,7 +13,7 @@ HS_HOT_FLASH_MEMBER FaceCaptureInterval
 face_capture_interval(const float *angles, size_t count, float reach,
                       float nearest, float sweep) {
   if (count == 0)
-    return {-1.0f, -1.0f};
+    return {-1.0f, 0.0f};
   const bool held =
       reach > 0.0f && reach + sweep >= nearest * (math::PI_F / 4.0f);
   float winding = 0.0f;
@@ -27,11 +27,9 @@ face_capture_interval(const float *angles, size_t count, float reach,
     hi = fmaxf(hi, angle);
   }
   if (fabsf(winding) > 1.0f)
-    return {-2.0f, -2.0f};
-  if (hi - lo >= 1.0f)
-    return {-3.0f, -3.0f};
-  if (held)
-    return {-1.0f, -1.0f};
+    return {-2.0f, 2.0f};
+  if (hi - lo >= 1.0f || held)
+    return {-1.0f, hi - lo};
   const float shift = floorf(lo);
   return {lo - shift, hi - shift};
 }
@@ -45,7 +43,60 @@ enum FaceKind : uint8_t {
   SEAM_FACE,   ///< Near one arm boundary; drawn in each arm's shared pass.
   CROSS_FACE,  ///< Reaches past a seam face's reach; one copy per arm.
   POLAR_FACE,  ///< Reaches a pole; drawn in each half-arm window's pass.
+  SWEPT_FACE,  ///< Reaches a pole and moves too far for one placement;
+               ///< swept one column pair at a time.
 };
+
+/// Square pixels of step a polar face's single placement may show before
+/// it sweeps: the pixels the placement strays times the pixels the face
+/// reaches from the polar axis.
+constexpr float SWEEP_STEP_AREA = 20.0f;
+
+/**
+ * @brief How a face reaching a pole draws.
+ * @param d Deformation scan, its pool at the current endpoint.
+ * @param face Face index.
+ * @param span Its vertices' azimuth span in half turns; 2 for a face that
+ *        winds about the pole.
+ * @return SWEPT_FACE when one placement per half arm would show a step of
+ *         more than SWEEP_STEP_AREA, else POLAR_FACE.
+ * @details A placement stands within half a frame of a column that sees the
+ * face, and a half turn of azimuth is a frame of column time, so it strays
+ * by the face's fastest motion over that part of a frame. The step shows
+ * along the face from the pole out to its farthest vertex. A vertex's
+ * motion over the frame is bounded by its chord from the frame's start to
+ * its end plus twice its path's bulge at the frame's middle.
+ */
+HS_HOT_FLASH_MEMBER FaceKind polar_kind(const MeshDeformation &d, size_t face,
+                                        float span) {
+  const MeshState &mesh = d.mesh;
+  const size_t count = mesh.get_face_counts_data()[face];
+  const uint16_t *indices =
+      mesh.get_faces_data() + mesh.get_face_offsets_data()[face];
+  float motion = 0.0f, axial = 0.0f;
+  for (size_t k = 0; k < count; ++k) {
+    const size_t i = indices[k];
+    const math::Vector end = mesh.vertices[i];
+    axial = fmaxf(axial, end.x * end.x + end.z * end.z);
+    if (!d.moving[i])
+      continue;
+    const math::Vector start =
+        d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.0f);
+    const math::Vector middle =
+        d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.5f);
+#if HS_ENABLE_TEST_HOOKS
+    mesh_capture_counters.evaluations += 2;
+#endif
+    const math::Vector bulge = middle - (start + end) * 0.5f;
+    motion = fmaxf(motion, sqrtf(math::distance_squared(start, end)) +
+                               2.0f * sqrtf(math::dot(bulge, bulge)));
+  }
+  // Radians to pixels: a column's arc, which is also a row's.
+  const float pixel = d.canvas.width() / math::TWO_PI_F;
+  const float stray = motion * fminf(span, 0.5f) * pixel;
+  return stray * sqrtf(axial) * pixel > SWEEP_STEP_AREA ? SWEPT_FACE
+                                                        : POLAR_FACE;
+}
 
 /// Vertex state: its endpoint stands in the first half of its arm's sweep.
 constexpr uint8_t VERTEX_EARLY = 1;
@@ -238,13 +289,13 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const MeshDeformation &d,
   const FaceCaptureInterval interval =
       face_capture_interval(angles, count, reach, horizontal, sweep);
   if (interval.lo < 0.0f)
-    return POLAR_FACE;
+    return polar_kind(d, face, interval.hi);
   if (d.pad >= horizontal)
     return CROSS_FACE;
   // asin(x) / pi, as a half turn less acos(x) / pi.
   const float pad = 0.5f - math::fast_acos(d.pad / horizontal) / math::PI_F;
   if (interval.hi - interval.lo + 2.0f * pad >= 1.0f)
-    return POLAR_FACE;
+    return polar_kind(d, face, interval.hi - interval.lo + 2.0f * pad);
   float lo = interval.lo, hi = interval.hi;
   if (hi + pad < 1.0f) {
     if (lo >= pad)
@@ -398,6 +449,51 @@ HS_HOT_FLASH_MEMBER void draw_arm_copy(const MeshDeformation &d,
 }
 
 /**
+ * @brief Draws a face reaching a pole one column pair at a time.
+ * @param d Deformation scan, its pool at the current endpoint.
+ * @param face Face index.
+ * @details Each moving vertex's path is the quadratic through its closed
+ * form at the frame's start and middle and its current endpoint
+ * (Temporal::VertexPath::quadratic()).
+ */
+HS_HOT_FLASH_MEMBER void sweep_face(const MeshDeformation &d, size_t face) {
+  const MeshState &mesh = d.mesh;
+  const size_t count = mesh.get_face_counts_data()[face];
+  const uint16_t *indices =
+      mesh.get_faces_data() + mesh.get_face_offsets_data()[face];
+  ScratchScope scope(d.scratch);
+  Temporal::VertexPath *paths =
+      d.scratch.allocate_n<Temporal::VertexPath>(count);
+  math::Vector middle(0.0f, 0.0f, 0.0f);
+  {
+    HS_PROFILE(mesh_sweep_paths);
+    for (size_t k = 0; k < count; ++k) {
+      const size_t i = indices[k];
+      const math::Vector &end = mesh.vertices[i];
+      if (d.moving[i]) {
+        paths[k] = Temporal::VertexPath::quadratic(
+            d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.0f),
+            d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.5f), end);
+#if HS_ENABLE_TEST_HOOKS
+        mesh_capture_counters.evaluations += 2;
+#endif
+      } else {
+        paths[k] = Temporal::VertexPath::chord(end, end);
+      }
+      middle = middle + paths[k].middle;
+    }
+  }
+  const Temporal::MeshFaceSweep sweep{face, paths, count, middle.y > 0.0f};
+  Temporal::ColumnTime face_time = *d.canvas.column_time();
+  face_time.face_sweep = &sweep;
+  ColumnTimeScope time_scope(d.canvas, face_time);
+  d.callbacks.draw(d.callbacks.scan_context);
+#if HS_ENABLE_TEST_HOOKS
+  ++mesh_capture_counters.scans;
+#endif
+}
+
+/**
  * @brief Places the captures of the moving faces one pass draws.
  * @param d Deformation scan.
  * @param tables Scan tables.
@@ -490,10 +586,17 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
 #if HS_ENABLE_TEST_HOOKS
       mesh_capture_counters.shared_faces += kind == SHARED_FACE;
       mesh_capture_counters.cross_faces += kind == CROSS_FACE;
-      mesh_capture_counters.polar_faces += kind == POLAR_FACE;
+      mesh_capture_counters.polar_faces +=
+          kind == POLAR_FACE || kind == SWEPT_FACE;
+      mesh_capture_counters.swept_faces += kind == SWEPT_FACE;
 #endif
     }
   }
+  // Faces too fast for one placement sweep from the endpoint pool, before
+  // any capture replaces it.
+  for (size_t f = 0; f < faces; ++f)
+    if (tables.kinds[f] == SWEPT_FACE)
+      sweep_face(d, f);
   // Faces reaching a pole draw through the two halves of each arm.
   for (int part = 0; polar && part < 2; ++part) {
     if (place_pass(d, tables, POLAR_FACE, part)) {

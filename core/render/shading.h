@@ -316,7 +316,8 @@ struct FacePaletteShader {
    * @param frag Fragment whose `v1` is read and whose colour is written.
    * @param u Sweep fraction of the shaded column, in [0, 1].
    */
-  void operator()(const math::Vector &, Fragment &frag, float u) const {
+  HS_HOT_INLINE void operator()(const math::Vector &, Fragment &frag,
+                                float u) const {
     assert(palette != nullptr);
     const float back = 1.0f - u;
     const float t = hs::clamp(-frag.v1 * scale, 0.0f, 1.0f);
