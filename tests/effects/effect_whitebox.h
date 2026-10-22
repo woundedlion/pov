@@ -724,6 +724,126 @@ inline void test_gnomonicstars_radius_px_covers_both_axes() {
 
 /** @brief White-box accessor for Fishbowl's trail node. */
 struct FishbowlWhiteBox {
+  /** @brief Renders warped trail history or independently frozen endpoints.
+   * @param timed Selects production temporal rendering.
+   * @param fraction Frozen reference fraction.
+   * @param displacement Reference row shift.
+   * @param full Selects full-history rollover.
+   * @return Frame luminance. */
+  static std::vector<float> render_temporal_trail(bool timed, float fraction,
+                                                  float displacement,
+                                                  bool full) {
+    using FX = Fishbowl<DEFAULT_W, DEFAULT_H>;
+    reset_effect_globals();
+    FX fx;
+    fx.init();
+    fx.node->trail.clear();
+    auto q_at = [](int i) {
+      const auto v = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
+          119.0f + i * 3.7f, 65.0f + 5.0f * sinf(i * .3f));
+      return math::make_rotation(math::cross(math::Y_AXIS, v).normalized(),
+                                 acosf(v.y));
+    };
+    const int prior_records = full ? FX::TRAIL_LENGTH : 2;
+    for (int record = 0; record < prior_records; ++record) {
+      math::Orientation<FX::ORIENTATION_SUBSTEPS> pose;
+      pose.set(q_at(record * 3));
+      for (int j = 1; j < 4; ++j)
+        pose.push(q_at(record * 3 + j));
+      fx.node->trail.record(pose);
+    }
+    fx.orientation.set(math::Quaternion());
+    fx.noise_xform.prepare_frame();
+    auto &noise =
+        const_cast<Animation::NoiseParams &>(fx.noise_xform.active_params(0));
+    noise.time = .25f;
+    const auto old_noise = noise;
+    {
+      Canvas canvas(fx);
+      fx.render_trail(canvas, false, fx.cycle_phase);
+    }
+    fx.advance_display();
+    math::Orientation<FX::ORIENTATION_SUBSTEPS> newest;
+    newest.set(q_at(prior_records * 3));
+    for (int j = 1; j < 4; ++j)
+      newest.push(q_at(prior_records * 3 + j));
+    fx.node->trail.record(newest);
+    if (full)
+      fx.history_head = 1;
+    const auto end_pose = math::make_rotation(math::Y_AXIS, .02f);
+    fx.orientation.set(end_pose);
+    noise.time = .28f;
+    fx.palette_speed = .1f;
+    fx.cycle_phase = .1f;
+    {
+      Canvas canvas(fx);
+      if (timed) {
+        fx.render_trail(canvas, full, 0.0f);
+      } else {
+        ScratchScope guard(scratch_arena_a);
+        Fragments points;
+        points.bind(scratch_arena_a, FX::MAX_FRAGMENTS);
+        const float active = full ? FX::TRAIL_LENGTH : 3.0f;
+        const float fill = active / FX::TRAIL_LENGTH;
+        math::Quaternion previous_q;
+        math::Vector previous_pos;
+        float previous_t = 0;
+        bool have_previous = false;
+        auto current = [&](const math::Quaternion &q) {
+          return noise_transform(
+              math::rotate(math::rotate(fx.node->v, q), end_pose), noise);
+        };
+        auto append = [&](const math::Quaternion &q, const math::Vector &end,
+                          float t) {
+          const auto old =
+              math::Snorm3::encode(
+                  noise_transform(math::rotate(fx.node->v, q), old_noise))
+                  .decode();
+          Fragment f;
+          f.pos = hs_test::displace_reference_rows<DEFAULT_H>(
+              (old + (end - old) * fraction).normalized(), displacement);
+          f.v3 = t * fill;
+          points.push_back(f);
+        };
+        deep_tween(fx.node->trail, [&](const math::Quaternion &q, float t) {
+          const auto pos = current(q);
+          if (have_previous) {
+            const auto mid_q = math::slerp(previous_q, q, .5f);
+            const auto mid = current(mid_q);
+            if (math::angle_between(mid, math::slerp(previous_pos, pos, .5f)) >
+                .25f * math::RADIANS_PER_COLUMN<DEFAULT_W>)
+              append(mid_q, mid, .5f * (previous_t + t));
+          }
+          append(q, pos, t);
+          previous_q = q;
+          previous_pos = pos;
+          previous_t = t;
+          have_previous = true;
+        });
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          const float age = f.v3 / fill;
+          f.color = fx.shade_trail(
+              f.v3 -
+                  (1.0f - fraction) * (.1f / fx.params.scale_factor -
+                                       (full ? 1.0f / FX::TRAIL_LENGTH : 0.0f)),
+              age);
+          if (age > (active - 1.0f + fraction) / active)
+            f.color.alpha = 0.0f;
+        };
+        Plot::rasterize<DEFAULT_W, DEFAULT_H>(fx.filters, canvas, points,
+                                              shader);
+      }
+    }
+    fx.advance_display();
+    std::vector<float> result(DEFAULT_W * DEFAULT_H);
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const auto c = fx.get_pixel(x, y);
+        result[y * DEFAULT_W + x] = (c.r + c.g + c.b) / (3.0f * 65535.0f);
+      }
+    return result;
+  }
+
   using EffectType = Fishbowl<SMALL_W, SMALL_H>;
   static size_t tween_vertices(const EffectType &fx) {
     size_t n = 0;
@@ -1301,6 +1421,21 @@ inline void test_petalflow_temporal_source_oracle() {
         render, rho == 0.0f
                     ? "PetalFlow equator"
                     : (rho == 1.25f ? "PetalFlow dense" : "PetalFlow fade"));
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
+}
+
+/** @brief Warped Fishbowl endpoints, births and palette match frozen columns. */
+inline void test_fishbowl_temporal_trail_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  for (bool full : {false, true}) {
+    auto render = [full](bool timed, float fraction, float displacement) {
+      return FishbowlWhiteBox::render_temporal_trail(timed, fraction,
+                                                     displacement, full);
+    };
+    hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
+                                                       "Fishbowl trail");
   }
   Temporal::set_temporal_sampling_enabled(enabled);
 }

@@ -661,6 +661,76 @@ inline void test_dynamo_emitted_points_counts_ring_seeds() {
  */
 struct HopfWhiteBox {
   using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
+
+  /** @brief Renders a growing production trail or its frozen column reference.
+   * @param timed Selects the production temporal draw.
+   * @param fraction Frozen frame fraction.
+   * @param displacement Reference row displacement.
+   * @param start_column Start of the retained trail.
+   * @return Linear framebuffer luminance. */
+  static std::vector<float> render_temporal_trail(bool timed, float fraction,
+                                                  float displacement,
+                                                  float start_column) {
+    reset_effect_globals();
+    HF fx;
+    fx.init();
+    for (size_t i = 0; i < HF::ACTUAL_FIBERS; ++i)
+      fx.trails[i].clear();
+    const auto source = [&](int index) {
+      return math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
+          start_column + index * 3.3f, 65.0f + 8.0f * sinf(index * 0.2f));
+    };
+    for (int i = 0; i < HF::TRAIL_LEN; ++i)
+      fx.trails[0].record(source(i));
+    fx.retired[0] = source(-1);
+    fx.trail_was_full = true;
+    fx.history_ready = true;
+    fx.orientation.set(math::Quaternion());
+    const auto end_pose =
+        math::make_rotation(math::Y_AXIS, 2 * math::PI_F / 600);
+    fx.orientation.push(end_pose);
+    {
+      Canvas canvas(fx);
+      if (timed) {
+        fx.render_trails(canvas);
+      } else {
+        ScratchScope guard(scratch_arena_a);
+        Fragments points;
+        points.bind(scratch_arena_a, HF::TRAIL_LEN + 1);
+        const auto pose = math::slerp(math::Quaternion(), end_pose, fraction);
+        for (int i = -1; i < HF::TRAIL_LEN; ++i) {
+          Fragment f;
+          f.pos = hs_test::displace_reference_rows<DEFAULT_H>(
+              math::rotate(source(i), pose), displacement);
+          f.v0 = static_cast<float>(i) / (HF::TRAIL_LEN - 1);
+          points.push_back(f);
+        }
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          const float previous = fminf(1.0f, f.v0 + 1.0f / (HF::TRAIL_LEN - 1));
+          const float age =
+              fmaxf(0.0f, previous + (f.v0 - previous) * fraction);
+          f.color = fx.baked_sunset.get(1.0f - age);
+          f.color.alpha *= age * fx.params.alpha;
+          const float birth =
+              fmaxf(0.0f, f.v0 * (HF::TRAIL_LEN - 1) - (HF::TRAIL_LEN - 2));
+          if (birth > fraction)
+            f.color.alpha = 0.0f;
+        };
+        Plot::rasterize<DEFAULT_W, DEFAULT_H>(fx.trail_pipeline, canvas, points,
+                                              shader);
+      }
+    }
+    fx.advance_display();
+    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const auto pixel = fx.get_pixel(x, y);
+        luminance[y * DEFAULT_W + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+    return luminance;
+  }
+
   static size_t fiber_count() { return HF::ACTUAL_FIBERS; }
   static math::Vector project(HF &fx, size_t i) { return fx.hopf_project(i); }
   static void set_fiber(HF &fx, size_t i, float azimuth, float polar) {
@@ -798,4 +868,18 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
       previous_first = first;
     }
   }
+}
+
+/** @brief Hopf orientation, births and retiring-tail shading match frozen columns. */
+inline void test_hopf_temporal_trail_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  for (float start : {-15.0f, 125.0f}) {
+    auto render = [start](bool timed, float fraction, float displacement) {
+      return HopfWhiteBox::render_temporal_trail(timed, fraction, displacement,
+                                                 start);
+    };
+    hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render, "Hopf trail");
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
 }

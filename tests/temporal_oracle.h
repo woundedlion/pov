@@ -59,17 +59,20 @@ inline void test_reference_row_displacement_is_analytic() {
 /** @brief Tests the whole-frame temporal error against the endpoint budget.
  * @param error Summed luminance error over the frame.
  * @param endpoint_error Summed endpoint-render error over the frame.
- * @return Whether the temporal frame satisfies the twentieth-error limit. */
+ * @param share Fraction of the twentieth-error limit the frame may use.
+ * @return Whether the temporal frame satisfies the scaled limit. */
 inline bool temporal_frame_error_within_budget(float error,
-                                               float endpoint_error) {
-  return error <= endpoint_error / 20.0f + 1e-5f;
+                                               float endpoint_error,
+                                               float share = 1.0f) {
+  return error <= share * endpoint_error / 20.0f + 1e-5f;
 }
 
 /** @brief Compares columns and whole-frame error with frozen geometry.
  * @param render Timed or frozen render callback.
- * @param name Diagnostic label. */
+ * @param name Diagnostic label.
+ * @param share Fraction of the twentieth-error frame limit allowed. */
 template <int W, int H, typename Render>
-void seam_compare_render(Render render, const char *name) {
+void seam_compare_render(Render render, const char *name, float share = 1.0f) {
   const auto actual = render(true, 1.0f, 0.0f);
   const auto endpoint = render(false, 1.0f, 0.0f);
   float total = 0.0f, endpoint_total = 0.0f, displaced_total = 0.0f;
@@ -99,8 +102,9 @@ void seam_compare_render(Render render, const char *name) {
               name, total, endpoint_total, displaced_total, worst,
               endpoint_total / 20.0f, displacement_failures);
   HS_EXPECT_GT(endpoint_total, 0.01f);
-  HS_EXPECT(temporal_frame_error_within_budget(total, endpoint_total),
-            "whole-frame error is at most one twentieth of endpoint error");
+  HS_EXPECT(temporal_frame_error_within_budget(total, endpoint_total, share),
+            "whole-frame error is within its share of one twentieth of "
+            "endpoint error");
   HS_EXPECT_EQ(displacement_failures, 0);
 }
 
@@ -110,6 +114,8 @@ inline void test_temporal_oracle_uses_whole_frame_endpoint_budget() {
             "error within one twentieth");
   HS_EXPECT(!temporal_frame_error_within_budget(0.06f, 1.0f),
             "error above one twentieth");
+  HS_EXPECT(!temporal_frame_error_within_budget(0.04f, 1.0f, 0.5f),
+            "error above half of one twentieth");
   auto render = [](bool timed, float fraction, float displacement) {
     std::array<float, 4> pixels{};
     if (timed)

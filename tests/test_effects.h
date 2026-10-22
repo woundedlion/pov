@@ -943,6 +943,10 @@ inline int run_effects_tests() {
     return fixture.result();
   }
 
+  run_case(test_hopf_temporal_trail_oracle);
+  run_case(test_dreamballs_temporal_source_oracle);
+  run_case(test_dreamballs_column_work_is_bounded);
+  run_case(DreamBallsWhiteBox::check_endpoint_error_bound);
   run_case(test_petalflow_temporal_source_oracle);
   run_case(test_meshfeedback_temporal_source_oracle);
   run_case(test_meshfeedback_stationary_timed_source);
@@ -973,6 +977,7 @@ inline int run_effects_tests() {
   run_case(test_gs_substep_matches_scalar_reference);
   run_case(test_gs_inplace_frame_matches_jacobi);
   run_case(test_fishbowl_preset_and_fire_duty_cycle);
+  run_case(test_fishbowl_temporal_trail_oracle);
   run_case(test_sh_preset_mode_mapping);
   run_case(test_sh_manual_preset_replaces_inflight_morph);
   run_case(test_shapeshifter_preset_defaults);
