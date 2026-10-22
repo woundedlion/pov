@@ -493,6 +493,22 @@ inline void test_fast_sincosf_0_pi() {
   }
 }
 
+/** @brief Verifies poly_sincosf_0_pi's absolute error across [0, pi]. */
+inline void test_poly_sincosf_0_pi() {
+  double worst = 0.0;
+  for (int i = 0; i <= 65536; ++i) {
+    const float x = (float(i) * math::PI_F) / 65536.0f;
+    float s, c;
+    math::poly_sincosf_0_pi(x, s, c);
+    const double sine_error = std::fabs(double(s) - std::sin(double(x)));
+    const double cosine_error = std::fabs(double(c) - std::cos(double(x)));
+    worst = std::max(worst, std::max(sine_error, cosine_error));
+    HS_EXPECT_LE(sine_error, 3e-7);
+    HS_EXPECT_LE(cosine_error, 3e-7);
+  }
+  std::printf("  [poly_sincosf_0_pi] worst error %.3g\n", worst);
+}
+
 // ============================================================================
 // Vector — construction
 // ============================================================================
@@ -2112,6 +2128,7 @@ inline int run_3dmath_tests() {
   test_fast_acos();
   test_fast_sinf_cosf();
   test_fast_sincosf_0_pi();
+  test_poly_sincosf_0_pi();
   test_fast_cbrt();
   test_precise_atan2();
   test_fast_cbrt3();

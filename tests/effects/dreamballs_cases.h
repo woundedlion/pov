@@ -16,6 +16,157 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
   static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
+  /** @brief Renders an orbiting source or its independently frozen endpoint.
+   * @param timed Selects the production callback draw.
+   * @param fraction Frozen frame fraction.
+   * @param displacement Reference row displacement.
+   * @param woven Selects transported weave framing.
+   * @param newborn Selects the first visible sprite fade.
+   * @param frozen_geometry Holds geometry and opacity constant.
+   * @param spin Pose rotation over the frame, radians.
+   * @return Linear framebuffer luminance. */
+  static std::vector<float>
+  render_temporal_scene(bool timed, float fraction, float displacement,
+                        bool woven, bool newborn = false,
+                        bool frozen_geometry = false, float spin = 0.012f) {
+    using FX = DreamBalls<DEFAULT_W, DEFAULT_H>;
+    reset_effect_globals();
+    FX fx;
+    fx.init();
+    auto p = fx.params;
+    p.base_mesh = FX::BaseMesh::OCTAHEDRON;
+    p.weave_topology = woven ? FX::WeaveTopology::AUTOMATIC
+                             : FX::WeaveTopology::ORIGINAL_WITH_DEFECTS;
+    p.num_copies = 1.0f;
+    p.offset_radius = 0.2f;
+    const auto start = math::make_rotation(math::X_AXIS, 0.27f);
+    const auto finish =
+        frozen_geometry
+            ? start
+            : math::make_rotation(math::Vector(0.2f, 1.0f, 0.1f).normalized(),
+                                  spin) *
+                  start;
+    fx.orbit_phase = frozen_geometry    ? 0.2f
+                     : newborn || timed ? 0.204f
+                                        : 0.2f + 0.004f * fraction;
+    fx.global_orientation.set(
+        newborn || timed ? finish : math::slerp(start, finish, fraction));
+    fx.history_ready = !newborn;
+    fx.previous_pose = start;
+    fx.drawn_phase = 0.2f;
+    fx.drawn_opacity = frozen_geometry ? 0.65625f : 0.625f;
+    fx.drawn_params = p;
+    const auto &solid = fx.loaded_solids[static_cast<size_t>(p.base_mesh)];
+    const BakedPalette &baked = fx.baked_palettes[fx.active_bake];
+    {
+      Canvas canvas(fx);
+      ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+      if (timed) {
+        fx.draw_scene(canvas, p, newborn ? 1.0f / FX::FADE_WINDOW : 0.65625f,
+                      solid, baked);
+      } else {
+        MeshState mesh;
+        ArenaVector<math::Vector> base, tangent, offsets;
+        ArenaVector<Plot::Mesh::Edge> framed;
+        const auto &edges =
+            woven ? FX::woven_edges(solid, false) : solid.original_edges;
+        uint16_t *owners = nullptr;
+        if (woven) {
+          FX::prepare_woven_buffers(solid, false, edges, base, tangent, offsets,
+                                    mesh, framed);
+          owners = scratch_arena_b.allocate_n<uint16_t>(base.size());
+          FX::assign_woven_start_owners(edges, owners, base.size());
+          for (size_t i = 0; i < base.size(); ++i) {
+            const float angle =
+                fx.orbit_phase * 2 * math::PI_F +
+                static_cast<float>(i) * FX::VERTEX_PHASE_STAGGER;
+            offsets[i] = FX::tangent_orbit_offset(base[i], tangent[i], angle);
+            mesh.vertices[i] = math::normalized_or(
+                base[i] + offsets[i] * p.offset_radius, base[i]);
+          }
+          for (size_t i = 0; i < edges.size(); ++i) {
+            const auto &edge = edges[i];
+            const auto offset = math::parallel_transport(
+                base[edge.u], base[edge.v], offsets[edge.u]);
+            mesh.vertices[base.size() + i] = math::normalized_or(
+                base[edge.v] + offset * p.offset_radius, base[edge.v]);
+          }
+        } else {
+          MeshOps::transform(solid.mesh_state, mesh, scratch_arena_a);
+          fx.update_displaced_mesh(solid.mesh_state, mesh, solid.tangent_u, p,
+                                   0.0f);
+        }
+        fx.orient_mesh(mesh);
+        for (auto &point : mesh.vertices)
+          point =
+              hs_test::displace_reference_rows<DEFAULT_H>(point, displacement);
+        auto shader = [&](const math::Vector &, Fragment &f) {
+          auto color = baked.get(f.v0);
+          color.alpha *=
+              p.alpha *
+              (frozen_geometry
+                   ? 0.65625f
+                   : ((newborn ? 0.0f : 0.625f) + fraction / FX::FADE_WINDOW)) *
+              FX::under_gap_alpha(f.v0, p.weave_gap);
+          if (woven && f.v0 == 0.0f &&
+              !FX::owns_woven_start_sample(edges, owners,
+                                           static_cast<size_t>(f.v2)))
+            color.alpha = 0.0f;
+          f.color = color;
+        };
+        auto at = [&](size_t i, float) { return mesh.vertices[i]; };
+        auto geometry = Plot::GeometryCallback::interpolating(at);
+        geometry.column_edges = true;
+        auto timed_shader = [&](const math::Vector &point, Fragment &f, float) {
+          shader(point, f);
+        };
+        Plot::Mesh::draw_timed<DEFAULT_W, DEFAULT_H>(
+            fx.filters, canvas, mesh, woven ? framed : edges, timed_shader,
+            geometry, 0.0f);
+      }
+    }
+    fx.advance_display();
+    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const auto pixel = fx.get_pixel(x, y);
+        luminance[y * DEFAULT_W + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+    return luminance;
+  }
+
+  /** @brief Checks orbit and pose interpolation against its angular bound. */
+  static void check_endpoint_error_bound() {
+    float worst_ratio = 0.0f;
+    const auto base = math::Vector(0.3f, 0.8f, 0.5f).normalized();
+    const auto tangent = math::tangent_axis(base);
+    for (float radius : {0.0f, 0.3f, 1.0f})
+      for (float orbit : {0.025132741f, 0.12566371f, 0.31415927f})
+        for (float spin : {0.0f, 0.04f, 0.16f})
+          for (int phase = 0; phase < 32; ++phase) {
+            const auto at = [&](float t) {
+              const auto offset = DB::tangent_orbit_offset(
+                  base, tangent, phase * math::PI_F / 16.0f + orbit * t);
+              return math::rotate(
+                  math::normalized_or(base + offset * radius, base),
+                  math::make_rotation(math::Z_AXIS, spin * t));
+            };
+            const auto a = at(0.0f), b = at(1.0f);
+            const float bound = DB::endpoint_error_bound(spin, orbit, radius);
+            for (int step = 1; step < 32; ++step) {
+              const float t = step / 32.0f;
+              const auto delta = at(t) - (a * (1.0f - t) + b * t).normalized();
+              const float error = sqrtf(math::dot(delta, delta));
+              HS_EXPECT_LE(error, bound + 0.000002f);
+              if (bound > 0.0f)
+                worst_ratio = fmaxf(worst_ratio, error / bound);
+            }
+          }
+    std::printf("  [DreamBalls endpoint bound] worst ratio %.6f\n",
+                worst_ratio);
+  }
+
   static int active_bake(const DB &db) { return db.active_bake; }
   static bool holding(const DB &db) { return db.plateau_hold.held(); }
   // Advance the choreography, then re-spawn.
@@ -498,4 +649,86 @@ inline void test_dreamballs_select_mid_fade_out_respawns() {
   check_dreamballs_select_mid_fade(DreamBallsWhiteBox::SPRITE_LIFE -
                                        DreamBallsWhiteBox::FADE_WINDOW / 4,
                                    true);
+}
+
+/** @brief Pose rotation per frame at the peak of a slice spin, radians. */
+inline constexpr float FAST_SPIN = 0.12f;
+
+/** @brief DreamBalls orbit, transported framing, pose and fade match frozen
+ * columns within half of the frame error limit, also under a fast spin. */
+inline void test_dreamballs_temporal_source_oracle() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  for (int scene = 0; scene < 4; ++scene) {
+    const bool woven = scene == 1 || scene == 3, newborn = scene == 2;
+    const float spin = scene == 3 ? FAST_SPIN : 0.012f;
+    auto render = [woven, newborn, spin](bool timed, float fraction,
+                                         float displacement) {
+      return DreamBallsWhiteBox::render_temporal_scene(
+          timed, fraction, displacement, woven, newborn, false, spin);
+    };
+    hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(
+        render,
+        scene == 3 ? "DreamBalls fast spin"
+        : newborn  ? "DreamBalls birth"
+        : woven    ? "DreamBalls woven"
+                   : "DreamBalls original",
+        scene == 3 ? 1.0f : 0.5f);
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
+}
+
+/** @brief Shells and preset first frames avoid iterative edge fallbacks, and a
+ * fast spin evaluates each vertex at most at the frame's start and middle. */
+inline void test_dreamballs_column_work_is_bounded() {
+  const bool enabled = Temporal::temporal_sampling_enabled();
+  Temporal::set_temporal_sampling_enabled(true);
+  for (bool woven : {false, true})
+    for (bool stationary : {false, true}) {
+      Temporal::geometry_counters = {};
+      const auto pixels = DreamBallsWhiteBox::render_temporal_scene(
+          true, 1.0f, 0.0f, woven, false, stationary);
+      float energy = 0.0f;
+      for (float value : pixels) {
+        HS_EXPECT(std::isfinite(value), "frame luminance is finite");
+        energy += value;
+      }
+      const auto &counts = Temporal::geometry_counters;
+      HS_EXPECT_GT(energy, 1.0f);
+      HS_EXPECT_GT(counts.column_samples, 0u);
+      HS_EXPECT_EQ(counts.legacy_edge_walks, 0u);
+      HS_EXPECT_EQ(counts.capture_solves, 0u);
+      HS_EXPECT_EQ(counts.solve_probes, 0u);
+      HS_EXPECT_LT(counts.column_generated_samples, 4000u);
+      HS_EXPECT_LT(counts.column_boundary_samples * 8, counts.column_samples);
+    }
+  Temporal::geometry_counters = {};
+  DreamBallsWhiteBox::render_temporal_scene(true, 1.0f, 0.0f, true, false,
+                                            false, FAST_SPIN);
+  const auto &spun = Temporal::geometry_counters;
+  HS_EXPECT_GT(spun.column_path_evaluations, 0u);
+  HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
+  HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
+  for (size_t preset : {size_t(8), size_t(0)}) {
+    reset_effect_globals();
+    DreamBalls<DEFAULT_W, DEFAULT_H> fx;
+    fx.init();
+    HS_EXPECT_TRUE(fx.selectPreset(preset));
+    fx.setAnimationsPaused(false);
+    for (int frame = 0; frame < 3; ++frame) {
+      pin_frame_clock(frame);
+      Temporal::geometry_counters = {};
+      fx.draw_frame();
+      fx.advance_display();
+      const auto &counts = Temporal::geometry_counters;
+      HS_EXPECT_GT(counts.column_samples, 0u);
+      HS_EXPECT_EQ(counts.legacy_edge_walks, 0u);
+      HS_EXPECT_EQ(counts.capture_solves, 0u);
+      if (frame == 0)
+        HS_EXPECT_EQ(counts.column_crossings, 0u);
+      else
+        HS_EXPECT_GT(counts.column_crossings, 0u);
+    }
+  }
+  Temporal::set_temporal_sampling_enabled(enabled);
 }
