@@ -32,6 +32,11 @@ constexpr int FRAMES = 60, WARM = 10;
 /** @brief Scratch capacity covering uncached feedback under a column clip. */
 constexpr size_t BENCH_SCRATCH_BYTES = 64 * 1024;
 
+/** @brief Frames run before timing an effect. */
+template <typename Effect> constexpr int WARM_FRAMES = WARM;
+/** @brief Galaxies fills its particle pool over its 800-frame lifetime. */
+template <> constexpr int WARM_FRAMES<Galaxies<W, H>> = 900;
+
 /** @brief Measures one effect after a fixed warmup.
  * @param name Effect name, or null to suppress the individual measurement.
  * @param temporal Selects column-time sampling.
@@ -48,14 +53,14 @@ double bench(const char *name, bool temporal = true, bool clipped = false) {
   effect.init();
   if (clipped)
     effect.set_clip(36, 72, 0, 144);
-  for (int i = 0; i < WARM; ++i) {
+  for (int i = 0; i < WARM_FRAMES<Effect>; ++i) {
     hs_test::pin_frame_clock(i);
     effect.draw_frame();
     effect.advance_display();
   }
   auto t0 = std::chrono::steady_clock::now();
   for (int i = 0; i < FRAMES; ++i) {
-    hs_test::pin_frame_clock(WARM + i);
+    hs_test::pin_frame_clock(WARM_FRAMES<Effect> + i);
     effect.draw_frame();
     effect.advance_display();
   }
@@ -94,7 +99,57 @@ template <typename Effect> void temporal_cost(const char *name) {
 }
 } // namespace
 
+namespace hs_test::effects_tests {
+/** @brief Times Galaxies' particle and core draw alone, on a filled pool. */
+struct GalaxiesWhiteBox {
+  /** @brief Microseconds per draw_particles() after the warmup.
+   * @param temporal Selects column-time sampling.
+   * @param clipped Selects the segment clip.
+   * @return Fastest of several timed blocks, per draw. */
+  static double draw_us(bool temporal, bool clipped) {
+    constexpr int BLOCKS = 9, DRAWS = 20;
+    hs_test::reset_globals();
+    configure_arenas(GLOBAL_ARENA_SIZE - 2 * BENCH_SCRATCH_BYTES,
+                     BENCH_SCRATCH_BYTES, BENCH_SCRATCH_BYTES);
+    Temporal::set_temporal_sampling_enabled(temporal);
+    Galaxies<W, H> effect;
+    effect.init();
+    if (clipped)
+      effect.set_clip(36, 72, 0, 144);
+    const int warm = WARM_FRAMES<Galaxies<W, H>>;
+    for (int i = 0; i < warm; ++i) {
+      hs_test::pin_frame_clock(i);
+      effect.draw_frame();
+      effect.advance_display();
+    }
+    double best = 1e30;
+    for (int block = 0; block < BLOCKS; ++block) {
+      const auto t0 = std::chrono::steady_clock::now();
+      for (int i = 0; i < DRAWS; ++i) {
+        {
+          Canvas canvas(effect);
+          effect.draw_particles(canvas);
+        }
+        effect.advance_display();
+      }
+      const auto t1 = std::chrono::steady_clock::now();
+      best = std::min(
+          best, std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0)
+                        .count() /
+                    1000.0 / DRAWS);
+    }
+    return best;
+  }
+};
+} // namespace hs_test::effects_tests
+
 int main(int argc, char **argv) {
+  if (argc == 4 && std::strcmp(argv[1], "--galaxies-draw") == 0) {
+    std::printf("%.3f\n", hs_test::effects_tests::GalaxiesWhiteBox::draw_us(
+                              std::strcmp(argv[2], "on") == 0,
+                              std::strcmp(argv[3], "segment") == 0));
+    return 0;
+  }
   if (argc == 5 && std::strcmp(argv[1], "--temporal-sample") == 0) {
     const bool temporal = std::strcmp(argv[3], "on") == 0;
     const bool clipped = std::strcmp(argv[4], "segment") == 0;
@@ -108,6 +163,7 @@ int main(int argc, char **argv) {
     HS_TEMPORAL_SAMPLE(Comets)
     HS_TEMPORAL_SAMPLE(RingSpin)
     HS_TEMPORAL_SAMPLE(HopfFibration)
+    HS_TEMPORAL_SAMPLE(Galaxies)
 #undef HS_TEMPORAL_SAMPLE
     return 2;
   }
@@ -118,6 +174,7 @@ int main(int argc, char **argv) {
     temporal_cost<Comets<W, H>>("Comets");
     temporal_cost<RingSpin<W, H>>("RingSpin");
     temporal_cost<HopfFibration<W, H>>("HopfFibration");
+    temporal_cost<Galaxies<W, H>>("Galaxies");
     return 0;
   }
 #ifdef __OPTIMIZE_SIZE__
