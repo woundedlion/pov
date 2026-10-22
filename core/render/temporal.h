@@ -98,7 +98,7 @@ struct ColumnTime {
   /// Rotation vector, axis times angle, carrying the scanned shape from where
   /// it stood at the previous endpoint to the current one. A Scan::rasterize
   /// column lit at fraction `u` evaluates the shape along its direction
-  /// rotated by `drift * (1 - u)`; at most MAX_DRIFT_ANGLE long.
+  /// rotated by `drift * (1 - u)`; shorter than a half turn.
   math::Vector drift = math::Vector(0.0f, 0.0f, 0.0f);
   /// Per face of the mesh a deformation scan draws, which of its passes
   /// draws the face: MESH_FACE_HELD for the pass without a render-x window,
@@ -119,23 +119,81 @@ inline constexpr uint8_t MESH_FACE_WINDOW = 1;
 /// ColumnTime::selected_faces entry of a face the current pass skips.
 inline constexpr uint8_t MESH_FACE_SKIPPED = 2;
 
-/// Longest drift a scan evaluates, radians.
-inline constexpr float MAX_DRIFT_ANGLE = 0.25f;
+/// Longest rotation rotate_by() takes by its series coefficients, radians.
+inline constexpr float SHORT_TURN_ANGLE = 0.25f;
+
+/** @brief Rodrigues coefficients of a rotation by angle `a`. */
+struct TurnCoefficients {
+  float sine;    ///< sin(a) / a.
+  float versine; ///< (1 - cos(a)) / a^2.
+};
 
 /**
- * @brief Rotates a direction by a short rotation vector.
+ * @brief Rodrigues coefficients of a rotation past SHORT_TURN_ANGLE.
+ * @param angle_sq Squared rotation angle, below pi squared.
+ * @return The coefficients, from the series at the angle halved until it is
+ *         short, doubled back by the double-angle formulas.
+ */
+HS_FLASH_MEMBER inline TurnCoefficients long_turn_coefficients(float angle_sq) {
+  const float angle = sqrtf(angle_sq);
+  float half = angle;
+  int doublings = 0;
+  while (half > SHORT_TURN_ANGLE) {
+    half *= 0.5f;
+    ++doublings;
+  }
+  const float h2 = half * half;
+  float s = half * (1.0f - h2 * (1.0f / 6.0f - h2 / 120.0f));
+  float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f - h2 / 720.0f));
+  float versine = 0.0f;
+  for (int i = 0; i < doublings; ++i) {
+    versine = 2.0f * s * s;
+    const float next = c * c - s * s;
+    s = 2.0f * s * c;
+    c = next;
+  }
+  return {s / angle, versine / angle_sq};
+}
+
+/**
+ * @brief Rodrigues coefficients of a rotation shorter than a half turn.
+ * @param angle_sq Squared rotation angle.
+ * @return Series coefficients up to SHORT_TURN_ANGLE, long_turn_coefficients()
+ *         past it.
+ */
+__attribute__((always_inline)) inline TurnCoefficients
+turn_coefficients(float angle_sq) {
+  if (angle_sq <= SHORT_TURN_ANGLE * SHORT_TURN_ANGLE)
+    // Series for sin(a) / a and (1 - cos(a)) / a^2.
+    return {1.0f - angle_sq * (1.0f / 6.0f - angle_sq / 120.0f),
+            0.5f - angle_sq * (1.0f / 24.0f - angle_sq / 720.0f)};
+  return long_turn_coefficients(angle_sq);
+}
+
+/**
+ * @brief Rotates a direction by a rotation vector with its coefficients.
  * @param p Direction to rotate.
- * @param rotation Axis times angle, at most MAX_DRIFT_ANGLE long.
- * @return @p p rotated, by Rodrigues' formula with series coefficients.
+ * @param rotation Axis times angle.
+ * @param k The rotation's coefficients, as turn_coefficients() gives them.
+ * @return @p p rotated by Rodrigues' formula.
  */
 __attribute__((always_inline)) inline math::Vector
-rotate_short(const math::Vector &p, const math::Vector &rotation) {
-  const float angle_sq = math::dot(rotation, rotation);
-  // Series for sin(a) / a and (1 - cos(a)) / a^2.
-  const float sine = 1.0f - angle_sq * (1.0f / 6.0f - angle_sq / 120.0f);
-  const float versine = 0.5f - angle_sq * (1.0f / 24.0f - angle_sq / 720.0f);
+rotate_by(const math::Vector &p, const math::Vector &rotation,
+          const TurnCoefficients &k) {
   const math::Vector across = math::cross(rotation, p);
-  return p + across * sine + math::cross(rotation, across) * versine;
+  return p + across * k.sine + math::cross(rotation, across) * k.versine;
+}
+
+/**
+ * @brief Rotates a direction by a rotation vector.
+ * @param p Direction to rotate.
+ * @param rotation Axis times angle, shorter than a half turn.
+ * @return @p p rotated by Rodrigues' formula.
+ */
+__attribute__((always_inline)) inline math::Vector
+rotate_by(const math::Vector &p, const math::Vector &rotation) {
+  return rotate_by(p, rotation,
+                   turn_coefficients(math::dot(rotation, rotation)));
 }
 
 /** @brief First-arm column lit at a sweep fraction.

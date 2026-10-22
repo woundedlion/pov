@@ -547,8 +547,8 @@ struct GnomonicStarsWhiteBox {
   template <int W, int H> static void refresh_spiral(GnomonicStars<W, H> &fx) {
     fx.refresh_spiral();
   }
-  template <int W, int H> static constexpr float max_drift() {
-    return GnomonicStars<W, H>::MAX_DRIFT;
+  template <int W, int H> static constexpr float cull_drift() {
+    return GnomonicStars<W, H>::CULL_DRIFT;
   }
 };
 
@@ -565,8 +565,8 @@ inline bool same_mobius(const math::MobiusParams &a,
 
 /**
  * @brief Each star drifts from where the last frame drew it to its current
- *        warped centre, at the current orientation; a jump or a rebuilt
- *        spiral holds it.
+ *        warped centre, at the current orientation, however far it moves; a
+ *        rebuilt spiral holds it.
  */
 inline void test_gnomonicstars_stars_drift_from_last_draw() {
   using WB = GnomonicStarsWhiteBox;
@@ -579,7 +579,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
   fx.advance_display();
   HS_EXPECT_TRUE(WB::warp_drawn(fx));
 
-  const float max_drift = WB::max_drift<W, H>();
+  const float cull_drift = WB::cull_drift<W, H>();
   int moving = 0;
   for (int f = 0; f < 6; ++f) {
     const math::MobiusParams previous = WB::warp(fx);
@@ -595,25 +595,28 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
       const math::Vector before = math::rotate(drawn, q);
       const math::Vector now = math::rotate(WB::warped(fx, i), q);
       const math::Vector drift = WB::star_drift(fx, drawn, WB::warped(fx, i));
-      if (math::dot(drift, drift) == 0.0f) {
-        HS_EXPECT_GT(acosf(hs::clamp(math::dot(before, now), -1.0f, 1.0f)),
-                     max_drift);
+      if (math::dot(drift, drift) == 0.0f)
         continue;
-      }
       ++moving;
-      HS_EXPECT_LE(sqrtf(math::dot(drift, drift)), max_drift + 1e-6f);
-      HS_EXPECT_NEAR(math::dot(Temporal::rotate_short(before, drift), now),
-                     1.0f, 1e-6f);
+      HS_EXPECT_NEAR(math::dot(Temporal::rotate_by(before, drift), now), 1.0f,
+                     1e-6f);
     }
   }
   HS_EXPECT_GT(moving, 50);
 
   const math::Vector drawn = WB::drawn_centre(fx, 5);
-  const math::Vector jump = math::rotate(
-      drawn, math::make_rotation(math::cross(drawn, math::Y_AXIS).normalized(),
-                                 1.5f * max_drift));
-  const math::Vector held = WB::star_drift(fx, drawn, jump);
-  HS_EXPECT_EQ(math::dot(held, held), 0.0f);
+  const math::Quaternion &q = WB::orientation(fx);
+  for (const float angle : {1.5f * cull_drift, 0.6f, 1.7f, 3.0f}) {
+    HS_CONTEXT("angle", angle);
+    const math::Vector jump = math::rotate(
+        drawn, math::make_rotation(
+                   math::cross(drawn, math::Y_AXIS).normalized(), angle));
+    const math::Vector drift = WB::star_drift(fx, drawn, jump);
+    HS_EXPECT_NEAR(sqrtf(math::dot(drift, drift)), angle, 1e-4f);
+    const math::Vector before = math::rotate(drawn, q);
+    const math::Vector now = math::rotate(jump, q);
+    HS_EXPECT_VEC(Temporal::rotate_by(before, drift), now, 1e-5f);
+  }
 
   HS_EXPECT_TRUE(fx.updateParameter("Points", 300.0f) ==
                  ParamSetResult::APPLIED);
