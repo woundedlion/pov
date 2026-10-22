@@ -18,6 +18,8 @@
 #include "core/render/canvas.h"
 #include "core/render/temporal/arm_crossing.h"
 #include "core/render/temporal/pose_table.h"
+#include "core/render/temporal/swept_bound.h"
+#include "core/render/temporal/vertex_motion.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/mesh_test_util.h"
@@ -83,7 +85,9 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/temporal_seam.h"
 #include "tests/plot_scan/timed_mesh.h"
 #include "tests/plot_scan/temporal_poses.h"
+#include "tests/plot_scan/temporal_motion.h"
 #include "tests/plot_scan/temporal_crossings.h"
+#include "tests/plot_scan/temporal_swept.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
@@ -130,11 +134,19 @@ inline int run_plot_scan_tests() {
   test_pose_table_holds_a_still_history();
   test_pose_table_rotates_between_column_times();
   test_column_poses_match_endpoint_slerp();
+  test_interpolants_bound_rotation();
+  test_interpolants_bound_meridian();
+  test_interpolants_bound_orbit();
+  test_interpolants_bound_curved_path();
+  test_vertex_motion_carries_frame_ends();
+  test_rotation_chord_bound_covers_unit_vectors();
   test_arm_passes_match_brute_force();
   test_arm_passes_extend_to_frame_ends();
   test_piecewise_arm_passes_match_brute_force();
   test_model_track_guard_bounds_true_passes();
   test_model_track_splits_or_refuses_near_poles();
+  test_swept_bounds_cover_moving_edges();
+  test_swept_heights_refuse_wide_spreads();
 
   test_geodesic_sincos_bit_parity();
   test_line_sample_endpoints_and_unit_length();
