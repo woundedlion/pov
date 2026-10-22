@@ -445,10 +445,10 @@ struct Mesh {
    * @param points Bound two-fragment output buffer.
    * @param from,to Endpoint vertices.
    * @param edge_index Edge register value. */
-  HS_HOT_INLINE static void prepare_timed_edge(Fragments &points,
-                                               const math::Vector &from,
-                                               const math::Vector &to,
-                                               size_t edge_index) {
+  FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE static void
+  prepare_timed_edge(Fragments &points, const math::Vector &from,
+                     const math::Vector &to, size_t edge_index) {
+    points.clear();
     Fragment a, b;
     a.pos = from;
     b.pos = to;
@@ -583,7 +583,6 @@ struct Mesh {
     Fragments points;
     points.bind(scratch_arena_a, 2);
     auto prepare = [&](size_t ei) HS_HOT_INLINE {
-      points.clear();
       prepare_timed_edge(points, mesh.vertices[edges[ei].u],
                          mesh.vertices[edges[ei].v], ei);
     };
@@ -665,7 +664,6 @@ struct Mesh {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       ScratchScope guard(scratch_arena_a);
       edge_index = ei;
-      points.clear();
       prepare_timed_edge(points, mesh.vertices[edges[ei].u],
                          mesh.vertices[edges[ei].v], ei);
       rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader, {},

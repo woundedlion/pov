@@ -247,6 +247,8 @@ public:
       PipelineT::world_transform_is_identity;
   /// World stages can be evaluated at geometric controls.
   static constexpr bool rigid_world_stages = PipelineT::rigid_world_stages;
+  /// The world stages move nothing or are one pose-table rotation.
+  static constexpr bool table_world_stages = PipelineT::table_world_stages;
   /// Some stage evaluates world motion over a frame.
   static constexpr bool has_temporal_motion = PipelineT::has_temporal_motion;
   /// Writes the framebuffer through a cached base.
@@ -372,6 +374,13 @@ public:
   /** @brief Sum of world-stage frame motion bounds.
    * @return Angular bound in radians. */
   float cull_bound() const { return pipeline().cull_bound(); }
+
+  /** @brief The world stages' poses by column time.
+   * @param cv Frame context.
+   * @return The table of the stage that keeps one, or null. */
+  const Temporal::PoseTable *pose_table(const Canvas &cv) {
+    return pipeline().pose_table(cv);
+  }
 
   /** @brief Number of spatial copies in the prepared pipeline.
    * @return Product of world-stage copy counts. */
