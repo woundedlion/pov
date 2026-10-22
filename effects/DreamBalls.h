@@ -152,7 +152,9 @@ public:
   HS_COLD_MEMBER DreamBalls()
       : Choreography(W, H,
                      pipeline_config<decltype(filters)>({.strobe = true})),
-        filters(Filter::Screen::AntiAlias<W, H>()) {}
+        filters(Filter::Screen::AntiAlias<W, H>()),
+        timed_filters(Filter::World::Orient(drawn_orientation),
+                      Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
    * @brief Builds mesh data, bakes palette LUTs, registers live sliders, and
@@ -160,7 +162,9 @@ public:
    */
   void init() override {
     begin_choreography();
+    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}.configure();
     loaded_solids = persistent_arena.make_n<SolidData>(SOLID_COUNT);
+    timed_filters.init_storage(persistent_arena);
     setup_solids();
 
     blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
@@ -224,6 +228,7 @@ private:
    */
   HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
+    history_ready = false;
     live_palette = preset_palettes[change.to];
     if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC) {
       baked_palettes[active_bake].rebake(*live_palette);
@@ -288,7 +293,26 @@ private:
 
   math::Orientation<> global_orientation;
 
+  math::Orientation<> drawn_orientation; /**< Retained draw endpoint poses. */
+  Params drawn_params; /**< Parameters of the preceding visible draw. */
+  math::Quaternion previous_pose; /**< Pose used by the preceding draw. */
+  float drawn_phase = 0.0f;   /**< Orbit phase used by the preceding draw. */
+  float drawn_opacity = 0.0f; /**< Opacity of the preceding draw. */
+  float phase_start = 0.0f;   /**< Unwrapped orbit start for this draw. */
+  float opacity_start = 0.0f; /**< Opacity at this draw's start. */
+  float motion_bound = 0.0f;  /**< Orbit displacement over the frame. */
+  Temporal::PathBound orbit_path{}; /**< A vertex's orbit path over the frame:
+                                       eight times the certified chord error,
+                                       and one orbit turn more for the third
+                                       derivative, as on a circle. */
+  bool history_ready = false; /**< Whether the sprite has a drawn endpoint. */
+  bool sprite_unseen =
+      true; /**< Whether the current sprite has no visible draw. */
+
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  /** Column-time pipeline applying the draw poses to unoriented meshes. */
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+      timed_filters;
   static constexpr int SPRITE_LIFE = 320; /**< Visible frames per sprite. */
   static constexpr int FADE_WINDOW = 32;  /**< Fade-in/out length in frames. */
   /** Frames consecutive sprites coexist; 0 keeps every frame at a single mesh
@@ -308,7 +332,10 @@ private:
    *          the active sprite's slot.
    */
   BakedPaletteStorage baked_palettes[2];
+  /** @brief Scratch space for framed meshes, captured controls and cadence. */
+  static constexpr size_t SCRATCH_A_BYTES = 32 * 1024;
   static constexpr size_t FOOTPRINT_BYTES =
+      Filter::World::Orient::STORAGE_BYTES +
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +
       SOLID_COUNT * (Solids::MAX_SOLID_VERTICES * 2 * sizeof(math::Vector) +
@@ -317,9 +344,10 @@ private:
                      3 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge)) +
       FOUR_REGULAR_SOLID_COUNT * 2 * Solids::MAX_SOLID_EDGES *
           sizeof(Plot::Mesh::Edge);
-  static_assert(
-      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-      "DreamBalls persistent footprint exceeds the default partition");
+  static_assert(FOOTPRINT_BYTES <=
+                    ArenaSplit{SCRATCH_A_BYTES, DEFAULT_SCRATCH_B_SIZE}
+                        .device_persistent(),
+                "DreamBalls persistent footprint exceeds its partition");
   // Medial topology turns every source edge into a woven vertex.
   static constexpr size_t WOVEN_VERTEX_BOUND =
       Solids::MAX_SOLID_EDGES > Solids::MAX_SOLID_VERTICES
@@ -330,15 +358,19 @@ private:
       (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
           sizeof(math::Vector) +
       Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
-      Plot::rasterize_scratch_a_bytes<W>();
-  static_assert(
-      SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
-      "DreamBalls woven staging exceeds the default scratch_a budget; "
-      "retune the solid bounds or carve a larger scratch arena");
+      Plot::rasterize_scratch_a_bytes<W>() +
+      Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode) +
+      2 * (Plot::rasterize_step_budget<W>() + 1) * sizeof(float);
+  static_assert(SCRATCH_A_PEAK_BYTES <= SCRATCH_A_BYTES,
+                "DreamBalls woven staging exceeds its scratch_a budget; "
+                "retune the solid bounds or carve a larger scratch arena");
   // Woven staging in scratch_b: the framed edge list and weave-start owners.
   static constexpr size_t SCRATCH_B_PEAK_BYTES =
       2 * Solids::MAX_SOLID_EDGES * sizeof(Plot::Mesh::Edge) +
-      WOVEN_VERTEX_BOUND * sizeof(uint16_t);
+      WOVEN_VERTEX_BOUND * sizeof(uint16_t) +
+      (WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
+          (2 * sizeof(math::Vector) + sizeof(uint8_t)) +
+      alignof(math::Vector);
   static_assert(
       SCRATCH_B_PEAK_BYTES <= DEFAULT_SCRATCH_B_SIZE,
       "DreamBalls woven staging exceeds the default scratch_b budget; "
@@ -590,6 +622,8 @@ private:
    *          rebakes the inactive palette slot for the fresh sprite.
    */
   HS_COLD_MEMBER void spawn_sprite() {
+    history_ready = false;
+    sprite_unseen = true;
     // Ping-pong so the rebake never lands on the previous sprite's slot.
     active_bake ^= 1;
     baked_palettes[active_bake].rebake(*live_palette);
@@ -700,8 +734,10 @@ private:
       vertex = global_orientation.orient(vertex);
   }
 
-  void draw_woven_scene(Canvas &canvas, const Params &p, const SolidData &solid,
-                        bool medial, float opacity, const BakedPalette &baked) {
+  HS_HOT_FLASH_MEMBER void draw_woven_scene(Canvas &canvas, const Params &p,
+                                            const SolidData &solid, bool medial,
+                                            float opacity,
+                                            const BakedPalette &baked) {
     const auto &edges = woven_edges(solid, medial);
     const size_t vertex_count = woven_vertex_count(solid, medial);
     const size_t edge_count = edges.size();
@@ -718,9 +754,12 @@ private:
     uint16_t *start_owners = scratch_arena_b.allocate_n<uint16_t>(vertex_count);
     assign_woven_start_owners(edges, start_owners, vertex_count);
 
-    auto woven_shader = [&](const math::Vector &, Fragment &f) {
+    auto woven_shader = [&](const math::Vector &, Fragment &f,
+                            float t) HS_HOT_INLINE {
       Color4 c = baked.get(f.v0);
-      c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
+      const float fade =
+          t == 1.0f ? opacity : opacity_start + (opacity - opacity_start) * t;
+      c.alpha *= p.alpha * fade * under_gap_alpha(f.v0, p.weave_gap);
       if (f.v0 == 0.0f) {
         const size_t edge_index = static_cast<size_t>(f.v2);
         if (!owns_woven_start_sample(edges, start_owners, edge_index))
@@ -756,19 +795,59 @@ private:
         }
       }
 
-      orient_mesh(framed_mesh);
+      const bool timed = Temporal::temporal_sampling_enabled();
+      if (!timed)
+        orient_mesh(framed_mesh);
+
+      auto at = [&](size_t vertex, float t) HS_HOT_INLINE {
+        if (t == 1.0f)
+          return framed_mesh.vertices[vertex];
+        const bool head = vertex >= vertex_count;
+        const size_t source = head ? edges[vertex - vertex_count].u : vertex;
+        const size_t target = head ? edges[vertex - vertex_count].v : vertex;
+        const auto &from = base_vertices[source];
+        const auto &to = base_vertices[target];
+        const float phase =
+            (phase_start + (orbit_phase - phase_start) * t) * 2 * math::PI_F +
+            (static_cast<float>(copy) / num_copies) * 2 * math::PI_F +
+            static_cast<float>(source) * VERTEX_PHASE_STAGGER;
+        auto offset = tangent_orbit_offset(from, frame_u[source], phase);
+        if (head)
+          offset = math::parallel_transport(from, to, offset);
+        return math::normalized_or(to + offset * p.offset_radius, to);
+      };
 
       {
         HS_PROFILE(db_mesh_plot);
-        Plot::Mesh::draw<W, H>(filters, canvas, framed_mesh, framed_edges,
-                               woven_shader);
+        const Plot::GeometryCallback geometry{at,         false, {},   false,
+                                              orbit_path, true,  false};
+        if (timed)
+          Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, framed_mesh,
+                                       framed_edges, woven_shader, geometry,
+                                       motion_bound);
+        else
+          Plot::Mesh::draw_timed<W, H>(filters, canvas, framed_mesh,
+                                       framed_edges, woven_shader, geometry,
+                                       motion_bound);
       }
     }
   }
 
-  HS_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
-                                           const SolidData &solid,
-                                           FragmentShaderFn fragment_shader) {
+  /** @brief Bounds normalized endpoint interpolation error in radians.
+   * @param spin Pose rotation over the frame.
+   * @param orbit Orbit phase change in radians.
+   * @param radius Tangent orbit radius.
+   * @return Angular chord error bound. */
+  HS_HOT_INLINE static float endpoint_error_bound(float spin, float orbit,
+                                                  float radius) {
+    return (spin * spin + 2.2f * spin * orbit * radius +
+            4.0f * radius * orbit * orbit) *
+           0.25f;
+  }
+
+  HS_HOT_FLASH_MEMBER void draw_original_scene(Canvas &canvas, const Params &p,
+                                               const SolidData &solid,
+                                               TimedShaderFn fragment_shader) {
     MeshState target;
     {
       HS_PROFILE(db_mesh_copy);
@@ -785,12 +864,35 @@ private:
                               offset);
       }
 
-      orient_mesh(target);
+      const bool timed = Temporal::temporal_sampling_enabled();
+      if (!timed)
+        orient_mesh(target);
+
+      auto at = [&](size_t vertex, float t) HS_HOT_INLINE {
+        if (t == 1.0f)
+          return target.vertices[vertex];
+        const auto &base = solid.mesh_state.vertices[vertex];
+        const float angle =
+            (phase_start + (orbit_phase - phase_start) * t) * 2 * math::PI_F +
+            vertex * VERTEX_PHASE_STAGGER + offset;
+        return math::normalized_or(
+            base + tangent_orbit_offset(base, solid.tangent_u[vertex], angle) *
+                       p.offset_radius,
+            base);
+      };
 
       {
         HS_PROFILE(db_mesh_plot);
-        Plot::Mesh::draw<W, H>(filters, canvas, target, solid.original_edges,
-                               fragment_shader);
+        const Plot::GeometryCallback geometry{at,         false, {},   false,
+                                              orbit_path, true,  false};
+        if (timed)
+          Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, target,
+                                       solid.original_edges, fragment_shader,
+                                       geometry, motion_bound);
+        else
+          Plot::Mesh::draw_timed<W, H>(filters, canvas, target,
+                                       solid.original_edges, fragment_shader,
+                                       geometry, motion_bound);
       }
     }
   }
@@ -806,14 +908,38 @@ private:
    *          to the hidden end of every incoming edge. Defect mode retains the
    *          source mesh's shared vertex framing.
    */
-  void draw_scene(Canvas &canvas, const Params &p, float opacity,
-                  const SolidData &solid, const BakedPalette &baked) {
+  HS_HOT_FLASH_MEMBER void draw_scene(Canvas &canvas, const Params &p,
+                                      float opacity, const SolidData &solid,
+                                      const BakedPalette &baked) {
     HS_PROFILE(db_draw_scene);
+    const bool continuous = history_ready &&
+                            p.base_mesh == drawn_params.base_mesh &&
+                            p.weave_topology == drawn_params.weave_topology &&
+                            p.weave_gap == drawn_params.weave_gap &&
+                            p.num_copies == drawn_params.num_copies &&
+                            p.offset_radius == drawn_params.offset_radius &&
+                            p.offset_speed == drawn_params.offset_speed &&
+                            p.alpha == drawn_params.alpha;
+    drawn_orientation.set(continuous ? previous_pose
+                                     : global_orientation.get());
+    drawn_orientation.push(global_orientation.get());
+    phase_start =
+        continuous
+            ? orbit_phase - std::remainder(orbit_phase - drawn_phase, 1.0f)
+            : orbit_phase;
+    opacity_start = continuous ? drawn_opacity : sprite_unseen ? 0.0f : opacity;
+    const float orbit = fabsf(orbit_phase - phase_start) * 2.0f * math::PI_F;
+    motion_bound = orbit * p.offset_radius;
+    const float chord = endpoint_error_bound(0.0f, orbit, p.offset_radius);
+    orbit_path = {8.0f * chord, 8.0f * chord * orbit};
 
     if (p.weave_topology == WeaveTopology::ORIGINAL_WITH_DEFECTS) {
-      auto fragment_shader = [&](const math::Vector &, Fragment &f) {
+      auto fragment_shader = [&](const math::Vector &, Fragment &f,
+                                 float t) HS_HOT_INLINE {
         Color4 c = baked.get(f.v0);
-        c.alpha *= p.alpha * opacity * under_gap_alpha(f.v0, p.weave_gap);
+        const float fade =
+            t == 1.0f ? opacity : opacity_start + (opacity - opacity_start) * t;
+        c.alpha *= p.alpha * fade * under_gap_alpha(f.v0, p.weave_gap);
         f.color = c;
       };
       draw_original_scene(canvas, p, solid, fragment_shader);
@@ -822,6 +948,12 @@ private:
           p.weave_topology == WeaveTopology::MEDIAL || !solid.four_regular;
       draw_woven_scene(canvas, p, solid, medial, opacity, baked);
     }
+    previous_pose = global_orientation.get();
+    drawn_phase = orbit_phase;
+    drawn_opacity = opacity;
+    drawn_params = p;
+    history_ready = true;
+    sprite_unseen = false;
   }
 
   /**
