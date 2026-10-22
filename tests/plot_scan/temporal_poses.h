@@ -44,19 +44,39 @@ inline bool same_matrix(const math::RotationMatrix &a,
   return std::memcmp(&a, &b, sizeof(a)) == 0;
 }
 
+/**
+ * @brief Whether a table entry holds a pose's matrix: its stored first two
+ *        rows bit-identical, its third, their cross product, within rounding.
+ * @param entry Table entry.
+ * @param pose Matrix expanded from the pose.
+ * @return True when the entry holds the pose.
+ */
+inline bool same_pose(const math::RotationMatrix &entry,
+                      const math::RotationMatrix &pose) {
+  const math::Vector third = entry.r2 - pose.r2;
+  return std::memcmp(&entry.r0, &pose.r0, sizeof(pose.r0)) == 0 &&
+         std::memcmp(&entry.r1, &pose.r1, sizeof(pose.r1)) == 0 &&
+         math::dot(third, third) <= 1e-12f;
+}
+
 /** @brief The pose table follows the sub-frame history at every column time
  *         and starts each frame where the last ended. */
 inline void test_pose_table_follows_history_path() {
   for (const int width : {288, 96}) {
     HS_CONTEXT("width", width);
     const int half = width / 2;
+    ScratchScope storage(scratch_arena_a);
     auto table = std::make_unique<Temporal::PoseTable>();
+    const size_t before = scratch_arena_a.get_offset();
+    table->bind(scratch_arena_a, width);
+    HS_EXPECT_LE(scratch_arena_a.get_offset() - before,
+                 Temporal::PoseTable::storage_bytes(width));
     math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.3f));
     math::RotationMatrix previous_end;
     float history_error = 0.0f, endpoint_departure = 0.0f;
     for (int frame = 0; frame < 6; ++frame) {
       advance_turning_history(orientation, frame, 0.09f);
-      table->build(orientation, width);
+      table->build(orientation);
       HS_EXPECT_EQ(table->times(), half);
       HS_EXPECT_FALSE(table->stationary());
       const math::SlerpArc endpoints(orientation.get(0), orientation.get());
@@ -71,10 +91,10 @@ inline void test_pose_table_follows_history_path() {
         HS_EXPECT_TRUE(same_matrix(table->column(c), table->at(c)));
         HS_EXPECT_TRUE(same_matrix(table->column(c + half), table->at(c)));
       }
-      HS_EXPECT_TRUE(same_matrix(table->at(half),
-                                 math::RotationMatrix(orientation.get())));
       HS_EXPECT_TRUE(
-          same_matrix(table->at(0), math::RotationMatrix(orientation.get(0))));
+          same_pose(table->at(half), math::RotationMatrix(orientation.get())));
+      HS_EXPECT_TRUE(
+          same_pose(table->at(0), math::RotationMatrix(orientation.get(0))));
       if (frame > 0)
         HS_EXPECT_TRUE(same_matrix(table->at(0), previous_end));
       previous_end = table->at(half);
@@ -89,23 +109,27 @@ inline void test_pose_table_follows_history_path() {
 /** @brief A one-pose history fills the table with that pose, still. */
 inline void test_pose_table_holds_a_still_history() {
   constexpr int W = 288;
+  ScratchScope storage(scratch_arena_a);
   auto table = std::make_unique<Temporal::PoseTable>();
+  table->bind(scratch_arena_a, W);
   const math::Orientation<> still(math::make_rotation(math::Z_AXIS, 1.1f));
-  table->build(still, W);
+  table->build(still);
   HS_EXPECT_TRUE(table->stationary());
   const math::RotationMatrix pose(still.get());
   for (int c = 0; c <= W / 2; ++c)
-    HS_EXPECT_TRUE(same_matrix(table->at(c), pose));
+    HS_EXPECT_TRUE(same_pose(table->at(c), pose));
 }
 
 /** @brief Rotation through the table is exact at column times and tracks the
  *         history path between them. */
 inline void test_pose_table_rotates_between_column_times() {
   constexpr int W = 288;
+  ScratchScope storage(scratch_arena_a);
   auto table = std::make_unique<Temporal::PoseTable>();
+  table->bind(scratch_arena_a, W);
   math::Orientation<> orientation;
   advance_turning_history(orientation, 2, 0.12f);
-  table->build(orientation, W);
+  table->build(orientation);
   const math::Vector v = math::Vector(0.3f, -0.5f, 0.81f).normalized();
   float worst = 0.0f;
   for (int c = 0; c <= W / 2; ++c) {

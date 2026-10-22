@@ -300,7 +300,7 @@ inline void push_turning_steps(math::Orientation<> &history, int frame) {
 inline void test_world_orient_follows_history_at_column_times() {
   math::Orientation<> history(math::make_rotation(math::X_AXIS, 0.3f));
   Filter::World::Orient orient(history);
-  orient.init_storage(persistent_arena);
+  orient.init_storage(persistent_arena, 288);
   StubEffect effect(288, 144);
   const math::Vector v = math::Vector(0.4f, -0.3f, 0.86f).normalized();
   float worst = 0.0f, endpoint = 0.0f;
@@ -328,7 +328,7 @@ inline void test_world_orient_follows_history_at_column_times() {
 inline void test_world_orient_explicit_time() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient orient(history);
-  orient.init_storage(persistent_arena);
+  orient.init_storage(persistent_arena, 288);
   const math::Vector v(0.6f, -0.8f, 0.0f);
   StubEffect effect(288, 144);
   Pipeline<288, 144, Filter::World::Orient, Filter::Screen::AntiAlias<288, 144>>
@@ -657,7 +657,7 @@ inline void test_timed_cull_region() {
 inline void test_world_orient_sample_cache() {
   math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   Filter::World::Orient cached(history);
-  cached.init_storage(persistent_arena);
+  cached.init_storage(persistent_arena, 288);
   StubEffect effect(288, 144);
   const math::Vector a(0.6f, -0.8f, 0.0f);
   const math::Vector b(-0.2f, 0.3f, 0.7f);
@@ -666,7 +666,7 @@ inline void test_world_orient_sample_cache() {
       Canvas canvas(effect);
       auto compare = [&](const math::Vector &v, float t) {
         Filter::World::Orient fresh(history);
-        fresh.init_storage(persistent_arena);
+        fresh.init_storage(persistent_arena, 288);
         const auto expected = fresh.at_time(canvas, v, t);
         const auto actual = cached.at_time(canvas, v, t);
         HS_EXPECT_EQ(actual.x, expected.x);

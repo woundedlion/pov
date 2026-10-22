@@ -335,7 +335,7 @@ private:
   /** @brief Scratch space for framed meshes, captured controls and cadence. */
   static constexpr size_t SCRATCH_A_BYTES = 32 * 1024;
   static constexpr size_t FOOTPRINT_BYTES =
-      Filter::World::Orient::STORAGE_BYTES +
+      Filter::World::Orient::storage_bytes(W) +
       2 * BakedPalette::required_arena_bytes() +
       SOLID_COUNT * sizeof(SolidData) +
       SOLID_COUNT * (Solids::MAX_SOLID_VERTICES * 2 * sizeof(math::Vector) +

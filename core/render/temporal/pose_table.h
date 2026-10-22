@@ -13,7 +13,6 @@
 #include "core/math/3dmath.h"
 #include "core/memory.h"
 #include "core/platform/attributes.h"
-#include "core/platform/constants.h"
 #include "core/render/temporal.h"
 #include <algorithm>
 #include <array>
@@ -163,28 +162,45 @@ HS_HOT_INLINE int copy_history(const math::Orientation<CAP> &orientation,
  * first-arm column `i`, which opposing columns share, and entry times() the
  * frame's end. Entry 0 is the history's first pose and entry times() its last,
  * exactly, so a history that starts where the previous frame's ended starts
- * its table where that frame's ended. Sized for the widest canvas.
+ * its table where that frame's ended. Arena storage holds the entries of the
+ * one canvas width bind() names, each as the first two rows of its matrix;
+ * a rotation's third row is the cross product of its first two.
  */
 class PoseTable {
 public:
-  /// Entries for the widest canvas: its column times and the frame end.
-  static constexpr int CAPACITY = MAX_W / 2 + 1;
+  /**
+   * @brief Arena bytes bind() takes.
+   * @param width Even canvas width.
+   * @return The entries' size, alignment slack included.
+   */
+  static constexpr size_t storage_bytes(int width) {
+    return static_cast<size_t>(width / 2 + 1) * 2 * sizeof(math::Vector) +
+           alignof(math::Vector);
+  }
+
+  /**
+   * @brief Allocates the entries for a canvas width.
+   * @param arena Arena that outlives every frame the table spans.
+   * @param width Even canvas width the table serves.
+   */
+  HS_COLD_MEMBER void bind(Arena &arena, int width) {
+    half = width / 2;
+    rows = arena.allocate_n<math::Vector>(2 * (half + 1));
+    still = true;
+  }
 
   /**
    * @brief Fills the table from a pose history.
    * @param history Unit poses evenly spaced over the frame, oldest first.
    * @param count History length, at least 1.
-   * @param width Even canvas width, at most MAX_W.
    */
-  HS_FLASH_MEMBER void build(const math::Quaternion *history, int count,
-                             int width) {
-    half = width / 2;
-    for_each_column_pose(
-        history, count, width,
-        [&](int c, const math::Quaternion &pose)
-            HS_HOT_INLINE { poses[c] = math::RotationMatrix(pose); });
-    poses[0] = math::RotationMatrix(history[0]);
-    poses[half] = math::RotationMatrix(history[count - 1]);
+  HS_FLASH_MEMBER void build(const math::Quaternion *history, int count) {
+    const int width = 2 * half;
+    for_each_column_pose(history, count, width,
+                         [&](int c, const math::Quaternion &pose)
+                             HS_HOT_INLINE { store(c, pose); });
+    store(0, history[0]);
+    store(half, history[count - 1]);
     const math::Quaternion &current = history[count - 1];
     still = true;
     for (int i = 0; i + 1 < count; ++i)
@@ -197,20 +213,18 @@ public:
    * @brief Fills the table from an orientation's sub-frame history.
    * @tparam CAP Orientation capacity.
    * @param orientation Orientation whose history spans the frame.
-   * @param width Even canvas width, at most MAX_W.
    */
   template <int CAP>
-  HS_FLASH_MEMBER void build(const math::Orientation<CAP> &orientation,
-                             int width) {
+  HS_FLASH_MEMBER void build(const math::Orientation<CAP> &orientation) {
     std::array<math::Quaternion, CAP> history;
-    build(history.data(), copy_history(orientation, history.data()), width);
+    build(history.data(), copy_history(orientation, history.data()));
   }
 
   /** @brief Whether every pose of the built history equals its last.
    * @return True for a frame without rotation. */
   bool stationary() const { return still; }
 
-  /** @brief Distinct column times of the built width.
+  /** @brief Distinct column times of the bound width.
    * @return Half the canvas width. */
   int times() const { return half; }
 
@@ -219,8 +233,12 @@ public:
    * @param index Time index in [0, times()]; times() is the frame end.
    * @return The rotation at fraction `index / times()`.
    */
-  HS_HOT_INLINE const math::RotationMatrix &at(int index) const {
-    return poses[index];
+  HS_HOT_INLINE math::RotationMatrix at(int index) const {
+    math::RotationMatrix pose;
+    pose.r0 = rows[2 * index];
+    pose.r1 = rows[2 * index + 1];
+    pose.r2 = math::cross(pose.r0, pose.r1);
+    return pose;
   }
 
   /**
@@ -228,8 +246,8 @@ public:
    * @param x Canvas column in [0, 2 * times()).
    * @return The rotation at the column's sweep time.
    */
-  HS_HOT_INLINE const math::RotationMatrix &column(int x) const {
-    return poses[x < half ? x : x - half];
+  HS_HOT_INLINE math::RotationMatrix column(int x) const {
+    return at(x < half ? x : x - half);
   }
 
   /**
@@ -243,15 +261,26 @@ public:
     const float s = hs::clamp(t, 0.0f, 1.0f) * static_cast<float>(half);
     const int i = std::min(static_cast<int>(s), half - 1);
     const float f = s - static_cast<float>(i);
-    const math::Vector a = poses[i].apply(v);
+    const math::Vector a = at(i).apply(v);
     if (f == 0.0f)
       return a;
-    return a + (poses[i + 1].apply(v) - a) * f;
+    return a + (at(i + 1).apply(v) - a) * f;
   }
 
 private:
-  std::array<math::RotationMatrix, CAPACITY> poses; ///< Entries by time index.
-  int half = 1;      ///< Column times of the built width.
+  /**
+   * @brief Stores an entry's first two rows.
+   * @param index Time index.
+   * @param pose Unit pose.
+   */
+  HS_HOT_INLINE void store(int index, const math::Quaternion &pose) {
+    const math::RotationMatrix matrix(pose);
+    rows[2 * index] = matrix.r0;
+    rows[2 * index + 1] = matrix.r1;
+  }
+
+  math::Vector *rows = nullptr; ///< Two arena rows per entry, by time index.
+  int half = 1;                 ///< Column times of the bound width.
   bool still = true; ///< Every pose of the built history equals its last.
 };
 

@@ -60,7 +60,7 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
-    temporal_pose.init_storage(persistent_arena);
+    temporal_pose.init_storage(persistent_arena, W);
 
     fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
@@ -125,7 +125,7 @@ private:
   // Persistent allocations: frame poses, palette LUT, one Spherical and one
   // trail per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
-      Filter::World::Orient::STORAGE_BYTES +
+      Filter::World::Orient::storage_bytes(W) +
       BakedPalette::required_arena_bytes() +
       ACTUAL_FIBERS * sizeof(math::Spherical) + alignof(math::Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>) +

@@ -2220,8 +2220,9 @@ struct ColumnEdgeFrame {
   prepare(const Temporal::VertexMotion<> &motion, uint16_t from, uint16_t to,
           const Temporal::PoseTable *table, float spin, bool source) {
     poses = table && !table->stationary() ? table : nullptr;
-    const math::RotationMatrix *fixed =
-        table && !poses ? &table->at(table->times()) : nullptr;
+    const bool fixed = table && !poses;
+    const math::RotationMatrix pose =
+        fixed ? table->at(table->times()) : math::RotationMatrix();
     float bend = 0.0f, travel = 0.0f;
     math::Vector world[2][2];
     for (int k = 0; k < 2; ++k) {
@@ -2242,9 +2243,9 @@ struct ColumnEdgeFrame {
         sources[k][2] = (start + end - middle * 2.0f) * 2.0f;
       }
       if (fixed) {
-        start = fixed->apply(start);
-        middle = fixed->apply(middle);
-        end = fixed->apply(end);
+        start = pose.apply(start);
+        middle = pose.apply(middle);
+        end = pose.apply(end);
       }
       curves[k][0] = start;
       curves[k][1] = middle * 4.0f - start * 3.0f - end;
@@ -2288,7 +2289,7 @@ struct ColumnEdgeFrame {
       source_b = at(sources[1], t);
     }
     if (poses) {
-      const auto &pose = poses->column(owner);
+      const math::RotationMatrix pose = poses->column(owner);
       a = pose.apply(a);
       b = pose.apply(b);
     }
