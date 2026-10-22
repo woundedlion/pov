@@ -154,6 +154,8 @@ inline int run_plot_scan_tests() {
   test_four_regular_and_medial_edge_extraction();
   test_point_route_matches_column_oracle();
   test_point_route_gate_keeps_visible_taps();
+  test_point_route_shades_at_pass_time();
+  test_steady_edge_plots_lattice_points();
 
   test_pose_table_follows_history_path();
   test_pose_table_holds_a_still_history();

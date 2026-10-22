@@ -12,6 +12,7 @@
 #include "core/engine/concepts.h"
 #include "core/memory.h"
 #include "core/containers/triangular_bitset.h"
+#include "core/render/plot/point_route.h"
 #include "core/render/plot/raster.h"
 #include "core/render/plot/shapes.h"
 #include "core/mesh/mesh.h"
@@ -555,6 +556,48 @@ struct Mesh {
       Temporal::count_geometry<
           &Temporal::GeometryCounters::column_mesh_rejected>();
     return visible;
+  }
+
+  /** @brief Plots a chained edge that keeps a short lattice over the frame as
+   *         its lattice points.
+   * @tparam W,H Canvas dimensions.
+   * @tparam Sink Screen sink the point route plots through.
+   * @tparam Shade Callable `(float s, float t) -> Color4`: the color at arc
+   *         fraction `s` and frame fraction `t`.
+   * @param route Point route prepared for the frame's motion.
+   * @param sink Prepared sink.
+   * @param canvas Destination canvas.
+   * @param starts Unit world endpoints at the frame's start.
+   * @param ends Unit world endpoints at the frame's end.
+   * @param most Largest lattice plotted as points.
+   * @param shade Sample color.
+   * @return Whether the edge was plotted; otherwise the column walk draws it.
+   * @details The column walk spaces such an edge's samples at fixed fractions
+   * over the whole frame, so each is a single sample moving between its
+   * places on the edge at the frame's ends. Lattice points before the end
+   * vertex are plotted, as a chained walk plots them. */
+  template <int W, int H, typename Sink, typename Shade>
+  HS_HOT_FLASH_MEMBER static bool
+  plot_steady_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
+                   const math::Vector (&starts)[2],
+                   const math::Vector (&ends)[2], int most, Shade &&shade) {
+    GeodesicEdgeSampler arcs[2];
+    const int steady =
+        ColumnEdgeFrame::steady_lattice<W, H>(starts, ends, most, arcs);
+    if (steady == 0)
+      return false;
+    for (int k = 0; k < steady; ++k) {
+      const float s = static_cast<float>(k) / static_cast<float>(steady);
+      route.plot(
+          sink, canvas,
+          k == 0 ? ends[0] : ColumnEdgeFrame::lattice_point(arcs[1], s),
+          [&]() HS_HOT_INLINE {
+            return k == 0 ? starts[0]
+                          : ColumnEdgeFrame::lattice_point(arcs[0], s);
+          },
+          [&](float t) HS_HOT_INLINE { return shade(s, t); });
+    }
+    return true;
   }
 
   /** @brief scratch_arena_a bytes draw_column_edges() binds.

@@ -792,27 +792,12 @@ private:
       for (int j = points - 1; j > 0; --j) {
         if (!(visible & (1u << j)))
           continue;
-        Plot::GeodesicEdgeSampler arcs[2];
-        const int steady = Plot::ColumnEdgeFrame::steady_lattice<W, H>(
-            {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
-            arcs);
-        if (steady != 0) {
-          for (int k = 0; k < steady; ++k) {
-            const float s = static_cast<float>(k) / static_cast<float>(steady);
-            points_route.plot(
-                filters, canvas,
-                k == 0 ? world[j]
-                       : Plot::ColumnEdgeFrame::lattice_point(arcs[1], s),
-                [&]() HS_HOT_INLINE {
-                  return k == 0
-                             ? starts[j]
-                             : Plot::ColumnEdgeFrame::lattice_point(arcs[0], s);
-                },
-                [&]()
-                    HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); });
-          }
+        if (Plot::Mesh::plot_steady_edge<W, H>(
+                points_route, filters, canvas, {starts[j], starts[j - 1]},
+                {world[j], world[j - 1]}, STEADY_POINTS,
+                [&](float s, float)
+                    HS_HOT_INLINE { return shade(trail[j], trail[j - 1], s); }))
           continue;
-        }
         for (const int k : {j, j - 1})
           if (slots[k] < 0) {
             slots[k] = static_cast<int>(count++);

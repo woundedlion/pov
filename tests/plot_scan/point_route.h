@@ -319,3 +319,80 @@ inline void test_point_route_gate_keeps_visible_taps() {
   Temporal::set_temporal_sampling_enabled(true);
   HS_EXPECT_GT(drawn, 1000);
 }
+
+/** @brief A point whose color changes over the frame is shaded at each
+ *         pass's own time, the time its column is lit. */
+inline void test_point_route_shades_at_pass_time() {
+  constexpr int W = 288, H = 144;
+  const math::Vector tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  Plot::PointRoute<W, H> route;
+  uint32_t state = 11u;
+  auto uniform = [&](float lo, float hi) {
+    state = state * 1664525u + 1013904223u;
+    return lo + (hi - lo) * float(state >> 8) * (1.0f / 16777216.0f);
+  };
+  int passes = 0;
+  for (int i = 0; i < 500; ++i) {
+    const PointRoutePath path =
+        point_route_path(uniform(0.0f, float(W)), uniform(24.0f, 120.0f),
+                         uniform(0.0f, math::TWO_PI_F), 0.02f, 0.01f, tilted);
+    const math::Vector end = path.at(1.0f);
+    route.prepare(canvas, (end - path.at(0.0f)).magnitude());
+    route.plot(
+        sink, canvas, end, [&] { return path.at(0.0f); },
+        [&](float t) {
+          ++passes;
+          const float lit = Temporal::column_fraction<W>(
+              math::vector_to_pixel<W, H>(path.at(t)).x);
+          // Passes reaching into the frame from an arm cut take its ends.
+          const float gap = fabsf(lit - t);
+          HS_EXPECT_LE(fminf(gap, 1.0f - gap), 0.02f);
+          return Color4(Pixel(65535, 65535, 65535), 0.5f);
+        });
+  }
+  HS_EXPECT_GT(passes, 400);
+}
+
+/** @brief A chained edge keeping a short lattice over the frame plots its
+ *         lattice points before its end vertex; a longer one is left to the
+ *         column walk. */
+inline void test_steady_edge_plots_lattice_points() {
+  constexpr int W = 288, H = 144;
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  Plot::PointRoute<W, H> route;
+  route.prepare(canvas, 0.02f);
+  const auto turn = math::make_rotation(math::Y_AXIS, 0.01f);
+  for (const float columns : {0.6f, 2.0f, 3.1f, 12.0f}) {
+    HS_CONTEXT("columns x10", static_cast<int>(columns * 10.0f));
+    const math::Vector ends[2] = {
+        math::pixel_to_vector<W, H>(100.0f, 70.0f),
+        math::pixel_to_vector<W, H>(100.0f + columns, 70.0f)};
+    const math::Vector starts[2] = {math::rotate(ends[0], turn),
+                                    math::rotate(ends[1], turn)};
+    std::vector<float> fractions;
+    const bool plotted = Plot::Mesh::plot_steady_edge<W, H>(
+        route, sink, canvas, starts, ends, 4, [&](float s, float) {
+          if (fractions.empty() || fractions.back() != s)
+            fractions.push_back(s);
+          return Color4(Pixel(65535, 65535, 65535), 0.5f);
+        });
+    Plot::GeodesicEdgeSampler arcs[2];
+    const int lattice =
+        Plot::ColumnEdgeFrame::steady_lattice<W, H>(starts, ends, 4, arcs);
+    HS_EXPECT_EQ(plotted, lattice != 0);
+    HS_EXPECT_EQ(fractions.size(), static_cast<size_t>(lattice));
+    for (size_t k = 0; k < fractions.size(); ++k)
+      HS_EXPECT_NEAR(fractions[k], float(k) / float(lattice), 1e-6f);
+    if (columns > 10.0f)
+      HS_EXPECT_FALSE(plotted);
+    if (columns < 1.0f)
+      HS_EXPECT_TRUE(plotted);
+  }
+}
