@@ -134,6 +134,9 @@ inline int run_plot_scan_tests() {
   test_column_walk_arm_boundary_coverage();
   test_column_walk_terminal_on_shrinking_edge();
   test_column_edge_cull_is_conservative();
+  test_column_edge_cull_keeps_padded_point_sets();
+  test_column_steady_lattice();
+  test_column_capture_reads_vertex_paths();
   test_column_plan_covers_lit_columns();
   test_column_mesh_batch_cull();
   test_column_single_splat_motion_gate();
@@ -161,6 +164,7 @@ inline int run_plot_scan_tests() {
   test_interpolants_bound_orbit();
   test_interpolants_bound_curved_path();
   test_interpolants_bound_loxodrome();
+  test_interpolants_bound_warped_great_circle();
   test_vertex_motion_carries_frame_ends();
   test_rotation_chord_bound_covers_unit_vectors();
   test_arm_passes_match_brute_force();

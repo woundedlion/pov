@@ -24,10 +24,13 @@ struct GeometryCallback {
   bool source_positions =
       true; /**< Shaders read source-space positions under world stages;
                  false hands them world positions. */
-  bool chained = false; /**< Every vertex starts exactly one edge and ends
-                             exactly one other, as around closed polylines, so
-                             the column walk plots each vertex once, as its
-                             edge's start. */
+  /** Bounds each vertex's path, in place of `path`, when set. */
+  FunctionRef<Temporal::PathBound(size_t)> vertex_path{};
+  bool chained = false; /**< Edges run along polylines, each vertex starting
+                             at most one edge and ending at most one other:
+                             the column walk plots each edge's start but not
+                             its end, so a closed chain plots every vertex once
+                             and an open one all but its last. */
 
   /** @brief Constructs an exact evaluator.
    * @param fn Borrowed control-point callback.
@@ -2078,8 +2081,7 @@ struct ColumnEdgeBatch {
       &motion;           /**< Source captures and interpolants of the
                               vertices this frame. */
   const MeshEdge *pairs; /**< Vertex indices of each edge. */
-  bool chained = false;  /**< Edges leave their end vertex to the edge it
-                              starts. */
+  bool chained = false;  /**< Edges leave their end vertex unplotted. */
 };
 
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
@@ -2121,6 +2123,45 @@ template <int W> struct ColumnEdgeCull {
     }
   }
 
+  /** @brief Highest unit-sphere y a canvas's column walk emits.
+   * @tparam H Display height.
+   * @param canvas Frame whose clip rows bound the walk.
+   * @return The height of the row two above the clip. */
+  template <int H> HS_HOT_INLINE static float top_of(const Canvas &canvas) {
+    return cosf(math::DisplayGeometry<H>::row_to_phi(
+        float(std::max(0, canvas.clip().y_start - 2))));
+  }
+
+  /** @brief Lowest unit-sphere y a canvas's column walk emits.
+   * @tparam H Display height.
+   * @param canvas Frame whose clip rows bound the walk.
+   * @return The height of the row two below the clip. */
+  template <int H> HS_HOT_INLINE static float bottom_of(const Canvas &canvas) {
+    return cosf(math::DisplayGeometry<H>::row_to_phi(
+        float(std::min(H, canvas.clip().y_end + 2))));
+  }
+
+  /** @brief The bounds of a canvas's column walk.
+   * @tparam H Display height.
+   * @param canvas Frame whose clip rows and render band bound the walk.
+   * @return The cull. */
+  template <int H> static ColumnEdgeCull of(const Canvas &canvas) {
+    return ColumnEdgeCull(canvas.render_x_clip(), top_of<H>(canvas),
+                          bottom_of<H>(canvas));
+  }
+
+  /** @brief Tests whether every geodesic between points a frame sweeps
+   * stays outside the bounds.
+   * @param points Positions whose normalized convex hull, padded, holds every
+   * drawn sample.
+   * @param count Number of points.
+   * @param pad Bound on a drawn sample's distance from that hull.
+   * @return True when no drawn sample can be emitted. */
+  HS_HOT_FLASH_MEMBER bool rejects(const math::Vector *points, int count,
+                                   float pad) const {
+    return rejects_hull(points, count, pad);
+  }
+
   /** @brief Tests whether every arc an edge sweeps over the frame stays
    * outside the bounds.
    * @param points Both endpoints at the frame's start and end.
@@ -2128,15 +2169,26 @@ template <int W> struct ColumnEdgeCull {
    * @return True when no drawn sample of the edge can be emitted. */
   HS_HOT_FLASH_MEMBER bool rejects(const math::Vector (&points)[4],
                                    float pad) const {
+    return rejects_hull(points, 4, pad);
+  }
+
+private:
+  /** @brief rejects() for any count, inlined so a fixed count unrolls.
+   * @param points Positions whose padded hull holds every drawn sample.
+   * @param count Number of points.
+   * @param pad Bound on a drawn sample's distance from that hull.
+   * @return True when no drawn sample can be emitted. */
+  HS_HOT_INLINE bool rejects_hull(const math::Vector *points, int count,
+                                  float pad) const {
     float low, high;
-    if (Temporal::swept_heights(points, 4, pad, low, high) &&
+    if (Temporal::swept_heights(points, count, pad, low, high) &&
         (high < bottom || low > top))
       return true;
     if (mode == 1)
-      return Temporal::swept_beyond(points, 4, pad, -first) ||
-             Temporal::swept_beyond(points, 4, pad, -second);
-    return mode == 2 && Temporal::swept_beyond(points, 4, pad, first) &&
-           Temporal::swept_beyond(points, 4, pad, second);
+      return Temporal::swept_beyond(points, count, pad, -first) ||
+             Temporal::swept_beyond(points, count, pad, -second);
+    return mode == 2 && Temporal::swept_beyond(points, count, pad, first) &&
+           Temporal::swept_beyond(points, count, pad, second);
   }
 };
 
@@ -2217,6 +2269,57 @@ struct ColumnEdgeFrame {
     math::poly_sincosf_0_pi(cut * total, sine, cosine);
     turn = basis.v1 * cosine + basis.v_perp * sine;
     return cut;
+  }
+
+  /** @brief The geodesic basis of an arc between unit directions.
+   * @param a,b Unit endpoints.
+   * @return Start, unit tangent toward @p b and arc length; a collapsed arc
+   * keeps a zero tangent. */
+  HS_HOT_INLINE static GeodesicEdgeSampler arc(const math::Vector &a,
+                                               const math::Vector &b) {
+    const auto span = make_geodesic_edge_span(a, b);
+    return {a, span.have_axis ? math::cross(span.axis, a) : math::Vector{},
+            span.total};
+  }
+
+  /** @brief Lattice intervals the walk spaces along an edge.
+   * @param pieces Edge length in screen steps.
+   * @return The length rounded, at least one. */
+  HS_HOT_INLINE static int lattice(float pieces) {
+    return std::max(1, int(pieces + 0.5f));
+  }
+
+  /** @brief The lattice an edge keeps over the whole frame.
+   * @tparam W,H Display dimensions.
+   * @param starts Unit endpoints at the frame's start.
+   * @param ends Unit endpoints at the frame's end.
+   * @param most Largest count of interest.
+   * @param arcs Receive the edge's arcs at the frame's end and, for a count
+   * of at most @p most, its start.
+   * @return The walk's lattice intervals when the edge's length rounds to
+   * the same count, at most @p most, at both ends of the frame, and so at
+   * every time between; zero otherwise. */
+  template <int W, int H>
+  HS_HOT_FLASH_MEMBER static int
+  steady_lattice(const math::Vector (&starts)[2], const math::Vector (&ends)[2],
+                 int most, GeodesicEdgeSampler (&arcs)[2]) {
+    arcs[1] = arc(ends[0], ends[1]);
+    const int count = lattice(pieces_of<W, H>(arcs[1]));
+    if (count > most)
+      return 0;
+    arcs[0] = arc(starts[0], starts[1]);
+    return lattice(pieces_of<W, H>(arcs[0])) == count ? count : 0;
+  }
+
+  /** @brief A lattice point of an arc, as the walk places it.
+   * @param basis The arc.
+   * @param s Arc fraction in (0, 1).
+   * @return The unit point at @p s. */
+  HS_HOT_INLINE static math::Vector
+  lattice_point(const GeodesicEdgeSampler &basis, float s) {
+    float sine, cosine;
+    math::poly_sincosf_0_pi(basis.total_dist * s, sine, cosine);
+    return newton_unit(basis.v1 * cosine + basis.v_perp * sine);
   }
 
   /** @brief Measures an edge's length in screen steps.
@@ -2474,7 +2577,7 @@ template <int W> struct ColumnWalk {
   bool single_time;      /**< End columns splat at their own time too. */
   const float *velocity; /**< Endpoint motion, pixels per frame. */
   bool source_positions; /**< Shaders read source-space positions. */
-  bool chained;          /**< The end vertex belongs to the next edge. */
+  bool chained;          /**< The end vertex is left unplotted. */
   bool turning;    /**< The arc can turn its longitude direction this frame. */
   float top_y;     /**< Highest emitted unit-sphere y. */
   float bottom_y;  /**< Lowest emitted unit-sphere y. */
@@ -2632,7 +2735,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
             Temporal::count_geometry<
                 &Temporal::GeometryCounters::column_crossings>();
         }
-        const int count = std::max(1, int(pieces + 0.5f));
+        const int count = ColumnEdgeFrame::lattice(pieces);
         if (count != lattice_count) {
           lattice_count = count;
           lattice_step = 1.0f / float(count);
@@ -2809,10 +2912,8 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
 
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  const float top_y = cosf(math::DisplayGeometry<H>::row_to_phi(
-      float(std::max(0, canvas.clip().y_start - 2))));
-  const float bottom_y = cosf(math::DisplayGeometry<H>::row_to_phi(
-      float(std::min(H, canvas.clip().y_end + 2))));
+  const float top_y = ColumnEdgeCull<W>::template top_of<H>(canvas);
+  const float bottom_y = ColumnEdgeCull<W>::template bottom_of<H>(canvas);
   Temporal::count_geometry<&Temporal::GeometryCounters::column_draw_setups>();
   const ColumnEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
   const auto &band = canvas.render_x_clip();

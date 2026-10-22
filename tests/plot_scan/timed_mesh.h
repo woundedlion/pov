@@ -963,6 +963,186 @@ inline void test_column_edge_cull_is_conservative() {
   HS_EXPECT_GT(rejected, 1000u);
 }
 
+/** @brief A canvas's column cull keeps every padded polyline, or the padded
+ *         cap around it, that can reach the walk's rows and band. */
+inline void test_column_edge_cull_keeps_padded_point_sets() {
+  constexpr int W = 288, H = 144;
+  uint32_t rejected = 0, cap_rejected = 0, reachable = 0;
+  hs::random().seed(20261022u);
+  const auto unit = []() {
+    return math::Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                        hs::rand_f(-1.0f, 1.0f))
+        .normalized();
+  };
+  for (const auto band :
+       {std::array<int, 4>{36, 72, 0, 144}, std::array<int, 4>{0, 72, 144, 288},
+        std::array<int, 4>{110, H, 30, 230}}) {
+    hs_test::StubEffect effect(W, H);
+    effect.set_clip(band[0], band[1], band[2], band[3]);
+    Canvas canvas(effect);
+    const auto cull = Plot::ColumnEdgeCull<W>::of<H>(canvas);
+    const float top = Plot::ColumnEdgeCull<W>::top_of<H>(canvas);
+    const float bottom = Plot::ColumnEdgeCull<W>::bottom_of<H>(canvas);
+    HS_EXPECT_NEAR(top,
+                   cosf(math::DisplayGeometry<H>::row_to_phi(
+                       float(std::max(0, band[0] - 2)))),
+                   1e-6f);
+    const auto &columns = canvas.render_x_clip();
+    for (float pad : {0.0f, 0.02f, 0.06f}) {
+      for (int trial = 0; trial < 1500; ++trial) {
+        const int count = 2 + trial % 8;
+        math::Vector points[9];
+        points[0] = unit();
+        for (int i = 1; i < count; ++i)
+          points[i] =
+              math::rotate(points[i - 1],
+                           math::make_rotation(
+                               math::cross(points[i - 1], unit()).normalized(),
+                               hs::rand_f(0.0f, 0.08f)));
+        float reach = 1.0f;
+        for (int i = 0; i < count; ++i)
+          reach = fminf(reach, math::dot(points[count / 2], points[i]));
+        const bool rejects = cull.rejects(points, count, pad);
+        const bool cap_rejects =
+            cull.rejects(&points[count / 2], 1,
+                         pad + sqrtf(fmaxf(0.0f, 2.0f - 2.0f * reach)));
+        rejected += rejects;
+        cap_rejected += cap_rejects;
+        bool reaches = false;
+        for (int i = 0; i + 1 < count && !reaches; ++i)
+          for (int k = 0; k <= 16 && !reaches; ++k) {
+            const math::Vector at =
+                math::slerp(points[i], points[i + 1], float(k) / 16.0f);
+            const math::Vector east =
+                math::cross(math::Y_AXIS, at).magnitude() > 1e-4f
+                    ? math::cross(math::Y_AXIS, at).normalized()
+                    : math::X_AXIS;
+            const math::Vector north = math::cross(at, east);
+            for (int d = 0; d <= 8 && !reaches; ++d) {
+              const float angle = math::TWO_PI_F * float(d) / 8.0f;
+              const math::Vector p =
+                  d == 8
+                      ? at
+                      : (at + (east * cosf(angle) + north * sinf(angle)) * pad)
+                            .normalized();
+              const float column = math::vector_to_theta<W>(p);
+              const int owner = math::fast_wrap(int(floorf(column + 0.5f)), W);
+              reaches = p.y <= top && p.y >= bottom &&
+                        (!columns.active || !columns.clipped(owner) ||
+                         !columns.clipped(math::fast_wrap(owner + 1, W)) ||
+                         !columns.clipped(math::fast_wrap(owner - 1, W)));
+            }
+          }
+        reachable += reaches;
+        if (reaches) {
+          HS_EXPECT(!rejects, "a reachable polyline is kept");
+          HS_EXPECT(!cap_rejects, "a reachable polyline's cap is kept");
+        }
+      }
+    }
+  }
+  std::printf("  [column point-set cull] rejected %u, cap %u, reachable %u\n",
+              rejected, cap_rejected, reachable);
+  HS_EXPECT_GT(rejected, 1000u);
+  HS_EXPECT_GT(cap_rejected, 1000u);
+}
+
+/** @brief An edge's steady lattice is its walk lattice when the count holds
+ *         at both frame ends, and lattice points lie on the arc where the
+ *         walk places them. */
+inline void test_column_steady_lattice() {
+  constexpr int W = 288, H = 144;
+  using Frame = Plot::ColumnEdgeFrame;
+  hs::random().seed(20261023u);
+  int steady = 0, unsteady = 0, beyond = 0;
+  for (int trial = 0; trial < 3000; ++trial) {
+    const math::Vector a = math::pixel_to_vector<W, H>(
+        hs::rand_f(0.0f, float(W)), hs::rand_f(8.0f, 136.0f));
+    const float heading = hs::rand_f(0.0f, math::TWO_PI_F);
+    const float length = hs::rand_f(0.002f, 0.12f);
+    const math::Vector east = math::cross(math::Y_AXIS, a).normalized();
+    const math::Vector north = math::cross(a, east);
+    const math::Vector b = math::rotate(
+        a, math::make_rotation(east * sinf(heading) - north * cosf(heading),
+                               length));
+    const auto motion = math::make_rotation(
+        math::Vector(0.3f, 1.0f, 0.2f).normalized(), hs::rand_f(-0.03f, 0.03f));
+    const math::Vector starts[2] = {math::rotate(a, motion),
+                                    math::rotate(b, motion)};
+    const math::Vector ends[2] = {a, b};
+    Plot::GeodesicEdgeSampler arcs[2];
+    const int got = Frame::steady_lattice<W, H>(starts, ends, 4, arcs);
+    const int start_count = Frame::lattice(
+        Frame::pieces_of<W, H>(Frame::arc(starts[0], starts[1])));
+    const int end_count =
+        Frame::lattice(Frame::pieces_of<W, H>(Frame::arc(ends[0], ends[1])));
+    const int want = start_count == end_count && end_count <= 4 ? end_count : 0;
+    HS_EXPECT_EQ(got, want);
+    steady += want != 0;
+    unsteady += start_count != end_count;
+    beyond += end_count > 4;
+    if (got == 0)
+      continue;
+    for (int k = 1; k < got; ++k) {
+      const float s = float(k) / float(got);
+      for (int end = 0; end < 2; ++end) {
+        const math::Vector p = Frame::lattice_point(arcs[end], s);
+        HS_EXPECT_NEAR(math::dot(p, p), 1.0f, 2e-6f);
+        HS_EXPECT_NEAR(math::angle_between(p, arcs[end].v1),
+                       s * arcs[end].total_dist, 2e-4f);
+        const math::Vector &far = end ? ends[1] : starts[1];
+        HS_EXPECT_NEAR(math::angle_between(p, far),
+                       (1.0f - s) * arcs[end].total_dist, 2e-4f);
+      }
+    }
+  }
+  std::printf("  [steady lattice] steady %d, unsteady %d, beyond %d\n", steady,
+              unsteady, beyond);
+  HS_EXPECT_GT(steady, 100);
+  HS_EXPECT_GT(unsteady, 10);
+  HS_EXPECT_GT(beyond, 100);
+}
+
+/** @brief A per-vertex path bound replaces the shared one when the column
+ *         walk picks each vertex's interpolant. */
+inline void test_column_capture_reads_vertex_paths() {
+  constexpr int W = 288, H = 144;
+  Temporal::set_temporal_sampling_enabled(true);
+  hs_test::StubEffect effect(W, H);
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+  Canvas canvas(effect);
+  ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+  TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 60.0f),
+                         math::pixel_to_vector<W, H>(50.0f, 65.0f),
+                         math::pixel_to_vector<W, H>(60.0f, 70.0f)}};
+  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
+  edges.push_back({0, 1});
+  edges.push_back({1, 2});
+  auto at = [&](size_t i, float t) {
+    return math::rotate(mesh.vertices[i],
+                        math::make_rotation(math::Y_AXIS, 0.02f * (1.0f - t)));
+  };
+  auto shader = [&](const math::Vector &, Fragment &f, float) {
+    f.color = Color4(Pixel(65535, 32768, 16384), 0.5f);
+  };
+  for (const bool curved : {false, true}) {
+    auto vertex_path = [&](size_t i) {
+      return curved && i == 1 ? Temporal::PathBound{1.0f, 1.0f}
+                              : Temporal::PathBound{};
+    };
+    Plot::GeometryCallback geometry;
+    geometry.evaluate = at;
+    geometry.path = Temporal::PathBound{1.0f, 1.0f};
+    geometry.vertex_path = vertex_path;
+    geometry.column_edges = true;
+    Temporal::geometry_counters = {};
+    Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
+                                 geometry, 0.02f);
+    HS_EXPECT_EQ(Temporal::geometry_counters.midpoint_evaluations,
+                 curved ? 1u : 0u);
+  }
+}
+
 /** @brief Each arm pass's walk starts no later than its first lit column and
  * gives up no earlier, with little slack, and passes nothing lights get no
  * walk. */

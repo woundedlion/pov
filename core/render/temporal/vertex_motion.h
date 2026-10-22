@@ -59,6 +59,30 @@ struct PathBound {
   }
 
   /**
+   * @brief Bounds of a point turning along a great circle while a moving
+   *        plane translation carries it.
+   * @param turn Angle the point turns along its great circle over the frame,
+   *        radians, at a constant rate.
+   * @param shift Change over the frame of the translation `w -> w + b` of
+   *        the unit sphere's stereographic plane, `b` moving linearly.
+   * @param reach Bound on `|b|` over the frame.
+   * @return `{cosh(d) v^2, 1.5 cosh(d) v^3}` with `cosh(d) = 1 + reach^2 / 2`
+   *         and `v = e^d |turn| + 2 shift`.
+   * @details The translation moves the ball's centre a hyperbolic distance
+   * `d`, so it stretches arcs by at most `e^d`, and a change of `b` moves a
+   * point at most twice as far, so `v` bounds the path's speed. A fixed
+   * translation of a great circle reaches `|p''| = cosh(d) v^2`; a still point
+   * under a moving one reaches `|p'''| = 1.5 v^3` at the plane's origin. The
+   * bounds cover both motions together, checked numerically.
+   */
+  static PathBound warped_great_circle(float turn, float shift, float reach) {
+    const float cosh_d = 1.0f + 0.5f * reach * reach;
+    const float stretch = cosh_d + sqrtf(cosh_d * cosh_d - 1.0f);
+    const float v = stretch * fabsf(turn) + 2.0f * shift;
+    return {cosh_d * v * v, 1.5f * cosh_d * v * v * v};
+  }
+
+  /**
    * @brief Bound on the chord's distance from the path.
    * @return An eighth of the second-derivative bound.
    */
