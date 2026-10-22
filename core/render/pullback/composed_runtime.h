@@ -197,27 +197,30 @@ public:
       if (Temporal::temporal_sampling_enabled()) {
         const TemporalFrameSampler sampler(history.previous, current);
         HS_PROFILE(fx_shader_draw);
-        Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-          HS_PROFILE(fx_prepare_column);
-          if constexpr (SpecT::FACTORED_COLUMNS &&
-                        RenderPipeline::LINEAR_COLUMNS &&
-                        &Derived::shade == &ComposedEffect::shade) {
-            return [column = RenderPipeline::prepare_column(
-                        sampler.sample(Temporal::sweep_fraction(x, W)),
-                        math::TrigLUT<W, H>::cos_theta(x),
-                        math::TrigLUT<W, H>::sin_theta[x])](float sine,
-                                                            float cosine) {
-              return RenderPipeline::shade_column(sine, cosine, column.frame,
-                                                  column.basis);
-            };
-          } else {
-            return [frame = RenderPipeline::prepare(
-                        sampler.sample(Temporal::sweep_fraction(x, W)))](
-                       const math::Vector &view) {
-              return Derived::shade(view, frame);
-            };
-          }
-        });
+        Scan::Shader::draw_column_times<W, H>(
+            canvas,
+            [&](int c) {
+              HS_PROFILE(fx_prepare_column);
+              return RenderPipeline::prepare(
+                  sampler.sample(Temporal::sweep_fraction(c, W)));
+            },
+            [](const Frame &frame, int x) {
+              if constexpr (SpecT::FACTORED_COLUMNS &&
+                            RenderPipeline::LINEAR_COLUMNS &&
+                            &Derived::shade == &ComposedEffect::shade) {
+                return [&frame, basis = RenderPipeline::column_basis(
+                                    frame, math::TrigLUT<W, H>::cos_theta(x),
+                                    math::TrigLUT<W, H>::sin_theta[x])](
+                           float sine, float cosine) {
+                  return RenderPipeline::shade_column(sine, cosine, frame,
+                                                      basis);
+                };
+              } else {
+                return [&frame](const math::Vector &view) {
+                  return Derived::shade(view, frame);
+                };
+              }
+            });
       } else {
         const Frame frame = RenderPipeline::prepare(current);
         HS_PROFILE(fx_shader_draw);

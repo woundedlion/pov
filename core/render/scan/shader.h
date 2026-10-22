@@ -200,6 +200,32 @@ private:
     }
   }
 
+  // Shades one column's clipped rows with its prepared shader.
+  template <int W, int H, typename ShaderFn>
+  __attribute__((always_inline)) static void shade_column(Canvas &canvas, int x,
+                                                          ShaderFn &&shader) {
+    const auto &clip = canvas.clip();
+    const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
+    const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
+    for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
+      const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+      const auto COLOR = [&]() {
+        if constexpr (std::is_invocable_v<ShaderFn &, float, float>)
+          return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
+        else {
+          const math::Vector VIEW(SIN_PHI * COS_THETA,
+                                  math::TrigLUT<W, H>::cos_phi[y],
+                                  SIN_PHI * SIN_THETA);
+          return shader(VIEW);
+        }
+      }();
+      if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
+        canvas(x, y) = COLOR;
+      else
+        canvas(x, y) = COLOR.color * COLOR.alpha;
+    }
+  }
+
 public:
   /** @brief Shades columns with one prepared callable per column.
    * @tparam W Canvas width.
@@ -218,26 +244,38 @@ public:
     const auto &clip = canvas.clip();
     check_lut_domain<W, H>(clip);
     walk_clip_columns<W>(clip.x_clip(), [&](int x) {
-      auto shader = prepare(x);
-      const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
-      const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
-      for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y) {
-        const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-        const auto COLOR = [&]() {
-          if constexpr (std::is_invocable_v<decltype(shader) &, float, float>)
-            return shader(SIN_PHI, math::TrigLUT<W, H>::cos_phi[y]);
-          else {
-            const math::Vector VIEW(SIN_PHI * COS_THETA,
-                                    math::TrigLUT<W, H>::cos_phi[y],
-                                    SIN_PHI * SIN_THETA);
-            return shader(VIEW);
-          }
-        }();
-        if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
-          canvas(x, y) = COLOR;
-        else
-          canvas(x, y) = COLOR.color * COLOR.alpha;
-      }
+      shade_column<W, H>(canvas, x, prepare(x));
+    });
+  }
+
+  /** @brief Shades columns with one prepared state per sweep time.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @tparam PrepareTime Callable taking a first-arm column `c` and returning
+   * state at `Temporal::sweep_fraction(c, W)`.
+   * @tparam Prepare Callable taking that state and an absolute column and
+   * returning its shader.
+   * @param canvas Destination canvas.
+   * @param prepare_time Prepares the state columns `c` and `c + W / 2` share,
+   * once for whichever of them the clip admits.
+   * @param prepare Prepares a column's shader from its time's state; the
+   * shader takes what draw_columns()'s does. */
+  template <int W, int H, typename PrepareTime, typename Prepare>
+  HS_HOT_FLASH_MEMBER static void draw_column_times(Canvas &canvas,
+                                                    PrepareTime &&prepare_time,
+                                                    Prepare &&prepare) {
+    check_canvas_dims<W, H>(canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    const auto &clip = canvas.clip();
+    check_lut_domain<W, H>(clip);
+    walk_clip_column_times<W>(clip.x_clip(), [&](int c, bool near, bool far) {
+      auto &&state = prepare_time(c);
+      for (int arm = 0; arm < 2; ++arm)
+        if (arm ? far : near) {
+          const int x = c + arm * (W / 2);
+          shade_column<W, H>(canvas, x, prepare(state, x));
+        }
     });
   }
 

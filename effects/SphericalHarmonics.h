@@ -369,13 +369,17 @@ private:
     HS_PROFILE(sh_rasterize);
     const Temporal::TemporalRotation rotation(from.source.orientation,
                                               to.source.orientation);
-    Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-      return [frame = RenderPipeline::prepare(HarmonicFrameState::sample(
-                  from, to, Temporal::sweep_fraction(x, W), rotation))](
-                 const math::Vector &view) {
-        return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
-      };
-    });
+    Scan::Shader::draw_column_times<W, H>(
+        canvas,
+        [&](int c) {
+          return RenderPipeline::prepare(HarmonicFrameState::sample(
+              from, to, Temporal::sweep_fraction(c, W), rotation));
+        },
+        [](const auto &frame, int) {
+          return [&frame](const math::Vector &view) {
+            return RenderPipeline::evaluate(view, frame.ctx, frame.prepared);
+          };
+        });
   }
 
   /**

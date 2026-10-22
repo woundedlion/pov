@@ -166,8 +166,8 @@ half-turn phase, independent of the rendering clip. This introduces up to one
 frame of animation delay while making the endpoint of one sweep meet the start
 of the next. The first draw uses one state for both endpoints.
 
-`Scan::Shader::draw_columns` prepares the pipeline once per column and reuses it
-across rows. Orientations use spherical interpolation; parameters use their
+`Scan::Shader::draw_column_times` prepares the pipeline once per sweep time,
+for both columns lit at it, and reuses it across rows. Orientations use spherical interpolation; parameters use their
 declared interpolation curves; clocks follow their shortest periodic arc.
 Retained palette and hue tables supply two colorizer samples at the same
 interpolated geometry, with their results blended in time. Noise tables are
@@ -274,8 +274,8 @@ Manual shaders reuse the same facility, from
 own frame struct.
 `Pullback::TemporalHistory<Frame>` retains the previous endpoint of a frame
 that owns or shares immutable resources, and `Pullback::sample_frame` calls the
-frame's static `sample(from, to, fraction)` for every column before the current
-endpoint. SphericalHarmonics samples its spin through `TemporalRotation` and its
+frame's static `sample(from, to, fraction)` for every sweep time before the
+current endpoint. SphericalHarmonics samples its spin through `TemporalRotation` and its
 amplitude linearly. A morph rollover continues the outgoing harmonic pair at
 full blend into the incoming pair at zero blend; harmonic indices are never
 interpolated. A manual preset changes the morph epoch, so that frame takes the
@@ -407,7 +407,7 @@ Convenience structs that construct an SDF shape and rasterize in a single `draw(
 | `Scan::PlanarPolygon` | Regular N-gon in the tangent plane |
 | `Scan::SphericalPolygon` | Regular N-gon with geodesic (great-circle) edges |
 | `Scan::Mesh` | Rasterizes all faces of a `MeshState` |
-| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. Under temporal sampling both use `walk_object_grid(canvas, basis, pixel_shader)`, which hands over the object-space centre and column frame instead. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path, and `draw_block_columns(canvas, block, scratch, classify, prepare_column)` the same classification column by column, preparing each block of a column from its corner cells and their site union. `draw_columns(canvas, prepare)` prepares one shader per column and accepts Color4 or premultiplied Pixel results. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
+| `Scan::Shader` | Full-screen per-pixel shaders with configurable SSAA (super-sample anti-aliasing), across typed entry points. `draw(canvas, shader)` takes a single fragment shader; `draw_cached(canvas, shader)` provides the same typed draw with its traversal placed in cached flash and is the path composed effects use. `draw(canvas, fragment_shader, vertex_shader)` separates a per-pixel vertex shader (called once at pixel center) from a per-subsample fragment shader (called SAMPLES×), so expensive per-pixel work is computed once — both callables are required, and a null one traps. BZReactionDiffusion uses `draw_grid`; GSReactionDiffusion uses `walk_grid(canvas, pixel_shader)`, which hands the centre vector and the row's `SsaaGrid` to the pixel shader. Under temporal sampling both use `walk_object_grid(canvas, basis, pixel_shader)`, which hands over the object-space centre and column frame instead. `draw_block_coherent(canvas, block, positions, scratch, classify, shade)` supplies Voronoi's block classification and shading path, and `draw_block_columns(canvas, block, scratch, classify, prepare_column)` the same classification column by column, preparing each block of a column from its corner cells and their site union. `draw_columns(canvas, prepare)` prepares one shader per column and accepts Color4 or premultiplied Pixel results; `draw_column_times(canvas, prepare_time, prepare)` prepares state once per sweep time and a shader from it for each of the two columns lit at that time. `draw_grid(canvas, vertex_shader, pixel_shader)` hands the seeded fragment and the row's sub-pixel grid to a templated pixel shader that owns the sampling and returns the finished pixel. `draw_cached(canvas, shader, begin_row)` also takes a per-row setup callback while preserving wrapped clip margins. |
 | `Scan::TransformedVolume` | Wraps an SDF shape with a world-space position and orientation quaternion for volumetric rendering |
 | `Scan::Volume` | Volumetric ray-marcher that steps along the view direction through a `TransformedVolume`, applying a fragment shader at the hit point with configurable step count and AA width |
 
