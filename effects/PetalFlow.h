@@ -62,6 +62,10 @@ public:
     register_param("Density", &params.density, 0.5f, DENSITY_MAX);
 
     filters.init_storage(persistent_arena);
+    ring_edges.bind(persistent_arena, NUM_SAMPLES);
+    for (int i = 0; i < NUM_SAMPLES; ++i)
+      ring_edges.push_back({static_cast<uint16_t>(i),
+                            static_cast<uint16_t>((i + 1) % NUM_SAMPLES)});
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;
     }
@@ -151,18 +155,13 @@ private:
                 "PetalFlow ring staging exceeds the default scratch_a budget; "
                 "retune NUM_SAMPLES or carve a larger scratch arena");
 
-  /** @brief Ring staging, temporal controls and replay steps. */
-  static constexpr size_t TIMED_SCRATCH_A_BYTES =
-      NUM_SAMPLES * sizeof(Fragment) +
-      std::max(NUM_SAMPLES * sizeof(math::PixelCoords),
-               2 * sizeof(math::Vector) +
-                   Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode)) +
-      Plot::rasterize_step_budget<W>() * sizeof(float);
-  static_assert(TIMED_SCRATCH_A_BYTES <= DEFAULT_SCRATCH_A_SIZE,
-                "PetalFlow temporal lattice exceeds scratch_a");
-  static_assert(NUM_SAMPLES * sizeof(Plot::DenseControl) <=
+  static_assert(NUM_SAMPLES * sizeof(math::Vector) +
+                        Plot::Mesh::column_scratch_a_bytes() <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "PetalFlow column walk exceeds scratch_a");
+  static_assert(Plot::Mesh::column_scratch_b_bytes(NUM_SAMPLES) <=
                     DEFAULT_SCRATCH_B_SIZE,
-                "PetalFlow dense controls exceed scratch_b");
+                "PetalFlow vertex paths exceed scratch_b");
 
   /**
    * @brief One ring on the flow.
@@ -197,6 +196,23 @@ private:
       filters;
 
   Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
+
+  /** @brief A ring's frame-end vertices, as Plot::Mesh reads them. */
+  struct RingMesh {
+    std::span<const math::Vector> vertices; /**< Frame-end ring vertices. */
+  };
+
+  /** @brief Ring edges: each sample to the next, closing the loop. */
+  ArenaVector<Plot::Mesh::Edge> ring_edges;
+
+  /** @brief Ring geometry for the column walk: closed chains in world space. */
+  static constexpr Plot::GeometryCallback RING_GEOMETRY = [] {
+    Plot::GeometryCallback geometry;
+    geometry.column_edges = true;
+    geometry.source_positions = false;
+    geometry.chained = true;
+    return geometry;
+  }();
 
   /** @brief Precomputes the geometry-static exp(petal wobble) per sample. */
   HS_COLD_MEMBER void build_shift_table() {
@@ -338,10 +354,15 @@ private:
     return math::Vector(x, y, z);
   }
 
-  /** @brief Builds and rasterizes a ring's two temporal endpoints.
+  /** @brief Draws a ring along its frame's travel.
    * @param canvas Target canvas.
    * @param ring Current ring position and hue.
-   * @param previous_rho Position drawn in the preceding frame. */
+   * @param previous_rho Position drawn in the preceding frame.
+   * @details Each vertex travels linearly in rho and twist, which are its
+   * Mercator ordinate and longitude about the ring axis, so its path is a
+   * loxodrome whose derivative bounds PathBound::loxodrome() gives. The ring
+   * is a closed chain of geodesic edges walked at destination column times;
+   * without temporal sampling it draws as a still closed polyline. */
   HS_HOT_FLASH_MEMBER void draw_ring(Canvas &canvas, const Ring &ring,
                                      float previous_rho) {
     const bool timed = Temporal::temporal_sampling_enabled();
@@ -353,51 +374,56 @@ private:
       return;
     Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = opacity * params.alpha;
-    // One spacing() division per branch keeps the still twist's rounding.
-    float twist_angle;
-    float previous_twist;
-    if (timed) {
-      twist_angle = (ring.rho / spacing()) * params.twist_factor;
-      previous_twist = (previous_rho / spacing()) * params.twist_factor;
-    } else {
-      twist_angle = (ring.rho / spacing()) * params.twist_factor;
-      previous_twist = twist_angle;
-    }
+    const float twist_angle = (ring.rho / spacing()) * params.twist_factor;
+    const float previous_twist =
+        timed ? (previous_rho / spacing()) * params.twist_factor : twist_angle;
     const float exp_rho = expf(ring.rho);
-    const float previous_exp =
-        previous_rho == ring.rho ? exp_rho : expf(previous_rho);
-    const float callback_bound =
-        fabsf(ring.rho - previous_rho) + fabsf(twist_angle - previous_twist);
+    const float rho_step = ring.rho - previous_rho;
+    const float twist_step = twist_angle - previous_twist;
 
     ScratchScope scratch_a_guard(scratch_arena_a);
-    Fragments fragments;
-    fragments.bind(scratch_arena_a, NUM_SAMPLES);
-    {
-      HS_PROFILE(pf_ring_build);
+    if (!timed) {
+      Fragments fragments;
+      fragments.bind(scratch_arena_a, NUM_SAMPLES);
       for (int i = 0; i < NUM_SAMPLES; ++i) {
         Fragment f;
         f.pos = ring_vertex(i, exp_rho, twist_angle);
         fragments.push_back(f);
       }
+      auto shader = [&](const math::Vector &, Fragment &f)
+                        HS_HOT_FLASH_MEMBER { f.color = base_col; };
+      Plot::rasterize<W, H>(filters, canvas, fragments, shader,
+                            {.loop = Plot::RasterLoop::closed()});
+      return;
     }
-    auto geometry = [&](size_t index, float t) HS_HOT_INLINE {
-      return t == 1.0f ? fragments[index].pos
-                       : ring_vertex(index, previous_exp, previous_twist);
+    const math::Vector *vertices;
+    {
+      HS_PROFILE(pf_ring_build);
+      vertices = scratch_arena_a.make_n_indexed<math::Vector>(
+          NUM_SAMPLES,
+          [&](size_t i) { return ring_vertex(i, exp_rho, twist_angle); });
+    }
+    auto path = [&](size_t index, float t) HS_HOT_FLASH_MEMBER {
+      return t == 1.0f ? vertices[index]
+                       : ring_vertex(index, expf(previous_rho + rho_step * t),
+                                     previous_twist + twist_step * t);
     };
     auto fragment_shader = [&](const math::Vector &, Fragment &f,
                                float t) HS_HOT_INLINE {
       f.color = base_col;
       if (t != 1.0f)
         f.color.alpha =
-            pole_opacity(previous_rho + (ring.rho - previous_rho) * t) *
-            params.alpha;
+            pole_opacity(previous_rho + rho_step * t) * params.alpha;
     };
+    Plot::GeometryCallback geometry = RING_GEOMETRY;
+    geometry.evaluate = path;
+    geometry.path = Temporal::PathBound::loxodrome(rho_step, twist_step);
     {
       HS_PROFILE(pf_ring_scan);
-      Plot::rasterize<W, H, {.timed = true}>(
-          filters, canvas, fragments, fragment_shader,
-          {.loop = Plot::RasterLoop::closed()},
-          Plot::GeometryCallback::interpolating(geometry), callback_bound);
+      Plot::Mesh::draw_columns<W, H>(filters, canvas,
+                                     RingMesh{{vertices, size_t(NUM_SAMPLES)}},
+                                     ring_edges, fragment_shader, geometry,
+                                     fabsf(rho_step) + fabsf(twist_step));
     }
   }
 
