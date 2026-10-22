@@ -205,9 +205,6 @@ SECTIONS
 	.text.itcm : {
 		. = . + 32; /* MPU to trap NULL pointer deref */
 		*(.fastrun)
-		/* Timed sample and dense-run loops execute from ITCM. */
-		*(.text._ZN4Plot18walk_rigid_samplesI*)
-		*(.text._ZN4Plot15walk_dense_runsI*)
 		*(.text*)
 		. = ALIGN(16);
 	} > ITCM  AT> FLASH

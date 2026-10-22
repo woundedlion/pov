@@ -1146,7 +1146,6 @@ struct PetalFlowWhiteBox {
         Temporal::geometry_counters = {};
         fx.draw_ring(canvas, ring, previous_rho);
         HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups, 1u);
-        HS_EXPECT_EQ(Temporal::geometry_counters.legacy_edge_walks, 0u);
       } else {
         ScratchScope guard(scratch_arena_a);
         const float travel = previous_rho + (rho - previous_rho) * fraction;

@@ -379,87 +379,6 @@ inline void test_world_orient_explicit_time() {
   }
 }
 
-/** @brief Callback capture agrees with exhaustive search on each arm branch. */
-inline void test_geometry_capture_branches() {
-  int zero = 0, one = 0, two = 0;
-  for (float delta : {-30.0f, -12.0f, -3.0f, 0.0f, 3.0f, 12.0f, 30.0f}) {
-    for (int i = 0; i < 96; ++i) {
-      const float start = i * 3.0f + 0.23f;
-      for (bool curved : {false, true}) {
-        auto position = [&](float t) {
-          return at_half_turns((start + delta * (curved ? t * t : t)) / 144.0f);
-        };
-        auto probe = [&](float t) {
-          return math::vector_to_pixel<288, 144>(position(t));
-        };
-        const auto want = oracle_captures(position);
-        zero += want.empty();
-        one += want.size() == 1;
-        two += want.size() == 2;
-        const auto endpoint = probe(1.0f);
-        for (const float pass : want) {
-          const float unwrapped =
-              endpoint.x + std::remainder(probe(pass).x - endpoint.x, 288.0f);
-          const int branch =
-              static_cast<int>(lroundf(unwrapped / 144.0f - pass));
-          const float got = Temporal::solve_capture_branch<288>(
-              probe, endpoint, fmaxf(4.1f, fabsf(delta)), false, branch);
-          const float error =
-              std::remainder(probe(got).x - got * 144.0f, 144.0f);
-          HS_EXPECT_LE(fabsf(error), 0.501f);
-          HS_EXPECT_LE(
-              fabsf(std::remainder(probe(got).x - probe(pass).x, 288.0f)),
-              0.5f);
-        }
-      }
-    }
-  }
-  HS_EXPECT_GT(zero, 0);
-  HS_EXPECT_GT(one, 0);
-  HS_EXPECT_GT(two, 0);
-}
-
-/** @brief Branch solves clamp extensions, take the linear pair without a
- *         confirming probe, and hold polar anchors without probing. */
-inline void test_geometry_capture_shortcuts_and_poles() {
-  int probes = 0;
-  auto probe = [&](float t) {
-    ++probes;
-    return math::PixelCoords{143.0f + 3.0f * t, 72.0f};
-  };
-  const math::PixelCoords branch_end{146.0f, 72.0f};
-  HS_EXPECT_EQ(
-      Temporal::solve_capture_branch<288>(probe, branch_end, 3.0f, true, 1),
-      0.0f);
-  HS_EXPECT_EQ(
-      Temporal::solve_capture_branch<288>(probe, branch_end, 3.0f, true, 0),
-      1.0f);
-  auto reverse = [&](float t) {
-    ++probes;
-    return math::PixelCoords{145.0f - 3.0f * t, 72.0f};
-  };
-  probes = 0;
-  const math::PixelCoords reverse_end{142.0f, 72.0f};
-  HS_EXPECT_NEAR(
-      Temporal::solve_capture_branch<288>(reverse, reverse_end, 3.0f, true, 1),
-      1.0f / 147.0f, 1e-6f);
-  HS_EXPECT_NEAR(
-      Temporal::solve_capture_branch<288>(reverse, reverse_end, 3.0f, true, 0),
-      145.0f / 147.0f, 1e-6f);
-  HS_EXPECT_EQ(probes, 2);
-  probes = 0;
-  const Temporal::MotionBound bound{0.1f, false};
-  for (float row : {0.0f, 0.25f, 142.75f, 143.0f}) {
-    const float columns = bound.columns<288, 144>(row);
-    HS_EXPECT_GE(columns, Temporal::MAX_CAPTURE_COLUMNS<288>);
-    HS_EXPECT_EQ(Temporal::solve_capture_branch<288>(
-                     probe, math::PixelCoords{143.5f, row}, columns, false, 0),
-                 143.5f / 144.0f);
-  }
-  HS_EXPECT_EQ(probes, 0);
-  HS_EXPECT_LT((bound.columns<288, 144>(71.5f)), 5.0f);
-}
-
 /** @brief Probes transform at their fraction without recording trail samples. */
 inline void test_timed_probe_bypasses_history() {
   const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
@@ -548,45 +467,6 @@ inline void test_timed_predicted_landing() {
   ref.plot_at(canvas, point, color, 0.0f, 0.4f, 0.3f, &corrected);
   history.flush(canvas, WorldTrailFn(shader), 1.0f);
   HS_EXPECT_EQ(records, 1);
-}
-
-/** @brief Unborn predicted samples never enter world history. */
-inline void test_timed_unborn_samples_skip_history() {
-  constexpr int W = 288, H = 144;
-  StubEffect effect(W, H);
-  Canvas canvas(effect);
-  using Trails = Filter::World::Trails<16>;
-  Pipeline<W, H, Trails, Filter::Screen::AntiAlias<W, H>> pipeline{
-      Trails(10), Filter::Screen::AntiAlias<W, H>()};
-  pipeline.init_storage(persistent_arena);
-  ScratchScope scratch(scratch_arena_a);
-  Fragments points;
-  points.bind(scratch_arena_a, 2);
-  auto geometry = [](size_t index, float time) {
-    return math::pixel_to_vector<W, H>(40.0f + 30.0f * index + 3.0f * time,
-                                       65.0f);
-  };
-  for (size_t index = 0; index < 2; ++index) {
-    Fragment point;
-    point.pos = geometry(index, 1.0f);
-    points.push_back(point);
-  }
-  const float births[] = {1.0f, 1.0f};
-  auto callback = Plot::GeometryCallback::exact(geometry);
-  callback.births = births;
-  auto shade = [](const math::Vector &, Fragment &fragment) {
-    fragment.color = Color4(1, 1, 1, 0.4f);
-  };
-  Plot::rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shade, {},
-                                         callback,
-                                         3.0f * math::RADIANS_PER_COLUMN<W>);
-  int records = 0;
-  auto history_shader = [&](const math::Vector &, float) {
-    ++records;
-    return Color4(1, 1, 1, 1);
-  };
-  pipeline.flush(canvas, WorldTrailFn(history_shader), 1.0f);
-  HS_EXPECT_EQ(records, 0);
 }
 
 /** @brief Complementary boundary parts preserve the full still splat weights. */

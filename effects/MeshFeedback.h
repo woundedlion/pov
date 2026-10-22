@@ -274,7 +274,6 @@ private:
    *  column, its shader reading no position. */
   static constexpr Plot::GeometryCallback MESH_GEOMETRY = [] {
     Plot::GeometryCallback geometry;
-    geometry.column_edges = true;
     geometry.source_positions = false;
     return geometry;
   }();
@@ -372,14 +371,6 @@ private:
   static_assert(
       SCRATCH_A_PEAK_BYTES <= DEFAULT_SCRATCH_A_SIZE,
       "MeshFeedback wireframe draw exceeds the default scratch_a budget");
-  static_assert(2 * sizeof(Fragment) +
-                        std::max(2 * sizeof(math::PixelCoords),
-                                 2 * sizeof(math::Vector) +
-                                     Plot::MAX_RIGID_CONTROLS *
-                                         sizeof(Plot::TimedRigidNode)) +
-                        Plot::rasterize_step_budget<W>() * sizeof(float) <=
-                    DEFAULT_SCRATCH_A_SIZE,
-                "MeshFeedback temporal schedules exceed scratch_a");
   static_assert(
       sizeof(TriangularBitset<Plot::Mesh::DEDUP_CAPACITY>) <=
           DEFAULT_SCRATCH_B_SIZE,

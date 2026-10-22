@@ -697,11 +697,8 @@ struct Mesh {
    * @param shader Fragment shader.
    * @param geometry Optional evaluator indexed by mesh vertex.
    * @param callback_bound Maximum callback displacement in radians.
-   * @details Geometry asking for column edges, under a single copy of world
-   * stages a pose table holds, draws through draw_columns(); other
-   * meshes draw edge by edge. Chained geometry leaves each edge's end vertex
-   * to the edge it starts on both timed routes; the still draw plots every
-   * edge's endpoints. */
+   * @details Chained geometry leaves each edge's end vertex to the edge it
+   * starts; the still draw plots every edge's endpoints. */
   template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_timed(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
@@ -724,35 +721,8 @@ struct Mesh {
     }
     if (edges.size() == 0)
       return;
-    if constexpr (requires { requires PipelineT::table_world_stages; }) {
-      if (geometry.column_edges && pipeline.copy_count() == 1) {
-        draw_columns<W, H>(pipeline, canvas, mesh, edges, shader, geometry,
-                           callback_bound);
-        return;
-      }
-    }
-    ScratchScope edge_storage(scratch_arena_a);
-    Fragments points;
-    points.bind(scratch_arena_a, 2);
-    size_t edge_index = 0;
-    auto at = [&](size_t index, float t) HS_HOT_INLINE {
-      const size_t vertex =
-          index == 0 ? edges[edge_index].u : edges[edge_index].v;
-      return geometry.evaluate ? geometry.evaluate(vertex, t)
-                               : mesh.vertices[vertex];
-    };
-    GeometryCallback edge_geometry = geometry;
-    edge_geometry.evaluate = at;
-    edge_geometry.linear_pair = geometry.evaluate ? geometry.linear_pair : true;
-    for (size_t ei = 0; ei < edges.size(); ++ei) {
-      ScratchScope guard(scratch_arena_a);
-      edge_index = ei;
-      prepare_timed_edge(points, mesh.vertices[edges[ei].u],
-                         mesh.vertices[edges[ei].v], ei);
-      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader,
-                                       {.omit_end = geometry.chained},
-                                       edge_geometry, callback_bound);
-    }
+    draw_columns<W, H>(pipeline, canvas, mesh, edges, shader, geometry,
+                       callback_bound);
   }
 };
 

@@ -136,7 +136,6 @@ struct MindSplatterWhiteBox {
               fmaxf(0.0f, fminf(fmaxf(0.0f, t), fade)));
         };
         Plot::GeometryCallback geometry;
-        geometry.column_edges = true;
         geometry.source_positions = false;
         geometry.chained = true;
         Plot::Mesh::draw_column_edges<288, 144>(

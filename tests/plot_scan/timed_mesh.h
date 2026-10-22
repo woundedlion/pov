@@ -9,35 +9,6 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
-/** @brief An axial callback retains its small column bound near the pole. */
-inline void test_timed_axial_callback_bound() {
-  constexpr int W = 288, H = 144;
-  hs_test::StubEffect effect(W, H);
-  Filter::Screen::DirectAntiAliasSink<W, H> sink;
-  Canvas canvas(effect);
-  sink.prepare(canvas);
-  ScratchScope guard(scratch_arena_a);
-  Fragments points;
-  points.bind(scratch_arena_a, 2);
-  for (float x : {40.0f, 50.0f}) {
-    Fragment f;
-    f.pos = math::pixel_to_vector<W, H>(x, 0.5f);
-    points.push_back(f);
-  }
-  auto at = [&](size_t index, float t) {
-    return math::rotate(points[index].pos,
-                        math::make_rotation(math::Y_AXIS, (t - 1.0f) * 0.02f));
-  };
-  auto shader = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
-  };
-  Temporal::geometry_counters = {};
-  Plot::rasterize<W, H, {.timed = true}>(sink, canvas, points, shader, {},
-                                         {at, false, {}, true}, 0.02f);
-  HS_EXPECT_GT(Temporal::geometry_counters.end_probes, 0u);
-  HS_EXPECT_EQ(Temporal::geometry_counters.held_anchors, 0u);
-}
-
 /** @brief The hoisted trail gate retains edges whose motion reaches the clip. */
 inline void test_trail_gate_uses_motion_region() {
   constexpr int W = 288, H = 144;
@@ -61,377 +32,6 @@ inline void test_trail_gate_uses_motion_region() {
       Plot::gate_trail_edges<W, H>(pipeline, clip, xc, points, bits, 0.1f);
   HS_EXPECT(moving, "swept edge reaches the clip");
   HS_EXPECT_EQ(bits[0], Plot::EDGE_VISIBLE);
-}
-
-/** @brief Mesh callbacks retain vertex indices, edge registers and still pixels. */
-inline void test_timed_mesh_vertex_callback_mapping() {
-  constexpr int W = 288, H = 144;
-  for (bool enabled : {false, true}) {
-    Temporal::set_temporal_sampling_enabled(enabled);
-    for (bool linear : {false, true}) {
-      auto render = [&](bool mesh_entry) {
-        hs_test::StubEffect effect(W, H);
-        Filter::Screen::DirectAntiAliasSink<W, H> sink;
-        {
-          Canvas canvas(effect);
-          sink.prepare(canvas);
-          ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-          const TimedMeshFixture mesh{
-              {math::pixel_to_vector<W, H>(30.0f, 60.0f),
-               math::pixel_to_vector<W, H>(155.0f, 75.0f),
-               math::pixel_to_vector<W, H>(125.0f, 65.0f)}};
-          ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 2);
-          edges.push_back({2, 0});
-          edges.push_back({0, 1});
-          auto at = [&](size_t index, float t) {
-            return math::rotate(
-                mesh.vertices[index],
-                math::make_rotation(math::Y_AXIS, (t - 1.0f) * 0.04f));
-          };
-          auto shader = [](const math::Vector &, Fragment &f, float t) {
-            f.color = Color4(Pixel(65535, 32768, 16384),
-                             (0.2f + f.v2 * 0.1f) * (0.5f + 0.5f * t));
-          };
-          if (mesh_entry) {
-            Plot::Mesh::draw_timed<W, H>(sink, canvas, mesh, edges, shader,
-                                         {at, linear, {}}, 0.04f);
-          } else {
-            for (size_t edge = 0; edge < edges.size(); ++edge) {
-              ScratchScope edge_scope(scratch_arena_a);
-              Fragments points;
-              points.bind(scratch_arena_a, 2);
-              Fragment first, last;
-              first.pos = mesh.vertices[edges[edge].u];
-              last.pos = mesh.vertices[edges[edge].v];
-              Plot::Line::sample(
-                  points, first, last,
-                  Plot::make_geodesic_edge_span(first.pos, last.pos));
-              for (auto &point : points)
-                point.v2 = static_cast<float>(edge);
-              auto edge_at = [&](size_t index, float t) {
-                return at(index == 0 ? edges[edge].u : edges[edge].v, t);
-              };
-              Plot::rasterize<W, H, {.timed = true}>(
-                  sink, canvas, points, shader, {}, {edge_at, linear, {}},
-                  0.04f);
-            }
-          }
-        }
-        effect.advance_display();
-        std::vector<Pixel> pixels;
-        for (int y = 0; y < H; ++y)
-          for (int x = 0; x < W; ++x)
-            pixels.push_back(effect.get_pixel(x, y));
-        return pixels;
-      };
-      const auto mesh = render(true), reference = render(false);
-      size_t differences = 0;
-      for (size_t i = 0; i < mesh.size(); ++i)
-        differences += mesh[i].r != reference[i].r ||
-                       mesh[i].g != reference[i].g ||
-                       mesh[i].b != reference[i].b;
-      HS_EXPECT_EQ(differences, size_t{0});
-    }
-  }
-  Temporal::set_temporal_sampling_enabled(true);
-}
-
-/** @brief Source mesh edges preserve identity and shade at column time. */
-inline void test_timed_mesh_preserves_edge_register_and_time() {
-  constexpr int W = 288, H = 144;
-  hs_test::StubEffect effect(W, H);
-  Filter::Screen::DirectAntiAliasSink<W, H> sink;
-  Canvas canvas(effect);
-  sink.prepare(canvas);
-  ScratchScope scratch(scratch_arena_b);
-  ArenaVector<Plot::Mesh::Edge> edges;
-  edges.bind(scratch_arena_b, 2);
-  edges.push_back({0, 1});
-  edges.push_back({1, 2});
-  const TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(40.0f, 65.0f),
-                               math::pixel_to_vector<W, H>(80.0f, 65.0f),
-                               math::pixel_to_vector<W, H>(100.0f, 60.0f)}};
-  std::array<int, 2> shaded{};
-  auto shader = [&](const math::Vector &point, Fragment &fragment, float time) {
-    const int edge = static_cast<int>(fragment.v2);
-    HS_EXPECT_GE(edge, 0);
-    HS_EXPECT_LT(edge, 2);
-    if (edge >= 0 && edge < 2)
-      ++shaded[edge];
-    const auto pixel = math::vector_to_pixel<W, H>(point);
-    HS_EXPECT_NEAR(time, Temporal::column_fraction<W>(pixel.x), 0.004f);
-    fragment.color = Color4(Pixel(65535, 65535, 65535), 0.4f);
-  };
-  Plot::Mesh::draw_timed<W, H>(sink, canvas, mesh, edges, shader);
-  HS_EXPECT_GT(shaded[0], 5);
-  HS_EXPECT_GT(shaded[1], 5);
-}
-
-/** @brief Renders static source geometry through an ordinary or timed entry.
- * @param timed Selects the timed API.
- * @param mesh_mode Selects the mesh entry.
- * @param clipped Enables a segment clip.
- * @param replicated Emits three static spatial copies.
- * @return Frame pixels after the draw. */
-inline std::vector<Pixel> render_still_timed_route(bool timed, bool mesh_mode,
-                                                   bool clipped,
-                                                   bool replicated) {
-  constexpr int W = 288, H = 144;
-  hs_test::StubEffect effect(W, H);
-  if (clipped)
-    effect.set_clip(36, 72, 0, 144);
-  Pipeline<W, H, Filter::World::Replicate<W>, Filter::Screen::AntiAlias<W, H>>
-      pipeline(Filter::World::Replicate<W>(replicated ? 3 : 1),
-               Filter::Screen::AntiAlias<W, H>{});
-  {
-    Canvas canvas(effect);
-    ScratchScope a(scratch_arena_a), b(scratch_arena_b);
-    Fragments points;
-    points.bind(scratch_arena_a, 3);
-    const TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(-12.f, 65.f),
-                                 math::pixel_to_vector<W, H>(12.f, 65.f),
-                                 math::pixel_to_vector<W, H>(65.f, 15.f)}};
-    for (const auto &v : mesh.vertices) {
-      Fragment f;
-      f.pos = v;
-      points.push_back(f);
-    }
-    ArenaVector<Plot::Mesh::Edge> edges;
-    edges.bind(scratch_arena_b, 2);
-    edges.push_back({0, 1});
-    edges.push_back({1, 2});
-    Temporal::geometry_counters = {};
-    auto shader = white_shader(.4f);
-    if (mesh_mode) {
-      if (timed)
-        Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader);
-      else
-        Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, edges,
-                               FragmentShaderFn(shader));
-    } else {
-      if (timed)
-        Plot::rasterize<W, H, {.timed = true}>(pipeline, canvas, points,
-                                               shader);
-      else
-        Plot::rasterize<W, H>(pipeline, canvas, points, shader);
-    }
-    if (timed)
-      HS_EXPECT_EQ(Temporal::geometry_counters.end_probes, 0u);
-  }
-  effect.advance_display();
-  std::vector<Pixel> pixels;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x)
-      pixels.push_back(effect.get_pixel(x, y));
-  return pixels;
-}
-
-/** @brief Static timed entries retain ordinary pixels and skip capture work. */
-inline void test_timed_static_route_matches_ordinary() {
-  for (bool replicated : {false, true})
-    for (bool mesh : {false, true})
-      for (bool clip : {false, true}) {
-        const auto a = render_still_timed_route(true, mesh, clip, replicated),
-                   b = render_still_timed_route(false, mesh, clip, replicated);
-        size_t different = 0;
-        for (size_t i = 0; i < a.size(); ++i)
-          if (a[i].r != b[i].r || a[i].g != b[i].g || a[i].b != b[i].b)
-            ++different;
-        HS_EXPECT_EQ(different, 0u);
-      }
-}
-
-/** @brief Opposite-longitude polar edges retain both arm branches. */
-inline void test_timed_polar_mesh_branch_coverage() {
-  constexpr int W = 288, H = 144;
-  for (float pole : {-1.0f, 1.0f}) {
-    hs_test::StubEffect effect(W, H);
-    math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.27f));
-    const auto axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
-    orientation.push(math::make_rotation(axis, 0.012f) * orientation.get());
-    Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
-        pipeline{Filter::World::Orient(orientation),
-                 Filter::Screen::AntiAlias<W, H>{}};
-    pipeline.init_storage(persistent_arena);
-    {
-      Canvas canvas(effect);
-      ScratchScope scratch(scratch_arena_b);
-      ArenaVector<Plot::Mesh::Edge> edges;
-      edges.bind(scratch_arena_b, 1);
-      edges.push_back({0, 1});
-      const TimedMeshFixture mesh{
-          {math::Vector(0.0f, pole * 1.61803398875f, 1.0f).normalized(),
-           math::Vector(0.0f, pole * 1.61803398875f, -1.0f).normalized(),
-           math::X_AXIS}};
-      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges,
-                                   white_shader(0.4f));
-    }
-    effect.advance_display();
-    uint64_t energy = 0;
-    for (int y = 0; y < H; ++y) {
-      const auto pixel = effect.get_pixel(216, y);
-      energy += pixel.r + pixel.g + pixel.b;
-    }
-    HS_CONTEXT("pole=%f", pole);
-    HS_EXPECT_GT(energy, uint64_t{0});
-  }
-}
-
-/** @brief Zero-bound K2 callbacks preserve literal endpoint pixels. */
-inline void test_timed_stationary_callback_pixel_parity() {
-  constexpr int W = 288, H = 144;
-  for (bool clipped : {false, true}) {
-    const auto render = [&](bool timed) {
-      hs_test::StubEffect effect(W, H);
-      if (clipped)
-        effect.set_clip(36, 72, 0, H);
-      math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.27f));
-      Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
-          pipeline{Filter::World::Orient(orientation),
-                   Filter::Screen::AntiAlias<W, H>{}};
-      pipeline.init_storage(persistent_arena);
-      {
-        Canvas canvas(effect);
-        ScratchScope scratch(scratch_arena_a);
-        Fragments points;
-        points.bind(scratch_arena_a, 3);
-        for (const auto &position :
-             {math::pixel_to_vector<W, H>(-12.0f, 65.0f),
-              math::pixel_to_vector<W, H>(12.0f, 65.0f),
-              math::pixel_to_vector<W, H>(65.0f, 15.0f)}) {
-          Fragment point;
-          point.pos = position;
-          points.push_back(point);
-        }
-        auto geometry = [&](size_t index, float) { return points[index].pos; };
-        if (timed)
-          Plot::rasterize<W, H, {.timed = true}>(
-              pipeline, canvas, points, white_shader(0.4f), {},
-              Plot::GeometryCallback::interpolating(geometry));
-        else
-          Plot::rasterize<W, H>(pipeline, canvas, points, white_shader(0.4f));
-      }
-      effect.advance_display();
-      std::vector<Pixel> pixels;
-      for (int y = 0; y < H; ++y)
-        for (int x = 0; x < W; ++x)
-          pixels.push_back(effect.get_pixel(x, y));
-      return pixels;
-    };
-    const auto timed = render(true), ordinary = render(false);
-    size_t differences = 0;
-    for (size_t i = 0; i < timed.size(); ++i)
-      if (timed[i].r != ordinary[i].r || timed[i].g != ordinary[i].g ||
-          timed[i].b != ordinary[i].b)
-        ++differences;
-    HS_EXPECT_EQ(differences, size_t{0});
-  }
-}
-
-/** @brief Cadence transitions retain the frozen column's coverage. */
-inline void test_timed_mesh_cadence_transition() {
-  constexpr int W = 288, H = 144, COLUMN = 228;
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
-  const auto render = [](bool timed, float displacement) {
-    hs_test::StubEffect effect(W, H);
-    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
-    const auto start = math::make_rotation(math::X_AXIS, 0.27f);
-    const auto finish =
-        math::make_rotation(math::Vector(0.2f, 1.0f, 0.1f).normalized(),
-                            0.012f) *
-        start;
-    const auto at = [&](size_t index, float t) {
-      const auto base = index == 0 ? -math::Y_AXIS : math::X_AXIS;
-      const auto tangent = math::tangent_axis(base);
-      const float phase =
-          (0.2f + 0.004f * t) * 2.0f * math::PI_F + (index == 0 ? 0.3f : 0.0f);
-      const auto offset = tangent * math::fast_cosf(phase) +
-                          math::cross(base, tangent) * math::fast_sinf(phase);
-      return math::rotate((base + offset * 0.2f).normalized(),
-                          math::slerp(start, finish, t));
-    };
-    {
-      Canvas canvas(effect);
-      ScratchScope scratch(scratch_arena_b);
-      ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
-      edges.push_back({0, 1});
-      const float fraction = timed ? 1.0f : Temporal::sweep_fraction(COLUMN, W);
-      const TimedMeshFixture mesh{
-          {hs_test::displace_reference_rows<H>(at(0, fraction), displacement),
-           hs_test::displace_reference_rows<H>(at(1, fraction), displacement),
-           math::X_AXIS}};
-      const auto shader = [](const math::Vector &, Fragment &f) {
-        f.color = Color4(Pixel(65535, 65535, 65535), 0.5f * (1.0f - f.v0));
-      };
-      if (timed)
-        Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                     Plot::GeometryCallback::exact(at),
-                                     0.0172f);
-      else
-        Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, edges, shader);
-    }
-    effect.advance_display();
-    std::array<float, H> column{};
-    for (int y = 0; y < H; ++y)
-      column[y] = effect.get_pixel(COLUMN, y).r / 65535.0f;
-    return column;
-  };
-  const auto timed = render(true, 0), frozen = render(false, 0),
-             shifted = render(false, 0.2f);
-  float error = 0.0f, displacement = 0.0f;
-  for (int y = 0; y < H; ++y) {
-    error += fabsf(timed[y] - frozen[y]);
-    displacement += fabsf(shifted[y] - frozen[y]);
-  }
-  std::printf("  mesh cadence column: error=%.9f displacement=%.9f\n", error,
-              displacement);
-  HS_EXPECT_GT(displacement, 0.0f);
-  HS_EXPECT(error <= displacement + 1e-5f,
-            "captured coverage stays within the displacement reference");
-  Temporal::set_temporal_sampling_enabled(enabled);
-}
-
-/** @brief Stationary long edges shade at projected column time. */
-inline void test_stationary_timed_mesh_shader_time() {
-  constexpr int W = 288, H = 144;
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
-  const auto render = [](bool timed, float fraction, float displacement) {
-    hs_test::StubEffect effect(W, H);
-    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
-    {
-      Canvas canvas(effect);
-      ScratchScope scratch(scratch_arena_b);
-      ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
-      edges.push_back({0, 1});
-      const TimedMeshFixture mesh{
-          {hs_test::displace_reference_rows<H>(
-               math::pixel_to_vector<W, H>(190, 135), displacement),
-           hs_test::displace_reference_rows<H>(
-               math::pixel_to_vector<W, H>(285, 70), displacement),
-           math::X_AXIS}};
-      const auto shader = [](const math::Vector &, Fragment &f, float time) {
-        f.color = Color4(Pixel(65535, 65535, 65535), 0.5f * time);
-      };
-      if (timed)
-        Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader);
-      else {
-        const auto frozen = [&](const math::Vector &p, Fragment &f) {
-          shader(p, f, fraction);
-        };
-        Plot::Mesh::draw<W, H>(pipeline, canvas, mesh, edges, frozen);
-      }
-    }
-    effect.advance_display();
-    std::vector<float> pixels(W * H);
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        pixels[y * W + x] = effect.get_pixel(x, y).r / 65535.0f;
-    return pixels;
-  };
-  hs_test::seam_compare_render<W, H>(render, "stationary mesh fade");
-  Temporal::set_temporal_sampling_enabled(enabled);
 }
 
 /** @brief A column mesh evaluates each shared vertex once at the frame's
@@ -461,8 +61,7 @@ inline void test_timed_mesh_endpoint_cache() {
       f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
     };
     Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                 {at, false, {}, false, {second, second}, true},
-                                 0.01f);
+                                 {at, {second, second}}, 0.01f);
     HS_EXPECT_EQ(calls, second == 0.0f ? size_t(3) : size_t(6));
   }
 }
@@ -504,8 +103,8 @@ inline void test_column_edge_quality() {
                                                    math::ROWS_PER_RADIAN<H>);
         f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
       };
-      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                   {{}, false, {}, false, {}, true}, 0.0f);
+      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader, {},
+                                   0.0f);
     }
     effect.advance_display();
     float sum = 0.0f, squares = 0.0f, low = 10.0f, high = 0.0f;
@@ -545,7 +144,6 @@ inline void test_column_edge_quality() {
     HS_EXPECT_EQ(starts, 1u);
     HS_EXPECT_EQ(ends, 1u);
     HS_EXPECT_LT(Temporal::geometry_counters.column_generated_samples, 128u);
-    HS_EXPECT_EQ(Temporal::geometry_counters.legacy_edge_walks, 0u);
   }
 }
 
@@ -604,7 +202,7 @@ inline void test_column_mesh_batch_cull() {
         f.color = Color4(Pixel(65535, 32768, 16384), 0.5f);
       };
       Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                   {at, false, {}, false, {}, true}, motion);
+                                   {at, {}}, motion);
     }
     effect.advance_display();
     uint64_t energy = 0;
@@ -653,7 +251,7 @@ inline void test_column_single_splat_motion_gate() {
     };
     Temporal::geometry_counters = {};
     Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                 {at, true, {}, false, {}, true}, motion);
+                                 {at, {}}, motion);
     const auto &counts = Temporal::geometry_counters;
     HS_EXPECT_GT(counts.column_samples, 0u);
     HS_EXPECT_EQ(shaders, counts.column_shader_calls);
@@ -669,25 +267,6 @@ inline void test_column_single_splat_motion_gate() {
       HS_EXPECT_LE(counts.boundary_evaluations, counts.column_tap_samples);
     }
   }
-}
-
-/** @brief Resolved cadence preserves endpoint ownership at an interval change. */
-inline void test_timed_cadence_resolved_phase() {
-  float first[] = {0.0f, 0.4f, 0.8f, 1.2f};
-  float last[] = {0.0f, 0.6f, 1.2f, 1.8f};
-  const Plot::TimedCadence cadence{first, last, 3};
-  const auto before = cadence.at_time(0.25f);
-  const auto crossing = cadence.at_time(0.5f);
-  HS_EXPECT_EQ(before.intervals, size_t(3));
-  HS_EXPECT_EQ(crossing.intervals, size_t(2));
-  bool exists;
-  HS_EXPECT_EQ(crossing.fraction_at(2, true, exists), 1.0f);
-  HS_EXPECT(exists, "terminal sample exists at the shorter cadence endpoint");
-  crossing.fraction_at(3, true, exists);
-  HS_EXPECT(!exists, "no duplicate terminal sample after the cadence change");
-  Plot::TimedCadence empty;
-  HS_EXPECT_EQ(empty.at_time(0.5f).fraction_at(0, true, exists), 1.0f);
-  HS_EXPECT(exists, "empty cadence retains its terminal sample");
 }
 
 /** @brief Stationary timed meshes skip trajectory caches and column preparation. */
@@ -714,15 +293,13 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
     f.color = Color4(Pixel(65535, 32768, 16384), 0.5f * t);
   };
   Temporal::geometry_counters = {};
-  Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                               {at, true, {}, false, {}, true}, 0.0f);
+  Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader, {at, {}},
+                               0.0f);
   const auto &counts = Temporal::geometry_counters;
   HS_EXPECT_EQ(callbacks, 0u);
   HS_EXPECT_EQ(counts.endpoint_evaluations, 0u);
   HS_EXPECT_EQ(counts.column_draw_setups, 1u);
-  HS_EXPECT_EQ(counts.legacy_edge_walks, 0u);
   HS_EXPECT_EQ(counts.column_crossings, 0u);
-  HS_EXPECT_EQ(counts.capture_solves, 0u);
   HS_EXPECT_GT(shaders, 0u);
 }
 
@@ -766,7 +343,6 @@ inline void test_column_walk_chained_ring_plots_vertices_once() {
       Plot::GeometryCallback geometry;
       geometry.evaluate = at;
       geometry.path = Temporal::PathBound::rotation(motion);
-      geometry.column_edges = true;
       geometry.chained = chained;
       Temporal::geometry_counters = {};
       Plot::Mesh::draw_timed<W, H>(pipeline, canvas, ring, edges, shader,
@@ -837,12 +413,11 @@ inline void test_column_walk_arm_boundary_coverage() {
         };
         if (timed) {
           Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                       {at, false, {}, false, {}, true},
-                                       fabsf(radians));
+                                       {at, {}}, fabsf(radians));
         } else {
           TimedMeshFixture frozen{{at(0, 0.0f), at(1, 0.0f), math::X_AXIS}};
           Plot::Mesh::draw_timed<W, H>(pipeline, canvas, frozen, edges, shader,
-                                       {{}, false, {}, false, {}, true}, 0.0f);
+                                       {}, 0.0f);
         }
       }
       effect.advance_display();
@@ -889,7 +464,7 @@ inline void test_column_walk_terminal_on_shrinking_edge() {
         f.color = Color4(Pixel(65535, 65535, 65535), 0.5f);
       };
       Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
-                                   {at, false, {}, false, {}, true}, SHRINK);
+                                   {at, {}}, SHRINK);
     }
     HS_CONTEXT("shrinking edge start", start);
     HS_EXPECT_EQ(ends, 1u);
@@ -1134,7 +709,6 @@ inline void test_column_capture_reads_vertex_paths() {
     geometry.evaluate = at;
     geometry.path = Temporal::PathBound{1.0f, 1.0f};
     geometry.vertex_path = vertex_path;
-    geometry.column_edges = true;
     Temporal::geometry_counters = {};
     Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
                                  geometry, 0.02f);

@@ -115,8 +115,7 @@ struct DreamBallsWhiteBox {
           f.color = color;
         };
         auto at = [&](size_t i, float) { return mesh.vertices[i]; };
-        auto geometry = Plot::GeometryCallback::interpolating(at);
-        geometry.column_edges = true;
+        auto geometry = Plot::GeometryCallback::exact(at);
         auto timed_shader = [&](const math::Vector &point, Fragment &f, float) {
           shader(point, f);
         };
@@ -696,9 +695,6 @@ inline void test_dreamballs_column_work_is_bounded() {
       const auto &counts = Temporal::geometry_counters;
       HS_EXPECT_GT(energy, 1.0f);
       HS_EXPECT_GT(counts.column_samples, 0u);
-      HS_EXPECT_EQ(counts.legacy_edge_walks, 0u);
-      HS_EXPECT_EQ(counts.capture_solves, 0u);
-      HS_EXPECT_EQ(counts.solve_probes, 0u);
       HS_EXPECT_LT(counts.column_generated_samples, 4000u);
       HS_EXPECT_LT(counts.column_boundary_samples * 8, counts.column_samples);
     }
@@ -722,8 +718,6 @@ inline void test_dreamballs_column_work_is_bounded() {
       fx.advance_display();
       const auto &counts = Temporal::geometry_counters;
       HS_EXPECT_GT(counts.column_samples, 0u);
-      HS_EXPECT_EQ(counts.legacy_edge_walks, 0u);
-      HS_EXPECT_EQ(counts.capture_solves, 0u);
       if (frame == 0)
         HS_EXPECT_EQ(counts.column_crossings, 0u);
       else
