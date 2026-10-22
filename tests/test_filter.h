@@ -70,6 +70,7 @@ concept ReplacementFrameStarter = requires(P &pipeline, Canvas &canvas) {
 #include "tests/filter/temporal_copies.h"
 #include "tests/filter/canvas_routing.h"
 #include "tests/filter/feedback_flush.h"
+#include "tests/filter/feedback_column_time.h"
 #include "tests/filter/trails.h"
 #include "tests/filter/segmented_bounds.h"
 /**
@@ -170,6 +171,10 @@ inline int run_filter_tests() {
   test_feedback_warp_cache_matches_uncached();
   test_feedback_polar_rows_hit_their_targets();
   test_feedback_flush_straddled_taps_stay_on_branch();
+  test_feedback_column_time_reads();
+  test_feedback_fade_table_entries();
+  test_feedback_warp_cache_keys_column_time();
+  test_feedback_column_time_oracle();
 
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
