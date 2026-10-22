@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <type_traits>
 #include "core/math/geometry.h"
 #include "core/platform/constants.h"
 #include "core/memory.h"
@@ -20,6 +21,10 @@
  */
 
 namespace SDF {
+
+template <template <typename, typename> class Node, typename PA, typename PB>
+struct SweptPair;
+template <typename PS> struct SweptRepeat;
 
 /** @brief Evaluates a child through its ordinary distance interface. */
 struct DirectDistance {
@@ -121,6 +126,18 @@ template <typename A, typename B> struct Union {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
     return union_vertical_bounds(b1, b2, 0, H - 1);
+  }
+
+  /**
+   * @brief Bounds proxy covering the union swept by an arc.
+   * @param arc Largest arc any point of the union moves (radians).
+   * @return The union of the children's swept proxies.
+   */
+  auto swept(float arc) const
+    requires(SweptBounded<A> && SweptBounded<B>)
+  {
+    return SweptPair<Union, SweptProxy<A>, SweptProxy<B>>(a.swept(arc),
+                                                          b.swept(arc));
   }
 
   /**
@@ -249,6 +266,19 @@ template <typename A, typename B> struct SmoothUnion {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
     return union_vertical_bounds(b1, b2, pad_rows<H>(), H - 1);
+  }
+
+  /**
+   * @brief Bounds proxy covering the smooth union swept by an arc.
+   * @param arc Largest arc any point of the union moves (radians).
+   * @return The smooth union, at the same smoothness, of the children's swept
+   *         proxies.
+   */
+  auto swept(float arc) const
+    requires(SweptBounded<A> && SweptBounded<B>)
+  {
+    return SweptPair<SmoothUnion, SweptProxy<A>, SweptProxy<B>>(
+        a.swept(arc), b.swept(arc), k);
   }
 
   /**
@@ -399,6 +429,17 @@ template <typename A, typename B> struct Subtract {
   }
 
   /**
+   * @brief Bounds proxy covering the difference swept by an arc.
+   * @param arc Largest arc any point of the difference moves (radians).
+   * @return The minuend's swept proxy, which bounds the difference.
+   */
+  auto swept(float arc) const
+    requires SweptBounded<A>
+  {
+    return a.swept(arc);
+  }
+
+  /**
    * @brief Emits the minuend's intervals unchanged.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
@@ -510,6 +551,19 @@ template <typename A, typename B> struct Intersection {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
     return {std::max(b1.y_min, b2.y_min), std::min(b1.y_max, b2.y_max)};
+  }
+
+  /**
+   * @brief Bounds proxy covering the intersection swept by an arc.
+   * @param arc Largest arc any point of the intersection moves (radians).
+   * @return The intersection of the children's swept proxies, which contains
+   *         the swept intersection.
+   */
+  auto swept(float arc) const
+    requires(SweptBounded<A> && SweptBounded<B>)
+  {
+    return SweptPair<Intersection, SweptProxy<A>, SweptProxy<B>>(a.swept(arc),
+                                                                 b.swept(arc));
   }
 
   /**
@@ -723,6 +777,18 @@ template <typename Shape> struct AngularRepeat {
   }
 
   /**
+   * @brief Bounds proxy covering the repetition swept by an arc.
+   * @param arc Largest arc any point of the repetition moves (radians).
+   * @return The child's swept proxy repeated alike; turning about the axis
+   *         keeps distances, so its copies cover the swept copies.
+   */
+  auto swept(float arc) const
+    requires SweptBounded<Shape>
+  {
+    return SweptRepeat<SweptProxy<Shape>>(shape.swept(arc), repetitions, axis);
+  }
+
+  /**
    * @brief Replays the child's spans once per copy for a Y-axis fold.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
@@ -807,6 +873,155 @@ template <typename Shape> struct AngularRepeat {
 
     shape.template distance<ComputeUVs>(folded_p, res);
   }
+};
+
+/**
+ * @brief Bounds proxy of a two-child CSG node over its children's swept
+ *        proxies.
+ * @tparam Node The node's template.
+ * @tparam PA First child's swept proxy type.
+ * @tparam PB Second child's swept proxy type.
+ * @details Owns the child proxies and applies the node's own bounds rule to
+ * them; a copy rebinds its node to its own children. Only the bounds are read.
+ */
+template <template <typename, typename> class Node, typename PA, typename PB>
+struct SweptPair {
+  /** @brief The node's solidity. */
+  static constexpr bool is_solid = Node<PA, PB>::is_solid;
+  /** @brief Whether the node blends, for a smooth-union parent. */
+  static constexpr bool BLENDS_SMOOTHLY = blends_smoothly<Node<PA, PB>>;
+
+  PA a;              ///< First child's proxy.
+  PB b;              ///< Second child's proxy.
+  float k;           ///< The node's smoothness; read only by SmoothUnion.
+  Node<PA, PB> node; ///< The node over the owned proxies.
+
+  /**
+   * @brief Builds the node over copies of the child proxies.
+   * @param pa First child's proxy.
+   * @param pb Second child's proxy.
+   * @param smoothness The node's smoothness, for SmoothUnion.
+   */
+  SweptPair(const PA &pa, const PB &pb, float smoothness = 0.0f)
+      : a(pa), b(pb), k(smoothness), node(build(a, b, k)) {}
+
+  /**
+   * @brief Copies the child proxies and rebuilds the node over the copies.
+   * @param other Proxy to copy.
+   */
+  SweptPair(const SweptPair &other) : SweptPair(other.a, other.b, other.k) {}
+
+  /** @brief Not assignable: the node is bound to this proxy's children. */
+  SweptPair &operator=(const SweptPair &) = delete;
+
+  /**
+   * @brief The node's row bounds over the swept children.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds.
+   */
+  template <int H> Bounds get_vertical_bounds() const {
+    return node.template get_vertical_bounds<H>();
+  }
+
+  /**
+   * @brief The node's intervals over the swept children for one row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    return node.template get_horizontal_intervals<W, H>(y, out);
+  }
+
+private:
+  /**
+   * @brief The node over two children.
+   * @param pa First child.
+   * @param pb Second child.
+   * @param smoothness Smoothness, passed to a node that takes one.
+   * @return The node.
+   */
+  static Node<PA, PB> build(const PA &pa, const PB &pb, float smoothness) {
+    if constexpr (std::is_constructible_v<Node<PA, PB>, const PA &, const PB &,
+                                          float>)
+      return Node<PA, PB>(pa, pb, smoothness);
+    else
+      return Node<PA, PB>(pa, pb);
+  }
+};
+
+/**
+ * @brief Bounds proxy of an AngularRepeat over its child's swept proxy.
+ * @tparam PS The child's swept proxy type.
+ * @details Owns the child proxy; a copy rebinds its repetition to its own
+ * child. Only the bounds are read.
+ */
+template <typename PS> struct SweptRepeat {
+  /** @brief The child's solidity. */
+  static constexpr bool is_solid = PS::is_solid;
+  /** @brief Whether the repetition blends, for a smooth-union parent. */
+  static constexpr bool BLENDS_SMOOTHLY = blends_smoothly<PS>;
+
+  PS child;               ///< The child's proxy.
+  AngularRepeat<PS> node; ///< The repetition over the owned proxy.
+
+  /**
+   * @brief Repeats a copy of the child proxy.
+   * @param ps The child's proxy.
+   * @param reps Number of copies.
+   * @param axis Rotation axis (unit length).
+   */
+  SweptRepeat(const PS &ps, int reps, const math::Vector &axis)
+      : child(ps), node(child, reps, axis) {}
+
+  /**
+   * @brief Copies the child proxy and repeats the copy.
+   * @param other Proxy to copy.
+   */
+  SweptRepeat(const SweptRepeat &other)
+      : SweptRepeat(other.child, other.node.repetitions, other.node.axis) {}
+
+  /** @brief Not assignable: the repetition is bound to this proxy's child. */
+  SweptRepeat &operator=(const SweptRepeat &) = delete;
+
+  /**
+   * @brief The repetition's row bounds over the swept child.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds.
+   */
+  template <int H> Bounds get_vertical_bounds() const {
+    return node.template get_vertical_bounds<H>();
+  }
+
+  /**
+   * @brief The repetition's intervals over the swept child for one row.
+   * @tparam W Canvas width in columns.
+   * @tparam H Canvas height in rows.
+   * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y The row index.
+   * @param out Sink accepting (float start, float end).
+   * @return True if the row was handled; false requests a full scan.
+   */
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    return node.template get_horizontal_intervals<W, H>(y, out);
+  }
+};
+
+/// A swept CSG proxy emits what its node does.
+template <template <typename, typename> class Node, typename PA, typename PB>
+struct sdf_max_spans<SweptPair<Node, PA, PB>> {
+  /// Max spans per row.
+  static constexpr size_t value = sdf_max_spans<Node<PA, PB>>::value;
+};
+/// A swept repetition emits what a repetition does.
+template <typename PS> struct sdf_max_spans<SweptRepeat<PS>> {
+  /// Max spans per row.
+  static constexpr size_t value = ANGULAR_REPEAT_SPAN_CAP;
 };
 
 } // namespace SDF

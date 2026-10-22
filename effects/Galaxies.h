@@ -400,10 +400,10 @@ private:
     for (const Galaxy &g : galaxies) {
       const math::Vector core = rotation.apply(g.core);
       if (params.black_hole) {
-        Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
+        Scan::Point::draw<W, H>(Scan::ScanRef(filters, canvas), canvas, core,
                                 BULGE_RADIUS, hole_shader);
       } else {
-        Scan::Point::draw<W, H>(PipelineRef(filters, canvas), canvas, core,
+        Scan::Point::draw<W, H>(Scan::ScanRef(filters, canvas), canvas, core,
                                 BULGE_RADIUS, bulge_shader);
       }
     }

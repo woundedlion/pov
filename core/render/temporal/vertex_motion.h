@@ -94,6 +94,15 @@ struct PathBound {
    *         the largest `|t (t - 1/2) (t - 1)|` on [0, 1].
    */
   constexpr float quadratic_error() const { return third * 0.0080187537f; }
+
+  /**
+   * @brief Bound on the normalized chord's angle from a unit vector turning
+   *        at a constant rate, up to a quarter turn.
+   * @return `third * 0.0186`: the normalized chord leads and trails the turn
+   *         by `a^3 / (36 sqrt(3))` to leading order in the turn `a`, and by
+   *         under 0.0186 a^3 up to a quarter turn.
+   */
+  constexpr float normalized_chord_error() const { return third * 0.0186f; }
 };
 
 /**
@@ -110,6 +119,22 @@ constexpr Interpolant choose_interpolant(const PathBound &bound,
   if (bound.chord_error() <= tolerance)
     return Interpolant::CHORD;
   return on_arc ? Interpolant::ARC : Interpolant::QUADRATIC;
+}
+
+/**
+ * @brief Picks the interpolant of a unit vector turning at a constant rate.
+ * @param angle Turn over the frame, radians.
+ * @param tolerance Largest acceptable angle from the turn.
+ * @return CHORD, normalized where evaluated, when its bound meets
+ *         @p tolerance within a quarter turn, else ARC, which reproduces the
+ *         turn.
+ */
+constexpr Interpolant choose_turn_interpolant(float angle, float tolerance) {
+  return angle <= 0.5f * math::PI_F &&
+                 PathBound::rotation(angle).normalized_chord_error() <=
+                     tolerance
+             ? Interpolant::CHORD
+             : Interpolant::ARC;
 }
 
 /**

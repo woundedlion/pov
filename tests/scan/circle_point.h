@@ -381,14 +381,26 @@ inline void test_scan_epilogue_contract() {
   }
 }
 
-/** @brief Replicated source pixels survive destination-band clipping. */
+// A scan plots only through pipelines whose world stages leave points unmoved.
+static_assert(Scan::leaves_world_unmoved<Pipeline<96, 48>>);
+static_assert(!Scan::leaves_world_unmoved<
+              Pipeline<96, 48, Filter::World::Replicate<96>>>);
+static_assert(!Scan::leaves_world_unmoved<PipelineRef>);
+static_assert(Scan::leaves_world_unmoved<Scan::ScanRef>);
+static_assert(std::is_constructible_v<Scan::ScanRef, Pipeline<96, 48> &>);
+static_assert(!std::is_constructible_v<
+              Scan::ScanRef, Pipeline<96, 48, Filter::World::Replicate<96>> &>);
+static_assert(!std::is_constructible_v<Scan::ScanRef, PipelineRef &>);
+
+/** @brief Replicated solid source pixels survive destination-band clipping.
+ *  @details A stroke scan cannot plot through the replicating world stage. */
 inline void test_replicated_clip_matches_full_frame() {
   constexpr int W = 96, H = 48;
   const Color4 COLOR(Pixel(50000, 30000, 10000), 0.8f);
   const math::Vector NORMAL(0, 0, -1);
   const math::Basis BASIS = math::make_basis(math::Quaternion(), NORMAL);
   for (int count : {2, 3}) {
-    for (bool solid : {false, true}) {
+    {
       std::vector<Pixel> expected(W * H);
       for (int band = -1; band < 5; ++band) {
         StubEffect effect(W, H);
@@ -403,15 +415,8 @@ inline void test_replicated_clip_matches_full_frame() {
         Pipeline<W, H, Filter::World::Replicate<W>> pipeline(count);
         {
           Canvas canvas(effect);
-          auto shader = [&](const math::Vector &, Fragment &fragment) {
-            fragment.color = COLOR;
-          };
-          if (solid) {
-            SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
-            Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
-          } else {
-            Scan::Circle::draw<W, H>(pipeline, canvas, NORMAL, 0.1f, shader);
-          }
+          SDF::PlanarPolygon shape(BASIS, 0.2f, 5, 0.0f);
+          Scan::rasterize_solid<W, H>(pipeline, canvas, shape, COLOR);
         }
         effect.advance_display();
         int lit = 0;

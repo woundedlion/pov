@@ -36,6 +36,20 @@ inline void band_edge_cosines(float ang_lo, float ang_hi, float &cos_inner,
 }
 
 /**
+ * @brief Grows a band's edges, as band_edge_cosines() gives them, by an arc.
+ * @param arc Growth on each edge (radians).
+ * @param cos_inner Inner edge cosine or its pole sentinel; receives the grown
+ *        one.
+ * @param cos_outer Outer edge cosine or its pole sentinel; receives the grown
+ *        one.
+ */
+inline void widen_band_cosines(float arc, float &cos_inner, float &cos_outer) {
+  const float inner = cos_inner > 1.0f ? 0.0f : acosf(cos_inner);
+  const float outer = cos_outer < -1.0f ? math::PI_F : acosf(cos_outer);
+  band_edge_cosines(inner - arc, outer + arc, cos_inner, cos_outer);
+}
+
+/**
  * @brief Calculates signed distance to a ring.
  * @details Register semantics: the DistanceResult table (stroke row: Ring).
  */
@@ -467,6 +481,19 @@ public:
   }
 
   /**
+   * @brief Bounds proxy covering the distorted ring swept by an arc.
+   * @param arc Largest arc any point of the ring moves (radians).
+   * @return Copy whose vertical bounds and intervals cover the widened band
+   *         grown by @p arc; its distance() is not the swept ring's.
+   */
+  DistortedRing swept(float arc) const {
+    DistortedRing out = *this;
+    out.max_thickness = max_thickness + arc;
+    widen_band_cosines(arc, out.cos_max_limit, out.cos_min_limit);
+    return out;
+  }
+
+  /**
    * @brief Emits the widened annular-band intervals for one scanline row.
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
@@ -816,6 +843,19 @@ struct FlatDistortedRing : private DistortedRing {
     return phi_bounds_to_rows<H>(
         std::max(0.0f, band.phi_min - thickness),
         std::min(math::PI_F, band.phi_max + thickness));
+  }
+
+  /**
+   * @brief Bounds proxy covering the undisplaced ring swept by an arc.
+   * @param arc Largest arc any point of the ring moves (radians).
+   * @return Copy whose vertical bounds and intervals cover the stroke grown by
+   *         @p arc; its distance() is not the swept ring's.
+   */
+  FlatDistortedRing swept(float arc) const {
+    FlatDistortedRing out = *this;
+    out.thickness = thickness + arc;
+    widen_band_cosines(arc, out.cos_max_limit, out.cos_min_limit);
+    return out;
   }
 
   /**

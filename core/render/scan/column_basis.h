@@ -23,20 +23,72 @@
 
 namespace Scan {
 
+struct ScanRef;
+
+/**
+ * @brief Whether a pipeline type leaves world points unmoved, as its type
+ *        states.
+ * @tparam PipelineT Pipeline type.
+ * @details A typed pipeline states it by `world_transform_is_identity`, and
+ * one without that trait moves nothing; a ScanRef was built from such a
+ * pipeline. A bare PipelineRef carries it only at run time.
+ */
+template <typename PipelineT>
+inline constexpr bool leaves_world_unmoved = [] {
+  if constexpr (std::is_base_of_v<ScanRef, PipelineT>)
+    return true;
+  else if constexpr (std::is_base_of_v<PipelineRef, PipelineT>)
+    return false;
+  else if constexpr (requires { PipelineT::world_transform_is_identity; })
+    return PipelineT::world_transform_is_identity;
+  else
+    return true;
+}();
+
+/**
+ * @brief An erased pipeline for a scan: one whose world stages leave points
+ *        unmoved.
+ * @details A scan lights each pixel at its own column's time, which a world
+ * stage moving the plotted point to another column would break; building a
+ * ScanRef from any other pipeline does not compile.
+ */
+struct ScanRef : PipelineRef {
+  /**
+   * @brief Erases a typed pipeline.
+   * @tparam T Pipeline type.
+   * @param pipeline Pipeline whose address is stored; must outlive this ref.
+   */
+  template <typename T>
+    requires(!std::is_base_of_v<PipelineRef, T> &&
+             std::is_constructible_v<PipelineRef, T &> &&
+             leaves_world_unmoved<T>)
+  ScanRef(T &pipeline) : PipelineRef(pipeline) {}
+
+  /**
+   * @brief Erases a direct-raster sink for a draw into a canvas.
+   * @tparam T Sink type.
+   * @param pipeline Sink whose address is stored; must outlive this ref.
+   * @param canvas Canvas the draw writes into.
+   */
+  template <typename T>
+    requires(std::is_constructible_v<PipelineRef, T &, Canvas &> &&
+             leaves_world_unmoved<T>)
+  ScanRef(T &pipeline, Canvas &canvas) : PipelineRef(pipeline, canvas) {}
+};
+
 /**
  * @brief Column-time state a scan through a pipeline honours.
- * @param pipeline Destination pipeline, typed or erased.
+ * @param pipeline Destination pipeline: typed, or a ScanRef.
  * @param canvas Destination canvas.
- * @return The canvas's installed state, or null when none is installed or the
- *         pipeline moves world positions after the scan.
+ * @return The canvas's installed state, or null when none is installed.
+ * @details A pipeline whose world stages may move points does not compile.
  */
 template <typename PipelineT>
 __attribute__((always_inline)) inline const Temporal::ColumnTime *
-column_time(const PipelineT &pipeline, const Canvas &canvas) {
-  if constexpr (requires { pipeline.world_transform_is_identity; }) {
-    if (!pipeline.world_transform_is_identity)
-      return nullptr;
-  }
+column_time([[maybe_unused]] const PipelineT &pipeline, const Canvas &canvas) {
+  static_assert(leaves_world_unmoved<PipelineT>,
+                "a scan cannot plot through world stages that move points; "
+                "pass the typed pipeline or a Scan::ScanRef");
   return canvas.column_time();
 }
 
@@ -429,9 +481,9 @@ inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
  * boundary, does not settle.
  */
 template <int W, int H>
-inline bool settle_drift(const Temporal::ColumnTime &time,
-                         const math::Vector &drift, float radius,
-                         math::Basis &basis) {
+HS_FLASH_MEMBER inline bool settle_drift(const Temporal::ColumnTime &time,
+                                         const math::Vector &drift,
+                                         float radius, math::Basis &basis) {
   const float angle = sqrtf(math::dot(drift, drift));
   Temporal::ColumnTime moving = time;
   moving.sweep = time.sweep + angle;

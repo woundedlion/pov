@@ -754,6 +754,20 @@ struct Line {
   }
 
   /**
+   * @brief Bounds proxy covering the arc swept by an arc.
+   * @param arc Largest arc any point of the segment moves (radians).
+   * @return Copy whose latitude band and bounding cap are grown by @p arc;
+   *         its distance() is the unswept segment's.
+   */
+  Line swept(float arc) const {
+    Line out = *this;
+    out.phi_min = std::max(0.0f, phi_min - arc);
+    out.phi_max = std::min(math::PI_F, phi_max + arc);
+    out.cap_D_min = cosf(std::min(len * 0.5f + thickness + arc, math::PI_F));
+    return out;
+  }
+
+  /**
    * @brief Signed distance to the arc segment, writing into res.
    * @tparam ComputeUVs Accepted for interface parity; the arc stores no UVs.
    * @param p Point on sphere (normalized).
