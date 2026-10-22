@@ -28,6 +28,15 @@ struct IslamicBuildProbe {
     IS::test_ripple_candidates = 0;
     IS::test_ripple_interpolations = 0;
   }
+  /**
+   * @brief Vertex path evaluations of an effect at any resolution.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @return Evaluations so far, at the frame's start and at captures.
+   */
+  template <int W, int H> static size_t vertex_passes() {
+    return IslamicStars<W, H>::test_vertex_passes;
+  }
   /** @return Vertex passes, visited bands and interpolated ripples. */
   static std::array<size_t, 3> ripple_counts() {
     return {IS::test_vertex_passes, IS::test_ripple_candidates,
@@ -44,7 +53,15 @@ struct IslamicBuildProbe {
     return {IS::test_endpoint_groups, IS::test_endpoint_bands};
   }
   static constexpr const auto &presets() { return IS::PRESETS; }
-  static const Solids::Entry *selected_entry(const IS &e) {
+  /**
+   * @brief Returns the active build entry.
+   * @tparam W Canvas width.
+   * @tparam H Canvas height.
+   * @param e Effect to inspect.
+   * @return Current shape entry.
+   */
+  template <int W, int H>
+  static const Solids::Entry *selected_entry(const IslamicStars<W, H> &e) {
     return e.build_entry;
   }
   static_assert(IS::MACRO_TRUNCATE_T == RECONCILE_TRUNCATE_T);
@@ -301,11 +318,11 @@ struct IslamicBuildProbe {
   }
   /**
    * @brief Draws the front shape's rippling frame through a moving camera,
-   *        recording the faces each capture window scans.
+   *        recording the faces scanned against each arm boundary.
    * @param e Effect whose front shape is drawn; its camera is replaced.
    * @param from Camera at the previous endpoint.
    * @param to Camera at the current endpoint.
-   * @param copies Receives the window copies.
+   * @param copies Receives the arm sides' copies.
    */
   template <int W, int H>
   static void draw_copies(IslamicStars<W, H> &e, const math::Quaternion &from,
@@ -321,22 +338,19 @@ struct IslamicBuildProbe {
                                                          e.orientation, true);
       Scan::ColumnTimeScope columns(canvas, time);
       MeshState mesh = e.transform_shape(source);
-      const auto plan =
-          e.plan_motion(canvas, mesh, path, bound, scratch_arena_a);
+      const auto plan = e.plan_motion(canvas, mesh, path, bound,
+                                      scratch_arena_a, scratch_arena_b);
       HS_EXPECT_TRUE(plan.active);
-      const std::vector<math::Vector> endpoint(mesh.vertices.begin(),
-                                               mesh.vertices.end());
       FacePaletteShader fragment;
       int window = -1;
       Scan::deform_mesh<W, H>(
-          canvas, mesh, plan.active, plan.columns, plan.moving, scratch_arena_a,
-          bound,
+          canvas, mesh, plan.active, plan.columns, plan.moving, plan.start,
+          scratch_arena_a, bound,
           [&](size_t i, float u) {
             return e.capture_position(plan, path, i, u);
           },
           [&]() {
-            window = record_face_copies(canvas, mesh, endpoint, bound,
-                                        e.orientation, copies);
+            window = record_face_copies(canvas, mesh, e.orientation, copies);
             auto setup = [&](size_t f, float size) {
               shade_face(e, f, size, fragment);
               if (window >= 0)
@@ -1087,8 +1101,8 @@ inline void test_islamicstars_ripple_motion_is_seam_free() {
 
 /**
  * @brief An IslamicStars face across the arm boundary scans as one polygon,
- *        shaded alike, in one ripple frame's late window and the next frame's
- *        early window.
+ *        shaded alike, in one ripple frame's late copy and the next frame's
+ *        early copy.
  * @details The roster's truncatedCube_hk90_meta, generated whole, under a
  * ripple centred on the arm boundary's pole so that its wavefront runs along
  * the boundary; the ripple steps as a decaying ripple does while the camera
@@ -1144,8 +1158,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
                                 P::ripple_path(effect, ripples[j], i, 1.0f)))));
   HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(arc));
   const float turn = quaternion_angle(cameras[0], cameras[1]);
-  const size_t faces = expect_seam_copies_match<W, H>(
-      effect, "islamic seam copies", frames[0][1], frames[1][0], cameras[1],
+  const size_t faces = expect_seams_match<W, H>(
+      effect, "islamic seam copies", frames, cameras[1],
       [&](uint16_t i) {
         return seam_vertex_tolerance<W>(
             [&](float u) { return P::ripple_path(effect, ripples[0], i, u); },
@@ -1156,6 +1170,35 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
         P::shade_face(effect, f, size, shader);
       });
   HS_EXPECT_GE(faces, size_t{4});
+}
+
+/**
+ * @brief The playback's moving mesh shows no excess colour step at the arm
+ *        boundaries or mid-arm.
+ * @details Its faces are small beside a half turn, so a seam step stays
+ * within a few percent of its neighbours'. Faces reaching a pole draw once
+ * per half-arm window, as on master, whose steps bound these: 1.025 and
+ * 1.062.
+ */
+inline void test_islamicstars_playback_motion_is_seam_free() {
+  constexpr int W = 288, H = 144;
+  reset_effect_globals();
+  pin_frame_clock(0);
+  IslamicStars<W, H> effect;
+  effect.init();
+  std::vector<Pixel> previous, current;
+  MeshSeamSteps steps;
+  for (int f = 0; f < 240; ++f) {
+    pin_frame_clock(f);
+    effect.draw_frame();
+    effect.advance_display();
+    capture_frame<W, H>(effect, current);
+    if (f > 0)
+      steps.add(previous, current, W, H);
+    previous.swap(current);
+  }
+  steps.expect_continuous("islamic playback", 1.025, 1.062);
+  hs::clear_mock_time();
 }
 
 /**

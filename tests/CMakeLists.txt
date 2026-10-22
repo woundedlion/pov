@@ -55,7 +55,8 @@ set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 set(HS_ENGINE_SOURCES
   ${HS_ROOT}/core/memory.cpp
   ${HS_ROOT}/core/engine/static_storage.cpp
-  ${HS_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_ROOT}/core/spatial/reaction_graph.cpp
+  ${HS_ROOT}/core/render/scan/mesh_capture.cpp)
 set(HS_ENGINE_INCLUDES ${HS_ROOT})
 
 # The host configuration widens inline/arena budgets because 64-bit pointers
@@ -469,7 +470,8 @@ add_test(NAME unit_pullback_manifest COMMAND pullback_manifest_check)
 set(HS_CAPTURE_ENGINE_SOURCES
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/memory.cpp
   ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/engine/static_storage.cpp
-  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp)
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/spatial/reaction_graph.cpp
+  ${HS_PULLBACK_CAPTURE_SOURCE_ROOT}/core/render/scan/mesh_capture.cpp)
 add_executable(pullback_capture_native
   ${HS_ROOT}/tools/pullback_capture_native.cpp
   ${HS_CAPTURE_ENGINE_SOURCES})

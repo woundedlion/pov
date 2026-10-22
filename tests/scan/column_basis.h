@@ -1572,83 +1572,331 @@ inline void test_capture_window_faces() {
   }
 }
 
-/** @brief Captures wrap at the arm seam, follow the equator, and hold poles. */
+/**
+ * @brief A vertex's arc bound covers the angle between its positions within
+ *        a few percent, and a moving vertex's flags carry its reach.
+ */
+inline void test_vertex_arc_and_reach_flags() {
+  for (const float angle : {0.0f, 0.01f, 0.3f, 0.9f, 1.0f, 1.2f, 2.0f, 3.0f}) {
+    HS_CONTEXT("angle", angle);
+    const math::Vector a(2, 0, 0), b(cosf(angle), sinf(angle), 0);
+    const float arc = Scan::vertex_arc(a, b);
+    HS_EXPECT_GE(arc, angle - 1e-6f);
+    HS_EXPECT_LE(arc, angle * 1.015f + 1e-6f);
+  }
+  // A reach level stands for at least the reach, and at most a third of an
+  // octave more.
+  for (const float reach : {1e-6f, 1e-3f, 0.003f, 0.02f, 0.4f, 1.0f}) {
+    HS_CONTEXT("reach", reach);
+    const uint8_t flags = Scan::vertex_flags(reach);
+    HS_EXPECT_EQ(flags & Scan::VERTEX_MOVES, Scan::VERTEX_MOVES);
+    HS_EXPECT_GE(Scan::vertex_reach(flags), reach);
+    HS_EXPECT_LE(Scan::vertex_reach(flags),
+                 fmaxf(1.26f * reach, Scan::VERTEX_REACH_UNIT));
+  }
+  HS_EXPECT_EQ(Scan::vertex_reach(0), 0.0f);
+  // A reach past the levels stands as unbounded.
+  HS_EXPECT_GE(Scan::vertex_reach(Scan::vertex_flags(2.0f)), 1e30f);
+  // A face reaches the pole by its fastest vertex from its nearest one.
+  {
+    const auto at = [](float horizontal, float azimuth) {
+      return math::Vector(horizontal * cosf(azimuth),
+                          sqrtf(1.0f - horizontal * horizontal),
+                          horizontal * sinf(azimuth));
+    };
+    const math::Vector vertices[3] = {at(0.01f, 0.3f), at(0.3f, 0.6f),
+                                      at(0.3f, 0.9f)};
+    const float angles[3] = {0.3f / math::PI_F, 0.6f / math::PI_F,
+                             0.9f / math::PI_F};
+    uint8_t flags[3] = {Scan::vertex_flags(0.001f), Scan::vertex_flags(0.05f),
+                        Scan::vertex_flags(0.05f)};
+    const auto interval = [&](float sweep) {
+      float reach = 0.0f, nearest = 1.0f;
+      for (int k = 0; k < 3; ++k) {
+        reach = fmaxf(reach, Scan::vertex_reach(flags[k]));
+        nearest = fminf(nearest, sqrtf(vertices[k].x * vertices[k].x +
+                                       vertices[k].z * vertices[k].z));
+      }
+      return Scan::face_capture_interval(angles, 3, reach, nearest, sweep);
+    };
+    HS_EXPECT_LT(interval(0.0f).lo, 0.0f);
+    flags[1] = flags[2] = Scan::vertex_flags(0.001f);
+    HS_EXPECT_GE(interval(0.0f).lo, 0.0f);
+    // The basis's own sweep counts toward the reach.
+    HS_EXPECT_LT(interval(0.01f).lo, 0.0f);
+  }
+  const math::Vector placed = math::Vector(0.1f, 1.0f, 0.0f).normalized();
+  const math::Vector current[2] = {placed, placed};
+  const math::Vector previous[2] = {
+      math::rotate(placed, math::make_rotation(math::Vector(0, 0, 1), 0.2f)),
+      placed};
+  // The second vertex, picked but still, holds.
+  uint8_t moving[2] = {Scan::VERTEX_MOVES, Scan::VERTEX_MOVES};
+  Scan::flag_vertex_reaches<288>(previous, current, 2, moving);
+  HS_EXPECT_GE(Scan::vertex_reach(moving[0]), 0.2f);
+  HS_EXPECT_LE(Scan::vertex_reach(moving[0]), 0.26f);
+  HS_EXPECT_EQ(moving[1], 0);
+}
+
+/** @brief Captures wrap at the arm seam and follow the equator. */
 inline void test_mesh_capture_vertex() {
   constexpr int W = 288, H = 144;
   auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
   const auto time =
       basis->prepare(math::Quaternion(), math::Quaternion(), true);
   HS_EXPECT_EQ(
-      Scan::capture_fraction<W>(math::Vector(1, 0, -1e-9f), time, 0.0f), 0.0f);
+      Scan::capture_fraction(math::Vector(1, 0, -1e-9f), time, 0.0f, W), 0.0f);
   const float start = 0.4f * math::PI_F, step = 0.04f;
   int calls = 0;
   const auto vertex = [&](float u) {
     ++calls;
     return math::Vector(cosf(start + step * u), 0, sinf(start + step * u));
   };
-  const math::Vector end = vertex(1.0f);
+  const uint16_t end = Scan::vertex_column(vertex(1.0f), time, 1.0f, W),
+                 begin = Scan::vertex_column(vertex(0.0f), time, 0.0f, W);
   calls = 0;
-  const auto captured = Scan::capture_vertex<W>(end, time, step, 0.25f, vertex);
+  const auto captured = Scan::capture_vertex(begin, end, 0.25f, W, vertex);
   const float solved = start / (math::PI_F - step);
   const auto expected = vertex(solved);
   HS_EXPECT_LT(math::distance_squared(captured, expected), 1e-8f);
-  HS_EXPECT_EQ(calls, 3);
+  HS_EXPECT_EQ(calls, 2);
   HS_EXPECT_NEAR(math::dot(captured, captured), 1.0f, 1e-6f);
-  calls = 0;
-  const math::Vector pole(0, 1, 0);
-  HS_EXPECT_TRUE(Scan::capture_vertex<W>(pole, time, step, 0.25f, vertex) ==
-                 pole);
-  HS_EXPECT_EQ(calls, 0);
+  // A fast vertex turning at a steady rate is captured where its column
+  // meets the column's time.
+  const float fast = 0.4f;
+  const auto swing = [&](float u) {
+    return math::Vector(cosf(start + fast * u), 0, sinf(start + fast * u));
+  };
+  const auto fast_capture = Scan::capture_vertex(
+      Scan::vertex_column(swing(0.0f), time, 0.0f, W),
+      Scan::vertex_column(swing(1.0f), time, 1.0f, W), 0.25f, W, swing);
+  HS_EXPECT_LT(
+      math::distance_squared(fast_capture, swing(start / (math::PI_F - fast))),
+      1e-7f);
 }
 
-/** @brief Window captures share interior arm passes and separate boundary passes. */
+/**
+ * @brief Capture-branch centre of a vertex in a scan of one arm.
+ * @param end The vertex at the current endpoint.
+ * @param arm The arm scanned, 0 or 1, or -1 for the pass over both.
+ * @return Arm fraction the capture's branch lies within a quarter frame of:
+ *         the vertex's own time on its arm or in the pass over both, else its
+ *         time continued across the arm boundary nearer it.
+ */
+inline float capture_centre(const math::Vector &end, int arm) {
+  const float turns = atan2f(end.z, end.x) / math::PI_F;
+  const bool early = turns - floorf(turns) < 0.5f;
+  if (arm >= 0 && (turns < 0.0f) != (arm == 1))
+    return early ? 1.25f : -0.25f;
+  return early ? 0.25f : 0.75f;
+}
+
+/**
+ * @brief Builds a one-face mesh from vertex positions.
+ * @param mesh Receives the face.
+ * @param count Number of vertices.
+ * @param position Callable (size_t i) giving vertex i.
+ */
+template <typename PositionFn>
+inline void build_single_face(MeshState &mesh, size_t count,
+                              PositionFn &&position) {
+  mesh.vertices.bind(scratch_arena_a, count);
+  mesh.face_counts.bind(scratch_arena_a, 1);
+  mesh.face_offsets.bind(scratch_arena_a, 1);
+  mesh.faces.bind(scratch_arena_a, count);
+  for (uint16_t i = 0; i < count; ++i) {
+    mesh.vertices.push_back(position(i));
+    mesh.faces.push_back(i);
+  }
+  mesh.face_counts.push_back(static_cast<uint8_t>(count));
+  mesh.face_offsets.push_back(0);
+}
+
+/** @brief Faces clear of the arm boundaries scan once, unwindowed, each
+ *  vertex captured once on its own side and shared by the faces around it. */
 inline void test_mesh_capture_reuse() {
   constexpr int W = 288, H = 144;
   for (float fraction : {0.1f, 0.5f, 0.9f}) {
     ScratchScope guard(scratch_arena_a);
     MeshState mesh;
-    mesh.vertices.bind(scratch_arena_a, 3);
-    mesh.face_counts.bind(scratch_arena_a, 1);
-    mesh.face_offsets.bind(scratch_arena_a, 1);
-    mesh.faces.bind(scratch_arena_a, 3);
     const auto position = [&](size_t i, float u) {
-      const float angle = fraction * math::PI_F + 0.01f * i + 0.02f * (u - 1);
-      return math::Vector(cosf(angle), 0, sinf(angle));
+      const float angle =
+          (fraction + 0.03f * (float(i) - 1.5f)) * math::PI_F + 0.02f * (u - 1);
+      return math::Vector(cosf(angle), i % 2 ? -0.1f : 0.1f, sinf(angle))
+          .normalized();
     };
-    for (uint16_t i = 0; i < 3; ++i) {
+    mesh.vertices.bind(scratch_arena_a, 4);
+    mesh.face_counts.bind(scratch_arena_a, 2);
+    mesh.face_offsets.bind(scratch_arena_a, 2);
+    mesh.faces.bind(scratch_arena_a, 6);
+    for (uint16_t i = 0; i < 4; ++i)
       mesh.vertices.push_back(position(i, 1));
+    for (uint16_t i : {0, 1, 2, 2, 1, 3})
       mesh.faces.push_back(i);
+    for (uint16_t f = 0; f < 2; ++f) {
+      mesh.face_counts.push_back(3);
+      mesh.face_offsets.push_back(static_cast<uint16_t>(3 * f));
     }
-    mesh.face_counts.push_back(3);
-    mesh.face_offsets.push_back(0);
-    const uint8_t moving[3] = {1, 1, 1};
-    const uint16_t columns[2] = {0, W - 1};
+    const uint8_t moving[4] = {1, 1, 1, 1};
+    const uint16_t start = static_cast<uint16_t>((fraction - 0.06f) * (W / 2));
+    const uint16_t columns[4] = {start, 20, start, 20};
+    uint16_t starts[4]{};
     int calls = 0, scans = 0;
     render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+      for (size_t i = 0; i < 4; ++i)
+        starts[i] =
+            Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
       Scan::deform_mesh<W, H>(
-          canvas, mesh, true, columns, moving, scratch_arena_b, 0.02f,
+          canvas, mesh, true, columns, moving, starts, scratch_arena_b, 0.02f,
           [&](size_t i, float u) {
             ++calls;
             return position(i, u);
           },
           [&] {
-            const float centre = scans++ == 0 ? 0.25f : 0.75f;
-            for (size_t i = 0; i < 3; ++i) {
-              const auto expected = Scan::capture_vertex<W>(
-                  position(i, 1), *canvas.column_time(), 0.02f, centre,
+            ++scans;
+            HS_EXPECT_FALSE(canvas.render_x_window().active);
+            for (size_t i = 0; i < 4; ++i) {
+              const math::Vector end = position(i, 1);
+              const auto &time = *canvas.column_time();
+              const auto expected = Scan::capture_vertex(
+                  starts[i], Scan::vertex_column(end, time, 1.0f, W),
+                  capture_centre(end, 0), W,
                   [&](float u) { return position(i, u); });
               HS_EXPECT_TRUE(mesh.vertices[i] == expected);
             }
           });
     });
-    HS_EXPECT_EQ(scans, 2);
-    HS_EXPECT_EQ(calls, fraction == 0.5f ? 6 : 15);
+    HS_EXPECT_EQ(scans, 1);
+    HS_EXPECT_EQ(calls, 4);
+  }
+}
+
+/**
+ * @brief A face across an arm boundary scans once per arm, clipped to that
+ *        arm, each vertex captured at that arm's time; a segment clip
+ *        holding one arm scans that arm alone.
+ */
+inline void test_mesh_seam_face_copies() {
+  constexpr int W = 288, H = 144;
+  constexpr float FRACTIONS[] = {0.96f, 1.005f, 1.04f};
+  constexpr float HEIGHTS[] = {0.1f, -0.1f, 0.1f};
+  const auto position = [&](size_t i, float u) {
+    const float angle = FRACTIONS[i] * math::PI_F + 0.02f * (u - 1);
+    return math::Vector(cosf(angle), HEIGHTS[i], sinf(angle)).normalized();
+  };
+  // One column of render margin reaches past the clip's end.
+  for (const int clip_end : {W, W / 2 - 1}) {
+    HS_CONTEXT("clip end", clip_end);
+    ScratchScope guard(scratch_arena_a);
+    MeshState mesh;
+    build_single_face(mesh, 3, [&](size_t i) { return position(i, 1); });
+    uint8_t moving[3] = {1, 1, 1};
+    uint16_t starts[3]{};
+    uint16_t columns[2]{};
+    int calls = 0;
+    std::vector<int> sides;
+    render_window_frame<W, H>(
+        0, clip_end, [&](Pipeline<W, H> &, Canvas &canvas) {
+          for (size_t i = 0; i < 3; ++i)
+            starts[i] = Scan::vertex_column(position(i, 0),
+                                            *canvas.column_time(), 0.0f, W);
+          HS_EXPECT_EQ(
+              Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.03f, columns),
+              size_t(1));
+          Scan::deform_mesh<W, H>(
+              canvas, mesh, true, columns, moving, starts, scratch_arena_b,
+              0.02f,
+              [&](size_t i, float u) {
+                ++calls;
+                return position(i, u);
+              },
+              [&] {
+                const auto &window = canvas.render_x_window();
+                HS_EXPECT_TRUE(window.active);
+                HS_EXPECT_EQ(window.end - window.begin, W / 2);
+                const int side = window.arm(W);
+                sides.push_back(side);
+                for (size_t i = 0; i < 3; ++i) {
+                  const math::Vector end = position(i, 1);
+                  const auto &time = *canvas.column_time();
+                  const auto expected = Scan::capture_vertex(
+                      starts[i], Scan::vertex_column(end, time, 1.0f, W),
+                      capture_centre(end, side), W,
+                      [&](float u) { return position(i, u); });
+                  HS_EXPECT_TRUE(mesh.vertices[i] == expected);
+                }
+              });
+        });
+    if (clip_end == W) {
+      HS_EXPECT_TRUE(sides == std::vector<int>({0, 1}));
+      HS_EXPECT_EQ(calls, 6);
+    } else {
+      HS_EXPECT_TRUE(sides == std::vector<int>({0}));
+      HS_EXPECT_EQ(calls, 3);
+    }
+  }
+}
+
+/** @brief A wide face's copies, one per arm, each hold the face's one time
+ *  branch at that arm's times. */
+inline void test_mesh_wide_face_copies() {
+  constexpr int W = 288, H = 144;
+  constexpr float STEP = 0.01f;
+  constexpr float FRACTIONS[] = {0.40f, 0.45f, 0.85f, 1.30f,
+                                 1.30f, 0.85f, 0.45f, 0.40f};
+  ScratchScope guard(scratch_arena_a);
+  MeshState mesh;
+  const auto position = [&](size_t i, float u) {
+    const float angle = FRACTIONS[i] * math::PI_F + STEP * (u - 1.0f);
+    return math::Vector(cosf(angle), i < 4 ? 0.2f : -0.2f, sinf(angle))
+        .normalized();
+  };
+  build_single_face(mesh, 8, [&](size_t i) { return position(i, 1); });
+  const uint8_t moving[8] = {1, 1, 1, 1, 1, 1, 1, 1};
+  uint16_t starts[8]{};
+  const uint16_t columns[2] = {0, W - 1};
+  std::array<int, W> owners{};
+  int copies = 0;
+  render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+    for (size_t i = 0; i < 8; ++i)
+      starts[i] =
+          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
+    Scan::deform_mesh<W, H>(
+        canvas, mesh, true, columns, moving, starts, scratch_arena_b, STEP,
+        position, [&] {
+          const auto &window = canvas.render_x_window();
+          const auto *copy = canvas.column_time()->face_copy;
+          HS_EXPECT_TRUE(copy != nullptr);
+          if (!copy)
+            return;
+          for (int x = window.begin; x < window.end; ++x)
+            for (const int column : {x, x + W / 2})
+              if (column >= 0 && column < W)
+                ++owners[column];
+          ++copies;
+          const int shift = window.arm(W) == 1 ? -1 : 0;
+          HS_EXPECT_EQ(copy->count, size_t(8));
+          for (size_t m = 0; m < copy->count; ++m) {
+            const size_t i = copy->sources[m];
+            const float u = (FRACTIONS[i] + shift - STEP / math::PI_F) /
+                            (1.0f - STEP / math::PI_F);
+            HS_EXPECT_LT(
+                math::distance_squared(copy->vertices[m], position(i, u)),
+                1e-8f);
+          }
+        });
+  });
+  HS_EXPECT_EQ(copies, 2);
+  for (int x = 0; x < W; ++x) {
+    HS_CONTEXT("column", x);
+    HS_EXPECT_EQ(owners[x], 1);
   }
 }
 
 /**
  * @brief Adjacent moving and held faces use coincident shared-edge endpoints.
- * @param rotation Longitude rotating the fixture across arm and window boundaries.
+ * @param rotation Longitude rotating the fixture across the arm boundaries.
+ * @details A face scanned alone is read from its copy.
  */
 inline void check_deformed_shared_edges(float rotation) {
   constexpr int W = 288, H = 144;
@@ -1679,29 +1927,42 @@ inline void check_deformed_shared_edges(float rotation) {
         current[i], math::make_rotation(math::Vector(0, 1, 0),
                                         (u - 1) * (moving[i] ? .12f : .001f)));
   };
-  int scans = 0, held = 0, shared = 0;
+  uint16_t starts[5]{};
+  int scans = 0, held = 0, shared = 0, captured = 0;
   render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
+    for (size_t i = 0; i < 5; ++i)
+      starts[i] =
+          Scan::vertex_column(vertex(i, 0), *canvas.column_time(), 0.0f, W);
     HS_EXPECT_EQ(
         Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
         size_t(2));
     Scan::deform_mesh<W, H>(
-        canvas, mesh, true, columns, moving, scratch_arena_b, .12f, vertex,
-        [&] {
+        canvas, mesh, true, columns, moving, starts, scratch_arena_b, .12f,
+        vertex, [&] {
           ++scans;
-          const bool window = canvas.render_x_window().active;
+          const auto &window = canvas.render_x_window();
           const auto *selected = canvas.column_time()->selected_faces;
-          const uint8_t drawn =
-              window ? Temporal::MESH_FACE_WINDOW : Temporal::MESH_FACE_HELD;
+          const uint8_t drawn = window.active ? Temporal::MESH_FACE_WINDOW
+                                              : Temporal::MESH_FACE_HELD;
+          const int arm = window.active ? window.arm(W) : -1;
+          const auto *copy = canvas.column_time()->face_copy;
+          const auto at = [&](size_t i) {
+            if (copy)
+              for (size_t m = 0; m < copy->count; ++m)
+                if (copy->sources[m] == i)
+                  return copy->vertices[m];
+            return mesh.vertices[i];
+          };
           for (size_t f = 0; f < 3; ++f) {
             if (selected[f] != drawn)
               continue;
             held += f == 1;
             for (uint16_t i : {1, 2}) {
-              HS_EXPECT_TRUE(mesh.vertices[i] == current[i]);
+              HS_EXPECT_TRUE(at(i) == current[i]);
               ++shared;
             }
           }
-          if (window && selected[0] == drawn && selected[2] == drawn) {
+          if (!copy && selected[0] == drawn && selected[2] == drawn) {
             const auto *indices = mesh.get_faces_data();
             const math::Vector edge0 = math::cross(mesh.vertices[indices[2]],
                                                    mesh.vertices[indices[0]]);
@@ -1709,27 +1970,29 @@ inline void check_deformed_shared_edges(float rotation) {
                                                    mesh.vertices[indices[7]]);
             HS_EXPECT_TRUE(edge0 == -edge2);
           }
-          if (window) {
-            const float centre =
-                canvas.render_x_window().begin == 0 ? .25f : .75f;
-            for (size_t f : {size_t(0), size_t(2)}) {
-              if (selected[f] != drawn)
-                continue;
-              const size_t i = f == 0 ? 0 : 4;
-              const auto expected = Scan::capture_vertex<W>(
-                  current[i], *canvas.column_time(), .12f, centre,
-                  [&](float u) { return vertex(i, u); });
-              HS_EXPECT_TRUE(mesh.vertices[i] == expected);
-            }
+          for (size_t f : {size_t(0), size_t(2)}) {
+            if (selected[f] != drawn)
+              continue;
+            const size_t i = f == 0 ? 0 : 4;
+            const auto &time = *canvas.column_time();
+            const auto expected = Scan::capture_vertex(
+                starts[i], Scan::vertex_column(current[i], time, 1.0f, W),
+                capture_centre(current[i], arm), W,
+                [&](float u) { return vertex(i, u); });
+            // Each branch's capture solves from the stored endpoint, not
+            // from the pool's other capture.
+            HS_EXPECT_TRUE(at(i) == expected);
+            ++captured;
           }
         });
   });
   HS_EXPECT_EQ(held, 1);
-  HS_EXPECT_GE(scans, 2);
+  HS_EXPECT_GE(scans, 1);
   HS_EXPECT_GE(shared, 6);
+  HS_EXPECT_GE(captured, 2);
 }
 
-/** @brief Shared edges coincide across ordinary, split-window and arm-boundary faces. */
+/** @brief Shared edges coincide across ordinary and arm-boundary faces. */
 inline void test_mesh_deformation_shared_edges() {
   for (float rotation :
        {0.0f, .5f * math::PI_F, math::PI_F, 1.5f * math::PI_F, .3f})
@@ -1837,61 +2100,130 @@ inline void test_mesh_motion_activation() {
 }
 
 /**
- * @brief Windowed mesh scanning matches separately captured whole meshes.
- * @param clip_begin First displayed column.
- * @param clip_end One past the last displayed column.
+ * @brief A face reaching a pole draws in each half-arm window's scan, its
+ *        vertices captured near the window's time.
+ * @param points Star points; the face alternates tip and notch vertices.
+ * @param notch The notch vertices' polar angle; the tips' is 0.2 radians.
+ * @param north Whether the face winds around the north pole.
+ * @param turn Camera turn over the frame (radians).
+ * @param tilt Arc the face tips off the pole by, about the z axis; a tilted
+ *        face reaches the pole (Scan::face_capture_interval()) without
+ *        winding around it.
+ * @details Compares the deformed scan and the face held at the endpoint with
+ * frames of the face at each column pair's time.
  */
-inline void check_deformed_window_pixels(int clip_begin, int clip_end) {
-  constexpr int W = 96, H = 48;
+inline void check_polar_face_windows(size_t points, float notch, bool north,
+                                     float turn, float tilt = 0.0f) {
+  constexpr int W = 288, H = 144;
+  constexpr float SPIN = 0.1f, TIP = 0.2f, WOBBLE = 2.0f * math::PI_F / 180.0f;
+  HS_CONTEXT("star points", static_cast<long long>(points));
+  HS_CONTEXT("north", north ? 1 : 0);
+  const size_t count = 2 * points;
+  const auto position = [&](size_t i, float u) {
+    const float azimuth =
+        math::TWO_PI_F * static_cast<float>(i) / count + SPIN * (u - 1.0f);
+    const float polar = (i % 2 ? notch : TIP) +
+                        WOBBLE * (u - 1.0f) * (i % 4 < 2 ? 1.0f : -1.0f);
+    const float y = cosf(polar);
+    return math::rotate(math::Vector(sinf(polar) * cosf(azimuth),
+                                     north ? y : -y,
+                                     sinf(polar) * sinf(azimuth)),
+                        math::make_rotation(math::Vector(0, 0, 1), tilt));
+  };
+  const math::Quaternion from;
+  const math::Quaternion to =
+      math::make_rotation(math::Vector(0.3f, 0.2f, 0.9f).normalized(), turn);
+  float scale = 0.0f;
+  auto setup = [&](size_t, float size) { scale = 1.0f / size; };
+  auto shader = [&](const math::Vector &, Fragment &f) {
+    const float depth = hs::clamp(-f.v1 * scale, 0.0f, 1.0f);
+    f.color = Color4(
+        Pixel(static_cast<uint16_t>(2000 + 60000 * depth), 20000, 30000), 1);
+  };
+  const auto render = [&](auto &&draw) {
+    hs_test::StubEffect fx(W, H);
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fx);
+      auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+      const Temporal::ColumnTime time = basis->prepare(from, to, true);
+      Scan::ColumnTimeScope column_scope(canvas, time);
+      draw(pipeline, canvas);
+    }
+    fx.advance_display();
+    std::vector<Pixel> out;
+    capture_frame<W, H>(fx, out);
+    return out;
+  };
   ScratchScope guard(scratch_arena_a);
   MeshState mesh;
-  build_basis_octahedron(mesh, scratch_arena_a);
-  const std::vector<math::Vector> end(mesh.vertices.begin(),
-                                      mesh.vertices.end());
-  std::vector<uint8_t> moving(end.size(), 1);
-  std::vector<uint16_t> columns(mesh.num_faces() * 2);
-  const auto vertex = [&](size_t i, float u) {
-    return math::rotate(
-        end[i], math::make_rotation(math::Vector(.3f, 1, .1f * i).normalized(),
-                                    .08f * (u - 1)));
-  };
-  const auto shader = [](const math::Vector &, Fragment &f) {
-    f.color = Color4(Pixel(uint16_t(6000 + 7000 * f.v2), 30000, 12000), 1);
-  };
-  const auto drawn = render_window_frame<W, H>(
-      clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), .08f,
-                                   columns.data());
-        Scan::deform_mesh<W, H>(
-            canvas, mesh, true, columns.data(), moving.data(), scratch_arena_b,
-            .08f, vertex, [&] {
-              Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, shader,
-                                     scratch_arena_b);
-            });
-      });
-  std::vector<Pixel> expected(W * H);
-  for (int pass = 0; pass < 2; ++pass) {
-    const auto frame = render_window_frame<W, H>(
-        clip_begin, clip_end, [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-          for (size_t i = 0; i < end.size(); ++i)
-            mesh.vertices[i] = Scan::capture_vertex<W>(
-                end[i], *canvas.column_time(), .08f, pass == 0 ? .25f : .75f,
-                [&](float u) { return vertex(i, u); });
-          Scan::Mesh::draw<W, H>(pipeline, canvas, mesh, shader,
-                                 scratch_arena_b);
+  build_single_face(mesh, count, [&](size_t i) { return position(i, 1); });
+  std::vector<uint8_t> moving(count, 1);
+  std::vector<uint16_t> starts(count);
+  std::vector<uint16_t> columns(2);
+  const float reach = SPIN * sinf(TIP) + WOBBLE;
+  Scan::mesh_capture_counters = {};
+  const std::vector<Pixel> drawn = render([&](Pipeline<W, H> &pipeline,
+                                              Canvas &canvas) {
+    for (size_t i = 0; i < count; ++i)
+      starts[i] =
+          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
+    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                               columns.data());
+    for (size_t i = 0; i < count; ++i)
+      if (moving[i])
+        moving[i] = Scan::vertex_flags(reach);
+    Scan::deform_mesh<W, H>(
+        canvas, mesh, true, columns.data(), moving.data(), starts.data(),
+        scratch_arena_b, reach, position, [&] {
+          Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                             scratch_arena_b, nullptr, setup);
         });
-    for (int y = 0; y < H; ++y)
-      for (int x = pass * (W / 4); x < (pass + 1) * (W / 4); ++x)
-        for (int arm : {0, W / 2})
-          expected[y * W + x + arm] = frame[y * W + x + arm];
-  }
-  HS_EXPECT_GT(expect_frames_within("deformed windows", drawn, expected, 0),
-               100);
+  });
+  const Scan::MeshCaptureCounters work = Scan::mesh_capture_counters;
+  HS_EXPECT_EQ(work.polar_faces, size_t(1));
+  HS_EXPECT_EQ(work.face_copies, size_t(0));
+  HS_EXPECT_GE(work.scans, size_t(1));
+  HS_EXPECT_LE(work.scans, size_t(2));
+  HS_EXPECT_EQ(work.evaluations, work.captures);
+  HS_EXPECT_LE(work.captures, work.scans * count);
+  for (size_t i = 0; i < count; ++i)
+    mesh.vertices[i] = position(i, 1.0f);
+  const std::vector<Pixel> held =
+      render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+        Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                           scratch_arena_b, nullptr, setup);
+      });
+  const std::vector<Pixel> expected = column_time_oracle<W, H>([&](float u) {
+    for (size_t i = 0; i < count; ++i)
+      mesh.vertices[i] = position(i, u);
+    return render([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+      Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
+                                         scratch_arena_b, nullptr, setup);
+    });
+  });
+  const auto error = [&](const std::vector<Pixel> &frame) {
+    double sum = 0.0;
+    for (size_t i = 0; i < expected.size(); ++i)
+      sum += std::abs(int(frame[i].r) - expected[i].r) +
+             std::abs(int(frame[i].g) - expected[i].g) +
+             std::abs(int(frame[i].b) - expected[i].b);
+    return sum;
+  };
+  const double drawn_error = error(drawn), held_error = error(held);
+  std::printf("  [polar face %zu] error %.0f vs held %.0f (ratio %.3f)\n",
+              points, drawn_error, held_error, drawn_error / held_error);
+  HS_EXPECT_GT(held_error, 0.0);
+  HS_EXPECT_LT(drawn_error, held_error);
 }
 
-/** @brief Capture windows partition both arms under full and segment clips. */
-inline void test_mesh_deformation_window_pixels() {
-  check_deformed_window_pixels(0, 96);
-  check_deformed_window_pixels(0, 48);
-  check_deformed_window_pixels(48, 96);
+/** @brief Faces around or reaching either pole draw per half-arm window,
+ *  closer to their column times than held at the endpoint: convex, starred,
+ *  or tipped off the pole, under a still or a turning camera. */
+inline void test_mesh_polar_face_windows() {
+  check_polar_face_windows(6, 0.12f, true, 0.0f);
+  check_polar_face_windows(6, 0.12f, false, 0.02f);
+  check_polar_face_windows(3, 0.05f, true, 0.02f);
+  check_polar_face_windows(4, 0.2f, false, 0.0f);
+  check_polar_face_windows(6, 0.12f, true, 0.02f, 0.285f);
 }

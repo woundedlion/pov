@@ -750,7 +750,7 @@ inline void case_scan_deformation_without_column_time() {
   MeshState mesh;
   const uint16_t columns[2] = {0, 0};
   Scan::deform_mesh<W, H>(
-      c, mesh, true, columns, nullptr, scratch_arena_a, 0.1f,
+      c, mesh, true, columns, nullptr, nullptr, scratch_arena_a, 0.1f,
       [](size_t, float) { return math::Vector(1, 0, 0); }, [] {});
 }
 

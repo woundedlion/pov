@@ -422,6 +422,7 @@ private:
     uint8_t *moving = nullptr;
     uint16_t *columns = nullptr;
     math::Vector *current = nullptr;
+    uint16_t *start = nullptr;
     {
       HS_PROFILE(hk_mesh_transform);
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
@@ -435,17 +436,23 @@ private:
           active = false;
       }
       if (active) {
-        Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
-                                      moving);
+        Scan::flag_vertex_reaches<W>(previous, mesh.vertices.data(), count,
+                                     moving);
         current = scratch_arena_b.allocate_n<math::Vector>(count);
         std::copy_n(rotated_mesh.vertices.data(), count, current);
-        for (size_t i = 0; i < count; ++i)
+        start = scratch_arena_b.allocate_n<uint16_t>(count);
+        for (size_t i = 0; i < count; ++i) {
           previous[i] = camera(previous[i]);
+          if (moving[i])
+            start[i] = Scan::vertex_column(previous[i], *canvas.column_time(),
+                                           0.0f, W);
+        }
       }
     }
     HS_PROFILE(hk_mesh_scan);
     Scan::deform_mesh<W, H>(
-        canvas, rotated_mesh, active, columns, moving, scratch_arena_b, arc,
+        canvas, rotated_mesh, active, columns, moving, start, scratch_arena_b,
+        arc,
         [&](size_t i, float u) HS_HOT_INLINE {
           return (previous[i] + (current[i] - previous[i]) * u).normalized();
         },

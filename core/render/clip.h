@@ -14,15 +14,26 @@
  */
 
 /**
- * @brief A run of half-turn columns admitted on both display arms.
+ * @brief A run of half-turn columns admitted on both display arms, or on one.
  * @details Admits columns `[begin, end)` and `[begin + w / 2, end + w / 2)` of
  *          a canvas of even width `w`, the columns emitted over one span of
- *          frame time.
+ *          frame time. A window on one arm stands half a turn below or above
+ *          the half-turn, so that one of its runs lies outside `[0, w)` and
+ *          admits no column.
  */
 struct ColumnWindow {
-  int begin = 0; /**< First half-turn column, in [0, end]. */
-  int end = 0;   /**< One past the last half-turn column, at most w / 2. */
+  int begin = 0;       /**< First column, in [-w / 2, end]. */
+  int end = 0;         /**< One past the last column, at most w. */
   bool active = false; /**< False admits every column. */
+
+  /**
+   * @brief The one arm the window admits.
+   * @param width Canvas width.
+   * @return 0 or 1, or -1 for a window on both arms.
+   */
+  constexpr int arm(int width) const {
+    return begin < 0 ? 0 : 2 * begin >= width ? 1 : -1;
+  }
 };
 
 /**

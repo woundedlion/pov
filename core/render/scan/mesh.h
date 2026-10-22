@@ -19,6 +19,7 @@
 #include "core/render/canvas.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/raster.h"
+#include "core/render/temporal/arm_crossing.h"
 
 /**
  * @file mesh.h
@@ -34,33 +35,38 @@ struct ColumnRun {
 };
 
 /**
- * @brief Whether a face's clipped row band can reach either arm of a window.
+ * @brief Whether a face's clipped row band can reach an arm of a window.
  * @param shape Constructed face.
  * @param window Render-x window.
  * @param clip Source clip defining the row band and display dimensions.
- * @return True when either arm can receive a pixel, or the window is inactive.
+ * @return True when an admitted arm can receive a pixel, or the window is
+ *         inactive.
  */
 HS_HOT_FLASH_MEMBER inline bool face_meets_window(const SDF::Face &shape,
                                                   const ColumnWindow &window,
                                                   const ClipRegion &clip) {
   if (!window.active)
     return true;
+  const int arm = window.arm(clip.w);
+  const int shift = arm < 0 ? 0 : (2 * arm - 1) * (clip.w / 2);
   ClipRegion side{clip.render_y_start(),
                   clip.render_y_end(),
-                  window.begin,
-                  window.end,
+                  window.begin - shift,
+                  window.end - shift,
                   0,
                   clip.w,
                   clip.h};
-  if (!shape.clip_rejects(side))
+  if (arm != 1 && !shape.clip_rejects(side))
     return true;
+  if (arm == 0)
+    return false;
   side.x_start += clip.w / 2;
   side.x_end += clip.w / 2;
   return !shape.clip_rejects(side);
 }
 
 /**
- * @brief Clips a row's column runs to a render-x window on both arms.
+ * @brief Clips a row's column runs to a render-x window's arms.
  * @tparam W Canvas width in pixels.
  * @tparam CAPACITY Run buffer capacity.
  * @param runs The row's runs; receives the clipped runs, each on one arm.
@@ -92,8 +98,9 @@ HS_HOT_INLINE inline size_t window_runs(ColumnRun *runs, size_t count,
  * @tparam IntervalBufT Buffer of the row's column intervals.
  * @param intervals The row's intervals, in whole columns, unwrapped.
  * @param window Open render-x window.
- * @return False when every interval misses the window's columns on both arms,
- *         so that the row's clipped runs are empty.
+ * @return False when every interval misses the window's columns on both
+ *         arms, so that the row's clipped runs are empty.
+ * @pre The window admits both arms.
  */
 template <int W, typename IntervalBufT>
 HS_HOT_INLINE inline bool intervals_meet_window(const IntervalBufT &intervals,
@@ -174,7 +181,9 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                   "arm-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+    // A one-arm window starts outside the half-turn.
     if (window.active && handled &&
+        static_cast<unsigned>(2 * window.begin) < static_cast<unsigned>(W) &&
         !intervals_meet_window<W>(intervals, window))
       return;
 
@@ -538,9 +547,9 @@ inline constexpr float UNBOUNDED_FACE_CAP = -1.0f;
  * @param axis Receives the unit vertex mean.
  * @return False when the vertex mean is too short to give a direction.
  */
-HS_HOT_INLINE bool face_cap_axis(const math::Vector *vertices,
-                                 const uint16_t *indices, size_t count,
-                                 math::Vector &axis) {
+HS_HOT_INLINE inline bool face_cap_axis(const math::Vector *vertices,
+                                        const uint16_t *indices, size_t count,
+                                        math::Vector &axis) {
   math::Vector sum(0.0f, 0.0f, 0.0f);
   for (size_t k = 0; k < count; ++k)
     sum = sum + vertices[indices[k]];
@@ -580,9 +589,9 @@ HS_HOT_INLINE void cap_lit_columns(const math::Vector &axis, float radius,
  * @return The cap radius (radians), or UNBOUNDED_FACE_CAP for a cap past a
  *         hemisphere or a vertex mean too short to give a direction.
  */
-HS_HOT_INLINE float face_cap(const math::Vector *vertices,
-                             const uint16_t *indices, size_t count,
-                             math::Vector &axis) {
+HS_HOT_INLINE inline float face_cap(const math::Vector *vertices,
+                                    const uint16_t *indices, size_t count,
+                                    math::Vector &axis) {
   if (!face_cap_axis(vertices, indices, count, axis))
     return UNBOUNDED_FACE_CAP;
   float min_cos = 1.0f;
@@ -648,6 +657,37 @@ face_cap_columns(const math::Vector *vertices, const uint16_t *indices,
 /**
  * @brief Whether a face's seeing columns meet a capture window's columns
  *        inside the render clip.
+ * @param face The face's seeing columns, as face_lit_columns() gives them.
+ * @param begin The window's first half-turn column.
+ * @param end One past the window's last half-turn column.
+ * @param clip The render clip's column runs.
+ * @param width Canvas width in pixels.
+ * @param arm_only The one arm, 0 or 1, to test, or -1 for both.
+ * @return True when a column of the window, on a tested arm, sees the face
+ *         and the clip admits it.
+ */
+HS_FLASH_MEMBER inline bool face_columns_meet(const uint16_t *face, int begin,
+                                              int end, const ClipPieces &clip,
+                                              int width, int arm_only = -1) {
+  const int half = width / 2;
+  const int start = face[0];
+  const int stop = start + face[1] + 1;
+  // The face's columns past the last one wrap to the first.
+  for (const int shift : {0, width})
+    for (const int arm : {0, half}) {
+      if (arm_only >= 0 && arm != arm_only * half)
+        continue;
+      const int lo = std::max(start - shift, begin + arm);
+      const int hi = std::min(stop - shift, end + arm);
+      for (int i = 0; i < clip.count; ++i)
+        if (std::max(lo, clip.lo[i]) < std::min(hi, clip.hi[i]))
+          return true;
+    }
+  return false;
+}
+
+/**
+ * @brief face_columns_meet() under a render clip.
  * @tparam W Canvas width in pixels.
  * @param face The face's seeing columns, as face_lit_columns() gives them.
  * @param begin The window's first half-turn column.
@@ -659,20 +699,7 @@ face_cap_columns(const math::Vector *vertices, const uint16_t *indices,
 template <int W>
 HS_FLASH_MEMBER bool face_columns_meet(const uint16_t *face, int begin, int end,
                                        ClipRegion::XClip xc) {
-  constexpr int HALF = W / 2;
-  const ClipPieces clip = clip_pieces<W>(xc);
-  const int start = face[0];
-  const int stop = start + face[1] + 1;
-  // The face's columns past the last one wrap to the first.
-  for (const int shift : {0, W})
-    for (const int arm : {0, HALF}) {
-      const int lo = std::max(start - shift, begin + arm);
-      const int hi = std::min(stop - shift, end + arm);
-      for (int i = 0; i < clip.count; ++i)
-        if (std::max(lo, clip.lo[i]) < std::min(hi, clip.hi[i]))
-          return true;
-    }
-  return false;
+  return face_columns_meet(face, begin, end, clip_pieces<W>(xc), W);
 }
 
 /// Largest held vertex motion over a frame, in pixels of arc.
@@ -684,13 +711,86 @@ template <int W>
 inline constexpr float HELD_VERTEX_ARC =
     HELD_VERTEX_PIXELS * math::TWO_PI_F / W;
 
+/// Moving-vertex flag: the vertex's path is captured.
+inline constexpr uint8_t VERTEX_MOVES = 1;
+/// Moving-vertex flags: shift of the vertex's reach level (vertex_flags()).
+inline constexpr int VERTEX_REACH_SHIFT = 2;
+/// Arc, radians, the lowest reach level stands for.
+inline constexpr float VERTEX_REACH_UNIT = 1.0f / 1024.0f;
+/// The arc each reach level stands for, 2^(1/3) apart, the top one
+/// unbounded.
+inline constexpr auto VERTEX_REACH_LEVELS = [] {
+  std::array<float, 32> levels{};
+  // 2^(1/3) to float precision.
+  constexpr double STEP = 1.2599210498948732;
+  double arc = VERTEX_REACH_UNIT;
+  for (float &level : levels) {
+    level = static_cast<float>(arc);
+    arc *= STEP;
+  }
+  // The top level stands for any reach past the others.
+  levels.back() = FLT_MAX;
+  return levels;
+}();
+
+/**
+ * @brief Flags of a moving vertex.
+ * @param reach Bound on its distance from its endpoint over the frame
+ *        (radians).
+ * @return VERTEX_MOVES with the lowest reach level at least @p reach.
+ */
+HS_HOT_INLINE inline uint8_t vertex_flags(float reach) {
+  // Binary search of the ascending levels; the top one bounds any reach.
+  int level = 0;
+  for (int step = 16; step > 0; step >>= 1)
+    if (VERTEX_REACH_LEVELS[level + step - 1] < reach)
+      level += step;
+  return static_cast<uint8_t>(VERTEX_MOVES | (level << VERTEX_REACH_SHIFT));
+}
+
+/**
+ * @brief A vertex's reach.
+ * @param flags Its flags, as vertex_flags() gives them, or 0.
+ * @return Radians: the bound its level stands for, 0 for a held vertex.
+ */
+HS_HOT_INLINE inline float vertex_reach(uint8_t flags) {
+  return flags & VERTEX_MOVES
+             ? VERTEX_REACH_LEVELS[(flags >> VERTEX_REACH_SHIFT) & 31]
+             : 0.0f;
+}
+
+/**
+ * @brief Bound on the arc whose cosine is given.
+ * @param c The cosine.
+ * @return Radians, at least acos(c).
+ */
+HS_HOT_INLINE inline float cosine_arc(float c) {
+  // Unit chord squared; below 1 the arc 2 asin(chord / 2) is at most
+  // chord (1 + chord^2 / 16).
+  const float chord2 = fmaxf(2.0f - 2.0f * c, 0.0f);
+  if (chord2 < 1.0f)
+    return sqrtf(chord2) * (1.0f + chord2 * (1.0f / 16.0f));
+  return acosf(hs::clamp(c, -1.0f, 1.0f));
+}
+
+/**
+ * @brief Bound on the arc between two positions of a vertex.
+ * @param a,b The positions, any nonzero length.
+ * @return Radians, at least the angle between them.
+ */
+HS_HOT_INLINE inline float vertex_arc(const math::Vector &a,
+                                      const math::Vector &b) {
+  const float norms = math::dot(a, a) * math::dot(b, b);
+  return cosine_arc(norms > 0.0f ? math::dot(a, b) / sqrtf(norms) : 1.0f);
+}
+
 /**
  * @brief Flags the vertices that move between two endpoints.
  * @tparam W Canvas width in pixels.
  * @param previous Vertices at the previous endpoint.
  * @param current The same vertices at the current endpoint.
  * @param count Number of vertices.
- * @param moving Receives 1 for a vertex that moves more than
+ * @param moving Receives VERTEX_MOVES for a vertex that moves more than
  *        HELD_VERTEX_ARC, else 0.
  */
 template <int W>
@@ -701,19 +801,37 @@ HS_FLASH_MEMBER void flag_moving_vertices(const math::Vector *previous,
   for (size_t i = 0; i < count; ++i) {
     const float norms =
         math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
-    moving[i] = math::dot(previous[i], current[i]) < held_cos * sqrtf(norms);
+    moving[i] = math::dot(previous[i], current[i]) < held_cos * sqrtf(norms)
+                    ? VERTEX_MOVES
+                    : 0;
   }
 }
 
 /**
- * @brief Scratch bytes a deformation scan's vertex and face tables take.
- * @param vertices Mesh vertex count.
- * @param faces Mesh face count.
- * @return The bytes of a per-vertex moving flag, pick_moving_faces() columns
- *         and deform_mesh() tables, with alignment slack.
+ * @brief Records the reach of the moving vertices of a draw whose vertices
+ *        move along the arcs between two endpoints.
+ * @tparam W Display width.
+ * @param previous Vertices at the previous endpoint.
+ * @param current The same vertices at the current endpoint.
+ * @param count Number of vertices.
+ * @param moving Nonzero for the vertices to flag, as pick_moving_faces()
+ *        leaves them; each receives vertex_flags() of its arc when it moves
+ *        more than HELD_VERTEX_ARC, 0 otherwise.
  */
-constexpr size_t mesh_motion_bytes(size_t vertices, size_t faces) {
-  return 2 * vertices + 5 * faces + 64;
+template <int W>
+HS_FLASH_MEMBER void flag_vertex_reaches(const math::Vector *previous,
+                                         const math::Vector *current,
+                                         size_t count, uint8_t *moving) {
+  const float held_cos = cosf(HELD_VERTEX_ARC<W>);
+  for (size_t i = 0; i < count; ++i) {
+    if (!moving[i])
+      continue;
+    const float norms =
+        math::dot(previous[i], previous[i]) * math::dot(current[i], current[i]);
+    const float c =
+        norms > 0.0f ? math::dot(previous[i], current[i]) / sqrtf(norms) : 1.0f;
+    moving[i] = c < held_cos ? vertex_flags(cosine_arc(c)) : 0;
+  }
 }
 
 /// Vertex motion over one frame, in pixels of arc, past which the frame is a
@@ -982,95 +1100,195 @@ HS_HOT_INLINE inline float unwrap_capture(float u, float centre) {
 
 /**
  * @brief Projects a vertex into the frame's moving column basis.
- * @tparam W Display width.
  * @param p Vertex in endpoint camera space.
  * @param time Frame's column basis.
  * @param u Fraction selecting the local column basis.
+ * @param width Display width.
  * @return Periodic arm fraction of the projected vertex, to math::fast_atan2's
  *         accuracy.
  */
-template <int W>
-HS_HOT_INLINE float capture_fraction(const math::Vector &p,
-                                     const Temporal::ColumnTime &time,
-                                     float u) {
-  const int x = hs::clamp(static_cast<int>(u * (W / 2)), 0, W / 2 - 1);
+HS_HOT_INLINE inline float capture_fraction(const math::Vector &p,
+                                            const Temporal::ColumnTime &time,
+                                            float u, int width) {
+  const int x = hs::clamp(static_cast<int>(u * (width / 2)), 0, width / 2 - 1);
   const math::Vector tangent = math::cross(time.azimuth[x], time.up[x]);
   const float fraction =
-      Temporal::sweep_fraction(x, W) +
+      Temporal::sweep_fraction(x, width) +
       math::fast_atan2(math::dot(p, tangent), math::dot(p, time.azimuth[x])) /
           math::PI_F;
   return math::wrap_t(fraction);
 }
 
-/** @brief Polar band inside which a capture holds a vertex at its endpoint. */
-struct CaptureHold {
-  float bound;     ///< Vertex motion bound plus the basis sweep (radians).
-  float sin_bound; ///< sin(bound).
+/**
+ * @brief A vertex's column in the frame's moving column basis, packed.
+ * @param p Vertex in endpoint camera space.
+ * @param time Frame's column basis.
+ * @param u Fraction selecting the local column basis.
+ * @param width Display width.
+ * @return capture_fraction() in 65536ths of an arm, wrapping at 1.
+ */
+HS_HOT_INLINE inline uint16_t vertex_column(const math::Vector &p,
+                                            const Temporal::ColumnTime &time,
+                                            float u, int width) {
+  return static_cast<uint16_t>(static_cast<uint32_t>(
+      capture_fraction(p, time, u, width) * 65536.0f + 0.5f));
+}
 
-  /**
-   * @brief The hold band of a frame's captures.
-   * @param time Frame's column basis.
-   * @param reach Bound on vertex motion in radians.
-   * @return The band.
-   */
-  static CaptureHold of(const Temporal::ColumnTime &time, float reach) {
-    const float bound = reach + time.sweep;
-    return {bound, sinf(bound)};
-  }
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Host work counts for moving mesh capture. */
+struct MeshCaptureCounters {
+  size_t deformations = 0;   ///< Deformation scans that classified faces.
+  size_t vertices = 0;       ///< Moving vertices admitted by the segment clip.
+  size_t evaluations = 0;    ///< Vertex callback evaluations.
+  size_t captures = 0;       ///< Vertex capture solves.
+  size_t shared_faces = 0;   ///< Moving faces scanned once in the shared pass.
+  size_t seam_faces = 0;     ///< Seam-face copies in the arms' shared passes.
+  size_t cross_faces = 0;    ///< Faces drawn in copies of their own per arm.
+  size_t polar_faces = 0;    ///< Faces reaching a pole, drawn per half arm.
+  size_t face_copies = 0;    ///< Faces scanned alone.
+  size_t split_vertices = 0; ///< Vertices a face copy draws twice.
+  size_t scans = 0;          ///< Mesh scan invocations.
+  size_t face_setups = 0;    ///< Faces those scans constructed.
 };
+/** @brief Instrumentation for the current mesh measurement. */
+inline MeshCaptureCounters mesh_capture_counters;
+#endif
 
 /**
- * @brief Evaluates one moving vertex at its capture time with one correction.
- * @tparam W Display width.
+ * @brief Evaluates one moving vertex at the time its column sees it.
  * @tparam VertexFn Callable (float u) returning the vertex at that fraction.
- * @param end Vertex at the current endpoint.
- * @param time Frame's column basis.
- * @param hold The frame's hold band, as CaptureHold::of() gives it.
- * @param centre Window centre in arm fractions.
- * @param vertex Pure evaluation of the vertex path, continuing the frame's
- *        motion past either endpoint.
- * @return Captured vertex, or its endpoint inside the polar hold band.
- * @details A vertex the neighbouring arm's columns see is captured at that
- * column's time, past 1 or before 0. Column estimates use math::fast_atan2,
- * so the capture time can miss the solved one by a fraction of a column.
+ * @param start The vertex's column at the frame's start, as vertex_column()
+ *        gives it at u = 0.
+ * @param end Its column at the frame's end, as vertex_column() gives it at
+ *        u = 1.
+ * @param centre Arm fraction the capture's branch lies within half a frame of.
+ * @param width Display width.
+ * @param vertex Closed-form vertex path, continuing the frame's motion past
+ *        either endpoint.
+ * @return Captured vertex.
+ * @details The column a vertex stands in runs linearly between its columns
+ * at the frame's two ends; the capture time is that track's arm pass
+ * (Temporal::arm_passes()) on the branch whose column time lies within half
+ * a frame of @p centre, and the path is evaluated once, there. A vertex the
+ * neighbouring arm's columns see is captured at that column's time, past 1
+ * or before 0.
  */
-template <int W, typename VertexFn>
-HS_HOT_INLINE math::Vector
-capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
-               const CaptureHold &hold, float centre, VertexFn &&vertex) {
-  const float horizontal = sqrtf(end.x * end.x + end.z * end.z);
-  if (horizontal <= hold.sin_bound ||
-      hold.bound / horizontal >= math::PI_F / 4.0f)
-    return end;
-  const float angle = math::half_turns(end);
-  float u = unwrap_capture(angle - floorf(angle), centre);
-  const math::Vector first = vertex(u);
-  u = unwrap_capture(capture_fraction<W>(first, time, u), u);
+template <typename VertexFn>
+HS_HOT_INLINE math::Vector capture_vertex(uint16_t start, uint16_t end,
+                                          float centre, int width,
+                                          VertexFn &&vertex) {
+#if HS_ENABLE_TEST_HOOKS
+  ++mesh_capture_counters.captures;
+  ++mesh_capture_counters.evaluations;
+#endif
+  constexpr float SCALE = 1.0f / 65536.0f;
+  const float first = unwrap_capture(start * SCALE, centre);
+  const float travel = unwrap_capture(end * SCALE, first) - first;
+  // The track over the frames on either side, so a pass past either end of
+  // this one is found too; its first-arm branch is the column's own time.
+  const float half = width / 2.0f;
+  float u = first;
+  Temporal::arm_passes(width, (first - travel) * half,
+                       (first + 2.0f * travel) * half, -1.0f, 2.0f, false,
+                       false, [&](const Temporal::ArmPass &pass) HS_HOT_INLINE {
+                         if (pass.arm == 0)
+                           u = pass.time;
+                       });
   return vertex(u);
 }
 
-/**
- * @brief capture_vertex() under the hold band of @p reach.
- * @tparam W Display width.
- * @tparam VertexFn Callable (float u) returning the vertex at that fraction.
- * @param end Vertex at the current endpoint.
- * @param time Frame's column basis.
- * @param reach Bound on vertex motion in radians.
- * @param centre Window centre in arm fractions.
- * @param vertex Pure evaluation of the vertex path, continuing the frame's
- *        motion past either endpoint.
- * @return Captured vertex, or its endpoint inside the polar hold band.
- */
-template <int W, typename VertexFn>
-HS_HOT_INLINE math::Vector
-capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
-               float reach, float centre, VertexFn &&vertex) {
-  return capture_vertex<W>(end, time, CaptureHold::of(time, reach), centre,
-                           vertex);
-}
+/** @brief Contiguous arm-time interval of a nonpolar face. */
+struct FaceCaptureInterval {
+  float lo; ///< First vertex fraction; negative for polar faces.
+  float hi; ///< Last unwrapped vertex fraction.
+};
 
 /**
- * @brief Scans shared capture-time vertices through two disjoint arm windows.
+ * @brief Finds the complement of a face's largest periodic vertex gap.
+ * @param angles Signed vertex azimuths in half turns, one per face vertex.
+ * @param count Number of face vertices.
+ * @param reach Its fastest vertex's reach (vertex_reach()); 0 when none
+ *        moves.
+ * @param nearest Its nearest vertex's distance from the polar axis.
+ * @param sweep The column basis's sweep over the frame.
+ * @return Contiguous interval, or a negative lower bound for a face that
+ *         winds about a pole, spans a half turn or reaches the pole: its
+ *         fastest vertex's reach, with the basis's sweep, reaches a quarter
+ *         of a right angle about the polar axis from one of its vertices.
+ */
+HS_HOT_FLASH_MEMBER FaceCaptureInterval face_capture_interval(
+    const float *angles, size_t count, float reach, float nearest, float sweep);
+
+/** @brief Borrowed face-capture callbacks with flash-resident dispatch. */
+struct FaceCaptureCallbacks {
+  void *vertex_context; ///< Borrowed vertex evaluator.
+  void *scan_context;   ///< Borrowed mesh scanner.
+  math::Vector (*evaluate)(void *, size_t, float); ///< Vertex dispatch.
+  void (*draw)(void *);                            ///< Scan dispatch.
+
+  /**
+   * @brief Borrows the callbacks for one deformation scan.
+   * @tparam VertexFn Vertex path evaluator.
+   * @tparam ScanFn Mesh scanner.
+   * @param vertex Vertex path evaluator.
+   * @param scan Mesh scanner.
+   */
+  template <typename VertexFn, typename ScanFn>
+  FaceCaptureCallbacks(VertexFn &vertex, ScanFn &scan)
+      : vertex_context(const_cast<void *>(static_cast<const void *>(&vertex))),
+        scan_context(const_cast<void *>(static_cast<const void *>(&scan))),
+        evaluate(evaluate_vertex<VertexFn>), draw(scan_faces<ScanFn>) {}
+
+  /**
+   * @brief Evaluates a borrowed vertex path.
+   * @tparam VertexFn Vertex path evaluator.
+   * @param context Borrowed evaluator.
+   * @param i Vertex index.
+   * @param u Capture fraction.
+   * @return Evaluated vertex.
+   */
+  template <typename VertexFn>
+  HS_HOT_FLASH_MEMBER static math::Vector evaluate_vertex(void *context,
+                                                          size_t i, float u) {
+    return (*static_cast<VertexFn *>(context))(i, u);
+  }
+
+  /**
+   * @brief Invokes a borrowed mesh scanner.
+   * @tparam ScanFn Mesh scanner.
+   * @param context Borrowed scanner.
+   */
+  template <typename ScanFn>
+  HS_HOT_FLASH_MEMBER static void scan_faces(void *context) {
+    (*static_cast<ScanFn *>(context))();
+  }
+};
+
+/** @brief One deformation scan's frame state, shared by its face passes. */
+struct MeshDeformation {
+  Canvas &canvas;          ///< Canvas carrying the scan's column-time state.
+  MeshState &mesh;         ///< Vertex pool, overwritten by the captures.
+  const uint16_t *columns; ///< Per-face seeing columns.
+  const uint8_t *moving;   ///< vertex_flags() per vertex; 0 held.
+  /// Moving vertices' columns at the frame's start (vertex_column()).
+  const uint16_t *start;
+  uint8_t *selected; ///< The scan's face selection table.
+  Arena &scratch;    ///< Arena for the per-vertex and per-face tables.
+  float pad; ///< Arc past its vertices that a moving face's scan can reach.
+  ClipPieces clip;                ///< Render clip's column runs.
+  FaceCaptureCallbacks callbacks; ///< Vertex evaluator and mesh scanner.
+};
+
+/**
+ * @brief Scans a moving mesh with each face's vertices at their column times.
+ * @param deformation The scan's frame state, with the vertex pool at the
+ *        current endpoint.
+ * @details deform_mesh() describes the passes.
+ */
+HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &deformation);
+
+/**
+ * @brief Scans a moving mesh with every vertex at the time its column is lit.
  * @tparam W Display width.
  * @tparam H Display height.
  * @tparam VertexFn Callable (size_t i, float u) evaluating an endpoint-space vertex.
@@ -1079,99 +1297,53 @@ capture_vertex(const math::Vector &end, const Temporal::ColumnTime &time,
  * @param mesh Endpoint mesh, overwritten by the captured vertices.
  * @param active Whether the mesh deforms during this frame.
  * @param columns Per-face seeing columns; HELD_FACE_COLUMN marks held faces.
- * @param moving Nonzero for vertices whose paths are captured; others hold.
- * @param scratch Arena for face selection and vertex placement flags.
+ * @param moving vertex_flags() for vertices whose paths are captured; 0 for
+ *        those that hold.
+ * @param start Each moving vertex's column at the frame's start, as
+ *        vertex_column() gives it at u = 0 from the vertex evaluated there.
+ * @param scratch Arena for face selection and vertex placement tables.
  * @param reach Bound on vertex motion in radians.
- * @param vertex Pure evaluation of a vertex at a frame fraction, continuing
- *        the frame's motion linearly past either endpoint.
+ * @param vertex Closed-form vertex path at a frame fraction, continuing the
+ *        frame's motion past either endpoint.
  * @param scan Scans the mesh with its current vertices and selected faces.
- * @details Held faces draw once. Each window uses a common vertex pool for
- * all its moving faces; faces outside that window's seeing columns are skipped.
- * A face across the arm boundary is drawn by this frame's late window and the
- * next frame's early window; when its vertices stand within a quarter frame
- * of the boundary, each is at the time of the column that sees it, so the two
- * copies are the same polygon up to second-order motion.
+ * @details Each moving vertex is captured at the sweep time of the column
+ * that sees it (capture_vertex()), on its own arm or across the arm boundary
+ * nearer it, once each, and shared by the faces around it. Held faces and
+ * the moving faces clear of both arm boundaries draw in one scan. A face across an arm
+ * boundary draws once per arm, clipped to that arm's columns, each edge's
+ * vertex times continuing across the boundary the edge crosses, so frame
+ * N's copy before a boundary and frame N+1's copy after it are one polygon
+ * there. A face every column pair's meridian can reach (one around a pole,
+ * spanning half a turn, or reaching the pole by its vertices' motion) draws
+ * in one scan per half of the arms, each of its vertices at its time nearest
+ * the half's middle. A vertex whose motion can carry it a quarter of a right
+ * angle about the polar axis holds at its endpoint.
  */
 template <int W, int H, typename VertexFn, typename ScanFn>
 HS_HOT_FLASH_MEMBER void
 deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
-            const uint16_t *columns, const uint8_t *moving, Arena &scratch,
-            float reach, VertexFn &&vertex, ScanFn &&scan) {
+            const uint16_t *columns, const uint8_t *moving,
+            const uint16_t *start, Arena &scratch, float reach,
+            VertexFn &&vertex, ScanFn &&scan) {
+  const FaceCaptureCallbacks callbacks(vertex, scan);
   if (!active) {
-    scan();
+    callbacks.draw(callbacks.scan_context);
     return;
   }
   HS_CHECK(canvas.column_time(),
            "mesh deformation needs the frame's column-time state installed");
   ScratchScope guard(scratch);
-  const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
-  uint8_t *selected = scratch.allocate_n<uint8_t>(faces);
-  // Bit 0 selects this window; bit 1 retains a capture shared by both windows.
-  uint8_t *placed = scratch.allocate_n<uint8_t>(vertices);
+  uint8_t *selected = scratch.allocate_n<uint8_t>(mesh.num_faces());
   Temporal::ColumnTime time = *canvas.column_time();
   time.selected_faces = selected;
+  const float sweep = time.azimuth ? time.sweep : 0.0f;
   float *face_pads = scratch.allocate_n<float>(H);
-  fill_face_pads<W, H>(face_pads, time.azimuth ? time.sweep : 0.0f);
+  fill_face_pads<W, H>(face_pads, sweep);
   time.face_pads = face_pads;
   ColumnTimeScope scope(canvas, time);
-  const auto *counts = mesh.get_face_counts_data();
-  const auto *indices = mesh.get_faces_data();
-  const auto *offsets = mesh.get_face_offsets_data();
-  const CaptureHold hold = CaptureHold::of(time, reach);
-  bool held = false;
-  for (size_t f = 0; f < faces; ++f) {
-    const bool holds = columns[2 * f] == HELD_FACE_COLUMN;
-    selected[f] =
-        holds ? Temporal::MESH_FACE_HELD : Temporal::MESH_FACE_SKIPPED;
-    held |= holds;
-  }
-  if (held)
-    scan();
-  std::fill_n(placed, vertices, uint8_t(0));
-  for (int pass = 0; pass < 2; ++pass) {
-    const int begin = pass * (W / 4), end = (pass + 1) * (W / 4);
-    for (size_t i = 0; i < vertices; ++i)
-      placed[i] &= 2;
-    bool any = false;
-    for (size_t f = 0; f < faces; ++f) {
-      const bool draw = columns[2 * f] != HELD_FACE_COLUMN &&
-                        face_columns_meet<W>(columns + 2 * f, begin, end,
-                                             canvas.render_x_clip());
-      selected[f] =
-          draw ? Temporal::MESH_FACE_WINDOW : Temporal::MESH_FACE_SKIPPED;
-      if (!draw)
-        continue;
-      any = true;
-      for (size_t k = 0; k < counts[f]; ++k)
-        placed[indices[offsets[f] + k]] |= 1;
-    }
-    if (!any)
-      continue;
-    const float centre = pass == 0 ? 0.25f : 0.75f;
-    for (size_t i = 0; i < vertices; ++i) {
-      if (!(placed[i] & 1) || !moving[i] || (placed[i] & 2))
-        continue;
-      const math::Vector endpoint =
-          pass == 0 ? mesh.vertices[i] : vertex(i, 1.0f);
-      if (pass == 0) {
-        const float angle =
-            math::fast_atan2(endpoint.z, endpoint.x) / math::PI_F;
-        const float fraction = angle - floorf(angle);
-        const float horizontal =
-            sqrtf(endpoint.x * endpoint.x + endpoint.z * endpoint.z);
-        placed[i] = fraction > 0.25f && fraction < 0.75f &&
-                            horizontal > hold.sin_bound &&
-                            hold.bound / horizontal < math::PI_F / 4.0f
-                        ? 2
-                        : 0;
-      }
-      mesh.vertices[i] = capture_vertex<W>(
-          endpoint, time, hold, centre,
-          [&](float u) HS_HOT_INLINE { return vertex(i, u); });
-    }
-    RenderXWindow window(canvas, begin, end);
-    scan();
-  }
+  deform_faces({canvas, mesh, columns, moving, start, selected, scratch,
+                scan_row_pad<W>(sweep) + reach,
+                clip_pieces<W>(canvas.render_x_clip()), callbacks});
 }
 
 HS_O3_BEGIN
@@ -1200,6 +1372,148 @@ struct Mesh {
     for (size_t k = 0; k < num_indices; ++k)
       HS_CHECK(static_cast<size_t>(faces[k]) < num_verts,
                "mesh face index exceeds the vertex pool");
+  }
+
+  /**
+   * @brief Shades and rasterizes one constructed face.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT As draw_impl() takes it.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param shape The face.
+   * @param i The face's index in its mesh.
+   * @param fragment_shader Shader, as draw_impl() takes it.
+   * @param face_shader_setup As draw_impl() takes it.
+   * @param time The scan's column-time state; read when @p sweep is positive.
+   * @param sweep Arc the scan's column basis turns over the frame, or 0 for
+   *        the fixed meridian.
+   */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  HS_HOT_INLINE static void
+  raster_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+              size_t i, FragmentShaderT &fragment_shader,
+              FaceShaderSetupT &face_shader_setup,
+              const Temporal::ColumnTime *time, float sweep) {
+    if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
+      auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
+        // v2 carries the face index (decoded by mesh_face_index()).
+        f_in.v2 = static_cast<float>(i);
+        fragment_shader(p, f_in);
+      };
+      FragmentShaderFn raster_shader = wrapper;
+      {
+        HS_PROFILE(scan_mesh_raster);
+        if (sweep > 0.0f)
+          rasterize_face_column_time<W, H, PipelineT, false>(
+              pipeline, canvas, shape, raster_shader, *time);
+        else
+          rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
+                                                 raster_shader);
+      }
+    } else {
+      face_shader_setup(i, shape.size);
+      {
+        HS_PROFILE(scan_mesh_raster);
+        if (sweep > 0.0f)
+          rasterize_face_column_time<W, H, PipelineT, true>(
+              pipeline, canvas, shape, fragment_shader, *time);
+        else
+          rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
+                                                fragment_shader);
+      }
+    }
+  }
+
+  /**
+   * @brief Rasterizes one face a deformation scan draws alone, from its
+   *        copy's own vertices.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT As draw_impl() takes it.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas, its render-x window open on the copy's
+   *        arm.
+   * @param copy The face copy.
+   * @param fragment_shader Shader, as draw_impl() takes it.
+   * @param arena Arena for the face's scratch.
+   * @param face_shader_setup As draw_impl() takes it.
+   */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_face_copy(PipelineT &pipeline, Canvas &canvas,
+                 const Temporal::MeshFaceCopy &copy,
+                 FragmentShaderT &fragment_shader, Arena &arena,
+                 FaceShaderSetupT &face_shader_setup) {
+    check_canvas_dims<W, H>(canvas);
+    check_pipeline_prepared(pipeline, canvas);
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    ScratchScope scope(arena);
+    SDF::FaceScratchBuffer &scratch = *new_face_scratch(arena);
+    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const float sweep = time && time->azimuth ? time->sweep : 0.0f;
+    const float *pads = time ? time->face_pads : nullptr;
+    if (!pads) {
+      float *filled = arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(filled, sweep);
+      pads = filled;
+    }
+    const auto &cr = source_clip<W, H>(pipeline, canvas);
+    const ColumnWindow &window = canvas.render_x_window();
+    SDF::Face shape = [&]() HS_HOT_INLINE {
+      HS_PROFILE(scan_face_setup);
+      return SDF::Face({copy.vertices, copy.count}, {copy.indices, copy.count},
+                       scratch, math::LatitudeGeometry(H), H, &cr, pads,
+                       std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) +
+                           sweep);
+    }();
+#if HS_ENABLE_TEST_HOOKS
+    ++mesh_capture_counters.face_setups;
+#endif
+    if (shape.y_min > shape.y_max ||
+        (window.active && !face_meets_window(shape, window, cr)))
+      return;
+    raster_face<W, H>(pipeline, canvas, shape, copy.face, fragment_shader,
+                      face_shader_setup, time, sweep);
+  }
+
+  /**
+   * @brief Rasterizes a mesh, or the one face a deformation scan draws
+   *        alone.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam FragmentShaderT Fragment shader callable.
+   * @tparam FaceShaderSetupT As draw_impl() takes it.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param mesh The mesh.
+   * @param fragment_shader Shader, as draw_impl() takes it.
+   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param bake Optional congruence-class bake for this mesh.
+   * @param face_shader_setup As draw_impl() takes it.
+   */
+  template <int W, int H, typename PipelineT, typename FragmentShaderT,
+            typename FaceShaderSetupT>
+  HS_HOT_INLINE static void
+  dispatch(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
+           FragmentShaderT &fragment_shader, Arena &scratch_arena,
+           const MeshOps::MeshClassBake *bake,
+           FaceShaderSetupT &face_shader_setup) {
+    const Temporal::ColumnTime *own = canvas.column_time();
+    if (own && own->face_copy)
+      draw_face_copy<W, H>(pipeline, canvas, *own->face_copy, fragment_shader,
+                           scratch_arena, face_shader_setup);
+    else
+      draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
+                      bake, face_shader_setup);
   }
 
   /**
@@ -1295,6 +1609,9 @@ struct Mesh {
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
                          &cr, azimuth_pads, bounds_margin);
       }();
+#if HS_ENABLE_TEST_HOOKS
+      ++mesh_capture_counters.face_setups;
+#endif
 
       if (window.active &&
           (shape.y_min > shape.y_max || !face_meets_window(shape, window, cr)))
@@ -1314,34 +1631,8 @@ struct Mesh {
         }
       }
 
-      if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
-        auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
-          // v2 carries the face index (decoded by mesh_face_index()).
-          f_in.v2 = static_cast<float>(i);
-          fragment_shader(p, f_in);
-        };
-        FragmentShaderFn raster_shader = wrapper;
-        {
-          HS_PROFILE(scan_mesh_raster);
-          if (sweep > 0.0f)
-            rasterize_face_column_time<W, H, PipelineT, false>(
-                pipeline, canvas, shape, raster_shader, *time);
-          else
-            rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
-                                                   raster_shader);
-        }
-      } else {
-        face_shader_setup(i, shape.size);
-        {
-          HS_PROFILE(scan_mesh_raster);
-          if (sweep > 0.0f)
-            rasterize_face_column_time<W, H, PipelineT, true>(
-                pipeline, canvas, shape, fragment_shader, *time);
-          else
-            rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
-                                                  fragment_shader);
-        }
-      }
+      raster_face<W, H>(pipeline, canvas, shape, i, fragment_shader,
+                        face_shader_setup, time, sweep);
     }
   }
 
@@ -1363,8 +1654,8 @@ struct Mesh {
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    const MeshOps::MeshClassBake *bake = nullptr) {
     std::nullptr_t face_shader_setup = nullptr;
-    draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
-                    bake, face_shader_setup);
+    dispatch<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena, bake,
+                   face_shader_setup);
   }
 
   /**
@@ -1394,8 +1685,8 @@ struct Mesh {
     // the erasure hides a null setup from draw_impl's nullptr_t branch
     HS_CHECK(erased_setup, "Scan::Mesh::draw_specialized requires a non-null "
                            "face_shader_setup");
-    draw_impl<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena,
-                    bake, erased_setup);
+    dispatch<W, H>(pipeline, canvas, mesh, fragment_shader, scratch_arena, bake,
+                   erased_setup);
   }
 
   /**
