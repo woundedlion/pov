@@ -356,6 +356,7 @@ inline void test_shader_clip_arc_matches_predicate() {
     case 11: {
       constexpr int BLOCK = 5;
       std::vector<math::Vector> corners;
+      std::array<int, W / 2> times{};
       std::array<int, W> prepared{};
       ScratchScope scope(scratch_arena_a);
       Scan::Shader::draw_block_columns<W, H, 1>(
@@ -365,7 +366,12 @@ inline void test_shader_clip_arc_matches_predicate() {
             return Scan::Shader::BlockCell<1>{
                 static_cast<uint16_t>(corners.size() - 1)};
           },
-          [&](int x) {
+          [&](int t) {
+            ++times[t];
+            return t;
+          },
+          [&](int t, int x) {
+            HS_EXPECT_EQ(t, x % (W / 2));
             ++prepared[x];
             struct Column {
               int x;
@@ -402,8 +408,11 @@ inline void test_shader_clip_arc_matches_predicate() {
             };
             return Column{x, 0, corners, positional};
           });
+      const auto xc = c.clip().x_clip();
       for (int x = 0; x < W; ++x)
-        HS_EXPECT_EQ(prepared[x], c.clip().x_clip().clipped(x) ? 0 : 1);
+        HS_EXPECT_EQ(prepared[x], xc.clipped(x) ? 0 : 1);
+      for (int t = 0; t < W / 2; ++t)
+        HS_EXPECT_EQ(times[t], xc.clipped(t) && xc.clipped(t + W / 2) ? 0 : 1);
       break;
     }
     case 12: {
