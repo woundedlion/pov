@@ -1022,6 +1022,28 @@ walk_clip_columns_once(ClipRegion::XClip xc, BodyFn &&body) {
   }
 }
 
+/**
+ * @brief Walks the sweep times whose columns a clip arc admits.
+ * @tparam W Even canvas width in pixels.
+ * @tparam BodyFn Callable (int c, bool near, bool far).
+ * @param xc Column-arc clip.
+ * @param body Receives, in ascending order, each first-arm column `c` whose
+ *        column `c` (near) or `c + W / 2` (far) the clip admits, with which of
+ *        the two it admits.
+ * @details Both columns are lit at `Temporal::sweep_fraction(c, W)`, so the
+ * body can prepare state of that time once for both.
+ */
+template <int W, typename BodyFn>
+__attribute__((always_inline)) inline void
+walk_clip_column_times(ClipRegion::XClip xc, BodyFn &&body) {
+  for (int c = 0; c < W / 2; ++c) {
+    const bool near = !xc.clipped(c);
+    const bool far = !xc.clipped(c + W / 2);
+    if (near || far)
+      body(c, near, far);
+  }
+}
+
 /** @brief Up to four non-empty column runs admitted by a clip arc and a
  *         render-x window. */
 struct WindowPieces {

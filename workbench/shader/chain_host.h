@@ -386,13 +386,18 @@ private:
                                     const Pullback::Interp::FrameContext &ctx) {
     const Pullback::Interp::FrameContext &previous =
         resources->context.previous;
-    Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-      const float fraction = Temporal::sweep_fraction(x, W);
-      program.prepare_column(ctx, previous, fraction);
-      return [this, &ctx, &previous, fraction](const math::Vector &view) {
-        return program.evaluate_column(view, ctx, previous, fraction);
-      };
-    });
+    Scan::Shader::draw_column_times<W, H>(
+        canvas,
+        [&](int c) {
+          const float fraction = Temporal::sweep_fraction(c, W);
+          program.prepare_column(ctx, previous, fraction);
+          return fraction;
+        },
+        [&](float fraction, int) {
+          return [this, &ctx, &previous, fraction](const math::Vector &view) {
+            return program.evaluate_column(view, ctx, previous, fraction);
+          };
+        });
   }
 
   /**

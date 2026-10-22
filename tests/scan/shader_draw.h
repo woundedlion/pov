@@ -406,6 +406,34 @@ inline void test_shader_clip_arc_matches_predicate() {
         HS_EXPECT_EQ(prepared[x], c.clip().x_clip().clipped(x) ? 0 : 1);
       break;
     }
+    case 12: {
+      std::array<int, W / 2> prepared{};
+      std::array<int, W> shaded{};
+      Scan::Shader::draw_column_times<W, H>(
+          c,
+          [&](int t) {
+            ++prepared[t];
+            return t;
+          },
+          [&](int t, int x) {
+            HS_EXPECT_EQ(t, x % (W / 2));
+            return [&, x, row = 0](const math::Vector &v) mutable {
+              const auto EXPECTED = math::pixel_to_vector<W, H>(x, row++);
+              HS_EXPECT_NEAR(v.x, EXPECTED.x, 1e-6f);
+              HS_EXPECT_NEAR(v.y, EXPECTED.y, 1e-6f);
+              HS_EXPECT_NEAR(v.z, EXPECTED.z, 1e-6f);
+              ++shaded[x];
+              return positional(v);
+            };
+          });
+      const auto xc = c.clip().x_clip();
+      for (int x = 0; x < W; ++x)
+        HS_EXPECT_EQ(shaded[x], xc.clipped(x) ? 0 : H);
+      for (int t = 0; t < W / 2; ++t)
+        HS_EXPECT_EQ(prepared[t],
+                     xc.clipped(t) && xc.clipped(t + W / 2) ? 0 : 1);
+      break;
+    }
     default:
       HS_EXPECT(false, "unknown shader clip-arc variant");
       break;
@@ -431,7 +459,7 @@ inline void test_shader_clip_arc_matches_predicate() {
   // A plain arc, and one whose margin underflows column 0 into a wrapped band.
   const Band bands[] = {{8, 20, 2}, {0, 10, 3}, {3, 4, 0}, {W - 3, W, 0}};
 
-  for (int variant = 0; variant < 12; ++variant) {
+  for (int variant = 0; variant < 13; ++variant) {
     HS_CONTEXT("variant", variant);
     // One live Effect at a time: read the unclipped render back before the
     // clipped fixture exists.
