@@ -2154,6 +2154,7 @@ struct ColumnEdgeFrame {
   float deviation = 0.0f; /**< Bound on a drawn endpoint's distance from the
                              chord between its frame-end world positions. */
   Temporal::LongitudeTrack tracks[2]; /**< Longitude models of both ends. */
+  bool known = false; /**< plan() bounded both tracks and the arc's side. */
 
   /** @brief Normalizes a near-unit vector.
    * @param value Nonzero vector.
@@ -2175,6 +2176,39 @@ struct ColumnEdgeFrame {
     const math::Vector tangent = b - v1 * math::dot(v1, b);
     const float norm = math::dot(tangent, tangent);
     return {v1, norm > 1e-12f ? normalize(tangent) : math::Vector{}, total};
+  }
+
+  /** @brief Finds where an arc comes closest to a pole.
+   * @param a,b Endpoint directions.
+   * @param total Arc length, radians.
+   * @param basis Receives the arc's orthonormal basis.
+   * @param turn Receives the arc's point at the returned fraction.
+   * @return The arc fraction of its height's extreme, or one when the extreme
+   * lies outside the arc.
+   * @details Longitude along a great circle is monotone and turns by half a
+   * turn between its highest and lowest points, so the arc's two sides of
+   * the extreme each span less than half the longitudes. The height has an
+   * extreme inside the arc exactly when its slopes at the two ends,
+   * b.y - a.y (a.b) and -(a.y - b.y (a.b)), have opposite signs. */
+  HS_HOT_FLASH_MEMBER static float
+  split_point(const math::Vector &a, const math::Vector &b, float total,
+              GeodesicEdgeSampler &basis, math::Vector &turn) {
+    basis = ColumnEdgeFrame::basis(a, b, total);
+    const math::Vector end = normalize(b);
+    const float cosine_ab = math::dot(basis.v1, end);
+    float cut = 1.0f;
+    if ((end.y - basis.v1.y * cosine_ab) * (basis.v1.y - end.y * cosine_ab) >
+        0.0f) {
+      float apex = atan2f(basis.v_perp.y, basis.v1.y);
+      if (apex < 0.0f)
+        apex += math::PI_F;
+      if (apex > 0.0f && apex < total)
+        cut = apex / total;
+    }
+    float sine, cosine;
+    math::poly_sincosf_0_pi(cut * total, sine, cosine);
+    turn = basis.v1 * cosine + basis.v_perp * sine;
+    return cut;
   }
 
   /** @brief Measures an edge's length in screen steps.
@@ -2323,15 +2357,14 @@ struct ColumnEdgeFrame {
    * model cannot bound, and endpoints whose arc can change sides over the
    * frame, walk the whole pass. */
   template <int W>
-  FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE int plan(int direction,
-                                                ColumnSegment segments[2]) {
+  HS_HOT_FLASH_MEMBER int plan(int direction, ColumnSegment segments[2]) {
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
     const bool start_known = Temporal::model_track<W>(
         bases[0].v1, bases[1].v1, deviation, 1.0f, tracks[0]);
     const bool end_known =
         Temporal::model_track<W>(ends[0], ends[1], deviation, 1.0f, tracks[1]);
-    bool known = start_known && end_known;
+    known = start_known && end_known;
     float span = 0.0f, widening = 0.0f;
     if (known) {
       span = Temporal::centered_remainder(tracks[1].origin - tracks[0].origin,
@@ -2417,150 +2450,115 @@ HS_HOT_INLINE void clamp_walk(ColumnSegment &walk, int direction, int begin,
   walk.deadline -= gap;
 }
 
-/** @brief Rasterizes mesh edges one destination column at a time.
+/** @brief One edge's column walk: what its plain and split walks share.
+ * @tparam W Display width. */
+template <int W> struct ColumnWalk {
+  PipelineRef &pipeline;         /**< Destination pipeline. */
+  Canvas &canvas;                /**< Frame context. */
+  const Fragments &points;       /**< The edge's endpoint registers. */
+  TimedShaderFn shader;          /**< Time-aware source shader. */
+  const ColumnEdgeFrame &frame;  /**< The edge's paths and bases. */
+  const ColumnSegment *segments; /**< Walks per arm pass. */
+  int segment_count;             /**< Number of walks. */
+  const ClipRegion::XClip &band; /**< Render band. */
+  int direction;                 /**< Walk direction. */
+  float radians;                 /**< Maximum world displacement. */
+  bool single_time;      /**< End columns splat at their own time too. */
+  const float *velocity; /**< Endpoint motion, pixels per frame. */
+  bool source_positions; /**< Shaders read source-space positions. */
+  bool turning;    /**< The arc can turn its longitude direction this frame. */
+  float top_y;     /**< Highest emitted unit-sphere y. */
+  float bottom_y;  /**< Lowest emitted unit-sphere y. */
+  float half_sine; /**< Sine of half a column. */
+  float half_cosine; /**< Cosine of half a column. */
+};
+
+/** @brief Walks one edge's planned columns and plots their lattice samples.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
- * @param pipeline Destination pipeline; its world stages are @p poses.
- * @param canvas Frame context.
- * @param points The walk's two endpoint fragments, written by
- * ColumnEdgeBatch::prepare.
- * @param shader Time-aware source shader.
- * @param batch Edges and their vertices' paths.
- * @param poses The world stages' poses by column time, or null without world
- * stages.
- * @param radians Maximum world displacement over the frame.
- * @param source_positions Whether shaders read source-space positions.
- * @details Each arm pass walks, in the edge's travel order, the render-band
- * columns its plan bounds, each with the edge's endpoints evaluated on their
- * paths at the column's time and rotated by its pose, and stops where the lit
- * run ends. Samples sit at arc fractions k/N, where N is the edge's length in
- * screen steps at that time, and a column plots the lattice points between
- * its two boundary meridians unweighted through the filter chain, so a moving
- * edge samples each column as the frozen edge at that column's time does. The
- * start vertex is lattice point zero; each edge also plots its end vertex.
- * Columns strictly inside an edge splat at their own time; the end columns of
- * an edge moving faster than COLUMN_SINGLE_TAP_ERROR evaluate each neighbor
- * tap at that column's time. A stationary draw walks the lattice once. */
-template <int W, int H, RasterConfig Cfg>
-FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
-    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-    TimedShaderFn shader, const ColumnEdgeBatch &batch,
-    const Temporal::PoseTable *poses, float radians, bool source_positions) {
-  const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
-  const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
-
-  if (!math::TrigLUT<W, H>::initialized)
-    math::TrigLUT<W, H>::init();
-  const float top_y = cosf(math::DisplayGeometry<H>::row_to_phi(
-      float(std::max(0, canvas.clip().y_start - 2))));
-  const float bottom_y = cosf(math::DisplayGeometry<H>::row_to_phi(
-      float(std::min(H, canvas.clip().y_end + 2))));
-  Temporal::count_geometry<&Temporal::GeometryCounters::column_draw_setups>();
-  const ColumnEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
-  const auto &band = canvas.render_x_clip();
-  ScratchScope draw_scope(scratch_arena_a);
-  const float spin = poses ? pipeline.cull_bound() : 0.0f;
-  source_positions = source_positions && poses;
-  auto &frame = *scratch_arena_a.make<ColumnEdgeFrame>();
-  for (size_t edge = 0; edge < batch.count; ++edge) {
-    const MeshEdge &pair = batch.pairs[edge];
-    frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
-                        source_positions);
-    if (cull.rejects({frame.bases[0].v1, frame.bases[1].v1, frame.ends[0],
-                      frame.ends[1]},
-                     frame.deviation + 1e-4f)) {
-      Temporal::count_geometry<
-          &Temporal::GeometryCounters::column_edges_culled>();
-      continue;
-    }
-    const int direction =
-        frame.bases[1].v1.x * frame.bases[1].v_perp.z -
-                    frame.bases[1].v1.z * frame.bases[1].v_perp.x >=
-                0.0f
-            ? 1
-            : -1;
-    const auto arm_change = [&](int from) HS_HOT_INLINE {
-      return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) ==
-             0;
-    };
-    ColumnSegment segments[2];
-    int segment_count = 1;
-    float velocity[4] = {};
-    bool single_time = true;
-    if (radians == 0.0f) {
-      segments[0] = {0, 1, 1};
-    } else {
-      segment_count = frame.plan<W>(direction, segments);
-      int kept = 0;
-      for (int i = 0; i < segment_count; ++i) {
-        ColumnSegment walk = segments[i];
-        clamp_walk<W>(walk, direction, band.rs, band.length(W));
-        if (walk.count > 0)
-          segments[kept++] = walk;
-      }
-      segment_count = kept;
-      if (segment_count == 0) {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::column_edges_culled>();
+ * @tparam SPLIT Walk the arc as its two sides of its closest approach to a
+ * pole, each with its own column tests.
+ * @param state The edge's walk.
+ * @details A turning arc walks every planned column; otherwise each pass stops
+ * where its lit run ends. */
+template <int W, int H, RasterConfig Cfg, bool SPLIT>
+HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
+  auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
+         direction, radians, single_time, velocity, source_positions, turning,
+         top_y, bottom_y, half_sine, half_cosine] = state;
+  const auto arm_change = [&](int from) HS_HOT_INLINE {
+    return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) == 0;
+  };
+  size_t sample_count = 0;
+  int lattice_count = 0;
+  float lattice_step = 1.0f;
+  for (int segment = 0; segment < segment_count; ++segment) {
+    const ColumnSegment &walk = segments[segment];
+    int x = walk.start;
+    bool seen = false;
+    float carried = -1.0f;
+    for (int column = 0; column < walk.count; ++column) {
+      Temporal::count_geometry<&Temporal::GeometryCounters::columns_visited>();
+      const int owner = x;
+      if (radians != 0.0f && band.clipped(owner)) {
+        const int skip = direction > 0
+                             ? math::fast_wrap(band.rs - owner, W)
+                             : math::fast_wrap(owner - band.re + 1, W);
+        column += skip - 1;
+        x = math::fast_wrap(owner + direction * skip, W);
+        carried = -1.0f;
         continue;
       }
-      frame.velocities<W, H>(velocity);
-      single_time = fmaxf(fmaxf(fabsf(velocity[0]), fabsf(velocity[1])),
-                          fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
-                    COLUMN_SINGLE_TAP_ERROR * (W / 2);
-    }
-    Temporal::count_geometry<
-        &Temporal::GeometryCounters::column_edges_prepared>();
-    batch.prepare(edge);
-    size_t sample_count = 0;
-    int lattice_count = 0;
-    float lattice_step = 1.0f;
-    for (int segment = 0; segment < segment_count; ++segment) {
-      const ColumnSegment &walk = segments[segment];
-      int x = walk.start;
-      bool seen = false;
-      float carried = -1.0f;
-      for (int column = 0; column < walk.count; ++column) {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::columns_visited>();
-        const int owner = x;
-        if (radians != 0.0f && band.clipped(owner)) {
-          const int skip = direction > 0
-                               ? math::fast_wrap(band.rs - owner, W)
-                               : math::fast_wrap(owner - band.re + 1, W);
-          column += skip - 1;
-          x = math::fast_wrap(owner + direction * skip, W);
-          carried = -1.0f;
-          continue;
-        }
-        x = math::fast_wrap(owner + direction, W);
-        float t =
-            radians == 0.0f ? 0.0f : Temporal::column_fraction<W>(float(owner));
-        math::Vector a, b, source_a, source_b;
-        GeodesicEdgeSampler sampler;
-        float pieces, total;
-        bool unit = false;
-        if (radians != 0.0f) {
-          frame.at(owner, t, a, b, source_positions, source_a, source_b);
-          total = frame.bases[0].total_dist +
-                  (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
-          pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
-        } else {
-          sampler = frame.bases[1];
-          a = sampler.v1;
-          b = frame.ends[1];
-          total = sampler.total_dist;
-          pieces = frame.pieces[1];
-          unit = true;
-          source_a = ColumnEdgeFrame::at(frame.sources[0], 1.0f);
-          source_b = ColumnEdgeFrame::at(frame.sources[1], 1.0f);
-        }
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::column_path_evaluations>();
+      x = math::fast_wrap(owner + direction, W);
+      float t =
+          radians == 0.0f ? 0.0f : Temporal::column_fraction<W>(float(owner));
+      math::Vector a, b, source_a, source_b;
+      GeodesicEdgeSampler sampler;
+      float pieces, total;
+      bool unit = false;
+      if (radians != 0.0f) {
+        frame.at(owner, t, a, b, source_positions, source_a, source_b);
+        total = frame.bases[0].total_dist +
+                (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
+        pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
+      } else {
+        sampler = frame.bases[1];
+        a = sampler.v1;
+        b = frame.ends[1];
+        total = sampler.total_dist;
+        pieces = frame.pieces[1];
+        unit = true;
+        source_a = ColumnEdgeFrame::at(frame.sources[0], 1.0f);
+        source_b = ColumnEdgeFrame::at(frame.sources[1], 1.0f);
+      }
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::column_path_evaluations>();
+      bool lit = radians == 0.0f, finished = false;
+      size_t emitted = 0;
+      float cut = 1.0f;
+      math::Vector turn;
+      if (SPLIT) {
+        cut = ColumnEdgeFrame::split_point(a, b, total, sampler, turn);
+        unit = true;
+      }
+      for (int part = 0; part < (SPLIT ? 2 : 1); ++part) {
         float s_in = 0.0f, s_out = 1.0f;
         bool start_column = true, end_column = true;
+        math::Vector part_a = a, part_b = b;
+        float from = 0.0f, to = 1.0f, length = total;
+        GeodesicEdgeSampler piece;
+        bool pieced = false;
+        if (SPLIT) {
+          from = part ? cut : 0.0f;
+          to = part ? 1.0f : cut;
+          if (!(to > from))
+            break;
+          part_a = part ? turn : a;
+          part_b = part ? b : turn;
+          length = (to - from) * total;
+        }
         if (radians != 0.0f) {
-          const float inverse_length = total > 1e-7f ? 1.0f / total : 0.0f;
+          const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
           const float column_cosine = math::TrigLUT<W, H>::cos_theta(owner);
           const float column_sine = math::TrigLUT<W, H>::sin_theta[owner];
           const float sine = direction * half_sine;
@@ -2570,49 +2568,57 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
           const math::Vector back(
               -column_sine * half_cosine + column_cosine * sine, 0.0f,
               column_cosine * half_cosine + column_sine * sine);
-          const float end_side = math::dot(b, normal);
-          const float back_side = math::dot(b, back);
+          const float end_side = math::dot(part_b, normal);
+          const float back_side = math::dot(part_b, back);
           bool crossing = false;
-          if (math::dot(a, normal) * end_side <= 0.0f) {
-            sampler = ColumnEdgeFrame::basis(a, b, total);
-            unit = true;
+          if (math::dot(part_a, normal) * end_side <= 0.0f) {
+            if (!unit) {
+              sampler = ColumnEdgeFrame::basis(a, b, total);
+              unit = true;
+            }
+            if (SPLIT) {
+              piece = ColumnEdgeFrame::basis(part_a, part_b, length);
+              pieced = true;
+            }
+            const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
             const math::Vector along(
                 column_cosine * half_cosine - column_sine * sine, 0.0f,
                 column_sine * half_cosine + column_cosine * sine);
             crossing = column_basis_crossing(
-                math::dot(sampler.v1, normal), end_side,
-                math::dot(sampler.v_perp, normal), math::dot(sampler.v1, along),
-                math::dot(sampler.v_perp, along), inverse_length, s_out);
+                math::dot(basis.v1, normal), end_side,
+                math::dot(basis.v_perp, normal), math::dot(basis.v1, along),
+                math::dot(basis.v_perp, along), inverse_length, s_out);
           }
           end_column = !crossing && direction * end_side <= 0.0f &&
                        direction * back_side > 0.0f &&
-                       b.x * column_cosine + b.z * column_sine > 0.0f;
-          if (!crossing && !end_column) {
-            carried = -1.0f;
-            if (seen || column + 1 >= walk.deadline)
-              break;
+                       part_b.x * column_cosine + part_b.z * column_sine > 0.0f;
+          if (!crossing && !end_column)
             continue;
-          }
-          if (!unit)
+          if (!unit) {
             sampler = ColumnEdgeFrame::basis(a, b, total);
+            unit = true;
+          }
+          if (SPLIT && !pieced)
+            piece = ColumnEdgeFrame::basis(part_a, part_b, length);
+          const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
           if (carried >= 0.0f) {
             start_column = false;
             s_in = fminf(carried, s_out);
           } else {
-            const float start_back = math::dot(sampler.v1, back);
+            const float start_back = math::dot(basis.v1, back);
             const math::Vector behind(
                 column_cosine * half_cosine + column_sine * sine, 0.0f,
                 column_sine * half_cosine - column_cosine * sine);
             start_column =
                 start_back * back_side > 0.0f ||
                 !column_basis_crossing(
-                    start_back, back_side, math::dot(sampler.v_perp, back),
-                    math::dot(sampler.v1, behind),
-                    math::dot(sampler.v_perp, behind), inverse_length, s_in);
+                    start_back, back_side, math::dot(basis.v_perp, back),
+                    math::dot(basis.v1, behind),
+                    math::dot(basis.v_perp, behind), inverse_length, s_in);
             s_in = start_column ? 0.0f : fminf(s_in, s_out);
           }
-          carried = crossing && !arm_change(owner) ? s_out : -1.0f;
-          seen = true;
+          carried = crossing && !SPLIT && !arm_change(owner) ? s_out : -1.0f;
+          lit = true;
           if (crossing)
             Temporal::count_geometry<
                 &Temporal::GeometryCounters::column_crossings>();
@@ -2622,14 +2628,20 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
           lattice_count = count;
           lattice_step = 1.0f / float(count);
         }
-        const int first = start_column ? 0 : int(ceilf(s_in * float(count)));
+        bool edge_start = start_column, edge_end = end_column;
+        if (SPLIT) {
+          s_in = start_column ? from : from + (to - from) * s_in;
+          s_out = end_column ? to : from + (to - from) * s_out;
+          edge_start = start_column && from == 0.0f;
+          edge_end = end_column && to == 1.0f;
+        }
+        const int first = edge_start ? 0 : int(ceilf(s_in * float(count)));
         const int last =
-            end_column ? count : int(ceilf(s_out * float(count))) - 1;
-        const bool plain = single_time || (!start_column && !end_column);
+            edge_end ? count : int(ceilf(s_out * float(count))) - 1;
+        const bool plain = single_time || (!edge_start && !edge_end);
         GeodesicEdgeSampler source;
         if (source_positions)
           source = ColumnEdgeFrame::basis(source_a, source_b, total);
-        size_t emitted = 0;
         for (int k = first; k <= last; ++k) {
           Temporal::count_geometry<
               &Temporal::GeometryCounters::column_generated_samples>();
@@ -2721,15 +2733,156 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
           pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
                                      f.color.alpha, t, &prediction);
         }
-        if (emitted > 1)
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::column_span_fills>();
-        if (sample_count > 2 * rasterize_step_budget<W>())
-          break;
-        if (end_column)
-          break;
+        finished = finished || (end_column && to == 1.0f);
       }
+      if (!lit) {
+        carried = -1.0f;
+        if (!turning && (seen || column + 1 >= walk.deadline))
+          break;
+        continue;
+      }
+      seen = true;
+      if (emitted > 1)
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::column_span_fills>();
+      if (sample_count > 2 * rasterize_step_budget<W>())
+        break;
+      if (finished && !turning)
+        break;
     }
+  }
+}
+
+/** @brief walk_edge_columns() for split arcs, out of line.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param state The edge's walk. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
+  walk_edge_columns<W, H, Cfg, true>(state);
+}
+
+/** @brief Rasterizes mesh edges one destination column at a time.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param pipeline Destination pipeline; its world stages are @p poses.
+ * @param canvas Frame context.
+ * @param points The walk's two endpoint fragments, written by
+ * ColumnEdgeBatch::prepare.
+ * @param shader Time-aware source shader.
+ * @param batch Edges and their vertices' paths.
+ * @param poses The world stages' poses by column time, or null without world
+ * stages.
+ * @param radians Maximum world displacement over the frame.
+ * @param source_positions Whether shaders read source-space positions.
+ * @details Each arm pass walks, in the edge's travel order, the render-band
+ * columns its plan bounds, each with the edge's endpoints evaluated on their
+ * paths at the column's time and rotated by its pose, and stops where the lit
+ * run ends. Samples sit at arc fractions k/N, where N is the edge's length in
+ * screen steps at that time, and a column plots the lattice points between
+ * its two boundary meridians unweighted through the filter chain, so a moving
+ * edge samples each column as the frozen edge at that column's time does. The
+ * start vertex is lattice point zero; each edge also plots its end vertex.
+ * Columns strictly inside an edge splat at their own time; the end columns of
+ * an edge moving faster than COLUMN_SINGLE_TAP_ERROR evaluate each neighbor
+ * tap at that column's time. A stationary draw walks the lattice once. An
+ * edge whose plan cannot bound it, such as one that can pass near a pole, is
+ * walked as the two sides of its closest approach to the pole, out of line. */
+template <int W, int H, RasterConfig Cfg>
+FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
+    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
+    TimedShaderFn shader, const ColumnEdgeBatch &batch,
+    const Temporal::PoseTable *poses, float radians, bool source_positions) {
+  const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
+  const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
+
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  const float top_y = cosf(math::DisplayGeometry<H>::row_to_phi(
+      float(std::max(0, canvas.clip().y_start - 2))));
+  const float bottom_y = cosf(math::DisplayGeometry<H>::row_to_phi(
+      float(std::min(H, canvas.clip().y_end + 2))));
+  Temporal::count_geometry<&Temporal::GeometryCounters::column_draw_setups>();
+  const ColumnEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
+  const auto &band = canvas.render_x_clip();
+  ScratchScope draw_scope(scratch_arena_a);
+  const float spin = poses ? pipeline.cull_bound() : 0.0f;
+  source_positions = source_positions && poses;
+  auto &frame = *scratch_arena_a.make<ColumnEdgeFrame>();
+  for (size_t edge = 0; edge < batch.count; ++edge) {
+    const MeshEdge &pair = batch.pairs[edge];
+    frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
+                        source_positions);
+    if (cull.rejects({frame.bases[0].v1, frame.bases[1].v1, frame.ends[0],
+                      frame.ends[1]},
+                     frame.deviation + 1e-4f)) {
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::column_edges_culled>();
+      continue;
+    }
+    const int direction =
+        frame.bases[1].v1.x * frame.bases[1].v_perp.z -
+                    frame.bases[1].v1.z * frame.bases[1].v_perp.x >=
+                0.0f
+            ? 1
+            : -1;
+    ColumnSegment segments[2];
+    int segment_count = 1;
+    float velocity[4] = {};
+    bool single_time = true;
+    if (radians == 0.0f) {
+      segments[0] = {0, 1, 1};
+    } else {
+      segment_count = frame.plan<W>(direction, segments);
+      int kept = 0;
+      for (int i = 0; i < segment_count; ++i) {
+        ColumnSegment walk = segments[i];
+        clamp_walk<W>(walk, direction, band.rs, band.length(W));
+        if (walk.count > 0)
+          segments[kept++] = walk;
+      }
+      segment_count = kept;
+      if (segment_count == 0) {
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::column_edges_culled>();
+        continue;
+      }
+      frame.velocities<W, H>(velocity);
+      single_time = fmaxf(fmaxf(fabsf(velocity[0]), fabsf(velocity[1])),
+                          fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
+                    COLUMN_SINGLE_TAP_ERROR * (W / 2);
+    }
+    Temporal::count_geometry<
+        &Temporal::GeometryCounters::column_edges_prepared>();
+    batch.prepare(edge);
+    const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
+      return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
+    };
+    const bool split = radians != 0.0f && !frame.known;
+    const ColumnWalk<W> walk{
+        pipeline,
+        canvas,
+        points,
+        shader,
+        frame,
+        segments,
+        segment_count,
+        band,
+        direction,
+        radians,
+        single_time,
+        velocity,
+        source_positions,
+        split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
+                   4.0f * frame.deviation * frame.deviation),
+        top_y,
+        bottom_y,
+        half_sine,
+        half_cosine};
+    if (split)
+      walk_split_edge_columns<W, H, Cfg>(walk);
+    else
+      walk_edge_columns<W, H, Cfg, false>(walk);
   }
 }
 
