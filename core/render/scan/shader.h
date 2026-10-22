@@ -578,7 +578,7 @@ public:
     constexpr size_t COLS = (W - 1) / MIN_BLOCK + 2;
     constexpr size_t ROWS = (H - 1) / MIN_BLOCK + 2;
     return COLS * ROWS * sizeof(BlockCell<K>) +
-           (ROWS - 1) * sizeof(BlockSites<K>);
+           2 * (ROWS - 1) * sizeof(BlockSites<K>);
   }
 
   /**
@@ -661,20 +661,24 @@ public:
    * @tparam K Sites classified per corner.
    * @param canvas Destination canvas.
    * @param block Positive block edge in pixels; corners anchor to the canvas.
-   * @param scratch Arena for the corner grid and one block column's site
+   * @param scratch Arena for the corner grid and each arm's block-column site
    * unions. The caller owns its scope.
    * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
-   * @param prepare_column Callable (int x) returning a column object whose
-   * `block(const BlockSites<K>&)` returns the block's shader, a callable
+   * @param prepare_time Callable (int c) returning the state columns `c` and
+   * `c + W / 2` share at `Temporal::sweep_fraction(c, W)`.
+   * @param prepare_column Callable (state, int x) returning a column object
+   * whose `block(const BlockSites<K>&)` returns the block's shader, a callable
    * (const Vector&) returning Color4 or a premultiplied Pixel.
-   * @details Corners and unions are those of draw_block_coherent(). Each
-   * clipped column is prepared once, then its blocks are prepared and shaded
-   * top to bottom.
+   * @details Corners and unions are those of draw_block_coherent(). Each sweep
+   * time with a clipped column is prepared once, then each of its columns is
+   * prepared and its blocks shaded top to bottom.
    */
-  template <int W, int H, size_t K, typename ClassifyFn, typename PrepareFn>
+  template <int W, int H, size_t K, typename ClassifyFn, typename PrepareTime,
+            typename PrepareFn>
   HS_O3_FN __attribute__((always_inline)) static void
   draw_block_columns(Canvas &canvas, int block, Arena &scratch,
-                     ClassifyFn &&classify_corner, PrepareFn &&prepare_column) {
+                     ClassifyFn &&classify_corner, PrepareTime &&prepare_time,
+                     PrepareFn &&prepare_column) {
     check_canvas_dims<W, H>(canvas);
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
@@ -686,8 +690,12 @@ public:
     const int y0 = cr.render_y_start();
     const int y1 = cr.render_y_end();
     const int nblk = grid.nby - 1;
-    BlockSites<K> *sites = scratch.allocate_n<BlockSites<K>>(nblk);
-    auto build_block_column = [&](int jx) __attribute__((always_inline)) {
+    BlockSites<K> *const arm_sites[2] = {
+        scratch.allocate_n<BlockSites<K>>(nblk),
+        scratch.allocate_n<BlockSites<K>>(nblk)};
+    int built[2] = {-1, -1};
+    auto build_block_column = [&](BlockSites<K> *sites,
+                                  int jx) __attribute__((always_inline)) {
       for (int ky = 0; ky < nblk; ++ky) {
         BlockSites<K> &set = sites[ky];
         const BlockCell<K> *row = grid.cells + ky * grid.nbx + jx;
@@ -705,33 +713,38 @@ public:
       }
     };
 
-    int built = -1;
-    const auto shade_column = [&](int x) __attribute__((always_inline)) {
-      const int jx = (x - grid.gx0) / B;
-      if (jx != built) {
-        build_block_column(jx);
-        built = jx;
-      }
-      auto column = prepare_column(x);
-      const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
-      const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
-      for (int ky = 0; ky < nblk; ++ky) {
-        const int ROW_BEGIN = std::max(y0, grid.gy0 + ky * B);
-        const int ROW_END = std::min(y1, grid.gy0 + (ky + 1) * B);
-        auto shade = column.block(sites[ky]);
-        for (int y = ROW_BEGIN; y < ROW_END; ++y) {
-          const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
-          const auto COLOR = shade(math::Vector(SIN_PHI * COS_THETA,
-                                                math::TrigLUT<W, H>::cos_phi[y],
-                                                SIN_PHI * SIN_THETA));
-          if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
-            canvas(x, y) = COLOR;
-          else
-            canvas(x, y) = COLOR.color * COLOR.alpha;
+    walk_clip_column_times<W>(cr.x_clip(), [&](int c, bool near, bool far) {
+      auto &&state = prepare_time(c);
+      for (int arm = 0; arm < 2; ++arm) {
+        if (!(arm ? far : near))
+          continue;
+        const int x = c + arm * (W / 2);
+        const int jx = (x - grid.gx0) / B;
+        BlockSites<K> *const sites = arm_sites[arm];
+        if (jx != built[arm]) {
+          build_block_column(sites, jx);
+          built[arm] = jx;
+        }
+        auto column = prepare_column(state, x);
+        const float COS_THETA = math::TrigLUT<W, H>::cos_theta(x);
+        const float SIN_THETA = math::TrigLUT<W, H>::sin_theta[x];
+        for (int ky = 0; ky < nblk; ++ky) {
+          const int ROW_BEGIN = std::max(y0, grid.gy0 + ky * B);
+          const int ROW_END = std::min(y1, grid.gy0 + (ky + 1) * B);
+          auto shade = column.block(sites[ky]);
+          for (int y = ROW_BEGIN; y < ROW_END; ++y) {
+            const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
+            const auto COLOR = shade(math::Vector(
+                SIN_PHI * COS_THETA, math::TrigLUT<W, H>::cos_phi[y],
+                SIN_PHI * SIN_THETA));
+            if constexpr (std::is_same_v<std::decay_t<decltype(COLOR)>, Pixel>)
+              canvas(x, y) = COLOR;
+            else
+              canvas(x, y) = COLOR.color * COLOR.alpha;
+          }
         }
       }
-    };
-    walk_clip_columns_once<W>(cr.x_clip(), shade_column);
+    });
   }
 };
 

@@ -230,14 +230,14 @@ private:
 
   /**
    * @brief Site motion at a column's sweep time.
-   * @param x Absolute canvas column.
+   * @param c First-arm column; column `c + W / 2` shares its time.
    * @param tree Tree over the current positions.
    * @param spins Every site's spin terms.
    * @return The column's motion.
    */
-  HS_FLASH_INLINE ColumnMotion column_motion(int x, const KDTree &tree,
+  HS_FLASH_INLINE ColumnMotion column_motion(int c, const KDTree &tree,
                                              const SiteSpin *spins) const {
-    const float FRACTION = Temporal::sweep_fraction(x, W);
+    const float FRACTION = Temporal::sweep_fraction(c, W);
     const float ANGLE = FRACTION * frame_spin;
     return {cosf(ANGLE),
             sinf(ANGLE),
@@ -286,65 +286,36 @@ private:
   /**
    * @brief Shades a pixel from the exact nearest pair at a column's time.
    * @param p Pixel direction.
-   * @param motion The column's site motion; sites move on demand when its
-   *        positions are not filled.
-   * @param bound_sq Squared distance within which two sites lie at that time,
-   *        or FLT_MAX.
+   * @param motion The column's site motion with every site's position filled.
    * @return The cell color.
    */
   __attribute__((always_inline)) Color4
-  shade_exact(const math::Vector &p, const ColumnMotion &motion,
-              float bound_sq = FLT_MAX) const {
-    const auto at = [&](uint16_t i) __attribute__((always_inline)) {
-      return motion.at ? motion.at[i] : position_at(motion, i);
-    };
-    const auto nearest = motion.tree->nearest_moved(
-        p, 2, motion.drift,
-        [&](uint16_t i) { return math::distance_squared(at(i), p); }, bound_sq);
+  shade_exact(const math::Vector &p, const ColumnMotion &motion) const {
+    const math::Vector *at = motion.at;
+    const auto nearest =
+        motion.tree->nearest_moved(p, 2, motion.drift, [&](uint16_t i) {
+          return math::distance_squared(at[i], p);
+        });
     const uint16_t i0 = nearest[0].original_index;
-    const float d0 = math::dot(p, at(i0));
+    const float d0 = math::dot(p, at[i0]);
     if (nearest.size() < 2)
       return shade(i0, d0, i0, NO_DOT);
     const uint16_t i1 = nearest[1].original_index;
-    return shade(i0, d0, i1, math::dot(p, at(i1)));
+    return shade(i0, d0, i1, math::dot(p, at[i1]));
   }
-
-  /**
-   * @brief Whether a block's corners have the same set of nearest sites at
-   *        both endpoints.
-   * @param corners The block's corner cells, previous endpoint first.
-   * @return False when a site enters or leaves the corners' nearest sites.
-   */
-  __attribute__((always_inline)) static bool
-  same_winners(const std::array<
-               const Scan::Shader::BlockCell<TEMPORAL_SITES_PER_CORNER> *, 4>
-                   &corners) {
-    for (const auto *a : corners) {
-      bool before = false, after = false;
-      for (const auto *b : corners) {
-        before |= (*a)[0] == (*b)[SITES_PER_CORNER];
-        after |= (*a)[SITES_PER_CORNER] == (*b)[0];
-      }
-      if (!before || !after)
-        return false;
-    }
-    return true;
-  }
-
-  struct TemporalColumn;
 
   /** @brief One block's shader at a column's time. */
   struct TemporalBlock {
-    TemporalColumn *column;        ///< The column being shaded.
+    const Voronoi *effect;         ///< Sites and shading.
     const math::Vector *positions; ///< Candidate positions at that time.
     const uint16_t *idx;           ///< Candidate site indices.
     uint8_t n;                     ///< Candidate count.
-    bool check;                    ///< Whether endpoint winners may differ.
 
-    /** @brief Shades one pixel of the block.
+    /** @brief Shades one pixel of the block from its nearest candidates.
      *  @param p Pixel direction.
      *  @return The cell color. */
-    __attribute__((always_inline)) Color4 operator()(const math::Vector &p) {
+    __attribute__((always_inline)) Color4
+    operator()(const math::Vector &p) const {
       float d0 = NO_DOT, d1 = NO_DOT;
       uint8_t b0 = 0, b1 = 0;
       for (uint8_t i = 0; i < n; ++i) {
@@ -359,71 +330,41 @@ private:
           b1 = i;
         }
       }
-      if (check && winner(p, true) != winner(p, false))
-        return column->effect->shade_exact(
-            p, column->motion,
-            n > 1 ? fmaxf(math::distance_squared(positions[b0], p),
-                          math::distance_squared(positions[b1], p)) *
-                        BOUND_SLACK
-                  : FLT_MAX);
-      return column->effect->shade(idx[b0], d0, idx[b1], d1);
+      return effect->shade(idx[b0], d0, idx[b1], d1);
     }
+  };
 
-    /** @brief Nearest candidate at one endpoint.
-     *  @param p Pixel direction.
-     *  @param before Whether to sample the previous endpoint.
-     *  @return Candidate slot. */
-    __attribute__((always_inline)) uint8_t winner(const math::Vector &p,
-                                                  bool before) const {
-      float best = NO_DOT;
-      uint8_t slot = 0;
-      for (uint8_t i = 0; i < n; ++i) {
-        const uint16_t SITE = idx[i];
-        const math::Vector &at = before
-                                     ? column->effect->previous_positions[SITE]
-                                     : column->effect->sites_buffer[SITE].pos;
-        const float d = math::dot(p, at);
-        if (d > best) {
-          best = d;
-          slot = i;
-        }
-      }
-      return slot;
-    }
+  /** @brief Site motion at one sweep time, shared by the two columns lit at
+   *  that time. */
+  struct TemporalSites {
+    ColumnMotion motion; ///< Site motion at the time.
+    uint16_t stamp;      ///< The time's first-arm column plus one.
   };
 
   /** @brief One column's block preparation. */
   struct TemporalColumn {
-    const Voronoi *effect;   ///< Sites and shading.
-    ColumnMotion motion;     ///< The column's site motion.
-    math::Vector *positions; ///< Scratch for one block's moving candidates.
-    math::Vector *moved;     ///< Site positions cached for the column.
-    uint16_t *stamps;        ///< Last column that moved each site.
-    uint16_t stamp;          ///< Current column plus one.
-    bool *checks;            ///< Endpoint-winner checks by block row.
-    bool rebuild;            ///< Whether this column starts a new block column.
-    int row = 0;             ///< Next block row to prepare.
+    const Voronoi *effect;     ///< Sites and shading.
+    const TemporalSites *time; ///< The column's sweep time.
+    math::Vector *positions;   ///< Scratch for one block's candidates.
+    math::Vector *moved;       ///< Site positions moved to a recent time.
+    uint16_t *stamps;          ///< Time stamp of each site's moved position.
 
     /**
      * @brief Prepares a block's candidates at the column's time.
      * @param sites The block's corner cells and their union.
-     * @return The block's shader, which searches every site where a pixel's
-     * nearest candidate differs between the endpoints.
+     * @return The block's shader.
      */
     __attribute__((always_inline)) TemporalBlock
     block(const Scan::Shader::BlockSites<TEMPORAL_SITES_PER_CORNER> &sites) {
-      if (rebuild)
-        checks[row] = !same_winners(sites.corners);
-      const bool CHECK = checks[row++];
       for (uint8_t i = 0; i < sites.n; ++i) {
         const uint16_t SITE = sites.idx[i];
-        if (stamps[SITE] != stamp) {
-          moved[SITE] = position_at(motion, SITE);
-          stamps[SITE] = stamp;
+        if (stamps[SITE] != time->stamp) {
+          moved[SITE] = position_at(time->motion, SITE);
+          stamps[SITE] = time->stamp;
         }
         positions[i] = moved[SITE];
       }
-      return {this, positions, sites.idx, sites.n, CHECK};
+      return {effect, positions, sites.idx, sites.n};
     }
   };
 
@@ -440,22 +381,25 @@ private:
     if (BLOCK == 1) {
       math::Vector *every =
           scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
-      Scan::Shader::draw_columns<W, H>(
-          canvas, [&](int x) __attribute__((always_inline)) {
-            ColumnMotion motion = column_motion(x, tree, spins);
+      Scan::Shader::draw_column_times<W, H>(
+          canvas,
+          [&](int c) __attribute__((always_inline)) {
+            ColumnMotion motion = column_motion(c, tree, spins);
             fill_positions(motion, every);
             motion.at = every;
-            return [this, motion](const math::Vector &p)
-                       __attribute__((always_inline)) {
-                         return shade_exact(p, motion);
-                       };
-          });
+            return motion;
+          },
+          [this](const ColumnMotion &motion, int)
+              __attribute__((always_inline)) {
+                return [this, &motion](const math::Vector &p)
+                           __attribute__((always_inline)) {
+                             return shade_exact(p, motion);
+                           };
+              });
       return;
     }
     math::Vector *positions =
         scratch_arena_a.allocate_n<math::Vector>(4 * TEMPORAL_SITES_PER_CORNER);
-    bool *checks = scratch_arena_a.allocate_n<bool>((H - 1) / BLOCK + 1);
-    int prepared = -1;
     math::Vector *moved =
         scratch_arena_a.allocate_n<math::Vector>(sites_buffer.size());
     uint16_t *stamps =
@@ -472,13 +416,12 @@ private:
         [&](const math::Vector &p) __attribute__((always_inline)) {
           return cached_endpoint_pairs(tree, p, near, cursor.next());
         },
-        [&](int x) __attribute__((always_inline)) {
-          const int BLOCK_COLUMN = x / BLOCK;
-          const bool REBUILD = prepared != BLOCK_COLUMN;
-          prepared = BLOCK_COLUMN;
-          return TemporalColumn{
-              this,   column_motion(x, tree, spins), positions, moved,
-              stamps, static_cast<uint16_t>(x + 1),  checks,    REBUILD};
+        [&](int c) __attribute__((always_inline)) {
+          return TemporalSites{column_motion(c, tree, spins),
+                               static_cast<uint16_t>(c + 1)};
+        },
+        [&](const TemporalSites &time, int) __attribute__((always_inline)) {
+          return TemporalColumn{this, &time, positions, moved, stamps};
         });
   }
 
@@ -768,7 +711,6 @@ private:
       Scan::Shader::block_columns_scratch_bytes<
           W, H, TEMPORAL_SITES_PER_CORNER, std::max(2, COHERENCE_BLOCK_MIN)>() +
       (4 * TEMPORAL_SITES_PER_CORNER + MAX_SITES) * sizeof(math::Vector) +
-      size_t((H - 1) / std::max(2, COHERENCE_BLOCK_MIN) + 1) * sizeof(bool) +
       MAX_SITES * (sizeof(SiteSpin) + sizeof(uint16_t));
   static constexpr size_t SCRATCH_HIGH_WATER =
       std::max(POSITIONS_BYTES + KD_NODES_BYTES +

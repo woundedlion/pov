@@ -523,54 +523,6 @@ inline void test_voronoi_endpoint_pairs_match_brute_force() {
   }
 }
 
-/**
- * @brief A pixel whose nearest block candidate changes during the frame is
- *        drawn from the exact nearest site at its time, even one no corner
- *        names.
- */
-inline void test_voronoi_exact_where_endpoint_winners_differ() {
-  using WB = VoronoiWhiteBox;
-  constexpr int W = DEFAULT_W;
-  constexpr int H = DEFAULT_H;
-  constexpr float SPEED = 100.0f;
-  constexpr int X0 = 80, Y0 = 64, BLOCK = 8;
-  const auto at = [](float x, float y) {
-    return math::pixel_to_vector<W, H>(x, y);
-  };
-  // Two sites hug each corner; the pair at (X0, Y0) swaps its nearest as the
-  // spin carries every site west. The last site is no corner's candidate.
-  const math::Vector sites[] = {
-      at(X0 - 0.2f, Y0),
-      at(X0 + 0.4f, Y0),
-      at(X0 + BLOCK, Y0 - 0.3f),
-      at(X0 + BLOCK, Y0 + 0.3f),
-      at(X0 - 0.3f, Y0 + BLOCK),
-      at(X0 + 0.3f, Y0 + BLOCK),
-      at(X0 + BLOCK - 0.3f, Y0 + BLOCK),
-      at(X0 + BLOCK + 0.3f, Y0 + BLOCK),
-      at(X0 + 1.5f, Y0 + 1.5f),
-  };
-  const std::vector<math::Vector> axes(std::size(sites), math::Y_AXIS);
-  reset_effect_globals();
-  Voronoi<W, H> effect;
-  effect.init();
-  WB::set_moving_sites(effect, std::span<const math::Vector>(sites), axes,
-                       0.0f);
-  effect.draw_frame();
-  effect.advance_display();
-  const auto from = voronoi_positions(effect);
-  WB::set_speed(effect, SPEED);
-  effect.draw_frame();
-  effect.advance_display();
-  const auto match = voronoi_time_match<W, H>(
-      effect, from, axes, WB::spin(SPEED), X0, X0 + 1, Y0, Y0 + BLOCK);
-  HS_EXPECT_EQ(match.matched, match.total);
-  long hidden = 0;
-  for (int y = Y0; y < Y0 + BLOCK; ++y)
-    hidden += effect.get_pixel(X0, y).r == std::size(sites);
-  HS_EXPECT_GT(hidden, 0);
-}
-
 /** @brief Disabled sampling draws the current sites while history advances. */
 inline void test_voronoi_temporal_toggle() {
   using WB = VoronoiWhiteBox;
