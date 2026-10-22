@@ -205,12 +205,13 @@ public:
   // Scratch A holds the vertices, the Multiline fragment buffer and
   // rasterize's sub-step cache live at once.
   /// Scratch arena A size, in bytes.
-  static constexpr size_t SCRATCH_A_BYTES = 234 * 1024;
+  static constexpr size_t SCRATCH_A_BYTES = 246 * 1024;
   /// Peak scratch A demand, in bytes.
   static constexpr size_t SCRATCH_A_ESTIMATE =
-      MAX_FRAGMENTS * sizeof(TrailVertex) +
+      MAX_FRAGMENTS * (sizeof(TrailVertex) + sizeof(uint16_t)) +
       (MAX_FRAGMENTS + 2) * sizeof(Fragment) +
-      Plot::rasterize_scratch_a_bytes<W>();
+      Plot::rasterize_scratch_a_bytes<W>() +
+      Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode);
   static_assert(SCRATCH_A_BYTES >= SCRATCH_A_ESTIMATE,
                 "scratch arena A must fit the vertices buffer, the "
                 "Multiline-draw fragment buffer and rasterize's sub-step cache "
@@ -220,9 +221,10 @@ public:
   /// Pool entry of the trail noise transformer.
   using NoiseEntity = typename NoiseTransformer<1>::Entity;
   /// Persistent arena demand, in bytes, alignment included.
-  static constexpr size_t FOOTPRINT_BYTES = sizeof(Node) + sizeof(NoiseEntity) +
-                                            alignof(NoiseEntity) + sizeof(int) +
-                                            alignof(int);
+  static constexpr size_t FOOTPRINT_BYTES =
+      sizeof(Node) + sizeof(NoiseEntity) + alignof(NoiseEntity) + sizeof(int) +
+      alignof(int) + MAX_FRAGMENTS * sizeof(math::Snorm3) +
+      alignof(math::Snorm3);
   static_assert(
       FOOTPRINT_BYTES <= ArenaSplit{SCRATCH_A_BYTES, 0}.device_persistent(),
       "Fishbowl persistent footprint exceeds its partition; "
@@ -238,6 +240,7 @@ public:
 
     noise_xform.init_storage(persistent_arena);
     node = persistent_arena.make<Node>();
+    warped_history = persistent_arena.allocate_n<math::Snorm3>(MAX_FRAGMENTS);
 
     static_palette.bind(&fire_palette, &scale_mod, &cycle_mod, &duty_mod);
 
@@ -274,10 +277,10 @@ public:
   /**
    * @brief Advances and renders one frame of the effect.
    */
-  void draw_frame() override {
+  HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
-    ScratchScope scratch_a_guard(scratch_arena_a);
-    ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
+    const bool was_full = node->trail.length() == TRAIL_LENGTH;
+    const float previous_phase = cycle_phase;
     palette_speed = palette_phase_speed(params.cycle_speed, params.scale_factor,
                                         node->trail.length());
     {
@@ -296,58 +299,134 @@ public:
     }
 
     apply_if_changed((int)params.cycle_duration, last_cycle_duration,
-                     [&](int cd) {
+                     [&](int cd) HS_HOT_INLINE {
                        if (motion)
                          motion->set_duration(cd);
                      });
 
     node->trail.record(node->orientation);
+    if (was_full)
+      history_head = (history_head + 1) % TRAIL_LENGTH;
 
     // Alpha below one slider LSB: skip drawing; the trail still records.
-    if (params.alpha < MIN_VISIBLE_ALPHA)
+    if (params.alpha < MIN_VISIBLE_ALPHA) {
+      history_ready = false;
       return;
+    }
 
+    render_trail(canvas, was_full, previous_phase);
+  }
+
+private:
+  friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
+  /** @brief Renders the recorded trail and retains its warped endpoints.
+   * @param canvas Target frame.
+   * @param was_full Whether recording evicted the oldest frame.
+   * @param previous_phase Palette phase before the frame advance. */
+  HS_HOT_FLASH_MEMBER void render_trail(Canvas &canvas, bool was_full,
+                                        float previous_phase) {
+    ScratchScope scratch_a_guard(scratch_arena_a);
+    ArenaVector<TrailVertex> vertices(scratch_arena_a, MAX_FRAGMENTS);
+    auto *history_indices = scratch_arena_a.allocate_n<uint16_t>(MAX_FRAGMENTS);
     const float fill_scale = palette_fill_scale(node->trail.length());
 
+    uint8_t records[TRAIL_LENGTH];
+    size_t active = 0;
+    for (size_t i = 0; i < node->trail.length(); ++i)
+      if (i == 0 || node->trail.get(i).length() > 1)
+        records[active++] = static_cast<uint8_t>(i);
+    const bool growing = node->trail.get(node->trail.length() - 1).length() > 1;
     {
       HS_PROFILE(fish_build_vertices);
       math::Quaternion previous_q;
       math::Vector previous_pos;
       float previous_t = 0.0f;
       bool have_previous = false;
-      deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
-        const math::Vector pos = warped_position(q);
-        if (have_previous) {
-          const math::Quaternion mid_q = math::slerp(previous_q, q, 0.5f);
-          const math::Vector mid_pos = warped_position(mid_q);
-          if (needs_adaptive_midpoint(previous_pos, mid_pos, pos)) {
-            vertices.push_back({mid_pos, 0.5f * (previous_t + t) * fill_scale});
+      size_t group = 0;
+      deep_tween_frames(node->trail, [&](const math::Quaternion *qs,
+                                         const float *ts,
+                                         int count) HS_HOT_INLINE {
+        const size_t record = records[group++];
+        const auto &frame = node->trail.get(record);
+        const size_t slot = (history_head + record) % TRAIL_LENGTH;
+        const size_t first = qs - &frame.get(0);
+        if (first > 0)
+          warped_history[slot * 2 * ORIENTATION_SUBSTEPS] =
+              math::Snorm3::encode(warped_position(frame.get(0)));
+        const bool newborn = record + 1 == node->trail.length();
+        auto stage = [&](const math::Vector &pos, float t, size_t index,
+                         const math::Quaternion &q) HS_HOT_INLINE {
+          if (!history_ready || newborn) {
+            const auto old =
+                history_ready ? noise_transform(previous_pose.orient(
+                                                    math::rotate(node->v, q)),
+                                                previous_noise)
+                              : pos;
+            warped_history[index] = math::Snorm3::encode(old);
           }
+          history_indices[vertices.size()] = static_cast<uint16_t>(index);
+          vertices.push_back({pos, t * fill_scale});
+        };
+        for (int k = 0; k < count; ++k) {
+          const auto &q = qs[k];
+          const float t = ts[k];
+          const size_t index =
+              slot * 2 * ORIENTATION_SUBSTEPS + (first + k) * 2;
+          const math::Vector pos = warped_position(q);
+          if (have_previous) {
+            const math::Quaternion mid_q = math::slerp(previous_q, q, 0.5f);
+            const math::Vector mid_pos = warped_position(mid_q);
+            if (needs_adaptive_midpoint(previous_pos, mid_pos, pos))
+              stage(mid_pos, 0.5f * (previous_t + t), index - 1, mid_q);
+            else
+              warped_history[index - 1] = math::Snorm3::encode(mid_pos);
+          }
+          stage(pos, t, index, q);
+          previous_q = q;
+          previous_pos = pos;
+          previous_t = t;
+          have_previous = true;
         }
-        TrailVertex f;
-        f.pos = pos;
-        f.palette_t = t * fill_scale;
-        vertices.push_back(f);
-        previous_q = q;
-        previous_pos = pos;
-        previous_t = t;
-        have_previous = true;
       });
     }
 
-    auto fragment_shader = [&](const math::Vector &, Fragment &frag) {
+    Fragments points;
+    points.bind(scratch_arena_a, vertices.size() + 1);
+    Plot::Multiline::sample(points, vertices);
+    float bound = 0.0f;
+    for (size_t i = 0; i < vertices.size(); ++i) {
+      const auto current = vertices[i].pos;
+      const size_t index = history_indices[i];
+      vertices[i].pos = warped_history[index].decode();
+      bound = fmaxf(bound, math::angle_between(vertices[i].pos, current));
+      warped_history[index] = math::Snorm3::encode(current);
+    }
+    const float phase_delta =
+        cycle_phase != previous_phase ? palette_speed : 0.0f;
+    const float palette_shift = phase_delta / params.scale_factor -
+                                (was_full ? 1.0f / TRAIL_LENGTH : 0.0f);
+    auto fragment_shader = [&](const math::Vector &, Fragment &frag,
+                               float time) HS_HOT_INLINE {
       const float age_t = frag.v3 / fill_scale;
-      frag.color = shade_trail(frag.v3, age_t);
+      frag.color = shade_trail(frag.v3 - (1.0f - time) * palette_shift, age_t);
+      const float birth =
+          growing ? fmaxf(0.0f, age_t * active - (active - 1)) : 0.0f;
+      if (time < birth)
+        frag.color.alpha = 0.0f;
     };
-
+    auto at = [&](size_t index, float time) HS_HOT_INLINE {
+      return time == 0.0f ? vertices[index].pos : points[index].pos;
+    };
     {
       HS_PROFILE(fish_multiline_draw);
-      Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
+      Plot::rasterize<W, H, {.timed = true}>(
+          filters, canvas, points, fragment_shader, {},
+          Plot::GeometryCallback::interpolating(at), bound);
     }
+    previous_pose = orientation;
+    previous_noise = noise_xform.active_params(0);
+    history_ready = true;
   }
-
-private:
-  friend struct ::hs_test::effects_tests::FishbowlWhiteBox;
 
   /**
    * @brief Palette-coordinate modifier lighting only part of each cycle.
@@ -401,7 +480,8 @@ private:
    * @param q Recorded trail orientation.
    * @return Unit position on the sphere.
    */
-  math::Vector warped_position(const math::Quaternion &q) const {
+  HS_HOT_FLASH_MEMBER math::Vector
+  warped_position(const math::Quaternion &q) const {
     const math::Vector pos =
         noise_xform.transform(orientation.orient(math::rotate(node->v, q)));
     return math::normalized_or(pos, math::Vector(1, 0, 0));
@@ -416,9 +496,9 @@ private:
    * @return True once `mid` strays a quarter pixel-column from the geodesic
    * midpoint of `a` and `b`.
    */
-  static bool needs_adaptive_midpoint(const math::Vector &a,
-                                      const math::Vector &mid,
-                                      const math::Vector &b) {
+  HS_FLASH_INLINE static bool needs_adaptive_midpoint(const math::Vector &a,
+                                                      const math::Vector &mid,
+                                                      const math::Vector &b) {
     constexpr float MAX_ERROR = 0.25f * math::RADIANS_PER_COLUMN<W>;
     const math::Vector geodesic_mid = math::slerp(a, b, 0.5f);
     return math::angle_between(mid, geodesic_mid) > MAX_ERROR;
@@ -440,6 +520,13 @@ private:
     return color;
   }
 
+  math::Snorm3 *warped_history =
+      nullptr;             /**< Quantized endpoints and midpoints. */
+  size_t history_head = 0; /**< Oldest record's warp-cache slot. */
+  bool history_ready =
+      false; /**< Whether the warp cache contains a drawn frame. */
+  math::Orientation<> previous_pose;     /**< Last drawn random-walk pose. */
+  Animation::NoiseParams previous_noise; /**< Last drawn noise field. */
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
       filters;         /**< Anti-aliasing render pipeline. */

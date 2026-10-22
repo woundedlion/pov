@@ -60,12 +60,14 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
+    temporal_pose.init_storage(persistent_arena);
 
     fibers = persistent_arena.allocate_n<math::Spherical>(ACTUAL_FIBERS);
 
     trails = persistent_arena.make_n<Animation::VectorTrail<TRAIL_LEN>>(
         ACTUAL_FIBERS);
 
+    retired = persistent_arena.allocate_n<math::Vector>(ACTUAL_FIBERS);
     init_fibers();
     timeline.add(
         0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * math::PI_F,
@@ -81,11 +83,16 @@ public:
   /**
    * @brief Advances one frame: steps animations, records and renders trails.
    */
-  void draw_frame() override {
+  HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas(*this);
     {
       HS_PROFILE(hf_timeline_step);
       timeline.step(canvas);
+      if (!history_ready) {
+        if (Temporal::temporal_sampling_enabled())
+          orientation.collapse();
+        history_ready = true;
+      }
     }
     {
       HS_PROFILE(hf_advance_tumble);
@@ -94,7 +101,10 @@ public:
 
     {
       HS_PROFILE(hf_project_record);
+      trail_was_full = trails[0].length() == TRAIL_LEN;
       for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+        if (trail_was_full)
+          retired[i] = trails[i].get(0);
         math::Vector v = hopf_project(i);
         // Store unoriented — oriented at render time.
         trails[i].record(v);
@@ -112,12 +122,15 @@ private:
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
   static constexpr float PHASE_STEP = math::PI_F / ACTUAL_FIBERS;
 
-  // Persistent allocations: palette LUT, one Spherical and one trail per fiber.
+  // Persistent allocations: frame poses, palette LUT, one Spherical and one
+  // trail per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
+      Filter::World::Orient::STORAGE_BYTES +
       BakedPalette::required_arena_bytes() +
       ACTUAL_FIBERS * sizeof(math::Spherical) + alignof(math::Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>) +
-      alignof(Animation::VectorTrail<TRAIL_LEN>);
+      alignof(Animation::VectorTrail<TRAIL_LEN>) +
+      ACTUAL_FIBERS * sizeof(math::Vector) + alignof(math::Vector);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
@@ -128,6 +141,13 @@ private:
                     DEFAULT_SCRATCH_A_SIZE,
                 "HopfFibration trail staging exceeds the default scratch_a "
                 "budget; retune TRAIL_LEN or carve a larger scratch arena");
+
+  static_assert((TRAIL_LEN + 1) * (sizeof(Fragment) + sizeof(float)) +
+                        Plot::MAX_RIGID_CONTROLS *
+                            sizeof(Plot::TimedRigidNode) +
+                        Plot::rasterize_step_budget<W>() * sizeof(float) <=
+                    DEFAULT_SCRATCH_A_SIZE,
+                "HopfFibration temporal controls exceed scratch_a");
 
   // Keeps the projection denominator (1 + eps) - q3 positive at q3 == 1.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
@@ -170,6 +190,11 @@ private:
   // Borrowed by timeline-resident animations, with the phase accumulators and
   // params; declared before the Timeline to outlive it.
   math::Orientation<> orientation;
+  Filter::World::Orient temporal_pose{orientation}; /**< Cached frame poses. */
+  math::Vector *retired = nullptr; /**< Outgoing zero-opacity tail nodes. */
+  bool trail_was_full = false; /**< Whether this frame evicted a tail node. */
+  bool history_ready =
+      false; /**< Whether initial orientation history is primed. */
   Timeline timeline;
   BakedPaletteStorage baked_sunset;
 
@@ -196,7 +221,7 @@ private:
   /**
    * @brief Refreshes the per-frame cache from the wrapped phase accumulators.
    */
-  void advance_tumble() {
+  HS_HOT_FLASH_MEMBER void advance_tumble() {
     // Scale wrapped [0,1)-turn phases back to radians (ax < 4pi, ty_rad < 2pi).
     const float ax = tumble_angle_x * TUMBLE_X_PERIOD;
     ty_rad = tumble_angle_y * TUMBLE_Y_PERIOD;
@@ -281,7 +306,7 @@ private:
    * Under an active segment clip, a trail with no visible edge is skipped and
    * the per-edge gate bits feed rasterize as its cull.
    */
-  HS_O3_FN void render_trails(Canvas &canvas) {
+  HS_HOT_FLASH_MEMBER void render_trails(Canvas &canvas) {
     // Alpha below one slider LSB: skip rasterizing; trails still record.
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
@@ -290,6 +315,8 @@ private:
     const ClipRegion &cr = canvas.clip();
     const bool clip_active = !cr.is_full();
     const ClipRegion::XClip xc = cr.x_clip();
+    const bool timed = Temporal::temporal_sampling_enabled();
+    const float bound = temporal_pose.cull_bound();
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
@@ -303,7 +330,14 @@ private:
 
       ScratchScope sc_guard(scratch_arena_a);
       Fragments points;
-      points.bind(scratch_arena_a, len - first);
+      const bool keep_tail = timed && trail_was_full && first == 0;
+      points.bind(scratch_arena_a, len - first + (keep_tail ? 1 : 0));
+      if (keep_tail) {
+        Fragment f;
+        f.pos = orientation.orient(retired[i]);
+        f.v0 = -1.0f / (len - 1);
+        points.push_back(f);
+      }
 
       for (size_t j = first; j < len; ++j) {
         Fragment f;
@@ -313,27 +347,52 @@ private:
         points.push_back(f);
       }
 
-      uint8_t bits[TRAIL_LEN - 1];
+      uint8_t bits[TRAIL_LEN];
       std::span<const uint8_t> edge_flags;
       if (clip_active) {
         HS_PROFILE(hf_trail_gate);
-        if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits))
+        if (!Plot::gate_trail_edges<W, H>(trail_pipeline, cr, xc, points, bits,
+                                          bound))
           continue;
         edge_flags = {bits, points.size() - 1};
       }
 
-      auto shader = [this](const math::Vector &, Fragment &f) {
-        float t = f.v0; // 0 = oldest, 1 = newest
+      auto shader = [&](const math::Vector &, Fragment &f,
+                        float time) HS_HOT_INLINE {
+        float t = f.v0;
+        if (time != 1.0f) {
+          const float previous =
+              trail_was_full
+                  ? fminf(1.0f, t + 1.0f / (len - 1))
+                  : (len > 2 ? fminf(1.0f, t * (len - 1) / (len - 2)) : t);
+          t = fmaxf(0.0f, previous + (t - previous) * time);
+        }
+        t = fmaxf(0.0f, t);
         Color4 c = baked_sunset.get(1.0f - t);
         c.alpha *= t * params.alpha; // fade out tail
         f.color = c;
       };
 
+      auto at = [&](size_t index, float time) HS_HOT_INLINE {
+        const auto source =
+            keep_tail && index == 0
+                ? retired[i]
+                : trail.get(first + index - (keep_tail ? 1 : 0));
+        return temporal_pose.at_time(canvas, source, time);
+      };
+      auto geometry = Plot::GeometryCallback::exact(at);
+      geometry.azimuth_bound = true;
+      float *births = scratch_arena_a.allocate_n<float>(points.size());
+      std::fill_n(births, points.size(), 0.0f);
+      births[points.size() - 1] = 1.0f;
+      geometry.births = {births, points.size()};
+
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H>(
+        Plot::rasterize<W, H, {.timed = true}>(
             trail_pipeline, canvas, points, shader,
-            {.projection = Plot::RasterProjection::geodesic(edge_flags)});
+            {.projection = Plot::RasterProjection::geodesic(edge_flags)},
+            geometry, bound);
       }
     }
   }
