@@ -275,13 +275,8 @@ struct Mesh {
     draw<W, H>(pipeline, canvas, mesh, fragment_shader, {});
   }
 
-  /**
-   * @brief Precomputed edge pair for static-topology meshes.
-   */
-  struct Edge {
-    uint16_t u; ///< First endpoint vertex index.
-    uint16_t v; ///< Second endpoint vertex index.
-  };
+  /** @brief Precomputed edge pair for static-topology meshes. */
+  using Edge = MeshEdge;
 
   /**
    * @brief Extract unique edges from a mesh (call once at setup time).
@@ -446,7 +441,170 @@ struct Mesh {
                       static_cast<int>(ei), cb, fragment_shader, vertex_shader);
     }
   }
-  /** @brief Draws a precomputed wireframe through the column-time walk.
+  /** @brief Prepares endpoint fragments for a timed mesh edge.
+   * @param points Bound two-fragment output buffer.
+   * @param from,to Endpoint vertices.
+   * @param edge_index Edge register value. */
+  HS_HOT_INLINE static void prepare_timed_edge(Fragments &points,
+                                               const math::Vector &from,
+                                               const math::Vector &to,
+                                               size_t edge_index) {
+    Fragment a, b;
+    a.pos = from;
+    b.pos = to;
+    Line::sample(points, a, b, make_geodesic_edge_span(a.pos, b.pos));
+    for (auto &point : points)
+      point.v2 = static_cast<float>(edge_index);
+  }
+
+  /** @brief Captures a mesh's vertex paths for one frame.
+   * @tparam W Canvas width.
+   * @tparam Stored Capture storage.
+   * @tparam MeshT Mesh type.
+   * @param motion Vertex captures bound for at least the mesh's vertices.
+   * @param carry Whether each vertex's previous end capture is its start.
+   * @param mesh Frame-end source vertices.
+   * @param geometry Vertex evaluator and path bound.
+   * @param poses World poses by column time, or null without world stages.
+   * @param callback_bound Source displacement bound, radians; zero holds the
+   *        vertices still.
+   * @param world_bound World-stage rotation bound, radians.
+   * @details Without carry a moving vertex's start is evaluated. Its
+   * interpolant is the chord when the chord's error bound, projected at the
+   * vertex's least distance from the polar axis, stays within
+   * MAX_VERTEX_ERROR_PX, and otherwise the parabola through its middle
+   * position. */
+  template <int W, typename Stored, typename MeshT>
+  HS_HOT_FLASH_MEMBER static void
+  capture_vertices(Temporal::VertexMotion<Stored> &motion, bool carry,
+                   const MeshT &mesh, const GeometryCallback &geometry,
+                   const Temporal::PoseTable *poses, float callback_bound,
+                   float world_bound) {
+    constexpr float MAX_VERTEX_ERROR_PX = 0.025f;
+    const size_t count = mesh.vertices.size();
+    const bool moving = geometry.evaluate && callback_bound > 0.0f;
+    if (moving && !carry) {
+      motion.begin_frame(count, false);
+      for (size_t i = 0; i < count; ++i) {
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::endpoint_evaluations>();
+        motion.capture_end(i, geometry.evaluate(i, 0.0f));
+      }
+    }
+    motion.begin_frame(count, moving);
+    for (size_t i = 0; i < count; ++i) {
+      motion.capture_end(i, mesh.vertices[i]);
+      if (!moving)
+        continue;
+      math::Vector start = motion.start(i), end = mesh.vertices[i];
+      if (poses) {
+        start = poses->at(0).apply(start);
+        end = poses->at(poses->times()).apply(end);
+      }
+      const float rho = fminf(sqrtf(start.x * start.x + start.z * start.z),
+                              sqrtf(end.x * end.x + end.z * end.z)) -
+                        callback_bound - world_bound;
+      const float tolerance =
+          rho > 0.0f ? MAX_VERTEX_ERROR_PX * math::RADIANS_PER_COLUMN<W> * rho
+                     : 0.0f;
+      if (motion.choose(i, geometry.path, tolerance, false) ==
+          Temporal::Interpolant::QUADRATIC) {
+        Temporal::count_geometry<
+            &Temporal::GeometryCounters::midpoint_evaluations>();
+        motion.capture_middle(i, geometry.evaluate(i, 0.5f));
+      }
+    }
+  }
+
+  /** @brief Tests a mesh's convex spherical cap against its swept clip.
+   * @tparam W,H Display dimensions.
+   * @tparam MeshT,PipelineT Geometry and world-stage types.
+   * @param pipeline Rigid world pipeline.
+   * @param canvas Destination frame.
+   * @param mesh Endpoint vertices.
+   * @param motion Source displacement bound in radians.
+   * @return Whether the swept mesh can reach the clip. */
+  template <int W, int H, typename MeshT, typename PipelineT>
+  HS_HOT_FLASH_MEMBER static bool
+  column_mesh_visible(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+                      float motion) {
+    Temporal::count_geometry<&Temporal::GeometryCounters::column_mesh_culls>();
+    if (mesh.vertices.size() == 0)
+      return false;
+    const auto center = pipeline.world_at(canvas, mesh.vertices[0], 1.0f);
+    float nearest = 1.0f;
+    for (const auto &vertex : mesh.vertices) {
+      nearest = fminf(
+          nearest, math::dot(center, pipeline.world_at(canvas, vertex, 1.0f)));
+      if (nearest <= 0.0f)
+        return true;
+    }
+    float world_bound = 0.0f;
+    if constexpr (requires { pipeline.cull_bound(); })
+      world_bound = pipeline.cull_bound();
+    const float radius =
+        math::fast_acos(hs::clamp(nearest, 0.0f, 1.0f)) + CAP_ACOS_PAD +
+        motion + world_bound +
+        2.0f * (math::RADIANS_PER_COLUMN<W> + 1.0f / math::ROWS_PER_RADIAN<H>);
+    if (radius >= math::PI_F * 0.5f)
+      return true;
+    const bool visible = cap_may_touch_clip<H>(canvas.clip(), center, radius,
+                                               sinf(fminf(radius, math::PI_F)));
+    if (!visible)
+      Temporal::count_geometry<
+          &Temporal::GeometryCounters::column_mesh_rejected>();
+    return visible;
+  }
+
+  /** @brief Draws a wireframe through the column-time walk.
+   * @tparam W,H Canvas dimensions.
+   * @tparam MeshT Mesh storage type.
+   * @tparam PipelineT Pipeline whose world stages keep a pose table.
+   * @tparam ShaderT Fragment shader type.
+   * @param pipeline Timed world pipeline.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh endpoint positions.
+   * @param edges Precomputed unique edges.
+   * @param shader Fragment shader.
+   * @param geometry Vertex evaluator and path bound.
+   * @param callback_bound Maximum callback displacement in radians. */
+  template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_column_edges(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+                    const ArenaVector<Edge> &edges, ShaderT shader,
+                    const GeometryCallback &geometry, float callback_bound) {
+    ScratchScope motion_scope(scratch_arena_b);
+    Temporal::VertexMotion<> motion;
+    motion.bind(scratch_arena_b, mesh.vertices.size());
+    const Temporal::PoseTable *poses = pipeline.pose_table(canvas);
+    capture_vertices<W>(motion, false, mesh, geometry, poses, callback_bound,
+                        pipeline.cull_bound());
+    ScratchScope edge_storage(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, 2);
+    auto prepare = [&](size_t ei) HS_HOT_INLINE {
+      points.clear();
+      prepare_timed_edge(points, mesh.vertices[edges[ei].u],
+                         mesh.vertices[edges[ei].v], ei);
+    };
+    PipelineRef erased = [&]() HS_HOT_INLINE {
+      if constexpr (pipeline_direct_raster_path<PipelineT>())
+        return PipelineRef(pipeline, canvas, Temporal::Timed{});
+      else
+        return PipelineRef(pipeline, Temporal::Timed{});
+    }();
+    erased.select_copy(0);
+    auto timed_shader = [&](const math::Vector &position, Fragment &fragment,
+                            float t) HS_HOT_INLINE {
+      Temporal::shade_at_time(shader, t, position, fragment);
+    };
+    const ColumnEdgeBatch batch{edges.size(), prepare, motion, edges.data()};
+    rasterize_column_edges<W, H, {.timed = true}>(
+        erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
+        callback_bound + erased.cull_bound(), geometry.source_positions);
+  }
+
+  /** @brief Draws a precomputed wireframe at its samples' column times.
    * @tparam W,H Canvas dimensions.
    * @tparam MeshT Mesh storage type.
    * @tparam PipelineT Rendering pipeline type.
@@ -455,19 +613,25 @@ struct Mesh {
    * @param canvas Destination canvas.
    * @param mesh Mesh endpoint positions.
    * @param edges Precomputed unique edges.
-   * @param shader Fragment shader. */
+   * @param shader Fragment shader.
+   * @param geometry Optional evaluator indexed by mesh vertex.
+   * @param callback_bound Maximum callback displacement in radians.
+   * @details Geometry asking for column edges, under a single copy of world
+   * stages a pose table holds, draws through draw_column_edges(); other
+   * meshes draw edge by edge. */
   template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_timed(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-             const ArenaVector<Edge> &edges, ShaderT shader) {
-    const bool still = [&]() HS_HOT_INLINE {
-      if constexpr (Temporal::reads_column_time<ShaderT, const math::Vector &,
-                                                Fragment &>)
-        return false;
+             const ArenaVector<Edge> &edges, ShaderT shader,
+             const GeometryCallback &geometry = {},
+             float callback_bound = 0.0f) {
+    bool still = false;
+    if constexpr (!Temporal::reads_column_time<ShaderT, const math::Vector &,
+                                               Fragment &>) {
       if constexpr (requires { pipeline.has_temporal_motion; })
-        return !pipeline.has_temporal_motion;
-      return false;
-    }();
+        still = !geometry.evaluate && callback_bound == 0.0f &&
+                !pipeline.has_temporal_motion;
+    }
     if (!Temporal::temporal_sampling_enabled() || still) {
       auto still_shader =
           [&](const math::Vector &p, Fragment &f)
@@ -475,17 +639,37 @@ struct Mesh {
       draw<W, H>(pipeline, canvas, mesh, edges, FragmentShaderFn(still_shader));
       return;
     }
+    if (edges.size() == 0)
+      return;
+    if constexpr (requires { requires PipelineT::table_world_stages; }) {
+      if (geometry.column_edges && pipeline.copy_count() == 1) {
+        if (column_mesh_visible<W, H>(pipeline, canvas, mesh, callback_bound))
+          draw_column_edges<W, H>(pipeline, canvas, mesh, edges, shader,
+                                  geometry, callback_bound);
+        return;
+      }
+    }
+    ScratchScope edge_storage(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, 2);
+    size_t edge_index = 0;
+    auto at = [&](size_t index, float t) HS_HOT_INLINE {
+      const size_t vertex =
+          index == 0 ? edges[edge_index].u : edges[edge_index].v;
+      return geometry.evaluate ? geometry.evaluate(vertex, t)
+                               : mesh.vertices[vertex];
+    };
+    GeometryCallback edge_geometry = geometry;
+    edge_geometry.evaluate = at;
+    edge_geometry.linear_pair = geometry.evaluate ? geometry.linear_pair : true;
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       ScratchScope guard(scratch_arena_a);
-      Fragments points;
-      points.bind(scratch_arena_a, 2);
-      Fragment a, b;
-      a.pos = mesh.vertices[edges[ei].u];
-      b.pos = mesh.vertices[edges[ei].v];
-      Line::sample(points, a, b, make_geodesic_edge_span(a.pos, b.pos));
-      for (auto &p : points)
-        p.v2 = static_cast<float>(ei);
-      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader);
+      edge_index = ei;
+      points.clear();
+      prepare_timed_edge(points, mesh.vertices[edges[ei].u],
+                         mesh.vertices[edges[ei].v], ei);
+      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader, {},
+                                       edge_geometry, callback_bound);
     }
   }
 };

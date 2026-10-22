@@ -33,12 +33,15 @@ struct ArmPass {
  * @param x0,x1 Unwrapped columns at fractions @p t0 and @p t1.
  * @param t0,t1 Frame fractions the track spans, `t0 < t1`.
  * @param frame_start Whether @p t0 starts the frame: a pass whose column
- *        lies within a column before the frame's first is emitted at @p t0.
+ *        lies within @p reach columns before the frame's first is emitted at
+ *        @p t0.
  * @param frame_end Whether @p t1 ends the frame: a pass whose column lies
- *        within a column after the frame's last is emitted at @p t1.
+ *        within @p reach columns after the frame's last is emitted at @p t1.
  *        Otherwise a pass at @p t1 belongs to the following span.
  * @param emit Receives each pass: none, one, or two on either side of an arm
  *        cut.
+ * @param reach Columns beyond the frame's ends whose passes are emitted at
+ *        them.
  * @details Arm `n` lights unwrapped column `W / 2 * (n + t)` at fraction `t`,
  * so with `s = (t - t0) / (t1 - t0)` the pass is
  * `s = (x0 - (n + t0) W / 2) / ((t1 - t0) W / 2 - (x1 - x0))`, one division
@@ -46,7 +49,8 @@ struct ArmPass {
  */
 template <int W, typename Emit>
 HS_HOT_INLINE void arm_passes(float x0, float x1, float t0, float t1,
-                              bool frame_start, bool frame_end, Emit &&emit) {
+                              bool frame_start, bool frame_end, Emit &&emit,
+                              float reach = 1.0f) {
   constexpr float HALF = W / 2.0f;
   const float dx = x1 - x0;
   const float span = t1 - t0;
@@ -54,14 +58,15 @@ HS_HOT_INLINE void arm_passes(float x0, float x1, float t0, float t1,
   if (approach == 0.0f)
     return;
   const int first =
-      static_cast<int>(floorf((fminf(x0, x1) - 1.0f) / HALF + (1.0f - t1)));
-  const int last = static_cast<int>(floorf((fmaxf(x0, x1) + 1.0f) / HALF - t0));
+      static_cast<int>(floorf((fminf(x0, x1) - reach) / HALF + (1.0f - t1)));
+  const int last =
+      static_cast<int>(floorf((fmaxf(x0, x1) + reach) / HALF - t0));
   for (int branch = first; branch <= last; ++branch) {
     const float raw = (x0 - (branch + t0) * HALF) / approach;
-    if (raw < 0.0f && (!frame_start || x0 < (branch + t0) * HALF - 1.0f))
+    if (raw < 0.0f && (!frame_start || x0 < (branch + t0) * HALF - reach))
       continue;
     if ((raw >= 1.0f && !frame_end) ||
-        (raw > 1.0f && x1 > (branch + t1) * HALF + 1.0f))
+        (raw > 1.0f && x1 > (branch + t1) * HALF + reach))
       continue;
     const float s = hs::clamp(raw, 0.0f, 1.0f);
     emit(ArmPass{t0 + span * s, s, branch});
@@ -207,12 +212,15 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
  * @param frame_end As arm_passes().
  * @param emit Receives each pass; the point's true pass lies within
  *        `track.guard` columns of the emitted one.
+ * @param reach As arm_passes(); `track.guard` also emits, at the frame's
+ *        ends, every pass the model's error can carry into the frame.
  */
 template <int W, typename Emit>
 HS_HOT_INLINE void track_passes(const LongitudeTrack &track, float t0, float t1,
-                                bool frame_start, bool frame_end, Emit &&emit) {
+                                bool frame_start, bool frame_end, Emit &&emit,
+                                float reach = 1.0f) {
   arm_passes<W>(track.origin, track.origin + track.travel, t0, t1, frame_start,
-                frame_end, std::forward<Emit>(emit));
+                frame_end, std::forward<Emit>(emit), reach);
 }
 
 } // namespace Temporal

@@ -958,6 +958,7 @@ inline constexpr uint8_t EDGE_VISIBLE = 1u << 0;
  * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
  *        EDGE_VISIBLE; valid as rasterize()'s edge_flags input for an open
  *        polyline.
+ * @param motion_bound Maximum angular displacement from the endpoint.
  * @return False when no edge is visible; bits are then all zero.
  * @details The hoisted per-point coordinates and the whole-trail culls come
  * from trail_gate_prologue.
@@ -967,7 +968,7 @@ template <int W, int H, typename PipelineT>
 HS_NOINLINE_NOCLONE static bool
 gate_trail_edges(const PipelineT &, const ClipRegion &cr,
                  const ClipRegion::XClip &xc, const Fragments &trail,
-                 uint8_t *bits) {
+                 uint8_t *bits, float motion_bound = 0.0f) {
   static_assert(pipeline_hoistable_cull<PipelineT>(),
                 "gate_trail_edges requires a pipeline with no world cull "
                 "stage; route others through edge_visible_in_clip");
@@ -975,6 +976,17 @@ gate_trail_edges(const PipelineT &, const ClipRegion &cr,
   HS_CHECK(n >= 2, "gate_trail_edges: trail has %d points, needs >= 2",
            static_cast<int>(n));
   const size_t edges = n - 1;
+  if (motion_bound > 0.0f) {
+    const CullRegion region(cr, xc, motion_bound);
+    bool any = false;
+    for (size_t e = 0; e < edges; ++e) {
+      const bool visible =
+          geodesic_reaches_region<W, H>(region, trail[e].pos, trail[e + 1].pos);
+      bits[e] = visible ? EDGE_VISIBLE : uint8_t{0};
+      any = any || visible;
+    }
+    return any;
+  }
 
   ScratchScope span_guard(scratch_arena_a);
   const TrailGatePrologue pro = trail_gate_prologue<W, H>(cr, xc, trail);

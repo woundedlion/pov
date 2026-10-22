@@ -235,7 +235,8 @@ void tween(const Animation::QuantizedVectorTrail<CAP> &trail,
  * call.
  */
 template <typename FrameFn>
-void deep_tween_frames(const Tweenable auto &trail, FrameFn &&callback) {
+HS_HOT_FLASH_MEMBER void deep_tween_frames(const Tweenable auto &trail,
+                                           FrameFn &&callback) {
   using FrameT = std::remove_cvref_t<decltype(trail.get(0))>;
   float ts[FrameT::CAPACITY];
 

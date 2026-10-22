@@ -122,14 +122,24 @@ public:
         poses_ready = false;
       return math::rotate(v, orientation.get());
     }
-    if (!poses_ready || pose_frame != cv.frame_number()) {
-      poses->build(orientation, cv.width());
-      pose_frame = cv.frame_number();
-      poses_ready = true;
-    }
+    pose_table(cv);
     if (poses->stationary())
       return math::rotate(v, orientation.get());
     return poses->rotate(v, t);
+  }
+
+  /** @brief The frame's poses by column time.
+   * @param cv Canvas identifying the frame.
+   * @return The pose table, built once per frame from the orientation's
+   *         sub-frame history; a single-pose history rebuilds it on each
+   *         call, as its pose can change within the frame. */
+  HS_HOT_FLASH_MEMBER const Temporal::PoseTable *pose_table(const Canvas &cv) {
+    if (!poses_ready || pose_frame != cv.frame_number()) {
+      poses->build(orientation, cv.width());
+      pose_frame = cv.frame_number();
+      poses_ready = orientation.length() != 1;
+    }
+    return poses;
   }
 
   /** @brief Plots under the explicit pose, preserving the age register.

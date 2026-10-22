@@ -153,17 +153,34 @@ private:
                 float time, PassFnT &pass,
                 const Temporal::BoundaryEvaluator *evaluator) {
     if (evaluator) {
-      for_each_owned_column(x, time, [&](int column, float at) HS_HOT_INLINE {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::boundary_evaluations>();
-        math::PixelCoords position;
-        ::Pixel color;
+      const auto emit = [&](int column, float at) HS_HOT_INLINE {
+        math::PixelCoords position{x, y};
+        ::Pixel color = c;
         float tap_age = age, opacity = alpha;
-        if (evaluator->evaluate(evaluator->context, at, position, color,
-                                tap_age, opacity))
-          plot_owned_column(position.x, position.y, color, tap_age, opacity,
-                            column, pass);
-      });
+        if (at != time || !evaluator->exact_at_time) {
+          Temporal::count_geometry<
+              &Temporal::GeometryCounters::boundary_evaluations>();
+          if (!evaluator->evaluate(evaluator->context, at, position, color,
+                                   tap_age, opacity))
+            return;
+        } else if (!evaluator->sample_exists) {
+          return;
+        }
+        plot_owned_column(position.x, position.y, color, tap_age, opacity,
+                          column, pass);
+      };
+      if (!evaluator->all_passes) {
+        for_each_owned_column(x, time, emit);
+        return;
+      }
+      const int x0 = math::fast_wrap(static_cast<int>(floorf(x)), W);
+      const int arm = (int(floorf(x / (W / 2.0f) + 0.5f)) & 1) * (W / 2);
+      const int columns[] = {x0, math::fast_wrap(x0 + 1, W),
+                             math::fast_wrap(arm - 1, W), arm};
+      for (int i = 0; i < 4; ++i)
+        if (i < 2 || (columns[i] != columns[0] && columns[i] != columns[1]))
+          emit(columns[i],
+               Temporal::column_fraction<W>(static_cast<float>(columns[i])));
       return;
     }
     plot_boundary_static(x, y, c, age, alpha, time, pass);
@@ -224,6 +241,22 @@ public:
     if (t.y1_physical && t.v11 > SPLAT_TAP_CUTOFF)
       pass(static_cast<float>(t.x1), static_cast<float>(t.y1), c, age,
            alpha * t.v11);
+  }
+
+  /** @brief Splats a sample straight into a terminal that writes taps.
+   * @tparam TerminalT Terminal pipeline.
+   * @param terminal Destination terminal.
+   * @param cv Target canvas.
+   * @param x,y Projected sample coordinates.
+   * @param c,age,alpha Shading registers.
+   * @details Writes the taps, coverage and order plot() passes on. */
+  template <typename TerminalT>
+  HS_HOT_INLINE static void splat(TerminalT &terminal, Canvas &cv, float x,
+                                  float y, const ::Pixel &c, float age,
+                                  float alpha) {
+    assert(age >= 0.0f && alpha >= 0.0f);
+    (void)age;
+    terminal.plot_taps(cv, splat_taps<W, H>(x, y), c, alpha, SPLAT_TAP_CUTOFF);
   }
 };
 HS_O3_END
