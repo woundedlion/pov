@@ -18,6 +18,7 @@
 #include "core/engine/concepts.h"
 #include "core/memory.h"
 #include "core/render/plot/cull.h"
+#include "core/render/temporal/arm_crossing.h"
 
 /**
  * @file raster.h

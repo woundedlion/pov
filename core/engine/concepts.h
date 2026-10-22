@@ -740,53 +740,6 @@ public:
     return timed_entries->plot(ctx, cv, v, c, age, alpha, t, prediction);
   }
 
-  /** @brief Solves and plots one geometry callback at each arm pass.
-   * @tparam W,H Canvas dimensions.
-   * @param cv Frame context.
-   * @param geometry Pure position callback.
-   * @param bound Combined geometry and world-stage motion bound.
-   * @param c Source color.
-   * @param age Age register.
-   * @param alpha Source opacity.
-   * @param linear_pair The callback interpolates two lattice positions. */
-  template <int W, int H, typename Geometry>
-  void plot_timed(Canvas &cv, Geometry &&geometry, Temporal::MotionBound bound,
-                  const Pixel &c, float age, float alpha,
-                  bool linear_pair = false) const {
-    auto position = [&](float t) HS_HOT_INLINE {
-      Temporal::count_geometry<
-          &Temporal::GeometryCounters::callback_evaluations>();
-      return geometry(t);
-    };
-    if (!Temporal::temporal_sampling_enabled()) {
-      plot_at(cv, position(1.0f), c, age, alpha, 1.0f);
-      return;
-    }
-    auto project = [&](float t)
-                       HS_HOT_INLINE { return probe(cv, position(t), t); };
-    Temporal::count_geometry<&Temporal::GeometryCounters::end_probes>();
-    const auto end = project(1.0f);
-    const auto passes = Temporal::solve_capture<W>(
-        project, end, bound.columns<W, H>(end.y), linear_pair);
-    auto evaluate_boundary = [&](float t, math::PixelCoords &p, Pixel &color,
-                                 float &sample_age, float &opacity)
-                                 HS_HOT_INLINE {
-                                   p = project(t);
-                                   color = c;
-                                   sample_age = age;
-                                   opacity = alpha;
-                                   return true;
-                                 };
-    Temporal::BoundaryEvaluator boundary(evaluate_boundary);
-    for (int i = 0; i < passes.count; ++i) {
-      const float t = passes.fraction[i];
-      Temporal::ColumnPrediction prediction{
-          end.x, std::numeric_limits<float>::infinity()};
-      prediction.boundary = &boundary;
-      plot_at(cv, position(t), c, age, alpha, t, &prediction);
-    }
-  }
-
   /**
    * @brief Plots a pixel at floating-point screen coordinates.
    * @param cv Target canvas to draw into.

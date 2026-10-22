@@ -1193,32 +1193,7 @@ struct DenseControl {
 };
 
 /** @brief One affine dense point at an arm pass. */
-struct DenseCapture {
-  math::PixelCoords position; /**< Captured screen point. */
-  float time;                 /**< Owning sweep fraction. */
-};
-
-/** @brief Solves the affine screen trajectory including splat extensions.
- * @tparam W Canvas width.
- * @param a,b Previous and current projected positions.
- * @param emit Receives each zero, one or two arm passes. */
-template <int W, typename Emit>
-HS_HOT_INLINE void dense_captures(const math::PixelCoords &a,
-                                  const math::PixelCoords &b, Emit &&emit) {
-  constexpr float HALF = W / 2.0f;
-  const float dx = b.x - a.x;
-  const int first = static_cast<int>(floorf((fminf(a.x, b.x) - 1.0f) / HALF));
-  const int last = static_cast<int>(floorf((fmaxf(a.x, b.x) + 1.0f) / HALF));
-  for (int branch = first; branch <= last; ++branch) {
-    const float raw = (a.x - branch * HALF) / (HALF - dx);
-    if (raw < 0.0f && a.x < branch * HALF - 1.0f)
-      continue;
-    if (raw > 1.0f && b.x > (branch + 1) * HALF + 1.0f)
-      continue;
-    const float t = hs::clamp(raw, 0.0f, 1.0f);
-    emit(DenseCapture{{a.x + dx * t, a.y + (b.y - a.y) * t}, t});
-  }
-}
+using DenseCapture = Temporal::LinearCapture;
 
 /** @brief Emits one dense material point and its independent arm passes.
  * @tparam W,H Canvas dimensions.
@@ -1273,13 +1248,12 @@ emit_dense_point(PipelineRef &pipeline, Canvas &canvas, const Fragment &a,
     };
     Temporal::BoundaryEvaluator boundary(boundary_at);
     const float dx = end.x - start.x, dy = end.y - start.y;
-    const float fraction = capture.position.x - floorf(capture.position.x);
-    const float time_span = fmaxf(fraction, 1.0f - fraction) / (W / 2.0f);
     const float residual =
         fabsf(capture.position.x - (start.x + dx * capture.time)) +
         fabsf(capture.position.y - (start.y + dy * capture.time));
-    boundary.force_timing = residual + (fabsf(dx) + fabsf(dy)) * time_span >
-                            Temporal::MAX_SINGLE_TIME_TAP_ERROR;
+    boundary.force_timing =
+        residual + Temporal::tap_motion_error<W>(capture.position.x, dx, dy) >
+        Temporal::MAX_SINGLE_TIME_TAP_ERROR;
     if (boundary.force_timing)
       Temporal::count_geometry<
           &Temporal::GeometryCounters::interior_timed_samples>();
@@ -1305,7 +1279,7 @@ emit_dense_point(PipelineRef &pipeline, Canvas &canvas, const Fragment &a,
   if (interpolated)
     emit_capture(*interpolated);
   else
-    dense_captures<W>(start, end, emit_capture);
+    Temporal::linear_captures<W>(start, end, emit_capture);
 }
 
 /** @brief Emits one dense edge using cached endpoint trajectories.

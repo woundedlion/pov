@@ -1379,6 +1379,8 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
 │   │   ├── temporal.h              Column-time sampling toggle, sweep fraction, rotation arc, scan column-time state, time-aware scan shaders and capture-time solving
+│   │   ├── temporal/               Shared column-time machinery: closed-form arm passes
+│   │   │                            (arm_crossing)
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly

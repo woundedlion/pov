@@ -345,31 +345,23 @@ inline void test_geometry_capture_branches() {
         auto probe = [&](float t) {
           return math::vector_to_pixel<288, 144>(position(t));
         };
-        const auto got = sorted(Temporal::solve_capture<288>(
-            probe, probe(1.0f), fmaxf(4.1f, fabsf(delta)), false));
         const auto want = oracle_captures(position);
         zero += want.empty();
         one += want.size() == 1;
         two += want.size() == 2;
-        HS_EXPECT_EQ(got.count, static_cast<int>(want.size()));
-        for (int pass = 0; pass < std::min<int>(got.count, want.size());
-             ++pass) {
-          const auto endpoint = probe(1.0f);
+        const auto endpoint = probe(1.0f);
+        for (const float pass : want) {
           const float unwrapped =
-              endpoint.x +
-              std::remainder(probe(want[pass]).x - endpoint.x, 288.0f);
+              endpoint.x + std::remainder(probe(pass).x - endpoint.x, 288.0f);
           const int branch =
-              static_cast<int>(lroundf(unwrapped / 144.0f - want[pass]));
-          const float branch_time = Temporal::solve_capture_branch<288>(
+              static_cast<int>(lroundf(unwrapped / 144.0f - pass));
+          const float got = Temporal::solve_capture_branch<288>(
               probe, endpoint, fmaxf(4.1f, fabsf(delta)), false, branch);
-          HS_EXPECT_NEAR(branch_time, got.fraction[pass], 1e-6f);
-          const float error = std::remainder(probe(got.fraction[pass]).x -
-                                                 got.fraction[pass] * 144.0f,
-                                             144.0f);
+          const float error =
+              std::remainder(probe(got).x - got * 144.0f, 144.0f);
           HS_EXPECT_LE(fabsf(error), 0.501f);
           HS_EXPECT_LE(
-              fabsf(std::remainder(
-                  probe(got.fraction[pass]).x - probe(want[pass]).x, 288.0f)),
+              fabsf(std::remainder(probe(got).x - probe(pass).x, 288.0f)),
               0.5f);
         }
       }
@@ -380,7 +372,8 @@ inline void test_geometry_capture_branches() {
   HS_EXPECT_GT(two, 0);
 }
 
-/** @brief Shortcuts limit probes and polar anchors are held and counted. */
+/** @brief Branch solves clamp extensions, take the linear pair without a
+ *         confirming probe, and hold polar anchors without probing. */
 inline void test_geometry_capture_shortcuts_and_poles() {
   int probes = 0;
   auto probe = [&](float t) {
@@ -394,40 +387,29 @@ inline void test_geometry_capture_shortcuts_and_poles() {
   HS_EXPECT_EQ(
       Temporal::solve_capture_branch<288>(probe, branch_end, 3.0f, true, 0),
       1.0f);
-  probes = 0;
-  Temporal::geometry_counters = {};
-  const auto no_pass = Temporal::solve_capture<288>(
-      probe, math::PixelCoords{146.0f, 72.0f}, 3.0f, true);
-  HS_EXPECT_EQ(no_pass.count, 0);
-  HS_EXPECT_EQ(probes, 1);
-  probes = 0;
-  const auto shortcut = Temporal::solve_capture<288>(
-      probe, math::PixelCoords{80.0f, 72.0f}, 3.0f, false);
-  HS_EXPECT_EQ(shortcut.count, 1);
-  HS_EXPECT_EQ(probes, 0);
-  HS_EXPECT_EQ(shortcut.fraction[0], 80.0f / 144.0f);
   auto reverse = [&](float t) {
     ++probes;
     return math::PixelCoords{145.0f - 3.0f * t, 72.0f};
   };
-  const auto two = sorted(Temporal::solve_capture<288>(
-      reverse, math::PixelCoords{142.0f, 72.0f}, 3.0f, true));
-  HS_EXPECT_EQ(two.count, 2);
-  HS_EXPECT_EQ(probes, 1);
-  HS_EXPECT_NEAR(two.fraction[0], 1.0f / 147.0f, 1e-6f);
-  HS_EXPECT_NEAR(two.fraction[1], 145.0f / 147.0f, 1e-6f);
+  probes = 0;
+  const math::PixelCoords reverse_end{142.0f, 72.0f};
+  HS_EXPECT_NEAR(
+      Temporal::solve_capture_branch<288>(reverse, reverse_end, 3.0f, true, 1),
+      1.0f / 147.0f, 1e-6f);
+  HS_EXPECT_NEAR(
+      Temporal::solve_capture_branch<288>(reverse, reverse_end, 3.0f, true, 0),
+      145.0f / 147.0f, 1e-6f);
+  HS_EXPECT_EQ(probes, 2);
   probes = 0;
   const Temporal::MotionBound bound{0.1f, false};
   for (float row : {0.0f, 0.25f, 142.75f, 143.0f}) {
     const float columns = bound.columns<288, 144>(row);
     HS_EXPECT_GE(columns, Temporal::MAX_CAPTURE_COLUMNS<288>);
-    const auto held = Temporal::solve_capture<288>(
-        probe, math::PixelCoords{143.5f, row}, columns, false);
-    HS_EXPECT_EQ(held.count, 1);
-    HS_EXPECT_EQ(held.fraction[0], 143.5f / 144.0f);
+    HS_EXPECT_EQ(Temporal::solve_capture_branch<288>(
+                     probe, math::PixelCoords{143.5f, row}, columns, false, 0),
+                 143.5f / 144.0f);
   }
   HS_EXPECT_EQ(probes, 0);
-  HS_EXPECT_EQ(Temporal::geometry_counters.held_anchors, 4u);
   HS_EXPECT_LT((bound.columns<288, 144>(71.5f)), 5.0f);
 }
 
@@ -558,47 +540,6 @@ inline void test_timed_unborn_samples_skip_history() {
   };
   pipeline.flush(canvas, WorldTrailFn(history_shader), 1.0f);
   HS_EXPECT_EQ(records, 0);
-}
-
-/** @brief Both timed entries emit no-pass points zero times and two-pass twice. */
-inline void test_timed_point_entries() {
-  for (bool direct : {false, true}) {
-    StubEffect effect(288, 144);
-    Canvas canvas(effect);
-    Filter::Screen::DirectAntiAliasSink<288, 144> sink;
-    sink.prepare(canvas);
-    Pipeline<288, 144, Filter::Screen::AntiAlias<288, 144>> pipeline;
-    PipelineRef ref(pipeline, Temporal::Timed{});
-    for (float delta : {3.0f, -3.0f}) {
-      auto geometry = [&](float t) {
-        return math::pixel_to_vector<288, 144>(
-            (delta > 0.0f ? 143.0f : 145.0f) + delta * t, 72.0f);
-      };
-      const Temporal::MotionBound bound{3.0f * 2.0f * math::PI_F / 288.0f,
-                                        true};
-      Temporal::geometry_counters = {};
-      std::fill_n(canvas.data(), 288 * 144, Pixel{});
-      if (direct)
-        sink.plot_timed(canvas, geometry, bound, Pixel(65535, 0, 0), 0.0f, 1.0f,
-                        true);
-      else
-        ref.plot_timed<288, 144>(canvas, geometry, bound, Pixel(65535, 0, 0),
-                                 0.0f, 1.0f, true);
-      int lit = 0;
-      for (int i = 0; i < 288 * 144; ++i)
-        lit += canvas.data()[i].r != 0;
-      if (delta > 0.0f)
-        HS_EXPECT_EQ(lit, 0);
-      else {
-        HS_EXPECT_GT(canvas(145, 72).r, 0);
-        HS_EXPECT_GT(canvas(142, 72).r, 0);
-      }
-      HS_EXPECT_EQ(Temporal::geometry_counters.end_probes, 1u);
-      HS_EXPECT_EQ(Temporal::geometry_counters.solve_probes, 1u);
-      HS_EXPECT_EQ(Temporal::geometry_counters.callback_evaluations,
-                   delta > 0.0f ? 2u : 4u);
-    }
-  }
 }
 
 /** @brief Complementary boundary parts preserve the full still splat weights. */

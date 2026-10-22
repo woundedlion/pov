@@ -118,23 +118,6 @@ public:
     return plot_at(cv, v, c, age, alpha, t, prediction);
   }
 
-  /** @brief Solves a pure geometry callback before splatting its arm passes.
-   * @param cv Prepared canvas.
-   * @param geometry Position callback.
-   * @param bound Motion bound.
-   * @param c Source color.
-   * @param age Age register.
-   * @param alpha Source opacity.
-   * @param linear_pair The callback interpolates two lattice positions. */
-  template <typename Geometry>
-  void plot_timed(Canvas &cv, Geometry &&geometry, Temporal::MotionBound bound,
-                  const ::Pixel &c, float age, float alpha,
-                  bool linear_pair = false) {
-    PipelineRef ref(*this, cv, Temporal::Timed{});
-    ref.plot_timed<W, H>(cv, std::forward<Geometry>(geometry), bound, c, age,
-                         alpha, linear_pair);
-  }
-
   /**
    * @brief Direct sinks contain no independently accessible filter stages.
    * @tparam T Requested stage type; any instantiation fails to compile.

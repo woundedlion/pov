@@ -309,6 +309,19 @@ HS_HOT_INLINE inline float centered_remainder(float value, float period) {
 /** @brief Maximum dense tap-position error retained by a single-time splat. */
 inline constexpr float MAX_SINGLE_TIME_TAP_ERROR = 0.003f;
 
+/** @brief Tap-position error of splatting a linearly moving sample at one time.
+ * @tparam W Canvas width.
+ * @param x Column of the splat.
+ * @param dx,dy Column and row motion over the frame.
+ * @return Bound, in pixels, on how far a tap's own-time position lies from
+ *         the splat's: the motion over the farther tap column's lag. */
+template <int W>
+HS_HOT_INLINE inline float tap_motion_error(float x, float dx, float dy) {
+  const float fraction = x - floorf(x);
+  return (fabsf(dx) + fabsf(dy)) *
+         (fmaxf(fraction, 1.0f - fraction) / (W / 2.0f));
+}
+
 /** @brief Pure boundary-column geometry and shading evaluator. */
 struct BoundaryEvaluator {
   void *context;             ///< Borrowed evaluator state.
@@ -422,7 +435,6 @@ struct GeometryCounters {
       0; /**< Samples interpolated from transformed controls. */
   uint32_t boundary_evaluations = 0; /**< Kept boundary columns re-evaluated. */
   uint32_t corrections = 0; /**< Re-evaluations after a missed prediction. */
-  uint32_t anchors = 0;     /**< Points solved for their arm passes. */
   uint32_t refined_controls = 0;     /**< Rigid controls added by refinement. */
   uint32_t callback_evaluations = 0; /**< Geometry callback invocations. */
   uint32_t parts = 0;                /**< Walks between arm-boundary cuts. */
@@ -538,41 +550,6 @@ solve_capture_branch(Probe &&probe, math::PixelCoords end, float columns,
     }
   }
   return t;
-}
-
-/** @brief Solves each arm branch from a previously projected endpoint.
- * @tparam W Canvas width.
- * @param probe Projected position at a frame fraction.
- * @param end Endpoint projection at t = 1.
- * @param columns Maximum azimuth displacement in columns.
- * @param linear_pair Geometry uses a two-position interpolating callback.
- * @return Zero, one or two capture fractions. */
-template <int W, typename Probe>
-HS_HOT_INLINE Captures solve_capture(Probe &&probe, math::PixelCoords end,
-                                     float columns, bool linear_pair) {
-  count_geometry<&GeometryCounters::anchors>();
-  Captures out;
-  const float fraction = column_fraction<W>(end.x);
-  const float boundary = fminf(fraction, 1.0f - fraction) * (W / 2.0f);
-  if (columns >= MAX_CAPTURE_COLUMNS<W> ||
-      (columns < 3.8f && boundary > columns + 1.0f)) {
-    if (columns >= MAX_CAPTURE_COLUMNS<W>)
-      count_geometry<&GeometryCounters::held_anchors>();
-    out.count = 1;
-    out.fraction[0] = fraction;
-    return out;
-  }
-  count_geometry<&GeometryCounters::solve_probes>();
-  const math::PixelCoords first = probe(0.0f);
-  const float start =
-      end.x + std::remainder(first.x - end.x, static_cast<float>(W));
-  const float r0 = start / (W / 2.0f);
-  const float r1 = end.x / (W / 2.0f) - 1.0f;
-  for (float n = floorf(r0); n > r1 && out.count < Captures::CAPACITY;
-       n -= 1.0f)
-    out.fraction[out.count++] = solve_capture_branch<W>(
-        probe, end, columns, linear_pair, static_cast<int>(n), &first);
-  return out;
 }
 
 /**

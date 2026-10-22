@@ -16,6 +16,7 @@
 #include "core/render/filter.h"
 #include "core/math/geometry.h"
 #include "core/render/canvas.h"
+#include "core/render/temporal/arm_crossing.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/mesh_test_util.h"
@@ -23,6 +24,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <functional>
 #include <limits>
 #include <vector>
 
@@ -77,6 +79,7 @@ static_assert(Plot::RasterLoop::closed().is_closed());
 #include "tests/plot_scan/planar_chords.h"
 #include "tests/plot_scan/temporal_seam.h"
 #include "tests/plot_scan/timed_mesh.h"
+#include "tests/plot_scan/temporal_crossings.h"
 /**
  * @brief Runs every plot/scan sampling test in this module.
  * @return Number of failed assertions reported across the module's tests.
@@ -118,6 +121,12 @@ inline int run_plot_scan_tests() {
   test_timed_polar_mesh_branch_coverage();
   test_timed_stationary_callback_pixel_parity();
   test_four_regular_and_medial_edge_extraction();
+
+  test_arm_passes_match_brute_force();
+  test_arm_passes_extend_to_frame_ends();
+  test_piecewise_arm_passes_match_brute_force();
+  test_model_track_guard_bounds_true_passes();
+  test_model_track_splits_or_refuses_near_poles();
 
   test_geodesic_sincos_bit_parity();
   test_line_sample_endpoints_and_unit_length();
