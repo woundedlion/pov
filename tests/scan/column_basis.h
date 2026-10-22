@@ -542,6 +542,131 @@ inline void test_lit_caps_keep_swept_frames() {
 }
 
 /**
+ * @brief A column-time scan over a shape's swept() proxy visits every pixel
+ *        the shape lights at its column's rotation, and fewer than whole rows.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam ShapeT SDF::SweptBounded shape.
+ * @param label Shape named in failure context.
+ * @param shape Shape at the current endpoint.
+ * @param time Column-time state with a rotated basis.
+ */
+template <int W, int H, typename ShapeT>
+inline void check_swept_proxy_covers(const char *label, const ShapeT &shape,
+                                     const Temporal::ColumnTime &time) {
+  HS_CONTEXT(label);
+  const ScopedPoleLod lod(0.0f);
+  const auto proxy = shape.swept(time.sweep);
+  std::vector<uint8_t> visited(static_cast<size_t>(W) * H, 0);
+  const SDF::Bounds rows = proxy.template get_vertical_bounds<H>();
+  Scan::scan_region_column_time<W, H>(
+      std::max(0, rows.y_min), std::min(H - 1, rows.y_max),
+      [&](int y, auto &&out) {
+        return proxy.template get_horizontal_intervals<W, H>(y, out);
+      },
+      [&](int x, int y, const math::Vector &, int) {
+        visited[static_cast<size_t>(y) * W + x] = 1;
+        return 1;
+      },
+      {}, time);
+  constexpr float THRESHOLD = ShapeT::is_solid ? 2.0f * math::PI_F / W : 0.0f;
+  int lit = 0, missed = 0, scanned = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const bool seen = visited[static_cast<size_t>(y) * W + x] != 0;
+      scanned += seen;
+      const math::Vector p = Scan::rotated_direction<W>(
+          time.azimuth, time.up, x, math::TrigLUT<W, H>::sin_phi[y],
+          math::TrigLUT<W, H>::cos_phi[y]);
+      SDF::DistanceResult result;
+      shape.template distance<false>(p, result);
+      if (result.dist < THRESHOLD) {
+        ++lit;
+        missed += !seen;
+      }
+    }
+  const SDF::Bounds whole =
+      Scan::swept_rows<H>(shape.template get_vertical_bounds<H>(), time.sweep);
+  HS_EXPECT_EQ(missed, 0);
+  HS_EXPECT_GT(lit, 20);
+  HS_EXPECT_LT(scanned, (whole.y_max - whole.y_min + 1) * W);
+}
+
+/**
+ * @brief Distorted rings, lines and CSG compositions bound their column-time
+ *        scans by swept proxies that keep every lit pixel.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param motion Frame endpoints, turning at least 0.25 rad.
+ */
+template <int W, int H>
+inline void check_swept_proxies(const BasisMotion &motion) {
+  HS_CONTEXT(W == 96 ? "swept proxies 96" : "swept proxies 288");
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  const Temporal::ColumnTime time =
+      basis->prepare(motion.previous, motion.current);
+  HS_EXPECT_GT(time.sweep, 0.25f);
+
+  const math::Basis tilted = math::make_basis(
+      math::Quaternion(), math::Vector(0.4f, 0.5f, 0.75f).normalized());
+  const ScalarFn wave = [](float t) {
+    return 0.08f * sinf(3.0f * math::TWO_PI_F * t);
+  };
+  const SDF::DistortedRing wavy(tilted, 0.5f, 0.03f, wave, 0.08f, 0.0f);
+  check_swept_proxy_covers<W, H>("distorted ring", wavy, time);
+
+  float knots[24];
+  for (int k = 0; k < 24; ++k)
+    knots[k] = 0.06f * sinf(2.0f * math::TWO_PI_F * k / 24.0f) - 0.02f;
+  SDF::KnotPrefilter prefilter;
+  const SDF::DistortedRing knotted(tilted, 0.7f, 0.025f, knots, 24, 0.0f,
+                                   prefilter);
+  check_swept_proxy_covers<W, H>("knot ring", knotted, time);
+
+  const SDF::FlatDistortedRing flat(tilted, 0.3f, 0.03f);
+  check_swept_proxy_covers<W, H>("flat ring", flat, time);
+
+  const SDF::Line line(math::Vector(0.8f, 0.3f, 0.2f).normalized(),
+                       math::Vector(0.1f, 0.4f, 0.9f).normalized(), 0.05f);
+  check_swept_proxy_covers<W, H>("line", line, time);
+
+  const SDF::Ring ring(tilted, 0.4f, 0.03f);
+  const math::Basis star_basis = math::make_basis(
+      math::Quaternion(), math::Vector(0.9f, 0.25f, 0.3f).normalized());
+  const SDF::Star star(star_basis, 0.25f, 5, 0.0f);
+  const SDF::Star small(star_basis, 0.12f, 4, 0.0f);
+  const SDF::PlanarPolygon square(star_basis, 0.2f, 4, 0.0f);
+  const SDF::PlanarPolygon apart(tilted, 0.15f, 4, 0.0f);
+  check_swept_proxy_covers<W, H>("union", SDF::Union(ring, line), time);
+  check_swept_proxy_covers<W, H>("smooth union",
+                                 SDF::SmoothUnion(star, apart, 0.05f), time);
+  check_swept_proxy_covers<W, H>("intersection",
+                                 SDF::Intersection(small, square), time);
+  check_swept_proxy_covers<W, H>("subtract", SDF::Subtract(star, small), time);
+  const SDF::Union<SDF::Ring, SDF::Line> inner(ring, line);
+  check_swept_proxy_covers<W, H>("nested union", SDF::Union(inner, flat), time);
+  const math::Basis petal = math::make_basis(
+      math::Quaternion(), math::Vector(0.9f, 0.35f, 0.0f).normalized());
+  const SDF::Star seed(petal, 0.1f, 5, 0.0f);
+  check_swept_proxy_covers<W, H>("repeat", SDF::AngularRepeat(seed, 6), time);
+}
+
+/**
+ * @brief Swept proxies keep every lit pixel of distorted rings, lines and CSG
+ *        compositions, at both test widths.
+ */
+inline void test_swept_proxies_keep_lit_pixels() {
+  const BasisMotion tilt{math::Quaternion(),
+                         math::make_rotation(math::X_AXIS, 0.3f)};
+  for (const BasisMotion &motion : {tilted_motion(0.3f), tilt}) {
+    check_swept_proxies<96, 48>(motion);
+    check_swept_proxies<288, 144>(motion);
+  }
+}
+
+/**
  * @brief A cap that the swept clip test rules out lights no pixel of
  *        it under the frame's rotation.
  * @tparam W Canvas width.
@@ -731,20 +856,27 @@ inline void test_volume_columns_match_rotated_placements() {
 
 /**
  * @brief A ring group with previous axes matches its rings rebuilt about the
- *        axes interpolated to each column's sweep time.
+ *        axes at each column's sweep time, by the interpolant each slot's turn
+ *        bound picks: the normalized chord, or the great-circle arc.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param turns Per-slot angle between the previous and current axes, slow
+ *        slots taking the chord and fast ones the arc.
  */
-inline void test_ring_group_previous_axes_match_column_rings() {
-  constexpr int W = 96, H = 48;
+template <int W, int H>
+inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
   constexpr int N = 3;
+  HS_CONTEXT(W == 96 ? "previous axes 96" : "previous axes 288");
   const ScopedPoleLod lod(0.0f);
   math::Vector previous[N], current[N];
-  for (int s = 0; s < N; ++s) {
+  int s = 0;
+  for (const float turn : turns) {
     current[s] = math::rotate(math::Vector(0.77f, 0.0f, -0.6f).normalized(),
                               math::make_rotation(math::X_AXIS, 0.3f * s));
     previous[s] = math::rotate(
-        current[s],
-        math::make_rotation(math::Vector(0.6f, -0.2f, 0.77f).normalized(),
-                            0.25f + 0.1f * s));
+        current[s], math::make_rotation(
+                        math::Vector(0.6f, -0.2f, 0.77f).normalized(), turn));
+    ++s;
   }
   const auto draw = [&](const math::Vector *axes, const math::Vector *before) {
     hs_test::StubEffect fx(W, H);
@@ -771,11 +903,24 @@ inline void test_ring_group_previous_axes_match_column_rings() {
   };
   const std::vector<Pixel> swept = draw(current, previous);
   std::vector<Pixel> expected(static_cast<size_t>(W) * H);
+  int arcs = 0;
   for (int c = 0; c < W / 2; ++c) {
     const float u = static_cast<float>(c) / (W / 2);
     math::Vector axes[N];
-    for (int s = 0; s < N; ++s)
-      axes[s] = (previous[s] + (current[s] - previous[s]) * u).normalized();
+    for (int s = 0; s < N; ++s) {
+      const math::Vector normal = math::cross(previous[s], current[s]);
+      const float angle = atan2f(sqrtf(math::dot(normal, normal)),
+                                 math::dot(previous[s], current[s]));
+      const bool arc = Temporal::choose_turn_interpolant(
+                           angle, Scan::RingGroup::MAX_AXIS_ERROR_PX *
+                                      math::RADIANS_PER_COLUMN<W>) ==
+                       Temporal::Interpolant::ARC;
+      arcs += arc && c == 0;
+      axes[s] =
+          arc ? math::rotate(previous[s], math::make_rotation(
+                                              normal.normalized(), u * angle))
+              : (previous[s] + (current[s] - previous[s]) * u).normalized();
+    }
     const std::vector<Pixel> frame = draw(axes, nullptr);
     for (int y = 0; y < H; ++y)
       for (int x : {c, c + W / 2})
@@ -784,6 +929,39 @@ inline void test_ring_group_previous_axes_match_column_rings() {
   }
   HS_EXPECT_TRUE(expect_factored_tolerance("previous axes", swept, expected) >
                  100);
+  HS_EXPECT_GT(arcs, 0);
+  HS_EXPECT_LT(arcs, N);
+}
+
+/**
+ * @brief The normalized chord of a constant-rate turn stays within
+ *        PathBound::normalized_chord_error() of the turn up to a quarter turn.
+ */
+inline void test_normalized_chord_error_bounds_the_turn() {
+  for (int i = 1; i <= 64; ++i) {
+    const float angle = 0.5f * math::PI_F * static_cast<float>(i) / 64.0f;
+    const double bound =
+        Temporal::PathBound::rotation(angle).normalized_chord_error();
+    double worst = 0.0;
+    for (int k = 0; k <= 256; ++k) {
+      const double u = k / 256.0;
+      const double lead =
+          std::atan2(u * std::sin(angle), 1.0 - u + u * std::cos(angle));
+      worst = std::max(worst, std::fabs(lead - u * angle));
+    }
+    HS_CONTEXT("angle", angle);
+    HS_EXPECT_LE(worst, bound);
+    HS_EXPECT_GE(worst, 0.8 * bound);
+  }
+}
+
+/**
+ * @brief Ring group slots follow their axes' great circles at slow and fast
+ *        turns.
+ */
+inline void test_ring_group_previous_axes_match_column_rings() {
+  check_ring_group_previous_axes<96, 48>({0.25f, 0.35f, 0.45f});
+  check_ring_group_previous_axes<288, 144>({0.02f, 0.2f, 1.2f});
 }
 
 /** @brief Column row spans contain every sample inside the cosine band. */

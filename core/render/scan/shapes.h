@@ -13,6 +13,7 @@
 #include "core/render/filter/pipeline.h"
 #include "core/containers/static_circular_buffer.h"
 #include "core/render/canvas.h"
+#include "core/render/temporal/vertex_motion.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/raster.h"
 
@@ -52,7 +53,7 @@ struct DistortedRing {
    * @param options Phase, debug bounding box and pole-fill settings.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw_flat(PipelineRef pipeline, Canvas &canvas,
+  static void draw_flat(ScanRef pipeline, Canvas &canvas,
                         const math::Basis &basis, float radius, float thickness,
                         FragmentShaderFn fragment_shader,
                         const RingDrawOptions &options = {}) {
@@ -80,11 +81,10 @@ struct DistortedRing {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, float thickness,
-                   ScalarFn shift_fn, float amplitude,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, float thickness, ScalarFn shift_fn,
+                   float amplitude, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
     SDF::DistortedRing shape(basis, radius, thickness, shift_fn, amplitude,
                              phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -109,10 +109,10 @@ struct DistortedRing {
    * @param options Phase, debug bounding box and pole-fill settings.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void
-  draw(PipelineRef pipeline, Canvas &canvas, const math::Basis &basis,
-       float radius, float thickness, const float *knots, int lut_n,
-       FragmentShaderFn fragment_shader, const RingDrawOptions &options = {}) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, float thickness, const float *knots, int lut_n,
+                   FragmentShaderFn fragment_shader,
+                   const RingDrawOptions &options = {}) {
     SDF::KnotPrefilter prefilter;
     SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n,
                              options.phase, prefilter);
@@ -564,10 +564,9 @@ struct PlanarPolygon {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, int sides,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::PlanarPolygon shape(res.first, res.second, sides, phase,
                              radius > 1.0f);
@@ -621,7 +620,7 @@ struct Line {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &v1,
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &v1,
                    const math::Vector &v2, float thickness,
                    FragmentShaderFn fragment_shader, bool debug_bb = false) {
     SDF::Line shape(v1, v2, thickness);
@@ -649,8 +648,8 @@ struct Ring {
    * @details A radius past 1 keeps the caller's azimuth origin and handedness.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, float thickness,
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
     SDF::Ring shape(basis, radius, thickness, phase);
@@ -673,8 +672,8 @@ struct Ring {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Vector &normal, float radius, float thickness,
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &normal,
+                   float radius, float thickness,
                    FragmentShaderFn fragment_shader, float phase = 0,
                    bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), normal);
@@ -690,6 +689,10 @@ HS_O3_BEGIN
 struct RingGroup {
   /** Maximum number of rings in one group. */
   static constexpr int MAX_RINGS = 8;
+
+  /** Largest distance, in columns, a slot's interpolated axis may stray
+   *  from its great circle. */
+  static constexpr float MAX_AXIS_ERROR_PX = 0.025f;
 
   /** Inclusive row spans where one column meets the covering band. */
   struct ColumnRows {
@@ -840,9 +843,9 @@ struct RingGroup {
    *        v0/v1/v3 per pixel.
    * @param previous_normals Optional per-slot axes at the previous frame
    *        endpoint. With temporal sampling on, column `x` evaluates each
-   *        slot about the axis interpolated linearly from its previous axis
-   *        to its current one at `sweep_fraction(x, W)` and normalised, and
-   *        each slot's bounds grow by the angle between the two.
+   *        slot about its axis at `sweep_fraction(x, W)` along the great
+   *        circle from its previous axis to its current one, and each slot's
+   *        bounds grow by the angle between the two.
    * @details Row intervals come from one covering ring: the middle member (n/2)
    * inflated by the group's maximum plane/radius deviation plus thickness.
    * Members evaluate per pixel in ascending slot order. The canvas's
@@ -864,8 +867,8 @@ struct RingGroup {
         auto slot_shader = [&](const math::Vector &p, Fragment &f) {
           shader(s, p, f);
         };
-        if constexpr (std::is_constructible_v<PipelineRef, PipelineT &>) {
-          PipelineRef ref(pipeline);
+        if constexpr (std::is_constructible_v<ScanRef, PipelineT &>) {
+          ScanRef ref(pipeline);
           Scan::rasterize<W, H>(ref, canvas, shapes[s], slot_shader, true);
         } else {
           Scan::rasterize<W, H, true>(pipeline, canvas, shapes[s], slot_shader,
@@ -945,7 +948,9 @@ struct RingGroup {
    * @param up Rotated up directions; read only with @p azimuth.
    * @param previous_normals Per-slot axes at the previous endpoint, or null.
    * @details A pixel at colatitude phi in column x has axis dot
-   * `+-sin(phi) * a + cos(phi) * b`, negated on the far arm.
+   * `+-sin(phi) * a + cos(phi) * b`, negated on the far arm. A slot takes its
+   * normalized chord, unless turn_fast_axes() moves it along its great
+   * circle.
    */
   template <int W, int H>
   HS_NOINLINE_NOCLONE static void
@@ -981,6 +986,70 @@ struct RingGroup {
             (math::dot(e, start[s]) + u * math::dot(e, motion[s])) * inverse;
         out[2 * s + 1] =
             (math::dot(v, start[s]) + u * math::dot(v, motion[s])) * inverse;
+      }
+    }
+    turn_fast_axes<W, H>(terms, shapes, n, azimuth, up, previous_normals);
+  }
+
+  /**
+   * @brief Rewrites the axis terms of the slots too fast for their chord with
+   *        their great-circle turn.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @param terms Axis terms fill_column_axes() wrote.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes.
+   * @param azimuth Rotated first-arm azimuths, or null for the fixed meridian.
+   * @param up Rotated up directions; read only with @p azimuth.
+   * @param previous_normals Per-slot axes at the previous endpoint, or null
+   *        for slots that hold still.
+   * @details Each slot's interpolant comes from its turn's analytic bound: the
+   * normalized chord while it stays within MAX_AXIS_ERROR_PX of the
+   * constant-rate turn, else the arc, turned per column by a rotation
+   * recurrence.
+   */
+  template <int W, int H>
+  HS_FLASH_MEMBER static void
+  turn_fast_axes(float *terms, const SDF::Ring *shapes, int n,
+                 const math::Vector *azimuth, const math::Vector *up,
+                 const math::Vector *previous_normals) {
+    const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
+    const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
+    constexpr float TOLERANCE = MAX_AXIS_ERROR_PX * math::RADIANS_PER_COLUMN<W>;
+    for (int s = 0; previous_normals && s < n; ++s) {
+      const math::Vector &start = previous_normals[s];
+      const math::Vector &end = shapes[s].normal;
+      // The turn is at most pi / 2 times its chord.
+      const math::Vector chord = end - start;
+      if (Temporal::choose_turn_interpolant(
+              0.5f * math::PI_F * sqrtf(math::dot(chord, chord)), TOLERANCE) ==
+          Temporal::Interpolant::CHORD)
+        continue;
+      const math::Vector normal = math::cross(start, end);
+      const float sine = sqrtf(math::dot(normal, normal));
+      const float angle = atan2f(sine, math::dot(start, end));
+      if (!(sine > 0.0f) || Temporal::choose_turn_interpolant(
+                                angle, TOLERANCE) != Temporal::Interpolant::ARC)
+        continue;
+      const math::Vector tangent = math::cross(normal, start) * (1.0f / sine);
+      // Double precision keeps the recurrence's drift over the half-turn of
+      // columns far below the stroke's coverage slope.
+      const double step = static_cast<double>(angle) / (W / 2);
+      const double step_cos = cos(step), step_sin = sin(step);
+      double turn_cos = 1.0, turn_sin = 0.0;
+      for (int c = 0; c < W / 2; ++c) {
+        const math::Vector e =
+            azimuth ? azimuth[c]
+                    : math::Vector(cos_theta[c], 0.0f, sin_theta[c]);
+        const math::Vector v = azimuth ? up[c] : math::Vector(0.0f, 1.0f, 0.0f);
+        const math::Vector axis = start * static_cast<float>(turn_cos) +
+                                  tangent * static_cast<float>(turn_sin);
+        float *out = terms + 2 * (n * c + s);
+        out[0] = math::dot(e, axis);
+        out[1] = math::dot(v, axis);
+        const double next = turn_cos * step_cos - turn_sin * step_sin;
+        turn_sin = turn_sin * step_cos + turn_cos * step_sin;
+        turn_cos = next;
       }
     }
   }
@@ -1242,9 +1311,9 @@ struct Circle {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius,
-                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, FragmentShaderFn fragment_shader,
+                   bool debug_bb = false) {
     float th = radius * (math::PI_F / 2.0f);
     Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th,
                                  fragment_shader, 0, debug_bb);
@@ -1263,9 +1332,9 @@ struct Circle {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Vector &normal, float radius,
-                   FragmentShaderFn fragment_shader, bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &normal,
+                   float radius, FragmentShaderFn fragment_shader,
+                   bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), normal);
     draw<W, H, ComputeUVs>(pipeline, canvas, basis, radius, fragment_shader,
                            debug_bb);
@@ -1291,7 +1360,7 @@ struct Point {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &p,
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &p,
                    float thickness, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
     math::Basis basis = math::make_basis(math::Quaternion(), p);
@@ -1312,7 +1381,7 @@ struct Point {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H>
-  static void draw(PipelineRef pipeline, Canvas &canvas, const math::Vector &p,
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Vector &p,
                    float thickness, TimedShaderFn fragment_shader,
                    bool debug_bb = false) {
     const SDF::Ring shape(math::make_basis(math::Quaternion(), p), 0.0f,
@@ -1342,10 +1411,9 @@ struct Star {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, int sides,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -1400,10 +1468,9 @@ struct Flower {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, int sides,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -1460,10 +1527,9 @@ struct SphericalPolygon {
    * @param debug_bb When true, renders the bounding box for debugging.
    */
   template <int W, int H, bool ComputeUVs = true>
-  static void draw(PipelineRef pipeline, Canvas &canvas,
-                   const math::Basis &basis, float radius, int sides,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+  static void draw(ScanRef pipeline, Canvas &canvas, const math::Basis &basis,
+                   float radius, int sides, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
     auto res = math::get_antipode(basis, radius);
     float offset = math::PI_F / sides;
 

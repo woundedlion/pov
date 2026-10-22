@@ -1453,28 +1453,36 @@ clamp_rows_to_clip(const BoundsT &bounds, const ClipRegion &cr, int &y_lo,
 }
 
 /**
- * @brief Whether a shape builds a bounds proxy covering it swept by an arc.
+ * @brief The bounds proxy a column-time scan builds for a shape.
  * @tparam ShapeT Shape type.
- * @details `swept(arc)` returns a copy whose vertical bounds and horizontal
- * intervals cover every point within `arc` of the shape; only those are read.
+ * @details SDF::SweptProxy for a swept-bounded shape; the shape's own type,
+ * never built, for one scanned in whole rows.
  */
-template <typename ShapeT>
-inline constexpr bool has_swept_bounds = requires(const ShapeT &shape) {
-  { shape.swept(0.0f) } -> std::same_as<ShapeT>;
+template <typename ShapeT> struct SweptBoundsOf {
+  using type = ShapeT; ///< Unbuilt placeholder.
 };
 
 /**
- * @brief Whether a shape bounds itself by a cap it can re-centre.
- * @tparam ShapeT Shape type.
+ * @brief The bounds proxy of a swept-bounded shape.
+ * @tparam ShapeT SDF::SweptBounded shape type.
+ */
+template <SDF::SweptBounded ShapeT> struct SweptBoundsOf<ShapeT> {
+  using type = SDF::SweptProxy<ShapeT>; ///< What swept() returns.
+};
+
+/**
+ * @brief Whether a swept-bounded shape bounds itself by a cap it can
+ *        re-centre.
+ * @tparam ShapeT SDF::SweptBounded shape type.
  * @details `bounding_cap(axis, radius)` reports the cap, or false when none
- * bounds the shape; `moved(axis, arc)` returns a bounds proxy turned onto
- * `axis` and swept by `arc`.
+ * bounds the shape; `moved(axis, arc)` returns a bounds proxy of the swept()
+ * proxy's type, turned onto `axis` and swept by `arc`.
  */
 template <typename ShapeT>
 inline constexpr bool has_moved_bounds =
     requires(const ShapeT &shape, math::Vector &axis, float &radius) {
       { shape.bounding_cap(axis, radius) } -> std::same_as<bool>;
-      { shape.moved(axis, 0.0f) } -> std::same_as<ShapeT>;
+      { shape.moved(axis, 0.0f) } -> std::same_as<SDF::SweptProxy<ShapeT>>;
     };
 
 /**
@@ -1525,12 +1533,15 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   }
   const Temporal::ColumnTime &view = drifted ? drifted->view : time;
   const float sweep = view.azimuth ? view.sweep : 0.0f;
-  const ShapeT *bounds_shape = &shape;
-  std::optional<ShapeT> swept;
+  using Proxy = typename SweptBoundsOf<ShapeT>::type;
+  // A proxy of the shape's own type replaces it as the bounds source.
+  constexpr bool SAME_TYPE = std::is_same_v<Proxy, ShapeT>;
+  [[maybe_unused]] const ShapeT *bounds_shape = &shape;
+  std::optional<Proxy> swept;
   bool full_rows = false;
   auto bounds = shape.template get_vertical_bounds<H>();
   if (sweep > 0.0f) {
-    if constexpr (has_swept_bounds<ShapeT>) {
+    if constexpr (SDF::SweptBounded<ShapeT>) {
       if constexpr (has_moved_bounds<ShapeT>) {
         LitCap lit;
         math::Vector cap_axis;
@@ -1541,7 +1552,8 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
       }
       if (!swept)
         swept.emplace(shape.swept(sweep));
-      bounds_shape = &*swept;
+      if constexpr (SAME_TYPE)
+        bounds_shape = &*swept;
       bounds = swept->template get_vertical_bounds<H>();
     } else {
       full_rows = true;
@@ -1563,7 +1575,13 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
         prepare_probe_row<W, H>(probe, shape, y, debug);
         if (full_rows)
           return false;
-        return bounds_shape->template get_horizontal_intervals<W, H>(y, out);
+        if constexpr (SAME_TYPE) {
+          return bounds_shape->template get_horizontal_intervals<W, H>(y, out);
+        } else {
+          if (swept)
+            return swept->template get_horizontal_intervals<W, H>(y, out);
+          return shape.template get_horizontal_intervals<W, H>(y, out);
+        }
       },
       [&](int wx, int y, const math::Vector &p, int max_run) {
         // A prepared probe sizes its row's block slack without the turn, so

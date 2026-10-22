@@ -9,6 +9,7 @@
 #include <cmath>
 #include <concepts>
 #include <cstddef>
+#include <utility>
 #include "core/math/geometry.h"
 #include "core/platform/constants.h"
 #include "core/render/render_policy.h"
@@ -685,6 +686,21 @@ concept ScanShape =
       } -> std::convertible_to<bool>;
       s.template distance<true>(p, r);
     };
+
+/**
+ * @brief Whether a shape builds a bounds proxy covering it swept by an arc.
+ * @tparam T Candidate shape type.
+ * @details `swept(arc)` returns a proxy, of the shape's own type or another,
+ * whose vertical bounds and horizontal intervals cover every point within
+ * `arc` of the shape; a scan reads only those.
+ */
+template <typename T>
+concept SweptBounded = requires(const T &shape) { shape.swept(0.0f); };
+
+/** @brief The bounds proxy a SweptBounded shape's swept() returns.
+ * @tparam T SweptBounded shape type. */
+template <typename T>
+using SweptProxy = decltype(std::declval<const T &>().swept(0.0f));
 
 /**
  * @brief Axis components plus its scan-plane projection: XZ-projection length

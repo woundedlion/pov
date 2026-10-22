@@ -133,9 +133,11 @@ inline int run_scan_tests() {
   test_column_basis_blocks_cover_their_rotation();
   test_point_birth_skips_earlier_columns();
   test_lit_caps_keep_swept_frames();
+  test_swept_proxies_keep_lit_pixels();
   test_swept_cap_clip_keeps_lit_clips();
   test_volume_columns_match_rotated_placements();
   test_ring_group_previous_axes_match_column_rings();
+  test_normalized_chord_error_bounds_the_turn();
   test_ring_group_column_rows_cover_band();
   test_ring_group_column_rows_window_matches_full();
   test_object_column_basis_matches_rotated_meridian();

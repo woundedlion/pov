@@ -472,7 +472,7 @@ private:
     auto shader = [&](const math::Vector &, Fragment &fragment) {
       fragment.color = color;
     };
-    Scan::Circle::draw<W, H>(PipelineRef(plot_filters, canvas), canvas,
+    Scan::Circle::draw<W, H>(Scan::ScanRef(plot_filters, canvas), canvas,
                              cap.first, cap_radius, shader);
   }
 
