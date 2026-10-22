@@ -5,6 +5,7 @@
 #pragma once
 
 #include <cmath>
+#include <type_traits>
 #include <cstdint>
 #include <limits>
 
@@ -106,15 +107,17 @@ public:
    *         Filter::Screen::AntiAlias and whose integer `plot()` writes one
    *         pixel.
    * @tparam Start Callable `() -> math::Vector`.
-   * @tparam Shade Callable `() -> Color4`.
+   * @tparam Shade Callable `() -> Color4`, or `(float t) -> Color4` for a
+   *         point whose color changes over the frame.
    * @param sink Prepared sink.
    * @param canvas Destination canvas.
    * @param end World position at t = 1, unit length.
    * @param start Returns the world position at t = 0, unit length and within
    *        the prepared motion of @p end; called only for timed points that
    *        may reach the clip.
-   * @param shade Returns the point's color and opacity; pure, called at most
-   *        once and only for points that are plotted.
+   * @param shade Returns the point's color and opacity; pure, called only for
+   *        points that are plotted: at most once, or at each pass's time when
+   *        it takes the frame fraction.
    */
   template <typename Sink, typename Start, typename Shade>
   HS_HOT_FLASH_MEMBER void plot(Sink &sink, Canvas &canvas,
@@ -122,9 +125,14 @@ public:
                                 Shade &&shade) const {
     if (!reaches_clip(end))
       return;
+    constexpr bool TIMED_SHADE = std::is_invocable_v<Shade &, float>;
     const math::PixelCoords b = math::vector_to_pixel<W, H>(end);
     if (!timed) {
-      const Color4 c = shade();
+      Color4 c;
+      if constexpr (TIMED_SHADE)
+        c = shade(1.0f);
+      else
+        c = shade();
       sink.plot(canvas, b.x, b.y, c.color, 0.0f, c.alpha);
       return;
     }
@@ -132,14 +140,20 @@ public:
     math::PixelCoords a = math::vector_to_pixel<W, H>(origin);
     a.x = b.x + Temporal::centered_remainder(a.x - b.x, float(W));
     if (a.x == b.x && a.y == b.y) {
-      const Color4 c = shade();
+      Color4 c;
+      if constexpr (TIMED_SHADE)
+        c = shade(Temporal::column_fraction<W>(b.x));
+      else
+        c = shade();
       sink.plot(canvas, b.x, b.y, c.color, 0.0f, c.alpha);
       return;
     }
     Color4 c;
     bool shaded = false;
-    auto shade_once = [&]() HS_HOT_INLINE -> const Color4 & {
-      if (!shaded) {
+    auto shade_once = [&](float t) HS_HOT_INLINE -> const Color4 & {
+      if constexpr (TIMED_SHADE) {
+        c = shade(t);
+      } else if (!shaded) {
         c = shade();
         shaded = true;
       }
@@ -155,7 +169,8 @@ public:
     };
     Temporal::linear_captures<W>(
         a, b, [&](const Temporal::LinearCapture &capture) HS_HOT_INLINE {
-          emit(sink, canvas, capture, shade_once(), dx, dy, at_time);
+          emit(sink, canvas, capture, shade_once(capture.time), dx, dy,
+               at_time);
         });
   }
 
@@ -255,7 +270,7 @@ private:
    * @param canvas Destination canvas.
    * @param origin,end World positions at t = 0 and t = 1.
    * @param a,b Their projections, columns unwrapped against each other.
-   * @param shade Returns the point's color and opacity.
+   * @param shade Returns the point's color and opacity at a frame fraction.
    */
   template <typename Sink, typename Shade>
   HS_FLASH_MEMBER static void
@@ -288,7 +303,7 @@ private:
       Temporal::linear_captures<W>(
           from, to, t0, t1, k == 1, k == pieces,
           [&](const Temporal::LinearCapture &capture) HS_HOT_INLINE {
-            emit(sink, canvas, capture, shade(), dx, dy, at_time);
+            emit(sink, canvas, capture, shade(capture.time), dx, dy, at_time);
           });
       from = to;
     }
