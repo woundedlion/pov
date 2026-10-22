@@ -1199,13 +1199,15 @@ inline constexpr bool fits_top_span_cap =
  *        supplies p, and a birth fraction skips the columns lit before it.
  *        Each arm is walked separately, so no pole-LOD block spans an arm
  *        boundary.
+ * @param reach Optional callable (int x), invoked under COLUMN_TIME before
+ *        column x's basis entries are read for a pixel.
  */
 template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK, typename IntervalFn,
-          typename PixelFn>
+          typename PixelFn, typename ReachFn = std::nullptr_t>
 HS_HOT_INLINE inline void
 scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
                  PixelFn &pixel_fn, ClipRegion::XClip xc,
-                 const Temporal::ColumnTime *time) {
+                 const Temporal::ColumnTime *time, ReachFn reach = {}) {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
@@ -1234,9 +1236,11 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
       birth_column = Temporal::first_column_at(time->birth, W);
   }
   const auto direction = [&](int x, float sp, float cp) HS_HOT_INLINE {
-    if constexpr (COLUMN_TIME)
+    if constexpr (COLUMN_TIME) {
+      if constexpr (!std::is_same_v<ReachFn, std::nullptr_t>)
+        reach(x);
       return column_direction<W>(azimuth, up, x, sp, cp, cos_theta, sin_theta);
-    else
+    } else
       return math::Vector(sp * cos_theta[x], cp, sp * sin_theta[x]);
   };
 
@@ -1349,14 +1353,17 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
  *        separately, so no pole-LOD block spans an arm boundary; a pixel
  *        function settling a block must add the basis's turn across it to
  *        its slack.
+ * @param reach Optional callable (int x), invoked before column x's basis
+ *        entries are read for a pixel.
  */
-template <int W, int H, typename IntervalFn, typename PixelFn>
-inline void scan_region_column_time(int y_min, int y_max,
-                                    IntervalFn &&get_intervals,
-                                    PixelFn &&pixel_fn, ClipRegion::XClip xc,
-                                    const Temporal::ColumnTime &time) {
+template <int W, int H, typename IntervalFn, typename PixelFn,
+          typename ReachFn = std::nullptr_t>
+inline void
+scan_region_column_time(int y_min, int y_max, IntervalFn &&get_intervals,
+                        PixelFn &&pixel_fn, ClipRegion::XClip xc,
+                        const Temporal::ColumnTime &time, ReachFn reach = {}) {
   scan_region_body<W, H, true, false>(y_min, y_max, get_intervals, pixel_fn, xc,
-                                      &time);
+                                      &time, reach);
 }
 
 /**
@@ -1527,9 +1534,9 @@ column_time_active(const Temporal::ColumnTime *time) {
  *        the fixed meridian.
  * @details Bounds come from the shape's cap turned to the time of the columns
  * that see it, else from its swept() proxy, else from whole rows of the swept
- * band. A drift is scanned through a basis table of the shape's own, the
- * frame's rotated by the drift still to come at each column, filled for the
- * columns the bounds reach.
+ * band. A drift is scanned through basis entries of the shape's own, the
+ * frame's rotated by the drift still to come at each column, filled for each
+ * column when the scan first reaches it.
  */
 template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
 inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
@@ -1539,20 +1546,14 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
-  // A drifting shape scans its own basis table, filled for the columns its
-  // bounds reach.
   std::optional<ScratchScope> drift_scratch;
-  const bool drifting =
-      time.azimuth && math::dot(time.drift, time.drift) > 0.0f;
-  Temporal::ColumnTime drifted;
-  const Temporal::ColumnTime *view = &time;
-  bool drift_filled = !drifting;
-  if (drifting) {
+  std::optional<DriftColumns<W>> drifted;
+  if (time.azimuth && math::dot(time.drift, time.drift) > 0.0f) {
     drift_scratch.emplace(scratch_arena_b);
-    drifted = begin_drift_columns<W>(scratch_arena_b, time);
-    view = &drifted;
+    drifted.emplace(scratch_arena_b, time);
   }
-  const float sweep = view->azimuth ? view->sweep : 0.0f;
+  const Temporal::ColumnTime &view = drifted ? drifted->view : time;
+  const float sweep = view.azimuth ? view.sweep : 0.0f;
   const ShapeT *bounds_shape = &shape;
   std::optional<ShapeT> swept;
   bool full_rows = false;
@@ -1563,13 +1564,9 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
         LitCap lit;
         math::Vector cap_axis;
         float cap_radius;
-        if (shape.bounding_cap(cap_axis, cap_radius)) {
-          drift_filled = true;
-          if (drifting ? drift_lit_cap<W, H>(cap_axis, cap_radius, drifted,
-                                             time, lit)
-                       : lit_cap<W, H>(cap_axis, cap_radius, time, lit))
-            swept.emplace(shape.moved(lit.axis, lit.arc));
-        }
+        if (shape.bounding_cap(cap_axis, cap_radius) &&
+            lit_cap<W, H>(cap_axis, cap_radius, time, lit))
+          swept.emplace(shape.moved(lit.axis, lit.arc));
       }
       if (!swept)
         swept.emplace(shape.swept(sweep));
@@ -1582,8 +1579,6 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   }
   if (!clamp_rows_to_clip(bounds, cr, y_lo, y_hi))
     return;
-  if (!drift_filled)
-    fill_drift_columns<W>(drifted, time, 0, W / 2 - 1);
 
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
@@ -1613,7 +1608,11 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
               wx, y, p, pipeline, canvas, shape, fragment_shader, debug,
               result_scratch, frag_scratch, 1, probe);
       },
-      xc, *view);
+      xc, view,
+      [&](int x) HS_HOT_INLINE {
+        if (drifted)
+          drifted->reach(x);
+      });
 }
 
 /**

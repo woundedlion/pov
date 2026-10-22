@@ -222,9 +222,10 @@ moves (`FacePaletteShader::moves`). An effect whose per-column state moves while
 does not still prepares a table, with `state_moves`, so its scans take their
 column-time variants. A drift in the same state rotates `Scan::rasterize`'s
 pixel direction by a shape's own motion still to come, for shapes that move
-independently of the frame's rotation: the scan reads a basis table of the
-shape's own, filled once per draw for the columns its re-centred bounds reach,
-which grow by the drift's angle. A compact shape whose drift changes by less
+independently of the frame's rotation: the scan reads basis entries of the
+shape's own, each turned by `drift * (1 - u)` at its column's fraction `u` when
+the scan first reaches the column, and the re-centred bounds grow by the
+drift's angle. A compact shape whose drift changes by less
 than a tenth of a column across the columns that see it is instead turned once
 to their middle column's time (`Scan::settle_drift`) and scanned without one.
 `Animation::OpLeg::Shading` carries the crossfade weight its leg drew a frame
