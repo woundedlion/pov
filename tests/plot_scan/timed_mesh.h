@@ -726,6 +726,59 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
   HS_EXPECT_GT(shaders, 0u);
 }
 
+/** @brief A chained closed ring plots each vertex once, as its edge's start,
+ *         still and moving. */
+inline void test_column_walk_chained_ring_plots_vertices_once() {
+  constexpr int W = 288, H = 144, N = 12;
+  Temporal::set_temporal_sampling_enabled(true);
+  struct Ring {
+    std::array<math::Vector, N> vertices; /**< Closed ring vertices. */
+  } ring;
+  const math::Vector centre = math::pixel_to_vector<W, H>(100.0f, 60.0f);
+  const math::Vector u = math::cross(centre, math::Y_AXIS).normalized();
+  const math::Vector v = math::cross(centre, u);
+  for (int i = 0; i < N; ++i) {
+    const float turn = math::TWO_PI_F * float(i) / N;
+    ring.vertices[i] =
+        (centre * cosf(0.2f) + (u * cosf(turn) + v * sinf(turn)) * sinf(0.2f))
+            .normalized();
+  }
+  for (float motion : {0.0f, 0.05f}) {
+    HS_CONTEXT("motion x100", std::llround(motion * 100.0f));
+    uint32_t samples[2] = {};
+    for (bool chained : {false, true}) {
+      hs_test::StubEffect effect(W, H);
+      Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+      Canvas canvas(effect);
+      ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+      ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, N);
+      for (int i = 0; i < N; ++i)
+        edges.push_back(
+            {static_cast<uint16_t>(i), static_cast<uint16_t>((i + 1) % N)});
+      auto at = [&](size_t i, float t) {
+        return math::rotate(
+            ring.vertices[i],
+            math::make_rotation(math::Y_AXIS, motion * (1.0f - t)));
+      };
+      auto shader = [&](const math::Vector &, Fragment &f, float) {
+        f.color = Color4(Pixel(65535, 32768, 16384), 0.5f);
+      };
+      Plot::GeometryCallback geometry;
+      geometry.evaluate = at;
+      geometry.path = Temporal::PathBound::rotation(motion);
+      geometry.column_edges = true;
+      geometry.chained = chained;
+      Temporal::geometry_counters = {};
+      Plot::Mesh::draw_timed<W, H>(pipeline, canvas, ring, edges, shader,
+                                   geometry, motion);
+      HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups, 1u);
+      samples[chained] = Temporal::geometry_counters.column_samples;
+    }
+    HS_EXPECT_GT(samples[1], 0u);
+    HS_EXPECT_EQ(samples[0] - samples[1], uint32_t(N));
+  }
+}
+
 /** @brief Refined basis normalization stays unit across its input range. */
 inline void test_column_basis_normalization() {
   for (int i = 0; i <= 1024; ++i) {

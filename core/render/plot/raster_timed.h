@@ -24,6 +24,10 @@ struct GeometryCallback {
   bool source_positions =
       true; /**< Shaders read source-space positions under world stages;
                  false hands them world positions. */
+  bool chained = false; /**< Every vertex starts exactly one edge and ends
+                             exactly one other, as around closed polylines, so
+                             the column walk plots each vertex once, as its
+                             edge's start. */
 
   /** @brief Constructs an exact evaluator.
    * @param fn Borrowed control-point callback.
@@ -2065,13 +2069,17 @@ struct MeshEdge {
 /** @brief Mesh edges sharing one column walk. */
 struct ColumnEdgeBatch {
   size_t count; /**< Edge count. */
-  FunctionRef<void(size_t)>
-      prepare; /**< Writes an edge's endpoint registers into the walk's
-                    fragments. */
+  void (*prepare)(Fragments &, const math::Vector &, const math::Vector &,
+                  size_t); /**< Writes an edge's endpoint registers into the
+                                walk's fragments from its frame-end
+                                vertices and index. */
+  const math::Vector *vertices; /**< Frame-end vertex positions. */
   const Temporal::VertexMotion<>
       &motion;           /**< Source captures and interpolants of the
                               vertices this frame. */
   const MeshEdge *pairs; /**< Vertex indices of each edge. */
+  bool chained = false;  /**< Edges leave their end vertex to the edge it
+                              starts. */
 };
 
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
@@ -2466,6 +2474,7 @@ template <int W> struct ColumnWalk {
   bool single_time;      /**< End columns splat at their own time too. */
   const float *velocity; /**< Endpoint motion, pixels per frame. */
   bool source_positions; /**< Shaders read source-space positions. */
+  bool chained;          /**< The end vertex belongs to the next edge. */
   bool turning;    /**< The arc can turn its longitude direction this frame. */
   float top_y;     /**< Highest emitted unit-sphere y. */
   float bottom_y;  /**< Lowest emitted unit-sphere y. */
@@ -2484,8 +2493,8 @@ template <int W> struct ColumnWalk {
 template <int W, int H, RasterConfig Cfg, bool SPLIT>
 HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
-         direction, radians, single_time, velocity, source_positions, turning,
-         top_y, bottom_y, half_sine, half_cosine] = state;
+         direction, radians, single_time, velocity, source_positions, chained,
+         turning, top_y, bottom_y, half_sine, half_cosine] = state;
   const auto arm_change = [&](int from) HS_HOT_INLINE {
     return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) == 0;
   };
@@ -2636,8 +2645,8 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           edge_end = end_column && to == 1.0f;
         }
         const int first = edge_start ? 0 : int(ceilf(s_in * float(count)));
-        const int last =
-            edge_end ? count : int(ceilf(s_out * float(count))) - 1;
+        const int last = edge_end ? count - int(chained)
+                                  : int(ceilf(s_out * float(count))) - 1;
         const bool plain = single_time || (!edge_start && !edge_end);
         GeodesicEdgeSampler source;
         if (source_positions)
@@ -2782,17 +2791,19 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
  * screen steps at that time, and a column plots the lattice points between
  * its two boundary meridians unweighted through the filter chain, so a moving
  * edge samples each column as the frozen edge at that column's time does. The
- * start vertex is lattice point zero; each edge also plots its end vertex.
+ * start vertex is lattice point zero; each edge also plots its end vertex
+ * unless the batch is chained.
  * Columns strictly inside an edge splat at their own time; the end columns of
  * an edge moving faster than COLUMN_SINGLE_TAP_ERROR evaluate each neighbor
  * tap at that column's time. A stationary draw walks the lattice once. An
  * edge whose plan cannot bound it, such as one that can pass near a pole, is
  * walked as the two sides of its closest approach to the pole, out of line. */
 template <int W, int H, RasterConfig Cfg>
-FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
-    PipelineRef &pipeline, Canvas &canvas, const Fragments &points,
-    TimedShaderFn shader, const ColumnEdgeBatch &batch,
-    const Temporal::PoseTable *poses, float radians, bool source_positions) {
+FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
+rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
+                       TimedShaderFn shader, const ColumnEdgeBatch &batch,
+                       const Temporal::PoseTable *poses, float radians,
+                       bool source_positions) {
   const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
   const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
 
@@ -2854,7 +2865,7 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
     }
     Temporal::count_geometry<
         &Temporal::GeometryCounters::column_edges_prepared>();
-    batch.prepare(edge);
+    batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge);
     const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
       return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
     };
@@ -2873,6 +2884,7 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void rasterize_column_edges(
         single_time,
         velocity,
         source_positions,
+        batch.chained,
         split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
                    4.0f * frame.deviation * frame.deviation),
         top_y,

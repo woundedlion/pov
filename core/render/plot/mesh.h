@@ -556,6 +556,20 @@ struct Mesh {
     return visible;
   }
 
+  /** @brief scratch_arena_a bytes draw_column_edges() binds.
+   * @return The walk's endpoint registers and edge frame, aligned. */
+  static constexpr size_t column_scratch_a_bytes() {
+    return 2 * sizeof(Fragment) + alignof(Fragment) + sizeof(ColumnEdgeFrame) +
+           alignof(ColumnEdgeFrame);
+  }
+
+  /** @brief scratch_arena_b bytes draw_column_edges() binds.
+   * @param vertices Mesh vertex count.
+   * @return The vertices' path captures. */
+  static constexpr size_t column_scratch_b_bytes(size_t vertices) {
+    return Temporal::VertexMotion<>::storage_bytes(vertices);
+  }
+
   /** @brief Draws a wireframe through the column-time walk.
    * @tparam W,H Canvas dimensions.
    * @tparam MeshT Mesh storage type.
@@ -582,10 +596,6 @@ struct Mesh {
     ScratchScope edge_storage(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 2);
-    auto prepare = [&](size_t ei) HS_HOT_INLINE {
-      prepare_timed_edge(points, mesh.vertices[edges[ei].u],
-                         mesh.vertices[edges[ei].v], ei);
-    };
     PipelineRef erased = [&]() HS_HOT_INLINE {
       if constexpr (pipeline_direct_raster_path<PipelineT>())
         return PipelineRef(pipeline, canvas, Temporal::Timed{});
@@ -597,10 +607,38 @@ struct Mesh {
                             float t) HS_HOT_INLINE {
       Temporal::shade_at_time(shader, t, position, fragment);
     };
-    const ColumnEdgeBatch batch{edges.size(), prepare, motion, edges.data()};
+    const ColumnEdgeBatch batch{edges.size(),         &prepare_timed_edge,
+                                mesh.vertices.data(), motion,
+                                edges.data(),         geometry.chained};
     rasterize_column_edges<W, H, {.timed = true}>(
         erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
         callback_bound + erased.cull_bound(), geometry.source_positions);
+  }
+
+  /** @brief Draws a wireframe through the column walk unless its swept
+   *         bound misses the clip.
+   * @tparam W,H Canvas dimensions.
+   * @tparam MeshT Mesh storage type.
+   * @tparam PipelineT Pipeline whose world stages keep a pose table; the walk
+   *         draws its first copy only.
+   * @tparam ShaderT Fragment shader type.
+   * @param pipeline Timed world pipeline.
+   * @param canvas Destination canvas.
+   * @param mesh Mesh endpoint positions.
+   * @param edges Precomputed unique edges.
+   * @param shader Fragment shader.
+   * @param geometry Vertex evaluator and path bound.
+   * @param callback_bound Maximum callback displacement in radians. */
+  template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
+  HS_HOT_FLASH_MEMBER static void
+  draw_columns(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+               const ArenaVector<Edge> &edges, ShaderT shader,
+               const GeometryCallback &geometry, float callback_bound) {
+    static_assert(PipelineT::table_world_stages,
+                  "draw_columns needs world stages a pose table holds");
+    if (column_mesh_visible<W, H>(pipeline, canvas, mesh, callback_bound))
+      draw_column_edges<W, H>(pipeline, canvas, mesh, edges, shader, geometry,
+                              callback_bound);
   }
 
   /** @brief Draws a precomputed wireframe at its samples' column times.
@@ -616,8 +654,10 @@ struct Mesh {
    * @param geometry Optional evaluator indexed by mesh vertex.
    * @param callback_bound Maximum callback displacement in radians.
    * @details Geometry asking for column edges, under a single copy of world
-   * stages a pose table holds, draws through draw_column_edges(); other
-   * meshes draw edge by edge. */
+   * stages a pose table holds, draws through draw_columns(); other
+   * meshes draw edge by edge. Chained geometry leaves each edge's end vertex
+   * to the edge it starts on both timed routes; the still draw plots every
+   * edge's endpoints. */
   template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_timed(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
@@ -642,9 +682,8 @@ struct Mesh {
       return;
     if constexpr (requires { requires PipelineT::table_world_stages; }) {
       if (geometry.column_edges && pipeline.copy_count() == 1) {
-        if (column_mesh_visible<W, H>(pipeline, canvas, mesh, callback_bound))
-          draw_column_edges<W, H>(pipeline, canvas, mesh, edges, shader,
-                                  geometry, callback_bound);
+        draw_columns<W, H>(pipeline, canvas, mesh, edges, shader, geometry,
+                           callback_bound);
         return;
       }
     }
@@ -666,7 +705,8 @@ struct Mesh {
       edge_index = ei;
       prepare_timed_edge(points, mesh.vertices[edges[ei].u],
                          mesh.vertices[edges[ei].v], ei);
-      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader, {},
+      rasterize<W, H, {.timed = true}>(pipeline, canvas, points, shader,
+                                       {.omit_end = geometry.chained},
                                        edge_geometry, callback_bound);
     }
   }
