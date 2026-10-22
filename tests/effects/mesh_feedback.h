@@ -328,7 +328,6 @@ inline void test_meshfeedback_stationary_timed_source() {
   Temporal::geometry_counters = {};
   MeshFeedbackWhiteBox::render_temporal_source(true, 1.0f, 0.0f, 0.0f, &timed);
   HS_EXPECT_GT(Temporal::geometry_counters.column_draw_setups, 0u);
-  HS_EXPECT_EQ(Temporal::geometry_counters.legacy_edge_walks, 0u);
   MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f,
                                                &frozen);
   MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f, &still,

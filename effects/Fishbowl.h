@@ -523,7 +523,6 @@ private:
     };
     Plot::GeometryCallback geometry;
     geometry.evaluate = path;
-    geometry.column_edges = true;
     geometry.source_positions = false;
     geometry.chained = true;
     auto flush = [&]() HS_HOT_INLINE {

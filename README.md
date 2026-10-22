@@ -1353,7 +1353,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
 │   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
-│   │   │   ├── raster_timed.h           Geometry callbacks and column-time prediction walk included by raster.h
+│   │   │   ├── raster_timed.h           Geometry callbacks and column-time edge walk included by raster.h
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   └── cull/                   Cull strategy sections included by cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
@@ -1504,7 +1504,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── test_plot_parity.h Temporal, frame-end and segment render hashes
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h
-│   │   ├── temporal_seam.h Frozen per-column temporal geometry oracles
+│   │   ├── temporal_seam.h Column-time tap ownership oracles
 │   │   └── timed_mesh.h    Timed source-mesh geometry and shader checks
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h

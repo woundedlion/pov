@@ -41,15 +41,6 @@ else()
     endif()
   endforeach()
 
-  foreach(_hot_route IN ITEMS
-      "*(.text._ZN4Plot18walk_rigid_samplesI*)"
-      "*(.text._ZN4Plot15walk_dense_runsI*)")
-    string(FIND "${_script}" "${_hot_route}" _hot_at)
-    if(_hot_at LESS _itcm_at)
-      list(APPEND _missing "timed hot route missing from ITCM: ${_hot_route}")
-    endif()
-  endforeach()
-
   # Cold library code and the per-effect factories leave ITCM.
   set(_flash_text
     "*libm.a:*(.text .text.*)"

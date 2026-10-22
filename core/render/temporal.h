@@ -357,9 +357,6 @@ HS_HOT_INLINE inline float centered_remainder(float value, float period) {
   return result;
 }
 
-/** @brief Maximum dense tap-position error retained by a single-time splat. */
-inline constexpr float MAX_SINGLE_TIME_TAP_ERROR = 0.003f;
-
 /** @brief Tap-position error of splatting a linearly moving sample at one time.
  * @tparam W Canvas width.
  * @param x Column of the splat.
@@ -462,8 +459,7 @@ struct GeometryCounters {
       0; /**< Source edges rejected before per-edge setup. */
   uint32_t column_projections = 0; /**< Column-loop screen projections. */
   uint32_t column_generated_samples =
-      0;                          /**< Samples advanced before clipping. */
-  uint32_t legacy_edge_walks = 0; /**< Legacy timed edge traversals. */
+      0; /**< Samples advanced before clipping. */
   uint32_t column_samples =
       0; /**< Coverage samples emitted in owned columns. */
   uint32_t columns_visited = 0;  /**< Destination columns examined. */
@@ -474,57 +470,8 @@ struct GeometryCounters {
       0; /**< Source vertices evaluated at half-frame. */
   uint32_t endpoint_evaluations =
       0; /**< Source vertices evaluated at the frame's start. */
-  uint32_t capture_solves = 0; /**< Iterative arm-capture solves. */
-  uint32_t common_time_edges =
-      0; /**< Edges using a common-time spacing metric. */
-  uint32_t interior_timed_samples =
-      0; /**< Samples requesting own-time tap evaluation. */
-  uint32_t interior_single_time_samples =
-      0; /**< Dense samples below the tap-motion limit. */
-  uint32_t dense_cadence_edges =
-      0; /**< Wider edges whose endpoint sample counts differ. */
-  uint32_t dense_wide_edges =
-      0; /**< Wider edges passing both curvature tests. */
-  uint32_t dense_curved_edges = 0; /**< Wider edges rejected by curvature. */
-  uint32_t dense_midpoint_probes =
-      0;                            /**< Projected curvature-test midpoints. */
-  uint32_t dense_spacing_edges = 0; /**< Edges beyond dense spacing. */
-  uint32_t dense_polar_edges = 0; /**< Close edges rejected by polar bounds. */
-  uint32_t dense_balanced_candidates =
-      0; /**< Draws retaining the balanced edge sampler. */
-  uint32_t dense_reject_scratch =
-      0; /**< Candidates exceeding available scratch B. */
-  uint32_t dense_sparse_edges =
-      0; /**< Sparse edges inside partially dense polylines. */
-  uint32_t dense_run_edges = 0;  /**< Edges emitted as dense runs. */
-  uint32_t dense_candidates = 0; /**< Interpolating rigid density candidates. */
-  uint32_t dense_candidate_controls = 0; /**< Controls examined for density. */
-  uint32_t dense_reject_spacing =
-      0; /**< Candidates rejected by control spacing. */
-  uint32_t dense_reject_polar =
-      0;                   /**< Candidates rejected by polar motion bounds. */
-  uint32_t dense_runs = 0; /**< Polylines dispatched to dense sampling. */
-  uint32_t dense_controls = 0;    /**< Dense original controls processed. */
-  uint32_t dense_gap_samples = 0; /**< Interpolated dense material samples. */
-  uint32_t dense_culls = 0; /**< Whole-polyline dense visibility decisions. */
-  uint32_t dense_endpoint_probes = 0; /**< Dense endpoint projections. */
 
-  uint32_t end_probes = 0;   /**< Probes at the current endpoint. */
-  uint32_t solve_probes = 0; /**< Additional probes during capture solving. */
-  uint32_t rigid_fallback_edges =
-      0; /**< Edges exceeding adaptive capacity or precision. */
-  uint32_t control_evaluations = 0; /**< Rigid world/control evaluations. */
-  uint32_t control_corrections =
-      0; /**< Corrected control capture predictions. */
-  uint32_t rigid_samples =
-      0; /**< Samples interpolated from transformed controls. */
   uint32_t boundary_evaluations = 0; /**< Kept boundary columns re-evaluated. */
-  uint32_t corrections = 0; /**< Re-evaluations after a missed prediction. */
-  uint32_t refined_controls = 0;     /**< Rigid controls added by refinement. */
-  uint32_t callback_evaluations = 0; /**< Geometry callback invocations. */
-  uint32_t parts = 0;                /**< Walks between arm-boundary cuts. */
-  uint32_t held_anchors = 0; /**< Capture solves held at the column limit. */
-  uint32_t unsettled_passes = 0; /**< Passes exhausting their probe budget. */
 };
 
 /** @brief Host instrumentation for the geometry-callback route. */
@@ -542,28 +489,6 @@ HS_HOT_INLINE inline void count_geometry(uint32_t amount = 1) {
 #endif
 }
 
-/** @brief Maximum solved motion in columns, one eighth of the canvas width. */
-template <int W> inline constexpr float MAX_CAPTURE_COLUMNS = W / 8.0f;
-
-/** @brief Motion bound supplied by geometry or a world stage. */
-struct MotionBound {
-  float radians = 0.0f; /**< Angular distance from the endpoint. */
-  bool azimuth = false; /**< The bound is directly on azimuth. */
-
-  /** @brief Converts the bound to columns at an endpoint row.
-   * @tparam W,H Canvas dimensions.
-   * @param row Projected endpoint row.
-   * @return Maximum column displacement. */
-  template <int W, int H> HS_HOT_INLINE float columns(float row) const {
-    if (azimuth || radians == 0.0f)
-      return radians * (W / (2.0f * math::PI_F));
-    const float sine = fabsf(sinf(math::y_to_phi<H>(row)));
-    if (radians >= math::PI_F / 2.0f || sine <= sinf(radians))
-      return W / 4.0f;
-    return asinf(sinf(radians) / sine) * (W / (2.0f * math::PI_F));
-  }
-};
-
 /** @brief Continuous sweep fraction of an unwrapped column.
  * @tparam W Canvas width.
  * @param column Column coordinate.
@@ -573,69 +498,6 @@ template <int W> HS_HOT_INLINE inline float column_fraction(float column) {
   const int whole = static_cast<int>(half_turn);
   const float fraction = half_turn - static_cast<float>(whole);
   return fraction < 0.0f ? fraction + 1.0f : fraction;
-}
-
-/** @brief Solves one arm branch, clamping extensions to frame endpoints.
- * @tparam W Canvas width.
- * @param probe Projected position at a frame fraction.
- * @param end Endpoint projection.
- * @param columns Maximum column displacement.
- * @param linear_pair Whether geometry interpolates two positions.
- * @param branch Unwrapped arm branch.
- * @param start Optional projection at zero.
- * @return Capture fraction in [0, 1]. */
-template <int W, typename Probe>
-HS_HOT_INLINE float
-solve_capture_branch(Probe &&probe, math::PixelCoords end, float columns,
-                     bool linear_pair, int branch,
-                     const math::PixelCoords *start = nullptr) {
-  count_geometry<&GeometryCounters::capture_solves>();
-  const float fraction = column_fraction<W>(end.x);
-  const float half = W / 2.0f;
-  const float boundary = fminf(fraction, 1.0f - fraction) * half;
-  if (columns >= MAX_CAPTURE_COLUMNS<W> ||
-      (columns < 3.8f && boundary > columns + 1.0f &&
-       branch == static_cast<int>(floorf(end.x / half))))
-    return fraction;
-  math::PixelCoords first;
-  if (start) {
-    first = *start;
-  } else {
-    count_geometry<&GeometryCounters::solve_probes>();
-    first = probe(0.0f);
-  }
-  const float x0 =
-      end.x + std::remainder(first.x - end.x, static_cast<float>(W));
-  float lo = 0.0f, hi = 1.0f;
-  float flo = x0 / half - branch, fhi = end.x / half - 1.0f - branch;
-  if (flo <= 0.0f)
-    return 0.0f;
-  if (fhi >= 0.0f)
-    return 1.0f;
-  float t = flo / (flo - fhi);
-  if (!(linear_pair && columns <= 4.0f)) {
-    for (int iteration = 0; iteration < 4; ++iteration) {
-      count_geometry<&GeometryCounters::solve_probes>();
-      const float x =
-          end.x + std::remainder(probe(t).x - end.x, static_cast<float>(W));
-      const float residual = x / half - t - branch;
-      if (fabsf(residual) * half <= 0.5f)
-        break;
-      if (iteration == 3) {
-        count_geometry<&GeometryCounters::unsettled_passes>();
-        break;
-      }
-      if (residual > 0.0f) {
-        lo = t;
-        flo = residual;
-      } else {
-        hi = t;
-        fhi = residual;
-      }
-      t = lo + (hi - lo) * flo / (flo - fhi);
-    }
-  }
-  return t;
 }
 
 /**

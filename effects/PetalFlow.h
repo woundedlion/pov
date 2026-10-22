@@ -208,7 +208,6 @@ private:
   /** @brief Ring geometry for the column walk: closed chains in world space. */
   static constexpr Plot::GeometryCallback RING_GEOMETRY = [] {
     Plot::GeometryCallback geometry;
-    geometry.column_edges = true;
     geometry.source_positions = false;
     geometry.chained = true;
     return geometry;

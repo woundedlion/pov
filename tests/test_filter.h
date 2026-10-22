@@ -120,13 +120,10 @@ inline int run_filter_tests() {
   test_world_orient_explicit_time();
   test_world_orient_follows_history_at_column_times();
   test_world_orient_sample_cache();
-  test_geometry_capture_branches();
-  test_geometry_capture_shortcuts_and_poles();
   test_timed_probe_bypasses_history();
   test_temporal_column_arithmetic_matches_remainder();
   test_temporal_orientation_bound_is_conservative();
   test_timed_predicted_landing();
-  test_timed_unborn_samples_skip_history();
   test_timed_boundary_tap_ownership();
   test_timed_cull_region();
   test_timed_replicate_selected_copy();

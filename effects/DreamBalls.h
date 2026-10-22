@@ -358,9 +358,7 @@ private:
       (4 * WOVEN_VERTEX_BOUND + 2 * Solids::MAX_SOLID_EDGES) *
           sizeof(math::Vector) +
       Plot::Mesh::EDGE_MAX_POINTS * sizeof(Fragment) +
-      Plot::rasterize_scratch_a_bytes<W>() +
-      Plot::MAX_RIGID_CONTROLS * sizeof(Plot::TimedRigidNode) +
-      2 * (Plot::rasterize_step_budget<W>() + 1) * sizeof(float);
+      Plot::rasterize_scratch_a_bytes<W>();
   static_assert(SCRATCH_A_PEAK_BYTES <= SCRATCH_A_BYTES,
                 "DreamBalls woven staging exceeds its scratch_a budget; "
                 "retune the solid bounds or carve a larger scratch arena");
@@ -819,8 +817,7 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{at,         false, {},   false,
-                                              orbit_path, true,  false};
+        const Plot::GeometryCallback geometry{at, orbit_path, false};
         if (timed)
           Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, framed_mesh,
                                        framed_edges, woven_shader, geometry,
@@ -883,8 +880,7 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        const Plot::GeometryCallback geometry{at,         false, {},   false,
-                                              orbit_path, true,  false};
+        const Plot::GeometryCallback geometry{at, orbit_path, false};
         if (timed)
           Plot::Mesh::draw_timed<W, H>(timed_filters, canvas, target,
                                        solid.original_edges, fragment_shader,
