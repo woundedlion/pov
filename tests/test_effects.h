@@ -588,27 +588,32 @@ struct MeshSeamSteps {
       interior_ratios += interior / (interior_neighbors / 4.0);
     ++frames;
   }
-
-  /**
-   * @brief Checks boundary steps against their neighboring steps.
-   * @param label Effect name for the result.
-   * @param mean_bound Bound on the mean arm-boundary ratio.
-   * @param arm_bound Bound on the mean of each frame's larger arm ratio.
-   * @param interior_bound Bound on the mean mid-arm ratio.
-   */
-  void expect_continuous(const char *label, double mean_bound = 1.06,
-                         double arm_bound = 1.15,
-                         double interior_bound = 1.06) const {
-    HS_CONTEXT(label);
-    std::printf("  [%s] mean seam step %.3f x neighbors; mid-arm %.3f\n", label,
-                arm_ratios / frames, interior_ratios / frames);
-    std::printf("  mean across arms %.3f\n", mean_arm_ratios / frames);
-    HS_EXPECT_GT(frames, 0);
-    HS_EXPECT_LE(mean_arm_ratios / frames, mean_bound);
-    HS_EXPECT_LE(arm_ratios / frames, arm_bound);
-    HS_EXPECT_LE(interior_ratios / frames, interior_bound);
-  }
 };
+
+/**
+ * @brief Checks boundary steps against their neighboring steps.
+ * @param steps Accumulated frame differences.
+ * @param label Effect name for the result.
+ * @param mean_bound Bound on the mean arm-boundary ratio.
+ * @param arm_bound Bound on the mean of each frame's larger arm ratio.
+ * @param interior_bound Bound on the mean mid-arm ratio.
+ */
+inline void expect_mesh_seam_continuous(const MeshSeamSteps &steps,
+                                        const char *label,
+                                        double mean_bound = 1.06,
+                                        double arm_bound = 1.15,
+                                        double interior_bound = 1.06) {
+  HS_CONTEXT(label);
+  std::printf("  [%s] mean seam step %.3f x neighbors; mid-arm %.3f\n", label,
+              steps.arm_ratios / steps.frames,
+              steps.interior_ratios / steps.frames);
+  std::printf("  mean across arms %.3f\n",
+              steps.mean_arm_ratios / steps.frames);
+  HS_EXPECT_GT(steps.frames, 0);
+  HS_EXPECT_LE(steps.mean_arm_ratios / steps.frames, mean_bound);
+  HS_EXPECT_LE(steps.arm_ratios / steps.frames, arm_bound);
+  HS_EXPECT_LE(steps.interior_ratios / steps.frames, interior_bound);
+}
 
 /** @brief One arm side's copy of a face in a mesh deformation scan. */
 struct FaceCopy {
