@@ -21,6 +21,8 @@
 struct KaleidoscopePentBrightSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  /// Whether each displayed column is followed by black.
+  static constexpr bool STROBE_COLUMNS = false;
   static constexpr PaletteHarmony HARMONY = PaletteHarmony::ANALOGOUS;
   static constexpr bool ANIMATED_PROJECTION = true;
   /**

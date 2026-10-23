@@ -25,6 +25,8 @@ template <typename FX> struct ComposedWhiteBox;
 struct KaleidoscopeSmoothSpec : Pullback::Spec {
   /// Samples animation continuously across each two-arm half-turn.
   static constexpr bool TEMPORAL_SAMPLING = true;
+  /// Whether each displayed column is followed by black.
+  static constexpr bool STROBE_COLUMNS = false;
   /** @brief Folder title for a pipeline group.
    *  @param group Stable group name.
    *  @return Displayed title. */
