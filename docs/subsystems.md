@@ -516,6 +516,8 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 
 Authored sine-driven presets P2 through P9 instead carry contour twist and orientation to column time. Moving planar contours capture start, middle and end anchors, cull intervals from their motion bounds, and use coherent screen chords where their physical curvature permits. Other intervals use `Plot::PolarWalk`: quadratic trajectories in the display pole's equidistant chart intersect each column at its own time, with radial AA taps and the adaptive rasterizer's minimum physical pitch. Spherical contours use the shared column edge walk with their local lattice pitch. P1 retains stationary sampling. Custom non-sine waveforms retain frame-end twist under column-time orientation.
 
+`Plot::GeometryCallback::uniform_color` declares a color-only shader whose color is constant along each edge throughout the frame. The column walk shades that color once per edge, using the shader's world or source coordinates at the frame end. Age and material registers retain their per-sample interpolation, including taps across an arm cut.
+
 ### Plot Primitives
 
 | Primitive | Description |

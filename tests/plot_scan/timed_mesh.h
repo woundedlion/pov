@@ -822,6 +822,206 @@ inline void test_column_source_basis_transport() {
   HS_EXPECT_GT(samples, 20u);
 }
 
+/** @brief Records ages and projected positions before screen antialiasing. */
+struct ColumnAgeProbe : Filter::Is2D {
+  /** @brief One projected sample before AA taps. */
+  struct Sample {
+    math::PixelCoords position; ///< Projected sample center.
+    float age;                  ///< Interpolated source age.
+  };
+  std::vector<Sample> &samples; ///< Borrowed sample log.
+  /** @brief Binds the sample log. */
+  explicit ColumnAgeProbe(std::vector<Sample> &samples) : samples(samples) {}
+  /** @brief Records and forwards one screen sample.
+   * @tparam Pass Downstream stage.
+   * @param x,y Projected position.
+   * @param color,age,alpha Sample registers.
+   * @param pass Downstream continuation. */
+  template <typename Pass>
+  void plot(float x, float y, const Pixel &color, float age, float alpha,
+            Pass &&pass) {
+    samples.push_back({{x, y}, age});
+    pass(x, y, color, age, alpha);
+  }
+};
+
+/** @brief Edge-uniform color preserves rendered pixels and interpolated ages. */
+inline void test_column_uniform_color_preserves_age() {
+  constexpr int W = 288, H = 144;
+  Spacetime::set_flat_surface(false);
+  auto run = []<bool CUT>() {
+    std::vector<Pixel> reference;
+    std::vector<ColumnAgeProbe::Sample> reference_samples;
+    uint32_t reference_calls = 0;
+    const math::Vector vertices[] = {math::pixel_to_vector<W, H>(42.3f, 41.4f),
+                                     math::pixel_to_vector<W, H>(83.2f, 69.8f)};
+    const auto rotation = math::make_rotation(math::Y_AXIS, math::PI_F);
+    for (bool uniform : {false, true}) {
+      hs_test::StubEffect effect(W, H);
+      std::vector<ColumnAgeProbe::Sample> samples;
+      auto pipeline = [&] {
+        if constexpr (CUT)
+          return Pipeline<W, H, Filter::Screen::AntiAlias<W, H>,
+                          ColumnAgeProbe>{Filter::Screen::AntiAlias<W, H>(),
+                                          ColumnAgeProbe(samples)};
+        else
+          return Pipeline<W, H, ColumnAgeProbe,
+                          Filter::Screen::AntiAlias<W, H>>{
+              ColumnAgeProbe(samples), Filter::Screen::AntiAlias<W, H>()};
+      }();
+      uint32_t calls = 0;
+      {
+        Canvas canvas(effect);
+        ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+        const Plot::MeshEdge pair{0, 1};
+        Spacetime::Worldlines<> motion;
+        motion.bind(scratch_arena_b, 2);
+        motion.begin_frame(2, false);
+        for (int i = 0; i < 2; ++i)
+          motion.capture_end(i, vertices[i]);
+        motion.begin_frame(2, true);
+        for (int i = 0; i < 2; ++i)
+          motion.capture_end(i, vertices[i]);
+        Spacetime::PoseTable poses;
+        poses.bind(scratch_arena_a, W);
+        const math::Quaternion history[] = {rotation, rotation};
+        poses.build(history, 2);
+        Fragments points;
+        points.bind(scratch_arena_a, 2);
+        auto prepare = [](Fragments &out, const math::Vector &from,
+                          const math::Vector &to, size_t, float span) {
+          out.clear();
+          Fragment first, last;
+          first.pos = from;
+          last.pos = to;
+          first.age = 3.0f;
+          last.age = 7.0f;
+          last.v0 = 1.0f;
+          last.v1 = span;
+          out.push_back(first);
+          out.push_back(last);
+        };
+        auto shader = [&](const math::Vector &p, Fragment &f, float) {
+          ++calls;
+          if constexpr (!CUT)
+            HS_EXPECT_VEC(f.pos, p, 0.0f);
+          f.color = Color4(!CUT && p.z > 0.0f ? Pixel(65535, 32768, 16384)
+                                              : Pixel(16384, 32768, 65535),
+                           0.3f);
+        };
+        const Plot::EdgeBatch batch{1,     prepare, vertices, motion,
+                                    &pair, false,   false,    uniform};
+        PipelineRef erased(pipeline, Spacetime::Timed{});
+        Plot::rasterize_column_edges<W, H, {.timed = true}>(
+            erased, canvas, points, TimedShaderFn(shader), batch, &poses, 0.0f,
+            false, 0.0f);
+      }
+      effect.advance_display();
+      std::vector<Pixel> pixels;
+      uint64_t energy = 0, blue_energy = 0;
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const auto pixel = effect.get_pixel(x, y);
+          pixels.push_back(pixel);
+          energy += pixel.r;
+          blue_energy += pixel.b;
+        }
+      HS_EXPECT_GT(energy, uint64_t(10000));
+      HS_EXPECT_GT(blue_energy, 2 * energy);
+      HS_EXPECT_GT(samples.size(), size_t(20));
+      float largest_age = 0.0f;
+      for (size_t i = 0; i < samples.size(); ++i) {
+        if constexpr (!CUT) {
+          const float fraction = float(i) / float(samples.size() - 1);
+          HS_EXPECT_NEAR(samples[i].age, 3.0f + 4.0f * fraction, 0.00001f);
+        } else {
+          HS_EXPECT_GE(samples[i].age, 3.0f);
+          HS_EXPECT_LE(samples[i].age, 7.0f);
+        }
+        largest_age = fmaxf(largest_age, samples[i].age);
+      }
+      HS_EXPECT_GT(largest_age, 6.0f);
+      if (!uniform) {
+        reference = std::move(pixels);
+        reference_samples = std::move(samples);
+        reference_calls = calls;
+        continue;
+      }
+      HS_EXPECT_EQ(calls, 1u);
+      HS_EXPECT_GT(reference_calls, 20u);
+      HS_EXPECT_EQ(samples.size(), reference_samples.size());
+      for (size_t i = 0; i < std::min(samples.size(), reference_samples.size());
+           ++i)
+        HS_EXPECT_EQ(samples[i].age, reference_samples[i].age);
+      HS_EXPECT_EQ(pixels.size(), reference.size());
+      for (size_t i = 0; i < reference.size(); ++i) {
+        HS_EXPECT_EQ(pixels[i].r, reference[i].r);
+        HS_EXPECT_EQ(pixels[i].g, reference[i].g);
+        HS_EXPECT_EQ(pixels[i].b, reference[i].b);
+      }
+    }
+  };
+  run.template operator()<false>();
+  run.template operator()<true>();
+}
+
+/** @brief A uniform seam color leaves far-tap material registers interpolated. */
+inline void test_column_uniform_color_seam_registers() {
+  ScratchScope storage(scratch_arena_a);
+  Fragments points;
+  points.bind(scratch_arena_a, 2);
+  Fragment first, last;
+  first.v1 = 10.0f;
+  first.v2 = 3.0f;
+  first.v3 = 4.0f;
+  first.age = 3.0f;
+  last.v0 = 1.0f;
+  last.v1 = 20.0f;
+  last.v2 = 7.0f;
+  last.v3 = 8.0f;
+  last.age = 7.0f;
+  last.size = 3.0f;
+  points.push_back(first);
+  points.push_back(last);
+  Fragment owner;
+  owner.pos = math::Vector(0.2f, 0.3f, 0.4f);
+  owner.v0 = 101.0f;
+  owner.v1 = 102.0f;
+  owner.v2 = 103.0f;
+  owner.v3 = 104.0f;
+  owner.age = 105.0f;
+  owner.size = 106.0f;
+  owner.color = Color4(Pixel(1000, 2000, 3000), 0.3f);
+  const Plot::ColumnTapSample sample{{143.8f, 50.2f}, 0.998f, 0.25f};
+  for (const float far : {0.0f, sample.t}) {
+    uint32_t calls = 0;
+    auto shade = [&](const math::Vector &p, Fragment &f, float time) {
+      ++calls;
+      HS_EXPECT_VEC(p, owner.pos, 0.0f);
+      HS_EXPECT_EQ(time, far);
+      f.color = owner.color;
+    };
+    const TimedShaderFn shader(shade);
+    const auto normal = Plot::column_seam_registers<{.timed = true}, false>(
+        points, sample, owner, far, shader);
+    const auto uniform = Plot::column_seam_registers<{.timed = true}, true>(
+        points, sample, owner, far, shader);
+    HS_EXPECT_EQ(calls, far == sample.t ? 0u : 1u);
+    for (const Fragment *result : {&normal, &uniform}) {
+      const bool same_time = far == sample.t;
+      HS_EXPECT_VEC(result->pos, same_time ? owner.pos : math::Vector{}, 0.0f);
+      HS_EXPECT_EQ(result->v0, same_time ? 101.0f : 0.25f);
+      HS_EXPECT_EQ(result->v1, same_time ? 102.0f : 12.5f);
+      HS_EXPECT_EQ(result->v2, same_time ? 103.0f : 4.0f);
+      HS_EXPECT_EQ(result->v3, same_time ? 104.0f : 5.0f);
+      HS_EXPECT_EQ(result->age, same_time ? 105.0f : 4.0f);
+      HS_EXPECT_EQ(result->size, same_time ? 106.0f : 1.5f);
+      HS_EXPECT_EQ(result->color.color.r, 1000u);
+      HS_EXPECT_EQ(result->color.alpha, 0.3f);
+    }
+  }
+}
+
 /** @brief A per-vertex path bound replaces the shared one when the column
  *         walk picks each vertex's interpolant. */
 inline void test_column_capture_reads_vertex_paths() {

@@ -728,6 +728,7 @@ private:
     geometry.source_positions = false;
     geometry.chained = true;
     geometry.rigid_lattice = true;
+    geometry.uniform_color = true;
     geometry.capture_error = 0.001f;
     auto flush = [&]() HS_HOT_INLINE {
       if (count_vertices == 0)
