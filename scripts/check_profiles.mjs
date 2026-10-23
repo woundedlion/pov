@@ -17,7 +17,6 @@ const REQUIRED_SECTIONS = [
   '## Summary ranking',
   '## Harness',
 ];
-const PENDING_SHIPPING_PROFILES = new Set(['galaxies']);
 
 export async function profileDirectories(profilesDir, errors) {
   const entries = await readdir(profilesDir, { withFileTypes: true });
@@ -52,7 +51,9 @@ export async function reportsIn(profilesDir, directory, errors) {
       continue;
     }
     const key = match[1];
-    const variant = match[2] ?? '';
+    const variant = directory === 'shipping'
+      && file === 'profile_gridspace_teensy_2026-10-17.md'
+      ? 'temporal_comparison' : match[2] ?? '';
     const identity = variant ? `${key}_${variant}` : key;
     if (keys.has(identity))
       errors.push(`${directory} has multiple reports for ${identity}`);
@@ -266,13 +267,7 @@ export async function checkProfiles(profilesDir = PROFILES_DIR) {
   else {
     const captured = new Set(shipping.filter(report => !report.variant)
       .map(report => report.key));
-    for (const key of PENDING_SHIPPING_PROFILES) {
-      if (!phantasmKeys.has(key) || captured.has(key))
-        errors.push(`stale pending shipping profile allowance: ${key}`);
-    }
-    compareSets('shipping profiles', captured,
-      new Set([...phantasmKeys].filter(key => !PENDING_SHIPPING_PROFILES.has(key))),
-      errors);
+    compareSets('shipping profiles', captured, phantasmKeys, errors);
     for (const { key, variant } of shipping) {
       if (variant && !phantasmKeys.has(key))
         errors.push(`shipping profile names a non-Phantasm effect: ${key}`);
@@ -342,7 +337,6 @@ async function main() {
   } else {
     console.log(
       `Profile archive structure checks all ${result.phantasmCount} Phantasm effects; `
-      + (PENDING_SHIPPING_PROFILES.size ? 'Galaxies shipping capture is pending; ' : '')
       + `${result.o3Count} O3 and ${result.retiredCount} retired reports are indexed. Capture freshness is not checked.`,
     );
   }

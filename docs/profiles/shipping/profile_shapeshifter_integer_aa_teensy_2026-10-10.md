@@ -1,7 +1,7 @@
 # ShapeShifter on-device profile — Teensy 4.0, segmented mode (2026-10-10, **selective -O3**)
 
 Point-in-time paired comparison of the integer-coordinate direct-AA path.
-This supplements [the 2026-10-06 sweep](profile_shapeshifter_teensy_2026-10-06.md); the historical ranking remains a snapshot of that sweep.
+Historical paired measurements at the source snapshots below; [the current shipping report](profile_shapeshifter_teensy_2026-10-22.md) supplies the canonical ranking.
 Raw captures and attested ELF artifacts are retained in the host scratch directory:
 
 ```text

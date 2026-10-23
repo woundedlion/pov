@@ -1,86 +1,65 @@
 # Shipping selective-O3 profiles
 
-Composed-effect rows captured before 2026-10-17 predate per-column temporal sampling; [GridSpace's matched A/B](profile_gridspace_teensy_2026-10-17.md) measures about +11% mean live-render time for that path.
-
 Ranked on-device results for the shipping `profile` image, covering the
-36 effects in `HS_PHANTASM_EFFECT_LIST`. Canonical captures cover 35 effects;
-Galaxies is pending its first on-device shipping capture. Peak is worst-frame render
-time; spilled counts frames whose render exceeded the 62.5 ms display window.
-Rows rank by spill fraction, then peak render. ● marks the October 17 GridSpace and AshCloud, October 7 optimized face-distance, September 28 Octet supplement, and October 16 MindSplatter packing captures. 🟢 zero spill; 🟡 under 25% spill; 🔴 at least 25% spill. Cyclers (§) use parser-owned cadence buckets.
+36 effects in `HS_PHANTASM_EFFECT_LIST`. All 36 have canonical reports, including
+Galaxies. Peak is worst-frame render; spilled counts frames whose render exceeded
+the 62.5 ms display window. Rows rank by spill fraction, then peak render.
+🟢 zero spill; 🔴 any spill.
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
 |---|---|--:|--:|---|
-| [MindSplatter](profile_mindsplatter_teensy_2026-10-16.md) § ● | `msp_draw_particles` | 🟢 55.71 (8) | 🟢 0/1727 (0.00%) | 2026-10-16 08:55 |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-10-06.md) § | `ss_draw_all` | 🟢 54.27 (9) | 🟢 0/2447 (0.00%) | 2026-10-06 18:29 |
-| [Raymarch](profile_raymarch_teensy_2026-10-06.md) | `rm_shader_draw` | 🟢 51.95 | 🟢 0/1087 (0.00%) | 2026-10-06 18:17 |
-| [HyperLattice](profile_hyperlattice_teensy_2026-10-06.md) § | `hl_shader_draw` | 🟢 51.77 (9) | 🟢 0/5487 (0.00%) | 2026-10-06 20:43 |
-| [HopfFibration](profile_hopffibration_teensy_2026-10-06.md) | `hf_render_trails` | 🟢 48.61 | 🟢 0/1087 (0.00%) | 2026-10-06 18:03 |
-| [MeshFeedback](profile_meshfeedback_teensy_2026-10-06.md) § | `mf_feedback_flush` | 🟢 48.53 (12) | 🟢 0/6687 (0.00%) | 2026-10-06 18:18 |
-| [IslamicStars](profile_islamicstars_teensy_2026-10-07.md) § ● | `is_timeline_step` | 🟢 48.510 (23) | 🟢 0/3327 (0.00%) | 2026-10-07 15:16 |
-| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-06.md) | `bz_render` | 🟢 48.34 | 🟢 0/2047 (0.00%) | 2026-10-06 19:05 |
-| [RingSpin](profile_ringspin_teensy_2026-10-06.md) | `rs_draw_rings` | 🟢 47.16 | 🟢 0/1087 (0.00%) | 2026-10-06 18:22 |
-| [AshCloud](profile_ashcloud_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 46.27 | 🟢 0/1087 (0.00%) | 2026-10-17 17:12 |
-| [DreamBalls](profile_dreamballs_teensy_2026-10-06.md) § | `db_timeline_step` | 🟢 41.44 (10) | 🟢 0/3647 (0.00%) | 2026-10-06 18:28 |
-| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-06.md) | `grd_shader_draw` | 🟢 39.43 | 🟢 0/2047 (0.00%) | 2026-10-06 19:15 |
-| [MermaidSkin](profile_mermaidskin_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 39.18 | 🟢 0/1087 (0.00%) | 2026-10-06 18:59 |
-| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 37.08 (2) | 🟢 0/2207 (0.00%) | 2026-10-06 18:47 |
-| [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 35.53 | 🟢 0/1087 (0.00%) | 2026-10-06 18:57 |
-| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 34.97 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:45 |
-| [HankinSolids](profile_hankinsolids_teensy_2026-10-07.md) § ● | `hk_timeline_step` | 🟢 34.681 (19) | 🟢 0/4447 (0.00%) | 2026-10-07 14:18 |
-| [DisplacementField](profile_displacementfield_teensy_2026-10-06.md) | `df_timeline_step` | 🟢 33.66 | 🟢 0/2527 (0.00%) | 2026-10-06 19:24 |
-| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 32.02 (4) | 🟢 0/4127 (0.00%) | 2026-10-06 18:55 |
-| [Comets](profile_comets_teensy_2026-10-06.md) § | `cm_draw_trail` | 🟢 31.92 (12) | 🟢 0/4127 (0.00%) | 2026-10-06 18:07 |
-| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 31.42 (3) | 🟢 0/4127 (0.00%) | 2026-10-06 19:04 |
-| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 30.03 (2) | 🟢 0/2367 (0.00%) | 2026-10-06 18:58 |
-| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 27.04 | 🟢 0/1087 (0.00%) | 2026-10-06 18:44 |
-| [GridSpace](profile_gridspace_teensy_2026-10-17.md) ● | `fx_shader_draw` | 🟢 25.41 | 🟢 0/1087 (0.00%) | 2026-10-17 16:58 |
-| [AlienBrain](profile_alienbrain_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 25.11 (4) | 🟢 0/4767 (0.00%) | 2026-10-06 18:35 |
-| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.88 | 🟢 0/1087 (0.00%) | 2026-10-06 18:37 |
-| [Fishbowl](profile_fishbowl_teensy_2026-10-06.md) | `fish_build_vertices` | 🟢 23.78 | 🟢 0/1087 (0.00%) | 2026-10-06 19:07 |
-| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 23.63 | 🟢 0/1087 (0.00%) | 2026-10-06 19:06 |
-| [AlienOcean](profile_alienocean_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 22.37 | 🟢 0/1087 (0.00%) | 2026-10-06 18:39 |
-| [GnomonicStars](profile_gnomonicstars_teensy_2026-10-07.md) | `gn_draw_stars` | 🟢 21.84 | 🟢 0/1087 (0.00%) | 2026-10-07 13:42 |
-| [MobiusGrid](profile_mobiusgrid_teensy_2026-10-06.md) § | `fx_shader_draw` | 🟢 21.77 (2) | 🟢 0/2687 (0.00%) | 2026-10-06 18:08 |
-| [AlienCore](profile_aliencore_teensy_2026-10-06.md) | `fx_shader_draw` | 🟢 17.86 | 🟢 0/1087 (0.00%) | 2026-10-06 18:42 |
-| [PetalFlow](profile_petalflow_teensy_2026-10-06.md) | `pf_draw_rings` | 🟢 13.29 | 🟢 0/1087 (0.00%) | 2026-10-06 18:12 |
-| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-06.md) § | `sh_rasterize` | 🟢 12.92 (24) | 🟢 0/3487 (0.00%) | 2026-10-06 18:42 |
-| [Voronoi](profile_voronoi_teensy_2026-10-06.md) | `vo_shade` | 🟢 8.00 | 🟢 0/1087 (0.00%) | 2026-10-06 18:25 |
+| [IslamicStars](profile_islamicstars_teensy_2026-10-22.md) § | `is_timeline_step` | 🔴 67.393 (1)<br>🟢 57.235 (15) | 🔴 33/352 (9.38%)<br>🟢 0/4447 (0.00%) | 2026-10-22 19:39 |
+| [MermaidSkin](profile_mermaidskin_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 61.132 | 🟢 0/447 (0.00%) | 2026-10-22 20:03 |
+| [MindSplatter](profile_mindsplatter_teensy_2026-10-22.md) § | `msp_draw_particles` | 🟢 58.709 (8) | 🟢 0/1247 (0.00%) | 2026-10-22 19:20 |
+| [Raymarch](profile_raymarch_teensy_2026-10-22.md) | `rm_shader_draw` | 🟢 57.674 | 🟢 0/447 (0.00%) | 2026-10-22 19:10 |
+| [HopfFibration](profile_hopffibration_teensy_2026-10-22.md) | `hf_render_trails` | 🟢 57.358 | 🟢 0/927 (0.00%) | 2026-10-22 19:05 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-10-22.md) § | `ss_draw_all` | 🟢 55.606 (9) | 🟢 0/4271 (0.00%) | 2026-10-22 19:18 |
+| [HyperLattice](profile_hyperlattice_teensy_2026-10-22.md) § | `hl_shader_draw` | 🟢 55.080 (9) | 🟢 0/4767 (0.00%) | 2026-10-22 20:01 |
+| [DreamBalls](profile_dreamballs_teensy_2026-10-22.md) § | `db_timeline_step` | 🟢 54.443 (10) | 🟢 0/3167 (0.00%) | 2026-10-22 19:43 |
+| [RingSpin](profile_ringspin_teensy_2026-10-22.md) | `rs_draw_rings` | 🟢 53.562 | 🟢 0/927 (0.00%) | 2026-10-22 19:12 |
+| [MeshFeedback](profile_meshfeedback_teensy_2026-10-22.md) § | `mf_feedback_flush` | 🟢 53.043 (12) | 🟢 0/2863 (0.00%) | 2026-10-22 19:34 |
+| [DisplacementField](profile_displacementfield_teensy_2026-10-22.md) § | `df_timeline_step` | 🟢 51.350 (2) | 🟢 0/1887 (0.00%) | 2026-10-22 19:02 |
+| [KaleidoscopeHexOil](profile_kaleidoscopehexoil_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 49.679 (2) | 🟢 0/1647 (0.00%) | 2026-10-22 20:09 |
+| [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-10-22.md) | `bz_render` | 🟢 48.271 | 🟢 0/927 (0.00%) | 2026-10-22 18:57 |
+| [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-10-22.md) | `grd_render` | 🟢 48.119 | 🟢 0/447 (0.00%) | 2026-10-22 19:04 |
+| [AshCloud](profile_ashcloud_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 46.831 | 🟢 0/927 (0.00%) | 2026-10-22 20:05 |
+| [Galaxies](profile_galaxies_teensy_2026-10-22.md) | `gx_particle_step` | 🟢 44.932 | 🟢 0/927 (0.00%) | 2026-10-22 18:55 |
+| [ChromaticLichen](profile_chromaticlichen_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 40.095 | 🟢 0/447 (0.00%) | 2026-10-22 20:02 |
+| [KaleidoscopeMandala](profile_kaleidoscopemandala_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 39.963 (2) | 🟢 0/1631 (0.00%) | 2026-10-22 19:54 |
+| [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 33.982 (3) | 🟢 0/2735 (0.00%) | 2026-10-22 20:19 |
+| [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 33.729 (2) | 🟢 0/1631 (0.00%) | 2026-10-22 20:16 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-10-22.md) § | `hk_timeline_step` | 🟢 33.483 (18) | 🟢 0/2687 (0.00%) | 2026-10-22 19:23 |
+| [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 33.333 (4) | 🟢 0/3807 (0.00%) | 2026-10-22 20:14 |
+| [Comets](profile_comets_teensy_2026-10-22.md) § | `cm_draw_trail` | 🟢 30.550 (12) | 🟢 0/1887 (0.00%) | 2026-10-22 19:30 |
+| [MobiusGrid](profile_mobiusgrid_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 30.419 (2) | 🟢 0/1647 (0.00%) | 2026-10-22 19:08 |
+| [PetalFlow](profile_petalflow_teensy_2026-10-22.md) | `pf_draw_rings` | 🟢 30.379 | 🟢 0/447 (0.00%) | 2026-10-22 19:09 |
+| [CosmicEyeball](profile_cosmiceyeball_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 28.921 | 🟢 0/927 (0.00%) | 2026-10-22 20:21 |
+| [KaleidoscopePentBright](profile_kaleidoscopepentbright_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 28.723 | 🟢 0/927 (0.00%) | 2026-10-22 20:07 |
+| [Fishbowl](profile_fishbowl_teensy_2026-10-22.md) | `fish_build_vertices` | 🟢 28.480 | 🟢 0/927 (0.00%) | 2026-10-22 18:59 |
+| [KaleidoscopeHexSoft](profile_kaleidoscopehexsoft_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 27.376 | 🟢 0/927 (0.00%) | 2026-10-22 19:50 |
+| [AlienBrain](profile_alienbrain_teensy_2026-10-22.md) § | `fx_shader_draw` | 🟢 26.382 (4) | 🟢 0/3807 (0.00%) | 2026-10-22 19:48 |
+| [GnomonicStars](profile_gnomonicstars_teensy_2026-10-22.md) | `gn_draw_stars` | 🟢 26.284 | 🟢 0/447 (0.00%) | 2026-10-22 19:03 |
+| [GridSpace](profile_gridspace_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 25.957 | 🟢 0/927 (0.00%) | 2026-10-22 19:55 |
+| [AlienOcean](profile_alienocean_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 25.517 | 🟢 0/447 (0.00%) | 2026-10-22 19:51 |
+| [AlienCore](profile_aliencore_teensy_2026-10-22.md) | `fx_shader_draw` | 🟢 23.648 | 🟢 0/447 (0.00%) | 2026-10-22 19:52 |
+| [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-22.md) § | `sh_rasterize` | 🟢 13.292 (24) | 🟢 0/1503 (0.00%) | 2026-10-22 19:28 |
+| [Voronoi](profile_voronoi_teensy_2026-10-22.md) | `vo_shade` | 🟢 9.243 | 🟢 0/447 (0.00%) | 2026-10-22 19:13 |
 
-The full-roster sweep was captured on 2026-10-06 at `e2f5b0a3d` across COM3
-and COM4, except HyperLattice, re-captured after its 4D optimization at
-`a13c149d4`; its linked report records the 51.774 ms peak. GnomonicStars was
-re-captured on October 7; its report records the source and clock variant.
-The October 7 IslamicStars and HankinSolids captures measure optimized
-face distance. Each report names its board and source snapshot. Setup frame 1
-is excluded from display peak and spill figures.
+All 36 canonical shipping captures were refreshed on COM4 at source
+`aa61e787859bf31d69057b436b08ad8a751f1bb4`. Captures use the current Phantasm
+show-segment durations and shipping parameter defaults. Setup frame 1 is excluded
+from peak and spill figures. Captured times are local raw-log mtimes.
 
-HankinSolids, HyperLattice and DisplacementField were re-captured with longer
-budgets than `tools/profile_sweep.sh` assigns them, so that each capture covers its
-full cycle; their reports give the commands.
+The root-cycle/wall-sum cross-check exceeds the parser's 5 ppm limit in all 36
+captures; each report retains its measured discrepancy. Effect identity, frame
+monotonicity and complete-window telemetry checks pass. Rankings use the logged
+per-frame render values.
 
-For cyclers, each row summarizes the parser-owned preset, shape, or mode entries.
-(N) gives the entry count; the linked report contains the individual buckets.
-Spill fractions include the transition following an entry and are stricter than clean holds.
-
-- **HyperLattice**: 9 parser ownership buckets spanning 26.22–51.77 ms.
-- **MindSplatter**: 8 parser ownership buckets spanning 22.83–55.71 ms.
-- **ShapeShifter**: 9 parser ownership buckets spanning 6.28–54.27 ms.
-- **IslamicStars**: 23 parser ownership buckets spanning 20.32–48.51 ms.
-- **MeshFeedback**: 12 parser ownership buckets spanning 40.71–48.53 ms.
-- **DreamBalls**: 10 parser ownership buckets spanning 14.27–41.44 ms.
-- **KaleidoscopeHexOil**: 2 parser ownership buckets spanning 36.83–37.08 ms.
-- **KaleidoscopeMandala**: 2 parser ownership buckets spanning 34.40–34.97 ms.
-- **HankinSolids**: 19 parser ownership buckets spanning 14.569–34.681 ms (18 named shapes plus startup).
-- **KaleidoscopeSmooth**: 4 parser ownership buckets spanning 27.36–32.02 ms.
-- **Comets**: 12 parser ownership buckets spanning 17.05–31.92 ms.
-- **KaleidoscopeFlowers**: 3 parser ownership buckets spanning 30.78–31.42 ms.
-- **KaleidoscopeHexBright**: 2 parser ownership buckets spanning 29.85–30.03 ms.
-- **AlienBrain**: 4 parser ownership buckets spanning 24.86–25.11 ms.
-- **MobiusGrid**: 2 parser ownership buckets spanning 21.68–21.77 ms.
-- **SphericalHarmonics**: 24 parser ownership buckets spanning 8.36–12.92 ms.
-
-Each effect in `HS_PHANTASM_EFFECT_LIST` has exactly one un-suffixed report
-here; suffixed reports are supplements or preserved captures.
+§ Cyclers carry one aligned line per parser-owned colour bucket, red first;
+(N) counts ownership entries. Bucket frames include the following transition.
+Each report gives per-entry timing, complete-window coverage and parser validation
+diagnostics. A segment can end before its final transition wraps, and spills can
+limit the entries observed; the tables do not imply full-cycle validation.
 
 ## Supplemental experimental presets
 
@@ -117,15 +96,18 @@ Sphere-only renderer; two authored fixed presets on COM4, startup excluded. [Pai
 
 ## Earlier captures
 
-Preserved architecture snapshots, superseded in the ranking by the 2026-10-06 sweep.
+Preserved architecture snapshots, superseded in the ranking by the current canonical captures.
 
 - [MindSplatter 2026-10-01](profile_mindsplatter_architecture_teensy_2026-10-01.md).
 - [HyperLattice 2026-10-01](profile_hyperlattice_architecture_teensy_2026-10-01.md).
 - [ChromaticLichen 2026-10-01](profile_chromaticlichen_architecture_teensy_2026-10-01.md).
 - [KaleidoscopeSmooth 2026-10-01](profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md).
 
-Experimental clock characterization: [GnomonicStars bounded-channel comparison](profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Production adopted bounded channel phases. The ranked 21.84 ms capture at `e7f19b0d1` predates that change and measures the old float clock; the experiment records the cost difference without replacing the historical ranked row.
+Experimental clock characterization: [GnomonicStars bounded-channel comparison](profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Historical paired measurements; the current canonical report measures the shipping bounded channel phases.
 
-Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
+Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Historical paired measurements at their recorded source snapshots.
 
-● MindSplatter: October 16 HD107S packing comparison; baseline timer caveat is recorded in its report.
+
+## Temporal sampling comparison
+
+[GridSpace matched A/B](profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.

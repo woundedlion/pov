@@ -1,6 +1,6 @@
 # HyperLattice on-device profile — sphere-only shell flight — Teensy 4.0, segmented mode (2026-09-29, **selective -O3**)
 
-Point-in-time supplemental snapshot of the two authored experimental shell presets with the sphere-only renderer. Replaces the 2026-09-28 shell supplement; its raw evidence is no longer retained. The canonical cubic roster reports remain unchanged.
+Point-in-time supplemental snapshot of the two authored experimental shell presets with the sphere-only renderer. Replaces the 2026-09-28 shell supplement; its raw evidence is no longer retained. These historical fixed-preset measurements retain their original source snapshot; the canonical report measures the current shipping segment.
 
 Paired report: [global O3](../O3/profile_hyperlattice_shell_flight_teensy_2026-09-29.md).
 
