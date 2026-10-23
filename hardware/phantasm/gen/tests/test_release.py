@@ -84,6 +84,15 @@ class ReleaseTests(unittest.TestCase):
         self.assertIs(fab.KNOWN_PARITY_WARNING_COUNTS, original)
         self.assertIs(fab.OPTIONAL_PARITY_WARNING_MAX, original_optional)
 
+    def write_package(self):
+        jlc = Path(fab.JLC)
+        jlc.mkdir()
+        for name in fab.ZIP_MEMBERS | set(fab.ASSEMBLY_MEMBERS):
+            (jlc / name).write_text(name, encoding="utf-8")
+        fab.write_upload_zip(str(jlc), sorted(fab.ZIP_MEMBERS), str(jlc / fab.ARCHIVE))
+        (jlc / fab.SUMS_FILE).write_text(
+            fab.package_manifest(str(jlc), sorted(fab.ZIP_MEMBERS), fab.ARCHIVE), encoding="utf-8")
+
     def pipeline(self, stack, fail=None, revision="1.2"):
         events = []
         def preflight(project, revision, check_copper=True):
@@ -108,15 +117,8 @@ class ReleaseTests(unittest.TestCase):
                 raise SystemExit("injected gate failure")
             if fail == "source_change":
                 (self.project / "phantasm.kicad_pro").write_text("edit", encoding="utf-8")
-            if validate_only:
-                return
-            jlc = Path(fab.JLC)
-            jlc.mkdir()
-            for name in fab.ZIP_MEMBERS | set(fab.ASSEMBLY_MEMBERS):
-                (jlc / name).write_text(name, encoding="utf-8")
-            fab.write_upload_zip(str(jlc), sorted(fab.ZIP_MEMBERS), str(jlc / fab.ARCHIVE))
-            (jlc / fab.SUMS_FILE).write_text(
-                fab.package_manifest(str(jlc), sorted(fab.ZIP_MEMBERS), fab.ARCHIVE), encoding="utf-8")
+            if not validate_only:
+                self.write_package()
         for name, replacement in (("preflight", preflight), ("fabrication_options", lambda *args: {"finish": "ENIG"})):
             stack.enter_context(mock.patch.object(release, name, side_effect=replacement))
         stack.enter_context(mock.patch.object(release.subprocess, "run", side_effect=refill))
@@ -183,6 +185,40 @@ class ReleaseTests(unittest.TestCase):
             release.build(self.project, "1.2")
         self.assertFalse(stage.exists())
         self.assertFalse(self.destination.exists())
+
+    def test_release_enforces_cross_arm_width(self):
+        shipped = Path(__file__).resolve().parents[2] / "1.1"
+        for width, accepted in (("32", True), ("35", True), ("35.001", False), ("40", False)):
+            with self.subTest(width=width), contextlib.ExitStack() as stack:
+                project = self.root / ("width-" + width)
+                release.snapshot(shipped, project)
+                board = project / "phantasm.kicad_pcb"
+                outline = "(end 58.28 32)"
+                self.assertEqual(board.read_text(encoding="utf-8").count(outline), 1)
+                board.write_text(board.read_text(encoding="utf-8").replace(
+                    outline, f"(end 58.28 {width})"), encoding="utf-8")
+                stack.enter_context(mock.patch.object(release.subprocess, "run"))
+                stack.enter_context(mock.patch.object(release.subprocess, "check_output", return_value="10.0.4"))
+                stack.enter_context(mock.patch.object(fab, "kicad_cli", return_value="fixture-cli"))
+                stack.enter_context(mock.patch.object(
+                    fab, "fabricate",
+                    side_effect=lambda revision, validate_only, refill_zones: self.write_package()))
+                stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                stderr = stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+                destination = self.root / ("package-" + width)
+                arguments = ["release", "--revision", "1.1", "--project", str(project),
+                             "--output", str(destination)]
+                if accepted:
+                    release.main(arguments)
+                    record = json.loads((destination / "release.json").read_text())
+                    self.assertIn("mechanical_width", record["validation"])
+                else:
+                    with self.assertRaises(SystemExit) as caught:
+                        release.main(arguments)
+                    self.assertEqual(caught.exception.code, 1)
+                    self.assertIn(f"mechanical_width: R-MECH-6: cross-arm width {width} mm exceeds 35 mm",
+                                  stderr.getvalue())
+                    self.assertFalse(destination.exists())
 
     def test_release_refuses_existing_or_nested_destination(self):
         with self.assertRaisesRegex(ValueError, "outside"):

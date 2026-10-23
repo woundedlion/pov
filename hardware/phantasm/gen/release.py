@@ -106,6 +106,8 @@ def preflight(project, revision, check_copper=True):
     board = fab.read_board(board_path)
     checks = {
         "fabrication_options": lambda: fabrication_options(project, revision),
+        "mechanical_width": lambda: board_metadata.validate_mechanical_width(
+            board_metadata.load_board(board_path)),
         "project_rules": lambda: fab.validate_project_rules(project / f"{PROJECT}.kicad_pro"),
         "zones": lambda: fab.validate_zone_geometry(board_path, board=board),
         "vias": lambda: fab.validate_via_geometry(board_path, min_vias=1, board=board),
@@ -200,7 +202,7 @@ def build(project, revision, destination=None):
             "tools": {"kicad_cli": version, "python": sys.version,
                       "generator_sha256": {path.name: fab.sha256_file(path)
                                            for path in sorted(Path(__file__).parent.glob("*.py"))}},
-            "validation": ["project_rules", "zones", "vias", "solder_mask", "plot_origin",
+            "validation": ["mechanical_width", "project_rules", "zones", "vias", "solder_mask", "plot_origin",
                            *(["finish_stackup"] if revision == "1.2" else []),
                            "connectivity", "ERC", "DRC", "parity",
                            "netlist", "assembly", "export_content"],

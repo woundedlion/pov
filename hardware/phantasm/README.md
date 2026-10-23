@@ -149,7 +149,7 @@ python hardware/phantasm/gen/release.py check-candidates
 ```
 
 Validation snapshots the selected KiCad project, rules, library tables and
-local library/model inputs. It checks manufacturing rules, zone/via geometry, mask/origin,
+local library/model inputs. It checks the R-MECH-6 board width, manufacturing rules, zone/via geometry, mask/origin,
 ENIG and copper stackup, copper connectivity, ERC, DRC, schematic parity,
 netlist membership, and assembly assignments/metadata. Rev 1.2 does not inherit
 rev 1.1's historical footprint-warning allowances; the generator's D_BUS land
