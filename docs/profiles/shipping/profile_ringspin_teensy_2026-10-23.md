@@ -26,13 +26,13 @@ The adjacent provenance, compiler/ABI attestation, envdump, build logs and image
 
 ## Frame cadence
 
-**Complete-window aggregate, including setup:** peak render **53.743 ms** (frame 761), mean **38.705 ms**, **0/928 spilled frames** (0.00%).
-The frame scope is 1–928; no warmup or setup frame is excluded.
-Frame 1 renders 3.396 ms. The 8 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
+**Steady render, frame 1 excluded:** peak **53.743 ms** (frame 761), mean **38.743 ms**, **0/927 spilled frames** (0.00%).
+The scope is per-frame render telemetry (`frame` minus the measured buffer wait), frames 2–928 in complete counter windows, with the shipping segment clip. Transitions remain included.
+**Setup frame 1:** render **3.396 ms**, 0/1 spilled. The 8 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
 
 Across all 936 raw frame rows, including that trailing portion, the observed peak is 53.743 ms and 0 frames spill.
 
-`rs_draw_rings` averages 38.369 ms/frame; its worst window averages 41.480 ms/frame (frames 737–768).
+Across all complete counter windows, including the setup-containing window, `rs_draw_rings` averages 38.369 ms/frame; its worst window averages 41.480 ms/frame (frames 737–768).
 
 A display window is 62.5 ms. Spilled means render exceeds that budget. Render telemetry subtracts `canvas_buffer_wait`; wall time includes display-sync idle. Measurements use the shipping segment clip.
 
@@ -76,7 +76,7 @@ Blended-pixel counts are not enabled in this timing image. Geometric pixel cover
 
 ## Column-ISR / DMA marshaling cost
 
-Peak-render counter window; separately timestamped ISR interval 2005.237 ms.
+Steady-peak counter window; separately timestamped ISR interval 2005.237 ms.
 
 | ISR scope | Calls/frame | Min ms | Mean ms | Max ms | CPU share |
 |---|--:|--:|--:|--:|--:|
@@ -88,18 +88,22 @@ Peak-render counter window; separately timestamped ISR interval 2005.237 ms.
 
 ## Summary ranking
 
+Hot scopes below describe the complete counter window containing the steady peak frame; they are window means.
+
 1. `rs_draw_rings` — 41.480 ms/frame, 66.26% of this root window.
 2. `pov_preserve_half` — 0.141 ms/frame, 0.22% of this root window.
 3. `rs_timeline_step` — 0.090 ms/frame, 0.14% of this root window.
 
-README cells: peak 🟢 53.743, spilled 🟢 0/928 (0.00%).
+README cells: peak 🟢 53.743, spilled 🟢 0/927 (0.00%).
 
-Source, schedule, duration and exclusions identify this observation. It is not a matched comparison with a preceding capture.
+README setup frame 1: 3.396 ms. Peak and spilled cells use the steady frame scope.
+
+Source, schedule, duration and exclusions identify this observation. Earlier report peaks are different captures with their own source and frame scope; they are not matched comparisons.
 
 ## Caveats
 
 - All cycle scopes include interrupt time and instrumentation overhead.
-- The headline includes setup; no post-warmup peak is presented as a whole-show result.
+- Steady figures exclude only frame 1; they include subsequent transitions and are limited to complete counter windows. Counter-scope tables retain their named window scope.
 - Global-O3 reference captures retain their own source and scope.
 
 Parser validation:

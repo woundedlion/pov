@@ -26,13 +26,13 @@ The adjacent provenance, compiler/ABI attestation, envdump, build logs and image
 
 ## Frame cadence
 
-**Complete-window aggregate, including setup:** peak render **58.966 ms** (frame 2056), mean **24.772 ms**, **0/4864 spilled frames** (0.00%).
-The frame scope is 1–4864; no warmup or setup frame is excluded.
-Frame 1 renders 16.644 ms. The 9 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
+**Steady render, frame 1 excluded:** peak **58.966 ms** (frame 2056), mean **24.773 ms**, **0/4863 spilled frames** (0.00%).
+The scope is per-frame render telemetry (`frame` minus the measured buffer wait), frames 2–4864 in complete counter windows, with the shipping segment clip. Transitions remain included.
+**Setup frame 1:** render **16.644 ms**, 0/1 spilled. The 9 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
 
 Across all 4873 raw frame rows, including that trailing portion, the observed peak is 58.966 ms and 0 frames spill.
 
-`is_timeline_step` averages 24.471 ms/frame; its worst window averages 56.323 ms/frame (frames 2049–2064).
+Across all complete counter windows, including the setup-containing window, `is_timeline_step` averages 24.471 ms/frame; its worst window averages 56.323 ms/frame (frames 2049–2064).
 
 A display window is 62.5 ms. Spilled means render exceeds that budget. Render telemetry subtracts `canvas_buffer_wait`; wall time includes display-sync idle. Measurements use the shipping segment clip.
 
@@ -101,7 +101,7 @@ Wall min/mean/max: 59.319/62.519/65.593 ms.
 
 ### Per-preset table
 
-Ownership buckets include transitions and setup. The clean column uses the parser’s single-owner/modal-call selection; it is a window mean, not a frame peak. Continuous morphs do not necessarily provide an independent static hold. Entry 0 is an unmarked startup owner when the marker scheme cannot infer its name.
+Ownership frame peaks and spill counts include transitions and exclude setup frame 1. Clean scope-window means retain their stated complete-window scope, including the first window. The clean column uses the parser’s single-owner/modal-call selection; it is a window mean, not a frame peak. Continuous morphs do not necessarily provide an independent static hold. Entry 0 is an unmarked startup owner when the marker scheme cannot infer its name.
 
 | Entry | Geometry / name | Peak ms | Spilled/frames | Clean `is_timeline_step` ms/frame | Clean/all windows |
 |---|---|--:|--:|--:|--:|
@@ -120,7 +120,7 @@ Ownership buckets include transitions and setup. The clean column uses the parse
 | rhombicuboctahedron_hk63_ambo_hk63 | V=24 E=48 F=26 I=96 | 31.993 | 0/280 | 30.136 | 17/18 |
 | dodecahedron_hk54_ambo_hk72 | V=20 E=30 F=12 I=60 | 27.581 | 0/280 | 26.125 | 16/17 |
 | icosidodecahedron_truncate5d_ambo_dual | V=30 E=60 F=32 I=120 | 26.976 | 0/312 | 25.655 | 19/20 |
-| dodecahedron_hk62_ambo_hk62 | V=20 E=30 F=12 I=60 | 26.656 | 0/279 | 25.486 | 17/18 |
+| dodecahedron_hk62_ambo_hk62 | V=20 E=30 F=12 I=60 | 26.656 | 0/278 | 25.486 | 17/18 |
 
 No cycle wrap is observed. These are show-segment measurements, not a demonstrated complete preset cycle. Initial ownership inferred by the parser can appear in the table even when the strict validator counts only advance markers.
 
@@ -130,7 +130,7 @@ Blended-pixel counts are not enabled in this timing image. Geometric pixel cover
 
 ## Column-ISR / DMA marshaling cost
 
-Peak-render counter window; separately timestamped ISR interval 998.766 ms.
+Steady-peak counter window; separately timestamped ISR interval 998.766 ms.
 
 | ISR scope | Calls/frame | Min ms | Mean ms | Max ms | CPU share |
 |---|--:|--:|--:|--:|--:|
@@ -142,18 +142,22 @@ Peak-render counter window; separately timestamped ISR interval 998.766 ms.
 
 ## Summary ranking
 
+Hot scopes below describe the complete counter window containing the steady peak frame; they are window means.
+
 1. `is_timeline_step` — 56.323 ms/frame, 90.51% of this root window.
 2. `mesh_capture` — 2.765 ms/frame, 4.44% of this root window.
 3. `mesh_classify` — 1.484 ms/frame, 2.39% of this root window.
 
-README cells: peak 🟢 58.966 (16), spilled 🟢 0/4864 (0.00%).
+README cells: peak 🟢 58.966 (16), spilled 🟢 0/4863 (0.00%).
 
-Source, schedule, duration and exclusions identify this observation. It is not a matched comparison with a preceding capture.
+README setup frame 1: 16.644 ms. Peak and spilled cells use the steady frame scope.
+
+Source, schedule, duration and exclusions identify this observation. Earlier report peaks are different captures with their own source and frame scope; they are not matched comparisons.
 
 ## Caveats
 
 - All cycle scopes include interrupt time and instrumentation overhead.
-- The headline includes setup; no post-warmup peak is presented as a whole-show result.
+- Steady figures exclude only frame 1; they include subsequent transitions and are limited to complete counter windows. Counter-scope tables retain their named window scope.
 - Global-O3 reference captures retain their own source and scope.
 
 Parser validation:

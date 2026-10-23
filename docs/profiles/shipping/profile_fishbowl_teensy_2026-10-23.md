@@ -26,13 +26,13 @@ The adjacent provenance, compiler/ABI attestation, envdump, build logs and image
 
 ## Frame cadence
 
-**Complete-window aggregate, including setup:** peak render **31.232 ms** (frame 197), mean **23.101 ms**, **0/928 spilled frames** (0.00%).
-The frame scope is 1–928; no warmup or setup frame is excluded.
-Frame 1 renders 1.811 ms. The 9 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
+**Steady render, frame 1 excluded:** peak **31.232 ms** (frame 197), mean **23.124 ms**, **0/927 spilled frames** (0.00%).
+The scope is per-frame render telemetry (`frame` minus the measured buffer wait), frames 2–928 in complete counter windows, with the shipping segment clip. Transitions remain included.
+**Setup frame 1:** render **1.811 ms**, 0/1 spilled. The 9 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
 
 Across all 937 raw frame rows, including that trailing portion, the observed peak is 31.232 ms and 0 frames spill.
 
-`fish_build_vertices` averages 12.835 ms/frame; its worst window averages 13.691 ms/frame (frames 737–768).
+Across all complete counter windows, including the setup-containing window, `fish_build_vertices` averages 12.835 ms/frame; its worst window averages 13.691 ms/frame (frames 737–768).
 
 A display window is 62.5 ms. Spilled means render exceeds that budget. Render telemetry subtracts `canvas_buffer_wait`; wall time includes display-sync idle. Measurements use the shipping segment clip.
 
@@ -96,7 +96,7 @@ Blended-pixel counts are not enabled in this timing image. Geometric pixel cover
 
 ## Column-ISR / DMA marshaling cost
 
-Peak-render counter window; separately timestamped ISR interval 2001.211 ms.
+Steady-peak counter window; separately timestamped ISR interval 2001.211 ms.
 
 | ISR scope | Calls/frame | Min ms | Mean ms | Max ms | CPU share |
 |---|--:|--:|--:|--:|--:|
@@ -108,18 +108,22 @@ Peak-render counter window; separately timestamped ISR interval 2001.211 ms.
 
 ## Summary ranking
 
+Hot scopes below describe the complete counter window containing the steady peak frame; they are window means.
+
 1. `fish_build_vertices` — 13.637 ms/frame, 21.84% of this root window.
 2. `fish_multiline_draw` — 12.056 ms/frame, 19.31% of this root window.
 3. `fish_timeline_step` — 0.240 ms/frame, 0.38% of this root window.
 
-README cells: peak 🟢 31.232, spilled 🟢 0/928 (0.00%).
+README cells: peak 🟢 31.232, spilled 🟢 0/927 (0.00%).
 
-Source, schedule, duration and exclusions identify this observation. It is not a matched comparison with a preceding capture.
+README setup frame 1: 1.811 ms. Peak and spilled cells use the steady frame scope.
+
+Source, schedule, duration and exclusions identify this observation. Earlier report peaks are different captures with their own source and frame scope; they are not matched comparisons.
 
 ## Caveats
 
 - All cycle scopes include interrupt time and instrumentation overhead.
-- The headline includes setup; no post-warmup peak is presented as a whole-show result.
+- Steady figures exclude only frame 1; they include subsequent transitions and are limited to complete counter windows. Counter-scope tables retain their named window scope.
 - Global-O3 reference captures retain their own source and scope.
 
 Parser validation:
