@@ -12,6 +12,7 @@
 #include "core/render/spacetime.h"
 #include "core/render/canvas.h"
 #include "core/render/plot/cull.h"
+#include "core/render/plot/raster.h"
 
 namespace Plot {
 
