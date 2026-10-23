@@ -12,11 +12,32 @@
 #include "core/render/plot.h"
 #include "core/render/filter.h"
 #include "core/render/filter/pixel_feedback.h"
+#include "effects/MeshFeedback.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 #include "tests/pixel_test_util.h"
 
 namespace hs_test::pole_geometry {
+/** @brief Checks MeshFeedback's arena peaks against the device partitions. */
+template <int W, int H> inline void check_feedback_device_budget() {
+  reset_globals();
+  MeshFeedback<W, H> effect;
+  effect.init();
+  for (int frame = 0; frame < smoke_frames(); ++frame) {
+    pin_frame_clock(frame);
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  std::printf("  [MeshFeedback %dx%d] arenas %zu/%zu/%zu\n", W, H,
+              persistent_arena.get_high_water_mark(),
+              scratch_arena_a.get_high_water_mark(),
+              scratch_arena_b.get_high_water_mark());
+  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
+               DEVICE_PERSISTENT_BUDGET);
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), DEFAULT_SCRATCH_A_SIZE);
+  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), DEFAULT_SCRATCH_B_SIZE);
+}
+
 /**
  * @brief Count lit pixels after a geodesic between points at colatitude phi.
  * @details Endpoints are 0.4 rad apart in azimuth; the arc bulges poleward.
@@ -52,50 +73,55 @@ template <int W, int H>
 inline void check_feedback_ring_centroid(int row, int lit_threshold = 0,
                                          int downsample = 4,
                                          float alpha = 1.0f) {
-  const size_t SCRATCH_B = scratch_arena_b.get_capacity();
-  const size_t REQUIRED =
-      (Filter::Pixel::Feedback<W, H>::uncached_scratch_bytes(downsample) +
-       127) &
-      ~size_t{63};
-  const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B,
-                               REQUIRED, SCRATCH_B);
-  constexpr Pixel BRIGHT(12000, 30000, 50000);
-  constexpr int SOURCE_X = W / 3;
-  hs_test::StubEffect effect(W, H);
-  ::Feedback::Style style{};
-  style.space_fn = &rotate_longitude;
-  style.noise = nullptr;
-  style.fade = 1.0f;
-  style.downsample = downsample;
-  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
-      Filter::Pixel::Feedback<W, H>(style)};
-  {
-    Canvas canvas(effect);
-    canvas(SOURCE_X, row) = BRIGHT;
+  for (bool temporal : {false, true}) {
+    const ScopedTemporalSampling sampling(temporal);
+    const size_t SCRATCH_B = scratch_arena_b.get_capacity();
+    const size_t REQUIRED =
+        (Filter::Pixel::Feedback<W, H>::uncached_scratch_bytes(downsample) +
+         Filter::Pixel::FeedbackFadeTable::BYTES + 127) &
+        ~size_t{63};
+    const ScopedArenaSplit split(GLOBAL_ARENA_SIZE - REQUIRED - SCRATCH_B,
+                                 REQUIRED, SCRATCH_B);
+    constexpr Pixel BRIGHT(12000, 30000, 50000);
+    constexpr int SOURCE_X = W / 3;
+    hs_test::StubEffect effect(W, H);
+    ::Feedback::Style style{};
+    style.space_fn = &rotate_longitude;
+    style.noise = nullptr;
+    style.fade = 1.0f;
+    style.downsample = downsample;
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipeline{
+        Filter::Pixel::Feedback<W, H>(style)};
+    {
+      Canvas canvas(effect);
+      canvas(SOURCE_X, row) = BRIGHT;
+    }
+    effect.advance_display();
+    {
+      Canvas canvas(effect);
+      (void)pipeline.begin_frame(canvas, alpha);
+    }
+    effect.advance_display();
+    double mass = 0, moment = 0;
+    int lit = 0;
+    for (int x = 0; x < W; ++x) {
+      const double brightness = effect.get_pixel(x, row).b;
+      if (brightness > lit_threshold)
+        ++lit;
+      double dx = x - SOURCE_X;
+      if (dx > W * 0.5)
+        dx -= W;
+      else if (dx < -W * 0.5)
+        dx += W;
+      mass += brightness;
+      moment += brightness * dx;
+    }
+    HS_EXPECT_GT(mass, BRIGHT.b * alpha * 0.5);
+    HS_EXPECT_GT(lit, 0);
+    HS_EXPECT_LT(lit, W);
+    constexpr double STEP = 0.6 * W / (2 * math::PI_F);
+    const double EXPECTED = temporal ? -STEP / (1.0 + 0.6 / math::PI_F) : -STEP;
+    HS_EXPECT_NEAR(moment / mass, EXPECTED, 0.5);
   }
-  effect.advance_display();
-  {
-    Canvas canvas(effect);
-    (void)pipeline.begin_frame(canvas, alpha);
-  }
-  effect.advance_display();
-  double mass = 0, moment = 0;
-  int lit = 0;
-  for (int x = 0; x < W; ++x) {
-    const double brightness = effect.get_pixel(x, row).b;
-    if (brightness > lit_threshold)
-      ++lit;
-    double dx = x - SOURCE_X;
-    if (dx > W * 0.5)
-      dx -= W;
-    else if (dx < -W * 0.5)
-      dx += W;
-    mass += brightness;
-    moment += brightness * dx;
-  }
-  HS_EXPECT_GT(mass, BRIGHT.b * alpha * 0.5);
-  HS_EXPECT_GT(lit, 0);
-  HS_EXPECT_LT(lit, W);
-  HS_EXPECT_NEAR(moment / mass, -0.6 * W / (2 * math::PI_F), 0.5);
 }
 } // namespace hs_test::pole_geometry

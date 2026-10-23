@@ -305,6 +305,7 @@ inline int run_h_offset_renorm_tests() {
   test_scan_bottom_row_is_a_latitude_ring();
   test_plot_below_last_row_is_clipped();
   test_feedback_bottom_row_rotates_in_longitude();
+  hs_test::pole_geometry::check_feedback_device_budget<W, H>();
   test_face_bounds_use_virtual_height();
   test_face_rejects_only_the_virtual_south_rows();
   pole_wrap_tests::run_pole_wrap_cases();

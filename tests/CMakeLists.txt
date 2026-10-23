@@ -588,7 +588,8 @@ add_test(NAME unit_relax_bake_form COMMAND ${CMAKE_COMMAND}
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ENGINE_SOURCES})
-target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_H_OFFSET=3)
+target_compile_definitions(h_offset_renorm_check PRIVATE
+  HS_TEST_H_OFFSET=3 HS_ENABLE_TEST_HOOKS=1)
 # hs_host_storage, not hs_host_abi: the Scan and Plot cases draw through the
 # global scratch arena.
 target_link_libraries(h_offset_renorm_check PRIVATE hs_host_storage)
@@ -601,7 +602,7 @@ add_executable(h_offset_full_resolution_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
   ${HS_ENGINE_SOURCES})
 target_compile_definitions(h_offset_full_resolution_check PRIVATE
-  HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1)
+  HS_TEST_H_OFFSET=3 HS_OFFSET_FULL_RESOLUTION=1 HS_ENABLE_TEST_HOOKS=1)
 target_link_libraries(h_offset_full_resolution_check PRIVATE hs_host_storage)
 target_include_directories(h_offset_full_resolution_check PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(h_offset_full_resolution_check)
@@ -623,7 +624,8 @@ endif()
 add_executable(display_geometry_check
   ${CMAKE_CURRENT_SOURCE_DIR}/display_geometry_check.cpp
   ${HS_ENGINE_SOURCES})
-target_compile_definitions(display_geometry_check PRIVATE HS_DISPLAY_PROFILE=1)
+target_compile_definitions(display_geometry_check PRIVATE
+  HS_DISPLAY_PROFILE=1 HS_ENABLE_TEST_HOOKS=1)
 target_link_libraries(display_geometry_check PRIVATE hs_host_storage)
 target_include_directories(display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(display_geometry_check)
@@ -634,7 +636,7 @@ add_executable(runtime_display_geometry_check
   ${CMAKE_CURRENT_SOURCE_DIR}/runtime_display_geometry_check.cpp
   ${HS_ENGINE_SOURCES})
 target_compile_definitions(runtime_display_geometry_check PRIVATE
-  HS_RUNTIME_DISPLAY_GEOMETRY=1)
+  HS_RUNTIME_DISPLAY_GEOMETRY=1 HS_ENABLE_TEST_HOOKS=1)
 target_link_libraries(runtime_display_geometry_check PRIVATE hs_host_storage)
 target_include_directories(runtime_display_geometry_check PRIVATE ${HS_ENGINE_INCLUDES})
 _hs_warnings(runtime_display_geometry_check)

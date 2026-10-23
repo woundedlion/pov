@@ -12,7 +12,7 @@
 #include <limits>
 
 namespace {
-constexpr int FEEDBACK_FRAMES = 4;
+const int FEEDBACK_FRAMES = hs_test::smoke_frames();
 template <int W, int H> void check_geometry(float north, float south) {
   using Geometry = math::DisplayGeometry<H>;
   using Field = hs::SphericalFieldLayout<W, H>;
@@ -30,10 +30,22 @@ template <int W, int H> void check_geometry(float north, float south) {
                               W / DOWNSAMPLE);
   constexpr size_t CACHE_CELLS = (W / DOWNSAMPLE) * CACHE_FIELD.ring_count();
   constexpr size_t EXPECTED_STORAGE =
-      CACHE_CELLS * (4 * sizeof(int16_t) + sizeof(typename Field::Coordinates));
+      CACHE_CELLS *
+          (4 * sizeof(int16_t) + sizeof(typename Field::Coordinates)) +
+      Filter::Pixel::FeedbackFadeTable::BYTES;
   static_assert(HS_RUNTIME_DISPLAY_GEOMETRY);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES),
                EXPECTED_STORAGE);
+  {
+    ScratchScope scope(persistent_arena);
+    auto *storage = static_cast<uint8_t *>(scope.get_arena().allocate(
+        Filter::Pixel::Feedback<W, H>::STORAGE_BYTES));
+    Arena arena(storage, Filter::Pixel::Feedback<W, H>::STORAGE_BYTES);
+    ::Feedback::Style style{};
+    Filter::Pixel::Feedback<W, H> filter(style);
+    filter.init_storage(arena);
+    HS_EXPECT_LE(arena.get_offset(), EXPECTED_STORAGE);
+  }
   const Field field(4);
   for (int row : {0, H - 1}) {
     const bool pole = row == 0 ? Field::HAS_NORTH_POLE : Field::HAS_SOUTH_POLE;
@@ -75,6 +87,7 @@ template <int W, int H> void check_geometry(float north, float south) {
   int lit = 0;
   int lit_endpoint_rows[2] = {0, 0};
   for (int frame = 0; frame < FEEDBACK_FRAMES; ++frame) {
+    hs_test::pin_frame_clock(frame);
     feedback.draw_frame();
     feedback.advance_display();
   }
@@ -90,6 +103,14 @@ template <int W, int H> void check_geometry(float north, float south) {
         ++lit_endpoint_rows[1];
     }
   HS_EXPECT_GT(lit, 0);
+  std::printf("  [MeshFeedback %dx%d phi %.3f..%.3f] arenas %zu/%zu/%zu\n", W,
+              H, north, south, persistent_arena.get_high_water_mark(),
+              scratch_arena_a.get_high_water_mark(),
+              scratch_arena_b.get_high_water_mark());
+  HS_EXPECT_LE(persistent_arena.get_high_water_mark(),
+               DEVICE_PERSISTENT_BUDGET);
+  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(), DEFAULT_SCRATCH_A_SIZE);
+  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(), DEFAULT_SCRATCH_B_SIZE);
   if (!Field::HAS_NORTH_POLE)
     HS_EXPECT_GT(lit_endpoint_rows[0], 0);
   if (!Field::HAS_SOUTH_POLE)
