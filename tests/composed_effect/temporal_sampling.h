@@ -279,6 +279,28 @@ inline void test_temporal_affine_cycle() {
   }
 }
 
+/** @brief Nested sampling guards each restore the mode they entered with. */
+inline void test_scoped_temporal_sampling_restores_entering_mode() {
+  HS_CONTEXT("scoped temporal sampling restores entering mode");
+  Spacetime::set_flat_surface(true);
+  {
+    const ScopedTemporalSampling outer(false);
+    HS_EXPECT_TRUE(Spacetime::flat_surface());
+    {
+      const ScopedTemporalSampling inner(true);
+      HS_EXPECT_FALSE(Spacetime::flat_surface());
+    }
+    HS_EXPECT_TRUE(Spacetime::flat_surface());
+  }
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
+  {
+    const ScopedTemporalSampling column_basis(true);
+    HS_EXPECT_FALSE(Spacetime::flat_surface());
+  }
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
+  Spacetime::set_flat_surface(false);
+}
+
 /** @brief Custom shading is authoritative with temporal sampling enabled. */
 inline void test_temporal_custom_shade_is_authoritative() {
   HS_CONTEXT("temporal custom shade is authoritative");

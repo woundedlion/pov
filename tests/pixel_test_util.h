@@ -191,12 +191,16 @@ inline void expect_pixel_golden(const char *name, uint64_t hash,
 struct ScopedTemporalSampling {
   /** @brief Applies the mode.
    * @param enabled Whether columns use their emission times. */
-  explicit ScopedTemporalSampling(bool enabled) {
+  explicit ScopedTemporalSampling(bool enabled)
+      : entering_flat(Spacetime::flat_surface()) {
     Spacetime::set_flat_surface(!enabled);
   }
-  ~ScopedTemporalSampling() { Spacetime::set_flat_surface(false); }
+  ~ScopedTemporalSampling() { Spacetime::set_flat_surface(entering_flat); }
   ScopedTemporalSampling(const ScopedTemporalSampling &) = delete;
   ScopedTemporalSampling &operator=(const ScopedTemporalSampling &) = delete;
+
+private:
+  bool entering_flat; /**< Flat-surface mode restored on scope exit. */
 };
 #endif
 
