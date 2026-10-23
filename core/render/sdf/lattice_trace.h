@@ -169,7 +169,7 @@ HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
 }
 
 /**
- * @brief shade() for a valid shell frame one of the shell traces serves.
+ * @brief shade() for a valid shell frame of the matching domain.
  * @tparam SLICE_4D Whether the camera samples a 4D slice.
  * @param direction Unit view direction.
  * @param prepared Frame trace state.
@@ -178,15 +178,22 @@ HS_HOT_FLASH_MEMBER Sample shade_octet(const math::Vector &direction,
 template <bool SLICE_4D>
 HS_HOT_FLASH_MEMBER Sample shade_shells(const math::Vector &direction,
                                         const Prepared &prepared) {
-  const SDF::ShellSample SHELLS =
-      !SLICE_4D && prepared.periodic_shells.single_owner
-          ? SDF::trace_periodic_shells_3d(prepared.periodic_shells,
-                                          prepared.camera, direction,
-                                          prepared.limits, prepared.appearance)
-          : SDF::trace_periodic_shells_march<SLICE_4D ? 4 : 3>(
-                prepared.periodic_shells, prepared.camera, direction,
-                prepared.limits, prepared.appearance, *prepared.shell_layers);
-  return {SHELLS.color, SHELLS.status};
+  constexpr int DIMENSIONS = SLICE_4D ? 4 : 3;
+  const auto &shells = prepared.periodic_shells;
+  SDF::ShellSample sample;
+  if (!SLICE_4D && shells.single_owner)
+    sample =
+        SDF::trace_periodic_shells_3d(shells, prepared.camera, direction,
+                                      prepared.limits, prepared.appearance);
+  else if (shells.march)
+    sample = SDF::trace_periodic_shells_march<DIMENSIONS>(
+        shells, prepared.camera, direction, prepared.limits,
+        prepared.appearance, *prepared.shell_layers);
+  else
+    sample = SDF::trace_periodic_shells_march<DIMENSIONS, true>(
+        shells, prepared.camera, direction, prepared.limits,
+        prepared.appearance, *prepared.shell_layers);
+  return {sample.color, sample.status};
 }
 
 /**
@@ -204,15 +211,8 @@ HS_HOT_FLASH_MEMBER Sample shade(const math::Vector &direction,
   if (!prepared.valid ||
       (camera.domain == Raycast::SamplingDomain::SLICE_4D) != SLICE_4D)
     return {{}, Raycast::TraceStatus::INVALID_QUERY};
-  if (prepared.geometry != Geometry::OCTET) {
-    if ((!SLICE_4D && prepared.periodic_shells.single_owner) ||
-        prepared.periodic_shells.march)
-      return shade_shells<SLICE_4D>(direction, prepared);
-    const auto sample =
-        SDF::shade_periodic_shells(prepared.periodic_shells, camera, direction,
-                                   prepared.limits, prepared.appearance);
-    return {sample.color.color * sample.color.alpha, sample.trace.status};
-  }
+  if (prepared.geometry != Geometry::OCTET)
+    return shade_shells<SLICE_4D>(direction, prepared);
   return shade_octet<SLICE_4D>(direction, prepared);
 }
 
