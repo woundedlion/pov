@@ -181,8 +181,10 @@ inline ParityHashes render_hashes(const char *name) {
 
 /**
  * @brief Every filter-pipeline effect matches its recorded frame hashes.
- * @details Hashes compare only under the recorded floating-point environment;
- * elsewhere the scenarios still render and the computed table is printed.
+ * @details Hashes compare only under the recorded floating-point environment.
+ * Elsewhere the scenarios still render, the computed table is printed and the
+ * comparison is a skipped case, except under glibc's libm, which renders
+ * without comparing.
  */
 inline void test_filter_pipeline_effects_match_recorded_frames() {
   const ParityHashes computed[] = {
@@ -229,6 +231,13 @@ inline void test_filter_pipeline_effects_match_recorded_frames() {
                 "the recorded 0x%016llxull; hashes not compared\n",
                 static_cast<unsigned long long>(fingerprint),
                 static_cast<unsigned long long>(RECORDED_FINGERPRINT));
+#if defined(__GLIBC__) && !defined(HS_TEST_FAST_MATH)
+    std::printf("  plot_parity: hashes are recorded against another libm; "
+                "glibc renders without comparing\n");
+#else
+    skip_case(__func__, "recorded frame hashes need the recorded float "
+                        "environment");
+#endif
   }
   if (mismatch) {
     std::printf("  RECORDED_FINGERPRINT = 0x%016llxull;\n",
