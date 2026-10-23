@@ -37,16 +37,15 @@ For local development:
    python -m pip install --require-hashes -r requirements/just.txt
    ```
 
-3. Activate `emsdk_env`, then build the engine and install it into daydream from Holosphere:
+3. Install Emscripten in the sibling `../emsdk` checkout (or set `EMSDK` to its location), then build and install the engine from Holosphere:
 
    ```bash
-   cmake --preset wasm-release
-   cmake --build --preset wasm-release-install
+   just install
    ```
 
 4. In daydream, run `npm ci`, then `python -m http.server 8000`, and open <http://localhost:8000>.
 
-**Troubleshooting.** If configuration cannot find Emscripten, activate its environment in the same shell and check `EMSDK`. If daydream's provenance test reports a bundle mismatch, rerun the install preset to refresh the engine and its provenance together. Documentation checks need the daydream checkout at the revision pinned in `tools/build_pins.py`.
+**Troubleshooting.** The WASM recipes load the Emscripten environment automatically; check `EMSDK` if your SDK lives outside `../emsdk`. If daydream's provenance test reports a bundle mismatch, rerun `just install` to refresh the engine and its provenance together. Documentation checks need the daydream checkout at the revision pinned in `tools/build_pins.py`.
 
 [§8 Building and Testing](#8-building-and-testing) covers native tests, firmware uploads and CI.
 
@@ -1063,7 +1062,7 @@ In the daydream checkout, regenerate the tool utility stylesheet with `npm run g
 
 ### 8.2 WASM Build
 
-The build is driven by **CMake presets** ([`CMakePresets.json`](https://github.com/woundedlion/pov/blob/master/CMakePresets.json)) so the same commands work on any platform with pinned CMake and [Emscripten](https://emscripten.org/). Install Ninja, then set up the Emscripten environment once (`emsdk_env`, which exports `EMSDK`), then:
+The build is driven by **CMake presets** ([`CMakePresets.json`](https://github.com/woundedlion/pov/blob/master/CMakePresets.json)) so the same commands work on any platform with pinned CMake and [Emscripten](https://emscripten.org/). Install Ninja and the pinned Emscripten SDK. The `just` WASM recipes load `emsdk_env` automatically from `EMSDK` or the sibling `../emsdk` checkout. For direct CMake commands, activate `emsdk_env` in your shell first:
 
 ```bash
 cmake --preset wasm-release                     # configure (Emscripten toolchain)

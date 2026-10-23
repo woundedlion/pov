@@ -2,9 +2,7 @@
 # (CMakePresets.json). Run `just` with no arguments (or `just --list`) to see
 # the available recipes.
 #
-# The wasm recipes need the Emscripten toolchain: set the EMSDK env var (run
-# emsdk_env once) before invoking them. The `test` recipe is native-only and
-# does not need EMSDK.
+# WASM recipes load the SDK from EMSDK or the sibling ../emsdk checkout.
 
 # The [windows] recipes use cmd.exe syntax.
 set windows-shell := ["cmd", "/c"]
@@ -25,23 +23,28 @@ export py := env_var_or_default("HS_PYTHON", if os_family() == "windows" { "pyth
 export quoted_py := '"' + py + '"'
 python_command := if os_family() == "windows" { "%quoted_py%" } else { quoted_py }
 
+emsdk_dir := env_var_or_default("EMSDK", absolute_path("../emsdk"))
+export EMSDK_QUIET := "1"
+export quoted_emsdk_env := '"' + emsdk_dir + '/emsdk_env.bat"'
+wasm_command := if os_family() == "windows" { "call %quoted_emsdk_env% >nul && " } else { '. "' + emsdk_dir + '/emsdk_env.sh" >/dev/null && ' }
+
 # Show the available recipes when run with no arguments.
 default:
     @just --list
 
 # WASM release build of the simulator module (daydream).
 build:
-    {{ python_command }} tools/build_pins.py --check-tool emsdk
+    {{ wasm_command }}{{ python_command }} tools/build_pins.py --check-tool emsdk
     {{ python_command }} tools/build_pins.py --check-tool cmake
-    cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR={{ daydream_dir_arg }}
-    cmake --build --preset wasm-release
+    {{ wasm_command }}cmake --preset wasm-release -DHS_WASM_DEV_BINDINGS=OFF -DDAYDREAM_DIR={{ daydream_dir_arg }}
+    {{ wasm_command }}cmake --build --preset wasm-release
 
 # WASM debug build (-O0 -g -sASSERTIONS, 64 KB stack).
 build-debug:
-    {{ python_command }} tools/build_pins.py --check-tool emsdk
+    {{ wasm_command }}{{ python_command }} tools/build_pins.py --check-tool emsdk
     {{ python_command }} tools/build_pins.py --check-tool cmake
-    cmake --preset wasm-debug -DHS_WASM_DEV_BINDINGS=ON
-    cmake --build --preset wasm-debug
+    {{ wasm_command }}cmake --preset wasm-debug -DHS_WASM_DEV_BINDINGS=ON
+    {{ wasm_command }}cmake --build --preset wasm-debug
 
 # Build and smoke-test the WASM engine.
 smoke: build
@@ -156,7 +159,7 @@ _doxyfile-local:
 
 # Build, smoke-test, and install WASM into ../daydream.
 install: smoke
-    cmake --build --preset wasm-release-install
+    {{ wasm_command }}cmake --build --preset wasm-release-install
     node scripts/wasm_smoke.mjs {{ daydream_module_arg }}
 
 # Windows only: build and flash the bench image under the per-board device lock.
