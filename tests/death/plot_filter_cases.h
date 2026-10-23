@@ -387,7 +387,7 @@ inline void case_planar_chords_empty_storage() {
 
 /** @brief Death case: a polyline past the bound chord storage traps. */
 inline void case_planar_chords_over_capacity() {
-  static uint8_t arena_buf[256];
+  static uint8_t arena_buf[Plot::PlanarChords<16, 8>::storage_bytes(2)];
   Arena arena(arena_buf, sizeof(arena_buf));
   Plot::PlanarChords<16, 8> chords;
   chords.init_storage(arena, 2);
@@ -445,7 +445,7 @@ inline void case_planar_chords_sink_unprepared() {
 
 /** @brief Death case: a chord draw before prepare traps. */
 inline void case_planar_chords_unprepared() {
-  static uint8_t arena_buf[256];
+  static uint8_t arena_buf[Plot::PlanarChords<16, 8>::storage_bytes(2)];
   Arena arena(arena_buf, sizeof(arena_buf));
   Plot::PlanarChords<16, 8> chords;
   chords.init_storage(arena, 2);
@@ -460,7 +460,7 @@ inline void case_planar_chords_unprepared() {
 
 /** @brief Traps on planar chords stale clip. */
 inline void case_planar_chords_stale_clip() {
-  static uint8_t arena_buf[256];
+  static uint8_t arena_buf[Plot::PlanarChords<16, 8>::storage_bytes(2)];
   Arena arena(arena_buf, sizeof(arena_buf));
   Plot::PlanarChords<16, 8> chords;
   chords.init_storage(arena, 2);
