@@ -89,21 +89,34 @@ HS_HOT_INLINE void for_each_time_pose(const math::Quaternion *history,
   }
 }
 
+/** @brief Rotation bounds of a pose history's path over its frame. */
+struct HistoryTurn {
+  /// Bound on the rotation between any pose of the path and its last pose:
+  /// the summed rotation angles of the history's intervals, radians.
+  float arc;
+  /// Bound on the rotation between poses of the path a frame fraction `du`
+  /// apart, per unit `du`: the largest interval angle times the interval
+  /// count, radians. Equals `arc` when every interval turns alike.
+  float rate;
+};
+
 /**
- * @brief Bound on the rotation between any pose of a history's path and its
- *        last pose.
- * @param history Unit poses, oldest first.
+ * @brief Rotation bounds of a pose history's path.
+ * @param history Unit poses evenly spaced over the frame, oldest first.
  * @param count History length, at least 1.
- * @return The summed rotation angles of the history's intervals, radians.
+ * @return The path's total and per-fraction rotation bounds.
  */
-HS_FLASH_INLINE inline float history_arc(const math::Quaternion *history,
-                                         int count) {
-  float arc = 0.0f;
+HS_FLASH_INLINE inline HistoryTurn history_turn(const math::Quaternion *history,
+                                                int count) {
+  float arc = 0.0f, fastest = 0.0f;
   for (int i = 1; i < count; ++i) {
     const math::Quaternion step = history[i] * history[i - 1].conjugate();
-    arc += 2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
+    const float angle =
+        2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
+    arc += angle;
+    fastest = fmaxf(fastest, angle);
   }
-  return arc;
+  return {arc, fastest * static_cast<float>(count - 1)};
 }
 
 /**

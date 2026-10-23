@@ -133,6 +133,7 @@ inline int run_scan_tests() {
   test_column_basis_blocks_cover_their_rotation();
   test_point_birth_skips_earlier_columns();
   test_lit_caps_keep_swept_frames();
+  test_lit_caps_follow_history_rate();
   test_swept_proxies_keep_lit_pixels();
   test_rotate_by_matches_exact_rotation();
   test_swept_cap_clip_keeps_lit_clips();

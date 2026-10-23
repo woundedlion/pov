@@ -94,6 +94,9 @@ struct ColumnBasis {
   const math::Vector *up = nullptr;
   /// Bound on the arc any direction moves over the frame (radians).
   float sweep_arc = 0.0f;
+  /// Bound on the arc a direction turns between columns lit a frame fraction
+  /// `du` apart, per unit `du` (radians).
+  float sweep_rate = 0.0f;
   /// Earliest frame fraction drawn; columns lit before it are left untouched.
   float birth = 0.0f;
   /// Rotation vector, axis times angle, carrying the scanned shape from where
@@ -291,7 +294,9 @@ template <int W, int H> struct ColumnBasisTable {
         });
     time.azimuth = azimuth.data();
     time.up = up.data();
-    time.sweep_arc = Spacetime::history_arc(history, count) + SWEEP_PAD;
+    const Spacetime::HistoryTurn turn = Spacetime::history_turn(history, count);
+    time.sweep_arc = turn.arc + SWEEP_PAD;
+    time.sweep_rate = turn.rate + SWEEP_PAD;
     return time;
   }
 
@@ -442,26 +447,26 @@ drifted_direction(const math::Vector &p, const math::Vector &drift, int x) {
  * @details Column `x` sees the shape turned by the inverse of the rotation
  * that maps its fixed-meridian frame to its table entry, and turned back by
  * the drift still to come at its fraction `u`, `drift * (u - 1)`; between two
- * columns that turn changes by at most `time.sweep_arc` plus the drift's angle
- * times their fraction difference. The swept cap bounds the columns that can
- * see the shape, which lit_columns() finds. When they stay on one arm, clear
- * of the poles, the cap turned to their middle column's time and widened by
- * that arc covers every column's view; otherwise the cap turned to mid-frame
- * and widened by half the frame's turn does. Only the middle column's table
- * entry is read.
+ * columns that turn changes by at most `time.sweep_rate` plus the drift's
+ * angle, times their fraction difference. The swept cap bounds the columns
+ * that can see the shape, which lit_columns() finds. When they stay on one
+ * arm, clear of the poles, the cap turned to their middle column's time and
+ * widened by that arc covers every column's view; otherwise the cap turned to
+ * mid-frame and widened by half the frame's turn does. Only the middle
+ * column's table entry is read.
  */
 template <int W, int H>
 inline bool lit_cap(const math::Vector &axis, float radius,
                     const Scan::ColumnBasis &time, LitCap &lit) {
   constexpr int HALF = W / 2;
   const float drift = sqrtf(math::dot(time.drift, time.drift));
-  const float sweep = time.sweep_arc + drift;
   int first, last;
-  lit_columns<W>(axis, radius, sweep, first, last);
+  lit_columns<W>(axis, radius, time.sweep_arc + drift, first, last);
   const int m = (first + last) / 2;
-  const float arc =
-      sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
-      ColumnBasisTable<W, H>::SWEEP_PAD;
+  const float arc = (time.sweep_rate + drift) *
+                        static_cast<float>(std::max(m - first, last - m)) /
+                        HALF +
+                    ColumnBasisTable<W, H>::SWEEP_PAD;
   if (!(radius + arc < 0.5f * math::PI_F))
     return false;
   if (!math::TrigLUT<W, H>::initialized)
@@ -506,7 +511,9 @@ template <int W> struct DriftColumns {
     std::fill_n(filled, HALF, false);
     view.azimuth = table;
     view.up = table + HALF;
-    view.sweep_arc = time.sweep_arc + sqrtf(math::dot(time.drift, time.drift));
+    const float drift = sqrtf(math::dot(time.drift, time.drift));
+    view.sweep_arc = time.sweep_arc + drift;
+    view.sweep_rate = time.sweep_rate + drift;
     view.birth = time.birth;
   }
 
@@ -570,6 +577,7 @@ HS_FLASH_MEMBER inline bool settle_drift(const Scan::ColumnBasis &time,
   const float angle = sqrtf(math::dot(drift, drift));
   Scan::ColumnBasis moving = time;
   moving.sweep_arc = time.sweep_arc + angle;
+  moving.sweep_rate = time.sweep_rate + angle;
   moving.drift = math::Vector(0.0f, 0.0f, 0.0f);
   LitCap lit;
   if (!lit_cap<W, H>(basis.v, radius, moving, lit))
