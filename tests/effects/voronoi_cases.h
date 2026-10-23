@@ -293,14 +293,14 @@ inline RenderPin voronoi_instantaneous_render(int sites, float border) {
                ParamSetResult::APPLIED);
   HS_EXPECT_EQ(effect.updateParameter("Border Thick", border),
                ParamSetResult::APPLIED);
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   RenderPin pin;
   for (int frame = 0; frame < 3; ++frame) {
     effect.draw_frame();
     effect.advance_display();
     fold_render_pin<W, H>(pin, effect);
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   return pin;
 }
 
@@ -542,7 +542,7 @@ inline void test_voronoi_temporal_toggle() {
   effect.draw_frame();
   effect.advance_display();
 
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   effect.draw_frame();
   effect.advance_display();
   const auto held = voronoi_positions(effect);
@@ -550,7 +550,7 @@ inline void test_voronoi_temporal_toggle() {
       voronoi_time_match<W, H>(effect, held, axes, 0.0f, 0, W, 0, H);
   HS_EXPECT_EQ(instantaneous.matched, instantaneous.total);
 
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   effect.draw_frame();
   effect.advance_display();
   const auto resumed =
@@ -574,10 +574,10 @@ inline std::vector<Pixel> voronoi_reseed_frame(bool enabled) {
   }
   HS_EXPECT_EQ(effect.updateParameter("Num Sites", 12.0f),
                ParamSetResult::APPLIED);
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
   effect.draw_frame();
   effect.advance_display();
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   std::vector<Pixel> out;
   capture_frame<DEFAULT_W, DEFAULT_H>(effect, out);
   return out;
@@ -603,9 +603,9 @@ inline void test_voronoi_retained_corners_match_search() {
       if (frame == 4)
         effect.set_clip(17, 103, 40, 151);
       if (frame == 6)
-        Temporal::set_temporal_sampling_enabled(false);
+        Spacetime::set_flat_surface(true);
       if (frame == 7)
-        Temporal::set_temporal_sampling_enabled(true);
+        Spacetime::set_flat_surface(false);
       if (frame == 9)
         HS_EXPECT_EQ(effect.updateParameter("Num Sites", 83.0f),
                      ParamSetResult::APPLIED);

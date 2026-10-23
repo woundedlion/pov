@@ -38,7 +38,7 @@ inline void test_trail_gate_uses_motion_region() {
  * start, and once more at its middle when its chord bound fails. */
 inline void test_timed_mesh_endpoint_cache() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   for (float second : {0.0f, 8.0f}) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -70,13 +70,13 @@ inline void test_timed_mesh_endpoint_cache() {
  * endpoints. */
 inline void test_column_edge_quality() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   for (int scene = 0; scene < 3; ++scene) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
     uint32_t starts = 0, ends = 0;
     float geometry_error = 0.0f;
-    Temporal::geometry_counters = {};
+    Spacetime::geometry_counters = {};
     {
       Canvas canvas(effect);
       ScratchScope storage(scratch_arena_a), cache(scratch_arena_b);
@@ -136,14 +136,14 @@ inline void test_column_edge_quality() {
     std::printf(
         "column quality scene=%d mean=%.6f cv=%.6f range=%.6f..%.6f geometry=%.6f samples=%u endpoints=%u/%u\n",
         scene, mean, sqrtf(variance) / mean, low, high, geometry_error,
-        Temporal::geometry_counters.column_generated_samples, starts, ends);
+        Spacetime::geometry_counters.column_generated_samples, starts, ends);
     HS_EXPECT_LE(geometry_error, 0.2f);
     HS_EXPECT_GT(low, 0.48f);
     HS_EXPECT_LT(high, 0.60f);
     HS_EXPECT_LE(sqrtf(variance) / mean, 0.05f);
     HS_EXPECT_EQ(starts, 1u);
     HS_EXPECT_EQ(ends, 1u);
-    HS_EXPECT_LT(Temporal::geometry_counters.column_generated_samples, 128u);
+    HS_EXPECT_LT(Spacetime::geometry_counters.column_generated_samples, 128u);
   }
 }
 
@@ -172,7 +172,7 @@ inline void test_column_crossing_parameter_bound() {
 /** @brief Mesh batching rejects hidden caps and retains swept-in geometry. */
 inline void test_column_mesh_batch_cull() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   for (int scene = 0; scene < 3; ++scene) {
     const float column = scene == 0 ? 180.0f : scene == 1 ? 50.0f : 86.0f;
     const float motion = scene == 2 ? 0.75f : 0.01f;
@@ -181,7 +181,7 @@ inline void test_column_mesh_batch_cull() {
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
         Filter::Screen::AntiAlias<W, H>()};
     size_t calls = 0;
-    Temporal::geometry_counters = {};
+    Spacetime::geometry_counters = {};
     {
       Canvas canvas(effect);
       ScratchScope a(scratch_arena_a), b(scratch_arena_b);
@@ -209,10 +209,10 @@ inline void test_column_mesh_batch_cull() {
     for (int y = 0; y < H; ++y)
       for (int x = 36; x < 72; ++x)
         energy += effect.get_pixel(x, y).r;
-    HS_EXPECT_EQ(Temporal::geometry_counters.column_mesh_culls, 1u);
-    HS_EXPECT_EQ(Temporal::geometry_counters.column_mesh_rejected,
+    HS_EXPECT_EQ(Spacetime::geometry_counters.column_mesh_culls, 1u);
+    HS_EXPECT_EQ(Spacetime::geometry_counters.column_mesh_rejected,
                  scene == 0 ? 1u : 0u);
-    HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups,
+    HS_EXPECT_EQ(Spacetime::geometry_counters.column_draw_setups,
                  scene == 0 ? 0u : 1u);
     HS_EXPECT_EQ(calls, scene == 0 ? size_t(0) : size_t(3));
     if (scene == 0)
@@ -227,7 +227,7 @@ inline void test_column_mesh_batch_cull() {
  * taps, evaluates at most its neighbor's and reruns no shader. */
 inline void test_column_single_splat_motion_gate() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   for (float motion : {0.001f, 0.8f}) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -249,10 +249,10 @@ inline void test_column_single_splat_motion_gate() {
       ++shaders;
       f.color = Color4(Pixel(65535, 32768, 16384), 0.5f);
     };
-    Temporal::geometry_counters = {};
+    Spacetime::geometry_counters = {};
     Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
                                  {at, {}}, motion);
-    const auto &counts = Temporal::geometry_counters;
+    const auto &counts = Spacetime::geometry_counters;
     HS_EXPECT_GT(counts.column_samples, 0u);
     HS_EXPECT_EQ(shaders, counts.column_shader_calls);
     if (motion < 0.01f) {
@@ -271,7 +271,7 @@ inline void test_column_single_splat_motion_gate() {
 /** @brief Stationary timed meshes skip trajectory caches and column preparation. */
 inline void test_stationary_column_mesh_skips_geometry_cache() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
@@ -291,10 +291,10 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
     ++shaders;
     f.color = Color4(Pixel(65535, 32768, 16384), 0.5f * t);
   };
-  Temporal::geometry_counters = {};
+  Spacetime::geometry_counters = {};
   Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader, {at, {}},
                                0.0f);
-  const auto &counts = Temporal::geometry_counters;
+  const auto &counts = Spacetime::geometry_counters;
   HS_EXPECT_EQ(callbacks, 0u);
   HS_EXPECT_EQ(counts.endpoint_evaluations, 0u);
   HS_EXPECT_EQ(counts.column_draw_setups, 1u);
@@ -306,7 +306,7 @@ inline void test_stationary_column_mesh_skips_geometry_cache() {
  *         still and moving. */
 inline void test_column_walk_chained_ring_plots_vertices_once() {
   constexpr int W = 288, H = 144, N = 12;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   struct Ring {
     std::array<math::Vector, N> vertices; /**< Closed ring vertices. */
   } ring;
@@ -341,13 +341,13 @@ inline void test_column_walk_chained_ring_plots_vertices_once() {
       };
       Plot::GeometryCallback geometry;
       geometry.evaluate = at;
-      geometry.path = Temporal::PathBound::rotation(motion);
+      geometry.path = Spacetime::PathBound::rotation(motion);
       geometry.chained = chained;
-      Temporal::geometry_counters = {};
+      Spacetime::geometry_counters = {};
       Plot::Mesh::draw_timed<W, H>(pipeline, canvas, ring, edges, shader,
                                    geometry, motion);
-      HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups, 1u);
-      samples[chained] = Temporal::geometry_counters.column_samples;
+      HS_EXPECT_EQ(Spacetime::geometry_counters.column_draw_setups, 1u);
+      samples[chained] = Spacetime::geometry_counters.column_samples;
     }
     HS_EXPECT_GT(samples[1], 0u);
     HS_EXPECT_EQ(samples[0] - samples[1], uint32_t(N));
@@ -358,8 +358,8 @@ inline void test_column_walk_chained_ring_plots_vertices_once() {
  *         color shaded at that column's time, on both sides of the seam. */
 inline void test_column_walk_seam_taps_shade_at_their_times() {
   constexpr int W = 288, H = 144;
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   const auto shade = [](float time) { return 10000.0f + 20000.0f * time; };
   for (float seam : {0.0f, W / 2.0f}) {
     HS_CONTEXT("seam", static_cast<int>(seam));
@@ -384,7 +384,8 @@ inline void test_column_walk_seam_taps_shade_at_their_times() {
     for (int dx = -2; dx <= 1; ++dx) {
       const int x = math::fast_wrap(static_cast<int>(seam) + dx, W);
       const float expected =
-          shade(Temporal::column_fraction<W>(static_cast<float>(x))) / 2000.0f;
+          shade(Spacetime::SamplingSurface<W>::time(static_cast<float>(x))) /
+          2000.0f;
       for (int y = 0; y < H; ++y) {
         const Pixel pixel = effect.get_pixel(x, y);
         if (pixel.g < 400)
@@ -397,7 +398,7 @@ inline void test_column_walk_seam_taps_shade_at_their_times() {
     }
     HS_EXPECT_GE(checked, 4);
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Refined basis normalization stays unit across its input range. */
@@ -405,7 +406,7 @@ inline void test_column_basis_normalization() {
   for (int i = 0; i <= 1024; ++i) {
     const float scale = 0.5f + float(i) / 1024.0f;
     const auto value = math::Vector(0.36f, 0.48f, 0.8f) * scale;
-    const auto unit = Plot::ColumnEdgeFrame::normalize(value);
+    const auto unit = Plot::EdgeWorldsheet::normalize(value);
     HS_EXPECT_LE(fabsf(math::dot(unit, unit) - 1.0f), 3e-6f);
   }
 }
@@ -430,8 +431,8 @@ inline void test_column_basis_crossing_orientation() {
 /** @brief Edges crossing an arm boundary keep each pass's columns covered. */
 inline void test_column_walk_arm_boundary_coverage() {
   constexpr int W = 288, H = 144;
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (float motion : {-3.0f, 3.0f}) {
     const float radians = motion * math::RADIANS_PER_COLUMN<W>;
     auto render = [&](bool timed, float fraction, float displacement) {
@@ -476,14 +477,14 @@ inline void test_column_walk_arm_boundary_coverage() {
                                                    ? "arm boundary trailing"
                                                    : "arm boundary leading");
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Shrinking edges keep their terminal sample in the column walk. */
 inline void test_column_walk_terminal_on_shrinking_edge() {
   constexpr int W = 288, H = 144;
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (int start = 0; start < 16; ++start) {
     hs_test::StubEffect effect(W, H);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
@@ -514,7 +515,7 @@ inline void test_column_walk_terminal_on_shrinking_edge() {
     HS_CONTEXT("shrinking edge start", start);
     HS_EXPECT_EQ(ends, 1u);
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief The swept edge cull never rejects an edge whose arcs over the frame
@@ -544,7 +545,7 @@ inline void test_column_edge_cull_is_conservative() {
     const float bottom = cosf(
         math::DisplayGeometry<H>::row_to_phi(float(std::min(H, band[1] + 2))));
     const auto columns = clip.x_clip();
-    const Plot::ColumnEdgeCull<W> cull(columns, top, bottom);
+    const Plot::SweptEdgeCull<W> cull(columns, top, bottom);
     for (float radians : {0.0f, 0.01f, 0.06f}) {
       for (int trial = 0; trial < 4000; ++trial) {
         const auto a = unit();
@@ -600,9 +601,9 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
     hs_test::StubEffect effect(W, H);
     effect.set_clip(band[0], band[1], band[2], band[3]);
     Canvas canvas(effect);
-    const auto cull = Plot::ColumnEdgeCull<W>::of<H>(canvas);
-    const float top = Plot::ColumnEdgeCull<W>::top_of<H>(canvas);
-    const float bottom = Plot::ColumnEdgeCull<W>::bottom_of<H>(canvas);
+    const auto cull = Plot::SweptEdgeCull<W>::of<H>(canvas);
+    const float top = Plot::SweptEdgeCull<W>::top_of<H>(canvas);
+    const float bottom = Plot::SweptEdgeCull<W>::bottom_of<H>(canvas);
     HS_EXPECT_NEAR(top,
                    cosf(math::DisplayGeometry<H>::row_to_phi(
                        float(std::max(0, band[0] - 2)))),
@@ -672,7 +673,7 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
  *         walk places them. */
 inline void test_column_steady_lattice() {
   constexpr int W = 288, H = 144;
-  using Frame = Plot::ColumnEdgeFrame;
+  using Frame = Plot::EdgeWorldsheet;
   hs::random().seed(20261023u);
   int steady = 0, unsteady = 0, beyond = 0;
   for (int trial = 0; trial < 3000; ++trial) {
@@ -727,7 +728,7 @@ inline void test_column_steady_lattice() {
  *         walk picks each vertex's interpolant. */
 inline void test_column_capture_reads_vertex_paths() {
   constexpr int W = 288, H = 144;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs_test::StubEffect effect(W, H);
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
   Canvas canvas(effect);
@@ -747,17 +748,17 @@ inline void test_column_capture_reads_vertex_paths() {
   };
   for (const bool curved : {false, true}) {
     auto vertex_path = [&](size_t i) {
-      return curved && i == 1 ? Temporal::PathBound{1.0f, 1.0f}
-                              : Temporal::PathBound{};
+      return curved && i == 1 ? Spacetime::PathBound{1.0f, 1.0f}
+                              : Spacetime::PathBound{};
     };
     Plot::GeometryCallback geometry;
     geometry.evaluate = at;
-    geometry.path = Temporal::PathBound{1.0f, 1.0f};
+    geometry.path = Spacetime::PathBound{1.0f, 1.0f};
     geometry.vertex_path = vertex_path;
-    Temporal::geometry_counters = {};
+    Spacetime::geometry_counters = {};
     Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
                                  geometry, 0.02f);
-    HS_EXPECT_EQ(Temporal::geometry_counters.midpoint_evaluations,
+    HS_EXPECT_EQ(Spacetime::geometry_counters.midpoint_evaluations,
                  curved ? 1u : 0u);
   }
 }
@@ -794,7 +795,7 @@ inline void test_column_plan_covers_lit_columns() {
     const auto a1 = math::rotate(a0, math::make_rotation(axis, motion));
     const auto b1 = math::rotate(
         b0, math::make_rotation(axis, motion * hs::rand_f(0.5f, 1.5f)));
-    Plot::ColumnEdgeFrame frame;
+    Plot::EdgeWorldsheet frame;
     frame.bases[0] = basis(a0, b0);
     frame.bases[1] = basis(a1, b1);
     frame.ends[0] = b0;
@@ -802,18 +803,17 @@ inline void test_column_plan_covers_lit_columns() {
     frame.deviation = 0.0f;
     bool lit[W];
     for (int x = 0; x < W; ++x) {
-      const float t = Temporal::column_fraction<W>(float(x));
+      const float t = Spacetime::SamplingSurface<W>::time(float(x));
       const float a = math::vector_to_theta<W>(math::nlerp_unit(a0, a1, t));
-      const float span = Temporal::centered_remainder(
+      const float span = math::centered_remainder(
           math::vector_to_theta<W>(math::nlerp_unit(b0, b1, t)) - a, float(W));
       const float low = span < 0.0f ? a + span : a;
-      lit[x] =
-          Temporal::centered_remainder(float(x) - low, float(W)) >= -0.5f &&
-          Temporal::centered_remainder(float(x) - low, float(W)) <=
-              fabsf(span) + 0.5f;
+      lit[x] = math::centered_remainder(float(x) - low, float(W)) >= -0.5f &&
+               math::centered_remainder(float(x) - low, float(W)) <=
+                   fabsf(span) + 0.5f;
     }
     for (const int direction : {1, -1}) {
-      Plot::ColumnSegment segments[2];
+      Plot::detail::ColumnSegment segments[2];
       const int count = frame.plan<W>(direction, segments);
       for (int pass = 0; pass < 2; ++pass) {
         const auto offset = [&](int x) {
@@ -826,7 +826,7 @@ inline void test_column_plan_covers_lit_columns() {
           if (lit[x])
             first = k;
         }
-        const Plot::ColumnSegment *walk = nullptr;
+        const Plot::detail::ColumnSegment *walk = nullptr;
         for (int i = 0; i < count; ++i)
           if (segments[i].start / PASS == pass)
             walk = &segments[i];

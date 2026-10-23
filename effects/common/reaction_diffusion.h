@@ -487,7 +487,7 @@ protected:
   };
 
   /** @brief Per-column lattice-space pixel frames of one effect frame. */
-  using LatticeBasis = Scan::ObjectColumnBasis<W, H>;
+  using LatticeBasis = Scan::ObjectBasisTable<W, H>;
 
   /**
    * @brief Prepares the frame's per-column lattice frames in scratch.

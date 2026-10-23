@@ -146,7 +146,7 @@ inline void test_feedback_warp_cache_keys_column_time() {
     return FeedbackWhiteBox::holds(feedback, c);
   };
   {
-    const ScopedTemporalSampling column_time(true);
+    const ScopedTemporalSampling column_basis(true);
     HS_EXPECT_TRUE(flush());
   }
   fx.advance_display();
@@ -203,8 +203,9 @@ template <int W, int H> struct RotatingFeedbackScene {
    *  @param x Column.
    *  @param y Row.
    *  @return Channels r, g, b. */
-  std::array<float, 3> column_time(int frame, int x, int y) const {
-    return at(static_cast<float>(frame) + Temporal::sweep_fraction(x, W),
+  std::array<float, 3> column_basis(int frame, int x, int y) const {
+    return at(static_cast<float>(frame) +
+                  Spacetime::SamplingSurface<W>::time(x),
               math::pixel_to_vector<W, H>(x, y));
   }
 };
@@ -249,7 +250,7 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
     Canvas c(fx);
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x) {
-        const auto rgb = scene.column_time(0, x, y);
+        const auto rgb = scene.column_basis(0, x, y);
         c(x, y) = Pixel(quantize(rgb[0]), quantize(rgb[1]), quantize(rgb[2]));
       }
   }
@@ -274,7 +275,7 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
     double error = 0.0;
     for (int y = first_row; y < end_row; ++y) {
       const Pixel p = fx.get_pixel(x, y);
-      const auto want = scene.column_time(frames, x, y);
+      const auto want = scene.column_basis(frames, x, y);
       error +=
           (fabs(p.r - want[0]) + fabs(p.g - want[1]) + fabs(p.b - want[2])) /
           (3.0 * 65535.0);
@@ -324,7 +325,7 @@ run_column_time_oracle(const RotatingFeedbackScene<W, H> &scene, int frames,
  */
 inline void test_feedback_column_time_oracle() {
   constexpr int W = 288, H = 144;
-  const ScopedTemporalSampling column_time(true);
+  const ScopedTemporalSampling column_basis(true);
   struct Case {
     const char *name;
     math::Vector axis;

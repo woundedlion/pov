@@ -380,15 +380,15 @@ inline void case_set_clip_x_out_of_bounds() {
 inline void case_render_x_window_nested() {
   DeathEffect fx;
   Canvas canvas(fx);
-  RenderXWindow outer(canvas, 0, opaque(4));
-  RenderXWindow inner(canvas, 4, 8);
+  TimeWindow outer(canvas, 0, opaque(4));
+  TimeWindow inner(canvas, 4, 8);
 }
 
 /** @brief Death case: a render-x window cannot reach past the half-turn. */
 inline void case_render_x_window_past_half_turn() {
   DeathEffect fx;
   Canvas canvas(fx);
-  RenderXWindow window(canvas, 0, opaque(fx.width() / 2 + 1));
+  TimeWindow window(canvas, 0, opaque(fx.width() / 2 + 1));
 }
 
 /**

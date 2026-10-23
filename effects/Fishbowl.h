@@ -406,7 +406,7 @@ private:
       });
     }
 
-    const bool timed = Temporal::temporal_sampling_enabled();
+    const bool timed = !Spacetime::flat_surface();
     Fragments points;
     math::Vector *ends = nullptr;
     if (timed) {
@@ -483,7 +483,7 @@ private:
     const size_t count_vertices = starts.size();
     if (count_vertices < 2)
       return;
-    const auto cull = Plot::ColumnEdgeCull<W>::template of<H>(canvas);
+    const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
     Plot::PointRoute<W, H> route;
     route.prepare(canvas, bound + 2.0f * math::PI_F / W);
 
@@ -494,7 +494,7 @@ private:
     math::PixelCoords last = math::vector_to_pixel<W, H>(ends[0]);
     for (size_t j = 1; j < count_vertices; ++j) {
       const math::PixelCoords at = math::vector_to_pixel<W, H>(ends[j]);
-      const float dx = Temporal::centered_remainder(at.x - last.x, float(W));
+      const float dx = math::centered_remainder(at.x - last.x, float(W));
       const float dy = at.y - last.y;
       if (j + 1 == count_vertices ||
           dx * dx + dy * dy >= DRAWN_SPACING * DRAWN_SPACING) {
@@ -542,8 +542,8 @@ private:
       if (cull.rejects(end_pair, 2, bound))
         continue;
       const math::Vector start_pair[2] = {
-          Plot::ColumnEdgeFrame::normalize(starts[head].pos),
-          Plot::ColumnEdgeFrame::normalize(starts[tail].pos)};
+          Plot::EdgeWorldsheet::normalize(starts[head].pos),
+          Plot::EdgeWorldsheet::normalize(starts[tail].pos)};
       const float head_t = starts[head].palette_t;
       const float tail_t = starts[tail].palette_t;
       if (Plot::Mesh::plot_steady_edge<W, H>(

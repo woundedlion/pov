@@ -39,7 +39,7 @@ history_nodes(const math::Orientation<> &history, const math::Vector &v) {
  * @brief Captures sorted by fraction.
  * @param got Captures to sort.
  */
-inline Temporal::Captures sorted(Temporal::Captures got) {
+inline Spacetime::Captures sorted(Spacetime::Captures got) {
   if (got.count == 2 && got.fraction[1] < got.fraction[0])
     std::swap(got.fraction[0], got.fraction[1]);
   return got;
@@ -47,7 +47,7 @@ inline Temporal::Captures sorted(Temporal::Captures got) {
 
 /**
  * @brief Arm passes of a moving point found by exhaustive search with exact
- *        `atan2`, independent of `Temporal::capture`.
+ *        `atan2`, independent of `Spacetime::capture`.
  * @param position The point at frame fraction u.
  * @return Fractions u in [0, 1) at which `(theta(u) / pi - u)` crosses an
  *         integer.
@@ -90,8 +90,8 @@ inline void test_temporal_capture_matches_exhaustive_oracle() {
       const math::Orientation<> history = spin_history(start, drift, 3);
       const math::Vector v(0.8f, 0.6f, 0.0f);
       auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-      const Temporal::Captures got =
-          sorted(Temporal::capture(history_nodes(history, v)));
+      const Spacetime::Captures got =
+          sorted(Spacetime::capture(history_nodes(history, v)));
       const std::vector<float> want = oracle_captures(position);
       ++cases;
       zero += want.empty();
@@ -127,8 +127,8 @@ inline void test_temporal_capture_tilted_axis_within_half_column() {
     if (std::fabs(math::rotate(v, start).y) > 0.9f)
       continue;
     auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-    const Temporal::Captures got =
-        sorted(Temporal::capture(history_nodes(history, v)));
+    const Spacetime::Captures got =
+        sorted(Spacetime::capture(history_nodes(history, v)));
     const std::vector<float> want = oracle_captures(position);
     if (got.count != static_cast<int>(want.size())) {
       // A pass this close to a frame boundary may land on either side of it.
@@ -164,14 +164,15 @@ inline void test_temporal_capture_column_matches_composed_time() {
           spin_history(2.0f * math::PI_F * k / 48, drift, 3);
       const math::Vector v(0.6f, -0.8f, 0.0f);
       auto position = [&](float u) { return math::rotate(v, history.get(u)); };
-      const Temporal::Captures got =
-          Temporal::capture(history_nodes(history, v));
+      const Spacetime::Captures got =
+          Spacetime::capture(history_nodes(history, v));
       for (int i = 0; i < got.count; ++i) {
         const int x = math::fast_wrap(
             static_cast<int>(std::round(
                 math::vector_to_theta<W>(position(got.fraction[i])))),
             W);
-        const math::Vector field = position(Temporal::sweep_fraction(x, W));
+        const math::Vector field =
+            position(Spacetime::SamplingSurface<W>::time(x));
         const float field_x = math::vector_to_theta<W>(field);
         float gap = std::fabs(field_x - x);
         gap = std::min(gap, W - gap);
@@ -203,12 +204,12 @@ inline void test_temporal_capture_unsolvable_motion_falls_back_to_endpoint() {
       at_half_turns(0.6f), at_half_turns(0.1f)};
   const std::array<math::Vector, 3> solvable{
       at_half_turns(0.4f), at_half_turns(0.35f), at_half_turns(0.3f)};
-  for (const Temporal::Captures got :
-       {Temporal::capture(rising), Temporal::capture(falling)}) {
+  for (const Spacetime::Captures got :
+       {Spacetime::capture(rising), Spacetime::capture(falling)}) {
     HS_EXPECT_EQ(got.count, 1);
     HS_EXPECT_NEAR(got.fraction[0], 1.0f, 0.0f);
   }
-  const Temporal::Captures got = Temporal::capture(solvable);
+  const Spacetime::Captures got = Spacetime::capture(solvable);
   HS_EXPECT_EQ(got.count, 1);
   HS_EXPECT_NEAR(got.fraction[0], 0.4f / 0.55f * 0.5f, 2e-3f);
 }
@@ -221,7 +222,8 @@ inline void test_temporal_capture_unsolvable_motion_falls_back_to_endpoint() {
 inline void test_world_orient_emits_at_capture_time() {
   const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
   const math::Vector v(0.0f, 0.0f, 1.0f);
-  const Temporal::Captures want = Temporal::capture(history_nodes(history, v));
+  const Spacetime::Captures want =
+      Spacetime::capture(history_nodes(history, v));
   HS_EXPECT_EQ(want.count, 1);
   Filter::World::Orient orient(history);
   std::vector<Tap3D> taps;
@@ -236,10 +238,10 @@ inline void test_world_orient_emits_at_capture_time() {
   HS_EXPECT_NEAR(taps[0].v.z, at.z, 1e-6f);
   HS_EXPECT_NEAR(taps[0].alpha, 0.5f, 0.0f);
 
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   taps.clear();
   orient.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   HS_EXPECT_EQ(taps.size(), 1u);
   const math::Vector end = math::rotate(v, history.get());
   HS_EXPECT_NEAR(taps[0].age, 4.0f, 0.0f);
@@ -259,15 +261,15 @@ inline void test_sweep_slabs_tile_the_half_turn() {
       HS_CONTEXT("width, slabs", width, count);
       int next = 0;
       for (int slab = 0; slab < count; ++slab) {
-        const Temporal::SweepSlab columns =
-            Temporal::sweep_slab(slab, count, width);
+        const Spacetime::TimeSlab columns =
+            Spacetime::time_slab(slab, count, width);
         HS_EXPECT_EQ(columns.begin, next);
         HS_EXPECT_LT(columns.begin, columns.end);
         next = columns.end;
         if (half % count != 0)
           continue;
         for (int x = 0; x < width; ++x) {
-          const float u = Temporal::sweep_fraction(x, width);
+          const float u = Spacetime::surface_time(x, width);
           const bool inside =
               x % half >= columns.begin && x % half < columns.end;
           HS_EXPECT_EQ(inside, u >= static_cast<float>(slab) / count &&
@@ -309,7 +311,7 @@ inline void test_world_orient_follows_history_at_column_times() {
     {
       Canvas canvas(effect);
       for (int c = 0; c < 144; ++c) {
-        const float t = Temporal::sweep_fraction(c, 288);
+        const float t = Spacetime::SamplingSurface<288>::time(c);
         const math::Vector want = math::rotate(v, history.get(t));
         worst = fmaxf(worst, (orient.at_time(canvas, v, t) - want).magnitude());
         const math::Quaternion slerped =
@@ -367,9 +369,9 @@ inline void test_world_orient_explicit_time() {
       HS_EXPECT_EQ(at_end.x, end.x);
       HS_EXPECT_EQ(at_end.y, end.y);
       HS_EXPECT_EQ(at_end.z, end.z);
-      Temporal::set_temporal_sampling_enabled(false);
+      Spacetime::set_flat_surface(true);
       const math::Vector disabled = orient.at_time(canvas, v, 0.13f);
-      Temporal::set_temporal_sampling_enabled(true);
+      Spacetime::set_flat_surface(false);
       HS_EXPECT_EQ(disabled.x, end.x);
       HS_EXPECT_EQ(disabled.y, end.y);
       HS_EXPECT_EQ(disabled.z, end.z);
@@ -388,7 +390,7 @@ inline void test_timed_probe_bypasses_history() {
       pipeline{Trails(10), Filter::World::Orient(history),
                Filter::Screen::AntiAlias<288, 144>()};
   pipeline.init_storage(persistent_arena);
-  PipelineRef ref(pipeline, Temporal::Timed{});
+  PipelineRef ref(pipeline, Spacetime::Timed{});
   StubEffect effect(288, 144);
   Canvas canvas(effect);
   const math::Vector v(0.6f, -0.8f, 0.0f);
@@ -447,17 +449,17 @@ inline void test_timed_cull_region() {
       pipeline{Filter::World::Orient(history),
                Filter::Screen::AntiAlias<288, 144>()};
   pipeline.init_storage(persistent_arena);
-  PipelineRef ref(pipeline, Temporal::Timed{});
+  PipelineRef ref(pipeline, Spacetime::Timed{});
   constexpr float ANGLE = 0.10f * math::PI_F;
-  HS_EXPECT_GE(ref.cull_bound(), ANGLE);
-  HS_EXPECT_LE(ref.cull_bound(), ANGLE + (history.length() - 1) * 0.000203f);
+  HS_EXPECT_GE(ref.sweep_arc(), ANGLE);
+  HS_EXPECT_LE(ref.sweep_arc(), ANGLE + (history.length() - 1) * 0.000203f);
   StubEffect effect(288, 144);
   effect.set_margin(0);
   effect.set_clip(36, 72, 0, 144);
   Canvas canvas(effect);
   const auto exact = canvas.clip();
   const Plot::CullRegion still(canvas.clip());
-  const Plot::CullRegion swept(canvas.clip(), ref.cull_bound());
+  const Plot::CullRegion swept(canvas.clip(), ref.sweep_arc());
   const auto a = math::pixel_to_vector<288, 144>(5.0f, 52.0f);
   const auto b = math::pixel_to_vector<288, 144>(6.0f, 54.0f);
   HS_EXPECT_FALSE((Plot::edge_visible_in_region<288, 144>(ref, still, a, b)));
@@ -472,8 +474,8 @@ inline void test_timed_cull_region() {
   HS_EXPECT_FALSE(still.could_intersect_rows<144>(74.0f, 75.0f));
   HS_EXPECT_TRUE(swept.could_intersect_rows<144>(74.0f, 75.0f));
   HS_EXPECT_LT(swept.column_pad<288>(0.05f), 0.0f);
-  const float expected = ref.cull_bound() * (288.0f / (2.0f * math::PI_F)) /
-                         (1.0f - ref.cull_bound());
+  const float expected = ref.sweep_arc() * (288.0f / (2.0f * math::PI_F)) /
+                         (1.0f - ref.sweep_arc());
   HS_EXPECT_NEAR(swept.column_pad<288>(1.0f), expected, 1e-6f);
 }
 
@@ -503,9 +505,9 @@ inline void test_world_orient_sample_cache() {
       compare(b, 0.73f);
       compare(a, 0.13f);
       compare(a, 1.0f);
-      Temporal::set_temporal_sampling_enabled(false);
+      Spacetime::set_flat_surface(true);
       compare(a, 0.13f);
-      Temporal::set_temporal_sampling_enabled(true);
+      Spacetime::set_flat_surface(false);
       compare(a, 0.13f);
       if (frame == 0) {
         history.collapse();
@@ -523,13 +525,13 @@ inline void test_temporal_column_arithmetic_matches_remainder() {
   for (float period : {12.0f, 288.0f, 1024.0f}) {
     for (int quarter = -64; quarter <= 64; ++quarter) {
       const float value = period * quarter * 0.25f;
-      HS_EXPECT_EQ(Temporal::centered_remainder(value, period),
+      HS_EXPECT_EQ(math::centered_remainder(value, period),
                    std::remainder(value, period));
     }
     for (int branch = -4; branch <= 4; ++branch)
       for (float offset : {-0.25f, 0.0f, 0.25f}) {
         const float value = (branch + 0.5f) * period + offset;
-        HS_EXPECT_EQ(Temporal::centered_remainder(value, period),
+        HS_EXPECT_EQ(math::centered_remainder(value, period),
                      std::remainder(value, period));
       }
   }
@@ -537,16 +539,17 @@ inline void test_temporal_column_arithmetic_matches_remainder() {
     const float column = quarter * 0.25f;
     const float turns = column / 144.0f;
     const float expected = turns - floorf(turns);
-    HS_EXPECT_NEAR(Temporal::column_fraction<288>(column), expected, 0.000001f);
-    HS_EXPECT_GE(Temporal::column_fraction<288>(column), 0.0f);
-    HS_EXPECT_LT(Temporal::column_fraction<288>(column), 1.0f);
+    HS_EXPECT_NEAR(Spacetime::SamplingSurface<288>::time(column), expected,
+                   0.000001f);
+    HS_EXPECT_GE(Spacetime::SamplingSurface<288>::time(column), 0.0f);
+    HS_EXPECT_LT(Spacetime::SamplingSurface<288>::time(column), 1.0f);
   }
 }
 
 /** @brief Approximate orientation motion bounds remain conservative and preserve exact stillness. */
 inline void test_temporal_orientation_bound_is_conservative() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (int index = 0; index <= 1024; ++index)
     for (float sign : {-1.0f, 1.0f}) {
       const float cosine = float(index) / 1024;
@@ -560,7 +563,7 @@ inline void test_temporal_orientation_bound_is_conservative() {
           acosf(fminf(fabsf(history.get(0).r * history.get(1).r +
                             math::dot(history.get(0).v, history.get(1).v)),
                       1.0f));
-      const float actual = orient.cull_bound();
+      const float actual = orient.sweep_arc();
       HS_EXPECT_GE(actual, expected);
       HS_EXPECT_LE(actual - expected, 0.000203f);
       if (index == 1024)
@@ -570,7 +573,7 @@ inline void test_temporal_orientation_bound_is_conservative() {
   history.set(math::Quaternion{});
   history.push(math::make_rotation(math::Y_AXIS, .5f));
   Filter::World::Orient orient(history);
-  Temporal::set_temporal_sampling_enabled(false);
-  HS_EXPECT_NEAR(orient.cull_bound(), 0.0f, 0.0f);
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(true);
+  HS_EXPECT_NEAR(orient.sweep_arc(), 0.0f, 0.0f);
+  Spacetime::set_flat_surface(!enabled);
 }

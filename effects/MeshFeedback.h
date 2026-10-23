@@ -248,7 +248,7 @@ public:
       HS_PROFILE(mf_timeline_step);
       timeline.step(canvas);
       if (!source_history_ready) {
-        if (Temporal::temporal_sampling_enabled())
+        if (!Spacetime::flat_surface())
           orientation.collapse();
         source_history_ready = true;
       }

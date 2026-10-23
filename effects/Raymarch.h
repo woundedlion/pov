@@ -18,7 +18,7 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/sdf/volume.h"
-#include "core/render/temporal/pose_table.h"
+#include "core/render/spacetime/pose_table.h"
 
 // Unit-test accessor reaching the private torus proportions, so a test can pin
 // the cull sphere against the warped SDF it has to contain.
@@ -430,7 +430,7 @@ private:
     hue_noise_phase = math::wrap_t(hue_noise_phase + params.hue_noise_speed);
     PaletteState &state = *palette_state;
     hue_noise_moved =
-        Temporal::temporal_sampling_enabled() &&
+        !Spacetime::flat_surface() &&
         !state.hue_noise_bake.holds(params.hue_noise_scale, hue_noise_phase);
     if (hue_noise_moved)
       state.drawn_hue_noise_lut = state.hue_noise_lut;
@@ -543,7 +543,7 @@ private:
     Scan::VolumeColumns<W> *columns = nullptr;
     ColumnShading *shading = nullptr;
     math::Quaternion *cameras = nullptr;
-    if (Temporal::temporal_sampling_enabled())
+    if (!Spacetime::flat_surface())
       cameras = prepare_column_cameras(columns, shading, palette_step);
     const int8_t *noise_before = hue_noise_moved
                                      ? palette_state->drawn_hue_noise_lut.data()
@@ -576,7 +576,7 @@ private:
           palette_phase + static_cast<float>(i) / active_count;
 
       Scan::TransformedVolume vol(torus, center, world_q);
-      if (Temporal::temporal_sampling_enabled()) {
+      if (!Spacetime::flat_surface()) {
         const math::Quaternion previous_q = camera.get(0) * raw_quats[i] *
                                             volume_spins[i].orientation.get(0) *
                                             previous_spin_q;
@@ -584,7 +584,7 @@ private:
                       bounds_radius, previous_q, world_q);
         auto column_fn = [&](const math::Vector &loc, Fragment &frag,
                              float u) HS_O3_FN {
-          const int c = Temporal::sweep_column(u, W);
+          const int c = Spacetime::SamplingSurface<W>::column_at(u);
           const ColumnShading &at = shading[c];
           frag.color = shade_hit<true>(
               torus, loc, at.rotation, columns->columns[c].center, at.half_w,
@@ -626,11 +626,11 @@ private:
     shading = scratch_arena_a.allocate_n<ColumnShading>(W / 2);
     auto *cameras = scratch_arena_a.allocate_n<math::Quaternion>(W / 2);
     const math::Quaternion ends[] = {camera.get(0), camera.get()};
-    Temporal::for_each_column_pose(
+    Spacetime::for_each_time_pose(
         ends, 2, W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
           cameras[c] = at;
           shading[c].scroll =
-              -palette_step * (1.0f - Temporal::sweep_fraction(c, W));
+              -palette_step * (1.0f - Spacetime::SamplingSurface<W>::time(c));
         });
     return cameras;
   }
@@ -667,7 +667,7 @@ private:
     int first, last;
     Scan::lit_columns<W>(center, cap, 0.0f, first, last);
     const math::Quaternion ends[] = {previous, current};
-    Temporal::for_each_column_pose(
+    Spacetime::for_each_time_pose(
         ends, 2, W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
           if (c < first || c > last)
             return;

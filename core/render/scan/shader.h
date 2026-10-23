@@ -252,7 +252,7 @@ public:
    * @tparam W Canvas width.
    * @tparam H Canvas height.
    * @tparam PrepareTime Callable taking a first-arm column `c` and returning
-   * state at `Temporal::sweep_fraction(c, W)`.
+   * state at `Spacetime::SamplingSurface<W>::time(c)`.
    * @tparam Prepare Callable taking that state and an absolute column and
    * returning its shader.
    * @param canvas Destination canvas.
@@ -372,7 +372,7 @@ public:
    * @param pixel_shader Owns the pixel: receives the seeded fragment, the
    *        sub-pixel SSAA grid for the current row, and the pixel column, and
    *        returns the final (premultiplied) pixel.
-   * @details Writes only the columns the canvas's RenderXWindow admits.
+   * @details Writes only the columns the canvas's TimeWindow admits.
    */
   template <int W, int H, typename VertexFn, typename PixelFn>
   HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
@@ -394,7 +394,7 @@ public:
    * @param canvas Destination canvas.
    * @param pixel_shader Computes the premultiplied pixel from its center,
    *        current row's subpixel grid, and column.
-   * @details Writes only the columns the canvas's RenderXWindow admits.
+   * @details Writes only the columns the canvas's TimeWindow admits.
    */
   template <int W, int H, typename PixelFn>
   HS_O3_FN __attribute__((always_inline)) static void
@@ -404,7 +404,7 @@ public:
       math::TrigLUT<W, H>::init();
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
-    const ColumnWindow window = canvas.render_x_window();
+    const Spacetime::TimeWindow window = canvas.time_window();
     const auto xc = cr.x_clip();
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -431,18 +431,18 @@ public:
    * @param pixel_shader Computes the premultiplied pixel from its object-space
    *        center, its column frame (`grid.at(column, i)` gives the object-space
    *        samples), the current row's subpixel grid, and the column.
-   * @details Writes only the columns the canvas's RenderXWindow admits.
+   * @details Writes only the columns the canvas's TimeWindow admits.
    */
   template <int W, int H, typename PixelFn>
   HS_O3_FN HS_HOT_INLINE static void
-  walk_object_grid(Canvas &canvas, const ObjectColumnBasis<W, H> &basis,
+  walk_object_grid(Canvas &canvas, const ObjectBasisTable<W, H> &basis,
                    PixelFn &&pixel_shader) {
     check_canvas_dims<W, H>(canvas);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
-    const ColumnWindow window = canvas.render_x_window();
+    const Spacetime::TimeWindow window = canvas.time_window();
     const auto xc = cr.x_clip();
     SsaaGrid<W, H> grid;
     for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
@@ -665,7 +665,7 @@ public:
    * unions. The caller owns its scope.
    * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
    * @param prepare_time Callable (int c) returning the state columns `c` and
-   * `c + W / 2` share at `Temporal::sweep_fraction(c, W)`.
+   * `c + W / 2` share at `Spacetime::SamplingSurface<W>::time(c)`.
    * @param prepare_column Callable (state, int x) returning a column object
    * whose `block(const BlockSites<K>&)` returns the block's shader, a callable
    * (const Vector&) returning Color4 or a premultiplied Pixel.

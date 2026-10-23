@@ -1676,4 +1676,53 @@ scaled_rotation_delta(const Quaternion &delta, float amount) {
   return slerp(Quaternion(), delta, amount);
 }
 
+/** @brief Reduces a bounded displacement with nearest-even period ties.
+ * @param value Displacement with an integer-representable period quotient.
+ * @param period Positive period.
+ * @return Remainder in [-period/2, period/2]. */
+HS_HOT_INLINE inline float centered_remainder(float value, float period) {
+  const int quotient = static_cast<int>(value / period);
+  float result = value - static_cast<float>(quotient) * period;
+  const float half = period * 0.5f;
+  if (result > half || (result == half && (quotient & 1)))
+    result -= period;
+  else if (result < -half || (result == -half && (quotient & 1)))
+    result += period;
+  return result;
+}
+
+/**
+ * @brief Sine of a double, by its Taylor series for a small argument.
+ * @param x Angle, radians.
+ * @return `sin(x)`, well within float rounding.
+ */
+HS_HOT_INLINE inline double series_sin(double x) {
+  if (!(fabs(x) < 0.5))
+    return sin(x);
+  const double x2 = x * x;
+  return x *
+         (1.0 +
+          x2 * (-1.0 / 6.0 +
+                x2 * (1.0 / 120.0 +
+                      x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0 +
+                                                  x2 * (-1.0 / 39916800.0))))));
+}
+
+/**
+ * @brief Cosine of a double, by its Taylor series for a small argument.
+ * @param x Angle, radians.
+ * @return `cos(x)`, well within float rounding.
+ */
+HS_HOT_INLINE inline double series_cos(double x) {
+  if (!(fabs(x) < 0.5))
+    return cos(x);
+  const double x2 = x * x;
+  return 1.0 + x2 * (-1.0 / 2.0 +
+                     x2 * (1.0 / 24.0 +
+                           x2 * (-1.0 / 720.0 +
+                                 x2 * (1.0 / 40320.0 +
+                                       x2 * (-1.0 / 3628800.0 +
+                                             x2 * (1.0 / 479001600.0))))));
+}
+
 } // namespace math

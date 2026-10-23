@@ -567,9 +567,9 @@ private:
     }
     if (planar_star) {
       ScratchScope column_guard(scratch_arena_a);
-      const Temporal::ColumnTime column_time =
+      const Scan::ColumnBasis column_basis =
           Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-      Scan::ColumnTimeScope column_scope(canvas, column_time);
+      Scan::ColumnBasisScope column_scope(canvas, column_basis);
       draw_planar_star_pole_caps(canvas, basis, count, sides, palette);
     }
   }

@@ -47,7 +47,7 @@ double bench(const char *name, bool temporal = true, bool clipped = false) {
   hs_test::reset_globals();
   configure_arenas(GLOBAL_ARENA_SIZE - 2 * BENCH_SCRATCH_BYTES,
                    BENCH_SCRATCH_BYTES, BENCH_SCRATCH_BYTES);
-  Temporal::set_temporal_sampling_enabled(temporal);
+  Spacetime::set_flat_surface(!temporal);
   hs_test::pin_frame_clock(0);
   Effect effect;
   effect.init();
@@ -111,7 +111,7 @@ struct GalaxiesWhiteBox {
     hs_test::reset_globals();
     configure_arenas(GLOBAL_ARENA_SIZE - 2 * BENCH_SCRATCH_BYTES,
                      BENCH_SCRATCH_BYTES, BENCH_SCRATCH_BYTES);
-    Temporal::set_temporal_sampling_enabled(temporal);
+    Spacetime::set_flat_surface(!temporal);
     Galaxies<W, H> effect;
     effect.init();
     if (clipped)

@@ -87,7 +87,7 @@ template <typename Shape> struct TransformedVolume {
 /**
  * @brief Per-column placement of one volume over an effect frame.
  * @tparam W Canvas width in columns.
- * @details Column `x` reads the entry of its sweep fraction `x % (W / 2)`, so
+ * @details Column `x` reads the entry of its sweep fraction `Spacetime::SamplingSurface<W>::index(x)`, so
  * opposing arms share a placement.
  */
 template <int W> struct VolumeColumns {
@@ -120,7 +120,9 @@ template <int W> struct VolumeColumns {
    * @param x Canvas column.
    * @return The entry of the column's sweep fraction.
    */
-  const Column &at(int x) const { return columns[x < HALF ? x : x - HALF]; }
+  const Column &at(int x) const {
+    return columns[Spacetime::SamplingSurface<W>::index(x)];
+  }
 };
 
 /**
@@ -505,7 +507,7 @@ struct Volume {
                            Fragment &frag) HS_HOT_INLINE {
       HS_PROFILE_DEEP(vol_shade);
       if constexpr (COLUMNS)
-        Temporal::shade_at_column<W>(frag_fn, px, local, frag);
+        Spacetime::shade_at_column<W>(frag_fn, px, local, frag);
       else
         frag_fn(local, frag);
     };

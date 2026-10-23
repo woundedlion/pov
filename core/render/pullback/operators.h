@@ -155,8 +155,8 @@ struct ColorClockState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared oscillation interval. */
-inline ClockInterval temporal_interval(const ColorClockState &from,
-                                       const ColorClockState &to) {
+inline Spacetime::ClockInterval temporal_interval(const ColorClockState &from,
+                                                  const ColorClockState &to) {
   return {from.oscillation_phase, to.oscillation_phase, 1.0f};
 }
 
@@ -168,7 +168,8 @@ inline ClockInterval temporal_interval(const ColorClockState &from,
  * @param fraction Frame fraction in [0, 1].
  */
 template <typename Params>
-inline void temporal_sample(ColorClockState &out, const ClockInterval &interval,
+inline void temporal_sample(ColorClockState &out,
+                            const Spacetime::ClockInterval &interval,
                             const Params &, float fraction) {
   out.oscillation_phase = interval.sample(fraction);
 }

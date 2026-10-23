@@ -13,7 +13,7 @@
 
 #include "core/platform/effect_identity.h"
 #include "core/engine/engine.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "core/spatial/kd_tree.h"
 
 #include <cmath>
@@ -97,7 +97,7 @@ public:
                                          positions, sites_buffer.size()));
     }();
 
-    if (Temporal::temporal_sampling_enabled() && frame_spin != 0.0f) {
+    if (!Spacetime::flat_surface() && frame_spin != 0.0f) {
       draw_temporal(canvas, tree);
       return;
     }
@@ -237,7 +237,7 @@ private:
    */
   HS_FLASH_INLINE ColumnMotion column_motion(int c, const KDTree &tree,
                                              const SiteSpin *spins) const {
-    const float FRACTION = Temporal::sweep_fraction(c, W);
+    const float FRACTION = Spacetime::SamplingSurface<W>::time(c);
     const float ANGLE = FRACTION * frame_spin;
     return {cosf(ANGLE),
             sinf(ANGLE),

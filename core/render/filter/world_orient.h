@@ -10,8 +10,8 @@
 #include "core/math/geometry.h"
 #include "core/color/color.h"
 #include "core/memory.h"
-#include "core/render/temporal.h"
-#include "core/render/temporal/pose_table.h"
+#include "core/render/spacetime.h"
+#include "core/render/spacetime/pose_table.h"
 
 /**
  * @file world_orient.h
@@ -50,7 +50,7 @@ forward_rotated_edge(const math::Vector &a, const math::Vector &b,
  * pose to the current pose. With temporal sampling enabled, each point is
  * emitted once per arm pass, at the pose of the frame fraction `u` whose
  * sweep column contains it, with `age` offset by `1 - u`; see
- * `Temporal::capture`. Otherwise it is emitted once at the current pose.
+ * `Spacetime::capture`. Otherwise it is emitted once at the current pose.
  */
 class Orient : public Is3D {
 public:
@@ -67,8 +67,8 @@ public:
 
   /** @brief Angular bound on the orientation's frame path.
    * @return Sum of sub-frame rotation angles, in radians. */
-  HS_HOT_FLASH_MEMBER float cull_bound() const {
-    if (!Temporal::temporal_sampling_enabled())
+  HS_HOT_FLASH_MEMBER float sweep_arc() const {
+    if (Spacetime::flat_surface())
       return 0.0f;
     float bound = 0.0f;
     for (int i = 1; i < orientation.length(); ++i) {
@@ -99,7 +99,7 @@ public:
    * @return The pose table's entries.
    */
   static constexpr size_t storage_bytes(int width) {
-    return Temporal::PoseTable::storage_bytes(width);
+    return Spacetime::PoseTable::storage_bytes(width);
   }
 
   /**
@@ -123,8 +123,7 @@ public:
    *         disabled, under the current pose. */
   HS_O3_FN HS_NOINLINE_NOCLONE math::Vector
   at_time(const Canvas &cv, const math::Vector &v, float t) {
-    if (t == 1.0f || !Temporal::temporal_sampling_enabled() ||
-        orientation.length() == 1) {
+    if (t == 1.0f || Spacetime::flat_surface() || orientation.length() == 1) {
       if (orientation.length() == 1)
         poses_ready = false;
       return math::rotate(v, orientation.get());
@@ -140,7 +139,7 @@ public:
    * @return The pose table, built once per frame from the orientation's
    *         sub-frame history; a single-pose history rebuilds it on each
    *         call, as its pose can change within the frame. */
-  HS_HOT_FLASH_MEMBER const Temporal::PoseTable *pose_table(const Canvas &cv) {
+  HS_HOT_FLASH_MEMBER const Spacetime::PoseTable *pose_table(const Canvas &cv) {
     if (!poses_ready || pose_frame != cv.frame_number()) {
       poses.build(orientation);
       pose_frame = cv.frame_number();
@@ -176,11 +175,11 @@ public:
   template <typename PassFnT>
   void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    if (orientation.length() == 1 || !Temporal::temporal_sampling_enabled()) {
+    if (orientation.length() == 1 || Spacetime::flat_surface()) {
       pass(math::rotate(v, orientation.get()), color, age, alpha);
       return;
     }
-    const Temporal::Captures captures = Temporal::capture(orientation, v);
+    const Spacetime::Captures captures = Spacetime::capture(orientation, v);
     for (int i = 0; i < captures.count; ++i) {
       const float u = captures.fraction[i];
       pass(math::rotate(v, orientation.get(u)), color, age + (1.0f - u), alpha);
@@ -213,9 +212,9 @@ private:
   static constexpr float ARC_ERROR_PAD = 1.02e-4f;
   const math::Orientation<>
       &orientation; /**< Live orientation source driving the rotation. */
-  Temporal::PoseTable poses; ///< Per-frame poses over arena entries.
-  uint32_t pose_frame = 0;   ///< Frame the pose table was built for.
-  bool poses_ready = false;  ///< The pose table holds pose_frame's poses.
+  Spacetime::PoseTable poses; ///< Per-frame poses over arena entries.
+  uint32_t pose_frame = 0;    ///< Frame the pose table was built for.
+  bool poses_ready = false;   ///< The pose table holds pose_frame's poses.
 };
 
 } // namespace World

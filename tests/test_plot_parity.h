@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "hardware/pov_segment_map.h"
 #include "targets/effects.h"
 #include "tests/pixel_test_util.h"
@@ -133,7 +133,7 @@ inline constexpr ParityHashes PARITY_HASHES[] = {
 template <template <int, int> class E>
 inline uint64_t render_fold(bool temporal, bool segment_clipped, bool &lit) {
   reset_globals();
-  Temporal::set_temporal_sampling_enabled(temporal);
+  Spacetime::set_flat_surface(!temporal);
   pin_frame_clock(0);
   E<PARITY_W, PARITY_H> effect;
   effect.init();
@@ -157,7 +157,7 @@ inline uint64_t render_fold(bool temporal, bool segment_clipped, bool &lit) {
     any_lit = any_lit || count_lit_region<PARITY_W, PARITY_H>(effect) != 0;
   }
   lit = lit && any_lit;
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   return fold;
 }

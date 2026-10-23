@@ -26,12 +26,12 @@
 #include "core/control/registry.h"
 #include "core/memory.h"
 #include "core/render/scan.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "core/math/noise_field.h"
 #include "core/render/pullback.h"
 #include "core/render/pullback/runtime_seeds.h"
 #include "core/render/pullback/composed_resources.h"
-#include "core/render/pullback/temporal_history.h"
+#include "core/render/spacetime/field.h"
 
 #if HS_ENABLE_TEST_HOOKS
 namespace hs_test {
@@ -45,6 +45,10 @@ namespace Pullback {
 #include "core/render/pullback/composed_parameters.h"
 #include "core/render/pullback/composed_policies.h"
 #include "core/render/pullback/composed_descriptors.h"
-#include "core/render/pullback/composed_temporal.h"
+} // namespace Pullback
+
+#include "core/render/pullback/composed_interval.h"
+
+namespace Pullback {
 #include "core/render/pullback/composed_runtime.h"
 } // namespace Pullback

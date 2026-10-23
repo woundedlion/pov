@@ -78,10 +78,10 @@ struct MindSplatterWhiteBox {
     {
       Canvas canvas(fx);
       if (timed) {
-        Temporal::geometry_counters = {};
+        Spacetime::geometry_counters = {};
         fx.draw_particles(canvas);
         if (setups)
-          *setups = Temporal::geometry_counters.column_draw_setups;
+          *setups = Spacetime::geometry_counters.column_draw_setups;
       } else {
         const math::Complex warp_step(fx.mobius.b.re - fx.previous_warp.re,
                                       fx.mobius.b.im - fx.previous_warp.im);

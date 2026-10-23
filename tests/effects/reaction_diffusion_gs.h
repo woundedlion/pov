@@ -2121,7 +2121,8 @@ inline void test_gs_lattice_basis_matches_rotated_lattice() {
   std::vector<Pixel> expected(static_cast<size_t>(W) * H);
   for (int column = 0; column < W / 2; ++column) {
     const math::Quaternion at =
-        math::slerp(previous, current, Temporal::sweep_fraction(column, W))
+        math::slerp(previous, current,
+                    Spacetime::SamplingSurface<W>::time(column))
             .normalized();
     WhiteBox::set_orientation(gs, at, at);
     const std::vector<Pixel> frame =
@@ -2169,7 +2170,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
     reset_effect_globals();
     WhiteBox::GS gs;
     gs.init();
-    Temporal::set_temporal_sampling_enabled(check);
+    Spacetime::set_flat_surface(!check);
     for (int f = 0; f < GROW; ++f) {
       gs.draw_frame();
       gs.advance_display();
@@ -2177,7 +2178,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
     for (int f = 0; f < static_cast<int>(std::size(TOGGLED)); ++f) {
       const bool enabled = check && TOGGLED[f];
       HS_CONTEXT("frame, temporal sampling", f, enabled);
-      Temporal::set_temporal_sampling_enabled(enabled);
+      Spacetime::set_flat_surface(!enabled);
       if (f == 0)
         WhiteBox::dissolve_within(gs, WhiteBox::DISSOLVE_FRAMES / 2);
       if (f == DISSOLVE_AT)
@@ -2239,7 +2240,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
       }
       for (int x = 0; x < W; ++x) {
         const int slab =
-            static_cast<int>(Temporal::sweep_fraction(x, W) * STEPS);
+            static_cast<int>(Spacetime::SamplingSurface<W>::time(x) * STEPS);
         for (int y = 0; y < H; ++y) {
           HS_CONTEXT("px", x, y);
           const size_t i = static_cast<size_t>(y) * W + x;
@@ -2248,7 +2249,7 @@ inline void test_gs_slabs_shade_the_field_after_their_substep() {
         }
       }
     }
-    Temporal::set_temporal_sampling_enabled(true);
+    Spacetime::set_flat_surface(false);
     return WhiteBox::snapshot(gs);
   };
   const WhiteBox::Snapshot toggled = run(true);

@@ -12,7 +12,7 @@
 #include "core/render/plot.h"
 #include "core/render/filter.h"
 #include "core/render/canvas.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "core/math/geometry.h"
 #include "tests/mesh_test_util.h"
 #include "tests/pixel_test_util.h"

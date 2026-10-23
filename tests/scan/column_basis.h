@@ -39,14 +39,14 @@ inline std::vector<Pixel> render_column_basis(const BasisMotion &motion,
     fx.set_clip(0, H, clip.x0, clip.x1);
   if (clip.margin >= 0)
     fx.set_margin(clip.margin);
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime time =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current);
   HS_EXPECT_TRUE(time.azimuth != nullptr);
   Pipeline<W, H> pipeline;
   {
     Canvas canvas(fx);
-    Scan::ColumnTimeScope scope(canvas, time);
+    Scan::ColumnBasisScope scope(canvas, time);
     draw(pipeline, canvas, motion.current);
   }
   fx.advance_display();
@@ -305,11 +305,10 @@ inline void test_column_basis_segments_and_endpoints() {
     capture_frame<W, H>(fx, out);
     return out;
   };
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  Temporal::set_temporal_sampling_enabled(false);
-  const Temporal::ColumnTime off =
-      basis->prepare(motion.previous, motion.current);
-  Temporal::set_temporal_sampling_enabled(true);
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  Spacetime::set_flat_surface(true);
+  const Scan::ColumnBasis off = basis->prepare(motion.previous, motion.current);
+  Spacetime::set_flat_surface(false);
   HS_EXPECT_TRUE(off.azimuth == nullptr);
   HS_EXPECT_TRUE(basis->prepare(motion.current, motion.current).azimuth ==
                  nullptr);
@@ -319,7 +318,7 @@ inline void test_column_basis_segments_and_endpoints() {
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fx);
-      Scan::ColumnTimeScope scope(canvas, off);
+      Scan::ColumnBasisScope scope(canvas, off);
       ring(pipeline, canvas, motion.current);
     }
     fx.advance_display();
@@ -516,15 +515,15 @@ template <int W, int H> inline void check_lit_caps(float angle) {
   HS_EXPECT_EQ(differing, 0);
   HS_EXPECT_TRUE(drawn > 4 * SHAPES);
 
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime time =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current);
   int tight = 0;
   for (const math::Basis &b : bases) {
     Scan::LitCap cap;
     HS_EXPECT_TRUE((Scan::lit_cap<W, H>(b.v, 0.03f, time, cap)));
-    HS_EXPECT_LE(cap.arc, 0.5f * time.sweep + 0.01f);
-    tight += cap.arc < 0.25f * time.sweep;
+    HS_EXPECT_LE(cap.arc, 0.5f * time.sweep_arc + 0.01f);
+    tight += cap.arc < 0.25f * time.sweep_arc;
   }
   if (angle < 0.1f)
     HS_EXPECT_GT(tight, SHAPES * 2 / 3);
@@ -553,10 +552,10 @@ inline void test_lit_caps_keep_swept_frames() {
  */
 template <int W, int H, typename ShapeT>
 inline void check_swept_proxy_covers(const char *label, const ShapeT &shape,
-                                     const Temporal::ColumnTime &time) {
+                                     const Scan::ColumnBasis &time) {
   HS_CONTEXT(label);
   const ScopedPoleLod lod(0.0f);
-  const auto proxy = shape.swept(time.sweep);
+  const auto proxy = shape.swept(time.sweep_arc);
   std::vector<uint8_t> visited(static_cast<size_t>(W) * H, 0);
   const SDF::Bounds rows = proxy.template get_vertical_bounds<H>();
   Scan::scan_region_column_time<W, H>(
@@ -585,8 +584,8 @@ inline void check_swept_proxy_covers(const char *label, const ShapeT &shape,
         missed += !seen;
       }
     }
-  const SDF::Bounds whole =
-      Scan::swept_rows<H>(shape.template get_vertical_bounds<H>(), time.sweep);
+  const SDF::Bounds whole = Scan::swept_rows<H>(
+      shape.template get_vertical_bounds<H>(), time.sweep_arc);
   HS_EXPECT_EQ(missed, 0);
   HS_EXPECT_GT(lit, 20);
   HS_EXPECT_LT(scanned, (whole.y_max - whole.y_min + 1) * W);
@@ -604,10 +603,10 @@ inline void check_swept_proxies(const BasisMotion &motion) {
   HS_CONTEXT(W == 96 ? "swept proxies 96" : "swept proxies 288");
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime time =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current);
-  HS_EXPECT_GT(time.sweep, 0.25f);
+  HS_EXPECT_GT(time.sweep_arc, 0.25f);
 
   const math::Basis tilted = math::make_basis(
       math::Quaternion(), math::Vector(0.4f, 0.5f, 0.75f).normalized());
@@ -667,7 +666,7 @@ inline void test_swept_proxies_keep_lit_pixels() {
 }
 
 /**
- * @brief Temporal::rotate_by() turns a direction as the exact rotation does,
+ * @brief Spacetime::rotate_by() turns a direction as the exact rotation does,
  *        short or long, and a drifting shape's column entries follow it.
  */
 inline void test_rotate_by_matches_exact_rotation() {
@@ -675,20 +674,20 @@ inline void test_rotate_by_matches_exact_rotation() {
   const math::Vector p = math::Vector(0.8f, 0.1f, -0.6f).normalized();
   for (const float angle : {0.0f, 0.1f, 0.25f, 0.26f, 0.9f, 2.0f, 3.1f}) {
     HS_CONTEXT("angle", angle);
-    HS_EXPECT_VEC(Temporal::rotate_by(p, axis * angle),
+    HS_EXPECT_VEC(Spacetime::rotate_by(p, axis * angle),
                   math::rotate(p, math::make_rotation(axis, angle)), 2e-6f);
   }
   constexpr int W = 96, H = 48;
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const BasisMotion motion = tilted_motion(0.2f);
-  Temporal::ColumnTime time = basis->prepare(motion.previous, motion.current);
+  Scan::ColumnBasis time = basis->prepare(motion.previous, motion.current);
   time.drift = axis * 1.4f;
   ScratchScope scope(scratch_arena_a);
   Scan::DriftColumns<W> drifted(scratch_arena_a, time);
   for (int c = 0; c < W / 2; c += 7) {
     drifted.reach(c);
     const math::Quaternion rest = math::make_rotation(
-        axis, 1.4f * (1.0f - Temporal::sweep_fraction(c, W)));
+        axis, 1.4f * (1.0f - Spacetime::SamplingSurface<W>::time(c)));
     HS_EXPECT_VEC(drifted.view.azimuth[c], math::rotate(time.azimuth[c], rest),
                   2e-6f);
     HS_EXPECT_VEC(drifted.view.up[c], math::rotate(time.up[c], rest), 2e-6f);
@@ -705,8 +704,8 @@ template <int W, int H> inline void check_swept_cap_clip() {
   HS_CONTEXT(W == 96 ? "cap clip 96" : "cap clip 288");
   const ScopedPoleLod lod(0.0f);
   const BasisMotion motion = tilted_motion(0.2f);
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime time =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current);
   struct Band {
     int y0, y1, x0, x1;
@@ -746,13 +745,13 @@ template <int W, int H> inline void check_swept_cap_clip() {
             reaches |= !xc.clipped(x) &&
                        !is_black(lit[static_cast<size_t>(y) * W + x]);
         const bool meets =
-            Plot::cap_may_touch_clip<W, H>(cr, axis, radius, time.sweep);
+            Plot::cap_may_touch_clip<W, H>(cr, axis, radius, time.sweep_arc);
         const auto cap =
-            Plot::make_swept_cap_clip<W, H>(cr, radius, time.sweep);
+            Plot::make_swept_cap_clip<W, H>(cr, radius, time.sweep_arc);
         HS_EXPECT_EQ(meets, Plot::cap_may_touch_clip<H>(cap, axis));
         const auto center = Plot::make_cap_center(cr, axis);
         HS_EXPECT_EQ(meets, (Plot::cap_may_touch_clip<W, H>(cr, center, radius,
-                                                            time.sweep)));
+                                                            time.sweep_arc)));
         if (reaches)
           HS_EXPECT_TRUE(meets);
         ruled_out += !meets;
@@ -778,13 +777,13 @@ inline void test_swept_cap_clip_keeps_lit_clips() {
 inline void test_point_birth_skips_earlier_columns() {
   constexpr int W = 96, H = 48;
   const math::Vector centre = math::Vector(0.0f, 0.2f, 1.0f).normalized();
-  const auto draw = [&](const Temporal::ColumnTime *time) {
+  const auto draw = [&](const Scan::ColumnBasis *time) {
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fx);
       if (time)
-        canvas.set_column_time(time);
+        canvas.set_column_basis(time);
       Scan::Point::draw<W, H>(pipeline, canvas, centre, 0.5f,
                               basis_flat_shader);
       Scan::Point::draw<W, H>(pipeline, canvas, -centre, 0.5f,
@@ -796,14 +795,14 @@ inline void test_point_birth_skips_earlier_columns() {
     return out;
   };
   const std::vector<Pixel> whole = draw(nullptr);
-  Temporal::ColumnTime born;
+  Scan::ColumnBasis born;
   born.birth = 0.4f;
   const std::vector<Pixel> cut = draw(&born);
   int before = 0, after = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x) {
       const size_t i = static_cast<size_t>(y) * W + x;
-      if (Temporal::sweep_fraction(x, W) < born.birth) {
+      if (Spacetime::SamplingSurface<W>::time(x) < born.birth) {
         before += !is_black(whole[i]);
         HS_EXPECT_TRUE(is_black(cut[i]));
       } else {
@@ -813,9 +812,9 @@ inline void test_point_birth_skips_earlier_columns() {
     }
   HS_EXPECT_TRUE(before > 20);
   HS_EXPECT_TRUE(after > 20);
-  HS_EXPECT_EQ(Temporal::first_column_at(0.4f, W), 20);
-  HS_EXPECT_EQ(Temporal::first_column_at(0.0f, W), 0);
-  HS_EXPECT_EQ(Temporal::first_column_at(1.0f, W), W / 2);
+  HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(0.4f), 20);
+  HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(0.0f), 0);
+  HS_EXPECT_EQ(Spacetime::SamplingSurface<W>::first_column_at(1.0f), W / 2);
 }
 
 /**
@@ -856,7 +855,7 @@ inline void test_volume_columns_match_rotated_placements() {
 
   auto columns = std::make_unique<Scan::VolumeColumns<W>>();
   for (int c = 0; c < W / 2; ++c) {
-    const auto [centre, q] = place(Temporal::sweep_fraction(c, W));
+    const auto [centre, q] = place(Spacetime::SamplingSurface<W>::time(c));
     columns->set(c, centre, q);
   }
   const auto [centre, q] = place(1.0f);
@@ -868,7 +867,7 @@ inline void test_volume_columns_match_rotated_placements() {
 
   std::vector<Pixel> expected(static_cast<size_t>(W) * H);
   for (int c = 0; c < W / 2; ++c) {
-    const auto [at, rotation] = place(Temporal::sweep_fraction(c, W));
+    const auto [at, rotation] = place(Spacetime::SamplingSurface<W>::time(c));
     const std::vector<Pixel> frame =
         render([&](auto &pipeline, Canvas &canvas) {
           Scan::TransformedVolume volume(torus, at, rotation);
@@ -940,10 +939,10 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
       const math::Vector normal = math::cross(previous[s], current[s]);
       const float angle = atan2f(sqrtf(math::dot(normal, normal)),
                                  math::dot(previous[s], current[s]));
-      const bool arc = Temporal::choose_turn_interpolant(
+      const bool arc = Spacetime::choose_turn_interpolant(
                            angle, Scan::RingGroup::MAX_AXIS_ERROR_PX *
                                       math::RADIANS_PER_COLUMN<W>) ==
-                       Temporal::Interpolant::ARC;
+                       Spacetime::Interpolant::ARC;
       arcs += arc && c == 0;
       axes[s] =
           arc ? math::rotate(previous[s], math::make_rotation(
@@ -970,7 +969,7 @@ inline void test_normalized_chord_error_bounds_the_turn() {
   for (int i = 1; i <= 64; ++i) {
     const float angle = 0.5f * math::PI_F * static_cast<float>(i) / 64.0f;
     const double bound =
-        Temporal::PathBound::rotation(angle).normalized_chord_error();
+        Spacetime::PathBound::rotation(angle).normalized_chord_error();
     double worst = 0.0;
     for (int k = 0; k <= 256; ++k) {
       const double u = k / 256.0;
@@ -1085,7 +1084,7 @@ inline void test_column_basis_follows_history_path() {
   orientation.push(math::make_rotation(math::X_AXIS, -0.15f) *
                    orientation.get());
   ScratchScope scope(scratch_arena_a);
-  const Temporal::ColumnTime time =
+  const Scan::ColumnBasis time =
       Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
   HS_EXPECT_TRUE(time.azimuth != nullptr);
   if (!time.azimuth)
@@ -1094,7 +1093,7 @@ inline void test_column_basis_follows_history_path() {
     math::TrigLUT<W, H>::init();
   float worst = 0.0f, endpoint = 0.0f, farthest = 0.0f;
   for (int c = 0; c < HALF; ++c) {
-    const float u = Temporal::sweep_fraction(c, W);
+    const float u = Spacetime::SamplingSurface<W>::time(c);
     const math::Vector meridian(math::TrigLUT<W, H>::cos_theta(c), 0.0f,
                                 math::TrigLUT<W, H>::sin_theta[c]);
     const math::Quaternion delta =
@@ -1114,7 +1113,7 @@ inline void test_column_basis_follows_history_path() {
   }
   HS_EXPECT_LT(worst, 2e-6f);
   HS_EXPECT_GT(endpoint, 100.0f * 2e-6f);
-  HS_EXPECT_LE(farthest, time.sweep);
+  HS_EXPECT_LE(farthest, time.sweep_arc);
 }
 
 /**
@@ -1125,18 +1124,19 @@ inline void test_column_basis_follows_history_path() {
 inline void test_object_column_basis_matches_rotated_meridian() {
   constexpr int W = 32, H = 12, HALF = W / 2;
   const BasisMotion motion = tilted_motion();
-  auto basis = std::make_unique<Scan::ObjectColumnBasis<W, H>>();
+  auto basis = std::make_unique<Scan::ObjectBasisTable<W, H>>();
   basis->prepare(motion.previous, motion.current);
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  for (const ColumnWindow window : {ColumnWindow{}, ColumnWindow{3, 9, true}}) {
+  for (const Spacetime::TimeWindow window :
+       {Spacetime::TimeWindow{}, Spacetime::TimeWindow{3, 9, true}}) {
     HS_CONTEXT("window", window.begin, window.end);
     hs_test::StubEffect fx(W, H);
     std::vector<int> visits(static_cast<size_t>(W) * H, 0);
     float worst = 0.0f;
     {
       Canvas canvas(fx);
-      std::optional<RenderXWindow> scope;
+      std::optional<TimeWindow> scope;
       if (window.active)
         scope.emplace(canvas, window.begin, window.end);
       int y = -1, last = W;
@@ -1149,7 +1149,7 @@ inline void test_object_column_basis_matches_rotated_meridian() {
             ++visits[static_cast<size_t>(y) * W + x];
             const math::Quaternion inverse =
                 math::slerp(motion.previous, motion.current,
-                            Temporal::sweep_fraction(x, W))
+                            Spacetime::SamplingSurface<W>::time(x))
                     .normalized()
                     .conjugate();
             const float sp = math::TrigLUT<W, H>::sin_phi[y];
@@ -1192,17 +1192,17 @@ inline void test_ring_stack_honours_render_window() {
   static float knots[RINGS][LUT_N + 1];
   build_ring_knots<RINGS, LUT_N>(knots);
   const BasisMotion motion = tilted_motion();
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime swept =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis swept =
       basis->prepare(motion.previous, motion.current);
-  const auto render = [&](bool rotated, const ColumnWindow &window) {
+  const auto render = [&](bool rotated, const Spacetime::TimeWindow &window) {
     hs_test::StubEffect fx(W, H);
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fx);
-      const Temporal::ColumnTime fixed;
-      Scan::ColumnTimeScope time(canvas, rotated ? swept : fixed);
-      std::optional<RenderXWindow> scope;
+      const Scan::ColumnBasis fixed;
+      Scan::ColumnBasisScope time(canvas, rotated ? swept : fixed);
+      std::optional<TimeWindow> scope;
       if (window.active)
         scope.emplace(canvas, window.begin, window.end);
       const math::Basis frame =
@@ -1232,10 +1232,11 @@ inline void test_ring_stack_honours_render_window() {
   };
   for (const bool rotated : {false, true}) {
     HS_CONTEXT("rotated", rotated);
-    const std::vector<Pixel> whole = render(rotated, ColumnWindow{});
-    for (const ColumnWindow window :
-         {ColumnWindow{0, HALF / 2, true}, ColumnWindow{HALF / 2, HALF, true},
-          ColumnWindow{5, 17, true}}) {
+    const std::vector<Pixel> whole = render(rotated, Spacetime::TimeWindow{});
+    for (const Spacetime::TimeWindow window :
+         {Spacetime::TimeWindow{0, HALF / 2, true},
+          Spacetime::TimeWindow{HALF / 2, HALF, true},
+          Spacetime::TimeWindow{5, 17, true}}) {
       HS_CONTEXT("window", window.begin, window.end);
       const std::vector<Pixel> part = render(rotated, window);
       int lit = 0;
@@ -1261,9 +1262,10 @@ inline void test_cap_may_touch_window_covers_window_pixels() {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   int rejected = 0;
-  for (const ColumnWindow window :
-       {ColumnWindow{0, HALF / 2, true}, ColumnWindow{HALF / 2, HALF, true},
-        ColumnWindow{7, 9, true}}) {
+  for (const Spacetime::TimeWindow window :
+       {Spacetime::TimeWindow{0, HALF / 2, true},
+        Spacetime::TimeWindow{HALF / 2, HALF, true},
+        Spacetime::TimeWindow{7, 9, true}}) {
     HS_CONTEXT("window", window.begin, window.end);
     for (int trial = 0; trial < 13 * 17 * 3; ++trial) {
       const float colatitude = math::PI_F * (trial % 13 + 0.5f) / 13.0f;
@@ -1394,9 +1396,9 @@ template <int W, int H> inline void check_timed_shader(float lod) {
   const size_t seam = static_cast<size_t>(H / 2) * W + W / 2;
   HS_EXPECT_TRUE(drawn[seam - 1].r > drawn[seam].r);
 
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   const std::vector<Pixel> off = render_stub_frame<W, H>(timed);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   const std::vector<Pixel> endpoint =
       render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
         held(pipeline, canvas, 1.0f);
@@ -1455,10 +1457,10 @@ template <int W, int H> inline void check_face_palette_motion(float lod) {
   };
   const std::vector<Pixel> moving =
       render_stub_frame<W, H>([&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-        auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-        const Temporal::ColumnTime time =
+        auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+        const Scan::ColumnBasis time =
             basis->prepare(math::Quaternion(), math::Quaternion(), true);
-        Scan::ColumnTimeScope column_scope(canvas, time);
+        Scan::ColumnBasisScope column_scope(canvas, time);
         draw(pipeline, canvas, BLEND_TO, BLEND_FROM, RIM_TO, RIM_FROM, ALPHA_TO,
              ALPHA_FROM);
       });
@@ -1522,14 +1524,14 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
 }
 
 /**
- * @brief sweep_column inverts sweep_fraction on both arms.
+ * @brief sweep_column inverts surface_time on both arms.
  */
 inline void test_sweep_column_inverts_sweep_fraction() {
   for (int width = 4; width <= 512; width += 2) {
     HS_CONTEXT("width", static_cast<long long>(width));
     for (int x = 0; x < width; ++x)
       HS_EXPECT_EQ(
-          Temporal::sweep_column(Temporal::sweep_fraction(x, width), width),
+          Spacetime::surface_column(Spacetime::surface_time(x, width), width),
           x % (width / 2));
   }
 }
@@ -1542,18 +1544,18 @@ inline void test_column_basis_prepares_for_moving_state() {
   constexpr int W = 96, H = 48;
   const math::Quaternion q =
       math::make_rotation(math::Vector(0.2f, 0.9f, 0.4f).normalized(), 0.6f);
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   HS_EXPECT_TRUE(basis->prepare(q, q).azimuth == nullptr);
-  const Temporal::ColumnTime forced = basis->prepare(q, q, true);
+  const Scan::ColumnBasis forced = basis->prepare(q, q, true);
   HS_EXPECT_TRUE(forced.azimuth != nullptr);
-  HS_EXPECT_TRUE(forced.sweep > 0.0f && forced.sweep < 1e-3f);
-  Temporal::set_temporal_sampling_enabled(false);
+  HS_EXPECT_TRUE(forced.sweep_arc > 0.0f && forced.sweep_arc < 1e-3f);
+  Spacetime::set_flat_surface(true);
   HS_EXPECT_TRUE(basis->prepare(q, q, true).azimuth == nullptr);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   ScratchScope scope(scratch_arena_a);
-  const Temporal::ColumnTime still =
+  const Scan::ColumnBasis still =
       Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q);
-  const Temporal::ColumnTime moving =
+  const Scan::ColumnBasis moving =
       Scan::prepare_column_basis<W, H>(scratch_arena_a, q, q, true);
   HS_EXPECT_TRUE(still.azimuth == nullptr);
   HS_EXPECT_TRUE(moving.azimuth != nullptr);
@@ -1576,10 +1578,10 @@ inline void test_drift_matches_shape_at_column_centre() {
     const auto drifting = [&](auto &&shape) {
       return render_stub_frame<W, H>(
           [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-            auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-            Temporal::ColumnTime time =
+            auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+            Scan::ColumnBasis time =
                 basis->prepare(math::Quaternion(), math::Quaternion(), true);
-            Scan::ColumnTimeScope column_scope(canvas, time);
+            Scan::ColumnBasisScope column_scope(canvas, time);
             time.drift = axis * angle;
             for (const math::Vector &c : centres)
               shape(pipeline, canvas, math::make_basis(math::Quaternion(), c));
@@ -1616,7 +1618,7 @@ inline void test_drift_matches_shape_at_column_centre() {
   }
   const float angle = 3.0f * math::RADIANS_PER_COLUMN<W>;
   HS_EXPECT_NEAR(
-      math::dot(Temporal::rotate_by(centres[1], axis * angle),
+      math::dot(Spacetime::rotate_by(centres[1], axis * angle),
                 math::rotate(centres[1], math::make_rotation(axis, angle))),
       1.0f, 1e-6f);
 }
@@ -1643,10 +1645,10 @@ inline void test_settled_drift_matches_column_drift() {
   const auto render = [&](bool settle) {
     return render_stub_frame<W, H>(
         [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-          auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-          Temporal::ColumnTime time =
+          auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+          Scan::ColumnBasis time =
               basis->prepare(motion.previous, motion.current, true);
-          Scan::ColumnTimeScope column_scope(canvas, time);
+          Scan::ColumnBasisScope column_scope(canvas, time);
           math::Basis shape = math::make_basis(math::Quaternion(), centre);
           if (settle)
             HS_EXPECT_TRUE(settle_shape(time, drift, radius, shape));
@@ -1671,8 +1673,8 @@ inline void test_settled_drift_matches_column_drift() {
   HS_EXPECT_GT(lit, 20);
   HS_EXPECT_LE(worst, 52000 / 10);
 
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-  const Temporal::ColumnTime time =
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+  const Scan::ColumnBasis time =
       basis->prepare(motion.previous, motion.current, true);
   math::Basis seam = math::make_basis(
       math::Quaternion(), math::Vector(-1.0f, 0.1f, 0.02f).normalized());
@@ -1701,10 +1703,10 @@ inline std::vector<Pixel> render_window_frame(int clip_begin, int clip_end,
   Pipeline<W, H> pipeline;
   {
     Canvas canvas(fx);
-    auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-    const Temporal::ColumnTime time =
+    auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+    const Scan::ColumnBasis time =
         basis->prepare(math::Quaternion(), math::Quaternion(), true);
-    Scan::ColumnTimeScope column_scope(canvas, time);
+    Scan::ColumnBasisScope column_scope(canvas, time);
     draw(pipeline, canvas);
   }
   fx.advance_display();
@@ -1727,7 +1729,7 @@ inline void test_capture_window_runs() {
   constexpr int W = 16;
   for (int begin = 0; begin < W / 2; ++begin)
     for (int end = begin + 1; end <= W / 2; ++end) {
-      const ColumnWindow window{begin, end, true};
+      const Spacetime::TimeWindow window{begin, end, true};
       for (int a = -W; a < 2 * W; ++a)
         for (int length = 0; length <= W; ++length) {
           const std::array<SDF::Interval, 1> intervals{
@@ -1775,12 +1777,12 @@ inline void test_capture_window_faces() {
                           math::LatitudeGeometry(H), H, &clip, nullptr,
                           math::TWO_PI_F / W);
     HS_EXPECT_LE(shape.y_min, shape.y_max);
-    HS_EXPECT_FALSE(
-        Scan::face_meets_window(shape, ColumnWindow{0, W / 4, true}, clip));
-    HS_EXPECT_TRUE(
-        Scan::face_meets_window(shape, ColumnWindow{W / 4, W / 2, true}, clip));
-    HS_EXPECT_TRUE(
-        Scan::face_meets_window(shape, ColumnWindow{0, W / 4, false}, clip));
+    HS_EXPECT_FALSE(Scan::face_meets_window(
+        shape, Spacetime::TimeWindow{0, W / 4, true}, clip));
+    HS_EXPECT_TRUE(Scan::face_meets_window(
+        shape, Spacetime::TimeWindow{W / 4, W / 2, true}, clip));
+    HS_EXPECT_TRUE(Scan::face_meets_window(
+        shape, Spacetime::TimeWindow{0, W / 4, false}, clip));
   }
 }
 
@@ -1853,7 +1855,7 @@ inline void test_vertex_arc_and_reach_flags() {
 /** @brief Captures wrap at the arm seam and follow the equator. */
 inline void test_mesh_capture_vertex() {
   constexpr int W = 288, H = 144;
-  auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
+  auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
   const auto time =
       basis->prepare(math::Quaternion(), math::Quaternion(), true);
   HS_EXPECT_EQ(
@@ -1956,8 +1958,8 @@ inline void test_mesh_capture_reuse() {
     int calls = 0, scans = 0;
     render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
       for (size_t i = 0; i < 4; ++i)
-        starts[i] =
-            Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
+        starts[i] = Scan::vertex_column(position(i, 0), *canvas.column_basis(),
+                                        0.0f, W);
       Scan::deform_mesh<W, H>(
           canvas, mesh, true, columns, moving, starts, scratch_arena_b, 0.02f,
           [&](size_t i, float u) {
@@ -1966,10 +1968,10 @@ inline void test_mesh_capture_reuse() {
           },
           [&] {
             ++scans;
-            HS_EXPECT_FALSE(canvas.render_x_window().active);
+            HS_EXPECT_FALSE(canvas.time_window().active);
             for (size_t i = 0; i < 4; ++i) {
               const math::Vector end = position(i, 1);
-              const auto &time = *canvas.column_time();
+              const auto &time = *canvas.column_basis();
               const auto expected = Scan::capture_vertex(
                   starts[i], Scan::vertex_column(end, time, 1.0f, W),
                   capture_centre(end, 0), W,
@@ -2011,10 +2013,10 @@ inline void test_mesh_seam_face_copies() {
         0, clip_end, [&](Pipeline<W, H> &, Canvas &canvas) {
           for (size_t i = 0; i < 3; ++i)
             starts[i] = Scan::vertex_column(position(i, 0),
-                                            *canvas.column_time(), 0.0f, W);
-          HS_EXPECT_EQ(
-              Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.03f, columns),
-              size_t(1));
+                                            *canvas.column_basis(), 0.0f, W);
+          HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, moving,
+                                                          0.03f, columns),
+                       size_t(1));
           Scan::deform_mesh<W, H>(
               canvas, mesh, true, columns, moving, starts, scratch_arena_b,
               0.02f,
@@ -2023,14 +2025,14 @@ inline void test_mesh_seam_face_copies() {
                 return position(i, u);
               },
               [&] {
-                const auto &window = canvas.render_x_window();
+                const auto &window = canvas.time_window();
                 HS_EXPECT_TRUE(window.active);
                 HS_EXPECT_EQ(window.end - window.begin, W / 2);
                 const int side = window.arm(W);
                 sides.push_back(side);
                 for (size_t i = 0; i < 3; ++i) {
                   const math::Vector end = position(i, 1);
-                  const auto &time = *canvas.column_time();
+                  const auto &time = *canvas.column_basis();
                   const auto expected = Scan::capture_vertex(
                       starts[i], Scan::vertex_column(end, time, 1.0f, W),
                       capture_centre(end, side), W,
@@ -2072,12 +2074,12 @@ inline void test_mesh_wide_face_copies() {
   render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
     for (size_t i = 0; i < 8; ++i)
       starts[i] =
-          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
+          Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
     Scan::deform_mesh<W, H>(
         canvas, mesh, true, columns, moving, starts, scratch_arena_b, STEP,
         position, [&] {
-          const auto &window = canvas.render_x_window();
-          const auto *copy = canvas.column_time()->face_copy;
+          const auto &window = canvas.time_window();
+          const auto *copy = canvas.column_basis()->mesh.face_copy;
           HS_EXPECT_TRUE(copy != nullptr);
           if (!copy)
             return;
@@ -2144,20 +2146,20 @@ inline void check_deformed_shared_edges(float rotation) {
   render_window_frame<W, H>(0, W, [&](Pipeline<W, H> &, Canvas &canvas) {
     for (size_t i = 0; i < 5; ++i)
       starts[i] =
-          Scan::vertex_column(vertex(i, 0), *canvas.column_time(), 0.0f, W);
-    HS_EXPECT_EQ(
-        Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
-        size_t(2));
+          Scan::vertex_column(vertex(i, 0), *canvas.column_basis(), 0.0f, W);
+    HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, picked.data(),
+                                                    .13f, columns),
+                 size_t(2));
     Scan::deform_mesh<W, H>(
         canvas, mesh, true, columns, moving, starts, scratch_arena_b, .12f,
         vertex, [&] {
           ++scans;
-          const auto &window = canvas.render_x_window();
-          const auto *selected = canvas.column_time()->selected_faces;
-          const uint8_t drawn = window.active ? Temporal::MESH_FACE_WINDOW
-                                              : Temporal::MESH_FACE_HELD;
+          const auto &window = canvas.time_window();
+          const auto *selected = canvas.column_basis()->mesh.selected_faces;
+          const uint8_t drawn = window.active ? Scan::detail::FacePass::ARM_COPY
+                                              : Scan::detail::FacePass::SHARED;
           const int arm = window.active ? window.arm(W) : -1;
-          const auto *copy = canvas.column_time()->face_copy;
+          const auto *copy = canvas.column_basis()->mesh.face_copy;
           const auto at = [&](size_t i) {
             if (copy)
               for (size_t m = 0; m < copy->count; ++m)
@@ -2186,7 +2188,7 @@ inline void check_deformed_shared_edges(float rotation) {
             if (selected[f] != drawn)
               continue;
             const size_t i = f == 0 ? 0 : 4;
-            const auto &time = *canvas.column_time();
+            const auto &time = *canvas.column_basis();
             const auto expected = Scan::capture_vertex(
                 starts[i], Scan::vertex_column(current[i], time, 1.0f, W),
                 capture_centre(current[i], arm), W,
@@ -2234,13 +2236,13 @@ inline void test_recorded_face_caps_match_measured_columns() {
     uint8_t moving[5] = {1, 1, 1, 1, 1};
     uint16_t recorded[6]{}, measured[6]{}, picked[6]{};
     float radii[3]{};
-    HS_EXPECT_EQ(
-        Scan::pick_moving_faces<W>(canvas, mesh, moving, .13f, picked, radii),
-        size_t(3));
+    HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, moving, .13f,
+                                                    picked, radii),
+                 size_t(3));
     std::copy_n(picked, 6, recorded);
     std::copy_n(picked, 6, measured);
-    Scan::moving_face_columns<W>(canvas, mesh, .02f, recorded, radii);
-    Scan::moving_face_columns<W>(canvas, mesh, .02f, measured);
+    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, recorded, radii);
+    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, measured);
     for (int k = 0; k < 6; ++k)
       HS_EXPECT_EQ(recorded[k], measured[k]);
     for (int f = 0; f < 3; ++f) {
@@ -2275,13 +2277,13 @@ inline void test_moving_faces_outside_clip_rows_hold() {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, rows, 0, W);
     Canvas canvas(fx);
-    auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-    const Temporal::ColumnTime time =
+    auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+    const Scan::ColumnBasis time =
         basis->prepare(math::Quaternion(), math::Quaternion(), true);
-    Scan::ColumnTimeScope column_scope(canvas, time);
+    Scan::ColumnBasisScope column_scope(canvas, time);
     const size_t picked =
-        Scan::pick_moving_faces<W>(canvas, mesh, moving, .02f, columns);
-    Scan::moving_face_columns<W>(canvas, mesh, .02f, columns);
+        Scan::detail::pick_moving_faces<W>(canvas, mesh, moving, .02f, columns);
+    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, columns);
     return picked;
   };
   uint8_t moving[9];
@@ -2306,9 +2308,9 @@ inline void test_mesh_motion_activation() {
   HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(0.51f * PIXEL));
   HS_EXPECT_TRUE(Scan::mesh_motion_active<W>(7.9f * PIXEL));
   HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(8.1f * PIXEL));
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   HS_EXPECT_FALSE(Scan::mesh_motion_active<W>(3.4f * PIXEL));
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
 }
 
 /// Largest channel difference between a swept pole face and its per-column
@@ -2368,9 +2370,9 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fx);
-      auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-      const Temporal::ColumnTime time = basis->prepare(from, to, true);
-      Scan::ColumnTimeScope column_scope(canvas, time);
+      auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+      const Scan::ColumnBasis time = basis->prepare(from, to, true);
+      Scan::ColumnBasisScope column_scope(canvas, time);
       draw(pipeline, canvas);
     }
     fx.advance_display();
@@ -2390,16 +2392,16 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
                                               Canvas &canvas) {
     for (size_t i = 0; i < count; ++i)
       starts[i] =
-          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
-    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                               columns.data());
+          Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
+    Scan::detail::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                                       columns.data());
     for (size_t i = 0; i < count; ++i)
       if (moving[i])
         moving[i] = Scan::vertex_flags(reach);
     Scan::deform_mesh<W, H>(
         canvas, mesh, true, columns.data(), moving.data(), starts.data(),
         scratch_arena_b, reach, position, [&] {
-          HS_EXPECT_TRUE(canvas.column_time()->face_sweep != nullptr);
+          HS_EXPECT_TRUE(canvas.column_basis()->mesh.face_sweep != nullptr);
           Scan::Mesh::draw_specialized<W, H>(pipeline, canvas, mesh, shader,
                                              scratch_arena_b, nullptr, setup);
         });
@@ -2485,9 +2487,9 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
     Pipeline<W, H> pipeline;
     {
       Canvas canvas(fx);
-      auto basis = std::make_unique<Scan::ColumnBasis<W, H>>();
-      const Temporal::ColumnTime time = basis->prepare(from, to, true);
-      Scan::ColumnTimeScope column_scope(canvas, time);
+      auto basis = std::make_unique<Scan::ColumnBasisTable<W, H>>();
+      const Scan::ColumnBasis time = basis->prepare(from, to, true);
+      Scan::ColumnBasisScope column_scope(canvas, time);
       draw(pipeline, canvas);
     }
     fx.advance_display();
@@ -2507,9 +2509,9 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
                                               Canvas &canvas) {
     for (size_t i = 0; i < count; ++i)
       starts[i] =
-          Scan::vertex_column(position(i, 0), *canvas.column_time(), 0.0f, W);
-    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                               columns.data());
+          Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
+    Scan::detail::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                                       columns.data());
     for (size_t i = 0; i < count; ++i)
       if (moving[i])
         moving[i] = Scan::vertex_flags(reach);

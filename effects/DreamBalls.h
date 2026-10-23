@@ -301,7 +301,7 @@ private:
   float phase_start = 0.0f;   /**< Unwrapped orbit start for this draw. */
   float opacity_start = 0.0f; /**< Opacity at this draw's start. */
   float motion_bound = 0.0f;  /**< Orbit displacement over the frame. */
-  Temporal::PathBound orbit_path{}; /**< A vertex's orbit path over the frame:
+  Spacetime::PathBound orbit_path{}; /**< A vertex's orbit path over the frame:
                                        eight times the certified chord error,
                                        and one orbit turn more for the third
                                        derivative, as on a circle. */
@@ -793,7 +793,7 @@ private:
         }
       }
 
-      const bool timed = Temporal::temporal_sampling_enabled();
+      const bool timed = !Spacetime::flat_surface();
       if (!timed)
         orient_mesh(framed_mesh);
 
@@ -861,7 +861,7 @@ private:
                               offset);
       }
 
-      const bool timed = Temporal::temporal_sampling_enabled();
+      const bool timed = !Spacetime::flat_surface();
       if (!timed)
         orient_mesh(target);
 

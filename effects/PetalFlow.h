@@ -364,7 +364,7 @@ private:
    * without temporal sampling it draws as a still closed polyline. */
   HS_HOT_FLASH_MEMBER void draw_ring(Canvas &canvas, const Ring &ring,
                                      float previous_rho) {
-    const bool timed = Temporal::temporal_sampling_enabled();
+    const bool timed = !Spacetime::flat_surface();
     if (!timed)
       previous_rho = ring.rho;
     const float opacity = pole_opacity(ring.rho);
@@ -416,7 +416,7 @@ private:
     };
     Plot::GeometryCallback geometry = RING_GEOMETRY;
     geometry.evaluate = path;
-    geometry.path = Temporal::PathBound::loxodrome(rho_step, twist_step);
+    geometry.path = Spacetime::PathBound::loxodrome(rho_step, twist_step);
     {
       HS_PROFILE(pf_ring_scan);
       Plot::Mesh::draw_columns<W, H>(filters, canvas,

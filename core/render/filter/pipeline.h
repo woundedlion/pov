@@ -15,7 +15,7 @@
 #include "core/render/canvas.h"
 #include "core/engine/concepts.h"
 #include "core/memory.h"
-#include "core/render/temporal/pose_table.h"
+#include "core/render/spacetime/pose_table.h"
 
 /**
  * @file pipeline.h
@@ -382,12 +382,12 @@ public:
 
   /** @brief Sum of world-stage frame motion bounds.
    * @return Angular bound in radians. */
-  float cull_bound() const { return pipeline().cull_bound(); }
+  float sweep_arc() const { return pipeline().sweep_arc(); }
 
   /** @brief The world stages' poses by column time.
    * @param cv Frame context.
    * @return The table of the stage that keeps one, or null. */
-  const Temporal::PoseTable *pose_table(const Canvas &cv) {
+  const Spacetime::PoseTable *pose_table(const Canvas &cv) {
     return pipeline().pose_table(cv);
   }
 
@@ -656,11 +656,11 @@ template <int W, int H> struct Pipeline<W, H> {
 
   /** @brief Angular bound of the identity transform.
    * @return Zero radians. */
-  float cull_bound() const { return 0.0f; }
+  float sweep_arc() const { return 0.0f; }
 
   /** @brief The terminal's pose table.
    * @return Null: the identity has no poses. */
-  const Temporal::PoseTable *pose_table(const Canvas &) { return nullptr; }
+  const Spacetime::PoseTable *pose_table(const Canvas &) { return nullptr; }
 
   /** @brief Number of terminal spatial copies.
    * @return One. */
@@ -1091,8 +1091,8 @@ struct Pipeline<W, H, Head, Tail...>
     ScreenPass pass{next, cv, t};
     if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
                   requires { requires Head::has_boundary_splat; }) {
-      if (Temporal::temporal_sampling_enabled() &&
-          fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f)
+      if (!Spacetime::flat_surface() &&
+          fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f)
         Head::plot_boundary_at(x, y, c, age, alpha, t, pass);
       else
         plot_terminal_splat(cv, x, y, c, age, alpha);
@@ -1162,7 +1162,7 @@ struct Pipeline<W, H, Head, Tail...>
   /** @brief The world stages' poses by column time.
    * @param cv Frame context.
    * @return The table of the stage that keeps one, or null. */
-  HS_HOT_INLINE const Temporal::PoseTable *pose_table(const Canvas &cv) {
+  HS_HOT_INLINE const Spacetime::PoseTable *pose_table(const Canvas &cv) {
     if constexpr (requires { Head::pose_table(cv); })
       return Head::pose_table(cv);
     else
@@ -1171,10 +1171,10 @@ struct Pipeline<W, H, Head, Tail...>
 
   /** @brief Sum of world-stage frame motion bounds.
    * @return Angular bound in radians. */
-  HS_HOT_FLASH_MEMBER float cull_bound() const {
-    float bound = next.cull_bound();
-    if constexpr (requires { Head::cull_bound(); })
-      bound += Head::cull_bound();
+  HS_HOT_FLASH_MEMBER float sweep_arc() const {
+    float bound = next.sweep_arc();
+    if constexpr (requires { Head::sweep_arc(); })
+      bound += Head::sweep_arc();
     return bound;
   }
 

@@ -195,8 +195,8 @@ public:
     });
 
     // A wipe rebakes the LUT once per frame after its arming frame.
-    const bool palette_moves = Temporal::temporal_sampling_enabled() &&
-                               wipe.in_flight() && !wipe.pending;
+    const bool palette_moves =
+        !Spacetime::flat_surface() && wipe.in_flight() && !wipe.pending;
     {
       HS_PROFILE(cm_wipe_rebake);
       if (palette_moves)
@@ -232,17 +232,17 @@ private:
   void draw_trail(Canvas &canvas, bool palette_moves) {
     HS_PROFILE(cm_draw_trail);
     ScratchScope column_guard(scratch_arena_a);
-    Temporal::ColumnTime column_time =
+    Scan::ColumnBasis column_basis =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // The newest record's sub-poses are reached over this frame.
     const auto &newest = node->trail.get(node->trail.length() - 1);
     const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
     const int newest_last =
-        Temporal::temporal_sampling_enabled() ? newest.length() - 1 : 0;
+        !Spacetime::flat_surface() ? newest.length() - 1 : 0;
     // A disc that cannot reach the clip over the frame draws nothing.
     const bool culls = !params.debug_bb && !canvas.debug();
-    const float sweep = column_time.azimuth ? column_time.sweep : 0.0f;
+    const float sweep = column_basis.azimuth ? column_basis.sweep_arc : 0.0f;
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     const auto cap =
         Plot::make_swept_cap_clip<W, H>(clip, params.thickness, sweep);
@@ -259,10 +259,10 @@ private:
       };
       const uintptr_t at = reinterpret_cast<uintptr_t>(&q);
       const uintptr_t index = (at - newest_begin) / sizeof(math::Quaternion);
-      column_time.birth = newest_last > 0 && at >= newest_begin &&
-                                  index <= static_cast<uintptr_t>(newest_last)
-                              ? static_cast<float>(index) / newest_last
-                              : 0.0f;
+      column_basis.birth = newest_last > 0 && at >= newest_begin &&
+                                   index <= static_cast<uintptr_t>(newest_last)
+                               ? static_cast<float>(index) / newest_last
+                               : 0.0f;
 
       HS_PROFILE_DEEP(cm_point_scan);
       if (palette_moves) {

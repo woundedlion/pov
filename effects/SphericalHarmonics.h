@@ -16,8 +16,8 @@
 #include "core/engine/engine.h"
 #include "core/math/spherical_harmonics.h"
 #include "core/render/pullback.h"
-#include "core/render/pullback/temporal_history.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime/field.h"
+#include "core/render/spacetime.h"
 #include <array>
 #include <cmath>
 #include <string_view>
@@ -152,7 +152,7 @@ public:
     const HarmonicFrameState current = frame_state();
     if (!history.initialized)
       history.capture(current);
-    if (Temporal::temporal_sampling_enabled()) {
+    if (!Spacetime::flat_surface()) {
       draw_columns(canvas, history.previous, current);
     } else {
       const typename RenderPipeline::Frame frame =
@@ -248,7 +248,7 @@ private:
      */
     HS_FLASH_INLINE static HarmonicFrameState
     sample(const HarmonicFrameState &from, const HarmonicFrameState &to,
-           float fraction, const Temporal::TemporalRotation &rotation) {
+           float fraction, const Spacetime::TemporalRotation &rotation) {
       HarmonicFrameState frame = to;
       frame.source.orientation = rotation.sample(fraction);
       frame.material.amplitude =
@@ -285,8 +285,8 @@ private:
     sample(const HarmonicFrameState &from, const HarmonicFrameState &to,
            float fraction) {
       return sample(from, to, fraction,
-                    Temporal::TemporalRotation(from.source.orientation,
-                                               to.source.orientation));
+                    Spacetime::TemporalRotation(from.source.orientation,
+                                                to.source.orientation));
     }
   };
 
@@ -367,13 +367,13 @@ private:
                                            const HarmonicFrameState &from,
                                            const HarmonicFrameState &to) {
     HS_PROFILE(sh_rasterize);
-    const Temporal::TemporalRotation rotation(from.source.orientation,
-                                              to.source.orientation);
+    const Spacetime::TemporalRotation rotation(from.source.orientation,
+                                               to.source.orientation);
     Scan::Shader::draw_column_times<W, H>(
         canvas,
         [&](int c) {
           return RenderPipeline::prepare(HarmonicFrameState::sample(
-              from, to, Temporal::sweep_fraction(c, W), rotation));
+              from, to, Spacetime::SamplingSurface<W>::time(c), rotation));
         },
         [](const auto &frame, int) {
           return [&frame](const math::Vector &view) {
@@ -450,7 +450,7 @@ private:
   uint32_t morph_generation = 0;
   uint32_t morph_epoch = 0; /**< Bumped by preset snaps outside the chain. */
   /** Previous frame for column-time sampling. */
-  Pullback::TemporalHistory<HarmonicFrameState> history;
+  Spacetime::FrameHistory<HarmonicFrameState> history;
 
   /**
    * @brief User-tunable parameters for the visualizer.

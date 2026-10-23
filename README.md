@@ -403,7 +403,7 @@ The entry points trade generality for speed:
 - `draw_grid`, `walk_grid` and `draw_block_coherent` — hand the shader the row's subsample grid or a block classification, for effects that own their sampling (the reaction-diffusion effects and Voronoi).
 - `draw_columns` and `draw_block_columns` — prepare a shader once per column, the second also once per block of the column, for column-time sampling (composed effects, HyperLattice and Voronoi).
 
-`walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `RenderXWindow` admits: one run of half-turn columns on both arms, inside the clip. `Temporal::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectColumnBasis` frame at its sweep time.
+`walk_grid`, `walk_object_grid` and `draw_grid` write only the columns an open `TimeWindow` admits: one run of half-turn columns on both arms, inside the clip. `Spacetime::simulate_in_slabs` uses it to shade a simulation one sweep slab at a time between substeps, as BZReactionDiffusion does. `walk_object_grid` shades a turning object in its own space, each column through its `Scan::ObjectBasisTable` frame at its sweep time.
 
 `Scan::Mesh` honours the window too. A mesh whose vertices move non-rigidly over the frame (a Hankin interlace sweep, a Conway morph leg, a ripple) is deformed by `Scan::deform_mesh`: each moving vertex is placed at the sweep time of the column it lands on, on its own arm or across the arm boundary nearer it, and every face is scanned once. A face that straddles an arm boundary is scanned once per arm, each copy clipped to that arm's columns. A face every column pair's meridian can reach (around a pole, spanning half a turn, or reaching a pole by its vertices' motion) draws in one scan per half of the arms, each of its vertices at its time nearest the half's middle, unless that single placement would show a visible step: its fastest vertex's motion over the half frame its columns span, times its reach from the polar axis, in square pixels, past `SWEEP_STEP_AREA`. Such a face is swept one column pair at a time by `Scan::SweptFace`, each pair's face standing at the pair's sweep time. HankinSolids and IslamicStars use it.
 
@@ -493,7 +493,7 @@ The tables below list the library surface, which is deliberately wider than the 
 
 | Filter | Effect |
 |---|---|
-| `World::Orient` | Rotates every incoming 3D point by its `Orientation`. With temporal sampling enabled, each point is emitted at the pose of the frame fraction in which a display arm passes it, with its age offset to that time; otherwise at the current pose. |
+| `World::Orient` | Rotates incoming 3D points from an `Orientation`; its `Spacetime::PoseTable` provides shared surface-time poses to the column walk. Direct timed point plotting uses the orientation history to emit each arm crossing; the flat selection uses the current pose. |
 | `World::Trails<Capacity>` | Stores world-space points in an arena-allocated flat buffer with a TTL countdown. On `flush()`, re-draws aged points through a `WorldTrailFn` color function. Trail items are quantized (int16 xyz + uint8 TTL); at capacity, the last occupied slot is replaced. Decay compacts slots without preserving age order. |
 | `World::Replicate<W>` | Clones geometry N times around the Y-axis by re-plotting each point rotated by `2π/N`. |
 | `World::VertexReplicate<N>` | Replicates geometry onto the N vertices of a solid by precomputing rotation quaternions from vertex[0] to each other vertex. |
@@ -1339,8 +1339,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   │   ├── composed_policies.h     Composed-effect stage policies
 │   │   │   ├── composed_descriptors.h  Composed-effect static descriptors
 │   │   │   ├── composed_runtime.h      Composed-effect runtime
-│   │   │   ├── composed_temporal.h     Retained endpoints and column-time sampling
-│   │   │   ├── temporal_history.h      Shared retained endpoint, clock arc and frame sampling
+│   │   │   ├── composed_interval.h     Retained endpoints and column-time sampling
 │   │   │   ├── runtime_snapshot.h      Chain runtime snapshot contracts
 │   │   │   ├── operators.h             Chain-operator umbrella and camera/color exit adapters
 │   │   │   └── operators/              Operator model, table, shared state, family adapters, and snapshot codecs
@@ -1352,7 +1351,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
 │   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
-│   │   │   ├── raster_timed.h           Geometry callbacks and column-time edge walk included by raster.h
+│   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk included by raster.h
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   └── cull/                   Cull strategy sections included by cull.h
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pixel:
@@ -1380,11 +1379,15 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── ray.h                   Spherical ray rendering umbrella
 │   │   ├── ray/                    Ray contracts, camera embeddings, query adapters, shared marching, ordered event tracing and depth/layer shading
 │   │   ├── render_policy.h         Shape ratios and pole shading policy
-│   │   ├── temporal.h              Column-time sampling toggle, sweep fraction, rotation arc, scan column-time state, time-aware scan shaders and capture-time solving
-│   │   ├── temporal/               Shared column-time machinery: the per-frame pose table
-│   │   │                            (pose_table), per-vertex captures and interpolants
-│   │   │                            (vertex_motion), closed-form arm passes (arm_crossing)
-│   │   │                            and swept cull bounds (swept_bound)
+│   │   ├── spacetime.h             Frame motion, sampling surface, poses and fields; retained plotted capture helpers
+│   │   ├── spacetime/              Space-time geometry and surface-time shading
+│   │   │   ├── surface.h               SamplingSurface, flat-surface selection and simulation time slabs
+│   │   │   ├── motion.h                PathBound, Interpolant and Worldline
+│   │   │   ├── worldlines.h            Per-vertex captures and interpolant selection
+│   │   │   ├── pose_table.h            Orientation poses at shared surface times
+│   │   │   ├── field.h                 Time-aware shader dispatch, FrameHistory and clock intervals
+│   │   │   ├── crossing.h              Closed-form worldline crossings and screen crossings
+│   │   │   └── swept_bound.h           Swept height and clip bounds
 │   │   └── shading.h               Fragment interpolation + mesh-topology shading helpers
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase + nine animation fragments and orientation; recipe_build and transformer are included directly
@@ -1500,7 +1503,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── effects/           Sections included by test_effects.h
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
-│   ├── test_plot_parity.h Temporal, frame-end and segment render hashes
+│   ├── test_plot_parity.h Spacetime, frame-end and segment render hashes
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   │   ├── temporal_seam.h Column-time tap ownership oracles

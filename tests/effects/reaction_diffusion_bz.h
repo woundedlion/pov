@@ -59,7 +59,7 @@ struct BZWhiteBox {
   static void advance(BZ &bz, int substeps) { bz.advance(substeps); }
   /** @brief Shades the whole frame as draw_frame() shades a slab. */
   static void shade_frame(BZ &bz) {
-    if (Temporal::temporal_sampling_enabled())
+    if (!Spacetime::flat_surface())
       shade_columns_frame(bz);
     else
       shade_oriented_frame(bz);
@@ -616,7 +616,7 @@ inline void test_bz_slabs_shade_the_field_after_their_substep() {
     for (int f = 0; f < static_cast<int>(std::size(TOGGLED)); ++f) {
       const bool enabled = check ? TOGGLED[f] : false;
       HS_CONTEXT("frame, temporal sampling", f, enabled);
-      Temporal::set_temporal_sampling_enabled(enabled);
+      Spacetime::set_flat_surface(!enabled);
       const WhiteBox::Species before = WhiteBox::species(bz);
       const hs::Pcg32 rng = hs::random();
       bz.draw_frame();
@@ -638,7 +638,8 @@ inline void test_bz_slabs_shade_the_field_after_their_substep() {
                 "replayed substeps must reach the frame's field");
       for (int x = 0; x < W; ++x) {
         const int slab =
-            enabled ? static_cast<int>(Temporal::sweep_fraction(x, W) * STEPS)
+            enabled ? static_cast<int>(Spacetime::SamplingSurface<W>::time(x) *
+                                       STEPS)
                     : STEPS - 1;
         for (int y = 0; y < H; ++y) {
           HS_CONTEXT("px", x, y);
@@ -648,7 +649,7 @@ inline void test_bz_slabs_shade_the_field_after_their_substep() {
         }
       }
     }
-    Temporal::set_temporal_sampling_enabled(true);
+    Spacetime::set_flat_surface(false);
     return WhiteBox::species(bz);
   };
   const WhiteBox::Species toggled = run(true);
@@ -734,7 +735,8 @@ inline void test_bz_lattice_basis_matches_rotated_lattice() {
   std::vector<Pixel> frame;
   for (int column = 0; column < W / 2; ++column) {
     const math::Quaternion at =
-        math::slerp(previous, current, Temporal::sweep_fraction(column, W))
+        math::slerp(previous, current,
+                    Spacetime::SamplingSurface<W>::time(column))
             .normalized();
     WhiteBox::set_orientation(bz, at, at);
     WhiteBox::shade_oriented_frame(bz);

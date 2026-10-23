@@ -851,7 +851,7 @@ template <int W, int H> RenderPin instantaneous_render(size_t preset) {
   effect.init();
   if (preset)
     HS_EXPECT_TRUE(effect.selectPreset(preset));
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   RenderPin pin;
   for (int frame = 0; frame < 40; ++frame) {
     effect.draw_frame();
@@ -859,7 +859,7 @@ template <int W, int H> RenderPin instantaneous_render(size_t preset) {
     if (frame < 2 || frame == 39)
       fold_render_pin<W, H>(pin, effect);
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   return pin;
 }
 
@@ -1180,7 +1180,7 @@ inline void test_column_time_toggle() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   effect.draw_frame();
   effect.advance_display();
   const auto held = WB::drawn(effect);
@@ -1189,7 +1189,7 @@ inline void test_column_time_toggle() {
       HS_EXPECT_LE(max_channel_gap(effect.get_pixel(x, y),
                                    traced_pixel<96, 20>(held, x, y)),
                    COLUMN_TOLERANCE);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   effect.draw_frame();
   effect.advance_display();
   const auto resumed =

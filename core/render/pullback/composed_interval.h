@@ -5,9 +5,11 @@
 
 // Included by core/render/pullback/composed_effect.h.
 
-/** @file composed_temporal.h
+/** @file composed_interval.h
  * @brief Retained frame endpoints and column-time sampling for composed effects.
  */
+
+namespace Pullback {
 
 /** @brief Gives a frame the current lens wherever a Mobius lens cannot
  *  follow its generator phase between the endpoints.
@@ -29,12 +31,12 @@ HS_FLASH_INLINE void hold_discrete_lenses(Frame &frame, const Frame &from,
 }
 
 /** @brief Shared preparation for column samples of one frame interval. */
-template <typename Frame> class TemporalFrameSampler {
+template <typename Frame> class FrameInterval {
   using Params = decltype(Frame::params);
   const Frame &from;
   const Frame &to;
-  Temporal::TemporalRotation projection;
-  Temporal::TemporalRotation outer;
+  Spacetime::TemporalRotation projection;
+  Spacetime::TemporalRotation outer;
   decltype(Frame::resources) deltas{};
   Params interior_params;
   bool constant_params;
@@ -47,12 +49,12 @@ public:
   /** @brief Prepares parameter identity and periodic clock deltas.
    * @param a Previous frame endpoint.
    * @param b Current frame endpoint. */
-  HS_FLASH_INLINE TemporalFrameSampler(const Frame &a, const Frame &b)
+  HS_FLASH_INLINE FrameInterval(const Frame &a, const Frame &b)
       : from(a), to(b),
         projection(a.projection_conjugate, b.projection_conjugate),
         outer(a.outer_conjugate, b.outer_conjugate), interior_params(b.params),
         constant_params(std::memcmp(&a.params, &b.params, sizeof(Params)) == 0),
-        oscillation_delta(ClockInterval::prepare_delta(
+        oscillation_delta(Spacetime::ClockInterval::prepare_delta(
             a.palette_oscillation_phase, b.palette_oscillation_phase, 1.0f)),
         same_noise(a.hue_noise_lut && b.hue_noise_lut &&
                    std::memcmp(a.hue_noise_lut, b.hue_noise_lut,
@@ -92,29 +94,29 @@ public:
       const auto &start = a.resources.template get<Resource::KEY>();
       const auto &end = b.resources.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        delta.primary = ClockInterval::prepare_delta(start.primary, end.primary,
-                                                     math::TWO_PI_F);
-        delta.secondary = ClockInterval::prepare_delta(
+        delta.primary = Spacetime::ClockInterval::prepare_delta(
+            start.primary, end.primary, math::TWO_PI_F);
+        delta.secondary = Spacetime::ClockInterval::prepare_delta(
             start.secondary, end.secondary, math::TWO_PI_F);
-        delta.angle = ClockInterval::prepare_delta(start.angle, end.angle,
-                                                   math::TWO_PI_F);
-        delta.noise_time = ClockInterval::prepare_delta(start.noise_time,
-                                                        end.noise_time, 1.0f);
+        delta.angle = Spacetime::ClockInterval::prepare_delta(
+            start.angle, end.angle, math::TWO_PI_F);
+        delta.noise_time = Spacetime::ClockInterval::prepare_delta(
+            start.noise_time, end.noise_time, 1.0f);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        delta.phase =
-            ClockInterval::prepare_delta(start.phase, end.phase, 1.0f);
+        delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
+                                                              end.phase, 1.0f);
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-          delta.rotation = ClockInterval::prepare_delta(
+          delta.rotation = Spacetime::ClockInterval::prepare_delta(
               start.rotation, end.rotation, math::TWO_PI_F);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE &&
                            !std::is_same_v<typename Resource::Family,
                                            PeriodicRippleParams>) {
-        delta.phase =
-            ClockInterval::prepare_delta(start.phase, end.phase, 1.0f);
+        delta.phase = Spacetime::ClockInterval::prepare_delta(start.phase,
+                                                              end.phase, 1.0f);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
-        delta.angle = ClockInterval::prepare_delta(start.angle, end.angle,
-                                                   math::TWO_PI_F);
+        delta.angle = Spacetime::ClockInterval::prepare_delta(
+            start.angle, end.angle, math::TWO_PI_F);
         delta.magnitude = end.magnitude - start.magnitude;
         delta.generated = lens_phase_continuous(
             a.params.template get<Resource::KEY>(),
@@ -126,7 +128,7 @@ public:
   /** @brief Samples the prepared interval, preserving both endpoints.
    * @param fraction Frame progress in [0, 1].
    * @return Interpolated context borrowing the endpoint resources. */
-  HS_FLASH_INLINE Frame sample(float fraction) const {
+  HS_FLASH_INLINE Frame at(float fraction) const {
     if (fraction <= 0.0f) {
       Frame frame = from;
       hold_discrete_lenses(frame, from, to);
@@ -153,34 +155,36 @@ public:
     }
     frame.palette_mapping = Color::PaletteMappingWeights::lerp(
         from.palette_mapping, to.palette_mapping, fraction);
-    frame.palette_oscillation_phase = ClockInterval::apply(
+    frame.palette_oscillation_phase = Spacetime::ClockInterval::apply(
         from.palette_oscillation_phase, oscillation_delta, fraction);
     frame.params.visit([&]<typename Resource>(const auto &family) {
       auto &clock = frame.resources.template get<Resource::KEY>();
       const auto &start = from.resources.template get<Resource::KEY>();
       const auto &delta = deltas.template get<Resource::KEY>();
       if constexpr (Resource::KIND == ResourceKind::SOURCE) {
-        clock.primary =
-            ClockInterval::apply(start.primary, delta.primary, fraction);
-        clock.secondary =
-            ClockInterval::apply(start.secondary, delta.secondary, fraction);
-        clock.angle = ClockInterval::apply(start.angle, delta.angle, fraction);
-        clock.noise_time =
-            ClockInterval::apply(start.noise_time, delta.noise_time, fraction);
+        clock.primary = Spacetime::ClockInterval::apply(
+            start.primary, delta.primary, fraction);
+        clock.secondary = Spacetime::ClockInterval::apply(
+            start.secondary, delta.secondary, fraction);
+        clock.angle =
+            Spacetime::ClockInterval::apply(start.angle, delta.angle, fraction);
+        clock.noise_time = Spacetime::ClockInterval::apply(
+            start.noise_time, delta.noise_time, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::WARP) {
-        clock.phase = ClockInterval::apply(start.phase, delta.phase, fraction);
+        clock.phase =
+            Spacetime::ClockInterval::apply(start.phase, delta.phase, fraction);
         if constexpr (std::is_same_v<typename Resource::Family, AffineParams>)
-          clock.rotation =
-              ClockInterval::apply(start.rotation, delta.rotation, fraction);
+          clock.rotation = Spacetime::ClockInterval::apply(
+              start.rotation, delta.rotation, fraction);
       } else if constexpr (Resource::KIND == ResourceKind::SURFACE) {
         if constexpr (std::is_same_v<typename Resource::Family,
                                      PeriodicRippleParams>)
-          clock.phase = sample_clock(
+          clock.phase = Spacetime::sample_clock(
               start.phase, to.resources.template get<Resource::KEY>().phase,
               fraction, family.period);
         else
-          clock.phase =
-              ClockInterval::apply(start.phase, delta.phase, fraction);
+          clock.phase = Spacetime::ClockInterval::apply(start.phase,
+                                                        delta.phase, fraction);
       } else if constexpr (std::is_same_v<typename Resource::Family,
                                           MobiusLensParams>) {
         const auto &end = to.params.template get<Resource::KEY>();
@@ -188,9 +192,10 @@ public:
             delta.generated
                 ? sample_lens_phase(
                       end,
-                      ClockInterval::apply(start.angle, delta.angle, fraction),
-                      ClockInterval::apply(start.magnitude, delta.magnitude,
-                                           fraction))
+                      Spacetime::ClockInterval::apply(start.angle, delta.angle,
+                                                      fraction),
+                      Spacetime::ClockInterval::apply(
+                          start.magnitude, delta.magnitude, fraction))
                 : end;
       }
     });
@@ -207,6 +212,10 @@ public:
   }
 };
 
+} // namespace Pullback
+
+namespace Spacetime {
+
 /** @brief Samples spatial state and clocks from a prepared frame interval.
  * @tparam Frame Composed temporal frame context.
  * @param from Previous frame with retained resources.
@@ -216,22 +225,27 @@ public:
 template <typename Frame>
 HS_FLASH_INLINE Frame sample_frame(const Frame &from, const Frame &to,
                                    float fraction) {
-  return TemporalFrameSampler(from, to).sample(fraction);
+  return Pullback::FrameInterval(from, to).at(fraction);
 }
 
 /** @brief Owned palette and hue tables for the previous frame endpoint. */
-template <typename Frame, HueMode Hue, bool FloatHue>
+template <typename Frame, Pullback::Color::HueMode Hue, bool FloatHue>
   requires BorrowsColorResources<Frame>
-struct TemporalHistory<Frame, Hue, true, FloatHue> {
+struct FrameHistory<Frame, Hue, true, FloatHue> {
   Frame previous{}; ///< Previous endpoint with owned color resource views.
   BakedPaletteStorage palette; ///< Retained palette table.
-  std::array<Pixel, Hue != HueMode::NONE ? Color::HueRotationLutView::SIZE : 0>
+  std::array<Pixel, Hue != Pullback::Color::HueMode::NONE
+                        ? Pullback::Color::HueRotationLutView::SIZE
+                        : 0>
       hue_rotation; ///< Retained hue-rotation table.
-  std::array<int8_t, Hue == HueMode::NOISE ? Color::HueNoiseLutView::SIZE : 0>
+  std::array<int8_t, Hue == Pullback::Color::HueMode::NOISE
+                         ? Pullback::Color::HueNoiseLutView::SIZE
+                         : 0>
       hue_noise; ///< Retained hue-noise table.
-  std::array<math::Vector, FloatHue ? Color::HueRotationLutView::SIZE : 0>
+  std::array<math::Vector,
+             FloatHue ? Pullback::Color::HueRotationLutView::SIZE : 0>
       hue_rotation_linear; ///< Retained float hue table.
-  std::array<float, FloatHue ? Color::HueNoiseLutView::SIZE : 0>
+  std::array<float, FloatHue ? Pullback::Color::HueNoiseLutView::SIZE : 0>
       hue_noise_linear;     ///< Retained float noise table.
   bool initialized = false; ///< Whether a previous endpoint exists.
 
@@ -247,12 +261,12 @@ struct TemporalHistory<Frame, Hue, true, FloatHue> {
     previous.palette = &palette.view();
     previous.hue_rotation_linear = nullptr;
     previous.hue_noise_linear = nullptr;
-    if constexpr (Hue != HueMode::NONE) {
+    if constexpr (Hue != Pullback::Color::HueMode::NONE) {
       std::copy_n(frame.hue_rotation_lut, hue_rotation.size(),
                   hue_rotation.data());
       previous.hue_rotation_lut = hue_rotation.data();
     }
-    if constexpr (Hue == HueMode::NOISE) {
+    if constexpr (Hue == Pullback::Color::HueMode::NOISE) {
       std::copy_n(frame.hue_noise_lut, hue_noise.size(), hue_noise.data());
       previous.hue_noise_lut = hue_noise.data();
     }
@@ -274,3 +288,5 @@ struct TemporalHistory<Frame, Hue, true, FloatHue> {
     initialized = true;
   }
 };
+
+} // namespace Spacetime

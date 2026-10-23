@@ -64,7 +64,7 @@ inline std::vector<float> point_route_oracle(const PointRoutePath &path,
   std::vector<float> weights(W * H, 0.0f);
   for (int column = 0; column < W; ++column) {
     const math::PixelCoords p = math::vector_to_pixel<W, H>(
-        path.at(Temporal::sweep_fraction(column, W)));
+        path.at(Spacetime::SamplingSurface<W>::time(column)));
     const Filter::Screen::SplatTaps t =
         Filter::Screen::splat_taps<W, H>(p.x, p.y);
     const bool left = t.x0 == column;
@@ -301,7 +301,7 @@ inline void test_point_route_gate_keeps_visible_taps() {
                                                     {0, 144, 30, 250}}};
   int drawn = 0;
   for (bool timed : {true, false}) {
-    Temporal::set_temporal_sampling_enabled(timed);
+    Spacetime::set_flat_surface(!timed);
     const std::vector<Pixel> full = render(nullptr, false);
     for (const auto &clip : clips) {
       const std::vector<Pixel> got = render(&clip, false);
@@ -316,7 +316,7 @@ inline void test_point_route_gate_keeps_visible_taps() {
       }
     }
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   HS_EXPECT_GT(drawn, 1000);
 }
 
@@ -346,7 +346,7 @@ inline void test_point_route_shades_at_pass_time() {
         sink, canvas, end, [&] { return path.at(0.0f); },
         [&](float t) {
           ++passes;
-          const float lit = Temporal::column_fraction<W>(
+          const float lit = Spacetime::SamplingSurface<W>::time(
               math::vector_to_pixel<W, H>(path.at(t)).x);
           // Passes reaching into the frame from an arm cut take its ends.
           const float gap = fabsf(lit - t);
@@ -385,7 +385,7 @@ inline void test_steady_edge_plots_lattice_points() {
         });
     Plot::GeodesicEdgeSampler arcs[2];
     const int lattice =
-        Plot::ColumnEdgeFrame::steady_lattice<W, H>(starts, ends, 4, arcs);
+        Plot::EdgeWorldsheet::steady_lattice<W, H>(starts, ends, 4, arcs);
     HS_EXPECT_EQ(plotted, lattice != 0);
     HS_EXPECT_EQ(fractions.size(), static_cast<size_t>(lattice));
     for (size_t k = 0; k < fractions.size(); ++k)

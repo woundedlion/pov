@@ -656,8 +656,8 @@ inline constexpr float FAST_SPIN = 0.12f;
 /** @brief DreamBalls orbit, transported framing, pose and fade match frozen
  * columns within half of the frame error limit, also under a fast spin. */
 inline void test_dreamballs_temporal_source_oracle() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (int scene = 0; scene < 4; ++scene) {
     const bool woven = scene == 1 || scene == 3, newborn = scene == 2;
     const float spin = scene == 3 ? FAST_SPIN : 0.012f;
@@ -674,17 +674,17 @@ inline void test_dreamballs_temporal_source_oracle() {
                    : "DreamBalls original",
         scene == 3 ? 1.0f : 0.5f);
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Shells and preset first frames avoid iterative edge fallbacks, and a
  * fast spin evaluates each vertex at most at the frame's start and middle. */
 inline void test_dreamballs_column_work_is_bounded() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (bool woven : {false, true})
     for (bool stationary : {false, true}) {
-      Temporal::geometry_counters = {};
+      Spacetime::geometry_counters = {};
       const auto pixels = DreamBallsWhiteBox::render_temporal_scene(
           true, 1.0f, 0.0f, woven, false, stationary);
       float energy = 0.0f;
@@ -692,16 +692,16 @@ inline void test_dreamballs_column_work_is_bounded() {
         HS_EXPECT(std::isfinite(value), "frame luminance is finite");
         energy += value;
       }
-      const auto &counts = Temporal::geometry_counters;
+      const auto &counts = Spacetime::geometry_counters;
       HS_EXPECT_GT(energy, 1.0f);
       HS_EXPECT_GT(counts.column_samples, 0u);
       HS_EXPECT_LT(counts.column_generated_samples, 4000u);
       HS_EXPECT_LT(counts.column_boundary_samples * 8, counts.column_samples);
     }
-  Temporal::geometry_counters = {};
+  Spacetime::geometry_counters = {};
   DreamBallsWhiteBox::render_temporal_scene(true, 1.0f, 0.0f, true, false,
                                             false, FAST_SPIN);
-  const auto &spun = Temporal::geometry_counters;
+  const auto &spun = Spacetime::geometry_counters;
   HS_EXPECT_GT(spun.column_path_evaluations, 0u);
   HS_EXPECT_GT(spun.endpoint_evaluations, 0u);
   HS_EXPECT_LE(spun.midpoint_evaluations, spun.endpoint_evaluations);
@@ -713,10 +713,10 @@ inline void test_dreamballs_column_work_is_bounded() {
     fx.setAnimationsPaused(false);
     for (int frame = 0; frame < 3; ++frame) {
       pin_frame_clock(frame);
-      Temporal::geometry_counters = {};
+      Spacetime::geometry_counters = {};
       fx.draw_frame();
       fx.advance_display();
-      const auto &counts = Temporal::geometry_counters;
+      const auto &counts = Spacetime::geometry_counters;
       HS_EXPECT_GT(counts.column_samples, 0u);
       if (frame == 0)
         HS_EXPECT_EQ(counts.column_crossings, 0u);
@@ -724,5 +724,5 @@ inline void test_dreamballs_column_work_is_bounded() {
         HS_EXPECT_GT(counts.column_crossings, 0u);
     }
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }

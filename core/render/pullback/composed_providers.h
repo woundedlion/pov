@@ -71,7 +71,7 @@ template <typename ParamsT> struct FrameState {
 };
 
 /** @brief Column-sampled context with retained color resources. */
-template <typename ParamsT> struct TemporalFrameState : FrameState<ParamsT> {
+template <typename ParamsT> struct FrameIntervalState : FrameState<ParamsT> {
   Color::TemporalPaletteResources temporal; ///< Previous color resources.
 };
 

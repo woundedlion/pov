@@ -4,7 +4,7 @@
  */
 #pragma once
 
-/** @file arm_crossing.h
+/** @file crossing.h
  * @brief Closed-form arm passes of a moving point: where a longitude track
  * linear in time meets each sweeping arm, the analytic guard on that linear
  * model, and piecewise tracks.
@@ -13,14 +13,14 @@
 #include "core/math/3dmath.h"
 #include "core/math/pixel_mapping.h"
 #include "core/platform/attributes.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime/surface.h"
 #include <cmath>
 #include <utility>
 
-namespace Temporal {
+namespace Spacetime {
 
 /** @brief One arm pass of a track. */
-struct ArmPass {
+struct Crossing {
   float time;  ///< Frame fraction of the pass.
   float along; ///< The pass's fraction of the track's span, in [0, 1].
   int arm;     ///< Branch: the pass lights unwrapped column `(arm + time) W/2`.
@@ -29,19 +29,19 @@ struct ArmPass {
 /**
  * @brief Arm passes of a column track linear over part of the frame, on a
  *        canvas of a width known at run time.
- * @tparam Emit Callable `(const ArmPass &)`.
+ * @tparam Emit Callable `(const Crossing &)`.
  * @param width Canvas width.
  * @param x0,x1 Unwrapped columns at fractions @p t0 and @p t1.
  * @param t0,t1 Frame fractions the track spans, `t0 < t1`.
- * @param frame_start As arm_passes().
- * @param frame_end As arm_passes().
- * @param emit As arm_passes().
- * @param reach As arm_passes().
+ * @param frame_start As crossings().
+ * @param frame_end As crossings().
+ * @param emit As crossings().
+ * @param reach As crossings().
  */
 template <typename Emit>
-HS_HOT_INLINE void arm_passes(int width, float x0, float x1, float t0, float t1,
-                              bool frame_start, bool frame_end, Emit &&emit,
-                              float reach = 1.0f) {
+HS_HOT_INLINE void crossings(int width, float x0, float x1, float t0, float t1,
+                             bool frame_start, bool frame_end, Emit &&emit,
+                             float reach = 1.0f) {
   const float HALF = width / 2.0f;
   const float dx = x1 - x0;
   const float span = t1 - t0;
@@ -60,14 +60,14 @@ HS_HOT_INLINE void arm_passes(int width, float x0, float x1, float t0, float t1,
         (raw > 1.0f && x1 > (branch + t1) * HALF + reach))
       continue;
     const float s = hs::clamp(raw, 0.0f, 1.0f);
-    emit(ArmPass{t0 + span * s, s, branch});
+    emit(Crossing{t0 + span * s, s, branch});
   }
 }
 
 /**
  * @brief Arm passes of a column track linear over part of the frame.
  * @tparam W Canvas width.
- * @tparam Emit Callable `(const ArmPass &)`.
+ * @tparam Emit Callable `(const Crossing &)`.
  * @param x0,x1 Unwrapped columns at fractions @p t0 and @p t1.
  * @param t0,t1 Frame fractions the track spans, `t0 < t1`.
  * @param frame_start Whether @p t0 starts the frame: a pass whose column
@@ -86,40 +86,40 @@ HS_HOT_INLINE void arm_passes(int width, float x0, float x1, float t0, float t1,
  * per arm. A track keeping pace with the arm has no pass.
  */
 template <int W, typename Emit>
-HS_HOT_INLINE void arm_passes(float x0, float x1, float t0, float t1,
-                              bool frame_start, bool frame_end, Emit &&emit,
-                              float reach = 1.0f) {
-  arm_passes(W, x0, x1, t0, t1, frame_start, frame_end,
-             std::forward<Emit>(emit), reach);
+HS_HOT_INLINE void crossings(float x0, float x1, float t0, float t1,
+                             bool frame_start, bool frame_end, Emit &&emit,
+                             float reach = 1.0f) {
+  crossings(W, x0, x1, t0, t1, frame_start, frame_end, std::forward<Emit>(emit),
+            reach);
 }
 
 /**
  * @brief Arm passes of a column track piecewise linear between knots evenly
  *        spaced over the frame.
  * @tparam W Canvas width.
- * @tparam Emit Callable `(const ArmPass &)`.
+ * @tparam Emit Callable `(const Crossing &)`.
  * @param columns Unwrapped column at each knot `i / (knots - 1)`, each within
  *        a quarter turn of the one before.
  * @param knots Knot count, at least 2.
- * @param frame_start As arm_passes(), for the first piece.
- * @param frame_end As arm_passes(), for the last piece.
+ * @param frame_start As crossings(), for the first piece.
+ * @param frame_end As crossings(), for the last piece.
  * @param emit Receives each pass of each piece, its `along` relative to that
  *        piece; a pass at an inner knot is emitted once.
  */
 template <int W, typename Emit>
-HS_HOT_INLINE void piecewise_arm_passes(const float *columns, int knots,
-                                        bool frame_start, bool frame_end,
-                                        Emit &&emit) {
+HS_HOT_INLINE void piecewise_crossings(const float *columns, int knots,
+                                       bool frame_start, bool frame_end,
+                                       Emit &&emit) {
   const int pieces = knots - 1;
   for (int i = 0; i < pieces; ++i)
-    arm_passes<W>(columns[i], columns[i + 1],
-                  static_cast<float>(i) / static_cast<float>(pieces),
-                  static_cast<float>(i + 1) / static_cast<float>(pieces),
-                  frame_start && i == 0, frame_end && i + 1 == pieces, emit);
+    crossings<W>(columns[i], columns[i + 1],
+                 static_cast<float>(i) / static_cast<float>(pieces),
+                 static_cast<float>(i + 1) / static_cast<float>(pieces),
+                 frame_start && i == 0, frame_end && i + 1 == pieces, emit);
 }
 
 /** @brief One arm pass of a point moving linearly in screen space. */
-struct LinearCapture {
+struct ScreenCrossing {
   math::PixelCoords position; /**< Screen point at the pass. */
   float time;                 /**< Owning sweep fraction. */
 };
@@ -129,21 +129,21 @@ struct LinearCapture {
  * @param a,b Projected positions at fractions @p t0 and @p t1, columns
  *        unwrapped against each other.
  * @param t0,t1 Frame fractions the trajectory spans, `t0 < t1`.
- * @param frame_start As arm_passes().
- * @param frame_end As arm_passes().
+ * @param frame_start As crossings().
+ * @param frame_end As crossings().
  * @param emit Receives each arm pass, its time and position on the
  *        trajectory. */
 template <int W, typename Emit>
-HS_HOT_INLINE void linear_captures(const math::PixelCoords &a,
-                                   const math::PixelCoords &b, float t0,
-                                   float t1, bool frame_start, bool frame_end,
-                                   Emit &&emit) {
+HS_HOT_INLINE void screen_crossings(const math::PixelCoords &a,
+                                    const math::PixelCoords &b, float t0,
+                                    float t1, bool frame_start, bool frame_end,
+                                    Emit &&emit) {
   const float dx = b.x - a.x, dy = b.y - a.y;
-  arm_passes<W>(
+  crossings<W>(
       a.x, b.x, t0, t1, frame_start, frame_end,
-      [&](const ArmPass &pass) HS_HOT_INLINE {
-        emit(LinearCapture{{a.x + dx * pass.along, a.y + dy * pass.along},
-                           pass.time});
+      [&](const Crossing &pass) HS_HOT_INLINE {
+        emit(ScreenCrossing{{a.x + dx * pass.along, a.y + dy * pass.along},
+                            pass.time});
       });
 }
 
@@ -156,9 +156,9 @@ HS_HOT_INLINE void linear_captures(const math::PixelCoords &a,
  * @param emit Receives each zero, one or two arm passes, its time clamped to
  *        [0, 1] and its position on the trajectory at that time. */
 template <int W, typename Emit>
-HS_HOT_INLINE void linear_captures(const math::PixelCoords &a,
-                                   const math::PixelCoords &b, Emit &&emit) {
-  linear_captures<W>(a, b, 0.0f, 1.0f, true, true, std::forward<Emit>(emit));
+HS_HOT_INLINE void screen_crossings(const math::PixelCoords &a,
+                                    const math::PixelCoords &b, Emit &&emit) {
+  screen_crossings<W>(a, b, 0.0f, 1.0f, true, true, std::forward<Emit>(emit));
 }
 
 /** @brief A point's longitude over a span, modelled as linear in time. */
@@ -196,8 +196,8 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
                                LongitudeTrack &track) {
   const float sweep = span * (W / 2.0f);
   track.origin = math::vector_to_theta<W>(from);
-  track.travel = centered_remainder(math::vector_to_theta<W>(to) - track.origin,
-                                    static_cast<float>(W));
+  track.travel = math::centered_remainder(
+      math::vector_to_theta<W>(to) - track.origin, static_cast<float>(W));
   const float cx = to.x - from.x, cz = to.z - from.z;
   const float chord2 = cx * cx + cz * cz;
   const float along =
@@ -225,22 +225,22 @@ HS_HOT_INLINE bool model_track(const math::Vector &from, const math::Vector &to,
 /**
  * @brief Arm passes of a modelled track.
  * @tparam W Canvas width.
- * @tparam Emit Callable `(const ArmPass &)`.
+ * @tparam Emit Callable `(const Crossing &)`.
  * @param track Track over the span, as model_track() gives it.
  * @param t0,t1 Frame fractions the track spans.
- * @param frame_start As arm_passes().
- * @param frame_end As arm_passes().
+ * @param frame_start As crossings().
+ * @param frame_end As crossings().
  * @param emit Receives each pass; the point's true pass lies within
  *        `track.guard` columns of the emitted one.
- * @param reach As arm_passes(); `track.guard` also emits, at the frame's
+ * @param reach As crossings(); `track.guard` also emits, at the frame's
  *        ends, every pass the model's error can carry into the frame.
  */
 template <int W, typename Emit>
-HS_HOT_INLINE void track_passes(const LongitudeTrack &track, float t0, float t1,
-                                bool frame_start, bool frame_end, Emit &&emit,
-                                float reach = 1.0f) {
-  arm_passes<W>(track.origin, track.origin + track.travel, t0, t1, frame_start,
-                frame_end, std::forward<Emit>(emit), reach);
+HS_HOT_INLINE void track_crossings(const LongitudeTrack &track, float t0,
+                                   float t1, bool frame_start, bool frame_end,
+                                   Emit &&emit, float reach = 1.0f) {
+  crossings<W>(track.origin, track.origin + track.travel, t0, t1, frame_start,
+               frame_end, std::forward<Emit>(emit), reach);
 }
 
-} // namespace Temporal
+} // namespace Spacetime

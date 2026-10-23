@@ -1630,11 +1630,11 @@ struct ConstantPalette {
 inline void test_pullback_temporal_palette() {
   using namespace Pullback::Color;
   using Regular = GeneratedPalette<PaletteProvider>;
-  using Temporal = GeneratedPalette<TemporalPaletteProvider>;
+  using TimedPipeline = GeneratedPalette<TemporalPaletteProvider>;
   static_assert(std::is_same_v<Regular::Prepared, GeneratedPaletteState>);
-  static_assert(!Regular::TEMPORAL && Temporal::TEMPORAL);
+  static_assert(!Regular::TEMPORAL && TimedPipeline::TEMPORAL);
   static_assert(Regular::PROVIDER_VALID<PaletteBinding>);
-  static_assert(Temporal::PROVIDER_VALID<PaletteBinding>);
+  static_assert(TimedPipeline::PROVIDER_VALID<PaletteBinding>);
   alignas(std::max_align_t)
       std::array<uint8_t, 2 * BakedPalette::required_arena_bytes()>
           buffer{};
@@ -1658,7 +1658,7 @@ inline void test_pullback_temporal_palette() {
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
     const Color4 color =
-        Temporal::apply(sample, frame, Temporal::prepare(frame));
+        TimedPipeline::apply(sample, frame, TimedPipeline::prepare(frame));
     HS_EXPECT_NEAR(color.color.r, 1000.0f + 8000.0f * fraction, 1.0f);
     HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
     HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
@@ -1688,7 +1688,7 @@ inline void test_pullback_temporal_palette() {
   for (float fraction : {0.0f, 0.25f, 0.75f, 1.0f}) {
     frame.temporal.fraction = fraction;
     const Color4 color =
-        Temporal::apply(sample, frame, Temporal::prepare(frame));
+        TimedPipeline::apply(sample, frame, TimedPipeline::prepare(frame));
     HS_EXPECT_NEAR(color.color.r, 1000.0f + 8400.0f * fraction, 1.0f);
     HS_EXPECT_NEAR(color.color.g, 2000.0f + 4000.0f * fraction, 1.0f);
     HS_EXPECT_NEAR(color.color.b, 3000.0f - 2000.0f * fraction, 1.0f);
@@ -1713,7 +1713,7 @@ inline void test_pullback_temporal_palette() {
   const auto unit = [&]() { return (random() >> 8) * 0x1p-24f; };
   for (int i = 0; i < 4096; ++i) {
     frame.temporal.fraction = unit();
-    auto prepared = Temporal::prepare(frame);
+    auto prepared = TimedPipeline::prepare(frame);
     prepared.current.hue_shift_amount = unit() * 8.0f - 4.0f;
     prepared.previous.hue_shift_amount = prepared.current.hue_shift_amount;
     sample.value = i % 5 == 0 ? 0.0f : i % 5 == 1 ? 1.0f : unit();
@@ -1725,7 +1725,7 @@ inline void test_pullback_temporal_palette() {
         apply_generated_palette(sample, prepared.previous)
             .lerp(apply_generated_palette(sample, prepared.current),
                   prepared.fraction);
-    const Color4 ACTUAL = Temporal::apply(sample, frame, prepared);
+    const Color4 ACTUAL = TimedPipeline::apply(sample, frame, prepared);
     HS_EXPECT_NEAR(ACTUAL.color.r, EXPECTED.color.r, 2.0f);
     HS_EXPECT_NEAR(ACTUAL.color.g, EXPECTED.color.g, 2.0f);
     HS_EXPECT_NEAR(ACTUAL.color.b, EXPECTED.color.b, 2.0f);

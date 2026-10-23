@@ -18,7 +18,7 @@
 #include "core/math/3dmath.h"
 #include "core/color/pixel.h"       // Pixel
 #include "core/platform/platform.h" // Fn
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 
 namespace math {
 struct Basis;
@@ -582,8 +582,8 @@ class PipelineRef {
             return false;
         }(),
         [](void *pipeline) HS_HOT_INLINE {
-          if constexpr (requires(T &p) { p.cull_bound(); })
-            return static_cast<T *>(pipeline)->cull_bound();
+          if constexpr (requires(T &p) { p.sweep_arc(); })
+            return static_cast<T *>(pipeline)->sweep_arc();
           else
             return 0.0f;
         },
@@ -603,7 +603,7 @@ class PipelineRef {
 public:
   /** @brief Moving-stage angular bound of a timed pipeline.
    * @return Bound in radians, or zero for an untimed ref. */
-  float cull_bound() const {
+  float sweep_arc() const {
     return timed_entries ? timed_entries->bound(ctx) : 0.0f;
   }
   /** @brief Number of independently walked spatial copies.
@@ -687,7 +687,7 @@ public:
    * @details The pipeline must outlive this ref. */
   template <typename T>
     requires(!pipeline_direct_raster_path<std::decay_t<T>>())
-  PipelineRef(T &t, Temporal::Timed) : PipelineRef(t, Erase<true>{}) {}
+  PipelineRef(T &t, Spacetime::Timed) : PipelineRef(t, Erase<true>{}) {}
 
   /**
    * @brief Erases a direct-raster sink for a draw into @p cv.
@@ -708,7 +708,7 @@ public:
    * @param cv Prepared canvas. */
   template <typename T>
     requires(pipeline_direct_raster_path<std::decay_t<T>>())
-  PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Temporal::Timed)
+  PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Spacetime::Timed)
       : PipelineRef(t, Erase<true>{}) {
     assert(t.prepared_for(cv));
   }

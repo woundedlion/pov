@@ -36,34 +36,34 @@ HS_FLASH_INLINE Frame sample_frame_reference(
   frame.palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
       from.palette_mapping, to.palette_mapping, fraction);
   frame.palette_oscillation_phase =
-      Pullback::sample_clock(from.palette_oscillation_phase,
-                             to.palette_oscillation_phase, fraction, 1.0f);
+      Spacetime::sample_clock(from.palette_oscillation_phase,
+                              to.palette_oscillation_phase, fraction, 1.0f);
   frame.params.visit([&]<typename Resource>(const auto &family) {
     auto &clock = frame.resources.template get<Resource::KEY>();
     const auto &a = from.resources.template get<Resource::KEY>();
     const auto &b = to.resources.template get<Resource::KEY>();
     if constexpr (Resource::KIND == Pullback::ResourceKind::SOURCE) {
-      clock.primary = Pullback::sample_clock(a.primary, b.primary, fraction,
-                                             math::TWO_PI_F);
-      clock.secondary = Pullback::sample_clock(a.secondary, b.secondary,
-                                               fraction, math::TWO_PI_F);
+      clock.primary = Spacetime::sample_clock(a.primary, b.primary, fraction,
+                                              math::TWO_PI_F);
+      clock.secondary = Spacetime::sample_clock(a.secondary, b.secondary,
+                                                fraction, math::TWO_PI_F);
       clock.angle =
-          Pullback::sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F);
+          Spacetime::sample_clock(a.angle, b.angle, fraction, math::TWO_PI_F);
       clock.noise_time =
-          Pullback::sample_clock(a.noise_time, b.noise_time, fraction, 1.0f);
+          Spacetime::sample_clock(a.noise_time, b.noise_time, fraction, 1.0f);
     } else if constexpr (Resource::KIND == Pullback::ResourceKind::WARP) {
-      clock.phase = Pullback::sample_clock(a.phase, b.phase, fraction, 1.0f);
+      clock.phase = Spacetime::sample_clock(a.phase, b.phase, fraction, 1.0f);
       if constexpr (std::is_same_v<typename Resource::Family,
                                    Pullback::AffineParams>)
-        clock.rotation = Pullback::sample_clock(a.rotation, b.rotation,
-                                                fraction, math::TWO_PI_F);
+        clock.rotation = Spacetime::sample_clock(a.rotation, b.rotation,
+                                                 fraction, math::TWO_PI_F);
     } else if constexpr (Resource::KIND == Pullback::ResourceKind::SURFACE) {
       if constexpr (std::is_same_v<typename Resource::Family,
                                    Pullback::PeriodicRippleParams>)
         clock.phase =
-            Pullback::sample_clock(a.phase, b.phase, fraction, family.period);
+            Spacetime::sample_clock(a.phase, b.phase, fraction, family.period);
       else
-        clock.phase = Pullback::sample_clock(a.phase, b.phase, fraction, 1.0f);
+        clock.phase = Spacetime::sample_clock(a.phase, b.phase, fraction, 1.0f);
     } else if constexpr (std::is_same_v<typename Resource::Family,
                                         Pullback::MobiusLensParams>) {
       const auto &start = from.params.template get<Resource::KEY>();
@@ -72,8 +72,8 @@ HS_FLASH_INLINE Frame sample_frame_reference(
           Pullback::lens_phase_continuous(start, end, a, b)
               ? Pullback::sample_lens_phase(
                     end,
-                    Pullback::sample_clock(a.angle, b.angle, fraction,
-                                           math::TWO_PI_F),
+                    Spacetime::sample_clock(a.angle, b.angle, fraction,
+                                            math::TWO_PI_F),
                     a.magnitude + (b.magnitude - a.magnitude) * fraction)
               : end;
     }
@@ -116,12 +116,14 @@ public:
 inline void test_temporal_clock_sampling() {
   HS_CONTEXT("temporal clock sampling");
   for (int x = 0; x < 144; ++x) {
-    HS_EXPECT_NEAR(Temporal::sweep_fraction(x, 288), x / 144.0f, 0.0f);
-    HS_EXPECT_NEAR(Temporal::sweep_fraction(x + 144, 288), x / 144.0f, 0.0f);
+    HS_EXPECT_NEAR(Spacetime::SamplingSurface<288>::time(x), x / 144.0f, 0.0f);
+    HS_EXPECT_NEAR(Spacetime::surface_time(x + 144, 288), x / 144.0f, 0.0f);
   }
-  HS_EXPECT_NEAR(Pullback::sample_clock(0.99f, 0.01f, 0.5f, 1.0f), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(Pullback::sample_clock(0.01f, 0.99f, 0.5f, 1.0f), 0.0f, 1e-6f);
-  const float LAST = Pullback::sample_clock(0.98f, 0.0f, 143.0f / 144, 1.0f);
+  HS_EXPECT_NEAR(Spacetime::sample_clock(0.99f, 0.01f, 0.5f, 1.0f), 1.0f,
+                 1e-6f);
+  HS_EXPECT_NEAR(Spacetime::sample_clock(0.01f, 0.99f, 0.5f, 1.0f), 0.0f,
+                 1e-6f);
+  const float LAST = Spacetime::sample_clock(0.98f, 0.0f, 143.0f / 144, 1.0f);
   HS_EXPECT_NEAR(1.0f - LAST, 0.02f / 144, 1e-6f);
 
   using FX = GridSpace<96, 20>;
@@ -133,18 +135,18 @@ inline void test_temporal_clock_sampling() {
   from.resources.template get<"outer_warp">().rotation = 6.25f;
   to.resources.template get<"outer_warp">().rotation = 0.03f;
   to.outer_conjugate = math::make_rotation(math::Y_AXIS, 0.4f);
-  const auto middle = Pullback::sample_frame(from, to, 0.5f);
+  const auto middle = Spacetime::sample_frame(from, to, 0.5f);
   HS_EXPECT_NEAR(middle.resources.template get<"outer_warp">().phase, 1.0f,
                  1e-6f);
   HS_EXPECT_NEAR(middle.resources.template get<"outer_warp">().rotation,
                  6.281592653589793f, 1e-6f);
   const math::Quaternion EXPECTED = math::make_rotation(math::Y_AXIS, 0.2f);
   HS_EXPECT_NEAR(math::dot(middle.outer_conjugate, EXPECTED), 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(Pullback::sample_frame(from, to, 0.0f)
+  HS_EXPECT_NEAR(Spacetime::sample_frame(from, to, 0.0f)
                      .resources.template get<"outer_warp">()
                      .phase,
                  0.99f, 0.0f);
-  HS_EXPECT_NEAR(Pullback::sample_frame(from, to, 1.0f)
+  HS_EXPECT_NEAR(Spacetime::sample_frame(from, to, 1.0f)
                      .resources.template get<"outer_warp">()
                      .phase,
                  0.01f, 0.0f);
@@ -171,10 +173,10 @@ inline void test_temporal_clock_sampling() {
     for (float angle : {0.0f, 0.0001f, 0.02f, 0.4f, 3.2f, 6.2f}) {
       to.projection_conjugate = math::make_rotation(math::X_AXIS, angle);
       to.outer_conjugate = -math::make_rotation(math::Y_AXIS, angle);
-      const Pullback::TemporalFrameSampler sampler(from, to);
+      const Pullback::FrameInterval sampler(from, to);
       for (int column = 0; column <= 144; ++column) {
         const float FRACTION = column / 144.0f;
-        const auto actual = sampler.sample(FRACTION);
+        const auto actual = sampler.at(FRACTION);
         const auto expected = sample_frame_reference(from, to, FRACTION);
         const auto check_rotation = [](const math::Quaternion &a,
                                        const math::Quaternion &b) {
@@ -218,16 +220,15 @@ inline void test_temporal_clock_sampling() {
       Pullback::ComposedDetail::ResourceList<
           Pullback::ParameterResource<"surface", Pullback::SurfaceNoiseParams,
                                       Pullback::ResourceKind::SURFACE>>>;
-  Pullback::TemporalFrameState<SurfaceParams> surface_from{}, surface_to{};
+  Pullback::FrameIntervalState<SurfaceParams> surface_from{}, surface_to{};
   surface_from.resources.template get<"surface">().phase = 0.99f;
   surface_to.resources.template get<"surface">().phase = 0.01f;
-  const Pullback::TemporalFrameSampler surface_sampler(surface_from,
-                                                       surface_to);
+  const Pullback::FrameInterval surface_sampler(surface_from, surface_to);
   for (int column = 0; column <= 144; ++column) {
     const float FRACTION = column / 144.0f;
-    const auto actual = surface_sampler.sample(FRACTION);
+    const auto actual = surface_sampler.at(FRACTION);
     const auto expected =
-        Pullback::sample_frame(surface_from, surface_to, FRACTION);
+        Spacetime::sample_frame(surface_from, surface_to, FRACTION);
     HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                    expected.resources.template get<"surface">().phase, 0.0f);
     if (column == 72) {
@@ -242,18 +243,18 @@ inline void test_temporal_clock_sampling() {
       Pullback::ComposedDetail::ResourceList<
           Pullback::ParameterResource<"surface", Pullback::PeriodicRippleParams,
                                       Pullback::ResourceKind::SURFACE>>>;
-  Pullback::TemporalFrameState<RippleParams> ripple_from{}, ripple_to{};
+  Pullback::FrameIntervalState<RippleParams> ripple_from{}, ripple_to{};
   ripple_from.params.template get<"surface">().period = 2.0f;
   ripple_from.resources.template get<"surface">().phase = 1.99f;
   ripple_to.resources.template get<"surface">().phase = 0.01f;
   for (float period : {2.0f, 3.0f}) {
     ripple_to.params.template get<"surface">().period = period;
-    const Pullback::TemporalFrameSampler sampler(ripple_from, ripple_to);
+    const Pullback::FrameInterval sampler(ripple_from, ripple_to);
     for (int column = 0; column <= 144; ++column) {
       const float FRACTION = column / 144.0f;
-      const auto actual = sampler.sample(FRACTION);
+      const auto actual = sampler.at(FRACTION);
       const auto expected =
-          Pullback::sample_frame(ripple_from, ripple_to, FRACTION);
+          Spacetime::sample_frame(ripple_from, ripple_to, FRACTION);
       HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                      expected.resources.template get<"surface">().phase, 0.0f);
     }
@@ -285,7 +286,7 @@ inline void test_temporal_custom_shade_is_authoritative() {
   TemporalShadeProbe custom;
   custom.init();
   for (bool enabled : {true, false, true}) {
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     custom.draw_frame();
     custom.advance_display();
     HS_EXPECT_TRUE(custom.get_pixel(0, 0) == Pixel(500, 1000, 1500));
@@ -304,16 +305,15 @@ inline void test_temporal_equal_palettes_color_as_current() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true,
-                            true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
       history;
   history.capture(current, persistent_arena);
   using PathPalette = Pullback::Color::GeneratedPalette<
       Pullback::ColorProvider<FX::Binding, Pullback::HueMode::PATH_LENGTH,
                               Pullback::Color::BrightnessEnvelope::CUP>>;
-  const Pullback::TemporalFrameSampler EQUAL(history.previous, current);
-  auto sample = EQUAL.sample(0.5f);
-  HS_EXPECT_TRUE(Pullback::sample_frame(history.previous, current, 0.5f)
+  const Pullback::FrameInterval EQUAL(history.previous, current);
+  auto sample = EQUAL.at(0.5f);
+  HS_EXPECT_TRUE(Spacetime::sample_frame(history.previous, current, 0.5f)
                      .temporal.same_palette);
   HS_EXPECT_TRUE(sample.temporal.same_palette);
   sample.params.template get<"color">().hue_shift_amount = 0.3f;
@@ -338,15 +338,15 @@ inline void test_temporal_equal_palettes_color_as_current() {
   rotation[7].r ^= 1;
   auto rotated = current;
   rotated.hue_rotation_lut = rotation.data();
-  HS_EXPECT_TRUE(!Pullback::TemporalFrameSampler(history.previous, rotated)
-                      .sample(0.5f)
+  HS_EXPECT_TRUE(!Pullback::FrameInterval(history.previous, rotated)
+                      .at(0.5f)
                       .temporal.same_palette);
   BakedPaletteStorage other;
   other.bake(persistent_arena, Palettes::RICH_SUNSET);
   auto repainted = current;
   repainted.palette = &other.view();
-  HS_EXPECT_TRUE(!Pullback::TemporalFrameSampler(history.previous, repainted)
-                      .sample(0.5f)
+  HS_EXPECT_TRUE(!Pullback::FrameInterval(history.previous, repainted)
+                      .at(0.5f)
                       .temporal.same_palette);
 }
 
@@ -361,16 +361,15 @@ inline void test_temporal_moving_families_interpolate() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true,
-                            true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
       history;
   history.capture(current, persistent_arena);
   auto moved = current;
   moved.params.template get<"color">().hue_shift_amount += 0.25f;
-  const Pullback::TemporalFrameSampler SAMPLER(history.previous, moved);
+  const Pullback::FrameInterval SAMPLER(history.previous, moved);
   for (const float fraction : {0.1f, 0.37f, 0.5f, 0.9f}) {
     HS_CONTEXT("fraction", static_cast<double>(fraction));
-    const auto sampled = SAMPLER.sample(fraction).params;
+    const auto sampled = SAMPLER.at(fraction).params;
     const auto expected =
         Pullback::interpolate(history.previous.params, moved.params, fraction);
     HS_EXPECT_NEAR(sampled.template get<"color">().hue_shift_amount,
@@ -389,8 +388,7 @@ inline void test_temporal_owned_resources() {
   effect.draw_frame();
   effect.advance_display();
   const auto current = effect.frame_for_test();
-  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true,
-                            true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true, true>
       history;
   history.capture(current, persistent_arena);
   HS_EXPECT_TRUE(history.previous.palette != current.palette);
@@ -407,21 +405,20 @@ inline void test_temporal_owned_resources() {
   auto equal_frame = current;
   equal_frame.hue_noise_lut = NOISE.data();
   equal_frame.hue_noise_linear = LINEAR_NOISE.data();
-  const Pullback::TemporalFrameSampler EQUAL_SAMPLER(history.previous,
-                                                     equal_frame);
-  auto equal_sample = EQUAL_SAMPLER.sample(0.5f);
+  const Pullback::FrameInterval EQUAL_SAMPLER(history.previous, equal_frame);
+  auto equal_sample = EQUAL_SAMPLER.at(0.5f);
   HS_EXPECT_TRUE(equal_sample.temporal.same_noise);
   auto different_noise = NOISE;
   different_noise[0] ^= 1;
   auto different_frame = equal_frame;
   different_frame.hue_noise_lut = different_noise.data();
-  const Pullback::TemporalFrameSampler DIFFERENT_SAMPLER(history.previous,
-                                                         different_frame);
-  HS_EXPECT_TRUE(!DIFFERENT_SAMPLER.sample(0.5f).temporal.same_noise);
+  const Pullback::FrameInterval DIFFERENT_SAMPLER(history.previous,
+                                                  different_frame);
+  HS_EXPECT_TRUE(!DIFFERENT_SAMPLER.at(0.5f).temporal.same_noise);
   different_frame.hue_noise_lut = nullptr;
-  const Pullback::TemporalFrameSampler NO_NOISE_SAMPLER(history.previous,
-                                                        different_frame);
-  HS_EXPECT_TRUE(!NO_NOISE_SAMPLER.sample(0.5f).temporal.same_noise);
+  const Pullback::FrameInterval NO_NOISE_SAMPLER(history.previous,
+                                                 different_frame);
+  HS_EXPECT_TRUE(!NO_NOISE_SAMPLER.at(0.5f).temporal.same_noise);
   using LinearPalette = Pullback::Color::GeneratedPalette<
       Pullback::ColorProvider<FX::Binding, Pullback::HueMode::NOISE,
                               Pullback::Color::BrightnessEnvelope::NONE>>;
@@ -541,7 +538,7 @@ inline void test_gridspace_factored_columns() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
       history;
   int maximum_error = 0;
   uint64_t error_sum = 0;
@@ -556,7 +553,7 @@ inline void test_gridspace_factored_columns() {
                          : step == 1 ? 1.0f
                                      : static_cast<float>(x % 144) / 144;
       const auto frame = Pipeline::prepare(
-          Pullback::sample_frame(history.previous, current, TIME));
+          Spacetime::sample_frame(history.previous, current, TIME));
       const float COSINE = math::TrigLUT<288, 144>::cos_theta(x);
       const float SINE = math::TrigLUT<288, 144>::sin_theta[x];
       const auto basis = Pipeline::column_basis(frame, COSINE, SINE);
@@ -593,7 +590,7 @@ inline void test_gridspace_temporal_pixels() {
   effect.init();
   effect.draw_frame();
   effect.advance_display();
-  Pullback::TemporalHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
+  Spacetime::FrameHistory<FX::FrameState, Pullback::HueMode::NOISE, true>
       history;
   history.capture(effect.frame_for_test(), persistent_arena);
   effect.set_clip(3, 17, 39, 83);
@@ -610,7 +607,7 @@ inline void test_gridspace_temporal_pixels() {
   for (int x = 39; x < 83; ++x) {
     const float TIME = static_cast<float>(x % (W / 2)) / (W / 2);
     const auto frame = FX::RenderPipeline::prepare(
-        Pullback::sample_frame(history.previous, current, TIME));
+        Spacetime::sample_frame(history.previous, current, TIME));
     for (int y = 3; y < 17; ++y) {
       const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
       const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
@@ -626,7 +623,7 @@ inline void test_gridspace_temporal_pixels() {
   }
   HS_EXPECT_TRUE(changed > 0);
 
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   effect.draw_frame();
   effect.advance_display();
   const auto instantaneous =
@@ -643,13 +640,13 @@ inline void test_gridspace_temporal_pixels() {
   }
 
   history.capture(effect.frame_for_test(), persistent_arena);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   effect.draw_frame();
   effect.advance_display();
   const auto resumed = effect.frame_for_test();
   for (int x = 39; x < 83; ++x) {
-    const auto frame = FX::RenderPipeline::prepare(Pullback::sample_frame(
-        history.previous, resumed, Temporal::sweep_fraction(x, W)));
+    const auto frame = FX::RenderPipeline::prepare(Spacetime::sample_frame(
+        history.previous, resumed, Spacetime::SamplingSurface<W>::time(x)));
     for (int y = 3; y < 17; ++y) {
       const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
       const math::Vector VIEW(SIN_PHI * math::TrigLUT<W, H>::cos_theta(x),
@@ -676,8 +673,8 @@ inline void check_temporal_roster_pixels(const char *name) {
   constexpr int TOLERANCE = FX::Spec::FACTORED_COLUMNS ? 16 : 2;
   FX effect;
   effect.init();
-  Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
-                            FX::FLOAT_HUE_TABLES>
+  Spacetime::FrameHistory<typename FX::FrameState, FX::Metadata::HUE, true,
+                          FX::FLOAT_HUE_TABLES>
       history;
   const auto view = [](int x, int y) {
     const float SIN_PHI = math::TrigLUT<W, H>::sin_phi[y];
@@ -709,16 +706,16 @@ inline void check_temporal_roster_pixels(const char *name) {
 
   effect.set_clip(3, 17, 39, 83);
   for (bool enabled : {true, false, false, true}) {
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     effect.draw_frame();
     effect.advance_display();
     const auto current = effect.frame_for_test();
     const auto instantaneous = FX::RenderPipeline::prepare(current);
     const auto previous = FX::RenderPipeline::prepare(history.previous);
     const auto start = FX::RenderPipeline::prepare(
-        Pullback::sample_frame(history.previous, current, 0.0f));
+        Spacetime::sample_frame(history.previous, current, 0.0f));
     const auto end = FX::RenderPipeline::prepare(
-        Pullback::sample_frame(history.previous, current, 1.0f));
+        Spacetime::sample_frame(history.previous, current, 1.0f));
     for (int x : {0, 47, 48, 95}) {
       const auto direction = view(x, 7);
       const Color4 BEFORE = FX::shade(direction, previous);
@@ -730,7 +727,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     for (int x = 39; x < 83; ++x) {
       const float FRACTION = static_cast<float>(x % (W / 2)) / (W / 2);
       const auto frame = FX::RenderPipeline::prepare(
-          Pullback::sample_frame(history.previous, current, FRACTION));
+          Spacetime::sample_frame(history.previous, current, FRACTION));
       for (int y = 3; y < 17; ++y) {
         const auto direction = view(x, y);
         const Color4 TEMPORAL = FX::shade(direction, frame);
@@ -743,7 +740,7 @@ inline void check_temporal_roster_pixels(const char *name) {
     HS_EXPECT_TRUE(changed > 0);
     history.capture(current, persistent_arena);
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
 }
 
 /** @brief The compatible composed roster uses column-time rendering. */
@@ -793,8 +790,8 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
  * @tparam FX Composed effect specialization. */
 template <typename FX>
 using ComposedHistory =
-    Pullback::TemporalHistory<typename FX::FrameState, FX::Metadata::HUE, true,
-                              FX::FLOAT_HUE_TABLES>;
+    Spacetime::FrameHistory<typename FX::FrameState, FX::Metadata::HUE, true,
+                            FX::FLOAT_HUE_TABLES>;
 
 /** @brief MobiusGrid's lens b at a continuous frame time.
  * @param time Frames since init; draw k spans [k, k + 1].
@@ -832,12 +829,12 @@ inline void test_mobius_grid_lens_follows_phase() {
                                    endpoint.im - expected_endpoint.im));
     if (history.initialized &&
         (draw < 4 || (draw > 77 && draw < 82) || draw > 155)) {
-      const Pullback::TemporalFrameSampler sampler(history.previous, current);
+      const Pullback::FrameInterval sampler(history.previous, current);
       for (int x = 0; x < SMALL_W; ++x) {
-        const float fraction = Temporal::sweep_fraction(x, SMALL_W);
-        const auto sampled = sampler.sample(fraction);
+        const float fraction = Spacetime::SamplingSurface<SMALL_W>::time(x);
+        const auto sampled = sampler.at(fraction);
         const auto reference =
-            Pullback::sample_frame(history.previous, current, fraction);
+            Spacetime::sample_frame(history.previous, current, fraction);
         const math::MobiusParams &lens =
             sampled.params.template get<"lens">().mobius;
         verify_mobius_equal(lens,
@@ -879,8 +876,8 @@ inline void test_mobius_grid_lens_unsupported_transitions() {
   const auto before = effect.frame_for_test();
   HS_EXPECT_TRUE(before.resources.template get<"lens">().generated);
   const auto lens_at = [](const auto &from, const auto &to, float fraction) {
-    return Pullback::TemporalFrameSampler(from, to)
-        .sample(fraction)
+    return Pullback::FrameInterval(from, to)
+        .at(fraction)
         .params.template get<"lens">()
         .mobius;
   };
@@ -891,7 +888,7 @@ inline void test_mobius_grid_lens_unsupported_transitions() {
   for (const float fraction : {0.0f, 0.5f}) {
     verify_mobius_equal(lens_at(before, snapped, fraction),
                         snapped.params.template get<"lens">().mobius);
-    verify_mobius_equal(Pullback::sample_frame(before, snapped, fraction)
+    verify_mobius_equal(Spacetime::sample_frame(before, snapped, fraction)
                             .params.template get<"lens">()
                             .mobius,
                         snapped.params.template get<"lens">().mobius);

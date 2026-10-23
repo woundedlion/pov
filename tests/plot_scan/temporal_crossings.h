@@ -53,10 +53,10 @@ inline std::vector<TruePass> brute_force_passes(Column &&column, double t0,
  * @return The passes in emission order.
  */
 struct PassList {
-  std::vector<Temporal::ArmPass> passes; ///< Emitted passes.
+  std::vector<Spacetime::Crossing> passes; ///< Emitted passes.
   /** @brief Records a pass.
    * @param pass The pass. */
-  void operator()(const Temporal::ArmPass &pass) { passes.push_back(pass); }
+  void operator()(const Spacetime::Crossing &pass) { passes.push_back(pass); }
 };
 
 /**
@@ -72,7 +72,7 @@ inline void check_linear_passes(float x0, float x1, float t0, float t1,
              std::llround(x1 * 100.0f));
   HS_CONTEXT("span x100", std::llround(t0 * 100.0f), std::llround(t1 * 100.0f));
   PassList solved;
-  Temporal::arm_passes<W>(x0, x1, t0, t1, false, false, solved);
+  Spacetime::crossings<W>(x0, x1, t0, t1, false, false, solved);
   const auto truth = brute_force_passes<W>(
       [&](double t) {
         return x0 + (static_cast<double>(x1) - x0) * (t - t0) / (t1 - t0);
@@ -82,7 +82,7 @@ inline void check_linear_passes(float x0, float x1, float t0, float t1,
   HS_EXPECT_EQ(static_cast<int>(truth.size()), expected);
   for (const TruePass &want : truth) {
     bool found = false;
-    for (const Temporal::ArmPass &got : solved.passes)
+    for (const Spacetime::Crossing &got : solved.passes)
       found =
           found || (got.arm == want.arm && fabs(got.time - want.time) < 2e-6 &&
                     fabs(t0 + (t1 - t0) * got.along - got.time) < 1e-6);
@@ -113,8 +113,8 @@ inline void test_arm_passes_match_brute_force() {
 inline void test_arm_passes_extend_to_frame_ends() {
   constexpr int W = 288;
   PassList without, with;
-  Temporal::arm_passes<W>(-0.5f, -0.3f, 0.0f, 1.0f, false, true, without);
-  Temporal::arm_passes<W>(-0.5f, -0.3f, 0.0f, 1.0f, true, true, with);
+  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, false, true, without);
+  Spacetime::crossings<W>(-0.5f, -0.3f, 0.0f, 1.0f, true, true, with);
   HS_EXPECT_EQ(static_cast<int>(without.passes.size()), 1);
   HS_EXPECT_EQ(static_cast<int>(with.passes.size()), 2);
   bool extended = false;
@@ -122,7 +122,7 @@ inline void test_arm_passes_extend_to_frame_ends() {
     extended = extended || (pass.arm == 0 && pass.time == 0.0f);
   HS_EXPECT_TRUE(extended);
   PassList far;
-  Temporal::arm_passes<W>(-1.5f, -1.3f, 0.0f, 1.0f, true, true, far);
+  Spacetime::crossings<W>(-1.5f, -1.3f, 0.0f, 1.0f, true, true, far);
   for (const auto &pass : far.passes)
     HS_EXPECT_NE(pass.arm, 0);
 }
@@ -132,7 +132,7 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   constexpr int W = 288;
   const float knots[] = {10.0f, 12.0f, 9.0f};
   PassList solved;
-  Temporal::piecewise_arm_passes<W>(knots, 3, false, false, solved);
+  Spacetime::piecewise_crossings<W>(knots, 3, false, false, solved);
   const auto truth = brute_force_passes<W>(
       [&](double t) {
         return t < 0.5 ? 10.0 + 4.0 * t : 12.0 - 6.0 * (t - 0.5);
@@ -145,7 +145,7 @@ inline void test_piecewise_arm_passes_match_brute_force() {
   // A pass exactly at the inner knot: x = 72 at t = 1/2 meets arm 0.
   const float through[] = {70.0f, 72.0f, 74.0f};
   PassList knot;
-  Temporal::piecewise_arm_passes<W>(through, 3, false, false, knot);
+  Spacetime::piecewise_crossings<W>(through, 3, false, false, knot);
   HS_EXPECT_EQ(static_cast<int>(knot.passes.size()), 1);
 }
 
@@ -159,12 +159,12 @@ inline void test_piecewise_arm_passes_match_brute_force() {
  */
 inline bool check_track_passes(const std::function<math::Vector(double)> &exact,
                                double t0, double t1, float deviation,
-                               Temporal::LongitudeTrack &track) {
+                               Spacetime::LongitudeTrack &track) {
   constexpr int W = 288;
   constexpr double HALF = W / 2.0;
   const math::Vector from = exact(t0), to = exact(t1);
-  if (!Temporal::model_track<W>(from, to, deviation,
-                                static_cast<float>(t1 - t0), track))
+  if (!Spacetime::model_track<W>(from, to, deviation,
+                                 static_cast<float>(t1 - t0), track))
     return false;
   // Unwrap each sampled column against the one before, from the origin.
   std::vector<double> samples;
@@ -184,8 +184,8 @@ inline bool check_track_passes(const std::function<math::Vector(double)> &exact,
   };
   const auto truth = brute_force_passes<W>(track_column, t0, t1);
   PassList solved;
-  Temporal::track_passes<W>(track, static_cast<float>(t0),
-                            static_cast<float>(t1), true, true, solved);
+  Spacetime::track_crossings<W>(track, static_cast<float>(t0),
+                                static_cast<float>(t1), true, true, solved);
   const double window = track.guard / HALF;
   for (const TruePass &want : truth) {
     bool found = false;
@@ -231,10 +231,10 @@ inline void test_model_track_guard_bounds_true_passes() {
           for (const auto &span :
                {std::pair{0.0, 1.0}, std::pair{0.25, 0.75}}) {
             const float deviation =
-                Temporal::PathBound::rotation(
+                Spacetime::PathBound::rotation(
                     angle * static_cast<float>(span.second - span.first))
                     .chord_error();
-            Temporal::LongitudeTrack track;
+            Spacetime::LongitudeTrack track;
             HS_EXPECT_TRUE(check_track_passes(exact, span.first, span.second,
                                               deviation, track));
             ++modelled;
@@ -257,9 +257,9 @@ inline void test_model_track_splits_or_refuses_near_poles() {
   const float over = 0.08f;
   const math::Vector over_end =
       math::rotate(near_pole, math::make_rotation(math::X_AXIS, over));
-  Temporal::LongitudeTrack track;
-  HS_EXPECT_FALSE(Temporal::model_track<W>(
-      near_pole, over_end, Temporal::PathBound::rotation(over).chord_error(),
+  Spacetime::LongitudeTrack track;
+  HS_EXPECT_FALSE(Spacetime::model_track<W>(
+      near_pole, over_end, Spacetime::PathBound::rotation(over).chord_error(),
       1.0f, track));
   // A fast spin at high latitude: refused whole, modelled in halves.
   const float height = 0.97f, angle = 1.3f;
@@ -269,11 +269,11 @@ inline void test_model_track_splits_or_refuses_near_poles() {
     return math::rotate(
         p0, math::make_rotation(math::Y_AXIS, angle * static_cast<float>(t)));
   };
-  HS_EXPECT_FALSE(Temporal::model_track<W>(
+  HS_EXPECT_FALSE(Spacetime::model_track<W>(
       spin(0.0), spin(1.0),
-      Temporal::PathBound::rotation(angle, r).chord_error(), 1.0f, track));
+      Spacetime::PathBound::rotation(angle, r).chord_error(), 1.0f, track));
   const float half_deviation =
-      Temporal::PathBound::rotation(0.5f * angle, r).chord_error();
+      Spacetime::PathBound::rotation(0.5f * angle, r).chord_error();
   HS_EXPECT_TRUE(check_track_passes(spin, 0.0, 0.5, half_deviation, track));
   HS_EXPECT_TRUE(check_track_passes(spin, 0.5, 1.0, half_deviation, track));
 }

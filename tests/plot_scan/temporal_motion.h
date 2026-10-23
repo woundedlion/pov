@@ -14,7 +14,7 @@ inline constexpr float MOTION_TOLERANCE = 0.2f * math::TWO_PI_F / 288.0f;
  * @return The largest distance over 1,001 evenly spaced fractions.
  */
 template <typename Exact>
-inline float interpolant_departure(const Temporal::VertexPath &path,
+inline float interpolant_departure(const Spacetime::Worldline &path,
                                    Exact &&exact) {
   float worst = 0.0f;
   for (int i = 0; i <= 1000; ++i) {
@@ -29,7 +29,7 @@ inline float interpolant_departure(const Temporal::VertexPath &path,
  * @param path Interpolated path.
  * @return The largest `|at(t) - chord(t)|` over 1,001 fractions.
  */
-inline float chord_departure(const Temporal::VertexPath &path) {
+inline float chord_departure(const Spacetime::Worldline &path) {
   float worst = 0.0f;
   for (int i = 0; i <= 1000; ++i) {
     const float t = static_cast<float>(i) / 1000.0f;
@@ -48,33 +48,33 @@ inline float chord_departure(const Temporal::VertexPath &path) {
  * @param on_arc Whether the motion is a circle at a constant rate.
  */
 template <typename Exact>
-inline void check_interpolants(Exact &&exact, const Temporal::PathBound &bound,
+inline void check_interpolants(Exact &&exact, const Spacetime::PathBound &bound,
                                const math::Vector *axis, bool on_arc) {
   const math::Vector a = exact(0.0f), m = exact(0.5f), b = exact(1.0f);
-  const auto chord = Temporal::VertexPath::chord(a, b);
+  const auto chord = Spacetime::Worldline::chord(a, b);
   const float chord_error = interpolant_departure(chord, exact);
   HS_EXPECT_LE(chord_error, bound.chord_error() + 1e-6f);
-  const auto parabola = Temporal::VertexPath::quadratic(a, m, b);
+  const auto parabola = Spacetime::Worldline::quadratic(a, m, b);
   HS_EXPECT_LE(interpolant_departure(parabola, exact),
                bound.quadratic_error() + 1e-6f);
   HS_EXPECT_LE(chord_departure(parabola), parabola.deviation() + 1e-6f);
   if (on_arc) {
-    const auto arc = Temporal::VertexPath::arc(a, b, axis);
-    HS_EXPECT_TRUE(arc.kind == Temporal::Interpolant::ARC);
+    const auto arc = Spacetime::Worldline::arc(a, b, axis);
+    HS_EXPECT_TRUE(arc.kind == Spacetime::Interpolant::ARC);
     HS_EXPECT_LE(interpolant_departure(arc, exact), 2e-6f);
     HS_EXPECT_LE(chord_departure(arc), arc.deviation() + 1e-6f);
   }
-  const Temporal::Interpolant kind =
-      Temporal::choose_interpolant(bound, MOTION_TOLERANCE, on_arc);
-  if (kind == Temporal::Interpolant::CHORD)
+  const Spacetime::Interpolant kind =
+      Spacetime::choose_interpolant(bound, MOTION_TOLERANCE, on_arc);
+  if (kind == Spacetime::Interpolant::CHORD)
     HS_EXPECT_LE(chord_error, MOTION_TOLERANCE);
   else
     HS_EXPECT_GT(bound.chord_error(), MOTION_TOLERANCE);
-  HS_EXPECT_TRUE((kind == Temporal::Interpolant::ARC) ==
+  HS_EXPECT_TRUE((kind == Spacetime::Interpolant::ARC) ==
                  (on_arc && bound.chord_error() > MOTION_TOLERANCE));
-  HS_EXPECT_LE(Temporal::interpolant_error(kind, bound),
-               kind == Temporal::Interpolant::CHORD ? MOTION_TOLERANCE
-                                                    : bound.quadratic_error());
+  HS_EXPECT_LE(Spacetime::interpolant_error(kind, bound),
+               kind == Spacetime::Interpolant::CHORD ? MOTION_TOLERANCE
+                                                     : bound.quadratic_error());
 }
 
 /** @brief Rigid rotation: the chord bound holds and is tight, and the arc
@@ -92,9 +92,9 @@ inline void test_interpolants_bound_rotation() {
       const auto exact = [&](float t) {
         return math::rotate(p0, math::make_rotation(axis, angle * t));
       };
-      const auto bound = Temporal::PathBound::rotation(angle, radius);
+      const auto bound = Spacetime::PathBound::rotation(angle, radius);
       check_interpolants(exact, bound, &axis, true);
-      const auto chord = Temporal::VertexPath::chord(exact(0.0f), exact(1.0f));
+      const auto chord = Spacetime::Worldline::chord(exact(0.0f), exact(1.0f));
       // The sagitta r (1 - cos(angle / 2)) approaches r angle^2 / 8.
       HS_EXPECT_GE(interpolant_departure(chord, exact),
                    0.97f * bound.chord_error());
@@ -112,7 +112,7 @@ inline void test_interpolants_bound_meridian() {
       return math::Vector(sinf(colatitude) * 0.6f, cosf(colatitude),
                           sinf(colatitude) * 0.8f);
     };
-    check_interpolants(exact, Temporal::PathBound::rotation(angle), nullptr,
+    check_interpolants(exact, Spacetime::PathBound::rotation(angle), nullptr,
                        true);
   }
 }
@@ -129,8 +129,8 @@ inline void test_interpolants_bound_orbit() {
       const float turn = 0.3f + angle * t;
       return centre + (u * cosf(turn) + w * sinf(turn)) * 0.6f;
     };
-    check_interpolants(exact, Temporal::PathBound::rotation(angle, 0.6f), &axis,
-                       true);
+    check_interpolants(exact, Spacetime::PathBound::rotation(angle, 0.6f),
+                       &axis, true);
   }
 }
 
@@ -144,12 +144,12 @@ inline void test_interpolants_bound_curved_path() {
     const auto exact = [&](float t) {
       return a + (v * t + w * (t * t) + z * (t * t * t)) * scale;
     };
-    const Temporal::PathBound bound{
+    const Spacetime::PathBound bound{
         (2.0f * w.magnitude() + 6.0f * z.magnitude()) * scale,
         6.0f * z.magnitude() * scale};
     check_interpolants(exact, bound, nullptr, false);
     const auto parabola =
-        Temporal::VertexPath::quadratic(exact(0.0f), exact(0.5f), exact(1.0f));
+        Spacetime::Worldline::quadratic(exact(0.0f), exact(0.5f), exact(1.0f));
     HS_EXPECT_GE(interpolant_departure(parabola, exact),
                  0.99f * bound.quadratic_error());
   }
@@ -175,8 +175,8 @@ inline void test_interpolants_bound_loxodrome() {
     HS_CONTEXT("ordinate, longitude x100", std::llround(motion.ordinate * 100),
                std::llround(motion.longitude * 100));
     const auto bound =
-        Temporal::PathBound::loxodrome(static_cast<float>(motion.ordinate),
-                                       static_cast<float>(motion.longitude));
+        Spacetime::PathBound::loxodrome(static_cast<float>(motion.ordinate),
+                                        static_cast<float>(motion.longitude));
     const auto exact = [&](float t) {
       return math::Vector(static_cast<float>(position(motion, t, 0)),
                           static_cast<float>(position(motion, t, 1)),
@@ -275,7 +275,7 @@ inline void test_interpolants_bound_warped_great_circle() {
     m.b1z = scale * sin(start + sweep);
     const double shift = hypot(m.b1x - m.b0x, m.b1z - m.b0z);
     const double reach = std::max(hypot(m.b0x, m.b0z), hypot(m.b1x, m.b1z));
-    const auto bound = Temporal::PathBound::warped_great_circle(
+    const auto bound = Spacetime::PathBound::warped_great_circle(
         float(m.turn), float(shift), float(reach));
     constexpr double STEP = 1e-2;
     double second = 0.0, third = 0.0;
@@ -315,8 +315,8 @@ inline void test_interpolants_bound_warped_great_circle() {
 inline void test_vertex_motion_carries_frame_ends() {
   constexpr size_t VERTICES = 5;
   ScratchScope scope(scratch_arena_a);
-  Temporal::VertexMotion<math::Vector> exact_motion;
-  Temporal::VertexMotion<math::Snorm3> packed_motion;
+  Spacetime::Worldlines<math::Vector> exact_motion;
+  Spacetime::Worldlines<math::Snorm3> packed_motion;
   exact_motion.bind(scratch_arena_a, VERTICES);
   packed_motion.bind(scratch_arena_a, VERTICES);
   HS_EXPECT_EQ(exact_motion.capacity(), VERTICES);
@@ -341,9 +341,9 @@ inline void test_vertex_motion_carries_frame_ends() {
       packed_motion.capture_end(i, end);
       const float angle = 0.3f * static_cast<float>(i + 1);
       const auto kind =
-          exact_motion.choose(i, Temporal::PathBound::rotation(angle, 0.8f),
+          exact_motion.choose(i, Spacetime::PathBound::rotation(angle, 0.8f),
                               MOTION_TOLERANCE, false);
-      if (kind == Temporal::Interpolant::QUADRATIC) {
+      if (kind == Spacetime::Interpolant::QUADRATIC) {
         ++middles;
         exact_motion.capture_middle(
             i, position(i, static_cast<float>(frame) + 0.5f));
@@ -363,7 +363,7 @@ inline void test_vertex_motion_carries_frame_ends() {
                    3e-5f);
       HS_EXPECT_LE((packed_motion.start(i) - exact_motion.start(i)).magnitude(),
                    3e-5f);
-      const auto path = exact_motion.path(i);
+      const auto path = exact_motion.worldline(i);
       const auto truth = [&](float t) {
         const float turn =
             0.3f * (static_cast<float>(frame) + t) * static_cast<float>(i + 1);
@@ -372,8 +372,8 @@ inline void test_vertex_motion_carries_frame_ends() {
       if (frame > 0)
         HS_EXPECT_LE(
             interpolant_departure(path, truth),
-            Temporal::interpolant_error(
-                path.kind, Temporal::PathBound::rotation(
+            Spacetime::interpolant_error(
+                path.kind, Spacetime::PathBound::rotation(
                                0.3f * static_cast<float>(i + 1), 0.8f)) +
                 1e-6f);
     }
@@ -391,7 +391,7 @@ inline void test_rotation_chord_bound_covers_unit_vectors() {
   const math::RotationMatrix a(math::make_rotation(math::Y_AXIS, 0.4f));
   const math::RotationMatrix b(
       math::make_rotation(math::Vector(0.3f, 1.0f, 0.1f).normalized(), 0.55f));
-  const float bound = Temporal::rotation_chord_bound(a, b);
+  const float bound = Spacetime::rotation_chord_bound(a, b);
   float worst = 0.0f;
   for (int i = 0; i < 400; ++i) {
     const float u = static_cast<float>(i) * 0.61803f;
