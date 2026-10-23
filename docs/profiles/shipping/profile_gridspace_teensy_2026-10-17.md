@@ -1,6 +1,6 @@
 # GridSpace on-device profile — Teensy 4.0, segmented mode (2026-10-17, **selective -O3**)
 
-Historical matched temporal A/B comparison at the source snapshots below. All measurements and implementation descriptions in this supplement refer to those snapshots. [The current canonical report](profile_gridspace_teensy_2026-10-22.md) supplies current shipping timing.
+Historical matched temporal A/B comparison at the source snapshots below. All measurements and implementation descriptions in this supplement refer to those snapshots. [The current canonical report](profile_gridspace_teensy_2026-10-23.md) supplies current shipping timing.
 Final raw captures are `C:/work/temp/gridspace-temporal-final.log`,
 `C:/work/temp/gridspace-optimized-off-final.log`, and
 `C:/work/temp/gridspace-original-off-final.log`. Captured on COM4 at
