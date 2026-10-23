@@ -347,9 +347,14 @@ def head_position(cwd: str | Path | None = None) -> list[str]:
     A branch is restored by name; a detached HEAD by sha.
     """
     try:
-        return ["--force", _git(["symbolic-ref", "--short", "HEAD"], cwd)]
+        return [_git(["symbolic-ref", "--short", "HEAD"], cwd)]
     except GitError:
-        return ["--detach", "--force", _git(["rev-parse", "HEAD"], cwd)]
+        return ["--detach", _git(["rev-parse", "HEAD"], cwd)]
+
+
+def tracked_changes(cwd: str | Path | None = None) -> str:
+    """Porcelain status of tracked paths; empty when the checkout is clean."""
+    return _git(["status", "--porcelain", "--untracked-files=no"], cwd)
 
 
 # ---------------------------------------------------------------------------
@@ -535,9 +540,12 @@ def _elf_stamp(build_dir: Path, env: str) -> int | None:
 def cmd_backfill(args) -> int:
     """Build each commit of a rev-range in a worktree and record its sizes.
 
-    SLOW: one full firmware build per commit. The worktree is force-detached
-    at each commit and restored to its original HEAD afterwards. A failed build
-    records only relinked ELFs (the size gate can fail after linking).
+    SLOW: one full firmware build per commit. The worktree is detached at each
+    commit and restored to its original HEAD afterwards. Checkouts are never
+    forced: a commit that would overwrite an untracked or ignored file, or a
+    build that leaves tracked changes, stops the backfill with status 1. A
+    failed build records only relinked ELFs (the size gate can fail after
+    linking).
     """
     worktree = Path(args.worktree)
     if not worktree.is_dir():
@@ -548,7 +556,7 @@ def cmd_backfill(args) -> int:
     build_dir = Path(args.build_dir) if args.build_dir else worktree / ".pio" / "build"
 
     try:
-        if _git(["status", "--porcelain", "--untracked-files=no"], worktree):
+        if tracked_changes(worktree):
             print(f"[size-trail] tracked changes in {worktree}; backfill refused",
                   file=sys.stderr)
             return 2
@@ -564,6 +572,7 @@ def cmd_backfill(args) -> int:
         print(f"[size-trail] {exc}", file=sys.stderr)
         return 2
 
+    status = 0
     try:
         for rev in revs:
             sha, date, subject = head_stamp(worktree, rev)
@@ -572,11 +581,14 @@ def cmd_backfill(args) -> int:
                 print(f"[size-trail] {sha[:8]} already trailed - skipping.")
                 continue
             try:
-                _git(["checkout", "--detach", "--force", rev], worktree)
+                if tracked_changes(worktree):
+                    raise GitError(f"tracked changes in {worktree}")
+                _git(["checkout", "--detach", "--no-overwrite-ignore", rev], worktree)
             except GitError as exc:
-                print(f"[size-trail] {sha[:8]}: checkout failed ({exc})",
-                      file=sys.stderr)
-                continue
+                print(f"[size-trail] {sha[:8]}: checkout refused ({exc}); "
+                      f"backfill stopped", file=sys.stderr)
+                status = 1
+                break
             try:
                 available = declared_environments(worktree / "platformio.ini")
             except CaptureError as exc:
@@ -616,9 +628,10 @@ def cmd_backfill(args) -> int:
         try:
             _git(["checkout", *restore], worktree)
         except GitError as exc:
-            print(f"[size-trail] {worktree} left at the range's end - "
+            print(f"[size-trail] {worktree} left detached - "
                   f"restore failed ({exc})", file=sys.stderr)
-    return 0
+            status = 1
+    return status
 
 
 # ---------------------------------------------------------------------------
@@ -663,9 +676,9 @@ def build_parser() -> argparse.ArgumentParser:
                              "(SLOW: one firmware link per commit)")
     bf.add_argument("rev_range", metavar="rev-range")
     bf.add_argument("--worktree", required=True,
-                    help="checkout to build in; force-detached at each commit "
-                         "(untracked files survive) and restored to its "
-                         "original HEAD at the end")
+                    help="checkout to build in; detached at each commit and "
+                         "restored to its original HEAD at the end; stops "
+                         "rather than overwrite an untracked or ignored file")
     bf.add_argument("--build-dir", help="default: <worktree>/.pio/build")
     bf.add_argument("--trail")
     bf.add_argument("--env", action="append")
