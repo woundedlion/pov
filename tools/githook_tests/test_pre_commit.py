@@ -208,21 +208,26 @@ class PreCommitHook(unittest.TestCase):
             "#define HS_PHANTASM_EFFECT_LIST(X) X(Example, 1) X(Galaxies, 1)\n",
             encoding="utf-8", newline="\n")
         profiles = self.repo / "docs" / "profiles"
-        filename = "profile_example_teensy_2026-09-28.md"
+        reports = {name: f"profile_{name.lower()}_teensy_2026-09-28.md"
+                   for name in ("Example", "Galaxies")}
         for timing_set in ["shipping", "O3"]:
             directory = profiles / timing_set
             directory.mkdir(parents=True)
-            (directory / filename).write_text(
-                "# Example on-device profile (2026-09-28)\n\n"
-                "## Setup\n\nHardware.\n\n## Frame cadence\n\nCadence.\n\n"
-                "## Summary ranking\n\nRanking.\n\n## Harness\n\nHarness.\n",
-                encoding="utf-8", newline="\n")
+            for name, filename in reports.items():
+                (directory / filename).write_text(
+                    f"# {name} on-device profile (2026-09-28)\n\n"
+                    "## Setup\n\nHardware.\n\n## Frame cadence\n\nCadence.\n\n"
+                    "## Summary ranking\n\nRanking.\n\n## Harness\n\nHarness.\n",
+                    encoding="utf-8", newline="\n")
             (directory / "README.md").write_text(
-                f"Reports covering the 2 effects.\n\n[Example]({filename})\n",
+                "Reports covering the 2 effects.\n\n" + "".join(
+                    f"[{name}]({filename})\n" for name, filename in reports.items()),
                 encoding="utf-8", newline="\n")
         (profiles / "README.md").write_text(
-            "On-device timing for the **2 effects in the Phantasm image**\n\n"
-            f"[Shipping](shipping/{filename})\n[O3](O3/{filename})\n",
+            "On-device timing for the **2 effects in the Phantasm image**\n\n" + "".join(
+                f"[{timing_set} {name}]({timing_set}/{filename})\n"
+                for timing_set in ("shipping", "O3")
+                for name, filename in reports.items()),
             encoding="utf-8", newline="\n")
         self.git("add", "scripts", "targets", "docs/profiles")
         self.git("commit", "--quiet", "-m", "profile fixture")
