@@ -6,7 +6,8 @@ bench-attached Teensy 4.0 boards with the real segmented POV driver
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Canonical shipping captures cover all 36 effects, including Galaxies.
+Shipping reports cover all 36 effects: 35 completed captures and the failed
+HankinSolids capture.
 
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
@@ -36,7 +37,7 @@ full-roster image.
 
 ## Shipping/O3 captures
 
-Rows rank by shipping spill fraction, then shipping peak render. Both peaks
+The failed capture appears first; measured rows rank by shipping spill fraction, then shipping peak render. Both peaks
 are worst-frame render, never wall time; spilled counts frames exceeding 62.5 ms.
 Shipping colours are binary: 🟢 zero spill; 🔴 any spill. O3 columns retain their
 original values and colours and predate the per-column temporal work. O3 code-size
@@ -45,80 +46,58 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|---|
-| [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-23.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 61.337 (16 + stress) | 🟢 49.112 (23) | 🟢 0/3862 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-23 08:07<br>O3 2026-09-28 16:50 |
-| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-23.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 59.311 (8) | 🟢 54.539 (8) | 🟢 0/1295 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-23 08:36<br>O3 2026-10-01 09:22 |
-| [Raymarch](shipping/profile_raymarch_teensy_2026-10-22.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 57.674 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-22 19:10<br>O3 2026-09-20 23:07 |
-| [HopfFibration](shipping/profile_hopffibration_teensy_2026-10-23.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 56.986 | 🟢 46.52 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-10-23 08:44<br>O3 2026-08-26 01:27 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 56.941 (9 observed; no wrap) | 🟢 60.05 (9) | 🟢 0/4287 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 08:42<br>O3 2026-09-25 07:29 |
-| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-10-22.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § | `hl_shader_draw` | 🟢 55.080 (9) | 🟢 36.975 (3) | 🟢 0/4767 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-22 20:01<br>O3 2026-10-01 09:26 |
-| [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-22.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 54.443 (10) | 🟢 34.32 (11) | 🟢 0/3167 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-22 19:43<br>O3 2026-08-26 02:19 |
-| [RingSpin](shipping/profile_ringspin_teensy_2026-10-22.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 53.562 | 🟢 50.750 | 🟢 0/927 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-22 19:12<br>O3 2026-09-24 20:18 |
-| [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-10-22.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 53.043 (12) | 🟢 58.32 (13) | 🟢 0/2863 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-10-22 19:34<br>O3 2026-08-26 02:10 |
-| [DisplacementField](shipping/profile_displacementfield_teensy_2026-10-22.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § | `df_timeline_step` | 🟢 51.350 (2) | 🟢 57.45 | 🟢 0/1887 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-10-22 19:02<br>O3 2026-09-19 22:19 |
-| [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-22.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🟢 48.271 | 🟢 48.65 | 🟢 0/927 (0.00%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-22 18:57<br>O3 2026-08-26 01:16 |
-| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-22.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🟢 48.119 | 🔴 279.686 | 🟢 0/447 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-22 19:04<br>O3 2026-09-30 19:15 |
-| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-22.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 46.831 | 🔴 79.81 | 🟢 0/927 (0.00%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-22 20:05<br>O3 2026-08-26 02:45 |
-| [Galaxies](shipping/profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.496 | — | 🟢 0/927 (0.00%) | — | — | — | ship 2026-10-23 08:41 |
-| [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 43.790 (scoped) | 🟢 38.94 (3) | 🟢 0/416 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-10-22 23:19<br>O3 2026-08-26 02:49 |
-| [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-10-23.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.116 (scoped) | 🟢 54.55 | 🟢 0/416 (0.00%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-10-22 23:18<br>O3 2026-08-26 02:43 |
-| [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-10-22.md) / [O3](O3/profile_chromaticlichen_architecture_teensy_2026-10-01.md) | `fx_shader_draw` | 🟢 40.095 | 🟢 35.218 | 🟢 0/447 (0.00%) | 🟢 0/1096 (0.00%) | +15,264 B | +8,672 B | ship 2026-10-22 20:02<br>O3 2026-10-01 09:51 |
-| [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 39.963 (2) | 🟢 36.86 (3) | 🟢 0/1631 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-10-22 19:54<br>O3 2026-08-26 03:17 |
-| [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 33.982 (3) | 🟢 33.38 (4) | 🟢 0/2735 (0.00%) | 🟢 0/4128 (0%) | +14,576 B | +11,712 B | ship 2026-10-22 20:19<br>O3 2026-08-26 03:03 |
-| [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 33.729 (2) | 🟢 32.41 (3) | 🟢 0/1631 (0.00%) | 🟢 0/2368 (0%) | +14,520 B | +11,712 B | ship 2026-10-22 20:16<br>O3 2026-08-26 03:14 |
-| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-10-22.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 33.483 (18) | 🟢 32.865 (18) | 🟢 0/2687 (0.00%) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-10-22 19:23<br>O3 2026-09-28 16:45 |
-| [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § | `fx_shader_draw` | 🟢 33.333 (4) | 🟢 30.314 (4) | 🟢 0/3807 (0.00%) | 🟢 0/4137 (0.00%) | +15,048 B | +8,624 B | ship 2026-10-22 20:14<br>O3 2026-10-01 11:19 |
-| [Fishbowl](shipping/profile_fishbowl_teensy_2026-10-23.md) / [O3](O3/profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 31.100 | 🟢 21.29 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +27,856 B | +26,400 B | ship 2026-10-23 08:39<br>O3 2026-08-26 01:18 |
-| [Comets](shipping/profile_comets_teensy_2026-10-22.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 30.550 (12) | 🟢 28.71 (13) | 🟢 0/1887 (0.00%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-10-22 19:30<br>O3 2026-08-26 02:02 |
-| [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-10-22.md) / [O3](O3/profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 30.419 (2) | 🟢 21.44 (3) | 🟢 0/1647 (0.00%) | 🟢 0/2688 (0%) | +13,448 B | +10,560 B | ship 2026-10-22 19:08<br>O3 2026-08-26 01:30 |
-| [PetalFlow](shipping/profile_petalflow_teensy_2026-10-23.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 30.159 | 🟢 10.77 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-23 08:46<br>O3 2026-08-26 01:32 |
-| [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-10-22.md) / [O3](O3/profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 28.921 | 🟢 22.97 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +12,552 B | +10,320 B | ship 2026-10-22 20:21<br>O3 2026-08-26 03:05 |
-| [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 28.723 | 🟢 29.53 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,464 B | +11,712 B | ship 2026-10-22 20:07<br>O3 2026-08-26 02:46 |
-| [KaleidoscopeHexSoft](shipping/profile_kaleidoscopehexsoft_teensy_2026-10-22.md) / [O3](O3/profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 27.376 | 🟢 24.58 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,496 B | +11,712 B | ship 2026-10-22 19:50<br>O3 2026-08-26 02:26 |
-| [AlienBrain](shipping/profile_alienbrain_teensy_2026-10-22.md) / [O3](O3/profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 26.382 (4) | 🟢 27.90 (5) | 🟢 0/3807 (0.00%) | 🟢 0/4768 (0%) | +14,560 B | +11,712 B | ship 2026-10-22 19:48<br>O3 2026-08-26 02:24 |
-| [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-10-22.md) / [O3](O3/profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 26.284 | 🟢 26.29 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +12,184 B | +11,104 B | ship 2026-10-22 19:03<br>O3 2026-08-26 01:22 |
-| [GridSpace](shipping/profile_gridspace_teensy_2026-10-22.md) / [O3](O3/profile_gridspace_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 25.957 | 🟢 25.39 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +14,424 B | +11,712 B | ship 2026-10-22 19:55<br>O3 2026-08-26 02:33 |
-| [AlienOcean](shipping/profile_alienocean_teensy_2026-10-22.md) / [O3](O3/profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 25.517 | 🟢 24.98 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-22 19:51<br>O3 2026-08-26 02:28 |
-| [AlienCore](shipping/profile_aliencore_teensy_2026-10-22.md) / [O3](O3/profile_aliencore_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 23.648 | 🟢 20.10 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-22 19:52<br>O3 2026-08-26 02:30 |
-| [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-22.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 13.292 (24) | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-22 19:28<br>O3 2026-08-26 01:57 |
-| [Voronoi](shipping/profile_voronoi_teensy_2026-10-22.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.243 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-22 19:13<br>O3 2026-08-26 01:39 |
+| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-10-23.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | unavailable (arena trap) | 🔴 unavailable (trap) | 🟢 32.865 (18) | 🔴 unavailable (trap) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-10-23 (aborted)<br>O3 2026-09-28 16:45 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🔴 70.224 (2)<br>🟢 57.503 (7) | 🟢 60.05 (9) | 🔴 134/958 (13.99%)<br>🟢 0/3042 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 13:38<br>O3 2026-09-25 07:29 |
+| [Raymarch](shipping/profile_raymarch_teensy_2026-10-23.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🔴 103.890 | 🟢 56.04 | 🔴 1/448 (0.22%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-23 13:30<br>O3 2026-09-20 23:07 |
+| [MermaidSkin](shipping/profile_mermaidskin_teensy_2026-10-23.md) / [O3](O3/profile_mermaidskin_teensy_2026-08-26.md) | `fx_shader_draw` | 🔴 70.074 | 🟢 54.55 | 🔴 1/448 (0.22%) | 🟢 0/1088 (0%) | +16,544 B | +11,952 B | ship 2026-10-23 14:20<br>O3 2026-08-26 02:43 |
+| [ChromaticLichen](shipping/profile_chromaticlichen_teensy_2026-10-23.md) / [O3](O3/profile_chromaticlichen_architecture_teensy_2026-10-01.md) | `fx_shader_draw` | 🔴 65.897 | 🟢 35.218 | 🔴 1/448 (0.22%) | 🟢 0/1096 (0.00%) | +15,264 B | +8,672 B | ship 2026-10-23 14:19<br>O3 2026-10-01 09:51 |
+| [BZReactionDiffusion](shipping/profile_bzreactiondiffusion_teensy_2026-10-23.md) / [O3](O3/profile_bzreactiondiffusion_teensy_2026-08-26.md) | `bz_render` | 🔴 78.649 | 🟢 48.65 | 🔴 1/928 (0.11%) | 🟢 0/2048 (0%) | +12,760 B | +10,224 B | ship 2026-10-23 13:19<br>O3 2026-08-26 01:16 |
+| [AshCloud](shipping/profile_ashcloud_teensy_2026-10-23.md) / [O3](O3/profile_ashcloud_teensy_2026-08-26.md) | `fx_shader_draw` | 🔴 73.108 | 🔴 79.81 | 🔴 1/928 (0.11%) | 🔴 544/544 (100%) | +16,608 B | +12,112 B | ship 2026-10-23 14:21<br>O3 2026-08-26 02:45 |
+| [KaleidoscopeHexOil](shipping/profile_kaleidoscopehexoil_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexoil_teensy_2026-08-26.md) § | `fx_shader_draw` | 🔴 69.694 (1)<br>🟢 43.705 (1) | 🟢 38.94 (3) | 🔴 1/599 (0.17%)<br>🟢 0/1049 (0.00%) | 🟢 0/2208 (0%) | +13,456 B | +10,608 B | ship 2026-10-23 14:25<br>O3 2026-08-26 02:49 |
+| [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-23.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 🟢 54.539 (8) | 🟢 0/1248 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-23 13:40<br>O3 2026-10-01 09:22 |
+| [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-23.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 58.966 (16) | 🟢 49.112 (23) | 🟢 0/4864 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-23 13:57<br>O3 2026-09-28 16:50 |
+| [HopfFibration](shipping/profile_hopffibration_teensy_2026-10-23.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 56.256 | 🟢 46.52 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-10-23 13:26<br>O3 2026-08-26 01:27 |
+| [KaleidoscopeMandala](shipping/profile_kaleidoscopemandala_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopemandala_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 55.678 (2) | 🟢 36.86 (3) | 🟢 0/1632 (0.00%) | 🟢 0/2368 (0%) | +13,656 B | +11,440 B | ship 2026-10-23 14:11<br>O3 2026-08-26 03:17 |
+| [HyperLattice](shipping/profile_hyperlattice_teensy_2026-10-23.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 🟢 36.975 (3) | 🟢 0/4768 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-23 14:18<br>O3 2026-10-01 09:26 |
+| [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-23.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 54.311 (10) | 🟢 34.32 (11) | 🟢 0/3168 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-23 14:00<br>O3 2026-08-26 02:19 |
+| [RingSpin](shipping/profile_ringspin_teensy_2026-10-23.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 53.743 | 🟢 50.750 | 🟢 0/928 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-23 13:32<br>O3 2026-09-24 20:18 |
+| [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 53.438 (3) | 🟢 33.38 (4) | 🟢 0/2736 (0.00%) | 🟢 0/4128 (0%) | +14,576 B | +11,712 B | ship 2026-10-23 14:35<br>O3 2026-08-26 03:03 |
+| [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § | `fx_shader_draw` | 🟢 53.018 (4) | 🟢 30.314 (4) | 🟢 0/3808 (0.00%) | 🟢 0/4137 (0.00%) | +15,048 B | +8,624 B | ship 2026-10-23 14:29<br>O3 2026-10-01 11:19 |
+| [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-10-23.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 🟢 58.32 (13) | 🟢 0/2864 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-10-23 13:51<br>O3 2026-08-26 02:10 |
+| [DisplacementField](shipping/profile_displacementfield_teensy_2026-10-23.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § | `df_timeline_step` | 🟢 51.257 (2) | 🟢 57.45 | 🟢 0/1888 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-10-23 13:23<br>O3 2026-09-19 22:19 |
+| [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 49.091 (2) | 🟢 32.41 (3) | 🟢 0/1632 (0.00%) | 🟢 0/2368 (0%) | +14,520 B | +11,712 B | ship 2026-10-23 14:31<br>O3 2026-08-26 03:14 |
+| [KaleidoscopePentBright](shipping/profile_kaleidoscopepentbright_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopepentbright_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 48.788 | 🟢 29.53 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +14,464 B | +11,712 B | ship 2026-10-23 14:23<br>O3 2026-08-26 02:46 |
+| [AlienBrain](shipping/profile_alienbrain_teensy_2026-10-23.md) / [O3](O3/profile_alienbrain_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 48.180 (4) | 🟢 27.90 (5) | 🟢 0/3808 (0.00%) | 🟢 0/4768 (0%) | +14,560 B | +11,712 B | ship 2026-10-23 14:05<br>O3 2026-08-26 02:24 |
+| [GSReactionDiffusion](shipping/profile_gsreactiondiffusion_teensy_2026-10-23.md) / [O3](O3/profile_gsreactiondiffusion_teensy_2026-09-30.md) | `grd_render` | 🟢 48.112 | 🔴 279.686 | 🟢 0/448 (0.00%) | 🔴 538/538 (100.00%) | +16,024 B | +10,832 B | ship 2026-10-23 13:25<br>O3 2026-09-30 19:15 |
+| [CosmicEyeball](shipping/profile_cosmiceyeball_teensy_2026-10-23.md) / [O3](O3/profile_cosmiceyeball_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 48.097 | 🟢 22.97 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +12,552 B | +10,320 B | ship 2026-10-23 14:36<br>O3 2026-08-26 03:05 |
+| [Galaxies](shipping/profile_galaxies_teensy_2026-10-23.md) | `gx_particle_step` | 🟢 45.223 | — | 🟢 0/928 (0.00%) | — | — | — | ship 2026-10-23 13:17 |
+| [AlienOcean](shipping/profile_alienocean_teensy_2026-10-23.md) / [O3](O3/profile_alienocean_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 44.614 | 🟢 24.98 | 🟢 0/448 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-23 14:07<br>O3 2026-08-26 02:28 |
+| [MobiusGrid](shipping/profile_mobiusgrid_teensy_2026-10-23.md) / [O3](O3/profile_mobiusgrid_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 42.938 (2) | 🟢 21.44 (3) | 🟢 0/1648 (0.00%) | 🟢 0/2688 (0%) | +13,448 B | +10,560 B | ship 2026-10-23 13:28<br>O3 2026-08-26 01:30 |
+| [KaleidoscopeHexSoft](shipping/profile_kaleidoscopehexsoft_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexsoft_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 42.046 | 🟢 24.58 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +14,496 B | +11,712 B | ship 2026-10-23 14:06<br>O3 2026-08-26 02:26 |
+| [GridSpace](shipping/profile_gridspace_teensy_2026-10-23.md) / [O3](O3/profile_gridspace_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 38.937 | 🟢 25.39 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +14,424 B | +11,712 B | ship 2026-10-23 14:12<br>O3 2026-08-26 02:33 |
+| [AlienCore](shipping/profile_aliencore_teensy_2026-10-23.md) / [O3](O3/profile_aliencore_teensy_2026-08-26.md) | `fx_shader_draw` | 🟢 38.170 | 🟢 20.10 | 🟢 0/448 (0.00%) | 🟢 0/1088 (0%) | +13,648 B | +11,440 B | ship 2026-10-23 14:08<br>O3 2026-08-26 02:30 |
+| [Fishbowl](shipping/profile_fishbowl_teensy_2026-10-23.md) / [O3](O3/profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 31.232 | 🟢 21.29 | 🟢 0/928 (0.00%) | 🟢 0/1088 (0%) | +27,856 B | +26,400 B | ship 2026-10-23 13:20<br>O3 2026-08-26 01:18 |
+| [Comets](shipping/profile_comets_teensy_2026-10-23.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 30.701 (12) | 🟢 28.71 (13) | 🟢 0/1888 (0.00%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-10-23 13:47<br>O3 2026-08-26 02:02 |
+| [PetalFlow](shipping/profile_petalflow_teensy_2026-10-23.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 30.286 | 🟢 10.77 | 🟢 0/448 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-23 13:29<br>O3 2026-08-26 01:32 |
+| [GnomonicStars](shipping/profile_gnomonicstars_teensy_2026-10-23.md) / [O3](O3/profile_gnomonicstars_teensy_2026-08-26.md) | `gn_draw_stars` | 🟢 26.228 | 🟢 26.29 | 🟢 0/448 (0.00%) | 🟢 0/1088 (0%) | +12,184 B | +11,104 B | ship 2026-10-23 13:24<br>O3 2026-08-26 01:22 |
+| [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-23.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 17.983 (24) | 🟢 11.70 (24) | 🟢 0/1504 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-23 13:45<br>O3 2026-08-26 01:57 |
+| [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 13.222 | 🟢 7.71 | 🟢 0/448 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
-The October 22 full-roster captures used COM4 at source
-`aa61e787859bf31d69057b436b08ad8a751f1bb4`. Refreshed reports identify their
-newer sources, capture scenarios and coverage individually. Scoped checks are
-marked in the table; they do not inherit a preceding report's full-cycle coverage.
-IslamicStars retains the higher fixed-shape stress peak alongside its complete
-carousel. Captured times are local raw-log mtimes.
+All shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, with each capture
+sized to its Phantasm show segment. Capture times are local raw-log mtimes.
+The kaleidoscope effects run with column strobe off.
+The failed capture's date identifies the attempt; its raw-log mtime is unavailable.
 
-The six temporal-effect reports use accepted `a6222f23`/`70fe9492` captures
-that predate the PointRoute equator-cell speed-bound correction in engine
-revision `10df63d5432710f2ab22f1f726b7127ad0d6242e`. Their timing and size
-figures remain captured-source measurements; the correction has no device timing
-or performance claim.
+Shipping figures include setup and all frames in complete counter windows.
+Each report separately gives trailing raw-frame telemetry, exclusions, preset
+coverage and strict validator diagnostics. Root-cycle/wall mismatches remain
+explicit; logged per-frame render supports cadence measurements without a claim
+of fully validated cycle-counter exactness.
 
-The independently verified image at `f9c5c5efa6765489888265cc62524c68b3fe4e97`
-has RAM1 code 171496 B, variables 312736 B, FLASH code 993776 B and FLASH data
-851824 B. Its `.text.itcm` is 171488 B across six code banks, with 25112 B code
-padding and no added pins. Against `4e75923c`, RAM1 code rises 2160 B
-(2.109 KiB), variables are unchanged, FLASH data rises 160 B (0.156 KiB), and
-FLASH code rises 77136 B (75.328 KiB). This image's footprint is separate from
-the capture-specific sizes retained in each report.
-
-This revision stores prepared face metadata and tables together in draw-scoped
-arena storage; `SDF::Face` is an 8-byte generation-checked handle on 32-bit
-targets. The device captures predate this storage change and retain their
-captured-source timing measurements; this revision has no new device timing
-claim.
-
-Each report states its setup/warmup exclusion, complete-window denominator and
-strict validator diagnostics. Root-cycle/wall mismatches remain explicit;
-rankings use logged per-frame render telemetry and do not imply fully validated
-cycle-counter exactness.
-
-§ Cyclers carry one aligned line per parser-owned colour bucket, red first;
-(N) counts ownership entries. Bucket frames include the following transition.
-Each report gives per-entry timing, complete-window coverage and parser validation
-diagnostics. A segment can end before its final transition wraps, and spills can
-limit the entries observed; the tables do not imply full-cycle validation.
+§ Cyclers carry one aligned line per parser ownership colour bucket, red first;
+(N) counts observed ownership entries. Buckets include setup and transitions.
+Failed captures appear first with unavailable timing. Show duration covers the authored show segment; a segment can end before its
+last departure wraps. The per-effect report states observed coverage.
 
 ## Memory captures
 
@@ -149,7 +128,7 @@ captured 2026-09-27 22:25.
 ## HyperLattice shipping segment
 
 Current nine-preset shipping segment on COM4. The canonical
-[report](shipping/profile_hyperlattice_teensy_2026-10-22.md#per-preset-table) gives the observed entry buckets
+[report](shipping/profile_hyperlattice_teensy_2026-10-23.md#per-preset-table) gives the observed entry buckets
 and validation diagnostics. The fixed-preset supplements below retain their
 historical source snapshots and do not describe current shipping performance.
 
@@ -202,7 +181,7 @@ different base (319 differing files); it cannot be treated as the same tree.
 Capture `17390a7a1` is unpublished: it is `e7f19b0d1` plus one profiling scope.
 Capture `d5ca81403` landed as `c40c1def8`.
 Capture `0df961b818ae` is unrecoverable. These historical orphan hashes are
-not reachable from the published branch. The KaleidoscopeSmooth shipping
+not reachable from the published branch. The historical KaleidoscopeSmooth shipping
 capture additionally used an unretained source patch, so its recorded base
 and patch hash cannot reconstruct the captured source from a fresh clone.
 
@@ -212,7 +191,7 @@ authored preset count plus one, except SphericalHarmonics, whose mode markers
 start at 1 and whose entry count equals its authored preset count. Raw logs
 are no longer available to rederive these buckets.
 
-Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Production adopted bounded channel phases. The ranked 26.284 ms row is a 30 s capture of source `aa61e787859b`, which includes them. The superseded 21.844 ms shipping capture (70 s, 2026-10-07, `17390a7a1`) measured the old float clock; the two captures differ in source and duration beyond the clock, so their peaks do not isolate its cost. The experiment records that cost difference.
+Experimental clock characterization: [GnomonicStars bounded-channel comparison](shipping/profile_gnomonicstars_clock_experiment_teensy_2026-10-07.md). Historical matched clock measurements at the recorded sources; the current canonical report measures shipping bounded channel phases.
 
 Integer direct-AA validation: [ShapeShifter paired capture](shipping/profile_shapeshifter_integer_aa_teensy_2026-10-10.md). Both images preserve 16 fps throughout the cycle.
 

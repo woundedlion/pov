@@ -204,4 +204,4 @@ python C:/work/temp/finding4-profile-20261007/compare.py
 python C:/work/temp/finding4-profile-20261007/build_comparison_report.py
 ```
 
-Only completed, successfully validated captures were analyzed. This supplement preserves the historical float-clock baseline and bounded-clock prototype at their recorded source snapshots. The [current canonical report](profile_gnomonicstars_teensy_2026-10-22.md) measures the production bounded channel phases.
+Only completed, successfully validated captures were analyzed. This supplement preserves the historical float-clock baseline and bounded-clock prototype at their recorded source snapshots. The [current canonical report](profile_gnomonicstars_teensy_2026-10-23.md) measures the production bounded channel phases.
