@@ -7,8 +7,10 @@
  * @brief Selected-copy timed transforms match spatial fan-out. */
 
 /** @brief Checks a selected copy against the corresponding ordinary emission.
- * @param stage Spatial replicator under test. */
-template <typename Stage> void check_timed_spatial_copies(Stage &stage) {
+ * @param stage Spatial replicator under test.
+ * @param reference Independent double-precision copy transform. */
+template <typename Stage, typename Reference>
+void check_timed_spatial_copies(Stage &stage, Reference reference) {
   StubEffect effect(288, 144);
   Canvas canvas(effect);
   const math::Vector source = math::Vector(0.3f, 0.5f, 0.7f).normalized();
@@ -20,20 +22,30 @@ template <typename Stage> void check_timed_spatial_copies(Stage &stage) {
                expected.push_back(v);
              });
   HS_EXPECT_EQ(expected.size(), static_cast<size_t>(stage.copy_count()));
-  auto equal = [](const math::Vector &a, const math::Vector &b) {
-    HS_EXPECT_EQ(a.x, b.x);
-    HS_EXPECT_EQ(a.y, b.y);
-    HS_EXPECT_EQ(a.z, b.z);
-  };
   for (int copy = 0; copy < stage.copy_count(); ++copy) {
+    HS_CONTEXT("copy", copy);
+    auto check_reference = [&](const math::Vector &got,
+                               const math::Vector &input) {
+      const auto independent = reference(input, copy);
+      HS_EXPECT_NEAR(got.x, independent[0], 2e-6);
+      HS_EXPECT_NEAR(got.y, independent[1], 2e-6);
+      HS_EXPECT_NEAR(got.z, independent[2], 2e-6);
+      if (copy == 0) {
+        HS_EXPECT_EQ(got.x, input.x);
+        HS_EXPECT_EQ(got.y, input.y);
+        HS_EXPECT_EQ(got.z, input.z);
+      }
+    };
+    check_reference(expected[copy], source);
     stage.select_copy(copy);
     for (float t : {0.0f, 0.25f, 1.0f}) {
-      equal(stage.at_time(canvas, source, t), expected[copy]);
+      const auto selected = stage.at_time(canvas, source, t);
+      check_reference(selected, source);
       int emitted = 0;
       stage.plot_at(canvas, source, color, 7.0f, 0.4f, t,
                     [&](const math::Vector &v, const Pixel &pixel, float age,
                         float alpha) {
-                      equal(v, expected[copy]);
+                      check_reference(v, source);
                       HS_EXPECT_EQ(pixel.r, color.r);
                       HS_EXPECT_EQ(pixel.g, color.g);
                       HS_EXPECT_EQ(pixel.b, color.b);
@@ -49,13 +61,13 @@ template <typename Stage> void check_timed_spatial_copies(Stage &stage) {
           source, source, planar ? &basis : nullptr,
           [&](const math::Vector &a, const math::Vector &b,
               const math::Basis *transformed) {
-            equal(a, expected[copy]);
-            equal(b, expected[copy]);
+            check_reference(a, source);
+            check_reference(b, source);
             HS_EXPECT_EQ(transformed != nullptr, planar);
             if (transformed) {
-              equal(transformed->u, stage.at_time(canvas, basis.u, 0.4f));
-              equal(transformed->v, stage.at_time(canvas, basis.v, 0.4f));
-              equal(transformed->w, stage.at_time(canvas, basis.w, 0.4f));
+              check_reference(transformed->u, basis.u);
+              check_reference(transformed->v, basis.v);
+              check_reference(transformed->w, basis.w);
             }
             ++culled;
             return false;
@@ -66,12 +78,18 @@ template <typename Stage> void check_timed_spatial_copies(Stage &stage) {
   }
 }
 
-/** @brief Timed Y-axis copies retain ordinary chained rotation arithmetic. */
+/** @brief Timed Y-axis copies select the analytic spatial rotation. */
 inline void test_timed_replicate_selected_copy() {
   Filter::World::Replicate<288> stage(288);
-  check_timed_spatial_copies(stage);
+  auto reference = [&](const math::Vector &v, int copy) {
+    const double ANGLE = 2.0 * double(math::PI_F) * copy / stage.copy_count();
+    return std::array<double, 3>{v.x * std::cos(ANGLE) + v.z * std::sin(ANGLE),
+                                 double(v.y),
+                                 v.z * std::cos(ANGLE) - v.x * std::sin(ANGLE)};
+  };
+  check_timed_spatial_copies(stage, reference);
   stage.set_count(3);
-  check_timed_spatial_copies(stage);
+  check_timed_spatial_copies(stage, reference);
 }
 
 /** @brief Timed vertex copies use the selected stored rotation. */
@@ -79,5 +97,11 @@ inline void test_timed_vertex_replicate_selected_copy() {
   const std::array<math::Vector, 4> vertices{math::X_AXIS, math::Y_AXIS,
                                              math::Z_AXIS, -math::X_AXIS};
   Filter::World::VertexReplicate<4> stage(vertices);
-  check_timed_spatial_copies(stage);
+  check_timed_spatial_copies(stage, [](const math::Vector &v, int copy) {
+    const std::array<std::array<double, 3>, 4> copies{{{v.x, v.y, v.z},
+                                                       {-v.y, v.x, v.z},
+                                                       {-v.z, v.y, v.x},
+                                                       {-v.x, -v.y, v.z}}};
+    return copies[copy];
+  });
 }

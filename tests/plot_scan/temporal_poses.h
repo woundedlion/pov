@@ -120,33 +120,85 @@ inline void test_pose_table_holds_a_still_history() {
     HS_EXPECT_TRUE(same_pose(table->at(c), pose));
 }
 
-/** @brief Rotation through the table is exact at column times and tracks the
- *         history path between them. */
+/** @brief Rotation through the table selects column knots within arithmetic
+ *         roundoff and tracks the history path between them. */
 inline void test_pose_table_rotates_between_column_times() {
-  constexpr int W = 288;
-  ScratchScope storage(scratch_arena_a);
-  auto table = std::make_unique<Spacetime::PoseTable>();
-  table->bind(scratch_arena_a, W);
-  math::Orientation<> orientation;
-  advance_turning_history(orientation, 2, 0.12f);
-  table->build(orientation);
-  const math::Vector v = math::Vector(0.3f, -0.5f, 0.81f).normalized();
-  float worst = 0.0f;
-  for (int c = 0; c <= W / 2; ++c) {
-    const float t = static_cast<float>(c) / (W / 2);
-    const math::Vector exact = table->at(c).apply(v);
-    const math::Vector got = table->rotate(v, t);
-    HS_EXPECT_EQ(got.x, exact.x);
-    HS_EXPECT_EQ(got.y, exact.y);
-    HS_EXPECT_EQ(got.z, exact.z);
-    if (c < W / 2) {
-      const float between = (static_cast<float>(c) + 0.37f) / (W / 2);
-      worst = fmaxf(worst, (table->rotate(v, between) -
-                            math::rotate(v, orientation.get(between)))
-                               .magnitude());
+  for (const int W : {256, 288}) {
+    const int HALF = W / 2;
+    HS_CONTEXT("width", W);
+    ScratchScope storage(scratch_arena_a);
+    auto table = std::make_unique<Spacetime::PoseTable>();
+    table->bind(scratch_arena_a, W);
+    math::Orientation<> orientation;
+    advance_turning_history(orientation, 2, 0.12f);
+    table->build(orientation);
+    const math::Vector v = math::Vector(0.3f, -0.5f, 0.81f).normalized();
+    float worst = 0.0f;
+    auto reference = [&](int column) {
+      const auto matrix = table->at(column);
+      const double a[] = {matrix.r0.x, matrix.r0.y, matrix.r0.z};
+      const double b[] = {matrix.r1.x, matrix.r1.y, matrix.r1.z};
+      const double p[] = {v.x, v.y, v.z};
+      return std::array<double, 3>{a[0] * p[0] + a[1] * p[1] + a[2] * p[2],
+                                   b[0] * p[0] + b[1] * p[1] + b[2] * p[2],
+                                   (a[1] * b[2] - a[2] * b[1]) * p[0] +
+                                       (a[2] * b[0] - a[0] * b[2]) * p[1] +
+                                       (a[0] * b[1] - a[1] * b[0]) * p[2]};
+    };
+    for (int c = 0; c <= HALF; ++c) {
+      HS_CONTEXT("column", c);
+      const float t = static_cast<float>(c) / HALF;
+      const auto exact = reference(c);
+      const math::Vector got = table->rotate(v, t);
+      const auto matrix = table->at(c);
+      const double U = std::numeric_limits<float>::epsilon() / 2.0;
+      const double GAMMA = 8 * U / (1 - 8 * U);
+      const double cross_scale = (fabs(double(matrix.r0.y) * matrix.r1.z) +
+                                  fabs(double(matrix.r0.z) * matrix.r1.y)) *
+                                     fabs(double(v.x)) +
+                                 (fabs(double(matrix.r0.z) * matrix.r1.x) +
+                                  fabs(double(matrix.r0.x) * matrix.r1.z)) *
+                                     fabs(double(v.y)) +
+                                 (fabs(double(matrix.r0.x) * matrix.r1.y) +
+                                  fabs(double(matrix.r0.y) * matrix.r1.x)) *
+                                     fabs(double(v.z));
+      const auto left = reference(std::max(0, c - 1));
+      const auto right = reference(std::min(HALF, c + 1));
+      const double actual[] = {got.x, got.y, got.z};
+      const math::Vector rows[] = {matrix.r0, matrix.r1};
+      for (int axis = 0; axis < 3; ++axis) {
+        const double scale = axis == 2 ? cross_scale
+                                       : fabs(double(rows[axis].x) * v.x) +
+                                             fabs(double(rows[axis].y) * v.y) +
+                                             fabs(double(rows[axis].z) * v.z);
+        const double slope = std::max(fabs(exact[axis] - left[axis]),
+                                      fabs(right[axis] - exact[axis]));
+        // Cross/dot/lerp: gamma(8); quotient/product: at most 2u column drift.
+        const double BOUND = GAMMA * scale + 2 * U * HALF * slope;
+        HS_EXPECT_LT(BOUND, 2e-6);
+        HS_EXPECT_NEAR(actual[axis], exact[axis], BOUND);
+      }
+      if (W == 256) {
+        HS_EXPECT_EQ(t * HALF, static_cast<float>(c));
+        int axis = 0;
+        const float row0[] = {matrix.r0.x, matrix.r0.y, matrix.r0.z};
+        const float row1[] = {matrix.r1.x, matrix.r1.y, matrix.r1.z};
+        for (const auto &unit : {math::X_AXIS, math::Y_AXIS, math::Z_AXIS}) {
+          const auto selected = table->rotate(unit, t);
+          HS_EXPECT_EQ(selected.x, row0[axis]);
+          HS_EXPECT_EQ(selected.y, row1[axis]);
+          ++axis;
+        }
+      }
+      if (W == 288 && c < W / 2) {
+        const float between = (static_cast<float>(c) + 0.37f) / (W / 2);
+        worst = fmaxf(worst, (table->rotate(v, between) -
+                              math::rotate(v, orientation.get(between)))
+                                 .magnitude());
+      }
     }
+    HS_EXPECT_LT(worst, 2e-6f);
   }
-  HS_EXPECT_LT(worst, 2e-6f);
 }
 
 /** @brief The column pose generator samples a two-pose history as
