@@ -223,10 +223,57 @@ inline void probe_against_oracle(const SDF::PreparedFace &face, float squared,
                                  OracleStats &stats) {
   const double expected = double_polygon_distance(face, px, py);
   const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
-  stats.max_error = std::max(stats.max_error, std::abs(actual - expected));
+  stats.max_error =
+      hs_test::fold_worst(stats.max_error, std::abs(actual - expected));
   if (std::abs(expected) > 1e-7)
     stats.sign_errors += (actual < 0.0) != (expected < 0.0);
   ++stats.probes;
+}
+
+/**
+ * @brief Distance error of one shipping-recipe probe against the oracle.
+ * @param convex Whether the face is convex.
+ * @param actual Distance under test.
+ * @param expected Oracle distance.
+ * @return Absolute error, or only the overestimate outside a convex face;
+ * NaN when @p actual is NaN.
+ */
+inline double recipe_distance_error(bool convex, float actual,
+                                    double expected) {
+  return !convex || expected < 0.0 ? std::abs(actual - expected)
+                                   : double(actual) - expected;
+}
+
+/** @brief Invalid exterior distances poison the oracle reductions. */
+inline void test_face_oracle_rejects_invalid_distances() {
+  const math::Vector vertices[4] = {
+      math::Vector(0.3f, 0.0f, 1.0f).normalized(),
+      math::Vector(0.0f, 0.3f, 1.0f).normalized(),
+      math::Vector(-0.3f, 0.0f, 1.0f).normalized(),
+      math::Vector(0.0f, -0.3f, 1.0f).normalized()};
+  const uint16_t indices[4] = {0, 1, 2, 3};
+  SDF::FaceScratchBuffer scratch;
+  SDF::PreparedFace face(vertices, indices, scratch,
+                         math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                         SDF::BOUNDS_MARGIN);
+  HS_EXPECT_EQ(face.count, 4);
+  bool inside;
+  const float squared = face.plane_dsq_exact(0.9f, 0.9f, inside);
+  HS_EXPECT_FALSE(inside);
+  OracleStats valid;
+  probe_against_oracle(face, squared, inside, 0.9f, 0.9f, valid);
+  HS_EXPECT_LT(valid.max_error, 1e-5);
+  for (float invalid : {std::numeric_limits<float>::quiet_NaN(), -squared}) {
+    OracleStats stats;
+    probe_against_oracle(face, squared, inside, 0.9f, 0.9f, stats);
+    probe_against_oracle(face, invalid, false, 0.9f, 0.9f, stats);
+    HS_EXPECT_TRUE(std::isnan(stats.max_error));
+  }
+  const double expected = double_polygon_distance(face, 0.9f, 0.9f);
+  HS_EXPECT_GT(expected, 0.0);
+  for (bool convex : {false, true})
+    HS_EXPECT_TRUE(std::isnan(recipe_distance_error(
+        convex, std::numeric_limits<float>::quiet_NaN(), expected)));
 }
 
 /** @brief Asymmetric monotonic stars certify omitted-edge distance and sign. */
@@ -516,20 +563,17 @@ inline void check_face_shipping_recipes_match_oracle(const PolyMesh &mesh) {
                 : math::fast_atan2(static_cast<float>(plane_expected), 1.0f);
         SDF::DistanceResult actual;
         face.distance_with_flags(p, actual, FLT_MAX, flags, min_cos);
-        if (!face.convex || expected < 0.0)
-          max_distance_error = std::max(max_distance_error,
-                                        std::abs(actual.raw_dist - expected));
-        else
-          max_distance_error =
-              std::max(max_distance_error, double(actual.raw_dist) - expected);
+        max_distance_error = hs_test::fold_worst(
+            max_distance_error,
+            recipe_distance_error(face.convex, actual.raw_dist, expected));
         if (std::abs(expected) > 1e-6)
           sign_errors += (actual.raw_dist < 0.0f) != (expected < 0.0);
         const double expected_depth =
             std::clamp(-expected / face.size, 0.0, 1.0);
         const double actual_depth =
             std::clamp(-double(actual.raw_dist) / face.size, 0.0, 1.0);
-        max_depth_error =
-            std::max(max_depth_error, std::abs(actual_depth - expected_depth));
+        max_depth_error = hs_test::fold_worst(
+            max_depth_error, std::abs(actual_depth - expected_depth));
         if (expected < -1e-4)
           missing_interior += !pipeline.covered[y * W + x];
         interior += expected < 0.0;

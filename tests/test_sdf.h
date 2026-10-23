@@ -223,6 +223,7 @@ inline int run_sdf_tests() {
   test_star_polygon_cull_covers_aa_fringe();
   test_face_pole_vertex_matches_full_scan();
   test_face_sector_backtrack_sign();
+  test_face_oracle_rejects_invalid_distances();
   test_face_asymmetric_sector_matches_oracle();
   test_face_randomized_sector_matches_oracle();
   test_face_randomized_backtracking_matches_oracle();
