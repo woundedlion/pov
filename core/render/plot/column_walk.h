@@ -27,6 +27,8 @@ struct GeometryCallback {
 
   bool rigid_lattice =
       false; ///< Edges keep angular length; resolve their lattice at column time.
+  bool uniform_color =
+      false; ///< Shader writes only color, constant over each edge and frame.
   float capture_error =
       0.025f; ///< Maximum projected vertex capture error, pixels.
 
@@ -113,6 +115,7 @@ struct EdgeBatch {
   const MeshEdge *pairs;      /**< Vertex indices of each edge. */
   bool chained = false;       /**< Edges leave their end vertex unplotted. */
   bool rigid_lattice = false; ///< Resolve lattice and AA support per column.
+  bool uniform_color = false; ///< Shader writes only one color per edge.
 };
 
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
@@ -703,15 +706,44 @@ HS_HOT_INLINE void plot_column_tap(const ColumnWalk<W> &state,
       column, color, age, alpha, sample.t);
 }
 
+/** @brief Prepares a sample's registers at the other side of an arm seam.
+ * @tparam Cfg Register interpolation configuration.
+ * @tparam UNIFORM_COLOR Reuse the prepared edge color.
+ * @param points Edge endpoint registers.
+ * @param sample Owner position, time and material fraction.
+ * @param owner Registers shaded at the owner's time.
+ * @param far Other tap's time.
+ * @param shader Time-aware shader.
+ * @return Registers for the other tap. */
+template <RasterConfig Cfg, bool UNIFORM_COLOR>
+HS_HOT_INLINE Fragment column_seam_registers(const Fragments &points,
+                                             const ColumnTapSample &sample,
+                                             const Fragment &owner, float far,
+                                             const TimedShaderFn &shader) {
+  Fragment other;
+  if constexpr (Cfg.interpolate_registers)
+    other = Fragment::lerp_registers(points[0], points[1], sample.s);
+  if (far != sample.t) {
+    if constexpr (UNIFORM_COLOR)
+      other.color = owner.color;
+    else
+      shader(owner.pos, other, far);
+  } else {
+    other = owner;
+  }
+  return other;
+}
+
 /** @brief Splats a still sample's taps astride an arm seam.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
+ * @tparam UNIFORM_COLOR Reuse the prepared edge color.
  * @param state The edge's walk.
  * @param sample The sample's position and time.
  * @param f The sample's registers, shaded at its time.
  * @details The taps are lit a frame apart: their registers interpolate in
  * time between the sample and one shade at the farthest tap's time. */
-template <int W, int H, RasterConfig Cfg>
+template <int W, int H, RasterConfig Cfg, bool UNIFORM_COLOR = false>
 HS_HOT_FLASH_MEMBER void splat_seam_taps(const ColumnWalk<W> &state,
                                          const ColumnTapSample &sample,
                                          const Fragment &f) {
@@ -722,14 +754,8 @@ HS_HOT_FLASH_MEMBER void splat_seam_taps(const ColumnWalk<W> &state,
     if (fabsf(at - t) > fabsf(far - t))
       far = at;
   });
-  Fragment other;
-  if constexpr (Cfg.interpolate_registers)
-    other =
-        Fragment::lerp_registers(state.points[0], state.points[1], sample.s);
-  if (far != t)
-    state.shader(f.pos, other, far);
-  else
-    other = f;
+  const Fragment other = column_seam_registers<Cfg, UNIFORM_COLOR>(
+      state.points, sample, f, far, state.shader);
   const float span = far != t ? 1.0f / (far - t) : 0.0f;
   Splat::for_each_seam_column(
       sample.p.x, [&](int column, float at) HS_HOT_INLINE {
@@ -763,10 +789,12 @@ HS_HOT_FLASH_MEMBER void splat_owned_taps(const ColumnWalk<W> &state,
  * @tparam SPLIT Walk the arc as its two sides of its closest approach to a
  * pole, each with its own column tests.
  * @tparam RIGID Resolve the continuous lattice pitch from each column's arc.
+ * @tparam UNIFORM_COLOR Reuse the prepared edge color.
  * @param state The edge's walk.
  * @details A turning arc walks every planned column; otherwise each pass stops
  * where its lit run ends. */
-template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID = false>
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID = false,
+          bool UNIFORM_COLOR = false>
 HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
          direction, radians, single_time, velocity, source_positions, chained,
@@ -1003,9 +1031,13 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
                 : k >= count
                     ? EdgeWorldsheet::normalize(source_b)
                     : newton_unit(source.v1 * cosine + source.v_perp * sine);
-          shader(f.pos, f, t);
-          Spacetime::count_geometry<
-              &Spacetime::GeometryCounters::column_shader_calls>();
+          if constexpr (UNIFORM_COLOR) {
+            f.color = points[0].color;
+          } else {
+            shader(f.pos, f, t);
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::column_shader_calls>();
+          }
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_samples>();
           if (rigid_lattice) {
@@ -1023,7 +1055,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           }
           const ColumnTapSample sample{p, t, s};
           if (arm_boundary)
-            splat_seam_taps<W, H, Cfg>(state, sample, f);
+            splat_seam_taps<W, H, Cfg, UNIFORM_COLOR>(state, sample, f);
           else
             splat_owned_taps<W, H>(state, sample, f);
         }
@@ -1063,6 +1095,16 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
 template <int W, int H, RasterConfig Cfg>
 HS_HOT_FLASH_MEMBER void walk_rigid_edge_columns(const ColumnWalk<W> &state) {
   walk_edge_columns<W, H, Cfg, false, true>(state);
+}
+
+/** @brief Walks an edge with its prepared uniform color.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @tparam SPLIT,RIGID Edge split and lattice policies.
+ * @param state Prepared column walk. */
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID>
+HS_HOT_FLASH_MEMBER void walk_uniform_edge_columns(const ColumnWalk<W> &state) {
+  walk_edge_columns<W, H, Cfg, SPLIT, RIGID, true>(state);
 }
 
 /** @brief Rasterizes mesh edges one destination column at a time.
@@ -1163,6 +1205,16 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         &Spacetime::GeometryCounters::column_edges_prepared>();
     batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge,
                   frame.bases[1].total_dist);
+    if (batch.uniform_color) {
+      const math::Vector saved = points[0].pos;
+      points[0].pos = source_positions ? EdgeWorldsheet::normalize(saved)
+                                       : frame.bases[1].v1;
+      shader(points[0].pos, points[0], 1.0f);
+      points[0].pos = saved;
+      points[1].color = points[0].color;
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::column_shader_calls>();
+    }
     const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
       return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
     };
@@ -1189,7 +1241,14 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         bottom_y,
         half_sine,
         half_cosine};
-    if (batch.rigid_lattice)
+    if (batch.uniform_color) {
+      if (batch.rigid_lattice)
+        walk_uniform_edge_columns<W, H, Cfg, false, true>(walk);
+      else if (split)
+        walk_uniform_edge_columns<W, H, Cfg, true, false>(walk);
+      else
+        walk_uniform_edge_columns<W, H, Cfg, false, false>(walk);
+    } else if (batch.rigid_lattice)
       walk_rigid_edge_columns<W, H, Cfg>(walk);
     else if (split)
       walk_split_edge_columns<W, H, Cfg>(walk);

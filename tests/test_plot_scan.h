@@ -110,6 +110,8 @@ inline int run_plot_scan_tests() {
   test_column_edge_cull_keeps_padded_point_sets();
   test_column_steady_lattice();
   test_column_source_basis_transport();
+  test_column_uniform_color_preserves_age();
+  test_column_uniform_color_seam_registers();
   test_column_capture_reads_vertex_paths();
   test_column_plan_covers_lit_columns();
   test_column_mesh_batch_cull();

@@ -681,9 +681,10 @@ struct Mesh {
                             float t) HS_HOT_INLINE {
       Spacetime::shade_at_time(shader, t, position, fragment);
     };
-    const EdgeBatch batch{
-        edges.size(), &prepare_timed_edge, mesh.vertices.data(),  motion,
-        edges.data(), geometry.chained,    geometry.rigid_lattice};
+    const EdgeBatch batch{edges.size(),           &prepare_timed_edge,
+                          mesh.vertices.data(),   motion,
+                          edges.data(),           geometry.chained,
+                          geometry.rigid_lattice, geometry.uniform_color};
     const float raster_sweep =
         prepared_poses ? prepared_sweep : erased.sweep_arc();
     rasterize_column_edges<W, H, {.timed = true}>(
