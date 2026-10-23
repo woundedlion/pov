@@ -417,7 +417,7 @@ private:
     const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation, state_moves || active);
     Scan::ColumnTimeScope column_scope(canvas, column_time);
-    MeshState rotated_mesh;
+    MeshState &rotated_mesh = *scratch_arena_a.make<MeshState>();
     OrientTransformer camera(orientation);
     uint8_t *moving = nullptr;
     uint16_t *columns = nullptr;
