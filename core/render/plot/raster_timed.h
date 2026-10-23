@@ -919,7 +919,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           const bool arm_boundary = radians == 0.0f && arm_distance <= 1.0f;
           if (plain && !arm_boundary) {
             pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
-                                       f.color.alpha, t, nullptr);
+                                       f.color.alpha, t);
             continue;
           }
           const ColumnTapSample sample{p, t, s};

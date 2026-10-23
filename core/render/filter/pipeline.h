@@ -321,12 +321,10 @@ public:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @param prediction Optional pre-write landing window.
-   * @return Landed column, unwrapped near the prediction. */
+   * @return Projected column. */
   float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
-                float alpha, float t,
-                const Temporal::ColumnPrediction *prediction = nullptr) {
-    return pipeline().plot_at(cv, v, c, age, alpha, t, prediction);
+                float alpha, float t) {
+    return pipeline().plot_at(cv, v, c, age, alpha, t);
   }
 
   /** @brief Plots geometry whose world stages have already been evaluated.
@@ -334,12 +332,10 @@ public:
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
-                            float age, float alpha, float t,
-                            const Temporal::ColumnPrediction *prediction) {
-    return pipeline().plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+                            float age, float alpha, float t) {
+    return pipeline().plot_transformed_at(cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -347,12 +343,10 @@ public:
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   float plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
-                          float age, float alpha, float t,
-                          const Temporal::ColumnPrediction *prediction) {
-    return pipeline().plot_projected_at(cv, p, c, age, alpha, t, prediction);
+                          float age, float alpha, float t) {
+    return pipeline().plot_projected_at(cv, p, c, age, alpha, t);
   }
 
   /** @brief Emits the anti-alias taps a projected sample lands in one column.
@@ -617,16 +611,12 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param c Source color.
    * @param age Age register.
    * @param alpha Source opacity.
-   * @param prediction Optional pre-write landing window.
-   * @return Landed column, unwrapped near the prediction. */
+   * @return Projected column. */
   float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
-                float alpha, float,
-                const Temporal::ColumnPrediction *prediction = nullptr) {
+                float alpha, float) {
     const auto p = math::vector_to_pixel<W, H>(v);
-    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
-    if (!prediction || prediction->accepts(landed))
-      plot(cv, p.x, p.y, c, age, alpha);
-    return landed;
+    plot(cv, p.x, p.y, c, age, alpha);
+    return p.x;
   }
 
   /** @brief Plots geometry whose world stages have already been evaluated.
@@ -634,28 +624,22 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
-                            float age, float alpha, float t,
-                            const Temporal::ColumnPrediction *prediction) {
-    return plot_at(cv, v, c, age, alpha, t, prediction);
+                            float age, float alpha, float t) {
+    return plot_at(cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
    * @param cv Frame context.
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
-                    float age, float alpha, float,
-                    const Temporal::ColumnPrediction *prediction) {
-    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
-    if (!prediction || prediction->accepts(landed))
-      plot(cv, p.x, p.y, c, age, alpha);
-    return landed;
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
+                                        const ::Pixel &c, float age,
+                                        float alpha, float) {
+    plot(cv, p.x, p.y, c, age, alpha);
+    return p.x;
   }
 
   /** @brief Returns the terminal world point without projection.
@@ -705,8 +689,7 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param age Age register.
    * @param alpha Source opacity. */
   void plot_screen_at(Canvas &cv, float x, float y, const ::Pixel &c, float age,
-                      float alpha, float,
-                      const Temporal::BoundaryEvaluator * = nullptr) {
+                      float alpha, float) {
     plot(cv, x, y, c, age, alpha);
   }
 
@@ -1007,39 +990,20 @@ struct Pipeline<W, H, Head, Tail...>
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @param prediction Optional pre-write landing window.
-   * @return Landed column, unwrapped near the prediction. */
-  HS_HOT_INLINE float
-  plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
-          float alpha, float t,
-          const Temporal::ColumnPrediction *prediction = nullptr) {
-    if constexpr (any_3d_history) {
-      if (prediction) {
-        const auto p = probe(cv, v, t);
-        const float landed = prediction->unwrap(p.x, W);
-        if (!prediction->accepts(landed))
-          return landed;
-      }
-    }
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_at(Canvas &cv, const math::Vector &v,
+                              const ::Pixel &c, float age, float alpha,
+                              float t) {
     if constexpr (Head::is_2d) {
       const auto p = math::vector_to_pixel<W, H>(v);
-      const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
-      if (!prediction || prediction->accepts(landed))
-        plot_screen_at(cv, p.x, p.y, c, age, alpha, t,
-                       prediction ? prediction->boundary : nullptr);
-      return landed;
+      plot_screen_at(cv, p.x, p.y, c, age, alpha, t);
+      return p.x;
     } else {
       float landed = std::numeric_limits<float>::quiet_NaN();
       auto pass = [&](const math::Vector &nv, const ::Pixel &nc, float nage,
                       float nalpha) HS_HOT_INLINE {
-        landed = next.plot_at(cv, nv, nc, nage, nalpha, t, prediction);
+        landed = next.plot_at(cv, nv, nc, nage, nalpha, t);
       };
-      if constexpr (Head::has_history) {
-        if (prediction && !prediction->record_sample) {
-          pass(v, c, age, alpha);
-          return landed;
-        }
-      }
       if constexpr (requires { Head::plot_at(cv, v, c, age, alpha, t, pass); })
         Head::plot_at(cv, v, c, age, alpha, t, pass);
       else
@@ -1053,16 +1017,14 @@ struct Pipeline<W, H, Head, Tail...>
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
-                      float age, float alpha, float t,
-                      const Temporal::ColumnPrediction *prediction) {
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_transformed_at(Canvas &cv, const math::Vector &v,
+                                          const ::Pixel &c, float age,
+                                          float alpha, float t) {
     if constexpr (Head::is_2d)
-      return plot_at(cv, v, c, age, alpha, t, prediction);
+      return plot_at(cv, v, c, age, alpha, t);
     else
-      return next.plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+      return next.plot_transformed_at(cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -1070,20 +1032,15 @@ struct Pipeline<W, H, Head, Tail...>
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
-                    float age, float alpha, float t,
-                    const Temporal::ColumnPrediction *prediction) {
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
+                                        const ::Pixel &c, float age,
+                                        float alpha, float t) {
     if constexpr (Head::is_2d) {
-      const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
-      if (!prediction || prediction->accepts(landed))
-        plot_screen_at(cv, p.x, p.y, c, age, alpha, t,
-                       prediction ? prediction->boundary : nullptr);
-      return landed;
+      plot_screen_at(cv, p.x, p.y, c, age, alpha, t);
+      return p.x;
     } else {
-      return next.plot_projected_at(cv, p, c, age, alpha, t, prediction);
+      return next.plot_projected_at(cv, p, c, age, alpha, t);
     }
   }
 
@@ -1109,14 +1066,12 @@ struct Pipeline<W, H, Head, Tail...>
     Next &next; /**< Stages after Head. */
     Canvas &cv; /**< Target canvas. */
     float t;    /**< Frame fraction. */
-    const Temporal::BoundaryEvaluator
-        *evaluator; /**< Optional tap evaluator. */
     /** @brief Forwards one tap.
      * @param x,y Tap coordinates.
      * @param c,age,alpha Shading registers. */
     HS_HOT_INLINE void operator()(float x, float y, const ::Pixel &c, float age,
                                   float alpha) const {
-      next.plot_screen_at(cv, x, y, c, age, alpha, t, evaluator);
+      next.plot_screen_at(cv, x, y, c, age, alpha, t);
     }
   };
 
@@ -1128,29 +1083,22 @@ struct Pipeline<W, H, Head, Tail...>
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @param evaluator Optional pure boundary tap evaluator. */
-  HS_HOT_INLINE void
-  plot_screen_at(Canvas &cv, float x, float y, const ::Pixel &c, float age,
-                 float alpha, float t,
-                 const Temporal::BoundaryEvaluator *evaluator = nullptr) {
+   */
+  HS_HOT_INLINE void plot_screen_at(Canvas &cv, float x, float y,
+                                    const ::Pixel &c, float age, float alpha,
+                                    float t) {
     static_assert(Head::is_2d);
-    ScreenPass pass{next, cv, t, evaluator};
+    ScreenPass pass{next, cv, t};
     if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
                   requires { requires Head::has_boundary_splat; }) {
       if (Temporal::temporal_sampling_enabled() &&
-          ((evaluator && evaluator->force_timing) ||
-           fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f))
-        Head::plot_boundary_at(x, y, c, age, alpha, t, pass, evaluator);
-      else if (!evaluator || evaluator->sample_exists)
+          fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f)
+        Head::plot_boundary_at(x, y, c, age, alpha, t, pass);
+      else
         plot_terminal_splat(cv, x, y, c, age, alpha);
     } else if constexpr (requires {
-                           Head::plot_at(x, y, c, age, alpha, t, pass,
-                                         evaluator);
+                           Head::plot_at(x, y, c, age, alpha, t, pass);
                          })
-      Head::plot_at(x, y, c, age, alpha, t, pass, evaluator);
-    else if constexpr (requires {
-                         Head::plot_at(x, y, c, age, alpha, t, pass);
-                       })
       Head::plot_at(x, y, c, age, alpha, t, pass);
     else
       Head::plot(x, y, c, age, alpha, pass);
@@ -1168,7 +1116,7 @@ struct Pipeline<W, H, Head, Tail...>
     requires column_taps_ready
   {
     if constexpr (Head::is_2d) {
-      ScreenPass pass{next, cv, t, nullptr};
+      ScreenPass pass{next, cv, t};
       Head::plot_owned_column(p.x, p.y, c, age, alpha, column, pass);
     } else {
       next.plot_column_at(cv, p, column, c, age, alpha, t);

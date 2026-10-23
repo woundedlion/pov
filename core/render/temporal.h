@@ -370,74 +370,6 @@ HS_HOT_INLINE inline float tap_motion_error(float x, float dx, float dy) {
          (fmaxf(fraction, 1.0f - fraction) / (W / 2.0f));
 }
 
-/** @brief Pure boundary-column geometry and shading evaluator. */
-struct BoundaryEvaluator {
-  void *context;              ///< Borrowed evaluator state.
-  bool sample_exists = true;  ///< Material exists at the original splat time.
-  bool force_timing = false;  ///< Evaluate interior taps at their own times.
-  bool all_passes = false;    ///< One emission supplies both arm passes.
-  bool exact_at_time = false; ///< The splat is the evaluation at its time.
-  /** Evaluates projected position, color, age and opacity; false before birth. */
-  bool (*evaluate)(void *, float, math::PixelCoords &, Pixel &, float &,
-                   float &);
-
-  /** @brief Borrows a pure evaluator for one synchronous plot call.
-   * @param fn Callable receiving time and output registers. */
-  template <typename Fn>
-  explicit BoundaryEvaluator(Fn &fn) : context(&fn), evaluate(invoke<Fn>) {}
-
-private:
-  /** @brief Calls the borrowed evaluator from flash.
-   * @tparam Fn Pure callable type.
-   * @param ctx Borrowed callable.
-   * @param t Frame fraction.
-   * @param p,c,age,alpha Output registers.
-   * @return Whether the material is born. */
-  template <typename Fn>
-  HS_HOT_FLASH_MEMBER static bool invoke(void *ctx, float t,
-                                         math::PixelCoords &p, Pixel &c,
-                                         float &age, float &alpha) {
-    return (*static_cast<Fn *>(ctx))(t, p, c, age, alpha);
-  }
-};
-
-/** @brief Predicted unwrapped landing and pre-write acceptance window. */
-struct ColumnPrediction {
-  float column;    /**< Predicted unwrapped column. */
-  float tolerance; /**< Largest accepted prediction error in columns. */
-  float min_column =
-      -std::numeric_limits<float>::infinity();               /**< Part start. */
-  float max_column = std::numeric_limits<float>::infinity(); /**< Part end. */
-
-  const BoundaryEvaluator *boundary = nullptr; ///< Optional tap-time evaluator.
-  bool record_sample = true; ///< Whether this sample exists at its own time.
-
-  /** @brief Unwraps a projected column near the prediction.
-   * @param landed Wrapped projected column.
-   * @param width Canvas width.
-   * @return Nearest unwrapped column. */
-  HS_HOT_INLINE float unwrap(float landed, float width) const {
-    const float turns = (column - landed) / width;
-    const int nearest = static_cast<int>(turns + (turns < 0.0f ? -0.5f : 0.5f));
-    return landed + static_cast<float>(nearest) * width;
-  }
-
-  /** @brief Tests the time-prediction error bound.
-   * @param landed Unwrapped projected column.
-   * @return Whether the point needs its single correction. */
-  HS_HOT_INLINE bool needs_correction(float landed) const {
-    return fabsf(landed - column) > tolerance;
-  }
-
-  /** @brief Tests prediction and part membership before emission.
-   * @param landed Unwrapped projected column.
-   * @return Whether the point may write framebuffer taps. */
-  HS_HOT_INLINE bool accepts(float landed) const {
-    return !needs_correction(landed) && landed >= min_column &&
-           landed <= max_column;
-  }
-};
-
 /** @brief Work performed by geometry-callback capture and rasterization. */
 struct GeometryCounters {
   uint32_t column_path_evaluations =
@@ -470,8 +402,6 @@ struct GeometryCounters {
       0; /**< Source vertices evaluated at half-frame. */
   uint32_t endpoint_evaluations =
       0; /**< Source vertices evaluated at the frame's start. */
-
-  uint32_t boundary_evaluations = 0; /**< Kept boundary columns re-evaluated. */
 };
 
 /** @brief Host instrumentation for the geometry-callback route. */

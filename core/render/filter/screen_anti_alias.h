@@ -34,38 +34,33 @@ public:
    * @param alpha Source opacity.
    * @param time Frame fraction.
    * @param pass Downstream tap continuation.
-   * @param evaluator Optional pure tap-time geometry and shading. */
+   */
   template <typename PassFnT>
-  HS_O3_FN HS_NOINLINE_NOCLONE void
-  plot_at(float x, float y, const ::Pixel &c, float age, float alpha,
-          float time, PassFnT &&pass,
-          const Temporal::BoundaryEvaluator *evaluator = nullptr) {
+  HS_O3_FN HS_NOINLINE_NOCLONE void plot_at(float x, float y, const ::Pixel &c,
+                                            float age, float alpha, float time,
+                                            PassFnT &&pass) {
     const bool boundary =
         Temporal::temporal_sampling_enabled() &&
-        ((evaluator && evaluator->force_timing) ||
-         fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f);
+        fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f;
     if (boundary) {
-      plot_boundary(x, y, c, age, alpha, time, pass, evaluator);
+      plot_boundary_static(x, y, c, age, alpha, time, pass);
       return;
     }
-    if (evaluator && !evaluator->sample_exists)
-      return;
     plot(x, y, c, age, alpha, pass);
   }
 
-  /** @brief Emits a sample with own-time tap evaluation.
+  /** @brief Emits a sample with arm-pass tap ownership.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected sample coordinates.
    * @param c,age,alpha Shading registers.
    * @param time Owning arm fraction.
    * @param pass Downstream tap continuation.
-   * @param evaluator Optional pure tap-time geometry and shading. */
+   */
   template <typename PassFnT>
-  HS_HOT_INLINE void
-  plot_boundary_at(float x, float y, const ::Pixel &c, float age, float alpha,
-                   float time, PassFnT &pass,
-                   const Temporal::BoundaryEvaluator *evaluator) {
-    plot_boundary(x, y, c, age, alpha, time, pass, evaluator);
+  HS_HOT_INLINE void plot_boundary_at(float x, float y, const ::Pixel &c,
+                                      float age, float alpha, float time,
+                                      PassFnT &pass) {
+    plot_boundary_static(x, y, c, age, alpha, time, pass);
   }
 
   /** @brief Visits a splat's tap columns lit within half a frame of its
@@ -159,46 +154,6 @@ public:
   }
 
 private:
-  /** @brief Splats kept columns at their owned times.
-   * @tparam PassFnT Downstream tap continuation type.
-   * @param x,y Projected sample coordinates.
-   * @param c Source color.
-   * @param age,alpha Source age and opacity.
-   * @param time Owning arm fraction.
-   * @param pass Downstream tap continuation.
-   * @param evaluator Optional pure tap-time geometry and shading. */
-  template <typename PassFnT>
-  HS_O3_FN HS_NOINLINE_NOCLONE void
-  plot_boundary(float x, float y, const ::Pixel &c, float age, float alpha,
-                float time, PassFnT &pass,
-                const Temporal::BoundaryEvaluator *evaluator) {
-    if (evaluator) {
-      const auto emit = [&](int column, float at) HS_HOT_INLINE {
-        math::PixelCoords position{x, y};
-        ::Pixel color = c;
-        float tap_age = age, opacity = alpha;
-        if (at != time || !evaluator->exact_at_time) {
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::boundary_evaluations>();
-          if (!evaluator->evaluate(evaluator->context, at, position, color,
-                                   tap_age, opacity))
-            return;
-        } else if (!evaluator->sample_exists) {
-          return;
-        }
-        plot_owned_column(position.x, position.y, color, tap_age, opacity,
-                          column, pass);
-      };
-      if (!evaluator->all_passes) {
-        for_each_owned_column(x, time, emit);
-        return;
-      }
-      for_each_seam_column(x, emit);
-      return;
-    }
-    plot_boundary_static(x, y, c, age, alpha, time, pass);
-  }
-
   /** @brief Filters a stationary splat by arm-pass ownership.
    * @tparam PassFnT Downstream tap continuation type.
    * @param x,y Projected sample coordinates.

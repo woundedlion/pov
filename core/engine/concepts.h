@@ -352,15 +352,13 @@ class PipelineRef {
     math::PixelCoords (*probe)(void *, Canvas &, const math::Vector &, float);
     /** @brief Plots an explicitly timed point. */
     float (*plot)(void *, Canvas &, const math::Vector &, const Pixel &, float,
-                  float, float, const Temporal::ColumnPrediction *);
+                  float, float);
     /** @brief Plots a sample after the world stages. */
     float (*transformed_plot)(void *, Canvas &, const math::Vector &,
-                              const Pixel &, float, float, float,
-                              const Temporal::ColumnPrediction *);
+                              const Pixel &, float, float, float);
     /** @brief Plots an already-projected timed sample. */
     float (*projected_plot)(void *, Canvas &, math::PixelCoords, const Pixel &,
-                            float, float, float,
-                            const Temporal::ColumnPrediction *);
+                            float, float, float);
     /** @brief Plots a projected sample's anti-alias taps in one column; null
      *  unless the first screen stage anti-aliases. */
     void (*column_plot)(void *, Canvas &, math::PixelCoords, int, const Pixel &,
@@ -453,7 +451,7 @@ class PipelineRef {
     return static_cast<T *>(pipeline)->probe(cv, v, time);
   }
 
-  /** @brief Emits an erased timed point through its acceptance gate.
+  /** @brief Emits an erased timed point through its stages.
    * @tparam T Concrete pipeline type.
    * @param pipeline Borrowed pipeline.
    * @param cv Target canvas.
@@ -462,29 +460,12 @@ class PipelineRef {
    * @param age Age register.
    * @param alpha Opacity.
    * @param time Frame fraction.
-   * @param prediction Optional column acceptance window.
-   * @return Unwrapped landed column. */
+   * @return Projected column. */
   template <typename T>
   HS_O3_FN HS_NOINLINE_NOCLONE static float
   timed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
-                   const Pixel &c, float age, float alpha, float time,
-                   const Temporal::ColumnPrediction *prediction) {
-    auto &sink = *static_cast<T *>(pipeline);
-    if constexpr (requires {
-                    sink.plot_at(cv, v, c, age, alpha, time, prediction);
-                  }) {
-      return sink.plot_at(cv, v, c, age, alpha, time, prediction);
-    } else {
-      const auto p = sink.probe(cv, v, time);
-      const auto unwrap = [&](auto &frame) HS_HOT_INLINE {
-        return prediction ? prediction->unwrap(p.x, frame.width()) : p.x;
-      };
-      const float landed = unwrap(cv);
-      if (!prediction ||
-          (prediction->record_sample && prediction->accepts(landed)))
-        sink.plot_at(cv, v, c, age, alpha, time);
-      return landed;
-    }
+                   const Pixel &c, float age, float alpha, float time) {
+    return static_cast<T *>(pipeline)->plot_at(cv, v, c, age, alpha, time);
   }
 
   /** @brief Dispatches an already-transformed sample.
@@ -494,20 +475,18 @@ class PipelineRef {
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   template <typename T>
   HS_NOINLINE_NOCLONE static float
   transformed_plot_entry(void *pipeline, Canvas &cv, const math::Vector &v,
-                         const Pixel &c, float age, float alpha, float t,
-                         const Temporal::ColumnPrediction *prediction) {
+                         const Pixel &c, float age, float alpha, float t) {
     if constexpr (requires(T &p) {
-                    p.plot_transformed_at(cv, v, c, age, alpha, t, prediction);
+                    p.plot_transformed_at(cv, v, c, age, alpha, t);
                   })
-      return static_cast<T *>(pipeline)->plot_transformed_at(
-          cv, v, c, age, alpha, t, prediction);
+      return static_cast<T *>(pipeline)->plot_transformed_at(cv, v, c, age,
+                                                             alpha, t);
     else
-      return timed_plot_entry<T>(pipeline, cv, v, c, age, alpha, t, prediction);
+      return timed_plot_entry<T>(pipeline, cv, v, c, age, alpha, t);
   }
 
   /** @brief Dispatches an already-projected timed sample.
@@ -517,18 +496,16 @@ class PipelineRef {
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   template <typename T>
   HS_NOINLINE_NOCLONE static float
   projected_plot_entry(void *pipeline, Canvas &cv, math::PixelCoords p,
-                       const Pixel &c, float age, float alpha, float t,
-                       const Temporal::ColumnPrediction *prediction) {
+                       const Pixel &c, float age, float alpha, float t) {
     if constexpr (requires(T &v) {
-                    v.plot_projected_at(cv, p, c, age, alpha, t, prediction);
+                    v.plot_projected_at(cv, p, c, age, alpha, t);
                   })
       return static_cast<T *>(pipeline)->plot_projected_at(cv, p, c, age, alpha,
-                                                           t, prediction);
+                                                           t);
     else {
       static_cast<T *>(pipeline)->plot(cv, p.x, p.y, c, age, alpha);
       return p.x;
@@ -657,14 +634,11 @@ public:
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_transformed_at(Canvas &cv, const math::Vector &v, const Pixel &c,
-                      float age, float alpha, float t,
-                      const Temporal::ColumnPrediction *prediction) const {
-    return timed_entries->transformed_plot(ctx, cv, v, c, age, alpha, t,
-                                           prediction);
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_transformed_at(Canvas &cv, const math::Vector &v,
+                                          const Pixel &c, float age,
+                                          float alpha, float t) const {
+    return timed_entries->transformed_plot(ctx, cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -672,14 +646,11 @@ public:
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_projected_at(Canvas &cv, math::PixelCoords p, const Pixel &c, float age,
-                    float alpha, float t,
-                    const Temporal::ColumnPrediction *prediction) const {
-    return timed_entries->projected_plot(ctx, cv, p, c, age, alpha, t,
-                                         prediction);
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
+                                        const Pixel &c, float age, float alpha,
+                                        float t) const {
+    return timed_entries->projected_plot(ctx, cv, p, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample's anti-alias taps in one column.
@@ -769,13 +740,11 @@ public:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @param prediction Optional pre-write landing window.
-   * @return Landed column, unwrapped near the prediction. */
+   * @return Projected column. */
   float plot_at(Canvas &cv, const math::Vector &v, const Pixel &c, float age,
-                float alpha, float t,
-                const Temporal::ColumnPrediction *prediction = nullptr) const {
+                float alpha, float t) const {
     assert(timed_entries);
-    return timed_entries->plot(ctx, cv, v, c, age, alpha, t, prediction);
+    return timed_entries->plot(ctx, cv, v, c, age, alpha, t);
   }
 
   /**

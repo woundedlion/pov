@@ -264,7 +264,6 @@ inline void test_column_single_splat_motion_gate() {
       HS_EXPECT_GT(counts.column_tap_samples, 0u);
       HS_EXPECT_EQ(counts.column_single_samples + counts.column_tap_samples,
                    counts.column_samples);
-      HS_EXPECT_LE(counts.boundary_evaluations, counts.column_tap_samples);
     }
   }
 }

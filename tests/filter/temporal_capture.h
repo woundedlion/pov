@@ -413,62 +413,6 @@ inline void test_timed_probe_bypasses_history() {
   HS_EXPECT_EQ(records, 1);
 }
 
-/** @brief Predicted landings reject writes and history before one corrected plot. */
-inline void test_timed_predicted_landing() {
-  StubEffect effect(288, 144);
-  Canvas canvas(effect);
-  const Pixel color(65535, 0, 0);
-  const auto point = math::pixel_to_vector<288, 144>(287.5f, 70.0f);
-  Filter::Screen::DirectAntiAliasSink<288, 144> direct;
-  direct.prepare(canvas);
-  Pipeline<288, 144, Filter::Screen::AntiAlias<288, 144>> screen;
-  PipelineRef direct_ref(direct, canvas, Temporal::Timed{});
-  PipelineRef screen_ref(screen, Temporal::Timed{});
-  for (PipelineRef *ref : {&direct_ref, &screen_ref}) {
-    std::fill_n(canvas.data(), 288 * 144, Pixel{});
-    const Temporal::ColumnPrediction wrong{2.0f, 0.1f};
-    const float landed =
-        ref->plot_at(canvas, point, color, 0.0f, 0.4f, 1.0f, &wrong);
-    HS_EXPECT_NEAR(landed, ref->probe(canvas, point, 1.0f).x - 288.0f, 0.0f);
-    HS_EXPECT_TRUE(wrong.needs_correction(landed));
-    int lit = 0;
-    for (int i = 0; i < 288 * 144; ++i)
-      lit += canvas.data()[i].r != 0;
-    HS_EXPECT_EQ(lit, 0);
-    const Temporal::ColumnPrediction outside{landed, 0.1f, 0.0f, 144.0f};
-    ref->plot_at(canvas, point, color, 0.0f, 0.4f, 1.0f, &outside);
-    HS_EXPECT_EQ(canvas(287, 70), Pixel{});
-    const Temporal::ColumnPrediction corrected{landed, 0.1f};
-    HS_EXPECT_NEAR(
-        ref->plot_at(canvas, point, color, 0.0f, 0.4f, 1.0f, &corrected),
-        landed, 0.0f);
-    HS_EXPECT_GT(canvas(287, 70).r, 0);
-  }
-  using Trails = Filter::World::Trails<16>;
-  const auto orientation = spin_history(0.0f, 0.02f, 3);
-  Pipeline<288, 144, Trails, Filter::World::Orient,
-           Filter::Screen::AntiAlias<288, 144>>
-      history{Trails(10), Filter::World::Orient(orientation),
-              Filter::Screen::AntiAlias<288, 144>()};
-  history.init_storage(persistent_arena);
-  PipelineRef ref(history, Temporal::Timed{});
-  const auto projected = ref.probe(canvas, point, 0.3f);
-  const Temporal::ColumnPrediction wrong{projected.x + 4.0f, 0.1f};
-  HS_EXPECT_NEAR(ref.plot_at(canvas, point, color, 0.0f, 0.4f, 0.3f, &wrong),
-                 projected.x, 0.0f);
-  int records = 0;
-  auto shader = [&](const math::Vector &, float) {
-    ++records;
-    return Color4(1, 1, 1, 1);
-  };
-  history.flush(canvas, WorldTrailFn(shader), 1.0f);
-  HS_EXPECT_EQ(records, 0);
-  const Temporal::ColumnPrediction corrected{projected.x, 0.1f};
-  ref.plot_at(canvas, point, color, 0.0f, 0.4f, 0.3f, &corrected);
-  history.flush(canvas, WorldTrailFn(shader), 1.0f);
-  HS_EXPECT_EQ(records, 1);
-}
-
 /** @brief Complementary boundary parts preserve the full still splat weights. */
 inline void test_timed_boundary_tap_ownership() {
   StubEffect effect(288, 144);
