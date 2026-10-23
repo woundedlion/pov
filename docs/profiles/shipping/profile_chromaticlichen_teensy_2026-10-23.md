@@ -26,13 +26,13 @@ The adjacent provenance, compiler/ABI attestation, envdump, build logs and image
 
 ## Frame cadence
 
-**Complete-window aggregate, including setup:** peak render **65.897 ms** (frame 1), mean **39.428 ms**, **1/448 spilled frames** (0.22%).
-The frame scope is 1–448; no warmup or setup frame is excluded.
-Frame 1 renders 65.897 ms. The 8 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
+**Steady render, frame 1 excluded:** peak **40.003 ms** (frame 262), mean **39.369 ms**, **0/447 spilled frames** (0.00%).
+The scope is per-frame render telemetry (`frame` minus the measured buffer wait), frames 2–448 in complete counter windows, with the shipping segment clip. Transitions remain included.
+**Setup frame 1:** render **65.897 ms**, 1/1 spilled. The 8 trailing raw frame rows without a complete counter window are excluded from the aggregate and ownership tables.
 
 Across all 456 raw frame rows, including that trailing portion, the observed peak is 65.897 ms and 1 frames spill.
 
-`fx_shader_draw` averages 32.628 ms/frame; its worst window averages 33.458 ms/frame (frames 1–32).
+Across all complete counter windows, including the setup-containing window, `fx_shader_draw` averages 32.628 ms/frame; its worst window averages 33.458 ms/frame (frames 1–32).
 
 A display window is 62.5 ms. Spilled means render exceeds that budget. Render telemetry subtracts `canvas_buffer_wait`; wall time includes display-sync idle. Measurements use the shipping segment clip.
 
@@ -80,7 +80,7 @@ Blended-pixel counts are not enabled in this timing image. Geometric pixel cover
 
 ## Column-ISR / DMA marshaling cost
 
-Peak-render counter window; separately timestamped ISR interval 2413.299 ms.
+Setup-containing counter window (the all-frame peak), including frame 1; separately timestamped ISR interval 2413.299 ms.
 
 | ISR scope | Calls/frame | Min ms | Mean ms | Max ms | CPU share |
 |---|--:|--:|--:|--:|--:|
@@ -92,18 +92,22 @@ Peak-render counter window; separately timestamped ISR interval 2413.299 ms.
 
 ## Summary ranking
 
+Hot scopes below describe the setup-containing counter window, including frame 1; they are complete-window means. The steady frame peak is reported separately above.
+
 1. `fx_shader_draw` — 33.458 ms/frame, 54.15% of this root window.
 2. `fx_prepare_frame` — 4.039 ms/frame, 6.54% of this root window.
 3. `fx_advance` — 1.950 ms/frame, 3.16% of this root window.
 
-README cells: peak 🔴 65.897, spilled 🔴 1/448 (0.22%).
+README cells: peak 🟢 40.003, spilled 🟢 0/447 (0.00%).
 
-Source, schedule, duration and exclusions identify this observation. It is not a matched comparison with a preceding capture.
+README setup frame 1: 65.897 ms. Peak and spilled cells use the steady frame scope.
+
+Source, schedule, duration and exclusions identify this observation. Earlier report peaks are different captures with their own source and frame scope; they are not matched comparisons.
 
 ## Caveats
 
 - All cycle scopes include interrupt time and instrumentation overhead.
-- The headline includes setup; no post-warmup peak is presented as a whole-show result.
+- Steady figures exclude only frame 1; they include subsequent transitions and are limited to complete counter windows. Counter-scope tables retain their named window scope.
 - Global-O3 reference captures retain their own source and scope.
 
 Parser validation:
