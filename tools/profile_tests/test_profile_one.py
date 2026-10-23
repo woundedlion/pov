@@ -343,13 +343,17 @@ class ArtifactPaths(unittest.TestCase):
         self.assertEqual(derived_paths(override, prelude=MSYS_CYGPATH)["OUT"], override)
 
 
-def native_path(path, *, path_env):
-    """device_lock.sh's hs_native_path, run with PATH=path_env."""
+def native_path(path, *, prelude=None):
+    """device_lock.sh's hs_native_path; a prelude replaces command search with its own functions."""
     source = (REPO / "tools" / "device_lock.sh").read_text(encoding="utf-8")
     function = re.search(r"(?ms)^hs_native_path\(\) \{\n.*?^\}\n", source).group(0)
-    return subprocess.run(
-        [shutil.which("bash"), "-c", function + 'hs_native_path "$1"', "native-test", path],
-        capture_output=True, text=True, encoding="utf-8", env={"PATH": path_env})
+    script = function + 'hs_native_path "$1"'
+    if prelude is not None:
+        script = "PATH=$PWD\n" + prelude + script
+    with tempfile.TemporaryDirectory() as empty:
+        return subprocess.run(
+            [shutil.which("bash"), "-c", script, "native-test", path],
+            capture_output=True, text=True, encoding="utf-8", cwd=empty)
 
 
 class NativePath(unittest.TestCase):
@@ -357,13 +361,17 @@ class NativePath(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("cygpath"), "needs MSYS cygpath")
     def test_msys_absolute_path_becomes_a_drive_path(self):
-        result = native_path("/c/work/prof/fx.log", path_env=os.environ["PATH"])
+        result = native_path("/c/work/prof/fx.log")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "C:/work/prof/fx.log")
 
+    def test_with_cygpath_the_path_is_converted(self):
+        result = native_path("/c/work/prof/fx.log", prelude=MSYS_CYGPATH)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "C:/work/prof/fx.log\n")
+
     def test_without_cygpath_the_path_is_unchanged(self):
-        with tempfile.TemporaryDirectory() as empty:
-            result = native_path("/c/work/prof/fx.log", path_env=empty)
+        result = native_path("/c/work/prof/fx.log", prelude="")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "/c/work/prof/fx.log\n")
 
