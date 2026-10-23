@@ -4,19 +4,64 @@
  */
 #pragma once
 
-/** @file temporal_history.h
- * @brief Retained frame endpoints, periodic clock arcs, and frame sampling
- *        shared by every column-time renderer.
+/** @file field.h
+ * @brief Surface-time shading and retained frame intervals.
  */
 
-#include "core/math/3dmath.h"
-#include "core/platform/attributes.h"
+#include "core/render/spacetime/surface.h"
 #include "core/render/pullback/color.h"
 #include <cmath>
 #include <concepts>
 #include <type_traits>
+#include <utility>
 
-namespace Pullback {
+namespace Spacetime {
+
+/**
+ * @brief Whether a scan shader reads the sweep time of the pixel it shades.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The scan's shader arguments.
+ * @details A shader declares it by its signature: one invocable with a
+ * trailing `float u` after the scan's arguments receives, in a column-time
+ * scan, the sweep fraction of the shaded column, in [0, 1), and evaluates its
+ * time-varying state there. The fixed-meridian scans call the plain form.
+ */
+template <typename ShaderT, typename... Args>
+inline constexpr bool reads_time =
+    std::is_invocable_v<ShaderT &, Args..., float>;
+
+/**
+ * @brief Runs a shader at a frame fraction when it reads one.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The shader's arguments.
+ * @param shader Shader to run.
+ * @param t Frame fraction in [0, 1].
+ * @param args The shader's arguments.
+ */
+template <typename ShaderT, typename... Args>
+__attribute__((always_inline)) inline void
+shade_at_time(ShaderT &shader, float t, Args &&...args) {
+  if constexpr (reads_time<ShaderT, Args...>)
+    shader(std::forward<Args>(args)..., t);
+  else
+    shader(std::forward<Args>(args)...);
+}
+
+/**
+ * @brief Runs a scan shader at a column's sweep time when it reads one.
+ * @tparam W Canvas width in columns.
+ * @tparam ShaderT Shader type.
+ * @tparam Args The scan's shader arguments.
+ * @param shader Shader to run.
+ * @param x Shaded canvas column.
+ * @param args The scan's shader arguments.
+ */
+template <int W, typename ShaderT, typename... Args>
+__attribute__((always_inline)) inline void
+shade_at_column(ShaderT &shader, int x, Args &&...args) {
+  shade_at_time(shader, SamplingSurface<W>::time(x),
+                std::forward<Args>(args)...);
+}
 
 /** @brief Prepared shortest arc of a periodic clock. */
 struct ClockInterval {
@@ -95,15 +140,16 @@ concept BorrowsColorResources = requires(const Frame &frame) {
 };
 
 /** @brief Optional retained endpoint storage. */
-template <typename Frame, Color::HueMode Hue = Color::HueMode::NONE,
+template <typename Frame,
+          Pullback::Color::HueMode Hue = Pullback::Color::HueMode::NONE,
           bool Enabled = true, bool FloatHue = false>
-struct TemporalHistory {};
+struct FrameHistory {};
 
 /** @brief Retained previous endpoint of a frame that owns or shares
  *  immutable resources. */
 template <typename Frame>
   requires(!BorrowsColorResources<Frame>)
-struct TemporalHistory<Frame, Color::HueMode::NONE, true, false> {
+struct FrameHistory<Frame, Pullback::Color::HueMode::NONE, true, false> {
   static_assert(std::is_trivially_copyable_v<Frame>);
   Frame previous{};         ///< Previous endpoint.
   bool initialized = false; ///< Whether a previous endpoint exists.
@@ -116,4 +162,4 @@ struct TemporalHistory<Frame, Color::HueMode::NONE, true, false> {
   }
 };
 
-} // namespace Pullback
+} // namespace Spacetime

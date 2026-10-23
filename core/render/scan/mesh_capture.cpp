@@ -34,6 +34,10 @@ face_capture_interval(const float *angles, size_t count, float reach,
   return {lo - shift, hi - shift};
 }
 
+} // namespace Scan
+
+namespace Scan::detail {
+
 namespace {
 
 /** @brief How a deformation scan draws a face. */
@@ -67,7 +71,7 @@ constexpr float SWEEP_STEP_AREA = 20.0f;
  * motion over the frame is bounded by its chord from the frame's start to
  * its end plus twice its path's bulge at the frame's middle.
  */
-HS_HOT_FLASH_MEMBER FaceKind polar_kind(const MeshDeformation &d, size_t face,
+HS_HOT_FLASH_MEMBER FaceKind polar_kind(const SweptMesh &d, size_t face,
                                         float span) {
   const MeshState &mesh = d.mesh;
   const size_t count = mesh.get_face_counts_data()[face];
@@ -150,7 +154,7 @@ HS_HOT_INLINE float vertex_turns(const FaceTables &tables, size_t i) {
  * @param i Vertex index.
  * @return Captured vertex.
  */
-HS_HOT_FLASH_MEMBER math::Vector capture_branch(const MeshDeformation &d,
+HS_HOT_FLASH_MEMBER math::Vector capture_branch(const SweptMesh &d,
                                                 const FaceTables &tables,
                                                 float centre, size_t i) {
   return capture_vertex(d.start[i], tables.ends[i], centre, d.canvas.width(),
@@ -168,7 +172,7 @@ HS_HOT_FLASH_MEMBER math::Vector capture_branch(const MeshDeformation &d,
  * @param i Vertex index.
  * @param across Whether the capture continues across the boundary.
  */
-HS_HOT_FLASH_MEMBER void place_vertex(const MeshDeformation &d,
+HS_HOT_FLASH_MEMBER void place_vertex(const SweptMesh &d,
                                       const FaceTables &tables, size_t i,
                                       bool across) {
   uint8_t &state = tables.state[i];
@@ -192,9 +196,8 @@ HS_HOT_FLASH_MEMBER void place_vertex(const MeshDeformation &d,
  * @details The capture is the vertex's own-arm one when its endpoint stands
  * in that half.
  */
-HS_HOT_FLASH_MEMBER void place_half(const MeshDeformation &d,
-                                    const FaceTables &tables, size_t i,
-                                    int half) {
+HS_HOT_FLASH_MEMBER void
+place_half(const SweptMesh &d, const FaceTables &tables, size_t i, int half) {
   uint8_t &state = tables.state[i];
   const uint8_t pool = half ? POOL_SECOND_HALF : POOL_FIRST_HALF;
   if (!d.moving[i] || (state & (pool | VERTEX_HELD)))
@@ -216,9 +219,8 @@ HS_HOT_FLASH_MEMBER void place_half(const MeshDeformation &d,
  * @return The captured vertex, or the pool's vertex for one that does not
  *         move.
  */
-HS_HOT_FLASH_MEMBER math::Vector vertex_at(const MeshDeformation &d,
-                                           const FaceTables &tables, size_t i,
-                                           float time) {
+HS_HOT_FLASH_MEMBER math::Vector
+vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
   if (!d.moving[i] || (tables.state[i] & VERTEX_HELD))
     return d.mesh.vertices[i];
   const float turns = vertex_turns(tables, i);
@@ -246,8 +248,7 @@ HS_HOT_FLASH_MEMBER math::Vector vertex_at(const MeshDeformation &d,
  * an arm boundary when that arc meets one. A seam face's vertices lie within
  * a quarter frame of the boundary.
  */
-HS_HOT_FLASH_MEMBER FaceKind classify_face(const MeshDeformation &d,
-                                           size_t face,
+HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
                                            const FaceTables &tables,
                                            float sweep) {
   const MeshState &mesh = d.mesh;
@@ -275,7 +276,7 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const MeshDeformation &d,
       bool held = false;
       if (motion > 0.0f) {
         tables.ends[i] =
-            vertex_column(v, *d.canvas.column_time(), 1.0f, d.canvas.width());
+            vertex_column(v, *d.canvas.column_basis(), 1.0f, d.canvas.width());
         held = motion + sweep >= sqrtf(axial) * (math::PI_F / 4.0f);
       }
       state = VERTEX_SEEN | (turns < 0.0f ? VERTEX_ARM1 : uint8_t(0)) |
@@ -312,18 +313,17 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const MeshDeformation &d,
  * @param copy The copy.
  * @param arm The arm, 0 or 1.
  */
-HS_HOT_FLASH_MEMBER void scan_copy(const MeshDeformation &d,
-                                   const Temporal::MeshFaceCopy &copy,
-                                   int arm) {
-  Temporal::ColumnTime face_time = *d.canvas.column_time();
-  face_time.face_copy = &copy;
-  ColumnTimeScope scope(d.canvas, face_time);
-  d.selected[copy.face] = Temporal::MESH_FACE_WINDOW;
+HS_HOT_FLASH_MEMBER void scan_copy(const SweptMesh &d,
+                                   const Scan::FaceArmCopy &copy, int arm) {
+  Scan::ColumnBasis face_time = *d.canvas.column_basis();
+  face_time.mesh.face_copy = &copy;
+  ColumnBasisScope scope(d.canvas, face_time);
+  d.selected[copy.face] = Scan::detail::FacePass::ARM_COPY;
   {
-    RenderXWindow window(d.canvas, 0, d.canvas.width() / 2, arm);
+    TimeWindow window(d.canvas, 0, d.canvas.width() / 2, arm);
     d.callbacks.draw(d.callbacks.scan_context);
   }
-  d.selected[copy.face] = Temporal::MESH_FACE_SKIPPED;
+  d.selected[copy.face] = Scan::detail::FacePass::SKIPPED;
 #if HS_ENABLE_TEST_HOOKS
   ++mesh_capture_counters.scans;
   ++mesh_capture_counters.face_copies;
@@ -345,7 +345,7 @@ HS_HOT_FLASH_MEMBER void scan_copy(const MeshDeformation &d,
  * part draws twice, once for each edge. A face with no vertex on the arm
  * continues its times across the boundary nearer its middle.
  */
-HS_HOT_FLASH_MEMBER void draw_arm_copy(const MeshDeformation &d,
+HS_HOT_FLASH_MEMBER void draw_arm_copy(const SweptMesh &d,
                                        const FaceTables &tables, size_t face,
                                        int arm) {
   const MeshState &mesh = d.mesh;
@@ -444,7 +444,7 @@ HS_HOT_FLASH_MEMBER void draw_arm_copy(const MeshDeformation &d,
       identity[m] = static_cast<uint16_t>(m);
     }
   }
-  const Temporal::MeshFaceCopy copy{face, vertices, identity, order, n};
+  const Scan::FaceArmCopy copy{face, vertices, identity, order, n};
   scan_copy(d, copy, arm);
 }
 
@@ -454,16 +454,16 @@ HS_HOT_FLASH_MEMBER void draw_arm_copy(const MeshDeformation &d,
  * @param face Face index.
  * @details Each moving vertex's path is the quadratic through its closed
  * form at the frame's start and middle and its current endpoint
- * (Temporal::VertexPath::quadratic()).
+ * (Spacetime::Worldline::quadratic()).
  */
-HS_HOT_FLASH_MEMBER void sweep_face(const MeshDeformation &d, size_t face) {
+HS_HOT_FLASH_MEMBER void sweep_face(const SweptMesh &d, size_t face) {
   const MeshState &mesh = d.mesh;
   const size_t count = mesh.get_face_counts_data()[face];
   const uint16_t *indices =
       mesh.get_faces_data() + mesh.get_face_offsets_data()[face];
   ScratchScope scope(d.scratch);
-  Temporal::VertexPath *paths =
-      d.scratch.allocate_n<Temporal::VertexPath>(count);
+  Spacetime::Worldline *paths =
+      d.scratch.allocate_n<Spacetime::Worldline>(count);
   math::Vector middle(0.0f, 0.0f, 0.0f);
   {
     HS_PROFILE(mesh_sweep_paths);
@@ -471,22 +471,22 @@ HS_HOT_FLASH_MEMBER void sweep_face(const MeshDeformation &d, size_t face) {
       const size_t i = indices[k];
       const math::Vector &end = mesh.vertices[i];
       if (d.moving[i]) {
-        paths[k] = Temporal::VertexPath::quadratic(
+        paths[k] = Spacetime::Worldline::quadratic(
             d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.0f),
             d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.5f), end);
 #if HS_ENABLE_TEST_HOOKS
         mesh_capture_counters.evaluations += 2;
 #endif
       } else {
-        paths[k] = Temporal::VertexPath::chord(end, end);
+        paths[k] = Spacetime::Worldline::chord(end, end);
       }
       middle = middle + paths[k].middle;
     }
   }
-  const Temporal::MeshFaceSweep sweep{face, paths, count, middle.y > 0.0f};
-  Temporal::ColumnTime face_time = *d.canvas.column_time();
-  face_time.face_sweep = &sweep;
-  ColumnTimeScope time_scope(d.canvas, face_time);
+  const Scan::PoleFaceSweep sweep{face, paths, count, middle.y > 0.0f};
+  Scan::ColumnBasis face_time = *d.canvas.column_basis();
+  face_time.mesh.face_sweep = &sweep;
+  ColumnBasisScope time_scope(d.canvas, face_time);
   d.callbacks.draw(d.callbacks.scan_context);
 #if HS_ENABLE_TEST_HOOKS
   ++mesh_capture_counters.scans;
@@ -507,7 +507,7 @@ HS_HOT_FLASH_MEMBER void sweep_face(const MeshDeformation &d, size_t face) {
  * @details A polar face's vertices stand at their times nearest the middle
  * of the half (place_half()).
  */
-HS_HOT_FLASH_MEMBER bool place_pass(const MeshDeformation &d,
+HS_HOT_FLASH_MEMBER bool place_pass(const SweptMesh &d,
                                     const FaceTables &tables, FaceKind kind,
                                     int arm) {
   HS_PROFILE(mesh_capture);
@@ -524,12 +524,12 @@ HS_HOT_FLASH_MEMBER bool place_pass(const MeshDeformation &d,
     if (kind != SHARED_FACE) {
       const bool draw =
           kind == SEAM_FACE
-              ? face_columns_meet(d.columns + 2 * f, 0, half, d.clip, width,
-                                  arm)
-              : face_columns_meet(d.columns + 2 * f, arm * quarter,
-                                  (arm + 1) * quarter, d.clip, width);
-      d.selected[f] =
-          draw ? Temporal::MESH_FACE_WINDOW : Temporal::MESH_FACE_SKIPPED;
+              ? detail::face_columns_meet(d.columns + 2 * f, 0, half, d.clip,
+                                          width, arm)
+              : detail::face_columns_meet(d.columns + 2 * f, arm * quarter,
+                                          (arm + 1) * quarter, d.clip, width);
+      d.selected[f] = draw ? Scan::detail::FacePass::ARM_COPY
+                           : Scan::detail::FacePass::SKIPPED;
       if (!draw)
         continue;
 #if HS_ENABLE_TEST_HOOKS
@@ -552,7 +552,7 @@ HS_HOT_FLASH_MEMBER bool place_pass(const MeshDeformation &d,
 
 } // namespace
 
-HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
+HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   MeshState &mesh = d.mesh;
   const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
   const int width = d.canvas.width(), half = width / 2;
@@ -563,7 +563,7 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
                           d.scratch.allocate_n<uint8_t>(vertices),
                           d.scratch.allocate_n<uint16_t>(vertices),
                           d.scratch.allocate_n<uint16_t>(vertices)};
-  const float sweep = d.canvas.column_time()->sweep;
+  const float sweep = d.canvas.column_basis()->sweep_arc;
   std::fill_n(tables.state, vertices, uint8_t(0));
 #if HS_ENABLE_TEST_HOOKS
   ++mesh_capture_counters.deformations;
@@ -581,8 +581,8 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
       shared |= kind == HELD_FACE || kind == SHARED_FACE;
       polar |= kind == POLAR_FACE;
       d.selected[f] = kind == HELD_FACE || kind == SHARED_FACE
-                          ? Temporal::MESH_FACE_HELD
-                          : Temporal::MESH_FACE_SKIPPED;
+                          ? Scan::detail::FacePass::SHARED
+                          : Scan::detail::FacePass::SKIPPED;
 #if HS_ENABLE_TEST_HOOKS
       mesh_capture_counters.shared_faces += kind == SHARED_FACE;
       mesh_capture_counters.cross_faces += kind == CROSS_FACE;
@@ -600,8 +600,7 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
   // Faces reaching a pole draw through the two halves of each arm.
   for (int part = 0; polar && part < 2; ++part) {
     if (place_pass(d, tables, POLAR_FACE, part)) {
-      RenderXWindow window(d.canvas, part * (half / 2),
-                           (part + 1) * (half / 2));
+      TimeWindow window(d.canvas, part * (half / 2), (part + 1) * (half / 2));
       d.callbacks.draw(d.callbacks.scan_context);
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.scans;
@@ -610,7 +609,7 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
   }
   for (size_t f = 0; polar && f < faces; ++f)
     if (tables.kinds[f] == POLAR_FACE)
-      d.selected[f] = Temporal::MESH_FACE_SKIPPED;
+      d.selected[f] = Scan::detail::FacePass::SKIPPED;
   if (shared) {
     place_pass(d, tables, SHARED_FACE, 0);
     d.callbacks.draw(d.callbacks.scan_context);
@@ -620,7 +619,7 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
   }
   for (const int arm : {0, 1}) {
     if (place_pass(d, tables, SEAM_FACE, arm)) {
-      RenderXWindow window(d.canvas, 0, half, arm);
+      TimeWindow window(d.canvas, 0, half, arm);
       d.callbacks.draw(d.callbacks.scan_context);
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.scans;
@@ -628,12 +627,13 @@ HS_HOT_FLASH_MEMBER void deform_faces(const MeshDeformation &d) {
     }
     for (size_t f = 0; f < faces; ++f) {
       if (tables.kinds[f] == SEAM_FACE)
-        d.selected[f] = Temporal::MESH_FACE_SKIPPED;
+        d.selected[f] = Scan::detail::FacePass::SKIPPED;
       if (tables.kinds[f] == CROSS_FACE &&
-          face_columns_meet(d.columns + 2 * f, 0, half, d.clip, width, arm))
+          detail::face_columns_meet(d.columns + 2 * f, 0, half, d.clip, width,
+                                    arm))
         draw_arm_copy(d, tables, f, arm);
     }
   }
 }
 
-} // namespace Scan
+} // namespace Scan::detail

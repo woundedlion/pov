@@ -611,8 +611,9 @@ visible_chunk_mask(const ClipRegion &clip, const math::Basis &basis,
  */
 template <int W>
 __attribute__((always_inline)) inline bool
-cap_may_touch_window(const ColumnWindow &window, const math::Vector &dir,
-                     float half_angle, float sin_half_angle) {
+cap_may_touch_window(const Spacetime::TimeWindow &window,
+                     const math::Vector &dir, float half_angle,
+                     float sin_half_angle) {
   if (!window.active)
     return true;
   const float t2 = fminf(half_angle, math::PI_F);

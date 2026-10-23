@@ -545,7 +545,7 @@ private:
     const float PREVIOUS_PHASE = color_noise_phase;
     color_noise_phase = math::wrap_t(color_noise_phase + params.noise_speed);
     if (params.hue_shift != 0.0f || params.shimmer != 0.0f) {
-      if (Temporal::temporal_sampling_enabled())
+      if (!Spacetime::flat_surface())
         retain_color_noise(PREVIOUS_PHASE);
       refresh_color_noise();
     }
@@ -1409,7 +1409,7 @@ private:
   /**
    * @brief Shades the B field, each column against the unrotated lattice from
    *        its frame at its sweep time.
-   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindow limits the columns.
    * @param basis The frame's per-column lattice frames.
    * @param hot1 One-ring renderable flags.
    * @param hot2 Two-ring renderable flags.
@@ -1516,7 +1516,7 @@ private:
     uint16_t *start_b = scratch_arena_a.allocate_n<uint16_t>(RD_N);
     std::copy_n(state.B, RD_N, start_b);
     int slab = 0;
-    Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
+    Spacetime::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
         canvas,
         [&](int substeps) HS_HOT_INLINE {
           for (int step = 0; step < substeps; ++step)
@@ -1567,7 +1567,7 @@ private:
       advance_color_noise();
     }
     ScratchScope frame_guard(scratch_arena_a);
-    if (Temporal::temporal_sampling_enabled()) {
+    if (!Spacetime::flat_surface()) {
       render_slabs(canvas);
       return;
     }

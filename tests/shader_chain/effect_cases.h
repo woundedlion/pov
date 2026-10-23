@@ -586,7 +586,7 @@ inline void test_shader_chain_columns_follow_sweep_time() {
     HS_CONTEXT("draw", draw);
     for (int x = 0; x < 96; ++x) {
       const float time =
-          draw == 0 ? 1.0f : draw + Temporal::sweep_fraction(x, 96);
+          draw == 0 ? 1.0f : draw + Spacetime::SamplingSurface<96>::time(x);
       worst = std::max(worst, chain_column_gap(chain, x, CHAIN_SPIN * time));
       held =
           std::max(held, chain_column_gap(chain, x, CHAIN_SPIN * (draw + 1)));
@@ -703,19 +703,19 @@ inline void test_shader_chain_fidelity_toggle_keeps_history() {
   int draw = 0;
   for (const bool enabled : {true, true, false, false, true}) {
     HS_CONTEXT("draw", draw);
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     pin_frame_clock(draw);
     chain.draw_frame();
     chain.advance_display();
     for (int x = 0; x < 96; ++x) {
       const float time = draw == 0 || !enabled
                              ? draw + 1.0f
-                             : draw + Temporal::sweep_fraction(x, 96);
+                             : draw + Spacetime::SamplingSurface<96>::time(x);
       worst = std::max(worst, chain_column_gap(chain, x, CHAIN_SPIN * time));
     }
     ++draw;
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   HS_EXPECT_LE(worst, CHAIN_TIME_TOLERANCE);
 }
@@ -754,7 +754,7 @@ inline void test_shader_chain_palettes_blend_across_the_frame() {
   int worst = 0;
   int changed = 0;
   for (int x = 0; x < 96; ++x) {
-    const float fraction = Temporal::sweep_fraction(x, 96);
+    const float fraction = Spacetime::SamplingSurface<96>::time(x);
     for (int y = 0; y < 20; ++y) {
       const Color4 color =
           WB::program(chain).evaluate(chain_scan_view(x, y), after);

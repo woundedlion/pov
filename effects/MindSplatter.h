@@ -599,7 +599,7 @@ private:
    */
   void draw_particles(Canvas &canvas) {
     HS_PROFILE(msp_draw_particles);
-    if (history_ready && Temporal::temporal_sampling_enabled())
+    if (history_ready && !Spacetime::flat_surface())
       draw_column_trails(canvas);
     else
       draw_particles_with(filters, canvas);
@@ -662,9 +662,9 @@ private:
     const float inv_max_life =
         1.0f / static_cast<float>(particle_system.max_life);
     const float cap = particle_system.motion_cap;
-    const auto cull = Plot::ColumnEdgeCull<W>::template of<H>(canvas);
-    const float spin = timed_filters.cull_bound();
-    const Temporal::PoseTable &poses = *timed_filters.pose_table(canvas);
+    const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
+    const float spin = timed_filters.sweep_arc();
+    const Spacetime::PoseTable &poses = *timed_filters.pose_table(canvas);
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
     if constexpr (requires { filters.prepare(canvas); })
@@ -690,8 +690,8 @@ private:
     auto path = [&](size_t i, float t)
                     HS_HOT_FLASH_MEMBER { return warp.at(chunk[i], t); };
     auto vertex_path = [&](size_t i) HS_HOT_FLASH_MEMBER {
-      return Temporal::PathBound::warped_great_circle(chunk[i].turn, shift,
-                                                      reach);
+      return Spacetime::PathBound::warped_great_circle(chunk[i].turn, shift,
+                                                       reach);
     };
     auto shade = [](const TrailVertex &head, const TrailVertex &tail,
                     float s) HS_HOT_INLINE {
@@ -746,7 +746,7 @@ private:
         warped[j] = warp.active
                         ? math::mobius_transform(trail[j].origin, mobius)
                         : trail[j].origin;
-        world[j] = Plot::ColumnEdgeFrame::normalize(end_pose.apply(warped[j]));
+        world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(warped[j]));
       }
       float reach_cosine = 1.0f;
       const math::Vector &centre = world[points / 2];
@@ -783,7 +783,7 @@ private:
         trail[j].progress = static_cast<float>(j) / denominator;
         trail[j].fade = life * hole;
         trail[j].palette = palette;
-        starts[j] = Plot::ColumnEdgeFrame::normalize(
+        starts[j] = Plot::EdgeWorldsheet::normalize(
             start_pose.apply(warp.at(trail[j], 0.0f)));
       }
       if (count + static_cast<size_t>(points) > COLUMN_CHUNK_VERTICES)

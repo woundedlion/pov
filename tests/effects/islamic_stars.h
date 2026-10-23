@@ -336,7 +336,7 @@ struct IslamicBuildProbe {
       const float bound = e.motion_bound(path, source.vertices.size());
       const auto time = Scan::prepare_column_basis<W, H>(scratch_arena_a,
                                                          e.orientation, true);
-      Scan::ColumnTimeScope columns(canvas, time);
+      Scan::ColumnBasisScope columns(canvas, time);
       MeshState mesh = e.transform_shape(source);
       const auto plan = e.plan_motion(canvas, mesh, path, bound,
                                       scratch_arena_a, scratch_arena_b);
@@ -1051,9 +1051,9 @@ inline void test_islamicstars_opacity_history() {
   HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.2f), 0.2f);
   HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.3f), 0.2f);
   HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.3f), 0.3f);
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.5f), 0.5f);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   HS_EXPECT_EQ(P::record_phase(effect, 1 - front, 0.6f), 0.5f);
 
   const size_t selected =

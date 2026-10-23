@@ -185,7 +185,8 @@ template <typename Params>
 inline void temporal_sample(RipplePhaseState &out,
                             const RipplePhaseInterval &interval,
                             const Params &params, float fraction) {
-  out.phase = sample_clock(interval.from, interval.to, fraction, params.period);
+  out.phase = Spacetime::sample_clock(interval.from, interval.to, fraction,
+                                      params.period);
 }
 
 /** @brief SPHERE endomorphism: a periodically expanding Ricker-wave ripple. */

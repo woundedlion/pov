@@ -13,8 +13,8 @@
 #include "core/render/pullback/operators/model.h"
 #include "core/render/pullback/stage.h"
 #include "core/render/pullback/runtime_seeds.h"
-#include "core/render/pullback/temporal_history.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime/field.h"
+#include "core/render/spacetime.h"
 
 /**
  * @file common.h
@@ -114,8 +114,8 @@ inline void advance_walk(SpatialWalkState &state, float wander,
 
 /** @brief Prepared frame clocks of SpatialWalkState. */
 struct SpatialWalkInterval {
-  Temporal::TemporalRotation wander; ///< Prepared wander interval.
-  ClockInterval spin;                ///< Prepared spin interval.
+  Spacetime::TemporalRotation wander; ///< Prepared wander interval.
+  Spacetime::ClockInterval spin;      ///< Prepared spin interval.
 };
 
 /** @brief Prepares the clocks between consecutive endpoints.
@@ -153,8 +153,8 @@ struct NoisePhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE ClockInterval temporal_interval(const NoisePhaseState &from,
-                                                const NoisePhaseState &to) {
+HS_FLASH_INLINE Spacetime::ClockInterval
+temporal_interval(const NoisePhaseState &from, const NoisePhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }
 
@@ -165,7 +165,7 @@ HS_FLASH_INLINE ClockInterval temporal_interval(const NoisePhaseState &from,
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
 HS_FLASH_INLINE void temporal_sample(NoisePhaseState &out,
-                                     const ClockInterval &interval,
+                                     const Spacetime::ClockInterval &interval,
                                      const Params &, float fraction) {
   out.phase = interval.sample(fraction);
 }

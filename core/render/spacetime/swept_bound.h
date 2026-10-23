@@ -14,7 +14,7 @@
 #include "core/platform/attributes.h"
 #include <cmath>
 
-namespace Temporal {
+namespace Spacetime {
 
 /**
  * @brief Height interval of the directions a frame's swept primitive can
@@ -23,7 +23,7 @@ namespace Temporal {
  *        start and end.
  * @param count Number of captures, at least 1.
  * @param pad Bound on any vertex path's distance from its chord between its
- *        captures (Temporal::VertexPath::deviation()).
+ *        captures (Spacetime::Worldline::deviation()).
  * @param low Receives the least reachable height.
  * @param high Receives the greatest reachable height.
  * @return False when the captures spread too far apart to bound, leaving
@@ -79,4 +79,4 @@ HS_HOT_INLINE inline bool swept_beyond(const math::Vector *points, int count,
   return true;
 }
 
-} // namespace Temporal
+} // namespace Spacetime

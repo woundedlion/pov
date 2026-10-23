@@ -14,7 +14,7 @@
 #include "core/platform/effect_identity.h"
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
-#include "core/render/temporal/vertex_motion.h"
+#include "core/render/spacetime/worldlines.h"
 
 namespace hs_test {
 namespace effects_tests {
@@ -347,7 +347,7 @@ private:
     const float motion_cap = particle_system.motion_cap;
 
     filters.prepare(canvas);
-    stars.prepare(canvas, motion_cap + Temporal::rotation_chord_bound(
+    stars.prepare(canvas, motion_cap + Spacetime::rotation_chord_bound(
                                            previous_rotation, rotation));
     for (int i = 0; i < particle_system.active(); ++i) {
       const auto &p = particle_system.pool[i];
@@ -394,9 +394,9 @@ private:
       f.color = Color4(0, 0, 0, alpha);
     };
     ScratchScope column_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time =
+    const Scan::ColumnBasis column_basis =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     for (const Galaxy &g : galaxies) {
       const math::Vector core = rotation.apply(g.core);
       if (params.black_hole) {

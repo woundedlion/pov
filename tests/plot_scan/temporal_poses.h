@@ -66,11 +66,11 @@ inline void test_pose_table_follows_history_path() {
     HS_CONTEXT("width", width);
     const int half = width / 2;
     ScratchScope storage(scratch_arena_a);
-    auto table = std::make_unique<Temporal::PoseTable>();
+    auto table = std::make_unique<Spacetime::PoseTable>();
     const size_t before = scratch_arena_a.get_offset();
     table->bind(scratch_arena_a, width);
     HS_EXPECT_LE(scratch_arena_a.get_offset() - before,
-                 Temporal::PoseTable::storage_bytes(width));
+                 Spacetime::PoseTable::storage_bytes(width));
     math::Orientation<> orientation(math::make_rotation(math::X_AXIS, 0.3f));
     math::RotationMatrix previous_end;
     float history_error = 0.0f, endpoint_departure = 0.0f;
@@ -81,7 +81,7 @@ inline void test_pose_table_follows_history_path() {
       HS_EXPECT_FALSE(table->stationary());
       const math::SlerpArc endpoints(orientation.get(0), orientation.get());
       for (int c = 0; c < half; ++c) {
-        const float t = Temporal::sweep_fraction(c, width);
+        const float t = Spacetime::surface_time(c, width);
         const math::RotationMatrix want(orientation.get(t));
         history_error =
             fmaxf(history_error, matrix_distance(table->at(c), want));
@@ -110,7 +110,7 @@ inline void test_pose_table_follows_history_path() {
 inline void test_pose_table_holds_a_still_history() {
   constexpr int W = 288;
   ScratchScope storage(scratch_arena_a);
-  auto table = std::make_unique<Temporal::PoseTable>();
+  auto table = std::make_unique<Spacetime::PoseTable>();
   table->bind(scratch_arena_a, W);
   const math::Orientation<> still(math::make_rotation(math::Z_AXIS, 1.1f));
   table->build(still);
@@ -125,7 +125,7 @@ inline void test_pose_table_holds_a_still_history() {
 inline void test_pose_table_rotates_between_column_times() {
   constexpr int W = 288;
   ScratchScope storage(scratch_arena_a);
-  auto table = std::make_unique<Temporal::PoseTable>();
+  auto table = std::make_unique<Spacetime::PoseTable>();
   table->bind(scratch_arena_a, W);
   math::Orientation<> orientation;
   advance_turning_history(orientation, 2, 0.12f);
@@ -159,12 +159,12 @@ inline void test_column_poses_match_endpoint_slerp() {
   const math::SlerpArc arc(ends[0], ends[1]);
   int visited = 0;
   float worst = 0.0f;
-  Temporal::for_each_column_pose(
+  Spacetime::for_each_time_pose(
       ends, 2, W, [&](int c, const math::Quaternion &pose) {
         HS_EXPECT_EQ(c, visited);
         ++visited;
         const math::Quaternion want =
-            arc.sample(Temporal::sweep_fraction(c, W));
+            arc.sample(Spacetime::SamplingSurface<W>::time(c));
         worst = fmaxf(worst, sqrtf((pose - want).squared_magnitude()));
       });
   HS_EXPECT_EQ(visited, W / 2);

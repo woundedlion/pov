@@ -723,8 +723,8 @@ private:
     plan.during = arena.allocate_n<MotionRipple>(ripple_gen.active_count() + 1);
     ScratchScope radii_scope(arena);
     float *radii = arena.allocate_n<float>(mesh.num_faces());
-    if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
-                                   plan.columns, radii) == 0)
+    if (Scan::detail::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
+                                           plan.columns, radii) == 0)
       return plan;
     ripples_at(plan.during);
     for (int k = 0; k < ripple_gen.active_count(); ++k)
@@ -744,7 +744,7 @@ private:
       const float model_arc = plan.start[i] * MOTION_UNIT;
       const math::Vector start = capture_position(plan, path, i, 0.0f);
       plan.start[i] =
-          Scan::vertex_column(start, *canvas.column_time(), 0.0f, W);
+          Scan::vertex_column(start, *canvas.column_basis(), 0.0f, W);
       const math::Vector &end = mesh.vertices[i];
       const float c = math::dot(start, end);
       min_cos = fminf(min_cos, c);
@@ -765,8 +765,8 @@ private:
       return plan;
     plan.active = Scan::mesh_motion_active<W>(arc);
     if (plan.active)
-      Scan::moving_face_columns<W>(canvas, mesh, arc + math::TWO_PI_F / W,
-                                   plan.columns, radii);
+      Scan::detail::moving_face_columns<W>(
+          canvas, mesh, arc + math::TWO_PI_F / W, plan.columns, radii);
     return plan;
   }
 
@@ -828,10 +828,9 @@ private:
    * draw since spawning and with temporal sampling off.
    */
   HS_FLASH_MEMBER float record_phase(int slot, float phase) {
-    const float previous =
-        phase_drawn[slot] && Temporal::temporal_sampling_enabled()
-            ? drawn_phase[slot]
-            : phase;
+    const float previous = phase_drawn[slot] && !Spacetime::flat_surface()
+                               ? drawn_phase[slot]
+                               : phase;
     drawn_phase[slot] = phase;
     phase_drawn[slot] = true;
     return previous;
@@ -886,10 +885,10 @@ private:
     ScratchScope a_guard(scratch_arena_a);
     const ModelPath path{base_state.vertices.data()};
     const float bound = motion_bound(path, base_state.vertices.size());
-    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+    const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation,
         previous_phase != phase || Scan::mesh_motion_active<W>(bound));
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     MeshState transformed_state = transform_shape(base_state);
     ScratchScope b_guard(scratch_arena_b);
     const MotionPlan plan = plan_motion(canvas, transformed_state, path, bound,
@@ -967,10 +966,10 @@ private:
       path.packed = model;
       path.current = nullptr;
     }
-    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+    const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_b, orientation,
         sh.previous_weight != sh.weight || active);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
     {

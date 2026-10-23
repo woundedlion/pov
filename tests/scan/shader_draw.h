@@ -519,7 +519,8 @@ inline void test_shader_render_x_window_matches_predicate() {
                  static_cast<uint16_t>((v.z * 0.5f + 0.5f) * 60000.0f), 30000);
   };
   auto render = [&](bool fragments, const ClipRegion &cr,
-                    const ColumnWindow &window, std::vector<Pixel> &out) {
+                    const Spacetime::TimeWindow &window,
+                    std::vector<Pixel> &out) {
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, cr.x_start, cr.x_end);
     fx.set_margin(cr.margin);
@@ -539,14 +540,14 @@ inline void test_shader_render_x_window_matches_predicate() {
               });
       };
       if (window.active) {
-        RenderXWindow scope(c, window.begin, window.end);
-        HS_EXPECT_EQ(c.render_x_window().begin, window.begin);
-        HS_EXPECT_EQ(c.render_x_window().end, window.end);
+        TimeWindow scope(c, window.begin, window.end);
+        HS_EXPECT_EQ(c.time_window().begin, window.begin);
+        HS_EXPECT_EQ(c.time_window().end, window.end);
         draw();
       } else {
         draw();
       }
-      HS_EXPECT_FALSE(c.render_x_window().active);
+      HS_EXPECT_FALSE(c.time_window().active);
     }
     fx.advance_display();
     capture_frame<W, H>(fx, out);
@@ -556,9 +557,9 @@ inline void test_shader_render_x_window_matches_predicate() {
     int x0, x1, margin;
   };
   const Band bands[] = {{0, W, 0}, {8, 20, 2}, {0, 10, 3}, {W - 3, W, 0}};
-  const ColumnWindow windows[] = {{0, HALF, true}, {0, 5, true},
-                                  {5, 11, true},   {11, HALF, true},
-                                  {7, 7, true},    {0, 0, false}};
+  const Spacetime::TimeWindow windows[] = {{0, HALF, true}, {0, 5, true},
+                                           {5, 11, true},   {11, HALF, true},
+                                           {7, 7, true},    {0, 0, false}};
 
   for (bool fragments : {false, true}) {
     HS_CONTEXT("draw_grid", fragments);
@@ -576,7 +577,7 @@ inline void test_shader_render_x_window_matches_predicate() {
       cr.x_end = b.x1;
       cr.margin = b.margin;
       const ClipRegion::XClip xc = cr.x_clip();
-      for (const ColumnWindow &window : windows) {
+      for (const Spacetime::TimeWindow &window : windows) {
         HS_CONTEXT("band", b.x0, b.margin);
         HS_CONTEXT("window", window.begin, window.end);
         auto admitted = [&](int x) {
@@ -617,14 +618,14 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
   constexpr int W = 48, H = 4, SUBSTEPS = 6, SLABS = 3;
   for (bool enabled : {true, false}) {
     HS_CONTEXT("temporal sampling", enabled);
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     hs_test::StubEffect fx(W, H);
     fx.set_clip(0, H, 5, 43);
     const ClipRegion::XClip xc = fx.clip().x_clip();
     int substeps = 0, shades = 0;
     {
       Canvas canvas(fx);
-      Temporal::simulate_in_slabs<SUBSTEPS, SLABS>(
+      Spacetime::simulate_in_slabs<SUBSTEPS, SLABS>(
           canvas, [&](int n) { substeps += n; },
           [&] {
             ++shades;
@@ -633,14 +634,15 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
                   return Pixel(static_cast<uint16_t>(substeps), 0, 1);
                 });
           });
-      HS_EXPECT_FALSE(canvas.render_x_window().active);
+      HS_EXPECT_FALSE(canvas.time_window().active);
     }
     fx.advance_display();
     HS_EXPECT_EQ(substeps, SUBSTEPS);
     HS_EXPECT_EQ(shades, enabled ? SLABS : 1);
     for (int x = 0; x < W; ++x) {
       HS_CONTEXT("column", x);
-      const int slab = static_cast<int>(Temporal::sweep_fraction(x, W) * SLABS);
+      const int slab =
+          static_cast<int>(Spacetime::SamplingSurface<W>::time(x) * SLABS);
       const int expected = xc.clipped(x) ? 0
                            : enabled     ? (slab + 1) * SUBSTEPS / SLABS
                                          : SUBSTEPS;
@@ -648,5 +650,5 @@ inline void test_simulate_in_slabs_orders_substeps_and_columns() {
         HS_EXPECT_EQ(static_cast<int>(fx.get_pixel(x, y).r), expected);
     }
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
 }

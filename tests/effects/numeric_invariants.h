@@ -86,7 +86,7 @@ struct CometsWhiteBox {
         const math::PixelCoords px = math::vector_to_pixel<W, H>(c);
         const int x = static_cast<int>(lroundf(px.x)) % W;
         const int y = static_cast<int>(lroundf(px.y));
-        const float fraction = Temporal::sweep_fraction(x, W);
+        const float fraction = Spacetime::SamplingSurface<W>::time(x);
         if (y < 0 || y >= H ||
             fraction >= static_cast<float>(j) / last - 2.0f / (W / 2))
           continue;
@@ -698,8 +698,9 @@ struct HopfWhiteBox {
     } else {
       int column = 0;
       for (int c = 1; c < DEFAULT_W / 2; ++c)
-        if (fabsf(Temporal::sweep_fraction(c, DEFAULT_W) - fraction) <
-            fabsf(Temporal::sweep_fraction(column, DEFAULT_W) - fraction))
+        if (fabsf(Spacetime::SamplingSurface<DEFAULT_W>::time(c) - fraction) <
+            fabsf(Spacetime::SamplingSurface<DEFAULT_W>::time(column) -
+                  fraction))
           column = c;
       const math::Vector meridian = math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
           static_cast<float>(column), DEFAULT_H / 2.0f);
@@ -869,8 +870,8 @@ inline void test_hopf_trail_trim_keeps_a_segment() {
 
 /** @brief Hopf orientation, births and retiring-tail shading match frozen columns. */
 inline void test_hopf_temporal_trail_oracle() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (float start : {-15.0f, 125.0f}) {
     auto render = [start](bool timed, float fraction, float displacement) {
       return HopfWhiteBox::render_temporal_trail(timed, fraction, displacement,
@@ -878,5 +879,5 @@ inline void test_hopf_temporal_trail_oracle() {
     };
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render, "Hopf trail");
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }

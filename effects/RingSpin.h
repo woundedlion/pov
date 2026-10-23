@@ -100,7 +100,7 @@ public:
     }
 
     HS_PROFILE(rs_draw_rings);
-    const bool temporal = Temporal::temporal_sampling_enabled();
+    const bool temporal = !Spacetime::flat_surface();
     for (int i = 0; i < NUM_RINGS; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);

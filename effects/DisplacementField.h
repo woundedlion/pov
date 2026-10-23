@@ -439,9 +439,9 @@ private:
         orientation_drawn ? drawn_orientation : current;
     drawn_orientation = current;
     ScratchScope column_guard(scratch_arena_a);
-    const Temporal::ColumnTime column_time =
+    const Scan::ColumnBasis column_basis =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, previous, current);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
 
     const int n_balls = preset_index == BALLS_PRESET && !seed_balls_pending
                             ? balls.active_count()
@@ -451,7 +451,7 @@ private:
         prepare_sweep(previous, current, opacity, n_balls, sweep);
     orientation_drawn = true;
     if (swept) {
-      draw_swept(canvas, basis, column_time, n_balls, sweep);
+      draw_swept(canvas, basis, column_basis, n_balls, sweep);
       return;
     }
     drawn_colors_valid = false;
@@ -469,7 +469,7 @@ private:
       const float a0 = atan2f(cw, cu);
       ball_azimuth[b] = a0 < 0.0f ? a0 + 2.0f * math::PI_F : a0;
     }
-    draw_pass<false>(canvas, basis, column_time, opacity, n_balls, nullptr);
+    draw_pass<false>(canvas, basis, column_basis, opacity, n_balls, nullptr);
   }
 
   /**
@@ -501,7 +501,7 @@ private:
     drawn_noise_time = time;
     drawn_noise_amplitude = amplitude;
     drawn_opacity = opacity;
-    if (!Temporal::temporal_sampling_enabled() || !primed)
+    if (Spacetime::flat_surface() || !primed)
       return false;
     const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
                                            std::fabs(amplitude)) > 0.001f;
@@ -523,7 +523,7 @@ private:
    * @brief Bakes column-time knots once and scans the stack in two windows.
    * @param canvas Render target.
    * @param basis Stack frame at the current endpoint.
-   * @param column_time The frame's column basis.
+   * @param column_basis The frame's column basis.
    * @param n_balls Active balls drawn this frame.
    * @param sweep The frame's endpoints.
    * @details Boundary knots retain an alternate for the other arm pass.
@@ -532,7 +532,7 @@ private:
    * it, which keeps every pixel's blend order.
    */
   HS_HOT_FLASH_MEMBER void draw_swept(Canvas &canvas, const math::Basis &basis,
-                                      const Temporal::ColumnTime &column_time,
+                                      const Scan::ColumnBasis &column_basis,
                                       int n_balls, Sweep &sweep) {
 #if HS_ENABLE_TEST_HOOKS
     primary_knots = duplicate_knots = alternate_noise_samples = primary_bakes =
@@ -551,7 +551,7 @@ private:
       const auto &sp = balls.active_params(b);
       ball_params[b] = &sp;
       BallPath &path = ball_paths[b];
-      path.from = Temporal::rotate_by(sp.previous_center, sweep.turn);
+      path.from = Spacetime::rotate_by(sp.previous_center, sweep.turn);
       path.to = sp.center;
       path.axis_from = math::dot(basis.v, path.from);
       path.axis_to = math::dot(basis.v, path.to);
@@ -598,7 +598,7 @@ private:
       sweep.cache = active_cache = nullptr;
 #endif
     if (sweep.cache)
-      draw_pass<true>(canvas, basis, column_time, sweep.opacity[1], n_balls,
+      draw_pass<true>(canvas, basis, column_basis, sweep.opacity[1], n_balls,
                       &sweep);
 #if HS_ENABLE_TEST_ORACLES
     if (!sweep.cache) {
@@ -606,9 +606,9 @@ private:
       for (int k = 0; k < windows; ++k) {
         sweep.middle = force_column_reference ? static_cast<float>(k) / windows
                                               : (k + 0.5f) / windows;
-        RenderXWindow window(canvas, k * (W / 2) / windows,
-                             (k + 1) * (W / 2) / windows);
-        draw_pass<true>(canvas, basis, column_time, sweep.opacity[1], n_balls,
+        TimeWindow window(canvas, k * (W / 2) / windows,
+                          (k + 1) * (W / 2) / windows);
+        draw_pass<true>(canvas, basis, column_basis, sweep.opacity[1], n_balls,
                         &sweep);
       }
     }
@@ -649,20 +649,20 @@ private:
    * @tparam SWEPT Whether knots are baked at their sweep times.
    * @param canvas Render target.
    * @param basis Stack frame at the current endpoint.
-   * @param column_time The frame's column basis.
+   * @param column_basis The frame's column basis.
    * @param opacity Sprite opacity; a swept pass takes the window's own.
    * @param n_balls Active balls drawn this frame, with their caches filled.
    * @param sweep The frame's endpoints; null unless SWEPT.
    */
   template <bool SWEPT>
   HS_HOT_INLINE void draw_pass(Canvas &canvas, const math::Basis &basis,
-                               const Temporal::ColumnTime &column_time,
+                               const Scan::ColumnBasis &column_basis,
                                float opacity, int n_balls, const Sweep *sweep) {
     const int n_rings = params.num_rings;
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the rasterizer's soft stroke cross-section past
     // the clip's margin and the stack's rotation over the frame.
-    const float pad = 3.0f * math::PI_F / H + column_time.sweep;
+    const float pad = 3.0f * math::PI_F / H + column_basis.sweep_arc;
     float noise_bound;
     if constexpr (SWEPT)
       noise_bound = fmaxf(std::fabs(sweep->noise_amplitude[0]),
@@ -758,7 +758,7 @@ private:
         uint32_t visible = CHUNK_MASK;
         if constexpr (SWEPT) {
           const float band_r = band + noise_bound + params.thickness + pad;
-          const ColumnWindow &window = canvas.render_x_window();
+          const Spacetime::TimeWindow &window = canvas.time_window();
           {
             HS_PROFILE(df_chunk_cull);
             visible = Plot::chunk_mask_where<BAKE_CHUNKS>(
@@ -807,7 +807,7 @@ private:
               hlut = fresh.hue_row;
             }
             mark_boundary(basis, {cos_t, sin_t, cos_d, sin_d}, theta, lut_n,
-                          band + noise_bound, column_time.sweep, cache);
+                          band + noise_bound, column_basis.sweep_arc, cache);
           }
         }
 
@@ -917,7 +917,7 @@ private:
       for (int k = 0; k < SWEEP_WINDOWS; ++k) {
         if (k)
           apply_second_window(cache);
-        RenderXWindow window(canvas, k * W / 4, (k + 1) * W / 4);
+        TimeWindow window(canvas, k * W / 4, (k + 1) * W / 4);
         Scan::DistortedRingStack::draw<W, H>(
             filters, canvas, params.num_rings, rings.shapes(), rings.slot_map(),
             rings.size(), *candidates, ring_shader);
@@ -1160,7 +1160,7 @@ private:
           const float t = sample_fraction(p, *sweep);
           knot_times[x] = t;
           const math::Vector q =
-              Temporal::rotate_by(p, sweep->turn * (t - 1.0f));
+              Spacetime::rotate_by(p, sweep->turn * (t - 1.0f));
           const float time = sweep->noise_time[0] +
                              (sweep->noise_time[1] - sweep->noise_time[0]) * t;
           if (g1)
@@ -1180,7 +1180,7 @@ private:
 #endif
               const float other = t < 0.5f ? 1.0f : 0.0f;
               const math::Vector aq =
-                  Temporal::rotate_by(p, sweep->turn * (other - 1.0f));
+                  Spacetime::rotate_by(p, sweep->turn * (other - 1.0f));
               const float at =
                   sweep->noise_time[0] +
                   (sweep->noise_time[1] - sweep->noise_time[0]) * other;

@@ -16,7 +16,7 @@
 #include <cstring>
 #include "effects/common/palette_recipes.h"
 #include "core/engine/engine.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "effects/common/reaction_diffusion.h"
 
 namespace hs_test {
@@ -357,7 +357,7 @@ private:
   /**
    * @brief Rasterizes the current species with SSAA against the lattice
    *        oriented at the current endpoint.
-   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindow limits the columns.
    */
   void shade(Canvas &canvas) {
     auto lattice = [this] {
@@ -384,7 +384,7 @@ private:
   /**
    * @brief Rasterizes the current species with SSAA, each column against the
    *        lattice at its sweep time.
-   * @param canvas Destination canvas; an open RenderXWindow limits the columns.
+   * @param canvas Destination canvas; an open TimeWindow limits the columns.
    * @param basis The frame's per-column lattice frames.
    */
   HS_HOT_FLASH_MEMBER void shade_columns(Canvas &canvas,
@@ -413,9 +413,9 @@ private:
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
     HS_PROFILE(bz_render);
-    if (Temporal::temporal_sampling_enabled()) {
+    if (!Spacetime::flat_surface()) {
       const LatticeBasis &basis = *prepare_lattice_basis();
-      Temporal::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
+      Spacetime::simulate_in_slabs<STEPS_PER_FRAME, STEPS_PER_FRAME>(
           canvas, [this](int substeps) { advance(substeps); },
           [&] { shade_columns(canvas, basis); });
     } else {

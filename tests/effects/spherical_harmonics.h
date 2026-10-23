@@ -671,7 +671,7 @@ inline void test_sh_columns_follow_sweep_time() {
     HS_CONTEXT("draw", draw);
     for (int x = 0; x < SMALL_W; ++x) {
       const double time =
-          draw == 0 ? 1.0 : draw + Temporal::sweep_fraction(x, SMALL_W);
+          draw == 0 ? 1.0 : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                          return evaluator.shade(fx, view, time);
                        }));
@@ -755,7 +755,7 @@ inline void test_sh_manual_preset_resets_morph_history() {
   fx.advance_display();
   int worst = 0;
   for (int x = 0; x < SMALL_W; ++x) {
-    const double time = 20 + Temporal::sweep_fraction(x, SMALL_W);
+    const double time = 20 + Spacetime::SamplingSurface<SMALL_W>::time(x);
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(fx, view, time, mode,
                                                            mode, 0.0f, 3.2f);
@@ -769,7 +769,7 @@ inline void test_sh_manual_preset_resets_morph_history() {
   fx.advance_display();
   worst = 0;
   for (int x = 0; x < SMALL_W; ++x) {
-    const float fraction = Temporal::sweep_fraction(x, SMALL_W);
+    const float fraction = Spacetime::SamplingSurface<SMALL_W>::time(x);
     worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                        return ShTimeEvaluator::shade_modes(
                            fx, view, 21 + fraction, mode, mode, 0.0f,
@@ -792,21 +792,22 @@ inline void test_sh_fidelity_toggle_keeps_history() {
   int draw = 0;
   for (const bool enabled : {true, false, false, true, true}) {
     HS_CONTEXT("draw", draw);
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     pin_frame_clock(draw);
     fx.draw_frame();
     fx.advance_display();
     for (int x = 0; x < SMALL_W; ++x) {
-      const double time = draw == 0 || !enabled
-                              ? draw + 1.0
-                              : draw + Temporal::sweep_fraction(x, SMALL_W);
+      const double time =
+          draw == 0 || !enabled
+              ? draw + 1.0
+              : draw + Spacetime::SamplingSurface<SMALL_W>::time(x);
       worst = std::max(worst, sh_column_gap(fx, x, [&](const auto &view) {
                          return evaluator.shade(fx, view, time);
                        }));
     }
     ++draw;
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   HS_EXPECT_LE(worst, SH_TIME_TOLERANCE);
 }
@@ -826,7 +827,7 @@ inline void test_sh_frame_sampler_rollover_and_sign() {
   const Frame from{{la, ma, lb, mb, 63.0f / 64, start, 0}, {nullptr, 3.2f}};
   const Frame to{{lb, mb, lc, mc, 1.0f / 64, -end, 0}, {nullptr, 3.2f}};
   for (const float fraction : {0.25f, 0.5f, 0.75f}) {
-    const Frame sample = Pullback::sample_frame(from, to, fraction);
+    const Frame sample = Spacetime::sample_frame(from, to, fraction);
     const float chain = 63.0f / 64 + fraction * 2.0f / 64;
     const bool outgoing = chain < 1.0f;
     HS_EXPECT_EQ(sample.source.l1, outgoing ? la : lb);
@@ -842,9 +843,9 @@ inline void test_sh_frame_sampler_rollover_and_sign() {
   Frame unrelated = to;
   unrelated.source.l1 = lc;
   unrelated.source.m1 = mc;
-  HS_EXPECT_EQ(Pullback::sample_frame(from, unrelated, 0.5f).source.blend,
+  HS_EXPECT_EQ(Spacetime::sample_frame(from, unrelated, 0.5f).source.blend,
                unrelated.source.blend);
   Frame snapped = to;
   snapped.source.morph_epoch = 1;
-  HS_EXPECT_EQ(Pullback::sample_frame(from, snapped, 0.5f).source.l1, lb);
+  HS_EXPECT_EQ(Spacetime::sample_frame(from, snapped, 0.5f).source.l1, lb);
 }

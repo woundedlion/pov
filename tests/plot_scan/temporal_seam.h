@@ -20,7 +20,7 @@ template <bool Rigid> struct CountedTemporalWorld : Filter::Is3D {
   /** @brief Binds operation counters. */
   explicit CountedTemporalWorld(RigidWorkCounts &counts) : counts(&counts) {}
   /** @brief Bounds the frame's angular motion. */
-  float cull_bound() const { return 0.01f; }
+  float sweep_arc() const { return 0.01f; }
   /** @brief Evaluates the world transform at a frame fraction. */
   math::Vector at_time(const Canvas &, const math::Vector &p, float t) const {
     ++counts->world;
@@ -98,7 +98,7 @@ inline void test_timed_projected_entry_bypasses_world() {
             pipeline(CountedTemporalWorld<true>(counts),
                      Filter::Screen::AntiAlias<W, H>{},
                      ProjectedTapRecorder(actual));
-        PipelineRef ref(pipeline, Temporal::Timed{});
+        PipelineRef ref(pipeline, Spacetime::Timed{});
         const Pixel color(111, 222, 333);
         Filter::Screen::AntiAlias<W, H> aa;
         aa.plot_at(

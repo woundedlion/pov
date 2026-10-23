@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 #pragma once
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "tests/test_harness.h"
 #include <algorithm>
 #include <array>
@@ -79,7 +79,7 @@ void seam_compare_render(Render render, const char *name, float share = 1.0f) {
   float worst = 0.0f;
   int displacement_failures = 0;
   for (int column = 0; column < W / 2; ++column) {
-    const float fraction = Temporal::sweep_fraction(column, W);
+    const float fraction = Spacetime::SamplingSurface<W>::time(column);
     const auto frozen = render(false, fraction, 0.0f);
     const auto shifted = render(false, fraction, 0.2f);
     for (int x : {column, column + W / 2}) {

@@ -175,11 +175,11 @@ baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
 Forward scans take column time from a rotated pixel basis. An effect prepares
-a frame-scoped `Scan::ColumnBasis` once per frame from its orientation's
+a frame-scoped `Scan::ColumnBasisTable` once per frame from its orientation's
 sub-frame history, sampled at each sweep fraction by
-`Temporal::for_each_column_pose` as `Orientation::get(float)` samples it, and
-installs the resulting `Temporal::ColumnTime` on the canvas with
-`Scan::ColumnTimeScope`. Shapes stay built at the current endpoint; each column
+`Spacetime::for_each_time_pose` as `Orientation::get(float)` samples it, and
+installs the resulting `Scan::ColumnBasis` on the canvas with
+`Scan::ColumnBasisScope`. Shapes stay built at the current endpoint; each column
 evaluates them along its fixed-meridian direction rotated from its sweep time
 to that endpoint, from two vectors per sweep fraction shared by both arms, so a
 pixel costs six multiply-adds instead of two.
@@ -201,7 +201,7 @@ ring-group, ring-stack and volume scans run from ITCM, and their
 fixed-meridian loops from FLASH.
 
 A shader that evaluates a turning object in the object's own space takes a
-`Scan::ObjectColumnBasis` instead: per sweep fraction, the column's azimuth,
+`Scan::ObjectBasisTable` instead: per sweep fraction, the column's azimuth,
 azimuth tangent and north rotated into the object frame as it stood when the
 column was lit. `Scan::Shader::walk_object_grid` hands each pixel its
 object-space centre and column frame, from which `SsaaGrid::at(column, i)`
@@ -210,7 +210,7 @@ built.
 
 State other than the frame's rotation reaches the column-time scans through
 their shaders. A shader that takes a trailing sweep fraction `u`
-(`Temporal::reads_column_time`) runs once per column at that column's time,
+(`Spacetime::reads_time`) runs once per column at that column's time,
 pole-LOD blocks included, and evaluates its state between the endpoints its
 effect retains; the fixed-meridian loops run its plain form.
 `TimedShaderFn` is that form for `Scan::rasterize`, `Scan::Point` and
@@ -264,17 +264,17 @@ operator's params along their transition curves and its state through the
 state's `temporal_sample` overload, which follows clocks and quaternion arcs
 with `sample_clock` and `TemporalRotation`; states without clocks are read at
 the current endpoint. `ShaderChain` keeps the previous `FrameContext` in a
-`TemporalHistory` whose palettes and hue tables point at owned copies, and
+`FrameHistory` whose palettes and hue tables point at owned copies, and
 blends the colorize operator's colours from both endpoints' resources at the
 column's interpolated controls. The first frame, a recompile or snapshot
 restore, and a change of any topology or snapping field draw the current
 endpoint in every column.
 
 Manual shaders reuse the same facility, from
-[temporal_history.h](../core/render/pullback/temporal_history.h), over their
+[field.h](../core/render/spacetime/field.h), over their
 own frame struct.
-`Pullback::TemporalHistory<Frame>` retains the previous endpoint of a frame
-that owns or shares immutable resources, and `Pullback::sample_frame` calls the
+`Spacetime::FrameHistory<Frame>` retains the previous endpoint of a frame
+that owns or shares immutable resources, and `Spacetime::sample_frame` calls the
 frame's static `sample(from, to, fraction)` for every sweep time before the
 current endpoint. SphericalHarmonics samples its spin through `TemporalRotation` and its
 amplitude linearly. A morph rollover continues the outgoing harmonic pair at
@@ -282,13 +282,13 @@ full blend into the incoming pair at zero blend; harmonic indices are never
 interpolated. A manual preset changes the morph epoch, so that frame takes the
 current morph in every column while the spin keeps its sweep time.
 
-A `RenderXWindow` ([canvas.h](../core/render/canvas.h)) restricts a frame's
+A `TimeWindow` ([canvas.h](../core/render/canvas.h)) restricts a frame's
 windowed column loops to the half-turn columns `[begin, end)` on both arms,
 inside the driver clip, which cannot change while a frame is active. Windows do
 not nest, and closing one admits every column again. `Scan::Shader::walk_grid`
 and `draw_grid` honour it through `Scan::walk_window_columns`; other loops
-write their whole clip. `Temporal::sweep_slab` divides the half-turn into
-slabs in sweep order. `Temporal::simulate_in_slabs` drives a simulation that
+write their whole clip. `Spacetime::time_slab` divides the half-turn into
+slabs in sweep order. `Spacetime::simulate_in_slabs` drives a simulation that
 advances several substeps per frame: it shades each slab under its window
 after the substeps that end the slab's share of the frame, so neighbouring
 slabs differ by one share of substeps rather than one frame. With temporal
@@ -531,7 +531,7 @@ animations. GnomonicStars spawns one pinned warp per effect initialization.
 
 ### Orientation history
 
-`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose; `get(float t)` samples that sub-frame path at frame fraction `t` by slerping between the bracketing entries. The `Filter::World::Orient` filter samples it at the frame fraction in which a display arm passes each point (`Temporal::capture`), so a rotating effect is drawn as the arms see it rather than jumping at the sweep boundary; the `age` field increases backward in time by the remaining fraction. Its explicit-time rotation reads a `Temporal::PoseTable`, the path's rotation matrices at every column time and the frame end, built once per frame in storage `init_storage()` takes from the persistent arena for the effect's canvas width.
+`Orientation<CAP>` stores a history of up to `CAP` quaternions (default 4) accumulated during one frame step. The template parameter is the history *capacity*, not the display width — the `Filter::World::Orient` and `Filter::World::OrientSlice` filters use `Orientation<>`, never `Orientation<288>`. Index 0 is the previous frame's end pose and the last index the current pose; `get(float t)` samples that sub-frame path at frame fraction `t` by slerping between the bracketing entries. The `Filter::World::Orient` filter samples it at the frame fraction in which a display arm passes each point (`Spacetime::capture`), so a rotating effect is drawn as the arms see it rather than jumping at the sweep boundary; the `age` field increases backward in time by the remaining fraction. Its explicit-time rotation reads a `Spacetime::PoseTable`, the path's rotation matrices at every column time and the frame end, built once per frame in storage `init_storage()` takes from the persistent arena for the effect's canvas width.
 
 ```cpp
 timeline.add(0, Animation::Rotation<W>(orientation, math::Y_AXIS, 2 * PI_F, 600, ease_linear, {.repeat = true}));
@@ -1450,10 +1450,10 @@ per-frame scratch allocation. GS uses flash positions, releasing 92,160 bytes of
 persistent storage for its palette cache. BZ retains the arena-backed default.
 
 With temporal sampling enabled, BZ prepares the frame's lattice basis, a
-`Scan::ObjectColumnBasis` of its view orientation, and shades from the
+`Scan::ObjectBasisTable` of its view orientation, and shades from the
 unrotated lattice through `Scan::Shader::walk_object_grid`, so each column sees
 the lattice at its sweep time without an oriented copy. It advances and shades
-through `Temporal::simulate_in_slabs`, one sweep slab per substep, and the
+through `Spacetime::simulate_in_slabs`, one sweep slab per substep, and the
 basis serves every slab. With temporal sampling disabled it runs both substeps
 and shades the lattice oriented at the current endpoint once.
 

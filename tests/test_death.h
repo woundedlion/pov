@@ -1110,7 +1110,7 @@ inline const Case *all_cases(int &n) {
            "non-inverted and within canvas width"},
           {"render_x_window_nested", case_render_x_window_nested,
            "core/render/canvas.h",
-           "(!effect.render_x_window.active) render-x windows do not nest"},
+           "(!effect.time_window.active) render-x windows do not nest"},
           {"render_x_window_past_half_turn",
            case_render_x_window_past_half_turn, "core/render/canvas.h",
            "(begin >= 0 && begin <= end && 2 * end <= effect.frame_width) "
@@ -1185,7 +1185,7 @@ inline const Case *all_cases(int &n) {
            "the vertex pool"},
           {"scan_deformation_without_column_time",
            case_scan_deformation_without_column_time, "core/render/scan/mesh.h",
-           "(canvas.column_time()) mesh deformation needs the frame's "
+           "(canvas.column_basis()) mesh deformation needs the frame's "
            "column-time state installed"},
           {"scan_mesh_missing_offsets", case_scan_mesh_missing_offsets,
            "core/render/scan/mesh.h",

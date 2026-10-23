@@ -33,9 +33,9 @@ struct SourceClockState {
 
 /** @brief Prepared frame clocks of SourceClockState. */
 struct SourceClockInterval {
-  ClockInterval primary;   ///< Prepared primary interval.
-  ClockInterval secondary; ///< Prepared secondary interval.
-  ClockInterval angle;     ///< Prepared angle interval.
+  Spacetime::ClockInterval primary;   ///< Prepared primary interval.
+  Spacetime::ClockInterval secondary; ///< Prepared secondary interval.
+  Spacetime::ClockInterval angle;     ///< Prepared angle interval.
 };
 
 /** @brief Prepares the clocks between consecutive endpoints.
@@ -350,8 +350,8 @@ struct SphericalRingsState {
 
 /** @brief Prepared frame clocks of SphericalRingsState. */
 struct SphericalRingsInterval {
-  SpatialWalkInterval walk; ///< Prepared walk interval.
-  ClockInterval phase;      ///< Prepared phase interval.
+  SpatialWalkInterval walk;       ///< Prepared walk interval.
+  Spacetime::ClockInterval phase; ///< Prepared phase interval.
 };
 
 /** @brief Prepares the clocks between consecutive endpoints.

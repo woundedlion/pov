@@ -59,8 +59,8 @@ struct WarpPhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE ClockInterval temporal_interval(const WarpPhaseState &from,
-                                                const WarpPhaseState &to) {
+HS_FLASH_INLINE Spacetime::ClockInterval
+temporal_interval(const WarpPhaseState &from, const WarpPhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }
 
@@ -71,7 +71,7 @@ HS_FLASH_INLINE ClockInterval temporal_interval(const WarpPhaseState &from,
  * @param fraction Frame fraction in [0, 1]. */
 template <typename Params>
 HS_FLASH_INLINE void temporal_sample(WarpPhaseState &out,
-                                     const ClockInterval &interval,
+                                     const Spacetime::ClockInterval &interval,
                                      const Params &, float fraction) {
   out.phase = interval.sample(fraction);
 }
@@ -99,8 +99,8 @@ struct AffineClockState {
 
 /** @brief Prepared frame clocks of AffineClockState. */
 struct AffineClockInterval {
-  ClockInterval phase;    ///< Prepared phase interval.
-  ClockInterval rotation; ///< Prepared rotation interval.
+  Spacetime::ClockInterval phase;    ///< Prepared phase interval.
+  Spacetime::ClockInterval rotation; ///< Prepared rotation interval.
 };
 
 /** @brief Prepares the clocks between consecutive endpoints.

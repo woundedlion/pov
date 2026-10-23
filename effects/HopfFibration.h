@@ -89,7 +89,7 @@ public:
       HS_PROFILE(hf_timeline_step);
       timeline.step(canvas);
       if (!history_ready) {
-        if (Temporal::temporal_sampling_enabled())
+        if (!Spacetime::flat_surface())
           orientation.collapse();
         history_ready = true;
       }
@@ -307,7 +307,7 @@ private:
     if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(hf_render_trails);
-    if (Temporal::temporal_sampling_enabled()) {
+    if (!Spacetime::flat_surface()) {
       render_timed_trails(canvas);
       return;
     }
@@ -429,9 +429,9 @@ private:
    * chunks.
    */
   HS_HOT_FLASH_MEMBER void render_timed_trails(Canvas &canvas) {
-    const auto cull = Plot::ColumnEdgeCull<W>::template of<H>(canvas);
-    const float spin = timed_pipeline.cull_bound();
-    const Temporal::PoseTable &poses = *timed_pipeline.pose_table(canvas);
+    const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
+    const float spin = timed_pipeline.sweep_arc();
+    const Spacetime::PoseTable &poses = *timed_pipeline.pose_table(canvas);
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
     Plot::PointRoute<W, H> route;
@@ -483,7 +483,7 @@ private:
                          ? retired[i]
                          : trail.get(first + static_cast<size_t>(j) -
                                      (keep_tail ? 1 : 0));
-        world[j] = Plot::ColumnEdgeFrame::normalize(end_pose.apply(sources[j]));
+        world[j] = Plot::EdgeWorldsheet::normalize(end_pose.apply(sources[j]));
       }
       float reach_cosine = 1.0f;
       const math::Vector &centre = world[points / 2];
@@ -499,7 +499,7 @@ private:
       };
       for (int j = 0; j < points; ++j) {
         starts[j] =
-            Plot::ColumnEdgeFrame::normalize(start_pose.apply(sources[j]));
+            Plot::EdgeWorldsheet::normalize(start_pose.apply(sources[j]));
         slots[j] = -1;
       }
       if (count + static_cast<size_t>(points) > COLUMN_CHUNK_VERTICES)

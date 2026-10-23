@@ -598,7 +598,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
       if (math::dot(drift, drift) == 0.0f)
         continue;
       ++moving;
-      HS_EXPECT_NEAR(math::dot(Temporal::rotate_by(before, drift), now), 1.0f,
+      HS_EXPECT_NEAR(math::dot(Spacetime::rotate_by(before, drift), now), 1.0f,
                      1e-6f);
     }
   }
@@ -615,7 +615,7 @@ inline void test_gnomonicstars_stars_drift_from_last_draw() {
     HS_EXPECT_NEAR(sqrtf(math::dot(drift, drift)), angle, 1e-4f);
     const math::Vector before = math::rotate(drawn, q);
     const math::Vector now = math::rotate(jump, q);
-    HS_EXPECT_VEC(Temporal::rotate_by(before, drift), now, 1e-5f);
+    HS_EXPECT_VEC(Spacetime::rotate_by(before, drift), now, 1e-5f);
   }
 
   HS_EXPECT_TRUE(fx.updateParameter("Points", 300.0f) ==
@@ -788,7 +788,8 @@ struct FishbowlWhiteBox {
                                                      FX::MAX_FRAGMENTS);
         const float active = full ? FX::TRAIL_LENGTH : 3.0f;
         const float fill = active / FX::TRAIL_LENGTH;
-        const int column = Temporal::sweep_column(fraction, DEFAULT_W);
+        const int column =
+            Spacetime::SamplingSurface<DEFAULT_W>::column_at(fraction);
         const math::Vector meridian =
             math::pixel_to_vector<DEFAULT_W, DEFAULT_H>(
                 static_cast<float>(column), DEFAULT_H / 2.0f);
@@ -982,10 +983,10 @@ inline void test_fishbowl_preset_and_fire_duty_cycle() {
 inline void test_fishbowl_scratch_estimate_covers_peak() {
   using WB = FishbowlWhiteBox;
   using EffectType = WB::EffectType;
-  const bool enabled = Temporal::temporal_sampling_enabled();
+  const bool enabled = !Spacetime::flat_surface();
   for (const bool timed : {false, true}) {
     reset_effect_globals();
-    Temporal::set_temporal_sampling_enabled(timed);
+    Spacetime::set_flat_surface(!timed);
     EffectType fx;
     fx.init();
     scratch_arena_a.reset_high_water_mark();
@@ -1005,7 +1006,7 @@ inline void test_fishbowl_scratch_estimate_covers_peak() {
     HS_EXPECT_GT(worst_vertices, (size_t)EffectType::TRAIL_LENGTH);
     HS_EXPECT_LE(worst_vertices, (size_t)EffectType::MAX_FRAGMENTS);
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief White-box accessor for RingSpin's ring pool. */
@@ -1143,9 +1144,9 @@ struct PetalFlowWhiteBox {
     {
       Canvas canvas(fx);
       if (timed) {
-        Temporal::geometry_counters = {};
+        Spacetime::geometry_counters = {};
         fx.draw_ring(canvas, ring, previous_rho);
-        HS_EXPECT_EQ(Temporal::geometry_counters.column_draw_setups, 1u);
+        HS_EXPECT_EQ(Spacetime::geometry_counters.column_draw_setups, 1u);
       } else {
         ScratchScope guard(scratch_arena_a);
         const float travel = previous_rho + (rho - previous_rho) * fraction;
@@ -1429,8 +1430,8 @@ inline void test_manual_preset_navigation() {
 
 /** @brief Production PetalFlow travel, twist, orientation and fade match frozen columns. */
 inline void test_petalflow_temporal_source_oracle() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (float rho : {0.0f, 1.25f, 2.75f}) {
     auto render = [rho](bool timed, float fraction, float displacement) {
       return PetalFlowWhiteBox::render_temporal_ring(timed, fraction,
@@ -1441,13 +1442,13 @@ inline void test_petalflow_temporal_source_oracle() {
                     ? "PetalFlow equator"
                     : (rho == 1.25f ? "PetalFlow dense" : "PetalFlow fade"));
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief Warped Fishbowl endpoints, births and palette match frozen columns. */
 inline void test_fishbowl_temporal_trail_oracle() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   for (bool full : {false, true}) {
     auto render = [full](bool timed, float fraction, float displacement) {
       return FishbowlWhiteBox::render_temporal_trail(timed, fraction,
@@ -1456,5 +1457,5 @@ inline void test_fishbowl_temporal_trail_oracle() {
     hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
                                                        "Fishbowl trail");
   }
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }

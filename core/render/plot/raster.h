@@ -19,10 +19,10 @@
 #include "core/engine/concepts.h"
 #include "core/memory.h"
 #include "core/render/plot/cull.h"
-#include "core/render/temporal/arm_crossing.h"
-#include "core/render/temporal/pose_table.h"
-#include "core/render/temporal/swept_bound.h"
-#include "core/render/temporal/vertex_motion.h"
+#include "core/render/spacetime/crossing.h"
+#include "core/render/spacetime/pose_table.h"
+#include "core/render/spacetime/swept_bound.h"
+#include "core/render/spacetime/worldlines.h"
 
 /**
  * @file raster.h
@@ -1221,7 +1221,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
   }
 }
 
-#include "core/render/plot/raster_timed.h"
+#include "core/render/plot/column_walk.h"
 
 HS_O3_END
 

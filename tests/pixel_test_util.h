@@ -8,7 +8,7 @@
 
 #include "core/color/color.h"
 #include "core/render/canvas.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -192,9 +192,9 @@ struct ScopedTemporalSampling {
   /** @brief Applies the mode.
    * @param enabled Whether columns use their emission times. */
   explicit ScopedTemporalSampling(bool enabled) {
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
   }
-  ~ScopedTemporalSampling() { Temporal::set_temporal_sampling_enabled(true); }
+  ~ScopedTemporalSampling() { Spacetime::set_flat_surface(false); }
   ScopedTemporalSampling(const ScopedTemporalSampling &) = delete;
   ScopedTemporalSampling &operator=(const ScopedTemporalSampling &) = delete;
 };

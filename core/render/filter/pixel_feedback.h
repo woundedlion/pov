@@ -13,7 +13,7 @@
 #include "core/render/filter/feedback_style.h"
 #include "core/render/filter/feedback_warp_cache.h"
 #include "core/render/filter/pipeline.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 
 /**
  * @file pixel_feedback.h
@@ -428,17 +428,12 @@ private:
    * @return Warp cache identity. */
   typename WarpCache::Key warp_cache_key(const RenderBand &band) const {
     const Animation::NoiseParams *noise = feedback_style->noise;
-    return {feedback_style->space_fn,
-            noise,
-            noise_config_key(noise),
-            feedback_style->amplitude,
-            feedback_style->frequency,
-            feedback_style->speed,
-            feedback_style->scale,
-            noise ? noise->time : 0.0f,
-            band.field_y_begin,
-            band.field_y_end,
-            Temporal::temporal_sampling_enabled()};
+    return {feedback_style->space_fn,  noise,
+            noise_config_key(noise),   feedback_style->amplitude,
+            feedback_style->frequency, feedback_style->speed,
+            feedback_style->scale,     noise ? noise->time : 0.0f,
+            band.field_y_begin,        band.field_y_end,
+            !Spacetime::flat_surface()};
   }
 
   /**
@@ -541,7 +536,7 @@ private:
     {
       HS_PROFILE_DEEP(fb_pop_expand);
       constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
-      const bool column_time = Temporal::temporal_sampling_enabled();
+      const bool column_time = !Spacetime::flat_surface();
       auto ring = grid.field.ring(band.field_y_begin);
       for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
            ++field_y, ring = grid.field.next_ring(ring)) {
@@ -628,7 +623,7 @@ private:
     ctx.fade = fade;
     ctx.alpha = alpha;
     feedback_style->sync_hue();
-    ctx.column_time = Temporal::temporal_sampling_enabled();
+    ctx.column_time = !Spacetime::flat_surface();
     if (ctx.column_time)
       ctx.fades = fade_table.acquire(*feedback_style, scratch);
     const bool hue_fade = feedback_style->color_fn == &::Feedback::hue_fade;

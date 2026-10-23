@@ -1128,7 +1128,7 @@ inline DisplacementFieldEndpoints displacement_field_endpoints(int frames,
     reset_effect_globals();
     hs::random().seed(1337u);
     pin_frame_clock(0);
-    Temporal::set_temporal_sampling_enabled(enabled);
+    Spacetime::set_flat_surface(!enabled);
     DisplacementField<W, H> effect;
     effect.init();
     setup(effect);
@@ -1142,7 +1142,7 @@ inline DisplacementFieldEndpoints displacement_field_endpoints(int frames,
         capture_frame<W, H>(effect, enabled ? out.swept : out.current);
     }
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   return out;
 }
@@ -1234,7 +1234,7 @@ inline void test_displacement_field_single_pass_reference() {
       reset_effect_globals();
       hs::random().seed(1337u);
       pin_frame_clock(0);
-      Temporal::set_temporal_sampling_enabled(true);
+      Spacetime::set_flat_surface(false);
       DisplacementField<W, H> effect;
       effect.init();
       if (balls)
@@ -1289,7 +1289,7 @@ inline void test_displacement_field_turn_follows_large_steps() {
   constexpr int W = SMALL_W, H = SMALL_H;
   reset_effect_globals();
   hs::random().seed(1337u);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   DisplacementField<W, H> effect;
   effect.init();
   for (int f = 0; f < 60; ++f) {
@@ -1310,7 +1310,7 @@ inline void test_displacement_field_turn_follows_large_steps() {
     HS_EXPECT_NEAR(sqrtf(math::dot(turn, turn)), angle, 1e-4f);
     for (const math::Vector &local :
          {math::X_AXIS, math::Y_AXIS, math::Vector(0.5f, -0.4f, 0.77f)}) {
-      HS_EXPECT_VEC(Temporal::rotate_by(math::rotate(local, previous), turn),
+      HS_EXPECT_VEC(Spacetime::rotate_by(math::rotate(local, previous), turn),
                     math::rotate(local, current), 2e-5f);
     }
   }
@@ -1329,7 +1329,7 @@ inline void test_displacement_field_alternate_groups_match_windows() {
     reset_effect_globals();
     hs::random().seed(1337u);
     pin_frame_clock(0);
-    Temporal::set_temporal_sampling_enabled(true);
+    Spacetime::set_flat_surface(false);
     DisplacementField<W, H> effect;
     effect.init();
     for (int f = 0; f < 200 + FRAMES; ++f) {
@@ -1368,7 +1368,7 @@ inline void test_displacement_field_boundary_stencil() {
     reset_effect_globals();
     hs::random().seed(1337u);
     pin_frame_clock(0);
-    Temporal::set_temporal_sampling_enabled(true);
+    Spacetime::set_flat_surface(false);
     DisplacementField<W, H> effect;
     effect.init();
     DisplacementFieldWhiteBox::sweep_mode(effect, mode);

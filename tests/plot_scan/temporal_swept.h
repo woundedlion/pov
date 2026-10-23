@@ -24,15 +24,15 @@ inline void test_swept_bounds_cover_moving_edges() {
         };
         const math::Vector captures[] = {a0, at(a0, 1.0f), b0, at(b0, 1.0f)};
         const float pad =
-            Temporal::PathBound::rotation(angle).chord_error() + 1e-6f;
+            Spacetime::PathBound::rotation(angle).chord_error() + 1e-6f;
         float low = 0.0f, high = 0.0f;
-        HS_EXPECT_TRUE(Temporal::swept_heights(captures, 4, pad, low, high));
+        HS_EXPECT_TRUE(Spacetime::swept_heights(captures, 4, pad, low, high));
         const math::Vector normals[] = {
             math::Vector(1.0f, 0.0f, 0.0f), math::Vector(-0.3f, 0.0f, 1.0f),
             math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.2f, -1.0f, 0.1f)};
         bool beyond[4];
         for (int n = 0; n < 4; ++n)
-          beyond[n] = Temporal::swept_beyond(captures, 4, pad, normals[n]);
+          beyond[n] = Spacetime::swept_beyond(captures, 4, pad, normals[n]);
         float top = -1.0f;
         for (int i = 0; i <= 64; ++i) {
           const float t = static_cast<float>(i) / 64.0f;
@@ -64,7 +64,7 @@ inline void test_swept_heights_refuse_wide_spreads() {
   const math::Vector captures[] = {
       math::X_AXIS, math::Vector(-0.1f, 0.0f, 1.0f).normalized()};
   float low = 0.0f, high = 0.0f;
-  HS_EXPECT_FALSE(Temporal::swept_heights(captures, 2, 0.0f, low, high));
+  HS_EXPECT_FALSE(Spacetime::swept_heights(captures, 2, 0.0f, low, high));
   HS_EXPECT_EQ(low, -1.0f);
   HS_EXPECT_EQ(high, 1.0f);
 }

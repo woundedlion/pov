@@ -127,18 +127,18 @@ private:
     const int points = params.points;
     const float radius = params.star_radius;
     const int sides = params.star_sides;
-    const bool drifting = warp_drawn && Temporal::temporal_sampling_enabled();
+    const bool drifting = warp_drawn && !Spacetime::flat_surface();
 
     HS_PROFILE(gn_draw_stars);
     ScratchScope column_guard(scratch_arena_a);
-    Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+    Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation, drifting);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // A star that cannot reach the clip over the frame, drifting included,
     // draws nothing.
     const bool culls = radius <= 1.0f && !params.debug_bb && !canvas.debug();
     const float reach = radius * (math::PI_F / 2.0f);
-    const float sweep = column_time.azimuth ? column_time.sweep : 0.0f;
+    const float sweep = column_basis.azimuth ? column_basis.sweep_arc : 0.0f;
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     const auto cap =
         Plot::make_swept_cap_clip<W, H>(clip, reach, sweep + CULL_DRIFT);
@@ -166,8 +166,8 @@ private:
       }
       if (drifting) {
         const math::Vector drift = star_drift(drawn, v);
-        column_time.drift =
-            Scan::settle_drift<W, H>(column_time, drift, radius, basis)
+        column_basis.drift =
+            Scan::settle_drift<W, H>(column_basis, drift, radius, basis)
                 ? math::Vector(0.0f, 0.0f, 0.0f)
                 : drift;
       }

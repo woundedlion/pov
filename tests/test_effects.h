@@ -354,7 +354,7 @@ inline uint64_t untimed_frame_fold(int frames,
                                    const std::array<int, 4> *clip = nullptr) {
   reset_effect_globals();
   pin_frame_clock(0);
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   uint64_t fold = hs_test::HASH_SEED64;
   {
     E<W, H> effect;
@@ -368,7 +368,7 @@ inline uint64_t untimed_frame_fold(int frames,
       fold = frame_hash<W, H>(effect, fold);
     }
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
   return fold;
 }
@@ -637,17 +637,17 @@ template <int CAP>
 inline int record_face_copies(const Canvas &canvas, const MeshState &mesh,
                               const math::Orientation<CAP> &orientation,
                               FaceCopies &copies) {
-  const ColumnWindow &window = canvas.render_x_window();
-  const Temporal::ColumnTime *time = canvas.column_time();
+  const Spacetime::TimeWindow &window = canvas.time_window();
+  const Scan::ColumnBasis *time = canvas.column_basis();
   const int arm = window.arm(canvas.width());
-  if (!window.active || arm < 0 || !time || !time->selected_faces)
+  if (!window.active || arm < 0 || !time || !time->mesh.selected_faces)
     return -1;
   for (size_t f = 0; f < mesh.num_faces(); ++f) {
-    if (time->selected_faces[f] != Temporal::MESH_FACE_WINDOW)
+    if (time->mesh.selected_faces[f] != Scan::detail::FacePass::ARM_COPY)
       continue;
     FaceCopy &copy = copies[arm][f];
     copy = FaceCopy{};
-    if (const Temporal::MeshFaceCopy *own = time->face_copy) {
+    if (const Scan::FaceArmCopy *own = time->mesh.face_copy) {
       for (size_t k = 0; k < own->count; ++k) {
         copy.indices.push_back(own->sources[k]);
         copy.polygon.push_back(orientation.unorient(own->vertices[k]));

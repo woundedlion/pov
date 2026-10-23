@@ -60,10 +60,10 @@ public:
   static constexpr bool FLOAT_HUE_TABLES =
       TEMPORAL_SAMPLING && Metadata::HUE == HueMode::NOISE;
   static_assert(!TEMPORAL_SAMPLING || (W >= 2 && W % 2 == 0),
-                "Temporal sampling requires an even two-arm canvas width");
+                "Column-time sampling requires an even two-arm canvas width");
   /// Frame context, including retained color resources when sampling time.
   using FrameState =
-      std::conditional_t<TEMPORAL_SAMPLING, TemporalFrameState<ParamsT>,
+      std::conditional_t<TEMPORAL_SAMPLING, FrameIntervalState<ParamsT>,
                          Pullback::FrameState<ParamsT>>;
   using Binding = Pullback::Binding<FrameState>; ///< Pipeline binding.
   /// Whether the projection orientation follows a random walk and spin.
@@ -188,21 +188,20 @@ public:
     }
     const FrameState current = prepare_frame();
     if constexpr (TEMPORAL_SAMPLING) {
-      auto &history =
-          static_cast<TemporalHistory<FrameState, Metadata::HUE,
-                                      TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> &>(
-              *state);
+      auto &history = static_cast<Spacetime::FrameHistory<
+          FrameState, Metadata::HUE, TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> &>(
+          *state);
       if (!history.initialized)
         history.capture(current, persistent_arena);
-      if (Temporal::temporal_sampling_enabled()) {
-        const TemporalFrameSampler sampler(history.previous, current);
+      if (!Spacetime::flat_surface()) {
+        const FrameInterval sampler(history.previous, current);
         HS_PROFILE(fx_shader_draw);
         Scan::Shader::draw_column_times<W, H>(
             canvas,
             [&](int c) {
               HS_PROFILE(fx_prepare_column);
               return RenderPipeline::prepare(
-                  sampler.sample(Temporal::sweep_fraction(c, W)));
+                  sampler.at(Spacetime::SamplingSurface<W>::time(c)));
             },
             [](const Frame &frame, int x) {
               if constexpr (SpecT::FACTORED_COLUMNS &&
@@ -572,8 +571,8 @@ private:
                  OptionalHueRotationLut<Metadata::HUE != HueMode::NONE>,
                  OptionalLinearHueRotationLut<FLOAT_HUE_TABLES>,
                  OptionalHueNoiseLut<Metadata::HUE == HueMode::NOISE>,
-                 TemporalHistory<FrameState, Metadata::HUE, TEMPORAL_SAMPLING,
-                                 FLOAT_HUE_TABLES> {
+                 Spacetime::FrameHistory<FrameState, Metadata::HUE,
+                                         TEMPORAL_SAMPLING, FLOAT_HUE_TABLES> {
     ComposedDetail::ResourceStorage<ComposedDetail::ResourceNoise,
                                     typename Params::ResourceTypes>
         resources;
@@ -808,7 +807,7 @@ private:
 
   /**
    * @brief Bakes the frame's LUTs and snapshots everything the scan reads.
-   * @details Temporal sampling retains valid hue tables even while hue rotation
+   * @details Column-time sampling retains valid hue tables even while hue rotation
    * is inactive. Other effects gate their builds on hue_rotation_active().
    * Hue noise is rebuilt when its scale or phase moves; hue rotation is rebuilt
    * when the palette cycler rebakes its display LUT.

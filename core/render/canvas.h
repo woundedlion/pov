@@ -28,8 +28,8 @@
  */
 
 class Canvas;
-namespace Temporal {
-struct ColumnTime;
+namespace Scan {
+struct ColumnBasis;
 }
 
 /**
@@ -59,7 +59,7 @@ struct EffectConfig {
  */
 class Effect : public PresetHost {
   friend class Canvas;
-  friend class RenderXWindow;
+  friend class TimeWindow;
 
 public:
   /// Per-frame callback run as a Canvas opens, before the stale-pixel clear.
@@ -403,8 +403,8 @@ private:
   ClipRegion::XClip render_x_clip{};
   int render_y_start = 0;
   int render_y_end = 0;
-  ColumnWindow render_x_window{}; /**< Open RenderXWindow, if any. */
-  bool canvas_active = false;     /**< A Canvas is currently drawing a frame. */
+  Spacetime::TimeWindow time_window{}; /**< Open TimeWindow, if any. */
+  bool canvas_active = false; /**< A Canvas is currently drawing a frame. */
 
   void update_render_clip() {
     render_x_clip = clip_region.x_clip();
@@ -568,11 +568,11 @@ public:
   }
 
   /**
-   * @brief Gets the window of the open RenderXWindow.
+   * @brief Gets the window of the open TimeWindow.
    * @return The open window, or an inactive one admitting every column.
    */
-  [[nodiscard]] inline const ColumnWindow &render_x_window() const {
-    return effect.render_x_window;
+  [[nodiscard]] inline const Spacetime::TimeWindow &time_window() const {
+    return effect.time_window;
   }
 
   /**
@@ -603,16 +603,16 @@ public:
    * @brief Column-time state the frame's scans read.
    * @return The installed state, or null for fixed-meridian scans.
    */
-  [[nodiscard]] const Temporal::ColumnTime *column_time() const {
-    return column_time_state;
+  [[nodiscard]] const Scan::ColumnBasis *column_basis() const {
+    return column_basis_state;
   }
 
   /**
    * @brief Installs the column-time state later scans of this frame read.
    * @param state State to install, or null; must outlive its installation.
    */
-  void set_column_time(const Temporal::ColumnTime *state) {
-    column_time_state = state;
+  void set_column_basis(const Scan::ColumnBasis *state) {
+    column_basis_state = state;
   }
 
 #if HS_ENABLE_TEST_HOOKS
@@ -720,11 +720,11 @@ private:
   }
 #endif
 
-  friend class RenderXWindow;
+  friend class TimeWindow;
 
   Effect &effect; /**< Reference to the owning Effect instance. */
   /// Column-time state installed for this frame's scans; null for none.
-  const Temporal::ColumnTime *column_time_state = nullptr;
+  const Scan::ColumnBasis *column_basis_state = nullptr;
 #if HS_ENABLE_TEST_HOOKS
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif
@@ -737,7 +737,7 @@ private:
  * @details Leaves the clip and its culls untouched; only windowed walks such as
  * `Scan::Shader::walk_grid` skip the columns outside it. Windows do not nest.
  */
-class RenderXWindow {
+class TimeWindow {
 public:
   /**
    * @brief Opens the window on a drawing canvas.
@@ -746,21 +746,20 @@ public:
    * @param end One past the last half-turn column, at most half the width.
    * @param arm The one arm admitted, 0 or 1, or -1 for both.
    */
-  HS_FLASH_MEMBER RenderXWindow(Canvas &canvas, int begin, int end,
-                                int arm = -1)
+  HS_FLASH_MEMBER TimeWindow(Canvas &canvas, int begin, int end, int arm = -1)
       : effect(canvas.effect) {
-    HS_CHECK(!effect.render_x_window.active, "render-x windows do not nest");
+    HS_CHECK(!effect.time_window.active, "render-x windows do not nest");
     HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
              "render-x window must lie within the half-turn");
     const int shift = arm < 0 ? 0 : (2 * arm - 1) * (effect.frame_width / 2);
-    effect.render_x_window = {begin + shift, end + shift, true};
+    effect.time_window = {begin + shift, end + shift, true};
   }
 
   /** @brief Closes the window, admitting every column again. */
-  ~RenderXWindow() { effect.render_x_window = {}; }
+  ~TimeWindow() { effect.time_window = {}; }
 
-  RenderXWindow(const RenderXWindow &) = delete;
-  RenderXWindow &operator=(const RenderXWindow &) = delete;
+  TimeWindow(const TimeWindow &) = delete;
+  TimeWindow &operator=(const TimeWindow &) = delete;
 
 private:
   Effect &effect; /**< Effect whose frame the window restricts. */

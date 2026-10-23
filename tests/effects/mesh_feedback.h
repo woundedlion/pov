@@ -310,24 +310,24 @@ inline void test_meshfeedback_mesh_rebuild_reuses_storage() {
 
 /** @brief Production MeshFeedback source matches the per-column frozen mesh. */
 inline void test_meshfeedback_temporal_source_oracle() {
-  const bool enabled = Temporal::temporal_sampling_enabled();
-  Temporal::set_temporal_sampling_enabled(true);
+  const bool enabled = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
   auto render = [](bool timed, float fraction, float displacement) {
     return MeshFeedbackWhiteBox::render_temporal_source(timed, fraction,
                                                         displacement);
   };
   hs_test::seam_compare_render<DEFAULT_W, DEFAULT_H>(render,
                                                      "MeshFeedback source");
-  Temporal::set_temporal_sampling_enabled(enabled);
+  Spacetime::set_flat_surface(!enabled);
 }
 
 /** @brief A still orientation draws the source through the column walk as
  * its frozen frame does, lighting the still route's footprint. */
 inline void test_meshfeedback_stationary_timed_source() {
   std::vector<Pixel> timed, frozen, still;
-  Temporal::geometry_counters = {};
+  Spacetime::geometry_counters = {};
   MeshFeedbackWhiteBox::render_temporal_source(true, 1.0f, 0.0f, 0.0f, &timed);
-  HS_EXPECT_GT(Temporal::geometry_counters.column_draw_setups, 0u);
+  HS_EXPECT_GT(Spacetime::geometry_counters.column_draw_setups, 0u);
   MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f,
                                                &frozen);
   MeshFeedbackWhiteBox::render_temporal_source(false, 1.0f, 0.0f, 0.0f, &still,
@@ -357,7 +357,7 @@ inline void test_meshfeedback_stationary_timed_source() {
 inline void test_meshfeedback_trails_arm_cut_seam() {
   constexpr int W = DEFAULT_W, H = DEFAULT_H, HALF = W / 2;
   constexpr int WARM_FRAMES = 60, FRAMES = 150, BESIDE = 7;
-  const ScopedTemporalSampling column_time(true);
+  const ScopedTemporalSampling column_basis(true);
   double across = 0.0, beside = 0.0;
   for (size_t preset : {1u, 4u, 9u, 10u}) {
     reset_effect_globals();

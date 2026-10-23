@@ -11,8 +11,8 @@
 #include "core/memory.h"
 #include "core/render/canvas.h"
 #include "core/render/sdf.h"
-#include "core/render/temporal.h"
-#include "core/render/temporal/pose_table.h"
+#include "core/render/spacetime.h"
+#include "core/render/spacetime/pose_table.h"
 
 /**
  * @file column_basis.h
@@ -22,6 +22,81 @@
  */
 
 namespace Scan {
+
+namespace detail {
+/** @brief Face selection for a mesh scan pass. */
+enum FacePass : uint8_t {
+  SHARED = 0,   ///< Shared face scan.
+  ARM_COPY = 1, ///< Face admitted by the current time window.
+  SKIPPED = 2   ///< Face excluded from this pass.
+};
+} // namespace detail
+
+/// A mesh face scanned alone from vertices of its own.
+struct FaceArmCopy {
+  size_t face;                  ///< The face's index in the mesh.
+  const math::Vector *vertices; ///< The copy's vertices, in winding order.
+  const uint16_t *indices;      ///< Indices 0 to count - 1 into vertices.
+  const uint16_t *sources;      ///< The mesh vertex each vertex stands for.
+  size_t count;                 ///< Number of vertices.
+};
+
+/**
+ * @brief A mesh face a deformation scan draws one column pair at a time, each
+ *        pair from the face's vertices at the pair's sweep time
+ *        (Scan::SweptFace).
+ */
+struct PoleFaceSweep {
+  size_t face; ///< The face's index in the mesh.
+  /// Its vertices' paths over the frame, in winding order.
+  const Spacetime::Worldline *paths;
+  size_t count; ///< Number of vertices.
+  bool north;   ///< Whether it lies around the north pole.
+};
+
+namespace detail {
+/** @brief Selection and captured geometry of a mesh scan pass. */
+struct MeshPass {
+  /// Per face of the mesh a deformation scan draws, which of its passes
+  /// draws the face: detail::FacePass::SHARED for the pass without a render-x window,
+  /// detail::FacePass::ARM_COPY for the open window's; null outside such a scan.
+  const uint8_t *selected_faces = nullptr;
+  /// Per-row azimuth pads shared by a deformation scan's passes.
+  const float *face_pads = nullptr;
+  /// One face a deformation scan draws alone, from its own vertex list;
+  /// null to scan the selection table.
+  const FaceArmCopy *face_copy = nullptr;
+  /// One face a deformation scan draws column pair by column pair; null
+  /// otherwise.
+  const PoleFaceSweep *face_sweep = nullptr;
+};
+} // namespace detail
+
+/**
+ * @brief Column-time state shared by the scans of one effect frame.
+ * @details A scan with a basis builds a pixel's direction from its column
+ * `c = Spacetime::SamplingSurface<W>::index(x)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * the far arm: the fixed-meridian direction rotated from the column's sweep
+ * time to the current endpoint, so shapes built at the current endpoint are
+ * evaluated as they stood when the column was lit.
+ */
+struct ColumnBasis {
+  /// Rotated azimuth directions of the first arm, W / 2 entries; null for the
+  /// fixed meridian.
+  const math::Vector *azimuth = nullptr;
+  /// Per-fraction rotated up directions, W / 2 entries.
+  const math::Vector *up = nullptr;
+  /// Bound on the arc any direction moves over the frame (radians).
+  float sweep_arc = 0.0f;
+  /// Earliest frame fraction drawn; columns lit before it are left untouched.
+  float birth = 0.0f;
+  /// Rotation vector, axis times angle, carrying the scanned shape from where
+  /// it stood at the previous endpoint to the current one. A Scan::rasterize
+  /// column lit at fraction `u` evaluates the shape along its direction
+  /// rotated by `drift * (1 - u)`; shorter than a half turn.
+  math::Vector drift = math::Vector(0.0f, 0.0f, 0.0f);
+  detail::MeshPass mesh; ///< Face-scan pass state.
+};
 
 struct ScanRef;
 
@@ -84,12 +159,12 @@ struct ScanRef : PipelineRef {
  * @details A pipeline whose world stages may move points does not compile.
  */
 template <typename PipelineT>
-__attribute__((always_inline)) inline const Temporal::ColumnTime *
-column_time([[maybe_unused]] const PipelineT &pipeline, const Canvas &canvas) {
+__attribute__((always_inline)) inline const Scan::ColumnBasis *
+column_basis([[maybe_unused]] const PipelineT &pipeline, const Canvas &canvas) {
   static_assert(leaves_world_unmoved<PipelineT>,
                 "a scan cannot plot through world stages that move points; "
                 "pass the typed pipeline or a Scan::ScanRef");
-  return canvas.column_time();
+  return canvas.column_basis();
 }
 
 /**
@@ -163,14 +238,14 @@ inline SDF::Bounds swept_rows(const SDF::Bounds &bounds, float sweep) {
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
  * @details Shapes are built at the current endpoint. Column `x`, lit at
- * fraction `u = sweep_fraction(x, W)`, evaluates them along
+ * fraction `u = surface_time(x, W)`, evaluates them along
  * `R(1) * R(u)^-1` applied to its fixed-meridian direction, `R(u)` the pose
- * Temporal::for_each_column_pose() samples from the orientation's history,
+ * Spacetime::for_each_time_pose() samples from the orientation's history,
  * which is where the shape stood when the column was lit. Opposing columns
  * share a fraction, so one entry serves both arms. The table is frame-scoped:
  * an effect allocates it in a scratch arena for its draw.
  */
-template <int W, int H> struct ColumnBasis {
+template <int W, int H> struct ColumnBasisTable {
   static_assert(W % 4 == 0, "column basis reads the quarter-turn trig table");
   static constexpr int HALF = W / 2; ///< Distinct sweep fractions.
 
@@ -189,10 +264,10 @@ template <int W, int H> struct ColumnBasis {
    * @details A history of one pose, as after construction or a snap, has no
    * motion.
    */
-  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion *history,
-                                               int count,
-                                               bool state_moves = false) {
-    Temporal::ColumnTime time;
+  HS_FLASH_MEMBER Scan::ColumnBasis prepare(const math::Quaternion *history,
+                                            int count,
+                                            bool state_moves = false) {
+    Scan::ColumnBasis time;
     if (!needed(history, count, state_moves))
       return time;
     if (!math::TrigLUT<W, H>::initialized)
@@ -200,7 +275,7 @@ template <int W, int H> struct ColumnBasis {
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const math::Quaternion &current = history[count - 1];
-    Temporal::for_each_column_pose(
+    Spacetime::for_each_time_pose(
         history, count, W,
         [&](int i, const math::Quaternion &pose) HS_HOT_INLINE {
           const math::Quaternion delta = current * pose.conjugate();
@@ -210,7 +285,7 @@ template <int W, int H> struct ColumnBasis {
         });
     time.azimuth = azimuth.data();
     time.up = up.data();
-    time.sweep = Temporal::history_arc(history, count) + SWEEP_PAD;
+    time.sweep_arc = Spacetime::history_arc(history, count) + SWEEP_PAD;
     return time;
   }
 
@@ -222,9 +297,9 @@ template <int W, int H> struct ColumnBasis {
    * @return Column-time state, as the history form gives it for the two-pose
    *         history.
    */
-  HS_FLASH_MEMBER Temporal::ColumnTime prepare(const math::Quaternion &previous,
-                                               const math::Quaternion &current,
-                                               bool state_moves = false) {
+  HS_FLASH_MEMBER Scan::ColumnBasis prepare(const math::Quaternion &previous,
+                                            const math::Quaternion &current,
+                                            bool state_moves = false) {
     const math::Quaternion history[] = {previous, current};
     return prepare(history, 2, state_moves);
   }
@@ -241,7 +316,7 @@ template <int W, int H> struct ColumnBasis {
    */
   HS_HOT_FLASH_MEMBER static bool moving(const math::Quaternion *history,
                                          int count) {
-    if (!Temporal::temporal_sampling_enabled())
+    if (Spacetime::flat_surface())
       return false;
     const math::Quaternion &current = history[count - 1];
     for (int i = 0; i + 1 < count; ++i) {
@@ -263,7 +338,7 @@ template <int W, int H> struct ColumnBasis {
   static bool needed(const math::Quaternion *history, int count,
                      bool state_moves) {
     return moving(history, count) ||
-           (state_moves && Temporal::temporal_sampling_enabled());
+           (state_moves && !Spacetime::flat_surface());
   }
 };
 
@@ -336,15 +411,15 @@ inline void lit_columns(const math::Vector &axis, float radius, float sweep,
  * @brief A direction turned by a drift still to come at a column's time.
  * @tparam W Canvas width in columns.
  * @param p Direction to turn.
- * @param drift The shape's drift, as `Temporal::ColumnTime::drift` takes it.
+ * @param drift The shape's drift, as `Scan::ColumnBasis::drift` takes it.
  * @param x Column.
- * @return @p p rotated by `drift * (1 - Temporal::sweep_fraction(x, W))`.
+ * @return @p p rotated by `drift * (1 - Spacetime::SamplingSurface<W>::time(x))`.
  */
 template <int W>
 HS_HOT_FLASH_MEMBER math::Vector
 drifted_direction(const math::Vector &p, const math::Vector &drift, int x) {
-  return Temporal::rotate_by(p,
-                             drift * (1.0f - Temporal::sweep_fraction(x, W)));
+  return Spacetime::rotate_by(
+      p, drift * (1.0f - Spacetime::SamplingSurface<W>::time(x)));
 }
 
 /**
@@ -361,7 +436,7 @@ drifted_direction(const math::Vector &p, const math::Vector &drift, int x) {
  * @details Column `x` sees the shape turned by the inverse of the rotation
  * that maps its fixed-meridian frame to its table entry, and turned back by
  * the drift still to come at its fraction `u`, `drift * (u - 1)`; between two
- * columns that turn changes by at most `time.sweep` plus the drift's angle
+ * columns that turn changes by at most `time.sweep_arc` plus the drift's angle
  * times their fraction difference. The swept cap bounds the columns that can
  * see the shape, which lit_columns() finds. When they stay on one arm, clear
  * of the poles, the cap turned to their middle column's time and widened by
@@ -371,16 +446,16 @@ drifted_direction(const math::Vector &p, const math::Vector &drift, int x) {
  */
 template <int W, int H>
 inline bool lit_cap(const math::Vector &axis, float radius,
-                    const Temporal::ColumnTime &time, LitCap &lit) {
+                    const Scan::ColumnBasis &time, LitCap &lit) {
   constexpr int HALF = W / 2;
   const float drift = sqrtf(math::dot(time.drift, time.drift));
-  const float sweep = time.sweep + drift;
+  const float sweep = time.sweep_arc + drift;
   int first, last;
   lit_columns<W>(axis, radius, sweep, first, last);
   const int m = (first + last) / 2;
   const float arc =
       sweep * static_cast<float>(std::max(m - first, last - m)) / HALF +
-      ColumnBasis<W, H>::SWEEP_PAD;
+      ColumnBasisTable<W, H>::SWEEP_PAD;
   if (!(radius + arc < 0.5f * math::PI_F))
     return false;
   if (!math::TrigLUT<W, H>::initialized)
@@ -411,7 +486,7 @@ inline bool lit_cap(const math::Vector &axis, float radius,
 template <int W> struct DriftColumns {
   static constexpr int HALF = W / 2; ///< Distinct sweep fractions.
 
-  Temporal::ColumnTime view; ///< State reading the entries, without a drift.
+  Scan::ColumnBasis view; ///< State reading the entries, without a drift.
 
   /**
    * @brief Allocates the entries, none filled.
@@ -419,13 +494,13 @@ template <int W> struct DriftColumns {
    * @param time Column-time state with a rotated basis and a drift; must
    *        outlive this object.
    */
-  HS_FLASH_MEMBER DriftColumns(Arena &arena, const Temporal::ColumnTime &time)
+  HS_FLASH_MEMBER DriftColumns(Arena &arena, const Scan::ColumnBasis &time)
       : time(time), table(arena.allocate_n<math::Vector>(W)),
         filled(arena.allocate_n<bool>(HALF)) {
     std::fill_n(filled, HALF, false);
     view.azimuth = table;
     view.up = table + HALF;
-    view.sweep = time.sweep + sqrtf(math::dot(time.drift, time.drift));
+    view.sweep_arc = time.sweep_arc + sqrtf(math::dot(time.drift, time.drift));
     view.birth = time.birth;
   }
 
@@ -434,7 +509,7 @@ template <int W> struct DriftColumns {
    * @param x Column.
    */
   HS_HOT_INLINE void reach(int x) {
-    const int c = x < HALF ? x : x - HALF;
+    const int c = Spacetime::SamplingSurface<W>::index(x);
     if (!filled[c])
       fill(c);
   }
@@ -446,17 +521,17 @@ private:
    */
   HS_FLASH_MEMBER void fill(int c) {
     const math::Vector rotation =
-        time.drift * (1.0f - Temporal::sweep_fraction(c, W));
-    const Temporal::TurnCoefficients k =
-        Temporal::turn_coefficients(math::dot(rotation, rotation));
-    table[c] = Temporal::rotate_by(time.azimuth[c], rotation, k);
-    table[HALF + c] = Temporal::rotate_by(time.up[c], rotation, k);
+        time.drift * (1.0f - Spacetime::SamplingSurface<W>::time(c));
+    const Spacetime::TurnCoefficients k =
+        Spacetime::turn_coefficients(math::dot(rotation, rotation));
+    table[c] = Spacetime::rotate_by(time.azimuth[c], rotation, k);
+    table[HALF + c] = Spacetime::rotate_by(time.up[c], rotation, k);
     filled[c] = true;
   }
 
-  const Temporal::ColumnTime &time; ///< Frame state and the shape's drift.
-  math::Vector *table;              ///< Azimuth entries, then up entries.
-  bool *filled;                     ///< Whether each column's are filled.
+  const Scan::ColumnBasis &time; ///< Frame state and the shape's drift.
+  math::Vector *table;           ///< Azimuth entries, then up entries.
+  bool *filled;                  ///< Whether each column's are filled.
 };
 
 /// Largest change of a drift across a compact shape's seeing columns that
@@ -470,7 +545,7 @@ inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
  * @param time Column-time state with a rotated basis.
- * @param drift The shape's drift, as `Temporal::ColumnTime::drift` takes it.
+ * @param drift The shape's drift, as `Scan::ColumnBasis::drift` takes it.
  * @param radius Angular radius of the cap bounding the shape about `basis.v`.
  * @param basis The shape's basis at the current endpoint; receives it turned
  *        back by the drift still to come at the seeing columns' middle time.
@@ -483,12 +558,12 @@ inline constexpr float DRIFT_SETTLE_ARC = 0.1f * math::TWO_PI_F / W;
  * boundary, does not settle.
  */
 template <int W, int H>
-HS_FLASH_MEMBER inline bool settle_drift(const Temporal::ColumnTime &time,
+HS_FLASH_MEMBER inline bool settle_drift(const Scan::ColumnBasis &time,
                                          const math::Vector &drift,
                                          float radius, math::Basis &basis) {
   const float angle = sqrtf(math::dot(drift, drift));
-  Temporal::ColumnTime moving = time;
-  moving.sweep = time.sweep + angle;
+  Scan::ColumnBasis moving = time;
+  moving.sweep_arc = time.sweep_arc + angle;
   moving.drift = math::Vector(0.0f, 0.0f, 0.0f);
   LitCap lit;
   if (!lit_cap<W, H>(basis.v, radius, moving, lit))
@@ -501,12 +576,12 @@ HS_FLASH_MEMBER inline bool settle_drift(const Temporal::ColumnTime &time,
   if (angle * static_cast<float>(last - first) / W > DRIFT_SETTLE_ARC<W>)
     return false;
   const math::Vector back =
-      drift * (Temporal::sweep_fraction((first + last) / 2, W) - 1.0f);
-  const Temporal::TurnCoefficients k =
-      Temporal::turn_coefficients(math::dot(back, back));
-  basis = {Temporal::rotate_by(basis.u, back, k),
-           Temporal::rotate_by(basis.v, back, k),
-           Temporal::rotate_by(basis.w, back, k)};
+      drift * (Spacetime::surface_time((first + last) / 2, W) - 1.0f);
+  const Spacetime::TurnCoefficients k =
+      Spacetime::turn_coefficients(math::dot(back, back));
+  basis = {Spacetime::rotate_by(basis.u, back, k),
+           Spacetime::rotate_by(basis.v, back, k),
+           Spacetime::rotate_by(basis.w, back, k)};
   return true;
 }
 
@@ -540,13 +615,13 @@ struct ObjectColumn {
  * @tparam W Canvas width in columns.
  * @tparam H Canvas height in rows.
  * @details An object placed in the world by `R(u)`, slerped between the
- * frame's endpoints, is seen by column `x`, lit at `u = sweep_fraction(x, W)`,
+ * frame's endpoints, is seen by column `x`, lit at `u = surface_time(x, W)`,
  * along its fixed-meridian frame rotated by `conj(R(u))`. A shader that
  * evaluates the object in its own space reads the pixel directions from this
  * table and needs no oriented copy of the object. Opposing columns share a
  * fraction, so one entry serves both arms. The table is frame-scoped.
  */
-template <int W, int H> struct ObjectColumnBasis {
+template <int W, int H> struct ObjectBasisTable {
   static_assert(W % 4 == 0, "column basis reads the quarter-turn trig table");
   static constexpr int HALF = W / 2; ///< Distinct sweep fractions.
 
@@ -567,7 +642,7 @@ template <int W, int H> struct ObjectColumnBasis {
     const float *cos_theta = math::TrigLUT<W, H>::cos_theta_data();
     const float *sin_theta = math::TrigLUT<W, H>::sin_theta.data();
     const math::Quaternion history[] = {previous, current};
-    Temporal::for_each_column_pose(
+    Spacetime::for_each_time_pose(
         history, 2, W, [&](int i, const math::Quaternion &pose) HS_HOT_INLINE {
           const math::Quaternion inverse = pose.conjugate();
           radial[i] = math::rotate(
@@ -604,12 +679,12 @@ template <int W, int H> struct ObjectColumnBasis {
  * @return Column-time state for the frame's scans.
  */
 template <int W, int H>
-HS_HOT_FLASH_MEMBER Temporal::ColumnTime
+HS_HOT_FLASH_MEMBER Scan::ColumnBasis
 prepare_column_basis(Arena &arena, const math::Quaternion *history, int count,
                      bool state_moves = false) {
-  if (!ColumnBasis<W, H>::needed(history, count, state_moves))
+  if (!ColumnBasisTable<W, H>::needed(history, count, state_moves))
     return {};
-  return arena.make_default_initialized<ColumnBasis<W, H>>()->prepare(
+  return arena.make_default_initialized<ColumnBasisTable<W, H>>()->prepare(
       history, count, state_moves);
 }
 
@@ -624,10 +699,10 @@ prepare_column_basis(Arena &arena, const math::Quaternion *history, int count,
  * @return Column-time state for the frame's scans.
  */
 template <int W, int H>
-inline Temporal::ColumnTime
-prepare_column_basis(Arena &arena, const math::Quaternion &previous,
-                     const math::Quaternion &current,
-                     bool state_moves = false) {
+inline Scan::ColumnBasis prepare_column_basis(Arena &arena,
+                                              const math::Quaternion &previous,
+                                              const math::Quaternion &current,
+                                              bool state_moves = false) {
   const math::Quaternion history[] = {previous, current};
   return prepare_column_basis<W, H>(arena, history, 2, state_moves);
 }
@@ -646,37 +721,37 @@ prepare_column_basis(Arena &arena, const math::Quaternion &previous,
  *         sub-frame path.
  */
 template <int W, int H, int CAP>
-HS_HOT_FLASH_MEMBER Temporal::ColumnTime
+HS_HOT_FLASH_MEMBER Scan::ColumnBasis
 prepare_column_basis(Arena &arena, const math::Orientation<CAP> &orientation,
                      bool state_moves = false) {
   std::array<math::Quaternion, CAP> history;
   return prepare_column_basis<W, H>(
       arena, history.data(),
-      Temporal::copy_history(orientation, history.data()), state_moves);
+      Spacetime::copy_history(orientation, history.data()), state_moves);
 }
 
 /**
  * @brief Installs column-time state on a canvas for a scope.
  * @details Restores the previously installed state on exit, so scopes nest.
  */
-class ColumnTimeScope {
+class ColumnBasisScope {
 public:
   /**
    * @brief Installs @p state.
    * @param canvas Canvas whose later scans read the state.
    * @param state State to install; must outlive the scope.
    */
-  ColumnTimeScope(Canvas &canvas, const Temporal::ColumnTime &state)
-      : canvas(canvas), saved(canvas.column_time()) {
-    canvas.set_column_time(&state);
+  ColumnBasisScope(Canvas &canvas, const Scan::ColumnBasis &state)
+      : canvas(canvas), saved(canvas.column_basis()) {
+    canvas.set_column_basis(&state);
   }
-  ~ColumnTimeScope() { canvas.set_column_time(saved); }
-  ColumnTimeScope(const ColumnTimeScope &) = delete;
-  ColumnTimeScope &operator=(const ColumnTimeScope &) = delete;
+  ~ColumnBasisScope() { canvas.set_column_basis(saved); }
+  ColumnBasisScope(const ColumnBasisScope &) = delete;
+  ColumnBasisScope &operator=(const ColumnBasisScope &) = delete;
 
 private:
-  Canvas &canvas;                    ///< Canvas carrying the state.
-  const Temporal::ColumnTime *saved; ///< State installed before the scope.
+  Canvas &canvas;                 ///< Canvas carrying the state.
+  const Scan::ColumnBasis *saved; ///< State installed before the scope.
 };
 
 } // namespace Scan

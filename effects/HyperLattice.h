@@ -26,13 +26,13 @@
 #include "core/render/sdf/lattice.h"
 #include "core/render/ray/shade.h"
 #include "core/render/pullback/ray.h"
-#include "core/render/pullback/temporal_history.h"
+#include "core/render/spacetime/field.h"
 #include "core/control/choreography.h"
 #include "core/engine/engine.h"
 #include "core/math/4dmath.h"
 #include "core/render/pullback.h"
 #include "core/render/sdf/lattice_trace.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 
 namespace hs_test {
 namespace hyper_lattice_tests {
@@ -830,7 +830,7 @@ public:
     const bool MOVING =
         std::memcmp(&previous.state, &context, sizeof(context)) != 0 ||
         std::memcmp(&previous.center, &trace_center, sizeof(trace_center)) != 0;
-    if (Temporal::temporal_sampling_enabled() && MOVING) {
+    if (!Spacetime::flat_surface() && MOVING) {
       HS_PROFILE(hl_shader_draw);
       const HyperLatticeDetail::FrameInterval interval(
           previous.state, context, previous.center, flight_step);
@@ -917,8 +917,8 @@ private:
       HS_PROFILE_DEEP(hl_column_states);
       for (int x = 0; x < COLUMN_TIMES; ++x)
         std::construct_at(states + x,
-                          HyperLatticeDetail::prepare_trace(
-                              interval.sample(Temporal::sweep_fraction(x, W))));
+                          HyperLatticeDetail::prepare_trace(interval.sample(
+                              Spacetime::SamplingSurface<W>::time(x))));
     }
     dispatch_cubic(
         [&]<bool SLICE_4D, uint8_t SHELLS>() __attribute__((always_inline)) {
@@ -1163,7 +1163,7 @@ private:
     {
       HS_PROFILE_DEEP(hl_column_states);
       for (int x = 0; x < COLUMN_TIMES; ++x) {
-        const float FRACTION = Temporal::sweep_fraction(x, W);
+        const float FRACTION = Spacetime::SamplingSurface<W>::time(x);
         std::construct_at(states + x,
                           prepare_traced(interval.sample(FRACTION),
                                          interval.center(FRACTION)));
@@ -1264,7 +1264,7 @@ private:
   math::Vec4 flight_step{};
   /// The previous drawn frame; initialized while it holds this
   /// configuration's last draw.
-  Pullback::TemporalHistory<HyperLatticeDetail::FrameEndpoint> history;
+  Spacetime::FrameHistory<HyperLatticeDetail::FrameEndpoint> history;
   PaletteCycler depth_palette;
   BakedPaletteStorage iridescent_palette;
   float iridescent_phase = 0.0f;

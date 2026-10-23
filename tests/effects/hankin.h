@@ -443,9 +443,9 @@ inline void test_hankinsolids_handoff_history() {
   }
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 4), 3);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 4), 4);
-  Temporal::set_temporal_sampling_enabled(false);
+  Spacetime::set_flat_surface(true);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 5), 5);
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 6), 5);
   HS_EXPECT_FALSE(WB::handoff(6, 6).moves);
 }

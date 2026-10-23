@@ -15,8 +15,8 @@
 #include "core/platform/attributes.h"
 #include "core/render/canvas.h"
 #include "core/render/filter/screen_anti_alias.h"
-#include "core/render/temporal.h"
-#include "core/render/temporal/arm_crossing.h"
+#include "core/render/spacetime.h"
+#include "core/render/spacetime/crossing.h"
 
 /**
  * @file point_route.h
@@ -34,7 +34,7 @@ namespace Plot {
  * and t = 1; between them it moves along their chord. Both endpoints are
  * projected once, and the projected column and row are taken as linear in t
  * between them, so each arm pass is one division
- * (Temporal::linear_captures()). The pass is splatted through the sink's own
+ * (Spacetime::screen_crossings()). The pass is splatted through the sink's own
  * anti-alias stage at its position then; where that would put a tap more
  * than SINGLE_TIME_PIXELS from where the point stood when the tap's column
  * was lit, or the taps straddle an arm boundary, each tap column takes the
@@ -58,7 +58,7 @@ public:
    * @p motion is ignored.
    */
   HS_FLASH_MEMBER void prepare(const Canvas &canvas, float motion) {
-    timed = Temporal::temporal_sampling_enabled();
+    timed = !Spacetime::flat_surface();
     const float reach = timed ? motion : 0.0f;
     const ClipRegion &clip = canvas.clip();
 
@@ -138,11 +138,11 @@ public:
     }
     const math::Vector origin = start();
     math::PixelCoords a = math::vector_to_pixel<W, H>(origin);
-    a.x = b.x + Temporal::centered_remainder(a.x - b.x, float(W));
+    a.x = b.x + math::centered_remainder(a.x - b.x, float(W));
     if (a.x == b.x && a.y == b.y) {
       Color4 c;
       if constexpr (TIMED_SHADE)
-        c = shade(Temporal::column_fraction<W>(b.x));
+        c = shade(Spacetime::SamplingSurface<W>::time(b.x));
       else
         c = shade();
       sink.plot(canvas, b.x, b.y, c.color, 0.0f, c.alpha);
@@ -167,8 +167,8 @@ public:
     auto at_time = [&](float t) HS_HOT_INLINE {
       return math::PixelCoords{a.x + dx * t, a.y + dy * t};
     };
-    Temporal::linear_captures<W>(
-        a, b, [&](const Temporal::LinearCapture &capture) HS_HOT_INLINE {
+    Spacetime::screen_crossings<W>(
+        a, b, [&](const Spacetime::ScreenCrossing &capture) HS_HOT_INLINE {
           emit(sink, canvas, capture, shade_once(capture.time), dx, dy,
                at_time);
         });
@@ -297,12 +297,12 @@ private:
       const float t0 = static_cast<float>(k - 1) * step;
       const float t1 = k == pieces ? 1.0f : static_cast<float>(k) * step;
       math::PixelCoords to = k == pieces ? b : at_time(t1);
-      to.x = from.x + Temporal::centered_remainder(to.x - from.x, float(W));
+      to.x = from.x + math::centered_remainder(to.x - from.x, float(W));
       const float dx = (to.x - from.x) / (t1 - t0);
       const float dy = (to.y - from.y) / (t1 - t0);
-      Temporal::linear_captures<W>(
+      Spacetime::screen_crossings<W>(
           from, to, t0, t1, k == 1, k == pieces,
-          [&](const Temporal::LinearCapture &capture) HS_HOT_INLINE {
+          [&](const Spacetime::ScreenCrossing &capture) HS_HOT_INLINE {
             emit(sink, canvas, capture, shade(capture.time), dx, dy, at_time);
           });
       from = to;
@@ -320,13 +320,13 @@ private:
    */
   template <typename Sink, typename AtTime>
   HS_HOT_INLINE static void
-  emit(Sink &sink, Canvas &canvas, const Temporal::LinearCapture &capture,
+  emit(Sink &sink, Canvas &canvas, const Spacetime::ScreenCrossing &capture,
        const Color4 &c, float dx, float dy, AtTime &at_time) {
     math::PixelCoords position = capture.position;
     if (position.x < -float(W) || position.x >= 2.0f * W)
-      position.x = Temporal::centered_remainder(position.x, float(W));
-    if (fabsf(Temporal::centered_remainder(position.x, W / 2.0f)) > 1.0f &&
-        Temporal::tap_motion_error<W>(position.x, dx, dy) <=
+      position.x = math::centered_remainder(position.x, float(W));
+    if (fabsf(math::centered_remainder(position.x, W / 2.0f)) > 1.0f &&
+        Filter::Screen::AntiAlias<W, H>::tap_motion_error(position.x, dx, dy) <=
             SINGLE_TIME_PIXELS) {
       sink.plot(canvas, position.x, position.y, c.color, 0.0f, c.alpha);
       return;
@@ -341,7 +341,7 @@ private:
         position.x, capture.time, [&](int column, float at) HS_HOT_INLINE {
           math::PixelCoords p = at_time(at);
           if (p.x < -float(W) || p.x >= 2.0f * W)
-            p.x = Temporal::centered_remainder(p.x, float(W));
+            p.x = math::centered_remainder(p.x, float(W));
           Splat::column_taps(p.x, p.y, c.color, 0.0f, c.alpha, column, pass);
         });
   }

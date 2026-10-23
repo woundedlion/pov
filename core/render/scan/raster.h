@@ -16,7 +16,7 @@
 #include "core/render/canvas.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/column_basis.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime.h"
 
 /**
  * @file raster.h
@@ -840,7 +840,7 @@ inline int process_pixel(int x, int y, const math::Vector &p,
       if constexpr (COLUMN_SHADER) {
         if (per_column)
           fragment_shader.timed(p, frag_scratch,
-                                Temporal::sweep_fraction(column, W));
+                                Spacetime::SamplingSurface<W>::time(column));
         else
           fragment_shader.plain(p, frag_scratch);
       } else {
@@ -1001,7 +1001,7 @@ walk_clip_columns(ClipRegion::XClip xc, BodyFn &&body) {
  * @param body Receives, in ascending order, each first-arm column `c` whose
  *        column `c` (near) or `c + W / 2` (far) the clip admits, with which of
  *        the two it admits.
- * @details Both columns are lit at `Temporal::sweep_fraction(c, W)`, so the
+ * @details Both columns are lit at `Spacetime::SamplingSurface<W>::time(c)`, so the
  * body can prepare state of that time once for both.
  */
 template <int W, typename BodyFn>
@@ -1032,7 +1032,7 @@ struct WindowPieces {
  */
 template <int W>
 __attribute__((always_inline)) inline WindowPieces
-window_pieces(ClipRegion::XClip xc, const ColumnWindow &window) {
+window_pieces(ClipRegion::XClip xc, const Spacetime::TimeWindow &window) {
   const ClipPieces clip = clip_pieces<W>(xc);
   WindowPieces pieces;
   for (int i = 0; i < clip.count; ++i)
@@ -1062,7 +1062,7 @@ window_pieces(ClipRegion::XClip xc, const ColumnWindow &window) {
  */
 template <int W, typename BodyFn>
 __attribute__((always_inline)) inline void
-walk_window_columns(ClipRegion::XClip xc, const ColumnWindow &window,
+walk_window_columns(ClipRegion::XClip xc, const Spacetime::TimeWindow &window,
                     BodyFn &&body) {
   const WindowPieces pieces = window_pieces<W>(xc, window);
   for (int i = 0; i < pieces.count; ++i)
@@ -1178,7 +1178,7 @@ template <int W, int H, bool COLUMN_TIME, bool INLINE_WALK, typename IntervalFn,
 HS_HOT_INLINE inline void
 scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
                  PixelFn &pixel_fn, ClipRegion::XClip xc,
-                 const Temporal::ColumnTime *time, ReachFn reach = {}) {
+                 const Scan::ColumnBasis *time, ReachFn reach = {}) {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
 
@@ -1204,7 +1204,8 @@ scan_region_body(int y_min, int y_max, IntervalFn &get_intervals,
     azimuth = time->azimuth;
     up = time->up;
     if (time->birth > 0.0f)
-      birth_column = Temporal::first_column_at(time->birth, W);
+      birth_column =
+          Spacetime::SamplingSurface<W>::first_column_at(time->birth);
   }
   const auto direction = [&](int x, float sp, float cp) HS_HOT_INLINE {
     if constexpr (COLUMN_TIME) {
@@ -1332,7 +1333,7 @@ template <int W, int H, typename IntervalFn, typename PixelFn,
 inline void
 scan_region_column_time(int y_min, int y_max, IntervalFn &&get_intervals,
                         PixelFn &&pixel_fn, ClipRegion::XClip xc,
-                        const Temporal::ColumnTime &time, ReachFn reach = {}) {
+                        const Scan::ColumnBasis &time, ReachFn reach = {}) {
   scan_region_body<W, H, true, false>(y_min, y_max, get_intervals, pixel_fn, xc,
                                       &time, reach);
 }
@@ -1356,7 +1357,7 @@ template <int W, int H, bool COLUMN_TIME, typename IntervalFn, typename PixelFn>
 HS_HOT_FLASH_MEMBER void
 scan_region_flash(int y_min, int y_max, IntervalFn &&get_intervals,
                   PixelFn &&pixel_fn, ClipRegion::XClip xc,
-                  const Temporal::ColumnTime *time) {
+                  const Scan::ColumnBasis *time) {
   scan_region_body<W, H, COLUMN_TIME, true>(y_min, y_max, get_intervals,
                                             pixel_fn, xc, time);
 }
@@ -1491,7 +1492,7 @@ inline constexpr bool has_moved_bounds =
  * @return True for a rotated basis or a birth fraction.
  */
 __attribute__((always_inline)) inline bool
-column_time_active(const Temporal::ColumnTime *time) {
+column_time_active(const Scan::ColumnBasis *time) {
   return time && (time->azimuth || time->birth > 0.0f);
 }
 
@@ -1521,7 +1522,7 @@ template <int W, int H, bool ComputeUVs, typename PipelineT, typename ShapeT>
 inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
                                   const ShapeT &shape,
                                   ColumnShader fragment_shader, bool debug,
-                                  const Temporal::ColumnTime &time) {
+                                  const Scan::ColumnBasis &time) {
   int y_lo, y_hi;
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
@@ -1531,8 +1532,8 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
     drift_scratch.emplace(scratch_arena_b);
     drifted.emplace(scratch_arena_b, time);
   }
-  const Temporal::ColumnTime &view = drifted ? drifted->view : time;
-  const float sweep = view.azimuth ? view.sweep : 0.0f;
+  const Scan::ColumnBasis &view = drifted ? drifted->view : time;
+  const float sweep = view.azimuth ? view.sweep_arc : 0.0f;
   using Proxy = typename SweptBoundsOf<ShapeT>::type;
   // A proxy of the shape's own type replaces it as the bounds source.
   constexpr bool SAME_TYPE = std::is_same_v<Proxy, ShapeT>;
@@ -1687,7 +1688,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   check_fragment_shader(fragment_shader);
   bool effective_debug = debug_bb || canvas.debug();
 
-  if (const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+  if (const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
       column_time_active(time)) {
     rasterize_column_time<W, H, ComputeUVs>(
         pipeline, canvas, shape, fragment_shader, effective_debug, *time);
@@ -1716,7 +1717,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
 template <int W, int H, bool ComputeUVs = true, typename PipelineT>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
                       TimedShaderFn fragment_shader, bool debug_bb = false) {
-  if (!Temporal::temporal_sampling_enabled()) {
+  if (Spacetime::flat_surface()) {
     const auto at_endpoint = [&](const math::Vector &p, Fragment &f) {
       fragment_shader(p, f, 1.0f);
     };
@@ -1733,8 +1734,8 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   check_canvas_dims<W, H>(canvas);
   check_pipeline_prepared(pipeline, canvas);
   check_fragment_shader(fragment_shader);
-  const Temporal::ColumnTime meridian;
-  const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+  const Scan::ColumnBasis meridian;
+  const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
   rasterize_column_time<W, H, ComputeUVs>(
       pipeline, canvas, shape, fragment_shader, debug_bb || canvas.debug(),
       time ? *time : meridian);

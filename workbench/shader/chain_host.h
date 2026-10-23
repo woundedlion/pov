@@ -23,8 +23,8 @@
 #include "core/engine/engine.h"
 #include "core/render/pullback/interpreter.h"
 #include "core/render/pullback/runtime_seeds.h"
-#include "core/render/pullback/temporal_history.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime/field.h"
+#include "core/render/spacetime.h"
 #include "workbench/shader/chain_snapshot.h"
 
 namespace hs_test {
@@ -292,8 +292,8 @@ public:
     const Pullback::Interp::FrameContext ctx = make_frame_context(tap);
     program.prepare(ctx);
     program.check_ready();
-    if (Temporal::temporal_sampling_enabled() &&
-        resources->context.initialized && program.history_continuous()) {
+    if (!Spacetime::flat_surface() && resources->context.initialized &&
+        program.history_continuous()) {
       draw_columns(canvas, ctx);
       program.prepare(ctx);
     } else {
@@ -389,7 +389,7 @@ private:
     Scan::Shader::draw_column_times<W, H>(
         canvas,
         [&](int c) {
-          const float fraction = Temporal::sweep_fraction(c, W);
+          const float fraction = Spacetime::SamplingSurface<W>::time(c);
           program.prepare_column(ctx, previous, fraction);
           return fraction;
         },
@@ -461,7 +461,7 @@ private:
     Pullback::Color::HueNoiseBakeCache hue_noise_bake;
     /** Previous frame context, its colour resources pointing at the copies
         below. */
-    Pullback::TemporalHistory<Pullback::Interp::FrameContext> context;
+    Spacetime::FrameHistory<Pullback::Interp::FrameContext> context;
     std::array<BakedPaletteStorage, 3> previous_palettes;
     std::array<Pixel, Pullback::Color::HueRotationLutView::SIZE>
         previous_hue_rotation{};

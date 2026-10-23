@@ -268,10 +268,9 @@ private:
    * cycle's first draw and with temporal sampling off.
    */
   HS_FLASH_MEMBER int record_cycle_draw(int cycle_frame) {
-    const int previous =
-        drawn_cycle_frame >= 0 && Temporal::temporal_sampling_enabled()
-            ? drawn_cycle_frame
-            : cycle_frame;
+    const int previous = drawn_cycle_frame >= 0 && !Spacetime::flat_surface()
+                             ? drawn_cycle_frame
+                             : cycle_frame;
     drawn_cycle_frame = cycle_frame;
     return previous;
   }
@@ -414,9 +413,9 @@ private:
     bool active = Scan::mesh_motion_active<W>(arc);
     ScratchScope scratch_a_guard(scratch_arena_a);
     ScratchScope scratch_b_guard(scratch_arena_b);
-    const Temporal::ColumnTime column_time = Scan::prepare_column_basis<W, H>(
+    const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation, state_moves || active);
-    Scan::ColumnTimeScope column_scope(canvas, column_time);
+    Scan::ColumnBasisScope column_scope(canvas, column_basis);
     MeshState &rotated_mesh = *scratch_arena_a.make<MeshState>();
     OrientTransformer camera(orientation);
     uint8_t *moving = nullptr;
@@ -431,8 +430,9 @@ private:
         Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
                                       moving);
         columns = scratch_arena_b.allocate_n<uint16_t>(2 * mesh.num_faces());
-        if (Scan::pick_moving_faces<W>(canvas, rotated_mesh, moving,
-                                       arc + math::TWO_PI_F / W, columns) == 0)
+        if (Scan::detail::pick_moving_faces<W>(canvas, rotated_mesh, moving,
+                                               arc + math::TWO_PI_F / W,
+                                               columns) == 0)
           active = false;
       }
       if (active) {
@@ -444,7 +444,7 @@ private:
         for (size_t i = 0; i < count; ++i) {
           previous[i] = camera(previous[i]);
           if (moving[i])
-            start[i] = Scan::vertex_column(previous[i], *canvas.column_time(),
+            start[i] = Scan::vertex_column(previous[i], *canvas.column_basis(),
                                            0.0f, W);
         }
       }

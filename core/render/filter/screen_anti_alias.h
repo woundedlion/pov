@@ -24,6 +24,18 @@ HS_O3_BEGIN
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
+  /** @brief Tap-position error of splatting a linearly moving sample at one time.
+ * @param x Column of the splat.
+ * @param dx,dy Column and row motion over the frame.
+ * @return Bound, in pixels, on how far a tap's own-time position lies from
+ *         the splat's: the motion over the farther tap column's lag. */
+  HS_HOT_INLINE static inline float tap_motion_error(float x, float dx,
+                                                     float dy) {
+    const float fraction = x - floorf(x);
+    return (fabsf(dx) + fabsf(dy)) *
+           (fmaxf(fraction, 1.0f - fraction) / (W / 2.0f));
+  }
+
   static constexpr bool has_boundary_splat =
       true; ///< Provides a separate boundary splat.
   /** @brief Splats a timed sample with arm-boundary tap ownership.
@@ -39,9 +51,8 @@ public:
   HS_O3_FN HS_NOINLINE_NOCLONE void plot_at(float x, float y, const ::Pixel &c,
                                             float age, float alpha, float time,
                                             PassFnT &&pass) {
-    const bool boundary =
-        Temporal::temporal_sampling_enabled() &&
-        fabsf(Temporal::centered_remainder(x, W / 2.0f)) <= 1.0f;
+    const bool boundary = !Spacetime::flat_surface() &&
+                          fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f;
     if (boundary) {
       plot_boundary_static(x, y, c, age, alpha, time, pass);
       return;
@@ -75,7 +86,8 @@ public:
     const int x0 = math::fast_wrap(static_cast<int>(floorf(x)), W);
     const int columns[] = {x0, math::fast_wrap(x0 + 1, W)};
     for (int column : columns) {
-      const float at = Temporal::column_fraction<W>(static_cast<float>(column));
+      const float at =
+          Spacetime::SamplingSurface<W>::time(static_cast<float>(column));
       if (fabsf(at - time) <= 0.5f)
         visit(column, at);
     }
@@ -97,8 +109,8 @@ public:
                            math::fast_wrap(arm - 1, W), arm};
     for (int i = 0; i < 4; ++i)
       if (i < 2 || (columns[i] != columns[0] && columns[i] != columns[1]))
-        visit(columns[i],
-              Temporal::column_fraction<W>(static_cast<float>(columns[i])));
+        visit(columns[i], Spacetime::SamplingSurface<W>::time(
+                              static_cast<float>(columns[i])));
   }
 
   /** @brief Emits the taps of a splat at (x, y) that fall in one column.
@@ -165,11 +177,11 @@ private:
   plot_boundary_static(float x, float y, const ::Pixel &c, float age,
                        float alpha, float time, PassFnT &pass) {
     plot(x, y, c, age, alpha,
-         [&](float nx, float ny, const ::Pixel &nc, float nage, float nalpha)
-             HS_HOT_INLINE {
-               if (fabsf(Temporal::column_fraction<W>(nx) - time) <= 0.5f)
-                 pass(nx, ny, nc, nage, nalpha);
-             });
+         [&](float nx, float ny, const ::Pixel &nc, float nage,
+             float nalpha) HS_HOT_INLINE {
+           if (fabsf(Spacetime::SamplingSurface<W>::time(nx) - time) <= 0.5f)
+             pass(nx, ny, nc, nage, nalpha);
+         });
   }
 
 public:

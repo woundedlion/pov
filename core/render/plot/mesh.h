@@ -477,9 +477,9 @@ struct Mesh {
    * position. */
   template <int W, typename Stored, typename MeshT>
   HS_HOT_FLASH_MEMBER static void
-  capture_vertices(Temporal::VertexMotion<Stored> &motion, bool carry,
+  capture_vertices(Spacetime::Worldlines<Stored> &motion, bool carry,
                    const MeshT &mesh, const GeometryCallback &geometry,
-                   const Temporal::PoseTable *poses, float callback_bound,
+                   const Spacetime::PoseTable *poses, float callback_bound,
                    float world_bound) {
     constexpr float MAX_VERTEX_ERROR_PX = 0.025f;
     const size_t count = mesh.vertices.size();
@@ -488,8 +488,8 @@ struct Mesh {
     if (moving && !carry) {
       motion.begin_frame(count, false);
       for (size_t i = 0; i < count; ++i) {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::endpoint_evaluations>();
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::endpoint_evaluations>();
         motion.capture_end(i, geometry.evaluate(i, 0.0f));
       }
     }
@@ -510,9 +510,10 @@ struct Mesh {
           rho > 0.0f ? MAX_VERTEX_ERROR_PX * math::RADIANS_PER_COLUMN<W> * rho
                      : 0.0f;
       if (motion.choose(i, per_vertex ? geometry.vertex_path(i) : geometry.path,
-                        tolerance, false) == Temporal::Interpolant::QUADRATIC) {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::midpoint_evaluations>();
+                        tolerance,
+                        false) == Spacetime::Interpolant::QUADRATIC) {
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::midpoint_evaluations>();
         motion.capture_middle(i, geometry.evaluate(i, 0.5f));
       }
     }
@@ -530,7 +531,8 @@ struct Mesh {
   HS_HOT_FLASH_MEMBER static bool
   column_mesh_visible(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                       float motion) {
-    Temporal::count_geometry<&Temporal::GeometryCounters::column_mesh_culls>();
+    Spacetime::count_geometry<
+        &Spacetime::GeometryCounters::column_mesh_culls>();
     if (mesh.vertices.size() == 0)
       return false;
     const auto center = pipeline.world_at(canvas, mesh.vertices[0], 1.0f);
@@ -542,8 +544,8 @@ struct Mesh {
         return true;
     }
     float world_bound = 0.0f;
-    if constexpr (requires { pipeline.cull_bound(); })
-      world_bound = pipeline.cull_bound();
+    if constexpr (requires { pipeline.sweep_arc(); })
+      world_bound = pipeline.sweep_arc();
     const float radius =
         math::fast_acos(hs::clamp(nearest, 0.0f, 1.0f)) + CAP_ACOS_PAD +
         motion + world_bound +
@@ -553,8 +555,8 @@ struct Mesh {
     const bool visible = cap_may_touch_clip<H>(canvas.clip(), center, radius,
                                                sinf(fminf(radius, math::PI_F)));
     if (!visible)
-      Temporal::count_geometry<
-          &Temporal::GeometryCounters::column_mesh_rejected>();
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::column_mesh_rejected>();
     return visible;
   }
 
@@ -583,17 +585,17 @@ struct Mesh {
                    const math::Vector (&ends)[2], int most, Shade &&shade) {
     GeodesicEdgeSampler arcs[2];
     const int steady =
-        ColumnEdgeFrame::steady_lattice<W, H>(starts, ends, most, arcs);
+        EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most, arcs);
     if (steady == 0)
       return false;
     for (int k = 0; k < steady; ++k) {
       const float s = static_cast<float>(k) / static_cast<float>(steady);
       route.plot(
           sink, canvas,
-          k == 0 ? ends[0] : ColumnEdgeFrame::lattice_point(arcs[1], s),
+          k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s),
           [&]() HS_HOT_INLINE {
             return k == 0 ? starts[0]
-                          : ColumnEdgeFrame::lattice_point(arcs[0], s);
+                          : EdgeWorldsheet::lattice_point(arcs[0], s);
           },
           [&](float t) HS_HOT_INLINE { return shade(s, t); });
     }
@@ -603,15 +605,15 @@ struct Mesh {
   /** @brief scratch_arena_a bytes draw_column_edges() binds.
    * @return The walk's endpoint registers and edge frame, aligned. */
   static constexpr size_t column_scratch_a_bytes() {
-    return 2 * sizeof(Fragment) + alignof(Fragment) + sizeof(ColumnEdgeFrame) +
-           alignof(ColumnEdgeFrame);
+    return 2 * sizeof(Fragment) + alignof(Fragment) + sizeof(EdgeWorldsheet) +
+           alignof(EdgeWorldsheet);
   }
 
   /** @brief scratch_arena_b bytes draw_column_edges() binds.
    * @param vertices Mesh vertex count.
    * @return The vertices' path captures. */
   static constexpr size_t column_scratch_b_bytes(size_t vertices) {
-    return Temporal::VertexMotion<>::storage_bytes(vertices);
+    return Spacetime::Worldlines<>::storage_bytes(vertices);
   }
 
   /** @brief Draws a wireframe through the column-time walk.
@@ -635,31 +637,31 @@ struct Mesh {
                   "the column walk splats end columns through an "
                   "anti-aliasing first screen stage");
     ScratchScope motion_scope(scratch_arena_b);
-    Temporal::VertexMotion<> motion;
+    Spacetime::Worldlines<> motion;
     motion.bind(scratch_arena_b, mesh.vertices.size());
-    const Temporal::PoseTable *poses = pipeline.pose_table(canvas);
+    const Spacetime::PoseTable *poses = pipeline.pose_table(canvas);
     capture_vertices<W>(motion, false, mesh, geometry, poses, callback_bound,
-                        pipeline.cull_bound());
+                        pipeline.sweep_arc());
     ScratchScope edge_storage(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 2);
     PipelineRef erased = [&]() HS_HOT_INLINE {
       if constexpr (pipeline_direct_raster_path<PipelineT>())
-        return PipelineRef(pipeline, canvas, Temporal::Timed{});
+        return PipelineRef(pipeline, canvas, Spacetime::Timed{});
       else
-        return PipelineRef(pipeline, Temporal::Timed{});
+        return PipelineRef(pipeline, Spacetime::Timed{});
     }();
     erased.select_copy(0);
     auto timed_shader = [&](const math::Vector &position, Fragment &fragment,
                             float t) HS_HOT_INLINE {
-      Temporal::shade_at_time(shader, t, position, fragment);
+      Spacetime::shade_at_time(shader, t, position, fragment);
     };
-    const ColumnEdgeBatch batch{edges.size(),         &prepare_timed_edge,
-                                mesh.vertices.data(), motion,
-                                edges.data(),         geometry.chained};
+    const EdgeBatch batch{edges.size(),         &prepare_timed_edge,
+                          mesh.vertices.data(), motion,
+                          edges.data(),         geometry.chained};
     rasterize_column_edges<W, H, {.timed = true}>(
         erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-        callback_bound + erased.cull_bound(), geometry.source_positions);
+        callback_bound + erased.sweep_arc(), geometry.source_positions);
   }
 
   /** @brief Draws a wireframe through the column walk unless its swept
@@ -709,16 +711,16 @@ struct Mesh {
              const GeometryCallback &geometry = {},
              float callback_bound = 0.0f) {
     bool still = false;
-    if constexpr (!Temporal::reads_column_time<ShaderT, const math::Vector &,
-                                               Fragment &>) {
+    if constexpr (!Spacetime::reads_time<ShaderT, const math::Vector &,
+                                         Fragment &>) {
       if constexpr (requires { pipeline.has_temporal_motion; })
         still = !geometry.evaluate && callback_bound == 0.0f &&
                 !pipeline.has_temporal_motion;
     }
-    if (!Temporal::temporal_sampling_enabled() || still) {
+    if (Spacetime::flat_surface() || still) {
       auto still_shader =
           [&](const math::Vector &p, Fragment &f)
-              HS_HOT_INLINE { Temporal::shade_at_time(shader, 1.0f, p, f); };
+              HS_HOT_INLINE { Spacetime::shade_at_time(shader, 1.0f, p, f); };
       draw<W, H>(pipeline, canvas, mesh, edges, FragmentShaderFn(still_shader));
       return;
     }

@@ -13,46 +13,12 @@
 #include "core/math/3dmath.h"
 #include "core/memory.h"
 #include "core/platform/attributes.h"
-#include "core/render/temporal.h"
+#include "core/render/spacetime/surface.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 
-namespace Temporal {
-
-/**
- * @brief Sine of a double, by its Taylor series for a small argument.
- * @param x Angle, radians.
- * @return `sin(x)`, well within float rounding.
- */
-HS_HOT_INLINE inline double series_sin(double x) {
-  if (!(fabs(x) < 0.5))
-    return sin(x);
-  const double x2 = x * x;
-  return x *
-         (1.0 +
-          x2 * (-1.0 / 6.0 +
-                x2 * (1.0 / 120.0 +
-                      x2 * (-1.0 / 5040.0 + x2 * (1.0 / 362880.0 +
-                                                  x2 * (-1.0 / 39916800.0))))));
-}
-
-/**
- * @brief Cosine of a double, by its Taylor series for a small argument.
- * @param x Angle, radians.
- * @return `cos(x)`, well within float rounding.
- */
-HS_HOT_INLINE inline double series_cos(double x) {
-  if (!(fabs(x) < 0.5))
-    return cos(x);
-  const double x2 = x * x;
-  return 1.0 + x2 * (-1.0 / 2.0 +
-                     x2 * (1.0 / 24.0 +
-                           x2 * (-1.0 / 720.0 +
-                                 x2 * (1.0 / 40320.0 +
-                                       x2 * (-1.0 / 3628800.0 +
-                                             x2 * (1.0 / 479001600.0))))));
-}
+namespace Spacetime {
 
 /**
  * @brief Visits a pose history at each first-arm column's sweep time.
@@ -62,7 +28,7 @@ HS_HOT_INLINE inline double series_cos(double x) {
  * @param count History length, at least 1.
  * @param width Even canvas width.
  * @param fn Receives each column `c` in [0, width / 2) with the pose at
- *        `sweep_fraction(c, width)` as math::Orientation::get(float) samples
+ *        `surface_time(c, width)` as math::Orientation::get(float) samples
  *        it, up to rounding; consecutive poses share a hemisphere.
  * @details Each history interval is a slerp, over the columns whose times
  * fall in it. Sines of evenly spaced angles obey
@@ -71,8 +37,8 @@ HS_HOT_INLINE inline double series_cos(double x) {
  * rounding grows with the column count.
  */
 template <typename Fn>
-HS_HOT_INLINE void for_each_column_pose(const math::Quaternion *history,
-                                        int count, int width, Fn &&fn) {
+HS_HOT_INLINE void for_each_time_pose(const math::Quaternion *history,
+                                      int count, int width, Fn &&fn) {
   const int half = width / 2;
   const int segments = count - 1;
   if (segments == 0) {
@@ -91,7 +57,7 @@ HS_HOT_INLINE void for_each_column_pose(const math::Quaternion *history,
     const math::SlerpArc arc(history[i], history[i + 1]);
     if (arc.theta == 0.0f) {
       for (; c < end; ++c) {
-        const float local = sweep_fraction(c, width) * segments - i;
+        const float local = surface_time(c, width) * segments - i;
         fn(c, (arc.from + local * (arc.to - arc.from)).normalized());
       }
       continue;
@@ -101,14 +67,14 @@ HS_HOT_INLINE void for_each_column_pose(const math::Quaternion *history,
     const double theta = arc.theta;
     const double step = theta * segments / half;
     const double start = first * theta;
-    const double twice_cos = 2.0 * series_cos(step);
+    const double twice_cos = 2.0 * math::series_cos(step);
     const double inverse_sine = 1.0 / static_cast<double>(arc.sine);
     // rising = sin(s * theta) and falling = sin((1 - s) * theta), scaled.
-    double rising = series_sin(start) * inverse_sine;
-    double rising_next = series_sin(start + step) * inverse_sine;
+    double rising = math::series_sin(start) * inverse_sine;
+    double rising_next = math::series_sin(start + step) * inverse_sine;
     double falling =
-        first == 0.0 ? 1.0 : series_sin(theta - start) * inverse_sine;
-    double falling_next = series_sin(theta - start - step) * inverse_sine;
+        first == 0.0 ? 1.0 : math::series_sin(theta - start) * inverse_sine;
+    double falling_next = math::series_sin(theta - start - step) * inverse_sine;
     for (; c < end; ++c) {
       fn(c, (static_cast<float>(falling) * arc.from +
              static_cast<float>(rising) * arc.to)
@@ -186,7 +152,7 @@ public:
   HS_COLD_MEMBER void bind(Arena &arena, int width) {
     half = width / 2;
     rows = arena.allocate_n<math::Vector>(2 * (half + 1));
-    still = true;
+    stationary_frame = true;
   }
 
   /**
@@ -196,17 +162,18 @@ public:
    */
   HS_FLASH_MEMBER void build(const math::Quaternion *history, int count) {
     const int width = 2 * half;
-    for_each_column_pose(history, count, width,
-                         [&](int c, const math::Quaternion &pose)
-                             HS_HOT_INLINE { store(c, pose); });
+    for_each_time_pose(history, count, width,
+                       [&](int c, const math::Quaternion &pose)
+                           HS_HOT_INLINE { store(c, pose); });
     store(0, history[0]);
     store(half, history[count - 1]);
     const math::Quaternion &current = history[count - 1];
-    still = true;
+    stationary_frame = true;
     for (int i = 0; i + 1 < count; ++i)
-      still = still && history[i].r == current.r &&
-              history[i].v.x == current.v.x && history[i].v.y == current.v.y &&
-              history[i].v.z == current.v.z;
+      stationary_frame = stationary_frame && history[i].r == current.r &&
+                         history[i].v.x == current.v.x &&
+                         history[i].v.y == current.v.y &&
+                         history[i].v.z == current.v.z;
   }
 
   /**
@@ -222,7 +189,7 @@ public:
 
   /** @brief Whether every pose of the built history equals its last.
    * @return True for a frame without rotation. */
-  bool stationary() const { return still; }
+  bool stationary() const { return stationary_frame; }
 
   /** @brief Distinct column times of the bound width.
    * @return Half the canvas width. */
@@ -281,7 +248,8 @@ private:
 
   math::Vector *rows = nullptr; ///< Two arena rows per entry, by time index.
   int half = 1;                 ///< Column times of the bound width.
-  bool still = true; ///< Every pose of the built history equals its last.
+  bool stationary_frame =
+      true; ///< Every pose of the built history equals its last.
 };
 
-} // namespace Temporal
+} // namespace Spacetime

@@ -21,7 +21,8 @@
  *          the half-turn, so that one of its runs lies outside `[0, w)` and
  *          admits no column.
  */
-struct ColumnWindow {
+namespace Spacetime {
+struct TimeWindow {
   int begin = 0;       /**< First column, in [-w / 2, end]. */
   int end = 0;         /**< One past the last column, at most w. */
   bool active = false; /**< False admits every column. */
@@ -35,6 +36,7 @@ struct ColumnWindow {
     return begin < 0 ? 0 : 2 * begin >= width ? 1 : -1;
   }
 };
+} // namespace Spacetime
 
 /**
  * @brief Clip region for segment-based rendering.

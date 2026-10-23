@@ -22,7 +22,7 @@ inline uint64_t column_time_parity_hash() {
   reset_effect_globals();
   hs::random().seed(1337u);
   pin_frame_clock(0);
-  Temporal::set_temporal_sampling_enabled(ENABLED);
+  Spacetime::set_flat_surface(!ENABLED);
   uint64_t hash = HASH_SEED64;
   {
     E<W, H> effect;
@@ -34,7 +34,7 @@ inline uint64_t column_time_parity_hash() {
       hash = frame_hash<W, H>(effect, hash);
     }
   }
-  Temporal::set_temporal_sampling_enabled(true);
+  Spacetime::set_flat_surface(false);
   return hash;
 }
 

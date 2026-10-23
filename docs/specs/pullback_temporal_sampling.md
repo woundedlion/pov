@@ -39,7 +39,7 @@ parameters use their declared curves, and periodic clocks take the shortest arc.
 Quaternion arc setup and periodic clock deltas are prepared once per frame.
 Unchanged parameter blocks share an interior sample of their declared curves.
 
-`sample_frame` delegates composed intervals to `TemporalFrameSampler`.
+`sample_frame` delegates composed intervals to `FrameInterval`.
 `ClockInterval` supplies periodic delta preparation and application for both
 composed resources and interpreter operators. The interpreter prepares typed
 clock intervals on the first column after frame preparation, advancement or

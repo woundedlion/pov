@@ -13,7 +13,7 @@
 #include "core/render/filter/pipeline.h"
 #include "core/containers/static_circular_buffer.h"
 #include "core/render/canvas.h"
-#include "core/render/temporal/vertex_motion.h"
+#include "core/render/spacetime/worldlines.h"
 #include "core/platform/platform.h"
 #include "core/render/scan/raster.h"
 
@@ -332,7 +332,7 @@ struct DistortedRingStack {
     HS_CHECK(n_rings <= Table::MAX_RINGS,
              "ring stack exceeds the candidate table's ring index range");
     check_stack_preconditions(n_rings, shapes, slot_by_ring, n_slots);
-    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     if (time && time->azimuth) {
       draw_column_time<W, H>(pipeline, canvas, n_rings, shapes, slot_by_ring,
                              n_slots, table, shader, *time);
@@ -391,7 +391,7 @@ struct DistortedRingStack {
   draw_column_time(PipelineT &pipeline, Canvas &canvas, int n_rings,
                    ShapeRange shapes, const int8_t *slot_by_ring, int n_slots,
                    CandidateTable<W, H> &table, RingShaderT &shader,
-                   const Temporal::ColumnTime &time) {
+                   const Scan::ColumnBasis &time) {
     draw_body<W, H, true>(pipeline, canvas, n_rings, shapes, slot_by_ring,
                           n_slots, table, shader, &time);
   }
@@ -420,7 +420,7 @@ struct DistortedRingStack {
   draw_body(PipelineT &pipeline, Canvas &canvas, int n_rings, ShapeRange shapes,
             const int8_t *slot_by_ring, int n_slots,
             CandidateTable<W, H> &table, RingShaderT &shader,
-            const Temporal::ColumnTime *time) {
+            const Scan::ColumnBasis *time) {
     using Table = CandidateTable<W, H>;
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -432,7 +432,7 @@ struct DistortedRingStack {
     if constexpr (COLUMN_TIME) {
       azimuth = time->azimuth;
       up = time->up;
-      sweep = time->sweep;
+      sweep = time->sweep_arc;
     }
     int y_lo = H, y_hi = -1;
     for (int s = 0; s < n_slots; ++s) {
@@ -443,7 +443,7 @@ struct DistortedRingStack {
     }
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const auto xc = cr.x_clip();
-    const WindowPieces pieces = window_pieces<W>(xc, canvas.render_x_window());
+    const WindowPieces pieces = window_pieces<W>(xc, canvas.time_window());
     y_lo = std::max(y_lo, cr.render_y_start());
     y_hi = std::min(y_hi, cr.render_y_end() - 1);
     if (y_lo > y_hi)
@@ -843,7 +843,7 @@ struct RingGroup {
    *        v0/v1/v3 per pixel.
    * @param previous_normals Optional per-slot axes at the previous frame
    *        endpoint. With temporal sampling on, column `x` evaluates each
-   *        slot about its axis at `sweep_fraction(x, W)` along the great
+   *        slot about its axis at `surface_time(x, W)` along the great
    *        circle from its previous axis to its current one, and each slot's
    *        bounds grow by the angle between the two.
    * @details Row intervals come from one covering ring: the middle member (n/2)
@@ -878,10 +878,9 @@ struct RingGroup {
       return;
     }
 
-    const Temporal::ColumnTime *time = column_time(pipeline, canvas);
+    const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     const bool rotated = time && time->azimuth;
-    const bool moving_slots =
-        previous_normals && Temporal::temporal_sampling_enabled();
+    const bool moving_slots = previous_normals && !Spacetime::flat_surface();
     if (rotated || moving_slots) {
       draw_column_time<W, H>(pipeline, canvas, shapes, n, shader,
                              rotated ? time : nullptr,
@@ -929,7 +928,7 @@ struct RingGroup {
   template <int W, int H, typename PipelineT, typename RingShaderT>
   HS_NOINLINE_NOCLONE static void
   draw_column_time(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
-                   int n, RingShaderT &shader, const Temporal::ColumnTime *time,
+                   int n, RingShaderT &shader, const Scan::ColumnBasis *time,
                    const math::Vector *previous_normals) {
     draw_body<W, H, true, false>(pipeline, canvas, shapes, n, shader, time,
                                  previous_normals);
@@ -973,7 +972,7 @@ struct RingGroup {
       const math::Vector e =
           azimuth ? azimuth[c] : math::Vector(cos_theta[c], 0.0f, sin_theta[c]);
       const math::Vector v = azimuth ? up[c] : math::Vector(0.0f, 1.0f, 0.0f);
-      const float u = Temporal::sweep_fraction(c, W);
+      const float u = Spacetime::SamplingSurface<W>::time(c);
       float *out = terms + 2 * n * c;
       for (int s = 0; s < n; ++s) {
         const float length_sq =
@@ -1021,15 +1020,16 @@ struct RingGroup {
       const math::Vector &end = shapes[s].normal;
       // The turn is at most pi / 2 times its chord.
       const math::Vector chord = end - start;
-      if (Temporal::choose_turn_interpolant(
+      if (Spacetime::choose_turn_interpolant(
               0.5f * math::PI_F * sqrtf(math::dot(chord, chord)), TOLERANCE) ==
-          Temporal::Interpolant::CHORD)
+          Spacetime::Interpolant::CHORD)
         continue;
       const math::Vector normal = math::cross(start, end);
       const float sine = sqrtf(math::dot(normal, normal));
       const float angle = atan2f(sine, math::dot(start, end));
-      if (!(sine > 0.0f) || Temporal::choose_turn_interpolant(
-                                angle, TOLERANCE) != Temporal::Interpolant::ARC)
+      if (!(sine > 0.0f) ||
+          Spacetime::choose_turn_interpolant(angle, TOLERANCE) !=
+              Spacetime::Interpolant::ARC)
         continue;
       const math::Vector tangent = math::cross(normal, start) * (1.0f / sine);
       // Double precision keeps the recurrence's drift over the half-turn of
@@ -1075,7 +1075,7 @@ struct RingGroup {
             typename PipelineT, typename RingShaderT>
   HS_HOT_INLINE static void
   draw_body(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes, int n,
-            RingShaderT &shader, const Temporal::ColumnTime *time,
+            RingShaderT &shader, const Scan::ColumnBasis *time,
             const math::Vector *previous_normals) {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
@@ -1092,7 +1092,7 @@ struct RingGroup {
       if (time) {
         azimuth = time->azimuth;
         up = time->up;
-        sweep = time->sweep;
+        sweep = time->sweep_arc;
       }
       if (previous_normals) {
         for (int s = 0; s < n; ++s) {

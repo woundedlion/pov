@@ -3,7 +3,7 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
-/** @file raster_timed.h
+/** @file column_walk.h
  * @brief Geometry callbacks and the column-time edge walk.
  */
 
@@ -11,14 +11,14 @@
 struct GeometryCallback {
   /** Evaluates one original control point at a frame fraction. */
   FunctionRef<math::Vector(size_t, float)> evaluate;
-  Temporal::PathBound path{}; /**< Derivative bounds of every control point's
+  Spacetime::PathBound path{}; /**< Derivative bounds of every control point's
                                   path over the frame. */
 
   bool source_positions =
       true; /**< Shaders read source-space positions under world stages;
                  false hands them world positions. */
   /** Bounds each vertex's path, in place of `path`, when set. */
-  FunctionRef<Temporal::PathBound(size_t)> vertex_path{};
+  FunctionRef<Spacetime::PathBound(size_t)> vertex_path{};
   bool chained = false; /**< Edges run along polylines, each vertex starting
                              at most one edge and ending at most one other:
                              the column walk plots each edge's start but not
@@ -94,14 +94,14 @@ struct MeshEdge {
 };
 
 /** @brief Mesh edges sharing one column walk. */
-struct ColumnEdgeBatch {
+struct EdgeBatch {
   size_t count; /**< Edge count. */
   void (*prepare)(Fragments &, const math::Vector &, const math::Vector &,
                   size_t); /**< Writes an edge's endpoint registers into the
                                 walk's fragments from its frame-end
                                 vertices and index. */
   const math::Vector *vertices; /**< Frame-end vertex positions. */
-  const Temporal::VertexMotion<>
+  const Spacetime::Worldlines<>
       &motion;           /**< Source captures and interpolants of the
                               vertices this frame. */
   const MeshEdge *pairs; /**< Vertex indices of each edge. */
@@ -112,7 +112,7 @@ struct ColumnEdgeBatch {
  * @tparam W Display width.
  * @details Rows use the column walk's own sample cut; columns use the render
  * band widened by two columns on each side. */
-template <int W> struct ColumnEdgeCull {
+template <int W> struct SweptEdgeCull {
   float top;           /**< Highest unit-sphere y the walk emits. */
   float bottom;        /**< Lowest unit-sphere y the walk emits. */
   math::Vector first;  /**< First longitude half-plane normal. */
@@ -123,8 +123,8 @@ template <int W> struct ColumnEdgeCull {
   /** @brief Prepares the bounds for one draw.
    * @param columns Render-band column predicate.
    * @param top_y,bottom_y Unit-sphere y limits of emitted samples. */
-  HS_HOT_FLASH_MEMBER ColumnEdgeCull(const ClipRegion::XClip &columns,
-                                     float top_y, float bottom_y)
+  HS_HOT_FLASH_MEMBER SweptEdgeCull(const ClipRegion::XClip &columns,
+                                    float top_y, float bottom_y)
       : top(top_y), bottom(bottom_y) {
     if (!columns.active)
       return;
@@ -169,9 +169,9 @@ template <int W> struct ColumnEdgeCull {
    * @tparam H Display height.
    * @param canvas Frame whose clip rows and render band bound the walk.
    * @return The cull. */
-  template <int H> static ColumnEdgeCull of(const Canvas &canvas) {
-    return ColumnEdgeCull(canvas.render_x_clip(), top_of<H>(canvas),
-                          bottom_of<H>(canvas));
+  template <int H> static SweptEdgeCull of(const Canvas &canvas) {
+    return SweptEdgeCull(canvas.render_x_clip(), top_of<H>(canvas),
+                         bottom_of<H>(canvas));
   }
 
   /** @brief Tests whether every geodesic between points a frame sweeps
@@ -205,17 +205,18 @@ private:
   HS_HOT_INLINE bool rejects_hull(const math::Vector *points, int count,
                                   float pad) const {
     float low, high;
-    if (Temporal::swept_heights(points, count, pad, low, high) &&
+    if (Spacetime::swept_heights(points, count, pad, low, high) &&
         (high < bottom || low > top))
       return true;
     if (mode == 1)
-      return Temporal::swept_beyond(points, count, pad, -first) ||
-             Temporal::swept_beyond(points, count, pad, -second);
-    return mode == 2 && Temporal::swept_beyond(points, count, pad, first) &&
-           Temporal::swept_beyond(points, count, pad, second);
+      return Spacetime::swept_beyond(points, count, pad, -first) ||
+             Spacetime::swept_beyond(points, count, pad, -second);
+    return mode == 2 && Spacetime::swept_beyond(points, count, pad, first) &&
+           Spacetime::swept_beyond(points, count, pad, second);
   }
 };
 
+namespace detail {
 /** @brief One arm pass's walk over the columns an edge can light. */
 struct ColumnSegment {
   int start = 0;    /**< First column in walk order. */
@@ -223,21 +224,23 @@ struct ColumnSegment {
   int deadline = 0; /**< Columns walked unlit before the walk gives up. */
 };
 
+} // namespace detail
+
 /** @brief One moving edge's endpoint paths and frame-end world bases. */
-struct ColumnEdgeFrame {
+struct EdgeWorldsheet {
   math::Vector curves[2][3];  /**< Each endpoint's drawn path as
                                 c0 + c1 t + c2 t^2: its source path, or its
                                 world path under poses fixed over the frame. */
   math::Vector sources[2][3]; /**< Each endpoint's source path, when shaders
                                  read source positions. */
-  const Temporal::PoseTable *poses =
+  const Spacetime::PoseTable *poses =
       nullptr; /**< Poses by column time, or null when fixed. */
   GeodesicEdgeSampler bases[2]; /**< World bases at the frame's ends. */
   math::Vector ends[2];         /**< World end vertices at the frame's ends. */
   float pieces[2] = {}; /**< Edge length in screen steps at the frame's ends. */
   float deviation = 0.0f; /**< Bound on a drawn endpoint's distance from the
                              chord between its frame-end world positions. */
-  Temporal::LongitudeTrack tracks[2]; /**< Longitude models of both ends. */
+  Spacetime::LongitudeTrack tracks[2]; /**< Longitude models of both ends. */
   bool known = false; /**< plan() bounded both tracks and the arc's side. */
 
   /** @brief Normalizes a near-unit vector.
@@ -277,7 +280,7 @@ struct ColumnEdgeFrame {
   HS_HOT_FLASH_MEMBER static float
   split_point(const math::Vector &a, const math::Vector &b, float total,
               GeodesicEdgeSampler &basis, math::Vector &turn) {
-    basis = ColumnEdgeFrame::basis(a, b, total);
+    basis = EdgeWorldsheet::basis(a, b, total);
     const math::Vector end = normalize(b);
     const float cosine_ab = math::dot(basis.v1, end);
     float cut = 1.0f;
@@ -375,9 +378,9 @@ struct ColumnEdgeFrame {
    * @param spin Rotation bound of the poses over the frame, radians.
    * @param source Whether to keep the source paths.
    * @details Each path is the parabola through its start, middle and end:
-   * the middle capture for Temporal::Interpolant::QUADRATIC, the arc's middle
-   * for Temporal::Interpolant::ARC, and the chord's for
-   * Temporal::Interpolant::CHORD, which makes it the chord. It lies within
+   * the middle capture for Spacetime::Interpolant::QUADRATIC, the arc's middle
+   * for Spacetime::Interpolant::ARC, and the chord's for
+   * Spacetime::Interpolant::CHORD, which makes it the chord. It lies within
    * |middle - (start + end) / 2| of its chord. Under poses fixed over the
    * frame the paths are rotated once. Moving poses turning at most spin
    * radians per frame about a point moving along a path that departs from its
@@ -386,8 +389,8 @@ struct ColumnEdgeFrame {
    * the path's speed by its chord plus 4 d; captures add their rounding. */
   template <int W, int H>
   HS_HOT_FLASH_MEMBER void
-  prepare(const Temporal::VertexMotion<> &motion, uint16_t from, uint16_t to,
-          const Temporal::PoseTable *table, float spin, bool source) {
+  prepare(const Spacetime::Worldlines<> &motion, uint16_t from, uint16_t to,
+          const Spacetime::PoseTable *table, float spin, bool source) {
     poses = table && !table->stationary() ? table : nullptr;
     const bool fixed = table && !poses;
     const math::RotationMatrix pose =
@@ -399,10 +402,10 @@ struct ColumnEdgeFrame {
       math::Vector start = motion.start(vertex), end = motion.end(vertex);
       const math::Vector chord_middle = (start + end) * 0.5f;
       const auto kind = motion.interpolant(vertex);
-      math::Vector middle = kind == Temporal::Interpolant::CHORD ? chord_middle
-                            : kind == Temporal::Interpolant::QUADRATIC
+      math::Vector middle = kind == Spacetime::Interpolant::CHORD ? chord_middle
+                            : kind == Spacetime::Interpolant::QUADRATIC
                                 ? motion.middle(vertex)
-                                : motion.path(vertex).middle;
+                                : motion.worldline(vertex).middle;
       const math::Vector offset = middle - chord_middle;
       bend = fmaxf(bend, math::dot(offset, offset));
       travel = fmaxf(travel, math::distance_squared(start, end));
@@ -482,7 +485,7 @@ struct ColumnEdgeFrame {
    * @param segments Receives up to one walk per arm pass.
    * @return Number of walks.
    * @details Each column of an arm pass is drawn at its own time, so under the
-   * linear track model of Temporal::model_track() the sweep crosses each
+   * linear track model of Spacetime::model_track() the sweep crosses each
    * endpoint's longitude at most once per pass, at a column known within the
    * track's guard. A geodesic edge is at most a half circle and so covers the
    * shorter side between its endpoints' longitudes. A pass's lit columns
@@ -493,18 +496,18 @@ struct ColumnEdgeFrame {
    * frame, walk the whole pass. */
   template <int W>
   HS_O3_FN HS_NOINLINE_NOCLONE int plan(int direction,
-                                        ColumnSegment segments[2]) {
+                                        detail::ColumnSegment segments[2]) {
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
-    const bool start_known = Temporal::model_track<W>(
+    const bool start_known = Spacetime::model_track<W>(
         bases[0].v1, bases[1].v1, deviation, 1.0f, tracks[0]);
     const bool end_known =
-        Temporal::model_track<W>(ends[0], ends[1], deviation, 1.0f, tracks[1]);
+        Spacetime::model_track<W>(ends[0], ends[1], deviation, 1.0f, tracks[1]);
     known = start_known && end_known;
     float span = 0.0f, widening = 0.0f;
     if (known) {
-      span = Temporal::centered_remainder(tracks[1].origin - tracks[0].origin,
-                                          float(W));
+      span = math::centered_remainder(tracks[1].origin - tracks[0].origin,
+                                      float(W));
       widening = tracks[1].travel - tracks[0].travel;
       known = fmaxf(fabsf(span), fabsf(span + widening)) <
               HALF - tracks[0].guard - tracks[1].guard;
@@ -514,9 +517,9 @@ struct ColumnEdgeFrame {
     float last[2] = {-entry[0], -entry[0]};
     if (known)
       for (const auto &track : tracks)
-        Temporal::track_passes<W>(
+        Spacetime::track_crossings<W>(
             track, 0.0f, 1.0f, true, true,
-            [&](const Temporal::ArmPass &pass) HS_HOT_INLINE {
+            [&](const Spacetime::Crossing &pass) HS_HOT_INLINE {
               const int arm = pass.arm & 1;
               const float at = pass.time * HALF;
               const float walk = direction > 0 ? at : HALF - 1.0f - at;
@@ -564,8 +567,8 @@ struct ColumnEdgeFrame {
  * @param begin,length Column arc, ascending from begin; length W or more
  * leaves the walk unchanged. */
 template <int W>
-HS_HOT_INLINE void clamp_walk(ColumnSegment &walk, int direction, int begin,
-                              int length) {
+HS_HOT_INLINE void clamp_walk(detail::ColumnSegment &walk, int direction,
+                              int begin, int length) {
   if (length >= W)
     return;
   const int head =
@@ -589,16 +592,16 @@ HS_HOT_INLINE void clamp_walk(ColumnSegment &walk, int direction, int begin,
 /** @brief One edge's column walk: what its plain and split walks share.
  * @tparam W Display width. */
 template <int W> struct ColumnWalk {
-  PipelineRef &pipeline;         /**< Destination pipeline. */
-  Canvas &canvas;                /**< Frame context. */
-  const Fragments &points;       /**< The edge's endpoint registers. */
-  TimedShaderFn shader;          /**< Time-aware source shader. */
-  const ColumnEdgeFrame &frame;  /**< The edge's paths and bases. */
-  const ColumnSegment *segments; /**< Walks per arm pass. */
-  int segment_count;             /**< Number of walks. */
-  const ClipRegion::XClip &band; /**< Render band. */
-  int direction;                 /**< Walk direction. */
-  float radians;                 /**< Maximum world displacement. */
+  PipelineRef &pipeline;                 /**< Destination pipeline. */
+  Canvas &canvas;                        /**< Frame context. */
+  const Fragments &points;               /**< The edge's endpoint registers. */
+  TimedShaderFn shader;                  /**< Time-aware source shader. */
+  const EdgeWorldsheet &frame;           /**< The edge's paths and bases. */
+  const detail::ColumnSegment *segments; /**< Walks per arm pass. */
+  int segment_count;                     /**< Number of walks. */
+  const ClipRegion::XClip &band;         /**< Render band. */
+  int direction;                         /**< Walk direction. */
+  float radians;                         /**< Maximum world displacement. */
   bool single_time;      /**< End columns splat at their own time too. */
   const float *velocity; /**< Endpoint motion, pixels per frame. */
   bool source_positions; /**< Shaders read source-space positions. */
@@ -630,8 +633,8 @@ HS_HOT_INLINE void plot_column_tap(const ColumnWalk<W> &state,
                                    float at, const Pixel &color, float age,
                                    float alpha) {
   if (at != sample.t)
-    Temporal::count_geometry<
-        &Temporal::GeometryCounters::column_boundary_samples>();
+    Spacetime::count_geometry<
+        &Spacetime::GeometryCounters::column_boundary_samples>();
   const float *velocity = state.velocity;
   const float shift = at - sample.t;
   const float x =
@@ -721,12 +724,13 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   int lattice_count = 0;
   float lattice_step = 1.0f;
   for (int segment = 0; segment < segment_count; ++segment) {
-    const ColumnSegment &walk = segments[segment];
+    const detail::ColumnSegment &walk = segments[segment];
     int x = walk.start;
     bool seen = false;
     float carried = -1.0f;
     for (int column = 0; column < walk.count; ++column) {
-      Temporal::count_geometry<&Temporal::GeometryCounters::columns_visited>();
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::columns_visited>();
       const int owner = x;
       if (radians != 0.0f && band.clipped(owner)) {
         const int skip = direction > 0
@@ -738,8 +742,9 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       x = math::fast_wrap(owner + direction, W);
-      float t =
-          radians == 0.0f ? 0.0f : Temporal::column_fraction<W>(float(owner));
+      float t = radians == 0.0f
+                    ? 0.0f
+                    : Spacetime::SamplingSurface<W>::time(float(owner));
       math::Vector a, b, source_a, source_b;
       GeodesicEdgeSampler sampler;
       float pieces, total;
@@ -756,17 +761,17 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         total = sampler.total_dist;
         pieces = frame.pieces[1];
         unit = true;
-        source_a = ColumnEdgeFrame::at(frame.sources[0], 1.0f);
-        source_b = ColumnEdgeFrame::at(frame.sources[1], 1.0f);
+        source_a = EdgeWorldsheet::at(frame.sources[0], 1.0f);
+        source_b = EdgeWorldsheet::at(frame.sources[1], 1.0f);
       }
-      Temporal::count_geometry<
-          &Temporal::GeometryCounters::column_path_evaluations>();
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::column_path_evaluations>();
       bool lit = radians == 0.0f, finished = false;
       size_t emitted = 0;
       float cut = 1.0f;
       math::Vector turn;
       if (SPLIT) {
-        cut = ColumnEdgeFrame::split_point(a, b, total, sampler, turn);
+        cut = EdgeWorldsheet::split_point(a, b, total, sampler, turn);
         unit = true;
       }
       for (int part = 0; part < (SPLIT ? 2 : 1); ++part) {
@@ -801,11 +806,11 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           bool crossing = false;
           if (math::dot(part_a, normal) * end_side <= 0.0f) {
             if (!unit) {
-              sampler = ColumnEdgeFrame::basis(a, b, total);
+              sampler = EdgeWorldsheet::basis(a, b, total);
               unit = true;
             }
             if (SPLIT) {
-              piece = ColumnEdgeFrame::basis(part_a, part_b, length);
+              piece = EdgeWorldsheet::basis(part_a, part_b, length);
               pieced = true;
             }
             const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
@@ -823,11 +828,11 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           if (!crossing && !end_column)
             continue;
           if (!unit) {
-            sampler = ColumnEdgeFrame::basis(a, b, total);
+            sampler = EdgeWorldsheet::basis(a, b, total);
             unit = true;
           }
           if (SPLIT && !pieced)
-            piece = ColumnEdgeFrame::basis(part_a, part_b, length);
+            piece = EdgeWorldsheet::basis(part_a, part_b, length);
           const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
           if (carried >= 0.0f) {
             start_column = false;
@@ -848,10 +853,10 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           carried = crossing && !SPLIT && !arm_change(owner) ? s_out : -1.0f;
           lit = true;
           if (crossing)
-            Temporal::count_geometry<
-                &Temporal::GeometryCounters::column_crossings>();
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::column_crossings>();
         }
-        const int count = ColumnEdgeFrame::lattice(pieces);
+        const int count = EdgeWorldsheet::lattice(pieces);
         if (count != lattice_count) {
           lattice_count = count;
           lattice_step = 1.0f / float(count);
@@ -869,10 +874,10 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         const bool plain = single_time || (!edge_start && !edge_end);
         GeodesicEdgeSampler source;
         if (source_positions)
-          source = ColumnEdgeFrame::basis(source_a, source_b, total);
+          source = EdgeWorldsheet::basis(source_a, source_b, total);
         for (int k = first; k <= last; ++k) {
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::column_generated_samples>();
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::column_generated_samples>();
           if (++sample_count > 2 * rasterize_step_budget<W>())
             break;
           const float s = k >= count ? 1.0f : float(k) * lattice_step;
@@ -882,40 +887,40 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           const auto world =
               k == 0 ? sampler.v1
               : k >= count
-                  ? ColumnEdgeFrame::normalize(b)
+                  ? EdgeWorldsheet::normalize(b)
                   : newton_unit(sampler.v1 * cosine + sampler.v_perp * sine);
           if (world.y > top_y || world.y < bottom_y)
             continue;
           Fragment f;
           if constexpr (Cfg.interpolate_registers)
             f = Fragment::lerp_registers(points[0], points[1], s);
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::column_projections>();
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::column_projections>();
           const auto p = math::vector_to_pixel<W, H>(world);
           const float arm_distance =
               fabsf(p.x - (W / 2.0f) * floorf(p.x * (2.0f / W) + 0.5f));
           if (radians == 0.0f)
-            t = Temporal::column_fraction<W>(p.x);
+            t = Spacetime::SamplingSurface<W>::time(p.x);
           ++emitted;
           if (plain)
-            Temporal::count_geometry<
-                &Temporal::GeometryCounters::column_single_samples>();
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::column_single_samples>();
           else
-            Temporal::count_geometry<
-                &Temporal::GeometryCounters::column_tap_samples>();
+            Spacetime::count_geometry<
+                &Spacetime::GeometryCounters::column_tap_samples>();
           if (!source_positions)
             f.pos = world;
           else
             f.pos =
                 k == 0 ? source.v1
                 : k >= count
-                    ? ColumnEdgeFrame::normalize(source_b)
+                    ? EdgeWorldsheet::normalize(source_b)
                     : newton_unit(source.v1 * cosine + source.v_perp * sine);
           shader(f.pos, f, t);
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::column_shader_calls>();
-          Temporal::count_geometry<
-              &Temporal::GeometryCounters::column_samples>();
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::column_shader_calls>();
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::column_samples>();
           const bool arm_boundary = radians == 0.0f && arm_distance <= 1.0f;
           if (plain && !arm_boundary) {
             pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
@@ -938,8 +943,8 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       }
       seen = true;
       if (emitted > 1)
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::column_span_fills>();
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::column_span_fills>();
       if (sample_count > 2 * rasterize_step_budget<W>())
         break;
       if (finished && !turning)
@@ -963,7 +968,7 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
  * @param pipeline Destination pipeline; its world stages are @p poses.
  * @param canvas Frame context.
  * @param points The walk's two endpoint fragments, written by
- * ColumnEdgeBatch::prepare.
+ * EdgeBatch::prepare.
  * @param shader Time-aware source shader.
  * @param batch Edges and their vertices' paths.
  * @param poses The world stages' poses by column time, or null without world
@@ -988,23 +993,23 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
 template <int W, int H, RasterConfig Cfg>
 FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
 rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
-                       TimedShaderFn shader, const ColumnEdgeBatch &batch,
-                       const Temporal::PoseTable *poses, float radians,
+                       TimedShaderFn shader, const EdgeBatch &batch,
+                       const Spacetime::PoseTable *poses, float radians,
                        bool source_positions) {
   const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
   const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
 
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  const float top_y = ColumnEdgeCull<W>::template top_of<H>(canvas);
-  const float bottom_y = ColumnEdgeCull<W>::template bottom_of<H>(canvas);
-  Temporal::count_geometry<&Temporal::GeometryCounters::column_draw_setups>();
-  const ColumnEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
+  const float top_y = SweptEdgeCull<W>::template top_of<H>(canvas);
+  const float bottom_y = SweptEdgeCull<W>::template bottom_of<H>(canvas);
+  Spacetime::count_geometry<&Spacetime::GeometryCounters::column_draw_setups>();
+  const SweptEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
   const auto &band = canvas.render_x_clip();
   ScratchScope draw_scope(scratch_arena_a);
-  const float spin = poses ? pipeline.cull_bound() : 0.0f;
+  const float spin = poses ? pipeline.sweep_arc() : 0.0f;
   source_positions = source_positions && poses;
-  auto &frame = *scratch_arena_a.make<ColumnEdgeFrame>();
+  auto &frame = *scratch_arena_a.make<EdgeWorldsheet>();
   for (size_t edge = 0; edge < batch.count; ++edge) {
     const MeshEdge &pair = batch.pairs[edge];
     frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
@@ -1012,8 +1017,8 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
     if (cull.rejects({frame.bases[0].v1, frame.bases[1].v1, frame.ends[0],
                       frame.ends[1]},
                      frame.deviation + 1e-4f)) {
-      Temporal::count_geometry<
-          &Temporal::GeometryCounters::column_edges_culled>();
+      Spacetime::count_geometry<
+          &Spacetime::GeometryCounters::column_edges_culled>();
       continue;
     }
     const int direction =
@@ -1022,7 +1027,7 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                 0.0f
             ? 1
             : -1;
-    ColumnSegment segments[2];
+    detail::ColumnSegment segments[2];
     int segment_count = 1;
     float velocity[4] = {};
     bool single_time = true;
@@ -1032,15 +1037,15 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
       segment_count = frame.plan<W>(direction, segments);
       int kept = 0;
       for (int i = 0; i < segment_count; ++i) {
-        ColumnSegment walk = segments[i];
+        detail::ColumnSegment walk = segments[i];
         clamp_walk<W>(walk, direction, band.rs, band.length(W));
         if (walk.count > 0)
           segments[kept++] = walk;
       }
       segment_count = kept;
       if (segment_count == 0) {
-        Temporal::count_geometry<
-            &Temporal::GeometryCounters::column_edges_culled>();
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::column_edges_culled>();
         continue;
       }
       frame.velocities<W, H>(velocity);
@@ -1048,8 +1053,8 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                           fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
                     COLUMN_SINGLE_TAP_ERROR * (W / 2);
     }
-    Temporal::count_geometry<
-        &Temporal::GeometryCounters::column_edges_prepared>();
+    Spacetime::count_geometry<
+        &Spacetime::GeometryCounters::column_edges_prepared>();
     batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge);
     const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
       return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
