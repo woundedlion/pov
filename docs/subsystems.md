@@ -9,7 +9,7 @@ The engine subsystem reference for the [Holosphere README](https://github.com/wo
   - [Shader Signatures](#shader-signatures)
   - [Register Conventions by Rasterizer](#register-conventions-by-rasterizer)
   - [Composed pullback metadata](#composed-pullback-metadata)
-  - [Column-time sampling](#column-time-sampling)
+  - [Column-time sampling](#space-time-rendering)
   - [Spherical ray rendering](#spherical-ray-rendering)
 - [SDF Shapes and the Scan Rasterizer](#sdf-shapes-sdfh-and-the-scan-rasterizer-scanh)
   - [SDF Shape Primitives](#sdf-shape-primitives-sdfh)
@@ -156,7 +156,138 @@ The fragment shader receives `pos` set to the closest local-space hit point (in 
 
 `Pullback::Spec` supplies a typed `Pipeline<B>` plus palette harmony and projection animation controls. `Pullback::MetadataFor<Spec>` inspects the normalized semantic leaves, including nested placement groups and optional `void` entries. It derives projection, sampling and field coverage, transfer kind, lens policy, surface placement, path tracking and color modes without binding an executable frame. `ComposedEffect::Metadata` exposes that topology to slider registration and optional storage. Authored scalar topology fields are rejected.
 
-### Column-time sampling
+### Space-time rendering
+
+A POV display lights each column at its own moment. With two opposing arms,
+columns x and x + W/2 are lit together at surface time
+
+```
+t(x) = (x mod (W/2)) / (W/2)
+```
+
+For the 288-column canvas there are 144 distinct times in a frame. A frame is
+the interval between two effect ticks. The arm cuts lie at 143|144 and 287|0:
+physically neighbouring columns there belong to consecutive frame buffers.
+Drawing each buffer from one instant makes moving geometry jump by a frame's
+motion at a cut. Sampling geometry and shading across the frame lets those
+columns meet at their actual emission times instead.
+
+`Spacetime::SamplingSurface<W>` describes the relation between columns, arms
+and time indices; `Spacetime::surface_time` provides the runtime-width map.
+The still selection is `Spacetime::flat_surface()`: drawing uses the current
+endpoint, t = 1. The simulator retains the `setTemporalSampling` binding,
+whose Boolean selects the complementary timed mode. The sampling selection
+does not advance animation: effects still step their mutable state once per
+frame and retain the endpoints needed to evaluate intermediate times.
+
+#### Motion, worldlines and poses
+
+A moving point traces a worldline; an edge joins two endpoint worldlines into
+a worldsheet. `Spacetime::Worldline` evaluates a chord, a quadratic through a
+middle capture, or a circular arc about an axis. `Spacetime::Worldlines`
+retains per-vertex start, middle and end captures in arena storage, carries a
+frame's end into the next frame's start, and selects an interpolant using
+`Spacetime::PathBound`. Effects and draw helpers supply the captures; a new
+sprite or topology change can hold the start at the end. The interpolant's
+`deviation()` supplies a pad for swept bounds.
+
+`Spacetime::PoseTable` samples an orientation's sub-frame history at each
+surface time and at the frame end. Both arms share the same entries. World
+stages compose these poses with geometry motion; `Filter::World::Orient`
+prepares its table from the orientation it references. `sweep_arc()` bounds
+the world stage's frame motion for culling.
+
+#### Points and plotted edges
+
+`Plot::PointRoute` prepares a clip gate widened by the point motion bound.
+Its `plot` takes a world-space end, a lazy start callable, and a shader. The
+start and shading are evaluated only for points that can reach the clip.
+A projected chord gives a screen crossing through
+`Spacetime::screen_crossings`; equating the point's linear longitude with
+an arm's lit longitude gives one division per arm. A projected path that
+bends too far is divided into pieces sampled from the same world chord.
+`Spacetime::crossings` and `piecewise_crossings` provide the corresponding
+longitude-track operations.
+
+A crossing is splatted through the sink's anti-alias stage. When adjacent tap
+columns require different positions, including at an arm cut, the route
+reads the point's position at each tap column's own time. A shader without a
+time argument is shaded once for that point; a shader taking t is sampled
+at the emitted crossing's time.
+
+The column walk draws an edge at each column's known surface time. It
+combines the endpoint worldlines with the world's pose there, intersects
+the resulting geodesic with that column's meridian, and emits its samples
+through the filter chain. `Plot::EdgeWorldsheet` caches geodesic bases at
+lattice times; `Plot::SweptEdgeCull` rejects edges whose swept bounds miss the
+clip. `Plot::EdgeBatch` shares captured vertex data across edges.
+`Plot::Mesh::draw_timed` routes table-compatible world stages through
+`draw_columns` and `rasterize_column_edges`, with an optional
+`Plot::GeometryCallback` for vertex motion. The still selection uses the
+ordinary mesh raster. Other timed plotted configurations retain their
+existing raster dispatch.
+
+#### Moving mesh faces
+
+`Scan::deform_mesh` prepares a face scan from the effect's motion plan,
+start vertices and indexed vertex evaluator. `Scan::detail::scan_swept_faces`
+classifies each active face and reuses captured vertices between passes.
+Faces clear of an arm cut share a scan with vertices captured at their
+seeing-column times. Faces near a cut draw in arm-clipped passes; faces that
+reach beyond the shared pass use a `Scan::FaceArmCopy` with its own vertices
+on each arm. Across-cut vertex times continue the incident edges' times.
+
+A face reaching a pole is placed in each half of the arm under a
+`TimeWindow`. A polar or wide face whose motion would make those placements
+stray too far instead uses `Scan::PoleFaceSweep`: it retains vertex
+worldlines and is scanned one column pair at a time. The swept face scanner
+prepares edge-plane polynomials and evaluates them at that pair's time.
+This classification accounts for the face's azimuth span, motion and reach
+toward a pole.
+
+#### Scan bases and fields
+
+Forward scans keep shapes built at the frame end and carry camera motion in
+the rays. `Scan::ColumnBasisTable<W,H>` prepares two rotated vectors per
+surface time from the orientation's sub-frame history. Its
+`Scan::ColumnBasis` view describes the fixed-meridian direction rotated
+from t(x) into the current endpoint's world. `Scan::ColumnBasisScope`
+installs the view on the canvas; scans read `canvas.column_basis()`.
+A pixel direction is built from azimuth[k] and up[k], shared by both arms.
+The view's `sweep_arc` widens conservative bounds. A stationary frame or the
+flat selection uses the fixed meridian.
+
+`Scan::rasterize`, `Scan::Mesh`, `Scan::RingGroup` and
+`Scan::DistortedRingStack` honour the basis. Compact rasterized shapes use
+`Scan::lit_cap` to bound the columns that can see them. A birth fraction
+skips columns lit before the shape exists. A drift adds a shape's independent
+rotation still to come as `drift * (1 - t)`; `Scan::settle_drift` can place a
+compact shape once at the middle of the times that see it. Ring-group slots
+also interpolate their individual axes. `Scan::Volume` uses
+`Scan::VolumeColumns`, with a centre and rotation per surface time.
+
+Shaders working in a moving object's coordinates use
+`Scan::ObjectBasisTable` and `Scan::Shader::walk_object_grid`; each sample
+receives its object-space centre and column frame. A field shader with a
+trailing float t is detected by `Spacetime::reads_time`.
+`Spacetime::shade_at_time` and `shade_at_column` dispatch that argument.
+`TimedShaderFn` is the corresponding interface for rasterize, point and
+volume scans. Their flat selection shades at t = 1. `FacePaletteShader`
+samples face alpha, palette crossfade and counterpart weight per column
+while those values move; `Animation::OpLeg::Shading` supplies its retained
+crossfade endpoint. `state_moves` requests the timed scan even when the
+orientation is stationary.
+
+`Scan::Shader::draw_column_times` prepares a shader state once for each
+surface time and reuses it for both arms and across rows. HyperLattice
+instead retains its render state and prepares trace contexts through
+`draw_columns`, interpolating rotation phases, camera flight and continuous
+parameters. Voronoi retains site endpoints, prepares moved sites once per
+surface time, and shades each column from the candidates classified at its
+block corners. Both hold geometry at discrete changes and retain their
+instantaneous drawing selection.
+
+#### Retained fields and pullbacks
 
 Composed effects opt into `Pullback::Spec::TEMPORAL_SAMPLING` when their state
 supports continuous interpolation; the whole roster enables it. Each column
@@ -174,77 +305,6 @@ interpolated geometry, with their results blended in time. Noise tables are
 baked once per frame. Effects without this opt-in retain the frame-wide path
 and allocate no temporal history.
 
-Forward scans take column time from a rotated pixel basis. An effect prepares
-a frame-scoped `Scan::ColumnBasisTable` once per frame from its orientation's
-sub-frame history, sampled at each sweep fraction by
-`Spacetime::for_each_time_pose` as `Orientation::get(float)` samples it, and
-installs the resulting `Scan::ColumnBasis` on the canvas with
-`Scan::ColumnBasisScope`. Shapes stay built at the current endpoint; each column
-evaluates them along its fixed-meridian direction rotated from its sweep time
-to that endpoint, from two vectors per sweep fraction shared by both arms, so a
-pixel costs six multiply-adds instead of two.
-`Scan::rasterize`, `Scan::Mesh`, `Scan::RingGroup` and
-`Scan::DistortedRingStack` honour the basis; their row and column bounds grow
-by the frame's rotation arc, except that `Scan::rasterize` bounds a star, disc
-or ring by its cap turned to the time of the columns that can see it and
-widened by the rotation across them (`Scan::lit_cap`). A pole-LOD block's
-slack grows by the rotation across the block. A birth fraction in the same state skips the
-columns `Scan::rasterize` would light before it. The fidelity-off mode and a
-motionless frame install no basis and keep the fixed meridian, bit for bit.
-`Scan::Volume` instead takes an object's `Scan::VolumeColumns`: a centre and
-rotation per sweep fraction, from which each column marches, inside a cap
-grown to cover every column's centre. `Scan::RingGroup` also takes each
-slot's axis at the previous endpoint and evaluates the slot about the axis
-interpolated to each column's sweep time, for groups whose members move
-independently. On the device the column-time variants of the rasterize, mesh,
-ring-group, ring-stack and volume scans run from ITCM, and their
-fixed-meridian loops from FLASH.
-
-A shader that evaluates a turning object in the object's own space takes a
-`Scan::ObjectBasisTable` instead: per sweep fraction, the column's azimuth,
-azimuth tangent and north rotated into the object frame as it stood when the
-column was lit. `Scan::Shader::walk_object_grid` hands each pixel its
-object-space centre and column frame, from which `SsaaGrid::at(column, i)`
-builds the object-space sub-samples, so no oriented copy of the object is
-built.
-
-State other than the frame's rotation reaches the column-time scans through
-their shaders. A shader that takes a trailing sweep fraction `u`
-(`Spacetime::reads_time`) runs once per column at that column's time,
-pole-LOD blocks included, and evaluates its state between the endpoints its
-effect retains; the fixed-meridian loops run its plain form.
-`TimedShaderFn` is that form for `Scan::rasterize`, `Scan::Point` and
-`Scan::Volume`, whose time-aware scans take the column-time path whenever
-temporal sampling is on and shade at `u = 1` when it is off. The
-column-time rasterize carries either form in one `Scan::ColumnShader`, so each
-shape keeps a single column-time instantiation.
-`FacePaletteShader` moves a face's alpha, palette crossfade and counterpart
-weight this way, and the face scan runs it per column only while one of them
-moves (`FacePaletteShader::moves`). An effect whose per-column state moves while its orientation
-does not still prepares a table, with `state_moves`, so its scans take their
-column-time variants. A drift in the same state rotates `Scan::rasterize`'s
-pixel direction by a shape's own motion still to come, for shapes that move
-independently of the frame's rotation: the scan reads basis entries of the
-shape's own, each turned by `drift * (1 - u)` at its column's fraction `u` when
-the scan first reaches the column, and the re-centred bounds grow by the
-drift's angle. A compact shape whose drift changes by less
-than a tenth of a column across the columns that see it is instead turned once
-to their middle column's time (`Scan::settle_drift`) and scanned without one.
-`Animation::OpLeg::Shading` carries the crossfade weight its leg drew a frame
-ago, which `Scan::Mesh::draw_opleg_shading` hands each face's shader.
-
-HyperLattice and Voronoi sample column time without the composed runtime.
-HyperLattice keeps its previous render state and prepares the trace context of
-every column time before tracing any column through `draw_columns`: rotation
-phases follow their shortest arc, the camera its unwrapped flight step and
-continuous parameters their field curves, while every column's context binds
-the effect's crossing scratch. A specialized octet or shell trace serves a frame
-only when every column time selects it.
-Voronoi keeps its sites' previous positions and spins the sites to each sweep
-fraction once, for both columns lit at it. `draw_block_columns` classifies
-block corners at both endpoints and shades each pixel from the nearest of their
-candidates at its column's time. Both effects draw the first frame, resets and discrete changes without motion and
-retain their instantaneous paths with sampling disabled.
 
 Further opt-ins need continuous parameter curves, clock advances below half
 their period, and spatially periodic phase wraps. Discrete preset changes do
@@ -262,7 +322,7 @@ The chain interpreter retains the previous endpoint as a mirror of the
 committed program's param and state blocks. Each column samples every
 operator's params along their transition curves and its state through the
 state's `temporal_sample` overload, which follows clocks and quaternion arcs
-with `sample_clock` and `TemporalRotation`; states without clocks are read at
+with `Spacetime::sample_clock` and `Spacetime::TemporalRotation`; states without clocks are read at
 the current endpoint. `ShaderChain` keeps the previous `FrameContext` in a
 `FrameHistory` whose palettes and hue tables point at owned copies, and
 blends the colorize operator's colours from both endpoints' resources at the
@@ -276,23 +336,31 @@ own frame struct.
 `Spacetime::FrameHistory<Frame>` retains the previous endpoint of a frame
 that owns or shares immutable resources, and `Spacetime::sample_frame` calls the
 frame's static `sample(from, to, fraction)` for every sweep time before the
-current endpoint. SphericalHarmonics samples its spin through `TemporalRotation` and its
+current endpoint. SphericalHarmonics samples its spin through `Spacetime::TemporalRotation` and its
 amplitude linearly. A morph rollover continues the outgoing harmonic pair at
 full blend into the incoming pair at zero blend; harmonic indices are never
 interpolated. A manual preset changes the morph epoch, so that frame takes the
 current morph in every column while the spin keeps its sweep time.
 
-A `TimeWindow` ([canvas.h](../core/render/canvas.h)) restricts a frame's
-windowed column loops to the half-turn columns `[begin, end)` on both arms,
-inside the driver clip, which cannot change while a frame is active. Windows do
-not nest, and closing one admits every column again. `Scan::Shader::walk_grid`
-and `draw_grid` honour it through `Scan::walk_window_columns`; other loops
-write their whole clip. `Spacetime::time_slab` divides the half-turn into
-slabs in sweep order. `Spacetime::simulate_in_slabs` drives a simulation that
-advances several substeps per frame: it shades each slab under its window
-after the substeps that end the slab's share of the frame, so neighbouring
-slabs differ by one share of substeps rather than one frame. With temporal
-sampling disabled it runs every substep and then one frame-wide shade.
+
+`Pullback::FrameInterval` prepares the composed field's endpoint intervals
+and evaluates them with `at(t)`. `Spacetime::ClockInterval` and
+`Spacetime::sample_clock` interpolate periodic clocks along their shortest
+arc; `Spacetime::sample_frame` delegates a manual frame's interpolation to
+its static `sample` function.
+
+#### Stepped simulations
+
+A `TimeWindow` ([canvas.h](../core/render/canvas.h)) restricts window-aware
+column loops to the half-turn range [begin, end) on both arms, optionally
+restricted to one arm, inside the driver's fixed clip. Windows do not nest;
+closing one admits every column again. `Scan::Shader::walk_grid` and
+`draw_grid` honour the window through `Scan::walk_window_columns`; other
+loops write their whole clip.
+`Spacetime::time_slab` divides the half-turn into ordered time slabs.
+`Spacetime::simulate_in_slabs` advances the substeps that end each slab's
+share of the frame, then shades under its window. The flat selection runs
+all substeps before one frame-wide shade.
 
 ### Spherical ray rendering
 

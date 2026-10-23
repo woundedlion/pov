@@ -13,6 +13,8 @@
  * render-band topology (wrap, containment, arc overlap).
  */
 
+namespace Spacetime {
+
 /**
  * @brief A run of half-turn columns admitted on both display arms, or on one.
  * @details Admits columns `[begin, end)` and `[begin + w / 2, end + w / 2)` of
@@ -21,7 +23,6 @@
  *          the half-turn, so that one of its runs lies outside `[0, w)` and
  *          admits no column.
  */
-namespace Spacetime {
 struct TimeWindow {
   int begin = 0;       /**< First column, in [-w / 2, end]. */
   int end = 0;         /**< One past the last column, at most w. */
