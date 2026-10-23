@@ -492,7 +492,8 @@ struct ColumnEdgeFrame {
    * model cannot bound, and endpoints whose arc can change sides over the
    * frame, walk the whole pass. */
   template <int W>
-  HS_HOT_FLASH_MEMBER int plan(int direction, ColumnSegment segments[2]) {
+  HS_O3_FN HS_NOINLINE_NOCLONE int plan(int direction,
+                                        ColumnSegment segments[2]) {
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
     const bool start_known = Temporal::model_track<W>(
