@@ -13,6 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <string>
 #include <cstring>
 #include <span>
 #include <type_traits>
@@ -97,6 +100,11 @@ struct OracleFrame {
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
+  /** @brief Sampling policy of an authored preset. */
+  static bool column_time_preset(size_t index) {
+    return OracleEffect::COLUMN_TIME_PRESETS[index];
+  }
+
   static_assert(PRESET_COUNT >= 2,
                 "the preset transition test steps from preset 0 to 1");
 
@@ -290,15 +298,35 @@ struct ShapeShifterWhiteBox {
     return effect.getPresetIndex();
   }
 
+  /** @brief The effect's orientation.
+   * @param effect Effect.
+   * @return Its orientation. */
+  static math::Orientation<> &orientation(OracleEffect &effect) {
+    return effect.orientation;
+  }
+
+  /** @brief Sets the waveform phase and its advance over the frame.
+   * @param effect Effect.
+   * @param phase Phase at the frame's end, turns.
+   * @param step Advance over the frame, turns. */
+  static void set_twist(OracleEffect &effect, float phase, float step) {
+    effect.phase = phase;
+    effect.twist_step = step;
+  }
+
   static int preset_frames() { return OracleEffect::PRESET_FRAMES; }
   static int preset_dwell_frames() { return OracleEffect::PRESET_DWELL_FRAMES; }
   static int preset_segue_frames() { return OracleEffect::DEPARTURE.frames; }
 };
 
-/** @brief Captures one renderer callable from a fresh deterministic effect. */
+/** @brief Captures one renderer callable from a fresh deterministic effect.
+ * @details Temporal sampling is off: these oracles judge the shapes' still
+ * geometry, which the timed route draws at each column's time. */
 template <typename Render>
 inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   reset_globals();
+  const bool temporal = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(true);
   hs::set_mock_time(0, 0);
   hs::g_scan_metrics.reset();
 
@@ -321,6 +349,7 @@ inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   }
   Timeline().clear();
   hs::clear_mock_time();
+  Spacetime::set_flat_surface(!temporal);
   return frame;
 }
 
@@ -714,6 +743,65 @@ inline void test_screen_balanced_star_preset_stays_within_visual_budget() {
       MAX_MEAN_ABSOLUTE_ERROR, MAX_ROOT_MEAN_SQUARED_ERROR, MAX_CHANNEL_ERROR);
 }
 
+/** @brief The frozen temporal stroke route preserves the authored P1 look. */
+inline void test_timed_star_stays_within_visual_budget() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.function = OracleEffect::PhaseFunction::SINE;
+  state.alpha_falloff = OracleEffect::AlphaFalloff::TOWARD_EQUATOR;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+  state.count = 288;
+  state.sides = 7;
+  state.phase = 0.249f;
+  state.alpha = 0.274f;
+  state.orientation =
+      math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+  const auto comparison = compare_renders(
+      state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
+        Spacetime::set_flat_surface(false);
+        ShapeShifterWhiteBox::render_candidate(effect, canvas);
+        Spacetime::set_flat_surface(true);
+      });
+  const auto energy = frame_energy(comparison.reference);
+  const double drift =
+      std::fabs(double(frame_energy(comparison.candidate)) - double(energy)) /
+      double(energy);
+  std::printf(
+      "  frozen temporal P1 look: MAE=%.3f RMSE=%.3f energy_drift=%.6f reference=%f candidate=%f\n",
+      comparison.error.mean_absolute_error(),
+      comparison.error.root_mean_squared_error(), drift, double(energy),
+      double(frame_energy(comparison.candidate)));
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *prefix = std::getenv("HS_SHAPESHIFTER_IMAGES");
+#pragma clang diagnostic pop
+  if (prefix) {
+    auto write = [&](const OracleFrame &frame, const char *suffix) {
+      const std::string path = std::string(prefix) + suffix;
+      std::ofstream file(path, std::ios::binary);
+      HS_EXPECT_TRUE(file.good());
+      if (!file)
+        return;
+      file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
+      for (const Pixel &pixel : frame.pixels)
+        for (auto value : {pixel.r, pixel.g, pixel.b})
+          file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
+    };
+    write(comparison.reference, "-reference.ppm");
+    write(comparison.candidate, "-temporal-frozen.ppm");
+  }
+  HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
+  HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
+               MAX_ROOT_MEAN_SQUARED_ERROR);
+  HS_EXPECT_LT(drift, 0.014);
+  const auto pole_reference = row_energy(comparison.reference, 0);
+  const auto pole_candidate = row_energy(comparison.candidate, 0);
+  HS_EXPECT_GE(pole_candidate * 10, pole_reference * 9);
+  std::printf("  frozen P1 row-zero energy: reference=%llu candidate=%llu\n",
+              static_cast<unsigned long long>(pole_reference),
+              static_cast<unsigned long long>(pole_candidate));
+}
+
 /** @brief High count uniform star covers north pole. */
 inline void test_high_count_uniform_star_covers_north_pole() {
   OracleState state;
@@ -1085,9 +1173,375 @@ inline void test_count_slider_matches_draw_limit() {
   Timeline().clear();
 }
 
+/** @brief Renders a timed contour stack or its frozen frame.
+ * @param state Shape, count, sides and amplitude.
+ * @param step Waveform phase advance over the frame, turns.
+ * @param timed Uses the production temporal draw.
+ * @param fraction Frozen frame fraction.
+ * @param displacement Frozen-reference shift in rows and columns.
+ * @param walked Receives the production draw's column-walk setups, when
+ * given.
+ * @return Row-major linear luminance.
+ * @details The orientation turns about a tilted axis over the frame and the
+ * waveform phase advances by @p step. The frozen frame holds the phase and
+ * the orientation of @p fraction, turned @p displacement columns about the
+ * vertical and @p displacement rows along the meridians of @p fraction's
+ * columns, and draws through the same timed route with no motion. Chord and
+ * point samples are single samples at the point route's tolerance, held to a
+ * reference displaced along both. */
+inline std::vector<float> render_timed_contours(const OracleState &state,
+                                                float step, bool timed,
+                                                float fraction,
+                                                float displacement,
+                                                uint32_t *walked = nullptr) {
+  reset_globals();
+  const bool temporal = !Spacetime::flat_surface();
+  Spacetime::set_flat_surface(false);
+  hs::set_mock_time(0, 0);
+  std::vector<float> luminance(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+  {
+    OracleEffect effect;
+    effect.init();
+    ShapeShifterWhiteBox::configure(effect, state);
+    const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+    const math::Quaternion start_pose =
+        math::make_rotation(math::X_AXIS, 0.27f);
+    const math::Quaternion end_pose =
+        math::make_rotation(axis, 0.03f) * start_pose;
+    ShapeShifterWhiteBox::set_twist(effect, state.phase, step);
+    if (timed) {
+      ShapeShifterWhiteBox::orientation(effect).set(start_pose);
+      ShapeShifterWhiteBox::orientation(effect).push(end_pose);
+    } else {
+      ShapeShifterWhiteBox::set_twist(
+          effect, state.phase - step * (1.0f - fraction), 0.0f);
+      ShapeShifterWhiteBox::orientation(effect).set(start_pose);
+      ShapeShifterWhiteBox::orientation(effect).push(end_pose);
+      const math::Quaternion pose =
+          ShapeShifterWhiteBox::orientation(effect).get(fraction);
+      int column = 0;
+      for (int c = 1; c < ORACLE_W / 2; ++c)
+        if (fabsf(Spacetime::SamplingSurface<ORACLE_W>::time(c) - fraction) <
+            fabsf(Spacetime::SamplingSurface<ORACLE_W>::time(column) -
+                  fraction))
+          column = c;
+      const math::Vector meridian = math::pixel_to_vector<ORACLE_W, ORACLE_H>(
+          static_cast<float>(column), ORACLE_H / 2.0f);
+      const math::Vector across =
+          math::cross(math::Y_AXIS, meridian).normalized();
+      ShapeShifterWhiteBox::orientation(effect).set(
+          math::make_rotation(across,
+                              displacement * math::RADIANS_PER_ROW<ORACLE_H>) *
+          math::make_rotation(
+              math::Y_AXIS, displacement * math::RADIANS_PER_COLUMN<ORACLE_W>) *
+          pose);
+    }
+    {
+      Canvas canvas(effect);
+      Spacetime::geometry_counters = {};
+      ShapeShifterWhiteBox::render_candidate(effect, canvas);
+      if (walked)
+        *walked = Spacetime::geometry_counters.column_draw_setups;
+    }
+    effect.advance_display();
+    for (int y = 0; y < ORACLE_H; ++y)
+      for (int x = 0; x < ORACLE_W; ++x) {
+        const Pixel pixel = effect.get_pixel(x, y);
+        luminance[static_cast<size_t>(y) * ORACLE_W + x] =
+            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+      }
+  }
+  Timeline().clear();
+  hs::clear_mock_time();
+  Spacetime::set_flat_surface(!temporal);
+  return luminance;
+}
+
+/** @brief Timed contours match frozen columns for every shape: geodesic
+ *         contours through the column walk, chart-straight ones through
+ *         moving chords. */
+inline void test_timed_contours_match_frozen_columns() {
+  using ShapeType = OracleEffect::ShapeType;
+  struct Case {
+    ShapeType shape;
+    int count;
+    int sides;
+    float amplitude;
+    float step;
+    const char *name;
+  };
+  const Case cases[] = {
+      {ShapeType::SPHERICAL_POLYGON, 24, 4, 2.0f, 0.01f, "spherical polygon"},
+      {ShapeType::SPHERICAL_STAR, 12, 5, 1.0f, 0.016f, "spherical star"},
+      {ShapeType::PLANAR_STAR, 48, 7, 1.0f, 0.016f, "planar star"},
+      {ShapeType::PLANAR_STAR, 12, 5, 1.0f, 0.016f, "sparse planar star"},
+      {ShapeType::PLANAR_POLYGON, 16, 5, 1.0f, 0.016f, "planar polygon"},
+      {ShapeType::FLOWER, 24, 3, 1.0f, 0.0186f, "flower"}};
+  for (const Case &test : cases) {
+    OracleState state;
+    state.shape = test.shape;
+    state.count = test.count;
+    state.sides = test.sides;
+    state.amplitude = test.amplitude;
+    state.phase = 0.37f;
+    uint32_t walked = 0;
+    render_timed_contours(state, test.step, true, 1.0f, 0.0f, &walked);
+    const bool geodesic = test.shape == ShapeType::SPHERICAL_POLYGON ||
+                          test.shape == ShapeType::SPHERICAL_STAR;
+    HS_CONTEXT("shape", static_cast<int>(test.shape));
+    if (geodesic)
+      HS_EXPECT_GT(walked, 0u);
+    hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
+        [&](bool timed, float fraction, float displacement) {
+          return render_timed_contours(state, test.step, timed, fraction,
+                                       displacement);
+        },
+        test.name);
+  }
+}
+
+/** @brief Shipping presets match their frozen columns at the authored speed. */
+inline void test_timed_presets_match_frozen_columns() {
+  for (size_t i = 0; i < ShapeShifterWhiteBox::PRESET_COUNT; ++i) {
+    HS_EXPECT_EQ(ShapeShifterWhiteBox::column_time_preset(i), i != 0);
+    if (i == 0)
+      continue;
+
+    const auto &preset = ShapeShifterWhiteBox::preset_params(i);
+    OracleState state;
+    state.shape = preset.shape;
+    state.function = preset.function;
+    state.alpha_falloff = preset.alpha_falloff;
+    state.spacing = preset.spacing;
+    state.count = static_cast<int>(preset.count);
+    state.sides = static_cast<int>(preset.sides);
+    state.amplitude = preset.amplitude;
+    state.opposite = preset.opposite;
+    state.phase = 0.37f;
+    state.alpha = 0.274f;
+    const float step = fminf(preset.speed / preset.amplitude, 0.5f);
+    const std::string name = "preset " + std::to_string(i + 1);
+    HS_CONTEXT("preset", static_cast<int>(i + 1));
+    hs_test::seam_compare_render<ORACLE_W, ORACLE_H>(
+        [&](bool timed, float fraction, float displacement) {
+          return render_timed_contours(state, step, timed, fraction,
+                                       displacement);
+        },
+        name.c_str());
+    state.orientation =
+        math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
+    const auto look = compare_renders(
+        state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
+          Spacetime::set_flat_surface(false);
+          ShapeShifterWhiteBox::render_candidate(effect, canvas);
+          Spacetime::set_flat_surface(true);
+        });
+    const double energy = double(frame_energy(look.reference));
+    const double drift =
+        (double(frame_energy(look.candidate)) - energy) / energy;
+    std::printf(
+        "  frozen style preset %zu: MAE=%.3f RMSE=%.3f max=%u energy_drift=%.6f\n",
+        i + 1, look.error.mean_absolute_error(),
+        look.error.root_mean_squared_error(), look.error.max_absolute_error,
+        drift);
+    HS_EXPECT_LT(look.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
+    HS_EXPECT_LT(look.error.root_mean_squared_error(),
+                 MAX_ROOT_MEAN_SQUARED_ERROR);
+    HS_EXPECT_LT(look.error.max_absolute_error, MAX_CHANNEL_ERROR);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    const char *prefix = std::getenv("HS_SHAPESHIFTER_IMAGES");
+#pragma clang diagnostic pop
+    if (prefix) {
+      auto write = [&](const OracleFrame &frame, const char *suffix) {
+        const std::string path =
+            std::string(prefix) + "-p" + std::to_string(i + 1) + suffix;
+        std::ofstream file(path, std::ios::binary);
+        file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
+        for (const Pixel &pixel : frame.pixels)
+          for (auto value : {pixel.r, pixel.g, pixel.b})
+            file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
+      };
+      write(look.reference, "-still.ppm");
+      write(look.candidate, "-timed.ppm");
+    }
+  }
+}
+
+/** @brief Clipping moving flowers preserves visible pixels and skips chart samples. */
+inline void test_timed_flower_clip_culls_anchor_intervals() {
+  OracleState state;
+  state.shape = OracleEffect::ShapeType::FLOWER;
+  state.count = 70;
+  state.sides = 3;
+  state.phase = 0.37f;
+  const auto full = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
+  const auto full_counts = Spacetime::geometry_counters;
+  state.clip = {0, 72, 0, 144};
+  const auto clipped = render_timed_contours(state, 0.0186f, true, 1.0f, 0.0f);
+  const auto clipped_counts = Spacetime::geometry_counters;
+  HS_EXPECT_GT(clipped_counts.chord_fast_samples, 0u);
+  HS_EXPECT_GT(clipped_counts.chord_intervals_culled, 0u);
+  HS_EXPECT_EQ(clipped_counts.chord_point_samples, 0u);
+  HS_EXPECT_GT(clipped_counts.polar_column_samples, 0u);
+  HS_EXPECT_LT(clipped_counts.polar_column_samples,
+               full_counts.polar_column_samples);
+  for (int y = 0; y < 72; ++y)
+    for (int x = 0; x < 144; ++x)
+      HS_EXPECT_NEAR(clipped[y * ORACLE_W + x], full[y * ORACLE_W + x], 1e-5f);
+  std::printf(
+      "  flower clip: intervals=%u culled=%u coherent=%u screen=%u points=%u projections=%u column_samples=%u; full projections=%u\n",
+      clipped_counts.chord_intervals, clipped_counts.chord_intervals_culled,
+      clipped_counts.chord_fast_samples, clipped_counts.chord_screen_samples,
+      clipped_counts.chord_point_samples,
+      clipped_counts.point_piece_evaluations, clipped_counts.column_samples,
+      full_counts.point_piece_evaluations);
+  std::printf(
+      "  flower solves: anchors=%u point_pieces=%u candidates=%u\n",
+      clipped_counts.chord_capture_solves, clipped_counts.point_capture_solves,
+      clipped_counts.chord_fast_samples + clipped_counts.chord_screen_samples +
+          clipped_counts.chord_point_samples);
+  state.shape = OracleEffect::ShapeType::PLANAR_STAR;
+  state.count = 288;
+  state.sides = 7;
+  state.spacing = OracleEffect::RadiusSpacing::SCREEN_BALANCED;
+  render_timed_contours(state, 0.016f, true, 1.0f, 0.0f);
+  const auto star_counts = Spacetime::geometry_counters;
+  HS_EXPECT_EQ(star_counts.chord_point_samples, 0u);
+  HS_EXPECT_GT(star_counts.polar_column_samples, 0u);
+  std::printf(
+      "  polar visits/captures: flower=%u/%u full=%u/%u P1=%u/%u\n",
+      clipped_counts.polar_column_visits, clipped_counts.polar_geometry_samples,
+      full_counts.polar_column_visits, full_counts.polar_geometry_samples,
+      star_counts.polar_column_visits, star_counts.polar_geometry_samples);
+  std::printf("  polar geometry captures: flower=%u full=%u P1=%u\n",
+              clipped_counts.polar_geometry_samples,
+              full_counts.polar_geometry_samples,
+              star_counts.polar_geometry_samples);
+  std::printf("  polar clip samples: flower=%u full=%u P1=%u\n",
+              clipped_counts.polar_column_samples,
+              full_counts.polar_column_samples,
+              star_counts.polar_column_samples);
+  std::printf("  dense star clip: intervals=%u culled=%u coherent=%u screen=%u "
+              "points=%u projections=%u column_samples=%u\n",
+              star_counts.chord_intervals, star_counts.chord_intervals_culled,
+              star_counts.chord_fast_samples, star_counts.chord_screen_samples,
+              star_counts.chord_point_samples,
+              star_counts.point_piece_evaluations, star_counts.column_samples);
+  const auto &preset = ShapeShifterWhiteBox::preset_params(7);
+  state.shape = preset.shape;
+  state.count = int(preset.count);
+  state.sides = int(preset.sides);
+  state.amplitude = preset.amplitude;
+  state.spacing = preset.spacing;
+  state.opposite = preset.opposite;
+  render_timed_contours(state, preset.speed / preset.amplitude, true, 1.0f,
+                        0.0f);
+  const auto counts = Spacetime::geometry_counters;
+  std::printf(
+      "  geodesic clip: vertices=%u callbacks=%u samples=%u columns=%u crossings=%u\n",
+      counts.endpoint_evaluations,
+      2 * counts.endpoint_evaluations + counts.midpoint_evaluations,
+      counts.column_samples, counts.columns_visited, counts.column_crossings);
+}
+
+/** @brief Chart-edge rotation bounds include bowed interiors and the equator. */
+inline void test_chart_edge_rotation_radius() {
+  using Chords = Plot::PlanarChords<ORACLE_W, ORACLE_H>;
+  /** @brief One straight source-chart segment. */
+  struct Edge {
+    math::PixelCoords a, b; ///< Chart endpoints, radians.
+  };
+  const Edge edges[] = {{{0.0f, 0.0f}, {0.0f, 0.0f}},
+                        {{0.2f, 0.0f}, {0.8f, 0.0f}},
+                        {{3.0f * cosf(math::PI_F / 6.0f), -1.5f},
+                         {3.0f * cosf(math::PI_F / 6.0f), 1.5f}},
+                        {{1.1f, -1.9052559f}, {1.1f, 1.9052559f}},
+                        {{-2.5f, 0.1f}, {2.5f, 0.1f}}};
+  for (const auto &edge : edges) {
+    const float bound = Chords::rotation_radius(edge.a, edge.b);
+    double maximum = 0.0;
+    for (int sample = 0; sample <= 200; ++sample) {
+      const double t = sample / 200.0;
+      const double x = edge.a.x + (edge.b.x - edge.a.x) * t;
+      const double z = edge.a.y + (edge.b.y - edge.a.y) * t;
+      const double radius = std::hypot(x, z);
+      const double physical = std::abs(std::sin(radius));
+      maximum = std::max(maximum, physical);
+      HS_EXPECT_LE(physical, double(bound) + 2e-6);
+    }
+    HS_EXPECT_GE(bound, 0.0f);
+    HS_EXPECT_LE(bound, 1.0f);
+    HS_EXPECT_LT(double(bound) - maximum, 0.0001);
+  }
+  HS_EXPECT_GT(Chords::rotation_radius(edges[2].a, edges[2].b), 0.5f);
+}
+
+/** @brief Polar captures match exact rotated chart segments at arm cuts. */
+inline void test_polar_walk_matches_rotated_chart() {
+  using Walk = Plot::PolarWalk<ORACLE_W, ORACLE_H>;
+  const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
+  float worst = 0.0f;
+  for (bool north : {true, false}) {
+    for (int column : {0, 1, 71, 143, 144, 145, 215, 287}) {
+      const float lambda = column * math::RADIANS_PER_COLUMN<ORACLE_W>;
+      auto source = [&](float u) {
+        const float x = 8.0f * cosf(lambda - 0.15f) * (1.0f - u) +
+                        9.0f * cosf(lambda + 0.15f) * u;
+        const float z = 8.0f * sinf(lambda - 0.15f) * (1.0f - u) +
+                        9.0f * sinf(lambda + 0.15f) * u;
+        const float rho = hypotf(x, z);
+        const float phi = rho * math::RADIANS_PER_ROW<ORACLE_H>;
+        return math::Vector(x * sinf(phi) / rho,
+                            (north ? 1.0f : -1.0f) * cosf(phi),
+                            z * sinf(phi) / rho);
+      };
+      auto exact = [&](float u, float t) {
+        return math::rotate(source(u),
+                            math::make_rotation(axis, 0.04f * (t - 1.0f)));
+      };
+      auto capture = [&](float u) {
+        return Plot::PolarAnchor::capture(Walk::project(exact(u, 0.0f), north),
+                                          Walk::project(exact(u, 0.5f), north),
+                                          Walk::project(exact(u, 1.0f), north));
+      };
+      const auto a = capture(0.0f), b = capture(1.0f);
+      const float t = Spacetime::SamplingSurface<ORACLE_W>::time(column);
+      const float dx = cosf(lambda), dz = sinf(lambda);
+      float u = 0.0f;
+      HS_EXPECT_TRUE(Walk::crossing(a.at(t), b.at(t), dx, dz, u));
+      float lo = 0.0f, hi = 1.0f;
+      const auto first = exact(0.0f, t);
+      const float start_side = first.x * dz - first.z * dx;
+      for (int iteration = 0; iteration < 30; ++iteration) {
+        const float mid = (lo + hi) * 0.5f;
+        const auto q = exact(mid, t);
+        if ((q.x * dz - q.z * dx) * start_side > 0.0f)
+          lo = mid;
+        else
+          hi = mid;
+      }
+      const auto q = exact((lo + hi) * 0.5f, t);
+      const float expected = atan2f(hypotf(q.x, q.z), north ? q.y : -q.y) *
+                             math::ROWS_PER_RADIAN<ORACLE_H>;
+      const auto from = a.at(t), to = b.at(t);
+      const float actual =
+          hypotf(from.x + u * (to.x - from.x), from.y + u * (to.y - from.y));
+      worst = fmaxf(worst, fabsf(actual - expected));
+      HS_EXPECT_LT(fabsf(actual - expected), 0.05f);
+    }
+  }
+  std::printf("  polar exact intersection max error: %.6f px\n", worst);
+}
+
 /** @brief Runs shapeshifter oracle tests. */
 inline int run_shapeshifter_oracle_tests() {
   ModuleFixture fixture("shapeshifter_oracle");
+  test_chart_edge_rotation_radius();
+  test_polar_walk_matches_rotated_chart();
+  test_timed_contours_match_frozen_columns();
+  test_timed_presets_match_frozen_columns();
+  test_timed_flower_clip_culls_anchor_intervals();
   test_count_slider_matches_draw_limit();
   test_buffer_comparator_statistics();
   test_reference_matrix_is_deterministic_and_nonblack();
@@ -1097,6 +1551,7 @@ inline int run_shapeshifter_oracle_tests() {
   test_star_options_and_shipping_presets_are_planar();
   test_high_count_uniform_star_stays_within_visual_budget();
   test_screen_balanced_star_preset_stays_within_visual_budget();
+  test_timed_star_stays_within_visual_budget();
   test_high_count_uniform_star_covers_north_pole();
   test_high_count_planar_star_caps_cover_chart_centers();
   test_high_count_spherical_star_contours_reach_display_north();

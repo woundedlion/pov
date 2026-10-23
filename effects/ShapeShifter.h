@@ -147,6 +147,7 @@ public:
             .allocate_n<Plot::Star<Plot::PlanarProjection>::RadiusTrig>(
                 MAX_SHAPES);
     star_chords.init_storage(persistent_arena, STAR_VERTICES);
+    timed_filters.init_storage(persistent_arena);
     flower_split.init_storage(persistent_arena, FLOWER_MAX_POINTS);
     prepare_count(hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT));
     timeline.add(0, Animation::RandomWalk<W>(orientation, math::X_AXIS, noise,
@@ -155,7 +156,7 @@ public:
   }
 
   /** @brief Advances the waveform and draws the full radial shape stack. */
-  void draw_frame() override {
+  HS_HOT_FLASH_MEMBER void draw_frame() override {
     Canvas canvas = [this]() -> Canvas {
       HS_PROFILE(ss_buffer_wait);
       return Canvas(*this);
@@ -167,7 +168,7 @@ public:
     step_choreography();
     advance_phase();
     plot_filters.prepare(canvas);
-    draw_all(canvas);
+    draw_all(canvas, COLUMN_TIME_PRESETS[this->getPresetIndex()]);
   }
 
 #if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_SHAPESHIFTER_COUNT)
@@ -268,6 +269,7 @@ private:
     params = target;
     params.count = std::min(params.count, static_cast<float>(DRAW_LIMIT));
     phase = 0.0f;
+    twist_ready = false;
   }
 
   /** @brief Receives a fading departure's opacity each frame. */
@@ -323,8 +325,11 @@ private:
   void advance_phase() {
     // Dividing by amplitude holds the contour's sweep velocity constant across
     // the Amplitude slider.
-    phase = math::wrap_t(
-        phase + fminf(params.speed / params.amplitude, NYQUIST_PHASE_STEP));
+    const float step =
+        fminf(params.speed / params.amplitude, NYQUIST_PHASE_STEP);
+    phase = math::wrap_t(phase + step);
+    twist_step = twist_ready ? step : 0.0f;
+    twist_ready = true;
   }
 
   float phase_direction(float radius) const {
@@ -495,7 +500,7 @@ private:
    * @brief Draws the selected number of midpoint-sampled contours.
    * @param canvas Target canvas.
    */
-  void draw_all(Canvas &canvas) {
+  void draw_all(Canvas &canvas, bool column_time = true) {
     HS_PROFILE(ss_draw_all);
     const int count = hs::clamp(static_cast<int>(params.count), 1, DRAW_LIMIT);
     if (count != prepared_count || params.spacing != prepared_spacing)
@@ -515,6 +520,19 @@ private:
     }
     const PhaseFunction function = selected_function();
     prepare_waveform(function, count);
+    if (column_time && !Spacetime::flat_surface()) {
+      draw_timed_all(canvas, count, sides, shape, palette);
+      if (planar_star) {
+        ScratchScope column_guard(scratch_arena_a);
+        const Scan::ColumnBasis column_time =
+            Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+        Scan::ColumnBasisScope column_scope(canvas, column_time);
+        draw_planar_star_pole_caps(
+            canvas, math::make_basis(orientation.get(), math::X_AXIS), count,
+            sides, palette);
+      }
+      return;
+    }
     const math::Basis basis = math::make_basis(orientation.get(), math::X_AXIS);
     const ClipRegion &clip = canvas.clip();
     Plot::CapCenter near_cap{}, far_cap{};
@@ -574,6 +592,289 @@ private:
     }
   }
 
+  /** @brief Most anchor intervals a flower or planar polygon edge takes. */
+  static constexpr int FLOWER_ANCHOR_INTERVALS =
+      Plot::PlanarChords<W, H>::MAX_RADIAL_INTERVALS;
+
+  /** @brief Contour vertices one column walk draws. */
+  static constexpr size_t COLUMN_CHUNK_VERTICES = 384;
+  /** @brief Contours one column walk draws. */
+  static constexpr size_t COLUMN_CHUNK_CONTOURS = 64;
+
+  /** @brief A timed contour's twist over the frame and its shading. */
+  struct TimedContour {
+    math::Vector axis; /**< Axis its twist turns about. */
+    float twist;       /**< Signed waveform amplitude, radians. */
+    float wave;        /**< Waveform angle at the frame's end, radians. */
+    float rate;        /**< Waveform angle change over the frame, radians. */
+    float radius;      /**< Distance of its vertices from the axis, at most. */
+    Color4 color;      /**< Stroke color and opacity. */
+    math::Quaternion start_rotation;  ///< Analytic frame-start turn.
+    math::Quaternion middle_rotation; ///< Analytic mid-frame turn.
+    Spacetime::PathBound derivatives; ///< Cached trajectory derivative bounds.
+
+    /** @brief Captures the contour's shared turns and derivative bounds. */
+    HS_HOT_INLINE void prepare() {
+      start_rotation = math::make_rotation(axis, turn_at(0.0f));
+      middle_rotation = math::make_rotation(axis, turn_at(0.5f));
+      derivatives = path();
+    }
+
+    /** @brief Evaluates the shared rigid turn.
+     * @param position Frame-end vertex.
+     * @param t Frame fraction.
+     * @return Vertex at the requested fraction. */
+    HS_HOT_INLINE math::Vector at(const math::Vector &position, float t) const {
+      if (t == 1.0f)
+        return position;
+      if (t == 0.0f)
+        return math::rotate(position, start_rotation);
+      if (t == 0.5f)
+        return math::rotate(position, middle_rotation);
+      return math::rotate(position, math::make_rotation(axis, turn_at(t)));
+    }
+
+    /** @brief Twist from the frame's end back to a frame fraction.
+     * @param t Frame fraction.
+     * @return The angle to turn a frame-end vertex by, radians. */
+    HS_HOT_INLINE float turn_at(float t) const {
+      return twist * (sinf(wave - rate * (1.0f - t)) - sinf(wave));
+    }
+
+    /** @brief Bounds of a vertex's path over the frame.
+     * @return The twist's derivative bounds at the contour's radius. */
+    HS_HOT_INLINE Spacetime::PathBound path() const {
+      const float amplitude = fabsf(twist) * rate;
+      return Spacetime::PathBound::turning(amplitude, amplitude * rate,
+                                           amplitude * rate * rate, radius);
+    }
+  };
+
+  /** @brief A chunk of contour vertices, as Plot::Mesh reads them. */
+  struct ContourMesh {
+    std::span<const math::Vector> vertices; /**< Frame-end source vertices. */
+  };
+
+  /**
+   * @brief Draws the contour stack at its columns' times.
+   * @param canvas Target canvas.
+   * @param count Contours drawn.
+   * @param sides Side count.
+   * @param shape Primitive.
+   * @param palette Contour palette.
+   * @details Every contour turns rigidly about its axis by its waveform's
+   * twist, whose phase advances linearly over the frame, and the world stage
+   * turns the stack by the orientation at each column's time. A contour of
+   * geodesic edges is a closed chain the column walk draws, in chunks, once
+   * its swept vertices can reach the walk's rows and band.
+   */
+  HS_HOT_FLASH_MEMBER void draw_timed_all(Canvas &canvas, int count, int sides,
+                                          ShapeType shape,
+                                          const BakedPalette &palette) {
+    const math::Basis basis =
+        math::make_basis(math::Quaternion(), math::X_AXIS);
+    const bool sine = selected_function() == PhaseFunction::SINE;
+    const float rate = sine ? 2.0f * math::PI_F * twist_step : 0.0f;
+    const float global_alpha = alpha * preset_opacity;
+    const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
+    const auto cull = Plot::SweptEdgeCull<W>::template of<H>(canvas);
+    const float spin = timed_filters.sweep_arc();
+    const Spacetime::PoseTable &poses = *timed_filters.pose_table(canvas);
+    const math::RotationMatrix end_pose = poses.at(poses.times());
+    const math::Quaternion start_orientation = orientation.get(0.0f);
+    const math::Quaternion middle_orientation = orientation.get(0.5f);
+    const math::Quaternion end_orientation = orientation.get();
+    const math::Basis world_basis =
+        math::make_basis(end_orientation, math::X_AXIS);
+    const bool planar = shape == ShapeType::PLANAR_STAR ||
+                        shape == ShapeType::PLANAR_POLYGON ||
+                        shape == ShapeType::FLOWER;
+    const ClipRegion &clip = canvas.clip();
+    Plot::CapCenter near_cap{}, far_cap{};
+    if (shape == ShapeType::PLANAR_STAR) {
+      near_cap = Plot::make_cap_center(clip, world_basis.v);
+      far_cap = Plot::make_cap_center(clip, -world_basis.v);
+    }
+    if (planar)
+      star_chords.prepare(canvas, fabsf(params.amplitude) * rate + spin +
+                                      2.0f * math::PI_F / W);
+
+    ScratchScope chunk_scope(scratch_arena_a);
+    auto *vertices =
+        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
+    auto *owners = scratch_arena_a.allocate_n<uint16_t>(COLUMN_CHUNK_VERTICES);
+    auto *contours =
+        scratch_arena_a.allocate_n<TimedContour>(COLUMN_CHUNK_CONTOURS);
+    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
+    auto *world = scratch_arena_a.allocate_n<math::Vector>(STAR_VERTICES + 2);
+    Fragments ring;
+    ring.bind(scratch_arena_a, static_cast<size_t>(STAR_VERTICES + 2));
+    size_t count_vertices = 0, count_contours = 0;
+    float chunk_motion = 0.0f;
+
+    auto path = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
+      const TimedContour &contour = contours[owners[i]];
+      return contour.at(vertices[i], t);
+    };
+    auto vertex_path = [&](size_t i) HS_HOT_FLASH_MEMBER {
+      return contours[owners[i]].derivatives;
+    };
+    auto shader = [&](const math::Vector &, Fragment &f) HS_HOT_FLASH_MEMBER {
+      f.color = contours[owners[edges[static_cast<size_t>(f.v2)].u]].color;
+    };
+    Plot::GeometryCallback geometry;
+    geometry.evaluate = path;
+    geometry.vertex_path = vertex_path;
+    geometry.source_positions = false;
+    geometry.chained = true;
+    geometry.rigid_lattice = true;
+    geometry.capture_error = 0.001f;
+    auto flush = [&]() HS_HOT_INLINE {
+      if (count_vertices == 0)
+        return;
+      Plot::Mesh::draw_column_edges<W, H>(
+          plot_filters, canvas, ContourMesh{{vertices, count_vertices}}, edges,
+          shader, geometry, chunk_motion, &poses, spin);
+      count_vertices = 0;
+      count_contours = 0;
+      chunk_motion = 0.0f;
+      edges.clear();
+    };
+
+    Color4 pair_color;
+    for (int ordinal = 0; ordinal < count; ++ordinal) {
+      const int i =
+          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
+      const float radius_t =
+          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+      const bool starts_pair = (count & 1) != 0
+                                   ? ordinal == 0 || (ordinal & 1) != 0
+                                   : (ordinal & 1) == 0;
+      if (continuous_star || starts_pair)
+        pair_color = palette.get(radius_t);
+      const float radius = 2.0f * spaced_radius_t[i];
+      const float direction = continuous_star ? star_phase_direction(radius)
+                                              : phase_direction(radius);
+      const float contour_phase = direction * params.amplitude * waveform[i];
+      Color4 shaded_color = pair_color;
+      shaded_color.alpha *= global_alpha;
+      const auto frame = Plot::ring_frame(basis, radius);
+      // A continuous star turns in the shared basis on both sides of the
+      // equator; the other primitives are charted about the far pole past it.
+      const math::Basis &turn_basis = continuous_star ? basis : frame.basis;
+      TimedContour contour{math::cross(turn_basis.u, turn_basis.w).normalized(),
+                           sine ? direction * params.amplitude : 0.0f,
+                           2.0f * math::PI_F * (radius_t + phase),
+                           rate,
+                           continuous_star ? 1.0f : frame.sin_theta,
+                           shaded_color,
+                           {},
+                           {},
+                           {}};
+      const float motion = fabsf(contour.twist) * rate * contour.radius;
+      ring.clear();
+      const bool geodesic_flower = shape == ShapeType::FLOWER &&
+                                   frame.cos_theta > Plot::COS_PLANAR_ANTIPODE;
+      if (planar && !geodesic_flower) {
+        if (shape == ShapeType::PLANAR_STAR) {
+          constexpr float AA_PAD = 2.0f * math::PI_F / W;
+          const bool far_side = radius > 1.0f;
+          const float cap_radius = far_side ? 2.0f - radius : radius;
+          const float half_angle =
+              cap_radius * (math::PI_F / 2.0f) + AA_PAD + motion + spin;
+          const float t2 = fminf(half_angle, math::PI_F);
+          if (!Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap,
+                                           t2, sinf(t2)))
+            continue;
+        }
+        math::Basis projection_basis;
+        const math::Basis *chart = &projection_basis;
+        int corners = 2 * sides;
+        if (shape == ShapeType::PLANAR_STAR) {
+          chart = Plot::PlanarProjection::edge_basis(world_basis, radius,
+                                                     projection_basis);
+          Plot::Star<Plot::PlanarProjection>::sample_chart_positions(
+              ring, star_chords.chart_x(), star_chords.chart_y(), world_basis,
+              radius, sides, contour_phase, planar_star_radius_trig[i],
+              planar_star_step_trig, *chart);
+        } else {
+          if (shape == ShapeType::FLOWER) {
+            projection_basis = Plot::planar_chart_basis(
+                math::get_antipode(world_basis, radius).first.v);
+            Plot::Flower::sample(ring, world_basis, radius, sides,
+                                 contour_phase);
+          } else {
+            chart = Plot::PlanarProjection::edge_basis(world_basis, radius,
+                                                       projection_basis);
+            Plot::Polygon<Plot::PlanarProjection>::sample(
+                ring, world_basis, radius, sides, contour_phase);
+            corners = sides;
+          }
+          for (int k = 0; k < corners; ++k) {
+            const auto at = Plot::azimuthal_project_exact(ring[k].pos, *chart);
+            star_chords.chart_x()[k] = at.first;
+            star_chords.chart_y()[k] = at.second;
+          }
+        }
+        const math::Quaternion start_turn =
+            start_orientation *
+            math::make_rotation(contour.axis, contour.turn_at(0.0f)) *
+            end_orientation.conjugate();
+        const float lever = Plot::PlanarChords<W, H>::rotation_radius(
+            {star_chords.chart_x()[0], star_chords.chart_y()[0]},
+            {star_chords.chart_x()[corners > 1 ? 1 : 0],
+             star_chords.chart_y()[corners > 1 ? 1 : 0]});
+        const float contour_speed = fabsf(contour.twist) * rate * lever + spin;
+        flush();
+        star_chords.draw_closed(
+            plot_filters, canvas, ring, corners, *chart, shaded_color,
+            math::RotationMatrix(start_turn),
+            shape == ShapeType::PLANAR_STAR
+                ? Plot::PlanarChords<W, H>::MAX_ANCHOR_INTERVALS
+                : FLOWER_ANCHOR_INTERVALS,
+            shape == ShapeType::PLANAR_STAR,
+            math::RotationMatrix(
+                middle_orientation *
+                math::make_rotation(contour.axis, contour.turn_at(0.5f)) *
+                end_orientation.conjugate()),
+            shape == ShapeType::PLANAR_STAR &&
+                float(count) >= DENSE_CONTOUR_COUNT,
+            contour_speed);
+        continue;
+      }
+      if (geodesic_flower)
+        Plot::Flower::sample(ring, basis, radius, sides, contour_phase);
+      else if (continuous_star)
+        Plot::Star<Plot::GeodesicProjection>::sample_continuous_positions(
+            ring, basis, radius, sides, contour_phase);
+      else
+        Plot::Polygon<Plot::GeodesicProjection>::sample(ring, basis, radius,
+                                                        sides, contour_phase);
+      const int points = static_cast<int>(ring.size()) - 1;
+      for (int k = 0; k < points; ++k)
+        world[k] = end_pose.apply(ring[k].pos);
+      if (cull.rejects(world, points, motion + spin))
+        continue;
+      if (count_vertices + static_cast<size_t>(points) >
+              COLUMN_CHUNK_VERTICES ||
+          count_contours == COLUMN_CHUNK_CONTOURS)
+        flush();
+      contour.prepare();
+      contours[count_contours] = contour;
+      for (int k = 0; k < points; ++k) {
+        vertices[count_vertices + k] = ring[k].pos;
+        owners[count_vertices + k] = static_cast<uint16_t>(count_contours);
+        edges.push_back(
+            {static_cast<uint16_t>(count_vertices + k),
+             static_cast<uint16_t>(count_vertices + (k + 1) % points)});
+      }
+      count_vertices += static_cast<size_t>(points);
+      ++count_contours;
+      chunk_motion = fmaxf(chunk_motion, motion);
+    }
+    flush();
+  }
+
   /** @brief Most vertices a star contour has. */
   static constexpr int STAR_VERTICES = 2 * static_cast<int>(SIDES_MAX);
 
@@ -622,7 +923,7 @@ private:
    * @param fill Callable that samples the primitive into the bound fragments.
    */
   template <typename F>
-  HS_NOINLINE_NOCLONE void
+  HS_HOT_FLASH_MEMBER void
   draw_sampled(Canvas &canvas, size_t capacity, const math::Basis *planar_basis,
                bool balanced_sampling, const F &fragment_shader, auto &&fill) {
     ScratchScope guard(scratch_arena_a);
@@ -798,6 +1099,9 @@ private:
   }
 
   static constexpr size_t PRESET_COUNT = 9;
+  /** @brief Per-preset column-time sampling policy. */
+  static constexpr std::array<bool, PRESET_COUNT> COLUMN_TIME_PRESETS = {
+      false, true, true, true, true, true, true, true, true};
   static constexpr std::array<PresetEntry<Params>, PRESET_COUNT> PRESETS = {{
       {{ShapeType::PLANAR_STAR, 288.0f, 7.745f, PhaseFunction::SINE, 1.0f,
         0.016f, false, AlphaFalloff::TOWARD_EQUATOR,
@@ -843,6 +1147,10 @@ private:
   FastNoiseLite noise;
   math::Orientation<> orientation;
   Filter::Screen::DirectAntiAliasSink<W, H> plot_filters;
+  /** @brief Timed contours: orientation at column times, then anti-aliasing. */
+  Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
+      timed_filters{Filter::World::Orient(orientation),
+                    Filter::Screen::AntiAlias<W, H>()};
   BakedPaletteStorage baked_constant;
   BakedPaletteStorage baked_toward_equator;
   float *spaced_radius_t = nullptr;
@@ -862,9 +1170,20 @@ private:
   float alpha = 1.0f;
   float preset_opacity = 1.0f;
   float phase = 0.0f;
+  float twist_step = 0.0f;  ///< Waveform phase advance over this frame, turns.
+  bool twist_ready = false; ///< Whether the phase continues the last frame.
 
   static_assert(SAMPLED_RASTER_CONFIG.single_pass &&
                 !SAMPLED_RASTER_CONFIG.derive_planar_arc_registers);
+  /** @brief Bound on chunk storage plus the nested column walk. */
+  static constexpr size_t TIMED_SCRATCH_A_BYTES =
+      COLUMN_CHUNK_VERTICES *
+          (sizeof(math::Vector) + sizeof(uint16_t) + sizeof(Plot::Mesh::Edge)) +
+      COLUMN_CHUNK_CONTOURS * sizeof(TimedContour) +
+      (STAR_VERTICES + 2) * (sizeof(math::Vector) + sizeof(Fragment)) +
+      Plot::Mesh::column_scratch_a_bytes() + 128;
+  static_assert(TIMED_SCRATCH_A_BYTES <= DEFAULT_SCRATCH_A_SIZE,
+                "ShapeShifter column storage exceeds scratch_a");
   static constexpr size_t SCRATCH_A_PEAK_BYTES = std::max(
       (2 * static_cast<size_t>(SIDES_MAX) + 2) * sizeof(Fragment) +
           alignof(Fragment) + Plot::PlanarChords<W, H>::scratch_a_bytes(),
@@ -878,7 +1197,8 @@ private:
                     sizeof(Plot::Star<Plot::PlanarProjection>::RadiusTrig)) +
       2 * BakedPalette::required_arena_bytes() +
       Plot::PlanarChords<W, H>::storage_bytes(STAR_VERTICES) +
-      Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS);
+      Plot::PlanarBandSplit<W, H>::storage_bytes(FLOWER_MAX_POINTS) +
+      Filter::World::Orient::storage_bytes(W);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "ShapeShifter persistent footprint exceeds the default "
                 "partition; retune MAX_SHAPES or carve arenas");

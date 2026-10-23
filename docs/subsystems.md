@@ -512,13 +512,16 @@ Balanced sampling stretches each adaptive step by `BALANCED_SCREEN_STEP_PX / SCR
 - **Emitted alpha changes.** Sparser samples lay down less coverage per unit arc, so each fragment's alpha is scaled by `balanced_sample_alpha()` — gain `1 + (ratio - 1) * (0.88 - 0.20 * alpha)`, saturating at 1, with `ratio` the balanced step over the default step. The gain shrinks as alpha rises because opaque samples compound less; it is a linear fit to source-over accumulation, close to exact below alpha 0.4 and over-boosting above it, so a stroke past alpha ~0.85 saturates at 1 and loses its soft edge. A balanced draw is not pixel-identical to a default one.
 - **Step evaluation is reused, on planar edges only.** Where the walk is locally straight and clear of the poles (tangent dot > 0.995, step change under 10%, step under 0.9 base steps), the next sample recomputes position only and carries the previous step forward, skipping the tangent and the screen-velocity step. The reuse needs the monotonic position-only entry that only `PlanarEdgeSampler` exposes; a geodesic edge takes the sparser steps and the alpha gain without it.
 
-`ShapeShifter` is the only effect that reaches it, through two `SELECTABLE` instantiations: its own sampled draw, on for the spherical star at 32 or more contours and off for every other primitive, and `Plot::PlanarChords`, which strokes the dense planar star and hands the anchor intervals near a pole to `rasterize` with balanced sampling always on. Of those, only the planar star's pole-run edges can collect the step reuse; the spherical star's edges are geodesic.
+`ShapeShifter` reaches balanced adaptive sampling on its stationary route: its own sampled draw enables it for spherical stars at 32 or more contours, and `Plot::PlanarChords` hands stationary dense planar-star pole intervals to `rasterize` with balanced sampling. The planar pole intervals can reuse their step; spherical-star edges are geodesic.
+
+Authored sine-driven presets P2 through P9 instead carry contour twist and orientation to column time. Moving planar contours capture start, middle and end anchors, cull intervals from their motion bounds, and use coherent screen chords where their physical curvature permits. Other intervals use `Plot::PolarWalk`: quadratic trajectories in the display pole's equidistant chart intersect each column at its own time, with radial AA taps and the adaptive rasterizer's minimum physical pitch. Spherical contours use the shared column edge walk with their local lattice pitch. P1 retains stationary sampling. Custom non-sine waveforms retain frame-end twist under column-time orientation.
 
 ### Plot Primitives
 
 | Primitive | Description |
 |---|---|
-| `Plot::PlanarChords` | Chart-straight chord stroker with pole-run handoff |
+| `Plot::PlanarChords` | Stationary and column-time chart-straight contour stroker |
+| `Plot::PolarWalk` | Column-time AA strokes in a display pole chart |
 | `Plot::PlanarBandSplit` | ClipBand edge splitter with per-edge visibility flags |
 | `Plot::Line` | Geodesic line segment between two points |
 | `Plot::Multiline` | Connected line strip from a sequence of fragments |
