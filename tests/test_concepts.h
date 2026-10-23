@@ -284,6 +284,200 @@ inline void test_fn_copy_move_empty() {
   HS_EXPECT_FALSE((bool)q); // move leaves the source empty
 }
 
+struct TimedRefRecorder {
+  Canvas *canvas = nullptr;
+  math::Vector point;
+  math::PixelCoords projected{};
+  Pixel color;
+  float age = 0.0f;
+  float alpha = 0.0f;
+  float time = 0.0f;
+  int route = 0;
+
+  void record(Canvas &cv, const Pixel &c, float a, float opacity) {
+    canvas = &cv;
+    color = c;
+    age = a;
+    alpha = opacity;
+  }
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float a,
+            float opacity) {
+    record(cv, c, a, opacity);
+    projected = {x, y};
+    route = 1;
+  }
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float a, float opacity) {
+    plot(cv, static_cast<float>(x), static_cast<float>(y), c, a, opacity);
+  }
+  void plot(Canvas &cv, const math::Vector &v, const Pixel &c, float a,
+            float opacity) {
+    record(cv, c, a, opacity);
+    point = v;
+    route = 2;
+  }
+  math::PixelCoords probe(Canvas &, const math::Vector &v, float t) {
+    return {v.x + 4.0f * t, v.y - 2.0f * t};
+  }
+  float plot_at(Canvas &cv, const math::Vector &v, const Pixel &c, float a,
+                float opacity, float t) {
+    plot(cv, v, c, a, opacity);
+    time = t;
+    route = 3;
+    return 17.0f + t;
+  }
+};
+
+inline void expect_timed_ref_registers(const TimedRefRecorder &sink,
+                                       const Canvas &canvas, const Pixel &color,
+                                       float age, float alpha) {
+  HS_EXPECT_EQ(sink.canvas, &canvas);
+  HS_EXPECT_EQ(sink.color, color);
+  HS_EXPECT_EQ(sink.age, age);
+  HS_EXPECT_EQ(sink.alpha, alpha);
+}
+
+/** @brief Minimal timed providers retain identity and ordinary plot fallbacks. */
+inline void test_pipeline_ref_timed_defaults() {
+  StubEffect effect(8, 4);
+  Canvas canvas(effect);
+  TimedRefRecorder sink;
+  PipelineRef ordinary(sink);
+  PipelineRef timed(sink, Spacetime::Timed{});
+  const math::Vector point(0.25f, -0.5f, 0.75f);
+  const Pixel color(123, 456, 789);
+
+  for (const PipelineRef *ref : {&ordinary, &timed}) {
+    HS_EXPECT_TRUE(ref->world_transform_is_identity);
+    HS_EXPECT_TRUE(ref->has_temporal_motion);
+    HS_EXPECT_EQ(ref->sweep_arc(), 0.0f);
+    HS_EXPECT_EQ(ref->copy_count(), 1);
+    HS_EXPECT_FALSE(ref->rigid_world_stages());
+    HS_EXPECT_FALSE(ref->dense_screen_safe());
+    ref->select_copy(2);
+  }
+  const auto world = timed.world_at(canvas, point, 0.375f);
+  HS_EXPECT_EQ(world.x, 0.25f);
+  HS_EXPECT_EQ(world.y, -0.5f);
+  HS_EXPECT_EQ(world.z, 0.75f);
+  const auto projected = timed.probe(canvas, point, 0.375f);
+  HS_EXPECT_EQ(projected.x, 1.75f);
+  HS_EXPECT_EQ(projected.y, -1.25f);
+  HS_EXPECT_EQ(sink.route, 0);
+
+  HS_EXPECT_EQ(
+      timed.plot_transformed_at(canvas, point, color, 6.5f, 0.25f, 0.375f),
+      17.375f);
+  HS_EXPECT_EQ(sink.route, 3);
+  HS_EXPECT_EQ(sink.point.x, 0.25f);
+  HS_EXPECT_EQ(sink.point.y, -0.5f);
+  HS_EXPECT_EQ(sink.point.z, 0.75f);
+  HS_EXPECT_EQ(sink.time, 0.375f);
+  expect_timed_ref_registers(sink, canvas, color, 6.5f, 0.25f);
+  const Pixel projected_color(987, 654, 321);
+  HS_EXPECT_EQ(timed.plot_projected_at(canvas, {2.25f, 1.5f}, projected_color,
+                                       2.5f, 0.5f, 0.875f),
+               2.25f);
+  HS_EXPECT_EQ(sink.route, 1);
+  HS_EXPECT_EQ(sink.projected.x, 2.25f);
+  HS_EXPECT_EQ(sink.projected.y, 1.5f);
+  expect_timed_ref_registers(sink, canvas, projected_color, 2.5f, 0.5f);
+}
+
+struct TimedRefStages : TimedRefRecorder {
+  static constexpr bool world_transform_is_identity = false;
+  static constexpr bool has_temporal_motion = false;
+  static constexpr bool rigid_world_stages = true;
+  static constexpr int total_segment_margin = 1;
+  static constexpr bool any_2d_history = false;
+  static constexpr bool any_reads_outside_band = false;
+  static constexpr bool column_taps_ready = true;
+  int selected = -1;
+  int column = -1;
+
+  float sweep_arc() const { return 0.125f; }
+  int copy_count() const { return 3; }
+  void select_copy(int copy) { selected = copy; }
+  math::Vector world_at(Canvas &, const math::Vector &v, float t) {
+    return {v.z + t, v.x - t, v.y};
+  }
+  float plot_transformed_at(Canvas &cv, const math::Vector &v, const Pixel &c,
+                            float a, float opacity, float t) {
+    plot_at(cv, v, c, a, opacity, t);
+    route = 4;
+    return -9.0f + t;
+  }
+  float plot_projected_at(Canvas &cv, math::PixelCoords p, const Pixel &c,
+                          float a, float opacity, float t) {
+    plot(cv, p.x, p.y, c, a, opacity);
+    time = t;
+    route = 5;
+    return p.y + t;
+  }
+  void plot_column_at(Canvas &cv, math::PixelCoords p, int col, const Pixel &c,
+                      float a, float opacity, float t) {
+    plot_projected_at(cv, p, c, a, opacity, t);
+    column = col;
+    route = 6;
+  }
+};
+
+/** @brief Timed erasure preserves explicit stages, copies and shading registers. */
+inline void test_pipeline_ref_timed_stages() {
+  StubEffect effect(8, 4);
+  Canvas canvas(effect);
+  TimedRefStages sink;
+  PipelineRef ref(sink, Spacetime::Timed{});
+  PipelineRef copy(ref);
+  const math::Vector point(0.25f, -0.5f, 0.75f);
+  const Pixel color(321, 654, 987);
+  HS_EXPECT_FALSE(copy.world_transform_is_identity);
+  HS_EXPECT_FALSE(copy.has_temporal_motion);
+  HS_EXPECT_TRUE(copy.rigid_world_stages());
+  HS_EXPECT_TRUE(copy.dense_screen_safe());
+  HS_EXPECT_EQ(copy.sweep_arc(), 0.125f);
+  HS_EXPECT_EQ(copy.copy_count(), 3);
+  copy.select_copy(2);
+  HS_EXPECT_EQ(sink.selected, 2);
+  const auto world = copy.world_at(canvas, point, 0.375f);
+  HS_EXPECT_EQ(world.x, 1.125f);
+  HS_EXPECT_EQ(world.y, -0.125f);
+  HS_EXPECT_EQ(world.z, -0.5f);
+
+  HS_EXPECT_EQ(copy.plot_at(canvas, point, color, 4.5f, 0.75f, 0.25f), 17.25f);
+  HS_EXPECT_EQ(sink.route, 3);
+  HS_EXPECT_EQ(sink.point.x, 0.25f);
+  HS_EXPECT_EQ(sink.point.y, -0.5f);
+  HS_EXPECT_EQ(sink.point.z, 0.75f);
+  HS_EXPECT_EQ(sink.time, 0.25f);
+  expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
+  const Pixel transformed_color(135, 246, 357);
+  HS_EXPECT_EQ(copy.plot_transformed_at(canvas, point, transformed_color, 7.5f,
+                                        0.5f, 0.375f),
+               -8.625f);
+  HS_EXPECT_EQ(sink.route, 4);
+  HS_EXPECT_EQ(sink.point.x, 0.25f);
+  HS_EXPECT_EQ(sink.point.y, -0.5f);
+  HS_EXPECT_EQ(sink.point.z, 0.75f);
+  HS_EXPECT_EQ(sink.time, 0.375f);
+  expect_timed_ref_registers(sink, canvas, transformed_color, 7.5f, 0.5f);
+  const Pixel projected_color(987, 654, 321);
+  HS_EXPECT_EQ(copy.plot_projected_at(canvas, {2.25f, 1.5f}, projected_color,
+                                      2.5f, 0.25f, 0.875f),
+               2.375f);
+  HS_EXPECT_EQ(sink.route, 5);
+  HS_EXPECT_EQ(sink.projected.x, 2.25f);
+  HS_EXPECT_EQ(sink.projected.y, 1.5f);
+  HS_EXPECT_EQ(sink.time, 0.875f);
+  expect_timed_ref_registers(sink, canvas, projected_color, 2.5f, 0.25f);
+  copy.plot_column_at(canvas, {3.25f, 2.5f}, 3, color, 4.5f, 0.75f, 0.625f);
+  HS_EXPECT_EQ(sink.route, 6);
+  HS_EXPECT_EQ(sink.projected.x, 3.25f);
+  HS_EXPECT_EQ(sink.projected.y, 2.5f);
+  HS_EXPECT_EQ(sink.column, 3);
+  expect_timed_ref_registers(sink, canvas, color, 4.5f, 0.75f);
+  HS_EXPECT_EQ(sink.time, 0.625f);
+}
+
 /**
  * @brief A minimal model of Tweenable: a container of frames, each with its own
  *        sub-frame quaternion history.
@@ -408,6 +602,8 @@ inline int run_concepts_tests() {
   test_stored_functionref_rvalue_rejection();
   test_callable_return_constraints();
   test_fn_copy_move_empty();
+  test_pipeline_ref_timed_defaults();
+  test_pipeline_ref_timed_stages();
   test_tweenable_concept();
   test_dissolve_mask_partition();
 
