@@ -89,9 +89,9 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
   }
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const math::Vector>(verts3d, n_verts),
-                 std::span<const uint16_t>(idx, n_verts), scratch, HV, H,
-                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts3d, n_verts),
+                         std::span<const uint16_t>(idx, n_verts), scratch, HV,
+                         H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f && stride == 1);
   const uint32_t probe_flags = face.probe_flags();
 
@@ -141,13 +141,13 @@ inline void test_face_sector_backtrack_sign() {
       indices[i] = static_cast<uint16_t>(i);
     }
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(std::span<const math::Vector>(vertices, 12),
-                   std::span<const uint16_t>(indices, 12), scratch,
-                   144 + hs::H_OFFSET, 144, nullptr, nullptr,
-                   SDF::BOUNDS_MARGIN);
+    SDF::PreparedFace face(std::span<const math::Vector>(vertices, 12),
+                           std::span<const uint16_t>(indices, 12), scratch,
+                           144 + hs::H_OFFSET, 144, nullptr, nullptr,
+                           SDF::BOUNDS_MARGIN);
     HS_EXPECT_EQ(face.sector_ok, bend >= 0.0f);
     if (!face.sector_ok) {
-      HS_EXPECT_EQ(face.probe_flags() & SDF::Face::PROBE_SECTOR, 0u);
+      HS_EXPECT_EQ(face.probe_flags() & SDF::PreparedFace::PROBE_SECTOR, 0u);
       continue;
     }
     for (int x = -100; x <= 100; ++x)
@@ -169,7 +169,7 @@ inline void test_face_sector_backtrack_sign() {
 }
 
 /** @brief Double-precision all-segment distance and ray parity. */
-inline double double_polygon_distance(const SDF::Face &face, float px,
+inline double double_polygon_distance(const SDF::PreparedFace &face, float px,
                                       float py) {
   double minimum = std::numeric_limits<double>::max();
   bool inside = false;
@@ -218,7 +218,7 @@ inline float xorshift_unit(uint32_t &state) {
  * @param stats Tally receiving the probe.
  * @details Sign disagreements count only where the oracle is beyond 1e-7.
  */
-inline void probe_against_oracle(const SDF::Face &face, float squared,
+inline void probe_against_oracle(const SDF::PreparedFace &face, float squared,
                                  bool inside, float px, float py,
                                  OracleStats &stats) {
   const double expected = double_polygon_distance(face, px, py);
@@ -246,8 +246,9 @@ inline void test_face_asymmetric_sector_matches_oracle() {
             static_cast<uint16_t>((shift + (reverse ? COUNT - i : i)) % COUNT);
       }
       SDF::FaceScratchBuffer scratch;
-      SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144),
-                     144, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+      SDF::PreparedFace face(vertices, indices, scratch,
+                             math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                             SDF::BOUNDS_MARGIN);
       HS_EXPECT_TRUE(face.sector_ok);
       if (!face.sector_ok)
         continue;
@@ -320,9 +321,10 @@ inline void test_face_randomized_sector_matches_oracle() {
             (shift + ((variant & 1) ? count - i : i)) % count);
       }
       SDF::FaceScratchBuffer scratch;
-      SDF::Face face(std::span(vertices, count), std::span(indices, count),
-                     scratch, math::LatitudeGeometry(144), 144, nullptr,
-                     nullptr, SDF::BOUNDS_MARGIN);
+      SDF::PreparedFace face(std::span(vertices, count),
+                             std::span(indices, count), scratch,
+                             math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                             SDF::BOUNDS_MARGIN);
       if (!face.sector_ok)
         continue;
       ++admitted;
@@ -384,9 +386,10 @@ inline void test_face_randomized_backtracking_matches_oracle() {
       if (variant & 2)
         vertices[indices[(swap + 1) % count]] = vertices[indices[swap]];
       SDF::FaceScratchBuffer scratch;
-      SDF::Face face(std::span(vertices, count), std::span(indices, count),
-                     scratch, math::LatitudeGeometry(144), 144, nullptr,
-                     nullptr, SDF::BOUNDS_MARGIN);
+      SDF::PreparedFace face(std::span(vertices, count),
+                             std::span(indices, count), scratch,
+                             math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                             SDF::BOUNDS_MARGIN);
       HS_EXPECT_EQ(face.count, count);
       auto probe = [&](float px, float py) {
         bool inside;
@@ -431,8 +434,9 @@ inline void test_face_tied_rows_match_oracle() {
     }
     std::swap(indices[2], indices[3]);
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144), 144,
-                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
+    SDF::PreparedFace face(vertices, indices, scratch,
+                           math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                           SDF::BOUNDS_MARGIN);
     HS_EXPECT_EQ(face.count, COUNT);
     HS_EXPECT_FALSE(face.convex);
     HS_EXPECT_FALSE(face.sector_ok);
@@ -482,8 +486,9 @@ inline void check_face_shipping_recipes_match_oracle(const PolyMesh &mesh) {
     const std::span<const uint16_t> indices(mesh.faces.data() + offset, count);
     offset += count;
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(mesh.vertices, indices, scratch, math::LatitudeGeometry(H),
-                   H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+    SDF::PreparedFace face(mesh.vertices, indices, scratch,
+                           math::LatitudeGeometry(H), H, nullptr, nullptr,
+                           SDF::BOUNDS_MARGIN);
     if (face.count == 0)
       continue;
     const uint32_t flags = face.probe_flags();
@@ -596,11 +601,12 @@ inline void test_face_plane_box_rejection() {
                       .normalized();
   }
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144), 144,
-                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(vertices, indices, scratch,
+                         math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                         SDF::BOUNDS_MARGIN);
   HS_EXPECT_FALSE(face.convex);
   const uint32_t flags = face.probe_flags();
-  HS_EXPECT_NE(flags & SDF::Face::PROBE_PLANE_BOX, 0u);
+  HS_EXPECT_NE(flags & SDF::PreparedFace::PROBE_PLANE_BOX, 0u);
   constexpr float REACH = 0.01f;
   size_t retained = 0, rejected = 0;
   for (int x = -20; x <= 20; ++x)
@@ -633,9 +639,9 @@ inline void test_face_convex_rejection_cutoff() {
   const int COUNT =
       build_regular_face(BASIS, 6, 0.12f, 0.0f, vertices, indices);
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span(vertices, COUNT), std::span(indices, COUNT), scratch,
-                 math::LatitudeGeometry(144), 144, nullptr, nullptr,
-                 SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span(vertices, COUNT), std::span(indices, COUNT),
+                         scratch, math::LatitudeGeometry(144), 144, nullptr,
+                         nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.convex);
   int rejected = 0, retained = 0;
   for (const float cutoff : {0.0f, 0.01f, 0.04f})
@@ -702,10 +708,10 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
 
   // Canonical polygon: the untransformed face's own centered 2D projection.
   SDF::FaceScratchBuffer canon_scratch;
-  SDF::Face canon_face(std::span<const math::Vector>(orig, n_verts),
-                       std::span<const uint16_t>(canon_idx, n_verts),
-                       canon_scratch, HV, H, nullptr, nullptr,
-                       SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace canon_face(std::span<const math::Vector>(orig, n_verts),
+                               std::span<const uint16_t>(canon_idx, n_verts),
+                               canon_scratch, HV, H, nullptr, nullptr,
+                               SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(!canon_face.convex);
   float canon[2 * n_verts];
   float mx = 0.0f, my = 0.0f;
@@ -743,9 +749,9 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   int off = reflected ? 0 : (n_verts - cyc) % n_verts;
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const math::Vector>(verts, n_verts),
-                 std::span<const uint16_t>(canon_idx, n_verts), scratch, HV, H,
-                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts, n_verts),
+                         std::span<const uint16_t>(canon_idx, n_verts), scratch,
+                         HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
   const uint32_t probe_flags = face.probe_flags();
 
@@ -753,10 +759,10 @@ inline void check_face_class_lut(int &lut_total, int cyc, bool reflected,
   {
     SDF::FaceScratchBuffer reject_scratch;
     static const float zeros[2 * n_verts] = {};
-    SDF::Face reject_face(std::span<const math::Vector>(verts, n_verts),
-                          std::span<const uint16_t>(canon_idx, n_verts),
-                          reject_scratch, HV, H, nullptr, nullptr,
-                          SDF::BOUNDS_MARGIN);
+    SDF::PreparedFace reject_face(std::span<const math::Vector>(verts, n_verts),
+                                  std::span<const uint16_t>(canon_idx, n_verts),
+                                  reject_scratch, HV, H, nullptr, nullptr,
+                                  SDF::BOUNDS_MARGIN);
     HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
   }
 
@@ -824,4 +830,45 @@ inline void test_face_class_lut_matches_oracle() {
   check_face_class_lut(lut_samples, /*cyc=*/5, /*reflected=*/false, 1.1f);
   check_face_class_lut(lut_samples, /*cyc=*/0, /*reflected=*/true, 0.7f);
   HS_EXPECT_GT(lut_samples, 300);
+}
+
+/** @brief Face handles reuse arena geometry while retaining exact leaf behavior. */
+inline void test_face_handle_reuses_arena_storage() {
+  constexpr int W = 288, H = 144;
+  const math::Vector verts[] = {math::pixel_to_vector<W, H>(70.0f, 65.0f),
+                                math::pixel_to_vector<W, H>(80.0f, 75.0f),
+                                math::pixel_to_vector<W, H>(65.0f, 77.0f)};
+  const uint16_t indices[] = {0, 1, 2};
+  ScratchScope scope(scratch_arena_a);
+  auto &storage = *scratch_arena_a.make_default_initialized<SDF::FaceStorage>();
+  const size_t allocated = scratch_arena_a.get_offset();
+  const SDF::PreparedFace *address = nullptr;
+  static_assert(
+      std::is_same_v<decltype(std::declval<const SDF::Face &>().prepared()),
+                     const SDF::PreparedFace &>);
+  for (int build = 0; build < 8; ++build) {
+    SDF::Face face(verts, indices, storage, math::LatitudeGeometry(H), H,
+                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
+    const SDF::Face copy = face;
+    const auto &prepared = copy.prepared();
+    if (address)
+      HS_EXPECT_TRUE(address == &prepared);
+    address = &prepared;
+    HS_EXPECT_EQ(scratch_arena_a.get_offset(), allocated);
+    HS_EXPECT_EQ(storage.generation, static_cast<uint32_t>(build + 1));
+    const auto bounds = copy.get_vertical_bounds<H>();
+    HS_EXPECT_EQ(bounds.y_min, prepared.y_min);
+    HS_EXPECT_EQ(bounds.y_max, prepared.y_max);
+    for (int y = 65; y <= 77; ++y) {
+      const math::Vector point = math::pixel_to_vector<W, H>(72.0f, float(y));
+      const auto got = SDF::distance_of(copy, point);
+      const float expected =
+          exact_plane_distance(verts, point, prepared.linear_dist);
+      HS_EXPECT_NEAR(got.dist, expected, 2e-5f);
+      Scan::PreparedDistance<SDF::Face> probe(copy);
+      SDF::DistanceResult cached;
+      probe.template distance<true>(copy, point, cached);
+      HS_EXPECT_EQ(cached.dist, got.dist);
+    }
+  }
 }

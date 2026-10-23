@@ -1482,6 +1482,12 @@ template <int W, int H> inline void check_face_palette_motion(float lod) {
  *        ones across each arm, per column through pole-LOD blocks.
  */
 inline void test_face_palette_shader_moves_at_column_time() {
+  constexpr size_t SCRATCH_A = DEFAULT_SCRATCH_A_SIZE;
+  constexpr size_t SCRATCH_B = DEFAULT_SCRATCH_B_SIZE +
+                               sizeof(SDF::FaceStorage) -
+                               sizeof(SDF::FaceScratchBuffer);
+  hs_test::ScopedArenaSplit split(GLOBAL_ARENA_SIZE - SCRATCH_A - SCRATCH_B,
+                                  SCRATCH_A, SCRATCH_B);
   check_face_palette_motion<96, 48>(0.0f);
   check_face_palette_motion<288, 144>(0.6f);
 }
@@ -1764,7 +1770,7 @@ inline void test_capture_window_faces() {
   const ClipRegion clip{0, H, 0, W, 0, W, H};
   const uint16_t indices[] = {0, 1, 2};
   ScratchScope guard(scratch_arena_a);
-  auto *scratch = Scan::new_face_scratch(scratch_arena_a);
+  auto *storage = Scan::new_face_storage(scratch_arena_a);
   for (float arm : {0.0f, math::PI_F}) {
     math::Vector vertices[3];
     for (int i = 0; i < 3; ++i) {
@@ -1773,9 +1779,9 @@ inline void test_capture_window_faces() {
       vertices[i] = {sinf(phi) * cosf(theta), cosf(phi),
                      sinf(phi) * sinf(theta)};
     }
-    const SDF::Face shape(vertices, indices, *scratch,
-                          math::LatitudeGeometry(H), H, &clip, nullptr,
-                          math::TWO_PI_F / W);
+    const SDF::Face face(vertices, indices, *storage, math::LatitudeGeometry(H),
+                         H, &clip, nullptr, math::TWO_PI_F / W);
+    const auto &shape = face.prepared();
     HS_EXPECT_LE(shape.y_min, shape.y_max);
     HS_EXPECT_FALSE(Scan::face_meets_window(
         shape, Spacetime::TimeWindow{0, W / 4, true}, clip));

@@ -627,12 +627,12 @@ inline void case_face_scratch_retargeted() {
     idx_b[i] = static_cast<uint16_t>(i + 3);
   }
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face first(std::span<const math::Vector>(verts, 6),
-                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H, nullptr,
-                  nullptr, SDF::BOUNDS_MARGIN);
-  SDF::Face second(std::span<const math::Vector>(verts, 6),
-                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H, nullptr,
-                   nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace first(std::span<const math::Vector>(verts, 6),
+                          std::span<const uint16_t>(idx_a, 3), scratch, HV, H,
+                          nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace second(std::span<const math::Vector>(verts, 6),
+                           std::span<const uint16_t>(idx_b, 3), scratch, HV, H,
+                           nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
   (void)first.get_vertical_bounds<H>();
 }
@@ -643,8 +643,8 @@ inline void case_face_virtual_height_mismatched_geometry() {
   const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
   const uint16_t indices[] = {0, 1, 2};
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1), H,
-                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(verts, indices, scratch, opaque(H + hs::H_OFFSET + 1),
+                         H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)face;
 }
 
@@ -672,12 +672,12 @@ inline void case_face_scratch_retargeted_by_culled_face() {
   }
   verts[3] = basis.v;
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face first(std::span<const math::Vector>(verts, 4),
-                  std::span<const uint16_t>(idx_a, 3), scratch, HV, H, nullptr,
-                  nullptr, SDF::BOUNDS_MARGIN);
-  SDF::Face second(std::span<const math::Vector>(verts, 4),
-                   std::span<const uint16_t>(idx_b, 3), scratch, HV, H, nullptr,
-                   nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace first(std::span<const math::Vector>(verts, 4),
+                          std::span<const uint16_t>(idx_a, 3), scratch, HV, H,
+                          nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace second(std::span<const math::Vector>(verts, 4),
+                           std::span<const uint16_t>(idx_b, 3), scratch, HV, H,
+                           nullptr, nullptr, SDF::BOUNDS_MARGIN);
   (void)second;
   (void)first.get_vertical_bounds<H>();
 }
@@ -887,4 +887,45 @@ inline void case_direct_sink_unprepared_integer_plot() {
 inline void case_vertex_replicate_short_input() {
   std::array<math::Vector, 2> vertices{};
   Filter::World::VertexReplicate<3> replicate(vertices);
+}
+
+/** @brief Early latitude rejection invalidates old prepared face handles. */
+inline void case_face_handle_retargeted_by_early_cull() {
+  constexpr int W = 96, H = 20;
+  const math::Vector verts[] = {math::pixel_to_vector<W, H>(20.0f, 2.0f),
+                                math::pixel_to_vector<W, H>(25.0f, 3.0f),
+                                math::pixel_to_vector<W, H>(18.0f, 4.0f)};
+  const uint16_t indices[] = {0, 1, 2};
+  static SDF::FaceStorage storage;
+  SDF::Face first(verts, indices, storage, math::LatitudeGeometry(H), H,
+                  nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  const SDF::Face copy = first;
+  const uint32_t table_claim = storage.tables.claim_seq;
+  ClipRegion clip{.y_start = H - 3,
+                  .y_end = H,
+                  .x_start = 0,
+                  .x_end = W,
+                  .margin = 0,
+                  .w = W,
+                  .h = H};
+  SDF::Face culled(verts, indices, storage, math::LatitudeGeometry(H), H, &clip,
+                   nullptr, SDF::BOUNDS_MARGIN);
+  const auto bounds = culled.get_vertical_bounds<H>();
+  if (!(bounds.y_min > bounds.y_max) || storage.tables.claim_seq != table_claim)
+    std::abort();
+  (void)copy.get_vertical_bounds<H>();
+}
+
+/** @brief Mutable geometry binding rejects a retargeted face handle. */
+inline void case_face_handle_mutable_retargeted() {
+  constexpr int H = 20;
+  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t indices[] = {0, 1, 2};
+  static SDF::FaceStorage storage;
+  SDF::Face first(verts, indices, storage, math::LatitudeGeometry(H), H,
+                  nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::Face second(verts, indices, storage, math::LatitudeGeometry(H), H,
+                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  (void)second;
+  (void)first.prepared();
 }

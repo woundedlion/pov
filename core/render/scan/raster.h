@@ -150,14 +150,20 @@ report_stretch(const SDF::Flower &) {
 __attribute__((always_inline)) inline float report_stretch(const SDF::Line &) {
   return 1.0f;
 }
-/** @brief SDF::Face reports gnomonic-plane distance, whose angular-step stretch
+/** @brief SDF::PreparedFace reports gnomonic-plane distance, whose angular-step stretch
  *         grows as 1 + r^2. This factor uses max_dist_sq, though a class-LUT
  *         pad can admit ordinary and block probes past max_dist.
  *  @param shape Face whose `max_dist_sq` bounds the stretch.
  *  @return 1 + `max_dist_sq`. */
 __attribute__((always_inline)) inline float
-report_stretch(const SDF::Face &shape) {
+report_stretch(const SDF::PreparedFace &shape) {
   return 1.0f + shape.max_dist_sq;
+}
+/** @brief Reports projection stretch through a checked face handle.
+ * @param shape Prepared face handle.
+ * @return Prepared geometry's angular-step stretch. */
+inline float report_stretch(const SDF::Face &shape) {
+  return report_stretch(shape.prepared());
 }
 // Forward-declared so a nested composite's recursive call sees every overload.
 template <typename A, typename B>
@@ -355,7 +361,9 @@ __attribute__((always_inline)) inline BlockSettle pole_lod_settle_with_slack(
     float d, float threshold, float block_slack, const ShapeT &shape,
     const math::Vector *point = nullptr, const Probe &probe = {}) {
   const auto report_bounded = [&] {
-    if constexpr (std::is_same_v<std::remove_cvref_t<ShapeT>, SDF::Face>) {
+    if constexpr (std::is_same_v<std::remove_cvref_t<ShapeT>,
+                                 SDF::PreparedFace> ||
+                  std::is_same_v<std::remove_cvref_t<ShapeT>, SDF::Face>) {
       if (d != SDF::FAR_SENTINEL)
         return true;
     }
@@ -546,7 +554,7 @@ template <typename Shape> struct PreparedDistance : SDF::DirectDistance {
 };
 
 /** @brief Cached Face probe flags, cull cosine, and latitude certificate. */
-template <> struct PreparedDistance<SDF::Face> {
+template <> struct PreparedDistance<SDF::PreparedFace> {
   static constexpr bool HAS_FACE = true; ///< Contains an untransformed Face.
   float min_cos;              ///< Cosine of the radial cull boundary.
   uint32_t flags;             ///< Face distance dispatch flags.
@@ -559,7 +567,7 @@ template <> struct PreparedDistance<SDF::Face> {
    * @brief Captures distance state from the shape.
    * @param shape Face whose geometry and LUT bindings remain fixed.
    */
-  explicit PreparedDistance(const SDF::Face &shape)
+  explicit PreparedDistance(const SDF::PreparedFace &shape)
       : min_cos(1.0f / sqrtf(1.0f + shape.max_dist_sq)),
         flags(shape.probe_flags()),
         horizontal_radius(sqrtf(shape.center.x * shape.center.x +
@@ -574,7 +582,7 @@ template <> struct PreparedDistance<SDF::Face> {
    */
   template <bool ComputeUVs>
   __attribute__((flatten)) HS_NOINLINE_NOCLONE void
-  distance(const SDF::Face &shape, const math::Vector &p,
+  distance(const SDF::PreparedFace &shape, const math::Vector &p,
            SDF::DistanceResult &res) const {
     shape.template distance_with_flags<ComputeUVs>(p, res, FLT_MAX, flags,
                                                    min_cos);
@@ -586,7 +594,7 @@ template <> struct PreparedDistance<SDF::Face> {
    * @param sin_phi Sine of the row's polar angle.
    * @param cos_phi Cosine of the row's polar angle.
    */
-  void prepare_row(const SDF::Face &shape, float widened_threshold,
+  void prepare_row(const SDF::PreparedFace &shape, float widened_threshold,
                    float sin_phi, float cos_phi) {
     threshold = widened_threshold;
     const float latitude_cos = shape.center.y * cos_phi;
@@ -596,7 +604,8 @@ template <> struct PreparedDistance<SDF::Face> {
     const bool uniform =
         latitude_cos - extent >= min_cos || latitude_cos + extent < min_cos;
     // A uniform row has no sentinel boundary, including beyond the static band.
-    block_allowed = uniform || threshold <= SDF::reject_margin<SDF::Face>;
+    block_allowed =
+        uniform || threshold <= SDF::reject_margin<SDF::PreparedFace>;
     row_supported = uniform || shape.supports_distance_report(threshold);
   }
   /**
@@ -605,13 +614,53 @@ template <> struct PreparedDistance<SDF::Face> {
    * @param point Optional unit query direction.
    * @return Whether the report certifies the offered block.
    */
-  bool supports(const SDF::Face &shape, const math::Vector *point) const {
+  bool supports(const SDF::PreparedFace &shape,
+                const math::Vector *point) const {
     if (row_supported)
       return true;
     if (!point)
       return false;
     const float cos_angle = math::dot(*point, shape.center);
     return cos_angle >= min_cos || cos_angle + threshold < min_cos;
+  }
+};
+
+/** @brief Binds a face handle's geometry once for a generic scan. */
+template <>
+struct PreparedDistance<SDF::Face> : PreparedDistance<SDF::PreparedFace> {
+  const SDF::PreparedFace *geometry; ///< Checked geometry for this scan.
+  /** @brief Captures the handle's current geometry.
+   * @param face Generation-checked face handle. */
+  explicit PreparedDistance(const SDF::Face &face)
+      : PreparedDistance<SDF::PreparedFace>(face.prepared()),
+        geometry(&face.prepared()) {}
+  /** @brief Evaluates the bound geometry.
+   * @tparam ComputeUVs Whether shader registers are requested.
+   * @param face Face captured by this probe.
+   * @param p Unit query direction.
+   * @param res Output distance and registers. */
+  template <bool ComputeUVs>
+  void distance([[maybe_unused]] const SDF::Face &face, const math::Vector &p,
+                SDF::DistanceResult &res) const {
+    PreparedDistance<SDF::PreparedFace>::template distance<ComputeUVs>(
+        *geometry, p, res);
+  }
+  /** @brief Prepares one latitude's distance certificate.
+   * @param face Captured face handle.
+   * @param threshold Required clearance.
+   * @param sp,cp Latitude sine and cosine. */
+  void prepare_row([[maybe_unused]] const SDF::Face &face, float threshold,
+                   float sp, float cp) {
+    PreparedDistance<SDF::PreparedFace>::prepare_row(*geometry, threshold, sp,
+                                                     cp);
+  }
+  /** @brief Tests the prepared report's clearance.
+   * @param face Captured face handle.
+   * @param point Optional unit query direction.
+   * @return Whether the report certifies the clearance. */
+  bool supports([[maybe_unused]] const SDF::Face &face,
+                const math::Vector *point) const {
+    return PreparedDistance<SDF::PreparedFace>::supports(*geometry, point);
   }
 };
 
