@@ -71,13 +71,11 @@ public:
    * @param age Age register.
    * @param alpha Source opacity.
    * @param t Frame fraction.
-   * @param prediction Optional pre-write landing window.
-   * @return Landed column, unwrapped near the prediction. */
+   * @return Projected column. */
   float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
-                float alpha, float t,
-                const Temporal::ColumnPrediction *prediction = nullptr) {
+                float alpha, float t) {
     return plot_projected_at(cv, math::vector_to_pixel<W, H>(v), c, age, alpha,
-                             t, prediction);
+                             t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -85,24 +83,18 @@ public:
    * @param p Projected column and row.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional landing window and boundary evaluator.
-   * @return Actual unwrapped column. */
-  HS_HOT_INLINE float
-  plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
-                    float age, float alpha, float t,
-                    const Temporal::ColumnPrediction *prediction) {
-    const float landed = prediction ? prediction->unwrap(p.x, W) : p.x;
-    if (prediction && !prediction->accepts(landed))
-      return landed;
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
+                                        const ::Pixel &c, float age,
+                                        float alpha, float t) {
     AntiAlias<W, H> aa;
-    aa.plot_at(
-        p.x, p.y, c, age, alpha, t,
-        [&](float x, float y, const ::Pixel &nc, float nage,
-            float nalpha) HS_HOT_INLINE {
-          plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage, nalpha);
-        },
-        prediction ? prediction->boundary : nullptr);
-    return landed;
+    aa.plot_at(p.x, p.y, c, age, alpha, t,
+               [&](float x, float y, const ::Pixel &nc, float nage,
+                   float nalpha) HS_HOT_INLINE {
+                 plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage,
+                      nalpha);
+               });
+    return p.x;
   }
 
   /** @brief Plots an already-transformed sample.
@@ -110,12 +102,10 @@ public:
    * @param v Transformed point.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
-   * @param prediction Optional part acceptance and boundary evaluator.
-   * @return Actual unwrapped column. */
+   * @return Projected column. */
   float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
-                            float age, float alpha, float t,
-                            const Temporal::ColumnPrediction *prediction) {
-    return plot_at(cv, v, c, age, alpha, t, prediction);
+                            float age, float alpha, float t) {
+    return plot_at(cv, v, c, age, alpha, t);
   }
 
   /**
