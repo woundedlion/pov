@@ -108,8 +108,9 @@ public:
   static constexpr int32_t SOURCE_NOISE_SEED = EFFECT_NOISE_SEED;  ///< Source.
   static constexpr int32_t SURFACE_NOISE_SEED = EFFECT_NOISE_SEED; ///< Surface.
 
-  /** @brief Constructs the effect at W x H with the POV column strobe on. */
-  HS_COLD_MEMBER ComposedEffect() : Choreography(W, H, {.strobe = true}) {}
+  /** @brief Constructs the effect at W x H with its Spec column-strobe mode. */
+  HS_COLD_MEMBER ComposedEffect()
+      : Choreography(W, H, {.strobe = SpecT::STROBE_COLUMNS}) {}
 
   /**
    * @brief Claims the runtime's persistent storage and registers the effect.
