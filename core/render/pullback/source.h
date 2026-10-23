@@ -334,6 +334,11 @@ struct PreparedSource {
   float angle_sin; /**< Sine of `angle`. */
 };
 
+/** @brief Grid phases and the stationary uncoupled kernel selection. */
+struct PreparedGrid : PreparedSource {
+  bool stationary_uncoupled; ///< Identity rotation, zero phases and coupling.
+};
+
 /** @brief Frame-constant quadratic-fractal seed and iteration controls. */
 struct PreparedFractal : PreparedSource {
   float seed_re;  ///< Julia seed, real part, rotated by `primary`.
@@ -473,6 +478,9 @@ template <typename Params, typename Prepared>
 HS_HOT_ITCM_MEMBER inline float grid(const math::Complex &input,
                                      const Params &params,
                                      const Prepared &prepared) {
+  if constexpr (requires { prepared.stationary_uncoupled; })
+    if (prepared.stationary_uncoupled)
+      return math::fast_sinf(input.re) * math::fast_cosf(input.im);
   const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   const float y =
       -input.re * prepared.angle_sin + input.im * prepared.angle_cos;
@@ -852,8 +860,26 @@ template <typename State> struct Grid : PrepareFromState<State> {
         { State::prepare(frame).secondary } -> std::convertible_to<float>;
       };
 
-  /// Phases `State::prepare` resolves for the frame.
-  using Prepared = StatePrepared<State>;
+  /// Phase carrier returned by the provider.
+  using Phases = StatePrepared<State>;
+  /// Prepared phases with optional stationary kernel selection.
+  using Prepared = std::conditional_t<std::is_same_v<Phases, PreparedSource>,
+                                      PreparedGrid, Phases>;
+
+  /** @brief Selects the grid kernel from this column's phases and parameters.
+   * @param frame Column frame state.
+   * @return Prepared phases and kernel selection. */
+  HS_FLASH_INLINE static Prepared prepare(const FrameState &frame) {
+    if constexpr (std::is_same_v<Prepared, PreparedGrid>) {
+      const auto phases = State::prepare(frame);
+      const auto &params = State::params(frame);
+      return {phases, params.complexity == 0.0f && params.pattern_mix == 0.0f &&
+                          phases.primary == 0.0f && phases.secondary == 0.0f &&
+                          phases.angle_cos == 1.0f && phases.angle_sin == 0.0f};
+    } else {
+      return State::prepare(frame);
+    }
+  }
 
   /**
    * @brief Samples the signed field.
