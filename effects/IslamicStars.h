@@ -410,10 +410,12 @@ private:
   /**
    * @brief Orients and ripple-distorts a mesh into scratch_arena_a.
    * @param base_state Undistorted source mesh.
+   * @param visible Per-vertex board visibility bits, or null.
    * @return The transformed mesh (scratch_arena_a-backed; the caller holds the
    * scope).
    */
-  HS_O3_FN MeshState transform_shape(const MeshState &base_state) {
+  HS_O3_FN MeshState transform_shape(const MeshState &base_state,
+                                     const uint8_t *visible = nullptr) {
     MeshState transformed_state;
     OrientTransformer camera(orientation);
     {
@@ -429,8 +431,9 @@ private:
 #endif
       {
         const auto ripples = endpoint_ripples(scratch_arena_a);
-        MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                           ripples, camera);
+        MeshOps::transform(base_state, transformed_state, scratch_arena_a);
+        MeshOps::transform_selected_in_place(transformed_state, visible,
+                                             ripples, camera);
       }
     }
     return transformed_state;
@@ -445,6 +448,21 @@ private:
     for (int k = 0; k < ripple_gen.active_count(); ++k)
       arc += ripple_gen.active_params(k).step_arc();
     return arc;
+  }
+
+  /**
+   * @brief Maximum displacement from the undeformed model over capture times.
+   * @param motion Frame vertex-motion bound.
+   * @return Angular displacement in radians.
+   */
+  HS_HOT_FLASH_MEMBER float visibility_reach(float motion) const {
+    float reach = 2.0f * fmaxf(motion - ripple_arc(), 0.0f);
+    for (int k = 0; k < ripple_gen.active_count(); ++k) {
+      const auto &p = ripple_gen.active_params(k);
+      reach += fmaxf(fabsf(p.amplitude), fabsf(p.previous_amplitude)) +
+               fabsf(p.amplitude - p.previous_amplitude);
+    }
+    return reach;
   }
 
   /** @brief Where a draw's model-space vertices stand over the frame. */
@@ -580,12 +598,14 @@ private:
    * @param motion Receives each vertex's model motion over the frame, in
    *        MOTION_UNIT arcs rounded up.
    * @param arena Arena holding the bands for the call.
+   * @param visible Per-vertex board visibility bits, or null.
    * @details A vertex outside every band is left in place by each ripple in
    * turn.
    */
   HS_FLASH_MEMBER void flag_moving(const ModelPath &path, size_t count,
                                    float leg_arc, uint8_t *moving,
-                                   uint16_t *motion, Arena &arena) const {
+                                   uint16_t *motion, Arena &arena,
+                                   const uint8_t *visible = nullptr) const {
     ScratchScope scope(arena);
     int band_count = 0;
     const RippleBand *bands = ripple_bands(leg_arc, arena, band_count);
@@ -593,6 +613,11 @@ private:
     const auto start = path.moment(0.0f);
     const auto end = path.moment(1.0f);
     for (size_t i = 0; i < count; ++i) {
+      if (!Scan::mesh_visible(visible, i)) {
+        moving[i] = 0;
+        motion[i] = 0;
+        continue;
+      }
       const math::Vector model = path.at(i, end);
       bool moves = false;
       motion[i] = 0;
@@ -717,8 +742,10 @@ private:
     // Each vertex's model motion stands in its start column's place until
     // the vertex's column replaces it.
     plan.start = start_arena.allocate_n<uint16_t>(count);
-    flag_moving(path, count, bound - ripple_arc(), plan.moving, plan.start,
-                arena);
+    flag_moving(
+        path, count, bound - ripple_arc(), plan.moving, plan.start, arena,
+        canvas.column_basis() ? canvas.column_basis()->mesh.visible_vertices
+                              : nullptr);
     plan.columns = arena.allocate_n<uint16_t>(2 * mesh.num_faces());
     plan.during = arena.allocate_n<MotionRipple>(ripple_gen.active_count() + 1);
     ScratchScope radii_scope(arena);
@@ -885,25 +912,25 @@ private:
     ScratchScope a_guard(scratch_arena_a);
     const ModelPath path{base_state.vertices.data()};
     const float bound = motion_bound(path, base_state.vertices.size());
-    const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
+    Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_a, orientation,
         previous_phase != phase || Scan::mesh_motion_active<W>(bound));
+    Scan::select_mesh_visibility<W, H>(
+        canvas.clip(), base_state, OrientTransformer(orientation),
+        visibility_reach(bound), scratch_arena_a, column_basis);
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
-    MeshState transformed_state = transform_shape(base_state);
+    MeshState transformed_state =
+        transform_shape(base_state, column_basis.mesh.visible_vertices);
     ScratchScope b_guard(scratch_arena_b);
     const MotionPlan plan = plan_motion(canvas, transformed_state, path, bound,
                                         scratch_arena_a, scratch_arena_b);
     ArenaVector<float> face_phases;
-    ArenaVector<const BakedPalette *> face_palettes;
     {
       HS_PROFILE(is_face_offsets);
       const size_t faces = transformed_state.num_faces();
       face_phases.bind(scratch_arena_a, faces);
-      face_palettes.bind(scratch_arena_a, faces);
       carousel.fill_face_phases(base_state, transformed_state, phase,
                                 face_phases);
-      for (size_t face = 0; face < faces; ++face)
-        face_palettes.push_back(&palette_bank[face_palette[face]].view());
     }
     const float *previous_opacity =
         previous_phase == phase
@@ -916,7 +943,7 @@ private:
       auto select_face = [&](size_t fi, float size) {
         HS_CHECK(fi < face_phases.size(),
                  "IslamicStars: sprite shading face mismatch");
-        fragment_shader.set_palette(face_palettes[fi]);
+        fragment_shader.set_palette(&palette_bank[face_palette[fi]].view());
         const float opacity = seg.opacity(face_phases[fi]);
         fragment_shader.set_alpha(
             opacity, previous_opacity ? previous_opacity[fi] : opacity);
@@ -966,9 +993,12 @@ private:
       path.packed = model;
       path.current = nullptr;
     }
-    const Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
+    Scan::ColumnBasis column_basis = Scan::prepare_column_basis<W, H>(
         scratch_arena_b, orientation,
         sh.previous_weight != sh.weight || active);
+    Scan::select_mesh_visibility<W, H>(
+        canvas.clip(), mesh, OrientTransformer(orientation),
+        visibility_reach(bound), scratch_arena_b, column_basis);
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // The frame-local mesh and its source occupy scratch_a.
     OrientTransformer camera(orientation);
@@ -985,7 +1015,8 @@ private:
       {
         ScratchScope ripple_scope(scratch_arena_a);
         const auto ripples = endpoint_ripples(scratch_arena_a);
-        MeshOps::transform_in_place(mesh, ripples, camera);
+        MeshOps::transform_selected_in_place(
+            mesh, column_basis.mesh.visible_vertices, ripples, camera);
       }
     }
     HS_PROFILE(is_build_scan);

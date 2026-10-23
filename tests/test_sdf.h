@@ -229,6 +229,8 @@ inline int run_sdf_tests() {
   test_face_tied_rows_match_oracle();
   test_face_shipping_recipes_match_oracle();
   test_face_distance_matches_exact_oracle();
+  test_face_convex_rejection_cutoff();
+  test_face_plane_box_rejection();
   test_face_class_lut_matches_oracle();
 
   return fixture.result();

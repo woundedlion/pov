@@ -28,11 +28,66 @@
 
 namespace Scan {
 
+#if HS_ENABLE_TEST_HOOKS
+/** @brief Candidate observer for mesh replay verification. */
+inline void (*face_audit_candidate)(size_t, int, int, float, bool) = nullptr;
+/** @brief Face currently visited by the candidate observer. */
+inline size_t face_audit_index = 0;
+/** @brief Selected faces and vertices in the replayed frame. */
+inline size_t visibility_counts[4] = {};
+/** @brief Deformation reach used by the last visibility pre-pass. */
+inline float visibility_audit_reach = 0.0f;
+/** @brief Disables structural culling for a replay reference. */
+inline bool face_audit_reference = false;
+
+#endif
+
 /** @brief Half-open column run [first, second); left uninitialized. */
 struct ColumnRun {
   int first;  ///< First column.
   int second; ///< One past the last column.
 };
+
+/** @brief One face's projection of a column's rotating meridian basis. */
+struct FaceProjectionColumn {
+  float azimuth[3]; ///< Center, basis_u and basis_w dots with azimuth.
+  float up[3];      ///< Center, basis_u and basis_w dots with up.
+  uint32_t claim;   ///< Scratch claim identifying the projected face.
+  int sector;       ///< Last angular sector visited down this column.
+
+  /**
+   * @brief Projects a column basis into a face's tangent frame.
+   * @param face Face whose frame is projected.
+   * @param e Column azimuth.
+   * @param v Column up.
+   */
+  HS_HOT_INLINE void prepare(const SDF::Face &face, const math::Vector &e,
+                             const math::Vector &v) {
+    azimuth[0] = math::dot(e, face.center);
+    azimuth[1] = math::dot(e, face.basis_u);
+    azimuth[2] = math::dot(e, face.basis_w);
+    up[0] = math::dot(v, face.center);
+    up[1] = math::dot(v, face.basis_u);
+    up[2] = math::dot(v, face.basis_w);
+    claim = face.scratch_claim;
+    sector = -1;
+  }
+};
+
+/**
+ * @brief Allocates column projection storage for one mesh draw.
+ * @tparam W Canvas width in pixels.
+ * @param arena Draw-scoped arena.
+ * @return Storage with no face claiming a column.
+ */
+template <int W>
+HS_HOT_FLASH_MEMBER FaceProjectionColumn *
+new_face_projection_columns(Arena &arena) {
+  auto *columns = arena.allocate_n<FaceProjectionColumn>(W / 2);
+  for (int x = 0; x < W / 2; ++x)
+    columns[x].claim = 0;
+  return columns;
+}
 
 /**
  * @brief Whether a face's clipped row band can reach an arm of a window.
@@ -136,6 +191,7 @@ HS_O3_BEGIN
  * @param fragment_shader Shader invoked per covered pixel.
  * @param time Column-time state with a rotated basis; read only with
  *        COLUMN_TIME.
+ * @param projections Per-column projection storage for COLUMN_TIME.
  * @details Under a rotated basis a pole-LOD block's slack grows by the
  * rotation between its first and last columns, and a block straddling an arm
  * boundary is walked per column. Only the columns an open TimeWindow
@@ -146,7 +202,8 @@ template <int W, int H, typename PipelineT, bool MinimalFragment,
 HS_HOT_INLINE inline void
 rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
                     FragmentShaderT &fragment_shader,
-                    const Scan::ColumnBasis *time) {
+                    const Scan::ColumnBasis *time,
+                    FaceProjectionColumn *projections) {
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
 
@@ -258,7 +315,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float base_reject_dsq = base_reject_rad * base_reject_rad;
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
   float radial_cull = shape.max_dist;
-  if (!(probe_flags & SDF::Face::PROBE_CONVEX)) {
+  {
     const float shade_reach = (probe_flags & SDF::Face::PROBE_LINEAR)
                                   ? PIXEL_WIDTH
                                   : tanf(PIXEL_WIDTH);
@@ -269,8 +326,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
   [[maybe_unused]] float block_min_cos = min_cos;
   if constexpr (pole_lod_blocks<SDF::Face>) {
-    if (!(probe_flags & SDF::Face::PROBE_CONVEX) &&
-        Render::pole_lod_aggressiveness > 0.0f) {
+    if (Render::pole_lod_aggressiveness > 0.0f) {
       float lod_reach = Render::pole_lod_aggressiveness * PIXEL_WIDTH;
       if constexpr (COLUMN_TIME)
         lod_reach += column_rotation * (Render::POLE_LOD_MAX_RUN - 1);
@@ -303,6 +359,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     const int stride = pole_lod_run(sp);
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
+    float reject_plane = base_reject_rad;
     if constexpr (pole_lod_blocks<SDF::Face>) {
       if constexpr (COLUMN_TIME)
         block_slack = (pole_lod_slack<W, SDF::Face>(stride, sp) +
@@ -314,6 +371,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
       // its threshold
       const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;
       reject_dsq = reject_rad * reject_rad;
+      reject_plane = reject_rad;
     }
 
     for (size_t r = 0; r < num_runs; ++r) {
@@ -350,9 +408,28 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
               probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
         }
-        shape.template distance_with_flags<true>(p, res, reject_dsq,
-                                                 probe_flags, probe_min_cos);
+        const float convex_reject =
+            (probe_flags & SDF::Face::PROBE_LINEAR) ? reject_plane : FLT_MAX;
+        if constexpr (COLUMN_TIME) {
+          const int column = x - arm_offset;
+          FaceProjectionColumn &projection = projections[column];
+          if (projection.claim != shape.scratch_claim)
+            projection.prepare(shape, azimuth[column], up[column]);
+          shape.template distance_projected<true>(
+              arm_sp * projection.azimuth[0] + cp * projection.up[0],
+              arm_sp * projection.azimuth[1] + cp * projection.up[1],
+              arm_sp * projection.azimuth[2] + cp * projection.up[2], res,
+              reject_dsq, probe_flags, probe_min_cos, convex_reject,
+              &projection.sector);
+        } else {
+          shape.template distance_with_flags<true>(
+              p, res, reject_dsq, probe_flags, probe_min_cos, convex_reject);
+        }
         const float d = res.dist;
+#if HS_ENABLE_TEST_HOOKS
+        if (face_audit_candidate && d < PIXEL_WIDTH)
+          face_audit_candidate(face_audit_index, x, y, d, shape.convex);
+#endif
 
         // Columns this one shade covers: a canvas-aligned block within the run
         // that the surface cannot cross; edge-holding blocks stay per-column.
@@ -460,7 +537,7 @@ HS_HOT_FLASH_MEMBER void rasterize_face(PipelineT &pipeline, Canvas &canvas,
                                         const SDF::Face &shape,
                                         FragmentShaderT &fragment_shader) {
   rasterize_face_body<W, H, PipelineT, MinimalFragment, false, true>(
-      pipeline, canvas, shape, fragment_shader, nullptr);
+      pipeline, canvas, shape, fragment_shader, nullptr, nullptr);
 }
 
 /**
@@ -474,14 +551,16 @@ HS_HOT_FLASH_MEMBER void rasterize_face(PipelineT &pipeline, Canvas &canvas,
  * @param shape Face built at the current endpoint, with swept bounds.
  * @param fragment_shader Shader invoked per covered pixel.
  * @param time Column-time state with a rotated basis.
+ * @param projections Draw-scoped column projection storage.
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
 HS_NOINLINE_NOCLONE inline void rasterize_face_column_time(
     PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-    FragmentShaderT &fragment_shader, const Scan::ColumnBasis &time) {
+    FragmentShaderT &fragment_shader, const Scan::ColumnBasis &time,
+    FaceProjectionColumn *projections) {
   rasterize_face_body<W, H, PipelineT, MinimalFragment, true, false>(
-      pipeline, canvas, shape, fragment_shader, &time);
+      pipeline, canvas, shape, fragment_shader, &time, projections);
 }
 HS_O3_END
 
@@ -496,7 +575,8 @@ HS_O3_END
  */
 template <int W, int H>
 HS_FLASH_MEMBER void fill_swept_face_pads(float *pads, float sweep) {
-  const float reach = SDF::face_azimuth_pad(W) + sweep;
+  const float reach =
+      math::TWO_PI_F / W + 2.0f * SDF::Face::AZIMUTH_ERROR + sweep;
   for (int y = 0; y < H; ++y) {
     const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
     pads[y] = sin_phi <= reach ? math::PI_F : asinf(reach / sin_phi);
@@ -531,6 +611,181 @@ template <int W, int H> HS_O3_FN void fill_face_pads(float *pads, float sweep) {
 HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
 new_face_scratch(Arena &arena) {
   return arena.make_default_initialized<SDF::FaceScratchBuffer>();
+}
+
+/**
+ * @brief Bound on the arc whose cosine is given.
+ * @param c The cosine.
+ * @return Radians, at least acos(c).
+ */
+HS_HOT_INLINE inline float cosine_arc(float c) {
+  // Unit chord squared; below 1 the arc 2 asin(chord / 2) is at most
+  // chord (1 + chord^2 / 16).
+  const float chord2 = fmaxf(2.0f - 2.0f * c, 0.0f);
+  if (chord2 < 1.0f)
+    return sqrtf(chord2) * (1.0f + chord2 * (1.0f / 16.0f));
+  return acosf(hs::clamp(c, -1.0f, 1.0f));
+}
+
+/**
+ * @brief Rotation bound across a compact face's seeing columns.
+ * @tparam W Canvas width.
+ * @param sweep Frame rotation bound.
+ * @param columns Maximum seeing-column span.
+ * @return Radians of residual rotation.
+ */
+template <int W>
+HS_HOT_INLINE float compact_face_residual(float sweep, int columns = 32) {
+  return sweep * (columns / 2 + 1.0f) / (W / 2) + sweep * sweep / math::PI_F;
+}
+
+/** @brief Clip planes for a face's current vertex cap and rotation reach. */
+template <int W, int H> struct FaceClipPlanes {
+  math::Vector first; ///< First azimuth boundary normal.
+  math::Vector last;  ///< Last azimuth boundary normal.
+  float north;        ///< Northern admitted latitude cosine.
+  float south;        ///< Southern admitted latitude cosine.
+  float pad_cos;      ///< Cosine of the face's angular reach.
+  float pad_sin;      ///< Sine of the face's angular reach.
+  int columns;        ///< Admitted azimuth span.
+  bool bounded;       ///< Reach leaves a bounding hemisphere.
+
+  /**
+   * @brief Prepares clip planes for one mesh scan pass.
+   * @param clip Source render clip.
+   * @param reach Rotation and AA reach in radians.
+   */
+  FaceClipPlanes(const ClipRegion &clip, float reach) {
+    const auto xc = clip.x_clip();
+    columns = xc.length(W);
+    const int start = math::wrap(xc.rs, W);
+    const int end = math::wrap(xc.rs + columns, W);
+    first = {-math::TrigLUT<W, H>::sin_theta[start], 0.0f,
+             math::TrigLUT<W, H>::cos_theta_data()[start]};
+    last = {math::TrigLUT<W, H>::sin_theta[end], 0.0f,
+            -math::TrigLUT<W, H>::cos_theta_data()[end]};
+    const auto geometry = math::LatitudeGeometry(H);
+    const float row = geometry.row_to_phi(1) - geometry.row_to_phi(0);
+    north = cosf(fmaxf(geometry.row_to_phi(clip.render_y_start()) - row, 0.0f));
+    south = cosf(
+        fminf(geometry.row_to_phi(clip.render_y_end() - 1) + row, math::PI_F));
+    bounded = reach < math::PI_F * 0.5f;
+    pad_cos = cosf(reach);
+    pad_sin = sinf(reach);
+  }
+
+  /**
+   * @brief Rejects a cap missing every admitted pixel direction.
+   * @param axis Unit cap axis.
+   * @param cosine Cosine of the cap radius.
+   * @return True when the padded cap misses the clip.
+   */
+  HS_HOT_INLINE bool rejects(const math::Vector &axis, float cosine) const {
+    if (!bounded || cosine <= 0.0f)
+      return false;
+    const float sine = sqrtf(fmaxf(1.0f - cosine * cosine, 0.0f));
+    const float expanded_cosine = cosine * pad_cos - sine * pad_sin;
+    const float expanded_sine = sine * pad_cos + cosine * pad_sin;
+    if (expanded_cosine <= 0.0f)
+      return false;
+    const float horizontal = sqrtf(fmaxf(1.0f - axis.y * axis.y, 0.0f));
+    const float high =
+        axis.y >= expanded_cosine
+            ? 1.0f
+            : axis.y * expanded_cosine + horizontal * expanded_sine;
+    const float low =
+        axis.y <= -expanded_cosine
+            ? -1.0f
+            : axis.y * expanded_cosine - horizontal * expanded_sine;
+    if (high < south || low > north)
+      return true;
+    if (columns == W)
+      return false;
+    const bool misses_first = math::dot(axis, first) < -expanded_sine;
+    const bool misses_last = math::dot(axis, last) < -expanded_sine;
+    return columns <= W / 2 ? misses_first || misses_last
+                            : misses_first && misses_last;
+  }
+};
+
+/**
+ * @brief Builds a compact face's seeing-time bounds frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param vertices Endpoint vertex pool.
+ * @param indices Face vertex indices.
+ * @param time Column basis, or null for a fixed meridian.
+ * @param pose Receives the bounds frame and residual sweep.
+ * @param pads Shared compact-face azimuth pads.
+ * @param wide_pads Shared wide-face azimuth pads.
+ * @param clip_planes Source clip expanded by this face pass's rotation reach.
+ * @param culled Receives whether the face misses the expanded clip.
+ * @return True when the seeing columns occupy a compact interval on one arm.
+ */
+template <int W, int H>
+HS_HOT_FLASH_MEMBER bool
+face_bounds_pose(std::span<const math::Vector> vertices,
+                 std::span<const uint16_t> indices, const ColumnBasis *time,
+                 SDF::FaceBoundsPose &pose, const float *pads,
+                 const float *wide_pads,
+                 const FaceClipPlanes<W, H> &clip_planes, bool &culled) {
+  culled = false;
+#if HS_ENABLE_TEST_HOOKS
+  if (face_audit_reference)
+    return false;
+#endif
+  math::Vector axis(0, 0, 0);
+  for (const uint16_t i : indices)
+    axis = axis + vertices[i];
+  const float length_sq = math::dot(axis, axis);
+  if (!(length_sq > 1e-12f))
+    return false;
+  axis = axis * (1.0f / sqrtf(length_sq));
+  float min_cos = 1.0f;
+  for (const uint16_t i : indices)
+    min_cos = fminf(min_cos, math::dot(axis, vertices[i]));
+  if (!(min_cos > 0.0f))
+    return false;
+  float cap_cosine = 1.0f;
+  for (const uint16_t i : indices) {
+    const auto &v = vertices[i];
+    cap_cosine = fminf(cap_cosine, math::dot(axis, v) / sqrtf(math::dot(v, v)));
+  }
+  culled = clip_planes.rejects(axis, fmaxf(cap_cosine - 2e-6f, 0.0f));
+  if (culled || !time || !time->azimuth || !(time->sweep_arc > 0.0f))
+    return false;
+  const float radius = cosine_arc(fminf(min_cos, 1.0f));
+  int lo, hi;
+  if (!lit_span<W>(axis, radius, time->sweep_arc, lo, hi) || hi - lo > 64)
+    return false;
+  constexpr int HALF = W / 2;
+  const int arm =
+      static_cast<int>(floorf(static_cast<float>(lo) / HALF)) * HALF;
+  if (hi >= arm + HALF)
+    return false;
+  const int m = (lo + hi) / 2 - arm;
+  const math::Vector &e = time->azimuth[m];
+  const math::Vector &v = time->up[m];
+  const math::Vector t = math::cross(e, v);
+  const float ct = math::TrigLUT<W, H>::cos_theta_data()[m];
+  const float st = math::TrigLUT<W, H>::sin_theta[m];
+  pose.x = e * ct - t * st;
+  pose.y = v;
+  pose.z = e * st + t * ct;
+  const bool wide = hi - lo > 32;
+  pose.residual = compact_face_residual<W>(time->sweep_arc, wide ? 64 : 32);
+  pose.pads = wide ? wide_pads : pads;
+  return true;
+}
+
+/**
+ * @brief Whether an indexed element belongs to an optional visibility bitset.
+ * @param bits Visibility bits, or null to admit every element.
+ * @param i Element index.
+ * @return True when the element is admitted.
+ */
+HS_HOT_INLINE inline bool mesh_visible(const uint8_t *bits, size_t i) {
+  return !bits || (bits[i / 8] & (1u << (i % 8)));
 }
 
 /// Seeing-column entry of a face that holds over the frame.
@@ -601,9 +856,118 @@ HS_HOT_INLINE inline float face_cap(const math::Vector *vertices,
     min_cos = fminf(min_cos, math::dot(axis, v) / sqrtf(math::dot(v, v)));
   }
   // A cap past a hemisphere does not bound its polygon.
-  return min_cos > 0.0f ? acosf(min_cos) : UNBOUNDED_FACE_CAP;
+  return min_cos > 0.0f ? cosine_arc(min_cos) : UNBOUNDED_FACE_CAP;
 }
 } // namespace detail
+
+/**
+ * @brief Selects the model-space faces and vertices a board can see this frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam Camera Model-to-endpoint rotation callable.
+ * @param clip Board render clip.
+ * @param mesh Undeformed model mesh.
+ * @param camera Model-to-endpoint rotation.
+ * @param reach Deformation displacement and capture-motion bound in radians.
+ * @param arena Frame arena holding the selection bits.
+ * @param time Column basis receiving the selection bits.
+ */
+template <int W, int H, typename Camera>
+HS_HOT_FLASH_MEMBER void
+select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
+                       const Camera &camera, float reach, Arena &arena,
+                       ColumnBasis &time) {
+  HS_PROFILE(mesh_visibility);
+#if HS_ENABLE_TEST_HOOKS
+  if (face_audit_reference)
+    return;
+  visibility_counts[0] += mesh.num_faces();
+  visibility_counts[2] += mesh.vertices.size();
+  visibility_audit_reach = reach;
+#endif
+  const size_t faces = mesh.num_faces(), vertices = mesh.vertices.size();
+  auto *face_bits = arena.allocate_n<uint8_t>((faces + 7) / 8);
+  auto *vertex_bits = arena.allocate_n<uint8_t>((vertices + 7) / 8);
+  std::fill_n(face_bits, (faces + 7) / 8, uint8_t(0));
+  std::fill_n(vertex_bits, (vertices + 7) / 8, uint8_t(0));
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  const auto xc = clip.x_clip();
+  const float pad =
+      reach + time.sweep_arc + SDF::BOUNDS_MARGIN_WIDE + SDF::MOVED_AXIS_SLACK;
+  const float pad_cos = cosf(pad), pad_sin = sinf(pad);
+  const auto geometry = math::LatitudeGeometry(H);
+  const float row_step = geometry.row_to_phi(1) - geometry.row_to_phi(0);
+  const float north =
+      cosf(fmaxf(geometry.row_to_phi(clip.render_y_start()) - row_step, 0.0f));
+  const float south = cosf(fminf(
+      geometry.row_to_phi(clip.render_y_end() - 1) + row_step, math::PI_F));
+  const int first_column = math::wrap(xc.rs, W);
+  const int last_column = math::wrap(xc.rs + xc.length(W), W);
+  const math::Vector first_normal(
+      -math::TrigLUT<W, H>::sin_theta[first_column], 0.0f,
+      math::TrigLUT<W, H>::cos_theta_data()[first_column]);
+  const math::Vector last_normal(
+      math::TrigLUT<W, H>::sin_theta[last_column], 0.0f,
+      -math::TrigLUT<W, H>::cos_theta_data()[last_column]);
+  float max_length_sq = 0.0f;
+  for (const auto &v : mesh.vertices)
+    max_length_sq = fmaxf(max_length_sq, math::dot(v, v));
+  const float inverse_max_length =
+      max_length_sq > 0.0f ? 1.0f / sqrtf(max_length_sq) : 0.0f;
+  for (size_t f = 0; f < faces; ++f) {
+    const size_t count = mesh.get_face_counts_data()[f];
+    const uint16_t *indices =
+        mesh.get_faces_data() + mesh.get_face_offsets_data()[f];
+    math::Vector axis;
+    if (pad < 0.5f * math::PI_F &&
+        face_cap_axis(mesh.vertices.data(), indices, count, axis)) {
+      float cosine = 1.0f;
+      for (size_t k = 0; k < count; ++k)
+        cosine = fminf(cosine, math::dot(axis, mesh.vertices[indices[k]]) *
+                                   inverse_max_length);
+      if (cosine > 0.0f) {
+        const float sine = sqrtf(fmaxf(1.0f - cosine * cosine, 0.0f));
+        const float expanded_cosine = cosine * pad_cos - sine * pad_sin;
+        const float expanded_sine = sine * pad_cos + cosine * pad_sin;
+        if (expanded_cosine > 0.0f) {
+          axis = camera(axis);
+          const float horizontal = sqrtf(fmaxf(1.0f - axis.y * axis.y, 0.0f));
+          const float high =
+              axis.y >= expanded_cosine
+                  ? 1.0f
+                  : axis.y * expanded_cosine + horizontal * expanded_sine;
+          const float low =
+              axis.y <= -expanded_cosine
+                  ? -1.0f
+                  : axis.y * expanded_cosine - horizontal * expanded_sine;
+          if (high < south || low > north)
+            continue;
+          const bool misses_first =
+              math::dot(axis, first_normal) < -expanded_sine;
+          const bool misses_last =
+              math::dot(axis, last_normal) < -expanded_sine;
+          if (xc.active &&
+              (xc.length(W) <= W / 2 ? misses_first || misses_last
+                                     : misses_first && misses_last))
+            continue;
+        }
+      }
+    }
+#if HS_ENABLE_TEST_HOOKS
+    ++visibility_counts[1];
+#endif
+    face_bits[f / 8] |= 1u << (f % 8);
+    for (size_t k = 0; k < count; ++k)
+      vertex_bits[indices[k] / 8] |= 1u << (indices[k] % 8);
+  }
+#if HS_ENABLE_TEST_HOOKS
+  for (size_t i = 0; i < vertices; ++i)
+    visibility_counts[3] += mesh_visible(vertex_bits, i);
+#endif
+  time.mesh.visible_faces = face_bits;
+  time.mesh.visible_vertices = vertex_bits;
+}
 
 namespace detail {
 /**
@@ -765,20 +1129,6 @@ HS_HOT_INLINE inline float vertex_reach(uint8_t flags) {
   return flags & VERTEX_MOVES
              ? VERTEX_REACH_LEVELS[(flags >> VERTEX_REACH_SHIFT) & 31]
              : 0.0f;
-}
-
-/**
- * @brief Bound on the arc whose cosine is given.
- * @param c The cosine.
- * @return Radians, at least acos(c).
- */
-HS_HOT_INLINE inline float cosine_arc(float c) {
-  // Unit chord squared; below 1 the arc 2 asin(chord / 2) is at most
-  // chord (1 + chord^2 / 16).
-  const float chord2 = fmaxf(2.0f - 2.0f * c, 0.0f);
-  if (chord2 < 1.0f)
-    return sqrtf(chord2) * (1.0f + chord2 * (1.0f / 16.0f));
-  return acosf(hs::clamp(c, -1.0f, 1.0f));
 }
 
 /**
@@ -1040,6 +1390,8 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
     face[0] = HELD_FACE_COLUMN;
     face[1] = 0;
     if (!moves ||
+        (canvas.column_basis() &&
+         !mesh_visible(canvas.column_basis()->mesh.visible_faces, f)) ||
         !rows.meet(mesh.vertices.data(), indices + offsets[f], counts[f]))
       continue;
     math::Vector axis;
@@ -1369,6 +1721,14 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   float *face_pads = scratch.allocate_n<float>(H);
   fill_face_pads<W, H>(face_pads, sweep);
   time.mesh.face_pads = face_pads;
+  if (sweep > 0.0f) {
+    float *compact_pads = scratch.allocate_n<float>(H);
+    float *wide_pads = scratch.allocate_n<float>(H);
+    fill_face_pads<W, H>(compact_pads, compact_face_residual<W>(sweep));
+    fill_face_pads<W, H>(wide_pads, compact_face_residual<W>(sweep, 64));
+    time.mesh.compact_face_pads = compact_pads;
+    time.mesh.wide_face_pads = wide_pads;
+  }
   ColumnBasisScope scope(canvas, time);
   detail::scan_swept_faces({canvas, mesh, columns, moving, start, selected,
                             scratch, scan_row_pad<W>(sweep) + reach,
@@ -1891,6 +2251,7 @@ struct Mesh {
    * @param time The scan's column-time state; read when @p sweep is positive.
    * @param sweep Arc the scan's column basis turns over the frame, or 0 for
    *        the fixed meridian.
+   * @param projections Draw-scoped column projection storage.
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
@@ -1898,7 +2259,11 @@ struct Mesh {
   raster_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
               size_t i, FragmentShaderT &fragment_shader,
               FaceShaderSetupT &face_shader_setup,
-              const Scan::ColumnBasis *time, float sweep) {
+              const Scan::ColumnBasis *time, float sweep,
+              FaceProjectionColumn *projections) {
+#if HS_ENABLE_TEST_HOOKS
+    face_audit_index = i;
+#endif
     if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
       auto wrapper = [&](const math::Vector &p, Fragment &f_in) {
         // v2 carries the face index (decoded by mesh_face_index()).
@@ -1910,7 +2275,7 @@ struct Mesh {
         HS_PROFILE(scan_mesh_raster);
         if (sweep > 0.0f)
           rasterize_face_column_time<W, H, PipelineT, false>(
-              pipeline, canvas, shape, raster_shader, *time);
+              pipeline, canvas, shape, raster_shader, *time, projections);
         else
           rasterize_face<W, H, PipelineT, false>(pipeline, canvas, shape,
                                                  raster_shader);
@@ -1921,7 +2286,7 @@ struct Mesh {
         HS_PROFILE(scan_mesh_raster);
         if (sweep > 0.0f)
           rasterize_face_column_time<W, H, PipelineT, true>(
-              pipeline, canvas, shape, fragment_shader, *time);
+              pipeline, canvas, shape, fragment_shader, *time, projections);
         else
           rasterize_face<W, H, PipelineT, true>(pipeline, canvas, shape,
                                                 fragment_shader);
@@ -1968,12 +2333,34 @@ struct Mesh {
     }
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const Spacetime::TimeWindow &window = canvas.time_window();
+    const float *compact_pads = time ? time->mesh.compact_face_pads : nullptr;
+    const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
+    if (sweep > 0.0f && !compact_pads) {
+      float *filled = arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep));
+      compact_pads = filled;
+    }
+    if (sweep > 0.0f && !wide_pads) {
+      float *filled = arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep, 64));
+      wide_pads = filled;
+    }
+    SDF::FaceBoundsPose pose;
+    const FaceClipPlanes<W, H> clip_planes(
+        cr, std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep +
+                SDF::MOVED_AXIS_SLACK);
+    bool culled;
+    const bool seeing = face_bounds_pose<W, H>(
+        {copy.vertices, copy.count}, {copy.indices, copy.count}, time, pose,
+        compact_pads, wide_pads, clip_planes, culled);
+    if (culled)
+      return;
     SDF::Face shape = [&]() HS_HOT_INLINE {
       HS_PROFILE(scan_face_setup);
       return SDF::Face({copy.vertices, copy.count}, {copy.indices, copy.count},
                        scratch, math::LatitudeGeometry(H), H, &cr, pads,
-                       std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) +
-                           sweep);
+                       std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep,
+                       seeing ? &pose : nullptr);
     }();
 #if HS_ENABLE_TEST_HOOKS
     ++mesh_capture_counters.face_setups;
@@ -1981,8 +2368,10 @@ struct Mesh {
     if (shape.y_min > shape.y_max ||
         (window.active && !face_meets_window(shape, window, cr)))
       return;
+    auto *projections =
+        sweep > 0.0f ? new_face_projection_columns<W>(arena) : nullptr;
     raster_face<W, H>(pipeline, canvas, shape, copy.face, fragment_shader,
-                      face_shader_setup, time, sweep);
+                      face_shader_setup, time, sweep, projections);
   }
 
   /**
@@ -2375,11 +2764,25 @@ struct Mesh {
       math::TrigLUT<W, H>::init();
     const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
+    auto *projections =
+        sweep > 0.0f ? new_face_projection_columns<W>(scratch_arena) : nullptr;
     const float *azimuth_pads = time ? time->mesh.face_pads : nullptr;
     if (!azimuth_pads) {
       float *pads = scratch_arena.allocate_n<float>(H);
       fill_face_pads<W, H>(pads, sweep);
       azimuth_pads = pads;
+    }
+    const float *compact_pads = time ? time->mesh.compact_face_pads : nullptr;
+    const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
+    if (sweep > 0.0f && !compact_pads) {
+      float *filled = scratch_arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep));
+      compact_pads = filled;
+    }
+    if (sweep > 0.0f && !wide_pads) {
+      float *filled = scratch_arena.allocate_n<float>(H);
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep, 64));
+      wide_pads = filled;
     }
     const float bounds_margin =
         std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;
@@ -2403,12 +2806,16 @@ struct Mesh {
 
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const Spacetime::TimeWindow &window = canvas.time_window();
+    const FaceClipPlanes<W, H> clip_planes(cr, bounds_margin +
+                                                   SDF::MOVED_AXIS_SLACK);
     const uint8_t *selected_faces =
         canvas.column_basis() ? canvas.column_basis()->mesh.selected_faces
                               : nullptr;
     const uint8_t drawn_face = window.active ? Scan::detail::FacePass::ARM_COPY
                                              : Scan::detail::FacePass::SHARED;
     for (size_t i = 0; i < num_f; ++i) {
+      if (time && !mesh_visible(time->mesh.visible_faces, i))
+        continue;
       size_t count = fc[i];
 
       HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
@@ -2420,11 +2827,22 @@ struct Mesh {
                                           mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
+      SDF::FaceBoundsPose pose;
+      if (SDF::Face::phi_band_rejects(verts, indices, math::LatitudeGeometry(H),
+                                      H, bounds_margin, &cr))
+        continue;
+      bool culled;
+      const bool seeing =
+          face_bounds_pose<W, H>(verts, indices, time, pose, compact_pads,
+                                 wide_pads, clip_planes, culled);
+      if (culled)
+        continue;
       // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
-                         &cr, azimuth_pads, bounds_margin);
+                         &cr, azimuth_pads, bounds_margin,
+                         seeing ? &pose : nullptr, true);
       }();
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.face_setups;
@@ -2449,7 +2867,7 @@ struct Mesh {
       }
 
       raster_face<W, H>(pipeline, canvas, shape, i, fragment_shader,
-                        face_shader_setup, time, sweep);
+                        face_shader_setup, time, sweep, projections);
     }
   }
 

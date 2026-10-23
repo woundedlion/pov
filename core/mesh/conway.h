@@ -399,6 +399,26 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
 }
 
 /**
+ * @brief Applies transformers to vertices admitted by a visibility bitset.
+ * @tparam Transformers Vertex transformer types.
+ * @param mesh Mesh whose selected vertices are overwritten.
+ * @param bits Per-vertex visibility bits, or null to transform every vertex.
+ * @param transformers Vertex transformers, applied left to right.
+ */
+template <typename... Transformers>
+HS_HOT_FLASH_MEMBER HS_O3_FN void
+transform_selected_in_place(MeshState &mesh, const uint8_t *bits,
+                            const Transformers &...transformers) {
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    if (bits && !(bits[i / 8] & (1u << (i % 8))))
+      continue;
+    math::Vector v = mesh.vertices[i];
+    (..., (v = transformers(v)));
+    mesh.vertices[i] = v;
+  }
+}
+
+/**
  * @brief Applies each transformer to every vertex of a mesh in place.
  * @tparam Transformers Types of the vertex transformers (possibly none).
  * @param mesh Mesh whose vertices are overwritten; topology untouched.

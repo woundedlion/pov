@@ -1162,6 +1162,26 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
   effect.profile_select_preset(preset);
   HS_EXPECT_TRUE(effect.updateParameter("Trans Speed", trans_speed) ==
                  ParamSetResult::APPLIED);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *audit_path = std::getenv("HS_FACE_AUDIT_PIX");
+  Scan::face_audit_reference =
+      std::getenv("HS_FACE_AUDIT_REFERENCE") != nullptr;
+  const char *image_path = std::getenv("HS_FACE_AUDIT_IMAGES");
+  FILE *images = image_path ? std::fopen(image_path, "wb") : nullptr;
+  FILE *audit = audit_path ? std::fopen(audit_path, "wb") : nullptr;
+#pragma clang diagnostic pop
+  static FILE *audit_sink = nullptr;
+  audit_sink = audit;
+  if (audit)
+    Scan::face_audit_candidate = [](size_t face, int x, int y, float d,
+                                    bool convex) {
+      const uint32_t record[] = {
+          static_cast<uint32_t>(face), static_cast<uint32_t>(x),
+          static_cast<uint32_t>(y), std::bit_cast<uint32_t>(d),
+          static_cast<uint32_t>(convex)};
+      std::fwrite(record, sizeof(record), 1, audit_sink);
+    };
   Scan::MeshCaptureCounters window;
   [[maybe_unused]] size_t probes = 0;
   for (int frame = 1; frame <= frames; ++frame) {
@@ -1171,12 +1191,30 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
       effect.set_clip(0, H / 2, frame % 2 ? W / 2 : 0, frame % 2 ? W : W / 2);
     pin_frame_clock(frame);
     Scan::mesh_capture_counters = {};
+    std::fill_n(Scan::visibility_counts, 4, size_t(0));
     HS_SCAN_METRIC(hs::g_scan_metrics.reset());
     const size_t passes = IslamicBuildProbe::vertex_passes<W, H>();
     effect.draw_frame();
     effect.advance_display();
+    if (audit) {
+      const uint32_t record[] = {UINT32_MAX, static_cast<uint32_t>(frame), 0, 0,
+                                 0};
+      std::fwrite(record, sizeof(record), 1, audit);
+    }
+    if (images && ((frame >= 217 && frame <= 242) || frame >= 529)) {
+      const uint32_t index = static_cast<uint32_t>(frame);
+      std::fwrite(&index, sizeof(index), 1, images);
+      std::fwrite(effect.display_buffer(), sizeof(Pixel), W * H, images);
+    }
     const auto &w = Scan::mesh_capture_counters;
     HS_SCAN_METRIC(probes += hs::g_scan_metrics.pixels_tested);
+    if (report)
+      std::printf(
+          "  visibility %d faces %zu/%zu vertices %zu/%zu reach %.6f setups %zu\n",
+          frame, Scan::visibility_counts[1], Scan::visibility_counts[0],
+          Scan::visibility_counts[3], Scan::visibility_counts[2],
+          Scan::visibility_audit_reach, w.face_setups);
+
     if (report && w.deformations)
       std::printf(
           "  f %d deform %zu moving %zu path evaluations %zu (scan %zu) "
@@ -1207,6 +1245,12 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
                 scratch_arena_a.get_capacity(),
                 scratch_arena_b.get_lifetime_high_water_mark(),
                 scratch_arena_b.get_capacity());
+  Scan::face_audit_candidate = nullptr;
+  Scan::face_audit_reference = false;
+  if (images)
+    std::fclose(images);
+  if (audit)
+    std::fclose(audit);
   hs::clear_mock_time();
 }
 
