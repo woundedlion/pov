@@ -393,7 +393,7 @@ apply_generated_palette(const FieldSample &sample,
  * @param sample Field sample to color.
  * @param prepared Column state selected for linear noise interpolation.
  * @return Interpolated color and alpha. */
-HS_HOT_FLASH_MEMBER inline Color4
+HS_HOT_ITCM_MEMBER inline Color4
 apply_temporal_noise_palette(const FieldSample &sample,
                              const TemporalGeneratedPaletteState &prepared) {
   const auto &state = prepared.current;
@@ -429,7 +429,7 @@ apply_temporal_noise_palette(const FieldSample &sample,
  * @param sample Field sample to color.
  * @param prepared Column state with equal endpoint noise entries.
  * @return Interpolated color and alpha. */
-HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
+HS_HOT_ITCM_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
     const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
   const auto &state = prepared.current;
   const float value =

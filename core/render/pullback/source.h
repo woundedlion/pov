@@ -470,9 +470,9 @@ HS_HOT_FLASH_MEMBER inline float spiral(const math::Complex &input,
  * @return Field value in [-1, 1].
  */
 template <typename Params, typename Prepared>
-HS_HOT_FLASH_MEMBER inline float grid(const math::Complex &input,
-                                      const Params &params,
-                                      const Prepared &prepared) {
+HS_HOT_ITCM_MEMBER inline float grid(const math::Complex &input,
+                                     const Params &params,
+                                     const Prepared &prepared) {
   const float x = input.re * prepared.angle_cos + input.im * prepared.angle_sin;
   const float y =
       -input.re * prepared.angle_sin + input.im * prepared.angle_cos;

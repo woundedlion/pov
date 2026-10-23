@@ -72,6 +72,8 @@
  *  @brief Alias of `HS_FLASH_MEMBER` (selective -O3 plus `cold`), for inline,
  *         template and COMDAT functions, member or free; unlike `HS_COLD` it
  *         carries the optimization override. */
+/** @def HS_HOT_ITCM_MEMBER
+ *  @brief Non-inlined selectively optimized hot function resident in ITCM. */
 /** @def HS_NOINLINE_NOCLONE
  *  @brief noinline/noclone; no section or optimization change. */
 #if defined(__GNUC__) && !defined(__clang__)
@@ -79,6 +81,7 @@
 #define HS_FLASH_MEMBER HS_O3_FN __attribute__((cold, noinline, noclone))
 #define HS_FLASH_INLINE HS_O3_FN __attribute__((cold, noclone))
 #define HS_HOT_FLASH_MEMBER HS_O3_FN __attribute__((hot, noinline, noclone))
+#define HS_HOT_ITCM_MEMBER HS_O3_FN FASTRUN __attribute__((noinline, noclone))
 #define HS_COLD_MEMBER HS_FLASH_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
@@ -86,6 +89,7 @@
 #define HS_FLASH_MEMBER
 #define HS_FLASH_INLINE
 #define HS_HOT_FLASH_MEMBER
+#define HS_HOT_ITCM_MEMBER
 #define HS_COLD_MEMBER
 #define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
