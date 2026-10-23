@@ -95,14 +95,19 @@ revision `10df63d5432710f2ab22f1f726b7127ad0d6242e`. Their timing and size
 figures remain captured-source measurements; the correction has no device timing
 or performance claim.
 
-The independently verified final image at `10df63d5` has RAM1 code 171608 B,
-variables 312736 B, FLASH code 993656 B and FLASH data 851736 B. Its
-`.text.itcm` is 171600 B across six code banks, with 25000 B code padding and
-no added pins. Against `4e75923c`, RAM1 code rises 2272 B (2.219 KiB), variables
-are unchanged, FLASH data rises 72 B (0.070 KiB), and FLASH code rises 77016 B
-(75.211 KiB). This final-image footprint is separate from the capture-specific
-sizes retained in each report. Landed engine `acae73bd9dabc4f85bdaff3c030c645efb228ca5` adds test-only fixes
-and retains the same production code.
+The independently verified image at `f9c5c5efa6765489888265cc62524c68b3fe4e97`
+has RAM1 code 171496 B, variables 312736 B, FLASH code 993776 B and FLASH data
+851824 B. Its `.text.itcm` is 171488 B across six code banks, with 25112 B code
+padding and no added pins. Against `4e75923c`, RAM1 code rises 2160 B
+(2.109 KiB), variables are unchanged, FLASH data rises 160 B (0.156 KiB), and
+FLASH code rises 77136 B (75.328 KiB). This image's footprint is separate from
+the capture-specific sizes retained in each report.
+
+This revision stores prepared face metadata and tables together in draw-scoped
+arena storage; `SDF::Face` is an 8-byte generation-checked handle on 32-bit
+targets. The device captures predate this storage change and retain their
+captured-source timing measurements; this revision has no new device timing
+claim.
 
 Each report states its setup/warmup exclusion, complete-window denominator and
 strict validator diagnostics. Root-cycle/wall mismatches remain explicit;
