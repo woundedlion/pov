@@ -161,6 +161,7 @@ inline int run_animation_tests() {
   test_lace_fill_keeps_edge_band();
   test_sweep_phase_front_ordering();
   test_meshcarousel_face_phases_use_sweep_frame_and_slots();
+  test_meshcarousel_uniform_face_endpoints();
   test_terminator_sweep_orders_by_axis();
   test_terminator_sweep_fades_faces_over_fixed_frames();
   test_terminator_sweep_fade_sliders_apply_without_reschedule();

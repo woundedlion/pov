@@ -62,6 +62,9 @@ template <typename SegueT = Segue::Crossfade> class MeshCarousel {
                 "a segue's LOCAL_SWEEP must be static constexpr bool: the "
                 "per-face draw path reads it through a bare requires, which "
                 "reads a non-constant one as absent");
+  static_assert(
+      Segue::PolicyList<SegueT>::UNIFORM_FACE_ENDPOINTS_TYPED,
+      "a segue's UNIFORM_FACE_ENDPOINTS must be static constexpr bool");
   static_assert(Segue::PolicyList<SegueT>::SEQUENTIAL_PER_FACE,
                 "a per-face segue must schedule sequentially: schedule() and "
                 "retarget() rewrite the single policy instance's "
@@ -217,6 +220,15 @@ public:
     HS_CHECK(transformed.get_topology_size() >= sweep.num_faces(),
              "MeshCarousel: face classes do not cover the swept faces");
     out.clear();
+    constexpr bool UNIFORM_ENDPOINTS =
+        requires { requires SegueT::UNIFORM_FACE_ENDPOINTS; };
+    if constexpr (UNIFORM_ENDPOINTS) {
+      if (phase == 0.0f || phase == 1.0f) {
+        for (size_t face = 0; face < sweep.num_faces(); ++face)
+          out.push_back(phase);
+        return;
+      }
+    }
     for (size_t face = 0; face < sweep.num_faces(); ++face) {
       const math::Vector center = MeshOps::face_vertex_sum(
           sweep.vertices.data(), indices, offsets[face], counts[face]);
