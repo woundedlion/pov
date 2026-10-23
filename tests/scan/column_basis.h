@@ -1793,16 +1793,57 @@ inline void test_capture_window_faces() {
 }
 
 /**
- * @brief A vertex's arc bound covers the angle between its positions within
- *        a few percent, and a moving vertex's flags carry its reach.
+ * @brief Vertex arc bounds cover an independent angular reference, and
+ *        held vertices retain zero motion flags and reach.
  */
 inline void test_vertex_arc_and_reach_flags() {
-  for (const float angle : {0.0f, 0.01f, 0.3f, 0.9f, 1.0f, 1.2f, 2.0f, 3.0f}) {
-    HS_CONTEXT("angle", angle);
-    const math::Vector a(2, 0, 0), b(cosf(angle), sinf(angle), 0);
-    const float arc = Scan::vertex_arc(a, b);
-    HS_EXPECT_GE(arc, angle - 1e-6f);
-    HS_EXPECT_LE(arc, angle * 1.015f + 1e-6f);
+  const double U = std::numeric_limits<float>::epsilon() / 2.0;
+  // Dot/norm roundoff and one Newton-refined reciprocal square root.
+  const double COSINE_ROUNDING = 16 * U / (1 - 16 * U);
+  const double ROUNDING_ARC = std::acos(1 - COSINE_ROUNDING);
+  const double PIXELS_PER_RADIAN = 288 / (2 * std::acos(-1.0));
+  HS_EXPECT_LT(ROUNDING_ARC * PIXELS_PER_RADIAN, Scan::HELD_VERTEX_PIXELS);
+  auto reference = [](const math::Vector &a, const math::Vector &b) {
+    const double x = double(a.y) * b.z - double(a.z) * b.y;
+    const double y = double(a.z) * b.x - double(a.x) * b.z;
+    const double z = double(a.x) * b.y - double(a.y) * b.x;
+    const double dot =
+        double(a.x) * b.x + double(a.y) * b.y + double(a.z) * b.z;
+    return std::atan2(std::sqrt(x * x + y * y + z * z), dot);
+  };
+  for (const float scale : {1.0f, 1.5f, 0.65f, 0.35f}) {
+    for (const float angle :
+         {0.0f, 0.01f, 0.3f, 0.9f, 1.0f, 1.2f, 2.0f, 3.0f}) {
+      HS_CONTEXT("angle", angle);
+      const math::Vector a(2 * scale, 0, 0),
+          b(scale * cosf(angle), scale * sinf(angle), 0);
+      const double ANGLE = reference(a, b);
+      const float arc = Scan::vertex_arc(a, b);
+      HS_EXPECT_GE(arc, ANGLE - 1e-6);
+      const double UPPER =
+          ANGLE == 0 ? ROUNDING_ARC * 1.015 + 1e-6 : ANGLE * 1.015 + 1e-6;
+      HS_EXPECT_LE(arc, UPPER);
+    }
+  }
+  const math::Vector still_previous[] = {
+      {2, 0, 0}, {3, 0, 0}, {1.3f, 0, 0}, {0.7f, 0, 0}};
+  math::Vector still_current[4];
+  for (int i = 0; i < 4; ++i) {
+    still_current[i] = still_previous[i] * 0.5f;
+    HS_EXPECT_EQ(reference(still_previous[i], still_current[i]), 0.0);
+    HS_EXPECT_LT(Scan::vertex_arc(still_previous[i], still_current[i]) *
+                     PIXELS_PER_RADIAN,
+                 Scan::HELD_VERTEX_PIXELS);
+  }
+  uint8_t still_motion[4] = {255, 255, 255, 255};
+  Scan::flag_moving_vertices<288>(still_previous, still_current, 4,
+                                  still_motion);
+  uint8_t still_reach[4] = {255, 255, 255, 255};
+  Scan::flag_vertex_reaches<288>(still_previous, still_current, 4, still_reach);
+  for (int i = 0; i < 4; ++i) {
+    HS_EXPECT_EQ(still_motion[i], 0);
+    HS_EXPECT_EQ(still_reach[i], 0);
+    HS_EXPECT_EQ(Scan::vertex_reach(still_reach[i]), 0.0f);
   }
   // A reach level stands for at least the reach, and at most a third of an
   // octave more.
