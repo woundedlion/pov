@@ -205,4 +205,4 @@ Baseline mean render: 22.790 ms shipping versus 22.419 ms O3
 (1.017×). The configs use different boards. Global O3 minus shipping
 image size is +23,904 B FLASH code and +8,240 B ITCM.
 
-This historical global-O3 comparison and its image deltas retain the September 28 source pair at `0c02f3912a98677184d3cf43b31a5d468d4b8ba3`. The shipping sibling link points to the later October 7 sector-distance snapshot.
+This historical global-O3 comparison and its image deltas retain the September 28 source pair at `0c02f3912a98677184d3cf43b31a5d468d4b8ba3`. The shipping sibling link points to the later October 23 shipping capture of source `12ba76700`.
