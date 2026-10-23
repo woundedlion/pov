@@ -6,7 +6,7 @@ Replaces the prior 2026-09-24 unverified candidate report with a clean committed
 This report measures the September 28 source baseline. The unlanded convex-face
 AA candidate is measured separately in the matched comparison (supporting artifact removed).
 
-[Shipping sibling](../shipping/profile_islamicstars_teensy_2026-10-22.md).
+[Shipping sibling](../shipping/profile_islamicstars_teensy_2026-10-23.md).
 
 ## Setup
 
