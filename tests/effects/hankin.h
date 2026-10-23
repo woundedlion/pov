@@ -522,7 +522,7 @@ inline void test_hankinsolids_interlace_motion_is_seam_free() {
       steps.add(previous, current, W, H);
     previous.swap(current);
   }
-  steps.expect_continuous("hankin interlace");
+  expect_mesh_seam_continuous(steps, "hankin interlace");
   hs::clear_mock_time();
 }
 

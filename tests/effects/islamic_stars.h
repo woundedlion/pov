@@ -1197,7 +1197,7 @@ inline void test_islamicstars_playback_motion_is_seam_free() {
       steps.add(previous, current, W, H);
     previous.swap(current);
   }
-  steps.expect_continuous("islamic playback", 1.025, 1.062);
+  expect_mesh_seam_continuous(steps, "islamic playback", 1.025, 1.062);
   hs::clear_mock_time();
 }
 
