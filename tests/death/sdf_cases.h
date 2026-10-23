@@ -162,9 +162,9 @@ inline void case_sdf_bind_class_lut_offset_out_of_range() {
     idx[i] = static_cast<uint16_t>(i);
   }
   static SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const math::Vector>(verts, 3),
-                 std::span<const uint16_t>(idx, 3), scratch, HV, H, nullptr,
-                 nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts, 3),
+                         std::span<const uint16_t>(idx, 3), scratch, HV, H,
+                         nullptr, nullptr, SDF::BOUNDS_MARGIN);
   static const float canon_xy[6] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.0f, 0.5f};
   SDF::ClassLut lut;
   if (face.bind_class_lut(&lut, canon_xy, opaque(7), false))

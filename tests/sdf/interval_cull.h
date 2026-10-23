@@ -559,7 +559,8 @@ inline void test_face_arc_extrema_bounds() {
           const math::Vector n = math::cross(a, b).normalized();
           float min_phi = math::fast_acos(std::max(a.y, b.y));
           float max_phi = math::fast_acos(std::min(a.y, b.y));
-          SDF::Face::refine_phi_from_arc_extremum(n, a, b, min_phi, max_phi);
+          SDF::PreparedFace::refine_phi_from_arc_extremum(n, a, b, min_phi,
+                                                          max_phi);
           HS_EXPECT_NEAR(min_phi, std::acos(max_y), 2e-4);
           HS_EXPECT_NEAR(max_phi, std::acos(min_y), 2e-4);
         }
@@ -715,9 +716,9 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const math::Vector>(verts3d, sides),
-                 std::span<const uint16_t>(idx, sides), scratch, HV, H, nullptr,
-                 nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts3d, sides),
+                         std::span<const uint16_t>(idx, sides), scratch, HV, H,
+                         nullptr, nullptr, SDF::BOUNDS_MARGIN);
 
   const auto bounds = face.get_vertical_bounds<H>();
   for (int y : {bounds.y_min - 1, bounds.y_max + 1}) {
@@ -756,8 +757,8 @@ inline void test_face_hemisphere_clip_covers_fringe() {
         const auto verts = std::span<const math::Vector>(vertices, sides);
         const auto idx = std::span<const uint16_t>(indices, sides);
         SDF::FaceScratchBuffer reference_scratch;
-        const SDF::Face reference(verts, idx, reference_scratch, HV, H, nullptr,
-                                  nullptr, bounds_margin);
+        const SDF::PreparedFace reference(verts, idx, reference_scratch, HV, H,
+                                          nullptr, nullptr, bounds_margin);
         std::vector<uint8_t> reference_visited;
         cull_visited<W, H>(reference, reference_visited);
         std::vector<float> distances(W * H);
@@ -776,8 +777,8 @@ inline void test_face_hemisphere_clip_covers_fringe() {
                                   .w = W,
                                   .h = H};
             SDF::FaceScratchBuffer clipped_scratch;
-            const SDF::Face clipped(verts, idx, clipped_scratch, HV, H, &clip,
-                                    nullptr, bounds_margin);
+            const SDF::PreparedFace clipped(verts, idx, clipped_scratch, HV, H,
+                                            &clip, nullptr, bounds_margin);
             const bool early_rejected = reference.phi_band_rejects(
                 verts, idx, reference.build_geometry, H, bounds_margin, &clip);
             early_rejects += early_rejected;
@@ -812,8 +813,8 @@ inline void test_face_azimuth_cull_matches_boundary_column() {
                                 math::Vector(1.0f, -0.1f, -0.1f).normalized()};
   const uint16_t INDICES[] = {0, 1, 2};
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(VERTS, INDICES, scratch, math::LatitudeGeometry(H), H, nullptr,
-                 nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(VERTS, INDICES, scratch, math::LatitudeGeometry(H), H,
+                         nullptr, nullptr, SDF::BOUNDS_MARGIN);
   std::array<float, H> pads;
   pads.fill(0.05f);
   SDF::Interval interval{0x1.e3930ap-1f, 1.1f};
@@ -877,10 +878,11 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
   const uint16_t indices[] = {0, 1, 2};
   build_regular_face(basis, 3, 0.025f, 0.0f, vertices);
   SDF::FaceScratchBuffer original_scratch, widened_scratch;
-  SDF::Face original(vertices, indices, original_scratch, HV, H, nullptr,
-                     nullptr, SDF::BOUNDS_MARGIN);
-  SDF::Face widened(vertices, indices, widened_scratch, HV, H, nullptr, nullptr,
-                    std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
+  SDF::PreparedFace original(vertices, indices, original_scratch, HV, H,
+                             nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace widened(vertices, indices, widened_scratch, HV, H, nullptr,
+                            nullptr,
+                            std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W));
   const auto original_bounds = original.get_vertical_bounds<H>();
   const auto widened_bounds = widened.get_vertical_bounds<H>();
   int original_misses = 0;
@@ -902,9 +904,9 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
   HS_EXPECT_GT(original_misses, 0);
 
   SDF::FaceScratchBuffer shipping_scratch;
-  SDF::Face shipping(vertices, indices, shipping_scratch, HV, H, nullptr,
-                     nullptr,
-                     std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / 288));
+  SDF::PreparedFace shipping(
+      vertices, indices, shipping_scratch, HV, H, nullptr, nullptr,
+      std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / 288));
   const auto shipping_bounds = shipping.get_vertical_bounds<H>();
   HS_EXPECT_EQ(shipping_bounds.y_min, original_bounds.y_min);
   HS_EXPECT_EQ(shipping_bounds.y_max, original_bounds.y_max);
@@ -912,7 +914,7 @@ inline void test_face_vertical_margin_tracks_pixel_width() {
 
 /** @brief Records the columns emitted by Face's fixed equatorial pad. */
 template <int W, int H>
-inline void face_fixed_pad_visited(const SDF::Face &face,
+inline void face_fixed_pad_visited(const SDF::PreparedFace &face,
                                    std::vector<uint8_t> &visited) {
   visited.assign(static_cast<size_t>(W) * H, 0);
   auto bounds = face.template get_vertical_bounds<H>();
@@ -942,7 +944,7 @@ inline void face_fixed_pad_visited(const SDF::Face &face,
 
 /** @brief Counts paintable pixels missed before and after latitude widening. */
 template <int W, int H>
-inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
+inline std::pair<int, int> face_fringe_misses(const SDF::PreparedFace &face) {
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
   std::vector<uint8_t> fixed_visited;
@@ -994,9 +996,9 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     uint16_t idx[6];
     build_regular_face(basis, cfg.sides, cfg.rho, 0.0f, verts, idx);
     SDF::FaceScratchBuffer scratch;
-    SDF::Face face(std::span<const math::Vector>(verts, cfg.sides),
-                   std::span<const uint16_t>(idx, cfg.sides), scratch, HV, H,
-                   nullptr, nullptr, SDF::BOUNDS_MARGIN);
+    SDF::PreparedFace face(std::span<const math::Vector>(verts, cfg.sides),
+                           std::span<const uint16_t>(idx, cfg.sides), scratch,
+                           HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
     const auto misses = face_fringe_misses<W, H>(face);
     HS_EXPECT_LE(misses.second, misses.first);
     fixed_misses += misses.first;
@@ -1036,16 +1038,16 @@ inline int expect_pole_vertex_face_matches_full_scan(float pole_y) {
     idx[i] = static_cast<uint16_t>(i);
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const math::Vector>(verts, N_VERTS),
-                 std::span<const uint16_t>(idx, N_VERTS), scratch, HV, H,
-                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  SDF::PreparedFace face(std::span<const math::Vector>(verts, N_VERTS),
+                         std::span<const uint16_t>(idx, N_VERTS), scratch, HV,
+                         H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
   // Pins the setup on the BOUNDARY branch: !full_width alone also holds for a
   // face that misses the pole entirely.
   const float inv_c = 1.0f / std::abs(face.center.y);
   const float sgn = face.center.y > 0 ? 1.0f : -1.0f;
   HS_EXPECT_TRUE(face.pole_hit(sgn * face.basis_u.y * inv_c,
                                sgn * face.basis_w.y * inv_c) ==
-                 SDF::Face::PoleHit::BOUNDARY);
+                 SDF::PreparedFace::PoleHit::BOUNDARY);
   HS_EXPECT_TRUE(!face.full_width);
 
   hs_test::StubEffect fx(W, H);

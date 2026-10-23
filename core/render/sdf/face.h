@@ -13,6 +13,9 @@
 #include <cstdint>
 #include <span>
 #include <new>
+#include <memory>
+#include <type_traits>
+#include <utility>
 #include "core/math/geometry.h"
 #include "core/platform/constants.h"
 #include "core/render/clip.h"
@@ -146,13 +149,13 @@ struct FaceBoundsPose {
 };
 
 /**
- * @brief Represents a planar face for SDF rendering.
+ * @brief Prepared projection, bounds and distance state for one planar face.
  * @details The span members view the FaceScratchBuffer handed to the
  * constructor and own none of it: the buffer must outlive the Face and back no
  * other live Face, since building a second Face over it retargets the first.
  * get_vertical_bounds() traps on a retargeted Face.
  */
-struct Face {
+struct PreparedFace {
   static constexpr float AZIMUTH_ERROR =
       2e-5f;           ///< Vertex azimuth error, radians.
   math::Vector center; /**< Normalized face centroid (projection axis). */
@@ -184,7 +187,7 @@ struct Face {
   std::span<Interval> intervals;   /**< Azimuth coverage intervals (radians). */
   bool full_width;                 /**< True when the face spans all columns. */
   static constexpr bool is_solid =
-      true; /**< Face renders as a filled region. */
+      true; /**< PreparedFace renders as a filled region. */
 
   using EdgePacked =
       FaceScratchBuffer::EdgePacked;  /**< Packed per-edge record type. */
@@ -192,10 +195,11 @@ struct Face {
   using HalfPlane =
       FaceScratchBuffer::HalfPlane; /**< Convex edge half-plane record type. */
   std::span<const HalfPlane>
-      half_planes;          /**< Outward unit edge normals (convex faces). */
-  bool convex = false;      /**< 2D projection is convex; distance() takes the
+      half_planes;     /**< Outward unit edge normals (convex faces). */
+  bool convex = false; /**< 2D projection is convex; distance() takes the
                                half-plane path. */
-  bool linear_dist = false; /**< Face is small enough to report plane distance
+  bool linear_dist =
+      false; /**< PreparedFace is small enough to report plane distance
                                without the atan. */
 
   static constexpr int SECTOR_MIN_COUNT =
@@ -258,7 +262,7 @@ struct Face {
    * @brief Builds a face on an explicit pole-to-pole virtual grid.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
-   * @param scratch Scratch storage the spans alias; exclusive to this Face for
+   * @param scratch Scratch storage the spans alias; exclusive to this PreparedFace for
    *        its whole lifetime.
    * @param virtual_height Rows spanning pole to pole; must reproduce the
    *        display geometry's first and last rows.
@@ -267,14 +271,14 @@ struct Face {
    * @param azimuth_pads Optional latitude-adjusted padding table.
    * @param bounds_margin Angular padding around the vertical bounds.
    */
-  HS_HOT_FLASH_MEMBER Face(std::span<const math::Vector> vertices,
-                           std::span<const uint16_t> indices,
-                           FaceScratchBuffer &scratch, int virtual_height,
-                           int height, const ClipRegion *clip,
-                           const float *azimuth_pads, float bounds_margin)
-      : Face(vertices, indices, scratch,
-             virtual_grid_geometry(virtual_height, height), height, clip,
-             azimuth_pads, bounds_margin) {
+  HS_HOT_FLASH_MEMBER
+  PreparedFace(std::span<const math::Vector> vertices,
+               std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
+               int virtual_height, int height, const ClipRegion *clip,
+               const float *azimuth_pads, float bounds_margin)
+      : PreparedFace(vertices, indices, scratch,
+                     virtual_grid_geometry(virtual_height, height), height,
+                     clip, azimuth_pads, bounds_margin) {
     const math::LatitudeGeometry DISPLAY_GEOMETRY(height);
     HS_CHECK(build_geometry.row_to_phi(0) == DISPLAY_GEOMETRY.row_to_phi(0) &&
                  build_geometry.row_to_phi(height - 1) ==
@@ -286,8 +290,8 @@ struct Face {
    * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
-   * @param scratch Scratch storage the spans alias; exclusive to this Face for
-   *        its whole lifetime, and reusable only once the Face is dead.
+   * @param scratch Scratch storage the spans alias; exclusive to this PreparedFace for
+   *        its whole lifetime, and reusable only once the PreparedFace is dead.
    * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
@@ -298,12 +302,12 @@ struct Face {
    *        rendering antialiasing fringes must pass at least `2π / width`.
    */
   HS_HOT_FLASH_MEMBER
-  Face(std::span<const math::Vector> vertices,
-       std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
-       const math::LatitudeGeometry &geometry, int height,
-       const ClipRegion *clip, const float *azimuth_pads, float bounds_margin,
-       const FaceBoundsPose *bounds_pose = nullptr,
-       bool latitude_checked = false)
+  PreparedFace(std::span<const math::Vector> vertices,
+               std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
+               const math::LatitudeGeometry &geometry, int height,
+               const ClipRegion *clip, const float *azimuth_pads,
+               float bounds_margin, const FaceBoundsPose *bounds_pose = nullptr,
+               bool latitude_checked = false)
       : build_height(height), build_geometry(geometry),
         build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
         full_width(true) {
@@ -314,7 +318,7 @@ struct Face {
   /**
    * @brief Builds projected geometry and raster tables.
    * @param vertices Shared vertex pool.
-   * @param indices Face vertex indices.
+   * @param indices PreparedFace vertex indices.
    * @param scratch Exclusive face scratch storage.
    * @param geometry Display latitude mapping.
    * @param height Canvas height in rows.
@@ -330,7 +334,7 @@ struct Face {
       const FaceBoundsPose *bounds_pose, bool latitude_checked) {
     count = indices.size();
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
-             "Face: vertex count must be in (0, MAX_VERTS]");
+             "PreparedFace: vertex count must be in (0, MAX_VERTS]");
 
     // Early vertical exit: a face whose latitude band (plus AA margin) maps to
     // an empty row range can never be rasterized.
@@ -494,6 +498,126 @@ struct Face {
 
 #include "core/render/sdf/face_geometry.h"
 };
+
+/** @brief Draw-scoped face tables and prepared geometry. */
+struct FaceStorage {
+  FaceScratchBuffer tables; ///< Reusable vertex and edge tables.
+  union {
+    PreparedFace geometry; ///< Derived projection, bounds and distance state.
+  };
+  uint32_t generation = 0; ///< Advances before any geometry replacement.
+
+  /** @brief Leaves geometry uninitialized until a face is prepared. */
+  FaceStorage() {}
+  FaceStorage(const FaceStorage &) = delete;
+  FaceStorage &operator=(const FaceStorage &) = delete;
+};
+
+static_assert(std::is_trivially_destructible_v<PreparedFace>);
+
+/** @brief Generation-checked handle to one prepared face. */
+struct Face {
+private:
+  FaceStorage *storage; ///< Arena storage containing the current preparation.
+  uint32_t claim;       ///< Generation captured by this handle.
+
+  /** @brief Validates the handle's captured storage generation. */
+  void validate() const {
+    HS_CHECK(claim == storage->generation, "SDF::Face storage was retargeted");
+  }
+
+public:
+  static constexpr bool is_solid = true; ///< Filled-region SDF leaf.
+
+  /** @brief Prepares geometry in reusable face storage.
+   * @tparam Args Display geometry and bounds argument types.
+   * @param vertices Shared vertex pool.
+   * @param indices Face vertex indices.
+   * @param storage Exclusive draw-scoped face storage.
+   * @param args Display geometry and bounds arguments. */
+  template <typename... Args>
+  Face(std::span<const math::Vector> vertices,
+       std::span<const uint16_t> indices, FaceStorage &storage, Args &&...args)
+      : storage(&storage), claim(++storage.generation) {
+    std::construct_at(&storage.geometry, vertices, indices, storage.tables,
+                      std::forward<Args>(args)...);
+  }
+
+  /** @brief Binds mutable geometry for this storage generation.
+   * @return Current prepared geometry; stale handles trap. */
+  PreparedFace &prepared() {
+    validate();
+    return storage->geometry;
+  }
+
+  /** @brief Binds immutable geometry for this storage generation.
+   * @return Current prepared geometry; stale handles trap. */
+  const PreparedFace &prepared() const {
+    validate();
+    return storage->geometry;
+  }
+
+  /** @brief Returns the prepared inclusive row bounds.
+   * @tparam H Canvas height in rows.
+   * @return Inclusive row bounds. */
+  template <int H> Bounds get_vertical_bounds() const {
+    return prepared().template get_vertical_bounds<H>();
+  }
+
+  /** @brief Emits prepared azimuth intervals for a row.
+   * @tparam W,H Canvas dimensions.
+   * @tparam OutputIt Interval sink type.
+   * @param y Raster row.
+   * @param out Interval sink.
+   * @return Whether the row was handled. */
+  template <int W, int H, typename OutputIt>
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    return prepared().template get_horizontal_intervals<W, H>(y, out);
+  }
+
+  /** @brief Reports whether intervals vary across a latitude band.
+   * @tparam W,H Canvas dimensions.
+   * @param first,last Inclusive row band.
+   * @return Whether the scan requires per-row interval construction. */
+  template <int W, int H>
+  bool horizontal_intervals_vary_by_row(int first, int last) const {
+    return prepared().template horizontal_intervals_vary_by_row<W, H>(first,
+                                                                      last);
+  }
+
+  /** @brief Compares the prepared intervals at two rows.
+   * @tparam W,H Canvas dimensions.
+   * @param first,second Raster rows.
+   * @return Whether both rows emit identical rounded intervals. */
+  template <int W, int H>
+  bool horizontal_intervals_equal_rows(int first, int second) const {
+    return prepared().template horizontal_intervals_equal_rows<W, H>(first,
+                                                                     second);
+  }
+
+  /** @brief Evaluates the prepared signed distance.
+   * @tparam ComputeUVs Whether shader registers are requested.
+   * @param p Unit query direction.
+   * @param res Output distance and shader registers.
+   * @param reject_dsq Outside-distance rejection threshold squared. */
+  template <bool ComputeUVs = true>
+  void distance(const math::Vector &p, DistanceResult &res,
+                float reject_dsq = FLT_MAX) const {
+    prepared().template distance<ComputeUVs>(p, res, reject_dsq);
+  }
+
+  /** @brief Certifies a distance report's clearance.
+   * @param threshold Required clearance.
+   * @param point Optional unit query direction.
+   * @return Whether the report bounds the required clearance. */
+  bool supports_distance_report(float threshold,
+                                const math::Vector *point = nullptr) const {
+    return prepared().supports_distance_report(threshold, point);
+  }
+};
+
+static_assert(sizeof(Face) == 2 * sizeof(void *));
+static_assert(SDFShape<PreparedFace>);
 
 // Leaf roster for the CSG composition contract.
 static_assert(SDFShape<Face>);

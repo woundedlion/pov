@@ -540,7 +540,7 @@ inline void test_sentinel_clampers_are_not_blendable() {
   static_assert(!SDF::blends_smoothly<SDF::Ring>);
   static_assert(!SDF::blends_smoothly<SDF::DistortedRing>);
   static_assert(!SDF::blends_smoothly<SDF::FlatDistortedRing>);
-  static_assert(!SDF::blends_smoothly<SDF::Face>);
+  static_assert(!SDF::blends_smoothly<SDF::PreparedFace>);
   static_assert(SDF::blends_smoothly<SDF::Line>);
   static_assert(SDF::blends_smoothly<SDF::PlanarPolygon>);
   static_assert(SDF::blends_smoothly<SDF::SphericalPolygon>);

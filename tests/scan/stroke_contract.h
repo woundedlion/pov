@@ -124,7 +124,7 @@ struct CsgStretchFixture {
 
 /**
  * @brief CSG forwards report stretch and supported reject bands.
- * @details SDF::Face reports gnomonic-plane distance, whose stretch over an
+ * @details SDF::PreparedFace reports gnomonic-plane distance, whose stretch over an
  * angular step is 1 + max_dist_sq. A Union of two differently sized faces
  * reports the larger factor either way round.
  */
@@ -147,12 +147,14 @@ inline void test_report_stretch_forwards_through_csg() {
     large_idx[i] = static_cast<uint16_t>(i + 3);
   }
   static SDF::FaceScratchBuffer small_scratch, large_scratch;
-  const SDF::Face small(std::span<const math::Vector>(verts, 6),
-                        std::span<const uint16_t>(small_idx, 3), small_scratch,
-                        HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
-  const SDF::Face large(std::span<const math::Vector>(verts, 6),
-                        std::span<const uint16_t>(large_idx, 3), large_scratch,
-                        HV, H, nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  const SDF::PreparedFace small(std::span<const math::Vector>(verts, 6),
+                                std::span<const uint16_t>(small_idx, 3),
+                                small_scratch, HV, H, nullptr, nullptr,
+                                SDF::BOUNDS_MARGIN);
+  const SDF::PreparedFace large(std::span<const math::Vector>(verts, 6),
+                                std::span<const uint16_t>(large_idx, 3),
+                                large_scratch, HV, H, nullptr, nullptr,
+                                SDF::BOUNDS_MARGIN);
 
   HS_EXPECT_TRUE(Scan::supports_distance_report(small, .049f));
   HS_EXPECT_FALSE(Scan::supports_distance_report(small, .051f));
@@ -168,7 +170,7 @@ inline void test_report_stretch_forwards_through_csg() {
   HS_EXPECT_EQ(
       (Scan::pole_lod_settle_block<96, true>(-.07f, .06f, 2, 1.0f, small)),
       Scan::BlockSettle::INTERIOR);
-  const SDF::Union<SDF::Face, SDF::Face> combined{small, large};
+  const SDF::Union<SDF::PreparedFace, SDF::PreparedFace> combined{small, large};
   HS_EXPECT_TRUE(Scan::supports_distance_report(combined, .049f));
   HS_EXPECT_FALSE(Scan::supports_distance_report(combined, .051f));
   HS_EXPECT_EQ((Scan::pole_lod_settle_block<96, true>(SDF::FAR_SENTINEL, .06f,
@@ -191,9 +193,10 @@ inline void test_report_stretch_forwards_through_csg() {
   const auto just_culled =
       (small.center + small.basis_u * (small.max_dist + .0001f)).normalized();
   HS_EXPECT_FALSE(Scan::supports_distance_report(small, .06f, &just_culled));
-  const SDF::AngularRepeat<SDF::Face> repeat(small, 3, basis.v);
+  const SDF::AngularRepeat<SDF::PreparedFace> repeat(small, 3, basis.v);
   HS_EXPECT_FALSE(Scan::supports_distance_report(repeat, .06f, &small.center));
-  Scan::PreparedDistance<SDF::AngularRepeat<SDF::Face>> prepared_repeat(repeat);
+  Scan::PreparedDistance<SDF::AngularRepeat<SDF::PreparedFace>> prepared_repeat(
+      repeat);
   prepared_repeat.prepare_row(repeat, .06f, 0.0f, 1.0f);
   HS_EXPECT_FALSE(prepared_repeat.row_supported);
   HS_EXPECT_FALSE(prepared_repeat.supports(repeat, &small.center));
@@ -203,22 +206,28 @@ inline void test_report_stretch_forwards_through_csg() {
   HS_EXPECT_GT(large_stretch, small_stretch);
 
   HS_EXPECT_EQ(
-      Scan::report_stretch(SDF::Union<SDF::Face, SDF::Face>{small, large}),
+      Scan::report_stretch(
+          SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
       large_stretch);
   HS_EXPECT_EQ(
-      Scan::report_stretch(SDF::Union<SDF::Face, SDF::Face>{large, small}),
-      large_stretch);
-  HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::Intersection<SDF::Face, SDF::Face>{small, large}),
-               large_stretch);
-  HS_EXPECT_EQ(
-      Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{small, large}),
+      Scan::report_stretch(
+          SDF::Union<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
       large_stretch);
   HS_EXPECT_EQ(Scan::report_stretch(
-                   SDF::Intersection<SDF::Face, SDF::Face>{large, small}),
+                   SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
+                       small, large}),
                large_stretch);
   HS_EXPECT_EQ(
-      Scan::report_stretch(SDF::Subtract<SDF::Face, SDF::Face>{large, small}),
+      Scan::report_stretch(
+          SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{small, large}),
+      large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace>{
+                       large, small}),
+               large_stretch);
+  HS_EXPECT_EQ(
+      Scan::report_stretch(
+          SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace>{large, small}),
       large_stretch);
   const CsgStretchFixture smooth_small{small_stretch},
       smooth_large{large_stretch};
@@ -230,9 +239,9 @@ inline void test_report_stretch_forwards_through_csg() {
                    SDF::SmoothUnion<CsgStretchFixture, CsgStretchFixture>{
                        smooth_large, smooth_small, 0.1f}),
                large_stretch);
-  HS_EXPECT_EQ(
-      Scan::report_stretch(SDF::AngularRepeat<SDF::Face>(large, 3, basis.v)),
-      large_stretch);
+  HS_EXPECT_EQ(Scan::report_stretch(
+                   SDF::AngularRepeat<SDF::PreparedFace>(large, 3, basis.v)),
+               large_stretch);
 }
 
 /** @brief Prepared Face reports preserve distances and certify uniform rows. */
@@ -255,10 +264,10 @@ inline void test_prepared_face_reports_match_unprepared() {
                             .normalized();
         }
         SDF::FaceScratchBuffer scratch;
-        const SDF::Face face(vertices, indices, scratch,
-                             math::LatitudeGeometry(H), H, nullptr, nullptr,
-                             SDF::BOUNDS_MARGIN);
-        Scan::PreparedDistance<SDF::Face> prepared(face);
+        const SDF::PreparedFace face(vertices, indices, scratch,
+                                     math::LatitudeGeometry(H), H, nullptr,
+                                     nullptr, SDF::BOUNDS_MARGIN);
+        Scan::PreparedDistance<SDF::PreparedFace> prepared(face);
         for (int y = 0; y < H; ++y) {
           prepared.prepare_row(face, .08f, math::TrigLUT<W, H>::sin_phi[y],
                                math::TrigLUT<W, H>::cos_phi[y]);
@@ -313,11 +322,12 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   StubEffect effect(W, H);
   Canvas canvas(effect);
   SDF::FaceScratchBuffer scratch, far_scratch;
-  const SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(H), H,
-                       nullptr, nullptr, math::TWO_PI_F / W);
-  const SDF::Face far(far_vertices, indices, far_scratch,
-                      math::LatitudeGeometry(H), H, nullptr, nullptr,
-                      math::TWO_PI_F / W);
+  const SDF::PreparedFace face(vertices, indices, scratch,
+                               math::LatitudeGeometry(H), H, nullptr, nullptr,
+                               math::TWO_PI_F / W);
+  const SDF::PreparedFace far(far_vertices, indices, far_scratch,
+                              math::LatitudeGeometry(H), H, nullptr, nullptr,
+                              math::TWO_PI_F / W);
   HS_EXPECT_TRUE(face.convex);
   HS_EXPECT_TRUE(far.convex);
   const auto triangle_distance = [&](int x, int y) {
@@ -348,10 +358,12 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
   HS_EXPECT_GT(triangle_distance(91, 17), PIXEL_WIDTH);
   HS_EXPECT_GT(triangle_distance(91, 14), 0.0);
   HS_EXPECT_LT(triangle_distance(91, 14), PIXEL_WIDTH);
-  const SDF::Union<SDF::Face, SDF::Face> combined{face, far};
-  const SDF::Intersection<SDF::Face, SDF::Face> intersection{face, face};
-  const SDF::Subtract<SDF::Face, SDF::Face> carved{face, far};
-  const SDF::Union<decltype(intersection), SDF::Face> nested{intersection, far};
+  const SDF::Union<SDF::PreparedFace, SDF::PreparedFace> combined{face, far};
+  const SDF::Intersection<SDF::PreparedFace, SDF::PreparedFace> intersection{
+      face, face};
+  const SDF::Subtract<SDF::PreparedFace, SDF::PreparedFace> carved{face, far};
+  const SDF::Union<decltype(intersection), SDF::PreparedFace> nested{
+      intersection, far};
   struct CoverageSink {
     std::vector<float> coverage = std::vector<float>(W * H);
     void plot(Canvas &, int x, int y, const Pixel &, float, float alpha) {

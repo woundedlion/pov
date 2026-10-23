@@ -636,7 +636,7 @@ private:
   // plan_motion()'s cap radii are freed before the scan's face scratch and
   // face selection take their place.
   static_assert(MAX_BUILD_FACES * sizeof(float) <=
-                MAX_BUILD_FACES + sizeof(SDF::FaceScratchBuffer));
+                MAX_BUILD_FACES + sizeof(SDF::FaceStorage));
 
   /** @brief One ripple's frame constants and mutable capture sample. */
   struct MotionRipple {

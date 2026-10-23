@@ -34,7 +34,7 @@ inline uint8_t probe_b_buf[768 * 1024];           /**< Op scratch arena. */
 inline uint8_t probe_seed_buf[512 * 1024];        /**< Held seed arena. */
 inline SDF::FaceScratchBuffer probe_face_scratch; /**< Face setup scratch. */
 
-/** Canvas rows the shipping mesh raster uses; SDF::Face's cull decision is
+/** Canvas rows the shipping mesh raster uses; SDF::PreparedFace's cull decision is
  * taken against this geometry. */
 inline constexpr int PROBE_H = 144;
 inline constexpr int PROBE_HV = PROBE_H + hs::H_OFFSET;
@@ -95,11 +95,11 @@ inline void face_centroids(const PolyMesh &m, std::vector<math::Vector> &out) {
   }
 }
 
-/** @brief Whether SDF::Face rejects a face outright (collapsed or off-band). */
+/** @brief Whether SDF::PreparedFace rejects a face outright (collapsed or off-band). */
 inline bool face_is_culled(const PolyMesh &m, size_t off, int n) {
   if (static_cast<size_t>(n) > SDF::FaceScratchBuffer::MAX_VERTS)
     return false;
-  SDF::Face face(
+  SDF::PreparedFace face(
       std::span<const math::Vector>(m.vertices.data(), m.vertices.size()),
       std::span<const uint16_t>(m.faces.data() + off, static_cast<size_t>(n)),
       probe_face_scratch, PROBE_HV, PROBE_H, nullptr, nullptr,
@@ -515,8 +515,8 @@ inline void test_truncate50d_far_side_sweep_holds_topology() {
 
 /**
  * @brief Finds the smallest chamfer t at which no newborn hexagon is rejected
- *        by SDF::Face's collapsed-area cull, per seed.
- * @details Bisects the SDF::Face COLLAPSED_AREA_RATIO boundary and bounds it
+ *        by SDF::PreparedFace's collapsed-area cull, per seed.
+ * @details Bisects the SDF::PreparedFace COLLAPSED_AREA_RATIO boundary and bounds it
  * against T_EPS, which must clear the cull outright.
  */
 inline void test_chamfer_birth_epsilon() {

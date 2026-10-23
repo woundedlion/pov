@@ -61,8 +61,8 @@ struct FaceProjectionColumn {
    * @param e Column azimuth.
    * @param v Column up.
    */
-  HS_HOT_INLINE void prepare(const SDF::Face &face, const math::Vector &e,
-                             const math::Vector &v) {
+  HS_HOT_INLINE void prepare(const SDF::PreparedFace &face,
+                             const math::Vector &e, const math::Vector &v) {
     azimuth[0] = math::dot(e, face.center);
     azimuth[1] = math::dot(e, face.basis_u);
     azimuth[2] = math::dot(e, face.basis_w);
@@ -98,8 +98,8 @@ new_face_projection_columns(Arena &arena) {
  *         inactive.
  */
 HS_HOT_FLASH_MEMBER inline bool
-face_meets_window(const SDF::Face &shape, const Spacetime::TimeWindow &window,
-                  const ClipRegion &clip) {
+face_meets_window(const SDF::PreparedFace &shape,
+                  const Spacetime::TimeWindow &window, const ClipRegion &clip) {
   if (!window.active)
     return true;
   const int arm = window.arm(clip.w);
@@ -199,11 +199,10 @@ HS_O3_BEGIN
  */
 template <int W, int H, typename PipelineT, bool MinimalFragment,
           bool COLUMN_TIME, bool INLINE_RUNS, typename FragmentShaderT>
-HS_HOT_INLINE inline void
-rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-                    FragmentShaderT &fragment_shader,
-                    const Scan::ColumnBasis *time,
-                    FaceProjectionColumn *projections) {
+HS_HOT_INLINE inline void rasterize_face_body(
+    PipelineT &pipeline, Canvas &canvas, const SDF::PreparedFace &shape,
+    FragmentShaderT &fragment_shader, const Scan::ColumnBasis *time,
+    FaceProjectionColumn *projections) {
   const auto &cr = source_clip<W, H>(pipeline, canvas);
   const auto xc = cr.x_clip();
 
@@ -232,9 +231,10 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     // Each span wraps into <= 2 seam pieces, each clip-split into <= 2 runs.
     StaticCircularBuffer<SDF::Interval, 4> intervals;
     static_assert(decltype(intervals)::CAPACITY >=
-                      SDF::sdf_max_spans<SDF::Face>::value,
+                      SDF::sdf_max_spans<SDF::PreparedFace>::value,
                   "intervals must hold a Face's per-row emission");
-    static_assert(MAX_RUNS >= 4 * SDF::sdf_max_spans<SDF::Face>::value + 1,
+    static_assert(MAX_RUNS >=
+                      4 * SDF::sdf_max_spans<SDF::PreparedFace>::value + 1,
                   "runs must hold every span seam-split, clip-split and "
                   "arm-split");
     bool handled = shape.template get_horizontal_intervals<W, H>(
@@ -316,28 +316,29 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   [[maybe_unused]] const float plane_stretch = report_stretch(shape);
   float radial_cull = shape.max_dist;
   {
-    const float shade_reach = (probe_flags & SDF::Face::PROBE_LINEAR)
+    const float shade_reach = (probe_flags & SDF::PreparedFace::PROBE_LINEAR)
                                   ? PIXEL_WIDTH
                                   : tanf(PIXEL_WIDTH);
     radial_cull = shape.radius + shade_reach;
-    if (probe_flags & SDF::Face::PROBE_HAS_LUT)
+    if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
       radial_cull += (shape.lut_q_safe + 1) * shape.lut_dequant;
   }
   const float min_cos = 1.0f / sqrtf(1.0f + radial_cull * radial_cull);
   [[maybe_unused]] float block_min_cos = min_cos;
-  if constexpr (pole_lod_blocks<SDF::Face>) {
+  if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
     if (Render::pole_lod_aggressiveness > 0.0f) {
       float lod_reach = Render::pole_lod_aggressiveness * PIXEL_WIDTH;
       if constexpr (COLUMN_TIME)
         lod_reach += column_rotation * (Render::POLE_LOD_MAX_RUN - 1);
       const float block_reach = std::min(
-          PIXEL_WIDTH + lod_reach * SDF::arc_stretch<SDF::Face> * plane_stretch,
-          SDF::reject_margin<SDF::Face>);
+          PIXEL_WIDTH +
+              lod_reach * SDF::arc_stretch<SDF::PreparedFace> * plane_stretch,
+          SDF::reject_margin<SDF::PreparedFace>);
       float block_radius =
-          shape.radius + ((probe_flags & SDF::Face::PROBE_LINEAR)
+          shape.radius + ((probe_flags & SDF::PreparedFace::PROBE_LINEAR)
                               ? block_reach
                               : tanf(block_reach));
-      if (probe_flags & SDF::Face::PROBE_HAS_LUT)
+      if (probe_flags & SDF::PreparedFace::PROBE_HAS_LUT)
         block_radius += (shape.lut_q_safe + 1) * shape.lut_dequant;
       block_min_cos = 1.0f / sqrtf(1.0f + block_radius * block_radius);
     }
@@ -360,13 +361,14 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     float block_slack = 0.0f;
     float reject_dsq = base_reject_dsq;
     float reject_plane = base_reject_rad;
-    if constexpr (pole_lod_blocks<SDF::Face>) {
+    if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
       if constexpr (COLUMN_TIME)
-        block_slack = (pole_lod_slack<W, SDF::Face>(stride, sp) +
+        block_slack = (pole_lod_slack<W, SDF::PreparedFace>(stride, sp) +
                        column_rotation * static_cast<float>(stride - 1) *
-                           SDF::arc_stretch<SDF::Face>)*plane_stretch;
+                           SDF::arc_stretch<SDF::PreparedFace>)*plane_stretch;
       else
-        block_slack = pole_lod_slack<W, SDF::Face>(stride, sp) * plane_stretch;
+        block_slack =
+            pole_lod_slack<W, SDF::PreparedFace>(stride, sp) * plane_stretch;
       // the block test reads d, so the cull must not sentinel a probe inside
       // its threshold
       const float reject_rad = (PIXEL_WIDTH + block_slack) * 1.0002f;
@@ -377,7 +379,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
     for (size_t r = 0; r < num_runs; ++r) {
       const int rx2 = runs[r].second;
       [[maybe_unused]] int next_block = runs[r].first;
-      if constexpr (pole_lod_blocks<SDF::Face>)
+      if constexpr (pole_lod_blocks<SDF::PreparedFace>)
         if (stride > 1)
           next_block = pole_lod_block_anchor(next_block, stride);
       // A column-time run lies on one arm: the far arm reads the near arm's
@@ -402,14 +404,15 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         }
         float probe_min_cos = min_cos;
         [[maybe_unused]] bool block_fits = false;
-        if constexpr (pole_lod_blocks<SDF::Face>) {
+        if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
           block_fits = x + stride <= rx2;
           if (stride > 1 && x == next_block && block_fits &&
-              probe_bounds_block<SDF::Face>(PIXEL_WIDTH, block_slack))
+              probe_bounds_block<SDF::PreparedFace>(PIXEL_WIDTH, block_slack))
             probe_min_cos = block_min_cos;
         }
         const float convex_reject =
-            (probe_flags & SDF::Face::PROBE_LINEAR) ? reject_plane : FLT_MAX;
+            (probe_flags & SDF::PreparedFace::PROBE_LINEAR) ? reject_plane
+                                                            : FLT_MAX;
         if constexpr (COLUMN_TIME) {
           const int column = x - arm_offset;
           FaceProjectionColumn &projection = projections[column];
@@ -434,7 +437,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         // Columns this one shade covers: a canvas-aligned block within the run
         // that the surface cannot cross; edge-holding blocks stay per-column.
         int span = 1;
-        if constexpr (pole_lod_blocks<SDF::Face>) {
+        if constexpr (pole_lod_blocks<SDF::PreparedFace>) {
           if (stride > 1 && x == next_block) {
             next_block += stride;
             if (block_fits && pole_lod_settle_with_slack<true>(
@@ -534,7 +537,7 @@ rasterize_face_body(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
 HS_HOT_FLASH_MEMBER void rasterize_face(PipelineT &pipeline, Canvas &canvas,
-                                        const SDF::Face &shape,
+                                        const SDF::PreparedFace &shape,
                                         FragmentShaderT &fragment_shader) {
   rasterize_face_body<W, H, PipelineT, MinimalFragment, false, true>(
       pipeline, canvas, shape, fragment_shader, nullptr, nullptr);
@@ -556,7 +559,7 @@ HS_HOT_FLASH_MEMBER void rasterize_face(PipelineT &pipeline, Canvas &canvas,
 template <int W, int H, typename PipelineT, bool MinimalFragment = false,
           typename FragmentShaderT>
 HS_NOINLINE_NOCLONE inline void rasterize_face_column_time(
-    PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+    PipelineT &pipeline, Canvas &canvas, const SDF::PreparedFace &shape,
     FragmentShaderT &fragment_shader, const Scan::ColumnBasis &time,
     FaceProjectionColumn *projections) {
   rasterize_face_body<W, H, PipelineT, MinimalFragment, true, false>(
@@ -576,7 +579,7 @@ HS_O3_END
 template <int W, int H>
 HS_FLASH_MEMBER void fill_swept_face_pads(float *pads, float sweep) {
   const float reach =
-      math::TWO_PI_F / W + 2.0f * SDF::Face::AZIMUTH_ERROR + sweep;
+      math::TWO_PI_F / W + 2.0f * SDF::PreparedFace::AZIMUTH_ERROR + sweep;
   for (int y = 0; y < H; ++y) {
     const float sin_phi = math::TrigLUT<W, H>::sin_phi[y];
     pads[y] = sin_phi <= reach ? math::PI_F : asinf(reach / sin_phi);
@@ -603,14 +606,13 @@ template <int W, int H> HS_O3_FN void fill_face_pads(float *pads, float sweep) {
 }
 
 /**
- * @brief Arena-hosts one per-mesh Face scratch buffer.
+ * @brief Arena-hosts one reusable face geometry and table slot.
  * @param arena Scratch arena supplying the storage.
- * @return The constructed buffer, valid until the caller's ScratchScope closes.
- * @details Default-initialized; SDF::Face writes every field before reading it.
+ * @return Storage valid until the caller's ScratchScope closes.
+ * @details Geometry is constructed separately for each admitted face.
  */
-HS_NOINLINE_NOCLONE inline SDF::FaceScratchBuffer *
-new_face_scratch(Arena &arena) {
-  return arena.make_default_initialized<SDF::FaceScratchBuffer>();
+HS_NOINLINE_NOCLONE inline SDF::FaceStorage *new_face_storage(Arena &arena) {
+  return arena.make_default_initialized<SDF::FaceStorage>();
 }
 
 /**
@@ -1745,14 +1747,14 @@ inline constexpr float SWEEP_ROW_REACH = 1.25f * math::TWO_PI_F / W;
  *        sweep time at a time.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Per frame it projects the face's vertices, as SDF::Face projects
+ * @details Per frame it projects the face's vertices, as SDF::PreparedFace projects
  * them, about the vertex centroid at the frame's middle, at the frame's
  * start, middle and end, and fits each projected vertex, a convex face's
  * half-planes and the face's size as quadratics in time through those
  * three. Per column pair it evaluates the fits by Horner's rule and finds
  * where the pair's meridian, a line in the projection, crosses the edges. A pixel is inside
  * where the meridian, walked from the pole away from the face, has crossed
- * an odd number of edges on the way to it; its distance is SDF::Face's: the
+ * an odd number of edges on the way to it; its distance is SDF::PreparedFace's: the
  * worst half-plane's on a convex face, else the nearest projected edge's, in
  * radians for a face whose size is. Its rows are those within
  * SWEEP_ROW_REACH of the crossings and of the vertices near the meridian, on
@@ -1833,7 +1835,7 @@ public:
   }
 
   /** @brief The size shading normalizes by at the column pair column()
-   *  stood the face at, as SDF::Face::size.
+   *  stood the face at, as SDF::PreparedFace::size.
    *  @return Plane units or, for a large face, radians. */
   float size() const { return face_size; }
 
@@ -2040,7 +2042,7 @@ public:
 
 private:
   /// Size, in plane units, below which a face reports plane distances, as
-  /// SDF::Face does.
+  /// SDF::PreparedFace does.
   static constexpr float LINEAR_SIZE = 0.2f;
 
   /** @brief A quadratic in time through values at t = 0, 1/2 and 1. */
@@ -2092,7 +2094,7 @@ private:
     return length2 > 0.0f ? v * (1.0f / sqrtf(length2)) : v;
   }
 
-  /// Projects a direction, any length, about the axis as SDF::Face does.
+  /// Projects a direction, any length, about the axis as SDF::PreparedFace does.
   HS_FLASH_INLINE void project(const math::Vector &v, float &px,
                                float &py) const {
     float depth = math::dot(v, axis);
@@ -2120,7 +2122,7 @@ private:
   }
 
   /**
-   * @brief Finds whether the standing polygon is convex, as SDF::Face finds
+   * @brief Finds whether the standing polygon is convex, as SDF::PreparedFace finds
    *        it, and its half-planes if so.
    * @param area2 Twice its signed area.
    * @return Whether it is.
@@ -2209,7 +2211,7 @@ private:
 
 HS_O3_BEGIN
 /**
- * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face.
+ * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::PreparedFace.
  * @details Without a face-shader setup callback the face index reaches the
  * shader in register v2; with one, it reaches the shader only through what
  * the callback hoists.
@@ -2225,7 +2227,7 @@ struct Mesh {
    * @param faces Flat per-face vertex index array.
    * @param num_indices Entries in @p faces.
    * @param num_verts Vertices the mesh carries.
-   * @details SDF::Face indexes the vertex pool through an unchecked std::span.
+   * @details SDF::PreparedFace indexes the vertex pool through an unchecked std::span.
    */
   HS_NOINLINE_NOCLONE
   static void check_face_index_domain(const uint16_t *faces, size_t num_indices,
@@ -2255,12 +2257,11 @@ struct Mesh {
    */
   template <int W, int H, typename PipelineT, typename FragmentShaderT,
             typename FaceShaderSetupT>
-  HS_HOT_INLINE static void
-  raster_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
-              size_t i, FragmentShaderT &fragment_shader,
-              FaceShaderSetupT &face_shader_setup,
-              const Scan::ColumnBasis *time, float sweep,
-              FaceProjectionColumn *projections) {
+  HS_HOT_INLINE static void raster_face(
+      PipelineT &pipeline, Canvas &canvas, const SDF::PreparedFace &shape,
+      size_t i, FragmentShaderT &fragment_shader,
+      FaceShaderSetupT &face_shader_setup, const Scan::ColumnBasis *time,
+      float sweep, FaceProjectionColumn *projections) {
 #if HS_ENABLE_TEST_HOOKS
     face_audit_index = i;
 #endif
@@ -2322,7 +2323,7 @@ struct Mesh {
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     ScratchScope scope(arena);
-    SDF::FaceScratchBuffer &scratch = *new_face_scratch(arena);
+    SDF::FaceStorage &storage = *new_face_storage(arena);
     const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
     const float *pads = time ? time->mesh.face_pads : nullptr;
@@ -2355,13 +2356,14 @@ struct Mesh {
         compact_pads, wide_pads, clip_planes, culled);
     if (culled)
       return;
-    SDF::Face shape = [&]() HS_HOT_INLINE {
+    SDF::Face face = [&]() HS_HOT_INLINE {
       HS_PROFILE(scan_face_setup);
       return SDF::Face({copy.vertices, copy.count}, {copy.indices, copy.count},
-                       scratch, math::LatitudeGeometry(H), H, &cr, pads,
+                       storage, math::LatitudeGeometry(H), H, &cr, pads,
                        std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep,
                        seeing ? &pose : nullptr);
     }();
+    SDF::PreparedFace &shape = face.prepared();
 #if HS_ENABLE_TEST_HOOKS
     ++mesh_capture_counters.face_setups;
 #endif
@@ -2386,7 +2388,7 @@ struct Mesh {
    * @param canvas Destination canvas.
    * @param mesh The mesh.
    * @param fragment_shader Shader, as draw_impl() takes it.
-   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param scratch_arena Arena supplying per-face SDF::PreparedFace scratch storage.
    * @param bake Optional congruence-class bake for this mesh.
    * @param face_shader_setup As draw_impl() takes it.
    */
@@ -2733,7 +2735,7 @@ struct Mesh {
    *                        @p face_shader_setup it receives the face index in
    *                        register v2. v2 is a float, so the index is exact
    *                        only up to 2^24 faces.
-   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param scratch_arena Arena supplying per-face SDF::PreparedFace scratch storage.
    * @param bake Optional congruence-class bake for this mesh (null = exact
    *        distance path for every face). When present, each face is
    *        aligned to its canonical class shape after construction and the
@@ -2759,7 +2761,7 @@ struct Mesh {
       check_fragment_shader(fragment_shader);
 
     ScratchScope scope(scratch_arena);
-    auto *scratch = new_face_scratch(scratch_arena);
+    auto *storage = new_face_storage(scratch_arena);
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
@@ -2828,8 +2830,8 @@ struct Mesh {
       std::span<const uint16_t> indices(fi + fo[i], count);
 
       SDF::FaceBoundsPose pose;
-      if (SDF::Face::phi_band_rejects(verts, indices, math::LatitudeGeometry(H),
-                                      H, bounds_margin, &cr))
+      if (SDF::PreparedFace::phi_band_rejects(
+              verts, indices, math::LatitudeGeometry(H), H, bounds_margin, &cr))
         continue;
       bool culled;
       const bool seeing =
@@ -2838,12 +2840,13 @@ struct Mesh {
       if (culled)
         continue;
       // IIFE scopes HS_PROFILE to Face construction (prvalue elided in place).
-      SDF::Face shape = [&] {
+      SDF::Face face = [&] {
         HS_PROFILE(scan_face_setup);
-        return SDF::Face(verts, indices, *scratch, math::LatitudeGeometry(H), H,
+        return SDF::Face(verts, indices, *storage, math::LatitudeGeometry(H), H,
                          &cr, azimuth_pads, bounds_margin,
                          seeing ? &pose : nullptr, true);
       }();
+      SDF::PreparedFace &shape = face.prepared();
 #if HS_ENABLE_TEST_HOOKS
       ++mesh_capture_counters.face_setups;
 #endif
@@ -2881,7 +2884,7 @@ struct Mesh {
    * @param mesh Mesh providing vertices, face counts, indices, and offsets.
    * @param fragment_shader Shader invoked per covered pixel; receives the
    *        face index in register v2.
-   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param scratch_arena Arena supplying per-face SDF::PreparedFace scratch storage.
    * @param bake Optional congruence-class bake for this mesh.
    */
   template <int W, int H, typename PipelineT>
@@ -2905,7 +2908,7 @@ struct Mesh {
    * @tparam FaceShaderSetupT Callable `void(size_t face, float size)`.
    * @param fragment_shader Shader invoked per covered pixel; must write
    *        frag.color unconditionally.
-   * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
+   * @param scratch_arena Arena supplying per-face SDF::PreparedFace scratch storage.
    * @param bake Optional congruence-class bake for this mesh.
    * @param face_shader_setup Non-null callback run once before each face.
    */

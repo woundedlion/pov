@@ -228,6 +228,7 @@ inline int run_sdf_tests() {
   test_face_randomized_backtracking_matches_oracle();
   test_face_tied_rows_match_oracle();
   test_face_shipping_recipes_match_oracle();
+  test_face_handle_reuses_arena_storage();
   test_face_distance_matches_exact_oracle();
   test_face_convex_rejection_cutoff();
   test_face_plane_box_rejection();

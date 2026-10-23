@@ -1131,6 +1131,12 @@ inline const Case *all_cases(int &n) {
            "(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 && "
            "cr.render_y_end() <= H) scan clip region outside the canvas and trig "
            "LUT domain"},
+          {"face_handle_retargeted_by_early_cull",
+           case_face_handle_retargeted_by_early_cull, "core/render/sdf/face.h",
+           "(claim == storage->generation) SDF::Face storage was retargeted"},
+          {"face_handle_mutable_retargeted",
+           case_face_handle_mutable_retargeted, "core/render/sdf/face.h",
+           "(claim == storage->generation) SDF::Face storage was retargeted"},
           {"face_scratch_retargeted", case_face_scratch_retargeted,
            "core/render/sdf/face_geometry.h",
            "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "

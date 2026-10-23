@@ -172,6 +172,7 @@ struct Ring;
 struct DistortedRing;
 struct FlatDistortedRing;
 struct Face;
+struct PreparedFace;
 struct PlanarPolygon;
 struct SphericalPolygon;
 struct Star;
@@ -226,6 +227,9 @@ template <> struct sdf_max_spans<Line> {
 template <> struct sdf_max_spans<Face> {
   static constexpr size_t value = 2; ///< Max spans per row.
 };
+/// Prepared face geometry emits the handle's bounded azimuth spans.
+template <> struct sdf_max_spans<PreparedFace> : sdf_max_spans<Face> {};
+
 // AngularRepeat replays the child's spans once per copy, capped independently
 // of the child (past the cap it requests a full scan and emits nothing).
 /// AngularRepeat is capped at ANGULAR_REPEAT_SPAN_CAP spans.
@@ -290,6 +294,8 @@ template <> inline constexpr bool blends_smoothly<DistortedRing> = false;
 template <> inline constexpr bool blends_smoothly<FlatDistortedRing> = false;
 /// Face may report FAR_SENTINEL outside, so it does not blend.
 template <> inline constexpr bool blends_smoothly<Face> = false;
+/// Prepared face geometry may report the far sentinel.
+template <> inline constexpr bool blends_smoothly<PreparedFace> = false;
 /// AngularRepeat blends when its child does.
 template <typename Shape>
 inline constexpr bool blends_smoothly<AngularRepeat<Shape>> =
@@ -349,6 +355,9 @@ template <>
 inline constexpr float reject_margin<Face> =
     BOUNDS_MARGIN_WIDE -
     BOUNDS_MARGIN_WIDE * BOUNDS_MARGIN_WIDE * BOUNDS_MARGIN_WIDE / 3.0f;
+/// Prepared face geometry has the handle's exact-report reach.
+template <>
+inline constexpr float reject_margin<PreparedFace> = reject_margin<Face>;
 /// AngularRepeat inherits its child's margin.
 template <typename Shape>
 inline constexpr float reject_margin<AngularRepeat<Shape>> =
@@ -394,6 +403,9 @@ template <>
 inline constexpr float arc_stretch<FlatDistortedRing> = ARC_STRETCH_PLANE;
 /// Face is bounded by the shared ARC_STRETCH_PLANE factor.
 template <> inline constexpr float arc_stretch<Face> = ARC_STRETCH_PLANE;
+/// Prepared face geometry has the handle's projection stretch.
+template <>
+inline constexpr float arc_stretch<PreparedFace> = arc_stretch<Face>;
 /// SphericalPolygon is bounded by the shared ARC_STRETCH_PLANE factor.
 template <>
 inline constexpr float arc_stretch<SphericalPolygon> = ARC_STRETCH_PLANE;
