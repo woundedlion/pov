@@ -149,6 +149,7 @@ int main() {
   test_splat_coverage();
   test_blur_coverage();
   test_feedback_endpoint_rings();
+  hs_test::pole_geometry::check_feedback_device_budget<W, H>();
   test_render_caps();
   return fixture.result() ? 1 : 0;
 }
