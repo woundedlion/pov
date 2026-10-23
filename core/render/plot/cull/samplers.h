@@ -29,6 +29,27 @@ azimuthal_project(const math::Vector &p, const math::Basis &basis) {
 }
 
 /**
+ * @brief azimuthal_project() without its fast-trigonometry error.
+ * @param p Unit sphere point to project.
+ * @param basis Projection basis; center is basis.v, axes basis.u/basis.w.
+ * @return Plane coordinates as azimuthal_project() gives them.
+ * @details The azimuth's cosine and sine are the point's tangent components
+ * over their length, so the coordinates turn exactly with the point about the
+ * center: charts whose axes do not turn with a shape keep its chart-straight
+ * edges rigid.
+ */
+static inline std::pair<float, float>
+azimuthal_project_exact(const math::Vector &p, const math::Basis &basis) {
+  const float along_u = math::dot(p, basis.u);
+  const float along_w = math::dot(p, basis.w);
+  const float tangent = sqrtf(along_u * along_u + along_w * along_w);
+  if (tangent < math::EPS_GEOMETRIC)
+    return {0.0f, 0.0f};
+  const float scale = atan2f(tangent, math::dot(p, basis.v)) / tangent;
+  return {along_u * scale, along_w * scale};
+}
+
+/**
  * @brief Inverse azimuthal-equidistant projection from the plane to the sphere.
  * @param px Plane x-coordinate (azimuthal-equidistant).
  * @param py Plane y-coordinate (azimuthal-equidistant).

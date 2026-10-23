@@ -102,12 +102,14 @@ inline int run_plot_scan_tests() {
   test_timed_mesh_endpoint_cache();
   test_column_edge_quality();
   test_column_crossing_parameter_bound();
+  test_quadratic_screen_capture_meets_surface();
   test_column_basis_crossing_orientation();
   test_column_walk_arm_boundary_coverage();
   test_column_walk_terminal_on_shrinking_edge();
   test_column_edge_cull_is_conservative();
   test_column_edge_cull_keeps_padded_point_sets();
   test_column_steady_lattice();
+  test_column_source_basis_transport();
   test_column_capture_reads_vertex_paths();
   test_column_plan_covers_lit_columns();
   test_column_mesh_batch_cull();
@@ -118,6 +120,13 @@ inline int run_plot_scan_tests() {
   test_column_walk_seam_taps_shade_at_their_times();
   test_trail_gate_uses_motion_region();
   test_four_regular_and_medial_edge_extraction();
+  test_point_route_polar_sweep_support();
+  test_geometry_callback_aggregate_contract();
+  test_point_route_piece_tap_policy();
+  test_point_route_physical_speed_covers_equator_cell();
+  test_point_route_small_chord_certificate();
+  test_point_route_physical_curvature_bound();
+  test_point_route_curved_cap_enters_clip();
   test_point_route_matches_column_oracle();
   test_point_route_gate_keeps_visible_taps();
   test_point_route_shades_at_pass_time();

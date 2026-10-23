@@ -204,8 +204,8 @@ public:
    * @param pass Downstream 2D callback receiving each weighted tap.
    */
   template <typename PassFnT>
-  void plot(float x, float y, const ::Pixel &c, float age, float alpha,
-            PassFnT &&pass) {
+  HS_HOT_INLINE void plot(float x, float y, const ::Pixel &c, float age,
+                          float alpha, PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
     const SplatTaps t = splat_taps<W, H>(x, y);
 

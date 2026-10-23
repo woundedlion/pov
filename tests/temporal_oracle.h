@@ -94,6 +94,9 @@ void seam_compare_render(Render render, const char *name, float share = 1.0f) {
       endpoint_total += endpoint_error;
       displaced_total += displaced_error;
       worst = std::max(worst, error);
+      if (error > displaced_error + 1e-5f)
+        std::printf("  frozen %s column %d: error=%.9f displaced=%.9f\n", name,
+                    x, error, displaced_error);
       displacement_failures += error > displaced_error + 1e-5f;
     }
   }

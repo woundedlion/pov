@@ -693,6 +693,18 @@ inline void test_column_steady_lattice() {
     const math::Vector ends[2] = {a, b};
     Plot::GeodesicEdgeSampler arcs[2];
     const int got = Frame::steady_lattice<W, H>(starts, ends, 4, arcs);
+    const math::RotationMatrix end_to_start(motion);
+    Plot::GeodesicEdgeSampler carried[2];
+    const int transported =
+        Frame::steady_lattice<W, H>(starts, ends, 4, carried, &end_to_start);
+    if (transported > 0) {
+      const math::Vector expected =
+          math::rotate(Frame::lattice_point(arcs[1], 0.37f), motion);
+      const math::Vector actual = Frame::lattice_point(carried[0], 0.37f);
+      HS_EXPECT_EQ(transported,
+                   Frame::lattice(Frame::pieces_of<W, H>(carried[0])));
+      HS_EXPECT_LT((actual - expected).magnitude(), 0.0002f);
+    }
     const int start_count = Frame::lattice(
         Frame::pieces_of<W, H>(Frame::arc(starts[0], starts[1])));
     const int end_count =
@@ -717,11 +729,97 @@ inline void test_column_steady_lattice() {
       }
     }
   }
+  for (const float column : {0.4f, 71.2f, 143.4f, 215.3f}) {
+    const math::Vector ends[2] = {
+        math::pixel_to_vector<W, H>(column, 45.3f),
+        math::pixel_to_vector<W, H>(column + 2.1f, 46.2f)};
+    const auto rotation =
+        math::make_rotation(math::Vector(0.3f, 1.0f, 0.2f).normalized(), 0.02f);
+    const math::RotationMatrix transform(rotation);
+    const math::Vector starts[2] = {math::rotate(ends[0], rotation),
+                                    math::rotate(ends[1], rotation)};
+    auto render = [&](bool carried) {
+      hs_test::StubEffect effect(W, H);
+      Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> sink;
+      {
+        Canvas canvas(effect);
+        Plot::PointRoute<W, H> route;
+        route.prepare(canvas, 0.02f);
+        auto shade = [](float, float) {
+          return Color4(Pixel(65535, 32768, 16384), 0.3f);
+        };
+        if (carried) {
+          HS_EXPECT_TRUE((Plot::Mesh::plot_steady_edge<W, H>(
+              route, sink, canvas, starts, ends, 16, shade, &transform)));
+        } else {
+          Plot::GeodesicEdgeSampler arcs[2];
+          const int count = Frame::steady_lattice<W, H>(starts, ends, 16, arcs);
+          HS_EXPECT_GT(count, 1);
+          for (int k = 0; k < count; ++k) {
+            const auto end =
+                k == 0 ? ends[0]
+                       : Frame::lattice_point(arcs[1], float(k) / count);
+            route.plot(
+                sink, canvas, end, [&] { return math::rotate(end, rotation); },
+                [&](float t) { return shade(float(k) / count, t); });
+          }
+        }
+      }
+      effect.advance_display();
+      std::vector<Pixel> pixels;
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          pixels.push_back(effect.get_pixel(x, y));
+      return pixels;
+    };
+    const auto reference = render(false), candidate = render(true);
+    uint32_t energy = 0;
+    for (size_t i = 0; i < reference.size(); ++i) {
+      energy += reference[i].r;
+      HS_EXPECT_LE(abs(int(reference[i].r) - int(candidate[i].r)), 32);
+    }
+    HS_EXPECT_GT(energy, 1000u);
+  }
   std::printf("  [steady lattice] steady %d, unsteady %d, beyond %d\n", steady,
               unsteady, beyond);
   HS_EXPECT_GT(steady, 100);
   HS_EXPECT_GT(unsteady, 10);
   HS_EXPECT_GT(beyond, 100);
+}
+
+/** @brief Rigid world poses preserve each shaded source arc coordinate. */
+inline void test_column_source_basis_transport() {
+  constexpr int W = 288, H = 144;
+  Spacetime::set_flat_surface(false);
+  hs_test::StubEffect effect(W, H);
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+  Canvas canvas(effect);
+  ScratchScope storage(scratch_arena_a), cache(scratch_arena_b);
+  const TimedMeshFixture mesh{{math::pixel_to_vector<W, H>(45.3f, 34.8f),
+                               math::pixel_to_vector<W, H>(73.4f, 62.1f),
+                               math::X_AXIS}};
+  const math::Vector axis = math::Vector(0.2f, 0.7f, -0.4f).normalized();
+  const math::Quaternion history[] = {math::make_rotation(axis, 0.31f),
+                                      math::make_rotation(axis, 0.39f)};
+  Spacetime::PoseTable poses;
+  poses.bind(scratch_arena_a, W);
+  poses.build(history, 2);
+  ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
+  edges.push_back({0, 1});
+  const auto normal =
+      math::cross(mesh.vertices[0], mesh.vertices[1]).normalized();
+  const float length = acosf(math::dot(mesh.vertices[0], mesh.vertices[1]));
+  uint32_t samples = 0;
+  auto shader = [&](const math::Vector &p, Fragment &f, float) {
+    ++samples;
+    HS_EXPECT_NEAR(math::dot(p, normal), 0.0f, 0.0001f);
+    HS_EXPECT_NEAR(math::dot(p, mesh.vertices[0]), cosf(length * f.v0),
+                   0.0001f);
+    f.color = Color4(Pixel(65535, 32768, 16384), 0.3f);
+  };
+  Plot::Mesh::draw_column_edges<W, H>(pipeline, canvas, mesh, edges, shader, {},
+                                      0.0f, &poses, 0.08f);
+  HS_EXPECT_GT(samples, 20u);
 }
 
 /** @brief A per-vertex path bound replaces the shared one when the column
@@ -781,6 +879,7 @@ inline void test_column_plan_covers_lit_columns() {
         span.total};
   };
   uint32_t lit_passes = 0, empty_passes = 0, skipped = 0, slack_count = 0;
+  uint32_t trimmed = 0;
   float slack = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
     auto a0 = unit();
@@ -812,41 +911,50 @@ inline void test_column_plan_covers_lit_columns() {
                math::centered_remainder(float(x) - low, float(W)) <=
                    fabsf(span) + 0.5f;
     }
-    for (const int direction : {1, -1}) {
-      Plot::detail::ColumnSegment segments[2];
-      const int count = frame.plan<W>(direction, segments);
-      for (int pass = 0; pass < 2; ++pass) {
-        const auto offset = [&](int x) {
-          return direction > 0 ? x - pass * PASS : pass * PASS + PASS - 1 - x;
-        };
-        int first = -1;
-        for (int k = 0; k < PASS && first < 0; ++k) {
-          const int x =
-              direction > 0 ? pass * PASS + k : pass * PASS + PASS - 1 - k;
-          if (lit[x])
-            first = k;
-        }
-        const Plot::detail::ColumnSegment *walk = nullptr;
-        for (int i = 0; i < count; ++i)
-          if (segments[i].start / PASS == pass)
-            walk = &segments[i];
-        if (first < 0) {
-          ++empty_passes;
-          skipped += walk == nullptr;
-          continue;
-        }
-        ++lit_passes;
-        HS_EXPECT(walk != nullptr, "a lit pass gets a walk");
-        if (walk == nullptr)
-          continue;
-        const int start = offset(walk->start);
-        HS_EXPECT(start <= first, "the walk starts at or before the lit run");
-        HS_EXPECT(first - start < walk->deadline,
-                  "the walk reaches the lit run before giving up");
-        HS_EXPECT_EQ(start + walk->count, PASS);
-        if (walk->deadline < PASS) {
-          slack += float(first - start);
-          ++slack_count;
+    for (const bool bounded : {false, true}) {
+      for (const int direction : {1, -1}) {
+        Plot::detail::ColumnSegment segments[2];
+        const int count = frame.plan<W>(direction, segments, bounded);
+        for (int pass = 0; pass < 2; ++pass) {
+          const auto offset = [&](int x) {
+            return direction > 0 ? x - pass * PASS : pass * PASS + PASS - 1 - x;
+          };
+          int first = -1;
+          for (int k = 0; k < PASS && first < 0; ++k) {
+            const int x =
+                direction > 0 ? pass * PASS + k : pass * PASS + PASS - 1 - k;
+            if (lit[x])
+              first = k;
+          }
+          const Plot::detail::ColumnSegment *walk = nullptr;
+          for (int i = 0; i < count; ++i)
+            if (segments[i].start / PASS == pass)
+              walk = &segments[i];
+          if (first < 0) {
+            ++empty_passes;
+            skipped += walk == nullptr;
+            continue;
+          }
+          ++lit_passes;
+          HS_EXPECT(walk != nullptr, "a lit pass gets a walk");
+          if (walk == nullptr)
+            continue;
+          const int start = offset(walk->start);
+          HS_EXPECT(start <= first, "the walk starts at or before the lit run");
+          HS_EXPECT(first - start < walk->deadline,
+                    "the walk reaches the lit run before giving up");
+          if (!bounded)
+            HS_EXPECT_EQ(start + walk->count, PASS);
+          else {
+            trimmed += start + walk->count < PASS;
+            for (int x = pass * PASS; x < (pass + 1) * PASS; ++x)
+              if (lit[x])
+                HS_EXPECT_LT(offset(x), start + walk->count);
+          }
+          if (walk->deadline < PASS) {
+            slack += float(first - start);
+            ++slack_count;
+          }
         }
       }
     }
@@ -855,6 +963,7 @@ inline void test_column_plan_covers_lit_columns() {
   std::printf("  [column plan] lit passes %u (bounded %u), empty %u skipped "
               "%u, mean leading slack %.2f\n",
               lit_passes, slack_count, empty_passes, skipped, mean);
+  HS_EXPECT_GT(trimmed, 100u);
   HS_EXPECT_GT(lit_passes, 2000u);
   HS_EXPECT_GT(slack_count, lit_passes * 3 / 4);
   HS_EXPECT_GT(skipped, empty_passes * 9 / 10);

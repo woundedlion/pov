@@ -1351,6 +1351,7 @@ files define line-ending policy and working-artifact exclusions.
 │   │   ├── plot/                   Per-family plot headers (cull, raster, shapes,
 │   │   │                            mesh, particles, chords)
 │   │   │   ├── raster_walk.h           Raster sample setup, shading, plotting and planar arc registers included by raster.h
+│   │   │   ├── polar_walk.h            Column-time strokes in display-pole equidistant charts
 │   │   │   ├── column_walk.h           Geometry callbacks and column-time edge walk included by raster.h
 │   │   │   ├── point_route.h           Single points splatted where their arm passes them, with a clip gate
 │   │   │   └── cull/                   Cull strategy sections included by cull.h

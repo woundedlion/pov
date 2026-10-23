@@ -25,6 +25,11 @@ struct GeometryCallback {
                              its end, so a closed chain plots every vertex once
                              and an open one all but its last. */
 
+  bool rigid_lattice =
+      false; ///< Edges keep angular length; resolve their lattice at column time.
+  float capture_error =
+      0.025f; ///< Maximum projected vertex capture error, pixels.
+
   /** @brief Constructs an exact evaluator.
    * @param fn Borrowed control-point callback.
    * @return The exact geometry descriptor. */
@@ -97,15 +102,17 @@ struct MeshEdge {
 struct EdgeBatch {
   size_t count; /**< Edge count. */
   void (*prepare)(Fragments &, const math::Vector &, const math::Vector &,
-                  size_t); /**< Writes an edge's endpoint registers into the
+                  size_t,
+                  float); /**< Writes an edge's endpoint registers into the
                                 walk's fragments from its frame-end
                                 vertices and index. */
   const math::Vector *vertices; /**< Frame-end vertex positions. */
   const Spacetime::Worldlines<>
-      &motion;           /**< Source captures and interpolants of the
+      &motion;                /**< Source captures and interpolants of the
                               vertices this frame. */
-  const MeshEdge *pairs; /**< Vertex indices of each edge. */
-  bool chained = false;  /**< Edges leave their end vertex unplotted. */
+  const MeshEdge *pairs;      /**< Vertex indices of each edge. */
+  bool chained = false;       /**< Edges leave their end vertex unplotted. */
+  bool rigid_lattice = false; ///< Resolve lattice and AA support per column.
 };
 
 /** @brief Rejects edges whose swept arcs miss a draw's rows and columns.
@@ -321,6 +328,7 @@ struct EdgeWorldsheet {
    * @param starts Unit endpoints at the frame's start.
    * @param ends Unit endpoints at the frame's end.
    * @param most Largest count of interest.
+   * @param end_to_start Rigid rotation from frame end to start, when known.
    * @param arcs Receive the edge's arcs at the frame's end and, for a count
    * of at most @p most, its start.
    * @return The walk's lattice intervals when the edge's length rounds to
@@ -329,12 +337,17 @@ struct EdgeWorldsheet {
   template <int W, int H>
   HS_HOT_FLASH_MEMBER static int
   steady_lattice(const math::Vector (&starts)[2], const math::Vector (&ends)[2],
-                 int most, GeodesicEdgeSampler (&arcs)[2]) {
+                 int most, GeodesicEdgeSampler (&arcs)[2],
+                 const math::RotationMatrix *end_to_start = nullptr) {
     arcs[1] = arc(ends[0], ends[1]);
     const int count = lattice(pieces_of<W, H>(arcs[1]));
     if (count > most)
       return 0;
-    arcs[0] = arc(starts[0], starts[1]);
+    arcs[0] = end_to_start
+                  ? GeodesicEdgeSampler{starts[0],
+                                        end_to_start->apply(arcs[1].v_perp),
+                                        arcs[1].total_dist}
+                  : arc(starts[0], starts[1]);
     return lattice(pieces_of<W, H>(arcs[0])) == count ? count : 0;
   }
 
@@ -377,6 +390,7 @@ struct EdgeWorldsheet {
    * world stages.
    * @param spin Rotation bound of the poses over the frame, radians.
    * @param source Whether to keep the source paths.
+   * @param measure_pitch Whether to measure the frame-end sampling pitch.
    * @details Each path is the parabola through its start, middle and end:
    * the middle capture for Spacetime::Interpolant::QUADRATIC, the arc's middle
    * for Spacetime::Interpolant::ARC, and the chord's for
@@ -390,11 +404,16 @@ struct EdgeWorldsheet {
   template <int W, int H>
   HS_HOT_FLASH_MEMBER void
   prepare(const Spacetime::Worldlines<> &motion, uint16_t from, uint16_t to,
-          const Spacetime::PoseTable *table, float spin, bool source) {
+          const Spacetime::PoseTable *table, float spin, bool source,
+          bool measure_pitch = true) {
     poses = table && !table->stationary() ? table : nullptr;
     const bool fixed = table && !poses;
     const math::RotationMatrix pose =
         fixed ? table->at(table->times()) : math::RotationMatrix();
+    const math::RotationMatrix start_pose =
+        poses ? poses->at(0) : math::RotationMatrix();
+    const math::RotationMatrix end_pose =
+        poses ? poses->at(poses->times()) : math::RotationMatrix();
     float bend = 0.0f, travel = 0.0f;
     math::Vector world[2][2];
     for (int k = 0; k < 2; ++k) {
@@ -423,8 +442,8 @@ struct EdgeWorldsheet {
       curves[k][1] = middle * 4.0f - start * 3.0f - end;
       curves[k][2] = (start + end - middle * 2.0f) * 2.0f;
       if (poses) {
-        start = poses->at(0).apply(start);
-        end = poses->at(poses->times()).apply(end);
+        start = start_pose.apply(start);
+        end = end_pose.apply(end);
       }
       world[0][k] = normalize(start);
       world[1][k] = normalize(end);
@@ -436,7 +455,7 @@ struct EdgeWorldsheet {
                   span.have_axis ? math::cross(span.axis, a) : math::Vector{},
                   span.total};
       ends[k] = b;
-      pieces[k] = pieces_of<W, H>(bases[k]);
+      pieces[k] = measure_pitch ? pieces_of<W, H>(bases[k]) : 0.0f;
     }
     constexpr float CAPTURE_ROUNDING = 3e-5f;
     deviation = sqrtf(bend) + CAPTURE_ROUNDING;
@@ -479,10 +498,41 @@ struct EdgeWorldsheet {
     motion[3] = y_to_screen_row<H>(ends[1].y) - y_to_screen_row<H>(ends[0].y);
   }
 
+  /** @brief Last possible lit column of a pass under bounded endpoint tracks.
+   * @tparam W Display width.
+   * @param pass,direction Arm pass and walk direction.
+   * @param span,widening Initial endpoint separation and its change, columns.
+   * @param last Last guarded endpoint crossing, in walk order.
+   * @param start First planned column in walk order.
+   * @return Exclusive end in pass coordinates. */
+  template <int W>
+  HS_HOT_FLASH_MEMBER int planned_end(int pass, int direction, float span,
+                                      float widening, float last,
+                                      int start) const {
+    int end = W / 2;
+    constexpr int PASS = W / 2;
+    constexpr float HALF = W / 2.0f;
+    const int final_column = pass * PASS + (direction > 0 ? PASS - 1 : 0);
+    const float final_time = direction > 0 ? (HALF - 1.0f) / HALF : 0.0f;
+    const float a = tracks[0].origin + tracks[0].travel * final_time;
+    const float width = span + widening * final_time;
+    float into =
+        width < 0.0f ? a - float(final_column) : float(final_column) - a;
+    into -= float(W) * floorf(into * (1.0f / W));
+    if (into > fabsf(width) + tracks[1].guard / tracks[1].rate &&
+        into < float(W) - tracks[0].guard / tracks[0].rate) {
+      if (!std::isfinite(last))
+        return start;
+      end = std::min(PASS, int(ceilf(last)) + 1);
+    }
+    return end;
+  }
+
   /** @brief Bounds the columns each arm pass can light.
    * @tparam W Display width.
    * @param direction Walk direction.
    * @param segments Receives up to one walk per arm pass.
+   * @param bounded Trim trailing columns certified outside AA support.
    * @return Number of walks.
    * @details Each column of an arm pass is drawn at its own time, so under the
    * linear track model of Spacetime::model_track() the sweep crosses each
@@ -495,8 +545,8 @@ struct EdgeWorldsheet {
    * model cannot bound, and endpoints whose arc can change sides over the
    * frame, walk the whole pass. */
   template <int W>
-  HS_O3_FN HS_NOINLINE_NOCLONE int plan(int direction,
-                                        detail::ColumnSegment segments[2]) {
+  HS_O3_FN HS_NOINLINE_NOCLONE int
+  plan(int direction, detail::ColumnSegment segments[2], bool bounded = false) {
     constexpr int PASS = W / 2;
     constexpr float HALF = W / 2.0f;
     const bool start_known = Spacetime::model_track<W>(
@@ -552,8 +602,11 @@ struct EdgeWorldsheet {
       } else if (last[pass] < HALF) {
         deadline = int(ceilf(last[pass])) + 1;
       }
+      const int end = bounded ? planned_end<W>(pass, direction, span, widening,
+                                               last[pass], start)
+                              : PASS;
       segments[count++] = {math::fast_wrap(first + direction * start, W),
-                           PASS - start, deadline};
+                           std::max(0, end - start), deadline};
     }
     return count;
   }
@@ -709,14 +762,16 @@ HS_HOT_FLASH_MEMBER void splat_owned_taps(const ColumnWalk<W> &state,
  * @tparam Cfg Register interpolation configuration.
  * @tparam SPLIT Walk the arc as its two sides of its closest approach to a
  * pole, each with its own column tests.
+ * @tparam RIGID Resolve the continuous lattice pitch from each column's arc.
  * @param state The edge's walk.
  * @details A turning arc walks every planned column; otherwise each pass stops
  * where its lit run ends. */
-template <int W, int H, RasterConfig Cfg, bool SPLIT>
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID = false>
 HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
          direction, radians, single_time, velocity, source_positions, chained,
          turning, top_y, bottom_y, half_sine, half_cosine] = state;
+  constexpr bool rigid_lattice = RIGID;
   const auto arm_change = [&](int from) HS_HOT_INLINE {
     return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) == 0;
   };
@@ -742,18 +797,23 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       x = math::fast_wrap(owner + direction, W);
-      float t = radians == 0.0f
+      float t = radians == 0.0f && !rigid_lattice
                     ? 0.0f
                     : Spacetime::SamplingSurface<W>::time(float(owner));
       math::Vector a, b, source_a, source_b;
       GeodesicEdgeSampler sampler;
       float pieces, total;
       bool unit = false;
-      if (radians != 0.0f) {
+      if (radians != 0.0f || rigid_lattice) {
         frame.at(owner, t, a, b, source_positions, source_a, source_b);
         total = frame.bases[0].total_dist +
                 (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
         pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
+        if (rigid_lattice) {
+          sampler = EdgeWorldsheet::basis(a, b, total);
+          a = sampler.v1;
+          unit = true;
+        }
       } else {
         sampler = frame.bases[1];
         a = sampler.v1;
@@ -790,11 +850,14 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           part_b = part ? b : turn;
           length = (to - from) * total;
         }
-        if (radians != 0.0f) {
+        if (radians != 0.0f || rigid_lattice) {
           const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
           const float column_cosine = math::TrigLUT<W, H>::cos_theta(owner);
           const float column_sine = math::TrigLUT<W, H>::sin_theta[owner];
-          const float sine = direction * half_sine;
+          const int arc_direction =
+              rigid_lattice ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
+                            : direction;
+          const float sine = arc_direction * half_sine;
           const math::Vector normal(
               -column_sine * half_cosine - column_cosine * sine, 0.0f,
               column_cosine * half_cosine - column_sine * sine);
@@ -822,8 +885,8 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
                 math::dot(basis.v_perp, normal), math::dot(basis.v1, along),
                 math::dot(basis.v_perp, along), inverse_length, s_out);
           }
-          end_column = !crossing && direction * end_side <= 0.0f &&
-                       direction * back_side > 0.0f &&
+          end_column = !crossing && arc_direction * end_side <= 0.0f &&
+                       arc_direction * back_side > 0.0f &&
                        part_b.x * column_cosine + part_b.z * column_sine > 0.0f;
           if (!crossing && !end_column)
             continue;
@@ -834,7 +897,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           if (SPLIT && !pieced)
             piece = EdgeWorldsheet::basis(part_a, part_b, length);
           const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
-          if (carried >= 0.0f) {
+          if (!rigid_lattice && carried >= 0.0f) {
             start_column = false;
             s_in = fminf(carried, s_out);
           } else {
@@ -856,11 +919,6 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
             Spacetime::count_geometry<
                 &Spacetime::GeometryCounters::column_crossings>();
         }
-        const int count = EdgeWorldsheet::lattice(pieces);
-        if (count != lattice_count) {
-          lattice_count = count;
-          lattice_step = 1.0f / float(count);
-        }
         bool edge_start = start_column, edge_end = end_column;
         if (SPLIT) {
           s_in = start_column ? from : from + (to - from) * s_in;
@@ -868,17 +926,48 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           edge_start = start_column && from == 0.0f;
           edge_end = end_column && to == 1.0f;
         }
-        const int first = edge_start ? 0 : int(ceilf(s_in * float(count)));
+        if (rigid_lattice) {
+          const float at = 0.5f * (s_in + s_out);
+          float sine, cosine;
+          math::poly_sincosf_0_pi(total * at, sine, cosine);
+          const float y = sampler.v1.y * cosine + sampler.v_perp.y * sine;
+          const float tangent_y =
+              sampler.v_perp.y * cosine - sampler.v1.y * sine;
+          const float cross_y =
+              sampler.v1.x * sampler.v_perp.z - sampler.v1.z * sampler.v_perp.x;
+          pieces =
+              total / screen_step_components<W, H>(y, tangent_y, cross_y,
+                                                   math::RADIANS_PER_COLUMN<W>);
+        }
+        const int count = rigid_lattice ? std::max(1, int(ceilf(pieces)))
+                                        : EdgeWorldsheet::lattice(pieces);
+        if (rigid_lattice || count != lattice_count) {
+          lattice_count = count;
+          lattice_step =
+              1.0f / (rigid_lattice ? fmaxf(pieces, 1.0f) : float(count));
+        }
+        const float lattice_scale =
+            rigid_lattice ? fmaxf(pieces, 1.0f) : float(count);
+        const int first = edge_start ? 0 : int(ceilf(s_in * lattice_scale));
         const int last = edge_end ? count - int(chained)
-                                  : int(ceilf(s_out * float(count))) - 1;
+                                  : int(ceilf(s_out * lattice_scale)) - 1;
         const bool plain = single_time || (!edge_start && !edge_end);
         GeodesicEdgeSampler source;
-        if (source_positions)
-          source = EdgeWorldsheet::basis(source_a, source_b, total);
+        if (source_positions) {
+          if (frame.poses) {
+            const math::RotationMatrix pose = frame.poses->column(owner);
+            auto unrotate = [&](const math::Vector &v) HS_HOT_INLINE {
+              return pose.r0 * v.x + pose.r1 * v.y + pose.r2 * v.z;
+            };
+            source = {unrotate(sampler.v1), unrotate(sampler.v_perp), total};
+          } else {
+            source = EdgeWorldsheet::basis(source_a, source_b, total);
+          }
+        }
         for (int k = first; k <= last; ++k) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_generated_samples>();
-          if (++sample_count > 2 * rasterize_step_budget<W>())
+          if (!rigid_lattice && ++sample_count > 2 * rasterize_step_budget<W>())
             break;
           const float s = k >= count ? 1.0f : float(k) * lattice_step;
           float sine = 0.0f, cosine = 1.0f;
@@ -897,9 +986,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_projections>();
           const auto p = math::vector_to_pixel<W, H>(world);
-          const float arm_distance =
-              fabsf(p.x - (W / 2.0f) * floorf(p.x * (2.0f / W) + 0.5f));
-          if (radians == 0.0f)
+          if (radians == 0.0f && !rigid_lattice)
             t = Spacetime::SamplingSurface<W>::time(p.x);
           ++emitted;
           if (plain)
@@ -921,7 +1008,14 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
               &Spacetime::GeometryCounters::column_shader_calls>();
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_samples>();
-          const bool arm_boundary = radians == 0.0f && arm_distance <= 1.0f;
+          if (rigid_lattice) {
+            pipeline.plot_column_at(canvas, p, owner, f.color.color, f.age,
+                                    f.color.alpha, t);
+            continue;
+          }
+          const bool arm_boundary =
+              radians == 0.0f &&
+              fabsf(p.x - (W / 2.0f) * floorf(p.x * (2.0f / W) + 0.5f)) <= 1.0f;
           if (plain && !arm_boundary) {
             pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
                                        f.color.alpha, t);
@@ -945,7 +1039,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       if (emitted > 1)
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::column_span_fills>();
-      if (sample_count > 2 * rasterize_step_budget<W>())
+      if (!rigid_lattice && sample_count > 2 * rasterize_step_budget<W>())
         break;
       if (finished && !turning)
         break;
@@ -962,6 +1056,15 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
   walk_edge_columns<W, H, Cfg, true>(state);
 }
 
+/** @brief Walks a rigid edge with local column-time cadence.
+ * @tparam W,H Canvas dimensions.
+ * @tparam Cfg Register interpolation configuration.
+ * @param state Prepared column walk. */
+template <int W, int H, RasterConfig Cfg>
+HS_HOT_FLASH_MEMBER void walk_rigid_edge_columns(const ColumnWalk<W> &state) {
+  walk_edge_columns<W, H, Cfg, false, true>(state);
+}
+
 /** @brief Rasterizes mesh edges one destination column at a time.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
@@ -975,6 +1078,7 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
  * stages.
  * @param radians Maximum world displacement over the frame.
  * @param source_positions Whether shaders read source-space positions.
+ * @param spin Rotation bound of the shared poses, radians.
  * @details Each arm pass walks, in the edge's travel order, the render-band
  * columns its plan bounds, each with the edge's endpoints evaluated on their
  * paths at the column's time and rotated by its pose, and stops where the lit
@@ -995,9 +1099,10 @@ FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE void
 rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                        TimedShaderFn shader, const EdgeBatch &batch,
                        const Spacetime::PoseTable *poses, float radians,
-                       bool source_positions) {
-  const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
-  const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
+                       bool source_positions, float spin) {
+  const float support = batch.rigid_lattice ? 1.0f : 0.5f;
+  const float half_sine = sinf(support * math::RADIANS_PER_COLUMN<W>);
+  const float half_cosine = cosf(support * math::RADIANS_PER_COLUMN<W>);
 
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
@@ -1007,13 +1112,12 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
   const SweptEdgeCull<W> cull(canvas.render_x_clip(), top_y, bottom_y);
   const auto &band = canvas.render_x_clip();
   ScratchScope draw_scope(scratch_arena_a);
-  const float spin = poses ? pipeline.sweep_arc() : 0.0f;
   source_positions = source_positions && poses;
   auto &frame = *scratch_arena_a.make<EdgeWorldsheet>();
   for (size_t edge = 0; edge < batch.count; ++edge) {
     const MeshEdge &pair = batch.pairs[edge];
     frame.prepare<W, H>(batch.motion, pair.u, pair.v, poses, spin,
-                        source_positions);
+                        source_positions, !batch.rigid_lattice);
     if (cull.rejects({frame.bases[0].v1, frame.bases[1].v1, frame.ends[0],
                       frame.ends[1]},
                      frame.deviation + 1e-4f)) {
@@ -1031,10 +1135,10 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
     int segment_count = 1;
     float velocity[4] = {};
     bool single_time = true;
-    if (radians == 0.0f) {
+    if (radians == 0.0f && !batch.rigid_lattice) {
       segments[0] = {0, 1, 1};
     } else {
-      segment_count = frame.plan<W>(direction, segments);
+      segment_count = frame.plan<W>(direction, segments, batch.rigid_lattice);
       int kept = 0;
       for (int i = 0; i < segment_count; ++i) {
         detail::ColumnSegment walk = segments[i];
@@ -1048,14 +1152,17 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
             &Spacetime::GeometryCounters::column_edges_culled>();
         continue;
       }
-      frame.velocities<W, H>(velocity);
-      single_time = fmaxf(fmaxf(fabsf(velocity[0]), fabsf(velocity[1])),
-                          fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
-                    COLUMN_SINGLE_TAP_ERROR * (W / 2);
+      if (!batch.rigid_lattice) {
+        frame.velocities<W, H>(velocity);
+        single_time = fmaxf(fmaxf(fabsf(velocity[0]), fabsf(velocity[1])),
+                            fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
+                      COLUMN_SINGLE_TAP_ERROR * (W / 2);
+      }
     }
     Spacetime::count_geometry<
         &Spacetime::GeometryCounters::column_edges_prepared>();
-    batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge);
+    batch.prepare(points, batch.vertices[pair.u], batch.vertices[pair.v], edge,
+                  frame.bases[1].total_dist);
     const auto sense = [&](const GeodesicEdgeSampler &basis) HS_HOT_INLINE {
       return basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
     };
@@ -1075,13 +1182,16 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         velocity,
         source_positions,
         batch.chained,
-        split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
-                   4.0f * frame.deviation * frame.deviation),
+        batch.rigid_lattice ||
+            (split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
+                        4.0f * frame.deviation * frame.deviation)),
         top_y,
         bottom_y,
         half_sine,
         half_cosine};
-    if (split)
+    if (batch.rigid_lattice)
+      walk_rigid_edge_columns<W, H, Cfg>(walk);
+    else if (split)
       walk_split_edge_columns<W, H, Cfg>(walk);
     else
       walk_edge_columns<W, H, Cfg, false>(walk);

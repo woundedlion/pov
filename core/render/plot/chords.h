@@ -10,12 +10,17 @@
  *        chart, culled conservatively against the clip band.
  */
 
+#include <array>
+
 #include "core/memory.h"
 #include "core/math/display_geometry.h"
 #include "core/math/pixel_mapping.h"
 #include "core/render/canvas.h"
 #include "core/render/clip.h"
 #include "core/render/plot/cull.h"
+#include "core/render/plot/point_route.h"
+#include "core/render/plot/polar_walk.h"
+#include "core/render/plot/mesh.h"
 #include "core/render/plot/raster.h"
 
 namespace Plot {
@@ -237,8 +242,29 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  */
 template <int W, int H> class PlanarChords {
 public:
+  /** @brief Maximum rotation lever arm over a chart-straight edge.
+   * @param a,b Equidistant chart endpoints in radians, within radius pi.
+   * @return Maximum distance from the chart pole's axis on the unit sphere. */
+  HS_HOT_INLINE static float rotation_radius(math::PixelCoords a,
+                                             math::PixelCoords b) {
+    const float dx = b.x - a.x, dy = b.y - a.y;
+    const float span2 = dx * dx + dy * dy;
+    const float nearest =
+        span2 > 0.0f ? hs::clamp(-(a.x * dx + a.y * dy) / span2, 0.0f, 1.0f)
+                     : 0.0f;
+    const float near_x = a.x + dx * nearest, near_y = a.y + dy * nearest;
+    const float radius_lo = sqrtf(near_x * near_x + near_y * near_y);
+    const float radius_hi =
+        sqrtf(fmaxf(a.x * a.x + a.y * a.y, b.x * b.x + b.y * b.y));
+    return sinf(hs::clamp(math::PI_F * 0.5f, radius_lo, radius_hi));
+  }
+
   /** @brief Most chart-straight anchor intervals one edge takes. */
   static constexpr int MAX_ANCHOR_INTERVALS = 6;
+  /** @brief Most intervals in a moving radial edge profile. */
+  static constexpr int MAX_RADIAL_INTERVALS = 48;
+  /** @brief Target chart arc between moving radial anchors, radians. */
+  static constexpr float RADIAL_ANCHOR_ARC = math::PI_F / 24.0f;
   /** @brief Target chart arc between anchors, in radians.
    * @details Edges longer than MAX_ANCHOR_INTERVALS * MAX_ANCHOR_ARC use
    * edge_arc / MAX_ANCHOR_INTERVALS spacing. */
@@ -253,6 +279,8 @@ public:
   static constexpr int POLE_RUN_PIECES = 8;
   /** @brief Chord sample spacing in screen pixels. */
   static constexpr float TARGET_STEP = 1.2f;
+  /** @brief Physical temporal departure selecting the polar chart, row pitches. */
+  static constexpr float POLAR_TIME_ERROR_PX = 0.2f;
   /** @brief Empirical trim holding the chord walk's stroke brightness on the
    *  balanced adaptive walk's at TARGET_STEP. */
   static constexpr float ALPHA_GAIN = 1.028f;
@@ -266,8 +294,9 @@ public:
   static constexpr size_t storage_bytes(int max_vertices) {
     return static_cast<size_t>(max_vertices + 1) *
                (2 * sizeof(float) + sizeof(math::PixelCoords)) +
-           (MAX_ANCHOR_INTERVALS + 1) * sizeof(math::PixelCoords) +
-           3 * alignof(math::PixelCoords) +
+           (MAX_ANCHOR_INTERVALS + MAX_RADIAL_INTERVALS + 2) *
+               sizeof(math::PixelCoords) +
+           4 * alignof(math::PixelCoords) +
            PlanarBandSplit<W, H>::storage_bytes(POLE_RUN_POINTS);
   }
 
@@ -291,6 +320,9 @@ public:
     chart_y_storage = arena.allocate_n<float>(max_vertices + 1);
     pixels = arena.allocate_n<math::PixelCoords>(max_vertices + 1);
     anchors = arena.allocate_n<math::PixelCoords>(MAX_ANCHOR_INTERVALS + 1);
+    radial_coefficients =
+        arena.allocate_n<math::PixelCoords>(MAX_RADIAL_INTERVALS + 1);
+
     pole_split.init_storage(arena, POLE_RUN_POINTS);
   }
 
@@ -329,16 +361,7 @@ public:
               int vertices, const math::Basis &planar_basis,
               const Color4 &color, const F &fragment_shader) {
     using Geometry = math::DisplayGeometry<H>;
-    if constexpr (requires { pipeline.prepared_for(canvas); })
-      HS_CHECK(pipeline.prepared_for(canvas),
-               "direct raster pipeline not prepared for this canvas");
-    HS_CHECK(prepared && clip_stamp == canvas.clip(),
-             "PlanarChords: prepare() not called for this canvas clip");
-    HS_CHECK(vertices >= 1 && vertices <= capacity,
-             "PlanarChords: %d vertices outside capacity %d", vertices,
-             capacity);
-    HS_CHECK(points.size() > static_cast<size_t>(vertices),
-             "PlanarChords: closing vertex is missing");
+    require_closed(pipeline, canvas, points, vertices);
     float *const x_chart = chart_x_storage;
     float *const y_chart = chart_y_storage;
     for (int i = 0; i < vertices; ++i)
@@ -484,7 +507,470 @@ public:
     }
   }
 
+  /** @brief Captures the frame's clip band and the gate of polylines moving
+   *  over the frame; call once per frame.
+   *  @param canvas The frame's canvas.
+   *  @param motion Bound on any polyline point's motion over the frame,
+   *  radians. */
+  void prepare(const Canvas &canvas, float motion) {
+    prepare(canvas.clip());
+    if (!math::TrigLUT<W, H>::initialized)
+      math::TrigLUT<W, H>::init();
+    reach = motion;
+  }
+
+  /**
+   * @brief Strokes one closed chart-straight polyline turning rigidly over the
+   *        frame, each sample at its column's time.
+   * @tparam PipelineT Screen-space plot sink (plot(canvas, x, y, ...)).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param points Frame-end vertex positions, @p vertices plus the closing
+   * repeat of the first.
+   * @param vertices Vertex count; chart_x()/chart_y() hold their chart
+   * coordinates in @p planar_basis.
+   * @param planar_basis Azimuthal-equidistant chart the edges are straight in.
+   * @param color Stroke color; its alpha is balanced against the step taken.
+   * @param start Rotation taking a frame-end point to its frame-start
+   * position; no point moves farther than prepare()'s motion.
+   * @param max_intervals Most anchor intervals an edge takes; an edge's
+   * anchors lie at most MAX_ANCHOR_ARC apart up to that count.
+   * @param alternating_radii Adjacent edges reverse the radial anchor profile.
+   * @param middle Rotation from frame end to mid-frame.
+   * @param reference_chords Reference balanced screen chords, with adaptive
+   * balanced pole runs; otherwise reference adaptive arc-table sampling.
+   * @param contour_speed Bound on angular speed over the contour, radians per frame.
+   * @details Edges share the first edge's radial profile, reversed on alternating
+   * edges. Screen anchors carry quadratic motion between frame start, middle
+   * and end. Coherent samples solve their column crossing directly; other
+   * chords emit each supported column at its own time. Pole intervals use
+   * quadratic endpoint captures in a display-pole chart.
+   */
+  template <typename PipelineT>
+  HS_HOT_FLASH_MEMBER void
+  draw_closed(PipelineT &pipeline, Canvas &canvas, const Fragments &points,
+              int vertices, const math::Basis &planar_basis,
+              const Color4 &color, const math::RotationMatrix &start,
+              int max_intervals, bool alternating_radii,
+              const math::RotationMatrix &middle, bool reference_chords,
+              float contour_speed) {
+    const float target_step =
+        reference_chords ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
+    using Geometry = math::DisplayGeometry<H>;
+    require_closed(pipeline, canvas, points, vertices);
+    ScratchScope length_scope(scratch_arena_a);
+    auto &arc_cumul =
+        *scratch_arena_a.make<std::array<float, PLANAR_LEN_SAMPLES + 1>>();
+
+    float *const x_chart = chart_x_storage;
+    float *const y_chart = chart_y_storage;
+    for (int i = 0; i < vertices; ++i) {
+      pixels[i] = math::vector_to_pixel<W, H>(points[i].pos);
+    }
+    x_chart[vertices] = x_chart[0];
+    y_chart[vertices] = y_chart[0];
+    pixels[vertices] = pixels[0];
+
+    const float first_dx = x_chart[1] - x_chart[0];
+    const float first_dy = y_chart[1] - y_chart[0];
+    const float edge_arc = sqrtf(first_dx * first_dx + first_dy * first_dy);
+    const int anchor_intervals =
+        hs::clamp(static_cast<int>(ceilf(edge_arc / (alternating_radii
+                                                         ? MAX_ANCHOR_ARC
+                                                         : RADIAL_ANCHOR_ARC))),
+                  1, std::min(max_intervals, MAX_RADIAL_INTERVALS));
+    const float inv_intervals = 1.0f / static_cast<float>(anchor_intervals);
+    planar_arc_cumul({x_chart[0], y_chart[0]}, first_dx, first_dy, planar_basis,
+                     arc_cumul);
+    auto *reference_density =
+        scratch_arena_a.allocate_n<float>(anchor_intervals);
+    for (int k = 0; k < anchor_intervals; ++k) {
+      const float t = (float(k) + 0.5f) * inv_intervals;
+      const float x = x_chart[0] + first_dx * t;
+      const float y = y_chart[0] + first_dy * t;
+      const float radius = sqrtf(x * x + y * y);
+      const float dr = radius > math::EPS_GEOMETRIC
+                           ? (x * first_dx + y * first_dy) / radius
+                           : 0.0f;
+      float sine, cosine;
+      math::fast_sincosf_0_pi(radius, sine, cosine);
+      const float sinc = radius > math::EPS_GEOMETRIC ? sine / radius : 1.0f;
+      const float speed = sqrtf(
+          fmaxf(0.0f, dr * dr + sinc * sinc * (edge_arc * edge_arc - dr * dr)));
+      const int j =
+          std::min(PLANAR_LEN_SAMPLES - 1, int(t * PLANAR_LEN_SAMPLES));
+      const float slope =
+          PLANAR_LEN_SAMPLES * (arc_cumul[j + 1] - arc_cumul[j]);
+      reference_density[k] =
+          reference_chords || !(speed > 0.0f) ? 1.0f : slope / speed;
+    }
+    const float radial_bend =
+        alternating_radii ? edge_arc * edge_arc * inv_intervals *
+                                inv_intervals * math::ROWS_PER_RADIAN<H> / 8.0f
+                          : 0.0f;
+    for (int k = 1; k < anchor_intervals; ++k) {
+      const float t = static_cast<float>(k) * inv_intervals;
+      const float x = x_chart[0] + first_dx * t;
+      const float y = y_chart[0] + first_dy * t;
+      const float radius = sqrtf(x * x + y * y);
+      float sine, cosine;
+      math::fast_sincosf_0_pi(radius, sine, cosine);
+      radial_coefficients[k] = {
+          radius > math::EPS_GEOMETRIC ? sine / radius : 1.0f, cosine};
+    }
+
+    const float velocity = contour_speed * math::ROWS_PER_RADIAN<H>;
+    auto walk_segment = [&](const math::PixelCoords &from0,
+                            const math::PixelCoords &to0,
+                            const math::PixelCoords &from1,
+                            const math::PixelCoords &to1,
+                            const math::PixelCoords &from_mid,
+                            const math::PixelCoords &to_mid, float density,
+                            float curve_bend) __attribute__((always_inline)) {
+      auto sample_alpha = [&](float ratio) HS_HOT_INLINE {
+        const float alpha = !reference_chords && ratio < 1.0f
+                                ? color.alpha * ratio
+                                : balanced_sample_alpha(color.alpha, ratio);
+        return fminf(1.0f, density * alpha);
+      };
+      const math::PixelCoords from_curve{
+          2.0f * (from0.x + from1.x - 2.0f * from_mid.x),
+          2.0f * (from0.y + from1.y - 2.0f * from_mid.y)};
+      const math::PixelCoords to_curve{2.0f * (to0.x + to1.x - 2.0f * to_mid.x),
+                                       2.0f *
+                                           (to0.y + to1.y - 2.0f * to_mid.y)};
+      const float x_pad = 0.25f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x));
+      const float y_pad = 0.25f * fmaxf(fabsf(from_curve.y), fabsf(to_curve.y));
+      const float dx1 = to1.x - from1.x, dy1 = to1.y - from1.y;
+      const float dx0 = to0.x - from0.x, dy0 = to0.y - from0.y;
+      const float length = sqrtf(dx1 * dx1 + dy1 * dy1);
+      const int samples =
+          std::max(1, static_cast<int>(ceilf(length / target_step)));
+      const float sample_count = static_cast<float>(samples);
+      const float inv_samples = 1.0f / sample_count;
+      float first = sample_count, last = 0.0f;
+      auto widen = [&](float x0, float y0, float sdx,
+                       float sdy) __attribute__((always_inline)) {
+        float lo = 0.0f, hi = sample_count;
+        auto restrict_range = [&](float start_at, float delta, float low,
+                                  float high) __attribute__((always_inline)) {
+          if (fabsf(delta) < 1e-4f) {
+            if (start_at < low - 1.0f || start_at > high + 1.0f)
+              hi = -1.0f;
+            return;
+          }
+          const float scale = sample_count / delta;
+          const float s_lo = (low - start_at) * scale;
+          const float s_hi = (high - start_at) * scale;
+          lo = fmaxf(lo, fminf(s_lo, s_hi) - 1.0f);
+          hi = fminf(hi, fmaxf(s_lo, s_hi) + 1.0f);
+        };
+        restrict_range(y0, sdy, band.row_lo - y_pad, band.row_hi + y_pad);
+        if (band.x_active && fabsf(sdx) < W * 0.25f &&
+            fabsf(sdx) < W - 2.0f * band.x_half) {
+          const float shift = W * rintf((x0 + 0.5f * sdx - band.x_center) / W);
+          restrict_range(x0, sdx, band.x_center - band.x_half + shift - x_pad,
+                         band.x_center + band.x_half + shift + x_pad);
+        }
+        if (hi >= lo) {
+          first = fminf(first, lo);
+          last = fmaxf(last, hi);
+        }
+      };
+      widen(from1.x, from1.y, dx1, dy1);
+      widen(from0.x, from0.y, dx0, dy0);
+      if (last < first)
+        return;
+      const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));
+      const int sample_end =
+          static_cast<int>(fminf(floorf(last) + 1.0f, sample_count));
+      const float step_ratio =
+          fminf(target_step, length * inv_samples) / SCREEN_STEP_PX;
+      const Color4 sample_color(color.color, sample_alpha(step_ratio));
+      constexpr float HALF = W / 2.0f;
+      const int arm = static_cast<int>(floorf(from0.x / HALF));
+      const float arm_start = arm * HALF;
+      const float low = fminf(fminf(from0.x, to0.x), fminf(from1.x, to1.x));
+      const float high = fmaxf(fmaxf(from0.x, to0.x), fmaxf(from1.x, to1.x));
+      const float mx0 = from1.x - from0.x;
+      const float my0 = from1.y - from0.y;
+      const float dmx = dx1 - dx0, dmy = dy1 - dy0;
+      const float variation2 = dmx * dmx + dmy * dmy;
+      const float nearest =
+          variation2 > 0.0f
+              ? hs::clamp(-(dx0 * dmx + dy0 * dmy) / variation2, 0.0f, 1.0f)
+              : 0.0f;
+      const float near_x = dx0 + dmx * nearest, near_y = dy0 + dmy * nearest;
+      const float dx_mid = to_mid.x - from_mid.x,
+                  dy_mid = to_mid.y - from_mid.y;
+      const float curve_x = 0.5f * (dx0 + dx1 - 2.0f * dx_mid);
+      const float curve_y = 0.5f * (dy0 + dy1 - 2.0f * dy_mid);
+      const float span_bend = sqrtf(curve_x * curve_x + curve_y * curve_y);
+      const float start_length = sqrtf(dx0 * dx0 + dy0 * dy0);
+      const float lower =
+          fmaxf(0.0f, sqrtf(near_x * near_x + near_y * near_y) - span_bend);
+      const float upper = fmaxf(start_length, length) + span_bend;
+      const bool steady_count =
+          std::max(1, int(ceilf(lower / target_step))) == samples &&
+          std::max(1, int(ceilf(upper / target_step))) == samples;
+      const float curve_dx = to_curve.x - from_curve.x;
+      const float curve_dy = to_curve.y - from_curve.y;
+      const float denominator = HALF - fmaxf(mx0 + fabsf(from_curve.x),
+                                             mx0 + dmx + fabsf(to_curve.x));
+      const float first_derivative =
+          denominator > 0.0f
+              ? (fmaxf(fabsf(dx0), fabsf(dx1)) + 0.25f * fabsf(curve_dx)) /
+                    denominator
+              : std::numeric_limits<float>::infinity();
+      const float time_bend =
+          denominator > 0.0f
+              ? (2.0f * (fabsf(dmx) + fabsf(curve_dx)) * first_derivative +
+                 2.0f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x)) *
+                     first_derivative * first_derivative) /
+                    (8.0f * denominator)
+              : std::numeric_limits<float>::infinity();
+      if (low - x_pad > arm_start + 1.0f &&
+          high + x_pad < arm_start + HALF - 1.0f &&
+          (velocity + 4.0f * curve_bend) * time_bend <= 0.002f &&
+          steady_count) {
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::chord_capture_solves>(2);
+        const float t0 = Spacetime::quadratic_screen_time<W>(
+            from0.x, mx0, from_curve.x, arm_start);
+        const float dt = Spacetime::quadratic_screen_time<W>(
+                             to0.x, mx0 + dmx, to_curve.x, arm_start) -
+                         t0;
+        const float k0 = t0 * (t0 - 1.0f);
+        const float k1 = dt * (2.0f * t0 - 1.0f);
+        const float k2 = dt * dt;
+        const float x0 = from0.x + mx0 * t0 + from_curve.x * k0;
+        const float x1 =
+            dx0 + mx0 * dt + dmx * t0 + from_curve.x * k1 + curve_dx * k0;
+        const float x2 = dmx * dt + from_curve.x * k2 + curve_dx * k1;
+        const float x3 = curve_dx * k2;
+        const float y0 = from0.y + my0 * t0 + from_curve.y * k0;
+        const float y1 =
+            dy0 + my0 * dt + dmy * t0 + from_curve.y * k1 + curve_dy * k0;
+        const float y2 = dmy * dt + from_curve.y * k2 + curve_dy * k1;
+        const float y3 = curve_dy * k2;
+        const float alpha_start = sample_alpha(
+            fminf(target_step, start_length * inv_samples) / SCREEN_STEP_PX);
+        const float alpha_middle = sample_alpha(
+            fminf(target_step,
+                  sqrtf(dx_mid * dx_mid + dy_mid * dy_mid) * inv_samples) /
+            SCREEN_STEP_PX);
+        const float alpha_curve =
+            2.0f * (alpha_start + sample_color.alpha - 2.0f * alpha_middle);
+        for (int sample = sample_begin; sample < sample_end; ++sample) {
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::chord_fast_samples>();
+          const float u = static_cast<float>(sample) * inv_samples;
+          const float x = x0 + u * (x1 + u * (x2 + u * x3));
+          const float time = t0 + dt * u;
+          const float alpha = alpha_start +
+                              (sample_color.alpha - alpha_start) * time +
+                              alpha_curve * time * (time - 1.0f);
+          const float y = y0 + u * (y1 + u * (y2 + u * y3));
+          const float vx = mx0 + dmx * u +
+                           (from_curve.x + curve_dx * u) * (2.0f * time - 1.0f);
+          const float vy = my0 + dmy * u +
+                           (from_curve.y + curve_dy * u) * (2.0f * time - 1.0f);
+          PointRoute<W, H>::emit(pipeline, canvas, {{x, y}, time},
+                                 {sample_color.color, alpha}, vx, vy);
+        }
+        return;
+      }
+      const float guard = 0.25f * fmaxf(fabsf(from_curve.x), fabsf(to_curve.x));
+      const int owner_begin = static_cast<int>(floorf(low - guard - 1.0f));
+      const int owner_end = static_cast<int>(ceilf(high + guard + 1.0f));
+      for (int owner = owner_begin; owner <= owner_end; ++owner) {
+        const int column = math::fast_wrap(owner, W);
+        if (canvas.render_x_clip().clipped(column))
+          continue;
+        const float t = Spacetime::SamplingSurface<W>::time(column);
+        const float bend = t * (t - 1.0f);
+        const math::PixelCoords at_from{
+            from0.x + (from1.x - from0.x) * t + from_curve.x * bend,
+            from0.y + (from1.y - from0.y) * t + from_curve.y * bend};
+        const math::PixelCoords at_to{
+            to0.x + (to1.x - to0.x) * t + to_curve.x * bend,
+            to0.y + (to1.y - to0.y) * t + to_curve.y * bend};
+        const float dx = at_to.x - at_from.x, dy = at_to.y - at_from.y;
+        const float span = sqrtf(dx * dx + dy * dy);
+        const int count =
+            std::max(1, static_cast<int>(ceilf(span / target_step)));
+        const float inverse = 1.0f / static_cast<float>(count);
+        float lo = 0.0f, hi = static_cast<float>(count - 1);
+        auto restrict = [&](float start_at, float delta, float lower,
+                            float upper) HS_HOT_INLINE {
+          if (fabsf(delta) < 1e-6f) {
+            if (start_at < lower || start_at > upper)
+              hi = -1.0f;
+          } else {
+            const float scale = static_cast<float>(count) / delta;
+            const float a = (lower - start_at) * scale,
+                        b = (upper - start_at) * scale;
+            lo = fmaxf(lo, fminf(a, b));
+            hi = fminf(hi, fmaxf(a, b));
+          }
+        };
+        restrict(at_from.x, dx, float(owner) - 1.0f, float(owner) + 1.0f);
+        restrict(at_from.y, dy, band.row_lo, band.row_hi);
+        const int begin = static_cast<int>(ceilf(lo));
+        const int end = static_cast<int>(floorf(hi));
+        const float alpha =
+            sample_alpha(fminf(target_step, span * inverse) / SCREEN_STEP_PX);
+        for (int sample = begin; sample <= end; ++sample) {
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::chord_screen_samples>();
+          const float u = static_cast<float>(sample) * inverse;
+          float x = at_from.x + dx * u;
+          x += W * rintf((float(column) - x) / W);
+          pipeline.plot_column_at(canvas, {x, at_from.y + dy * u}, column,
+                                  color.color, 0.0f, alpha, t);
+        }
+      }
+    };
+
+    for (int edge = 0; edge < vertices; ++edge) {
+      const float dx = x_chart[edge + 1] - x_chart[edge];
+      const float dy = y_chart[edge + 1] - y_chart[edge];
+      if (!band.may_reach(pixels[edge], pixels[edge + 1],
+                          edge_arc + 2.0f * reach))
+        continue;
+      const float row_margin =
+          edge_arc * inv_intervals * math::ROWS_PER_RADIAN<H> + 1.0f;
+      auto chart_position = [&](int k) __attribute__((always_inline)) {
+        if (k == 0)
+          return points[edge].pos;
+        if (k == anchor_intervals)
+          return points[edge + 1].pos;
+        const float t = static_cast<float>(k) * inv_intervals;
+        const int profile =
+            alternating_radii && (edge & 1) ? anchor_intervals - k : k;
+        const auto &coefficient = radial_coefficients[profile];
+        const float x = x_chart[edge] + dx * t;
+        const float y = y_chart[edge] + dy * t;
+        return newton_unit(planar_basis.v * coefficient.y +
+                           (planar_basis.u * x + planar_basis.w * y) *
+                               coefficient.x);
+      };
+      math::Vector from = points[edge].pos;
+      math::PixelCoords end_from = pixels[edge];
+      math::PixelCoords start_from{}, mid_from{};
+      bool captured_from = false;
+      math::Vector start_world_from{}, mid_world_from{};
+      PolarAnchor polar_from{};
+      bool polar_from_ready = false, polar_from_north = true;
+      for (int k = 0; k < anchor_intervals; ++k) {
+        Spacetime::count_geometry<
+            &Spacetime::GeometryCounters::chord_intervals>();
+        const bool last_interval = k + 1 == anchor_intervals;
+        const math::Vector to = chart_position(k + 1);
+        math::PixelCoords end_to =
+            last_interval ? pixels[edge + 1] : math::vector_to_pixel<W, H>(to);
+        end_to.x += W * rintf((end_from.x - end_to.x) * (1.0f / W));
+        if (!band.may_reach(end_from, end_to,
+                            edge_arc * inv_intervals + 2.0f * reach)) {
+          Spacetime::count_geometry<
+              &Spacetime::GeometryCounters::chord_intervals_culled>();
+          from = to;
+          end_from = end_to;
+          captured_from = false;
+          polar_from_ready = false;
+          continue;
+        }
+        if (!captured_from) {
+          start_world_from = start.apply(from);
+          mid_world_from = middle.apply(from);
+          start_from = math::vector_to_pixel<W, H>(start_world_from);
+          mid_from = math::vector_to_pixel<W, H>(mid_world_from);
+          start_from.x += W * rintf((end_from.x - start_from.x) / W);
+          mid_from.x += W * rintf((end_from.x - mid_from.x) / W);
+        }
+        const math::Vector start_world_to = start.apply(to);
+        const math::Vector mid_world_to = middle.apply(to);
+        math::PixelCoords start_to =
+            math::vector_to_pixel<W, H>(start_world_to);
+        math::PixelCoords mid_to = math::vector_to_pixel<W, H>(mid_world_to);
+        start_to.x += W * rintf((end_to.x - start_to.x) / W);
+        mid_to.x += W * rintf((end_to.x - mid_to.x) / W);
+        const float row_lo =
+            fminf(fminf(end_from.y, end_to.y), fminf(start_from.y, start_to.y));
+        const float row_hi =
+            fmaxf(fmaxf(end_from.y, end_to.y), fmaxf(start_from.y, start_to.y));
+        const float pole_distance = fminf(row_lo - Geometry::NORTH_POLE_ROW,
+                                          Geometry::SOUTH_POLE_ROW - row_hi);
+        const int row = hs::clamp(
+            static_cast<int>(floorf(Geometry::NORTH_POLE_ROW +
+                                    fmaxf(0.0f, pole_distance - row_margin))),
+            0, H - 1);
+        const float sine = fmaxf(0.001f, math::TrigLUT<W, H>::sin_phi[row]);
+        const float bend = contour_speed * contour_speed *
+                           math::ROWS_PER_RADIAN<H> / (8.0f * sine);
+        const bool polar = pole_distance < POLE_PIECE_ROWS + row_margin ||
+                           bend > POLAR_TIME_ERROR_PX || radial_bend > 0.05f;
+        if (!polar) {
+          polar_from_ready = false;
+          walk_segment(start_from, start_to, end_from, end_to, mid_from, mid_to,
+                       reference_density[alternating_radii && (edge & 1)
+                                             ? anchor_intervals - 1 - k
+                                             : k],
+                       bend);
+        } else {
+          const bool north = row_lo + row_hi < Geometry::NORTH_POLE_ROW +
+                                                   Geometry::SOUTH_POLE_ROW;
+          auto capture = [&](const math::Vector &a, const math::Vector &m,
+                             const math::Vector &b) HS_HOT_INLINE {
+            return PolarAnchor::capture(PolarWalk<W, H>::project(a, north),
+                                        PolarWalk<W, H>::project(m, north),
+                                        PolarWalk<W, H>::project(b, north));
+          };
+          if (!polar_from_ready || polar_from_north != north)
+            polar_from = capture(start_world_from, mid_world_from, from);
+          const PolarAnchor polar_to =
+              capture(start_world_to, mid_world_to, to);
+          PolarWalk<W, H>::draw(
+              pipeline, canvas, polar_from, polar_to, north, color, target_step,
+              reference_chords,
+              reference_density[alternating_radii && (edge & 1)
+                                    ? anchor_intervals - 1 - k
+                                    : k]);
+          polar_from = polar_to;
+          polar_from_north = north;
+          polar_from_ready = true;
+        }
+        start_world_from = start_world_to;
+        mid_world_from = mid_world_to;
+        from = to;
+        end_from = end_to;
+        start_from = start_to;
+        mid_from = mid_to;
+        captured_from = true;
+      }
+    }
+  }
+
 private:
+  /** @brief Checks that a closed polyline includes its repeated first vertex.
+   * @param points Polyline storage.
+   * @param vertices Distinct vertex count. */
+  template <typename PipelineT>
+  HS_HOT_INLINE void require_closed(PipelineT &pipeline, Canvas &canvas,
+                                    const Fragments &points,
+                                    int vertices) const {
+    if constexpr (requires { pipeline.prepared_for(canvas); })
+      HS_CHECK(pipeline.prepared_for(canvas),
+               "direct raster pipeline not prepared for this canvas");
+    HS_CHECK(prepared && clip_stamp == canvas.clip(),
+             "PlanarChords: prepare() not called for this canvas clip");
+    HS_CHECK(vertices >= 1 && vertices <= capacity,
+             "PlanarChords: %d vertices outside capacity %d", vertices,
+             capacity);
+    HS_CHECK(points.size() > static_cast<size_t>(vertices),
+             "PlanarChords: closing vertex is missing");
+  }
+
   /** @brief Plot-rasterizes one chart-straight run with balanced sampling. */
   template <typename PipelineT, typename F>
   HS_FLASH_MEMBER void
@@ -533,6 +1019,9 @@ private:
   float *chart_y_storage = nullptr;
   math::PixelCoords *pixels = nullptr;
   math::PixelCoords *anchors = nullptr;
+  math::PixelCoords *radial_coefficients =
+      nullptr;        ///< Shared radial anchor factors.
+  float reach = 0.0f; ///< Bound on a point's motion over the frame.
   int capacity = 0;
 };
 
