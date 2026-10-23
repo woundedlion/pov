@@ -1617,7 +1617,7 @@ inline void rasterize_column_time(PipelineT &pipeline, Canvas &canvas,
   Fragment frag_scratch;
   auto probe = prepare_distance(shape);
   // A block of n columns spans n - 1 columns of sweep time.
-  const float turn_per_column = sweep / (W / 2);
+  const float turn_per_column = view.sweep_rate / (W / 2);
 
   scan_region_column_time<W, H>(
       y_lo, y_hi,

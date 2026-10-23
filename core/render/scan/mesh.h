@@ -293,7 +293,7 @@ HS_HOT_INLINE inline void rasterize_face_body(
   if constexpr (COLUMN_TIME) {
     azimuth = time->azimuth;
     up = time->up;
-    column_rotation = time->sweep_arc / (W / 2);
+    column_rotation = time->sweep_rate / (W / 2);
   }
   constexpr float PIXEL_WIDTH = 2.0f * math::PI_F / W;
   const uint32_t probe_flags = shape.probe_flags();
@@ -632,13 +632,14 @@ HS_HOT_INLINE inline float cosine_arc(float c) {
 /**
  * @brief Rotation bound across a compact face's seeing columns.
  * @tparam W Canvas width.
- * @param sweep Frame rotation bound.
+ * @param rate Frame rotation bound per frame fraction, as
+ *        Scan::ColumnBasis::sweep_rate gives it.
  * @param columns Maximum seeing-column span.
  * @return Radians of residual rotation.
  */
 template <int W>
-HS_HOT_INLINE float compact_face_residual(float sweep, int columns = 32) {
-  return sweep * (columns / 2 + 1.0f) / (W / 2) + sweep * sweep / math::PI_F;
+HS_HOT_INLINE float compact_face_residual(float rate, int columns = 32) {
+  return rate * (columns / 2 + 1.0f) / (W / 2) + rate * rate / math::PI_F;
 }
 
 /** @brief Clip planes for a face's current vertex cap and rotation reach. */
@@ -775,7 +776,7 @@ face_bounds_pose(std::span<const math::Vector> vertices,
   pose.y = v;
   pose.z = e * st + t * ct;
   const bool wide = hi - lo > 32;
-  pose.residual = compact_face_residual<W>(time->sweep_arc, wide ? 64 : 32);
+  pose.residual = compact_face_residual<W>(time->sweep_rate, wide ? 64 : 32);
   pose.pads = wide ? wide_pads : pads;
   return true;
 }
@@ -1726,8 +1727,10 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   if (sweep > 0.0f) {
     float *compact_pads = scratch.allocate_n<float>(H);
     float *wide_pads = scratch.allocate_n<float>(H);
-    fill_face_pads<W, H>(compact_pads, compact_face_residual<W>(sweep));
-    fill_face_pads<W, H>(wide_pads, compact_face_residual<W>(sweep, 64));
+    fill_face_pads<W, H>(compact_pads,
+                         compact_face_residual<W>(time.sweep_rate));
+    fill_face_pads<W, H>(wide_pads,
+                         compact_face_residual<W>(time.sweep_rate, 64));
     time.mesh.compact_face_pads = compact_pads;
     time.mesh.wide_face_pads = wide_pads;
   }
@@ -2338,12 +2341,13 @@ struct Mesh {
     const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
     if (sweep > 0.0f && !compact_pads) {
       float *filled = arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep));
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(time->sweep_rate));
       compact_pads = filled;
     }
     if (sweep > 0.0f && !wide_pads) {
       float *filled = arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep, 64));
+      fill_face_pads<W, H>(filled,
+                           compact_face_residual<W>(time->sweep_rate, 64));
       wide_pads = filled;
     }
     SDF::FaceBoundsPose pose;
@@ -2778,12 +2782,13 @@ struct Mesh {
     const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
     if (sweep > 0.0f && !compact_pads) {
       float *filled = scratch_arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep));
+      fill_face_pads<W, H>(filled, compact_face_residual<W>(time->sweep_rate));
       compact_pads = filled;
     }
     if (sweep > 0.0f && !wide_pads) {
       float *filled = scratch_arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(sweep, 64));
+      fill_face_pads<W, H>(filled,
+                           compact_face_residual<W>(time->sweep_rate, 64));
       wide_pads = filled;
     }
     const float bounds_margin =

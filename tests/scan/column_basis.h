@@ -1567,6 +1567,130 @@ inline void test_column_basis_prepares_for_moving_state() {
   HS_EXPECT_TRUE(moving.azimuth != nullptr);
 }
 
+/// Largest channel error between a column-time scan and its per-column
+/// oracle under a multi-interval pose history.
+inline constexpr int HISTORY_ORACLE_CHANNEL_ERROR = 64;
+
+/**
+ * @brief Re-centred caps keep every pixel a per-column oracle lights under a
+ *        pose history of unequal or reversing interval turns.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param label History named in failure context.
+ * @param turns Turn of each history pose about one tilted axis (radians),
+ *        oldest first.
+ */
+template <int W, int H>
+inline void check_history_lit_caps(const char *label,
+                                   const std::array<float, 4> &turns) {
+  HS_CONTEXT(label, W);
+  const ScopedPoleLod lod(0.0f);
+  const math::Vector axis = math::Vector(0.6f, -0.2f, 0.77f).normalized();
+  math::Orientation<> orientation(math::make_rotation(axis, turns[0]));
+  for (size_t i = 1; i < turns.size(); ++i)
+    orientation.push(math::make_rotation(axis, turns[i]));
+  ScratchScope scope(scratch_arena_a);
+  const Scan::ColumnBasis time =
+      Scan::prepare_column_basis<W, H>(scratch_arena_a, orientation);
+  HS_EXPECT_TRUE(time.azimuth != nullptr);
+  if (!time.azimuth)
+    return;
+
+  constexpr int HALF = W / 2;
+  float travel = 0.0f;
+  for (int c = 0; c < HALF; ++c)
+    for (int m = 0; m < HALF; ++m) {
+      const math::Quaternion step =
+          orientation.get(Spacetime::surface_time(c, W)) *
+          orientation.get(Spacetime::surface_time(m, W)).conjugate();
+      const float turn =
+          2.0f * asinf(fminf(sqrtf(math::dot(step.v, step.v)), 1.0f));
+      travel =
+          fmaxf(travel, turn - time.sweep_rate *
+                                   static_cast<float>(std::abs(c - m)) / HALF);
+    }
+  HS_EXPECT_LE(travel, (Scan::ColumnBasisTable<W, H>::SWEEP_PAD));
+
+  constexpr int SHAPES = 160;
+  std::vector<math::Basis> bases;
+  int moved = 0;
+  for (int i = 0; i < SHAPES; ++i) {
+    bases.push_back(math::make_basis(math::Quaternion(),
+                                     math::fib_spiral(SHAPES, 0.5f, i)));
+    Scan::LitCap cap;
+    moved += Scan::lit_cap<W, H>(bases.back().v, 0.03f, time, cap);
+  }
+  HS_EXPECT_GT(moved, SHAPES / 2);
+  const auto draw = [&](Pipeline<W, H> &pipeline, Canvas &canvas,
+                        const math::Quaternion &placement, bool lit) {
+    const auto place = [&](const math::Basis &b) {
+      return math::Basis{math::rotate(b.u, placement),
+                         math::rotate(b.v, placement),
+                         math::rotate(b.w, placement)};
+    };
+    for (int i = 0; i < SHAPES; ++i) {
+      const auto star_basis = math::get_antipode(place(bases[i]), 0.04f);
+      const SDF::Star star(star_basis.first, star_basis.second, 5, 0.0f);
+      const SDF::Ring disc(place(bases[(i * 7) % SHAPES]), 0.0f, 0.03f);
+      if (lit) {
+        Scan::rasterize<W, H, false>(pipeline, canvas, star, basis_flat_shader);
+        Scan::rasterize<W, H, false>(pipeline, canvas, disc, basis_flat_shader);
+      } else {
+        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyStar(star),
+                                     basis_flat_shader);
+        Scan::rasterize<W, H, false>(pipeline, canvas, SweptOnlyRing(disc),
+                                     basis_flat_shader);
+      }
+    }
+  };
+  const auto scanned = [&](bool lit) {
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          Scan::ColumnBasisScope column_scope(canvas, time);
+          draw(pipeline, canvas, math::Quaternion(), lit);
+        });
+  };
+  const std::vector<Pixel> actual = scanned(true);
+  const std::vector<Pixel> swept = scanned(false);
+  const std::vector<Pixel> expected = render_state_oracle<W, H>(
+      [&](Pipeline<W, H> &pipeline, Canvas &canvas, float u) {
+        draw(pipeline, canvas,
+             (orientation.get(u) * orientation.get().conjugate()).normalized(),
+             true);
+      });
+  int differing = 0, lit = 0, worst = 0;
+  for (size_t i = 0; i < expected.size(); ++i) {
+    differing += !(actual[i] == swept[i]);
+    lit += !is_black(expected[i]);
+    const Pixel &a = actual[i];
+    const Pixel &b = expected[i];
+    worst = std::max({worst, std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
+                      std::abs(int(a.b) - b.b)});
+  }
+  HS_EXPECT_EQ(differing, 0);
+  HS_EXPECT_LE(worst, HISTORY_ORACLE_CHANNEL_ERROR);
+  HS_EXPECT_GT(lit, 4 * SHAPES);
+}
+
+/**
+ * @brief Compact shapes keep their oracle pixels under pose histories whose
+ *        interval turns differ or reverse; an endpoint pair's rate bound is
+ *        its arc.
+ */
+inline void test_lit_caps_follow_history_rate() {
+  const BasisMotion motion = tilted_motion();
+  auto basis = std::make_unique<Scan::ColumnBasisTable<96, 48>>();
+  const Scan::ColumnBasis endpoints =
+      basis->prepare(motion.previous, motion.current);
+  HS_EXPECT_EQ(endpoints.sweep_rate, endpoints.sweep_arc);
+  for (const auto &[label, turns] :
+       {std::pair{"variable rate", std::array{0.0f, 0.6f, 0.6f, 0.6f}},
+        std::pair{"reversing", std::array{0.0f, 0.9f, 0.9f, 0.3f}}}) {
+    check_history_lit_caps<96, 48>(label, turns);
+    check_history_lit_caps<288, 144>(label, turns);
+  }
+}
+
 /**
  * @brief Drifting discs and stars match the shapes rotated to where they
  *        stood at each column's sweep time, across the arm boundary, for
