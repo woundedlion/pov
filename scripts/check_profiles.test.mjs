@@ -201,6 +201,23 @@ test('reportsIn separates supplemental variants and rejects duplicate variants',
   assert.deepEqual(errors, ['O3 has multiple reports for example_octet_preset5']);
 });
 
+test('GridSpace comparison retains its cited path without providing canonical coverage', async t => {
+  const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(join(root, 'shipping'));
+  const comparison = 'profile_gridspace_teensy_2026-10-17.md';
+  await writeFile(join(root, 'shipping', comparison), validReport);
+  const errors = [];
+  const reports = await reportsIn(root, 'shipping', errors);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(reports.filter(report => !report.variant), []);
+  await writeFile(join(root, 'shipping', 'profile_gridspace_teensy_2026-10-22.md'), validReport);
+  const paired = await reportsIn(root, 'shipping', errors);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(paired.filter(report => !report.variant).map(report => report.file),
+    ['profile_gridspace_teensy_2026-10-22.md']);
+});
+
 test('profileDirectories derives timing sets from their local indexes', async t => {
   const root = await mkdtemp(join(tmpdir(), 'holosphere-profiles-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -239,11 +256,11 @@ test('profileDirectories reports an unindexed set of reports', async t => {
     ['orphan has profile reports but no README.md index']);
 });
 
-test('Galaxies alone is pending its canonical shipping capture', async () => {
+test('every Phantasm effect has a canonical shipping capture', async () => {
   const reports = await reportsIn(PROFILES_DIR, 'shipping', []);
   const canonical = reports.filter(report => !report.variant);
-  assert.equal(canonical.length, 35);
-  assert.ok(!canonical.some(report => report.key === 'galaxies'));
+  assert.equal(canonical.length, 36);
+  assert.ok(canonical.some(report => report.key === 'galaxies'));
   const result = await checkProfiles();
   assert.equal(result.phantasmCount, 36);
   assert.deepEqual(result.errors, []);
@@ -277,13 +294,11 @@ test('checkProfiles validates cross-roster and index contracts', async t => {
     ['missing shipping report', async root => {
       await rm(join(root, 'shipping', first.file));
     }, 'shipping profiles is missing: ' + first.key],
-    ['pending allowance expires when Galaxies has a report', async root => {
-      const file = 'profile_galaxies_teensy_2026-10-13.md';
-      const report = (await readFile(join(root, 'shipping', first.file), 'utf8'))
-        .replace(/^# [A-Za-z0-9]+ on-device profile/m, '# Galaxies on-device profile')
-        .replaceAll(first.date, '2026-10-13');
-      await writeFile(join(root, 'shipping', file), report);
-    }, 'stale pending shipping profile allowance: galaxies'],
+    ['missing Galaxies shipping report', async root => {
+      const reports = await reportsIn(root, 'shipping', []);
+      const galaxies = reports.find(report => report.key === 'galaxies' && !report.variant);
+      await rm(join(root, 'shipping', galaxies.file));
+    }, 'shipping profiles is missing: galaxies'],
     ['supplement cannot replace canonical shipping report', async root => {
       await rm(join(root, 'shipping', canonical.file));
     }, 'shipping profiles is missing: ' + canonical.key],
