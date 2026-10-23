@@ -25,11 +25,11 @@
  * @param clip Optional render-row clip.
  * @return True when the padded face cannot overlap the canvas or render clip.
  */
-__attribute__((always_inline)) bool
+__attribute__((always_inline)) static bool
 phi_band_rejects(std::span<const math::Vector> vertices,
                  std::span<const uint16_t> indices,
                  const math::LatitudeGeometry &geometry, int height,
-                 float bounds_margin, const ClipRegion *clip) const {
+                 float bounds_margin, const ClipRegion *clip) {
   float min_y_val = 2.0f;
   float max_y_val = -2.0f;
 
@@ -76,6 +76,8 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
   basis_w = math::cross(center, basis_u).normalized();
 
   float max_r2 = 0.0f;
+  plane_min_x = plane_min_y = FLT_MAX;
+  plane_max_x = plane_max_y = -FLT_MAX;
   for (int i = 0; i < count; ++i) {
     const math::Vector &v = scratch.verts_3d[i];
     // Gnomonic projection divides by d = cos(angle from face center),
@@ -88,6 +90,10 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
     float py = math::dot(v, basis_w) / d;
 
     scratch.poly_2d[i] = math::Vector(px, py, 0);
+    plane_min_x = fminf(plane_min_x, px);
+    plane_max_x = fmaxf(plane_max_x, px);
+    plane_min_y = fminf(plane_min_y, py);
+    plane_max_y = fmaxf(plane_max_y, py);
 
     float r2 = px * px + py * py;
     max_r2 = __builtin_fmaxf(r2, max_r2);
@@ -103,31 +109,59 @@ setup_frame_and_polygon(std::span<const math::Vector> vertices,
 }
 
 /**
+ * @brief Builds projected edge vectors and their reciprocals.
+ * @param scratch Face geometry receiving the edge tables.
+ */
+__attribute__((always_inline)) void compute_edges(FaceScratchBuffer &scratch) {
+  for (int i = 0; i < count; ++i) {
+    math::Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
+    scratch.edge_vectors[i] = edge;
+    float edge_len_sq = math::dot(edge, edge);
+    scratch.edge_lengths_sq[i] = edge_len_sq;
+    scratch.inv_edge_lengths_sq[i] =
+        (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
+    scratch.inv_edge_j[i] =
+        (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
+  }
+  edge_vectors = {scratch.edge_vectors.data(), static_cast<size_t>(count)};
+  edge_lengths_sq = {scratch.edge_lengths_sq.data(),
+                     static_cast<size_t>(count)};
+  inv_edge_lengths_sq = {scratch.inv_edge_lengths_sq.data(),
+                         static_cast<size_t>(count)};
+  inv_edge_j = {scratch.inv_edge_j.data(), static_cast<size_t>(count)};
+}
+
+/**
    * @brief Computes the face "size" (inradius) from the projected polygon.
    * @param scratch Scratch storage holding poly_2d, per-edge vectors and
-   * reciprocal squared lengths (inv_edge_lengths_sq) from compute_full_bounds,
+   * reciprocal squared lengths (inv_edge_lengths_sq) from compute_edges,
    * which must run first.
+   * @param convex_radius Origin-to-boundary distance from accepted half-planes,
+   * or a negative value for the segment walk.
    * @details size = minimum distance from the projected centroid to any edge,
    * floored to a fraction of the circumradius for degenerate slivers. A large
    * face converts it to radians, matching the metric distance() reports.
    */
 __attribute__((always_inline)) void
-compute_inradius(const FaceScratchBuffer &scratch) {
+compute_inradius(const FaceScratchBuffer &scratch,
+                 float convex_radius = -1.0f) {
   float min_edge_dist_sq = 1e18f;
-  for (int i = 0; i < count; ++i) {
-    const math::Vector &v1 = scratch.poly_2d[i];
-    const math::Vector &edge = scratch.edge_vectors[i];
-    float t = 0.0f;
-    const float inv_edge_len_sq = scratch.inv_edge_lengths_sq[i];
-    if (inv_edge_len_sq > 0.0f) {
-      t = math::dot(-v1, edge) * inv_edge_len_sq;
-      t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
+  if (convex_radius < 0.0f)
+    for (int i = 0; i < count; ++i) {
+      const math::Vector &v1 = scratch.poly_2d[i];
+      const math::Vector &edge = scratch.edge_vectors[i];
+      float t = 0.0f;
+      const float inv_edge_len_sq = scratch.inv_edge_lengths_sq[i];
+      if (inv_edge_len_sq > 0.0f) {
+        t = math::dot(-v1, edge) * inv_edge_len_sq;
+        t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
+      }
+      math::Vector closest = v1 + edge * t;
+      const float distance_sq = math::dot(closest, closest);
+      min_edge_dist_sq = __builtin_fminf(distance_sq, min_edge_dist_sq);
     }
-    math::Vector closest = v1 + edge * t;
-    min_edge_dist_sq =
-        __builtin_fminf(math::dot(closest, closest), min_edge_dist_sq);
-  }
-  const float min_edge_dist = sqrtf(min_edge_dist_sq);
+  const float min_edge_dist =
+      convex_radius >= 0.0f ? convex_radius : sqrtf(min_edge_dist_sq);
   const float min_radius =
       __builtin_fmaxf(0.0f, min_edge_dist - radius * 1e-5f);
   sector_min_radius_sq = min_radius * min_radius;
@@ -165,13 +199,13 @@ __attribute__((always_inline)) void pack_edges(FaceScratchBuffer &scratch) {
    * @brief Detects a convex 2D projection and builds its edge half-planes.
    * @param scratch Scratch storage receiving half_planes.
    * @param area2 Twice the polygon's signed area, from the collapsed-face cull.
+   * @return Origin-to-boundary distance for an admitted convex polygon, else -1.
    * @details The maximum edge half-plane distance is exact inside a convex
-   * polygon and in exterior edge slabs, and underestimates in a vertex's
-   * exterior normal cone. Concave, self-intersecting, degenerate-edged, or
+   * polygon and in exterior edge slabs; vertex cones use endpoint distance. Concave, self-intersecting, degenerate-edged, or
    * wrongly-oriented polygons leave convex false and distance() on the exact
    * walk.
    */
-__attribute__((always_inline)) void
+__attribute__((always_inline)) float
 build_half_planes(FaceScratchBuffer &scratch, float area2) {
   ::new (static_cast<void *>(&scratch.half_planes))
       std::array<HalfPlane, FaceScratchBuffer::MAX_VERTS>;
@@ -200,7 +234,7 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
     }
   }
   if ((pos && neg) || flips < 1 || flips > 2)
-    return;
+    return -1.0f;
 
   float sign = area2 >= 0 ? 1.0f : -1.0f;
   // d0 is the origin's worst half-plane distance: the projected face center
@@ -209,7 +243,7 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
   for (int i = 0; i < count; ++i) {
     float len_sq = edge_lengths_sq[i];
     if (len_sq < 1e-12f)
-      return;
+      return -1.0f;
     float inv = sign / sqrtf(len_sq);
     float nx = edge_vectors[i].y * inv;
     float ny = -edge_vectors[i].x * inv;
@@ -221,9 +255,32 @@ build_half_planes(FaceScratchBuffer &scratch, float area2) {
     d0 = __builtin_fmaxf(off, d0);
   }
   if (d0 >= 0.0f)
-    return;
+    return -1.0f;
   half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
   convex = true;
+  for (int i = 0; i < count; ++i) {
+    auto same_plane = [&](int j) {
+      const auto &a = half_planes[i], &b = half_planes[j];
+      return a.nx * b.nx + a.ny * b.ny >= 1.0f - 1e-6f &&
+             fabsf(a.off - b.off) <= radius * 1e-5f;
+    };
+    int first = i, last = i;
+    for (int steps = 1; steps < count; ++steps) {
+      const int previous = first == 0 ? count - 1 : first - 1;
+      if (!same_plane(previous))
+        break;
+      first = previous;
+    }
+    for (int steps = 1; steps < count; ++steps) {
+      const int next = last + 1 == count ? 0 : last + 1;
+      if (!same_plane(next))
+        break;
+      last = next;
+    }
+    scratch.half_planes[i].first = static_cast<uint16_t>(first);
+    scratch.half_planes[i].last = static_cast<uint16_t>(last);
+  }
+  return -d0;
 }
 
 /**
@@ -449,7 +506,7 @@ __attribute__((always_inline)) void
 compute_thetas(FaceScratchBuffer &scratch) const {
   for (int i = 0; i < count; ++i) {
     const math::Vector &v = scratch.verts_3d[i];
-    float theta = math::fast_atan2(v.z, v.x);
+    float theta = math::precise_atan2(v.z, v.x);
     if (theta < 0)
       theta += math::TWO_PI_F;
     scratch.thetas[i] = theta;
@@ -709,14 +766,6 @@ compute_full_bounds(FaceScratchBuffer &scratch, int count,
   for (int i = 0; i < count; ++i) {
     const math::Vector &v1 = scratch.verts_3d[i];
     const math::Vector &v2 = scratch.verts_3d[i + 1];
-    math::Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
-    scratch.edge_vectors[i] = edge;
-    float edge_len_sq = math::dot(edge, edge);
-    scratch.edge_lengths_sq[i] = edge_len_sq;
-    scratch.inv_edge_lengths_sq[i] =
-        (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-    scratch.inv_edge_j[i] =
-        (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
     math::Vector normal = math::cross(v1, v2);
     float len_sq = math::dot(normal, normal);
     // planes[] is compacted: a degenerate edge pushes no plane, so planes[k]
@@ -870,18 +919,46 @@ template <int W, int H> float azimuth_pad_at_row(int y) const {
 }
 
 /**
-   * @brief Signed planar distance via the convex half-plane max.
+   * @brief Signed planar distance through convex edge slabs and vertex cones.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
+   * @param reject_distance Distances at or above this cutoff may be capped.
    * @return Signed distance in the tangent plane (negative inside).
    */
-HS_O3_FN float plane_dist_convex(float px, float py) const {
+HS_O3_FN float plane_dist_convex(float px, float py,
+                                 float reject_distance = FLT_MAX) const {
   HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
   float d = -FLT_MAX;
+  int winning = 0;
   for (int i = 0; i < count; ++i) {
     const auto &hp = half_planes[i];
-    float di = hp.nx * px + hp.ny * py + hp.off;
-    d = __builtin_fmaxf(di, d);
+    const float di = hp.nx * px + hp.ny * py + hp.off;
+    if (di >= reject_distance)
+      return di;
+    if (di > d)
+      winning = i;
+    d = fmaxf(di, d);
+  }
+  if (d > 0.0f) {
+    const auto &edge = packed_edges[winning];
+    const float wx = px - edge.vx, wy = py - edge.vy;
+    const float foot = (wx * edge.ex + wy * edge.ey) * edge.inv_len_sq;
+    if (foot < 0.0f || foot > 1.0f) {
+      const auto &plane = half_planes[winning];
+      float squared = FLT_MAX;
+      for (int i = plane.first;; i = i + 1 == count ? 0 : i + 1) {
+        const auto &segment = packed_edges[i];
+        const float sx = px - segment.vx, sy = py - segment.vy;
+        const float t =
+            hs::clamp((sx * segment.ex + sy * segment.ey) * segment.inv_len_sq,
+                      0.0f, 1.0f);
+        const float dx = sx - t * segment.ex, dy = sy - t * segment.ey;
+        squared = fminf(squared, dx * dx + dy * dy);
+        if (i == plane.last)
+          break;
+      }
+      return sqrtf(squared);
+    }
   }
   return d;
 }
@@ -998,26 +1075,48 @@ HS_O3_FN HS_NOINLINE_NOCLONE float plane_dsq_y_walk(float px, float py,
    * the sign the squared return cannot.
    * @param reject_dsq Outside squared distances at or above this threshold
    * may return the threshold; FLT_MAX keeps the distance exact.
+   * @param column_sector Optional sector carried between probes of one column.
    * @return Squared distance to the nearest edge, capped outside when requested.
    * @details Searches the fan sector and its neighbors, certifying the minimum
    * against the omitted edges' angular wedge and radial bound, expanding until
    * certified or every segment has been evaluated. Requires sector_ok.
    */
 HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out,
-                                float reject_dsq = FLT_MAX) const {
-  float p = math::diamond_angle<false>(py, px) * sector_sgn;
-  if (p < sector_base)
-    p += 4.0f;
-  uint32_t qk = angle_key(p);
-  int lo = 0, hi = count;
-  while (lo + 1 < hi) {
-    int mid = (lo + hi) >> 1;
-    if (sector_keys[mid] <= qk)
-      lo = mid;
-    else
-      hi = mid;
+                                float reject_dsq = FLT_MAX,
+                                int *column_sector = nullptr) const {
+  int s;
+  if (column_sector && *column_sector >= 0) {
+    s = *column_sector;
+    for (;;) {
+      const auto &a = poly_2d[s];
+      const auto &b = poly_2d[s + 1];
+      if ((a.x * py - a.y * px) * sector_sgn < 0.0f) {
+        if (--s < 0)
+          s = count - 1;
+      } else if ((px * b.y - py * b.x) * sector_sgn < 0.0f) {
+        if (++s == count)
+          s = 0;
+      } else {
+        break;
+      }
+    }
+  } else {
+    float p = math::diamond_angle<false>(py, px) * sector_sgn;
+    if (p < sector_base)
+      p += 4.0f;
+    uint32_t qk = angle_key(p);
+    int lo = 0, hi = count;
+    while (lo + 1 < hi) {
+      int mid = (lo + hi) >> 1;
+      if (sector_keys[mid] <= qk)
+        lo = mid;
+      else
+        hi = mid;
+    }
+    s = lo;
   }
-  int s = lo;
+  if (column_sector)
+    *column_sector = s;
   const auto &sector_start = poly_2d[s];
   const auto &sector_end = poly_2d[s + 1];
   const float ax = sector_start.x * py, ay = sector_start.y * px;
@@ -1082,13 +1181,20 @@ static constexpr uint32_t PROBE_HAS_LUT = 1u << 0;
 static constexpr uint32_t PROBE_CONVEX = 1u << 1;
 /** @brief Use the sector-indexed edge walk. */
 static constexpr uint32_t PROBE_SECTOR = 1u << 2;
+/** @brief Reject against a compact projected rectangle. */
+static constexpr uint32_t PROBE_PLANE_BOX = 1u << 4;
 /** @brief Return distances in the gnomonic plane. */
 static constexpr uint32_t PROBE_LINEAR = 1u << 3;
 
 /** @return Packed distance-path flags for repeated probes of this face. */
 uint32_t probe_flags() const {
   return (lut_data ? PROBE_HAS_LUT : 0u) | (convex ? PROBE_CONVEX : 0u) |
-         (sector_ok ? PROBE_SECTOR : 0u) | (linear_dist ? PROBE_LINEAR : 0u);
+         (sector_ok ? PROBE_SECTOR : 0u) | (linear_dist ? PROBE_LINEAR : 0u) |
+         (!convex && linear_dist && !lut_data &&
+                  (plane_max_x - plane_min_x) * (plane_max_y - plane_min_y) <
+                      2.5f * radius * radius
+              ? PROBE_PLANE_BOX
+              : 0u);
 }
 
 /**
@@ -1144,17 +1250,43 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
    * @param probe_flags Distance-path flags captured after the face's last LUT
    *        binding or geometry update.
    * @param min_cos Cosine of the radial cull angle.
+   * @param reject_plane Convex planar distances at or above this cutoff may
+   *        be capped; FLT_MAX keeps them exact.
    */
 template <bool ComputeUVs = true>
 HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
                                   float reject_dsq, uint32_t probe_flags,
-                                  float min_cos) const {
+                                  float min_cos,
+                                  float reject_plane = FLT_MAX) const {
+  distance_projected<ComputeUVs>(math::dot(p, center), math::dot(p, basis_u),
+                                 math::dot(p, basis_w), res, reject_dsq,
+                                 probe_flags, min_cos, reject_plane);
+}
+
+/**
+ * @brief Evaluates a direction already expressed in the face's frame.
+ * @tparam ComputeUVs Accepted for interface parity.
+ * @param cos_angle Direction dotted with the face center.
+ * @param u Direction dotted with basis_u.
+ * @param w Direction dotted with basis_w.
+ * @param res Output distance result.
+ * @param reject_dsq Conservative squared planar rejection threshold.
+ * @param probe_flags Cached distance-path flags.
+ * @param min_cos Cosine of the radial cull angle.
+ * @param reject_plane Convex planar rejection cutoff.
+ * @param column_sector Optional sector carried down a projected column.
+ */
+template <bool ComputeUVs = true>
+HS_O3_FN HS_HOT_INLINE void
+distance_projected(float cos_angle, float u, float w, DistanceResult &res,
+                   float reject_dsq, uint32_t probe_flags, float min_cos,
+                   float reject_plane = FLT_MAX,
+                   int *column_sector = nullptr) const {
   HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
   HS_PROBE_TICK();
   HS_PROBE_COUNT(n_probe);
   HS_PROBE_MARK(hs_t);
 
-  float cos_angle = math::dot(p, center);
   if (cos_angle < min_cos) {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
     HS_PROBE_SPAN(point, hs_t);
@@ -1165,9 +1297,18 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
   HS_PROBE_SPAN(point, hs_t);
 
   float inv_cos = 1.0f / cos_angle;
-  float px = math::dot(p, basis_u) * inv_cos;
-  float py = math::dot(p, basis_w) * inv_cos;
+  float px = u * inv_cos;
+  float py = w * inv_cos;
   HS_PROBE_SPAN(project, hs_t);
+
+  if (probe_flags & PROBE_PLANE_BOX) {
+    const float outside = fmaxf(fmaxf(plane_min_x - px, px - plane_max_x),
+                                fmaxf(plane_min_y - py, py - plane_max_y));
+    if (outside >= reject_plane) {
+      res = DistanceResult(FAR_SENTINEL, 0.0f, FAR_SENTINEL, 0.0f, size);
+      return;
+    }
+  }
 
   float plane_dist;
   bool lut_served = false;
@@ -1207,7 +1348,7 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
   if (!lut_served) {
     HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
     if (probe_flags & PROBE_CONVEX) {
-      plane_dist = plane_dist_convex(px, py);
+      plane_dist = plane_dist_convex(px, py, reject_plane);
       HS_PROBE_SPAN(edge_convex, hs_t);
       HS_PROBE_COUNT(n_convex);
     } else {
@@ -1215,9 +1356,9 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
       float dsq;
       if (probe_flags & PROBE_SECTOR) {
         HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
-        dsq = plane_dsq_sector(px, py, inside,
-                               (probe_flags & PROBE_LINEAR) ? reject_dsq
-                                                            : FLT_MAX);
+        dsq = plane_dsq_sector(
+            px, py, inside, (probe_flags & PROBE_LINEAR) ? reject_dsq : FLT_MAX,
+            column_sector);
         HS_PROBE_SPAN(edge_sector, hs_t);
         HS_PROBE_COUNT(n_sector);
       } else {

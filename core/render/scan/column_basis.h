@@ -57,12 +57,18 @@ struct PoleFaceSweep {
 namespace detail {
 /** @brief Selection and captured geometry of a mesh scan pass. */
 struct MeshPass {
+  const uint8_t *visible_faces = nullptr; ///< Frame visibility bits per face.
+  const uint8_t *visible_vertices =
+      nullptr; ///< Frame visibility bits per vertex.
   /// Per face of the mesh a deformation scan draws, which of its passes
   /// draws the face: detail::FacePass::SHARED for the pass without a render-x window,
   /// detail::FacePass::ARM_COPY for the open window's; null outside such a scan.
   const uint8_t *selected_faces = nullptr;
   /// Per-row azimuth pads shared by a deformation scan's passes.
   const float *face_pads = nullptr;
+  const float *compact_face_pads =
+      nullptr;                           ///< Shared compact-face row padding.
+  const float *wide_face_pads = nullptr; ///< Shared wide-face row padding.
   /// One face a deformation scan draws alone, from its own vertex list;
   /// null to scan the selection table.
   const FaceArmCopy *face_copy = nullptr;

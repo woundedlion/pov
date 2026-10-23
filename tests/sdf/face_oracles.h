@@ -6,8 +6,7 @@
 // ============================================================================
 // Face distance vs an independent exact oracle
 //
-// Face distances match an independent oracle within 1e-4 inside and on
-// concave faces; convex exteriors stay within [0, oracle] with that tolerance.
+// Face distances match an independent polygon oracle.
 // ============================================================================
 
 /**
@@ -68,9 +67,7 @@ inline float exact_plane_distance(std::span<const math::Vector> verts,
  * @param rho_inner Inner-vertex radius; > 0 interleaves star points (concave).
  * @param stride Ring step between consecutive face vertices; a stride > 1
  * coprime to sides joins the points into a self-intersecting star.
- * @details A convex face must match the oracle exactly inside and stay within
- * [0, oracle] outside (the half-plane path underestimates in vertex cones); a
- * concave face must match the oracle everywhere via the exact walk.
+ * @details Convex and concave faces match the oracle throughout the cull disk.
  */
 inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
                                        const math::Vector &axis,
@@ -121,15 +118,7 @@ inline void check_face_distance_oracle(int &sample_total, int sides, float rho,
       const float expected = exact_plane_distance(
           std::span<const math::Vector>(verts3d, n_verts), p, face.linear_dist);
 
-      // fast_atan2 preserves sign, so the oracle's sign is the plane sign.
-      if (face.convex && expected > 0.0f) {
-        // Outside a convex face the half-plane max is a lower bound (line
-        // distance, not vertex distance) that never crosses zero.
-        HS_EXPECT_TRUE(res.raw_dist >= -1e-4f);
-        HS_EXPECT_TRUE(res.raw_dist <= expected + 1e-4f);
-      } else {
-        HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
-      }
+      HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
       ++samples;
     }
   }
@@ -268,7 +257,8 @@ inline void test_face_asymmetric_sector_matches_oracle() {
           for (int i = 0; i < COUNT; ++i)
             scratch.planes[i].z = 0.0f;
         }
-        for (int x = -50; x <= 50; ++x)
+        for (int x = -50; x <= 50; ++x) {
+          int sector = -1;
           for (int y = -50; y <= 50; ++y) {
             const float px = x * 0.01f, py = y * 0.01f;
             bool inside;
@@ -276,6 +266,18 @@ inline void test_face_asymmetric_sector_matches_oracle() {
             const double expected = double_polygon_distance(face, px, py);
             const double actual = (inside ? -1.0 : 1.0) * std::sqrt(squared);
             HS_EXPECT_NEAR(actual, expected, 1e-5);
+            bool carried_inside;
+            const float carried =
+                face.plane_dsq_sector(px, py, carried_inside, FLT_MAX, &sector);
+            const double carried_actual =
+                (carried_inside ? -1.0 : 1.0) * std::sqrt(carried);
+            HS_EXPECT_NEAR(carried_actual, expected, 1e-5);
+            const auto &ray_a = face.poly_2d[sector];
+            const auto &ray_b = face.poly_2d[sector + 1];
+            HS_EXPECT_GE((ray_a.x * py - ray_a.y * px) * face.sector_sgn,
+                         -1e-6f);
+            HS_EXPECT_GE((px * ray_b.y - py * ray_b.x) * face.sector_sgn,
+                         -1e-6f);
             for (float limit : {0.0f, 0.0001f, 0.01f}) {
               bool capped_inside;
               const float capped =
@@ -287,6 +289,7 @@ inline void test_face_asymmetric_sector_matches_oracle() {
                 HS_EXPECT_GE(capped, limit);
             }
           }
+        }
       }
     }
 }
@@ -550,7 +553,7 @@ inline void test_face_shipping_recipes_match_oracle() {
 }
 
 /**
- * @brief Verifies Face::distance agrees with the polygon oracle inside and bounds it outside.
+ * @brief Verifies Face::distance agrees with the polygon oracle throughout its cull disk.
  */
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
@@ -576,6 +579,81 @@ inline void test_face_distance_matches_exact_oracle() {
                              math::Vector(0.4f, 0.3f, 1.0f),
                              /*rho_inner=*/0.0f, /*stride=*/2);
   HS_EXPECT_GT(samples, 1000);
+}
+
+/** @brief Thin-face rectangle rejection preserves signed distances within reach. */
+inline void test_face_plane_box_rejection() {
+  const math::Basis BASIS =
+      math::make_basis(math::Quaternion(), math::Vector(0.4f, 0.3f, 1.0f));
+  constexpr float POLYGON[6][2] = {{-0.14f, -0.02f}, {0.14f, -0.02f},
+                                   {0.14f, 0.0f},    {0.0f, 0.0f},
+                                   {0.0f, 0.02f},    {-0.14f, 0.02f}};
+  math::Vector vertices[6];
+  uint16_t indices[6];
+  for (int i = 0; i < 6; ++i) {
+    indices[i] = i;
+    vertices[i] = (BASIS.v + BASIS.u * POLYGON[i][0] + BASIS.w * POLYGON[i][1])
+                      .normalized();
+  }
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(vertices, indices, scratch, math::LatitudeGeometry(144), 144,
+                 nullptr, nullptr, SDF::BOUNDS_MARGIN);
+  HS_EXPECT_FALSE(face.convex);
+  const uint32_t flags = face.probe_flags();
+  HS_EXPECT_NE(flags & SDF::Face::PROBE_PLANE_BOX, 0u);
+  constexpr float REACH = 0.01f;
+  size_t retained = 0, rejected = 0;
+  for (int x = -20; x <= 20; ++x)
+    for (int y = -20; y <= 20; ++y) {
+      const float px = x * 0.01f, py = y * 0.01f;
+      bool inside;
+      const float squared = face.plane_dsq_exact(px, py, inside);
+      const float expected = (inside ? -1.0f : 1.0f) * sqrtf(squared);
+      SDF::DistanceResult actual;
+      face.distance_projected(1.0f, px, py, actual, FLT_MAX, flags, 0.0f,
+                              REACH);
+      if (expected < REACH * (1.0f - 1e-5f)) {
+        HS_EXPECT_NEAR(actual.dist, expected, 1e-6f);
+        ++retained;
+      } else {
+        HS_EXPECT_GE(actual.dist, REACH * (1.0f - 1e-5f));
+        rejected += actual.dist == SDF::FAR_SENTINEL;
+      }
+    }
+  HS_EXPECT_GT(retained, 0u);
+  HS_EXPECT_GT(rejected, 0u);
+}
+
+/** @brief Convex rejection preserves every distance below its cutoff. */
+inline void test_face_convex_rejection_cutoff() {
+  const math::Basis BASIS =
+      math::make_basis(math::Quaternion(), math::Vector(0.4f, 0.3f, 1.0f));
+  math::Vector vertices[16];
+  uint16_t indices[16];
+  const int COUNT =
+      build_regular_face(BASIS, 6, 0.12f, 0.0f, vertices, indices);
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span(vertices, COUNT), std::span(indices, COUNT), scratch,
+                 math::LatitudeGeometry(144), 144, nullptr, nullptr,
+                 SDF::BOUNDS_MARGIN);
+  HS_EXPECT_TRUE(face.convex);
+  int rejected = 0, retained = 0;
+  for (const float cutoff : {0.0f, 0.01f, 0.04f})
+    for (int x = -24; x <= 24; ++x)
+      for (int y = -24; y <= 24; ++y) {
+        const float px = x * 0.01f, py = y * 0.01f;
+        const float exact = face.plane_dist_convex(px, py);
+        const float bounded = face.plane_dist_convex(px, py, cutoff);
+        if (exact < cutoff) {
+          HS_EXPECT_EQ(bounded, exact);
+          ++retained;
+        } else {
+          HS_EXPECT_GE(bounded, cutoff);
+          ++rejected;
+        }
+      }
+  HS_EXPECT_GT(retained, 100);
+  HS_EXPECT_GT(rejected, 100);
 }
 
 // ============================================================================

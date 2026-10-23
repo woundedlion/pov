@@ -84,7 +84,9 @@ struct FaceScratchBuffer {
     /** @var off
      *  Line offset: signed distance is nx*px + ny*py + off. */
     /// Outward unit normal x.
-    float nx, ny, off, pad; /**< Padding to a 16-byte stride. */
+    float nx, ny, off;
+    uint16_t first; ///< First edge in the collinear run, wrapping at count.
+    uint16_t last;  ///< Last edge in the collinear run, wrapping at count.
   };
   /** @brief Sorted vertex rows and their crossing-edge masks. */
   struct YWalkCache {
@@ -125,6 +127,24 @@ __attribute__((always_inline)) inline uint32_t angle_key(float x) {
   return (u & 0x80000000u) ? (0u - u) : (u + 0x80000000u);
 }
 
+/** @brief Rotation and angular padding of a compact face's bounds. */
+struct FaceBoundsPose {
+  math::Vector x;    ///< Bounds-frame x axis in endpoint space.
+  math::Vector y;    ///< Bounds-frame north in endpoint space.
+  math::Vector z;    ///< Bounds-frame z axis in endpoint space.
+  float residual;    ///< Rotation over the face's seeing columns.
+  const float *pads; ///< Shared conservative row azimuth pads.
+
+  /**
+   * @brief Expresses an endpoint direction in the bounds frame.
+   * @param p Endpoint direction.
+   * @return Bounds-frame direction.
+   */
+  HS_HOT_INLINE math::Vector project(const math::Vector &p) const {
+    return {math::dot(p, x), math::dot(p, y), math::dot(p, z)};
+  }
+};
+
 /**
  * @brief Represents a planar face for SDF rendering.
  * @details The span members view the FaceScratchBuffer handed to the
@@ -133,6 +153,8 @@ __attribute__((always_inline)) inline uint32_t angle_key(float x) {
  * get_vertical_bounds() traps on a retargeted Face.
  */
 struct Face {
+  static constexpr float AZIMUTH_ERROR =
+      2e-5f;           ///< Vertex azimuth error, radians.
   math::Vector center; /**< Normalized face centroid (projection axis). */
   /** @var basis_u
    *  Gnomonic x axis, perpendicular to center. */
@@ -193,6 +215,10 @@ struct Face {
   std::span<const uint8_t> y_indices;    /**< Sorted original vertex indices. */
   std::span<const uint8_t> y_edge_flags; /**< Lower bits 0/1, upper bits 2/3:
                                             outgoing/previous incident edges. */
+  float plane_min_x = 0.0f;              ///< Left projected extent.
+  float plane_max_x = 0.0f;              ///< Right projected extent.
+  float plane_min_y = 0.0f;              ///< Lower projected extent.
+  float plane_max_y = 0.0f;              ///< Upper projected extent.
   bool sector_ok =
       false; /**< Star-shaped about centroid; sector walk usable. */
 
@@ -266,6 +292,8 @@ struct Face {
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
+   * @param bounds_pose Optional seeing-time frame for exact-distance face bounds.
+   * @param latitude_checked Whether this vertex/clip latitude band already passed.
    * @param bounds_margin Angular padding around the vertical bounds. Callers
    *        rendering antialiasing fringes must pass at least `2π / width`.
    */
@@ -273,18 +301,40 @@ struct Face {
   Face(std::span<const math::Vector> vertices,
        std::span<const uint16_t> indices, FaceScratchBuffer &scratch,
        const math::LatitudeGeometry &geometry, int height,
-       const ClipRegion *clip, const float *azimuth_pads, float bounds_margin)
+       const ClipRegion *clip, const float *azimuth_pads, float bounds_margin,
+       const FaceBoundsPose *bounds_pose = nullptr,
+       bool latitude_checked = false)
       : build_height(height), build_geometry(geometry),
         build_width(clip ? clip->w : 0), build_azimuth_pads(azimuth_pads),
         full_width(true) {
+    build_geometry_tables(vertices, indices, scratch, geometry, height, clip,
+                          bounds_margin, bounds_pose, latitude_checked);
+  }
 
+  /**
+   * @brief Builds projected geometry and raster tables.
+   * @param vertices Shared vertex pool.
+   * @param indices Face vertex indices.
+   * @param scratch Exclusive face scratch storage.
+   * @param geometry Display latitude mapping.
+   * @param height Canvas height in rows.
+   * @param clip Optional render clip.
+   * @param bounds_margin Angular padding around the bounds.
+   * @param bounds_pose Optional seeing-time bounds frame.
+   * @param latitude_checked Whether this vertex/clip latitude band already passed.
+   */
+  HS_HOT_FLASH_MEMBER void build_geometry_tables(
+      std::span<const math::Vector> vertices, std::span<const uint16_t> indices,
+      FaceScratchBuffer &scratch, const math::LatitudeGeometry &geometry,
+      int height, const ClipRegion *clip, float bounds_margin,
+      const FaceBoundsPose *bounds_pose, bool latitude_checked) {
     count = indices.size();
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
              "Face: vertex count must be in (0, MAX_VERTS]");
 
     // Early vertical exit: a face whose latitude band (plus AA margin) maps to
     // an empty row range can never be rasterized.
-    const bool phi_culled = [&] {
+    const bool phi_culled = !latitude_checked && [&]() HS_HOT_INLINE {
       HS_PROFILE_DEEP(face_phi_extent);
       return phi_band_rejects(vertices, indices, geometry, height,
                               bounds_margin, clip);
@@ -313,6 +363,15 @@ struct Face {
       return;
     }
 
+    math::Vector bounds_center = center;
+    if (bounds_pose) {
+      bounds_center = bounds_pose->project(center);
+      for (int i = 0; i <= count; ++i)
+        scratch.verts_3d[i] = bounds_pose->project(scratch.verts_3d[i]);
+      bounds_margin = math::TWO_PI_F / build_width + bounds_pose->residual;
+      build_azimuth_pads = bounds_pose->pads;
+    }
+
     {
       HS_PROFILE_DEEP(face_thetas);
       compute_thetas(scratch);
@@ -332,25 +391,20 @@ struct Face {
       return;
     }
 
+    compute_edges(scratch);
     {
       HS_PROFILE_DEEP(face_bounds);
 
       // Vertical bounds via arc extrema + pole analysis: great-circle edges
       // bulge poleward past their vertices.
-      compute_full_bounds(scratch, count, center, geometry, height, y_min,
-                          y_max, bounds_margin);
-      compute_inradius(scratch);
+      compute_full_bounds(scratch, count, bounds_center, geometry, height,
+                          y_min, y_max, bounds_margin);
     }
-
-    edge_vectors = std::span<math::Vector>(scratch.edge_vectors.data(), count);
-    edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
-    inv_edge_lengths_sq =
-        std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
-    inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
 
     {
       HS_PROFILE_DEEP(face_pole);
-      apply_pole_containment(height);
+      if (!bounds_pose)
+        apply_pole_containment(height);
     }
 
     // Whole-face clip cull: y_min/y_max and the azimuth coverage match what the
@@ -363,8 +417,9 @@ struct Face {
 
     {
       HS_PROFILE_DEEP(face_edges);
+      const float convex_radius = build_half_planes(scratch, area2);
+      compute_inradius(scratch, convex_radius);
       pack_edges(scratch);
-      build_half_planes(scratch, area2);
     }
     {
       HS_PROFILE_DEEP(face_sectors);

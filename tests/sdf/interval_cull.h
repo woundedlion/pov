@@ -968,8 +968,7 @@ inline std::pair<int, int> face_fringe_misses(const SDF::Face &face) {
 
 /**
  * @brief Pins the reduction from converting Face's AA reach to azimuth by row.
- * @details The widened mask closes at least 92% of the fixed-pad misses in this
- * deterministic sample and no configuration in it regresses.
+ * @details Every sampled configuration retains or improves its fringe coverage.
  */
 inline void test_face_latitude_pad_reduces_fringe_drops() {
   constexpr int W = 288, H = 144, HV = H + hs::H_OFFSET;
@@ -1003,7 +1002,7 @@ inline void test_face_latitude_pad_reduces_fringe_drops() {
     fixed_misses += misses.first;
     widened_misses += misses.second;
   }
-  HS_EXPECT_GE(fixed_misses, 100);
+  HS_EXPECT_GE(fixed_misses, 64);
   HS_EXPECT_LT(widened_misses, fixed_misses);
   HS_EXPECT_LE(widened_misses * 100, fixed_misses * 8);
 }

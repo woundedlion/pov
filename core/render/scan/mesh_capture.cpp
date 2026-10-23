@@ -47,6 +47,7 @@ enum FaceKind : uint8_t {
   SEAM_FACE,   ///< Near one arm boundary; drawn in each arm's shared pass.
   CROSS_FACE,  ///< Reaches past a seam face's reach; one copy per arm.
   POLAR_FACE,  ///< Reaches a pole; drawn in each half-arm window's pass.
+  CULLED_FACE, ///< Outside the board's conservative visibility zone.
   SWEPT_FACE,  ///< Reaches a pole and moves too far for one placement;
                ///< swept one column pair at a time.
 };
@@ -62,6 +63,7 @@ constexpr float SWEEP_STEP_AREA = 20.0f;
  * @param face Face index.
  * @param span Its vertices' azimuth span in half turns; 2 for a face that
  *        winds about the pole.
+ * @param motion_cache Per-vertex frame motion, negative until evaluated.
  * @return SWEPT_FACE when one placement per half arm would show a step of
  *         more than SWEEP_STEP_AREA, else POLAR_FACE.
  * @details A placement stands within half a frame of a column that sees the
@@ -72,7 +74,7 @@ constexpr float SWEEP_STEP_AREA = 20.0f;
  * its end plus twice its path's bulge at the frame's middle.
  */
 HS_HOT_FLASH_MEMBER FaceKind polar_kind(const SweptMesh &d, size_t face,
-                                        float span) {
+                                        float span, float *motion_cache) {
   const MeshState &mesh = d.mesh;
   const size_t count = mesh.get_face_counts_data()[face];
   const uint16_t *indices =
@@ -84,16 +86,21 @@ HS_HOT_FLASH_MEMBER FaceKind polar_kind(const SweptMesh &d, size_t face,
     axial = fmaxf(axial, end.x * end.x + end.z * end.z);
     if (!d.moving[i])
       continue;
-    const math::Vector start =
-        d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.0f);
-    const math::Vector middle =
-        d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.5f);
+    float vertex_motion = motion_cache[i];
+    if (vertex_motion < 0.0f) {
+      const math::Vector start =
+          d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.0f);
+      const math::Vector middle =
+          d.callbacks.evaluate(d.callbacks.vertex_context, i, 0.5f);
 #if HS_ENABLE_TEST_HOOKS
-    mesh_capture_counters.evaluations += 2;
+      mesh_capture_counters.evaluations += 2;
 #endif
-    const math::Vector bulge = middle - (start + end) * 0.5f;
-    motion = fmaxf(motion, sqrtf(math::distance_squared(start, end)) +
-                               2.0f * sqrtf(math::dot(bulge, bulge)));
+      const math::Vector bulge = middle - (start + end) * 0.5f;
+      vertex_motion = sqrtf(math::distance_squared(start, end)) +
+                      2.0f * sqrtf(math::dot(bulge, bulge));
+      motion_cache[i] = vertex_motion;
+    }
+    motion = fmaxf(motion, vertex_motion);
   }
   // Radians to pixels: a column's arc, which is also a row's.
   const float pixel = d.canvas.width() / math::TWO_PI_F;
@@ -147,6 +154,31 @@ HS_HOT_INLINE float vertex_turns(const FaceTables &tables, size_t i) {
 }
 
 /**
+ * @brief Whether the pool holds the requested unwrapped capture branch.
+ * @param d Deformation scan.
+ * @param tables Per-vertex capture labels.
+ * @param i Vertex index.
+ * @param centre Centre of the requested branch.
+ * @return True when an existing label has the same unwrapped start.
+ */
+HS_O3_FN HS_HOT_INLINE bool capture_pool_matches(const SweptMesh &d,
+                                                 const FaceTables &tables,
+                                                 size_t i, float centre) {
+  const uint8_t STATE = tables.state[i];
+  if (!(STATE & (POOL_OWN | POOL_ACROSS | POOL_FIRST_HALF | POOL_SECOND_HALF)))
+    return false;
+  const float START = d.start[i] * (1.0f / 65536.0f);
+  const float FIRST = unwrap_capture(START, centre);
+  const bool EARLY = STATE & VERTEX_EARLY;
+  return ((STATE & POOL_OWN) &&
+          FIRST == unwrap_capture(START, EARLY ? 0.25f : 0.75f)) ||
+         ((STATE & POOL_ACROSS) &&
+          FIRST == unwrap_capture(START, EARLY ? 1.25f : -0.25f)) ||
+         ((STATE & POOL_FIRST_HALF) && FIRST == unwrap_capture(START, 0.25f)) ||
+         ((STATE & POOL_SECOND_HALF) && FIRST == unwrap_capture(START, 0.75f));
+}
+
+/**
  * @brief Captures a vertex on a temporal branch.
  * @param d Deformation scan.
  * @param tables Scan tables, holding the vertex's endpoint column.
@@ -182,6 +214,10 @@ HS_HOT_FLASH_MEMBER void place_vertex(const SweptMesh &d,
   const bool early = state & VERTEX_EARLY;
   const float centre =
       across ? (early ? 1.25f : -0.25f) : (early ? 0.25f : 0.75f);
+  if (capture_pool_matches(d, tables, i, centre)) {
+    state |= pool;
+    return;
+  }
   d.mesh.vertices[i] = capture_branch(d, tables, centre, i);
   state = (state & (VERTEX_EARLY | VERTEX_ARM1)) | pool;
 }
@@ -203,6 +239,10 @@ place_half(const SweptMesh &d, const FaceTables &tables, size_t i, int half) {
   if (!d.moving[i] || (state & (pool | VERTEX_HELD)))
     return;
   const bool own = bool(state & VERTEX_EARLY) == (half == 0);
+  if (capture_pool_matches(d, tables, i, half ? 0.75f : 0.25f)) {
+    state |= pool | (own ? POOL_OWN : uint8_t(0));
+    return;
+  }
   d.mesh.vertices[i] = capture_branch(d, tables, half ? 0.75f : 0.25f, i);
   state = (state & (VERTEX_EARLY | VERTEX_ARM1)) | pool |
           (own ? POOL_OWN : uint8_t(0));
@@ -239,6 +279,7 @@ vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
  * @param face Face index.
  * @param tables Scan tables; receive the face's vertex azimuths and states.
  * @param sweep The column basis's sweep over the frame.
+ * @param motion_cache Per-vertex frame motion for polar classification.
  * @return The face's kind.
  * @details A face reaches a pole when it winds around it, when its fastest
  * vertex can reach the pole from one of its vertices (face_capture_interval()),
@@ -250,7 +291,7 @@ vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
  */
 HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
                                            const FaceTables &tables,
-                                           float sweep) {
+                                           float sweep, float *motion_cache) {
   const MeshState &mesh = d.mesh;
   const size_t count = mesh.get_face_counts_data()[face];
   const uint16_t *indices =
@@ -290,13 +331,14 @@ HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
   const FaceCaptureInterval interval =
       face_capture_interval(angles, count, reach, horizontal, sweep);
   if (interval.lo < 0.0f)
-    return polar_kind(d, face, interval.hi);
+    return polar_kind(d, face, interval.hi, motion_cache);
   if (d.pad >= horizontal)
     return CROSS_FACE;
   // asin(x) / pi, as a half turn less acos(x) / pi.
   const float pad = 0.5f - math::fast_acos(d.pad / horizontal) / math::PI_F;
   if (interval.hi - interval.lo + 2.0f * pad >= 1.0f)
-    return polar_kind(d, face, interval.hi - interval.lo + 2.0f * pad);
+    return polar_kind(d, face, interval.hi - interval.lo + 2.0f * pad,
+                      motion_cache);
   float lo = interval.lo, hi = interval.hi;
   if (hi + pad < 1.0f) {
     if (lo >= pad)
@@ -573,10 +615,19 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &d) {
   bool shared = false, polar = false;
   {
     HS_PROFILE(mesh_classify);
+    ScratchScope classify_scope(d.scratch);
+    float *motion_cache = d.scratch.allocate_n<float>(vertices);
+    std::fill_n(motion_cache, vertices, -1.0f);
     for (size_t f = 0; f < faces; ++f) {
-      const uint8_t kind = d.columns[2 * f] == HELD_FACE_COLUMN
-                               ? HELD_FACE
-                               : classify_face(d, f, tables, sweep);
+      if (!mesh_visible(d.canvas.column_basis()->mesh.visible_faces, f)) {
+        tables.kinds[f] = CULLED_FACE;
+        d.selected[f] = Scan::detail::FacePass::SKIPPED;
+        continue;
+      }
+      const uint8_t kind =
+          d.columns[2 * f] == HELD_FACE_COLUMN
+              ? HELD_FACE
+              : classify_face(d, f, tables, sweep, motion_cache);
       tables.kinds[f] = kind;
       shared |= kind == HELD_FACE || kind == SHARED_FACE;
       polar |= kind == POLAR_FACE;
