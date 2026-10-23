@@ -911,6 +911,34 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 }
 
 /**
+ * @brief Angle between two transformed unit directions.
+ * @param a First direction.
+ * @param b Second direction.
+ * @return Angle in radians; NaN when either direction is nonfinite.
+ */
+inline float transformed_angle(const math::Vector &a, const math::Vector &b) {
+  if (!finite_vec(a) || !finite_vec(b))
+    return std::numeric_limits<float>::quiet_NaN();
+  return acosf(hs::clamp(math::dot(a, b), -1.0f, 1.0f));
+}
+
+/** @brief A nonfinite transformed direction yields no finite movement. */
+inline void test_transformed_angle_rejects_nonfinite_directions() {
+  const math::Vector unit(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_NEAR(transformed_angle(unit, math::Vector(1.0f, 0.0f, 0.0f)),
+                 math::PI_F * 0.5f, 1e-6f);
+  const float NAN_VALUE = std::numeric_limits<float>::quiet_NaN();
+  const float INF_VALUE = std::numeric_limits<float>::infinity();
+  for (const math::Vector &bad : {math::Vector(NAN_VALUE, NAN_VALUE, NAN_VALUE),
+                                  math::Vector(0.0f, NAN_VALUE, 0.0f),
+                                  math::Vector(0.0f, INF_VALUE, 0.0f)}) {
+    HS_EXPECT_TRUE(std::isnan(transformed_angle(unit, bad)));
+    HS_EXPECT_TRUE(std::isnan(transformed_angle(bad, unit)));
+    HS_EXPECT_TRUE(std::isnan(fold_worst(0.0f, transformed_angle(bad, bad))));
+  }
+}
+
+/**
  * @brief A ripple's step keeps its previous amplitude and phase, and the
  *        ripple between them moves no point farther than its step bound.
  */
@@ -942,9 +970,10 @@ inline void test_ripple_step_keeps_its_previous_endpoint() {
     for (int i = 0; i < 400; ++i) {
       const math::Vector v = math::fib_spiral(400, 0.5f, i);
       for (const float u : {0.5f, 1.0f}) {
-        const float c = math::dot(ripple_transform(v, start),
-                                  ripple_transform(v, params.during_step(u)));
-        moved = std::max(moved, acosf(hs::clamp(c, -1.0f, 1.0f)));
+        moved = fold_worst(
+            moved,
+            transformed_angle(ripple_transform(v, start),
+                              ripple_transform(v, params.during_step(u))));
       }
     }
     HS_EXPECT_LE(moved, params.step_arc() + 1e-4f);
@@ -1790,6 +1819,7 @@ inline int run_transformers_tests() {
   test_transformer_spawn_pausable_freezes_start_delay();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_callback_after_pool_destroyed();
+  test_transformed_angle_rejects_nonfinite_directions();
   test_ripple_step_keeps_its_previous_endpoint();
   test_transformer_substitute_params_compose_in_spawn_order();
   test_transformer_slots_released_by_timeline_clear();
