@@ -76,52 +76,52 @@ check)
   exit 0
   ;;
 g1_ship)
-  run Galaxies profile 140 16
-  run BZReactionDiffusion profile 130 32
-  run Fishbowl profile 70 32
-  run DisplacementField profile 150 32
-  run GnomonicStars profile 70 32
-  run GSReactionDiffusion profile 130 32
+  run Galaxies profile 60 16
+  run BZReactionDiffusion profile 60 32
+  run Fishbowl profile 60 32
+  run DisplacementField profile 121 32
+  run GnomonicStars profile 30 32
+  run GSReactionDiffusion profile 30 32
   ;;
 g2_ship)
-  run HopfFibration profile 70 32
-  run MobiusGrid profile 170 16 "-D HS_PROFILE_EPOCH_REVS=1600"
-  run PetalFlow profile 70 32
-  run Raymarch profile 70 32
-  run RingSpin profile 70 32
-  run Voronoi profile 70 32
+  run HopfFibration profile 60 32
+  run MobiusGrid profile 105 16
+  run PetalFlow profile 30 32
+  run Raymarch profile 30 32
+  run RingSpin profile 60 32
+  run Voronoi profile 30 32
   ;;
 g3_ship)
-  run ShapeShifter profile 155 16 "-D HS_PROFILE_EPOCH_REVS=1600"
-  run MindSplatter profile 110 16
-  run HankinSolids profile 210 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=1920"
-  run SphericalHarmonics profile 220 16 "-D HS_PROFILE_ORDERED_CYCLE -D HS_PROFILE_EPOCH_REVS=2048"
+  run ShapeShifter profile 269 16
+  run MindSplatter profile 80 16
+  run HankinSolids profile 170 16
+  run SphericalHarmonics profile 96 16
   ;;
 g4_ship)
-  run Comets profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run MeshFeedback profile 420 16
-  run IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
-  run DreamBalls profile 230 16 "-D HS_PROFILE_EPOCH_REVS=2000"
+  run Comets profile 120 16
+  run MeshFeedback profile 181 16
+  run IslamicStars profile 306 16
+  run DreamBalls profile 200 16
   ;;
 g5_ship)
-  run AlienBrain profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2600"
-  run KaleidoscopeHexSoft profile 70 32
-  run AlienOcean profile 70 32
-  run AlienCore profile 70 32
-  run KaleidoscopeMandala profile 150 32
-  run GridSpace profile 70 32
-  run HyperLattice profile 320 16 "-D HS_PROFILE_EPOCH_REVS=2720"
-  run ChromaticLichen profile 70 32
-  run MermaidSkin profile 70 32
-  run AshCloud profile 70 32
+  run AlienBrain profile 240 16
+  run KaleidoscopeHexSoft profile 60 32
+  run AlienOcean profile 30 32
+  run AlienCore profile 30 32
+  run KaleidoscopeMandala profile 105 32
+  run GridSpace profile 60 32
+  run HyperLattice profile 300 16
+  run ChromaticLichen profile 30 32
+  run MermaidSkin profile 30 32
+  run AshCloud profile 60 32
   ;;
 g6_ship)
-  run KaleidoscopePentBright profile 70 32
-  run KaleidoscopeHexOil profile 140 16 "-D HS_PROFILE_EPOCH_REVS=1600"
-  run KaleidoscopeSmooth profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run KaleidoscopeHexBright profile 150 32
-  run KaleidoscopeFlowers profile 260 16 "-D HS_PROFILE_EPOCH_REVS=2400"
-  run CosmicEyeball profile 70 32
+  run KaleidoscopePentBright profile 60 32
+  run KaleidoscopeHexOil profile 105 16
+  run KaleidoscopeSmooth profile 240 16
+  run KaleidoscopeHexBright profile 105 32
+  run KaleidoscopeFlowers profile 173 16
+  run CosmicEyeball profile 60 32
   ;;
 *) echo "unknown group $GROUP"; exit 1;;
 esac
