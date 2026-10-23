@@ -350,9 +350,9 @@ public:
     return GenNoiseSingle(mSeed, x, y, z);
   }
 
-  HS_HOT_FLASH_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
-                                                   float &xg, float &yg,
-                                                   float &zg) const {
+  HS_HOT_ITCM_MEMBER void GetNoiseGradientSingle(float x, float y, float z,
+                                                 float &xg, float &yg,
+                                                 float &zg) const {
     TransformNoiseCoordinate(x, y, z);
     SingleOpenSimplex2Gradient(mSeed, x, y, z, xg, yg, zg);
     TransformNoiseGradient(xg, yg, zg);
@@ -1053,7 +1053,8 @@ private:
   }
 
   template <typename FNfloat>
-  HS_O3_FN float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y, FNfloat z) const {
+  HS_O3_FN float SingleOpenSimplex2(int seed, FNfloat x, FNfloat y,
+                                    FNfloat z) const {
     // 3D OpenSimplex2 case uses two offset rotated cube grids.
 
     /*
@@ -1144,8 +1145,7 @@ private:
   }
 
   HS_O3_FN void SingleOpenSimplex2Gradient(int seed, float x, float y, float z,
-                                           float &gradientX,
-                                           float &gradientY,
+                                           float &gradientX, float &gradientY,
                                            float &gradientZ) const {
     int i = FastRound(x);
     int j = FastRound(y);

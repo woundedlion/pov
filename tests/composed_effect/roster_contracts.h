@@ -205,10 +205,11 @@ inline void test_composed_direct_surface_placement() {
   using Project = Pullback::Stage::Project<Pullback::ProjectionPolicyFor<
       Pullback::MetadataFor<KaleidoscopeHexOilSpec>::PROJECTION,
       FX::Binding>::Type>;
-  static_assert(std::is_same_v<typename FX::RenderPipeline::template NodeAt<1>,
-                               Pullback::Detail::BoundPlaced<
-                                   Pullback::CodeEmission::OUT_OF_LINE_FLASH,
-                                   FX::Binding, Lens, Displace, Project>>);
+  using Group = typename FX::RenderPipeline::template NodeAt<1>;
+  static_assert(std::is_same_v<
+                typename Group::BoundTuple,
+                std::tuple<Lens::Bind<FX::Binding>, Displace::Bind<FX::Binding>,
+                           Project::Bind<FX::Binding>>>);
   HS_EXPECT_EQ(TraitsOf<FX>::SURFACE_PLACEMENT,
                Pullback::SurfacePlacement::AFTER_LENS);
 }

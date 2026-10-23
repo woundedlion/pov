@@ -31,7 +31,7 @@ struct MermaidSkinSpec : Pullback::Spec {
   using Pipeline = Pullback::Pipeline<
       B, Pullback::Stage::Rotate<Pullback::OuterCameraProvider<B>>,
       Pullback::Stage::Placed<
-          Pullback::CodeEmission::OUT_OF_LINE_FLASH,
+          Pullback::CodeEmission::OUT_OF_LINE_ITCM,
           Pullback::Stage::Displace<typename Pullback::SurfacePolicyFor<
               Pullback::SurfaceNoiseParams, B, false>::Type>,
           Pullback::Stage::Project<typename Pullback::ProjectionPolicyFor<
