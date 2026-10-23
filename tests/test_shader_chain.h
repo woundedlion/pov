@@ -465,6 +465,7 @@ inline int run_shader_chain_tests() {
   test_shader_chain_refusal_budget_overflows();
   test_shader_chain_program_lifetime();
   test_shader_chain_refusal_migrate_failed();
+  test_shader_chain_column_states_outlive_evaluation();
   test_shader_chain_state_identity_migration();
   test_shader_chain_state_continuity_slice();
   test_shader_chain_operator_state_migration();

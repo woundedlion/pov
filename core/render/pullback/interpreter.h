@@ -352,7 +352,8 @@ public:
    *        second colour.
    * @param fraction Column's frame fraction in [0, 1].
    * @details Requires history_continuous(). Overwrites the prepared blocks;
-   * prepare() restores the current endpoint.
+   * prepare() restores the current endpoint. Sampled states stay live until
+   * the next prepare_column() or clear_history().
    */
   void prepare_column(const FrameContext &ctx, const FrameContext &previous_ctx,
                       float fraction) {
@@ -370,6 +371,8 @@ public:
         if (!intervals_prepared)
           runtime.prepare_interval(history + op.prepared_offset,
                                    history + op.state_offset, state);
+        if (column_states_live)
+          runtime.destroy(column + op.state_offset);
         runtime.sample_state(column + op.state_offset, state, params, fraction,
                              history + op.prepared_offset);
         state = column + op.state_offset;
@@ -380,9 +383,8 @@ public:
       if (index + 1 == side.count)
         runtime.prepare(previous_ctx, params, state,
                         column + op.prepared_offset);
-      if (runtime.sample_state != nullptr)
-        runtime.destroy(column + op.state_offset);
     }
+    column_states_live = true;
     intervals_prepared = true;
     needs_prepare = false;
   }
@@ -426,13 +428,17 @@ public:
     return previous.lerp(current, fraction);
   }
 
-  /** @brief Drops the retained endpoint; the next capture_history() primes
-      it. */
+  /** @brief Drops the retained endpoint and the sampled column states; the
+      next capture_history() primes it. */
   void clear_history() {
     intervals_prepared = false;
-    for (size_t index = 0; index < history_ops.count; ++index)
-      history_ops.ops[index].op->runtime.destroy(
-          history + history_ops.ops[index].state_offset);
+    for (size_t index = 0; index < history_ops.count; ++index) {
+      const ChainOp &op = history_ops.ops[index];
+      if (column_states_live && op.op->runtime.sample_state != nullptr)
+        op.op->runtime.destroy(column + op.state_offset);
+      op.op->runtime.destroy(history + op.state_offset);
+    }
+    column_states_live = false;
     history_ops.count = 0;
   }
 
@@ -787,6 +793,8 @@ private:
   bool has_program = false;
   bool needs_prepare = false;
   bool intervals_prepared = false; ///< Column clock intervals match this frame.
+  /** Sampled states in `column` are constructed at `history_ops` offsets. */
+  bool column_states_live = false;
 };
 
 /** Largest admitted plane-carrier magnitude bound: its square, scaled by any

@@ -322,6 +322,69 @@ inline void test_shader_chain_refusal_migrate_failed() {
   program.clear();
 }
 
+/** @brief Sampled column states outlive column evaluation and are destroyed
+    on reuse, history capture, recompile, clear and program destruction. */
+inline void test_shader_chain_column_states_outlive_evaluation() {
+  struct TemporalBlocks {
+    alignas(std::max_align_t) uint8_t history[In::CHAIN_ARENA_BYTES];
+    alignas(std::max_align_t) uint8_t column[In::CHAIN_ARENA_BYTES];
+  };
+  LifetimeRegistry::reset();
+  auto blocks = std::make_unique<TemporalBlocks>();
+  auto fixture =
+      std::make_unique<ProgramFixture>(In::CHAIN_ARENA_BYTES, lifetime_table());
+  In::ChainProgram &program = fixture->program;
+  program.bind_temporal_storage(blocks->history, blocks->column);
+  const In::ChainEntryRequest chain[] = {
+      {"life", "test.lifetime.v2"},
+      {"project", "project.stereographic.v2"},
+      {"sample", "sample.grid.v3"},
+      {"colorize", "colorize.generated-palette.v3"},
+  };
+  const In::FrameContext ctx = shared_resources().context();
+  const auto views = sweep_views();
+  const auto render_column = [&](float fraction) {
+    program.prepare_column(ctx, ctx, fraction);
+    for (const math::Vector &view : views)
+      program.evaluate_column(view, ctx, ctx, fraction);
+  };
+  const auto arm = [&] {
+    HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+    program.prepare(ctx);
+    program.capture_history();
+    program.advance();
+    program.prepare(ctx);
+    HS_EXPECT_TRUE(program.history_continuous());
+  };
+
+  arm();
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 2u);
+  render_column(0.25f);
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 3u);
+  render_column(0.75f);
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 3u);
+  program.prepare(ctx);
+  program.capture_history();
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 2u);
+
+  program.advance();
+  program.prepare(ctx);
+  render_column(0.5f);
+  HS_EXPECT_EQ(program.compile(chain).code, In::ChainStatus::OK);
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 1u);
+
+  arm();
+  render_column(0.5f);
+  program.clear();
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 0u);
+
+  arm();
+  render_column(0.5f);
+  fixture.reset();
+  HS_EXPECT_EQ(LifetimeRegistry::live.size(), 0u);
+  HS_EXPECT_EQ(LifetimeRegistry::dead_reads, 0);
+}
+
 inline void test_shader_chain_state_identity_migration() {
   CountLifecycle::reset();
   auto fixture =
