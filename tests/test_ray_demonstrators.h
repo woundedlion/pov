@@ -13,9 +13,13 @@
 #include "core/render/sdf/framework.h"
 #include "core/render/sdf/lattice_field.h"
 #include "core/render/sdf/volume.h"
+#include "core/render/sdf/lattice_trace.h"
 #include "core/render/sdf/periodic_shells.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
+
+#include <utility>
+#include <vector>
 
 namespace hs_test::ray_demonstrator_tests {
 
@@ -783,6 +787,282 @@ inline void test_shell_slice_march_matches_cell_traversal() {
       SDF::prepare_periodic_shells(camera, .5f, .3f, {.0218f, 0}).march);
 }
 
+/** @brief One covered sphere contribution along a ray. */
+struct ShellContribution {
+  float t, coverage;
+};
+
+/**
+ * @brief Every shell contribution to a ray, from all lattice centers in a box
+ *        around the ray segment, sorted by distance.
+ */
+inline std::vector<ShellContribution>
+shell_neighborhood(const Raycast::PreparedCamera &camera,
+                   const math::Vector &direction, float cell, float radius,
+                   Raycast::Footprint footprint) {
+  const int dimensions =
+      camera.domain == Raycast::SamplingDomain::SLICE_4D ? 4 : 3;
+  const auto &E = camera.embedding.m;
+  const math::Vec4 D =
+      camera.embedding.apply({{direction.x, direction.y, direction.z, 0}});
+  const math::Vec4 O = camera.point4(direction * camera.radial_start);
+  const float NEAR = camera.interval.near, FAR = camera.interval.far;
+  const float R = radius * cell;
+  const float MARGIN = R + footprint.at(FAR) + cell;
+  int low[4] = {}, high[4] = {};
+  for (int k = 0; k < dimensions; ++k) {
+    const float A = O[k] + NEAR * D[k], B = O[k] + FAR * D[k];
+    low[k] = static_cast<int>(floorf((fminf(A, B) - MARGIN) / cell));
+    high[k] = static_cast<int>(ceilf((fmaxf(A, B) + MARGIN) / cell));
+  }
+  const auto projected = [&](const float (&g)[4]) {
+    float length2 = 0;
+    for (int j = 0; j < 3; ++j) {
+      float component = 0;
+      for (int k = 0; k < dimensions; ++k)
+        component += E[k][j] * g[k];
+      length2 += component * component;
+    }
+    return sqrtf(length2);
+  };
+  std::vector<ShellContribution> found;
+  int index[4] = {low[0], low[1], low[2], low[3]};
+  for (;;) {
+    float g0[4] = {}, a = 0, b = 0, c = -R * R;
+    for (int k = 0; k < dimensions; ++k) {
+      g0[k] = O[k] - index[k] * cell;
+      a += D[k] * D[k];
+      b += g0[k] * D[k];
+      c += g0[k] * g0[k];
+    }
+    const float DISCRIMINANT = b * b - a * c;
+    if (DISCRIMINANT >= 0) {
+      const float HALF_CHORD = sqrtf(DISCRIMINANT) / a;
+      const float CENTER = -b / a;
+      for (const float T : {CENTER - HALF_CHORD, CENTER + HALF_CHORD}) {
+        if (T < NEAR || T > FAR ||
+            (T == CENTER + HALF_CHORD && HALF_CHORD == 0))
+          continue;
+        float g[4] = {};
+        for (int k = 0; k < dimensions; ++k)
+          g[k] = g0[k] + T * D[k];
+        const float WIDTH = footprint.at(T);
+        const float LENGTH = projected(g);
+        const float DEPTH =
+            LENGTH > 0 ? HALF_CHORD * HALF_CHORD / (2 * LENGTH) : 0;
+        found.push_back(
+            {T, WIDTH > 0 ? hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f) : 1.0f});
+      }
+    } else if (footprint.angular_radius > 0) {
+      const float T = -b / a;
+      float g[4] = {}, length2 = 0;
+      for (int k = 0; k < dimensions; ++k) {
+        g[k] = g0[k] + T * D[k];
+        length2 += g[k] * g[k];
+      }
+      const float LENGTH = sqrtf(length2);
+      const float PROJECTED = projected(g);
+      const float WIDTH = footprint.at(T);
+      if (T >= NEAR && T <= FAR && WIDTH > 0 && PROJECTED > 0) {
+        const float DISTANCE = (LENGTH - R) * LENGTH / PROJECTED;
+        const float COVERAGE = hs::clamp(.5f - DISTANCE / WIDTH, 0.0f, 1.0f);
+        if (COVERAGE > 0)
+          found.push_back({T, COVERAGE});
+      }
+    }
+    int k = 0;
+    for (; k < dimensions && ++index[k] > high[k]; ++k)
+      index[k] = low[k];
+    if (k == dimensions)
+      break;
+  }
+  std::sort(found.begin(), found.end(),
+            [](const ShellContribution &x, const ShellContribution &y) {
+              return x.t < y.t;
+            });
+  return found;
+}
+
+/**
+ * @brief Front-to-back composite of the first @p count contributions.
+ * @return Premultiplied color, and whether the layer budget or saturation
+ *         stopped it before @p count.
+ */
+inline std::pair<Pixel, bool>
+composite_shells(const std::vector<ShellContribution> &found, size_t count,
+                 const Raycast::Appearance &appearance,
+                 const Raycast::TraceLimits &limits) {
+  LayerComposite composite;
+  for (size_t i = 0; i < count; ++i) {
+    if (static_cast<int>(i) >= limits.max_layers ||
+        static_cast<int>(i) >= limits.max_candidates)
+      return {composite.premultiplied(), true};
+    appearance.composite(composite, found[i].t, found[i].coverage);
+    if (composite.saturated())
+      return {composite.premultiplied(), true};
+  }
+  return {composite.premultiplied(), false};
+}
+
+/** @brief Whether two premultiplied colors agree within @p tolerance codes. */
+inline bool shell_colors_agree(const Pixel &a, const Pixel &b, int tolerance) {
+  return abs(a.r - b.r) <= tolerance && abs(a.g - b.g) <= tolerance &&
+         abs(a.b - b.b) <= tolerance;
+}
+
+/**
+ * @brief A filtered ray between two sphere rows gathers both rows' silhouettes
+ *        through the lattice trace.
+ */
+inline void test_wide_shell_footprint_gathers_neighbor_rows() {
+  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
+      buffer;
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage palette;
+  palette.bake(arena, GradientPalette{});
+  SDF::ShellLayerStorage layers;
+  SDF::LatticeTrace::Settings settings;
+  settings.geometry = SDF::LatticeTrace::Geometry::SHELLS;
+  settings.cell_size = 1;
+  settings.shell_radius = .32f;
+  settings.far_distance = 8;
+  settings.near_fade = 1;
+  settings.pixel_half_angle = .1f;
+  settings.center = {{-2, .5f, 0, 0}};
+  settings.palette = &palette.view();
+  settings.shell_layers = &layers;
+  const auto prepared = SDF::LatticeTrace::prepare(settings);
+  HS_EXPECT_TRUE(prepared.valid);
+  HS_EXPECT_FALSE(prepared.periodic_shells.march);
+  const math::Vector VIEW{1, 0, 0};
+  const auto found =
+      shell_neighborhood(prepared.camera, VIEW, 1, .32f, prepared.footprint);
+  HS_EXPECT_EQ(found.size(), size_t{10});
+  const auto expected = composite_shells(found, found.size(),
+                                         prepared.appearance, prepared.limits);
+  const auto traced = SDF::LatticeTrace::shade<false>(VIEW, prepared);
+  HS_EXPECT_EQ(traced.status, Raycast::TraceStatus::RANGE_COMPLETE);
+  HS_EXPECT_TRUE(shell_colors_agree(traced.color, expected.first, 2));
+  HS_EXPECT_EQ(SDF::shade_periodic_shells(prepared.periodic_shells,
+                                          prepared.camera, VIEW,
+                                          prepared.limits, prepared.appearance)
+                   .trace.status,
+               Raycast::TraceStatus::INVALID_QUERY);
+}
+
+/**
+ * @brief The wide shell march gathers a silhouette whose center lies one
+ *        layer behind the interval start.
+ */
+inline void test_wide_shell_march_gathers_layers_behind_start() {
+  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
+      buffer;
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage palette;
+  palette.bake(arena, GradientPalette{});
+  const math::Vector VIEW = math::Vector{1, 1, 1}.normalized();
+  const math::Vector START{-.49f, -.3415f, -.3415f};
+  const Raycast::Footprint FOOTPRINT{.1f, 8};
+  Raycast::PreparedCamera camera;
+  camera.radial_start = FOOTPRINT.radial_start;
+  camera.interval = {0, 8};
+  const math::Vector CENTER = START - VIEW * camera.radial_start;
+  camera.center = {{CENTER.x, CENTER.y, CENTER.z, 0}};
+  const auto prepared =
+      SDF::prepare_periodic_shells(camera, 1, .32f, FOOTPRINT);
+  HS_EXPECT_FALSE(prepared.march);
+  const Raycast::Appearance appearance{1 / 8.0f, 0, 50, &palette.view()};
+  Raycast::TraceLimits limits;
+  limits.max_steps = 256;
+  const auto found = shell_neighborhood(camera, VIEW, 1, .32f, FOOTPRINT);
+  HS_EXPECT_FALSE(found.empty());
+  if (found.empty())
+    return;
+  HS_EXPECT_NEAR(found.front().t, .1f, .01f);
+  SDF::ShellLayerStorage layers;
+  const auto traced = SDF::trace_periodic_shells_march<3, true>(
+      prepared, camera, VIEW, limits, appearance, layers);
+  const auto expected =
+      composite_shells(found, found.size(), appearance, limits);
+  HS_EXPECT_TRUE(shell_colors_agree(traced.color, expected.first, 2));
+}
+
+/**
+ * @brief The wide shell march matches a brute-force neighborhood composite in
+ *        3D and in a 4D slice.
+ * @details Channels differ by at most 24 codes except for at most 1/2000 rays
+ *          at tangent silhouettes; budget-cut rays match a distance-ordered
+ *          prefix of the neighborhood.
+ */
+inline void test_wide_shell_march_matches_neighborhood() {
+  alignas(Pixel) std::array<uint8_t, BakedPalette::required_arena_bytes()>
+      buffer;
+  Arena arena(buffer.data(), buffer.size());
+  BakedPaletteStorage palette;
+  palette.bake(arena, GradientPalette{});
+  const ShellMarchCase CASES[] = {{1, .32f, 8, 1, .1f, 0},
+                                  {.25f, .32f, 6, 1, .0218f, .5f},
+                                  {.5f, .2f, 10, 2, .06f, 0},
+                                  {1, .15f, 12, 1, .2f, 1},
+                                  {1, .2f, 4, .02f, .1f, 12}};
+  hs::Pcg32 random{0x91de5u};
+  for (const auto domain : {Raycast::SamplingDomain::SPATIAL_3D,
+                            Raycast::SamplingDomain::SLICE_4D}) {
+    int compared = 0, hits = 0, mismatched = 0, truncated = 0;
+    for (const auto &settings : CASES) {
+      for (int frame = 0; frame < 6; ++frame) {
+        const auto camera = shell_camera(settings, random, domain);
+        const Raycast::Footprint FOOTPRINT{settings.angular,
+                                           settings.radial_start};
+        const auto prepared = SDF::prepare_periodic_shells(
+            camera, settings.cell, settings.radius, FOOTPRINT);
+        HS_EXPECT_FALSE(prepared.march);
+        const Raycast::Appearance appearance{
+            1 / settings.far, 0, 1 / settings.near_fade, &palette.view()};
+        Raycast::TraceLimits limits;
+        limits.max_steps = 256;
+        SDF::ShellLayerStorage layers;
+        for (int ray = 0; ray < 40; ++ray) {
+          const float x = rand_uniform(random, -1, 1);
+          const float y = rand_uniform(random, -1, 1);
+          const float z = rand_uniform(random, -1, 1);
+          const math::Vector direction = math::Vector{x, y, z}.normalized();
+          const auto found = shell_neighborhood(
+              camera, direction, settings.cell, settings.radius, FOOTPRINT);
+          const auto traced =
+              domain == Raycast::SamplingDomain::SLICE_4D
+                  ? SDF::trace_periodic_shells_march<4, true>(
+                        prepared, camera, direction, limits, appearance, layers)
+                  : SDF::trace_periodic_shells_march<3, true>(
+                        prepared, camera, direction, limits, appearance,
+                        layers);
+          ++compared;
+          hits += !found.empty();
+          const auto expected =
+              composite_shells(found, found.size(), appearance, limits);
+          if (traced.status == Raycast::TraceStatus::BUDGET_EXHAUSTED) {
+            truncated += !expected.second;
+            bool prefix = false;
+            for (size_t count = 0; count <= found.size() && !prefix; ++count)
+              prefix = shell_colors_agree(
+                  traced.color,
+                  composite_shells(found, count, appearance, limits).first, 2);
+            mismatched += !prefix;
+            continue;
+          }
+          HS_EXPECT_EQ(traced.status,
+                       expected.second ? Raycast::TraceStatus::SATURATED
+                                       : Raycast::TraceStatus::RANGE_COMPLETE);
+          mismatched += !shell_colors_agree(traced.color, expected.first, 24);
+        }
+      }
+    }
+    HS_EXPECT_GT(hits, compared / 2);
+    HS_EXPECT_LE(truncated, compared / 20);
+    HS_EXPECT_LE(mismatched, compared / 2000);
+  }
+}
+
 inline int run_ray_demonstrator_tests() {
   hs_test::ModuleFixture fixture("ray_demonstrators");
   test_appearance_palette_interval();
@@ -794,6 +1074,9 @@ inline int run_ray_demonstrator_tests() {
   test_shell_slice_march_matches_cell_traversal();
   test_shell_neighbor_march_matches_cell_traversal();
   test_shell_march_uses_footprint_radial_start();
+  test_wide_shell_footprint_gathers_neighbor_rows();
+  test_wide_shell_march_gathers_layers_behind_start();
+  test_wide_shell_march_matches_neighborhood();
   test_framework_generic_event_rendering();
   test_repeated_stream_grouping_preserves_order_and_endpoints();
   test_lattice_volume_camera_demonstrators();

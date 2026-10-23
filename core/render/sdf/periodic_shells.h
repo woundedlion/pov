@@ -71,8 +71,9 @@ struct PreparedPeriodicShells {
    */
   bool single_owner = false;
   /**
-   * @brief Whether trace_periodic_shells_march() may serve this frame: its
-   *        widest filtered sphere stays within half a cell.
+   * @brief Whether the narrow trace_periodic_shells_march() and
+   *        shade_periodic_shells_dimension() may serve this frame: its widest
+   *        filtered sphere stays within half a cell.
    */
   bool march = false;
   bool valid = false; ///< Whether camera, geometry, and footprint are valid.
@@ -132,6 +133,30 @@ struct ShellLayerStorage {
     float t, coverage; ///< Coverage of the layer.
   };
   std::array<Layer, CAPACITY> pending; ///< One ray's layers to composite.
+
+  /**
+   * @brief Adds a layer nearer than @p cutoff; when full, drops the farthest
+   *        of it and the held layers and lowers @p cutoff to that distance.
+   * @param count Layers held; grows by one unless full.
+   * @param cutoff Distance from which layers are dropped.
+   * @param t Ray distance of the layer.
+   * @param coverage Coverage of the layer.
+   */
+  void retain(int &count, float &cutoff, float t, float coverage) {
+    if (t >= cutoff)
+      return;
+    if (count < CAPACITY) {
+      pending[count++] = {t, coverage};
+      return;
+    }
+    int last = 0;
+    for (int slot = 1; slot < count; ++slot)
+      if (pending[slot].t > pending[last].t)
+        last = slot;
+    cutoff = fmaxf(t, pending[last].t);
+    if (t < pending[last].t)
+      pending[last] = {t, coverage};
+  }
 };
 
 /**
@@ -270,13 +295,20 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
 
 /**
  * @brief Shell composite by a march over the lattice layers across the
- *        ambient ray's dominant axis, one step to either side included.
+ *        ambient ray's dominant axis.
  * @tparam DIMENSIONS 3 for a spatial camera, 4 for a slice.
- * @details Requires PreparedPeriodicShells::march for the camera's domain.
- * Candidates are the ray's layer crossing's rounded lattice point and the
- * neighbors within reach, composited in distance order per layer. Matches
- * shade_periodic_shells_dimension<DIMENSIONS>, with the step budget counting
- * layers.
+ * @tparam WIDE Whether filtered spheres may reach past half a cell.
+ * @details Without WIDE, requires PreparedPeriodicShells::march: candidates
+ * are the ray's layer crossing's rounded lattice point and its neighbors one
+ * step to either side within reach, composited in distance order per layer,
+ * matching shade_periodic_shells_dimension<DIMENSIONS>. WIDE serves any
+ * footprint: each layer's candidates are every lattice point whose filtered
+ * sphere can reach the ray, the march extends past both interval ends by the
+ * widest reach, and retained contributions composite in distance order once
+ * no later layer can precede them. When more than ShellLayerStorage::CAPACITY
+ * contributions await compositing, the farthest is dropped, the ray is cut
+ * at its distance, and the status is BUDGET_EXHAUSTED. The step budget
+ * counts layers.
  * @param prepared Frame shell constants.
  * @param camera Prepared camera embedding.
  * @param direction Unit view direction.
@@ -285,7 +317,7 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_3d(
  * @param storage Per-ray layer sort scratch.
  * @return The premultiplied composite.
  */
-template <int DIMENSIONS>
+template <int DIMENSIONS, bool WIDE = false>
 __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
     const PreparedPeriodicShells &prepared,
     const Raycast::PreparedCamera &camera, const math::Vector &direction,
@@ -319,11 +351,20 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   const float STEP = fabsf(INVERSE_DK);
   const float NEAR = camera.interval.near;
   const float FAR = camera.interval.far;
-  const float LAST = FAR * INVERSE_CELL + .5f * STEP;
+  // Bound in cells on a contributing center's distance from the ray.
+  const float WIDEST = WIDE ? prepared.geometry.shell_radius + 1e-4f +
+                                  .5f * prepared.footprint.angular_radius *
+                                      (prepared.footprint.radial_start + FAR) *
+                                      INVERSE_CELL
+                            : 0.0f;
+  const float LAST =
+      FAR * INVERSE_CELL + (WIDE ? fmaxf(.5f, WIDEST) : .5f) * STEP;
   const float ORIGIN_K =
       (camera.center[k] + D[k] * RADIAL_START) * INVERSE_CELL;
   float tau =
       (rintf(ORIGIN_K + NEAR * INVERSE_CELL * D[k]) - ORIGIN_K) * INVERSE_DK;
+  if constexpr (WIDE)
+    tau -= fmaxf(0.0f, ceilf(WIDEST - .5f)) * STEP;
   float position[OTHERS], rate[OTHERS], d[OTHERS];
   for (int n = 0; n < OTHERS; ++n) {
     const int AXIS = other[n];
@@ -337,9 +378,9 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   // approach can sit from its layer crossing; over |D_k| it bounds the
   // in-layer offset of a contributing center.
   const float HALF_RATE = .5f * prepared.footprint.angular_radius;
-  float reach =
-      prepared.geometry.shell_radius + 1e-4f +
-      HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL + tau + .9f);
+  float reach = prepared.geometry.shell_radius + 1e-4f +
+                HALF_RATE * (prepared.footprint.radial_start * INVERSE_CELL +
+                             tau + (WIDE ? WIDEST * STEP : .9f));
   const float REACH_STEP = HALF_RATE * STEP;
   const float RADIUS = prepared.geometry.shell_radius * CELL;
   const bool FILTERED = prepared.footprint.angular_radius > 0;
@@ -348,6 +389,8 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
   LayerComposite composite;
   int layers = 0;
   auto &pending = storage.pending;
+  int held = 0;
+  float cutoff = INFINITY;
   const auto projected_length2 =
       [&](const float (&gradient)[DIMENSIONS]) __attribute__((always_inline)) {
         float length2 = 0;
@@ -369,9 +412,10 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
       offset[n] = position[n] - rintf(position[n]);
       farthest = fmaxf(farthest, fabsf(offset[n]));
     }
-    const float REACH2 = reach * reach;
-    const float SPREAD = reach * STEP;
-    int count = 0;
+    const float REACH = WIDE ? fminf(reach, WIDEST) : reach;
+    const float REACH2 = REACH * REACH;
+    const float SPREAD = REACH * STEP;
+    int count = held;
     const auto candidate =
         [&](const std::array<float, OTHERS> &e) __attribute__((always_inline)) {
           float offset2 = 0, along = 0;
@@ -416,7 +460,10 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
                     .5f * DISCRIMINANT * INVERSE_A * INVERSE_LENGTH;
                 coverage = hs::clamp(.5f + DEPTH / WIDTH, 0.0f, 1.0f);
               }
-              pending[count++] = {T, coverage};
+              if constexpr (WIDE)
+                storage.retain(count, cutoff, T, coverage);
+              else
+                pending[count++] = {T, coverage};
             }
           } else if (FILTERED) {
             const float U = -B * INVERSE_A;
@@ -437,33 +484,70 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
               }
               const float COVERAGE =
                   hs::clamp(.5f - distance / WIDTH, 0.0f, 1.0f);
-              if (COVERAGE > 0)
-                pending[count++] = {T, COVERAGE};
+              if (COVERAGE > 0) {
+                if constexpr (WIDE)
+                  storage.retain(count, cutoff, T, COVERAGE);
+                else
+                  pending[count++] = {T, COVERAGE};
+              }
             }
           }
         };
-    candidate(offset);
-    if (farthest > 1 - SPREAD) {
-      // Neighbors one step across each coordinate the reach can cross.
-      std::array<float, OTHERS> across;
-      unsigned crossing = 0;
+    if constexpr (WIDE) {
+      // Every lattice point of the layer within SPREAD on each coordinate.
+      std::array<float, OTHERS> e, first;
+      int span[OTHERS], index[OTHERS];
+      bool empty = false;
       for (int n = 0; n < OTHERS; ++n) {
-        across[n] = offset[n] - copysignf(1.0f, offset[n]);
-        crossing |= static_cast<unsigned>(fabsf(across[n]) < SPREAD) << n;
+        const float UPPER = floorf(position[n] + SPREAD);
+        first[n] = e[n] = position[n] - UPPER;
+        span[n] = static_cast<int>(UPPER - ceilf(position[n] - SPREAD)) + 1;
+        index[n] = 0;
+        empty |= span[n] <= 0;
       }
-      for (unsigned mask = 1; mask < 1u << OTHERS; ++mask)
-        if ((mask & crossing) == mask) {
-          std::array<float, OTHERS> neighbor;
-          for (int n = 0; n < OTHERS; ++n)
-            neighbor[n] = mask & (1u << n) ? across[n] : offset[n];
-          candidate(neighbor);
+      for (int n = 0; !empty && n < OTHERS;) {
+        candidate(e);
+        for (n = 0; n < OTHERS; ++n) {
+          if (++index[n] < span[n]) {
+            e[n] = first[n] + static_cast<float>(index[n]);
+            break;
+          }
+          index[n] = 0;
+          e[n] = first[n];
         }
+      }
+    } else {
+      candidate(offset);
+      if (farthest > 1 - SPREAD) {
+        // Neighbors one step across each coordinate the reach can cross.
+        std::array<float, OTHERS> across;
+        unsigned crossing = 0;
+        for (int n = 0; n < OTHERS; ++n) {
+          across[n] = offset[n] - copysignf(1.0f, offset[n]);
+          crossing |= static_cast<unsigned>(fabsf(across[n]) < SPREAD) << n;
+        }
+        for (unsigned mask = 1; mask < 1u << OTHERS; ++mask)
+          if ((mask & crossing) == mask) {
+            std::array<float, OTHERS> neighbor;
+            for (int n = 0; n < OTHERS; ++n)
+              neighbor[n] = mask & (1u << n) ? across[n] : offset[n];
+            candidate(neighbor);
+          }
+      }
     }
     for (int layer = 1; layer < count; ++layer)
       for (int slot = layer; slot > 0 && pending[slot - 1].t > pending[slot].t;
            --slot)
         std::swap(pending[slot - 1], pending[slot]);
-    for (int layer = 0; layer < count; ++layer) {
+    // Later layers contribute no nearer than HORIZON.
+    const float HORIZON = WIDE && step + 1 < std::min(LAYERS, limits.max_steps)
+                              ? (tau + (1 - WIDEST) * STEP) * CELL
+                              : INFINITY;
+    int ready = count;
+    if constexpr (WIDE)
+      for (ready = 0; ready < count && pending[ready].t < HORIZON;)
+        ++ready;
+    for (int layer = 0; layer < ready; ++layer) {
       if (layers >= limits.max_candidates || layers >= limits.max_layers) {
         result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
         result.color = composite.premultiplied();
@@ -478,12 +562,19 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
         return result;
       }
     }
+    if constexpr (WIDE) {
+      held = count - ready;
+      for (int slot = 0; slot < held; ++slot)
+        pending[slot] = pending[ready + slot];
+      if (cutoff <= HORIZON)
+        break;
+    }
     for (int n = 0; n < OTHERS; ++n)
       position[n] += rate[n];
     tau += STEP;
     reach += REACH_STEP;
   }
-  if (LAYERS > limits.max_steps)
+  if (LAYERS > limits.max_steps || (WIDE && cutoff < INFINITY))
     result.status = Raycast::TraceStatus::BUDGET_EXHAUSTED;
   result.color = composite.premultiplied();
   return result;
@@ -492,12 +583,15 @@ __attribute__((always_inline)) inline ShellSample trace_periodic_shells_march(
 /**
  * @brief Shades one ray by a cell walk through the 3D or 4D shell lattice.
  * @tparam DIMENSIONS Lattice dimension, 3 or 4.
+ * @details Each traversed cell contributes only its own sphere, so the walk
+ * requires PreparedPeriodicShells::march.
  * @param prepared Frame constants from prepare_periodic_shells().
  * @param camera Camera `prepared` was built with.
  * @param direction Unit view direction.
  * @param limits Step and layer budgets.
  * @param appearance Layer shading and compositing; needs a palette.
- * @return Shaded color and trace record; INVALID_QUERY on bad input.
+ * @return Shaded color and trace record; INVALID_QUERY on bad input or a
+ *         frame without PreparedPeriodicShells::march.
  */
 template <int DIMENSIONS>
 HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
@@ -509,7 +603,7 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
   const float cell_size = prepared.geometry.cell_size;
   const float shell_radius = prepared.geometry.shell_radius;
   const auto footprint = prepared.footprint;
-  if (!prepared.valid || !Raycast::finite(direction) ||
+  if (!prepared.valid || !prepared.march || !Raycast::finite(direction) ||
       fabsf(math::dot(direction, direction) - 1.0f) >= 1e-4f ||
       !appearance.palette) {
     result.trace.status = Raycast::TraceStatus::INVALID_QUERY;
