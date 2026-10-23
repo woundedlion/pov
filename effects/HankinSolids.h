@@ -82,10 +82,10 @@ public:
       : Effect(W, H, pipeline_config<decltype(filters)>({.strobe = true})),
         filters() {}
 
-  /** Render-path peak: the column basis, the transformed mesh, the scan's
-   * face scratch and,
-   * on morph frames, the swept mesh and compile output. */
-  static constexpr size_t SCRATCH_A_BYTES = 24 * 1024;
+  /** Render-path peak over the show: the column basis, the transformed mesh,
+   * the scan's face scratch, column projections and row pads and, on morph
+   * frames, the swept mesh, its previous vertices and compile output. */
+  static constexpr size_t SCRATCH_A_BYTES = 26 * 1024;
   /** Largest of the generation intermediates, the morph-cycle Persist set, and
    * a morph frame's blended palette LUTs. */
   static constexpr size_t SCRATCH_B_BYTES = 32 * 1024;

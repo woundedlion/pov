@@ -239,6 +239,42 @@ inline void test_ordered_sweep_cycle() {
               Fx::FULL_CYCLE_FRAMES);
 }
 
+/**
+ * @brief The shipping show's arena peaks at the device resolution fit
+ *        HankinSolids' device split.
+ */
+inline void test_show_cycle_fits_device_split() {
+  reset_globals();
+  using Fx = HankinSolids<288, 144>;
+  Fx fx;
+  fx.init();
+  // Measured with room past the split so an overrun reports instead of
+  // trapping.
+  constexpr size_t MEASURE = 1024 * 1024;
+  resplit_arenas(GLOBAL_ARENA_SIZE - 2 * MEASURE, MEASURE, MEASURE);
+  int swept = 0;
+  for (int frame = 0; frame < Fx::FULL_CYCLE_FRAMES; ++frame) {
+    const int before = HankinWalkProbe::hankin_cycle_frame(fx);
+    fx.draw_frame();
+    fx.advance_display();
+    if (before == Fx::HANKIN_SWEEP_FRAMES &&
+        HankinWalkProbe::hankin_cycle_frame(fx) == before + 1)
+      ++swept;
+  }
+  HS_EXPECT_EQ(swept, ConwayGraph::NUM_NODES);
+  const size_t a_peak = scratch_arena_a.get_high_water_mark();
+  const size_t b_peak = scratch_arena_b.get_high_water_mark();
+  const size_t persistent_peak = persistent_arena.get_high_water_mark();
+  std::printf("  [show] %d frames at 288x144: scratch_a hw=%zu/%zu "
+              "scratch_b hw=%zu/%zu persistent hw=%zu/%zu\n",
+              Fx::FULL_CYCLE_FRAMES, a_peak, Fx::SCRATCH_A_BYTES, b_peak,
+              Fx::SCRATCH_B_BYTES, persistent_peak,
+              Fx::DEVICE_PERSISTENT_BYTES);
+  HS_EXPECT_LE(a_peak, Fx::SCRATCH_A_BYTES);
+  HS_EXPECT_LE(b_peak, Fx::SCRATCH_B_BYTES);
+  HS_EXPECT_LE(persistent_peak, Fx::DEVICE_PERSISTENT_BYTES);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -250,6 +286,7 @@ inline void test_ordered_sweep_cycle() {
 inline int run_conway_soak_tests() {
   hs_test::ModuleFixture fixture("conway_soak");
   test_ordered_sweep_cycle();
+  test_show_cycle_fits_device_split();
   for (uint32_t seed : {1337u, 42u})
     test_full_graph_walk_soak(seed);
   return fixture.result();
