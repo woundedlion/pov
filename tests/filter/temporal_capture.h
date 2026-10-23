@@ -257,6 +257,14 @@ inline void test_world_orient_emits_at_capture_time() {
 inline void test_sweep_slabs_tile_the_half_turn() {
   for (int width : {20, 96, 288}) {
     const int half = width / 2;
+    const double U = std::numeric_limits<float>::epsilon() / 2.0;
+    const double GAMMA = 2 * U / (1 - 2 * U);
+    for (int x = 0; x < width; ++x) {
+      const double FRACTION = static_cast<double>(x % half) / half;
+      const float actual = Spacetime::surface_time(x, width);
+      HS_EXPECT_NEAR(actual, FRACTION, GAMMA * FRACTION);
+      HS_EXPECT_EQ(Spacetime::surface_column(actual, width), x % half);
+    }
     for (int count : {1, 2, 3, 5, 6, 7, half}) {
       HS_CONTEXT("width, slabs", width, count);
       int next = 0;
@@ -269,11 +277,11 @@ inline void test_sweep_slabs_tile_the_half_turn() {
         if (half % count != 0)
           continue;
         for (int x = 0; x < width; ++x) {
-          const float u = Spacetime::surface_time(x, width);
           const bool inside =
               x % half >= columns.begin && x % half < columns.end;
-          HS_EXPECT_EQ(inside, u >= static_cast<float>(slab) / count &&
-                                   u < static_cast<float>(slab + 1) / count);
+          const int sweep = (x % half) * count;
+          HS_EXPECT_EQ(inside,
+                       sweep >= slab * half && sweep < (slab + 1) * half);
         }
       }
       HS_EXPECT_EQ(next, half);

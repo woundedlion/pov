@@ -31,10 +31,39 @@ inline void test_feedback_column_time_reads() {
 
   HS_EXPECT_NEAR(Time::lit_time(10.0f), 10.0f / HALF, 1e-6f);
   HS_EXPECT_NEAR(Time::lit_time(HALF - 1.0f), (HALF - 1.0f) / HALF, 1e-6f);
-  HS_EXPECT_NEAR(Time::lit_time(HALF - 0.75f), 0.75f * (HALF - 1.0f) / HALF,
-                 1e-6f);
-  HS_EXPECT_NEAR(Time::lit_time(-0.5f), 0.5f * (HALF - 1.0f) / HALF, 1e-6f);
   HS_EXPECT_NEAR(Time::lit_time(HALF + 3.0f), 3.0f / HALF, 1e-6f);
+
+  auto check_tap_times = []<int W>() {
+    using Model = Filter::Pixel::FeedbackColumnTime<W>;
+    constexpr int H = W / 2;
+    constexpr double U = std::numeric_limits<float>::epsilon() / 2.0;
+    constexpr double GAMMA = 5 * U / (1 - 5 * U);
+    for (const float column :
+         {-1.0f, -0.75f, -0.5f, -0.25f, 0.0f, 0.25f, H - 1.0f, H - 0.75f,
+          H - 0.5f, H - 0.25f, float(H), H + 0.25f, 2 * H - 1.0f,
+          2 * H - 0.25f}) {
+      const int lower = static_cast<int>(std::floor(double(column)));
+      const int first = (lower % H + H) % H;
+      const int second = (first + 1) % H;
+      const double WEIGHT = double(column) - lower;
+      const double EXPECTED = ((1 - WEIGHT) * first + WEIGHT * second) / H;
+      const float actual = Model::lit_time(column);
+      if constexpr (W == 256) {
+        HS_EXPECT_EQ(actual, EXPECTED);
+        HS_EXPECT_NEAR(actual, EXPECTED, 1e-6);
+      } else {
+        const double OFFSET = column < 0 ? H : column >= H ? -H : 0;
+        const double IN_ARM = double(column) + OFFSET;
+        const double TERMS = std::abs(double(column)) + std::abs(OFFSET);
+        // Reciprocal, coefficient, products, two additions: gamma(5).
+        const double SCALE =
+            IN_ARM >= H - 1 ? (H + TERMS) * (H - 1) / H : TERMS / H;
+        HS_EXPECT_NEAR(actual, EXPECTED, GAMMA * SCALE);
+      }
+    }
+  };
+  check_tap_times.template operator()<256>();
+  check_tap_times.template operator()<288>();
 
   // Target column 20 of the second arm reading 7 columns ahead.
   const auto within = Time::read_within(164.0f, 144, 27.0f, 9.0f);
