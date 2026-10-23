@@ -1485,6 +1485,36 @@ inline void test_pullback_hard_edge_kernels() {
   HS_EXPECT_EQ(value_cutout(0.6f, 0.5f, 0.0f), 1.0f);
 }
 
+/** @brief Grid providers accept custom phase carriers. */
+inline void test_pullback_custom_grid_preparation() {
+  /** @brief Grid state with a minimal phase carrier. */
+  struct State {
+    using Binding = TestBinding;  ///< Fixture binding.
+    using FrameState = TestFrame; ///< Fixture frame.
+    /** @brief Phases and rotation used by the grid. */
+    struct Phases final {
+      float primary = math::PI_F * 0.5f; ///< Primary wave phase.
+      float secondary = 0.0f;            ///< Secondary wave phase.
+      float angle_cos = 1.0f;            ///< Rotation cosine.
+      float angle_sin = 0.0f;            ///< Rotation sine.
+    };
+    /** @brief Returns uncoupled grid controls. @return Grid controls. */
+    static const Pullback::Source::GridSourceParams &
+    params(const FrameState &) {
+      static constexpr Pullback::Source::GridSourceParams VALUE{};
+      return VALUE;
+    }
+    /** @brief Returns the fixed wave phases. @return Wave phases. */
+    static Phases prepare(const FrameState &) { return {}; }
+  };
+  using Grid = Pullback::Source::Grid<State>;
+  static_assert(Grid::PROVIDER_VALID<TestBinding>);
+  const TestFrame FRAME{};
+  const auto PREPARED = Grid::prepare(FRAME);
+  const Pullback::PlaneSample INPUT{{0.0f, 0.0f}, {}, math::Z_AXIS, 0.0f};
+  HS_EXPECT_NEAR(Grid::sample(INPUT, FRAME, PREPARED), 1.0f, 1e-4f);
+}
+
 /** @brief Hexagonal edge weights agree at corners and shared boundaries. */
 inline void test_pullback_hexagonal_edges() {
   using namespace Pullback::Source;
@@ -1755,6 +1785,7 @@ inline int run_pullback_tests() {
   test_pullback_stage_combinators();
   test_pullback_provider_contracts();
   test_pullback_concrete_catalog();
+  test_pullback_custom_grid_preparation();
   test_pullback_hexagonal_edges();
   test_pullback_displacement_overflow();
   test_pullback_warp_phase_loop();
