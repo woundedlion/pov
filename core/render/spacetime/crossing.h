@@ -118,6 +118,23 @@ HS_HOT_INLINE void piecewise_crossings(const float *columns, int knots,
                  frame_start && i == 0, frame_end && i + 1 == pieces, emit);
 }
 
+/** @brief Solves a monotone quadratic screen trajectory's arm time.
+ * @tparam W Display width.
+ * @param origin Frame-start column.
+ * @param velocity Frame-end minus frame-start column.
+ * @param curve Coefficient of t(t-1).
+ * @param arm_start Unwrapped first column of the arm pass.
+ * @return The crossing fraction; the trajectory stays inside this arm and
+ * its column velocity stays below W/2 throughout the frame. */
+template <int W>
+HS_HOT_INLINE float quadratic_screen_time(float origin, float velocity,
+                                          float curve, float arm_start) {
+  const float distance = origin - arm_start;
+  const float approach = W / 2.0f - velocity + curve;
+  return 2.0f * distance /
+         (approach + sqrtf(approach * approach - 4.0f * curve * distance));
+}
+
 /** @brief One arm pass of a point moving linearly in screen space. */
 struct ScreenCrossing {
   math::PixelCoords position; /**< Screen point at the pass. */

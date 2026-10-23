@@ -7,6 +7,41 @@
 // Plot::PointRoute: closed-form column-time points against a per-column oracle.
 // ---------------------------------------------------------------------------
 
+/** @brief Projected chord curvature bounds physical departure. */
+inline void test_point_route_physical_curvature_bound() {
+  constexpr int W = 288, H = 144;
+  for (float latitude : {0.001f, 0.01f, 0.1f, 0.7f, 1.4f}) {
+    for (float turn : {0.001f, 0.01f, 0.08f}) {
+      for (float heading : {0.0f, 0.7f, 1.57f}) {
+        const math::Vector a(sinf(latitude), cosf(latitude), 0.0f);
+        const math::Vector axis(cosf(heading), 0.0f, sinf(heading));
+        const math::Vector b = math::rotate(a, math::make_rotation(axis, turn));
+        const float bound =
+            Plot::PointRoute<W, H>::projected_acceleration(a, b);
+        const math::PixelCoords pa = math::vector_to_pixel<W, H>(a);
+        math::PixelCoords pb = math::vector_to_pixel<W, H>(b);
+        pb.x = pa.x + math::centered_remainder(pb.x - pa.x, float(W));
+        for (int k = 1; k < 16; ++k) {
+          const float t = float(k) / 16.0f;
+          const math::Vector q = (a + (b - a) * t).normalized();
+          const math::PixelCoords p = math::vector_to_pixel<W, H>(q);
+          const float dx = math::centered_remainder(
+              p.x - pa.x - (pb.x - pa.x) * t, float(W));
+          const float dy = p.y - pa.y - (pb.y - pa.y) * t;
+          const float rho = sqrtf(q.x * q.x + q.z * q.z);
+          const float physical_x = fabsf(dx) * rho *
+                                   math::RADIANS_PER_COLUMN<W> *
+                                   math::ROWS_PER_RADIAN<H>;
+          HS_EXPECT_LE(fmaxf(physical_x, fabsf(dy)), bound / 8.0f + 0.003f);
+        }
+      }
+    }
+  }
+  const math::Vector equator(1.0f, 0.0f, 0.0f);
+  HS_EXPECT_EQ(
+      (Plot::PointRoute<W, H>::projected_acceleration(equator, equator)), 0.0f);
+}
+
 /** @brief A point stepped along a great circle under a slerped rotation, the
  *         motion of a particle drawn through an orientation. */
 struct PointRoutePath {
@@ -232,6 +267,7 @@ inline void test_point_route_matches_column_oracle() {
   HS_EXPECT_LE(interior.weight, 0.1f);
   HS_EXPECT_LE(interior.arc, 0.06f);
   HS_EXPECT_LE(interior.mass, 0.08f);
+  HS_EXPECT_GT(Spacetime::geometry_counters.point_small_chords, 0u);
   HS_EXPECT_LE(rapid.weight, 0.2f);
   HS_EXPECT_LE(rapid.arc, 0.12f);
   HS_EXPECT_LE(rapid.mass, 0.08f);
@@ -395,4 +431,138 @@ inline void test_steady_edge_plots_lattice_points() {
     if (columns < 1.0f)
       HS_EXPECT_TRUE(plotted);
   }
+}
+
+/** @brief A curved point entering the render rows survives polar rejection. */
+inline void test_point_route_curved_cap_enters_clip() {
+  constexpr int W = 288, H = 144;
+  Spacetime::set_flat_surface(false);
+  for (bool south : {false, true}) {
+    hs_test::StubEffect effect(W, H);
+    effect.set_clip(36, 108, 0, W);
+    Canvas canvas(effect);
+    std::fill_n(canvas.data(), W * H, Pixel{});
+    Filter::Screen::DirectAntiAliasSink<W, H> sink;
+    sink.prepare(canvas);
+    Plot::PointRoute<W, H> route;
+    const math::Vector end =
+        math::pixel_to_vector<W, H>(72.0f, south ? 115.0f : 28.0f);
+    const math::Vector middle =
+        math::pixel_to_vector<W, H>(72.0f, south ? 93.0f : 50.0f);
+    route.prepare(canvas, (middle - end).magnitude());
+    route.plot(
+        sink, canvas, end, [&] { return end; },
+        [] { return Color4(Pixel(65535, 65535, 65535), 1.0f); }, middle - end);
+    uint64_t energy = 0;
+    for (int y = 36; y < 108; ++y)
+      for (int x = 0; x < W; ++x)
+        energy += canvas.data()[y * W + x].r;
+    HS_EXPECT_GT(energy, 1000u);
+  }
+}
+
+/** @brief A polar sample approaching the arm retains its complete AA support. */
+inline void test_point_route_polar_sweep_support() {
+  constexpr int W = 288, H = 144;
+  if (!math::TrigLUT<W, H>::initialized)
+    math::TrigLUT<W, H>::init();
+  Spacetime::set_flat_surface(false);
+  for (float velocity : {72.0f, 120.0f}) {
+    std::vector<Pixel> actual;
+    for (bool reference : {false, true}) {
+      hs_test::StubEffect effect(W, H);
+      Canvas canvas(effect);
+      std::fill_n(canvas.data(), W * H, Pixel{});
+      Filter::Screen::DirectAntiAliasSink<W, H> sink;
+      sink.prepare(canvas);
+      const Color4 color(Pixel(65535, 65535, 65535), 0.7f);
+      if (reference) {
+        for (int column = 0; column < W; ++column) {
+          const float time = Spacetime::SamplingSurface<W>::time(column);
+          sink.plot_column_at(canvas, {72.0f + velocity * (time - 0.5f), 0.0f},
+                              column, color.color, 0.0f, color.alpha, time);
+        }
+        for (int i = 0; i < W * H; ++i)
+          HS_EXPECT_LE(abs(int(actual[i].r) - int(canvas.data()[i].r)), 257);
+      } else {
+        Plot::PointRoute<W, H>::emit(sink, canvas, {{72.0f, 0.0f}, 0.5f}, color,
+                                     velocity, 0.0f);
+        actual.assign(canvas.data(), canvas.data() + W * H);
+      }
+    }
+  }
+}
+
+/** @brief Positional geometry descriptors keep the source-position contract. */
+inline void test_geometry_callback_aggregate_contract() {
+  auto at = [](size_t, float) { return math::X_AXIS; };
+  const Plot::GeometryCallback geometry{at, {}, false};
+  HS_EXPECT_FALSE(geometry.source_positions);
+  HS_EXPECT_FALSE(geometry.rigid_lattice);
+  HS_EXPECT_EQ(geometry.capture_error, 0.025f);
+}
+
+/** @brief Short-chord certificates imply the complete physical curvature bound. */
+inline void test_point_route_small_chord_certificate() {
+  constexpr int W = 288, H = 144;
+  int accepted = 0, rejected = 0;
+  for (float row : {0.1f, 0.5f, 2.0f, 5.0f, 20.0f, 70.0f})
+    for (float heading : {0.0f, 0.5f, 1.57f})
+      for (float angle : {0.0001f, 0.001f, 0.003f, 0.02f, 0.08f, 0.4f}) {
+        const auto path =
+            point_route_path(140.0f, row, heading, angle, 0.0f, math::Y_AXIS);
+        const auto a = path.at(0.0f), b = path.at(1.0f);
+        if (Plot::PointRoute<W, H>::small_chord(a, b)) {
+          ++accepted;
+          HS_EXPECT_LE((Plot::PointRoute<W, H>::projected_acceleration(a, b)),
+                       0.16f);
+        } else
+          ++rejected;
+      }
+  HS_EXPECT_GT(accepted, 30);
+  HS_EXPECT_GT(rejected, 30);
+}
+
+/** @brief Equator-cell speed bounds include the sine maximum between LUT rows. */
+inline void test_point_route_physical_speed_covers_equator_cell() {
+  const auto check = []<int W, int H>() {
+    math::TrigLUT<W, H>::init();
+    const float EQUATOR = (H - 1) * 0.5f;
+    const float EXPECTED = 0.25f + 2.0f * (H - 1) / W;
+    HS_EXPECT_NEAR((Plot::PointRoute<W, H>::physical_speed(
+                       -1.0f, 0.25f, EQUATOR - 0.1f, EQUATOR + 0.1f)),
+                   EXPECTED, 1e-6f);
+    HS_EXPECT_NEAR((Plot::PointRoute<W, H>::physical_speed(
+                       -1.0f, 0.25f, EQUATOR - 0.1f, EQUATOR - 0.05f)),
+                   EXPECTED, 1e-6f);
+  };
+  check.template operator()<96, 20>();
+  check.template operator()<288, 144>();
+}
+
+/** @brief Low-error interior pieces share one splat; arm cuts retain owned taps. */
+inline void test_point_route_piece_tap_policy() {
+  /** @brief Counts spatial splats and integer column taps. */
+  struct Sink {
+    int splats = 0; ///< Shared spatial samples.
+    int taps = 0;   ///< Owned integer taps.
+    /** @brief Counts a spatial sample. */
+    void plot(Canvas &, float, float, const Pixel &, float, float) { ++splats; }
+    /** @brief Counts an owned column tap. */
+    void plot(Canvas &, int, int, const Pixel &, float, float) { ++taps; }
+  };
+  hs_test::StubEffect effect(288, 144);
+  Canvas canvas(effect);
+  math::TrigLUT<288, 144>::init();
+  Sink sink;
+  const Color4 color(Pixel(65535, 65535, 65535), 0.5f);
+  Plot::PointRoute<288, 144>::emit(sink, canvas,
+                                   {{100.5f, 70.0f}, 100.5f / 144}, color, 0.3f,
+                                   0.1f, 0.25f, 0.9f);
+  HS_EXPECT_EQ(sink.splats, 1);
+  HS_EXPECT_EQ(sink.taps, 0);
+  Plot::PointRoute<288, 144>::emit(sink, canvas, {{0.5f, 70.0f}, 0.5f / 144},
+                                   color, 0.3f, 0.1f);
+  HS_EXPECT_EQ(sink.splats, 1);
+  HS_EXPECT_GT(sink.taps, 0);
 }

@@ -46,6 +46,8 @@ public:
   static constexpr bool has_world_stage = false;
   /// Writes the framebuffer through a cached base.
   static constexpr bool direct_raster_path = true;
+  /// Accepts independently timed splat columns.
+  static constexpr bool column_taps_ready = true;
 
   /** @brief This sink owns no arena storage. */
   void init_storage(Arena &) {}
@@ -87,14 +89,35 @@ public:
   HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
                                         const ::Pixel &c, float age,
                                         float alpha, float t) {
-    AntiAlias<W, H> aa;
-    aa.plot_at(p.x, p.y, c, age, alpha, t,
-               [&](float x, float y, const ::Pixel &nc, float nage,
-                   float nalpha) HS_HOT_INLINE {
-                 plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage,
-                      nalpha);
-               });
+    if (!Spacetime::flat_surface() &&
+        fabsf(math::centered_remainder(p.x, W / 2.0f)) <= 1.0f) {
+      AntiAlias<W, H> aa;
+      auto pass = [&](float x, float y, const ::Pixel &nc, float nage,
+                      float nalpha) HS_HOT_INLINE {
+        plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage, nalpha);
+      };
+      aa.plot_boundary_at(p.x, p.y, c, age, alpha, t, pass);
+    } else {
+      plot(cv, p.x, p.y, c, age, alpha);
+    }
     return p.x;
+  }
+
+  /** @brief Emits only one column of a projected splat.
+   * @param cv Frame context.
+   * @param p Projected column and row at the column's time.
+   * @param column Destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   */
+  HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
+                                    const ::Pixel &c, float age, float alpha,
+                                    [[maybe_unused]] float t) {
+    auto pass = [&](float x, float y, const ::Pixel &nc, float nage,
+                    float nalpha) HS_HOT_INLINE {
+      plot(cv, static_cast<int>(x), static_cast<int>(y), nc, nage, nalpha);
+    };
+    AntiAlias<W, H>::column_taps(p.x, p.y, c, age, alpha, column, pass);
   }
 
   /** @brief Plots an already-transformed sample.
@@ -219,8 +242,8 @@ public:
    * @param age Temporal age channel (frames); ignored.
    * @param alpha Blend alpha in [0, 1].
    */
-  void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
-            float alpha) {
+  HS_HOT_INLINE void plot(Canvas &cv, int x, int y, const ::Pixel &c, float age,
+                          float alpha) {
     if (y < 0 || y >= H) {
       plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
       return;

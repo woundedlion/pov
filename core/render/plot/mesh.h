@@ -445,17 +445,20 @@ struct Mesh {
   /** @brief Prepares endpoint fragments for a timed mesh edge.
    * @param points Bound two-fragment output buffer.
    * @param from,to Endpoint vertices.
-   * @param edge_index Edge register value. */
+   * @param edge_index Edge register value.
+   * @param length Prepared frame-end edge length, radians. */
   FASTRUN HS_O3_FN HS_NOINLINE_NOCLONE static void
   prepare_timed_edge(Fragments &points, const math::Vector &from,
-                     const math::Vector &to, size_t edge_index) {
+                     const math::Vector &to, size_t edge_index, float length) {
     points.clear();
     Fragment a, b;
     a.pos = from;
-    b.pos = to;
-    Line::sample(points, a, b, make_geodesic_edge_span(a.pos, b.pos));
-    for (auto &point : points)
-      point.v2 = static_cast<float>(edge_index);
+    b.pos = length > 0.0f ? to : from;
+    a.v2 = b.v2 = static_cast<float>(edge_index);
+    b.v0 = length > 0.0f ? 1.0f : 0.0f;
+    b.v1 = length;
+    points.push_back(a);
+    points.push_back(b);
   }
 
   /** @brief Captures a mesh's vertex paths for one frame.
@@ -481,7 +484,7 @@ struct Mesh {
                    const MeshT &mesh, const GeometryCallback &geometry,
                    const Spacetime::PoseTable *poses, float callback_bound,
                    float world_bound) {
-    constexpr float MAX_VERTEX_ERROR_PX = 0.025f;
+    const float MAX_VERTEX_ERROR_PX = geometry.capture_error;
     const size_t count = mesh.vertices.size();
     const bool moving = geometry.evaluate && callback_bound > 0.0f;
     const bool per_vertex = static_cast<bool>(geometry.vertex_path);
@@ -494,14 +497,18 @@ struct Mesh {
       }
     }
     motion.begin_frame(count, moving);
+    const math::RotationMatrix start_pose =
+        poses ? poses->at(0) : math::RotationMatrix();
+    const math::RotationMatrix end_pose =
+        poses ? poses->at(poses->times()) : math::RotationMatrix();
     for (size_t i = 0; i < count; ++i) {
       motion.capture_end(i, mesh.vertices[i]);
       if (!moving)
         continue;
       math::Vector start = motion.start(i), end = mesh.vertices[i];
       if (poses) {
-        start = poses->at(0).apply(start);
-        end = poses->at(poses->times()).apply(end);
+        start = start_pose.apply(start);
+        end = end_pose.apply(end);
       }
       const float rho = fminf(sqrtf(start.x * start.x + start.z * start.z),
                               sqrtf(end.x * end.x + end.z * end.z)) -
@@ -572,6 +579,7 @@ struct Mesh {
    * @param starts Unit world endpoints at the frame's start.
    * @param ends Unit world endpoints at the frame's end.
    * @param most Largest lattice plotted as points.
+   * @param end_to_start Rigid rotation from frame end to start, when known.
    * @param shade Sample color.
    * @return Whether the edge was plotted; otherwise the column walk draws it.
    * @details The column walk spaces such an edge's samples at fixed fractions
@@ -582,20 +590,23 @@ struct Mesh {
   HS_HOT_FLASH_MEMBER static bool
   plot_steady_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
                    const math::Vector (&starts)[2],
-                   const math::Vector (&ends)[2], int most, Shade &&shade) {
+                   const math::Vector (&ends)[2], int most, Shade &&shade,
+                   const math::RotationMatrix *end_to_start = nullptr) {
     GeodesicEdgeSampler arcs[2];
-    const int steady =
-        EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most, arcs);
+    const int steady = EdgeWorldsheet::steady_lattice<W, H>(starts, ends, most,
+                                                            arcs, end_to_start);
     if (steady == 0)
       return false;
     for (int k = 0; k < steady; ++k) {
       const float s = static_cast<float>(k) / static_cast<float>(steady);
+      const math::Vector end =
+          k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s);
       route.plot(
-          sink, canvas,
-          k == 0 ? ends[0] : EdgeWorldsheet::lattice_point(arcs[1], s),
+          sink, canvas, end,
           [&]() HS_HOT_INLINE {
-            return k == 0 ? starts[0]
-                          : EdgeWorldsheet::lattice_point(arcs[0], s);
+            return k == 0         ? starts[0]
+                   : end_to_start ? end_to_start->apply(end)
+                                  : EdgeWorldsheet::lattice_point(arcs[0], s);
           },
           [&](float t) HS_HOT_INLINE { return shade(s, t); });
     }
@@ -627,21 +638,35 @@ struct Mesh {
    * @param edges Precomputed unique edges.
    * @param shader Fragment shader.
    * @param geometry Vertex evaluator and path bound.
-   * @param callback_bound Maximum callback displacement in radians. */
+   * @param callback_bound Maximum callback displacement in radians.
+   * @param prepared_poses Shared column-time poses for a screen sink.
+   * @param prepared_sweep Rotation bound of the shared poses, radians. */
   template <int W, int H, typename MeshT, typename PipelineT, typename ShaderT>
   HS_HOT_FLASH_MEMBER static void
   draw_column_edges(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
                     const ArenaVector<Edge> &edges, ShaderT shader,
-                    const GeometryCallback &geometry, float callback_bound) {
+                    const GeometryCallback &geometry, float callback_bound,
+                    const Spacetime::PoseTable *prepared_poses = nullptr,
+                    float prepared_sweep = 0.0f) {
     static_assert(PipelineT::column_taps_ready,
                   "the column walk splats end columns through an "
                   "anti-aliasing first screen stage");
     ScratchScope motion_scope(scratch_arena_b);
     Spacetime::Worldlines<> motion;
     motion.bind(scratch_arena_b, mesh.vertices.size());
-    const Spacetime::PoseTable *poses = pipeline.pose_table(canvas);
+    const Spacetime::PoseTable *poses = prepared_poses;
+    float sweep = prepared_sweep;
+    if constexpr (requires {
+                    pipeline.pose_table(canvas);
+                    pipeline.sweep_arc();
+                  }) {
+      if (!poses) {
+        poses = pipeline.pose_table(canvas);
+        sweep = pipeline.sweep_arc();
+      }
+    }
     capture_vertices<W>(motion, false, mesh, geometry, poses, callback_bound,
-                        pipeline.sweep_arc());
+                        sweep);
     ScratchScope edge_storage(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 2);
@@ -656,12 +681,14 @@ struct Mesh {
                             float t) HS_HOT_INLINE {
       Spacetime::shade_at_time(shader, t, position, fragment);
     };
-    const EdgeBatch batch{edges.size(),         &prepare_timed_edge,
-                          mesh.vertices.data(), motion,
-                          edges.data(),         geometry.chained};
+    const EdgeBatch batch{
+        edges.size(), &prepare_timed_edge, mesh.vertices.data(),  motion,
+        edges.data(), geometry.chained,    geometry.rigid_lattice};
+    const float raster_sweep =
+        prepared_poses ? prepared_sweep : erased.sweep_arc();
     rasterize_column_edges<W, H, {.timed = true}>(
         erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
-        callback_bound + erased.sweep_arc(), geometry.source_positions);
+        callback_bound + raster_sweep, geometry.source_positions, raster_sweep);
   }
 
   /** @brief Draws a wireframe through the column walk unless its swept

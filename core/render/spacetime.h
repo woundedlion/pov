@@ -44,6 +44,25 @@ struct Timed {};
 
 /** @brief Work performed by geometry-callback capture and rasterization. */
 struct GeometryCounters {
+  uint32_t point_small_chords =
+      0; ///< Point chords certified without projection curvature.
+  uint32_t chord_capture_solves = 0; ///< Closed-form coherent anchor captures.
+  uint32_t point_capture_solves = 0; ///< Closed-form point-piece capture calls.
+  uint32_t chord_fast_samples = 0;   /**< Coherent moving-chord crossings. */
+  uint32_t chord_intervals = 0; /**< Moving chart anchor intervals examined. */
+  uint32_t chord_intervals_culled =
+      0; /**< Invisible anchor intervals skipped. */
+  uint32_t chord_screen_samples =
+      0; /**< Moving screen-chord samples emitted. */
+  uint32_t polar_column_visits =
+      0; /**< Supported columns examining polar geometry. */
+  uint32_t polar_geometry_samples =
+      0;                             /**< Shared polar-run segment captures. */
+  uint32_t polar_column_samples = 0; /**< Polar chart coverage samples. */
+  uint32_t chord_point_samples =
+      0; /**< Chart samples sent to the point route. */
+  uint32_t point_piece_evaluations =
+      0; /**< Point trajectory knots projected. */
   uint32_t column_path_evaluations =
       0; /**< Columns evaluating their edge's endpoint paths. */
   uint32_t column_shader_calls =

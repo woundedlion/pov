@@ -434,6 +434,16 @@ private:
     const Spacetime::PoseTable &poses = *timed_pipeline.pose_table(canvas);
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
+    math::RotationMatrix end_to_start;
+    end_to_start.r0 = {math::dot(start_pose.r0, end_pose.r0),
+                       math::dot(start_pose.r0, end_pose.r1),
+                       math::dot(start_pose.r0, end_pose.r2)};
+    end_to_start.r1 = {math::dot(start_pose.r1, end_pose.r0),
+                       math::dot(start_pose.r1, end_pose.r1),
+                       math::dot(start_pose.r1, end_pose.r2)};
+    end_to_start.r2 = {math::dot(start_pose.r2, end_pose.r0),
+                       math::dot(start_pose.r2, end_pose.r1),
+                       math::dot(start_pose.r2, end_pose.r2)};
     Plot::PointRoute<W, H> route;
     route.prepare(canvas, spin + 2.0f * math::PI_F / W);
 
@@ -514,7 +524,8 @@ private:
                 {world[j], world[j - 1]}, STEADY_POINTS,
                 [&](float s, float time) HS_HOT_INLINE {
                   return trail_color(head + (tail - head) * s, time, len);
-                }))
+                },
+                &end_to_start))
           continue;
         for (const int k : {j, j - 1})
           if (slots[k] < 0) {

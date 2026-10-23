@@ -3,6 +3,24 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Quadratic captures meet their analytic column-time surface. */
+inline void test_quadratic_screen_capture_meets_surface() {
+  constexpr int W = 288;
+  for (float arm : {0.0f, W / 2.0f})
+    for (float velocity : {-30.0f, 0.0f, 30.0f, 120.0f})
+      for (float curve : {-12.0f, 0.0f, 12.0f})
+        for (float time : {0.1f, 0.33f, 0.6f, 0.9f}) {
+          const float origin =
+              arm + (W / 2.0f - velocity) * time - curve * time * (time - 1.0f);
+          const float capture =
+              Spacetime::quadratic_screen_time<W>(origin, velocity, curve, arm);
+          HS_EXPECT_NEAR(capture, time, 1e-6f);
+          const float position =
+              origin + velocity * capture + curve * capture * (capture - 1.0f);
+          HS_EXPECT_NEAR(position, arm + (W / 2.0f) * capture, 1e-4f);
+        }
+}
+
 /** @brief An arm pass found by brute force. */
 struct TruePass {
   double time; ///< Frame fraction.

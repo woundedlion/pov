@@ -39,6 +39,26 @@ struct PathBound {
   }
 
   /**
+   * @brief Bounds of a rotation about a fixed axis by a varying angle.
+   * @param rate Bound on the angle's first derivative over the frame.
+   * @param acceleration Bound on its second derivative.
+   * @param jerk Bound on its third derivative.
+   * @param radius Distance of the point from the axis.
+   * @return `{radius (rate^2 + acceleration),
+   *         radius (rate^3 + 3 rate acceleration + jerk)}`.
+   * @details With `q = a x p`, `p' = angle' q` and `q' = angle' (a x q)`, so
+   * `p''` and `p'''` are sums of terms along `q` and `a x q`, each of length
+   * `radius`.
+   */
+  static constexpr PathBound turning(float rate, float acceleration, float jerk,
+                                     float radius) {
+    const float r = rate < 0.0f ? -rate : rate;
+    const float a = acceleration < 0.0f ? -acceleration : acceleration;
+    const float j = jerk < 0.0f ? -jerk : jerk;
+    return {radius * (r * r + a), radius * (r * r * r + 3.0f * r * a + j)};
+  }
+
+  /**
    * @brief Bounds of a unit-sphere path moving linearly in Mercator
    *        coordinates.
    * @param ordinate Change of the Mercator ordinate `u` over the frame, the
