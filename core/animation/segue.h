@@ -59,6 +59,8 @@
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
  * centers, so the front rides the mesh's rotation.
+ * `UNIFORM_FACE_ENDPOINTS = true` declares that every face phase equals the
+ * global phase at 0 and 1, without evaluating the per-face hooks.
  */
 namespace Segue {
 
@@ -348,6 +350,14 @@ concept LocalSweeps = requires {
   typename std::bool_constant<S::LOCAL_SWEEP>;
 };
 
+/** @brief Whether a policy's uniform endpoint trait is a constant-usable bool. */
+template <typename S>
+concept UniformFaceEndpoints = requires {
+  requires std::same_as<std::remove_cv_t<decltype(S::UNIFORM_FACE_ENDPOINTS)>,
+                        bool>;
+  typename std::bool_constant<S::UNIFORM_FACE_ENDPOINTS>;
+};
+
 /**
  * @brief Signature-agnostic "the policy declares this hook name" probes.
  * @details Each carrier declares one hook or trait name; merged into a policy,
@@ -385,6 +395,10 @@ struct FacePhaseName {
 /** @brief Carrier of the `LOCAL_SWEEP` trait name. */
 struct LocalSweepName {
   static constexpr int LOCAL_SWEEP = 0; ///< Name probe.
+};
+/** @brief Carrier of the uniform face endpoint trait name. */
+struct UniformFaceEndpointsName {
+  static constexpr int UNIFORM_FACE_ENDPOINTS = 0; ///< Name probe.
 };
 
 /**
@@ -442,6 +456,12 @@ concept DeclaresFacePhase = detail::Mergeable<S> && !requires {
 template <typename S>
 concept DeclaresLocalSweep = detail::Mergeable<S> && !requires {
   detail::Merged<S, detail::LocalSweepName>::LOCAL_SWEEP;
+};
+
+/** @brief Whether a policy declares a uniform face endpoint trait. */
+template <typename S>
+concept DeclaresUniformFaceEndpoints = detail::Mergeable<S> && !requires {
+  detail::Merged<S, detail::UniformFaceEndpointsName>::UNIFORM_FACE_ENDPOINTS;
 };
 
 /**
@@ -554,7 +574,9 @@ struct Lace : Base {
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
-  math::Vector axis = math::Y_AXIS;         /**< Mesh-local sweep axis. */
+  static constexpr bool UNIFORM_FACE_ENDPOINTS =
+      true;                         ///< Exact shared endpoint phases.
+  math::Vector axis = math::Y_AXIS; /**< Mesh-local sweep axis. */
   float fade_frames_min =
       4.0f; /**< Shortest per-face fade length, in frames. */
   float fade_frames_max =
@@ -617,6 +639,8 @@ struct TerminatorSweep : Base {
    * its fade has completed.
    */
   float face_phase(float phase, float offset, float fade_frac) const {
+    if (phase == 0.0f || phase == 1.0f)
+      return phase;
     float ff = fmaxf(fade_frac, 1e-4f);
     return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
@@ -918,6 +942,10 @@ template <typename... Ts> struct PolicyList {
   static constexpr bool LOCAL_SWEEPS_TYPED =
       ((!DeclaresLocalSweep<Ts> || LocalSweeps<Ts>) && ...);
 
+  /** @brief Whether uniform face endpoint declarations are constant bools. */
+  static constexpr bool UNIFORM_FACE_ENDPOINTS_TYPED =
+      ((!DeclaresUniformFaceEndpoints<Ts> || UniformFaceEndpoints<Ts>) && ...);
+
   /** @brief Whether every listed policy is a non-final class; a final one
    * answers false to every Declares* probe and passes them vacuously. */
   static constexpr bool MERGEABLE = (detail::Mergeable<Ts> && ...);
@@ -953,6 +981,9 @@ static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
 static_assert(AllPolicies::LOCAL_SWEEPS_TYPED,
               "a segue's LOCAL_SWEEP must be static constexpr bool: the "
               "per-face draw path reads it as a constant expression");
+
+static_assert(AllPolicies::UNIFORM_FACE_ENDPOINTS_TYPED,
+              "a segue's UNIFORM_FACE_ENDPOINTS must be static constexpr bool");
 
 static_assert(AllPolicies::MERGEABLE,
               "a segue must be a non-final class: the Declares* probes merge a "

@@ -344,6 +344,85 @@ inline void test_sweep_phase_front_ordering() {
                Segue::sweep_phase(0.5f, 0.8f, band));
 }
 
+/** @brief Counts the per-face hooks used to prepare a segue. */
+struct CountedEndpointSegue : Segue::TerminatorSweep {
+  mutable size_t offset_calls = 0; ///< Face ordering evaluations.
+  mutable size_t fade_calls = 0;   ///< Fade length evaluations.
+  mutable size_t phase_calls = 0;  ///< Face phase evaluations.
+  /** @brief Counts and evaluates the face ordering. */
+  float face_offset(const math::Vector &center, int face, int cls) const {
+    ++offset_calls;
+    return Segue::TerminatorSweep::face_offset(center, face, cls);
+  }
+  /** @brief Counts and evaluates the fade length. */
+  float face_fade_frac(int face) const {
+    ++fade_calls;
+    return Segue::TerminatorSweep::face_fade_frac(face);
+  }
+  /** @brief Counts and evaluates the face phase. */
+  float face_phase(float phase, float offset, float fade) const {
+    ++phase_calls;
+    return Segue::TerminatorSweep::face_phase(phase, offset, fade);
+  }
+};
+
+/** @brief Endpoint policy that retains per-face evaluation. */
+struct PerFaceEndpointSegue : CountedEndpointSegue {
+  static constexpr bool UNIFORM_FACE_ENDPOINTS =
+      false; ///< No endpoint shortcut.
+};
+
+/** @brief Invalid endpoint trait type. */
+struct DriftedEndpointSegue : CountedEndpointSegue {
+  static constexpr int UNIFORM_FACE_ENDPOINTS = 1; ///< Mistyped trait.
+};
+
+/** @brief Uniform endpoint phases omit geometry and preserve the interior ramp. */
+inline void test_meshcarousel_uniform_face_endpoints() {
+  static_assert(Segue::DeclaresUniformFaceEndpoints<CountedEndpointSegue>);
+  static_assert(Segue::UniformFaceEndpoints<CountedEndpointSegue>);
+  static_assert(!Segue::DeclaresUniformFaceEndpoints<Segue::Base>);
+  static_assert(!Segue::UniformFaceEndpoints<DriftedEndpointSegue>);
+  static_assert(
+      !Segue::PolicyList<DriftedEndpointSegue>::UNIFORM_FACE_ENDPOINTS_TYPED);
+  static_assert(Segue::AllPolicies::UNIFORM_FACE_ENDPOINTS_TYPED);
+  hs_test::reset_globals();
+  static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh poly;
+  build_solid<Solids::Octahedron>(poly, polyarena);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, persistent_arena, scratch_arena_a);
+  mesh.topology.bind(persistent_arena, mesh.num_faces());
+  for (size_t face = 0; face < mesh.num_faces(); ++face)
+    mesh.topology.push_back(0);
+  ArenaVector<float> phases;
+  phases.bind(persistent_arena, mesh.num_faces());
+  MeshCarousel<CountedEndpointSegue> carousel;
+  for (float phase : {0.0f, 1.0f}) {
+    carousel.fill_face_phases(mesh, mesh, phase, phases);
+    HS_EXPECT_EQ(phases.size(), mesh.num_faces());
+    for (float value : phases)
+      HS_EXPECT_EQ(value, phase);
+  }
+  const auto &policy = carousel.segue();
+  HS_EXPECT_EQ(policy.offset_calls, 0u);
+  HS_EXPECT_EQ(policy.fade_calls, 0u);
+  HS_EXPECT_EQ(policy.phase_calls, 0u);
+  carousel.fill_face_phases(mesh, mesh, 0.5f, phases);
+  HS_EXPECT_EQ(policy.offset_calls, mesh.num_faces());
+  HS_EXPECT_EQ(policy.fade_calls, mesh.num_faces());
+  HS_EXPECT_EQ(policy.phase_calls, mesh.num_faces());
+  MeshCarousel<PerFaceEndpointSegue> per_face;
+  per_face.fill_face_phases(mesh, mesh, 1.0f, phases);
+  HS_EXPECT_EQ(per_face.segue().offset_calls, mesh.num_faces());
+  const Segue::TerminatorSweep endpoint;
+  for (float fade : {0.01f, 0.2f, 0.33f, 0.9f}) {
+    HS_EXPECT_EQ(endpoint.face_phase(1.0f, 1.0f, fade), 1.0f);
+    HS_EXPECT_EQ(endpoint.face_phase(0.0f, 0.0f, fade), 0.0f);
+  }
+}
+
 /** @brief Pins sweep coordinate selection and transformed topology slots. */
 inline void test_meshcarousel_face_phases_use_sweep_frame_and_slots() {
   hs_test::reset_globals();
