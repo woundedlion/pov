@@ -132,6 +132,11 @@ public:
   // End generated params.
 
 public:
+#if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_HEXOIL_TRANSITION)
+  /** @brief Starts the authored transition after profile preset selection. */
+  HS_COLD_MEMBER void after_profile_preset() { this->hold_initial_preset(0); }
+#endif
+
   /** @brief Explicit choreography customization bindings.
    * @return Type-only hook list. */
   static consteval auto choreography_hooks() {
@@ -143,6 +148,13 @@ public:
             Control::HookBinding<Control::ChoreographyHook::INITIAL_PARAMS,
                                  &KaleidoscopeHexOil::initial_params>,
             Control::HookBinding<Control::ChoreographyHook::PRESET_ROW,
-                                 &KaleidoscopeHexOil::preset>>();
+                                 &KaleidoscopeHexOil::preset>
+#if HS_ENABLE_EFFECT_CONTROL_API && defined(HS_PROFILE_HEXOIL_TRANSITION)
+            ,
+            Control::HookBinding<
+                Control::ChoreographyHook::AFTER_PROFILE_PRESET,
+                &KaleidoscopeHexOil::after_profile_preset>
+#endif
+            >();
   }
 };
