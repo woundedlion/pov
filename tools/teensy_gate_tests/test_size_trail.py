@@ -247,6 +247,79 @@ class BackfillSafety(unittest.TestCase):
                 self.assertEqual(tst.head_position(root), restore)
                 self.assertEqual((root / "scratch.txt").read_text(encoding="utf-8"), "scratch")
 
+    def test_untracked_or_ignored_file_at_a_historically_tracked_path_survives(self):
+        for ignored in (False, True):
+            with self.subTest(ignored=ignored), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                real_git = tst._git
+
+                def in_repo(cmd, cwd=None, **kwargs):
+                    return real_git(cmd, cwd or root, env=fixture_env(kwargs.get("env")))
+
+                with mock.patch.object(tst, "_git", side_effect=in_repo):
+                    tst._git(["init", "--quiet"])
+                    (root / "platformio.ini").write_text("[env:holosphere]\n", encoding="utf-8")
+                    (root / "old.txt").write_text("old", encoding="utf-8")
+                    tst._git(["add", "--", "platformio.ini", "old.txt"])
+                    tst._git(["commit", "-m", "tracks old.txt"])
+                    tst._git(["rm", "--quiet", "--", "old.txt"])
+                    if ignored:
+                        (root / ".gitignore").write_text("old.txt\n", encoding="utf-8")
+                        tst._git(["add", "--", ".gitignore"])
+                    tst._git(["commit", "-m", "drops old.txt"])
+                    user = root / "old.txt"
+                    user.write_text("UNTRACKED USER WORK", encoding="utf-8")
+                    restore = tst.head_position(root)
+                    args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
+                                                 env=["holosphere"], build_dir=root / "build",
+                                                 rev_range="HEAD")
+                    with mock.patch.object(tst.subprocess, "run", wraps=subprocess.run) as run:
+                        with contextlib.redirect_stderr(io.StringIO()) as errors:
+                            self.assertEqual(tst.cmd_backfill(args), 1)
+                    self.assertIn("checkout refused", errors.getvalue())
+                    self.assertEqual(user.read_text(encoding="utf-8"), "UNTRACKED USER WORK")
+                    self.assertEqual(tst.head_position(root), restore)
+                    self.assertFalse(any(call.args[0][0] == "pio" for call in run.call_args_list))
+
+    def test_tracked_changes_left_by_a_build_stop_the_backfill(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real_git = tst._git
+
+            def in_repo(cmd, cwd=None, **kwargs):
+                return real_git(cmd, cwd or root, env=fixture_env(kwargs.get("env")))
+
+            with mock.patch.object(tst, "_git", side_effect=in_repo):
+                tst._git(["init", "--quiet"])
+                tracked = root / "platformio.ini"
+                for body in ("[env:holosphere]\n", "[env:holosphere]\n;two\n"):
+                    tracked.write_text(body, encoding="utf-8")
+                    tst._git(["add", "--", "platformio.ini"])
+                    tst._git(["commit", "-m", "commit"])
+                first = tst._git(["rev-parse", "HEAD~1"])
+                restore = tst.head_position(root)
+                args = types.SimpleNamespace(worktree=root, trail=root / "trail.tsv",
+                                             env=["holosphere"], build_dir=root / "build",
+                                             rev_range="HEAD")
+                original = subprocess.run
+                builds = []
+
+                def dirtying_pio(cmd, **kwargs):
+                    if cmd[0] == "pio":
+                        builds.append(cmd)
+                        tracked.write_text("built", encoding="utf-8")
+                        return subprocess.CompletedProcess(cmd, 1)
+                    return original(cmd, **kwargs)
+
+                with mock.patch.object(tst.subprocess, "run", side_effect=dirtying_pio):
+                    with contextlib.redirect_stderr(io.StringIO()) as errors:
+                        self.assertEqual(tst.cmd_backfill(args), 1)
+                self.assertEqual(len(builds), 1)
+                self.assertIn("tracked changes", errors.getvalue())
+                self.assertEqual(tracked.read_text(encoding="utf-8"), "built")
+                self.assertEqual(tst.head_stamp(root)[0], first)
+                self.assertNotEqual(tst.head_position(root), restore)
+
 
 class Backfill(unittest.TestCase):
     """Successful builds may reuse ELFs; failed builds require a fresh ELF."""
