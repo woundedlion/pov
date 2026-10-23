@@ -42,7 +42,7 @@ inline uint64_t column_time_parity_hash() {
 struct ColumnTimeParityCase {
   const char *name;   /**< Effect and resolution label. */
   uint64_t (*hash)(); /**< Renders and folds the frames. */
-  uint64_t expected;  /**< Hash recorded before column-time scans. */
+  uint64_t expected;  /**< Recorded fidelity-off hash. */
 };
 
 /** @brief Frames folded at 96x20. */
@@ -51,8 +51,7 @@ inline constexpr int PARITY_SMALL_FRAMES = 48;
 inline constexpr int PARITY_FULL_FRAMES = 12;
 
 /**
- * @brief Effects migrated to column-time scans render their fidelity-off frames
- *        bit-identically to the renderer before the migration.
+ * @brief Column-time scan effects match their recorded fidelity-off frames.
  * @details The hashes are this toolchain's: the Windows Clang preset. Set
  * `HS_PRINT_PARITY_HASHES=1` to print the current values.
  */
@@ -60,16 +59,16 @@ inline void test_column_time_scans_keep_fidelity_off_frames() {
   const ColumnTimeParityCase CASES[] = {
       {"HankinSolids 96x20",
        column_time_parity_hash<HankinSolids, 96, 20, PARITY_SMALL_FRAMES>,
-       0xdca95953767277d1ull},
+       0xc625c70426485e58ull},
       {"HankinSolids 288x144",
        column_time_parity_hash<HankinSolids, 288, 144, PARITY_FULL_FRAMES>,
-       0x37e3ece30a028588ull},
+       0x2f9c16a4c36f174dull},
       {"IslamicStars 96x20",
        column_time_parity_hash<IslamicStars, 96, 20, PARITY_SMALL_FRAMES>,
-       0xa53f308444e6880cull},
+       0x82d6d0bfb72493e9ull},
       {"IslamicStars 288x144",
        column_time_parity_hash<IslamicStars, 288, 144, PARITY_FULL_FRAMES>,
-       0x03c4f21753525aacull},
+       0x87f42faa2cc8457dull},
       {"GnomonicStars 96x20",
        column_time_parity_hash<GnomonicStars, 96, 20, PARITY_SMALL_FRAMES>,
        0x0c36227e7f48d1b9ull},

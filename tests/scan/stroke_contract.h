@@ -320,6 +320,34 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
                       math::TWO_PI_F / W);
   HS_EXPECT_TRUE(face.convex);
   HS_EXPECT_TRUE(far.convex);
+  const auto triangle_distance = [&](int x, int y) {
+    const auto p = math::pixel_to_vector<W, H>(x, y);
+    const double inv = 1.0 / math::dot(p, basis.v);
+    const double px = math::dot(p, basis.u) * inv;
+    const double py = math::dot(p, basis.w) * inv;
+    double minimum = 1.0;
+    bool inside = false;
+    for (int i = 0; i < 3; ++i) {
+      const auto &a = vertices[i], &b = vertices[(i + 1) % 3];
+      const double da = math::dot(a, basis.v), db = math::dot(b, basis.v);
+      const double ax = math::dot(a, basis.u) / da;
+      const double ay = math::dot(a, basis.w) / da;
+      const double bx = math::dot(b, basis.u) / db;
+      const double by = math::dot(b, basis.w) / db;
+      const double ex = bx - ax, ey = by - ay;
+      const double wx = px - ax, wy = py - ay;
+      const double t =
+          std::clamp((wx * ex + wy * ey) / (ex * ex + ey * ey), 0.0, 1.0);
+      const double dx = wx - ex * t, dy = wy - ey * t;
+      minimum = std::min(minimum, dx * dx + dy * dy);
+      inside ^= (ay > py) != (by > py) && px < ax + (py - ay) * ex / ey;
+    }
+    return (inside ? -1.0 : 1.0) * std::sqrt(minimum);
+  };
+  constexpr float PIXEL_WIDTH = math::TWO_PI_F / W;
+  HS_EXPECT_GT(triangle_distance(91, 17), PIXEL_WIDTH);
+  HS_EXPECT_GT(triangle_distance(91, 14), 0.0);
+  HS_EXPECT_LT(triangle_distance(91, 14), PIXEL_WIDTH);
   const SDF::Union<SDF::Face, SDF::Face> combined{face, far};
   const SDF::Intersection<SDF::Face, SDF::Face> intersection{face, face};
   const SDF::Subtract<SDF::Face, SDF::Face> carved{face, far};
@@ -349,7 +377,8 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
       CoverageSink plain;
       Render::pole_lod_aggressiveness = 0.0f;
       draw(plain, solid);
-      HS_EXPECT_GT(plain.coverage[17 * W + 91], .003f);
+      HS_EXPECT_EQ(plain.coverage[17 * W + 91], 0.0f);
+      HS_EXPECT_GT(plain.coverage[14 * W + 91], .003f);
       for (float lod : {1.0f, 4.0f}) {
         CoverageSink decimated;
         Render::pole_lod_aggressiveness = lod;
