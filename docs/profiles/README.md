@@ -6,8 +6,7 @@ bench-attached Teensy 4.0 boards with the real segmented POV driver
 effect renders one 288×144 image quadrant (about 10,368 pixels); the 62.5 ms
 display window makes cadence quantize to 16, 8, 5.3 fps, and below.
 
-Shipping reports cover all 36 effects: 35 completed captures and the failed
-HankinSolids capture.
+Shipping reports cover all 36 effects: 36 completed captures.
 
 The current Profile harness captures ISR counters and their timestamp together
 with interrupts masked. ISR CPU shares use the separately logged `ISR window`
@@ -37,7 +36,7 @@ full-roster image.
 
 ## Shipping/O3 captures
 
-The failed capture appears first; measured rows rank by shipping spill fraction, then shipping steady peak render. Shipping peak and spilled exclude setup frame 1, listed separately; subsequent transitions remain included. Both peaks are render, never wall time; spilled counts frames exceeding 62.5 ms.
+Rows rank by shipping spill fraction, then shipping steady peak render. Shipping peak and spilled exclude setup frame 1, listed separately; subsequent transitions remain included. Both peaks are render, never wall time; spilled counts frames exceeding 62.5 ms.
 Shipping colours are binary: 🟢 zero spill; 🔴 any spill. O3 columns retain their
 original values and colours and predate the per-column temporal work. O3 code-size
 deltas and timestamps belong to each O3 capture's original source pair, including
@@ -45,11 +44,10 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|
-| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-10-23.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | unavailable (arena trap) | 🔴 unavailable (trap) | unavailable | 🟢 32.865 (18) | 🔴 unavailable (trap) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-10-23 (aborted)<br>O3 2026-09-28 16:45 |
-| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🔴 70.224 (2)<br>🟢 57.503 (7) | 47.913 | 🟢 60.05 (9) | 🔴 134/958 (13.99%)<br>🟢 0/3041 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 13:38<br>O3 2026-09-25 07:29 |
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-23.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 0.379 | 🟢 54.539 (8) | 🟢 0/1247 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-23 13:40<br>O3 2026-10-01 09:22 |
 | [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-23.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 58.966 (16) | 16.644 | 🟢 49.112 (23) | 🟢 0/4863 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-23 13:57<br>O3 2026-09-28 16:50 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-10-23.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-23 13:30<br>O3 2026-09-20 23:07 |
+| [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 60.05 (9) | 🟢 0/4271 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 17:21<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-10-23.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 46.52 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-10-23 13:26<br>O3 2026-08-26 01:27 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-10-23.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 36.975 (3) | 🟢 0/4767 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-23 14:18<br>O3 2026-10-01 09:26 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-23.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 54.311 (10) | 49.756 | 🟢 34.32 (11) | 🟢 0/3167 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-23 14:00<br>O3 2026-08-26 02:19 |
@@ -67,6 +65,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [KaleidoscopeFlowers](shipping/profile_kaleidoscopeflowers_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopeflowers_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 34.712 (3) | 53.438 | 🟢 33.38 (4) | 🟢 0/2735 (0.00%) | 🟢 0/4128 (0%) | +14,576 B | +11,712 B | ship 2026-10-23 14:35<br>O3 2026-08-26 03:03 |
 | [KaleidoscopeSmooth](shipping/profile_kaleidoscopesmooth_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopesmooth_architecture_teensy_2026-10-01.md) § | `fx_shader_draw` | 🟢 34.565 (4) | 53.018 | 🟢 30.314 (4) | 🟢 0/3807 (0.00%) | 🟢 0/4137 (0.00%) | +15,048 B | +8,624 B | ship 2026-10-23 14:29<br>O3 2026-10-01 11:19 |
 | [KaleidoscopeHexBright](shipping/profile_kaleidoscopehexbright_teensy_2026-10-23.md) / [O3](O3/profile_kaleidoscopehexbright_teensy_2026-08-26.md) § | `fx_shader_draw` | 🟢 33.137 (2) | 49.091 | 🟢 32.41 (3) | 🟢 0/1631 (0.00%) | 🟢 0/2368 (0%) | +14,520 B | +11,712 B | ship 2026-10-23 14:31<br>O3 2026-08-26 03:14 |
+| [HankinSolids](shipping/profile_hankinsolids_teensy_2026-10-23.md) / [O3](O3/profile_hankinsolids_teensy_2026-09-28.md) § | `hk_timeline_step` | 🟢 31.644 (19) | 19.276 | 🟢 32.865 (18) | 🟢 0/2687 (0.00%) | 🟢 0/4137 (0.00%) | +17,088 B | +2,144 B | ship 2026-10-23 17:16<br>O3 2026-09-28 16:45 |
 | [Fishbowl](shipping/profile_fishbowl_teensy_2026-10-23.md) / [O3](O3/profile_fishbowl_teensy_2026-08-26.md) | `fish_build_vertices` | 🟢 31.232 | 1.811 | 🟢 21.29 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +27,856 B | +26,400 B | ship 2026-10-23 13:20<br>O3 2026-08-26 01:18 |
 | [Comets](shipping/profile_comets_teensy_2026-10-23.md) / [O3](O3/profile_comets_teensy_2026-08-26.md) § | `cm_draw_trail` | 🟢 30.701 (12) | 0.897 | 🟢 28.71 (13) | 🟢 0/1887 (0.00%) | 🟢 0/4128 (0%) | +15,432 B | +12,944 B | ship 2026-10-23 13:47<br>O3 2026-08-26 02:02 |
 | [PetalFlow](shipping/profile_petalflow_teensy_2026-10-23.md) / [O3](O3/profile_petalflow_teensy_2026-08-26.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 10.77 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +22,272 B | +21,008 B | ship 2026-10-23 13:29<br>O3 2026-08-26 01:32 |
@@ -82,10 +81,8 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-23.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-23 13:45<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
-All shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, with each capture
-sized to its Phantasm show segment. Capture times are local raw-log mtimes.
+Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
 The kaleidoscope effects run with column strobe off.
-The failed capture's date identifies the attempt; its raw-log mtime is unavailable.
 
 Shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
 Each report separately gives trailing raw-frame telemetry, exclusions, preset
@@ -95,7 +92,7 @@ of fully validated cycle-counter exactness.
 
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
-Failed captures appear first with unavailable timing. Show duration covers the authored show segment; a segment can end before its
+Show duration covers the authored show segment; a segment can end before its
 last departure wraps. The per-effect report states observed coverage.
 
 ## Memory captures

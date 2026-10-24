@@ -1,18 +1,16 @@
 # Shipping selective-O3 profiles
 
 Ranked on-device results for the shipping `profile` image, covering the
-36 effects in `HS_PHANTASM_EFFECT_LIST`. All 36 have canonical reports: 35 completed captures and the failed
-HankinSolids capture. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
-the 62.5 ms display window. The failed capture appears first; measured rows rank by spill fraction, then steady peak render.
+36 effects in `HS_PHANTASM_EFFECT_LIST`. All 36 have canonical reports: 36 completed captures. Steady peak is worst-frame render excluding setup frame 1; setup render is listed separately. Steady spilled counts frames whose render exceeded
+the 62.5 ms display window. Rows rank by spill fraction, then steady peak render.
 🟢 zero spill; 🔴 any spill.
 
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
-| [HankinSolids](profile_hankinsolids_teensy_2026-10-23.md) § | unavailable (arena trap) | 🔴 unavailable (trap) | unavailable | 🔴 unavailable (trap) | 2026-10-23 (aborted) |
-| [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🔴 70.224 (2)<br>🟢 57.503 (7) | 47.913 | 🔴 134/958 (13.99%)<br>🟢 0/3041 (0.00%) | 2026-10-23 13:38 |
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-23.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 0.379 | 🟢 0/1247 (0.00%) | 2026-10-23 13:40 |
 | [IslamicStars](profile_islamicstars_teensy_2026-10-23.md) § | `is_timeline_step` | 🟢 58.966 (16) | 16.644 | 🟢 0/4863 (0.00%) | 2026-10-23 13:57 |
 | [Raymarch](profile_raymarch_teensy_2026-10-23.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 0/447 (0.00%) | 2026-10-23 13:30 |
+| [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-23.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 0/4767 (0.00%) | 2026-10-23 14:18 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-23.md) § | `db_timeline_step` | 🟢 54.311 (10) | 49.756 | 🟢 0/3167 (0.00%) | 2026-10-23 14:00 |
@@ -30,6 +28,7 @@ the 62.5 ms display window. The failed capture appears first; measured rows rank
 | [KaleidoscopeFlowers](profile_kaleidoscopeflowers_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 34.712 (3) | 53.438 | 🟢 0/2735 (0.00%) | 2026-10-23 14:35 |
 | [KaleidoscopeSmooth](profile_kaleidoscopesmooth_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 34.565 (4) | 53.018 | 🟢 0/3807 (0.00%) | 2026-10-23 14:29 |
 | [KaleidoscopeHexBright](profile_kaleidoscopehexbright_teensy_2026-10-23.md) § | `fx_shader_draw` | 🟢 33.137 (2) | 49.091 | 🟢 0/1631 (0.00%) | 2026-10-23 14:31 |
+| [HankinSolids](profile_hankinsolids_teensy_2026-10-23.md) § | `hk_timeline_step` | 🟢 31.644 (19) | 19.276 | 🟢 0/2687 (0.00%) | 2026-10-23 17:16 |
 | [Fishbowl](profile_fishbowl_teensy_2026-10-23.md) | `fish_build_vertices` | 🟢 31.232 | 1.811 | 🟢 0/927 (0.00%) | 2026-10-23 13:20 |
 | [Comets](profile_comets_teensy_2026-10-23.md) § | `cm_draw_trail` | 🟢 30.701 (12) | 0.897 | 🟢 0/1887 (0.00%) | 2026-10-23 13:47 |
 | [PetalFlow](profile_petalflow_teensy_2026-10-23.md) | `pf_draw_rings` | 🟢 30.286 | 21.618 | 🟢 0/447 (0.00%) | 2026-10-23 13:29 |
@@ -45,10 +44,8 @@ the 62.5 ms display window. The failed capture appears first; measured rows rank
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-23.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 0/1503 (0.00%) | 2026-10-23 13:45 |
 | [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
-All shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, with each capture
-sized to its Phantasm show segment. Capture times are local raw-log mtimes.
+Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
 The kaleidoscope effects run with column strobe off.
-The failed capture's date identifies the attempt; its raw-log mtime is unavailable.
 
 Shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
 Each report separately gives trailing raw-frame telemetry, exclusions, preset
@@ -58,7 +55,7 @@ of fully validated cycle-counter exactness.
 
 § Cyclers carry one aligned line per parser ownership colour bucket, red first;
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
-Failed captures appear first with unavailable timing. Show duration covers the authored show segment; a segment can end before its
+Show duration covers the authored show segment; a segment can end before its
 last departure wraps. The per-effect report states observed coverage.
 
 ## Supplemental experimental presets
