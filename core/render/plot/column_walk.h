@@ -1103,7 +1103,8 @@ HS_HOT_FLASH_MEMBER void walk_rigid_edge_columns(const ColumnWalk<W> &state) {
  * @tparam SPLIT,RIGID Edge split and lattice policies.
  * @param state Prepared column walk. */
 template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID>
-HS_HOT_FLASH_MEMBER void walk_uniform_edge_columns(const ColumnWalk<W> &state) {
+__attribute__((aligned(32))) HS_HOT_FLASH_MEMBER void
+walk_uniform_edge_columns(const ColumnWalk<W> &state) {
   walk_edge_columns<W, H, Cfg, SPLIT, RIGID, true>(state);
 }
 
