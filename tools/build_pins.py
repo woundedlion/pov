@@ -85,6 +85,7 @@ INLINE_PINS = {
         "8b2a587ffd672c4687e7581dad4b2f6c1bb2ad6b480cd9771ba2ff48e0b8c75d",
     # Major of the hand-installed desktop KiCad the fab gates shell out to.
     "kicad": "10",
+    "kicad-full": "10.0.4",
 }
 
 WORKFLOWS = ROOT / ".github/workflows"
@@ -140,6 +141,8 @@ INLINE_SCAN = (
     ROOT / "scripts/generate_luts.py",
     ROOT / "tools/commit_checks.sh",
     ROOT / "hardware/phantasm/gen/sexp.py",
+    ROOT / "hardware/phantasm/gen/kicad_common.py",
+    ROOT / "hardware/phantasm/1.1/README.md",
     # Prose that contributors install from.
     ROOT / "README.md",
     ROOT / "CONTRIBUTING.md",
@@ -183,6 +186,10 @@ INLINE_USES = (
     (r"([0-9a-f]{64})  doxygen\.tar\.gz", "doxygen-sha256", lambda v: v),
     (r"([0-9a-f]{64})  /tmp/llvm-snapshot\.gpg\.key", "llvm-key-sha256",
      lambda v: v),
+    (r'KICAD_VERSION = "([\d.]+)"', "kicad-full", lambda v: v),
+    (r"\bKiCad (\d+\.\d+\.\d+)\b", "kicad-full", lambda v: v),
+    (r"kicad-(\d+\.\d+\.\d+)-", "kicad-full", lambda v: v),
+    (r"kicad-source-mirror/releases/download/(\d+\.\d+\.\d+)/", "kicad-full", lambda v: v),
     (r"KICAD_MAJOR = (\d+)", "kicad", lambda v: v),
     (r"\bKiCad (\d+)\b", "kicad", lambda v: v),
 )
