@@ -158,6 +158,10 @@ concept PipelineFoldSurface = requires {
   requires std::is_same_v<decltype(T::has_world_cull), const bool>;
   requires std::is_same_v<decltype(T::has_world_stage), const bool>;
   requires std::is_same_v<decltype(T::world_transform_is_identity), const bool>;
+  requires std::is_same_v<decltype(T::rigid_world_stages), const bool>;
+  requires std::is_same_v<decltype(T::column_taps_ready), const bool>;
+  requires std::is_same_v<decltype(T::has_temporal_motion), const bool>;
+  requires std::is_same_v<decltype(T::table_world_stages), const bool>;
   requires std::is_same_v<decltype(T::direct_raster_path), const bool>;
   requires std::is_same_v<decltype(T::segment_margin), const int>;
   requires std::is_same_v<decltype(T::total_segment_margin), const int>;
