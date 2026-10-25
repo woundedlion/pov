@@ -320,28 +320,14 @@ constexpr int SMALL_H = 20;
 inline void reset_effect_globals() { hs_test::reset_globals(); }
 
 /**
- * @brief Params of a choreographed effect's preset @p index.
+ * @brief Params from a choreographed effect's production preset row.
  * @tparam E The effect type.
  * @param index Preset index.
- * @return The bound `PRESET_ROW` hook's params, else `PRESETS[index]`'s, else
- *         the bound `INITIAL_PARAMS` hook's, else default params.
- * @details Mirrors `ChoreographedEffect::preset_row`, which is private.
+ * @return The resolved row's parameters.
  */
 template <typename E>
 typename E::Params preset_params_or_initial(size_t index) {
-  using Hooks = decltype(E::choreography_hooks());
-  if constexpr (Hooks::template HAS<Control::ChoreographyHook::PRESET_ROW>)
-    return Hooks::template invoke_static<Control::ChoreographyHook::PRESET_ROW>(
-               index)
-        .params;
-  else if constexpr (requires { E::PRESETS; })
-    return E::PRESETS[index].params;
-  else if constexpr (Hooks::template HAS<
-                         Control::ChoreographyHook::INITIAL_PARAMS>)
-    return Hooks::template invoke_static<
-        Control::ChoreographyHook::INITIAL_PARAMS>();
-  else
-    return typename E::Params{};
+  return E::test_preset_params(index);
 }
 
 } // namespace effects_tests

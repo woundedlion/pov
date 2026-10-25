@@ -174,6 +174,15 @@ public:
     return frames;
   }
 
+#if HS_ENABLE_TEST_HOOKS
+  /** @brief Resolves the production preset row parameters.
+   * @param index Preset index.
+   * @return Parameters from the resolved preset row. */
+  static Params test_preset_params(size_t index) {
+    return preset_row(index).params;
+  }
+#endif
+
 protected:
   /** @brief Whether an explicit hook binding is present.
    * @tparam Kind Customization point.
