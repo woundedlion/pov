@@ -80,7 +80,7 @@ private:
       DMALEDController<S>::DEFAULT_CLOCK_HZ;
 
   /**
-   * @brief Worst-case duration of one column's LED transfer, in µs.
+   * @brief Worst-case duration of one column's LED transfer, in Âµs.
    * @details Image frame plus the trailing strobe black frame, at
    * SPI_CLOCK_HZ.
    */
@@ -122,7 +122,7 @@ private:
     HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
     const float interval_us = pov::column_interval_us(cols_per_min);
     HS_CHECK(interval_us >= 1,
-             "column interval below 1 µs (RPM/width too high)");
+             "column interval below 1 Âµs (RPM/width too high)");
 #if defined(USE_DMA_LEDS)
     HS_CHECK(interval_us > COLUMN_TRANSFER_US,
              "LED transfer outlasts the column period (S, RPM and canvas width "
@@ -155,6 +155,14 @@ private:
       }
     }
     timer.end();
+#if defined(USE_DMA_LEDS)
+    auto &frame = led_controller.back_frame();
+    for (int led = 0; led < S; ++led)
+      frame.pack_pixel(led, Pixel{});
+    (void)led_controller.submit_frame(false);
+#else
+    FastLED.showColor(CRGB(0, 0, 0));
+#endif
     effect = nullptr;
   }
 
