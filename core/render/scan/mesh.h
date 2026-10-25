@@ -647,6 +647,11 @@ HS_HOT_INLINE inline float cosine_arc(float c) {
   return acosf(hs::clamp(c, -1.0f, 1.0f));
 }
 
+/// Maximum column span of a compact face pose.
+inline constexpr int COMPACT_FACE_COLUMNS = 32;
+/// Maximum column span of a wide face pose.
+inline constexpr int WIDE_FACE_COLUMNS = 64;
+
 /**
  * @brief Rotation bound across a compact face's seeing columns.
  * @tparam W Canvas width.
@@ -656,9 +661,44 @@ HS_HOT_INLINE inline float cosine_arc(float c) {
  * @return Radians of residual rotation.
  */
 template <int W>
-HS_HOT_INLINE float compact_face_residual(float rate, int columns = 32) {
+HS_HOT_INLINE float compact_face_residual(float rate,
+                                          int columns = COMPACT_FACE_COLUMNS) {
   return rate * (columns / 2 + 1.0f) / (W / 2) + rate * rate / math::PI_F;
 }
+
+/** @brief Shared row-padding tables for swept mesh faces. */
+struct FacePadTables {
+  const float *full;    ///< Full-motion pads.
+  const float *compact; ///< Compact-pose pads.
+  const float *wide;    ///< Wide-pose pads.
+
+  /** @brief Reuses frame tables or prepares missing tables in the arena.
+   * @tparam W,H Canvas dimensions.
+   * @param arena Storage for missing tables.
+   * @param time Column-time state, or null for a static frame.
+   * @return Padding tables valid for the arena scope. */
+  template <int W, int H>
+  static FacePadTables prepare(Arena &arena, const Scan::ColumnBasis *time) {
+    const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
+    FacePadTables result{time ? time->mesh.face_pads : nullptr,
+                         time ? time->mesh.compact_face_pads : nullptr,
+                         time ? time->mesh.wide_face_pads : nullptr};
+    auto fill = [&](const float *&target, float motion) {
+      if (!target) {
+        float *filled = arena.allocate_n<float>(H);
+        fill_face_pads<W, H>(filled, motion);
+        target = filled;
+      }
+    };
+    fill(result.full, sweep);
+    if (sweep > 0.0f) {
+      fill(result.compact, compact_face_residual<W>(time->sweep_rate));
+      fill(result.wide,
+           compact_face_residual<W>(time->sweep_rate, WIDE_FACE_COLUMNS));
+    }
+    return result;
+  }
+};
 
 /** @brief Clip planes for a face's current vertex cap and rotation reach. */
 template <int W, int H> struct FaceClipPlanes {
@@ -777,7 +817,8 @@ face_bounds_pose(std::span<const math::Vector> vertices,
     return false;
   const float radius = cosine_arc(fminf(min_cos, 1.0f));
   int lo, hi;
-  if (!lit_span<W>(axis, radius, time->sweep_arc, lo, hi) || hi - lo > 64)
+  if (!lit_span<W>(axis, radius, time->sweep_arc, lo, hi) ||
+      hi - lo > WIDE_FACE_COLUMNS)
     return false;
   constexpr int HALF = W / 2;
   const int arm =
@@ -793,8 +834,9 @@ face_bounds_pose(std::span<const math::Vector> vertices,
   pose.x = e * ct - t * st;
   pose.y = v;
   pose.z = e * st + t * ct;
-  const bool wide = hi - lo > 32;
-  pose.residual = compact_face_residual<W>(time->sweep_rate, wide ? 64 : 32);
+  const bool wide = hi - lo > COMPACT_FACE_COLUMNS;
+  pose.residual = compact_face_residual<W>(
+      time->sweep_rate, wide ? WIDE_FACE_COLUMNS : COMPACT_FACE_COLUMNS);
   pose.pads = wide ? wide_pads : pads;
   return true;
 }
@@ -1752,19 +1794,10 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   time.mesh.selection_vertex_count = mesh.vertices.size();
   time.mesh.selected_faces = selected;
   const float sweep = time.azimuth ? time.sweep_arc : 0.0f;
-  float *face_pads = scratch.allocate_n<float>(H);
-  fill_face_pads<W, H>(face_pads, sweep);
-  time.mesh.face_pads = face_pads;
-  if (sweep > 0.0f) {
-    float *compact_pads = scratch.allocate_n<float>(H);
-    float *wide_pads = scratch.allocate_n<float>(H);
-    fill_face_pads<W, H>(compact_pads,
-                         compact_face_residual<W>(time.sweep_rate));
-    fill_face_pads<W, H>(wide_pads,
-                         compact_face_residual<W>(time.sweep_rate, 64));
-    time.mesh.compact_face_pads = compact_pads;
-    time.mesh.wide_face_pads = wide_pads;
-  }
+  const auto pads = FacePadTables::prepare<W, H>(scratch, &time);
+  time.mesh.face_pads = pads.full;
+  time.mesh.compact_face_pads = pads.compact;
+  time.mesh.wide_face_pads = pads.wide;
   ColumnBasisScope scope(canvas, time);
   detail::scan_swept_faces({canvas, mesh, columns, moving, start, selected,
                             scratch, scan_row_pad<W>(sweep) + reach,
@@ -2360,27 +2393,12 @@ struct Mesh {
     SDF::FaceStorage &storage = *new_face_storage(arena);
     const Scan::ColumnBasis *time = column_basis(pipeline, canvas);
     const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
-    const float *pads = time ? time->mesh.face_pads : nullptr;
-    if (!pads) {
-      float *filled = arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, sweep);
-      pads = filled;
-    }
+    const auto tables = FacePadTables::prepare<W, H>(arena, time);
+    const float *pads = tables.full;
+    const float *compact_pads = tables.compact;
+    const float *wide_pads = tables.wide;
     const auto &cr = source_clip<W, H>(pipeline, canvas);
     const Spacetime::TimeWindow &window = canvas.time_window();
-    const float *compact_pads = time ? time->mesh.compact_face_pads : nullptr;
-    const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
-    if (sweep > 0.0f && !compact_pads) {
-      float *filled = arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(time->sweep_rate));
-      compact_pads = filled;
-    }
-    if (sweep > 0.0f && !wide_pads) {
-      float *filled = arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled,
-                           compact_face_residual<W>(time->sweep_rate, 64));
-      wide_pads = filled;
-    }
     SDF::FaceBoundsPose pose;
     const FaceClipPlanes<W, H> clip_planes(
         cr, std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep +
@@ -2805,25 +2823,10 @@ struct Mesh {
     const float sweep = time && time->azimuth ? time->sweep_arc : 0.0f;
     auto *projections =
         sweep > 0.0f ? new_face_projection_columns<W>(scratch_arena) : nullptr;
-    const float *azimuth_pads = time ? time->mesh.face_pads : nullptr;
-    if (!azimuth_pads) {
-      float *pads = scratch_arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(pads, sweep);
-      azimuth_pads = pads;
-    }
-    const float *compact_pads = time ? time->mesh.compact_face_pads : nullptr;
-    const float *wide_pads = time ? time->mesh.wide_face_pads : nullptr;
-    if (sweep > 0.0f && !compact_pads) {
-      float *filled = scratch_arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled, compact_face_residual<W>(time->sweep_rate));
-      compact_pads = filled;
-    }
-    if (sweep > 0.0f && !wide_pads) {
-      float *filled = scratch_arena.allocate_n<float>(H);
-      fill_face_pads<W, H>(filled,
-                           compact_face_residual<W>(time->sweep_rate, 64));
-      wide_pads = filled;
-    }
+    const auto tables = FacePadTables::prepare<W, H>(scratch_arena, time);
+    const float *azimuth_pads = tables.full;
+    const float *compact_pads = tables.compact;
+    const float *wide_pads = tables.wide;
     const float bounds_margin =
         std::max(SDF::BOUNDS_MARGIN, math::TWO_PI_F / W) + sweep;
 
