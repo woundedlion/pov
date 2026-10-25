@@ -453,8 +453,6 @@ HS_HOT_FLASH_MEMBER void draw_arm_copy(const SweptMesh &d,
       emit(run(r), time);
       previous = run(r);
     }
-    for (size_t r = forward_count; r + backward_count < length; ++r)
-      emit(run(r), own(run(r)));
     const size_t start = n;
     n += backward_count;
     float back = own(after);
