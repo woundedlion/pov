@@ -13,7 +13,7 @@
  */
 #pragma once
 #include "core/platform/led.h" // PIN_DATA, PIN_CLOCK (FastLED path)
-#include "core/platform/rng.h"
+#include "core/platform/effect_identity.h"
 #include "hardware/pov_single_map.h"
 #include "hardware/device_effect.h"
 
