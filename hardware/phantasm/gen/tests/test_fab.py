@@ -83,7 +83,7 @@ class ProjectRulesTests(unittest.TestCase):
                 fab.validate_project_rules(project)
 
     def test_committed_project_meets_the_fabrication_floors(self):
-        self.assertEqual(fab.validate_project_rules(), checked_rule_count(fab.PRO))
+        self.assertEqual(fab.validate_project_rules(fab.PRO), checked_rule_count(fab.PRO))
 
     def test_rejects_disabled_layout_constraints(self):
         for field in NEW_LAYOUT_RULES:
