@@ -171,8 +171,9 @@ template <int W> struct SweptEdgeCull {
    * @param canvas Frame whose clip rows bound the walk.
    * @return The height of the row two below the clip. */
   template <int H> HS_HOT_INLINE static float bottom_of(const Canvas &canvas) {
-    return cosf(math::DisplayGeometry<H>::row_to_phi(
-        float(std::min(H, canvas.clip().y_end + 2))));
+    return cosf(std::clamp(math::DisplayGeometry<H>::row_to_phi(
+                               float(std::min(H, canvas.clip().y_end + 2))),
+                           0.0f, math::PI_F));
   }
 
   /** @brief The bounds of a canvas's column walk.
