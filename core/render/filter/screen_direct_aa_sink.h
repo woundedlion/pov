@@ -28,6 +28,8 @@ namespace Screen {
 HS_O3_BEGIN
 template <int W, int H> class DirectAntiAliasSink : public IsPipelineSink {
 public:
+  /// No world transformations need a pose table.
+  static constexpr bool table_world_stages = true;
   static constexpr bool rigid_world_stages =
       true; ///< No world transformations.
   /// Output stays in its segment band.

@@ -469,6 +469,8 @@ template <int W, int H> struct Pipeline<W, H> {
       true; ///< No world transformations.
   /// No world transformations, so no pose table.
   static constexpr bool table_world_stages = true;
+  /// No anti-aliasing stage emits column taps.
+  static constexpr bool column_taps_ready = false;
   /// No world motion over a frame.
   static constexpr bool has_temporal_motion = false;
   static constexpr int segment_margin = 0; ///< No tap displacement.
