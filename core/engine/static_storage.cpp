@@ -51,8 +51,8 @@ bool Effect::s_alive = false;
  * @details Flushes the log then traps.
  */
 extern "C" void __cxa_pure_virtual() {
-  hs::flush_log();
-  __builtin_trap();
+  hs::check_fail(HS_CHECK_SITE("device runtime termination"),
+                 "pure virtual call or termination");
 }
 #if TEENSYDUINO < 162
 namespace __gnu_cxx {
@@ -61,8 +61,8 @@ namespace __gnu_cxx {
  * @details Flushes the log then traps; avoids linking the C++ demangler.
  */
 void __verbose_terminate_handler() {
-  hs::flush_log();
-  __builtin_trap();
+  hs::check_fail(HS_CHECK_SITE("device runtime termination"),
+                 "pure virtual call or termination");
 }
 } // namespace __gnu_cxx
 #else
@@ -71,8 +71,8 @@ void __verbose_terminate_handler() {
 namespace {
 const std::terminate_handler REPLACED_TERMINATE_HANDLER =
     std::set_terminate([] {
-      hs::flush_log();
-      __builtin_trap();
+      hs::check_fail(HS_CHECK_SITE("device runtime termination"),
+                     "C++ termination");
     });
 } // namespace
 #endif
