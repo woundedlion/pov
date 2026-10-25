@@ -857,6 +857,10 @@ inline void test_islamicstars_prepared_build() {
         else
           HS_EXPECT_EQ(hash, reference[frame]);
       }
+      if (mode == 0) {
+        HS_EXPECT_TRUE(saw_build);
+        HS_EXPECT_TRUE(completed);
+      }
       counts = P::preparations(effect);
       for (const int count : counts)
         HS_EXPECT_EQ(count, mode);
