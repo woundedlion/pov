@@ -68,7 +68,7 @@ HS_FLASH_MEMBER inline TurnCoefficients long_turn_coefficients(float angle_sq) {
   const float h2 = half * half;
   float s = half * (1.0f - h2 * (1.0f / 6.0f - h2 / 120.0f));
   float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f - h2 / 720.0f));
-  float versine = 0.0f;
+  float versine = 1.0f - c;
   for (int i = 0; i < doublings; ++i) {
     versine = 2.0f * s * s;
     const float next = c * c - s * s;
