@@ -89,55 +89,42 @@ inline void test_partial_bookend_classification() {
   auto draw = [](Canvas &, MeshState &, const OpLeg::Shading &) {};
   std::vector<uint16_t> reference_topology;
   std::vector<uint8_t> reference_palettes;
-  std::array<double, 5> elapsed[2];
   size_t classified_faces = 0, classified_corners = 0;
-  for (int repeat = 0; repeat < 5; ++repeat) {
-    for (int mode = 0; mode < 2; ++mode) {
-      Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-      hs::random().seed(2026u);
-      OpLeg::test_classify_partial_bookend = mode == 0;
-      OpLeg::test_classified_faces = 0;
-      OpLeg::test_classified_corners = 0;
-      const auto start = std::chrono::steady_clock::now();
-      OpLeg leg(OpLeg::SweepSeed::borrow(dual),
-                OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                      .t_start = 0.5f,
-                                      .t_end = 0.0f,
-                                      .sweep_frames = 12,
-                                      .bridge_provenance = true},
-                leg_arena, draw, handoff, bookend);
-      const auto end = std::chrono::steady_clock::now();
-      elapsed[mode][repeat] =
-          std::chrono::duration<double, std::micro>(end - start).count();
-      const auto &landing = leg.landing();
-      HS_EXPECT_EQ(landing.faces, faces);
-      if (mode == 0) {
-        classified_faces = OpLeg::test_classified_faces;
-        classified_corners = OpLeg::test_classified_corners;
-        HS_EXPECT_EQ(classified_faces, faces);
-        HS_EXPECT_GT(classified_corners, faces);
-        reference_topology.assign(landing.topology, landing.topology + faces);
-        reference_palettes.clear();
-        for (size_t f = 0; f < faces; ++f)
-          reference_palettes.push_back(landing.landed_palette(f));
-      } else {
-        HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
-        HS_EXPECT_EQ(OpLeg::test_classified_corners, size_t{0});
-        for (size_t f = 0; f < faces; ++f) {
-          HS_EXPECT_EQ(landing.topology[f], reference_topology[f]);
-          HS_EXPECT_EQ(landing.landed_palette(f), reference_palettes[f]);
-        }
+  for (int mode = 0; mode < 2; ++mode) {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    hs::random().seed(2026u);
+    OpLeg::test_classify_partial_bookend = mode == 0;
+    OpLeg::test_classified_faces = 0;
+    OpLeg::test_classified_corners = 0;
+    OpLeg leg(OpLeg::SweepSeed::borrow(dual),
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                    .t_start = 0.5f,
+                                    .t_end = 0.0f,
+                                    .sweep_frames = 12,
+                                    .bridge_provenance = true},
+              leg_arena, draw, handoff, bookend);
+    const auto &landing = leg.landing();
+    HS_EXPECT_EQ(landing.faces, faces);
+    if (mode == 0) {
+      classified_faces = OpLeg::test_classified_faces;
+      classified_corners = OpLeg::test_classified_corners;
+      HS_EXPECT_EQ(classified_faces, faces);
+      HS_EXPECT_GT(classified_corners, faces);
+      reference_topology.assign(landing.topology, landing.topology + faces);
+      reference_palettes.clear();
+      for (size_t f = 0; f < faces; ++f)
+        reference_palettes.push_back(landing.landed_palette(f));
+    } else {
+      HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
+      HS_EXPECT_EQ(OpLeg::test_classified_corners, size_t{0});
+      for (size_t f = 0; f < faces; ++f) {
+        HS_EXPECT_EQ(landing.topology[f], reference_topology[f]);
+        HS_EXPECT_EQ(landing.landed_palette(f), reference_palettes[f]);
       }
     }
   }
+
   OpLeg::test_classify_partial_bookend = false;
-  for (auto &samples : elapsed)
-    std::sort(samples.begin(), samples.end());
-  std::printf(
-      "  [partial bookend shape 8 closing] classified faces %zu -> 0, "
-      "corners %zu -> 0; constructor us min/median %.1f/%.1f -> %.1f/%.1f\n",
-      classified_faces, classified_corners, elapsed[0][0], elapsed[0][2],
-      elapsed[1][0], elapsed[1][2]);
 }
 
 /** @brief Prepared bridge classes and palette hosts match direct construction. */
@@ -162,49 +149,36 @@ inline void test_prepared_bridge() {
   auto draw = [](Canvas &, MeshState &, const OpLeg::Shading &) {};
   std::vector<uint16_t> topology;
   std::vector<uint8_t> from, to;
-  std::array<double, 5> elapsed[2];
-  for (int repeat = 0; repeat < 5; ++repeat) {
-    for (int mode = 0; mode < 2; ++mode) {
-      Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
-      hs::random().seed(2026u);
-      OpLeg::test_classified_faces = 0;
-      const auto start = std::chrono::steady_clock::now();
-      OpLeg leg(OpLeg::SweepSeed::borrow(seed),
-                OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
-                                      .t_start = 0.0f,
-                                      .t_end = 0.5f,
-                                      .sweep_frames = 6,
-                                      .bridge_provenance = true,
-                                      .prepared = mode ? &prepared : nullptr},
-                leg_arena, draw, handoff);
-      elapsed[mode][repeat] = std::chrono::duration<double, std::micro>(
-                                  std::chrono::steady_clock::now() - start)
-                                  .count();
-      const auto &landing = leg.landing();
-      if (!mode) {
-        HS_EXPECT_EQ(OpLeg::test_classified_faces, landing.faces);
-        topology.assign(landing.topology, landing.topology + landing.faces);
-        from.assign(landing.from_palette, landing.from_palette + landing.faces);
-        to.clear();
-        for (size_t f = 0; f < landing.faces; ++f)
-          to.push_back(landing.landed_palette(f));
-      } else {
-        HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
-        HS_EXPECT_EQ(landing.faces, topology.size());
-        for (size_t f = 0; f < landing.faces; ++f) {
-          HS_EXPECT_EQ(landing.topology[f], topology[f]);
-          HS_EXPECT_EQ(landing.from_palette[f], from[f]);
-          HS_EXPECT_EQ(landing.landed_palette(f), to[f]);
-        }
+  for (int mode = 0; mode < 2; ++mode) {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    hs::random().seed(2026u);
+    OpLeg::test_classified_faces = 0;
+    OpLeg leg(OpLeg::SweepSeed::borrow(seed),
+              OpLeg::ParamSweepSpec{.op = ConwayGraph::MorphOp::TRUNCATE,
+                                    .t_start = 0.0f,
+                                    .t_end = 0.5f,
+                                    .sweep_frames = 6,
+                                    .bridge_provenance = true,
+                                    .prepared = mode ? &prepared : nullptr},
+              leg_arena, draw, handoff);
+    const auto &landing = leg.landing();
+    if (!mode) {
+      HS_EXPECT_EQ(OpLeg::test_classified_faces, landing.faces);
+      topology.assign(landing.topology, landing.topology + landing.faces);
+      from.assign(landing.from_palette, landing.from_palette + landing.faces);
+      to.clear();
+      for (size_t f = 0; f < landing.faces; ++f)
+        to.push_back(landing.landed_palette(f));
+    } else {
+      HS_EXPECT_EQ(OpLeg::test_classified_faces, size_t{0});
+      HS_EXPECT_EQ(landing.faces, topology.size());
+      for (size_t f = 0; f < landing.faces; ++f) {
+        HS_EXPECT_EQ(landing.topology[f], topology[f]);
+        HS_EXPECT_EQ(landing.from_palette[f], from[f]);
+        HS_EXPECT_EQ(landing.landed_palette(f), to[f]);
       }
     }
   }
-  for (auto &samples : elapsed)
-    std::sort(samples.begin(), samples.end());
-  std::printf(
-      "  [prepared shape 8 opening] transition classified faces %zu -> 0; constructor us min/median %.1f/%.1f -> %.1f/%.1f\n",
-      prepared.topology.size(), elapsed[0][0], elapsed[0][2], elapsed[1][0],
-      elapsed[1][2]);
 }
 
 /** @brief Max nearest-vertex distance from every vertex of @p x to @p y. */
