@@ -389,6 +389,42 @@ apply_generated_palette(const FieldSample &sample,
   return color;
 }
 
+/** @brief Mapping and coverage shared by temporal palette kernels. */
+struct TemporalPaletteSample {
+  float value;   ///< Palette coordinate.
+  float opacity; ///< Coverage and field-dependent opacity.
+};
+
+/** @brief Prepares shared temporal palette coordinates.
+ * @param sample Field sample.
+ * @param state Current palette state.
+ * @return Mapping coordinate and opacity. */
+HS_HOT_INLINE inline TemporalPaletteSample
+temporal_palette_sample(const FieldSample &sample,
+                        const GeneratedPaletteState &state) {
+  return {palette_mapping_coordinate(sample.value, state.mapping,
+                                     state.mapping_frequency,
+                                     state.mapping_offset),
+          sample.coverage *
+              hs::lerp(state.opacity_low, state.opacity_high, sample.value)};
+}
+
+/** @brief Alpha for endpoints sharing a temporal palette coordinate.
+ * @param prepared Endpoint palette states and interpolation fraction.
+ * @param value Palette coordinate.
+ * @param opacity Field opacity and coverage.
+ * @return Interpolated alpha. */
+HS_HOT_INLINE inline float
+temporal_alpha(const TemporalGeneratedPaletteState &prepared, float value,
+               float opacity) {
+  return prepared.common_alpha >= 0.0f
+             ? prepared.common_alpha * opacity
+             : hs::lerp(
+                   generated_palette_alpha(prepared.previous, value) * opacity,
+                   generated_palette_alpha(prepared.current, value) * opacity,
+                   prepared.fraction);
+}
+
 /** @brief Colors an interior temporal noise sample with unit brightness gain.
  * @param sample Field sample to color.
  * @param prepared Column state selected for linear noise interpolation.
@@ -397,12 +433,7 @@ HS_HOT_ITCM_MEMBER inline Color4
 apply_temporal_noise_palette(const FieldSample &sample,
                              const TemporalGeneratedPaletteState &prepared) {
   const auto &state = prepared.current;
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
-  const float opacity =
-      sample.coverage *
-      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const auto [value, opacity] = temporal_palette_sample(sample, state);
   const HueRotationValueSample value_sample(value);
   const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
   const math::Vector previous = sample_hue_rotation_linear(
@@ -414,15 +445,10 @@ apply_temporal_noise_palette(const FieldSample &sample,
       state.hue_shift_amount * noise_sample.sample(state.hue_noise));
   const math::Vector color =
       previous + prepared.linear_weight * (current - previous);
-  return Color4(
-      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
-            round_linear_channel(color.z)),
-      prepared.common_alpha >= 0.0f
-          ? prepared.common_alpha * opacity
-          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
-                         opacity,
-                     generated_palette_alpha(state, value) * opacity,
-                     prepared.fraction));
+  return Color4(Pixel(round_linear_channel(color.x),
+                      round_linear_channel(color.y),
+                      round_linear_channel(color.z)),
+                temporal_alpha(prepared, value, opacity));
 }
 
 /** @brief Colors unit-gain endpoints sharing one noise table.
@@ -432,12 +458,7 @@ apply_temporal_noise_palette(const FieldSample &sample,
 HS_HOT_ITCM_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
     const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
   const auto &state = prepared.current;
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
-  const float opacity =
-      sample.coverage *
-      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const auto [value, opacity] = temporal_palette_sample(sample, state);
   const HueRotationValueSample value_sample(value);
   const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
   const HueRotationHueSample PREVIOUS_HUE(
@@ -449,15 +470,10 @@ HS_HOT_ITCM_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
       state.hue_rotation, value_sample, PREVIOUS_HUE);
   const math::Vector color =
       previous + prepared.linear_weight * (current - previous);
-  return Color4(
-      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
-            round_linear_channel(color.z)),
-      prepared.common_alpha >= 0.0f
-          ? prepared.common_alpha * opacity
-          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
-                         opacity,
-                     generated_palette_alpha(state, value) * opacity,
-                     prepared.fraction));
+  return Color4(Pixel(round_linear_channel(color.x),
+                      round_linear_channel(color.y),
+                      round_linear_channel(color.z)),
+                temporal_alpha(prepared, value, opacity));
 }
 
 /** @brief Colors noise-driven endpoints with brightness bounded to [0, 1].
@@ -467,12 +483,7 @@ HS_HOT_ITCM_MEMBER inline Color4 apply_temporal_stationary_noise_palette(
 HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_bounded_noise_palette(
     const FieldSample &sample, const TemporalGeneratedPaletteState &prepared) {
   const auto &state = prepared.current;
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
-  const float opacity =
-      sample.coverage *
-      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
+  const auto [value, opacity] = temporal_palette_sample(sample, state);
   const HueRotationValueSample value_sample(value);
   const HueNoiseSample noise_sample = prepare_hue_noise_sample(sample.sphere);
   const HueRotationHueSample PREVIOUS_HUE(
@@ -492,15 +503,10 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_bounded_noise_palette(
                                state.brightness_bottom, state.brightness_top);
   const math::Vector color =
       GAIN * (previous + prepared.linear_weight * (current - previous));
-  return Color4(
-      Pixel(round_linear_channel(color.x), round_linear_channel(color.y),
-            round_linear_channel(color.z)),
-      prepared.common_alpha >= 0.0f
-          ? prepared.common_alpha * opacity
-          : hs::lerp(generated_palette_alpha(prepared.previous, value) *
-                         opacity,
-                     generated_palette_alpha(state, value) * opacity,
-                     prepared.fraction));
+  return Color4(Pixel(round_linear_channel(color.x),
+                      round_linear_channel(color.y),
+                      round_linear_channel(color.z)),
+                temporal_alpha(prepared, value, opacity));
 }
 
 /** @brief Colors a sample with generic temporal palette interpolation.
@@ -514,15 +520,10 @@ HS_HOT_FLASH_MEMBER inline Color4 apply_temporal_generated_palette(
   if (prepared.fraction >= 1.0f)
     return apply_generated_palette(sample, prepared.current);
   const auto &state = prepared.current;
-  const float value =
-      palette_mapping_coordinate(sample.value, state.mapping,
-                                 state.mapping_frequency, state.mapping_offset);
+  const auto [value, opacity] = temporal_palette_sample(sample, state);
   const float gain =
       brightness_envelope_gain(sample.value, state.brightness_envelope,
                                state.brightness_bottom, state.brightness_top);
-  const float opacity =
-      sample.coverage *
-      hs::lerp(state.opacity_low, state.opacity_high, sample.value);
   const HueRotationValueSample value_sample(value);
   HueRotationHueSample previous_hue(0.0f);
   HueRotationHueSample current_hue(0.0f);
