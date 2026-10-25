@@ -111,6 +111,24 @@ target_compile_definitions(run_tests PRIVATE HS_SCAN_METRICS
   "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
 target_link_libraries(run_tests PRIVATE hs_test_support)
 
+set(_dma_led_source "${CMAKE_CURRENT_BINARY_DIR}/dma_led_guard_check.cpp")
+file(CONFIGURE OUTPUT "${_dma_led_source}" CONTENT [=[
+#include "core/platform/led.h"
+int main() {
+  if (correction_guard_live()) return 1;
+  { NoColorCorrection guard; if (!correction_guard_live()) return 2; }
+  if (correction_guard_live()) return 3;
+  { NoTempCorrection guard; if (!correction_guard_live()) return 4; }
+  return correction_guard_live() ? 5 : 0;
+}
+]=])
+add_executable(dma_led_guard_check "${_dma_led_source}" ${HS_ENGINE_SOURCES})
+target_include_directories(dma_led_guard_check PRIVATE ${HS_ROOT})
+target_compile_definitions(dma_led_guard_check PRIVATE USE_DMA_LEDS)
+target_link_libraries(dma_led_guard_check PRIVATE hs_host_storage)
+_hs_warnings(dma_led_guard_check)
+add_test(NAME unit_dma_led_guards COMMAND dma_led_guard_check)
+
 set(_color_header_sources)
 file(GLOB _color_headers CONFIGURE_DEPENDS "${HS_ROOT}/core/color/*.h")
 list(FILTER _color_headers EXCLUDE REGEX "_luts?\\.h$")
