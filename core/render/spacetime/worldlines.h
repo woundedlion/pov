@@ -105,6 +105,7 @@ public:
    *        vertex starts where its end capture puts it, without motion.
    */
   HS_HOT_INLINE void begin_frame(size_t vertices, bool carry) {
+    HS_CHECK(vertices <= slots, "worldline frame exceeds bound capacity");
     count = vertices;
     carried = carry;
     current ^= 1;
