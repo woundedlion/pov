@@ -79,8 +79,9 @@ public:
    * @param timeline Timeline receiving the boundary event.
    * @param delay Frames until the plateau boundary. */
   void arm_plateau_end(Timeline &timeline, int delay) {
-    timeline.add(delay,
-                 Animation::PeriodicTimer(0, [this](Canvas &) { due = true; }));
+    HS_CHECK(timeline.add(delay, Animation::PeriodicTimer(
+                                     0, [this](Canvas &) { due = true; })),
+             "timeline full while scheduling plateau boundary");
   }
   /** @return Stable pause gate for sprite and handoff events. */
   const bool *gate() const { return &hold; }
