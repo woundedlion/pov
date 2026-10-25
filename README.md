@@ -30,11 +30,10 @@ To explore effects, open the [live simulator](https://woundedlion.github.io/dayd
 For local development:
 
 1. Clone Holosphere and daydream as sibling directories.
-2. Install Python with pip, Node.js with npm, CMake, Ninja and Emscripten. The tested tool versions are pinned in `tools/build_pins.py`, and each repository's `package.json` declares its Node requirement. Install the pinned CMake and `just` with pip:
+2. Install Python with pip, Node.js with npm, CMake, Ninja and Emscripten. The tested tool versions are pinned in `tools/build_pins.py`, and each repository's `package.json` declares its Node requirement. Install the pinned host development tools with pip (including CMake and `just`):
 
    ```bash
-   python -m pip install --require-hashes -r requirements/cmake.txt
-   python -m pip install --require-hashes -r requirements/just.txt
+   python -m pip install --require-hashes -r requirements/dev.txt
    ```
 
 3. Install Emscripten in the sibling `../emsdk` checkout (or set `EMSDK` to its location), then build and install the engine from Holosphere:

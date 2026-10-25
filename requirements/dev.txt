@@ -1,0 +1,9 @@
+# Combined host development tools; pins and hashes stay in their tool locks.
+-r actionlint.txt
+-r clang-format.txt
+-r cmake.txt
+-r just.txt
+-r numpy.txt
+-r platformio.txt
+-r ruff.txt
+-r shellcheck.txt

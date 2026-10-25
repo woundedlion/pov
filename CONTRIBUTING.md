@@ -88,6 +88,11 @@ it.
 
 ## Gates
 
+Host tooling and Git hooks require Python 3.11 or newer. Install the combined
+host tool locks with `python -m pip install --require-hashes -r requirements/dev.txt`;
+`just setup` repeats that install, verifies Node, and installs this repository's npm dependencies. Ninja, Emscripten and the firmware toolchain remain separate
+prerequisites for their respective targets.
+
 Host tooling and Git hooks require Python 3.11 or newer. Set `HS_PYTHON` to
 select a supported interpreter; CI uses the version pinned in `tools/build_pins.py`.
 

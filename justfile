@@ -32,6 +32,12 @@ wasm_command := if os_family() == "windows" { "call %quoted_emsdk_env% >nul && "
 default:
     @just --list
 
+# Install the pinned Python tools and Node dependencies.
+setup:
+    {{ python_command }} -m pip install --require-hashes -r requirements/dev.txt
+    {{ python_command }} tools/build_pins.py --check-tool node
+    npm ci
+
 # WASM release build of the simulator module (daydream).
 build:
     {{ wasm_command }}{{ python_command }} tools/build_pins.py --check-tool emsdk
