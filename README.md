@@ -1025,7 +1025,7 @@ Check the two repos out as siblings, so the WASM install step can write directly
 
 ```
 work/
-├── Holosphere/          (this repo — C++ engine + firmware + WASM build)
+├── pov/                 (Holosphere engine — C++ firmware + WASM build)
 └── daydream/            (web simulator — receives WASM artifacts)
 ```
 
@@ -1125,9 +1125,9 @@ below are for Holosphere:
 Build Phantasm with `pio run -e phantasm` from the repository root. This uses
 `tools/phantasm.ld`, `-Os`, and newlib-nano (`--specs=nano.specs`) through
 `tools/teensy_nano.py`, matching the gated shipping image. An IDE build needs
-these same settings to reproduce that image. The environment defines
-`HS_PHANTASM_BOARD_REV` from `[phantasm_common] board_revision = 11`; for rev 1.2,
-change that single setting to `12` for all Phantasm environments. Rev 1.3 requires separate
+these same settings to reproduce that image. The default environment defines
+`HS_PHANTASM_BOARD_REV` from `[phantasm_common] board_revision = 11`; build rev 1.2
+with `pio run -e phantasm_rev12`. Rev 1.3 requires separate
 firmware support.
 
 > **Headless size/layout gate — an active CI job, optional locally.** A
