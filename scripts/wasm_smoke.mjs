@@ -30,7 +30,7 @@ const EXPECTED_OPERATOR_CATALOG = await loadOperatorCatalog();
 
 /**
  * The promoted shader documents, each with the parameter ids its presets
- * carry. A document with no `effect_id` backs no effect â€” the CLI's sample â€”
+ * carry. A document with no `effect_id` backs no effect — the CLI's sample —
  * and is skipped.
  *
  * @returns {Promise<{document: string, effect: string, parameterIds: string[], presets: object[], descriptor?: object}[]>}
@@ -470,7 +470,7 @@ async function main(probe) {
           fail(`${name}: stack capacity ${stack.capacity} is not positive (the gate below would compare against a degenerate budget)`);
         } else if (stack.high_water_mark >= stackGate) {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
-            `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget â€” approaching overflow`);
+            `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — approaching overflow`);
         }
 
         // The two embind param streams must stay zippable and well-formed.
@@ -514,11 +514,11 @@ async function main(probe) {
       (darkEffects.size ? ` (${[...darkEffects].sort().join(', ')})` : ''));
 
     if (strobing === 0) {
-      fail('strobeColumns() reported false for every effect â€” the whole roster ' +
+      fail('strobeColumns() reported false for every effect — the whole roster ' +
         'declares strobe = false, or the binding is dead');
     }
 
-    // â”€â”€ Embind write seam: setResolution / setClip / setParameter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Embind write seam: setResolution / setClip / setParameter ─────────────
     {
       const [w, h] = RESOLUTIONS[0];
       if (!resolutionOk(engine.setResolution(w, h))) {
@@ -566,7 +566,7 @@ async function main(probe) {
             }
           }
           // A resolution change tears the effect down, so the clip that follows
-          // reports NO_EFFECT â€” a benign ordering state, not a bad-bounds fault.
+          // reports NO_EFFECT — a benign ordering state, not a bad-bounds fault.
           const [w2, h2] = RESOLUTIONS[RESOLUTIONS.length - 1];
           if (w2 !== w || h2 !== h) {
             if (engine.setResolution(w2, h2) !== RS.RESIZED) fail(`write-seam: setResolution(${w2}, ${h2}) did not report RESIZED`);
@@ -694,7 +694,7 @@ async function main(probe) {
       }
     }
 
-    // â”€â”€ ShaderChain authoring route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── ShaderChain authoring route ─────────────────────────────────────────
     // setShaderChain compiles synchronously: on APPLIED the param definitions
     // are rebuilt and the generation bumped before it returns.
     {
@@ -706,7 +706,7 @@ async function main(probe) {
       }
       if (catalog) {
         if (JSON.stringify(catalog) !== JSON.stringify(EXPECTED_OPERATOR_CATALOG)) {
-          fail('shader-chain: runtime operator catalog differs from scripts/engine_catalog.json â€” regenerate with: cmake --build --preset wasm-release --target regenerate_engine_catalog');
+          fail('shader-chain: runtime operator catalog differs from scripts/engine_catalog.json — regenerate with: cmake --build --preset wasm-release --target regenerate_engine_catalog');
         }
         if (catalog.catalog_version !== 2) {
           fail(`shader-chain: catalog_version ${catalog.catalog_version}, expected 2`);
@@ -838,7 +838,7 @@ async function main(probe) {
       engine.setAnimationsPaused(false);
     }
 
-    // â”€â”€ Promoted documents bind to their compiled effect â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Promoted documents bind to their compiled effect ─────────────────────
     // The simulator applies patterns/<effect>.shader.json to the compiled build
     // by control name; an unresolved writable id refuses the whole apply.
     {
@@ -872,7 +872,7 @@ async function main(probe) {
         `against their compiled effect's controls`);
     }
 
-    // â”€â”€ Embind state seam: getParamGeneration / setAnimationsPaused â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Embind state seam: getParamGeneration / setAnimationsPaused ───────────
     {
       const effectNames = Object.keys(engine.getEffectSizes());
       if (effectNames.length === 0) {
@@ -977,7 +977,7 @@ async function main(probe) {
           }
           if (engine.getAnimationsPaused() !== true) {
             fail(`state-seam: an animated write on ${name}.${manual.name} left ` +
-              'getAnimationsPaused() false â€” the implicit pause is unreadable');
+              'getAnimationsPaused() false — the implicit pause is unreadable');
           }
           const held = animatedValues();
           for (let f = 0; f < PAUSE_FRAMES; f++) engine.drawFrame();
@@ -1022,7 +1022,7 @@ async function main(probe) {
       }
     }
 
-    // â”€â”€ Pole LOD seam: setPoleLod / getPoleLod â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Pole LOD seam: setPoleLod / getPoleLod ────────────────────────────────
     {
       const effectNames = Object.keys(engine.getEffectSizes());
       if (effectNames.length === 0) {
@@ -1088,7 +1088,7 @@ async function main(probe) {
 
         if (held.byteLength !== 0) {
           fail('growth-seam: the 16 MB tooling allocation left the held pixel view ' +
-            'attached â€” the detachment contract is no longer exercised, so a ' +
+            'attached — the detachment contract is no longer exercised, so a ' +
             'regression in it would ship unseen');
         }
         const refetched = engine.getPixels();
@@ -1143,7 +1143,7 @@ async function main(probe) {
       fail('init stack high-water mark is 0 (init canary tracking is broken)');
     } else if (stack.init_high_water_mark >= initGate) {
       fail(`init-time stack high-water mark ${stack.init_high_water_mark} of ` +
-        `${stack.capacity} bytes exceeds the ${initGate}-byte creep budget â€” ` +
+        `${stack.capacity} bytes exceeds the ${initGate}-byte creep budget — ` +
         `a stack-hungry effect constructor`);
     }
     if (stack) {
@@ -1154,7 +1154,7 @@ async function main(probe) {
     engine.delete();
   }
 
-  // â”€â”€ MeshOps tooling bindings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── MeshOps tooling bindings ────────────────────────────────────────────────
   console.log('\nMeshOps:');
 
   const MeshOps = Module.MeshOps;
@@ -1281,9 +1281,9 @@ async function main(probe) {
         }
         // A finite angle outside [0, pi/2] is rejected, not clamped.
         const hankinWide = solid.hankin(Math.PI);
-        if (hankinWide) { fail(`${solidName}.hankin(Ï€) should return null`); hankinWide.delete(); }
+        if (hankinWide) { fail(`${solidName}.hankin(π) should return null`); hankinWide.delete(); }
         if (MeshOps.getLastResult() !== MR.ANGLE_OUT_OF_DOMAIN) {
-          fail(`${solidName}.hankin(Ï€) did not report ANGLE_OUT_OF_DOMAIN`);
+          fail(`${solidName}.hankin(π) did not report ANGLE_OUT_OF_DOMAIN`);
         }
         for (const angle of [-1e300, 1e300]) {
           const rejected = solid.hankin(angle);
@@ -1346,7 +1346,7 @@ async function main(probe) {
       }
       console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory, MeshOpResult reasons OK`);
 
-      // â”€â”€ getRecipe: recipe payload + reconstruction parity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── getRecipe: recipe payload + reconstruction parity ──────────────────
       // Replaying a recipe from its seed through the op bindings must reproduce
       // fromSolidName(entry) exactly.
       if (typeof MeshOps.getRecipe !== 'function') {
@@ -1452,7 +1452,7 @@ async function main(probe) {
         console.log(`  getRecipe: null cases + payload + reconstruction parity (${RECIPE_ENTRIES.join(', ')}) OK`);
       }
 
-      // â”€â”€ Operator roster: one topology signature per bound operator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // ── Operator roster: one topology signature per bound operator ──────────
       // Two MESHOP_LIST names bound to one method compile clean. Each row pins
       // the operator's topology on a cube, per the element formulas in
       // core/mesh/conway.h. kis/needle and truncate/zip share all three counts,
@@ -1496,7 +1496,7 @@ async function main(probe) {
       const distinct = new Set(OP_SIGNATURES.map(([, , want]) => want));
       if (distinct.size !== OP_SIGNATURES.length) {
         fail(`operator roster: ${OP_SIGNATURES.length} operators share ${distinct.size} ` +
-          `expected signatures â€” the table cannot see a name aliased onto another method`);
+          `expected signatures — the table cannot see a name aliased onto another method`);
       }
 
       const opSeed = MeshOps.fromSolidName(OP_SEED);
@@ -1506,7 +1506,7 @@ async function main(probe) {
         const seedSig = signature(opSeed);
         const wantSeed = 'V=8 F=6 I=24 faces[4x6] verts[3x8]';
         if (seedSig !== wantSeed) {
-          fail(`operator roster: seed ${OP_SEED} is ${seedSig}, expected ${wantSeed} â€” ` +
+          fail(`operator roster: seed ${OP_SEED} is ${seedSig}, expected ${wantSeed} — ` +
             `the expected operator signatures are derived from that seed`);
         } else {
           for (const [opName, apply, want] of OP_SIGNATURES) {
@@ -1529,7 +1529,7 @@ async function main(probe) {
     }
   }
 
-  // â”€â”€ Color / palette / geometry exports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Color / palette / geometry exports ──────────────────────────────────────
   console.log('\nColor / palette / geometry:');
 
   const approx = (a, b, eps = 1e-3) => Number.isFinite(a) && Math.abs(a - b) <= eps;
@@ -1648,14 +1648,14 @@ async function main(probe) {
   {
     const p0 = Module.lissajous(3, 2, 0.5, 0);
     if (!approxVec(p0, 0, 1, 0)) fail(`lissajous(t=0) = ${JSON.stringify(p0)}, expected (0,1,0)`);
-    // m1=1,m2=2,a=0,t=Ï€/4 -> (cos Ï€/4, 0, sin Ï€/4); distinguishes m1/m2/a and target axes.
+    // m1=1,m2=2,a=0,t=π/4 -> (cos π/4, 0, sin π/4); distinguishes m1/m2/a and target axes.
     const pq = Module.lissajous(1, 2, 0, Math.PI / 4);
     if (!approxVec(pq, Math.SQRT1_2, 0, Math.SQRT1_2)) {
-      fail(`lissajous(1,2,0,Ï€/4) = ${JSON.stringify(pq)}, expected (0.7071, 0, 0.7071)`);
+      fail(`lissajous(1,2,0,π/4) = ${JSON.stringify(pq)}, expected (0.7071, 0, 0.7071)`);
     }
   }
 
-  // Mobius: identity fixes every point; f(z) = 1/z is a 180Â° turn about x.
+  // Mobius: identity fixes every point; f(z) = 1/z is a 180° turn about x.
   {
     const v = { x: 0.48, y: 0.6, z: 0.64 };
     const id = Module.mobius_transform(v.x, v.y, v.z, 1, 0, 0, 0, 0, 0, 1, 0);
@@ -1754,7 +1754,7 @@ async function main(probe) {
   console.log('  color/palette/geometry: transfer, interp, OKLab, HSV, procedural, lissajous, mobius, palette V4 OK');
 
   if (probe.calls > 0) {
-    fail(`the glue generated code ${probe.calls} time(s) â€” it needs ` +
+    fail(`the glue generated code ${probe.calls} time(s) — it needs ` +
       `'unsafe-eval', which the tool pages' CSP does not grant. Check the ` +
       `-sDYNAMIC_EXECUTION=0 / -sEMBIND_AOT=1 link options. First site:\n${probe.firstSite}`);
   } else {

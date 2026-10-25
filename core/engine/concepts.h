@@ -65,7 +65,7 @@ public:
    */
   FunctionRef(std::nullptr_t) {}
 
-  // Explicit copy/move â€” prevent the generic Callable template from matching.
+  // Explicit copy/move — prevent the generic Callable template from matching.
 
   /**
    * @brief Copy-constructs a reference to the same callable.

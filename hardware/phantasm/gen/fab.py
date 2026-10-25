@@ -1,12 +1,12 @@
 """Regenerate rev 1.1 fabrication / assembly outputs from the COMMITTED board.
 
 Produces, into ../gen/out/:
-  * jlc/        â€” Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
-  * jlc/phantasm-BOM.csv / phantasm-CPL.csv â€” JLCPCB assembly BOM + centroid
-  * phantasm-erc.json â€” gating schematic ERC report
-  * phantasm-drc.json â€” gating error-severity DRC report
-  * phantasm-parity.json â€” gating board/schematic parity report
-  * jlc/SHA256SUMS.txt â€” digest of every zipped artifact, the assembly
+  * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
+  * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
+  * phantasm-erc.json — gating schematic ERC report
+  * phantasm-drc.json — gating error-severity DRC report
+  * phantasm-parity.json — gating board/schematic parity report
+  * jlc/SHA256SUMS.txt — digest of every zipped artifact, the assembly
     CSVs, and the zip
 
 --verify re-hashes an already-generated package against that manifest and

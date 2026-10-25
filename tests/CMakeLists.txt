@@ -2,7 +2,7 @@
 #
 # Canonical flow is the `tests` CMake preset (see CMakePresets.json), which uses
 # cmake/toolchain-native-clang.cmake to locate Clang and, on Windows, the SDK
-# rc.exe automatically â€” no Visual Studio Developer Prompt or manual flags:
+# rc.exe automatically — no Visual Studio Developer Prompt or manual flags:
 #
 #   cmake --preset tests
 #   cmake --build --preset tests
@@ -195,7 +195,7 @@ option(HS_TSAN "Build the unit tests with ThreadSanitizer (excludes HS_SANITIZE)
 if(HS_TSAN)
   if(HS_SANITIZE)
     message(FATAL_ERROR
-        "HS_TSAN and HS_SANITIZE are mutually exclusive â€” ASan and TSan cannot "
+        "HS_TSAN and HS_SANITIZE are mutually exclusive — ASan and TSan cannot "
         "instrument the same binary. Configure two build directories.")
   endif()
   if(WIN32)
@@ -236,7 +236,7 @@ endfunction()
 
 if(HS_SANITIZE)
   if(WIN32)
-    message(STATUS "Unit tests: UBSan (trap mode) enabled â€” no ASan runtime on emsdk clang")
+    message(STATUS "Unit tests: UBSan (trap mode) enabled — no ASan runtime on emsdk clang")
   else()
     message(STATUS "Unit tests: ASan + UBSan enabled (HS_SANITIZE=ON)")
   endif()
@@ -827,7 +827,7 @@ foreach(_hs_target IN LISTS _hs_dir_targets)
 endforeach()
 if(NOT _hs_excluded)
   message(FATAL_ERROR
-    "no EXCLUDE_FROM_ALL targets found â€” excluded_targets would gate nothing; "
+    "no EXCLUDE_FROM_ALL targets found — excluded_targets would gate nothing; "
     "drop it along with the CI steps that build it")
 endif()
 message(STATUS "EXCLUDE_FROM_ALL compile coverage: ${_hs_excluded}")
