@@ -193,6 +193,10 @@ public:
                   "Store only nothrow-copyable callables — any qualifying type "
                   "is accepted (in practice lambdas capturing PODs/pointers, "
                   "which are trivially so).");
+    if constexpr (std::is_pointer_v<D> || std::is_member_pointer_v<D>) {
+      if (c == nullptr)
+        return;
+    }
     ::new (storage) D(std::forward<C>(c));
     vtable = &detail::ipf_ops<D, R, Args...>::value;
   }
