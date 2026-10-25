@@ -1185,6 +1185,12 @@ inline const Case *all_cases(int &n) {
            case_pipeline_ref_erase_not_prepared, "core/engine/concepts.h",
            "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
            "canvas"},
+          {"scan_mesh_visibility_dimensions",
+           case_scan_mesh_visibility_dimensions, "core/render/scan/mesh.h",
+           "mesh visibility dimensions disagree with the mesh"},
+          {"scan_mesh_selection_dimensions",
+           case_scan_mesh_selection_dimensions, "core/render/scan/mesh.h",
+           "mesh deformation dimensions disagree with the mesh"},
           {"scan_mesh_face_index_out_of_range",
            case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
            "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "

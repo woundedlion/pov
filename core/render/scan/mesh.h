@@ -42,6 +42,24 @@ inline bool face_audit_reference = false;
 
 #endif
 
+/**
+ * @brief Checks installed mesh tables against their consumer's dimensions.
+ * @param pass Installed mesh pass.
+ * @param faces Consumer face count.
+ * @param vertices Consumer vertex count.
+ */
+inline void check_mesh_pass(const detail::MeshPass &pass, size_t faces,
+                            size_t vertices) {
+  HS_CHECK((!pass.visible_faces && !pass.visible_vertices) ||
+               (pass.visibility_face_count == faces &&
+                pass.visibility_vertex_count == vertices),
+           "mesh visibility dimensions disagree with the mesh");
+  HS_CHECK((!pass.selected_faces && !pass.face_copy && !pass.face_sweep) ||
+               (pass.selection_face_count == faces &&
+                pass.selection_vertex_count == vertices),
+           "mesh deformation dimensions disagree with the mesh");
+}
+
 /** @brief Half-open column run [first, second); left uninitialized. */
 struct ColumnRun {
   int first;  ///< First column.
@@ -968,6 +986,8 @@ select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
   for (size_t i = 0; i < vertices; ++i)
     visibility_counts[3] += mesh_visible(vertex_bits, i);
 #endif
+  time.mesh.visibility_face_count = faces;
+  time.mesh.visibility_vertex_count = vertices;
   time.mesh.visible_faces = face_bits;
   time.mesh.visible_vertices = vertex_bits;
 }
@@ -1324,6 +1344,9 @@ moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
                     uint16_t *columns, const float *radii = nullptr) {
   const float sweep =
       canvas.column_basis() ? canvas.column_basis()->sweep_arc : 0.0f;
+  if (canvas.column_basis())
+    check_mesh_pass(canvas.column_basis()->mesh, mesh.num_faces(),
+                    mesh.vertices.size());
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
@@ -1378,6 +1401,9 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
                                          uint8_t *moving_vertices, float reach,
                                          uint16_t *columns,
                                          float *radii = nullptr) {
+  if (canvas.column_basis())
+    check_mesh_pass(canvas.column_basis()->mesh, mesh.num_faces(),
+                    mesh.vertices.size());
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
@@ -1436,6 +1462,9 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
 HS_FLASH_MEMBER inline size_t drop_held_faces(const MeshState &mesh,
                                               const uint8_t *moving,
                                               uint16_t *columns) {
+  if (canvas.column_basis())
+    check_mesh_pass(canvas.column_basis()->mesh, mesh.num_faces(),
+                    mesh.vertices.size());
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
@@ -1719,6 +1748,9 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   ScratchScope guard(scratch);
   uint8_t *selected = scratch.allocate_n<uint8_t>(mesh.num_faces());
   Scan::ColumnBasis time = *canvas.column_basis();
+  check_mesh_pass(time.mesh, mesh.num_faces(), mesh.vertices.size());
+  time.mesh.selection_face_count = mesh.num_faces();
+  time.mesh.selection_vertex_count = mesh.vertices.size();
   time.mesh.selected_faces = selected;
   const float sweep = time.azimuth ? time.sweep_arc : 0.0f;
   float *face_pads = scratch.allocate_n<float>(H);
@@ -2404,6 +2436,8 @@ struct Mesh {
            const MeshOps::MeshClassBake *bake,
            FaceShaderSetupT &face_shader_setup) {
     const Scan::ColumnBasis *own = canvas.column_basis();
+    if (own)
+      check_mesh_pass(own->mesh, mesh.num_faces(), mesh.vertices.size());
     if (own && own->mesh.face_sweep)
       draw_face_sweep<W, H>(pipeline, canvas, *own->mesh.face_sweep,
                             fragment_shader, scratch_arena, face_shader_setup);

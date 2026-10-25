@@ -57,6 +57,11 @@ struct PoleFaceSweep {
 namespace detail {
 /** @brief Selection and captured geometry of a mesh scan pass. */
 struct MeshPass {
+  size_t visibility_face_count = 0;   ///< Faces covered by visibility bits.
+  size_t visibility_vertex_count = 0; ///< Vertices covered by visibility bits.
+  size_t selection_face_count = 0; ///< Faces covered by the deformation pass.
+  size_t selection_vertex_count =
+      0; ///< Vertices covered by the deformation pass.
   const uint8_t *visible_faces = nullptr; ///< Frame visibility bits per face.
   const uint8_t *visible_vertices =
       nullptr; ///< Frame visibility bits per vertex.

@@ -929,3 +929,26 @@ inline void case_face_handle_mutable_retargeted() {
   (void)second;
   (void)first.prepared();
 }
+
+/** @brief Traps when visibility bits belong to a differently sized mesh. */
+inline void case_scan_mesh_visibility_dimensions() {
+  uint8_t bits = 1;
+  Scan::detail::MeshPass pass;
+  pass.visible_faces = &bits;
+  pass.visible_vertices = &bits;
+  pass.visibility_face_count = 1;
+  pass.visibility_vertex_count = 3;
+  Scan::check_mesh_pass(pass, 1, 3);
+  Scan::check_mesh_pass(pass, 2, 3);
+}
+
+/** @brief Traps when a deformation pass belongs to a differently sized mesh. */
+inline void case_scan_mesh_selection_dimensions() {
+  uint8_t selected = 0;
+  Scan::detail::MeshPass pass;
+  pass.selected_faces = &selected;
+  pass.selection_face_count = 1;
+  pass.selection_vertex_count = 3;
+  Scan::check_mesh_pass(pass, 1, 3);
+  Scan::check_mesh_pass(pass, 1, 4);
+}
