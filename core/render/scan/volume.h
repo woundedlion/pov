@@ -115,6 +115,40 @@ template <int W> struct VolumeColumns {
     c.local_vd = c.to_local.apply(-center);
   }
 
+  /** @brief Angular radius of the cap covering every column placement.
+   * @param center Endpoint bounds center.
+   * @param radius Per-placement bounding radius.
+   * @return Swept cap angle, saturated at a hemisphere. */
+  float cap_angle(const math::Vector &center, float radius) const {
+    float min_cos = 1.0f;
+    for (const auto &column : columns)
+      min_cos = fminf(min_cos, math::dot(column.center, center));
+    const float angle =
+        asinf(fminf(radius, 1.0f)) + acosf(hs::clamp(min_cos, -1.0f, 1.0f));
+    return fminf(angle, math::PI_F / 2.0f);
+  }
+
+  /** @brief Sine radius of the swept cap.
+   * @param center Endpoint bounds center.
+   * @param radius Per-placement bounding radius.
+   * @return Radius used for volume bounds. */
+  float cap_radius(const math::Vector &center, float radius) const {
+    const float angle = cap_angle(center, radius);
+    return angle < math::PI_F / 2.0f ? sinf(angle) : 1.0f;
+  }
+
+  /** @brief Sweep entries reachable by the volume march.
+   * @param center Endpoint bounds center.
+   * @param radius Per-placement bounding radius.
+   * @return Inclusive first and last sweep indices, padded for interval rounding. */
+  std::pair<int, int> read_columns(const math::Vector &center,
+                                   float radius) const {
+    int first, last;
+    const float cap = cap_angle(center, radius) + math::RADIANS_PER_COLUMN<W>;
+    lit_columns<W>(center, cap, 0.0f, first, last);
+    return {first, last};
+  }
+
   /**
    * @brief Placement a canvas column reads.
    * @param x Canvas column.
@@ -486,14 +520,8 @@ struct Volume {
     HS_CHECK(aa_width > 0.0f, "Scan::Volume: aa_width must be positive");
 
     float cap_radius = bounds_radius;
-    if constexpr (COLUMNS) {
-      float min_cos = 1.0f;
-      for (const auto &c : columns->columns)
-        min_cos = fminf(min_cos, math::dot(c.center, bounds_center));
-      const float angle = asinf(fminf(bounds_radius, 1.0f)) +
-                          acosf(hs::clamp(min_cos, -1.0f, 1.0f));
-      cap_radius = angle < math::PI_F / 2.0f ? sinf(angle) : 1.0f;
-    }
+    if constexpr (COLUMNS)
+      cap_radius = columns->cap_radius(bounds_center, bounds_radius);
     BoundingSphere<W, H> bounds(bounds_center, cap_radius);
 
     // Clamp volume bounds to clip region

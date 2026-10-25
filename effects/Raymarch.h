@@ -655,17 +655,9 @@ private:
                 const math::Vector &center, float bounds_radius,
                 const math::Quaternion &previous,
                 const math::Quaternion &current) {
-    float min_cos = 1.0f;
-    for (int c = 0; c < W / 2; ++c) {
+    for (int c = 0; c < W / 2; ++c)
       columns.columns[c].center = math::rotate(point, cameras[c]);
-      min_cos = fminf(min_cos, math::dot(columns.columns[c].center, center));
-    }
-    // A column of reach covers the march's interval rounding.
-    const float cap = asinf(fminf(bounds_radius, 1.0f)) +
-                      acosf(hs::clamp(min_cos, -1.0f, 1.0f)) +
-                      math::RADIANS_PER_COLUMN<W>;
-    int first, last;
-    Scan::lit_columns<W>(center, cap, 0.0f, first, last);
+    const auto [first, last] = columns.read_columns(center, bounds_radius);
     const math::Quaternion ends[] = {previous, current};
     Spacetime::for_each_time_pose(
         ends, 2, W, [&](int c, const math::Quaternion &at) HS_HOT_INLINE {
