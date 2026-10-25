@@ -994,3 +994,17 @@ inline void case_point_route_without_prepare() {
   Plot::PointRoute<W, H> unprepared;
   unprepared.plot(pipe, canvas, point, start, shade);
 }
+
+/** @brief Timed pipeline erasure rejects an unprepared direct sink. */
+inline void case_pipeline_ref_timed_erase_not_prepared() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Filter::Screen::DirectAntiAliasSink<W, H> ready;
+  ready.prepare(canvas);
+  PipelineRef valid(ready, canvas, Spacetime::Timed{});
+  (void)valid;
+  Filter::Screen::DirectAntiAliasSink<W, H> unprepared;
+  PipelineRef invalid(unprepared, canvas, Spacetime::Timed{});
+  (void)invalid;
+}

@@ -1259,6 +1259,10 @@ inline const Case *all_cases(int &n) {
            case_pipeline_ref_erase_not_prepared, "core/engine/concepts.h",
            "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
            "canvas"},
+          {"pipeline_ref_timed_erase_not_prepared",
+           case_pipeline_ref_timed_erase_not_prepared, "core/engine/concepts.h",
+           "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
+           "canvas"},
           {"scan_mesh_visibility_dimensions",
            case_scan_mesh_visibility_dimensions, "core/render/scan/mesh.h",
            "((!pass.visible_faces && !pass.visible_vertices) || "
@@ -2346,6 +2350,8 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/color/color_space.h", 1},
     {"core/color/generative_palette.h", 4},
     {"core/color/palette_cycler.h", 8},
+    // Device-only pure-virtual and alternative terminate handlers.
+    {"core/engine/static_storage.cpp", 3},
     {"core/containers/static_circular_buffer.h", 2},
     {"core/control/param_host.h", 15},
     {"core/control/preset_host.h", 2},
