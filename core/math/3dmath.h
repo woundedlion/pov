@@ -1534,7 +1534,9 @@ inline Vector nlerp_unit(const Vector &a, const Vector &b, float t) {
 }
 
 /**
- * @brief Spherical Linear Interpolation (SLERP) between two Vectors.
+ * @brief Approximate spherical interpolation between two vectors.
+ * @note Uses approximate arccosine and Bhaskara sine weights, followed by
+ * normalization; intermediate angular speed is approximate.
  * @param v1 Starting vector.
  * @param v2 Ending vector.
  * @param t Interpolation factor (0.0 to 1.0).
