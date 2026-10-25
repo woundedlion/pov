@@ -290,6 +290,13 @@ template <typename Pipeline> struct PipelineMetadata {
     else
       return std::type_identity<typename LensStage::LensPolicy>{};
   }())::type;
+  /// Whether displayed columns are followed by black.
+  static constexpr bool STROBE_COLUMNS = [] {
+    if constexpr (requires { LensPolicy::STROBE_COLUMNS; })
+      return LensPolicy::STROBE_COLUMNS;
+    else
+      return true;
+  }();
   /// Surface position relative to the lens; BEFORE_LENS when either is absent.
   static constexpr auto SURFACE_PLACEMENT = [] {
     constexpr size_t SURFACE = stage_index<Pipeline, IsSurfaceStage>();
