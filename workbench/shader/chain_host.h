@@ -288,7 +288,7 @@ public:
   HS_FLASH_MEMBER void draw_frame() override {
     this->strobe = true;
     for (const auto &op : program.ops())
-      if (std::string_view(op.op->id) ==
+      if (std::string_view(op.op->operator_id) ==
           Pullback::Interp::Op::LensKaleidoscope::ID)
         this->strobe = Pullback::Lens::Kaleidoscope::STROBE_COLUMNS;
     Canvas canvas(*this);
