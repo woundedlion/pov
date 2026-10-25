@@ -301,7 +301,7 @@ private:
   };
 
   struct ColumnRuns {
-    ColumnRun items[2];
+    ColumnRun items[3];
     int count;
   };
 
@@ -408,17 +408,24 @@ private:
   }
 
   static __attribute__((always_inline)) ColumnRuns
-  make_column_runs(const ClipRegion::XClip &clip) {
+  make_column_runs(const ClipRegion::XClip &clip, bool split_arms = false) {
     ColumnRuns runs{};
+    const auto append = [&](int begin, int end) {
+      if (split_arms && begin < ColumnTime::HALF && end > ColumnTime::HALF) {
+        runs.items[runs.count++] = {begin, ColumnTime::HALF};
+        begin = ColumnTime::HALF;
+      }
+      runs.items[runs.count++] = {begin, end};
+    };
     if (!clip.active) {
-      runs.items[runs.count++] = {0, W};
+      append(0, W);
     } else if (clip.wrap) {
       if (clip.re > 0)
-        runs.items[runs.count++] = {0, clip.re};
+        append(0, clip.re);
       if (clip.rs < W)
-        runs.items[runs.count++] = {clip.rs, W};
+        append(clip.rs, W);
     } else {
-      runs.items[runs.count++] = {clip.rs, clip.re};
+      append(clip.rs, clip.re);
     }
     return runs;
   }
@@ -638,7 +645,7 @@ private:
     if (SphereField::HAS_SOUTH_POLE)
       ctx.poles[SphereField::HAS_NORTH_POLE ? 1 : 0] =
           select_pole_sample(ctx.previous + (H - 1) * W);
-    ctx.runs = make_column_runs(band.x_clip);
+    ctx.runs = make_column_runs(band.x_clip, ctx.column_time);
     ctx.field_y0 = band.field_y_begin;
     ctx.field_y1 = ctx.field_y0 + (ctx.field_y0 < band.field_y_end ? 1 : 0);
     const auto control_ring0 = grid.field.ring(ctx.field_y0);
