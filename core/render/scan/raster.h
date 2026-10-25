@@ -1817,6 +1817,8 @@ rasterize_solid(PipelineT &pipeline, Canvas &canvas, const auto &shape,
       "buffer holds; flatten the composition or raise "
       "INTERVAL_SPAN_CAP");
 
+  HS_CHECK(!canvas.column_basis(),
+           "rasterize_solid does not support a column-time basis");
   check_canvas_dims<W, H>(canvas);
   check_pipeline_prepared(pipeline, canvas);
   bool effective_debug = debug_bb || canvas.debug();
