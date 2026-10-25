@@ -1462,9 +1462,6 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
 HS_FLASH_MEMBER inline size_t drop_held_faces(const MeshState &mesh,
                                               const uint8_t *moving,
                                               uint16_t *columns) {
-  if (canvas.column_basis())
-    check_mesh_pass(canvas.column_basis()->mesh, mesh.num_faces(),
-                    mesh.vertices.size());
   const uint8_t *counts = mesh.get_face_counts_data();
   const uint16_t *indices = mesh.get_faces_data();
   const uint16_t *offsets = mesh.get_face_offsets_data();
