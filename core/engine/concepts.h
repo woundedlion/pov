@@ -65,7 +65,7 @@ public:
    */
   FunctionRef(std::nullptr_t) {}
 
-  // Explicit copy/move — prevent the generic Callable template from matching.
+  // Explicit copy/move â€” prevent the generic Callable template from matching.
 
   /**
    * @brief Copy-constructs a reference to the same callable.
@@ -638,6 +638,7 @@ public:
   HS_HOT_INLINE float plot_transformed_at(Canvas &cv, const math::Vector &v,
                                           const Pixel &c, float age,
                                           float alpha, float t) const {
+    assert(timed_entries && timed_entries->transformed_plot);
     return timed_entries->transformed_plot(ctx, cv, v, c, age, alpha, t);
   }
 
@@ -650,6 +651,7 @@ public:
   HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
                                         const Pixel &c, float age, float alpha,
                                         float t) const {
+    assert(timed_entries && timed_entries->projected_plot);
     return timed_entries->projected_plot(ctx, cv, p, c, age, alpha, t);
   }
 
@@ -663,6 +665,7 @@ public:
   HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
                                     const Pixel &c, float age, float alpha,
                                     float t) const {
+    assert(timed_entries && timed_entries->column_plot);
     timed_entries->column_plot(ctx, cv, p, column, c, age, alpha, t);
   }
 
