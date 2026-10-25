@@ -710,7 +710,8 @@ public:
     requires(pipeline_direct_raster_path<std::decay_t<T>>())
   PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Spacetime::Timed)
       : PipelineRef(t, Erase<true>{}) {
-    assert(t.prepared_for(cv));
+    HS_CHECK(t.prepared_for(cv),
+             "direct raster pipeline not prepared for this canvas");
   }
 
   /** @brief Evaluates world stages without projection or history recording.
