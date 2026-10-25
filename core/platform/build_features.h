@@ -38,7 +38,13 @@
 
 /** @brief Inline storage budget, in bytes, for one Timeline animation. */
 #ifndef HS_TIMELINE_MAX_ANIM_BYTES
+#if defined(ARDUINO)
 #define HS_TIMELINE_MAX_ANIM_BYTES 112
+#elif defined(__EMSCRIPTEN__)
+#define HS_TIMELINE_MAX_ANIM_BYTES 128
+#else
+#define HS_TIMELINE_MAX_ANIM_BYTES 256
+#endif
 #endif
 
 /** @brief 1 enables the effect registry; defaults to Emscripten builds. */
