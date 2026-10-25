@@ -758,6 +758,8 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
   return result;
 }
 
+namespace detail::reference {
+
 /**
  * @brief shade_periodic_shells_dimension() at the camera's domain dimension.
  * @param prepared Frame constants from prepare_periodic_shells().
@@ -797,5 +799,7 @@ inline Raycast::ShadedTrace shade_periodic_shells(
       prepare_periodic_shells(camera, cell_size, shell_radius, footprint),
       camera, direction, limits, appearance);
 }
+
+} // namespace detail::reference
 
 } // namespace SDF

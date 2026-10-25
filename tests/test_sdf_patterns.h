@@ -201,7 +201,8 @@ inline void test_octet_fcc_geometry_and_symmetry() {
     for (size_t plane = 0; plane < PLANES.size(); ++plane) {
       const auto N = PLANES[plane].normal;
       const auto ON_PLANE = P - N * math::dot(P, N);
-      const auto SAMPLE = octet.plane_sample(plane, ON_PLANE);
+      const auto SAMPLE =
+          SDF::detail::reference::plane_sample(octet, plane, ON_PLANE);
       HS_EXPECT_GE(SAMPLE.field + 2e-6f, octet.distance(ON_PLANE));
       HS_EXPECT_FALSE(SAMPLE.boundary);
     }

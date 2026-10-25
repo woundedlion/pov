@@ -1732,7 +1732,7 @@ inline void test_octet_4d_canonical_boundary_directions() {
 }
 
 /**
- * @brief OctetTrace::trace_sorted reproduces trace_events over random 3D and
+ * @brief OctetTrace sorted reference reproduces trace_events over random 3D and
  *        4D flights, under default, candidate-starved and layer-starved
  *        budgets.
  */
@@ -1756,8 +1756,8 @@ inline void test_octet_trace_sorted_matches_events() {
                            const Raycast::Appearance &appearance, int budget) {
     const auto EXPECTED =
         SDF::OctetTrace::trace_events(events, interval, limits, appearance);
-    const auto ACTUAL = SDF::OctetTrace::trace_sorted(events, interval, limits,
-                                                      appearance, storage);
+    const auto ACTUAL = SDF::OctetTrace::detail::reference::trace_sorted(
+        events, interval, limits, appearance, storage);
     HS_EXPECT_EQ(ACTUAL.status, EXPECTED.status);
     HS_EXPECT_EQ(ACTUAL.color, EXPECTED.color);
     ++compared;

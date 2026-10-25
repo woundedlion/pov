@@ -244,37 +244,42 @@ struct OctetFramework {
     const float VALUE = edge_offset(p, feature).magnitude() - wire_radius;
     return {VALUE, fabsf(VALUE), VALUE == 0.0f, 0, feature};
   }
+};
 
-  /**
+namespace detail::reference {
+/**
    * @brief Distance to struts contained in the selected plane through p.
-   * @param index Plane family index, below STREAM_COUNT.
+   * @param framework Octet framework to sample.
+   * @param index Plane family index, below OctetFramework::STREAM_COUNT.
    * @param p Query point.
    * @return Signed distance and strut id; clearance is not provided.
    */
-  Raycast::QuerySample plane_sample(size_t index, const math::Vector &p) const {
-    const auto FAMILIES = plane_families();
-    const math::Vector Q = p - origin;
-    const float SPACING = FAMILIES[0].spacing;
-    float best = INFINITY;
-    uint32_t feature = 0;
-    uint32_t pair = 0;
-    for (size_t i = 0; i < STREAM_COUNT; ++i) {
-      for (size_t j = i + 1; j < STREAM_COUNT; ++j, ++pair) {
-        if (i != index && j != index)
-          continue;
-        const size_t OTHER = i == index ? j : i;
-        const float U = math::dot(Q, FAMILIES[OTHER].normal);
-        const float D = fabsf(U - SPACING * roundf(U / SPACING));
-        if (D < best) {
-          best = D;
-          feature = pair;
-        }
+inline Raycast::QuerySample plane_sample(const OctetFramework &framework,
+                                         size_t index, const math::Vector &p) {
+  const auto FAMILIES = framework.plane_families();
+  const math::Vector Q = p - framework.origin;
+  const float SPACING = FAMILIES[0].spacing;
+  float best = INFINITY;
+  uint32_t feature = 0;
+  uint32_t pair = 0;
+  for (size_t i = 0; i < OctetFramework::STREAM_COUNT; ++i) {
+    for (size_t j = i + 1; j < OctetFramework::STREAM_COUNT; ++j, ++pair) {
+      if (i != index && j != index)
+        continue;
+      const size_t OTHER = i == index ? j : i;
+      const float U = math::dot(Q, FAMILIES[OTHER].normal);
+      const float D = fabsf(U - SPACING * roundf(U / SPACING));
+      if (D < best) {
+        best = D;
+        feature = pair;
       }
     }
-    const float VALUE = best * INVERSE_PLANE_SINE - wire_radius;
-    return {VALUE, 0.0f, false, 0, feature};
   }
-};
+  const float VALUE =
+      best * OctetFramework::INVERSE_PLANE_SINE - framework.wire_radius;
+  return {VALUE, 0.0f, false, 0, feature};
+}
+} // namespace detail::reference
 
 /** @brief D4 nearest-neighbor struts joining integer vertices of even sum. */
 struct OctetFramework4 {

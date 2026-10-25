@@ -451,50 +451,50 @@ inline void test_periodic_shell_traversal_budgets() {
   camera.center = {{-.5f, 0, 0, 0}};
   camera.interval = {0, 1};
   Raycast::TraceLimits limits;
-  const auto COMPLETE = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f,
-                                                   {}, limits, APPEARANCE);
+  const auto COMPLETE = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(COMPLETE.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(COMPLETE.trace.counters.layers, 2);
   HS_EXPECT_FALSE(COMPLETE.trace.has_surface);
   HS_EXPECT_NEAR(COMPLETE.trace.contribution.t, .8f, 1e-6f);
   limits.max_layers = 1;
-  const auto PARTIAL = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f, {},
-                                                  limits, APPEARANCE);
+  const auto PARTIAL = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(PARTIAL.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(PARTIAL.trace.counters.layers, 1);
   HS_EXPECT_GT(PARTIAL.color.alpha, 0);
   HS_EXPECT_NEAR(PARTIAL.trace.contribution.t, .2f, 1e-6f);
   limits.max_steps = 0;
-  const auto EMPTY = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f, {},
-                                                limits, APPEARANCE);
+  const auto EMPTY = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(EMPTY.trace.status, Raycast::TraceStatus::BUDGET_EXHAUSTED);
   HS_EXPECT_EQ(EMPTY.trace.counters.layers, 0);
   limits = {};
   camera.interval = {.5f, .9f};
-  const auto CLIPPED = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f, {},
-                                                  limits, APPEARANCE);
+  const auto CLIPPED = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(CLIPPED.trace.counters.layers, 1);
   HS_EXPECT_NEAR(CLIPPED.trace.contribution.t, .8f, 1e-6f);
   camera.center = {{.5f, 0, 0, 0}};
   camera.interval = {0, 1};
-  const auto REVERSE = SDF::shade_periodic_shells(camera, {-1, 0, 0}, 1, .3f,
-                                                  {}, limits, APPEARANCE);
+  const auto REVERSE = SDF::detail::reference::shade_periodic_shells(
+      camera, {-1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(REVERSE.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_EQ(REVERSE.trace.counters.layers, 2);
   camera.center = {{-.5f, .305f, 0, 0}};
-  const auto FILTERED = SDF::shade_periodic_shells(
+  const auto FILTERED = SDF::detail::reference::shade_periodic_shells(
       camera, {1, 0, 0}, 1, .3f, {.04f, 0}, limits, APPEARANCE);
   HS_EXPECT_EQ(FILTERED.trace.counters.layers, 1);
   HS_EXPECT_FALSE(FILTERED.trace.contribution.verified);
   HS_EXPECT_NEAR(FILTERED.trace.contribution.coverage, .25f, 1e-5f);
-  const auto UNFILTERED = SDF::shade_periodic_shells(camera, {1, 0, 0}, 1, .3f,
-                                                     {}, limits, APPEARANCE);
+  const auto UNFILTERED = SDF::detail::reference::shade_periodic_shells(
+      camera, {1, 0, 0}, 1, .3f, {}, limits, APPEARANCE);
   HS_EXPECT_EQ(UNFILTERED.trace.counters.layers, 0);
 
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.center = {{-.5f, .245f, 0, .18f}};
   const Raycast::Footprint FOOTPRINT{.08f, 0};
-  const auto SLICE_FILTERED = SDF::shade_periodic_shells(
+  const auto SLICE_FILTERED = SDF::detail::reference::shade_periodic_shells(
       camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
   const float AMBIENT_DISTANCE = sqrtf(.245f * .245f + .18f * .18f);
   const float PROJECTED_DISTANCE =
@@ -506,7 +506,7 @@ inline void test_periodic_shell_traversal_budgets() {
   HS_EXPECT_NEAR(SLICE_FILTERED.trace.contribution.normal.y, 1, 1e-6f);
 
   camera.center = {{-.5f, .235f, 0, .18f}};
-  const auto SLICE_HIT = SDF::shade_periodic_shells(
+  const auto SLICE_HIT = SDF::detail::reference::shade_periodic_shells(
       camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
   const float HALF_CHORD = sqrtf(.3f * .3f - .18f * .18f - .235f * .235f);
   HS_EXPECT_EQ(SLICE_HIT.trace.counters.layers, 2);
@@ -518,7 +518,7 @@ inline void test_periodic_shell_traversal_budgets() {
                  1e-5f);
 
   camera.center = {{-.5f, 0, 0, .305f}};
-  const auto OFF_SLICE = SDF::shade_periodic_shells(
+  const auto OFF_SLICE = SDF::detail::reference::shade_periodic_shells(
       camera, {1, 0, 0}, 1, .3f, FOOTPRINT, limits, APPEARANCE);
   HS_EXPECT_EQ(OFF_SLICE.trace.counters.layers, 0);
 }
@@ -551,8 +551,8 @@ inline void test_prepared_shells_match_sphere_roots() {
     const auto AMBIENT = camera.embedding.apply({{VIEW.x, VIEW.y, VIEW.z, 0}});
     const auto ROOTS =
         GEOMETRY.intersect(camera.center, AMBIENT, sample % 2 ? 4 : 3);
-    const auto HIT =
-        SDF::shade_periodic_shells(PREPARED, camera, VIEW, {}, APPEARANCE);
+    const auto HIT = SDF::detail::reference::shade_periodic_shells(
+        PREPARED, camera, VIEW, {}, APPEARANCE);
     HS_EXPECT_TRUE(ROOTS.hit);
     HS_EXPECT_EQ(HIT.trace.status, Raycast::TraceStatus::RANGE_COMPLETE);
     HS_EXPECT_EQ(HIT.trace.counters.layers, 1);
@@ -565,10 +565,10 @@ inline void test_prepared_shells_match_sphere_roots() {
   invalid.embedding.m[0][0] = 2;
   const auto PREPARED = SDF::prepare_periodic_shells(invalid, 1, .3f, {});
   HS_EXPECT_FALSE(PREPARED.valid);
-  HS_EXPECT_EQ(
-      SDF::shade_periodic_shells(PREPARED, invalid, {1, 0, 0}, {}, APPEARANCE)
-          .trace.status,
-      Raycast::TraceStatus::INVALID_QUERY);
+  HS_EXPECT_EQ(SDF::detail::reference::shade_periodic_shells(
+                   PREPARED, invalid, {1, 0, 0}, {}, APPEARANCE)
+                   .trace.status,
+               Raycast::TraceStatus::INVALID_QUERY);
 }
 
 struct GradientPalette {
@@ -644,7 +644,7 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
         const float y = rand_uniform(random, -1, 1);
         const float z = rand_uniform(random, -1, 1);
         const math::Vector direction = math::Vector{x, y, z}.normalized();
-        const auto cells = SDF::shade_periodic_shells(
+        const auto cells = SDF::detail::reference::shade_periodic_shells(
             prepared, camera, direction, limits, appearance);
         const auto march =
             trace(prepared, camera, direction, limits, appearance, layers);
@@ -943,9 +943,9 @@ inline void test_wide_shell_footprint_gathers_neighbor_rows() {
   const auto traced = SDF::LatticeTrace::shade<false>(VIEW, prepared);
   HS_EXPECT_EQ(traced.status, Raycast::TraceStatus::RANGE_COMPLETE);
   HS_EXPECT_TRUE(shell_colors_agree(traced.color, expected.first, 2));
-  HS_EXPECT_EQ(SDF::shade_periodic_shells(prepared.periodic_shells,
-                                          prepared.camera, VIEW,
-                                          prepared.limits, prepared.appearance)
+  HS_EXPECT_EQ(SDF::detail::reference::shade_periodic_shells(
+                   prepared.periodic_shells, prepared.camera, VIEW,
+                   prepared.limits, prepared.appearance)
                    .trace.status,
                Raycast::TraceStatus::INVALID_QUERY);
 }

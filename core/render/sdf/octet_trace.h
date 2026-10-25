@@ -131,6 +131,8 @@ trace_events(const Events &events, Raycast::Interval interval,
 using CoveredCrossings =
     Raycast::CoveredCrossings<CrossingStorage::CAPACITY, float *>;
 
+namespace detail::reference {
+
 /**
  * @brief trace_events() by per-stream walks over CoveredCrossings.
  * @details Each stream walks its own crossings with the same accumulated
@@ -170,6 +172,8 @@ trace_sorted(const Events &events, Raycast::Interval interval,
   }
   return covered.composite<true, Sample>(appearance, limits);
 }
+
+} // namespace detail::reference
 
 /**
  * @brief The 3D octet trace with every owner's strut pairs in registers.
