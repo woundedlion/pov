@@ -43,7 +43,7 @@ edge_visible_in_region(PipelineT &pipeline, const CullRegion &region,
                   const math::Basis *) HS_HOT_INLINE {
     return geodesic_reaches_region<W, H>(region, ea, eb);
   };
-  return pipeline.could_intersect_clip(a, b, nullptr, pred);
+  return pipeline_could_intersect_clip(pipeline, a, b, nullptr, pred);
 }
 
 /** @file visibility.h
