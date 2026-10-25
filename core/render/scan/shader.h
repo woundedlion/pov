@@ -503,7 +503,7 @@ private:
    * @param cr Render clip.
    * @param block Positive block edge in pixels.
    * @param scratch Arena for the corner cells.
-   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @param classify_corner Callable (const Vector&) or (const Vector&, size_t canvas_corner) returning BlockCell<K>.
    * @return The classified grid; `cells` is null when the clip is empty.
    */
   template <int W, int H, size_t K, typename ClassifyFn>
@@ -540,8 +540,14 @@ private:
       for (int j = 0; j < grid.nbx; ++j) {
         if (j > grid.gap_begin && j < grid.gap_end)
           continue;
-        grid.cells[k * grid.nbx + j] = classify_corner(
-            math::pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
+        const auto point =
+            math::pixel_to_vector<W, H>(corner_x(j), corner_y(k));
+        const size_t corner =
+            size_t(grid.gy0 / B + k) * ((W - 1) / B + 2) + grid.gx0 / B + j;
+        if constexpr (requires { classify_corner(point, corner); })
+          grid.cells[k * grid.nbx + j] = classify_corner(point, corner);
+        else
+          grid.cells[k * grid.nbx + j] = classify_corner(point);
       }
     return grid;
   }
@@ -588,7 +594,7 @@ public:
    * @param positions Site positions indexed by every returned corner index.
    * @param scratch Arena for the corner grid and one candidate row. The caller
    * owns its scope; block_coherent_scratch_bytes() bounds these allocations.
-   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @param classify_corner Callable (const Vector&) or (const Vector&, size_t canvas_corner) returning BlockCell<K>.
    * @param shade_candidates Callable (const Vector&, const BlockCandidates<K>&)
    * returning Color4 or a premultiplied Pixel.
    * @details Sites absent from all four corners are omitted. Wrapped column
@@ -663,7 +669,7 @@ public:
    * @param block Positive block edge in pixels; corners anchor to the canvas.
    * @param scratch Arena for the corner grid and each arm's block-column site
    * unions. The caller owns its scope.
-   * @param classify_corner Callable (const Vector&) returning BlockCell<K>.
+   * @param classify_corner Callable (const Vector&) or (const Vector&, size_t canvas_corner) returning BlockCell<K>.
    * @param prepare_time Callable (int c) returning the state columns `c` and
    * `c + W / 2` share at `Spacetime::SamplingSurface<W>::time(c)`.
    * @param prepare_column Callable (state, int x) returning a column object

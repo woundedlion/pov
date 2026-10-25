@@ -410,12 +410,12 @@ private:
       clear_corner_history();
       corner_block = BLOCK;
     }
-    CornerCursor cursor(canvas.clip(), BLOCK);
     Scan::Shader::draw_block_columns<W, H, TEMPORAL_SITES_PER_CORNER>(
         canvas, BLOCK, scratch_arena_a,
-        [&](const math::Vector &p) __attribute__((always_inline)) {
-          return cached_endpoint_pairs(tree, p, near, cursor.next());
-        },
+        [&](const math::Vector &p, size_t corner)
+            __attribute__((always_inline)) {
+              return cached_endpoint_pairs(tree, p, near, corner);
+            },
         [&](int c) __attribute__((always_inline)) {
           return TemporalSites{column_motion(c, tree, spins),
                                static_cast<uint16_t>(c + 1)};
@@ -560,48 +560,6 @@ private:
 
   /// Maximum frame age of a retained corner certificate.
   static constexpr uint32_t MAX_CORNER_AGE = 8;
-
-  /** @brief Canvas-grid indices in the clipped corner traversal order. */
-  struct CornerCursor {
-    int origin;     ///< First canvas-grid column in this clip.
-    int row;        ///< Current canvas-grid row.
-    int stride;     ///< Columns in the full canvas grid.
-    int last;       ///< Last local column classified in each row.
-    int gap_begin;  ///< Last local column before a wrapped clip's gap.
-    int gap_end;    ///< First local column after the gap.
-    int column = 0; ///< Current local column.
-
-    /** @brief Initializes the cursor for a canvas-anchored block grid.
-     *  @param clip Render clip.
-     *  @param block Block edge in pixels. */
-    HS_HOT_INLINE CornerCursor(const ClipRegion &clip, int block) {
-      const auto columns = clip.x_clip();
-      const int X0 = columns.active && !columns.wrap ? columns.rs : 0;
-      const int X1 = columns.active && !columns.wrap ? columns.re : W;
-      origin = X0 / block;
-      row = clip.render_y_start() / block;
-      stride = (W - 1) / block + 2;
-      last = (X1 - 1 - origin * block) / block + 1;
-      gap_begin = columns.active && columns.wrap
-                      ? (columns.re + block - 1) / block
-                      : last + 1;
-      gap_end = columns.active && columns.wrap ? columns.rs / block : last + 1;
-    }
-
-    /** @brief Advances through the visited corners, skipping wrapped gaps.
-     *  @return The current corner's index in the full canvas grid. */
-    HS_HOT_INLINE size_t next() {
-      const size_t INDEX = size_t(row) * stride + origin + column;
-      ++column;
-      if (column > gap_begin && column < gap_end)
-        column = gap_end;
-      if (column > last) {
-        column = 0;
-        ++row;
-      }
-      return INDEX;
-    }
-  };
 
   /** @brief Invalidates every retained corner certificate. */
   HS_HOT_FLASH_MEMBER void clear_corner_history() {
