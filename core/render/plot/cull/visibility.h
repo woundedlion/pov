@@ -3,6 +3,11 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @file visibility.h
+ * @brief Clip-visibility gates for dots, caps, rings and trails, and the
+ * pipeline-aware screen step.
+ */
+
 // Included by core/render/plot/cull.h.
 
 /** @brief Tests a transformed geodesic against a motion-padded region.
@@ -45,11 +50,6 @@ edge_visible_in_region(PipelineT &pipeline, const CullRegion &region,
   };
   return pipeline_could_intersect_clip(pipeline, a, b, nullptr, pred);
 }
-
-/** @file visibility.h
- * @brief Clip-visibility gates for dots, caps, rings and trails, and the
- * pipeline-aware screen step.
- */
 
 /**
  * @brief True when AntiAlias would emit any tap of a projected dot in @p cr.
