@@ -27,6 +27,9 @@ inline void roundtrip_oklab(uint8_t r, uint8_t g, uint8_t b) {
   float r2, g2, b2;
   oklab_to_linear_rgb(lab, r2, g2, b2);
 
+  HS_EXPECT_NEAR(r2, srgb_to_linear_float(r / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(g2, srgb_to_linear_float(g / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(b2, srgb_to_linear_float(b / 255.0f), 1e-5f);
   float rs = linear_to_srgb_float(hs::clamp(r2, 0.0f, 1.0f)) * 255.0f;
   float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
   float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
@@ -68,6 +71,9 @@ inline void roundtrip_oklch(uint8_t r, uint8_t g, uint8_t b) {
   OKLCH lch = srgb_to_oklch(r, g, b);
   float r2, g2, b2;
   oklab_to_linear_rgb(oklch_to_oklab(lch), r2, g2, b2);
+  HS_EXPECT_NEAR(r2, srgb_to_linear_float(r / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(g2, srgb_to_linear_float(g / 255.0f), 1e-5f);
+  HS_EXPECT_NEAR(b2, srgb_to_linear_float(b / 255.0f), 1e-5f);
   float rs = linear_to_srgb_float(hs::clamp(r2, 0.0f, 1.0f)) * 255.0f;
   float gs = linear_to_srgb_float(hs::clamp(g2, 0.0f, 1.0f)) * 255.0f;
   float bs = linear_to_srgb_float(hs::clamp(b2, 0.0f, 1.0f)) * 255.0f;
