@@ -386,7 +386,7 @@ public:
     }
     column_states_live = true;
     intervals_prepared = true;
-    needs_prepare = false;
+    needs_prepare = true;
   }
 
   /**
