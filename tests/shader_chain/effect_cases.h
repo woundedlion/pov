@@ -467,8 +467,9 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
   using WB = ShaderChainWhiteBox;
   constexpr int W = 96;
   constexpr int H = 20;
-  const ScopedTemporalSampling instantaneous(false);
   reset_globals();
+  const ScopedTemporalSampling instantaneous(false);
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
   WB::FX chain;
   chain.init();
   const In::ChainEntryRequest topology[] = {

@@ -777,8 +777,9 @@ inline void test_composed_temporal_roster() {
  *  render through a Lerp departure, clips and a manual preset. */
 inline void test_mobius_grid_instantaneous_pixel_golden() {
   using FX = MobiusGrid<SMALL_W, SMALL_H>;
-  const ScopedTemporalSampling instantaneous(false);
   reset_effect_globals();
+  const ScopedTemporalSampling instantaneous(false);
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
   FX effect;
   effect.init();
   const int departure = FX::PRESET_DWELL_FRAMES +

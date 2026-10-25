@@ -517,8 +517,9 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
  */
 template <int W, int H, typename Schedule>
 inline uint64_t sh_instantaneous_hash(int frames, Schedule &&schedule) {
-  const ScopedTemporalSampling instantaneous(false);
   reset_effect_globals();
+  const ScopedTemporalSampling instantaneous(false);
+  HS_EXPECT_TRUE(Spacetime::flat_surface());
   SphericalHarmonics<W, H> fx;
   fx.init();
   uint64_t hash = HASH_SEED64;
