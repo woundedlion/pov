@@ -283,6 +283,9 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
 
 /**
  * @brief Projects a unit vector to its pixel column (azimuth only).
+ * @note Uses approximate azimuth for plotted samples. Geometric crossing
+ * solvers use precise azimuth; their conservative bounds include projection
+ * slack to cover this difference.
  * @tparam W The width.
  * @param v Unit vector on the sphere; only its x/z azimuth is read. Must be
  *   finite: a NaN passes through `fast_atan2` and both wrap branches.
