@@ -25,57 +25,7 @@
  * segue owns transition scheduling.
  */
 template <typename SegueT = Segue::Crossfade> class MeshCarousel {
-  static_assert(!Segue::HasFaceOffset<SegueT> || Segue::PerFace<SegueT>,
-                "a segue defining face_offset must define face_phase(phase, "
-                "offset, fade_frac)");
-  static_assert(!Segue::PerFace<SegueT> ||
-                    !Segue::SHADOWS_FRAGMENT_HOOKS<SegueT>,
-                "a per-face segue's draw path never calls fill/grade");
-  static_assert(
-      Segue::PolicyList<SegueT>::CONFORMING,
-      "a segue's schedule and phase hooks must keep Base's signatures");
-  static_assert(
-      Segue::PolicyList<SegueT>::MERGEABLE,
-      "a segue must be a non-final class: the Declares* probes below "
-      "merge a name carrier into it, and a final policy answers false "
-      "to every one of them, passing them vacuously");
-  static_assert(!Segue::DeclaresFaceOffset<SegueT> ||
-                    Segue::HasFaceOffset<SegueT>,
-                "a segue's face_offset() must be float face_offset(const "
-                "Vector&, int, int) const");
-  static_assert(!Segue::DeclaresFacePhase<SegueT> ||
-                    Segue::HasFacePhase<SegueT>,
-                "a segue's face_phase() must be float face_phase(float, float, "
-                "float) const");
-  static_assert(!Segue::DeclaresWarp<SegueT> || Segue::HasWarp<SegueT>,
-                "a segue's warp() must be Vector warp(const Vector&, float) "
-                "const");
-  static_assert(!Segue::DeclaresRetarget<SegueT> || Segue::HasRetarget<SegueT>,
-                "a segue's retarget() must be void retarget(const Vector&)");
-  static_assert(!Segue::DeclaresReorder<SegueT> || Segue::NeedsClasses<SegueT>,
-                "a segue's reorder() must be void reorder(const "
-                "ArenaVector<uint16_t>&)");
-  static_assert(!Segue::DeclaresMaskPair<SegueT> || Segue::Masked<SegueT>,
-                "a segue's mask_pair() must be MaskPair mask_pair(float, "
-                "uint32_t) const");
-  static_assert(Segue::PolicyList<SegueT>::LOCAL_SWEEPS_TYPED,
-                "a segue's LOCAL_SWEEP must be static constexpr bool: the "
-                "per-face draw path reads it through a bare requires, which "
-                "reads a non-constant one as absent");
-  static_assert(
-      Segue::PolicyList<SegueT>::UNIFORM_FACE_ENDPOINTS_TYPED,
-      "a segue's UNIFORM_FACE_ENDPOINTS must be static constexpr bool");
-  static_assert(Segue::PolicyList<SegueT>::SEQUENTIAL_PER_FACE,
-                "a per-face segue must schedule sequentially: schedule() and "
-                "retarget() rewrite the single policy instance's "
-                "per-transition state, which an overlapping predecessor's "
-                "sprite is still reading");
-  static_assert(Segue::PolicyList<SegueT>::RETARGET_SURVIVES_OVERLAP,
-                "an overlapping segue's retarget() rewrites the single policy "
-                "instance's per-transition state, which the outgoing sprite is "
-                "still reading: schedule sequentially, or set "
-                "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown "
-                "harmless");
+  static_assert(Segue::check_policy<SegueT>());
 
 public:
   /**

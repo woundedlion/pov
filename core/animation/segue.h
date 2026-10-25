@@ -960,37 +960,69 @@ template <typename... Ts> struct PolicyList {
   template <typename F> static void for_each(F &&fn) { (fn(Ts{}), ...); }
 };
 
+/** @brief Checks a segue policy's signatures and scheduling contracts.
+ * @tparam S Segue policy.
+ * @return True for a valid policy. */
+template <typename S> consteval bool check_policy() {
+  static_assert(!HasFaceOffset<S> || PerFace<S>,
+                "a segue defining face_offset must define face_phase(phase, "
+                "offset, fade_frac)");
+  static_assert(!PerFace<S> || !SHADOWS_FRAGMENT_HOOKS<S>,
+                "a per-face segue's draw path never calls fill/grade");
+  static_assert(
+      PolicyList<S>::CONFORMING,
+      "a segue's schedule and phase hooks must keep Base's signatures");
+  static_assert(
+      PolicyList<S>::MERGEABLE,
+      "a segue must be a non-final class: the Declares* probes below "
+      "merge a name carrier into it, and a final policy answers false "
+      "to every one of them, passing them vacuously");
+  static_assert(!DeclaresFaceOffset<S> || HasFaceOffset<S>,
+                "a segue's face_offset() must be float face_offset(const "
+                "Vector&, int, int) const");
+  static_assert(!DeclaresFacePhase<S> || HasFacePhase<S>,
+                "a segue's face_phase() must be float face_phase(float, float, "
+                "float) const");
+  static_assert(!DeclaresWarp<S> || HasWarp<S>,
+                "a segue's warp() must be Vector warp(const Vector&, float) "
+                "const");
+  static_assert(!DeclaresRetarget<S> || HasRetarget<S>,
+                "a segue's retarget() must be void retarget(const Vector&)");
+  static_assert(!DeclaresReorder<S> || NeedsClasses<S>,
+                "a segue's reorder() must be void reorder(const "
+                "ArenaVector<uint16_t>&)");
+  static_assert(!DeclaresMaskPair<S> || Masked<S>,
+                "a segue's mask_pair() must be MaskPair mask_pair(float, "
+                "uint32_t) const");
+  static_assert(PolicyList<S>::LOCAL_SWEEPS_TYPED,
+                "a segue's LOCAL_SWEEP must be static constexpr bool: the "
+                "per-face draw path reads it through a bare requires, which "
+                "reads a non-constant one as absent");
+  static_assert(
+      PolicyList<S>::UNIFORM_FACE_ENDPOINTS_TYPED,
+      "a segue's UNIFORM_FACE_ENDPOINTS must be static constexpr bool");
+  static_assert(PolicyList<S>::SEQUENTIAL_PER_FACE,
+                "a per-face segue must schedule sequentially: schedule() and "
+                "retarget() rewrite the single policy instance's "
+                "per-transition state, which an overlapping predecessor's "
+                "sprite is still reading");
+  static_assert(PolicyList<S>::RETARGET_SURVIVES_OVERLAP,
+                "an overlapping segue's retarget() rewrites the single policy "
+                "instance's per-transition state, which the outgoing sprite is "
+                "still reading: schedule sequentially, or set "
+                "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown "
+                "harmless");
+
+  return true;
+}
+
 /** @brief Every library policy, Base first. */
 using AllPolicies =
     PolicyList<Base, Crossfade, IrisBloom, Lace, TerminatorSweep, Shockwave,
                Breakdown, SpinFlip, GoldConvergence, Dissolve>;
 
-static_assert(AllPolicies::CONFORMING,
-              "a segue policy shadows schedule(), visible(), opacity() or "
-              "face_fade_frac(), fill() or grade() at a drifted signature");
-
-static_assert(AllPolicies::SEQUENTIAL_PER_FACE,
-              "a per-face segue must schedule sequentially: schedule() and "
-              "retarget() rewrite the single policy instance's per-transition "
-              "state, which an overlapping predecessor's sprite is still "
-              "reading");
-
-static_assert(AllPolicies::RETARGET_SURVIVES_OVERLAP,
-              "an overlapping segue's retarget() rewrites the single policy "
-              "instance's per-transition state, which the outgoing sprite is "
-              "still reading: schedule sequentially, or set "
-              "RETARGET_SAFE_UNDER_OVERLAP once the rewrite is shown harmless");
-
-static_assert(AllPolicies::LOCAL_SWEEPS_TYPED,
-              "a segue's LOCAL_SWEEP must be static constexpr bool: the "
-              "per-face draw path reads it as a constant expression");
-
-static_assert(AllPolicies::UNIFORM_FACE_ENDPOINTS_TYPED,
-              "a segue's UNIFORM_FACE_ENDPOINTS must be static constexpr bool");
-
-static_assert(AllPolicies::MERGEABLE,
-              "a segue must be a non-final class: the Declares* probes merge a "
-              "name carrier into it, and a final policy answers false to every "
-              "one of them, passing them vacuously");
+static_assert([]<typename... Policies>(PolicyList<Policies...>) {
+  return (check_policy<Policies>() && ...);
+}(AllPolicies{}));
 
 } // namespace Segue
