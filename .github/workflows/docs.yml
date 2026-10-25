@@ -58,7 +58,6 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
-          fetch-depth: 0
 
       - name: Validate tracked Markdown
         run: python tools/docs_check.py --checkout daydream=daydream

@@ -1022,7 +1022,6 @@ jobs:
           ref: ${{ steps.pins.outputs.daydream }}
           path: daydream
           persist-credentials: false
-          fetch-depth: 0
 
       # --sync would repair drift before the check; CI only validates.
       - name: Validate tracked Markdown
