@@ -274,8 +274,7 @@ inline constexpr float ATTRACTOR_MIN_DISTANCE_SQ = 0.0000001f;
  *         `s = min(|velocity|, motion_cap)`.
  * @details A step turns the particle and its velocity together along one
  * great circle, so the start is `position * cos(s) - velocity * sin(s) /
- * |velocity|`, evaluated by series in `s^2` that are exact in float for
- * `s <= 0.5`.
+ * |velocity|`, approximated by truncated series in `s^2`.
  */
 HS_HOT_INLINE inline math::Vector
 particle_step_start(const math::Vector &position, const math::Vector &velocity,

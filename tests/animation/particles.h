@@ -488,6 +488,11 @@ inline void test_point_particle_storage_and_lifetime() {
 /** @brief A point particle's last step turns back to where it started, with
  *         and without its angle capped. */
 inline void test_point_particle_step_start_recovers_previous_position() {
+  const auto boundary = Animation::particle_step_start(
+      math::Vector(1.0f, 0.0f, 0.0f), math::Vector(0.0f, 0.5f, 0.0f), 0.5f);
+  HS_EXPECT_NEAR(boundary.x, cosf(0.5f), 3e-7f);
+  HS_EXPECT_NEAR(boundary.y, -sinf(0.5f), 3e-7f);
+  HS_EXPECT_EQ(boundary.z, 0.0f);
   constexpr int COUNT = 64;
   static uint8_t storage[64 * 1024];
   Arena arena(storage, sizeof(storage));
