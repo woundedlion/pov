@@ -229,7 +229,8 @@ void tween(const Animation::QuantizedVectorTrail<CAP> &trail,
  * frame with that frame's sub-positions and global t values.
  * @param trail The OrientationTrail to iterate.
  * @param callback Invoked per contributing frame as `void(const Quaternion
- * *qs, const float *ts, int count)`. Concatenated over frames, (qs, ts) is
+ * *qs, const float *ts, int count)` or the same arguments prefixed by
+ * `(size_t record_index, size_t sub_index)`. Concatenated over frames, (qs, ts) is
  * exactly deep_tween's emission order. qs points into the frame's own
  * storage; ts into a buffer reused across callbacks — neither outlives the
  * call.
@@ -239,6 +240,13 @@ HS_HOT_FLASH_MEMBER void deep_tween_frames(const Tweenable auto &trail,
                                            FrameFn &&callback) {
   using FrameT = std::remove_cvref_t<decltype(trail.get(0))>;
   float ts[FrameT::CAPACITY];
+  auto emit = [&](size_t record, size_t sub, const math::Quaternion *qs,
+                  const float *times, int count) {
+    if constexpr (requires { callback(record, sub, qs, times, count); })
+      callback(record, sub, qs, times, count);
+    else
+      callback(qs, times, count);
+  };
 
   size_t trail_len = trail.length();
   if (trail_len == 0)
@@ -252,7 +260,7 @@ HS_HOT_FLASH_MEMBER void deep_tween_frames(const Tweenable auto &trail,
   // A motionless trail's lone sub-position reads t = 1 so a static head shows.
   if (last == 0 && trail.get(0).length() == 1) {
     ts[0] = 1.0f;
-    callback(&trail.get(0).get(0), ts, 1);
+    emit(0, 0, &trail.get(0).get(0), ts, 1);
     return;
   }
 
@@ -279,7 +287,7 @@ HS_HOT_FLASH_MEMBER void deep_tween_frames(const Tweenable auto &trail,
     }
     // Sub-positions are contiguous in the frame's storage, so one pointer
     // spans [start_j, frame_size).
-    callback(&frame.get(start_j), ts, count);
+    emit(i, start_j, &frame.get(start_j), ts, count);
     ++active_idx;
   }
 }
@@ -289,12 +297,18 @@ HS_HOT_FLASH_MEMBER void deep_tween_frames(const Tweenable auto &trail,
  * per-frame sub-positions. A bare Orientation has no per-frame structure to
  * flatten — use tween() for that.
  * @param trail The OrientationTrail to iterate.
- * @param callback The function to call for each step: `void(const math::Quaternion &, float t)`.
+ * @param callback Callable (const Quaternion&, float t), optionally prefixed
+ *        by (size_t record_index, size_t sub_index).
  */
-void deep_tween(const Tweenable auto &trail, TweenFn callback) {
-  deep_tween_frames(
-      trail, [&](const math::Quaternion *qs, const float *ts, int count) {
-        for (int i = 0; i < count; ++i)
-          callback(qs[i], ts[i]);
-      });
+void deep_tween(const Tweenable auto &trail, auto &&callback) {
+  deep_tween_frames(trail, [&](size_t record, size_t sub,
+                               const math::Quaternion *qs, const float *ts,
+                               int count) {
+    for (int i = 0; i < count; ++i) {
+      if constexpr (requires { callback(record, sub + i, qs[i], ts[i]); })
+        callback(record, sub + i, qs[i], ts[i]);
+      else
+        callback(qs[i], ts[i]);
+    }
+  });
 }

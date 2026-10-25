@@ -237,7 +237,6 @@ private:
     Scan::ColumnBasisScope column_scope(canvas, column_basis);
     // The newest record's sub-poses are reached over this frame.
     const auto &newest = node->trail.get(node->trail.length() - 1);
-    const uintptr_t newest_begin = reinterpret_cast<uintptr_t>(&newest.get(0));
     const int newest_last =
         !Spacetime::flat_surface() ? newest.length() - 1 : 0;
     // A disc that cannot reach the clip over the frame draws nothing.
@@ -246,7 +245,8 @@ private:
     const ClipRegion &clip = Scan::source_clip<W, H>(filters, canvas);
     const auto cap =
         Plot::make_swept_cap_clip<W, H>(clip, params.thickness, sweep);
-    deep_tween(node->trail, [&](const math::Quaternion &q, float t) {
+    deep_tween(node->trail, [&](size_t record, size_t sub,
+                                const math::Quaternion &q, float t) {
       math::Vector v_local = math::rotate(node->v, q);
       math::Vector v_final = orientation.orient(v_local);
       if (culls && !Plot::cap_may_touch_clip<H>(cap, v_final))
@@ -257,11 +257,8 @@ private:
       auto fragment_shader = [&](const math::Vector &, Fragment &f) {
         f.color = color;
       };
-      const uintptr_t at = reinterpret_cast<uintptr_t>(&q);
-      const uintptr_t index = (at - newest_begin) / sizeof(math::Quaternion);
-      column_basis.birth = newest_last > 0 && at >= newest_begin &&
-                                   index <= static_cast<uintptr_t>(newest_last)
-                               ? static_cast<float>(index) / newest_last
+      column_basis.birth = newest_last > 0 && record + 1 == node->trail.length()
+                               ? static_cast<float>(sub) / newest_last
                                : 0.0f;
 
       HS_PROFILE_DEEP(cm_point_scan);

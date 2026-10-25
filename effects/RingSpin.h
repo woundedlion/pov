@@ -106,7 +106,8 @@ public:
       ring.trail.record(ring.orientation);
       // One fused scan per trail frame (see RingGroup for the blend-order and
       // AA-tail contract).
-      deep_tween_frames(ring.trail, [&](const math::Quaternion *qs,
+      deep_tween_frames(ring.trail, [&](size_t record, size_t first,
+                                        const math::Quaternion *qs,
                                         const float *ts, int count) {
         constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
         static_assert(SUB_CAP <= Scan::RingGroup::MAX_RINGS);
@@ -135,7 +136,7 @@ public:
               SDF::Ring(math::make_basis(qs[j], math::Y_AXIS), 1.0f, th);
           colors[slots] = c;
           if (temporal)
-            previous[slots] = previous_axis(ring.trail, qs + j);
+            previous[slots] = previous_axis(ring.trail, record, first + j);
           ++slots;
         }
         if (slots == 0)
@@ -158,27 +159,22 @@ private:
   /**
    * @brief Ring axis a trail slot had at the previous frame endpoint.
    * @param trail Ring trail holding the slot.
-   * @param q The slot's sub-position, inside one of the trail's records.
+   * @param record Trail record index.
+   * @param sub Sub-position index within the record.
    * @return The axis at the same sub-position one record older, which held
    *         the slot's age a frame ago; the slot's own axis for the oldest
    *         record.
    */
   template <typename TrailT>
   HS_FLASH_MEMBER static math::Vector previous_axis(const TrailT &trail,
-                                                    const math::Quaternion *q) {
-    const uintptr_t at = reinterpret_cast<uintptr_t>(q);
-    for (size_t k = 1; k < trail.length(); ++k) {
-      const auto &record = trail.get(k);
-      const uintptr_t base = reinterpret_cast<uintptr_t>(&record.get(0));
-      const int last = record.length() - 1;
-      if (at < base || last <= 0 ||
-          at > base + static_cast<uintptr_t>(last) * sizeof(math::Quaternion))
-        continue;
-      const float fraction =
-          static_cast<float>((at - base) / sizeof(math::Quaternion)) / last;
-      return math::make_basis(trail.get(k - 1).get(fraction), math::Y_AXIS).v;
+                                                    size_t record, size_t sub) {
+    const auto &frame = trail.get(record);
+    if (record > 0 && frame.length() > 1) {
+      const float fraction = static_cast<float>(sub) / (frame.length() - 1);
+      return math::make_basis(trail.get(record - 1).get(fraction), math::Y_AXIS)
+          .v;
     }
-    return math::make_basis(*q, math::Y_AXIS).v;
+    return math::make_basis(frame.get(static_cast<int>(sub)), math::Y_AXIS).v;
   }
 
   static constexpr int TRAIL_LENGTH = 19; // trail samples per ring

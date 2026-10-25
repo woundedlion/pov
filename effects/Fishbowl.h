@@ -346,11 +346,7 @@ private:
     auto *history_indices = scratch_arena_a.allocate_n<uint16_t>(MAX_FRAGMENTS);
     const float fill_scale = palette_fill_scale(node->trail.length());
 
-    uint8_t records[TRAIL_LENGTH];
     size_t active = 0;
-    for (size_t i = 0; i < node->trail.length(); ++i)
-      if (i == 0 || node->trail.get(i).length() > 1)
-        records[active++] = static_cast<uint8_t>(i);
     const bool growing = node->trail.get(node->trail.length() - 1).length() > 1;
     {
       HS_PROFILE(fish_build_vertices);
@@ -358,14 +354,13 @@ private:
       math::Vector previous_pos;
       float previous_t = 0.0f;
       bool have_previous = false;
-      size_t group = 0;
-      deep_tween_frames(node->trail, [&](const math::Quaternion *qs,
+      deep_tween_frames(node->trail, [&](size_t record, size_t first,
+                                         const math::Quaternion *qs,
                                          const float *ts,
                                          int count) HS_HOT_INLINE {
-        const size_t record = records[group++];
+        ++active;
         const auto &frame = node->trail.get(record);
         const size_t slot = (history_head + record) % TRAIL_LENGTH;
-        const size_t first = qs - &frame.get(0);
         if (first > 0)
           warped_history[slot * 2 * ORIENTATION_SUBSTEPS] =
               math::Snorm3::encode(warped_position(frame.get(0)));
