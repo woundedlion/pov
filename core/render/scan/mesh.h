@@ -1745,6 +1745,8 @@ deform_mesh(Canvas &canvas, MeshState &mesh, bool active,
   }
   HS_CHECK(canvas.column_basis(),
            "mesh deformation needs the frame's column-time state installed");
+  HS_CHECK(canvas.column_basis()->azimuth,
+           "mesh deformation needs column azimuth state");
   ScratchScope guard(scratch);
   uint8_t *selected = scratch.allocate_n<uint8_t>(mesh.num_faces());
   Scan::ColumnBasis time = *canvas.column_basis();
