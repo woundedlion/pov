@@ -202,6 +202,8 @@ inline void append_catalog_json(std::string &out) {
     Detail::append_block_json(out, "prepared", op.runtime.prepared);
     out += ',';
     Detail::append_block_json(out, "state", op.runtime.state);
+    out += ',';
+    Detail::append_block_json(out, "interval", op.runtime.interval);
     out += "},\"params\":[";
     for (uint16_t field = 0; field < op.schema_count; ++field) {
       if (field > 0)

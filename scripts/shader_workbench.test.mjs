@@ -1159,3 +1159,13 @@ test('null preset entries report diagnostics in admission and edge-fade post-pas
     assert.ok(result.diagnostics.some((item) => item.code === 'EXPECTED_OBJECT' && item.path === `$.preset_bank.presets[${index}]`));
   }
 });
+
+
+test('chain arena reserves shared prepared and interval storage with maximum alignment', () => {
+  const ops = [{ blocks: { param: { size: 3, align: 1 },
+    prepared: { size: 8, align: 4 }, interval: { size: 40, align: 8 },
+    state: { size: 5, align: 4 } }, params: [] }];
+  assert.equal(chainArenaBytes(ops, {}), 53);
+  ops[0].blocks.interval = { size: 4, align: 1 };
+  assert.equal(chainArenaBytes(ops, {}), 17);
+});

@@ -405,7 +405,11 @@ export function chainArenaBytes(ops, budgets) {
   let cursor = 0;
   for (const op of ops) {
     for (const kind of ['param', 'prepared', 'state']) {
-      const block = op.blocks?.[kind] ?? { size: 0, align: 1 };
+      let block = op.blocks?.[kind] ?? { size: 0, align: 1 };
+      if (kind === 'prepared' && op.blocks?.interval) {
+        block = { size: Math.max(block.size, op.blocks.interval.size),
+          align: Math.max(block.align, op.blocks.interval.align) };
+      }
       const step = Math.max(1, block.align);
       cursor = Math.ceil(cursor / step) * step + block.size;
     }
