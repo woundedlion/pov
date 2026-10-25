@@ -193,6 +193,12 @@ HS_HOT_INLINE void simulate_in_slabs(Canvas &canvas, Advance &&advance,
 /** @brief Two-arm map between columns and frame time.
  * @tparam W Even canvas width. */
 template <int W> struct SamplingSurface {
+  /** @brief Whether a splat touches a two-arm ownership seam.
+   * @param x Projected column.
+   * @return True within one column of a half-turn boundary. */
+  HS_HOT_INLINE static bool near_arm_seam(float x) {
+    return fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f;
+  }
   static constexpr int TIMES = W / 2; ///< Distinct surface times.
   /** @brief Time index of a column.
    * @param x Wrapped canvas column.

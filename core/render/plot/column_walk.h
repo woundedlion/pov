@@ -1048,7 +1048,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           }
           const bool arm_boundary =
               radians == 0.0f &&
-              fabsf(p.x - (W / 2.0f) * floorf(p.x * (2.0f / W) + 0.5f)) <= 1.0f;
+              Spacetime::SamplingSurface<W>::near_arm_seam(p.x);
           if (plain && !arm_boundary) {
             pipeline.plot_projected_at(canvas, p, f.color.color, f.age,
                                        f.color.alpha, t);

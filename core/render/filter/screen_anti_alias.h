@@ -52,7 +52,7 @@ public:
                                             float age, float alpha, float time,
                                             PassFnT &&pass) {
     const bool boundary = !Spacetime::flat_surface() &&
-                          fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f;
+                          Spacetime::SamplingSurface<W>::near_arm_seam(x);
     if (boundary) {
       plot_boundary_static(x, y, c, age, alpha, time, pass);
       return;

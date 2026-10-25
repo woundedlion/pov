@@ -92,7 +92,7 @@ public:
                                         const ::Pixel &c, float age,
                                         float alpha, float t) {
     if (!Spacetime::flat_surface() &&
-        fabsf(math::centered_remainder(p.x, W / 2.0f)) <= 1.0f) {
+        Spacetime::SamplingSurface<W>::near_arm_seam(p.x)) {
       AntiAlias<W, H> aa;
       auto pass = [&](float x, float y, const ::Pixel &nc, float nage,
                       float nalpha) HS_HOT_INLINE {

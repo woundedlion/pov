@@ -1098,7 +1098,7 @@ struct Pipeline<W, H, Head, Tail...>
     if constexpr (std::is_same_v<Next, Pipeline<W, H>> &&
                   requires { requires Head::has_boundary_splat; }) {
       if (!Spacetime::flat_surface() &&
-          fabsf(math::centered_remainder(x, W / 2.0f)) <= 1.0f)
+          Spacetime::SamplingSurface<W>::near_arm_seam(x))
         Head::plot_boundary_at(x, y, c, age, alpha, t, pass);
       else
         plot_terminal_splat(cv, x, y, c, age, alpha);
