@@ -215,7 +215,7 @@ inline void test_lattice_volume_camera_demonstrators() {
   camera.center = {{0.3f, 0.2f, 0.0f, 0.0f}};
   camera.interval = {0.0f, 1.0f};
   SDF::WireLattice<3> cubic;
-  Raycast::DomainQuery3 query3{cubic, camera};
+  Raycast::DomainQuery3<decltype(cubic)> query3{cubic, camera};
   Raycast::TraceLimits limits;
   limits.max_queries = 256;
   limits.max_steps = 256;
@@ -231,7 +231,7 @@ inline void test_lattice_volume_camera_demonstrators() {
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.center[3] = 0.03f;
   SDF::WireLattice<4> hypercubic;
-  Raycast::DomainQuery4 query4{hypercubic, camera};
+  Raycast::DomainQuery4<decltype(hypercubic)> query4{hypercubic, camera};
   const auto HYPERCUBIC =
       Raycast::surface_search(query4, camera.ray(DIRECTION), {}, limits);
   HS_EXPECT_TRUE(HYPERCUBIC.has_surface);
@@ -278,7 +278,7 @@ template <typename Shape> struct VolumeRenderer {
         *frame.shape, Raycast::QueryCapabilities{true, false, true, 0}};
     Raycast::PlacedQuery placed{query, prepared.center,
                                 prepared.inverse_rotation, 1.0f};
-    Raycast::DomainQuery3 domain{placed, prepared.camera};
+    Raycast::DomainQuery3<decltype(placed)> domain{placed, prepared.camera};
     Raycast::TraceLimits limits;
     limits.max_queries = 256;
     limits.max_steps = 256;
@@ -386,7 +386,7 @@ inline void test_verified_filter_off_slice_geometry_and_projected_normal() {
   camera.domain = Raycast::SamplingDomain::SLICE_4D;
   camera.interval = {0.0f, 0.1f};
   OffSliceBall ball;
-  Raycast::DomainQuery4 query{ball, camera};
+  Raycast::DomainQuery4<decltype(ball)> query{ball, camera};
   constexpr std::array<math::Vector, 4> DIRECTIONS = {
       math::Vector{1.0f, 0.0f, 0.0f}, math::Vector{-1.0f, 0.0f, 0.0f},
       math::Vector{0.0f, 1.0f, 0.0f}, math::Vector{0.0f, -1.0f, 0.0f}};
