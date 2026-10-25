@@ -565,8 +565,8 @@ inline float fold_phi(float x) {
 /** @brief A colatitude band as inclusive [phi_min, phi_max] bounds in [0, π].
  */
 struct PhiBand {
-  /// Lower colatitude bound (radians).
-  float phi_min, phi_max; ///< Upper colatitude bound (radians).
+  float phi_min; ///< Lower colatitude bound (radians).
+  float phi_max; ///< Upper colatitude bound (radians).
 };
 
 /**
@@ -590,8 +590,8 @@ inline PhiBand fold_phi_band(float center_phi, float target_angle) {
  * @brief Vertical scanline bounds (inclusive min/max row index).
  */
 struct Bounds {
-  /// Inclusive first row covered.
-  int y_min, y_max; /**< Inclusive last row covered. */
+  int y_min; ///< First row of the inclusive vertical bounds.
+  int y_max; ///< Last row of the inclusive vertical bounds.
 };
 
 /** Bounds naming no row: y_min > y_max, so every row test rejects. */
@@ -719,16 +719,11 @@ using SweptProxy = decltype(std::declval<const T &>().swept(0.0f));
  * r_val and azimuth alpha_angle.
  */
 struct AxisProjection {
-  /// Axis x-component.
-  float nx, ny, nz, r_val, alpha_angle;
-  /// @var ny
-  /// Axis y-component.
-  /// @var nz
-  /// Axis z-component.
-  /// @var r_val
-  /// Length of the axis' XZ projection.
-  /// @var alpha_angle
-  /// Azimuth of the XZ projection, atan2f(z, x) (radians).
+  float nx;          ///< Axis or normal x-component.
+  float ny;          ///< Axis or normal y-component.
+  float nz;          ///< Axis z-component.
+  float r_val;       ///< Length of the axis' XZ projection.
+  float alpha_angle; ///< Azimuth of the XZ projection (radians).
 };
 
 /**
@@ -746,14 +741,13 @@ inline AxisProjection project_axis(const math::Vector &axis) {
  * spans.
  */
 struct CapBounds {
-  /// Axis y-component.
-  float ny, r_val, alpha_angle; /**< Azimuth of the axis' XZ projection. */
-  /// Lower colatitude bound (radians).
-  float phi_min, phi_max; /**< Upper colatitude bound (radians). */
-  /// Cosine of the cap radius.
-  float cos_radius, sin_radius; /**< Sine of the cap radius. */
-  /// @var r_val
-  /// Length of the axis' XZ projection.
+  float ny;          ///< Axis or normal y-component.
+  float r_val;       ///< Length of the axis' XZ projection.
+  float alpha_angle; ///< Azimuth of the XZ projection (radians).
+  float phi_min;     ///< Lower colatitude bound (radians).
+  float phi_max;     ///< Upper colatitude bound (radians).
+  float cos_radius;  ///< Cosine of the cap radius.
+  float sin_radius;  ///< Sine of the cap radius.
 };
 
 /**

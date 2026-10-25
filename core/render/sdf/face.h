@@ -60,21 +60,15 @@ struct FaceScratchBuffer {
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
    */
   struct EdgePacked {
-    /** @var vy
-     *  Edge origin y. */
-    /** @var ex
-     *  Edge vector x. */
-    /** @var ey
-     *  Edge vector y. */
-    /** @var inv_len_sq
-     *  Reciprocal squared edge length. */
-    /// Edge origin x.
-    float vx, vy, ex, ey, inv_len_sq,
-        inv_ej; /**< Reciprocal of the edge's y-component. */
-    /// angle_key of this vertex's y.
-    uint32_t key_vy,
-        key_next_vy; /**< angle_key of the next vertex's y; equals key_vy
-                        when the edge is degenerate in y. */
+    float vx;         ///< Edge origin x.
+    float vy;         ///< Edge origin y.
+    float ex;         ///< Edge vector x.
+    float ey;         ///< Edge vector y.
+    float inv_len_sq; ///< Reciprocal squared edge length.
+    float inv_ej;     ///< Reciprocal of the edge's y-component.
+    uint32_t key_vy;  ///< angle_key of this vertex's y.
+    uint32_t
+        key_next_vy; ///< angle_key of the next vertex's y; equals key_vy for a y-degenerate edge.
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 
@@ -82,12 +76,9 @@ struct FaceScratchBuffer {
    * @brief Outward unit edge normal and line offset for the convex fast path.
    */
   struct HalfPlane {
-    /** @var ny
-     *  Outward unit normal y. */
-    /** @var off
-     *  Line offset: signed distance is nx*px + ny*py + off. */
-    /// Outward unit normal x.
-    float nx, ny, off;
+    float nx;       ///< Axis or normal x-component.
+    float ny;       ///< Axis or normal y-component.
+    float off;      ///< Line offset: signed distance is nx*px + ny*py + off.
     uint16_t first; ///< First edge in the collinear run, wrapping at count.
     uint16_t last;  ///< Last edge in the collinear run, wrapping at count.
   };
@@ -157,13 +148,11 @@ struct FaceBoundsPose {
  */
 struct PreparedFace {
   static constexpr float AZIMUTH_ERROR =
-      2e-5f;           ///< Vertex azimuth error, radians.
-  math::Vector center; /**< Normalized face centroid (projection axis). */
-  /** @var basis_u
-   *  Gnomonic x axis, perpendicular to center. */
-  /// Frame axis equal to center.
-  math::Vector basis_v, basis_u,
-      basis_w;              /**< Gnomonic y axis, cross(center, basis_u). */
+      2e-5f;                ///< Vertex azimuth error, radians.
+  math::Vector center;      /**< Normalized face centroid (projection axis). */
+  math::Vector basis_v;     ///< Frame axis equal to center.
+  math::Vector basis_u;     ///< Gnomonic x axis, perpendicular to center.
+  math::Vector basis_w;     ///< Gnomonic y axis, cross(center, basis_u).
   int count;                /**< Vertex/edge count; 0 if culled. */
   float size = 0.0f;        /**< Inradius metric for AA normalization; radians
                                  unless linear_dist. */
@@ -177,8 +166,8 @@ struct PreparedFace {
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
 
-  /// First row of the inclusive vertical bounds.
-  int y_min, y_max; /**< Last row of the inclusive vertical bounds. */
+  int y_min;        ///< First row of the inclusive vertical bounds.
+  int y_max;        ///< Last row of the inclusive vertical bounds.
   int build_height; /**< Canvas height the bounds were computed for. */
   /// Latitude mapping the bounds were computed for.
   math::LatitudeGeometry build_geometry;
@@ -235,16 +224,14 @@ struct PreparedFace {
       nullptr;            /**< Class LUT samples; null = exact path. */
   int lut_n = 0;          /**< LUT grid resolution per axis. */
   int32_t lut_q_safe = 0; /**< safe_dist in quantized units. */
-  /** @var lut_bx
-   *  Grid-x coefficient on py. */
-  /// Grid-x coefficient on px.
-  float lut_ax, lut_bx, lut_cx; /**< Grid-x constant term. */
-  /** @var lut_by
-   *  Grid-y coefficient on py. */
-  /// Grid-y coefficient on px.
-  float lut_ay, lut_by, lut_cy; /**< Grid-y constant term. */
-  float lut_clamp;              /**< Grid clamp bound (n - 2). */
-  float lut_dequant;            /**< int16 -> plane-unit scale. */
+  float lut_ax;           ///< Grid-x coefficient on px.
+  float lut_bx;           ///< Grid-x coefficient on py.
+  float lut_cx;           ///< Grid-x constant term.
+  float lut_ay;           ///< Grid-y coefficient on px.
+  float lut_by;           ///< Grid-y coefficient on py.
+  float lut_cy;           ///< Grid-y constant term.
+  float lut_clamp;        /**< Grid clamp bound (n - 2). */
+  float lut_dequant;      /**< int16 -> plane-unit scale. */
 
   const FaceScratchBuffer *scratch_owner =
       nullptr; /**< Buffer the spans view; null when the face culled before

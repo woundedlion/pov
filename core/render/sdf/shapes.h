@@ -346,10 +346,9 @@ struct Star {
   static constexpr bool is_solid =
       true; /**< Star renders as a filled region. */
 
-  /** @var edge_ny
-   *  Edge plane normal y. */
-  /// Edge plane normal x.
-  float edge_nx, edge_ny, plane_d; /**< Edge plane offset. */
+  float edge_nx;      ///< Edge plane normal x-component.
+  float edge_ny;      ///< Edge plane normal y-component.
+  float plane_d;      ///< Edge plane offset.
   float circumradius; /**< Angular radius from center to point tip (radians). */
   CapBounds cap; /**< Circumscribed cap: axis projection, row band, radius. */
   float sign;    /**< +1 fills the star, -1 its complement. */
@@ -639,23 +638,20 @@ struct Flower {
  * circle through them, bounded and culled as such.
  */
 struct Line {
-  /// First arc endpoint (unit vector).
-  math::Vector a, b; /**< Second arc endpoint (unit vector). */
-  float thickness;   /**< Half-width of the stroke (radians). */
+  math::Vector a;  ///< First arc endpoint (unit vector).
+  math::Vector b;  ///< Second arc endpoint (unit vector).
+  float thickness; /**< Half-width of the stroke (radians). */
 
   math::Vector n; /**< Great-circle plane normal of the arc. */
   float len;      /**< Arc length (radians). */
-  /// Minimum polar angle of the vertical bounds (radians).
-  float phi_min,
-      phi_max; /**< Maximum polar angle of the vertical bounds (radians). */
+  float phi_min;  ///< Lower colatitude bound (radians).
+  float phi_max;  ///< Upper colatitude bound (radians).
 
   // Bounding-cap geometry, precomputed in the ctor.
-  math::Vector mid; /**< Arc midpoint axis (bounding-cap center). */
-  /** @var mid_r
-   *  Length of the midpoint axis' XZ projection. */
-  /// y-component of the midpoint axis.
-  float mid_ny = 0.0f, mid_r = 0.0f,
-        mid_alpha = 0.0f; /**< Azimuth of the midpoint axis' XZ projection. */
+  math::Vector mid;       /**< Arc midpoint axis (bounding-cap center). */
+  float mid_ny = 0.0f;    ///< Midpoint axis y-component.
+  float mid_r = 0.0f;     ///< Length of the midpoint axis' XZ projection.
+  float mid_alpha = 0.0f; ///< Azimuth of the midpoint axis' XZ projection.
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
   bool cap_horiz_valid =
       false; /**< False when the cap yields no horizontal cull: a ~vertical cap
