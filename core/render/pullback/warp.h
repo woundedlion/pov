@@ -1028,13 +1028,8 @@ template <typename State> struct MirrorTile : PrepareFromState<State> {
   __attribute__((always_inline)) static WarpStepResult
   apply(const math::Complex &input, const ProjectionProvenance &,
         const FrameState &frame, const Prepared &prepared) {
-    using Instrumentation = typename Binding::Instrumentation;
-    const auto start = Instrumentation::mark();
-    const WarpStepResult result =
-        mirror_tile(input, State::params(frame), prepared,
-                    State::path_length_required(frame));
-    Instrumentation::template span<ProfileEvent::MIRROR_TILE>(start);
-    return result;
+    return mirror_tile(input, State::params(frame), prepared,
+                       State::path_length_required(frame));
   }
 };
 
