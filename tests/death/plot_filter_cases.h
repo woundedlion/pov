@@ -1008,3 +1008,19 @@ inline void case_pipeline_ref_timed_erase_not_prepared() {
   PipelineRef invalid(unprepared, canvas, Spacetime::Timed{});
   (void)invalid;
 }
+
+/** @brief Solid rasterization rejects an installed column-time basis. */
+inline void case_scan_solid_with_column_time() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Pipeline<W, H> pipeline;
+  const auto basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 0, -1));
+  const SDF::PlanarPolygon shape(basis, 0.2f, 5, 0.0f);
+  const Color4 color(Pixel(1, 0, 0), 1.0f);
+  Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color);
+  Scan::ColumnBasis time;
+  Scan::ColumnBasisScope scope(canvas, time);
+  Scan::rasterize_solid<W, H>(pipeline, canvas, shape, color);
+}

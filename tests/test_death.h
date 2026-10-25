@@ -1261,8 +1261,12 @@ inline const Case *all_cases(int &n) {
            "canvas"},
           {"pipeline_ref_timed_erase_not_prepared",
            case_pipeline_ref_timed_erase_not_prepared, "core/engine/concepts.h",
-           "(t.prepared_for(cv)) direct raster pipeline not prepared for this "
+           "(t.prepared_for(cv)) timed direct raster pipeline not prepared for this "
            "canvas"},
+          {"scan_solid_with_column_time", case_scan_solid_with_column_time,
+           "core/render/scan/raster.h",
+           "(!canvas.column_basis()) rasterize_solid does not support a "
+           "column-time basis"},
           {"scan_mesh_visibility_dimensions",
            case_scan_mesh_visibility_dimensions, "core/render/scan/mesh.h",
            "((!pass.visible_faces && !pass.visible_vertices) || "

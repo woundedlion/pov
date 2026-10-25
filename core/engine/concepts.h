@@ -714,7 +714,7 @@ public:
   PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Spacetime::Timed)
       : PipelineRef(t, Erase<true>{}) {
     HS_CHECK(t.prepared_for(cv),
-             "direct raster pipeline not prepared for this canvas");
+             "timed direct raster pipeline not prepared for this canvas");
   }
 
   /** @brief Evaluates world stages without projection or history recording.
