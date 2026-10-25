@@ -160,8 +160,7 @@ struct Kaleidoscope : ApproximationDefaults {
 
 /** @brief Kaleidoscope folding using a polyhedral mirror set.
  *  @tparam MIRRORS Chamber mirror planes. */
-template <const auto &MIRRORS>
-struct PolyhedralKaleidoscope : ApproximationDefaults {
+template <const auto &MIRRORS> struct PolyhedralKaleidoscope : Kaleidoscope {
   /**
    * @brief Folds a sphere direction into the mirror chamber.
    * @tparam FrameState Frame state type; unused.
@@ -183,7 +182,7 @@ using OctahedralKaleidoscope =
     PolyhedralKaleidoscope<lenses::OCTAHEDRAL_MIRRORS>;
 
 /** @brief Kaleidoscope folding into the dodecahedral chamber. */
-struct DodecahedralKaleidoscope : ApproximationDefaults {
+struct DodecahedralKaleidoscope : Kaleidoscope {
   /**
    * @brief Applies the lens to a sphere direction.
    * @tparam FrameState Frame state type; unused.
