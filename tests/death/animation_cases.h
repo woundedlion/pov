@@ -739,3 +739,13 @@ inline void case_random_timer_max_int() {
       [](Canvas &) {});
   (void)timer;
 }
+
+/** @brief Plateau boundaries reject a full timeline. */
+inline void case_plateau_boundary_full_timeline() {
+  Timeline timeline;
+  Segue::PlateauHold hold;
+  hold.arm_plateau_end(timeline, 1);
+  while (Timeline::remaining() > 0)
+    (void)timeline.add(0, Animation::PeriodicTimer(1, [](Canvas &) {}));
+  hold.arm_plateau_end(timeline, 1);
+}

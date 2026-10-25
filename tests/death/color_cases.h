@@ -231,3 +231,170 @@ inline void case_gradient_stops_unsorted() {
                 {0.3f, CPixel(255u, 255u, 255u)}}; // descending -> HS_CHECK
   (void)grad;
 }
+
+/** @brief BreatheModifier rejects a null driver. */
+inline void case_composition_breathemodifier_null() {
+  float driver = 0.0f;
+  (void)BreatheModifier(&driver);
+  (void)BreatheModifier(opaque<const float *>(nullptr));
+}
+
+/** @brief RippleModifier rejects a null driver. */
+inline void case_composition_ripplemodifier_null() {
+  float driver = 0.0f;
+  (void)RippleModifier(&driver);
+  (void)RippleModifier(opaque<const float *>(nullptr));
+}
+
+/** @brief NoiseWarpModifier rejects a null driver. */
+inline void case_composition_noisewarpmodifier_null() {
+  float driver = 0.0f;
+  (void)NoiseWarpModifier(&driver);
+  (void)NoiseWarpModifier(opaque<const float *>(nullptr));
+}
+
+/** @brief DriftModifier rejects a null driver. */
+inline void case_composition_driftmodifier_null() {
+  float driver = 0.0f;
+  (void)DriftModifier(&driver);
+  (void)DriftModifier(opaque<const float *>(nullptr));
+}
+
+/** @brief ScaleModifier rejects a null driver. */
+inline void case_composition_scalemodifier_null() {
+  float driver = 0.0f;
+  (void)ScaleModifier(&driver);
+  (void)ScaleModifier(opaque<const float *>(nullptr));
+}
+
+/** @brief HueSpinShade rejects a null driver. */
+inline void case_composition_huespinshade_null() {
+  float driver = 0.0f;
+  (void)HueSpinShade(&driver);
+  (void)HueSpinShade(opaque<const float *>(nullptr));
+}
+
+/** @brief HueWobbleShade rejects a null driver. */
+inline void case_composition_huewobbleshade_null() {
+  float driver = 0.0f;
+  (void)HueWobbleShade(&driver);
+  (void)HueWobbleShade(opaque<const float *>(nullptr));
+}
+
+/** @brief SparkleShade rejects a null driver. */
+inline void case_composition_sparkleshade_null() {
+  float driver = 0.0f;
+  (void)SparkleShade(&driver);
+  (void)SparkleShade(opaque<const float *>(nullptr));
+}
+
+/** @brief ChromaPulseShade rejects a null driver. */
+inline void case_composition_chromapulseshade_null() {
+  float driver = 0.0f;
+  (void)ChromaPulseShade(&driver);
+  (void)ChromaPulseShade(opaque<const float *>(nullptr));
+}
+
+/** @brief LightnessGrainShade rejects a null driver. */
+inline void case_composition_lightnessgrainshade_null() {
+  float driver = 0.0f;
+  (void)LightnessGrainShade(&driver);
+  (void)LightnessGrainShade(opaque<const float *>(nullptr));
+}
+
+/** @brief IridescentShade rejects a null driver. */
+inline void case_composition_iridescentshade_null() {
+  float driver = 0.0f;
+  (void)IridescentShade(&driver);
+  (void)IridescentShade(opaque<const float *>(nullptr));
+}
+
+/** @brief InsetModifier rejects an invalid range. */
+inline void case_composition_inset_bounds() {
+  (void)InsetModifier(0.0f, 1.0f);
+  (void)InsetModifier(1.0f, 1.0f);
+}
+
+/** @brief SparkleShade rejects an invalid range. */
+inline void case_composition_sparkle_threshold() {
+  float driver = 0.0f;
+  (void)SparkleShade(&driver, 1.0f, 0.5f);
+  (void)SparkleShade(&driver, 1.0f, 1.0f);
+}
+
+/** @brief ChromaPulseShade rejects an invalid range. */
+inline void case_composition_chroma_depth() {
+  float driver = 0.0f;
+  (void)ChromaPulseShade(&driver, 1.0f);
+  (void)ChromaPulseShade(&driver, -1.0f);
+}
+
+/** @brief LightnessGrainShade rejects an invalid range. */
+inline void case_composition_grain_amplitude() {
+  float driver = 0.0f;
+  (void)LightnessGrainShade(&driver, 1.0f, 1.0f);
+  (void)LightnessGrainShade(&driver, 1.0f, 2.0f);
+}
+
+/** @brief EdgeFadeShade rejects an invalid range. */
+inline void case_composition_edge_fade() {
+  (void)EdgeFadeShade(0.5f);
+  (void)EdgeFadeShade(0.0f);
+}
+
+/** @brief EdgeAlphaShade rejects an invalid range. */
+inline void case_composition_edge_alpha() {
+  (void)EdgeAlphaShade(0.5f);
+  (void)EdgeAlphaShade(0.0f);
+}
+
+/** @brief StaticPalette rejects a missing source. */
+inline void case_composition_null_source() {
+  GenerativePalette source;
+  CycleModifier coord;
+  EdgeFadeShade color;
+  StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
+      palette;
+  palette.bind(&source, &coord, &color);
+  palette.bind(nullptr, &coord, &color);
+}
+
+/** @brief StaticPalette rejects a missing coord modifier. */
+inline void case_composition_null_coord() {
+  GenerativePalette source;
+  CycleModifier coord;
+  EdgeFadeShade color;
+  StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
+      palette;
+  palette.bind(&source, &coord, &color);
+  palette.bind(&source, nullptr, &color);
+}
+
+/** @brief StaticPalette rejects a missing color modifier. */
+inline void case_composition_null_color() {
+  GenerativePalette source;
+  CycleModifier coord;
+  EdgeFadeShade color;
+  StaticPalette<GenerativePalette, Coords<CycleModifier>, Colors<EdgeFadeShade>>
+      palette;
+  palette.bind(&source, &coord, &color);
+  palette.bind(&source, &coord, nullptr);
+}
+
+/** @brief PaletteFacade rejects a null composition. */
+inline void case_composition_facade_construct() {
+  using Composition =
+      StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;
+  Composition palette;
+  PaletteFacade<Composition> valid(&palette);
+  (void)PaletteFacade<Composition>(opaque<const Composition *>(nullptr));
+}
+
+/** @brief PaletteFacade rejects a null composition. */
+inline void case_composition_facade_bind() {
+  using Composition =
+      StaticPalette<GenerativePalette, Coords<>, Colors<>, false>;
+  Composition palette;
+  PaletteFacade<Composition> valid(&palette);
+  valid.bind(nullptr);
+}

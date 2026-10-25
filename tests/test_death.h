@@ -939,6 +939,80 @@ inline const Case *all_cases(int &n) {
            "(math::dot(current_v, current_v) >= math::EPS_LEN_SQ && math::dot(target_v, "
            "target_v) >= math::EPS_LEN_SQ) Motion: path sampled at the origin "
            "(empty or origin-crossing path)"},
+          {"composition_breathemodifier_null",
+           case_composition_breathemodifier_null, "core/color/composition.h",
+           "(phase) BreatheModifier: phase driver must not be null"},
+          {"composition_ripplemodifier_null",
+           case_composition_ripplemodifier_null, "core/color/composition.h",
+           "(phase) RippleModifier: phase driver must not be null"},
+          {"composition_noisewarpmodifier_null",
+           case_composition_noisewarpmodifier_null, "core/color/composition.h",
+           "(time) NoiseWarpModifier: time driver must not be null"},
+          {"composition_driftmodifier_null",
+           case_composition_driftmodifier_null, "core/color/composition.h",
+           "(time) DriftModifier: time driver must not be null"},
+          {"composition_scalemodifier_null",
+           case_composition_scalemodifier_null, "core/color/composition.h",
+           "(d_scale != nullptr) ScaleModifier: dynamic scale must not be null"},
+          {"composition_huespinshade_null", case_composition_huespinshade_null,
+           "core/color/composition.h",
+           "(amount) HueSpinShade: amount driver must not be null"},
+          {"composition_huewobbleshade_null",
+           case_composition_huewobbleshade_null, "core/color/composition.h",
+           "(phase) HueWobbleShade: phase driver must not be null"},
+          {"composition_sparkleshade_null", case_composition_sparkleshade_null,
+           "core/color/composition.h",
+           "(time) SparkleShade: time driver must not be null"},
+          {"composition_chromapulseshade_null",
+           case_composition_chromapulseshade_null, "core/color/composition.h",
+           "(phase) ChromaPulseShade: phase driver must not be null"},
+          {"composition_lightnessgrainshade_null",
+           case_composition_lightnessgrainshade_null,
+           "core/color/composition.h",
+           "(time) LightnessGrainShade: time driver must not be null"},
+          {"composition_iridescentshade_null",
+           case_composition_iridescentshade_null, "core/color/composition.h",
+           "(phase) IridescentShade: phase driver must not be null"},
+          {"composition_inset_bounds", case_composition_inset_bounds,
+           "core/color/composition.h",
+           "(hi > lo) InsetModifier: hi must be > lo"},
+          {"composition_sparkle_threshold", case_composition_sparkle_threshold,
+           "core/color/composition.h",
+           "(threshold >= 0.0f && threshold < 1.0f) SparkleShade: threshold must"
+           " be in [0, 1)"},
+          {"composition_chroma_depth", case_composition_chroma_depth,
+           "core/color/composition.h",
+           "(depth >= 0.0f && depth <= 1.0f) ChromaPulseShade: depth must be in "
+           "[0, 1]"},
+          {"composition_grain_amplitude", case_composition_grain_amplitude,
+           "core/color/composition.h",
+           "(amplitude >= 0.0f && amplitude <= 1.0f) LightnessGrainShade: "
+           "amplitude must be in [0, 1]"},
+          {"composition_edge_fade", case_composition_edge_fade,
+           "core/color/composition.h",
+           "(edge > 0.0f && edge <= 0.5f) EdgeFadeShade: edge must be in (0, "
+           "0.5]"},
+          {"composition_edge_alpha", case_composition_edge_alpha,
+           "core/color/composition.h",
+           "(edge > 0.0f && edge <= 0.5f) EdgeAlphaShade: edge must be in (0, "
+           "0.5]"},
+          {"composition_null_source", case_composition_null_source,
+           "core/color/composition.h",
+           "(src != nullptr) StaticPalette bound to null source"},
+          {"composition_null_coord", case_composition_null_coord,
+           "core/color/composition.h",
+           "(((cms != nullptr) && ...)) StaticPalette bound to null coord "
+           "modifier"},
+          {"composition_null_color", case_composition_null_color,
+           "core/color/composition.h",
+           "(((xms != nullptr) && ...)) StaticPalette bound to null color "
+           "modifier"},
+          {"composition_facade_construct", case_composition_facade_construct,
+           "core/color/composition.h",
+           "(sp != nullptr) PaletteFacade constructed with null composition"},
+          {"composition_facade_bind", case_composition_facade_bind,
+           "core/color/composition.h",
+           "(sp != nullptr) PaletteFacade bound to null composition"},
           {"hue_wobble_depth_out_of_range", case_hue_wobble_depth_out_of_range,
            "core/color/composition.h",
            "(fabsf(depth) * (2.0f * math::PI_F) < PALETTE_PHASE_ARG_LIMIT) "
@@ -1187,10 +1261,32 @@ inline const Case *all_cases(int &n) {
            "canvas"},
           {"scan_mesh_visibility_dimensions",
            case_scan_mesh_visibility_dimensions, "core/render/scan/mesh.h",
-           "mesh visibility dimensions disagree with the mesh"},
+           "((!pass.visible_faces && !pass.visible_vertices) || "
+           "(pass.visibility_face_count == faces && "
+           "pass.visibility_vertex_count == vertices)) mesh visibility "
+           "dimensions disagree with the mesh"},
           {"scan_mesh_selection_dimensions",
            case_scan_mesh_selection_dimensions, "core/render/scan/mesh.h",
-           "mesh deformation dimensions disagree with the mesh"},
+           "((!pass.selected_faces && !pass.face_copy && !pass.face_sweep) || "
+           "(pass.selection_face_count == faces && "
+           "pass.selection_vertex_count == vertices)) mesh deformation "
+           "dimensions disagree with the mesh"},
+          {"scan_deformation_without_azimuth",
+           case_scan_deformation_without_azimuth, "core/render/scan/mesh.h",
+           "(canvas.column_basis()->azimuth) mesh deformation needs column "
+           "azimuth state"},
+          {"worldline_frame_capacity", case_worldline_frame_capacity,
+           "core/render/spacetime/worldlines.h",
+           "(vertices <= slots) worldline frame exceeds bound capacity"},
+          {"point_route_without_prepare", case_point_route_without_prepare,
+           "core/render/plot/point_route.h",
+           "(prepared && clip_stamp == canvas.clip()) point route not prepared "
+           "for this clip"},
+          {"plateau_boundary_full_timeline",
+           case_plateau_boundary_full_timeline, "core/animation/segue.h",
+           "(timeline.add_get( delay, Animation::PeriodicTimer(0, [this](Canvas "
+           "&) { due = true; }), Timeline::Pin::UNPINNED) != nullptr) timeline "
+           "full while scheduling plateau boundary"},
           {"scan_mesh_face_index_out_of_range",
            case_scan_mesh_face_index_out_of_range, "core/render/scan/mesh.h",
            "(static_cast<size_t>(faces[k]) < num_verts) mesh face index exceeds "
@@ -2248,7 +2344,6 @@ inline constexpr GuardGapAllowance GUARD_GAP_ALLOW[] = {
     {"core/animation/transformer.h", 3},
     {"core/color/baked_palette.h", 9},
     {"core/color/color_space.h", 1},
-    {"core/color/composition.h", 22},
     {"core/color/generative_palette.h", 4},
     {"core/color/palette_cycler.h", 8},
     {"core/containers/static_circular_buffer.h", 2},

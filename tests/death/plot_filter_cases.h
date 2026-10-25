@@ -952,3 +952,45 @@ inline void case_scan_mesh_selection_dimensions() {
   Scan::check_mesh_pass(pass, 1, 3);
   Scan::check_mesh_pass(pass, 1, 4);
 }
+
+/** @brief Active deformation rejects an absent azimuth table. */
+inline void case_scan_deformation_without_azimuth() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  MeshState mesh;
+  const uint16_t columns[2] = {};
+  Scan::ColumnBasis basis;
+  Scan::ColumnBasisScope scope(canvas, basis);
+  const auto vertex = [](size_t, float) { return math::Vector(1, 0, 0); };
+  Scan::deform_mesh<W, H>(canvas, mesh, false, columns, nullptr, nullptr,
+                          scratch_arena_a, 0.1f, vertex, [] {});
+  Scan::deform_mesh<W, H>(canvas, mesh, true, columns, nullptr, nullptr,
+                          scratch_arena_a, 0.1f, vertex, [] {});
+}
+
+/** @brief Worldline frames reject counts exceeding bound storage. */
+inline void case_worldline_frame_capacity() {
+  uint8_t bytes[1024];
+  Arena arena(bytes, sizeof(bytes));
+  Spacetime::Worldlines<> lines;
+  lines.bind(arena, 1);
+  lines.begin_frame(1, false);
+  lines.begin_frame(opaque<size_t>(2), false);
+}
+
+/** @brief Point routing rejects a plot before preparation. */
+inline void case_point_route_without_prepare() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx(W, H);
+  Canvas canvas(fx);
+  Pipeline<W, H> pipe;
+  Plot::PointRoute<W, H> valid;
+  valid.prepare(canvas, 0.0f);
+  const math::Vector point(1, 0, 0);
+  const auto start = [&] { return point; };
+  const auto shade = [] { return Color4(Pixel(1, 0, 0), 1.0f); };
+  valid.plot(pipe, canvas, point, start, shade);
+  Plot::PointRoute<W, H> unprepared;
+  unprepared.plot(pipe, canvas, point, start, shade);
+}
