@@ -1468,7 +1468,7 @@ private:
   HS_COLD_MEMBER void parameter_written() override {
     if (preset_index == NOISE_PRESET && noise_hold == 0) {
       timeline.cancel_owner(&phase_events);
-      master_gain = 1.0f;
+      schedule_gain(1.0f, false);
     }
     noise_hold = NOISE_HOLD_FRAMES;
     ball_phase_left = BALL_PHASE_FRAMES;
