@@ -353,6 +353,172 @@ template <uint8_t SHELL_COUNT>
 using SpecializedRenderPipeline =
     Pullback::Pipeline<Binding,
                        Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
+/** @brief Resolution-independent parameter registration and ranges. */
+struct ParameterDescriptors {
+  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
+  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
+  static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
+  static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
+  static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
+  static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
+  static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.3f;
+  static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
+  static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
+
+  static constexpr const char *PATTERN_OPTIONS[] = {
+      "Cubic",
+      "Octet Truss",
+      "Shells",
+  };
+  static constexpr const char *PATTERN_EXPORT_OPTIONS[] = {
+      "Pattern::CUBIC_WIRE",
+      "Pattern::OCTET",
+      "Pattern::SHELLS",
+  };
+  static constexpr int64_t PATTERN_OPTION_VALUES[] = {
+      static_cast<int64_t>(Pattern::CUBIC_WIRE),
+      static_cast<int64_t>(Pattern::OCTET),
+      static_cast<int64_t>(Pattern::SHELLS),
+  };
+  static_assert(std::size(PATTERN_OPTIONS) ==
+                std::size(PATTERN_EXPORT_OPTIONS));
+  static_assert(std::size(PATTERN_OPTIONS) == std::size(PATTERN_OPTION_VALUES));
+  static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
+  static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
+      "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
+  static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
+  static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
+      "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
+  static_assert(std::size(VIEW_OPTIONS) ==
+                    static_cast<size_t>(LatticeMode::FOUR_D_SLICE) + 1 &&
+                std::size(VIEW_EXPORT_OPTIONS) == std::size(VIEW_OPTIONS));
+  static_assert(std::size(SHELL_OPTIONS) == SDF::Lattice::MAX_SHELLS &&
+                std::size(SHELL_OPTIONS) ==
+                    static_cast<size_t>(ShellCount::THREE) + 1 &&
+                std::size(SHELL_EXPORT_OPTIONS) == std::size(SHELL_OPTIONS));
+
+  /// Lower bound of `HyperLatticeDetail::Params::shell_radius`.
+  static constexpr float SHELL_RADIUS_MIN = .10f;
+  /// Upper bound of `HyperLatticeDetail::Params::shell_radius`.
+  static constexpr float SHELL_RADIUS_MAX = .32f;
+
+  /** @brief Shared registration, validation and interpolation descriptions.
+   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
+  static constexpr auto parameter_fields() {
+    return std::tuple{
+        Control::Field<Params, Pattern>{
+            .id = "pattern",
+            .member = &Params::pattern,
+            .name = "Pattern",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(Pattern::SHELLS),
+                     .animated = true,
+                     .options = PATTERN_OPTIONS,
+                     .export_options = PATTERN_EXPORT_OPTIONS,
+                     .option_count = std::size(PATTERN_OPTIONS),
+                     .option_values = PATTERN_OPTION_VALUES}},
+        Control::Field<Params, LatticeMode>{
+            .id = "mode",
+            .member = &Params::mode,
+            .name = "View",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(std::size(VIEW_OPTIONS)) - 1,
+                     .animated = true,
+                     .options = VIEW_OPTIONS,
+                     .export_options = VIEW_EXPORT_OPTIONS,
+                     .option_count = std::size(VIEW_OPTIONS)}},
+        Control::Field<Params, float>{.id = "sphere_radius",
+                                      .member = &Params::sphere_radius,
+                                      .name = "Sphere Radius",
+                                      .spec = {.min = SPHERE_RADIUS_MIN,
+                                               .max = SPHERE_RADIUS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "cell_size",
+                                      .member = &Params::cell_size,
+                                      .name = "Cell Size",
+                                      .spec = {.min = CELL_SIZE_MIN,
+                                               .max = CELL_SIZE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "wire_radius",
+                                      .member = &Params::wire_radius,
+                                      .name = "Wire Radius",
+                                      .spec = {.min = WIRE_RADIUS_MIN,
+                                               .max = WIRE_RADIUS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "softness",
+                                      .member = &Params::softness,
+                                      .name = "Softness",
+                                      .spec = {.min = SOFTNESS_MIN,
+                                               .max = SOFTNESS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "near_fade",
+                                      .member = &Params::near_fade,
+                                      .name = "Near Fade",
+                                      .spec = {.min = NEAR_FADE_MIN,
+                                               .max = NEAR_FADE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "far_distance",
+                                      .member = &Params::far_distance,
+                                      .name = "Far Distance",
+                                      .spec = {.min = FAR_DISTANCE_MIN,
+                                               .max = FAR_DISTANCE_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{.id = "aa_strength",
+                                      .member = &Params::aa_strength,
+                                      .name = "AA Strength",
+                                      .spec = {.min = AA_STRENGTH_MIN,
+                                               .max = AA_STRENGTH_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "speed",
+            .member = &Params::speed,
+            .name = "Speed",
+            .spec = {.min = SPEED_MIN, .max = SPEED_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "spin_3d",
+            .member = &Params::spin_3d,
+            .name = "3D Spin",
+            .spec = {.min = SPIN_3D_MIN, .max = SPIN_3D_MAX, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "spin_4d",
+            .member = &Params::spin_4d,
+            .name = "4D Spin",
+            .spec = {.min = SPIN_4D_MIN, .max = SPIN_4D_MAX, .animated = true}},
+        Control::Field<Params, ShellCount>{
+            .id = "shells",
+            .member = &Params::shells,
+            .name = "Lattice Planes",
+            .spec = {.min = 0,
+                     .max = static_cast<int64_t>(std::size(SHELL_OPTIONS)) - 1,
+                     .animated = true,
+                     .options = SHELL_OPTIONS,
+                     .export_options = SHELL_EXPORT_OPTIONS,
+                     .option_count = std::size(SHELL_OPTIONS)}},
+        Control::Field<Params, float>{.id = "shell_radius",
+                                      .member = &Params::shell_radius,
+                                      .name = "Shell Radius",
+                                      .spec = {.min = SHELL_RADIUS_MIN,
+                                               .max = SHELL_RADIUS_MAX,
+                                               .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescence",
+            .member = &Params::iridescence,
+            .name = "Iridescence",
+            .spec = {.min = 0.0f, .max = 1.0f, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescent_frequency",
+            .member = &Params::iridescent_frequency,
+            .name = "Iridescent Frequency",
+            .spec = {.min = 0.0f, .max = 12.0f, .animated = true}},
+        Control::Field<Params, float>{
+            .id = "iridescent_speed",
+            .member = &Params::iridescent_speed,
+            .name = "Iridescent Speed",
+            .spec = {.min = -.2f, .max = .2f, .animated = true}}};
+  }
+};
+
 } // namespace HyperLatticeDetail
 
 /**
@@ -362,7 +528,8 @@ using SpecializedRenderPipeline =
  */
 template <int W, int H>
 class HyperLattice : public ChoreographedEffect<HyperLattice<W, H>,
-                                                HyperLatticeDetail::Params> {
+                                                HyperLatticeDetail::Params>,
+                     public HyperLatticeDetail::ParameterDescriptors {
   using Choreography =
       ChoreographedEffect<HyperLattice<W, H>, HyperLatticeDetail::Params>;
   friend Choreography;
@@ -376,6 +543,7 @@ public:
 
   /// Live parameters.
   using Params = HyperLatticeDetail::Params;
+  using HyperLatticeDetail::ParameterDescriptors::parameter_fields;
   /// 3D or 4D-slice view.
   using LatticeMode = HyperLatticeDetail::LatticeMode;
   /// Cubic crossing planes per axis.
@@ -608,126 +776,6 @@ public:
    */
   static constexpr bool supported_combination(const Params &value) {
     return configuration_id(value) != ConfigurationId::INVALID;
-  }
-
-  /// Lower bound of `HyperLatticeDetail::Params::shell_radius`.
-  static constexpr float SHELL_RADIUS_MIN = .10f;
-  /// Upper bound of `HyperLatticeDetail::Params::shell_radius`.
-  static constexpr float SHELL_RADIUS_MAX = .32f;
-
-  /** @brief Shared registration, validation and interpolation descriptions.
-   *  @return Tuple of `Control::Field` descriptors, one per parameter. */
-  static constexpr auto parameter_fields() {
-    return std::tuple{
-        Control::Field<Params, Pattern>{
-            .id = "pattern",
-            .member = &Params::pattern,
-            .name = "Pattern",
-            .spec = {.min = 0,
-                     .max = static_cast<int64_t>(Pattern::SHELLS),
-                     .animated = true,
-                     .options = PATTERN_OPTIONS,
-                     .export_options = PATTERN_EXPORT_OPTIONS,
-                     .option_count = std::size(PATTERN_OPTIONS),
-                     .option_values = PATTERN_OPTION_VALUES}},
-        Control::Field<Params, LatticeMode>{
-            .id = "mode",
-            .member = &Params::mode,
-            .name = "View",
-            .spec = {.min = 0,
-                     .max = static_cast<int64_t>(std::size(VIEW_OPTIONS)) - 1,
-                     .animated = true,
-                     .options = VIEW_OPTIONS,
-                     .export_options = VIEW_EXPORT_OPTIONS,
-                     .option_count = std::size(VIEW_OPTIONS)}},
-        Control::Field<Params, float>{.id = "sphere_radius",
-                                      .member = &Params::sphere_radius,
-                                      .name = "Sphere Radius",
-                                      .spec = {.min = SPHERE_RADIUS_MIN,
-                                               .max = SPHERE_RADIUS_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "cell_size",
-                                      .member = &Params::cell_size,
-                                      .name = "Cell Size",
-                                      .spec = {.min = CELL_SIZE_MIN,
-                                               .max = CELL_SIZE_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "wire_radius",
-                                      .member = &Params::wire_radius,
-                                      .name = "Wire Radius",
-                                      .spec = {.min = WIRE_RADIUS_MIN,
-                                               .max = WIRE_RADIUS_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "softness",
-                                      .member = &Params::softness,
-                                      .name = "Softness",
-                                      .spec = {.min = SOFTNESS_MIN,
-                                               .max = SOFTNESS_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "near_fade",
-                                      .member = &Params::near_fade,
-                                      .name = "Near Fade",
-                                      .spec = {.min = NEAR_FADE_MIN,
-                                               .max = NEAR_FADE_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "far_distance",
-                                      .member = &Params::far_distance,
-                                      .name = "Far Distance",
-                                      .spec = {.min = FAR_DISTANCE_MIN,
-                                               .max = FAR_DISTANCE_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{.id = "aa_strength",
-                                      .member = &Params::aa_strength,
-                                      .name = "AA Strength",
-                                      .spec = {.min = AA_STRENGTH_MIN,
-                                               .max = AA_STRENGTH_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{
-            .id = "speed",
-            .member = &Params::speed,
-            .name = "Speed",
-            .spec = {.min = SPEED_MIN, .max = SPEED_MAX, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "spin_3d",
-            .member = &Params::spin_3d,
-            .name = "3D Spin",
-            .spec = {.min = SPIN_3D_MIN, .max = SPIN_3D_MAX, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "spin_4d",
-            .member = &Params::spin_4d,
-            .name = "4D Spin",
-            .spec = {.min = SPIN_4D_MIN, .max = SPIN_4D_MAX, .animated = true}},
-        Control::Field<Params, ShellCount>{
-            .id = "shells",
-            .member = &Params::shells,
-            .name = "Lattice Planes",
-            .spec = {.min = 0,
-                     .max = static_cast<int64_t>(std::size(SHELL_OPTIONS)) - 1,
-                     .animated = true,
-                     .options = SHELL_OPTIONS,
-                     .export_options = SHELL_EXPORT_OPTIONS,
-                     .option_count = std::size(SHELL_OPTIONS)}},
-        Control::Field<Params, float>{.id = "shell_radius",
-                                      .member = &Params::shell_radius,
-                                      .name = "Shell Radius",
-                                      .spec = {.min = SHELL_RADIUS_MIN,
-                                               .max = SHELL_RADIUS_MAX,
-                                               .animated = true}},
-        Control::Field<Params, float>{
-            .id = "iridescence",
-            .member = &Params::iridescence,
-            .name = "Iridescence",
-            .spec = {.min = 0.0f, .max = 1.0f, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "iridescent_frequency",
-            .member = &Params::iridescent_frequency,
-            .name = "Iridescent Frequency",
-            .spec = {.min = 0.0f, .max = 12.0f, .animated = true}},
-        Control::Field<Params, float>{
-            .id = "iridescent_speed",
-            .member = &Params::iridescent_speed,
-            .name = "Iridescent Speed",
-            .spec = {.min = -.2f, .max = .2f, .animated = true}}};
   }
 
   /**
@@ -1208,50 +1256,7 @@ private:
         HUE_OFFSETS[sequence % HUE_OFFSETS.size()])};
   }
 
-  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
-  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
-  static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
-  static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
-  static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
-  static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
-  static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.3f;
-  static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
-  static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
-
   static constexpr int PALETTE_FADE_FRAMES = 960;
-
-  static constexpr const char *PATTERN_OPTIONS[] = {
-      "Cubic",
-      "Octet Truss",
-      "Shells",
-  };
-  static constexpr const char *PATTERN_EXPORT_OPTIONS[] = {
-      "Pattern::CUBIC_WIRE",
-      "Pattern::OCTET",
-      "Pattern::SHELLS",
-  };
-  static constexpr int64_t PATTERN_OPTION_VALUES[] = {
-      static_cast<int64_t>(Pattern::CUBIC_WIRE),
-      static_cast<int64_t>(Pattern::OCTET),
-      static_cast<int64_t>(Pattern::SHELLS),
-  };
-  static_assert(std::size(PATTERN_OPTIONS) ==
-                std::size(PATTERN_EXPORT_OPTIONS));
-  static_assert(std::size(PATTERN_OPTIONS) == std::size(PATTERN_OPTION_VALUES));
-  static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
-  static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
-      "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
-  static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
-  static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
-      "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
-  static_assert(std::size(VIEW_OPTIONS) ==
-                    static_cast<size_t>(LatticeMode::FOUR_D_SLICE) + 1 &&
-                std::size(VIEW_EXPORT_OPTIONS) == std::size(VIEW_OPTIONS));
-  static_assert(std::size(SHELL_OPTIONS) == SDF::Lattice::MAX_SHELLS &&
-                std::size(SHELL_OPTIONS) ==
-                    static_cast<size_t>(ShellCount::THREE) + 1 &&
-                std::size(SHELL_EXPORT_OPTIONS) == std::size(SHELL_OPTIONS));
 
   ConfigurationId selected_configuration = ConfigurationId::CUBIC_3D;
   float preset_gain = 1.0f;
@@ -1331,8 +1336,9 @@ public:
 inline void HyperLatticeDetail::Params::lerp(const Params &start,
                                              const Params &target,
                                              float amount) {
-  Control::interpolate_fields(*this, start, target, amount,
-                              HyperLattice<1, 1>::parameter_fields());
+  Control::interpolate_fields(
+      *this, start, target, amount,
+      HyperLatticeDetail::ParameterDescriptors::parameter_fields());
 }
 
 static_assert(
