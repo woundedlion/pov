@@ -9,7 +9,6 @@
  * @brief Deterministic PRNG (Pcg32), hs::rand_* helpers and epoch/effect seeds.
  */
 
-#include "core/platform/effect_identity.h"
 #include <algorithm>
 #include <cstdint>
 #include <string_view>
@@ -121,22 +120,6 @@ inline void seed_effect_stream(uint64_t seed) { random().seed(seed); }
  */
 inline void seed_effect_stream(std::string_view effect_id) {
   seed_effect_stream(stable_effect_seed(effect_id));
-}
-
-/**
- * @brief Resets an effect's RNG without changing its historical seed key.
- * @param identity Canonical effect and compatibility identity.
- */
-inline void seed_effect_stream(const EffectIdentity &identity) {
-  seed_effect_stream(identity.rng_seed_key);
-}
-
-/**
- * @brief Resets the RNG stream for a registered effect type.
- * @tparam EffectType Concrete effect with a declared effect identity.
- */
-template <typename EffectType> inline void seed_effect_stream() {
-  seed_effect_stream(effect_seed_key<EffectType>(EffectType::EFFECT_ID));
 }
 
 /**

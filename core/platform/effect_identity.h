@@ -9,6 +9,7 @@
  * @brief Canonical effect identities, compatibility aliases and RNG keys.
  */
 
+#include "core/platform/rng.h"
 #include <array>
 #include <string_view>
 
@@ -177,4 +178,20 @@ namespace effect_identities {
 HS_EFFECT_IDENTITY_LIST(HS_DECLARE_EFFECT_IDENTITY)
 #undef HS_DECLARE_EFFECT_IDENTITY
 } // namespace effect_identities
+/**
+ * @brief Resets an effect's RNG without changing its historical seed key.
+ * @param identity Canonical effect and compatibility identity.
+ */
+inline void seed_effect_stream(const EffectIdentity &identity) {
+  seed_effect_stream(identity.rng_seed_key);
+}
+
+/**
+ * @brief Resets the RNG stream for a registered effect type.
+ * @tparam EffectType Concrete effect with a declared effect identity.
+ */
+template <typename EffectType> inline void seed_effect_stream() {
+  seed_effect_stream(effect_seed_key<EffectType>(EffectType::EFFECT_ID));
+}
+
 } // namespace hs
