@@ -146,7 +146,7 @@ private:
         __attribute__((flatten)) { return transformer.transform(point); };
     for (int i = 0; i < points; i++) {
       math::Vector v = warp(spiral_cache[i]);
-      const math::Vector drawn = drawn_centres[i];
+      const math::Vector drawn = drifting ? drawn_centres[i] : v;
       drawn_centres[i] = v;
 
       // make_basis() applies the orientation; pass the unrotated point.
