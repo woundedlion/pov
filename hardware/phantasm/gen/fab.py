@@ -1,12 +1,12 @@
 """Regenerate rev 1.1 fabrication / assembly outputs from the COMMITTED board.
 
 Produces, into ../gen/out/:
-  * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
-  * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
-  * phantasm-erc.json — gating schematic ERC report
-  * phantasm-drc.json — gating error-severity DRC report
-  * phantasm-parity.json — gating board/schematic parity report
-  * jlc/SHA256SUMS.txt — digest of every zipped artifact, the assembly
+  * jlc/        â€” Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
+  * jlc/phantasm-BOM.csv / phantasm-CPL.csv â€” JLCPCB assembly BOM + centroid
+  * phantasm-erc.json â€” gating schematic ERC report
+  * phantasm-drc.json â€” gating error-severity DRC report
+  * phantasm-parity.json â€” gating board/schematic parity report
+  * jlc/SHA256SUMS.txt â€” digest of every zipped artifact, the assembly
     CSVs, and the zip
 
 --verify re-hashes an already-generated package against that manifest and
@@ -271,7 +271,7 @@ def read_manifest(path):
     return entries
 
 
-def verify_package(directory=JLC, baseline=SHIPPED_SUMS):
+def verify_package(directory, baseline):
     """Re-hash a generated package; return the number of digests checked.
 
     The manifest records what a run produced and `baseline` what was ordered;
@@ -680,7 +680,7 @@ class ProjectRulesError(ValueError):
     pass
 
 
-def validate_project_rules(project_path=PRO):
+def validate_project_rules(project_path):
     """Require the project's DRC floors to meet the fabrication minimums.
 
     kicad-cli reads its constraints from the .kicad_pro, and KiCad re-zeroes
@@ -1331,7 +1331,7 @@ def parse_args(argv=None):
 def verify_main():
     """--verify: hold an already-generated package to the recorded digests."""
     try:
-        checked = verify_package()
+        checked = verify_package(JLC, SHIPPED_SUMS)
     except PackageVerificationError as exc:
         sys.exit(str(exc))
     print(f"fab package verified: {checked} digests match {SHIPPED_SUMS}")
