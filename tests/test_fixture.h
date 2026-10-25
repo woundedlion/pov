@@ -86,7 +86,7 @@ inline bool require_ci_smoke_frames() {
   if (!runs_in_ci() || (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
     return true;
   std::fprintf(stderr,
-               "CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+               "CI=on but HS_SMOKE_FRAMES is unset or below %d â€” "
                "a shallower window skips frame-cyclic paths and arms no "
                "preset transition. Set HS_SMOKE_FRAMES in the workflow "
                "step's env.\n",
@@ -166,6 +166,9 @@ inline void reset_globals() {
   Timeline().clear();
   hs::random().seed(1337u);
   hs::clear_mock_time();
+#if defined(__EMSCRIPTEN__) || HS_ENABLE_TEST_HOOKS
+  Spacetime::set_flat_surface(false);
+#endif
   Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT;
   HS_SCAN_METRIC(hs::g_scan_metrics.reset());
 }
@@ -285,7 +288,7 @@ inline std::string read_text_file(const std::string &path) {
 
 /**
  * @brief Restores HD107SFrame<S>'s shared static correction state to unity
- *        (255 = exact ×1.0).
+ *        (255 = exact Ã—1.0).
  * @tparam S Pixel count of the frame instantiation to reset; the correction
  *           state is a static of HD107SFrame<S>, so each S carries its own.
  * @details Resets the per-channel correction, temperature, and brightness to an
