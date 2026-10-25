@@ -54,8 +54,8 @@ jobs:
       - name: Install the LUT generator formatter
         run: pip install --require-hashes -r requirements/clang-format.txt
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tests-${{ github.run_id }}
@@ -113,6 +113,13 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tests-${{ github.run_id }}
+
   sanitizers:
     name: Native unit tests (Clang, ASan + UBSan)
     runs-on: ubuntu-24.04
@@ -136,8 +143,8 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-sanitizers-${{ github.run_id }}
@@ -184,6 +191,13 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -R "^unit_effects_smoke$"
 
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-sanitizers-${{ github.run_id }}
+
   thread-sanitizer:
     name: Native unit tests (Clang, TSan) / concurrency modules
     runs-on: ubuntu-24.04
@@ -206,8 +220,8 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tsan-${{ github.run_id }}
@@ -240,6 +254,13 @@ jobs:
         run: |
           ctest --preset tests --output-on-failure --no-tests=error -R "^unit_canvas$"
           ctest --preset tests --output-on-failure --no-tests=error -R "^unit_pov_segmented$"
+
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tsan-${{ github.run_id }}
 
   optimized-tests:
     name: Native unit tests (Clang, optimized) / ${{ matrix.flavor }}
@@ -285,8 +306,8 @@ jobs:
         run: |
           sudo apt-get install -y clang-22 ninja-build ccache
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
@@ -324,6 +345,13 @@ jobs:
           -R "${{ matrix.test_include }}"
           -E "${{ matrix.test_exclude }}"
 
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-optimized-${{ matrix.flavor }}-${{ github.run_id }}
+
   code-coverage:
     name: Native unit tests (Clang) / coverage
     # HS_COVERAGE instruments run_tests only; coverage uses the QUICK tier.
@@ -348,8 +376,8 @@ jobs:
           # LLVM profile tools and compiler must share a major version.
           sudo apt-get install -y clang-22 llvm-22 ninja-build ccache
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-coverage-${{ github.run_id }}
@@ -429,6 +457,13 @@ jobs:
             cov/html
           if-no-files-found: error
           retention-days: 30
+
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-coverage-${{ github.run_id }}
 
   windows-tests:
     name: Native unit tests (Windows / Clang)
@@ -525,8 +560,8 @@ jobs:
           version: ${{ steps.pins.outputs.emsdk }}
           actions-cache-folder: build/emsdk-cache-${{ steps.pins.outputs.emsdk }}
 
-      - name: Cache ccache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore ccache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-wasm-${{ github.run_id }}
@@ -718,6 +753,13 @@ jobs:
           path: ${{ runner.temp }}/holosphere-engine
           if-no-files-found: error
           retention-days: 90
+
+      - name: Save ccache on master
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-wasm-${{ github.run_id }}
 
   lut-provenance:
     name: Generated LUTs match committed header
