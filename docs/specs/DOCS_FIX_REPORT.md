@@ -17,6 +17,11 @@ Validation passed: executable-source/token identity across 50 changed Holosphere
 
 The local simulator was rebuilt and installed from the clean isolated Holosphere checkout. Its source pin is exactly `b26a7e3a8dbb2085655ced20ddf106518d1b5983`, and both artifact checksums pass. Focused runtime probes confirmed retired-alias rejection, schema-2 snapshot restoration, and identical complete ShaderChain snapshots before and after a display-cap rebuild.
 
+Historical paths and spec names in the evidence below refer to the source snapshots
+linked in this report, rather than the current tree. Current browser contracts are
+consolidated in [browser_contract_spec.md](browser_contract_spec.md); use the
+[specification index](README.md) for current design documents.
+
 ## Results and evidence baseline
 
 **97 additional fix groups: 13 documentation/comment accuracy groups (D001–D013), and 84 comment-style groups (C001–C084).** Groups collect related locations; they are not a count of individual defective sentences. All are P4 documentation/style work. Accuracy corrections should precede style cleanup.

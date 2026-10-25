@@ -1199,7 +1199,7 @@ just docs-check   # validate tracked Markdown (the ci.yml docs-markdown job)
 just docs         # docs-check, then build the Doxygen reference into build/docs/html/
 ```
 
-The design specs (Phantasm hardware, effect identity, pullback temporal sampling and browser contract) are indexed in
+The design specs are indexed in
 [`docs/specs/README.md`](https://github.com/woundedlion/pov/blob/master/docs/specs/README.md);
 they are outside the API reference.
 
@@ -1616,7 +1616,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── fw_cache.sh           Built-image cache shared by worktrees, keyed by tree, environment, flags and toolchain
 │   ├── teensy_flash.sh       Uploads firmware to the USB location of the locked board
 │   └── upload_one.sh         Builds and flashes one image under the per-board lock
-├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (Phantasm hardware, effect identity, pullback temporal sampling and browser contract in docs/specs/), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
+├── docs/                       subsystems.md (engine subsystem reference) and effects.md (per-effect reference) — plus phantasm_circuit.svg, the design specs (indexed in docs/specs/README.md), the device/host divergence ledger (docs/ledgers/), on-device profiles (docs/profiles/), the docs/screenshots/ gallery, and Doxygen theme inputs (doxygen-theme.cfg and doxygen-custom.css)
 ├── Doxyfile                    Doxygen config for the published API reference
 ├── package.json                npm entry points for the scripts/*.mjs tools (ESM; Node ≥ 22.15, CI pinned via tools/build_pins.py)
 ├── package-lock.json           Pinned dependency set behind those entry points
