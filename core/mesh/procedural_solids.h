@@ -19,7 +19,7 @@ namespace Platonic {
  * @param a Arena that backs the returned mesh.
  * @return The tetrahedron mesh.
  */
-FLASHMEM inline PolyMesh tetrahedron(Arena &a, Arena &) {
+HS_FLASH_INLINE inline PolyMesh tetrahedron(Arena &a, Arena &) {
   return to_polymesh<Tetrahedron>(a);
 }
 /**
@@ -27,7 +27,7 @@ FLASHMEM inline PolyMesh tetrahedron(Arena &a, Arena &) {
  * @param a Arena that backs the returned mesh.
  * @return The cube mesh.
  */
-FLASHMEM inline PolyMesh cube(Arena &a, Arena &) {
+HS_FLASH_INLINE inline PolyMesh cube(Arena &a, Arena &) {
   return to_polymesh<Cube>(a);
 }
 /**
@@ -35,7 +35,7 @@ FLASHMEM inline PolyMesh cube(Arena &a, Arena &) {
  * @param a Arena that backs the returned mesh.
  * @return The octahedron mesh.
  */
-FLASHMEM inline PolyMesh octahedron(Arena &a, Arena &) {
+HS_FLASH_INLINE inline PolyMesh octahedron(Arena &a, Arena &) {
   return to_polymesh<Octahedron>(a);
 }
 /**
@@ -43,7 +43,7 @@ FLASHMEM inline PolyMesh octahedron(Arena &a, Arena &) {
  * @param a Arena that backs the returned mesh.
  * @return The dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron(Arena &a, Arena &) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron(Arena &a, Arena &) {
   return to_polymesh<Dodecahedron>(a);
 }
 /**
@@ -51,7 +51,7 @@ FLASHMEM inline PolyMesh dodecahedron(Arena &a, Arena &) {
  * @param a Arena that backs the returned mesh.
  * @return The icosahedron mesh.
  */
-FLASHMEM inline PolyMesh icosahedron(Arena &a, Arena &) {
+HS_FLASH_INLINE inline PolyMesh icosahedron(Arena &a, Arena &) {
   return to_polymesh<Icosahedron>(a);
 }
 } // namespace Platonic
@@ -65,7 +65,7 @@ using namespace Platonic;
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated tetrahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_tetrahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_tetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(tetrahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
@@ -74,7 +74,7 @@ FLASHMEM inline PolyMesh truncated_tetrahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The cuboctahedron mesh.
  */
-FLASHMEM inline PolyMesh cuboctahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh cuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).ambo().build();
 }
 /**
@@ -83,7 +83,7 @@ FLASHMEM inline PolyMesh cuboctahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated cube mesh.
  */
-FLASHMEM inline PolyMesh truncated_cube(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_cube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).truncate(T_TRUNC_CUBE).build();
 }
 /**
@@ -92,7 +92,7 @@ FLASHMEM inline PolyMesh truncated_cube(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated octahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_octahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_octahedron(Arena &a, Arena &b) {
   return SolidBuilder(octahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
@@ -101,7 +101,7 @@ FLASHMEM inline PolyMesh truncated_octahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombicuboctahedron mesh.
  */
-FLASHMEM inline PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b).expand().build();
 }
 /**
@@ -110,7 +110,7 @@ FLASHMEM inline PolyMesh rhombicuboctahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated cuboctahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_cuboctahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_cuboctahedron(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .bevel(T_TRUNC_CUBE)
       .relax_baked(RelaxBakes::truncated_cuboctahedron_converged)
@@ -122,7 +122,7 @@ FLASHMEM inline PolyMesh truncated_cuboctahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The snub cube mesh.
  */
-FLASHMEM inline PolyMesh snub_cube(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh snub_cube(Arena &a, Arena &b) {
   return SolidBuilder(cube(a, b), a, b)
       .snub(T_SNUB_CUBE, SNUB_CUBE_TWIST)
       .relax_baked(RelaxBakes::snub_cube_converged)
@@ -134,7 +134,7 @@ FLASHMEM inline PolyMesh snub_cube(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The icosidodecahedron mesh.
  */
-FLASHMEM inline PolyMesh icosidodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh icosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b).ambo().build();
 }
 /**
@@ -143,7 +143,7 @@ FLASHMEM inline PolyMesh icosidodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_dodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_dodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b).truncate(T_TRUNC_ICOS).build();
 }
 /**
@@ -152,7 +152,7 @@ FLASHMEM inline PolyMesh truncated_dodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated icosahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_icosahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_icosahedron(Arena &a, Arena &b) {
   return SolidBuilder(icosahedron(a, b), a, b).truncate(T_TRUNC_THIRD).build();
 }
 /**
@@ -161,7 +161,7 @@ FLASHMEM inline PolyMesh truncated_icosahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombicosidodecahedron mesh.
  */
-FLASHMEM inline PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .expand()
       .relax_baked(RelaxBakes::rhombicosidodecahedron_converged)
@@ -173,7 +173,8 @@ FLASHMEM inline PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The truncated icosidodecahedron mesh.
  */
-FLASHMEM inline PolyMesh truncated_icosidodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_icosidodecahedron(Arena &a,
+                                                            Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .bevel(T_TRUNC_ICOS)
       .relax_baked(RelaxBakes::truncated_icosidodecahedron_converged)
@@ -185,7 +186,7 @@ FLASHMEM inline PolyMesh truncated_icosidodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The snub dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh snub_dodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh snub_dodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .snub(0.5f)
       .relax_baked(RelaxBakes::snub_dodecahedron_converged)
@@ -202,7 +203,7 @@ using namespace Archimedean;
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis tetrahedron mesh.
  */
-FLASHMEM inline PolyMesh triakis_tetrahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh triakis_tetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_tetrahedron(a, b), a, b).dual().build();
 }
 /**
@@ -211,7 +212,7 @@ FLASHMEM inline PolyMesh triakis_tetrahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombic dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh rhombic_dodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh rhombic_dodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(cuboctahedron(a, b), a, b).dual().build();
 }
 /**
@@ -220,7 +221,7 @@ FLASHMEM inline PolyMesh rhombic_dodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis octahedron mesh.
  */
-FLASHMEM inline PolyMesh triakis_octahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh triakis_octahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_cube(a, b), a, b).dual().build();
 }
 /**
@@ -229,7 +230,7 @@ FLASHMEM inline PolyMesh triakis_octahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The tetrakis hexahedron mesh.
  */
-FLASHMEM inline PolyMesh tetrakis_hexahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh tetrakis_hexahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_octahedron(a, b), a, b).dual().build();
 }
 /**
@@ -238,7 +239,7 @@ FLASHMEM inline PolyMesh tetrakis_hexahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The deltoidal icositetrahedron mesh.
  */
-FLASHMEM inline PolyMesh deltoidal_icositetrahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh deltoidal_icositetrahedron(Arena &a, Arena &b) {
   return SolidBuilder(rhombicuboctahedron(a, b), a, b).dual().build();
 }
 /**
@@ -247,7 +248,7 @@ FLASHMEM inline PolyMesh deltoidal_icositetrahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The disdyakis dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh disdyakis_dodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh disdyakis_dodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_cuboctahedron(a, b), a, b).dual().build();
 }
 /**
@@ -256,7 +257,8 @@ FLASHMEM inline PolyMesh disdyakis_dodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentagonal icositetrahedron mesh.
  */
-FLASHMEM inline PolyMesh pentagonal_icositetrahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh pentagonal_icositetrahedron(Arena &a,
+                                                            Arena &b) {
   return SolidBuilder(snub_cube(a, b), a, b).dual().build();
 }
 /**
@@ -265,7 +267,7 @@ FLASHMEM inline PolyMesh pentagonal_icositetrahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The rhombic triacontahedron mesh.
  */
-FLASHMEM inline PolyMesh rhombic_triacontahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh rhombic_triacontahedron(Arena &a, Arena &b) {
   return SolidBuilder(icosidodecahedron(a, b), a, b).dual().build();
 }
 /**
@@ -274,7 +276,7 @@ FLASHMEM inline PolyMesh rhombic_triacontahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The triakis icosahedron mesh.
  */
-FLASHMEM inline PolyMesh triakis_icosahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh triakis_icosahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_dodecahedron(a, b), a, b).dual().build();
 }
 /**
@@ -283,7 +285,7 @@ FLASHMEM inline PolyMesh triakis_icosahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentakis dodecahedron mesh.
  */
-FLASHMEM inline PolyMesh pentakis_dodecahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh pentakis_dodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_icosahedron(a, b), a, b).dual().build();
 }
 /**
@@ -293,7 +295,7 @@ FLASHMEM inline PolyMesh pentakis_dodecahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The deltoidal hexecontahedron mesh.
  */
-FLASHMEM inline PolyMesh deltoidal_hexecontahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh deltoidal_hexecontahedron(Arena &a, Arena &b) {
   return SolidBuilder(rhombicosidodecahedron(a, b), a, b).dual().build();
 }
 /**
@@ -303,7 +305,7 @@ FLASHMEM inline PolyMesh deltoidal_hexecontahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The disdyakis triacontahedron mesh.
  */
-FLASHMEM inline PolyMesh disdyakis_triacontahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh disdyakis_triacontahedron(Arena &a, Arena &b) {
   return SolidBuilder(truncated_icosidodecahedron(a, b), a, b).dual().build();
 }
 /**
@@ -312,7 +314,7 @@ FLASHMEM inline PolyMesh disdyakis_triacontahedron(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The pentagonal hexecontahedron mesh.
  */
-FLASHMEM inline PolyMesh pentagonal_hexecontahedron(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh pentagonal_hexecontahedron(Arena &a, Arena &b) {
   return SolidBuilder(snub_dodecahedron(a, b), a, b).dual().build();
 }
 } // namespace Catalan
@@ -329,7 +331,7 @@ inline constexpr float D2R = math::PI_F / 180.0f;
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh truncated_cube_hk90_meta(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_cube_hk90_meta(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_cube(a, b), a, b)
       .hankin(90.0f * D2R)
       .meta()
@@ -352,8 +354,8 @@ static_assert(TRUNCATE_T_FAR == 50.0f * D2R);
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh truncated_icosahedron_hk58_chamfer63(Arena &a,
-                                                              Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_icosahedron_hk58_chamfer63(Arena &a,
+                                                                     Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .hankin(58.0f * D2R)
       .chamfer(0.63f)
@@ -365,7 +367,8 @@ FLASHMEM inline PolyMesh truncated_icosahedron_hk58_chamfer63(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a,
+                                                            Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(62.0f * D2R)
       .ambo()
@@ -378,7 +381,7 @@ FLASHMEM inline PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::octahedron(a, b), a, b)
       .hankin(17.0f * D2R)
       .ambo()
@@ -391,7 +394,7 @@ FLASHMEM inline PolyMesh octahedron_hk17_ambo_hk73(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::icosahedron(a, b), a, b).kis().gyro().build();
 }
 /**
@@ -401,7 +404,7 @@ FLASHMEM inline PolyMesh icosahedron_kis_gyro(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 truncated_icosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosidodecahedron(a, b), a, b)
       .truncate(TRUNCATE_T_FAR)
@@ -415,8 +418,8 @@ truncated_icosidodecahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
-                                                                Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+icosidodecahedron_truncate5d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::icosidodecahedron(a, b), a, b)
       .truncate(TRUNCATE_T_NEAR)
       .ambo()
@@ -429,8 +432,8 @@ FLASHMEM inline PolyMesh icosidodecahedron_truncate5d_ambo_dual(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh snub_dodecahedron_truncate5d_ambo_dual(Arena &a,
-                                                                Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+snub_dodecahedron_truncate5d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::snub_dodecahedron(a, b), a, b)
       .truncate(TRUNCATE_T_NEAR)
       .ambo()
@@ -443,7 +446,7 @@ FLASHMEM inline PolyMesh snub_dodecahedron_truncate5d_ambo_dual(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::octahedron(a, b), a, b)
       .hankin(34.0f * D2R)
       .ambo()
@@ -456,8 +459,8 @@ FLASHMEM inline PolyMesh octahedron_hk34_ambo_hk72(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
-                                                            Arena &b) {
+HS_FLASH_INLINE inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
+                                                                   Arena &b) {
   return SolidBuilder(Archimedean::rhombicuboctahedron(a, b), a, b)
       .hankin(63.0f * D2R)
       .ambo()
@@ -470,8 +473,8 @@ FLASHMEM inline PolyMesh rhombicuboctahedron_hk63_ambo_hk63(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh truncated_icosahedron_hk54_ambo_hk72(Arena &a,
-                                                              Arena &b) {
+HS_FLASH_INLINE inline PolyMesh truncated_icosahedron_hk54_ambo_hk72(Arena &a,
+                                                                     Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .hankin(54.0f * D2R)
       .ambo()
@@ -484,7 +487,8 @@ FLASHMEM inline PolyMesh truncated_icosahedron_hk54_ambo_hk72(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a,
+                                                            Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(54.0f * D2R)
       .ambo()
@@ -497,7 +501,8 @@ FLASHMEM inline PolyMesh dodecahedron_hk54_ambo_hk72(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a,
+                                                                 Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(72.0f * D2R)
       .ambo()
@@ -511,8 +516,8 @@ FLASHMEM inline PolyMesh dodecahedron_hk72_ambo_dual_hk20(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh truncated_icosahedron_truncate50d_ambo_dual(Arena &a,
-                                                                     Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+truncated_icosahedron_truncate50d_ambo_dual(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .truncate(TRUNCATE_T_FAR)
       .ambo()
@@ -525,8 +530,8 @@ FLASHMEM inline PolyMesh truncated_icosahedron_truncate50d_ambo_dual(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
-                                                                     Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .snub()
       .relax_baked(RelaxBakes::icosahedron_snub_converged)
@@ -540,8 +545,8 @@ FLASHMEM inline PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a,
-                                                                     Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(35.0f * D2R)
       .ambo()
@@ -557,8 +562,8 @@ FLASHMEM inline PolyMesh dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
-                                                               Arena &b) {
+HS_FLASH_INLINE inline PolyMesh
+icosahedron_ambo_truncate033_hankin59(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .ambo()
       .truncate(0.33f)
@@ -572,7 +577,7 @@ FLASHMEM inline PolyMesh icosahedron_ambo_truncate033_hankin59(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 truncated_icosahedron_ambo_relax_truncate001_hankin59(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .ambo()
@@ -588,7 +593,7 @@ truncated_icosahedron_ambo_relax_truncate001_hankin59(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 truncated_icosahedron_ambo_relax_truncate001_hankin73(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .ambo()
@@ -603,7 +608,7 @@ truncated_icosahedron_ambo_relax_truncate001_hankin73(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 truncated_icosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosidodecahedron(a, b), a, b)
       .bevel(0.5f)
@@ -617,7 +622,8 @@ truncated_icosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a, Arena &b) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a,
+                                                               Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .bevel(0.2f)
       .relax_baked(RelaxBakes::dodecahedron_bevel20_converged)
@@ -631,7 +637,7 @@ FLASHMEM inline PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 truncated_icosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncated_icosahedron(a, b), a, b)
       .ambo()
@@ -646,8 +652,8 @@ truncated_icosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
-                                                              Arena &b) {
+HS_FLASH_INLINE inline PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
+                                                                     Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .ambo()
       .bevel(0.33f)
@@ -661,7 +667,7 @@ FLASHMEM inline PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
  * @param b Second arena; the result may borrow storage from either arena.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM inline PolyMesh
+HS_FLASH_INLINE inline PolyMesh
 icosahedron_truncate25_hk60_ambo_relax100_hk60(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .truncate(0.25f)

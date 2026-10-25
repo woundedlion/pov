@@ -711,7 +711,7 @@ inline const Entry &get_entry(size_t index) {
  * @param name Registry name of the solid to build; traps if unknown.
  * @return The finalized solid mesh owned by geom.
  */
-[[maybe_unused]] FLASHMEM inline PolyMesh
+[[maybe_unused]] HS_FLASH_INLINE inline PolyMesh
 get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
   const Entry *entry = find_entry(name);
   HS_CHECK(entry, "Solids::get_by_name: unknown solid name");
@@ -731,7 +731,7 @@ get_by_name(Arena &geom, Arena &a, Arena &b, std::string_view name) {
  *        sizing per-vertex geometry to its local gap.
  * @return The vertex count written.
  */
-[[maybe_unused]] HS_COLD inline int
+[[maybe_unused]] HS_COLD_MEMBER inline int
 build_vertex_directions(Arena &scratch, Arena &temp, const Entry &entry,
                         int max_points, math::Vector *points,
                         math::Quaternion *quats, float *nn_angle) {
