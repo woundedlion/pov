@@ -236,27 +236,6 @@ inline double medial_min_face_area(const PolyMesh &m) {
   return mn;
 }
 
-/** @brief Faces whose area-weighted normal points inward (a fold/inversion). */
-inline int medial_inverted_faces(const PolyMesh &m) {
-  int inv = 0;
-  size_t off = 0;
-  for (size_t f = 0; f < m.face_counts.size(); ++f) {
-    const int n = m.face_counts[f];
-    const math::Vector c = face_centroid_unit(m, off, n);
-    math::Vector nrm(0, 0, 0);
-    for (int k = 0; k < n; ++k) {
-      const math::Vector a = m.vertices[m.faces[off + k]];
-      const math::Vector b = m.vertices[m.faces[off + (k + 1) % n]];
-      nrm = nrm + math::cross(a, b);
-    }
-    const float outward = math::dot(nrm, c);
-    if (!std::isfinite(outward) || outward < 0.0f)
-      ++inv;
-    off += n;
-  }
-  return inv;
-}
-
 /**
  * @brief Gates the medial dual bridge on every DUAL-leg seed: endpoint match
  *        plus slerp well-formedness.
@@ -372,7 +351,7 @@ inline void test_medial_dual_bridge_wellformed() {
         else
           expect_same_fingerprint(fp, first); // fixed emission order/count
       }
-      total_inv += medial_inverted_faces(frame);
+      total_inv += conway_tests::count_inward_winding(frame);
       worst_4pi =
           fold_worst(worst_4pi, std::abs(medial_total_solid_angle(frame) -
                                          4.0 * 3.14159265358979323846));
