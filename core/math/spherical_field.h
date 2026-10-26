@@ -514,8 +514,9 @@ private:
    * @param x Fractional longitude in [-W, 2W).
    * @param y Fractional latitude row; rows outside [0, H) are allowed but must
    *   stay under ROW_LIMIT in absolute value.
-   * @details Wraps the columns across the seam; the row is left for the
-   * caller's pole policy.
+   * @details On displays missing a pole row, reflects past-pole points with
+   * `math::pole_wrap` before wrapping columns across the seam. Remaining
+   * out-of-range rows are resolved by `pole_tap`.
    */
   __attribute__((always_inline)) static Footprint bilinear_footprint(float x,
                                                                      float y) {
@@ -534,8 +535,8 @@ private:
 
   /**
    * @brief One topology-correct tap for a footprint outside the direct band.
-   * @param sample_x Lattice column, before seam reflection.
-   * @param sample_y Lattice row, before pole reflection.
+   * @param sample_x Lattice column from the resolved footprint.
+   * @param sample_y Lattice row from the resolved footprint.
    * @param poles Shared pole-row values.
    * @param outside Value for a coordinate the rendered domain has no sample
    *   for.
