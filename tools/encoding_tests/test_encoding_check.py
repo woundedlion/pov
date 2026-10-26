@@ -11,6 +11,8 @@ import unittest
 TOOL = Path(__file__).resolve().parents[1] / "encoding_check.py"
 SPEC = importlib.util.spec_from_file_location("encoding_check", TOOL)
 sys.path.insert(0, str(TOOL.parent))
+from git_test_env import git_run, isolated_env  # noqa: E402
+
 encoding_check = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(encoding_check)
 
@@ -28,16 +30,18 @@ class EncodingCheckTests(unittest.TestCase):
     def test_gate_reads_only_tracked_text(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            subprocess.run(["git", "-C", str(root), "init", "-q"], check=True)
+            git_run(root, "init", "-q")
             corrupt = "\u2014".encode("utf-8").decode("cp1252")
             (root / "tracked.txt").write_text("\u2014\n", encoding="utf-8")
             (root / "untracked.txt").write_text(corrupt, encoding="utf-8")
             (root / "binary.bin").write_bytes(b"\0" + corrupt.encode("utf-8"))
-            subprocess.run(["git", "-C", str(root), "add", "--", "tracked.txt", "binary.bin"], check=True)
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)], capture_output=True)
+            git_run(root, "add", "--", "tracked.txt", "binary.bin")
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)], capture_output=True,
+                                    env=isolated_env())
             self.assertEqual(result.returncode, 0, result.stderr)
             (root / "tracked.txt").write_text("clean\n" + corrupt, encoding="utf-8")
-            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)], capture_output=True)
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)], capture_output=True,
+                                    env=isolated_env())
             self.assertEqual(result.returncode, 1, result.stderr)
             self.assertIn(b"tracked.txt:2:", result.stderr)
             self.assertNotIn(b"untracked.txt", result.stderr)
