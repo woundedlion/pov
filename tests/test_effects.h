@@ -1149,6 +1149,11 @@ inline constexpr int PROFILE_REPLAY_FRAMES = 280;
  * Frame and window numbers match the image's `f` lines and windows. Run with
  * HS_MESH_CAPTURE_ONLY=3 (HS_REPLAY_PRESET, HS_REPLAY_TRANS_SPEED and
  * HS_REPLAY_FRAMES override 6, 4 and PROFILE_REPLAY_FRAMES).
+ * HS_FACE_AUDIT_PIX names a binary output of native uint32_t records:
+ * face, x, y, float distance bits, convex flag; UINT32_MAX, frame, 0, 0, 0
+ * terminates each frame. HS_FACE_AUDIT_REFERENCE enables reference face
+ * visibility when present. HS_FACE_AUDIT_IMAGES names a binary output for
+ * every frame: native uint32_t frame index followed by W * H raw Pixels.
  */
 inline void replay_islamicstars_profile(size_t preset, float trans_speed,
                                         int frames, bool report = true) {
@@ -1202,7 +1207,7 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
                                  0};
       std::fwrite(record, sizeof(record), 1, audit);
     }
-    if (images && ((frame >= 217 && frame <= 242) || frame >= 529)) {
+    if (images) {
       const uint32_t index = static_cast<uint32_t>(frame);
       std::fwrite(&index, sizeof(index), 1, images);
       std::fwrite(effect.display_buffer(), sizeof(Pixel), W * H, images);
