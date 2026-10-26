@@ -401,16 +401,15 @@ template <bool SLICE_4D = false, uint8_t FIXED_SHELL_COUNT = 0> struct Events {
   static constexpr size_t GROUP_CAPACITY = 1; ///< One merge identity per group.
   /** @brief Stream state; float fields are read only while active. */
   struct Cursor {
-    /// Ray distance of the current crossing.
-    float distance, step, magnitude; ///< Absolute lattice-space direction.
-    /** @var step
-     *  Ray distance between crossings. */
+    float distance;      ///< Ray distance of the current crossing.
+    float step;          ///< Ray distance between crossings.
+    float magnitude;     ///< Absolute lattice-space direction.
     uint8_t shell = 0;   ///< Zero-based index of the current crossing.
     bool active = false; ///< Whether the stream has a crossing left.
   };
   const PreparedTrace &prepared; ///< Frame trace state.
-  /// Ray direction in lattice cells.
-  math::Vec4 direction, origin; ///< Offset ray origin in lattice cells.
+  math::Vec4 direction;          ///< Ray direction in lattice cells.
+  math::Vec4 origin;             ///< Offset ray origin in lattice cells.
   std::array<Cursor, STREAM_COUNT> cursors; ///< Per-axis stream state.
   uint8_t shell_count;                      ///< Crossings traced per axis.
 

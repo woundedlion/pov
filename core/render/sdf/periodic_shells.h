@@ -129,8 +129,8 @@ struct ShellLayerStorage {
   static constexpr int CAPACITY = 16; ///< Maximum pending layers.
   /** @brief One shell layer awaiting compositing. */
   struct Layer {
-    /// Ray distance of the layer.
-    float t, coverage; ///< Coverage of the layer.
+    float t;        ///< Ray distance of the layer.
+    float coverage; ///< Coverage of the layer.
   };
   std::array<Layer, CAPACITY> pending; ///< One ray's layers to composite.
 

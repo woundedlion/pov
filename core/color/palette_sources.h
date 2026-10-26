@@ -147,12 +147,11 @@ public:
   }
 
 protected:
-  /// Bias per RGB channel, sRGB.
-  std::array<float, 3> a, b, c, d; ///< Phase per RGB channel, turns.
-  /** @var b
-   *  Amplitude per RGB channel, sRGB. */
-  /** @var c
-   *  Frequency per RGB channel, cycles over t in [0, 1]. */
+  std::array<float, 3> a; ///< Bias per RGB channel, sRGB.
+  std::array<float, 3> b; ///< Amplitude per RGB channel, sRGB.
+  std::array<float, 3>
+      c; ///< Frequency per RGB channel, cycles over t in [0, 1].
+  std::array<float, 3> d; ///< Phase per RGB channel, turns.
 };
 
 /**

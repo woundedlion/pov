@@ -40,36 +40,32 @@ inline float linear_to_srgb_float(float l) {
  * @brief OKLab perceptual color: lightness L and chroma axes a, b.
  */
 struct OKLab {
-  /// Lightness in [0, 1].
-  float L, a, b; ///< Blue-yellow axis; negative is blue.
-  /** @var a
-   *  Green-red axis; negative is green. */
+  float L; ///< Lightness in [0, 1].
+  float a; ///< Green-red axis; negative is green.
+  float b; ///< Blue-yellow axis; negative is blue.
 };
 /**
  * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
  */
 struct OKLCH {
-  /// Lightness in [0, 1].
-  float L, C, h; ///< Hue angle, radians.
-  /** @var C
-   *  Chroma, >= 0. */
+  float L; ///< Lightness in [0, 1].
+  float C; ///< Chroma, >= 0.
+  float h; ///< Hue angle, radians.
 };
 
 /** @brief Cone-response (LMS) triple, the OKLab intermediate before the cube-root
  *  nonlinearity. */
 struct LMS {
-  /// Long-wavelength cone response.
-  float l, m, s; ///< Short-wavelength cone response.
-  /** @var m
-   *  Medium-wavelength cone response. */
+  float l; ///< Long-wavelength cone response.
+  float m; ///< Medium-wavelength cone response.
+  float s; ///< Short-wavelength cone response.
 };
 
 /** @brief Linear-RGB triple; channels may lie outside the display gamut. */
 struct LinRGB {
-  /// Linear red.
-  float r, g, b; ///< Linear blue.
-  /** @var g
-   *  Linear green. */
+  float r; ///< Linear red.
+  float g; ///< Linear green.
+  float b; ///< Linear blue.
 };
 
 /**

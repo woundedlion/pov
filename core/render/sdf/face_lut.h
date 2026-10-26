@@ -32,10 +32,10 @@ inline constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  */
 struct ClassLut {
   const int16_t *data =
-      nullptr; /**< n*n quantized signed distances (row-major). */
-  int n = 0;   /**< Grid resolution per axis. */
-  /// Canonical bounding-box center x.
-  float cx = 0, cy = 0; /**< Canonical bounding-box center y. */
+      nullptr;  /**< n*n quantized signed distances (row-major). */
+  int n = 0;    /**< Grid resolution per axis. */
+  float cx = 0; ///< Canonical bounding-box center x.
+  float cy = 0; ///< Canonical bounding-box center y.
   /// Half-extent in x (+ margin).
   float half_x = 0;
   /// Half-extent in y (+ margin).
@@ -142,10 +142,10 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
  *        centered projection (see align_correlate).
  */
 struct AlignCorr {
-  /// Real part of the sum of canon_k * conj(z'_k).
-  float rr, ri; /**< Imaginary part of the sum of canon_k * conj(z'_k). */
-  /// Sum of |canon_k|^2.
-  float cc, zz; /**< Sum of |z'_k|^2. */
+  float rr; ///< Real part of the sum of canon_k * conj(z'_k).
+  float ri; ///< Imaginary part of the sum of canon_k * conj(z'_k).
+  float cc; ///< Sum of |canon_k|^2.
+  float zz; ///< Sum of |z'_k|^2.
 };
 
 /**

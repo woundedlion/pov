@@ -702,12 +702,11 @@ template <typename A, typename B> struct Intersection {
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
-  /// Rotation axis (unit length).
-  math::Vector axis, u, w; /**< cross(axis, u). */
-  /// @var u
-  /// Unit vector perpendicular to the axis; w = cross(axis, u).
-  int repetitions; /**< Number of copies around the axis. */
-  float sector;    /**< Angular width of one sector, 2*PI / repetitions. */
+  math::Vector axis;  ///< Rotation axis (unit length).
+  math::Vector u;     ///< Unit vector perpendicular to the axis.
+  math::Vector w;     ///< cross(axis, u).
+  int repetitions;    /**< Number of copies around the axis. */
+  float sector;       /**< Angular width of one sector, 2*PI / repetitions. */
   float reciprocal_sector; /**< 1 / sector, for the per-pixel fold. */
   static constexpr bool is_solid =
       Shape::is_solid; /**< Matches the child's solidity. */

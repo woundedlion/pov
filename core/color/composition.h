@@ -441,8 +441,8 @@ struct InsetModifier {
   /** @brief The clamp confines any input, in range or not, to [0,1]. */
   static constexpr bool rebounds_input = true;
 
-  /// Domain value mapped to 0.
-  float lo, hi; ///< Domain value mapped to 1; greater than `lo`.
+  float lo; ///< Domain value mapped to 0.
+  float hi; ///< Domain value mapped to 1; greater than `lo`.
   /**
    * @brief Constructs the inset window bounds.
    * @param lo Lower domain bound mapped to 0; defaults to 0.2.

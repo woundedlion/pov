@@ -93,10 +93,9 @@ constexpr uint8_t linear16_to_linear8(uint16_t value) {
  * quantization (linear PWM on the LEDs; sRGB in operator CRGB).
  */
 struct Pixel {
-  /// Linear red in [0, 65535].
-  uint16_t r, g, b; ///< Linear blue in [0, 65535].
-  /** @var g
-   *  Linear green in [0, 65535]. */
+  uint16_t r; ///< Linear red in [0, 65535].
+  uint16_t g; ///< Linear green in [0, 65535].
+  uint16_t b; ///< Linear blue in [0, 65535].
 
   /**
    * @brief Constructs a black pixel (all channels zero).
@@ -438,10 +437,9 @@ inline auto blend_alpha(float a) {
  * Layout compatible with CRGB but without non-constexpr constructors.
  */
 struct CPixel {
-  /// sRGB red in [0, 255].
-  uint8_t r, g, b; ///< sRGB blue in [0, 255].
-  /** @var g
-   *  sRGB green in [0, 255]. */
+  uint8_t r; ///< sRGB red in [0, 255].
+  uint8_t g; ///< sRGB green in [0, 255].
+  uint8_t b; ///< sRGB blue in [0, 255].
   /**
    * @brief Constructs a black CPixel (all channels zero).
    */
