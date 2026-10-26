@@ -480,15 +480,6 @@ inline float oklab_delta_e(const Pixel &a, const Pixel &b) {
   return sqrtf(dl * dl + da * da + db * db);
 }
 
-/** @brief Largest per-channel gap between two linear RGB16 pixels in sRGB8. */
-inline int srgb8_channel_gap(const Pixel &a, const Pixel &b) {
-  const auto gap = [](uint16_t x, uint16_t y) {
-    return std::abs(static_cast<int>(linear_float_to_srgb8(x * HUE_INV16)) -
-                    linear_float_to_srgb8(y * HUE_INV16));
-  };
-  return std::max({gap(a.r, b.r), gap(a.g, b.g), gap(a.b, b.b)});
-}
-
 /**
  * @brief Bounds dynamic and periodic hue tables over effect palette colors.
  * @details Each bound is the sweep's measured worst case plus headroom. The

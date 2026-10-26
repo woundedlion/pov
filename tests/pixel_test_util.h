@@ -69,6 +69,17 @@ inline uint16_t max_channel_gap(const Pixel &a, const Pixel &b) {
       {channel_gap(a.r, b.r), channel_gap(a.g, b.g), channel_gap(a.b, b.b)});
 }
 
+/** @brief Largest sRGB8 channel gap between two linear RGB16 pixels.
+ * @param a First pixel.
+ * @param b Second pixel.
+ * @return Maximum encoded RGB channel difference. */
+inline int srgb8_channel_gap(const Pixel &a, const Pixel &b) {
+  const auto gap = [](uint16_t x, uint16_t y) {
+    return std::abs(int(linear_to_srgb8(x)) - int(linear_to_srgb8(y)));
+  };
+  return std::max({gap(a.r, b.r), gap(a.g, b.g), gap(a.b, b.b)});
+}
+
 /**
  * @brief Asserts two shaded colors agree within a per-channel tolerance.
  * @param actual Color produced by the code under test.

@@ -252,10 +252,7 @@ inline void test_raymarch_hue_noise_at_column_time() {
       const Pixel &b = expected[static_cast<size_t>(y) * W + x];
       if (is_black(a) && is_black(b))
         continue;
-      int gap = 0;
-      for (const auto channel : {&Pixel::r, &Pixel::g, &Pixel::b})
-        gap = std::max(gap, std::abs(int(linear_to_srgb8(a.*channel)) -
-                                     linear_to_srgb8(b.*channel)));
+      const int gap = srgb8_channel_gap(a, b);
       ++lit;
       gap_sum += gap;
       if (x % (W / 2) == 0)
