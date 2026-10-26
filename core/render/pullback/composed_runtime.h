@@ -205,16 +205,8 @@ public:
                   sampler.at(Spacetime::SamplingSurface<W>::time(c)));
             },
             [](const Frame &frame, int x) {
-              if constexpr (SpecT::FACTORED_COLUMNS &&
-                            RenderPipeline::LINEAR_COLUMNS &&
-                            &Derived::shade == &ComposedEffect::shade) {
-                return [&frame, basis = RenderPipeline::column_basis(
-                                    frame, math::TrigLUT<W, H>::cos_theta(x),
-                                    math::TrigLUT<W, H>::sin_theta[x])](
-                           float sine, float cosine) {
-                  return RenderPipeline::shade_column(sine, cosine, frame,
-                                                      basis);
-                };
+              if constexpr (factored_columns()) {
+                return column_shader(frame, x);
               } else {
                 return [&frame](const math::Vector &view) {
                   return Derived::shade(view, frame);
@@ -244,20 +236,33 @@ public:
     return RenderPipeline::shade(view, frame);
   }
 
+  /** @brief Whether the default shader supports a factored column prefix.
+   * @return True when the pipeline and effect permit factoring. */
+  static constexpr bool factored_columns() {
+    return SpecT::FACTORED_COLUMNS && RenderPipeline::LINEAR_COLUMNS &&
+           &Derived::shade == &ComposedEffect::shade;
+  }
+
+  /** @brief Prepares the factored shader for one column.
+   * @param frame Prepared frame to shade.
+   * @param x Column index.
+   * @return A latitude shader retaining the frame and column basis. */
+  static HS_HOT_INLINE auto column_shader(const Frame &frame, int x) {
+    return [&frame, basis = RenderPipeline::column_basis(
+                        frame, math::TrigLUT<W, H>::cos_theta(x),
+                        math::TrigLUT<W, H>::sin_theta[x])](float sine,
+                                                            float cosine) {
+      return RenderPipeline::shade_column(sine, cosine, frame, basis);
+    };
+  }
+
   /** @brief Draws a fixed frame using a factored prefix when available.
    * @param canvas Destination canvas.
    * @param frame Prepared frame to shade. */
   static void draw_static_columns(Canvas &canvas, const Frame &frame) {
-    if constexpr (SpecT::FACTORED_COLUMNS && RenderPipeline::LINEAR_COLUMNS &&
-                  &Derived::shade == &ComposedEffect::shade) {
-      Scan::Shader::draw_columns<W, H>(canvas, [&](int x) {
-        return [basis = RenderPipeline::column_basis(
-                    frame, math::TrigLUT<W, H>::cos_theta(x),
-                    math::TrigLUT<W, H>::sin_theta[x]),
-                &frame](float sine, float cosine) {
-          return RenderPipeline::shade_column(sine, cosine, frame, basis);
-        };
-      });
+    if constexpr (factored_columns()) {
+      Scan::Shader::draw_columns<W, H>(
+          canvas, [&](int x) { return column_shader(frame, x); });
     } else {
       Scan::Shader::draw_cached<W, H, 1>(canvas,
                                          [&frame](const math::Vector &view) {
