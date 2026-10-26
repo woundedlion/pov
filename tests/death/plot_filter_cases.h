@@ -402,6 +402,48 @@ inline void case_planar_chords_over_capacity() {
                      shader);
 }
 
+/** @brief Draws a timed star with optional motion preparation.
+ * @param mode Zero for clip preparation, one for motion, two for motion then clip.
+ */
+inline void draw_timed_planar_chords(int mode) {
+  constexpr int W = 32, H = 16, VERTICES = 6;
+  static uint8_t bytes[Plot::PlanarChords<W, H>::storage_bytes(VERTICES) +
+                       sizeof(Fragment) * (VERTICES + 1) + 64];
+  Arena arena(bytes, sizeof(bytes));
+  Plot::PlanarChords<W, H> chords;
+  chords.init_storage(arena, VERTICES);
+  Fragments points;
+  points.bind(arena, VERTICES + 1);
+  const auto basis = math::make_basis(math::Quaternion(), math::X_AXIS);
+  math::Basis projection_basis;
+  const auto &plane =
+      *Plot::PlanarProjection::edge_basis(basis, 0.2f, projection_basis);
+  using Star = Plot::Star<Plot::PlanarProjection>;
+  Star::sample_chart_positions(points, chords.chart_x(), chords.chart_y(),
+                               basis, 0.2f, 3, 0.0f, Star::radius_trig(0.2f),
+                               Star::step_trig(3), plane);
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  Filter::Screen::DirectAntiAliasSink<W, H> sink;
+  sink.prepare(canvas);
+  if (mode != 0)
+    chords.prepare(canvas, 0.0f);
+  if (mode != 1)
+    chords.prepare(canvas.clip());
+  chords.draw_closed(sink, canvas, points, VERTICES, plane,
+                     Color4(Pixel(65535, 65535, 65535), 0.5f),
+                     math::RotationMatrix{}, 2, true, math::RotationMatrix{},
+                     false, 0.0f);
+}
+
+/** @brief A timed chord draw rejects clip-only preparation. */
+inline void case_planar_chords_motion_unprepared() {
+  draw_timed_planar_chords(0);
+}
+
+/** @brief Clip preparation retires earlier motion preparation. */
+inline void case_planar_chords_motion_reset() { draw_timed_planar_chords(2); }
+
 /** @brief A chord draw rejects a missing closing vertex. */
 inline void case_planar_chords_missing_closing_vertex() {
   static uint8_t arena_buf[1024];

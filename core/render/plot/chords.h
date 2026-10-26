@@ -339,6 +339,7 @@ public:
     band = ClipBand<W, H>::of(clip);
     clip_stamp = clip;
     prepared = true;
+    motion_prepared = false;
   }
 
   /**
@@ -517,6 +518,7 @@ public:
     if (!math::TrigLUT<W, H>::initialized)
       math::TrigLUT<W, H>::init();
     reach = motion;
+    motion_prepared = true;
   }
 
   /**
@@ -554,6 +556,8 @@ public:
               int max_intervals, bool alternating_radii,
               const math::RotationMatrix &middle, bool reference_chords,
               float contour_speed) {
+    HS_CHECK(motion_prepared,
+             "PlanarChords: timed draw requires motion preparation");
     const float target_step =
         reference_chords ? TARGET_STEP : BALANCED_SCREEN_STEP_PX;
     using Geometry = math::DisplayGeometry<H>;
@@ -1014,6 +1018,7 @@ private:
   ClipBand<W, H> band;
   ClipRegion clip_stamp;
   bool prepared = false;
+  bool motion_prepared = false;
   PlanarBandSplit<W, H> pole_split;
   float *chart_x_storage = nullptr;
   float *chart_y_storage = nullptr;
