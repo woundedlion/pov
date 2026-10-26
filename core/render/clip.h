@@ -121,15 +121,7 @@ struct ClipRegion {
    * @details Once full coverage is excluded, coinciding ends (rs == re) mean a
    *          zero-width band.
    */
-  bool contains_x(int x) const {
-    if (covers_all_columns())
-      return true;
-    int rs = render_x_start();
-    int re = render_x_end();
-    if (rs == re)
-      return false; // empty band
-    return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
-  }
+  bool contains_x(int x) const { return !x_clip().clipped(x); }
 
   /**
    * @brief Precomputed cylindrical x-clip predicate built once per draw, then queried per fragment.

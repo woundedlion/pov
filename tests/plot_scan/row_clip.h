@@ -39,16 +39,6 @@ inline void test_clip_could_intersect_y() {
 }
 
 /**
- * @brief Asserts contains_x() and !XClip::clipped() agree on every column.
- */
-inline void expect_xclip_parity(const ClipRegion &cr) {
-  const ClipRegion::XClip xc = cr.x_clip();
-  for (int x = 0; x < cr.w; ++x) {
-    HS_EXPECT_EQ(cr.contains_x(x), !xc.clipped(x));
-  }
-}
-
-/**
  * @brief Exercises the cylindrical x-clip predicates (render_x_*, contains_x,
  *        x_clip/XClip) across every documented band topology.
  */
@@ -81,7 +71,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_TRUE(cr.contains_x(18));
     HS_EXPECT_TRUE(cr.contains_x(61));
     HS_EXPECT_FALSE(cr.contains_x(62)); // re exclusive
-    expect_xclip_parity(cr);
   }
 
   // Partial seam-crossing band: [2,90) expanded by 3 -> [95, w) U [0, 93);
@@ -98,7 +87,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_FALSE(cr.contains_x(93)); // re exclusive
     HS_EXPECT_FALSE(cr.contains_x(94)); // interior of the clipped gap
     HS_EXPECT_TRUE(cr.contains_x(95));  // rs inclusive
-    expect_xclip_parity(cr);
   }
 
   // Exact wrap to full width: 40 + 2*28 = w, so rs == re == 78 yet the band is
@@ -112,7 +100,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(78));
     HS_EXPECT_TRUE(cr.contains_x(95));
-    expect_xclip_parity(cr);
   }
 
   // Explicit full-width band.
@@ -123,7 +110,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_FALSE(xc.active);
     HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(W - 1));
-    expect_xclip_parity(cr);
   }
 
   // Over-wrap to full coverage: 88 + 2*8 = 104 >= w, though rs != re.
@@ -137,7 +123,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_TRUE(cr.contains_x(50)); // display interior
     HS_EXPECT_TRUE(cr.contains_x(89)); // display right edge
     HS_EXPECT_TRUE(cr.contains_x(90)); // gap, but reached from both margins
-    expect_xclip_parity(cr);
   }
 
   // Empty band: zero width, no margin.
@@ -152,7 +137,6 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_FALSE(cr.contains_x(29));
     HS_EXPECT_FALSE(cr.contains_x(30));
     HS_EXPECT_FALSE(cr.contains_x(W - 1));
-    expect_xclip_parity(cr);
   }
 }
 
@@ -202,7 +186,6 @@ inline void test_clip_x_wrap_matches_modulo() {
           for (int x = 0; x < w; ++x) {
             HS_EXPECT_EQ(cr.contains_x(x), covered[x]);
           }
-          expect_xclip_parity(cr);
         }
       }
     }
