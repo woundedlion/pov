@@ -129,21 +129,7 @@ public:
         },
         [&](const math::Vector &p, const CandSet &cs)
             __attribute__((always_inline)) {
-              float d0 = NO_DOT, d1 = NO_DOT;
-              uint8_t b0 = 0, b1 = 0;
-              for (uint8_t i = 0; i < cs.n; ++i) {
-                float d = math::dot(p, cs.pos[i]);
-                if (d > d0) {
-                  d1 = d0;
-                  b1 = b0;
-                  d0 = d;
-                  b0 = i;
-                } else if (d > d1) {
-                  d1 = d;
-                  b1 = i;
-                }
-              }
-              return shade(cs.idx[b0], d0, cs.idx[b1], d1);
+              return TemporalBlock{this, cs.pos, cs.idx, cs.n}(p);
             });
   }
 
