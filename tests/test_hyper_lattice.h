@@ -1353,6 +1353,40 @@ inline void test_column_time_parameter_motion() {
   HS_EXPECT_LE(agreement.worst, COLUMN_TOLERANCE);
 }
 
+/** @brief Frame equality ignores padding and retains value differences. */
+inline void test_frame_equality_ignores_padding() {
+  using Endpoint = HyperLatticeDetail::FrameEndpoint;
+  using State = HL::FrameState;
+  using Params = HL::Params;
+  Endpoint from{};
+  Endpoint to = from;
+  auto *bytes = reinterpret_cast<unsigned char *>(&to.state);
+  auto change_padding = [&](size_t begin, size_t end) {
+    for (size_t i = begin; i < end; ++i)
+      bytes[i] ^= 0xff;
+  };
+  change_padding(offsetof(Params, pattern) + sizeof(to.state.params.pattern),
+                 offsetof(Params, sphere_radius));
+  change_padding(offsetof(Params, shells) + sizeof(to.state.params.shells),
+                 offsetof(Params, shell_radius));
+  change_padding(offsetof(State, pixel_half_angle) + sizeof(float),
+                 offsetof(State, depth_palette));
+  change_padding(offsetof(State, gain) + sizeof(float),
+                 offsetof(State, crossings));
+  HS_EXPECT_TRUE(from == to);
+  const HyperLatticeDetail::FrameInterval constant(from.state, to.state,
+                                                   from.center, {});
+  HS_EXPECT_TRUE(constant.params_constant());
+  to.state.params.speed += 0.1f;
+  HS_EXPECT_FALSE(from == to);
+  const HyperLatticeDetail::FrameInterval moving(from.state, to.state,
+                                                 from.center, {});
+  HS_EXPECT_FALSE(moving.params_constant());
+  to = from;
+  to.center[3] = 1.0f;
+  HS_EXPECT_FALSE(from == to);
+}
+
 inline void test_presets_and_pipeline() {
   using Effect = HyperLattice<96, 20>;
   static_assert(HL::RenderPipeline::STAGE_COUNT == 1);
@@ -2374,6 +2408,7 @@ inline int run_hyper_lattice_tests() {
   HS_RUN(test_column_time_resets);
   HS_RUN(test_column_time_toggle);
   HS_RUN(test_column_time_parameter_motion);
+  HS_RUN(test_frame_equality_ignores_padding);
   HS_RUN(test_presets_and_pipeline);
   HS_RUN(test_configuration_adoption_and_snapshots);
   HS_RUN(test_dimension_dropdown_and_mode_lerp);

@@ -23,6 +23,8 @@ inline constexpr int VEC4_DIMENSIONS = 4;
 struct Vec4 {
   float v[VEC4_DIMENSIONS]{}; ///< Components x, y, z, w.
 
+  bool operator==(const Vec4 &) const = default;
+
   /**
    * @brief Mutable component access.
    * @param index Component index in [0, VEC4_DIMENSIONS).

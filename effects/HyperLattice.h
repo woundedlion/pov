@@ -16,7 +16,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <memory>
 #include <string_view>
 #include <tuple>
@@ -59,6 +58,8 @@ enum class ConfigurationId : uint8_t {
 };
 /** @brief HyperLattice's live parameters; also the per-preset value set. */
 struct Params {
+  bool operator==(const Params &) const = default;
+
   /// 3D lattice, or a 3D slice of the 4D lattice.
   LatticeMode mode = LatticeMode::THREE_D;
   /// Lattice geometry.
@@ -112,6 +113,8 @@ using SDF::Lattice::CrossingList;
 
 /** @brief Per-frame render inputs. */
 struct FrameState {
+  bool operator==(const FrameState &) const = default;
+
   Params params;     ///< Live parameters.
   math::Vec4 origin; ///< Cubic camera position in lattice cells, in [0, 1).
   /// Rotation angles of the six coordinate planes, radians: xy, xz, yz, then
@@ -126,6 +129,8 @@ struct FrameState {
 
 /** @brief A drawn frame's render state and traced camera position. */
 struct FrameEndpoint {
+  bool operator==(const FrameEndpoint &) const = default;
+
   FrameState state;  ///< Render state.
   math::Vec4 center; ///< Traced camera position in world units.
 };
@@ -250,8 +255,7 @@ public:
                                 const math::Vec4 &from_center,
                                 const math::Vec4 &step)
       : start(from), end(to), start_center(from_center), flight(step),
-        constant_params(std::memcmp(&from.params, &to.params, sizeof(Params)) ==
-                        0) {
+        constant_params(from.params == to.params) {
     for (size_t plane = 0; plane < turn.size(); ++plane)
       turn[plane] =
           std::remainder(to.rotation_phase[plane] - from.rotation_phase[plane],
@@ -290,7 +294,7 @@ public:
   }
 
   /** @brief Whether both endpoints share their parameters.
-   *  @return True when the parameters are bitwise equal. */
+   *  @return True when the parameters are equal. */
   bool params_constant() const { return constant_params; }
 
   /** @brief Current endpoint.
@@ -902,9 +906,7 @@ public:
         history.previous.state.params.shells != params.shells)
       history.capture(endpoint);
     const HyperLatticeDetail::FrameEndpoint &previous = history.previous;
-    const bool MOVING =
-        std::memcmp(&previous.state, &context, sizeof(context)) != 0 ||
-        std::memcmp(&previous.center, &trace_center, sizeof(trace_center)) != 0;
+    const bool MOVING = previous != endpoint;
     if (!Spacetime::flat_surface() && MOVING) {
       HS_PROFILE(hl_shader_draw);
       const HyperLatticeDetail::FrameInterval interval(
