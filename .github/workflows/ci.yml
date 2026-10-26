@@ -927,6 +927,7 @@ jobs:
           fi
           echo "Regenerated table matches core/spatial/reaction_graph.cpp in full."
 
+  # Standalone provenance checks validate bytes; required generator CTests also validate CTest wiring.
   gamut-lut-provenance:
     name: Generated gamut LUT matches committed file
     runs-on: ubuntu-24.04
