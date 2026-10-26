@@ -33,6 +33,39 @@ namespace mindsplatter_tests {
 
 using namespace hs_test::effects_tests;
 
+/** @brief Warp history records the drawn endpoint in both sampling modes and starts fresh in a replacement effect. */
+inline void test_mindsplatter_warp_history() {
+  using WB = MindSplatterWhiteBox;
+  const ScopedTemporalSampling timed(true);
+  for (int instance = 0; instance < 2; ++instance) {
+    reset_effect_globals();
+    MindSplatter<SMALL_W, SMALL_H> effect;
+    effect.init();
+    HS_EXPECT_FALSE(WB::warp_ready(effect));
+    WB::start_warp(effect);
+    bool moved = false;
+    for (int frame = 0; frame < 6; ++frame) {
+      Spacetime::set_flat_surface(frame == 2 || frame == 3);
+      const auto before = WB::warp(effect);
+      pin_frame_clock(frame);
+      effect.draw_frame();
+      effect.advance_display();
+      const auto end = WB::warp(effect);
+      moved = moved || before.re != end.re || before.im != end.im;
+      HS_EXPECT_TRUE(WB::warp_ready(effect));
+      HS_EXPECT_EQ(WB::drawn_warp(effect).re, end.re);
+      HS_EXPECT_EQ(WB::drawn_warp(effect).im, end.im);
+      const math::Complex next(0.7f, -0.3f);
+      const auto start = WB::warp_start(effect, next);
+      const auto expected = Spacetime::flat_surface() ? next : end;
+      HS_EXPECT_EQ(start.re, expected.re);
+      HS_EXPECT_EQ(start.im, expected.im);
+    }
+    HS_EXPECT_TRUE(moved);
+    hs::clear_mock_time();
+  }
+}
+
 inline void test_mindsplatter_profile_selects_initialized_preset() {
   reset_effect_globals();
   using MS = MindSplatter<96, 20>;
@@ -812,6 +845,7 @@ inline void test_mindsplatter_temporal_trail_oracle() {
 inline int run_mindsplatter_tests() {
   ModuleFixture fixture("mindsplatter");
 
+  test_mindsplatter_warp_history();
   test_mindsplatter_profile_selects_initialized_preset();
   test_mindsplatter_base_mesh_selector();
   test_mindsplatter_whitebox_geometry_replay();

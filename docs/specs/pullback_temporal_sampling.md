@@ -30,6 +30,22 @@ leave an old endpoint behind. Each new engine defaults to temporal sampling;
 the simulator sets its selected mode before the first frame. Physical firmware
 always enables temporal sampling for opted-in effects.
 
+## Value endpoint retention
+
+`Spacetime::Retained<T>` stores a trivially copyable endpoint value. `start(end)`
+returns the retained value during temporal sampling and `end` before the first
+capture or on a flat surface. It returns by value, including for temporary
+arguments. `capture(end)` commits the endpoint at the caller's draw boundary;
+callers continue capturing during flat draws. `reset()` discards continuity
+before a discontinuous replacement. Fresh effects and resized replacements
+start unprimed.
+
+Simple forward-effect state uses this policy too. Sprite or mesh callbacks
+retain their own draw boundaries: animation can advance after a callback, and a
+suppressed build-window callback may still record its phase. Resource-owning
+palette histories, per-particle simulation state and indexed trail rings keep
+their separate lifetime rules.
+
 ## State and resources
 
 The composed runtime advances animation once per frame. It then prepares a

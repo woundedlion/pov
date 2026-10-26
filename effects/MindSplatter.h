@@ -141,7 +141,7 @@ public:
     Canvas canvas(*this);
     step_state(canvas);
     draw_particles(canvas);
-    history_ready = true;
+    warp_history.capture(mobius.b);
   }
 
   /** @brief Shared registration, validation and interpolation descriptions.
@@ -202,13 +202,10 @@ public:
 
 private:
   __attribute__((always_inline)) void step_state(Canvas &canvas) {
-    previous_warp = mobius.b;
     {
       HS_PROFILE(msp_timeline_step);
       timeline.step(canvas);
     }
-    if (!history_ready)
-      previous_warp = mobius.b;
     step_choreography();
 
     if (params.base_mesh != active_base_mesh)
@@ -461,9 +458,8 @@ private:
   Pipeline<W, H, Filter::World::Orient, Filter::Screen::AntiAlias<W, H>>
       timed_filters{Filter::World::Orient(orientation),
                     Filter::Screen::AntiAlias<W, H>()};
-  math::Complex previous_warp; /**< Warp translation at the preceding frame
-                                    end. */
-  bool history_ready = false;  /**< Whether a preceding frame end exists. */
+  Spacetime::Retained<math::Complex>
+      warp_history; ///< Last drawn warp endpoint.
   ParticleSystem particle_system;
   /**
    * @brief Per-emitter accumulated emission angle (radians, wrapped to
@@ -599,7 +595,7 @@ private:
    */
   void draw_particles(Canvas &canvas) {
     HS_PROFILE(msp_draw_particles);
-    if (history_ready && !Spacetime::flat_surface())
+    if (warp_history.initialized && !Spacetime::flat_surface())
       draw_column_trails(canvas);
     else
       draw_particles_with(filters, canvas);
@@ -650,6 +646,7 @@ private:
    */
   HS_HOT_FLASH_MEMBER void draw_column_trails(Canvas &canvas) {
     const float cos_event_horizon = math::fast_cosf(EVENT_HORIZON);
+    const math::Complex previous_warp = warp_history.start(mobius.b);
     const FrameWarp warp{mobius, previous_warp,
                          math::Complex(mobius.b.re - previous_warp.re,
                                        mobius.b.im - previous_warp.im),

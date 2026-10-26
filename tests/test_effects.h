@@ -1437,6 +1437,8 @@ inline int run_effects_tests() {
   run_case(test_bz_perturb_state_draw_count_pinned);
   run_case(test_hopf_projection_math);
   run_case(test_raymarch_constexpr_sqrt_converges);
+  run_case(test_displacement_field_retained_history_resets);
+  run_case(test_dreamballs_retained_history_resets);
   // Both tiers: additional white-box cases.
   run_case(test_needs_full_frame_gate);
   run_case(test_voronoi_axes_use_uniform_sampler);

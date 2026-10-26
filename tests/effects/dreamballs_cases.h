@@ -16,6 +16,10 @@ struct DreamBallsWhiteBox {
   static constexpr size_t SCRATCH_A_PEAK_BYTES = DB::SCRATCH_A_PEAK_BYTES;
   static constexpr float WEAVE_GAP_MIN = DB::WEAVE_GAP_MIN;
 
+  static bool history_ready(const DB &effect) {
+    return effect.pose_history.initialized;
+  }
+  static void spawn(DB &effect) { effect.spawn_sprite(); }
   /** @brief Renders an orbiting source or its independently frozen endpoint.
    * @param timed Selects the production callback draw.
    * @param fraction Frozen frame fraction.
@@ -51,8 +55,8 @@ struct DreamBallsWhiteBox {
                                         : 0.2f + 0.004f * fraction;
     fx.global_orientation.set(
         newborn || timed ? finish : math::slerp(start, finish, fraction));
-    fx.history_ready = !newborn;
-    fx.previous_pose = start;
+    if (!newborn)
+      fx.pose_history.capture(start);
     fx.drawn_phase = 0.2f;
     fx.drawn_opacity = frozen_geometry ? 0.65625f : 0.625f;
     fx.drawn_params = p;
@@ -725,4 +729,21 @@ inline void test_dreamballs_column_work_is_bounded() {
     }
   }
   Spacetime::set_flat_surface(!enabled);
+}
+
+/** @brief DreamBalls clears pose continuity at manual cuts and sprite replacement. */
+inline void test_dreamballs_retained_history_resets() {
+  using WB = DreamBallsWhiteBox;
+  reset_effect_globals();
+  WB::DB effect;
+  effect.init();
+  HS_EXPECT_FALSE(WB::history_ready(effect));
+  run_frames(effect, 4);
+  HS_EXPECT_TRUE(WB::history_ready(effect));
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  HS_EXPECT_FALSE(WB::history_ready(effect));
+  run_frames(effect, 4);
+  HS_EXPECT_TRUE(WB::history_ready(effect));
+  WB::spawn(effect);
+  HS_EXPECT_FALSE(WB::history_ready(effect));
 }

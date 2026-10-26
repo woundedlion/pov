@@ -139,6 +139,31 @@ concept BorrowsColorResources = requires(const Frame &frame) {
   frame.temporal;
 };
 
+/** @brief Value endpoint retained between draws.
+ * @tparam T Trivially copyable endpoint without mutable borrowed resources. */
+template <typename T> struct Retained {
+  static_assert(std::is_trivially_copyable_v<T>);
+  T previous{};             ///< Last committed endpoint.
+  bool initialized = false; ///< Whether an endpoint has been captured.
+
+  /** @brief Previous endpoint, or the current endpoint before priming and on a flat surface.
+   * @param end Current endpoint.
+   * @return An endpoint value independent of the argument's lifetime. */
+  HS_HOT_INLINE constexpr T start(const T &end) const {
+    return initialized && !flat_surface() ? previous : end;
+  }
+
+  /** @brief Commits an endpoint for the next draw.
+   * @param end Endpoint used by this draw. */
+  HS_HOT_INLINE constexpr void capture(const T &end) {
+    previous = end;
+    initialized = true;
+  }
+
+  /** @brief Discards continuity before the next draw. */
+  HS_HOT_INLINE constexpr void reset() { initialized = false; }
+};
+
 /** @brief Optional retained endpoint storage. */
 template <typename Frame,
           Pullback::Color::HueMode Hue = Pullback::Color::HueMode::NONE,

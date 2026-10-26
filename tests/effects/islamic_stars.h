@@ -236,7 +236,7 @@ struct IslamicBuildProbe {
   }
   template <int W, int H>
   static bool phase_drawn(const IslamicStars<W, H> &e, int slot) {
-    return e.phase_drawn[slot];
+    return e.phase_history[slot].initialized;
   }
   /**
    * @brief Draws the front slot's shape at a camera held still.

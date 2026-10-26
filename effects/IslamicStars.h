@@ -285,10 +285,8 @@ private:
    * each); compaction re-claims the same addresses, so the contents survive
    * the reset. */
   uint8_t *slot_face_palette[2] = {};
-  /** Per-slot segue phase of the sprite's last draw. */
-  float drawn_phase[2] = {};
-  /** Per-slot whether the slot's sprite has drawn since it spawned. */
-  bool phase_drawn[2] = {};
+  /** Per-slot segue phase of the last sprite callback. */
+  Spacetime::Retained<float> phase_history[2];
 
   /**
    * @brief Claims the two per-slot face-palette arrays from the arena.
@@ -855,11 +853,8 @@ private:
    * draw since spawning and with temporal sampling off.
    */
   HS_FLASH_MEMBER float record_phase(int slot, float phase) {
-    const float previous = phase_drawn[slot] && !Spacetime::flat_surface()
-                               ? drawn_phase[slot]
-                               : phase;
-    drawn_phase[slot] = phase;
-    phase_drawn[slot] = true;
+    const float previous = phase_history[slot].start(phase);
+    phase_history[slot].capture(phase);
     return previous;
   }
 
@@ -1215,7 +1210,7 @@ private:
 
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
-    phase_drawn[back] = false;
+    phase_history[back].reset();
 
     // Segues with a spatial anchor get a fresh random one per transition.
     if constexpr (requires(SegueT &s, const math::Vector &v) { s.retarget(v); })

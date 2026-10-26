@@ -28,6 +28,27 @@ namespace effects_tests {
 struct MindSplatterWhiteBox {
   using MS = MindSplatter<288, 144>;
 
+  template <int W, int H> static void start_warp(MindSplatter<W, H> &effect) {
+    effect.perform_warp();
+  }
+  template <int W, int H>
+  static bool warp_ready(const MindSplatter<W, H> &effect) {
+    return effect.warp_history.initialized;
+  }
+  template <int W, int H>
+  static math::Complex warp(const MindSplatter<W, H> &effect) {
+    return effect.mobius.b;
+  }
+  template <int W, int H>
+  static math::Complex drawn_warp(const MindSplatter<W, H> &effect) {
+    return effect.warp_history.previous;
+  }
+  template <int W, int H>
+  static math::Complex warp_start(const MindSplatter<W, H> &effect,
+                                  const math::Complex &end) {
+    return effect.warp_history.start(end);
+  }
+
   /** @brief Renders production column trails or their frozen geometry.
    * @param timed Uses the production temporal draw.
    * @param fraction Frozen frame fraction.
@@ -53,14 +74,14 @@ struct MindSplatterWhiteBox {
     reset_effect_globals();
     MS fx;
     fx.init();
-    fx.history_ready = true;
     fx.particle_system.attractors.clear();
     fx.active_base_mesh = MS::BaseMesh::TETRAHEDRON;
     const math::Vector axis = math::Vector(0.2f, 1.0f, 0.1f).normalized();
     const auto start_pose = math::make_rotation(math::X_AXIS, 0.27f);
     fx.orientation.set(start_pose);
     fx.orientation.push(math::make_rotation(axis, 0.012f) * start_pose);
-    fx.previous_warp = math::Complex(0.15f, 0.06f);
+    const math::Complex previous_warp(0.15f, 0.06f);
+    fx.warp_history.capture(previous_warp);
     fx.mobius.b = math::Complex(0.15f + shift, 0.06f + 0.4f * shift);
     constexpr uint16_t LIFE = 148;
     for (float x : {1.0f, 60.0f, 143.0f, 222.0f}) {
@@ -83,11 +104,11 @@ struct MindSplatterWhiteBox {
         if (setups)
           *setups = Spacetime::geometry_counters.column_draw_setups;
       } else {
-        const math::Complex warp_step(fx.mobius.b.re - fx.previous_warp.re,
-                                      fx.mobius.b.im - fx.previous_warp.im);
+        const math::Complex warp_step(fx.mobius.b.re - previous_warp.re,
+                                      fx.mobius.b.im - previous_warp.im);
         math::MobiusParams warp = fx.mobius;
-        warp.b = math::Complex(fx.previous_warp.re + warp_step.re * fraction,
-                               fx.previous_warp.im + warp_step.im * fraction);
+        warp.b = math::Complex(previous_warp.re + warp_step.re * fraction,
+                               previous_warp.im + warp_step.im * fraction);
         const auto pose = fx.orientation.get(fraction);
         fx.orientation.set(pose);
         ScratchScope guard(scratch_arena_a);

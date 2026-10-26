@@ -268,10 +268,8 @@ private:
    * cycle's first draw and with temporal sampling off.
    */
   HS_FLASH_MEMBER int record_cycle_draw(int cycle_frame) {
-    const int previous = drawn_cycle_frame >= 0 && !Spacetime::flat_surface()
-                             ? drawn_cycle_frame
-                             : cycle_frame;
-    drawn_cycle_frame = cycle_frame;
+    const int previous = drawn_cycle.start(cycle_frame);
+    drawn_cycle.capture(cycle_frame);
     return previous;
   }
 
@@ -629,7 +627,7 @@ private:
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
     hankin_cycle_frame = 0;
-    drawn_cycle_frame = -1;
+    drawn_cycle.reset();
     swept_idx = palette_idx;
     std::fill(std::begin(swept_used), std::end(swept_used), false);
     for (const auto topology : hankin_mesh.topology)
@@ -902,9 +900,8 @@ private:
                 "before growing the palette bank past 8");
   int hankin_cycle_frame = 0; /**< Sprite draws since the opening bookend
                                     of the active hankin cycle. */
-  int drawn_cycle_frame = -1; /**< Cycle frame the active hankin cycle drew
-                                   last, or -1 before its first draw. */
-  float drawn_angle = 0.0f;   /**< Interlace angle of the last hankin draw. */
+  Spacetime::Retained<int> drawn_cycle; ///< Last Hankin sprite cycle frame.
+  float drawn_angle = 0.0f; /**< Interlace angle of the last hankin draw. */
 
   uint8_t node_face_palette[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */

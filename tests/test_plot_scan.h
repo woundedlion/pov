@@ -98,6 +98,7 @@ inline int run_plot_scan_tests() {
 
   hs_test::test_reference_row_displacement_is_analytic();
   hs_test::test_temporal_oracle_uses_whole_frame_endpoint_budget();
+  test_retained_endpoint_lifecycle();
   test_timed_projected_entry_bypasses_world();
   test_timed_mesh_endpoint_cache();
   test_column_edge_quality();

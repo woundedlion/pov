@@ -228,7 +228,7 @@ private:
    */
   HS_FLASH_MEMBER void
   preset_changed(const Effect::PresetChange &change) override {
-    history_ready = false;
+    pose_history.reset();
     live_palette = preset_palettes[change.to];
     if (change.origin != Effect::PresetChangeOrigin::AUTOMATIC) {
       baked_palettes[active_bake].rebake(*live_palette);
@@ -294,8 +294,7 @@ private:
   math::Orientation<> global_orientation;
 
   math::Orientation<> drawn_orientation; /**< Retained draw endpoint poses. */
-  Params drawn_params; /**< Parameters of the preceding visible draw. */
-  math::Quaternion previous_pose; /**< Pose used by the preceding draw. */
+  Params drawn_params;        /**< Parameters of the preceding visible draw. */
   float drawn_phase = 0.0f;   /**< Orbit phase used by the preceding draw. */
   float drawn_opacity = 0.0f; /**< Opacity of the preceding draw. */
   float phase_start = 0.0f;   /**< Unwrapped orbit start for this draw. */
@@ -305,7 +304,8 @@ private:
                                        eight times the certified chord error,
                                        and one orbit turn more for the third
                                        derivative, as on a circle. */
-  bool history_ready = false; /**< Whether the sprite has a drawn endpoint. */
+  Spacetime::Retained<math::Quaternion>
+      pose_history; ///< Last visible draw pose.
   bool sprite_unseen =
       true; /**< Whether the current sprite has no visible draw. */
 
@@ -620,7 +620,7 @@ private:
    *          rebakes the inactive palette slot for the fresh sprite.
    */
   HS_COLD_MEMBER void spawn_sprite() {
-    history_ready = false;
+    pose_history.reset();
     sprite_unseen = true;
     // Ping-pong so the rebake never lands on the previous sprite's slot.
     active_bake ^= 1;
@@ -908,7 +908,7 @@ private:
                                       float opacity, const SolidData &solid,
                                       const BakedPalette &baked) {
     HS_PROFILE(db_draw_scene);
-    const bool continuous = history_ready &&
+    const bool continuous = pose_history.initialized &&
                             p.base_mesh == drawn_params.base_mesh &&
                             p.weave_topology == drawn_params.weave_topology &&
                             p.weave_gap == drawn_params.weave_gap &&
@@ -916,8 +916,9 @@ private:
                             p.offset_radius == drawn_params.offset_radius &&
                             p.offset_speed == drawn_params.offset_speed &&
                             p.alpha == drawn_params.alpha;
-    drawn_orientation.set(continuous ? previous_pose
-                                     : global_orientation.get());
+    drawn_orientation.set(continuous
+                              ? pose_history.start(global_orientation.get())
+                              : global_orientation.get());
     drawn_orientation.push(global_orientation.get());
     phase_start =
         continuous
@@ -944,11 +945,10 @@ private:
           p.weave_topology == WeaveTopology::MEDIAL || !solid.four_regular;
       draw_woven_scene(canvas, p, solid, medial, opacity, baked);
     }
-    previous_pose = global_orientation.get();
+    pose_history.capture(global_orientation.get());
     drawn_phase = orbit_phase;
     drawn_opacity = opacity;
     drawn_params = p;
-    history_ready = true;
     sprite_unseen = false;
   }
 

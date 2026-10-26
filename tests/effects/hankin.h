@@ -31,11 +31,12 @@ struct HankinSolidsWhiteBox {
     return effect.hankin_cycle_frame;
   }
   static int drawn_cycle_frame(const EffectT &effect) {
-    return effect.drawn_cycle_frame;
+    return effect.drawn_cycle.initialized ? effect.drawn_cycle.previous : -1;
   }
   static int record_cycle_draw(EffectT &effect, int frame) {
     return effect.record_cycle_draw(frame);
   }
+  static void restart_cycle(EffectT &effect) { effect.start_hankin_cycle(); }
   static FrameHandoff handoff(int frame, int previous) {
     return EffectT::frame_handoff(frame, previous);
   }
@@ -448,6 +449,9 @@ inline void test_hankinsolids_handoff_history() {
   Spacetime::set_flat_surface(false);
   HS_EXPECT_EQ(WB::record_cycle_draw(effect, 6), 5);
   HS_EXPECT_FALSE(WB::handoff(6, 6).moves);
+  WB::restart_cycle(effect);
+  HS_EXPECT_EQ(WB::drawn_cycle_frame(effect), -1);
+  HS_EXPECT_EQ(WB::record_cycle_draw(effect, 0), 0);
 }
 
 /**

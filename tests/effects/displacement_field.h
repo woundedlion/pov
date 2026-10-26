@@ -12,6 +12,10 @@
  * span bake, and hue-table bake.
  */
 struct DisplacementFieldWhiteBox {
+  template <int W, int H>
+  static bool history_ready(const DisplacementField<W, H> &effect) {
+    return effect.draw_history.initialized;
+  }
   /** @brief Holds the stack still with narrow, rapidly flowing noise.
    * @param effect Effect before its frame draw. */
   template <int W, int H>
@@ -74,7 +78,7 @@ struct DisplacementFieldWhiteBox {
   static math::Vector sweep_turn(DisplacementField<W, H> &effect,
                                  const math::Quaternion &previous,
                                  const math::Quaternion &current) {
-    effect.orientation_drawn = true;
+    effect.draw_history.capture({.pose = previous});
     typename DisplacementField<W, H>::Sweep sweep;
     HS_EXPECT_TRUE(effect.prepare_sweep(previous, current, 1.0f, 0, sweep));
     return sweep.turn;
@@ -1395,4 +1399,16 @@ inline void test_displacement_field_boundary_stencil() {
   HS_EXPECT_LE(worst, 1);
   std::printf("  [boundary stencil] worst=%d channel units\n", worst);
   hs::clear_mock_time();
+}
+
+/** @brief Manual preset cuts discard DisplacementField draw history. */
+inline void test_displacement_field_retained_history_resets() {
+  reset_effect_globals();
+  DisplacementField<SMALL_W, SMALL_H> effect;
+  effect.init();
+  HS_EXPECT_FALSE(DisplacementFieldWhiteBox::history_ready(effect));
+  run_frames(effect, 4);
+  HS_EXPECT_TRUE(DisplacementFieldWhiteBox::history_ready(effect));
+  HS_EXPECT_TRUE(effect.selectPreset(1));
+  HS_EXPECT_FALSE(DisplacementFieldWhiteBox::history_ready(effect));
 }

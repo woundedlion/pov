@@ -432,12 +432,9 @@ private:
     HS_CHECK(n_rings <= RING_SLOTS,
              "DisplacementField: Rings slider exceeds the baked-ring pool");
     math::Basis basis = math::make_basis(orientation.get(), STACK_AXIS);
-    // The walk steps after this sprite draws, so the previous endpoint is the
-    // orientation the last draw used.
     const math::Quaternion &current = orientation.get();
     const math::Quaternion previous =
-        orientation_drawn ? drawn_orientation : current;
-    drawn_orientation = current;
+        draw_history.start(DrawEndpoint{.pose = current}).pose;
     ScratchScope column_guard(scratch_arena_a);
     const Scan::ColumnBasis column_basis =
         Scan::prepare_column_basis<W, H>(scratch_arena_a, previous, current);
@@ -449,7 +446,6 @@ private:
     Sweep sweep;
     const bool swept =
         prepare_sweep(previous, current, opacity, n_balls, sweep);
-    orientation_drawn = true;
     if (swept) {
       draw_swept(canvas, basis, column_basis, n_balls, sweep);
       return;
@@ -491,16 +487,16 @@ private:
     const float time = noise_live ? noise_field.active_params(0).time : 0.0f;
     const float amplitude =
         noise_live ? noise_field.active_params(0).amplitude : 0.0f;
-    const bool primed = orientation_drawn;
-    sweep.noise_time[0] = primed ? drawn_noise_time : time;
+    const bool primed = draw_history.initialized;
+    const DrawEndpoint end{current, time, amplitude, opacity};
+    const DrawEndpoint start = draw_history.start(end);
+    sweep.noise_time[0] = start.noise_time;
     sweep.noise_time[1] = time;
-    sweep.noise_amplitude[0] = primed ? drawn_noise_amplitude : amplitude;
+    sweep.noise_amplitude[0] = start.noise_amplitude;
     sweep.noise_amplitude[1] = amplitude;
-    sweep.opacity[0] = primed ? drawn_opacity : opacity;
+    sweep.opacity[0] = start.opacity;
     sweep.opacity[1] = opacity;
-    drawn_noise_time = time;
-    drawn_noise_amplitude = amplitude;
-    drawn_opacity = opacity;
+    draw_history.capture(end);
     if (Spacetime::flat_surface() || !primed)
       return false;
     const bool noise = noise_live && fmaxf(std::fabs(sweep.noise_amplitude[0]),
@@ -1453,7 +1449,7 @@ private:
     } else {
       timeline.cancel_owner(&phase_events);
       timeline.cancel_owner(&balls);
-      orientation_drawn = false;
+      draw_history.reset();
       master_gain = change.to == NOISE_PRESET ? 1.0f : 0.0f;
       noise_hold = NOISE_HOLD_FRAMES;
       ball_phase_left = BALL_PHASE_FRAMES;
@@ -1540,13 +1536,14 @@ private:
   GenerativePalette::Snapshot palette_start;  /**< Current wipe's start. */
   GenerativePalette::Snapshot palette_target; /**< Current wipe's target. */
   math::Orientation<> orientation;
-  math::Quaternion drawn_orientation; ///< Orientation of the last ring draw.
-  /// Whether a ring draw since the last history reset supplies the previous
-  /// endpoint.
-  bool orientation_drawn = false;
-  float drawn_noise_time = 0.0f;      ///< Noise time of the last ring draw.
-  float drawn_noise_amplitude = 0.0f; ///< Noise amplitude of the last draw.
-  float drawn_opacity = 0.0f;         ///< Sprite opacity of the last draw.
+  /** @brief Ring-stack pose and shading controls at one sprite draw. */
+  struct DrawEndpoint {
+    math::Quaternion pose;        ///< Stack orientation used by the draw.
+    float noise_time = 0.0f;      ///< Noise field phase.
+    float noise_amplitude = 0.0f; ///< Noise displacement amplitude.
+    float opacity = 0.0f;         ///< Sprite opacity multiplier.
+  };
+  Spacetime::Retained<DrawEndpoint> draw_history; ///< Last ring-stack draw.
   Color4 *drawn_colors =
       nullptr; ///< RING_SLOTS ring colors of the last swept draw.
   uint8_t *drawn_color_ready =

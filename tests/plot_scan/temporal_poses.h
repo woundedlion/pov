@@ -3,6 +3,45 @@
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
 
+/** @brief Retained endpoints collapse at birth, reset and flat draws, then resume from the last flat endpoint. */
+inline void test_retained_endpoint_lifecycle() {
+  struct Endpoint {
+    int frame;
+    float opacity;
+    bool operator==(const Endpoint &) const = default;
+  };
+  using History = Spacetime::Retained<Endpoint>;
+  static_assert(std::is_trivially_copyable_v<History>);
+  static_assert(
+      std::same_as<decltype(History{}.start(Endpoint{1, 0.5f})), Endpoint>);
+  const ScopedTemporalSampling timed(true);
+  History history;
+  HS_EXPECT_FALSE(history.initialized);
+  HS_EXPECT_TRUE(history.start({3, 0.25f}) == Endpoint(3, 0.25f));
+  history.capture({3, 0.25f});
+  HS_EXPECT_TRUE(history.initialized);
+  Endpoint end{4, 0.5f};
+  auto start = history.start(end);
+  end.opacity = 1.0f;
+  HS_EXPECT_TRUE(start == Endpoint(3, 0.25f));
+  history.capture(end);
+  HS_EXPECT_TRUE(history.start({5, 0.75f}) == Endpoint(4, 1.0f));
+  history.reset();
+  HS_EXPECT_FALSE(history.initialized);
+  HS_EXPECT_TRUE(history.start({7, 0.5f}) == Endpoint(7, 0.5f));
+  history.capture({7, 0.5f});
+  Spacetime::set_flat_surface(true);
+  HS_EXPECT_TRUE(history.start({8, 0.75f}) == Endpoint(8, 0.75f));
+  history.capture({8, 0.75f});
+  HS_EXPECT_TRUE(history.start({9, 1.0f}) == Endpoint(9, 1.0f));
+  history.capture({9, 1.0f});
+  Spacetime::set_flat_surface(false);
+  HS_EXPECT_TRUE(history.start({10, 0.5f}) == Endpoint(9, 1.0f));
+  History replacement;
+  HS_EXPECT_FALSE(replacement.initialized);
+  HS_EXPECT_TRUE(replacement.start({12, 0.25f}) == Endpoint(12, 0.25f));
+}
+
 /**
  * @brief Advances an orientation one frame through three sub-steps about
  *        changing axes, as a motion animation's upsampled history does.
