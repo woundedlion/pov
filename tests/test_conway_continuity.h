@@ -1755,18 +1755,6 @@ inline void test_strap_open_fade() {
   HS_EXPECT_LT(pop_faded, 200);
 }
 
-/** Summed absolute channel change between two captures — the visible weight of
- * a transition, which a bare changed-pixel count misses when the same pixels
- * change by less. */
-inline long long frame_delta_energy(const std::vector<Pixel> &a,
-                                    const std::vector<Pixel> &b) {
-  long long e = 0;
-  for (size_t i = 0; i < a.size() && i < b.size(); ++i)
-    e += std::abs((int)a[i].r - b[i].r) + std::abs((int)a[i].g - b[i].g) +
-         std::abs((int)a[i].b - b[i].b);
-  return e;
-}
-
 /**
  * @brief Closing straps approach the host palette and fade at fixed geometry.
  */
@@ -1799,10 +1787,14 @@ inline void test_strap_close_dissolve() {
   capture_opening(fx, close_angle, 1.0f, transparent, 1.0f, 0.0f, cf);
   capture_opening(fx, close_angle, 1.0f, faded, 1.0f, term, cf);
 
-  const long long blend_plain = frame_delta_energy(last_plain, rim);
-  const long long blend_shaped = frame_delta_energy(blended, rim);
-  const long long alpha_plain = frame_delta_energy(last_plain, transparent);
-  const long long alpha_shaped = frame_delta_energy(faded, transparent);
+  const long long blend_plain = static_cast<long long>(
+      compare_buffers(last_plain, rim).total_absolute_error);
+  const long long blend_shaped = static_cast<long long>(
+      compare_buffers(blended, rim).total_absolute_error);
+  const long long alpha_plain = static_cast<long long>(
+      compare_buffers(last_plain, transparent).total_absolute_error);
+  const long long alpha_shaped = static_cast<long long>(
+      compare_buffers(faded, transparent).total_absolute_error);
   std::printf(
       "  [strap-close] palette error %lld -> %lld; alpha energy %lld -> %lld\n",
       blend_plain, blend_shaped, alpha_plain, alpha_shaped);
