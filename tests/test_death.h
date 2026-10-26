@@ -1203,6 +1203,9 @@ inline const Case *all_cases(int &n) {
            case_render_x_window_past_half_turn, "core/render/canvas.h",
            "(begin >= 0 && begin <= end && 2 * end <= effect.frame_width) "
            "render-x window must lie within the half-turn"},
+          {"render_x_window_bad_arm", case_render_x_window_bad_arm,
+           "core/render/canvas.h",
+           "(arm >= -1 && arm <= 1) render-x window arm must be -1, 0 or 1"},
           {"arcs_overlap_start_out_of_range",
            case_arcs_overlap_start_out_of_range, "core/render/clip.h",
            "(s1 >= 0 && s1 < w && s2 >= 0 && s2 < w) "},

@@ -391,6 +391,16 @@ inline void case_render_x_window_past_half_turn() {
   TimeWindow window(canvas, 0, opaque(fx.width() / 2 + 1));
 }
 
+/** @brief A render-x window rejects an invalid arm after valid arms. */
+inline void case_render_x_window_bad_arm() {
+  DeathEffect fx;
+  Canvas canvas(fx);
+  for (int arm : {-1, 0, 1}) {
+    TimeWindow valid(canvas, 0, 4, opaque(arm));
+  }
+  TimeWindow invalid(canvas, 0, 4, opaque(2));
+}
+
 /**
  * @brief Death case: an arc start outside [0, w) must trap.
  * @details arcs_overlap wraps the seam-relative offset with one conditional

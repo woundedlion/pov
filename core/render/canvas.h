@@ -751,6 +751,7 @@ public:
     HS_CHECK(!effect.time_window.active, "render-x windows do not nest");
     HS_CHECK(begin >= 0 && begin <= end && 2 * end <= effect.frame_width,
              "render-x window must lie within the half-turn");
+    HS_CHECK(arm >= -1 && arm <= 1, "render-x window arm must be -1, 0 or 1");
     const int shift = arm < 0 ? 0 : (2 * arm - 1) * (effect.frame_width / 2);
     effect.time_window = {begin + shift, end + shift, true};
   }
