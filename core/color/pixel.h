@@ -89,8 +89,8 @@ constexpr uint8_t linear16_to_linear8(uint16_t value) {
 
 /**
  * @brief Represents a 16-bit per channel RGB color (Linear space).
- * @details Supports high-precision linear-light mixing before sRGB encoding
- * to 8-bit output.
+ * @details Supports high-precision linear-light mixing before 8-bit output
+ * quantization (linear PWM on the LEDs; sRGB in operator CRGB).
  */
 struct Pixel {
   /// Linear red in [0, 65535].
