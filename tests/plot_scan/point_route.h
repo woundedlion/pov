@@ -221,14 +221,10 @@ inline void test_point_route_matches_column_oracle() {
     worst.mass = fmaxf(worst.mass, e.mass);
   };
   uint32_t state = 17u;
-  auto uniform = [&](float lo, float hi) {
-    state = state * 1664525u + 1013904223u;
-    return lo + (hi - lo) * float(state >> 8) * (1.0f / 16777216.0f);
-  };
   for (int i = 0; i < 400; ++i) {
-    const float x = uniform(0.0f, float(W));
-    const float y = uniform(16.0f, 128.0f);
-    const float heading = uniform(0.0f, math::TWO_PI_F);
+    const float x = lcg_uniform(state, 0.0f, float(W));
+    const float y = lcg_uniform(state, 16.0f, 128.0f);
+    const float heading = lcg_uniform(state, 0.0f, math::TWO_PI_F);
     for (float spin : {0.0f, 0.02f}) {
       for (float angle : {0.0134f, 0.04f})
         check(point_route_path(x, y, heading, angle, spin, tilted), interior);
@@ -248,10 +244,10 @@ inline void test_point_route_matches_column_oracle() {
         check(path, cut);
       }
   for (int i = 0; i < 400; ++i) {
-    const float x = uniform(0.0f, float(W));
-    const float row = uniform(0.5f, 8.0f);
+    const float x = lcg_uniform(state, 0.0f, float(W));
+    const float row = lcg_uniform(state, 0.5f, 8.0f);
     const float y = (i & 1) ? row : 143.0f - row;
-    const float heading = uniform(0.0f, math::TWO_PI_F);
+    const float heading = lcg_uniform(state, 0.0f, math::TWO_PI_F);
     for (float angle : {0.0134f, 0.04f})
       check(point_route_path(x, y, heading, angle, 0.01f, tilted), polar);
   }
@@ -285,16 +281,13 @@ inline void test_point_route_gate_keeps_visible_taps() {
   constexpr int W = 288, H = 144;
   const math::Vector tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
   uint32_t state = 5u;
-  auto uniform = [&](float lo, float hi) {
-    state = state * 1664525u + 1013904223u;
-    return lo + (hi - lo) * float(state >> 8) * (1.0f / 16777216.0f);
-  };
   std::vector<PointRoutePath> paths;
   for (int i = 0; i < 3000; ++i)
-    paths.push_back(
-        point_route_path(uniform(0.0f, float(W)), uniform(0.0f, float(H - 1)),
-                         uniform(0.0f, math::TWO_PI_F), uniform(0.0f, 0.06f),
-                         uniform(0.0f, 0.03f), tilted));
+    paths.push_back(point_route_path(lcg_uniform(state, 0.0f, float(W)),
+                                     lcg_uniform(state, 0.0f, float(H - 1)),
+                                     lcg_uniform(state, 0.0f, math::TWO_PI_F),
+                                     lcg_uniform(state, 0.0f, 0.06f),
+                                     lcg_uniform(state, 0.0f, 0.03f), tilted));
   // Every path into one frame through the route, or through a plain
   // projected splat at t = 1.
   std::vector<uint8_t> visible(size_t(W) * H);
@@ -368,15 +361,11 @@ inline void test_point_route_shades_at_pass_time() {
   sink.prepare(canvas);
   Plot::PointRoute<W, H> route;
   uint32_t state = 11u;
-  auto uniform = [&](float lo, float hi) {
-    state = state * 1664525u + 1013904223u;
-    return lo + (hi - lo) * float(state >> 8) * (1.0f / 16777216.0f);
-  };
   int passes = 0;
   for (int i = 0; i < 500; ++i) {
-    const PointRoutePath path =
-        point_route_path(uniform(0.0f, float(W)), uniform(24.0f, 120.0f),
-                         uniform(0.0f, math::TWO_PI_F), 0.02f, 0.01f, tilted);
+    const PointRoutePath path = point_route_path(
+        lcg_uniform(state, 0.0f, float(W)), lcg_uniform(state, 24.0f, 120.0f),
+        lcg_uniform(state, 0.0f, math::TWO_PI_F), 0.02f, 0.01f, tilted);
     const math::Vector end = path.at(1.0f);
     route.prepare(canvas, (end - path.at(0.0f)).magnitude());
     route.plot(

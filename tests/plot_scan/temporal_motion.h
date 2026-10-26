@@ -249,26 +249,22 @@ inline void test_interpolants_bound_warped_great_circle() {
     out[2] = 2.0 * nz * s / den;
   };
   uint32_t state = 29u;
-  auto uniform = [&](double lo, double hi) {
-    state = state * 1664525u + 1013904223u;
-    return lo + (hi - lo) * double(state >> 8) * (1.0 / 16777216.0);
-  };
   double tight_second = 0.0, tight_third = 0.0;
   for (int trial = 0; trial < 3000; ++trial) {
     Motion m;
-    const double polar =
-        trial % 3 == 0 ? uniform(1e-3, 0.05) : uniform(0.0, 3.1);
-    const double azimuth = uniform(0.0, 6.283);
+    const double polar = trial % 3 == 0 ? lcg_uniform(state, 1e-3, 0.05)
+                                        : lcg_uniform(state, 0.0, 3.1);
+    const double azimuth = lcg_uniform(state, 0.0, 6.283);
     m.x = sin(polar) * cos(azimuth);
     m.y = cos(polar);
     m.z = sin(polar) * sin(azimuth);
-    m.hx = uniform(-1.0, 1.0);
-    m.hz = uniform(-1.0, 1.0);
+    m.hx = lcg_uniform(state, -1.0, 1.0);
+    m.hz = lcg_uniform(state, -1.0, 1.0);
     const int kind = trial % 4;
-    m.turn = kind == 1 ? 0.0 : uniform(0.001, 0.0218);
-    const double scale = uniform(0.0, 5.0);
-    const double start = uniform(0.0, 6.283);
-    const double sweep = kind == 0 ? 0.0 : uniform(0.0, 0.08);
+    m.turn = kind == 1 ? 0.0 : lcg_uniform(state, 0.001, 0.0218);
+    const double scale = lcg_uniform(state, 0.0, 5.0);
+    const double start = lcg_uniform(state, 0.0, 6.283);
+    const double sweep = kind == 0 ? 0.0 : lcg_uniform(state, 0.0, 0.08);
     m.b0x = scale * (cos(start) - 1.0);
     m.b0z = scale * sin(start);
     m.b1x = scale * (cos(start + sweep) - 1.0);

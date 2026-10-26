@@ -86,7 +86,7 @@ inline bool require_ci_smoke_frames() {
   if (!runs_in_ci() || (frames && std::atoi(frames) >= CI_MIN_SMOKE_FRAMES))
     return true;
   std::fprintf(stderr,
-               "CI=on but HS_SMOKE_FRAMES is unset or below %d — "
+               "CI=on but HS_SMOKE_FRAMES is unset or below %d â€” "
                "a shallower window skips frame-cyclic paths and arms no "
                "preset transition. Set HS_SMOKE_FRAMES in the workflow "
                "step's env.\n",
@@ -185,6 +185,19 @@ inline void reset_globals() {
  */
 inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
   return lo + hs::random_to_unit(rng()) * (hi - lo);
+}
+
+/**
+ * @brief Draws a uniform value from a locally seeded linear congruential stream.
+ * @tparam T Floating-point result and arithmetic type.
+ * @param state Generator state, advanced by one draw.
+ * @param lo Lower bound.
+ * @param hi Upper bound.
+ * @return A value in [lo, hi], inclusive through rounding.
+ */
+template <typename T> inline T lcg_uniform(uint32_t &state, T lo, T hi) {
+  state = state * 1664525u + 1013904223u;
+  return lo + (hi - lo) * T(state >> 8) * (T(1) / T(16777216));
 }
 
 /**
@@ -288,7 +301,7 @@ inline std::string read_text_file(const std::string &path) {
 
 /**
  * @brief Restores HD107SFrame<S>'s shared static correction state to unity
- *        (255 = exact ×1.0).
+ *        (255 = exact Ã—1.0).
  * @tparam S Pixel count of the frame instantiation to reset; the correction
  *           state is a static of HD107SFrame<S>, so each S carries its own.
  * @details Resets the per-channel correction, temperature, and brightness to an
