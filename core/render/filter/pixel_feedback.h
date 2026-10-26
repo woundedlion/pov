@@ -1263,7 +1263,8 @@ private:
     return pole_row ? point : field.project(position);
   }
   // populate_warp_field() canonicalizes the stored column offset onto
-  // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and casts it to int16_t unclamped.
+  // [-W*WARP_SCALE/2, W*WARP_SCALE/2] and clamps the elapsed-scaled offset
+  // to that range before the int16_t cast.
   static_assert(W * WARP_SCALE * 0.5f <= 32767.0f,
                 "Feedback<W,H>: canonical warp offset must fit int16_t");
   // Under runtime geometry, row offsets saturate at +/-32767 WARP_SCALE units.
