@@ -1090,6 +1090,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
     if (std::string_view(preset.params->name) == "truncatedCube_hk90_meta")
       entry = *preset.params;
   HS_EXPECT_TRUE(entry.name != nullptr);
+  if (entry.name == nullptr)
+    return;
   entry.recipe = nullptr;
   P::spawn_entry(effect, entry);
   HS_EXPECT_GT(P::fire_ripple(effect), 0);
