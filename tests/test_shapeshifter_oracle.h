@@ -352,8 +352,7 @@ struct ShapeShifterWhiteBox {
 template <typename Render>
 inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   reset_globals();
-  const bool temporal = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(true);
+  const ScopedTemporalSampling sampling(false);
   hs::set_mock_time(0, 0);
   hs::g_scan_metrics.reset();
 
@@ -376,7 +375,6 @@ inline OracleFrame capture_frame(const OracleState &state, Render &&render) {
   }
   Timeline().clear();
   hs::clear_mock_time();
-  Spacetime::set_flat_surface(!temporal);
   return frame;
 }
 
@@ -785,9 +783,8 @@ inline void test_timed_star_stays_within_visual_budget() {
       math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
   const auto comparison = compare_renders(
       state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
-        Spacetime::set_flat_surface(false);
+        const ScopedTemporalSampling sampling(true);
         ShapeShifterWhiteBox::render_candidate(effect, canvas);
-        Spacetime::set_flat_surface(true);
       });
   const auto energy = frame_energy(comparison.reference);
   const double drift =
@@ -1209,8 +1206,7 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
                                                 float displacement,
                                                 uint32_t *walked = nullptr) {
   reset_globals();
-  const bool temporal = !Spacetime::flat_surface();
-  Spacetime::set_flat_surface(false);
+  const ScopedTemporalSampling sampling(true);
   hs::set_mock_time(0, 0);
   std::vector<float> luminance(static_cast<size_t>(ORACLE_W) * ORACLE_H);
   {
@@ -1267,7 +1263,6 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
   }
   Timeline().clear();
   hs::clear_mock_time();
-  Spacetime::set_flat_surface(!temporal);
   return luminance;
 }
 
@@ -1346,9 +1341,8 @@ inline void test_timed_presets_match_frozen_columns() {
         math::Quaternion(0.72f, -0.41f, 0.18f, 0.53f).normalized();
     const auto look = compare_renders(
         state, candidate_renderer(), [](OracleEffect &effect, Canvas &canvas) {
-          Spacetime::set_flat_surface(false);
+          const ScopedTemporalSampling sampling(true);
           ShapeShifterWhiteBox::render_candidate(effect, canvas);
-          Spacetime::set_flat_surface(true);
         });
     const double energy = double(frame_energy(look.reference));
     const double drift =
