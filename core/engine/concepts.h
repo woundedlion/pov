@@ -716,7 +716,7 @@ public:
    * @param cv Prepared canvas. */
   template <typename T>
     requires(pipeline_direct_raster_path<std::decay_t<T>>())
-  PipelineRef(T &t, [[maybe_unused]] Canvas &cv, Spacetime::Timed)
+  PipelineRef(T &t, Canvas &cv, Spacetime::Timed)
       : PipelineRef(t, Erase<true>{}) {
     HS_CHECK(t.prepared_for(cv),
              "timed direct raster pipeline not prepared for this canvas");
