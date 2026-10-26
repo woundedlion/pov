@@ -72,14 +72,18 @@ public:
     // Scale overlapping fades proportionally using the member's normalized duration.
     int fade_total = this->fade_in_duration + this->fade_out_duration;
     if (this->duration >= 0 && fade_total > this->duration) {
-      const int requested_fade_in = this->fade_in_duration;
+      const int REQUESTED_FADE_IN = this->fade_in_duration;
+      const int REQUESTED_FADE_OUT = this->fade_out_duration;
       this->fade_in_duration = static_cast<long long>(this->duration) *
                                this->fade_in_duration / fade_total;
       // Frame 1 is the first drawn frame; a visible ramp needs two frames.
-      if (this->fade_in_duration < 2 && requested_fade_in > 0 &&
+      if (this->fade_in_duration < 2 && REQUESTED_FADE_IN > 0 &&
           this->duration >= 3)
         this->fade_in_duration = 2;
       this->fade_out_duration = this->duration - this->fade_in_duration;
+      if (this->fade_out_duration < 2 && REQUESTED_FADE_OUT > 0 &&
+          this->duration >= 3)
+        this->fade_out_duration = 2;
     }
     // A duration-1 sprite's sole frame is t==duration, where the fade-out ramp
     // reaches 0; drop fade-out so that frame isn't drawn fully transparent.

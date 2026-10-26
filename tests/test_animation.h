@@ -144,6 +144,7 @@ inline int run_animation_tests() {
   HS_RUN(test_sprite_clamps_overshooting_fade_in);
   HS_RUN(test_sprite_overlapping_fades_stay_continuous);
   HS_RUN(test_sprite_scaled_fade_in_dims_first_frame);
+  HS_RUN(test_sprite_scaled_fade_out_dims_penultimate_frame);
   HS_RUN(test_sprite_paused_holds_frame);
   HS_RUN(test_timeline_pause_redraws_held_sprite);
   HS_RUN(test_sprite_paused_before_first_step_holds_first_opacity);
