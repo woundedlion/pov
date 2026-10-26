@@ -11,6 +11,7 @@
 #include "tests/test_hyper_lattice.h"
 int main() {
   hs_test::ModuleFixture fixture("render_goldens");
+  hs_test::plot_parity_tests::test_platform_fastmath_golden_reference();
   hs_test::plot_parity_tests::
       test_render_fingerprint_rejects_channel_and_spatial_changes();
   hs_test::effects_tests::test_bz_untimed_frames_are_pinned();

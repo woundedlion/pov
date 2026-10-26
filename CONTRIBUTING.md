@@ -144,7 +144,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   brightness-weighted row/column centroids on every floating-point mode. The
   recording environment additionally requires exact hashes. Strict and fast
   modes have separate references; long chaotic sequences may carry a separate
-  WASM fast reference. Re-record only after reviewing the render change, measure
+  platform fast reference. Re-record only after reviewing the render change, measure
   toolchain drift before changing a scenario's tolerances, and retain asymmetric
   channel-swap, mirror and shift companions. Aggregate moments do not distinguish
   all images. CI uploads native and WASM comparison logs. The explicit

@@ -181,9 +181,20 @@ struct RecordedGolden {
   PixelGolden ieee;
   PixelGolden fastmath;
   double channel_band = 1e-3;
-  double centroid_band = 0.01; ///< Brightness-centroid tolerance in pixels.
-  PixelGolden wasm_fastmath{}; ///< Empty selects the native fast reference.
+  double centroid_band = 0.01;  ///< Brightness-centroid tolerance in pixels.
+  PixelGolden wasm_fastmath{};  ///< Empty selects the native fast reference.
+  PixelGolden linux_fastmath{}; ///< Empty selects the native fast reference.
 };
+
+/** @brief Selects a platform fast-math reference or the shared native reference.
+ * @param recorded Recorded sequence references.
+ * @param platform Optional reference for the current platform.
+ * @return Nonempty platform reference, otherwise the native fast reference. */
+inline const PixelGolden &
+fastmath_golden_reference(const RecordedGolden &recorded,
+                          const PixelGolden &platform) {
+  return platform.fingerprint.energy() != 0 ? platform : recorded.fastmath;
+}
 
 /** @brief Extends a golden with one displayed frame.
  * @tparam W Frame width.
@@ -294,9 +305,11 @@ inline void expect_pixel_golden(const char *name, const PixelGolden &actual,
                                 const RecordedGolden &recorded) {
   HS_CONTEXT(name);
 #if defined(__EMSCRIPTEN__) && HS_TEST_FAST_MATH
-  const PixelGolden &expected = recorded.wasm_fastmath.fingerprint.energy() != 0
-                                    ? recorded.wasm_fastmath
-                                    : recorded.fastmath;
+  const PixelGolden &expected =
+      fastmath_golden_reference(recorded, recorded.wasm_fastmath);
+#elif defined(__linux__) && HS_TEST_FAST_MATH
+  const PixelGolden &expected =
+      fastmath_golden_reference(recorded, recorded.linux_fastmath);
 #elif HS_TEST_FAST_MATH
   const PixelGolden &expected = recorded.fastmath;
 #else

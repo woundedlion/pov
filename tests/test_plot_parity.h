@@ -606,6 +606,27 @@ inline void test_filter_pipeline_effects_match_recorded_frames() {
   }
 }
 
+/** @brief Optional platform fast-math references retain the native fallback. */
+inline void test_platform_fastmath_golden_reference() {
+  RecordedGolden recorded;
+  recorded.fastmath.fingerprint.channels = {10, 20, 30};
+  recorded.linux_fastmath.hash = 17;
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
+               &recorded.fastmath);
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
+               &recorded.fastmath);
+  recorded.linux_fastmath.fingerprint.channels = {40, 50, 60};
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
+               &recorded.linux_fastmath);
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
+               &recorded.fastmath);
+  recorded.wasm_fastmath.fingerprint.channels = {70, 80, 90};
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.wasm_fastmath),
+               &recorded.wasm_fastmath);
+  HS_EXPECT_EQ(&fastmath_golden_reference(recorded, recorded.linux_fastmath),
+               &recorded.linux_fastmath);
+}
+
 /** @brief Spatial fingerprints reject energy-preserving image changes. */
 inline void test_render_fingerprint_rejects_channel_and_spatial_changes() {
   struct Frame {
@@ -660,6 +681,7 @@ inline void test_render_fingerprint_rejects_channel_and_spatial_changes() {
  */
 inline int run_plot_parity_tests() {
   hs_test::ModuleFixture fixture("plot_parity");
+  HS_RUN(test_platform_fastmath_golden_reference);
   HS_RUN(test_render_fingerprint_rejects_channel_and_spatial_changes);
   HS_RUN(test_filter_pipeline_effects_match_recorded_frames);
   return fixture.result();

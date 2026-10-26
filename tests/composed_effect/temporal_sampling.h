@@ -821,7 +821,11 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
                      {0x54b286aedc50e5b7ull,
                       {{7025810653ull, 6816434558ull, 7032280424ull},
                        208885953563ull,
-                       984308556083ull}}});
+                       984308556083ull}},
+                     {0x8c65f65a113972deull,
+                      {{6401113354ull, 6273991381ull, 6152479994ull},
+                       179644043625ull,
+                       913767027589ull}}});
 }
 
 /** @brief Composed history type of an effect.
