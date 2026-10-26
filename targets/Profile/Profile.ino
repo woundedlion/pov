@@ -605,9 +605,8 @@ private:
   /**
    * @brief Prints and resets this window's probe-stage cycle buckets.
    * @details Window totals in cycles beside their event counts. Each bucket
-   *          carries one counter read; tick is the summed
-   *          cost of a back-to-back read pair per probe, so tick/n_probe/2 is
-   *          the per-read inflation to subtract from each bucket's mean.
+   *          carries one counter read; tick/n_probe measures the per-read
+   *          inflation to subtract from each bucket's mean.
    */
   void dump_probe_breakdown() {
     const ProbeTotals &t = probe_totals;

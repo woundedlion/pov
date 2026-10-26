@@ -408,7 +408,7 @@ class ScanMetricsLines(unittest.TestCase):
 class ProbeBreakdownLines(unittest.TestCase):
     """The HS_PROBE_BREAKDOWN 'probe cycles'/'probe counts' lines."""
 
-    # 100 probes; tick = 100 read pairs at 10 cyc => read = 5 cyc/read.
+    # 100 probes; tick = 100 read gaps at 10 cyc => read = 10 cyc/read.
     CYC = ("probe cycles: point=1500 project=3000 lut=0 convex=500 "
            "sector=2000 exact=4000 pack=1200 alpha=400 tick=1000")
     CNT = ("probe counts: probe=100 cull_r=6 lut=0 convex=20 "
@@ -453,14 +453,14 @@ class ProbeBreakdownLines(unittest.TestCase):
         with contextlib.redirect_stdout(buf):
             self.assertEqual(pp.cmd_probe(self._parse()), 0)
         out = buf.getvalue()
-        # tick 1000 over 2*100 reads = 5.0 cyc per counter read.
-        self.assertIn("counter read=5.0 cyc", out)
-        # exact: 4000/40 = 100.0 cyc/event, 95.0 net, 40/100 probes => 38.0.
+        # tick 1000 over 100 reads = 10.0 cyc per counter read.
+        self.assertIn("counter read=10.0 cyc", out)
+        # exact: 4000/40 = 100.0 cyc/event, 90.0 net, 40/100 probes => 36.0.
         row = next(l for l in out.splitlines() if l.startswith("exact"))
-        self.assertEqual(row.split()[1:5], ["40", "100.0", "95.0", "38.0"])
+        self.assertEqual(row.split()[1:5], ["40", "100.0", "90.0", "36.0"])
 
     def test_printed_cyc_per_probe_column_sums_to_the_printed_total(self):
-        # alpha runs 50 times at 2.0 cyc/event, below the 5.0 cyc read cost,
+        # alpha runs 50 times at 2.0 cyc/event, below the 10.0 cyc read cost,
         # so its net per probe is negative.
         cyc = self.CYC.replace("alpha=400", "alpha=100")
         buf = io.StringIO()

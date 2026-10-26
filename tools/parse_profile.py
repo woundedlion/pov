@@ -638,7 +638,7 @@ def cmd_probe(windows):
     """Per-probe stage cycle split from an HS_PROBE_BREAKDOWN capture.
 
     Per stage: mean cycles per event of its own denominator, the same less the
-    measured counter-read cost (read = tick / (2 * probes); each stage carries
+    measured counter-read cost (read = tick / probes; each stage carries
     one read), and its share of the per-probe total. Ratios are meaningful;
     absolute times are not.
     """
@@ -655,7 +655,7 @@ def cmd_probe(windows):
     if not probes:
         print("probe count is zero", file=sys.stderr)
         return 2
-    read = agg["tick"] / (2.0 * probes)
+    read = agg["tick"] / probes
     print(f"probes={probes}  windows={len(have)}  "
           f"counter read={read:.1f} cyc (measured)")
     print(f"{'# stage':<10} {'events':>10} {'cyc/event':>10} "
