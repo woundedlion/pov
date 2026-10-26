@@ -180,8 +180,7 @@ hs_native_path() {
   if command -v cygpath >/dev/null 2>&1; then
     cygpath -m -- "$1"
   else
-    printf '%s
-' "$1"
+    printf '%s\n' "$1"
   fi
 }
 
