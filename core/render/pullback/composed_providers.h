@@ -51,10 +51,11 @@ template <typename ParamsT> struct FrameState {
   /** Conjugate of the outer camera orientation. */
   math::Quaternion outer_conjugate;
   const BakedPalette *palette; /**< The cycler's current bake. */
-  /** Hue-rotation LUT base; current only when hue_rotation_active(). */
+  /** Hue-rotation LUT base; current when hue_rotation_active() or the effect
+      samples time. */
   const Pixel *hue_rotation_lut;
-  /** Hue-noise LUT base; current only under HueMode::NOISE with an active
-      rotation. */
+  /** Hue-noise LUT base; current under HueMode::NOISE when rotation is active
+      or the effect samples time. */
   const int8_t *hue_noise_lut;
   ParamsT params; /**< The frame's parameter values, already interpolated if a
                        preset transition is in flight. */
