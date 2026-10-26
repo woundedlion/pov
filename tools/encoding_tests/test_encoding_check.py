@@ -27,6 +27,19 @@ class EncodingCheckTests(unittest.TestCase):
     def test_correct_unicode_is_accepted(self):
         self.assertEqual(encoding_check.mojibake_lines("ASCII \u2014 \u2192 \u00b1 \u00b0 \u00d7 caf\u00e9"), [])
 
+    def test_gate_skips_unstaged_deletions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            git_run(root, "init", "-q")
+            path = root / "deleted.txt"
+            path.write_text("clean\n", encoding="utf-8")
+            git_run(root, "add", "--", "deleted.txt")
+            path.unlink()
+            result = subprocess.run([sys.executable, str(TOOL), "--root", str(root)],
+                                    capture_output=True, env=isolated_env())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, b"")
+
     def test_gate_reads_only_tracked_text(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

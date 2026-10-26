@@ -33,7 +33,10 @@ def main() -> int:
     root = args.root.resolve()
     failed = False
     for name in git_nul_list(root, "ls-files", "-z"):
-        data = (root / name).read_bytes()
+        path = root / name
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
         if b"\0" in data:
             continue
         try:
