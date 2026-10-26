@@ -144,15 +144,16 @@ private:
   DMAChannel dma_channel{false}; /**< eDMA channel wired to LPSPI4 TX. */
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
-   *        column ISR.
+   *        submitting context.
    * @details Does not order the buffer for the DMA engine; the caller's cache
    *          flush before transmit_async() does that.
    */
   std::atomic<bool> transfer_complete;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
-   * @details Column-ISR context only. Meaningful only while transfer_complete
-   *          is false.
+   * @details Owned by the submitting context: the column ISR while it runs,
+   *          or the foreground once the column timer is stopped. Meaningful
+   *          only while transfer_complete is false.
    */
   unsigned long transfer_start_us = 0;
   SPISettings

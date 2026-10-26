@@ -185,7 +185,8 @@ private:
   Transport spi; /**< Low-level async DMA+SPI transport for this strip. */
   /**
    * @brief Index (0/1) of the front buffer currently being DMA'd.
-   * @details Column-ISR context only.
+   * @details Owned by the submitting context: the column ISR while it runs,
+   *          or the foreground once the column timer is stopped.
    */
   int active_buffer;
   /**
