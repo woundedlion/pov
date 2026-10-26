@@ -328,7 +328,7 @@ public:
    * @return Projected column. */
   float plot_at(Canvas &cv, const math::Vector &v, const ::Pixel &c, float age,
                 float alpha, float t) {
-    return pipeline().plot_at(cv, v, c, age, alpha, t);
+    return pipeline().plot_at_prepared(cv, v, c, age, alpha, t);
   }
 
   /** @brief Plots geometry whose world stages have already been evaluated.
@@ -339,7 +339,7 @@ public:
    * @return Projected column. */
   float plot_transformed_at(Canvas &cv, const math::Vector &v, const ::Pixel &c,
                             float age, float alpha, float t) {
-    return pipeline().plot_transformed_at(cv, v, c, age, alpha, t);
+    return pipeline().plot_transformed_at_prepared(cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -350,7 +350,7 @@ public:
    * @return Projected column. */
   float plot_projected_at(Canvas &cv, math::PixelCoords p, const ::Pixel &c,
                           float age, float alpha, float t) {
-    return pipeline().plot_projected_at(cv, p, c, age, alpha, t);
+    return pipeline().plot_projected_at_prepared(cv, p, c, age, alpha, t);
   }
 
   /** @brief Emits the anti-alias taps a projected sample lands in one column.
@@ -363,7 +363,7 @@ public:
                       const ::Pixel &c, float age, float alpha, float t)
     requires column_taps_ready
   {
-    pipeline().plot_column_at(cv, p, column, c, age, alpha, t);
+    pipeline().plot_column_at_prepared(cv, p, column, c, age, alpha, t);
   }
 
   /** @brief Evaluates world stages without projection or history recording.
@@ -687,6 +687,7 @@ template <int W, int H> struct Pipeline<W, H> {
     return pred(a, b, pb);
   }
 
+private:
   /** @brief Writes a timed screen sample at the terminal.
    * @param cv Target canvas.
    * @param x Column coordinate.
@@ -699,7 +700,18 @@ template <int W, int H> struct Pipeline<W, H> {
     plot(cv, x, y, c, age, alpha);
   }
 
-private:
+  template <typename... Args>
+  HS_HOT_INLINE float plot_at_prepared(Canvas &cv, Args &&...args) {
+    return plot_at(cv, std::forward<Args>(args)...);
+  }
+  template <typename... Args>
+  HS_HOT_INLINE float plot_transformed_at_prepared(Canvas &cv, Args &&...args) {
+    return plot_transformed_at(cv, std::forward<Args>(args)...);
+  }
+  template <typename... Args>
+  HS_HOT_INLINE float plot_projected_at_prepared(Canvas &cv, Args &&...args) {
+    return plot_projected_at(cv, std::forward<Args>(args)...);
+  }
   template <typename... Args> void plot_prepared(Canvas &cv, Args &&...args) {
     plot(cv, std::forward<Args>(args)...);
   }
@@ -989,6 +1001,62 @@ struct Pipeline<W, H, Head, Tail...>
     plot_prepared(cv, v, c, age, alpha);
   }
 
+  /** @brief Plots a timed world sample through a non-replacing pipeline.
+   * @param cv Frame context.
+   * @param v World point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_at(Canvas &cv, const math::Vector &v,
+                              const ::Pixel &c, float age, float alpha, float t)
+    requires(!terminal_replaces)
+  {
+    return plot_at_prepared(cv, v, c, age, alpha, t);
+  }
+
+  /** @brief Plots a timed sample after world transforms.
+   * @param cv Frame context.
+   * @param v Transformed point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_transformed_at(Canvas &cv, const math::Vector &v,
+                                          const ::Pixel &c, float age,
+                                          float alpha, float t)
+    requires(!terminal_replaces)
+  {
+    return plot_transformed_at_prepared(cv, v, c, age, alpha, t);
+  }
+
+  /** @brief Plots a timed projected sample.
+   * @param cv Frame context.
+   * @param p Projected point.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction.
+   * @return Projected column. */
+  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
+                                        const ::Pixel &c, float age,
+                                        float alpha, float t)
+    requires(!terminal_replaces)
+  {
+    return plot_projected_at_prepared(cv, p, c, age, alpha, t);
+  }
+
+  /** @brief Plots timed anti-alias taps in one owned column.
+   * @param cv Frame context.
+   * @param p Projected point.
+   * @param column Destination column.
+   * @param c,age,alpha Shading registers.
+   * @param t Frame fraction. */
+  HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
+                                    const ::Pixel &c, float age, float alpha,
+                                    float t)
+    requires(column_taps_ready && !terminal_replaces)
+  {
+    plot_column_at_prepared(cv, p, column, c, age, alpha, t);
+  }
+
+private:
   /** @brief Carries an explicit fraction through world stages.
    * @param cv Target canvas.
    * @param v World point.
@@ -997,9 +1065,9 @@ struct Pipeline<W, H, Head, Tail...>
    * @param alpha Source opacity.
    * @param t Frame fraction.
    * @return Projected column. */
-  HS_HOT_INLINE float plot_at(Canvas &cv, const math::Vector &v,
-                              const ::Pixel &c, float age, float alpha,
-                              float t) {
+  HS_HOT_INLINE float plot_at_prepared(Canvas &cv, const math::Vector &v,
+                                       const ::Pixel &c, float age, float alpha,
+                                       float t) {
     if constexpr (Head::is_2d) {
       const auto p = math::vector_to_pixel<W, H>(v);
       plot_screen_at(cv, p.x, p.y, c, age, alpha, t);
@@ -1008,7 +1076,7 @@ struct Pipeline<W, H, Head, Tail...>
       float landed = std::numeric_limits<float>::quiet_NaN();
       auto pass = [&](const math::Vector &nv, const ::Pixel &nc, float nage,
                       float nalpha) HS_HOT_INLINE {
-        landed = next.plot_at(cv, nv, nc, nage, nalpha, t);
+        landed = next.plot_at_prepared(cv, nv, nc, nage, nalpha, t);
       };
       if constexpr (requires { Head::plot_at(cv, v, c, age, alpha, t, pass); })
         Head::plot_at(cv, v, c, age, alpha, t, pass);
@@ -1024,13 +1092,14 @@ struct Pipeline<W, H, Head, Tail...>
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
    * @return Projected column. */
-  HS_HOT_INLINE float plot_transformed_at(Canvas &cv, const math::Vector &v,
-                                          const ::Pixel &c, float age,
-                                          float alpha, float t) {
+  HS_HOT_INLINE float plot_transformed_at_prepared(Canvas &cv,
+                                                   const math::Vector &v,
+                                                   const ::Pixel &c, float age,
+                                                   float alpha, float t) {
     if constexpr (Head::is_2d)
-      return plot_at(cv, v, c, age, alpha, t);
+      return plot_at_prepared(cv, v, c, age, alpha, t);
     else
-      return next.plot_transformed_at(cv, v, c, age, alpha, t);
+      return next.plot_transformed_at_prepared(cv, v, c, age, alpha, t);
   }
 
   /** @brief Emits a projected sample through screen stages.
@@ -1039,14 +1108,15 @@ struct Pipeline<W, H, Head, Tail...>
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction.
    * @return Projected column. */
-  HS_HOT_INLINE float plot_projected_at(Canvas &cv, math::PixelCoords p,
-                                        const ::Pixel &c, float age,
-                                        float alpha, float t) {
+  HS_HOT_INLINE float plot_projected_at_prepared(Canvas &cv,
+                                                 math::PixelCoords p,
+                                                 const ::Pixel &c, float age,
+                                                 float alpha, float t) {
     if constexpr (Head::is_2d) {
       plot_screen_at(cv, p.x, p.y, c, age, alpha, t);
       return p.x;
     } else {
-      return next.plot_projected_at(cv, p, c, age, alpha, t);
+      return next.plot_projected_at_prepared(cv, p, c, age, alpha, t);
     }
   }
 
@@ -1116,19 +1186,20 @@ struct Pipeline<W, H, Head, Tail...>
    * @param column Wrapped destination column.
    * @param c,age,alpha Shading registers.
    * @param t Frame fraction carried to later screen stages. */
-  HS_HOT_INLINE void plot_column_at(Canvas &cv, math::PixelCoords p, int column,
-                                    const ::Pixel &c, float age, float alpha,
-                                    float t)
+  HS_HOT_INLINE void plot_column_at_prepared(Canvas &cv, math::PixelCoords p,
+                                             int column, const ::Pixel &c,
+                                             float age, float alpha, float t)
     requires column_taps_ready
   {
     if constexpr (Head::is_2d) {
       ScreenPass pass{next, cv, t};
       Head::plot_owned_column(p.x, p.y, c, age, alpha, column, pass);
     } else {
-      next.plot_column_at(cv, p, column, c, age, alpha, t);
+      next.plot_column_at_prepared(cv, p, column, c, age, alpha, t);
     }
   }
 
+public:
   /** @brief Evaluates world stages without projection or history recording.
    * @param cv Frame context.
    * @param v Source point.

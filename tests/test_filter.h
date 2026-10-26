@@ -52,6 +52,21 @@ concept RawFramePlotter = requires(P &pipeline, Canvas &canvas) {
 };
 
 template <typename P>
+concept RawTimedPlotter = requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot_at(canvas, math::X_AXIS, Pixel{}, 0.0f, 1.0f, 0.5f);
+} || requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot_transformed_at(canvas, math::X_AXIS, Pixel{}, 0.0f, 1.0f, 0.5f);
+} || requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot_projected_at(canvas, math::PixelCoords{}, Pixel{}, 0.0f, 1.0f,
+                             0.5f);
+} || requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot_column_at(canvas, math::PixelCoords{}, 0, Pixel{}, 0.0f, 1.0f,
+                          0.5f);
+} || requires(P &pipeline, Canvas &canvas) {
+  pipeline.plot_screen_at(canvas, 0.0f, 0.0f, Pixel{}, 0.0f, 1.0f, 0.5f);
+};
+
+template <typename P>
 concept TerminalFlusher =
     requires(P &pipeline, Canvas &canvas) { pipeline.flush(canvas, 1.0f); };
 

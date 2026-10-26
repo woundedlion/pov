@@ -46,6 +46,11 @@ inline void test_pipeline_sink_and_terminal_concept_surface() {
   static_assert(Terminal::is_terminal);
   static_assert(!NonTerminal::is_terminal);
   static_assert(!RawFramePlotter<Terminal>);
+  static_assert(!RawTimedPlotter<Terminal>);
+  using TimedTerminal = Pipeline<32, 32, Filter::Screen::AntiAlias<32, 32>,
+                                 Filter::Pixel::Feedback<32, 32>>;
+  static_assert(TimedTerminal::column_taps_ready);
+  static_assert(!RawTimedPlotter<TimedTerminal>);
   static_assert(!TerminalFlusher<Terminal>);
   static_assert(!TerminalFlusher<Filter::Pixel::Feedback<32, 32>>);
   using RetrievedFeedback = std::remove_reference_t<
@@ -56,9 +61,11 @@ inline void test_pipeline_sink_and_terminal_concept_surface() {
   static_assert(std::is_empty_v<Prepared>);
   static_assert(Filter::PipelineFoldSurface<Prepared>);
   static_assert(RawFramePlotter<Prepared>);
+  static_assert(RawTimedPlotter<Prepared>);
   static_assert(!TerminalFlusher<Prepared>);
   static_assert(!ReplacementFrameStarter<Prepared>);
   static_assert(RawFramePlotter<NonTerminal>);
+  static_assert(RawTimedPlotter<NonTerminal>);
   static_assert(!ReplacementFrameStarter<NonTerminal>);
 }
 
