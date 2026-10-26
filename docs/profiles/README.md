@@ -172,6 +172,12 @@ artifacts are local outputs; they are no longer retained in this archive.
 The profile wrapper writes these outputs under ignored `build/prof/`.
 Historical hashes identify captures but do not guarantee reproducible source.
 
+Octet capture tip `1bb522211` is unpublished; landed `35f0348b7` has an
+identical tree. The three Tier commits `29305dfe2`, `f130ee632` and
+`1bb522211` landed patch-identical as `dac3ddde3`, `c88880d53` and
+`35f0348b7`, respectively. Per-report capture tips retain their original
+source identity.
+
 Capture `d25dd85dee17` maps to landed `064cc88a5`; only test headers differ,
 with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
 landed `2b9b2a15c`. Capture `7baf3cc4307` maps to landed `35420268b` on a
