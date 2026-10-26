@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Star / PlanarPolygon / Flower — filled-shape placement oracle
+// Scan::Star / PlanarPolygon / Flower â€” filled-shape placement oracle
 // ============================================================================
 
 /**
@@ -293,10 +293,7 @@ inline void test_spherical_sine_distance_framebuffer_error() {
     const std::vector<Pixel> exact = render.template operator()<false>(c);
     const std::vector<Pixel> sine = render.template operator()<true>(c);
     for (size_t i = 0; i < exact.size(); ++i) {
-      int dr = std::abs(static_cast<int>(exact[i].r) - sine[i].r);
-      int dg = std::abs(static_cast<int>(exact[i].g) - sine[i].g);
-      int db = std::abs(static_cast<int>(exact[i].b) - sine[i].b);
-      int pixel_error = std::max(dr, std::max(dg, db));
+      int pixel_error = max_channel_gap(exact[i], sine[i]);
       if (pixel_error != 0)
         ++different_pixels;
       max_channel_error = std::max(max_channel_error, pixel_error);

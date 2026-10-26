@@ -1664,8 +1664,7 @@ inline void check_history_lit_caps(const char *label,
     lit += !is_black(expected[i]);
     const Pixel &a = actual[i];
     const Pixel &b = expected[i];
-    worst = std::max({worst, std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
-                      std::abs(int(a.b) - b.b)});
+    worst = std::max<int>(worst, max_channel_gap(a, b));
   }
   HS_EXPECT_EQ(differing, 0);
   HS_EXPECT_LE(worst, HISTORY_ORACLE_CHANNEL_ERROR);
@@ -1794,10 +1793,7 @@ inline void test_settled_drift_matches_column_drift() {
   int lit = 0, worst = 0;
   for (size_t i = 0; i < settled.size(); ++i) {
     lit += !is_black(drifting[i]);
-    for (int error : {std::abs(int(settled[i].r) - drifting[i].r),
-                      std::abs(int(settled[i].g) - drifting[i].g),
-                      std::abs(int(settled[i].b) - drifting[i].b)})
-      worst = std::max(worst, error);
+    worst = std::max<int>(worst, max_channel_gap(settled[i], drifting[i]));
   }
   std::printf("  [settled drift] lit=%d worst channel error=%d\n", lit, worst);
   HS_EXPECT_GT(lit, 20);

@@ -9,6 +9,7 @@
 #include <iterator>
 
 #include "core/render/filter/feedback_style.h"
+#include "tests/pixel_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -242,7 +243,7 @@ inline void test_melt_warp_bound_noise_perturbs() {
   Animation::NoiseParams np;
   Feedback::Style s{};
   s.speed = 1.0f;
-  s.amplitude = 0.6f; // above the melt wobble floor → noise branch runs
+  s.amplitude = 0.6f; // above the melt wobble floor â†’ noise branch runs
   s.frequency = 0.5f;
   s.scale = 4.0f;
   s.noise = &np;
@@ -447,12 +448,8 @@ inline void test_hue_fade_apply2_tracks_scalar() {
           Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
                                     channels[a][2], channels[b][0],
                                     channels[b][1], channels[b][2], p0, p1);
-          HS_EXPECT_LE(std::abs((int)p0.r - (int)s0.r), PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p0.g - (int)s0.g), PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p0.b - (int)s0.b), PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.r - (int)s1.r), PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.g - (int)s1.g), PAIR_TOL);
-          HS_EXPECT_LE(std::abs((int)p1.b - (int)s1.b), PAIR_TOL);
+          HS_EXPECT_LE(max_channel_gap(p0, s0), PAIR_TOL);
+          HS_EXPECT_LE(max_channel_gap(p1, s1), PAIR_TOL);
         }
     }
 

@@ -666,13 +666,9 @@ inline int expect_baked_near(const BakedPalette &a, const BakedPalette &b,
     const float t = static_cast<float>(i) / (BakedPalette::LUT_SIZE - 1);
     const Pixel pa = a.get(t).color;
     const Pixel pb = b.get(t).color;
-    const int deltas[3] = {std::abs(int(pa.r) - int(pb.r)),
-                           std::abs(int(pa.g) - int(pb.g)),
-                           std::abs(int(pa.b) - int(pb.b))};
-    for (int d : deltas) {
-      worst = std::max(worst, d);
-      HS_EXPECT_LE(d, tolerance);
-    }
+    const int delta = max_channel_gap(pa, pb);
+    worst = std::max(worst, delta);
+    HS_EXPECT_LE(delta, tolerance);
   }
   return worst;
 }

@@ -17,6 +17,7 @@
 #include "core/render/sdf/periodic_shells.h"
 #include "tests/test_harness.h"
 #include "tests/test_fixture.h"
+#include "tests/pixel_test_util.h"
 
 #include <utility>
 #include <vector>
@@ -651,9 +652,7 @@ inline void compare_shell_march(const ShellMarchCase (&cases)[Count],
         const Pixel expected = cells.color.color * cells.color.alpha;
         HS_EXPECT_EQ(march.status, cells.trace.status);
         // Tangent-root rounding can choose either side of the silhouette jump.
-        mismatched += !(abs(march.color.r - expected.r) <= 24 &&
-                        abs(march.color.g - expected.g) <= 24 &&
-                        abs(march.color.b - expected.b) <= 24);
+        mismatched += max_channel_gap(march.color, expected) > 24;
         ++compared;
         hits += cells.trace.counters.layers > 0;
       }
@@ -904,12 +903,6 @@ composite_shells(const std::vector<ShellContribution> &found, size_t count,
   return {composite.premultiplied(), false};
 }
 
-/** @brief Whether two premultiplied colors agree within @p tolerance codes. */
-inline bool shell_colors_agree(const Pixel &a, const Pixel &b, int tolerance) {
-  return abs(a.r - b.r) <= tolerance && abs(a.g - b.g) <= tolerance &&
-         abs(a.b - b.b) <= tolerance;
-}
-
 /**
  * @brief A filtered ray between two sphere rows gathers both rows' silhouettes
  *        through the lattice trace.
@@ -942,7 +935,7 @@ inline void test_wide_shell_footprint_gathers_neighbor_rows() {
                                          prepared.appearance, prepared.limits);
   const auto traced = SDF::LatticeTrace::shade<false>(VIEW, prepared);
   HS_EXPECT_EQ(traced.status, Raycast::TraceStatus::RANGE_COMPLETE);
-  HS_EXPECT_TRUE(shell_colors_agree(traced.color, expected.first, 2));
+  HS_EXPECT_LE(max_channel_gap(traced.color, expected.first), 2);
   HS_EXPECT_EQ(SDF::detail::reference::shade_periodic_shells(
                    prepared.periodic_shells, prepared.camera, VIEW,
                    prepared.limits, prepared.appearance)
@@ -984,7 +977,7 @@ inline void test_wide_shell_march_gathers_layers_behind_start() {
       prepared, camera, VIEW, limits, appearance, layers);
   const auto expected =
       composite_shells(found, found.size(), appearance, limits);
-  HS_EXPECT_TRUE(shell_colors_agree(traced.color, expected.first, 2));
+  HS_EXPECT_LE(max_channel_gap(traced.color, expected.first), 2);
 }
 
 /**
@@ -1044,16 +1037,17 @@ inline void test_wide_shell_march_matches_neighborhood() {
             truncated += !expected.second;
             bool prefix = false;
             for (size_t count = 0; count <= found.size() && !prefix; ++count)
-              prefix = shell_colors_agree(
-                  traced.color,
-                  composite_shells(found, count, appearance, limits).first, 2);
+              prefix = max_channel_gap(
+                           traced.color,
+                           composite_shells(found, count, appearance, limits)
+                               .first) <= 2;
             mismatched += !prefix;
             continue;
           }
           HS_EXPECT_EQ(traced.status,
                        expected.second ? Raycast::TraceStatus::SATURATED
                                        : Raycast::TraceStatus::RANGE_COMPLETE);
-          mismatched += !shell_colors_agree(traced.color, expected.first, 24);
+          mismatched += max_channel_gap(traced.color, expected.first) > 24;
         }
       }
     }

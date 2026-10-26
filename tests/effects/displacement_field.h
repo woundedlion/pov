@@ -1169,9 +1169,7 @@ inline int column_difference(const std::vector<Pixel> &a,
     for (int y = 0; y < H; ++y) {
       const Pixel &p = a[static_cast<size_t>(y) * W + x];
       const Pixel &q = b[static_cast<size_t>(y) * W + x];
-      for (int e : {std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
-                    std::abs(int(p.b) - q.b)})
-        worst = std::max(worst, e);
+      worst = std::max<int>(worst, max_channel_gap(p, q));
     }
   return worst;
 }
@@ -1260,8 +1258,7 @@ inline void test_displacement_field_single_pass_reference() {
         const size_t index = static_cast<size_t>(y) * W + x;
         auto difference = [&](int a, int b) {
           const Pixel &p = images[a][index], &q = images[b][index];
-          return std::max({std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
-                           std::abs(int(p.b) - q.b)});
+          return max_channel_gap(p, q);
         };
         HS_EXPECT_LE(difference(0, 1), 1);
         for (int mode = 0; mode < 2; ++mode) {
@@ -1354,8 +1351,7 @@ inline void test_displacement_field_alternate_groups_match_windows() {
   for (size_t i = 0; i < images[0].size(); ++i) {
     const Pixel &p = images[0][i], &q = images[1][i];
     lit += !is_black(q);
-    worst = std::max({worst, std::abs(int(p.r) - q.r), std::abs(int(p.g) - q.g),
-                      std::abs(int(p.b) - q.b)});
+    worst = std::max<int>(worst, max_channel_gap(p, q));
   }
   HS_EXPECT_LE(worst, 1);
   HS_EXPECT_GT(lit, 1000);
@@ -1389,9 +1385,7 @@ inline void test_displacement_field_boundary_stencil() {
             primary.push_back(pixel);
           else {
             const Pixel &other = primary[index++];
-            worst = std::max({worst, std::abs(int(pixel.r) - other.r),
-                              std::abs(int(pixel.g) - other.g),
-                              std::abs(int(pixel.b) - other.b)});
+            worst = std::max<int>(worst, max_channel_gap(pixel, other));
           }
         }
     }

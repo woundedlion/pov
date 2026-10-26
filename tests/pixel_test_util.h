@@ -462,9 +462,7 @@ inline int expect_frames_within(const char *label,
     lit += !is_black(expected[i]);
     const Pixel &a = actual[i];
     const Pixel &b = expected[i];
-    for (int error : {std::abs(int(a.r) - b.r), std::abs(int(a.g) - b.g),
-                      std::abs(int(a.b) - b.b)})
-      maximum_error = std::max(maximum_error, error);
+    maximum_error = std::max<int>(maximum_error, max_channel_gap(a, b));
   }
   HS_EXPECT_LE(maximum_error, bound);
   return lit;

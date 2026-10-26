@@ -208,11 +208,12 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     const bool persisted =
         fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
     if (!persisted)
-      std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
-                  "(register_animated_param / mark_readonly / drive a private "
-                  "member)\n",
-                  name, def.name, static_cast<double>(target),
-                  static_cast<double>(now));
+      std::printf(
+          "  DEAD SLIDER %s::%s â€” wrote %.4f, engine reverted to %.4f "
+          "(register_animated_param / mark_readonly / drive a private "
+          "member)\n",
+          name, def.name, static_cast<double>(target),
+          static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
     HS_EXPECT_EQ(effect.updateParameter(def.name, cur),
                  ParamSetResult::APPLIED);
@@ -761,8 +762,7 @@ inline int face_colour_bound(size_t face, float size, float shift,
         b.v1 = a.v1 + s * shift;
         other(b.pos, b);
         const Pixel &p = a.color.color, &q = b.color.color;
-        bound = std::max({bound, std::abs(int(p.r) - q.r),
-                          std::abs(int(p.g) - q.g), std::abs(int(p.b) - q.b)});
+        bound = std::max<int>(bound, max_channel_gap(p, q));
       }
     }
   }
@@ -903,9 +903,7 @@ expect_seam_copies_match(EffectT &effect, const char *label, int seam,
         continue;
       ++interior;
       const size_t i = static_cast<size_t>(y) * W + x;
-      const int difference = std::max({std::abs(int(left[i].r) - right[i].r),
-                                       std::abs(int(left[i].g) - right[i].g),
-                                       std::abs(int(left[i].b) - right[i].b)});
+      const int difference = max_channel_gap(left[i], right[i]);
       colour = std::max(colour, difference);
       excess = std::max(excess, difference - colour_bounds[id - 1]);
     }

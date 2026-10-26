@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
+// Scan::Ring::draw â€” SDF rasterize() path through a Pipeline sink
 // ============================================================================
 
 /**
@@ -322,13 +322,9 @@ inline void test_ring_group_matches_sequential() {
         if (a.r == b.r && a.g == b.g && a.b == b.b)
           continue;
         ++diff_px;
-        const int deltas[3] = {std::abs(static_cast<int>(a.r) - b.r),
-                               std::abs(static_cast<int>(a.g) - b.g),
-                               std::abs(static_cast<int>(a.b) - b.b)};
-        for (int d : deltas) {
-          worst_delta = std::max(worst_delta, d);
-          HS_EXPECT_LE(d, GROUP_MAX_CHANNEL_DELTA);
-        }
+        const int delta = max_channel_gap(a, b);
+        worst_delta = std::max(worst_delta, delta);
+        HS_EXPECT_LE(delta, GROUP_MAX_CHANNEL_DELTA);
       }
     }
     std::printf("  [ring-group] diff_px=%d worst_delta=%d\n", diff_px,
