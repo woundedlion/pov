@@ -92,7 +92,8 @@ def main(argv=None):
                  if is_manifested(path)]
     for path in protected:
         print(f"skip   {display_path(path)}: hash-manifested by "
-              f"SHA256SUMS.txt; healing it would break the manifest",
+              f"SHA256SUMS.txt, candidate.json, or release.json; "
+              f"healing it would break the manifest",
               file=sys.stderr)
     if not pros:
         if protected:
