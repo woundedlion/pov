@@ -606,11 +606,6 @@ inline void test_column_edge_cull_is_conservative() {
   constexpr int W = 288, H = 144;
   uint32_t rejected = 0, checked = 0;
   hs::random().seed(20261021u);
-  const auto unit = []() {
-    return math::Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                        hs::rand_f(-1.0f, 1.0f))
-        .normalized();
-  };
   for (const auto band :
        {std::array<int, 4>{0, 72, 0, 144}, std::array<int, 4>{0, 72, 144, 288},
         std::array<int, 4>{36, 72, 100, 136}, std::array<int, 4>{0, H, 30, 230},
@@ -630,14 +625,18 @@ inline void test_column_edge_cull_is_conservative() {
     const Plot::SweptEdgeCull<W> cull(columns, top, bottom);
     for (float radians : {0.0f, 0.01f, 0.06f}) {
       for (int trial = 0; trial < 4000; ++trial) {
-        const auto a = unit();
-        const auto b = math::rotate(
-            a, math::make_rotation(math::cross(a, unit()).normalized(),
-                                   hs::rand_f(0.0f, 0.7f)));
-        const auto a1 = math::rotate(
-            a, math::make_rotation(unit(), hs::rand_f(0.0f, radians)));
-        const auto b1 = math::rotate(
-            b, math::make_rotation(unit(), hs::rand_f(0.0f, radians)));
+        const auto a = hs_test::rand_unit();
+        const auto edge_axis =
+            math::cross(a, hs_test::rand_unit()).normalized();
+        const float edge_angle = hs::rand_f(0.0f, 0.7f);
+        const auto b =
+            math::rotate(a, math::make_rotation(edge_axis, edge_angle));
+        const auto a_axis = hs_test::rand_unit();
+        const float a_angle = hs::rand_f(0.0f, radians);
+        const auto a1 = math::rotate(a, math::make_rotation(a_axis, a_angle));
+        const auto b_axis = hs_test::rand_unit();
+        const float b_angle = hs::rand_f(0.0f, radians);
+        const auto b1 = math::rotate(b, math::make_rotation(b_axis, b_angle));
         const bool rejects = cull.rejects({a, a1, b, b1}, 1e-4f);
         rejected += rejects;
         bool reaches = false;
@@ -686,11 +685,6 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
   constexpr int W = 288, H = 144;
   uint32_t rejected = 0, cap_rejected = 0, reachable = 0;
   hs::random().seed(20261022u);
-  const auto unit = []() {
-    return math::Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                        hs::rand_f(-1.0f, 1.0f))
-        .normalized();
-  };
   for (const auto band :
        {std::array<int, 4>{36, 72, 0, 144}, std::array<int, 4>{0, 72, 144, 288},
         std::array<int, 4>{110, H, 30, 230}}) {
@@ -709,13 +703,14 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
       for (int trial = 0; trial < 1500; ++trial) {
         const int count = 2 + trial % 8;
         math::Vector points[9];
-        points[0] = unit();
-        for (int i = 1; i < count; ++i)
+        points[0] = hs_test::rand_unit();
+        for (int i = 1; i < count; ++i) {
+          const auto axis =
+              math::cross(points[i - 1], hs_test::rand_unit()).normalized();
+          const float angle = hs::rand_f(0.0f, 0.08f);
           points[i] =
-              math::rotate(points[i - 1],
-                           math::make_rotation(
-                               math::cross(points[i - 1], unit()).normalized(),
-                               hs::rand_f(0.0f, 0.08f)));
+              math::rotate(points[i - 1], math::make_rotation(axis, angle));
+        }
         float reach = 1.0f;
         for (int i = 0; i < count; ++i)
           reach = fminf(reach, math::dot(points[count / 2], points[i]));
@@ -773,8 +768,9 @@ inline void test_column_steady_lattice() {
   hs::random().seed(20261023u);
   int steady = 0, unsteady = 0, beyond = 0;
   for (int trial = 0; trial < 3000; ++trial) {
-    const math::Vector a = math::pixel_to_vector<W, H>(
-        hs::rand_f(0.0f, float(W)), hs::rand_f(8.0f, 136.0f));
+    const float column = hs::rand_f(0.0f, float(W));
+    const float row = hs::rand_f(8.0f, 136.0f);
+    const math::Vector a = math::pixel_to_vector<W, H>(column, row);
     const float heading = hs::rand_f(0.0f, math::TWO_PI_F);
     const float length = hs::rand_f(0.002f, 0.12f);
     const math::Vector east = math::cross(math::Y_AXIS, a).normalized();
@@ -1163,11 +1159,6 @@ inline void test_column_capture_reads_vertex_paths() {
 inline void test_column_plan_covers_lit_columns() {
   constexpr int W = 288, PASS = W / 2;
   hs::random().seed(20261022u);
-  const auto unit = []() {
-    return math::Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
-                        hs::rand_f(-1.0f, 1.0f))
-        .normalized();
-  };
   const auto basis = [](const math::Vector &a, const math::Vector &b) {
     const auto span = Plot::make_geodesic_edge_span(a, b);
     return Plot::GeodesicEdgeSampler{
@@ -1178,14 +1169,15 @@ inline void test_column_plan_covers_lit_columns() {
   uint32_t trimmed = 0;
   float slack = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
-    auto a0 = unit();
+    auto a0 = hs_test::rand_unit();
     if (trial % 4 == 0)
       a0 = math::Vector(a0.x * 0.08f, a0.y < 0.0f ? -1.0f : 1.0f, a0.z * 0.08f)
                .normalized();
-    const auto b0 = math::rotate(
-        a0, math::make_rotation(math::cross(a0, unit()).normalized(),
-                                hs::rand_f(0.01f, 1.5f)));
-    const auto axis = unit();
+    const auto edge_axis = math::cross(a0, hs_test::rand_unit()).normalized();
+    const float edge_angle = hs::rand_f(0.01f, 1.5f);
+    const auto b0 =
+        math::rotate(a0, math::make_rotation(edge_axis, edge_angle));
+    const auto axis = hs_test::rand_unit();
     const float motion = hs::rand_f(0.0f, 0.15f);
     const auto a1 = math::rotate(a0, math::make_rotation(axis, motion));
     const auto b1 = math::rotate(
