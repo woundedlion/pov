@@ -604,7 +604,8 @@ inline void test_line_thick_cap_past_pi_cull_covers_interior() {
 
 /**
  * @brief Verifies the Ring interval cull covers interior pixels for thin rings
- *        whose band wraps a pole while the centerline still takes the fast path.
+ *        whose band wraps a pole, where annular_band_spans merges the two
+ *        arcs into one span.
  */
 inline void test_ring_pole_wrap_cull_covers_interior() {
   constexpr int W = 256, H = 128;
