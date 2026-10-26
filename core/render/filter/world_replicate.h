@@ -18,36 +18,15 @@ namespace Filter {
 namespace World {
 
 /**
- * @brief Replicates geometry by rotating it around the Y-axis.
- * @details Every copy shares the source `age` (replication is spatial, not
- * temporal).
+ * @brief Selected-copy timed interface for spatial replication stages.
+ * @tparam Derived Stage supplying copy_count() and selected_point().
  */
-template <int W> class Replicate : public Is3D {
+template <typename Derived> class SelectedCopy : public Is3D {
 public:
-  static constexpr bool rigid_world_transform = true; ///< Preserves geodesics.
-  /**
-   * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
-   * @param count Desired copy count; clamped to [1, W].
-   */
-  Replicate(int count) { set_count(count); }
-
-  /**
-   * @brief Changes the number of evenly spaced copies.
-   * @param new_count Desired copy count; clamped to [1, W].
-   */
-  void set_count(int new_count) {
-    count = hs::clamp(new_count, 1, W);
-    selected_copy = std::min(selected_copy, count - 1);
-    step = math::make_rotation(math::Y_AXIS, 2 * math::PI_F / count);
-  }
-  /** @brief Number of independently walked spatial copies.
-   * @return Available spatial copy count. */
-  int copy_count() const { return count; }
-
   /** @brief Selects the spatial copy used by timed operations.
    * @param index Copy index, clamped to the available copies. */
   void select_copy(int index) {
-    selected_copy = hs::clamp(index, 0, count - 1);
+    selected_copy = hs::clamp(index, 0, derived().copy_count() - 1);
   }
 
   /** @brief Evaluates the selected spatial copy.
@@ -59,7 +38,7 @@ public:
                                      float t) const {
     (void)cv;
     (void)t;
-    return selected_point(v);
+    return derived().selected_point(v);
   }
 
   /** @brief Emits only the selected copy for a timed walk.
@@ -86,11 +65,50 @@ public:
   bool cull_edge_timed(const math::Vector &a, const math::Vector &b,
                        const math::Basis *pb, FwdFn &&forward) const {
     if (!pb)
-      return forward(selected_point(a), selected_point(b), nullptr);
-    const math::Basis transformed{selected_point(pb->u), selected_point(pb->v),
-                                  selected_point(pb->w)};
-    return forward(selected_point(a), selected_point(b), &transformed);
+      return forward(derived().selected_point(a), derived().selected_point(b),
+                     nullptr);
+    const math::Basis transformed{derived().selected_point(pb->u),
+                                  derived().selected_point(pb->v),
+                                  derived().selected_point(pb->w)};
+    return forward(derived().selected_point(a), derived().selected_point(b),
+                   &transformed);
   }
+
+protected:
+  int selected_copy = 0; /**< Copy fixed for the current timed walk. */
+
+private:
+  /** @brief Accesses the spatial replication stage.
+   * @return Concrete stage. */
+  const Derived &derived() const { return static_cast<const Derived &>(*this); }
+};
+
+/**
+ * @brief Replicates geometry by rotating it around the Y-axis.
+ * @details Every copy shares the source `age` (replication is spatial, not
+ * temporal).
+ */
+template <int W> class Replicate : public SelectedCopy<Replicate<W>> {
+public:
+  static constexpr bool rigid_world_transform = true; ///< Preserves geodesics.
+  /**
+   * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
+   * @param count Desired copy count; clamped to [1, W].
+   */
+  Replicate(int count) { set_count(count); }
+
+  /**
+   * @brief Changes the number of evenly spaced copies.
+   * @param new_count Desired copy count; clamped to [1, W].
+   */
+  void set_count(int new_count) {
+    count = hs::clamp(new_count, 1, W);
+    this->selected_copy = std::min(this->selected_copy, count - 1);
+    step = math::make_rotation(math::Y_AXIS, 2 * math::PI_F / count);
+  }
+  /** @brief Number of independently walked spatial copies.
+   * @return Available spatial copy count. */
+  int copy_count() const { return count; }
 
   /**
    * @brief Emits the point plus count-1 rotated copies around the Y axis.
@@ -150,19 +168,19 @@ public:
   }
 
 private:
+  friend class SelectedCopy<Replicate<W>>;
+
   /** @brief Transforms a point into the selected copy.
    * @param v Source point.
    * @return Selected copy position. */
   HS_HOT_INLINE math::Vector selected_point(const math::Vector &v) const {
     math::Vector r = v;
-    for (int i = 0; i < selected_copy; ++i) {
+    for (int i = 0; i < this->selected_copy; ++i) {
       r = math::rotate(r, step);
       r = r * (1.5f - 0.5f * math::dot(r, r));
     }
     return r;
   }
-
-  int selected_copy = 0; /**< Copy fixed for the current timed walk. */
 
   /**
    * @brief Renormalizes a chained-rotation basis.
