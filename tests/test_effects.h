@@ -967,7 +967,8 @@ inline float quaternion_angle(const math::Quaternion &a,
  *         extrapolating copy holds at its arm's end column.
  */
 inline float seam_capture_slack(float motion, float turn, float horizontal) {
-  constexpr float FAST_ATAN2_ERROR = 0.0038f;
+  constexpr float FAST_ATAN2_ERROR =
+      static_cast<float>(math::FAST_ATAN2_MAX_ERROR);
   const float ratio = (motion + turn) / (math::PI_F * horizontal);
   return 2.0f * FAST_ATAN2_ERROR / math::PI_F +
          2.0f * (1.0f + SEAM_EXTRAPOLATION) * ratio * ratio +
