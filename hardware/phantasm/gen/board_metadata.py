@@ -11,7 +11,7 @@ import sys
 import sexp
 from constraints import MAX_BOARD_WIDTH_MM
 from connectivity import zone_layers
-from kicad_common import arc_extrema, is_copper_pour
+from kicad_common import F, arc_extrema, is_copper_pour
 
 
 FACTS_START = "<!-- BEGIN ROUTED PCB FACTS -->"
@@ -40,15 +40,8 @@ class BoardMetadata:
     copper_finish: str
 
 
-def _children(node, key):
-    return [
-        child for child in node
-        if isinstance(child, list) and child and str(child[0]) == key
-    ]
-
-
 def _one_child(node, key):
-    children = _children(node, key)
+    children = F(node, key)
     if len(children) != 1:
         raise MetadataError(f"expected one {key}, found {len(children)}")
     return children[0]
@@ -96,7 +89,7 @@ def _check_no_footprint_outline(root):
     """
     graphics = {"fp_line", "fp_rect", "fp_poly", "fp_arc", "fp_circle"}
     offenders = []
-    for footprint in _children(root, "footprint"):
+    for footprint in F(root, "footprint"):
         name = str(footprint[1]) if len(footprint) > 1 else "?"
         for node in footprint[1:]:
             if not isinstance(node, list) or not node:
@@ -104,7 +97,7 @@ def _check_no_footprint_outline(root):
             if str(node[0]) not in graphics:
                 continue
             if any(str(value) == "Edge.Cuts"
-                   for layer in _children(node, "layer")
+                   for layer in F(node, "layer")
                    for value in layer[1:]):
                 offenders.append(name)
                 break
@@ -123,10 +116,10 @@ def _outline_bounds(root):
         if not isinstance(node, list) or not node:
             continue
         key = str(node[0])
-        if not key.startswith("gr_") or not _children(node, "layer"):
+        if not key.startswith("gr_") or not F(node, "layer"):
             continue
         if not any(str(value) == "Edge.Cuts"
-                   for layer in _children(node, "layer")
+                   for layer in F(node, "layer")
                    for value in layer[1:]):
             continue
         if key not in supported:
@@ -194,7 +187,7 @@ def parse_board(text):
     setup = _one_child(root, "setup")
     stackup = _one_child(setup, "stackup")
     copper_stackup = []
-    for layer in _children(stackup, "layer"):
+    for layer in F(stackup, "layer"):
         if _one_value(layer, "type") == "copper":
             if len(layer) < 2 or isinstance(layer[1], list):
                 raise MetadataError("stackup copper layer has no name")
@@ -206,7 +199,7 @@ def parse_board(text):
         raise MetadataError("declared copper layers do not match the stackup")
 
     footprint_counts = Counter({"F.Cu": 0, "B.Cu": 0})
-    footprints = _children(root, "footprint")
+    footprints = F(root, "footprint")
     for footprint in footprints:
         side = _one_value(footprint, "layer")
         if side not in footprint_counts:
@@ -219,7 +212,7 @@ def parse_board(text):
     rule_area_counts = Counter()
     pours = 0
     rule_areas = 0
-    for zone in _children(root, "zone"):
+    for zone in F(root, "zone"):
         try:
             layers = zone_layers(zone, copper_layers)
         except ValueError as error:
@@ -236,8 +229,8 @@ def parse_board(text):
         height_mm=height,
         thickness_mm=thickness,
         footprint_sides=tuple((side, footprint_counts[side]) for side in ("F.Cu", "B.Cu")),
-        track_segments=len(_children(root, "segment")) + len(_children(root, "arc")),
-        vias=len(_children(root, "via")),
+        track_segments=len(F(root, "segment")) + len(F(root, "arc")),
+        vias=len(F(root, "via")),
         copper_pours=pours,
         pour_layers=tuple((layer, pour_counts[layer])
                           for layer in copper_layers if pour_counts[layer]),
