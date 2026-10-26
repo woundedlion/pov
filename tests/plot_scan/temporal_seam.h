@@ -6,14 +6,12 @@
 /** @brief Work counts from a diagnostic temporal world stage. */
 struct RigidWorkCounts {
   int world = 0; /**< World evaluations. */
-  int culls = 0; /**< Edge visibility tests. */
 };
 
-/** @brief Instrumented temporal stage with a selectable rigidity contract.
- * @tparam Rigid Whether control-point evaluation preserves its geometry. */
-template <bool Rigid> struct CountedTemporalWorld : Filter::Is3D {
+/** @brief Instrumented rigid temporal stage. */
+struct CountedTemporalWorld : Filter::Is3D {
   static constexpr bool rigid_world_transform =
-      Rigid; /**< Control-safe transform. */
+      true; /**< Control-safe transform. */
   static constexpr bool has_temporal_motion =
       true;                /**< Varies during the frame. */
   RigidWorkCounts *counts; /**< Borrowed operation counters. */
@@ -24,22 +22,15 @@ template <bool Rigid> struct CountedTemporalWorld : Filter::Is3D {
   /** @brief Evaluates the world transform at a frame fraction. */
   math::Vector at_time(const Canvas &, const math::Vector &p, float t) const {
     ++counts->world;
-    if constexpr (Rigid)
-      return math::rotate(p, math::make_rotation(math::Y_AXIS, 0.01f * t));
-    else
-      return math::Vector(p.x, p.y + 0.005f * t * p.x * p.x, p.z).normalized();
+    return math::rotate(p, math::make_rotation(math::Y_AXIS, 0.01f * t));
   }
   /** @brief Emits the endpoint transform. */
   template <typename Pass>
   void plot(const math::Vector &p, const Pixel &color, float age, float alpha,
             Pass &&pass) const {
     ++counts->world;
-    if constexpr (Rigid)
-      pass(math::rotate(p, math::make_rotation(math::Y_AXIS, 0.01f)), color,
-           age, alpha);
-    else
-      pass(math::Vector(p.x, p.y + 0.005f * p.x * p.x, p.z).normalized(), color,
-           age, alpha);
+    pass(math::rotate(p, math::make_rotation(math::Y_AXIS, 0.01f)), color, age,
+         alpha);
   }
   /** @brief Emits a transform at the supplied time. */
   template <typename Pass>
@@ -47,18 +38,11 @@ template <bool Rigid> struct CountedTemporalWorld : Filter::Is3D {
                float alpha, float t, Pass &&pass) const {
     pass(at_time(cv, p, t), color, age, alpha);
   }
-  /** @brief Counts a source-edge visibility test. */
+  /** @brief Forwards a source-edge visibility test. */
   template <typename Forward>
   bool cull_edge(const math::Vector &a, const math::Vector &b,
                  const math::Basis *basis, Forward &&forward) const {
-    ++counts->culls;
     return forward(a, b, basis);
-  }
-  /** @brief Counts a timed source-edge visibility test. */
-  template <typename Forward>
-  bool cull_edge_timed(const math::Vector &a, const math::Vector &b,
-                       const math::Basis *basis, Forward &&forward) const {
-    return cull_edge(a, b, basis, forward);
   }
 };
 
@@ -93,9 +77,9 @@ inline void test_timed_projected_entry_bypasses_world() {
         Canvas canvas(effect);
         RigidWorkCounts counts;
         std::vector<ProjectedTap> actual, expected;
-        Pipeline<W, H, CountedTemporalWorld<true>,
-                 Filter::Screen::AntiAlias<W, H>, ProjectedTapRecorder>
-            pipeline(CountedTemporalWorld<true>(counts),
+        Pipeline<W, H, CountedTemporalWorld, Filter::Screen::AntiAlias<W, H>,
+                 ProjectedTapRecorder>
+            pipeline(CountedTemporalWorld(counts),
                      Filter::Screen::AntiAlias<W, H>{},
                      ProjectedTapRecorder(actual));
         PipelineRef ref(pipeline, Spacetime::Timed{});
