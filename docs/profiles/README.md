@@ -177,7 +177,6 @@ with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
 landed `2b9b2a15c`. Capture `7baf3cc4307` maps to landed `35420268b` on a
 different base (319 differing files); it cannot be treated as the same tree.
 Capture `17390a7a1` is unpublished: it is `d8bfc08f7` plus one profiling scope.
-Capture `d5ca81403` landed as `1ad26dcd5`.
 The canonical shipping source `49bb199f4` is unpublished. Its landed
 equivalent `b49317e21` differs in firmware: `walk_uniform_edge_columns()`
 has 32-byte alignment in `core/render/plot/column_walk.h`, and
