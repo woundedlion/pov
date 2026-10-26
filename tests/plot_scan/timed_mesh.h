@@ -663,6 +663,7 @@ inline void test_column_edge_cull_is_conservative() {
   std::printf("  [column edge cull] rejected %u, reachable %u\n", rejected,
               checked);
   HS_EXPECT_GT(rejected, 1000u);
+  HS_EXPECT_GT(checked, 20000u);
 }
 
 /** @brief A canvas's column cull keeps every padded polyline, or the padded
@@ -757,6 +758,7 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
               rejected, cap_rejected, reachable);
   HS_EXPECT_GT(rejected, 1000u);
   HS_EXPECT_GT(cap_rejected, 1000u);
+  HS_EXPECT_GT(reachable, 2800u);
 }
 
 /** @brief An edge's steady lattice is its walk lattice when the count holds
