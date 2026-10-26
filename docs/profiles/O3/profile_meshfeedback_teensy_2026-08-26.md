@@ -136,7 +136,8 @@ the global-O3 adjacent-source comparison through the device lock.
 
 ## Global -O3 vs selective -O3
 
-This comparison uses the retired 2026-08-26 same-source shipping capture.
+This comparison uses the retired 2026-08-26 adjacent-source shipping capture.
+The image size deltas include source changes as well as compiler settings.
 The current shipping report linked above is a later capture.
 
 The paired shipping capture peaks at 58.30 ms versus
