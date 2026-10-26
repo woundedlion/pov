@@ -14,7 +14,7 @@ Replaces `profile_ringspin_teensy_2026-08-26.md`. That older capture used a diff
 | Image | `profile_o3`: global `-O3 -ffast-math` reference |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master |
 | Effect | RingSpin 288×144, single-entry playlist, tip `9442dbc204d556612f50980a5e41b082ca1d7961` |
-| Method | 70 s capture, 32-frame windows, default 120 s epoch; exact runtime frames 2–1088, setup frame 1 excluded; scope/ISR summaries use complete windows 33–1088 |
+| Method | 70 s capture, 32-frame windows, default one-hour epoch; exact runtime frames 2–1088, setup frame 1 excluded; scope/ISR summaries use complete windows 33–1088 |
 | Reproduce | `HS_TEENSY_PORT=COM4 HS_PROFILE_TREE="$PWD" bash tools/profile_one.sh RingSpin profile_o3 70 32` |
 
 Image size: `FLASH: code:68368, data:148632, headers:8280, free:1806336` / `RAM1: variables:315072, code:46088, padding:19448, free:143680` / `RAM2: variables:520064, free:4224`.

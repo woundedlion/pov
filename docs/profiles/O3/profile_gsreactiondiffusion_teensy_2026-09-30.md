@@ -16,7 +16,7 @@ Raw capture: preserved capture (supporting artifact removed), captured 2026-09-3
 | Image | `profile_o3` env: `-O3 -ffast-math` globally, single-effect comparison image |
 | Driver | `POVSegmented<288, 4, 480>`, board = segment 0 master |
 | Effect | GSReactionDiffusion 288×144, single-entry playlist, source `7baf3cc430753e1a3693134150b282f212aa4e9e` (clean captured candidate) |
-| Method | `HS_PROFILE`, 32-frame windows, 130 s capture, epoch stretched to 1200 revolutions (150 s). Exact runtime frames 2–539; setup frame 1 excluded. Scope/ISR summaries use complete windows 33–512. |
+| Method | `HS_PROFILE`, 32-frame windows, 130 s capture, epoch shortened to 1200 revolutions (150 s). Exact runtime frames 2–539; setup frame 1 excluded. Scope/ISR summaries use complete windows 33–512. |
 | Reproduce | `HS_TEENSY_PORT=COM4 HS_PROFILE_TREE=/c/work/Holosphere bash tools/profile_one.sh GSReactionDiffusion profile_o3 130 32 '-D HS_PROFILE_EPOCH_REVS=1200'` |
 
 Single-effect image size: `FLASH: code:82376, data:252244, headers:8420   free for files:1688576` / `RAM1: variables:315136, code:38872, padding:26664   free for local variables:143616` / `RAM2: variables:520064  free for malloc/new:4224`.
@@ -117,7 +117,7 @@ Native quality/state evidence in the historical campaign predates the added shad
 - CYCCNT free-runs, so foreground scopes include ISR time; wake includes nested pack/submit work.
 - `filter_blend` can inherit the first active parent and disappear with an inactive parent. This capture contains no such counter, and no per-pixel profiling scopes are enabled.
 - Shipping selective-O3 covers GS physics, shading and hot-flag kernels plus shared lattice/orientation and renderer/driver paths. Global-O3 is a single-effect compiler comparison, not the full-roster shipping configuration.
-- The extended epoch prevents reinitialization during capture. No dwell compression, simulation-speed override, or lifecycle completion is claimed.
+- The 150 s epoch override shortens the default one-hour epoch and remains longer than the 130 s capture. No dwell compression, simulation-speed override, or lifecycle completion is claimed.
 - Both current images were captured on COM4 at source `7baf3cc430753e1a3693134150b282f212aa4e9e` with an empty source diff. The candidate includes the noise modifier speed and pigment scratch-lifetime corrections. The prior early-morning captures used COM3 and earlier artwork; their timing delta is not a controlled optimization comparison.
 - Setup frame 1 is excluded from runtime rows; the entire first window is excluded from scope/ISR summaries. Complete individual frame rows in the unfinished final window remain in runtime statistics. Integer-microsecond ISR totals introduce small quantization error.
 - Portable evidence manifest (supporting artifact removed) retains capture, compiler/build/environment records and original hashes. Host process environment dictionaries are removed; footer environment hashes identify the sanitized retained dumps, while measurement rows are unchanged. ELF/map artifacts remain in the provenance-named local archive.

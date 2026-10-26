@@ -115,7 +115,7 @@ supports landing the cached cap classification without a performance regression.
 
 ISR time is included in the cycle scopes. Filter-blend parenting can attribute
 work beneath the active caller; per-pixel scope instrumentation adds overhead.
-This measures selective-O3 profile flags rather than global O3. The epoch stretch
+This measures selective-O3 profile flags rather than global O3. The 1200-revolution override shortens the epoch to 150 s; it
 changes effect lifetime, not per-frame work. Only temporary host upload/capture
 scripts were uncommitted; compiled effect/filter code is pinned to each recorded
 commit. Fresh loader processes and explicit ports prevent stale GUI selection.

@@ -361,7 +361,7 @@ Global-O3 captures retain their original source and are unchanged.
 - All cycle scopes absorb ISR time and instrumentation overhead; instrumenting per-pixel work can change its cost.
 - `filter_blend` parenting can hide its subtree when its first parent has no calls; no measured blend count is claimed here.
 - The shipping image uses selective `HS_O3` transforms and scan kernels, not a global-O3 image.
-- TS4 divides every stage duration, changing the sampled animation workload; both captures use TS4. The stretched epoch avoids an instance reset during the pass.
+- TS4 divides every stage duration, changing the sampled animation workload; both captures use TS4. `HS_PROFILE_EPOCH_REVS=1920` shortens the epoch to 240 s, still longer than the 210 s capture.
 - Both source snapshots were committed worker/integrator trees; capture provenance and adjacent build/envdump files identify their images. Local ignored build outputs do not imply source changes.
 - Frame telemetry supports cadence comparison; strict cycle/wall exactness remains subject to the diagnostics below. Single paired captures do not establish statistical significance for small timing deltas. The observed +0.220 ms peak and +0.150 ms mean are increases in this pair; they are not evidence of a speedup.
 

@@ -13,7 +13,7 @@ Raw captures: after: `build/prof/astra-regression-after-2026-09-19/build/prof/di
 | Image | `profile_o3`; global -O3 -ffast-math reference |
 | Driver | `POVSegmented<288, 4, 480>`, segment 0 master, arm A north, 72 physical pixels |
 | Effect | DisplacementField 288×144, single-entry playlist, clean tip `8834627d96d747e5646c15f0c72f04681b2dcaac` |
-| Method | HS_PROFILE cycle scopes; 70 s, window 32, default 120 s epoch, deep instrumentation off; no dwell, transition or seed override |
+| Method | HS_PROFILE cycle scopes; 70 s, window 32, default one-hour epoch, deep instrumentation off; no dwell, transition or seed override |
 | Reproduce | `HS_PROFILE_TREE=<tree> HS_TEENSY_PORT=COM3 bash tools/profile_one.sh DisplacementField profile_o3 70 32` |
 
 Image size:

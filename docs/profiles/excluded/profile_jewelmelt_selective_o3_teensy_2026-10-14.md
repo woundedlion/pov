@@ -98,7 +98,7 @@ README cells: peak 🟢 46.35, spilled 🟢 0/1087 (0.00%).
 - `filter_blend` normally parents under its first caller and can be hidden when that parent is inactive; this capture emits no such counter.
 - Scopes are per-frame; per-pixel scope overhead is not present.
 - Shipping selective-O3 covers shader scan, composed shading, surface displacement and color evaluation; this is not global-O3.
-- No dwell compression, ordered cycle or epoch stretch was used; capture stayed within the default 120 s epoch.
+- No dwell compression, ordered cycle or epoch stretch was used; capture stayed within the default one-hour epoch.
 - The main checkout's unrelated uncommitted playlist edit failed Phantasm assertions. A clean detached checkout at the recorded revision supplied this capture; that edit was preserved and excluded.
 - Compiler, flags, clean source status and ELF/map artifacts are retained under `build/prof/artifacts/jewelmelt_ship_fe0b439cb846_85d0a5f040ce/`. Profile ELF SHA-256: `85d0a5f040ce1aa3180a5a50e59349719e01f22c8b231daa080424898c70b94a`.
 
