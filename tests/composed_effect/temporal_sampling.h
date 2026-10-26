@@ -228,7 +228,7 @@ inline void test_temporal_clock_sampling() {
     const float FRACTION = column / 144.0f;
     const auto actual = surface_sampler.at(FRACTION);
     const auto expected =
-        Spacetime::sample_frame(surface_from, surface_to, FRACTION);
+        sample_frame_reference(surface_from, surface_to, FRACTION);
     HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                    expected.resources.template get<"surface">().phase, 0.0f);
     if (column == 72) {
@@ -254,9 +254,12 @@ inline void test_temporal_clock_sampling() {
       const float FRACTION = column / 144.0f;
       const auto actual = sampler.at(FRACTION);
       const auto expected =
-          Spacetime::sample_frame(ripple_from, ripple_to, FRACTION);
+          sample_frame_reference(ripple_from, ripple_to, FRACTION);
       HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase,
                      expected.resources.template get<"surface">().phase, 0.0f);
+      if (column == 72 && period == 3.0f)
+        HS_EXPECT_NEAR(actual.resources.template get<"surface">().phase, 2.25f,
+                       1e-6f);
     }
   }
 }
@@ -876,7 +879,7 @@ inline void test_mobius_grid_lens_follows_phase() {
         const float fraction = Spacetime::SamplingSurface<SMALL_W>::time(x);
         const auto sampled = sampler.at(fraction);
         const auto reference =
-            Spacetime::sample_frame(history.previous, current, fraction);
+            sample_frame_reference(history.previous, current, fraction);
         const math::MobiusParams &lens =
             sampled.params.template get<"lens">().mobius;
         verify_mobius_equal(lens,
