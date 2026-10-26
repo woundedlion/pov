@@ -1826,8 +1826,8 @@ inline constexpr float SWEEP_ROW_REACH = 1.25f * math::TWO_PI_F / W;
  * three. Per column pair it evaluates the fits by Horner's rule and finds
  * where the pair's meridian, a line in the projection, crosses the edges. A pixel is inside
  * where the meridian, walked from the pole away from the face, has crossed
- * an odd number of edges on the way to it; its distance is SDF::PreparedFace's: the
- * worst half-plane's on a convex face, else the nearest projected edge's, in
+ * an odd number of edges on the way to it; its distance is SDF::PreparedFace's:
+ * signed nearest-edge distance, with convex interior half-plane distances, in
  * radians for a face whose size is. Its rows are those within
  * SWEEP_ROW_REACH of the crossings and of the vertices near the meridian, on
  * either arm and past either pole, and from the pole on when the face holds
@@ -2067,9 +2067,20 @@ public:
     float signed_d;
     if (convex) {
       signed_d = -FLT_MAX;
+      int winning = 0;
       for (int k = 0; k < count; ++k) {
         const Plane &h = planes[k];
-        signed_d = fmaxf(signed_d, h.nx * px + h.ny * py + h.off);
+        const float d = h.nx * px + h.ny * py + h.off;
+        if (d > signed_d)
+          winning = k;
+        signed_d = fmaxf(signed_d, d);
+      }
+      if (signed_d > 0.0f) {
+        const Edge &edge = edges[winning];
+        const float foot = ((px - edge.x) * edge.ex + (py - edge.y) * edge.ey) *
+                           edge.inv_length2;
+        if (foot < 0.0f || foot > 1.0f)
+          signed_d = sqrtf(nearest_squared(px, py));
       }
     } else {
       const float c = math::dot(p, up);

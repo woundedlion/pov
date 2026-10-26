@@ -1219,6 +1219,43 @@ inline void test_empty_and_single_face_meshes() {
   }
 }
 
+/** @brief Convex swept-face corners report exact exterior distances. */
+inline void test_swept_face_vertex_cone_distance() {
+  constexpr float RADIUS = 0.06f, DELTA = 0.01f;
+  Spacetime::Worldline paths[4];
+  const math::Vector vertices[] = {{RADIUS, 1.0f, RADIUS},
+                                   {-RADIUS, 1.0f, RADIUS},
+                                   {-RADIUS, 1.0f, -RADIUS},
+                                   {RADIUS, 1.0f, -RADIUS}};
+  for (int i = 0; i < 4; ++i) {
+    const auto vertex = vertices[i].normalized();
+    paths[i] = Spacetime::Worldline::chord(vertex, vertex);
+  }
+  ScratchScope storage(scratch_arena_a);
+  const Scan::PoleFaceSweep sweep{0, paths, 4, true};
+  Scan::SweptFace<288, 144> face(sweep, scratch_arena_a);
+  const math::Vector azimuth[] = {math::X_AXIS}, up[] = {math::Y_AXIS};
+  Scan::ColumnBasis time;
+  time.azimuth = azimuth;
+  time.up = up;
+  SDF::Bounds rows[2];
+  HS_EXPECT_TRUE(face.column(time, 0, 3, rows));
+  for (const float sign_x : {-1.0f, 1.0f})
+    for (const float sign_z : {-1.0f, 1.0f}) {
+      SDF::DistanceResult distance;
+      face.probe(math::Vector(sign_x * (RADIUS + DELTA), 1.0f,
+                              sign_z * (RADIUS + DELTA))
+                     .normalized(),
+                 distance);
+      HS_EXPECT_NEAR(distance.dist, std::sqrt(2.0f) * DELTA, 1e-6f);
+    }
+  SDF::DistanceResult distance;
+  face.probe(math::Vector(RADIUS + DELTA, 1.0f, 0.0f).normalized(), distance);
+  HS_EXPECT_NEAR(distance.dist, DELTA, 1e-6f);
+  face.probe(math::Y_AXIS, distance);
+  HS_EXPECT_NEAR(distance.dist, -RADIUS, 1e-6f);
+}
+
 /**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
@@ -1226,6 +1263,7 @@ inline void test_empty_and_single_face_meshes() {
 inline int run_mesh_raster_tests() {
   hs_test::ModuleFixture fixture("mesh_raster");
 
+  HS_RUN(test_swept_face_vertex_cone_distance);
   HS_RUN(test_empty_and_single_face_meshes);
   HS_RUN(test_wireframe_draws_every_edge);
   HS_RUN(test_wireframe_pixels_lie_on_edges);
