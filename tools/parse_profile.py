@@ -628,10 +628,10 @@ def _metrics_row(s, frames, shade):
                     for v, w, p in zip(vals, METRICS_WIDTHS, prec))
 
 
-PROBE_STAGES = (("point", "n_probe"), ("project", "n_probe"),
+PROBE_STAGES = (("point", "n_probe"), ("project", "n_project"),
                 ("lut", "n_lut"), ("convex", "n_convex"),
                 ("sector", "n_sector"), ("exact", "n_exact"),
-                ("pack", "n_probe"), ("alpha", "n_alpha"))
+                ("pack", "n_pack"), ("alpha", "n_alpha"))
 
 
 def cmd_probe(windows):
@@ -640,7 +640,8 @@ def cmd_probe(windows):
     Per stage: mean cycles per event of its own denominator, the same less the
     measured counter-read cost (read = tick / probes; each stage carries
     one read), and its share of the per-probe total. Ratios are meaningful;
-    absolute times are not.
+    absolute times are not. Project excludes radial culls; pack counts the
+    lut, convex, sector and exact paths that reach it.
     """
     have = [w for w in windows if w.probe and "n_probe" in w.probe
             and "point" in w.probe]
@@ -656,6 +657,8 @@ def cmd_probe(windows):
         print("probe count is zero", file=sys.stderr)
         return 2
     read = agg["tick"] / probes
+    agg["n_project"] = probes - agg["n_cull_r"]
+    agg["n_pack"] = sum(agg[key] for key in ("n_lut", "n_convex", "n_sector", "n_exact"))
     print(f"probes={probes}  windows={len(have)}  "
           f"counter read={read:.1f} cyc (measured)")
     print(f"{'# stage':<10} {'events':>10} {'cyc/event':>10} "

@@ -458,6 +458,10 @@ class ProbeBreakdownLines(unittest.TestCase):
         # exact: 4000/40 = 100.0 cyc/event, 90.0 net, 40/100 probes => 36.0.
         row = next(l for l in out.splitlines() if l.startswith("exact"))
         self.assertEqual(row.split()[1:5], ["40", "100.0", "90.0", "36.0"])
+        project = next(l for l in out.splitlines() if l.startswith("project"))
+        self.assertEqual(project.split()[1:5], ["94", "31.9", "21.9", "20.6"])
+        pack = next(l for l in out.splitlines() if l.startswith("pack"))
+        self.assertEqual(pack.split()[1:5], ["90", "13.3", "3.3", "3.0"])
 
     def test_printed_cyc_per_probe_column_sums_to_the_printed_total(self):
         # alpha runs 50 times at 2.0 cyc/event, below the 10.0 cyc read cost,
