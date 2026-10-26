@@ -376,6 +376,47 @@ struct EdgeWorldsheet {
                                                 math::RADIANS_PER_COLUMN<W>);
   }
 
+  /** @brief Whether midpoint spacing exceeds the bilinear sample footprint.
+   * @tparam W,H Display dimensions.
+   * @param basis Orthonormal geodesic basis.
+   * @param pieces Edge length in midpoint screen steps.
+   * @return Whether the arc needs column-local sampling. */
+  template <int W, int H>
+  HS_HOT_INLINE static bool
+  needs_local_lattice(const GeodesicEdgeSampler &basis, float pieces) {
+    const float base_step = math::RADIANS_PER_COLUMN<W>;
+    constexpr float SUPPORT = 2.0f;
+    constexpr float KX = W / (2.0f * math::PI_F);
+    const float ky = math::ROWS_PER_RADIAN<H>;
+    const auto end = basis.accurate(1.0f);
+    float peak_y2 = fmaxf(basis.v1.y * basis.v1.y, end.pos.y * end.pos.y);
+    const bool turning = basis.v_perp.y * end.tan.y < 0.0f;
+    if (turning)
+      peak_y2 = fminf(1.0f, basis.v1.y * basis.v1.y +
+                                basis.v_perp.y * basis.v_perp.y);
+    const float count = float(lattice(pieces));
+    const float sin2 = fmaxf(1e-7f, 1.0f - peak_y2);
+    const float max_rate2 = fmaxf(KX * KX / sin2, ky * ky);
+    if (basis.total_dist * basis.total_dist * max_rate2 <=
+        SUPPORT * SUPPORT * count * count)
+      return false;
+    const float cross_y =
+        basis.v1.x * basis.v_perp.z - basis.v1.z * basis.v_perp.x;
+    float step = fminf(screen_step<W, H>(basis.v1, basis.v_perp, base_step),
+                       screen_step<W, H>(end.pos, end.tan, base_step));
+    if (turning) {
+      const float peak_y = sqrtf(peak_y2);
+      step = fminf(
+          step, screen_step_components<W, H>(peak_y, 0.0f, cross_y, base_step));
+    }
+    if (basis.v1.y * end.pos.y < 0.0f) {
+      const float tangent_y = sqrtf(fmaxf(0.0f, 1.0f - cross_y * cross_y));
+      step = fminf(step, screen_step_components<W, H>(0.0f, tangent_y, cross_y,
+                                                      base_step));
+    }
+    return basis.total_dist * SCREEN_STEP_PX > SUPPORT * count * step;
+  }
+
   /** @brief Evaluates a path held as polynomial coefficients.
    * @param curve Coefficients c0, c1, c2.
    * @param t Frame fraction.
@@ -788,18 +829,18 @@ HS_HOT_FLASH_MEMBER void splat_owned_taps(const ColumnWalk<W> &state,
  * @tparam Cfg Register interpolation configuration.
  * @tparam SPLIT Walk the arc as its two sides of its closest approach to a
  * pole, each with its own column tests.
- * @tparam RIGID Resolve the continuous lattice pitch from each column's arc.
+ * @tparam LOCAL Resolve the continuous lattice pitch from each column's arc.
  * @tparam UNIFORM_COLOR Reuse the prepared edge color.
  * @param state The edge's walk.
  * @details A turning arc walks every planned column; otherwise each pass stops
  * where its lit run ends. */
-template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID = false,
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool LOCAL = false,
           bool UNIFORM_COLOR = false>
 HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
   auto &[pipeline, canvas, points, shader, frame, segments, segment_count, band,
          direction, radians, single_time, velocity, source_positions, chained,
          turning, top_y, bottom_y, half_sine, half_cosine] = state;
-  constexpr bool rigid_lattice = RIGID;
+  constexpr bool local_lattice = LOCAL;
   const auto arm_change = [&](int from) HS_HOT_INLINE {
     return (direction > 0 ? math::fast_wrap(from + 1, W) : from) % (W / 2) == 0;
   };
@@ -825,19 +866,19 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         continue;
       }
       x = math::fast_wrap(owner + direction, W);
-      float t = radians == 0.0f && !rigid_lattice
+      float t = radians == 0.0f && !local_lattice
                     ? 0.0f
                     : Spacetime::SamplingSurface<W>::time(float(owner));
       math::Vector a, b, source_a, source_b;
       GeodesicEdgeSampler sampler;
       float pieces, total;
       bool unit = false;
-      if (radians != 0.0f || rigid_lattice) {
+      if (radians != 0.0f || local_lattice) {
         frame.at(owner, t, a, b, source_positions, source_a, source_b);
         total = frame.bases[0].total_dist +
                 (frame.bases[1].total_dist - frame.bases[0].total_dist) * t;
         pieces = frame.pieces[0] + (frame.pieces[1] - frame.pieces[0]) * t;
-        if (rigid_lattice) {
+        if (local_lattice) {
           sampler = EdgeWorldsheet::basis(a, b, total);
           a = sampler.v1;
           unit = true;
@@ -878,12 +919,12 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           part_b = part ? b : turn;
           length = (to - from) * total;
         }
-        if (radians != 0.0f || rigid_lattice) {
+        if (radians != 0.0f || local_lattice) {
           const float inverse_length = length > 1e-7f ? 1.0f / length : 0.0f;
           const float column_cosine = math::TrigLUT<W, H>::cos_theta(owner);
           const float column_sine = math::TrigLUT<W, H>::sin_theta[owner];
           const int arc_direction =
-              rigid_lattice ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
+              local_lattice ? (a.x * b.z - a.z * b.x >= 0.0f ? 1 : -1)
                             : direction;
           const float sine = arc_direction * half_sine;
           const math::Vector normal(
@@ -925,7 +966,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           if (SPLIT && !pieced)
             piece = EdgeWorldsheet::basis(part_a, part_b, length);
           const GeodesicEdgeSampler basis = SPLIT ? piece : sampler;
-          if (!rigid_lattice && carried >= 0.0f) {
+          if (!local_lattice && carried >= 0.0f) {
             start_column = false;
             s_in = fminf(carried, s_out);
           } else {
@@ -954,7 +995,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           edge_start = start_column && from == 0.0f;
           edge_end = end_column && to == 1.0f;
         }
-        if (rigid_lattice) {
+        if (local_lattice) {
           const float at = 0.5f * (s_in + s_out);
           float sine, cosine;
           math::poly_sincosf_0_pi(total * at, sine, cosine);
@@ -967,15 +1008,15 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
               total / screen_step_components<W, H>(y, tangent_y, cross_y,
                                                    math::RADIANS_PER_COLUMN<W>);
         }
-        const int count = rigid_lattice ? std::max(1, int(ceilf(pieces)))
+        const int count = local_lattice ? std::max(1, int(ceilf(pieces)))
                                         : EdgeWorldsheet::lattice(pieces);
-        if (rigid_lattice || count != lattice_count) {
+        if (local_lattice || count != lattice_count) {
           lattice_count = count;
           lattice_step =
-              1.0f / (rigid_lattice ? fmaxf(pieces, 1.0f) : float(count));
+              1.0f / (local_lattice ? fmaxf(pieces, 1.0f) : float(count));
         }
         const float lattice_scale =
-            rigid_lattice ? fmaxf(pieces, 1.0f) : float(count);
+            local_lattice ? fmaxf(pieces, 1.0f) : float(count);
         const int first = edge_start ? 0 : int(ceilf(s_in * lattice_scale));
         const int last = edge_end ? count - int(chained)
                                   : int(ceilf(s_out * lattice_scale)) - 1;
@@ -995,7 +1036,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
         for (int k = first; k <= last; ++k) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_generated_samples>();
-          if (!rigid_lattice && ++sample_count > 2 * rasterize_step_budget<W>())
+          if (!local_lattice && ++sample_count > 2 * rasterize_step_budget<W>())
             break;
           const float s = k >= count ? 1.0f : float(k) * lattice_step;
           float sine = 0.0f, cosine = 1.0f;
@@ -1014,7 +1055,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_projections>();
           const auto p = math::vector_to_pixel<W, H>(world);
-          if (radians == 0.0f && !rigid_lattice)
+          if (radians == 0.0f && !local_lattice)
             t = Spacetime::SamplingSurface<W>::time(p.x);
           ++emitted;
           if (plain)
@@ -1040,7 +1081,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
           }
           Spacetime::count_geometry<
               &Spacetime::GeometryCounters::column_samples>();
-          if (rigid_lattice) {
+          if (local_lattice) {
             pipeline.plot_column_at(canvas, p, owner, f.color.color, f.age,
                                     f.color.alpha, t);
             continue;
@@ -1071,7 +1112,7 @@ HS_HOT_INLINE void walk_edge_columns(const ColumnWalk<W> &state) {
       if (emitted > 1)
         Spacetime::count_geometry<
             &Spacetime::GeometryCounters::column_span_fills>();
-      if (!rigid_lattice && sample_count > 2 * rasterize_step_budget<W>())
+      if (!local_lattice && sample_count > 2 * rasterize_step_budget<W>())
         break;
       if (finished && !turning)
         break;
@@ -1088,24 +1129,24 @@ HS_HOT_FLASH_MEMBER void walk_split_edge_columns(const ColumnWalk<W> &state) {
   walk_edge_columns<W, H, Cfg, true>(state);
 }
 
-/** @brief Walks a rigid edge with local column-time cadence.
+/** @brief Walks an edge with local column-time cadence.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
  * @param state Prepared column walk. */
 template <int W, int H, RasterConfig Cfg>
-HS_HOT_FLASH_MEMBER void walk_rigid_edge_columns(const ColumnWalk<W> &state) {
+HS_HOT_FLASH_MEMBER void walk_local_edge_columns(const ColumnWalk<W> &state) {
   walk_edge_columns<W, H, Cfg, false, true>(state);
 }
 
 /** @brief Walks an edge with its prepared uniform color.
  * @tparam W,H Canvas dimensions.
  * @tparam Cfg Register interpolation configuration.
- * @tparam SPLIT,RIGID Edge split and lattice policies.
+ * @tparam SPLIT,LOCAL Edge split and lattice policies.
  * @param state Prepared column walk. */
-template <int W, int H, RasterConfig Cfg, bool SPLIT, bool RIGID>
+template <int W, int H, RasterConfig Cfg, bool SPLIT, bool LOCAL>
 __attribute__((aligned(32))) HS_HOT_FLASH_MEMBER void
 walk_uniform_edge_columns(const ColumnWalk<W> &state) {
-  walk_edge_columns<W, H, Cfg, SPLIT, RIGID, true>(state);
+  walk_edge_columns<W, H, Cfg, SPLIT, LOCAL, true>(state);
 }
 
 /** @brief Rasterizes mesh edges one destination column at a time.
@@ -1126,7 +1167,8 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
  * columns its plan bounds, each with the edge's endpoints evaluated on their
  * paths at the column's time and rotated by its pose, and stops where the lit
  * run ends. Samples sit at arc fractions k/N, where N is the edge's length in
- * screen steps at that time, and a column plots the lattice points between
+ * screen steps at that time, resolved locally when midpoint spacing exceeds
+ * the bilinear footprint. A column plots the lattice points between
  * its two boundary meridians unweighted through the filter chain, so a moving
  * edge samples each column as the frozen edge at that column's time does. The
  * start vertex is lattice point zero; each edge also plots its end vertex
@@ -1134,7 +1176,8 @@ walk_uniform_edge_columns(const ColumnWalk<W> &state) {
  * Columns strictly inside an edge splat at their own time; the end columns of
  * an edge moving faster than COLUMN_SINGLE_TAP_ERROR move each neighbor tap
  * to that column's time, and taps astride an arm seam interpolate their
- * registers toward the sample shaded at the far side's time. A stationary draw walks the lattice once. An
+ * registers toward the sample shaded at the far side's time. A stationary draw
+ * with bounded midpoint spacing walks the lattice once. An
  * edge whose plan cannot bound it, such as one that can pass near a pole, is
  * walked as the two sides of its closest approach to the pole, out of line. */
 template <int W, int H, RasterConfig Cfg>
@@ -1143,9 +1186,10 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
                        TimedShaderFn shader, const EdgeBatch &batch,
                        const Spacetime::PoseTable *poses, float radians,
                        bool source_positions, float spin) {
-  const float support = batch.rigid_lattice ? 1.0f : 0.5f;
-  const float half_sine = sinf(support * math::RADIANS_PER_COLUMN<W>);
-  const float half_cosine = cosf(support * math::RADIANS_PER_COLUMN<W>);
+  const float half_sine = sinf(0.5f * math::RADIANS_PER_COLUMN<W>);
+  const float half_cosine = cosf(0.5f * math::RADIANS_PER_COLUMN<W>);
+  const float full_sine = sinf(math::RADIANS_PER_COLUMN<W>);
+  const float full_cosine = cosf(math::RADIANS_PER_COLUMN<W>);
 
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
@@ -1168,6 +1212,12 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
           &Spacetime::GeometryCounters::column_edges_culled>();
       continue;
     }
+    const bool local_lattice =
+        batch.rigid_lattice || (pipeline.column_taps_ready() &&
+                                (EdgeWorldsheet::needs_local_lattice<W, H>(
+                                     frame.bases[0], frame.pieces[0]) ||
+                                 EdgeWorldsheet::needs_local_lattice<W, H>(
+                                     frame.bases[1], frame.pieces[1])));
     const int direction =
         frame.bases[1].v1.x * frame.bases[1].v_perp.z -
                     frame.bases[1].v1.z * frame.bases[1].v_perp.x >=
@@ -1178,10 +1228,10 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
     int segment_count = 1;
     float velocity[4] = {};
     bool single_time = true;
-    if (radians == 0.0f && !batch.rigid_lattice) {
+    if (radians == 0.0f && !local_lattice) {
       segments[0] = {0, 1, 1};
     } else {
-      segment_count = frame.plan<W>(direction, segments, batch.rigid_lattice);
+      segment_count = frame.plan<W>(direction, segments, local_lattice);
       int kept = 0;
       for (int i = 0; i < segment_count; ++i) {
         detail::ColumnSegment walk = segments[i];
@@ -1195,7 +1245,7 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
             &Spacetime::GeometryCounters::column_edges_culled>();
         continue;
       }
-      if (!batch.rigid_lattice) {
+      if (!local_lattice) {
         frame.velocities<W, H>(velocity);
         single_time = fmaxf(fmaxf(fabsf(velocity[0]), fabsf(velocity[1])),
                             fmaxf(fabsf(velocity[2]), fabsf(velocity[3]))) <=
@@ -1235,22 +1285,22 @@ rasterize_column_edges(PipelineRef &pipeline, Canvas &canvas, Fragments &points,
         velocity,
         source_positions,
         batch.chained,
-        batch.rigid_lattice ||
+        local_lattice ||
             (split && !(sense(frame.bases[0]) * sense(frame.bases[1]) >
                         4.0f * frame.deviation * frame.deviation)),
         top_y,
         bottom_y,
-        half_sine,
-        half_cosine};
+        local_lattice ? full_sine : half_sine,
+        local_lattice ? full_cosine : half_cosine};
     if (batch.uniform_color) {
-      if (batch.rigid_lattice)
+      if (local_lattice)
         walk_uniform_edge_columns<W, H, Cfg, false, true>(walk);
       else if (split)
         walk_uniform_edge_columns<W, H, Cfg, true, false>(walk);
       else
         walk_uniform_edge_columns<W, H, Cfg, false, false>(walk);
-    } else if (batch.rigid_lattice)
-      walk_rigid_edge_columns<W, H, Cfg>(walk);
+    } else if (local_lattice)
+      walk_local_edge_columns<W, H, Cfg>(walk);
     else if (split)
       walk_split_edge_columns<W, H, Cfg>(walk);
     else

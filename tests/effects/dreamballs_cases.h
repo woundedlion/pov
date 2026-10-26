@@ -681,8 +681,7 @@ inline void test_dreamballs_temporal_source_oracle() {
   Spacetime::set_flat_surface(!enabled);
 }
 
-/** @brief Shells and preset first frames avoid iterative edge fallbacks, and a
- * fast spin evaluates each vertex at most at the frame's start and middle. */
+/** @brief Mesh capture stays bounded, including stationary preset first frames. */
 inline void test_dreamballs_column_work_is_bounded() {
   const bool enabled = !Spacetime::flat_surface();
   Spacetime::set_flat_surface(false);
@@ -722,9 +721,10 @@ inline void test_dreamballs_column_work_is_bounded() {
       fx.advance_display();
       const auto &counts = Spacetime::geometry_counters;
       HS_EXPECT_GT(counts.column_samples, 0u);
-      if (frame == 0)
-        HS_EXPECT_EQ(counts.column_crossings, 0u);
-      else
+      if (frame == 0) {
+        HS_EXPECT_EQ(counts.endpoint_evaluations, 0u);
+        HS_EXPECT_EQ(counts.midpoint_evaluations, 0u);
+      } else
         HS_EXPECT_GT(counts.column_crossings, 0u);
     }
   }

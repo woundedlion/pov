@@ -629,6 +629,11 @@ public:
     return timed_entries && timed_entries->dense_screen_safe;
   }
 
+  /** @brief Whether the first screen stage supports column-owned taps. */
+  bool column_taps_ready() const {
+    return timed_entries && timed_entries->column_plot;
+  }
+
   /** @brief Plots after already-evaluated world transformations.
    * @param cv Frame context.
    * @param v Transformed point.

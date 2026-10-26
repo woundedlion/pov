@@ -9,6 +9,88 @@ struct TimedMeshFixture {
       vertices; /**< Endpoints of two connected edges. */
 };
 
+/** @brief Polar arcs cover their independently intersected meridians. */
+inline void test_column_polar_arc_coverage() {
+  constexpr int W = 288, H = 144;
+  const bool flat = Spacetime::flat_surface();
+  using Vec = std::array<double, 3>;
+  const auto cross = [](const Vec &a, const Vec &b) -> Vec {
+    return {a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]};
+  };
+  const auto dot = [](const Vec &a, const Vec &b) {
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  };
+  const auto angle = [&](const Vec &a, const Vec &b) {
+    const auto normal = cross(a, b);
+    return std::atan2(std::sqrt(dot(normal, normal)), dot(a, b));
+  };
+  for (float hemisphere : {-1.0f, 1.0f})
+    for (bool reversed : {false, true})
+      for (bool timed : {false, true}) {
+        hs_test::StubEffect effect(W, H);
+        Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline;
+        TimedMeshFixture mesh{{
+            math::Vector(-0.359562576f, hemisphere * 0.882092655f,
+                         -0.304347575f),
+            math::Vector(0.157168522f, hemisphere * 0.987457812f, 0.015009786f),
+            math::Vector{},
+        }};
+        if (reversed)
+          std::swap(mesh.vertices[0], mesh.vertices[1]);
+        Spacetime::set_flat_surface(!timed);
+        {
+          Canvas canvas(effect);
+          ScratchScope a(scratch_arena_a), b(scratch_arena_b);
+          ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_b, 1);
+          edges.push_back({0, 1});
+          auto shader = [](const math::Vector &, Fragment &f, float) {
+            f.color = Color4(Pixel(65535, 65535, 65535), 0.2f);
+          };
+          auto at = [&](size_t vertex, float) { return mesh.vertices[vertex]; };
+          const Plot::GeometryCallback geometry{at, {}, false};
+          Plot::Mesh::draw_timed<W, H>(pipeline, canvas, mesh, edges, shader,
+                                       geometry);
+        }
+        effect.advance_display();
+        const Vec a{mesh.vertices[0].x, mesh.vertices[0].y, mesh.vertices[0].z};
+        const Vec b{mesh.vertices[1].x, mesh.vertices[1].y, mesh.vertices[1].z};
+        const auto normal = cross(a, b);
+        const double length = angle(a, b);
+        const double pi = std::acos(-1.0);
+        int checked = 0, missing = 0;
+        for (int column = 0; column < W; ++column) {
+          const double theta = column * 2.0 * pi / W;
+          const double sine = std::sin(theta), cosine = std::cos(theta);
+          const double horizontal = normal[0] * cosine + normal[2] * sine;
+          const Vec point{std::abs(normal[1]) * cosine,
+                          -std::copysign(1.0, normal[1]) * horizontal,
+                          std::abs(normal[1]) * sine};
+          if (angle(a, point) + angle(point, b) > length + 1e-7)
+            continue;
+          const double phi =
+              std::atan2(std::hypot(point[0], point[2]), point[1]);
+          const double row = (phi - math::DisplayGeometry<H>::NORTH_PHI) *
+                             math::ROWS_PER_RADIAN<H>;
+          const double pole_row = hemisphere > 0.0f ? row : H - 1 - row;
+          if (pole_row < 2.0 || pole_row > 11.0)
+            continue;
+          ++checked;
+          uint64_t coverage = 0;
+          for (int y = std::max(0, int(std::floor(row)) - 1);
+               y <= std::min(H - 1, int(std::ceil(row)) + 1); ++y)
+            coverage += effect.get_pixel(column, y).r;
+          missing += coverage == 0;
+        }
+        HS_CONTEXT("polar arc hemisphere", hemisphere);
+        HS_CONTEXT("polar arc reversed", reversed);
+        HS_CONTEXT("polar arc timed", timed);
+        HS_EXPECT_GT(checked, 32);
+        HS_EXPECT_EQ(missing, 0);
+      }
+  Spacetime::set_flat_surface(flat);
+}
+
 /** @brief The hoisted trail gate retains edges whose motion reaches the clip. */
 inline void test_trail_gate_uses_motion_region() {
   constexpr int W = 288, H = 144;
