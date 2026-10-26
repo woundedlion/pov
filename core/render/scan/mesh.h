@@ -955,24 +955,9 @@ select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
   std::fill_n(vertex_bits, (vertices + 7) / 8, uint8_t(0));
   if (!math::TrigLUT<W, H>::initialized)
     math::TrigLUT<W, H>::init();
-  const auto xc = clip.x_clip();
   const float pad =
       reach + time.sweep_arc + SDF::BOUNDS_MARGIN_WIDE + SDF::MOVED_AXIS_SLACK;
-  const float pad_cos = cosf(pad), pad_sin = sinf(pad);
-  const auto geometry = math::LatitudeGeometry(H);
-  const float row_step = geometry.row_to_phi(1) - geometry.row_to_phi(0);
-  const float north =
-      cosf(fmaxf(geometry.row_to_phi(clip.render_y_start()) - row_step, 0.0f));
-  const float south = cosf(fminf(
-      geometry.row_to_phi(clip.render_y_end() - 1) + row_step, math::PI_F));
-  const int first_column = math::wrap(xc.rs, W);
-  const int last_column = math::wrap(xc.rs + xc.length(W), W);
-  const math::Vector first_normal(
-      -math::TrigLUT<W, H>::sin_theta[first_column], 0.0f,
-      math::TrigLUT<W, H>::cos_theta_data()[first_column]);
-  const math::Vector last_normal(
-      math::TrigLUT<W, H>::sin_theta[last_column], 0.0f,
-      -math::TrigLUT<W, H>::cos_theta_data()[last_column]);
+  const FaceClipPlanes<W, H> planes(clip, pad);
   float max_length_sq = 0.0f;
   for (const auto &v : mesh.vertices)
     max_length_sq = fmaxf(max_length_sq, math::dot(v, v));
@@ -989,33 +974,8 @@ select_mesh_visibility(const ClipRegion &clip, const MeshState &mesh,
       for (size_t k = 0; k < count; ++k)
         cosine = fminf(cosine, math::dot(axis, mesh.vertices[indices[k]]) *
                                    inverse_max_length);
-      if (cosine > 0.0f) {
-        const float sine = sqrtf(fmaxf(1.0f - cosine * cosine, 0.0f));
-        const float expanded_cosine = cosine * pad_cos - sine * pad_sin;
-        const float expanded_sine = sine * pad_cos + cosine * pad_sin;
-        if (expanded_cosine > 0.0f) {
-          axis = camera(axis);
-          const float horizontal = sqrtf(fmaxf(1.0f - axis.y * axis.y, 0.0f));
-          const float high =
-              axis.y >= expanded_cosine
-                  ? 1.0f
-                  : axis.y * expanded_cosine + horizontal * expanded_sine;
-          const float low =
-              axis.y <= -expanded_cosine
-                  ? -1.0f
-                  : axis.y * expanded_cosine - horizontal * expanded_sine;
-          if (high < south || low > north)
-            continue;
-          const bool misses_first =
-              math::dot(axis, first_normal) < -expanded_sine;
-          const bool misses_last =
-              math::dot(axis, last_normal) < -expanded_sine;
-          if (xc.active &&
-              (xc.length(W) <= W / 2 ? misses_first || misses_last
-                                     : misses_first && misses_last))
-            continue;
-        }
-      }
+      if (cosine > 0.0f && planes.rejects(camera(axis), cosine))
+        continue;
     }
 #if HS_ENABLE_TEST_HOOKS
     ++visibility_counts[1];
