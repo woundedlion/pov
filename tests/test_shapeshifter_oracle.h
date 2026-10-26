@@ -97,6 +97,30 @@ struct OracleFrame {
   }
 };
 
+/** @brief Image-dump path prefix, or null when disabled.
+ * @return Value of HS_SHAPESHIFTER_IMAGES. */
+static inline const char *shapeshifter_image_prefix() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  return std::getenv("HS_SHAPESHIFTER_IMAGES");
+#pragma clang diagnostic pop
+}
+
+/** @brief Writes an oracle frame as a gamma-encoded P6 image.
+ * @param frame Frame to write.
+ * @param path Output image path. */
+static inline void write_oracle_ppm(const OracleFrame &frame,
+                                    const std::string &path) {
+  std::ofstream file(path, std::ios::binary);
+  HS_EXPECT_TRUE(file.good());
+  if (!file)
+    return;
+  file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
+  for (const Pixel &pixel : frame.pixels)
+    for (auto value : {pixel.r, pixel.g, pixel.b})
+      file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
+}
+
 /** @brief Test-only access to ShapeShifter's pinned state and shipping renderer. */
 struct ShapeShifterWhiteBox {
   static constexpr size_t PRESET_COUNT = OracleEffect::PRESETS.size();
@@ -771,24 +795,11 @@ inline void test_timed_star_stays_within_visual_budget() {
       comparison.error.mean_absolute_error(),
       comparison.error.root_mean_squared_error(), drift, double(energy),
       double(frame_energy(comparison.candidate)));
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *prefix = std::getenv("HS_SHAPESHIFTER_IMAGES");
-#pragma clang diagnostic pop
-  if (prefix) {
-    auto write = [&](const OracleFrame &frame, const char *suffix) {
-      const std::string path = std::string(prefix) + suffix;
-      std::ofstream file(path, std::ios::binary);
-      HS_EXPECT_TRUE(file.good());
-      if (!file)
-        return;
-      file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
-      for (const Pixel &pixel : frame.pixels)
-        for (auto value : {pixel.r, pixel.g, pixel.b})
-          file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
-    };
-    write(comparison.reference, "-reference.ppm");
-    write(comparison.candidate, "-temporal-frozen.ppm");
+  if (const char *prefix = shapeshifter_image_prefix()) {
+    write_oracle_ppm(comparison.reference,
+                     std::string(prefix) + "-reference.ppm");
+    write_oracle_ppm(comparison.candidate,
+                     std::string(prefix) + "-temporal-frozen.ppm");
   }
   HS_EXPECT_LT(comparison.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
   HS_EXPECT_LT(comparison.error.root_mean_squared_error(),
@@ -1348,22 +1359,11 @@ inline void test_timed_presets_match_frozen_columns() {
     HS_EXPECT_LT(look.error.root_mean_squared_error(),
                  MAX_ROOT_MEAN_SQUARED_ERROR);
     HS_EXPECT_LT(look.error.max_absolute_error, MAX_CHANNEL_ERROR);
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    const char *prefix = std::getenv("HS_SHAPESHIFTER_IMAGES");
-#pragma clang diagnostic pop
-    if (prefix) {
-      auto write = [&](const OracleFrame &frame, const char *suffix) {
-        const std::string path =
-            std::string(prefix) + "-p" + std::to_string(i + 1) + suffix;
-        std::ofstream file(path, std::ios::binary);
-        file << "P6\n" << ORACLE_W << " " << ORACLE_H << "\n255\n";
-        for (const Pixel &pixel : frame.pixels)
-          for (auto value : {pixel.r, pixel.g, pixel.b})
-            file.put(char(int(255.0f * sqrtf(value / 65535.0f) + 0.5f)));
-      };
-      write(look.reference, "-still.ppm");
-      write(look.candidate, "-timed.ppm");
+    if (const char *prefix = shapeshifter_image_prefix()) {
+      const std::string path =
+          std::string(prefix) + "-p" + std::to_string(i + 1);
+      write_oracle_ppm(look.reference, path + "-still.ppm");
+      write_oracle_ppm(look.candidate, path + "-timed.ppm");
     }
   }
 }
