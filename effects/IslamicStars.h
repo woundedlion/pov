@@ -224,9 +224,7 @@ private:
   using Builder::build_entry;
   using Builder::build_step_chain;
   using Builder::build_step_count;
-  using Builder::build_step;
   using Builder::build_seed;
-  using Builder::build_total_frames;
   using Builder::device_persistent_budget;
 #if HS_ENABLE_TEST_HOOKS
   using Builder::dual_bridges_built;
