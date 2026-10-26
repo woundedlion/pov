@@ -2800,6 +2800,14 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
   std::vector<int> lines(static_cast<size_t>(n));
+  int duplicates = 0;
+  for (int i = 0; i < n; ++i)
+    for (int j = 0; j < i; ++j)
+      if (std::strcmp(cs[i].name, cs[j].name) == 0)
+        ++duplicates;
+  HS_EXPECT_EQ(duplicates, 0);
+  if (duplicates != 0)
+    return fixture.result();
 
   if (shard.role == ShardSpec::Role::CENSUS) {
     merge_shard_records(shard, cs, n, lines.data());
