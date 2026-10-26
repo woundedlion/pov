@@ -159,6 +159,8 @@ private:
     auto &frame = led_controller.back_frame();
     for (int led = 0; led < S; ++led)
       frame.pack_pixel(led, Pixel{});
+    while (!led_controller.transfer_idle()) {
+    }
     (void)led_controller.submit_frame(false);
 #else
     FastLED.showColor(CRGB(0, 0, 0));

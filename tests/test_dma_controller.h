@@ -249,6 +249,23 @@ inline void test_overrun_drop() {
   expect_captured_frame(expected);
 }
 
+/** @brief Completion polling preserves the submission and overrun counters. */
+inline void test_transfer_idle_poll() {
+  MockStrip::reset();
+  DMALEDController<N, MockStrip> ctl;
+  HS_EXPECT_TRUE(ctl.transfer_idle());
+  HS_EXPECT_TRUE(ctl.submit_frame(false));
+  HS_EXPECT_FALSE(ctl.transfer_idle());
+  HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1);
+  HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
+  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+  MockStrip::state().complete = true;
+  HS_EXPECT_TRUE(ctl.transfer_idle());
+  HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1);
+  HS_EXPECT_EQ(ctl.get_overrun_count(), 0u);
+  HS_EXPECT_EQ(ctl.get_transfer_count(), 1u);
+}
+
 /**
  * @brief with_bg selects the composite (image + trailing black) transfer length.
  */
@@ -335,6 +352,7 @@ inline int run_dma_controller_tests() {
   HS_RUN(test_submit_happy_path);
   HS_RUN(test_double_buffer_flip);
   HS_RUN(test_overrun_drop);
+  HS_RUN(test_transfer_idle_poll);
   HS_RUN(test_withbg_length);
   HS_RUN(test_end_to_end_wire_bytes);
   // Leave the shared static state clean for any later module.

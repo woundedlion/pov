@@ -87,6 +87,17 @@ public:
   }
 
   /**
+   * @brief Reports transfer completion and checks the in-flight watchdog.
+   * @return Whether another frame can be submitted.
+   */
+  bool transfer_idle() {
+    if (spi.is_complete())
+      return true;
+    spi.check_stale_transfer();
+    return false;
+  }
+
+  /**
    * @brief Flushes the back frame and triggers async DMA transfer.
    * Call after all pack_pixel() calls on back_frame().
    * @param with_bg If true, DMAs the composite buffer (image + trailing
