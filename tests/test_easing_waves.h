@@ -298,16 +298,16 @@ inline void test_square_wave_negative_phase() {
 inline int run_easing_waves_tests() {
   hs_test::ModuleFixture fixture("easing_waves");
 
-  test_easing_endpoints();
-  test_easing_finite_and_monotone();
-  test_easing_expo_elastic_interior_reference();
-  test_easing_in_out_symmetry_midpoint();
+  HS_RUN(test_easing_endpoints);
+  HS_RUN(test_easing_finite_and_monotone);
+  HS_RUN(test_easing_expo_elastic_interior_reference);
+  HS_RUN(test_easing_in_out_symmetry_midpoint);
 
-  test_sin_wave_bounds_and_phase();
-  test_sin_wave_amplitude_period_symmetry();
-  test_tri_wave_shape();
-  test_square_wave_binary();
-  test_square_wave_negative_phase();
+  HS_RUN(test_sin_wave_bounds_and_phase);
+  HS_RUN(test_sin_wave_amplitude_period_symmetry);
+  HS_RUN(test_tri_wave_shape);
+  HS_RUN(test_square_wave_binary);
+  HS_RUN(test_square_wave_negative_phase);
 
   return fixture.result();
 }

@@ -689,7 +689,7 @@ inline void test_partition_seam_calibration() {
  */
 inline int run_partition_seam_tests() {
   hs_test::ModuleFixture fixture("partition_seam");
-  test_partition_seam_calibration();
+  HS_RUN(test_partition_seam_calibration);
   return fixture.result();
 }
 

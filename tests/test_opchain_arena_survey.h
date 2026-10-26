@@ -98,7 +98,7 @@ inline void test_islamic_registry_arena_survey() {
  */
 inline int run_opchain_arena_survey_tests() {
   hs_test::ModuleFixture fixture("opchain_arena_survey");
-  test_islamic_registry_arena_survey();
+  HS_RUN(test_islamic_registry_arena_survey);
   return fixture.result();
 }
 

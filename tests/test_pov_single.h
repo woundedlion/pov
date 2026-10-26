@@ -239,25 +239,25 @@ inline void test_single_column_sequence() {
 inline int run_pov_single_tests() {
   hs_test::ModuleFixture fixture("pov_single");
 
-  test_strip_derivation();
-  test_opposite_col_offset();
-  test_column_interval();
-  test_transfer_bound();
-  test_column_step_cadence();
-  test_single_column_sequence();
+  HS_RUN(test_strip_derivation);
+  HS_RUN(test_opposite_col_offset);
+  HS_RUN(test_column_interval);
+  HS_RUN(test_transfer_bound);
+  HS_RUN(test_column_step_cadence);
+  HS_RUN(test_single_column_sequence);
 
   // Holosphere 96x20: S=40, swept over representative rotation columns including
   // the x=0 and x=w/2 frame boundaries and the wrap seam.
   for (int x : {0, 1, 47, 48, 95})
-    check_strip_tiling<40>(/*w=*/96, x);
+    HS_RUN(check_strip_tiling<40>, /*w=*/96, x);
 
   // Large synthetic 288x144 config: S=288.
   for (int x : {0, 1, 143, 144, 287})
-    check_strip_tiling<288>(/*w=*/288, x);
+    HS_RUN(check_strip_tiling<288>, /*w=*/288, x);
 
   // Small config swept over every rotation column: S=8 -> ROWS=4, w=8.
   for (int x = 0; x < 8; ++x)
-    check_strip_tiling<8>(/*w=*/8, x);
+    HS_RUN(check_strip_tiling<8>, /*w=*/8, x);
 
   return fixture.result();
 }

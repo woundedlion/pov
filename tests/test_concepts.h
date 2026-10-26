@@ -595,17 +595,17 @@ inline void test_dissolve_mask_partition() {
 inline int run_concepts_tests() {
   hs_test::ModuleFixture fixture("concepts");
 
-  test_functionref_overload_resolution();
-  test_functionref_function_pointer();
-  test_functionref_empty_and_copy();
-  test_functionref_argument_forwarding();
-  test_stored_functionref_rvalue_rejection();
-  test_callable_return_constraints();
-  test_fn_copy_move_empty();
-  test_pipeline_ref_timed_defaults();
-  test_pipeline_ref_timed_stages();
-  test_tweenable_concept();
-  test_dissolve_mask_partition();
+  HS_RUN(test_functionref_overload_resolution);
+  HS_RUN(test_functionref_function_pointer);
+  HS_RUN(test_functionref_empty_and_copy);
+  HS_RUN(test_functionref_argument_forwarding);
+  HS_RUN(test_stored_functionref_rvalue_rejection);
+  HS_RUN(test_callable_return_constraints);
+  HS_RUN(test_fn_copy_move_empty);
+  HS_RUN(test_pipeline_ref_timed_defaults);
+  HS_RUN(test_pipeline_ref_timed_stages);
+  HS_RUN(test_tweenable_concept);
+  HS_RUN(test_dissolve_mask_partition);
 
   return fixture.result();
 }

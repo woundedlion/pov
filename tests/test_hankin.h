@@ -912,30 +912,30 @@ inline void test_update_hankin_borrowed_reuse_drops_topology_key() {
 inline int run_hankin_tests() {
   hs_test::ModuleFixture fixture("hankin");
 
-  test_compile_hankin_populates_arrays();
-  test_compile_hankin_normalizes_antipodal_fallback();
-  test_compile_hankin_static_vertices_are_edge_midpoints();
-  test_compile_hankin_star_faces_first_in_base_face_order();
+  HS_RUN(test_compile_hankin_populates_arrays);
+  HS_RUN(test_compile_hankin_normalizes_antipodal_fallback);
+  HS_RUN(test_compile_hankin_static_vertices_are_edge_midpoints);
+  HS_RUN(test_compile_hankin_star_faces_first_in_base_face_order);
 
-  test_update_hankin_flat_collapses_to_corners();
-  test_update_hankin_degenerate_edge_collapses_to_corner();
-  test_update_hankin_populates_output_mesh();
-  test_update_hankin_reuse_allocates_nothing();
+  HS_RUN(test_update_hankin_flat_collapses_to_corners);
+  HS_RUN(test_update_hankin_degenerate_edge_collapses_to_corner);
+  HS_RUN(test_update_hankin_populates_output_mesh);
+  HS_RUN(test_update_hankin_reuse_allocates_nothing);
 
-  test_hankin_one_shot_produces_valid_mesh();
-  test_hankin_flat_and_twisted_differ();
+  HS_RUN(test_hankin_one_shot_produces_valid_mesh);
+  HS_RUN(test_hankin_flat_and_twisted_differ);
 
-  test_hankin_output_is_genus0_manifold();
-  test_compile_hankin_on_hankin_output();
+  HS_RUN(test_hankin_output_is_genus0_manifold);
+  HS_RUN(test_compile_hankin_on_hankin_output);
 
-  test_update_hankin_resonance_star_points_stay_local();
-  test_update_hankin_near_parallel_angle_is_continuous();
+  HS_RUN(test_update_hankin_resonance_star_points_stay_local);
+  HS_RUN(test_update_hankin_near_parallel_angle_is_continuous);
 
-  test_compiled_hankin_clone_deep_copies();
-  test_compiled_hankin_clear();
-  test_compile_hankin_recompiles_after_arena_reset();
-  test_hankin_dual_seeds_share_census_not_key();
-  test_update_hankin_borrowed_reuse_drops_topology_key();
+  HS_RUN(test_compiled_hankin_clone_deep_copies);
+  HS_RUN(test_compiled_hankin_clear);
+  HS_RUN(test_compile_hankin_recompiles_after_arena_reset);
+  HS_RUN(test_hankin_dual_seeds_share_census_not_key);
+  HS_RUN(test_update_hankin_borrowed_reuse_drops_topology_key);
 
   return fixture.result();
 }

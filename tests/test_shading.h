@@ -468,19 +468,19 @@ inline void test_face_palette_shader_counterpart() {
 inline int run_shading_tests() {
   hs_test::ModuleFixture fixture("shading");
 
-  test_fragment_lerp_endpoints();
-  test_fragment_lerp_midpoint_carries_registers();
-  test_fragment_lerp_registers_leaves_pos_and_color_default();
-  test_fragment_edge_dist_normal();
-  test_fragment_edge_dist_degenerate_face();
-  test_mesh_topology_slot_in_range_wraps();
-  test_mesh_topology_slot_out_of_range_falls_back();
-  test_blinn_phong_half();
-  test_shade_blinn_phong();
-  test_shade_mesh_topology_segue();
-  test_shade_mesh_topology_direct();
-  test_face_palette_shader_defaults();
-  test_face_palette_shader_counterpart();
+  HS_RUN(test_fragment_lerp_endpoints);
+  HS_RUN(test_fragment_lerp_midpoint_carries_registers);
+  HS_RUN(test_fragment_lerp_registers_leaves_pos_and_color_default);
+  HS_RUN(test_fragment_edge_dist_normal);
+  HS_RUN(test_fragment_edge_dist_degenerate_face);
+  HS_RUN(test_mesh_topology_slot_in_range_wraps);
+  HS_RUN(test_mesh_topology_slot_out_of_range_falls_back);
+  HS_RUN(test_blinn_phong_half);
+  HS_RUN(test_shade_blinn_phong);
+  HS_RUN(test_shade_mesh_topology_segue);
+  HS_RUN(test_shade_mesh_topology_direct);
+  HS_RUN(test_face_palette_shader_defaults);
+  HS_RUN(test_face_palette_shader_counterpart);
 
   return fixture.result();
 }

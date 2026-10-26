@@ -876,18 +876,18 @@ inline void test_periodic_surface_bounds_and_gradients() {
 /** @brief Runs sdf pattern tests. */
 inline int run_sdf_pattern_tests() {
   hs_test::ModuleFixture fixture("sdf_patterns");
-  test_lattice_world_metric_and_fourth_axis();
-  test_lattice_reference_and_lipschitz();
-  test_framework_geometry_and_plane_streams();
-  test_octet_fcc_geometry_and_symmetry();
-  test_octet_events_ties_and_limits();
-  test_octet_struts_have_one_angle_correct_coverage_layer();
-  test_octet4_edges_parity_and_symmetry();
-  test_octet4_nearest_edge_matches_line_search();
-  test_octet4_scalar_distance_matches_offset();
-  test_octet4_owned_struts_match_ray_line_oracle();
-  test_octet4_ambient_events_and_limits();
-  test_periodic_surface_bounds_and_gradients();
+  HS_RUN(test_lattice_world_metric_and_fourth_axis);
+  HS_RUN(test_lattice_reference_and_lipschitz);
+  HS_RUN(test_framework_geometry_and_plane_streams);
+  HS_RUN(test_octet_fcc_geometry_and_symmetry);
+  HS_RUN(test_octet_events_ties_and_limits);
+  HS_RUN(test_octet_struts_have_one_angle_correct_coverage_layer);
+  HS_RUN(test_octet4_edges_parity_and_symmetry);
+  HS_RUN(test_octet4_nearest_edge_matches_line_search);
+  HS_RUN(test_octet4_scalar_distance_matches_offset);
+  HS_RUN(test_octet4_owned_struts_match_ray_line_oracle);
+  HS_RUN(test_octet4_ambient_events_and_limits);
+  HS_RUN(test_periodic_surface_bounds_and_gradients);
   return fixture.result();
 }
 

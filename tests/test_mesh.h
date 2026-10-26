@@ -974,40 +974,40 @@ inline void test_tribitset_all_pairs_independent() {
 inline int run_mesh_tests() {
   hs_test::ModuleFixture fixture("mesh");
 
-  test_polymesh_default_state();
-  test_polymesh_bind_arrays();
-  test_polymesh_clear_resets_data();
-  test_polymesh_unified_accessors();
+  HS_RUN(test_polymesh_default_state);
+  HS_RUN(test_polymesh_bind_arrays);
+  HS_RUN(test_polymesh_clear_resets_data);
+  HS_RUN(test_polymesh_unified_accessors);
 
-  test_half_edge_mesh_size_matches_input();
-  test_half_edge_mesh_face_loop_closes();
-  test_half_edge_mesh_pairs_are_symmetric();
-  test_half_edge_mesh_open_boundary_edges();
-  test_half_edge_mesh_euler_invariant();
-  test_half_edge_mesh_euler_tetrahedron();
-  test_half_edge_mesh_built_from_meshstate();
+  HS_RUN(test_half_edge_mesh_size_matches_input);
+  HS_RUN(test_half_edge_mesh_face_loop_closes);
+  HS_RUN(test_half_edge_mesh_pairs_are_symmetric);
+  HS_RUN(test_half_edge_mesh_open_boundary_edges);
+  HS_RUN(test_half_edge_mesh_euler_invariant);
+  HS_RUN(test_half_edge_mesh_euler_tetrahedron);
+  HS_RUN(test_half_edge_mesh_built_from_meshstate);
 
-  test_compile_polymesh_to_meshstate_basic();
-  test_compile_drops_degenerate_faces();
+  HS_RUN(test_compile_polymesh_to_meshstate_basic);
+  HS_RUN(test_compile_drops_degenerate_faces);
 
-  test_clone_meshstate_deep_copies();
-  test_clone_polymesh_deep_copies();
+  HS_RUN(test_clone_meshstate_deep_copies);
+  HS_RUN(test_clone_polymesh_deep_copies);
 
-  test_classify_faces_cube_uniform_topology();
-  test_classify_faces_empty_mesh_clears_topology_key();
-  test_classify_faces_zero_sided_faces_share_class();
-  test_classify_faces_uncompiled_degenerate();
-  test_degenerate_edge_records_never_pair();
-  test_classify_faces_tetrahedron_uniform_topology();
-  test_classify_faces_aliased_arenas();
-  test_classify_faces_truncated_cube_distinct_topology();
-  test_classify_faces_roster_hash_collision_free();
+  HS_RUN(test_classify_faces_cube_uniform_topology);
+  HS_RUN(test_classify_faces_empty_mesh_clears_topology_key);
+  HS_RUN(test_classify_faces_zero_sided_faces_share_class);
+  HS_RUN(test_classify_faces_uncompiled_degenerate);
+  HS_RUN(test_degenerate_edge_records_never_pair);
+  HS_RUN(test_classify_faces_tetrahedron_uniform_topology);
+  HS_RUN(test_classify_faces_aliased_arenas);
+  HS_RUN(test_classify_faces_truncated_cube_distinct_topology);
+  HS_RUN(test_classify_faces_roster_hash_collision_free);
 
-  test_tribitset_sizes();
-  test_tribitset_clear_and_test();
-  test_tribitset_test_and_set();
-  test_tribitset_index_uniqueness();
-  test_tribitset_all_pairs_independent();
+  HS_RUN(test_tribitset_sizes);
+  HS_RUN(test_tribitset_clear_and_test);
+  HS_RUN(test_tribitset_test_and_set);
+  HS_RUN(test_tribitset_index_uniqueness);
+  HS_RUN(test_tribitset_all_pairs_independent);
 
   return fixture.result();
 }

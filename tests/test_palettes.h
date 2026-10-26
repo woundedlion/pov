@@ -218,11 +218,11 @@ inline void test_named_procedural_palette_roster() {
 inline int run_palettes_tests() {
   hs_test::ModuleFixture fixture("palettes");
 
-  test_named_procedural_palette_roster();
-  test_named_procedural_palette_endpoints_and_reversal();
-  test_named_palette_hue_short_arc();
-  test_mesh_palette_bank_lookup();
-  test_mesh_palette_bank_shuffle_is_permutation();
+  HS_RUN(test_named_procedural_palette_roster);
+  HS_RUN(test_named_procedural_palette_endpoints_and_reversal);
+  HS_RUN(test_named_palette_hue_short_arc);
+  HS_RUN(test_mesh_palette_bank_lookup);
+  HS_RUN(test_mesh_palette_bank_shuffle_is_permutation);
 
   return fixture.result();
 }

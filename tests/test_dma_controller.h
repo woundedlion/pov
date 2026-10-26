@@ -330,13 +330,13 @@ inline void test_end_to_end_wire_bytes() {
  */
 inline int run_dma_controller_tests() {
   hs_test::ModuleFixture fixture("dma_controller");
-  test_begin_inits();
-  test_ctor_forwards_clock();
-  test_submit_happy_path();
-  test_double_buffer_flip();
-  test_overrun_drop();
-  test_withbg_length();
-  test_end_to_end_wire_bytes();
+  HS_RUN(test_begin_inits);
+  HS_RUN(test_ctor_forwards_clock);
+  HS_RUN(test_submit_happy_path);
+  HS_RUN(test_double_buffer_flip);
+  HS_RUN(test_overrun_drop);
+  HS_RUN(test_withbg_length);
+  HS_RUN(test_end_to_end_wire_bytes);
   // Leave the shared static state clean for any later module.
   reset_correction<N>();
   return fixture.result();

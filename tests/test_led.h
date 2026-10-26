@@ -122,12 +122,12 @@ inline void test_guards_restore_baseline_not_prior_state() {
 inline int run_led_tests() {
   hs_test::ModuleFixture fixture("led");
 
-  test_color_guard_balances();
-  test_temp_guard_balances();
-  test_sequential_guards_balance();
-  test_color_guard_sets_selectors();
-  test_temp_guard_sets_selectors();
-  test_guards_restore_baseline_not_prior_state();
+  HS_RUN(test_color_guard_balances);
+  HS_RUN(test_temp_guard_balances);
+  HS_RUN(test_sequential_guards_balance);
+  HS_RUN(test_color_guard_sets_selectors);
+  HS_RUN(test_temp_guard_sets_selectors);
+  HS_RUN(test_guards_restore_baseline_not_prior_state);
 
   return fixture.result();
 }

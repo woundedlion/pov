@@ -304,15 +304,15 @@ inline void test_uncertain_clearance_progress() {
 
 inline int run_ray_tests() {
   hs_test::ModuleFixture fixture("ray");
-  test_camera();
-  test_surface_boundaries();
-  test_bounded_failures();
-  test_slice_no_phantom();
-  test_placement_and_shapes();
-  test_nested_query_validation_once();
-  test_limits_and_nonfinite();
-  test_first_boundary_and_tolerances();
-  test_uncertain_clearance_progress();
+  HS_RUN(test_camera);
+  HS_RUN(test_surface_boundaries);
+  HS_RUN(test_bounded_failures);
+  HS_RUN(test_slice_no_phantom);
+  HS_RUN(test_placement_and_shapes);
+  HS_RUN(test_nested_query_validation_once);
+  HS_RUN(test_limits_and_nonfinite);
+  HS_RUN(test_first_boundary_and_tolerances);
+  HS_RUN(test_uncertain_clearance_progress);
   return fixture.result();
 }
 

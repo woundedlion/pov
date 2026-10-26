@@ -1065,23 +1065,23 @@ inline void test_wide_shell_march_matches_neighborhood() {
 
 inline int run_ray_demonstrator_tests() {
   hs_test::ModuleFixture fixture("ray_demonstrators");
-  test_appearance_palette_interval();
-  test_octet_crossing_coverage_against_ray_line_distance();
-  test_periodic_shell_roots_and_slices();
-  test_periodic_shell_traversal_budgets();
-  test_prepared_shells_match_sphere_roots();
-  test_shell_layer_march_matches_cell_traversal();
-  test_shell_slice_march_matches_cell_traversal();
-  test_shell_neighbor_march_matches_cell_traversal();
-  test_shell_march_uses_footprint_radial_start();
-  test_wide_shell_footprint_gathers_neighbor_rows();
-  test_wide_shell_march_gathers_layers_behind_start();
-  test_wide_shell_march_matches_neighborhood();
-  test_framework_generic_event_rendering();
-  test_repeated_stream_grouping_preserves_order_and_endpoints();
-  test_lattice_volume_camera_demonstrators();
-  test_torus_and_warped_volume_spherical_stage();
-  test_verified_filter_off_slice_geometry_and_projected_normal();
+  HS_RUN(test_appearance_palette_interval);
+  HS_RUN(test_octet_crossing_coverage_against_ray_line_distance);
+  HS_RUN(test_periodic_shell_roots_and_slices);
+  HS_RUN(test_periodic_shell_traversal_budgets);
+  HS_RUN(test_prepared_shells_match_sphere_roots);
+  HS_RUN(test_shell_layer_march_matches_cell_traversal);
+  HS_RUN(test_shell_slice_march_matches_cell_traversal);
+  HS_RUN(test_shell_neighbor_march_matches_cell_traversal);
+  HS_RUN(test_shell_march_uses_footprint_radial_start);
+  HS_RUN(test_wide_shell_footprint_gathers_neighbor_rows);
+  HS_RUN(test_wide_shell_march_gathers_layers_behind_start);
+  HS_RUN(test_wide_shell_march_matches_neighborhood);
+  HS_RUN(test_framework_generic_event_rendering);
+  HS_RUN(test_repeated_stream_grouping_preserves_order_and_endpoints);
+  HS_RUN(test_lattice_volume_camera_demonstrators);
+  HS_RUN(test_torus_and_warped_volume_spherical_stage);
+  HS_RUN(test_verified_filter_off_slice_geometry_and_projected_normal);
   return fixture.result();
 }
 

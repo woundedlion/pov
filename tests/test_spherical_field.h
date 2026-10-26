@@ -419,21 +419,21 @@ inline void test_integer_longitude_and_ring_bracketing() {
 /** @brief Runs spherical field tests. */
 inline int run_spherical_field_tests() {
   hs_test::ModuleFixture fixture("spherical_field");
-  test_constexpr_layout_counts();
-  test_integer_longitude_and_ring_bracketing();
-  test_offsets_are_contiguous();
-  test_metric_spacing_is_uniform();
-  test_unequal_rings_have_independent_longitude_mix();
-  test_longitude_stays_in_ring_at_negative_seam();
-  test_longitude_saturates_out_of_domain_input();
-  test_populate_band_preserves_other_samples();
-  test_populate_recurrence_matches_exact_trig();
-  test_longitude_filter_tracks_spherical_width();
-  test_longitude_filter_and_sampler_wrap_poles();
-  test_sampler_wraps_south_pole_with_virtual_rows();
-  test_sampler_collapses_south_pole_without_virtual_rows();
-  test_rgb_sampler_matches_generic_sampler();
-  test_u16_rgb_sampler_error_bound();
+  HS_RUN(test_constexpr_layout_counts);
+  HS_RUN(test_integer_longitude_and_ring_bracketing);
+  HS_RUN(test_offsets_are_contiguous);
+  HS_RUN(test_metric_spacing_is_uniform);
+  HS_RUN(test_unequal_rings_have_independent_longitude_mix);
+  HS_RUN(test_longitude_stays_in_ring_at_negative_seam);
+  HS_RUN(test_longitude_saturates_out_of_domain_input);
+  HS_RUN(test_populate_band_preserves_other_samples);
+  HS_RUN(test_populate_recurrence_matches_exact_trig);
+  HS_RUN(test_longitude_filter_tracks_spherical_width);
+  HS_RUN(test_longitude_filter_and_sampler_wrap_poles);
+  HS_RUN(test_sampler_wraps_south_pole_with_virtual_rows);
+  HS_RUN(test_sampler_collapses_south_pole_without_virtual_rows);
+  HS_RUN(test_rgb_sampler_matches_generic_sampler);
+  HS_RUN(test_u16_rgb_sampler_error_bound);
   return fixture.result();
 }
 

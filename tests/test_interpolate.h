@@ -185,11 +185,11 @@ inline void test_normalized_linear() {
 
 inline int run_interpolate_tests() {
   ModuleFixture fixture("interpolate");
-  test_clamp_progress();
-  test_linear();
-  test_log_positive();
-  test_shortest_periodic();
-  test_normalized_linear();
+  HS_RUN(test_clamp_progress);
+  HS_RUN(test_linear);
+  HS_RUN(test_log_positive);
+  HS_RUN(test_shortest_periodic);
+  HS_RUN(test_normalized_linear);
   return fixture.result();
 }
 

@@ -439,21 +439,21 @@ inline void test_half_radian_exp_map_approximation() {
 
 inline int run_noise_field_tests() {
   hs_test::ModuleFixture fixture("noise_field");
-  test_noise_field_key_identity();
-  test_noise_field_periodic_coordinates();
-  test_noise_field_loop_offset_geometry();
-  test_noise_field_hoisted_loop_offsets();
-  test_noise_field_octave_formulas();
-  test_noise_field_ridged_channel_pairs();
-  test_noise_field_direct_tangent();
-  test_noise_field_tetrahedral_gradient();
-  test_noise_field_analytic_gradient();
-  test_vector_noise_rotation_setter_order();
-  test_noise_field_simplex_curl_approximation();
-  test_noise_field_curl_tangent();
-  test_noise_field_smooth_curl_tangent();
-  test_sphere_exp_map_and_transport();
-  test_half_radian_exp_map_approximation();
+  HS_RUN(test_noise_field_key_identity);
+  HS_RUN(test_noise_field_periodic_coordinates);
+  HS_RUN(test_noise_field_loop_offset_geometry);
+  HS_RUN(test_noise_field_hoisted_loop_offsets);
+  HS_RUN(test_noise_field_octave_formulas);
+  HS_RUN(test_noise_field_ridged_channel_pairs);
+  HS_RUN(test_noise_field_direct_tangent);
+  HS_RUN(test_noise_field_tetrahedral_gradient);
+  HS_RUN(test_noise_field_analytic_gradient);
+  HS_RUN(test_vector_noise_rotation_setter_order);
+  HS_RUN(test_noise_field_simplex_curl_approximation);
+  HS_RUN(test_noise_field_curl_tangent);
+  HS_RUN(test_noise_field_smooth_curl_tangent);
+  HS_RUN(test_sphere_exp_map_and_transport);
+  HS_RUN(test_half_radian_exp_map_approximation);
   return fixture.result();
 }
 

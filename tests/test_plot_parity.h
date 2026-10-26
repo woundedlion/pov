@@ -660,8 +660,8 @@ inline void test_render_fingerprint_rejects_channel_and_spatial_changes() {
  */
 inline int run_plot_parity_tests() {
   hs_test::ModuleFixture fixture("plot_parity");
-  test_render_fingerprint_rejects_channel_and_spatial_changes();
-  test_filter_pipeline_effects_match_recorded_frames();
+  HS_RUN(test_render_fingerprint_rejects_channel_and_spatial_changes);
+  HS_RUN(test_filter_pipeline_effects_match_recorded_frames);
   return fixture.result();
 }
 

@@ -558,19 +558,19 @@ inline void test_cycle_frames_conservative_departure_slack() {
 inline int run_presets_tests() {
   hs_test::ModuleFixture fixture("presets");
 
-  test_cycle_frames_conservative_departure_slack();
-  test_all_presets_in_ranges_folds_predicate();
-  test_apply_if_changed();
-  test_preset_zero_supplies_startup_params();
-  test_hold_initial_preset_overrides_first_dwell();
-  test_preset_saturation_veto_restarts_dwell();
-  test_preset_crossfade_rejects_rearming();
-  test_completed_crossfade_adopts_exact_endpoint();
-  test_fade_navigation_matches_display();
-  test_cancelled_fade_names_visible_preset();
-  test_timeline_clear_releases_fade();
-  test_cancelled_fade_notifies_committed_index();
-  test_cancelled_crossfade_event_cannot_step_replacement();
+  HS_RUN(test_cycle_frames_conservative_departure_slack);
+  HS_RUN(test_all_presets_in_ranges_folds_predicate);
+  HS_RUN(test_apply_if_changed);
+  HS_RUN(test_preset_zero_supplies_startup_params);
+  HS_RUN(test_hold_initial_preset_overrides_first_dwell);
+  HS_RUN(test_preset_saturation_veto_restarts_dwell);
+  HS_RUN(test_preset_crossfade_rejects_rearming);
+  HS_RUN(test_completed_crossfade_adopts_exact_endpoint);
+  HS_RUN(test_fade_navigation_matches_display);
+  HS_RUN(test_cancelled_fade_names_visible_preset);
+  HS_RUN(test_timeline_clear_releases_fade);
+  HS_RUN(test_cancelled_fade_notifies_committed_index);
+  HS_RUN(test_cancelled_crossfade_event_cannot_step_replacement);
 
   return fixture.result();
 }

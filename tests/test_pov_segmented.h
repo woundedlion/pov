@@ -1422,60 +1422,60 @@ inline void test_sync_pulse_resubmit_defers_low() {
 inline int run_pov_segmented_tests() {
   hs_test::ModuleFixture fixture("pov_segmented");
 
-  test_segment_derivation();
-  test_eight_segment_derivation();
-  test_segment_id_straps();
-  test_arm_b_offset();
-  test_segment_clip();
-  test_segment_clip_applies();
+  HS_RUN(test_segment_derivation);
+  HS_RUN(test_eight_segment_derivation);
+  HS_RUN(test_segment_id_straps);
+  HS_RUN(test_arm_b_offset);
+  HS_RUN(test_segment_clip);
+  HS_RUN(test_segment_clip_applies);
 
-  test_release_handshake();
-  test_release_backlog_reconciles();
-  test_commit_adopt_matching_gen();
-  test_commit_guard_rejects_empty_and_stale();
-  test_join_adopt_and_gen_gating();
-  test_full_handoff_cycle();
-  test_window_alternation();
-  test_apply_wake_sequence();
-  test_composed_wake_sequence();
-  test_commit_failure_settles_sync_pulse();
-  test_clip_phase_after_buffer_release();
-  test_prime_segment_frame();
-  test_late_segment_publication();
-  test_pending_frame_publication_predicate();
-  test_segment_publication_exclusions();
-  test_segment_half_survives_missed_boundaries();
-  test_handoff_release_acquire_across_threads();
+  HS_RUN(test_release_handshake);
+  HS_RUN(test_release_backlog_reconciles);
+  HS_RUN(test_commit_adopt_matching_gen);
+  HS_RUN(test_commit_guard_rejects_empty_and_stale);
+  HS_RUN(test_join_adopt_and_gen_gating);
+  HS_RUN(test_full_handoff_cycle);
+  HS_RUN(test_window_alternation);
+  HS_RUN(test_apply_wake_sequence);
+  HS_RUN(test_composed_wake_sequence);
+  HS_RUN(test_commit_failure_settles_sync_pulse);
+  HS_RUN(test_clip_phase_after_buffer_release);
+  HS_RUN(test_prime_segment_frame);
+  HS_RUN(test_late_segment_publication);
+  HS_RUN(test_pending_frame_publication_predicate);
+  HS_RUN(test_segment_publication_exclusions);
+  HS_RUN(test_segment_half_survives_missed_boundaries);
+  HS_RUN(test_handoff_release_acquire_across_threads);
 
-  test_submit_retries_dropped_column();
-  test_submit_fresh_column_supersedes_retry();
-  test_submit_dark_latch_gates_on_acceptance();
-  test_submit_dark_discards_pending_column();
+  HS_RUN(test_submit_retries_dropped_column);
+  HS_RUN(test_submit_fresh_column_supersedes_retry);
+  HS_RUN(test_submit_dark_latch_gates_on_acceptance);
+  HS_RUN(test_submit_dark_discards_pending_column);
 
-  test_sync_pulse_widthed_by_render();
-  test_sync_pulse_deferred_across_wake_boundary();
-  test_sync_pulse_deferred_drop_precedes_next_pulse();
-  test_sync_pulse_render_without_pulse_is_silent();
-  test_sync_pulse_resubmit_defers_low();
+  HS_RUN(test_sync_pulse_widthed_by_render);
+  HS_RUN(test_sync_pulse_deferred_across_wake_boundary);
+  HS_RUN(test_sync_pulse_deferred_drop_precedes_next_pulse);
+  HS_RUN(test_sync_pulse_render_without_pulse_is_silent);
+  HS_RUN(test_sync_pulse_resubmit_defers_low);
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.
   for (int x : {0, 1, 143, 144, 287})
-    check_tiling(/*S=*/288, /*N=*/4, /*w=*/288, x);
+    HS_RUN(check_tiling, /*S=*/288, /*N=*/4, /*w=*/288, x);
 
   for (int x : {0, 1, 143, 144, 287})
-    check_tiling(/*S=*/288, /*N=*/8, /*w=*/288, x);
+    HS_RUN(check_tiling, /*S=*/288, /*N=*/8, /*w=*/288, x);
 
   // N=2: a single (non-reversed) segment owns each arm's full column.
   for (int x : {0, 1, 47, 48, 95})
-    check_tiling(/*S=*/288, /*N=*/2, /*w=*/96, x);
+    HS_RUN(check_tiling, /*S=*/288, /*N=*/2, /*w=*/96, x);
 
   // Small config swept over every rotation column: S=8, N=4 -> ROWS=4, PPS=2.
   for (int x = 0; x < 8; ++x)
-    check_tiling(/*S=*/8, /*N=*/4, /*w=*/8, x);
+    HS_RUN(check_tiling, /*S=*/8, /*N=*/4, /*w=*/8, x);
 
   for (int x = 0; x < 16; ++x)
-    check_tiling(/*S=*/16, /*N=*/8, /*w=*/16, x);
+    HS_RUN(check_tiling, /*S=*/16, /*N=*/8, /*w=*/16, x);
 
   return fixture.result();
 }

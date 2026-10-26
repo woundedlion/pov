@@ -2109,81 +2109,81 @@ inline void test_rotate_plane_composition_stays_isometric() {
 inline int run_3dmath_tests() {
   hs_test::ModuleFixture fixture("3dmath");
 
-  test_constants();
-  test_projection_pattern_bounds();
-  test_quintic_kernel();
-  test_unit_cup_and_bell();
-  test_hash01();
-  test_value_noise();
-  test_twist_lens();
-  test_kaleidoscope_lens();
-  test_polyhedral_kaleidoscope_chambers();
-  test_dodecahedral_kaleidoscope_specialization();
+  HS_RUN(test_constants);
+  HS_RUN(test_projection_pattern_bounds);
+  HS_RUN(test_quintic_kernel);
+  HS_RUN(test_unit_cup_and_bell);
+  HS_RUN(test_hash01);
+  HS_RUN(test_value_noise);
+  HS_RUN(test_twist_lens);
+  HS_RUN(test_kaleidoscope_lens);
+  HS_RUN(test_polyhedral_kaleidoscope_chambers);
+  HS_RUN(test_dodecahedral_kaleidoscope_specialization);
 
-  test_fast_atan2();
-  test_shared_angle_helpers();
-  test_diamond_angle();
-  test_fast_reciprocal();
-  test_fast_rsqrt();
-  test_fast_acos();
-  test_fast_sinf_cosf();
-  test_fast_sincosf_0_pi();
-  test_poly_sincosf_0_pi();
-  test_fast_cbrt();
-  test_precise_atan2();
-  test_fast_cbrt3();
-  test_fast_cbrt6();
-  test_fast_expf();
+  HS_RUN(test_fast_atan2);
+  HS_RUN(test_shared_angle_helpers);
+  HS_RUN(test_diamond_angle);
+  HS_RUN(test_fast_reciprocal);
+  HS_RUN(test_fast_rsqrt);
+  HS_RUN(test_fast_acos);
+  HS_RUN(test_fast_sinf_cosf);
+  HS_RUN(test_fast_sincosf_0_pi);
+  HS_RUN(test_poly_sincosf_0_pi);
+  HS_RUN(test_fast_cbrt);
+  HS_RUN(test_precise_atan2);
+  HS_RUN(test_fast_cbrt3);
+  HS_RUN(test_fast_cbrt6);
+  HS_RUN(test_fast_expf);
 
-  test_vector_construction();
-  test_vector_spherical_construction();
-  test_vector_equality();
-  test_vector_arithmetic();
-  test_vector_length();
-  test_vector_normalize();
-  test_snorm3_roundtrip_bound();
+  HS_RUN(test_vector_construction);
+  HS_RUN(test_vector_spherical_construction);
+  HS_RUN(test_vector_equality);
+  HS_RUN(test_vector_arithmetic);
+  HS_RUN(test_vector_length);
+  HS_RUN(test_vector_normalize);
+  HS_RUN(test_snorm3_roundtrip_bound);
 
-  test_dot_cross();
-  test_distance();
-  test_angle_between_vectors();
+  HS_RUN(test_dot_cross);
+  HS_RUN(test_distance);
+  HS_RUN(test_angle_between_vectors);
 
-  test_spherical();
+  HS_RUN(test_spherical);
 
-  test_quaternion_construction();
-  test_quaternion_arithmetic();
-  test_quaternion_magnitude();
-  test_quaternion_conjugate_inverse();
-  test_quaternion_normalize();
-  test_quaternion_multiplication();
-  test_quaternion_equality();
-  test_dot_quaternion();
+  HS_RUN(test_quaternion_construction);
+  HS_RUN(test_quaternion_arithmetic);
+  HS_RUN(test_quaternion_magnitude);
+  HS_RUN(test_quaternion_conjugate_inverse);
+  HS_RUN(test_quaternion_normalize);
+  HS_RUN(test_quaternion_multiplication);
+  HS_RUN(test_quaternion_equality);
+  HS_RUN(test_dot_quaternion);
 
-  test_make_rotation_axis_angle();
-  test_least_parallel_axis();
-  test_make_rotation_from_to();
-  test_quaternion_from_basis();
-  test_rotate();
-  test_rotation_matrix_matches_rotate();
+  HS_RUN(test_make_rotation_axis_angle);
+  HS_RUN(test_least_parallel_axis);
+  HS_RUN(test_make_rotation_from_to);
+  HS_RUN(test_quaternion_from_basis);
+  HS_RUN(test_rotate);
+  HS_RUN(test_rotation_matrix_matches_rotate);
 
-  test_vector_slerp();
-  test_vector_nlerp_unit();
-  test_quaternion_slerp();
-  test_scaled_rotation_delta();
+  HS_RUN(test_vector_slerp);
+  HS_RUN(test_vector_nlerp_unit);
+  HS_RUN(test_quaternion_slerp);
+  HS_RUN(test_scaled_rotation_delta);
 
-  test_stereo_roundtrip();
-  test_complex_arithmetic();
-  test_mobius_params_accessors();
-  test_mobius_transform();
-  test_gnomonic_roundtrip();
+  HS_RUN(test_stereo_roundtrip);
+  HS_RUN(test_complex_arithmetic);
+  HS_RUN(test_mobius_params_accessors);
+  HS_RUN(test_mobius_transform);
+  HS_RUN(test_gnomonic_roundtrip);
 
-  test_wrap_index();
+  HS_RUN(test_wrap_index);
 
-  test_mat4_identity_and_apply();
-  test_rotate_plane_isometry();
-  test_rotate_plane_quarter_turn();
-  test_rotate_plane_inverse_composition();
-  test_rotate_plane_composition_order();
-  test_rotate_plane_composition_stays_isometric();
+  HS_RUN(test_mat4_identity_and_apply);
+  HS_RUN(test_rotate_plane_isometry);
+  HS_RUN(test_rotate_plane_quarter_turn);
+  HS_RUN(test_rotate_plane_inverse_composition);
+  HS_RUN(test_rotate_plane_composition_order);
+  HS_RUN(test_rotate_plane_composition_stays_isometric);
 
   return fixture.result();
 }

@@ -1018,58 +1018,58 @@ inline void test_try_push_back_preserves_full_buffer() {
 inline int run_static_circular_buffer_tests() {
   hs_test::ModuleFixture fixture("scb");
 
-  test_try_push_back_preserves_full_buffer();
-  test_default_state();
-  test_initializer_list_within_capacity();
-  test_initializer_list_at_capacity();
+  HS_RUN(test_try_push_back_preserves_full_buffer);
+  HS_RUN(test_default_state);
+  HS_RUN(test_initializer_list_within_capacity);
+  HS_RUN(test_initializer_list_at_capacity);
 
-  test_push_back_order();
-  test_push_back_fills_to_capacity();
-  test_push_back_overflow_drops_oldest();
-  test_push_front_order();
-  test_push_front_overflow_drops_back();
-  test_capacity_one();
-  test_push_back_rvalue();
-  test_push_front_rvalue();
+  HS_RUN(test_push_back_order);
+  HS_RUN(test_push_back_fills_to_capacity);
+  HS_RUN(test_push_back_overflow_drops_oldest);
+  HS_RUN(test_push_front_order);
+  HS_RUN(test_push_front_overflow_drops_back);
+  HS_RUN(test_capacity_one);
+  HS_RUN(test_push_back_rvalue);
+  HS_RUN(test_push_front_rvalue);
 
-  test_emplace_back_constructs_in_place();
-  test_emplace_front_constructs_in_place();
-  test_emplace_constructs_non_assignable_type();
-  test_emplace_back_eviction_rebuilds_slot();
-  test_emplace_front_eviction_rebuilds_slot();
+  HS_RUN(test_emplace_back_constructs_in_place);
+  HS_RUN(test_emplace_front_constructs_in_place);
+  HS_RUN(test_emplace_constructs_non_assignable_type);
+  HS_RUN(test_emplace_back_eviction_rebuilds_slot);
+  HS_RUN(test_emplace_front_eviction_rebuilds_slot);
 
-  test_pop_front_removes_front();
-  test_pop_back_removes_last();
-  test_pop_on_empty_is_noop();
-  test_clear_empties_buffer();
-  test_alternating_push_pop_wraps();
+  HS_RUN(test_pop_front_removes_front);
+  HS_RUN(test_pop_back_removes_last);
+  HS_RUN(test_pop_on_empty_is_noop);
+  HS_RUN(test_clear_empties_buffer);
+  HS_RUN(test_alternating_push_pop_wraps);
 
-  test_iterator_traversal();
-  test_iterator_types_are_public();
-  test_iterator_range_for();
-  test_iterator_distance_matches_size();
-  test_iterator_random_access();
-  test_iterator_comparisons();
-  test_iterator_after_wrap();
-  test_const_iterator();
-  test_iterator_arrow_operator();
-  test_cbegin_cend();
-  test_reverse_iteration();
-  test_reverse_iteration_after_wrap();
+  HS_RUN(test_iterator_traversal);
+  HS_RUN(test_iterator_types_are_public);
+  HS_RUN(test_iterator_range_for);
+  HS_RUN(test_iterator_distance_matches_size);
+  HS_RUN(test_iterator_random_access);
+  HS_RUN(test_iterator_comparisons);
+  HS_RUN(test_iterator_after_wrap);
+  HS_RUN(test_const_iterator);
+  HS_RUN(test_iterator_arrow_operator);
+  HS_RUN(test_cbegin_cend);
+  HS_RUN(test_reverse_iteration);
+  HS_RUN(test_reverse_iteration_after_wrap);
 
-  test_empty_matches_is_empty();
-  test_max_size_is_capacity();
-  test_swap_exchanges_contents();
-  test_swap_after_wrap();
-  test_nontrivial_swap_after_wrap_and_adl();
-  test_equality_compares_live_run();
+  HS_RUN(test_empty_matches_is_empty);
+  HS_RUN(test_max_size_is_capacity);
+  HS_RUN(test_swap_exchanges_contents);
+  HS_RUN(test_swap_after_wrap);
+  HS_RUN(test_nontrivial_swap_after_wrap_and_adl);
+  HS_RUN(test_equality_compares_live_run);
 
-  test_index_assignment();
+  HS_RUN(test_index_assignment);
 
-  test_for_each_visits_front_to_back();
-  test_for_each_after_wrap_matches_indexing();
-  test_for_each_empty_and_const();
-  test_is_linear_tracks_head();
+  HS_RUN(test_for_each_visits_front_to_back);
+  HS_RUN(test_for_each_after_wrap_matches_indexing);
+  HS_RUN(test_for_each_empty_and_const);
+  HS_RUN(test_is_linear_tracks_head);
 
   return fixture.result();
 }

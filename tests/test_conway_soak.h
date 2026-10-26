@@ -285,10 +285,10 @@ inline void test_show_cycle_fits_device_split() {
  */
 inline int run_conway_soak_tests() {
   hs_test::ModuleFixture fixture("conway_soak");
-  test_ordered_sweep_cycle();
-  test_show_cycle_fits_device_split();
+  HS_RUN(test_ordered_sweep_cycle);
+  HS_RUN(test_show_cycle_fits_device_split);
   for (uint32_t seed : {1337u, 42u})
-    test_full_graph_walk_soak(seed);
+    HS_RUN(test_full_graph_walk_soak, seed);
   return fixture.result();
 }
 

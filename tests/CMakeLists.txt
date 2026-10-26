@@ -192,6 +192,13 @@ target_include_directories(run_tests PRIVATE ${HS_ENGINE_INCLUDES}
 
 _hs_warnings(run_tests)
 
+add_executable(case_context_check case_context_check.cpp)
+target_include_directories(case_context_check PRIVATE ${HS_ROOT})
+_hs_warnings(case_context_check)
+add_test(NAME unit_case_context COMMAND ${CMAKE_COMMAND}
+    -DTEST_BIN=$<TARGET_FILE:case_context_check>
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_case_context.cmake)
+
 # Opt-in sanitizers for the native suite; enable with -DHS_SANITIZE=ON.
 #   * Linux/full-LLVM: ASan + UBSan; the first error is a hard failure.
 #   * Windows emsdk clang: no ASan runtime for the MSVC target, so runtime-free
@@ -253,6 +260,7 @@ if(HS_SANITIZE)
 endif()
 
 _hs_sanitize(run_tests)
+_hs_sanitize(case_context_check)
 
 add_executable(render_goldens EXCLUDE_FROM_ALL
   ${CMAKE_CURRENT_SOURCE_DIR}/run_render_goldens.cpp

@@ -509,21 +509,21 @@ inline void test_sync_noise_pushes_scalars() {
 inline int run_styles_tests() {
   hs_test::ModuleFixture fixture("styles");
 
-  test_named_presets();
-  test_named_presets_preserve_frame_hue();
-  test_sync_hue_rotates_per_efold();
-  test_lerp_scalars_and_snapping();
-  test_noise_warp_null_is_identity();
-  test_noise_warp_bound_distorts();
-  test_melt_warp_drifts_toward_north();
-  test_melt_warp_bound_noise_perturbs();
-  test_hue_fade_zero_shift_preserves_gray();
-  test_sync_hue_matches_hue_at_equal_brightness();
-  test_hue_fade_nonzero_shift_rotates_saturated();
-  test_hue_rotate_lms_matrix_identity();
-  test_hue_fade_matches_rotate_reference();
-  test_hue_fade_apply2_tracks_scalar();
-  test_sync_noise_pushes_scalars();
+  HS_RUN(test_named_presets);
+  HS_RUN(test_named_presets_preserve_frame_hue);
+  HS_RUN(test_sync_hue_rotates_per_efold);
+  HS_RUN(test_lerp_scalars_and_snapping);
+  HS_RUN(test_noise_warp_null_is_identity);
+  HS_RUN(test_noise_warp_bound_distorts);
+  HS_RUN(test_melt_warp_drifts_toward_north);
+  HS_RUN(test_melt_warp_bound_noise_perturbs);
+  HS_RUN(test_hue_fade_zero_shift_preserves_gray);
+  HS_RUN(test_sync_hue_matches_hue_at_equal_brightness);
+  HS_RUN(test_hue_fade_nonzero_shift_rotates_saturated);
+  HS_RUN(test_hue_rotate_lms_matrix_identity);
+  HS_RUN(test_hue_fade_matches_rotate_reference);
+  HS_RUN(test_hue_fade_apply2_tracks_scalar);
+  HS_RUN(test_sync_noise_pushes_scalars);
 
   return fixture.result();
 }

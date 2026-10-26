@@ -1226,26 +1226,26 @@ inline void test_empty_and_single_face_meshes() {
 inline int run_mesh_raster_tests() {
   hs_test::ModuleFixture fixture("mesh_raster");
 
-  test_empty_and_single_face_meshes();
-  test_wireframe_draws_every_edge();
-  test_wireframe_pixels_lie_on_edges();
-  test_wireframe_reuses_geodesic_cull_span();
-  test_solid_fill_covers_faces_and_tiles_sphere();
-  test_wide_face_preserves_near_horizon_interior();
-  test_face_shader_setup_matches_face_index();
-  test_cube_wireframe_and_fill();
-  test_dodecahedron_wireframe_and_fill();
-  test_truncated_icosahedron_wireframe_and_fill();
-  test_clip_band_matches_full();
-  test_class_bake_census_invariants();
-  test_class_bake_rejects_unbindable_faces();
-  test_class_bake_registry_capacity();
-  test_class_bake_borrowed_mode();
-  test_class_bake_budget_accounting();
-  test_class_lut_render_matches_exact();
-  test_class_lut_render_matches_exact_rippled();
-  test_polygon_is_concave();
-  test_face_concavity_agrees();
+  HS_RUN(test_empty_and_single_face_meshes);
+  HS_RUN(test_wireframe_draws_every_edge);
+  HS_RUN(test_wireframe_pixels_lie_on_edges);
+  HS_RUN(test_wireframe_reuses_geodesic_cull_span);
+  HS_RUN(test_solid_fill_covers_faces_and_tiles_sphere);
+  HS_RUN(test_wide_face_preserves_near_horizon_interior);
+  HS_RUN(test_face_shader_setup_matches_face_index);
+  HS_RUN(test_cube_wireframe_and_fill);
+  HS_RUN(test_dodecahedron_wireframe_and_fill);
+  HS_RUN(test_truncated_icosahedron_wireframe_and_fill);
+  HS_RUN(test_clip_band_matches_full);
+  HS_RUN(test_class_bake_census_invariants);
+  HS_RUN(test_class_bake_rejects_unbindable_faces);
+  HS_RUN(test_class_bake_registry_capacity);
+  HS_RUN(test_class_bake_borrowed_mode);
+  HS_RUN(test_class_bake_budget_accounting);
+  HS_RUN(test_class_lut_render_matches_exact);
+  HS_RUN(test_class_lut_render_matches_exact_rippled);
+  HS_RUN(test_polygon_is_concave);
+  HS_RUN(test_face_concavity_agrees);
 
   return fixture.result();
 }

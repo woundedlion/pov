@@ -507,24 +507,24 @@ inline void test_cubemap_coherent_seeds() {
 inline int run_reaction_graph_tests() {
   hs_test::ModuleFixture fixture("reaction_graph");
 
-  test_nodes_on_unit_sphere();
-  test_generated_node_positions();
-  test_node_ordered_and_distinct();
-  test_d_avg_matches_rd_n();
-  test_neighbor_runs_match_table();
+  HS_RUN(test_nodes_on_unit_sphere);
+  HS_RUN(test_generated_node_positions);
+  HS_RUN(test_node_ordered_and_distinct);
+  HS_RUN(test_d_avg_matches_rd_n);
+  HS_RUN(test_neighbor_runs_match_table);
 
-  test_indices_in_range();
-  test_no_self_loops();
-  test_no_duplicate_neighbors_in_row();
+  HS_RUN(test_indices_in_range);
+  HS_RUN(test_no_self_loops);
+  HS_RUN(test_no_duplicate_neighbors_in_row);
 
-  test_neighbors_are_local();
-  test_neighbors_match_brute_force_knn();
-  test_edge_reciprocity_high();
+  HS_RUN(test_neighbors_are_local);
+  HS_RUN(test_neighbors_match_brute_force_knn);
+  HS_RUN(test_edge_reciprocity_high);
 
-  test_cubemap_lut_roundtrip();
-  test_cubemap_lut_offlattice();
-  test_cubemap_lut_equatorial();
-  test_cubemap_coherent_seeds();
+  HS_RUN(test_cubemap_lut_roundtrip);
+  HS_RUN(test_cubemap_lut_offlattice);
+  HS_RUN(test_cubemap_lut_equatorial);
+  HS_RUN(test_cubemap_coherent_seeds);
 
   return fixture.result();
 }

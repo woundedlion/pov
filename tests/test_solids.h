@@ -722,33 +722,33 @@ inline void test_build_vertex_directions() {
 inline int run_solids_tests() {
   hs_test::ModuleFixture fixture("solids");
 
-  test_build_vertex_directions();
-  test_registry_global_index_layout();
+  HS_RUN(test_build_vertex_directions);
+  HS_RUN(test_registry_global_index_layout);
 
-  test_simple_registry_solids_are_spherical_and_valid();
-  test_catalan_registry_solids_are_spherical_and_valid();
-  test_islamic_registry_solids_are_valid();
-  test_islamic_solids_have_no_sliver_edges();
-  test_registry_angles_clear_rounding_boundary();
+  HS_RUN(test_simple_registry_solids_are_spherical_and_valid);
+  HS_RUN(test_catalan_registry_solids_are_spherical_and_valid);
+  HS_RUN(test_islamic_registry_solids_are_valid);
+  HS_RUN(test_islamic_solids_have_no_sliver_edges);
+  HS_RUN(test_registry_angles_clear_rounding_boundary);
 
-  test_euler_platonic_solids();
-  test_euler_archimedean_catalan_solids();
-  test_islamic_registry_solids_are_closed();
+  HS_RUN(test_euler_platonic_solids);
+  HS_RUN(test_euler_archimedean_catalan_solids);
+  HS_RUN(test_islamic_registry_solids_are_closed);
 
-  test_get_by_name_known_returns_that_solid();
-  test_registry_names_unique_and_roundtrip();
+  HS_RUN(test_get_by_name_known_returns_that_solid);
+  HS_RUN(test_registry_names_unique_and_roundtrip);
 
-  test_determinism_hardcoded_platonic();
-  test_determinism_archimedean_with_conway_ops();
-  test_determinism_complex_islamic();
+  HS_RUN(test_determinism_hardcoded_platonic);
+  HS_RUN(test_determinism_archimedean_with_conway_ops);
+  HS_RUN(test_determinism_complex_islamic);
 
-  test_recipes_match_generators_bitwise();
-  test_recipe_lowered_replay_matches_authored();
-  test_shipping_recipe_lowering_is_identity();
-  test_composite_lowering_matches_composites();
-  test_islamic_recipes_are_morph_feasible();
+  HS_RUN(test_recipes_match_generators_bitwise);
+  HS_RUN(test_recipe_lowered_replay_matches_authored);
+  HS_RUN(test_shipping_recipe_lowering_is_identity);
+  HS_RUN(test_composite_lowering_matches_composites);
+  HS_RUN(test_islamic_recipes_are_morph_feasible);
 
-  test_solid_builder_reclaims_intermediates();
+  HS_RUN(test_solid_builder_reclaims_intermediates);
 
   return fixture.result();
 }

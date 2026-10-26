@@ -250,11 +250,11 @@ inline void test_verified_filter_contracts() {
 
 inline int run_ray_event_tests() {
   hs_test::ModuleFixture fixture("ray_events");
-  run_lattice_trace_cases();
-  test_single_group_capacity();
-  test_failure_status_survives_flush();
-  test_event_stream_contracts();
-  test_verified_filter_contracts();
+  HS_RUN(run_lattice_trace_cases);
+  HS_RUN(test_single_group_capacity);
+  HS_RUN(test_failure_status_survives_flush);
+  HS_RUN(test_event_stream_contracts);
+  HS_RUN(test_verified_filter_contracts);
   return fixture.result();
 }
 

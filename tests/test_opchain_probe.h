@@ -1019,17 +1019,17 @@ inline void test_needle_partition_lowering_builds_on_hankin() {
 inline int run_opchain_probe_tests() {
   hs_test::ModuleFixture fixture("opchain_probe");
 
-  test_chamfer_zero_area_birth_limit();
-  test_chamfer_sweep_holds_topology();
-  test_chamfer_birth_epsilon();
+  HS_RUN(test_chamfer_zero_area_birth_limit);
+  HS_RUN(test_chamfer_sweep_holds_topology);
+  HS_RUN(test_chamfer_birth_epsilon);
 
-  test_truncate001_birth_sweep_holds_topology();
-  test_truncate50d_far_side_sweep_holds_topology();
+  HS_RUN(test_truncate001_birth_sweep_holds_topology);
+  HS_RUN(test_truncate50d_far_side_sweep_holds_topology);
 
-  test_needle_partition_lowering_builds_on_hankin();
+  HS_RUN(test_needle_partition_lowering_builds_on_hankin);
 
-  test_build_chain_centroid_spacing();
-  test_build_chain_provenance_ambiguity();
+  HS_RUN(test_build_chain_centroid_spacing);
+  HS_RUN(test_build_chain_provenance_ambiguity);
 
   return fixture.result();
 }

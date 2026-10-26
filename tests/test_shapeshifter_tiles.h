@@ -168,9 +168,9 @@ inline void test_split_pole_runs_tiles_within_energy_budget() {
  */
 inline int run_shapeshifter_tiles_tests() {
   ModuleFixture fixture("shapeshifter_tiles");
-  test_segment_tiles_reconstruct_full_frame();
-  test_star_azimuthal_cull_spans_narrow_columns();
-  test_split_pole_runs_tiles_within_energy_budget();
+  HS_RUN(test_segment_tiles_reconstruct_full_frame);
+  HS_RUN(test_star_azimuthal_cull_spans_narrow_columns);
+  HS_RUN(test_split_pole_runs_tiles_within_energy_budget);
   return fixture.result();
 }
 

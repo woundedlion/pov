@@ -264,9 +264,9 @@ inline void test_noise_transform_golden() {
 inline int run_noise_tests() {
   hs_test::ModuleFixture fixture("noise");
 
-  test_noise3d_golden_grid();
-  test_noise2d_golden_grid();
-  test_noise_transform_golden();
+  HS_RUN(test_noise3d_golden_grid);
+  HS_RUN(test_noise2d_golden_grid);
+  HS_RUN(test_noise_transform_golden);
 
   return fixture.result();
 }

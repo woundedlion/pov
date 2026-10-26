@@ -839,57 +839,57 @@ inline void test_cubic_kernel_and_smooth_ramp() {
 inline int run_geometry_tests() {
   hs_test::ModuleFixture fixture("geometry");
 
-  test_axis_constants();
-  test_cubic_kernel_and_smooth_ramp();
+  HS_RUN(test_axis_constants);
+  HS_RUN(test_cubic_kernel_and_smooth_ramp);
 
-  test_y_to_phi_virtual();
-  test_phi_to_y_virtual();
-  test_phi_to_y_south_pole_row_in_bounds();
-  test_y_phi_roundtrip();
-  test_y_to_phi_templated_LUT();
+  HS_RUN(test_y_to_phi_virtual);
+  HS_RUN(test_phi_to_y_virtual);
+  HS_RUN(test_phi_to_y_south_pole_row_in_bounds);
+  HS_RUN(test_y_phi_roundtrip);
+  HS_RUN(test_y_to_phi_templated_LUT);
 
-  test_pixel_to_vector_unit_length();
-  test_pixel_to_vector_known_samples();
-  test_pixel_to_vector_float_rows_match_analytic_phi();
-  test_pixel_to_vector_float_out_of_lut_domain();
-  test_vector_to_pixel_roundtrip_via_pixel_to_vector();
+  HS_RUN(test_pixel_to_vector_unit_length);
+  HS_RUN(test_pixel_to_vector_known_samples);
+  HS_RUN(test_pixel_to_vector_float_rows_match_analytic_phi);
+  HS_RUN(test_pixel_to_vector_float_out_of_lut_domain);
+  HS_RUN(test_vector_to_pixel_roundtrip_via_pixel_to_vector);
 
-  pole_wrap_tests::run_pole_wrap_cases();
+  HS_RUN(pole_wrap_tests::run_pole_wrap_cases);
 
-  test_fib_spiral_unit_length();
-  test_fib_spiral_deterministic();
-  test_fib_spiral_endpoints();
-  test_fib_spiral_golden_angle();
+  HS_RUN(test_fib_spiral_unit_length);
+  HS_RUN(test_fib_spiral_deterministic);
+  HS_RUN(test_fib_spiral_endpoints);
+  HS_RUN(test_fib_spiral_golden_angle);
 
-  test_lissajous_unit_length();
-  test_lissajous_phase_is_radians();
-  test_random_vector_unit_length();
-  test_random_vector_deterministic();
-  test_random_vector_distribution();
+  HS_RUN(test_lissajous_unit_length);
+  HS_RUN(test_lissajous_phase_is_radians);
+  HS_RUN(test_random_vector_unit_length);
+  HS_RUN(test_random_vector_deterministic);
+  HS_RUN(test_random_vector_distribution);
 
-  test_make_basis_orthonormal();
-  test_make_basis_alternate_normals();
-  test_get_antipode_short_arc_unchanged();
-  test_get_antipode_long_arc_flips();
+  HS_RUN(test_make_basis_orthonormal);
+  HS_RUN(test_make_basis_alternate_normals);
+  HS_RUN(test_get_antipode_short_arc_unchanged);
+  HS_RUN(test_get_antipode_long_arc_flips);
 
-  test_orientation_default_is_identity();
-  test_orientation_set_clears_history();
-  test_orientation_push_tracks_history();
-  test_orientation_orient_round_trips();
-  test_orientation_collapse_keeps_latest();
-  test_orientation_upsample_preserves_endpoints();
-  test_orientation_upsample_noop_if_already_long();
-  test_orientation_upsample_clamps_past_capacity();
-  test_orientation_historical_index_accessors();
-  test_orientation_set_at_normalized();
+  HS_RUN(test_orientation_default_is_identity);
+  HS_RUN(test_orientation_set_clears_history);
+  HS_RUN(test_orientation_push_tracks_history);
+  HS_RUN(test_orientation_orient_round_trips);
+  HS_RUN(test_orientation_collapse_keeps_latest);
+  HS_RUN(test_orientation_upsample_preserves_endpoints);
+  HS_RUN(test_orientation_upsample_noop_if_already_long);
+  HS_RUN(test_orientation_upsample_clamps_past_capacity);
+  HS_RUN(test_orientation_historical_index_accessors);
+  HS_RUN(test_orientation_set_at_normalized);
 
-  test_wrap_float();
-  test_wrap_t();
-  test_wrap_int();
-  test_wrap_mixed_type();
-  test_fast_wrap();
-  test_fast_wrap_float();
-  test_shortest_distance();
+  HS_RUN(test_wrap_float);
+  HS_RUN(test_wrap_t);
+  HS_RUN(test_wrap_int);
+  HS_RUN(test_wrap_mixed_type);
+  HS_RUN(test_fast_wrap);
+  HS_RUN(test_fast_wrap_float);
+  HS_RUN(test_shortest_distance);
 
   return fixture.result();
 }

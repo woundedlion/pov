@@ -824,29 +824,29 @@ inline void test_meshstate_move_clears_source_views() {
 inline int run_spatial_tests() {
   hs_test::ModuleFixture fixture("spatial");
 
-  test_kdtree_empty_input();
-  test_kdtree_single_point();
-  test_kdtree_move();
-  test_kdtree_nearest_known_set();
-  test_kdtree_k_nearest_sorted();
-  test_kdtree_ties_prefer_source_index();
-  test_kdtree_k_caps_at_size();
-  test_kdtree_default_unbuilt();
-  test_kdtree_matches_brute_force();
-  test_kdtree_duplicates_and_max_k();
-  test_kdtree_k_nearest_brute_force_random();
-  test_kdtree_nearest_moved_matches_brute_force();
-  test_kdtree_bounded_search_matches_unbounded();
+  HS_RUN(test_kdtree_empty_input);
+  HS_RUN(test_kdtree_single_point);
+  HS_RUN(test_kdtree_move);
+  HS_RUN(test_kdtree_nearest_known_set);
+  HS_RUN(test_kdtree_k_nearest_sorted);
+  HS_RUN(test_kdtree_ties_prefer_source_index);
+  HS_RUN(test_kdtree_k_caps_at_size);
+  HS_RUN(test_kdtree_default_unbuilt);
+  HS_RUN(test_kdtree_matches_brute_force);
+  HS_RUN(test_kdtree_duplicates_and_max_k);
+  HS_RUN(test_kdtree_k_nearest_brute_force_random);
+  HS_RUN(test_kdtree_nearest_moved_matches_brute_force);
+  HS_RUN(test_kdtree_bounded_search_matches_unbounded);
 
-  test_meshstate_default_unbound();
-  test_meshstate_clone_deep_copies();
-  test_meshstate_clear_resets_views();
-  test_meshstate_move_invalidates_source();
-  test_meshstate_view_fallback();
-  test_meshstate_set_borrowed_drops_owned();
-  test_meshstate_set_borrowed_empty_offsets();
-  test_meshstate_set_owned_drops_views();
-  test_meshstate_move_clears_source_views();
+  HS_RUN(test_meshstate_default_unbound);
+  HS_RUN(test_meshstate_clone_deep_copies);
+  HS_RUN(test_meshstate_clear_resets_views);
+  HS_RUN(test_meshstate_move_invalidates_source);
+  HS_RUN(test_meshstate_view_fallback);
+  HS_RUN(test_meshstate_set_borrowed_drops_owned);
+  HS_RUN(test_meshstate_set_borrowed_empty_offsets);
+  HS_RUN(test_meshstate_set_owned_drops_views);
+  HS_RUN(test_meshstate_move_clears_source_views);
 
   return fixture.result();
 }

@@ -845,29 +845,29 @@ inline void test_mindsplatter_temporal_trail_oracle() {
 inline int run_mindsplatter_tests() {
   ModuleFixture fixture("mindsplatter");
 
-  test_mindsplatter_warp_history();
-  test_mindsplatter_profile_selects_initialized_preset();
-  test_mindsplatter_base_mesh_selector();
-  test_mindsplatter_whitebox_geometry_replay();
-  test_mindsplatter_replay_snapshot_exact();
-  test_mindsplatter_saturated_quadrant_sink_parity();
-  test_mindsplatter_octahedral_hole_alpha_equivalence();
-  test_mindsplatter_attractor_hole_alpha_equivalence();
-  test_mindsplatter_rotation_matrix_equivalence();
-  test_mindsplatter_rotation_matrix_framebuffer_error();
-  test_mindsplatter_particle_gradients_follow_emission_order();
-  test_mindsplatter_fused_vertex_framebuffer_parity();
-  test_mindsplatter_hole_kernel_framebuffer_parity();
-  test_mindsplatter_clip_clear_display_parity();
-  test_mindsplatter_signed_axis_framebuffer_error();
-  test_mindsplatter_manual_preset_survives_unpause();
-  test_mindsplatter_full_timeline_retries_transition();
-  test_mindsplatter_show_window_covers_final_dwell();
-  test_mindsplatter_temporal_trail_oracle();
+  HS_RUN(test_mindsplatter_warp_history);
+  HS_RUN(test_mindsplatter_profile_selects_initialized_preset);
+  HS_RUN(test_mindsplatter_base_mesh_selector);
+  HS_RUN(test_mindsplatter_whitebox_geometry_replay);
+  HS_RUN(test_mindsplatter_replay_snapshot_exact);
+  HS_RUN(test_mindsplatter_saturated_quadrant_sink_parity);
+  HS_RUN(test_mindsplatter_octahedral_hole_alpha_equivalence);
+  HS_RUN(test_mindsplatter_attractor_hole_alpha_equivalence);
+  HS_RUN(test_mindsplatter_rotation_matrix_equivalence);
+  HS_RUN(test_mindsplatter_rotation_matrix_framebuffer_error);
+  HS_RUN(test_mindsplatter_particle_gradients_follow_emission_order);
+  HS_RUN(test_mindsplatter_fused_vertex_framebuffer_parity);
+  HS_RUN(test_mindsplatter_hole_kernel_framebuffer_parity);
+  HS_RUN(test_mindsplatter_clip_clear_display_parity);
+  HS_RUN(test_mindsplatter_signed_axis_framebuffer_error);
+  HS_RUN(test_mindsplatter_manual_preset_survives_unpause);
+  HS_RUN(test_mindsplatter_full_timeline_retries_transition);
+  HS_RUN(test_mindsplatter_show_window_covers_final_dwell);
+  HS_RUN(test_mindsplatter_temporal_trail_oracle);
 
   // FULL tier only (HS_EFFECTS_FULL=1).
   if (effects_full_suite())
-    test_mindsplatter_emit_phase_wrapped();
+    HS_RUN(test_mindsplatter_emit_phase_wrapped);
   else
     std::printf(
         "  [TIER] wrapped emission sweep omitted; set HS_EFFECTS_FULL=1\n");

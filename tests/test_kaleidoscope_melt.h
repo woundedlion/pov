@@ -67,8 +67,8 @@ inline void test_kaleidoscope_melt_chain_equivalence() {
 
 inline int run_kaleidoscope_melt_tests() {
   ModuleFixture fixture("kaleidoscope_melt");
-  test_kaleidoscope_melt_identity_and_controls();
-  test_kaleidoscope_melt_chain_equivalence();
+  HS_RUN(test_kaleidoscope_melt_identity_and_controls);
+  HS_RUN(test_kaleidoscope_melt_chain_equivalence);
   return fixture.result();
 }
 

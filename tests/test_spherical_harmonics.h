@@ -268,15 +268,15 @@ inline void test_decode_lm_inverts_the_flat_index() {
 
 inline int run_spherical_harmonics_tests() {
   hs_test::ModuleFixture fixture("spherical_harmonics");
-  test_factorial_matches_the_product();
-  test_legendre_seed_is_the_signed_double_factorial();
-  test_reduced_legendre_restores_the_full_polynomial();
-  test_reduced_legendre_matches_closed_forms();
-  test_harmonic_scale_folds_in_the_seed();
-  test_spherical_harmonic_matches_the_angular_reference();
-  test_spherical_harmonic_poles_keep_only_the_zonal_modes();
-  test_spherical_harmonics_are_orthonormal();
-  test_decode_lm_inverts_the_flat_index();
+  HS_RUN(test_factorial_matches_the_product);
+  HS_RUN(test_legendre_seed_is_the_signed_double_factorial);
+  HS_RUN(test_reduced_legendre_restores_the_full_polynomial);
+  HS_RUN(test_reduced_legendre_matches_closed_forms);
+  HS_RUN(test_harmonic_scale_folds_in_the_seed);
+  HS_RUN(test_spherical_harmonic_matches_the_angular_reference);
+  HS_RUN(test_spherical_harmonic_poles_keep_only_the_zonal_modes);
+  HS_RUN(test_spherical_harmonics_are_orthonormal);
+  HS_RUN(test_decode_lm_inverts_the_flat_index);
   return fixture.result();
 }
 

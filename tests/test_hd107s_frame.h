@@ -350,16 +350,16 @@ inline void test_packpixel_dim_repacking() {
  */
 inline int run_hd107s_tests() {
   hs_test::ModuleFixture fixture("hd107s");
-  test_linear_quantization();
-  test_packpixel_adaptive_quantization();
-  test_packpixel_dim_repacking();
-  test_layout_constants();
-  test_layout_constants_phantasm();
-  test_fresh_frame_skeleton();
-  test_correct_pipeline();
-  test_correct_multifactor();
-  test_packpixel_wire_order();
-  test_packpixel_shipped_gains_half_brightness();
+  HS_RUN(test_linear_quantization);
+  HS_RUN(test_packpixel_adaptive_quantization);
+  HS_RUN(test_packpixel_dim_repacking);
+  HS_RUN(test_layout_constants);
+  HS_RUN(test_layout_constants_phantasm);
+  HS_RUN(test_fresh_frame_skeleton);
+  HS_RUN(test_correct_pipeline);
+  HS_RUN(test_correct_multifactor);
+  HS_RUN(test_packpixel_wire_order);
+  HS_RUN(test_packpixel_shipped_gains_half_brightness);
   reset_correction<N>(); // leave shared static state clean for any later module
   return fixture.result();
 }

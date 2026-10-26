@@ -105,8 +105,8 @@ inline void test_transfer_stale_wraparound() {
 inline int run_dma_core_tests() {
   hs_test::ModuleFixture fixture("dma_core");
 
-  test_transfer_us_bound();
-  test_transfer_stale_wraparound();
+  HS_RUN(test_transfer_us_bound);
+  HS_RUN(test_transfer_stale_wraparound);
 
   return fixture.result();
 }

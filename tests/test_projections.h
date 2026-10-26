@@ -704,30 +704,30 @@ inline void test_cylindrical_coordinates() {
 
 inline int run_projections_tests() {
   hs_test::ModuleFixture fixture("projections");
-  test_wrap_longitude_range();
-  test_cylindrical_coordinates();
-  test_bonne_sinusoidal_limit();
-  test_bonne_polar_limit_is_finite();
-  test_peirce_elliptic_integral_shape();
-  test_peirce_sector_longitude_snapping();
-  test_peirce_fast_square_matches_exact();
-  test_peirce_fast_square_on_seams_and_poles();
-  test_peirce_fast_square_rounded_pole_cap();
-  test_peirce_fast_square_ties_the_diagonal_band_to_its_seam();
-  test_peirce_edge_distance_locates_the_singularities();
-  test_peirce_square_is_the_rotated_diamond();
-  test_peirce_strip_scroll_is_periodic();
-  test_peirce_strip_tears_the_unglued_equator();
-  test_airocean_cut_masks_match_the_edge_lists();
-  test_airocean_edge_identity_is_the_canonical_half_edge();
-  test_airocean_glued_edges_are_bit_identical();
-  test_airocean_face_planes();
-  test_airocean_unfold_sends_vertices_to_planar_vertices();
-  test_airocean_projection_stays_inside_its_face();
-  test_airocean_face14_half_cut_edge();
-  test_airocean_projection_face_index_stays_in_range();
-  test_point_segment_distance();
-  test_projection_trait_packing();
+  HS_RUN(test_wrap_longitude_range);
+  HS_RUN(test_cylindrical_coordinates);
+  HS_RUN(test_bonne_sinusoidal_limit);
+  HS_RUN(test_bonne_polar_limit_is_finite);
+  HS_RUN(test_peirce_elliptic_integral_shape);
+  HS_RUN(test_peirce_sector_longitude_snapping);
+  HS_RUN(test_peirce_fast_square_matches_exact);
+  HS_RUN(test_peirce_fast_square_on_seams_and_poles);
+  HS_RUN(test_peirce_fast_square_rounded_pole_cap);
+  HS_RUN(test_peirce_fast_square_ties_the_diagonal_band_to_its_seam);
+  HS_RUN(test_peirce_edge_distance_locates_the_singularities);
+  HS_RUN(test_peirce_square_is_the_rotated_diamond);
+  HS_RUN(test_peirce_strip_scroll_is_periodic);
+  HS_RUN(test_peirce_strip_tears_the_unglued_equator);
+  HS_RUN(test_airocean_cut_masks_match_the_edge_lists);
+  HS_RUN(test_airocean_edge_identity_is_the_canonical_half_edge);
+  HS_RUN(test_airocean_glued_edges_are_bit_identical);
+  HS_RUN(test_airocean_face_planes);
+  HS_RUN(test_airocean_unfold_sends_vertices_to_planar_vertices);
+  HS_RUN(test_airocean_projection_stays_inside_its_face);
+  HS_RUN(test_airocean_face14_half_cut_edge);
+  HS_RUN(test_airocean_projection_face_index_stays_in_range);
+  HS_RUN(test_point_segment_distance);
+  HS_RUN(test_projection_trait_packing);
   return fixture.result();
 }
 

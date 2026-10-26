@@ -299,17 +299,17 @@ inline void test_feedback_bottom_row_rotates_in_longitude() {
  */
 inline int run_h_offset_renorm_tests() {
   hs_test::ModuleFixture fixture("h_offset_renorm (HS_TEST_H_OFFSET=3)");
-  test_offset_is_active_and_lut_nondegenerate();
-  test_energy_conserved_through_clip_boundary();
-  test_boundary_row_splits_two_columns_and_conserves();
-  test_boundary_energy_independent_of_x_fraction();
-  test_scan_bottom_row_is_a_latitude_ring();
-  test_plot_below_last_row_is_clipped();
-  test_feedback_bottom_row_rotates_in_longitude();
-  hs_test::pole_geometry::check_feedback_device_budget<W, H>();
-  test_face_bounds_use_virtual_height();
-  test_face_rejects_only_the_virtual_south_rows();
-  pole_wrap_tests::run_pole_wrap_cases();
+  HS_RUN(test_offset_is_active_and_lut_nondegenerate);
+  HS_RUN(test_energy_conserved_through_clip_boundary);
+  HS_RUN(test_boundary_row_splits_two_columns_and_conserves);
+  HS_RUN(test_boundary_energy_independent_of_x_fraction);
+  HS_RUN(test_scan_bottom_row_is_a_latitude_ring);
+  HS_RUN(test_plot_below_last_row_is_clipped);
+  HS_RUN(test_feedback_bottom_row_rotates_in_longitude);
+  HS_RUN((hs_test::pole_geometry::check_feedback_device_budget<W, H>));
+  HS_RUN(test_face_bounds_use_virtual_height);
+  HS_RUN(test_face_rejects_only_the_virtual_south_rows);
+  HS_RUN(pole_wrap_tests::run_pole_wrap_cases);
   return fixture.result();
 }
 

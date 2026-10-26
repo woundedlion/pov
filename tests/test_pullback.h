@@ -1771,30 +1771,30 @@ inline void test_pullback_temporal_palette() {
 /** @brief Runs pullback tests. */
 inline int run_pullback_tests() {
   ModuleFixture fixture("pullback");
-  test_pullback_runtime_seed_contract();
-  test_pullback_carrier_contract();
-  test_pullback_projection_traits();
-  test_pullback_validation_predicates();
-  test_pullback_evaluation_order();
-  test_pullback_placement_transparency();
-  test_pullback_type_erased_prepare();
-  test_pullback_public_surface();
-  test_pullback_no_instrumentation();
-  test_pullback_counting_instrumentation();
-  test_pullback_prepared_stage_policies();
-  test_pullback_stage_combinators();
-  test_pullback_provider_contracts();
-  test_pullback_concrete_catalog();
-  test_pullback_custom_grid_preparation();
-  test_pullback_hexagonal_edges();
-  test_pullback_displacement_overflow();
-  test_pullback_warp_phase_loop();
-  test_pullback_periodic_ripple();
-  test_pullback_lens_stack();
-  test_pullback_rank_skip_crossing();
-  test_pullback_field_curves();
-  test_pullback_hard_edge_kernels();
-  test_pullback_temporal_palette();
+  HS_RUN(test_pullback_runtime_seed_contract);
+  HS_RUN(test_pullback_carrier_contract);
+  HS_RUN(test_pullback_projection_traits);
+  HS_RUN(test_pullback_validation_predicates);
+  HS_RUN(test_pullback_evaluation_order);
+  HS_RUN(test_pullback_placement_transparency);
+  HS_RUN(test_pullback_type_erased_prepare);
+  HS_RUN(test_pullback_public_surface);
+  HS_RUN(test_pullback_no_instrumentation);
+  HS_RUN(test_pullback_counting_instrumentation);
+  HS_RUN(test_pullback_prepared_stage_policies);
+  HS_RUN(test_pullback_stage_combinators);
+  HS_RUN(test_pullback_provider_contracts);
+  HS_RUN(test_pullback_concrete_catalog);
+  HS_RUN(test_pullback_custom_grid_preparation);
+  HS_RUN(test_pullback_hexagonal_edges);
+  HS_RUN(test_pullback_displacement_overflow);
+  HS_RUN(test_pullback_warp_phase_loop);
+  HS_RUN(test_pullback_periodic_ripple);
+  HS_RUN(test_pullback_lens_stack);
+  HS_RUN(test_pullback_rank_skip_crossing);
+  HS_RUN(test_pullback_field_curves);
+  HS_RUN(test_pullback_hard_edge_kernels);
+  HS_RUN(test_pullback_temporal_palette);
   return fixture.result();
 }
 

@@ -102,53 +102,53 @@ using ConwayGraph::T_EPS;
 inline int run_conway_morph_tests() {
   hs_test::ModuleFixture fixture("conway_morph");
 
-  test_partial_bookend_classification();
-  test_prepared_bridge();
+  HS_RUN(test_partial_bookend_classification);
+  HS_RUN(test_prepared_bridge);
 
-  test_edge_endpoints_match_registry();
-  test_edge_sweeps_hold_topology();
-  test_edge_morph_frames_fit_scratch_budget();
+  HS_RUN(test_edge_endpoints_match_registry);
+  HS_RUN(test_edge_sweeps_hold_topology);
+  HS_RUN(test_edge_morph_frames_fit_scratch_budget);
 
-  test_relax_is_vertex_order_identity();
-  test_position_legs_preserve_face_palettes();
+  HS_RUN(test_relax_is_vertex_order_identity);
+  HS_RUN(test_position_legs_preserve_face_palettes);
 
-  test_snub_bridge_icosahedron_classifies_like_registry();
-  test_ambo_tetrahedron_is_regular_octahedron();
+  HS_RUN(test_snub_bridge_icosahedron_classifies_like_registry);
+  HS_RUN(test_ambo_tetrahedron_is_regular_octahedron);
 
-  test_jitterbug_icosa_point_is_regular();
-  test_jitterbug_octa_end_covers_octahedron();
-  test_jitterbug_sweep_holds_topology();
+  HS_RUN(test_jitterbug_icosa_point_is_regular);
+  HS_RUN(test_jitterbug_octa_end_covers_octahedron);
+  HS_RUN(test_jitterbug_sweep_holds_topology);
 
-  test_truncate_near_half_merges_onto_ambo();
-  test_ops_at_t_eps_primary_faces_match_seed();
+  HS_RUN(test_truncate_near_half_merges_onto_ambo);
+  HS_RUN(test_ops_at_t_eps_primary_faces_match_seed);
 
-  test_ambo_leg_on_hankin_seed_holds_topology();
-  test_hankin_sweep_on_islamic_seeds_holds_topology();
-  test_hankin_sweep_vertex_stability();
-  test_opleg_hankin_sweep_smoke();
+  HS_RUN(test_ambo_leg_on_hankin_seed_holds_topology);
+  HS_RUN(test_hankin_sweep_on_islamic_seeds_holds_topology);
+  HS_RUN(test_hankin_sweep_vertex_stability);
+  HS_RUN(test_opleg_hankin_sweep_smoke);
 
-  test_truncate_leg_on_recipe_seeds_holds_topology();
-  test_snub_leg_on_recipe_seeds_holds_topology();
-  test_relax_leg_on_recipe_seeds_holds_topology();
-  test_medial_dual_bridge_wellformed();
-  test_opleg_medial_leg_smoke();
-  test_opleg_dual_bridge_seam_correspondence();
-  test_opleg_step_leg_smoke();
-  test_opleg_step_paused_holds_frame();
-  test_opleg_step_leg_overshooting_easing();
-  test_opleg_gated_swap_smoke();
-  test_opleg_edge_leg_crossfade();
-  test_unsweepable_recipe_steps_are_gated();
+  HS_RUN(test_truncate_leg_on_recipe_seeds_holds_topology);
+  HS_RUN(test_snub_leg_on_recipe_seeds_holds_topology);
+  HS_RUN(test_relax_leg_on_recipe_seeds_holds_topology);
+  HS_RUN(test_medial_dual_bridge_wellformed);
+  HS_RUN(test_opleg_medial_leg_smoke);
+  HS_RUN(test_opleg_dual_bridge_seam_correspondence);
+  HS_RUN(test_opleg_step_leg_smoke);
+  HS_RUN(test_opleg_step_paused_holds_frame);
+  HS_RUN(test_opleg_step_leg_overshooting_easing);
+  HS_RUN(test_opleg_gated_swap_smoke);
+  HS_RUN(test_opleg_edge_leg_crossfade);
+  HS_RUN(test_unsweepable_recipe_steps_are_gated);
 
-  test_relax_source_hash_separates_bevel_inputs();
-  test_recipe_chain_build_replay();
-  test_reconcile_bijection_wellposed();
+  HS_RUN(test_relax_source_hash_separates_bevel_inputs);
+  HS_RUN(test_recipe_chain_build_replay);
+  HS_RUN(test_reconcile_bijection_wellposed);
 
-  test_walk_hops_metric();
-  test_walk_routes_are_shortest();
-  test_walk_route_tie_break_varies();
-  test_walk_policy_coverage_and_balance();
-  test_ordered_tour_full_coverage_and_wrap();
+  HS_RUN(test_walk_hops_metric);
+  HS_RUN(test_walk_routes_are_shortest);
+  HS_RUN(test_walk_route_tie_break_varies);
+  HS_RUN(test_walk_policy_coverage_and_balance);
+  HS_RUN(test_ordered_tour_full_coverage_and_wrap);
 
   return fixture.result();
 }

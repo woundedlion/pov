@@ -567,27 +567,27 @@ inline void test_every_n_seconds_quantizes() {
 inline int run_platform_tests() {
   hs_test::ModuleFixture fixture("platform");
 
-  test_sin8_golden();
-  test_sin16_golden();
-  test_scale_golden();
-  test_map8_fastled_semantics();
-  test_map_degenerate_range();
-  test_map_rounds_like_the_device();
-  test_addmod8_wraps_before_reducing();
-  test_random_degenerate_range();
-  test_rand_f_half_open();
-  test_epoch_seed();
-  test_stable_effect_seed();
-  test_pcg32_golden_stream();
-  test_shuffle_golden_permutation();
-  test_crgb_colorcode_constructor();
-  test_beat16_accum88_promotion();
-  test_beatsin8_faithful();
-  test_beatsin16_golden();
-  test_stdout_formatting();
-  test_harness_counts_failures();
-  test_debug_telemetry_configuration();
-  test_every_n_seconds_quantizes();
+  HS_RUN(test_sin8_golden);
+  HS_RUN(test_sin16_golden);
+  HS_RUN(test_scale_golden);
+  HS_RUN(test_map8_fastled_semantics);
+  HS_RUN(test_map_degenerate_range);
+  HS_RUN(test_map_rounds_like_the_device);
+  HS_RUN(test_addmod8_wraps_before_reducing);
+  HS_RUN(test_random_degenerate_range);
+  HS_RUN(test_rand_f_half_open);
+  HS_RUN(test_epoch_seed);
+  HS_RUN(test_stable_effect_seed);
+  HS_RUN(test_pcg32_golden_stream);
+  HS_RUN(test_shuffle_golden_permutation);
+  HS_RUN(test_crgb_colorcode_constructor);
+  HS_RUN(test_beat16_accum88_promotion);
+  HS_RUN(test_beatsin8_faithful);
+  HS_RUN(test_beatsin16_golden);
+  HS_RUN(test_stdout_formatting);
+  HS_RUN(test_harness_counts_failures);
+  HS_RUN(test_debug_telemetry_configuration);
+  HS_RUN(test_every_n_seconds_quantizes);
 
   return fixture.result();
 }

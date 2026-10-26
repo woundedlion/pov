@@ -644,19 +644,19 @@ inline void test_hankin_angle_domain() {
  */
 inline int run_wasm_predicates_tests() {
   hs_test::ModuleFixture fixture("wasm_predicates");
-  test_pole_lod_clamp();
-  test_clip_bounds();
-  test_preset_index_valid();
-  test_relax_clamp();
-  test_unit_fraction_clamp();
-  test_half_open_fraction_clamp();
-  test_mesh_op_expansion_ceiling();
-  test_mesh_op_arena_room();
-  test_mesh_degree_measurements();
-  test_mesh_op_face_degree();
-  test_mesh_op_growth_factors();
-  test_mesh_op_growth_near_capacity();
-  test_hankin_angle_domain();
+  HS_RUN(test_pole_lod_clamp);
+  HS_RUN(test_clip_bounds);
+  HS_RUN(test_preset_index_valid);
+  HS_RUN(test_relax_clamp);
+  HS_RUN(test_unit_fraction_clamp);
+  HS_RUN(test_half_open_fraction_clamp);
+  HS_RUN(test_mesh_op_expansion_ceiling);
+  HS_RUN(test_mesh_op_arena_room);
+  HS_RUN(test_mesh_degree_measurements);
+  HS_RUN(test_mesh_op_face_degree);
+  HS_RUN(test_mesh_op_growth_factors);
+  HS_RUN(test_mesh_op_growth_near_capacity);
+  HS_RUN(test_hankin_angle_domain);
   return fixture.result();
 }
 

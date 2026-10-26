@@ -438,14 +438,14 @@ inline void test_factory_lifecycle() {
  */
 inline int run_effect_factory_tests() {
   hs_test::ModuleFixture fixture("effect_factory");
-  test_identity_contract();
-  test_bootstrap_rows();
-  test_resolution_dispatch();
-  test_factory_tables();
-  test_phantasm_seed_identity();
-  test_effect_stream_restarts();
-  test_fixed_preset_ids();
-  test_factory_lifecycle();
+  HS_RUN(test_identity_contract);
+  HS_RUN(test_bootstrap_rows);
+  HS_RUN(test_resolution_dispatch);
+  HS_RUN(test_factory_tables);
+  HS_RUN(test_phantasm_seed_identity);
+  HS_RUN(test_effect_stream_restarts);
+  HS_RUN(test_fixed_preset_ids);
+  HS_RUN(test_factory_lifecycle);
   return fixture.result();
 }
 

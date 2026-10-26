@@ -1930,28 +1930,28 @@ inline void test_star_midpoint_dissolve() {
 inline int run_conway_continuity_tests() {
   hs_test::ModuleFixture fixture("conway_continuity");
 
-  test_bookend_angle_pin();
-  test_no_empty_frame_across_cycle_joins();
-  test_bookend_swaps_per_family();
-  test_palette_carry_across_arrivals();
+  HS_RUN(test_bookend_angle_pin);
+  HS_RUN(test_no_empty_frame_across_cycle_joins);
+  HS_RUN(test_bookend_swaps_per_family);
+  HS_RUN(test_palette_carry_across_arrivals);
 
-  test_swap_in_framebuffer();
-  test_derive_ambo_departure_swap_framebuffer();
-  test_adopt_bridge_arrival_geometry();
-  test_dual_swap_crossover_framebuffer();
+  HS_RUN(test_swap_in_framebuffer);
+  HS_RUN(test_derive_ambo_departure_swap_framebuffer);
+  HS_RUN(test_adopt_bridge_arrival_geometry);
+  HS_RUN(test_dual_swap_crossover_framebuffer);
 
-  test_collapsing_faces_land_on_host_palette();
-  test_crossfade_exact_at_endpoints_emission();
-  test_palette_mapping_total_all_edges();
-  test_palette_mapping_deterministic();
+  HS_RUN(test_collapsing_faces_land_on_host_palette);
+  HS_RUN(test_crossfade_exact_at_endpoints_emission);
+  HS_RUN(test_palette_mapping_total_all_edges);
+  HS_RUN(test_palette_mapping_deterministic);
 
-  test_leg_start_seed_frame_continuity();
-  test_palette_slots_stable_within_cycle();
-  test_strap_crossfade_across_cycle_start();
-  test_strap_crossfade_seed_swept();
-  test_strap_open_fade();
-  test_strap_close_dissolve();
-  test_star_midpoint_dissolve();
+  HS_RUN(test_leg_start_seed_frame_continuity);
+  HS_RUN(test_palette_slots_stable_within_cycle);
+  HS_RUN(test_strap_crossfade_across_cycle_start);
+  HS_RUN(test_strap_crossfade_seed_swept);
+  HS_RUN(test_strap_open_fade);
+  HS_RUN(test_strap_close_dissolve);
+  HS_RUN(test_star_midpoint_dissolve);
 
   return fixture.result();
 }

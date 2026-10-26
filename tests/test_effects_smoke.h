@@ -93,7 +93,7 @@ inline int run_effects_smoke_tests() {
   HS_EFFECT_LIST(HS_CLIP_PARITY_ONE)
 #undef HS_CLIP_PARITY_ONE
 
-  test_every_effect_renders_while_paused();
+  HS_RUN(test_every_effect_renders_while_paused);
   if (effects_full_suite()) {
 #define HS_PAUSED_FULL(name)                                                   \
   paused_render_one<name, DEFAULT_W, DEFAULT_H>(#name);

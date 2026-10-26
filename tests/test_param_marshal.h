@@ -744,19 +744,19 @@ inline void test_sparse_option_metadata() {
  */
 inline int run_param_marshal_tests() {
   hs_test::ModuleFixture fixture("param_marshal");
-  test_choreography_descriptions_default();
-  test_typed_field_invalid_metadata();
-  test_typed_field_domains_and_exclusions();
-  test_authored_field_snapshot_validation();
-  test_sparse_option_metadata();
-  check_roster_order_pinned();
-  check_generation_tracker();
-  check_hyper_lattice_pattern_view_dropdowns();
-  check_integer_float_endpoints();
+  HS_RUN(test_choreography_descriptions_default);
+  HS_RUN(test_typed_field_invalid_metadata);
+  HS_RUN(test_typed_field_domains_and_exclusions);
+  HS_RUN(test_authored_field_snapshot_validation);
+  HS_RUN(test_sparse_option_metadata);
+  HS_RUN(check_roster_order_pinned);
+  HS_RUN(check_generation_tracker);
+  HS_RUN(check_hyper_lattice_pattern_view_dropdowns);
+  HS_RUN(check_integer_float_endpoints);
 #if HS_ENABLE_PARAM_GUI_BRIDGE
-  check_distinct_parameter_values();
+  HS_RUN(check_distinct_parameter_values);
 #endif
-  check_schema_hook_preserves_written_parameter_identity();
+  HS_RUN(check_schema_hook_preserves_written_parameter_identity);
   // The by-name round-trip skips effects with no editable float param.
   int rt_covered = 0, rt_total = 0, rt_skipped = 0, rt_mismatched = 0;
   FieldCoverage coverage;
@@ -804,8 +804,8 @@ inline int run_param_marshal_tests() {
   const size_t value_cap = values.capacity();
 
 #define HS_PARAM_STAB(name)                                                    \
-  check_stability_one<name>(#name, views, values, view_data, view_cap,         \
-                            value_data, value_cap);
+  HS_RUN(check_stability_one<name>, #name, views, values, view_data, view_cap, \
+         value_data, value_cap);
   HS_EFFECT_LIST(HS_PARAM_STAB)
 #undef HS_PARAM_STAB
 

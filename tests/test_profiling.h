@@ -718,28 +718,28 @@ inline void test_pc_sample_gate_nests() {
 inline int run_profiling_tests() {
   hs_test::ModuleFixture fixture("profiling");
 
-  test_u64_dec_boundaries();
-  test_u64_dec_powers_of_ten();
-  test_find_suffix();
-  test_destructor_unlatches_children();
-  test_reset_all_clears_counts();
-  test_nesting_latches_parent();
-  test_recursive_scope_does_not_self_parent();
-  test_second_caller_flags_mixed_parent();
-  test_duplicate_name_tags_active_counters();
-  test_mutual_nesting_keeps_a_root();
-  test_parent_retirement_prevents_cycle();
-  test_log_all_reports_tree();
-  test_reset_does_not_orphan_subtree();
-  test_isr_cycle_stats();
-  test_isr_window_logging_latency();
-  test_pc_interrupted_pc_selects_stack();
-  test_pc_lost_ticks_rounds_to_periods();
-  test_pc_latency_buckets();
-  test_pc_histogram_bins_and_capacity();
-  test_pc_sampler_classifies_ticks();
-  test_pc_sampler_dump_format();
-  test_pc_sample_gate_nests();
+  HS_RUN(test_u64_dec_boundaries);
+  HS_RUN(test_u64_dec_powers_of_ten);
+  HS_RUN(test_find_suffix);
+  HS_RUN(test_destructor_unlatches_children);
+  HS_RUN(test_reset_all_clears_counts);
+  HS_RUN(test_nesting_latches_parent);
+  HS_RUN(test_recursive_scope_does_not_self_parent);
+  HS_RUN(test_second_caller_flags_mixed_parent);
+  HS_RUN(test_duplicate_name_tags_active_counters);
+  HS_RUN(test_mutual_nesting_keeps_a_root);
+  HS_RUN(test_parent_retirement_prevents_cycle);
+  HS_RUN(test_log_all_reports_tree);
+  HS_RUN(test_reset_does_not_orphan_subtree);
+  HS_RUN(test_isr_cycle_stats);
+  HS_RUN(test_isr_window_logging_latency);
+  HS_RUN(test_pc_interrupted_pc_selects_stack);
+  HS_RUN(test_pc_lost_ticks_rounds_to_periods);
+  HS_RUN(test_pc_latency_buckets);
+  HS_RUN(test_pc_histogram_bins_and_capacity);
+  HS_RUN(test_pc_sampler_classifies_ticks);
+  HS_RUN(test_pc_sampler_dump_format);
+  HS_RUN(test_pc_sample_gate_nests);
 
   return fixture.result();
 }

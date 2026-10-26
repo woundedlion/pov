@@ -1388,25 +1388,25 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 inline int run_memory_tests() {
   hs_test::ModuleFixture fixture("memory");
 
-  test_arena_construction();
-  test_arena_basic_allocation();
-  test_arena_alignment();
-  test_arena_make_constructs();
-  test_arena_make_lifetime();
-  test_arena_make_n_indexed();
-  test_arena_make_n_value_initializes();
-  test_arena_high_water_mark();
-  test_arena_lifetime_high_water_mark();
-  test_arena_reset();
-  test_arena_set_offset();
-  test_arena_fills_to_capacity();
-  test_arena_rebind();
-  test_arena_reset_high_water_mark();
+  HS_RUN(test_arena_construction);
+  HS_RUN(test_arena_basic_allocation);
+  HS_RUN(test_arena_alignment);
+  HS_RUN(test_arena_make_constructs);
+  HS_RUN(test_arena_make_lifetime);
+  HS_RUN(test_arena_make_n_indexed);
+  HS_RUN(test_arena_make_n_value_initializes);
+  HS_RUN(test_arena_high_water_mark);
+  HS_RUN(test_arena_lifetime_high_water_mark);
+  HS_RUN(test_arena_reset);
+  HS_RUN(test_arena_set_offset);
+  HS_RUN(test_arena_fills_to_capacity);
+  HS_RUN(test_arena_rebind);
+  HS_RUN(test_arena_reset_high_water_mark);
 #ifndef NDEBUG
-  test_arena_generation_bumps();
-  test_arena_covers();
-  test_arena_reclaimed_since();
-  test_arena_repeated_rewind_to_same_mark();
+  HS_RUN(test_arena_generation_bumps);
+  HS_RUN(test_arena_covers);
+  HS_RUN(test_arena_reclaimed_since);
+  HS_RUN(test_arena_repeated_rewind_to_same_mark);
 #else
   skip_case("test_arena_generation_bumps", "requires debug arena tracking");
   skip_case("test_arena_covers", "requires debug arena tracking");
@@ -1414,54 +1414,54 @@ inline int run_memory_tests() {
   skip_case("test_arena_repeated_rewind_to_same_mark",
             "requires debug arena tracking");
 #endif
-  test_configure_arenas_repartition();
-  test_resplit_arenas_preserves_persistent();
-  test_arena_reset_hook_dispatch_and_unlink();
-  test_arena_reset_hook_runs_on_configure();
-  test_reset_persistent_arena_runs_hooks();
+  HS_RUN(test_configure_arenas_repartition);
+  HS_RUN(test_resplit_arenas_preserves_persistent);
+  HS_RUN(test_arena_reset_hook_dispatch_and_unlink);
+  HS_RUN(test_arena_reset_hook_runs_on_configure);
+  HS_RUN(test_reset_persistent_arena_runs_hooks);
 
-  test_arenavec_default_unbound();
-  test_arenavec_bind();
-  test_arenavec_constructor_with_arena();
-  test_arenavec_push_back_indexing();
-  test_arenavec_back();
-  test_arenavec_emplace_back();
-  test_arenavec_append_bulk();
-  test_arenavec_clear();
-  test_arenavec_iteration();
-  test_arenavec_move_construct();
-  test_arenavec_move_assign();
-  test_arenavec_move_assign_abandon_breadcrumb();
-  test_arenavec_rebind_reuses();
-  test_arenavec_rebind_grows();
+  HS_RUN(test_arenavec_default_unbound);
+  HS_RUN(test_arenavec_bind);
+  HS_RUN(test_arenavec_constructor_with_arena);
+  HS_RUN(test_arenavec_push_back_indexing);
+  HS_RUN(test_arenavec_back);
+  HS_RUN(test_arenavec_emplace_back);
+  HS_RUN(test_arenavec_append_bulk);
+  HS_RUN(test_arenavec_clear);
+  HS_RUN(test_arenavec_iteration);
+  HS_RUN(test_arenavec_move_construct);
+  HS_RUN(test_arenavec_move_assign);
+  HS_RUN(test_arenavec_move_assign_abandon_breadcrumb);
+  HS_RUN(test_arenavec_rebind_reuses);
+  HS_RUN(test_arenavec_rebind_grows);
 #ifndef NDEBUG
-  test_arena_block_stamp_reset_and_rewind();
+  HS_RUN(test_arena_block_stamp_reset_and_rewind);
 #else
   skip_case("test_arena_block_stamp_reset_and_rewind",
             "requires debug arena tracking");
 #endif
-  test_arenavec_zero_capacity();
+  HS_RUN(test_arenavec_zero_capacity);
 
-  test_arenaspan_default();
-  test_arenaspan_from_vector();
+  HS_RUN(test_arenaspan_default);
+  HS_RUN(test_arenaspan_from_vector);
 #ifndef NDEBUG
-  test_arenaspan_source_rebind_generation();
+  HS_RUN(test_arenaspan_source_rebind_generation);
 #else
   skip_case("test_arenaspan_source_rebind_generation",
             "requires debug arena tracking");
 #endif
 
-  test_scratch_basic_restore();
-  test_scratch_nested();
+  HS_RUN(test_scratch_basic_restore);
+  HS_RUN(test_scratch_nested);
 
-  test_persist_restores_target();
-  test_persist_scratch_offset_restored();
-  test_persist_compaction_relocates_survivor();
+  HS_RUN(test_persist_restores_target);
+  HS_RUN(test_persist_scratch_offset_restored);
+  HS_RUN(test_persist_compaction_relocates_survivor);
 
-  test_generate_lifecycle_and_forwarding();
-  test_generate_sequential_target_accumulates();
-  test_generate_reentrant_nesting_does_not_clobber();
-  test_generate_deep_nesting_stacks_and_unwinds();
+  HS_RUN(test_generate_lifecycle_and_forwarding);
+  HS_RUN(test_generate_sequential_target_accumulates);
+  HS_RUN(test_generate_reentrant_nesting_does_not_clobber);
+  HS_RUN(test_generate_deep_nesting_stacks_and_unwinds);
 
   return fixture.result();
 }
