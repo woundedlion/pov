@@ -679,50 +679,9 @@ inline void test_bz_slabs_shade_the_field_after_their_substep() {
             "temporal sampling must not change the simulation");
 }
 
-/**
- * @brief Slab-wise BZ frames rendered in display bands, including bands across
- *        arm and slab boundaries, match the full-canvas frames.
- */
+/** @brief BZ slab bands match full-canvas frames. */
 inline void test_bz_segmented_slabs_match_full_frame() {
-  using BZ = BZWhiteBox::BZ;
-  constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 3;
-  auto render = [](int x0, int x1) {
-    reset_effect_globals();
-    pin_frame_clock(0);
-    BZ bz;
-    bz.init();
-    bz.set_clip(0, H, x0, x1);
-    std::vector<Pixel> out;
-    for (int f = 0; f < FRAMES; ++f) {
-      pin_frame_clock(f);
-      bz.draw_frame();
-      bz.advance_display();
-      for (int y = 0; y < H; ++y)
-        for (int x = x0; x < x1; ++x)
-          out.push_back(bz.get_pixel(x, y));
-    }
-    hs::clear_mock_time();
-    return out;
-  };
-  const std::vector<Pixel> full = render(0, W);
-  size_t lit = 0;
-  for (const Pixel &p : full)
-    lit += !is_black(p);
-  HS_EXPECT_GT(lit, static_cast<size_t>(0));
-  const std::array<std::array<int, 2>, 4> bands{
-      {{0, 30}, {20, 60}, {44, 52}, {70, W}}};
-  for (const auto &[x0, x1] : bands) {
-    HS_CONTEXT("band", x0, x1);
-    const std::vector<Pixel> band = render(x0, x1);
-    size_t next = 0;
-    int mismatches = 0;
-    for (int f = 0; f < FRAMES; ++f)
-      for (int y = 0; y < H; ++y)
-        for (int x = x0; x < x1; ++x)
-          mismatches +=
-              band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
-    HS_EXPECT_EQ(mismatches, 0);
-  }
+  expect_slab_bands_match_full_frame<BZWhiteBox::BZ>(0);
 }
 
 /**

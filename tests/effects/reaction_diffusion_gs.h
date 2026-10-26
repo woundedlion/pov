@@ -2315,28 +2315,29 @@ inline void test_gs_slab_noise_keeps_the_previous_bake() {
 }
 
 /**
- * @brief Slab-wise GS frames rendered in display bands, including bands
- *        across arm and slab boundaries, match the full-canvas frames.
+ * @brief Slab bands match the full frame after a simulation warm-up.
+ * @tparam FX Reaction-diffusion effect type.
+ * @param warmup Frames to advance before capturing comparisons.
  */
-inline void test_gs_segmented_slabs_match_full_frame() {
-  using GS = GSWhiteBox::GS;
-  constexpr int W = SMALL_W, H = SMALL_H, GROW = 40, FRAMES = 3;
-  auto render = [](int x0, int x1) {
+template <typename FX>
+inline void expect_slab_bands_match_full_frame(int warmup) {
+  constexpr int W = SMALL_W, H = SMALL_H, FRAMES = 3;
+  auto render = [warmup](int x0, int x1) {
     reset_effect_globals();
     pin_frame_clock(0);
-    GS gs;
-    gs.init();
-    gs.set_clip(0, H, x0, x1);
+    FX fx;
+    fx.init();
+    fx.set_clip(0, H, x0, x1);
     std::vector<Pixel> out;
-    for (int f = 0; f < GROW + FRAMES; ++f) {
+    for (int f = 0; f < warmup + FRAMES; ++f) {
       pin_frame_clock(f);
-      gs.draw_frame();
-      gs.advance_display();
-      if (f < GROW)
+      fx.draw_frame();
+      fx.advance_display();
+      if (f < warmup)
         continue;
       for (int y = 0; y < H; ++y)
         for (int x = x0; x < x1; ++x)
-          out.push_back(gs.get_pixel(x, y));
+          out.push_back(fx.get_pixel(x, y));
     }
     hs::clear_mock_time();
     return out;
@@ -2360,4 +2361,9 @@ inline void test_gs_segmented_slabs_match_full_frame() {
               band[next++] != full[(static_cast<size_t>(f) * H + y) * W + x];
     HS_EXPECT_EQ(mismatches, 0);
   }
+}
+
+/** @brief GS slab bands match full-canvas frames. */
+inline void test_gs_segmented_slabs_match_full_frame() {
+  expect_slab_bands_match_full_frame<GSWhiteBox::GS>(40);
 }
