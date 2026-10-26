@@ -12,12 +12,10 @@
  * @param from Previous frame, with retained palette and hue tables.
  * @param to Current frame.
  * @param fraction Fraction of one frame, in [0, 1].
- * @param constant_params Interior parameter sample when both endpoints agree.
  * @return Column context with resources borrowed from the endpoints. */
 template <typename Frame>
-HS_FLASH_INLINE Frame sample_frame_reference(
-    const Frame &from, const Frame &to, float fraction,
-    const decltype(Frame::params) *constant_params = nullptr) {
+HS_FLASH_INLINE Frame sample_frame_reference(const Frame &from, const Frame &to,
+                                             float fraction) {
   if (fraction <= 0.0f) {
     Frame frame = from;
     Pullback::hold_discrete_lenses(frame, from, to);
@@ -30,9 +28,7 @@ HS_FLASH_INLINE Frame sample_frame_reference(
       math::slerp(from.projection_conjugate, to.projection_conjugate, fraction);
   frame.outer_conjugate =
       math::slerp(from.outer_conjugate, to.outer_conjugate, fraction);
-  frame.params = constant_params
-                     ? *constant_params
-                     : Pullback::interpolate(from.params, to.params, fraction);
+  frame.params = Pullback::interpolate(from.params, to.params, fraction);
   frame.palette_mapping = Pullback::Color::PaletteMappingWeights::lerp(
       from.palette_mapping, to.palette_mapping, fraction);
   frame.palette_oscillation_phase =
