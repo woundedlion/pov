@@ -204,6 +204,7 @@ inline PointRouteError point_route_error(const std::vector<Pixel> &got,
  * a point moving with or against the sweep at a speed comparable to the arm's
  * is lit by more or fewer than two columns of the oracle there. */
 inline void test_point_route_matches_column_oracle() {
+  Spacetime::geometry_counters = {};
   constexpr int W = 288;
   hs_test::StubEffect effect(W, 144);
   Canvas canvas(effect);
