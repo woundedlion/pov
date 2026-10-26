@@ -169,18 +169,6 @@ struct OracleStats {
 };
 
 /**
- * @brief Advances an xorshift32 state.
- * @param state Generator state, updated in place.
- * @return Uniform value in [0, 1) from the state's top 24 bits.
- */
-inline float xorshift_unit(uint32_t &state) {
-  state ^= state << 13;
-  state ^= state >> 17;
-  state ^= state << 5;
-  return float(state >> 8) * (1.0f / 16777216.0f);
-}
-
-/**
  * @brief Records one squared plane distance against the double oracle.
  * @param face Face the distance was taken on.
  * @param squared Squared plane distance under test.
@@ -317,7 +305,7 @@ inline void test_face_asymmetric_sector_matches_oracle() {
 /** @brief Face randomized sector matches oracle. */
 inline void test_face_randomized_sector_matches_oracle() {
   uint32_t state = 0x4a39b70du;
-  auto random = [&]() { return xorshift_unit(state); };
+  auto random = [&]() { return lcg_uniform(state, 0.0f, 1.0f); };
   OracleStats stats;
   size_t admitted = 0;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count) {
@@ -385,7 +373,7 @@ inline void test_face_randomized_sector_matches_oracle() {
 /** @brief Face randomized backtracking matches oracle. */
 inline void test_face_randomized_backtracking_matches_oracle() {
   uint32_t state = 0x39be4207u;
-  auto random = [&]() { return xorshift_unit(state); };
+  auto random = [&]() { return lcg_uniform(state, 0.0f, 1.0f); };
   OracleStats stats;
   for (int count = 10; count <= SDF::FaceScratchBuffer::MAX_VERTS; ++count)
     for (int variant = 0; variant < 8; ++variant) {
