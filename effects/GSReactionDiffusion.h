@@ -86,15 +86,15 @@ public:
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(math::Vector) + 2u * RD_N * sizeof(uint8_t);
-    // render_slabs(): the lattice basis, cull flags, float field and
-    // frame-end pigment live across the slabs, beside the frame-start B.
+    // Slab tenants: basis, marked, hot1, hot2, cur_a, cur_b, next_pigment,
+    // pending_a, pending_b and start_b.
     constexpr size_t SLAB_SCRATCH_BYTES =
         sizeof(LatticeBasis) + 3u * HOT_WORDS * sizeof(uint32_t) +
         2u * RD_N * sizeof(float) + 2u * RD_N * sizeof(uint16_t) +
         2u * PHYSICS_HISTORY_SIZE * sizeof(float);
     constexpr size_t SCRATCH_BYTES = std::max(
         {PHYSICS_SCRATCH_BYTES, RASTER_SCRATCH_BYTES, SLAB_SCRATCH_BYTES});
-    constexpr size_t SCRATCH_TENANTS = 8;
+    constexpr size_t SCRATCH_TENANTS = 10;
     Base::template configure_rd_arenas<uint16_t, 3, PERSISTENT_BYTES,
                                        PALETTE_BYTES, SCRATCH_BYTES,
                                        SCRATCH_TENANTS, true>();
