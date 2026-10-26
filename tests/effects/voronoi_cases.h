@@ -62,11 +62,6 @@ struct VoronoiWhiteBox {
     v.params.speed = speed;
   }
 
-  /** @brief Sets the spin rate slider without reseeding. */
-  template <int W, int H> static void set_speed(Voronoi<W, H> &v, float speed) {
-    v.params.speed = speed;
-  }
-
   /** @brief Forces both endpoint pairs to be searched on the next draw. */
   template <int W, int H> static void forget_corners(Voronoi<W, H> &v) {
     v.clear_corner_history();
