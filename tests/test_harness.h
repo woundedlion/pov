@@ -12,12 +12,22 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <iterator>
 #include <string_view>
 #include <type_traits>
 
 namespace hs_test {
+
+/** @brief Reports whether a skipped case must fail the run. */
+inline bool skips_are_errors() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  const char *lever = std::getenv("HS_SKIPS_ARE_ERRORS");
+#pragma clang diagnostic pop
+  return lever && std::atoi(lever) != 0;
+}
 
 /**
  * Project seed for the FNV-1a 64-bit fold; the spec offset basis

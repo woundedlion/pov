@@ -23,5 +23,8 @@ int main() {
       test_filter_pipeline_effects_match_recorded_frames();
   hs_test::effects_tests::test_voronoi_instantaneous_render_pins();
   hs_test::hyper_lattice_tests::test_instantaneous_render_pins();
-  return fixture.result();
+  return (fixture.result() != 0 ||
+          (hs_test::stats().skipped > 0 && hs_test::skips_are_errors()))
+             ? 1
+             : 0;
 }

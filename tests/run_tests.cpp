@@ -151,15 +151,6 @@ static bool runs_effects(int argc, char **argv) {
  */
 constexpr unsigned long CI_MIN_BUFFER_FREE_WATCHDOG_US = 30000000UL;
 
-/** @brief Reports whether a skipped case must fail the run. */
-static bool skips_are_errors() {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  const char *lever = std::getenv("HS_SKIPS_ARE_ERRORS");
-#pragma clang diagnostic pop
-  return lever && std::atoi(lever) != 0;
-}
-
 /**
  * @brief Verifies the environment carries the depth levers a CI run must set.
  * @param effects_invocation Whether this invocation runs an effects module.
@@ -351,7 +342,7 @@ int main(int argc, char **argv) {
   const int skipped = hs_test::stats().skipped;
   if (skipped > 0) {
     std::printf("=== suite: %d case(s) SKIPPED ===\n", skipped);
-    if (skips_are_errors()) {
+    if (hs_test::skips_are_errors()) {
       std::fprintf(stderr,
                    "run_tests: HS_SKIPS_ARE_ERRORS is on and %d case(s) "
                    "retired themselves — this leg is declared to assert every "
