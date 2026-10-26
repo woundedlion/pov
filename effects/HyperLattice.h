@@ -355,27 +355,50 @@ using SpecializedRenderPipeline =
                        Pullback::RayStage<Renderer<true, SHELL_COUNT>>>;
 /** @brief Resolution-independent parameter registration and ranges. */
 struct ParameterDescriptors {
-  static constexpr float SPHERE_RADIUS_MIN = 0.0f, SPHERE_RADIUS_MAX = 2.0f;
-  static constexpr float CELL_SIZE_MIN = 0.25f, CELL_SIZE_MAX = 10.0f;
-  static constexpr float WIRE_RADIUS_MIN = 0.015f, WIRE_RADIUS_MAX = 0.18f;
-  static constexpr float SOFTNESS_MIN = 0.002f, SOFTNESS_MAX = 0.08f;
-  static constexpr float NEAR_FADE_MIN = 0.01f, NEAR_FADE_MAX = 2.0f;
-  static constexpr float FAR_DISTANCE_MIN = 2.0f, FAR_DISTANCE_MAX = 16.0f;
-  static constexpr float AA_STRENGTH_MIN = 0.0f, AA_STRENGTH_MAX = 2.0f;
-  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 0.3f;
-  static constexpr float SPIN_3D_MIN = 0.0f, SPIN_3D_MAX = 0.015f;
-  static constexpr float SPIN_4D_MIN = 0.0f, SPIN_4D_MAX = 0.015f;
+  /// Ray-start distance minimum.
+  static constexpr float SPHERE_RADIUS_MIN = 0.0f,
+                         SPHERE_RADIUS_MAX = 2.0f; ///< Max ray-start distance.
+  /// Cell edge length minimum.
+  static constexpr float CELL_SIZE_MIN = 0.25f,
+                         CELL_SIZE_MAX = 10.0f; ///< Max cell edge length.
+  /// Wire radius/cell ratio minimum.
+  static constexpr float WIRE_RADIUS_MIN = 0.015f,
+                         WIRE_RADIUS_MAX = 0.18f; ///< Max radius/cell ratio.
+  /// Cubic wire softness minimum.
+  static constexpr float SOFTNESS_MIN = 0.002f,
+                         SOFTNESS_MAX = 0.08f; ///< Max wire softness.
+  /// Near fade-in span minimum.
+  static constexpr float NEAR_FADE_MIN = 0.01f,
+                         NEAR_FADE_MAX = 2.0f; ///< Max fade-in span.
+  /// Ray cutoff distance minimum.
+  static constexpr float FAR_DISTANCE_MIN = 2.0f,
+                         FAR_DISTANCE_MAX = 16.0f; ///< Max cutoff distance.
+  /// Anti-aliasing multiplier minimum.
+  static constexpr float AA_STRENGTH_MIN = 0.0f,
+                         AA_STRENGTH_MAX = 2.0f; ///< Max AA multiplier.
+  /// Camera drift per frame minimum.
+  static constexpr float SPEED_MIN = 0.0f,
+                         SPEED_MAX = 0.3f; ///< Max drift per frame.
+  /// 3D rate, radians/frame minimum.
+  static constexpr float SPIN_3D_MIN = 0.0f,
+                         SPIN_3D_MAX = 0.015f; ///< Max radians/frame.
+  /// 4D rate, radians/frame minimum.
+  static constexpr float SPIN_4D_MIN = 0.0f,
+                         SPIN_4D_MAX = 0.015f; ///< Max radians/frame.
 
+  /// Display labels in pattern descriptor option order.
   static constexpr const char *PATTERN_OPTIONS[] = {
       "Cubic",
       "Octet Truss",
       "Shells",
   };
+  /// Export expressions corresponding to `PATTERN_OPTIONS`.
   static constexpr const char *PATTERN_EXPORT_OPTIONS[] = {
       "Pattern::CUBIC_WIRE",
       "Pattern::OCTET",
       "Pattern::SHELLS",
   };
+  /// Persisted enum values corresponding to `PATTERN_OPTIONS`.
   static constexpr int64_t PATTERN_OPTION_VALUES[] = {
       static_cast<int64_t>(Pattern::CUBIC_WIRE),
       static_cast<int64_t>(Pattern::OCTET),
@@ -384,10 +407,14 @@ struct ParameterDescriptors {
   static_assert(std::size(PATTERN_OPTIONS) ==
                 std::size(PATTERN_EXPORT_OPTIONS));
   static_assert(std::size(PATTERN_OPTIONS) == std::size(PATTERN_OPTION_VALUES));
+  /// Display labels indexed by `LatticeMode`.
   static constexpr const char *VIEW_OPTIONS[] = {"3D perspective", "4D slice"};
+  /// Export expressions corresponding to `VIEW_OPTIONS`.
   static constexpr const char *VIEW_EXPORT_OPTIONS[] = {
       "LatticeMode::THREE_D", "LatticeMode::FOUR_D_SLICE"};
+  /// Display labels indexed by `ShellCount`.
   static constexpr const char *SHELL_OPTIONS[] = {"1", "2", "3"};
+  /// Export expressions corresponding to `SHELL_OPTIONS`.
   static constexpr const char *SHELL_EXPORT_OPTIONS[] = {
       "ShellCount::ONE", "ShellCount::TWO", "ShellCount::THREE"};
   static_assert(std::size(VIEW_OPTIONS) ==
