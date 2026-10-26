@@ -1023,12 +1023,16 @@ so a temporary cannot bind.
 `init_generated()` replaces the fixed entry array with a `NextPaletteFn`
 provider that fills palette *n* on demand, without a fixed entry-count limit;
 successive palettes must stay morph-compatible and every retarget is fail-fast
-checked. Arena cost is declared up front — `display_arena_bytes()`,
+checked. Its `display_interval_frames` sets the fade display-bake cadence
+(1–255 frames, at most the fade length), with fade weight sampled at each
+interval start; the clock and provider still advance every frame, and fade
+endpoints bake exactly. Composed effects use an interval of 2 frames.
+Arena cost is declared up front — `display_arena_bytes()`,
 `crossfade_arena_bytes()`, `morph_arena_bytes()`, and the
 `required_arena_bytes()` / `generated_arena_bytes()` worst cases — so an effect
 sizes its arena without probing. `advance_without_display()` keeps the timeline
 and the provider moving without rebuilding the LUT; a later `step()` rebuilds it
-at the current phase.
+at the current sampled phase.
 
 ## The Mesh System (`core/mesh/`)
 
