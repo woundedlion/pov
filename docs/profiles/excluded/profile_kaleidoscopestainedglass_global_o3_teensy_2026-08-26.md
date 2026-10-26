@@ -1,6 +1,6 @@
 # KaleidoscopeStainedGlass on-device profile — Teensy 4.0, segmented mode (2026-08-26, **-O3**)
 
-Global-O3 capture. Current [shipping report](profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md).
+Global-O3 capture. Archived [selective-O3 report](profile_kaleidoscopestainedglass_selective_o3_teensy_2026-10-06.md).
 Point-in-time snapshot (regenerate with `bash tools/profile_one.sh KaleidoscopeStainedGlass profile_o3 70 32`). Raw capture:
 `build/prof/kaleidoscopestainedglass_o3.log`, captured 2026-08-26 02:51 local. This is the first archived global-O3 report for this effect.
 
@@ -98,7 +98,7 @@ the global-O3 twin through the device lock.
 
 This comparison uses the retired 2026-08-26 adjacent-source shipping capture.
 The image size deltas include source changes as well as compiler settings.
-The current shipping report linked above is a later capture.
+The archived selective-O3 report linked above is a later capture.
 
 The paired shipping capture peaks at 47.91 ms versus
 46.99 ms here: global O3 lowers the peak by 0.93 ms (1.9%). O3-image minus shipping-image

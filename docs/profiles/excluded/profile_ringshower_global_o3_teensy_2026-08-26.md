@@ -110,7 +110,7 @@ the global-O3 twin through the device lock.
 ## Global -O3 vs selective -O3
 
 This comparison uses the retired 2026-08-26 same-source shipping capture.
-The current shipping report linked above is a later capture.
+The archived selective-O3 report linked above is a later capture.
 
 The paired shipping capture peaks at 3.98 ms versus
 3.86 ms here: global O3 lowers the peak by 0.13 ms (3.2%). O3-image minus shipping-image
