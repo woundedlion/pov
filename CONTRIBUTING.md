@@ -187,6 +187,7 @@ protected branch's `CI green` status is the authoritative correctness gate.
   fabrication suite (`python tools/run_python_tests.py --suite hardware/phantasm/gen/tests`)
   against pinned KiCad 10.0.4; locally it needs that KiCad install.
 - **Lint:** `just lint` checks `just --fmt --check`, working-tree whitespace,
+  reversible cp1252 mojibake in tracked UTF-8 text (`tools/encoding_check.py`),
   declared line endings, canonical first-party includes, Python selection and
   ruff, JavaScript selection and eslint, tracked shell files with shellcheck, the profiling roster, and
   actionlint last. CI applies the
