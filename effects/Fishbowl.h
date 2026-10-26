@@ -450,11 +450,6 @@ private:
     history_ready = true;
   }
 
-  /** @brief A chunk of trail vertices, as Plot::Mesh reads them. */
-  struct TrailMesh {
-    std::span<const math::Vector> vertices; /**< Frame-end positions. */
-  };
-
   /**
    * @brief Draws the trail at its columns' times.
    * @tparam Shade Callable `(float palette_t, float t) -> Color4`.
@@ -498,37 +493,30 @@ private:
       }
     }
 
-    auto *vertices =
-        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
-    auto *sources = scratch_arena_a.allocate_n<uint16_t>(COLUMN_CHUNK_VERTICES);
-    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
-    size_t count = 0;
-    int slot_head = -1, slot_tail = -1;
+    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, uint16_t> chunk(
+        scratch_arena_a);
 
     auto path = [&](size_t i, float t) HS_HOT_FLASH_MEMBER {
-      const math::Vector &from = starts[sources[i]].pos;
-      return t == 1.0f ? vertices[i] : (from + (vertices[i] - from) * t);
+      const math::Vector &from = starts[chunk.template attribute<0>(i)].pos;
+      const math::Vector &to = chunk.position(i);
+      return t == 1.0f ? to : (from + (to - from) * t);
     };
-    auto shader = [&](const math::Vector &, Fragment &f,
-                      float time) HS_HOT_FLASH_MEMBER {
-      const Plot::Mesh::Edge &edge = edges[static_cast<size_t>(f.v2)];
-      const float head = starts[sources[edge.u]].palette_t;
-      const float tail = starts[sources[edge.v]].palette_t;
-      f.color = shade(head + (tail - head) * f.v0, time);
+    auto coordinate = [&](size_t slot) HS_HOT_INLINE {
+      return starts[chunk.template attribute<0>(slot)].palette_t;
+    };
+    auto color = [&](size_t, float palette_t, float time)
+                     HS_HOT_INLINE { return shade(palette_t, time); };
+    auto store = [&](size_t slot, size_t source) HS_HOT_INLINE {
+      chunk.position(slot) = ends[source];
+      chunk.template attribute<0>(slot) = static_cast<uint16_t>(source);
     };
     Plot::GeometryCallback geometry;
     geometry.evaluate = path;
     geometry.source_positions = false;
     geometry.chained = true;
     auto flush = [&]() HS_HOT_INLINE {
-      if (count == 0)
-        return;
-      Plot::Mesh::draw_column_edges<W, H>(filters, canvas,
-                                          TrailMesh{{vertices, count}}, edges,
-                                          shader, geometry, bound);
-      count = 0;
-      slot_head = slot_tail = -1;
-      edges.clear();
+      chunk.template flush<W, H>(filters, canvas, coordinate, color, geometry,
+                                 bound);
     };
 
     for (size_t k = kept_count - 1; k > 0; --k) {
@@ -541,27 +529,14 @@ private:
           Plot::EdgeWorldsheet::normalize(starts[tail].pos)};
       const float head_t = starts[head].palette_t;
       const float tail_t = starts[tail].palette_t;
-      if (Plot::Mesh::plot_steady_edge<W, H>(
-              route, filters, canvas, start_pair, end_pair, STEADY_POINTS,
-              [&](float s, float time) HS_HOT_INLINE {
-                return shade(head_t + (tail_t - head_t) * s, time);
-              }))
-        continue;
-      if (count + 2 > COLUMN_CHUNK_VERTICES)
-        flush();
-      // Consecutive walked edges share their vertex.
-      if (slot_tail < 0 || sources[slot_tail] != head) {
-        slot_head = static_cast<int>(count++);
-        vertices[slot_head] = ends[head];
-        sources[slot_head] = static_cast<uint16_t>(head);
-      } else {
-        slot_head = slot_tail;
-      }
-      slot_tail = static_cast<int>(count++);
-      vertices[slot_tail] = ends[tail];
-      sources[slot_tail] = static_cast<uint16_t>(tail);
-      edges.push_back(
-          {static_cast<uint16_t>(slot_head), static_cast<uint16_t>(slot_tail)});
+      chunk.template plot_edge<W, H>(
+          route, filters, canvas,
+          {static_cast<uint16_t>(head), static_cast<uint16_t>(tail)},
+          start_pair, end_pair, STEADY_POINTS,
+          [&](float s, float time) HS_HOT_INLINE {
+            return shade(head_t + (tail_t - head_t) * s, time);
+          },
+          store, flush);
     }
     flush();
   }

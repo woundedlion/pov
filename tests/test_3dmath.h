@@ -1138,6 +1138,21 @@ inline void test_rotation_matrix_matches_rotate() {
 // slerp
 // ============================================================================
 
+/** @brief Verifies relative rotations map between world orientations. */
+inline void test_rotation_between_orientations() {
+  const math::RotationMatrix from(
+      math::make_rotation(math::Vector(1, 2, 3).normalized(), 0.7f));
+  const math::RotationMatrix to(
+      math::make_rotation(math::Vector(-2, 1, 0.5f).normalized(), -1.2f));
+  const auto transition = math::rotation_between(from, to);
+  for (const math::Vector value :
+       {math::X_AXIS, math::Y_AXIS, math::Z_AXIS, math::Vector(2, -3, 0.5f)}) {
+    HS_EXPECT_VEC(transition.apply(from.apply(value)), to.apply(value), 3e-6f);
+    HS_EXPECT_VEC(math::rotation_between(to, from).apply(to.apply(value)),
+                  from.apply(value), 3e-6f);
+  }
+}
+
 /**
  * @brief Verifies Vector slerp: endpoints, the unit-sphere midpoint, the
  *        near-identical lerp fallback, and the antipodal degenerate case.
@@ -2164,6 +2179,7 @@ inline int run_3dmath_tests() {
   HS_RUN(test_quaternion_from_basis);
   HS_RUN(test_rotate);
   HS_RUN(test_rotation_matrix_matches_rotate);
+  HS_RUN(test_rotation_between_orientations);
 
   HS_RUN(test_vector_slerp);
   HS_RUN(test_vector_nlerp_unit);

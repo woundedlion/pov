@@ -5,6 +5,7 @@
 #pragma once
 #include <algorithm>
 #include <cstdint>
+#include <tuple>
 #include "core/math/geometry.h"
 #include "core/render/shading.h"
 #include "core/render/clip.h"
@@ -691,6 +692,136 @@ struct Mesh {
         erased, canvas, points, TimedShaderFn(timed_shader), batch, poses,
         callback_bound + raster_sweep, geometry.source_positions, raster_sweep);
   }
+
+  /**
+   * @brief Arena-backed column-walk chunks of chained edges.
+   * @tparam Capacity Vertex capacity, at least two.
+   * @tparam Attributes Per-vertex attribute types, stored in separate arrays.
+   * @details The arena storage outlives the chunk and its draw calls.
+   */
+  template <size_t Capacity, typename... Attributes> class ColumnChunk {
+    static_assert(Capacity >= 2 && Capacity <= UINT16_MAX);
+    struct View {
+      std::span<const math::Vector> vertices;
+    };
+    math::Vector *positions;
+    std::tuple<Attributes *...> attributes;
+    ArenaVector<Edge> edges;
+    size_t count = 0;
+    int tail_source = -1;
+    uint16_t tail_slot = 0;
+
+    template <typename Store, typename Flush>
+    HS_HOT_INLINE void append(Edge source, const Store &store,
+                              const Flush &flush) {
+      if (count + 2 > Capacity)
+        flush();
+      uint16_t head;
+      if (tail_source == source.u) {
+        head = tail_slot;
+      } else {
+        head = static_cast<uint16_t>(count++);
+        store(head, source.u);
+      }
+      tail_slot = static_cast<uint16_t>(count++);
+      store(tail_slot, source.v);
+      tail_source = source.v;
+      edges.push_back({head, tail_slot});
+    }
+
+  public:
+    /** @brief Allocates the chunk's positions, attributes and edges.
+     * @param arena Storage reclaimed by the caller's scratch scope. */
+    explicit ColumnChunk(Arena &arena)
+        : positions(arena.allocate_n<math::Vector>(Capacity)),
+          attributes{arena.allocate_n<Attributes>(Capacity)...},
+          edges(arena, Capacity) {}
+
+    /** @brief Accesses a vertex position.
+     * @param slot Chunk vertex slot.
+     * @return Mutable position. */
+    math::Vector &position(size_t slot) { return positions[slot]; }
+
+    /** @brief Accesses one vertex attribute.
+     * @tparam I Attribute index.
+     * @param slot Chunk vertex slot.
+     * @return Mutable attribute. */
+    template <size_t I> auto &attribute(size_t slot) {
+      return std::get<I>(attributes)[slot];
+    }
+
+    /** @brief Starts a separate chain, flushing when its vertices do not fit.
+     * @tparam Flush Callable that draws and empties this chunk.
+     * @param vertices Maximum additional vertices; zero allows edgewise flushes.
+     * @param flush Chunk draw operation. */
+    template <typename Flush>
+    HS_HOT_INLINE void begin_chain(size_t vertices, const Flush &flush) {
+      assert(vertices <= Capacity);
+      if (count + vertices > Capacity)
+        flush();
+      tail_source = -1;
+    }
+
+    /** @brief Plots a short steady edge or appends its shared column-walk slots.
+     * @tparam W,H Canvas dimensions.
+     * @tparam Sink Point-route pipeline type.
+     * @tparam Shade Callable `(float s, float time) -> Color4`.
+     * @tparam Store Callable `(size_t slot, size_t source)` filling vertex data.
+     * @tparam Flush Callable that draws and empties this chunk.
+     * @param route Prepared point route.
+     * @param sink Point-route pipeline.
+     * @param canvas Destination canvas.
+     * @param source Edge indices in the caller's current chain.
+     * @param starts,ends Unit world endpoints at frame start and end.
+     * @param most Largest steady lattice plotted through the point route.
+     * @param shade Edge sample color.
+     * @param store Vertex data writer.
+     * @param flush Chunk draw operation.
+     * @param end_to_start Known rigid rotation from frame end to start. */
+    template <int W, int H, typename Sink, typename Shade, typename Store,
+              typename Flush>
+    HS_HOT_INLINE void
+    plot_edge(const PointRoute<W, H> &route, Sink &sink, Canvas &canvas,
+              Edge source, const math::Vector (&starts)[2],
+              const math::Vector (&ends)[2], int most, const Shade &shade,
+              const Store &store, const Flush &flush,
+              const math::RotationMatrix *end_to_start = nullptr) {
+      if (!plot_steady_edge<W, H>(route, sink, canvas, starts, ends, most,
+                                  shade, end_to_start))
+        append(source, store, flush);
+    }
+
+    /** @brief Shades and draws the accumulated column edges, then empties them.
+     * @tparam W,H Canvas dimensions.
+     * @tparam PipelineT Column-walk pipeline type.
+     * @tparam Coordinate Callable `(size_t slot) -> float`.
+     * @tparam Shade Callable `(size_t head, float coordinate, float time) -> Color4`.
+     * @param pipeline Column-walk pipeline.
+     * @param canvas Destination canvas.
+     * @param coordinate Vertex palette coordinate.
+     * @param shade Interpolated edge sample color.
+     * @param geometry Vertex motion callback and chain flags.
+     * @param bound Callback motion bound in radians. */
+    template <int W, int H, typename PipelineT, typename Coordinate,
+              typename Shade>
+    HS_HOT_INLINE void flush(PipelineT &pipeline, Canvas &canvas,
+                             const Coordinate &coordinate, const Shade &shade,
+                             const GeometryCallback &geometry, float bound) {
+      if (count == 0)
+        return;
+      auto shader = [this, coordinate, shade](const math::Vector &, Fragment &f,
+                                              float time) HS_HOT_FLASH_MEMBER {
+        const Edge &edge = edges[static_cast<size_t>(f.v2)];
+        const float head = coordinate(edge.u), tail = coordinate(edge.v);
+        f.color = shade(edge.u, head + (tail - head) * f.v0, time);
+      };
+      draw_column_edges<W, H>(pipeline, canvas, View{{positions, count}}, edges,
+                              shader, geometry, bound);
+      count = 0;
+      tail_source = -1;
+      edges.clear();
+    }
+  };
 
   /** @brief Draws a wireframe through the column walk unless its swept
    *         bound misses the clip.

@@ -1129,6 +1129,21 @@ struct RotationMatrix {
 };
 
 /**
+ * @brief Maps vectors from one world orientation into another.
+ * @param from Orientation the input vectors have already passed through.
+ * @param to Destination orientation.
+ * @return `to` times the transpose of `from`.
+ */
+inline RotationMatrix rotation_between(const RotationMatrix &from,
+                                       const RotationMatrix &to) {
+  RotationMatrix result;
+  result.r0 = {dot(to.r0, from.r0), dot(to.r0, from.r1), dot(to.r0, from.r2)};
+  result.r1 = {dot(to.r1, from.r0), dot(to.r1, from.r1), dot(to.r1, from.r2)};
+  result.r2 = {dot(to.r2, from.r0), dot(to.r2, from.r1), dot(to.r2, from.r2)};
+  return result;
+}
+
+/**
  * @brief Calculates the Euclidean distance between two vectors.
  * @param a First vector.
  * @param b Second vector.

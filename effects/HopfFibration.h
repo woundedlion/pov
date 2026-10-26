@@ -371,8 +371,7 @@ private:
   static_assert(COLUMN_CHUNK_VERTICES *
                             (sizeof(math::Vector) + sizeof(float) +
                              sizeof(uint8_t) + sizeof(Plot::Mesh::Edge)) +
-                        (TRAIL_LEN + 1) *
-                            (3 * sizeof(math::Vector) + sizeof(int)) +
+                        (TRAIL_LEN + 1) * (3 * sizeof(math::Vector)) +
                         8 * alignof(math::Vector) +
                         Plot::Mesh::column_scratch_a_bytes() <=
                     DEFAULT_SCRATCH_A_SIZE,
@@ -380,11 +379,6 @@ private:
   static_assert(Plot::Mesh::column_scratch_b_bytes(COLUMN_CHUNK_VERTICES) <=
                     DEFAULT_SCRATCH_B_SIZE,
                 "HopfFibration node paths exceed scratch_b");
-
-  /** @brief A chunk of trail nodes, as Plot::Mesh reads them. */
-  struct NodeMesh {
-    std::span<const math::Vector> vertices; /**< Unoriented trail nodes. */
-  };
 
   /**
    * @brief Trail color at a progress and frame fraction.
@@ -434,50 +428,30 @@ private:
     const Spacetime::PoseTable &poses = *timed_pipeline.pose_table(canvas);
     const math::RotationMatrix start_pose = poses.at(0);
     const math::RotationMatrix end_pose = poses.at(poses.times());
-    math::RotationMatrix end_to_start;
-    end_to_start.r0 = {math::dot(start_pose.r0, end_pose.r0),
-                       math::dot(start_pose.r0, end_pose.r1),
-                       math::dot(start_pose.r0, end_pose.r2)};
-    end_to_start.r1 = {math::dot(start_pose.r1, end_pose.r0),
-                       math::dot(start_pose.r1, end_pose.r1),
-                       math::dot(start_pose.r1, end_pose.r2)};
-    end_to_start.r2 = {math::dot(start_pose.r2, end_pose.r0),
-                       math::dot(start_pose.r2, end_pose.r1),
-                       math::dot(start_pose.r2, end_pose.r2)};
+    const math::RotationMatrix end_to_start =
+        math::rotation_between(end_pose, start_pose);
     Plot::PointRoute<W, H> route;
     route.prepare(canvas, spin + 2.0f * math::PI_F / W);
 
     ScratchScope chunk_scope(scratch_arena_a);
-    auto *vertices =
-        scratch_arena_a.allocate_n<math::Vector>(COLUMN_CHUNK_VERTICES);
-    auto *progress = scratch_arena_a.allocate_n<float>(COLUMN_CHUNK_VERTICES);
-    auto *lengths = scratch_arena_a.allocate_n<uint8_t>(COLUMN_CHUNK_VERTICES);
-    ArenaVector<Plot::Mesh::Edge> edges(scratch_arena_a, COLUMN_CHUNK_VERTICES);
+    Plot::Mesh::ColumnChunk<COLUMN_CHUNK_VERTICES, float, uint8_t> chunk(
+        scratch_arena_a);
     constexpr int TRAIL_POINTS = TRAIL_LEN + 1;
     auto *sources = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *starts = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
     auto *world = scratch_arena_a.allocate_n<math::Vector>(TRAIL_POINTS);
-    auto *slots = scratch_arena_a.allocate_n<int>(TRAIL_POINTS);
-    size_t count = 0;
-
-    auto shader = [&](const math::Vector &, Fragment &f,
-                      float time) HS_HOT_FLASH_MEMBER {
-      const Plot::Mesh::Edge &edge = edges[static_cast<size_t>(f.v2)];
-      f.color = trail_color(progress[edge.u] +
-                                (progress[edge.v] - progress[edge.u]) * f.v0,
-                            time, lengths[edge.u]);
+    auto coordinate = [&](size_t slot) HS_HOT_INLINE {
+      return chunk.template attribute<0>(slot);
+    };
+    auto color = [&](size_t head, float progress, float time) HS_HOT_INLINE {
+      return trail_color(progress, time, chunk.template attribute<1>(head));
     };
     Plot::GeometryCallback geometry;
     geometry.source_positions = false;
     geometry.chained = true;
     auto flush = [&]() HS_HOT_INLINE {
-      if (count == 0)
-        return;
-      Plot::Mesh::draw_column_edges<W, H>(timed_pipeline, canvas,
-                                          NodeMesh{{vertices, count}}, edges,
-                                          shader, geometry, 0.0f);
-      count = 0;
-      edges.clear();
+      chunk.template flush<W, H>(timed_pipeline, canvas, coordinate, color,
+                                 geometry, 0.0f);
     };
 
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
@@ -510,32 +484,27 @@ private:
       for (int j = 0; j < points; ++j) {
         starts[j] =
             Plot::EdgeWorldsheet::normalize(start_pose.apply(sources[j]));
-        slots[j] = -1;
       }
-      if (count + static_cast<size_t>(points) > COLUMN_CHUNK_VERTICES)
-        flush();
+      chunk.begin_chain(static_cast<size_t>(points), flush);
+      auto store = [&](size_t slot, size_t source) HS_HOT_INLINE {
+        chunk.position(slot) = sources[source];
+        chunk.template attribute<0>(slot) =
+            node_progress(static_cast<int>(source));
+        chunk.template attribute<1>(slot) = static_cast<uint8_t>(len);
+      };
       for (int j = points - 1; j > 0; --j) {
         const math::Vector pair[2] = {world[j], world[j - 1]};
         if (cull.rejects(pair, 2, spin))
           continue;
         const float head = node_progress(j), tail = node_progress(j - 1);
-        if (Plot::Mesh::plot_steady_edge<W, H>(
-                route, trail_pipeline, canvas, {starts[j], starts[j - 1]},
-                {world[j], world[j - 1]}, STEADY_POINTS,
-                [&](float s, float time) HS_HOT_INLINE {
-                  return trail_color(head + (tail - head) * s, time, len);
-                },
-                &end_to_start))
-          continue;
-        for (const int k : {j, j - 1})
-          if (slots[k] < 0) {
-            slots[k] = static_cast<int>(count++);
-            vertices[slots[k]] = sources[k];
-            progress[slots[k]] = node_progress(k);
-            lengths[slots[k]] = static_cast<uint8_t>(len);
-          }
-        edges.push_back({static_cast<uint16_t>(slots[j]),
-                         static_cast<uint16_t>(slots[j - 1])});
+        chunk.template plot_edge<W, H>(
+            route, trail_pipeline, canvas,
+            {static_cast<uint16_t>(j), static_cast<uint16_t>(j - 1)},
+            {starts[j], starts[j - 1]}, {world[j], world[j - 1]}, STEADY_POINTS,
+            [&](float s, float time) HS_HOT_INLINE {
+              return trail_color(head + (tail - head) * s, time, len);
+            },
+            store, flush, &end_to_start);
       }
     }
     flush();
