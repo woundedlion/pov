@@ -56,6 +56,46 @@ inline std::vector<Pixel> render_column_basis(const BasisMotion &motion,
 }
 
 /**
+ * @brief Renders a draw into a fresh stub frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
+ * @return Displayed frame.
+ */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
+  hs_test::StubEffect fx(W, H);
+  Pipeline<W, H> pipeline;
+  {
+    Canvas canvas(fx);
+    draw(pipeline, canvas);
+  }
+  fx.advance_display();
+  std::vector<Pixel> out;
+  capture_frame<W, H>(fx, out);
+  return out;
+}
+
+/**
+ * @brief Renders each column pair from a fixed-meridian draw of the state at
+ *        the pair's sweep time.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @param draw Callable `(Pipeline<W, H> &, Canvas &, float u)`.
+ * @return Frame whose columns x and x + W / 2 come from @p draw at
+ *         `u = (x % (W / 2)) / (W / 2)`.
+ */
+template <int W, int H, typename DrawFn>
+inline std::vector<Pixel> render_state_oracle(DrawFn &&draw) {
+  return column_time_oracle<W, H>([&](float u) {
+    return render_stub_frame<W, H>(
+        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
+          draw(pipeline, canvas, u);
+        });
+  });
+}
+
+/**
  * @brief Renders each column from the shapes rebuilt at its sweep time.
  * @tparam W Canvas width.
  * @tparam H Canvas height.
@@ -67,25 +107,11 @@ inline std::vector<Pixel> render_column_basis(const BasisMotion &motion,
 template <int W, int H, typename DrawFn>
 inline std::vector<Pixel> render_column_oracle(const BasisMotion &motion,
                                                DrawFn &&draw) {
-  std::vector<Pixel> out(static_cast<size_t>(W) * H);
-  std::vector<Pixel> frame;
-  for (int column = 0; column < W / 2; ++column) {
-    const float time = static_cast<float>(column) / (W / 2);
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      draw(pipeline, canvas,
-           math::slerp(motion.previous, motion.current, time).normalized());
-    }
-    fx.advance_display();
-    capture_frame<W, H>(fx, frame);
-    for (int y = 0; y < H; ++y)
-      for (int x : {column, column + W / 2})
-        out[static_cast<size_t>(y) * W + x] =
-            frame[static_cast<size_t>(y) * W + x];
-  }
-  return out;
+  return render_state_oracle<W, H>(
+      [&](auto &pipeline, Canvas &canvas, float u) {
+        draw(pipeline, canvas,
+             math::slerp(motion.previous, motion.current, u).normalized());
+      });
 }
 
 /** @brief Channel ceiling of a faint fringe pixel. */
@@ -835,18 +861,6 @@ inline void test_volume_columns_match_rotated_placements() {
   const auto shade = [](const math::Vector &, Fragment &f) {
     f.color = Color4(Pixel(41000, 23000, 7000), 1.0f);
   };
-  const auto render = [&](auto &&draw) {
-    hs_test::StubEffect fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      draw(pipeline, canvas);
-    }
-    fx.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(fx, out);
-    return out;
-  };
   const auto place = [&](float u) {
     const math::Quaternion q =
         math::slerp(camera.previous, camera.current, u).normalized();
@@ -859,26 +873,20 @@ inline void test_volume_columns_match_rotated_placements() {
     columns->set(c, centre, q);
   }
   const auto [centre, q] = place(1.0f);
-  const std::vector<Pixel> swept = render([&](auto &pipeline, Canvas &canvas) {
-    Scan::TransformedVolume volume(torus, centre, q);
-    Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume, shade,
-                             24, 0.02f, columns.get());
-  });
+  const std::vector<Pixel> swept =
+      render_stub_frame<W, H>([&](auto &pipeline, Canvas &canvas) {
+        Scan::TransformedVolume volume(torus, centre, q);
+        Scan::Volume::draw<W, H>(pipeline, canvas, centre, BOUNDS, volume,
+                                 shade, 24, 0.02f, columns.get());
+      });
 
-  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
-  for (int c = 0; c < W / 2; ++c) {
-    const auto [at, rotation] = place(Spacetime::SamplingSurface<W>::time(c));
-    const std::vector<Pixel> frame =
-        render([&](auto &pipeline, Canvas &canvas) {
-          Scan::TransformedVolume volume(torus, at, rotation);
-          Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
-                                   24, 0.02f);
-        });
-    for (int y = 0; y < H; ++y)
-      for (int x : {c, c + W / 2})
-        expected[static_cast<size_t>(y) * W + x] =
-            frame[static_cast<size_t>(y) * W + x];
-  }
+  const auto expected =
+      render_state_oracle<W, H>([&](auto &pipeline, Canvas &canvas, float u) {
+        const auto [at, rotation] = place(u);
+        Scan::TransformedVolume volume(torus, at, rotation);
+        Scan::Volume::draw<W, H>(pipeline, canvas, at, BOUNDS, volume, shade,
+                                 24, 0.02f);
+      });
   HS_EXPECT_TRUE(expect_factored_tolerance("volume", swept, expected) > 30);
 }
 
@@ -930,10 +938,8 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
     return out;
   };
   const std::vector<Pixel> swept = draw(current, previous);
-  std::vector<Pixel> expected(static_cast<size_t>(W) * H);
   int arcs = 0;
-  for (int c = 0; c < W / 2; ++c) {
-    const float u = static_cast<float>(c) / (W / 2);
+  const auto expected = column_time_oracle<W, H>([&](float u) {
     math::Vector axes[N];
     for (int s = 0; s < N; ++s) {
       const math::Vector normal = math::cross(previous[s], current[s]);
@@ -943,18 +949,14 @@ inline void check_ring_group_previous_axes(std::initializer_list<float> turns) {
                            angle, Scan::RingGroup::MAX_AXIS_ERROR_PX *
                                       math::RADIANS_PER_COLUMN<W>) ==
                        Spacetime::Interpolant::ARC;
-      arcs += arc && c == 0;
+      arcs += arc && u == 0.0f;
       axes[s] =
           arc ? math::rotate(previous[s], math::make_rotation(
                                               normal.normalized(), u * angle))
               : (previous[s] + (current[s] - previous[s]) * u).normalized();
     }
-    const std::vector<Pixel> frame = draw(axes, nullptr);
-    for (int y = 0; y < H; ++y)
-      for (int x : {c, c + W / 2})
-        expected[static_cast<size_t>(y) * W + x] =
-            frame[static_cast<size_t>(y) * W + x];
-  }
+    return draw(axes, nullptr);
+  });
   HS_EXPECT_TRUE(expect_factored_tolerance("previous axes", swept, expected) >
                  100);
   HS_EXPECT_GT(arcs, 0);
@@ -1299,46 +1301,6 @@ inline void test_cap_may_touch_window_covers_window_pixels() {
 // ============================================================================
 // Column-time state: shaders, drift and forced tables at each column's time
 // ============================================================================
-
-/**
- * @brief Renders a draw into a fresh stub frame.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param draw Callable `(Pipeline<W, H> &, Canvas &)`.
- * @return Displayed frame.
- */
-template <int W, int H, typename DrawFn>
-inline std::vector<Pixel> render_stub_frame(DrawFn &&draw) {
-  hs_test::StubEffect fx(W, H);
-  Pipeline<W, H> pipeline;
-  {
-    Canvas canvas(fx);
-    draw(pipeline, canvas);
-  }
-  fx.advance_display();
-  std::vector<Pixel> out;
-  capture_frame<W, H>(fx, out);
-  return out;
-}
-
-/**
- * @brief Renders each column pair from a fixed-meridian draw of the state at
- *        the pair's sweep time.
- * @tparam W Canvas width.
- * @tparam H Canvas height.
- * @param draw Callable `(Pipeline<W, H> &, Canvas &, float u)`.
- * @return Frame whose columns x and x + W / 2 come from @p draw at
- *         `u = (x % (W / 2)) / (W / 2)`.
- */
-template <int W, int H, typename DrawFn>
-inline std::vector<Pixel> render_state_oracle(DrawFn &&draw) {
-  return column_time_oracle<W, H>([&](float u) {
-    return render_stub_frame<W, H>(
-        [&](Pipeline<W, H> &pipeline, Canvas &canvas) {
-          draw(pipeline, canvas, u);
-        });
-  });
-}
 
 /**
  * @brief Colour of the oracle shaders at a frame fraction.
