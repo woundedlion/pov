@@ -1540,6 +1540,8 @@ inline void test_mobius_params_accessors() {
   math::MobiusParams q(math::Complex(1, 2), math::Complex(3, 4),
                        math::Complex(5, 6), math::Complex(7, 8));
   HS_EXPECT_COMPLEX(q.a, math::Complex(1, 2), 0.0f);
+  HS_EXPECT_COMPLEX(q.b, math::Complex(3, 4), 0.0f);
+  HS_EXPECT_COMPLEX(q.c, math::Complex(5, 6), 0.0f);
   HS_EXPECT_COMPLEX(q.d, math::Complex(7, 8), 0.0f);
 
   // Identity Mobius default: a=d=1, b=c=0.
