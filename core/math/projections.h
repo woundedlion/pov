@@ -42,6 +42,7 @@
 #include <iterator>
 #include <type_traits>
 
+#include "core/math/periodic.h"
 #include "core/math/stereographic.h"
 
 namespace projections {
@@ -364,19 +365,14 @@ peirce_projection(const math::Vector &v, float central_meridian,
       x = SHIFT - x;
     x -= K;
     x += scroll * 2.0f * SHIFT;
-    x = fmodf(x + SHIFT, 2.0f * SHIFT);
-    if (x < 0.0f)
-      x += 2.0f * SHIFT;
-    x -= SHIFT;
+    x = math::wrap_positive(x + SHIFT, 2.0f * SHIFT) - SHIFT;
   } else if (layout == PeirceLayout::VERTICAL) {
     if (v.y < 0.0f)
       projected_y = SHIFT - projected_y;
     projected_y -= K;
     projected_y += scroll * 2.0f * SHIFT;
-    projected_y = fmodf(projected_y + SHIFT, 2.0f * SHIFT);
-    if (projected_y < 0.0f)
-      projected_y += 2.0f * SHIFT;
-    projected_y -= SHIFT;
+    projected_y =
+        math::wrap_positive(projected_y + SHIFT, 2.0f * SHIFT) - SHIFT;
   }
   const float rotated_x = cp * cl;
   const float rotated_z = cp * sl;
