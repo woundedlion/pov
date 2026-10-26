@@ -748,8 +748,8 @@ private:
     plan.during = arena.allocate_n<MotionRipple>(ripple_gen.active_count() + 1);
     ScratchScope radii_scope(arena);
     float *radii = arena.allocate_n<float>(mesh.num_faces());
-    if (Scan::detail::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
-                                           plan.columns, radii) == 0)
+    if (Scan::pick_moving_faces<W>(canvas, mesh, plan.moving, bound,
+                                   plan.columns, radii) == 0)
       return plan;
     ripples_at(plan.during);
     for (int k = 0; k < ripple_gen.active_count(); ++k)
@@ -790,8 +790,8 @@ private:
       return plan;
     plan.active = Scan::mesh_motion_active<W>(arc);
     if (plan.active)
-      Scan::detail::moving_face_columns<W>(
-          canvas, mesh, arc + math::TWO_PI_F / W, plan.columns, radii);
+      Scan::moving_face_columns<W>(canvas, mesh, arc + math::TWO_PI_F / W,
+                                   plan.columns, radii);
     return plan;
   }
 

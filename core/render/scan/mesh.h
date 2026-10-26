@@ -1237,7 +1237,7 @@ HS_FLASH_MEMBER void flag_moving_vertices(const math::Vector *previous,
  * @param previous Vertices at the previous endpoint.
  * @param current The same vertices at the current endpoint.
  * @param count Number of vertices.
- * @param moving Nonzero for the vertices to flag, as detail::pick_moving_faces()
+ * @param moving Nonzero for the vertices to flag, as pick_moving_faces()
  *        leaves them; each receives vertex_flags() of its arc when it moves
  *        more than HELD_VERTEX_ARC, 0 otherwise.
  */
@@ -1365,7 +1365,6 @@ struct ClipRows {
   }
 };
 
-namespace detail {
 /**
  * @brief Recomputes the seeing columns of a deformation scan's moving faces.
  * @tparam W Canvas width in pixels.
@@ -1377,8 +1376,12 @@ namespace detail {
  *        that holds; the others receive the columns that can see the face,
  *        as detail::face_lit_columns() gives them, or HELD_FACE_COLUMN and 0 when no
  *        placement of the face reaches a row the render clip admits.
- * @param radii Per-face cap radii detail::pick_moving_faces() recorded from the same
+ * @param radii Per-face cap radii pick_moving_faces() recorded from the same
  *        vertices, or null to measure the caps.
+ * @details Call after pick_moving_faces(), optionally after flag_vertex_reaches()
+ * and drop_held_faces(), when tightening the motion reach. Mesh vertices and
+ * topology must match the selection. Tables remain caller-owned and are borrowed
+ * only for this call; arena-backed tables must outlive it.
  */
 template <int W>
 HS_FLASH_MEMBER void
@@ -1415,9 +1418,7 @@ moving_face_columns(const Canvas &canvas, const MeshState &mesh, float reach,
     cap_lit_columns<W>(axis, radius, sweep + reach, face);
   }
 }
-} // namespace detail
 
-namespace detail {
 /**
  * @brief Picks the faces whose vertices move during a scan.
  * @tparam W Canvas width in pixels.
@@ -1431,11 +1432,16 @@ namespace detail {
  *        picked face, as detail::face_lit_columns() gives them, or HELD_FACE_COLUMN
  *        and 0 for the others.
  * @param radii When not null, receives the cap radius of each face holding a
- *        moving vertex that can reach a clip row, for detail::moving_face_columns().
+ *        moving vertex that can reach a clip row, for moving_face_columns().
  * @return The number of picked faces.
  * @details A face is picked when it holds a moving vertex and a column and a
  * row the render clip admits can see it; the others draw once at the current
- * endpoint.
+ * endpoint. Call before flag_vertex_reaches() and drop_held_faces(); optionally
+ * tighten the reach with moving_face_columns() before deform_mesh(). The caller
+ * owns the moving-vertex flags, column pairs and optional radii; the function
+ * borrows them only for this call. Keep flags and columns alive through
+ * deform_mesh(), and radii through moving_face_columns(), including their arena
+ * scopes. The mesh and installed column-time state must describe the same draw.
  */
 template <int W>
 HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
@@ -1491,13 +1497,12 @@ HS_FLASH_MEMBER size_t pick_moving_faces(const Canvas &canvas,
   }
   return picked;
 }
-} // namespace detail
 
 /**
  * @brief Returns to holding the picked faces none of whose vertices moves.
  * @param mesh The scanned mesh.
  * @param moving Nonzero per vertex that moves.
- * @param columns The faces' seeing columns, as detail::pick_moving_faces() gives them;
+ * @param columns The faces' seeing columns, as pick_moving_faces() gives them;
  *        a dropped face's become HELD_FACE_COLUMN and 0.
  * @return The number of faces still picked.
  */

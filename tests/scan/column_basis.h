@@ -2185,9 +2185,9 @@ inline void test_mesh_seam_face_copies() {
           for (size_t i = 0; i < 3; ++i)
             starts[i] = Scan::vertex_column(position(i, 0),
                                             *canvas.column_basis(), 0.0f, W);
-          HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, moving,
-                                                          0.03f, columns),
-                       size_t(1));
+          HS_EXPECT_EQ(
+              Scan::pick_moving_faces<W>(canvas, mesh, moving, 0.03f, columns),
+              size_t(1));
           Scan::deform_mesh<W, H>(
               canvas, mesh, true, columns, moving, starts, scratch_arena_b,
               0.02f,
@@ -2318,9 +2318,9 @@ inline void check_deformed_shared_edges(float rotation) {
     for (size_t i = 0; i < 5; ++i)
       starts[i] =
           Scan::vertex_column(vertex(i, 0), *canvas.column_basis(), 0.0f, W);
-    HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, picked.data(),
-                                                    .13f, columns),
-                 size_t(2));
+    HS_EXPECT_EQ(
+        Scan::pick_moving_faces<W>(canvas, mesh, picked.data(), .13f, columns),
+        size_t(2));
     Scan::deform_mesh<W, H>(
         canvas, mesh, true, columns, moving, starts, scratch_arena_b, .12f,
         vertex, [&] {
@@ -2407,13 +2407,13 @@ inline void test_recorded_face_caps_match_measured_columns() {
     uint8_t moving[5] = {1, 1, 1, 1, 1};
     uint16_t recorded[6]{}, measured[6]{}, picked[6]{};
     float radii[3]{};
-    HS_EXPECT_EQ(Scan::detail::pick_moving_faces<W>(canvas, mesh, moving, .13f,
-                                                    picked, radii),
-                 size_t(3));
+    HS_EXPECT_EQ(
+        Scan::pick_moving_faces<W>(canvas, mesh, moving, .13f, picked, radii),
+        size_t(3));
     std::copy_n(picked, 6, recorded);
     std::copy_n(picked, 6, measured);
-    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, recorded, radii);
-    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, measured);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, recorded, radii);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, measured);
     for (int k = 0; k < 6; ++k)
       HS_EXPECT_EQ(recorded[k], measured[k]);
     for (int f = 0; f < 3; ++f) {
@@ -2453,8 +2453,8 @@ inline void test_moving_faces_outside_clip_rows_hold() {
         basis->prepare(math::Quaternion(), math::Quaternion(), true);
     Scan::ColumnBasisScope column_scope(canvas, time);
     const size_t picked =
-        Scan::detail::pick_moving_faces<W>(canvas, mesh, moving, .02f, columns);
-    Scan::detail::moving_face_columns<W>(canvas, mesh, .02f, columns);
+        Scan::pick_moving_faces<W>(canvas, mesh, moving, .02f, columns);
+    Scan::moving_face_columns<W>(canvas, mesh, .02f, columns);
     return picked;
   };
   uint8_t moving[9];
@@ -2564,8 +2564,8 @@ inline void check_polar_face_sweep(size_t points, float notch, bool north,
     for (size_t i = 0; i < count; ++i)
       starts[i] =
           Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
-    Scan::detail::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                                       columns.data());
+    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                               columns.data());
     for (size_t i = 0; i < count; ++i)
       if (moving[i])
         moving[i] = Scan::vertex_flags(reach);
@@ -2681,8 +2681,8 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
     for (size_t i = 0; i < count; ++i)
       starts[i] =
           Scan::vertex_column(position(i, 0), *canvas.column_basis(), 0.0f, W);
-    Scan::detail::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
-                                       columns.data());
+    Scan::pick_moving_faces<W>(canvas, mesh, moving.data(), reach,
+                               columns.data());
     for (size_t i = 0; i < count; ++i)
       if (moving[i])
         moving[i] = Scan::vertex_flags(reach);

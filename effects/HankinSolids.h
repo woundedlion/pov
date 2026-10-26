@@ -428,9 +428,8 @@ private:
         Scan::flag_moving_vertices<W>(previous, mesh.vertices.data(), count,
                                       moving);
         columns = scratch_arena_b.allocate_n<uint16_t>(2 * mesh.num_faces());
-        if (Scan::detail::pick_moving_faces<W>(canvas, rotated_mesh, moving,
-                                               arc + math::TWO_PI_F / W,
-                                               columns) == 0)
+        if (Scan::pick_moving_faces<W>(canvas, rotated_mesh, moving,
+                                       arc + math::TWO_PI_F / W, columns) == 0)
           active = false;
       }
       if (active) {
