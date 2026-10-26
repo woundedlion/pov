@@ -2,7 +2,7 @@
 
 Point-in-time snapshot; reproduce with the command below.
 Raw capture: `build/prof/mermaidskin_ship.log`, captured 2026-10-23 14:20 America/Los_Angeles on COM4.
-Replaces `profile_mermaidskin_teensy_2026-10-23.md`.
+Replaces the earlier same-name capture in commit `0dde19590`.
 
 ## Setup
 
