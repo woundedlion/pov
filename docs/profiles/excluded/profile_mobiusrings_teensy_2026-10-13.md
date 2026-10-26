@@ -35,7 +35,7 @@ Both versions hold the 16 fps display cadence without spilled frames.
 Candidate pass peak render is 12.30 ms; spilled 0/1088 frames.
 README cells: peak 🟢 12.30, spilled 🟢 0/1088 (0.00%).
 
-### Finding 6 matched A/B
+### Cached cap classification matched A/B
 
 COM3 ran baseline then candidate; COM4 ran candidate then baseline. Each comparison
 uses identical frame indices starting at frame 65; startup frames are discarded.
