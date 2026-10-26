@@ -28,7 +28,7 @@ namespace Interp {
 inline constexpr size_t MAX_CHAIN_OPS = 32;
 /** Longest instance id, in bytes, excluding the NUL. */
 inline constexpr size_t MAX_INSTANCE_ID = 48;
-/** One arena's capacity — the exported budget; the engine holds two. */
+/** Exported capacity of each interpreter arena. */
 inline constexpr size_t CHAIN_ARENA_BYTES = 96 * 1024;
 /** Most schema fields across a whole chain; more refuse `PARAM_OVERFLOW`. */
 inline constexpr size_t MAX_CHAIN_PARAMS = 224;

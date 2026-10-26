@@ -679,9 +679,6 @@ struct FaceTopoRecord {
 /**
  * @brief Recomputes a face's canonical key and asks the classifier for its base
  *        topology hash.
- * @details The interior angle mirrors the classifier's formulation (unnormalized
- *   edge dot over the length product, acosf, rounded to whole degrees); a
- *   normalize-first variant crosses degree boundaries on relaxed meshes.
  */
 inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
                                        const uint16_t *idx, int count) {

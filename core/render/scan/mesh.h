@@ -1622,8 +1622,8 @@ struct FaceCaptureInterval {
  * @param sweep The column basis's sweep over the frame.
  * @return Contiguous interval, or a negative lower bound for a face that
  *         winds about a pole, spans a half turn or reaches the pole: its
- *         fastest vertex's reach, with the basis's sweep, reaches a quarter
- *         of a right angle about the polar axis from one of its vertices.
+ *         fastest vertex's reach, with the basis's sweep, reaches half
+ *         a right angle about the polar axis from one of its vertices.
  *         A polar face's upper bound is its azimuth span in half turns.
  */
 HS_HOT_FLASH_MEMBER FaceCaptureInterval face_capture_interval(
@@ -1730,8 +1730,8 @@ HS_HOT_FLASH_MEMBER void scan_swept_faces(const SweptMesh &deformation);
  * there. A face every column pair's meridian can reach (one around a pole,
  * spanning half a turn, or reaching the pole by its vertices' motion) draws
  * in one scan per half of the arms, each of its vertices at its time nearest
- * the half's middle; a vertex whose motion can carry it a quarter of a right
- * angle about the polar axis holds at its endpoint. A polar face whose single
+ * the half's middle; a vertex whose motion can carry it half a right angle
+ * about the polar axis holds at its endpoint. A polar face whose single
  * placement would show a visible step draws one column pair at a time
  * instead, each pair's face standing as at the pair's sweep time
  * (Mesh::draw_face_sweep()).
@@ -2261,8 +2261,8 @@ HS_O3_BEGIN
  * canvas.debug() does not tint a mesh. Under the canvas's column-time basis
  * each face's bounds are swept by its arc and every pixel is evaluated along
  * its column's rotated direction. An open TimeWindow limits the scan to its
- * columns; in a deformation scan, Scan::ColumnBasis::selected_faces selects
- * the faces each pass draws.
+ * columns; in a deformation scan, Scan::ColumnBasis::mesh.selected_faces
+ * selects the faces each pass draws.
  */
 struct Mesh {
   /**

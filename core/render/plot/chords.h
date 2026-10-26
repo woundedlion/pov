@@ -234,9 +234,10 @@ inline constexpr RasterConfig PLANAR_CHORD_RASTER_CONFIG{
  *        chart as fixed-step chords between projected anchor points.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Each edge is subdivided into at most MAX_ANCHOR_INTERVALS azimuthal
- * anchors and walked at TARGET_STEP screen pixels, with no per-sample tangent or
- * pole scaling. Edges and samples that cannot reach the clip band are skipped
+ * @details The still path subdivides each edge into at most
+ * MAX_ANCHOR_INTERVALS azimuthal anchors and walks at TARGET_STEP screen pixels,
+ * with no per-sample tangent or pole scaling. Edges and samples that cannot
+ * reach the clip band are skipped
  * without moving any drawn sample. Anchor intervals within POLE_PIECE_ROWS of a
  * pole go to Plot::rasterize under PLANAR_CHORD_RASTER_CONFIG.
  */
@@ -265,7 +266,7 @@ public:
   static constexpr int MAX_RADIAL_INTERVALS = 48;
   /** @brief Target chart arc between moving radial anchors, radians. */
   static constexpr float RADIAL_ANCHOR_ARC = math::PI_F / 24.0f;
-  /** @brief Target chart arc between anchors, in radians.
+  /** @brief Target still-path chart arc between anchors, in radians.
    * @details Edges longer than MAX_ANCHOR_INTERVALS * MAX_ANCHOR_ARC use
    * edge_arc / MAX_ANCHOR_INTERVALS spacing. */
   static constexpr float MAX_ANCHOR_ARC = math::PI_F / 36.0f;
@@ -535,12 +536,14 @@ public:
    * @param color Stroke color; its alpha is balanced against the step taken.
    * @param start Rotation taking a frame-end point to its frame-start
    * position; no point moves farther than prepare()'s motion.
-   * @param max_intervals Most anchor intervals an edge takes; an edge's
-   * anchors lie at most MAX_ANCHOR_ARC apart up to that count.
+   * @param max_intervals Maximum anchor intervals, capped at MAX_RADIAL_INTERVALS.
+   * Target spacing is RADIAL_ANCHOR_ARC, or MAX_ANCHOR_ARC when
+   * alternating_radii is set; the interval cap can widen that spacing.
    * @param alternating_radii Adjacent edges reverse the radial anchor profile.
    * @param middle Rotation from frame end to mid-frame.
-   * @param reference_chords Reference balanced screen chords, with adaptive
-   * balanced pole runs; otherwise reference adaptive arc-table sampling.
+   * @param reference_chords Use TARGET_STEP screen spacing and adaptive
+   * balanced pole runs; otherwise use BALANCED_SCREEN_STEP_PX spacing and
+   * adaptive arc-table sampling.
    * @param contour_speed Bound on angular speed over the contour, radians per frame.
    * @details Edges share the first edge's radial profile, reversed on alternating
    * edges. Screen anchors carry quadratic motion between frame start, middle

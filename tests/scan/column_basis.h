@@ -2734,8 +2734,8 @@ inline void check_polar_face_windows(size_t points, float notch, bool north,
 }
 
 /** @brief Faces around or reaching either pole draw per half-arm window,
- *  closer to their column times than held at the endpoint: convex, starred,
- *  or tipped off the pole, under a still or a turning camera. */
+ *  closer to their column times than held at the endpoint: convex or starred,
+ *  under a still or a turning camera. */
 inline void test_mesh_polar_face_windows() {
   check_polar_face_windows(6, 0.12f, true, 0.0f);
   check_polar_face_windows(6, 0.12f, false, 0.02f);

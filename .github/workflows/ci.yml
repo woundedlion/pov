@@ -582,7 +582,6 @@ jobs:
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.TEST_EXCLUDE }}"
 
-      # Windows uses UBSan trap mode; emsdk provides no MSVC ASan runtime.
       - name: Compare native render fingerprints
         shell: bash
         env:
@@ -602,6 +601,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # Windows uses UBSan trap mode; emsdk provides no MSVC ASan runtime.
       - name: Configure + build the UBSan-trap flavour
         run: |
           cmake --preset tests -B build/tests-ubsan -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON

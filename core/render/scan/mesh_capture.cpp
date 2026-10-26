@@ -121,7 +121,7 @@ constexpr uint8_t POOL_ACROSS = 8;
 
 /// Vertex state: classification has stored the vertex's endpoint tables.
 constexpr uint8_t VERTEX_SEEN = 16;
-/// Vertex state: its reach can carry it a quarter of a right angle about the
+/// Vertex state: its reach can carry it half a right angle about the
 /// polar axis, so it holds at its endpoint.
 constexpr uint8_t VERTEX_HELD = 32;
 /// Vertex state: the pool holds its capture nearest a quarter of the arm.
@@ -287,7 +287,8 @@ vertex_at(const SweptMesh &d, const FaceTables &tables, size_t i, float time) {
  * can reach past its vertices, d.pad at its lowest vertex's distance from
  * the polar axis: every column pair's meridian can cross it. A face is near
  * an arm boundary when that arc meets one. A seam face's vertices lie within
- * a quarter frame of the boundary.
+ * half a frame of the boundary, each within a quarter frame of its capture
+ * centre.
  */
 HS_HOT_FLASH_MEMBER FaceKind classify_face(const SweptMesh &d, size_t face,
                                            const FaceTables &tables,

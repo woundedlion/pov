@@ -1148,8 +1148,8 @@ inline void test_islamicstars_seam_copies_are_one_polygon() {
  *        boundaries or mid-arm.
  * @details Its faces are small beside a half turn, so a seam step stays
  * within a few percent of its neighbours'. Faces reaching a pole draw once
- * per half-arm window, as on master, whose steps bound these: 1.025 and
- * 1.062.
+ * per half-arm window; the measured mean across arms and the arm-seam
+ * maximum bound these steps.
  */
 inline void test_islamicstars_playback_motion_is_seam_free() {
   constexpr int W = 288, H = 144;

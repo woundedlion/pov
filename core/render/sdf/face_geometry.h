@@ -1250,8 +1250,10 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
    * @param probe_flags Distance-path flags captured after the face's last LUT
    *        binding or geometry update.
    * @param min_cos Cosine of the radial cull angle.
-   * @param reject_plane Convex planar distances at or above this cutoff may
-   *        be capped; FLT_MAX keeps them exact.
+   * @param reject_plane Cutoff at which the caller rejects a planar distance.
+   *        Convex distances at or above it may be capped; PROBE_PLANE_BOX
+   *        returns FAR_SENTINEL when its box distance reaches it.
+   *        FLT_MAX disables both shortcuts.
    */
 template <bool ComputeUVs = true>
 HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
@@ -1273,7 +1275,9 @@ HS_O3_FN void distance_with_flags(const math::Vector &p, DistanceResult &res,
  * @param reject_dsq Conservative squared planar rejection threshold.
  * @param probe_flags Cached distance-path flags.
  * @param min_cos Cosine of the radial cull angle.
- * @param reject_plane Convex planar rejection cutoff.
+ * @param reject_plane Cutoff the caller rejects on; convex distances may be
+ * capped and PROBE_PLANE_BOX may return FAR_SENTINEL at or above it.
+ * FLT_MAX disables both shortcuts.
  * @param column_sector Optional sector carried down a projected column.
  */
 template <bool ComputeUVs = true>
