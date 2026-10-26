@@ -379,7 +379,9 @@ inline void test_intersection_full_width_child_replays_other() {
     HS_EXPECT_TRUE(ok);
     HS_EXPECT_SIZE_OR_RETURN(out, 2);
     HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[0].second, 80.0f, 1e-4f);
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[1].second, 40.0f, 1e-4f);
   }
 
   // Symmetric: A has intervals, B full-width.
@@ -391,7 +393,9 @@ inline void test_intersection_full_width_child_replays_other() {
     HS_EXPECT_TRUE(ok);
     HS_EXPECT_SIZE_OR_RETURN(out, 2);
     HS_EXPECT_NEAR(out[0].first, 60.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[0].second, 80.0f, 1e-4f);
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
+    HS_EXPECT_NEAR(out[1].second, 40.0f, 1e-4f);
   }
 
   // Both fall back -> full-scan fallback (return false).
