@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from urllib.parse import unquote, urlsplit
 
+from doc_coverage import doxyfile_entries
 from git_files import GIT_TIMEOUT_SECONDS, git_command, git_nul_list
 
 
@@ -152,8 +153,6 @@ CARDINALITY_CLAIMS = (
 # Names are matched against the source file kinds Doxyfile documents.
 _DOXYFILE = PurePosixPath("Doxyfile")
 _DOXYGEN_SOURCE_SUFFIXES = frozenset({".h", ".cpp", ".ino"})
-_DOXYFILE_TAG_RE = re.compile(r"^(\w+)[ \t]*\+?=[ \t]*(.*)$")
-_DOXYFILE_ENTRY_RE = re.compile(r'"[^"]*"|\S+')
 _PREDEFINED_NAME_RE = re.compile(r"^[A-Za-z_]\w*")
 # DOXYGEN enables doc-only branches and need not appear in source.
 _PREDEFINED_UNREFERENCED_ALLOWED = frozenset({"DOXYGEN"})
@@ -927,21 +926,10 @@ def effects_row_issues(text: str, entries: set[PurePosixPath],
 def doxyfile_predefined(text: str) -> list[tuple[int, str]]:
     """Macro names the Doxyfile's PREDEFINED tag defines, with their line numbers."""
     names: list[tuple[int, str]] = []
-    inside = False
-    for number, line in enumerate(text.splitlines(), 1):
-        if inside:
-            body = line
-        else:
-            match = _DOXYFILE_TAG_RE.match(line)
-            if not match or match.group(1) != "PREDEFINED":
-                continue
-            body = match.group(2)
-        stripped = body.rstrip()
-        inside = stripped.endswith("\\")
-        for entry in _DOXYFILE_ENTRY_RE.findall(stripped.rstrip("\\")):
-            name = _PREDEFINED_NAME_RE.match(entry.strip('"'))
-            if name:
-                names.append((number, name.group()))
+    for number, entry in doxyfile_entries(text, "PREDEFINED"):
+        name = _PREDEFINED_NAME_RE.match(entry.strip('"'))
+        if name:
+            names.append((number, name.group()))
     return names
 
 

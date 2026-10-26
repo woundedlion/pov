@@ -166,21 +166,27 @@ def locations(items: list[Undocumented], root: Path | None = None
     return sorted(seen.values(), key=lambda i: (i.path, i.line))
 
 
-def doxyfile_setting(text: str, key: str) -> list[str]:
-    """Return the whitespace-separated values of a Doxyfile setting."""
-    values: list[str] = []
-    lines = iter(text.splitlines())
-    for line in lines:
+def doxyfile_entries(text: str, key: str) -> list[tuple[int, str]]:
+    """Return quote-aware Doxyfile values with their source line numbers."""
+    entries: list[tuple[int, str]] = []
+    lines = iter(enumerate(text.splitlines(), 1))
+    for number, line in lines:
         name, sep, value = line.partition("=")
         if not sep or name.strip().rstrip("+").strip() != key:
             continue
         if not name.strip().endswith("+"):
-            values = []
+            entries = []
         while value.rstrip().endswith("\\"):
-            values += value.rstrip()[:-1].split()
-            value = next(lines, "")
-        values += value.split()
-    return values
+            entries += [(number, entry) for entry in re.findall(
+                r'"[^"]*"|\S+', value.rstrip()[:-1])]
+            number, value = next(lines, (number, ""))
+        entries += [(number, entry) for entry in re.findall(r'"[^"]*"|\S+', value)]
+    return entries
+
+
+def doxyfile_setting(text: str, key: str) -> list[str]:
+    """Return the unquoted values of a Doxyfile setting."""
+    return [entry.strip('"') for _, entry in doxyfile_entries(text, key)]
 
 
 def source_files(root: Path, paths: list[str]) -> list[str]:

@@ -781,6 +781,15 @@ class TestDocumentationChecker(unittest.TestCase):
             (3, "DOXYGEN"),
         ])
 
+    def test_doxyfile_predefined_reassignment_discards_prior_blocks(self):
+        text = ("PREDEFINED = HS_OLD=1\n"
+                "PREDEFINED += HS_ALSO_OLD=1\n"
+                "PREDEFINED = HS_CURRENT=1\n"
+                'PREDEFINED += "HS_APPENDED=two words"\n')
+        self.assertEqual(dc.doxyfile_predefined(text), [
+            (3, "HS_CURRENT"), (4, "HS_APPENDED"),
+        ])
+
     def test_unreferenced_predefined_finds_dead_macro_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -155,6 +155,14 @@ class TestDoxyfileSetting(unittest.TestCase):
         self.assertEqual(cov.doxyfile_setting(text, "INPUT"),
                          ["core", "effects", "targets"])
 
+    def test_quoted_values_preserve_spaces_and_line_numbers(self):
+        text = 'EXCLUDE = "docs/some dir" \\\n "effects/another dir"\nEXCLUDE += core\n'
+        self.assertEqual(cov.doxyfile_entries(text, "EXCLUDE"), [
+            (1, '"docs/some dir"'), (2, '"effects/another dir"'), (3, "core"),
+        ])
+        self.assertEqual(cov.doxyfile_setting(text, "EXCLUDE"),
+                         ["docs/some dir", "effects/another dir", "core"])
+
     def test_reassignment_replaces(self):
         self.assertEqual(cov.doxyfile_setting(
             "EXCLUDE = a\nEXCLUDE = b\n", "EXCLUDE"), ["b"])
