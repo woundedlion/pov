@@ -1,6 +1,6 @@
-"""Regenerate rev 1.1 fabrication / assembly outputs from the COMMITTED board.
+"""Export fabrication / assembly outputs from a committed board.
 
-Produces, into ../gen/out/:
+The CLI exports rev 1.1 into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
   * phantasm-erc.json — gating schematic ERC report
@@ -14,10 +14,14 @@ against the ordered-package baseline fab-SHA256SUMS.txt beside the board once
 it is recorded. Until then --verify reports the missing baseline. It runs no
 KiCad; gen/out/ is gitignored.
 
-Exports only the committed, hand-routed rev 1.1 board.
-
-A run holds gen/out/.fab.lock until it finishes; a second run refuses while it
+The CLI exports only the committed, hand-routed rev 1.1 board and holds
+gen/out/.fab.lock until it finishes; a second CLI run refuses while it
 exists. A lock left by a killed run must be removed by hand.
+
+release.py also calls fabricate() for rev 1.1 and 1.2, rebinding the project
+and output paths to its release workspace without taking the gen/out lock.
+LCSC_BY_REF, ROT_CORRECTION, PART_BY_LCSC and KNOWN_PARITY_ITEMS are shared
+by both revisions; the parity warning-count tables are rebound per revision.
 
 kicad-cli is found via $KICAD_CLI, else the pinned release among common install
 paths; PATH is consulted only when no install-path kicad-cli exists.
