@@ -118,12 +118,21 @@ _INTERP = re.compile(r"\$\{([^.}]+)\.([^}]+)\}")
 
 
 def _option_lines(cfg, section, option, depth=0):
-    """One option's values as PlatformIO resolves them: [env] supplies an option
-    [env:X] omits (list options do NOT merge), and ${section.option} expands."""
+    """Resolve inherited options and ${section.option} references without merging lists."""
     if depth > 8:
         raise RecursionError(f"[{section}] {option} interpolates cyclically")
-    if not cfg.has_option(section, option) and section.startswith("env:"):
-        section = "env"
+    sections = [("env", depth), (section, depth)] if section.startswith("env:") else [(section, depth)]
+    while sections:
+        section, inherited_depth = sections.pop()
+        if inherited_depth > 8:
+            raise RecursionError(f"[{section}] extends cyclically")
+        if cfg.has_option(section, option):
+            break
+        parents = cfg.get(section, "extends", fallback="")
+        sections.extend((parent.strip(), inherited_depth + 1)
+                        for parent in re.split(r"[,\n]", parents) if parent.strip())
+    else:
+        return []
     out = []
     for line in cfg.get(section, option, fallback="").splitlines():
         line = line.strip()
@@ -158,6 +167,23 @@ class TestOptionInterpolation(unittest.TestCase):
             "pre:tools/teensy_pre.py", "pre:tools/teensy_map.py", "pre:tools/teensy_nano.py"])
 
 
+class TestOptionInheritance(unittest.TestCase):
+    def test_inherited_option_overrides_env_and_last_parent_wins(self):
+        cfg = configparser.RawConfigParser()
+        cfg.read_dict({
+            "env": {"extra_scripts": "post:gate.py"},
+            "first": {"extra_scripts": "pre:first.py"},
+            "second": {"extra_scripts": "pre:second.py"},
+            "shared": {"extends": "first, second"},
+            "env:fixture": {"extends": "shared"},
+        })
+        self.assertEqual(_option_lines(cfg, "env:fixture", "extra_scripts"),
+                         ["pre:second.py"])
+        cfg.set("env:fixture", "extra_scripts", "pre:local.py")
+        self.assertEqual(_option_lines(cfg, "env:fixture", "extra_scripts"),
+                         ["pre:local.py"])
+
+
 class TestExtraScriptsExist(unittest.TestCase):
     """Every hook platformio.ini names must be a real file."""
 
@@ -175,12 +201,6 @@ class TestExtraScriptsExist(unittest.TestCase):
 
 class TestBudgetedEnvsWireTheGate(unittest.TestCase):
     """The size/layout gate hook is wired to exactly the budgeted envs."""
-
-    def test_configuration_uses_no_unresolved_extends(self):
-        cfg = _pio_config()
-        for section in cfg.sections():
-            self.assertFalse(cfg.has_option(section, "extends"),
-                             f"[{section}] extends requires resolver support")
 
     def test_every_budgeted_env_resolves_the_gate_hook(self):
         budgets = tg.load_budgets(TOOLS / "teensy_budgets.json")
