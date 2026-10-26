@@ -34,9 +34,9 @@ if(EMSCRIPTEN)
 
   add_executable(segment_geometry targets/wasm/segment_geometry.cpp)
   target_include_directories(segment_geometry PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-  target_compile_options(segment_geometry PRIVATE -O3 -Wall -Wextra)
+  target_compile_options(segment_geometry PRIVATE -O3 -g0 -Wall -Wextra)
   target_link_options(segment_geometry PRIVATE
-    -O3 --no-entry -sWASM=0 -sMODULARIZE=1 -sEXPORT_ES6=1
+    -O3 -g0 --no-entry -sWASM=0 -sMODULARIZE=1 -sEXPORT_ES6=1
     -sMINIMAL_RUNTIME=2 -sEXPORT_KEEPALIVE=1 -sFILESYSTEM=0 -sDYNAMIC_EXECUTION=0
     "SHELL:--emit-tsd ${CMAKE_CURRENT_BINARY_DIR}/segment_geometry.d.ts"
     -sINITIAL_MEMORY=65536 -sSTACK_SIZE=1024
@@ -146,8 +146,9 @@ if(EMSCRIPTEN)
   target_compile_definitions(pullback_capture_wasm PRIVATE
     HS_TIMELINE_MAX_ANIM_BYTES=256
     HS_GLOBAL_ARENA_BYTES=524288)
-  target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra")
+  target_compile_options(pullback_capture_wasm PRIVATE "-Wall" "-Wextra" "-g0")
   target_link_options(pullback_capture_wasm PRIVATE
+    "-g0"
     "-sALLOW_MEMORY_GROWTH=1"
     "-sENVIRONMENT=node"
     "-sNODERAWFS=1")
