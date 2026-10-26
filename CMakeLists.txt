@@ -368,7 +368,8 @@ else()
       RESULT_VARIABLE _hs_hook_rc OUTPUT_QUIET ERROR_QUIET)
     if(_hs_hook_rc EQUAL 0)
       message(STATUS "Local git hooks enabled (core.hooksPath=.githooks). "
-                     "Bypass once: --no-verify; disable: -DHS_INSTALL_GIT_HOOKS=OFF.")
+                     "Bypass once: --no-verify; disable: git config --unset core.hooksPath "
+                     "(and configure with -DHS_INSTALL_GIT_HOOKS=OFF to keep it off).")
     endif()
   endif()
 endif()
