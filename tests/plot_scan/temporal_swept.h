@@ -7,6 +7,7 @@
  *         point of a rotating edge's arcs over the frame. */
 inline void test_swept_bounds_cover_moving_edges() {
   int bulging = 0;
+  int beyond_hits = 0;
   for (const float lat : {-0.5f, 0.1f, 0.5f, 0.8f}) {
     for (const float span : {0.2f, 1.0f}) {
       for (const float angle : {0.02f, 0.25f}) {
@@ -31,8 +32,12 @@ inline void test_swept_bounds_cover_moving_edges() {
             math::Vector(1.0f, 0.0f, 0.0f), math::Vector(-0.3f, 0.0f, 1.0f),
             math::Vector(0.0f, 1.0f, 0.0f), math::Vector(0.2f, -1.0f, 0.1f)};
         bool beyond[4];
-        for (int n = 0; n < 4; ++n)
+        for (int n = 0; n < 4; ++n) {
           beyond[n] = Spacetime::swept_beyond(captures, 4, pad, normals[n]);
+          beyond_hits += beyond[n];
+        }
+        if (span == 1.0f)
+          HS_EXPECT_FALSE(beyond[1]);
         float top = -1.0f;
         for (int i = 0; i <= 64; ++i) {
           const float t = static_cast<float>(i) / 64.0f;
@@ -57,6 +62,7 @@ inline void test_swept_bounds_cover_moving_edges() {
     }
   }
   HS_EXPECT_GT(bulging, 0);
+  HS_EXPECT_GT(beyond_hits, 0);
 }
 
 /** @brief Captures spread past a quarter turn leave the heights unbounded. */
