@@ -4,9 +4,6 @@
 # calls per invocation. A failed capture is recorded, the group carries on, and
 # the run exits non-zero listing the failures. The groups' union is checked
 # against HS_PHANTASM_EFFECT_LIST first; `check` runs only that (no board).
-# A capture plus at least 20 s of attach slack must fit inside one epoch
-# (HS_PROFILE_EPOCH_REVS): crossing a boundary re-inits the effect mid-run, and
-# an init that overruns the commit window traps the board.
 set -uo pipefail
 P="$(dirname "$0")/profile_one.sh"
 PLAYLIST_H="$(dirname "$0")/../targets/Phantasm/phantasm_playlist.h"
@@ -47,8 +44,8 @@ check_roster() {
   if [ -n "$missing" ] || [ -n "$extra" ]; then
     [ -n "$missing" ] && echo "profile_sweep: in HS_PHANTASM_EFFECT_LIST but in no group: $missing" >&2
     [ -n "$extra" ] && echo "profile_sweep: swept but not in HS_PHANTASM_EFFECT_LIST: $extra" >&2
-    echo "profile_sweep: add the effect to a group below (with its duration/window" >&2
-    echo "and epoch knobs), or drop it if the playlist no longer carries it." >&2
+    echo "profile_sweep: add the effect to a group below (with its duration and window)," >&2
+    echo "or drop it if the playlist no longer carries it." >&2
     return 1
   fi
   echo "profile_sweep: $(printf '%s\n' "$playlist" | wc -l | tr -d ' ') effect(s) match HS_PHANTASM_EFFECT_LIST"
