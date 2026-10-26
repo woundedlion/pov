@@ -194,6 +194,7 @@ inline float rand_uniform(hs::Pcg32 &rng, float lo, float hi) {
  * @param lo Lower bound.
  * @param hi Upper bound.
  * @return A value in [lo, hi], inclusive through rounding.
+ * @details Draw one component at a time; argument evaluation order is unspecified.
  */
 template <typename T> inline T lcg_uniform(uint32_t &state, T lo, T hi) {
   state = state * 1664525u + 1013904223u;

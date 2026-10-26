@@ -282,12 +282,14 @@ inline void test_point_route_gate_keeps_visible_taps() {
   const math::Vector tilted = math::Vector(0.3f, 1.0f, -0.2f).normalized();
   uint32_t state = 5u;
   std::vector<PointRoutePath> paths;
-  for (int i = 0; i < 3000; ++i)
-    paths.push_back(point_route_path(lcg_uniform(state, 0.0f, float(W)),
-                                     lcg_uniform(state, 0.0f, float(H - 1)),
-                                     lcg_uniform(state, 0.0f, math::TWO_PI_F),
-                                     lcg_uniform(state, 0.0f, 0.06f),
-                                     lcg_uniform(state, 0.0f, 0.03f), tilted));
+  for (int i = 0; i < 3000; ++i) {
+    const float x = lcg_uniform(state, 0.0f, float(W));
+    const float y = lcg_uniform(state, 0.0f, float(H - 1));
+    const float theta = lcg_uniform(state, 0.0f, math::TWO_PI_F);
+    const float extent = lcg_uniform(state, 0.0f, 0.06f);
+    const float bend = lcg_uniform(state, 0.0f, 0.03f);
+    paths.push_back(point_route_path(x, y, theta, extent, bend, tilted));
+  }
   // Every path into one frame through the route, or through a plain
   // projected splat at t = 1.
   std::vector<uint8_t> visible(size_t(W) * H);
@@ -363,9 +365,11 @@ inline void test_point_route_shades_at_pass_time() {
   uint32_t state = 11u;
   int passes = 0;
   for (int i = 0; i < 500; ++i) {
-    const PointRoutePath path = point_route_path(
-        lcg_uniform(state, 0.0f, float(W)), lcg_uniform(state, 24.0f, 120.0f),
-        lcg_uniform(state, 0.0f, math::TWO_PI_F), 0.02f, 0.01f, tilted);
+    const float x = lcg_uniform(state, 0.0f, float(W));
+    const float y = lcg_uniform(state, 24.0f, 120.0f);
+    const float theta = lcg_uniform(state, 0.0f, math::TWO_PI_F);
+    const PointRoutePath path =
+        point_route_path(x, y, theta, 0.02f, 0.01f, tilted);
     const math::Vector end = path.at(1.0f);
     route.prepare(canvas, (end - path.at(0.0f)).magnitude());
     route.plot(

@@ -503,14 +503,15 @@ inline void test_point_particle_step_start_recovers_previous_position() {
   add_signed_axis_attractors(ps, 0.1f, 0.008f, 0.0f);
   uint32_t state = 3u;
   for (int i = 0; i < COUNT; ++i) {
-    const math::Vector p = math::Vector(lcg_uniform(state, -1.0f, 1.0f),
-                                        lcg_uniform(state, -1.0f, 1.0f),
-                                        lcg_uniform(state, -1.0f, 1.0f))
-                               .normalized();
-    const math::Vector v = math::Vector(lcg_uniform(state, -1.0f, 1.0f),
-                                        lcg_uniform(state, -1.0f, 1.0f),
-                                        lcg_uniform(state, -1.0f, 1.0f)) *
-                           lcg_uniform(state, 0.005f, 0.05f);
+    const float px = lcg_uniform(state, -1.0f, 1.0f);
+    const float py = lcg_uniform(state, -1.0f, 1.0f);
+    const float pz = lcg_uniform(state, -1.0f, 1.0f);
+    const math::Vector p = math::Vector(px, py, pz).normalized();
+    const float vx = lcg_uniform(state, -1.0f, 1.0f);
+    const float vy = lcg_uniform(state, -1.0f, 1.0f);
+    const float vz = lcg_uniform(state, -1.0f, 1.0f);
+    const float speed = lcg_uniform(state, 0.005f, 0.05f);
+    const math::Vector v = math::Vector(vx, vy, vz) * speed;
     ps.spawn(p, v, uint16_t(i));
   }
   std::array<math::Vector, COUNT> before{};
