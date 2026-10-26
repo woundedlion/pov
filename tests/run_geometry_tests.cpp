@@ -23,40 +23,20 @@
 
 namespace hs_test::module_runners {
 
-int run_sdf_tests() { return hs_test::sdf_tests::run_sdf_tests(); }
-int run_conway_tests() { return hs_test::conway_tests::run_conway_tests(); }
-int run_conway_morph_tests() {
-  return hs_test::conway_morph_tests::run_conway_morph_tests();
-}
-int run_conway_continuity_tests() {
-  return hs_test::conway_continuity_tests::run_conway_continuity_tests();
-}
-int run_partition_seam_tests() {
-  return hs_test::partition_seam_tests::run_partition_seam_tests();
-}
-int run_conway_soak_tests() {
-  return hs_test::conway_soak_tests::run_conway_soak_tests();
-}
-int run_opchain_probe_tests() {
-  return hs_test::opchain_probe_tests::run_opchain_probe_tests();
-}
-int run_opchain_arena_survey_tests() {
-  return hs_test::opchain_arena_survey_tests::run_opchain_arena_survey_tests();
-}
-int run_hankin_tests() { return hs_test::hankin_tests::run_hankin_tests(); }
-int run_geometry_tests() {
-  return hs_test::geometry_tests::run_geometry_tests();
-}
-int run_spherical_field_tests() {
-  return hs_test::spherical_field_tests::run_spherical_field_tests();
-}
-int run_spherical_harmonics_tests() {
-  return hs_test::spherical_harmonics_tests::run_spherical_harmonics_tests();
-}
-int run_mesh_tests() { return hs_test::mesh_tests::run_mesh_tests(); }
-int run_solids_tests() { return hs_test::solids_tests::run_solids_tests(); }
-int run_reaction_graph_tests() {
-  return hs_test::reaction_graph_tests::run_reaction_graph_tests();
-}
+HS_FORWARD_MODULE(sdf_tests, run_sdf_tests)
+HS_FORWARD_MODULE(conway_tests, run_conway_tests)
+HS_FORWARD_MODULE(conway_morph_tests, run_conway_morph_tests)
+HS_FORWARD_MODULE(conway_continuity_tests, run_conway_continuity_tests)
+HS_FORWARD_MODULE(partition_seam_tests, run_partition_seam_tests)
+HS_FORWARD_MODULE(conway_soak_tests, run_conway_soak_tests)
+HS_FORWARD_MODULE(opchain_probe_tests, run_opchain_probe_tests)
+HS_FORWARD_MODULE(opchain_arena_survey_tests, run_opchain_arena_survey_tests)
+HS_FORWARD_MODULE(hankin_tests, run_hankin_tests)
+HS_FORWARD_MODULE(geometry_tests, run_geometry_tests)
+HS_FORWARD_MODULE(spherical_field_tests, run_spherical_field_tests)
+HS_FORWARD_MODULE(spherical_harmonics_tests, run_spherical_harmonics_tests)
+HS_FORWARD_MODULE(mesh_tests, run_mesh_tests)
+HS_FORWARD_MODULE(solids_tests, run_solids_tests)
+HS_FORWARD_MODULE(reaction_graph_tests, run_reaction_graph_tests)
 
 } // namespace hs_test::module_runners

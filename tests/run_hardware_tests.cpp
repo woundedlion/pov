@@ -14,21 +14,11 @@
 
 namespace hs_test::module_runners {
 
-int run_dma_core_tests() {
-  return hs_test::dma_core_tests::run_dma_core_tests();
-}
-int run_hd107s_tests() { return hs_test::hd107s_tests::run_hd107s_tests(); }
-int run_dma_controller_tests() {
-  return hs_test::dma_controller_tests::run_dma_controller_tests();
-}
-int run_pov_segmented_tests() {
-  return hs_test::pov_segmented_tests::run_pov_segmented_tests();
-}
-int run_pov_single_tests() {
-  return hs_test::pov_single_tests::run_pov_single_tests();
-}
-int run_pov_sync_tests() {
-  return hs_test::pov_sync_tests::run_pov_sync_tests();
-}
+HS_FORWARD_MODULE(dma_core_tests, run_dma_core_tests)
+HS_FORWARD_MODULE(hd107s_tests, run_hd107s_tests)
+HS_FORWARD_MODULE(dma_controller_tests, run_dma_controller_tests)
+HS_FORWARD_MODULE(pov_segmented_tests, run_pov_segmented_tests)
+HS_FORWARD_MODULE(pov_single_tests, run_pov_single_tests)
+HS_FORWARD_MODULE(pov_sync_tests, run_pov_sync_tests)
 
 } // namespace hs_test::module_runners

@@ -9,7 +9,7 @@
 
 namespace hs_test::module_runners {
 
-int run_death_tests() { return hs_test::death_tests::run_death_tests(); }
+HS_FORWARD_MODULE(death_tests, run_death_tests)
 
 void set_death_self_exe(const char *path) { death_tests::set_self_exe(path); }
 

@@ -546,6 +546,10 @@ inline int end_module(const ModuleScope &m) {
 #define HS_CONTEXT(...)                                                        \
   const hs_test::ContextScope HS_CTX_JOIN(hs_ctx, __LINE__)(__VA_ARGS__)
 
+/** @brief Forwards a module runner to its namespaced implementation. */
+#define HS_FORWARD_MODULE(ns, fn)                                              \
+  int fn() { return hs_test::ns::fn(); }
+
 /** @brief Runs a case with its name and arguments in the assertion context. */
 #define HS_RUN(test_case, ...)                                                 \
   do {                                                                         \
