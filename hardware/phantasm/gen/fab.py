@@ -715,12 +715,13 @@ def validate_project_rules(project_path):
     return len(checks)
 
 
-def run_drc(report_path):
+def run_drc(report_path, refill=False):
     """Generate and require a clean error-severity DRC report."""
     if os.path.exists(report_path):
         os.remove(report_path)
     result = run([kicad_cli(), "pcb", "drc", "--severity-error", "--format", "json",
-                  "--exit-code-violations", "-o", report_path, PCB],
+                  "--exit-code-violations", *(["--refill-zones"] if refill else []),
+                  "-o", report_path, PCB],
                  check=False)
     counts = require_clean_drc(report_path)
     if result.returncode:
@@ -837,14 +838,15 @@ def require_schematic_parity(report_path):
     return len(entries)
 
 
-def run_parity(report_path):
+def run_parity(report_path, refill=False):
     """Generate and require a board that matches the committed schematic."""
     if os.path.exists(report_path):
         os.remove(report_path)
     # KiCad reports parity items at warning severity, so they are invisible to
     # the error-severity DRC gate and need their own run.
     result = run([kicad_cli(), "pcb", "drc", "--schematic-parity", "--format", "json",
-         "--severity-error", "--severity-warning", "-o", report_path, PCB],
+         "--severity-error", "--severity-warning",
+         *(["--refill-zones"] if refill else []), "-o", report_path, PCB],
         check=False)
     count = require_schematic_parity(report_path)
     if result.returncode:
@@ -1426,7 +1428,7 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
           "minimums")
     rpt = os.path.join(OUT, "phantasm-drc.json")
     try:
-        num_violations, num_unconnected = run_drc(rpt)
+        num_violations, num_unconnected = run_drc(rpt, refill=refill_zones)
     except DesignRuleError as exc:
         sys.exit(str(exc))
     print(f"  DRC: {num_violations} error-severity violations, "
@@ -1439,7 +1441,7 @@ def fabricate(revision="1.1", validate_only=False, refill_zones=True):
     print(f"  ERC: {num_erc} error-severity violations -> {erc_rpt}")
     parity_rpt = os.path.join(OUT, "phantasm-parity.json")
     try:
-        num_parity = run_parity(parity_rpt)
+        num_parity = run_parity(parity_rpt, refill=refill_zones)
     except SchematicParityError as exc:
         sys.exit(str(exc))
     print(f"  parity: board matches schematic, {num_parity} known "

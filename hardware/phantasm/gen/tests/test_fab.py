@@ -1156,6 +1156,40 @@ def patch_fab_run(stack, out, export, **overrides):
     stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
 
 
+class ZoneRefillTests(unittest.TestCase):
+    def test_drc_and_parity_refill_only_when_requested(self):
+        for runner in (fab.run_drc, fab.run_parity):
+            for options in ({}, {"refill": False}, {"refill": True}):
+                with self.subTest(runner=runner.__name__, options=options), \
+                        tempfile.TemporaryDirectory() as directory:
+                    def fake_run(args, check=True):
+                        Path(args[args.index("-o") + 1]).write_text(json.dumps({
+                            "violations": [], "unconnected_items": [],
+                            "schematic_parity": [],
+                        }), encoding="utf-8")
+                        self.assertEqual(args.count("--refill-zones"),
+                                         int(options.get("refill", False)))
+                        self.assertNotIn("--save-board", args)
+                        return subprocess.CompletedProcess(args, 0)
+
+                    with mock.patch.object(fab, "kicad_cli", return_value="kicad-cli"), \
+                            mock.patch.object(fab, "run", side_effect=fake_run), \
+                            mock.patch.object(fab, "require_schematic_parity", return_value=0):
+                        runner(Path(directory) / "report.json", **options)
+
+    def test_fabrication_gates_use_the_export_refill_policy(self):
+        for refill in (False, True):
+            with self.subTest(refill=refill), tempfile.TemporaryDirectory() as directory, \
+                    contextlib.ExitStack() as stack:
+                patch_fab_run(stack, Path(directory), mock.Mock(side_effect=RuntimeError("export")))
+                with self.assertRaisesRegex(RuntimeError, "export"):
+                    fab.fabricate(refill_zones=refill)
+                fab.run_drc.assert_called_once_with(
+                    str(Path(directory) / "phantasm-drc.json"), refill=refill)
+                fab.run_parity.assert_called_once_with(
+                    str(Path(directory) / "phantasm-parity.json"), refill=refill)
+
+
 class PackagePromotionTests(unittest.TestCase):
     def test_success_promotes_bom_cpl_archive_and_manifest(self):
         with tempfile.TemporaryDirectory() as directory, contextlib.ExitStack() as stack:
