@@ -44,6 +44,7 @@ constexpr double MEASURED_MEAN_ABSOLUTE_ERROR = 187.5;
 constexpr double MEASURED_ROOT_MEAN_SQUARED_ERROR = 529.5;
 constexpr uint32_t MEASURED_CHANNEL_ERROR = 10482;
 constexpr double MEASURED_ENERGY_DRIFT = 0.00415;
+constexpr double MEASURED_PRESET_ENERGY_DRIFT = 0.03337;
 constexpr double MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT = 0.01179;
 constexpr size_t MEASURED_STAR_HIGH_ERROR_PIXELS = 236;
 
@@ -55,6 +56,8 @@ constexpr uint32_t MAX_CHANNEL_ERROR =
     static_cast<uint32_t>(MEASURED_CHANNEL_ERROR * WORST_PIXEL_HEADROOM);
 constexpr double MAX_ENERGY_DRIFT =
     MEASURED_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
+constexpr double MAX_PRESET_ENERGY_DRIFT =
+    MEASURED_PRESET_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
 constexpr double MAX_HIGH_COUNT_STAR_ENERGY_DRIFT =
     MEASURED_HIGH_COUNT_STAR_ENERGY_DRIFT * WHOLE_FRAME_HEADROOM;
 constexpr size_t MAX_STAR_HIGH_ERROR_PIXELS =
@@ -1355,6 +1358,7 @@ inline void test_timed_presets_match_frozen_columns() {
         i + 1, look.error.mean_absolute_error(),
         look.error.root_mean_squared_error(), look.error.max_absolute_error,
         drift);
+    HS_EXPECT_LT(std::fabs(drift), MAX_PRESET_ENERGY_DRIFT);
     HS_EXPECT_LT(look.error.mean_absolute_error(), MAX_MEAN_ABSOLUTE_ERROR);
     HS_EXPECT_LT(look.error.root_mean_squared_error(),
                  MAX_ROOT_MEAN_SQUARED_ERROR);
