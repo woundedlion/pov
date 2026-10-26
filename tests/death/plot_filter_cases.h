@@ -648,6 +648,18 @@ inline void case_face_virtual_height_mismatched_geometry() {
   (void)face;
 }
 
+/** @brief A seeing-time face bounds pose requires a render clip. */
+inline void case_face_bounds_pose_without_clip() {
+  constexpr int H = 16;
+  const math::Vector verts[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t indices[] = {0, 1, 2};
+  static SDF::FaceScratchBuffer scratch;
+  const SDF::FaceBoundsPose pose{};
+  SDF::PreparedFace face(verts, indices, scratch, math::LatitudeGeometry(H), H,
+                         nullptr, nullptr, SDF::BOUNDS_MARGIN, &pose);
+  (void)face;
+}
+
 /**
  * @brief Death case: scanning a Face whose scratch buffer a later, culled Face
  *        claimed.

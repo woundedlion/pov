@@ -283,7 +283,8 @@ struct PreparedFace {
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    * @param azimuth_pads Optional latitude-adjusted padding table.
-   * @param bounds_pose Optional seeing-time frame for exact-distance face bounds.
+   * @param bounds_pose Optional seeing-time frame for exact-distance face bounds;
+   *        requires @p clip and replaces @p bounds_margin.
    * @param latitude_checked Whether this vertex/clip latitude band already passed.
    * @param bounds_margin Angular padding around the vertical bounds. Callers
    *        rendering antialiasing fringes must pass at least `2π / width`.
@@ -311,7 +312,8 @@ struct PreparedFace {
    * @param height Canvas height in rows.
    * @param clip Optional render clip.
    * @param bounds_margin Angular padding around the bounds.
-   * @param bounds_pose Optional seeing-time bounds frame.
+   * @param bounds_pose Optional seeing-time bounds frame; requires @p clip and
+   *        replaces @p bounds_margin.
    * @param latitude_checked Whether this vertex/clip latitude band already passed.
    */
   HS_HOT_FLASH_MEMBER void build_geometry_tables(
@@ -319,6 +321,7 @@ struct PreparedFace {
       FaceScratchBuffer &scratch, const math::LatitudeGeometry &geometry,
       int height, const ClipRegion *clip, float bounds_margin,
       const FaceBoundsPose *bounds_pose, bool latitude_checked) {
+    HS_CHECK(!bounds_pose || clip, "PreparedFace: bounds pose requires a clip");
     count = indices.size();
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
              "PreparedFace: vertex count must be in (0, MAX_VERTS]");

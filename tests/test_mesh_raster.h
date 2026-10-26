@@ -1256,6 +1256,23 @@ inline void test_swept_face_vertex_cone_distance() {
   HS_EXPECT_NEAR(distance.dist, -RADIUS, 1e-6f);
 }
 
+/** @brief A seeing-time bounds pose accepts a matching render clip. */
+inline void test_face_bounds_pose_with_clip() {
+  constexpr int W = 32, H = 16;
+  const math::Vector vertices[] = {math::X_AXIS, math::Y_AXIS, math::Z_AXIS};
+  const uint16_t indices[] = {0, 1, 2};
+  SDF::FaceScratchBuffer scratch;
+  const SDF::FaceBoundsPose pose{math::X_AXIS, math::Y_AXIS, math::Z_AXIS, 0.0f,
+                                 nullptr};
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  SDF::PreparedFace face(vertices, indices, scratch, math::LatitudeGeometry(H),
+                         H, &canvas.clip(), nullptr, SDF::BOUNDS_MARGIN, &pose);
+  HS_EXPECT_EQ(face.count, 3);
+  const auto bounds = face.get_vertical_bounds<H>();
+  HS_EXPECT_LE(bounds.y_min, bounds.y_max);
+}
+
 /**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
@@ -1264,6 +1281,7 @@ inline int run_mesh_raster_tests() {
   hs_test::ModuleFixture fixture("mesh_raster");
 
   HS_RUN(test_swept_face_vertex_cone_distance);
+  HS_RUN(test_face_bounds_pose_with_clip);
   HS_RUN(test_empty_and_single_face_meshes);
   HS_RUN(test_wireframe_draws_every_edge);
   HS_RUN(test_wireframe_pixels_lie_on_edges);

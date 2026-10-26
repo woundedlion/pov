@@ -1221,6 +1221,9 @@ inline const Case *all_cases(int &n) {
            "core/render/sdf/face_geometry.h",
            "(!scratch_owner || scratch_owner->claim_seq == scratch_claim) "
            "SDF::Face scanned after a later Face claimed its scratch buffer"},
+          {"face_bounds_pose_without_clip", case_face_bounds_pose_without_clip,
+           "core/render/sdf/face.h",
+           "(!bounds_pose || clip) PreparedFace: bounds pose requires a clip"},
           {"face_virtual_height_mismatched_geometry",
            case_face_virtual_height_mismatched_geometry,
            "core/render/sdf/face.h",
