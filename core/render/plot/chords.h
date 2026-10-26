@@ -20,7 +20,6 @@
 #include "core/render/plot/cull.h"
 #include "core/render/plot/point_route.h"
 #include "core/render/plot/polar_walk.h"
-#include "core/render/plot/mesh.h"
 #include "core/render/plot/raster.h"
 
 namespace Plot {
