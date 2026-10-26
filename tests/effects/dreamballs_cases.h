@@ -658,7 +658,8 @@ inline void test_dreamballs_select_mid_fade_out_respawns() {
 inline constexpr float FAST_SPIN = 0.12f;
 
 /** @brief DreamBalls orbit, transported framing, pose and fade match frozen
- * columns within half of the frame error limit, also under a fast spin. */
+ * columns within half of the frame error limit, and within the full limit
+ * under a fast spin. */
 inline void test_dreamballs_temporal_source_oracle() {
   const bool enabled = !Spacetime::flat_surface();
   Spacetime::set_flat_surface(false);
