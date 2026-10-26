@@ -21,6 +21,7 @@
 #include <cstring>
 #include <iterator>
 #include <limits>
+#include <numbers>
 #include <span>
 #include <type_traits>
 #include <utility>

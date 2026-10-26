@@ -141,8 +141,6 @@ inline void test_twist_axis_threshold_siblings_agree() {
   }
 }
 
-constexpr double PI_DBL = 3.14159265358979323846;
-
 /**
  * @brief Samples distance from a point to a twisted torus surface.
  * @param p Query point.
@@ -161,7 +159,7 @@ inline double twisted_torus_distance(const math::Vector &p, double R, double r,
                                      int n, double A, int steps) {
   double best = 1e30;
   for (int i = 0; i < steps; ++i) {
-    double t = 2.0 * PI_DBL * i / steps;
+    double t = 2.0 * std::numbers::pi * i / steps;
     double ct = std::cos(t), st = std::sin(t);
     double dx = p.x - R * ct, dy = p.y - A * std::sin(n * t), dz = p.z - R * st;
     double u = dx * ct + dz * st;
@@ -251,7 +249,8 @@ inline void test_warped_volume_bounding_distance_never_over_estimates() {
                          0.0f);
       } else if (kind == 1 || kind == 2) {
         // On or inside the tube: radius scaled to at most the minor radius.
-        const double t = next() * 2 * PI_DBL, ph = next() * 2 * PI_DBL;
+        const double t = next() * 2 * std::numbers::pi,
+                     ph = next() * 2 * std::numbers::pi;
         const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
         const double X = c.R + rr * std::cos(ph);
         p = math::Vector(
