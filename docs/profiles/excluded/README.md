@@ -13,6 +13,8 @@ JewelMelt, KaleidoscopeMelt, KaleidoscopeStainedGlass and RingShower remain avai
 | [RingShower selective o3](profile_ringshower_selective_o3_teensy_2026-10-06.md) | `rsh_draw_rings` | 🟢 4.32 | 🟢 0/1087 (0.00%) | 2026-10-06 18:20 |
 | [RingShower global o3](profile_ringshower_global_o3_teensy_2026-08-26.md) | `rsh_draw_rings` | 🟢 3.86 | 🟢 0/1088 (0%) | 2026-08-26 01:36 |
 
+● marks captures taken after the 2026-10-06 re-capture.
+
 Low-resolution-only (96×20) effects:
 
 | Effect | Dominant scope | Peak ms | Spilled | Captured |
