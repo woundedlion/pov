@@ -1530,9 +1530,9 @@ inline void test_volume_timed_shader_reads_column_sweep_time() {
 }
 
 /**
- * @brief sweep_column inverts surface_time on both arms.
+ * @brief surface_column inverts surface_time on both arms.
  */
-inline void test_sweep_column_inverts_sweep_fraction() {
+inline void test_surface_column_inverts_surface_time() {
   for (int width = 4; width <= 512; width += 2) {
     HS_CONTEXT("width", static_cast<long long>(width));
     for (int x = 0; x < width; ++x)

@@ -148,7 +148,7 @@ inline int run_scan_tests() {
   HS_RUN(test_timed_shader_reads_column_sweep_time);
   HS_RUN(test_face_palette_shader_moves_at_column_time);
   HS_RUN(test_volume_timed_shader_reads_column_sweep_time);
-  HS_RUN(test_sweep_column_inverts_sweep_fraction);
+  HS_RUN(test_surface_column_inverts_surface_time);
   HS_RUN(test_column_basis_prepares_for_moving_state);
   HS_RUN(test_drift_matches_shape_at_column_centre);
   HS_RUN(test_settled_drift_matches_column_drift);
