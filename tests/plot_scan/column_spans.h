@@ -224,6 +224,10 @@ static_assert(Pipeline<96, 48, Filter::World::Mobius>::has_world_stage);
 static_assert(Pipeline<96, 48, Filter::World::Hole,
                        Filter::Screen::AntiAlias<96, 48>>::has_world_stage);
 static_assert(Pipeline<96, 48, Filter::World::Orient>::has_world_stage);
+static_assert(!Pipeline<96, 48, Filter::World::Hole,
+                        Filter::Screen::AntiAlias<96, 48>>::table_world_stages);
+static_assert(Pipeline<96, 48, Filter::World::Orient,
+                       Filter::Screen::AntiAlias<96, 48>>::table_world_stages);
 
 /**
  * @brief Verifies edge_visible_in_clip never culls an edge whose densely

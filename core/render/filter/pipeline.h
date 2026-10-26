@@ -251,7 +251,7 @@ public:
       PipelineT::world_transform_is_identity;
   /// World stages can be evaluated at geometric controls.
   static constexpr bool rigid_world_stages = PipelineT::rigid_world_stages;
-  /// The world stages move nothing or are one pose-table rotation.
+  /// World stages consist of one pose-table rotation at most.
   static constexpr bool table_world_stages = PipelineT::table_world_stages;
   /// The first screen stage anti-aliases.
   static constexpr bool column_taps_ready = PipelineT::column_taps_ready;
@@ -853,13 +853,12 @@ struct Pipeline<W, H, Head, Tail...>
   /// Every world stage preserves geodesics without recording history.
   static constexpr bool rigid_world_stages =
       Head::rigid_world_transform && Next::rigid_world_stages;
-  /// The world stages move nothing, or are one rotation a per-frame pose
-  /// table holds followed by stages that move nothing.
+  /// World stages consist of one pose-table rotation at most.
   static constexpr bool table_world_stages =
-      Head::world_transform_is_identity
-          ? Next::table_world_stages
-          : requires(Head &head, const Canvas &cv) { head.pose_table(cv); } &&
-                Next::world_transform_is_identity;
+      Head::is_2d ? Next::table_world_stages
+                  : requires(Head &head, const Canvas &cv) {
+                      head.pose_table(cv);
+                    } && !Next::has_world_stage;
   /// Some stage evaluates world motion over a frame.
   static constexpr bool has_temporal_motion =
       Head::has_temporal_motion || Next::has_temporal_motion;
