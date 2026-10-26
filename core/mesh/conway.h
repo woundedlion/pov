@@ -1198,8 +1198,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       for (size_t i = 0; i < V; ++i) {
         math::Vector force(0, 0, 0);
 
-        uint16_t start_out =
-            orbit_start[i]; // outgoing edge; HE_NONE if boundary
+        uint16_t start_out = orbit_start
+            [i]; // outgoing edge; HE_NONE when no incoming half-edge is paired
         if (start_out != HE_NONE) {
           vertex_orbit<OrbitDir::PAIR_NEXT>(
               he_mesh, start_out, [&](uint16_t idx) {
