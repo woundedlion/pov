@@ -342,6 +342,40 @@ public:
     motion_prepared = false;
   }
 
+  /** @brief Bounds sample indices whose splats may reach the clip band.
+   * @param band Screen-space clip band.
+   * @param count Number of sample intervals.
+   * @param x,y Segment start coordinates.
+   * @param dx,dy Segment coordinate deltas.
+   * @param x_pad,y_pad Motion padding in pixels.
+   * @return Inclusive sample-index bounds, inverted when empty. */
+  static HS_HOT_INLINE std::pair<float, float>
+  sample_band_range(const ClipBand<W, H> &band, float count, float x, float y,
+                    float dx, float dy, float x_pad, float y_pad) {
+    float lo = 0.0f, hi = count;
+    auto restrict_range = [&](float start, float delta, float low, float high)
+                              HS_HOT_INLINE {
+                                if (fabsf(delta) < 1e-4f) {
+                                  if (start < low - 1.0f || start > high + 1.0f)
+                                    hi = -1.0f;
+                                  return;
+                                }
+                                const float scale = count / delta;
+                                const float s_lo = (low - start) * scale;
+                                const float s_hi = (high - start) * scale;
+                                lo = fmaxf(lo, fminf(s_lo, s_hi) - 1.0f);
+                                hi = fminf(hi, fmaxf(s_lo, s_hi) + 1.0f);
+                              };
+    restrict_range(y, dy, band.row_lo - y_pad, band.row_hi + y_pad);
+    if (band.x_active && fabsf(dx) < W * 0.25f &&
+        fabsf(dx) < W - 2.0f * band.x_half) {
+      const float shift = W * rintf((x + 0.5f * dx - band.x_center) / W);
+      restrict_range(x, dx, band.x_center - band.x_half + shift - x_pad,
+                     band.x_center + band.x_half + shift + x_pad);
+    }
+    return {lo, hi};
+  }
+
   /**
    * @brief Strokes one closed chart-straight polyline.
    * @tparam PipelineT Screen-space plot sink (plot(canvas, x, y, ...)).
@@ -386,30 +420,9 @@ public:
           const float inv_samples = 1.0f / sample_count;
           // Sample index range whose splat can reach the band; plot() masks the
           // taps, so a range wider than exact only costs time.
-          float first = 0.0f;
-          float last = sample_count;
-          auto restrict_range = [&](float start, float delta, float lo,
-                                    float hi) __attribute__((always_inline)) {
-            if (fabsf(delta) < 1e-4f) {
-              if (start < lo - 1.0f || start > hi + 1.0f)
-                last = -1.0f;
-              return;
-            }
-            const float scale = sample_count / delta;
-            const float s_lo = (lo - start) * scale;
-            const float s_hi = (hi - start) * scale;
-            first = fmaxf(first, fminf(s_lo, s_hi) - 1.0f);
-            last = fminf(last, fmaxf(s_lo, s_hi) + 1.0f);
-          };
-          restrict_range(y_start, segment_dy, band.row_lo, band.row_hi);
-          if (band.x_active && fabsf(segment_dx) < W * 0.25f &&
-              fabsf(segment_dx) < W - 2.0f * band.x_half) {
-            const float shift =
-                W * rintf((x_start + 0.5f * segment_dx - band.x_center) / W);
-            restrict_range(x_start, segment_dx,
-                           band.x_center - band.x_half + shift,
-                           band.x_center + band.x_half + shift);
-          }
+          const auto [first, last] =
+              sample_band_range(band, sample_count, x_start, y_start,
+                                segment_dx, segment_dy, 0.0f, 0.0f);
           if (last < first)
             return;
           const int sample_begin = static_cast<int>(ceilf(fmaxf(first, 0.0f)));
@@ -657,27 +670,8 @@ public:
       float first = sample_count, last = 0.0f;
       auto widen = [&](float x0, float y0, float sdx,
                        float sdy) __attribute__((always_inline)) {
-        float lo = 0.0f, hi = sample_count;
-        auto restrict_range = [&](float start_at, float delta, float low,
-                                  float high) __attribute__((always_inline)) {
-          if (fabsf(delta) < 1e-4f) {
-            if (start_at < low - 1.0f || start_at > high + 1.0f)
-              hi = -1.0f;
-            return;
-          }
-          const float scale = sample_count / delta;
-          const float s_lo = (low - start_at) * scale;
-          const float s_hi = (high - start_at) * scale;
-          lo = fmaxf(lo, fminf(s_lo, s_hi) - 1.0f);
-          hi = fminf(hi, fmaxf(s_lo, s_hi) + 1.0f);
-        };
-        restrict_range(y0, sdy, band.row_lo - y_pad, band.row_hi + y_pad);
-        if (band.x_active && fabsf(sdx) < W * 0.25f &&
-            fabsf(sdx) < W - 2.0f * band.x_half) {
-          const float shift = W * rintf((x0 + 0.5f * sdx - band.x_center) / W);
-          restrict_range(x0, sdx, band.x_center - band.x_half + shift - x_pad,
-                         band.x_center + band.x_half + shift + x_pad);
-        }
+        const auto [lo, hi] = sample_band_range(band, sample_count, x0, y0, sdx,
+                                                sdy, x_pad, y_pad);
         if (hi >= lo) {
           first = fminf(first, lo);
           last = fmaxf(last, hi);
