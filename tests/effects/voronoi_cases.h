@@ -285,7 +285,7 @@ inline void test_voronoi_segment_render_matches_full_frame() {
  * @return Pin folded over the frames.
  */
 template <int W, int H>
-inline RenderPin voronoi_instantaneous_render(int sites, float border) {
+inline PixelGolden voronoi_instantaneous_render(int sites, float border) {
   reset_effect_globals();
   Voronoi<W, H> effect;
   effect.init();
@@ -294,11 +294,11 @@ inline RenderPin voronoi_instantaneous_render(int sites, float border) {
   HS_EXPECT_EQ(effect.updateParameter("Border Thick", border),
                ParamSetResult::APPLIED);
   Spacetime::set_flat_surface(true);
-  RenderPin pin;
+  PixelGolden pin;
   for (int frame = 0; frame < 3; ++frame) {
     effect.draw_frame();
     effect.advance_display();
-    fold_render_pin<W, H>(pin, effect);
+    fold_pixel_golden<W, H>(pin, effect);
   }
   Spacetime::set_flat_surface(false);
   return pin;
@@ -306,19 +306,38 @@ inline RenderPin voronoi_instantaneous_render(int sites, float border) {
 
 /** @brief Voronoi renders as recorded with column-time sampling off. */
 inline void test_voronoi_instantaneous_render_pins() {
-  const RenderPin pins[] = {
+  const PixelGolden pins[] = {
       voronoi_instantaneous_render<DEFAULT_W, DEFAULT_H>(200, 0.0f),
       voronoi_instantaneous_render<DEFAULT_W, DEFAULT_H>(400, 0.02f),
       voronoi_instantaneous_render<SMALL_W, SMALL_H>(200, 0.02f),
   };
-  static constexpr RenderPin RECORDED[] = {
-      {5243363699516185634ull, 4393261419ull},
-      {3848841366341219969ull, 3400893185ull},
-      {16342571190465927066ull, 178646082ull},
+  static constexpr RecordedGolden RECORDED[] = {
+      {{0x48c42b8111d71c22ull,
+        {{3224501316ull, 1023501533ull, 145258570ull},
+         158823194083ull,
+         630753351407ull}},
+       {0x3e54c2a6ca7db594ull,
+        {{3224501786ull, 1023501922ull, 145258571ull},
+         158823193975ull,
+         630753433049ull}}},
+      {{0x3569d4d4a598f681ull,
+        {{2496742876ull, 790651062ull, 113499247ull},
+         122790894831ull,
+         486978999414ull}},
+       {0x0ad1754efb5d0dffull,
+        {{2496756535ull, 790656005ull, 113495457ull},
+         122791077284ull,
+         486980241206ull}}},
+      {{0xe2cc79e93c41179aull,
+        {{130302290ull, 42439639ull, 5904153ull}, 799440922ull, 8436662516ull}},
+       {0x5cffd0c32c547be7ull,
+        {{130302275ull, 42439633ull, 5904155ull},
+         799440797ull,
+         8436661516ull}}},
   };
   for (size_t i = 0; i < std::size(RECORDED); ++i) {
     HS_CONTEXT("scenario", static_cast<long long>(i));
-    expect_render_pin(pins[i], RECORDED[i]);
+    expect_pixel_golden("Voronoi", pins[i], RECORDED[i]);
   }
 }
 

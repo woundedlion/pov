@@ -353,50 +353,6 @@ inline uint64_t frame_energy(const Fx &fx) {
   return energy;
 }
 
-/** @brief Frame hash and channel energy of a pinned render sequence. */
-struct RenderPin {
-  uint64_t hash = HASH_SEED64; ///< frame_hash() chained over the frames.
-  uint64_t energy = 0;         ///< frame_energy() summed over the frames.
-};
-
-/**
- * @brief Extends a render pin by an effect's displayed frame.
- * @tparam W Frame width.
- * @tparam H Frame height.
- * @tparam Fx Effect type.
- * @param pin Pin to extend.
- * @param fx Effect to read.
- */
-template <int W, int H, typename Fx>
-inline void fold_render_pin(RenderPin &pin, const Fx &fx) {
-  pin.hash = frame_hash<W, H>(fx, pin.hash);
-  pin.energy += frame_energy<W, H>(fx);
-}
-
-/**
- * @brief Checks a render against its pin, hash first.
- * @param rendered Pin folded from the render under test.
- * @param pin Recorded pin.
- * @param relative_band Energy band accepted when the hash moved.
- * @details A moved hash, as from a libm whose last bits differ from the
- * recording toolchain's, falls back to the channel energy within the band and
- * reports the fallback.
- */
-inline void expect_render_pin(const RenderPin &rendered, const RenderPin &pin,
-                              double relative_band = 1e-3) {
-  HS_EXPECT_GT(pin.energy, uint64_t{0});
-  if (rendered.hash == pin.hash) {
-    HS_EXPECT_EQ(rendered.energy, pin.energy);
-    return;
-  }
-  std::printf("  render pin hash moved (%llu, energy %llu); checking energy\n",
-              static_cast<unsigned long long>(rendered.hash),
-              static_cast<unsigned long long>(rendered.energy));
-  HS_EXPECT_NEAR(static_cast<double>(rendered.energy),
-                 static_cast<double>(pin.energy),
-                 relative_band * static_cast<double>(pin.energy));
-}
-
 /**
  * @brief Sums every RGB channel of a captured frame.
  * @param frame Pixels as capture_frame() lays them out.

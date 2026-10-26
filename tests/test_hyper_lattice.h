@@ -845,19 +845,19 @@ inline void test_specialized_render_signature() {
  * @param preset Preset index.
  * @return Pin folded over the first two frames and the last.
  */
-template <int W, int H> RenderPin instantaneous_render(size_t preset) {
+template <int W, int H> PixelGolden instantaneous_render(size_t preset) {
   reset_globals();
   HyperLattice<W, H> effect;
   effect.init();
   if (preset)
     HS_EXPECT_TRUE(effect.selectPreset(preset));
   Spacetime::set_flat_surface(true);
-  RenderPin pin;
+  PixelGolden pin;
   for (int frame = 0; frame < 40; ++frame) {
     effect.draw_frame();
     effect.advance_display();
     if (frame < 2 || frame == 39)
-      fold_render_pin<W, H>(pin, effect);
+      fold_pixel_golden<W, H>(pin, effect);
   }
   Spacetime::set_flat_surface(false);
   return pin;
@@ -865,36 +865,144 @@ template <int W, int H> RenderPin instantaneous_render(size_t preset) {
 
 /** @brief Every preset renders as recorded with column-time sampling off. */
 inline void test_instantaneous_render_pins() {
-  static constexpr RenderPin SMALL[] = {
-      {12199285387450431248ull, 99587122ull},
-      {5249734158304076682ull, 82725609ull},
-      {16493503535113904059ull, 81142885ull},
-      {16252231688842148634ull, 47605113ull},
-      {7215106029378424594ull, 94384933ull},
-      {2362761463688315540ull, 94116648ull},
-      {7014022798859048203ull, 175665891ull},
-      {5417829696430146944ull, 229692678ull},
-      {15832882130806361051ull, 62841834ull},
+  static constexpr RecordedGolden SMALL[] = {
+      {{0xa94c916ce098b710ull,
+        {{15879938ull, 33806139ull, 49901045ull}, 929681480ull, 4747878914ull}},
+       {0xe83aa7de601edb1bull,
+        {{15879941ull, 33806144ull, 49901036ull},
+         929681465ull,
+         4747879454ull}}},
+      {{0x48dacd6716f2e38aull,
+        {{13620838ull, 27247961ull, 41856810ull}, 788158262ull, 3993009095ull}},
+       {0x54b396c8d6c90c84ull,
+        {{13620839ull, 27247967ull, 41856810ull},
+         788158425ull,
+         3993009814ull}}},
+      {{0xe4e4b214301d1fbbull,
+        {{14016703ull, 28343629ull, 38782553ull}, 794147276ull, 3840080868ull}},
+       {0xb60da53ffc9d96e7ull,
+        {{14016703ull, 28343635ull, 38782547ull},
+         794147220ull,
+         3840080922ull}}},
+      {{0xe18b869cecc87b1aull,
+        {{6877621ull, 15388262ull, 25339230ull}, 452146061ull, 2245807307ull}},
+       {0x216ead7f6a941b29ull,
+        {{6877623ull, 15388258ull, 25339219ull}, 452145868ull, 2245806308ull}}},
+      {{0x642134b4d9e14f12ull,
+        {{15574978ull, 32052190ull, 46757765ull}, 865498826ull, 4441257817ull}},
+       {0xcd5c27f243cbf481ull,
+        {{15574982ull, 32052282ull, 46757771ull},
+         865498963ull,
+         4441262711ull}}},
+      {{0x20ca3708641fc294ull,
+        {{15094188ull, 29775474ull, 49246986ull}, 950669762ull, 4630249745ull}},
+       {0xa19f572ef67c31ecull,
+        {{15094181ull, 29775480ull, 49246981ull},
+         950669704ull,
+         4630249183ull}}},
+      {{0x6156d092dc7c150bull,
+        {{27287142ull, 57812386ull, 90566363ull},
+         1648862237ull,
+         8121637055ull}},
+       {0x6805d935a80ae9a4ull,
+        {{27287139ull, 57812397ull, 90566364ull},
+         1648862310ull,
+         8121637632ull}}},
+      {{0x4b2fff676d480580ull,
+        {{39879920ull, 79476469ull, 110336289ull},
+         2237419182ull,
+         11303822427ull}},
+       {0x77eac73b7f6a7437ull,
+        {{39879919ull, 79476476ull, 110336280ull},
+         2237419126ull,
+         11303822714ull}}},
+      {{0xdbb9b2696957cbdbull,
+        {{9757965ull, 19126145ull, 33957724ull}, 606660331ull, 2990955679ull}},
+       {0x326668dd581bf671ull,
+        {{9757959ull, 19126152ull, 33957721ull}, 606660343ull, 2990955507ull}}},
   };
-  static constexpr RenderPin FULL[] = {
-      {7997437155647645822ull, 1770875562ull},
-      {11127425279538897246ull, 1387312085ull},
-      {14976033508803036149ull, 320510986ull},
-      {3680139823341122512ull, 654254713ull},
-      {17614081994318711728ull, 1185851774ull},
-      {573010076876340580ull, 529117665ull},
-      {18337387981243444738ull, 1546000354ull},
-      {9809515885948585356ull, 3407424867ull},
-      {6798296368914257278ull, 327345037ull},
+  static constexpr RecordedGolden FULL[] = {
+      {{0x6efc9ab887e3687eull,
+        {{286420393ull, 604026957ull, 880428212ull},
+         125165022407ull,
+         255031996507ull}},
+       {0x48531a97457d671cull,
+        {{286420451ull, 604027075ull, 880428028ull},
+         125165022266ull,
+         255031987260ull}}},
+      {{0x9a6c8e560b9e215eull,
+        {{226325234ull, 466226264ull, 694760587ull},
+         99255641409ull,
+         202137900576ull}},
+       {0xa4194985b8074047ull,
+        {{226325227ull, 466226402ull, 694760504ull},
+         99255645653ull,
+         202137915890ull}}},
+      {{0xcfd58f213c8d43f5ull,
+        {{56724327ull, 114293350ull, 149493309ull},
+         23553561504ull,
+         45995717139ull}},
+       {0x46f34c3e3e99c108ull,
+        {{56724362ull, 114293392ull, 149493300ull},
+         23553565214ull,
+         45995734529ull}}},
+      {{0x33127babce0433d0ull,
+        {{98796890ull, 216440996ull, 339016827ull},
+         47134284500ull,
+         92777983011ull}},
+       {0x51f59dbbb558b7dfull,
+        {{98796887ull, 216441042ull, 339016800ull},
+         47134287388ull,
+         92777982356ull}}},
+      {{0xf471ca401bf88bb0ull,
+        {{203014955ull, 412599828ull, 570236991ull},
+         82903792178ull,
+         169550270676ull}},
+       {0x1718f69a430a4cf2ull,
+        {{203014970ull, 412599843ull, 570236906ull},
+         82903784158ull,
+         169550257129ull}}},
+      {{0x07f3bda104eefd64ull,
+        {{103486630ull, 181217087ull, 244413948ull},
+         41465102299ull,
+         81990154845ull}},
+       {0xa11a4dd81e2755fdull,
+        {{103486623ull, 181217097ull, 244413924ull},
+         41465101267ull,
+         81990151803ull}}},
+      {{0xfe7b7d369a886e02ull,
+        {{264475487ull, 545395862ull, 736129005ull},
+         109707184163ull,
+         208547098076ull}},
+       {0x62c0023a5d39b3eeull,
+        {{264475515ull, 545395891ull, 736128866ull},
+         109707174517ull,
+         208547068672ull}}},
+      {{0x882266b9a884458cull,
+        {{626159976ull, 1227865937ull, 1553398954ull},
+         248720011973ull,
+         516075463129ull}},
+       {0x592cb1ef4c6be385ull,
+        {{626160148ull, 1227866214ull, 1553398805ull},
+         248720032436ull,
+         516075489725ull}}},
+      {{0x5e58668752f6557eull,
+        {{63738122ull, 115570447ull, 148036468ull},
+         20144976031ull,
+         45651380980ull}},
+       {0x09a866919c955581ull,
+        {{63738164ull, 115570500ull, 148036459ull},
+         20144977467ull,
+         45651397230ull}}},
   };
   static_assert(std::size(SMALL) == HyperLattice<96, 20>::PRESET_IDS.size());
   static_assert(std::size(FULL) == HyperLattice<96, 20>::PRESET_IDS.size());
   for (size_t preset = 0; preset < std::size(SMALL); ++preset) {
     HS_CONTEXT("preset", static_cast<long long>(preset));
-    const RenderPin small = instantaneous_render<96, 20>(preset);
-    const RenderPin full = instantaneous_render<288, 144>(preset);
-    expect_render_pin(small, SMALL[preset]);
-    expect_render_pin(full, FULL[preset]);
+    const PixelGolden small = instantaneous_render<96, 20>(preset);
+    const PixelGolden full = instantaneous_render<288, 144>(preset);
+    expect_pixel_golden("HyperLattice 96x20", small, SMALL[preset]);
+    expect_pixel_golden("HyperLattice 288x144", full, FULL[preset]);
   }
 }
 
