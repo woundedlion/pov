@@ -925,18 +925,9 @@ private:
       }
       if (half_res) {
         HS_PROFILE_DEEP(fb_comp_fill);
-        // Arms are lit a frame apart at their cuts, so with column time each
-        // reconstructs on its own.
-        constexpr int HALF = ColumnTime::HALF;
-        for (int r = 0; r < runs.count; ++r) {
-          const int end = runs.items[r].end;
-          for (int begin = runs.items[r].begin; begin < end;) {
-            const int stop =
-                column_time && begin < HALF && end > HALF ? HALF : end;
-            reconstruct_half_res_run(output, begin, stop);
-            begin = stop;
-          }
-        }
+        for (int r = 0; r < runs.count; ++r)
+          reconstruct_half_res_run(output, runs.items[r].begin,
+                                   runs.items[r].end);
       }
       if (filter_output) {
         HS_PROFILE_DEEP(fb_comp_filter);
