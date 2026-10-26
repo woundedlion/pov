@@ -172,14 +172,19 @@ artifacts are local outputs; they are no longer retained in this archive.
 The profile wrapper writes these outputs under ignored `build/prof/`.
 Historical hashes identify captures but do not guarantee reproducible source.
 
-Capture `d25dd85dee17` maps to landed `43858e5fb`; only test headers differ,
+Capture `d25dd85dee17` maps to landed `064cc88a5`; only test headers differ,
 with no firmware-relevant tree difference. Capture `0156d0d7490355` maps to
-landed `3fc710350`. Capture `7baf3cc4307` maps to landed `daf63d812` on a
+landed `2b9b2a15c`. Capture `7baf3cc4307` maps to landed `35420268b` on a
 different base (319 differing files); it cannot be treated as the same tree.
-Capture `17390a7a1` is unpublished: it is `e7f19b0d1` plus one profiling scope.
-Capture `d5ca81403` landed as `c40c1def8`.
-Capture `0df961b818ae` is unrecoverable. These historical orphan hashes are
-not reachable from the published branch. The historical KaleidoscopeSmooth shipping
+Capture `17390a7a1` is unpublished: it is `d8bfc08f7` plus one profiling scope.
+Capture `d5ca81403` landed as `1ad26dcd5`.
+The canonical shipping source `49bb199f4` is unpublished. Its landed
+equivalent `b49317e21` differs in firmware: `walk_uniform_edge_columns()`
+has 32-byte alignment in `core/render/plot/column_walk.h`, and
+`HankinSolids::SCRATCH_A_BYTES` is 26 KiB instead of 24 KiB. It is not a
+firmware-identical substitute for the captured source.
+Capture `0df961b818ae` is unrecoverable. The unpublished capture hashes
+are not reachable from the published branch. The historical KaleidoscopeSmooth shipping
 capture additionally used an unretained source patch, so its recorded base
 and patch hash cannot reconstruct the captured source from a fresh clone.
 
