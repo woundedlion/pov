@@ -400,7 +400,15 @@ static_assert(
         DirectAntiAliasSink<8, 8>::has_world_stage ==
             DirectAntiAliasReference::has_world_stage &&
         DirectAntiAliasSink<8, 8>::world_transform_is_identity ==
-            DirectAntiAliasReference::world_transform_is_identity,
+            DirectAntiAliasReference::world_transform_is_identity &&
+        DirectAntiAliasSink<8, 8>::column_taps_ready ==
+            DirectAntiAliasReference::column_taps_ready &&
+        DirectAntiAliasSink<8, 8>::rigid_world_stages ==
+            DirectAntiAliasReference::rigid_world_stages &&
+        DirectAntiAliasSink<8, 8>::table_world_stages ==
+            DirectAntiAliasReference::table_world_stages &&
+        DirectAntiAliasSink<8, 8>::has_temporal_motion ==
+            DirectAntiAliasReference::has_temporal_motion,
     "DirectAntiAliasSink's folds differ from the pipeline it stands in for");
 
 } // namespace Screen
