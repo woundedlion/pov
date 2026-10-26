@@ -96,8 +96,7 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
     float th = hs::rand_f(-math::PI_F, math::PI_F);
     math::Vector got =
         Plot::azimuthal_unproject(R * std::cos(th), R * std::sin(th), basis);
-    math::Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
-    math::Vector want = basis.v * std::cos(R) + axis * std::sin(R);
+    math::Vector want = disk_point(basis, R, th);
     HS_EXPECT_NEAR(math::angle_between(got, want), 0.0f, 1e-2f);
     float got_R = math::angle_between(got, basis.v);
     if (got_R > 0.05f && got_R < math::PI_F - 0.05f)

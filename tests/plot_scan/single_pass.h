@@ -187,9 +187,8 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
       math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   for (int i = 0; i < 5; ++i) {
     float az = (2.0f * math::PI_F * i) / 5.0f;
-    math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
     Fragment f;
-    f.pos = (basis.v * cosf(0.7f) + dir * sinf(0.7f)).normalized();
+    f.pos = disk_point(basis, 0.7f, az);
     points.push_back(f);
   }
 
@@ -501,9 +500,7 @@ inline void test_rasterize_balanced_pole_guard() {
   constexpr int W = 144, H = 72;
   const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   auto near_pole = [&](float azimuth) {
-    const math::Vector radial =
-        basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
-    return (basis.v * cosf(0.02f) + radial * sinf(0.02f)).normalized();
+    return disk_point(basis, 0.02f, azimuth);
   };
   ScratchScope sc(plot_arena());
   Fragments points;

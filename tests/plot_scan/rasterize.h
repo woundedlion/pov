@@ -322,8 +322,7 @@ inline void test_planar_sampler_from_cull_parity() {
     const math::Basis basis =
         math::make_basis(math::Quaternion(), normal.normalized());
     auto point = [&](float radius, float angle) {
-      const math::Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
-      return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
+      return disk_point(basis, radius, angle);
     };
     const float a_radius = hs::rand_f(0.01f, 2.8f);
     const float a_angle = hs::rand_f(-math::PI_F, math::PI_F);

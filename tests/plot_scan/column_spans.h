@@ -543,8 +543,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
       float a0 = hs::rand_f(0, 2 * math::PI_F);
       for (size_t i = 0; i < WALK; ++i) {
         float ang = a0 + hs::rand_f(0.2f, 1.0f) * static_cast<float>(i);
-        math::Vector dir = chart.u * cosf(ang) + chart.w * sinf(ang);
-        walk[i] = (chart.v * cosf(radius) + dir * sinf(radius)).normalized();
+        walk[i] = disk_point(chart, radius, ang);
       }
     } else {
       walk[0] = rand_unit();
