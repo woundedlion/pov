@@ -615,10 +615,10 @@ inline void test_hankinsolids_morph_motion_is_seam_free() {
   effect.init();
   constexpr float FROM = 0.5f, TO = 0.7f;
   WB::rebuild(effect, FROM);
-  const size_t count = WB::mesh_vertices(effect).size();
   std::vector<math::Vector> from(WB::mesh_vertices(effect).begin(),
                                  WB::mesh_vertices(effect).end());
   WB::rebuild(effect, TO);
+  HS_EXPECT_SIZE_OR_RETURN(WB::mesh_vertices(effect), from.size());
   const size_t faces = WB::faces(effect);
   const BakedPalette ramp = WB::palette_bank(effect).entries[0];
   std::vector<uint8_t> face_ramp(faces, 0);
@@ -630,7 +630,6 @@ inline void test_hankinsolids_morph_motion_is_seam_free() {
   std::vector<math::Vector> previous = from;
   const std::vector<Pixel> drawn = draw(previous.data());
   const std::vector<Pixel> held = draw(nullptr);
-  HS_EXPECT_EQ(count, from.size());
   expect_seam_resolved<SMALL_W, SMALL_H>(
       "hankin morph", drawn, held, [&](float u) {
         WB::rebuild(effect, FROM + (TO - FROM) * u);
