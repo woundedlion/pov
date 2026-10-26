@@ -434,7 +434,7 @@ inline void test_islamicstars_smooth_recipe_completion() {
   };
   for (const Case &c :
        {Case{Solids::Op::DUAL, 8, 1}, Case{Solids::Op::NEEDLE, 24, 1},
-        Case{Solids::Op::KIS, 24, 2}}) {
+        Case{Solids::Op::KIS, 24, 2}, Case{Solids::Op::ZIP, 14, 3}}) {
     reset_effect_globals();
     const Solids::OpStep steps[] = {{c.op}};
     const Solids::Recipe recipe = Solids::make_recipe(1, steps);

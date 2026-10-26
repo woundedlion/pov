@@ -433,7 +433,8 @@ protected:
       return;
     }
     const size_t next = build_step + 1;
-    if (next >= build_step_count ||
+    if (build_continuation != BuildContinuation::FINISH ||
+        next >= build_step_count ||
         build_step_chain[next].op != Solids::Op::DUAL || dt_pair_at(next) ||
         build_step_chain[build_step].op == Solids::Op::DUAL ||
         build_step_chain[build_step].op == Solids::Op::HANKIN ||
