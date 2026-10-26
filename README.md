@@ -1507,7 +1507,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── run_render_goldens.cpp  Node-hosted WASM render regression runner
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h
-│   │   ├── temporal_seam.h Column-time tap ownership oracles
+│   │   ├── temporal_seam.h Projected-entry world bypass and tap timing
 │   │   └── timed_mesh.h    Timed source-mesh geometry and shader checks
 │   ├── pov_sync/          Sections included by test_pov_sync.h
 │   ├── ray_events/        Sections included by test_ray_events.h
