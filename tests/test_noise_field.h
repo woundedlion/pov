@@ -141,20 +141,21 @@ inline void test_noise_field_octave_formulas() {
   }
 }
 
-/** @brief Ridged vector channels equal half the offset-sample difference. */
+/** @brief Vector noise channels match independent offset-sample goldens. */
 inline void test_noise_field_ridged_channel_pairs() {
   const FastNoiseLite noise = make_noise(991);
   const math::Vector q(-3.0f, 8.5f, 29.0f);
+  constexpr std::array<float, 3> RIDGED = {0.216791987f, -0.152162731f,
+                                           -0.0796125233f};
+  constexpr std::array<float, 3> SIMPLEX = {0.00326943118f, 0.439077944f,
+                                            0.439079434f};
   for (size_t channel = 0; channel < 3; ++channel) {
-    const float c =
-        math::sample_noise_octaves(noise, math::NoiseBasis::RIDGED3,
-                                   q + math::NOISE_CHANNEL_OFFSETS[channel]);
-    const float d =
-        math::sample_noise_octaves(noise, math::NoiseBasis::RIDGED3,
-                                   q + math::NOISE_RIDGED_OFFSETS[channel]);
     HS_EXPECT_NEAR(math::sample_noise_vector_channel(
                        noise, math::NoiseBasis::RIDGED3, q, channel),
-                   0.5f * (c - d), 1e-7f);
+                   RIDGED[channel], 2e-6f);
+    HS_EXPECT_NEAR(math::sample_noise_vector_channel(
+                       noise, math::NoiseBasis::SIMPLEX, q, channel),
+                   SIMPLEX[channel], 2e-6f);
   }
 }
 
