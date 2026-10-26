@@ -93,7 +93,7 @@ inline void test_snub_bridge_icosahedron_classifies_like_registry() {
 /**
  * @brief Verifies ambo(tetrahedron) is the regular octahedron: 6 vertices,
  *        8 triangles, equal edges, and a vertex-set bijection onto the
- *        Octahedron seed (normalized tetra edge midpoints are the Â±axes).
+ *        Octahedron seed (normalized tetra edge midpoints are the ±axes).
  */
 inline void test_ambo_tetrahedron_is_regular_octahedron() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));

@@ -27,7 +27,7 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
   HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{0});
   ps.spawn(math::Vector(0, -1, 0), math::Vector(0, 0, 0),
-           4); // capacity is 4 â€” rejected
+           4); // capacity is 4 — rejected
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
   HS_EXPECT_EQ(ps.dropped_spawns(), uint32_t{1});
 }
@@ -174,8 +174,8 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
     return ps.active() == 1;
   };
 
-  HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius â†’ killed
-  HS_EXPECT_TRUE(survives(kr)); // exactly at the radius â†’ survives (strict <)
+  HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
+  HS_EXPECT_TRUE(survives(kr)); // exactly at the radius → survives (strict <)
   HS_EXPECT_TRUE(survives(kr + 0.01f));
 }
 

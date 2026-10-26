@@ -243,7 +243,7 @@ inline void test_melt_warp_bound_noise_perturbs() {
   Animation::NoiseParams np;
   Feedback::Style s{};
   s.speed = 1.0f;
-  s.amplitude = 0.6f; // above the melt wobble floor â†’ noise branch runs
+  s.amplitude = 0.6f; // above the melt wobble floor → noise branch runs
   s.frequency = 0.5f;
   s.scale = 4.0f;
   s.noise = &np;

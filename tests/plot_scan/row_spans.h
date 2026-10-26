@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Plot::geodesic_row_span / Plot::planar_row_span â€” arc-aware clip cull
+// Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
 // ============================================================================
 
 /**

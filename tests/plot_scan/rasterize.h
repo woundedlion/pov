@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Plot::rasterize â€” control-flow coverage through a capturing pipeline
+// Plot::rasterize — control-flow coverage through a capturing pipeline
 // ============================================================================
 
 /**
@@ -743,7 +743,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
 /**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
- * @details 90Â° about X maps the equatorial arc onto a polar meridian that
+ * @details 90° about X maps the equatorial arc onto a polar meridian that
  *          reaches a band the source arc never touches.
  */
 inline void test_rasterize_cull_follows_filter_orientation() {
@@ -767,7 +767,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
       Fragment a, b;
       a.pos = math::Vector(1, 0, 0); // equator (+X)
       b.pos = math::Vector(
-          0, 0, 1); // equator (+Z); 90Â° about X sends it to -Y (pole)
+          0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
       pts.push_back(a);
       pts.push_back(b);
       Canvas c(fx);

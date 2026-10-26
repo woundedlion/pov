@@ -208,12 +208,11 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
     const bool persisted =
         fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
     if (!persisted)
-      std::printf(
-          "  DEAD SLIDER %s::%s â€” wrote %.4f, engine reverted to %.4f "
-          "(register_animated_param / mark_readonly / drive a private "
-          "member)\n",
-          name, def.name, static_cast<double>(target),
-          static_cast<double>(now));
+      std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
+                  "(register_animated_param / mark_readonly / drive a private "
+                  "member)\n",
+                  name, def.name, static_cast<double>(target),
+                  static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
     HS_EXPECT_EQ(effect.updateParameter(def.name, cur),
                  ParamSetResult::APPLIED);

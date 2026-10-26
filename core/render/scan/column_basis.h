@@ -86,7 +86,7 @@ struct MeshPass {
 /**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
- * `c = Spacetime::SamplingSurface<W>::index(x)` as `Â±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * `c = Spacetime::SamplingSurface<W>::index(x)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
  * the far arm: the fixed-meridian direction rotated from the column's sweep
  * time to the current endpoint, so shapes built at the current endpoint are
  * evaluated as they stood when the column was lit.

@@ -111,7 +111,7 @@ constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
  * @param tol Max distance from an output corner to its seed corner.
  * @details Primary face fi must have seed_count(fi) * corners_per_source sides
  *          with exactly corners_per_source of them within tol of each seed
- *          corner â€” pinning emission order, side counts, and geometry at once.
+ *          corner — pinning emission order, side counts, and geometry at once.
  */
 inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            const PolyMesh &out,

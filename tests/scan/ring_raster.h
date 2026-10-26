@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Ring::draw â€” SDF rasterize() path through a Pipeline sink
+// Scan::Ring::draw — SDF rasterize() path through a Pipeline sink
 // ============================================================================
 
 /**

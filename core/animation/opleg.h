@@ -1114,7 +1114,7 @@ public:
 
 private:
   /**
-   * @brief Arena-allocated leg state â€” keeps OpLeg inline size small.
+   * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
     PolyMesh seed; /**< Cloned geometry for owned CONWAY_SWEEP, RELAX_SLERP
@@ -1542,7 +1542,7 @@ private:
              "OpLeg: gated arrival classification is not one class per face");
 
     // Provenance across the swap: the children inherit their parent face's
-    // (kis) or nearest orbit face's (dual) palette â€” colour locality.
+    // (kis) or nearest orbit face's (dual) palette — colour locality.
     uint8_t *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
     if (tr.swap_op == SwapOp::KIS)
       kis_provenance(tr, arrival, handoff, from);

@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Scan::Star / PlanarPolygon / Flower â€” filled-shape placement oracle
+// Scan::Star / PlanarPolygon / Flower — filled-shape placement oracle
 // ============================================================================
 
 /**
