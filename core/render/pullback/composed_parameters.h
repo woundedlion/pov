@@ -183,7 +183,7 @@ template <> struct OptionalHueRotationLut<true> {
   uint32_t hue_rotation_lut_bake = 0;
 };
 
-/** @brief Optional float copy of the hue-rotation table. */
+/** @brief Optional float copies of the hue-rotation and hue-noise tables. */
 template <bool Enabled> struct OptionalLinearHueRotationLut {};
 /** @brief Enabled float hue-table storage. */
 template <> struct OptionalLinearHueRotationLut<true> {

@@ -6,8 +6,8 @@
 // Included by core/render/pullback/composed_effect.h.
 
 /** @file composed_policies.h
- * @brief Composed-effect `Spec` metadata and the policy selectors that map
- * it to pipeline stages.
+ * @brief Composed-effect authored controls and policy selectors keyed on
+ * parameter families and projection kind.
  */
 
 /** @brief Authored controls accompanying an explicit typed stage pipeline.
