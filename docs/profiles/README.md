@@ -45,12 +45,12 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | Effect | Dominant scope | Ship peak steady ms | Ship setup frame 1 ms | O3 peak ms | Ship spilled | O3 spilled | FLASH code Δ | ITCM Δ | Captured |
 |---|---|--:|--:|--:|--:|--:|--:|--:|---|
 | [MindSplatter](shipping/profile_mindsplatter_teensy_2026-10-23.md) / [O3](O3/profile_mindsplatter_architecture_teensy_2026-10-01.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 0.379 | 🟢 54.539 (8) | 🟢 0/1247 (0.00%) | 🟢 0/1736 (0.00%) | +21,976 B | +17,200 B | ship 2026-10-23 13:40<br>O3 2026-10-01 09:22 |
-| [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-23.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § | `is_timeline_step` | 🟢 58.966 (16) | 16.644 | 🟢 49.112 (23) | 🟢 0/4863 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-23 13:57<br>O3 2026-09-28 16:50 |
 | [Raymarch](shipping/profile_raymarch_teensy_2026-10-23.md) / [O3](O3/profile_raymarch_teensy_2026-09-20.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 56.04 | 🟢 0/447 (0.00%) | 🟢 0/1736 (0.00%) | +12,568 B | +7,904 B | ship 2026-10-23 13:30<br>O3 2026-09-20 23:07 |
 | [ShapeShifter](shipping/profile_shapeshifter_teensy_2026-10-23.md) / [O3](O3/profile_shapeshifter_teensy_2026-09-25.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 60.05 (9) | 🟢 0/4271 (0.00%) | 🟢 0/2457 (0.00%) | +29,288 B | +24,496 B | ship 2026-10-23 17:21<br>O3 2026-09-25 07:29 |
 | [HopfFibration](shipping/profile_hopffibration_teensy_2026-10-23.md) / [O3](O3/profile_hopffibration_teensy_2026-08-26.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 46.52 | 🟢 0/927 (0.00%) | 🟢 0/1088 (0%) | +19,616 B | +18,272 B | ship 2026-10-23 13:26<br>O3 2026-08-26 01:27 |
 | [HyperLattice](shipping/profile_hyperlattice_teensy_2026-10-23.md) / [O3](O3/profile_hyperlattice_architecture_teensy_2026-10-01.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 36.975 (3) | 🟢 0/4767 (0.00%) | 🟢 0/2696 (0.00%) | +9,616 B | +4,912 B | ship 2026-10-23 14:18<br>O3 2026-10-01 09:26 |
 | [DreamBalls](shipping/profile_dreamballs_teensy_2026-10-23.md) / [O3](O3/profile_dreamballs_teensy_2026-08-26.md) § | `db_timeline_step` | 🟢 54.311 (10) | 49.756 | 🟢 34.32 (11) | 🟢 0/3167 (0.00%) | 🟢 0/3648 (0%) | +26,896 B | +12,352 B | ship 2026-10-23 14:00<br>O3 2026-08-26 02:19 |
+| [IslamicStars](shipping/profile_islamicstars_teensy_2026-10-26.md) / [O3](O3/profile_islamicstars_teensy_2026-09-28.md) § ● | `is_timeline_step` | 🟢 53.854 (16) | 18.791 | 🟢 49.112 (23) | 🟢 0/3327 (0.00%) | 🟢 0/3336 (0.00%) | +23,904 B | +8,240 B | ship 2026-10-26 09:28<br>O3 2026-09-28 16:50 |
 | [RingSpin](shipping/profile_ringspin_teensy_2026-10-23.md) / [O3](O3/profile_ringspin_teensy_2026-09-24.md) | `rs_draw_rings` | 🟢 53.743 | 3.396 | 🟢 50.750 | 🟢 0/927 (0.00%) | 🟢 0/1087 (0.0%) | +15,400 B | +12,880 B | ship 2026-10-23 13:32<br>O3 2026-09-24 20:18 |
 | [MeshFeedback](shipping/profile_meshfeedback_teensy_2026-10-23.md) / [O3](O3/profile_meshfeedback_teensy_2026-08-26.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 58.32 (13) | 🟢 0/2863 (0.00%) | 🟢 0/6688 (0%) | +34,144 B | +21,776 B | ship 2026-10-23 13:51<br>O3 2026-08-26 02:10 |
 | [DisplacementField](shipping/profile_displacementfield_teensy_2026-10-23.md) / [O3](O3/profile_displacementfield_teensy_2026-09-19.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 57.45 | 🟢 0/1887 (0.00%) | 🟢 0/1088 (0%) | +25,856 B | +22,144 B | ship 2026-10-23 13:23<br>O3 2026-09-19 22:19 |
@@ -81,7 +81,7 @@ MeshFeedback's adjacent-source pair and GSReactionDiffusion's pre-optimization p
 | [SphericalHarmonics](shipping/profile_sphericalharmonics_teensy_2026-10-23.md) / [O3](O3/profile_sphericalharmonics_teensy_2026-08-26.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 11.70 (24) | 🟢 0/1503 (0.00%) | 🟢 0/3488 (0%) | +8,016 B | +6,400 B | ship 2026-10-23 13:45<br>O3 2026-08-26 01:57 |
 | [Voronoi](shipping/profile_voronoi_teensy_2026-10-23.md) / [O3](O3/profile_voronoi_teensy_2026-08-26.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 7.71 | 🟢 0/447 (0.00%) | 🟢 0/1088 (0%) | +15,568 B | +12,688 B | ship 2026-10-23 13:33<br>O3 2026-08-26 01:39 |
 
-Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
+Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
 The kaleidoscope effects run with column strobe off.
 
 Shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
@@ -94,6 +94,8 @@ of fully validated cycle-counter exactness.
 (N) counts observed ownership entries. Buckets include transitions and exclude setup frame 1.
 Show duration covers the authored show segment; a segment can end before its
 last departure wraps. The per-effect report states observed coverage.
+
+● capture updated 2026-10-26.
 
 ## Memory captures
 

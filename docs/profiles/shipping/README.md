@@ -8,12 +8,12 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | Effect | Dominant scope | Peak steady ms | Setup frame 1 ms | Spilled | Captured |
 |---|---|--:|--:|--:|---|
 | [MindSplatter](profile_mindsplatter_teensy_2026-10-23.md) § | `msp_draw_particles` | 🟢 59.437 (8) | 0.379 | 🟢 0/1247 (0.00%) | 2026-10-23 13:40 |
-| [IslamicStars](profile_islamicstars_teensy_2026-10-23.md) § | `is_timeline_step` | 🟢 58.966 (16) | 16.644 | 🟢 0/4863 (0.00%) | 2026-10-23 13:57 |
 | [Raymarch](profile_raymarch_teensy_2026-10-23.md) | `rm_shader_draw` | 🟢 57.751 | 103.890 | 🟢 0/447 (0.00%) | 2026-10-23 13:30 |
 | [ShapeShifter](profile_shapeshifter_teensy_2026-10-23.md) § | `ss_draw_all` | 🟢 57.537 (9) | 47.865 | 🟢 0/4271 (0.00%) | 2026-10-23 17:21 |
 | [HopfFibration](profile_hopffibration_teensy_2026-10-23.md) | `hf_render_trails` | 🟢 56.256 | 0.696 | 🟢 0/927 (0.00%) | 2026-10-23 13:26 |
 | [HyperLattice](profile_hyperlattice_teensy_2026-10-23.md) § | `hl_shader_draw` | 🟢 55.035 (9) | 43.131 | 🟢 0/4767 (0.00%) | 2026-10-23 14:18 |
 | [DreamBalls](profile_dreamballs_teensy_2026-10-23.md) § | `db_timeline_step` | 🟢 54.311 (10) | 49.756 | 🟢 0/3167 (0.00%) | 2026-10-23 14:00 |
+| [IslamicStars](profile_islamicstars_teensy_2026-10-26.md) § ● | `is_timeline_step` | 🟢 53.854 (16) | 18.791 | 🟢 0/3327 (0.00%) | 2026-10-26 09:28 |
 | [RingSpin](profile_ringspin_teensy_2026-10-23.md) | `rs_draw_rings` | 🟢 53.743 | 3.396 | 🟢 0/927 (0.00%) | 2026-10-23 13:32 |
 | [MeshFeedback](profile_meshfeedback_teensy_2026-10-23.md) § | `mf_feedback_flush` | 🟢 52.652 (12) | 5.659 | 🟢 0/2863 (0.00%) | 2026-10-23 13:51 |
 | [DisplacementField](profile_displacementfield_teensy_2026-10-23.md) § | `df_timeline_step` | 🟢 51.257 (2) | 18.953 | 🟢 0/1887 (0.00%) | 2026-10-23 13:23 |
@@ -44,7 +44,7 @@ the 62.5 ms display window. Rows rank by spill fraction, then steady peak render
 | [SphericalHarmonics](profile_sphericalharmonics_teensy_2026-10-23.md) § | `sh_rasterize` | 🟢 13.296 (24) | 17.983 | 🟢 0/1503 (0.00%) | 2026-10-23 13:45 |
 | [Voronoi](profile_voronoi_teensy_2026-10-23.md) | `vo_shade` | 🟢 9.242 | 13.222 | 🟢 0/447 (0.00%) | 2026-10-23 13:33 |
 
-Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
+Shipping rows use source `49bb199f40a655c23983e73ef6739d47ceb7908c` on COM4, except IslamicStars, re-captured at `771290aa484e3b99b30b049030ab145d61ade1d9`, and HankinSolids and ShapeShifter, re-captured on COM4 at `bda58b65d3fc317f5d6ccbe29888014738a0ee25`. Each capture uses its Phantasm show-segment budget. Capture times are local raw-log mtimes.
 The kaleidoscope effects run with column strobe off.
 
 Shipping steady figures use frames 2 through the last complete counter window. Setup frame 1 is separate. The measured scope is per-frame render telemetry (`frame` minus buffer wait), under the shipping segment clip.
@@ -108,3 +108,5 @@ Integer direct-AA validation: [ShapeShifter paired capture](profile_shapeshifter
 ## Temporal sampling comparison
 
 [GridSpace matched A/B](profile_gridspace_teensy_2026-10-17.md) preserves the historical same-source temporal-on/off measurements cited by the rendering specification. Current shipping timing is in the canonical report above.
+
+● capture updated 2026-10-26.
