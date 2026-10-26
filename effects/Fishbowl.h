@@ -593,7 +593,7 @@ private:
    * @param q Recorded trail orientation.
    * @return Unit position on the sphere.
    */
-  HS_HOT_FLASH_MEMBER math::Vector
+  HS_HOT_ITCM_MEMBER math::Vector
   warped_position(const math::Quaternion &q) const {
     const math::Vector pos =
         noise_xform.transform(orientation.orient(math::rotate(node->v, q)));
