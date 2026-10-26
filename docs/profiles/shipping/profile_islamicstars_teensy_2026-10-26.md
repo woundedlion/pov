@@ -1,6 +1,6 @@
 # IslamicStars on-device profile — Teensy 4.0, segmented mode (2026-10-26, **selective -O3**)
 
-Point-in-time snapshot (regenerate with `just profile IslamicStars`).
+Point-in-time snapshot (regenerate with the full-cycle TS4 command in [Setup](#setup)).
 Raw capture: `build/prof/islamicstars_review45_after.log`, captured 2026-10-26 09:28 America/Los_Angeles on COM4.
 Matched baseline: `build/prof/islamicstars_review45_before.log`. Replaces `profile_islamicstars_teensy_2026-10-23.md`.
 
@@ -361,7 +361,7 @@ Global-O3 captures retain their original source and are unchanged.
 - All cycle scopes absorb ISR time and instrumentation overhead; instrumenting per-pixel work can change its cost.
 - `filter_blend` parenting can hide its subtree when its first parent has no calls; no measured blend count is claimed here.
 - The shipping image uses selective `HS_O3` transforms and scan kernels, not a global-O3 image.
-- TS4 compresses dwell and does not change per-frame rendering cost. The stretched epoch avoids an instance reset during the pass.
+- TS4 divides every stage duration, changing the sampled animation workload; both captures use TS4. The stretched epoch avoids an instance reset during the pass.
 - Both source snapshots were committed worker/integrator trees; capture provenance and adjacent build/envdump files identify their images. Local ignored build outputs do not imply source changes.
 - Frame telemetry supports cadence comparison; strict cycle/wall exactness remains subject to the diagnostics below. Single paired captures do not establish statistical significance for small timing deltas. The observed +0.220 ms peak and +0.150 ms mean are increases in this pair; they are not evidence of a speedup.
 
@@ -403,4 +403,4 @@ INVALID: IslamicStars
 
 ## Harness
 
-`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=IslamicStars`, `HS_PROFILE_WINDOW=16`; `just profile IslamicStars` builds, flashes and captures through the board lock. Reproduce this full-cycle TS4 comparison with the Setup command.
+`targets/Profile/Profile.ino`, `HS_PROFILE_TARGET=IslamicStars`, `HS_PROFILE_WINDOW=16`; the [Setup command](#setup) builds, flashes and captures this full-cycle TS4 comparison through the board lock.
