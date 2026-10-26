@@ -101,6 +101,17 @@ class ReferenceTransactionHook(unittest.TestCase):
         self.assertNotEqual(done.returncode, 0)
         self.assertEqual(self.rev(MASTER), self.one)
 
+    def test_refusal_names_absolute_token_path_from_another_directory(self):
+        with tempfile.TemporaryDirectory() as unrelated:
+            done = subprocess.run(
+                ["git", "-C", str(self.repo), "update-ref", MASTER, self.base],
+                cwd=unrelated, env=isolated_env(), capture_output=True, text=True,
+                check=False)
+        self.assertNotEqual(done.returncode, 0)
+        self.assertIn(f'git rev-parse {self.base} > "{self.token.as_posix()}"',
+                      done.stderr.replace("\\", "/"))
+        self.assertEqual(self.rev(MASTER), self.one)
+
     def test_a_commit_on_master_is_allowed(self):
         self.assertEqual(
             self.git("commit", "--allow-empty", "--quiet", "-m", "next",
