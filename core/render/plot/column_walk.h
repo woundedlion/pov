@@ -494,10 +494,7 @@ struct EdgeWorldsheet {
     }
     for (int k = 0; k < 2; ++k) {
       const math::Vector &a = world[k][0], &b = world[k][1];
-      const auto span = make_geodesic_edge_span(a, b);
-      bases[k] = {a,
-                  span.have_axis ? math::cross(span.axis, a) : math::Vector{},
-                  span.total};
+      bases[k] = arc(a, b);
       ends[k] = b;
       pieces[k] = measure_pitch ? pieces_of<W, H>(bases[k]) : 0.0f;
     }
