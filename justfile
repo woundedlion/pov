@@ -83,6 +83,7 @@ lint:
     {{ python_command }} tools/build_pins.py --check-tool just
     just --fmt --check
     bash tools/whitespace_gate.sh
+    {{ python_command }} tools/encoding_check.py
     bash tools/eol_gate.sh
     {{ python_command }} tools/include_paths.py
     {{ python_command }} tools/build_pins.py --check-tool ruff
