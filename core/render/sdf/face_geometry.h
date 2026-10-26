@@ -741,10 +741,8 @@ snap_phi_for_pole_planes(const FaceScratchBuffer &scratch, int planes_count,
 
 /**
    * @brief Vertical bounds (arc extrema + pole-plane snap) for every face.
-   * @details Fills the per-edge 2D vectors, squared lengths and reciprocals
-   * consumed by later passes.
-   * @param scratch Scratch storage holding poly_2d/verts_3d, receiving edge
-   * data and planes.
+   * @param scratch Scratch storage holding verts_3d; receives the compacted
+   * great-circle planes.
    * @param count Vertex/edge count.
    * @param center Normalized face centroid.
    * @param geometry Display latitude mapping.
