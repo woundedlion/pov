@@ -129,7 +129,9 @@ public:
         },
         [&](const math::Vector &p, const CandSet &cs)
             __attribute__((always_inline)) {
-              return TemporalBlock{this, cs.pos, cs.idx, cs.n}(p);
+              const CandidatePair nearest = nearest_candidates(p, cs);
+              return shade(cs.idx[nearest.b0], nearest.d0, cs.idx[nearest.b1],
+                           nearest.d1);
             });
   }
 
@@ -290,33 +292,54 @@ private:
     return shade(i0, d0, i1, math::dot(p, at[i1]));
   }
 
+  /** @brief Nearest two entries in a block's candidate set. */
+  struct CandidatePair {
+    float d0;   ///< Nearest dot product.
+    float d1;   ///< Second-nearest dot product.
+    uint8_t b0; ///< Nearest candidate index.
+    uint8_t b1; ///< Second-nearest candidate index.
+  };
+
+  /** @brief Finds the nearest two candidate positions.
+   * @tparam Candidates Candidate positions and count.
+   * @param p Pixel direction.
+   * @param candidates Candidate set.
+   * @return Nearest dot products and their candidate indices. */
+  template <typename Candidates>
+  __attribute__((always_inline)) static CandidatePair
+  nearest_candidates(const math::Vector &p, const Candidates &candidates) {
+    float d0 = NO_DOT, d1 = NO_DOT;
+    uint8_t b0 = 0, b1 = 0;
+    for (uint8_t i = 0; i < candidates.n; ++i) {
+      const float d = math::dot(p, candidates.pos[i]);
+      if (d > d0) {
+        d1 = d0;
+        b1 = b0;
+        d0 = d;
+        b0 = i;
+      } else if (d > d1) {
+        d1 = d;
+        b1 = i;
+      }
+    }
+    return {d0, d1, b0, b1};
+  }
+
   /** @brief One block's shader at a column's time. */
   struct TemporalBlock {
-    const Voronoi *effect;         ///< Sites and shading.
-    const math::Vector *positions; ///< Candidate positions at that time.
-    const uint16_t *idx;           ///< Candidate site indices.
-    uint8_t n;                     ///< Candidate count.
+    const Voronoi *effect;   ///< Sites and shading.
+    const math::Vector *pos; ///< Candidate positions at that time.
+    const uint16_t *idx;     ///< Candidate site indices.
+    uint8_t n;               ///< Candidate count.
 
     /** @brief Shades one pixel of the block from its nearest candidates.
      *  @param p Pixel direction.
      *  @return The cell color. */
     __attribute__((always_inline)) Color4
     operator()(const math::Vector &p) const {
-      float d0 = NO_DOT, d1 = NO_DOT;
-      uint8_t b0 = 0, b1 = 0;
-      for (uint8_t i = 0; i < n; ++i) {
-        const float d = math::dot(p, positions[i]);
-        if (d > d0) {
-          d1 = d0;
-          b1 = b0;
-          d0 = d;
-          b0 = i;
-        } else if (d > d1) {
-          d1 = d;
-          b1 = i;
-        }
-      }
-      return effect->shade(idx[b0], d0, idx[b1], d1);
+      const CandidatePair nearest = nearest_candidates(p, *this);
+      return effect->shade(idx[nearest.b0], nearest.d0, idx[nearest.b1],
+                           nearest.d1);
     }
   };
 
