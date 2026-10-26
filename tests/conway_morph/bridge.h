@@ -93,7 +93,7 @@ inline void test_snub_bridge_icosahedron_classifies_like_registry() {
 /**
  * @brief Verifies ambo(tetrahedron) is the regular octahedron: 6 vertices,
  *        8 triangles, equal edges, and a vertex-set bijection onto the
- *        Octahedron seed (normalized tetra edge midpoints are the ±axes).
+ *        Octahedron seed (normalized tetra edge midpoints are the Â±axes).
  */
 inline void test_ambo_tetrahedron_is_regular_octahedron() {
   Arena target(morph_target_buf, sizeof(morph_target_buf));
@@ -112,18 +112,7 @@ inline void test_ambo_tetrahedron_is_regular_octahedron() {
   check_all_unit_vertices(a, 1e-3f);
   HS_EXPECT_LE(max_edge_length_deviation(a), 1e-4f);
 
-  bool used[Solids::Octahedron::NUM_VERTS] = {};
-  for (size_t i = 0; i < a.vertices.size(); ++i) {
-    int match = -1;
-    for (int j = 0; j < Solids::Octahedron::NUM_VERTS; ++j) {
-      if (!used[j] &&
-          (a.vertices[i] - Solids::Octahedron::vertices[j]).length() <= 1e-4f) {
-        match = j;
-        break;
-      }
-    }
-    HS_EXPECT_TRUE(match >= 0);
-    if (match >= 0)
-      used[match] = true;
-  }
+  PolyMesh octahedron;
+  build_solid<Solids::Octahedron>(octahedron, temp);
+  check_equal_up_to_vertex_order(a, octahedron, 1e-4f);
 }

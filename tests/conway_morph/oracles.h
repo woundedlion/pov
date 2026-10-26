@@ -111,7 +111,7 @@ constexpr float PRIMARY_CORNER_TOL_SINGLE = 0.06f;
  * @param tol Max distance from an output corner to its seed corner.
  * @details Primary face fi must have seed_count(fi) * corners_per_source sides
  *          with exactly corners_per_source of them within tol of each seed
- *          corner — pinning emission order, side counts, and geometry at once.
+ *          corner â€” pinning emission order, side counts, and geometry at once.
  */
 inline void check_primary_faces_match_seed(const PolyMesh &seed,
                                            const PolyMesh &out,
@@ -137,5 +137,31 @@ inline void check_primary_faces_match_seed(const PolyMesh &seed,
     }
     seed_off += bc;
     out_off += oc;
+  }
+}
+
+/**
+ * @brief Asserts two meshes carry the same geometry up to vertex order:
+ *        equal counts, equal face-type histograms, and a vertex-set bijection
+ *        within tol.
+ */
+inline void check_equal_up_to_vertex_order(const PolyMesh &got,
+                                           const PolyMesh &want, float tol) {
+  expect_same_mesh_sizes(got, want);
+  HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
+                 conway_tests::face_type_histogram(want));
+  if (got.vertices.size() != want.vertices.size())
+    return;
+  std::vector<bool> used(want.vertices.size(), false);
+  for (size_t i = 0; i < got.vertices.size(); ++i) {
+    bool matched = false;
+    for (size_t j = 0; j < want.vertices.size(); ++j) {
+      if (!used[j] && (got.vertices[i] - want.vertices[j]).length() <= tol) {
+        used[j] = true;
+        matched = true;
+        break;
+      }
+    }
+    HS_EXPECT_TRUE(matched);
   }
 }
