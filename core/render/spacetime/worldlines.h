@@ -149,7 +149,7 @@ public:
    * @param i Vertex index, its end captured.
    * @param bound Derivative bounds of its path over the frame.
    * @param tolerance Largest acceptable distance from the path.
-   * @param on_arc Whether the path is a circle path() can name.
+   * @param on_arc Whether the path is a circle worldline() can name.
    * @return The interpolant; QUADRATIC asks for capture_middle().
    */
   HS_HOT_INLINE Interpolant choose(size_t i, const PathBound &bound,
