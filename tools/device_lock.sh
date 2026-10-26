@@ -158,17 +158,14 @@ _hs_lock_is_stale() {  # <dir>
 }
 
 _HS_LOCK_HELPER="${BASH_SOURCE[0]//\\//}"
-_HS_LOCK_HELPER="$(cd "$(dirname "$_HS_LOCK_HELPER")" && pwd)/device_lock_guard.py"
+_HS_LOCK_DIR="$(cd "$(dirname "$_HS_LOCK_HELPER")" && pwd)"
+_HS_LOCK_HELPER="$_HS_LOCK_DIR/device_lock_guard.py"
+# shellcheck source=tools/find_python.sh
+. "$_HS_LOCK_DIR/find_python.sh"
 
 _hs_resolve_python() {
   [ -n "${_HS_LOCK_PYTHON:-}" ] && return 0
-  local candidate
-  for candidate in "${HS_PYTHON:-}" python3 python; do
-    if "$candidate" --version >/dev/null 2>&1; then
-      _HS_LOCK_PYTHON="$candidate"
-      return 0
-    fi
-  done
+  if _HS_LOCK_PYTHON="$(hs_find_python)"; then return 0; fi
   echo "device: no working Python for the lock guard (set HS_PYTHON)" >&2
   return 2
 }

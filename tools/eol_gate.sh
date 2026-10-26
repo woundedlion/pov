@@ -8,6 +8,10 @@
 # usage: eol_gate.sh [--fix-worktree]
 set -eu
 
+SCRIPT_DIR="$(CDPATH='' cd "$(dirname "$0")" && pwd)"
+# shellcheck source=tools/find_python.sh
+. "$SCRIPT_DIR/find_python.sh"
+
 if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != --fix-worktree ]; }; then
   echo "usage: $0 [--fix-worktree]" >&2
   exit 2
@@ -16,10 +20,7 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 
 if [ "${1:-}" = --fix-worktree ]; then
-  python=
-  for candidate in "${HS_PYTHON:-}" python3 python; do
-    if "$candidate" --version >/dev/null 2>&1; then python="$candidate"; break; fi
-  done
+  python="$(hs_find_python)" || python=
   if [ -z "$python" ]; then
     echo "no working Python found (set HS_PYTHON)" >&2
     exit 1

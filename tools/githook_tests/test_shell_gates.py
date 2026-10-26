@@ -46,6 +46,17 @@ class ShellGateTests(unittest.TestCase):
         payload.write_text("dirty \n", encoding="utf-8", newline="\n")
         self.assertNotEqual(self.gate("whitespace_gate.sh").returncode, 0)
 
+    def test_python_probe_skips_unrunnable_aliases_without_filtering_versions(self):
+        self.stub("python3", "exit 1")
+        self.stub("python", '[ "$1" = --version ] && exit 0; exit 1')
+        result = subprocess.run(
+            ["bash", "-c", 'export PATH="$PWD/stubs:$PATH"; . "$1"; hs_find_python',
+             "fixture", (REPO / "tools/find_python.sh").as_posix()],
+            cwd=self.root, env=dict(self.env, HS_PYTHON="unrunnable-python"),
+            capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, "python\n")
+
     def test_eol_checks_worktree_bytes_and_refuses_an_empty_selection(self):
         empty = self.gate("eol_gate.sh")
         self.assertNotEqual(empty.returncode, 0)
@@ -198,7 +209,7 @@ class ShellGateTests(unittest.TestCase):
     def test_cold_build_removes_only_fixture_caches_and_preserves_pio_failure(self):
         script = self.root / "tools" / "teensy_cold_build.sh"
         script.parent.mkdir()
-        for name in (script.name, "device_lock.sh", "device_lock_guard.py"):
+        for name in (script.name, "device_lock.sh", "device_lock_guard.py", "find_python.sh"):
             shutil.copyfile(REPO / "tools" / name, script.parent / name)
         self.env["HS_PYTHON"] = sys.executable
         for name in ("build", "build_cache"):

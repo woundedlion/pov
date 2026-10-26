@@ -7,6 +7,10 @@
 #                                         with <base>: the range's net change
 set -eu
 
+SCRIPT_DIR="$(CDPATH='' cd "$(dirname "$0")" && pwd)"
+# shellcheck source=tools/find_python.sh
+. "$SCRIPT_DIR/find_python.sh"
+
 LABEL=pre-commit
 SUBJECT=staged
 DIFF_BASE=
@@ -79,12 +83,7 @@ if ! git -c core.whitespace=blank-at-eol,blank-at-eof diff --cached --check ${DI
   exit 1
 fi
 
-# `command -v python3` is not enough on Windows: the App Execution Alias stub
-# resolves and then refuses to run. Probe with --version.
-PYTHON_BIN=
-for candidate in "${HS_PYTHON:-}" python3 python; do
-  if "$candidate" --version >/dev/null 2>&1; then PYTHON_BIN="$candidate"; break; fi
-done
+PYTHON_BIN="$(hs_find_python)" || PYTHON_BIN=
 if [ -z "$PYTHON_BIN" ]; then
   echo "[$LABEL] no working Python found; documentation checks need one (set HS_PYTHON)."
   exit 1

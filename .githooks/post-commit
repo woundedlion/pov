@@ -31,12 +31,12 @@ if [ ! -f "$TRAIL" ]; then
   exit 0
 fi
 
-# `command -v python3` is not enough on Windows: the App Execution Alias stub
-# resolves and then refuses to run. Probe with --version.
-PY=
-for c in "${HS_PYTHON:-}" python3 python; do
-  if "$c" --version >/dev/null 2>&1; then PY="$c"; break; fi
-done
+HOOK_DIR="$(CDPATH='' cd "$(dirname "$0")" && pwd)" || exit 0
+PYTHON_HELPER="$HOOK_DIR/../tools/find_python.sh"
+[ -f "$PYTHON_HELPER" ] || exit 0
+# shellcheck source=tools/find_python.sh
+. "$PYTHON_HELPER" || exit 0
+PY="$(hs_find_python)" || exit 0
 if [ -z "$PY" ]; then
   exit 0
 fi

@@ -62,7 +62,7 @@ class CheckoutBuildLockTests(unittest.TestCase):
         self.root = Path(temporary.name)
         tools = self.root / "tools"
         tools.mkdir()
-        for name in ("device_lock.sh", "device_lock_guard.py", "teensy_cold_build.sh"):
+        for name in ("device_lock.sh", "device_lock_guard.py", "find_python.sh", "teensy_cold_build.sh"):
             shutil.copyfile(REPO / "tools" / name, tools / name)
         subprocess.run(["git", "-C", str(self.root), "init", "--quiet"], check=True, env=isolated_env())
         self.env = isolated_env()

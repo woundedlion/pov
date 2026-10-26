@@ -7,6 +7,10 @@
 # usage: ruff_selection_guard.sh
 set -eu
 
+SCRIPT_DIR="$(CDPATH='' cd "$(dirname "$0")" && pwd)"
+# shellcheck source=tools/find_python.sh
+. "$SCRIPT_DIR/find_python.sh"
+
 if [ "$#" -ne 0 ]; then
   echo "usage: $0" >&2
   exit 2
@@ -20,10 +24,7 @@ trap 'rm -f -- "$tmp"' EXIT
 # --show-files reports the selection; emptiness is the gate, not its status.
 ruff check --no-cache --show-files . > "$tmp" || true
 
-ruff_python=
-for candidate in "${HS_PYTHON:-}" python3 python; do
-  if "$candidate" --version >/dev/null 2>&1; then ruff_python="$candidate"; break; fi
-done
+ruff_python="$(hs_find_python)" || ruff_python=
 if [ -z "$ruff_python" ]; then
   echo "no working Python found (set HS_PYTHON)" >&2
   exit 1

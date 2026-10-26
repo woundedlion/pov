@@ -111,6 +111,16 @@ class PostCommitHook(unittest.TestCase):
         self.assertEqual(self.run_hook().returncode, 0)
         self.assertTrue(self.trail.exists())
 
+    def test_missing_python_helper_preserves_pending_and_exits_zero(self):
+        hook = self.root / "isolated-hooks" / "post-commit"
+        hook.parent.mkdir()
+        hook.write_text(HOOK.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+        done = subprocess.run(["sh", hook.as_posix()], cwd=self.worktree,
+                              env=self.env, capture_output=True, text=True, check=False)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertTrue(self.pending.exists())
+        self.assertFalse(self.trail.exists())
+
     def test_no_pending_is_quiet_and_does_not_stamp_another_worktree(self):
         self.pending.unlink()
         done = self.run_hook()

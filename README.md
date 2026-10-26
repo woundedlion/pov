@@ -1566,6 +1566,7 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── require_test_files.sh   Non-empty guard for glob-discovered test suites (CI)
 │   ├── git_files.py            Shared safe-directory git argv and NUL-separated listings for repository tools
 │   ├── git_test_env.py         Isolated Git environments for fixture repositories
+│   ├── find_python.sh          Shared POSIX probe for a runnable Python interpreter
 │   ├── run_python_tests.py    Discovers and runs every tracked Python suite; rejects empty suites
 │   ├── ruff_selection_guard.sh / eslint_selection_guard.sh  Shared CI and `just lint` anti-vacuity probes
 │   ├── shellcheck_gate.sh      Tracked shell-file selection + shellcheck run behind `just lint`
