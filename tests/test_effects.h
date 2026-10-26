@@ -378,6 +378,7 @@ untimed_frame_golden(int frames, const std::array<int, 4> *clip = nullptr) {
  * @details Runs between captures to exercise recovery from dirty process state.
  */
 inline void perturb_determinism_globals() {
+  Spacetime::set_flat_surface(true);
   hs::random().seed(0xC0FFEEu);
   global_timeline_t = 0x5EED;
   Render::pole_lod_aggressiveness = HS_POLE_LOD_DEFAULT + 0.5f;
