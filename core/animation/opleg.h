@@ -1022,23 +1022,17 @@ private:
   HS_FLASH_MEMBER math::Vector swept_vertex_at(size_t i, float k) const {
     const Transients &tr = *buf;
     if (tr.kind == LegKind::HANKIN_SWEEP) {
-      const CompiledHankin &hk = tr.hankin;
-      const size_t statics = hk.static_vertices.size();
+      const size_t statics = tr.hankin.static_vertices.size();
       if (i < statics)
-        return hk.static_vertices[i];
-      const size_t d = i - statics;
-      if (k >= 1.0f)
-        return tr.hk_final[d].decode().normalized();
-      return math::slerp(
-          hk.corner(hk.dynamic_instructions[d].v_corner).normalized(),
-          tr.hk_final[d].decode(), k);
+        return tr.hankin.static_vertices[i];
+      return k >= 1.0f ? hankin_vertex_at<true>(tr, i - statics, k)
+                       : hankin_vertex_at<false>(tr, i - statics, k);
     }
     if (tr.kind == LegKind::RELAX_SLERP)
-      return k >= 1.0f ? tr.relaxed[i]
-                       : math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
-    return k >= 1.0f ? tr.medial_b[i].decode().normalized()
-                     : math::slerp(tr.medial_a[i].decode(),
-                                   tr.medial_b[i].decode(), k);
+      return k >= 1.0f ? relax_vertex_at<true>(tr, i, k)
+                       : relax_vertex_at<false>(tr, i, k);
+    return k >= 1.0f ? medial_vertex_at<true>(tr, i, k)
+                     : medial_vertex_at<false>(tr, i, k);
   }
 
 public:
@@ -1120,7 +1114,7 @@ public:
 
 private:
   /**
-   * @brief Arena-allocated leg state — keeps OpLeg inline size small.
+   * @brief Arena-allocated leg state â€” keeps OpLeg inline size small.
    */
   struct Transients {
     PolyMesh seed; /**< Cloned geometry for owned CONWAY_SWEEP, RELAX_SLERP
@@ -1548,7 +1542,7 @@ private:
              "OpLeg: gated arrival classification is not one class per face");
 
     // Provenance across the swap: the children inherit their parent face's
-    // (kis) or nearest orbit face's (dual) palette — colour locality.
+    // (kis) or nearest orbit face's (dual) palette â€” colour locality.
     uint8_t *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
     if (tr.swap_op == SwapOp::KIS)
       kis_provenance(tr, arrival, handoff, from);
@@ -1875,26 +1869,54 @@ private:
   }
 
   /**
-   * @brief Fills a swept mesh's vertices by slerping between two endpoints.
-   * @param out Output mesh whose vertices are bound and filled.
-   * @param arena Arena backing the vertex array.
-   * @param from Opening vertices.
-   * @param to Arrival vertices.
-   * @param n Vertex count.
-   * @param k Slerp fraction in [0, 1]; 1 copies @p to verbatim so the closing
-   * bookend swap is bitwise, not 1 ULP off.
+   * @brief One dynamic Hankin vertex at an arrival or sweep fraction.
+   * @tparam ARRIVAL Whether to return the normalized arrival endpoint.
+   * @param tr Baked leg endpoints.
+   * @param i Dynamic vertex index.
+   * @param k Sweep fraction.
+   * @return Unit-sphere vertex position.
    */
-  HS_COLD_MEMBER static void slerp_vertices(PolyMesh &out, Arena &arena,
-                                            const math::Vector *from,
-                                            const math::Vector *to, size_t n,
-                                            float k) {
-    out.vertices.bind(arena, n);
-    if (k >= 1.0f) {
-      out.vertices.append_bulk(to, n);
-      return;
-    }
-    for (size_t i = 0; i < n; ++i)
-      out.vertices.push_back(math::slerp(from[i], to[i], k));
+  template <bool ARRIVAL>
+  __attribute__((always_inline)) static math::Vector
+  hankin_vertex_at(const Transients &tr, size_t i, float k) {
+    if constexpr (ARRIVAL)
+      return tr.hk_final[i].decode().normalized();
+    return math::slerp(
+        tr.hankin.corner(tr.hankin.dynamic_instructions[i].v_corner)
+            .normalized(),
+        tr.hk_final[i].decode(), k);
+  }
+
+  /**
+   * @brief One relax vertex at an arrival or sweep fraction.
+   * @tparam ARRIVAL Whether to return the arrival endpoint verbatim.
+   * @param tr Seed and relaxed endpoints.
+   * @param i Vertex index.
+   * @param k Sweep fraction.
+   * @return Unit-sphere vertex position.
+   */
+  template <bool ARRIVAL>
+  __attribute__((always_inline)) static math::Vector
+  relax_vertex_at(const Transients &tr, size_t i, float k) {
+    if constexpr (ARRIVAL)
+      return tr.relaxed[i];
+    return math::slerp(tr.seed.vertices[i], tr.relaxed[i], k);
+  }
+
+  /**
+   * @brief One medial vertex at an arrival or sweep fraction.
+   * @tparam ARRIVAL Whether to return the normalized arrival endpoint.
+   * @param tr Packed leg endpoints.
+   * @param i Vertex index.
+   * @param k Sweep fraction.
+   * @return Unit-sphere vertex position.
+   */
+  template <bool ARRIVAL>
+  __attribute__((always_inline)) static math::Vector
+  medial_vertex_at(const Transients &tr, size_t i, float k) {
+    if constexpr (ARRIVAL)
+      return tr.medial_b[i].decode().normalized();
+    return math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k);
   }
 
   /**
@@ -1943,14 +1965,10 @@ private:
     out.vertices.append_bulk(hk.static_vertices.data(), statics);
     if (k >= 1.0f) {
       for (size_t i = 0; i < dyn; ++i)
-        out.vertices.push_back(tr.hk_final[i].decode().normalized());
+        out.vertices.push_back(hankin_vertex_at<true>(tr, i, k));
     } else {
-      for (size_t i = 0; i < dyn; ++i) {
-        const math::Vector corner =
-            hk.corner(hk.dynamic_instructions[i].v_corner);
-        out.vertices.push_back(
-            math::slerp(corner.normalized(), tr.hk_final[i].decode(), k));
-      }
+      for (size_t i = 0; i < dyn; ++i)
+        out.vertices.push_back(hankin_vertex_at<false>(tr, i, k));
     }
     copy_topology(out, arena, hk.face_counts, hk.faces);
   }
@@ -1964,8 +1982,13 @@ private:
    */
   HS_COLD_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
                                       Arena &arena, float k) {
-    slerp_vertices(out, arena, tr.seed.vertices.data(), tr.relaxed.data(),
-                   tr.relaxed.size(), k);
+    const size_t n = tr.relaxed.size();
+    out.vertices.bind(arena, n);
+    if (k >= 1.0f)
+      out.vertices.append_bulk(tr.relaxed.data(), n);
+    else
+      for (size_t i = 0; i < n; ++i)
+        out.vertices.push_back(relax_vertex_at<false>(tr, i, k));
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
 
@@ -1984,11 +2007,10 @@ private:
     out.vertices.bind(arena, n);
     if (k >= 1.0f) {
       for (size_t i = 0; i < n; ++i)
-        out.vertices.push_back(tr.medial_b[i].decode().normalized());
+        out.vertices.push_back(medial_vertex_at<true>(tr, i, k));
     } else {
       for (size_t i = 0; i < n; ++i)
-        out.vertices.push_back(
-            math::slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k));
+        out.vertices.push_back(medial_vertex_at<false>(tr, i, k));
     }
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
