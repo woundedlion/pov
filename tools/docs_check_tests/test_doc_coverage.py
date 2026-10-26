@@ -162,7 +162,7 @@ class TestDoxyfileSetting(unittest.TestCase):
 
 class TestFirmwareInputs(unittest.TestCase):
     FILES = ["tools/pc_sampler.h", "tools/profile_isr_window.h",
-             "tools/profile_spherical_experiment.h", "tools/phantasm.ld"]
+             "tools/phantasm.ld"]
 
     def test_firmware_inputs_are_selected_and_have_file_documentation(self):
         selected = cov.source_files(TOOLS.parent, [])

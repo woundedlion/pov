@@ -1591,7 +1591,6 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── profile_isr_window.h      Atomic ISR statistics and elapsed-window snapshots
 │   ├── pc_sampler.h            Render-gated PC sampler for HS_PROFILE_PC images: frame decode, PC histogram, GPT2 tick
 │   ├── pc_profile.py           Symbolizes an HS_PROFILE_PC capture per function and memory region (ITCM/flash)
-│   ├── profile_spherical_experiment.h  Standalone periodic-surface device experiment
 │   ├── parse_profile.py        Capture-log parser behind the per-window/per-preset reports
 │   ├── generate_pullback_manifest_header.py  Pullback manifest validator and native-test header generator
 │   ├── pullback_operations.def                Shared capture operation codes and preset count

@@ -14,7 +14,7 @@ INPUT                  = README.md patterns/README.md core effects workbench har
                          docs/ledgers/device_host_divergence_ledger.md \
                          docs/specs/effect_identity.md \
                          tools/pc_sampler.h tools/profile_isr_window.h \
-                         tools/profile_spherical_experiment.h tools/phantasm.ld
+                         tools/phantasm.ld
 FILE_PATTERNS          = *.h *.cpp *.ino *.ld
 # .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
 EXTENSION_MAPPING      = ino=C++ ld=C++

@@ -43,7 +43,6 @@
 #endif
 
 // Further per-run knobs (all via PLATFORMIO_BUILD_FLAGS):
-//   HS_PROFILE_SPHERICAL_EXPERIMENT enables the spherical experiment probe
 //   HS_PROFILE_EFFECT_HEAP_BYTES static effect storage size with no-op delete
 //   HS_PROFILE_EPOCH_REVS    epoch length override in revolutions (default:
 //                            one hour at RPM)
@@ -94,10 +93,6 @@
 
 #include "targets/Phantasm/phantasm_target.h"
 #include "tools/profile_isr_window.h"
-
-#ifdef HS_PROFILE_SPHERICAL_EXPERIMENT
-#include "tools/profile_spherical_experiment.h"
-#endif
 
 #ifdef HS_PROFILE_PC
 #include "tools/pc_sampler.h"

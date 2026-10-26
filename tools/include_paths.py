@@ -23,7 +23,6 @@ FORBIDDEN_PREFIXES = {
     "workbench/": ("effects/", "targets/"),
     "tools/pc_sampler.h": ("effects/", "targets/", "workbench/", "tests/"),
     "tools/profile_isr_window.h": ("effects/", "targets/", "workbench/", "tests/"),
-    "tools/profile_spherical_experiment.h": ("effects/", "targets/", "workbench/", "tests/"),
     "tools/phantasm.ld": ("effects/", "targets/", "workbench/", "tests/"),
 }
 COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)

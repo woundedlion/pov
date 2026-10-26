@@ -73,8 +73,7 @@ class IncludePathsTests(unittest.TestCase):
 
     def test_profile_firmware_headers_obey_hardware_direction(self):
         self.check("#pragma once\n")
-        for source in ("tools/pc_sampler.h", "tools/profile_isr_window.h",
-                       "tools/profile_spherical_experiment.h"):
+        for source in ("tools/pc_sampler.h", "tools/profile_isr_window.h"):
             with self.subTest(source=source):
                 path = self.root / source
                 path.parent.mkdir(exist_ok=True)
