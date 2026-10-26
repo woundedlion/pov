@@ -410,7 +410,7 @@ inline void test_world_orient_slice_cull_edge_bounds_all_slices() {
         return false;
       });
   HS_EXPECT_FALSE(hit);
-  // One single-frame tween step per candidate slice.
+  // One history pose per candidate slice.
   HS_EXPECT_EQ(n, 2);
   for (int i = 0; i < 2; ++i) {
     math::Vector expected = math::rotate(math::X_AXIS, oris[i].get());

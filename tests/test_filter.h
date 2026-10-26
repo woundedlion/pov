@@ -119,6 +119,7 @@ inline int run_filter_tests() {
   HS_RUN(test_world_hole_angular_reference);
   HS_RUN(test_world_orient_rotates_and_keeps_static_age);
   HS_RUN(test_world_orient_emits_at_capture_time);
+  HS_RUN(test_world_orient_slice_multistep_capture);
   HS_RUN(test_world_orient_explicit_time);
   HS_RUN(test_world_orient_follows_history_at_column_times);
   HS_RUN(test_world_orient_sample_cache);

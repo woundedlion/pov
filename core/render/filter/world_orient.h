@@ -44,6 +44,29 @@ forward_rotated_edge(const math::Vector &a, const math::Vector &b,
   return forward(math::rotate(a, q), math::rotate(b, q), nullptr);
 }
 
+/** @brief Emits a rotated point at each arm pass or at its current flat pose.
+ * @param orientation Frame orientation history.
+ * @param v World point.
+ * @param color Source color.
+ * @param age Age register, increased by the remaining capture fraction.
+ * @param alpha Source opacity.
+ * @param pass Downstream world continuation. */
+template <typename PassFnT>
+HS_HOT_INLINE inline void
+emit_oriented_point(const math::Orientation<> &orientation,
+                    const math::Vector &v, const ::Pixel &color, float age,
+                    float alpha, PassFnT &&pass) {
+  if (orientation.length() == 1 || Spacetime::flat_surface()) {
+    pass(math::rotate(v, orientation.get()), color, age, alpha);
+    return;
+  }
+  const Spacetime::Captures captures = Spacetime::capture(orientation, v);
+  for (int i = 0; i < captures.count; ++i) {
+    const float u = captures.fraction[i];
+    pass(math::rotate(v, orientation.get(u)), color, age + (1.0f - u), alpha);
+  }
+}
+
 /**
  * @brief Rotates 3D points based on a dynamic Orientation.
  * @details The orientation's history spans one frame, from the previous end
@@ -175,15 +198,8 @@ public:
   template <typename PassFnT>
   void plot(const math::Vector &v, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    if (orientation.length() == 1 || Spacetime::flat_surface()) {
-      pass(math::rotate(v, orientation.get()), color, age, alpha);
-      return;
-    }
-    const Spacetime::Captures captures = Spacetime::capture(orientation, v);
-    for (int i = 0; i < captures.count; ++i) {
-      const float u = captures.fraction[i];
-      pass(math::rotate(v, orientation.get(u)), color, age + (1.0f - u), alpha);
-    }
+    emit_oriented_point(orientation, v, color, age, alpha,
+                        std::forward<PassFnT>(pass));
   }
 
   /**

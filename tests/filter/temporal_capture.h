@@ -289,6 +289,53 @@ inline void test_sweep_slabs_tile_the_half_turn() {
   }
 }
 
+/** @brief Slice history emits arm captures and retains the previous cull pose. */
+inline void test_world_orient_slice_multistep_capture() {
+  const math::Orientation<> history = spin_history(-0.5f, -0.08f, 3);
+  Filter::World::OrientSlice slice(
+      std::span<const math::Orientation<>>(&history, 1), math::Y_AXIS);
+  const math::Vector v(0.0f, 0.0f, 1.0f);
+  const auto want =
+      oracle_captures([&](float u) { return math::rotate(v, history.get(u)); });
+  HS_EXPECT_SIZE_OR_RETURN(want, 1);
+  std::vector<Tap3D> taps;
+  auto record = [&](const math::Vector &p, const Pixel &c, float age,
+                    float alpha) { taps.push_back({p, c, age, alpha}); };
+  Spacetime::set_flat_surface(false);
+  slice.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
+  HS_EXPECT_SIZE_OR_RETURN(taps, want.size());
+  const math::Vector at = math::rotate(v, history.get(want[0]));
+  HS_EXPECT_NEAR(taps[0].age, 5.0f - want[0], 0.5f / 144);
+  HS_EXPECT_NEAR(taps[0].v.x, at.x, 1e-3f);
+  HS_EXPECT_NEAR(taps[0].v.z, at.z, 1e-3f);
+  HS_EXPECT_EQ(taps[0].alpha, 0.5f);
+
+  Spacetime::set_flat_surface(true);
+  taps.clear();
+  slice.plot(v, Pixel(1, 2, 3), 4.0f, 0.5f, record);
+  Spacetime::set_flat_surface(false);
+  HS_EXPECT_SIZE_OR_RETURN(taps, 1);
+  const math::Vector end = math::rotate(v, history.get());
+  HS_EXPECT_EQ(taps[0].age, 4.0f);
+  HS_EXPECT_NEAR(taps[0].v.x, end.x, 1e-6f);
+  HS_EXPECT_NEAR(taps[0].v.z, end.z, 1e-6f);
+
+  const math::Vector start = math::rotate(v, history.get(0));
+  HS_EXPECT_TRUE(slice.cull_edge(
+      v, v, nullptr,
+      [&](const math::Vector &a, const math::Vector &, const math::Basis *) {
+        return math::dot(a, start) > 0.999999f;
+      }));
+  int poses = 0;
+  slice.cull_edge(
+      v, v, nullptr,
+      [&](const math::Vector &, const math::Vector &, const math::Basis *) {
+        ++poses;
+        return false;
+      });
+  HS_EXPECT_EQ(poses, history.length());
+}
+
 /**
  * @brief Pushes three sub-steps about changing axes onto a collapsed
  *        orientation, so its frame path leaves its endpoint slerp.

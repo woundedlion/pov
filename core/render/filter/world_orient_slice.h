@@ -57,7 +57,7 @@ public:
    * @brief Selects an orientation by axis projection and re-emits the point.
    * @param v World-space point to rotate.
    * @param color Source color, forwarded unchanged.
-   * @param age Incoming age (frames); offset by fractional (1 - t) per tween step.
+   * @param age Incoming age (frames); offset by `1 - u` at capture fraction u.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
    * @tparam PassFnT Downstream callback type.
    * @param pass Downstream 3D callback.
@@ -81,10 +81,8 @@ public:
     if (idx >= count)
       idx = count - 1;
 
-    const math::Orientation<> &q = orientations[idx];
-    tween(q, [&](const math::Quaternion &rot, float tween_t) {
-      pass(math::rotate(v, rot), color, age + (1.0f - tween_t), alpha);
-    });
+    emit_oriented_point(orientations[idx], v, color, age, alpha,
+                        std::forward<PassFnT>(pass));
   }
 
   /**
@@ -94,7 +92,7 @@ public:
    * @param a,b Edge endpoints in world space (pre-rotation).
    * @param pb Optional planar basis, rotated alongside the endpoints.
    * @param forward Tail-of-pipeline cull continuation.
-   * @return True if any candidate slice's tweened copy could intersect the band.
+   * @return True if any candidate slice's history pose could intersect the band.
    * @details The endpoints may fall in different slices, so every candidate is
    *          tested.
    */
@@ -105,11 +103,8 @@ public:
       return forward(a, b, pb);
     for (const math::Orientation<> &o : orientations) {
       bool hit = false;
-      tween(o, [&](const math::Quaternion &q, float) {
-        if (hit)
-          return;
-        hit = forward_rotated_edge(a, b, pb, q, forward);
-      });
+      for (int i = 0; i < o.length() && !hit; ++i)
+        hit = forward_rotated_edge(a, b, pb, o.get(i), forward);
       if (hit)
         return true;
     }
