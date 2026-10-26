@@ -496,6 +496,80 @@ private:
                               1.0f - radius_t, sides, palette);
   }
 
+  /** @brief A contour's ordered slot and geometric radius. */
+  struct ContourSlot {
+    int i;          ///< Contour index.
+    float radius_t; ///< Palette coordinate.
+    float radius;   ///< Geometric radius.
+  };
+
+  /** @brief A contour's phase and shaded color. */
+  struct ContourShading {
+    float direction;     ///< Signed phase direction.
+    float contour_phase; ///< Waveform displacement.
+    Color4 shaded_color; ///< Stroke color and opacity.
+  };
+
+  /** @brief Selects a contour and refreshes its paired palette color.
+   * @param ordinal Draw-order position.
+   * @param count Number of contours.
+   * @param continuous_star Whether contours have independent colors.
+   * @param palette Palette sampled by radius.
+   * @param pair_color Current paired palette color.
+   * @return Contour index and radii. */
+  HS_HOT_INLINE ContourSlot contour_slot(int ordinal, int count,
+                                         bool continuous_star,
+                                         const BakedPalette &palette,
+                                         Color4 &pair_color) const {
+    const int i =
+        continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
+    const float radius_t =
+        (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
+    const bool starts_pair = (count & 1) != 0
+                                 ? ordinal == 0 || (ordinal & 1) != 0
+                                 : (ordinal & 1) == 0;
+    if (continuous_star || starts_pair)
+      pair_color = palette.get(radius_t);
+    return {i, radius_t, 2.0f * spaced_radius_t[i]};
+  }
+
+  /** @brief Tests a planar star contour's cap against the clip.
+   * @param clip Drawing clip.
+   * @param near_cap,far_cap Cap centers at the two poles.
+   * @param radius Contour radius.
+   * @param pad Angular motion padding.
+   * @return Whether the contour can touch the clip. */
+  static HS_HOT_INLINE bool planar_star_cap_visible(
+      const ClipRegion &clip, const Plot::CapCenter &near_cap,
+      const Plot::CapCenter &far_cap, float radius, float pad) {
+    constexpr float AA_PAD = 2.0f * math::PI_F / W;
+    const bool far_side = radius > 1.0f;
+    const float cap_radius = far_side ? 2.0f - radius : radius;
+    const float half_angle = cap_radius * (math::PI_F / 2.0f) + AA_PAD + pad;
+    const float t2 = fminf(half_angle, math::PI_F);
+    return Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap, t2,
+                                       sinf(t2));
+  }
+
+  /** @brief Evaluates a contour's phase and opacity.
+   * @param i Contour index.
+   * @param radius Contour radius.
+   * @param continuous_star Whether phase follows the spherical-star rule.
+   * @param pair_color Selected palette color.
+   * @param global_alpha Frame opacity.
+   * @return Phase direction, displacement and shaded color. */
+  HS_HOT_INLINE ContourShading contour_shading(int i, float radius,
+                                               bool continuous_star,
+                                               const Color4 &pair_color,
+                                               float global_alpha) const {
+    const float direction = continuous_star ? star_phase_direction(radius)
+                                            : phase_direction(radius);
+    const float contour_phase = direction * params.amplitude * waveform[i];
+    Color4 shaded_color = pair_color;
+    shaded_color.alpha *= global_alpha;
+    return {direction, contour_phase, shaded_color};
+  }
+
   /**
    * @brief Draws the selected number of midpoint-sampled contours.
    * @param canvas Target canvas.
@@ -550,33 +624,17 @@ private:
     const float global_alpha = alpha * preset_opacity;
     const bool continuous_star = shape == ShapeType::SPHERICAL_STAR;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const int i =
-          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
-      const float radius_t =
-          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const bool starts_pair = (count & 1) != 0
-                                   ? ordinal == 0 || (ordinal & 1) != 0
-                                   : (ordinal & 1) == 0;
-      if (continuous_star || starts_pair)
-        pair_color = palette.get(radius_t);
-      const Color4 color = pair_color;
-      const float geometry_radius_t = spaced_radius_t[i];
-      const float radius = 2.0f * geometry_radius_t;
-      if (planar_star) {
-        constexpr float AA_PAD = 2.0f * math::PI_F / W;
-        const bool far_side = radius > 1.0f;
-        const float cap_radius = far_side ? 2.0f - radius : radius;
-        const float half_angle = cap_radius * (math::PI_F / 2.0f) + AA_PAD;
-        const float t2 = fminf(half_angle, math::PI_F);
-        if (!Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap,
-                                         t2, sinf(t2)))
-          continue;
-      }
-      const float direction = continuous_star ? star_phase_direction(radius)
-                                              : phase_direction(radius);
-      const float contour_phase = direction * params.amplitude * waveform[i];
-      Color4 shaded_color = color;
-      shaded_color.alpha *= global_alpha;
+      const ContourSlot slot =
+          contour_slot(ordinal, count, continuous_star, palette, pair_color);
+      const int i = slot.i;
+      const float radius = slot.radius;
+      if (planar_star &&
+          !planar_star_cap_visible(clip, near_cap, far_cap, radius, 0.0f))
+        continue;
+      const ContourShading shading =
+          contour_shading(i, radius, continuous_star, pair_color, global_alpha);
+      const float contour_phase = shading.contour_phase;
+      const Color4 shaded_color = shading.shaded_color;
       auto shader = [&](const math::Vector &, Fragment &fragment) {
         fragment.color = shaded_color;
       };
@@ -744,21 +802,16 @@ private:
 
     Color4 pair_color;
     for (int ordinal = 0; ordinal < count; ++ordinal) {
-      const int i =
-          continuous_star ? count - ordinal - 1 : folded_draw_indices[ordinal];
-      const float radius_t =
-          (static_cast<float>(i) + 0.5f) / static_cast<float>(count);
-      const bool starts_pair = (count & 1) != 0
-                                   ? ordinal == 0 || (ordinal & 1) != 0
-                                   : (ordinal & 1) == 0;
-      if (continuous_star || starts_pair)
-        pair_color = palette.get(radius_t);
-      const float radius = 2.0f * spaced_radius_t[i];
-      const float direction = continuous_star ? star_phase_direction(radius)
-                                              : phase_direction(radius);
-      const float contour_phase = direction * params.amplitude * waveform[i];
-      Color4 shaded_color = pair_color;
-      shaded_color.alpha *= global_alpha;
+      const ContourSlot slot =
+          contour_slot(ordinal, count, continuous_star, palette, pair_color);
+      const int i = slot.i;
+      const float radius_t = slot.radius_t;
+      const float radius = slot.radius;
+      const ContourShading shading =
+          contour_shading(i, radius, continuous_star, pair_color, global_alpha);
+      const float direction = shading.direction;
+      const float contour_phase = shading.contour_phase;
+      const Color4 shaded_color = shading.shaded_color;
       const auto frame = Plot::ring_frame(basis, radius);
       // A continuous star turns in the shared basis on both sides of the
       // equator; the other primitives are charted about the far pole past it.
@@ -778,14 +831,8 @@ private:
                                    frame.cos_theta > Plot::COS_PLANAR_ANTIPODE;
       if (planar && !geodesic_flower) {
         if (shape == ShapeType::PLANAR_STAR) {
-          constexpr float AA_PAD = 2.0f * math::PI_F / W;
-          const bool far_side = radius > 1.0f;
-          const float cap_radius = far_side ? 2.0f - radius : radius;
-          const float half_angle =
-              cap_radius * (math::PI_F / 2.0f) + AA_PAD + motion + spin;
-          const float t2 = fminf(half_angle, math::PI_F);
-          if (!Plot::cap_may_touch_clip<H>(clip, far_side ? far_cap : near_cap,
-                                           t2, sinf(t2)))
+          if (!planar_star_cap_visible(clip, near_cap, far_cap, radius,
+                                       motion + spin))
             continue;
         }
         math::Basis projection_basis;
