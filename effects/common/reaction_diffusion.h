@@ -13,6 +13,7 @@
 
 #include "core/animation/orientation.h"
 #include "core/engine/engine.h"
+#include <type_traits>
 
 /**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
@@ -51,6 +52,25 @@ public:
   }
 
 protected:
+  /** @brief Linear RGB channels on the Pixel scale [0, 65535]. */
+  struct FloatRgb {
+    float r; /**< Linear red channel. */
+    float g; /**< Linear green channel. */
+    float b; /**< Linear blue channel. */
+
+    FloatRgb() = default;
+    /** @brief Copies linear channels from a pixel.
+     * @param color Source pixel. */
+    explicit FloatRgb(const Pixel &color)
+        : r(color.r), g(color.g), b(color.b) {}
+    /** @brief Converts the linear channels to a pixel.
+     * @return Pixel with the stored channels. */
+    Pixel pixel() const { return Pixel(r, g, b); }
+  };
+  static_assert(sizeof(FloatRgb) == 12);
+  static_assert(std::is_trivially_copyable_v<FloatRgb>);
+  static_assert(std::is_trivially_default_constructible_v<FloatRgb>);
+
   /**
    * @brief Scans the full canvas, seeding each fragment's lattice node first.
    * @tparam VertexFn Callable `(Fragment &)` run after the node seed.

@@ -59,6 +59,7 @@ class BZReactionDiffusion
   using Base::rasterize_lattice;
   using Base::to_q16;
   using typename Base::LatticeBasis;
+  using typename Base::FloatRgb;
 
 public:
   /// Machine/display identity and compatibility keys.
@@ -112,14 +113,6 @@ public:
 
 private:
   friend struct ::hs_test::effects_tests::BZWhiteBox;
-
-  struct FloatRgb {
-    float r = 0, g = 0, b = 0;
-
-    FloatRgb() = default;
-    explicit FloatRgb(const Pixel &color)
-        : r(color.r), g(color.g), b(color.b) {}
-  };
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
@@ -437,7 +430,7 @@ private:
   } state;
 
   /** @brief Per-species palette channels converted once in init(). */
-  FloatRgb color_a, color_b, color_c;
+  FloatRgb color_a{}, color_b{}, color_c{};
 
   /** @brief User-tunable Lotka-Volterra and diffusion parameters. */
   struct Params {

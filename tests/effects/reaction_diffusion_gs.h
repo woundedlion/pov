@@ -81,7 +81,7 @@ struct GSWhiteBox {
       return gs.modified_palette_color(
           seed, VALUE.value, NOISE.value * gs.params.hue_shift,
           fmaxf(NOISE.value, 0.0f) * gs.params.shimmer);
-    const typename GS::FloatColor *row =
+    const typename GS::FloatRgb *row =
         gs.shimmer_cache.row(seed, NOISE.row) + VALUE.column;
     Pixel first = row[0].pixel().lerp16(row[1].pixel(), VALUE.weight);
     Pixel second = row[GS::COLOR_VALUE_STEPS].pixel().lerp16(

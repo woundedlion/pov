@@ -58,6 +58,7 @@ class GSReactionDiffusion
   using Base::register_param;
   using Base::to_q16;
   using typename Base::LatticeBasis;
+  using typename Base::FloatRgb;
 
 public:
   /// Machine/display identity and compatibility keys.
@@ -78,7 +79,7 @@ public:
     constexpr size_t PALETTE_BYTES =
         NUM_SEED_CLUSTERS *
             (PALETTE_SIZE * sizeof(Pixel) +
-             COLOR_VALUE_STEPS * COLOR_NOISE_STEPS * sizeof(FloatColor)) +
+             COLOR_VALUE_STEPS * COLOR_NOISE_STEPS * sizeof(FloatRgb)) +
         2 * alignof(Pixel) + 2 * HueNoiseLutView::SIZE * sizeof(int8_t);
     constexpr size_t PERSISTENT_BYTES = 192 * 1024 + 32;
     constexpr size_t PHYSICS_SCRATCH_BYTES =
@@ -116,7 +117,7 @@ public:
     state.pigment = persistent_arena.allocate_n<uint16_t>(RD_N);
     palettes =
         persistent_arena.allocate_n<Pixel>(NUM_SEED_CLUSTERS * PALETTE_SIZE);
-    shimmer_cache.attach(persistent_arena.allocate_n<FloatColor>(
+    shimmer_cache.attach(persistent_arena.allocate_n<FloatRgb>(
         NUM_SEED_CLUSTERS * COLOR_VALUE_STEPS * COLOR_NOISE_STEPS));
     color_noise_lut =
         persistent_arena.allocate_n<int8_t>(HueNoiseLutView::SIZE);
@@ -146,16 +147,6 @@ private:
   static constexpr int PALETTE_SIZE = 32;
   static constexpr int COLOR_NOISE_STEPS = 15;
   static constexpr int COLOR_VALUE_STEPS = 16;
-  struct FloatColor {
-    float r, g, b;
-    FloatColor &operator=(const Pixel &p) {
-      r = p.r;
-      g = p.g;
-      b = p.b;
-      return *this;
-    }
-    Pixel pixel() const { return Pixel(r, g, b); }
-  };
   static constexpr float CACHED_HUE_LIMIT = 0.25f;
   static constexpr float CACHED_SHIMMER_LIMIT = 0.4f;
 
@@ -449,7 +440,7 @@ private:
     };
 
     /** @brief Binds the bake storage, one row per seed and noise step. */
-    void attach(FloatColor *storage) { palettes = storage; }
+    void attach(FloatRgb *storage) { palettes = storage; }
 
     /** @brief Marks every row stale after the source palettes change. */
     void invalidate() { valid = false; }
@@ -491,8 +482,9 @@ private:
         for (int seed = 0; seed < NUM_SEED_CLUSTERS; ++seed)
           for (int t = 0; t < COLOR_VALUE_STEPS; ++t)
             palettes[(seed * COLOR_NOISE_STEPS + n) * COLOR_VALUE_STEPS + t] =
-                bake(seed, static_cast<float>(t) / (COLOR_VALUE_STEPS - 1),
-                     noise * hue, fmaxf(noise, 0.0f) * shimmer);
+                FloatRgb(bake(seed,
+                              static_cast<float>(t) / (COLOR_VALUE_STEPS - 1),
+                              noise * hue, fmaxf(noise, 0.0f) * shimmer));
         rows |= 1u << n;
       }
     }
@@ -506,8 +498,8 @@ private:
     }
 
     /** @brief The baked colors of `seed` at noise row `noise_row`. */
-    __attribute__((always_inline)) const FloatColor *row(int seed,
-                                                         int noise_row) const {
+    __attribute__((always_inline)) const FloatRgb *row(int seed,
+                                                       int noise_row) const {
       return palettes +
              (seed * COLOR_NOISE_STEPS + noise_row) * COLOR_VALUE_STEPS;
     }
@@ -515,7 +507,7 @@ private:
   private:
     friend struct ::hs_test::effects_tests::GSWhiteBox;
 
-    FloatColor *palettes = nullptr;
+    FloatRgb *palettes = nullptr;
     bool valid = false;
     bool exact = true;
     bool enabled = false;
@@ -997,7 +989,7 @@ private:
         accum_b += rgb.b * weight;
         continue;
       }
-      const FloatColor *row =
+      const FloatRgb *row =
           shimmer_cache.row(palette, NOISE_ROW) + VALUE_COLUMN;
       float w00 = mass * SCALE00, w01 = mass * SCALE01;
       float w10 = mass * SCALE10, w11 = mass * SCALE11;
