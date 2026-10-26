@@ -86,7 +86,7 @@ struct MeshPass {
 /**
  * @brief Column-time state shared by the scans of one effect frame.
  * @details A scan with a basis builds a pixel's direction from its column
- * `c = Spacetime::SamplingSurface<W>::index(x)` as `±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
+ * `c = Spacetime::SamplingSurface<W>::index(x)` as `Â±sin(phi) * azimuth[c] + cos(phi) * up[c]`, negated on
  * the far arm: the fixed-meridian direction rotated from the column's sweep
  * time to the current endpoint, so shapes built at the current endpoint are
  * evaluated as they stood when the column was lit.
@@ -334,14 +334,7 @@ template <int W, int H> struct ColumnBasisTable {
                                          int count) {
     if (Spacetime::flat_surface())
       return false;
-    const math::Quaternion &current = history[count - 1];
-    for (int i = 0; i + 1 < count; ++i) {
-      const math::Quaternion &q = history[i];
-      if (!(q.r == current.r && q.v.x == current.v.x && q.v.y == current.v.y &&
-            q.v.z == current.v.z))
-        return true;
-    }
-    return false;
+    return !Spacetime::history_stationary(history, count);
   }
 
   /**

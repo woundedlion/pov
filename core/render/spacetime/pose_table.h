@@ -21,6 +21,23 @@
 namespace Spacetime {
 
 /**
+ * @brief Whether every history pose has exactly the last pose's components.
+ * @param history Unit poses, oldest first.
+ * @param count History length, at least 1.
+ * @return True for component-identical poses; opposite quaternion signs differ.
+ */
+inline bool history_stationary(const math::Quaternion *history, int count) {
+  const math::Quaternion &current = history[count - 1];
+  for (int i = 0; i + 1 < count; ++i) {
+    const math::Quaternion &q = history[i];
+    if (!(q.r == current.r && q.v.x == current.v.x && q.v.y == current.v.y &&
+          q.v.z == current.v.z))
+      return false;
+  }
+  return true;
+}
+
+/**
  * @brief Visits a pose history at each first-arm column's sweep time.
  * @tparam Fn Callable `(int column, const math::Quaternion &pose)`.
  * @param history Unit poses evenly spaced over the frame, oldest first: index
@@ -180,13 +197,7 @@ public:
                            HS_HOT_INLINE { store(c, pose); });
     store(0, history[0]);
     store(half, history[count - 1]);
-    const math::Quaternion &current = history[count - 1];
-    stationary_frame = true;
-    for (int i = 0; i + 1 < count; ++i)
-      stationary_frame = stationary_frame && history[i].r == current.r &&
-                         history[i].v.x == current.v.x &&
-                         history[i].v.y == current.v.y &&
-                         history[i].v.z == current.v.z;
+    stationary_frame = history_stationary(history, count);
   }
 
   /**
