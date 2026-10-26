@@ -102,7 +102,8 @@ struct ColumnBasis {
   /// Bound on the arc a direction turns between columns lit a frame fraction
   /// `du` apart, per unit `du` (radians).
   float sweep_rate = 0.0f;
-  /// Earliest frame fraction drawn; columns lit before it are left untouched.
+  /// Earliest frame fraction drawn by Scan::rasterize; earlier columns are
+  /// left untouched by that scan.
   float birth = 0.0f;
   /// Rotation vector, axis times angle, carrying the scanned shape from where
   /// it stood at the previous endpoint to the current one. A Scan::rasterize
