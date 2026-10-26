@@ -177,8 +177,10 @@ protected branch's `CI green` status is the authoritative correctness gate.
 - **Host-Python tool suites:** `just python-test` and the CI `python-tests`
   job run `python tools/run_python_tests.py` across all tracked Python suites,
   including firmware gates, profiling tools, build checks and PCB generators.
-  It rejects empty suites and propagates failures. The CI job also checks
-  routed PCB metadata with `hardware/phantasm/gen/board_metadata.py --check`. Install `requirements/numpy.txt`, `requirements/ruff.txt` and
+  It rejects empty suites and propagates failures. `just python-ci` matches the
+  CI job by also checking routed candidate status and provenance with
+  `hardware/phantasm/gen/release.py check-candidates`, then routed PCB metadata
+  with `hardware/phantasm/gen/board_metadata.py --check`. Install `requirements/numpy.txt`, `requirements/ruff.txt` and
 `requirements/shellcheck.txt` first (the same set the CI job installs);
   no ARM toolchain or KiCad is required.
 - **PCB:** `pcb-tests` runs the KiCad-backed generation, DRC, parity and
