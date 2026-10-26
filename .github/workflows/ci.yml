@@ -728,7 +728,11 @@ jobs:
             echo "::error::first-party warning(s) in the WASM build — fix them (this target has no baseline)"
             exit 1
           fi
-          echo "No first-party warnings in the release, debug or strict-FP WASM build."
+          if grep -nE '(^|[[:space:]])(<command line>(:[0-9]+){0,2}|em\+\+|emcc|wasm-ld|clang\+\+|clang)(\.exe)?:[[:space:]]*warning:' "${logs[@]}"; then
+            echo "::error::fileless toolchain warning(s) in the WASM build — fix them (this target has no baseline)"
+            exit 1
+          fi
+          echo "No first-party or fileless toolchain warnings in the release, debug or strict-FP WASM build."
 
       - name: Runtime-smoke WASM debug
         # Debug frames have a 6 KB ceiling; optimized frames use 2 KB.
