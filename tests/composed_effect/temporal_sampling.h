@@ -784,7 +784,7 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
   effect.init();
   const int departure = FX::PRESET_DWELL_FRAMES +
                         Segue::Preset::frames(FX::preset_departure(0)) + 20;
-  uint64_t hash = HASH_SEED64;
+  PixelGolden golden;
   for (int frame = 0; frame < departure + 40; ++frame) {
     pin_frame_clock(frame);
     if (frame == 30)
@@ -803,10 +803,25 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
       effect.setAnimationsPaused(false);
     effect.draw_frame();
     effect.advance_display();
-    hash = frame_hash<SMALL_W, SMALL_H>(effect, hash);
+    fold_pixel_golden<SMALL_W, SMALL_H>(golden, effect);
   }
   hs::clear_mock_time();
-  expect_pixel_golden("MobiusGrid 96x20", hash, 0x7aba7e31fa280f26ull);
+  expect_pixel_golden(
+      "MobiusGrid 96x20", golden,
+      RecordedGolden{{0x7aba7e31fa280f26ull,
+                      {{6804982990ull, 6845043599ull, 7112466342ull},
+                       201304039169ull,
+                       983617260022ull}},
+                     {0x7df64ea1b3a1a8b1ull,
+                      {{6568648812ull, 6978203112ull, 6965517928ull},
+                       195718338277ull,
+                       957644275028ull}},
+                     1e-3,
+                     0.01,
+                     {0xc796f197854e8c14ull,
+                      {{7024870416ull, 6816739305ull, 7032722684ull},
+                       208882048856ull,
+                       984306252956ull}}});
 }
 
 /** @brief Composed history type of an effect.

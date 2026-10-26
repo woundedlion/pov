@@ -1503,7 +1503,8 @@ files define line-ending policy and working-artifact exclusions.
 │   ├── effects/           Sections included by test_effects.h
 │   ├── filter/            Sections included by test_filter.h
 │   │   └── temporal_copies.h Selected-copy timed transform parity
-│   ├── test_plot_parity.h Spacetime, frame-end and segment render hashes
+│   ├── test_plot_parity.h Spacetime, frame-end and segment render fingerprints
+│   ├── run_render_goldens.cpp  Node-hosted WASM render regression runner
 │   ├── temporal_oracle.h  Shared per-column frozen-reference comparisons
 │   ├── plot_scan/         Sections included by test_plot_scan.h
 │   │   ├── temporal_seam.h Column-time tap ownership oracles

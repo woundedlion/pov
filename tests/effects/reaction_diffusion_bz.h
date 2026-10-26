@@ -581,21 +581,42 @@ inline void test_bz_render_center_matches_reference() {
 /**
  * @brief With temporal sampling disabled, BZ renders the frames pinned from
  *        the frame-wide renderer.
- * @details Pinned for the Windows native Clang build.
  */
 inline void test_bz_untimed_frames_are_pinned() {
-#if defined(_WIN32)
   constexpr std::array<int, 4> BAND{3, 17, 39, 83};
-  const uint64_t FULL =
-      untimed_frame_fold<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
-  const uint64_t CLIPPED =
-      untimed_frame_fold<BZReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
-  const uint64_t SHIPPED =
-      untimed_frame_fold<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  HS_EXPECT_EQ(FULL, 9948718347062484848ull);
-  HS_EXPECT_EQ(CLIPPED, 15800610696509622377ull);
-  HS_EXPECT_EQ(SHIPPED, 5465664904333901648ull);
-#endif
+  const PixelGolden FULL =
+      untimed_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16);
+  const PixelGolden CLIPPED =
+      untimed_frame_golden<BZReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
+  const PixelGolden SHIPPED =
+      untimed_frame_golden<BZReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
+  expect_pixel_golden("BZ FULL", FULL,
+                      RecordedGolden{{0x8a10f2a047121f70ull,
+                                      {{19517055ull, 9216199ull, 8087354ull},
+                                       324984401ull,
+                                       1876204354ull}},
+                                     {0xd67d1f3e6806d269ull,
+                                      {{19517050ull, 9216199ull, 8087356ull},
+                                       324984347ull,
+                                       1876204135ull}}});
+  expect_pixel_golden("BZ CLIPPED", CLIPPED,
+                      RecordedGolden{{0xdb470bb697b18869ull,
+                                      {{10910495ull, 6084515ull, 3517585ull},
+                                       181418987ull,
+                                       1234751308ull}},
+                                     {0x1c679849f911ac9aull,
+                                      {{10910491ull, 6084516ull, 3517589ull},
+                                       181418993ull,
+                                       1234751307ull}}});
+  expect_pixel_golden("BZ SHIPPED", SHIPPED,
+                      RecordedGolden{{0x4bd9f145ac243f50ull,
+                                      {{11936049ull, 5720211ull, 5512932ull},
+                                       1613950750ull,
+                                       4154313178ull}},
+                                     {0xf65684215bde5b01ull,
+                                      {{11936057ull, 5720216ull, 5512930ull},
+                                       1613951574ull,
+                                       4154315122ull}}});
 }
 
 /**

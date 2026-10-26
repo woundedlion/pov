@@ -244,6 +244,18 @@ endif()
 
 _hs_sanitize(run_tests)
 
+add_executable(render_goldens EXCLUDE_FROM_ALL
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_render_goldens.cpp
+  ${HS_ENGINE_SOURCES})
+target_include_directories(render_goldens PRIVATE ${HS_ENGINE_INCLUDES})
+target_link_libraries(render_goldens PRIVATE hs_test_support)
+target_compile_definitions(render_goldens PRIVATE HS_SCAN_METRICS
+  "HS_SHADER_CHAIN_CATALOG_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}/data/shader_chain_catalog.json\""
+  "HS_PROMOTED_PATTERNS_DIR=\"${HS_ROOT}/patterns\"")
+_hs_warnings(render_goldens)
+_hs_sanitize(render_goldens)
+
+
 add_executable(mindsplatter_replay_gen
   ${HS_ROOT}/tools/mindsplatter_replay_gen.cpp
   ${HS_ENGINE_SOURCES})

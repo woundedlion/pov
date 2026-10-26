@@ -137,6 +137,16 @@ protected branch's `CI green` status is the authoritative correctness gate.
   drives `HS_SMOKE_FRAMES=120`; at the 8-frame default no preset transition
   arms. Set `HS_EFFECTS_FULL=1` to reproduce the full-resolution leg (also run on pull requests)
   locally.
+- **Render goldens:** Native golden cases compare per-channel totals and
+  brightness-weighted row/column centroids on every floating-point mode. The
+  recording environment additionally requires exact hashes. Strict and fast
+  modes have separate references; long chaotic sequences may carry a separate
+  WASM fast reference. Re-record only after reviewing the render change, measure
+  toolchain drift before changing a scenario's tolerances, and retain asymmetric
+  channel-swap, mirror and shift companions. Aggregate moments do not distinguish
+  all images. CI uploads native and WASM comparison logs. The explicit
+  `render_goldens` and `render_goldens_wasm` targets reuse these cases under the
+  native and WASM presets without entering their default builds.
 - **Node script suite:** `npm test` runs every `scripts/*.test.mjs` — the
   shader-workbench schema and digest contracts, the WASM smoke predicates, the
   engine bindings contract, the profile roster and the PNG probe. CI runs it as

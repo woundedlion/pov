@@ -2059,21 +2059,43 @@ inline void test_gs_reaction_corner_stays_bounded() {
 /**
  * @brief With temporal sampling disabled, GS renders the frames pinned from
  *        the frame-wide renderer.
- * @details Pinned for the Windows native Clang build.
  */
 inline void test_gs_untimed_frames_are_pinned() {
-#if defined(_WIN32)
   constexpr std::array<int, 4> BAND{3, 17, 39, 83};
-  const uint64_t FULL =
-      untimed_frame_fold<GSReactionDiffusion, SMALL_W, SMALL_H>(16);
-  const uint64_t CLIPPED =
-      untimed_frame_fold<GSReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
-  const uint64_t SHIPPED =
-      untimed_frame_fold<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
-  HS_EXPECT_EQ(FULL, 13517808851407958498ull);
-  HS_EXPECT_EQ(CLIPPED, 8233160997077370553ull);
-  HS_EXPECT_EQ(SHIPPED, 2157533373239983504ull);
-#endif
+  const PixelGolden FULL =
+      untimed_frame_golden<GSReactionDiffusion, SMALL_W, SMALL_H>(16);
+  const PixelGolden CLIPPED =
+      untimed_frame_golden<GSReactionDiffusion, SMALL_W, SMALL_H>(16, &BAND);
+  const PixelGolden SHIPPED =
+      untimed_frame_golden<GSReactionDiffusion, DEFAULT_W, DEFAULT_H>(3);
+  expect_pixel_golden("GS FULL", FULL,
+                      RecordedGolden{{0xbb98e787a9cd71e2ull,
+                                      {{76521874ull, 45395040ull, 55800442ull},
+                                       1444931809ull,
+                                       8679073878ull}},
+                                     {0xa5fcafb00214d587ull,
+                                      {{76522072ull, 45395511ull, 55800268ull},
+                                       1444925507ull,
+                                       8679082953ull}}});
+  expect_pixel_golden("GS CLIPPED", CLIPPED,
+                      RecordedGolden{{0x7242104e4165c6b9ull,
+                                      {{28328580ull, 18336526ull, 27241508ull},
+                                       588187237ull,
+                                       4390370306ull}},
+                                     {0x22a740a50e7a70a8ull,
+                                      {{28327832ull, 18336308ull, 27241549ull},
+                                       588185295ull,
+                                       4390329926ull}}});
+  expect_pixel_golden(
+      "GS SHIPPED", SHIPPED,
+      RecordedGolden{{0x1df1192bff04fd90ull,
+                      {{208265645ull, 161024237ull, 186946535ull},
+                       33639317903ull,
+                       85214237474ull}},
+                     {0x376d8795d9d9c508ull,
+                      {{208266050ull, 161024529ull, 186946874ull},
+                       33639352713ull,
+                       85214395429ull}}});
 }
 
 /**

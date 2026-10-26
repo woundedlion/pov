@@ -513,33 +513,33 @@ inline void test_sh_manual_preset_replaces_inflight_morph() {
  * @tparam H Canvas height.
  * @param frames Frames to render.
  * @param schedule Called with the effect and frame index before each draw.
- * @return Hash of every displayed frame.
+ * @return Hash, RGB totals and brightness moments of the sequence.
  */
 template <int W, int H, typename Schedule>
-inline uint64_t sh_instantaneous_hash(int frames, Schedule &&schedule) {
+inline PixelGolden sh_instantaneous_golden(int frames, Schedule &&schedule) {
   reset_effect_globals();
   const ScopedTemporalSampling instantaneous(false);
   HS_EXPECT_TRUE(Spacetime::flat_surface());
   SphericalHarmonics<W, H> fx;
   fx.init();
-  uint64_t hash = HASH_SEED64;
+  PixelGolden golden;
   for (int frame = 0; frame < frames; ++frame) {
     pin_frame_clock(frame);
     schedule(fx, frame);
     fx.draw_frame();
     fx.advance_display();
-    hash = frame_hash<W, H>(fx, hash);
+    fold_pixel_golden<W, H>(golden, fx);
   }
   hs::clear_mock_time();
-  return hash;
+  return golden;
 }
 
 /** @brief SphericalHarmonics with temporal sampling disabled matches its
  *  committed render through morph rollovers, clips and a manual preset. */
 inline void test_sh_instantaneous_pixel_golden() {
   using WB = SphericalHarmonicsWhiteBox;
-  const uint64_t small =
-      sh_instantaneous_hash<SMALL_W, SMALL_H>(140, [](WB::SH &fx, int frame) {
+  const PixelGolden small =
+      sh_instantaneous_golden<SMALL_W, SMALL_H>(140, [](WB::SH &fx, int frame) {
         if (frame == 90)
           fx.set_clip(2, SMALL_H - 2, 40, 60);
         if (frame == 100) {
@@ -554,10 +554,28 @@ inline void test_sh_instantaneous_pixel_golden() {
         if (frame == 120)
           fx.setAnimationsPaused(false);
       });
-  expect_pixel_golden("SphericalHarmonics 96x20", small, 0x17cfe272f7a45109ull);
-  const uint64_t full = sh_instantaneous_hash<288, 144>(3, [](auto &, int) {});
-  expect_pixel_golden("SphericalHarmonics 288x144", full,
-                      0x2d87b2caff082939ull);
+  expect_pixel_golden(
+      "SphericalHarmonics 96x20", small,
+      RecordedGolden{{0x17cfe272f7a45109ull,
+                      {{1486548374ull, 622603797ull, 2206841727ull},
+                       41167967242ull,
+                       206205913859ull}},
+                     {0x134233915279a3b6ull,
+                      {{1486548175ull, 622603658ull, 2206841810ull},
+                       41167968484ull,
+                       206205897636ull}}});
+  const PixelGolden full =
+      sh_instantaneous_golden<288, 144>(3, [](auto &, int) {});
+  expect_pixel_golden(
+      "SphericalHarmonics 288x144", full,
+      RecordedGolden{{0x2d87b2caff082939ull,
+                      {{526758375ull, 170893029ull, 742254909ull},
+                       102953297057ull,
+                       206583177805ull}},
+                     {0x500a13ad0928ca3bull,
+                      {{526758401ull, 170893036ull, 742254889ull},
+                       102953298145ull,
+                       206583179636ull}}});
 }
 
 /** @brief Spin and morph chain of SphericalHarmonics as functions of

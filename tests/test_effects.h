@@ -347,15 +347,15 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
  * @param frames Frames to render.
  * @param clip Display band {y0, y1, x0, x1} set before the first frame, or
  *        null for the full canvas.
- * @return FNV-1a fold over every channel of every displayed frame.
+ * @return Hash, RGB totals and brightness moments of the sequence.
  */
 template <template <int, int> class E, int W, int H>
-inline uint64_t untimed_frame_fold(int frames,
-                                   const std::array<int, 4> *clip = nullptr) {
+inline PixelGolden
+untimed_frame_golden(int frames, const std::array<int, 4> *clip = nullptr) {
   reset_effect_globals();
   pin_frame_clock(0);
   Spacetime::set_flat_surface(true);
-  uint64_t fold = hs_test::HASH_SEED64;
+  PixelGolden golden;
   {
     E<W, H> effect;
     effect.init();
@@ -365,12 +365,12 @@ inline uint64_t untimed_frame_fold(int frames,
       pin_frame_clock(f);
       effect.draw_frame();
       effect.advance_display();
-      fold = frame_hash<W, H>(effect, fold);
+      fold_pixel_golden<W, H>(golden, effect);
     }
   }
   Spacetime::set_flat_surface(false);
   hs::clear_mock_time();
-  return fold;
+  return golden;
 }
 
 /**

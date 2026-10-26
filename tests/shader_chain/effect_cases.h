@@ -480,7 +480,7 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
       {"sample", "sample.grid.v3"},
       {"colorize", "colorize.generated-palette.v3"},
   };
-  uint64_t hash = HASH_SEED64;
+  PixelGolden golden;
   for (int frame = 0; frame < 100; ++frame) {
     pin_frame_clock(frame);
     if (frame == 20)
@@ -499,10 +499,19 @@ inline void test_shader_chain_instantaneous_pixel_golden() {
     }
     chain.draw_frame();
     chain.advance_display();
-    hash = frame_hash<W, H>(chain, hash);
+    fold_pixel_golden<W, H>(golden, chain);
   }
   hs::clear_mock_time();
-  expect_pixel_golden("ShaderChain 96x20", hash, 0xbfbf4393aff25990ull);
+  expect_pixel_golden(
+      "ShaderChain 96x20", golden,
+      RecordedGolden{{0xbfbf4393aff25990ull,
+                      {{620985527ull, 951321767ull, 429444812ull},
+                       19016706369ull,
+                       79956650435ull}},
+                     {0x5c766d6ef3ae3ebcull,
+                      {{620986393ull, 951322411ull, 429446114ull},
+                       19016766543ull,
+                       79956889954ull}}});
 }
 
 /** @brief View direction the scan shades for a 96x20 pixel.

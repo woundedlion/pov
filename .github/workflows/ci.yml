@@ -93,6 +93,25 @@ jobs:
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
 
+      - name: Compare native render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          cmake --build --preset tests --target render_goldens
+          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+
+      - name: Upload native render comparison log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-goldens-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/tests/Testing/Temporary/LastTest.log
+            build/tests/render-goldens.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Detect MindSplatter replay corpus mismatch
         id: mindsplatter_corpus_mismatch
         if: ${{ always() && steps.native_tests.outcome == 'failure' }}
@@ -179,6 +198,25 @@ jobs:
         run: >
           ctest --preset tests --output-on-failure --no-tests=error
           -E "${{ env.GENERATED_EXCLUDE }}"
+
+      - name: Compare native render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          cmake --build --preset tests --target render_goldens
+          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+
+      - name: Upload native render comparison log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-goldens-sanitizers-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/tests/Testing/Temporary/LastTest.log
+            build/tests/render-goldens.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Test full-resolution effects under ASan and UBSan
         env:
@@ -345,6 +383,25 @@ jobs:
           -R "${{ matrix.test_include }}"
           -E "${{ matrix.test_exclude }}"
 
+      - name: Compare native render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          cmake --build --preset tests --target render_goldens
+          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+
+      - name: Upload native render comparison log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-goldens-optimized-tests-${{ matrix.flavor }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/tests/Testing/Temporary/LastTest.log
+            build/tests/render-goldens.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Save ccache on master
         if: github.ref == 'refs/heads/master'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -407,6 +464,14 @@ jobs:
           LLVM_PROFILE_FILE: ${{ github.workspace }}/cov/run_tests-%p.profraw
         run: build/tests/tests/run_tests
 
+      - name: Compare native render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          cmake --build --preset tests --target render_goldens
+          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+
       - name: Build coverage reports and enforce the floors
         # Explicit bash enables pipefail. The 1% directory floors check presence.
         shell: bash
@@ -452,6 +517,7 @@ jobs:
         with:
           name: native-coverage
           path: |
+            build/tests/render-goldens.log
             cov/coverage.lcov
             cov/summary.json
             cov/html
@@ -517,6 +583,25 @@ jobs:
           -E "${{ env.TEST_EXCLUDE }}"
 
       # Windows uses UBSan trap mode; emsdk provides no MSVC ASan runtime.
+      - name: Compare native render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          cmake --build --preset tests --target render_goldens
+          build/tests/tests/render_goldens | tee build/tests/render-goldens.log
+
+      - name: Upload native render comparison log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-goldens-windows-tests-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/tests/Testing/Temporary/LastTest.log
+            build/tests/render-goldens.log
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Configure + build the UBSan-trap flavour
         run: |
           cmake --preset tests -B build/tests-ubsan -DHS_INSTALL_GIT_HOOKS=OFF -DHS_SANITIZE=ON
@@ -607,6 +692,25 @@ jobs:
           cmake --build --preset wasm-strict-fp 2>&1 | tee build/wasm-strict-fp-build.log
           cmake --build --preset wasm-strict-fp --target pullback_capture_wasm 2>&1 \
             | tee -a build/wasm-strict-fp-build.log
+
+      - name: Compare WASM render fingerprints
+        shell: bash
+        env:
+          HS_SKIPS_ARE_ERRORS: 1
+        run: |
+          for preset in wasm-release wasm-debug wasm-strict-fp; do
+            cmake --build --preset "$preset" --target render_goldens_wasm 2>&1 | tee -a "build/$preset-build.log"
+            node "build/$preset/render_goldens_wasm.cjs" | tee "build/$preset/render-goldens.log"
+          done
+
+      - name: Upload WASM render comparison logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: render-goldens-wasm-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/*/render-goldens.log
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: First-party WASM warning gate
         # Reject first-party warnings in all three configurations; sysroot warnings are excluded.
