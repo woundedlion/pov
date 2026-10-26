@@ -616,3 +616,115 @@ inline void test_generated_palette_bank_routes_and_rechromas() {
     previous = generated;
   }
 }
+
+/** @brief Display cadence preserves clocks and samples exact full-rate bakes. */
+inline void test_palette_cycler_generated_display_cadence() {
+  for (int fade_frames : {5, 600}) {
+    for (auto easing :
+         std::array<float (*)(float), 2>{nullptr, math::ease_in_out_sin}) {
+      alignas(std::max_align_t)
+          std::array<uint8_t, 2 * PaletteCycler::generated_arena_bytes() +
+                                  2 * BakedPalette::required_arena_bytes()>
+              buffer{};
+      Arena arena(buffer.data(), buffer.size());
+      PaletteCycler full, sampled;
+      int full_calls = 0, sampled_calls = 0;
+      full.init_generated(arena, scripted_next_palette, &full_calls, 0,
+                          fade_frames, easing);
+      sampled.init_generated(arena, scripted_next_palette, &sampled_calls, 0,
+                             fade_frames, easing, nullptr, 2);
+      BakedPaletteStorage previous, endpoint;
+      previous.clone_from(sampled.palette(), arena);
+      endpoint.bake(arena, GenerativePalette());
+      for (int step = 0; step < 2 * (fade_frames + 1); ++step) {
+        HS_CONTEXT("step", step);
+        const auto before = sampled.generated_clock();
+        const uint32_t generation = sampled.bake_generation();
+        previous.rebake_copy(sampled.palette());
+        full.step();
+        sampled.step();
+        const auto clock = sampled.generated_clock();
+        const auto reference = full.generated_clock();
+        HS_EXPECT_EQ(clock.frame, reference.frame);
+        HS_EXPECT_EQ(clock.next_sequence, reference.next_sequence);
+        HS_EXPECT_EQ(clock.fade_active, reference.fade_active);
+        HS_EXPECT_EQ(clock.display_dirty, reference.display_dirty);
+        HS_EXPECT_EQ(sampled_calls, full_calls);
+        const bool baked =
+            before.fade_active && (!clock.fade_active || clock.frame % 2 == 0);
+        HS_EXPECT_EQ(sampled.bake_generation(), generation + (baked ? 1u : 0u));
+        if (baked)
+          expect_baked_equal(sampled.palette(), full.palette());
+        else
+          expect_baked_equal(sampled.palette(), previous);
+        if (before.fade_active && !clock.fade_active) {
+          endpoint.rebake(GenerativePalette(PaletteRecipes::balanced_analogous(
+              0.1f + 0.2f * (clock.next_sequence - 2))));
+          expect_baked_equal(sampled.palette(), endpoint);
+        }
+      }
+      HS_EXPECT_EQ(full.bake_generation(), 1u + 2u * fade_frames);
+      HS_EXPECT_EQ(sampled.bake_generation(),
+                   1u + 2u * ((fade_frames - 1) / 2 + 1));
+    }
+  }
+}
+
+/** @brief Restore, chroma changes and paused catch-up retain the sampled phase. */
+inline void test_palette_cycler_sampled_restore_and_catchup() {
+  alignas(std::max_align_t)
+      std::array<uint8_t, 3 * PaletteCycler::generated_arena_bytes() +
+                              PaletteCycler::required_arena_bytes() +
+                              BakedPalette::required_arena_bytes()>
+          buffer{};
+  Arena arena(buffer.data(), buffer.size());
+  bool paused = false;
+  int full_calls = 0, sampled_calls = 0, restored_calls = 0;
+  PaletteCycler full, sampled, restored;
+  full.init_generated(arena, scripted_next_palette, &full_calls, 0, 8, nullptr,
+                      &paused);
+  sampled.init_generated(arena, scripted_next_palette, &sampled_calls, 0, 8,
+                         nullptr, &paused, 2);
+  restored.init_generated(arena, scripted_next_palette, &restored_calls, 0, 8,
+                          nullptr, &paused, 2);
+  for (int frame = 0; frame < 4; ++frame) {
+    full.step();
+    sampled.step();
+  }
+  const GenerativePalette from(PaletteRecipes::balanced_analogous(0.1f));
+  const GenerativePalette to(PaletteRecipes::balanced_analogous(0.3f));
+  HS_EXPECT_EQ(sampled.generated_clock().frame, 3u);
+  HS_EXPECT_FALSE(sampled.generated_clock().display_dirty);
+  restored.restore_generated(sampled.generated_clock(), from, to);
+  expect_baked_equal(restored.palette(), sampled.palette());
+
+  full.step();
+  sampled.advance_without_display();
+  sampled.advance_without_display();
+  HS_EXPECT_EQ(sampled.generated_clock().frame, 5u);
+  HS_EXPECT_TRUE(sampled.generated_clock().display_dirty);
+  paused = true;
+  const uint32_t generation = sampled.bake_generation();
+  sampled.step();
+  HS_EXPECT_EQ(sampled.generated_clock().frame, 5u);
+  HS_EXPECT_FALSE(sampled.generated_clock().display_dirty);
+  HS_EXPECT_EQ(sampled.bake_generation(), generation + 1);
+  expect_baked_equal(sampled.palette(), full.palette());
+  restored.restore_generated(sampled.generated_clock(), from, to);
+  expect_baked_equal(restored.palette(), sampled.palette());
+  full.set_generated_chroma(0.4f);
+  sampled.set_generated_chroma(0.4f);
+  restored.set_generated_chroma(0.4f);
+  expect_baked_equal(sampled.palette(), full.palette());
+  expect_baked_equal(restored.palette(), full.palette());
+
+  const PaletteCycler::Entry entries[] = {from, to};
+  sampled.init(arena, entries, 2, 0, 4);
+  sampled.step();
+  sampled.step();
+  GenerativePalette quarter;
+  quarter.morph_palettes(from, to, 0.25f);
+  BakedPaletteStorage expected;
+  expected.bake(arena, quarter);
+  expect_baked_equal(sampled.palette(), expected);
+}

@@ -150,7 +150,7 @@ public:
     palette_cycler.init_generated(persistent_arena, next_palette, this,
                                   GeneratedPaletteBank::DWELL_FRAMES,
                                   GeneratedPaletteBank::FADE_FRAMES,
-                                  math::ease_in_out_sin);
+                                  math::ease_in_out_sin, nullptr, 2);
     if constexpr (ANIMATED_PROJECTION)
       timeline.add(0, Animation::RandomWalk<W>(
                           this->projection_walk, math::UP,

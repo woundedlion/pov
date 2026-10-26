@@ -8,6 +8,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 
 #include "core/color/generative_palette.h"
 #include "core/color/baked_palette.h"
@@ -145,6 +146,7 @@ public:
     entries = entry_list;
     entry_count = count;
     provider = nullptr;
+    display_interval = 1;
     provider_context = nullptr;
     from_slot = nullptr;
     to_slot = nullptr;
@@ -195,16 +197,25 @@ public:
    * @param fade_frames Frames each fade spans, >= 1.
    * @param easing_fn Optional easing over fade progress; null is linear.
    * @param paused_flag Optional pause gate; freezes step() while set and true.
+   * @param display_interval_frames Frames between display bakes, in [1, 255]
+   * and at most fade_frames. The timeline advances every frame; fade endpoints
+   * always bake exactly.
    */
   HS_COLD_MEMBER void init_generated(Arena &arena, NextPaletteFn next_fn,
                                      void *context, int dwell_frames,
                                      int fade_frames,
                                      float (*easing_fn)(float) = nullptr,
-                                     const bool *paused_flag = nullptr) {
+                                     const bool *paused_flag = nullptr,
+                                     int display_interval_frames = 1) {
     HS_CHECK(next_fn != nullptr,
              "PaletteCycler generated cycle needs a provider");
     HS_CHECK(dwell_frames >= 0 && fade_frames >= 1,
              "PaletteCycler dwell must be >= 0 and fade >= 1 frames");
+    HS_CHECK(display_interval_frames >= 1 &&
+                 display_interval_frames <= fade_frames &&
+                 display_interval_frames <= std::numeric_limits<uint8_t>::max(),
+             "PaletteCycler display interval must fit its fade and uint8_t");
+    display_interval = static_cast<uint8_t>(display_interval_frames);
     entries = nullptr;
     entry_count = 0;
     key_morph_mask = 0;
@@ -239,7 +250,10 @@ public:
    * is bit-exact regardless of easing endpoint behavior.
    */
   HS_COLD_MEMBER void step() {
+    HS_PROFILE(palette_cycle_step);
     if (!advance_clock(true))
+      return;
+    if (display_interval > 1 && !display_dirty && frame % display_interval != 0)
       return;
     const float w = fade_weight();
     if (provider != nullptr) {
@@ -262,7 +276,7 @@ public:
 
   /** @brief Advances the cycle without rebuilding the display LUT.
    *  @details Timeline and provider state still land exactly. A later step()
-   *  immediately rebuilds the display at the current phase. */
+   *  immediately rebuilds the display at its current sampled phase. */
   HS_COLD_MEMBER void advance_without_display() {
     if (advance_clock(false))
       display_dirty = true;
@@ -407,7 +421,9 @@ private:
   }
 
   __attribute__((always_inline)) inline float fade_weight() const {
-    const float progress = static_cast<float>(frame) / static_cast<float>(fade);
+    const int display_frame = frame - frame % display_interval;
+    const float progress =
+        static_cast<float>(display_frame) / static_cast<float>(fade);
     return easing != nullptr ? easing(progress) : progress;
   }
 
@@ -505,6 +521,7 @@ private:
                 "MAX_ENTRIES");
   bool fade_active = false;
   bool display_dirty = false;
+  uint8_t display_interval = 1; ///< Frames between generated display bakes.
 };
 
 /** @brief Shared triadic, complementary, and analogous palette cyclers. */

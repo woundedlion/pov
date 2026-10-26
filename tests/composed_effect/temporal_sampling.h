@@ -808,20 +808,20 @@ inline void test_mobius_grid_instantaneous_pixel_golden() {
   hs::clear_mock_time();
   expect_pixel_golden(
       "MobiusGrid 96x20", golden,
-      RecordedGolden{{0x7aba7e31fa280f26ull,
-                      {{6804982990ull, 6845043599ull, 7112466342ull},
-                       201304039169ull,
-                       983617260022ull}},
-                     {0x7df64ea1b3a1a8b1ull,
-                      {{6568648812ull, 6978203112ull, 6965517928ull},
-                       195718338277ull,
-                       957644275028ull}},
+      RecordedGolden{{0x6d66ce5d4876ef89ull,
+                      {{6805330220ull, 6844874216ull, 7112697845ull},
+                       201312982882ull,
+                       983633955317ull}},
+                     {0x69e38ef852f070daull,
+                      {{6568081584ull, 6978293201ull, 6966434110ull},
+                       195726651229ull,
+                       957665657686ull}},
                      1e-3,
                      0.01,
-                     {0xc796f197854e8c14ull,
-                      {{7024870416ull, 6816739305ull, 7032722684ull},
-                       208882048856ull,
-                       984306252956ull}}});
+                     {0x54b286aedc50e5b7ull,
+                      {{7025810653ull, 6816434558ull, 7032280424ull},
+                       208885953563ull,
+                       984308556083ull}}});
 }
 
 /** @brief Composed history type of an effect.

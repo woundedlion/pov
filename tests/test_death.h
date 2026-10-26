@@ -1052,6 +1052,12 @@ inline const Case *all_cases(int &n) {
            "core/color/noise_hue_palette.h",
            "(hue_noise_lut != nullptr) NoiseHuePalette bound to null hue-noise "
            "LUT"},
+          {"palette_cadence_zero", case_palette_cadence_zero,
+           "core/color/palette_cycler.h", "(display_interval_frames >= 1 &&"},
+          {"palette_cadence_past_fade", case_palette_cadence_past_fade,
+           "core/color/palette_cycler.h", "(display_interval_frames >= 1 &&"},
+          {"palette_cadence_past_storage", case_palette_cadence_past_storage,
+           "core/color/palette_cycler.h", "(display_interval_frames >= 1 &&"},
           {"palette_cycler_mutated_policy", case_palette_cycler_mutated_policy,
            "core/color/palette_cycler.h",
            "(entries[current].generative->morph_compatible( "

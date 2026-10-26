@@ -243,6 +243,8 @@ inline int run_color_tests() {
   test_palette_cycler_pause_and_static();
   test_palette_cycler_zero_dwell_chains_fades();
   test_palette_cycler_generated_cycle();
+  test_palette_cycler_generated_display_cadence();
+  test_palette_cycler_sampled_restore_and_catchup();
   test_generated_palette_bank_routes_and_rechromas();
   test_palette_cycler_generated_chroma_keeps_morph();
   test_palette_cycler_hidden_advance_catches_up();

@@ -54,6 +54,36 @@ inline void case_alpha_falloff_null() {
   (void)shade;
 }
 
+/** @brief Checks a valid interval before rejecting an invalid generated cadence. */
+inline void reject_palette_display_interval(int interval, int fade_frames) {
+  alignas(std::max_align_t) static uint8_t
+      storage[2 * PaletteCycler::generated_arena_bytes()];
+  Arena arena(storage, sizeof(storage));
+  PaletteCycler cycler;
+  const auto provider = [](void *, uint32_t, GenerativePalette &out) {
+    out = GenerativePalette();
+  };
+  cycler.init_generated(arena, provider, nullptr, 0, fade_frames, nullptr,
+                        nullptr, 2);
+  cycler.init_generated(arena, provider, nullptr, 0, fade_frames, nullptr,
+                        nullptr, opaque(interval));
+}
+
+/** @brief Generated display intervals must be nonzero. */
+inline void case_palette_cadence_zero() {
+  reject_palette_display_interval(0, 4);
+}
+
+/** @brief Generated display intervals cannot exceed their fade. */
+inline void case_palette_cadence_past_fade() {
+  reject_palette_display_interval(5, 4);
+}
+
+/** @brief Generated display intervals must fit their stored width. */
+inline void case_palette_cadence_past_storage() {
+  reject_palette_display_interval(256, 600);
+}
+
 /** @brief Traps on palette cycler mutated policy. */
 inline void case_palette_cycler_mutated_policy() {
   static uint8_t storage[8192];
