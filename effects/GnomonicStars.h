@@ -167,7 +167,7 @@ private:
       if (drifting) {
         const math::Vector drift = star_drift(drawn, v);
         column_basis.drift =
-            Scan::settle_drift<W, H>(column_basis, drift, radius, basis)
+            Scan::settle_drift<W, H>(column_basis, drift, reach, basis)
                 ? math::Vector(0.0f, 0.0f, 0.0f)
                 : drift;
       }
