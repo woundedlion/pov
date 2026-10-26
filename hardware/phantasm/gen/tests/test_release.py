@@ -271,11 +271,13 @@ class ReleaseTests(unittest.TestCase):
             shutil.copyfile(path, self.project / path.name)
         self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
         board = self.project / "phantasm.kicad_pcb"
-        original = board.read_text()
-        board.write_text(original.replace('(net_name "GND")', '(net_name "VCC")'))
+        original = board.read_text(encoding="utf-8")
+        board.write_text(original.replace('(net_name "GND")', ''), encoding="utf-8")
+        self.assertEqual(release.fabrication_options(self.project, "1.2")["copper_finish"], "ENIG")
+        board.write_text(original.replace('(net_name "GND")', '(net_name "VCC")'), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "GND pours"):
             release.fabrication_options(self.project, "1.2")
-        board.write_text(original.replace('(thickness 1.6)', '(thickness 0.8)'))
+        board.write_text(original.replace('(thickness 1.6)', '(thickness 0.8)'), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "stackup"):
             release.fabrication_options(self.project, "1.2")
 

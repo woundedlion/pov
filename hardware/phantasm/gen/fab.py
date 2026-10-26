@@ -48,7 +48,7 @@ from constraints import (DEFAULT_CLASS_MINIMUMS, is_hand_assembled,
                          MIN_THERMAL_GAP_MM, MIN_THERMAL_SPOKE_MM,
                          MIN_VIA_TO_VIA_COPPER_SPACING_MM, RULE_MINIMUMS,
                          rule_checks)
-from kicad_common import net_name, F, is_copper_pour, kicad_cli, require_annotated_export
+from kicad_common import net_name, net_name_resolver, F, is_copper_pour, kicad_cli, require_annotated_export
 
 GEN = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.join(os.path.dirname(GEN), "1.1")
@@ -1190,15 +1190,7 @@ def validate_zone_geometry(pcb_path, min_pours=MIN_COPPER_POURS, board=None):
                     f"zone {label}: {key} {feature_mm:g} mm is below "
                     f"{minimum_mm:g} mm")
 
-    net_names = {str(declaration[1]): net_name([declaration])
-                 for declaration in F(root, "net") if len(declaration) > 2}
-
-    def resolved_net_name(node):
-        explicit_name = sexp.val(node, "net_name", [])
-        if explicit_name:
-            return str(explicit_name[0]).lstrip("/")
-        name = net_name(node)
-        return net_names.get(name, name)
+    resolved_net_name = net_name_resolver(root)
 
     poured_nets = {resolved_net_name(zone) for zone in zones}
     for footprint in F(root, "footprint"):

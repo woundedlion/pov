@@ -124,9 +124,26 @@ def net_name(node):
 
     Reads either KiCad form, `(net "/DATA")` or `(net 9 "/DATA")`, and drops
     the root-sheet slash; a hierarchical path keeps its remaining segments.
+    An id-only `(net 9)` returns the id as text; use `net_name_resolver` to
+    resolve it through a board's declarations.
     """
     value = sexp.val(node, "net", [])
     return str(value[-1]).lstrip("/") if value else None
+
+
+def net_name_resolver(board):
+    """Resolve explicit net names and board-declared numeric net ids."""
+    names = {str(declaration[1]): net_name([declaration])
+             for declaration in F(board, "net") if len(declaration) > 2}
+
+    def resolve(node):
+        explicit = sexp.val(node, "net_name", [])
+        if explicit:
+            return str(explicit[0]).lstrip("/")
+        name = net_name(node)
+        return names.get(name, name)
+
+    return resolve
 
 
 def is_copper_pour(zone):

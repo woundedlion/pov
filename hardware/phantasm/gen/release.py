@@ -15,7 +15,7 @@ import connectivity
 import fab
 import pcb
 import sexp
-from kicad_common import F, is_copper_pour, net_name
+from kicad_common import F, is_copper_pour, net_name_resolver
 
 PROJECT = "phantasm"
 TRANSIENT_DIRS = {".history", "out", ".git", "releases"}
@@ -89,8 +89,9 @@ def fabrication_options(project, revision):
                            ["dielectric 2", "core", "1.065", "FR4"],
                            ["dielectric 3", "prepreg", "0.2104", "FR4"]]:
             raise ValueError("rev 1.2 requires the generator FR4 dielectric stackup")
+        resolved_net_name = net_name_resolver(board)
         ground_layers = {layer for zone in F(board, "zone")
-                         if is_copper_pour(zone) and str(sexp.val(zone, "net_name", [net_name(zone)])[0]).lstrip("/") == "GND"
+                         if is_copper_pour(zone) and resolved_net_name(zone) == "GND"
                          for layer in connectivity.zone_layers(zone, metadata.copper_layers)}
         if not {"In1.Cu", "In2.Cu"} <= ground_layers:
             raise ValueError("rev 1.2 requires GND pours on both inner copper layers")
