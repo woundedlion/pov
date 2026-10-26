@@ -201,8 +201,8 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
       const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
       const float distance = volume.distance(p);
       HS_EXPECT_TRUE(std::isfinite(distance));
-      if (distance > 0)
-        HS_EXPECT_LE(distance, truth + 1e-4);
+      HS_EXPECT_GT(distance, 0.0f);
+      HS_EXPECT_LE(distance, truth + 1e-4);
       correction_needed += volume.raw_distance(p) > truth + 1e-4;
     }
   }
