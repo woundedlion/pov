@@ -358,17 +358,8 @@ inline void check_meshes_identical(const PolyMesh &a, const PolyMesh &b) {
  * @brief Newell-sum area of face fi.
  */
 inline float poly_face_area(const PolyMesh &m, size_t fi) {
-  const size_t off = poly_face_offset(m, fi);
-  const int n = m.face_counts[fi];
-  math::Vector s(0.0f, 0.0f, 0.0f);
-  for (int k = 1; k + 1 < n; ++k) {
-    const math::Vector e1 =
-        m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
-    const math::Vector e2 =
-        m.vertices[m.faces[off + k + 1]] - m.vertices[m.faces[off]];
-    s = s + math::cross(e1, e2);
-  }
-  return 0.5f * s.length();
+  return face_area_vector(m, poly_face_offset(m, fi), m.face_counts[fi])
+      .length();
 }
 
 namespace conway_tests {
