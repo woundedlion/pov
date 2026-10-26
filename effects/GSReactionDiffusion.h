@@ -862,6 +862,7 @@ private:
   static constexpr int HOT_GUARD_WORDS = 6;
   /// Words in a node bit set, guards included.
   static constexpr int HOT_WORDS = (RD_N + 31) / 32 + 2 * HOT_GUARD_WORDS;
+  static_assert(RD_N % 32 == 0, "node bit sets occupy whole words");
 
   /** @brief Per-node flags packed 32 to a word, read like a flag array. */
   struct HotBits {
@@ -1343,8 +1344,6 @@ private:
         word |= static_cast<uint32_t>(b[32 * w + j] >= threshold) << j;
       words[w] = word;
     }
-    for (int i = RD_N / 32 * 32; i < RD_N; ++i)
-      words[i >> 5] |= static_cast<uint32_t>(b[i] >= threshold) << (i & 31);
   }
 
   /**
@@ -1442,7 +1441,6 @@ private:
   HS_O3_FN HS_NOINLINE_NOCLONE void publish_b(const float *b, float dissolve,
                                               uint32_t *marked) {
     HS_PROFILE(grd_publish);
-    static_assert(RD_N % 32 == 0, "publish_b marks whole words");
     const uint16_t THRESHOLD = to_q16(B_CULL_THRESHOLD);
     uint32_t *words = marked + HOT_GUARD_WORDS;
     const auto publish = [&](auto &&adjust) HS_HOT_INLINE {
