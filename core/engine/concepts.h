@@ -629,7 +629,8 @@ public:
     return timed_entries && timed_entries->dense_screen_safe;
   }
 
-  /** @brief Whether the first screen stage supports column-owned taps. */
+  /** @brief Whether the first screen stage supports column-owned taps.
+   * @return True when timed column plotting is available. */
   bool column_taps_ready() const {
     return timed_entries && timed_entries->column_plot;
   }
