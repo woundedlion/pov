@@ -158,10 +158,10 @@ _hs_lock_is_stale() {  # <dir>
 }
 
 _HS_LOCK_HELPER="${BASH_SOURCE[0]//\\//}"
-_HS_LOCK_DIR="$(cd "$(dirname "$_HS_LOCK_HELPER")" && pwd)"
-_HS_LOCK_HELPER="$_HS_LOCK_DIR/device_lock_guard.py"
+_HS_TOOLS_DIR="$(cd "$(dirname "$_HS_LOCK_HELPER")" && pwd)"
+_HS_LOCK_HELPER="$_HS_TOOLS_DIR/device_lock_guard.py"
 # shellcheck source=tools/find_python.sh
-. "$_HS_LOCK_DIR/find_python.sh"
+. "$_HS_TOOLS_DIR/find_python.sh"
 
 _hs_resolve_python() {
   [ -n "${_HS_LOCK_PYTHON:-}" ] && return 0
