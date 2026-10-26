@@ -618,7 +618,7 @@ inline void test_column_edge_cull_is_conservative() {
     clip.x_start = band[2];
     clip.x_end = band[3];
     const float top = cosf(
-        math::DisplayGeometry<H>::row_to_phi(float(std::max(0, band[0] - 2))));
+        fmaxf(0.0f, math::DisplayGeometry<H>::row_to_phi(float(band[0] - 2))));
     const float bottom = cosf(
         math::DisplayGeometry<H>::row_to_phi(float(std::min(H, band[1] + 2))));
     const auto columns = clip.x_clip();
@@ -695,8 +695,8 @@ inline void test_column_edge_cull_keeps_padded_point_sets() {
     const float top = Plot::SweptEdgeCull<W>::top_of<H>(canvas);
     const float bottom = Plot::SweptEdgeCull<W>::bottom_of<H>(canvas);
     HS_EXPECT_NEAR(top,
-                   cosf(math::DisplayGeometry<H>::row_to_phi(
-                       float(std::max(0, band[0] - 2)))),
+                   cosf(fmaxf(0.0f, math::DisplayGeometry<H>::row_to_phi(
+                                        float(band[0] - 2)))),
                    1e-6f);
     const auto &columns = canvas.render_x_clip();
     for (float pad : {0.0f, 0.02f, 0.06f}) {

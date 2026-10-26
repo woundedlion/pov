@@ -107,6 +107,9 @@ void test_blur_coverage() {
 }
 
 void test_render_caps() {
+  hs_test::StubEffect effect(W, H);
+  Canvas canvas(effect);
+  HS_EXPECT_EQ(Plot::SweptEdgeCull<W>::top_of<H>(canvas), 1.0f);
   HS_EXPECT_EQ(
       (hs_test::pole_geometry::plot_stroke<W, H>(Geometry::NORTH_PHI * 0.5f)),
       0);
