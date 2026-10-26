@@ -15,7 +15,7 @@ import os
 import sys
 
 import sexp
-from kicad_common import F, arc_extrema, is_copper_pour, net_name, rotate_point
+from kicad_common import F, arc_extrema, is_copper_pour, net_name, property_value, rotate_point
 
 # Copper that lands this close counts as touching. KiCad snaps track ends to
 # pad and via anchors, so the slack absorbs export rounding, not a real gap.
@@ -241,11 +241,7 @@ def arc_capsules(arc):
 
 
 def footprint_reference(footprint):
-    for child in footprint:
-        if (isinstance(child, list) and len(child) > 2
-                and child[0] == "property" and child[1] == "Reference"):
-            return str(child[2])
-    return "?"
+    return property_value(footprint, "Reference", "?")
 
 
 def zone_layers(zone, stack):

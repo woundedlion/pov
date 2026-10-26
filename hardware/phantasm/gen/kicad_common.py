@@ -119,6 +119,12 @@ def F(n, k):
     return [c for c in n if isinstance(c, list) and c and c[0] == k]
 
 
+def property_value(node, name, default=None):
+    """Text value of a named KiCad property, or the supplied default."""
+    return next((str(prop[2]) for prop in F(node, "property")
+                 if len(prop) >= 3 and prop[1] == name), default)
+
+
 def net_name(node):
     """Net name of a pad, track, via or zone.
 

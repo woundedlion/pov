@@ -5,7 +5,7 @@ import os
 import sys
 import builder
 import sexp
-from kicad_common import F
+from kicad_common import F, property_value
 
 # Power flags mark a rail as driven for ERC; they adopt whatever net they sit on
 # and never form one, so they are removed before counting nets in a group.
@@ -16,13 +16,6 @@ DEFAULT_SCH = os.path.join(
 
 def R(v):
     return (round(float(v[0]), 3), round(float(v[1]), 3))
-
-
-def prop(sym, name):
-    for d in sym:
-        if isinstance(d, list) and d and d[0] == "property" and d[1] == name:
-            return d[2]
-    return None
 
 
 def on_seg(p, a, b):
@@ -54,7 +47,7 @@ def named_points(root):
             continue
         lib = lib_id[0]
         if lib.startswith("power:") or "phantasm:+" in lib:
-            value = prop(c, "Value")
+            value = property_value(c, "Value")
             if value is not None:
                 named.setdefault(R(at), set()).add(value)
     return named

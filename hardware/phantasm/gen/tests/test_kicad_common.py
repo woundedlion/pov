@@ -20,6 +20,16 @@ MAJOR, MINOR, PATCH = kicad_common.KICAD_VERSION.split(".")
 ADJACENT_PATCH = f"{MAJOR}.{MINOR}.{int(PATCH) + 1}"
 
 
+class PropertyValueTests(unittest.TestCase):
+    def test_property_lookup_skips_incomplete_nodes_and_preserves_defaults(self):
+        node = ["footprint", [], ["property"], ["property", "Reference"],
+                ["property", "Value", "LED"], ["property", "Reference", "D1"]]
+        self.assertEqual(kicad_common.property_value(node, "Reference"), "D1")
+        self.assertEqual(kicad_common.property_value(node, "Value"), "LED")
+        self.assertIsNone(kicad_common.property_value(node, "Missing"))
+        self.assertEqual(kicad_common.property_value(node, "Missing", "?"), "?")
+
+
 class FindKicadCliTests(unittest.TestCase):
     def test_version_agrees_with_pinned_major_and_minor(self):
         self.assertEqual(tuple(map(int, kicad_common.KICAD_VERSION.split(".")[:2])),

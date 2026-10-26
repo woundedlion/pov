@@ -39,7 +39,7 @@ import tempfile
 import fab
 import builder
 import sexp
-from kicad_common import F, kicad_cli, net_name
+from kicad_common import F, kicad_cli, net_name, property_value
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CANDIDATES = os.path.join(os.path.dirname(HERE), builder.REVISION, "candidates")
@@ -85,13 +85,6 @@ def xy(b, tag):
         return float(value[0]), float(value[1])
     except (IndexError, TypeError, ValueError):
         return None
-
-
-def property_value(block, name):
-    for prop in F(block, "property"):
-        if len(prop) >= 3 and prop[1] == name:
-            return str(prop[2])
-    return None
 
 
 def dist(a, b):
