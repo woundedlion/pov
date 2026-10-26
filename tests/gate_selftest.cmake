@@ -15,6 +15,7 @@ endfunction()
 function(hs_run_gate gate result_var output_var)
   execute_process(COMMAND "${CMAKE_COMMAND}"
     "-DSRC=${WORK}/run_tests.cpp" "-DTESTS_DIR=${WORK}/tests"
+    "-DGROUP_SOURCES=${GROUP_SOURCES}"
     "-DTOOLS_DIR=${WORK}/tools" -P "${gate}"
     RESULT_VARIABLE _result OUTPUT_VARIABLE _output ERROR_VARIABLE _error)
   set(${result_var} "${_result}" PARENT_SCOPE)

@@ -122,7 +122,7 @@ struct SpatialWalkInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE SpatialWalkInterval
+HS_FLASH_INLINE inline SpatialWalkInterval
 temporal_interval(const SpatialWalkState &from, const SpatialWalkState &to) {
   return {{from.wander, to.wander},
           {from.spin_phase, to.spin_phase, math::TWO_PI_F}};
@@ -153,7 +153,7 @@ struct NoisePhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE Spacetime::ClockInterval
+HS_FLASH_INLINE inline Spacetime::ClockInterval
 temporal_interval(const NoisePhaseState &from, const NoisePhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }

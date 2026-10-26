@@ -57,11 +57,10 @@ inline constexpr float COLUMN_SINGLE_TAP_ERROR = 0.02f;
  * @param inverse_length Reciprocal arc length, or zero for a collapsed edge.
  * @param fraction Receives the material arc fraction.
  * @return Whether the minor arc crosses the forward meridian. */
-HS_HOT_INLINE bool column_basis_crossing(float start_side, float end_side,
-                                         float tangent_side, float start_along,
-                                         float tangent_along,
-                                         float inverse_length,
-                                         float &fraction) {
+HS_HOT_INLINE inline bool
+column_basis_crossing(float start_side, float end_side, float tangent_side,
+                      float start_along, float tangent_along,
+                      float inverse_length, float &fraction) {
   if (start_side * end_side > 0.0f || fabsf(start_side - end_side) < 1e-9f)
     return false;
   float angle = math::precise_atan2(-start_side, tangent_side);
@@ -83,7 +82,7 @@ HS_HOT_INLINE bool column_basis_crossing(float start_side, float end_side,
  * @param tangent Unit tangent at the first endpoint.
  * @param fraction Resulting arc fraction.
  * @return Whether the meridian crosses the minor arc. */
-HS_HOT_INLINE bool
+HS_HOT_INLINE inline bool
 column_edge_crossing(const math::Vector &a, const math::Vector &b,
                      const math::Vector &direction, float length,
                      const math::Vector &tangent, float &fraction) {

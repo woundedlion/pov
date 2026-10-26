@@ -59,7 +59,7 @@ struct WarpPhaseState {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE Spacetime::ClockInterval
+HS_FLASH_INLINE inline Spacetime::ClockInterval
 temporal_interval(const WarpPhaseState &from, const WarpPhaseState &to) {
   return {from.phase, to.phase, 1.0f};
 }
@@ -107,7 +107,7 @@ struct AffineClockInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE AffineClockInterval
+HS_FLASH_INLINE inline AffineClockInterval
 temporal_interval(const AffineClockState &from, const AffineClockState &to) {
   return {{from.phase, to.phase, 1.0f},
           {from.rotation, to.rotation, math::TWO_PI_F}};

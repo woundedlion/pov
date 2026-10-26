@@ -1,9 +1,5 @@
-# Pin the direct module include count against HS_TEST_MODULE_LIST, require
-# every top-level test header outside off_roster_headers.cmake to be included by
-# run_tests.cpp, and require every off-roster header to be included by some
-# other source under tests/ or tools/.
-# -D args: SRC (path to run_tests.cpp), TESTS_DIR (path to tests/),
-# TOOLS_DIR (path to tools/).
+# Pin module includes in the compiled source groups against the dispatcher roster.
+# -D args: SRC (dispatcher), GROUP_SOURCES (compiled groups), TESTS_DIR, TOOLS_DIR.
 
 # Script mode defaults every policy to OLD; IN_LIST needs CMP0057.
 cmake_minimum_required(VERSION 3.29)
@@ -14,7 +10,24 @@ hs_check_test_sections()
 file(READ "${SRC}" _text)
 hs_strip_cxx_noise(_text KEEP_STRINGS)
 
-string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _includes "${_text}")
+set(_include_text "${_text}")
+foreach(_group IN LISTS GROUP_SOURCES)
+  file(READ "${_group}" _group_text)
+  hs_strip_cxx_noise(_group_text KEEP_STRINGS)
+  string(APPEND _include_text "\n${_group_text}")
+endforeach()
+string(REGEX MATCHALL "#include \"tests/test_[A-Za-z0-9_]+\\.h(pp)?\"" _all_includes "${_include_text}")
+include("${TESTS_DIR}/off_roster_headers.cmake")
+set(_includes "")
+foreach(_inc IN LISTS _all_includes)
+  string(REGEX REPLACE "#include \"tests/(.*)\"" "\\1" _hdr "${_inc}")
+  if(NOT _hdr IN_LIST HS_OFF_ROSTER_HEADER_NAMES)
+    if(_inc IN_LIST _includes)
+      message(FATAL_ERROR "duplicate compiled module include: ${_hdr}")
+    endif()
+    list(APPEND _includes "${_inc}")
+  endif()
+endforeach()
 
 # Count roster rows inside the HS_TEST_MODULE_LIST block only.
 string(FIND "${_text}" "#define HS_TEST_MODULE_LIST(X)" _begin)
@@ -41,7 +54,7 @@ string(REGEX MATCHALL "X\\(\"[A-Za-z0-9_]+\",[ \t\r\n\\]*[A-Za-z0-9_:]+"
   _function_rows "${_roster}")
 set(_roster_functions "")
 foreach(_row IN LISTS _function_rows)
-  string(REGEX REPLACE ".*::(run_[A-Za-z0-9_]+_tests)$" "\\1" _function "${_row}")
+  string(REGEX REPLACE ".*[ ,:](run_[A-Za-z0-9_]+_tests)$" "\\1" _function "${_row}")
   if(_function IN_LIST _roster_functions)
     message(FATAL_ERROR "duplicate module entry point in roster: ${_function}")
   endif()
@@ -84,7 +97,7 @@ foreach(_hdr IN LISTS _headers)
   if(_hdr MATCHES "^[A-Za-z0-9_]+/" OR _hdr IN_LIST NON_MODULE_HEADERS)
     continue()
   endif()
-  if(NOT _text MATCHES "#include \"tests/${_hdr}\"")
+  if(NOT _include_text MATCHES "#include \"tests/${_hdr}\"")
     list(APPEND _orphans ${_hdr})
   endif()
 endforeach()
@@ -92,7 +105,7 @@ endforeach()
 if(_orphans)
   string(REPLACE ";" ", " _orphan_list "${_orphans}")
   message(FATAL_ERROR
-    "run_tests.cpp includes no such header: ${_orphan_list}. A test header on "
+    "compiled test sources include no such header: ${_orphan_list}. A test header on "
     "disk that nothing includes is never compiled or run; add the include and "
     "its roster row, delete the file, or list it in "
     "tests/off_roster_headers.cmake.")

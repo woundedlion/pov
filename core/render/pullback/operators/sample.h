@@ -42,7 +42,7 @@ struct SourceClockInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE SourceClockInterval
+HS_FLASH_INLINE inline SourceClockInterval
 temporal_interval(const SourceClockState &from, const SourceClockState &to) {
   return {{from.primary, to.primary, math::TWO_PI_F},
           {from.secondary, to.secondary, math::TWO_PI_F},
@@ -358,8 +358,9 @@ struct SphericalRingsInterval {
  * @param from Previous state.
  * @param to Current state.
  * @return Prepared interval. */
-HS_FLASH_INLINE SphericalRingsInterval temporal_interval(
-    const SphericalRingsState &from, const SphericalRingsState &to) {
+HS_FLASH_INLINE inline SphericalRingsInterval
+temporal_interval(const SphericalRingsState &from,
+                  const SphericalRingsState &to) {
   return {temporal_interval(from.walk, to.walk),
           {from.phase, to.phase, math::TWO_PI_F}};
 }

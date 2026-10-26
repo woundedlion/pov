@@ -6,6 +6,8 @@
  */
 #pragma once
 
+#include "tests/vec_test_util.h"
+
 #include "core/animation/orientation.h"
 #include "core/math/mobius.h"
 #include <algorithm>

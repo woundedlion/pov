@@ -100,8 +100,18 @@ function(_hs_warnings target)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
 endfunction()
 
+set(_hs_test_group_sources
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_foundation_tests.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_geometry_tests.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_render_tests.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_effects_tests.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_hardware_tests.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/run_death_tests.cpp
+)
+
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
+  ${_hs_test_group_sources}
   ${HS_ENGINE_SOURCES})
 
 # HS_SCAN_METRICS compiles in the per-pixel g_scan_metrics counters
@@ -411,9 +421,9 @@ add_test(NAME unit_death_child_dispatch COMMAND ${CMAKE_COMMAND}
 add_test(NAME unit_module_roster
     COMMAND run_tests --check-modules ${_hs_test_modules})
 
-# Pin run_tests.cpp's per-module include block against the roster, and every
-# tests/*.h and tests/*.hpp against that include block.
+# Pin the compiled groups' module includes against the dispatcher roster.
 add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
+    "-DGROUP_SOURCES=${_hs_test_group_sources}"
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
     -DTESTS_DIR=${CMAKE_CURRENT_SOURCE_DIR}
     -DTOOLS_DIR=${HS_ROOT}/tools
