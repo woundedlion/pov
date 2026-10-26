@@ -242,10 +242,12 @@ __attribute__((always_inline)) inline Pixel lut_entry_pixel(const Pixel &e) {
 inline constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
 
 /**
- * @brief Per-sample alpha floor from the first nonzero encoded linear channel.
- * @details linear_to_srgb8 first leaves zero at linear channel 10 of 65535.
- * Per-channel rounding can still lift an unrounded peak in [9.5, 10) to linear
- * channel 10 and sRGB 1.
+ * @brief Per-sample alpha floor for 8-bit sRGB output.
+ * @details The simulator and operator CRGB use linear_to_srgb8, whose first
+ * nonzero integer input is 10 of 65535. Per-channel rounding can lift a peak
+ * in [9.5, 10) to that input. LED output uses linear PWM: HD107S floors vary
+ * by channel gains and brightness (5, 14 and 33 for red, green and blue
+ * at full brightness with the shipped gains); FastLED rounding starts at 129.
  */
 inline constexpr float MIN_ENCODABLE_ALPHA = 10.0f / 65535.0f;
 
