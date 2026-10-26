@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import html
 import os
 import re
 import subprocess
@@ -279,6 +280,15 @@ def run_doxygen(doxygen: str, root: Path, paths: list[str]) -> str:
         return log.read_text(encoding="utf-8", errors="replace")
 
 
+def linker_documentation(path: Path) -> str:
+    """Render GNU linker input as a comment-only Doxygen file."""
+    source = html.escape(path.read_text(encoding="utf-8")).encode(
+        "ascii", "xmlcharrefreplace").decode("ascii")
+    source = source.replace("*", "&#42;").replace("@", "&#64;").replace("\t", "&#9;")
+    return (f"/** @file {path.name}\n@brief GNU linker script.\n"
+            f"@htmlonly\n<pre>{source}</pre>\n@endhtmlonly\n*/\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="*",
@@ -286,7 +296,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--doxygen", default=os.environ.get("DOXYGEN", "doxygen"),
                         help="doxygen executable (default: $DOXYGEN or doxygen)")
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--linker-source", type=Path,
+                        help="emit a linker script as verbatim Doxygen input")
     args = parser.parse_args(argv)
+    if args.linker_source is not None:
+        print(linker_documentation(args.linker_source), end="")
+        return 0
     try:
         sources = source_files(args.root, args.paths)
         if not sources:

@@ -54,6 +54,9 @@ include directory; generated build headers use their build directory.
 `workbench/` excludes `effects/` and `targets/`. Vendored core code and
 `core/engine/effects_legacy.h` are exempt from direction checks. The first-party
 `core/vendor/FastNoiseLite_config.h` follows the `core/` direction rules.
+The profiling headers `tools/pc_sampler.h`, `tools/profile_isr_window.h` and
+`tools/profile_spherical_experiment.h`, plus `tools/phantasm.ld`, follow the
+`hardware/` direction rules. Linker imports use GNU ld `INCLUDE` syntax.
 
 Before landing a refactor, search the old identifiers and behavior wording
 across source comments and maintained documentation with `rg -n -i -F --

@@ -2,6 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the PolyForm Noncommercial License 1.0.0
  */
+/** @file profile_spherical_experiment.h
+ * @brief Periodic-surface profiling under the segmented driver. */
 #pragma once
 
 #include <algorithm>
@@ -11,9 +13,11 @@
 #include "core/render/sdf/periodic_surface.h"
 
 #ifndef HS_SPHERICAL_PROFILE_SAMPLES
+/// Pixel sampling count for experimental sphere scans.
 #define HS_SPHERICAL_PROFILE_SAMPLES 1
 #endif
 #ifndef HS_SPHERICAL_PROFILE_GRADIENT
+/// Enables gradient-weighted experimental shading.
 #define HS_SPHERICAL_PROFILE_GRADIENT 0
 #endif
 
@@ -22,11 +26,13 @@ template <int W, int H> class SphericalExperiment : public Effect {
 public:
   SphericalExperiment() : Effect(W, H) {}
 
+  /** @brief Logs the configured sampling and gradient modes. */
   void init() override {
     hs::log("spherical experiment: samples=%u gradient=%u positions=36 cases=8",
             HS_SPHERICAL_PROFILE_SAMPLES, HS_SPHERICAL_PROFILE_GRADIENT);
   }
 
+  /** @brief Rasterizes one case and position of the experimental field sweep. */
   void draw_frame() override {
     const unsigned CASE = (frame / 36) % 8;
     const unsigned POSITION = frame % 36;

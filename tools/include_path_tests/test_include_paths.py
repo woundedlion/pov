@@ -71,6 +71,40 @@ class IncludePathsTests(unittest.TestCase):
         self.assertEqual(include_paths.check_includes(self.root, files), [
             f'{source}:1: forbidden include "{target}" from core/'])
 
+    def test_profile_firmware_headers_obey_hardware_direction(self):
+        self.check("#pragma once\n")
+        for source in ("tools/pc_sampler.h", "tools/profile_isr_window.h",
+                       "tools/profile_spherical_experiment.h"):
+            with self.subTest(source=source):
+                path = self.root / source
+                path.parent.mkdir(exist_ok=True)
+                files = [*self.files, source]
+                path.write_text('#include "core/math/vector.h"\n', encoding="utf-8")
+                self.assertEqual(include_paths.check_includes(self.root, files), [])
+                path.write_text('#include "effects/sample.h"\n', encoding="utf-8")
+                self.assertEqual(include_paths.check_includes(self.root, files), [
+                    f'{source}:1: forbidden include "effects/sample.h" from {source}'])
+
+    def test_linker_imports_use_gnu_syntax_and_hardware_direction(self):
+        source = "tools/phantasm.ld"
+        files = [source, "tools/shared.ld", "tests/forbidden.ld"]
+        for name in files:
+            path = self.root / name
+            path.parent.mkdir(exist_ok=True)
+            path.write_text("SECTIONS {}\n", encoding="utf-8")
+        path = self.root / source
+        for target in ('tools/shared.ld', '"tools/shared.ld"'):
+            path.write_text(f"INCLUDE {target}\n", encoding="utf-8")
+            self.assertEqual(include_paths.check_includes(self.root, files), [])
+        path.write_text('INCLUDE "tools/../tools/shared.ld"\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [
+            f'{source}:1: include "tools/shared.ld" instead of "tools/../tools/shared.ld"'])
+        path.write_text('INCLUDE tests/forbidden.ld\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [
+            f'{source}:1: forbidden include "tests/forbidden.ld" from {source}'])
+        path.write_text('/* INCLUDE tests/forbidden.ld */\n', encoding="utf-8")
+        self.assertEqual(include_paths.check_includes(self.root, files), [])
+
     def test_missing_tracked_source_is_diagnosed(self):
         diagnostics = include_paths.check_includes(self.root, self.files)
         self.assertEqual(len(diagnostics), 1)

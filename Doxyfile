@@ -10,12 +10,16 @@ USE_MDFILE_AS_MAINPAGE = README.md
 # Document the engine, effects, workbench surfaces, hardware drivers, and both
 # target flavors — the WASM bridge and the Arduino .ino firmware entry points.
 # Tests are omitted from the API reference on purpose.
-INPUT                  = README.md core effects workbench hardware targets \
+INPUT                  = README.md patterns/README.md core effects workbench hardware targets \
                          docs/ledgers/device_host_divergence_ledger.md \
-                         docs/specs/effect_identity.md
-FILE_PATTERNS          = *.h *.cpp *.ino
+                         docs/specs/effect_identity.md \
+                         tools/pc_sampler.h tools/profile_isr_window.h \
+                         tools/profile_spherical_experiment.h tools/phantasm.ld
+FILE_PATTERNS          = *.h *.cpp *.ino *.ld
 # .ino is Arduino C++; Doxygen has no built-in mapping for the extension.
-EXTENSION_MAPPING      = ino=C++
+EXTENSION_MAPPING      = ino=C++ ld=C++
+# GNU linker syntax is rendered as verbatim documentation by the filter.
+FILTER_PATTERNS        = "*.ld=python tools/doc_coverage.py --linker-source"
 RECURSIVE              = YES
 # Vendored (FastNoiseLite) and generated (LUT/bake tables) — never document these.
 EXCLUDE                = core/vendor/FastNoiseLite.h \

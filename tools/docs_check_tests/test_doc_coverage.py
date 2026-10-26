@@ -1,5 +1,7 @@
 import contextlib
 import io
+import html
+import re
 import subprocess
 from unittest import mock
 import sys
@@ -156,6 +158,46 @@ class TestDoxyfileSetting(unittest.TestCase):
     def test_reassignment_replaces(self):
         self.assertEqual(cov.doxyfile_setting(
             "EXCLUDE = a\nEXCLUDE = b\n", "EXCLUDE"), ["b"])
+
+
+class TestFirmwareInputs(unittest.TestCase):
+    FILES = ["tools/pc_sampler.h", "tools/profile_isr_window.h",
+             "tools/profile_spherical_experiment.h", "tools/phantasm.ld"]
+
+    def test_firmware_inputs_are_selected_and_have_file_documentation(self):
+        selected = cov.source_files(TOOLS.parent, [])
+        for path in self.FILES:
+            self.assertIn(path, selected)
+        self.assertEqual(cov.missing_file_blocks(TOOLS.parent, self.FILES), [])
+
+    def test_each_firmware_input_requires_its_file_block(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tools").mkdir()
+            for name in self.FILES:
+                (root / name).write_text("/** @file */\n", encoding="utf-8")
+            self.assertEqual(cov.missing_file_blocks(root, self.FILES), [])
+            for name in self.FILES:
+                path = root / name
+                path.write_text("/* missing documentation */\n", encoding="utf-8")
+                self.assertEqual(cov.missing_file_blocks(root, self.FILES), [name])
+                path.write_text("/** @file */\n", encoding="utf-8")
+
+    def test_linker_filter_publishes_source_inside_one_documentation_block(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.ld"
+            source = "/* layout ? ? @address */\nSECTIONS {\n\t*(.text.*)\n}\n"
+            path.write_text(source, encoding="utf-8")
+            output = cov.linker_documentation(path)
+            self.assertTrue(output.startswith("/** @file fixture.ld\n"))
+            self.assertTrue(output.endswith("\n*/\n"))
+            self.assertEqual(output.count("*/"), 1)
+            self.assertTrue(output.isascii())
+            preformatted = re.search(r"<pre>(.*?)</pre>", output, re.S)
+            self.assertIsNotNone(preformatted)
+            self.assertNotIn("*", preformatted[1])
+            self.assertNotIn("\t", preformatted[1])
+            self.assertEqual(html.unescape(preformatted[1]), source)
 
 
 class TestMain(unittest.TestCase):

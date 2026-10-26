@@ -12,13 +12,19 @@ import sys
 from git_files import git_nul_list
 
 SOURCE_SUFFIXES = {".h", ".hpp", ".cpp", ".cc", ".inl", ".ino"}
+LINKER_SCRIPTS = frozenset({"tools/phantasm.ld"})
 CONFIG_HEADER = "core/vendor/FastNoiseLite_config.h"
 INCLUDE = re.compile(r'^[ \t]*#[ \t]*include[ \t]*"([^"\n]+)"', re.MULTILINE)
+LINKER_INCLUDE = re.compile(r'^[ \t]*INCLUDE[ \t]+(?:"([^"\n]+)"|([^\s;]+))', re.MULTILINE)
 FORBIDDEN_PREFIXES = {
     "core/": ("effects/", "targets/", "workbench/", "hardware/", "tests/", "tools/"),
     "hardware/": ("effects/", "targets/", "workbench/", "tests/"),
     "effects/": ("targets/", "workbench/", "hardware/", "tests/"),
     "workbench/": ("effects/", "targets/"),
+    "tools/pc_sampler.h": ("effects/", "targets/", "workbench/", "tests/"),
+    "tools/profile_isr_window.h": ("effects/", "targets/", "workbench/", "tests/"),
+    "tools/profile_spherical_experiment.h": ("effects/", "targets/", "workbench/", "tests/"),
+    "tools/phantasm.ld": ("effects/", "targets/", "workbench/", "tests/"),
 }
 COMMENTS = re.compile(r"/\*.*?\*/|//[^\n]*", re.DOTALL)
 
@@ -29,7 +35,7 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
     known = set(files)
     diagnostics = []
     for name in files:
-        if Path(name).suffix not in SOURCE_SUFFIXES:
+        if Path(name).suffix not in SOURCE_SUFFIXES and name not in LINKER_SCRIPTS:
             continue
         if name.startswith("core/vendor/") and name != CONFIG_HEADER:
             continue
@@ -40,11 +46,13 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
             diagnostics.append(f"{name}:1: cannot read source ({exc})")
             continue
         text = COMMENTS.sub(lambda match: "\n" * match.group().count("\n"), text)
-        for match in INCLUDE.finditer(text):
-            include = match.group(1)
-            candidates = [path.parent / include, root / include,
-                          root / "core" / include, root / "effects" / include,
-                          root / "hardware" / include, root / "tests" / include]
+        linker = name in LINKER_SCRIPTS
+        for match in (LINKER_INCLUDE if linker else INCLUDE).finditer(text):
+            include = match.group(1) or match.group(2)
+            candidates = [root / include] if linker else [
+                path.parent / include, root / include,
+                root / "core" / include, root / "effects" / include,
+                root / "hardware" / include, root / "tests" / include]
             target = next((candidate.resolve() for candidate in candidates
                            if candidate.is_file()), None)
             if target is None or not target.is_relative_to(root):
@@ -53,7 +61,8 @@ def check_includes(root: Path, files: list[str]) -> list[str]:
             line = text.count("\n", 0, match.start()) + 1
             if name != "core/engine/effects_legacy.h":
                 for prefix, forbidden in FORBIDDEN_PREFIXES.items():
-                    if name.startswith(prefix) and canonical.startswith(forbidden):
+                    in_layer = name.startswith(prefix) if prefix.endswith("/") else name == prefix
+                    if in_layer and canonical.startswith(forbidden):
                         diagnostics.append(f'{name}:{line}: forbidden include "{canonical}" from {prefix}')
             if canonical in known and include != canonical:
                 diagnostics.append(f'{name}:{line}: include "{canonical}" '
@@ -72,7 +81,7 @@ def main(argv=None) -> int:
         print(f"[include-paths] tooling error: cannot list tracked sources ({error})",
               file=sys.stderr)
         return 2
-    if not any(Path(name).suffix in SOURCE_SUFFIXES for name in files):
+    if not any(Path(name).suffix in SOURCE_SUFFIXES or name in LINKER_SCRIPTS for name in files):
         print("[include-paths] tooling error: no tracked C/C++ sources", file=sys.stderr)
         return 2
     diagnostics = check_includes(args.root, files)

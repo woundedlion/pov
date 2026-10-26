@@ -1,4 +1,6 @@
-/* ============================================================================
+/** @file phantasm.ld
+ * @brief Phantasm firmware memory regions and section placement.
+ * ============================================================================
  * Custom Teensy 4.0 linker script for the Phantasm environments.
  * FORKED FROM: framework-arduinoteensy 1.162.0
  *
