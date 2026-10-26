@@ -354,9 +354,11 @@ its static `sample` function.
 A `TimeWindow` ([canvas.h](../core/render/canvas.h)) restricts window-aware
 column loops to the half-turn range [begin, end) on both arms, optionally
 restricted to one arm, inside the driver's fixed clip. Windows do not nest;
-closing one admits every column again. `Scan::Shader::walk_grid` and
-`draw_grid` honour the window through `Scan::walk_window_columns`; other
-loops write their whole clip.
+closing one admits every column again. `Scan::Shader::walk_grid`,
+`draw_grid` and `walk_object_grid` honour the window through
+`Scan::walk_window_columns`. `Scan::Mesh` face and deformation passes and
+`Scan::DistortedRingStack` also honour it. Generic `Scan::rasterize` writes
+its whole clip.
 `Spacetime::time_slab` divides the half-turn into ordered time slabs.
 `Spacetime::simulate_in_slabs` advances the substeps that end each slab's
 share of the frame, then shades under its window. The flat selection runs
