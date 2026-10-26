@@ -448,8 +448,8 @@ protected:
     // widest alignment allocate() can be asked for.
     constexpr size_t SCRATCH_SLACK_BYTES =
         SCRATCH_PEAK_TENANTS * (alignof(std::max_align_t) - 1);
-    static_assert(SCRATCH_PEAK_BYTES + SCRATCH_SLACK_BYTES <=
-                      DEVICE_GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
+    static_assert(PERSISTENT_BYTES + SCRATCH_PEAK_BYTES + SCRATCH_SLACK_BYTES <=
+                      DEVICE_GLOBAL_ARENA_SIZE,
                   "RD scratch arena too small for render()'s phase peak");
     ArenaSplit{GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0}.configure();
   }
