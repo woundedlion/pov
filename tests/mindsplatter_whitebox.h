@@ -165,14 +165,7 @@ struct MindSplatterWhiteBox {
       }
     }
     fx.advance_display();
-    std::vector<float> luminance(288 * 144);
-    for (int y = 0; y < 144; ++y)
-      for (int x = 0; x < 288; ++x) {
-        const Pixel pixel = fx.get_pixel(x, y);
-        luminance[y * 288 + x] =
-            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
-      }
-    return luminance;
+    return capture_luminance<288, 144>(fx);
   }
 
   static constexpr uint32_t REPLAY_MAGIC = 0x3152534du;

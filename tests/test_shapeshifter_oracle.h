@@ -24,6 +24,7 @@
 
 #include "effects/ShapeShifter.h"
 #include "tests/pixel_test_util.h"
+#include "tests/temporal_oracle.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -1208,7 +1209,7 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
   reset_globals();
   const ScopedTemporalSampling sampling(true);
   hs::set_mock_time(0, 0);
-  std::vector<float> luminance(static_cast<size_t>(ORACLE_W) * ORACLE_H);
+  std::vector<float> luminance;
   {
     OracleEffect effect;
     effect.init();
@@ -1254,12 +1255,7 @@ inline std::vector<float> render_timed_contours(const OracleState &state,
         *walked = Spacetime::geometry_counters.column_draw_setups;
     }
     effect.advance_display();
-    for (int y = 0; y < ORACLE_H; ++y)
-      for (int x = 0; x < ORACLE_W; ++x) {
-        const Pixel pixel = effect.get_pixel(x, y);
-        luminance[static_cast<size_t>(y) * ORACLE_W + x] =
-            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
-      }
+    luminance = capture_luminance<ORACLE_W, ORACLE_H>(effect);
   }
   Timeline().clear();
   hs::clear_mock_time();

@@ -9,8 +9,27 @@
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <vector>
 
 namespace hs_test {
+/** @brief Captures row-major linear RGB luminance from a displayed frame.
+ * @tparam W Canvas width.
+ * @tparam H Canvas height.
+ * @tparam E Effect type.
+ * @param effect Effect whose displayed buffer is sampled.
+ * @return Normalized mean RGB channel values. */
+template <int W, int H, typename E>
+std::vector<float> capture_luminance(const E &effect) {
+  std::vector<float> luminance(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const auto pixel = effect.get_pixel(x, y);
+      luminance[static_cast<size_t>(y) * W + x] =
+          (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
+    }
+  return luminance;
+}
+
 /** @brief Displaces a reference vertex along its meridian without projection.
  * @tparam H Display height.
  * @param point Unit world-space vertex.

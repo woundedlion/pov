@@ -719,14 +719,7 @@ struct HopfWhiteBox {
       fx.render_trails(canvas);
     }
     fx.advance_display();
-    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W; ++x) {
-        const auto pixel = fx.get_pixel(x, y);
-        luminance[y * DEFAULT_W + x] =
-            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
-      }
-    return luminance;
+    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   static size_t fiber_count() { return HF::ACTUAL_FIBERS; }

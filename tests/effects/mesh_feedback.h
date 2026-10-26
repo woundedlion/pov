@@ -66,18 +66,9 @@ struct MeshFeedbackWhiteBox {
       }
     }
     fx.advance_display();
-    std::vector<float> luminance(DEFAULT_W * DEFAULT_H);
     if (pixels)
-      pixels->clear();
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W; ++x) {
-        const Pixel pixel = fx.get_pixel(x, y);
-        if (pixels)
-          pixels->push_back(pixel);
-        luminance[y * DEFAULT_W + x] =
-            (pixel.r + pixel.g + pixel.b) / (3.0f * 65535.0f);
-      }
-    return luminance;
+      capture_frame<DEFAULT_W, DEFAULT_H>(fx, *pixels);
+    return capture_luminance<DEFAULT_W, DEFAULT_H>(fx);
   }
 
   static const Feedback::Style &style(const MF &fx) { return fx.params.style; }
