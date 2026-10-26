@@ -76,7 +76,7 @@ public:
       this->fade_in_duration = static_cast<long long>(this->duration) *
                                this->fade_in_duration / fade_total;
       // Frame 1 is the first drawn frame; a visible ramp needs two frames.
-      if (this->fade_in_duration == 0 && requested_fade_in > 0 &&
+      if (this->fade_in_duration < 2 && requested_fade_in > 0 &&
           this->duration >= 3)
         this->fade_in_duration = 2;
       this->fade_out_duration = this->duration - this->fade_in_duration;
