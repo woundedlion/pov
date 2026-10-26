@@ -132,6 +132,6 @@ Shipping mean render is 262.576 ms/frame versus 212.279 ms/frame globally optimi
 
 Global-O3 changes single-effect FLASH code by +16,024 B and ITCM by +10,832 B relative to the shipping image.
 
-Source reachability: capture `7baf3cc4307` maps to landed `daf63d812` on a
+Source reachability: capture `7baf3cc4307` maps to landed `35420268b` on a
 different base (319 files differ); the captured tree is not available from the
 published branch. Supporting artifacts are no longer retained.
