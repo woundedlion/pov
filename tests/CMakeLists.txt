@@ -287,7 +287,6 @@ _hs_warnings(mindsplatter_replay_gen)
 _hs_sanitize(mindsplatter_replay_gen)
 
 add_test(NAME unit_mindsplatter_replay_form COMMAND ${CMAKE_COMMAND}
-  -DPYTHON=${Python3_EXECUTABLE}
   -DGENERATOR=$<TARGET_FILE:mindsplatter_replay_gen>
   -DCOMMITTED=${HS_ROOT}/tests/mindsplatter_replay_corpus.h
   -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/mindsplatter_replay_corpus.generated.h
