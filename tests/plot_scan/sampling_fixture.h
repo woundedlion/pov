@@ -51,24 +51,6 @@ struct IcosahedronEdges {
   }
 };
 
-/**
- * @brief Builds an orthonormal basis from a unit normal without a quaternion.
- * @param n Direction used as the basis normal; need not be pre-normalized.
- * @return Basis whose v is the normalized normal and whose u, w span the
- *         tangent plane.
- * @details Mirrors make_basis's construction.
- */
-inline math::Basis basis_from_normal(const math::Vector &n) {
-  math::Vector v = n.normalized();
-  math::Vector ref =
-      std::abs(math::dot(v, math::X_AXIS)) > math::COS_AXIS_PARALLEL
-          ? math::Y_AXIS
-          : math::X_AXIS;
-  math::Vector u = math::cross(v, ref).normalized();
-  math::Vector w = math::cross(v, u).normalized();
-  return {u, v, w};
-}
-
 /** @brief Unit-sphere point on a basis-centered angular disk. */
 inline math::Vector disk_point(const math::Basis &basis, float colat,
                                float az) {

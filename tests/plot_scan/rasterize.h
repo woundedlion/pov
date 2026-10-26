@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Plot::rasterize — control-flow coverage through a capturing pipeline
+// Plot::rasterize â€” control-flow coverage through a capturing pipeline
 // ============================================================================
 
 /**
@@ -136,7 +136,8 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
 
   // planar basis centered on +Z; the second endpoint sits within the antipodal
   // margin of -Z (dot < -COS_PLANAR_ANTIPODE), tripping the seam guard.
-  math::Basis basis = basis_from_normal(math::Vector(0, 0, 1));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 0, 1));
   Fragment a, b;
   a.pos = math::Vector(1, 0, 0);
   b.pos = math::Vector(0.02f, 0.0f, -1.0f).normalized();
@@ -178,7 +179,8 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   points.bind(plot_arena(), 4);
 
   // Endpoints span differing azimuthal stretch (r / sin r).
-  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   Fragment a, b;
   a.pos = disk_point(basis, 0.3f, 0.0f);
   b.pos = disk_point(basis, 1.3f, 1.0f);
@@ -224,7 +226,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
   // Non-seam planar disk edge: colatitude 0.3 -> 1.3 across azimuths, so the
   // rendered edge bows well clear of its chord.
-  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   Fragment a, b;
   a.pos = disk_point(basis, 0.3f, 0.0f);
   b.pos = disk_point(basis, 1.3f, 1.0f);
@@ -316,7 +319,8 @@ inline void test_planar_sampler_from_cull_parity() {
     math::Vector normal(normal_x, normal_y, normal_z);
     if (normal.length() < 0.01f)
       normal = math::Y_AXIS;
-    const math::Basis basis = basis_from_normal(normal.normalized());
+    const math::Basis basis =
+        math::make_basis(math::Quaternion(), normal.normalized());
     auto point = [&](float radius, float angle) {
       const math::Vector radial = basis.u * cosf(angle) + basis.w * sinf(angle);
       return (basis.v * cosf(radius) + radial * sinf(radius)).normalized();
@@ -497,7 +501,8 @@ inline void test_rasterize_register_copy_follows_interpolate_registers() {
     }
   };
 
-  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   const math::Vector far_a = disk_point(basis, 0.3f, 0.0f);
   const math::Vector far_b = disk_point(basis, 1.3f, 1.0f);
   const math::Vector near_a = disk_point(basis, 0.9f, 0.0f);
@@ -738,7 +743,7 @@ inline void test_rasterize_sampling_follows_world_transforms() {
 /**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
- * @details 90° about X maps the equatorial arc onto a polar meridian that
+ * @details 90Â° about X maps the equatorial arc onto a polar meridian that
  *          reaches a band the source arc never touches.
  */
 inline void test_rasterize_cull_follows_filter_orientation() {
@@ -762,7 +767,7 @@ inline void test_rasterize_cull_follows_filter_orientation() {
       Fragment a, b;
       a.pos = math::Vector(1, 0, 0); // equator (+X)
       b.pos = math::Vector(
-          0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
+          0, 0, 1); // equator (+Z); 90Â° about X sends it to -Y (pole)
       pts.push_back(a);
       pts.push_back(b);
       Canvas c(fx);

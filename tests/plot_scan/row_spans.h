@@ -4,7 +4,7 @@
  */
 
 // ============================================================================
-// Plot::geodesic_row_span / Plot::planar_row_span — arc-aware clip cull
+// Plot::geodesic_row_span / Plot::planar_row_span â€” arc-aware clip cull
 // ============================================================================
 
 /**
@@ -34,7 +34,7 @@ inline void test_row_span_covers_arc_bulge() {
       math::Vector center(cx, cy, cz);
       if (center.length() < 0.1f)
         continue;
-      basis = basis_from_normal(center.normalized());
+      basis = math::make_basis(math::Quaternion(), center.normalized());
       pb = &basis;
       random_disk_edge(basis, a, b);
       // Antipodal-seam edges fall back to the geodesic strategy; skip them.
@@ -175,7 +175,7 @@ inline void test_cap_may_touch_clip_is_conservative() {
       if (!passed)
         rejects++;
 
-      const math::Basis basis = basis_from_normal(dir);
+      const math::Basis basis = math::make_basis(math::Quaternion(), dir);
       bool reached = false;
       for (int i = 0; i <= 24 && !reached; ++i) {
         const float t = half_angle * static_cast<float>(i) / 24.0f;

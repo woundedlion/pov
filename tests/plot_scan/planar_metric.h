@@ -38,7 +38,7 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
   hs::random().seed(0xA21E);
   int mid = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     math::Vector p = rand_unit();
     float geo = az_arc_exact(p, basis.v);
     auto proj = Plot::azimuthal_project(p, basis);
@@ -62,7 +62,7 @@ inline void test_azimuthal_roundtrip_identity() {
   hs::random().seed(0xB33F);
   int fwd = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
 
     float R = hs::rand_f(0.05f, math::PI_F - 0.05f);
     float th = hs::rand_f(-math::PI_F, math::PI_F);
@@ -91,7 +91,7 @@ inline void test_azimuthal_unproject_hits_great_circle_point() {
   hs::random().seed(0xC0DE);
   int n = 0;
   for (int trial = 0; trial < 4000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     float R = hs::rand_f(0.02f, math::PI_F - 0.02f);
     float th = hs::rand_f(-math::PI_F, math::PI_F);
     math::Vector got =
@@ -115,7 +115,7 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
   int bows = 0;
   float max_rel_err = 0.0f;
   for (int trial = 0; trial < 3000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     float R1 = hs::rand_f(0.2f, 1.2f), R2 = hs::rand_f(0.2f, 1.2f);
     float t1 = hs::rand_f(-math::PI_F, math::PI_F),
           t2 = t1 + hs::rand_f(0.15f, 0.8f);
@@ -163,7 +163,7 @@ inline void test_dual_metric_radial_vs_azimuthal() {
   hs::random().seed(0xE1A5);
   int radial = 0, azi = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
 
     float th = hs::rand_f(-math::PI_F, math::PI_F);
     float Ra = hs::rand_f(0.1f, 0.6f), Rb = hs::rand_f(0.8f, 1.4f);
@@ -204,7 +204,7 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
   hs::random().seed(0xF00D);
   int checked = 0;
   for (int trial = 0; trial < 2000; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     float R1 = hs::rand_f(0.1f, 1.3f), R2 = hs::rand_f(0.1f, 1.3f);
     float t1 = hs::rand_f(-math::PI_F, math::PI_F),
           t2 = t1 + hs::rand_f(0.3f, 1.5f);

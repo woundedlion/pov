@@ -20,7 +20,7 @@ inline bool rand_near_meridian_basis(math::Basis &cb) {
   const math::Vector ad(adx, ady, adz);
   if (ad.length() < 0.1f)
     return false;
-  cb = basis_from_normal(ad.normalized());
+  cb = math::make_basis(math::Quaternion(), ad.normalized());
   return true;
 }
 
@@ -170,7 +170,7 @@ inline void test_col_span_covers_arc() {
   int planar_escapes = 0, planar_samples = 0;
   for (int trial = 0; trial < 3000; ++trial) {
     math::Vector center = rand_unit();
-    math::Basis basis = basis_from_normal(center);
+    math::Basis basis = math::make_basis(math::Quaternion(), center);
     math::Vector a, b;
     random_disk_edge(basis, a, b);
     // Antipode-seam segments render geodesic (use_planar is false there).
@@ -299,7 +299,7 @@ inline void test_edge_visible_in_clip_is_conservative() {
 
     for (int trial = 0; trial < 2000; ++trial) {
       math::Vector center = rand_unit();
-      math::Basis basis = basis_from_normal(center);
+      math::Basis basis = math::make_basis(math::Quaternion(), center);
       math::Vector a, b;
       random_disk_edge(basis, a, b);
       // Antipode-seam segments render geodesic (use_planar is false there).
@@ -534,7 +534,7 @@ inline void test_rasterize_column_cull_pixel_parity() {
     math::Basis chart;
 
     if (planar) {
-      chart = basis_from_normal(rand_unit());
+      chart = math::make_basis(math::Quaternion(), rand_unit());
       float radius = hs::rand_f(0.3f, 1.3f);
       float a0 = hs::rand_f(0, 2 * math::PI_F);
       for (size_t i = 0; i < WALK; ++i) {

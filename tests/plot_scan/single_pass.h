@@ -40,7 +40,7 @@ inline void test_planar_one_pass_matches_forward_difference() {
   float worst_len = 0.0f, worst_pos = 0.0f, worst_tan_len = 0.0f;
   float worst_tan_dot = 1.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     math::Vector a = rand_unit();
     math::Vector b = rand_unit();
     // Antipodal-seam edges do not take the planar strategy.
@@ -90,7 +90,7 @@ inline void test_planar_one_pass_tangent_is_forward_and_orthogonal() {
   int checked = 0;
   float worst_orth = 0.0f;
   for (int trial = 0; trial < 400; ++trial) {
-    math::Basis basis = basis_from_normal(rand_unit());
+    math::Basis basis = math::make_basis(math::Quaternion(), rand_unit());
     math::Vector a = rand_unit();
     math::Vector b = rand_unit();
     if (math::dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
@@ -128,7 +128,8 @@ inline void test_rasterize_single_pass_planar_matches_two_pass() {
   Fragments points;
   points.bind(plot_arena(), 4);
 
-  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   Fragment a, b;
   a.pos = disk_point(basis, 0.3f, 0.0f);
   b.pos = disk_point(basis, 1.3f, 1.0f);
@@ -182,7 +183,8 @@ inline void test_rasterize_single_pass_closed_loop_matches_two_pass() {
   Fragments points;
   points.bind(plot_arena(), 8);
 
-  math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   for (int i = 0; i < 5; ++i) {
     float az = (2.0f * math::PI_F * i) / 5.0f;
     math::Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
@@ -414,7 +416,8 @@ inline void test_rasterize_default_sampling_policy_parity() {
 /** @brief Balanced sampling leaves one-dot edges unchanged. */
 inline void test_rasterize_balanced_sampling_scope() {
   constexpr int W = 128, H = 64;
-  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
 
   auto compare = [&](const math::Vector &start, const math::Vector &end) {
     ScratchScope sc(plot_arena());
@@ -453,7 +456,8 @@ inline void test_rasterize_balanced_sampling_scope() {
 inline void test_rasterize_balanced_sampling_density_and_alpha() {
   constexpr int W = 128, H = 64;
   constexpr float BASE_STEP = 2.0f * math::PI_F / W;
-  const math::Basis basis = basis_from_normal(math::Vector(0, 1, 0));
+  const math::Basis basis =
+      math::make_basis(math::Quaternion(), math::Vector(0, 1, 0));
   ScratchScope sc(plot_arena());
   Fragments points;
   points.bind(plot_arena(), 2);
@@ -495,7 +499,7 @@ inline void test_rasterize_balanced_sampling_density_and_alpha() {
 /** @brief Balanced sampling keeps default cadence in the polar clamp region. */
 inline void test_rasterize_balanced_pole_guard() {
   constexpr int W = 144, H = 72;
-  const math::Basis basis = basis_from_normal(math::Y_AXIS);
+  const math::Basis basis = math::make_basis(math::Quaternion(), math::Y_AXIS);
   auto near_pole = [&](float azimuth) {
     const math::Vector radial =
         basis.u * cosf(azimuth) + basis.w * sinf(azimuth);
