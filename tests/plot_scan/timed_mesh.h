@@ -256,10 +256,10 @@ inline void test_column_mesh_batch_cull() {
   constexpr int W = 288, H = 144;
   Spacetime::set_flat_surface(false);
   for (int scene = 0; scene < 3; ++scene) {
-    const float column = scene == 0 ? 180.0f : scene == 1 ? 50.0f : 86.0f;
-    const float motion = scene == 2 ? 0.75f : 0.01f;
+    const float column = scene == 0 ? 180.0f : scene == 1 ? 50.0f : 96.0f;
+    const float motion = scene == 2 ? 1.2f : 0.01f;
     hs_test::StubEffect effect(W, H);
-    effect.set_clip(36, 72, 0, H);
+    effect.set_clip(0, H, 36, 72);
     Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
         Filter::Screen::AntiAlias<W, H>()};
     size_t calls = 0;
