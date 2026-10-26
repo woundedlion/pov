@@ -149,8 +149,8 @@ inline void test_find_suffix() {
  * @details The orphan comes back as a root and re-latches on its next entry.
  */
 inline void test_destructor_unlatches_children() {
-  static hs::CycleCounter child("prof_orphan_child");
-  static hs::CycleCounter regrown("prof_orphan_regrown");
+  hs::CycleCounter child("prof_orphan_child");
+  hs::CycleCounter regrown("prof_orphan_regrown");
   hs::CycleCounter::reset_all();
   {
     hs::CycleCounter transient("prof_orphan_transient");
