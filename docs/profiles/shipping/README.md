@@ -76,9 +76,9 @@ See the main index's [historical fixed-preset notes](../README.md#historical-fix
 
 | Preset | Peak ms | Spilled | Captured |
 |---|---:|---:|---|
-| [Octet 4D (index 4 at capture time)](profile_hyperlattice_octet4d_teensy_2026-09-28.md) | 🔴 143.318 | 🔴 233/233 (100.00%) | 2026-09-28 09:53 |
-| [3: Octet 3D](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) | 🟢 45.688 | 🟢 0/1096 (0.00%) | 2026-09-28 09:56 |
-| [Octet wide (index 5 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
+| [Octet 4D (index 3 at capture time)](profile_hyperlattice_octet4d_teensy_2026-09-28.md) | 🔴 143.318 | 🔴 233/233 (100.00%) | 2026-09-28 09:53 |
+| [Octet 3D (index 2 at capture time)](profile_hyperlattice_octet_preset3_teensy_2026-09-28.md) | 🟢 45.688 | 🟢 0/1096 (0.00%) | 2026-09-28 09:56 |
+| [Octet wide (index 4 at capture time)](profile_hyperlattice_octet_preset5_teensy_2026-09-28.md) | 🟢 45.242 | 🟢 0/1096 (0.00%) | 2026-09-28 09:53 |
 
 Updated 2026-09-28 09:53–09:56 after the Octet 58 ms Tiers 1–2 (`1bb522211`). Opt-in held presets, startup excluded; 4D on COM3, 3D on COM4. Earlier optimization and 4D evidence (supporting artifact removed).
 
