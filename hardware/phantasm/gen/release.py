@@ -159,8 +159,7 @@ def verify(directory):
         raise ValueError("release source hashes do not match")
     if record.get("evaluated_source_sha256") != sources(directory / "evaluated"):
         raise ValueError("evaluated source hashes do not match")
-    fab.verify_package(str(directory / "output" / "jlc"),
-                       str(directory / "output" / "jlc" / fab.SUMS_FILE))
+    fab.verify_package(str(directory / "output" / "jlc"), None)
     return fab.sha256_file(directory / "release.json")
 
 
