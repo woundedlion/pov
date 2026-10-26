@@ -643,20 +643,11 @@ HS_HOT_FLASH_MEMBER Raycast::ShadedTrace shade_periodic_shells_dimension(
       end = fminf(end, boundary[k]);
       local[k] = ORIGIN[k] - cell[k] * cell_size;
     }
-    float b = 0, c = -prepared.radius_squared;
-    for (int k = 0; k < DIMENSIONS; ++k) {
-      const float O = local[k];
-      b += O * DIRECTION[k];
-      c += O * O;
-    }
-    const float DISCRIMINANT = b * b - a * c;
-    PeriodicShells::Intersections roots;
-    if (DISCRIMINANT >= 0 && a > 0) {
-      const float Q = -b - copysignf(sqrtf(DISCRIMINANT), b);
-      const float FIRST = Q == 0 ? 0 : Q * INVERSE_A;
-      const float SECOND = Q == 0 ? 0 : c / Q;
-      roots = {fminf(FIRST, SECOND), fmaxf(FIRST, SECOND), true};
-    }
+    float b = 0;
+    for (int k = 0; k < DIMENSIONS; ++k)
+      b += local[k] * DIRECTION[k];
+    PeriodicShells::Intersections roots =
+        prepared.geometry.intersect(local, DIRECTION, DIMENSIONS);
     const bool VERIFIED = roots.hit;
     float filtered_coverage = 0;
     if (!roots.hit && footprint.angular_radius > 0) {
