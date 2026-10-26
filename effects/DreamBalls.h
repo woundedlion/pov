@@ -59,6 +59,8 @@ struct DreamBallsParams {
   float offset_speed = 0.0f;
   /// Wireframe opacity multiplier in [0, 1].
   float alpha = 0.0f;
+
+  bool operator==(const DreamBallsParams &) const = default;
 };
 
 /**
@@ -908,14 +910,7 @@ private:
                                       float opacity, const SolidData &solid,
                                       const BakedPalette &baked) {
     HS_PROFILE(db_draw_scene);
-    const bool continuous = pose_history.initialized &&
-                            p.base_mesh == drawn_params.base_mesh &&
-                            p.weave_topology == drawn_params.weave_topology &&
-                            p.weave_gap == drawn_params.weave_gap &&
-                            p.num_copies == drawn_params.num_copies &&
-                            p.offset_radius == drawn_params.offset_radius &&
-                            p.offset_speed == drawn_params.offset_speed &&
-                            p.alpha == drawn_params.alpha;
+    const bool continuous = pose_history.initialized && p == drawn_params;
     drawn_orientation.set(continuous
                               ? pose_history.start(global_orientation.get())
                               : global_orientation.get());
