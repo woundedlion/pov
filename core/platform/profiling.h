@@ -313,8 +313,8 @@ private:
  *  @brief Increments a `hs::ProbeBreakdown` counter.
  *  @param field Counter member to increment. */
 /** @def HS_PROBE_TICK()
- *  @brief Adds the cost of two back-to-back cycle reads to
- *         `hs::ProbeBreakdown::tick`. */
+ *  @brief Adds the gap between two back-to-back cycle reads (one counter
+ *         read's cost) to `hs::ProbeBreakdown::tick`. */
 #ifdef HS_PROBE_BREAKDOWN
 #define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
 #define HS_PROBE_SPAN(field, var)                                              \
