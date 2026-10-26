@@ -1428,21 +1428,6 @@ inline void test_timed_flower_clip_culls_anchor_intervals() {
               star_counts.chord_fast_samples, star_counts.chord_screen_samples,
               star_counts.chord_point_samples,
               star_counts.point_piece_evaluations, star_counts.column_samples);
-  const auto &preset = ShapeShifterWhiteBox::preset_params(7);
-  state.shape = preset.shape;
-  state.count = int(preset.count);
-  state.sides = int(preset.sides);
-  state.amplitude = preset.amplitude;
-  state.spacing = preset.spacing;
-  state.opposite = preset.opposite;
-  render_timed_contours(state, preset.speed / preset.amplitude, true, 1.0f,
-                        0.0f);
-  const auto counts = Spacetime::geometry_counters;
-  std::printf(
-      "  geodesic clip: vertices=%u callbacks=%u samples=%u columns=%u crossings=%u\n",
-      counts.endpoint_evaluations,
-      2 * counts.endpoint_evaluations + counts.midpoint_evaluations,
-      counts.column_samples, counts.columns_visited, counts.column_crossings);
 }
 
 /** @brief Chart-edge rotation bounds include bowed interiors and the equator. */
