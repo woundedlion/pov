@@ -24,7 +24,6 @@ struct HankinSolidsWhiteBox {
   }
 
   using FrameHandoff = HankinSolidsDetail::FrameHandoff;
-  using ShapeWeights = HankinSolidsDetail::ShapeWeights;
   static constexpr int PALETTES = EffectT::NUM_PALETTES;
 
   static int cycle_frame(const EffectT &effect) {
@@ -188,31 +187,6 @@ struct HankinSolidsWhiteBox {
     MeshOps::update_hankin(effect.compiled_hankin, effect.hankin_mesh,
                            persistent_arena, angle);
   }
-  /**
-   * @brief Draws an effect's hankin mesh with every handoff settled, the mesh
-   *        held over the frame.
-   * @tparam W Canvas width.
-   * @tparam H Canvas height.
-   * @param effect Effect whose mesh, palettes and camera are drawn.
-   * @return Displayed frame.
-   */
-  template <int W, int H>
-  static std::vector<Pixel> draw_held(HankinSolids<W, H> &effect) {
-    using E = HankinSolids<W, H>;
-    const auto &bank = effect.palette_bank.bank.entries;
-    const BakedPalette *star[E::NUM_PALETTES];
-    for (int s = 0; s < E::NUM_PALETTES; ++s)
-      star[s] = &bank[effect.palette_idx[s]].view();
-    {
-      Canvas canvas(effect);
-      effect.draw_mesh(canvas, effect.hankin_mesh, star, star);
-    }
-    effect.advance_display();
-    std::vector<Pixel> out;
-    capture_frame<W, H>(effect, out);
-    return out;
-  }
-
   /** @brief One morph draw as the draw callback received it. */
   struct ConwayDraw {
     std::vector<math::Vector> vertices; ///< The drawn mesh's vertices.
