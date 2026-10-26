@@ -293,7 +293,7 @@ bool supports_distance_report(float threshold,
                               const math::Vector *point = nullptr) const {
   if (!convex)
     return true;
-  // Outside radius + m, a supporting half-plane reports at least m * inradius / radius.
+  // Conservative convex-face certificate; exact distances can admit wider clearances.
   if (threshold * threshold * radius * radius <=
       reject_margin<Face> * reject_margin<Face> * sector_min_radius_sq)
     return true;
