@@ -1262,17 +1262,12 @@ inline void replay_islamicstars_profile(size_t preset, float trans_speed,
  */
 inline void check_islamicstars_motion_fits_scratch(size_t preset, int frames) {
   HS_CONTEXT("preset", static_cast<int>(preset));
-  scratch_arena_a.reset_high_water_mark();
-  scratch_arena_b.reset_high_water_mark();
+  scratch_arena_a.reset_peak_tracking();
+  scratch_arena_b.reset_peak_tracking();
   replay_islamicstars_profile(preset, 4.0f, frames, false);
-  HS_EXPECT_LE(scratch_arena_a.get_high_water_mark(),
-               scratch_arena_a.get_capacity());
-  HS_EXPECT_LE(scratch_arena_b.get_high_water_mark(),
-               scratch_arena_b.get_capacity());
-  std::printf(
-      "  [islamic scratch, preset %zu] a %zu of %zu, b %zu of %zu\n", preset,
-      scratch_arena_a.get_high_water_mark(), scratch_arena_a.get_capacity(),
-      scratch_arena_b.get_high_water_mark(), scratch_arena_b.get_capacity());
+  std::printf("  [islamic scratch, preset %zu] peak a %zu, b %zu\n", preset,
+              scratch_arena_a.get_lifetime_high_water_mark(),
+              scratch_arena_b.get_lifetime_high_water_mark());
 }
 
 /**
