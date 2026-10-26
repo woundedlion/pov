@@ -54,6 +54,11 @@ Scopes are inclusive averages. Nested, MIXED-PARENT and DUPLICATE-NAME rows over
 | ↳ `canvas_clear` | 0.090 | 1.00 | 0.15% |
 | ↳ `canvas_buffer_wait` | 50.597 | 1.00 | 85.41% |
 
+The `vo_shade` DUPLICATE-NAME row covers only 0.03 calls/frame in this
+setup window; 0.393 ms/frame is a partial scope contribution. It does not
+represent total shading cost (7.232 ms/frame across the pass and
+7.854 ms/frame in its worst window).
+
 Wall min/mean/max: 9.243/59.251/62.971 ms.
 
 ### Worst dominant-scope window (frames 417–448)
@@ -90,7 +95,7 @@ Setup-containing counter window (the all-frame peak), including frame 1; separat
 
 Hot scopes below describe the setup-containing counter window, including frame 1; they are complete-window means. The steady frame peak is reported separately above.
 
-1. `vo_shade` — 0.393 ms/frame, 0.66% of this root window.
+1. `vo_shade` — 0.393 ms/frame, 0.66% of this root window (partial DUPLICATE-NAME row, 0.03 calls/frame; not total shading cost).
 2. `vo_kdtree` — 0.343 ms/frame, 0.58% of this root window.
 3. `pov_preserve_half` — 0.148 ms/frame, 0.25% of this root window.
 
