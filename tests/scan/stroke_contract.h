@@ -335,24 +335,13 @@ inline void test_convex_face_pole_fringe_matches_undecimated() {
     const double inv = 1.0 / math::dot(p, basis.v);
     const double px = math::dot(p, basis.u) * inv;
     const double py = math::dot(p, basis.w) * inv;
-    double minimum = 1.0;
-    bool inside = false;
+    std::array<OraclePoint2D, 3> polygon;
     for (int i = 0; i < 3; ++i) {
-      const auto &a = vertices[i], &b = vertices[(i + 1) % 3];
-      const double da = math::dot(a, basis.v), db = math::dot(b, basis.v);
-      const double ax = math::dot(a, basis.u) / da;
-      const double ay = math::dot(a, basis.w) / da;
-      const double bx = math::dot(b, basis.u) / db;
-      const double by = math::dot(b, basis.w) / db;
-      const double ex = bx - ax, ey = by - ay;
-      const double wx = px - ax, wy = py - ay;
-      const double t =
-          std::clamp((wx * ex + wy * ey) / (ex * ex + ey * ey), 0.0, 1.0);
-      const double dx = wx - ex * t, dy = wy - ey * t;
-      minimum = std::min(minimum, dx * dx + dy * dy);
-      inside ^= (ay > py) != (by > py) && px < ax + (py - ay) * ex / ey;
+      const double d = math::dot(vertices[i], basis.v);
+      polygon[i] = {math::dot(vertices[i], basis.u) / d,
+                    math::dot(vertices[i], basis.w) / d};
     }
-    return (inside ? -1.0 : 1.0) * std::sqrt(minimum);
+    return polygon_distance_oracle(polygon, {px, py});
   };
   constexpr float PIXEL_WIDTH = math::TWO_PI_F / W;
   HS_EXPECT_GT(triangle_distance(91, 17), PIXEL_WIDTH);

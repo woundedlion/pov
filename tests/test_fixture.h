@@ -17,12 +17,41 @@
 #include "hardware/hd107s_frame.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <limits>
+#include <span>
 #include <string>
 
 namespace hs_test {
+
+/** @brief Double-precision point in an independent polygon oracle. */
+struct OraclePoint2D {
+  double x;
+  double y;
+};
+
+/** @brief Signed distance to a closed polygon, negative inside by ray parity. */
+inline double polygon_distance_oracle(std::span<const OraclePoint2D> vertices,
+                                      OraclePoint2D point) {
+  double minimum = std::numeric_limits<double>::max();
+  bool inside = false;
+  for (size_t i = 0; i < vertices.size(); ++i) {
+    const auto &a = vertices[i], &b = vertices[(i + 1) % vertices.size()];
+    const double ex = b.x - a.x, ey = b.y - a.y;
+    const double wx = point.x - a.x, wy = point.y - a.y;
+    const double length = ex * ex + ey * ey;
+    const double t =
+        length > 0.0 ? std::clamp((wx * ex + wy * ey) / length, 0.0, 1.0) : 0.0;
+    const double dx = wx - ex * t, dy = wy - ey * t;
+    minimum = std::min(minimum, dx * dx + dy * dy);
+    inside ^= (a.y > point.y) != (b.y > point.y) &&
+              point.x < a.x + (point.y - a.y) * ex / ey;
+  }
+  return (inside ? -1.0 : 1.0) * std::sqrt(minimum);
+}
 
 #if HS_ENABLE_TEST_HOOKS
 /** @brief Restores the planar pole-run splitting flag on scope exit. */

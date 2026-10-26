@@ -29,32 +29,15 @@ inline float exact_plane_distance(std::span<const math::Vector> verts,
   const math::Vector u =
       (verts[0] - center * math::dot(verts[0], center)).normalized();
   const math::Vector w = math::cross(center, u).normalized();
-  auto project = [&](const math::Vector &v, float &x, float &y) {
-    const float d = math::dot(v, center);
-    x = math::dot(v, u) / d;
-    y = math::dot(v, w) / d;
+  const auto project = [&](const math::Vector &v) {
+    const double d = math::dot(v, center);
+    return OraclePoint2D{math::dot(v, u) / d, math::dot(v, w) / d};
   };
-  float px, py;
-  project(p, px, py);
-  const size_t n = verts.size();
-  float dmin = FLT_MAX;
-  bool inside = false;
-  for (size_t i = 0; i < n; ++i) {
-    float ax, ay, bx, by;
-    project(verts[i], ax, ay);
-    project(verts[(i + 1) % n], bx, by);
-    const float ex = bx - ax, ey = by - ay;
-    const float wx = px - ax, wy = py - ay;
-    const float len_sq = ex * ex + ey * ey;
-    const float t = len_sq > 0.0f
-                        ? hs::clamp((wx * ex + wy * ey) / len_sq, 0.0f, 1.0f)
-                        : 0.0f;
-    const float cx = wx - ex * t, cy = wy - ey * t;
-    dmin = std::min(dmin, cx * cx + cy * cy);
-    if ((ay > py) != (by > py) && px < ax + (py - ay) * ex / ey)
-      inside = !inside;
-  }
-  const float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
+  std::array<OraclePoint2D, SDF::FaceScratchBuffer::MAX_VERTS> polygon;
+  for (size_t i = 0; i < verts.size(); ++i)
+    polygon[i] = project(verts[i]);
+  const float plane_exact = static_cast<float>(polygon_distance_oracle(
+      std::span(polygon).first(verts.size()), project(p)));
   return linear_dist ? plane_exact : math::fast_atan2(plane_exact, 1.0f);
 }
 
@@ -171,22 +154,11 @@ inline void test_face_sector_backtrack_sign() {
 /** @brief Double-precision all-segment distance and ray parity. */
 inline double double_polygon_distance(const SDF::PreparedFace &face, float px,
                                       float py) {
-  double minimum = std::numeric_limits<double>::max();
-  bool inside = false;
-  for (int i = 0; i < face.count; ++i) {
-    const double ax = face.poly_2d[i].x, ay = face.poly_2d[i].y;
-    const double bx = face.poly_2d[i + 1].x, by = face.poly_2d[i + 1].y;
-    const double dx = bx - ax, dy = by - ay;
-    const double wx = px - ax, wy = py - ay;
-    const double length = dx * dx + dy * dy;
-    const double t =
-        length > 0.0 ? std::clamp((wx * dx + wy * dy) / length, 0.0, 1.0) : 0.0;
-    const double ex = wx - t * dx, ey = wy - t * dy;
-    minimum = std::min(minimum, ex * ex + ey * ey);
-    if ((ay > py) != (by > py) && px < ax + (py - ay) * dx / dy)
-      inside = !inside;
-  }
-  return (inside ? -1.0 : 1.0) * std::sqrt(minimum);
+  std::array<OraclePoint2D, SDF::FaceScratchBuffer::MAX_VERTS> polygon;
+  for (int i = 0; i < face.count; ++i)
+    polygon[i] = {face.poly_2d[i].x, face.poly_2d[i].y};
+  return polygon_distance_oracle(std::span(polygon).first(face.count),
+                                 {px, py});
 }
 
 /** @brief Running error tally of probes against `double_polygon_distance`. */
